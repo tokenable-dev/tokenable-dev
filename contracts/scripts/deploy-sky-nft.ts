@@ -7,19 +7,16 @@ async function main() {
   const balance = await ethers.provider.getBalance(deployer.address);
   console.log('Account balance:', ethers.formatEther(balance), 'ETH');
 
-  const SkyToken = await ethers.getContractFactory('SkyToken');
-  const token = await SkyToken.deploy();
-  await token.waitForDeployment();
+  const SkyNFT = await ethers.getContractFactory('SkyNFT');
+  const nft = await SkyNFT.deploy();
+  await nft.waitForDeployment();
 
-  const address = await token.getAddress();
-  const totalSupply = await token.totalSupply();
-
+  const address = await nft.getAddress();
   console.log('');
-  console.log('SkyToken deployed to:', address);
-  console.log('Total supply:', ethers.formatEther(totalSupply), 'SKY');
+  console.log('SkyNFT (with ERC721Enumerable) deployed to:', address);
   console.log('');
   console.log('backend/.env 에 아래 값을 추가하세요:');
-  console.log(`CONTRACT_ADDRESS=${address}`);
+  console.log(`NFT_CONTRACT_ADDRESS=${address}`);
 }
 
 main().catch((error) => {

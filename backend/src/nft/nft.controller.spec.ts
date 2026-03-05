@@ -2,21 +2,28 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { NftController } from './nft.controller';
 import { NftService } from './nft.service';
 
+const mockNftService = {
+  uploadToIpfs: jest.fn().mockResolvedValue({
+    tokenURI: 'ipfs://QmTest',
+    metadataCID: 'QmTest',
+    imageCID: 'QmImage',
+    metadata: { name: 'Test NFT', description: 'Test', image: 'ipfs://QmImage' },
+  }),
+};
+
 describe('NftController', () => {
   let controller: NftController;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [NftController],
-      providers: [NftService],
+      providers: [{ provide: NftService, useValue: mockNftService }],
     }).compile();
 
     controller = module.get<NftController>(NftController);
   });
 
-  describe('GET /nft', () => {
-    it('should return "hello world"', () => {
-      expect(controller.hello()).toBe('hello world');
-    });
+  it('should be defined', () => {
+    expect(controller).toBeDefined();
   });
 });
