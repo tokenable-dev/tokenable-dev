@@ -610,7 +610,7 @@ export default function NftDetailPage() {
                 {/* Buy section */}
                 {buyStep === "success" ? (
                   <div className="bg-emerald-900/30 border border-emerald-700/40 rounded-2xl p-6 text-center">
-                    <div className="text-4xl mb-2">🎉</div>
+                    <div className="text-4xl mb-2"></div>
                     <p className="text-lg font-bold text-emerald-400">
                       Purchase Complete!
                     </p>

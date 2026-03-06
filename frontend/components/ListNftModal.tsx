@@ -1,7 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { useAccount, usePublicClient, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
+import {
+  useAccount,
+  usePublicClient,
+  useWriteContract,
+  useWaitForTransactionReceipt,
+} from "wagmi";
 import { parseUnits } from "viem";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -12,7 +17,13 @@ import {
 } from "@/constants/contracts";
 import { besu } from "@/config/wagmi";
 
-type Step = "idle" | "approving" | "listing" | "confirming" | "success" | "error";
+type Step =
+  | "idle"
+  | "approving"
+  | "listing"
+  | "confirming"
+  | "success"
+  | "error";
 
 interface ListNftModalProps {
   tokenId: number;
@@ -21,14 +32,20 @@ interface ListNftModalProps {
   onListed?: (tokenId: number) => void;
 }
 
-export function ListNftModal({ tokenId, onClose, onListed }: ListNftModalProps) {
+export function ListNftModal({
+  tokenId,
+  onClose,
+  onListed,
+}: ListNftModalProps) {
   const { address } = useAccount();
   const publicClient = usePublicClient({ chainId: besu.id });
   const queryClient = useQueryClient();
   const [price, setPrice] = useState("");
   const [step, setStep] = useState<Step>("idle");
   const [errorMsg, setErrorMsg] = useState("");
-  const [approveTxHash, setApproveTxHash] = useState<`0x${string}` | undefined>();
+  const [approveTxHash, setApproveTxHash] = useState<
+    `0x${string}` | undefined
+  >();
   const [listTxHash, setListTxHash] = useState<`0x${string}` | undefined>();
 
   const { writeContractAsync } = useWriteContract();
@@ -83,8 +100,12 @@ export function ListNftModal({ tokenId, onClose, onListed }: ListNftModalProps) 
       setStep("success");
 
       // Refetch after confirmation so backend data is fresh
-      await queryClient.invalidateQueries({ queryKey: ["marketplace-listings"] });
-      await queryClient.invalidateQueries({ queryKey: ["my-nft-ids", address] });
+      await queryClient.invalidateQueries({
+        queryKey: ["marketplace-listings"],
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ["my-nft-ids", address],
+      });
     } catch (err: unknown) {
       setErrorMsg(err instanceof Error ? err.message : "Transaction failed");
       setStep("error");
@@ -117,8 +138,10 @@ export function ListNftModal({ tokenId, onClose, onListed }: ListNftModalProps) 
 
         {step === "success" ? (
           <div className="text-center py-4">
-            <div className="text-4xl mb-3">🎉</div>
-            <h3 className="text-lg font-bold text-white mb-1">Listing Successful!</h3>
+            <div className="text-4xl mb-3"></div>
+            <h3 className="text-lg font-bold text-white mb-1">
+              Listing Successful!
+            </h3>
             <p className="text-sm text-gray-400">
               NFT #{tokenId} is now listed for {price} USDC
             </p>
@@ -140,7 +163,8 @@ export function ListNftModal({ tokenId, onClose, onListed }: ListNftModalProps) 
               List NFT #{tokenId} for Sale
             </h2>
             <p className="text-sm text-gray-500 mb-5">
-              Set a price in USDC. You&apos;ll need to approve the marketplace first.
+              Set a price in USDC. You&apos;ll need to approve the marketplace
+              first.
             </p>
 
             <div className="mb-4">
