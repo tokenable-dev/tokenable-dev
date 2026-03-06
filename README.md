@@ -134,6 +134,17 @@ cd frontend && pnpm dev
 
 Open [http://localhost:3000](http://localhost:3000) and connect your wallet.
 
+### LAN access (same WiFi)
+
+To access from another device (e.g. phone) on the same network:
+
+1. Find your machine's IP (e.g. `192.168.45.101`) and open `http://<IP>:3000`.
+2. **Backend CORS**: Add your IP to `backend/.env`:
+   ```
+   CORS_ORIGIN=http://localhost:3000,http://192.168.45.101:3000
+   ```
+3. Restart the backend. The frontend auto-detects the host and calls the API at `<IP>:4000`.
+
 ---
 
 ## Future Features

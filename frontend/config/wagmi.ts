@@ -4,7 +4,7 @@ import { metaMask } from "wagmi/connectors";
 
 export const besu = defineChain({
   id: 2741,
-  name: "Besu",
+  name: "SkyAnd Chain",
   rpcUrls: {
     default: { http: ["https://besu.dressdio.me"] },
   },

@@ -11,12 +11,11 @@ import {
   resolveIpfsImage,
   type NftMetadata,
 } from "@/lib/api";
-import { NftImageZoom } from "./NftImageZoom";
 import { MARKETPLACE_ADDRESS, MARKETPLACE_ABI } from "@/constants/contracts";
 import { besu } from "@/config/wagmi";
 import { useShallow } from "zustand/react/shallow";
 import { useAppStore, selectWallet, selectRefresh } from "@/store";
-import { ListNftModal } from "./ListNftModal";
+import { ListNftModal } from "@/components/marketplace/ListNftModal";
 
 interface OwnedNft {
   tokenId: number;
@@ -44,15 +43,13 @@ function NftCard({
     : null;
 
   return (
-    <div className="bg-gray-900/60 border border-gray-800 rounded-xl overflow-hidden hover:border-gray-700 transition-colors">
-      <div className="aspect-square bg-gray-800 relative overflow-hidden">
+    <div className="bg-gray-900/60 border border-gray-800 rounded-xl overflow-hidden hover:border-gray-700 transition-colors flex flex-col h-full">
+      <div className="aspect-square bg-gray-800 relative overflow-hidden shrink-0">
         {imageUrl ? (
-          <NftImageZoom
+          <img
             src={imageUrl}
             alt={nft.metadata?.name ?? `NFT #${nft.tokenId}`}
-            className="w-full h-full"
-            zoomFactor={2.5}
-            lensSize={140}
+            className="w-full h-full object-cover"
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-gray-600 text-sm">
@@ -63,12 +60,12 @@ function NftCard({
           #{nft.tokenId}
         </div>
         {isListed && (
-          <div className="absolute top-2 right-2 bg-blue-600/80 text-xs text-white px-2 py-0.5 rounded-full pointer-events-none">
+          <div className="absolute top-2 right-2 bg-slate-600/80 text-xs text-slate-200 px-2 py-0.5 rounded-full pointer-events-none">
             Listed
           </div>
         )}
       </div>
-      <div className="p-3">
+      <div className="p-3 flex flex-col flex-1 min-h-0">
         <p className="text-sm font-semibold text-white truncate">
           {nft.metadata?.name ?? `SkyNFT #${nft.tokenId}`}
         </p>
@@ -78,27 +75,28 @@ function NftCard({
           </p>
         )}
         {isListed && listingPrice && (
-          <p className="text-xs text-green-400 mt-1 font-medium">
+          <p className="text-xs text-emerald-400/90 mt-1 font-medium">
             {parseFloat(listingPrice).toLocaleString()} USDC
           </p>
         )}
-
-        {isListed ? (
-          <button
-            onClick={() => onCancel(nft.tokenId)}
-            disabled={isCancelling}
-            className="mt-2 w-full py-1.5 text-xs font-semibold bg-red-600/80 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg transition-colors"
-          >
-            {isCancelling ? "Cancelling..." : "Cancel Listing"}
-          </button>
-        ) : (
-          <button
-            onClick={() => onList(nft.tokenId)}
-            className="mt-2 w-full py-1.5 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-          >
-            List for Sale
-          </button>
-        )}
+        <div className="mt-auto pt-3">
+          {isListed ? (
+            <button
+              onClick={() => onCancel(nft.tokenId)}
+              disabled={isCancelling}
+              className="w-full py-2 text-xs font-medium bg-slate-800/80 hover:bg-slate-700/80 disabled:opacity-50 disabled:cursor-not-allowed text-slate-300 hover:text-slate-200 rounded-lg transition-colors border border-slate-600/60"
+            >
+              {isCancelling ? "Cancelling..." : "Cancel Listing"}
+            </button>
+          ) : (
+            <button
+              onClick={() => onList(nft.tokenId)}
+              className="w-full py-2 text-xs font-medium bg-emerald-950/70 hover:bg-emerald-900/60 text-emerald-200 rounded-lg transition-colors border border-emerald-800/50"
+            >
+              List for Sale
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -255,7 +253,7 @@ export function MyNfts() {
 
   return (
     <>
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 items-stretch">
         {nfts.map((nft) => (
           <NftCard
             key={nft.tokenId}

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   usePublicClient,
   useWriteContract,
@@ -15,7 +16,7 @@ import {
   fetchIpfsMetadata,
   resolveIpfsImage,
 } from "@/lib/api";
-import { NftImageZoom } from "@/components/NftImageZoom";
+import { NftImageZoom } from "@/components/common";
 import {
   SKY_NFT_ADDRESS,
   USDC_ADDRESS,
@@ -23,6 +24,7 @@ import {
   USDC_ABI,
   MARKETPLACE_ABI,
 } from "@/constants/contracts";
+import { ASSETS } from "@/constants/assets";
 
 // ── Parsed event ABIs (more reliable than raw objects with viem getLogs) ──────
 const EV_MINTED = parseAbiItem(
@@ -449,7 +451,17 @@ export default function NftDetailPage() {
     <div className="min-h-screen bg-gray-950 text-white">
       {/* ── Header ── */}
       <header className="border-b border-gray-800/60 bg-gray-950/80 backdrop-blur-sm sticky top-0 z-10">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center gap-3 text-sm">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center gap-4 text-sm">
+          <Link href="/" className="shrink-0">
+            <img
+              src={ASSETS.logo.skyand}
+              alt="SKYAND"
+              width={112}
+              height={22}
+              className="h-5 w-auto"
+            />
+          </Link>
+          <span className="text-gray-700">/</span>
           <button
             onClick={() => router.back()}
             className="text-gray-500 hover:text-white transition-colors"
@@ -687,12 +699,39 @@ export default function NftDetailPage() {
                   </div>
                 )}
 
-                {/* Token URI */}
-                <div className="bg-gray-900/40 border border-gray-800 rounded-xl p-3">
-                  <p className="text-xs text-gray-600 mb-1">Token URI</p>
-                  <p className="text-xs font-mono text-gray-500 break-all">
-                    {listing.tokenURI}
+                {/* On-chain Info */}
+                <div className="bg-gray-900/40 border border-gray-800 rounded-xl p-4 space-y-3">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    On-chain Info
                   </p>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Network</span>
+                      <span className="text-gray-300">Besu</span>
+                    </div>
+                    <div className="flex justify-between items-center gap-2">
+                      <span className="text-gray-500">Contract</span>
+                      <span className="font-mono text-gray-400 text-xs truncate" title={SKY_NFT_ADDRESS}>
+                        {SKY_NFT_ADDRESS.slice(0, 6)}...{SKY_NFT_ADDRESS.slice(-4)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Token ID</span>
+                      <span className="text-gray-300 font-mono">#{tokenId}</span>
+                    </div>
+                    {listing.tokenURI && (
+                      <div className="pt-2 border-t border-gray-800">
+                        <a
+                          href={resolveIpfsImage(listing.tokenURI)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
+                        >
+                          View metadata on IPFS →
+                        </a>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>

@@ -14,12 +14,13 @@
  * This way, calling refresh() from any component refreshes everything.
  */
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useAccount, useReadContract } from "wagmi";
 import { useQueryClient } from "@tanstack/react-query";
 import { USDC_ADDRESS, USDC_ABI } from "@/constants/contracts";
 import { besu } from "@/config/wagmi";
 import { useAppStore } from "@/store";
+import { ensureBesuNetwork } from "@/lib/ensureBesuNetwork";
 
 const POLL_INTERVAL_MS = 8_000;
 
@@ -30,7 +31,27 @@ const CHAIN_QUERY_KEYS = [
 ] as const;
 
 export function WalletDataProvider({ children }: { children: React.ReactNode }) {
-  const { address, isConnected } = useAccount();
+  const { address, isConnected, chain, connector } = useAccount();
+  const hasAttemptedSwitch = useRef(false);
+
+  // ── Ensure SkyAnd Chain on connect / wrong network ─────────────────────────
+  useEffect(() => {
+    if (!isConnected || !connector || chain?.id === besu.id) {
+      if (chain?.id === besu.id) hasAttemptedSwitch.current = false;
+      return;
+    }
+    if (hasAttemptedSwitch.current) return;
+    hasAttemptedSwitch.current = true;
+
+    connector.getProvider().then((provider) => {
+      const p = provider as { request?: (args: { method: string; params?: unknown[] }) => Promise<unknown> } | null;
+      if (!p?.request) return;
+      ensureBesuNetwork(p as Parameters<typeof ensureBesuNetwork>[0])
+        .finally(() => {
+          hasAttemptedSwitch.current = false;
+        });
+    });
+  }, [isConnected, chain?.id, connector]);
   const queryClient = useQueryClient();
   const _setWallet = useAppStore((s) => s._setWallet);
   const _setUsdcBalance = useAppStore((s) => s._setUsdcBalance);

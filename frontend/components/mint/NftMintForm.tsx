@@ -1,0 +1,56 @@
+"use client";
+
+import { useState } from "react";
+import { useAccount } from "wagmi";
+import { besu } from "@/config/wagmi";
+import { MintForm } from "./MintForm";
+import { ensureBesuNetwork } from "@/lib/ensureBesuNetwork";
+
+export function NftMintForm() {
+  const { isConnected, chain, connector } = useAccount();
+  const [isSwitching, setIsSwitching] = useState(false);
+  const isWrongNetwork = isConnected && chain?.id !== besu.id;
+
+  async function handleSwitchToBesu() {
+    if (!connector) return;
+    setIsSwitching(true);
+    try {
+      const provider = await connector.getProvider() as { request?: (args: { method: string; params?: unknown[] }) => Promise<unknown> } | null;
+      if (provider?.request) {
+        await ensureBesuNetwork(provider as Parameters<typeof ensureBesuNetwork>[0]);
+      }
+    } finally {
+      setIsSwitching(false);
+    }
+  }
+
+  if (!isConnected) {
+    return (
+      <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-8 text-center">
+        <div className="text-4xl mb-3">🔒</div>
+        <p className="text-gray-400">Connect your wallet to mint graded card NFTs</p>
+      </div>
+    );
+  }
+
+  if (isWrongNetwork) {
+    return (
+      <div className="bg-gray-900/50 border border-red-800/50 rounded-xl p-8 text-center">
+        <div className="text-4xl mb-3">⚠️</div>
+        <p className="text-red-400 font-medium">Wrong Network</p>
+        <p className="text-gray-500 text-sm mt-1">
+          Please switch to SkyAnd Chain (Chain ID: 2741)
+        </p>
+        <button
+          onClick={handleSwitchToBesu}
+          disabled={isSwitching}
+          className="mt-4 px-4 py-2 bg-emerald-600/80 hover:bg-emerald-500/80 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition-colors"
+        >
+          {isSwitching ? "Switching..." : "Switch to SkyAnd Chain"}
+        </button>
+      </div>
+    );
+  }
+
+  return <MintForm />;
+}

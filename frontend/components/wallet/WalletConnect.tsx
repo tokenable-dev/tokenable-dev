@@ -1,16 +1,32 @@
 "use client";
 
+import { useState } from "react";
 import { useAccount, useConnect, useDisconnect, useBalance } from "wagmi";
 import { formatUnits } from "viem";
 import { besu } from "@/config/wagmi";
+import { ensureBesuNetwork } from "@/lib/ensureBesuNetwork";
 
 export function WalletConnect() {
-  const { address, isConnected, chain } = useAccount();
+  const { address, isConnected, chain, connector } = useAccount();
   const { connect, connectors, isPending } = useConnect();
   const { disconnect } = useDisconnect();
   const { data: balance } = useBalance({ address, chainId: besu.id });
+  const [isSwitching, setIsSwitching] = useState(false);
 
   const isWrongNetwork = isConnected && chain?.id !== besu.id;
+
+  async function handleSwitchToBesu() {
+    if (!connector) return;
+    setIsSwitching(true);
+    try {
+      const provider = await connector.getProvider() as { request?: (args: { method: string; params?: unknown[] }) => Promise<unknown> } | null;
+      if (provider?.request) {
+        await ensureBesuNetwork(provider as Parameters<typeof ensureBesuNetwork>[0]);
+      }
+    } finally {
+      setIsSwitching(false);
+    }
+  }
 
   if (isConnected && address) {
     return (
@@ -36,12 +52,23 @@ export function WalletConnect() {
             className={`w-2 h-2 rounded-full ${isWrongNetwork ? "bg-red-400" : "bg-green-400"}`}
           />
         </div>
-        <button
-          onClick={() => disconnect()}
-          className="text-xs text-gray-500 hover:text-red-400 transition-colors"
-        >
-          Disconnect
-        </button>
+        <div className="flex items-center gap-2">
+          {isWrongNetwork && (
+            <button
+              onClick={handleSwitchToBesu}
+              disabled={isSwitching}
+              className="text-xs px-2 py-1 bg-emerald-600/80 hover:bg-emerald-500/80 disabled:opacity-50 text-white rounded transition-colors"
+            >
+              {isSwitching ? "Switching..." : "Switch to SkyAnd Chain"}
+            </button>
+          )}
+          <button
+            onClick={() => disconnect()}
+            className="text-xs text-gray-500 hover:text-red-400 transition-colors"
+          >
+            Disconnect
+          </button>
+        </div>
       </div>
     );
   }

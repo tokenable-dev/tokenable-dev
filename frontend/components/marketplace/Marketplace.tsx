@@ -11,7 +11,6 @@ import {
   resolveIpfsImage,
   type MarketplaceListing,
 } from "@/lib/api";
-import { NftImageZoom } from "./NftImageZoom";
 import { USDC_ADDRESS, MARKETPLACE_ADDRESS, USDC_ABI, MARKETPLACE_ABI } from "@/constants/contracts";
 import { besu } from "@/config/wagmi";
 import { useShallow } from "zustand/react/shallow";
@@ -73,12 +72,10 @@ function ListingCard({
       <div className="bg-gray-900/60 border border-gray-800 rounded-xl overflow-hidden group-hover:border-gray-600 group-hover:shadow-lg group-hover:shadow-black/30 transition-all duration-200">
         <div className="aspect-square bg-gray-800 relative overflow-hidden">
           {imageUrl ? (
-            <NftImageZoom
+            <img
               src={imageUrl}
               alt={metadata?.name ?? `NFT #${listing.tokenId}`}
-              className="w-full h-full"
-              zoomFactor={2.5}
-              lensSize={140}
+              className="w-full h-full object-cover"
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center text-gray-600 text-sm">
@@ -88,7 +85,6 @@ function ListingCard({
           <div className="absolute top-2 left-2 bg-black/60 text-xs text-gray-300 px-2 py-0.5 rounded-full pointer-events-none">
             #{listing.tokenId}
           </div>
-          {/* Hover overlay — pointer-events-none so image zoom receives hover */}
           <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-200 flex items-center justify-center pointer-events-none">
             <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-white/10 backdrop-blur-sm border border-white/20 text-white text-xs font-semibold px-3 py-1.5 rounded-full">
               View Details →

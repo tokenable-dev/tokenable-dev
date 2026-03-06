@@ -2,12 +2,13 @@
 
 import { Suspense, useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import { WalletConnect } from "@/components/WalletConnect";
-import { TokenInfo } from "@/components/TokenInfo";
-import { NftInfo } from "@/components/NftInfo";
-import { NftMintForm } from "@/components/NftMintForm";
-import { MyNfts } from "@/components/MyNfts";
-import { Marketplace } from "@/components/Marketplace";
+import Link from "next/link";
+import { WalletConnect } from "@/components/wallet";
+import { TokenInfo, NftInfo } from "@/components/common";
+import { NftMintForm } from "@/components/mint";
+import { MyNfts } from "@/components/my-nfts";
+import { Marketplace } from "@/components/marketplace";
+import { ASSETS } from "@/constants/assets";
 
 type Tab = "mint" | "my-nfts" | "marketplace";
 
@@ -43,8 +44,15 @@ export default function Home() {
       <header className="border-b border-gray-800/60 backdrop-blur-sm sticky top-0 z-10 bg-gray-950/80">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 rounded-lg" />
-            <span className="font-bold text-lg tracking-tight">SKY NFT Marketplace</span>
+            <Link href="/" className="flex items-center gap-3 shrink-0">
+              <img
+                src={ASSETS.logo.skyand}
+                alt="SKYAND"
+                width={140}
+                height={28}
+                className="h-7 w-auto"
+              />
+            </Link>
             <span className="hidden sm:inline text-xs bg-gray-800 text-gray-400 border border-gray-700 px-2 py-0.5 rounded-full">
               Besu Chain
             </span>
@@ -55,14 +63,18 @@ export default function Home() {
 
       {/* Hero */}
       <section className="max-w-6xl mx-auto px-4 sm:px-6 pt-10 pb-6">
-        <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight mb-2">
-          SKY{" "}
-          <span className="bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
-            NFT Marketplace
-          </span>
-        </h1>
+        {/* <h1 className="mb-2">
+          <img
+            src={ASSETS.logo.skyand}
+            alt="SKYAND NFT Marketplace"
+            width={186}
+            height={37}
+            className="h-9 sm:h-10 w-auto"
+          />
+        </h1> */}
         <p className="text-gray-400 text-sm max-w-xl">
-          Mint, collect, and trade SkyNFTs on the Besu blockchain. Payments in USDC.
+          Mint, collect, and trade SkyNFTs on the Besu blockchain. Payments in
+          USDC.
         </p>
       </section>
 
@@ -96,7 +108,9 @@ export default function Home() {
                 ].map(({ label, address }) => (
                   <div key={label}>
                     <p className="text-xs text-gray-600 mb-0.5">{label}</p>
-                    <p className="text-xs font-mono text-gray-400 break-all">{address}</p>
+                    <p className="text-xs font-mono text-gray-400 break-all">
+                      {address}
+                    </p>
                   </div>
                 ))}
               </div>
@@ -153,7 +167,9 @@ export default function Home() {
                           {step}
                         </span>
                         <div>
-                          <p className="text-sm font-medium text-gray-200">{title}</p>
+                          <p className="text-sm font-medium text-gray-200">
+                            {title}
+                          </p>
                           <p className="text-xs text-gray-500 mt-0.5">{desc}</p>
                         </div>
                       </div>

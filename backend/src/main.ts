@@ -9,8 +9,20 @@ async function bootstrap() {
 
   app.setGlobalPrefix('api');
 
+  const corsOrigin = process.env.CORS_ORIGIN ?? '*';
+  const originList =
+    corsOrigin === '*'
+      ? null
+      : corsOrigin.split(',').map((o) => o.trim()).filter(Boolean);
+
   app.enableCors({
-    origin: process.env.CORS_ORIGIN ?? '*',
+    origin:
+      originList === null
+        ? (origin: string | undefined, cb: (err: Error | null, allow?: boolean | string) => void) =>
+            cb(null, origin ?? true)
+        : originList.length
+          ? originList
+          : '*',
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
     credentials: true,
   });
