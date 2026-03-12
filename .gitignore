@@ -1,1 +1,21 @@
 node_modules
+
+# 환경변수 (절대 커밋 금지)
+.env
+.env.local
+.env.*.local
+.env.production
+backend/.env
+frontend/.env.local
+contracts/.env
+
+# 빌드 결과물
+.next
+dist
+build
+
+# 기타
+.DS_Store
+*.log
+coverage
+response_*.json

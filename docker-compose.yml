@@ -1,0 +1,46 @@
+services:
+  # ── Nginx (리버스 프록시) ───────────────────────────────────────
+  nginx:
+    image: nginx:alpine
+    container_name: tokenable-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - frontend
+      - backend
+    restart: always
+    networks:
+      - tokenable-net
+
+  # ── Frontend (Next.js) ─────────────────────────────────────────
+  frontend:
+    image: ${ECR_REGISTRY}/tokenable-frontend:${IMAGE_TAG:-latest}
+    container_name: tokenable-frontend
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+    # NEXT_PUBLIC_* 는 빌드 시 번들에 포함되므로 런타임 환경변수 불필요
+    expose:
+      - "3000"
+    restart: always
+    networks:
+      - tokenable-net
+
+  # ── Backend (NestJS) ───────────────────────────────────────────
+  backend:
+    image: ${ECR_REGISTRY}/tokenable-backend:${IMAGE_TAG:-latest}
+    container_name: tokenable-backend
+    env_file:
+      - ./backend/.env.production
+    expose:
+      - "4000"
+    restart: always
+    networks:
+      - tokenable-net
+
+networks:
+  tokenable-net:
+    driver: bridge

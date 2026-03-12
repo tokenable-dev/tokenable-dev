@@ -43,6 +43,7 @@ async function bootstrap() {
     .addTag('nft', 'NFT')
     .addTag('blockchain', '블록체인 / 토큰')
     .addTag('util', '유틸리티')
+    .addTag('price', 'TCG 카드 실시간 가격 (JustTCG)')
     .build();
 
   const document = SwaggerModule.createDocument(app, swaggerConfig);
