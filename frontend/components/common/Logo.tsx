@@ -29,7 +29,7 @@ export function Logo({
       alt="SKYAND"
       width={width}
       height={height}
-      className={className}
+      className={`invert ${className}`}
     />
   );
 

@@ -458,7 +458,7 @@ export default function NftDetailPage() {
               alt="SKYAND"
               width={112}
               height={22}
-              className="h-5 w-auto"
+              className="h-5 w-auto invert"
             />
           </Link>
           <span className="text-gray-700">/</span>

@@ -50,7 +50,7 @@ export default function Home() {
                 alt="SKYAND"
                 width={140}
                 height={28}
-                className="h-7 w-auto"
+                className="h-7 w-auto invert"
               />
             </Link>
             <span className="hidden sm:inline text-xs bg-gray-800 text-gray-400 border border-gray-700 px-2 py-0.5 rounded-full">
