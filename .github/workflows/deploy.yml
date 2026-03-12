@@ -97,7 +97,7 @@ jobs:
             export IMAGE_TAG=develop
 
             docker-compose pull
-            docker-compose up -d --remove-orphans
+            docker-compose up -d --force-recreate --remove-orphans
             docker image prune -f
 
   # ── 3단계: 프로덕션 배포 (main 브랜치) — 추후 사용 ──────────────
@@ -137,5 +137,5 @@ jobs:
             export IMAGE_TAG=main
 
             docker-compose pull
-            docker-compose up -d --remove-orphans
+            docker-compose up -d --force-recreate --remove-orphans
             docker image prune -f
