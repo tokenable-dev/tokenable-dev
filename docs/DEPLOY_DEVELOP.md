@@ -28,6 +28,10 @@
 
 DB 마이그레이션은 최초 1회 `backend/sql/migrations/` SQL 실행.
 
+**로컬에서 Docker로 전체 띄울 때:** `docker-compose.yml`만으로는 백엔드 `env_file`이 없음.  
+`backend/.env` 를 준비한 뒤  
+`docker compose -f docker-compose.yml -f docker-compose.local.yml up` 사용.
+
 ## 3. 로컬에서 브랜치 병합 후 푸시 (자동 배포)
 
 ```bash
