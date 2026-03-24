@@ -19,17 +19,17 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4.2.2
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v4.1.0
         with:
           aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region:            ${{ env.AWS_REGION }}
 
       - name: Login to Amazon ECR
-        uses: aws-actions/amazon-ecr-login@v2
+        uses: aws-actions/amazon-ecr-login@v2.0.1
 
       # ── Frontend 빌드 ──────────────────────────────────────────
       - name: Build & push frontend image
@@ -71,23 +71,33 @@ jobs:
           username: ubuntu
           key:      ${{ secrets.DEV_EC2_SSH_KEY }}
           script: |
+            set -e
+
+            # ECR 로그인
             aws ecr get-login-password --region ap-northeast-2 \
               | docker login --username AWS --password-stdin ${{ secrets.ECR_REGISTRY }}
 
-            docker pull ${{ secrets.ECR_REGISTRY }}/tokenable-frontend:develop
-            docker pull ${{ secrets.ECR_REGISTRY }}/tokenable-backend:develop
-
-            if [ ! -d "/home/ubuntu/app" ]; then
-              git clone https://github.com/${{ github.repository }} /home/ubuntu/app
+            # 레포가 없으면 클론, 있으면 최신화 (.git 존재 여부로 판단)
+            APP_DIR="/home/ubuntu/app"
+            if [ ! -d "$APP_DIR/.git" ]; then
+              rm -rf "$APP_DIR"
+              git clone https://github.com/${{ github.repository }} "$APP_DIR"
             fi
 
-            cd /home/ubuntu/app
-            git fetch origin && git checkout develop && git pull origin develop
+            cd "$APP_DIR"
+            git fetch origin
+            git checkout develop
+            git pull origin develop
 
+            # .env.production 복원 (EC2에 /home/ubuntu/.env.production.backend 로 저장됨)
+            cp /home/ubuntu/.env.production.backend ./backend/.env.production
+
+            # 최신 이미지 받기 및 재시작
             export ECR_REGISTRY=${{ secrets.ECR_REGISTRY }}
             export IMAGE_TAG=develop
 
-            docker compose up -d --remove-orphans
+            docker-compose pull
+            docker-compose up -d --force-recreate --remove-orphans
             docker image prune -f
 
   # ── 3단계: 프로덕션 배포 (main 브랜치) — 추후 사용 ──────────────
@@ -105,21 +115,27 @@ jobs:
           username: ubuntu
           key:      ${{ secrets.PROD_EC2_SSH_KEY }}
           script: |
+            set -e
+
             aws ecr get-login-password --region ap-northeast-2 \
               | docker login --username AWS --password-stdin ${{ secrets.ECR_REGISTRY }}
 
-            docker pull ${{ secrets.ECR_REGISTRY }}/tokenable-frontend:main
-            docker pull ${{ secrets.ECR_REGISTRY }}/tokenable-backend:main
-
-            if [ ! -d "/home/ubuntu/app" ]; then
-              git clone https://github.com/${{ github.repository }} /home/ubuntu/app
+            APP_DIR="/home/ubuntu/app"
+            if [ ! -d "$APP_DIR/.git" ]; then
+              rm -rf "$APP_DIR"
+              git clone https://github.com/${{ github.repository }} "$APP_DIR"
             fi
 
-            cd /home/ubuntu/app
-            git fetch origin && git checkout main && git pull origin main
+            cd "$APP_DIR"
+            git fetch origin
+            git checkout main
+            git pull origin main
+
+            cp /home/ubuntu/.env.production.backend ./backend/.env.production
 
             export ECR_REGISTRY=${{ secrets.ECR_REGISTRY }}
             export IMAGE_TAG=main
 
-            docker compose up -d --remove-orphans
+            docker-compose pull
+            docker-compose up -d --force-recreate --remove-orphans
             docker image prune -f

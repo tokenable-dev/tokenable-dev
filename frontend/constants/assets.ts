@@ -15,12 +15,12 @@ const ASSETS_BASE = "/assets";
 export const ASSETS = {
   /** 메인 로고 (SKYAND 풀 로고) */
   logo: {
-    skyand: `${ASSETS_BASE}/logo/skyand.svg`,
+    skyand: `${ASSETS_BASE}/logo/tokenable.png`,
   },
 
   /** 아이콘 (favicon, 앱 아이콘 등) */
   icons: {
-    skyand: `${ASSETS_BASE}/icons/skyand-icon.svg`,
+    skyand: `${ASSETS_BASE}/icons/tokenable_icon.png`,
   },
 
   /** 기타 이미지 */

@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "SKYAND & Tokenable",
+  title: "Tokenable",
   description: "Mint and manage SkyNFT on Besu blockchain",
   icons: {
     icon: FAVICON,
