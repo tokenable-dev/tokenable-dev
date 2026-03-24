@@ -1,16 +1,21 @@
 import { createHash } from 'crypto';
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { LessThan, Repository } from 'typeorm';
+import { LessThan, QueryFailedError, Repository } from 'typeorm';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { Order, OrderStatus } from './entities/order.entity';
 
 @Injectable()
 export class MarketplaceService {
+  private readonly logger = new Logger(MarketplaceService.name);
+
   constructor(
     @InjectRepository(Order)
     private readonly orderRepo: Repository<Order>,
@@ -49,7 +54,26 @@ export class MarketplaceService {
       endTime: new Date(Number(parameters.endTime) * 1000),
     });
 
-    return this.orderRepo.save(order) as Promise<Order>;
+    try {
+      return (await this.orderRepo.save(order)) as Order;
+    } catch (e: unknown) {
+      if (e instanceof QueryFailedError) {
+        const pgCode = (e as QueryFailedError & { driverError?: { code?: string } })
+          .driverError?.code;
+        this.logger.error(`createOrder failed [${pgCode ?? '?'}]: ${e.message}`);
+        if (pgCode === '42P01') {
+          throw new ServiceUnavailableException(
+            'Database is missing the orders table. Apply backend/sql/migrations/003_create_orders_table.sql on PostgreSQL.',
+          );
+        }
+        if (pgCode === '23505') {
+          throw new ConflictException(
+            'An order with this hash already exists. Try again with a new listing.',
+          );
+        }
+      }
+      throw e;
+    }
   }
 
   // ── 활성 주문 목록 ────────────────────────────────────────────────

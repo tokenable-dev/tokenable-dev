@@ -4,7 +4,7 @@
 export const TOKENABLE_RWA_DISPLAY_NAME = "Tokenable_RWA";
 
 export const TOKENABLE_RWA_ADDRESS = (process.env.NEXT_PUBLIC_NFT_CONTRACT_ADDRESS ??
-  "0x9C60c8Ab73Cbd650A4135f1AC3C8340A0Cff91aE") as `0x${string}`;
+  "0x588c9d50036d6E774e532fd4FA2f999D89CC9079") as `0x${string}`;
 
 /** Circle Sepolia USDC */
 export const USDC_ADDRESS = (process.env.NEXT_PUBLIC_USDC_CONTRACT_ADDRESS ??

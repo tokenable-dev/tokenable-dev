@@ -57,6 +57,7 @@ export class Order {
   @Column({
     type: 'enum',
     enum: OrderStatus,
+    enumName: 'orders_status_enum',
     default: OrderStatus.ACTIVE,
   })
   status: OrderStatus;

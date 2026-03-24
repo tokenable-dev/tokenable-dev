@@ -119,7 +119,7 @@ function CompactRow({
               <span>JustTCG raw</span>
               <span className="text-gray-600 group-open:rotate-180 transition-transform">▼</span>
             </summary>
-            <pre className="px-3 pb-3 text-[10px] leading-relaxed text-gray-500 overflow-x-auto max-h-36 overflow-y-auto border-t border-gray-800/60">
+            <pre className="scrollbar-hide px-3 pb-3 text-[10px] leading-relaxed text-gray-500 overflow-x-auto max-h-36 overflow-y-auto border-t border-gray-800/60">
               {JSON.stringify(raw, null, 2)}
             </pre>
           </details>
@@ -132,7 +132,7 @@ function CompactRow({
     return (
       <div className="py-1.5 border-b border-gray-800/50">
         <p className="text-[11px] text-gray-500 mb-1">{label}</p>
-        <pre className="text-[10px] text-gray-400 bg-gray-950/50 rounded px-2 py-1.5 overflow-x-auto max-h-32 overflow-y-auto">
+        <pre className="scrollbar-hide text-[10px] text-gray-400 bg-gray-950/50 rounded px-2 py-1.5 overflow-x-auto max-h-32 overflow-y-auto">
           {typeof value === "string" ? value : JSON.stringify(value, null, 2)}
         </pre>
       </div>
@@ -204,7 +204,7 @@ export function GradedMetadataPanel({
         </span>
       </summary>
       <div className="px-4 pb-4 pt-2 border-t border-gray-800/60">
-        <div className="space-y-1 max-h-[min(50vh,22rem)] overflow-y-auto pr-1">
+        <div className="scrollbar-hide space-y-1 max-h-[min(50vh,22rem)] overflow-y-auto">
           <CompactRows data={filtered} depth={0} />
         </div>
       </div>
