@@ -6,6 +6,10 @@ import { ASSETS } from "@/constants/assets";
 import { sendVerificationEmail } from "@/lib/auth";
 import { useAuthStore } from "@/store/authStore";
 
+/** IP 배포 등에서 Google OAuth 미사용 시 CI에서 NEXT_PUBLIC_SHOW_AUTH_LINKS=false 로 빌드 */
+const showAuthLinks =
+  process.env.NEXT_PUBLIC_SHOW_AUTH_LINKS !== "false";
+
 export function AppHeader() {
   const { user, loading, logout, refresh } = useAuthStore();
   const [resendMsg, setResendMsg] = useState<string | null>(null);
@@ -62,7 +66,7 @@ export function AppHeader() {
                 Log out
               </button>
             </>
-          ) : (
+          ) : showAuthLinks ? (
             <>
               <Link
                 href="/login"
@@ -77,7 +81,7 @@ export function AppHeader() {
                 Sign up
               </Link>
             </>
-          )}
+          ) : null}
         </nav>
       </div>
     </header>
