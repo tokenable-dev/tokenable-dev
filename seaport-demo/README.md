@@ -26,11 +26,7 @@ pnpm install
 
 ### 2. 환경변수 설정
 
-```bash
-cp .env.example .env
-```
-
-`.env` 파일을 열고 아래 항목 작성:
+프로젝트 루트에 `.env` 파일을 만들고 아래 항목을 채운다:
 
 | 항목 | 설명 |
 |---|---|
@@ -141,9 +137,9 @@ seaport-demo/
 ├── 2-fulfill-order.js       # order.json 읽어 구매 처리
 ├── seaport.js               # Seaport 헬퍼 함수
 ├── hardhat.config.js
-├── .env.example
 └── README.md
 ```
+(로컬에서 `.env` 를 직접 둔다)
 
 ---
 

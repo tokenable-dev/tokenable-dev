@@ -23,7 +23,7 @@
 서버에 `backend/.env.production` 내용을 저장해 두고, 워크플로가 복사하도록 함:
 
 - 파일 경로 예: `/home/ubuntu/.env.production.backend`
-- 내용은 `backend/.env.production.example` 참고 (`FRONTEND_URL`, `CORS_ORIGIN`, `GOOGLE_CALLBACK_URL` 이 **54.116.29.201** 기준).
+- `FRONTEND_URL`, `CORS_ORIGIN`, `GOOGLE_CALLBACK_URL` 등은 **54.116.29.201** 기준으로 맞출 것.
 
 DB 마이그레이션은 최초 1회 `backend/sql/migrations/` SQL 실행.
 
