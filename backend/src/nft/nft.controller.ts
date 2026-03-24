@@ -44,6 +44,11 @@ export class NftController {
           description: 'JSON 문자열로 전달',
         },
         image: { type: 'string', format: 'binary', description: '이미지 파일 (jpg, jpeg, png)' },
+        gradedMetadata: {
+          type: 'string',
+          description:
+            'JSON 문자열 — { graded, attributes?, external_url? } 형태 (PSA/JustTCG 병합)',
+        },
       },
     },
   })

@@ -62,7 +62,7 @@ nft-marketplace/
 | ------------ | --------------------------------------------------------------------------- |
 | **frontend** | Next.js application for wallet connection, NFT minting, browsing, and trading |
 | **backend**  | NestJS API server handling IPFS uploads, blockchain reads, and marketplace data |
-| **contracts** | Solidity contracts: SkyNFT (ERC-721), MockUSDC (ERC-20), SkyMarketplace |
+| **contracts** | Solidity: TokenableRWA (ERC-721), MockUSDC (ERC-20), SkyMarketplace (legacy) |
 
 ---
 
@@ -96,27 +96,20 @@ cd ../contracts && pnpm install
 
 ### 3. Configure environment variables
 
-Copy the example env files and fill in your values:
+Create env files yourself (not committed):
 
-```bash
-# Backend
-cp backend/.env.example backend/.env
+- `backend/.env` — RPC, Postgres, Pinata, JWT/Google 등
+- `frontend/.env.local` — `NEXT_PUBLIC_*` (로컬에서만)
+- `contracts/.env` — 배포용 private key / RPC 등
 
-# Frontend
-cp frontend/.env.example frontend/.env.local
-
-# Contracts
-cp contracts/.env.example contracts/.env
-```
-
-Required variables include RPC URL, contract addresses, and Pinata credentials for IPFS.
+필수 항목은 RPC URL, 컨트랙트 주소, IPFS(Pinata) 자격 증명 등이다.
 
 ### 4. Deploy smart contracts
 
 ```bash
 cd contracts
 pnpm run deploy:usdc      # Deploy MockUSDC
-pnpm run deploy:nft       # Deploy SkyNFT
+pnpm run deploy:nft       # Deploy TokenableRWA
 pnpm run deploy:marketplace  # Deploy SkyMarketplace
 ```
 

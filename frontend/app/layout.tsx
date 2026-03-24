@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
+import { AppHeader } from "@/components/layout/AppHeader";
 import { FAVICON } from "@/constants/assets";
 
 const geistSans = Geist({
@@ -16,7 +17,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Tokenable",
-  description: "Mint and manage SkyNFT on Besu blockchain",
+  description:
+    "Mint and trade Tokenable_RWA NFTs on Ethereum Sepolia. Listings use Seaport.",
   icons: {
     icon: FAVICON,
   },
@@ -32,7 +34,10 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <Providers>{children}</Providers>
+        <Providers>
+          <AppHeader />
+          {children}
+        </Providers>
       </body>
     </html>
   );

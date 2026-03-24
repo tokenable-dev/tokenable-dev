@@ -1,3 +1,11 @@
+# develop 푸시 → ECR 빌드 후 EC2에서 docker-compose pull
+#
+# Repository secrets (개발 서버 URL 예: http://54.116.29.201)
+#   NEXT_PUBLIC_API_URL=http://54.116.29.201/api
+#   NEXT_PUBLIC_ALCHEMY_RPC_URL=https://eth-sepolia.g.alchemy.com/v2/<KEY>
+#   나머지: NEXT_PUBLIC_NFT/USDC/MARKETPLACE/PINATA_GATEWAY, NEXT_PUBLIC_SHOW_AUTH_LINKS(optional, false=로그인 버튼 숨김)
+#   ECR_REGISTRY, AWS_*, DEV_EC2_*
+#
 name: Deploy
 
 on:
@@ -40,6 +48,8 @@ jobs:
             --build-arg NEXT_PUBLIC_USDC_CONTRACT_ADDRESS=${{ secrets.NEXT_PUBLIC_USDC_CONTRACT_ADDRESS }} \
             --build-arg NEXT_PUBLIC_MARKETPLACE_ADDRESS=${{ secrets.NEXT_PUBLIC_MARKETPLACE_ADDRESS }} \
             --build-arg NEXT_PUBLIC_PINATA_GATEWAY=${{ secrets.NEXT_PUBLIC_PINATA_GATEWAY }} \
+            --build-arg NEXT_PUBLIC_ALCHEMY_RPC_URL=${{ secrets.NEXT_PUBLIC_ALCHEMY_RPC_URL }} \
+            --build-arg NEXT_PUBLIC_SHOW_AUTH_LINKS=${{ secrets.NEXT_PUBLIC_SHOW_AUTH_LINKS }} \
             -t ${{ env.ECR_REGISTRY }}/tokenable-frontend:${{ env.IMAGE_TAG }} \
             -t ${{ env.ECR_REGISTRY }}/tokenable-frontend:${{ github.ref_name }} \
             ./frontend
@@ -89,15 +99,12 @@ jobs:
             git checkout develop
             git pull origin develop
 
-            # .env.production 복원 (EC2에 /home/ubuntu/.env.production.backend 로 저장됨)
-            cp /home/ubuntu/.env.production.backend ./backend/.env.production
-
-            # 최신 이미지 받기 및 재시작
+            # 시크릿은 docker-compose.ec2.yml → /home/ubuntu/.env.production.backend 만 사용 (~/app/backend 에 touch 불필요)
             export ECR_REGISTRY=${{ secrets.ECR_REGISTRY }}
             export IMAGE_TAG=develop
 
-            docker-compose pull
-            docker-compose up -d --force-recreate --remove-orphans
+            docker-compose -f docker-compose.yml -f docker-compose.ec2.yml pull
+            docker-compose -f docker-compose.yml -f docker-compose.ec2.yml up -d --force-recreate --remove-orphans
             docker image prune -f
 
   # ── 3단계: 프로덕션 배포 (main 브랜치) — 추후 사용 ──────────────
@@ -131,11 +138,9 @@ jobs:
             git checkout main
             git pull origin main
 
-            cp /home/ubuntu/.env.production.backend ./backend/.env.production
-
             export ECR_REGISTRY=${{ secrets.ECR_REGISTRY }}
             export IMAGE_TAG=main
 
-            docker-compose pull
-            docker-compose up -d --force-recreate --remove-orphans
+            docker-compose -f docker-compose.yml -f docker-compose.ec2.yml pull
+            docker-compose -f docker-compose.yml -f docker-compose.ec2.yml up -d --force-recreate --remove-orphans
             docker image prune -f

@@ -4,11 +4,10 @@ import { Suspense, useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { WalletConnect } from "@/components/wallet";
-import { TokenInfo, NftInfo } from "@/components/common";
 import { NftMintForm } from "@/components/mint";
 import { MyNfts } from "@/components/my-nfts";
 import { Marketplace } from "@/components/marketplace";
-import { ASSETS } from "@/constants/assets";
+import { useAuthStore } from "@/store/authStore";
 
 type Tab = "mint" | "my-nfts" | "marketplace";
 
@@ -30,6 +29,39 @@ function TabParamSync({ onTab }: { onTab: (t: Tab) => void }) {
   return null;
 }
 
+/** ?email_verify=ok|invalid|missing 처리 후 쿼리 제거 */
+function EmailVerifyToastSync() {
+  const searchParams = useSearchParams();
+  const refresh = useAuthStore((s) => s.refresh);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    const v = searchParams.get("email_verify");
+    if (!v) return;
+    void refresh();
+    const messages: Record<string, string> = {
+      ok: "이메일 인증이 완료되었습니다.",
+      invalid: "인증 링크가 만료되었거나 잘못되었습니다.",
+      missing: "인증 요청이 올바르지 않습니다.",
+    };
+    setMsg(messages[v] ?? "이메일 인증을 확인할 수 없습니다.");
+    if (typeof window !== "undefined") {
+      const u = new URL(window.location.href);
+      u.searchParams.delete("email_verify");
+      window.history.replaceState({}, "", u.pathname + (u.search || ""));
+    }
+    const t = setTimeout(() => setMsg(null), 8000);
+    return () => clearTimeout(t);
+  }, [searchParams, refresh]);
+
+  if (!msg) return null;
+  return (
+    <div className="fixed bottom-6 left-1/2 z-[60] max-w-md w-[calc(100%-2rem)] -translate-x-1/2 px-4 py-3 rounded-lg bg-emerald-950/95 border border-emerald-700/60 text-sm text-emerald-100 shadow-xl text-center">
+      {msg}
+    </div>
+  );
+}
+
 export default function Home() {
   const [activeTab, setActiveTab] = useState<Tab>("mint");
 
@@ -39,169 +71,120 @@ export default function Home() {
       <Suspense fallback={null}>
         <TabParamSync onTab={setActiveTab} />
       </Suspense>
-
-      {/* Header */}
-      <header className="border-b border-gray-800/60 backdrop-blur-sm sticky top-0 z-10 bg-gray-950/80">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Link href="/" className="flex items-center gap-3 shrink-0">
-              <img
-                src={ASSETS.logo.skyand}
-                alt="SKYAND"
-                width={140}
-                height={28}
-                className="h-7 w-auto invert"
-              />
-            </Link>
-            <span className="hidden sm:inline text-xs bg-gray-800 text-gray-400 border border-gray-700 px-2 py-0.5 rounded-full">
-              Besu Chain
-            </span>
-          </div>
-          <WalletConnect />
-        </div>
-      </header>
+      <Suspense fallback={null}>
+        <EmailVerifyToastSync />
+      </Suspense>
 
       {/* Hero */}
       <section className="max-w-6xl mx-auto px-4 sm:px-6 pt-10 pb-6">
         {/* <h1 className="mb-2">
           <img
-            src={ASSETS.logo.skyand}
-            alt="SKYAND NFT Marketplace"
+            src={ASSETS.logo.tokenable}
+            alt="Tokenable RWA Marketplace"
             width={186}
             height={37}
             className="h-9 sm:h-10 w-auto"
           />
         </h1> */}
         <p className="text-gray-400 text-sm max-w-xl">
-          Mint, collect, and trade SkyNFTs on the Besu blockchain. Payments in
-          USDC.
+          Mint, collect, and trade NFTs on Ethereum Sepolia. Listings use
+          OpenSea Seaport; prices are shown in USDC.
         </p>
       </section>
 
       {/* Main */}
       <main className="max-w-6xl mx-auto px-4 sm:px-6 pb-16">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Sidebar stats */}
-          <aside className="space-y-4 lg:col-span-1">
-            <TokenInfo />
-            <NftInfo />
+        {/* Tabs */}
+        <div className="flex gap-1 bg-gray-900/50 border border-gray-800 rounded-xl p-1 mb-5">
+          {TABS.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${
+                activeTab === tab.id
+                  ? "bg-gray-700 text-white shadow"
+                  : "text-gray-500 hover:text-gray-300"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
 
-            {/* Contract info */}
+        {/* Tab panels */}
+        {activeTab === "mint" && (
+          <div className="space-y-5">
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-800 bg-gray-900/30 px-4 py-3">
+              <p className="text-xs text-gray-500 max-w-md">
+                Web3: connect MetaMask to mint & list. Prefer linking the same address in{" "}
+                <Link href="/profile" className="text-amber-500 hover:underline">
+                  Profile
+                </Link>{" "}
+                after logging in.
+              </p>
+              <WalletConnect />
+            </div>
+            <NftMintForm />
             <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-5">
-              <h3 className="text-xs font-semibold text-gray-500 mb-3 uppercase tracking-wider">
-                Contracts
+              <h3 className="text-sm font-semibold text-gray-400 mb-4 uppercase tracking-wider">
+                How It Works
               </h3>
-              <div className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {[
                   {
-                    label: "MockUSDC",
-                    address: "0x318C92F6e913f1d1E90c0396270705B83918bCdb",
+                    step: "01",
+                    title: "Fill in Details",
+                    desc: "Enter NFT name, description, and upload your image",
                   },
                   {
-                    label: "SkyNFT",
-                    address: "0x1ee4a6a6cbc4E15f73125233bc9447208c2dB8C1",
+                    step: "02",
+                    title: "IPFS Upload",
+                    desc: "Image and metadata are uploaded to Pinata IPFS",
                   },
                   {
-                    label: "Marketplace",
-                    address: "0x17aCD061c56622fb00EB85b8F6927AA2c81A56bA",
+                    step: "03",
+                    title: "Sign & Mint",
+                    desc: "Approve the transaction in MetaMask to mint your NFT",
                   },
-                ].map(({ label, address }) => (
-                  <div key={label}>
-                    <p className="text-xs text-gray-600 mb-0.5">{label}</p>
-                    <p className="text-xs font-mono text-gray-400 break-all">
-                      {address}
-                    </p>
+                ].map(({ step, title, desc }) => (
+                  <div key={step} className="flex gap-3">
+                    <span className="text-xl font-black text-gray-700 shrink-0">
+                      {step}
+                    </span>
+                    <div>
+                      <p className="text-sm font-medium text-gray-200">
+                        {title}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-0.5">{desc}</p>
+                    </div>
                   </div>
                 ))}
               </div>
             </div>
-          </aside>
-
-          {/* Tab content */}
-          <div className="lg:col-span-3">
-            {/* Tabs */}
-            <div className="flex gap-1 bg-gray-900/50 border border-gray-800 rounded-xl p-1 mb-5">
-              {TABS.map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${
-                    activeTab === tab.id
-                      ? "bg-gray-700 text-white shadow"
-                      : "text-gray-500 hover:text-gray-300"
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-
-            {/* Tab panels */}
-            {activeTab === "mint" && (
-              <div className="space-y-5">
-                <NftMintForm />
-                <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-5">
-                  <h3 className="text-sm font-semibold text-gray-400 mb-4 uppercase tracking-wider">
-                    How It Works
-                  </h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    {[
-                      {
-                        step: "01",
-                        title: "Fill in Details",
-                        desc: "Enter NFT name, description, and upload your image",
-                      },
-                      {
-                        step: "02",
-                        title: "IPFS Upload",
-                        desc: "Image and metadata are uploaded to Pinata IPFS",
-                      },
-                      {
-                        step: "03",
-                        title: "Sign & Mint",
-                        desc: "Approve the transaction in MetaMask to mint your NFT",
-                      },
-                    ].map(({ step, title, desc }) => (
-                      <div key={step} className="flex gap-3">
-                        <span className="text-xl font-black text-gray-700 shrink-0">
-                          {step}
-                        </span>
-                        <div>
-                          <p className="text-sm font-medium text-gray-200">
-                            {title}
-                          </p>
-                          <p className="text-xs text-gray-500 mt-0.5">{desc}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {activeTab === "my-nfts" && (
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-bold text-white">My NFTs</h2>
-                  <p className="text-xs text-gray-500">
-                    Click &ldquo;List for Sale&rdquo; to sell on the marketplace
-                  </p>
-                </div>
-                <MyNfts />
-              </div>
-            )}
-
-            {activeTab === "marketplace" && (
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-bold text-white">Marketplace</h2>
-                  <p className="text-xs text-gray-500">Prices in USDC</p>
-                </div>
-                <Marketplace />
-              </div>
-            )}
           </div>
-        </div>
+        )}
+
+        {activeTab === "my-nfts" && (
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-white">My NFTs</h2>
+              <p className="text-xs text-gray-500">
+                Click &ldquo;List for Sale&rdquo; to sell on the marketplace
+              </p>
+            </div>
+            <MyNfts />
+          </div>
+        )}
+
+        {activeTab === "marketplace" && (
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-white">Marketplace</h2>
+              <p className="text-xs text-gray-500">Prices in USDC</p>
+            </div>
+            <Marketplace />
+          </div>
+        )}
       </main>
     </div>
   );

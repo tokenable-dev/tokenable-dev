@@ -1,11 +1,14 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
   const app = await NestFactory.create(AppModule);
+
+  app.use(cookieParser());
 
   app.setGlobalPrefix('api');
 
@@ -23,7 +26,7 @@ async function bootstrap() {
         : originList.length
           ? originList
           : '*',
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     credentials: true,
   });
 
@@ -39,11 +42,16 @@ async function bootstrap() {
     .setTitle('NFT Marketplace API')
     .setDescription('NFT Marketplace 백엔드 API 문서')
     .setVersion('1.0')
+    .addBearerAuth(
+      { type: 'http', scheme: 'bearer', bearerFormat: 'JWT', in: 'header' },
+      'access-token',
+    )
     .addTag('auth', '인증')
     .addTag('nft', 'NFT')
     .addTag('blockchain', '블록체인 / 토큰')
     .addTag('util', '유틸리티')
     .addTag('price', 'TCG 카드 실시간 가격 (JustTCG)')
+    .addTag('psa', 'PSA 슬랩 OCR + JustTCG 보강')
     .build();
 
   const document = SwaggerModule.createDocument(app, swaggerConfig);

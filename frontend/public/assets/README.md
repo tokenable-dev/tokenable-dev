@@ -19,7 +19,7 @@ assets/
 ```ts
 export const ASSETS = {
   logo: {
-    skyand: `${ASSETS_BASE}/logo/skyand.svg`,
+    tokenable: `${ASSETS_BASE}/logo/tokenable.png`,
     newBrand: `${ASSETS_BASE}/logo/new-brand.svg`,  // 추가
   },
   // ...

@@ -1,21 +1,21 @@
 "use client";
 
 import { useState } from "react";
-import { usePublicClient, useWriteContract } from "wagmi";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   getNftTokensByOwner,
   getNftTokenURI,
-  getMarketplaceListings,
+  getActiveOrders,
+  cancelOrder,
   fetchIpfsMetadata,
   resolveIpfsImage,
   type NftMetadata,
+  type Order,
 } from "@/lib/api";
-import { MARKETPLACE_ADDRESS, MARKETPLACE_ABI } from "@/constants/contracts";
-import { besu } from "@/config/wagmi";
 import { useShallow } from "zustand/react/shallow";
 import { useAppStore, selectWallet, selectRefresh } from "@/store";
 import { ListNftModal } from "@/components/marketplace/ListNftModal";
+import { TOKENABLE_RWA_DISPLAY_NAME } from "@/constants/contracts";
 
 interface OwnedNft {
   tokenId: number;
@@ -25,31 +25,33 @@ interface OwnedNft {
 
 function NftCard({
   nft,
-  isListed,
-  listingPrice,
+  activeOrder,
   onList,
   onCancel,
   isCancelling,
 }: {
   nft: OwnedNft;
-  isListed: boolean;
-  listingPrice?: string;
+  activeOrder?: Order;
   onList: (tokenId: number) => void;
-  onCancel: (tokenId: number) => void;
+  onCancel: (order: Order) => void;
   isCancelling: boolean;
 }) {
   const imageUrl = nft.metadata?.image
     ? resolveIpfsImage(nft.metadata.image)
     : null;
 
+  const listingPrice = activeOrder
+    ? (Number(activeOrder.considerationAmount) / 1_000_000).toLocaleString()
+    : undefined;
+
   return (
     <div className="bg-gray-900/60 border border-gray-800 rounded-xl overflow-hidden hover:border-gray-700 transition-colors flex flex-col h-full">
-      <div className="aspect-square bg-gray-800 relative overflow-hidden shrink-0">
+      <div className="aspect-square bg-gray-800 relative overflow-hidden shrink-0 p-2 sm:p-3">
         {imageUrl ? (
           <img
             src={imageUrl}
             alt={nft.metadata?.name ?? `NFT #${nft.tokenId}`}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-contain object-center"
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-gray-600 text-sm">
@@ -59,7 +61,7 @@ function NftCard({
         <div className="absolute top-2 left-2 bg-black/60 text-xs text-gray-300 px-2 py-0.5 rounded-full pointer-events-none">
           #{nft.tokenId}
         </div>
-        {isListed && (
+        {activeOrder && (
           <div className="absolute top-2 right-2 bg-slate-600/80 text-xs text-slate-200 px-2 py-0.5 rounded-full pointer-events-none">
             Listed
           </div>
@@ -67,22 +69,22 @@ function NftCard({
       </div>
       <div className="p-3 flex flex-col flex-1 min-h-0">
         <p className="text-sm font-semibold text-white truncate">
-          {nft.metadata?.name ?? `SkyNFT #${nft.tokenId}`}
+          {nft.metadata?.name ?? `${TOKENABLE_RWA_DISPLAY_NAME} #${nft.tokenId}`}
         </p>
         {nft.metadata?.description && (
           <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">
             {nft.metadata.description}
           </p>
         )}
-        {isListed && listingPrice && (
+        {activeOrder && listingPrice && (
           <p className="text-xs text-emerald-400/90 mt-1 font-medium">
-            {parseFloat(listingPrice).toLocaleString()} USDC
+            {listingPrice} USDC
           </p>
         )}
         <div className="mt-auto pt-3">
-          {isListed ? (
+          {activeOrder ? (
             <button
-              onClick={() => onCancel(nft.tokenId)}
+              onClick={() => onCancel(activeOrder)}
               disabled={isCancelling}
               className="w-full py-2 text-xs font-medium bg-slate-800/80 hover:bg-slate-700/80 disabled:opacity-50 disabled:cursor-not-allowed text-slate-300 hover:text-slate-200 rounded-lg transition-colors border border-slate-600/60"
             >
@@ -105,25 +107,12 @@ function NftCard({
 export function MyNfts() {
   const { address, isConnected } = useAppStore(useShallow(selectWallet));
   const refresh = useAppStore(selectRefresh);
-  const publicClient = usePublicClient({ chainId: besu.id });
   const queryClient = useQueryClient();
 
   const [listingTokenId, setListingTokenId] = useState<number | null>(null);
-  const [cancellingTokenId, setCancellingTokenId] = useState<number | null>(null);
-
-  /**
-   * Optimistic set: tokenIds that the user has just submitted a list tx for.
-   * Added immediately on tx submit; cleared once the server query confirms listing.
-   */
+  const [cancellingOrderHash, setCancellingOrderHash] = useState<string | null>(null);
   const [pendingListedIds, setPendingListedIds] = useState<Set<number>>(new Set());
-
-  /**
-   * Optimistic set for cancellations — mirrors pendingListedIds in reverse.
-   * Removed immediately on cancel tx submit.
-   */
-  const [pendingCancelledIds, setPendingCancelledIds] = useState<Set<number>>(new Set());
-
-  const { writeContractAsync } = useWriteContract();
+  const [pendingCancelledHashes, setPendingCancelledHashes] = useState<Set<string>>(new Set());
 
   const { data: tokenIds, isLoading } = useQuery({
     queryKey: ["my-nft-ids", address],
@@ -152,73 +141,71 @@ export function MyNfts() {
     enabled: !!tokenIds?.length,
   });
 
-  const { data: listings } = useQuery({
-    queryKey: ["marketplace-listings"],
-    queryFn: getMarketplaceListings,
+  const { data: orders } = useQuery({
+    queryKey: ["marketplace-orders"],
+    queryFn: getActiveOrders,
     enabled: isConnected,
     refetchInterval: 15_000,
   });
 
-  // Merge server listings with optimistic state
-  const serverListedMap = new Map((listings ?? []).map((l) => [l.tokenId, l.price]));
-
-  function isEffectivelyListed(tokenId: number): boolean {
-    if (pendingCancelledIds.has(tokenId)) return false;
-    return serverListedMap.has(tokenId) || pendingListedIds.has(tokenId);
+  // tokenId → Order マップ (active only, not pending cancel)
+  const activeOrderMap = new Map<number, Order>();
+  for (const order of orders ?? []) {
+    if (
+      order.status === "active" &&
+      !pendingCancelledHashes.has(order.orderHash)
+    ) {
+      activeOrderMap.set(Number(order.tokenId), order);
+    }
   }
 
-  function getListingPrice(tokenId: number): string | undefined {
-    return serverListedMap.get(tokenId);
+  // pending listed IDs (optimistic)
+  function getActiveOrder(tokenId: number): Order | undefined {
+    if (pendingListedIds.has(tokenId) && !activeOrderMap.has(tokenId)) {
+      return undefined; // will appear after refetch
+    }
+    return activeOrderMap.get(tokenId);
   }
 
-  /** Called by ListNftModal as soon as the list tx is submitted */
   function handleOptimisticList(tokenId: number) {
     setPendingListedIds((prev) => new Set([...prev, tokenId]));
-    // Remove from cancelled set in case of re-list after cancel
-    setPendingCancelledIds((prev) => {
+    setPendingCancelledHashes((prev) => {
       const next = new Set(prev);
-      next.delete(tokenId);
+      // Remove any cancelled hash associated with this tokenId
+      orders
+        ?.filter((o) => Number(o.tokenId) === tokenId)
+        .forEach((o) => next.delete(o.orderHash));
       return next;
     });
   }
 
-  async function handleCancel(tokenId: number) {
-    setCancellingTokenId(tokenId);
-    // Optimistic update — immediately show as unlisted
-    setPendingCancelledIds((prev) => new Set([...prev, tokenId]));
+  async function handleCancel(order: Order) {
+    if (!address) return;
+    setCancellingOrderHash(order.orderHash);
+
+    // Optimistic update
+    setPendingCancelledHashes((prev) => new Set([...prev, order.orderHash]));
     setPendingListedIds((prev) => {
       const next = new Set(prev);
-      next.delete(tokenId);
+      next.delete(Number(order.tokenId));
       return next;
     });
 
     try {
-      const tx = await writeContractAsync({
-        address: MARKETPLACE_ADDRESS,
-        abi: MARKETPLACE_ABI,
-        functionName: "cancelListing",
-        args: [BigInt(tokenId)],
-        chainId: besu.id,
-      });
-
-      // Wait for confirmation then sync backend
-      if (publicClient) {
-        await publicClient.waitForTransactionReceipt({ hash: tx });
-      }
-
+      await cancelOrder(order.orderHash, address);
       refresh();
-      await queryClient.invalidateQueries({ queryKey: ["marketplace-listings"] });
+      await queryClient.invalidateQueries({ queryKey: ["marketplace-orders"] });
       await queryClient.invalidateQueries({ queryKey: ["my-nft-ids", address] });
     } catch (err) {
-      // Rollback optimistic update on failure
-      setPendingCancelledIds((prev) => {
+      // Rollback on failure
+      setPendingCancelledHashes((prev) => {
         const next = new Set(prev);
-        next.delete(tokenId);
+        next.delete(order.orderHash);
         return next;
       });
       console.error("Cancel listing failed:", err);
     } finally {
-      setCancellingTokenId(null);
+      setCancellingOrderHash(null);
     }
   }
 
@@ -244,9 +231,7 @@ export function MyNfts() {
     return (
       <div className="text-center py-16">
         <p className="text-gray-500 mb-2">You don&apos;t own any NFTs yet.</p>
-        <p className="text-sm text-gray-600">
-          Mint your first NFT from the Mint tab.
-        </p>
+        <p className="text-sm text-gray-600">Mint your first NFT from the Mint tab.</p>
       </div>
     );
   }
@@ -258,11 +243,12 @@ export function MyNfts() {
           <NftCard
             key={nft.tokenId}
             nft={nft}
-            isListed={isEffectivelyListed(nft.tokenId)}
-            listingPrice={getListingPrice(nft.tokenId)}
+            activeOrder={getActiveOrder(nft.tokenId)}
             onList={setListingTokenId}
             onCancel={handleCancel}
-            isCancelling={cancellingTokenId === nft.tokenId}
+            isCancelling={
+              cancellingOrderHash === (activeOrderMap.get(nft.tokenId)?.orderHash ?? "")
+            }
           />
         ))}
       </div>

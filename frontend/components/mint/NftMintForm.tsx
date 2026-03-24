@@ -2,22 +2,26 @@
 
 import { useState } from "react";
 import { useAccount } from "wagmi";
-import { besu } from "@/config/wagmi";
+import { sepolia } from "@/config/wagmi";
 import { MintForm } from "./MintForm";
-import { ensureBesuNetwork } from "@/lib/ensureBesuNetwork";
+import { ensureSepoliaNetwork } from "@/lib/ensureSepoliaNetwork";
 
 export function NftMintForm() {
   const { isConnected, chain, connector } = useAccount();
   const [isSwitching, setIsSwitching] = useState(false);
-  const isWrongNetwork = isConnected && chain?.id !== besu.id;
+  const isWrongNetwork = isConnected && chain?.id !== sepolia.id;
 
-  async function handleSwitchToBesu() {
+  async function handleSwitchToSepolia() {
     if (!connector) return;
     setIsSwitching(true);
     try {
-      const provider = await connector.getProvider() as { request?: (args: { method: string; params?: unknown[] }) => Promise<unknown> } | null;
+      const provider = await connector.getProvider() as {
+        request?: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
+      } | null;
       if (provider?.request) {
-        await ensureBesuNetwork(provider as Parameters<typeof ensureBesuNetwork>[0]);
+        await ensureSepoliaNetwork(
+          provider as Parameters<typeof ensureSepoliaNetwork>[0]
+        );
       }
     } finally {
       setIsSwitching(false);
@@ -39,14 +43,14 @@ export function NftMintForm() {
         <div className="text-4xl mb-3">⚠️</div>
         <p className="text-red-400 font-medium">Wrong Network</p>
         <p className="text-gray-500 text-sm mt-1">
-          Please switch to SkyAnd Chain (Chain ID: 2741)
+          Please switch to Ethereum Sepolia (Chain ID: 11155111)
         </p>
         <button
-          onClick={handleSwitchToBesu}
+          onClick={() => void handleSwitchToSepolia()}
           disabled={isSwitching}
           className="mt-4 px-4 py-2 bg-emerald-600/80 hover:bg-emerald-500/80 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition-colors"
         >
-          {isSwitching ? "Switching..." : "Switch to SkyAnd Chain"}
+          {isSwitching ? "Switching..." : "Switch to Sepolia"}
         </button>
       </div>
     );

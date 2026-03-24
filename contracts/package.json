@@ -7,7 +7,8 @@
     "compile": "hardhat compile",
     "test": "hardhat test",
     "deploy:usdc": "hardhat run scripts/deploy-mock-usdc.ts --network besu",
-    "deploy:nft": "hardhat run scripts/deploy-sky-nft.ts --network besu",
+    "deploy:nft": "hardhat run scripts/deploy-tokenable-rwa.ts --network besu",
+    "deploy:nft-sepolia": "hardhat run scripts/deploy-tokenable-rwa-sepolia.ts --network sepolia",
     "deploy:marketplace": "hardhat run scripts/deploy-marketplace.ts --network besu",
     "clean": "hardhat clean"
   },

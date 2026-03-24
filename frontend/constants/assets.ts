@@ -13,14 +13,14 @@
 const ASSETS_BASE = "/assets";
 
 export const ASSETS = {
-  /** 메인 로고 (SKYAND 풀 로고) */
+  /** 메인 로고 (Tokenable / Tokenable_RWA) */
   logo: {
-    skyand: `${ASSETS_BASE}/logo/tokenable.png`,
+    tokenable: `${ASSETS_BASE}/logo/tokenable.png`,
   },
 
   /** 아이콘 (favicon, 앱 아이콘 등) */
   icons: {
-    skyand: `${ASSETS_BASE}/icons/tokenable_icon.png`,
+    tokenable: `${ASSETS_BASE}/icons/tokenable_icon.png`,
   },
 
   /** 기타 이미지 */
@@ -28,4 +28,4 @@ export const ASSETS = {
 } as const;
 
 /** favicon 경로 (layout metadata용) */
-export const FAVICON = ASSETS.icons.skyand;
+export const FAVICON = ASSETS.icons.tokenable;

@@ -70,7 +70,7 @@
 | **항목**      | **기술 및 선택**           | **설명 및 이유**                          |
 | ------------- | -------------------------- | ----------------------------------------- | -------------------- |
 | 개발 도구     | Hardhat                    | 2.x                                       | 컴파일, 테스트, 배포 |
-| NFT 컨트랙트  | OpenZeppelin ERC-721       | SkyNFT (Enumerable + URIStorage)          |
+| NFT 컨트랙트  | OpenZeppelin ERC-721       | TokenableRWA / Tokenable_RWA (Enumerable + URIStorage) |
 | 결제 토큰     | MockUSDC (ERC-20)          | 6 decimals, 테스트용                      |
 | 마켓플레이스  | SkyMarketplace (자체 구현) | listItem, cancelListing, buyItem          |
 | 배포 네트워크 | Hyperledger Besu           | besu.dressdio.me (Chain ID 2741)          |
@@ -145,7 +145,7 @@ PostgreSQL (예정)
         ↓
 Hyperledger Besu (besu.dressdio.me)
         ↓
-SkyMarketplace + SkyNFT + MockUSDC
+SkyMarketplace (legacy) + TokenableRWA + MockUSDC
         ↓
 IPFS / Pinata (이미지 & 메타데이터)
 ```
