@@ -183,6 +183,11 @@ export function GradedCardSection({
               <h4 className="text-xs font-semibold text-amber-400/90 uppercase tracking-wider mb-3">
                 Verification
               </h4>
+              {gradingCompany === "PSA" && (
+                <p className="text-xs text-amber-200/75 mb-3 -mt-1 leading-relaxed">
+                  슬랩 이미지를 선택하면 아래에서 자동으로 데이터 추출이 시작됩니다.
+                </p>
+              )}
               <div>
                 <label className="block text-xs text-gray-500 mb-1">
                   Certification URL{" "}
@@ -200,13 +205,21 @@ export function GradedCardSection({
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
                 <ImageInput
-                  label="Slab Front Image (optional)"
+                  label={
+                    gradingCompany === "PSA"
+                      ? "Slab Front (자동 분석 트리거)"
+                      : "Slab Front Image (optional)"
+                  }
                   value={verification.slabFront}
                   onChange={(f) => onVerificationChange({ ...verification, slabFront: f })}
                   mode="file"
                 />
                 <ImageInput
-                  label="Slab Back Image (optional)"
+                  label={
+                    gradingCompany === "PSA"
+                      ? "Slab Back (선택 · 추가 시 재분석)"
+                      : "Slab Back Image (optional)"
+                  }
                   value={verification.slabBack}
                   onChange={(f) => onVerificationChange({ ...verification, slabBack: f })}
                   mode="file"
@@ -276,6 +289,28 @@ function CompanySpecificBlock({
             onChange={(v) => set("psaPopulation", v)}
             optional
           />
+          <InputField
+            label="PSA Pop Higher"
+            value={String(get("psaPopHigher"))}
+            onChange={(v) => set("psaPopHigher", v)}
+            optional
+          />
+          <div className="sm:col-span-2">
+            <InputField
+              label="Label Type"
+              value={String(get("labelType"))}
+              onChange={(v) => set("labelType", v)}
+              optional
+            />
+          </div>
+          <div className="sm:col-span-2">
+            <InputField
+              label="Category (PSA)"
+              value={String(get("psaCategory"))}
+              onChange={(v) => set("psaCategory", v)}
+              optional
+            />
+          </div>
         </div>
       )}
 

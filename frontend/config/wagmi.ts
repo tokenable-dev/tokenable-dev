@@ -1,24 +1,19 @@
 import { createConfig, http } from "wagmi";
-import { defineChain } from "viem";
+import { sepolia } from "viem/chains";
 import { metaMask } from "wagmi/connectors";
 
-export const besu = defineChain({
-  id: 2741,
-  name: "SkyAnd Chain",
-  rpcUrls: {
-    default: { http: ["https://besu.dressdio.me"] },
-  },
-  nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
-  blockExplorers: {
-    default: { name: "Besu Explorer", url: "https://besu.dressdio.me" },
-  },
-});
+const ALCHEMY_RPC =
+  process.env.NEXT_PUBLIC_ALCHEMY_RPC_URL ??
+  "https://eth-sepolia.g.alchemy.com/v2/demo";
 
 export const wagmiConfig = createConfig({
-  chains: [besu],
+  chains: [sepolia],
   connectors: [metaMask()],
   transports: {
-    [besu.id]: http("https://besu.dressdio.me"),
+    [sepolia.id]: http(ALCHEMY_RPC),
   },
   ssr: true,
 });
+
+/** Re-export for convenience so other files can import `sepolia` from here */
+export { sepolia };

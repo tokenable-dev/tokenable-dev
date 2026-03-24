@@ -1,4 +1,4 @@
-export const SKY_NFT_ABI = [
+export const TOKENABLE_RWA_ABI = [
   {
     inputs: [],
     stateMutability: 'nonpayable',

@@ -5,336 +5,164 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   usePublicClient,
+  useReadContract,
   useWriteContract,
   useWaitForTransactionReceipt,
 } from "wagmi";
-import { parseUnits, formatUnits, parseAbiItem } from "viem";
+import { sepolia } from "@/config/wagmi";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useShallow } from "zustand/react/shallow";
 import {
-  getMarketplaceListing,
+  getOrderByTokenId,
+  getOrderHistoryByTokenId,
   fetchIpfsMetadata,
   resolveIpfsImage,
+  fulfillOrderApi,
+  type Order,
 } from "@/lib/api";
-import { NftImageZoom } from "@/components/common";
+import { NftImageZoom, GradedMetadataPanel } from "@/components/common";
 import {
-  SKY_NFT_ADDRESS,
+  TOKENABLE_RWA_ADDRESS,
+  TOKENABLE_RWA_DISPLAY_NAME,
+  TOKENABLE_RWA_READ_ABI,
   USDC_ADDRESS,
-  MARKETPLACE_ADDRESS,
+  SEAPORT_ADDRESS,
   USDC_ABI,
-  MARKETPLACE_ABI,
+  SEAPORT_ABI,
 } from "@/constants/contracts";
 import { ASSETS } from "@/constants/assets";
-
-// ── Parsed event ABIs (more reliable than raw objects with viem getLogs) ──────
-const EV_MINTED = parseAbiItem(
-  "event Minted(address indexed to, uint256 indexed tokenId, string tokenURI)",
-);
-const EV_LISTED = parseAbiItem(
-  "event Listed(uint256 indexed tokenId, address indexed seller, uint256 price)",
-);
-const EV_SOLD = parseAbiItem(
-  "event Sold(uint256 indexed tokenId, address indexed buyer, uint256 price)",
-);
-const EV_CANCELLED = parseAbiItem("event Cancelled(uint256 indexed tokenId)");
-import { besu } from "@/config/wagmi";
-import {
-  useAppStore,
-  selectWallet,
-  selectUsdcBalance,
-  selectRefresh,
-} from "@/store";
+import { useAppStore, selectWallet, selectUsdcBalance, selectRefresh } from "@/store";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type BuyStep = "idle" | "approving" | "buying" | "success" | "error";
 
-type ActivityEventType = "Mint" | "Listed" | "Sold" | "Cancelled";
-
-interface ActivityEvent {
-  type: ActivityEventType;
-  blockNumber: bigint;
-  txHash: string;
-  timestamp?: number;
-  from?: string;
-  to?: string;
-  price?: string;
-}
-
-// ─── Activity history hook ────────────────────────────────────────────────────
-
-/**
- * Safely call getLogs — returns [] and logs to console on failure.
- * This prevents one failing call from killing the whole activity fetch.
- */
-async function safeGetLogs<T>(
-  fn: () => Promise<T[]>,
-  label: string,
-): Promise<T[]> {
-  try {
-    return await fn();
-  } catch (err) {
-    console.error(`[Activity] getLogs failed for ${label}:`, err);
-    return [];
-  }
-}
-
-/** Besu (and most nodes) limit eth_getLogs block range. Use a safe window. */
-const ACTIVITY_BLOCK_RANGE = BigInt(3000);
+// ─── Activity history (DB 기반) ───────────────────────────────────────────────
 
 function useActivityHistory(tokenId: number) {
-  const publicClient = usePublicClient({ chainId: besu.id });
-
   return useQuery({
     queryKey: ["nft-activity", tokenId],
-    queryFn: async (): Promise<ActivityEvent[]> => {
-      if (!publicClient) return [];
-
-      const tokenIdBig = BigInt(tokenId);
-
-      // Get current block and compute a safe range (avoids "exceeds RPC range limit")
-      const latestBlock = await publicClient.getBlockNumber();
-      const fromBlock =
-        latestBlock > ACTIVITY_BLOCK_RANGE
-          ? latestBlock - ACTIVITY_BLOCK_RANGE
-          : BigInt(0);
-
-      const blockRange = { fromBlock, toBlock: "latest" as const };
-
-      // Each call is isolated — a single failure won't block the others
-      const [mintedLogs, listedLogs, soldLogs, cancelledLogs] =
-        await Promise.all([
-          safeGetLogs(
-            () =>
-              publicClient.getLogs({
-                address: SKY_NFT_ADDRESS,
-                event: EV_MINTED,
-                args: { tokenId: tokenIdBig },
-                ...blockRange,
-              }),
-            "Minted",
-          ),
-          safeGetLogs(
-            () =>
-              publicClient.getLogs({
-                address: MARKETPLACE_ADDRESS,
-                event: EV_LISTED,
-                args: { tokenId: tokenIdBig },
-                ...blockRange,
-              }),
-            "Listed",
-          ),
-          safeGetLogs(
-            () =>
-              publicClient.getLogs({
-                address: MARKETPLACE_ADDRESS,
-                event: EV_SOLD,
-                args: { tokenId: tokenIdBig },
-                ...blockRange,
-              }),
-            "Sold",
-          ),
-          safeGetLogs(
-            () =>
-              publicClient.getLogs({
-                address: MARKETPLACE_ADDRESS,
-                event: EV_CANCELLED,
-                args: { tokenId: tokenIdBig },
-                ...blockRange,
-              }),
-            "Cancelled",
-          ),
-        ]);
-
-      // Collect unique block numbers to fetch timestamps in one batch
-      const blockNums = new Set<bigint>();
-      [...mintedLogs, ...listedLogs, ...soldLogs, ...cancelledLogs].forEach(
-        (l) => l.blockNumber && blockNums.add(l.blockNumber),
-      );
-
-      const blockTimestamps = new Map<bigint, number>();
-      await Promise.all(
-        [...blockNums].map(async (bn) => {
-          try {
-            const block = await publicClient.getBlock({ blockNumber: bn });
-            blockTimestamps.set(bn, Number(block.timestamp));
-          } catch {
-            // timestamp stays undefined — not a blocking failure
-          }
-        }),
-      );
-
-      const events: ActivityEvent[] = [];
-
-      mintedLogs.forEach((log) => {
-        const args = log.args as { to?: string };
-        events.push({
-          type: "Mint",
-          blockNumber: log.blockNumber ?? BigInt(0),
-          txHash: log.transactionHash ?? "",
-          timestamp: log.blockNumber
-            ? blockTimestamps.get(log.blockNumber)
-            : undefined,
-          to: args.to,
-        });
-      });
-
-      listedLogs.forEach((log) => {
-        const args = log.args as { seller?: string; price?: bigint };
-        events.push({
-          type: "Listed",
-          blockNumber: log.blockNumber ?? BigInt(0),
-          txHash: log.transactionHash ?? "",
-          timestamp: log.blockNumber
-            ? blockTimestamps.get(log.blockNumber)
-            : undefined,
-          from: args.seller,
-          price: args.price ? formatUnits(args.price, 6) : undefined,
-        });
-      });
-
-      soldLogs.forEach((log) => {
-        const args = log.args as { buyer?: string; price?: bigint };
-        events.push({
-          type: "Sold",
-          blockNumber: log.blockNumber ?? BigInt(0),
-          txHash: log.transactionHash ?? "",
-          timestamp: log.blockNumber
-            ? blockTimestamps.get(log.blockNumber)
-            : undefined,
-          to: args.buyer,
-          price: args.price ? formatUnits(args.price, 6) : undefined,
-        });
-      });
-
-      cancelledLogs.forEach((log) => {
-        events.push({
-          type: "Cancelled",
-          blockNumber: log.blockNumber ?? BigInt(0),
-          txHash: log.transactionHash ?? "",
-          timestamp: log.blockNumber
-            ? blockTimestamps.get(log.blockNumber)
-            : undefined,
-        });
-      });
-
-      return events.sort((a, b) => Number(b.blockNumber - a.blockNumber));
-    },
-    enabled: !!publicClient,
-    staleTime: 30_000,
+    queryFn: () => getOrderHistoryByTokenId(tokenId),
+    staleTime: 15_000,
     retry: 1,
   });
 }
 
-// ─── Helper components ────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function shortAddr(addr?: string) {
   if (!addr) return "—";
-  return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+  const a = addr.startsWith("0x") ? addr : `0x${addr}`;
+  if (a.length <= 14) return a;
+  return `${a.slice(0, 6)}...${a.slice(-4)}`;
+}
+
+/** 긴 숫자형 Token ID를 중간 말줄임 (예: 110660…7983) */
+function formatTokenIdDisplay(id: number): string {
+  if (!Number.isFinite(id)) return "—";
+  const s = String(Math.trunc(id));
+  if (s.length <= 12) return s;
+  return `${s.slice(0, 6)}…${s.slice(-4)}`;
+}
+
+/**
+ * API/DB는 UTC인데 `Z` 없이 오면 `new Date(str)`이 로컬(예: 한국)로 해석되어
+ * 약 9시간 어긋날 수 있음 → 오프셋 없으면 UTC로 고정.
+ */
+function parseApiUtcMs(raw: string | undefined | null): number {
+  if (raw == null || raw === "") return 0;
+  let s = String(raw).trim();
+  const hasOffset =
+    /Z$/i.test(s) ||
+    /[+-]\d{2}:\d{2}$/.test(s) ||
+    /[+-]\d{4}$/.test(s);
+  if (hasOffset) {
+    const t = new Date(s).getTime();
+    return Number.isFinite(t) ? t : 0;
+  }
+  s = s.includes("T") ? s : s.replace(" ", "T");
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?$/.test(s)) {
+    const t = new Date(`${s}Z`).getTime();
+    return Number.isFinite(t) ? t : 0;
+  }
+  const t = new Date(s).getTime();
+  return Number.isFinite(t) ? t : 0;
 }
 
 function timeAgo(ts?: number): string {
-  if (!ts) return "";
+  if (ts == null || !Number.isFinite(ts) || ts <= 0) return "";
   const diff = Math.floor(Date.now() / 1000) - ts;
-  if (diff < 60) return `${diff}s ago`;
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-  return `${Math.floor(diff / 86400)}d ago`;
+  if (diff < 60)
+    return `${diff} second${diff === 1 ? "" : "s"} ago`;
+  if (diff < 3600) {
+    const m = Math.floor(diff / 60);
+    return `${m} minute${m === 1 ? "" : "s"} ago`;
+  }
+  if (diff < 86400) {
+    const h = Math.floor(diff / 3600);
+    return `${h} hour${h === 1 ? "" : "s"} ago`;
+  }
+  const d = Math.floor(diff / 86400);
+  return `${d} day${d === 1 ? "" : "s"} ago`;
 }
 
-const EVENT_STYLES: Record<
-  ActivityEventType,
-  { bg: string; text: string; icon: string; label: string }
-> = {
-  Mint: {
-    bg: "bg-purple-900/40 border-purple-700/40",
-    text: "text-purple-300",
-    icon: "✦",
-    label: "Mint",
-  },
-  Listed: {
-    bg: "bg-blue-900/40 border-blue-700/40",
-    text: "text-blue-300",
-    icon: "◈",
-    label: "Listed",
-  },
-  Sold: {
-    bg: "bg-green-900/40 border-green-700/40",
-    text: "text-green-300",
-    icon: "◆",
-    label: "Sale",
-  },
-  Cancelled: {
-    bg: "bg-gray-800/60 border-gray-700/40",
-    text: "text-gray-400",
-    icon: "✕",
-    label: "Cancelled",
-  },
-};
+const SEPOLIA_ETHERSCAN = "https://sepolia.etherscan.io";
 
-function ActivityRow({ event }: { event: ActivityEvent }) {
-  const style = EVENT_STYLES[event.type];
+function explorerAddrPath(addr: string): string {
+  return `${SEPOLIA_ETHERSCAN}/address/${addr}`;
+}
+
+/** Seaport consideration 중 offerer가 아닌 수령인(수수료·구매자 힌트 등) */
+function firstNonOffererRecipient(order: Order): string | undefined {
+  const o = order.offerer.toLowerCase();
+  for (const c of order.parameters.consideration ?? []) {
+    const r = c.recipient?.toLowerCase();
+    if (r && r !== o) return c.recipient;
+  }
+  return undefined;
+}
+
+function IconExternalLink({ className }: { className?: string }) {
   return (
-    <div
-      className={`flex items-start gap-4 p-4 rounded-xl border ${style.bg} transition-colors`}
+    <svg
+      className={className}
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
     >
-      <div
-        className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 text-sm font-bold ${style.text} bg-black/20`}
-      >
-        {style.icon}
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className={`text-sm font-semibold ${style.text}`}>
-            {style.label}
-          </span>
-          {event.price && (
-            <span className="text-sm font-bold text-white">
-              {parseFloat(event.price).toLocaleString()} USDC
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-3 mt-1 text-xs text-gray-500 flex-wrap">
-          {event.type === "Mint" && event.to && (
-            <span>
-              To{" "}
-              <span className="font-mono text-gray-400">
-                {shortAddr(event.to)}
-              </span>
-            </span>
-          )}
-          {event.type === "Listed" && event.from && (
-            <span>
-              From{" "}
-              <span className="font-mono text-gray-400">
-                {shortAddr(event.from)}
-              </span>
-            </span>
-          )}
-          {event.type === "Sold" && event.to && (
-            <span>
-              To{" "}
-              <span className="font-mono text-gray-400">
-                {shortAddr(event.to)}
-              </span>
-            </span>
-          )}
-          {event.timestamp && (
-            <span className="text-gray-600">{timeAgo(event.timestamp)}</span>
-          )}
-        </div>
-      </div>
-      {event.txHash && (
-        <span
-          className="text-xs font-mono text-gray-700 truncate max-w-24 shrink-0 hidden sm:block"
-          title={event.txHash}
-        >
-          {event.txHash.slice(0, 10)}…
-        </span>
-      )}
-    </div>
+      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+      <polyline points="15 3 21 3 21 9" />
+      <line x1="10" y1="14" x2="21" y2="3" />
+    </svg>
   );
 }
+
+function IconTag({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z" />
+      <line x1="7" y1="7" x2="7.01" y2="7" />
+    </svg>
+  );
+}
+
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 
@@ -344,43 +172,75 @@ export default function NftDetailPage() {
   const tokenId = Number(params.tokenId);
 
   const { address, isConnected } = useAppStore(useShallow(selectWallet));
-  const { usdcBalance, usdcBalanceFormatted } = useAppStore(
-    useShallow(selectUsdcBalance),
-  );
+  const { usdcBalance, usdcBalanceFormatted } = useAppStore(useShallow(selectUsdcBalance));
   const refresh = useAppStore(selectRefresh);
 
-  const publicClient = usePublicClient({ chainId: besu.id });
+  const publicClient = usePublicClient({ chainId: sepolia.id });
   const queryClient = useQueryClient();
   const { writeContractAsync } = useWriteContract();
 
   const [buyStep, setBuyStep] = useState<BuyStep>("idle");
   const [errorMsg, setErrorMsg] = useState("");
-  const [approveTxHash, setApproveTxHash] = useState<
-    `0x${string}` | undefined
-  >();
+  const [approveTxHash, setApproveTxHash] = useState<`0x${string}` | undefined>();
+  const [detailsExtraOpen, setDetailsExtraOpen] = useState(false);
 
-  useWaitForTransactionReceipt({ hash: approveTxHash, chainId: besu.id });
+  useWaitForTransactionReceipt({ hash: approveTxHash, chainId: sepolia.id });
 
   // ── Data fetching ──────────────────────────────────────────────────────────
 
   const {
-    data: listing,
-    isLoading: listingLoading,
-    isError: listingError,
+    data: order,
+    isLoading: orderLoading,
+    isError: orderError,
   } = useQuery({
-    queryKey: ["marketplace-listing", tokenId],
-    queryFn: () => getMarketplaceListing(tokenId),
+    queryKey: ["marketplace-order-by-token", tokenId],
+    queryFn: () => getOrderByTokenId(tokenId),
     retry: 1,
   });
 
-  const { data: metadata, isLoading: metaLoading } = useQuery({
+  const { data: metaBundle, isLoading: metaLoading } = useQuery({
     queryKey: ["nft-metadata", tokenId],
-    queryFn: () =>
-      listing?.tokenURI
-        ? fetchIpfsMetadata(listing.tokenURI)
-        : Promise.resolve(null),
-    enabled: !!listing?.tokenURI,
+    queryFn: async () => {
+      if (!order?.parameters?.offer?.[0]?.token) return null;
+      const base =
+        process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api";
+      const uriRes = await fetch(`${base}/blockchain/nft/token-uri/${tokenId}`);
+      if (!uriRes.ok) return null;
+      const rawText = await uriRes.text();
+      let tokenURI = rawText.trim();
+      try {
+        const parsed = JSON.parse(rawText);
+        tokenURI =
+          typeof parsed === "string"
+            ? parsed
+            : parsed?.tokenURI ?? String(parsed);
+      } catch {
+        // use rawText
+      }
+      if (!tokenURI) return null;
+      const metadata = await fetchIpfsMetadata(tokenURI).catch(() => null);
+      return { metadata, tokenURI };
+    },
+    enabled: !!order,
   });
+
+  const { data: ownerOnChain } = useReadContract({
+    address: TOKENABLE_RWA_ADDRESS,
+    abi: TOKENABLE_RWA_READ_ABI,
+    functionName: "ownerOf",
+    args: [BigInt(Math.max(0, Math.floor(tokenId)))],
+    chainId: sepolia.id,
+    query: {
+      enabled:
+        Number.isFinite(tokenId) &&
+        tokenId >= 0 &&
+        !orderLoading &&
+        !!order,
+    },
+  });
+
+  const metadata = metaBundle?.metadata ?? null;
+  const tokenURIOnChain = metaBundle?.tokenURI ?? null;
 
   const {
     data: activity,
@@ -391,61 +251,108 @@ export default function NftDetailPage() {
 
   // ── Buy logic ──────────────────────────────────────────────────────────────
 
-  const isSelf = address?.toLowerCase() === listing?.seller.toLowerCase();
-  const priceInUnits = listing ? parseUnits(listing.price, 6) : BigInt(0);
+  const isSelf = address?.toLowerCase() === order?.offerer.toLowerCase();
+  // considerationAmount is already in USDC smallest unit (e.g. 20000 = 0.02 USDC)
+  const priceInUnits = order ? BigInt(order.considerationAmount) : BigInt(0);
   const hasEnoughUsdc = isSelf || usdcBalance >= priceInUnits;
   const isBuying = buyStep === "approving" || buyStep === "buying";
 
   async function handleBuy() {
-    if (!address || !listing) return;
+    if (!address || !order) return;
     setBuyStep("approving");
     setErrorMsg("");
+
     try {
+      // Step 1: Approve USDC to Seaport
       const approveTx = await writeContractAsync({
         address: USDC_ADDRESS,
         abi: USDC_ABI,
         functionName: "approve",
-        args: [MARKETPLACE_ADDRESS, priceInUnits],
-        chainId: besu.id,
+        args: [SEAPORT_ADDRESS, priceInUnits],
+        chainId: sepolia.id,
       });
       setApproveTxHash(approveTx);
+      if (publicClient) {
+        await publicClient.waitForTransactionReceipt({ hash: approveTx });
+      }
 
+      // Step 2: Seaport.fulfillOrder
       setBuyStep("buying");
-      const buyTx = await writeContractAsync({
-        address: MARKETPLACE_ADDRESS,
-        abi: MARKETPLACE_ABI,
-        functionName: "buyItem",
-        args: [BigInt(tokenId)],
-        chainId: besu.id,
+      const params = order.parameters;
+
+      const fulfillTx = await writeContractAsync({
+        address: SEAPORT_ADDRESS,
+        abi: SEAPORT_ABI,
+        functionName: "fulfillOrder",
+        args: [
+          {
+            parameters: {
+              offerer: params.offerer as `0x${string}`,
+              zone: params.zone as `0x${string}`,
+              offer: params.offer.map((item) => ({
+                itemType: item.itemType,
+                token: item.token as `0x${string}`,
+                identifierOrCriteria: BigInt(item.identifierOrCriteria),
+                startAmount: BigInt(item.startAmount),
+                endAmount: BigInt(item.endAmount),
+              })),
+              consideration: params.consideration.map((item) => ({
+                itemType: item.itemType,
+                token: item.token as `0x${string}`,
+                identifierOrCriteria: BigInt(item.identifierOrCriteria),
+                startAmount: BigInt(item.startAmount),
+                endAmount: BigInt(item.endAmount),
+                recipient: item.recipient as `0x${string}`,
+              })),
+              orderType: params.orderType,
+              startTime: BigInt(params.startTime),
+              endTime: BigInt(params.endTime),
+              zoneHash: params.zoneHash as `0x${string}`,
+              salt: BigInt(params.salt),
+              conduitKey: params.conduitKey as `0x${string}`,
+              totalOriginalConsiderationItems: BigInt(
+                params.totalOriginalConsiderationItems
+              ),
+            },
+            signature: order.signature as `0x${string}`,
+          },
+          "0x0000000000000000000000000000000000000000000000000000000000000000" as `0x${string}`,
+        ],
+        chainId: sepolia.id,
+        gas: BigInt(400000),
       });
 
       if (publicClient) {
-        await publicClient.waitForTransactionReceipt({ hash: buyTx });
+        const receipt = await publicClient.waitForTransactionReceipt({ hash: fulfillTx });
+        if (receipt.status === "reverted") {
+          throw new Error(
+            `Transaction was reverted on-chain (tx: ${fulfillTx}).\n` +
+            "Please ensure your account has enough Sepolia USDC and try again."
+          );
+        }
       }
+
+      // Step 3: Update backend status — only after confirmed on-chain success
+      await fulfillOrderApi(order.orderHash);
 
       setBuyStep("success");
       refresh();
-      await queryClient.invalidateQueries({
-        queryKey: ["marketplace-listings"],
-      });
-      await queryClient.invalidateQueries({
-        queryKey: ["marketplace-listing", tokenId],
-      });
-      await queryClient.invalidateQueries({
-        queryKey: ["nft-activity", tokenId],
-      });
+      await queryClient.invalidateQueries({ queryKey: ["marketplace-orders"] });
+      await queryClient.invalidateQueries({ queryKey: ["marketplace-order-by-token", tokenId] });
+      await queryClient.invalidateQueries({ queryKey: ["nft-activity", tokenId] });
     } catch (err: unknown) {
       setErrorMsg(err instanceof Error ? err.message : "Transaction failed");
       setBuyStep("error");
     }
   }
 
-  // ── Derived values ─────────────────────────────────────────────────────────
+  // ── Derived ────────────────────────────────────────────────────────────────
 
   const imageUrl = metadata?.image ? resolveIpfsImage(metadata.image) : null;
-  const isPageLoading = listingLoading || metaLoading;
-
-  // ── Render ─────────────────────────────────────────────────────────────────
+  const isPageLoading = orderLoading || metaLoading;
+  const priceDisplay = order
+    ? (Number(order.considerationAmount) / 1_000_000).toLocaleString()
+    : "0";
 
   return (
     <div className="min-h-screen bg-gray-950 text-white">
@@ -454,8 +361,8 @@ export default function NftDetailPage() {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center gap-4 text-sm">
           <Link href="/" className="shrink-0">
             <img
-              src={ASSETS.logo.skyand}
-              alt="SKYAND"
+              src={ASSETS.logo.tokenable}
+              alt="Tokenable"
               width={112}
               height={22}
               className="h-5 w-auto invert"
@@ -476,7 +383,7 @@ export default function NftDetailPage() {
       </header>
 
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-8">
-        {/* ── Loading skeleton ── */}
+        {/* Loading */}
         {isPageLoading && (
           <div className="grid grid-cols-1 md:grid-cols-[1fr_420px] gap-8">
             <div className="aspect-square bg-gray-800 rounded-2xl animate-pulse" />
@@ -492,8 +399,8 @@ export default function NftDetailPage() {
           </div>
         )}
 
-        {/* ── Not found ── */}
-        {listingError && !isPageLoading && (
+        {/* Not found */}
+        {!orderLoading && (order === null || orderError) && (
           <div className="text-center py-24">
             <p className="text-5xl mb-4">🔍</p>
             <p className="text-xl font-semibold text-white mb-2">
@@ -511,8 +418,8 @@ export default function NftDetailPage() {
           </div>
         )}
 
-        {/* ── Main content ── */}
-        {!isPageLoading && listing && (
+        {/* Main content */}
+        {!isPageLoading && order && (
           <>
             <div className="grid grid-cols-1 md:grid-cols-[1fr_420px] gap-8 items-start">
               {/* Left — Image */}
@@ -533,24 +440,19 @@ export default function NftDetailPage() {
                   )}
                 </div>
 
-                {/* Attributes */}
                 {metadata?.attributes && metadata.attributes.length > 0 && (
-                  <div className="bg-gray-900/60 border border-gray-800 rounded-2xl p-5">
-                    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
-                      Details
+                  <div className="bg-gray-900/60 border border-gray-800 rounded-2xl p-4">
+                    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                      Traits
                     </h3>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-1.5">
                       {metadata.attributes.map((attr) => (
                         <span
                           key={attr.trait_type}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-800 border border-gray-700 rounded-full text-xs"
+                          className="inline-flex items-center gap-1 px-2.5 py-1 bg-gray-800/90 border border-gray-700/80 rounded-full text-[11px] leading-tight"
                         >
-                          <span className="text-gray-500">
-                            {attr.trait_type}
-                          </span>
-                          <span className="text-white font-medium">
-                            {attr.value}
-                          </span>
+                          <span className="text-gray-500">{attr.trait_type}</span>
+                          <span className="text-white font-medium">{attr.value}</span>
                         </span>
                       ))}
                     </div>
@@ -560,75 +462,68 @@ export default function NftDetailPage() {
 
               {/* Right — Info & Buy */}
               <div className="space-y-4">
-                {/* Status badge */}
                 <div className="flex items-center gap-2">
                   <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-blue-900/40 border border-blue-700/40 text-blue-300">
                     <span className="w-1.5 h-1.5 rounded-full bg-blue-400 inline-block" />
                     Listed for Sale
                   </span>
                   <span className="text-xs text-gray-600">
-                    SkyNFT #{tokenId}
+                    {TOKENABLE_RWA_DISPLAY_NAME} #{tokenId}
                   </span>
                 </div>
 
-                {/* Title */}
                 <div>
                   <h1 className="text-3xl font-extrabold text-white leading-tight">
-                    {metadata?.name ?? `SkyNFT #${tokenId}`}
+                    {metadata?.name ?? `${TOKENABLE_RWA_DISPLAY_NAME} #${tokenId}`}
                   </h1>
                   {metadata?.description && (
                     <p className="text-gray-400 text-sm mt-2 leading-relaxed">
                       {metadata.description}
                     </p>
                   )}
+                  {metadata?.external_url && (
+                    <a
+                      href={metadata.external_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-sm text-amber-400/90 hover:text-amber-300 mt-3"
+                    >
+                      View certification link ↗
+                    </a>
+                  )}
                 </div>
 
-                {/* Owned by */}
                 <div className="flex items-center gap-2 text-sm">
                   <span className="text-gray-500">Owned by</span>
                   <span className="font-mono text-blue-400 font-medium">
-                    {shortAddr(listing.seller)}
+                    {shortAddr(order.offerer)}
                     {isSelf && (
-                      <span className="ml-1.5 text-xs text-yellow-500">
-                        (You)
-                      </span>
+                      <span className="ml-1.5 text-xs text-yellow-500">(You)</span>
                     )}
                   </span>
                 </div>
 
-                {/* Price card */}
                 <div className="bg-gray-900/60 border border-gray-800 rounded-2xl p-5 space-y-3">
-                  <p className="text-xs text-gray-500 uppercase tracking-wider">
-                    Price
-                  </p>
+                  <p className="text-xs text-gray-500 uppercase tracking-wider">Price</p>
                   <p className="text-4xl font-extrabold text-white">
-                    {parseFloat(listing.price).toLocaleString()}
+                    {priceDisplay}
                     <span className="text-xl text-gray-400 ml-2">USDC</span>
                   </p>
                   {isConnected && address && (
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-gray-500">Your balance</span>
-                      <span
-                        className={
-                          hasEnoughUsdc ? "text-gray-300" : "text-orange-400"
-                        }
-                      >
+                      <span className={hasEnoughUsdc ? "text-gray-300" : "text-orange-400"}>
                         {parseFloat(usdcBalanceFormatted).toLocaleString()} USDC
                       </span>
                     </div>
                   )}
                 </div>
 
-                {/* Buy section */}
                 {buyStep === "success" ? (
                   <div className="bg-emerald-900/30 border border-emerald-700/40 rounded-2xl p-6 text-center">
-                    <div className="text-4xl mb-2"></div>
-                    <p className="text-lg font-bold text-emerald-400">
-                      Purchase Complete!
-                    </p>
-                    <p className="text-sm text-gray-400 mt-1">
-                      NFT #{tokenId} is now yours.
-                    </p>
+                    <div className="text-4xl mb-2">🎉</div>
+                    <p className="text-lg font-bold text-emerald-400">Purchase Complete!</p>
+                    <p className="text-sm text-gray-400 mt-1">NFT #{tokenId} is now yours.</p>
                     <button
                       onClick={() => router.push("/?tab=my-nfts")}
                       className="mt-4 w-full py-2.5 bg-gray-800 hover:bg-gray-700 text-white text-sm font-medium rounded-xl transition-colors"
@@ -638,18 +533,11 @@ export default function NftDetailPage() {
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {/* Progress steps */}
                     {isBuying && (
                       <div className="flex gap-2">
                         {[
-                          {
-                            label: "1. Approve USDC",
-                            active: buyStep === "approving",
-                          },
-                          {
-                            label: "2. Buy NFT",
-                            active: buyStep === "buying",
-                          },
+                          { label: "1. Approve USDC", active: buyStep === "approving" },
+                          { label: "2. Buy via Seaport", active: buyStep === "buying" },
                         ].map(({ label, active }) => (
                           <div
                             key={label}
@@ -675,7 +563,15 @@ export default function NftDetailPage() {
                       </p>
                     ) : !hasEnoughUsdc ? (
                       <div className="px-4 py-3 text-sm text-orange-400 bg-orange-900/20 border border-orange-800/40 rounded-2xl">
-                        Insufficient USDC. Go to Marketplace → Get 10,000 USDC.
+                        Insufficient USDC.{" "}
+                        <a
+                          href="https://faucet.circle.com"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="underline hover:text-orange-300"
+                        >
+                          Get Sepolia USDC →
+                        </a>
                       </div>
                     ) : (
                       <button
@@ -685,120 +581,290 @@ export default function NftDetailPage() {
                       >
                         {isBuying
                           ? "Processing…"
-                          : `Buy Now · ${parseFloat(listing.price).toLocaleString()} USDC`}
+                          : `Buy Now · ${priceDisplay} USDC`}
                       </button>
                     )}
 
                     {buyStep === "error" && errorMsg && (
                       <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-3">
-                        <p className="text-xs text-red-400 break-all">
-                          {errorMsg}
-                        </p>
+                        <p className="text-xs text-red-400 break-all">{errorMsg}</p>
                       </div>
                     )}
                   </div>
                 )}
 
-                {/* On-chain Info */}
-                <div className="bg-gray-900/40 border border-gray-800 rounded-xl p-4 space-y-3">
-                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    On-chain Info
-                  </p>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Network</span>
-                      <span className="text-gray-300">Besu</span>
+                {/* Details — 블록체인 표준 정보 (마켓플레이스 참고 레이아웃) */}
+                <div className="bg-gray-900/40 border border-gray-800 rounded-xl p-4">
+                  <h3 className="text-sm font-semibold text-white mb-4">Details</h3>
+                  <dl className="space-y-4">
+                    <div>
+                      <dt className="text-xs text-gray-500">Standard</dt>
+                      <dd className="text-sm text-gray-200 mt-0.5">
+                        ERC-721 token on the blockchain
+                      </dd>
                     </div>
-                    <div className="flex justify-between items-center gap-2">
-                      <span className="text-gray-500">Contract</span>
-                      <span className="font-mono text-gray-400 text-xs truncate" title={SKY_NFT_ADDRESS}>
-                        {SKY_NFT_ADDRESS.slice(0, 6)}...{SKY_NFT_ADDRESS.slice(-4)}
-                      </span>
+                    <div>
+                      <dt className="text-xs text-gray-500">Chain</dt>
+                      <dd className="text-sm text-gray-200 mt-0.5">Ethereum Sepolia</dd>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Token ID</span>
-                      <span className="text-gray-300 font-mono">#{tokenId}</span>
+                    <div>
+                      <dt className="text-xs text-gray-500">Token ID</dt>
+                      <dd
+                        className="text-sm text-gray-200 mt-0.5 font-mono"
+                        title={String(tokenId)}
+                      >
+                        {formatTokenIdDisplay(tokenId)}
+                      </dd>
                     </div>
-                    {listing.tokenURI && (
-                      <div className="pt-2 border-t border-gray-800">
+                    <div>
+                      <dt className="text-xs text-gray-500">Contract address</dt>
+                      <dd className="mt-0.5">
                         <a
-                          href={resolveIpfsImage(listing.tokenURI)}
+                          href={`https://sepolia.etherscan.io/address/${TOKENABLE_RWA_ADDRESS}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
+                          className="text-sm font-mono text-blue-400 hover:text-blue-300"
+                          title={TOKENABLE_RWA_ADDRESS}
                         >
-                          View metadata on IPFS →
+                          {shortAddr(TOKENABLE_RWA_ADDRESS)} ↗
                         </a>
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs text-gray-500">Owner address</dt>
+                      <dd className="mt-0.5">
+                        {(() => {
+                          const o =
+                            typeof ownerOnChain === "string"
+                              ? ownerOnChain
+                              : order?.offerer;
+                          if (!o) {
+                            return (
+                              <span className="text-sm text-gray-500">—</span>
+                            );
+                          }
+                          return (
+                            <a
+                              href={`https://sepolia.etherscan.io/address/${o}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-sm font-mono text-blue-400 hover:text-blue-300"
+                              title={o}
+                            >
+                              {shortAddr(o)} ↗
+                            </a>
+                          );
+                        })()}
+                      </dd>
+                    </div>
+                  </dl>
+
+                  {detailsExtraOpen && (
+                    <div className="mt-4 pt-4 border-t border-gray-800 space-y-3 text-sm">
+                      <p className="text-[11px] text-gray-600 leading-relaxed">
+                        The contract stores only a{" "}
+                        <span className="text-gray-500">token URI</span> pointer; name,
+                        image, and traits are in the JSON on IPFS.
+                      </p>
+                      {tokenURIOnChain && (
+                        <div>
+                          <p className="text-xs text-gray-500">Token URI</p>
+                          <p
+                            className="mt-1 font-mono text-[11px] text-gray-400 break-all"
+                            title={tokenURIOnChain}
+                          >
+                            {tokenURIOnChain.length > 96
+                              ? `${tokenURIOnChain.slice(0, 44)}…${tokenURIOnChain.slice(-36)}`
+                              : tokenURIOnChain}
+                          </p>
+                        </div>
+                      )}
+                      <div>
+                        <p className="text-xs text-gray-500">Marketplace protocol</p>
+                        <p className="mt-0.5">
+                          <a
+                            href={`https://sepolia.etherscan.io/address/${SEAPORT_ADDRESS}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-400 hover:text-blue-300 text-sm"
+                          >
+                            Seaport 1.6 ↗
+                          </a>
+                        </p>
                       </div>
-                    )}
-                  </div>
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => setDetailsExtraOpen((v) => !v)}
+                    className="mt-4 w-full text-left text-xs text-gray-500 hover:text-gray-300 transition-colors py-1"
+                  >
+                    {detailsExtraOpen ? "Show less" : "Show more"}
+                  </button>
                 </div>
               </div>
             </div>
 
-            {/* ── Activity History ── */}
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-bold text-white">
-                  Activity History
+            {metadata?.properties && (
+              <GradedMetadataPanel
+                properties={metadata.properties as Record<string, unknown>}
+                attributes={metadata.attributes}
+              />
+            )}
+
+            {/* Activity history — 참고: 배지 + 가격 강조 + From/To + 시간 */}
+            <div className="rounded-2xl border border-gray-800/90 bg-[#0c0c0c] overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-3.5 border-b border-gray-800/90">
+                <h2 className="text-base font-semibold text-white tracking-tight">
+                  Activity history
                 </h2>
                 {!activityLoading && (
                   <button
+                    type="button"
                     onClick={() => void refetchActivity()}
-                    className="text-xs text-gray-500 hover:text-gray-300 transition-colors px-2 py-1 rounded-lg hover:bg-gray-800"
+                    className="text-xs text-gray-500 hover:text-gray-300 transition-colors px-2 py-1 rounded-lg hover:bg-white/5"
                   >
                     ↻ Refresh
                   </button>
                 )}
               </div>
 
-              {/* Loading */}
               {activityLoading && (
-                <div className="space-y-3">
-                  {[...Array(3)].map((_, i) => (
-                    <div
-                      key={i}
-                      className="h-16 bg-gray-800 rounded-xl animate-pulse"
-                    />
+                <div className="divide-y divide-gray-800/90">
+                  {[...Array(2)].map((_, i) => (
+                    <div key={i} className="h-24 bg-white/[0.02] animate-pulse" />
                   ))}
                 </div>
               )}
 
-              {/* Error fetching logs */}
               {!activityLoading && activityError && (
-                <div className="flex items-center justify-between px-4 py-3 bg-red-900/20 border border-red-800/40 rounded-xl">
-                  <p className="text-sm text-red-400">
-                    Failed to load activity. Check browser console for details.
-                  </p>
+                <div className="flex items-center justify-between px-4 py-4 border-t border-gray-800/90">
+                  <p className="text-sm text-red-400">Failed to load activity.</p>
                   <button
+                    type="button"
                     onClick={() => void refetchActivity()}
-                    className="text-xs text-red-400 hover:text-red-200 transition-colors ml-4 shrink-0"
+                    className="text-xs text-red-400 hover:text-red-200 transition-colors shrink-0"
                   >
                     Retry
                   </button>
                 </div>
               )}
 
-              {/* Empty state */}
-              {!activityLoading &&
-                !activityError &&
-                (!activity || activity.length === 0) && (
-                  <p className="text-gray-600 text-sm py-6 text-center border border-gray-800 rounded-xl">
-                    No activity found
-                  </p>
-                )}
+              {!activityLoading && !activityError && (!activity || activity.length === 0) && (
+                <div className="text-center py-10 px-4">
+                  <p className="text-gray-500 text-sm">No marketplace activity yet</p>
+                </div>
+              )}
 
-              {/* Events list */}
-              {!activityLoading &&
-                !activityError &&
-                activity &&
-                activity.length > 0 && (
-                  <div className="space-y-2">
-                    {activity.map((event, i) => (
-                      <ActivityRow key={`${event.txHash}-${i}`} event={event} />
-                    ))}
-                  </div>
-                )}
+              {!activityLoading && !activityError && activity && activity.length > 0 && (
+                <ul className="divide-y divide-gray-800/90">
+                  {[...activity]
+                    .sort(
+                      (a, b) =>
+                        parseApiUtcMs(b.updatedAt ?? b.createdAt) -
+                        parseApiUtcMs(a.updatedAt ?? a.createdAt)
+                    )
+                    .map((order: Order) => {
+                      const statusMeta: Record<
+                        string,
+                        { label: string; badgeClass: string }
+                      > = {
+                        active: {
+                          label: "Listing",
+                          badgeClass:
+                            "bg-white/[0.06] text-gray-200 border border-white/[0.08]",
+                        },
+                        fulfilled: {
+                          label: "Sale",
+                          badgeClass:
+                            "bg-white/[0.06] text-gray-200 border border-white/[0.08]",
+                        },
+                        cancelled: {
+                          label: "Cancelled",
+                          badgeClass:
+                            "bg-white/[0.04] text-gray-400 border border-white/[0.06]",
+                        },
+                        expired: {
+                          label: "Expired",
+                          badgeClass:
+                            "bg-white/[0.04] text-gray-400 border border-white/[0.06]",
+                        },
+                      };
+                      const meta = statusMeta[order.status] ?? statusMeta["active"];
+                      const ts = Math.floor(
+                        parseApiUtcMs(order.updatedAt ?? order.createdAt) / 1000
+                      );
+                      const priceNum = order.considerationAmount
+                        ? Number(order.considerationAmount) / 1_000_000
+                        : null;
+                      const priceStr =
+                        priceNum != null && !Number.isNaN(priceNum)
+                          ? priceNum.toLocaleString("en-US", {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })
+                          : null;
+                      const otherRecipient = firstNonOffererRecipient(order);
+                      const explorerSeller = explorerAddrPath(order.offerer);
+
+                      let metaLine: string;
+                      if (order.status === "fulfilled") {
+                        if (otherRecipient) {
+                          metaLine = `From ${shortAddr(order.offerer)} → ${shortAddr(otherRecipient)}`;
+                        } else {
+                          metaLine = `From ${shortAddr(order.offerer)}`;
+                        }
+                      } else if (order.status === "active") {
+                        metaLine = `Listed by ${shortAddr(order.offerer)}`;
+                      } else {
+                        metaLine = `By ${shortAddr(order.offerer)}`;
+                      }
+
+                      return (
+                        <li key={order.orderHash} className="px-4 py-5">
+                          <div className="flex items-start justify-between gap-3 mb-3">
+                            <span
+                              className={`inline-flex items-center gap-1.5 rounded-full pl-2.5 pr-3 py-1 text-xs font-medium ${meta.badgeClass}`}
+                            >
+                              <IconTag className="opacity-70 shrink-0" />
+                              {meta.label}
+                            </span>
+                            <a
+                              href={explorerSeller}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="shrink-0 p-1 rounded-md text-gray-500 hover:text-gray-300 hover:bg-white/5 transition-colors"
+                              title="View seller on Etherscan"
+                            >
+                              <IconExternalLink className="w-4 h-4" />
+                            </a>
+                          </div>
+                          <div className="mb-3">
+                            {priceStr != null ? (
+                              <p className="text-[1.65rem] leading-none font-bold text-white tracking-tight">
+                                <span className="text-[0.95em] font-semibold text-gray-200">
+                                  $
+                                </span>
+                                {priceStr}
+                                <span className="text-base font-semibold text-gray-500 ml-1.5">
+                                  USDC
+                                </span>
+                              </p>
+                            ) : (
+                              <p className="text-xl font-semibold text-gray-500">—</p>
+                            )}
+                          </div>
+                          <p className="text-xs text-gray-500 leading-relaxed">
+                            <span className="text-gray-600">{metaLine}</span>
+                            <span className="text-gray-600"> · </span>
+                            <span>{timeAgo(ts)}</span>
+                          </p>
+                        </li>
+                      );
+                    })}
+                </ul>
+              )}
             </div>
           </>
         )}

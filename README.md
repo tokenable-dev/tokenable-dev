@@ -62,7 +62,7 @@ nft-marketplace/
 | ------------ | --------------------------------------------------------------------------- |
 | **frontend** | Next.js application for wallet connection, NFT minting, browsing, and trading |
 | **backend**  | NestJS API server handling IPFS uploads, blockchain reads, and marketplace data |
-| **contracts** | Solidity contracts: SkyNFT (ERC-721), MockUSDC (ERC-20), SkyMarketplace |
+| **contracts** | Solidity: TokenableRWA (ERC-721), MockUSDC (ERC-20), SkyMarketplace (legacy) |
 
 ---
 
@@ -116,7 +116,7 @@ Required variables include RPC URL, contract addresses, and Pinata credentials f
 ```bash
 cd contracts
 pnpm run deploy:usdc      # Deploy MockUSDC
-pnpm run deploy:nft       # Deploy SkyNFT
+pnpm run deploy:nft       # Deploy TokenableRWA
 pnpm run deploy:marketplace  # Deploy SkyMarketplace
 ```
 

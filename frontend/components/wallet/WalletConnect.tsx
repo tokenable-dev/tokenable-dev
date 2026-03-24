@@ -3,25 +3,29 @@
 import { useState } from "react";
 import { useAccount, useConnect, useDisconnect, useBalance } from "wagmi";
 import { formatUnits } from "viem";
-import { besu } from "@/config/wagmi";
-import { ensureBesuNetwork } from "@/lib/ensureBesuNetwork";
+import { sepolia } from "@/config/wagmi";
+import { ensureSepoliaNetwork } from "@/lib/ensureSepoliaNetwork";
 
 export function WalletConnect() {
   const { address, isConnected, chain, connector } = useAccount();
   const { connect, connectors, isPending } = useConnect();
   const { disconnect } = useDisconnect();
-  const { data: balance } = useBalance({ address, chainId: besu.id });
+  const { data: balance } = useBalance({ address, chainId: sepolia.id });
   const [isSwitching, setIsSwitching] = useState(false);
 
-  const isWrongNetwork = isConnected && chain?.id !== besu.id;
+  const isWrongNetwork = isConnected && chain?.id !== sepolia.id;
 
-  async function handleSwitchToBesu() {
+  async function handleSwitchToSepolia() {
     if (!connector) return;
     setIsSwitching(true);
     try {
-      const provider = await connector.getProvider() as { request?: (args: { method: string; params?: unknown[] }) => Promise<unknown> } | null;
+      const provider = await connector.getProvider() as {
+        request?: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
+      } | null;
       if (provider?.request) {
-        await ensureBesuNetwork(provider as Parameters<typeof ensureBesuNetwork>[0]);
+        await ensureSepoliaNetwork(
+          provider as Parameters<typeof ensureSepoliaNetwork>[0]
+        );
       }
     } finally {
       setIsSwitching(false);
@@ -55,11 +59,11 @@ export function WalletConnect() {
         <div className="flex items-center gap-2">
           {isWrongNetwork && (
             <button
-              onClick={handleSwitchToBesu}
+              onClick={() => void handleSwitchToSepolia()}
               disabled={isSwitching}
               className="text-xs px-2 py-1 bg-emerald-600/80 hover:bg-emerald-500/80 disabled:opacity-50 text-white rounded transition-colors"
             >
-              {isSwitching ? "Switching..." : "Switch to SkyAnd Chain"}
+              {isSwitching ? "Switching..." : "Switch to Sepolia"}
             </button>
           )}
           <button

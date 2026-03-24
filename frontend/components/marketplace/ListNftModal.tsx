@@ -3,109 +3,191 @@
 import { useState } from "react";
 import {
   useAccount,
-  usePublicClient,
+  useReadContract,
   useWriteContract,
-  useWaitForTransactionReceipt,
+  usePublicClient,
+  useWalletClient,
 } from "wagmi";
 import { parseUnits } from "viem";
+import { sepolia } from "@/config/wagmi";
 import { useQueryClient } from "@tanstack/react-query";
 import {
-  SKY_NFT_ADDRESS,
-  MARKETPLACE_ADDRESS,
-  SKY_NFT_APPROVE_ABI,
-  MARKETPLACE_ABI,
+  TOKENABLE_RWA_ADDRESS,
+  USDC_ADDRESS,
+  SEAPORT_ADDRESS,
+  TOKENABLE_RWA_APPROVE_ABI,
+  SEAPORT_ABI,
+  SEAPORT_ORDER_TYPES,
 } from "@/constants/contracts";
-import { besu } from "@/config/wagmi";
+import { createOrder } from "@/lib/api";
+
+const ZERO_BYTES32 =
+  "0x0000000000000000000000000000000000000000000000000000000000000000" as const;
+const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000" as `0x${string}`;
+const ORDER_DURATION_SECONDS = 30 * 24 * 60 * 60; // 30 days
 
 type Step =
   | "idle"
   | "approving"
-  | "listing"
-  | "confirming"
+  | "signing"
+  | "submitting"
   | "success"
   | "error";
 
 interface ListNftModalProps {
   tokenId: number;
   onClose: () => void;
-  /** Called as soon as the list tx is submitted (optimistic) */
   onListed?: (tokenId: number) => void;
 }
 
-export function ListNftModal({
-  tokenId,
-  onClose,
-  onListed,
-}: ListNftModalProps) {
+export function ListNftModal({ tokenId, onClose, onListed }: ListNftModalProps) {
   const { address } = useAccount();
-  const publicClient = usePublicClient({ chainId: besu.id });
+  const publicClient = usePublicClient({ chainId: sepolia.id });
+  const { data: walletClient } = useWalletClient({ chainId: sepolia.id });
   const queryClient = useQueryClient();
+
   const [price, setPrice] = useState("");
   const [step, setStep] = useState<Step>("idle");
   const [errorMsg, setErrorMsg] = useState("");
-  const [approveTxHash, setApproveTxHash] = useState<
-    `0x${string}` | undefined
-  >();
-  const [listTxHash, setListTxHash] = useState<`0x${string}` | undefined>();
 
   const { writeContractAsync } = useWriteContract();
 
-  const { isLoading: waitingApprove } = useWaitForTransactionReceipt({
-    hash: approveTxHash,
-    chainId: besu.id,
-  });
-
-  const { isLoading: waitingList } = useWaitForTransactionReceipt({
-    hash: listTxHash,
-    chainId: besu.id,
+  // Seaport counter for the seller
+  const { data: counter } = useReadContract({
+    address: SEAPORT_ADDRESS,
+    abi: SEAPORT_ABI,
+    functionName: "getCounter",
+    args: address ? [address] : undefined,
+    chainId: sepolia.id,
+    query: { enabled: !!address },
   });
 
   async function handleList() {
     if (!address || !price || parseFloat(price) <= 0) return;
+    if (counter === undefined) {
+      setErrorMsg("Could not read Seaport counter. Try again.");
+      return;
+    }
+    if (!walletClient) {
+      setErrorMsg("Wallet not connected. Please reconnect.");
+      return;
+    }
 
     setErrorMsg("");
+    const priceInUnits = parseUnits(price, 6);
+    const now = BigInt(Math.floor(Date.now() / 1000));
+    const endTime = now + BigInt(ORDER_DURATION_SECONDS);
+    const salt = BigInt(Math.floor(Math.random() * 1_000_000_000_000));
+
     try {
-      // Step 1: Approve NFT to marketplace
+      // ── Step 1: Approve NFT to Seaport ──────────────────────────────────────
       setStep("approving");
       const approveTx = await writeContractAsync({
-        address: SKY_NFT_ADDRESS,
-        abi: SKY_NFT_APPROVE_ABI,
+        address: TOKENABLE_RWA_ADDRESS,
+        abi: TOKENABLE_RWA_APPROVE_ABI,
         functionName: "approve",
-        args: [MARKETPLACE_ADDRESS, BigInt(tokenId)],
-        chainId: besu.id,
+        args: [SEAPORT_ADDRESS, BigInt(tokenId)],
+        chainId: sepolia.id,
       });
-      setApproveTxHash(approveTx);
-
-      // Step 2: List item on marketplace
-      setStep("listing");
-      const priceInUnits = parseUnits(price, 6);
-      const listTx = await writeContractAsync({
-        address: MARKETPLACE_ADDRESS,
-        abi: MARKETPLACE_ABI,
-        functionName: "listItem",
-        args: [BigInt(tokenId), priceInUnits],
-        chainId: besu.id,
-      });
-      setListTxHash(listTx);
-
-      // Optimistic update — notify parent immediately so UI reflects listing
-      onListed?.(tokenId);
-
-      // Step 3: Wait for on-chain confirmation before refreshing backend data
-      setStep("confirming");
       if (publicClient) {
-        await publicClient.waitForTransactionReceipt({ hash: listTx });
+        await publicClient.waitForTransactionReceipt({ hash: approveTx });
       }
 
+      // ── Step 2: EIP-712 sign the Seaport order ───────────────────────────────
+      setStep("signing");
+
+      const orderMessage = {
+        offerer: address,
+        zone: ZERO_ADDRESS,
+        offer: [
+          {
+            itemType: 2, // ERC721
+            token: TOKENABLE_RWA_ADDRESS,
+            identifierOrCriteria: BigInt(tokenId),
+            startAmount: BigInt(1),
+            endAmount: BigInt(1),
+          },
+        ],
+        consideration: [
+          {
+            itemType: 1, // ERC20
+            token: USDC_ADDRESS,
+            identifierOrCriteria: BigInt(0),
+            startAmount: priceInUnits,
+            endAmount: priceInUnits,
+            recipient: address,
+          },
+        ],
+        orderType: 0, // FULL_OPEN
+        startTime: now,
+        endTime,
+        zoneHash: ZERO_BYTES32,
+        salt,
+        conduitKey: ZERO_BYTES32,
+        counter,
+      };
+
+      const signature = await walletClient.signTypedData({
+        domain: {
+          name: "Seaport",
+          version: "1.5",
+          chainId: sepolia.id,
+          verifyingContract: SEAPORT_ADDRESS,
+        },
+        types: SEAPORT_ORDER_TYPES,
+        primaryType: "OrderComponents",
+        message: orderMessage,
+      });
+
+      // ── Step 3: POST to backend ───────────────────────────────────────────────
+      setStep("submitting");
+
+      const str = (v: unknown): string => String(v);
+
+      await createOrder({
+        parameters: {
+          offerer: address,
+          zone: ZERO_ADDRESS,
+          zoneHash: ZERO_BYTES32,
+          startTime: str(now),
+          endTime: str(endTime),
+          orderType: 0,
+          offer: [
+            {
+              itemType: 2,
+              token: TOKENABLE_RWA_ADDRESS,
+              identifierOrCriteria: str(tokenId),
+              startAmount: "1",
+              endAmount: "1",
+            },
+          ],
+          consideration: [
+            {
+              itemType: 1,
+              token: USDC_ADDRESS,
+              identifierOrCriteria: "0",
+              startAmount: str(priceInUnits),
+              endAmount: str(priceInUnits),
+              recipient: address,
+            },
+          ],
+          totalOriginalConsiderationItems: 1,
+          salt: str(salt),
+          conduitKey: ZERO_BYTES32,
+          counter: str(counter),
+        },
+        signature,
+        tokenContract: TOKENABLE_RWA_ADDRESS,
+        tokenId: String(tokenId),
+        considerationToken: USDC_ADDRESS,
+        considerationAmount: String(priceInUnits),
+      });
+
+      onListed?.(tokenId);
       setStep("success");
 
-      // Refetch after confirmation so backend data is fresh
-      await queryClient.invalidateQueries({
-        queryKey: ["marketplace-listings"],
-      });
-      await queryClient.invalidateQueries({
-        queryKey: ["my-nft-ids", address],
-      });
+      await queryClient.invalidateQueries({ queryKey: ["marketplace-orders"] });
+      await queryClient.invalidateQueries({ queryKey: ["my-nft-ids", address] });
     } catch (err: unknown) {
       setErrorMsg(err instanceof Error ? err.message : "Transaction failed");
       setStep("error");
@@ -113,13 +195,12 @@ export function ListNftModal({
   }
 
   const isProcessing =
-    step === "approving" || step === "listing" || step === "confirming";
-  const isWaiting = waitingApprove || waitingList;
+    step === "approving" || step === "signing" || step === "submitting";
 
   const stepLabels: { label: string; active: boolean }[] = [
     { label: "1. Approve NFT", active: step === "approving" },
-    { label: "2. List Item", active: step === "listing" },
-    { label: "3. Confirming", active: step === "confirming" },
+    { label: "2. Sign Order", active: step === "signing" },
+    { label: "3. Submitting", active: step === "submitting" },
   ];
 
   return (
@@ -138,18 +219,12 @@ export function ListNftModal({
 
         {step === "success" ? (
           <div className="text-center py-4">
-            <div className="text-4xl mb-3"></div>
-            <h3 className="text-lg font-bold text-white mb-1">
-              Listing Successful!
-            </h3>
+            <div className="text-4xl mb-3">🎉</div>
+            <h3 className="text-lg font-bold text-white mb-1">Listed Successfully!</h3>
             <p className="text-sm text-gray-400">
               NFT #{tokenId} is now listed for {price} USDC
             </p>
-            {listTxHash && (
-              <p className="text-xs font-mono text-blue-400 mt-2 break-all">
-                {listTxHash}
-              </p>
-            )}
+            <p className="text-xs text-gray-600 mt-2">Listing valid for 30 days</p>
             <button
               onClick={onClose}
               className="mt-5 w-full py-2 bg-gray-800 hover:bg-gray-700 text-white text-sm rounded-lg transition-colors"
@@ -163,8 +238,7 @@ export function ListNftModal({
               List NFT #{tokenId} for Sale
             </h2>
             <p className="text-sm text-gray-500 mb-5">
-              Set a price in USDC. You&apos;ll need to approve the marketplace
-              first.
+              Set a price in USDC. Your NFT will be listed via Seaport.
             </p>
 
             <div className="mb-4">
@@ -188,22 +262,17 @@ export function ListNftModal({
               </div>
             </div>
 
-            {/* Step indicator */}
             <div className="flex gap-2 mb-4">
               {stepLabels.map(({ label, active }) => (
                 <div
                   key={label}
                   className={`flex-1 text-center text-xs py-1.5 rounded-lg ${
                     active
-                      ? "bg-blue-600 text-white"
+                      ? "bg-blue-600 text-white animate-pulse"
                       : "bg-gray-800 text-gray-500"
                   }`}
                 >
-                  {active && (isWaiting || step === "confirming") ? (
-                    <span className="animate-pulse">{label}</span>
-                  ) : (
-                    label
-                  )}
+                  {label}
                 </div>
               ))}
             </div>
@@ -215,7 +284,7 @@ export function ListNftModal({
             )}
 
             <button
-              onClick={handleList}
+              onClick={() => void handleList()}
               disabled={isProcessing || !price || parseFloat(price) <= 0}
               className="w-full py-2.5 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg transition-all"
             >

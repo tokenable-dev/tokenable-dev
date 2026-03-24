@@ -1,15 +1,13 @@
-import { besu } from "@/config/wagmi";
+import { sepolia } from "@/config/wagmi";
 
-const CHAIN_ID_HEX = `0x${besu.id.toString(16)}`;
+const CHAIN_ID_HEX = `0x${sepolia.id.toString(16)}`;
 
 const ADD_CHAIN_PARAMS = {
   chainId: CHAIN_ID_HEX,
-  chainName: besu.name,
-  nativeCurrency: besu.nativeCurrency,
-  rpcUrls: [besu.rpcUrls.default.http[0]],
-  blockExplorerUrls: besu.blockExplorers?.default?.url
-    ? [besu.blockExplorers.default.url]
-    : undefined,
+  chainName: sepolia.name,
+  nativeCurrency: sepolia.nativeCurrency,
+  rpcUrls: [sepolia.rpcUrls.default.http[0]],
+  blockExplorerUrls: ["https://sepolia.etherscan.io"],
 };
 
 export interface EnsureBesuResult {

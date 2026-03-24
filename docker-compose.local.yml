@@ -2,6 +2,25 @@
 # 사용법: docker compose -f docker-compose.local.yml up --build
 
 services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: tokenable-postgres
+    environment:
+      POSTGRES_USER: tokenable
+      POSTGRES_PASSWORD: tokenable
+      POSTGRES_DB: tokenable
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data_local:/var/lib/postgresql/data
+    networks:
+      - tokenable-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tokenable"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   nginx:
     image: nginx:alpine
     container_name: tokenable-nginx
@@ -23,7 +42,6 @@ services:
         NEXT_PUBLIC_API_URL: http://localhost/api
         NEXT_PUBLIC_NFT_CONTRACT_ADDRESS: ${NEXT_PUBLIC_NFT_CONTRACT_ADDRESS}
         NEXT_PUBLIC_USDC_CONTRACT_ADDRESS: ${NEXT_PUBLIC_USDC_CONTRACT_ADDRESS}
-        NEXT_PUBLIC_MARKETPLACE_ADDRESS: ${NEXT_PUBLIC_MARKETPLACE_ADDRESS}
         NEXT_PUBLIC_PINATA_GATEWAY: ${NEXT_PUBLIC_PINATA_GATEWAY}
     container_name: tokenable-frontend
     expose:
@@ -31,6 +49,8 @@ services:
     networks:
       - tokenable-net
 
+  # 백엔드 Dockerfile은 NODE_ENV=production 으로 빌드됨.
+  # 로컬 전체 스택에서는 스키마 자동 반영(synchronize)과 DB 호스트명(postgres)이 필요하므로 아래로 덮어씀.
   backend:
     build:
       context: ./backend
@@ -38,10 +58,19 @@ services:
     container_name: tokenable-backend
     env_file:
       - ./backend/.env
+    environment:
+      NODE_ENV: development
+      POSTGRES_HOST: postgres
     expose:
       - "4000"
+    depends_on:
+      postgres:
+        condition: service_healthy
     networks:
       - tokenable-net
+
+volumes:
+  postgres_data_local:
 
 networks:
   tokenable-net:

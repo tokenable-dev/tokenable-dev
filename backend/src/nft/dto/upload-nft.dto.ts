@@ -36,4 +36,12 @@ export class UploadNftDto {
   @Type(() => NftAttributeDto)
   @IsOptional()
   attributes?: NftAttributeDto[];
+
+  @ApiPropertyOptional({
+    description:
+      'PSA/JustTCG 등 추가 메타데이터 JSON 문자열 (properties.graded 등으로 병합)',
+  })
+  @IsOptional()
+  @IsString()
+  gradedMetadata?: string;
 }

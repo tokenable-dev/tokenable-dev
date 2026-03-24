@@ -1,32 +1,22 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
-import { useWriteContract, useWaitForTransactionReceipt } from "wagmi";
-import { parseUnits } from "viem";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import {
-  getMarketplaceListings,
+  getActiveOrders,
+  getNftTokenURI,
   fetchIpfsMetadata,
   resolveIpfsImage,
-  type MarketplaceListing,
+  type Order,
 } from "@/lib/api";
-import { USDC_ADDRESS, MARKETPLACE_ADDRESS, USDC_ABI, MARKETPLACE_ABI } from "@/constants/contracts";
-import { besu } from "@/config/wagmi";
-import { useShallow } from "zustand/react/shallow";
-import { useAppStore, selectWallet, selectUsdcBalance, selectRefresh } from "@/store";
 
-const FAUCET_AMOUNT = parseUnits("10000", 6); // 10,000 USDC
+import { useShallow } from "zustand/react/shallow";
+import { useAppStore, selectWallet, selectUsdcBalance } from "@/store";
+import { TOKENABLE_RWA_DISPLAY_NAME } from "@/constants/contracts";
 
 // ── USDC balance banner ───────────────────────────────────────────────────────
 
-function UsdcBalanceBanner({
-  onFaucet,
-  isMinting,
-}: {
-  onFaucet: () => void;
-  isMinting: boolean;
-}) {
+function UsdcBalanceBanner() {
   const { usdcBalanceFormatted } = useAppStore(useShallow(selectUsdcBalance));
 
   return (
@@ -37,44 +27,56 @@ function UsdcBalanceBanner({
           {parseFloat(usdcBalanceFormatted).toLocaleString()} USDC
         </span>
       </span>
-      <button
-        onClick={onFaucet}
-        disabled={isMinting}
-        className="ml-4 px-3 py-1 text-xs font-semibold bg-yellow-600 hover:bg-yellow-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg transition-colors"
+      <a
+        href="https://faucet.circle.com"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="ml-4 px-3 py-1 text-xs font-semibold bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg transition-colors"
       >
-        {isMinting ? "Getting USDC..." : "Get 10,000 USDC"}
-      </button>
+        Get Sepolia USDC →
+      </a>
     </div>
   );
 }
 
 // ── Listing card ──────────────────────────────────────────────────────────────
 
-function ListingCard({
-  listing,
+function OrderCard({
+  order,
   currentAddress,
 }: {
-  listing: MarketplaceListing;
+  order: Order;
   currentAddress?: string;
 }) {
+  const tokenId = Number(order.tokenId);
+  const priceUsdc = (Number(order.considerationAmount) / 1_000_000).toLocaleString();
+
+  const { data: tokenURI } = useQuery({
+    queryKey: ["nft-token-uri", tokenId],
+    queryFn: () => getNftTokenURI(tokenId).catch(() => null),
+    staleTime: 60_000,
+    retry: false,
+  });
+
   const { data: metadata } = useQuery({
-    queryKey: ["nft-metadata", listing.tokenId],
+    queryKey: ["nft-metadata", tokenId],
     queryFn: () =>
-      listing.tokenURI ? fetchIpfsMetadata(listing.tokenURI) : Promise.resolve(null),
-    enabled: !!listing.tokenURI,
+      tokenURI ? fetchIpfsMetadata(tokenURI) : Promise.resolve(null),
+    enabled: !!tokenURI,
   });
 
   const imageUrl = metadata?.image ? resolveIpfsImage(metadata.image) : null;
-  const isSelf = currentAddress?.toLowerCase() === listing.seller.toLowerCase();
+  const isSelf =
+    currentAddress?.toLowerCase() === order.offerer.toLowerCase();
 
   return (
-    <Link href={`/marketplace/${listing.tokenId}`} className="block group">
+    <Link href={`/marketplace/${tokenId}`} className="block group">
       <div className="bg-gray-900/60 border border-gray-800 rounded-xl overflow-hidden group-hover:border-gray-600 group-hover:shadow-lg group-hover:shadow-black/30 transition-all duration-200">
         <div className="aspect-square bg-gray-800 relative overflow-hidden">
           {imageUrl ? (
             <img
               src={imageUrl}
-              alt={metadata?.name ?? `NFT #${listing.tokenId}`}
+              alt={metadata?.name ?? `NFT #${tokenId}`}
               className="w-full h-full object-cover"
             />
           ) : (
@@ -83,7 +85,7 @@ function ListingCard({
             </div>
           )}
           <div className="absolute top-2 left-2 bg-black/60 text-xs text-gray-300 px-2 py-0.5 rounded-full pointer-events-none">
-            #{listing.tokenId}
+            #{tokenId}
           </div>
           <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-200 flex items-center justify-center pointer-events-none">
             <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-white/10 backdrop-blur-sm border border-white/20 text-white text-xs font-semibold px-3 py-1.5 rounded-full">
@@ -93,15 +95,17 @@ function ListingCard({
         </div>
         <div className="p-3">
           <p className="text-sm font-semibold text-white truncate">
-            {metadata?.name ?? `SkyNFT #${listing.tokenId}`}
+            {metadata?.name ?? `${TOKENABLE_RWA_DISPLAY_NAME} #${tokenId}`}
           </p>
           <p className="text-xs text-gray-500 mt-0.5 truncate">
-            {isSelf ? "Your listing" : `${listing.seller.slice(0, 6)}...${listing.seller.slice(-4)}`}
+            {isSelf
+              ? "Your listing"
+              : `${order.offerer.slice(0, 6)}...${order.offerer.slice(-4)}`}
           </p>
           <div className="mt-2 flex items-center justify-between">
             <div className="flex items-baseline gap-1">
               <span className="text-base font-bold text-green-400">
-                {parseFloat(listing.price).toLocaleString()}
+                {priceUsdc}
               </span>
               <span className="text-xs text-green-600">USDC</span>
             </div>
@@ -119,40 +123,12 @@ function ListingCard({
 
 export function Marketplace() {
   const { address, isConnected } = useAppStore(useShallow(selectWallet));
-  const refresh = useAppStore(selectRefresh);
 
-  const queryClient = useQueryClient();
-  const { writeContractAsync } = useWriteContract();
-  const [isMintingUsdc, setIsMintingUsdc] = useState(false);
-  const [approveTxHash, setApproveTxHash] = useState<`0x${string}` | undefined>();
-
-  useWaitForTransactionReceipt({ hash: approveTxHash, chainId: besu.id });
-
-  const { data: listings, isLoading } = useQuery({
-    queryKey: ["marketplace-listings"],
-    queryFn: getMarketplaceListings,
+  const { data: orders, isLoading } = useQuery({
+    queryKey: ["marketplace-orders"],
+    queryFn: getActiveOrders,
     refetchInterval: 15_000,
   });
-
-  async function handleFaucet() {
-    if (!address) return;
-    setIsMintingUsdc(true);
-    try {
-      await writeContractAsync({
-        address: USDC_ADDRESS,
-        abi: USDC_ABI,
-        functionName: "mint",
-        args: [address, FAUCET_AMOUNT],
-        chainId: besu.id,
-      });
-      refresh();
-      await queryClient.invalidateQueries({ queryKey: ["marketplace-listings"] });
-    } catch (err) {
-      console.error("Faucet failed:", err);
-    } finally {
-      setIsMintingUsdc(false);
-    }
-  }
 
   if (isLoading) {
     return (
@@ -164,7 +140,7 @@ export function Marketplace() {
     );
   }
 
-  if (!listings?.length) {
+  if (!orders?.length) {
     return (
       <div className="text-center py-16">
         <p className="text-gray-500 mb-2">No NFTs listed for sale yet.</p>
@@ -177,17 +153,12 @@ export function Marketplace() {
 
   return (
     <div>
-      {isConnected && address && (
-        <UsdcBalanceBanner
-          onFaucet={() => void handleFaucet()}
-          isMinting={isMintingUsdc}
-        />
-      )}
+      {isConnected && address && <UsdcBalanceBanner />}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-        {listings.map((listing) => (
-          <ListingCard
-            key={listing.tokenId}
-            listing={listing}
+        {orders.map((order) => (
+          <OrderCard
+            key={order.orderHash}
+            order={order}
             currentAddress={address}
           />
         ))}

@@ -1,7 +1,11 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { PinataService } from '../util/pinata/pinata.service';
 import { UploadNftDto } from './dto/upload-nft.dto';
-import { NftMetadata, UploadNftResult } from './interfaces/nft-metadata.interface';
+import {
+  NftAttribute,
+  NftMetadata,
+  UploadNftResult,
+} from './interfaces/nft-metadata.interface';
 
 @Injectable()
 export class NftService {
@@ -22,6 +26,35 @@ export class NftService {
       image: `ipfs://${imageCID}`,
       ...(dto.attributes && { attributes: dto.attributes }),
     };
+
+    if (dto.gradedMetadata?.trim()) {
+      try {
+        const extra = JSON.parse(dto.gradedMetadata) as {
+          graded?: Record<string, unknown>;
+          attributes?: NftAttribute[];
+          external_url?: string;
+          properties?: Record<string, unknown>;
+        };
+        metadata.properties = {
+          ...(metadata.properties ?? {}),
+          ...(extra.properties ?? {}),
+        };
+        if (extra.graded && typeof extra.graded === 'object') {
+          metadata.properties.graded = extra.graded;
+        }
+        if (extra.attributes?.length) {
+          metadata.attributes = [
+            ...(metadata.attributes ?? []),
+            ...extra.attributes,
+          ];
+        }
+        if (typeof extra.external_url === 'string') {
+          metadata.external_url = extra.external_url;
+        }
+      } catch {
+        throw new BadRequestException('gradedMetadata must be valid JSON');
+      }
+    }
 
     const metadataCID = await this.pinataService.uploadMetadata(metadata);
 
