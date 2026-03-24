@@ -97,8 +97,8 @@ jobs:
             git checkout develop
             git pull origin develop
 
-            # .env.production 복원 (EC2에 /home/ubuntu/.env.production.backend 로 저장됨)
-            cp /home/ubuntu/.env.production.backend ./backend/.env.production
+            # 시크릿은 ~/app 에 쓰지 않고 홈에 둔 파일을 그대로 사용 (Permission denied 회피)
+            export BACKEND_ENV_FILE=/home/ubuntu/.env.production.backend
 
             # 최신 이미지 받기 및 재시작
             export ECR_REGISTRY=${{ secrets.ECR_REGISTRY }}
@@ -139,7 +139,7 @@ jobs:
             git checkout main
             git pull origin main
 
-            cp /home/ubuntu/.env.production.backend ./backend/.env.production
+            export BACKEND_ENV_FILE=/home/ubuntu/.env.production.backend
 
             export ECR_REGISTRY=${{ secrets.ECR_REGISTRY }}
             export IMAGE_TAG=main

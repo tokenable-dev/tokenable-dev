@@ -52,11 +52,13 @@ services:
       - tokenable-net
 
   # ── Backend (NestJS) ───────────────────────────────────────────────
+  # EC2: export BACKEND_ENV_FILE=/home/ubuntu/.env.production.backend (CI 배포 스크립트에서 설정)
+  # 로컬: 기본값 ./backend/.env.production
   backend:
     image: ${ECR_REGISTRY}/tokenable-backend:${IMAGE_TAG:-latest}
     container_name: tokenable-backend
     env_file:
-      - ./backend/.env.production
+      - ${BACKEND_ENV_FILE:-./backend/.env.production}
     expose:
       - "4000"
     restart: always
