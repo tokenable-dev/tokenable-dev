@@ -97,11 +97,7 @@ jobs:
             git checkout develop
             git pull origin develop
 
-            # compose 병합 시 env_file 이 누적되면 ./backend/.env.production 도 필요할 수 있음 — 없으면 touch
-            mkdir -p backend
-            touch backend/.env.production
-
-            # EC2 시크릿: docker-compose.ec2.yml 이 env_file 에 /home/ubuntu/.env.production.backend 추가
+            # 시크릿은 docker-compose.ec2.yml → /home/ubuntu/.env.production.backend 만 사용 (~/app/backend 에 touch 불필요)
             export ECR_REGISTRY=${{ secrets.ECR_REGISTRY }}
             export IMAGE_TAG=develop
 
@@ -139,9 +135,6 @@ jobs:
             git fetch origin
             git checkout main
             git pull origin main
-
-            mkdir -p backend
-            touch backend/.env.production
 
             export ECR_REGISTRY=${{ secrets.ECR_REGISTRY }}
             export IMAGE_TAG=main

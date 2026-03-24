@@ -52,13 +52,10 @@ services:
       - tokenable-net
 
   # ── Backend (NestJS) ───────────────────────────────────────────────
-  # 로컬: ./backend/.env.production
-  # EC2: docker compose -f docker-compose.yml -f docker-compose.ec2.yml ... (시크릿 경로 오버라이드)
+  # env_file 은 합쳐지므로 베이스에 두지 않음 → 로컬: docker-compose.local.yml / EC2: docker-compose.ec2.yml
   backend:
     image: ${ECR_REGISTRY}/tokenable-backend:${IMAGE_TAG:-latest}
     container_name: tokenable-backend
-    env_file:
-      - ./backend/.env.production
     expose:
       - "4000"
     restart: always
