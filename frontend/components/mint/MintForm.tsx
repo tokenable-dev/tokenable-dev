@@ -10,6 +10,7 @@ import {
 import { uploadNft, analyzePsaSlab, type PsaAnalyzeResult } from "@/lib/api";
 import { TOKENABLE_RWA_ADDRESS, TOKENABLE_RWA_MINT_ABI } from "@/constants/contracts";
 import { sepolia } from "@/config/wagmi";
+import { gasWithCap } from "@/lib/chainGas";
 import { useAppStore, selectRefresh } from "@/store";
 import type { GradingCompany, GradedCardFormState, GradedCardMetadata } from "@/types/gradedCard";
 import { GradedCardSection } from "./GradedCardSection";
@@ -402,12 +403,21 @@ export function MintForm() {
       const uploadResult = await uploadNft(data);
       setStep("minting");
 
+      if (!publicClient) throw new Error("Network not ready");
+      const gas = await gasWithCap(publicClient, {
+        address: TOKENABLE_RWA_ADDRESS,
+        abi: TOKENABLE_RWA_MINT_ABI,
+        functionName: "mint",
+        args: [address, uploadResult.tokenURI],
+        account: address,
+      });
       const txHash = await writeContractAsync({
         address: TOKENABLE_RWA_ADDRESS,
         abi: TOKENABLE_RWA_MINT_ABI,
         functionName: "mint",
         args: [address, uploadResult.tokenURI],
         chainId: sepolia.id,
+        gas,
       });
 
       setResult({ tokenURI: uploadResult.tokenURI, txHash });

@@ -20,6 +20,7 @@ import {
   SEAPORT_ORDER_TYPES,
 } from "@/constants/contracts";
 import { createOrder } from "@/lib/api";
+import { gasWithCap } from "@/lib/chainGas";
 
 const ZERO_BYTES32 =
   "0x0000000000000000000000000000000000000000000000000000000000000000" as const;
@@ -72,6 +73,10 @@ export function ListNftModal({ tokenId, onClose, onListed }: ListNftModalProps) 
       setErrorMsg("Wallet not connected. Please reconnect.");
       return;
     }
+    if (!publicClient) {
+      setErrorMsg("Network not ready. Try again.");
+      return;
+    }
 
     setErrorMsg("");
     const priceInUnits = parseUnits(price, 6);
@@ -82,12 +87,20 @@ export function ListNftModal({ tokenId, onClose, onListed }: ListNftModalProps) 
     try {
       // ── Step 1: Approve NFT to Seaport ──────────────────────────────────────
       setStep("approving");
+      const gasApprove = await gasWithCap(publicClient, {
+        address: TOKENABLE_RWA_ADDRESS,
+        abi: TOKENABLE_RWA_APPROVE_ABI,
+        functionName: "approve",
+        args: [SEAPORT_ADDRESS, BigInt(tokenId)],
+        account: address,
+      });
       const approveTx = await writeContractAsync({
         address: TOKENABLE_RWA_ADDRESS,
         abi: TOKENABLE_RWA_APPROVE_ABI,
         functionName: "approve",
         args: [SEAPORT_ADDRESS, BigInt(tokenId)],
         chainId: sepolia.id,
+        gas: gasApprove,
       });
       if (publicClient) {
         await publicClient.waitForTransactionReceipt({ hash: approveTx });

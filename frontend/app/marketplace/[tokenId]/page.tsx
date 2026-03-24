@@ -32,6 +32,7 @@ import {
 } from "@/constants/contracts";
 import { ASSETS } from "@/constants/assets";
 import { useAppStore, selectWallet, selectUsdcBalance, selectRefresh } from "@/store";
+import { gasWithCap } from "@/lib/chainGas";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -258,18 +259,26 @@ export default function NftDetailPage() {
   const isBuying = buyStep === "approving" || buyStep === "buying";
 
   async function handleBuy() {
-    if (!address || !order) return;
+    if (!address || !order || !publicClient) return;
     setBuyStep("approving");
     setErrorMsg("");
 
     try {
       // Step 1: Approve USDC to Seaport
+      const gasApprove = await gasWithCap(publicClient, {
+        address: USDC_ADDRESS,
+        abi: USDC_ABI,
+        functionName: "approve",
+        args: [SEAPORT_ADDRESS, priceInUnits],
+        account: address,
+      });
       const approveTx = await writeContractAsync({
         address: USDC_ADDRESS,
         abi: USDC_ABI,
         functionName: "approve",
         args: [SEAPORT_ADDRESS, priceInUnits],
         chainId: sepolia.id,
+        gas: gasApprove,
       });
       setApproveTxHash(approveTx);
       if (publicClient) {
