@@ -23,7 +23,7 @@
 시크릿은 **레포 밖**에 둔다 (권한 이슈로 `~/app/backend/`에 `cp` 하지 않음):
 
 - 파일 경로: `/home/ubuntu/.env.production.backend`
-- CI는 `export BACKEND_ENV_FILE=/home/ubuntu/.env.production.backend` 후 `docker-compose` 실행 (`docker-compose.yml` 참고)
+- CI·EC2 모두 `docker-compose.yml` + **`docker-compose.ec2.yml`** 을 같이 쓴다 (백엔드 `env_file` 이 위 경로로 오버라이드됨)
 - `FRONTEND_URL`, `CORS_ORIGIN`, `GOOGLE_CALLBACK_URL` 등은 **54.116.29.201** 기준으로 맞출 것.
 
 DB 마이그레이션은 최초 1회 `backend/sql/migrations/` SQL 실행.
@@ -47,11 +47,10 @@ git push origin develop
 ssh ubuntu@<DEV_EC2_HOST>
 cd /home/ubuntu/app
 git pull origin develop
-export BACKEND_ENV_FILE=/home/ubuntu/.env.production.backend
 export ECR_REGISTRY=<ECR_REGISTRY>
 export IMAGE_TAG=develop
-docker compose pull
-docker compose up -d --force-recreate --remove-orphans
+docker compose -f docker-compose.yml -f docker-compose.ec2.yml pull
+docker compose -f docker-compose.yml -f docker-compose.ec2.yml up -d --force-recreate --remove-orphans
 ```
 
 ## 5. 프론트 빌드만 로컬에서 검증

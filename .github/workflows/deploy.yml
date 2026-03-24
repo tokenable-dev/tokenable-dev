@@ -97,15 +97,16 @@ jobs:
             git checkout develop
             git pull origin develop
 
-            # 시크릿은 ~/app 에 쓰지 않고 홈에 둔 파일을 그대로 사용 (Permission denied 회피)
-            export BACKEND_ENV_FILE=/home/ubuntu/.env.production.backend
+            # compose 병합 시 env_file 이 누적되면 ./backend/.env.production 도 필요할 수 있음 — 없으면 touch
+            mkdir -p backend
+            touch backend/.env.production
 
-            # 최신 이미지 받기 및 재시작
+            # EC2 시크릿: docker-compose.ec2.yml 이 env_file 에 /home/ubuntu/.env.production.backend 추가
             export ECR_REGISTRY=${{ secrets.ECR_REGISTRY }}
             export IMAGE_TAG=develop
 
-            docker-compose pull
-            docker-compose up -d --force-recreate --remove-orphans
+            docker-compose -f docker-compose.yml -f docker-compose.ec2.yml pull
+            docker-compose -f docker-compose.yml -f docker-compose.ec2.yml up -d --force-recreate --remove-orphans
             docker image prune -f
 
   # ── 3단계: 프로덕션 배포 (main 브랜치) — 추후 사용 ──────────────
@@ -139,11 +140,12 @@ jobs:
             git checkout main
             git pull origin main
 
-            export BACKEND_ENV_FILE=/home/ubuntu/.env.production.backend
+            mkdir -p backend
+            touch backend/.env.production
 
             export ECR_REGISTRY=${{ secrets.ECR_REGISTRY }}
             export IMAGE_TAG=main
 
-            docker-compose pull
-            docker-compose up -d --force-recreate --remove-orphans
+            docker-compose -f docker-compose.yml -f docker-compose.ec2.yml pull
+            docker-compose -f docker-compose.yml -f docker-compose.ec2.yml up -d --force-recreate --remove-orphans
             docker image prune -f
