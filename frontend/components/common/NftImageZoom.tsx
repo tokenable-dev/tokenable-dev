@@ -8,7 +8,7 @@ export interface NftImageZoomProps {
   className?: string;
   /** Magnification factor (default: 2.5) */
   zoomFactor?: number;
-  /** Lens size in px (default: 150) */
+  /** Lens diameter in px (default: 150) */
   lensSize?: number;
 }
 
@@ -49,7 +49,7 @@ export function NftImageZoom({
       <img
         src={src}
         alt={alt}
-        className="w-full h-full object-cover block select-none pointer-events-none"
+        className="w-full h-full object-contain object-center block select-none pointer-events-none"
         draggable={false}
       />
 
