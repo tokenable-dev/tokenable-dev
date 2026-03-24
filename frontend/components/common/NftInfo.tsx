@@ -27,7 +27,7 @@ export function NftInfo() {
         <div className="w-8 h-8 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-lg flex items-center justify-center text-xs font-bold text-white">
           NFT
         </div>
-        <h2 className="text-lg font-bold text-white">SkyNFT</h2>
+        <h2 className="text-lg font-bold text-white">Tokenable_RWA</h2>
       </div>
 
       {isLoading ? (

@@ -6,7 +6,7 @@ export const ethersProviderFactory = {
   provide: ETHERS_PROVIDER,
   inject: [ConfigService],
   useFactory: (configService: ConfigService): JsonRpcProvider => {
-    const rpcUrl = configService.getOrThrow<string>('BESU_RPC_URL');
+    const rpcUrl = configService.getOrThrow<string>('SEPOLIA_RPC_URL');
     return new JsonRpcProvider(rpcUrl);
   },
 };

@@ -20,13 +20,13 @@ export function Logo({
   className = "",
   height = 32,
 }: LogoProps) {
-  const src = variant === "full" ? ASSETS.logo.skyand : ASSETS.icons.skyand;
+  const src = variant === "full" ? ASSETS.logo.tokenable : ASSETS.icons.tokenable;
   const width = variant === "full" ? height * (186 / 37) : height;
 
   const img = (
     <img
       src={src}
-      alt="SKYAND"
+      alt="Tokenable"
       width={width}
       height={height}
       className={`invert ${className}`}

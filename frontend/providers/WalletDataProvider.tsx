@@ -4,27 +4,20 @@
  * WalletDataProvider
  *
  * Bridge between wagmi and the Zustand store.
- * The ONLY place that reads on-chain state with wagmi hooks.
- *
- * Also acts as the single invalidation hub: whenever store.refresh() is
- * called (after any write transaction), this provider immediately:
- *   1. Re-fetches the USDC balance from the chain
- *   2. Invalidates all React Query keys that depend on chain state
- *
- * This way, calling refresh() from any component refreshes everything.
+ * Ensures MetaMask is on Sepolia, polls USDC balance, and invalidates
+ * React Query cache after any write transaction (via store.refresh()).
  */
 
 import { useEffect, useRef } from "react";
 import { useAccount, useReadContract } from "wagmi";
+import { sepolia } from "@/config/wagmi";
 import { useQueryClient } from "@tanstack/react-query";
 import { USDC_ADDRESS, USDC_ABI } from "@/constants/contracts";
-import { besu } from "@/config/wagmi";
 import { useAppStore } from "@/store";
-import { ensureBesuNetwork } from "@/lib/ensureBesuNetwork";
+import { ensureSepoliaNetwork } from "@/lib/ensureSepoliaNetwork";
 
 const POLL_INTERVAL_MS = 8_000;
 
-/** All React Query keys that should be invalidated after any write tx */
 const CHAIN_QUERY_KEYS = [
   ["token-supply"],
   ["nft-contract-info"],
@@ -34,24 +27,28 @@ export function WalletDataProvider({ children }: { children: React.ReactNode }) 
   const { address, isConnected, chain, connector } = useAccount();
   const hasAttemptedSwitch = useRef(false);
 
-  // ── Ensure SkyAnd Chain on connect / wrong network ─────────────────────────
+  // ── Ensure Sepolia on connect / wrong network ──────────────────────────────
   useEffect(() => {
-    if (!isConnected || !connector || chain?.id === besu.id) {
-      if (chain?.id === besu.id) hasAttemptedSwitch.current = false;
+    if (!isConnected || !connector || chain?.id === sepolia.id) {
+      if (chain?.id === sepolia.id) hasAttemptedSwitch.current = false;
       return;
     }
     if (hasAttemptedSwitch.current) return;
     hasAttemptedSwitch.current = true;
 
     connector.getProvider().then((provider) => {
-      const p = provider as { request?: (args: { method: string; params?: unknown[] }) => Promise<unknown> } | null;
+      const p = provider as {
+        request?: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
+      } | null;
       if (!p?.request) return;
-      ensureBesuNetwork(p as Parameters<typeof ensureBesuNetwork>[0])
-        .finally(() => {
-          hasAttemptedSwitch.current = false;
-        });
+      ensureSepoliaNetwork(
+        p as Parameters<typeof ensureSepoliaNetwork>[0]
+      ).finally(() => {
+        hasAttemptedSwitch.current = false;
+      });
     });
   }, [isConnected, chain?.id, connector]);
+
   const queryClient = useQueryClient();
   const _setWallet = useAppStore((s) => s._setWallet);
   const _setUsdcBalance = useAppStore((s) => s._setUsdcBalance);
@@ -68,7 +65,7 @@ export function WalletDataProvider({ children }: { children: React.ReactNode }) 
     abi: USDC_ABI,
     functionName: "balanceOf",
     args: address ? [address] : undefined,
-    chainId: besu.id,
+    chainId: sepolia.id,
     query: {
       enabled: !!address && isConnected,
       refetchInterval: POLL_INTERVAL_MS,
@@ -87,12 +84,10 @@ export function WalletDataProvider({ children }: { children: React.ReactNode }) 
 
     void refetchBalance();
 
-    // Invalidate address-independent queries
     CHAIN_QUERY_KEYS.forEach((key) => {
       void queryClient.invalidateQueries({ queryKey: key });
     });
 
-    // Invalidate address-dependent queries
     if (address) {
       void queryClient.invalidateQueries({ queryKey: ["token-balance", address] });
       void queryClient.invalidateQueries({ queryKey: ["nft-balance", address] });

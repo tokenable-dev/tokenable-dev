@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { WagmiProvider } from "wagmi";
 import { wagmiConfig } from "@/config/wagmi";
 import { WalletDataProvider } from "@/providers/WalletDataProvider";
+import { AuthProvider } from "@/providers/AuthProvider";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -23,7 +24,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <WagmiProvider config={wagmiConfig}>
       <QueryClientProvider client={queryClient}>
         {/* Syncs wagmi on-chain data → Zustand store for all children */}
-        <WalletDataProvider>{children}</WalletDataProvider>
+        <AuthProvider>
+          <WalletDataProvider>{children}</WalletDataProvider>
+        </AuthProvider>
       </QueryClientProvider>
     </WagmiProvider>
   );

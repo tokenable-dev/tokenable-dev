@@ -1,6 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { ConfigService } from '@nestjs/config';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { UserService } from '../user/user.service';
 
 describe('AuthController', () => {
   let controller: AuthController;
@@ -8,15 +10,17 @@ describe('AuthController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AuthController],
-      providers: [AuthService],
+      providers: [
+        { provide: AuthService, useValue: { issueAccessToken: jest.fn() } },
+        { provide: ConfigService, useValue: { get: jest.fn(), getOrThrow: jest.fn() } },
+        { provide: UserService, useValue: {} },
+      ],
     }).compile();
 
     controller = module.get<AuthController>(AuthController);
   });
 
-  describe('GET /auth', () => {
-    it('should return "hello world"', () => {
-      expect(controller.hello()).toBe('hello world');
-    });
+  it('should be defined', () => {
+    expect(controller).toBeDefined();
   });
 });

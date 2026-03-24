@@ -5,12 +5,13 @@ import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract SkyNFT is ERC721URIStorage, ERC721Enumerable, Ownable {
+/// @title Tokenable_RWA — ERC-721 collection for real-world asset–backed NFTs
+contract TokenableRWA is ERC721URIStorage, ERC721Enumerable, Ownable {
     uint256 private _nextTokenId;
 
     event Minted(address indexed to, uint256 indexed tokenId, string tokenURI);
 
-    constructor() ERC721("SkyNFT", "SKYNFT") {}
+    constructor() ERC721("Tokenable_RWA", "TRWA") {}
 
     function mint(address to, string memory _tokenURI) external returns (uint256) {
         uint256 tokenId = _nextTokenId++;

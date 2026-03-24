@@ -1,3 +1,10 @@
+# develop 푸시 → ECR 빌드 후 EC2에서 docker-compose pull
+#
+# Repository secrets (개발 서버 URL 예: http://54.116.29.201)
+#   NEXT_PUBLIC_API_URL=http://54.116.29.201/api
+#   NEXT_PUBLIC_ALCHEMY_RPC_URL=https://eth-sepolia.g.alchemy.com/v2/<KEY>
+#   나머지: NEXT_PUBLIC_NFT/USDC/MARKETPLACE/PINATA_GATEWAY, ECR_REGISTRY, AWS_*, DEV_EC2_*
+#
 name: Deploy
 
 on:
@@ -40,6 +47,7 @@ jobs:
             --build-arg NEXT_PUBLIC_USDC_CONTRACT_ADDRESS=${{ secrets.NEXT_PUBLIC_USDC_CONTRACT_ADDRESS }} \
             --build-arg NEXT_PUBLIC_MARKETPLACE_ADDRESS=${{ secrets.NEXT_PUBLIC_MARKETPLACE_ADDRESS }} \
             --build-arg NEXT_PUBLIC_PINATA_GATEWAY=${{ secrets.NEXT_PUBLIC_PINATA_GATEWAY }} \
+            --build-arg NEXT_PUBLIC_ALCHEMY_RPC_URL=${{ secrets.NEXT_PUBLIC_ALCHEMY_RPC_URL }} \
             -t ${{ env.ECR_REGISTRY }}/tokenable-frontend:${{ env.IMAGE_TAG }} \
             -t ${{ env.ECR_REGISTRY }}/tokenable-frontend:${{ github.ref_name }} \
             ./frontend

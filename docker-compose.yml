@@ -1,5 +1,26 @@
 services:
-  # ── Nginx (리버스 프록시) ───────────────────────────────────────
+  # ── PostgreSQL ─────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: tokenable-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-tokenable}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tokenable}
+      POSTGRES_DB: ${POSTGRES_DB:-tokenable}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    expose:
+      - "5432"
+    restart: always
+    networks:
+      - tokenable-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-tokenable}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Nginx (리버스 프록시) ───────────────────────────────────────────
   nginx:
     image: nginx:alpine
     container_name: tokenable-nginx
@@ -15,21 +36,22 @@ services:
     networks:
       - tokenable-net
 
-  # ── Frontend (Next.js) ─────────────────────────────────────────
+  # ── Frontend (Next.js) ─────────────────────────────────────────────
   frontend:
     image: ${ECR_REGISTRY}/tokenable-frontend:${IMAGE_TAG:-latest}
     container_name: tokenable-frontend
     environment:
       - NODE_ENV=production
       - PORT=3000
-    # NEXT_PUBLIC_* 는 빌드 시 번들에 포함되므로 런타임 환경변수 불필요
+      # SSR 등 서버에서 백엔드 호출 시 (브라우저는 동일 호스트 /api 사용)
+      - INTERNAL_API_URL=http://backend:4000/api
     expose:
       - "3000"
     restart: always
     networks:
       - tokenable-net
 
-  # ── Backend (NestJS) ───────────────────────────────────────────
+  # ── Backend (NestJS) ───────────────────────────────────────────────
   backend:
     image: ${ECR_REGISTRY}/tokenable-backend:${IMAGE_TAG:-latest}
     container_name: tokenable-backend
@@ -38,8 +60,14 @@ services:
     expose:
       - "4000"
     restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
     networks:
       - tokenable-net
+
+volumes:
+  postgres_data:
 
 networks:
   tokenable-net:

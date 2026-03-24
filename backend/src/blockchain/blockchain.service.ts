@@ -1,16 +1,18 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { Contract, formatUnits } from 'ethers';
-import {
-  MARKETPLACE_CONTRACT,
-  SKY_NFT_CONTRACT,
-  USDC_CONTRACT,
-} from './constants/injection-tokens';
+import { TOKENABLE_RWA_CONTRACT, USDC_CONTRACT } from './constants/injection-tokens';
 
-export interface MarketplaceListing {
-  tokenId: number;
-  seller: string;
-  price: string;
-  tokenURI: string;
+/** OpenZeppelin ERC721 — tokenId 미민팅 시 revert */
+function isErc721InvalidTokenError(e: unknown): boolean {
+  if (!e || typeof e !== 'object') return false;
+  const err = e as { code?: string; reason?: string; shortMessage?: string };
+  const blob = `${err.code ?? ''} ${err.reason ?? ''} ${err.shortMessage ?? ''}`.toLowerCase();
+  return (
+    err.code === 'CALL_EXCEPTION' &&
+    (blob.includes('invalid token') ||
+      blob.includes('nonexistent token') ||
+      blob.includes('owner query for nonexistent'))
+  );
 }
 
 @Injectable()
@@ -18,13 +20,11 @@ export class BlockchainService {
   constructor(
     @Inject(USDC_CONTRACT)
     private readonly usdc: Contract,
-    @Inject(SKY_NFT_CONTRACT)
-    private readonly skyNft: Contract,
-    @Inject(MARKETPLACE_CONTRACT)
-    private readonly marketplace: Contract,
+    @Inject(TOKENABLE_RWA_CONTRACT)
+    private readonly tokenableRwa: Contract,
   ) {}
 
-  // ── USDC ────────────────────────────────────────────
+  // ── USDC (Circle Sepolia USDC) ───────────────────────────────────
   async getTokenInfo(): Promise<{ name: string; symbol: string; decimals: number }> {
     const [name, symbol, decimals] = await Promise.all([
       this.usdc.name(),
@@ -44,66 +44,49 @@ export class BlockchainService {
     return formatUnits(balance, 6);
   }
 
-  // ── SkyNFT ───────────────────────────────────────────
+  // ── Tokenable_RWA (ERC-721) ─────────────────────────────────────
   async getNftInfo(): Promise<{ name: string; symbol: string; totalMinted: number }> {
     const [name, symbol, totalMinted] = await Promise.all([
-      this.skyNft.name(),
-      this.skyNft.symbol(),
-      this.skyNft.totalMinted(),
+      this.tokenableRwa.name(),
+      this.tokenableRwa.symbol(),
+      this.tokenableRwa.totalMinted(),
     ]);
     return { name, symbol, totalMinted: Number(totalMinted) };
   }
 
   async getNftOwner(tokenId: number): Promise<string> {
-    return this.skyNft.ownerOf(tokenId);
+    try {
+      return await this.tokenableRwa.ownerOf(tokenId);
+    } catch (e: unknown) {
+      if (isErc721InvalidTokenError(e)) {
+        throw new NotFoundException(
+          `NFT #${tokenId} does not exist on the configured contract (redeploy / contract address changed?)`,
+        );
+      }
+      throw e;
+    }
   }
 
   async getNftTokenURI(tokenId: number): Promise<string> {
-    return this.skyNft.tokenURI(tokenId);
+    try {
+      return await this.tokenableRwa.tokenURI(tokenId);
+    } catch (e: unknown) {
+      if (isErc721InvalidTokenError(e)) {
+        throw new NotFoundException(
+          `NFT #${tokenId} does not exist on the configured contract (redeploy / contract address changed?)`,
+        );
+      }
+      throw e;
+    }
   }
 
   async getNftBalance(address: string): Promise<number> {
-    const balance = await this.skyNft.balanceOf(address);
+    const balance = await this.tokenableRwa.balanceOf(address);
     return Number(balance);
   }
 
   async getNftTokensByOwner(address: string): Promise<number[]> {
-    const tokenIds: bigint[] = await this.skyNft.tokensOfOwner(address);
+    const tokenIds: bigint[] = await this.tokenableRwa.tokensOfOwner(address);
     return tokenIds.map(Number);
-  }
-
-  // ── Marketplace ──────────────────────────────────────
-  async getMarketplaceListings(): Promise<MarketplaceListing[]> {
-    const tokenIds: bigint[] = await this.marketplace.getActiveListings();
-
-    const listings = await Promise.all(
-      tokenIds.map(async (id) => {
-        const tokenId = Number(id);
-        const [listing, tokenURI] = await Promise.all([
-          this.marketplace.listings(tokenId),
-          this.skyNft.tokenURI(tokenId).catch(() => ''),
-        ]);
-        return {
-          tokenId,
-          seller: listing.seller as string,
-          price: formatUnits(listing.price, 6),
-          tokenURI: tokenURI as string,
-        };
-      }),
-    );
-    return listings;
-  }
-
-  async getMarketplaceListing(tokenId: number): Promise<MarketplaceListing> {
-    const [listing, tokenURI] = await Promise.all([
-      this.marketplace.listings(tokenId),
-      this.skyNft.tokenURI(tokenId).catch(() => ''),
-    ]);
-    return {
-      tokenId,
-      seller: listing.seller as string,
-      price: formatUnits(listing.price, 6),
-      tokenURI: tokenURI as string,
-    };
   }
 }
