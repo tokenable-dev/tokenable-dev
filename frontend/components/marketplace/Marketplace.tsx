@@ -72,12 +72,12 @@ function OrderCard({
   return (
     <Link href={`/marketplace/${tokenId}`} className="block group">
       <div className="bg-gray-900/60 border border-gray-800 rounded-xl overflow-hidden group-hover:border-gray-600 group-hover:shadow-lg group-hover:shadow-black/30 transition-all duration-200">
-        <div className="aspect-square bg-gray-800 relative overflow-hidden">
+        <div className="aspect-square bg-gray-800 relative overflow-hidden p-2 sm:p-3">
           {imageUrl ? (
             <img
               src={imageUrl}
               alt={metadata?.name ?? `NFT #${tokenId}`}
-              className="w-full h-full object-cover"
+              className="w-full h-full object-contain object-center"
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center text-gray-600 text-sm">

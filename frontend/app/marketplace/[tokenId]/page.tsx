@@ -13,6 +13,7 @@ import { sepolia } from "@/config/wagmi";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useShallow } from "zustand/react/shallow";
 import {
+  getApiUrl,
   getOrderByTokenId,
   getOrderHistoryByTokenId,
   fetchIpfsMetadata,
@@ -199,12 +200,12 @@ export default function NftDetailPage() {
     retry: 1,
   });
 
+  // 키를 목록 카드(Marketplace OrderCard)의 ["nft-metadata", tokenId]와 분리해야 함.
+  // 같은 키 + 다른 queryFn이면 React Query 캐시가 섞여 첫 진입 시 이미지/메타가 비는 현상이 난다.
   const { data: metaBundle, isLoading: metaLoading } = useQuery({
-    queryKey: ["nft-metadata", tokenId],
+    queryKey: ["marketplace-detail-metadata", tokenId],
     queryFn: async () => {
-      if (!order?.parameters?.offer?.[0]?.token) return null;
-      const base =
-        process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api";
+      const base = getApiUrl();
       const uriRes = await fetch(`${base}/blockchain/nft/token-uri/${tokenId}`);
       if (!uriRes.ok) return null;
       const rawText = await uriRes.text();
@@ -222,7 +223,9 @@ export default function NftDetailPage() {
       const metadata = await fetchIpfsMetadata(tokenURI).catch(() => null);
       return { metadata, tokenURI };
     },
-    enabled: !!order,
+    enabled:
+      Number.isFinite(tokenId) && tokenId >= 0 && !!order,
+    staleTime: 60_000,
   });
 
   const { data: ownerOnChain } = useReadContract({
@@ -348,6 +351,9 @@ export default function NftDetailPage() {
       refresh();
       await queryClient.invalidateQueries({ queryKey: ["marketplace-orders"] });
       await queryClient.invalidateQueries({ queryKey: ["marketplace-order-by-token", tokenId] });
+      await queryClient.invalidateQueries({
+        queryKey: ["marketplace-detail-metadata", tokenId],
+      });
       await queryClient.invalidateQueries({ queryKey: ["nft-activity", tokenId] });
     } catch (err: unknown) {
       setErrorMsg(err instanceof Error ? err.message : "Transaction failed");
@@ -433,14 +439,14 @@ export default function NftDetailPage() {
             <div className="grid grid-cols-1 md:grid-cols-[1fr_420px] gap-8 items-start">
               {/* Left — Image */}
               <div className="space-y-3">
-                <div className="rounded-2xl overflow-hidden bg-gray-900 border border-gray-800 aspect-square">
+                <div className="rounded-2xl overflow-hidden bg-gray-900 border border-gray-800 aspect-square p-2 sm:p-3">
                   {imageUrl ? (
                     <NftImageZoom
                       src={imageUrl}
                       alt={metadata?.name ?? `NFT #${tokenId}`}
-                      className="w-full h-full"
+                      className="w-full h-full min-h-0"
                       zoomFactor={3}
-                      lensSize={180}
+                      lensSize={230}
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-gray-600 text-sm">

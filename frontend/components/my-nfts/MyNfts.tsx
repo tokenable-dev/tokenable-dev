@@ -46,12 +46,12 @@ function NftCard({
 
   return (
     <div className="bg-gray-900/60 border border-gray-800 rounded-xl overflow-hidden hover:border-gray-700 transition-colors flex flex-col h-full">
-      <div className="aspect-square bg-gray-800 relative overflow-hidden shrink-0">
+      <div className="aspect-square bg-gray-800 relative overflow-hidden shrink-0 p-2 sm:p-3">
         {imageUrl ? (
           <img
             src={imageUrl}
             alt={nft.metadata?.name ?? `NFT #${nft.tokenId}`}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-contain object-center"
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-gray-600 text-sm">
