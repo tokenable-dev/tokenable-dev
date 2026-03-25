@@ -54,7 +54,7 @@ export function AppHeader() {
               </span>
               <Link
                 href="/profile"
-                className="text-sm font-medium text-amber-400 hover:text-amber-300 transition-colors"
+                className="text-sm font-medium text-mint hover:text-mint-dim transition-colors"
               >
                 Profile
               </Link>
@@ -76,7 +76,7 @@ export function AppHeader() {
               </Link>
               <Link
                 href="/signup"
-                className="text-sm font-semibold bg-amber-600 hover:bg-amber-500 text-white rounded-lg px-3 py-1.5 transition-colors"
+                className="text-sm font-semibold bg-mint-dim hover:brightness-110 text-mint-ink rounded-lg px-3 py-1.5 transition-colors"
               >
                 Sign up
               </Link>
@@ -86,20 +86,20 @@ export function AppHeader() {
       </div>
     </header>
     {user && !user.platformEmailVerifiedAt && (
-      <div className="border-b border-amber-800/40 bg-amber-950/50 px-4 py-2.5">
-        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-sm text-amber-100/95">
+      <div className="border-b border-mint-deep/30 bg-mint/[0.06] px-4 py-2.5">
+        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-sm text-gray-200">
           <p>
-            <span className="font-medium text-amber-200">이메일 인증이 필요합니다.</span>{" "}
+            <span className="font-medium text-mint">이메일 인증이 필요합니다.</span>{" "}
             가입 시 보낸 메일의 링크를 클릭하거나 아래에서 다시 보내 주세요.
           </p>
           <div className="flex items-center gap-3 shrink-0">
             {resendMsg && (
-              <span className="text-xs text-amber-300/90 max-w-[240px]">{resendMsg}</span>
+              <span className="text-xs text-mint/85 max-w-[240px]">{resendMsg}</span>
             )}
             <button
               type="button"
               onClick={() => void handleResendVerification()}
-              className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-amber-700/80 hover:bg-amber-600 text-white whitespace-nowrap"
+              className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-mint-dim hover:brightness-110 text-mint-ink whitespace-nowrap"
             >
               인증 메일 다시 보내기
             </button>

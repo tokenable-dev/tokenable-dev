@@ -198,7 +198,7 @@ export function GradedMetadataPanel({
   return (
     <details className="group bg-gray-900/50 border border-gray-800 rounded-2xl open:pb-1">
       <summary className="cursor-pointer list-none px-4 py-3 flex items-center justify-between gap-3 text-sm text-gray-300 hover:bg-gray-800/40 rounded-2xl transition-colors [&::-webkit-details-marker]:hidden">
-        <span className="font-medium text-amber-400/90">More metadata</span>
+        <span className="font-medium text-mint/90">More metadata</span>
         <span className="text-gray-600 text-xs shrink-0 group-open:rotate-180 transition-transform duration-200">
           ▼
         </span>

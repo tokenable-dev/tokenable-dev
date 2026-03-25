@@ -29,7 +29,7 @@ export function TokenInfo() {
   return (
     <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-5">
       <div className="flex items-center gap-2 mb-4">
-        <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg flex items-center justify-center text-xs font-bold text-white">
+        <div className="w-8 h-8 bg-gradient-to-br from-mint to-mint-dim rounded-lg flex items-center justify-center text-xs font-bold text-mint-ink">
           $
         </div>
         <h2 className="text-lg font-bold text-white">USD Coin (USDC)</h2>
@@ -57,14 +57,14 @@ export function TokenInfo() {
           </div>
           <div className="border-t border-gray-800 pt-3 flex justify-between items-center">
             <span className="text-sm text-gray-500">Total Supply</span>
-            <span className="text-sm font-medium text-green-400">
+            <span className="text-sm font-medium text-mint">
               {supply ? parseFloat(supply).toLocaleString() : "-"} USDC
             </span>
           </div>
           {address && (
             <div className="flex justify-between items-center">
               <span className="text-sm text-gray-500">Your Balance</span>
-              <span className="text-sm font-medium text-emerald-400">
+              <span className="text-sm font-medium text-mint">
                 {parseFloat(usdcBalanceFormatted).toLocaleString()} USDC
               </span>
             </div>

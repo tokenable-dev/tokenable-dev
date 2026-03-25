@@ -441,14 +441,14 @@ export function MintForm() {
 
   if (step === "success" && result) {
     return (
-      <div className="bg-gray-900/50 border border-emerald-800/50 rounded-xl p-6">
+      <div className="bg-gray-900/50 border border-mint-deep/35 rounded-xl p-6">
         <div className="text-center mb-5">
           <h3 className="text-xl font-bold text-white">NFT Minted Successfully!</h3>
         </div>
         <div className="space-y-3">
           <div className="bg-gray-800/50 rounded-lg p-3">
             <p className="text-xs text-gray-500 mb-1">Token URI</p>
-            <p className="text-xs font-mono text-emerald-400 break-all">
+            <p className="text-xs font-mono text-mint break-all">
               {result.tokenURI}
             </p>
           </div>
@@ -464,7 +464,7 @@ export function MintForm() {
             </p>
           )}
           {receipt && (
-            <p className="text-xs text-emerald-400 text-center">
+            <p className="text-xs text-mint text-center">
               ✓ Confirmed in block #{receipt.blockNumber.toString()}
             </p>
           )}
@@ -496,7 +496,7 @@ export function MintForm() {
               value={form.name}
               onChange={(e) => updateForm("name", e.target.value)}
               placeholder="e.g. 2023 Ohtani PSA 10"
-              className="w-full bg-gray-800 border border-gray-700 focus:border-amber-500 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 outline-none transition-colors"
+              className="w-full bg-gray-800 border border-gray-700 focus:border-mint rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 outline-none transition-colors"
               required
             />
             {errors.name && (
@@ -515,7 +515,7 @@ export function MintForm() {
               onChange={(e) => updateForm("description", e.target.value)}
               rows={2}
               placeholder="Describe your graded card..."
-              className="w-full bg-gray-800 border border-gray-700 focus:border-amber-500 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 outline-none transition-colors resize-none"
+              className="w-full bg-gray-800 border border-gray-700 focus:border-mint rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 outline-none transition-colors resize-none"
             />
           </div>
 
@@ -542,19 +542,19 @@ export function MintForm() {
         />
 
         {form.gradingCompany === "PSA" && (
-          <div className="rounded-xl border border-amber-900/40 bg-amber-950/20 p-4 space-y-3">
-            <p className="text-xs text-amber-200/90 leading-relaxed">
-              <strong className="text-amber-100">자동 분석:</strong> Verification에서 슬랩
+          <div className="rounded-xl border border-mint-deep/30 bg-mint/[0.04] p-4 space-y-3">
+            <p className="text-xs text-gray-300 leading-relaxed">
+              <strong className="text-mint">자동 분석:</strong> Verification에서 슬랩
               앞면을 고르면 잠시 후 OCR · PSA API · JustTCG가 실행되고 폼이 채워집니다. 뒷면을
               추가·변경하면 다시 분석합니다.
             </p>
-            <p className="text-xs text-amber-200/90 leading-relaxed">
-              <strong className="text-amber-100">촬영 팁:</strong> 앞면은 라벨·카드, 뒷면은
+            <p className="text-xs text-gray-300 leading-relaxed">
+              <strong className="text-mint">촬영 팁:</strong> 앞면은 라벨·카드, 뒷면은
               Cert 번호·바코드가 잘 보이게 찍어 주세요.
             </p>
             {analyzeLoading && (
-              <div className="flex items-center gap-2 text-xs text-amber-300/90">
-                <span className="inline-block w-3.5 h-3.5 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
+              <div className="flex items-center gap-2 text-xs text-mint/90">
+                <span className="inline-block w-3.5 h-3.5 border-2 border-mint border-t-transparent rounded-full animate-spin" />
                 슬랩 분석 중…
               </div>
             )}
@@ -566,7 +566,7 @@ export function MintForm() {
                 isProcessing ||
                 !(form.verification.slabFront instanceof File)
               }
-              className="w-full py-2.5 text-sm font-semibold rounded-lg bg-amber-900/50 hover:bg-amber-800/60 disabled:opacity-50 text-amber-100 border border-amber-800/60 transition-colors"
+              className="w-full py-2.5 text-sm font-semibold rounded-lg bg-mint/10 hover:bg-mint/15 disabled:opacity-50 text-mint border border-mint-deep/35 transition-colors"
             >
               {analyzeLoading
                 ? "처리 중…"
@@ -610,7 +610,7 @@ export function MintForm() {
 
         {isProcessing && (
           <div className="flex items-center gap-2 py-2">
-            <div className="w-4 h-4 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+            <div className="w-4 h-4 border-2 border-mint border-t-transparent rounded-full animate-spin" />
             <span className="text-sm text-gray-400">
               {step === "uploading"
                 ? "Uploading to IPFS..."
@@ -628,7 +628,7 @@ export function MintForm() {
         <button
           type="submit"
           disabled={isProcessing}
-          className="w-full py-3 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg transition-all duration-200 shadow-lg shadow-amber-500/20"
+          className="w-full py-3 bg-gradient-to-r from-mint to-mint-dim hover:brightness-105 disabled:opacity-50 disabled:cursor-not-allowed text-mint-ink text-sm font-semibold rounded-lg transition-all duration-200 shadow-lg shadow-mint/25"
         >
           {isProcessing ? "Processing..." : "Mint"}
         </button>

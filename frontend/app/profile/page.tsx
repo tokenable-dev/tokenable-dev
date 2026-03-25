@@ -103,11 +103,11 @@ export default function ProfilePage() {
         {user.name && <p className="text-gray-300 mb-6">{user.name}</p>}
 
         <section className="rounded-xl border border-gray-800 bg-gray-900/30 p-6 space-y-3 mb-6">
-          <h2 className="text-xs font-semibold text-amber-400/90 uppercase tracking-wider">
+          <h2 className="text-xs font-semibold text-mint/90 uppercase tracking-wider">
             Email verification
           </h2>
           {user.platformEmailVerifiedAt ? (
-            <p className="text-sm text-emerald-400/90">
+            <p className="text-sm text-mint/90">
               이메일 인증이 완료되었습니다.
             </p>
           ) : (
@@ -120,7 +120,7 @@ export default function ProfilePage() {
                 type="button"
                 disabled={busy}
                 onClick={() => void handleResendVerification()}
-                className="text-sm font-semibold px-4 py-2 rounded-lg bg-amber-800/70 hover:bg-amber-700/70 disabled:opacity-50 text-white"
+                className="text-sm font-semibold px-4 py-2 rounded-lg bg-mint/15 hover:bg-mint/25 border border-mint-deep/35 disabled:opacity-50 text-mint"
               >
                 {busy ? "Sending…" : "인증 메일 다시 보내기"}
               </button>
@@ -129,7 +129,7 @@ export default function ProfilePage() {
         </section>
 
         <section className="rounded-xl border border-gray-800 bg-gray-900/30 p-6 space-y-4">
-          <h2 className="text-xs font-semibold text-amber-400/90 uppercase tracking-wider">
+          <h2 className="text-xs font-semibold text-mint/90 uppercase tracking-wider">
             Wallet (MetaMask)
           </h2>
           <p className="text-xs text-gray-500 leading-relaxed">
@@ -143,7 +143,7 @@ export default function ProfilePage() {
               type="button"
               disabled={busy}
               onClick={() => void handleLink()}
-              className="w-full py-2.5 text-sm font-semibold rounded-lg bg-emerald-700/80 hover:bg-emerald-600 disabled:opacity-50 text-white"
+              className="w-full py-2.5 text-sm font-semibold rounded-lg bg-mint-dim hover:brightness-110 disabled:opacity-50 text-mint-ink"
             >
               {busy ? "Working…" : "Link this wallet to my account"}
             </button>
@@ -151,7 +151,7 @@ export default function ProfilePage() {
           {user.walletAddress && (
             <div className="pt-2 space-y-2">
               <p className="text-xs text-gray-500">Linked address</p>
-              <p className="text-sm font-mono text-emerald-400/90 break-all">{user.walletAddress}</p>
+              <p className="text-sm font-mono text-mint/90 break-all">{user.walletAddress}</p>
               <button
                 type="button"
                 disabled={busy}
@@ -162,7 +162,7 @@ export default function ProfilePage() {
               </button>
             </div>
           )}
-          {msg && <p className="text-xs text-amber-200/90">{msg}</p>}
+          {msg && <p className="text-xs text-mint/90">{msg}</p>}
         </section>
       </main>
     </div>

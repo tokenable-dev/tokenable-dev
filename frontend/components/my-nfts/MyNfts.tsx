@@ -77,7 +77,7 @@ function NftCard({
           </p>
         )}
         {activeOrder && listingPrice && (
-          <p className="text-xs text-emerald-400/90 mt-1 font-medium">
+          <p className="text-xs text-mint/90 mt-1 font-medium">
             {listingPrice} USDC
           </p>
         )}
@@ -93,7 +93,7 @@ function NftCard({
           ) : (
             <button
               onClick={() => onList(nft.tokenId)}
-              className="w-full py-2 text-xs font-medium bg-emerald-950/70 hover:bg-emerald-900/60 text-emerald-200 rounded-lg transition-colors border border-emerald-800/50"
+              className="w-full py-2 text-xs font-medium bg-mint/10 hover:bg-mint/15 text-mint rounded-lg transition-colors border border-mint-deep/35"
             >
               List for Sale
             </button>

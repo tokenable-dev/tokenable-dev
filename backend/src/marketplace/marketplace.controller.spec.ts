@@ -8,6 +8,7 @@ describe('MarketplaceController', () => {
     createOrder: jest.fn(),
     findActiveOrders: jest.fn(),
     findByTokenId: jest.fn(),
+    findActiveBidsByTokenId: jest.fn(),
     findByHash: jest.fn(),
     cancelOrder: jest.fn(),
     fulfillOrder: jest.fn(),
@@ -84,6 +85,12 @@ describe('MarketplaceController', () => {
     service.findByTokenId.mockResolvedValue([]);
     await expect(controller.findByTokenId('3')).resolves.toEqual([]);
     expect(service.findByTokenId).toHaveBeenCalledWith('3');
+  });
+
+  it('findActiveBids forwards to service', async () => {
+    service.findActiveBidsByTokenId.mockResolvedValue([]);
+    await expect(controller.findActiveBids('3')).resolves.toEqual([]);
+    expect(service.findActiveBidsByTokenId).toHaveBeenCalledWith('3');
   });
 
   it('findOrder forwards to service', async () => {

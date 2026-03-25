@@ -48,7 +48,7 @@ export function NftMintForm() {
         <button
           onClick={() => void handleSwitchToSepolia()}
           disabled={isSwitching}
-          className="mt-4 px-4 py-2 bg-emerald-600/80 hover:bg-emerald-500/80 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition-colors"
+          className="mt-4 px-4 py-2 bg-mint-dim/90 hover:brightness-110 disabled:opacity-50 text-mint-ink text-sm font-medium rounded-lg transition-colors"
         >
           {isSwitching ? "Switching..." : "Switch to Sepolia"}
         </button>

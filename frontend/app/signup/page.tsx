@@ -26,7 +26,7 @@ export default function SignupPage() {
         </p>
         <a
           href={getGoogleAuthHref()}
-          className="flex items-center justify-center gap-3 w-full py-3 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-semibold transition-colors"
+          className="flex items-center justify-center gap-3 w-full py-3 rounded-xl bg-mint-dim hover:brightness-110 text-mint-ink font-semibold transition-colors"
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24" aria-hidden>
             <path
@@ -50,7 +50,7 @@ export default function SignupPage() {
         </a>
         <p className="mt-6 text-center text-sm text-gray-500">
           Already have an account?{" "}
-          <Link href="/login" className="text-amber-500 hover:underline">
+          <Link href="/login" className="text-mint hover:underline">
             Log in
           </Link>
         </p>

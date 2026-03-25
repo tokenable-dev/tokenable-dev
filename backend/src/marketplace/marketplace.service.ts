@@ -7,10 +7,11 @@ import {
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { LessThan, QueryFailedError, Repository } from 'typeorm';
 import { CreateOrderDto } from './dto/create-order.dto';
-import { Order, OrderStatus } from './entities/order.entity';
+import { Order, OrderSide, OrderStatus } from './entities/order.entity';
 
 @Injectable()
 export class MarketplaceService {
@@ -19,29 +20,37 @@ export class MarketplaceService {
   constructor(
     @InjectRepository(Order)
     private readonly orderRepo: Repository<Order>,
+    private readonly config: ConfigService,
   ) {}
 
   // ── 주문 생성 ─────────────────────────────────────────────────────
   async createOrder(dto: CreateOrderDto): Promise<Order> {
+    const side = dto.side === 'bid' ? OrderSide.BID : OrderSide.ASK;
     const { parameters, signature } = dto;
     const params = parameters as unknown as Record<string, unknown>;
 
-    // 동일 NFT의 활성 주문이 이미 있으면 거부
-    const existing = await this.orderRepo.findOne({
-      where: {
-        tokenContract: dto.tokenContract,
-        tokenId: dto.tokenId,
-        status: OrderStatus.ACTIVE,
-      },
-    });
-    if (existing) {
-      throw new BadRequestException(
-        `Token #${dto.tokenId} already has an active listing (orderHash: ${existing.orderHash})`,
-      );
+    if (side === OrderSide.BID) {
+      this.assertValidBid(dto);
+    }
+
+    if (side === OrderSide.ASK) {
+      const existing = await this.orderRepo.findOne({
+        where: {
+          tokenContract: dto.tokenContract,
+          tokenId: dto.tokenId,
+          status: OrderStatus.ACTIVE,
+          side: OrderSide.ASK,
+        },
+      });
+      if (existing) {
+        throw new BadRequestException(
+          `Token #${dto.tokenId} already has an active listing (orderHash: ${existing.orderHash})`,
+        );
+      }
     }
 
     const order = this.orderRepo.create({
-      orderHash: this.deriveOrderHash(params),
+      orderHash: this.deriveOrderHash(params, side),
       offerer: parameters.offerer,
       tokenContract: dto.tokenContract,
       tokenId: dto.tokenId,
@@ -50,6 +59,7 @@ export class MarketplaceService {
       parameters: params,
       signature,
       status: OrderStatus.ACTIVE,
+      side,
       startTime: new Date(Number(parameters.startTime) * 1000),
       endTime: new Date(Number(parameters.endTime) * 1000),
     });
@@ -66,6 +76,11 @@ export class MarketplaceService {
             'Database is missing the orders table. Apply backend/sql/migrations/003_create_orders_table.sql on PostgreSQL.',
           );
         }
+        if (pgCode === '42703') {
+          throw new ServiceUnavailableException(
+            'Database is missing the orders.side column. Apply backend/sql/migrations/004_orders_side_enum.sql on PostgreSQL.',
+          );
+        }
         if (pgCode === '23505') {
           throw new ConflictException(
             'An order with this hash already exists. Try again with a new listing.',
@@ -76,13 +91,55 @@ export class MarketplaceService {
     }
   }
 
-  // ── 활성 주문 목록 ────────────────────────────────────────────────
+  /** bid: offer=USDC, consideration=NFT to offerer(구매자) */
+  private assertValidBid(dto: CreateOrderDto): void {
+    const p = dto.parameters;
+    const offer = p.offer?.[0];
+    const cons = p.consideration?.[0];
+    if (!offer || !cons) {
+      throw new BadRequestException('Bid order must include offer and consideration items');
+    }
+    if (offer.itemType !== 1) {
+      throw new BadRequestException('Bid offer[0] must be ERC20 (itemType 1)');
+    }
+    if (cons.itemType !== 2) {
+      throw new BadRequestException('Bid consideration[0] must be ERC721 (itemType 2)');
+    }
+    const usdc = this.config.get<string>('USDC_CONTRACT_ADDRESS') ?? '';
+    if (
+      usdc &&
+      offer.token.toLowerCase() !== usdc.toLowerCase()
+    ) {
+      throw new BadRequestException('Bid offer token must match USDC_CONTRACT_ADDRESS');
+    }
+    if (cons.token.toLowerCase() !== dto.tokenContract.toLowerCase()) {
+      throw new BadRequestException('Bid consideration token must match tokenContract');
+    }
+    if (String(cons.identifierOrCriteria) !== dto.tokenId) {
+      throw new BadRequestException('Bid NFT token id must match tokenId');
+    }
+  }
+
+  // ── 활성 매도 주문만 (마켓 그리드) ────────────────────────────────
   async findActiveOrders(): Promise<Order[]> {
     await this.expireOrders();
     return this.orderRepo.find({
-      where: { status: OrderStatus.ACTIVE },
+      where: { status: OrderStatus.ACTIVE, side: OrderSide.ASK },
       order: { createdAt: 'DESC' },
     });
+  }
+
+  /** 활성 매수 입찰 — 가격(USDC 최소단위) 내림차순 */
+  async findActiveBidsByTokenId(tokenId: string): Promise<Order[]> {
+    await this.expireOrders();
+    return this.orderRepo
+      .createQueryBuilder('o')
+      .where('o.token_id = :tokenId', { tokenId })
+      .andWhere('o.status = :st', { st: OrderStatus.ACTIVE })
+      .andWhere('o.side = :side', { side: OrderSide.BID })
+      .orderBy('CAST(o.consideration_amount AS DECIMAL)', 'DESC')
+      .addOrderBy('o.created_at', 'ASC')
+      .getMany();
   }
 
   // ── tokenId로 전체 주문 이력 조회 ────────────────────────────────
@@ -101,7 +158,7 @@ export class MarketplaceService {
     return order;
   }
 
-  // ── 주문 취소 ─────────────────────────────────────────────────────
+  // ── 주문 취소 (ask: 판매자 / bid: 입찰자) ─────────────────────────
   async cancelOrder(orderHash: string, callerAddress: string): Promise<Order> {
     const order = await this.findByHash(orderHash);
 
@@ -116,7 +173,7 @@ export class MarketplaceService {
     return this.orderRepo.save(order);
   }
 
-  // ── 구매 완료 처리 ────────────────────────────────────────────────
+  // ── 구매 완료 처리 (리스팅 이행 또는 입찰 이행 후) ────────────────
   async fulfillOrder(orderHash: string): Promise<Order> {
     const order = await this.findByHash(orderHash);
 
@@ -125,7 +182,25 @@ export class MarketplaceService {
     }
 
     order.status = OrderStatus.FULFILLED;
-    return this.orderRepo.save(order);
+    const saved = await this.orderRepo.save(order);
+
+    /** 같은 토큰에 대해 다른 활성 ask/bid가 남으면 UI·그리드가 어긋남 → 전부 정리 */
+    const cleared = await this.orderRepo.update(
+      {
+        tokenContract: order.tokenContract,
+        tokenId: order.tokenId,
+        status: OrderStatus.ACTIVE,
+      },
+      { status: OrderStatus.CANCELLED },
+    );
+    const n = cleared.affected ?? 0;
+    if (n > 0) {
+      this.logger.log(
+        `fulfillOrder ${orderHash.slice(0, 10)}…: cancelled ${n} other active order(s) for token #${order.tokenId}`,
+      );
+    }
+
+    return saved;
   }
 
   // ── 잘못된 상태 복구 (on-chain revert 후 DB 정정) ─────────────────
@@ -154,10 +229,9 @@ export class MarketplaceService {
     );
   }
 
-  // ── Order hash 계산 (SHA-256 기반 unique key) ─────────────────────
-  // 실제 프로덕션에서는 seaport-js의 getOrderHash()를 사용할 것
-  private deriveOrderHash(parameters: Record<string, unknown>): string {
+  private deriveOrderHash(parameters: Record<string, unknown>, side: OrderSide): string {
     const raw = JSON.stringify({
+      side,
       offerer: parameters['offerer'],
       salt: parameters['salt'],
       counter: parameters['counter'],
