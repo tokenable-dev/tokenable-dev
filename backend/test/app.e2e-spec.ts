@@ -2,9 +2,13 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types';
-import { AppModule } from './../src/app.module';
+import { AppModule } from '../src/app.module';
 
-describe('e2e', () => {
+/**
+ * 전체 앱 + TypeORM(Postgres) 연결이 필요합니다.
+ * 로컬: Postgres가 떠 있고 backend/.env 의 POSTGRES_* 가 맞아야 합니다.
+ */
+describe('App (e2e)', () => {
   let app: INestApplication<App>;
 
   beforeEach(async () => {
@@ -28,31 +32,12 @@ describe('e2e', () => {
     await app.close();
   });
 
-  it('/api/auth (GET)', () => {
+  it('GET /api/marketplace/orders — returns JSON array (스모크)', () => {
     return request(app.getHttpServer())
-      .get('/api/auth')
+      .get('/api/marketplace/orders')
       .expect(200)
-      .expect('hello world');
-  });
-
-  it('/api/nft (GET)', () => {
-    return request(app.getHttpServer())
-      .get('/api/nft')
-      .expect(200)
-      .expect('hello world');
-  });
-
-  it('/api/util (GET)', () => {
-    return request(app.getHttpServer())
-      .get('/api/util')
-      .expect(200)
-      .expect('hello world');
-  });
-
-  it('/api/blockchain (GET)', () => {
-    return request(app.getHttpServer())
-      .get('/api/blockchain')
-      .expect(200)
-      .expect('hello world');
+      .expect((res) => {
+        expect(Array.isArray(res.body)).toBe(true);
+      });
   });
 });

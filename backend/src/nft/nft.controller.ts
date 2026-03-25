@@ -1,7 +1,6 @@
 import {
   Body,
   Controller,
-  Get,
   Post,
   UploadedFile,
   UseInterceptors,
@@ -21,12 +20,6 @@ import { NftService } from './nft.service';
 @Controller('nft')
 export class NftController {
   constructor(private readonly nftService: NftService) {}
-
-  @ApiOperation({ summary: 'Health check' })
-  @Get()
-  hello(): string {
-    return 'hello world';
-  }
 
   @ApiOperation({ summary: 'NFT 이미지 및 메타데이터를 IPFS에 업로드하고 tokenURI 반환' })
   @ApiConsumes('multipart/form-data')

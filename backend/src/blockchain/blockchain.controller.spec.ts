@@ -1,7 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { BlockchainController } from './blockchain.controller';
 import { BlockchainService } from './blockchain.service';
-import { USDC_CONTRACT, TOKENABLE_RWA_CONTRACT } from './constants/injection-tokens';
+import {
+  USDC_CONTRACT,
+  TOKENABLE_RWA_CONTRACT,
+} from './constants/injection-tokens';
 
 const mockBlockchainService = {
   getTokenInfo: jest
@@ -9,14 +12,14 @@ const mockBlockchainService = {
     .mockResolvedValue({ name: 'USD Coin', symbol: 'USDC', decimals: 6 }),
   getTotalSupply: jest.fn().mockResolvedValue('1000000000.0'),
   getTokenBalance: jest.fn().mockResolvedValue('500.0'),
-  getNftInfo: jest
+  getNftInfo: jest.fn().mockResolvedValue({
+    name: 'Tokenable_RWA',
+    symbol: 'TRWA',
+    totalMinted: 3,
+  }),
+  getNftOwner: jest
     .fn()
-    .mockResolvedValue({
-      name: 'Tokenable_RWA',
-      symbol: 'TRWA',
-      totalMinted: 3,
-    }),
-  getNftOwner: jest.fn().mockResolvedValue('0xD5abDD307414718C59949Ac5465930a1F8a52691'),
+    .mockResolvedValue('0xD5abDD307414718C59949Ac5465930a1F8a52691'),
   getNftTokenURI: jest.fn().mockResolvedValue('ipfs://QmTest'),
   getNftBalance: jest.fn().mockResolvedValue(2),
   getNftTokensByOwner: jest.fn().mockResolvedValue([0, 1]),
@@ -78,6 +81,31 @@ describe('BlockchainController', () => {
         '0xD5abDD307414718C59949Ac5465930a1F8a52691',
       );
       expect(result).toEqual([0, 1]);
+    });
+  });
+
+  describe('GET /blockchain/nft/owner/:tokenId', () => {
+    it('should return owner address', async () => {
+      const result = await controller.getNftOwner(0);
+      expect(mockBlockchainService.getNftOwner).toHaveBeenCalledWith(0);
+      expect(result).toBe('0xD5abDD307414718C59949Ac5465930a1F8a52691');
+    });
+  });
+
+  describe('GET /blockchain/nft/token-uri/:tokenId', () => {
+    it('should return token URI string', async () => {
+      const result = await controller.getNftTokenURI(0);
+      expect(mockBlockchainService.getNftTokenURI).toHaveBeenCalledWith(0);
+      expect(result).toBe('ipfs://QmTest');
+    });
+  });
+
+  describe('GET /blockchain/nft/balance/:address', () => {
+    it('should return NFT balance count', async () => {
+      const result = await controller.getNftBalance(
+        '0xD5abDD307414718C59949Ac5465930a1F8a52691',
+      );
+      expect(result).toBe(2);
     });
   });
 });
