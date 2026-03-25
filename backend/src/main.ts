@@ -49,7 +49,7 @@ async function bootstrap() {
     .addTag('auth', '인증')
     .addTag('nft', 'NFT')
     .addTag('blockchain', '블록체인 / 토큰')
-    .addTag('util', '유틸리티')
+    .addTag('marketplace', '마켓플레이스 (Seaport 주문)')
     .addTag('price', 'TCG 카드 실시간 가격 (JustTCG)')
     .addTag('psa', 'PSA 슬랩 OCR + JustTCG 보강')
     .build();
