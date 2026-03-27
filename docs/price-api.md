@@ -1,9 +1,10 @@
 # Price API — 포켓몬 카드 실시간 가격
 
-> **데이터 제공**: [JustTCG](https://justtcg.com) — The Dedicated Pricing API for Trading Card Games
-> **Base URL**: `http://localhost:4000/api/price`
-> **Swagger**: `http://localhost:4000/api/docs` → **price** 태그
-> **플랫폼 대상**: 포켓몬(Pokemon) 전용 — 모든 API 호출에서 `game=pokemon` 고정
+> **데이터 제공**: [JustTCG](https://justtcg.com) — The Dedicated Pricing API for Trading Card Games  
+> **Base URL (로컬 예시)**: `http://localhost:4000/api/price` — Nest **글로벌 prefix `/api`** 포함  
+> **Swagger**: `{호스트}/api/docs` → **price** 태그 (최종 스키마·파라미터는 코드와 동기화)  
+> **백엔드**: `backend/src/price/price.controller.ts`, 서버 env **`TCG_API_KEY`** 필수  
+> **플랫폼 대상**: 포켓몬(Pokemon) 중심 — 호출 시 `game=pokemon` 등 문서·기획에 맞게 지정
 
 ---
 
