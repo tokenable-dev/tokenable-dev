@@ -50,7 +50,7 @@ function NftCard({
         {imageUrl ? (
           <img
             src={imageUrl}
-            alt={nft.metadata?.name ?? `NFT #${nft.tokenId}`}
+            alt={nft.metadata?.name ?? `Asset #${nft.tokenId}`}
             className="w-full h-full object-contain object-center"
           />
         ) : (
@@ -212,7 +212,7 @@ export function MyNfts() {
   if (!isConnected) {
     return (
       <div className="text-center py-16 text-gray-500">
-        Connect your wallet to view your NFTs.
+        Connect your wallet to view your assets.
       </div>
     );
   }
@@ -230,8 +230,8 @@ export function MyNfts() {
   if (!nfts?.length) {
     return (
       <div className="text-center py-16">
-        <p className="text-gray-500 mb-2">You don&apos;t own any NFTs yet.</p>
-        <p className="text-sm text-gray-600">Mint your first NFT from the Mint tab.</p>
+        <p className="text-gray-500 mb-2">You don&apos;t own any assets yet.</p>
+        <p className="text-sm text-gray-600">Mint your first asset from the Mint tab.</p>
       </div>
     );
   }

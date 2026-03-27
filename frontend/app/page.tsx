@@ -13,8 +13,8 @@ type Tab = "mint" | "my-nfts" | "marketplace";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "mint", label: "Mint" },
-  { id: "my-nfts", label: "My NFTs" },
-  { id: "marketplace", label: "Marketplace" },
+  { id: "my-nfts", label: "My Assets" },
+  { id: "marketplace", label: "Exchange" },
 ];
 
 /** Reads ?tab= param and syncs it to the parent state */
@@ -80,14 +80,14 @@ export default function Home() {
         {/* <h1 className="mb-2">
           <img
             src={ASSETS.logo.tokenable}
-            alt="Tokenable RWA Marketplace"
+            alt="Tokenable RWA Exchange"
             width={186}
             height={37}
             className="h-9 sm:h-10 w-auto"
           />
         </h1> */}
         <p className="text-gray-400 text-sm max-w-xl">
-          Mint, collect, and trade NFTs on Ethereum Sepolia. Listings use
+          Mint, collect, and trade tokenized assets on Ethereum Sepolia. Listings use
           OpenSea Seaport; prices are shown in USDC.
         </p>
       </section>
@@ -134,7 +134,7 @@ export default function Home() {
                   {
                     step: "01",
                     title: "Fill in Details",
-                    desc: "Enter NFT name, description, and upload your image",
+                    desc: "Enter asset name, description, and upload your image",
                   },
                   {
                     step: "02",
@@ -144,7 +144,7 @@ export default function Home() {
                   {
                     step: "03",
                     title: "Sign & Mint",
-                    desc: "Approve the transaction in MetaMask to mint your NFT",
+                    desc: "Approve the transaction in MetaMask to mint your asset",
                   },
                 ].map(({ step, title, desc }) => (
                   <div key={step} className="flex gap-3">
@@ -167,9 +167,9 @@ export default function Home() {
         {activeTab === "my-nfts" && (
           <div>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-white">My NFTs</h2>
+              <h2 className="text-lg font-bold text-white">My Assets</h2>
               <p className="text-xs text-gray-500">
-                Click &ldquo;List for Sale&rdquo; to sell on the marketplace
+                Click &ldquo;List for Sale&rdquo; to sell on the Exchange
               </p>
             </div>
             <MyNfts />
@@ -179,7 +179,7 @@ export default function Home() {
         {activeTab === "marketplace" && (
           <div>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-white">Marketplace</h2>
+              <h2 className="text-lg font-bold text-white">Exchange</h2>
               <p className="text-xs text-gray-500">Prices in USDC</p>
             </div>
             <Marketplace />

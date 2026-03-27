@@ -34,7 +34,7 @@ export async function uploadNft(formData: FormData): Promise<UploadNftResult> {
   });
   if (!res.ok) {
     const error = await res.json().catch(() => ({ message: "Upload failed" }));
-    throw new Error((error as { message: string }).message ?? "NFT upload failed");
+    throw new Error((error as { message: string }).message ?? "Asset upload failed");
   }
   return res.json() as Promise<UploadNftResult>;
 }
@@ -151,19 +151,19 @@ export interface NftContractInfo {
 
 export async function getNftContractInfo(): Promise<NftContractInfo> {
   const res = await backendFetch(`${getApiUrl()}/blockchain/nft/info`);
-  if (!res.ok) throw new Error("Failed to fetch NFT contract info");
+  if (!res.ok) throw new Error("Failed to fetch contract info");
   return res.json() as Promise<NftContractInfo>;
 }
 
 export async function getNftBalance(address: string): Promise<number> {
   const res = await backendFetch(`${getApiUrl()}/blockchain/nft/balance/${address}`);
-  if (!res.ok) throw new Error("Failed to fetch NFT balance");
+  if (!res.ok) throw new Error("Failed to fetch asset balance");
   return res.json() as Promise<number>;
 }
 
 export async function getNftTokensByOwner(address: string): Promise<number[]> {
   const res = await backendFetch(`${getApiUrl()}/blockchain/nft/tokens/${address}`);
-  if (!res.ok) throw new Error("Failed to fetch owned NFTs");
+  if (!res.ok) throw new Error("Failed to fetch owned assets");
   return res.json() as Promise<number[]>;
 }
 

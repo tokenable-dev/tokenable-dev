@@ -1,17 +1,37 @@
 import {
-  buildPsaCertImageFallbackUrls,
   extractPsaCertImageUrlsFromApiBody,
+  extractPsaCertImagesFromGetImagesBody,
 } from './psa-cert-images.util';
 
-describe('buildPsaCertImageFallbackUrls', () => {
-  it('builds large front/back jpg paths', () => {
-    const u = buildPsaCertImageFallbackUrls('132386427');
-    expect(u.front).toBe(
-      'https://cert-images.psa.com/132386427/large/132386427_f.jpg',
-    );
-    expect(u.back).toBe(
-      'https://cert-images.psa.com/132386427/large/132386427_b.jpg',
-    );
+describe('extractPsaCertImagesFromGetImagesBody', () => {
+  it('unwraps Images wrapper when present', () => {
+    const raw = {
+      Images: [
+        {
+          ImageURL: 'https://example.com/front.jpg',
+          IsFrontImage: true,
+        },
+      ],
+    };
+    const x = extractPsaCertImagesFromGetImagesBody(raw);
+    expect(x.front).toBe('https://example.com/front.jpg');
+  });
+
+  it('maps ImageURL + IsFrontImage to front/back', () => {
+    const raw = [
+      {
+        ImageURL: 'https://d1htnxwo4o0jhw.cloudfront.net/cert/132386427/large/abc_f.jpg',
+        IsFrontImage: true,
+      },
+      {
+        ImageURL: 'https://d1htnxwo4o0jhw.cloudfront.net/cert/132386427/large/abc_b.jpg',
+        IsFrontImage: false,
+      },
+    ];
+    const x = extractPsaCertImagesFromGetImagesBody(raw);
+    expect(x.front).toContain('cloudfront.net');
+    expect(x.front).toContain('_f.jpg');
+    expect(x.back).toContain('_b.jpg');
   });
 });
 
@@ -19,8 +39,10 @@ describe('extractPsaCertImageUrlsFromApiBody', () => {
   it('reads images.front / images.back', () => {
     const raw = {
       images: {
-        front: 'https://cert-images.psa.com/132386427/large/132386427_f.jpg',
-        back: 'https://cert-images.psa.com/132386427/large/132386427_b.jpg',
+        front:
+          'https://d1htnxwo4o0jhw.cloudfront.net/cert/132386427/large/132386427_f.jpg',
+        back:
+          'https://d1htnxwo4o0jhw.cloudfront.net/cert/132386427/large/132386427_b.jpg',
       },
       PSACert: { CertNumber: '132386427' },
     };
@@ -29,11 +51,10 @@ describe('extractPsaCertImageUrlsFromApiBody', () => {
     expect(x.back).toContain('132386427_b');
   });
 
-  it('falls back to constructed URLs when no images in body', () => {
+  it('does not fabricate URLs when no images in body', () => {
     const raw = { PSACert: { CertNumber: '132386427' } };
     const x = extractPsaCertImageUrlsFromApiBody(raw, '132386427');
-    expect(x.front).toBe(
-      'https://cert-images.psa.com/132386427/large/132386427_f.jpg',
-    );
+    expect(x.front).toBeUndefined();
+    expect(x.back).toBeUndefined();
   });
 });

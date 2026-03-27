@@ -75,8 +75,8 @@ function isUsableCoverUrl(s: string): boolean {
 
 /**
  * 컬렉션 대표 이미지 URL.
- * 1) `graded.collectionCoverImage` — 서버 슬랩 크롭(컬렉션 전용)
- * 2) `graded.psa.certImageSourceUrl` — 민팅 시 기록한 PSA cert-images 등 공식 슬랩 사진 URL
+ * 1) `graded.collectionCoverImage` — 민팅 시 서버가 PSA 슬랩 상단 라벨·베젤을 크롭해 올린 IPFS 이미지
+ * 2) `graded.psa.certImageSourceUrl` — 민팅 시 기록한 PSA 슬랩 사진 원본 URL
  * 3) JustTCG topMatch / tcgplayerId
  */
 export function extractCollectionRepresentativeImage(

@@ -21,6 +21,7 @@ import {
 } from "@/constants/contracts";
 import { createOrder, preparePoolBidFulfillment } from "@/lib/api";
 import { gasWithCap } from "@/lib/chainGas";
+import { mapWalletError } from "@/lib/walletError";
 
 const ZERO_BYTES32 =
   "0x0000000000000000000000000000000000000000000000000000000000000000" as const;
@@ -52,7 +53,7 @@ export function SignPoolBidSeaport({
   const [step, setStep] = useState<Step>("idle");
   const [errorMsg, setErrorMsg] = useState("");
 
-  const { data: prep, isLoading, isError, error } = useQuery({
+  const { data: prep, isLoading, isError } = useQuery({
     queryKey: ["prepare-pool-bid", poolBidId, tokenId],
     queryFn: () => preparePoolBidFulfillment(poolBidId, tokenId),
     staleTime: 0,
@@ -225,7 +226,7 @@ export function SignPoolBidSeaport({
       });
       await queryClient.invalidateQueries({ queryKey: ["marketplace-pool-bids", tokenId] });
     } catch (e: unknown) {
-      setErrorMsg(e instanceof Error ? e.message : "Failed");
+      setErrorMsg(mapWalletError(e).message);
       setStep("error");
     }
   }
@@ -241,7 +242,7 @@ export function SignPoolBidSeaport({
   if (isError || !prep) {
     return (
       <div className="rounded-xl border border-red-500/30 bg-red-500/5 px-3 py-3 text-[11px] text-red-300">
-        {error instanceof Error ? error.message : "Could not load pool bid preparation."}
+        Could not load pool bid preparation. Try again.
       </div>
     );
   }

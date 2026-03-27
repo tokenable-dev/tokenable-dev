@@ -53,7 +53,7 @@ describe('MarketplaceController', () => {
   it('createOrder forwards to service', async () => {
     const dto = {
       signature: '0x',
-      tokenContract: '0xE4b82379cEE1Ace0d2aB2D081FB9E2ef933D15e1',
+      tokenContract: '0x8d14F1518A185A7966AE6e8a6ab94AfC8E4EF6ec',
       tokenId: '0',
       considerationToken: '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238',
       considerationAmount: '1000000',
@@ -67,7 +67,7 @@ describe('MarketplaceController', () => {
         offer: [
           {
             itemType: 2,
-            token: '0xE4b82379cEE1Ace0d2aB2D081FB9E2ef933D15e1',
+            token: '0x8d14F1518A185A7966AE6e8a6ab94AfC8E4EF6ec',
             identifierOrCriteria: '0',
             startAmount: '1',
             endAmount: '1',

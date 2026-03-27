@@ -41,7 +41,7 @@ export function GradedCardSection({
         Graded Card Information
       </h3>
       <p className="text-xs text-gray-500 mb-4">
-        Add grading details to enrich your NFT. All fields are optional.
+        Add grading details to enrich your asset. All fields are optional.
       </p>
 
       <div className="space-y-5">

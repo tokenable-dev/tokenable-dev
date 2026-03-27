@@ -1,21 +1,55 @@
 /**
- * PSA Public API `GetByCertNumber` 응답 및 cert-images.psa.com 규칙에서
+ * PSA Public API `GetByCertNumber` / `GetImagesByCertNumber` 응답에서
  * 슬랩 앞·뒤 이미지 URL을 뽑는다 (필드명은 API 버전마다 다를 수 있음).
+ *
+ * 참고: `cert-images.psa.com` 호스트는 공개 DNS에서 더 이상 존재하지 않음(NXDOMAIN) —
+ * 슬랩 사진은 `GetImagesByCertNumber`의 `ImageURL` + `IsFrontImage`를 사용한다.
  */
 
-export function buildPsaCertImageFallbackUrls(certDigits: string): {
-  front: string;
-  back: string;
-} {
-  const d = certDigits.replace(/\D/g, '');
-  const base = `https://cert-images.psa.com/${d}/large`;
-  return {
-    front: `${base}/${d}_f.jpg`,
-    back: `${base}/${d}_b.jpg`,
-  };
+function isPsaCertImageUrlString(s: string): boolean {
+  const t = s.trim();
+  if (!/^https:\/\//i.test(t)) return false;
+  return (
+    /cert-images\.psa\.com/i.test(t) ||
+    /cloudfront\.net/i.test(t) ||
+    /(?:^|\.)psacard\.com/i.test(t)
+  );
 }
 
-/** JSON 트리를 순회하며 cert-images.psa.com URL을 수집 (_f / _b 파일명 기준) */
+function getImagesRows(body: unknown): unknown[] | null {
+  if (Array.isArray(body)) return body;
+  if (body && typeof body === 'object') {
+    const o = body as Record<string, unknown>;
+    for (const k of ['Images', 'images', 'Data', 'data']) {
+      const v = o[k];
+      if (Array.isArray(v)) return v;
+    }
+  }
+  return null;
+}
+
+/** `GetImagesByCertNumber` JSON — 보통 `[{ ImageURL, IsFrontImage }, …]` */
+export function extractPsaCertImagesFromGetImagesBody(body: unknown): {
+  front?: string;
+  back?: string;
+} {
+  const out: { front?: string; back?: string } = {};
+  const rows = getImagesRows(body);
+  if (!rows) return out;
+
+  for (const row of rows) {
+    if (!row || typeof row !== 'object') continue;
+    const u = (row as { ImageURL?: unknown }).ImageURL;
+    const isFront = (row as { IsFrontImage?: unknown }).IsFrontImage;
+    if (typeof u !== 'string' || !/^https?:\/\//i.test(u.trim())) continue;
+    const url = u.trim();
+    if (isFront === true) out.front = url;
+    else if (isFront === false) out.back = url;
+  }
+  return out;
+}
+
+/** JSON 트리를 순회하며 PSA 슬랩 이미지 URL을 수집 (_f / _b 파일명 기준) */
 function collectPsaCertImageUrlsFromUnknown(raw: unknown): {
   front?: string;
   back?: string;
@@ -25,7 +59,7 @@ function collectPsaCertImageUrlsFromUnknown(raw: unknown): {
     if (obj == null) return;
     if (typeof obj === 'string') {
       const s = obj.trim();
-      if (!/^https:\/\/cert-images\.psa\.com\//i.test(s)) return;
+      if (!isPsaCertImageUrlString(s)) return;
       if (/_f\.(jpe?g|png)$/i.test(s)) out.front = s;
       else if (/_b\.(jpe?g|png)$/i.test(s)) out.back = s;
       return;
@@ -42,8 +76,8 @@ function collectPsaCertImageUrlsFromUnknown(raw: unknown): {
 }
 
 /**
- * 성공한 PSA API body + Cert 숫자로 앞면(민팅용)·뒷면 URL 후보를 만든다.
- * 응답에 없으면 cert-images.psa.com 규칙 URL을 채운다 (존재 여부는 호출부에서 probe).
+ * 성공한 PSA `GetByCertNumber` body + Cert 숫자로 앞면(민팅용)·뒷면 URL 후보를 만든다.
+ * 응답에 없으면 빈 값 — 더 이상 존재하지 않는 cert-images.psa.com 규칙 URL은 만들지 않는다.
  */
 export function extractPsaCertImageUrlsFromApiBody(
   apiBody: unknown,
@@ -93,12 +127,6 @@ export function extractPsaCertImageUrlsFromApiBody(
   const scanned = collectPsaCertImageUrlsFromUnknown(apiBody);
   if (!out.front && scanned.front) out.front = scanned.front;
   if (!out.back && scanned.back) out.back = scanned.back;
-
-  if (!out.front) {
-    const fb = buildPsaCertImageFallbackUrls(d);
-    out.front = fb.front;
-    out.back = fb.back;
-  }
 
   return out;
 }

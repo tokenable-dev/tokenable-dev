@@ -31,11 +31,11 @@ export function CollectionTradeGuide() {
               <ul className="list-disc list-inside space-y-1.5 text-gray-400">
                 <li>
                   <strong className="text-gray-300">Listed asks</strong> — click a row, open the
-                  NFT page, buy with one Seaport flow (USDC approve + fulfill).
+                  asset page, buy with one Seaport flow (USDC approve + fulfill).
                 </li>
                 <li>
                   <strong className="text-gray-300">Pool bid</strong> — sign once (EIP-712) for
-                  “I’ll pay X USDC for any NFT in this graded bucket.” When a seller picks your
+                  “I’ll pay X USDC for any asset in this graded bucket.” When a seller picks your
                   token, you sign a <strong className="text-gray-300">Seaport bid</strong> for that
                   token, then they can accept — no new contracts.
                 </li>
@@ -52,14 +52,14 @@ export function CollectionTradeGuide() {
                     href="/?tab=my-nfts"
                     className="text-mint hover:underline font-medium"
                   >
-                    My NFTs
+                    My Assets
                   </Link>{" "}
-                  → List with one Seaport listing (approve NFT + sign).
+                  → List with one Seaport listing (approve token + sign).
                 </li>
                 <li>
                   <strong className="text-gray-300">Pool buyers</strong> — enter your token ID in
                   the order book footer, use <strong className="text-gray-300">Sell</strong> on a
-                  pool row, then on your NFT page: Check match → Buyer link → when their Seaport bid
+                  pool row, then on your asset page: Check match → Buyer link → when their Seaport bid
                   appears, Accept.
                 </li>
               </ul>

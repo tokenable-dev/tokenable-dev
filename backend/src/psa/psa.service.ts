@@ -12,9 +12,13 @@ import {
 import {
   mergePsaApiIntoParsed,
   PsaPublicApiService,
+  type PsaGetImagesLookupResult,
   type PsaPublicApiLookupResult,
 } from './psa-public-api.service';
-import { extractPsaCertImageUrlsFromApiBody } from './psa-cert-images.util';
+import {
+  extractPsaCertImageUrlsFromApiBody,
+  extractPsaCertImagesFromGetImagesBody,
+} from './psa-cert-images.util';
 
 export interface PsaAnalyzeResult {
   ocr: {
@@ -41,7 +45,7 @@ export interface PsaAnalyzeResult {
     topMatch: unknown | null;
     rawResponse: unknown;
   };
-  /** PSA cert-images / API에서 가져온 슬랩 사진 URL (앞면은 민팅 imageUrl 후보) */
+  /** PSA GetImages / GetByCertNumber에서 가져온 슬랩 사진 URL (앞면은 민팅 imageUrl 후보) */
   psaCertImages?: { front?: string; back?: string };
 }
 
@@ -239,31 +243,50 @@ export class PsaService {
       psaParsed = { ...psaParsed, certNumber: hintDigits };
     }
 
-    let apiLookup: PsaPublicApiLookupResult =
-      await this.psaPublicApi.getByCertNumber(psaParsed.certNumber);
-    let enrichedFromOfficialApi = false;
+    const digitsForImages = psaParsed.certNumber?.replace(/\D/g, '') ?? '';
 
-    let psaCertImages: { front?: string; back?: string } | undefined;
+    const [apiLookup, imagesLookup]: [
+      PsaPublicApiLookupResult,
+      PsaGetImagesLookupResult,
+    ] = await Promise.all([
+      this.psaPublicApi.getByCertNumber(psaParsed.certNumber),
+      this.psaPublicApi.getImagesByCertNumber(psaParsed.certNumber),
+    ]);
+
+    let enrichedFromOfficialApi = false;
 
     if (apiLookup.status === 'success') {
       const hasCert = !!(apiLookup.raw as { PSACert?: unknown })?.PSACert;
       psaParsed = mergePsaApiIntoParsed(psaParsed, apiLookup.raw);
       enrichedFromOfficialApi = hasCert;
+    }
 
-      const digits = psaParsed.certNumber?.replace(/\D/g, '') ?? '';
-      if (digits.length >= 7) {
-        const cand = extractPsaCertImageUrlsFromApiBody(apiLookup.raw, digits);
-        if (cand.front && (await probeCertImageUrlReachable(cand.front))) {
-          let back: string | undefined;
-          if (cand.back && (await probeCertImageUrlReachable(cand.back))) {
-            back = cand.back;
-          }
-          psaCertImages = { front: cand.front, ...(back ? { back } : {}) };
-        } else {
-          this.logger.debug(
-            `PSA cert front image not reachable for ${digits.slice(0, 6)}…`,
+    let psaCertImages: { front?: string; back?: string } | undefined;
+
+    if (digitsForImages.length >= 7) {
+      const fromGetImages =
+        imagesLookup.status === 'success'
+          ? extractPsaCertImagesFromGetImagesBody(imagesLookup.raw)
+          : {};
+      const fromCertBody =
+        apiLookup.status === 'success'
+          ? extractPsaCertImageUrlsFromApiBody(apiLookup.raw, digitsForImages)
+          : {};
+
+      const front = fromGetImages.front ?? fromCertBody.front;
+      const back = fromGetImages.back ?? fromCertBody.back;
+
+      if (front) {
+        const ok = await probeCertImageUrlReachable(front);
+        if (!ok) {
+          this.logger.warn(
+            `PSA cert front probe failed (${digitsForImages.slice(0, 8)}…), using URL anyway`,
           );
         }
+        psaCertImages = {
+          front,
+          ...(back ? { back } : {}),
+        };
       }
     }
 

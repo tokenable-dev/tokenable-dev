@@ -136,7 +136,7 @@ export default function MarketplaceCollectionPage() {
           {error instanceof Error ? error.message : "Collection not found."}
         </p>
         <Link href="/?tab=marketplace" className="text-mint text-sm hover:underline">
-          ← Back to Marketplace
+          ← Back to Exchange
         </Link>
       </div>
     );
@@ -160,7 +160,7 @@ export default function MarketplaceCollectionPage() {
           href="/?tab=marketplace"
           className="inline-flex text-sm text-mint/90 hover:text-mint mb-6"
         >
-          ← Back to Marketplace
+          ← Back to Exchange
         </Link>
 
         <header className="mb-8 flex flex-col gap-8 lg:flex-row lg:items-start lg:gap-10">
@@ -240,20 +240,20 @@ export default function MarketplaceCollectionPage() {
                 href="/?tab=my-nfts"
                 className="inline-flex items-center rounded-xl border border-gray-700 bg-gray-800/50 px-4 py-2 text-sm font-medium text-gray-200 hover:bg-gray-800 hover:border-gray-600 transition-colors"
               >
-                My NFTs (sell)
+                My Assets (sell)
               </Link>
             </div>
           </div>
         </header>
 
         <section className="mb-10">
-          <h2 className="text-lg font-bold text-white mb-4">NFTs in this collection</h2>
+          <h2 className="text-lg font-bold text-white mb-4">Assets in this collection</h2>
           {tokenIds.length === 0 ? (
             <div className="rounded-2xl border border-gray-800 bg-gray-900/30 px-4 py-8 text-center text-sm text-gray-400">
               No token-specific listings or bids yet. Pool bids below may still apply to graded
-              matches — list an NFT from{" "}
+              matches — list an asset from{" "}
               <Link href="/?tab=my-nfts" className="text-mint hover:underline">
-                My NFTs
+                My Assets
               </Link>
               .
             </div>
@@ -263,6 +263,7 @@ export default function MarketplaceCollectionPage() {
                 <CollectionNftCard
                   key={tid}
                   tokenId={tid}
+                  collectionKey={key}
                   listing={askMap.get(tid) ?? null}
                   seaportBidCount={bidCountMap.get(tid) ?? 0}
                   address={address}

@@ -21,6 +21,7 @@ import {
 } from "@/constants/contracts";
 import { createOrder } from "@/lib/api";
 import { gasWithCap } from "@/lib/chainGas";
+import { mapWalletError } from "@/lib/walletError";
 
 const ZERO_BYTES32 =
   "0x0000000000000000000000000000000000000000000000000000000000000000" as const;
@@ -201,7 +202,7 @@ export function PlaceBidModal({ tokenId, onClose, onPlaced }: PlaceBidModalProps
         queryKey: ["marketplace-order-by-token", tokenId],
       });
     } catch (err: unknown) {
-      setErrorMsg(err instanceof Error ? err.message : "Transaction failed");
+      setErrorMsg(mapWalletError(err).message);
       setStep("error");
     }
   }
@@ -234,7 +235,7 @@ export function PlaceBidModal({ tokenId, onClose, onPlaced }: PlaceBidModalProps
             <div className="text-4xl mb-3">✓</div>
             <h3 className="text-lg font-bold text-white mb-1">Bid placed</h3>
             <p className="text-sm text-gray-400">
-              Your bid of {price} USDC for NFT #{tokenId} is live on the order book.
+              Your bid of {price} USDC for Asset #{tokenId} is live on the order book.
             </p>
             <p className="text-xs text-gray-600 mt-2">Valid for 30 days</p>
             <button
@@ -248,7 +249,7 @@ export function PlaceBidModal({ tokenId, onClose, onPlaced }: PlaceBidModalProps
           <>
             <h2 className="text-lg font-bold text-white mb-1">Place a bid</h2>
             <p className="text-sm text-gray-500 mb-5">
-              Offer USDC for this NFT. The seller can accept your bid on-chain (Seaport).
+              Offer USDC for this asset. The seller can accept your bid on-chain (Seaport).
             </p>
 
             <div className="mb-4">

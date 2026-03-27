@@ -25,7 +25,8 @@ describe('extractCollectionRepresentativeImage', () => {
       properties: {
         graded: {
           psa: {
-            certImageSourceUrl: 'https://cert-images.psa.com/132386427/large/132386427_f.jpg',
+            certImageSourceUrl:
+              'https://d1htnxwo4o0jhw.cloudfront.net/cert/132386427/large/132386427_f.jpg',
           },
           justtcg: {
             topMatch: { image: 'https://cdn.example.com/card.png' },
@@ -34,7 +35,7 @@ describe('extractCollectionRepresentativeImage', () => {
       },
     };
     expect(extractCollectionRepresentativeImage(meta)).toBe(
-      'https://cert-images.psa.com/132386427/large/132386427_f.jpg',
+      'https://d1htnxwo4o0jhw.cloudfront.net/cert/132386427/large/132386427_f.jpg',
     );
   });
 });
