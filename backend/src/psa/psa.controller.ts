@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  Body,
   Controller,
   Post,
   UploadedFiles,
@@ -32,7 +33,7 @@ export class PsaController {
     summary:
       'PSA 슬랩 OCR → (선택) PSA Public API Cert 조회 → JustTCG 검색',
     description:
-      '슬랩 앞면 필수, 뒷면 선택. 서버에 PSA_PUBLIC_API_TOKEN이 있으면 OCR로 추출한 Cert 번호로 PSA 공식 API를 호출해 메타를 보강합니다. 인식·API 결과는 민팅 전 반드시 확인하세요.',
+      '슬랩 앞면 필수, 뒷면 선택. 서버에 PSA_PUBLIC_API_TOKEN이 있으면 Cert 번호로 PSA 공식 API를 호출해 메타를 보강합니다. OCR이 Cert를 못 읽으면 multipart 필드 `certNumber`(숫자 또는 psacard.com/cert/ URL)를 넣으면 해당 번호로 조회합니다. 인식·API 결과는 민팅 전 반드시 확인하세요.',
   })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -42,6 +43,11 @@ export class PsaController {
       properties: {
         slabFront: { type: 'string', format: 'binary', description: '슬랩 앞면' },
         slabBack: { type: 'string', format: 'binary', description: '슬랩 뒷면 (선택)' },
+        certNumber: {
+          type: 'string',
+          description:
+            '선택. OCR보다 우선 — Cert 숫자만 또는 https://www.psacard.com/cert/83179580 형태',
+        },
       },
     },
   })
@@ -64,15 +70,14 @@ export class PsaController {
       slabFront?: Express.Multer.File[];
       slabBack?: Express.Multer.File[];
     },
+    @Body('certNumber') certNumber?: string,
   ): Promise<PsaAnalyzeResult> {
     const front = files?.slabFront?.[0];
     if (!front?.buffer?.length) {
       throw new BadRequestException('slabFront 이미지 파일이 필요합니다.');
     }
     const back = files?.slabBack?.[0];
-    return this.psaService.analyzeSlabImages(
-      front.buffer,
-      back?.buffer,
-    );
+    const hint = certNumber?.trim() || undefined;
+    return this.psaService.analyzeSlabImages(front.buffer, back?.buffer, hint);
   }
 }

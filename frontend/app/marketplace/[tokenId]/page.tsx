@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   usePublicClient,
@@ -35,7 +35,10 @@ import {
   SEAPORT_ABI,
 } from "@/constants/contracts";
 import { PlaceBidModal } from "@/components/marketplace/PlaceBidModal";
+import { ListNftModal } from "@/components/marketplace/ListNftModal";
 import { NftOrderBook } from "@/components/marketplace/NftOrderBook";
+import { PoolBidsPanel } from "@/components/marketplace/PoolBidsPanel";
+import { SignPoolBidSeaport } from "@/components/marketplace/SignPoolBidSeaport";
 import { ASSETS } from "@/constants/assets";
 import { useAppStore, selectWallet, selectUsdcBalance, selectRefresh } from "@/store";
 import { gasWithCap } from "@/lib/chainGas";
@@ -213,7 +216,17 @@ function fulfillSeaportOrderArgs(order: Order) {
 export default function NftDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const tokenId = Number(params.tokenId);
+  const signPoolBidRaw = searchParams.get("signPoolBid");
+  const signPoolBidId = signPoolBidRaw != null ? Number(signPoolBidRaw) : NaN;
+  const sellerPoolBidRaw = searchParams.get("sellerPoolBid");
+  const sellerPoolBidNum =
+    sellerPoolBidRaw != null ? Number(sellerPoolBidRaw) : NaN;
+  const highlightSellerPoolBid =
+    Number.isFinite(sellerPoolBidNum) && sellerPoolBidNum > 0
+      ? sellerPoolBidNum
+      : undefined;
 
   const { address, isConnected } = useAppStore(useShallow(selectWallet));
   const { usdcBalance, usdcBalanceFormatted } = useAppStore(useShallow(selectUsdcBalance));
@@ -228,6 +241,7 @@ export default function NftDetailPage() {
   const [approveTxHash, setApproveTxHash] = useState<`0x${string}` | undefined>();
   const [detailsExtraOpen, setDetailsExtraOpen] = useState(false);
   const [bidModalOpen, setBidModalOpen] = useState(false);
+  const [listModalOpen, setListModalOpen] = useState(false);
   const [acceptStep, setAcceptStep] = useState<"idle" | "approving" | "fulfilling" | "error">(
     "idle"
   );
@@ -323,10 +337,29 @@ export default function NftDetailPage() {
     typeof ownerOnChain === "string" ? ownerOnChain.toLowerCase() : "";
   const isOwner = !!(address && ownerAddr && address.toLowerCase() === ownerAddr);
 
+  /** 컬렉션 카드에서 ?list=1 로 진입 시 판매 모달 자동 오픈 (소유자만) */
+  useEffect(() => {
+    if (searchParams.get("list") !== "1") return;
+    if (!tokenIdOk || ownerLoading) return;
+    if (isOwner && isConnected) {
+      setListModalOpen(true);
+    }
+    router.replace(`/marketplace/${tokenId}`, { scroll: false });
+  }, [
+    searchParams,
+    tokenIdOk,
+    ownerLoading,
+    isOwner,
+    isConnected,
+    tokenId,
+    router,
+  ]);
+
   async function invalidateMarketplaceQueries() {
     await queryClient.invalidateQueries({ queryKey: ["marketplace-orders"] });
     await queryClient.invalidateQueries({ queryKey: ["marketplace-order-by-token", tokenId] });
     await queryClient.invalidateQueries({ queryKey: ["marketplace-bids", tokenId] });
+    await queryClient.invalidateQueries({ queryKey: ["marketplace-pool-bids", tokenId] });
     await queryClient.invalidateQueries({
       queryKey: ["marketplace-detail-metadata", tokenId],
     });
@@ -334,6 +367,7 @@ export default function NftDetailPage() {
     /** 모든 지갑의 My NFTs 목록·메타 (거래 후 판매자/구매자 캐시 동기화) */
     await queryClient.invalidateQueries({ queryKey: ["my-nft-ids"] });
     await queryClient.invalidateQueries({ queryKey: ["my-nfts"] });
+    await queryClient.invalidateQueries({ queryKey: ["marketplace-collection"] });
   }
 
   /** wagmi readContract 캐시 (ownerOf 등) */
@@ -667,6 +701,63 @@ export default function NftDetailPage() {
                     Could not load listing from API.
                   </p>
                 )}
+
+                {isOwner && !listing && isConnected && (
+                  <div className="rounded-xl border border-mint-deep/30 bg-mint/[0.06] px-3 py-3 space-y-2">
+                    <p className="text-xs font-semibold text-mint">Sell this NFT</p>
+                    <p className="text-[10px] text-gray-500 leading-relaxed">
+                      One Seaport listing (approve NFT + sign). Also works with collection pool
+                      buyers after you list or when you match a pool bid below.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setListModalOpen(true)}
+                      className="w-full py-2 rounded-lg bg-mint/20 text-mint text-sm font-semibold border border-mint-deep/35 hover:bg-mint/30"
+                    >
+                      List for sale (USDC)
+                    </button>
+                  </div>
+                )}
+
+                {highlightSellerPoolBid != null && (
+                  <div className="rounded-xl border border-amber-500/35 bg-amber-500/[0.06] px-3 py-2.5 text-[11px]">
+                    <p className="font-semibold text-amber-100 mb-1">
+                      Selling into pool bid #{highlightSellerPoolBid}
+                    </p>
+                    <p className="text-[10px] text-gray-400 leading-relaxed">
+                      {isOwner ? (
+                        <>
+                          Use <strong className="text-gray-300">Check match</strong> and{" "}
+                          <strong className="text-gray-300">Buyer link</strong> below, then accept
+                          the Seaport bid when it appears.
+                        </>
+                      ) : (
+                        <>
+                          Connect the wallet that <strong className="text-gray-300">owns</strong>{" "}
+                          this NFT for seller actions.
+                        </>
+                      )}
+                    </p>
+                  </div>
+                )}
+
+                <PoolBidsPanel
+                  tokenId={tokenId}
+                  address={address}
+                  isOwner={isOwner}
+                />
+
+                {tokenIdOk &&
+                  Number.isFinite(signPoolBidId) &&
+                  signPoolBidId > 0 && (
+                    <SignPoolBidSeaport
+                      tokenId={tokenId}
+                      poolBidId={signPoolBidId}
+                      onDone={() => {
+                        router.replace(`/marketplace/${tokenId}`);
+                      }}
+                    />
+                  )}
 
                 <NftOrderBook
                   listing={listing ?? null}
@@ -1068,6 +1159,17 @@ export default function NftDetailPage() {
                 tokenId={tokenId}
                 onClose={() => setBidModalOpen(false)}
                 onPlaced={() => setBidModalOpen(false)}
+              />
+            )}
+
+            {listModalOpen && (
+              <ListNftModal
+                tokenId={tokenId}
+                onClose={() => setListModalOpen(false)}
+                onListed={() => {
+                  setListModalOpen(false);
+                  void invalidateMarketplaceQueries();
+                }}
               />
             )}
           </>

@@ -57,6 +57,8 @@ export function MintForm() {
   const [analyzeError, setAnalyzeError] = useState("");
   /** Invalidate in-flight PSA analyze when deps change or slab cleared */
   const analyzeNonceRef = useRef(0);
+  /** PSA API에서 슬랩 앞면 URL을 받았을 때 NFT 메인 이미지로 사용 (기본 on) */
+  const [usePsaCertImageForNft, setUsePsaCertImageForNft] = useState(false);
 
   const { writeContractAsync } = useWriteContract();
   const { data: receipt, isLoading: waitingForReceipt } =
@@ -101,7 +103,12 @@ export function MintForm() {
   function validate(): boolean {
     const next: Record<string, string> = {};
     if (!form.name.trim()) next.name = "NFT name is required";
+    const hasPsaMintImage =
+      form.gradingCompany === "PSA" &&
+      usePsaCertImageForNft &&
+      !!lastAnalyze?.psaCertImages?.front;
     const hasImage =
+      hasPsaMintImage ||
       form.image instanceof File ||
       (typeof form.image === "string" && form.image.trim());
     if (!hasImage) next.image = "Image file or URL is required";
@@ -296,13 +303,20 @@ export function MintForm() {
     }));
   }, []);
 
+  const certHintForPsa = useCallback((): string | undefined => {
+    const num = form.grade.certNumber.trim();
+    if (num) return num;
+    const url = form.verification.certUrl.trim();
+    return url || undefined;
+  }, [form.grade.certNumber, form.verification.certUrl]);
+
   const executePsaAnalyze = useCallback(
     async (front: File, back: File | null) => {
       const n = ++analyzeNonceRef.current;
       setAnalyzeError("");
       setAnalyzeLoading(true);
       try {
-        const r = await analyzePsaSlab(front, back);
+        const r = await analyzePsaSlab(front, back, certHintForPsa());
         if (n !== analyzeNonceRef.current) return;
         applyPsaAnalyzeResult(r, front);
       } catch (err: unknown) {
@@ -314,7 +328,7 @@ export function MintForm() {
         }
       }
     },
-    [applyPsaAnalyzeResult],
+    [applyPsaAnalyzeResult, certHintForPsa],
   );
 
   /** 슬랩 앞/뒤 파일이 바뀔 때 자동 분석 (디바운스) */
@@ -348,8 +362,18 @@ export function MintForm() {
     form.gradingCompany,
     form.verification.slabFront,
     form.verification.slabBack,
+    form.grade.certNumber,
+    form.verification.certUrl,
     executePsaAnalyze,
   ]);
+
+  useEffect(() => {
+    if (lastAnalyze?.psaCertImages?.front) {
+      setUsePsaCertImageForNft(true);
+    } else {
+      setUsePsaCertImageForNft(false);
+    }
+  }, [lastAnalyze?.psaCertImages?.front]);
 
   function handleAnalyzePsaManual() {
     const front =
@@ -374,7 +398,14 @@ export function MintForm() {
       const data = new FormData();
       data.append("name", form.name);
       data.append("description", form.description.trim() || "No description");
-      if (form.image instanceof File) {
+      const psaMintUrl = lastAnalyze?.psaCertImages?.front;
+      if (
+        form.gradingCompany === "PSA" &&
+        usePsaCertImageForNft &&
+        psaMintUrl
+      ) {
+        data.append("imageUrl", psaMintUrl);
+      } else if (form.image instanceof File) {
         data.append("image", form.image);
       } else if (typeof form.image === "string" && form.image.trim()) {
         data.append("imageUrl", form.image);
@@ -382,6 +413,14 @@ export function MintForm() {
 
       if (form.gradingCompany) {
         const meta = buildMetadata();
+        if (
+          usePsaCertImageForNft &&
+          psaMintUrl &&
+          meta.psa &&
+          form.gradingCompany === "PSA"
+        ) {
+          meta.psa.certImageSourceUrl = psaMintUrl;
+        }
         data.append(
           "gradedMetadata",
           JSON.stringify({
@@ -519,12 +558,69 @@ export function MintForm() {
             />
           </div>
 
+          {form.gradingCompany === "PSA" &&
+            lastAnalyze?.psaCertImages?.front && (
+              <div className="rounded-xl border border-mint-deep/30 bg-gradient-to-br from-mint/[0.08] via-gray-900/50 to-gray-950/80 p-4 space-y-3">
+                <p className="text-xs font-semibold text-mint tracking-wide">
+                  PSA 인증 슬랩 이미지
+                </p>
+                <div className="flex flex-col sm:flex-row gap-4 items-start">
+                  <div className="shrink-0 mx-auto sm:mx-0">
+                    <div className="rounded-xl border border-gray-700/90 bg-[#0a0e14] p-2 shadow-inner shadow-black/40">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={lastAnalyze.psaCertImages.front}
+                        alt="PSA 인증 슬랩 앞면"
+                        className="max-h-52 max-w-[min(100%,240px)] w-auto object-contain rounded-lg"
+                        loading="lazy"
+                        referrerPolicy="no-referrer"
+                      />
+                    </div>
+                  </div>
+                  <label className="flex flex-1 min-w-0 items-start gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5 rounded border-gray-600 text-mint focus:ring-mint shrink-0"
+                      checked={usePsaCertImageForNft}
+                      onChange={(e) => setUsePsaCertImageForNft(e.target.checked)}
+                    />
+                    <span className="text-xs text-gray-300 leading-snug">
+                      <span className="font-semibold text-mint">
+                        이 이미지를 NFT 메인 이미지로 사용
+                      </span>
+                      <br />
+                      체크 시 이 PSA Cert 사진을 IPFS에 올려 민팅합니다. 해제하면 아래
+                      &quot;Card Image&quot;에 올린 파일·URL을 사용합니다.
+                    </span>
+                  </label>
+                </div>
+                {usePsaCertImageForNft && (
+                  <p className="text-[11px] text-mint/85 border-t border-mint-deep/20 pt-2">
+                    민팅 시 NFT에 표시되는 이미지는 위 PSA 인증 사진입니다.
+                  </p>
+                )}
+              </div>
+            )}
+
           <ImageInput
-            label="Card Image"
+            label={
+              form.gradingCompany === "PSA" && lastAnalyze?.psaCertImages?.front
+                ? "Card Image (직접 업로드 · 선택)"
+                : "Card Image"
+            }
             value={form.image}
             onChange={(v) => updateForm("image", v)}
-            required
+            required={
+              !usePsaCertImageForNft || !lastAnalyze?.psaCertImages?.front
+            }
           />
+          {form.gradingCompany === "PSA" &&
+            lastAnalyze?.psaCertImages?.front && (
+              <p className="text-[11px] text-gray-500 -mt-2">
+                PSA 인증 이미지를 쓰면 위 체크만으로도 민팅할 수 있습니다. 직접 촬영본은
+                선택입니다.
+              </p>
+            )}
           {errors.image && (
             <p className="text-xs text-red-400">{errors.image}</p>
           )}
@@ -545,8 +641,10 @@ export function MintForm() {
           <div className="rounded-xl border border-mint-deep/30 bg-mint/[0.04] p-4 space-y-3">
             <p className="text-xs text-gray-300 leading-relaxed">
               <strong className="text-mint">자동 분석:</strong> Verification에서 슬랩
-              앞면을 고르면 잠시 후 OCR · PSA API · JustTCG가 실행되고 폼이 채워집니다. 뒷면을
-              추가·변경하면 다시 분석합니다.
+              앞면을 고르면 잠시 후 OCR · PSA API · JustTCG가 실행되고 폼이 채워집니다. 아래{" "}
+              <strong className="text-white">Cert #</strong> 또는{" "}
+              <strong className="text-white">Cert URL</strong>을 먼저 넣으면 OCR보다 그
+              번호로 PSA 공식 조회를 합니다 (OCR이 Cert를 못 읽을 때 권장).
             </p>
             <p className="text-xs text-gray-300 leading-relaxed">
               <strong className="text-mint">촬영 팁:</strong> 앞면은 라벨·카드, 뒷면은

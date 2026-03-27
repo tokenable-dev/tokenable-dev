@@ -10,6 +10,8 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { LessThan, QueryFailedError, Repository } from 'typeorm';
+import { BucketBidService } from './bucket-bid.service';
+import { CollectionService } from './collection.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { Order, OrderSide, OrderStatus } from './entities/order.entity';
 
@@ -21,6 +23,8 @@ export class MarketplaceService {
     @InjectRepository(Order)
     private readonly orderRepo: Repository<Order>,
     private readonly config: ConfigService,
+    private readonly bucketBidService: BucketBidService,
+    private readonly collectionService: CollectionService,
   ) {}
 
   // ── 주문 생성 ─────────────────────────────────────────────────────
@@ -31,6 +35,30 @@ export class MarketplaceService {
 
     if (side === OrderSide.BID) {
       this.assertValidBid(dto);
+    }
+
+    if (dto.bucketBidId != null) {
+      if (side !== OrderSide.BID) {
+        throw new BadRequestException('bucketBidId is only valid when side is bid');
+      }
+      await this.bucketBidService.assertPoolBidMatchesSeaportBid({
+        bucketBidId: dto.bucketBidId,
+        tokenId: dto.tokenId,
+        offerer: String(dto.parameters.offerer),
+        considerationAmount: dto.considerationAmount,
+      });
+      const dup = await this.orderRepo.findOne({
+        where: {
+          bucketBidId: dto.bucketBidId,
+          status: OrderStatus.ACTIVE,
+          side: OrderSide.BID,
+        },
+      });
+      if (dup) {
+        throw new ConflictException(
+          'An active Seaport bid already exists for this pool bid. Cancel it first.',
+        );
+      }
     }
 
     if (side === OrderSide.ASK) {
@@ -49,6 +77,15 @@ export class MarketplaceService {
       }
     }
 
+    let collectionKey: string | null = null;
+    try {
+      collectionKey = await this.collectionService.ensureCollectionForListing(dto.tokenId);
+    } catch (e) {
+      this.logger.warn(
+        `Collection not attached for token #${dto.tokenId}: ${String(e)}`,
+      );
+    }
+
     const order = this.orderRepo.create({
       orderHash: this.deriveOrderHash(params, side),
       offerer: parameters.offerer,
@@ -62,6 +99,8 @@ export class MarketplaceService {
       side,
       startTime: new Date(Number(parameters.startTime) * 1000),
       endTime: new Date(Number(parameters.endTime) * 1000),
+      bucketBidId: dto.bucketBidId ?? null,
+      collectionKey,
     });
 
     try {
@@ -183,6 +222,8 @@ export class MarketplaceService {
 
     order.status = OrderStatus.FULFILLED;
     const saved = await this.orderRepo.save(order);
+
+    await this.bucketBidService.markPoolBidFulfilledIfLinked(saved);
 
     /** 같은 토큰에 대해 다른 활성 ask/bid가 남으면 UI·그리드가 어긋남 → 전부 정리 */
     const cleared = await this.orderRepo.update(

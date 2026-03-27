@@ -2,11 +2,19 @@ import {
   Body,
   Controller,
   Get,
+  NotFoundException,
   Param,
   Patch,
   Post,
   Query,
 } from '@nestjs/common';
+import { CollectionService } from './collection.service';
+import { BucketBidService } from './bucket-bid.service';
+import type { MarketBucketComponents } from './bucket-key.util';
+import { CreateBucketBidDto } from './dto/create-bucket-bid.dto';
+import { PrepareBucketFulfillDto } from './dto/prepare-bucket-fulfill.dto';
+import { ValidateBucketMatchDto } from './dto/validate-bucket-match.dto';
+import { BucketBid } from './entities/bucket-bid.entity';
 import {
   ApiBody,
   ApiOperation,
@@ -21,7 +29,11 @@ import { MarketplaceService } from './marketplace.service';
 @ApiTags('marketplace')
 @Controller('marketplace')
 export class MarketplaceController {
-  constructor(private readonly marketplaceService: MarketplaceService) {}
+  constructor(
+    private readonly marketplaceService: MarketplaceService,
+    private readonly bucketBidService: BucketBidService,
+    private readonly collectionService: CollectionService,
+  ) {}
 
   /**
    * 판매자가 EIP-712 서명한 Seaport 주문을 백엔드 DB에 등록합니다.
@@ -42,6 +54,45 @@ export class MarketplaceController {
   @Get('orders')
   findActiveOrders(): Promise<Order[]> {
     return this.marketplaceService.findActiveOrders();
+  }
+
+  @ApiOperation({
+    summary: '메타 기준 컬렉션 목록',
+    description:
+      'graded + JustTCG queryUsed 등으로 생성된 논리 컬렉션. 첫 매도(ask) 등록 시 행이 생긴다.',
+  })
+  @Get('collections')
+  listCollections() {
+    return this.collectionService.listSummaries();
+  }
+
+  @ApiOperation({
+    summary: '컬렉션 단건 + 오더북용 데이터',
+    description:
+      '활성 매도(asks), 풀 매수(pool bids), Seaport 매수(seaport bids), JustTCG 대표 이미지 URL',
+  })
+  @ApiParam({ name: 'key', description: 'collection_key (64 hex, bucket과 동일)' })
+  @Get('collections/:key')
+  async getCollection(@Param('key') key: string) {
+    const col = await this.collectionService.findOne(key);
+    if (!col) {
+      throw new NotFoundException(`Collection not found: ${key}`);
+    }
+    const [listings, seaportBids, representativeImageUrl] = await Promise.all([
+      this.collectionService.activeListingsForCollection(key),
+      this.collectionService.activeBidsForCollection(key),
+      this.collectionService.resolveRepresentativeImageForCollection(key),
+    ]);
+    const poolBids = await this.bucketBidService.findActiveByBucketKey(
+      col.collectionKey.toLowerCase(),
+    );
+    return {
+      collection: col,
+      listings,
+      poolBids,
+      seaportBids,
+      representativeImageUrl,
+    };
   }
 
   /**
@@ -116,5 +167,79 @@ export class MarketplaceController {
     @Query('callerAddress') callerAddress: string,
   ): Promise<Order> {
     return this.marketplaceService.reactivateOrder(hash, callerAddress);
+  }
+
+  // ── Pool bids (논리적 버킷 — 같은 카드·등급, tokenId 비특정) ────────────────
+
+  @ApiOperation({
+    summary: 'tokenId로 버킷 키·메타·활성 풀 매수 호가',
+    description:
+      'IPFS 메타의 properties.graded로 버킷을 계산합니다. graded가 없으면 400.',
+  })
+  @Get('bucket-bids/by-token/:tokenId')
+  listBucketBidsByToken(
+    @Param('tokenId') tokenId: string,
+  ): Promise<{
+    bucketKey: string;
+    components: MarketBucketComponents;
+    bids: BucketBid[];
+  }> {
+    return this.bucketBidService.listByTokenResolved(Number(tokenId));
+  }
+
+  @ApiOperation({
+    summary: '풀 매수 호가 등록 (Web2)',
+    description:
+      'tokenId를 넣으면 서버가 버킷 키를 계산합니다. 온체인 Seaport와 별개 — 체결 시 token-특정 주문이 추가로 필요합니다.',
+  })
+  @Post('bucket-bids')
+  createBucketBid(@Body() dto: CreateBucketBidDto): Promise<BucketBid> {
+    return this.bucketBidService.create(dto);
+  }
+
+  @ApiOperation({
+    summary: '풀 입찰 → 특정 tokenId Seaport 입찰 초안',
+    description:
+      '판매자가 자신의 tokenId로 체결하려 할 때, 구매자가 서명할 Seaport 파라미터 초안을 받습니다. counter는 클라이언트가 체인에서 읽어 병합합니다.',
+  })
+  @ApiParam({ name: 'id', description: 'bucket_bids.id' })
+  @Post('bucket-bids/:id/prepare-fulfill')
+  prepareBucketFulfill(
+    @Param('id') id: string,
+    @Body() dto: PrepareBucketFulfillDto,
+  ) {
+    return this.bucketBidService.prepareSeaportBidForPool(
+      Number(id),
+      Number(dto.tokenId),
+    );
+  }
+
+  @ApiOperation({ summary: '풀 매수 호가 취소 (매수자만)' })
+  @Patch('bucket-bids/:id/cancel')
+  cancelBucketBid(
+    @Param('id') id: string,
+    @Query('callerAddress') callerAddress: string,
+  ): Promise<BucketBid> {
+    return this.bucketBidService.cancel(Number(id), callerAddress);
+  }
+
+  @ApiOperation({
+    summary: '판매자·토큰이 풀 입찰과 메타데이터상 일치하는지 검증',
+  })
+  @Post('bucket-bids/:id/validate-seller')
+  validateBucketSellerMatch(
+    @Param('id') id: string,
+    @Body() dto: ValidateBucketMatchDto,
+  ): Promise<{
+    match: boolean;
+    bucketBid: BucketBid;
+    tokenOwner: string;
+    message: string;
+  }> {
+    return this.bucketBidService.validateSellerMatch(
+      Number(id),
+      Number(dto.tokenId),
+      dto.sellerAddress,
+    );
   }
 }
