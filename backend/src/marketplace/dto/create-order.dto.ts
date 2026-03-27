@@ -141,7 +141,7 @@ export class CreateOrderDto {
 
   @ApiProperty({
     description: 'NFT 컨트랙트 주소',
-    example: '0xE4b82379cEE1Ace0d2aB2D081FB9E2ef933D15e1',
+    example: '0x8d14F1518A185A7966AE6e8a6ab94AfC8E4EF6ec',
   })
   @IsEthereumAddress()
   tokenContract: string;

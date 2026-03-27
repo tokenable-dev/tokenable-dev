@@ -42,6 +42,23 @@ export type PsaPublicApiLookupResult =
       httpStatus?: number;
     };
 
+/** GET /cert/GetImagesByCertNumber/{cert} — 슬랩 사진 URL(ImageURL, IsFrontImage 배열). */
+export type PsaGetImagesLookupResult =
+  | { status: 'disabled'; reason: 'no_token' }
+  | { status: 'skipped'; reason: 'no_cert' | 'invalid_cert' }
+  | {
+      status: 'success';
+      certNumber: string;
+      /** 보통 `{ ImageURL, IsFrontImage }[]` (Swagger는 object만 명시). */
+      raw: unknown;
+    }
+  | {
+      status: 'error';
+      certNumber: string;
+      message: string;
+      httpStatus?: number;
+    };
+
 function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }
@@ -236,6 +253,147 @@ export class PsaPublicApiService {
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       this.logger.warn(`PSA Public API request failed: ${msg}`);
+      return {
+        status: 'error',
+        certNumber: digits,
+        message: msg,
+      };
+    }
+  }
+
+  /**
+   * GET /cert/GetImagesByCertNumber/{cert}
+   * 응답은 보통 `[{ ImageURL, IsFrontImage }, …]` 형태 (공개 예시: brad-newman/fetch-psa-api).
+   * `cert-images.psa.com` 호스트는 DNS에서 더 이상 존재하지 않으므로, 슬랩 이미지는 이 API로 가져온다.
+   */
+  async getImagesByCertNumber(
+    certRaw: string | undefined,
+  ): Promise<PsaGetImagesLookupResult> {
+    const token = this.getToken();
+    if (!token) {
+      return { status: 'disabled', reason: 'no_token' };
+    }
+    const digits = certRaw?.replace(/\D/g, '') ?? '';
+    if (!digits) {
+      return { status: 'skipped', reason: 'no_cert' };
+    }
+    if (digits.length < 7 || digits.length > 10) {
+      return { status: 'skipped', reason: 'invalid_cert' };
+    }
+
+    const url = `${this.baseUrl}/cert/GetImagesByCertNumber/${digits}`;
+    const maxRetries = this.getMaxRetries();
+
+    try {
+      let lastRes: Response | null = null;
+      let lastText = '';
+
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        const res = await fetch(url, {
+          method: 'GET',
+          headers: {
+            authorization: `bearer ${token}`,
+            accept: 'application/json',
+            'user-agent': 'TokenableBackend/1.0 (PSA Public API)',
+          },
+        });
+
+        lastRes = res;
+        lastText = await res.text();
+
+        if (res.status === 429 && attempt < maxRetries) {
+          const retryAfter = res.headers.get('retry-after');
+          const waitSec = retryAfter ? parseInt(retryAfter, 10) : NaN;
+          const waitMs = Number.isFinite(waitSec)
+            ? Math.min(Math.max(waitSec, 1), 120) * 1000
+            : Math.min(1500 * 2 ** attempt, 30_000);
+          this.logger.warn(
+            `PSA GetImages 429 cert=${digits} attempt=${attempt + 1}/${maxRetries + 1} waitMs=${waitMs} retry-after=${retryAfter ?? 'n/a'}`,
+          );
+          await sleep(waitMs);
+          continue;
+        }
+
+        break;
+      }
+
+      const res = lastRes;
+      if (!res) {
+        return {
+          status: 'error',
+          certNumber: digits,
+          message: 'PSA GetImages: no response',
+        };
+      }
+
+      let body: unknown;
+      try {
+        body = lastText ? JSON.parse(lastText) : null;
+      } catch {
+        body = { _parseError: true, rawText: lastText.slice(0, 500) };
+      }
+
+      if (typeof body === 'string') {
+        return {
+          status: 'error',
+          certNumber: digits,
+          message: body,
+          httpStatus: res.status,
+        };
+      }
+
+      if (!res.ok) {
+        const errBody = body as { ServerMessage?: string; message?: string };
+        let message =
+          errBody?.ServerMessage ||
+          errBody?.message ||
+          `PSA GetImages HTTP ${res.status}`;
+
+        if (res.status === 429) {
+          message =
+            'PSA GetImages 요청 제한(HTTP 429). 잠시 뒤에 다시 시도하세요.';
+        } else if (res.status === 401 || res.status === 403) {
+          message =
+            'PSA GetImages 인증 실패(토큰 만료·무효 가능). publicapi 토큰을 확인하세요.';
+        }
+
+        return {
+          status: 'error',
+          certNumber: digits,
+          message,
+          httpStatus: res.status,
+        };
+      }
+
+      const obj = body as { IsValidRequest?: boolean; ServerMessage?: string };
+      if (obj?.IsValidRequest === false) {
+        return {
+          status: 'error',
+          certNumber: digits,
+          message: obj.ServerMessage ?? 'Invalid request',
+          httpStatus: res.status,
+        };
+      }
+      if (
+        obj?.ServerMessage === 'No data found' ||
+        /no data found/i.test(String(obj?.ServerMessage ?? ''))
+      ) {
+        return {
+          status: 'error',
+          certNumber: digits,
+          message: 'No data found for cert',
+          httpStatus: res.status,
+        };
+      }
+
+      return {
+        status: 'success',
+        certNumber: digits,
+        raw: body,
+      };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      this.logger.warn(`PSA GetImages request failed: ${msg}`);
       return {
         status: 'error',
         certNumber: digits,

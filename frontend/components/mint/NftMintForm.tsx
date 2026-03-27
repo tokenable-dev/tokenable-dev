@@ -32,7 +32,7 @@ export function NftMintForm() {
     return (
       <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-8 text-center">
         <div className="text-4xl mb-3">🔒</div>
-        <p className="text-gray-400">Connect your wallet to mint graded card NFTs</p>
+        <p className="text-gray-400">Connect your wallet to mint graded card assets</p>
       </div>
     );
   }

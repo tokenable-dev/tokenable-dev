@@ -1,11 +1,8 @@
 import sharp from 'sharp';
-import {
-  cropPsaSlabForCollectionCover,
-  cropPsaSlabTopForCardRegion,
-} from './psa-slab-crop.util';
+import { cropPsaSlabForCollectionCover } from './psa-slab-crop.util';
 
-describe('cropPsaSlabTopForCardRegion', () => {
-  it('removes the top strip and keeps width', async () => {
+describe('cropPsaSlabForCollectionCover', () => {
+  it('removes the top strip when side/bottom insets are zero', async () => {
     const buf = await sharp({
       create: {
         width: 100,
@@ -17,19 +14,27 @@ describe('cropPsaSlabTopForCardRegion', () => {
       .png()
       .toBuffer();
 
-    const out = await cropPsaSlabTopForCardRegion(buf, 0.25);
+    const out = await cropPsaSlabForCollectionCover(buf, {
+      topTrimRatio: 0.25,
+      sideInsetRatio: 0,
+      bottomInsetRatio: 0,
+    });
     const m = await sharp(out).metadata();
     expect(m.width).toBe(100);
     expect(m.height).toBe(150);
   });
 
-  it('throws when ratio is invalid', async () => {
+  it('throws when topTrimRatio is invalid', async () => {
     const buf = Buffer.alloc(100);
-    await expect(cropPsaSlabTopForCardRegion(buf, 0.7)).rejects.toThrow();
+    await expect(
+      cropPsaSlabForCollectionCover(buf, {
+        topTrimRatio: 0.7,
+        sideInsetRatio: 0,
+        bottomInsetRatio: 0,
+      }),
+    ).rejects.toThrow();
   });
-});
 
-describe('cropPsaSlabForCollectionCover', () => {
   it('applies top trim then side and bottom frame insets', async () => {
     const buf = await sharp({
       create: {

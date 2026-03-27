@@ -20,6 +20,7 @@ import {
   type BucketBid,
   type MarketBucketComponents,
 } from "@/lib/api";
+import { mapWalletError } from "@/lib/walletError";
 
 const POOL_BID_DURATION_SECONDS = 30 * 24 * 60 * 60;
 
@@ -80,7 +81,6 @@ export function PoolBidsPanel({
     data: fetched,
     isLoading,
     isError,
-    error,
     refetch,
   } = useQuery({
     queryKey: ["marketplace-pool-bids", "token", tokenId],
@@ -99,8 +99,7 @@ export function PoolBidsPanel({
     };
   }, [collectionContext, fetched]);
 
-  const errText =
-    !byCtx && isError && error instanceof Error ? error.message : null;
+  const errText = !byCtx && isError ? "Could not load pool bids for this card." : null;
 
   const loading = !byCtx && isLoading;
 
@@ -165,7 +164,7 @@ export function PoolBidsPanel({
       setPrice("");
       await queryClient.invalidateQueries({ queryKey: ["marketplace-pool-bids"] });
     } catch (e: unknown) {
-      setFormError(e instanceof Error ? e.message : "Failed to place pool bid");
+      setFormError(mapWalletError(e).message);
     } finally {
       setBusy(false);
     }
@@ -201,8 +200,8 @@ export function PoolBidsPanel({
       await cancelPoolBid(bid.id, address);
       await queryClient.invalidateQueries({ queryKey: ["marketplace-pool-bids"] });
       collectionContext?.onInvalidate();
-    } catch (e: unknown) {
-      setFormError(e instanceof Error ? e.message : "Cancel failed");
+    } catch {
+      setFormError("Could not cancel pool bid. Try again.");
     } finally {
       setBusy(false);
     }
@@ -215,8 +214,8 @@ export function PoolBidsPanel({
     try {
       const r = await validatePoolBidSellerMatch(bid.id, tokenId, address);
       setCheckMsg(r.message);
-    } catch (e: unknown) {
-      setCheckMsg(e instanceof Error ? e.message : "Check failed");
+    } catch {
+      setCheckMsg("Could not verify match. Try again.");
     } finally {
       setBusy(false);
     }
@@ -273,7 +272,7 @@ export function PoolBidsPanel({
           <p className="text-xs font-bold text-mint">Pool bid (EIP-712)</p>
           <p className="text-[10px] text-gray-500 mt-0.5 leading-snug">
             {hideBidList
-              ? "Place a collection-wide buy price — any NFT in this graded bucket. Listed in the order book above."
+              ? "Place a collection-wide buy price — any asset in this graded bucket. Listed in the order book above."
               : "Same graded card = one pool. Then Seaport when a seller picks a token."}
           </p>
         </div>
@@ -288,7 +287,7 @@ export function PoolBidsPanel({
         <div className="px-3 py-2.5 border-b border-mint-deep/20 bg-mint/[0.08] space-y-2">
           <p className="text-[11px] text-mint font-medium">Pool bid is live</p>
           <p className="text-[10px] text-gray-400 leading-relaxed">
-            Sellers match from their NFT page (Sell on a pool row). When one picks your price for
+            Sellers match from their asset page (Sell on a pool row). When one picks your price for
             their token, you’ll sign a Seaport bid for that token — still no new contracts.
           </p>
           <button
@@ -384,7 +383,7 @@ export function PoolBidsPanel({
       {!isOwner && address && (
         <div className="px-3 py-3 border-t border-gray-800/80 space-y-2">
           <p className="text-[10px] text-gray-500">
-            Pool bid — any NFT in this bucket (same card &amp; grade)
+            Pool bid — any asset in this bucket (same card &amp; grade)
           </p>
           <div className="flex gap-2">
             <input

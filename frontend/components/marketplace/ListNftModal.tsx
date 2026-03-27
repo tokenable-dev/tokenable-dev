@@ -21,6 +21,7 @@ import {
 } from "@/constants/contracts";
 import { createOrder } from "@/lib/api";
 import { gasWithCap } from "@/lib/chainGas";
+import { mapWalletError } from "@/lib/walletError";
 
 const ZERO_BYTES32 =
   "0x0000000000000000000000000000000000000000000000000000000000000000" as const;
@@ -85,7 +86,7 @@ export function ListNftModal({ tokenId, onClose, onListed }: ListNftModalProps) 
     const salt = BigInt(Math.floor(Math.random() * 1_000_000_000_000));
 
     try {
-      // ── Step 1: Approve NFT to Seaport ──────────────────────────────────────
+      // ── Step 1: Approve ERC-721 to Seaport ──────────────────────────────────────
       setStep("approving");
       const gasApprove = await gasWithCap(publicClient, {
         address: TOKENABLE_RWA_ADDRESS,
@@ -204,7 +205,7 @@ export function ListNftModal({ tokenId, onClose, onListed }: ListNftModalProps) 
       await queryClient.invalidateQueries({ queryKey: ["marketplace-collection"] });
       await queryClient.invalidateQueries({ queryKey: ["my-nft-ids", address] });
     } catch (err: unknown) {
-      setErrorMsg(err instanceof Error ? err.message : "Transaction failed");
+      setErrorMsg(mapWalletError(err).message);
       setStep("error");
     }
   }
@@ -213,7 +214,7 @@ export function ListNftModal({ tokenId, onClose, onListed }: ListNftModalProps) 
     step === "approving" || step === "signing" || step === "submitting";
 
   const stepLabels: { label: string; active: boolean }[] = [
-    { label: "1. Approve NFT", active: step === "approving" },
+    { label: "1. Approve token", active: step === "approving" },
     { label: "2. Sign Order", active: step === "signing" },
     { label: "3. Submitting", active: step === "submitting" },
   ];
@@ -237,7 +238,7 @@ export function ListNftModal({ tokenId, onClose, onListed }: ListNftModalProps) 
             <div className="text-4xl mb-3">🎉</div>
             <h3 className="text-lg font-bold text-white mb-1">Listed Successfully!</h3>
             <p className="text-sm text-gray-400">
-              NFT #{tokenId} is now listed for {price} USDC
+              Asset #{tokenId} is now listed for {price} USDC
             </p>
             <p className="text-xs text-gray-600 mt-2">Listing valid for 30 days</p>
             <button
@@ -250,10 +251,10 @@ export function ListNftModal({ tokenId, onClose, onListed }: ListNftModalProps) 
         ) : (
           <>
             <h2 className="text-lg font-bold text-white mb-1">
-              List NFT #{tokenId} for Sale
+              List Asset #{tokenId} for Sale
             </h2>
             <p className="text-sm text-gray-500 mb-5">
-              Set a price in USDC. Your NFT will be listed via Seaport.
+              Set a price in USDC. Your asset will be listed via Seaport.
             </p>
 
             <div className="mb-4">

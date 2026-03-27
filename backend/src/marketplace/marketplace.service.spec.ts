@@ -34,7 +34,7 @@ function baseParameters() {
     offer: [
       {
         itemType: 2,
-        token: '0xE4b82379cEE1Ace0d2aB2D081FB9E2ef933D15e1',
+        token: '0x8d14F1518A185A7966AE6e8a6ab94AfC8E4EF6ec',
         identifierOrCriteria: '0',
         startAmount: '1',
         endAmount: '1',
@@ -110,7 +110,7 @@ describe('MarketplaceService', () => {
       service.createOrder({
         parameters: baseParameters() as never,
         signature: '0x',
-        tokenContract: '0xE4b82379cEE1Ace0d2aB2D081FB9E2ef933D15e1',
+        tokenContract: '0x8d14F1518A185A7966AE6e8a6ab94AfC8E4EF6ec',
         tokenId: '0',
         considerationToken: '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238',
         considerationAmount: '1000000',
@@ -131,7 +131,7 @@ describe('MarketplaceService', () => {
     const dto = {
       parameters: baseParameters() as never,
       signature: '0xsig',
-      tokenContract: '0xE4b82379cEE1Ace0d2aB2D081FB9E2ef933D15e1',
+      tokenContract: '0x8d14F1518A185A7966AE6e8a6ab94AfC8E4EF6ec',
       tokenId: '1',
       considerationToken: '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238',
       considerationAmount: '1000000',
@@ -165,7 +165,7 @@ describe('MarketplaceService', () => {
       orderHash: '0xh',
       status: OrderStatus.ACTIVE,
       side: OrderSide.ASK,
-      tokenContract: '0xE4b82379cEE1Ace0d2aB2D081FB9E2ef933D15e1',
+      tokenContract: '0x8d14F1518A185A7966AE6e8a6ab94AfC8E4EF6ec',
       tokenId: '1',
     } as Order;
     repo.findOne.mockResolvedValue(row);

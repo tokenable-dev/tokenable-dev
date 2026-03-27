@@ -80,9 +80,9 @@ export function Marketplace() {
   if (!hasAnything) {
     return (
       <div className="text-center py-16">
-        <p className="text-gray-500 mb-2">No NFTs listed for sale yet.</p>
+        <p className="text-gray-500 mb-2">No assets listed for sale yet.</p>
         <p className="text-sm text-gray-600">
-          Mint and list your NFTs from the My NFTs tab.
+          Mint and list your assets from the My Assets tab.
         </p>
       </div>
     );

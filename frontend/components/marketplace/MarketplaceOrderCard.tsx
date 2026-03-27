@@ -45,7 +45,7 @@ export function MarketplaceOrderCard({
           {imageUrl ? (
             <img
               src={imageUrl}
-              alt={metadata?.name ?? `NFT #${tokenId}`}
+              alt={metadata?.name ?? `Asset #${tokenId}`}
               className="w-full h-full object-contain object-center"
             />
           ) : (

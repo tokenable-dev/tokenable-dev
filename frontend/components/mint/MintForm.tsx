@@ -57,7 +57,7 @@ export function MintForm() {
   const [analyzeError, setAnalyzeError] = useState("");
   /** Invalidate in-flight PSA analyze when deps change or slab cleared */
   const analyzeNonceRef = useRef(0);
-  /** PSA API에서 슬랩 앞면 URL을 받았을 때 NFT 메인 이미지로 사용 (기본 on) */
+  /** PSA API에서 슬랩 앞면 URL을 받았을 때 자산 메인 이미지로 사용 (기본 on) */
   const [usePsaCertImageForNft, setUsePsaCertImageForNft] = useState(false);
 
   const { writeContractAsync } = useWriteContract();
@@ -102,7 +102,7 @@ export function MintForm() {
 
   function validate(): boolean {
     const next: Record<string, string> = {};
-    if (!form.name.trim()) next.name = "NFT name is required";
+    if (!form.name.trim()) next.name = "Asset name is required";
     const hasPsaMintImage =
       form.gradingCompany === "PSA" &&
       usePsaCertImageForNft &&
@@ -201,6 +201,10 @@ export function MintForm() {
         reverseBarcode: lastAnalyze?.psa.reverseBarcode,
         specId: lastAnalyze?.psa.specId,
         enrichedFromOfficialApi: lastAnalyze?.psa.enrichedFromOfficialApi,
+        /** PSA cert-images / API — 컬렉션 대표 이미지·출처용 (민팅 이미지와 별개로 항상 기록) */
+        ...(lastAnalyze?.psaCertImages?.front
+          ? { certImageSourceUrl: lastAnalyze.psaCertImages.front }
+          : {}),
       };
       if (lastAnalyze) {
         metadata.justtcg = {
@@ -413,14 +417,6 @@ export function MintForm() {
 
       if (form.gradingCompany) {
         const meta = buildMetadata();
-        if (
-          usePsaCertImageForNft &&
-          psaMintUrl &&
-          meta.psa &&
-          form.gradingCompany === "PSA"
-        ) {
-          meta.psa.certImageSourceUrl = psaMintUrl;
-        }
         data.append(
           "gradedMetadata",
           JSON.stringify({
@@ -482,7 +478,7 @@ export function MintForm() {
     return (
       <div className="bg-gray-900/50 border border-mint-deep/35 rounded-xl p-6">
         <div className="text-center mb-5">
-          <h3 className="text-xl font-bold text-white">NFT Minted Successfully!</h3>
+          <h3 className="text-xl font-bold text-white">Asset Minted Successfully!</h3>
         </div>
         <div className="space-y-3">
           <div className="bg-gray-800/50 rounded-lg p-3">
@@ -520,14 +516,14 @@ export function MintForm() {
 
   return (
     <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-6 transition-all duration-200">
-      <h2 className="text-lg font-bold text-white mb-5">Mint Graded Card NFT</h2>
+      <h2 className="text-lg font-bold text-white mb-5">Mint Graded Card Asset</h2>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Base NFT fields */}
+        {/* Base asset fields */}
         <div className="space-y-4">
           <div>
             <label className="block text-sm text-gray-400 mb-1.5" htmlFor="name">
-              NFT Name <span className="text-red-400">*</span>
+              Asset Name <span className="text-red-400">*</span>
             </label>
             <input
               id="name"
@@ -586,7 +582,7 @@ export function MintForm() {
                     />
                     <span className="text-xs text-gray-300 leading-snug">
                       <span className="font-semibold text-mint">
-                        이 이미지를 NFT 메인 이미지로 사용
+                        이 이미지를 자산 메인 이미지로 사용
                       </span>
                       <br />
                       체크 시 이 PSA Cert 사진을 IPFS에 올려 민팅합니다. 해제하면 아래
@@ -596,7 +592,7 @@ export function MintForm() {
                 </div>
                 {usePsaCertImageForNft && (
                   <p className="text-[11px] text-mint/85 border-t border-mint-deep/20 pt-2">
-                    민팅 시 NFT에 표시되는 이미지는 위 PSA 인증 사진입니다.
+                    민팅 시 자산에 표시되는 이미지는 위 PSA 인증 사진입니다.
                   </p>
                 )}
               </div>

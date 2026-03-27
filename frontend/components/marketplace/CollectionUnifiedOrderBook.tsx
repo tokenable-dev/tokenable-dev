@@ -296,14 +296,14 @@ export function CollectionUnifiedOrderBook({
 
         {totalRows === 0 && (
           <p className="text-[11px] text-gray-600 text-center py-10 px-2">
-            No orders yet. Post a pool bid or list an NFT.
+            No orders yet. Post a pool bid or list an asset.
           </p>
         )}
       </div>
 
       <div className="px-3 py-2 border-t border-gray-800/80 bg-gray-900/40">
         <p className="text-[10px] text-gray-500 mb-1.5">
-          Seller: enter your NFT # then use <strong className="text-gray-400">Sell</strong> on a
+          Seller: enter your asset # then use <strong className="text-gray-400">Sell</strong> on a
           pool row (opens your token page).
         </p>
         <input

@@ -73,11 +73,3 @@ export async function cropPsaSlabForCollectionCover(
   const afterTop = await cropTopStrip(buffer, opts.topTrimRatio);
   return cropSlabFrameInsets(afterTop, opts.sideInsetRatio, opts.bottomInsetRatio);
 }
-
-/** @deprecated 내부 단계용 — `cropPsaSlabForCollectionCover` 사용 권장 */
-export async function cropPsaSlabTopForCardRegion(
-  buffer: Buffer,
-  topTrimRatio: number,
-): Promise<Buffer> {
-  return cropTopStrip(buffer, topTrimRatio);
-}

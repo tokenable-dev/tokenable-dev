@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PinataService } from '../util/pinata/pinata.service';
 import { UploadNftDto } from './dto/upload-nft.dto';
@@ -11,6 +16,12 @@ import { cropPsaSlabForCollectionCover } from './psa-slab-crop.util';
 
 function safeCollectionCoverFilename(name: string): string {
   return name.replace(/[^a-zA-Z0-9-_]+/g, '-').slice(0, 48) || 'nft';
+}
+
+function isPsaGraded(graded: Record<string, unknown> | undefined): boolean {
+  if (!graded || typeof graded !== 'object') return false;
+  const gc = graded.gradingCompany;
+  return typeof gc === 'string' && gc.toUpperCase() === 'PSA';
 }
 
 @Injectable()
@@ -46,6 +57,30 @@ export class NftService {
     return Number.isFinite(n) && n >= 0 && n < 0.4 ? n : 0.05;
   }
 
+  private psaSlabCropOptions() {
+    return {
+      topTrimRatio: this.getPsaSlabTopTrimRatio(),
+      sideInsetRatio: this.getPsaSlabSideInsetRatio(),
+      bottomInsetRatio: this.getPsaSlabBottomInsetRatio(),
+    };
+  }
+
+  /** 컬렉션 대표용 — 상단 PSA 라벨·베젤 크롭 후 IPFS CID. 실패 시 undefined. */
+  private async tryUploadPsaCollectionCover(
+    buffer: Buffer,
+    dtoName: string,
+  ): Promise<string | undefined> {
+    try {
+      const cropped = await cropPsaSlabForCollectionCover(buffer, this.psaSlabCropOptions());
+      const fn = `collection-cover-${safeCollectionCoverFilename(dtoName)}.png`;
+      return await this.pinataService.uploadBuffer(cropped, fn, 'image/png');
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      this.logger.warn(`PSA slab crop skipped: ${msg}`);
+      return undefined;
+    }
+  }
+
   async uploadToIpfs(dto: UploadNftDto, file?: Express.Multer.File): Promise<UploadNftResult> {
     if (!file && !dto.imageUrl) {
       throw new BadRequestException('이미지 파일 또는 imageUrl 중 하나는 필수입니다.');
@@ -71,27 +106,40 @@ export class NftService {
       }
     }
 
-    const imageCID = file
-      ? await this.pinataService.uploadFile(file)
-      : await this.pinataService.uploadFromUrl(dto.imageUrl!, dto.name);
+    const gradedObj = parsedGraded?.graded;
+    const psaGraded =
+      gradedObj && typeof gradedObj === 'object'
+        ? isPsaGraded(gradedObj as Record<string, unknown>)
+        : false;
 
+    let imageCID: string;
     let collectionCoverIpfsCid: string | undefined;
-    if (file?.buffer && parsedGraded?.graded && typeof parsedGraded.graded === 'object') {
-      const gc = parsedGraded.graded.gradingCompany;
-      if (typeof gc === 'string' && gc.toUpperCase() === 'PSA') {
-        try {
-          const cropped = await cropPsaSlabForCollectionCover(file.buffer, {
-            topTrimRatio: this.getPsaSlabTopTrimRatio(),
-            sideInsetRatio: this.getPsaSlabSideInsetRatio(),
-            bottomInsetRatio: this.getPsaSlabBottomInsetRatio(),
-          });
-          const fn = `collection-cover-${safeCollectionCoverFilename(dto.name)}.png`;
-          collectionCoverIpfsCid = await this.pinataService.uploadBuffer(cropped, fn, 'image/png');
-        } catch (e: unknown) {
-          const msg = e instanceof Error ? e.message : String(e);
-          this.logger.warn(`PSA slab crop skipped: ${msg}`);
-        }
+
+    if (file?.buffer) {
+      imageCID = await this.pinataService.uploadFile(file);
+      if (psaGraded) {
+        collectionCoverIpfsCid = await this.tryUploadPsaCollectionCover(
+          file.buffer,
+          dto.name,
+        );
       }
+    } else if (dto.imageUrl) {
+      if (psaGraded) {
+        try {
+          const { buffer, mimeType, extension } =
+            await this.pinataService.fetchImageBufferFromUrl(dto.imageUrl);
+          const baseFn = `${safeCollectionCoverFilename(dto.name)}.${extension}`;
+          imageCID = await this.pinataService.uploadBuffer(buffer, baseFn, mimeType);
+          collectionCoverIpfsCid = await this.tryUploadPsaCollectionCover(buffer, dto.name);
+        } catch (e: unknown) {
+          this.logger.error('Failed to fetch or upload PSA image from URL', e);
+          throw new InternalServerErrorException('URL 이미지 IPFS 업로드에 실패했습니다.');
+        }
+      } else {
+        imageCID = await this.pinataService.uploadFromUrl(dto.imageUrl, dto.name);
+      }
+    } else {
+      throw new BadRequestException('이미지 파일 또는 imageUrl 중 하나는 필수입니다.');
     }
 
     const metadata: NftMetadata = {

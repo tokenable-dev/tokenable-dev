@@ -31,7 +31,7 @@ export default function MarketplaceOtherListingsPage() {
           href="/?tab=marketplace"
           className="inline-flex text-sm text-mint/90 hover:text-mint mb-6"
         >
-          ← Back to Marketplace
+          ← Back to Exchange
         </Link>
 
         <header className="mb-8 border-b border-gray-800 pb-6">
@@ -51,7 +51,7 @@ export default function MarketplaceOtherListingsPage() {
             <MarketplaceOrderBook
               orders={orphan}
               variant="full"
-              subtitle="Ungrouped asks · click a row for NFT detail"
+              subtitle="Ungrouped asks · click a row for asset detail"
             />
           </div>
         )}
