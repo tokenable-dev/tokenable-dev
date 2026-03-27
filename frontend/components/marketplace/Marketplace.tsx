@@ -9,6 +9,7 @@ import {
   resolveIpfsImage,
   type Order,
 } from "@/lib/api";
+import { MarketplaceOrderBook } from "./MarketplaceOrderBook";
 
 import { useShallow } from "zustand/react/shallow";
 import { useAppStore, selectWallet, selectUsdcBalance } from "@/store";
@@ -104,10 +105,10 @@ function OrderCard({
           </p>
           <div className="mt-2 flex items-center justify-between">
             <div className="flex items-baseline gap-1">
-              <span className="text-base font-bold text-green-400">
+              <span className="text-base font-bold text-mint">
                 {priceUsdc}
               </span>
-              <span className="text-xs text-green-600">USDC</span>
+              <span className="text-xs text-mint-deep">USDC</span>
             </div>
             <span className="text-xs text-gray-600 group-hover:text-gray-400 transition-colors">
               {isSelf ? "Cancel →" : "Buy →"}
@@ -152,17 +153,22 @@ export function Marketplace() {
   }
 
   return (
-    <div>
-      {isConnected && address && <UsdcBalanceBanner />}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-        {orders.map((order) => (
-          <OrderCard
-            key={order.orderHash}
-            order={order}
-            currentAddress={address}
-          />
-        ))}
+    <div className="flex flex-col xl:flex-row gap-6 xl:gap-8 xl:items-start">
+      <div className="flex-1 min-w-0 space-y-4">
+        {isConnected && address && <UsdcBalanceBanner />}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-4">
+          {orders.map((order) => (
+            <OrderCard
+              key={order.orderHash}
+              order={order}
+              currentAddress={address}
+            />
+          ))}
+        </div>
       </div>
+      <aside className="w-full xl:w-[min(340px,100%)] shrink-0 xl:sticky xl:top-4">
+        <MarketplaceOrderBook orders={orders} />
+      </aside>
     </div>
   );
 }

@@ -56,6 +56,16 @@ export class MarketplaceController {
   }
 
   /**
+   * 활성 매수 입찰만 — 가격(USDC 최소단위) 내림차순. 오더북 Bid 측.
+   */
+  @ApiOperation({ summary: 'tokenId별 활성 매수 입찰 목록 (가격 내림차순)' })
+  @ApiParam({ name: 'tokenId', description: 'NFT Token ID', example: '1' })
+  @Get('orders/bids/token/:tokenId')
+  findActiveBids(@Param('tokenId') tokenId: string): Promise<Order[]> {
+    return this.marketplaceService.findActiveBidsByTokenId(tokenId);
+  }
+
+  /**
    * Seaport order hash로 단일 주문을 조회합니다.
    * 프론트엔드는 이 주문 데이터로 Seaport.fulfillOrder()를 호출합니다.
    */

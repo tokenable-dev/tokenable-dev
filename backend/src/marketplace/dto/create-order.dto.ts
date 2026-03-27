@@ -1,12 +1,14 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   IsArray,
   IsEthereumAddress,
+  IsIn,
   IsNotEmpty,
   IsNumber,
   IsNumberString,
   IsObject,
+  IsOptional,
   IsString,
   ValidateNested,
 } from 'class-validator';
@@ -114,6 +116,16 @@ class SeaportOrderParametersDto {
 }
 
 export class CreateOrderDto {
+  @ApiPropertyOptional({
+    description:
+      'ask = 매도 리스팅(기본), bid = 매수 입찰(offer=USDC, consideration=NFT→offerer)',
+    enum: ['ask', 'bid'],
+    default: 'ask',
+  })
+  @IsOptional()
+  @IsIn(['ask', 'bid'])
+  side?: 'ask' | 'bid';
+
   @ApiProperty({ description: 'Seaport order parameters' })
   @IsObject()
   @ValidateNested()

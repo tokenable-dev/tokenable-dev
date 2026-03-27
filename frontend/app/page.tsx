@@ -56,7 +56,7 @@ function EmailVerifyToastSync() {
 
   if (!msg) return null;
   return (
-    <div className="fixed bottom-6 left-1/2 z-[60] max-w-md w-[calc(100%-2rem)] -translate-x-1/2 px-4 py-3 rounded-lg bg-emerald-950/95 border border-emerald-700/60 text-sm text-emerald-100 shadow-xl text-center">
+    <div className="fixed bottom-6 left-1/2 z-[60] max-w-md w-[calc(100%-2rem)] -translate-x-1/2 px-4 py-3 rounded-lg bg-[#0a1210]/95 border border-mint/25 text-sm text-mint/95 shadow-xl shadow-mint/10 text-center">
       {msg}
     </div>
   );
@@ -102,7 +102,7 @@ export default function Home() {
               onClick={() => setActiveTab(tab.id)}
               className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${
                 activeTab === tab.id
-                  ? "bg-gray-700 text-white shadow"
+                  ? "bg-mint/12 text-mint border border-mint-deep/35 shadow-sm shadow-mint/10"
                   : "text-gray-500 hover:text-gray-300"
               }`}
             >
@@ -117,7 +117,7 @@ export default function Home() {
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-800 bg-gray-900/30 px-4 py-3">
               <p className="text-xs text-gray-500 max-w-md">
                 Web3: connect MetaMask to mint & list. Prefer linking the same address in{" "}
-                <Link href="/profile" className="text-amber-500 hover:underline">
+                <Link href="/profile" className="text-mint hover:underline">
                   Profile
                 </Link>{" "}
                 after logging in.

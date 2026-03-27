@@ -14,6 +14,12 @@ export enum OrderStatus {
   EXPIRED = 'expired',
 }
 
+/** ask = 매도 리스팅(판매자 서명), bid = 매수 입찰(구매자 서명, USDC 오퍼) */
+export enum OrderSide {
+  ASK = 'ask',
+  BID = 'bid',
+}
+
 @Entity('orders')
 export class Order {
   @PrimaryGeneratedColumn()
@@ -24,10 +30,20 @@ export class Order {
   @Column({ name: 'order_hash' })
   orderHash: string;
 
-  /** 판매자 지갑 주소 */
+  /**
+   * ask: 판매자(리스팅) / bid: 구매자(입찰 서명자)
+   */
   @Index()
   @Column()
   offerer: string;
+
+  @Column({
+    type: 'enum',
+    enum: OrderSide,
+    enumName: 'orders_side_enum',
+    default: OrderSide.ASK,
+  })
+  side: OrderSide;
 
   /** Tokenable_RWA (ERC-721) 컨트랙트 주소 */
   @Column({ name: 'token_contract' })

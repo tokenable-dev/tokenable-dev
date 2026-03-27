@@ -3,6 +3,11 @@
 :root {
   --background: #030712;
   --foreground: #f9fafb;
+  /** 브랜드 포인트 — 민트 */
+  --mint: #94ffd4;
+  --mint-dim: #6fd4b8;
+  --mint-deep: #4a9d82;
+  --mint-ink: #0a1412;
 }
 
 @theme inline {
@@ -10,6 +15,10 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --color-mint: var(--mint);
+  --color-mint-dim: var(--mint-dim);
+  --color-mint-deep: var(--mint-deep);
+  --color-mint-ink: var(--mint-ink);
 }
 
 body {

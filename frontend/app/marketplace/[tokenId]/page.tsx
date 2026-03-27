@@ -16,9 +16,11 @@ import {
   getApiUrl,
   getOrderByTokenId,
   getOrderHistoryByTokenId,
+  getActiveBidsForToken,
   fetchIpfsMetadata,
   resolveIpfsImage,
   fulfillOrderApi,
+  cancelOrder,
   type Order,
 } from "@/lib/api";
 import { NftImageZoom, GradedMetadataPanel } from "@/components/common";
@@ -26,11 +28,14 @@ import {
   TOKENABLE_RWA_ADDRESS,
   TOKENABLE_RWA_DISPLAY_NAME,
   TOKENABLE_RWA_READ_ABI,
+  TOKENABLE_RWA_APPROVE_ABI,
   USDC_ADDRESS,
   SEAPORT_ADDRESS,
   USDC_ABI,
   SEAPORT_ABI,
 } from "@/constants/contracts";
+import { PlaceBidModal } from "@/components/marketplace/PlaceBidModal";
+import { NftOrderBook } from "@/components/marketplace/NftOrderBook";
 import { ASSETS } from "@/constants/assets";
 import { useAppStore, selectWallet, selectUsdcBalance, selectRefresh } from "@/store";
 import { gasWithCap } from "@/lib/chainGas";
@@ -165,6 +170,43 @@ function IconTag({ className }: { className?: string }) {
   );
 }
 
+const FULFILL_EXTRA_DATA =
+  "0x0000000000000000000000000000000000000000000000000000000000000000" as `0x${string}`;
+
+/** Seaport `fulfillOrder` 첫 인자 — 매도(ask) 이행·매수(bid) 수락 공통 */
+function fulfillSeaportOrderArgs(order: Order) {
+  const params = order.parameters;
+  return {
+    parameters: {
+      offerer: params.offerer as `0x${string}`,
+      zone: params.zone as `0x${string}`,
+      offer: params.offer.map((item) => ({
+        itemType: item.itemType,
+        token: item.token as `0x${string}`,
+        identifierOrCriteria: BigInt(item.identifierOrCriteria),
+        startAmount: BigInt(item.startAmount),
+        endAmount: BigInt(item.endAmount),
+      })),
+      consideration: params.consideration.map((item) => ({
+        itemType: item.itemType,
+        token: item.token as `0x${string}`,
+        identifierOrCriteria: BigInt(item.identifierOrCriteria),
+        startAmount: BigInt(item.startAmount),
+        endAmount: BigInt(item.endAmount),
+        recipient: item.recipient as `0x${string}`,
+      })),
+      orderType: params.orderType,
+      startTime: BigInt(params.startTime),
+      endTime: BigInt(params.endTime),
+      zoneHash: params.zoneHash as `0x${string}`,
+      salt: BigInt(params.salt),
+      conduitKey: params.conduitKey as `0x${string}`,
+      totalOriginalConsiderationItems: BigInt(params.totalOriginalConsiderationItems),
+    },
+    signature: order.signature as `0x${string}`,
+  };
+}
+
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 
@@ -185,23 +227,31 @@ export default function NftDetailPage() {
   const [errorMsg, setErrorMsg] = useState("");
   const [approveTxHash, setApproveTxHash] = useState<`0x${string}` | undefined>();
   const [detailsExtraOpen, setDetailsExtraOpen] = useState(false);
+  const [bidModalOpen, setBidModalOpen] = useState(false);
+  const [acceptStep, setAcceptStep] = useState<"idle" | "approving" | "fulfilling" | "error">(
+    "idle"
+  );
+  const [acceptErrorMsg, setAcceptErrorMsg] = useState("");
+  const [acceptingBidHash, setAcceptingBidHash] = useState<string | null>(null);
+  const [cancelBidHash, setCancelBidHash] = useState<string | null>(null);
 
   useWaitForTransactionReceipt({ hash: approveTxHash, chainId: sepolia.id });
+
+  const tokenIdOk = Number.isFinite(tokenId) && tokenId >= 0;
 
   // ── Data fetching ──────────────────────────────────────────────────────────
 
   const {
-    data: order,
-    isLoading: orderLoading,
-    isError: orderError,
+    data: listing,
+    isError: listingError,
   } = useQuery({
     queryKey: ["marketplace-order-by-token", tokenId],
     queryFn: () => getOrderByTokenId(tokenId),
     retry: 1,
+    enabled: tokenIdOk,
   });
 
   // 키를 목록 카드(Marketplace OrderCard)의 ["nft-metadata", tokenId]와 분리해야 함.
-  // 같은 키 + 다른 queryFn이면 React Query 캐시가 섞여 첫 진입 시 이미지/메타가 비는 현상이 난다.
   const { data: metaBundle, isLoading: metaLoading } = useQuery({
     queryKey: ["marketplace-detail-metadata", tokenId],
     queryFn: async () => {
@@ -223,24 +273,32 @@ export default function NftDetailPage() {
       const metadata = await fetchIpfsMetadata(tokenURI).catch(() => null);
       return { metadata, tokenURI };
     },
-    enabled:
-      Number.isFinite(tokenId) && tokenId >= 0 && !!order,
+    enabled: tokenIdOk,
     staleTime: 60_000,
   });
 
-  const { data: ownerOnChain } = useReadContract({
+  const {
+    data: ownerOnChain,
+    isLoading: ownerLoading,
+    isError: ownerError,
+    refetch: refetchOwner,
+  } = useReadContract({
     address: TOKENABLE_RWA_ADDRESS,
     abi: TOKENABLE_RWA_READ_ABI,
     functionName: "ownerOf",
     args: [BigInt(Math.max(0, Math.floor(tokenId)))],
     chainId: sepolia.id,
     query: {
-      enabled:
-        Number.isFinite(tokenId) &&
-        tokenId >= 0 &&
-        !orderLoading &&
-        !!order,
+      enabled: tokenIdOk,
     },
+  });
+
+  const { data: bids = [], isLoading: bidsLoading } = useQuery({
+    queryKey: ["marketplace-bids", tokenId],
+    queryFn: () => getActiveBidsForToken(tokenId),
+    staleTime: 15_000,
+    retry: 1,
+    enabled: tokenIdOk,
   });
 
   const metadata = metaBundle?.metadata ?? null;
@@ -253,21 +311,45 @@ export default function NftDetailPage() {
     refetch: refetchActivity,
   } = useActivityHistory(tokenId);
 
-  // ── Buy logic ──────────────────────────────────────────────────────────────
+  // ── Buy (ask listing) ─────────────────────────────────────────────────────
 
-  const isSelf = address?.toLowerCase() === order?.offerer.toLowerCase();
-  // considerationAmount is already in USDC smallest unit (e.g. 20000 = 0.02 USDC)
-  const priceInUnits = order ? BigInt(order.considerationAmount) : BigInt(0);
-  const hasEnoughUsdc = isSelf || usdcBalance >= priceInUnits;
+  const isListingSeller =
+    address?.toLowerCase() === listing?.offerer.toLowerCase();
+  const priceInUnits = listing ? BigInt(listing.considerationAmount) : BigInt(0);
+  const hasEnoughUsdc = isListingSeller || usdcBalance >= priceInUnits;
   const isBuying = buyStep === "approving" || buyStep === "buying";
 
+  const ownerAddr =
+    typeof ownerOnChain === "string" ? ownerOnChain.toLowerCase() : "";
+  const isOwner = !!(address && ownerAddr && address.toLowerCase() === ownerAddr);
+
+  async function invalidateMarketplaceQueries() {
+    await queryClient.invalidateQueries({ queryKey: ["marketplace-orders"] });
+    await queryClient.invalidateQueries({ queryKey: ["marketplace-order-by-token", tokenId] });
+    await queryClient.invalidateQueries({ queryKey: ["marketplace-bids", tokenId] });
+    await queryClient.invalidateQueries({
+      queryKey: ["marketplace-detail-metadata", tokenId],
+    });
+    await queryClient.invalidateQueries({ queryKey: ["nft-activity", tokenId] });
+    /** 모든 지갑의 My NFTs 목록·메타 (거래 후 판매자/구매자 캐시 동기화) */
+    await queryClient.invalidateQueries({ queryKey: ["my-nft-ids"] });
+    await queryClient.invalidateQueries({ queryKey: ["my-nfts"] });
+  }
+
+  /** wagmi readContract 캐시 (ownerOf 등) */
+  async function invalidateWagmiReads() {
+    await queryClient.invalidateQueries({
+      predicate: (q) =>
+        Array.isArray(q.queryKey) && q.queryKey[0] === "readContract",
+    });
+  }
+
   async function handleBuy() {
-    if (!address || !order || !publicClient) return;
+    if (!address || !listing || !publicClient) return;
     setBuyStep("approving");
     setErrorMsg("");
 
     try {
-      // Step 1: Approve USDC to Seaport
       const gasApprove = await gasWithCap(publicClient, {
         address: USDC_ADDRESS,
         abi: USDC_ABI,
@@ -284,90 +366,133 @@ export default function NftDetailPage() {
         gas: gasApprove,
       });
       setApproveTxHash(approveTx);
-      if (publicClient) {
-        await publicClient.waitForTransactionReceipt({ hash: approveTx });
-      }
+      await publicClient.waitForTransactionReceipt({ hash: approveTx });
 
-      // Step 2: Seaport.fulfillOrder
       setBuyStep("buying");
-      const params = order.parameters;
 
       const fulfillTx = await writeContractAsync({
         address: SEAPORT_ADDRESS,
         abi: SEAPORT_ABI,
         functionName: "fulfillOrder",
-        args: [
-          {
-            parameters: {
-              offerer: params.offerer as `0x${string}`,
-              zone: params.zone as `0x${string}`,
-              offer: params.offer.map((item) => ({
-                itemType: item.itemType,
-                token: item.token as `0x${string}`,
-                identifierOrCriteria: BigInt(item.identifierOrCriteria),
-                startAmount: BigInt(item.startAmount),
-                endAmount: BigInt(item.endAmount),
-              })),
-              consideration: params.consideration.map((item) => ({
-                itemType: item.itemType,
-                token: item.token as `0x${string}`,
-                identifierOrCriteria: BigInt(item.identifierOrCriteria),
-                startAmount: BigInt(item.startAmount),
-                endAmount: BigInt(item.endAmount),
-                recipient: item.recipient as `0x${string}`,
-              })),
-              orderType: params.orderType,
-              startTime: BigInt(params.startTime),
-              endTime: BigInt(params.endTime),
-              zoneHash: params.zoneHash as `0x${string}`,
-              salt: BigInt(params.salt),
-              conduitKey: params.conduitKey as `0x${string}`,
-              totalOriginalConsiderationItems: BigInt(
-                params.totalOriginalConsiderationItems
-              ),
-            },
-            signature: order.signature as `0x${string}`,
-          },
-          "0x0000000000000000000000000000000000000000000000000000000000000000" as `0x${string}`,
-        ],
+        args: [fulfillSeaportOrderArgs(listing), FULFILL_EXTRA_DATA],
         chainId: sepolia.id,
         gas: BigInt(400000),
       });
 
-      if (publicClient) {
-        const receipt = await publicClient.waitForTransactionReceipt({ hash: fulfillTx });
-        if (receipt.status === "reverted") {
-          throw new Error(
-            `Transaction was reverted on-chain (tx: ${fulfillTx}).\n` +
+      const receipt = await publicClient.waitForTransactionReceipt({ hash: fulfillTx });
+      if (receipt.status === "reverted") {
+        throw new Error(
+          `Transaction was reverted on-chain (tx: ${fulfillTx}).\n` +
             "Please ensure your account has enough Sepolia USDC and try again."
-          );
-        }
+        );
       }
 
-      // Step 3: Update backend status — only after confirmed on-chain success
-      await fulfillOrderApi(order.orderHash);
+      await fulfillOrderApi(listing.orderHash);
 
       setBuyStep("success");
       refresh();
-      await queryClient.invalidateQueries({ queryKey: ["marketplace-orders"] });
-      await queryClient.invalidateQueries({ queryKey: ["marketplace-order-by-token", tokenId] });
-      await queryClient.invalidateQueries({
-        queryKey: ["marketplace-detail-metadata", tokenId],
-      });
-      await queryClient.invalidateQueries({ queryKey: ["nft-activity", tokenId] });
+      await invalidateMarketplaceQueries();
+      await invalidateWagmiReads();
+      await refetchOwner();
     } catch (err: unknown) {
       setErrorMsg(err instanceof Error ? err.message : "Transaction failed");
       setBuyStep("error");
     }
   }
 
+  async function handleAcceptBid(bid: Order) {
+    if (!address || !publicClient) return;
+
+    const nftRec = bid.parameters.consideration?.[0];
+    if (
+      nftRec &&
+      bid.offerer.toLowerCase() !== (nftRec.recipient ?? "").toLowerCase()
+    ) {
+      setAcceptErrorMsg(
+        "Invalid bid data: NFT recipient must be the bidder. Refetch and try again."
+      );
+      setAcceptStep("error");
+      return;
+    }
+
+    setAcceptStep("approving");
+    setAcceptErrorMsg("");
+    setAcceptingBidHash(bid.orderHash);
+
+    try {
+      const gasApprove = await gasWithCap(publicClient, {
+        address: TOKENABLE_RWA_ADDRESS,
+        abi: TOKENABLE_RWA_APPROVE_ABI,
+        functionName: "approve",
+        args: [SEAPORT_ADDRESS, BigInt(tokenId)],
+        account: address,
+      });
+      const approveTx = await writeContractAsync({
+        address: TOKENABLE_RWA_ADDRESS,
+        abi: TOKENABLE_RWA_APPROVE_ABI,
+        functionName: "approve",
+        args: [SEAPORT_ADDRESS, BigInt(tokenId)],
+        chainId: sepolia.id,
+        gas: gasApprove,
+      });
+      await publicClient.waitForTransactionReceipt({ hash: approveTx });
+
+      setAcceptStep("fulfilling");
+
+      const fulfillTx = await writeContractAsync({
+        address: SEAPORT_ADDRESS,
+        abi: SEAPORT_ABI,
+        functionName: "fulfillOrder",
+        args: [fulfillSeaportOrderArgs(bid), FULFILL_EXTRA_DATA],
+        chainId: sepolia.id,
+        gas: BigInt(450000),
+      });
+
+      const receipt = await publicClient.waitForTransactionReceipt({ hash: fulfillTx });
+      if (receipt.status === "reverted") {
+        throw new Error(
+          `Accept bid reverted (tx: ${fulfillTx}). Check NFT approval and bid validity.`
+        );
+      }
+
+      await fulfillOrderApi(bid.orderHash);
+
+      setAcceptStep("idle");
+      setAcceptingBidHash(null);
+      refresh();
+      await invalidateMarketplaceQueries();
+      await invalidateWagmiReads();
+      await refetchOwner();
+    } catch (err: unknown) {
+      setAcceptErrorMsg(err instanceof Error ? err.message : "Transaction failed");
+      setAcceptStep("error");
+      setAcceptingBidHash(null);
+    }
+  }
+
+  async function handleCancelBid(bid: Order) {
+    if (!address) return;
+    setCancelBidHash(bid.orderHash);
+    try {
+      await cancelOrder(bid.orderHash, address);
+      await invalidateMarketplaceQueries();
+    } catch (e: unknown) {
+      setAcceptErrorMsg(e instanceof Error ? e.message : "Cancel failed");
+    } finally {
+      setCancelBidHash(null);
+    }
+  }
+
   // ── Derived ────────────────────────────────────────────────────────────────
 
   const imageUrl = metadata?.image ? resolveIpfsImage(metadata.image) : null;
-  const isPageLoading = orderLoading || metaLoading;
-  const priceDisplay = order
-    ? (Number(order.considerationAmount) / 1_000_000).toLocaleString()
-    : "0";
+  const isPageLoading = ownerLoading;
+  const priceDisplay = listing
+    ? (Number(listing.considerationAmount) / 1_000_000).toLocaleString()
+    : "—";
+
+  const showMain = tokenIdOk && !ownerLoading && !ownerError && ownerOnChain != null;
+  const isAccepting = acceptStep === "approving" || acceptStep === "fulfilling";
 
   return (
     <div className="min-h-screen bg-gray-950 text-white">
@@ -399,7 +524,7 @@ export default function NftDetailPage() {
 
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-8">
         {/* Loading */}
-        {isPageLoading && (
+        {tokenIdOk && isPageLoading && (
           <div className="grid grid-cols-1 md:grid-cols-[1fr_420px] gap-8">
             <div className="aspect-square bg-gray-800 rounded-2xl animate-pulse" />
             <div className="space-y-4">
@@ -414,17 +539,30 @@ export default function NftDetailPage() {
           </div>
         )}
 
-        {/* Not found */}
-        {!orderLoading && (order === null || orderError) && (
+        {/* Invalid token */}
+        {!tokenIdOk && (
+          <div className="text-center py-24">
+            <p className="text-xl font-semibold text-white mb-2">Invalid token</p>
+            <button
+              type="button"
+              onClick={() => router.back()}
+              className="px-5 py-2.5 bg-gray-800 hover:bg-gray-700 text-white text-sm font-medium rounded-xl transition-colors"
+            >
+              ← Back
+            </button>
+          </div>
+        )}
+
+        {/* Not minted / ownerOf reverted */}
+        {tokenIdOk && !ownerLoading && ownerError && (
           <div className="text-center py-24">
             <p className="text-5xl mb-4">🔍</p>
-            <p className="text-xl font-semibold text-white mb-2">
-              Listing not found
-            </p>
+            <p className="text-xl font-semibold text-white mb-2">NFT not found</p>
             <p className="text-gray-500 text-sm mb-6">
-              This NFT may have been sold or delisted.
+              This token ID does not exist on the current contract.
             </p>
             <button
+              type="button"
               onClick={() => router.back()}
               className="px-5 py-2.5 bg-gray-800 hover:bg-gray-700 text-white text-sm font-medium rounded-xl transition-colors"
             >
@@ -434,11 +572,11 @@ export default function NftDetailPage() {
         )}
 
         {/* Main content */}
-        {!isPageLoading && order && (
+        {showMain && (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-[1fr_420px] gap-8 items-start">
-              {/* Left — Image */}
-              <div className="space-y-3">
+            <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_min(400px,100%)] gap-6 xl:gap-8 items-start">
+              {/* Left — Image / chart area */}
+              <div className="space-y-3 min-w-0">
                 <div className="rounded-2xl overflow-hidden bg-gray-900 border border-gray-800 aspect-square p-2 sm:p-3">
                   {imageUrl ? (
                     <NftImageZoom
@@ -475,13 +613,19 @@ export default function NftDetailPage() {
                 )}
               </div>
 
-              {/* Right — Info & Buy */}
-              <div className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-blue-900/40 border border-blue-700/40 text-blue-300">
-                    <span className="w-1.5 h-1.5 rounded-full bg-blue-400 inline-block" />
-                    Listed for Sale
-                  </span>
+              {/* Right — 거래소 스타일 오더북 + 매매 */}
+              <div className="space-y-4 xl:sticky xl:top-4 xl:self-start">
+                <div className="flex items-center gap-2 flex-wrap">
+                  {listing ? (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-mint/10 border border-mint-deep/35 text-mint">
+                      <span className="w-1.5 h-1.5 rounded-full bg-mint inline-block" />
+                      Ask · Listed
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-gray-800/80 border border-gray-700/60 text-gray-400">
+                      No active ask
+                    </span>
+                  )}
                   <span className="text-xs text-gray-600">
                     {TOKENABLE_RWA_DISPLAY_NAME} #{tokenId}
                   </span>
@@ -501,7 +645,7 @@ export default function NftDetailPage() {
                       href={metadata.external_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-sm text-amber-400/90 hover:text-amber-300 mt-3"
+                      className="inline-flex items-center gap-1 text-sm text-mint/90 hover:text-mint mt-3"
                     >
                       View certification link ↗
                     </a>
@@ -510,34 +654,52 @@ export default function NftDetailPage() {
 
                 <div className="flex items-center gap-2 text-sm">
                   <span className="text-gray-500">Owned by</span>
-                  <span className="font-mono text-blue-400 font-medium">
-                    {shortAddr(order.offerer)}
-                    {isSelf && (
-                      <span className="ml-1.5 text-xs text-yellow-500">(You)</span>
+                  <span className="font-mono text-mint font-medium">
+                    {shortAddr(typeof ownerOnChain === "string" ? ownerOnChain : undefined)}
+                    {isOwner && (
+                      <span className="ml-1.5 text-xs text-mint/80">(You)</span>
                     )}
                   </span>
                 </div>
 
-                <div className="bg-gray-900/60 border border-gray-800 rounded-2xl p-5 space-y-3">
-                  <p className="text-xs text-gray-500 uppercase tracking-wider">Price</p>
-                  <p className="text-4xl font-extrabold text-white">
-                    {priceDisplay}
-                    <span className="text-xl text-gray-400 ml-2">USDC</span>
+                {listingError && (
+                  <p className="text-xs text-orange-400 px-1">
+                    Could not load listing from API.
                   </p>
-                  {isConnected && address && (
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-gray-500">Your balance</span>
-                      <span className={hasEnoughUsdc ? "text-gray-300" : "text-orange-400"}>
-                        {parseFloat(usdcBalanceFormatted).toLocaleString()} USDC
-                      </span>
-                    </div>
-                  )}
-                </div>
+                )}
+
+                <NftOrderBook
+                  listing={listing ?? null}
+                  bids={bids}
+                  bidsLoading={bidsLoading}
+                  activity={activity}
+                  activityLoading={activityLoading}
+                  tokenId={tokenId}
+                  address={address}
+                  isOwner={isOwner}
+                  isAccepting={isAccepting}
+                  isBuying={isBuying}
+                  acceptingBidHash={acceptingBidHash}
+                  cancelBidHash={cancelBidHash}
+                  onAcceptBid={(bid) => void handleAcceptBid(bid)}
+                  onCancelBid={(bid) => void handleCancelBid(bid)}
+                  onPlaceBid={() => setBidModalOpen(true)}
+                  acceptErrorMsg={acceptStep === "error" ? acceptErrorMsg : undefined}
+                />
+
+                {isConnected && address && listing && (
+                  <div className="flex items-center justify-between text-xs px-1 py-1 rounded-lg bg-gray-900/40 border border-gray-800/80">
+                    <span className="text-gray-500">Your USDC</span>
+                    <span className={hasEnoughUsdc ? "text-gray-300 font-mono" : "text-orange-400 font-mono"}>
+                      {parseFloat(usdcBalanceFormatted).toLocaleString()} USDC
+                    </span>
+                  </div>
+                )}
 
                 {buyStep === "success" ? (
-                  <div className="bg-emerald-900/30 border border-emerald-700/40 rounded-2xl p-6 text-center">
+                  <div className="bg-mint/10 border border-mint-deep/35 rounded-2xl p-6 text-center">
                     <div className="text-4xl mb-2">🎉</div>
-                    <p className="text-lg font-bold text-emerald-400">Purchase Complete!</p>
+                    <p className="text-lg font-bold text-mint">Purchase Complete!</p>
                     <p className="text-sm text-gray-400 mt-1">NFT #{tokenId} is now yours.</p>
                     <button
                       onClick={() => router.push("/?tab=my-nfts")}
@@ -548,62 +710,71 @@ export default function NftDetailPage() {
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {isBuying && (
-                      <div className="flex gap-2">
-                        {[
-                          { label: "1. Approve USDC", active: buyStep === "approving" },
-                          { label: "2. Buy via Seaport", active: buyStep === "buying" },
-                        ].map(({ label, active }) => (
-                          <div
-                            key={label}
-                            className={`flex-1 text-center text-xs py-1.5 rounded-lg ${
-                              active
-                                ? "bg-blue-600 text-white animate-pulse"
-                                : "bg-gray-800 text-gray-500"
-                            }`}
-                          >
-                            {label}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {!isConnected ? (
+                    {!listing ? (
                       <p className="text-center text-sm text-gray-500 py-4 bg-gray-900/50 rounded-2xl border border-gray-800">
-                        Connect your wallet to purchase
+                        No fixed ask — place a bid in the order book or wait for a listing.
                       </p>
-                    ) : isSelf ? (
-                      <p className="text-center text-sm text-gray-500 py-4 bg-gray-900/50 rounded-2xl border border-gray-800">
-                        This is your own listing
-                      </p>
-                    ) : !hasEnoughUsdc ? (
-                      <div className="px-4 py-3 text-sm text-orange-400 bg-orange-900/20 border border-orange-800/40 rounded-2xl">
-                        Insufficient USDC.{" "}
-                        <a
-                          href="https://faucet.circle.com"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="underline hover:text-orange-300"
-                        >
-                          Get Sepolia USDC →
-                        </a>
-                      </div>
                     ) : (
-                      <button
-                        onClick={() => void handleBuy()}
-                        disabled={isBuying}
-                        className="w-full py-4 text-base font-bold bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-2xl transition-all shadow-lg shadow-emerald-900/30"
-                      >
-                        {isBuying
-                          ? "Processing…"
-                          : `Buy Now · ${priceDisplay} USDC`}
-                      </button>
-                    )}
+                      <>
+                        {isBuying && (
+                          <div className="flex gap-2">
+                            {[
+                              { label: "1. Approve USDC", active: buyStep === "approving" },
+                              { label: "2. Buy via Seaport", active: buyStep === "buying" },
+                            ].map(({ label, active }) => (
+                              <div
+                                key={label}
+                                className={`flex-1 text-center text-xs py-1.5 rounded-lg ${
+                                  active
+                                    ? "bg-mint-dim text-mint-ink animate-pulse"
+                                    : "bg-gray-800 text-gray-500"
+                                }`}
+                              >
+                                {label}
+                              </div>
+                            ))}
+                          </div>
+                        )}
 
-                    {buyStep === "error" && errorMsg && (
-                      <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-3">
-                        <p className="text-xs text-red-400 break-all">{errorMsg}</p>
-                      </div>
+                        {!isConnected ? (
+                          <p className="text-center text-sm text-gray-500 py-4 bg-gray-900/50 rounded-2xl border border-gray-800">
+                            Connect your wallet to buy at the ask
+                          </p>
+                        ) : isListingSeller ? (
+                          <p className="text-center text-sm text-gray-500 py-4 bg-gray-900/50 rounded-2xl border border-gray-800">
+                            This is your own listing
+                          </p>
+                        ) : !hasEnoughUsdc ? (
+                          <div className="px-4 py-3 text-sm text-orange-400 bg-orange-900/20 border border-orange-800/40 rounded-2xl">
+                            Insufficient USDC.{" "}
+                            <a
+                              href="https://faucet.circle.com"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="underline hover:text-orange-300"
+                            >
+                              Get Sepolia USDC →
+                            </a>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => void handleBuy()}
+                            disabled={isBuying || isAccepting}
+                            className="w-full py-4 text-base font-bold bg-gradient-to-r from-mint to-mint-dim hover:brightness-105 disabled:opacity-50 disabled:cursor-not-allowed text-mint-ink rounded-2xl transition-all shadow-lg shadow-mint/25"
+                          >
+                            {isBuying
+                              ? "Processing…"
+                              : `Buy at ask · ${priceDisplay} USDC`}
+                          </button>
+                        )}
+
+                        {buyStep === "error" && errorMsg && (
+                          <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-3">
+                            <p className="text-xs text-red-400 break-all">{errorMsg}</p>
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
                 )}
@@ -638,7 +809,7 @@ export default function NftDetailPage() {
                           href={`https://sepolia.etherscan.io/address/${TOKENABLE_RWA_ADDRESS}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-sm font-mono text-blue-400 hover:text-blue-300"
+                          className="text-sm font-mono text-mint hover:text-mint-dim"
                           title={TOKENABLE_RWA_ADDRESS}
                         >
                           {shortAddr(TOKENABLE_RWA_ADDRESS)} ↗
@@ -650,9 +821,7 @@ export default function NftDetailPage() {
                       <dd className="mt-0.5">
                         {(() => {
                           const o =
-                            typeof ownerOnChain === "string"
-                              ? ownerOnChain
-                              : order?.offerer;
+                            typeof ownerOnChain === "string" ? ownerOnChain : undefined;
                           if (!o) {
                             return (
                               <span className="text-sm text-gray-500">—</span>
@@ -663,7 +832,7 @@ export default function NftDetailPage() {
                               href={`https://sepolia.etherscan.io/address/${o}`}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-sm font-mono text-blue-400 hover:text-blue-300"
+                              className="text-sm font-mono text-mint hover:text-mint-dim"
                               title={o}
                             >
                               {shortAddr(o)} ↗
@@ -701,7 +870,7 @@ export default function NftDetailPage() {
                             href={`https://sepolia.etherscan.io/address/${SEAPORT_ADDRESS}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-blue-400 hover:text-blue-300 text-sm"
+                            className="text-mint hover:text-mint-dim text-sm"
                           >
                             Seaport 1.6 ↗
                           </a>
@@ -807,6 +976,11 @@ export default function NftDetailPage() {
                         },
                       };
                       const meta = statusMeta[order.status] ?? statusMeta["active"];
+                      const side = order.side ?? "ask";
+                      let badgeLabel = meta.label;
+                      if (order.status === "active" && side === "bid") badgeLabel = "Bid";
+                      if (order.status === "fulfilled" && side === "bid") badgeLabel = "Bid filled";
+                      if (order.status === "active" && side === "ask") badgeLabel = "Ask";
                       const ts = Math.floor(
                         parseApiUtcMs(order.updatedAt ?? order.createdAt) / 1000
                       );
@@ -825,13 +999,20 @@ export default function NftDetailPage() {
 
                       let metaLine: string;
                       if (order.status === "fulfilled") {
-                        if (otherRecipient) {
+                        if (side === "bid") {
+                          metaLine = otherRecipient
+                            ? `Bid ${shortAddr(order.offerer)} → ${shortAddr(otherRecipient)}`
+                            : `Bid by ${shortAddr(order.offerer)}`;
+                        } else if (otherRecipient) {
                           metaLine = `From ${shortAddr(order.offerer)} → ${shortAddr(otherRecipient)}`;
                         } else {
                           metaLine = `From ${shortAddr(order.offerer)}`;
                         }
                       } else if (order.status === "active") {
-                        metaLine = `Listed by ${shortAddr(order.offerer)}`;
+                        metaLine =
+                          side === "bid"
+                            ? `Bid by ${shortAddr(order.offerer)}`
+                            : `Listed by ${shortAddr(order.offerer)}`;
                       } else {
                         metaLine = `By ${shortAddr(order.offerer)}`;
                       }
@@ -843,14 +1024,14 @@ export default function NftDetailPage() {
                               className={`inline-flex items-center gap-1.5 rounded-full pl-2.5 pr-3 py-1 text-xs font-medium ${meta.badgeClass}`}
                             >
                               <IconTag className="opacity-70 shrink-0" />
-                              {meta.label}
+                              {badgeLabel}
                             </span>
                             <a
                               href={explorerSeller}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="shrink-0 p-1 rounded-md text-gray-500 hover:text-gray-300 hover:bg-white/5 transition-colors"
-                              title="View seller on Etherscan"
+                              title="View offerer on Etherscan"
                             >
                               <IconExternalLink className="w-4 h-4" />
                             </a>
@@ -881,6 +1062,14 @@ export default function NftDetailPage() {
                 </ul>
               )}
             </div>
+
+            {bidModalOpen && (
+              <PlaceBidModal
+                tokenId={tokenId}
+                onClose={() => setBidModalOpen(false)}
+                onPlaced={() => setBidModalOpen(false)}
+              />
+            )}
           </>
         )}
       </main>

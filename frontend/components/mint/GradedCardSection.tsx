@@ -5,7 +5,7 @@ import { GRADING_COMPANIES } from "@/types/gradedCard";
 import { ImageInput } from "./ImageInput";
 
 const inputClass =
-  "w-full bg-gray-800 border border-gray-700 focus:border-amber-500 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 outline-none transition-colors";
+  "w-full bg-gray-800 border border-gray-700 focus:border-mint rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 outline-none transition-colors";
 
 interface GradedCardSectionProps {
   gradingCompany: GradingCompany | "";
@@ -37,7 +37,7 @@ export function GradedCardSection({
   return (
     <div className="border-t border-gray-800 pt-6 transition-opacity duration-200">
       <h3 className="text-base font-semibold text-white mb-1 flex items-center gap-2">
-        <span className="w-1 h-5 bg-amber-500/70 rounded-full" />
+        <span className="w-1 h-5 bg-mint/70 rounded-full" />
         Graded Card Information
       </h3>
       <p className="text-xs text-gray-500 mb-4">
@@ -54,7 +54,7 @@ export function GradedCardSection({
           <select
             value={gradingCompany}
             onChange={(e) => onCompanyChange(e.target.value as GradingCompany)}
-            className="w-full bg-gray-800 border border-gray-700 focus:border-amber-500 rounded-lg px-3 py-2.5 text-sm text-white outline-none transition-all duration-200 appearance-none cursor-pointer"
+            className="w-full bg-gray-800 border border-gray-700 focus:border-mint rounded-lg px-3 py-2.5 text-sm text-white outline-none transition-all duration-200 appearance-none cursor-pointer"
             style={{
               backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%239ca3af' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
               backgroundPosition: "right 0.5rem center",
@@ -76,7 +76,7 @@ export function GradedCardSection({
           <div className="space-y-5 transition-opacity duration-300">
             {/* Card Information */}
             <div className="bg-gray-800/40 rounded-lg p-4 border border-gray-700/50">
-              <h4 className="text-xs font-semibold text-amber-400/90 uppercase tracking-wider mb-3">
+              <h4 className="text-xs font-semibold text-mint/90 uppercase tracking-wider mb-3">
                 Card Information
               </h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -146,7 +146,7 @@ export function GradedCardSection({
 
             {/* Grading Information */}
             <div className="bg-gray-800/40 rounded-lg p-4 border border-gray-700/50">
-              <h4 className="text-xs font-semibold text-amber-400/90 uppercase tracking-wider mb-3">
+              <h4 className="text-xs font-semibold text-mint/90 uppercase tracking-wider mb-3">
                 Grading Information
               </h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -180,11 +180,11 @@ export function GradedCardSection({
 
             {/* Verification */}
             <div className="bg-gray-800/40 rounded-lg p-4 border border-gray-700/50">
-              <h4 className="text-xs font-semibold text-amber-400/90 uppercase tracking-wider mb-3">
+              <h4 className="text-xs font-semibold text-mint/90 uppercase tracking-wider mb-3">
                 Verification
               </h4>
               {gradingCompany === "PSA" && (
-                <p className="text-xs text-amber-200/75 mb-3 -mt-1 leading-relaxed">
+                <p className="text-xs text-gray-400 mb-3 -mt-1 leading-relaxed">
                   슬랩 이미지를 선택하면 아래에서 자동으로 데이터 추출이 시작됩니다.
                 </p>
               )}
@@ -258,7 +258,7 @@ function CompanySpecificBlock({
 
   return (
     <div className="bg-gray-800/40 rounded-lg p-4 border border-gray-700/50">
-      <h4 className="text-xs font-semibold text-amber-400/90 uppercase tracking-wider mb-3">
+      <h4 className="text-xs font-semibold text-mint/90 uppercase tracking-wider mb-3">
         {company} Specific
       </h4>
 
@@ -424,7 +424,7 @@ function CheckField({
         type="checkbox"
         checked={checked}
         onChange={(e) => onChange(e.target.checked)}
-        className="w-4 h-4 rounded border-gray-600 bg-gray-800 text-amber-500 focus:ring-amber-500"
+        className="w-4 h-4 rounded border-gray-600 bg-gray-800 text-mint focus:ring-mint"
       />
       <span className="text-sm text-gray-300">{label}</span>
     </label>

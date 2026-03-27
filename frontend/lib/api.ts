@@ -216,6 +216,8 @@ export interface Order {
   id: number;
   orderHash: string;
   offerer: string;
+  /** ask = 매도 리스팅, bid = 매수 입찰 (없으면 레거시 ask로 간주) */
+  side?: "ask" | "bid";
   tokenContract: string;
   tokenId: string;
   considerationToken: string;
@@ -237,6 +239,8 @@ export interface CreateOrderPayload {
   tokenId: string;
   considerationToken: string;
   considerationAmount: string;
+  /** ask(기본) = 매도 리스팅, bid = 매수 입찰 */
+  side?: "ask" | "bid";
 }
 
 /** 활성 주문 목록 */
@@ -246,16 +250,28 @@ export async function getActiveOrders(): Promise<Order[]> {
   return res.json() as Promise<Order[]>;
 }
 
-/** tokenId로 해당 NFT의 active 주문 1건 조회 */
+/** tokenId로 해당 NFT의 활성 매도(ask) 리스팅 1건 조회 */
 export async function getOrderByTokenId(tokenId: number): Promise<Order | null> {
   const res = await backendFetch(`${getApiUrl()}/marketplace/orders`);
   if (!res.ok) throw new Error("Failed to fetch orders");
   const orders = (await res.json()) as Order[];
   return (
     orders.find(
-      (o) => o.tokenId === String(tokenId) && o.status === "active"
+      (o) =>
+        o.tokenId === String(tokenId) &&
+        o.status === "active" &&
+        (o.side === "ask" || o.side == null)
     ) ?? null
   );
+}
+
+/** 활성 매수 입찰만 — 가격(USDC 최소단위) 내림차순 */
+export async function getActiveBidsForToken(tokenId: number): Promise<Order[]> {
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/orders/bids/token/${tokenId}`
+  );
+  if (!res.ok) throw new Error("Failed to fetch bids");
+  return res.json() as Promise<Order[]>;
 }
 
 /** tokenId로 전체 주문 이력 조회 (active/fulfilled/cancelled/expired 모두) */

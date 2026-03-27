@@ -1,5 +1,6 @@
 -- Keep in sync with: backend/sql/migrations/003_create_orders_table.sql
 -- Runs only on first PostgreSQL volume init (docker-entrypoint-initdb.d).
+-- Ask/bid `side` column: see `02-orders-side.sql` (004 migration).
 
 DO $$
 BEGIN

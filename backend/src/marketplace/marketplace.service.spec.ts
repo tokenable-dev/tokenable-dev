@@ -1,9 +1,16 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { MarketplaceService } from './marketplace.service';
 import { Order, OrderStatus } from './entities/order.entity';
+
+const USDC = '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238';
+
+const mockConfig = {
+  get: jest.fn((k: string) => (k === 'USDC_CONTRACT_ADDRESS' ? USDC : undefined)),
+};
 
 function baseParameters() {
   return {
@@ -42,21 +49,43 @@ function baseParameters() {
 describe('MarketplaceService', () => {
   let service: MarketplaceService;
   let repo: jest.Mocked<
-    Pick<Repository<Order>, 'findOne' | 'create' | 'save' | 'find' | 'update'>
+    Pick<
+      Repository<Order>,
+      'findOne' | 'create' | 'save' | 'find' | 'update' | 'createQueryBuilder'
+    >
   >;
 
   beforeEach(async () => {
+    const qb = {
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      addOrderBy: jest.fn().mockReturnThis(),
+      getMany: jest.fn().mockResolvedValue([]),
+    };
     repo = {
       findOne: jest.fn(),
       create: jest.fn(),
       save: jest.fn(),
       find: jest.fn(),
       update: jest.fn(),
-    };
+      createQueryBuilder: jest.fn().mockReturnValue(qb),
+    } as unknown as jest.Mocked<
+      Pick<
+        Repository<Order>,
+        | 'findOne'
+        | 'create'
+        | 'save'
+        | 'find'
+        | 'update'
+        | 'createQueryBuilder'
+      >
+    >;
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         MarketplaceService,
         { provide: getRepositoryToken(Order), useValue: repo },
+        { provide: ConfigService, useValue: mockConfig },
       ],
     }).compile();
     service = module.get(MarketplaceService);
@@ -118,14 +147,25 @@ describe('MarketplaceService', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
-  it('fulfillOrder sets fulfilled', async () => {
+  it('fulfillOrder sets fulfilled and cancels other active orders for same token', async () => {
     const row = {
       orderHash: '0xh',
       status: OrderStatus.ACTIVE,
+      tokenContract: '0x588c9d50036d6E774e532fd4FA2f999D89CC9079',
+      tokenId: '1',
     } as Order;
     repo.findOne.mockResolvedValue(row);
     repo.save.mockImplementation((o) => Promise.resolve(o as Order));
+    repo.update.mockResolvedValue({ affected: 2, raw: [], generatedMaps: [] } as never);
     const out = await service.fulfillOrder('0xh');
     expect(out.status).toBe(OrderStatus.FULFILLED);
+    expect(repo.update).toHaveBeenCalledWith(
+      {
+        tokenContract: row.tokenContract,
+        tokenId: row.tokenId,
+        status: OrderStatus.ACTIVE,
+      },
+      { status: OrderStatus.CANCELLED },
+    );
   });
 });

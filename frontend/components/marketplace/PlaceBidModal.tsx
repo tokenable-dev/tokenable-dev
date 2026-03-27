@@ -15,9 +15,9 @@ import {
   TOKENABLE_RWA_ADDRESS,
   USDC_ADDRESS,
   SEAPORT_ADDRESS,
-  TOKENABLE_RWA_APPROVE_ABI,
   SEAPORT_ABI,
   SEAPORT_ORDER_TYPES,
+  USDC_ABI,
 } from "@/constants/contracts";
 import { createOrder } from "@/lib/api";
 import { gasWithCap } from "@/lib/chainGas";
@@ -25,7 +25,7 @@ import { gasWithCap } from "@/lib/chainGas";
 const ZERO_BYTES32 =
   "0x0000000000000000000000000000000000000000000000000000000000000000" as const;
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000" as `0x${string}`;
-const ORDER_DURATION_SECONDS = 30 * 24 * 60 * 60; // 30 days
+const ORDER_DURATION_SECONDS = 30 * 24 * 60 * 60;
 
 type Step =
   | "idle"
@@ -35,13 +35,13 @@ type Step =
   | "success"
   | "error";
 
-interface ListNftModalProps {
+interface PlaceBidModalProps {
   tokenId: number;
   onClose: () => void;
-  onListed?: (tokenId: number) => void;
+  onPlaced?: (tokenId: number) => void;
 }
 
-export function ListNftModal({ tokenId, onClose, onListed }: ListNftModalProps) {
+export function PlaceBidModal({ tokenId, onClose, onPlaced }: PlaceBidModalProps) {
   const { address } = useAccount();
   const publicClient = usePublicClient({ chainId: sepolia.id });
   const { data: walletClient } = useWalletClient({ chainId: sepolia.id });
@@ -53,7 +53,6 @@ export function ListNftModal({ tokenId, onClose, onListed }: ListNftModalProps) 
 
   const { writeContractAsync } = useWriteContract();
 
-  // Seaport counter for the seller
   const { data: counter } = useReadContract({
     address: SEAPORT_ADDRESS,
     abi: SEAPORT_ABI,
@@ -63,7 +62,7 @@ export function ListNftModal({ tokenId, onClose, onListed }: ListNftModalProps) 
     query: { enabled: !!address },
   });
 
-  async function handleList() {
+  async function handlePlaceBid() {
     if (!address || !price || parseFloat(price) <= 0) return;
     if (counter === undefined) {
       setErrorMsg("Could not read Seaport counter. Try again.");
@@ -85,28 +84,24 @@ export function ListNftModal({ tokenId, onClose, onListed }: ListNftModalProps) 
     const salt = BigInt(Math.floor(Math.random() * 1_000_000_000_000));
 
     try {
-      // ── Step 1: Approve NFT to Seaport ──────────────────────────────────────
       setStep("approving");
       const gasApprove = await gasWithCap(publicClient, {
-        address: TOKENABLE_RWA_ADDRESS,
-        abi: TOKENABLE_RWA_APPROVE_ABI,
+        address: USDC_ADDRESS,
+        abi: USDC_ABI,
         functionName: "approve",
-        args: [SEAPORT_ADDRESS, BigInt(tokenId)],
+        args: [SEAPORT_ADDRESS, priceInUnits],
         account: address,
       });
       const approveTx = await writeContractAsync({
-        address: TOKENABLE_RWA_ADDRESS,
-        abi: TOKENABLE_RWA_APPROVE_ABI,
+        address: USDC_ADDRESS,
+        abi: USDC_ABI,
         functionName: "approve",
-        args: [SEAPORT_ADDRESS, BigInt(tokenId)],
+        args: [SEAPORT_ADDRESS, priceInUnits],
         chainId: sepolia.id,
         gas: gasApprove,
       });
-      if (publicClient) {
-        await publicClient.waitForTransactionReceipt({ hash: approveTx });
-      }
+      await publicClient.waitForTransactionReceipt({ hash: approveTx });
 
-      // ── Step 2: EIP-712 sign the Seaport order ───────────────────────────────
       setStep("signing");
 
       const orderMessage = {
@@ -114,24 +109,24 @@ export function ListNftModal({ tokenId, onClose, onListed }: ListNftModalProps) 
         zone: ZERO_ADDRESS,
         offer: [
           {
-            itemType: 2, // ERC721
-            token: TOKENABLE_RWA_ADDRESS,
-            identifierOrCriteria: BigInt(tokenId),
-            startAmount: BigInt(1),
-            endAmount: BigInt(1),
-          },
-        ],
-        consideration: [
-          {
-            itemType: 1, // ERC20
+            itemType: 1,
             token: USDC_ADDRESS,
             identifierOrCriteria: BigInt(0),
             startAmount: priceInUnits,
             endAmount: priceInUnits,
+          },
+        ],
+        consideration: [
+          {
+            itemType: 2,
+            token: TOKENABLE_RWA_ADDRESS,
+            identifierOrCriteria: BigInt(tokenId),
+            startAmount: BigInt(1),
+            endAmount: BigInt(1),
             recipient: address,
           },
         ],
-        orderType: 0, // FULL_OPEN
+        orderType: 0,
         startTime: now,
         endTime,
         zoneHash: ZERO_BYTES32,
@@ -152,13 +147,12 @@ export function ListNftModal({ tokenId, onClose, onListed }: ListNftModalProps) 
         message: orderMessage,
       });
 
-      // ── Step 3: POST to backend ───────────────────────────────────────────────
       setStep("submitting");
 
       const str = (v: unknown): string => String(v);
 
       await createOrder({
-        side: "ask",
+        side: "bid",
         parameters: {
           offerer: address,
           zone: ZERO_ADDRESS,
@@ -168,20 +162,20 @@ export function ListNftModal({ tokenId, onClose, onListed }: ListNftModalProps) 
           orderType: 0,
           offer: [
             {
-              itemType: 2,
-              token: TOKENABLE_RWA_ADDRESS,
-              identifierOrCriteria: str(tokenId),
-              startAmount: "1",
-              endAmount: "1",
-            },
-          ],
-          consideration: [
-            {
               itemType: 1,
               token: USDC_ADDRESS,
               identifierOrCriteria: "0",
               startAmount: str(priceInUnits),
               endAmount: str(priceInUnits),
+            },
+          ],
+          consideration: [
+            {
+              itemType: 2,
+              token: TOKENABLE_RWA_ADDRESS,
+              identifierOrCriteria: str(tokenId),
+              startAmount: "1",
+              endAmount: "1",
               recipient: address,
             },
           ],
@@ -194,14 +188,18 @@ export function ListNftModal({ tokenId, onClose, onListed }: ListNftModalProps) 
         tokenContract: TOKENABLE_RWA_ADDRESS,
         tokenId: String(tokenId),
         considerationToken: USDC_ADDRESS,
-        considerationAmount: String(priceInUnits),
+        considerationAmount: str(priceInUnits),
       });
 
-      onListed?.(tokenId);
+      onPlaced?.(tokenId);
       setStep("success");
 
       await queryClient.invalidateQueries({ queryKey: ["marketplace-orders"] });
-      await queryClient.invalidateQueries({ queryKey: ["my-nft-ids", address] });
+      await queryClient.invalidateQueries({ queryKey: ["marketplace-bids", tokenId] });
+      await queryClient.invalidateQueries({ queryKey: ["nft-activity", tokenId] });
+      await queryClient.invalidateQueries({
+        queryKey: ["marketplace-order-by-token", tokenId],
+      });
     } catch (err: unknown) {
       setErrorMsg(err instanceof Error ? err.message : "Transaction failed");
       setStep("error");
@@ -212,9 +210,9 @@ export function ListNftModal({ tokenId, onClose, onListed }: ListNftModalProps) 
     step === "approving" || step === "signing" || step === "submitting";
 
   const stepLabels: { label: string; active: boolean }[] = [
-    { label: "1. Approve NFT", active: step === "approving" },
-    { label: "2. Sign Order", active: step === "signing" },
-    { label: "3. Submitting", active: step === "submitting" },
+    { label: "1. Approve USDC", active: step === "approving" },
+    { label: "2. Sign bid", active: step === "signing" },
+    { label: "3. Submit", active: step === "submitting" },
   ];
 
   return (
@@ -233,12 +231,12 @@ export function ListNftModal({ tokenId, onClose, onListed }: ListNftModalProps) 
 
         {step === "success" ? (
           <div className="text-center py-4">
-            <div className="text-4xl mb-3">🎉</div>
-            <h3 className="text-lg font-bold text-white mb-1">Listed Successfully!</h3>
+            <div className="text-4xl mb-3">✓</div>
+            <h3 className="text-lg font-bold text-white mb-1">Bid placed</h3>
             <p className="text-sm text-gray-400">
-              NFT #{tokenId} is now listed for {price} USDC
+              Your bid of {price} USDC for NFT #{tokenId} is live on the order book.
             </p>
-            <p className="text-xs text-gray-600 mt-2">Listing valid for 30 days</p>
+            <p className="text-xs text-gray-600 mt-2">Valid for 30 days</p>
             <button
               onClick={onClose}
               className="mt-5 w-full py-2 bg-gray-800 hover:bg-gray-700 text-white text-sm rounded-lg transition-colors"
@@ -248,16 +246,14 @@ export function ListNftModal({ tokenId, onClose, onListed }: ListNftModalProps) 
           </div>
         ) : (
           <>
-            <h2 className="text-lg font-bold text-white mb-1">
-              List NFT #{tokenId} for Sale
-            </h2>
+            <h2 className="text-lg font-bold text-white mb-1">Place a bid</h2>
             <p className="text-sm text-gray-500 mb-5">
-              Set a price in USDC. Your NFT will be listed via Seaport.
+              Offer USDC for this NFT. The seller can accept your bid on-chain (Seaport).
             </p>
 
             <div className="mb-4">
               <label className="block text-sm text-gray-400 mb-1.5">
-                Price (USDC)
+                Bid price (USDC)
               </label>
               <div className="relative">
                 <input
@@ -298,11 +294,11 @@ export function ListNftModal({ tokenId, onClose, onListed }: ListNftModalProps) 
             )}
 
             <button
-              onClick={() => void handleList()}
+              onClick={() => void handlePlaceBid()}
               disabled={isProcessing || !price || parseFloat(price) <= 0}
               className="w-full py-2.5 bg-gradient-to-r from-mint to-mint-dim hover:brightness-105 disabled:opacity-50 disabled:cursor-not-allowed text-mint-ink text-sm font-semibold rounded-lg transition-all"
             >
-              {isProcessing ? "Processing..." : "List for Sale"}
+              {isProcessing ? "Processing…" : "Place bid"}
             </button>
           </>
         )}
