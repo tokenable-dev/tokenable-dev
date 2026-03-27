@@ -16,6 +16,19 @@ export class PinataService {
     });
   }
 
+  async uploadBuffer(buffer: Buffer, filename: string, mimeType: string): Promise<string> {
+    try {
+      const blob = new Blob([new Uint8Array(buffer)], { type: mimeType });
+      const pinataFile = new File([blob], filename, { type: mimeType });
+      const result = await this.pinata.upload.public.file(pinataFile);
+      this.logger.log(`Buffer uploaded to IPFS: ${result.cid}`);
+      return result.cid;
+    } catch (error) {
+      this.logger.error('Failed to upload buffer to Pinata', error);
+      throw new InternalServerErrorException('이미지 IPFS 업로드에 실패했습니다.');
+    }
+  }
+
   async uploadFile(file: Express.Multer.File): Promise<string> {
     try {
       const blob = new Blob([new Uint8Array(file.buffer)], { type: file.mimetype });
@@ -32,7 +45,11 @@ export class PinataService {
 
   async uploadFromUrl(imageUrl: string, name: string): Promise<string> {
     try {
-      const response = await fetch(imageUrl);
+      const response = await fetch(imageUrl, {
+        headers: {
+          'User-Agent': 'TokenableBackend/1.0 (NFT image fetch)',
+        },
+      });
       if (!response.ok) throw new Error(`Failed to fetch image: ${response.statusText}`);
 
       const arrayBuffer = await response.arrayBuffer();

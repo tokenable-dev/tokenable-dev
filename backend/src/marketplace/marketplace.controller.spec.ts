@@ -1,9 +1,25 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { BucketBidService } from './bucket-bid.service';
+import { CollectionService } from './collection.service';
 import { MarketplaceController } from './marketplace.controller';
 import { MarketplaceService } from './marketplace.service';
 import { OrderStatus } from './entities/order.entity';
 
 describe('MarketplaceController', () => {
+  const bucketBidService = {
+    listByTokenResolved: jest.fn(),
+    create: jest.fn(),
+    cancel: jest.fn(),
+    validateSellerMatch: jest.fn(),
+    prepareSeaportBidForPool: jest.fn(),
+  };
+
+  const collectionService = {
+    listSummaries: jest.fn(),
+    findOne: jest.fn(),
+    activeListingsForCollection: jest.fn(),
+  };
+
   const service = {
     createOrder: jest.fn(),
     findActiveOrders: jest.fn(),
@@ -21,7 +37,11 @@ describe('MarketplaceController', () => {
     jest.clearAllMocks();
     const module: TestingModule = await Test.createTestingModule({
       controllers: [MarketplaceController],
-      providers: [{ provide: MarketplaceService, useValue: service }],
+      providers: [
+        { provide: MarketplaceService, useValue: service },
+        { provide: BucketBidService, useValue: bucketBidService },
+        { provide: CollectionService, useValue: collectionService },
+      ],
     }).compile();
     controller = module.get(MarketplaceController);
   });
@@ -33,7 +53,7 @@ describe('MarketplaceController', () => {
   it('createOrder forwards to service', async () => {
     const dto = {
       signature: '0x',
-      tokenContract: '0x588c9d50036d6E774e532fd4FA2f999D89CC9079',
+      tokenContract: '0xE4b82379cEE1Ace0d2aB2D081FB9E2ef933D15e1',
       tokenId: '0',
       considerationToken: '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238',
       considerationAmount: '1000000',
@@ -47,7 +67,7 @@ describe('MarketplaceController', () => {
         offer: [
           {
             itemType: 2,
-            token: '0x588c9d50036d6E774e532fd4FA2f999D89CC9079',
+            token: '0xE4b82379cEE1Ace0d2aB2D081FB9E2ef933D15e1',
             identifierOrCriteria: '0',
             startAmount: '1',
             endAmount: '1',

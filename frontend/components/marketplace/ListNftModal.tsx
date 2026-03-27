@@ -201,6 +201,7 @@ export function ListNftModal({ tokenId, onClose, onListed }: ListNftModalProps) 
       setStep("success");
 
       await queryClient.invalidateQueries({ queryKey: ["marketplace-orders"] });
+      await queryClient.invalidateQueries({ queryKey: ["marketplace-collection"] });
       await queryClient.invalidateQueries({ queryKey: ["my-nft-ids", address] });
     } catch (err: unknown) {
       setErrorMsg(err instanceof Error ? err.message : "Transaction failed");

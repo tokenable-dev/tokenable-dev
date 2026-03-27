@@ -3,13 +3,24 @@ import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { BucketBidService } from './bucket-bid.service';
+import { CollectionService } from './collection.service';
 import { MarketplaceService } from './marketplace.service';
-import { Order, OrderStatus } from './entities/order.entity';
+import { Order, OrderSide, OrderStatus } from './entities/order.entity';
 
 const USDC = '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238';
 
 const mockConfig = {
   get: jest.fn((k: string) => (k === 'USDC_CONTRACT_ADDRESS' ? USDC : undefined)),
+};
+
+const mockBucketBidService = {
+  assertPoolBidMatchesSeaportBid: jest.fn().mockResolvedValue(undefined),
+  markPoolBidFulfilledIfLinked: jest.fn().mockResolvedValue(undefined),
+};
+
+const mockCollectionService = {
+  ensureCollectionForListing: jest.fn().mockResolvedValue(null),
 };
 
 function baseParameters() {
@@ -23,7 +34,7 @@ function baseParameters() {
     offer: [
       {
         itemType: 2,
-        token: '0x588c9d50036d6E774e532fd4FA2f999D89CC9079',
+        token: '0xE4b82379cEE1Ace0d2aB2D081FB9E2ef933D15e1',
         identifierOrCriteria: '0',
         startAmount: '1',
         endAmount: '1',
@@ -86,6 +97,8 @@ describe('MarketplaceService', () => {
         MarketplaceService,
         { provide: getRepositoryToken(Order), useValue: repo },
         { provide: ConfigService, useValue: mockConfig },
+        { provide: BucketBidService, useValue: mockBucketBidService },
+        { provide: CollectionService, useValue: mockCollectionService },
       ],
     }).compile();
     service = module.get(MarketplaceService);
@@ -97,7 +110,7 @@ describe('MarketplaceService', () => {
       service.createOrder({
         parameters: baseParameters() as never,
         signature: '0x',
-        tokenContract: '0x588c9d50036d6E774e532fd4FA2f999D89CC9079',
+        tokenContract: '0xE4b82379cEE1Ace0d2aB2D081FB9E2ef933D15e1',
         tokenId: '0',
         considerationToken: '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238',
         considerationAmount: '1000000',
@@ -118,7 +131,7 @@ describe('MarketplaceService', () => {
     const dto = {
       parameters: baseParameters() as never,
       signature: '0xsig',
-      tokenContract: '0x588c9d50036d6E774e532fd4FA2f999D89CC9079',
+      tokenContract: '0xE4b82379cEE1Ace0d2aB2D081FB9E2ef933D15e1',
       tokenId: '1',
       considerationToken: '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238',
       considerationAmount: '1000000',
@@ -151,7 +164,8 @@ describe('MarketplaceService', () => {
     const row = {
       orderHash: '0xh',
       status: OrderStatus.ACTIVE,
-      tokenContract: '0x588c9d50036d6E774e532fd4FA2f999D89CC9079',
+      side: OrderSide.ASK,
+      tokenContract: '0xE4b82379cEE1Ace0d2aB2D081FB9E2ef933D15e1',
       tokenId: '1',
     } as Order;
     repo.findOne.mockResolvedValue(row);
@@ -159,6 +173,7 @@ describe('MarketplaceService', () => {
     repo.update.mockResolvedValue({ affected: 2, raw: [], generatedMaps: [] } as never);
     const out = await service.fulfillOrder('0xh');
     expect(out.status).toBe(OrderStatus.FULFILLED);
+    expect(mockBucketBidService.markPoolBidFulfilledIfLinked).toHaveBeenCalled();
     expect(repo.update).toHaveBeenCalledWith(
       {
         tokenContract: row.tokenContract,

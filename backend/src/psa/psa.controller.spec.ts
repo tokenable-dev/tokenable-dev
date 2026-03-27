@@ -24,7 +24,7 @@ describe('PsaController', () => {
   });
 
   it('throws when slabFront missing', async () => {
-    await expect(controller.analyze({} as never)).rejects.toBeInstanceOf(
+    await expect(controller.analyze({} as never, undefined)).rejects.toBeInstanceOf(
       BadRequestException,
     );
     expect(psaService.analyzeSlabImages).not.toHaveBeenCalled();
@@ -38,10 +38,36 @@ describe('PsaController', () => {
       psaApi: { lookup: { status: 'disabled', reason: 'no_token' } },
       justtcg: { queryUsed: '', topMatch: null, rawResponse: {} },
     });
-    const out = await controller.analyze({
-      slabFront: [{ buffer: buf }],
-    } as never);
-    expect(psaService.analyzeSlabImages).toHaveBeenCalledWith(buf, undefined);
+    const out = await controller.analyze(
+      {
+        slabFront: [{ buffer: buf }],
+      } as never,
+      undefined,
+    );
+    expect(psaService.analyzeSlabImages).toHaveBeenCalledWith(
+      buf,
+      undefined,
+      undefined,
+    );
     expect(out.justtcg.queryUsed).toBe('');
+  });
+
+  it('passes certNumber hint to analyzeSlabImages', async () => {
+    const buf = Buffer.from('x');
+    psaService.analyzeSlabImages.mockResolvedValue({
+      ocr: { combinedText: '' },
+      psa: {},
+      psaApi: { lookup: { status: 'disabled', reason: 'no_token' } },
+      justtcg: { queryUsed: '', topMatch: null, rawResponse: {} },
+    });
+    await controller.analyze(
+      { slabFront: [{ buffer: buf }] } as never,
+      '83179580',
+    );
+    expect(psaService.analyzeSlabImages).toHaveBeenCalledWith(
+      buf,
+      undefined,
+      '83179580',
+    );
   });
 });

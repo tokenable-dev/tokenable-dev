@@ -54,6 +54,17 @@ export class Order {
   @Column({ name: 'token_id' })
   tokenId: string;
 
+  /** 풀(컬렉션) 매수 입찰과 연결된 경우 — Seaport token-특정 입찰로 정산 */
+  @Column({ name: 'bucket_bid_id', type: 'int', nullable: true })
+  bucketBidId: number | null;
+
+  /**
+   * graded 메타 기준 논리 컬렉션 (매도 ask일 때만) — `computeMarketBucketKey` 와 동일 문자열
+   */
+  @Index()
+  @Column({ name: 'collection_key', type: 'varchar', length: 64, nullable: true })
+  collectionKey: string | null;
+
   /** 결제 토큰 주소 (Sepolia USDC: 0x1c7D4B...) */
   @Column({ name: 'consideration_token' })
   considerationToken: string;
