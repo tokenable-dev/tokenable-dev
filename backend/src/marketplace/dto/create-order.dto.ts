@@ -1,12 +1,16 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Transform, Type } from 'class-transformer';
 import {
   IsArray,
   IsEthereumAddress,
+  IsIn,
+  IsInt,
   IsNotEmpty,
   IsNumber,
   IsNumberString,
   IsObject,
+  IsOptional,
+  IsPositive,
   IsString,
   ValidateNested,
 } from 'class-validator';
@@ -114,6 +118,16 @@ class SeaportOrderParametersDto {
 }
 
 export class CreateOrderDto {
+  @ApiPropertyOptional({
+    description:
+      'ask = 매도 리스팅(기본), bid = 매수 입찰(offer=USDC, consideration=NFT→offerer)',
+    enum: ['ask', 'bid'],
+    default: 'ask',
+  })
+  @IsOptional()
+  @IsIn(['ask', 'bid'])
+  side?: 'ask' | 'bid';
+
   @ApiProperty({ description: 'Seaport order parameters' })
   @IsObject()
   @ValidateNested()
@@ -127,7 +141,7 @@ export class CreateOrderDto {
 
   @ApiProperty({
     description: 'NFT 컨트랙트 주소',
-    example: '0x588c9d50036d6E774e532fd4FA2f999D89CC9079',
+    example: '0x8d14F1518A185A7966AE6e8a6ab94AfC8E4EF6ec',
   })
   @IsEthereumAddress()
   tokenContract: string;
@@ -146,4 +160,18 @@ export class CreateOrderDto {
   @ApiProperty({ description: '결제 금액 (wei)', example: '1000000' })
   @IsNumberString()
   considerationAmount: string;
+
+  @ApiPropertyOptional({
+    description:
+      '풀(컬렉션) 매수 입찰 id — side=bid 일 때만. 서버가 메타·금액·구매자와 일치 검증',
+  })
+  @IsOptional()
+  @Transform(({ value }) =>
+    value === undefined || value === null || value === ''
+      ? undefined
+      : Number(value),
+  )
+  @IsInt()
+  @IsPositive()
+  bucketBidId?: number;
 }

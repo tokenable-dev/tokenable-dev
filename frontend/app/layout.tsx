@@ -18,7 +18,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Tokenable",
   description:
-    "Mint and trade Tokenable_RWA NFTs on Ethereum Sepolia. Listings use Seaport.",
+    "Mint and trade Tokenable_RWA assets on Ethereum Sepolia. Listings use Seaport.",
   icons: {
     icon: FAVICON,
   },

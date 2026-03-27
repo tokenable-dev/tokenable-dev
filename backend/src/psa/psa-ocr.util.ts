@@ -30,11 +30,26 @@ export interface ParsedPsaLabel {
 
 /** Prefer 8-digit cert (most common PSA) */
 export function extractCertNumber(text: string): string | undefined {
-  const matches = text.replace(/\s+/g, ' ').match(/\b\d{7,10}\b/g);
-  if (!matches?.length) return undefined;
-  const eights = matches.filter((m) => m.length === 8);
-  if (eights.length) return eights[eights.length - 1];
-  return matches[matches.length - 1];
+  const spaced = text.replace(/\s+/g, ' ').trim();
+  const matches = spaced.match(/\b\d{7,10}\b/g);
+  if (matches?.length) {
+    const eights = matches.filter((m) => m.length === 8);
+    if (eights.length) return eights[eights.length - 1];
+    return matches[matches.length - 1];
+  }
+  /** 공백·기호로 끊긴 숫자만 있는 OCR (예: "8 3 1 7 9 5 8 0", "831 795 80") */
+  const onlyDigits = text.replace(/\D/g, '');
+  if (onlyDigits.length >= 7 && onlyDigits.length <= 10) {
+    return onlyDigits;
+  }
+  /** 바코드+Cert가 이어진 경우 — PSA Cert는 보통 마지막 8자리 */
+  if (onlyDigits.length > 10) {
+    const last8 = onlyDigits.slice(-8);
+    if (/^\d{8}$/.test(last8)) return last8;
+    const m = onlyDigits.match(/(\d{8})\d*$/);
+    if (m) return m[1];
+  }
+  return undefined;
 }
 
 export function extractGrade(text: string): {
@@ -51,6 +66,12 @@ export function extractGrade(text: string): {
   if (mint) {
     const n = parseFloat(mint[1]);
     return { label: `MINT ${mint[1]}`, score: Number.isNaN(n) ? undefined : n };
+  }
+  /** 라벨에서 MINT 와 숫자 등급이 줄바꿈으로 나뉜 경우 (예: MINT \\n 9) */
+  const mintNl = upper.match(/MINT\s*[\r\n]+\s*(\d{1,2}(?:\.\d+)?)\b/);
+  if (mintNl) {
+    const n = parseFloat(mintNl[1]);
+    return { label: `MINT ${mintNl[1]}`, score: Number.isNaN(n) ? undefined : n };
   }
   const nm = upper.match(/NM\s*-?\s*MT\s*(\d+)/);
   if (nm) {
@@ -70,12 +91,14 @@ export function extractYear(text: string): string | undefined {
   return m ? m[0] : undefined;
 }
 
-/** e.g. #SV49, SV49/SV94 */
+/** e.g. #SV49, SV49/SV94, 라벨 #085 */
 export function extractCardNumber(text: string): string | undefined {
-  const hash = text.match(/#?\s*([A-Z]{1,4}\d{1,4}[A-Z]?)(?:\/|\b)/i);
-  if (hash) return hash[1].toUpperCase();
+  const hashLetters = text.match(/#?\s*([A-Z]{1,4}\d{1,4}[A-Z]?)(?:\/|\b)/i);
+  if (hashLetters) return hashLetters[1].toUpperCase();
   const slash = text.match(/\b([A-Z]{1,4}\d{1,4})\s*\/\s*[A-Z]{0,4}\d{1,4}\b/i);
   if (slash) return slash[1].toUpperCase();
+  const hashDigits = text.match(/#\s*(\d{2,4})\b/);
+  if (hashDigits) return hashDigits[1];
   return undefined;
 }
 
@@ -147,6 +170,7 @@ export function parsePsaLabelFromOcr(fullText: string): ParsedPsaLabel {
   let setHint: string | undefined;
   if (/HIDDEN FATES/i.test(fullText)) setHint = 'Hidden Fates';
   else if (/EVOLUTION/i.test(fullText)) setHint = 'Evolutions';
+  else if (/VAN\s*GOGH|POKEMON\s+X\s+VAN/i.test(fullText)) setHint = 'Pokemon x Van Gogh';
 
   let cardNameHint: string | undefined;
   const fa = fullText.match(/F\.?\s*A\.?\s*\/?\s*([A-Z][A-Z0-9\s]{2,40}?)(?:\s+GX|\s+V\b)/i);
@@ -156,6 +180,15 @@ export function parsePsaLabelFromOcr(fullText: string): ParsedPsaLabel {
       /\b([A-Z][A-Z0-9\s]{2,35}?)\s+GX\b/i,
     );
     if (gx) cardNameHint = gx[1].replace(/\s+/g, ' ').trim();
+  }
+  /** PIKACHU/GREY FELT HAT 등 슬랩 라벨 2행 흔한 패턴 */
+  if (!cardNameHint) {
+    const slash = fullText.match(
+      /\b([A-Z][A-Z0-9]{2,})\s*\/\s*([A-Z0-9][A-Z0-9\s\-]{2,45}?)(?=[\s,;]|$)/im,
+    );
+    if (slash) {
+      cardNameHint = `${slash[1]}/${slash[2]}`.replace(/\s+/g, ' ').trim();
+    }
   }
 
   return {
@@ -171,4 +204,18 @@ export function parsePsaLabelFromOcr(fullText: string): ParsedPsaLabel {
 
 export function psaCertVerifyUrl(cert: string): string {
   return `https://www.psacard.com/cert/${cert}`;
+}
+
+/**
+ * 폼에 직접 넣은 Cert 또는 `psacard.com/cert/123` URL → PSA GetByCertNumber용 (7~10자리).
+ * OCR보다 우선해 조회할 때 사용.
+ */
+export function resolveCertHintForLookup(raw?: string | null): string | undefined {
+  if (raw == null || !String(raw).trim()) return undefined;
+  const t = String(raw).trim();
+  const fromUrl = t.match(/psacard\.com\/cert\/(\d{7,10})\b/i);
+  if (fromUrl) return fromUrl[1];
+  const digits = t.replace(/\D/g, '');
+  if (digits.length >= 7 && digits.length <= 10) return digits;
+  return undefined;
 }

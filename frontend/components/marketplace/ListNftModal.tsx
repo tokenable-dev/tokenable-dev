@@ -21,6 +21,7 @@ import {
 } from "@/constants/contracts";
 import { createOrder } from "@/lib/api";
 import { gasWithCap } from "@/lib/chainGas";
+import { mapWalletError } from "@/lib/walletError";
 
 const ZERO_BYTES32 =
   "0x0000000000000000000000000000000000000000000000000000000000000000" as const;
@@ -85,7 +86,7 @@ export function ListNftModal({ tokenId, onClose, onListed }: ListNftModalProps) 
     const salt = BigInt(Math.floor(Math.random() * 1_000_000_000_000));
 
     try {
-      // ── Step 1: Approve NFT to Seaport ──────────────────────────────────────
+      // ── Step 1: Approve ERC-721 to Seaport ──────────────────────────────────────
       setStep("approving");
       const gasApprove = await gasWithCap(publicClient, {
         address: TOKENABLE_RWA_ADDRESS,
@@ -158,6 +159,7 @@ export function ListNftModal({ tokenId, onClose, onListed }: ListNftModalProps) 
       const str = (v: unknown): string => String(v);
 
       await createOrder({
+        side: "ask",
         parameters: {
           offerer: address,
           zone: ZERO_ADDRESS,
@@ -200,9 +202,10 @@ export function ListNftModal({ tokenId, onClose, onListed }: ListNftModalProps) 
       setStep("success");
 
       await queryClient.invalidateQueries({ queryKey: ["marketplace-orders"] });
+      await queryClient.invalidateQueries({ queryKey: ["marketplace-collection"] });
       await queryClient.invalidateQueries({ queryKey: ["my-nft-ids", address] });
     } catch (err: unknown) {
-      setErrorMsg(err instanceof Error ? err.message : "Transaction failed");
+      setErrorMsg(mapWalletError(err).message);
       setStep("error");
     }
   }
@@ -211,7 +214,7 @@ export function ListNftModal({ tokenId, onClose, onListed }: ListNftModalProps) 
     step === "approving" || step === "signing" || step === "submitting";
 
   const stepLabels: { label: string; active: boolean }[] = [
-    { label: "1. Approve NFT", active: step === "approving" },
+    { label: "1. Approve token", active: step === "approving" },
     { label: "2. Sign Order", active: step === "signing" },
     { label: "3. Submitting", active: step === "submitting" },
   ];
@@ -235,7 +238,7 @@ export function ListNftModal({ tokenId, onClose, onListed }: ListNftModalProps) 
             <div className="text-4xl mb-3">🎉</div>
             <h3 className="text-lg font-bold text-white mb-1">Listed Successfully!</h3>
             <p className="text-sm text-gray-400">
-              NFT #{tokenId} is now listed for {price} USDC
+              Asset #{tokenId} is now listed for {price} USDC
             </p>
             <p className="text-xs text-gray-600 mt-2">Listing valid for 30 days</p>
             <button
@@ -248,10 +251,10 @@ export function ListNftModal({ tokenId, onClose, onListed }: ListNftModalProps) 
         ) : (
           <>
             <h2 className="text-lg font-bold text-white mb-1">
-              List NFT #{tokenId} for Sale
+              List Asset #{tokenId} for Sale
             </h2>
             <p className="text-sm text-gray-500 mb-5">
-              Set a price in USDC. Your NFT will be listed via Seaport.
+              Set a price in USDC. Your asset will be listed via Seaport.
             </p>
 
             <div className="mb-4">
@@ -267,7 +270,7 @@ export function ListNftModal({ tokenId, onClose, onListed }: ListNftModalProps) 
                   value={price}
                   onChange={(e) => setPrice(e.target.value)}
                   disabled={isProcessing}
-                  className="w-full bg-gray-800 border border-gray-700 focus:border-blue-500 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 outline-none pr-16"
+                  className="w-full bg-gray-800 border border-gray-700 focus:border-mint rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 outline-none pr-16"
                 />
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-500">
                   USDC
@@ -281,7 +284,7 @@ export function ListNftModal({ tokenId, onClose, onListed }: ListNftModalProps) 
                   key={label}
                   className={`flex-1 text-center text-xs py-1.5 rounded-lg ${
                     active
-                      ? "bg-blue-600 text-white animate-pulse"
+                      ? "bg-mint-dim text-mint-ink animate-pulse"
                       : "bg-gray-800 text-gray-500"
                   }`}
                 >
@@ -299,7 +302,7 @@ export function ListNftModal({ tokenId, onClose, onListed }: ListNftModalProps) 
             <button
               onClick={() => void handleList()}
               disabled={isProcessing || !price || parseFloat(price) <= 0}
-              className="w-full py-2.5 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg transition-all"
+              className="w-full py-2.5 bg-gradient-to-r from-mint to-mint-dim hover:brightness-105 disabled:opacity-50 disabled:cursor-not-allowed text-mint-ink text-sm font-semibold rounded-lg transition-all"
             >
               {isProcessing ? "Processing..." : "List for Sale"}
             </button>

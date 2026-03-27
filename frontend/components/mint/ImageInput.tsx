@@ -14,7 +14,7 @@ interface ImageInputProps {
 }
 
 const inputClass =
-  "w-full bg-gray-800 border border-gray-700 focus:border-amber-500 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 outline-none transition-colors";
+  "w-full bg-gray-800 border border-gray-700 focus:border-mint rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 outline-none transition-colors";
 
 export function ImageInput({
   value,
@@ -80,7 +80,7 @@ export function ImageInput({
             onClick={() => handleModeSwitch("file")}
             className={`text-xs px-3 py-1.5 rounded-lg transition-colors ${
               toggleMode === "file"
-                ? "bg-amber-600 text-white"
+                ? "bg-mint-dim text-mint-ink"
                 : "bg-gray-800 text-gray-400 hover:text-white"
             }`}
           >
@@ -91,7 +91,7 @@ export function ImageInput({
             onClick={() => handleModeSwitch("url")}
             className={`text-xs px-3 py-1.5 rounded-lg transition-colors ${
               toggleMode === "url"
-                ? "bg-amber-600 text-white"
+                ? "bg-mint-dim text-mint-ink"
                 : "bg-gray-800 text-gray-400 hover:text-white"
             }`}
           >
@@ -111,7 +111,7 @@ export function ImageInput({
           />
           <div
             onClick={() => inputRef.current?.click()}
-            className="w-full border border-dashed border-gray-700 hover:border-amber-500/60 rounded-lg py-6 px-4 text-center cursor-pointer transition-all duration-200 group"
+            className="w-full border border-dashed border-gray-700 hover:border-mint/50 rounded-lg py-6 px-4 text-center cursor-pointer transition-all duration-200 group"
           >
             {previewUrl ? (
               <div className="relative inline-block">

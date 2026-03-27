@@ -14,6 +14,12 @@ export enum OrderStatus {
   EXPIRED = 'expired',
 }
 
+/** ask = 매도 리스팅(판매자 서명), bid = 매수 입찰(구매자 서명, USDC 오퍼) */
+export enum OrderSide {
+  ASK = 'ask',
+  BID = 'bid',
+}
+
 @Entity('orders')
 export class Order {
   @PrimaryGeneratedColumn()
@@ -24,10 +30,20 @@ export class Order {
   @Column({ name: 'order_hash' })
   orderHash: string;
 
-  /** 판매자 지갑 주소 */
+  /**
+   * ask: 판매자(리스팅) / bid: 구매자(입찰 서명자)
+   */
   @Index()
   @Column()
   offerer: string;
+
+  @Column({
+    type: 'enum',
+    enum: OrderSide,
+    enumName: 'orders_side_enum',
+    default: OrderSide.ASK,
+  })
+  side: OrderSide;
 
   /** Tokenable_RWA (ERC-721) 컨트랙트 주소 */
   @Column({ name: 'token_contract' })
@@ -37,6 +53,17 @@ export class Order {
   @Index()
   @Column({ name: 'token_id' })
   tokenId: string;
+
+  /** 풀(컬렉션) 매수 입찰과 연결된 경우 — Seaport token-특정 입찰로 정산 */
+  @Column({ name: 'bucket_bid_id', type: 'int', nullable: true })
+  bucketBidId: number | null;
+
+  /**
+   * graded 메타 기준 논리 컬렉션 (매도 ask일 때만) — `computeMarketBucketKey` 와 동일 문자열
+   */
+  @Index()
+  @Column({ name: 'collection_key', type: 'varchar', length: 64, nullable: true })
+  collectionKey: string | null;
 
   /** 결제 토큰 주소 (Sepolia USDC: 0x1c7D4B...) */
   @Column({ name: 'consideration_token' })

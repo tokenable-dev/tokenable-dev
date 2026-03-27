@@ -13,8 +13,8 @@ type Tab = "mint" | "my-nfts" | "marketplace";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "mint", label: "Mint" },
-  { id: "my-nfts", label: "My NFTs" },
-  { id: "marketplace", label: "Marketplace" },
+  { id: "my-nfts", label: "My Assets" },
+  { id: "marketplace", label: "Exchange" },
 ];
 
 /** Reads ?tab= param and syncs it to the parent state */
@@ -56,7 +56,7 @@ function EmailVerifyToastSync() {
 
   if (!msg) return null;
   return (
-    <div className="fixed bottom-6 left-1/2 z-[60] max-w-md w-[calc(100%-2rem)] -translate-x-1/2 px-4 py-3 rounded-lg bg-emerald-950/95 border border-emerald-700/60 text-sm text-emerald-100 shadow-xl text-center">
+    <div className="fixed bottom-6 left-1/2 z-[60] max-w-md w-[calc(100%-2rem)] -translate-x-1/2 px-4 py-3 rounded-lg bg-[#0a1210]/95 border border-mint/25 text-sm text-mint/95 shadow-xl shadow-mint/10 text-center">
       {msg}
     </div>
   );
@@ -80,14 +80,14 @@ export default function Home() {
         {/* <h1 className="mb-2">
           <img
             src={ASSETS.logo.tokenable}
-            alt="Tokenable RWA Marketplace"
+            alt="Tokenable RWA Exchange"
             width={186}
             height={37}
             className="h-9 sm:h-10 w-auto"
           />
         </h1> */}
         <p className="text-gray-400 text-sm max-w-xl">
-          Mint, collect, and trade NFTs on Ethereum Sepolia. Listings use
+          Mint, collect, and trade tokenized assets on Ethereum Sepolia. Listings use
           OpenSea Seaport; prices are shown in USDC.
         </p>
       </section>
@@ -102,7 +102,7 @@ export default function Home() {
               onClick={() => setActiveTab(tab.id)}
               className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${
                 activeTab === tab.id
-                  ? "bg-gray-700 text-white shadow"
+                  ? "bg-mint/12 text-mint border border-mint-deep/35 shadow-sm shadow-mint/10"
                   : "text-gray-500 hover:text-gray-300"
               }`}
             >
@@ -117,7 +117,7 @@ export default function Home() {
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-800 bg-gray-900/30 px-4 py-3">
               <p className="text-xs text-gray-500 max-w-md">
                 Web3: connect MetaMask to mint & list. Prefer linking the same address in{" "}
-                <Link href="/profile" className="text-amber-500 hover:underline">
+                <Link href="/profile" className="text-mint hover:underline">
                   Profile
                 </Link>{" "}
                 after logging in.
@@ -134,7 +134,7 @@ export default function Home() {
                   {
                     step: "01",
                     title: "Fill in Details",
-                    desc: "Enter NFT name, description, and upload your image",
+                    desc: "Enter asset name, description, and upload your image",
                   },
                   {
                     step: "02",
@@ -144,7 +144,7 @@ export default function Home() {
                   {
                     step: "03",
                     title: "Sign & Mint",
-                    desc: "Approve the transaction in MetaMask to mint your NFT",
+                    desc: "Approve the transaction in MetaMask to mint your asset",
                   },
                 ].map(({ step, title, desc }) => (
                   <div key={step} className="flex gap-3">
@@ -167,9 +167,9 @@ export default function Home() {
         {activeTab === "my-nfts" && (
           <div>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-white">My NFTs</h2>
+              <h2 className="text-lg font-bold text-white">My Assets</h2>
               <p className="text-xs text-gray-500">
-                Click &ldquo;List for Sale&rdquo; to sell on the marketplace
+                Click &ldquo;List for Sale&rdquo; to sell on the Exchange
               </p>
             </div>
             <MyNfts />
@@ -179,7 +179,7 @@ export default function Home() {
         {activeTab === "marketplace" && (
           <div>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-white">Marketplace</h2>
+              <h2 className="text-lg font-bold text-white">Exchange</h2>
               <p className="text-xs text-gray-500">Prices in USDC</p>
             </div>
             <Marketplace />

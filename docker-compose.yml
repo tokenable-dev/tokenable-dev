@@ -11,6 +11,9 @@ services:
       - postgres_data:/var/lib/postgresql/data
       # 첫 기동 시에만 실행됨(기존 볼륨이면 스킵). 이미 띄운 EC2 DB에는 003 마이그레이션을 수동 적용.
       - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    # 호스트에서 Nest/로컬 클라이언트가 localhost:5432 로 붙을 수 있게 함 (expose 만으로는 호스트에 안 열림)
+    ports:
+      - "5432:5432"
     expose:
       - "5432"
     restart: always

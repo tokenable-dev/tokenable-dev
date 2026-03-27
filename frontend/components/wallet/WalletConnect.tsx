@@ -53,7 +53,7 @@ export function WalletConnect() {
             )}
           </div>
           <div
-            className={`w-2 h-2 rounded-full ${isWrongNetwork ? "bg-red-400" : "bg-green-400"}`}
+            className={`w-2 h-2 rounded-full ${isWrongNetwork ? "bg-red-400" : "bg-mint"}`}
           />
         </div>
         <div className="flex items-center gap-2">
@@ -61,7 +61,7 @@ export function WalletConnect() {
             <button
               onClick={() => void handleSwitchToSepolia()}
               disabled={isSwitching}
-              className="text-xs px-2 py-1 bg-emerald-600/80 hover:bg-emerald-500/80 disabled:opacity-50 text-white rounded transition-colors"
+              className="text-xs px-2 py-1 bg-mint-dim/90 hover:brightness-110 disabled:opacity-50 text-mint-ink rounded transition-colors"
             >
               {isSwitching ? "Switching..." : "Switch to Sepolia"}
             </button>
@@ -83,7 +83,7 @@ export function WalletConnect() {
     <button
       onClick={() => metaMaskConnector && connect({ connector: metaMaskConnector })}
       disabled={isPending || !metaMaskConnector}
-      className="px-4 py-2 bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg transition-all duration-200 shadow-lg shadow-orange-500/20"
+      className="px-4 py-2 bg-gradient-to-r from-mint to-mint-dim hover:brightness-105 disabled:opacity-50 disabled:cursor-not-allowed text-mint-ink text-sm font-semibold rounded-lg transition-all duration-200 shadow-lg shadow-mint/25"
     >
       {isPending ? "Connecting..." : "Connect MetaMask"}
     </button>

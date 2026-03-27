@@ -35,6 +35,8 @@ export interface GradedCardMetadata {
     queryUsed: string;
     topMatch?: unknown;
   };
+  /** 서버가 PSA 슬랩 상단 제거 후 IPFS에 올린 컬렉션 대표 이미지 (민팅 응답에 포함) */
+  collectionCoverImage?: string;
   /** PSA 파이프라인에서 채운 필드 (cert, gradeLabel 등) */
   psa?: {
     certNumber?: string;
@@ -56,6 +58,8 @@ export interface GradedCardMetadata {
     specId?: number;
     /** 서버에 PSA_PUBLIC_API_TOKEN이 있고 Cert 조회에 성공한 경우 */
     enrichedFromOfficialApi?: boolean;
+    /** 민팅 시 NFT image로 쓰기 위해 가져온 PSA cert-images(또는 API) 원본 URL — IPFS 업로드 전 */
+    certImageSourceUrl?: string;
   };
   /** PSA 공식 API 조회 요약 (토큰 없으면 disabled) */
   psaApi?: {

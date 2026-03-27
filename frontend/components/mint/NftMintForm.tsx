@@ -32,7 +32,7 @@ export function NftMintForm() {
     return (
       <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-8 text-center">
         <div className="text-4xl mb-3">🔒</div>
-        <p className="text-gray-400">Connect your wallet to mint graded card NFTs</p>
+        <p className="text-gray-400">Connect your wallet to mint graded card assets</p>
       </div>
     );
   }
@@ -48,7 +48,7 @@ export function NftMintForm() {
         <button
           onClick={() => void handleSwitchToSepolia()}
           disabled={isSwitching}
-          className="mt-4 px-4 py-2 bg-emerald-600/80 hover:bg-emerald-500/80 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition-colors"
+          className="mt-4 px-4 py-2 bg-mint-dim/90 hover:brightness-110 disabled:opacity-50 text-mint-ink text-sm font-medium rounded-lg transition-colors"
         >
           {isSwitching ? "Switching..." : "Switch to Sepolia"}
         </button>

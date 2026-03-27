@@ -34,7 +34,7 @@ export async function uploadNft(formData: FormData): Promise<UploadNftResult> {
   });
   if (!res.ok) {
     const error = await res.json().catch(() => ({ message: "Upload failed" }));
-    throw new Error((error as { message: string }).message ?? "NFT upload failed");
+    throw new Error((error as { message: string }).message ?? "Asset upload failed");
   }
   return res.json() as Promise<UploadNftResult>;
 }
@@ -87,16 +87,21 @@ export interface PsaAnalyzeResult {
     topMatch: unknown | null;
     rawResponse: unknown;
   };
+  /** PSA cert-images 등 — 앞면 URL은 민팅 시 imageUrl로 쓸 수 있음 */
+  psaCertImages?: { front?: string; back?: string };
 }
 
 /** 슬랩 앞면 필수, 뒷면 선택 — OCR 후 JustTCG(Pokemon) 검색 */
 export async function analyzePsaSlab(
   slabFront: File,
-  slabBack?: File | null
+  slabBack?: File | null,
+  /** OCR이 Cert를 못 읽을 때: 숫자 또는 psacard.com/cert/… URL (PSA API 조회 우선) */
+  certHint?: string
 ): Promise<PsaAnalyzeResult> {
   const fd = new FormData();
   fd.append("slabFront", slabFront);
   if (slabBack) fd.append("slabBack", slabBack);
+  if (certHint?.trim()) fd.append("certNumber", certHint.trim());
   const res = await backendFetch(`${getApiUrl()}/psa/analyze`, {
     method: "POST",
     body: fd,
@@ -146,19 +151,19 @@ export interface NftContractInfo {
 
 export async function getNftContractInfo(): Promise<NftContractInfo> {
   const res = await backendFetch(`${getApiUrl()}/blockchain/nft/info`);
-  if (!res.ok) throw new Error("Failed to fetch NFT contract info");
+  if (!res.ok) throw new Error("Failed to fetch contract info");
   return res.json() as Promise<NftContractInfo>;
 }
 
 export async function getNftBalance(address: string): Promise<number> {
   const res = await backendFetch(`${getApiUrl()}/blockchain/nft/balance/${address}`);
-  if (!res.ok) throw new Error("Failed to fetch NFT balance");
+  if (!res.ok) throw new Error("Failed to fetch asset balance");
   return res.json() as Promise<number>;
 }
 
 export async function getNftTokensByOwner(address: string): Promise<number[]> {
   const res = await backendFetch(`${getApiUrl()}/blockchain/nft/tokens/${address}`);
-  if (!res.ok) throw new Error("Failed to fetch owned NFTs");
+  if (!res.ok) throw new Error("Failed to fetch owned assets");
   return res.json() as Promise<number[]>;
 }
 
@@ -216,6 +221,12 @@ export interface Order {
   id: number;
   orderHash: string;
   offerer: string;
+  /** ask = 매도 리스팅, bid = 매수 입찰 (없으면 레거시 ask로 간주) */
+  side?: "ask" | "bid";
+  /** 풀(컬렉션) 매수와 연결된 Seaport 입찰 */
+  bucketBidId?: number | null;
+  /** graded 메타 기준 컬렉션 (매도 ask) */
+  collectionKey?: string | null;
   tokenContract: string;
   tokenId: string;
   considerationToken: string;
@@ -237,6 +248,10 @@ export interface CreateOrderPayload {
   tokenId: string;
   considerationToken: string;
   considerationAmount: string;
+  /** ask(기본) = 매도 리스팅, bid = 매수 입찰 */
+  side?: "ask" | "bid";
+  /** 풀 매수 입찰에서 온 token-특정 Seaport 입찰 */
+  bucketBidId?: number;
 }
 
 /** 활성 주문 목록 */
@@ -246,16 +261,48 @@ export async function getActiveOrders(): Promise<Order[]> {
   return res.json() as Promise<Order[]>;
 }
 
-/** tokenId로 해당 NFT의 active 주문 1건 조회 */
+export interface MarketplaceCollectionSummary {
+  collectionKey: string;
+  displayLabel: string;
+  queryUsed: string | null;
+  components: Record<string, unknown>;
+  createdAt: string;
+  activeListingCount: number;
+  /** JustTCG 카드 아트 (cert/슬랩 아님); 없을 수 있음 */
+  coverImageUrl?: string | null;
+}
+
+/** graded/JustTCG 기준 컬렉션 요약 (활성 매도 개수 포함) */
+export async function getMarketplaceCollections(): Promise<
+  MarketplaceCollectionSummary[]
+> {
+  const res = await backendFetch(`${getApiUrl()}/marketplace/collections`);
+  if (!res.ok) throw new Error("Failed to fetch collections");
+  return res.json() as Promise<MarketplaceCollectionSummary[]>;
+}
+
+/** tokenId로 해당 NFT의 활성 매도(ask) 리스팅 1건 조회 */
 export async function getOrderByTokenId(tokenId: number): Promise<Order | null> {
   const res = await backendFetch(`${getApiUrl()}/marketplace/orders`);
   if (!res.ok) throw new Error("Failed to fetch orders");
   const orders = (await res.json()) as Order[];
   return (
     orders.find(
-      (o) => o.tokenId === String(tokenId) && o.status === "active"
+      (o) =>
+        o.tokenId === String(tokenId) &&
+        o.status === "active" &&
+        (o.side === "ask" || o.side == null)
     ) ?? null
   );
+}
+
+/** 활성 매수 입찰만 — 가격(USDC 최소단위) 내림차순 */
+export async function getActiveBidsForToken(tokenId: number): Promise<Order[]> {
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/orders/bids/token/${tokenId}`
+  );
+  if (!res.ok) throw new Error("Failed to fetch bids");
+  return res.json() as Promise<Order[]>;
 }
 
 /** tokenId로 전체 주문 이력 조회 (active/fulfilled/cancelled/expired 모두) */
@@ -300,6 +347,202 @@ export async function cancelOrder(
     throw new Error((err as { message: string }).message ?? "Failed to cancel order");
   }
   return res.json() as Promise<Order>;
+}
+
+// ── Pool bids (논리적 버킷 — 같은 카드·등급, Web2) ────────────────────────────
+
+export interface MarketBucketComponents {
+  gradingCompany: string;
+  cardName: string;
+  cardSet: string;
+  gradeScore: string;
+}
+
+export interface BucketBid {
+  id: number;
+  bucketKey: string;
+  tokenContract: string;
+  buyerOfferer: string;
+  considerationAmount: string;
+  components: MarketBucketComponents;
+  status: string;
+  startTime: string;
+  endTime: string;
+  fulfilledTokenId: string | null;
+  signature?: string | null;
+  nonce?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MarketplaceCollectionDetail {
+  collection: {
+    collectionKey: string;
+    displayLabel: string;
+    queryUsed: string | null;
+    components: Record<string, unknown>;
+    createdAt: string;
+  };
+  listings: Order[];
+  poolBids: BucketBid[];
+  seaportBids: Order[];
+  /** JustTCG topMatch 카드 이미지(슬랩 사진 아님); 없으면 null */
+  representativeImageUrl: string | null;
+}
+
+export async function getMarketplaceCollectionDetail(
+  collectionKey: string
+): Promise<MarketplaceCollectionDetail> {
+  const enc = encodeURIComponent(collectionKey);
+  const res = await backendFetch(`${getApiUrl()}/marketplace/collections/${enc}`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(
+      (err as { message?: string }).message ?? "Failed to load collection"
+    );
+  }
+  return res.json() as Promise<MarketplaceCollectionDetail>;
+}
+
+export async function getBucketBidsByToken(tokenId: number): Promise<{
+  bucketKey: string;
+  components: MarketBucketComponents;
+  bids: BucketBid[];
+}> {
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/bucket-bids/by-token/${tokenId}`
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(
+      (err as { message?: string }).message ?? "Failed to load pool bids"
+    );
+  }
+  return res.json() as Promise<{
+    bucketKey: string;
+    components: MarketBucketComponents;
+    bids: BucketBid[];
+  }>;
+}
+
+export async function createPoolBid(payload: {
+  tokenId?: string;
+  bucketKey?: string;
+  components?: Record<string, unknown>;
+  considerationAmount: string;
+  endTime: string;
+  buyerOfferer: string;
+  signature: string;
+  nonce: string;
+}): Promise<BucketBid> {
+  const body: Record<string, unknown> = {
+    considerationAmount: payload.considerationAmount,
+    endTime: payload.endTime,
+    buyerOfferer: payload.buyerOfferer,
+    signature: payload.signature,
+    nonce: payload.nonce,
+  };
+  if (payload.tokenId != null && payload.tokenId !== "") {
+    body.tokenId = payload.tokenId;
+  }
+  if (payload.bucketKey != null && payload.components != null) {
+    body.bucketKey = payload.bucketKey;
+    body.components = payload.components;
+  }
+  const res = await backendFetch(`${getApiUrl()}/marketplace/bucket-bids`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ message: "Failed to create pool bid" }));
+    throw new Error((err as { message?: string }).message ?? "Failed to create pool bid");
+  }
+  return res.json() as Promise<BucketBid>;
+}
+
+export async function cancelPoolBid(
+  id: number,
+  callerAddress: string
+): Promise<BucketBid> {
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/bucket-bids/${id}/cancel?callerAddress=${encodeURIComponent(callerAddress)}`,
+    { method: "PATCH" }
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { message?: string }).message ?? "Failed to cancel pool bid");
+  }
+  return res.json() as Promise<BucketBid>;
+}
+
+export async function validatePoolBidSellerMatch(
+  bidId: number,
+  tokenId: number,
+  sellerAddress: string
+): Promise<{
+  match: boolean;
+  bucketBid: BucketBid;
+  tokenOwner: string;
+  message: string;
+}> {
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/bucket-bids/${bidId}/validate-seller`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tokenId: String(tokenId), sellerAddress }),
+    }
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { message?: string }).message ?? "Validation failed");
+  }
+  return res.json() as Promise<{
+    match: boolean;
+    bucketBid: BucketBid;
+    tokenOwner: string;
+    message: string;
+  }>;
+}
+
+export async function preparePoolBidFulfillment(
+  bidId: number,
+  tokenId: number
+): Promise<{
+  match: boolean;
+  bucketBid: BucketBid;
+  tokenId: string;
+  chainId: number;
+  usdcAddress: string;
+  nftContract: string;
+  parametersDraft: Record<string, unknown>;
+  buyerMessage: string;
+}> {
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/bucket-bids/${bidId}/prepare-fulfill`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tokenId: String(tokenId) }),
+    }
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(
+      (err as { message?: string }).message ?? "Failed to prepare pool bid fulfillment"
+    );
+  }
+  return res.json() as Promise<{
+    match: boolean;
+    bucketBid: BucketBid;
+    tokenId: string;
+    chainId: number;
+    usdcAddress: string;
+    nftContract: string;
+    parametersDraft: Record<string, unknown>;
+    buyerMessage: string;
+  }>;
 }
 
 /** 구매 완료 처리 */

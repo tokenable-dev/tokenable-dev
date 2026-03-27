@@ -50,7 +50,7 @@ function NftCard({
         {imageUrl ? (
           <img
             src={imageUrl}
-            alt={nft.metadata?.name ?? `NFT #${nft.tokenId}`}
+            alt={nft.metadata?.name ?? `Asset #${nft.tokenId}`}
             className="w-full h-full object-contain object-center"
           />
         ) : (
@@ -77,7 +77,7 @@ function NftCard({
           </p>
         )}
         {activeOrder && listingPrice && (
-          <p className="text-xs text-emerald-400/90 mt-1 font-medium">
+          <p className="text-xs text-mint/90 mt-1 font-medium">
             {listingPrice} USDC
           </p>
         )}
@@ -93,7 +93,7 @@ function NftCard({
           ) : (
             <button
               onClick={() => onList(nft.tokenId)}
-              className="w-full py-2 text-xs font-medium bg-emerald-950/70 hover:bg-emerald-900/60 text-emerald-200 rounded-lg transition-colors border border-emerald-800/50"
+              className="w-full py-2 text-xs font-medium bg-mint/10 hover:bg-mint/15 text-mint rounded-lg transition-colors border border-mint-deep/35"
             >
               List for Sale
             </button>
@@ -212,7 +212,7 @@ export function MyNfts() {
   if (!isConnected) {
     return (
       <div className="text-center py-16 text-gray-500">
-        Connect your wallet to view your NFTs.
+        Connect your wallet to view your assets.
       </div>
     );
   }
@@ -230,8 +230,8 @@ export function MyNfts() {
   if (!nfts?.length) {
     return (
       <div className="text-center py-16">
-        <p className="text-gray-500 mb-2">You don&apos;t own any NFTs yet.</p>
-        <p className="text-sm text-gray-600">Mint your first NFT from the Mint tab.</p>
+        <p className="text-gray-500 mb-2">You don&apos;t own any assets yet.</p>
+        <p className="text-sm text-gray-600">Mint your first asset from the Mint tab.</p>
       </div>
     );
   }

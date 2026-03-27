@@ -29,7 +29,7 @@ export default function AuthCallbackPage() {
             <button
               type="button"
               onClick={() => router.replace("/login")}
-              className="text-amber-500 hover:underline"
+              className="text-mint hover:underline"
             >
               Back to login
             </button>
