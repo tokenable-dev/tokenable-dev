@@ -10,6 +10,8 @@
 | 배포 | `https://<도메인>/api` (Nginx 등에서 `/api` → 백엔드 프록시) |
 | Swagger UI | `{호스트}/api/docs` (스키마·Try it out) |
 
+로컬 **PostgreSQL 스키마·Docker·ERD** 상세는 [LOCAL_DATABASE.md](./LOCAL_DATABASE.md) 및 통합 다이어그램 `docs/diagrams/tokenable-all-diagrams.drawio` (탭 **03-C-PostgreSQL-ERD**) 를 참고하세요.
+
 ## 인증
 
 - **쿠키**: Google OAuth 완료 후 `access_token` (httpOnly). 브라우저는 `credentials: include` 로 호출.
@@ -68,6 +70,9 @@
 ---
 
 ## 5. Marketplace — `/api/marketplace`
+
+**Seaport가 프로젝트에서 쓰이는 범위·용도·구조** 요약: [SEAPORT_PROTOCOL_OVERVIEW.md](./SEAPORT_PROTOCOL_OVERVIEW.md).  
+**Seaport · 풀 입찰 · EIP-712 · 온체인 연동** API 상세는 [SEAPORT_API.md](./SEAPORT_API.md) 를 참고하세요.
 
 ### Seaport 주문 (오프체인 DB)
 

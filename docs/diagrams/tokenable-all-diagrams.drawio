@@ -1,0 +1,650 @@
+<?xml version='1.0' encoding='utf-8'?>
+<mxfile host="app.diagrams.net" modified="2026-03-30T12:00:00.000Z" agent="Mozilla/5.0 (compatible; draw.io)" version="24.7.7" type="device" compressed="false">
+  <diagram id="pg00" name="00-INDEX-목차">
+    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="2000" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="pg00_ixt" value="Tokenable — diagrams (7탭)" style="text;html=1;fontSize=20;fontStyle=1;align=left" vertex="1" parent="1">
+          <mxGeometry x="40" y="30" width="600" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="pg00_ixb" value="이 파일 = 7탭으로 정리됨.&#10;&#10;01 — A: 전체구조 · 민팅 · 마켓·Seaport·풀 · 인증/백엔드&#10;02 — B: CeFi·하이브리드 (개요 · 사용자여정 · 비교)&#10;03 — C: PostgreSQL ERD (로컬 DB)&#10;04 — D: Seaport (레이어 · 주문3종 · 풀연결 · 미사용구분)&#10;05 — E: E2E 범례 ~ 리스팅 (E0~E4)&#10;06 — E: E2E 구매 ~ Exchange (E5~E8)&#10;&#10;문서: docs/LOCAL_DATABASE.md, SEAPORT_PROTOCOL_OVERVIEW.md, SEAPORT_API.md" style="rounded=0;whiteSpace=wrap;html=1;align=left;spacingLeft=12;fontSize=12;fillColor=#fff9e6;" vertex="1" parent="1">
+          <mxGeometry x="40" y="80" width="720" height="200" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="pg01" name="01-A-아키텍처-A1~A4">
+    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="2090" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="pg01_t1" value="Tokenable — 전체 구조 (사용자 가스 · 지갑 민팅)" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontSize=18;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="40" y="20" width="520" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="pg01_c1" value="사용자 브라우저&#10;Next.js (React) + wagmi / viem" style="swimlane;horizontal=1;startSize=32;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="40" y="80" width="520" height="380" as="geometry" />
+        </mxCell>
+        <mxCell id="pg01_c1a" value="WalletConnect / MetaMask&#10;· 지갑 연결&#10;· Sepolia 전환&#10;· 서명 · 트랜잭션 (가스 = 사용자)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="pg01_c1">
+          <mxGeometry x="20" y="50" width="220" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="pg01_c1b" value="민팅 UI (MintForm)&#10;· /psa/analyze (슬랩 OCR·JustTCG)&#10;· /nft/upload → tokenURI&#10;· 컨트랙트 mint(to=본인)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="pg01_c1">
+          <mxGeometry x="260" y="50" width="240" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="pg01_c1c" value="마켓플레이스&#10;· List / Bid / Buy / Pool bids&#10;· Seaport EIP-712 서명&#10;· USDC approve + fulfillOrder (가스)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="pg01_c1">
+          <mxGeometry x="20" y="180" width="480" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="pg01_c1d" value="프로필 (선택)&#10;Google 로그인 후 POST /auth/wallet&#10;→ 계정과 지갑 주소 연동" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="pg01_c1">
+          <mxGeometry x="20" y="290" width="480" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="pg01_c2" value="게이트웨이 / API&#10;Nginx: /api → NestJS&#10;Next rewrites: 브라우저 동일 출처 /api" style="swimlane;horizontal=1;startSize=32;fillColor=#ffe6cc;strokeColor=#d79b00;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="600" y="80" width="280" height="380" as="geometry" />
+        </mxCell>
+        <mxCell id="pg01_c2a" value="REST /api&#10;auth, nft, psa, blockchain,&#10;marketplace, price" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="pg01_c2">
+          <mxGeometry x="20" y="50" width="240" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="pg01_c2b" value="PostgreSQL&#10;orders, bucket_bids,&#10;users, collections..." style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=12;fillColor=#f5f5f5;" vertex="1" parent="pg01_c2">
+          <mxGeometry x="40" y="160" width="200" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="pg01_c2c" value="서버는 온체인 트랜잭션을&#10;대신 내보내지 않음&#10;(주문·풀은 DB + 서명 검증)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff;strokeColor=#666666;dashed=1;" vertex="1" parent="pg01_c2">
+          <mxGeometry x="20" y="270" width="240" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="pg01_c3" value="외부 / 온체인" style="swimlane;horizontal=1;startSize=32;fillColor=#e6e6e6;strokeColor=#666666;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="920" y="80" width="420" height="380" as="geometry" />
+        </mxCell>
+        <mxCell id="pg01_c3a" value="IPFS (Pinata)&#10;/nft/upload — 메타·이미지 핀&#10;→ tokenURI" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#b0e3e6;strokeColor=#0e8088;" vertex="1" parent="pg01_c3">
+          <mxGeometry x="20" y="50" width="180" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="pg01_c3b" value="Ethereum Sepolia&#10;· Tokenable_RWA (ERC-721) mint&#10;· USDC&#10;· Seaport 1.5 fulfillOrder" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fad9d5;strokeColor=#ae4132;" vertex="1" parent="pg01_c3">
+          <mxGeometry x="220" y="50" width="180" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="pg01_c3c" value="JustTCG / PSA API&#10;(가격·PSA 조회 — 서버 키)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="pg01_c3">
+          <mxGeometry x="20" y="170" width="180" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="pg01_c3d" value="Google OAuth&#10;(JWT 쿠키)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;" vertex="1" parent="pg01_c3">
+          <mxGeometry x="220" y="180" width="180" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="pg01_e1" style="endArrow=classic;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.35;" edge="1" parent="1" source="pg01_c1" target="pg01_c2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="pg01_e2" style="endArrow=classic;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.35;" edge="1" parent="1" source="pg01_c2" target="pg01_c3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="pg01_n1" value="HTTPS /api (JSON)" style="text;html=1;align=center;fontSize=10" vertex="1" parent="1">
+          <mxGeometry x="540" y="220" width="100" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="pg01_n2" value="민팅·거래: 사용자 지갑이 가스 지불" style="text;html=1;align=left;fontSize=11;fontStyle=2;fillColor=#ffff88" vertex="1" parent="1">
+          <mxGeometry x="40" y="480" width="320" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="pg01_secA2" value="A2 · NFT 민팅 흐름" style="rounded=0;whiteSpace=wrap;html=1;align=center;fontSize=13;fontStyle=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="40" y="580" width="1520" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="pg02_mt" value="NFT 민팅 흐름 (가스: 사용자 · 수령: 사용자 지갑)" style="text;html=1;strokeColor=none;fillColor=none;fontSize=16;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="40" y="710" width="480" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="pg02_m2" value="1. 지갑 연결&#10;(wagmi) + Sepolia" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;" vertex="1" parent="1">
+          <mxGeometry x="40" y="770" width="140" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="pg02_m3" value="2. (선택) 슬랩 분석&#10;POST /api/psa/analyze&#10;OCR · PSA · JustTCG" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;" vertex="1" parent="1">
+          <mxGeometry x="220" y="770" width="200" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="pg02_m4" value="3. 메타 구성 +&#10;POST /api/nft/upload&#10;(Pinata → tokenURI)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;" vertex="1" parent="1">
+          <mxGeometry x="460" y="770" width="200" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="pg02_m5" value="4. 온체인 mint&#10;writeContract( mint( userAddress, tokenURI ) )&#10;가스: 사용자" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fad9d5;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="700" y="770" width="260" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="pg02_m6" value="5. 결과&#10;NFT 소유자 = 연결된 지갑&#10;(ERC-721 ownerOf)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;" vertex="1" parent="1">
+          <mxGeometry x="1000" y="770" width="200" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="pg02_ma1" style="endArrow=classic;html=1;" edge="1" parent="1" source="pg02_m2" target="pg02_m3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="pg02_ma2" style="endArrow=classic;html=1;" edge="1" parent="1" source="pg02_m3" target="pg02_m4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="pg02_ma3" style="endArrow=classic;html=1;" edge="1" parent="1" source="pg02_m4" target="pg02_m5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="pg02_ma4" style="endArrow=classic;html=1;" edge="1" parent="1" source="pg02_m5" target="pg02_m6">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="pg02_m7" value="백엔드: IPFS 업로드·메타만 처리. 민팅 트랜잭션은 보내지 않음." style="rounded=0;whiteSpace=wrap;html=1;align=left;fillColor=#f5f5f5;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="890" width="420" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="pg01_secA3" value="A3 · 마켓플레이스 · 오프체인 주문 + Seaport" style="rounded=0;whiteSpace=wrap;html=1;align=center;fontSize=13;fontStyle=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="40" y="1000" width="1520" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="pg03_a3Hdr" value="마켓플레이스 — 오프체인 주문 DB + 온체인 Seaport (가스: 트랜잭션 발신자)" style="text;html=1;strokeColor=none;fillColor=none;fontSize=16;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="40" y="1080" width="700" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="pg03_a3AskBox" value="매도 리스팅 (ask)&#10;① NFT approve(Seaport) — 가스·판매자&#10;② Seaport EIP-712 서명&#10;③ POST /marketplace/orders (side=ask)&#10;→ DB 활성 리스팅" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;" vertex="1" parent="1">
+          <mxGeometry x="40" y="1130" width="280" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="pg03_a3BidBox" value="매수 입찰 (bid)&#10;① USDC approve — 가스·입찰자&#10;② Seaport 서명&#10;③ POST /marketplace/orders (side=bid)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;" vertex="1" parent="1">
+          <mxGeometry x="360" y="1130" width="280" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="pg03_a3SettleBox" value="체결&#10;상대방이 Seaport.fulfillOrder&#10;(가스 = 트랜잭션 보낸 쪽)&#10;성공 후 PATCH .../fulfill → DB 반영" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fad9d5;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="680" y="1130" width="280" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="pg03_a3PoolBox" value="풀 입찰 (컬렉션 단위)&#10;① EIP-712 TokenableCollectionBid&#10;② POST /marketplace/bucket-bids&#10;③ prepare-fulfill + 구매자 Seaport bid&#10;④ bucketBidId 연결 주문 체결 시 풀 fulfilled" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;align=left;" vertex="1" parent="1">
+          <mxGeometry x="40" y="1280" width="920" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="pg03_a3CollPage" value="컬렉션 페이지&#10;GET /collections/:key&#10;→ listings + poolBids + seaportBids" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;" vertex="1" parent="1">
+          <mxGeometry x="40" y="1420" width="300" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="pg03_a3DocHint" value="상세: docs/SEAPORT_API.md" style="text;html=1;align=left;fontStyle=2;fontSize=11" vertex="1" parent="1">
+          <mxGeometry x="40" y="1520" width="280" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="pg03_a3EdgeAskToSettle" style="endArrow=classic;html=1;dashed=1;" edge="1" parent="1" source="pg03_a3AskBox" target="pg03_a3SettleBox">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="pg03_a3EdgeBidToSettle" style="endArrow=classic;html=1;dashed=1;" edge="1" parent="1" source="pg03_a3BidBox" target="pg03_a3SettleBox">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="pg01_secA4" value="A4 · 인증 · OAuth · 백엔드 RPC" style="rounded=0;whiteSpace=wrap;html=1;align=center;fontSize=13;fontStyle=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="40" y="1630" width="1520" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="pg04_at" value="인증 · 계정 (온체인과 별도 레이어)" style="text;html=1;fontSize=16;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="40" y="1690" width="400" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="pg04_a2" value="Google OAuth&#10;→ JWT (httpOnly 쿠키)&#10;GET /auth/me" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;" vertex="1" parent="1">
+          <mxGeometry x="40" y="1780" width="200" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="pg04_a3" value="지갑 연동 (프로필)&#10;POST /auth/wallet&#10;DELETE /auth/wallet&#10;→ DB 사용자 ↔ 주소" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;" vertex="1" parent="1">
+          <mxGeometry x="280" y="1780" width="220" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="pg04_a4" value="거래·민팅은 브라우저 지갑 서명으로 수행&#10;(로그인과 독립적일 수 있음)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="540" y="1780" width="280" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="pg04_a5" value="백엔드 읽기 전용 RPC&#10;GET /blockchain/nft/*&#10;(ownerOf, tokenURI, 잔액 등)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e6e6e6;" vertex="1" parent="1">
+          <mxGeometry x="40" y="1900" width="300" height="70" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="pg02" name="02-B-CeFi-하이브리드-B1~B3">
+    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1700" pageHeight="2012" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="pg05_t1" value="CeFi / 하이브리드 제안 — 내부 원장 중심 + 선택적 온체인 (베스트 프랙티스 스케치)" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=17;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="40" y="20" width="900" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="pg05_t2" value="핵심: 사용자는 '계정·잔액·주문'을 플랫폼이 신뢰할 수 있는 원장으로 처리하고, 블록체인은 정산·출금·감사용으로 선택적 사용." style="text;html=1;strokeColor=none;fillColor=#fff9e6;align=left;fontSize=11;fontStyle=2" vertex="1" parent="1">
+          <mxGeometry x="40" y="52" width="920" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="pg05_laneUser" value="사용자 계층 (지갑 필수 아님)" style="swimlane;horizontal=1;startSize=28;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="40" y="100" width="500" height="200" as="geometry" />
+        </mxCell>
+        <mxCell id="pg05_u1" value="웹/앱 로그인&#10;OAuth · 이메일 · (선택) 2FA" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;" vertex="1" parent="pg05_laneUser">
+          <mxGeometry x="20" y="45" width="150" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="pg05_u2" value="(선택) KYC 단계&#10;출금·한도·규제 대응" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;" vertex="1" parent="pg05_laneUser">
+          <mxGeometry x="190" y="45" width="140" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="pg05_u3" value="입금 / 결제&#10;카드·은행·암호화폐 입금&#10;→ 플랫폼 '크레딧' 또는 체인 입금 주소" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;" vertex="1" parent="pg05_laneUser">
+          <mxGeometry x="350" y="45" width="130" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="pg05_laneCore" value="플랫폼 핵심 (CeFi)" style="swimlane;horizontal=1;startSize=28;fillColor=#ffe6cc;strokeColor=#d79b00;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="580" y="100" width="560" height="320" as="geometry" />
+        </mxCell>
+        <mxCell id="pg05_c1" value="내부 원장 (SoT)&#10;· 사용자 잔액(법정/스테이블)&#10;· NFT '소유' 레코드 (DB)&#10;· 주문·체결·수수료" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontStyle=1" vertex="1" parent="pg05_laneCore">
+          <mxGeometry x="20" y="45" width="200" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="pg05_c2" value="거래 엔진&#10;매칭 · 호가 · 풀 규칙&#10;(온체인 Seaport와 분리 가능)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;" vertex="1" parent="pg05_laneCore">
+          <mxGeometry x="240" y="45" width="160" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="pg05_c3" value="신뢰·통제&#10;· 관리자 콘솔&#10;· 감사 로그&#10;· 리스크·한도" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;" vertex="1" parent="pg05_laneCore">
+          <mxGeometry x="420" y="45" width="120" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="pg05_c4" value="수탁 지갑 / Vault&#10;· Hot wallet (출금·민팅 배치)&#10;· KMS / HSM / MPC (키 분산)&#10;· 멀티시그 정책" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fad9d5;strokeColor=#ae4132;" vertex="1" parent="pg05_laneCore">
+          <mxGeometry x="20" y="175" width="240" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="pg05_c5" value="가스·릴레이&#10;· 백엔드 또는 Paymaster&#10;· 사용자는 가스 미지불 가능&#10;(메타트랜잭션 / AA)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#b0e3e6;strokeColor=#0e8088;" vertex="1" parent="pg05_laneCore">
+          <mxGeometry x="280" y="175" width="200" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="pg05_c6" value="민팅 정책&#10;· Vault → 사용자 지갑으로 전송&#10;· 또는 커스터디 컨트랙트&#10;· 또는 'DB만 민팅' 후 나중에 민팅" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;" vertex="1" parent="pg05_laneCore">
+          <mxGeometry x="500" y="175" width="140" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="pg05_laneChain" value="블록체인 (선택적 · 정산층)" style="swimlane;horizontal=1;startSize=28;fillColor=#e6e6e6;strokeColor=#666666;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="40" y="440" width="1100" height="200" as="geometry" />
+        </mxCell>
+        <mxCell id="pg05_ch1" value="L2 권장&#10;낮은 가스 · 배치 민팅" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fad9d5;" vertex="1" parent="pg05_laneChain">
+          <mxGeometry x="20" y="50" width="120" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="pg05_ch2" value="ERC-721 / 1155&#10;플랫폼이 mint 권한 보유&#10;(minter role)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;" vertex="1" parent="pg05_laneChain">
+          <mxGeometry x="160" y="50" width="160" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="pg05_ch3" value="스테이블 잔액&#10;플랫폼 다중서명 지갑&#10;또는 사용자 출금 시에만 체인 이동" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;" vertex="1" parent="pg05_laneChain">
+          <mxGeometry x="340" y="50" width="200" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="pg05_ch4" value="(선택) 증명용&#10;Merkle 루트 · 주기적 앵커&#10;→ 투명성" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;dashed=1;" vertex="1" parent="pg05_laneChain">
+          <mxGeometry x="560" y="50" width="180" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="pg05_ch5" value="출금 큐&#10;사용자 지갑으로 NFT/USDC 전송&#10;검토·한도·지연" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;" vertex="1" parent="pg05_laneChain">
+          <mxGeometry x="760" y="50" width="200" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="pg05_e1" style="endArrow=classic;html=1;entryX=0;entryY=0.5;exitX=1;exitY=0.5;" edge="1" parent="1" source="pg05_laneUser" target="pg05_laneCore">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="pg05_e2" style="endArrow=classic;html=1;entryX=0.35;entryY=0;exitX=0.5;exitY=1;" edge="1" parent="1" source="pg05_laneCore" target="pg05_laneChain">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="pg05_note1" value="vs 현재(DeFi형): 사용자 지갑·직접 가스·서명이 중심 → CeFi형은 '플랫폼 원장 + 수탁/릴레이'가 중심" style="rounded=0;whiteSpace=wrap;html=1;align=left;fillColor=#ffffcc;strokeColor=#d6b656;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="40" y="660" width="520" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="pg02_secB2" value="B2 · 사용자 여정 (CeFi — 내부 잔액 중심)" style="rounded=0;whiteSpace=wrap;html=1;align=center;fontSize=13;fontStyle=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="40" y="760" width="1520" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="pg06_f1" value="가입·로그인&#10;(이메일·OAuth 등)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;" vertex="1" parent="1">
+          <mxGeometry x="40" y="870" width="140" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="pg06_fa0" style="endArrow=classic;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="pg06_f1" target="pg06_f2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="pg06_f2" value="KYC / 한도&#10;(정책에 따라)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;" vertex="1" parent="1">
+          <mxGeometry x="40" y="950" width="140" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="pg06_f3" value="입금&#10;(카드·은행·온체인 입금)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;" vertex="1" parent="1">
+          <mxGeometry x="200" y="950" width="160" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="pg06_f4" value="내부 잔액 반영&#10;(원장)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;" vertex="1" parent="1">
+          <mxGeometry x="400" y="950" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="pg06_f5" value="마켓&#10;구매 / 판매 / 풀" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;" vertex="1" parent="1">
+          <mxGeometry x="560" y="950" width="140" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="pg06_f6" value="체결&#10;(DB 즉시)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;" vertex="1" parent="1">
+          <mxGeometry x="740" y="950" width="100" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="pg06_f7" value="(선택) 온체인 동기화&#10;배치 민팅·전송" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fad9d5;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="880" y="950" width="160" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="pg06_f8" value="출금 요청&#10;NFT / 잔액" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#b0e3e6;" vertex="1" parent="1">
+          <mxGeometry x="200" y="1070" width="140" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="pg06_f9" value="검증·한도·KYC" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;" vertex="1" parent="1">
+          <mxGeometry x="380" y="1060" width="120" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="pg06_f10" value="Vault 트랜잭션&#10;→ 사용자 지갑" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="540" y="1070" width="160" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="pg06_fa1" style="endArrow=classic;html=1;" edge="1" parent="1" source="pg06_f2" target="pg06_f3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="pg06_fa2" style="endArrow=classic;html=1;" edge="1" parent="1" source="pg06_f3" target="pg06_f4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="pg06_fa3" style="endArrow=classic;html=1;" edge="1" parent="1" source="pg06_f4" target="pg06_f5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="pg06_fa4" style="endArrow=classic;html=1;" edge="1" parent="1" source="pg06_f5" target="pg06_f6">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="pg06_fa5" style="endArrow=classic;html=1;dashed=1;" edge="1" parent="1" source="pg06_f6" target="pg06_f7">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="pg06_fa6" style="endArrow=classic;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="pg06_f4" target="pg06_f8">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="460" y="1050" /><mxPoint x="270" y="1050" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="pg06_fa7" style="endArrow=classic;html=1;" edge="1" parent="1" source="pg06_f8" target="pg06_f9">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="pg06_fa8" style="endArrow=classic;html=1;" edge="1" parent="1" source="pg06_f9" target="pg06_f10">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="pg06_fn" value="전 경로에서 사용자 가스 불필요(내부 거래). 출금·온체인 동기화만 체인 수수료(플랫폼 또는 사용자 정책)." style="text;html=1;align=left;fontSize=11;fontStyle=2;fillColor=#fff9e6" vertex="1" parent="1">
+          <mxGeometry x="40" y="1170" width="720" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="pg02_secB3" value="B3 · CeFi vs DeFi 비교" style="rounded=0;whiteSpace=wrap;html=1;align=center;fontSize=13;fontStyle=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="40" y="1370" width="1520" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="pg07_ztitle" value="B3 — CeFi vs DeFi 비교 (요약)" style="text;html=1;fontSize=16;fontStyle=1;align=left" vertex="1" parent="1">
+          <mxGeometry x="40" y="1440" width="520" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="pg07_zcol1" value="항목" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="40" y="1530" width="140" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="pg07_zcol2" value="DeFi형 (자가 보관)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="180" y="1530" width="380" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="pg07_zcol3" value="CeFi·하이브리드" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="560" y="1530" width="380" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="pg07_zr1" value="신뢰 모델" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="40" y="1566" width="140" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="pg07_zr1a" value="스마트 컨트랙트·지갑 서명" style="rounded=0;whiteSpace=wrap;html=1;align=left;spacingLeft=6;" vertex="1" parent="1">
+          <mxGeometry x="180" y="1566" width="380" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="pg07_zr1b" value="플랫폼 원장 + 규정·감사 + (선택) 온체인 증명" style="rounded=0;whiteSpace=wrap;html=1;align=left;spacingLeft=6;" vertex="1" parent="1">
+          <mxGeometry x="560" y="1566" width="380" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="pg07_zr2" value="가스" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="40" y="1616" width="140" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="pg07_zr2a" value="사용자가 직접 지불" style="rounded=0;whiteSpace=wrap;html=1;align=left;spacingLeft=6;" vertex="1" parent="1">
+          <mxGeometry x="180" y="1616" width="380" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="pg07_zr2b" value="릴레이·Paymaster·플랫폼 지갑 (정책에 따라)" style="rounded=0;whiteSpace=wrap;html=1;align=left;spacingLeft=6;" vertex="1" parent="1">
+          <mxGeometry x="560" y="1616" width="380" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="pg07_zr3" value="민팅" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="40" y="1666" width="140" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="pg07_zr3a" value="사용자 tx: mint(to=self)" style="rounded=0;whiteSpace=wrap;html=1;align=left;spacingLeft=6;" vertex="1" parent="1">
+          <mxGeometry x="180" y="1666" width="380" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="pg07_zr3b" value="백엔드/Vault minter role · 배치 · 출금 시 전송" style="rounded=0;whiteSpace=wrap;html=1;align=left;spacingLeft=6;" vertex="1" parent="1">
+          <mxGeometry x="560" y="1666" width="380" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="pg07_zr4" value="주문" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="40" y="1716" width="140" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="pg07_zr4a" value="Seaport 서명 + 오프체인 DB" style="rounded=0;whiteSpace=wrap;html=1;align=left;spacingLeft=6;" vertex="1" parent="1">
+          <mxGeometry x="180" y="1716" width="380" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="pg07_zr4b" value="내부 매칭 우선 · 외부 DEX 연동은 선택" style="rounded=0;whiteSpace=wrap;html=1;align=left;spacingLeft=6;" vertex="1" parent="1">
+          <mxGeometry x="560" y="1716" width="380" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="pg07_zr5" value="규제" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="40" y="1766" width="140" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="pg07_zr5a" value="비(非)수탁에 가깝게 설계 가능" style="rounded=0;whiteSpace=wrap;html=1;align=left;spacingLeft=6;" vertex="1" parent="1">
+          <mxGeometry x="180" y="1766" width="380" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="pg07_zr5b" value="KYC/AML·여행 규칙·동결 — 구현 용이" style="rounded=0;whiteSpace=wrap;html=1;align=left;spacingLeft=6;" vertex="1" parent="1">
+          <mxGeometry x="560" y="1766" width="380" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="pg07_zn" value="'베스트'는 단일 답이 없음: 완전 수탁 거래소 vs 하이브리드(원장 CeFi + 출금만 온체인) 중 서비스에 맞게 선택." style="text;html=1;align=left;fontStyle=2;fontSize=11;fillColor=#fff9e6" vertex="1" parent="1">
+          <mxGeometry x="40" y="1860" width="900" height="32" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="pg03" name="03-C-PostgreSQL-ERD">
+    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1240" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="pg08_erdTitle" value="PostgreSQL — 로컬 스키마 (ERD 요약)" style="text;html=1;fontSize=16;fontStyle=1;align=left" vertex="1" parent="1">
+          <mxGeometry x="40" y="20" width="520" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="pg08_sub" value="도메인: users, marketplace_collections, orders, bucket_bids — 상세는 docs/LOCAL_DATABASE.md" style="text;html=1;fontSize=11;fontStyle=2;align=left;fillColor=#fff9e6;" vertex="1" parent="1">
+          <mxGeometry x="40" y="52" width="900" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="pg08_t_users" value="users&#10;───&#10;PK  id : uuid&#10;    email : varchar(320) UNIQUE&#10;    google_id : varchar(64) UNIQUE&#10;    name, picture_url&#10;    email_verified&#10;    platform_email_verified_at&#10;    email_verification_* (토큰·만료·발송)&#10;    wallet_address : varchar(42) UNIQUE&#10;    wallet_linked_at&#10;    created_at, updated_at" style="rounded=0;whiteSpace=wrap;html=1;fontStyle=1;align=left;spacingLeft=6;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="40" y="100" width="280" height="200" as="geometry" />
+        </mxCell>
+        <mxCell id="pg08_t_mc" value="marketplace_collections&#10;───&#10;PK  collection_key : varchar(64)&#10;    display_label : text&#10;    query_used : text&#10;    components : jsonb&#10;    cover_image_url : text&#10;    created_at" style="rounded=0;whiteSpace=wrap;html=1;fontStyle=1;align=left;spacingLeft=6;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="400" y="100" width="300" height="160" as="geometry" />
+        </mxCell>
+        <mxCell id="pg08_t_orders" value="orders&#10;───&#10;PK  id : serial&#10;UQ  order_hash&#10;    offerer (ask=판매자 / bid=구매자)&#10;    side : enum ask | bid&#10;    token_contract, token_id&#10;FK  bucket_bid_id → bucket_bids.id (nullable)&#10;    collection_key → marketplace_collections (논리)&#10;    consideration_token, consideration_amount&#10;    parameters : jsonb (Seaport)&#10;    signature : text&#10;    status : active|fulfilled|cancelled|expired&#10;    start_time, end_time&#10;    created_at, updated_at" style="rounded=0;whiteSpace=wrap;html=1;fontStyle=1;align=left;spacingLeft=6;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="360" y="360" width="360" height="260" as="geometry" />
+        </mxCell>
+        <mxCell id="pg08_t_bb" value="bucket_bids&#10;───&#10;PK  id : serial&#10;    bucket_key : varchar(64) INDEX&#10;    token_contract&#10;    buyer_offerer INDEX&#10;    consideration_amount (USDC min units)&#10;    components : jsonb&#10;    signature, nonce (EIP-712)&#10;    status : active|fulfilled|cancelled|expired&#10;    start_time, end_time&#10;    fulfilled_token_id&#10;    created_at, updated_at" style="rounded=0;whiteSpace=wrap;html=1;fontStyle=1;align=left;spacingLeft=6;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="40" y="400" width="280" height="240" as="geometry" />
+        </mxCell>
+        <mxCell id="pg08_e1" value="collection_key" style="endArrow=ERmany;startArrow=ERone;endFill=0;startFill=0;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.25;edgeStyle=orthogonalEdgeStyle;" edge="1" parent="1" source="pg08_t_mc" target="pg08_t_orders">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="pg08_e2" value="bucket_bid_id ON DELETE SET NULL" style="endArrow=ERmany;startArrow=ERone;endFill=0;startFill=0;html=1;exitX=0.5;exitY=0;entryX=0.5;entryY=1;edgeStyle=orthogonalEdgeStyle;" edge="1" parent="1" source="pg08_t_bb" target="pg08_t_orders">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="pg08_note" value="users ↔ orders: 앱 레벨 FK 없음 (주문은 지갑 offerer 기준).&#10;상세 컬럼·ENUM·인덱스: docs/LOCAL_DATABASE.md" style="rounded=1;whiteSpace=wrap;html=1;align=left;fillColor=#f5f5f5;dashed=1;fontSize=11;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="800" y="100" width="380" height="70" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="pg04" name="04-D-Seaport-D1~D4">
+    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1800" pageHeight="2624" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="pg09_t0" value="Tokenable — Seaport 사용 구조 (프로젝트 기준)" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=18;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="40" y="20" width="520" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="pg09_t0b" value="Seaport 1.5 = ERC-721 NFT ↔ USDC 스왑 주문만. 백엔드는 주문 저장·검증; 체결 트랜잭션은 사용자 지갑. 상세 문서: docs/SEAPORT_PROTOCOL_OVERVIEW.md" style="text;html=1;strokeColor=none;fillColor=#fff9e6;align=left;fontSize=11;fontStyle=2" vertex="1" parent="1">
+          <mxGeometry x="40" y="52" width="920" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="pg09_b1" value="① 사용자 지갑&#10;· MetaMask 등&#10;· Sepolia&#10;· getCounter(offerer)&#10;· EIP-712 서명&#10;  (domain: Seaport 1.5)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;align=center;verticalAlign=middle;spacingTop=4;" vertex="1" parent="1">
+          <mxGeometry x="80" y="120" width="200" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="pg09_b2" value="② 백엔드 API&#10;POST /marketplace/orders&#10;parameters + signature&#10;→ PostgreSQL 'orders'&#10;(오프체인 오더북)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontStyle=1;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="360" y="120" width="220" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="pg09_b3" value="③ 마켓 UI&#10;· 활성 ask / bid 조회&#10;· 가격·토큰 표시&#10;· 리스트/상세/컬렉션" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="660" y="120" width="200" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="pg09_b4" value="④ 체결 (온체인)&#10;Seaport.fulfillOrder&#10;· NFT + USDC 이동&#10;· 가스 = tx 발신 지갑" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fad9d5;strokeColor=#ae4132;fontStyle=1;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="920" y="120" width="200" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="pg09_b5" value="⑤ DB 동기화&#10;PATCH .../orders/:hash/fulfill&#10;status → fulfilled&#10;(+ 풀 연결 시 bucket_bids 반영)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontStyle=1;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="1180" y="120" width="220" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="pg09_a1" style="endArrow=block;html=1;strokeWidth=2;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="pg09_b1" target="pg09_b2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="pg09_a2" style="endArrow=block;html=1;strokeWidth=2;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="pg09_b2" target="pg09_b3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="pg09_a3" style="endArrow=block;html=1;strokeWidth=2;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="pg09_b3" target="pg09_b4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="pg09_a4" style="endArrow=block;html=1;strokeWidth=2;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="pg09_b4" target="pg09_b5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="pg09_sc" value="Seaport 컨트랙트 v1.5&#10;0x0000...14dC (constants)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;dashed=1;fontSize=10;align=center;" vertex="1" parent="1">
+          <mxGeometry x="920" y="270" width="200" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="pg09_note1" value="※ 백엔드는 Seaport 트랜잭션을 대신 실행하지 않습니다. orderHash는 DB 내부 식별용(SHA-256 기반) — SEAPORT_API.md 참고." style="rounded=0;whiteSpace=wrap;html=1;align=left;fillColor=#ffffcc;strokeColor=#d6b656;fontSize=11;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="80" y="340" width="1320" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="pg04_secD2" value="D2 · 주문 3종 (ask / bid / 풀 연결)" style="rounded=0;whiteSpace=wrap;html=1;align=center;fontSize=13;fontStyle=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="40" y="530" width="1720" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="pg10_pt" value="Seaport 주문 3가지 (모두 DB orders, side·연결만 다름)" style="text;html=1;fontSize=16;fontStyle=1;align=left" vertex="1" parent="1">
+          <mxGeometry x="40" y="630" width="600" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="pg10_c1" value="매도 리스팅&#10;side = ask&#10;────────────&#10;offer: NFT (ERC-721)&#10;consideration: USDC → 판매자&#10;서명: 판매자 (offerer)&#10;체결: 구매자가 fulfillOrder" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=0;align=left;spacingLeft=10;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="40" y="710" width="280" height="160" as="geometry" />
+        </mxCell>
+        <mxCell id="pg10_c2" value="일반 매수 입찰&#10;side = bid&#10;────────────&#10;offer: USDC&#10;consideration: NFT → 구매자(offerer)&#10;서명: 구매자&#10;체결: 판매자가 fulfillOrder" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;align=left;spacingLeft=10;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="360" y="710" width="280" height="160" as="geometry" />
+        </mxCell>
+        <mxCell id="pg10_c3" value="풀 연결 매수 입찰&#10;side = bid + bucketBidId&#10;────────────&#10;prepare-fulfill 후 동일 Seaport bid 형식&#10;서명: 풀 매수자&#10;DB: orders ↔ bucket_bids&#10;체결 후 풀 fulfilled 처리" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;align=left;spacingLeft=10;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="680" y="710" width="300" height="160" as="geometry" />
+        </mxCell>
+        <mxCell id="pg10_com" value="공통: USDC approve(Seaport) + NFT approve(리스팅 시) 등은 각 UI 플로우에서 지갑 트랜잭션" style="rounded=0;whiteSpace=wrap;html=1;align=left;fillColor=#f5f5f5;fontSize=11;spacingLeft=8;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="900" width="940" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="pg11_qt" value="풀(컬렉션) 입찰 → Seaport 로 이어지는 지점만 도식화" style="text;html=1;fontSize=16;fontStyle=1;align=left" vertex="1" parent="1">
+          <mxGeometry x="40" y="1230" width="560" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="pg11_q0" value="(범례) 풀 등록은 Seaport 트랜잭션이 아님 — EIP-712 CollectionBid 후 DB" style="text;html=1;fontSize=11;fontStyle=2;align=left;fillColor=#fff9e6;" vertex="1" parent="1">
+          <mxGeometry x="40" y="1260" width="720" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="pg11_q1" value="EIP-712&#10;TokenableCollectionBid&#10;(버킷·USDC·만료)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="40" y="1330" width="180" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="pg11_q2" value="POST&#10;/bucket-bids&#10;→ DB bucket_bids" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;" vertex="1" parent="1">
+          <mxGeometry x="260" y="1330" width="160" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="pg11_q3" value="prepare-fulfill&#10;+ 특정 tokenId&#10;→ Seaport bid 초안" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;" vertex="1" parent="1">
+          <mxGeometry x="460" y="1330" width="180" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="pg11_q4" value="지갑: Seaport&#10;EIP-712 서명&#10;+ POST /orders&#10;side=bid, bucketBidId" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="680" y="1320" width="200" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="pg11_q5" value="이후&#10;fulfillOrder&#10;→ PATCH fulfill" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fad9d5;" vertex="1" parent="1">
+          <mxGeometry x="920" y="1330" width="140" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="pg11_qa1" style="endArrow=block;html=1;" edge="1" parent="1" source="pg11_q1" target="pg11_q2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="pg11_qa2" style="endArrow=block;html=1;" edge="1" parent="1" source="pg11_q2" target="pg11_q3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="pg11_qa3" style="endArrow=block;html=1;" edge="1" parent="1" source="pg11_q3" target="pg11_q4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="pg11_qa4" style="endArrow=block;html=1;" edge="1" parent="1" source="pg11_q4" target="pg11_q5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="pg11_qnote" value="민팅·IPFS·OAuth 는 이 다이어그램 밖(Seaport 미사용)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;dashed=1;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="40" y="1450" width="400" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="pg04_secD3" value="D3 · 풀(컬렉션) 입찰 → Seaport 연결" style="rounded=0;whiteSpace=wrap;html=1;align=center;fontSize=13;fontStyle=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="40" y="1990" width="1720" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="pg04_secD4" value="D4 · Seaport 범위 밖 (별도 흐름)" style="rounded=0;whiteSpace=wrap;html=1;align=center;fontSize=13;fontStyle=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="40" y="2230" width="1720" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="pg12_rt" value="D4 — Seaport 범위 밖 (이 프로젝트에서 별도 흐름)" style="text;html=1;fontSize=16;fontStyle=1;align=left" vertex="1" parent="1">
+          <mxGeometry x="40" y="2290" width="560" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="pg12_r1" value="민팅·IPFS·OAuth&#10;(Seaport 미사용)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;" vertex="1" parent="1">
+          <mxGeometry x="40" y="2400" width="160" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="pg12_r2" value="풀 입찰 '최초 등록'&#10;(CollectionBid만)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;" vertex="1" parent="1">
+          <mxGeometry x="230" y="2400" width="180" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="pg12_r3" value="/nft/upload&#10;IPFS 메타" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;" vertex="1" parent="1">
+          <mxGeometry x="440" y="2400" width="140" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="pg12_r4" value="Google OAuth&#10;/auth/*" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;" vertex="1" parent="1">
+          <mxGeometry x="610" y="2400" width="140" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="pg12_rx" value="위는 별도 컨트랙트·API·EIP-712 스키마" style="text;html=1;fontStyle=2;fontSize=11;fillColor=#fff9e6" vertex="1" parent="1">
+          <mxGeometry x="40" y="2480" width="360" height="24" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="pg05" name="05-E-E2E-범례~리스팅-E0~E4">
+    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2000" pageHeight="2430" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="pg13_e2eHdr" value="Tokenable — 코드 기준 E2E 프로세스 (접속 → 민팅 → 판매)" style="text;html=1;fontSize=20;fontStyle=1;align=left" vertex="1" parent="1">
+          <mxGeometry x="40" y="20" width="800" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="pg13_sub" value="저장소 기준: frontend (Next.js+wagmi+viem), backend (NestJS), Sepolia, Pinata JWT, JustTCG x-api-key, PSA Public API token(선택)" style="text;html=1;fontSize=11;fillColor=#fff9e6;align=left" vertex="1" parent="1">
+          <mxGeometry x="40" y="52" width="1100" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="pg13_tabs" value="통합 파일 탭(7): 00 INDEX | 01 A1~A4 | 02 B1~B3 | 03 ERD | 04 D1~D4 | 05 E0~E4(이 페이지) | 06 E5~E8" style="rounded=0;whiteSpace=wrap;html=1;align=left;fillColor=#e6e6e6;fontSize=11;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="40" y="90" width="1240" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="pg13_entry" value="접속 경로&#10;────────&#10;· / (홈): 탭 Mint | My Assets | Exchange&#10;· /login: Google OAuth → JWT httpOnly 쿠키&#10;· /profile: GET /auth/me, POST /auth/wallet (지갑 연동), 이메일 인증&#10;· Web3: WalletConnect (wagmi) — 민팅/거래와 별도 레이어 가능" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;align=left;spacingLeft=10;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="40" y="160" width="420" height="140" as="geometry" />
+        </mxCell>
+        <mxCell id="pg13_chain" value="체인·컨트랙트 (constants/contracts.ts)&#10;────────&#10;· Tokenable_RWA: mint, approve, ownerOf (읽기)&#10;· USDC: approve, balanceOf&#10;· Seaport 1.5: getCounter, fulfillOrder&#10;· 네트워크: Ethereum Sepolia (chainId 11155111)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fad9d5;align=left;spacingLeft=10;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="500" y="160" width="420" height="140" as="geometry" />
+        </mxCell>
+        <mxCell id="pg13_api" value="백엔드 API prefix /api&#10;────────&#10;· /psa/analyze — 슬랩 OCR+PSA+JustTCG&#10;· /nft/upload — Pinata IPFS&#10;· /marketplace/* — 주문·풀&#10;· /blockchain/* — 읽기 전용 RPC&#10;· /price/* — JustTCG 프록시&#10;· /auth/* — OAuth·지갑" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;align=left;spacingLeft=10;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="40" y="330" width="420" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="pg14_e2eHdr" value="01 — 민팅 탭: PSA 슬랩 분석 (OCR + PSA API + JustTCG)" style="text;html=1;fontSize=17;fontStyle=1;align=left" vertex="1" parent="1">
+          <mxGeometry x="40" y="550" width="700" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="pg14_fe" value="프론트 MintForm.tsx&#10;· analyzePsaSlab() → POST /api/psa/analyze&#10;  multipart: slabFront (필수), slabBack, certNumber(힌트)&#10;· 응답: ocr, psa, psaApi, justtcg, psaCertImages" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;align=left;spacingLeft=8;fontSize=11" vertex="1" parent="1">
+          <mxGeometry x="40" y="610" width="340" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="pg14_be" value="백엔드 PsaService.analyzeSlabImages&#10;1) Tesseract.js — 슬랩 이미지 OCR (tesseractRecognize, PSM.SINGLE_BLOCK 등)&#10;2) parsePsaLabelFromOcr / strip — Cert·등급 휴리스틱 (psa-ocr.util)&#10;3) PsaPublicApiService baseUrl https://api.psacard.com/publicapi&#10;   · GET /cert/GetByCertNumber/{cert} — getByCertNumber&#10;   · GET /cert/GetImagesByCertNumber/{cert} — getImagesByCertNumber&#10;   · PSA_PUBLIC_API_TOKEN (Bearer) 있을 때만&#10;4) mergePsaApiIntoParsed — OCR+공식 Cert 병합&#10;5) PriceService.getCards({ q: queryUsed, game: pokemon, limit: 5 })&#10;   → fetch https://api.justtcg.com/v1/cards (x-api-key: TCG_API_KEY)&#10;6) 반환 PsaAnalyzeResult: ocr, psa, psaApi.lookup, justtcg, psaCertImages" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;align=left;spacingLeft=8;fontSize=9" vertex="1" parent="1">
+          <mxGeometry x="420" y="610" width="560" height="200" as="geometry" />
+        </mxCell>
+        <mxCell id="pg14_next" value="이후 사용자가 폼 작성 → buildMetadata() gradedMetadata JSON&#10;→ uploadNft(FormData) 단계 (다음 탭 02)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;align=left;fontSize=11;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="40" y="830" width="900" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="pg14_a1" style="endArrow=block;html=1;" edge="1" parent="1" source="pg14_fe" target="pg14_be">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="pg15_e2eHdr" value="02 — POST /nft/upload: Pinata(IPFS) + tokenURI" style="text;html=1;fontSize=17;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="40" y="1180" width="600" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="pg15_fe" value="프론트: uploadNft(formData)&#10;· name, description, image|imageUrl, gradedMetadata(JSON)&#10;· MintForm: gasWithCap 없음 (서버만)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;align=left;spacingLeft=8;fontSize=11" vertex="1" parent="1">
+          <mxGeometry x="40" y="1240" width="380" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="pg15_be" value="NftService.uploadToIpfs&#10;· PinataService.uploadFile / uploadFromUrl / uploadBuffer&#10;  → PinataSDK (pinataJwt, pinataGateway) public.file&#10;· PSA graded 시: cropPsaSlabForCollectionCover → uploadBuffer (컬렉션 커버 CID)&#10;· 메타: image ipfs://{imageCID}, properties.graded, collectionCoverImage&#10;· pinataService.uploadMetadata(metadata) → metadata CID&#10;· 반환 tokenURI = ipfs://{metadataCID}" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;align=left;spacingLeft=8;fontSize=10" vertex="1" parent="1">
+          <mxGeometry x="460" y="1240" width="560" height="140" as="geometry" />
+        </mxCell>
+        <mxCell id="pg15_env" value="서버 env: PINATA_JWT, PINATA_GATEWAY" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;fontSize=10;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="460" y="1390" width="280" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="pg16_e2eHdr" value="03 — 온체인 민팅 (사용자 가스)" style="text;html=1;fontSize=17;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="40" y="1620" width="400" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="pg16_b1" value="MintForm handleSubmit&#10;· publicClient + writeContractAsync&#10;· gasWithCap( TOKENABLE_RWA, mint ABI )&#10;· writeContract: functionName mint&#10;  args: [address, tokenURI]&#10;  → NFT 수령 주소 = 연결 지갑&#10;· useWaitForTransactionReceipt" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fad9d5;align=left;spacingLeft=8;fontSize=11;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="40" y="1680" width="400" height="140" as="geometry" />
+        </mxCell>
+        <mxCell id="pg16_b2" value="컨트랙트 ABI (TOKENABLE_RWA_MINT_ABI)&#10;mint(address to, string tokenURI) → uint256&#10;읽기: TOKENABLE_RWA_READ_ABI ownerOf(tokenId)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;align=left;spacingLeft=8;fontSize=11" vertex="1" parent="1">
+          <mxGeometry x="480" y="1680" width="360" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="pg16_b3" value="백엔드 /blockchain/nft/* (읽기)&#10;· token-uri/:id, tokens/:owner, owner/:id 등 — Alchemy/RPC" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e6e6e6;align=left;spacingLeft=8;fontSize=10" vertex="1" parent="1">
+          <mxGeometry x="40" y="1850" width="420" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="pg17_e2eHdr" value="04 — My Assets → 판매 리스팅 (Seaport ask)" style="text;html=1;fontSize=17;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="40" y="2060" width="500" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="pg17_s1" value="① useReadContract Seaport getCounter(판매자 주소)&#10;② writeContract TOKENABLE_RWA approve( SEAPORT, tokenId )&#10;③ walletClient.signTypedData&#10;   domain: Seaport 1.5, verifyingContract SEAPORT&#10;   types: SEAPORT_ORDER_TYPES, primaryType OrderComponents&#10;   message: offer=NFT, consideration=USDC→판매자&#10;④ createOrder() POST /marketplace/orders side=ask&#10;⑤ 백엔드 createOrder → DB orders + collection_key 등" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;align=left;spacingLeft=8;fontSize=10;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="40" y="2120" width="520" height="160" as="geometry" />
+        </mxCell>
+        <mxCell id="pg17_s2" value="취소: PATCH /marketplace/orders/:hash/cancel?callerAddress=&#10;(offerer=판매자)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;align=left;fontSize=10" vertex="1" parent="1">
+          <mxGeometry x="600" y="2120" width="380" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="pg17_files" value="코드: ListNftModal.tsx, lib/api createOrder" style="text;html=1;fontStyle=2;fontSize=10" vertex="1" parent="1">
+          <mxGeometry x="40" y="2290" width="400" height="20" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="pg06" name="06-E-E2E-구매~Exchange-E5~E8">
+    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2000" pageHeight="2670" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="pg18_e2eHdr" value="05 — 마켓에서 매도 리스팅 구매 (ask 이행)" style="text;html=1;fontSize=17;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="40" y="20" width="500" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="pg18_b1" value="marketplace/[tokenId]/page handleBuy&#10;① USDC approve( SEAPORT, priceInUnits ) — writeContractAsync&#10;② waitForTransactionReceipt&#10;③ Seaport fulfillOrder( orderTuple, fulfillerConduitKey )&#10;   order = parameters+signature from GET /orders/:hash&#10;④ waitForTransactionReceipt — status reverted 검사&#10;⑤ fulfillOrderApi(orderHash) PATCH .../fulfill&#10;⑥ invalidateQueries 마켓·MyNFTs" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;align=left;spacingLeft=8;fontSize=10;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="40" y="55" width="560" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="pg18_b2" value="Seaport ABI 사용 함수: fulfillOrder&#10;USDC ABI: approve&#10;상세: fulfillSeaportOrderArgs(listing), FULFILL_EXTRA_DATA" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fad9d5;align=left;spacingLeft=8;fontSize=10" vertex="1" parent="1">
+          <mxGeometry x="630" y="55" width="380" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="pg19_e2eHdr" value="06 — 풀 입찰 (CollectionBid) → Seaport bid → 체결" style="text;html=1;fontSize=17;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="40" y="320" width="560" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="pg19_e6poolA" value="A) 풀 등록 (Seaport 아님)&#10;· walletClient.signTypedData TokenableCollectionBid&#10;  COLLECTION_BID_DOMAIN / TYPES (collectionBidTypedData.ts)&#10;· createPoolBid POST /bucket-bids → bucket_bids DB" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;align=left;spacingLeft=8;fontSize=10" vertex="1" parent="1">
+          <mxGeometry x="40" y="355" width="480" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="pg19_e6poolB" value="B) 풀→특정 토큰 Seaport 입찰 (SignPoolBidSeaport)&#10;· preparePoolBidFulfillment POST .../prepare-fulfill&#10;· getCounter(구매자)&#10;· USDC approve(Seaport)&#10;· signTypedData Seaport OrderComponents (bid)&#10;· createOrder side=bid bucketBidId&#10;· (판매자) NFT approve + fulfillOrder(bid) + PATCH fulfill" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;align=left;spacingLeft=8;fontSize=10;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="40" y="455" width="560" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="pg19_e6poolC" value="백엔드: validatePoolBidSellerMatch, assertPoolBidMatchesSeaportBid, markPoolBidFulfilledIfLinked" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;fontSize=10;align=left;spacingLeft=8;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="600" width="620" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="pg20_e2eHdr" value="07 — 함수 · HTTP · 외부 API 체크리스트 (구현 기준)" style="text;html=1;fontSize=17;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="40" y="840" width="600" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="pg20_tbl" value="외부 API&#10;· JustTCG: https://api.justtcg.com/v1 (games, sets, cards) — PriceService&#10;· PSA Public API: https://api.psacard.com/publicapi — PsaPublicApiService (토큰 시)&#10;· Pinata: SDK upload.public.file / 메타 JSON&#10;&#10;온체인 (wagmi write/read)&#10;· Tokenable_RWA: mint, approve&#10;· USDC: approve, balanceOf&#10;· Seaport: getCounter, fulfillOrder&#10;· 지갑: signTypedData (Seaport + CollectionBid)&#10;&#10;백엔드 HTTP (일부)&#10;· POST /psa/analyze&#10;· POST /nft/upload&#10;· POST /marketplace/orders&#10;· GET /marketplace/orders, /orders/:hash&#10;· PATCH .../cancel, .../fulfill&#10;· POST /bucket-bids, .../prepare-fulfill, .../validate-seller&#10;· GET /blockchain/nft/*&#10;· GET /price/cards (프론트 직접도 가능)&#10;&#10;OCR&#10;· Tesseract.js (서버 psa.service.ts)" style="rounded=0;whiteSpace=wrap;html=1;align=left;spacingLeft=10;fillColor=#fafafa;fontFamily=Lucida Console;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="40" y="880" width="720" height="420" as="geometry" />
+        </mxCell>
+        <mxCell id="pg20_note" value="PlaceBidModal.tsx: 일반 매수 입찰 — USDC approve + signTypedData Seaport + createOrder side=bid (bucketBidId 없음)&#10;NftOrderBook, CollectionUnifiedOrderBook: 오더북 UI&#10;orderHash: 서버 deriveOrderHash (내부 식별) — SEAPORT_PROTOCOL_OVERVIEW.md&#10;Marketplace.tsx: GET /marketplace/orders + /collections — 그리드" style="rounded=1;whiteSpace=wrap;html=1;align=left;spacingLeft=8;fontSize=10;fillColor=#ffffcc;" vertex="1" parent="1">
+          <mxGeometry x="40" y="1320" width="980" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="pg21_e2eHdr" value="08 — Exchange 탭: 리스팅·컬렉션 조회 (읽기 API)" style="text;html=1;fontSize=17;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="40" y="2290" width="560" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="pg21_e8MktBox" value="Marketplace.tsx&#10;· useQuery getActiveOrders → GET /api/marketplace/orders&#10;· getMarketplaceCollections → GET /api/marketplace/collections&#10;· side!=bid 필터 = ask 리스팅 카드&#10;· 컬렉션 카드: activeListingCount&gt;0&#10;· USDC 잔액: 스토어/지갑 (표시용)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;align=left;spacingLeft=8;fontSize=10" vertex="1" parent="1">
+          <mxGeometry x="40" y="2430" width="480" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="pg21_e8Detail" value="상세 /marketplace/[tokenId]&#10;· ownerOf, tokenURI, listing, bids&#10;· 구매 handleBuy — 탭 05&#10;· PoolBidsPanel, SignPoolBidSeaport — 탭 06" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;align=left;spacingLeft=8;fontSize=10" vertex="1" parent="1">
+          <mxGeometry x="560" y="2430" width="400" height="100" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
