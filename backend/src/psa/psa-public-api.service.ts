@@ -408,6 +408,17 @@ export function mergePsaApiIntoParsed(
   ocr: ParsedPsaLabel,
   apiBody: unknown,
 ): ParsedPsaLabel {
+  try {
+    return mergePsaApiIntoParsedImpl(ocr, apiBody);
+  } catch {
+    return ocr;
+  }
+}
+
+function mergePsaApiIntoParsedImpl(
+  ocr: ParsedPsaLabel,
+  apiBody: unknown,
+): ParsedPsaLabel {
   const root = apiBody as { PSACert?: PsaCertRecord };
   const c = root?.PSACert;
   if (!c || typeof c !== 'object') {
@@ -514,3 +525,4 @@ export function mergePsaApiIntoParsed(
     specId,
   };
 }
+

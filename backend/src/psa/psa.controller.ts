@@ -2,6 +2,8 @@ import {
   BadRequestException,
   Body,
   Controller,
+  InternalServerErrorException,
+  Logger,
   Post,
   UploadedFiles,
   UseInterceptors,
@@ -27,6 +29,8 @@ const imageFilter = (
 @ApiTags('psa')
 @Controller('psa')
 export class PsaController {
+  private readonly logger = new Logger(PsaController.name);
+
   constructor(private readonly psaService: PsaService) {}
 
   @ApiOperation({
@@ -78,6 +82,19 @@ export class PsaController {
     }
     const back = files?.slabBack?.[0];
     const hint = certNumber?.trim() || undefined;
-    return this.psaService.analyzeSlabImages(front.buffer, back?.buffer, hint);
+    try {
+      return await this.psaService.analyzeSlabImages(
+        front.buffer,
+        back?.buffer,
+        hint,
+      );
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      const stack = err instanceof Error ? err.stack : undefined;
+      this.logger.error(`PSA analyze failed: ${msg}`, stack);
+      throw new InternalServerErrorException(
+        'PSA 슬랩 분석 중 서버 오류가 발생했습니다. 백엔드 로그의 스택 트레이스를 확인하세요.',
+      );
+    }
   }
 }
