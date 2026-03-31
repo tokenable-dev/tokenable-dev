@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import {
   useAccount,
   usePublicClient,
@@ -12,9 +13,13 @@ import { TOKENABLE_RWA_ADDRESS, TOKENABLE_RWA_MINT_ABI } from "@/constants/contr
 import { sepolia } from "@/config/wagmi";
 import { gasWithCap } from "@/lib/chainGas";
 import { useAppStore, selectRefresh } from "@/store";
-import type { GradingCompany, GradedCardFormState, GradedCardMetadata } from "@/types/gradedCard";
+import {
+  EMPTY_PSA_FIELD_LOCKS,
+  type GradedCardFormState,
+  type GradedCardMetadata,
+  type PsaFieldLocks,
+} from "@/types/gradedCard";
 import { GradedCardSection } from "./GradedCardSection";
-import { ImageInput } from "./ImageInput";
 
 type Step = "idle" | "uploading" | "minting" | "success" | "error";
 
@@ -42,6 +47,35 @@ const INITIAL_STATE: GradedCardFormState = {
   },
 };
 
+function computePsaLocksFromResult(
+  r: PsaAnalyzeResult,
+  prev: GradedCardFormState
+): PsaFieldLocks {
+  const scoreStr =
+    r.psa.gradeScore != null
+      ? String(r.psa.gradeScore)
+      : (r.psa.gradeLabel?.replace(/[^\d.]/g, "") ?? "");
+  const hasScore =
+    Boolean(scoreStr.trim()) || Boolean(r.psa.gradeLabel?.trim());
+  return {
+    certNumber: Boolean(r.psa.certNumber?.trim()),
+    score: hasScore,
+    cardName: Boolean(r.psa.cardNameHint?.trim()),
+    player: false,
+    year: Boolean(r.psa.year?.trim()),
+    set: Boolean(r.psa.setHint?.trim()),
+    number: Boolean(r.psa.cardNumberHint?.trim()),
+    certUrl: Boolean(r.psa.certVerifyUrl?.trim()),
+    assetName: !prev.name.trim() && Boolean(r.psa.cardNameHint?.trim()),
+    labelType: Boolean(r.psa.labelType?.trim()),
+    psaCategory: Boolean(r.psa.category?.trim()),
+    autographGrade: Boolean(r.psa.autographGrade?.trim()),
+    psaPopulation: r.psa.totalPopulation != null,
+    psaPopHigher: r.psa.populationHigher != null,
+    gradingCompany: true,
+  };
+}
+
 export function MintForm() {
   const { address, isConnected } = useAccount();
   const publicClient = usePublicClient({ chainId: sepolia.id });
@@ -57,8 +91,12 @@ export function MintForm() {
   const [analyzeError, setAnalyzeError] = useState("");
   /** Invalidate in-flight PSA analyze when deps change or slab cleared */
   const analyzeNonceRef = useRef(0);
-  /** PSA API에서 슬랩 앞면 URL을 받았을 때 자산 메인 이미지로 사용 (기본 on) */
-  const [usePsaCertImageForNft, setUsePsaCertImageForNft] = useState(false);
+  /** PSA path: blob URL preview for slab capture used as mint fallback */
+  const [mintImageBlobUrl, setMintImageBlobUrl] = useState<string | null>(null);
+  /** Fields locked after PSA analysis */
+  const [psaFieldLocks, setPsaFieldLocks] = useState<PsaFieldLocks>(EMPTY_PSA_FIELD_LOCKS);
+  const formRef = useRef(form);
+  formRef.current = form;
 
   const { writeContractAsync } = useWriteContract();
   const { data: receipt, isLoading: waitingForReceipt } =
@@ -85,14 +123,6 @@ export function MintForm() {
     []
   );
 
-  const handleCompanyChange = useCallback((company: GradingCompany) => {
-    setForm((prev) => ({
-      ...prev,
-      gradingCompany: company,
-      grade: { ...prev.grade, subgrades: {} },
-    }));
-  }, []);
-
   const updateGradePartial = useCallback(
     (grade: Partial<GradedCardFormState["grade"]>) => {
       setForm((prev) => ({ ...prev, grade: { ...prev.grade, ...grade } }));
@@ -103,15 +133,18 @@ export function MintForm() {
   function validate(): boolean {
     const next: Record<string, string> = {};
     if (!form.name.trim()) next.name = "Asset name is required";
-    const hasPsaMintImage =
-      form.gradingCompany === "PSA" &&
-      usePsaCertImageForNft &&
-      !!lastAnalyze?.psaCertImages?.front;
-    const hasImage =
-      hasPsaMintImage ||
-      form.image instanceof File ||
-      (typeof form.image === "string" && form.image.trim());
-    if (!hasImage) next.image = "Image file or URL is required";
+    let hasImage = false;
+    if (lastAnalyze?.psaCertImages?.front) {
+      hasImage = true;
+    } else {
+      hasImage =
+        form.image instanceof File ||
+        (typeof form.image === "string" && !!form.image.trim());
+    }
+    if (!hasImage) {
+      next.image =
+        "Upload a slab front and wait for analysis to prepare the mint image. If PSA does not return an official image URL, your slab photo is used.";
+    }
     setErrors(next);
     return Object.keys(next).length === 0;
   }
@@ -123,9 +156,7 @@ export function MintForm() {
     };
     if (form.description.trim()) metadata.description = form.description;
 
-    if (form.gradingCompany) {
-      metadata.gradingCompany = form.gradingCompany;
-    }
+    metadata.gradingCompany = "PSA";
 
     const hasCard =
       form.card.name ||
@@ -175,9 +206,8 @@ export function MintForm() {
         metadata.verification.slabBack = ""; // Will be set after IPFS upload
     }
 
-    if (form.gradingCompany === "PSA") {
-      const scoreFromForm = parseFloat(form.grade.score);
-      metadata.psa = {
+    const scoreFromForm = parseFloat(form.grade.score);
+    metadata.psa = {
         certNumber: form.grade.certNumber || lastAnalyze?.psa.certNumber,
         gradeLabel: lastAnalyze?.psa.gradeLabel,
         gradeScore: Number.isNaN(scoreFromForm)
@@ -201,7 +231,7 @@ export function MintForm() {
         reverseBarcode: lastAnalyze?.psa.reverseBarcode,
         specId: lastAnalyze?.psa.specId,
         enrichedFromOfficialApi: lastAnalyze?.psa.enrichedFromOfficialApi,
-        /** PSA cert-images / API — 컬렉션 대표 이미지·출처용 (민팅 이미지와 별개로 항상 기록) */
+        /** PSA cert image source URL for provenance (separate from mint image pipeline) */
         ...(lastAnalyze?.psaCertImages?.front
           ? { certImageSourceUrl: lastAnalyze.psaCertImages.front }
           : {}),
@@ -218,15 +248,13 @@ export function MintForm() {
           ...(l.status === "error" && { message: l.message }),
         };
       }
-    }
 
     return metadata;
   }
 
   function buildOpenSeaAttributes(): { trait_type: string; value: string }[] {
     const attrs: { trait_type: string; value: string }[] = [];
-    if (form.gradingCompany)
-      attrs.push({ trait_type: "Grading Company", value: form.gradingCompany });
+    attrs.push({ trait_type: "Grading Company", value: "PSA" });
     if (form.grade.certNumber)
       attrs.push({ trait_type: "PSA Cert #", value: form.grade.certNumber });
     if (form.grade.score)
@@ -257,9 +285,12 @@ export function MintForm() {
     analyzeNonceRef.current += 1;
     setForm(INITIAL_STATE);
     setErrors({});
+    setPsaFieldLocks(EMPTY_PSA_FIELD_LOCKS);
   }
 
   const applyPsaAnalyzeResult = useCallback((r: PsaAnalyzeResult, slabFront: File) => {
+    const prev = formRef.current;
+    setPsaFieldLocks(computePsaLocksFromResult(r, prev));
     setLastAnalyze(r);
     const scoreStr =
       r.psa.gradeScore != null
@@ -335,27 +366,23 @@ export function MintForm() {
     [applyPsaAnalyzeResult, certHintForPsa],
   );
 
-  /** 슬랩 앞/뒤 파일이 바뀔 때 자동 분석 (디바운스) */
+  /** Auto-run PSA analyze when slab files change (debounced) */
   useEffect(() => {
-    if (form.gradingCompany !== "PSA") {
-      analyzeNonceRef.current += 1;
-      setAnalyzeLoading(false);
-      setLastAnalyze(null);
-      setAnalyzeError("");
-      return;
-    }
     const front = form.verification.slabFront;
     if (!(front instanceof File)) {
       analyzeNonceRef.current += 1;
       setAnalyzeLoading(false);
       setLastAnalyze(null);
       setAnalyzeError("");
+      setPsaFieldLocks(EMPTY_PSA_FIELD_LOCKS);
       return;
     }
+    /** Keep overlay on during debounce (was flickering off for ~900ms before API started) */
+    setAnalyzeLoading(true);
     const back =
       form.verification.slabBack instanceof File ? form.verification.slabBack : null;
 
-    /** 슬랩 앞·뒤 연속 선택 시 PSA API 중복 호출(429) 완화 */
+    /** Debounce to reduce duplicate PSA API calls when picking front/back in sequence */
     const debounceMs = 900;
     const t = window.setTimeout(() => {
       void executePsaAnalyze(front, back);
@@ -363,7 +390,6 @@ export function MintForm() {
 
     return () => clearTimeout(t);
   }, [
-    form.gradingCompany,
     form.verification.slabFront,
     form.verification.slabBack,
     form.grade.certNumber,
@@ -372,12 +398,14 @@ export function MintForm() {
   ]);
 
   useEffect(() => {
-    if (lastAnalyze?.psaCertImages?.front) {
-      setUsePsaCertImageForNft(true);
-    } else {
-      setUsePsaCertImageForNft(false);
+    if (!(form.image instanceof File)) {
+      setMintImageBlobUrl(null);
+      return;
     }
-  }, [lastAnalyze?.psaCertImages?.front]);
+    const u = URL.createObjectURL(form.image);
+    setMintImageBlobUrl(u);
+    return () => URL.revokeObjectURL(u);
+  }, [form.image]);
 
   function handleAnalyzePsaManual() {
     const front =
@@ -385,7 +413,7 @@ export function MintForm() {
     const back =
       form.verification.slabBack instanceof File ? form.verification.slabBack : null;
     if (!front) {
-      setAnalyzeError("슬랩 앞면 이미지를 먼저 업로드하세요 (Verification → Slab Front).");
+      setAnalyzeError("Upload a slab front image first (Slab Front in Verification).");
       return;
     }
     void executePsaAnalyze(front, back);
@@ -403,11 +431,7 @@ export function MintForm() {
       data.append("name", form.name);
       data.append("description", form.description.trim() || "No description");
       const psaMintUrl = lastAnalyze?.psaCertImages?.front;
-      if (
-        form.gradingCompany === "PSA" &&
-        usePsaCertImageForNft &&
-        psaMintUrl
-      ) {
+      if (psaMintUrl) {
         data.append("imageUrl", psaMintUrl);
       } else if (form.image instanceof File) {
         data.append("image", form.image);
@@ -415,25 +439,23 @@ export function MintForm() {
         data.append("imageUrl", form.image);
       }
 
-      if (form.gradingCompany) {
-        const meta = buildMetadata();
-        data.append(
-          "gradedMetadata",
-          JSON.stringify({
-            graded: {
-              gradingCompany: form.gradingCompany,
-              card: meta.card,
-              grade: meta.grade,
-              verification: meta.verification,
-              psa: meta.psa,
-              justtcg: meta.justtcg,
-            },
-            attributes: buildOpenSeaAttributes(),
-            external_url:
-              form.verification.certUrl || lastAnalyze?.psa.certVerifyUrl || undefined,
-          })
-        );
-      }
+      const meta = buildMetadata();
+      data.append(
+        "gradedMetadata",
+        JSON.stringify({
+          graded: {
+            gradingCompany: "PSA",
+            card: meta.card,
+            grade: meta.grade,
+            verification: meta.verification,
+            psa: meta.psa,
+            justtcg: meta.justtcg,
+          },
+          attributes: buildOpenSeaAttributes(),
+          external_url:
+            form.verification.certUrl || lastAnalyze?.psa.certVerifyUrl || undefined,
+        })
+      );
 
       const uploadResult = await uploadNft(data);
       setStep("minting");
@@ -473,6 +495,17 @@ export function MintForm() {
   }
 
   const isProcessing = step === "uploading" || step === "minting";
+  const slabAnalyzing =
+    analyzeLoading && form.verification.slabFront instanceof File;
+
+  useEffect(() => {
+    if (!slabAnalyzing) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [slabAnalyzing]);
 
   if (step === "success" && result) {
     return (
@@ -515,143 +548,142 @@ export function MintForm() {
   }
 
   return (
+    <>
     <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-6 transition-all duration-200">
       <h2 className="text-lg font-bold text-white mb-5">Mint Graded Card Asset</h2>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Base asset fields */}
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm text-gray-400 mb-1.5" htmlFor="name">
-              Asset Name <span className="text-red-400">*</span>
-            </label>
-            <input
-              id="name"
-              type="text"
-              value={form.name}
-              onChange={(e) => updateForm("name", e.target.value)}
-              placeholder="e.g. 2023 Ohtani PSA 10"
-              className="w-full bg-gray-800 border border-gray-700 focus:border-mint rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 outline-none transition-colors"
-              required
+        <>
+            <GradedCardSection
+              gradingCompany={form.gradingCompany}
+              card={form.card}
+              onCardChange={updateCard}
+              grade={form.grade}
+              onGradeChange={updateGradePartial}
+              verification={form.verification}
+              onVerificationChange={updateVerification}
+              psaFieldLocks={psaFieldLocks}
             />
-            {errors.name && (
-              <p className="mt-1 text-xs text-red-400">{errors.name}</p>
-            )}
-          </div>
 
-          <div>
-            <label className="block text-sm text-gray-400 mb-1.5" htmlFor="description">
-              Description{" "}
-              <span className="text-gray-500 text-xs font-normal">(optional)</span>
-            </label>
-            <textarea
-              id="description"
-              value={form.description}
-              onChange={(e) => updateForm("description", e.target.value)}
-              rows={2}
-              placeholder="Describe your graded card..."
-              className="w-full bg-gray-800 border border-gray-700 focus:border-mint rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 outline-none transition-colors resize-none"
-            />
-          </div>
+            <div className="space-y-4">
+              <section className="overflow-hidden rounded-xl border border-gray-800/90 bg-gray-900/35">
+                <header className="border-b border-gray-800/80 bg-black/20 px-4 py-3 sm:px-5 sm:py-4">
+                  <h3 className="text-sm font-semibold text-white tracking-tight">
+                    NFT mint image
+                  </h3>
+                  <p className="mt-2 text-[11px] leading-relaxed text-gray-400">
+                    After analysis of your slab front, if PSA returns an official image URL,{" "}
+                    <span className="font-medium text-gray-300">that image</span> is used for
+                    the NFT. Otherwise your slab photo is used.
+                  </p>
+                </header>
 
-          {form.gradingCompany === "PSA" &&
-            lastAnalyze?.psaCertImages?.front && (
-              <div className="rounded-xl border border-mint-deep/30 bg-gradient-to-br from-mint/[0.08] via-gray-900/50 to-gray-950/80 p-4 space-y-3">
-                <p className="text-xs font-semibold text-mint tracking-wide">
-                  PSA 인증 슬랩 이미지
-                </p>
-                <div className="flex flex-col sm:flex-row gap-4 items-start">
-                  <div className="shrink-0 mx-auto sm:mx-0">
-                    <div className="rounded-xl border border-gray-700/90 bg-[#0a0e14] p-2 shadow-inner shadow-black/40">
+                <div className="space-y-5 p-4 sm:p-5">
+              {slabAnalyzing ? (
+                <div className="rounded-lg border border-dashed border-gray-700/80 bg-gray-900/20 px-4 py-8 text-center">
+                  <p className="text-sm text-gray-500">
+                    The mint image will appear here when analysis finishes.
+                  </p>
+                </div>
+              ) : (
+                <>
+              {lastAnalyze?.psaCertImages?.front && (
+                <div className="space-y-4 rounded-lg border border-gray-700/80 bg-gray-900/40 p-4 sm:p-5">
+                  <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:gap-8">
+                    <div className="mx-auto flex shrink-0 flex-col items-center lg:mx-0">
+                      <span className="mb-2 inline-flex items-center rounded-md border border-gray-600 bg-gray-800/80 px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-gray-400">
+                        PSA · Mint image
+                      </span>
+                      <div className="rounded-xl border border-gray-700 bg-[#070a0f] p-3">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={lastAnalyze.psaCertImages.front}
+                          alt="PSA cert slab — NFT display image"
+                          className="max-h-[min(52vh,280px)] w-auto max-w-[min(100%,280px)] object-contain rounded-lg"
+                          loading="lazy"
+                          referrerPolicy="no-referrer"
+                        />
+                      </div>
+                      <p className="mt-2 max-w-[260px] text-center text-[10px] leading-snug text-gray-500">
+                        From the PSA API. Shown in marketplace and wallets as the card art.
+                      </p>
+                    </div>
+                    <div className="flex min-w-0 flex-1 flex-col justify-center gap-3 pt-0 lg:pt-4">
+                      <div className="rounded-lg border border-gray-700/80 bg-gray-800/50 p-3">
+                        <p className="mb-1.5 text-xs font-medium text-gray-200">
+                          Minting with PSA cert image
+                        </p>
+                        <p className="text-[11px] leading-snug text-gray-400">
+                          Only this image from PSA is uploaded to IPFS as the NFT image. The
+                          slab snapshot cannot be substituted.
+                        </p>
+                      </div>
+                      <p className="pl-0.5 text-[11px] text-gray-500">
+                        Marketplace and wallet use this PSA image as display art.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {!lastAnalyze?.psaCertImages?.front &&
+                form.image instanceof File &&
+                mintImageBlobUrl && (
+                  <div className="space-y-2 rounded-lg border border-gray-700/80 bg-gray-900/35 p-4 sm:p-5">
+                    <p className="text-xs font-medium text-gray-200">
+                      Mint image — slab photo
+                    </p>
+                    <p className="text-[11px] leading-relaxed text-gray-500">
+                      No PSA official image URL for this run. The slab capture below will be
+                      used as the NFT image.
+                    </p>
+                    <div className="inline-block rounded-lg border border-gray-700/80 bg-[#0a0e14] p-3">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
-                        src={lastAnalyze.psaCertImages.front}
-                        alt="PSA 인증 슬랩 앞면"
-                        className="max-h-52 max-w-[min(100%,240px)] w-auto object-contain rounded-lg"
-                        loading="lazy"
-                        referrerPolicy="no-referrer"
+                        src={mintImageBlobUrl}
+                        alt="Slab photo for mint"
+                        className="max-h-52 max-w-[min(100%,280px)] object-contain rounded-lg"
                       />
                     </div>
                   </div>
-                  <label className="flex flex-1 min-w-0 items-start gap-3 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      className="mt-0.5 rounded border-gray-600 text-mint focus:ring-mint shrink-0"
-                      checked={usePsaCertImageForNft}
-                      onChange={(e) => setUsePsaCertImageForNft(e.target.checked)}
-                    />
-                    <span className="text-xs text-gray-300 leading-snug">
-                      <span className="font-semibold text-mint">
-                        이 이미지를 자산 메인 이미지로 사용
-                      </span>
-                      <br />
-                      체크 시 이 PSA Cert 사진을 IPFS에 올려 민팅합니다. 해제하면 아래
-                      &quot;Card Image&quot;에 올린 파일·URL을 사용합니다.
-                    </span>
-                  </label>
-                </div>
-                {usePsaCertImageForNft && (
-                  <p className="text-[11px] text-mint/85 border-t border-mint-deep/20 pt-2">
-                    민팅 시 자산에 표시되는 이미지는 위 PSA 인증 사진입니다.
-                  </p>
                 )}
-              </div>
-            )}
 
-          <ImageInput
-            label={
-              form.gradingCompany === "PSA" && lastAnalyze?.psaCertImages?.front
-                ? "Card Image (직접 업로드 · 선택)"
-                : "Card Image"
-            }
-            value={form.image}
-            onChange={(v) => updateForm("image", v)}
-            required={
-              !usePsaCertImageForNft || !lastAnalyze?.psaCertImages?.front
-            }
-          />
-          {form.gradingCompany === "PSA" &&
-            lastAnalyze?.psaCertImages?.front && (
-              <p className="text-[11px] text-gray-500 -mt-2">
-                PSA 인증 이미지를 쓰면 위 체크만으로도 민팅할 수 있습니다. 직접 촬영본은
-                선택입니다.
-              </p>
-            )}
-          {errors.image && (
-            <p className="text-xs text-red-400">{errors.image}</p>
-          )}
-        </div>
+              {!lastAnalyze?.psaCertImages?.front &&
+                !(form.image instanceof File) &&
+                !slabAnalyzing && (
+                  <div className="rounded-lg border border-dashed border-gray-700/80 bg-gray-900/20 px-4 py-6 text-center">
+                    <p className="mb-1 text-sm font-medium text-gray-300">
+                      No mint image yet
+                    </p>
+                    <p className="mx-auto max-w-md text-[11px] leading-relaxed text-gray-500">
+                      Upload a <strong className="text-gray-400">slab front</strong> above.
+                      After analysis, the PSA image or your slab photo will show here.
+                    </p>
+                  </div>
+                )}
+                </>
+              )}
 
-        <GradedCardSection
-          gradingCompany={form.gradingCompany}
-          onCompanyChange={handleCompanyChange}
-          card={form.card}
-          onCardChange={updateCard}
-          grade={form.grade}
-          onGradeChange={updateGradePartial}
-          verification={form.verification}
-          onVerificationChange={updateVerification}
-        />
+              {errors.image && (
+                <p className="text-xs text-red-400">{errors.image}</p>
+              )}
+                </div>
+              </section>
+            </div>
+        </>
 
-        {form.gradingCompany === "PSA" && (
-          <div className="rounded-xl border border-mint-deep/30 bg-mint/[0.04] p-4 space-y-3">
-            <p className="text-xs text-gray-300 leading-relaxed">
-              <strong className="text-mint">자동 분석:</strong> Verification에서 슬랩
-              앞면을 고르면 잠시 후 OCR · PSA API · JustTCG가 실행되고 폼이 채워집니다. 아래{" "}
-              <strong className="text-white">Cert #</strong> 또는{" "}
-              <strong className="text-white">Cert URL</strong>을 먼저 넣으면 OCR보다 그
-              번호로 PSA 공식 조회를 합니다 (OCR이 Cert를 못 읽을 때 권장).
+        <div className="space-y-3 rounded-xl border border-gray-800/90 bg-gray-900/30 p-4">
+            <p className="text-xs leading-relaxed text-gray-400">
+              <strong className="text-gray-300">Auto analysis:</strong> After you choose a
+              slab front, OCR, PSA API, and JustTCG run and the form fills in. If you enter{" "}
+              <strong className="text-white">Cert #</strong> or{" "}
+              <strong className="text-white">Cert URL</strong> first, PSA lookup uses that
+              before OCR (recommended when the cert is hard to read).
             </p>
-            <p className="text-xs text-gray-300 leading-relaxed">
-              <strong className="text-mint">촬영 팁:</strong> 앞면은 라벨·카드, 뒷면은
-              Cert 번호·바코드가 잘 보이게 찍어 주세요.
+            <p className="text-xs leading-relaxed text-gray-400">
+              <strong className="text-gray-300">Photo tip:</strong> One front photo is enough.
+              Keep the label, card art, and cert number clearly visible.
             </p>
-            {analyzeLoading && (
-              <div className="flex items-center gap-2 text-xs text-mint/90">
-                <span className="inline-block w-3.5 h-3.5 border-2 border-mint border-t-transparent rounded-full animate-spin" />
-                슬랩 분석 중…
-              </div>
-            )}
             <button
               type="button"
               onClick={() => void handleAnalyzePsaManual()}
@@ -660,19 +692,26 @@ export function MintForm() {
                 isProcessing ||
                 !(form.verification.slabFront instanceof File)
               }
-              className="w-full py-2.5 text-sm font-semibold rounded-lg bg-mint/10 hover:bg-mint/15 disabled:opacity-50 text-mint border border-mint-deep/35 transition-colors"
+              className="w-full rounded-lg border border-gray-600 bg-gray-800/80 py-2.5 text-sm font-medium text-gray-200 transition-colors hover:bg-gray-800 disabled:opacity-50"
             >
-              {analyzeLoading
-                ? "처리 중…"
-                : "다시 분석 (수동)"}
+              {analyzeLoading ? "Working…" : "Re-run analysis"}
             </button>
             {analyzeError && (
               <p className="text-xs text-red-400 break-words">{analyzeError}</p>
             )}
+            {lastAnalyze?.warnings && lastAnalyze.warnings.length > 0 && (
+              <ul className="text-[11px] text-amber-200/85 space-y-1 list-disc pl-4 border border-amber-500/20 rounded-lg p-3 bg-amber-500/[0.06]">
+                {lastAnalyze.warnings.map((w, i) => (
+                  <li key={i} className="leading-snug">
+                    {w}
+                  </li>
+                ))}
+              </ul>
+            )}
             {lastAnalyze && !analyzeError && (
               <details className="text-xs text-gray-500">
                 <summary className="cursor-pointer text-gray-400 hover:text-gray-300">
-                  추출 요약 (검증용)
+                  Extraction summary (debug)
                 </summary>
                 <pre className="mt-2 max-h-40 overflow-auto rounded-lg bg-black/30 p-2 text-[10px] text-gray-400 whitespace-pre-wrap">
                   {JSON.stringify(
@@ -700,7 +739,56 @@ export function MintForm() {
               </details>
             )}
           </div>
-        )}
+
+        <div className="space-y-4 rounded-xl border border-gray-800/80 bg-gray-900/30 p-4 sm:p-5">
+            <p className="text-[11px] leading-relaxed text-gray-500">
+              Enter asset name and description after slab analysis and the mint image are
+              ready.
+            </p>
+            <div>
+              <label className="block text-sm text-gray-400 mb-1.5" htmlFor="name">
+                Asset Name <span className="text-red-400">*</span>
+              </label>
+              <input
+                id="name"
+                type="text"
+                value={form.name}
+                onChange={(e) => updateForm("name", e.target.value)}
+                placeholder="e.g. 2023 Ohtani PSA 10"
+                disabled={psaFieldLocks.assetName}
+                title={
+                  psaFieldLocks.assetName
+                    ? "Name was set by PSA analysis and cannot be edited"
+                    : undefined
+                }
+                className="w-full bg-gray-800 border border-gray-700 focus:border-mint rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 outline-none transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                required
+              />
+              {psaFieldLocks.assetName && (
+                <p className="mt-1 text-[11px] text-gray-500">
+                  Name is fixed by PSA analysis.
+                </p>
+              )}
+              {errors.name && (
+                <p className="mt-1 text-xs text-red-400">{errors.name}</p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm text-gray-400 mb-1.5" htmlFor="description">
+                Description{" "}
+                <span className="text-gray-500 text-xs font-normal">(optional)</span>
+              </label>
+              <textarea
+                id="description"
+                value={form.description}
+                onChange={(e) => updateForm("description", e.target.value)}
+                rows={2}
+                placeholder="Describe your graded card..."
+                className="w-full bg-gray-800 border border-gray-700 focus:border-mint rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 outline-none transition-colors resize-none"
+              />
+            </div>
+          </div>
 
         {isProcessing && (
           <div className="flex items-center gap-2 py-2">
@@ -721,12 +809,59 @@ export function MintForm() {
 
         <button
           type="submit"
-          disabled={isProcessing}
+          disabled={isProcessing || slabAnalyzing}
           className="w-full py-3 bg-gradient-to-r from-mint to-mint-dim hover:brightness-105 disabled:opacity-50 disabled:cursor-not-allowed text-mint-ink text-sm font-semibold rounded-lg transition-all duration-200 shadow-lg shadow-mint/25"
         >
-          {isProcessing ? "Processing..." : "Mint"}
+          {isProcessing ? "Processing..." : slabAnalyzing ? "Analyzing slab…" : "Mint"}
         </button>
       </form>
     </div>
+
+    {slabAnalyzing &&
+      typeof document !== "undefined" &&
+      createPortal(
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/55 p-4 backdrop-blur-[2px] pointer-events-auto"
+          role="dialog"
+          aria-modal="true"
+          aria-busy="true"
+          aria-labelledby="psa-analyze-overlay-title"
+        >
+          <div className="w-full max-w-md rounded-xl border border-gray-700/90 bg-gray-950/98 px-5 py-6 shadow-2xl shadow-black/60 sm:px-6 sm:py-7">
+            <div className="flex flex-col items-center text-center">
+              <div className="relative h-14 w-14 shrink-0">
+                <div
+                  className="absolute inset-0 rounded-full border-2 border-gray-600"
+                  aria-hidden
+                />
+                <div
+                  className="absolute inset-0 rounded-full border-2 border-transparent border-t-gray-200 border-r-gray-600 animate-spin"
+                  style={{ animationDuration: "0.9s" }}
+                  aria-hidden
+                />
+              </div>
+              <p
+                id="psa-analyze-overlay-title"
+                className="mt-4 text-lg font-semibold tracking-tight text-white"
+              >
+                Analyzing slab
+              </p>
+              <p className="mt-2 text-sm leading-relaxed text-gray-400">
+                OCR, PSA lookup, and JustTCG are running. Please wait—this usually takes a few
+                seconds to about a minute.
+              </p>
+              <p className="mt-5 text-[11px] font-medium uppercase tracking-[0.2em] text-gray-600">
+                OCR · PSA · JustTCG
+              </p>
+              <div
+                className="mt-4 h-1 w-full max-w-[200px] rounded-full bg-gray-800"
+                aria-hidden
+              />
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+    </>
   );
 }

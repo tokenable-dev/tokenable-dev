@@ -89,9 +89,11 @@ export interface PsaAnalyzeResult {
   };
   /** PSA cert-images 등 — 앞면 URL은 민팅 시 imageUrl로 쓸 수 있음 */
   psaCertImages?: { front?: string; back?: string };
+  /** 백엔드가 부분 실복구 시 단계별 안내 */
+  warnings?: string[];
 }
 
-/** 슬랩 앞면 필수, 뒷면 선택 — OCR 후 JustTCG(Pokemon) 검색 */
+/** 슬랩 앞면 필수 — OCR 후 JustTCG(Pokemon) 검색 */
 export async function analyzePsaSlab(
   slabFront: File,
   slabBack?: File | null,

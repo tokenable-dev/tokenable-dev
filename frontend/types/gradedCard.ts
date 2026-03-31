@@ -30,14 +30,14 @@ export interface GradedCardMetadata {
     slabFront?: string;
     slabBack?: string;
   };
-  /** JustTCG 검색 스냅샷 (민팅 시점) */
+  /** JustTCG search snapshot at mint time */
   justtcg?: {
     queryUsed: string;
     topMatch?: unknown;
   };
-  /** 서버가 PSA 슬랩 상단 제거 후 IPFS에 올린 컬렉션 대표 이미지 (민팅 응답에 포함) */
+  /** Collection cover on IPFS after server trims slab top (mint response) */
   collectionCoverImage?: string;
-  /** PSA 파이프라인에서 채운 필드 (cert, gradeLabel 등) */
+  /** Fields filled by the PSA pipeline (cert, gradeLabel, etc.) */
   psa?: {
     certNumber?: string;
     gradeLabel?: string;
@@ -56,18 +56,56 @@ export interface GradedCardMetadata {
     totalPopulationWithQualifier?: number;
     reverseBarcode?: boolean;
     specId?: number;
-    /** 서버에 PSA_PUBLIC_API_TOKEN이 있고 Cert 조회에 성공한 경우 */
+    /** True when PSA_PUBLIC_API_TOKEN is set and cert lookup succeeded */
     enrichedFromOfficialApi?: boolean;
-    /** 민팅 시 NFT image로 쓰기 위해 가져온 PSA cert-images(또는 API) 원본 URL — IPFS 업로드 전 */
+    /** Source URL for PSA cert image before IPFS upload (mint NFT image) */
     certImageSourceUrl?: string;
   };
-  /** PSA 공식 API 조회 요약 (토큰 없으면 disabled) */
+  /** PSA public API lookup summary (disabled without token) */
   psaApi?: {
     status: string;
     certNumber?: string;
     message?: string;
   };
 }
+
+/** Fields populated from PSA analysis — read-only in mint form when locked */
+export type PsaFieldLocks = {
+  certNumber: boolean;
+  score: boolean;
+  cardName: boolean;
+  player: boolean;
+  year: boolean;
+  set: boolean;
+  number: boolean;
+  certUrl: boolean;
+  assetName: boolean;
+  labelType: boolean;
+  psaCategory: boolean;
+  autographGrade: boolean;
+  psaPopulation: boolean;
+  psaPopHigher: boolean;
+  /** Lock after successful analysis so grading company cannot change */
+  gradingCompany: boolean;
+};
+
+export const EMPTY_PSA_FIELD_LOCKS: PsaFieldLocks = {
+  certNumber: false,
+  score: false,
+  cardName: false,
+  player: false,
+  year: false,
+  set: false,
+  number: false,
+  certUrl: false,
+  assetName: false,
+  labelType: false,
+  psaCategory: false,
+  autographGrade: false,
+  psaPopulation: false,
+  psaPopHigher: false,
+  gradingCompany: false,
+};
 
 /** Form state for the mint form (includes File objects before upload) */
 export interface GradedCardFormState {
@@ -94,13 +132,7 @@ export interface GradedCardFormState {
   };
 }
 
-/** Company-specific field configs */
-/** 플랫폼 기본: PSA 슬랩 카드만 등록 */
+/** Mint UI: only PSA is offered today (other GradingCompany values kept for metadata compatibility) */
 export const GRADING_COMPANIES: { value: GradingCompany; label: string }[] = [
-  { value: "PSA", label: "PSA (default)" },
-  { value: "BGS", label: "BGS (Beckett Grading Services)" },
-  { value: "CGC", label: "CGC Cards" },
-  { value: "SGC", label: "SGC" },
-  { value: "TAG", label: "TAG" },
-  { value: "AGS", label: "AGS" },
+  { value: "PSA", label: "PSA" },
 ];
