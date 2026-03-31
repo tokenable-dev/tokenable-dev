@@ -126,53 +126,68 @@ Google OAuth 콜백 후 서버가 `access_token` 쿠키를 설정합니다 (`FRO
 
 ---
 
-### 3.4 `marketplace` — Seaport 주문 (오프체인 DB)
+### 3.4 `marketplace` — Seaport 주문·컬렉션·풀 입찰 (오프체인 DB)
 
-온체인 트랜잭션 없이 **서명된 주문을 DB에 저장**하고, 목록/상세/상태 변경을 제공합니다.  
-`orders` 테이블이 없으면 생성 주문 시 DB 오류가 날 수 있습니다(프로덕션은 마이그레이션 참고).
+서명된 Seaport 주문을 **DB에 저장**하고, graded **컬렉션**·**bucket(풀) 입찰** API를 제공합니다.  
+`orders` 등 테이블은 마이그레이션(`backend/sql/migrations/`)으로 생성합니다.
+
+#### Seaport 주문
 
 | Method | Path | 인증 | 설명 |
 |--------|------|------|------|
-| `POST` | `/api/marketplace/orders` | 없음 | 판매 주문 등록 (EIP-712 서명 + Seaport parameters) |
-| `GET` | `/api/marketplace/orders` | 없음 | **활성** 주문 목록 (만료분은 조회 시 만료 처리) |
-| `GET` | `/api/marketplace/orders/token/:tokenId` | 없음 | 해당 `tokenId`의 **전체 이력** (active/fulfilled/cancelled/expired) |
+| `POST` | `/api/marketplace/orders` | 없음 | 주문 등록 (`side`: `ask`\|`bid`, 기본 `ask`) |
+| `GET` | `/api/marketplace/orders` | 없음 | **활성 매도(ask)** 만 (만료분은 조회 시 정리) |
+| `GET` | `/api/marketplace/orders/token/:tokenId` | 없음 | 해당 토큰 **전체 이력** (모든 status) |
+| `GET` | `/api/marketplace/orders/bids/token/:tokenId` | 없음 | 해당 토큰 **활성 매수(bid)** , 가격 내림차순 |
 | `GET` | `/api/marketplace/orders/:hash` | 없음 | `orderHash` 단건 |
-| `PATCH` | `/api/marketplace/orders/:hash/cancel` | 없음 | 취소. Query: **`callerAddress`** (판매자 주소, 서버에서 offerer와 대조) |
-| `PATCH` | `/api/marketplace/orders/:hash/fulfill` | 없음 | 구매 완료 처리 → `fulfilled` (온체인 fulfill **후** 호출하는 흐름) |
-| `PATCH` | `/api/marketplace/orders/:hash/reactivate` | 없음 | Query: **`callerAddress`** — 판매자만, `active` 복구 (만료 제외 등 비즈니스 규칙은 서비스 참고) |
+| `PATCH` | `/api/marketplace/orders/:hash/cancel` | 없음 | Query: **`callerAddress`** |
+| `PATCH` | `/api/marketplace/orders/:hash/fulfill` | 없음 | 체결 완료 → `fulfilled` |
+| `PATCH` | `/api/marketplace/orders/:hash/reactivate` | 없음 | Query: **`callerAddress`** — `active` 복구 |
 
-**라우트 순서**: `orders/token/:tokenId`가 `orders/:hash`보다 먼저 등록되어 있어, 경로 `token`은 예약어로 쓰입니다.
+**라우트 순서**: `orders/token/...`, `orders/bids/token/...` 가 `orders/:hash` 보다 먼저 매칭됩니다.
+
+#### 컬렉션
+
+| Method | Path | 인증 | 설명 |
+|--------|------|------|------|
+| `GET` | `/api/marketplace/collections` | 없음 | 컬렉션 요약 |
+| `GET` | `/api/marketplace/collections/:key` | 없음 | 단건 + listings + pool bids + seaport bids + 대표 이미지 |
+
+#### Pool (bucket) 입찰
+
+| Method | Path | 인증 | 설명 |
+|--------|------|------|------|
+| `GET` | `/api/marketplace/bucket-bids/by-token/:tokenId` | 없음 | 버킷·활성 풀 입찰 |
+| `POST` | `/api/marketplace/bucket-bids` | 없음 | 풀 매수 호가 등록 |
+| `POST` | `/api/marketplace/bucket-bids/:id/prepare-fulfill` | 없음 | Body: `tokenId` — Seaport 입찰 초안 |
+| `PATCH` | `/api/marketplace/bucket-bids/:id/cancel` | 없음 | Query: **`callerAddress`** |
+| `POST` | `/api/marketplace/bucket-bids/:id/validate-seller` | 없음 | Body: `tokenId`, `sellerAddress` |
 
 **`POST /api/marketplace/orders` Body (`CreateOrderDto`)**
 
 | 필드 | 타입 | 설명 |
 |------|------|------|
-| `parameters` | object | Seaport `OrderParameters` 구조 (`offerer`, `zone`, `zoneHash`, `startTime`, `endTime`, `orderType`, `offer[]`, `consideration[]`, `totalOriginalConsiderationItems`, `salt`, `conduitKey`, `counter`) |
+| `side` | `ask` \| `bid` | 선택, 기본 `ask` |
+| `parameters` | object | Seaport `OrderParameters` |
 | `signature` | string | EIP-712 서명 hex |
-| `tokenContract` | address | ERC-721 컨트랙트 |
-| `tokenId` | string (숫자 문자열) | NFT ID |
-| `considerationToken` | address | 결제 ERC20 (예: USDC) |
-| `considerationAmount` | string | 결제 금액 (토큰 최소 단위 문자열) |
+| `tokenContract` | address | ERC-721 |
+| `tokenId` | string | 숫자 문자열 |
+| `considerationToken` | address | USDC 등 |
+| `considerationAmount` | string | 최소 단위 문자열 |
+| `bucketBidId` | number | 선택, `side=bid` + 풀 연결 시 |
 
 **Order 응답 필드 (요약)**
 
 | 필드 | 설명 |
 |------|------|
-| `id` | DB PK |
-| `orderHash` | 주문 해시 (백엔드에서 파생·저장) |
-| `offerer` | 판매자 |
-| `tokenContract`, `tokenId` | NFT |
-| `considerationToken`, `considerationAmount` | 결제 |
-| `parameters` | Seaport 파라미터 전체 (JSON) |
-| `signature` | 서명 |
-| `status` | `active` \| `fulfilled` \| `cancelled` \| `expired` |
-| `startTime`, `endTime`, `createdAt`, `updatedAt` | 시각 |
+| `id`, `orderHash`, `side`, `offerer` | |
+| `tokenContract`, `tokenId` | |
+| `considerationToken`, `considerationAmount` | |
+| `collectionKey`, `bucketBidId` | 있을 때 |
+| `parameters`, `signature`, `status` | |
+| `startTime`, `endTime`, `createdAt`, `updatedAt` | |
 
-**에러 예시**
-
-- 동일 NFT에 이미 활성 리스팅: **400**
-- 중복 `orderHash`: **409** (서비스에서 처리하는 경우)
-- DB 스키마 누락 등: **503** 메시지 안내 가능
+**에러 예시**: 활성 ask 중복 **400**, 충돌 **409**, DB 미준비 **503** 등.
 
 ---
 
@@ -242,6 +257,7 @@ Google OAuth 콜백 후 서버가 `access_token` 쿠키를 설정합니다 (`FRO
 | `PORT` | HTTP 포트 (기본 4000) |
 | `CORS_ORIGIN` | 허용 오리진 |
 | `FRONTEND_URL` | OAuth·이메일 리다이렉트·쿠키 Secure 판단 |
+| `COOKIE_SECURE` | `true`/`false` 명시 시 JWT 쿠키 `Secure` 플래그 (미설정이면 `FRONTEND_URL` 이 https 여부로 추론) |
 | `JWT_SECRET` | JWT 서명 |
 | `SEPOLIA_RPC_URL` | 읽기 전용 RPC |
 | `NFT_CONTRACT_ADDRESS`, `USDC_CONTRACT_ADDRESS` | 컨트랙트 |

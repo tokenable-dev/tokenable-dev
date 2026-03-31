@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useWalletClient } from "wagmi";
@@ -46,21 +47,32 @@ export interface PoolBidsPanelCollectionContext {
   onInvalidate: () => void;
 }
 
+/** collection = 풀 매수·목록·취소(구매자). token = 자산 상세: 판매자만 풀 매칭 UI, 구매자는 컬렉션 안내 */
+export type PoolBidsPanelVariant = "collection" | "token";
+
 interface PoolBidsPanelProps {
   tokenId?: number;
   collectionContext?: PoolBidsPanelCollectionContext;
-  /** 컬렉션 페이지에서 통합 오더북이 목록을 표시할 때 */
-  hideBidList?: boolean;
+  variant?: PoolBidsPanelVariant;
+  /** variant=token 이고 구매자에게 컬렉션 링크를 줄 때 (fromCollection / listing 메타) */
+  collectionKey?: string;
   address?: string;
   isOwner: boolean;
+  /**
+   * When true (collection page + unified order book): do not render the duplicate pool bid list;
+   * bids are shown in CollectionUnifiedOrderBook. Placement form and success UI remain.
+   */
+  hideBidList?: boolean;
 }
 
 export function PoolBidsPanel({
   tokenId,
   collectionContext,
-  hideBidList = false,
+  variant = "token",
+  collectionKey,
   address,
   isOwner,
+  hideBidList = false,
 }: PoolBidsPanelProps) {
   const queryClient = useQueryClient();
   const { data: walletClient } = useWalletClient({ chainId: sepolia.id });
@@ -102,6 +114,10 @@ export function PoolBidsPanel({
   const errText = !byCtx && isError ? "Could not load pool bids for this card." : null;
 
   const loading = !byCtx && isLoading;
+
+  const showBidList =
+    variant === "collection" || (variant === "token" && isOwner);
+  const showBuyerPlacement = variant === "collection" && !isOwner;
 
   useEffect(() => {
     if (!placementSuccess) return;
@@ -241,6 +257,33 @@ export function PoolBidsPanel({
     );
   }
 
+  if (variant === "token" && !isOwner) {
+    const href = collectionKey?.trim()
+      ? `/marketplace/collections/${encodeURIComponent(collectionKey.trim())}`
+      : null;
+    return (
+      <div className="rounded-xl border border-gray-800/90 bg-[#0a0d11]/90 px-4 py-4 space-y-3">
+        <p className="text-sm font-semibold text-gray-200">Pool bids (collection-wide)</p>
+        <p className="text-xs text-gray-500 leading-relaxed">
+          Same card &amp; grade pool bids are placed on the <strong className="text-gray-400">collection</strong> page,
+          not on a single asset. Open the collection to bid or see all pool offers.
+        </p>
+        {href ? (
+          <Link
+            href={href}
+            className="inline-flex text-sm font-medium text-mint hover:text-mint-dim hover:underline"
+          >
+            Go to collection →
+          </Link>
+        ) : (
+          <p className="text-[11px] text-gray-600">
+            Collection link appears when this asset is part of a graded collection (listing metadata).
+          </p>
+        )}
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <div className="rounded-xl border border-gray-800 bg-[#0b0e11] px-3 py-4 text-xs text-gray-500 animate-pulse">
@@ -269,25 +312,28 @@ export function PoolBidsPanel({
     >
       <div className="px-3 py-2.5 border-b border-mint-deep/20 bg-mint/[0.06] flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="text-xs font-bold text-mint">Pool bid (EIP-712)</p>
-          <p className="text-[10px] text-gray-500 mt-0.5 leading-snug">
-            {hideBidList
-              ? "Place a collection-wide buy price — any asset in this graded bucket. Listed in the order book above."
-              : "Same graded card = one pool. Then Seaport when a seller picks a token."}
+          <p className="text-xs font-bold text-mint">
+            {variant === "collection" ? "Pool bid (EIP-712)" : "Pool bids"}
           </p>
+          {variant === "collection" && (
+            <p className="text-[10px] text-gray-500 mt-0.5 leading-snug">
+              Place a collection-wide buy price for any asset in this graded bucket. Your bid appears in
+              {hideBidList ? " the collection order book." : " the list below."}
+            </p>
+          )}
         </div>
-        {isOwner && bids.length > 0 && !hideBidList && (
+        {isOwner && bids.length > 0 && showBidList && (
           <span className="shrink-0 text-[10px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-100/90 border border-amber-500/30">
             {bids.length} buyer{bids.length === 1 ? "" : "s"} in pool
           </span>
         )}
       </div>
 
-      {placementSuccess && collectionContext && hideBidList && (
+      {placementSuccess && collectionContext && variant === "collection" && (
         <div className="px-3 py-2.5 border-b border-mint-deep/20 bg-mint/[0.08] space-y-2">
           <p className="text-[11px] text-mint font-medium">Pool bid is live</p>
           <p className="text-[10px] text-gray-400 leading-relaxed">
-            Sellers match from their asset page (Sell on a pool row). When one picks your price for
+            Sellers match from their asset page after you share the invite (Copy / Mail on the pool row). When one picks your price for
             their token, you’ll sign a Seaport bid for that token — still no new contracts.
           </p>
           <button
@@ -306,7 +352,7 @@ export function PoolBidsPanel({
         </div>
       )}
 
-      {!hideBidList && (
+      {showBidList && !hideBidList && (
         <div className="px-3 py-2 space-y-2 max-h-48 overflow-y-auto">
           {bids.length === 0 ? (
             <p className="text-[11px] text-gray-500 py-2 text-center">No pool bids yet.</p>
@@ -374,13 +420,13 @@ export function PoolBidsPanel({
         </div>
       )}
 
-      {!isOwner && !address && (
+      {showBuyerPlacement && !address && (
         <div className="px-3 py-2.5 border-t border-gray-800/80 text-[10px] text-gray-500">
           Connect your wallet to place a pool bid.
         </div>
       )}
 
-      {!isOwner && address && (
+      {showBuyerPlacement && address && (
         <div className="px-3 py-3 border-t border-gray-800/80 space-y-2">
           <p className="text-[10px] text-gray-500">
             Pool bid — any asset in this bucket (same card &amp; grade)

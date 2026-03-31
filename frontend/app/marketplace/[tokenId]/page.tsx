@@ -735,6 +735,8 @@ export default function NftDetailPage() {
                   tokenId={tokenId}
                   address={address}
                   isOwner={isOwner}
+                  variant="token"
+                  collectionKey={collectionKeyForRedirect ?? undefined}
                 />
 
                 {tokenIdOk &&
