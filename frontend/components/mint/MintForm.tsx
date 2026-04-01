@@ -95,6 +95,8 @@ export function MintForm() {
   const [mintImageBlobUrl, setMintImageBlobUrl] = useState<string | null>(null);
   /** Fields locked after PSA analysis */
   const [psaFieldLocks, setPsaFieldLocks] = useState<PsaFieldLocks>(EMPTY_PSA_FIELD_LOCKS);
+  /** True while debounce timer is waiting (so overlay doesn't drop between runs) */
+  const [debounceWaiting, setDebounceWaiting] = useState(false);
   const formRef = useRef(form);
   formRef.current = form;
 
@@ -372,6 +374,7 @@ export function MintForm() {
     if (!(front instanceof File)) {
       analyzeNonceRef.current += 1;
       setAnalyzeLoading(false);
+      setDebounceWaiting(false);
       setLastAnalyze(null);
       setAnalyzeError("");
       setPsaFieldLocks(EMPTY_PSA_FIELD_LOCKS);
@@ -379,12 +382,14 @@ export function MintForm() {
     }
     /** Keep overlay on during debounce (was flickering off for ~900ms before API started) */
     setAnalyzeLoading(true);
+    setDebounceWaiting(true);
     const back =
       form.verification.slabBack instanceof File ? form.verification.slabBack : null;
 
     /** Debounce to reduce duplicate PSA API calls when picking front/back in sequence */
     const debounceMs = 900;
     const t = window.setTimeout(() => {
+      setDebounceWaiting(false);
       void executePsaAnalyze(front, back);
     }, debounceMs);
 
@@ -495,8 +500,10 @@ export function MintForm() {
   }
 
   const isProcessing = step === "uploading" || step === "minting";
+  /** debounceWaiting covers the gap after one request finishes before the next debounced call runs */
   const slabAnalyzing =
-    analyzeLoading && form.verification.slabFront instanceof File;
+    (analyzeLoading || debounceWaiting) &&
+    form.verification.slabFront instanceof File;
 
   useEffect(() => {
     if (!slabAnalyzing) return;
@@ -824,7 +831,6 @@ export function MintForm() {
           className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/55 p-4 backdrop-blur-[2px] pointer-events-auto"
           role="dialog"
           aria-modal="true"
-          aria-busy="true"
           aria-labelledby="psa-analyze-overlay-title"
         >
           <div className="w-full max-w-md rounded-xl border border-gray-700/90 bg-gray-950/98 px-5 py-6 shadow-2xl shadow-black/60 sm:px-6 sm:py-7">
@@ -846,17 +852,24 @@ export function MintForm() {
               >
                 Analyzing slab
               </p>
-              <p className="mt-2 text-sm leading-relaxed text-gray-400">
-                OCR, PSA lookup, and JustTCG are running. Please wait—this usually takes a few
-                seconds to about a minute.
-              </p>
-              <p className="mt-5 text-[11px] font-medium uppercase tracking-[0.2em] text-gray-600">
-                OCR · PSA · JustTCG
+              <p className="mt-2 text-sm text-gray-400">
+                OCR, PSA lookup, and JustTCG are running in one request.
               </p>
               <div
-                className="mt-4 h-1 w-full max-w-[200px] rounded-full bg-gray-800"
-                aria-hidden
-              />
+                className="mt-4 h-2.5 w-full max-w-[280px] overflow-hidden rounded-full bg-gray-800"
+                role="status"
+                aria-live="polite"
+                aria-label="Analysis in progress"
+              >
+                <div className="h-full w-full animate-pulse rounded-full bg-gradient-to-r from-gray-600 via-gray-500 to-gray-600" />
+              </div>
+              <p className="mt-3 text-sm leading-relaxed text-gray-400">
+                Typical time is about 30–90 seconds; slow networks can take longer. Please keep
+                this tab open until it finishes.
+              </p>
+              <p className="mt-4 text-[11px] font-medium uppercase tracking-[0.2em] text-gray-600">
+                OCR · PSA · JustTCG
+              </p>
             </div>
           </div>
         </div>,
