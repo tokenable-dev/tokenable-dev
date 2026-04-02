@@ -36,6 +36,16 @@ ENV NEXT_PUBLIC_PINATA_GATEWAY=$NEXT_PUBLIC_PINATA_GATEWAY
 ENV NEXT_PUBLIC_ALCHEMY_RPC_URL=$NEXT_PUBLIC_ALCHEMY_RPC_URL
 ENV NEXT_PUBLIC_SHOW_AUTH_LINKS=$NEXT_PUBLIC_SHOW_AUTH_LINKS
 
+# 빈 주소로 번들이 나가면 브라우저에서만 터지므로, 여기서 막음 (CI Secrets/Variables 확인)
+RUN if [ -z "${NEXT_PUBLIC_RWA_CONTRACT_ADDRESS:-}" ] && [ -z "${NEXT_PUBLIC_NFT_CONTRACT_ADDRESS:-}" ]; then \
+  echo "ERROR: NEXT_PUBLIC_RWA_CONTRACT_ADDRESS or NEXT_PUBLIC_NFT_CONTRACT_ADDRESS must be non-empty at docker build."; \
+  exit 1; \
+fi
+RUN if [ -z "${NEXT_PUBLIC_USDC_CONTRACT_ADDRESS:-}" ]; then \
+  echo "ERROR: NEXT_PUBLIC_USDC_CONTRACT_ADDRESS must be non-empty at docker build."; \
+  exit 1; \
+fi
+
 # standalone 모드로 빌드 (next.config.ts의 output: 'standalone' 필요)
 RUN pnpm build
 

@@ -3,7 +3,8 @@
 # Repository secrets (개발 서버 URL 예: http://54.116.29.201)
 #   NEXT_PUBLIC_API_URL=http://54.116.29.201/api
 #   NEXT_PUBLIC_ALCHEMY_RPC_URL=https://eth-sepolia.g.alchemy.com/v2/<KEY>
-#   NEXT_PUBLIC_RWA_CONTRACT_ADDRESS (필수), 레거시 NEXT_PUBLIC_NFT_CONTRACT_ADDRESS (선택)
+#   NEXT_PUBLIC_RWA_CONTRACT_ADDRESS (필수) — **Repository secrets** 에 넣어야 함 (Variables 만 있으면 빌드에 안 넘어감 → 아래에서 vars 폴백)
+#   레거시 NEXT_PUBLIC_NFT_CONTRACT_ADDRESS (선택)
 #   NEXT_PUBLIC_USDC/MARKETPLACE/PINATA_GATEWAY, NEXT_PUBLIC_SHOW_AUTH_LINKS(optional)
 #   ECR_REGISTRY, AWS_*, DEV_EC2_*
 #
@@ -43,11 +44,27 @@ jobs:
       # ── Frontend 빌드 ──────────────────────────────────────────
       - name: Build & push frontend image
         run: |
+          set -euo pipefail
+          # Secrets 우선; 없으면 Repository **Variables** (이름 동일) — Variables만 넣은 경우 대비
+          RWA="${{ secrets.NEXT_PUBLIC_RWA_CONTRACT_ADDRESS }}"
+          NFT="${{ secrets.NEXT_PUBLIC_NFT_CONTRACT_ADDRESS }}"
+          USDC="${{ secrets.NEXT_PUBLIC_USDC_CONTRACT_ADDRESS }}"
+          if [ -z "$RWA" ]; then RWA="${{ vars.NEXT_PUBLIC_RWA_CONTRACT_ADDRESS }}"; fi
+          if [ -z "$NFT" ]; then NFT="${{ vars.NEXT_PUBLIC_NFT_CONTRACT_ADDRESS }}"; fi
+          if [ -z "$USDC" ]; then USDC="${{ vars.NEXT_PUBLIC_USDC_CONTRACT_ADDRESS }}"; fi
+          if [ -z "$RWA" ] && [ -z "$NFT" ]; then
+            echo "::error::NEXT_PUBLIC_RWA_CONTRACT_ADDRESS (또는 레거시 NFT_) 가 비어 있습니다. Repository **Secrets** 또는 **Variables** 에 동일 이름으로 추가하세요."
+            exit 1
+          fi
+          if [ -z "$USDC" ]; then
+            echo "::error::NEXT_PUBLIC_USDC_CONTRACT_ADDRESS 가 비어 있습니다. Secrets 또는 Variables 에 추가하세요."
+            exit 1
+          fi
           docker build \
             --build-arg NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }} \
-            --build-arg NEXT_PUBLIC_RWA_CONTRACT_ADDRESS=${{ secrets.NEXT_PUBLIC_RWA_CONTRACT_ADDRESS }} \
-            --build-arg NEXT_PUBLIC_NFT_CONTRACT_ADDRESS=${{ secrets.NEXT_PUBLIC_NFT_CONTRACT_ADDRESS }} \
-            --build-arg NEXT_PUBLIC_USDC_CONTRACT_ADDRESS=${{ secrets.NEXT_PUBLIC_USDC_CONTRACT_ADDRESS }} \
+            --build-arg NEXT_PUBLIC_RWA_CONTRACT_ADDRESS="$RWA" \
+            --build-arg NEXT_PUBLIC_NFT_CONTRACT_ADDRESS="$NFT" \
+            --build-arg NEXT_PUBLIC_USDC_CONTRACT_ADDRESS="$USDC" \
             --build-arg NEXT_PUBLIC_MARKETPLACE_ADDRESS=${{ secrets.NEXT_PUBLIC_MARKETPLACE_ADDRESS }} \
             --build-arg NEXT_PUBLIC_PINATA_GATEWAY=${{ secrets.NEXT_PUBLIC_PINATA_GATEWAY }} \
             --build-arg NEXT_PUBLIC_ALCHEMY_RPC_URL=${{ secrets.NEXT_PUBLIC_ALCHEMY_RPC_URL }} \
