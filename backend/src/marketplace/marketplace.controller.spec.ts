@@ -1,34 +1,28 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { BucketBidService } from './bucket-bid.service';
 import { CollectionService } from './collection.service';
 import { MarketplaceController } from './marketplace.controller';
 import { MarketplaceService } from './marketplace.service';
 import { OrderStatus } from './entities/order.entity';
 
 describe('MarketplaceController', () => {
-  const bucketBidService = {
-    listByTokenResolved: jest.fn(),
-    create: jest.fn(),
-    cancel: jest.fn(),
-    validateSellerMatch: jest.fn(),
-    prepareSeaportBidForPool: jest.fn(),
-  };
-
   const collectionService = {
     listSummaries: jest.fn(),
     findOne: jest.fn(),
     activeListingsForCollection: jest.fn(),
+    activeBidsForCollection: jest.fn(),
+    resolveRepresentativeImageForCollection: jest.fn(),
+    merkleEligibleTokenIds: jest.fn(),
   };
 
   const service = {
     createOrder: jest.fn(),
     findActiveOrders: jest.fn(),
     findByTokenId: jest.fn(),
-    findActiveBidsByTokenId: jest.fn(),
     findByHash: jest.fn(),
     cancelOrder: jest.fn(),
     fulfillOrder: jest.fn(),
     reactivateOrder: jest.fn(),
+    fulfillMatchedPair: jest.fn(),
   };
 
   let controller: MarketplaceController;
@@ -39,7 +33,6 @@ describe('MarketplaceController', () => {
       controllers: [MarketplaceController],
       providers: [
         { provide: MarketplaceService, useValue: service },
-        { provide: BucketBidService, useValue: bucketBidService },
         { provide: CollectionService, useValue: collectionService },
       ],
     }).compile();
@@ -53,7 +46,7 @@ describe('MarketplaceController', () => {
   it('createOrder forwards to service', async () => {
     const dto = {
       signature: '0x',
-      tokenContract: '0x8d14F1518A185A7966AE6e8a6ab94AfC8E4EF6ec',
+      tokenContract: '0x02819e6bc9B864649Ca348a57B4E60B4299cB3D9',
       tokenId: '0',
       considerationToken: '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238',
       considerationAmount: '1000000',
@@ -67,7 +60,7 @@ describe('MarketplaceController', () => {
         offer: [
           {
             itemType: 2,
-            token: '0x8d14F1518A185A7966AE6e8a6ab94AfC8E4EF6ec',
+            token: '0x02819e6bc9B864649Ca348a57B4E60B4299cB3D9',
             identifierOrCriteria: '0',
             startAmount: '1',
             endAmount: '1',
@@ -105,12 +98,6 @@ describe('MarketplaceController', () => {
     service.findByTokenId.mockResolvedValue([]);
     await expect(controller.findByTokenId('3')).resolves.toEqual([]);
     expect(service.findByTokenId).toHaveBeenCalledWith('3');
-  });
-
-  it('findActiveBids forwards to service', async () => {
-    service.findActiveBidsByTokenId.mockResolvedValue([]);
-    await expect(controller.findActiveBids('3')).resolves.toEqual([]);
-    expect(service.findActiveBidsByTokenId).toHaveBeenCalledWith('3');
   });
 
   it('findOrder forwards to service', async () => {

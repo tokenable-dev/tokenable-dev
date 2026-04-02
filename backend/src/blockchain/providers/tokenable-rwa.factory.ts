@@ -7,7 +7,12 @@ export const tokenableRwaFactory = {
   provide: TOKENABLE_RWA_CONTRACT,
   inject: [ETHERS_PROVIDER, ConfigService],
   useFactory: (provider: JsonRpcProvider, configService: ConfigService): Contract => {
-    const address = configService.getOrThrow<string>('NFT_CONTRACT_ADDRESS');
+    const address =
+      configService.get<string>('RWA_CONTRACT_ADDRESS')?.trim() ||
+      configService.get<string>('NFT_CONTRACT_ADDRESS')?.trim();
+    if (!address) {
+      throw new Error('Set RWA_CONTRACT_ADDRESS (or legacy NFT_CONTRACT_ADDRESS) in environment');
+    }
     return new Contract(address, TOKENABLE_RWA_ABI, provider);
   },
 };

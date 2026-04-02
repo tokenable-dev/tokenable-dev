@@ -29,36 +29,36 @@ export class BlockchainController {
 
   // ── Tokenable_RWA (ERC-721) ─────────────────────────────────────
   @ApiOperation({ summary: 'Tokenable_RWA 컨트랙트 정보 조회 (이름, 심볼, 총 민팅 수)' })
-  @Get('nft/info')
-  getNftInfo(): Promise<{ name: string; symbol: string; totalMinted: number }> {
-    return this.blockchainService.getNftInfo();
+  @Get('rwa/info')
+  getRwaInfo(): Promise<{ name: string; symbol: string; totalMinted: number }> {
+    return this.blockchainService.getRwaInfo();
   }
 
   @ApiOperation({ summary: '특정 tokenId의 소유자 주소 조회' })
-  @ApiParam({ name: 'tokenId', description: 'NFT Token ID', example: '0' })
-  @Get('nft/owner/:tokenId')
-  getNftOwner(@Param('tokenId', ParseIntPipe) tokenId: number): Promise<string> {
-    return this.blockchainService.getNftOwner(tokenId);
+  @ApiParam({ name: 'tokenId', description: 'RWA Token ID', example: '0' })
+  @Get('rwa/owner/:tokenId')
+  getRwaOwner(@Param('tokenId', ParseIntPipe) tokenId: number): Promise<string> {
+    return this.blockchainService.getRwaOwner(tokenId);
   }
 
   @ApiOperation({ summary: '특정 tokenId의 tokenURI 조회' })
-  @ApiParam({ name: 'tokenId', description: 'NFT Token ID', example: '0' })
-  @Get('nft/token-uri/:tokenId')
-  getNftTokenURI(@Param('tokenId', ParseIntPipe) tokenId: number): Promise<string> {
-    return this.blockchainService.getNftTokenURI(tokenId);
+  @ApiParam({ name: 'tokenId', description: 'RWA Token ID', example: '0' })
+  @Get('rwa/token-uri/:tokenId')
+  getRwaTokenURI(@Param('tokenId', ParseIntPipe) tokenId: number): Promise<string> {
+    return this.blockchainService.getRwaTokenURI(tokenId);
   }
 
-  @ApiOperation({ summary: '특정 지갑이 보유한 NFT 수량 조회' })
+  @ApiOperation({ summary: '특정 지갑이 보유한 RWA 수량 조회' })
   @ApiParam({ name: 'address', description: '지갑 주소 (0x...)', example: '0xD5abDD307414718C59949Ac5465930a1F8a52691' })
-  @Get('nft/balance/:address')
-  getNftBalance(@Param('address') address: string): Promise<number> {
-    return this.blockchainService.getNftBalance(address);
+  @Get('rwa/balance/:address')
+  getRwaBalance(@Param('address') address: string): Promise<number> {
+    return this.blockchainService.getRwaBalance(address);
   }
 
-  @ApiOperation({ summary: '특정 지갑이 보유한 NFT tokenId 목록 조회' })
+  @ApiOperation({ summary: '특정 지갑이 보유한 RWA tokenId 목록 조회' })
   @ApiParam({ name: 'address', description: '지갑 주소 (0x...)', example: '0xD5abDD307414718C59949Ac5465930a1F8a52691' })
-  @Get('nft/tokens/:address')
-  getNftTokensByOwner(@Param('address') address: string): Promise<number[]> {
-    return this.blockchainService.getNftTokensByOwner(address);
+  @Get('rwa/tokens/:address')
+  getRwaTokensByOwner(@Param('address') address: string): Promise<number[]> {
+    return this.blockchainService.getRwaTokensByOwner(address);
   }
 }

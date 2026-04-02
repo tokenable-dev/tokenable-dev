@@ -20,7 +20,7 @@ const POLL_INTERVAL_MS = 8_000;
 
 const CHAIN_QUERY_KEYS = [
   ["token-supply"],
-  ["nft-contract-info"],
+  ["rwa-contract-info"],
 ] as const;
 
 export function WalletDataProvider({ children }: { children: React.ReactNode }) {
@@ -90,8 +90,8 @@ export function WalletDataProvider({ children }: { children: React.ReactNode }) 
 
     if (address) {
       void queryClient.invalidateQueries({ queryKey: ["token-balance", address] });
-      void queryClient.invalidateQueries({ queryKey: ["nft-balance", address] });
-      void queryClient.invalidateQueries({ queryKey: ["my-nft-ids", address] });
+      void queryClient.invalidateQueries({ queryKey: ["rwa-balance", address] });
+      void queryClient.invalidateQueries({ queryKey: ["my-rwa-ids", address] });
     }
   }, [refreshTick, refetchBalance, queryClient, address]);
 

@@ -4,27 +4,25 @@ import {
   IsArray,
   IsEthereumAddress,
   IsIn,
-  IsInt,
   IsNotEmpty,
   IsNumber,
   IsNumberString,
   IsObject,
   IsOptional,
-  IsPositive,
   IsString,
   ValidateNested,
 } from 'class-validator';
 
 class SeaportOfferItemDto {
-  @ApiProperty({ description: 'ItemType (2 = ERC721)', example: 2 })
+  @ApiProperty({ description: 'ItemType (1 = ERC20, 2 = ERC721)', example: 1 })
   @IsNumber()
   itemType: number;
 
-  @ApiProperty({ description: 'NFT 컨트랙트 주소' })
+  @ApiProperty({ description: 'Token contract address' })
   @IsString()
   token: string;
 
-  @ApiProperty({ description: 'Token ID', example: '0' })
+  @ApiProperty({ example: '0' })
   @IsString()
   identifierOrCriteria: string;
 
@@ -38,11 +36,11 @@ class SeaportOfferItemDto {
 }
 
 class SeaportConsiderationItemDto {
-  @ApiProperty({ description: 'ItemType (0 = ETH, 1 = ERC20)', example: 1 })
+  @ApiProperty({ description: 'ItemType (1 = ERC20, 2 = ERC721, 4 = ERC721_WITH_CRITERIA)', example: 1 })
   @IsNumber()
   itemType: number;
 
-  @ApiProperty({ description: '결제 토큰 주소 (USDC)' })
+  @ApiProperty()
   @IsString()
   token: string;
 
@@ -50,15 +48,15 @@ class SeaportConsiderationItemDto {
   @IsString()
   identifierOrCriteria: string;
 
-  @ApiProperty({ description: '금액 (wei)', example: '1000000' })
+  @ApiProperty({ example: '1000000' })
   @IsString()
   startAmount: string;
 
-  @ApiProperty({ description: '금액 (wei)', example: '1000000' })
+  @ApiProperty({ example: '1000000' })
   @IsString()
   endAmount: string;
 
-  @ApiProperty({ description: '수령인 주소 (판매자)' })
+  @ApiProperty()
   @IsString()
   recipient: string;
 }
@@ -119,8 +117,7 @@ class SeaportOrderParametersDto {
 
 export class CreateOrderDto {
   @ApiPropertyOptional({
-    description:
-      'ask = 매도 리스팅(기본), bid = 매수 입찰(offer=USDC, consideration=NFT→offerer)',
+    description: 'ask = listing, bid = buy order (FULL ERC721 or ERC721_WITH_CRITERIA)',
     enum: ['ask', 'bid'],
     default: 'ask',
   })
@@ -134,44 +131,33 @@ export class CreateOrderDto {
   @Type(() => SeaportOrderParametersDto)
   parameters: SeaportOrderParametersDto;
 
-  @ApiProperty({ description: 'EIP-712 서명', example: '0xabc...' })
+  @ApiProperty({ description: 'EIP-712 signature' })
   @IsString()
   @IsNotEmpty()
   signature: string;
 
-  @ApiProperty({
-    description: 'NFT 컨트랙트 주소',
-    example: '0x8d14F1518A185A7966AE6e8a6ab94AfC8E4EF6ec',
-  })
+  @ApiProperty({ description: 'RWA (ERC-721) contract address' })
   @IsEthereumAddress()
   tokenContract: string;
 
-  @ApiProperty({ description: 'NFT Token ID', example: '0' })
+  /** ask: real tokenId. bid FULL: real tokenId. bid criteria: use "0". */
+  @ApiProperty({ description: 'Token ID (0 for collection criteria bid)', example: '0' })
   @IsNumberString()
   tokenId: string;
 
-  @ApiProperty({
-    description: '결제 토큰 주소 (USDC)',
-    example: '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238',
-  })
+  @ApiProperty({ description: 'USDC address' })
   @IsEthereumAddress()
   considerationToken: string;
 
-  @ApiProperty({ description: '결제 금액 (wei)', example: '1000000' })
+  @ApiProperty({ description: 'USDC amount (6 decimals)' })
   @IsNumberString()
   considerationAmount: string;
 
   @ApiPropertyOptional({
-    description:
-      '풀(컬렉션) 매수 입찰 id — side=bid 일 때만. 서버가 메타·금액·구매자와 일치 검증',
+    description: 'Required when bid uses ERC721_WITH_CRITERIA (collection-wide bid)',
   })
   @IsOptional()
-  @Transform(({ value }) =>
-    value === undefined || value === null || value === ''
-      ? undefined
-      : Number(value),
-  )
-  @IsInt()
-  @IsPositive()
-  bucketBidId?: number;
+  @IsString()
+  @IsNotEmpty()
+  collectionKey?: string;
 }

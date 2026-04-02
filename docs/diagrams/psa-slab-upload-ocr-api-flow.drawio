@@ -101,7 +101,7 @@
         <mxCell id="lane_mint" value="⑦ 민팅 단계 (분석 완료 후) — 별도 API" style="swimlane;horizontal=1;startSize=32;fillColor=#bac8d3;strokeColor=#6c8ebf;fontStyle=1;fontSize=13;align=left;spacingLeft=8;" vertex="1" parent="1">
           <mxGeometry x="40" y="1188" width="1840" height="120" as="geometry" />
         </mxCell>
-        <mxCell id="m1" value="사용자가 Mint 클릭 시 `POST {API}/nft/upload` (multipart)&#xa;• 이름·설명·이미지: PSA 공식 앞면 URL(`imageUrl`)이 있으면 우선, 없으면 업로드 파일(`image`)" style="rounded=1;whiteSpace=wrap;html=1;align=left;spacingLeft=10;fontSize=11;fillColor=#ffffff;" vertex="1" parent="lane_mint">
+        <mxCell id="m1" value="사용자가 Mint 클릭 시 `POST {API}/rwa/upload` (multipart)&#xa;• 이름·설명·이미지: PSA 공식 앞면 URL(`imageUrl`)이 있으면 우선, 없으면 업로드 파일(`image`)" style="rounded=1;whiteSpace=wrap;html=1;align=left;spacingLeft=10;fontSize=11;fillColor=#ffffff;" vertex="1" parent="lane_mint">
           <mxGeometry x="48" y="48" width="900" height="56" as="geometry" />
         </mxCell>
         <mxCell id="m2" value="이후 스마트컨트랙트 민트 트랜잭션은 프론트 wagmi (`TOKENABLE_RWA` 등) — 본 다이어그램 범위 아님" style="rounded=1;whiteSpace=wrap;html=1;align=left;spacingLeft=10;fontSize=10;fillColor=#f5f5f5;dashed=1;fontStyle=2;" vertex="1" parent="lane_mint">
@@ -132,7 +132,7 @@
         </mxCell>
 
         <!-- Legend -->
-        <mxCell id="leg" value="범례 · 환경변수&#xa;• PSA_PUBLIC_API_TOKEN — PSA Public API (없으면 PSA HTTP 호출 생략, OCR/JustTCG는 동작)&#xa;• TCG_API_KEY — JustTCG (백엔드 필수)&#xa;• OCR은 서버 로컬 tesseract.js; 별도 Google Vision 등 외부 OCR API 없음&#xa;• 배포 이슈: sharp/tesseract 메모리, HTTPS 아웃바운드, 업로드 본문 크기 — `docs/PSA_ANALYZE_DEPLOYMENT.md` 참고" style="rounded=0;whiteSpace=wrap;html=1;align=left;spacingLeft=12;fontSize=10;fillColor=#ffffcc;strokeColor=#d6b656;" vertex="1" parent="1">
+        <mxCell id="leg" value="범례 · 환경변수&#xa;• PSA_PUBLIC_API_TOKEN — PSA Public API (없으면 PSA HTTP 호출 생략, OCR/JustTCG는 동작)&#xa;• TCG_API_KEY — JustTCG (백엔드 필수)&#xa;• OCR은 서버 로컬 tesseract.js; 별도 Google Vision 등 외부 OCR API 없음&#xa;• 배포 이슈: sharp/tesseract 메모리, HTTPS 아웃바운드, 업로드 본문 크기 — `docs/DEVELOPMENT.md` §5 참고" style="rounded=0;whiteSpace=wrap;html=1;align=left;spacingLeft=12;fontSize=10;fillColor=#ffffcc;strokeColor=#d6b656;" vertex="1" parent="1">
           <mxGeometry x="40" y="1340" width="1840" height="100" as="geometry" />
         </mxCell>
       </root>

@@ -1,21 +1,23 @@
 "use client";
 
-import { useMemo, useState, useCallback } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { formatUnits } from "viem";
-import type { BucketBid, Order } from "@/lib/api";
+import { formatUnits, type Address } from "viem";
+import { useAccount, usePublicClient, useWalletClient, useWriteContract } from "wagmi";
+import { sepolia } from "@/config/wagmi";
+import { cancelOrder, type Order } from "@/lib/api";
+import { isCriteriaCollectionBid } from "@/lib/seaport/criteriaMatch";
+import { bidUsdcAmount } from "@/lib/seaport/bidUsdc";
+import {
+  runCriteriaMatch,
+  mapMatchError,
+  type MatchWriteContractAsync,
+} from "@/lib/seaport/runCriteriaMatch";
+import { submitAskListingOrder } from "@/lib/seaport/submitAskListing";
 
-function priceUsdcOrder(o: Order): number {
+function priceUsdcFromOrder(o: Order): number {
   return Number(o.considerationAmount) / 1_000_000;
-}
-
-function priceUsdcPool(b: BucketBid): number {
-  try {
-    return Number(formatUnits(BigInt(b.considerationAmount), 6));
-  } catch {
-    return 0;
-  }
 }
 
 function shortAddr(a: string) {
@@ -31,797 +33,498 @@ function formatPriceUsdc(n: number) {
   });
 }
 
-function cmpAmountAsc(a: string, b: string) {
-  try {
-    const x = BigInt(a);
-    const y = BigInt(b);
-    return x < y ? -1 : x > y ? 1 : 0;
-  } catch {
-    return a.localeCompare(b);
+function cmpAskByPriceThenToken(a: Order, b: Order) {
+  const pa = BigInt(a.considerationAmount);
+  const pb = BigInt(b.considerationAmount);
+  if (pa !== pb) return pa < pb ? -1 : 1;
+  const ta = Number(a.tokenId);
+  const tb = Number(b.tokenId);
+  return ta - tb;
+}
+
+function cmpBidByPriceDesc(a: Order, b: Order) {
+  const pa = BigInt(a.considerationAmount);
+  const pb = BigInt(b.considerationAmount);
+  if (pa !== pb) return pa > pb ? -1 : 1;
+  return String(a.orderHash).localeCompare(String(b.orderHash));
+}
+
+/** 부동소수 오차 방지 */
+function priceKey(p: number): number {
+  return Math.round(p * 1_000_000) / 1_000_000;
+}
+
+const MAX_BOOK_ROWS = 12;
+
+type BookTab = "book" | "trades";
+
+interface CollectionUnifiedOrderBookProps {
+  collectionKey: string;
+  asks: Order[];
+  collectionBids: Order[];
+  address?: string;
+  onInvalidate?: () => void;
+}
+
+export function CollectionUnifiedOrderBook({
+  collectionKey,
+  asks,
+  collectionBids,
+  address: addressProp,
+  onInvalidate,
+}: CollectionUnifiedOrderBookProps) {
+  const [cancelling, setCancelling] = useState<string | null>(null);
+  const [instantBusy, setInstantBusy] = useState<string | null>(null);
+  const [instantErr, setInstantErr] = useState<string | null>(null);
+  const [pickToken, setPickToken] = useState<number | null>(null);
+  const [tab, setTab] = useState<BookTab>("book");
+
+  const { address: wagmiAddr } = useAccount();
+  const address = addressProp ?? wagmiAddr;
+
+  const publicClient = usePublicClient({ chainId: sepolia.id });
+  const { data: walletClient } = useWalletClient({ chainId: sepolia.id });
+  const { writeContractAsync } = useWriteContract();
+  const queryClient = useQueryClient();
+
+  const criteriaBids = useMemo(
+    () => collectionBids.filter((b) => isCriteriaCollectionBid(b) && b.status === "active"),
+    [collectionBids]
+  );
+
+  const askRows = useMemo(() => [...asks].sort(cmpAskByPriceThenToken), [asks]);
+  const bidRows = useMemo(() => [...criteriaBids].sort(cmpBidByPriceDesc), [criteriaBids]);
+
+  const askLevels = useMemo(() => {
+    const byKey = new Map<number, Order[]>();
+    for (const o of askRows) {
+      const p = priceUsdcFromOrder(o);
+      const k = priceKey(p);
+      if (!byKey.has(k)) byKey.set(k, []);
+      byKey.get(k)!.push(o);
+    }
+    const keysAsc = [...byKey.keys()].sort((a, b) => a - b);
+    const raw = keysAsc.map((k) => {
+      const orders = byKey.get(k)!;
+      const price = priceUsdcFromOrder(orders[0]);
+      const levelNotional = price * orders.length;
+      return { price, orders, count: orders.length, key: `ask-${k}`, levelNotional };
+    });
+    const rev = [...raw].reverse().slice(0, MAX_BOOK_ROWS);
+    const maxN = Math.max(...rev.map((L) => L.levelNotional), 1e-9);
+    return rev.map((L) => ({
+      ...L,
+      depth: Math.min(1, L.levelNotional / maxN),
+    }));
+  }, [askRows]);
+
+  const bidLevels = useMemo(() => {
+    const slice = bidRows.slice(0, MAX_BOOK_ROWS);
+    const maxCum =
+      slice.reduce((acc, b) => acc + priceUsdcFromOrder(b), 0) || 1;
+
+    const byKey = new Map<number, Order[]>();
+    const sorted = [...slice].sort((a, b) => {
+      const pa = priceUsdcFromOrder(a);
+      const pb = priceUsdcFromOrder(b);
+      if (pb !== pa) return pb - pa;
+      return String(a.orderHash).localeCompare(String(b.orderHash));
+    });
+    for (const b of sorted) {
+      const k = priceKey(priceUsdcFromOrder(b));
+      if (!byKey.has(k)) byKey.set(k, []);
+      byKey.get(k)!.push(b);
+    }
+    const keysDesc = [...byKey.keys()].sort((a, b) => b - a);
+
+    let cum = 0;
+    return keysDesc.map((k) => {
+      const orders = byKey.get(k)!;
+      const price = priceUsdcFromOrder(orders[0]);
+      const levelSum = price * orders.length;
+      cum += levelSum;
+      return {
+        price,
+        orders,
+        count: orders.length,
+        depth: cum / maxCum,
+        key: `bid-${k}-${orders.map((o) => o.orderHash).join("|")}`,
+      };
+    });
+  }, [bidRows]);
+
+  const bestAskPrice = useMemo(() => {
+    if (!askRows.length) return null;
+    return Math.min(...askRows.map((o) => priceUsdcFromOrder(o)));
+  }, [askRows]);
+
+  const bestBidPrice = useMemo(() => {
+    if (!bidRows.length) return null;
+    let max = -Infinity;
+    for (const b of bidRows) {
+      let display = priceUsdcFromOrder(b);
+      try {
+        const offer0 = b.parameters?.offer?.[0];
+        if (offer0?.startAmount) display = Number(formatUnits(BigInt(offer0.startAmount), 6));
+      } catch {
+        /* keep */
+      }
+      if (display > max) max = display;
+    }
+    return Number.isFinite(max) && max > 0 ? max : null;
+  }, [bidRows]);
+
+  const midLabel = useMemo(() => {
+    if (bestAskPrice != null && bestBidPrice != null) {
+      return ((bestAskPrice + bestBidPrice) / 2).toLocaleString("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+    }
+    if (bestAskPrice != null)
+      return bestAskPrice.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    if (bestBidPrice != null)
+      return bestBidPrice.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return "—";
+  }, [bestAskPrice, bestBidPrice]);
+
+  const spreadText = useMemo(() => {
+    if (bestAskPrice != null && bestBidPrice != null) {
+      const s = bestAskPrice - bestBidPrice;
+      return `Spread ${s.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDC`;
+    }
+    if (bestAskPrice != null) return `Best ask ${formatPriceUsdc(bestAskPrice)} USDC`;
+    if (bestBidPrice != null) return `Best bid ${formatPriceUsdc(bestBidPrice)} USDC`;
+    return "No orders";
+  }, [bestAskPrice, bestBidPrice]);
+
+  const myAsks = useMemo(() => {
+    if (!address) return [];
+    const a = address.toLowerCase();
+    return askRows.filter(
+      (o) =>
+        o.status === "active" &&
+        (o.side === "ask" || o.side == null) &&
+        o.offerer.toLowerCase() === a &&
+        Number(o.tokenId) > 0
+    );
+  }, [askRows, address]);
+
+  useEffect(() => {
+    if (myAsks.length === 0) {
+      setPickToken(null);
+      return;
+    }
+    if (pickToken === null || !myAsks.some((o) => Number(o.tokenId) === pickToken)) {
+      setPickToken(Number(myAsks[0].tokenId));
+    }
+  }, [myAsks, pickToken]);
+
+  const selectedAsk = useMemo(() => {
+    if (pickToken == null) return myAsks[0] ?? null;
+    return myAsks.find((o) => Number(o.tokenId) === pickToken) ?? myAsks[0] ?? null;
+  }, [myAsks, pickToken]);
+
+  const bidCount = bidRows.length;
+  const askCount = askRows.length;
+  const denom = bidCount + askCount || 1;
+  const bidPct = Math.round((bidCount / denom) * 100);
+
+  async function handleCancelBid(o: Order) {
+    if (!address) return;
+    setCancelling(o.orderHash);
+    try {
+      await cancelOrder(o.orderHash, address);
+      onInvalidate?.();
+    } finally {
+      setCancelling(null);
+    }
   }
-}
 
-function cmpAmountDesc(a: string, b: string) {
-  return -cmpAmountAsc(a, b);
-}
+  async function handleInstantSell(bid: Order) {
+    setInstantErr(null);
+    if (!address || !publicClient || !walletClient || !selectedAsk) {
+      setInstantErr("Connect your wallet and ensure you have a listing in this collection.");
+      return;
+    }
 
-type AskRow = {
-  kind: "ask";
-  price: number;
-  order: Order;
-  tokenId: number;
-};
+    const bidAm = bidUsdcAmount(bid);
+    const askAm = BigInt(selectedAsk.considerationAmount);
+    const tid = Number(selectedAsk.tokenId);
 
-/** Notice to potential sellers: pool bid is EIP-712 only; Seaport comes when matching. */
-function buildPoolSellerNoticeText(params: {
-  priceUsdc: number;
-  buyerAddress: string;
-  collectionLabel?: string;
-  collectionPageUrl?: string;
-}) {
-  const col = params.collectionLabel?.trim() || "this collection";
-  const urlLine = params.collectionPageUrl?.trim()
-    ? `Collection page: ${params.collectionPageUrl.trim()}`
-    : null;
-  const lines = [
-    `[Tokenable] ${col} — pool buy interest`,
-    ``,
-    `A buyer has registered a collection-wide pool bid at ${formatPriceUsdc(params.priceUsdc)} USDC.`,
-    `This is an EIP-712 (TokenableCollectionBid) entry in our order book — it is not a Seaport on-chain order by itself.`,
-    ``,
-    `If you intend to sell at or near this price:`,
-    `• List your NFT from My Assets, then on your asset page complete the flow so the buyer can register a Seaport bid and fulfill.`,
-    ``,
-    `Buyer wallet: ${params.buyerAddress}`,
-    ...(urlLine ? [``, urlLine] : []),
-    ``,
-    `— Tokenable`,
-  ];
-  return lines.join("\n");
-}
+    setInstantBusy(bid.orderHash);
+    try {
+      let listing = selectedAsk;
+      if (askAm > bidAm) {
+        listing = await submitAskListingOrder({
+          tokenId: tid,
+          priceUsdc: formatUnits(bidAm, 6),
+          address: address as Address,
+          publicClient,
+          walletClient,
+          writeContractAsync: writeContractAsync as Parameters<
+            typeof submitAskListingOrder
+          >[0]["writeContractAsync"],
+          mode: "replace",
+          oldOrderHash: selectedAsk.orderHash,
+        });
+      }
 
-const poolActionIconBtn =
-  "inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-gray-500 transition-colors " +
-  "hover:bg-white/[0.06] hover:text-gray-200 focus-visible:outline focus-visible:outline-1 " +
-  "focus-visible:outline-offset-1 focus-visible:outline-sky-500/40";
+      const matchWrite = ((args: Parameters<MatchWriteContractAsync>[0]) =>
+        writeContractAsync(
+          args as Parameters<typeof writeContractAsync>[0]
+        )) as MatchWriteContractAsync;
 
-function PoolBidIconActions({
-  copied,
-  onCopy,
-  onMail,
-  onCancel,
-}: {
-  copied: boolean;
-  onCopy: () => void;
-  onMail: () => void;
-  onCancel?: () => void;
-}) {
+      await runCriteriaMatch({
+        address: address as Address,
+        publicClient,
+        writeContractAsync: matchWrite,
+        bid,
+        listing,
+        tokenId: tid,
+        collectionKey,
+      });
+
+      await queryClient.invalidateQueries({ queryKey: ["marketplace-collection", collectionKey] });
+      await queryClient.invalidateQueries({ queryKey: ["marketplace-orders"] });
+      await queryClient.invalidateQueries({ queryKey: ["merkle-set", collectionKey] });
+      onInvalidate?.();
+    } catch (e: unknown) {
+      setInstantErr(mapMatchError(e));
+    } finally {
+      setInstantBusy(null);
+    }
+  }
+
   return (
-    <div
-      className="flex items-center justify-end gap-px rounded-md border border-gray-800/70 bg-black/25 p-0.5"
-      role="group"
-      aria-label="Pool bid actions"
-    >
-      <button
-        type="button"
-        className={poolActionIconBtn}
-        onClick={(e) => {
-          e.stopPropagation();
-          onCopy();
-        }}
-        title={copied ? "Copied" : "Copy notice for sellers"}
-        aria-label={copied ? "Copied to clipboard" : "Copy seller notice"}
-      >
-        {copied ? (
-          <svg
-            className="h-3.5 w-3.5 text-emerald-400/90"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden
-          >
-            <path d="M20 6 9 17l-5-5" />
-          </svg>
-        ) : (
-          <svg
-            className="h-3.5 w-3.5"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden
-          >
-            <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
-            <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
-          </svg>
-        )}
-      </button>
-      <button
-        type="button"
-        className={poolActionIconBtn}
-        onClick={(e) => {
-          e.stopPropagation();
-          onMail();
-        }}
-        title="Open mail app with a draft for sellers"
-        aria-label="Compose email to sellers"
-      >
-        <svg
-          className="h-3.5 w-3.5"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden
-        >
-          <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
-          <path d="m22 6-10 7L2 6" />
-        </svg>
-      </button>
-      {onCancel && (
+    <div className="rounded-2xl border border-mint-deep/20 bg-gradient-to-b from-[#0c1018] to-[#07090c] overflow-hidden shadow-[0_12px_40px_-12px_rgba(0,0,0,0.65)]">
+      <div className="px-4 pt-4 pb-1 flex items-start justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-bold text-white tracking-tight">Order book</h2>
+          <p className="text-[11px] text-gray-500 mt-0.5">Price (USDC) · Qty (listings)</p>
+        </div>
+      </div>
+
+      <div className="flex border-b border-gray-800/90 mt-1">
         <button
           type="button"
-          className={`${poolActionIconBtn} hover:text-rose-300/90`}
-          onClick={(e) => {
-            e.stopPropagation();
-            onCancel();
-          }}
-          title="Withdraw your pool bid"
-          aria-label="Cancel pool bid"
-        >
-          <svg
-            className="h-3.5 w-3.5"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden
-          >
-            <path d="M18 6 6 18" />
-            <path d="m6 6 12 12" />
-          </svg>
-        </button>
-      )}
-    </div>
-  );
-}
-
-/** 컬렉션 단일 오더북: 매도(asks) + 풀 매수(EIP-712) + Seaport 매수 */
-export function CollectionUnifiedOrderBook({
-  asks,
-  poolBids,
-  seaportBids,
-  address,
-  onCancelPoolBid,
-  variant = "full",
-  showPoolInBuySide = true,
-  className = "",
-  collectionLabel,
-}: {
-  asks: Order[];
-  poolBids: BucketBid[];
-  seaportBids: Order[];
-  address?: string;
-  onCancelPoolBid?: (bid: BucketBid) => void;
-  variant?: "compact" | "full";
-  showPoolInBuySide?: boolean;
-  className?: string;
-  collectionLabel?: string;
-}) {
-  const pathname = usePathname();
-  const collectionPageUrl =
-    typeof window !== "undefined" && pathname
-      ? `${window.location.origin}${pathname}`
-      : "";
-
-  const [copiedPoolId, setCopiedPoolId] = useState<number | null>(null);
-  /** ask-${amountKey} | pool-${amountKey} | sea-${amountKey} */
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
-
-  const toggle = useCallback((key: string) => {
-    setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
-  }, []);
-
-  const copyPoolNotice = useCallback(
-    async (bid: BucketBid, priceUsdc: number) => {
-      const text = buildPoolSellerNoticeText({
-        priceUsdc,
-        buyerAddress: bid.buyerOfferer.startsWith("0x")
-          ? bid.buyerOfferer
-          : `0x${bid.buyerOfferer}`,
-        collectionLabel,
-        collectionPageUrl,
-      });
-      try {
-        await navigator.clipboard.writeText(text);
-        setCopiedPoolId(bid.id);
-        window.setTimeout(() => setCopiedPoolId((id) => (id === bid.id ? null : id)), 2500);
-      } catch {
-        window.alert(
-          "Could not copy. Here is the text:\n\n" + text.slice(0, 800) + (text.length > 800 ? "…" : "")
-        );
-      }
-    },
-    [collectionLabel, collectionPageUrl]
-  );
-
-  const openMailDraftForPool = useCallback(
-    (bid: BucketBid, priceUsdc: number) => {
-      const body = buildPoolSellerNoticeText({
-        priceUsdc,
-        buyerAddress: bid.buyerOfferer.startsWith("0x")
-          ? bid.buyerOfferer
-          : `0x${bid.buyerOfferer}`,
-        collectionLabel,
-        collectionPageUrl,
-      });
-      const subject = `[Tokenable] Pool bid ${formatPriceUsdc(priceUsdc)} USDC — ${collectionLabel?.trim() || "collection"}`;
-      const url = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-      window.location.href = url;
-    },
-    [collectionLabel, collectionPageUrl]
-  );
-
-  const { askGroups, buySlots, totalAskOrders, totalBuyOrders } = useMemo(() => {
-    const askList: AskRow[] = [...asks]
-      .sort((a, b) => cmpAmountDesc(a.considerationAmount, b.considerationAmount))
-      .map((o) => ({
-        kind: "ask" as const,
-        price: priceUsdcOrder(o),
-        order: o,
-        tokenId: Number(o.tokenId),
-      }));
-
-    const askMap = new Map<string, AskRow[]>();
-    for (const row of askList) {
-      const k = row.order.considerationAmount;
-      if (!askMap.has(k)) askMap.set(k, []);
-      askMap.get(k)!.push(row);
-    }
-    /** Highest ask first; cheapest listing ends up at the bottom of the sell list. */
-    const askGroups = [...askMap.entries()]
-      .sort((a, b) => cmpAmountDesc(a[0], b[0]))
-      .map(([priceKey, orders]) => ({
-        priceKey,
-        price: priceUsdcOrder(orders[0].order),
-        orders: orders.sort((x, y) => x.tokenId - y.tokenId),
-      }));
-
-    const poolList = showPoolInBuySide
-      ? poolBids.map((b) => ({
-          kind: "pool" as const,
-          price: priceUsdcPool(b),
-          bid: b,
-          amountKey: b.considerationAmount,
-        }))
-      : [];
-
-    const poolMap = new Map<string, typeof poolList>();
-    for (const row of poolList) {
-      if (!poolMap.has(row.amountKey)) poolMap.set(row.amountKey, []);
-      poolMap.get(row.amountKey)!.push(row);
-    }
-    const poolGroups = [...poolMap.entries()]
-      .sort((a, b) => cmpAmountDesc(a[0], b[0]))
-      .map(([amountKey, rows]) => ({
-        kind: "pool_group" as const,
-        amountKey,
-        price: rows[0].price,
-        bids: rows.map((r) => r.bid).sort((a, b) => a.id - b.id),
-      }));
-
-    const seaList = seaportBids.map((o) => ({
-      kind: "seaport" as const,
-      price: priceUsdcOrder(o),
-      order: o,
-      tokenId: Number(o.tokenId),
-      amountKey: o.considerationAmount,
-    }));
-
-    const seaMap = new Map<string, typeof seaList>();
-    for (const row of seaList) {
-      if (!seaMap.has(row.amountKey)) seaMap.set(row.amountKey, []);
-      seaMap.get(row.amountKey)!.push(row);
-    }
-    const seaGroups = [...seaMap.entries()]
-      .sort((a, b) => cmpAmountDesc(a[0], b[0]))
-      .map(([amountKey, rows]) => ({
-        kind: "seaport_group" as const,
-        amountKey,
-        price: rows[0].price,
-        orders: rows
-          .map((r) => r.order)
-          .sort((a, b) => Number(a.tokenId) - Number(b.tokenId)),
-      }));
-
-    type BuySlot =
-      | (typeof poolGroups)[number]
-      | (typeof seaGroups)[number];
-
-    /** Highest bid price first; same USDC: pool rows before Seaport. */
-    const buySlots: BuySlot[] = [...poolGroups, ...seaGroups].sort(
-      (a, b) => b.price - a.price || (a.kind === "pool_group" ? -1 : 1)
-    );
-
-    const totalAskOrders = askList.length;
-    const totalBuyOrders = poolList.length + seaList.length;
-
-    return {
-      askGroups,
-      buySlots,
-      totalAskOrders,
-      totalBuyOrders,
-    };
-  }, [asks, poolBids, seaportBids, showPoolInBuySide]);
-
-  const isFull = variant === "full";
-  const shell =
-    "rounded-xl border border-gray-800/80 bg-[#0b0e11] overflow-hidden flex flex-col " +
-    (isFull ? "w-full max-w-none" : "max-h-[min(70vh,560px)]");
-
-  /** Thin overlay-style scrollbar (Firefox + WebKit); track transparent so it feels light. */
-  const scrollPanelClass = [
-    "overflow-y-auto overscroll-contain max-h-[11rem] min-h-0 px-0 py-1.5 space-y-1 scroll-smooth rounded-md",
-    "bg-black/[0.22] border border-gray-800/45",
-    "[scrollbar-gutter:stable]",
-    "[scrollbar-width:thin]",
-    "[scrollbar-color:rgba(71,85,105,0.42)_transparent]",
-    "[&::-webkit-scrollbar]:w-[5px]",
-    "[&::-webkit-scrollbar-track]:bg-transparent",
-    "[&::-webkit-scrollbar-thumb]:rounded-full",
-    "[&::-webkit-scrollbar-thumb]:bg-slate-600/35",
-    "[&::-webkit-scrollbar-thumb]:transition-colors [&::-webkit-scrollbar-thumb]:duration-200",
-    "[&::-webkit-scrollbar-thumb:hover]:bg-slate-500/55",
-  ].join(" ");
-
-  const headGrid =
-    "grid gap-x-3 items-center px-3 py-2.5 border-b border-gray-800/60 bg-[#080a0d] " +
-    (isFull
-      ? "grid-cols-[minmax(0,5rem)_minmax(5rem,1fr)_minmax(0,8.5rem)]"
-      : "grid-cols-[minmax(0,4.5rem)_minmax(4.5rem,1fr)_minmax(0,7.5rem)]");
-
-  const headLabel =
-    "font-semibold text-gray-400 uppercase tracking-wide " +
-    (isFull ? "text-[11px]" : "text-[10px]");
-
-  const rowGrid =
-    "grid gap-x-3 w-full font-mono tabular-nums items-center " +
-    "px-3 py-1.5 min-h-[40px] " +
-    (isFull
-      ? "grid-cols-[minmax(0,5rem)_minmax(5rem,1fr)_minmax(0,8.5rem)] text-sm"
-      : "grid-cols-[minmax(0,4.5rem)_minmax(4.5rem,1fr)_minmax(0,7.5rem)] text-[11px]");
-
-  const displayRowCount = askGroups.length + buySlots.length;
-
-  /** Cheapest ask — last row when sorted high → low. */
-  const bestAskPriceKey =
-    askGroups.length > 0 ? askGroups[askGroups.length - 1]!.priceKey : null;
-
-  /** Highest buy — first row when sorted by price descending. */
-  const bestBuyAmountKey = buySlots.length > 0 ? buySlots[0]!.amountKey : null;
-
-  return (
-    <div className={`${shell} ${className}`.trim()}>
-      <div className="px-3 py-2 border-b border-gray-800/80">
-        <h3
-          className={`font-bold text-white tracking-wide ${isFull ? "text-sm" : "text-xs"}`}
+          onClick={() => setTab("book")}
+          className={`flex-1 py-2.5 text-xs font-semibold tracking-wide transition-colors ${
+            tab === "book"
+              ? "text-white border-b-2 border-mint bg-white/[0.03]"
+              : "text-gray-500 hover:text-gray-300"
+          }`}
         >
           Order book
-        </h3>
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab("trades")}
+          className={`flex-1 py-2.5 text-xs font-semibold tracking-wide transition-colors ${
+            tab === "trades"
+              ? "text-white border-b-2 border-mint bg-white/[0.03]"
+              : "text-gray-500 hover:text-gray-300"
+          }`}
+        >
+          Recent trades
+        </button>
       </div>
 
-      <div className={`${headGrid} items-center`} role="row">
-        <div className="min-w-0 text-left" role="columnheader">
-          <span className={headLabel}>Type</span>
-        </div>
-        <div className="min-w-0 text-right" role="columnheader">
-          <span className={headLabel}>Price</span>
-        </div>
-        <div className="min-w-0 text-right" role="columnheader">
-          <span className={headLabel}>Action</span>
-        </div>
-      </div>
-
-      <div className="flex flex-col flex-1 min-h-0 gap-0 px-0 pb-2">
-        {/* Sell — cheapest ask at bottom of this list */}
-        <div className="pt-1.5 pb-0.5 px-3">
-          <span className="text-[11px] font-semibold text-rose-400/90">Sell</span>
-        </div>
-        <div className={scrollPanelClass}>
-        {askGroups.length === 0 ? (
-          <p className="text-[11px] text-gray-600 py-3 px-3 text-center">No asks.</p>
-        ) : (
-        askGroups.map(({ priceKey, price, orders }) => {
-          const n = orders.length;
-          const key = `ask-${priceKey}`;
-          const isOpen = expanded[key];
-          const single = n === 1;
-          const row = orders[0]!;
-          const isBestAsk = priceKey === bestAskPriceKey;
-
-          if (single) {
-            return (
-              <Link
-                key={priceKey}
-                href={`/marketplace/${row.tokenId}`}
-                className={`flex rounded-md overflow-hidden transition-colors group ${
-                  isFull ? "min-h-[42px]" : ""
-                } ${
-                  isBestAsk
-                    ? "border border-rose-500/15 bg-rose-500/[0.03] hover:bg-rose-500/[0.06]"
-                    : "hover:bg-white/[0.04]"
-                }`}
-              >
-                <div className={rowGrid}>
-                  <span
-                    className={`min-w-0 flex items-center text-[10px] font-bold ${
-                      isBestAsk ? "text-rose-300/90" : "text-gray-500"
-                    }`}
-                  >
-                    Sell
-                  </span>
-                  <span
-                    className={`min-w-0 text-right font-medium tabular-nums ${
-                      isBestAsk
-                        ? "text-rose-400 group-hover:text-rose-300"
-                        : "text-gray-200 group-hover:text-white"
-                    }`}
-                  >
-                    {formatPriceUsdc(price)}
-                  </span>
-                  <span
-                    className={`min-w-0 flex justify-end items-center text-[10px] ${
-                      isBestAsk ? "text-mint/80" : "text-gray-500"
-                    }`}
-                  >
-                    View
-                  </span>
-                </div>
-              </Link>
-            );
-          }
-
-          return (
-            <div
-              key={priceKey}
-              className={`rounded-md overflow-hidden ${
-                isBestAsk
-                  ? "border border-rose-500/15 bg-rose-500/[0.03]"
-                  : "border border-gray-800/60 bg-[#0a0a0a]/40"
-              }`}
-            >
-              <button
-                type="button"
-                onClick={() => toggle(key)}
-                className={`flex w-full text-left rounded-md overflow-hidden hover:bg-white/[0.04] transition-colors ${
-                  isFull ? "min-h-[42px]" : ""
-                }`}
-              >
-                <div className={rowGrid}>
-                  <span
-                    className={`min-w-0 flex items-center text-[10px] font-bold ${
-                      isBestAsk ? "text-rose-300/90" : "text-gray-500"
-                    }`}
-                  >
-                    Sell
-                  </span>
-                  <span
-                    className={`min-w-0 text-right font-medium tabular-nums ${
-                      isBestAsk ? "text-rose-400" : "text-gray-200"
-                    }`}
-                  >
-                    {formatPriceUsdc(price)}
-                  </span>
-                  <span className="min-w-0 flex justify-end items-center text-[10px] text-gray-400 tabular-nums">
-                    {isOpen ? "▾" : "▸"}
-                  </span>
-                </div>
-              </button>
-              {isOpen && (
-                <div
-                  className={`border-t px-2 py-2 space-y-1 bg-black/20 ${
-                    isBestAsk ? "border-rose-500/20" : "border-gray-800/80"
-                  }`}
-                >
-                  <p className="text-[10px] text-gray-500 px-1 pb-1">
-                    Same USDC — open a listing to view the card.
-                  </p>
-                  {orders.map(({ order, tokenId }) => (
-                    <Link
-                      key={order.orderHash}
-                      href={`/marketplace/${tokenId}`}
-                      className="flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-xs hover:bg-white/[0.06] border border-transparent hover:border-gray-700/80"
-                    >
-                      <span className="text-gray-400 text-[11px]">Listing</span>
-                      <span className="text-mint/90 text-[10px] shrink-0">View →</span>
-                    </Link>
-                  ))}
-                </div>
-              )}
-            </div>
-          );
-        })
-        )}
+      {tab === "book" && (
+        <>
+          <div className="grid grid-cols-[1fr_44px] gap-1 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-500 border-b border-gray-800/80">
+            <span>Price</span>
+            <span className="text-right">Qty</span>
           </div>
 
-        <div className="border-t border-gray-800/60 pt-2 mt-2">
-          {/* Buy — highest bid at top of this list */}
-          <div className="pb-0.5 px-3">
-            <span className="text-[11px] font-semibold text-emerald-400/90">Buy</span>
-          </div>
-          <div className={scrollPanelClass}>
-        {buySlots.length === 0 ? (
-          <p className="text-[11px] text-gray-600 py-3 px-3 text-center">No bids.</p>
-        ) : (
-        buySlots.map((slot) => {
-          if (slot.kind === "pool_group") {
-            const { amountKey, price, bids } = slot;
-            const n = bids.length;
-            const key = `pool-${amountKey}`;
-            const isOpen = expanded[key];
-            const single = n === 1;
-            const bid = bids[0]!;
-            const mine =
-              address?.toLowerCase() === bid.buyerOfferer.toLowerCase();
-            const isBestBuy = amountKey === bestBuyAmountKey;
-
-            if (single) {
-              return (
+          {/* Asks — red, highest price at top */}
+          <div className="min-h-[48px] max-h-[180px] flex flex-col justify-end gap-px px-1 pt-1 overflow-y-auto">
+            {askLevels.length === 0 ? (
+              <div className="py-5 text-center text-[11px] text-gray-600">No sell orders</div>
+            ) : (
+              askLevels.map((level) => (
                 <div
-                  key={amountKey}
-                  className={`flex rounded-md overflow-hidden ${
-                    isFull ? "min-h-[42px]" : ""
-                  } ${
-                    isBestBuy
-                      ? "border border-cyan-500/20 bg-cyan-500/[0.04]"
-                      : "border border-gray-800/50 bg-transparent"
-                  }`}
+                  key={level.key}
+                  className="relative min-h-[28px] flex items-start rounded-sm overflow-hidden group"
                 >
-                  <div className={rowGrid}>
-                    <div className="min-w-0 flex flex-col gap-0.5 justify-center">
-                      <span
-                        className={`text-[10px] font-bold leading-tight ${
-                          isBestBuy ? "text-cyan-300/90" : "text-gray-500"
-                        }`}
-                      >
-                        Pool
-                      </span>
-                      <span
-                        className="text-[9px] text-gray-500 font-mono truncate"
-                        title={bid.buyerOfferer}
-                      >
-                        {shortAddr(bid.buyerOfferer)}
-                      </span>
-                    </div>
-                    <span
-                      className={`min-w-0 text-right font-medium tabular-nums self-center ${
-                        isBestBuy ? "text-emerald-400" : "text-gray-200"
-                      }`}
-                    >
-                      {formatPriceUsdc(price)}
-                    </span>
-                    <div className="min-w-0 flex justify-end self-center">
-                      <PoolBidIconActions
-                        copied={copiedPoolId === bid.id}
-                        onCopy={() => void copyPoolNotice(bid, price)}
-                        onMail={() => openMailDraftForPool(bid, price)}
-                        onCancel={
-                          mine && onCancelPoolBid
-                            ? () => onCancelPoolBid(bid)
-                            : undefined
-                        }
-                      />
-                    </div>
-                  </div>
-                </div>
-              );
-            }
-
-            return (
-              <div
-                key={amountKey}
-                className={`rounded-md overflow-hidden ${
-                  isBestBuy
-                    ? "border border-cyan-500/20 bg-cyan-500/[0.04]"
-                    : "border border-gray-800/60 bg-[#0a0a0a]/40"
-                }`}
-              >
-                <button
-                  type="button"
-                  onClick={() => toggle(key)}
-                  className={`flex w-full text-left rounded-md overflow-hidden hover:bg-white/[0.04] transition-colors ${
-                    isFull ? "min-h-[42px]" : ""
-                  }`}
-                >
-                  <div className={rowGrid}>
-                    <span
-                      className={`min-w-0 flex items-center text-[10px] font-bold ${
-                        isBestBuy ? "text-cyan-300/90" : "text-gray-500"
-                      }`}
-                    >
-                      Pool
-                    </span>
-                    <span
-                      className={`min-w-0 text-right font-medium tabular-nums ${
-                        isBestBuy ? "text-emerald-400" : "text-gray-200"
-                      }`}
-                    >
-                      {formatPriceUsdc(price)}
-                    </span>
-                    <span className="min-w-0 flex justify-end items-center text-[10px] text-gray-400 tabular-nums">
-                      {isOpen ? "▾" : "▸"}
-                    </span>
-                  </div>
-                </button>
-                {isOpen && (
                   <div
-                    className={`border-t bg-black/20 px-2 py-2 space-y-2 ${
-                      isBestBuy ? "border-cyan-500/20" : "border-gray-800/80"
-                    }`}
-                  >
-                    {bids.map((b) => {
-                      const m =
-                        address?.toLowerCase() === b.buyerOfferer.toLowerCase();
+                    className="absolute inset-y-0 right-0 bg-rose-500/[0.14] transition-[width]"
+                    style={{ width: `${Math.min(100, level.depth * 100)}%` }}
+                  />
+                  <div className="relative z-10 grid grid-cols-[1fr_44px] gap-1 w-full px-2 py-1.5 text-[11px] font-mono tabular-nums items-start">
+                    <div className="min-w-0 pr-1">
+                      <div className="text-rose-400 font-medium leading-tight">
+                        {formatPriceUsdc(level.price)}
+                      </div>
+                      <div className="mt-0.5 flex flex-wrap gap-x-1.5 gap-y-0.5">
+                        {level.orders.map((o) => (
+                          <Link
+                            key={o.orderHash}
+                            href={`/marketplace/${Number(o.tokenId)}?fromCollection=${encodeURIComponent(collectionKey)}`}
+                            className="text-[9px] font-sans text-gray-500 hover:text-mint tabular-nums underline-offset-2 hover:underline"
+                          >
+                            #{o.tokenId}
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
+                    <span className="text-right text-gray-400 leading-tight pt-0.5">{level.count}</span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Mid */}
+          <div className="my-0.5 mx-1 rounded-lg bg-gray-900/90 border border-gray-800 py-2.5 px-2">
+            <div className="text-center">
+              <div className="text-lg font-bold text-mint tabular-nums tracking-tight">
+                {midLabel}
+              </div>
+              <div className="text-[10px] text-gray-500 mt-0.5">{spreadText}</div>
+              <div className="text-[10px] text-gray-600 mt-1">Collection mid · USDC</div>
+            </div>
+          </div>
+
+          {/* Bids — green */}
+          <div className="max-h-[220px] overflow-y-auto flex flex-col gap-px px-1 pb-1">
+            {bidLevels.length === 0 ? (
+              <div className="py-6 text-center text-[11px] text-gray-600">No buy orders</div>
+            ) : (
+              bidLevels.map((level) => {
+                const multi = level.count > 1;
+                return (
+                  <div key={level.key} className="rounded-sm overflow-hidden">
+                    <div
+                      className={`relative min-h-[28px] flex items-center overflow-hidden group ${
+                        multi ? "bg-mint/[0.03]" : ""
+                      }`}
+                    >
+                      <div
+                        className="absolute inset-y-0 left-0 bg-mint/[0.12]"
+                        style={{ width: `${Math.min(100, level.depth * 100)}%` }}
+                      />
+                      <div className="relative z-10 grid grid-cols-[1fr_44px] gap-1 w-full px-2 py-1 text-[11px] font-mono tabular-nums items-center">
+                        <span className="text-mint font-medium flex items-center gap-1.5 min-w-0">
+                          <span>{formatPriceUsdc(level.price)}</span>
+                          {multi && (
+                            <span className="text-[9px] font-semibold uppercase px-1 py-0 rounded bg-mint/15 text-mint/90 border border-mint-deep/25 shrink-0">
+                              ×{level.count}
+                            </span>
+                          )}
+                        </span>
+                        <span className="text-right text-gray-400">{level.count}</span>
+                      </div>
+                    </div>
+
+                    {level.orders.map((o) => {
+                      const mine =
+                        address != null && address.toLowerCase() === o.offerer.toLowerCase();
+                      let display = priceUsdcFromOrder(o);
+                      try {
+                        const offer0 = o.parameters?.offer?.[0];
+                        if (offer0?.startAmount)
+                          display = Number(formatUnits(BigInt(offer0.startAmount), 6));
+                      } catch {
+                        /* */
+                      }
+                      const canInstant = myAsks.length > 0 && selectedAsk != null && address;
+
                       return (
                         <div
-                          key={b.id}
-                          className="rounded-lg border border-gray-800/80 px-2.5 py-2 flex flex-row items-center justify-between gap-3 min-w-0"
+                          key={o.orderHash}
+                          className="px-3 py-2 border-t border-gray-800/40 bg-black/20 space-y-2"
                         >
-                          <span className="text-[11px] text-gray-400 font-mono truncate min-w-0">
-                            {b.buyerOfferer}
-                          </span>
-                          <PoolBidIconActions
-                            copied={copiedPoolId === b.id}
-                            onCopy={() => void copyPoolNotice(b, price)}
-                            onMail={() => openMailDraftForPool(b, price)}
-                            onCancel={
-                              m && onCancelPoolBid
-                                ? () => onCancelPoolBid(b)
-                                : undefined
-                            }
-                          />
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-[10px] text-gray-600 truncate font-mono">
+                              {shortAddr(o.offerer)}
+                            </p>
+                            {mine && (
+                              <button
+                                type="button"
+                                disabled={cancelling === o.orderHash}
+                                onClick={() => void handleCancelBid(o)}
+                                className="text-[10px] font-semibold px-2 py-1 rounded bg-gray-800 text-gray-300 hover:bg-gray-700 disabled:opacity-40"
+                              >
+                                {cancelling === o.orderHash ? "…" : "Cancel"}
+                              </button>
+                            )}
+                          </div>
+
+                          {canInstant && (
+                            <div className="rounded-md border border-gray-800/90 bg-black/35 px-2 py-2 space-y-1.5">
+                              {myAsks.length > 1 && (
+                                <label className="flex flex-col gap-0.5">
+                                  <span className="text-[9px] text-gray-500 uppercase tracking-wide">
+                                    Your listing
+                                  </span>
+                                  <select
+                                    value={pickToken ?? ""}
+                                    onChange={(e) => setPickToken(Number(e.target.value))}
+                                    className="text-[10px] rounded border border-gray-800 bg-black/50 text-gray-200 px-1.5 py-1 font-mono"
+                                  >
+                                    {myAsks.map((a) => (
+                                      <option key={a.orderHash} value={Number(a.tokenId)}>
+                                        #{a.tokenId} — {formatPriceUsdc(priceUsdcFromOrder(a))} USDC
+                                      </option>
+                                    ))}
+                                  </select>
+                                </label>
+                              )}
+                              <button
+                                type="button"
+                                disabled={instantBusy === o.orderHash}
+                                onClick={() => void handleInstantSell(o)}
+                                className="w-full text-[10px] font-bold py-1.5 rounded-lg bg-amber-500/15 text-amber-200 border border-amber-500/30 hover:bg-amber-500/25 disabled:opacity-40"
+                              >
+                                {instantBusy === o.orderHash
+                                  ? "Working…"
+                                  : `Instant sell @ ${formatPriceUsdc(display)} USDC`}
+                              </button>
+                              <p className="text-[9px] text-gray-600 leading-snug">
+                                Reprices your listing to the bid if needed, then matches on-chain.
+                              </p>
+                            </div>
+                          )}
                         </div>
                       );
                     })}
                   </div>
-                )}
-              </div>
-            );
-          }
-
-          const { amountKey, price, orders } = slot;
-          const n = orders.length;
-          const key = `sea-${amountKey}`;
-          const isOpen = expanded[key];
-          const single = n === 1;
-          const order = orders[0]!;
-          const tid = Number(order.tokenId);
-          const isBestBuy = amountKey === bestBuyAmountKey;
-
-          if (single) {
-            return (
-              <Link
-                key={amountKey}
-                href={`/marketplace/${tid}`}
-                className={`flex rounded-md overflow-hidden transition-colors group ${
-                  isFull ? "min-h-[42px]" : ""
-                } ${
-                  isBestBuy
-                    ? "border border-emerald-500/15 bg-emerald-500/[0.03] hover:bg-emerald-500/[0.05]"
-                    : "hover:bg-white/[0.04]"
-                }`}
-              >
-                <div className={rowGrid}>
-                  <span
-                    className={`min-w-0 flex items-center text-[10px] font-bold ${
-                      isBestBuy ? "text-emerald-300/90" : "text-gray-500"
-                    }`}
-                  >
-                    Bid
-                  </span>
-                  <span
-                    className={`min-w-0 text-right font-medium tabular-nums ${
-                      isBestBuy
-                        ? "text-emerald-400 group-hover:text-emerald-300"
-                        : "text-gray-200 group-hover:text-white"
-                    }`}
-                  >
-                    {formatPriceUsdc(price)}
-                  </span>
-                  <span
-                    className={`min-w-0 flex justify-end items-center text-[10px] ${
-                      isBestBuy ? "text-mint/80" : "text-gray-500"
-                    }`}
-                  >
-                    View
-                  </span>
-                </div>
-              </Link>
-            );
-          }
-
-          return (
-            <div
-              key={amountKey}
-              className={`rounded-md overflow-hidden ${
-                isBestBuy
-                  ? "border border-emerald-500/15 bg-emerald-500/[0.03]"
-                  : "border border-gray-800/60 bg-[#0a0a0a]/40"
-              }`}
-            >
-              <button
-                type="button"
-                onClick={() => toggle(key)}
-                className={`flex w-full text-left rounded-md overflow-hidden hover:bg-white/[0.04] transition-colors ${
-                  isFull ? "min-h-[42px]" : ""
-                }`}
-              >
-                <div className={rowGrid}>
-                  <span
-                    className={`min-w-0 flex items-center text-[10px] font-bold ${
-                      isBestBuy ? "text-emerald-300/90" : "text-gray-500"
-                    }`}
-                  >
-                    Bid
-                  </span>
-                  <span
-                    className={`min-w-0 text-right font-medium tabular-nums ${
-                      isBestBuy ? "text-emerald-400" : "text-gray-200"
-                    }`}
-                  >
-                    {formatPriceUsdc(price)}
-                  </span>
-                  <span className="min-w-0 flex justify-end items-center text-[10px] text-gray-400 tabular-nums">
-                    {isOpen ? "▾" : "▸"}
-                  </span>
-                </div>
-              </button>
-              {isOpen && (
-                <div
-                  className={`border-t bg-black/20 px-2 py-2 space-y-1 ${
-                    isBestBuy ? "border-emerald-500/20" : "border-gray-800/80"
-                  }`}
-                >
-                  <p className="text-[10px] text-gray-500 px-1 pb-1">
-                    Same USDC — open a bid to view the card.
-                  </p>
-                  {orders.map((o) => {
-                    const id = Number(o.tokenId);
-                    return (
-                      <Link
-                        key={o.orderHash}
-                        href={`/marketplace/${id}`}
-                        className="flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-xs hover:bg-white/[0.06] border border-transparent hover:border-gray-700/80"
-                      >
-                        <span className="text-gray-400 text-[11px]">Bid</span>
-                        <span className="text-mint/90 text-[10px] shrink-0">View →</span>
-                      </Link>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          );
-        })
-        )}
+                );
+              })
+            )}
           </div>
 
-        </div>
-        {displayRowCount === 0 && (
-          <p className="text-[11px] text-gray-600 text-center py-6 px-2 border-t border-gray-800/70">
-            No orders yet. Post a pool bid or list an asset.
+          <div className="px-3 py-2 border-t border-gray-800/90">
+            <div className="h-1.5 w-full rounded-full overflow-hidden flex bg-gray-800">
+              <div className="h-full bg-mint/80 transition-all" style={{ width: `${bidPct}%` }} />
+              <div className="h-full flex-1 bg-rose-500/80" />
+            </div>
+            <div className="flex justify-between text-[10px] text-gray-500 mt-1 font-mono">
+              <span className="text-mint/90">Bids {bidPct}%</span>
+              <span className="text-rose-400/90">Asks {100 - bidPct}%</span>
+            </div>
+          </div>
+
+          {instantErr && (
+            <div className="mx-2 mb-2 px-2 py-1.5 rounded-md bg-red-500/10 border border-red-500/25">
+              <p className="text-[10px] text-red-400 break-all">{instantErr}</p>
+            </div>
+          )}
+        </>
+      )}
+
+      {tab === "trades" && (
+        <div className="max-h-[420px] overflow-y-auto py-10 px-4 text-center">
+          <p className="text-[12px] text-gray-500 leading-relaxed">
+            Recent fills for this collection are not shown here yet.
+            <br />
+            <span className="text-gray-600 text-[11px]">
+              Use the token page for per-asset activity.
+            </span>
           </p>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

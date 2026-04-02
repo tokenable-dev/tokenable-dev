@@ -1,17 +1,17 @@
-# NFT Marketplace
+# Tokenable RWA Marketplace
 
-A decentralized NFT marketplace that enables users to mint, list, and trade NFTs. Built as a monorepo with a modern Web3 stack.
+A decentralized marketplace for real-world asset (RWA) tokens on EVM chains. Users mint, list, and trade ERC-721–backed assets with USDC. Built as a monorepo with a modern Web3 stack.
 
 ---
 
 ## Project Description
 
-This project is a full-stack NFT marketplace that allows users to:
+This project is a full-stack RWA marketplace that allows users to:
 
-- **Mint** NFTs by uploading images and metadata to IPFS
-- **List** owned NFTs for sale with USDC pricing
-- **Purchase** NFTs from the marketplace using USDC
-- **View** NFT details, activity history, and magnified image previews
+- **Mint** RWAs by uploading images and metadata to IPFS
+- **List** owned assets for sale with USDC pricing
+- **Purchase** assets from the marketplace using USDC
+- **View** asset details, activity history, and magnified image previews
 
 The application is designed for EVM-compatible chains and follows a non-custodial model where users retain control of their assets until a sale is completed.
 
@@ -32,7 +32,7 @@ The application is designed for EVM-compatible chains and follows a non-custodia
 - **Node.js** / **TypeScript**
 - **NestJS** — API framework
 - **ethers.js** — Blockchain interaction
-- **Pinata** — IPFS pinning for NFT assets
+- **Pinata** — IPFS pinning for RWA assets
 - **Swagger** — API documentation
 
 ### Smart Contracts
@@ -43,26 +43,36 @@ The application is designed for EVM-compatible chains and follows a non-custodia
 
 ### Blockchain / Web3
 
-- **EVM-compatible chain** (e.g., Hyperledger Besu)
+- **Ethereum Sepolia** (testnet)
 - **MetaMask** — Wallet connection
-- **IPFS** — Decentralized storage for NFT metadata and images
+- **IPFS** — Decentralized storage for RWA metadata and images
 
 ---
 
 ## Repository Structure
 
 ```
-nft-marketplace/
+tokenable-dev/
 ├── frontend/     # User interface for interacting with the marketplace
 ├── backend/      # API server, business logic, and blockchain integration
-└── contracts/    # Smart contracts for NFT minting, listing, and trading
+└── contracts/    # Smart contracts for RWA minting, listing, and trading
 ```
 
 | Folder       | Description                                                                 |
 | ------------ | --------------------------------------------------------------------------- |
-| **frontend** | Next.js application for wallet connection, NFT minting, browsing, and trading |
+| **frontend** | Next.js application for wallet connection, RWA minting, browsing, and trading |
 | **backend**  | NestJS API server handling IPFS uploads, blockchain reads, and marketplace data |
-| **contracts** | Solidity: TokenableRWA (ERC-721), MockUSDC (ERC-20), SkyMarketplace (legacy) |
+| **contracts** | Solidity: TokenableRWA (ERC-721), MockUSDC (ERC-20) — trading uses OpenSea Seaport (no custom marketplace contract) |
+
+---
+
+## Documentation
+
+| Document | Contents |
+|----------|----------|
+| **[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)** | DB reset, TypeORM, API summary, Seaport, deploy, PSA troubleshooting, diagram index |
+| **[docs/price-api.md](docs/price-api.md)** | JustTCG price API (long reference) |
+| **[backend/sql/README.md](backend/sql/README.md)** | Why there are no SQL migrations |
 
 ---
 
@@ -78,7 +88,7 @@ nft-marketplace/
 
 ```bash
 git clone <repository-url>
-cd nft-marketplace
+cd tokenable-dev
 ```
 
 ### 2. Install dependencies
@@ -98,8 +108,8 @@ cd ../contracts && pnpm install
 
 Create env files yourself (not committed):
 
-- `backend/.env` — RPC, Postgres, Pinata, JWT/Google 등
-- `frontend/.env.local` — `NEXT_PUBLIC_*` (로컬에서만)
+- `backend/.env` — RPC, Postgres, Pinata, JWT/Google 등 (`RWA_CONTRACT_ADDRESS` 권장; 레거시 `NFT_CONTRACT_ADDRESS` 호환)
+- `frontend/.env.local` — `NEXT_PUBLIC_*` (로컬에서만; `NEXT_PUBLIC_RWA_CONTRACT_ADDRESS` 권장)
 - `contracts/.env` — 배포용 private key / RPC 등
 
 필수 항목은 RPC URL, 컨트랙트 주소, IPFS(Pinata) 자격 증명 등이다.
@@ -108,9 +118,9 @@ Create env files yourself (not committed):
 
 ```bash
 cd contracts
-pnpm run deploy:usdc      # Deploy MockUSDC
-pnpm run deploy:nft       # Deploy TokenableRWA
-pnpm run deploy:marketplace  # Deploy SkyMarketplace
+# Requires contracts/.env: DEPLOYER_PRIVATE_KEY, SEPOLIA_RPC_URL
+pnpm run deploy:usdc      # MockUSDC → Sepolia
+pnpm run deploy:rwa       # TokenableRWA → Sepolia (same as deploy:rwa-sepolia)
 ```
 
 Update `backend/.env` and `frontend/.env.local` with the deployed contract addresses.
@@ -140,14 +150,9 @@ To access from another device (e.g. phone) on the same network:
 
 ---
 
-## Future Features
+## Future ideas
 
-- [ ] **NFT minting** — Upload and mint NFTs with IPFS metadata
-- [ ] **NFT listing** — List owned NFTs for sale with USDC pricing
-- [ ] **NFT purchasing** — Buy listed NFTs with USDC
-- [ ] **Wallet connection** — MetaMask and other EVM wallets
-- [ ] **Marketplace fees** — Configurable platform fees on sales
-- [ ] **Auction support** — Time-based auctions for NFTs
+- Marketplace fees, auctions, multi-chain, etc. (track separately from this README.)
 
 ---
 

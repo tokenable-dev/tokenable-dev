@@ -1,14 +1,40 @@
+import type { Abi } from "viem";
+
+import { SEAPORT_MATCH_ADVANCED_ORDERS_ABI } from "./seaportMatchAdvancedAbi";
+
 // ─── Contract Addresses ───────────────────────────────────────────────────────
 
 /** Collection display name when metadata has no `name` */
 export const TOKENABLE_RWA_DISPLAY_NAME = "Tokenable_RWA";
 
-export const TOKENABLE_RWA_ADDRESS = (process.env.NEXT_PUBLIC_NFT_CONTRACT_ADDRESS ??
-  "0x8d14F1518A185A7966AE6e8a6ab94AfC8E4EF6ec") as `0x${string}`;
+const ADDR = /^0x[a-fA-F0-9]{40}$/;
 
-/** Circle Sepolia USDC */
-export const USDC_ADDRESS = (process.env.NEXT_PUBLIC_USDC_CONTRACT_ADDRESS ??
-  "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238") as `0x${string}`;
+function requirePublicAddress(
+  primary: string,
+  legacy?: string,
+): `0x${string}` {
+  const raw =
+    process.env[primary] ?? (legacy ? process.env[legacy] : undefined);
+  if (!raw || !ADDR.test(raw)) {
+    const hint = legacy
+      ? `Set ${primary} or ${legacy}`
+      : `Set ${primary}`;
+    throw new Error(
+      `[contracts] ${hint} in the environment (e.g. frontend/.env.local). See frontend/.env.example.`,
+    );
+  }
+  return raw as `0x${string}`;
+}
+
+/** Prefer `NEXT_PUBLIC_RWA_CONTRACT_ADDRESS`; `NEXT_PUBLIC_NFT_CONTRACT_ADDRESS` is a legacy alias. */
+export const TOKENABLE_RWA_ADDRESS = requirePublicAddress(
+  "NEXT_PUBLIC_RWA_CONTRACT_ADDRESS",
+  "NEXT_PUBLIC_NFT_CONTRACT_ADDRESS",
+);
+
+export const USDC_ADDRESS = requirePublicAddress(
+  "NEXT_PUBLIC_USDC_CONTRACT_ADDRESS",
+);
 
 /** Seaport v1.5 — deployed at the same address on all EVM chains */
 export const SEAPORT_ADDRESS =
@@ -82,9 +108,6 @@ export const USDC_ABI = [
   },
 ] as const;
 
-/** @deprecated Use USDC_ABI */
-export const USDC_APPROVE_ABI = USDC_ABI;
-
 // ─── Seaport ABIs ─────────────────────────────────────────────────────────────
 
 export const SEAPORT_ABI = [
@@ -150,6 +173,12 @@ export const SEAPORT_ABI = [
     outputs: [{ name: "fulfilled", type: "bool" }],
   },
 ] as const;
+
+/** `fulfillOrder` + `getCounter` + `matchAdvancedOrders` — use for advanced/criteria settlement. */
+export const SEAPORT_ABI_WITH_MATCH_ADVANCED = [
+  ...SEAPORT_ABI,
+  ...SEAPORT_MATCH_ADVANCED_ORDERS_ABI,
+] as Abi;
 
 // ─── Seaport EIP-712 types for signTypedData ──────────────────────────────────
 

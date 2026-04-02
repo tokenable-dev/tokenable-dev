@@ -45,7 +45,7 @@ export class BlockchainService {
   }
 
   // ── Tokenable_RWA (ERC-721) ─────────────────────────────────────
-  async getNftInfo(): Promise<{ name: string; symbol: string; totalMinted: number }> {
+  async getRwaInfo(): Promise<{ name: string; symbol: string; totalMinted: number }> {
     const [name, symbol, totalMinted] = await Promise.all([
       this.tokenableRwa.name(),
       this.tokenableRwa.symbol(),
@@ -54,38 +54,38 @@ export class BlockchainService {
     return { name, symbol, totalMinted: Number(totalMinted) };
   }
 
-  async getNftOwner(tokenId: number): Promise<string> {
+  async getRwaOwner(tokenId: number): Promise<string> {
     try {
       return await this.tokenableRwa.ownerOf(tokenId);
     } catch (e: unknown) {
       if (isErc721InvalidTokenError(e)) {
         throw new NotFoundException(
-          `NFT #${tokenId} does not exist on the configured contract (redeploy / contract address changed?)`,
+          `RWA #${tokenId} does not exist on the configured contract (redeploy / contract address changed?)`,
         );
       }
       throw e;
     }
   }
 
-  async getNftTokenURI(tokenId: number): Promise<string> {
+  async getRwaTokenURI(tokenId: number): Promise<string> {
     try {
       return await this.tokenableRwa.tokenURI(tokenId);
     } catch (e: unknown) {
       if (isErc721InvalidTokenError(e)) {
         throw new NotFoundException(
-          `NFT #${tokenId} does not exist on the configured contract (redeploy / contract address changed?)`,
+          `RWA #${tokenId} does not exist on the configured contract (redeploy / contract address changed?)`,
         );
       }
       throw e;
     }
   }
 
-  async getNftBalance(address: string): Promise<number> {
+  async getRwaBalance(address: string): Promise<number> {
     const balance = await this.tokenableRwa.balanceOf(address);
     return Number(balance);
   }
 
-  async getNftTokensByOwner(address: string): Promise<number[]> {
+  async getRwaTokensByOwner(address: string): Promise<number[]> {
     const tokenIds: bigint[] = await this.tokenableRwa.tokensOfOwner(address);
     return tokenIds.map(Number);
   }

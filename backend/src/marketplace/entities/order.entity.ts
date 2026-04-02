@@ -49,17 +49,13 @@ export class Order {
   @Column({ name: 'token_contract' })
   tokenContract: string;
 
-  /** NFT Token ID */
+  /** RWA (ERC-721) token ID */
   @Index()
   @Column({ name: 'token_id' })
   tokenId: string;
 
-  /** 풀(컬렉션) 매수 입찰과 연결된 경우 — Seaport token-특정 입찰로 정산 */
-  @Column({ name: 'bucket_bid_id', type: 'int', nullable: true })
-  bucketBidId: number | null;
-
   /**
-   * graded 메타 기준 논리 컬렉션 (매도 ask일 때만) — `computeMarketBucketKey` 와 동일 문자열
+   * 논리 컬렉션 키 (ask: 리스팅 메타; bid: ERC721_WITH_CRITERIA 컬렉션 입찰)
    */
   @Index()
   @Column({ name: 'collection_key', type: 'varchar', length: 64, nullable: true })
