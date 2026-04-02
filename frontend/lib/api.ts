@@ -19,16 +19,16 @@ function backendFetch(url: string, init?: RequestInit): Promise<Response> {
   return fetch(url, { ...init, credentials: "include" });
 }
 
-// ─── NFT Upload ───────────────────────────────────────────────────────────────
+// ─── RWA metadata upload (IPFS) ────────────────────────────────────────────────
 
-export interface UploadNftResult {
+export interface UploadRwaResult {
   tokenURI: string;
   imageURI: string;
   metadataCID: string;
 }
 
-export async function uploadNft(formData: FormData): Promise<UploadNftResult> {
-  const res = await backendFetch(`${getApiUrl()}/nft/upload`, {
+export async function uploadRwaMetadata(formData: FormData): Promise<UploadRwaResult> {
+  const res = await backendFetch(`${getApiUrl()}/rwa/upload`, {
     method: "POST",
     body: formData,
   });
@@ -36,7 +36,7 @@ export async function uploadNft(formData: FormData): Promise<UploadNftResult> {
     const error = await res.json().catch(() => ({ message: "Upload failed" }));
     throw new Error((error as { message: string }).message ?? "Asset upload failed");
   }
-  return res.json() as Promise<UploadNftResult>;
+  return res.json() as Promise<UploadRwaResult>;
 }
 
 // ─── PSA slab OCR + JustTCG ───────────────────────────────────────────────────
@@ -143,34 +143,34 @@ export async function getTokenBalance(address: string): Promise<string> {
   return res.json() as Promise<string>;
 }
 
-// ─── Blockchain — NFT ─────────────────────────────────────────────────────────
+// ─── Blockchain — RWA (ERC-721) ───────────────────────────────────────────────
 
-export interface NftContractInfo {
+export interface RwaContractInfo {
   name: string;
   symbol: string;
   totalMinted: number;
 }
 
-export async function getNftContractInfo(): Promise<NftContractInfo> {
-  const res = await backendFetch(`${getApiUrl()}/blockchain/nft/info`);
+export async function getRwaContractInfo(): Promise<RwaContractInfo> {
+  const res = await backendFetch(`${getApiUrl()}/blockchain/rwa/info`);
   if (!res.ok) throw new Error("Failed to fetch contract info");
-  return res.json() as Promise<NftContractInfo>;
+  return res.json() as Promise<RwaContractInfo>;
 }
 
-export async function getNftBalance(address: string): Promise<number> {
-  const res = await backendFetch(`${getApiUrl()}/blockchain/nft/balance/${address}`);
+export async function getRwaBalance(address: string): Promise<number> {
+  const res = await backendFetch(`${getApiUrl()}/blockchain/rwa/balance/${address}`);
   if (!res.ok) throw new Error("Failed to fetch asset balance");
   return res.json() as Promise<number>;
 }
 
-export async function getNftTokensByOwner(address: string): Promise<number[]> {
-  const res = await backendFetch(`${getApiUrl()}/blockchain/nft/tokens/${address}`);
+export async function getRwaTokensByOwner(address: string): Promise<number[]> {
+  const res = await backendFetch(`${getApiUrl()}/blockchain/rwa/tokens/${address}`);
   if (!res.ok) throw new Error("Failed to fetch owned assets");
   return res.json() as Promise<number[]>;
 }
 
-export async function getNftTokenURI(tokenId: number): Promise<string> {
-  const res = await backendFetch(`${getApiUrl()}/blockchain/nft/token-uri/${tokenId}`);
+export async function getRwaTokenURI(tokenId: number): Promise<string> {
+  const res = await backendFetch(`${getApiUrl()}/blockchain/rwa/token-uri/${tokenId}`);
   /** 404 = tokenId not minted on current contract (e.g. after redeploy / address change) */
   if (res.status === 404) return "";
   if (!res.ok) throw new Error("Failed to fetch token URI");
@@ -225,8 +225,6 @@ export interface Order {
   offerer: string;
   /** ask = 매도 리스팅, bid = 매수 입찰 (없으면 레거시 ask로 간주) */
   side?: "ask" | "bid";
-  /** 풀(컬렉션) 매수와 연결된 Seaport 입찰 */
-  bucketBidId?: number | null;
   /** graded 메타 기준 컬렉션 (매도 ask) */
   collectionKey?: string | null;
   tokenContract: string;
@@ -250,10 +248,10 @@ export interface CreateOrderPayload {
   tokenId: string;
   considerationToken: string;
   considerationAmount: string;
-  /** ask(기본) = 매도 리스팅, bid = 매수 입찰 */
+  /** ask = listing, bid = buy (FULL ERC721 or ERC721_WITH_CRITERIA) */
   side?: "ask" | "bid";
-  /** 풀 매수 입찰에서 온 token-특정 Seaport 입찰 */
-  bucketBidId?: number;
+  /** Required for criteria (collection) bids */
+  collectionKey?: string;
 }
 
 /** 활성 주문 목록 */
@@ -283,7 +281,7 @@ export async function getMarketplaceCollections(): Promise<
   return res.json() as Promise<MarketplaceCollectionSummary[]>;
 }
 
-/** tokenId로 해당 NFT의 활성 매도(ask) 리스팅 1건 조회 */
+/** tokenId로 해당 RWA의 활성 매도(ask) 리스팅 1건 조회 */
 export async function getOrderByTokenId(tokenId: number): Promise<Order | null> {
   const res = await backendFetch(`${getApiUrl()}/marketplace/orders`);
   if (!res.ok) throw new Error("Failed to fetch orders");
@@ -296,15 +294,6 @@ export async function getOrderByTokenId(tokenId: number): Promise<Order | null> 
         (o.side === "ask" || o.side == null)
     ) ?? null
   );
-}
-
-/** 활성 매수 입찰만 — 가격(USDC 최소단위) 내림차순 */
-export async function getActiveBidsForToken(tokenId: number): Promise<Order[]> {
-  const res = await backendFetch(
-    `${getApiUrl()}/marketplace/orders/bids/token/${tokenId}`
-  );
-  if (!res.ok) throw new Error("Failed to fetch bids");
-  return res.json() as Promise<Order[]>;
 }
 
 /** tokenId로 전체 주문 이력 조회 (active/fulfilled/cancelled/expired 모두) */
@@ -351,32 +340,6 @@ export async function cancelOrder(
   return res.json() as Promise<Order>;
 }
 
-// ── Pool bids (논리적 버킷 — 같은 카드·등급, Web2) ────────────────────────────
-
-export interface MarketBucketComponents {
-  gradingCompany: string;
-  cardName: string;
-  cardSet: string;
-  gradeScore: string;
-}
-
-export interface BucketBid {
-  id: number;
-  bucketKey: string;
-  tokenContract: string;
-  buyerOfferer: string;
-  considerationAmount: string;
-  components: MarketBucketComponents;
-  status: string;
-  startTime: string;
-  endTime: string;
-  fulfilledTokenId: string | null;
-  signature?: string | null;
-  nonce?: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
 export interface MarketplaceCollectionDetail {
   collection: {
     collectionKey: string;
@@ -386,8 +349,8 @@ export interface MarketplaceCollectionDetail {
     createdAt: string;
   };
   listings: Order[];
-  poolBids: BucketBid[];
-  seaportBids: Order[];
+  /** ERC721_WITH_CRITERIA collection bids */
+  collectionBids: Order[];
   /** JustTCG topMatch 카드 이미지(슬랩 사진 아님); 없으면 null */
   representativeImageUrl: string | null;
 }
@@ -406,153 +369,62 @@ export async function getMarketplaceCollectionDetail(
   return res.json() as Promise<MarketplaceCollectionDetail>;
 }
 
-export async function getBucketBidsByToken(tokenId: number): Promise<{
-  bucketKey: string;
-  components: MarketBucketComponents;
-  bids: BucketBid[];
-}> {
+/** Merkle leaf set — active listing token IDs in this collection */
+export async function getMerkleEligibleTokenIds(
+  collectionKey: string
+): Promise<{ tokenIds: string[] }> {
   const res = await backendFetch(
-    `${getApiUrl()}/marketplace/bucket-bids/by-token/${tokenId}`
+    `${getApiUrl()}/marketplace/collections/${encodeURIComponent(collectionKey)}/merkle-set`
   );
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(
-      (err as { message?: string }).message ?? "Failed to load pool bids"
+      (err as { message?: string }).message ?? "Failed to load merkle set"
     );
   }
-  return res.json() as Promise<{
-    bucketKey: string;
-    components: MarketBucketComponents;
-    bids: BucketBid[];
-  }>;
+  return res.json() as Promise<{ tokenIds: string[] }>;
 }
 
-export async function createPoolBid(payload: {
-  tokenId?: string;
-  bucketKey?: string;
-  components?: Record<string, unknown>;
-  considerationAmount: string;
-  endTime: string;
-  buyerOfferer: string;
-  signature: string;
-  nonce: string;
-}): Promise<BucketBid> {
-  const body: Record<string, unknown> = {
-    considerationAmount: payload.considerationAmount,
-    endTime: payload.endTime,
-    buyerOfferer: payload.buyerOfferer,
-    signature: payload.signature,
-    nonce: payload.nonce,
-  };
-  if (payload.tokenId != null && payload.tokenId !== "") {
-    body.tokenId = payload.tokenId;
-  }
-  if (payload.bucketKey != null && payload.components != null) {
-    body.bucketKey = payload.bucketKey;
-    body.components = payload.components;
-  }
-  const res = await backendFetch(`${getApiUrl()}/marketplace/bucket-bids`, {
+/** After on-chain matchAdvancedOrders */
+export async function fulfillMatchedPairApi(body: {
+  bidOrderHash: string;
+  askOrderHash: string;
+}): Promise<{ ask: Order; bid: Order }> {
+  const res = await backendFetch(`${getApiUrl()}/marketplace/orders/fulfill-matched-pair`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ message: "Failed to create pool bid" }));
-    throw new Error((err as { message?: string }).message ?? "Failed to create pool bid");
+    const err = await res.json().catch(() => ({ message: "Failed to record match" }));
+    throw new Error((err as { message?: string }).message ?? "Failed to record match");
   }
-  return res.json() as Promise<BucketBid>;
+  return res.json() as Promise<{ ask: Order; bid: Order }>;
 }
 
-export async function cancelPoolBid(
-  id: number,
-  callerAddress: string
-): Promise<BucketBid> {
-  const res = await backendFetch(
-    `${getApiUrl()}/marketplace/bucket-bids/${id}/cancel?callerAddress=${encodeURIComponent(callerAddress)}`,
-    { method: "PATCH" }
-  );
+/** Cancel + insert new ask in one DB transaction (keeps Merkle token IDs stable). */
+export async function replaceListingApi(body: {
+  callerAddress: string;
+  oldOrderHash: string;
+  order: CreateOrderPayload;
+}): Promise<Order> {
+  const res = await backendFetch(`${getApiUrl()}/marketplace/orders/replace-listing`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error((err as { message?: string }).message ?? "Failed to cancel pool bid");
+    const err = await res.json().catch(() => ({ message: "Failed to replace listing" }));
+    throw new Error((err as { message?: string }).message ?? "Failed to replace listing");
   }
-  return res.json() as Promise<BucketBid>;
+  return res.json() as Promise<Order>;
 }
 
-export async function validatePoolBidSellerMatch(
-  bidId: number,
-  tokenId: number,
-  sellerAddress: string
-): Promise<{
-  match: boolean;
-  bucketBid: BucketBid;
-  tokenOwner: string;
-  message: string;
-}> {
-  const res = await backendFetch(
-    `${getApiUrl()}/marketplace/bucket-bids/${bidId}/validate-seller`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tokenId: String(tokenId), sellerAddress }),
-    }
-  );
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error((err as { message?: string }).message ?? "Validation failed");
-  }
-  return res.json() as Promise<{
-    match: boolean;
-    bucketBid: BucketBid;
-    tokenOwner: string;
-    message: string;
-  }>;
-}
-
-export async function preparePoolBidFulfillment(
-  bidId: number,
-  tokenId: number
-): Promise<{
-  match: boolean;
-  bucketBid: BucketBid;
-  tokenId: string;
-  chainId: number;
-  usdcAddress: string;
-  nftContract: string;
-  parametersDraft: Record<string, unknown>;
-  buyerMessage: string;
-}> {
-  const res = await backendFetch(
-    `${getApiUrl()}/marketplace/bucket-bids/${bidId}/prepare-fulfill`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tokenId: String(tokenId) }),
-    }
-  );
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(
-      (err as { message?: string }).message ?? "Failed to prepare pool bid fulfillment"
-    );
-  }
-  return res.json() as Promise<{
-    match: boolean;
-    bucketBid: BucketBid;
-    tokenId: string;
-    chainId: number;
-    usdcAddress: string;
-    nftContract: string;
-    parametersDraft: Record<string, unknown>;
-    buyerMessage: string;
-  }>;
-}
-
-/** 구매 완료 처리 */
+/** 구매 완료 처리 (리스팅 이행 등 단일 주문) */
 export async function fulfillOrderApi(orderHash: string): Promise<Order> {
-  const res = await backendFetch(
-    `${getApiUrl()}/marketplace/orders/${orderHash}/fulfill`,
-    { method: "PATCH" }
-  );
+  const res = await backendFetch(`${getApiUrl()}/marketplace/orders/${orderHash}/fulfill`, {
+    method: "PATCH",
+  });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ message: "Failed to fulfill order" }));
     throw new Error((err as { message: string }).message ?? "Failed to fulfill order");
@@ -562,7 +434,7 @@ export async function fulfillOrderApi(orderHash: string): Promise<Order> {
 
 // ─── IPFS / Pinata ────────────────────────────────────────────────────────────
 
-export interface NftMetadata {
+export interface RwaMetadata {
   name?: string;
   description?: string;
   image?: string;
@@ -580,12 +452,12 @@ function buildPinataUrl(cid: string): string {
   return `https://${PINATA_GATEWAY}/ipfs/${cid}`;
 }
 
-export async function fetchIpfsMetadata(tokenURI: string): Promise<NftMetadata> {
+export async function fetchIpfsMetadata(tokenURI: string): Promise<RwaMetadata> {
   const cid = tokenURI.replace("ipfs://", "");
   const url = buildPinataUrl(cid);
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Failed to fetch metadata: ${url}`);
-  return res.json() as Promise<NftMetadata>;
+  return res.json() as Promise<RwaMetadata>;
 }
 
 export function resolveIpfsImage(uri: string): string {

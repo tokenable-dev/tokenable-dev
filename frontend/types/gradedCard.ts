@@ -7,7 +7,7 @@ export type GradingCompany =
   | "TAG"
   | "AGS";
 
-/** Metadata structure for graded trading card NFTs (ready for Web3/IPFS) */
+/** Metadata structure for graded trading card RWAs (ready for Web3/IPFS) */
 export interface GradedCardMetadata {
   name: string;
   description?: string;
@@ -58,7 +58,7 @@ export interface GradedCardMetadata {
     specId?: number;
     /** True when PSA_PUBLIC_API_TOKEN is set and cert lookup succeeded */
     enrichedFromOfficialApi?: boolean;
-    /** Source URL for PSA cert image before IPFS upload (mint NFT image) */
+    /** Source URL for PSA cert image before IPFS upload (mint RWA image) */
     certImageSourceUrl?: string;
   };
   /** PSA public API lookup summary (disabled without token) */

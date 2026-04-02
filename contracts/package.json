@@ -6,10 +6,11 @@
   "scripts": {
     "compile": "hardhat compile",
     "test": "hardhat test",
-    "deploy:usdc": "hardhat run scripts/deploy-mock-usdc.ts --network besu",
-    "deploy:nft": "hardhat run scripts/deploy-tokenable-rwa.ts --network besu",
-    "deploy:nft-sepolia": "hardhat run scripts/deploy-tokenable-rwa-sepolia.ts --network sepolia",
-    "deploy:marketplace": "hardhat run scripts/deploy-marketplace.ts --network besu",
+    "deploy:usdc": "hardhat run scripts/deploy-mock-usdc.ts --network sepolia",
+    "deploy:rwa": "hardhat run scripts/deploy-tokenable-rwa-sepolia.ts --network sepolia",
+    "deploy:rwa-sepolia": "pnpm run deploy:rwa",
+    "deploy:nft": "pnpm run deploy:rwa",
+    "deploy:nft-sepolia": "pnpm run deploy:rwa-sepolia",
     "clean": "hardhat clean"
   },
   "keywords": [],

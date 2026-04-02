@@ -5,20 +5,16 @@ import { useParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
-import {
-  cancelPoolBid,
-  getMarketplaceCollectionDetail,
-  type BucketBid,
-  type Order,
-} from "@/lib/api";
+import { getMarketplaceCollectionDetail, type Order } from "@/lib/api";
 import { CollectionCoverFrame } from "@/components/marketplace/CollectionCoverFrame";
 import { CollectionUnifiedOrderBook } from "@/components/marketplace/CollectionUnifiedOrderBook";
 import { CollectionTradeGuide } from "@/components/marketplace/CollectionTradeGuide";
-import { PoolBidsPanel } from "@/components/marketplace/PoolBidsPanel";
-import { CollectionNftCard } from "@/components/marketplace/CollectionNftCard";
+import { CollectionCriteriaBidPanel } from "@/components/marketplace/CollectionCriteriaBidPanel";
+import { CollectionOwnedRwaListModal } from "@/components/marketplace/CollectionOwnedRwaListModal";
+import { CollectionRwaCard } from "@/components/marketplace/CollectionRwaCard";
 import { useAppStore, selectWallet } from "@/store";
+import { isCriteriaCollectionBid } from "@/lib/seaport/criteriaMatch";
 
-/** 활성 매도 중 tokenId당 최저가 리스팅 */
 function bestAskByToken(asks: Order[]): Map<number, Order> {
   const m = new Map<number, Order>();
   for (const o of asks) {
@@ -40,24 +36,10 @@ function bestAskByToken(asks: Order[]): Map<number, Order> {
   return m;
 }
 
-function seaportBidCountsByToken(bids: Order[]): Map<number, number> {
-  const m = new Map<number, number>();
-  for (const b of bids) {
-    const id = Number(b.tokenId);
-    if (!Number.isFinite(id)) continue;
-    m.set(id, (m.get(id) ?? 0) + 1);
-  }
-  return m;
-}
-
-function sortedTokenIds(asks: Order[], seaportBids: Order[]): number[] {
+function sortedTokenIds(asks: Order[]): number[] {
   const s = new Set<number>();
   for (const o of asks) {
     const id = Number(o.tokenId);
-    if (Number.isFinite(id)) s.add(id);
-  }
-  for (const b of seaportBids) {
-    const id = Number(b.tokenId);
     if (Number.isFinite(id)) s.add(id);
   }
   return [...s].sort((a, b) => a - b);
@@ -71,8 +53,8 @@ export default function MarketplaceCollectionPage() {
   const collectionKey = Array.isArray(raw) ? raw[0] : raw;
   const key = typeof collectionKey === "string" ? decodeURIComponent(collectionKey) : "";
   const [showAdvanced, setShowAdvanced] = useState(false);
-  /** Token card grid is secondary; primary view is the collection order book. */
   const [showTokenGrid, setShowTokenGrid] = useState(false);
+  const [sellModalOpen, setSellModalOpen] = useState(false);
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["marketplace-collection", key],
@@ -80,12 +62,6 @@ export default function MarketplaceCollectionPage() {
     enabled: key.length > 0,
     retry: false,
   });
-
-  async function handleCancelPoolBid(bid: BucketBid) {
-    if (!address) return;
-    await cancelPoolBid(bid.id, address);
-    await queryClient.invalidateQueries({ queryKey: ["marketplace-collection", key] });
-  }
 
   function invalidateCollection() {
     void queryClient.invalidateQueries({ queryKey: ["marketplace-collection", key] });
@@ -96,15 +72,18 @@ export default function MarketplaceCollectionPage() {
     [data]
   );
 
+  const collectionBids = useMemo(() => {
+    if (!data?.collectionBids) return [];
+    return data.collectionBids.filter((b) => b.status === "active");
+  }, [data?.collectionBids]);
+
+  const criteriaBidCount = useMemo(
+    () => collectionBids.filter((b) => isCriteriaCollectionBid(b)).length,
+    [collectionBids]
+  );
+
   const askMap = useMemo(() => bestAskByToken(asks), [asks]);
-  const bidCountMap = useMemo(
-    () => (data ? seaportBidCountsByToken(data.seaportBids) : new Map<number, number>()),
-    [data]
-  );
-  const tokenIds = useMemo(
-    () => (data ? sortedTokenIds(asks, data.seaportBids) : []),
-    [data, asks]
-  );
+  const tokenIds = useMemo(() => (data ? sortedTokenIds(asks) : []), [data, asks]);
 
   if (!key) {
     return (
@@ -119,23 +98,24 @@ export default function MarketplaceCollectionPage() {
       <div className="min-h-screen bg-gray-950 text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 pb-20">
           <div className="h-4 w-40 bg-gray-800/80 rounded animate-pulse mb-6" />
-          <div className="lg:grid lg:grid-cols-2 lg:gap-10">
-            <div className="rounded-2xl border border-gray-800/90 bg-[#0b0e11] overflow-hidden animate-pulse">
-              <div className="flex justify-center px-8 pt-10 pb-8">
-                <div className="aspect-[3/4] w-full max-w-[280px] rounded-2xl bg-gray-800/60" />
-              </div>
-              <div className="border-t border-gray-800/70 px-8 py-7 space-y-4">
-                <div className="h-3 w-24 bg-gray-800/70 rounded mx-auto sm:mx-0" />
-                <div className="h-8 w-full max-w-md bg-gray-800/60 rounded mx-auto sm:mx-0" />
-                <div className="h-20 bg-gray-800/40 rounded-xl" />
-              </div>
+          <div className="rounded-2xl border border-gray-800/90 bg-[#0b0e11] overflow-hidden animate-pulse mb-8">
+            <div className="flex justify-center px-8 pt-10 pb-8">
+              <div className="aspect-[3/4] w-full max-w-[280px] rounded-2xl bg-gray-800/60" />
             </div>
-            <div className="mt-8 lg:mt-0 rounded-xl border border-gray-800 bg-gray-900/40 overflow-hidden">
+            <div className="border-t border-gray-800/70 px-8 py-7 space-y-4">
+              <div className="h-3 w-24 bg-gray-800/70 rounded mx-auto sm:mx-0" />
+              <div className="h-8 w-full max-w-md bg-gray-800/60 rounded mx-auto sm:mx-0" />
+              <div className="h-20 bg-gray-800/40 rounded-xl" />
+            </div>
+          </div>
+          <div className="grid gap-5 xl:grid-cols-[1fr_400px]">
+            <div className="rounded-xl border border-gray-800 bg-gray-900/40 overflow-hidden min-h-[280px]">
               <div className="h-10 bg-gray-800/80 border-b border-gray-800" />
               {[...Array(5)].map((_, i) => (
                 <div key={i} className="h-11 border-b border-gray-800/50 bg-gray-900/30" />
               ))}
             </div>
+            <div className="rounded-xl border border-gray-800 bg-gray-900/40 min-h-[200px] animate-pulse" />
           </div>
         </div>
       </div>
@@ -155,9 +135,7 @@ export default function MarketplaceCollectionPage() {
     );
   }
 
-  const { collection, poolBids, seaportBids, representativeImageUrl } = data;
-  const anchorTokenId =
-    asks.length > 0 ? Math.min(...asks.map((o) => Number(o.tokenId))) : null;
+  const { collection, representativeImageUrl } = data;
 
   const comp = collection.components as {
     cardName?: string;
@@ -176,8 +154,7 @@ export default function MarketplaceCollectionPage() {
           ← Back to Exchange
         </Link>
 
-        <div className="lg:grid lg:grid-cols-2 lg:gap-10 lg:items-start">
-          <header className="mb-8 lg:mb-0 rounded-2xl border border-gray-800/90 bg-gradient-to-b from-[#0d1218] via-[#0b0e11] to-[#080a0d] shadow-[0_24px_48px_-28px_rgba(0,0,0,0.85)] overflow-hidden">
+        <header className="mb-8 xl:mb-10 rounded-2xl border border-gray-800/90 bg-gradient-to-b from-[#0d1218] via-[#0b0e11] to-[#080a0d] shadow-[0_24px_48px_-28px_rgba(0,0,0,0.85)] overflow-hidden">
             <div
               className="relative flex justify-center px-5 pt-8 pb-6 sm:px-8 sm:pt-10 sm:pb-8 lg:px-10"
               title="Collection representative image"
@@ -266,62 +243,46 @@ export default function MarketplaceCollectionPage() {
                   <span className="h-1.5 w-1.5 rounded-full bg-rose-400/90" aria-hidden />
                   {asks.length} listing{asks.length === 1 ? "" : "s"}
                 </span>
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan-500/20 bg-cyan-500/[0.06] px-3 py-1 text-[11px] font-medium text-cyan-200/90 tabular-nums">
-                  <span className="h-1.5 w-1.5 rounded-full bg-cyan-400/80" aria-hidden />
-                  {poolBids.length} pool
-                </span>
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/[0.06] px-3 py-1 text-[11px] font-medium text-emerald-200/90 tabular-nums">
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-400/80" aria-hidden />
-                  {seaportBids.length} Seaport
+                  {criteriaBidCount} collection bid{criteriaBidCount === 1 ? "" : "s"}
                 </span>
               </div>
 
               <div className="flex flex-wrap justify-center gap-3 pt-1 sm:justify-start">
-                <Link
-                  href="/?tab=my-nfts"
+                <button
+                  type="button"
+                  onClick={() => setSellModalOpen(true)}
                   className="inline-flex items-center justify-center rounded-xl border border-mint/25 bg-mint/[0.08] px-5 py-2.5 text-sm font-semibold text-mint/95 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] transition-colors hover:bg-mint/[0.12] hover:border-mint/40"
                 >
-                  My Assets — sell
-                </Link>
+                  List for sale in this collection
+                </button>
               </div>
             </div>
           </header>
 
-          <div className="min-w-0 lg:sticky lg:top-4 lg:self-start space-y-5">
-            <section className="mb-0" id="collection-orderbook">
-              <h2 className="text-lg font-bold text-white mb-2">Order book</h2>
-              <CollectionUnifiedOrderBook
-                asks={asks}
-                poolBids={poolBids}
-                seaportBids={seaportBids}
-                address={address}
-                onCancelPoolBid={(b) => void handleCancelPoolBid(b)}
-                variant="full"
-                showPoolInBuySide
-                collectionLabel={collection.displayLabel}
-              />
-              <div className="mt-5" id="pool-bids-section">
-                <h3 className="text-sm font-semibold text-gray-200 mb-2">Place a pool bid</h3>
-                <p className="text-xs text-gray-500 mb-3">
-                  Collection-wide buy price (EIP-712). New bids appear in the book above; sellers match from an asset page.
-                </p>
-                <PoolBidsPanel
-                  variant="collection"
-                  hideBidList
-                  collectionContext={{
-                    bucketKey: collection.collectionKey,
-                    components: collection.components,
-                    bids: poolBids,
-                    buyerLinkTokenId: anchorTokenId ?? undefined,
-                    onInvalidate: invalidateCollection,
-                  }}
-                  address={address}
-                  isOwner={false}
-                />
-              </div>
-            </section>
+        <section
+          className="xl:grid xl:grid-cols-[minmax(0,1fr)_minmax(300px,400px)] xl:gap-5 xl:items-start space-y-5 xl:space-y-0 mb-10"
+          id="collection-trading"
+          aria-label="Collection market"
+        >
+          <div className="min-w-0 xl:sticky xl:top-4 xl:self-start">
+            <CollectionUnifiedOrderBook
+              collectionKey={collection.collectionKey}
+              asks={asks}
+              collectionBids={collectionBids}
+              address={address}
+              onInvalidate={invalidateCollection}
+            />
           </div>
-        </div>
+          <div className="min-w-0 xl:sticky xl:top-4 xl:self-start">
+            <CollectionCriteriaBidPanel
+              collectionKey={collection.collectionKey}
+              onPlaced={() => invalidateCollection()}
+              onOpenSellModal={() => setSellModalOpen(true)}
+            />
+          </div>
+        </section>
 
         <section className="mb-10 mt-10 border-t border-gray-800/80 pt-8" id="browse-tokens">
           <button
@@ -332,21 +293,21 @@ export default function MarketplaceCollectionPage() {
             <span>
               Browse by token{" "}
               <span className="text-gray-500 font-normal">
-                ({tokenIds.length} token{tokenIds.length === 1 ? "" : "s"} with activity)
+                ({tokenIds.length} token{tokenIds.length === 1 ? "" : "s"} listed)
               </span>
             </span>
             <span className="text-gray-500 tabular-nums">{showTokenGrid ? "−" : "+"}</span>
           </button>
           <p className="text-xs text-gray-600 mt-2 px-1">
-            Optional: card grid by token ID — same listings as the order book above, different layout.
+            Optional grid — same listings as above. Match criteria bids from each token page.
           </p>
 
           {showTokenGrid && (
             <div className="mt-4">
               {tokenIds.length === 0 ? (
                 <div className="rounded-2xl border border-gray-800 bg-gray-900/30 px-4 py-8 text-center text-sm text-gray-400">
-                  No token-specific listings or bids yet. Pool bids may still apply — list an asset from{" "}
-                  <Link href="/?tab=my-nfts" className="text-mint hover:underline">
+                  No listings yet. List an asset from{" "}
+                  <Link href="/?tab=my-rwa" className="text-mint hover:underline">
                     My Assets
                   </Link>
                   .
@@ -354,12 +315,12 @@ export default function MarketplaceCollectionPage() {
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 lg:gap-5">
                   {tokenIds.map((tid) => (
-                    <CollectionNftCard
+                    <CollectionRwaCard
                       key={tid}
                       tokenId={tid}
                       collectionKey={key}
                       listing={askMap.get(tid) ?? null}
-                      seaportBidCount={bidCountMap.get(tid) ?? 0}
+                      collectionBidCount={criteriaBidCount}
                       address={address}
                     />
                   ))}
@@ -386,6 +347,13 @@ export default function MarketplaceCollectionPage() {
           )}
         </div>
       </div>
+
+      <CollectionOwnedRwaListModal
+        open={sellModalOpen}
+        onClose={() => setSellModalOpen(false)}
+        collectionKey={collection.collectionKey}
+        collectionLabel={collection.displayLabel}
+      />
     </div>
   );
 }

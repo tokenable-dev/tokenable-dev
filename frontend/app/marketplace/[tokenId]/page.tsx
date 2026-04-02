@@ -16,38 +16,37 @@ import {
   getApiUrl,
   getOrderByTokenId,
   getOrderHistoryByTokenId,
-  getActiveBidsForToken,
   fetchIpfsMetadata,
+  getMarketplaceCollectionDetail,
   resolveIpfsImage,
   fulfillOrderApi,
-  cancelOrder,
-  getBucketBidsByToken,
   type Order,
 } from "@/lib/api";
 import { mapWalletError } from "@/lib/walletError";
 import { GradedMetadataPanel } from "@/components/common";
 import {
-  NftDetailAssetPanel,
-  type NftDetailMetadata,
-} from "@/components/marketplace/NftDetailAssetPanel";
+  RwaDetailAssetPanel,
+  type RwaDetailMetadata,
+} from "@/components/marketplace/RwaDetailAssetPanel";
 import {
   TOKENABLE_RWA_ADDRESS,
   TOKENABLE_RWA_DISPLAY_NAME,
   TOKENABLE_RWA_READ_ABI,
-  TOKENABLE_RWA_APPROVE_ABI,
   USDC_ADDRESS,
   SEAPORT_ADDRESS,
   USDC_ABI,
   SEAPORT_ABI,
 } from "@/constants/contracts";
-import { PlaceBidModal } from "@/components/marketplace/PlaceBidModal";
-import { ListNftModal } from "@/components/marketplace/ListNftModal";
-import { NftOrderBook } from "@/components/marketplace/NftOrderBook";
-import { PoolBidsPanel } from "@/components/marketplace/PoolBidsPanel";
-import { SignPoolBidSeaport } from "@/components/marketplace/SignPoolBidSeaport";
+import { ListRwaModal } from "@/components/marketplace/ListRwaModal";
+import { RwaOrderBook } from "@/components/marketplace/RwaOrderBook";
+import { TokenCriteriaMatchPanel } from "@/components/marketplace/TokenCriteriaMatchPanel";
 import { ASSETS } from "@/constants/assets";
 import { useAppStore, selectWallet, selectUsdcBalance, selectRefresh } from "@/store";
 import { gasWithCap } from "@/lib/chainGas";
+import {
+  FULFILL_EXTRA_DATA,
+  fulfillSeaportOrderArgs,
+} from "@/lib/seaportFulfillOrderArgs";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -57,7 +56,7 @@ type BuyStep = "idle" | "approving" | "buying" | "success" | "error";
 
 function useActivityHistory(tokenId: number) {
   return useQuery({
-    queryKey: ["nft-activity", tokenId],
+    queryKey: ["rwa-activity", tokenId],
     queryFn: () => getOrderHistoryByTokenId(tokenId),
     staleTime: 15_000,
     retry: 1,
@@ -179,60 +178,13 @@ function IconTag({ className }: { className?: string }) {
   );
 }
 
-const FULFILL_EXTRA_DATA =
-  "0x0000000000000000000000000000000000000000000000000000000000000000" as `0x${string}`;
-
-/** Seaport `fulfillOrder` 첫 인자 — 매도(ask) 이행·매수(bid) 수락 공통 */
-function fulfillSeaportOrderArgs(order: Order) {
-  const params = order.parameters;
-  return {
-    parameters: {
-      offerer: params.offerer as `0x${string}`,
-      zone: params.zone as `0x${string}`,
-      offer: params.offer.map((item) => ({
-        itemType: item.itemType,
-        token: item.token as `0x${string}`,
-        identifierOrCriteria: BigInt(item.identifierOrCriteria),
-        startAmount: BigInt(item.startAmount),
-        endAmount: BigInt(item.endAmount),
-      })),
-      consideration: params.consideration.map((item) => ({
-        itemType: item.itemType,
-        token: item.token as `0x${string}`,
-        identifierOrCriteria: BigInt(item.identifierOrCriteria),
-        startAmount: BigInt(item.startAmount),
-        endAmount: BigInt(item.endAmount),
-        recipient: item.recipient as `0x${string}`,
-      })),
-      orderType: params.orderType,
-      startTime: BigInt(params.startTime),
-      endTime: BigInt(params.endTime),
-      zoneHash: params.zoneHash as `0x${string}`,
-      salt: BigInt(params.salt),
-      conduitKey: params.conduitKey as `0x${string}`,
-      totalOriginalConsiderationItems: BigInt(params.totalOriginalConsiderationItems),
-    },
-    signature: order.signature as `0x${string}`,
-  };
-}
-
-
 // ─── Main page ────────────────────────────────────────────────────────────────
 
-export default function NftDetailPage() {
+export default function RwaDetailPage() {
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
   const tokenId = Number(params.tokenId);
-  const signPoolBidRaw = searchParams.get("signPoolBid");
-  const signPoolBidId = signPoolBidRaw != null ? Number(signPoolBidRaw) : NaN;
-  const sellerPoolBidRaw = searchParams.get("sellerPoolBid");
-  const sellerPoolBidNum =
-    sellerPoolBidRaw != null ? Number(sellerPoolBidRaw) : NaN;
-  const highlightSellerPoolBid =
-    Number.isFinite(sellerPoolBidNum) && sellerPoolBidNum > 0
-      ? sellerPoolBidNum
-      : undefined;
 
   const { address, isConnected } = useAppStore(useShallow(selectWallet));
   const { usdcBalance, usdcBalanceFormatted } = useAppStore(useShallow(selectUsdcBalance));
@@ -246,14 +198,8 @@ export default function NftDetailPage() {
   const [errorMsg, setErrorMsg] = useState("");
   const [approveTxHash, setApproveTxHash] = useState<`0x${string}` | undefined>();
   const [detailsExtraOpen, setDetailsExtraOpen] = useState(false);
-  const [bidModalOpen, setBidModalOpen] = useState(false);
   const [listModalOpen, setListModalOpen] = useState(false);
-  const [acceptStep, setAcceptStep] = useState<"idle" | "approving" | "fulfilling" | "error">(
-    "idle"
-  );
-  const [acceptErrorMsg, setAcceptErrorMsg] = useState("");
-  const [acceptingBidHash, setAcceptingBidHash] = useState<string | null>(null);
-  const [cancelBidHash, setCancelBidHash] = useState<string | null>(null);
+  const [listModalInitialPrice, setListModalInitialPrice] = useState<string | null>(null);
 
   useWaitForTransactionReceipt({ hash: approveTxHash, chainId: sepolia.id });
 
@@ -271,28 +217,23 @@ export default function NftDetailPage() {
     enabled: tokenIdOk,
   });
 
-  /** 컬렉션 상세로 되돌아가기 위한 bucket/collection 키 (쿼리·리스트·버킷 API 순) */
-  const { data: bucketMeta } = useQuery({
-    queryKey: ["bucket-by-token", tokenId],
-    queryFn: async () => {
-      try {
-        return await getBucketBidsByToken(tokenId);
-      } catch {
-        return null;
-      }
-    },
-    enabled: tokenIdOk,
-    retry: false,
-  });
-
   const fromCollectionParam = searchParams.get("fromCollection")?.trim() ?? "";
 
   const collectionKeyForRedirect = useMemo(() => {
     if (fromCollectionParam) return fromCollectionParam;
     if (listing?.collectionKey) return listing.collectionKey;
-    if (bucketMeta?.bucketKey) return bucketMeta.bucketKey;
     return null;
-  }, [fromCollectionParam, listing?.collectionKey, bucketMeta?.bucketKey]);
+  }, [fromCollectionParam, listing?.collectionKey]);
+
+  const collectionKeyForMatch =
+    (listing?.collectionKey?.trim() || fromCollectionParam || null) as string | null;
+
+  const { data: collectionDetail } = useQuery({
+    queryKey: ["marketplace-collection", collectionKeyForMatch],
+    queryFn: () => getMarketplaceCollectionDetail(collectionKeyForMatch!),
+    enabled: !!collectionKeyForMatch && tokenIdOk,
+    staleTime: 15_000,
+  });
 
   const navigateToCollectionAfterTrade = useCallback(() => {
     if (collectionKeyForRedirect) {
@@ -305,12 +246,12 @@ export default function NftDetailPage() {
     }
   }, [router, collectionKeyForRedirect]);
 
-  // 키를 목록 카드(Marketplace OrderCard)의 ["nft-metadata", tokenId]와 분리해야 함.
+  // 키를 목록 카드(Marketplace OrderCard)의 ["rwa-metadata", tokenId]와 분리해야 함.
   const { data: metaBundle, isLoading: metaLoading } = useQuery({
     queryKey: ["marketplace-detail-metadata", tokenId],
     queryFn: async () => {
       const base = getApiUrl();
-      const uriRes = await fetch(`${base}/blockchain/nft/token-uri/${tokenId}`);
+      const uriRes = await fetch(`${base}/blockchain/rwa/token-uri/${tokenId}`);
       if (!uriRes.ok) return null;
       const rawText = await uriRes.text();
       let tokenURI = rawText.trim();
@@ -347,14 +288,6 @@ export default function NftDetailPage() {
     },
   });
 
-  const { data: bids = [], isLoading: bidsLoading } = useQuery({
-    queryKey: ["marketplace-bids", tokenId],
-    queryFn: () => getActiveBidsForToken(tokenId),
-    staleTime: 15_000,
-    retry: 1,
-    enabled: tokenIdOk,
-  });
-
   const metadata = metaBundle?.metadata ?? null;
   const tokenURIOnChain = metaBundle?.tokenURI ?? null;
 
@@ -372,6 +305,7 @@ export default function NftDetailPage() {
   const priceInUnits = listing ? BigInt(listing.considerationAmount) : BigInt(0);
   const hasEnoughUsdc = isListingSeller || usdcBalance >= priceInUnits;
   const isBuying = buyStep === "approving" || buyStep === "buying";
+  const collectionBids = collectionDetail?.collectionBids ?? [];
 
   const ownerAddr =
     typeof ownerOnChain === "string" ? ownerOnChain.toLowerCase() : "";
@@ -382,6 +316,7 @@ export default function NftDetailPage() {
     if (searchParams.get("list") !== "1") return;
     if (!tokenIdOk || ownerLoading) return;
     if (isOwner && isConnected) {
+      setListModalInitialPrice(null);
       setListModalOpen(true);
     }
     const fc = searchParams.get("fromCollection");
@@ -403,17 +338,19 @@ export default function NftDetailPage() {
   async function invalidateMarketplaceQueries() {
     await queryClient.invalidateQueries({ queryKey: ["marketplace-orders"] });
     await queryClient.invalidateQueries({ queryKey: ["marketplace-order-by-token", tokenId] });
-    await queryClient.invalidateQueries({ queryKey: ["marketplace-bids", tokenId] });
-    await queryClient.invalidateQueries({ queryKey: ["marketplace-pool-bids", tokenId] });
     await queryClient.invalidateQueries({
       queryKey: ["marketplace-detail-metadata", tokenId],
     });
-    await queryClient.invalidateQueries({ queryKey: ["nft-activity", tokenId] });
+    await queryClient.invalidateQueries({ queryKey: ["rwa-activity", tokenId] });
     /** 모든 지갑의 My Assets 목록·메타 (거래 후 판매자/구매자 캐시 동기화) */
-    await queryClient.invalidateQueries({ queryKey: ["my-nft-ids"] });
-    await queryClient.invalidateQueries({ queryKey: ["my-nfts"] });
+    await queryClient.invalidateQueries({ queryKey: ["my-rwa-ids"] });
+    await queryClient.invalidateQueries({ queryKey: ["my-rwas"] });
     await queryClient.invalidateQueries({ queryKey: ["marketplace-collection"] });
-    await queryClient.invalidateQueries({ queryKey: ["bucket-by-token", tokenId] });
+    if (collectionKeyForMatch) {
+      await queryClient.invalidateQueries({
+        queryKey: ["marketplace-collection", collectionKeyForMatch],
+      });
+    }
   }
 
   /** wagmi readContract 캐시 (ownerOf 등) */
@@ -481,90 +418,6 @@ export default function NftDetailPage() {
     }
   }
 
-  async function handleAcceptBid(bid: Order) {
-    if (!address || !publicClient) return;
-
-    const nftRec = bid.parameters.consideration?.[0];
-    if (
-      nftRec &&
-      bid.offerer.toLowerCase() !== (nftRec.recipient ?? "").toLowerCase()
-    ) {
-      setAcceptErrorMsg(
-        "Invalid bid data: token recipient must be the bidder. Refetch and try again."
-      );
-      setAcceptStep("error");
-      return;
-    }
-
-    setAcceptStep("approving");
-    setAcceptErrorMsg("");
-    setAcceptingBidHash(bid.orderHash);
-
-    try {
-      const gasApprove = await gasWithCap(publicClient, {
-        address: TOKENABLE_RWA_ADDRESS,
-        abi: TOKENABLE_RWA_APPROVE_ABI,
-        functionName: "approve",
-        args: [SEAPORT_ADDRESS, BigInt(tokenId)],
-        account: address,
-      });
-      const approveTx = await writeContractAsync({
-        address: TOKENABLE_RWA_ADDRESS,
-        abi: TOKENABLE_RWA_APPROVE_ABI,
-        functionName: "approve",
-        args: [SEAPORT_ADDRESS, BigInt(tokenId)],
-        chainId: sepolia.id,
-        gas: gasApprove,
-      });
-      await publicClient.waitForTransactionReceipt({ hash: approveTx });
-
-      setAcceptStep("fulfilling");
-
-      const fulfillTx = await writeContractAsync({
-        address: SEAPORT_ADDRESS,
-        abi: SEAPORT_ABI,
-        functionName: "fulfillOrder",
-        args: [fulfillSeaportOrderArgs(bid), FULFILL_EXTRA_DATA],
-        chainId: sepolia.id,
-        gas: BigInt(450000),
-      });
-
-      const receipt = await publicClient.waitForTransactionReceipt({ hash: fulfillTx });
-      if (receipt.status === "reverted") {
-        throw new Error(
-          `Accept bid reverted (tx: ${fulfillTx}). Check token approval and bid validity.`
-        );
-      }
-
-      await fulfillOrderApi(bid.orderHash);
-
-      setAcceptStep("idle");
-      setAcceptingBidHash(null);
-      refresh();
-      await invalidateMarketplaceQueries();
-      await invalidateWagmiReads();
-      await refetchOwner();
-      navigateToCollectionAfterTrade();
-    } catch (err: unknown) {
-      setAcceptErrorMsg(mapWalletError(err).message);
-      setAcceptStep("error");
-      setAcceptingBidHash(null);
-    }
-  }
-
-  async function handleCancelBid(bid: Order) {
-    if (!address) return;
-    setCancelBidHash(bid.orderHash);
-    try {
-      await cancelOrder(bid.orderHash, address);
-      await invalidateMarketplaceQueries();
-    } catch {
-      setAcceptErrorMsg("Could not cancel this order. Try again.");
-    } finally {
-      setCancelBidHash(null);
-    }
-  }
-
   // ── Derived ────────────────────────────────────────────────────────────────
 
   const imageUrl = metadata?.image ? resolveIpfsImage(metadata.image) : null;
@@ -574,7 +427,6 @@ export default function NftDetailPage() {
     : "—";
 
   const showMain = tokenIdOk && !ownerLoading && !ownerError && ownerOnChain != null;
-  const isAccepting = acceptStep === "approving" || acceptStep === "fulfilling";
 
   return (
     <div className="min-h-screen bg-[#07090c] text-white">
@@ -666,8 +518,8 @@ export default function NftDetailPage() {
           <>
             <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_min(420px,100%)] gap-8 xl:gap-10 items-start">
               {/* Left — 슬랩 이미지 · 제목 · 배지 · 카드 메타 그리드 */}
-              <NftDetailAssetPanel
-                metadata={metadata as NftDetailMetadata | null}
+              <RwaDetailAssetPanel
+                metadata={metadata as RwaDetailMetadata | null}
                 imageUrl={imageUrl}
                 tokenId={tokenId}
                 collectionLabel={TOKENABLE_RWA_DISPLAY_NAME}
@@ -709,65 +561,28 @@ export default function NftDetailPage() {
                   </p>
                 )}
 
-                {highlightSellerPoolBid != null && (
-                  <div className="rounded-xl border border-amber-500/35 bg-amber-500/[0.06] px-3 py-2.5 text-[11px]">
-                    <p className="font-semibold text-amber-100 mb-1">
-                      Selling into pool bid #{highlightSellerPoolBid}
-                    </p>
-                    <p className="text-[10px] text-gray-400 leading-relaxed">
-                      {isOwner ? (
-                        <>
-                          Use <strong className="text-gray-300">Check match</strong> and{" "}
-                          <strong className="text-gray-300">Buyer link</strong> below, then accept
-                          the Seaport bid when it appears.
-                        </>
-                      ) : (
-                        <>
-                          Connect the wallet that <strong className="text-gray-300">owns</strong>{" "}
-                          this asset for seller actions.
-                        </>
-                      )}
-                    </p>
-                  </div>
+                {listing && collectionKeyForMatch && (
+                  <TokenCriteriaMatchPanel
+                    listing={listing}
+                    collectionKey={collectionKeyForMatch}
+                    tokenId={tokenId}
+                    collectionBids={collectionBids}
+                  />
                 )}
 
-                <PoolBidsPanel
-                  tokenId={tokenId}
-                  address={address}
-                  isOwner={isOwner}
-                  variant="token"
-                  collectionKey={collectionKeyForRedirect ?? undefined}
-                />
-
-                {tokenIdOk &&
-                  Number.isFinite(signPoolBidId) &&
-                  signPoolBidId > 0 && (
-                    <SignPoolBidSeaport
-                      tokenId={tokenId}
-                      poolBidId={signPoolBidId}
-                      onDone={() => {
-                        router.replace(`/marketplace/${tokenId}`);
-                      }}
-                    />
-                  )}
-
-                <NftOrderBook
+                <RwaOrderBook
                   listing={listing ?? null}
-                  bids={bids}
-                  bidsLoading={bidsLoading}
+                  bids={[]}
+                  bidsLoading={false}
                   activity={activity}
                   activityLoading={activityLoading}
                   tokenId={tokenId}
                   address={address}
                   isOwner={isOwner}
-                  isAccepting={isAccepting}
+                  isAccepting={false}
                   isBuying={isBuying}
-                  acceptingBidHash={acceptingBidHash}
-                  cancelBidHash={cancelBidHash}
-                  onAcceptBid={(bid) => void handleAcceptBid(bid)}
-                  onCancelBid={(bid) => void handleCancelBid(bid)}
-                  onPlaceBid={() => setBidModalOpen(true)}
-                  acceptErrorMsg={acceptStep === "error" ? acceptErrorMsg : undefined}
+                  acceptingBidHash={null}
+                  cancelBidHash={null}
                 />
 
                 <div className="rounded-2xl border border-gray-800/90 bg-[#0a0d11]/90 p-3 space-y-3">
@@ -786,7 +601,10 @@ export default function NftDetailPage() {
                     <div className="grid grid-cols-2 gap-3">
                       <button
                         type="button"
-                        onClick={() => setListModalOpen(true)}
+                        onClick={() => {
+                          setListModalInitialPrice(null);
+                          setListModalOpen(true);
+                        }}
                         disabled={!isOwner || !isConnected}
                         className="py-3.5 rounded-xl text-sm font-bold text-white bg-[#e53935] hover:bg-[#c62828] disabled:opacity-35 disabled:cursor-not-allowed shadow-[0_8px_24px_-8px_rgba(229,57,53,0.45)] transition-colors"
                       >
@@ -800,7 +618,6 @@ export default function NftDetailPage() {
                           isOwner ||
                           !isConnected ||
                           isBuying ||
-                          isAccepting ||
                           !hasEnoughUsdc
                         }
                         className="py-3.5 rounded-xl text-sm font-bold text-white bg-[#00c853] hover:bg-[#00a844] disabled:opacity-35 disabled:cursor-not-allowed shadow-[0_8px_24px_-8px_rgba(0,200,83,0.35)] transition-colors"
@@ -809,8 +626,8 @@ export default function NftDetailPage() {
                       </button>
                     </div>
                     <p className="text-[10px] text-center text-gray-600 leading-snug px-1">
-                      Sell lists at USDC. Buy fulfills the best ask. No ask — place a bid in the book
-                      or list from Sell.
+                      Sell lists at USDC. Buy fulfills the ask. Collection bids are placed on the
+                      collection page; match them above when price covers your listing.
                     </p>
                   </div>
 
@@ -837,8 +654,7 @@ export default function NftDetailPage() {
 
                     {!listing && (
                       <p className="text-center text-sm text-gray-500 py-3 px-2 bg-gray-900/40 rounded-xl border border-gray-800/80">
-                        No fixed ask — use <span className="text-gray-400">Place bid</span> in the
-                        order book or wait for a listing.
+                        No ask yet — list from Sell or open the collection page for collection bids.
                       </p>
                     )}
 
@@ -1159,20 +975,17 @@ export default function NftDetailPage() {
               )}
             </div>
 
-            {bidModalOpen && (
-              <PlaceBidModal
-                tokenId={tokenId}
-                onClose={() => setBidModalOpen(false)}
-                onPlaced={() => setBidModalOpen(false)}
-              />
-            )}
-
             {listModalOpen && (
-              <ListNftModal
+              <ListRwaModal
                 tokenId={tokenId}
-                onClose={() => setListModalOpen(false)}
+                initialPriceUsdc={listModalInitialPrice}
+                onClose={() => {
+                  setListModalOpen(false);
+                  setListModalInitialPrice(null);
+                }}
                 onListed={() => {
                   setListModalOpen(false);
+                  setListModalInitialPrice(null);
                   void invalidateMarketplaceQueries();
                   navigateToCollectionAfterTrade();
                 }}

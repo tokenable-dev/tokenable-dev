@@ -18,6 +18,24 @@ export interface WalletErrorResult {
   message: string;
 }
 
+/** Pulls viem / RPC revert reason when present so the UI is not a generic sentence. */
+function extractRevertDetail(text: string): string | null {
+  const t = text.trim();
+  if (!t) return null;
+  const patterns = [
+    /reverted with the following reason:\s*\n?\s*([^\n]+)/i,
+    /reverted with reason:\s*([^\n]+)/i,
+    /Reason:\s*([^\n]+)/i,
+    /revert:\s*([^\n]+)/i,
+    /details:\s*"([^"]+)"/i,
+  ];
+  for (const p of patterns) {
+    const m = t.match(p);
+    if (m?.[1]?.trim()) return m[1].trim();
+  }
+  return null;
+}
+
 function stringifyUnknown(err: unknown): string {
   if (err == null) return "";
   if (typeof err === "string") return err;
@@ -121,9 +139,17 @@ export function mapWalletError(err: unknown): WalletErrorResult {
   }
 
   if (/execution reverted|revert|reverted|requirement failed/i.test(lower)) {
+    const detail =
+      extractRevertDetail(text) ||
+      extractRevertDetail(
+        typeof err === "object" && err !== null && "shortMessage" in err
+          ? String((err as { shortMessage?: unknown }).shortMessage)
+          : ""
+      );
     return {
       code: "REVERT",
       message:
+        detail ??
         "The contract could not complete this action. Check balances, approvals, and listing status.",
     };
   }

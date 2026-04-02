@@ -13,13 +13,6 @@ const config: HardhatUserConfig = {
     },
   },
   networks: {
-    besu: {
-      url: process.env.BESU_RPC_URL ?? 'https://besu.dressdio.me',
-      chainId: 2741,
-      accounts: process.env.DEPLOYER_PRIVATE_KEY
-        ? [process.env.DEPLOYER_PRIVATE_KEY]
-        : [],
-    },
     sepolia: {
       url: process.env.SEPOLIA_RPC_URL ?? '',
       chainId: 11155111,

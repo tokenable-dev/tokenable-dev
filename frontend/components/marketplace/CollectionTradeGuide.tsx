@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 
 /**
- * Seaport + 오프체인 풀 입찰만 사용할 때의 컬렉션 매매 안내 (새 컨트랙트 없음).
+ * Seaport ERC721_WITH_CRITERIA + Merkle 기준 컬렉션 매매 안내.
  */
 export function CollectionTradeGuide() {
   const [open, setOpen] = useState(true);
@@ -17,7 +17,7 @@ export function CollectionTradeGuide() {
         className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left hover:bg-white/[0.03] transition-colors"
       >
         <span className="text-sm font-semibold text-white">
-          Trading on this collection (Seaport + pool bids)
+          Trading on this collection (Seaport criteria bids)
         </span>
         <span className="text-gray-500 text-xs shrink-0">{open ? "Hide" : "Show"}</span>
       </button>
@@ -30,14 +30,14 @@ export function CollectionTradeGuide() {
               </p>
               <ul className="list-disc list-inside space-y-1.5 text-gray-400">
                 <li>
-                  <strong className="text-gray-300">Listed asks</strong> — click a row, open the
-                  asset page, buy with one Seaport flow (USDC approve + fulfill).
+                  <strong className="text-gray-300">Listed asks</strong> — open a token, approve USDC,
+                  and fulfill the seller&apos;s Seaport listing.
                 </li>
                 <li>
-                  <strong className="text-gray-300">Pool bid</strong> — sign once (EIP-712) for
-                  “I’ll pay X USDC for any asset in this graded bucket.” When a seller picks your
-                  token, you sign a <strong className="text-gray-300">Seaport bid</strong> for that
-                  token, then they can accept — no new contracts.
+                  <strong className="text-gray-300">Collection bid</strong> — sign a Seaport order with{" "}
+                  <strong className="text-gray-300">ERC721_WITH_CRITERIA</strong> and the Merkle root
+                  for this collection&apos;s active listings. One bid can match any listed token in the
+                  set when a seller runs <strong className="text-gray-300">matchAdvancedOrders</strong>.
                 </li>
               </ul>
             </div>
@@ -47,27 +47,28 @@ export function CollectionTradeGuide() {
               </p>
               <ul className="list-disc list-inside space-y-1.5 text-gray-400">
                 <li>
-                  <strong className="text-gray-300">Fixed price</strong> —{" "}
+                  <strong className="text-gray-300">List</strong> —{" "}
                   <Link
-                    href="/?tab=my-nfts"
+                    href="/?tab=my-rwa"
                     className="text-mint hover:underline font-medium"
                   >
                     My Assets
                   </Link>{" "}
-                  → List with one Seaport listing (approve token + sign).
+                  → approve the token and sign a Seaport ask.
                 </li>
                 <li>
-                  <strong className="text-gray-300">Pool buyers</strong> — enter your token ID in
-                  the order book footer, use <strong className="text-gray-300">Sell</strong> on a
-                  pool row, then on your asset page: Check match → Buyer link → when their Seaport bid
-                  appears, Accept.
+                  <strong className="text-gray-300">Match a collection bid</strong> — on the token page,
+                  use <strong className="text-gray-300">Match collection bid</strong> (proof + on-chain
+                  match). On the collection order book, <strong className="text-gray-300">Instant sell</strong>{" "}
+                  can reprice your listing to the bid and run the same match in one flow.
                 </li>
               </ul>
             </div>
           </div>
           <p className="text-[11px] text-gray-600">
-            Settlement is always on-chain via Seaport. Pool bids are off-chain commitments until
-            matched to a token-specific order.
+            Settlement is on-chain via Seaport. The Merkle leaf set is derived from active listings for
+            the collection; bids must use the same root as the current set, or sellers should ask buyers
+            to cancel and re-bid after listings change.
           </p>
         </div>
       )}

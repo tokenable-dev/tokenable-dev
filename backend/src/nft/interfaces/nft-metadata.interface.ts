@@ -1,21 +1,21 @@
-export interface NftAttribute {
+export interface RwaAttribute {
   trait_type: string;
   value: string;
 }
 
-export interface NftMetadata {
+export interface RwaMetadata {
   name: string;
   description: string;
   image: string;
-  attributes?: NftAttribute[];
+  attributes?: RwaAttribute[];
   /** OpenSea / wallets — custom structured data */
   properties?: Record<string, unknown>;
   external_url?: string;
 }
 
-export interface UploadNftResult {
+export interface UploadRwaResult {
   tokenURI: string;
   metadataCID: string;
   imageCID: string;
-  metadata: NftMetadata;
+  metadata: RwaMetadata;
 }

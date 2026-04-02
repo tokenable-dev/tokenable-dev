@@ -4,16 +4,16 @@ import { Suspense, useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { WalletConnect } from "@/components/wallet";
-import { NftMintForm } from "@/components/mint";
-import { MyNfts } from "@/components/my-nfts";
+import { RwaMintForm } from "@/components/mint";
+import { MyAssets } from "@/components/my-assets";
 import { Marketplace } from "@/components/marketplace";
 import { useAuthStore } from "@/store/authStore";
 
-type Tab = "mint" | "my-nfts" | "marketplace";
+type Tab = "mint" | "my-rwa" | "marketplace";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "mint", label: "Mint" },
-  { id: "my-nfts", label: "My Assets" },
+  { id: "my-rwa", label: "My Assets" },
   { id: "marketplace", label: "Exchange" },
 ];
 
@@ -22,7 +22,7 @@ function TabParamSync({ onTab }: { onTab: (t: Tab) => void }) {
   const searchParams = useSearchParams();
   useEffect(() => {
     const tab = searchParams.get("tab");
-    if (tab === "my-nfts" || tab === "marketplace" || tab === "mint") {
+    if (tab === "my-rwa" || tab === "marketplace" || tab === "mint") {
       onTab(tab);
     }
   }, [searchParams, onTab]);
@@ -124,7 +124,7 @@ export default function Home() {
               </p>
               <WalletConnect />
             </div>
-            <NftMintForm />
+            <RwaMintForm />
             <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-5">
               <h3 className="text-sm font-semibold text-gray-400 mb-4 uppercase tracking-wider">
                 How It Works
@@ -164,7 +164,7 @@ export default function Home() {
           </div>
         )}
 
-        {activeTab === "my-nfts" && (
+        {activeTab === "my-rwa" && (
           <div>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold text-white">My Assets</h2>
@@ -172,7 +172,7 @@ export default function Home() {
                 Click &ldquo;List for Sale&rdquo; to sell on the Exchange
               </p>
             </div>
-            <MyNfts />
+            <MyAssets />
           </div>
         )}
 

@@ -97,8 +97,8 @@ def main() -> int:
         'id="pg00_ixt" value="Tokenable — diagrams (7탭)"',
     )
     idx_content = idx_content.replace(
-        'id="pg00_ixb" value="이 파일 = 기존 5개 drawio 병합. 하단 탭에서 섹션별로 이동.&#xa;&#xa;A — 아키텍처 (DeFi형 전체) : A1~A4&#xa;B — CeFi·하이브리드 제안 : B1~B3&#xa;C — 로컬 DB ERD : C1&#xa;D — Seaport 프로토콜 범위 : D1~D4&#xa;E — E2E 코드 기준 상세 : E0~E8&#xa;&#xa;문서: docs/LOCAL_DATABASE.md, SEAPORT_PROTOCOL_OVERVIEW.md, SEAPORT_API.md"',
-        'id="pg00_ixb" value="이 파일 = 7탭으로 정리됨.&#xa;&#xa;01 — A: 전체구조 · 민팅 · 마켓·Seaport·풀 · 인증/백엔드&#xa;02 — B: CeFi·하이브리드 (개요 · 사용자여정 · 비교)&#xa;03 — C: PostgreSQL ERD (로컬 DB)&#xa;04 — D: Seaport (레이어 · 주문3종 · 풀연결 · 미사용구분)&#xa;05 — E: E2E 범례 ~ 리스팅 (E0~E4)&#xa;06 — E: E2E 구매 ~ Exchange (E5~E8)&#xa;&#xa;문서: docs/LOCAL_DATABASE.md, SEAPORT_PROTOCOL_OVERVIEW.md, SEAPORT_API.md"',
+        'id="pg00_ixb" value="이 파일 = 기존 5개 drawio 병합. 하단 탭에서 섹션별로 이동.&#xa;&#xa;A — 아키텍처 (DeFi형 전체) : A1~A4&#xa;B — CeFi·하이브리드 제안 : B1~B3&#xa;C — 로컬 DB ERD : C1&#xa;D — Seaport 프로토콜 범위 : D1~D4&#xa;E — E2E 코드 기준 상세 : E0~E8&#xa;&#xa;문서: docs/DEVELOPMENT.md"',
+        'id="pg00_ixb" value="이 파일 = 7탭으로 정리됨.&#xa;&#xa;01 — A: 전체구조 · 민팅 · 마켓·Seaport·풀 · 인증/백엔드&#xa;02 — B: CeFi·하이브리드 (개요 · 사용자여정 · 비교)&#xa;03 — C: PostgreSQL ERD (로컬 DB)&#xa;04 — D: Seaport (레이어 · 주문3종 · 풀연결 · 미사용구분)&#xa;05 — E: E2E 범례 ~ 리스팅 (E0~E4)&#xa;06 — E: E2E 구매 ~ Exchange (E5~E8)&#xa;&#xa;문서: docs/DEVELOPMENT.md"',
     )
     ph0 = get_page_height(idx_inner)
     pw0 = get_page_width(idx_inner)

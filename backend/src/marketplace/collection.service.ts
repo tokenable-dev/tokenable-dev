@@ -49,7 +49,7 @@ export class CollectionService {
     }
     const res = await fetch(url);
     if (!res.ok) {
-      throw new Error(`Failed to fetch NFT metadata (${res.status})`);
+      throw new Error(`Failed to fetch RWA metadata (${res.status})`);
     }
     return (await res.json()) as Record<string, unknown>;
   }
@@ -72,7 +72,7 @@ export class CollectionService {
    * graded 없으면 null (주문은 그대로 저장, 컬렉션 미부여).
    */
   async ensureCollectionForListing(tokenId: string): Promise<string | null> {
-    const uri = await this.blockchain.getNftTokenURI(Number(tokenId));
+    const uri = await this.blockchain.getRwaTokenURI(Number(tokenId));
     const meta = await this.fetchIpfsMetadataJson(uri);
     const components = extractBucketComponentsFromMetadata(meta);
     if (!components) return null;
@@ -183,10 +183,10 @@ export class CollectionService {
     const tokenIds = [
       ...asks.map((o) => o.tokenId),
       ...bids.map((o) => o.tokenId),
-    ];
+    ].filter((id) => id && id !== '0');
     for (const tokenId of tokenIds) {
       try {
-        const uri = await this.blockchain.getNftTokenURI(Number(tokenId));
+        const uri = await this.blockchain.getRwaTokenURI(Number(tokenId));
         const meta = await this.fetchIpfsMetadataJson(uri);
         const img = extractCollectionRepresentativeImage(meta);
         if (img) {
@@ -199,5 +199,17 @@ export class CollectionService {
     }
 
     return null;
+  }
+
+  /** Merkle leaves: distinct token IDs from active listings in this collection (buyer builds tree client-side). */
+  async merkleEligibleTokenIds(collectionKey: string): Promise<{ tokenIds: string[] }> {
+    const listings = await this.activeListingsForCollection(collectionKey);
+    const ids = [
+      ...new Set(
+        listings.map((o) => o.tokenId).filter((id) => id && id !== '0'),
+      ),
+    ];
+    ids.sort((a, b) => Number(a) - Number(b));
+    return { tokenIds: ids };
   }
 }

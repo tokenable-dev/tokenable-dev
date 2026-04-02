@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-/// @title Tokenable_RWA — ERC-721 collection for real-world asset–backed NFTs
+/// @title Tokenable_RWA — ERC-721 collection for real-world asset (RWA) tokens
 contract TokenableRWA is ERC721URIStorage, ERC721Enumerable, Ownable {
     uint256 private _nextTokenId;
 

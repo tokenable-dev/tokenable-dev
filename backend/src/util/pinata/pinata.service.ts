@@ -2,7 +2,7 @@ import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common
 import { ConfigService } from '@nestjs/config';
 import { PinataSDK } from 'pinata';
 import { Readable } from 'stream';
-import { NftMetadata } from '../../nft/interfaces/nft-metadata.interface';
+import { RwaMetadata } from '../../nft/interfaces/nft-metadata.interface';
 
 @Injectable()
 export class PinataService {
@@ -52,7 +52,7 @@ export class PinataService {
   ): Promise<{ buffer: Buffer; mimeType: string; extension: string }> {
     const response = await fetch(imageUrl, {
       headers: {
-        'User-Agent': 'TokenableBackend/1.0 (NFT image fetch)',
+        'User-Agent': 'TokenableBackend/1.0 (RWA image fetch)',
       },
     });
     if (!response.ok) {
@@ -76,7 +76,7 @@ export class PinataService {
     }
   }
 
-  async uploadMetadata(metadata: NftMetadata): Promise<string> {
+  async uploadMetadata(metadata: RwaMetadata): Promise<string> {
     try {
       const result = await this.pinata.upload.public.json(metadata);
       this.logger.log(`Metadata uploaded to IPFS: ${result.cid}`);

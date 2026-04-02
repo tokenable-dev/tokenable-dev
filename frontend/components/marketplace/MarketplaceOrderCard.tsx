@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import {
-  getNftTokenURI,
+  getRwaTokenURI,
   fetchIpfsMetadata,
   resolveIpfsImage,
   type Order,
@@ -21,14 +21,14 @@ export function MarketplaceOrderCard({
   const priceUsdc = (Number(order.considerationAmount) / 1_000_000).toLocaleString();
 
   const { data: tokenURI } = useQuery({
-    queryKey: ["nft-token-uri", tokenId],
-    queryFn: () => getNftTokenURI(tokenId).catch(() => null),
+    queryKey: ["rwa-token-uri", tokenId],
+    queryFn: () => getRwaTokenURI(tokenId).catch(() => null),
     staleTime: 60_000,
     retry: false,
   });
 
   const { data: metadata } = useQuery({
-    queryKey: ["nft-metadata", tokenId],
+    queryKey: ["rwa-metadata", tokenId],
     queryFn: () =>
       tokenURI ? fetchIpfsMetadata(tokenURI) : Promise.resolve(null),
     enabled: !!tokenURI,

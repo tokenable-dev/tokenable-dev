@@ -8,7 +8,7 @@ import {
   useWriteContract,
   useWaitForTransactionReceipt,
 } from "wagmi";
-import { uploadNft, analyzePsaSlab, type PsaAnalyzeResult } from "@/lib/api";
+import { uploadRwaMetadata, analyzePsaSlab, type PsaAnalyzeResult } from "@/lib/api";
 import { TOKENABLE_RWA_ADDRESS, TOKENABLE_RWA_MINT_ABI } from "@/constants/contracts";
 import { sepolia } from "@/config/wagmi";
 import { gasWithCap } from "@/lib/chainGas";
@@ -462,7 +462,7 @@ export function MintForm() {
         })
       );
 
-      const uploadResult = await uploadNft(data);
+      const uploadResult = await uploadRwaMetadata(data);
       setStep("minting");
 
       if (!publicClient) throw new Error("Network not ready");
@@ -576,12 +576,12 @@ export function MintForm() {
               <section className="overflow-hidden rounded-xl border border-gray-800/90 bg-gray-900/35">
                 <header className="border-b border-gray-800/80 bg-black/20 px-4 py-3 sm:px-5 sm:py-4">
                   <h3 className="text-sm font-semibold text-white tracking-tight">
-                    NFT mint image
+                    RWA mint image
                   </h3>
                   <p className="mt-2 text-[11px] leading-relaxed text-gray-400">
                     After analysis of your slab front, if PSA returns an official image URL,{" "}
                     <span className="font-medium text-gray-300">that image</span> is used for
-                    the NFT. Otherwise your slab photo is used.
+                    the asset. Otherwise your slab photo is used.
                   </p>
                 </header>
 
@@ -605,7 +605,7 @@ export function MintForm() {
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={lastAnalyze.psaCertImages.front}
-                          alt="PSA cert slab — NFT display image"
+                          alt="PSA cert slab — RWA display image"
                           className="max-h-[min(52vh,280px)] w-auto max-w-[min(100%,280px)] object-contain rounded-lg"
                           loading="lazy"
                           referrerPolicy="no-referrer"
@@ -621,7 +621,7 @@ export function MintForm() {
                           Minting with PSA cert image
                         </p>
                         <p className="text-[11px] leading-snug text-gray-400">
-                          Only this image from PSA is uploaded to IPFS as the NFT image. The
+                          Only this image from PSA is uploaded to IPFS as the RWA image. The
                           slab snapshot cannot be substituted.
                         </p>
                       </div>
@@ -642,7 +642,7 @@ export function MintForm() {
                     </p>
                     <p className="text-[11px] leading-relaxed text-gray-500">
                       No PSA official image URL for this run. The slab capture below will be
-                      used as the NFT image.
+                      used as the RWA image.
                     </p>
                     <div className="inline-block rounded-lg border border-gray-700/80 bg-[#0a0e14] p-3">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
