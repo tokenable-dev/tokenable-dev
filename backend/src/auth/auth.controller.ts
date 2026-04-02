@@ -99,10 +99,32 @@ export class AuthController {
     return { ok: true };
   }
 
+  @Get('session')
+  @ApiOperation({
+    summary: '현재 세션 (비로그인도 200 + user: null — 브라우저 콘솔 401 노이즈 방지)',
+  })
+  async session(@Req() req: Request) {
+    const u = await this.auth.sessionUserFromRequest(req);
+    if (!u) return { user: null };
+    return {
+      user: {
+        id: u.id,
+        email: u.email,
+        name: u.name,
+        pictureUrl: u.pictureUrl,
+        walletAddress: u.walletAddress,
+        walletLinkedAt: u.walletLinkedAt,
+        platformEmailVerifiedAt: u.platformEmailVerifiedAt
+          ? u.platformEmailVerifiedAt.toISOString()
+          : null,
+      },
+    };
+  }
+
   @Get('me')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
-  @ApiOperation({ summary: '현재 로그인 사용자 (Cookie 또는 Bearer)' })
+  @ApiOperation({ summary: '현재 로그인 사용자 (Cookie 또는 Bearer) — 미인증 시 401' })
   me(@Req() req: { user: User }) {
     const u = req.user;
     return {
