@@ -9,12 +9,12 @@ export const TOKENABLE_RWA_DISPLAY_NAME = "Tokenable_RWA";
 
 const ADDR = /^0x[a-fA-F0-9]{40}$/;
 
-function requirePublicAddress(
-  primary: string,
-  legacy?: string,
-): `0x${string}` {
+/** 빈 문자열·미설정은 동일하게 “없음”으로 처리 (Docker build-arg 만 있고 값이 비는 경우 등) */
+function requirePublicAddress(primary: string, legacy?: string): `0x${string}` {
   const raw =
-    process.env[primary] ?? (legacy ? process.env[legacy] : undefined);
+    process.env[primary]?.trim() ||
+    (legacy ? process.env[legacy]?.trim() : undefined) ||
+    "";
   if (!raw || !ADDR.test(raw)) {
     const hint = legacy
       ? `Set ${primary} or ${legacy}`
