@@ -9,30 +9,34 @@ export const TOKENABLE_RWA_DISPLAY_NAME = "Tokenable_RWA";
 
 const ADDR = /^0x[a-fA-F0-9]{40}$/;
 
-/** 빈 문자열·미설정은 동일하게 “없음”으로 처리 (Docker build-arg 만 있고 값이 비는 경우 등) */
-function requirePublicAddress(primary: string, legacy?: string): `0x${string}` {
-  const raw =
-    process.env[primary]?.trim() ||
-    (legacy ? process.env[legacy]?.trim() : undefined) ||
-    "";
+/**
+ * Next.js 는 `process.env.NEXT_PUBLIC_*` 를 **정적**으로만 빌드 시 번들에 넣습니다.
+ * `process.env[name]` 같은 동적 접근은 클라이언트에서 항상 비어 있어 런타임 에러가 납니다.
+ */
+function requireHexAddr(
+  primary: string | undefined,
+  legacy: string | undefined,
+  label: string,
+): `0x${string}` {
+  const raw = primary?.trim() || legacy?.trim() || "";
   if (!raw || !ADDR.test(raw)) {
-    const hint = legacy
-      ? `Set ${primary} or ${legacy}`
-      : `Set ${primary}`;
     throw new Error(
-      `[contracts] ${hint} in the environment (e.g. frontend/.env.local). See frontend/.env.example.`,
+      `[contracts] Set ${label} in the environment (e.g. frontend/.env.local). See frontend/.env.example.`,
     );
   }
   return raw as `0x${string}`;
 }
 
 /** Prefer `NEXT_PUBLIC_RWA_CONTRACT_ADDRESS`; `NEXT_PUBLIC_NFT_CONTRACT_ADDRESS` is a legacy alias. */
-export const TOKENABLE_RWA_ADDRESS = requirePublicAddress(
-  "NEXT_PUBLIC_RWA_CONTRACT_ADDRESS",
-  "NEXT_PUBLIC_NFT_CONTRACT_ADDRESS",
+export const TOKENABLE_RWA_ADDRESS = requireHexAddr(
+  process.env.NEXT_PUBLIC_RWA_CONTRACT_ADDRESS,
+  process.env.NEXT_PUBLIC_NFT_CONTRACT_ADDRESS,
+  "NEXT_PUBLIC_RWA_CONTRACT_ADDRESS or NEXT_PUBLIC_NFT_CONTRACT_ADDRESS",
 );
 
-export const USDC_ADDRESS = requirePublicAddress(
+export const USDC_ADDRESS = requireHexAddr(
+  process.env.NEXT_PUBLIC_USDC_CONTRACT_ADDRESS,
+  undefined,
   "NEXT_PUBLIC_USDC_CONTRACT_ADDRESS",
 );
 
