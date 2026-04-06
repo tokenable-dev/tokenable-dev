@@ -1,4 +1,4 @@
-import type { Address, PublicClient, WalletClient } from "viem";
+import { type Address, type PublicClient, type WalletClient, zeroAddress } from "viem";
 import { parseUnits } from "viem";
 import { sepolia } from "@/config/wagmi";
 import {
@@ -12,11 +12,11 @@ import {
 import { createOrder, replaceListingApi, type CreateOrderPayload, type Order } from "@/lib/api";
 import { gasWithCap } from "@/lib/chainGas";
 import { normalizeDecimalTokenId } from "@/lib/normalizeTokenId";
-import { u256Hex32 } from "@/lib/seaport/eip712Uint";
 
 const ZERO_BYTES32 =
   "0x0000000000000000000000000000000000000000000000000000000000000000" as const;
-const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000000000000000000000000000" as Address;
+/** 20-byte zero address — must not use the 32-byte `ZERO_BYTES32` string here. */
+const ZERO_ADDRESS = zeroAddress;
 const ORDER_DURATION_SECONDS = 30 * 24 * 60 * 60;
 
 type WriteAsync = (args: {
@@ -95,28 +95,28 @@ export async function submitAskListingOrder(params: {
       {
         itemType: 2,
         token: TOKENABLE_RWA_ADDRESS,
-        identifierOrCriteria: u256Hex32(tokenIdBn),
-        startAmount: u256Hex32(BigInt(1)),
-        endAmount: u256Hex32(BigInt(1)),
+        identifierOrCriteria: tokenIdBn,
+        startAmount: BigInt(1),
+        endAmount: BigInt(1),
       },
     ],
     consideration: [
       {
         itemType: 1,
         token: USDC_ADDRESS,
-        identifierOrCriteria: u256Hex32(BigInt(0)),
-        startAmount: u256Hex32(priceInUnits),
-        endAmount: u256Hex32(priceInUnits),
+        identifierOrCriteria: BigInt(0),
+        startAmount: priceInUnits,
+        endAmount: priceInUnits,
         recipient: address,
       },
     ],
     orderType: 0,
-    startTime: u256Hex32(now),
-    endTime: u256Hex32(endTime),
+    startTime: now,
+    endTime: endTime,
     zoneHash: ZERO_BYTES32,
-    salt: u256Hex32(salt),
+    salt: salt,
     conduitKey: ZERO_BYTES32,
-    counter: u256Hex32(counter),
+    counter: counter,
   };
 
   const signature = await walletClient.signTypedData({

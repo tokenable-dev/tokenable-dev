@@ -23,7 +23,7 @@ import {
 import { createOrder, fulfillOrderApi, type Order } from "@/lib/api";
 import { GAS_FALLBACK, gasWithCapFast } from "@/lib/chainGas";
 import { mapWalletError } from "@/lib/walletError";
-import { assertMerkleRootBytes32, u256Hex32 } from "@/lib/seaport/eip712Uint";
+import { assertMerkleRootBytes32 } from "@/lib/seaport/eip712Uint";
 import {
   FULFILL_EXTRA_DATA,
   fulfillSeaportOrderArgs,
@@ -405,28 +405,28 @@ export function CollectionCriteriaBidPanel({
           {
             itemType: ITEM_ERC20,
             token: USDC_ADDRESS,
-            identifierOrCriteria: u256Hex32(BigInt(0)),
-            startAmount: u256Hex32(bidUnits),
-            endAmount: u256Hex32(bidUnits),
+            identifierOrCriteria: BigInt(0),
+            startAmount: bidUnits,
+            endAmount: bidUnits,
           },
         ],
         consideration: [
           {
             itemType: ITEM_CRITERIA721,
             token: TOKENABLE_RWA_ADDRESS,
-            identifierOrCriteria: u256Hex32(merkleRootU256),
-            startAmount: u256Hex32(BigInt(1)),
-            endAmount: u256Hex32(BigInt(1)),
+            identifierOrCriteria: merkleRootU256,
+            startAmount: BigInt(1),
+            endAmount: BigInt(1),
             recipient: address,
           },
         ],
         orderType: 0,
-        startTime: u256Hex32(now),
-        endTime: u256Hex32(endTime),
+        startTime: now,
+        endTime: endTime,
         zoneHash: ZERO_BYTES32,
-        salt: u256Hex32(salt),
+        salt: salt,
         conduitKey: ZERO_BYTES32,
-        counter: u256Hex32(counter as bigint),
+        counter: counter as bigint,
       };
 
       const signature = await walletClient.signTypedData({
