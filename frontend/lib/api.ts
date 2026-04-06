@@ -1,3 +1,6 @@
+import type { PublicClient } from "viem";
+import { TOKENABLE_RWA_ADDRESS, TOKENABLE_RWA_READ_ABI } from "@/constants/contracts";
+
 /**
  * 브라우저: Next rewrites로 동일 출처 `/api` → 백엔드 (httpOnly 쿠키 인증).
  * 서버/빌드: INTERNAL_API_URL 또는 직접 백엔드 URL.
@@ -180,6 +183,30 @@ export async function getRwaTokenURI(tokenId: number): Promise<string> {
     return typeof parsed === "string" ? parsed : parsed?.tokenURI ?? String(parsed);
   } catch {
     return text.trim();
+  }
+}
+
+/**
+ * 메타데이터용 tokenURI: API 우선, 404/빈 값이면 지갑과 동일한 프론트 컨트랙트에서 `tokenURI` 읽기
+ * (백엔드 RWA 주소·RPC가 프론트와 다를 때 카드 이미지 복구).
+ */
+export async function resolveRwaTokenUri(
+  tokenId: number,
+  publicClient?: PublicClient | null,
+): Promise<string> {
+  const fromApi = await getRwaTokenURI(tokenId).catch(() => "");
+  if (fromApi) return fromApi;
+  if (!publicClient) return "";
+  try {
+    const uri = await publicClient.readContract({
+      address: TOKENABLE_RWA_ADDRESS,
+      abi: TOKENABLE_RWA_READ_ABI,
+      functionName: "tokenURI",
+      args: [BigInt(tokenId)],
+    });
+    return typeof uri === "string" ? uri : "";
+  } catch {
+    return "";
   }
 }
 

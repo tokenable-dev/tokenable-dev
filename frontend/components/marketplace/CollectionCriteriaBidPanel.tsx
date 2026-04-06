@@ -10,7 +10,7 @@ import {
   useWalletClient,
   useWriteContract,
 } from "wagmi";
-import { formatUnits, parseUnits } from "viem";
+import { formatUnits, hexToBigInt, maxUint256, parseUnits } from "viem";
 import { sepolia } from "@/config/wagmi";
 import {
   SEAPORT_ADDRESS,
@@ -27,6 +27,7 @@ import {
 } from "@/lib/api";
 import { gasWithCap } from "@/lib/chainGas";
 import { mapWalletError } from "@/lib/walletError";
+import { assertMerkleRootBytes32, u256Hex32 } from "@/lib/seaport/eip712Uint";
 import { SeaportMerkleTree } from "@/lib/seaport/merkle";
 
 const ZERO_BYTES32 =
@@ -48,7 +49,7 @@ export function CollectionCriteriaBidPanel({
   /** When set (e.g. on collection page), opens modal to pick RWAs in this collection */
   onOpenSellModal?: () => void;
 }) {
-  const { address } = useAccount();
+  const { address, isConnected } = useAccount();
   const publicClient = usePublicClient({ chainId: sepolia.id });
   const { data: walletClient } = useWalletClient({ chainId: sepolia.id });
   const { writeContractAsync } = useWriteContract();
@@ -88,7 +89,20 @@ export function CollectionCriteriaBidPanel({
   });
 
   async function handleSubmit() {
-    if (!address || !walletClient || !publicClient) return;
+    if (!address) {
+      setErrorMsg("Connect your wallet.");
+      return;
+    }
+    if (!publicClient) {
+      setErrorMsg("Network client not ready. Refresh the page or switch to Sepolia.");
+      return;
+    }
+    if (!walletClient) {
+      setErrorMsg(
+        "Wallet is not ready to sign. Unlock MetaMask (or your wallet), then try again."
+      );
+      return;
+    }
     const n = parseFloat(price);
     if (!Number.isFinite(n) || n <= 0) {
       setErrorMsg("Enter a valid USDC price.");
@@ -98,7 +112,24 @@ export function CollectionCriteriaBidPanel({
       setErrorMsg("Could not read Seaport counter.");
       return;
     }
-    const tokenIds = merkleData?.tokenIds?.map((x) => BigInt(x)) ?? [];
+
+    setErrorMsg("");
+
+    let priceInUnits: bigint;
+    try {
+      priceInUnits = parseUnits(price, 6);
+    } catch {
+      setErrorMsg("Invalid USDC price format.");
+      return;
+    }
+
+    let tokenIds: bigint[];
+    try {
+      tokenIds = (merkleData?.tokenIds ?? []).map((x) => BigInt(String(x).trim()));
+    } catch {
+      setErrorMsg("Invalid token IDs in the Merkle set from the server.");
+      return;
+    }
     if (tokenIds.length === 0) {
       setErrorMsg(
         "No token IDs in this collection’s Merkle set yet (need at least one active listing to anchor IDs). List an asset first."
@@ -106,8 +137,6 @@ export function CollectionCriteriaBidPanel({
       return;
     }
 
-    setErrorMsg("");
-    const priceInUnits = parseUnits(price, 6);
     const now = BigInt(Math.floor(Date.now() / 1000));
     const endTime = now + BigInt(ORDER_DURATION_SECONDS);
     const salt = BigInt(Math.floor(Math.random() * 1_000_000_000_000));
@@ -115,26 +144,40 @@ export function CollectionCriteriaBidPanel({
     try {
       const tree = new SeaportMerkleTree(tokenIds);
       const rootHex = tree.getHexRoot();
+      assertMerkleRootBytes32(rootHex);
 
-      setStep("approving");
-      const gasApprove = await gasWithCap(publicClient, {
+      const allowance = await publicClient.readContract({
         address: USDC_ADDRESS,
         abi: USDC_ABI,
-        functionName: "approve",
-        args: [SEAPORT_ADDRESS, priceInUnits],
-        account: address,
+        functionName: "allowance",
+        args: [address, SEAPORT_ADDRESS],
       });
-      const approveTx = await writeContractAsync({
-        address: USDC_ADDRESS,
-        abi: USDC_ABI,
-        functionName: "approve",
-        args: [SEAPORT_ADDRESS, priceInUnits],
-        chainId: sepolia.id,
-        gas: gasApprove,
-      });
-      await publicClient.waitForTransactionReceipt({ hash: approveTx });
+      const needsUsdcApprove = allowance < priceInUnits;
+
+      if (needsUsdcApprove) {
+        setStep("approving");
+        const gasApprove = await gasWithCap(publicClient, {
+          address: USDC_ADDRESS,
+          abi: USDC_ABI,
+          functionName: "approve",
+          args: [SEAPORT_ADDRESS, maxUint256],
+          account: address,
+        });
+        const approveTx = await writeContractAsync({
+          address: USDC_ADDRESS,
+          abi: USDC_ABI,
+          functionName: "approve",
+          args: [SEAPORT_ADDRESS, maxUint256],
+          chainId: sepolia.id,
+          gas: gasApprove,
+        });
+        void publicClient.waitForTransactionReceipt({ hash: approveTx }).catch(() => {
+          /* 백그라운드에서만 확인; 실패 시 매칭·풀필 단계에서 allowance 부족으로 드러남 */
+        });
+      }
 
       setStep("signing");
+      const merkleRootU256 = hexToBigInt(rootHex);
       const orderMessage = {
         offerer: address,
         zone: ZERO_ADDRESS,
@@ -142,40 +185,40 @@ export function CollectionCriteriaBidPanel({
           {
             itemType: ITEM_ERC20,
             token: USDC_ADDRESS,
-            identifierOrCriteria: BigInt(0),
-            startAmount: priceInUnits,
-            endAmount: priceInUnits,
+            identifierOrCriteria: u256Hex32(BigInt(0)),
+            startAmount: u256Hex32(priceInUnits),
+            endAmount: u256Hex32(priceInUnits),
           },
         ],
         consideration: [
           {
             itemType: ITEM_CRITERIA721,
             token: TOKENABLE_RWA_ADDRESS,
-            identifierOrCriteria: BigInt(rootHex),
-            startAmount: BigInt(1),
-            endAmount: BigInt(1),
+            identifierOrCriteria: u256Hex32(merkleRootU256),
+            startAmount: u256Hex32(BigInt(1)),
+            endAmount: u256Hex32(BigInt(1)),
             recipient: address,
           },
         ],
         orderType: 0,
-        startTime: now,
-        endTime,
+        startTime: u256Hex32(now),
+        endTime: u256Hex32(endTime),
         zoneHash: ZERO_BYTES32,
-        salt,
+        salt: u256Hex32(salt),
         conduitKey: ZERO_BYTES32,
-        counter: counter as bigint,
+        counter: u256Hex32(counter as bigint),
       };
 
       const signature = await walletClient.signTypedData({
         domain: {
           name: "Seaport",
           version: "1.5",
-          chainId: BigInt(sepolia.id),
+          chainId: sepolia.id,
           verifyingContract: SEAPORT_ADDRESS,
         },
         types: SEAPORT_ORDER_TYPES,
         primaryType: "OrderComponents",
-        message: orderMessage,
+        message: orderMessage as never,
       });
 
       setStep("submitting");
@@ -285,11 +328,25 @@ export function CollectionCriteriaBidPanel({
 
         <button
           type="button"
-          disabled={busy || !address || merkleData?.tokenIds?.length === 0}
+          disabled={
+            busy ||
+            !address ||
+            (isConnected && !walletClient) ||
+            merkleData?.tokenIds?.length === 0 ||
+            counter === undefined
+          }
           onClick={() => void handleSubmit()}
           className="w-full rounded-xl py-3 text-sm font-bold bg-emerald-600 text-white hover:bg-emerald-500 disabled:opacity-40"
         >
-          {!address ? "Connect wallet" : busy ? step : "Sign & place bid"}
+          {!address
+            ? "Connect wallet"
+            : isConnected && !walletClient
+              ? "Open wallet…"
+              : counter === undefined
+                ? "Loading…"
+                : busy
+                  ? step
+                  : "Sign & place bid"}
         </button>
 
         {errorMsg && <p className="text-[11px] text-rose-400/90">{errorMsg}</p>}

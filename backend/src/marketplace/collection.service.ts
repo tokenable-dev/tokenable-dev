@@ -180,10 +180,14 @@ export class CollectionService {
 
     const asks = await this.activeListingsForCollection(k);
     const bids = await this.activeBidsForCollection(k);
-    const tokenIds = [
-      ...asks.map((o) => o.tokenId),
-      ...bids.map((o) => o.tokenId),
-    ].filter((id) => id && id !== '0');
+    /** Asks: include real token #0. Bids: criteria bids store tokenId sentinel "0" — skip for URI fetch. */
+    const askIds = asks
+      .map((o) => o.tokenId)
+      .filter((id) => id != null && String(id).trim() !== '');
+    const bidIds = bids
+      .map((o) => o.tokenId)
+      .filter((id) => id && id !== '0');
+    const tokenIds = [...new Set([...askIds, ...bidIds])];
     for (const tokenId of tokenIds) {
       try {
         const uri = await this.blockchain.getRwaTokenURI(Number(tokenId));
@@ -206,10 +210,18 @@ export class CollectionService {
     const listings = await this.activeListingsForCollection(collectionKey);
     const ids = [
       ...new Set(
-        listings.map((o) => o.tokenId).filter((id) => id && id !== '0'),
+        listings
+          .map((o) => o.tokenId)
+          .filter((id) => id != null && String(id).trim() !== ''),
       ),
     ];
-    ids.sort((a, b) => Number(a) - Number(b));
+    ids.sort((a, b) => {
+      const ba = BigInt(a);
+      const bb = BigInt(b);
+      if (ba < bb) return -1;
+      if (ba > bb) return 1;
+      return 0;
+    });
     return { tokenIds: ids };
   }
 }

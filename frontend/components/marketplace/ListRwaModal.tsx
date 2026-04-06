@@ -22,6 +22,7 @@ import {
 import { createOrder } from "@/lib/api";
 import { gasWithCap } from "@/lib/chainGas";
 import { mapWalletError } from "@/lib/walletError";
+import { u256Hex32 } from "@/lib/seaport/eip712Uint";
 
 const ZERO_BYTES32 =
   "0x0000000000000000000000000000000000000000000000000000000000000000" as const;
@@ -99,28 +100,34 @@ export function ListRwaModal({
     const salt = BigInt(Math.floor(Math.random() * 1_000_000_000_000));
 
     try {
-      // ── Step 1: Approve ERC-721 to Seaport ──────────────────────────────────────
-      setStep("approving");
-      const gasApprove = await gasWithCap(publicClient, {
+      // ── Step 1: OpenSea-style setApprovalForAll(Seaport, true) — 한 번이면 전 토큰 리스팅 가능
+      const alreadyAll = await publicClient.readContract({
         address: TOKENABLE_RWA_ADDRESS,
         abi: TOKENABLE_RWA_APPROVE_ABI,
-        functionName: "approve",
-        args: [SEAPORT_ADDRESS, BigInt(tokenId)],
-        account: address,
+        functionName: "isApprovedForAll",
+        args: [address, SEAPORT_ADDRESS],
       });
-      const approveTx = await writeContractAsync({
-        address: TOKENABLE_RWA_ADDRESS,
-        abi: TOKENABLE_RWA_APPROVE_ABI,
-        functionName: "approve",
-        args: [SEAPORT_ADDRESS, BigInt(tokenId)],
-        chainId: sepolia.id,
-        gas: gasApprove,
-      });
-      if (publicClient) {
-        await publicClient.waitForTransactionReceipt({ hash: approveTx });
+      if (!alreadyAll) {
+        setStep("approving");
+        const gasSetAll = await gasWithCap(publicClient, {
+          address: TOKENABLE_RWA_ADDRESS,
+          abi: TOKENABLE_RWA_APPROVE_ABI,
+          functionName: "setApprovalForAll",
+          args: [SEAPORT_ADDRESS, true],
+          account: address,
+        });
+        const setAllTx = await writeContractAsync({
+          address: TOKENABLE_RWA_ADDRESS,
+          abi: TOKENABLE_RWA_APPROVE_ABI,
+          functionName: "setApprovalForAll",
+          args: [SEAPORT_ADDRESS, true],
+          chainId: sepolia.id,
+          gas: gasSetAll,
+        });
+        void publicClient.waitForTransactionReceipt({ hash: setAllTx }).catch(() => {});
       }
 
-      // ── Step 2: EIP-712 sign the Seaport order ───────────────────────────────
+      // ── Step 2: EIP-712 sign (온체인 승인 채굴 대기 없음) ───────────────────────
       setStep("signing");
 
       const orderMessage = {
@@ -130,28 +137,28 @@ export function ListRwaModal({
           {
             itemType: 2, // ERC721
             token: TOKENABLE_RWA_ADDRESS,
-            identifierOrCriteria: BigInt(tokenId),
-            startAmount: BigInt(1),
-            endAmount: BigInt(1),
+            identifierOrCriteria: u256Hex32(BigInt(tokenId)),
+            startAmount: u256Hex32(BigInt(1)),
+            endAmount: u256Hex32(BigInt(1)),
           },
         ],
         consideration: [
           {
             itemType: 1, // ERC20
             token: USDC_ADDRESS,
-            identifierOrCriteria: BigInt(0),
-            startAmount: priceInUnits,
-            endAmount: priceInUnits,
+            identifierOrCriteria: u256Hex32(BigInt(0)),
+            startAmount: u256Hex32(priceInUnits),
+            endAmount: u256Hex32(priceInUnits),
             recipient: address,
           },
         ],
         orderType: 0, // FULL_OPEN
-        startTime: now,
-        endTime,
+        startTime: u256Hex32(now),
+        endTime: u256Hex32(endTime),
         zoneHash: ZERO_BYTES32,
-        salt,
+        salt: u256Hex32(salt),
         conduitKey: ZERO_BYTES32,
-        counter,
+        counter: u256Hex32(counter as bigint),
       };
 
       const signature = await walletClient.signTypedData({
@@ -163,7 +170,7 @@ export function ListRwaModal({
         },
         types: SEAPORT_ORDER_TYPES,
         primaryType: "OrderComponents",
-        message: orderMessage,
+        message: orderMessage as never,
       });
 
       // ── Step 3: POST to backend ───────────────────────────────────────────────
@@ -171,7 +178,7 @@ export function ListRwaModal({
 
       const str = (v: unknown): string => String(v);
 
-      await createOrder({
+      const created = await createOrder({
         side: "ask",
         parameters: {
           offerer: address,
@@ -216,6 +223,12 @@ export function ListRwaModal({
 
       await queryClient.invalidateQueries({ queryKey: ["marketplace-orders"] });
       await queryClient.invalidateQueries({ queryKey: ["marketplace-collection"] });
+      await queryClient.invalidateQueries({ queryKey: ["merkle-set"] });
+      if (created.collectionKey) {
+        await queryClient.invalidateQueries({
+          queryKey: ["merkle-set", created.collectionKey],
+        });
+      }
       await queryClient.invalidateQueries({ queryKey: ["my-rwa-ids", address] });
     } catch (err: unknown) {
       setErrorMsg(mapWalletError(err).message);
@@ -227,7 +240,7 @@ export function ListRwaModal({
     step === "approving" || step === "signing" || step === "submitting";
 
   const stepLabels: { label: string; active: boolean }[] = [
-    { label: "1. Approve token", active: step === "approving" },
+    { label: "1. Approve marketplace", active: step === "approving" },
     { label: "2. Sign Order", active: step === "signing" },
     { label: "3. Submitting", active: step === "submitting" },
   ];

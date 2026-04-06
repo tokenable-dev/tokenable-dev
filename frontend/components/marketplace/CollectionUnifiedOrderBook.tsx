@@ -201,13 +201,18 @@ export function CollectionUnifiedOrderBook({
   const myAsks = useMemo(() => {
     if (!address) return [];
     const a = address.toLowerCase();
-    return askRows.filter(
-      (o) =>
+    return askRows.filter((o) => {
+      const raw = String(o.tokenId ?? "").trim();
+      const tid = Number(raw);
+      return (
         o.status === "active" &&
         (o.side === "ask" || o.side == null) &&
         o.offerer.toLowerCase() === a &&
-        Number(o.tokenId) > 0
-    );
+        raw !== "" &&
+        Number.isFinite(tid) &&
+        tid >= 0
+      );
+    });
   }, [askRows, address]);
 
   useEffect(() => {
@@ -386,6 +391,23 @@ export function CollectionUnifiedOrderBook({
             </div>
           </div>
 
+          {address && myAsks.length > 1 && selectedAsk && (
+            <div className="mx-2 mt-1 mb-0.5 flex items-center gap-2 rounded-md border border-gray-800/80 bg-[#080a0e] py-1.5 px-2.5">
+              <span className="text-[10px] text-gray-500 shrink-0 tabular-nums">Sell with</span>
+              <select
+                value={pickToken ?? ""}
+                onChange={(e) => setPickToken(Number(e.target.value))}
+                className="min-w-0 flex-1 max-w-[min(100%,240px)] cursor-pointer rounded border border-gray-700/90 bg-[#07090c] py-1 pl-2 pr-6 text-[11px] font-mono text-gray-200 outline-none transition-colors hover:border-gray-600 focus:border-gray-500"
+              >
+                {myAsks.map((a) => (
+                  <option key={a.orderHash} value={Number(a.tokenId)}>
+                    #{a.tokenId} · {formatPriceUsdc(priceUsdcFromOrder(a))} USDC
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           {/* Bids — green */}
           <div className="max-h-[220px] overflow-y-auto flex flex-col gap-px px-1 pb-1">
             {bidLevels.length === 0 ? (
@@ -429,63 +451,39 @@ export function CollectionUnifiedOrderBook({
                         /* */
                       }
                       const canInstant = myAsks.length > 0 && selectedAsk != null && address;
+                      const sellTitle = `Sell at ${formatPriceUsdc(display)} USDC. Listing reprices to this bid if needed, then settles on-chain.`;
 
                       return (
                         <div
                           key={o.orderHash}
-                          className="px-3 py-2 border-t border-gray-800/40 bg-black/20 space-y-2"
+                          className="flex items-center gap-2 border-t border-white/[0.05] bg-black/20 px-2 py-1.5"
                         >
-                          <div className="flex items-center justify-between gap-2">
-                            <p className="text-[10px] text-gray-600 truncate font-mono">
-                              {shortAddr(o.offerer)}
-                            </p>
+                          <p className="min-w-0 flex-1 truncate text-[10px] font-mono text-gray-500">
+                            {shortAddr(o.offerer)}
+                          </p>
+                          <div className="flex shrink-0 items-center gap-1">
                             {mine && (
                               <button
                                 type="button"
                                 disabled={cancelling === o.orderHash}
                                 onClick={() => void handleCancelBid(o)}
-                                className="text-[10px] font-semibold px-2 py-1 rounded bg-gray-800 text-gray-300 hover:bg-gray-700 disabled:opacity-40"
+                                className="rounded px-2 py-0.5 text-[10px] font-medium text-gray-500 transition-colors hover:bg-white/[0.06] hover:text-gray-300 disabled:opacity-40"
                               >
                                 {cancelling === o.orderHash ? "…" : "Cancel"}
                               </button>
                             )}
-                          </div>
-
-                          {canInstant && (
-                            <div className="rounded-md border border-gray-800/90 bg-black/35 px-2 py-2 space-y-1.5">
-                              {myAsks.length > 1 && (
-                                <label className="flex flex-col gap-0.5">
-                                  <span className="text-[9px] text-gray-500 uppercase tracking-wide">
-                                    Your listing
-                                  </span>
-                                  <select
-                                    value={pickToken ?? ""}
-                                    onChange={(e) => setPickToken(Number(e.target.value))}
-                                    className="text-[10px] rounded border border-gray-800 bg-black/50 text-gray-200 px-1.5 py-1 font-mono"
-                                  >
-                                    {myAsks.map((a) => (
-                                      <option key={a.orderHash} value={Number(a.tokenId)}>
-                                        #{a.tokenId} — {formatPriceUsdc(priceUsdcFromOrder(a))} USDC
-                                      </option>
-                                    ))}
-                                  </select>
-                                </label>
-                              )}
+                            {canInstant && (
                               <button
                                 type="button"
                                 disabled={instantBusy === o.orderHash}
+                                title={sellTitle}
                                 onClick={() => void handleInstantSell(o)}
-                                className="w-full text-[10px] font-bold py-1.5 rounded-lg bg-amber-500/15 text-amber-200 border border-amber-500/30 hover:bg-amber-500/25 disabled:opacity-40"
+                                className="rounded border border-gray-600/60 bg-transparent px-2 py-0.5 text-[10px] font-medium text-gray-300 tabular-nums transition-colors hover:border-gray-500 hover:bg-white/[0.04] hover:text-white disabled:pointer-events-none disabled:opacity-35"
                               >
-                                {instantBusy === o.orderHash
-                                  ? "Working…"
-                                  : `Instant sell @ ${formatPriceUsdc(display)} USDC`}
+                                {instantBusy === o.orderHash ? "…" : "Sell"}
                               </button>
-                              <p className="text-[9px] text-gray-600 leading-snug">
-                                Reprices your listing to the bid if needed, then matches on-chain.
-                              </p>
-                            </div>
-                          )}
+                            )}
+                          </div>
                         </div>
                       );
                     })}
@@ -507,8 +505,8 @@ export function CollectionUnifiedOrderBook({
           </div>
 
           {instantErr && (
-            <div className="mx-2 mb-2 px-2 py-1.5 rounded-md bg-red-500/10 border border-red-500/25">
-              <p className="text-[10px] text-red-400 break-all">{instantErr}</p>
+            <div className="mx-2 mb-2 rounded-md border border-red-500/20 bg-red-500/[0.06] px-3 py-2">
+              <p className="break-words text-[11px] leading-snug text-red-300/90">{instantErr}</p>
             </div>
           )}
         </>
