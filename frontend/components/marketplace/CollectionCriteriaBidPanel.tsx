@@ -46,24 +46,34 @@ type Step =
   | "success"
   | "error";
 
-/** Cheapest active ask you don’t own; tie-break lower token id. */
-function pickLowestBuyableAsk(activeAsks: Order[], buyer: string): Order | null {
-  const buyerLc = buyer.toLowerCase();
-  const cands = activeAsks.filter(
-    (o) =>
-      o.status === "active" &&
-      o.side !== "bid" &&
-      o.offerer.toLowerCase() !== buyerLc
-  );
+function isListingAskRow(o: Order): boolean {
+  const s = String(o.side ?? "ask").toLowerCase();
+  return s !== "bid";
+}
+
+/** USDC micros (6 dp) from listing row — safe for API string/number JSON. */
+function askPriceMicros(o: Order): bigint {
+  try {
+    const raw = o.considerationAmount;
+    const s = typeof raw === "bigint" ? String(raw) : String(raw ?? "").trim();
+    if (!s) return BigInt(0);
+    return BigInt(s);
+  } catch {
+    return BigInt(0);
+  }
+}
+
+/**
+ * Cheapest active listing on the book (any offerer). Same wallet can fulfill its own ask
+ * so 11 USDC list + 11 USDC buy uses instant `fulfillOrder`; below best ask → collection bid.
+ */
+function pickLowestActiveAsk(activeAsks: Order[]): Order | null {
+  const cands = activeAsks.filter((o) => o.status === "active" && isListingAskRow(o));
   if (cands.length === 0) return null;
   cands.sort((a, b) => {
-    try {
-      const pa = BigInt(a.considerationAmount);
-      const pb = BigInt(b.considerationAmount);
-      if (pa !== pb) return pa < pb ? -1 : 1;
-    } catch {
-      /* keep order */
-    }
+    const pa = askPriceMicros(a);
+    const pb = askPriceMicros(b);
+    if (pa !== pb) return pa < pb ? -1 : 1;
     return Number(a.tokenId) - Number(b.tokenId);
   });
   return cands[0];
@@ -81,7 +91,7 @@ function formatUsdc6(amountStr: string): string {
 /** Same rule as backend `merkleEligibleTokenIds`: active ask rows → distinct token_id strings. */
 function merkleTokenIdsFromActiveAsks(asks: Order[]): string[] {
   const idsAsk = asks
-    .filter((o) => o.status === "active" && o.side !== "bid")
+    .filter((o) => o.status === "active" && isListingAskRow(o))
     .map((o) => String(o.tokenId ?? "").trim())
     .filter((id) => id !== "");
   const ids = [...new Set(idsAsk)];
@@ -98,15 +108,22 @@ function merkleTokenIdsFromActiveAsks(asks: Order[]): string[] {
 export function CollectionCriteriaBidPanel({
   collectionKey,
   activeAsks = [],
+  /** Prefer parent (Zustand) address so this panel matches OrderBook / rest of page. */
+  connectedAddress,
   onPlaced,
   onOpenSellModal,
 }: {
   collectionKey: string;
   activeAsks?: Order[];
+  connectedAddress?: `0x${string}` | string | null;
   onPlaced?: (order: Order) => void;
   onOpenSellModal?: () => void;
 }) {
-  const { address, isConnected } = useAccount();
+  const { address: wagmiAddress, isConnected } = useAccount();
+  const address =
+    (connectedAddress != null && String(connectedAddress).trim() !== ""
+      ? (String(connectedAddress).trim() as `0x${string}`)
+      : wagmiAddress) ?? undefined;
   const publicClient = usePublicClient({ chainId: sepolia.id });
   const { data: walletClient } = useWalletClient({ chainId: sepolia.id });
   const { writeContractAsync } = useWriteContract();
@@ -156,18 +173,15 @@ export function CollectionCriteriaBidPanel({
     [activeAsks]
   );
 
-  const lowestAsk = useMemo(
-    () => (address ? pickLowestBuyableAsk(activeAsks, address) : null),
-    [activeAsks, address]
-  );
+  const lowestAsk = useMemo(() => pickLowestActiveAsk(activeAsks), [activeAsks]);
 
-  const lowestAskUsdc = lowestAsk ? formatUsdc6(lowestAsk.considerationAmount) : null;
+  const lowestAskUsdc = lowestAsk ? formatUsdc6(String(askPriceMicros(lowestAsk))) : null;
 
   /** Prefill so Buy isn’t stuck disabled on empty input (common after page load). */
   useEffect(() => {
     if (priceTouchedRef.current || !lowestAsk) return;
     try {
-      const s = formatUnits(BigInt(lowestAsk.considerationAmount), 6);
+      const s = formatUnits(askPriceMicros(lowestAsk), 6);
       const n = parseFloat(s);
       setPrice(Number.isFinite(n) ? String(n) : s);
     } catch {
@@ -177,9 +191,11 @@ export function CollectionCriteriaBidPanel({
 
   const priceInUnits = useMemo(() => {
     try {
-      const n = parseFloat(price);
+      const trimmed = price.trim();
+      if (!trimmed) return null;
+      const n = parseFloat(trimmed);
       if (!Number.isFinite(n) || n <= 0) return null;
-      return parseUnits(price, 6);
+      return parseUnits(trimmed, 6);
     } catch {
       return null;
     }
@@ -188,21 +204,13 @@ export function CollectionCriteriaBidPanel({
   /** Like a limit order crossing the book: price ≥ best ask → fill cheapest listing (pay listing price on-chain). */
   const crossesBook = useMemo(() => {
     if (!lowestAsk || priceInUnits == null) return false;
-    try {
-      return priceInUnits >= BigInt(lowestAsk.considerationAmount);
-    } catch {
-      return false;
-    }
+    return priceInUnits >= askPriceMicros(lowestAsk);
   }, [lowestAsk, priceInUnits]);
 
   /** 입력이 최저가보다 크면 “9 넣었는데 7만 청구”를 한눈에 알 수 있게 한다. */
   const enteredAboveBestAsk = useMemo(() => {
     if (!lowestAsk || priceInUnits == null || !crossesBook) return false;
-    try {
-      return priceInUnits > BigInt(lowestAsk.considerationAmount);
-    } catch {
-      return false;
-    }
+    return priceInUnits > askPriceMicros(lowestAsk);
   }, [lowestAsk, priceInUnits, crossesBook]);
 
   const enteredUsdcLabel = useMemo(() => {
@@ -238,7 +246,7 @@ export function CollectionCriteriaBidPanel({
 
   async function runInstantPurchase(ask: Order) {
     if (!address || !publicClient) return;
-    const payUnits = BigInt(ask.considerationAmount);
+    const payUnits = askPriceMicros(ask);
 
     let allowance = usdcAllowanceRaw as bigint | undefined;
     if (allowance === undefined) {
@@ -311,15 +319,21 @@ export function CollectionCriteriaBidPanel({
   }
 
   async function handleSubmit() {
-    if (!address || !publicClient) return;
+    if (!publicClient) {
+      setErrorMsg("Network not ready. Refresh or switch to Sepolia.");
+      return;
+    }
+    if (!address) {
+      setErrorMsg("Connect your wallet.");
+      return;
+    }
     if (!priceOk || priceInUnits == null) {
       setErrorMsg("Enter a valid USDC amount.");
       return;
     }
 
-    const lowest = pickLowestBuyableAsk(activeAsks, address);
-    const willFill =
-      lowest != null && priceInUnits >= BigInt(lowest.considerationAmount);
+    const lowest = pickLowestActiveAsk(activeAsks);
+    const willFill = lowest != null && priceInUnits >= askPriceMicros(lowest);
 
     if (willFill && lowest) {
       setErrorMsg("");
@@ -565,7 +579,10 @@ export function CollectionCriteriaBidPanel({
             <span className="text-gray-600"> · token #{lowestAsk.tokenId}</span>
           </p>
         ) : (
-          <p className="text-[10px] text-gray-600">No listing from others — bids only (if Merkle set ready).</p>
+          <p className="text-[10px] text-gray-600">
+            No active listings — add a listing first, or wait for sellers (collection bids need asks in
+            the book).
+          </p>
         )}
 
         <div>

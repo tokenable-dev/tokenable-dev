@@ -281,6 +281,7 @@ export default function MarketplaceCollectionPage() {
             <CollectionCriteriaBidPanel
               collectionKey={collection.collectionKey}
               activeAsks={asks}
+              connectedAddress={address ?? undefined}
               onPlaced={() => invalidateCollection()}
               onOpenSellModal={() => setSellModalOpen(true)}
             />
