@@ -55,7 +55,13 @@ function collectPsaCertImageUrlsFromUnknown(raw: unknown): {
   back?: string;
 } {
   const out: { front?: string; back?: string } = {};
-  const walk = (obj: unknown): void => {
+  let visits = 0;
+  const MAX_VISITS = 8000;
+  const MAX_DEPTH = 48;
+
+  const walk = (obj: unknown, depth: number): void => {
+    if (depth > MAX_DEPTH) return;
+    if (visits++ > MAX_VISITS) return;
     if (obj == null) return;
     if (typeof obj === 'string') {
       const s = obj.trim();
@@ -66,12 +72,14 @@ function collectPsaCertImageUrlsFromUnknown(raw: unknown): {
     }
     if (typeof obj !== 'object') return;
     if (Array.isArray(obj)) {
-      for (const v of obj) walk(v);
+      for (const v of obj) walk(v, depth + 1);
       return;
     }
-    for (const v of Object.values(obj)) walk(v);
+    for (const v of Object.values(obj as Record<string, unknown>)) {
+      walk(v, depth + 1);
+    }
   };
-  walk(raw);
+  walk(raw, 0);
   return out;
 }
 

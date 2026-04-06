@@ -15,15 +15,15 @@ export interface AuthUser {
   platformEmailVerifiedAt: string | null;
 }
 
-/** 세션 없으면 null */
+/** 세션 없으면 null (`/auth/session` 은 항상 200 — 미인증 시 `{ user: null }`) */
 export async function fetchAuthMe(): Promise<AuthUser | null> {
-  const res = await backendFetch(`${getApiUrl()}/auth/me`);
-  if (res.status === 401) return null;
+  const res = await backendFetch(`${getApiUrl()}/auth/session`);
   if (!res.ok) {
     const err = await res.json().catch(() => ({ message: "Session error" }));
     throw new Error((err as { message?: string }).message ?? "Session error");
   }
-  return res.json() as Promise<AuthUser>;
+  const data = (await res.json()) as { user: AuthUser | null };
+  return data.user ?? null;
 }
 
 export async function logoutAuth(): Promise<void> {

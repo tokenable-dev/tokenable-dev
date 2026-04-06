@@ -1,15 +1,18 @@
 "use client";
 
-import type { GradingCompany } from "@/types/gradedCard";
-import { GRADING_COMPANIES } from "@/types/gradedCard";
+import type { GradingCompany, PsaFieldLocks } from "@/types/gradedCard";
 import { ImageInput } from "./ImageInput";
 
 const inputClass =
   "w-full bg-gray-800 border border-gray-700 focus:border-mint rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 outline-none transition-colors";
 
+function lockedHint(locked: boolean): string | undefined {
+  return locked ? "Set by PSA analysis and cannot be edited" : undefined;
+}
+
 interface GradedCardSectionProps {
+  /** Mint supports PSA only; prop kept for typing */
   gradingCompany: GradingCompany | "";
-  onCompanyChange: (company: GradingCompany) => void;
   card: { name: string; player: string; year: string; set: string; number: string };
   onCardChange: (card: GradedCardSectionProps["card"]) => void;
   grade: { certNumber: string; score: string; subgrades: Record<string, string | number | boolean> };
@@ -20,19 +23,89 @@ interface GradedCardSectionProps {
     slabBack: File | string | null;
   };
   onVerificationChange: (v: GradedCardSectionProps["verification"]) => void;
+  /** Fields filled by PSA analysis — read-only when locked */
+  psaFieldLocks?: PsaFieldLocks;
+}
+
+/** PSA: slab upload first; understated styling */
+function PsaSlabUploadHero({
+  verification,
+  onVerificationChange,
+  psaFieldLocks,
+}: {
+  verification: GradedCardSectionProps["verification"];
+  onVerificationChange: GradedCardSectionProps["onVerificationChange"];
+  psaFieldLocks?: PsaFieldLocks;
+}) {
+  const L = psaFieldLocks;
+  return (
+    <section
+      className="rounded-xl border-2 border-gray-600/70 bg-gray-900/40 p-4 shadow-sm shadow-black/20 sm:p-5"
+      aria-labelledby="psa-slab-hero-title"
+    >
+      <div className="mb-4">
+        <span className="inline-flex items-center rounded-md border border-gray-600/80 bg-gray-800/80 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-gray-400">
+          Required · Step 1
+        </span>
+        <h4
+          id="psa-slab-hero-title"
+          className="mt-2.5 text-base font-semibold tracking-tight text-white sm:text-lg"
+        >
+          Upload slab front photo
+        </h4>
+        <p className="mt-1.5 max-w-2xl text-xs leading-relaxed text-gray-400 sm:text-sm">
+          Minting runs from this slab image. OCR, PSA lookup, and JustTCG run after upload.
+          You do not need a separate card photo.
+        </p>
+      </div>
+
+      <div className="max-w-xl space-y-4">
+        <div>
+          <p className="mb-1.5 text-xs font-medium text-gray-400">Slab front (required)</p>
+          <div className="rounded-lg border border-gray-600/90 bg-gray-950/40 p-3">
+            <ImageInput
+              label="Choose file or click to upload"
+              value={verification.slabFront}
+              onChange={(f) => onVerificationChange({ ...verification, slabFront: f })}
+              mode="file"
+              required
+            />
+          </div>
+        </div>
+        <div>
+          <label className="mb-1 block text-xs text-gray-500">
+            Certification URL{" "}
+            <span className="text-gray-600">(optional — used before OCR if set)</span>
+          </label>
+          <input
+            type="url"
+            value={verification.certUrl}
+            onChange={(e) =>
+              onVerificationChange({ ...verification, certUrl: e.target.value })
+            }
+            placeholder="https://..."
+            disabled={Boolean(L?.certUrl)}
+            title={lockedHint(Boolean(L?.certUrl))}
+            className={`${inputClass} disabled:cursor-not-allowed disabled:opacity-60`}
+          />
+        </div>
+      </div>
+    </section>
+  );
 }
 
 export function GradedCardSection({
   gradingCompany,
-  onCompanyChange,
   card,
   onCardChange,
   grade,
   onGradeChange,
   verification,
   onVerificationChange,
+  psaFieldLocks,
 }: GradedCardSectionProps) {
   const hasCompany = !!gradingCompany;
+  const L = psaFieldLocks;
 
   return (
     <div className="border-t border-gray-800 pt-6 transition-opacity duration-200">
@@ -41,35 +114,26 @@ export function GradedCardSection({
         Graded Card Information
       </h3>
       <p className="text-xs text-gray-500 mb-4">
-        Add grading details to enrich your asset. All fields are optional.
+        {L?.gradingCompany
+          ? "Fields confirmed by PSA analysis cannot be edited. Change the slab to re-analyze."
+          : "Start with the slab upload above. Card and grade fields fill in after analysis."}
       </p>
 
       <div className="space-y-5">
-        {/* Grading Company Selector */}
-        <div>
-          <label className="block text-sm text-gray-400 mb-1.5">
-            Grading Company{" "}
-            <span className="text-gray-500 text-xs font-normal">(optional)</span>
-          </label>
-          <select
-            value={gradingCompany}
-            onChange={(e) => onCompanyChange(e.target.value as GradingCompany)}
-            className="w-full bg-gray-800 border border-gray-700 focus:border-mint rounded-lg px-3 py-2.5 text-sm text-white outline-none transition-all duration-200 appearance-none cursor-pointer"
-            style={{
-              backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%239ca3af' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
-              backgroundPosition: "right 0.5rem center",
-              backgroundRepeat: "no-repeat",
-              backgroundSize: "1.5em 1.5em",
-              paddingRight: "2.5rem",
-            }}
+        <PsaSlabUploadHero
+          verification={verification}
+          onVerificationChange={onVerificationChange}
+          psaFieldLocks={L}
+        />
+
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-gray-700/90 bg-gray-900/50 px-3 py-2.5">
+          <span className="text-sm text-gray-400">Grading company</span>
+          <span
+            className="text-sm font-medium text-white"
+            title={L?.gradingCompany ? lockedHint(true) : undefined}
           >
-            <option value="">Select grading company...</option>
-            {GRADING_COMPANIES.map(({ value: v, label }) => (
-              <option key={v} value={v}>
-                {label}
-              </option>
-            ))}
-          </select>
+            PSA
+          </span>
         </div>
 
         {hasCompany && (
@@ -89,7 +153,9 @@ export function GradedCardSection({
                     value={card.name}
                     onChange={(e) => onCardChange({ ...card, name: e.target.value })}
                     placeholder="e.g. 2023 Topps Chrome Refractor"
-                    className={inputClass}
+                    disabled={Boolean(L?.cardName)}
+                    title={lockedHint(Boolean(L?.cardName))}
+                    className={`${inputClass} disabled:opacity-60 disabled:cursor-not-allowed`}
                   />
                 </div>
                 <div>
@@ -102,7 +168,9 @@ export function GradedCardSection({
                     value={card.player}
                     onChange={(e) => onCardChange({ ...card, player: e.target.value })}
                     placeholder="e.g. Shohei Ohtani"
-                    className={inputClass}
+                    disabled={Boolean(L?.player)}
+                    title={lockedHint(Boolean(L?.player))}
+                    className={`${inputClass} disabled:opacity-60 disabled:cursor-not-allowed`}
                   />
                 </div>
                 <div>
@@ -114,7 +182,9 @@ export function GradedCardSection({
                     value={card.year}
                     onChange={(e) => onCardChange({ ...card, year: e.target.value })}
                     placeholder="e.g. 2023"
-                    className={inputClass}
+                    disabled={Boolean(L?.year)}
+                    title={lockedHint(Boolean(L?.year))}
+                    className={`${inputClass} disabled:opacity-60 disabled:cursor-not-allowed`}
                   />
                 </div>
                 <div>
@@ -126,7 +196,9 @@ export function GradedCardSection({
                     value={card.set}
                     onChange={(e) => onCardChange({ ...card, set: e.target.value })}
                     placeholder="e.g. Topps Chrome"
-                    className={inputClass}
+                    disabled={Boolean(L?.set)}
+                    title={lockedHint(Boolean(L?.set))}
+                    className={`${inputClass} disabled:opacity-60 disabled:cursor-not-allowed`}
                   />
                 </div>
                 <div>
@@ -138,7 +210,9 @@ export function GradedCardSection({
                     value={card.number}
                     onChange={(e) => onCardChange({ ...card, number: e.target.value })}
                     placeholder="e.g. 1"
-                    className={inputClass}
+                    disabled={Boolean(L?.number)}
+                    title={lockedHint(Boolean(L?.number))}
+                    className={`${inputClass} disabled:opacity-60 disabled:cursor-not-allowed`}
                   />
                 </div>
               </div>
@@ -160,7 +234,9 @@ export function GradedCardSection({
                     value={grade.certNumber}
                     onChange={(e) => onGradeChange({ certNumber: e.target.value })}
                     placeholder="e.g. 12345678"
-                    className={inputClass}
+                    disabled={Boolean(L?.certNumber)}
+                    title={lockedHint(Boolean(L?.certNumber))}
+                    className={`${inputClass} disabled:opacity-60 disabled:cursor-not-allowed`}
                   />
                 </div>
                 <div>
@@ -172,66 +248,20 @@ export function GradedCardSection({
                     value={grade.score}
                     onChange={(e) => onGradeChange({ score: e.target.value })}
                     placeholder="e.g. 10"
-                    className={inputClass}
+                    disabled={Boolean(L?.score)}
+                    title={lockedHint(Boolean(L?.score))}
+                    className={`${inputClass} disabled:opacity-60 disabled:cursor-not-allowed`}
                   />
                 </div>
               </div>
             </div>
 
-            {/* Verification */}
-            <div className="bg-gray-800/40 rounded-lg p-4 border border-gray-700/50">
-              <h4 className="text-xs font-semibold text-mint/90 uppercase tracking-wider mb-3">
-                Verification
-              </h4>
-              {gradingCompany === "PSA" && (
-                <p className="text-xs text-gray-400 mb-3 -mt-1 leading-relaxed">
-                  슬랩 이미지를 선택하면 아래에서 자동으로 데이터 추출이 시작됩니다.
-                </p>
-              )}
-              <div>
-                <label className="block text-xs text-gray-500 mb-1">
-                  Certification URL{" "}
-                  <span className="text-gray-600">(optional)</span>
-                </label>
-                <input
-                  type="url"
-                  value={verification.certUrl}
-                  onChange={(e) =>
-                    onVerificationChange({ ...verification, certUrl: e.target.value })
-                  }
-                  placeholder="https://..."
-                  className={inputClass}
-                />
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
-                <ImageInput
-                  label={
-                    gradingCompany === "PSA"
-                      ? "Slab Front (자동 분석 트리거)"
-                      : "Slab Front Image (optional)"
-                  }
-                  value={verification.slabFront}
-                  onChange={(f) => onVerificationChange({ ...verification, slabFront: f })}
-                  mode="file"
-                />
-                <ImageInput
-                  label={
-                    gradingCompany === "PSA"
-                      ? "Slab Back (선택 · 추가 시 재분석)"
-                      : "Slab Back Image (optional)"
-                  }
-                  value={verification.slabBack}
-                  onChange={(f) => onVerificationChange({ ...verification, slabBack: f })}
-                  mode="file"
-                />
-              </div>
-            </div>
-
             {/* Company-specific fields */}
             <CompanySpecificBlock
-              company={gradingCompany as GradingCompany}
+              company="PSA"
               subgrades={grade.subgrades}
               onChange={(subgrades) => onGradeChange({ subgrades })}
+              psaFieldLocks={L}
             />
           </div>
         )}
@@ -244,10 +274,12 @@ function CompanySpecificBlock({
   company,
   subgrades,
   onChange,
+  psaFieldLocks,
 }: {
   company: GradingCompany;
   subgrades: Record<string, string | number | boolean>;
   onChange: (s: Record<string, string | number | boolean>) => void;
+  psaFieldLocks?: PsaFieldLocks;
 }) {
   function set(key: string, value: string | number | boolean) {
     onChange({ ...subgrades, [key]: value });
@@ -282,18 +314,21 @@ function CompanySpecificBlock({
             value={String(get("autographGrade"))}
             onChange={(v) => set("autographGrade", v)}
             optional
+            locked={Boolean(psaFieldLocks?.autographGrade)}
           />
           <InputField
             label="PSA Population"
             value={String(get("psaPopulation"))}
             onChange={(v) => set("psaPopulation", v)}
             optional
+            locked={Boolean(psaFieldLocks?.psaPopulation)}
           />
           <InputField
             label="PSA Pop Higher"
             value={String(get("psaPopHigher"))}
             onChange={(v) => set("psaPopHigher", v)}
             optional
+            locked={Boolean(psaFieldLocks?.psaPopHigher)}
           />
           <div className="sm:col-span-2">
             <InputField
@@ -301,6 +336,7 @@ function CompanySpecificBlock({
               value={String(get("labelType"))}
               onChange={(v) => set("labelType", v)}
               optional
+              locked={Boolean(psaFieldLocks?.labelType)}
             />
           </div>
           <div className="sm:col-span-2">
@@ -309,6 +345,7 @@ function CompanySpecificBlock({
               value={String(get("psaCategory"))}
               onChange={(v) => set("psaCategory", v)}
               optional
+              locked={Boolean(psaFieldLocks?.psaCategory)}
             />
           </div>
         </div>
@@ -379,12 +416,14 @@ function InputField({
   onChange,
   type = "text",
   optional,
+  locked,
 }: {
   label: string;
   value: string | number;
   onChange: (v: string | number) => void;
   type?: "text" | "number" | "url";
   optional?: boolean;
+  locked?: boolean;
 }) {
   return (
     <div>
@@ -395,6 +434,8 @@ function InputField({
       <input
         type={type}
         value={value}
+        disabled={locked}
+        title={lockedHint(Boolean(locked))}
         onChange={(e) => {
           if (type === "number") {
             const v = e.target.valueAsNumber;
@@ -403,7 +444,7 @@ function InputField({
             onChange(e.target.value);
           }
         }}
-        className={inputClass}
+        className={`${inputClass} disabled:opacity-60 disabled:cursor-not-allowed`}
       />
     </div>
   );

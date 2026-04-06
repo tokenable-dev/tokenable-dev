@@ -2,6 +2,8 @@
  * MetaMask / wagmi / viem에서 넘어오는 원문 에러를 사용자용 문구로 매핑한다.
  */
 
+import { ContractFunctionRevertedError } from "viem";
+
 export type WalletErrorCode =
   | "USER_REJECTED"
   | "INSUFFICIENT_FUNDS"
@@ -16,6 +18,81 @@ export interface WalletErrorResult {
   code: WalletErrorCode;
   /** UI에 표시할 짧은 문장 */
   message: string;
+}
+
+/** Pulls viem / RPC revert reason when present so the UI is not a generic sentence. */
+function extractRevertDetail(text: string): string | null {
+  const t = text.trim();
+  if (!t) return null;
+  const patterns = [
+    /reverted with the following reason:\s*\n?\s*([^\n]+)/i,
+    /reverted with the following signature:\s*\n?\s*([^\n]+)/i,
+    /reverted with reason:\s*([^\n]+)/i,
+    /Reason:\s*([^\n]+)/i,
+    /revert:\s*([^\n]+)/i,
+    /details:\s*"([^"]+)"/i,
+  ];
+  for (const p of patterns) {
+    const m = t.match(p);
+    if (m?.[1]?.trim()) return m[1].trim();
+  }
+  return null;
+}
+
+/** Walks `cause` chain so nested viem errors aren’t lost (MetaMask / wagmi often wrap deeply). */
+function walkCollectErrorText(err: unknown): string {
+  const parts: string[] = [];
+  let cur: unknown = err;
+  for (let d = 0; d < 14 && cur != null; d++) {
+    if (cur instanceof Error && cur.message) parts.push(cur.message);
+    if (typeof cur === "object" && cur !== null) {
+      const o = cur as Record<string, unknown>;
+      if (typeof o.shortMessage === "string" && o.shortMessage.trim())
+        parts.push(o.shortMessage.trim());
+      if (typeof o.details === "string" && o.details.trim()) parts.push(o.details.trim());
+      if (Array.isArray(o.metaMessages)) {
+        for (const m of o.metaMessages) {
+          if (typeof m === "string" && m.trim() && !m.startsWith("Docs:")) parts.push(m.trim());
+        }
+      }
+    }
+    cur =
+      typeof cur === "object" && cur !== null && "cause" in cur
+        ? (cur as { cause: unknown }).cause
+        : null;
+  }
+  return parts.join("\n");
+}
+
+function extractViemContractRevertReason(err: unknown): string | null {
+  let cur: unknown = err;
+  for (let d = 0; d < 14 && cur != null; d++) {
+    if (cur instanceof ContractFunctionRevertedError) {
+      if (cur.reason && cur.reason.toLowerCase() !== "execution reverted") return cur.reason;
+      const data = cur.data as
+        | { errorName?: string; args?: readonly unknown[] }
+        | undefined;
+      if (data?.errorName) {
+        if (
+          data.errorName === "Error" &&
+          Array.isArray(data.args) &&
+          data.args[0] != null
+        ) {
+          return String(data.args[0]);
+        }
+        if (Array.isArray(data.args) && data.args.length > 0) {
+          return `${data.errorName}(${data.args.map(String).join(", ")})`;
+        }
+        return data.errorName;
+      }
+      if (cur.signature) return `Revert data ${String(cur.signature).slice(0, 18)}… (custom error)`;
+    }
+    cur =
+      typeof cur === "object" && cur !== null && "cause" in cur
+        ? (cur as { cause: unknown }).cause
+        : null;
+  }
+  return null;
 }
 
 function stringifyUnknown(err: unknown): string {
@@ -113,7 +190,15 @@ export function mapWalletError(err: unknown): WalletErrorResult {
     };
   }
 
-  if (/429|rate limit|too many requests/i.test(lower)) {
+  /**
+   * HTTP 429 / rate limit만 매칭. `/429/` 단독 사용 금지 — 에러 본문·해시·가스값(예: …214291…)에
+   * 우연히 포함된 "429"가 실제 rate limit로 오인되어 사용자가 진행 불가로 막히는 문제가 있음.
+   */
+  if (
+    /rate limit|too many requests|throttl/i.test(lower) ||
+    /\b429\b/.test(lower) ||
+    /status\s*(code)?\s*[:=]\s*429\b/.test(lower)
+  ) {
     return {
       code: "RATE_LIMIT",
       message: "Too many requests. Wait a moment and try again.",
@@ -121,10 +206,44 @@ export function mapWalletError(err: unknown): WalletErrorResult {
   }
 
   if (/execution reverted|revert|reverted|requirement failed/i.test(lower)) {
+    const walked = walkCollectErrorText(err);
+    const detail =
+      extractRevertDetail(text) ||
+      extractViemContractRevertReason(err) ||
+      extractRevertDetail(walked) ||
+      extractRevertDetail(
+        typeof err === "object" && err !== null && "shortMessage" in err
+          ? String((err as { shortMessage?: unknown }).shortMessage)
+          : ""
+      );
     return {
       code: "REVERT",
       message:
+        detail ??
         "The contract could not complete this action. Check balances, approvals, and listing status.",
+    };
+  }
+
+  if (
+    /no contract code|returned no data|could not decode|contract not deployed|call exception/i.test(
+      lower,
+    )
+  ) {
+    return {
+      code: "NETWORK_MISMATCH",
+      message:
+        "RPC returned no contract data. Confirm you are on Sepolia and that USDC / Seaport addresses match this app’s config.",
+    };
+  }
+
+  const condensed = text.replace(/\s+/g, " ").trim();
+  if (condensed.length > 0) {
+    return {
+      code: "UNKNOWN",
+      message:
+        condensed.length <= 360
+          ? condensed
+          : `${condensed.slice(0, 340)}…`,
     };
   }
 

@@ -1,5 +1,2 @@
-export { Logo } from "./Logo";
-export { NftImageZoom } from "./NftImageZoom";
-export { NftInfo } from "./NftInfo";
-export { TokenInfo } from "./TokenInfo";
+export { RwaImageZoom } from "./RwaImageZoom";
 export { GradedMetadataPanel } from "./GradedMetadataPanel";

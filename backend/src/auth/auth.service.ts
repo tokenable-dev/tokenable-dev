@@ -7,6 +7,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { createHash, randomBytes } from 'crypto';
+import type { Request } from 'express';
 import { MailService } from '../mail/mail.service';
 import { User } from '../user/entities/user.entity';
 import { UserService } from '../user/user.service';
@@ -43,6 +44,19 @@ export class AuthService {
       sub: user.id,
       email: user.email,
     });
+  }
+
+  /** 쿠키 JWT로 사용자 조회 — 없거나 만료면 null (401 대신 200 세션 조회용) */
+  async sessionUserFromRequest(req: Request): Promise<User | null> {
+    const token = (req.cookies?.access_token as string | undefined)?.trim();
+    if (!token) return null;
+    try {
+      const payload = this.jwt.verify<{ sub?: string }>(token);
+      if (!payload?.sub) return null;
+      return (await this.users.findById(payload.sub)) ?? null;
+    } catch {
+      return null;
+    }
   }
 
   /**

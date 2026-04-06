@@ -15,12 +15,12 @@ class NftAttributeDto {
 }
 
 export class UploadNftDto {
-  @ApiProperty({ example: 'My NFT' })
+  @ApiProperty({ example: 'My RWA' })
   @IsString()
   @IsNotEmpty()
   name: string;
 
-  @ApiProperty({ example: 'This is my first NFT' })
+  @ApiProperty({ example: 'Graded card RWA metadata' })
   @IsString()
   @IsNotEmpty()
   description: string;

@@ -126,11 +126,15 @@ export function buildJustTcgSearchQueryAfterMerge(
   parsed: ParsedPsaLabel,
   ocrFallbackText: string,
 ): string {
-  const fromParsed = buildJustTcgSearchQueryFromParsed(parsed);
-  if (fromParsed !== 'pokemon') {
-    return fromParsed;
+  try {
+    const fromParsed = buildJustTcgSearchQueryFromParsed(parsed);
+    if (fromParsed !== 'pokemon') {
+      return fromParsed;
+    }
+    return buildJustTcgSearchQuery(ocrFallbackText);
+  } catch {
+    return 'pokemon';
   }
-  return buildJustTcgSearchQuery(ocrFallbackText);
 }
 
 export function buildJustTcgSearchQuery(fullText: string): string {
@@ -160,46 +164,57 @@ export function buildJustTcgSearchQuery(fullText: string): string {
   return 'pokemon';
 }
 
+/** OCR 합친 문자열이 비정상적으로 길면 정규식·메모리 이슈 방지 */
+const MAX_OCR_PARSE_CHARS = 120_000;
+
 export function parsePsaLabelFromOcr(fullText: string): ParsedPsaLabel {
-  const certNumber = extractCertNumber(fullText);
-  const { label: gradeLabel, score: gradeScore } = extractGrade(fullText);
-  const year = extractYear(fullText);
-  const cardNumberHint = extractCardNumber(fullText);
+  const text =
+    fullText.length > MAX_OCR_PARSE_CHARS
+      ? fullText.slice(0, MAX_OCR_PARSE_CHARS)
+      : fullText;
+  try {
+    const certNumber = extractCertNumber(text);
+    const { label: gradeLabel, score: gradeScore } = extractGrade(text);
+    const year = extractYear(text);
+    const cardNumberHint = extractCardNumber(text);
 
-  const upper = fullText.toUpperCase();
-  let setHint: string | undefined;
-  if (/HIDDEN FATES/i.test(fullText)) setHint = 'Hidden Fates';
-  else if (/EVOLUTION/i.test(fullText)) setHint = 'Evolutions';
-  else if (/VAN\s*GOGH|POKEMON\s+X\s+VAN/i.test(fullText)) setHint = 'Pokemon x Van Gogh';
+    let setHint: string | undefined;
+    if (/HIDDEN FATES/i.test(text)) setHint = 'Hidden Fates';
+    else if (/EVOLUTION/i.test(text)) setHint = 'Evolutions';
+    else if (/VAN\s*GOGH|POKEMON\s+X\s+VAN/i.test(text))
+      setHint = 'Pokemon x Van Gogh';
 
-  let cardNameHint: string | undefined;
-  const fa = fullText.match(/F\.?\s*A\.?\s*\/?\s*([A-Z][A-Z0-9\s]{2,40}?)(?:\s+GX|\s+V\b)/i);
-  if (fa) cardNameHint = fa[1].replace(/\s+/g, ' ').trim();
-  else {
-    const gx = fullText.match(
-      /\b([A-Z][A-Z0-9\s]{2,35}?)\s+GX\b/i,
+    let cardNameHint: string | undefined;
+    const fa = text.match(
+      /F\.?\s*A\.?\s*\/?\s*([A-Z][A-Z0-9\s]{2,40}?)(?:\s+GX|\s+V\b)/i,
     );
-    if (gx) cardNameHint = gx[1].replace(/\s+/g, ' ').trim();
-  }
-  /** PIKACHU/GREY FELT HAT 등 슬랩 라벨 2행 흔한 패턴 */
-  if (!cardNameHint) {
-    const slash = fullText.match(
-      /\b([A-Z][A-Z0-9]{2,})\s*\/\s*([A-Z0-9][A-Z0-9\s\-]{2,45}?)(?=[\s,;]|$)/im,
-    );
-    if (slash) {
-      cardNameHint = `${slash[1]}/${slash[2]}`.replace(/\s+/g, ' ').trim();
+    if (fa) cardNameHint = fa[1].replace(/\s+/g, ' ').trim();
+    else {
+      const gx = text.match(/\b([A-Z][A-Z0-9\s]{2,35}?)\s+GX\b/i);
+      if (gx) cardNameHint = gx[1].replace(/\s+/g, ' ').trim();
     }
-  }
+    /** PIKACHU/GREY FELT HAT 등 슬랩 라벨 2행 흔한 패턴 */
+    if (!cardNameHint) {
+      const slash = text.match(
+        /\b([A-Z][A-Z0-9]{2,})\s*\/\s*([A-Z0-9][A-Z0-9\s\-]{2,45}?)(?=[\s,;]|$)/im,
+      );
+      if (slash) {
+        cardNameHint = `${slash[1]}/${slash[2]}`.replace(/\s+/g, ' ').trim();
+      }
+    }
 
-  return {
-    certNumber,
-    gradeLabel,
-    gradeScore,
-    year,
-    cardNameHint,
-    cardNumberHint,
-    setHint,
-  };
+    return {
+      certNumber,
+      gradeLabel,
+      gradeScore,
+      year,
+      cardNameHint,
+      cardNumberHint,
+      setHint,
+    };
+  } catch {
+    return {};
+  }
 }
 
 export function psaCertVerifyUrl(cert: string): string {

@@ -39,15 +39,15 @@ async function bootstrap() {
   );
 
   const swaggerConfig = new DocumentBuilder()
-    .setTitle('NFT Marketplace API')
-    .setDescription('NFT Marketplace 백엔드 API 문서')
+    .setTitle('Tokenable RWA API')
+    .setDescription('RWA 마켓플레이스 백엔드 API 문서')
     .setVersion('1.0')
     .addBearerAuth(
       { type: 'http', scheme: 'bearer', bearerFormat: 'JWT', in: 'header' },
       'access-token',
     )
     .addTag('auth', '인증')
-    .addTag('nft', 'NFT')
+    .addTag('rwa', 'RWA (IPFS 메타데이터 업로드)')
     .addTag('blockchain', '블록체인 / 토큰')
     .addTag('marketplace', '마켓플레이스 (Seaport 주문)')
     .addTag('price', 'TCG 카드 실시간 가격 (JustTCG)')

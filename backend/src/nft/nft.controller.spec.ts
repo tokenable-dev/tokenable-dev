@@ -9,7 +9,7 @@ const mockNftService = {
     metadataCID: 'QmTest',
     imageCID: 'QmImage',
     metadata: {
-      name: 'Test NFT',
+      name: 'Test RWA',
       description: 'Test',
       image: 'ipfs://QmImage',
     },

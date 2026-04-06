@@ -8,14 +8,14 @@ import { ConfigService } from '@nestjs/config';
 import { PinataService } from '../util/pinata/pinata.service';
 import { UploadNftDto } from './dto/upload-nft.dto';
 import {
-  NftAttribute,
-  NftMetadata,
-  UploadNftResult,
+  RwaAttribute,
+  RwaMetadata,
+  UploadRwaResult,
 } from './interfaces/nft-metadata.interface';
 import { cropPsaSlabForCollectionCover } from './psa-slab-crop.util';
 
 function safeCollectionCoverFilename(name: string): string {
-  return name.replace(/[^a-zA-Z0-9-_]+/g, '-').slice(0, 48) || 'nft';
+  return name.replace(/[^a-zA-Z0-9-_]+/g, '-').slice(0, 48) || 'rwa';
 }
 
 function isPsaGraded(graded: Record<string, unknown> | undefined): boolean {
@@ -81,14 +81,14 @@ export class NftService {
     }
   }
 
-  async uploadToIpfs(dto: UploadNftDto, file?: Express.Multer.File): Promise<UploadNftResult> {
+  async uploadToIpfs(dto: UploadNftDto, file?: Express.Multer.File): Promise<UploadRwaResult> {
     if (!file && !dto.imageUrl) {
       throw new BadRequestException('이미지 파일 또는 imageUrl 중 하나는 필수입니다.');
     }
 
     let parsedGraded: {
       graded?: Record<string, unknown>;
-      attributes?: NftAttribute[];
+      attributes?: RwaAttribute[];
       external_url?: string;
       properties?: Record<string, unknown>;
     } | null = null;
@@ -97,7 +97,7 @@ export class NftService {
       try {
         parsedGraded = JSON.parse(dto.gradedMetadata) as {
           graded?: Record<string, unknown>;
-          attributes?: NftAttribute[];
+          attributes?: RwaAttribute[];
           external_url?: string;
           properties?: Record<string, unknown>;
         };
@@ -142,7 +142,7 @@ export class NftService {
       throw new BadRequestException('이미지 파일 또는 imageUrl 중 하나는 필수입니다.');
     }
 
-    const metadata: NftMetadata = {
+    const metadata: RwaMetadata = {
       name: dto.name,
       description: dto.description,
       image: `ipfs://${imageCID}`,

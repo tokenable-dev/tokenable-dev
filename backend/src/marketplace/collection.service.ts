@@ -49,7 +49,7 @@ export class CollectionService {
     }
     const res = await fetch(url);
     if (!res.ok) {
-      throw new Error(`Failed to fetch NFT metadata (${res.status})`);
+      throw new Error(`Failed to fetch RWA metadata (${res.status})`);
     }
     return (await res.json()) as Record<string, unknown>;
   }
@@ -72,7 +72,7 @@ export class CollectionService {
    * graded 없으면 null (주문은 그대로 저장, 컬렉션 미부여).
    */
   async ensureCollectionForListing(tokenId: string): Promise<string | null> {
-    const uri = await this.blockchain.getNftTokenURI(Number(tokenId));
+    const uri = await this.blockchain.getRwaTokenURI(Number(tokenId));
     const meta = await this.fetchIpfsMetadataJson(uri);
     const components = extractBucketComponentsFromMetadata(meta);
     if (!components) return null;
@@ -180,13 +180,17 @@ export class CollectionService {
 
     const asks = await this.activeListingsForCollection(k);
     const bids = await this.activeBidsForCollection(k);
-    const tokenIds = [
-      ...asks.map((o) => o.tokenId),
-      ...bids.map((o) => o.tokenId),
-    ];
+    /** Asks: include real token #0. Bids: criteria bids store tokenId sentinel "0" — skip for URI fetch. */
+    const askIds = asks
+      .map((o) => o.tokenId)
+      .filter((id) => id != null && String(id).trim() !== '');
+    const bidIds = bids
+      .map((o) => o.tokenId)
+      .filter((id) => id && id !== '0');
+    const tokenIds = [...new Set([...askIds, ...bidIds])];
     for (const tokenId of tokenIds) {
       try {
-        const uri = await this.blockchain.getNftTokenURI(Number(tokenId));
+        const uri = await this.blockchain.getRwaTokenURI(Number(tokenId));
         const meta = await this.fetchIpfsMetadataJson(uri);
         const img = extractCollectionRepresentativeImage(meta);
         if (img) {
@@ -199,5 +203,25 @@ export class CollectionService {
     }
 
     return null;
+  }
+
+  /** Merkle leaves: distinct token IDs from active listings in this collection (buyer builds tree client-side). */
+  async merkleEligibleTokenIds(collectionKey: string): Promise<{ tokenIds: string[] }> {
+    const listings = await this.activeListingsForCollection(collectionKey);
+    const ids = [
+      ...new Set(
+        listings
+          .map((o) => o.tokenId)
+          .filter((id) => id != null && String(id).trim() !== ''),
+      ),
+    ];
+    ids.sort((a, b) => {
+      const ba = BigInt(a);
+      const bb = BigInt(b);
+      if (ba < bb) return -1;
+      if (ba > bb) return 1;
+      return 0;
+    });
+    return { tokenIds: ids };
   }
 }

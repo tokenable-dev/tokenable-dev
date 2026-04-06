@@ -25,15 +25,15 @@ async function main() {
   }
 
   const TokenableRWA = await ethers.getContractFactory('TokenableRWA');
-  const nft = await TokenableRWA.deploy();
-  await nft.waitForDeployment();
+  const rwa = await TokenableRWA.deploy();
+  await rwa.waitForDeployment();
 
-  const address = await nft.getAddress();
+  const address = await rwa.getAddress();
   console.log('');
   console.log('✅  TokenableRWA deployed to:', address);
   console.log('');
   console.log('━━━ backend/.env (또는 .env.production) 에 추가 ━━━━━━━━━━━━');
-  console.log(`NFT_CONTRACT_ADDRESS=${address}`);
+  console.log(`RWA_CONTRACT_ADDRESS=${address}`);
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   console.log('');
   console.log('Sepolia Etherscan:');

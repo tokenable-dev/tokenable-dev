@@ -3,7 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 import { AppHeader } from "@/components/layout/AppHeader";
-import { FAVICON } from "@/constants/assets";
+import { ASSETS } from "@/constants/assets";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -15,12 +15,14 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+/** favicon / apple: explicit `public` URL so browsers don’t use removed `app/favicon.ico` cache. Also `app/icon.png` for Next metadata routes. */
 export const metadata: Metadata = {
   title: "Tokenable",
   description:
     "Mint and trade Tokenable_RWA assets on Ethereum Sepolia. Listings use Seaport.",
   icons: {
-    icon: FAVICON,
+    icon: [{ url: ASSETS.icons.tokenable, type: "image/png" }],
+    apple: ASSETS.icons.tokenable,
   },
 };
 

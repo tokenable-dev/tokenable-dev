@@ -18,7 +18,7 @@ async function main() {
   console.log('MockUSDC deployed to:', address);
   console.log('Total supply:', ethers.formatUnits(totalSupply, 6), 'USDC');
   console.log('');
-  console.log('backend/.env 에 아래 값을 추가하세요:');
+  console.log('backend/.env 및 프론트 NEXT_PUBLIC_USDC_CONTRACT_ADDRESS (Sepolia 배포용):');
   console.log(`USDC_CONTRACT_ADDRESS=${address}`);
 }
 

@@ -1,5 +1,5 @@
 /**
- * 컬렉션 대표 이미지 — NFT 루트 `image`(슬랩 사진) 대신 JustTCG 카드 아트만 사용.
+ * 컬렉션 대표 이미지 — RWA 메타데이터 루트 `image`(슬랩 사진) 대신 JustTCG 카드 아트만 사용.
  *
  * JustTCG v1 Card 객체는 문서/예시에 이미지 필드가 없고 `tcgplayerId`만 오는 경우가 많음 →
  * 숫자 product id가 있으면 TCGPlayer CDN URL을 조합한다 (카탈로그 일러스트).
@@ -55,7 +55,7 @@ export function extractJustTcgCardIdFromMetadata(meta: Record<string, unknown>):
 }
 
 /**
- * 컬렉션 대표 이미지 — NFT 루트 `image`(슬랩 사진) 대신 JustTCG 카드 아트만 사용.
+ * 컬렉션 대표 이미지 — RWA 메타데이터 루트 `image`(슬랩 사진) 대신 JustTCG 카드 아트만 사용.
  */
 export function extractJustTcgRepresentativeImage(
   meta: Record<string, unknown>,

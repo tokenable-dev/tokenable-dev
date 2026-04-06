@@ -47,6 +47,8 @@ export interface PsaAnalyzeResult {
   };
   /** PSA GetImages / GetByCertNumber에서 가져온 슬랩 사진 URL (앞면은 민팅 imageUrl 후보) */
   psaCertImages?: { front?: string; back?: string };
+  /** 일부 단계 실패 시 복구·부분 결과 안내 (항상 200으로 내려갈 때 사용) */
+  warnings?: string[];
 }
 
 async function probeCertImageUrlReachable(url: string): Promise<boolean> {
@@ -78,6 +80,8 @@ export class PsaService {
     private readonly psaPublicApi: PsaPublicApiService,
   ) {}
 
+  private static readonly MAX_COMBINED_OCR_CHARS = 150_000;
+
   private async preprocess(buffer: Buffer): Promise<Buffer> {
     return sharp(buffer)
       .resize({
@@ -93,8 +97,20 @@ export class PsaService {
   }
 
   private async runOcrOnBuffer(buffer: Buffer): Promise<string> {
-    const processed = await this.preprocess(buffer);
-    const worker = await createWorker('eng');
+    let processed: Buffer;
+    try {
+      processed = await this.preprocess(buffer);
+    } catch (e) {
+      this.logger.warn(`Image preprocess (sharp) failed: ${String(e)}`);
+      return '';
+    }
+    let worker: Awaited<ReturnType<typeof createWorker>>;
+    try {
+      worker = await createWorker('eng');
+    } catch (e) {
+      this.logger.warn(`Tesseract worker create failed: ${String(e)}`);
+      return '';
+    }
     try {
       await worker.setParameters({
         tessedit_pageseg_mode: PSM.AUTO,
@@ -103,8 +119,15 @@ export class PsaService {
         data: { text },
       } = await worker.recognize(processed);
       return text ?? '';
+    } catch (e) {
+      this.logger.warn(`Tesseract recognize failed: ${String(e)}`);
+      return '';
     } finally {
-      await worker.terminate();
+      try {
+        await worker.terminate();
+      } catch {
+        /* ignore */
+      }
     }
   }
 
@@ -154,7 +177,13 @@ export class PsaService {
     mode: (typeof PSM)[keyof typeof PSM],
     whitelist?: string,
   ): Promise<string> {
-    const worker = await createWorker('eng');
+    let worker: Awaited<ReturnType<typeof createWorker>>;
+    try {
+      worker = await createWorker('eng');
+    } catch (e) {
+      this.logger.warn(`Tesseract worker (supplemental) failed: ${String(e)}`);
+      return '';
+    }
     try {
       const params: {
         tessedit_pageseg_mode: (typeof PSM)[keyof typeof PSM];
@@ -166,8 +195,15 @@ export class PsaService {
         data: { text },
       } = await worker.recognize(image);
       return text ?? '';
+    } catch (e) {
+      this.logger.warn(`Tesseract recognize (supplemental) failed: ${String(e)}`);
+      return '';
     } finally {
-      await worker.terminate();
+      try {
+        await worker.terminate();
+      } catch {
+        /* ignore */
+      }
     }
   }
 
@@ -215,6 +251,48 @@ export class PsaService {
     slabBack?: Buffer,
     certHint?: string,
   ): Promise<PsaAnalyzeResult> {
+    try {
+      return await this.analyzeSlabImagesPipeline(
+        slabFront,
+        slabBack,
+        certHint,
+      );
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      this.logger.error(
+        `analyzeSlabImages fatal: ${msg}`,
+        e instanceof Error ? e.stack : undefined,
+      );
+      return {
+        ocr: { combinedText: '' },
+        psa: {},
+        psaApi: {
+          lookup: {
+            status: 'error',
+            certNumber: '',
+            message: `분석 파이프라인 오류: ${msg}`,
+          },
+        },
+        justtcg: {
+          queryUsed: 'pokemon',
+          topMatch: null,
+          rawResponse: null,
+        },
+        warnings: [
+          '슬랩 분석 중 예상치 못한 오류가 발생했습니다. 다른 사진으로 다시 시도하거나 Cert 번호를 직접 입력해 보세요.',
+          msg,
+        ],
+      };
+    }
+  }
+
+  private async analyzeSlabImagesPipeline(
+    slabFront: Buffer,
+    slabBack: Buffer | undefined,
+    certHint: string | undefined,
+  ): Promise<PsaAnalyzeResult> {
+    const warnings: string[] = [];
+
     let frontText = '';
     let backText = '';
     try {
@@ -233,10 +311,24 @@ export class PsaService {
     const { labelStripText, certDigitsText } =
       await this.supplementalFrontOcr(slabFront);
 
-    const combinedText = [frontText, backText, labelStripText, certDigitsText]
+    let combinedText = [frontText, backText, labelStripText, certDigitsText]
       .filter(Boolean)
       .join('\n---\n');
-    let psaParsed = parsePsaLabelFromOcr(combinedText);
+    if (combinedText.length > PsaService.MAX_COMBINED_OCR_CHARS) {
+      warnings.push(
+        `OCR 합본이 길어 앞 ${PsaService.MAX_COMBINED_OCR_CHARS.toLocaleString()}자만 사용합니다.`,
+      );
+      combinedText = combinedText.slice(0, PsaService.MAX_COMBINED_OCR_CHARS);
+    }
+
+    let psaParsed: ParsedPsaLabel;
+    try {
+      psaParsed = parsePsaLabelFromOcr(combinedText);
+    } catch (e) {
+      this.logger.warn(`parsePsaLabelFromOcr failed: ${String(e)}`);
+      warnings.push('라벨 파싱 중 오류가 있어 빈 필드로 진행합니다.');
+      psaParsed = {};
+    }
 
     const hintDigits = resolveCertHintForLookup(certHint);
     if (hintDigits) {
@@ -244,34 +336,71 @@ export class PsaService {
     }
 
     const digitsForImages = psaParsed.certNumber?.replace(/\D/g, '') ?? '';
+    const certDigitsForError =
+      digitsForImages.length >= 7 ? digitsForImages : '0000000';
 
-    const [apiLookup, imagesLookup]: [
-      PsaPublicApiLookupResult,
-      PsaGetImagesLookupResult,
-    ] = await Promise.all([
-      this.psaPublicApi.getByCertNumber(psaParsed.certNumber),
-      this.psaPublicApi.getImagesByCertNumber(psaParsed.certNumber),
-    ]);
+    let apiLookup: PsaPublicApiLookupResult;
+    let imagesLookup: PsaGetImagesLookupResult;
+    try {
+      [apiLookup, imagesLookup] = await Promise.all([
+        this.psaPublicApi.getByCertNumber(psaParsed.certNumber),
+        this.psaPublicApi.getImagesByCertNumber(psaParsed.certNumber),
+      ]);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      this.logger.warn(`PSA Public API parallel call failed: ${msg}`);
+      warnings.push(`PSA 공개 API 호출 실패: ${msg}`);
+      apiLookup = {
+        status: 'error',
+        certNumber: certDigitsForError,
+        message: msg,
+      };
+      imagesLookup = {
+        status: 'error',
+        certNumber: certDigitsForError,
+        message: msg,
+      };
+    }
 
     let enrichedFromOfficialApi = false;
 
     if (apiLookup.status === 'success') {
-      const hasCert = !!(apiLookup.raw as { PSACert?: unknown })?.PSACert;
-      psaParsed = mergePsaApiIntoParsed(psaParsed, apiLookup.raw);
-      enrichedFromOfficialApi = hasCert;
+      try {
+        const hasCert = !!(apiLookup.raw as { PSACert?: unknown })?.PSACert;
+        psaParsed = mergePsaApiIntoParsed(psaParsed, apiLookup.raw);
+        enrichedFromOfficialApi = hasCert;
+      } catch (e) {
+        this.logger.warn(`mergePsaApiIntoParsed failed: ${String(e)}`);
+        warnings.push(
+          'PSA API 응답 병합에 실패했습니다. OCR·직접 입력 Cert만 사용합니다.',
+        );
+      }
     }
 
     let psaCertImages: { front?: string; back?: string } | undefined;
 
     if (digitsForImages.length >= 7) {
-      const fromGetImages =
-        imagesLookup.status === 'success'
-          ? extractPsaCertImagesFromGetImagesBody(imagesLookup.raw)
-          : {};
-      const fromCertBody =
-        apiLookup.status === 'success'
-          ? extractPsaCertImageUrlsFromApiBody(apiLookup.raw, digitsForImages)
-          : {};
+      let fromGetImages: { front?: string; back?: string } = {};
+      let fromCertBody: { front?: string; back?: string } = {};
+      try {
+        if (imagesLookup.status === 'success') {
+          fromGetImages = extractPsaCertImagesFromGetImagesBody(imagesLookup.raw);
+        }
+      } catch (e) {
+        this.logger.warn(`extract GetImages body failed: ${String(e)}`);
+        warnings.push('PSA GetImages 응답에서 슬랩 URL 파싱에 실패했습니다.');
+      }
+      try {
+        if (apiLookup.status === 'success') {
+          fromCertBody = extractPsaCertImageUrlsFromApiBody(
+            apiLookup.raw,
+            digitsForImages,
+          );
+        }
+      } catch (e) {
+        this.logger.warn(`extract cert image URLs failed: ${String(e)}`);
+        warnings.push('PSA Cert 응답에서 이미지 URL 추출에 실패했습니다.');
+      }
 
       const front = fromGetImages.front ?? fromCertBody.front;
       const back = fromGetImages.back ?? fromCertBody.back;
@@ -290,7 +419,15 @@ export class PsaService {
       }
     }
 
-    const queryUsed = buildJustTcgSearchQueryAfterMerge(psaParsed, combinedText);
+    let queryUsed = 'pokemon';
+    try {
+      queryUsed = buildJustTcgSearchQueryAfterMerge(psaParsed, combinedText);
+    } catch (e) {
+      this.logger.warn(`buildJustTcgSearchQueryAfterMerge failed: ${String(e)}`);
+      warnings.push(
+        'JustTCG 검색어 생성에 실패해 기본값(pokemon)을 사용합니다.',
+      );
+    }
 
     let rawResponse: unknown = null;
     let topMatch: unknown = null;
@@ -305,13 +442,19 @@ export class PsaService {
       topMatch = data?.data?.[0] ?? null;
     } catch (e) {
       this.logger.warn(`JustTCG search failed: ${String(e)}`);
+      warnings.push('JustTCG 카드 검색이 실패했습니다.');
     }
 
-    const certVerifyUrl = psaParsed.certNumber
-      ? psaCertVerifyUrl(psaParsed.certNumber)
-      : undefined;
+    let certVerifyUrl: string | undefined;
+    try {
+      certVerifyUrl = psaParsed.certNumber
+        ? psaCertVerifyUrl(psaParsed.certNumber)
+        : undefined;
+    } catch (e) {
+      this.logger.warn(`psaCertVerifyUrl failed: ${String(e)}`);
+    }
 
-    return {
+    const result: PsaAnalyzeResult = {
       ocr: {
         combinedText,
         frontText: frontText || undefined,
@@ -333,6 +476,10 @@ export class PsaService {
         rawResponse,
       },
       ...(psaCertImages ? { psaCertImages } : {}),
+      ...(warnings.length > 0 ? { warnings } : {}),
     };
+
+    return result;
   }
 }
+

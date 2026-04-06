@@ -9,11 +9,21 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { LessThan, QueryFailedError, Repository } from 'typeorm';
-import { BucketBidService } from './bucket-bid.service';
+import { EntityManager, LessThan, Not, QueryFailedError, Repository } from 'typeorm';
 import { CollectionService } from './collection.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { Order, OrderSide, OrderStatus } from './entities/order.entity';
+
+const CRITERIA_TOKEN_SENTINEL = '0';
+
+/** DB/API tokenId 표기(앞자리 0 등) 차이로 replace-listing이 실패하지 않도록 비교용 정규화 */
+function normalizeDecimalTokenId(raw: string): string {
+  const s = String(raw ?? '').trim();
+  if (!/^\d+$/.test(s)) return s;
+  let i = 0;
+  while (i < s.length - 1 && s[i] === '0') i++;
+  return s.slice(i);
+}
 
 @Injectable()
 export class MarketplaceService {
@@ -23,42 +33,20 @@ export class MarketplaceService {
     @InjectRepository(Order)
     private readonly orderRepo: Repository<Order>,
     private readonly config: ConfigService,
-    private readonly bucketBidService: BucketBidService,
     private readonly collectionService: CollectionService,
   ) {}
 
-  // ── 주문 생성 ─────────────────────────────────────────────────────
   async createOrder(dto: CreateOrderDto): Promise<Order> {
     const side = dto.side === 'bid' ? OrderSide.BID : OrderSide.ASK;
-    const { parameters, signature } = dto;
-    const params = parameters as unknown as Record<string, unknown>;
 
     if (side === OrderSide.BID) {
-      this.assertValidBid(dto);
-    }
-
-    if (dto.bucketBidId != null) {
-      if (side !== OrderSide.BID) {
-        throw new BadRequestException('bucketBidId is only valid when side is bid');
-      }
-      await this.bucketBidService.assertPoolBidMatchesSeaportBid({
-        bucketBidId: dto.bucketBidId,
-        tokenId: dto.tokenId,
-        offerer: String(dto.parameters.offerer),
-        considerationAmount: dto.considerationAmount,
-      });
-      const dup = await this.orderRepo.findOne({
-        where: {
-          bucketBidId: dto.bucketBidId,
-          status: OrderStatus.ACTIVE,
-          side: OrderSide.BID,
-        },
-      });
-      if (dup) {
-        throw new ConflictException(
-          'An active Seaport bid already exists for this pool bid. Cancel it first.',
+      const cons = dto.parameters.consideration?.[0];
+      if (!cons || Number(cons.itemType) !== 4) {
+        throw new BadRequestException(
+          'Only ERC721_WITH_CRITERIA collection bids are supported (itemType 4)',
         );
       }
+      this.assertValidCriteriaBid(dto);
     }
 
     if (side === OrderSide.ASK) {
@@ -77,20 +65,90 @@ export class MarketplaceService {
       }
     }
 
-    let collectionKey: string | null = null;
-    try {
-      collectionKey = await this.collectionService.ensureCollectionForListing(dto.tokenId);
-    } catch (e) {
-      this.logger.warn(
-        `Collection not attached for token #${dto.tokenId}: ${String(e)}`,
-      );
+    const order = await this.materializeOrderFromDto(dto);
+    return this.persistOrder(order, this.orderRepo.manager);
+  }
+
+  /**
+   * Cancel an active ask and insert a new signed listing in one transaction so the
+   * Merkle leaf set (active listing token IDs) never briefly drops the token.
+   */
+  async replaceSellerListing(
+    oldOrderHash: string,
+    callerAddress: string,
+    dto: CreateOrderDto,
+  ): Promise<Order> {
+    if (dto.side === 'bid') {
+      throw new BadRequestException('replaceSellerListing only accepts ask listings');
     }
 
-    const order = this.orderRepo.create({
+    return this.orderRepo.manager.transaction(async (em) => {
+      const old = await em.findOne(Order, { where: { orderHash: oldOrderHash } });
+      if (!old) {
+        throw new NotFoundException(`Order not found: ${oldOrderHash}`);
+      }
+      const effectiveSide = old.side ?? OrderSide.ASK;
+      if (effectiveSide !== OrderSide.ASK) {
+        throw new BadRequestException('Only ask listings can be replaced');
+      }
+      if (old.status !== OrderStatus.ACTIVE) {
+        throw new BadRequestException(`Order is already ${old.status}`);
+      }
+      if (old.offerer.toLowerCase() !== callerAddress.toLowerCase()) {
+        throw new BadRequestException('Only the offerer can replace this listing');
+      }
+      if (
+        normalizeDecimalTokenId(String(old.tokenId)) !==
+        normalizeDecimalTokenId(String(dto.tokenId))
+      ) {
+        throw new BadRequestException('New order tokenId must match the listing being replaced');
+      }
+      if (old.tokenContract.toLowerCase() !== dto.tokenContract.toLowerCase()) {
+        throw new BadRequestException('tokenContract must match');
+      }
+
+      old.status = OrderStatus.CANCELLED;
+      await em.save(old);
+
+      const order = await this.materializeOrderFromDto(dto);
+      return this.persistOrder(order, em);
+    });
+  }
+
+  private async materializeOrderFromDto(dto: CreateOrderDto): Promise<Order> {
+    const side = dto.side === 'bid' ? OrderSide.BID : OrderSide.ASK;
+    const { parameters, signature } = dto;
+    const params = parameters as unknown as Record<string, unknown>;
+
+    let collectionKey: string | null = null;
+    if (side === OrderSide.BID) {
+      const key = dto.collectionKey?.trim().toLowerCase();
+      if (!key) {
+        throw new BadRequestException('collectionKey is required for ERC721_WITH_CRITERIA bids');
+      }
+      const col = await this.collectionService.findOne(key);
+      if (!col) {
+        throw new NotFoundException(`Collection not found: ${key}`);
+      }
+      collectionKey = col.collectionKey;
+    } else {
+      try {
+        collectionKey = await this.collectionService.ensureCollectionForListing(dto.tokenId);
+      } catch (e) {
+        this.logger.warn(
+          `Collection not attached for token #${dto.tokenId}: ${String(e)}`,
+        );
+      }
+    }
+
+    const tokenIdForRow =
+      side === OrderSide.BID ? CRITERIA_TOKEN_SENTINEL : dto.tokenId;
+
+    return this.orderRepo.create({
       orderHash: this.deriveOrderHash(params, side),
-      offerer: parameters.offerer,
+      offerer: parameters.offerer as string,
       tokenContract: dto.tokenContract,
-      tokenId: dto.tokenId,
+      tokenId: tokenIdForRow,
       considerationToken: dto.considerationToken,
       considerationAmount: dto.considerationAmount,
       parameters: params,
@@ -99,30 +157,26 @@ export class MarketplaceService {
       side,
       startTime: new Date(Number(parameters.startTime) * 1000),
       endTime: new Date(Number(parameters.endTime) * 1000),
-      bucketBidId: dto.bucketBidId ?? null,
       collectionKey,
     });
+  }
 
+  private async persistOrder(order: Order, em: EntityManager): Promise<Order> {
     try {
-      return (await this.orderRepo.save(order)) as Order;
+      return (await em.save(order)) as Order;
     } catch (e: unknown) {
       if (e instanceof QueryFailedError) {
         const pgCode = (e as QueryFailedError & { driverError?: { code?: string } })
           .driverError?.code;
-        this.logger.error(`createOrder failed [${pgCode ?? '?'}]: ${e.message}`);
+        this.logger.error(`persistOrder failed [${pgCode ?? '?'}]: ${e.message}`);
         if (pgCode === '42P01') {
           throw new ServiceUnavailableException(
-            'Database is missing the orders table. Apply backend/sql/migrations/003_create_orders_table.sql on PostgreSQL.',
-          );
-        }
-        if (pgCode === '42703') {
-          throw new ServiceUnavailableException(
-            'Database is missing the orders.side column. Apply backend/sql/migrations/004_orders_side_enum.sql on PostgreSQL.',
+            'Database is missing the orders table. Apply migrations on PostgreSQL.',
           );
         }
         if (pgCode === '23505') {
           throw new ConflictException(
-            'An order with this hash already exists. Try again with a new listing.',
+            'An order with this hash already exists. Try again with a new salt.',
           );
         }
       }
@@ -130,8 +184,8 @@ export class MarketplaceService {
     }
   }
 
-  /** bid: offer=USDC, consideration=NFT to offerer(구매자) */
-  private assertValidBid(dto: CreateOrderDto): void {
+  /** Collection bid: offer USDC, consideration ERC721_WITH_CRITERIA + Merkle root */
+  private assertValidCriteriaBid(dto: CreateOrderDto): void {
     const p = dto.parameters;
     const offer = p.offer?.[0];
     const cons = p.consideration?.[0];
@@ -141,25 +195,24 @@ export class MarketplaceService {
     if (offer.itemType !== 1) {
       throw new BadRequestException('Bid offer[0] must be ERC20 (itemType 1)');
     }
-    if (cons.itemType !== 2) {
-      throw new BadRequestException('Bid consideration[0] must be ERC721 (itemType 2)');
+    if (cons.itemType !== 4) {
+      throw new BadRequestException('Criteria bid consideration[0] must be ERC721_WITH_CRITERIA (itemType 4)');
     }
     const usdc = this.config.get<string>('USDC_CONTRACT_ADDRESS') ?? '';
-    if (
-      usdc &&
-      offer.token.toLowerCase() !== usdc.toLowerCase()
-    ) {
+    if (usdc && offer.token.toLowerCase() !== usdc.toLowerCase()) {
       throw new BadRequestException('Bid offer token must match USDC_CONTRACT_ADDRESS');
     }
     if (cons.token.toLowerCase() !== dto.tokenContract.toLowerCase()) {
       throw new BadRequestException('Bid consideration token must match tokenContract');
     }
-    if (String(cons.identifierOrCriteria) !== dto.tokenId) {
-      throw new BadRequestException('Bid NFT token id must match tokenId');
+    if (!cons.identifierOrCriteria || cons.identifierOrCriteria === '0') {
+      throw new BadRequestException('Criteria bid must set identifierOrCriteria to Merkle root');
+    }
+    if (dto.tokenId !== CRITERIA_TOKEN_SENTINEL) {
+      throw new BadRequestException('Criteria bids must use tokenId "0"');
     }
   }
 
-  // ── 활성 매도 주문만 (마켓 그리드) ────────────────────────────────
   async findActiveOrders(): Promise<Order[]> {
     await this.expireOrders();
     return this.orderRepo.find({
@@ -168,20 +221,6 @@ export class MarketplaceService {
     });
   }
 
-  /** 활성 매수 입찰 — 가격(USDC 최소단위) 내림차순 */
-  async findActiveBidsByTokenId(tokenId: string): Promise<Order[]> {
-    await this.expireOrders();
-    return this.orderRepo
-      .createQueryBuilder('o')
-      .where('o.token_id = :tokenId', { tokenId })
-      .andWhere('o.status = :st', { st: OrderStatus.ACTIVE })
-      .andWhere('o.side = :side', { side: OrderSide.BID })
-      .orderBy('CAST(o.consideration_amount AS DECIMAL)', 'DESC')
-      .addOrderBy('o.created_at', 'ASC')
-      .getMany();
-  }
-
-  // ── tokenId로 전체 주문 이력 조회 ────────────────────────────────
   async findByTokenId(tokenId: string): Promise<Order[]> {
     await this.expireOrders();
     return this.orderRepo.find({
@@ -190,14 +229,12 @@ export class MarketplaceService {
     });
   }
 
-  // ── 단일 주문 조회 ────────────────────────────────────────────────
   async findByHash(orderHash: string): Promise<Order> {
     const order = await this.orderRepo.findOne({ where: { orderHash } });
     if (!order) throw new NotFoundException(`Order not found: ${orderHash}`);
     return order;
   }
 
-  // ── 주문 취소 (ask: 판매자 / bid: 입찰자) ─────────────────────────
   async cancelOrder(orderHash: string, callerAddress: string): Promise<Order> {
     const order = await this.findByHash(orderHash);
 
@@ -212,7 +249,10 @@ export class MarketplaceService {
     return this.orderRepo.save(order);
   }
 
-  // ── 구매 완료 처리 (리스팅 이행 또는 입찰 이행 후) ────────────────
+  /**
+   * Single-order fulfill (e.g. buyer fulfilling an ask listing only).
+   * For criteria bid + ask matching, use fulfillMatchedPair after matchAdvancedOrders.
+   */
   async fulfillOrder(orderHash: string): Promise<Order> {
     const order = await this.findByHash(orderHash);
 
@@ -223,28 +263,92 @@ export class MarketplaceService {
     order.status = OrderStatus.FULFILLED;
     const saved = await this.orderRepo.save(order);
 
-    await this.bucketBidService.markPoolBidFulfilledIfLinked(saved);
+    const cons0 = (saved.parameters as { consideration?: { itemType?: number }[] })?.consideration?.[0];
+    const isCriteriaBid =
+      saved.side === OrderSide.BID && cons0 && Number(cons0.itemType) === 4;
 
-    /** 같은 토큰에 대해 다른 활성 ask/bid가 남으면 UI·그리드가 어긋남 → 전부 정리 */
+    if (!isCriteriaBid && saved.tokenId && saved.tokenId !== CRITERIA_TOKEN_SENTINEL) {
+      const cleared = await this.orderRepo.update(
+        {
+          tokenContract: saved.tokenContract,
+          tokenId: saved.tokenId,
+          status: OrderStatus.ACTIVE,
+          id: Not(saved.id),
+        },
+        { status: OrderStatus.CANCELLED },
+      );
+      const n = cleared.affected ?? 0;
+      if (n > 0) {
+        this.logger.log(
+          `fulfillOrder ${orderHash.slice(0, 10)}…: cancelled ${n} other active order(s) for token #${saved.tokenId}`,
+        );
+      }
+    }
+
+    return saved;
+  }
+
+  /**
+   * After on-chain matchAdvancedOrders(ask + criteria bid), mark both fulfilled in DB.
+   */
+  async fulfillMatchedPair(askHash: string, bidHash: string): Promise<{ ask: Order; bid: Order }> {
+    const ask = await this.findByHash(askHash);
+    const bid = await this.findByHash(bidHash);
+
+    if (ask.side !== OrderSide.ASK || bid.side !== OrderSide.BID) {
+      throw new BadRequestException('askHash must be a listing and bidHash a buy order');
+    }
+    if (ask.status !== OrderStatus.ACTIVE || bid.status !== OrderStatus.ACTIVE) {
+      throw new BadRequestException('Both orders must be active');
+    }
+
+    const consBid = bid.parameters.consideration?.[0];
+    if (!consBid || Number(consBid.itemType) !== 4) {
+      throw new BadRequestException('bid must be an ERC721_WITH_CRITERIA collection bid');
+    }
+
+    if (
+      ask.collectionKey &&
+      bid.collectionKey &&
+      ask.collectionKey.toLowerCase() !== bid.collectionKey.toLowerCase()
+    ) {
+      throw new BadRequestException('Listing and bid must belong to the same collection');
+    }
+
+    try {
+      const askPrice = BigInt(ask.considerationAmount);
+      const bidPrice = BigInt(bid.considerationAmount);
+      if (bidPrice < askPrice) {
+        throw new BadRequestException('Bid USDC amount must be at least the listing price');
+      }
+    } catch (e) {
+      if (e instanceof BadRequestException) throw e;
+      throw new BadRequestException('Invalid consideration amounts');
+    }
+
+    ask.status = OrderStatus.FULFILLED;
+    bid.status = OrderStatus.FULFILLED;
+    await this.orderRepo.save([ask, bid]);
+
     const cleared = await this.orderRepo.update(
       {
-        tokenContract: order.tokenContract,
-        tokenId: order.tokenId,
+        tokenContract: ask.tokenContract,
+        tokenId: ask.tokenId,
         status: OrderStatus.ACTIVE,
+        id: Not(ask.id),
       },
       { status: OrderStatus.CANCELLED },
     );
     const n = cleared.affected ?? 0;
     if (n > 0) {
       this.logger.log(
-        `fulfillOrder ${orderHash.slice(0, 10)}…: cancelled ${n} other active order(s) for token #${order.tokenId}`,
+        `fulfillMatchedPair: cancelled ${n} other active order(s) for token #${ask.tokenId}`,
       );
     }
 
-    return saved;
+    return { ask, bid };
   }
 
-  // ── 잘못된 상태 복구 (on-chain revert 후 DB 정정) ─────────────────
   async reactivateOrder(orderHash: string, callerAddress: string): Promise<Order> {
     const order = await this.findByHash(orderHash);
 
@@ -262,7 +366,6 @@ export class MarketplaceService {
     return this.orderRepo.save(order);
   }
 
-  // ── 만료된 주문 자동 처리 ─────────────────────────────────────────
   private async expireOrders(): Promise<void> {
     await this.orderRepo.update(
       { status: OrderStatus.ACTIVE, endTime: LessThan(new Date()) },

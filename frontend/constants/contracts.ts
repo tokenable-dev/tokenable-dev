@@ -1,14 +1,44 @@
+import type { Abi } from "viem";
+
+import { SEAPORT_MATCH_ADVANCED_ORDERS_ABI } from "./seaportMatchAdvancedAbi";
+
 // ─── Contract Addresses ───────────────────────────────────────────────────────
 
 /** Collection display name when metadata has no `name` */
 export const TOKENABLE_RWA_DISPLAY_NAME = "Tokenable_RWA";
 
-export const TOKENABLE_RWA_ADDRESS = (process.env.NEXT_PUBLIC_NFT_CONTRACT_ADDRESS ??
-  "0x8d14F1518A185A7966AE6e8a6ab94AfC8E4EF6ec") as `0x${string}`;
+const ADDR = /^0x[a-fA-F0-9]{40}$/;
 
-/** Circle Sepolia USDC */
-export const USDC_ADDRESS = (process.env.NEXT_PUBLIC_USDC_CONTRACT_ADDRESS ??
-  "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238") as `0x${string}`;
+/**
+ * Next.js 는 `process.env.NEXT_PUBLIC_*` 를 **정적**으로만 빌드 시 번들에 넣습니다.
+ * `process.env[name]` 같은 동적 접근은 클라이언트에서 항상 비어 있어 런타임 에러가 납니다.
+ */
+function requireHexAddr(
+  primary: string | undefined,
+  legacy: string | undefined,
+  label: string,
+): `0x${string}` {
+  const raw = primary?.trim() || legacy?.trim() || "";
+  if (!raw || !ADDR.test(raw)) {
+    throw new Error(
+      `[contracts] Set ${label} in the environment (e.g. frontend/.env.local). See frontend/.env.example.`,
+    );
+  }
+  return raw as `0x${string}`;
+}
+
+/** Prefer `NEXT_PUBLIC_RWA_CONTRACT_ADDRESS`; `NEXT_PUBLIC_NFT_CONTRACT_ADDRESS` is a legacy alias. */
+export const TOKENABLE_RWA_ADDRESS = requireHexAddr(
+  process.env.NEXT_PUBLIC_RWA_CONTRACT_ADDRESS,
+  process.env.NEXT_PUBLIC_NFT_CONTRACT_ADDRESS,
+  "NEXT_PUBLIC_RWA_CONTRACT_ADDRESS or NEXT_PUBLIC_NFT_CONTRACT_ADDRESS",
+);
+
+export const USDC_ADDRESS = requireHexAddr(
+  process.env.NEXT_PUBLIC_USDC_CONTRACT_ADDRESS,
+  undefined,
+  "NEXT_PUBLIC_USDC_CONTRACT_ADDRESS",
+);
 
 /** Seaport v1.5 — deployed at the same address on all EVM chains */
 export const SEAPORT_ADDRESS =
@@ -29,7 +59,7 @@ export const TOKENABLE_RWA_MINT_ABI = [
   },
 ] as const;
 
-/** 읽기 전용 — 상세 페이지 ownerOf 등 */
+/** 읽기 전용 — 상세 페이지 ownerOf, tokenURI (백엔드 404 시 클라이언트 폴백) */
 export const TOKENABLE_RWA_READ_ABI = [
   {
     name: "ownerOf",
@@ -38,9 +68,37 @@ export const TOKENABLE_RWA_READ_ABI = [
     inputs: [{ name: "tokenId", type: "uint256" }],
     outputs: [{ name: "", type: "address" }],
   },
+  {
+    name: "tokenURI",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ name: "tokenId", type: "uint256" }],
+    outputs: [{ name: "", type: "string" }],
+  },
 ] as const;
 
+/** ERC-721 listing: OpenSea-style `setApprovalForAll(Seaport, true)` (not per-token `approve`). */
 export const TOKENABLE_RWA_APPROVE_ABI = [
+  {
+    name: "setApprovalForAll",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "operator", type: "address" },
+      { name: "approved", type: "bool" },
+    ],
+    outputs: [],
+  },
+  {
+    name: "isApprovedForAll",
+    type: "function",
+    stateMutability: "view",
+    inputs: [
+      { name: "owner", type: "address" },
+      { name: "operator", type: "address" },
+    ],
+    outputs: [{ name: "", type: "bool" }],
+  },
   {
     name: "approve",
     type: "function",
@@ -74,16 +132,33 @@ export const USDC_ABI = [
     outputs: [{ name: "", type: "bool" }],
   },
   {
+    name: "allowance",
+    type: "function",
+    stateMutability: "view",
+    inputs: [
+      { name: "owner", type: "address" },
+      { name: "spender", type: "address" },
+    ],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+  {
     name: "balanceOf",
     type: "function",
     stateMutability: "view",
     inputs: [{ name: "account", type: "address" }],
     outputs: [{ name: "", type: "uint256" }],
   },
+  {
+    name: "allowance",
+    type: "function",
+    stateMutability: "view",
+    inputs: [
+      { name: "owner", type: "address" },
+      { name: "spender", type: "address" },
+    ],
+    outputs: [{ name: "", type: "uint256" }],
+  },
 ] as const;
-
-/** @deprecated Use USDC_ABI */
-export const USDC_APPROVE_ABI = USDC_ABI;
 
 // ─── Seaport ABIs ─────────────────────────────────────────────────────────────
 
@@ -150,6 +225,12 @@ export const SEAPORT_ABI = [
     outputs: [{ name: "fulfilled", type: "bool" }],
   },
 ] as const;
+
+/** `fulfillOrder` + `getCounter` + `matchAdvancedOrders` — use for advanced/criteria settlement. */
+export const SEAPORT_ABI_WITH_MATCH_ADVANCED = [
+  ...SEAPORT_ABI,
+  ...SEAPORT_MATCH_ADVANCED_ORDERS_ABI,
+] as Abi;
 
 // ─── Seaport EIP-712 types for signTypedData ──────────────────────────────────
 
