@@ -2,6 +2,7 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { formatUnits, type Address } from "viem";
 import { useAccount, usePublicClient, useWalletClient, useWriteContract } from "wagmi";
 import { sepolia } from "@/config/wagmi";
@@ -609,27 +610,31 @@ export function CollectionUnifiedOrderBook({
         </div>
       )}
 
-      {instantModalOpen && canInstantMatch && selectedAsk != null && (
-        <div
-          className="fixed inset-0 z-[85] flex flex-col justify-end sm:justify-center sm:items-center p-0 sm:p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="instant-match-modal-title"
-        >
-          <button
-            type="button"
-            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
-            aria-label="Close"
-            disabled={instantBusy != null}
-            onClick={() => {
-              if (instantBusy != null) return;
-              setInstantModalOpen(false);
-              setInstantErr(null);
-            }}
-          />
+      {typeof document !== "undefined" &&
+        instantModalOpen &&
+        canInstantMatch &&
+        selectedAsk != null &&
+        createPortal(
           <div
-            className="relative z-[86] w-full max-w-lg max-h-[min(90dvh,720px)] sm:max-h-[min(92vh,720px)] flex flex-col rounded-t-2xl sm:rounded-2xl border border-mint-deep/30 bg-gradient-to-b from-[#0d1418] via-[#0a1014] to-[#07090c] shadow-2xl shadow-black/60 overflow-hidden pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:pb-0"
+            className="fixed inset-0 z-[100] flex flex-col justify-end sm:justify-center sm:items-center p-0 sm:p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="instant-match-modal-title"
           >
+            <button
+              type="button"
+              className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+              aria-label="Close"
+              disabled={instantBusy != null}
+              onClick={() => {
+                if (instantBusy != null) return;
+                setInstantModalOpen(false);
+                setInstantErr(null);
+              }}
+            />
+            <div
+              className="relative z-[101] w-full max-w-lg max-h-[min(90dvh,720px)] sm:max-h-[min(92vh,720px)] flex flex-col rounded-t-2xl sm:rounded-2xl border border-mint-deep/30 bg-gradient-to-b from-[#0d1418] via-[#0a1014] to-[#07090c] shadow-2xl shadow-black/60 overflow-hidden pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:pb-0"
+            >
             <div className="pointer-events-none absolute -right-16 -top-16 h-40 w-40 rounded-full bg-mint/14 blur-3xl" aria-hidden />
             <div className="relative flex items-start justify-between gap-3 px-4 py-4 border-b border-mint-deep/15 shrink-0">
               <div className="flex items-start gap-3 min-w-0">
@@ -809,8 +814,9 @@ export function CollectionUnifiedOrderBook({
               </p>
             </div>
           </div>
-        </div>
-      )}
+        </div>,
+          document.body,
+        )}
     </div>
   );
 }
