@@ -9,8 +9,8 @@ A decentralized marketplace for real-world asset (RWA) tokens on EVM chains. Use
 This project is a full-stack RWA marketplace that allows users to:
 
 - **Mint** RWAs by uploading images and metadata to IPFS
-- **List** owned assets for sale with USDC pricing
-- **Purchase** assets from the marketplace using USDC
+- **List** owned assets for sale with USDC pricing (Seaport off-chain orders)
+- **Purchase** listings or place **collection-wide criteria bids** (USDC, Merkle-anchored token sets)
 - **View** asset details, activity history, and magnified image previews
 
 The application is designed for EVM-compatible chains and follows a non-custodial model where users retain control of their assets until a sale is completed.

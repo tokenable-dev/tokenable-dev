@@ -117,51 +117,7 @@ export async function analyzePsaSlab(
   return res.json() as Promise<PsaAnalyzeResult>;
 }
 
-// ─── Blockchain — Token (USDC) ────────────────────────────────────────────────
-
-export interface TokenInfo {
-  name: string;
-  symbol: string;
-  decimals: number;
-}
-
-export async function getTokenInfo(): Promise<TokenInfo> {
-  const res = await backendFetch(`${getApiUrl()}/blockchain/token/info`);
-  if (!res.ok) throw new Error("Failed to fetch token info");
-  return res.json() as Promise<TokenInfo>;
-}
-
-export async function getTokenSupply(): Promise<string> {
-  const res = await backendFetch(`${getApiUrl()}/blockchain/token/supply`);
-  if (!res.ok) throw new Error("Failed to fetch token supply");
-  return res.json() as Promise<string>;
-}
-
-export async function getTokenBalance(address: string): Promise<string> {
-  const res = await backendFetch(`${getApiUrl()}/blockchain/token/balance/${address}`);
-  if (!res.ok) throw new Error("Failed to fetch token balance");
-  return res.json() as Promise<string>;
-}
-
 // ─── Blockchain — RWA (ERC-721) ───────────────────────────────────────────────
-
-export interface RwaContractInfo {
-  name: string;
-  symbol: string;
-  totalMinted: number;
-}
-
-export async function getRwaContractInfo(): Promise<RwaContractInfo> {
-  const res = await backendFetch(`${getApiUrl()}/blockchain/rwa/info`);
-  if (!res.ok) throw new Error("Failed to fetch contract info");
-  return res.json() as Promise<RwaContractInfo>;
-}
-
-export async function getRwaBalance(address: string): Promise<number> {
-  const res = await backendFetch(`${getApiUrl()}/blockchain/rwa/balance/${address}`);
-  if (!res.ok) throw new Error("Failed to fetch asset balance");
-  return res.json() as Promise<number>;
-}
 
 export async function getRwaTokensByOwner(address: string): Promise<number[]> {
   const res = await backendFetch(`${getApiUrl()}/blockchain/rwa/tokens/${address}`);
@@ -414,8 +370,13 @@ export async function replaceListingApi(body: {
     body: JSON.stringify(body),
   });
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ message: "Failed to replace listing" }));
-    throw new Error((err as { message?: string }).message ?? "Failed to replace listing");
+    const err = (await res.json().catch(() => ({}))) as {
+      message?: string | string[];
+    };
+    const msg = Array.isArray(err.message)
+      ? err.message.join(" ")
+      : err.message ?? "Failed to replace listing";
+    throw new Error(msg);
   }
   return res.json() as Promise<Order>;
 }

@@ -20,7 +20,7 @@ import {
   SEAPORT_ORDER_TYPES,
 } from "@/constants/contracts";
 import { createOrder } from "@/lib/api";
-import { gasWithCap } from "@/lib/chainGas";
+import { GAS_FALLBACK, gasWithCapFast } from "@/lib/chainGas";
 import { mapWalletError } from "@/lib/walletError";
 
 const ZERO_BYTES32 =
@@ -77,6 +77,16 @@ export function ListRwaModal({
     query: { enabled: !!address },
   });
 
+  /** Prefetch so List click doesn’t block on RPC before the sign popup */
+  const { data: approvedForNft } = useReadContract({
+    address: TOKENABLE_RWA_ADDRESS,
+    abi: TOKENABLE_RWA_APPROVE_ABI,
+    functionName: "getApproved",
+    args: [BigInt(tokenId)],
+    chainId: sepolia.id,
+    query: { enabled: Number.isFinite(tokenId) && tokenId >= 0 },
+  });
+
   async function handleList() {
     if (!address || !price || parseFloat(price) <= 0) return;
     if (counter === undefined) {
@@ -99,28 +109,32 @@ export function ListRwaModal({
     const salt = BigInt(Math.floor(Math.random() * 1_000_000_000_000));
 
     try {
-      // ── Step 1: Approve ERC-721 to Seaport ──────────────────────────────────────
-      setStep("approving");
-      const gasApprove = await gasWithCap(publicClient, {
-        address: TOKENABLE_RWA_ADDRESS,
-        abi: TOKENABLE_RWA_APPROVE_ABI,
-        functionName: "approve",
-        args: [SEAPORT_ADDRESS, BigInt(tokenId)],
-        account: address,
-      });
-      const approveTx = await writeContractAsync({
-        address: TOKENABLE_RWA_ADDRESS,
-        abi: TOKENABLE_RWA_APPROVE_ABI,
-        functionName: "approve",
-        args: [SEAPORT_ADDRESS, BigInt(tokenId)],
-        chainId: sepolia.id,
-        gas: gasApprove,
-      });
-      if (publicClient) {
-        await publicClient.waitForTransactionReceipt({ hash: approveTx });
-      }
+      const approvedRaw =
+        approvedForNft ??
+        (await publicClient.readContract({
+          address: TOKENABLE_RWA_ADDRESS,
+          abi: TOKENABLE_RWA_APPROVE_ABI,
+          functionName: "getApproved",
+          args: [BigInt(tokenId)],
+        }));
+      const needsNftApprove =
+        (approvedRaw as string).toLowerCase() !== SEAPORT_ADDRESS.toLowerCase();
 
-      // ── Step 2: EIP-712 sign the Seaport order ───────────────────────────────
+      // 서명과 병렬로 NFT approve 가스 추정 (두 번째 팝업 직전 대기 축소)
+      const approveGasPromise = needsNftApprove
+        ? gasWithCapFast(
+            publicClient,
+            {
+              address: TOKENABLE_RWA_ADDRESS,
+              abi: TOKENABLE_RWA_APPROVE_ABI,
+              functionName: "approve",
+              args: [SEAPORT_ADDRESS, BigInt(tokenId)],
+              account: address,
+            },
+            GAS_FALLBACK.erc721Approve,
+          )
+        : Promise.resolve(null as bigint | null);
+
       setStep("signing");
 
       const orderMessage = {
@@ -151,10 +165,11 @@ export function ListRwaModal({
         zoneHash: ZERO_BYTES32,
         salt,
         conduitKey: ZERO_BYTES32,
-        counter,
+        counter: counter as bigint,
       };
 
       const signature = await walletClient.signTypedData({
+        account: address,
         domain: {
           name: "Seaport",
           version: "1.5",
@@ -166,7 +181,20 @@ export function ListRwaModal({
         message: orderMessage,
       });
 
-      // ── Step 3: POST to backend ───────────────────────────────────────────────
+      if (needsNftApprove) {
+        setStep("approving");
+        const gasApprove = (await approveGasPromise) ?? GAS_FALLBACK.erc721Approve;
+        await writeContractAsync({
+          address: TOKENABLE_RWA_ADDRESS,
+          abi: TOKENABLE_RWA_APPROVE_ABI,
+          functionName: "approve",
+          args: [SEAPORT_ADDRESS, BigInt(tokenId)],
+          chainId: sepolia.id,
+          gas: gasApprove,
+        });
+      }
+
+      // ── Step 2: POST to backend ───────────────────────────────────────────────
       setStep("submitting");
 
       const str = (v: unknown): string => String(v);
@@ -214,9 +242,9 @@ export function ListRwaModal({
       onListed?.(tokenId);
       setStep("success");
 
-      await queryClient.invalidateQueries({ queryKey: ["marketplace-orders"] });
-      await queryClient.invalidateQueries({ queryKey: ["marketplace-collection"] });
-      await queryClient.invalidateQueries({ queryKey: ["my-rwa-ids", address] });
+      void queryClient.invalidateQueries({ queryKey: ["marketplace-orders"] });
+      void queryClient.invalidateQueries({ queryKey: ["marketplace-collection"] });
+      void queryClient.invalidateQueries({ queryKey: ["my-rwa-ids", address] });
     } catch (err: unknown) {
       setErrorMsg(mapWalletError(err).message);
       setStep("error");
@@ -227,8 +255,8 @@ export function ListRwaModal({
     step === "approving" || step === "signing" || step === "submitting";
 
   const stepLabels: { label: string; active: boolean }[] = [
-    { label: "1. Approve token", active: step === "approving" },
-    { label: "2. Sign Order", active: step === "signing" },
+    { label: "1. Sign order", active: step === "signing" },
+    { label: "2. Approve (if needed)", active: step === "approving" },
     { label: "3. Submitting", active: step === "submitting" },
   ];
 

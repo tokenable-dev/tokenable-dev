@@ -10,7 +10,8 @@ export function hashSeaportIdentifier(identifier: bigint): Hex {
 }
 
 function keccak256Buffer(data: Buffer): Buffer {
-  return Buffer.from(keccak256(new Uint8Array(data)));
+  /** viem returns `0x` + 32 bytes hex; must decode as hex, not UTF-8. */
+  return Buffer.from(hexToBytes(keccak256(new Uint8Array(data))));
 }
 
 /**

@@ -10,7 +10,8 @@ import {
   SEAPORT_ORDER_TYPES,
 } from "@/constants/contracts";
 import { createOrder, replaceListingApi, type CreateOrderPayload, type Order } from "@/lib/api";
-import { gasWithCap } from "@/lib/chainGas";
+import { GAS_FALLBACK, gasWithCapFast } from "@/lib/chainGas";
+import { normalizeDecimalTokenId } from "@/lib/normalizeTokenId";
 
 const ZERO_BYTES32 =
   "0x0000000000000000000000000000000000000000000000000000000000000000" as const;
@@ -30,7 +31,7 @@ type WriteAsync = (args: {
  * Approve RWA (ERC-721) → sign Seaport ask → POST create or replace-listing.
  */
 export async function submitAskListingOrder(params: {
-  tokenId: number;
+  tokenId: string | number;
   priceUsdc: string;
   address: Address;
   publicClient: PublicClient;
@@ -39,8 +40,9 @@ export async function submitAskListingOrder(params: {
   mode: "create" | "replace";
   oldOrderHash?: string;
 }): Promise<Order> {
-  const { tokenId, priceUsdc, address, publicClient, walletClient, writeContractAsync, mode } =
-    params;
+  const { priceUsdc, address, publicClient, walletClient, writeContractAsync, mode } = params;
+  const tokenIdStr = normalizeDecimalTokenId(params.tokenId);
+  const tokenIdBn = BigInt(tokenIdStr);
   const n = parseFloat(priceUsdc);
   if (!Number.isFinite(n) || n <= 0) {
     throw new Error("Invalid price");
@@ -60,22 +62,28 @@ export async function submitAskListingOrder(params: {
   const endTime = now + BigInt(ORDER_DURATION_SECONDS);
   const salt = BigInt(Math.floor(Math.random() * 1_000_000_000_000));
 
-  const gasApprove = await gasWithCap(publicClient, {
+  const approvedFor = await publicClient.readContract({
     address: TOKENABLE_RWA_ADDRESS,
     abi: TOKENABLE_RWA_APPROVE_ABI,
-    functionName: "approve",
-    args: [SEAPORT_ADDRESS, BigInt(tokenId)],
-    account: address,
+    functionName: "getApproved",
+    args: [tokenIdBn],
   });
-  const approveTx = await writeContractAsync({
-    address: TOKENABLE_RWA_ADDRESS,
-    abi: TOKENABLE_RWA_APPROVE_ABI,
-    functionName: "approve",
-    args: [SEAPORT_ADDRESS, BigInt(tokenId)],
-    chainId: sepolia.id,
-    gas: gasApprove,
-  });
-  await publicClient.waitForTransactionReceipt({ hash: approveTx });
+  const needsNftApprove =
+    (approvedFor as string).toLowerCase() !== SEAPORT_ADDRESS.toLowerCase();
+
+  const approveGasPromise = needsNftApprove
+    ? gasWithCapFast(
+        publicClient,
+        {
+          address: TOKENABLE_RWA_ADDRESS,
+          abi: TOKENABLE_RWA_APPROVE_ABI,
+          functionName: "approve",
+        args: [SEAPORT_ADDRESS, tokenIdBn],
+        account: address,
+        },
+        GAS_FALLBACK.erc721Approve,
+      )
+    : Promise.resolve(null as bigint | null);
 
   const orderMessage = {
     offerer: address,
@@ -84,7 +92,7 @@ export async function submitAskListingOrder(params: {
       {
         itemType: 2,
         token: TOKENABLE_RWA_ADDRESS,
-        identifierOrCriteria: BigInt(tokenId),
+        identifierOrCriteria: tokenIdBn,
         startAmount: BigInt(1),
         endAmount: BigInt(1),
       },
@@ -121,6 +129,18 @@ export async function submitAskListingOrder(params: {
     message: orderMessage,
   });
 
+  if (needsNftApprove) {
+    const gasApprove = (await approveGasPromise) ?? GAS_FALLBACK.erc721Approve;
+    await writeContractAsync({
+      address: TOKENABLE_RWA_ADDRESS,
+      abi: TOKENABLE_RWA_APPROVE_ABI,
+      functionName: "approve",
+      args: [SEAPORT_ADDRESS, tokenIdBn],
+      chainId: sepolia.id,
+      gas: gasApprove,
+    });
+  }
+
   const str = (v: unknown): string => String(v);
   const payload: CreateOrderPayload = {
     side: "ask",
@@ -135,7 +155,7 @@ export async function submitAskListingOrder(params: {
         {
           itemType: 2,
           token: TOKENABLE_RWA_ADDRESS,
-          identifierOrCriteria: str(tokenId),
+          identifierOrCriteria: tokenIdStr,
           startAmount: "1",
           endAmount: "1",
         },
@@ -157,7 +177,7 @@ export async function submitAskListingOrder(params: {
     },
     signature,
     tokenContract: TOKENABLE_RWA_ADDRESS,
-    tokenId: String(tokenId),
+    tokenId: tokenIdStr,
     considerationToken: USDC_ADDRESS,
     considerationAmount: String(priceInUnits),
   };

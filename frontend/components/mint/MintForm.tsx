@@ -11,7 +11,7 @@ import {
 import { uploadRwaMetadata, analyzePsaSlab, type PsaAnalyzeResult } from "@/lib/api";
 import { TOKENABLE_RWA_ADDRESS, TOKENABLE_RWA_MINT_ABI } from "@/constants/contracts";
 import { sepolia } from "@/config/wagmi";
-import { gasWithCap } from "@/lib/chainGas";
+import { GAS_FALLBACK, gasWithCapFast } from "@/lib/chainGas";
 import { useAppStore, selectRefresh } from "@/store";
 import {
   EMPTY_PSA_FIELD_LOCKS,
@@ -466,13 +466,17 @@ export function MintForm() {
       setStep("minting");
 
       if (!publicClient) throw new Error("Network not ready");
-      const gas = await gasWithCap(publicClient, {
-        address: TOKENABLE_RWA_ADDRESS,
-        abi: TOKENABLE_RWA_MINT_ABI,
-        functionName: "mint",
-        args: [address, uploadResult.tokenURI],
-        account: address,
-      });
+      const gas = await gasWithCapFast(
+        publicClient,
+        {
+          address: TOKENABLE_RWA_ADDRESS,
+          abi: TOKENABLE_RWA_MINT_ABI,
+          functionName: "mint",
+          args: [address, uploadResult.tokenURI],
+          account: address,
+        },
+        GAS_FALLBACK.rwaMint,
+      );
       const txHash = await writeContractAsync({
         address: TOKENABLE_RWA_ADDRESS,
         abi: TOKENABLE_RWA_MINT_ABI,
@@ -484,13 +488,12 @@ export function MintForm() {
 
       setResult({ tokenURI: uploadResult.tokenURI, txHash });
       setStep("success");
-
-      if (publicClient) {
-        await publicClient.waitForTransactionReceipt({
-          hash: txHash as `0x${string}`,
-        });
-      }
       refresh();
+      if (publicClient) {
+        void publicClient
+          .waitForTransactionReceipt({ hash: txHash as `0x${string}` })
+          .then(() => refresh());
+      }
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : "An unexpected error occurred";

@@ -5,7 +5,8 @@ import { fulfillMatchedPairApi, getMerkleEligibleTokenIds, type Order } from "@/
 import { buildCriteriaMatchExecution, isCriteriaCollectionBid } from "@/lib/seaport/criteriaMatch";
 import { matchAdvancedOrdersArgs } from "@/lib/seaport/matchAdvancedOrdersArgs";
 import { SeaportMerkleTree } from "@/lib/seaport/merkle";
-import { gasWithCap } from "@/lib/chainGas";
+import { GAS_FALLBACK, gasWithCapFast } from "@/lib/chainGas";
+import { normalizeDecimalTokenId } from "@/lib/normalizeTokenId";
 import { mapWalletError } from "@/lib/walletError";
 
 function normRootHex(s: string): string {
@@ -30,7 +31,7 @@ export async function runCriteriaMatch(params: {
   writeContractAsync: MatchWriteContractAsync;
   bid: Order;
   listing: Order;
-  tokenId: number;
+  tokenId: string | number;
   collectionKey: string;
 }): Promise<void> {
   const { address, publicClient, writeContractAsync, bid, listing, tokenId, collectionKey } =
@@ -40,12 +41,14 @@ export async function runCriteriaMatch(params: {
     throw new Error("Not a criteria collection bid");
   }
 
+  const tidBn = BigInt(normalizeDecimalTokenId(tokenId));
+
   const { tokenIds } = await getMerkleEligibleTokenIds(collectionKey);
-  const ids = tokenIds.map((x) => BigInt(x));
+  const ids = tokenIds.map((x) => BigInt(normalizeDecimalTokenId(x)));
   if (ids.length === 0) {
     throw new Error("Merkle set is empty.");
   }
-  if (!ids.some((id) => id === BigInt(tokenId))) {
+  if (!ids.some((id) => id === tidBn)) {
     throw new Error("This token ID is not in the current Merkle leaf set.");
   }
 
@@ -61,12 +64,12 @@ export async function runCriteriaMatch(params: {
     );
   }
 
-  const proof = tree.getCriteriaProof(BigInt(tokenId));
+  const proof = tree.getCriteriaProof(tidBn);
 
   const exec = buildCriteriaMatchExecution({
     criteriaBidOrder: bid,
     listingOrder: listing,
-    tokenId: BigInt(tokenId),
+    tokenId: tidBn,
     criteriaProof: proof,
   });
   const prepared = matchAdvancedOrdersArgs({
@@ -76,6 +79,18 @@ export async function runCriteriaMatch(params: {
     recipient: exec.recipient,
   });
 
+  const gasPromise = gasWithCapFast(
+    publicClient,
+    {
+      address: SEAPORT_ADDRESS,
+      abi: prepared.abi,
+      functionName: prepared.functionName,
+      args: prepared.args,
+      account: address,
+    },
+    GAS_FALLBACK.matchAdvancedOrders,
+  );
+
   await publicClient.simulateContract({
     address: SEAPORT_ADDRESS,
     abi: SEAPORT_ABI_WITH_MATCH_ADVANCED,
@@ -84,13 +99,7 @@ export async function runCriteriaMatch(params: {
     account: address,
   });
 
-  const gas = await gasWithCap(publicClient, {
-    address: SEAPORT_ADDRESS,
-    abi: prepared.abi,
-    functionName: prepared.functionName,
-    args: prepared.args,
-    account: address,
-  });
+  const gas = await gasPromise;
 
   const hash = await writeContractAsync({
     address: SEAPORT_ADDRESS,
@@ -103,7 +112,9 @@ export async function runCriteriaMatch(params: {
 
   const receipt = await publicClient.waitForTransactionReceipt({ hash });
   if (receipt.status === "reverted") {
-    throw new Error("Seaport matchAdvancedOrders reverted.");
+    throw new Error(
+      `Seaport match reverted on-chain (tx ${hash}). Simulation may differ from execution; check the buyer’s USDC balance and approval to Seaport.`,
+    );
   }
 
   await fulfillMatchedPairApi({
@@ -112,6 +123,26 @@ export async function runCriteriaMatch(params: {
   });
 }
 
+const GENERIC_CONTRACT =
+  "The contract could not complete this action. Check balances, approvals, and listing status.";
+
 export function mapMatchError(e: unknown): string {
-  return mapWalletError(e).message;
+  const { message, code } = mapWalletError(e);
+  if (code !== "REVERT") return message;
+
+  const low = message.toLowerCase();
+  if (
+    low.includes("allowance") ||
+    low.includes("erc20") ||
+    (low.includes("transfer") &&
+      (low.includes("fail") || low.includes("exceed") || low.includes("insufficient")))
+  ) {
+    return `${message} You’re selling: Seaport still pulls USDC from the buyer’s wallet. They need enough USDC and an allowance to Seaport (the same approval used when placing the collection bid).`;
+  }
+
+  if (message === GENERIC_CONTRACT) {
+    return `${message} For instant match: confirm the buyer still has USDC + Seaport approval, your NFT is approved for Seaport, listing/bid are active, and Merkle set matches.`;
+  }
+
+  return message;
 }
