@@ -14,12 +14,6 @@ function priceKey(p: number): number {
   return Math.round(p * 1_000_000) / 1_000_000;
 }
 
-function shortOfferer(addr: string): string {
-  const a = addr.startsWith("0x") ? addr : `0x${addr}`;
-  if (a.length <= 12) return a;
-  return `${a.slice(0, 6)}…${a.slice(-4)}`;
-}
-
 type OrderBookTab = "book" | "trades";
 
 interface RwaOrderBookProps {
@@ -170,6 +164,18 @@ export function RwaOrderBook({
     highlightOrderHash.length > 0 &&
     hash === highlightOrderHash;
 
+  const actionableBids = useMemo(() => {
+    if (!address) return [];
+    const lower = address.toLowerCase();
+    const out: Order[] = [];
+    for (const b of bids) {
+      const mine = b.offerer.toLowerCase() === lower;
+      if (mine && onCancelBid) out.push(b);
+      else if (!mine && isOwner && onAcceptBid) out.push(b);
+    }
+    return out.sort((a, b) => priceFromOrder(b) - priceFromOrder(a));
+  }, [bids, address, isOwner, onAcceptBid, onCancelBid]);
+
   return (
     <div
       id={scrollAnchorId}
@@ -277,135 +283,92 @@ export function RwaOrderBook({
               <div className="py-6 text-center text-[11px] text-gray-600">No buy orders</div>
             ) : (
               bidLevels.map((level) => {
-                const multi = level.count > 1;
+                const firstHash = level.orders[0]?.orderHash;
+                const rowHighlight =
+                  level.count === 1 && firstHash != null && highlightBid(firstHash);
                 return (
-                  <div key={level.key} className="rounded-sm overflow-hidden">
+                  <div
+                    key={level.key}
+                    className={`relative min-h-[28px] flex items-center rounded-sm overflow-hidden ${
+                      rowHighlight ? "ring-1 ring-amber-400/35" : ""
+                    }`}
+                  >
                     <div
-                      className={`relative min-h-[28px] flex items-center overflow-hidden group ${
-                        multi ? "bg-mint/[0.03]" : ""
-                      } ${
-                        !multi && level.orders[0] && highlightBid(level.orders[0].orderHash)
-                          ? "ring-1 ring-amber-400/35 rounded-sm"
-                          : ""
-                      }`}
-                    >
-                      <div
-                        className="absolute inset-y-0 left-0 bg-mint/[0.12]"
-                        style={{ width: `${Math.min(100, level.depth * 100)}%` }}
-                      />
-                      <div className="relative z-10 grid grid-cols-[1fr_52px_72px] gap-1 w-full px-2 py-1 text-[11px] font-mono tabular-nums items-center">
-                        <span className="text-mint font-medium flex items-center gap-1.5 min-w-0">
-                          <span>
-                            {level.price.toLocaleString("en-US", {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            })}
-                          </span>
-                          {multi && (
-                            <span className="text-[9px] font-semibold uppercase px-1 py-0 rounded bg-mint/15 text-mint/90 border border-mint-deep/25 shrink-0">
-                              ×{level.count}
-                            </span>
-                          )}
-                        </span>
-                        <span className="text-right text-gray-400">{level.count}</span>
-                        <span className="text-right text-gray-500">
-                          {level.total.toLocaleString("en-US", {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })}
-                        </span>
-                      </div>
-                      {!multi && level.orders[0] && (
-                        <div className="absolute right-1 top-1/2 -translate-y-1/2 z-20 flex gap-1 opacity-0 group-hover:opacity-100 sm:opacity-100">
-                          {onAcceptBid &&
-                            isOwner &&
-                            address?.toLowerCase() !==
-                              level.orders[0].offerer.toLowerCase() && (
-                              <button
-                                type="button"
-                                data-bid-order-hash={level.orders[0].orderHash}
-                                disabled={isAccepting || isBuying}
-                                onClick={() => onAcceptBid(level.orders[0])}
-                                className={`text-[10px] font-bold px-1.5 py-0.5 rounded bg-mint-dim text-mint-ink hover:brightness-110 disabled:opacity-40 ${
-                                  highlightBid(level.orders[0].orderHash)
-                                    ? "ring-2 ring-amber-400/70 ring-offset-2 ring-offset-[#0c1018]"
-                                    : ""
-                                }`}
-                              >
-                                {acceptingBidHash === level.orders[0].orderHash && isAccepting
-                                  ? "…"
-                                  : "Sell"}
-                              </button>
-                            )}
-                          {onCancelBid &&
-                            address?.toLowerCase() ===
-                            level.orders[0].offerer.toLowerCase() && (
-                            <button
-                              type="button"
-                              disabled={!!cancelBidHash}
-                              onClick={() => onCancelBid(level.orders[0])}
-                              className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gray-700 text-gray-200 hover:bg-gray-600 disabled:opacity-40"
-                            >
-                              {cancelBidHash === level.orders[0].orderHash ? "…" : "×"}
-                            </button>
-                          )}
-                        </div>
-                      )}
+                      className="absolute inset-y-0 left-0 bg-mint/[0.12]"
+                      style={{ width: `${Math.min(100, level.depth * 100)}%` }}
+                    />
+                    <div className="relative z-10 grid grid-cols-[1fr_52px_72px] gap-1 w-full px-2 py-1 text-[11px] font-mono tabular-nums items-center">
+                      <span className="text-mint font-medium min-w-0">
+                        {level.price.toLocaleString("en-US", {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </span>
+                      <span className="text-right text-gray-400">{level.count}</span>
+                      <span className="text-right text-gray-500">
+                        {level.total.toLocaleString("en-US", {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </span>
                     </div>
-                    {multi &&
-                      level.orders.map((order) => {
-                        const isMine =
-                          address?.toLowerCase() === order.offerer.toLowerCase();
-                        return (
-                          <div
-                            key={order.orderHash}
-                            data-bid-order-hash={order.orderHash}
-                            className={`relative flex items-center justify-between gap-2 pl-4 pr-2 py-1 border-t border-gray-800/50 bg-black/20 ${
-                              highlightBid(order.orderHash)
-                                ? "ring-1 ring-inset ring-amber-400/40 bg-amber-500/[0.06]"
-                                : ""
-                            }`}
-                          >
-                            <span className="text-[10px] text-gray-500 font-mono truncate">
-                              {shortOfferer(order.offerer)}
-                            </span>
-                            <div className="flex gap-1 shrink-0">
-                              {onAcceptBid && isOwner && !isMine && (
-                                <button
-                                  type="button"
-                                  data-bid-order-hash={order.orderHash}
-                                  disabled={isAccepting || isBuying}
-                                  onClick={() => onAcceptBid(order)}
-                                  className={`text-[10px] font-bold px-1.5 py-0.5 rounded bg-mint-dim text-mint-ink hover:brightness-110 disabled:opacity-40 ${
-                                    highlightBid(order.orderHash)
-                                      ? "ring-2 ring-amber-400/70 ring-offset-1 ring-offset-[#0c1018]"
-                                      : ""
-                                  }`}
-                                >
-                                  {acceptingBidHash === order.orderHash && isAccepting
-                                    ? "…"
-                                    : "Sell"}
-                                </button>
-                              )}
-                              {onCancelBid && isMine && (
-                                <button
-                                  type="button"
-                                  disabled={!!cancelBidHash}
-                                  onClick={() => onCancelBid(order)}
-                                  className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gray-700 text-gray-200 hover:bg-gray-600 disabled:opacity-40"
-                                >
-                                  {cancelBidHash === order.orderHash ? "…" : "×"}
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
                   </div>
                 );
               })
             )}
           </div>
+
+          {actionableBids.length > 0 && (onAcceptBid || onCancelBid) && (
+            <div className="px-3 py-2 border-t border-gray-800/80 bg-black/[0.2] space-y-1.5">
+              <p className="text-[9px] font-semibold uppercase tracking-wider text-gray-500">
+                Your actions
+              </p>
+              <ul className="space-y-1 max-h-[160px] overflow-y-auto">
+                {actionableBids.map((order) => {
+                  const mine = address?.toLowerCase() === order.offerer.toLowerCase();
+                  const p = priceFromOrder(order);
+                  const priceStr = p.toLocaleString("en-US", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  });
+                  const hi = highlightBid(order.orderHash);
+                  return (
+                    <li
+                      key={order.orderHash}
+                      data-bid-order-hash={order.orderHash}
+                      className={`flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-[11px] font-mono tabular-nums bg-black/30 border border-gray-800/60 ${
+                        hi ? "ring-1 ring-amber-400/50 border-amber-500/30" : ""
+                      }`}
+                    >
+                      <span className="text-mint shrink-0">{priceStr} USDC</span>
+                      <div className="flex gap-1 shrink-0">
+                        {!mine && onAcceptBid && isOwner && (
+                          <button
+                            type="button"
+                            disabled={isAccepting || isBuying}
+                            onClick={() => onAcceptBid(order)}
+                            className="text-[10px] font-bold px-2 py-1 rounded bg-mint-dim text-mint-ink hover:brightness-110 disabled:opacity-40"
+                          >
+                            {acceptingBidHash === order.orderHash && isAccepting ? "…" : "Sell"}
+                          </button>
+                        )}
+                        {mine && onCancelBid && (
+                          <button
+                            type="button"
+                            disabled={!!cancelBidHash}
+                            onClick={() => onCancelBid(order)}
+                            className="text-[10px] font-bold px-2 py-1 rounded bg-gray-700 text-gray-200 hover:bg-gray-600 disabled:opacity-40"
+                          >
+                            {cancelBidHash === order.orderHash ? "…" : "Cancel"}
+                          </button>
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
 
           {/* Bid / ask pressure */}
           <div className="px-3 py-2 border-t border-gray-800/90">

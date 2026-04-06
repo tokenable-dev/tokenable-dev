@@ -4,7 +4,7 @@ import { Suspense, useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { WalletConnect } from "@/components/wallet";
-import { RwaMintForm } from "@/components/mint";
+import { MintForm } from "@/components/mint";
 import { MyAssets } from "@/components/my-assets";
 import { Marketplace } from "@/components/marketplace";
 import { useAuthStore } from "@/store/authStore";
@@ -124,7 +124,7 @@ export default function Home() {
               </p>
               <WalletConnect />
             </div>
-            <RwaMintForm />
+            <MintForm />
             <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-5">
               <h3 className="text-sm font-semibold text-gray-400 mb-4 uppercase tracking-wider">
                 How It Works

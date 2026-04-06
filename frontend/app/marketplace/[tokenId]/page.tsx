@@ -42,7 +42,7 @@ import { RwaOrderBook } from "@/components/marketplace/RwaOrderBook";
 import { TokenCriteriaMatchPanel } from "@/components/marketplace/TokenCriteriaMatchPanel";
 import { ASSETS } from "@/constants/assets";
 import { useAppStore, selectWallet, selectUsdcBalance, selectRefresh } from "@/store";
-import { gasWithCap } from "@/lib/chainGas";
+import { GAS_FALLBACK, gasWithCapFast } from "@/lib/chainGas";
 import { maxUint256 } from "viem";
 import {
   FULFILL_EXTRA_DATA,
@@ -276,6 +276,15 @@ export default function RwaDetailPage() {
     },
   });
 
+  const { data: usdcAllowanceBuy } = useReadContract({
+    address: USDC_ADDRESS,
+    abi: USDC_ABI,
+    functionName: "allowance",
+    args: address ? [address, SEAPORT_ADDRESS] : undefined,
+    chainId: sepolia.id,
+    query: { enabled: !!address },
+  });
+
   const metadata = metaBundle?.metadata ?? null;
   const tokenURIOnChain = metaBundle?.tokenURI ?? null;
 
@@ -355,22 +364,42 @@ export default function RwaDetailPage() {
     setErrorMsg("");
 
     try {
-      const allowance = await publicClient.readContract({
-        address: USDC_ADDRESS,
-        abi: USDC_ABI,
-        functionName: "allowance",
-        args: [address, SEAPORT_ADDRESS],
-      });
+      let allowance = usdcAllowanceBuy as bigint | undefined;
+      if (allowance === undefined) {
+        allowance = await publicClient.readContract({
+          address: USDC_ADDRESS,
+          abi: USDC_ABI,
+          functionName: "allowance",
+          args: [address, SEAPORT_ADDRESS],
+        });
+      }
+
+      const gasFulfillPromise = gasWithCapFast(
+        publicClient,
+        {
+          address: SEAPORT_ADDRESS,
+          abi: SEAPORT_ABI,
+          functionName: "fulfillOrder",
+          args: [fulfillSeaportOrderArgs(listing), FULFILL_EXTRA_DATA],
+          account: address,
+        },
+        GAS_FALLBACK.fulfillOrder,
+      );
+
       const needsUsdcApprove = allowance < priceInUnits;
 
       if (needsUsdcApprove) {
-        const gasApprove = await gasWithCap(publicClient, {
-          address: USDC_ADDRESS,
-          abi: USDC_ABI,
-          functionName: "approve",
-          args: [SEAPORT_ADDRESS, maxUint256],
-          account: address,
-        });
+        const gasApprove = await gasWithCapFast(
+          publicClient,
+          {
+            address: USDC_ADDRESS,
+            abi: USDC_ABI,
+            functionName: "approve",
+            args: [SEAPORT_ADDRESS, maxUint256],
+            account: address,
+          },
+          GAS_FALLBACK.erc20Approve,
+        );
         const approveTx = await writeContractAsync({
           address: USDC_ADDRESS,
           abi: USDC_ABI,
@@ -387,13 +416,14 @@ export default function RwaDetailPage() {
 
       setBuyStep("buying");
 
+      const gasFulfill = await gasFulfillPromise;
       const fulfillTx = await writeContractAsync({
         address: SEAPORT_ADDRESS,
         abi: SEAPORT_ABI,
         functionName: "fulfillOrder",
         args: [fulfillSeaportOrderArgs(listing), FULFILL_EXTRA_DATA],
         chainId: sepolia.id,
-        gas: BigInt(400000),
+        gas: gasFulfill,
       });
 
       const receipt = await publicClient.waitForTransactionReceipt({ hash: fulfillTx });

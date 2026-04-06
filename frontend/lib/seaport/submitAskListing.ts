@@ -11,11 +11,12 @@ import {
 } from "@/constants/contracts";
 import { createOrder, replaceListingApi, type CreateOrderPayload, type Order } from "@/lib/api";
 import { gasWithCap } from "@/lib/chainGas";
+import { normalizeDecimalTokenId } from "@/lib/normalizeTokenId";
 import { u256Hex32 } from "@/lib/seaport/eip712Uint";
 
 const ZERO_BYTES32 =
   "0x0000000000000000000000000000000000000000000000000000000000000000" as const;
-const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000" as Address;
+const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000000000000000000000000000" as Address;
 const ORDER_DURATION_SECONDS = 30 * 24 * 60 * 60;
 
 type WriteAsync = (args: {
@@ -31,7 +32,7 @@ type WriteAsync = (args: {
  * Ensure `setApprovalForAll(Seaport, true)` → sign Seaport ask → POST create or replace-listing.
  */
 export async function submitAskListingOrder(params: {
-  tokenId: number;
+  tokenId: string | number;
   priceUsdc: string;
   address: Address;
   publicClient: PublicClient;
@@ -40,8 +41,9 @@ export async function submitAskListingOrder(params: {
   mode: "create" | "replace";
   oldOrderHash?: string;
 }): Promise<Order> {
-  const { tokenId, priceUsdc, address, publicClient, walletClient, writeContractAsync, mode } =
-    params;
+  const { priceUsdc, address, publicClient, walletClient, writeContractAsync, mode } = params;
+  const tokenIdStr = normalizeDecimalTokenId(params.tokenId);
+  const tokenIdBn = BigInt(tokenIdStr);
   const n = parseFloat(priceUsdc);
   if (!Number.isFinite(n) || n <= 0) {
     throw new Error("Invalid price");
@@ -93,7 +95,7 @@ export async function submitAskListingOrder(params: {
       {
         itemType: 2,
         token: TOKENABLE_RWA_ADDRESS,
-        identifierOrCriteria: u256Hex32(BigInt(tokenId)),
+        identifierOrCriteria: u256Hex32(tokenIdBn),
         startAmount: u256Hex32(BigInt(1)),
         endAmount: u256Hex32(BigInt(1)),
       },
@@ -144,7 +146,7 @@ export async function submitAskListingOrder(params: {
         {
           itemType: 2,
           token: TOKENABLE_RWA_ADDRESS,
-          identifierOrCriteria: str(tokenId),
+          identifierOrCriteria: tokenIdStr,
           startAmount: "1",
           endAmount: "1",
         },
@@ -166,7 +168,7 @@ export async function submitAskListingOrder(params: {
     },
     signature,
     tokenContract: TOKENABLE_RWA_ADDRESS,
-    tokenId: String(tokenId),
+    tokenId: tokenIdStr,
     considerationToken: USDC_ADDRESS,
     considerationAmount: String(priceInUnits),
   };

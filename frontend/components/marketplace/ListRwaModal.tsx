@@ -162,6 +162,7 @@ export function ListRwaModal({
       };
 
       const signature = await walletClient.signTypedData({
+        account: address,
         domain: {
           name: "Seaport",
           version: "1.5",

@@ -65,6 +65,8 @@ export default function MarketplaceCollectionPage() {
 
   function invalidateCollection() {
     void queryClient.invalidateQueries({ queryKey: ["marketplace-collection", key] });
+    void queryClient.invalidateQueries({ queryKey: ["merkle-set", key] });
+    void queryClient.invalidateQueries({ queryKey: ["merkle-set"] });
   }
 
   const asks = useMemo(
@@ -278,6 +280,7 @@ export default function MarketplaceCollectionPage() {
           <div className="min-w-0 xl:sticky xl:top-4 xl:self-start">
             <CollectionCriteriaBidPanel
               collectionKey={collection.collectionKey}
+              activeAsks={asks}
               onPlaced={() => invalidateCollection()}
               onOpenSellModal={() => setSellModalOpen(true)}
             />

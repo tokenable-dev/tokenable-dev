@@ -120,7 +120,8 @@ docker compose -f docker-compose.yml -f docker-compose.ec2.yml up -d --force-rec
 |------|------|
 | [marketplace-seaport-criteria-architecture.drawio](./diagrams/marketplace-seaport-criteria-architecture.drawio) | Seaport criteria + Merkle 흐름 |
 | [psa-slab-upload-ocr-api-flow.drawio](./diagrams/psa-slab-upload-ocr-api-flow.drawio) | PSA 슬랩 업로드·OCR |
-| [tokenable-all-diagrams.drawio](./diagrams/tokenable-all-diagrams.drawio) | 통합(일부 내용은 과거 버전일 수 있음) |
+
+과거에 쓰이던 통합 다이어그램(`tokenable-all-diagrams.drawio`)은 내용이 현재 코드와 어긋나 **제거**했습니다. 아키텍처는 위 두 파일과 이 문서의 API 표를 기준으로 합니다.
 
 ---
 

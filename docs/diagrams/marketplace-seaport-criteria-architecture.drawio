@@ -46,7 +46,7 @@
         <mxCell id="lane5" value="⑤ 프론트 컴포넌트 맵" style="swimlane;horizontal=1;startSize=32;fillColor=#f8cecc;strokeColor=#b85450;fontStyle=1;fontSize=13;align=left;spacingLeft=8;" vertex="1" parent="1">
           <mxGeometry x="40" y="590" width="1900" height="200" as="geometry" />
         </mxCell>
-        <mxCell id="c5" value="컬렉션 페이지: `CollectionCriteriaBidPanel` (입찰), `CollectionUnifiedOrderBook` (asks + bids, Instant sell)&#xa;토큰 페이지: `TokenCriteriaMatchPanel` + `NftOrderBook` (리스팅·매칭·단일 매수)&#xa;공통: `runCriteriaMatch.ts` (Merkle 검증 → simulate → matchAdvancedOrders → `fulfillMatchedPairApi`)&#xa;`submitAskListing.ts` — create 또는 replace-listing 경로로 ask 저장" style="rounded=1;whiteSpace=wrap;html=1;align=left;spacingLeft=10;fontSize=11;fillColor=#ffffff;" vertex="1" parent="lane5">
+        <mxCell id="c5" value="컬렉션 페이지: `CollectionCriteriaBidPanel` (입찰), `CollectionUnifiedOrderBook` (asks + bids, Instant sell)&#xa;토큰 페이지: `TokenCriteriaMatchPanel` + `RwaOrderBook` (리스팅·매칭·단일 매수)&#xa;공통: `runCriteriaMatch.ts` (Merkle 검증 → simulate → matchAdvancedOrders → `fulfillMatchedPairApi`)&#xa;`submitAskListing.ts` — create 또는 replace-listing 경로로 ask 저장" style="rounded=1;whiteSpace=wrap;html=1;align=left;spacingLeft=10;fontSize=11;fillColor=#ffffff;" vertex="1" parent="lane5">
           <mxGeometry x="24" y="48" width="1850" height="136" as="geometry" />
         </mxCell>
 

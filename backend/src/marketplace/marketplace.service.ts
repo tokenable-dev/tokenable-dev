@@ -16,6 +16,15 @@ import { Order, OrderSide, OrderStatus } from './entities/order.entity';
 
 const CRITERIA_TOKEN_SENTINEL = '0';
 
+/** DB/API tokenId 표기(앞자리 0 등) 차이로 replace-listing이 실패하지 않도록 비교용 정규화 */
+function normalizeDecimalTokenId(raw: string): string {
+  const s = String(raw ?? '').trim();
+  if (!/^\d+$/.test(s)) return s;
+  let i = 0;
+  while (i < s.length - 1 && s[i] === '0') i++;
+  return s.slice(i);
+}
+
 @Injectable()
 export class MarketplaceService {
   private readonly logger = new Logger(MarketplaceService.name);
@@ -78,7 +87,8 @@ export class MarketplaceService {
       if (!old) {
         throw new NotFoundException(`Order not found: ${oldOrderHash}`);
       }
-      if (old.side !== OrderSide.ASK) {
+      const effectiveSide = old.side ?? OrderSide.ASK;
+      if (effectiveSide !== OrderSide.ASK) {
         throw new BadRequestException('Only ask listings can be replaced');
       }
       if (old.status !== OrderStatus.ACTIVE) {
@@ -87,7 +97,10 @@ export class MarketplaceService {
       if (old.offerer.toLowerCase() !== callerAddress.toLowerCase()) {
         throw new BadRequestException('Only the offerer can replace this listing');
       }
-      if (String(old.tokenId) !== dto.tokenId) {
+      if (
+        normalizeDecimalTokenId(String(old.tokenId)) !==
+        normalizeDecimalTokenId(String(dto.tokenId))
+      ) {
         throw new BadRequestException('New order tokenId must match the listing being replaced');
       }
       if (old.tokenContract.toLowerCase() !== dto.tokenContract.toLowerCase()) {
