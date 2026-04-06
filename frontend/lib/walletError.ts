@@ -154,6 +154,29 @@ export function mapWalletError(err: unknown): WalletErrorResult {
     };
   }
 
+  if (
+    /no contract code|returned no data|could not decode|contract not deployed|call exception/i.test(
+      lower,
+    )
+  ) {
+    return {
+      code: "NETWORK_MISMATCH",
+      message:
+        "RPC returned no contract data. Confirm you are on Sepolia and that USDC / Seaport addresses match this app’s config.",
+    };
+  }
+
+  const condensed = text.replace(/\s+/g, " ").trim();
+  if (condensed.length > 0) {
+    return {
+      code: "UNKNOWN",
+      message:
+        condensed.length <= 360
+          ? condensed
+          : `${condensed.slice(0, 340)}…`,
+    };
+  }
+
   return {
     code: "UNKNOWN",
     message: "Something went wrong. Please try again.",

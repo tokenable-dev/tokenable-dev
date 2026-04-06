@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { useReadContract } from "wagmi";
+import { usePublicClient, useReadContract } from "wagmi";
 import { sepolia } from "@/config/wagmi";
 import {
-  getApiUrl,
   fetchIpfsMetadata,
   resolveIpfsImage,
+  resolveRwaTokenUri,
   type Order,
 } from "@/lib/api";
 import {
@@ -50,23 +50,12 @@ export function CollectionRwaCard({
   collectionBidCount,
   address,
 }: CollectionRwaCardProps) {
+  const publicClient = usePublicClient({ chainId: sepolia.id });
+
   const { data: metaBundle } = useQuery({
-    queryKey: ["marketplace-detail-metadata", tokenId],
+    queryKey: ["marketplace-detail-metadata", tokenId, publicClient?.chain?.id],
     queryFn: async () => {
-      const base = getApiUrl();
-      const uriRes = await fetch(`${base}/blockchain/rwa/token-uri/${tokenId}`);
-      if (!uriRes.ok) return null;
-      const rawText = await uriRes.text();
-      let tokenURI = rawText.trim();
-      try {
-        const parsed = JSON.parse(rawText);
-        tokenURI =
-          typeof parsed === "string"
-            ? parsed
-            : parsed?.tokenURI ?? String(parsed);
-      } catch {
-        /* raw */
-      }
+      const tokenURI = await resolveRwaTokenUri(tokenId, publicClient ?? undefined);
       if (!tokenURI) return null;
       const metadata = await fetchIpfsMetadata(tokenURI).catch(() => null);
       return { metadata, tokenURI };

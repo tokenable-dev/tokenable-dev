@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
+import { usePublicClient } from "wagmi";
+import { sepolia } from "@/config/wagmi";
 import {
-  getRwaTokenURI,
   fetchIpfsMetadata,
   resolveIpfsImage,
+  resolveRwaTokenUri,
   type Order,
 } from "@/lib/api";
 import { TOKENABLE_RWA_DISPLAY_NAME } from "@/constants/contracts";
@@ -19,10 +21,11 @@ export function MarketplaceOrderCard({
 }) {
   const tokenId = Number(order.tokenId);
   const priceUsdc = (Number(order.considerationAmount) / 1_000_000).toLocaleString();
+  const publicClient = usePublicClient({ chainId: sepolia.id });
 
   const { data: tokenURI } = useQuery({
-    queryKey: ["rwa-token-uri", tokenId],
-    queryFn: () => getRwaTokenURI(tokenId).catch(() => null),
+    queryKey: ["rwa-token-uri", tokenId, publicClient?.chain?.id],
+    queryFn: () => resolveRwaTokenUri(tokenId, publicClient ?? undefined),
     staleTime: 60_000,
     retry: false,
   });

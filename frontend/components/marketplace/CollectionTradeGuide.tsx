@@ -54,13 +54,13 @@ export function CollectionTradeGuide() {
                   >
                     My Assets
                   </Link>{" "}
-                  → approve the token and sign a Seaport ask.
+                  → approve Seaport for all your RWAs once (setApprovalForAll), then sign each ask.
                 </li>
                 <li>
                   <strong className="text-gray-300">Match a collection bid</strong> — on the token page,
                   use <strong className="text-gray-300">Match collection bid</strong> (proof + on-chain
-                  match). On the collection order book, <strong className="text-gray-300">Instant sell</strong>{" "}
-                  can reprice your listing to the bid and run the same match in one flow.
+                  match). On the collection order book, use <strong className="text-gray-300">Sell</strong> on a bid
+                  row to reprice your listing when needed and run the same match in one flow.
                 </li>
               </ul>
             </div>

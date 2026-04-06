@@ -9,8 +9,9 @@ export function hashSeaportIdentifier(identifier: bigint): Hex {
   return keccak256(pad(toHex(identifier), { size: 32 }));
 }
 
+/** viem `keccak256` returns `0x` hex; must decode to bytes — `Buffer.from(hex)` treats string as UTF-8 and breaks the tree (~66-byte “roots”). */
 function keccak256Buffer(data: Buffer): Buffer {
-  return Buffer.from(keccak256(new Uint8Array(data)));
+  return Buffer.from(hexToBytes(keccak256(new Uint8Array(data))));
 }
 
 /**

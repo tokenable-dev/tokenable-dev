@@ -11,6 +11,7 @@ import {
 } from "@/constants/contracts";
 import { createOrder, replaceListingApi, type CreateOrderPayload, type Order } from "@/lib/api";
 import { gasWithCap } from "@/lib/chainGas";
+import { u256Hex32 } from "@/lib/seaport/eip712Uint";
 
 const ZERO_BYTES32 =
   "0x0000000000000000000000000000000000000000000000000000000000000000" as const;
@@ -20,14 +21,14 @@ const ORDER_DURATION_SECONDS = 30 * 24 * 60 * 60;
 type WriteAsync = (args: {
   address: Address;
   abi: typeof TOKENABLE_RWA_APPROVE_ABI;
-  functionName: "approve";
-  args: readonly [Address, bigint];
+  functionName: "setApprovalForAll";
+  args: readonly [Address, boolean];
   chainId: number;
   gas: bigint;
 }) => Promise<`0x${string}`>;
 
 /**
- * Approve RWA (ERC-721) → sign Seaport ask → POST create or replace-listing.
+ * Ensure `setApprovalForAll(Seaport, true)` → sign Seaport ask → POST create or replace-listing.
  */
 export async function submitAskListingOrder(params: {
   tokenId: number;
@@ -60,22 +61,30 @@ export async function submitAskListingOrder(params: {
   const endTime = now + BigInt(ORDER_DURATION_SECONDS);
   const salt = BigInt(Math.floor(Math.random() * 1_000_000_000_000));
 
-  const gasApprove = await gasWithCap(publicClient, {
+  const alreadyAll = await publicClient.readContract({
     address: TOKENABLE_RWA_ADDRESS,
     abi: TOKENABLE_RWA_APPROVE_ABI,
-    functionName: "approve",
-    args: [SEAPORT_ADDRESS, BigInt(tokenId)],
-    account: address,
+    functionName: "isApprovedForAll",
+    args: [address, SEAPORT_ADDRESS],
   });
-  const approveTx = await writeContractAsync({
-    address: TOKENABLE_RWA_ADDRESS,
-    abi: TOKENABLE_RWA_APPROVE_ABI,
-    functionName: "approve",
-    args: [SEAPORT_ADDRESS, BigInt(tokenId)],
-    chainId: sepolia.id,
-    gas: gasApprove,
-  });
-  await publicClient.waitForTransactionReceipt({ hash: approveTx });
+  if (!alreadyAll) {
+    const gasSetAll = await gasWithCap(publicClient, {
+      address: TOKENABLE_RWA_ADDRESS,
+      abi: TOKENABLE_RWA_APPROVE_ABI,
+      functionName: "setApprovalForAll",
+      args: [SEAPORT_ADDRESS, true],
+      account: address,
+    });
+    const setAllTx = await writeContractAsync({
+      address: TOKENABLE_RWA_ADDRESS,
+      abi: TOKENABLE_RWA_APPROVE_ABI,
+      functionName: "setApprovalForAll",
+      args: [SEAPORT_ADDRESS, true],
+      chainId: sepolia.id,
+      gas: gasSetAll,
+    });
+    void publicClient.waitForTransactionReceipt({ hash: setAllTx }).catch(() => {});
+  }
 
   const orderMessage = {
     offerer: address,
@@ -84,28 +93,28 @@ export async function submitAskListingOrder(params: {
       {
         itemType: 2,
         token: TOKENABLE_RWA_ADDRESS,
-        identifierOrCriteria: BigInt(tokenId),
-        startAmount: BigInt(1),
-        endAmount: BigInt(1),
+        identifierOrCriteria: u256Hex32(BigInt(tokenId)),
+        startAmount: u256Hex32(BigInt(1)),
+        endAmount: u256Hex32(BigInt(1)),
       },
     ],
     consideration: [
       {
         itemType: 1,
         token: USDC_ADDRESS,
-        identifierOrCriteria: BigInt(0),
-        startAmount: priceInUnits,
-        endAmount: priceInUnits,
+        identifierOrCriteria: u256Hex32(BigInt(0)),
+        startAmount: u256Hex32(priceInUnits),
+        endAmount: u256Hex32(priceInUnits),
         recipient: address,
       },
     ],
     orderType: 0,
-    startTime: now,
-    endTime,
+    startTime: u256Hex32(now),
+    endTime: u256Hex32(endTime),
     zoneHash: ZERO_BYTES32,
-    salt,
+    salt: u256Hex32(salt),
     conduitKey: ZERO_BYTES32,
-    counter,
+    counter: u256Hex32(counter),
   };
 
   const signature = await walletClient.signTypedData({
@@ -118,7 +127,7 @@ export async function submitAskListingOrder(params: {
     },
     types: SEAPORT_ORDER_TYPES,
     primaryType: "OrderComponents",
-    message: orderMessage,
+    message: orderMessage as never,
   });
 
   const str = (v: unknown): string => String(v);

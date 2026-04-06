@@ -13,12 +13,12 @@ import { sepolia } from "@/config/wagmi";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useShallow } from "zustand/react/shallow";
 import {
-  getApiUrl,
   getOrderByTokenId,
   getOrderHistoryByTokenId,
   fetchIpfsMetadata,
   getMarketplaceCollectionDetail,
   resolveIpfsImage,
+  resolveRwaTokenUri,
   fulfillOrderApi,
   type Order,
 } from "@/lib/api";
@@ -43,6 +43,7 @@ import { TokenCriteriaMatchPanel } from "@/components/marketplace/TokenCriteriaM
 import { ASSETS } from "@/constants/assets";
 import { useAppStore, selectWallet, selectUsdcBalance, selectRefresh } from "@/store";
 import { gasWithCap } from "@/lib/chainGas";
+import { maxUint256 } from "viem";
 import {
   FULFILL_EXTRA_DATA,
   fulfillSeaportOrderArgs,
@@ -248,22 +249,9 @@ export default function RwaDetailPage() {
 
   // 키를 목록 카드(Marketplace OrderCard)의 ["rwa-metadata", tokenId]와 분리해야 함.
   const { data: metaBundle, isLoading: metaLoading } = useQuery({
-    queryKey: ["marketplace-detail-metadata", tokenId],
+    queryKey: ["marketplace-detail-metadata", tokenId, publicClient?.chain?.id],
     queryFn: async () => {
-      const base = getApiUrl();
-      const uriRes = await fetch(`${base}/blockchain/rwa/token-uri/${tokenId}`);
-      if (!uriRes.ok) return null;
-      const rawText = await uriRes.text();
-      let tokenURI = rawText.trim();
-      try {
-        const parsed = JSON.parse(rawText);
-        tokenURI =
-          typeof parsed === "string"
-            ? parsed
-            : parsed?.tokenURI ?? String(parsed);
-      } catch {
-        // use rawText
-      }
+      const tokenURI = await resolveRwaTokenUri(tokenId, publicClient ?? undefined);
       if (!tokenURI) return null;
       const metadata = await fetchIpfsMetadata(tokenURI).catch(() => null);
       return { metadata, tokenURI };
@@ -367,23 +355,35 @@ export default function RwaDetailPage() {
     setErrorMsg("");
 
     try {
-      const gasApprove = await gasWithCap(publicClient, {
+      const allowance = await publicClient.readContract({
         address: USDC_ADDRESS,
         abi: USDC_ABI,
-        functionName: "approve",
-        args: [SEAPORT_ADDRESS, priceInUnits],
-        account: address,
+        functionName: "allowance",
+        args: [address, SEAPORT_ADDRESS],
       });
-      const approveTx = await writeContractAsync({
-        address: USDC_ADDRESS,
-        abi: USDC_ABI,
-        functionName: "approve",
-        args: [SEAPORT_ADDRESS, priceInUnits],
-        chainId: sepolia.id,
-        gas: gasApprove,
-      });
-      setApproveTxHash(approveTx);
-      await publicClient.waitForTransactionReceipt({ hash: approveTx });
+      const needsUsdcApprove = allowance < priceInUnits;
+
+      if (needsUsdcApprove) {
+        const gasApprove = await gasWithCap(publicClient, {
+          address: USDC_ADDRESS,
+          abi: USDC_ABI,
+          functionName: "approve",
+          args: [SEAPORT_ADDRESS, maxUint256],
+          account: address,
+        });
+        const approveTx = await writeContractAsync({
+          address: USDC_ADDRESS,
+          abi: USDC_ABI,
+          functionName: "approve",
+          args: [SEAPORT_ADDRESS, maxUint256],
+          chainId: sepolia.id,
+          gas: gasApprove,
+        });
+        setApproveTxHash(approveTx);
+        await publicClient.waitForTransactionReceipt({ hash: approveTx });
+      } else {
+        setApproveTxHash(undefined);
+      }
 
       setBuyStep("buying");
 

@@ -59,7 +59,7 @@ export const TOKENABLE_RWA_MINT_ABI = [
   },
 ] as const;
 
-/** 읽기 전용 — 상세 페이지 ownerOf 등 */
+/** 읽기 전용 — 상세 페이지 ownerOf, tokenURI (백엔드 404 시 클라이언트 폴백) */
 export const TOKENABLE_RWA_READ_ABI = [
   {
     name: "ownerOf",
@@ -68,9 +68,37 @@ export const TOKENABLE_RWA_READ_ABI = [
     inputs: [{ name: "tokenId", type: "uint256" }],
     outputs: [{ name: "", type: "address" }],
   },
+  {
+    name: "tokenURI",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ name: "tokenId", type: "uint256" }],
+    outputs: [{ name: "", type: "string" }],
+  },
 ] as const;
 
+/** ERC-721 listing: OpenSea-style `setApprovalForAll(Seaport, true)` (not per-token `approve`). */
 export const TOKENABLE_RWA_APPROVE_ABI = [
+  {
+    name: "setApprovalForAll",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "operator", type: "address" },
+      { name: "approved", type: "bool" },
+    ],
+    outputs: [],
+  },
+  {
+    name: "isApprovedForAll",
+    type: "function",
+    stateMutability: "view",
+    inputs: [
+      { name: "owner", type: "address" },
+      { name: "operator", type: "address" },
+    ],
+    outputs: [{ name: "", type: "bool" }],
+  },
   {
     name: "approve",
     type: "function",
@@ -102,6 +130,16 @@ export const USDC_ABI = [
       { name: "amount", type: "uint256" },
     ],
     outputs: [{ name: "", type: "bool" }],
+  },
+  {
+    name: "allowance",
+    type: "function",
+    stateMutability: "view",
+    inputs: [
+      { name: "owner", type: "address" },
+      { name: "spender", type: "address" },
+    ],
+    outputs: [{ name: "", type: "uint256" }],
   },
   {
     name: "balanceOf",
