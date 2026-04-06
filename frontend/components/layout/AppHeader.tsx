@@ -34,9 +34,9 @@ export function AppHeader() {
             <img
               src={ASSETS.logo.tokenable}
               alt="Tokenable"
-              width={140}
-              height={28}
-              className="h-7 w-auto invert"
+              width={32}
+              height={32}
+              className="h-8 w-8 object-contain"
             />
           </Link>
           <span className="hidden sm:inline text-xs bg-gray-800 text-gray-400 border border-gray-700 px-2 py-0.5 rounded-full whitespace-nowrap">

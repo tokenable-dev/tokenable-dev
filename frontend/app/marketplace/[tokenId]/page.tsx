@@ -467,9 +467,9 @@ export default function RwaDetailPage() {
             <img
               src={ASSETS.logo.tokenable}
               alt="Tokenable"
-              width={112}
-              height={22}
-              className="h-5 w-auto invert"
+              width={32}
+              height={32}
+              className="h-8 w-8 object-contain"
             />
           </Link>
           <span className="text-gray-700">/</span>

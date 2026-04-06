@@ -26,6 +26,3 @@ export const ASSETS = {
   /** 기타 이미지 */
   images: {} as Record<string, string>,
 } as const;
-
-/** favicon 경로 (layout metadata용) */
-export const FAVICON = ASSETS.icons.tokenable;
