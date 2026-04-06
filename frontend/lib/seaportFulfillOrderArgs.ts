@@ -1,4 +1,5 @@
 import type { Order } from "@/lib/api";
+import { normalizeSeaportZone } from "@/lib/seaport/criteriaMatch";
 
 export const FULFILL_EXTRA_DATA =
   "0x0000000000000000000000000000000000000000000000000000000000000000" as `0x${string}`;
@@ -9,7 +10,7 @@ export function fulfillSeaportOrderArgs(order: Order) {
   return {
     parameters: {
       offerer: params.offerer as `0x${string}`,
-      zone: params.zone as `0x${string}`,
+      zone: normalizeSeaportZone(String(params.zone)),
       offer: params.offer.map((item) => ({
         itemType: item.itemType,
         token: item.token as `0x${string}`,

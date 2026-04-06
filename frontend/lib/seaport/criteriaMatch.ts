@@ -5,7 +5,17 @@ import type {
   CriteriaResolverArg,
   FulfillmentArg,
 } from "@/lib/seaport/matchAdvancedOrdersArgs";
-import type { Address, Hex } from "viem";
+import { type Address, type Hex, zeroAddress } from "viem";
+
+const BYTES32_ZERO =
+  "0x0000000000000000000000000000000000000000000000000000000000000000";
+
+/** Backend / legacy clients mistakenly stored 32-byte zero as `zone`; viem needs a 20-byte address. */
+export function normalizeSeaportZone(z: string): Address {
+  const s = String(z).trim().toLowerCase();
+  if (s === BYTES32_ZERO) return zeroAddress;
+  return z as Address;
+}
 
 /** Seaport: `recipient === address(0)` means the caller receives fulfilled items (see OpenSea tests). */
 const MATCH_RECIPIENT_ZERO =
@@ -23,7 +33,7 @@ export function orderToAdvancedOrder(order: Order): AdvancedOrderArg {
   return {
     parameters: {
       offerer: p.offerer as Address,
-      zone: p.zone as Address,
+      zone: normalizeSeaportZone(String(p.zone)),
       offer: p.offer.map((i) => ({
         itemType: i.itemType,
         token: i.token as Address,

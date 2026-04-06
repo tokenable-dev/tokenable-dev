@@ -22,7 +22,6 @@ import {
 import { createOrder } from "@/lib/api";
 import { gasWithCap } from "@/lib/chainGas";
 import { mapWalletError } from "@/lib/walletError";
-import { u256Hex32 } from "@/lib/seaport/eip712Uint";
 
 const ZERO_BYTES32 =
   "0x0000000000000000000000000000000000000000000000000000000000000000" as const;
@@ -137,28 +136,28 @@ export function ListRwaModal({
           {
             itemType: 2, // ERC721
             token: TOKENABLE_RWA_ADDRESS,
-            identifierOrCriteria: u256Hex32(BigInt(tokenId)),
-            startAmount: u256Hex32(BigInt(1)),
-            endAmount: u256Hex32(BigInt(1)),
+            identifierOrCriteria: BigInt(tokenId),
+            startAmount: BigInt(1),
+            endAmount: BigInt(1),
           },
         ],
         consideration: [
           {
             itemType: 1, // ERC20
             token: USDC_ADDRESS,
-            identifierOrCriteria: u256Hex32(BigInt(0)),
-            startAmount: u256Hex32(priceInUnits),
-            endAmount: u256Hex32(priceInUnits),
+            identifierOrCriteria: BigInt(0),
+            startAmount: priceInUnits,
+            endAmount: priceInUnits,
             recipient: address,
           },
         ],
         orderType: 0, // FULL_OPEN
-        startTime: u256Hex32(now),
-        endTime: u256Hex32(endTime),
+        startTime: now,
+        endTime: endTime,
         zoneHash: ZERO_BYTES32,
-        salt: u256Hex32(salt),
+        salt: salt,
         conduitKey: ZERO_BYTES32,
-        counter: u256Hex32(counter as bigint),
+        counter: counter as bigint,
       };
 
       const signature = await walletClient.signTypedData({
