@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<mxfile host="app.diagrams.net" modified="2026-03-30T12:00:00.000Z" agent="Tokenable" version="24.7.7" type="device" compressed="false">
+<mxfile host="app.diagrams.net" modified="2026-04-08T00:00:00.000Z" agent="Tokenable" version="24.7.7" type="device" compressed="false">
   <diagram id="page-structure" name="1 — 액터·레이어·저장소">
     <mxGraphModel dx="1600" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2000" pageHeight="1400" math="0" shadow="0">
       <root>
@@ -46,7 +46,7 @@
         <mxCell id="lane5" value="⑤ 프론트 컴포넌트 맵" style="swimlane;horizontal=1;startSize=32;fillColor=#f8cecc;strokeColor=#b85450;fontStyle=1;fontSize=13;align=left;spacingLeft=8;" vertex="1" parent="1">
           <mxGeometry x="40" y="590" width="1900" height="200" as="geometry" />
         </mxCell>
-        <mxCell id="c5" value="컬렉션 페이지: `CollectionCriteriaBidPanel` (입찰), `CollectionUnifiedOrderBook` (asks + bids, Instant sell)&#xa;토큰 페이지: `TokenCriteriaMatchPanel` + `RwaOrderBook` (리스팅·매칭·단일 매수)&#xa;공통: `runCriteriaMatch.ts` (Merkle 검증 → simulate → matchAdvancedOrders → `fulfillMatchedPairApi`)&#xa;`submitAskListing.ts` — create 또는 replace-listing 경로로 ask 저장" style="rounded=1;whiteSpace=wrap;html=1;align=left;spacingLeft=10;fontSize=11;fillColor=#ffffff;" vertex="1" parent="lane5">
+        <mxCell id="c5" value="컬렉션 페이지: `CollectionCriteriaBidPanel` (입찰), `CollectionUnifiedOrderBook` (asks + bids, Instant sell)&#xa;토큰 페이지: `TokenCriteriaMatchPanel` + `RwaOrderBook` (리스팅·매칭·단일 매수)&#xa;공통: `runCriteriaMatch.ts` (Merkle 검증 → simulate → matchAdvancedOrders → `fulfillMatchedPairApi`)&#xa;`submitAskListing.ts` — create 또는 replace-listing 경로로 ask 저장&#xa;`normalizeSeaportZone()` — 32-byte zero를 20-byte zeroAddress로 정규화 (`criteriaMatch.ts`, `seaportFulfillOrderArgs.ts`)" style="rounded=1;whiteSpace=wrap;html=1;align=left;spacingLeft=10;fontSize=11;fillColor=#ffffff;" vertex="1" parent="lane5">
           <mxGeometry x="24" y="48" width="1850" height="136" as="geometry" />
         </mxCell>
 
@@ -121,14 +121,14 @@
         <mxCell id="s7" value="G) API 엔드포인트 빠른 표" style="swimlane;horizontal=1;startSize=36;fillColor=#e1d5e7;strokeColor=#9673a6;fontStyle=1;fontSize=14;align=left;spacingLeft=10;" vertex="1" parent="1">
           <mxGeometry x="40" y="2180" width="1900" height="220" as="geometry" />
         </mxCell>
-        <mxCell id="s7a" value="POST `/marketplace/orders` — `createOrder`&#xa;POST `/marketplace/orders/replace-listing` — `replaceSellerListing` (body: old hash + `CreateOrderDto` ask)&#xa;POST `/marketplace/orders/fulfill-matched-pair` — `{ askOrderHash, bidOrderHash }`&#xa;PATCH `/marketplace/orders/:hash/fulfill` — 단일 `fulfillOrder`&#xa;POST `/marketplace/orders/:hash/cancel` — `cancelOrder`&#xa;GET merkle-set — 컬렉션별 활성 tokenId (클라이언트 Merkle)" style="rounded=0;whiteSpace=wrap;html=1;align=left;spacingLeft=12;fontSize=11;fillColor=#ffffff;fontFamily=Courier New;" vertex="1" parent="s7">
+        <mxCell id="s7a" value="POST `/marketplace/orders` — `createOrder`&#xa;POST `/marketplace/orders/replace-listing` — `replaceSellerListing` (body: old hash + `CreateOrderDto` ask)&#xa;POST `/marketplace/orders/fulfill-matched-pair` — `{ askOrderHash, bidOrderHash }`&#xa;PATCH `/marketplace/orders/:hash/fulfill` — 단일 `fulfillOrder`&#xa;PATCH `/marketplace/orders/:hash/cancel?callerAddress=…` — `cancelOrder`&#xa;PATCH `/marketplace/orders/:hash/reactivate?callerAddress=…` — `reactivateOrder`&#xa;GET merkle-set — 컬렉션별 활성 tokenId (클라이언트 Merkle)" style="rounded=0;whiteSpace=wrap;html=1;align=left;spacingLeft=12;fontSize=11;fillColor=#ffffff;fontFamily=Courier New;" vertex="1" parent="s7">
           <mxGeometry x="24" y="52" width="1850" height="148" as="geometry" />
         </mxCell>
 
         <mxCell id="s8" value="H) 관련 소스 파일 (탐색용)" style="swimlane;horizontal=1;startSize=36;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;fontSize=14;align=left;spacingLeft=10;" vertex="1" parent="1">
           <mxGeometry x="40" y="2440" width="1900" height="180" as="geometry" />
         </mxCell>
-        <mxCell id="s8a" value="frontend: `lib/seaport/criteriaMatch.ts`, `runCriteriaMatch.ts`, `submitAskListing.ts`, `merkle.ts`, `matchAdvancedOrdersArgs.ts`, `constants/contracts.ts` (Seaport ABI)&#xa;backend: `marketplace.service.ts`, `marketplace.controller.ts`, `entities/order.entity.ts`&#xa;schema: TypeORM entities + `backend/sql/README.md`" style="rounded=0;whiteSpace=wrap;html=1;align=left;spacingLeft=12;fontSize=11;fillColor=#ffffff;" vertex="1" parent="s8">
+        <mxCell id="s8a" value="frontend: `lib/seaport/criteriaMatch.ts` (normalizeSeaportZone 포함), `runCriteriaMatch.ts`, `submitAskListing.ts`, `merkle.ts`, `matchAdvancedOrdersArgs.ts`, `seaportFulfillOrderArgs.ts` (normalizeSeaportZone 적용), `constants/contracts.ts` (Seaport ABI)&#xa;backend: `marketplace.service.ts`, `marketplace.controller.ts`, `entities/order.entity.ts`, `entities/marketplace-collection.entity.ts`&#xa;schema: TypeORM entities + `backend/sql/README.md`" style="rounded=0;whiteSpace=wrap;html=1;align=left;spacingLeft=12;fontSize=11;fillColor=#ffffff;" vertex="1" parent="s8">
           <mxGeometry x="24" y="52" width="1850" height="108" as="geometry" />
         </mxCell>
       </root>

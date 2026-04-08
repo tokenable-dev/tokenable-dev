@@ -74,6 +74,16 @@ tokenable-dev/
 | **[docs/price-api.md](docs/price-api.md)** | JustTCG price API (long reference) |
 | **[backend/sql/README.md](backend/sql/README.md)** | Why there are no SQL migrations |
 
+### Architecture & Pipeline Diagrams
+
+| Diagram | Description |
+|---------|-------------|
+| **[Marketplace Pipeline (KR)](docs/diagrams/marketplace-lifecycle.md)** | 전체 흐름도 · 기술 시퀀스 · DB 저장 구조 (한국어) |
+| **[Marketplace Pipeline (EN)](docs/diagrams/marketplace-lifecycle.en.md)** | Overall flow · Technical sequence · DB schema (English) |
+| **[Seaport Criteria Architecture](docs/diagrams/marketplace-seaport-criteria-architecture.drawio)** | Seaport criteria bid architecture |
+| **[Mint → RWA Exchange](docs/diagrams/tokenable-mint-rwa-exchange-full-architecture.drawio)** | Full mint-to-exchange architecture |
+| **[PSA Upload & OCR Flow](docs/diagrams/psa-slab-upload-ocr-api-flow.drawio)** | PSA slab upload & OCR API flow |
+
 ---
 
 ## Getting Started
