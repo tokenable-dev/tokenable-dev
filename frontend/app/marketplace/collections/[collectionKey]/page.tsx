@@ -130,7 +130,7 @@ export default function MarketplaceCollectionPage() {
         <p className="text-red-400 text-sm mb-4">
           {error instanceof Error ? error.message : "Collection not found."}
         </p>
-        <Link href="/?tab=marketplace" className="text-mint text-sm hover:underline">
+        <Link href="/exchange" className="text-mint text-sm hover:underline">
           ← Back to Exchange
         </Link>
       </div>
@@ -150,7 +150,7 @@ export default function MarketplaceCollectionPage() {
     <div className="min-h-screen bg-gray-950 text-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 pb-20">
         <Link
-          href="/?tab=marketplace"
+          href="/exchange"
           className="inline-flex text-sm text-mint/90 hover:text-mint mb-6"
         >
           ← Back to Exchange
@@ -311,7 +311,7 @@ export default function MarketplaceCollectionPage() {
               {tokenIds.length === 0 ? (
                 <div className="rounded-2xl border border-gray-800 bg-gray-900/30 px-4 py-8 text-center text-sm text-gray-400">
                   No listings yet. List an asset from{" "}
-                  <Link href="/?tab=my-rwa" className="text-mint hover:underline">
+                  <Link href="/vault?tab=my-rwa" className="text-mint hover:underline">
                     My Assets
                   </Link>
                   .
