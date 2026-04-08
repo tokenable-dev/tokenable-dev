@@ -103,12 +103,12 @@ function SearchBar() {
   return (
     <div ref={wrapperRef} className="relative">
       <div
-        className={`flex items-center rounded-xl border bg-gray-800/50 px-3 py-2 min-w-[160px] sm:min-w-[220px] transition-colors ${
+        className={`flex items-center rounded-xl border bg-gray-800/50 px-3 py-1.5 min-w-[180px] sm:min-w-[260px] transition-colors ${
           open ? "border-mint/40" : "border-gray-700/60 hover:border-gray-600"
         }`}
         onClick={() => { if (!open) setOpen(true); }}
       >
-        <svg className="w-4 h-4 shrink-0 text-mint" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg className="w-3.5 h-3.5 shrink-0 text-mint" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
         </svg>
         <input
@@ -118,7 +118,7 @@ function SearchBar() {
           onFocus={() => setOpen(true)}
           onKeyDown={handleKeyDown}
           placeholder="Search..."
-          className="ml-2 flex-1 bg-transparent text-sm text-white placeholder-gray-500 outline-none cursor-text min-w-0"
+          className="ml-2 flex-1 bg-transparent text-xs text-white placeholder-gray-500 outline-none cursor-text min-w-0"
         />
         {!open && (
           <kbd className="hidden sm:inline-flex ml-auto text-[10px] text-gray-600 border border-gray-700 rounded px-1 py-0.5 font-mono shrink-0">
@@ -130,12 +130,12 @@ function SearchBar() {
       {showDropdown && (
         <div className="absolute left-0 right-0 top-full mt-1.5 rounded-xl border border-gray-700/60 bg-gray-900/98 shadow-2xl shadow-black/50 backdrop-blur-lg overflow-hidden z-[70]">
           {filtered.length === 0 ? (
-            <div className="px-4 py-5 text-center text-sm text-gray-500">
+            <div className="px-3 py-4 text-center text-xs text-gray-500">
               No collections found
             </div>
           ) : (
             <ul
-              className="max-h-[210px] overflow-y-auto overscroll-contain scrollbar-thin"
+              className="max-h-[156px] overflow-y-auto overscroll-contain scrollbar-thin py-1"
               role="listbox"
             >
               {filtered.map((c, i) => (
@@ -145,13 +145,13 @@ function SearchBar() {
                   aria-selected={i === highlightIdx}
                   onMouseEnter={() => setHighlightIdx(i)}
                   onClick={() => navigate(c)}
-                  className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer transition-colors ${
+                  className={`flex items-center gap-2.5 px-2.5 py-1.5 cursor-pointer transition-colors ${
                     i === highlightIdx
                       ? "bg-mint/10"
                       : "hover:bg-gray-800/60"
                   }`}
                 >
-                  <div className="w-10 h-10 rounded-lg bg-gray-800 border border-gray-700/50 overflow-hidden shrink-0 flex items-center justify-center">
+                  <div className="w-7 h-7 rounded-md bg-gray-800 border border-gray-700/50 overflow-hidden shrink-0 flex items-center justify-center">
                     {c.coverImageUrl ? (
                       /* eslint-disable-next-line @next/next/no-img-element */
                       <img
@@ -161,19 +161,19 @@ function SearchBar() {
                         loading="lazy"
                       />
                     ) : (
-                      <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0022.5 18.75V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z" /></svg>
+                      <svg className="w-3.5 h-3.5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0022.5 18.75V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z" /></svg>
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-white truncate">
+                    <p className="text-xs font-medium text-white truncate">
                       {c.displayLabel}
                     </p>
-                    <p className="text-[11px] text-gray-500 truncate">
+                    <p className="text-[10px] text-gray-500 truncate">
                       {c.activeListingCount} listing{c.activeListingCount !== 1 ? "s" : ""}
                       {c.queryUsed ? ` · ${c.queryUsed}` : ""}
                     </p>
                   </div>
-                  <svg className="w-4 h-4 text-gray-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>
+                  <svg className="w-3 h-3 text-gray-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>
                 </li>
               ))}
             </ul>
@@ -185,7 +185,7 @@ function SearchBar() {
 }
 
 const DROPDOWN_ITEMS = [
-  { label: "My Assets", href: "/vault?tab=my-rwa", icon: "wallet" as const, available: true },
+  { label: "My Assets", href: "/portfolio", icon: "wallet" as const, available: true },
   { label: "Transaction History", href: "#", icon: "history" as const, available: false },
   { label: "Watchlist", href: "#", icon: "star" as const, available: false },
   { label: "Notifications", href: "#", icon: "bell" as const, available: false },
@@ -428,7 +428,7 @@ export function AppHeader() {
               Exchange
             </Link>
             <Link
-              href="/vault?tab=my-rwa"
+              href="/portfolio"
               className="text-sm text-gray-400 hover:text-white transition-colors"
             >
               Portfolio
