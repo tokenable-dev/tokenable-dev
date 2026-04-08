@@ -88,34 +88,36 @@ function CollectionRow({
   return (
     <Link
       href={`/marketplace/collections/${encodeURIComponent(collection.collectionKey)}`}
-      className="group flex items-center gap-4 px-4 py-3.5 rounded-xl transition-colors hover:bg-gray-800/40"
+      className="group flex items-center gap-3 sm:gap-4 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl transition-colors hover:bg-gray-800/40"
     >
-      <div className="shrink-0 w-10 h-10 flex items-center justify-center text-mint/60">
+      <div className="shrink-0 w-8 h-8 flex items-center justify-center text-mint/60 text-sm">
         ★
       </div>
 
       {collection.coverImageUrl ? (
-        <CollectionCoverFrame
-          imageUrl={collection.coverImageUrl}
-          variant="compact"
-          className="shrink-0 w-14 h-14 sm:w-16 sm:h-16"
-        />
+        <div className="shrink-0 w-10 h-10 sm:w-12 sm:h-12 overflow-hidden rounded-lg">
+          <CollectionCoverFrame
+            imageUrl={collection.coverImageUrl}
+            variant="compact"
+            className="w-full h-full"
+          />
+        </div>
       ) : (
-        <div className="shrink-0 w-14 h-14 sm:w-16 sm:h-16 rounded-lg bg-gray-800 border border-gray-700" />
+        <div className="shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-gray-800 border border-gray-700" />
       )}
 
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2.5">
-          <h3 className="text-sm font-bold text-white truncate group-hover:text-mint transition-colors">
+        <div className="flex items-center gap-2">
+          <h3 className="text-[13px] font-bold text-white truncate group-hover:text-mint transition-colors">
             {collection.displayLabel}
           </h3>
         </div>
         {subtitle && (
-          <p className="text-xs text-gray-500 mt-0.5 truncate">{subtitle}</p>
+          <p className="text-[11px] text-gray-500 mt-0.5 truncate">{subtitle}</p>
         )}
       </div>
 
-      <div className="hidden sm:flex items-center gap-6 text-xs shrink-0">
+      <div className="hidden sm:flex items-center gap-5 text-xs shrink-0">
         <div>
           <span className="text-gray-500">Price </span>
           <span className="font-bold text-white">
@@ -130,7 +132,7 @@ function CollectionRow({
         </div>
       </div>
 
-      <span className="shrink-0 text-gray-600 group-hover:text-mint transition-colors">
+      <span className="shrink-0 text-gray-600 group-hover:text-mint transition-colors text-sm">
         →
       </span>
     </Link>
@@ -257,12 +259,12 @@ export default function ExchangePage() {
             {orphanAsks.length > 0 && (
               <Link
                 href="/marketplace/other-listings"
-                className="group flex items-center gap-4 px-4 py-3.5 transition-colors hover:bg-gray-800/40"
+                className="group flex items-center gap-3 sm:gap-4 px-3 sm:px-4 py-2.5 sm:py-3 transition-colors hover:bg-gray-800/40"
               >
-                <div className="shrink-0 w-10 h-10 flex items-center justify-center text-gray-600">
+                <div className="shrink-0 w-8 h-8 flex items-center justify-center text-gray-600 text-sm">
                   ○
                 </div>
-                <div className="shrink-0 w-14 h-14 sm:w-16 sm:h-16 rounded-lg bg-gray-800/60 border border-gray-700/50 flex items-center justify-center text-gray-600 text-lg">
+                <div className="shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-gray-800/60 border border-gray-700/50 flex items-center justify-center text-gray-600 text-sm">
                   ?
                 </div>
                 <div className="flex-1 min-w-0">
