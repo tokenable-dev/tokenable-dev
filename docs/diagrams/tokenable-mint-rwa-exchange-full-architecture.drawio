@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<mxfile host="app.diagrams.net" modified="2026-03-30T00:00:00.000Z" agent="Tokenable" version="24.7.7" type="device" compressed="false">
+<mxfile host="app.diagrams.net" modified="2026-04-08T00:00:00.000Z" agent="Tokenable" version="24.7.7" type="device" compressed="false">
   <diagram id="full-arch" name="Mint · RWA · Exchange (판매/구매)">
     <mxGraphModel dx="2000" dy="1200" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2480" pageHeight="1754" math="0" shadow="0">
       <root>
@@ -46,7 +46,7 @@
         <mxCell id="sw-b" value="B — Exchange 백본: 오프체인 주문 레지스트리 + Seaport 온체인" style="swimlane;horizontal=1;startSize=36;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;fontSize=14;align=left;spacingLeft=12;" vertex="1" parent="1">
           <mxGeometry x="40" y="320" width="2400" height="220" as="geometry" />
         </mxCell>
-        <mxCell id="b1" value="API (NestJS `MarketplaceController`)&#xa;• `POST /marketplace/orders` — `createOrder` (ask | bid)&#xa;• `POST /marketplace/orders/replace-listing` — 가격 변경(리프라이스)·Merkle 안정화&#xa;• `PATCH .../orders/:hash/fulfill` — 단일 `fulfillOrder` 후 DB 동기화&#xa;• `POST .../fulfill-matched-pair` — `matchAdvancedOrders` 후 쌍 체결&#xa;• `GET .../merkle-set/:collectionKey` — criteria 입찰용 leaf tokenId[]" style="rounded=1;whiteSpace=wrap;html=1;align=left;spacingLeft=10;fontSize=11;fillColor=#ffffff;strokeColor=#6c8ebf;" vertex="1" parent="sw-b">
+        <mxCell id="b1" value="API (NestJS `MarketplaceController`)&#xa;• `POST /marketplace/orders` — `createOrder` (ask | bid)&#xa;• `POST /marketplace/orders/replace-listing` — 가격 변경(리프라이스)·Merkle 안정화&#xa;• `PATCH .../orders/:hash/fulfill` — 단일 `fulfillOrder` 후 DB 동기화&#xa;• `POST .../fulfill-matched-pair` — `matchAdvancedOrders` 후 쌍 체결&#xa;• `PATCH .../orders/:hash/cancel?callerAddress=…` — `cancelOrder`&#xa;• `PATCH .../orders/:hash/reactivate?callerAddress=…` — `reactivateOrder`&#xa;• `GET .../merkle-set/:collectionKey` — criteria 입찰용 leaf tokenId[]" style="rounded=1;whiteSpace=wrap;html=1;align=left;spacingLeft=10;fontSize=11;fillColor=#ffffff;strokeColor=#6c8ebf;" vertex="1" parent="sw-b">
           <mxGeometry x="16" y="52" width="520" height="156" as="geometry" />
         </mxCell>
         <mxCell id="b2" value="PostgreSQL `orders` (핵심)&#xa;• `order_hash`, `side` (ask|bid), `offerer`, `signature`&#xa;• `parameters` JSONB — Seaport `OrderParameters` 전체&#xa;• ask: 실제 `token_id` / criteria bid: sentinel `&quot;0&quot;` + `collection_key`&#xa;• bid criteria: `consideration[0].itemType=4`, `identifierOrCriteria` = Merkle root&#xa;• `consideration_amount` (USDC 6 decimals 문자열)" style="rounded=1;whiteSpace=wrap;html=1;align=left;spacingLeft=10;fontSize=11;fillColor=#f8f4fc;strokeColor=#9673a6;" vertex="1" parent="sw-b">
@@ -78,7 +78,7 @@
         <mxCell id="c3" value="Instant match (판매자가 컬렉션 비드에 맞춤)&#xa;• UI: `CollectionUnifiedOrderBook` 모달&#xa;• listing 가격 &gt; bid USDC면 `submitAskListingOrder(..., mode:&quot;replace&quot;)` 후&#xa;• `runCriteriaMatch`: Merkle root 일치 검사 → `simulateContract` → `matchAdvancedOrders`&#xa;• `fulfillMatchedPairApi(bidHash, askHash)`" style="rounded=1;whiteSpace=wrap;html=1;align=left;spacingLeft=10;fontSize=11;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="sw-c">
           <mxGeometry x="16" y="292" width="540" height="112" as="geometry" />
         </mxCell>
-        <mxCell id="c4" value="모듈 참조&#xa;• `frontend/lib/seaport/criteriaMatch.ts` — `buildCriteriaMatchExecution`&#xa;• `matchAdvancedOrdersArgs.ts`, `merkle.ts` (`SeaportMerkleTree`)&#xa;• `normalizeTokenId.ts` — tokenId 문자열 정규화" style="rounded=1;whiteSpace=wrap;html=1;align=left;spacingLeft=10;fontSize=11;fillColor=#f5f5f5;strokeColor=#666666;fontStyle=2;" vertex="1" parent="sw-c">
+        <mxCell id="c4" value="모듈 참조&#xa;• `frontend/lib/seaport/criteriaMatch.ts` — `buildCriteriaMatchExecution`, `normalizeSeaportZone`&#xa;• `matchAdvancedOrdersArgs.ts`, `merkle.ts` (`SeaportMerkleTree`)&#xa;• `seaportFulfillOrderArgs.ts` — fulfillOrder 인자 + zone 정규화&#xa;• `normalizeTokenId.ts` — tokenId 문자열 정규화" style="rounded=1;whiteSpace=wrap;html=1;align=left;spacingLeft=10;fontSize=11;fillColor=#f5f5f5;strokeColor=#666666;fontStyle=2;" vertex="1" parent="sw-c">
           <mxGeometry x="584" y="52" width="548" height="352" as="geometry" />
         </mxCell>
 
@@ -92,7 +92,7 @@
         <mxCell id="d2" value="② 컬렉션 criteria 입찰 (한도 주문)&#xa;• `GET merkle-set` → `SeaportMerkleTree` → root를 입찰 `identifierOrCriteria`에&#xa;• Offer: USDC (itemType 1) — 최대 지불 의사&#xa;• Consideration: ERC721_WITH_CRITERIA (itemType 4) + Merkle root&#xa;• `createOrder` side=bid, tokenId=&quot;0&quot;, collectionKey 필수&#xa;• UI: `CollectionCriteriaBidPanel.tsx`" style="rounded=1;whiteSpace=wrap;html=1;align=left;spacingLeft=10;fontSize=11;fillColor=#e8f5e9;strokeColor=#4a9d82;" vertex="1" parent="sw-d">
           <mxGeometry x="16" y="188" width="580" height="132" as="geometry" />
         </mxCell>
-        <mxCell id="d3" value="③ 북 크로스 (입력 가격 ≥ 최저 매도호가)&#xa;• 최저가 리스팅 `pickLowestBuyableAsk` 선택&#xa;• 실제 체결·지불액은 리스팅 `considerationAmount` (최저가만)&#xa;• `runInstantPurchase` → 동일 `fulfillOrder` 경로" style="rounded=1;whiteSpace=wrap;html=1;align=left;spacingLeft=10;fontSize=11;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="sw-d">
+        <mxCell id="d3" value="③ 북 크로스 (입력 가격 ≥ 최저 매도호가)&#xa;• 최저가 리스팅 `pickLowestActiveAsk` 선택&#xa;• 실제 체결·지불액은 리스팅 `considerationAmount` (최저가만)&#xa;• `runInstantPurchase` → 동일 `fulfillOrder` 경로" style="rounded=1;whiteSpace=wrap;html=1;align=left;spacingLeft=10;fontSize=11;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="sw-d">
           <mxGeometry x="16" y="336" width="580" height="68" as="geometry" />
         </mxCell>
         <mxCell id="d4" value="정합성·보조&#xa;• 입찰 Merkle root ≡ API가 준 활성 leaf 집합의 root (`runCriteriaMatch`)&#xa;• `bidUsdcAmount` — offer[0] USDC 기준&#xa;• USDC/ETH 가스: `GAS_FALLBACK`, `chainGas.ts`" style="rounded=1;whiteSpace=wrap;html=1;align=left;spacingLeft=10;fontSize=11;fillColor=#f5f5f5;strokeColor=#666666;fontStyle=2;" vertex="1" parent="sw-d">
