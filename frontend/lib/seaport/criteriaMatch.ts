@@ -97,15 +97,31 @@ export function buildCriteriaMatchExecution(params: {
     },
   ];
   const fulfillments: FulfillmentArg[] = [
+    // Bid USDC → Listing seller consideration
     {
       offerComponents: [{ orderIndex: BigInt(0), itemIndex: BigInt(0) }],
       considerationComponents: [{ orderIndex: BigInt(1), itemIndex: BigInt(0) }],
     },
+    // Listing NFT → Bid NFT consideration
     {
       offerComponents: [{ orderIndex: BigInt(1), itemIndex: BigInt(0) }],
       considerationComponents: [{ orderIndex: BigInt(0), itemIndex: BigInt(0) }],
     },
   ];
+
+  // If the listing has a platform fee consideration item, route bid USDC → fee recipient
+  const listingConsiderationCount =
+    params.listingOrder.parameters?.consideration?.length ?? 0;
+  if (listingConsiderationCount > 1) {
+    for (let i = 1; i < listingConsiderationCount; i++) {
+      fulfillments.push({
+        offerComponents: [{ orderIndex: BigInt(0), itemIndex: BigInt(0) }],
+        considerationComponents: [
+          { orderIndex: BigInt(1), itemIndex: BigInt(i) },
+        ],
+      });
+    }
+  }
   return {
     orders: [buyerAdv, sellerAdv],
     criteriaResolvers,
