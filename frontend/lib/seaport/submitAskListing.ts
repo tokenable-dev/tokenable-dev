@@ -12,6 +12,10 @@ import {
 import { createOrder, replaceListingApi, type CreateOrderPayload, type Order } from "@/lib/api";
 import { gasWithCap } from "@/lib/chainGas";
 import { normalizeDecimalTokenId } from "@/lib/normalizeTokenId";
+import {
+  buildAskConsideration,
+  buildAskConsiderationPayload,
+} from "@/lib/seaport/platformFee";
 
 const ZERO_BYTES32 =
   "0x0000000000000000000000000000000000000000000000000000000000000000" as const;
@@ -88,6 +92,8 @@ export async function submitAskListingOrder(params: {
     void publicClient.waitForTransactionReceipt({ hash: setAllTx }).catch(() => {});
   }
 
+  const considerationItems = buildAskConsideration(priceInUnits, address);
+
   const orderMessage = {
     offerer: address,
     zone: ZERO_ADDRESS,
@@ -100,16 +106,7 @@ export async function submitAskListingOrder(params: {
         endAmount: BigInt(1),
       },
     ],
-    consideration: [
-      {
-        itemType: 1,
-        token: USDC_ADDRESS,
-        identifierOrCriteria: BigInt(0),
-        startAmount: priceInUnits,
-        endAmount: priceInUnits,
-        recipient: address,
-      },
-    ],
+    consideration: considerationItems,
     orderType: 0,
     startTime: now,
     endTime: endTime,
@@ -133,6 +130,7 @@ export async function submitAskListingOrder(params: {
   });
 
   const str = (v: unknown): string => String(v);
+  const considerationPayload = buildAskConsiderationPayload(priceInUnits, address);
   const payload: CreateOrderPayload = {
     side: "ask",
     parameters: {
@@ -151,17 +149,8 @@ export async function submitAskListingOrder(params: {
           endAmount: "1",
         },
       ],
-      consideration: [
-        {
-          itemType: 1,
-          token: USDC_ADDRESS,
-          identifierOrCriteria: "0",
-          startAmount: str(priceInUnits),
-          endAmount: str(priceInUnits),
-          recipient: address,
-        },
-      ],
-      totalOriginalConsiderationItems: 1,
+      consideration: considerationPayload,
+      totalOriginalConsiderationItems: considerationPayload.length,
       salt: str(salt),
       conduitKey: ZERO_BYTES32,
       counter: str(counter),

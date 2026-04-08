@@ -50,6 +50,8 @@ export class MarketplaceService {
     }
 
     if (side === OrderSide.ASK) {
+      this.assertValidAskListing(dto);
+
       const existing = await this.orderRepo.findOne({
         where: {
           tokenContract: dto.tokenContract,
@@ -210,6 +212,54 @@ export class MarketplaceService {
     }
     if (dto.tokenId !== CRITERIA_TOKEN_SENTINEL) {
       throw new BadRequestException('Criteria bids must use tokenId "0"');
+    }
+  }
+
+  /**
+   * Ask listing: consideration[0] = USDC to seller, optional consideration[1] = USDC platform fee.
+   * Sum of consideration amounts must equal dto.considerationAmount (= total price).
+   */
+  private assertValidAskListing(dto: CreateOrderDto): void {
+    const p = dto.parameters;
+    const cons = p.consideration;
+    if (!cons || cons.length === 0) {
+      throw new BadRequestException('Ask listing must include at least one consideration item');
+    }
+
+    const usdc = this.config.get<string>('USDC_CONTRACT_ADDRESS') ?? '';
+    const feeRecipient =
+      (this.config.get<string>('PLATFORM_FEE_RECIPIENT') ?? '').toLowerCase();
+
+    let sum = BigInt(0);
+    for (let i = 0; i < cons.length; i++) {
+      const c = cons[i];
+      if (Number(c.itemType) !== 1) {
+        throw new BadRequestException(
+          `Ask consideration[${i}] must be ERC20 (itemType 1)`,
+        );
+      }
+      if (usdc && c.token.toLowerCase() !== usdc.toLowerCase()) {
+        throw new BadRequestException(
+          `Ask consideration[${i}] token must match USDC_CONTRACT_ADDRESS`,
+        );
+      }
+      sum += BigInt(c.startAmount);
+    }
+
+    if (cons.length > 1 && feeRecipient) {
+      const feeItem = cons[1];
+      if (feeItem.recipient.toLowerCase() !== feeRecipient) {
+        this.logger.warn(
+          `Ask fee recipient mismatch: expected ${feeRecipient}, got ${feeItem.recipient}`,
+        );
+      }
+    }
+
+    const declared = BigInt(dto.considerationAmount);
+    if (sum !== declared) {
+      throw new BadRequestException(
+        `Sum of consideration amounts (${sum}) does not equal considerationAmount (${declared})`,
+      );
     }
   }
 

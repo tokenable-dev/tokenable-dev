@@ -44,6 +44,22 @@ export const USDC_ADDRESS = requireHexAddr(
 export const SEAPORT_ADDRESS =
   "0x00000000000000ADc04C56Bf30aC9d3c0aAF14dC" as `0x${string}`;
 
+// ─── Platform Fee ─────────────────────────────────────────────────────────────
+
+/** Vault wallet that receives the platform fee on every trade. Empty ⇒ no fee. */
+export const PLATFORM_FEE_RECIPIENT: `0x${string}` | null = (() => {
+  const raw = process.env.NEXT_PUBLIC_PLATFORM_FEE_RECIPIENT?.trim() ?? "";
+  if (!raw || !ADDR.test(raw)) return null;
+  return raw as `0x${string}`;
+})();
+
+/** Fee in basis points — 250 = 2.5 %. Falls back to 0 when recipient is unset. */
+export const PLATFORM_FEE_BPS: number = (() => {
+  if (!PLATFORM_FEE_RECIPIENT) return 0;
+  const v = parseInt(process.env.NEXT_PUBLIC_PLATFORM_FEE_BPS ?? "250", 10);
+  return Number.isFinite(v) && v >= 0 && v <= 5000 ? v : 250;
+})();
+
 // ─── Tokenable_RWA ABIs ─────────────────────────────────────────────────────────
 
 export const TOKENABLE_RWA_MINT_ABI = [

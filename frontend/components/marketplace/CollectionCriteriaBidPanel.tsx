@@ -29,6 +29,7 @@ import {
   fulfillSeaportOrderArgs,
 } from "@/lib/seaportFulfillOrderArgs";
 import { SeaportMerkleTree } from "@/lib/seaport/merkle";
+import { feePercent } from "@/lib/seaport/platformFee";
 
 const ZERO_BYTES32 =
   "0x0000000000000000000000000000000000000000000000000000000000000000" as const;
@@ -573,11 +574,18 @@ export function CollectionCriteriaBidPanel({
         </div>
 
         {lowestAsk ? (
-          <p className="text-[10px] text-gray-600">
-            Best ask:{" "}
-            <span className="font-mono text-gray-400 tabular-nums">{lowestAskUsdc} USDC</span>
-            <span className="text-gray-600"> · token #{lowestAsk.tokenId}</span>
-          </p>
+          <div className="space-y-0.5">
+            <p className="text-[10px] text-gray-600">
+              Best ask:{" "}
+              <span className="font-mono text-gray-400 tabular-nums">{lowestAskUsdc} USDC</span>
+              <span className="text-gray-600"> · token #{lowestAsk.tokenId}</span>
+            </p>
+            {feePercent() > 0 && (
+              <p className="text-[10px] text-gray-600">
+                Includes {feePercent()}% platform fee
+              </p>
+            )}
+          </div>
         ) : (
           <p className="text-[10px] text-gray-600">
             No active listings — add a listing first, or wait for sellers (collection bids need asks in

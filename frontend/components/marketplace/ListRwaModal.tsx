@@ -22,6 +22,12 @@ import {
 import { createOrder } from "@/lib/api";
 import { gasWithCap } from "@/lib/chainGas";
 import { mapWalletError } from "@/lib/walletError";
+import {
+  buildAskConsideration,
+  buildAskConsiderationPayload,
+  computeFeeSplit,
+  feePercent,
+} from "@/lib/seaport/platformFee";
 
 const ZERO_BYTES32 =
   "0x0000000000000000000000000000000000000000000000000000000000000000" as const;
@@ -129,6 +135,8 @@ export function ListRwaModal({
       // ── Step 2: EIP-712 sign (온체인 승인 채굴 대기 없음) ───────────────────────
       setStep("signing");
 
+      const considerationItems = buildAskConsideration(priceInUnits, address);
+
       const orderMessage = {
         offerer: address,
         zone: ZERO_ADDRESS,
@@ -141,16 +149,7 @@ export function ListRwaModal({
             endAmount: BigInt(1),
           },
         ],
-        consideration: [
-          {
-            itemType: 1, // ERC20
-            token: USDC_ADDRESS,
-            identifierOrCriteria: BigInt(0),
-            startAmount: priceInUnits,
-            endAmount: priceInUnits,
-            recipient: address,
-          },
-        ],
+        consideration: considerationItems,
         orderType: 0, // FULL_OPEN
         startTime: now,
         endTime: endTime,
@@ -177,6 +176,7 @@ export function ListRwaModal({
       setStep("submitting");
 
       const str = (v: unknown): string => String(v);
+      const considerationPayload = buildAskConsiderationPayload(priceInUnits, address);
 
       const created = await createOrder({
         side: "ask",
@@ -196,17 +196,8 @@ export function ListRwaModal({
               endAmount: "1",
             },
           ],
-          consideration: [
-            {
-              itemType: 1,
-              token: USDC_ADDRESS,
-              identifierOrCriteria: "0",
-              startAmount: str(priceInUnits),
-              endAmount: str(priceInUnits),
-              recipient: address,
-            },
-          ],
-          totalOriginalConsiderationItems: 1,
+          consideration: considerationPayload,
+          totalOriginalConsiderationItems: considerationPayload.length,
           salt: str(salt),
           conduitKey: ZERO_BYTES32,
           counter: str(counter),
@@ -266,6 +257,12 @@ export function ListRwaModal({
             <p className="text-sm text-gray-400">
               Asset #{tokenId} is now listed for {price} USDC
             </p>
+            {feePercent() > 0 && (
+              <p className="text-xs text-gray-500 mt-1">
+                {feePercent()}% platform fee included · You&apos;ll receive{" "}
+                {(parseFloat(price) * (1 - feePercent() / 100)).toFixed(2)} USDC on sale
+              </p>
+            )}
             <p className="text-xs text-gray-600 mt-2">Listing valid for 30 days</p>
             <button
               onClick={onClose}
@@ -302,6 +299,22 @@ export function ListRwaModal({
                   USDC
                 </span>
               </div>
+              {price && parseFloat(price) > 0 && feePercent() > 0 && (
+                <div className="mt-2 space-y-1 text-[11px]">
+                  <div className="flex justify-between text-gray-500">
+                    <span>Platform fee ({feePercent()}%)</span>
+                    <span className="font-mono text-gray-400">
+                      {(parseFloat(price) * feePercent() / 100).toFixed(2)} USDC
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-gray-500">
+                    <span>You receive</span>
+                    <span className="font-mono text-white">
+                      {(parseFloat(price) * (1 - feePercent() / 100)).toFixed(2)} USDC
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="flex gap-2 mb-4">
