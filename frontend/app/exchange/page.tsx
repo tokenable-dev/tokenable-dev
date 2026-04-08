@@ -21,7 +21,7 @@ function useMarketStats(
 ) {
   return useMemo(() => {
     const askOrders = orders.filter((o) => o.side !== "bid");
-    let totalValueMicros = 0n;
+    let totalValueMicros = BigInt(0);
     for (const o of askOrders) {
       try {
         totalValueMicros += BigInt(o.considerationAmount ?? "0");
