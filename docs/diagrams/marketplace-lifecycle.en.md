@@ -350,6 +350,291 @@ flowchart LR
 
 ---
 
+## Part 4 — Frontend Architecture
+
+> Next.js App Router · React 19 · Wagmi · Zustand · TanStack Query
+
+### 4-1. Routing & Page Structure
+
+```mermaid
+%%{init: {'flowchart': {'rankSpacing': 50, 'nodeSpacing': 30, 'padding': 20}}}%%
+flowchart TD
+    classDef page   fill:#0c1e33,stroke:#60a5fa,color:#bfdbfe,padding:8px 14px
+    classDef detail fill:#1f1a00,stroke:#fbbf24,color:#fef3c7,padding:8px 14px
+    classDef auth   fill:#111827,stroke:#6b7280,color:#9ca3af,padding:8px 14px
+    classDef layout fill:#0a2215,stroke:#4ade80,color:#dcfce7,padding:8px 14px
+
+    subgraph ROOT ["RootLayout"]
+        direction TB
+        HEADER["AppHeader<br/>SearchBar · WalletDropdown · Nav Links"]:::layout
+
+        subgraph NAV ["Main Routes"]
+            direction LR
+            HOME["/ <br/> Landing Page<br/>RWA Exchange Entry"]:::page
+            EXCHANGE["/exchange<br/>Collection Hub<br/>Stats · Filters · Listings"]:::page
+            VAULT["/vault<br/>Vault Tokenization<br/>Mint · My Assets"]:::page
+            PORTFOLIO["/portfolio<br/>Portfolio Dashboard<br/>Chart · Inventory · History"]:::page
+        end
+
+        subgraph MARKET ["Marketplace Detail"]
+            direction LR
+            COLLECTION["/marketplace/collections/:key<br/>Collection Order Book<br/>Buy · Sell · Match"]:::detail
+            TOKEN["/marketplace/:tokenId<br/>Token Detail<br/>Order Book · Match Panel"]:::detail
+            OTHER["/marketplace/other-listings<br/>Uncategorized Listings"]:::detail
+        end
+
+        subgraph AUTHPAGES ["Auth (OAuth standby)"]
+            direction LR
+            LOGIN["/login"]:::auth
+            SIGNUP["/signup"]:::auth
+            CALLBACK["/auth/callback"]:::auth
+            PROFILE["/profile"]:::auth
+        end
+    end
+
+    HEADER --> NAV
+    EXCHANGE -->|"Click collection"| COLLECTION
+    EXCHANGE -->|"Other listings"| OTHER
+    COLLECTION -->|"Click token"| TOKEN
+    PORTFOLIO -->|"Click asset"| TOKEN
+
+    style ROOT fill:#030712,stroke:#374151,stroke-width:2px,color:#e5e7eb
+    style NAV fill:#060f1c,stroke:#60a5fa,stroke-width:2px,color:#93c5fd
+    style MARKET fill:#0f0d00,stroke:#fbbf24,stroke-width:2px,color:#fde68a
+    style AUTHPAGES fill:#0f1115,stroke:#6b7280,stroke-width:1px,color:#6b7280
+```
+
+### 4-2. Component & Library Structure
+
+```mermaid
+%%{init: {'flowchart': {'rankSpacing': 40, 'nodeSpacing': 24, 'padding': 16}}}%%
+flowchart TB
+    classDef comp fill:#0a2215,stroke:#4ade80,color:#dcfce7,padding:6px 12px
+    classDef lib  fill:#1a0a2e,stroke:#c084fc,color:#f3e8ff,padding:6px 12px
+    classDef store fill:#280a18,stroke:#f472b6,color:#fce7f3,padding:6px 12px
+    classDef ext  fill:#1f1a00,stroke:#fbbf24,color:#fef3c7,padding:6px 12px
+    classDef prov fill:#0c1e33,stroke:#60a5fa,color:#bfdbfe,padding:6px 12px
+
+    subgraph COMPONENTS ["Components"]
+        direction TB
+
+        subgraph C_LAYOUT ["layout/"]
+            APPHEADER["AppHeader<br/>SearchBar · WalletDropdown"]:::comp
+        end
+
+        subgraph C_MINT ["mint/"]
+            MINTFORM["MintForm<br/>PSA Analysis · IPFS · Minting"]:::comp
+            GRADED["GradedCardSection<br/>Card Info Input"]:::comp
+            IMGPUT["ImageInput<br/>Image Upload"]:::comp
+            MINTFORM --> GRADED --> IMGPUT
+        end
+
+        subgraph C_MARKET ["marketplace/"]
+            UNIFIED["CollectionUnifiedOrderBook<br/>Unified Order Book"]:::comp
+            BIDPANEL["CollectionCriteriaBidPanel<br/>Buy · Bid"]:::comp
+            LISTMODAL["ListRwaModal<br/>Create Listing"]:::comp
+            OWNEDMODAL["CollectionOwnedRwaListModal<br/>Owned Assets Listing"]:::comp
+            TOKENDETAIL["RwaDetailAssetPanel<br/>Token Detail · Zoom"]:::comp
+            ORDERBOOK["RwaOrderBook<br/>Per-token Order Book"]:::comp
+            MATCHPANEL["TokenCriteriaMatchPanel<br/>Accept Bids"]:::comp
+            MKTBOOK["MarketplaceOrderBook<br/>Other Listings"]:::comp
+            TRADEGUIDE["CollectionTradeGuide"]:::comp
+            COVERFRAME["CollectionCoverFrame"]:::comp
+        end
+
+        subgraph C_WALLET ["wallet/"]
+            WALLETCONNECT["WalletConnect<br/>MetaMask · Network"]:::comp
+        end
+
+        subgraph C_MYASSET ["my-assets/"]
+            MYASSETS["MyAssets<br/>Owned RWA List · Listing"]:::comp
+        end
+
+        subgraph C_COMMON ["common/"]
+            IMGZOOM["RwaImageZoom"]:::comp
+            GRADEDPANEL["GradedMetadataPanel"]:::comp
+        end
+    end
+
+    subgraph LIBS ["Libraries"]
+        direction TB
+
+        subgraph L_API ["lib/"]
+            API["api.ts<br/>REST API · IPFS Helpers"]:::lib
+            AUTH["auth.ts<br/>Google OAuth · Session"]:::lib
+            GAS["chainGas.ts<br/>Gas Estimation"]:::lib
+            WERROR["walletError.ts<br/>Error Handling"]:::lib
+        end
+
+        subgraph L_SEAPORT ["lib/seaport/"]
+            SUBMIT["submitAskListing.ts<br/>Create Listing"]:::lib
+            CRITERIA["criteriaMatch.ts<br/>Bid Match Builder"]:::lib
+            RUNCRITERIA["runCriteriaMatch.ts<br/>On-chain Matching"]:::lib
+            MERKLE["merkle.ts<br/>SeaportMerkleTree"]:::lib
+            PLATFEE["platformFee.ts<br/>Platform Fee Calc"]:::lib
+            BIDUSDC["bidUsdc.ts<br/>Bid USDC Extraction"]:::lib
+            FULFILL["seaportFulfillOrderArgs.ts<br/>Fulfill Args Builder"]:::lib
+        end
+    end
+
+    subgraph STATE ["State Management"]
+        direction LR
+        APPSTORE["useAppStore (Zustand)<br/>Wallet · USDC Balance · Refresh"]:::store
+        AUTHSTORE["useAuthStore (Zustand)<br/>Google Session · User"]:::store
+        RQUERY["React Query<br/>Server Data Caching"]:::store
+    end
+
+    subgraph PROVIDERS ["Providers"]
+        direction LR
+        WAGMIPROV["WagmiProvider<br/>Wallet Connection · Txs"]:::prov
+        QUERYPROV["QueryClientProvider<br/>React Query"]:::prov
+        AUTHPROV["AuthProvider<br/>Session Init"]:::prov
+        WALLETPROV["WalletDataProvider<br/>Zustand ↔ Wagmi Sync"]:::prov
+    end
+
+    subgraph EXTERNAL ["External"]
+        direction LR
+        BACKEND["🖥️ Backend API<br/>NestJS REST"]:::ext
+        CHAIN["⛓️ Blockchain<br/>Sepolia · Seaport v1.5"]:::ext
+        IPFS["📦 IPFS<br/>Pinata Gateway"]:::ext
+    end
+
+    COMPONENTS --> LIBS
+    COMPONENTS --> STATE
+    LIBS --> EXTERNAL
+    STATE --> EXTERNAL
+    PROVIDERS -.-> STATE
+
+    style COMPONENTS fill:#030712,stroke:#4ade80,stroke-width:2px,color:#86efac
+    style LIBS fill:#030712,stroke:#c084fc,stroke-width:2px,color:#d8b4fe
+    style STATE fill:#030712,stroke:#f472b6,stroke-width:2px,color:#f9a8d4
+    style PROVIDERS fill:#030712,stroke:#60a5fa,stroke-width:2px,color:#93c5fd
+    style EXTERNAL fill:#030712,stroke:#fbbf24,stroke-width:2px,color:#fde68a
+
+    style C_LAYOUT fill:#060f1c,stroke:#4ade80,stroke-width:1px,color:#86efac
+    style C_MINT fill:#060f1c,stroke:#4ade80,stroke-width:1px,color:#86efac
+    style C_MARKET fill:#060f1c,stroke:#4ade80,stroke-width:1px,color:#86efac
+    style C_WALLET fill:#060f1c,stroke:#4ade80,stroke-width:1px,color:#86efac
+    style C_MYASSET fill:#060f1c,stroke:#4ade80,stroke-width:1px,color:#86efac
+    style C_COMMON fill:#060f1c,stroke:#4ade80,stroke-width:1px,color:#86efac
+
+    style L_API fill:#0d0520,stroke:#c084fc,stroke-width:1px,color:#d8b4fe
+    style L_SEAPORT fill:#0d0520,stroke:#c084fc,stroke-width:1px,color:#d8b4fe
+```
+
+### 4-3. Data Flow
+
+```mermaid
+%%{init: {'flowchart': {'rankSpacing': 40, 'nodeSpacing': 30, 'padding': 16}}}%%
+flowchart LR
+    classDef user  fill:#0c1e33,stroke:#60a5fa,color:#bfdbfe,padding:8px 14px
+    classDef front fill:#0a2215,stroke:#4ade80,color:#dcfce7,padding:8px 14px
+    classDef state fill:#280a18,stroke:#f472b6,color:#fce7f3,padding:8px 14px
+    classDef back  fill:#1f1a00,stroke:#fbbf24,color:#fef3c7,padding:8px 14px
+    classDef chain fill:#1a0a2e,stroke:#c084fc,color:#f3e8ff,padding:8px 14px
+
+    USER(["👤 User"]):::user
+
+    subgraph FE ["Frontend (Next.js)"]
+        direction TB
+        PAGE["Page Component<br/>UI Rendering"]:::front
+        HOOK["Hooks<br/>useQuery · useMemo · useCallback"]:::front
+        STORE["Zustand Store<br/>Wallet State · Balance"]:::state
+        LIB["Seaport Lib<br/>Signing · Matching · Fees"]:::front
+    end
+
+    subgraph BE ["Backend (NestJS)"]
+        direction TB
+        CTRL["Controller<br/>REST Endpoints"]:::back
+        SVC["Service<br/>Validation · Business Logic"]:::back
+        DB["PostgreSQL<br/>Orders · Collections"]:::back
+        CTRL --> SVC --> DB
+    end
+
+    subgraph BC ["Blockchain"]
+        direction TB
+        SEAPORT["Seaport v1.5<br/>Order Settlement"]:::chain
+        ERC721["Tokenable_RWA<br/>NFT Mint & Transfer"]:::chain
+        ERC20["USDC<br/>Payment & Approval"]:::chain
+    end
+
+    USER -->|"Action"| PAGE
+    PAGE --> HOOK
+    HOOK -->|"Data Request"| CTRL
+    HOOK -->|"Read State"| STORE
+    PAGE -->|"Build Tx"| LIB
+    LIB -->|"EIP-712 Sign"| USER
+    LIB -->|"Contract Call"| SEAPORT
+    LIB --> ERC721
+    LIB --> ERC20
+    STORE -.->|"Wagmi Sync"| ERC20
+
+    SEAPORT -->|"NFT Transfer"| ERC721
+    SEAPORT -->|"USDC Split<br/>Seller + Platform Fee"| ERC20
+
+    style FE fill:#030712,stroke:#4ade80,stroke-width:2px,color:#86efac
+    style BE fill:#030712,stroke:#fbbf24,stroke-width:2px,color:#fde68a
+    style BC fill:#030712,stroke:#c084fc,stroke-width:2px,color:#d8b4fe
+```
+
+### 4-4. File Tree Summary
+
+```
+frontend/
+├── app/
+│   ├── layout.tsx              # RootLayout — Providers · AppHeader
+│   ├── globals.css             # Tailwind v4 · Theme · Scrollbar
+│   ├── providers.tsx           # Wagmi · Query · Auth · WalletData
+│   ├── page.tsx                # / Landing
+│   ├── exchange/page.tsx       # /exchange Collection Hub
+│   ├── vault/page.tsx          # /vault Minting · Owned Assets
+│   ├── portfolio/page.tsx      # /portfolio Dashboard
+│   └── marketplace/
+│       ├── [tokenId]/page.tsx  # Token Detail
+│       ├── collections/[collectionKey]/page.tsx  # Collection Order Book
+│       └── other-listings/page.tsx               # Uncategorized Listings
+│
+├── components/
+│   ├── layout/AppHeader.tsx    # Header — Search · Wallet · Navigation
+│   ├── mint/                   # MintForm · GradedCardSection · ImageInput
+│   ├── marketplace/            # Order Books · Bidding · Listing · Match Panels
+│   ├── my-assets/MyAssets.tsx  # Owned RWA List
+│   ├── wallet/WalletConnect.tsx
+│   └── common/                 # RwaImageZoom · GradedMetadataPanel
+│
+├── lib/
+│   ├── api.ts                  # REST API · IPFS Helpers
+│   ├── auth.ts                 # Google OAuth · Session
+│   ├── chainGas.ts             # Gas Estimation
+│   ├── walletError.ts          # Wallet Error Mapping
+│   └── seaport/
+│       ├── submitAskListing.ts # Create Listing
+│       ├── criteriaMatch.ts    # Bid Match Builder
+│       ├── runCriteriaMatch.ts # On-chain Matching
+│       ├── platformFee.ts      # Platform Fee
+│       ├── merkle.ts           # Merkle Tree
+│       └── ...                 # bidUsdc · eip712Uint · constants
+│
+├── store/
+│   ├── index.ts                # useAppStore (Wallet · USDC · Refresh)
+│   └── authStore.ts            # useAuthStore (Google Session)
+│
+├── constants/
+│   └── contracts.ts            # Contract Addresses · ABIs · Fee Config
+│
+├── config/
+│   └── wagmi.ts                # Wagmi — Sepolia · MetaMask · Alchemy
+│
+├── providers/
+│   ├── AuthProvider.tsx        # Google Session Init
+│   └── WalletDataProvider.tsx  # Wagmi ↔ Zustand Sync
+│
+└── types/
+    └── gradedCard.ts           # Graded Card Type Definitions
+```
+
+---
+
 ## Legend
 
 | Icon | Meaning |
