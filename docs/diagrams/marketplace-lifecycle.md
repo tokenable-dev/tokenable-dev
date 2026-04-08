@@ -360,6 +360,291 @@ flowchart LR
 
 ---
 
+## Part 4 — 프론트엔드 아키텍처
+
+> Next.js App Router · React 19 · Wagmi · Zustand · TanStack Query 기반
+
+### 4-1. 라우팅 및 페이지 구조
+
+```mermaid
+%%{init: {'flowchart': {'rankSpacing': 50, 'nodeSpacing': 30, 'padding': 20}}}%%
+flowchart TD
+    classDef page   fill:#0c1e33,stroke:#60a5fa,color:#bfdbfe,padding:8px 14px
+    classDef detail fill:#1f1a00,stroke:#fbbf24,color:#fef3c7,padding:8px 14px
+    classDef auth   fill:#111827,stroke:#6b7280,color:#9ca3af,padding:8px 14px
+    classDef layout fill:#0a2215,stroke:#4ade80,color:#dcfce7,padding:8px 14px
+
+    subgraph ROOT ["RootLayout"]
+        direction TB
+        HEADER["AppHeader<br/>SearchBar · WalletDropdown · Nav Links"]:::layout
+
+        subgraph NAV ["메인 라우트"]
+            direction LR
+            HOME["/ <br/> Landing Page<br/>RWA Exchange 진입"]:::page
+            EXCHANGE["/exchange<br/>컬렉션 허브<br/>Stats · Filters · Listings"]:::page
+            VAULT["/vault<br/>Vault Tokenization<br/>Mint · My Assets"]:::page
+            PORTFOLIO["/portfolio<br/>Portfolio Dashboard<br/>Chart · Inventory · History"]:::page
+        end
+
+        subgraph MARKET ["마켓플레이스 상세"]
+            direction LR
+            COLLECTION["/marketplace/collections/:key<br/>컬렉션 오더북<br/>Buy · Sell · Match"]:::detail
+            TOKEN["/marketplace/:tokenId<br/>토큰 상세<br/>Order Book · Match Panel"]:::detail
+            OTHER["/marketplace/other-listings<br/>미분류 리스팅"]:::detail
+        end
+
+        subgraph AUTHPAGES ["인증 (OAuth 대기)"]
+            direction LR
+            LOGIN["/login"]:::auth
+            SIGNUP["/signup"]:::auth
+            CALLBACK["/auth/callback"]:::auth
+            PROFILE["/profile"]:::auth
+        end
+    end
+
+    HEADER --> NAV
+    EXCHANGE -->|"컬렉션 클릭"| COLLECTION
+    EXCHANGE -->|"기타 리스팅"| OTHER
+    COLLECTION -->|"토큰 클릭"| TOKEN
+    PORTFOLIO -->|"자산 클릭"| TOKEN
+
+    style ROOT fill:#030712,stroke:#374151,stroke-width:2px,color:#e5e7eb
+    style NAV fill:#060f1c,stroke:#60a5fa,stroke-width:2px,color:#93c5fd
+    style MARKET fill:#0f0d00,stroke:#fbbf24,stroke-width:2px,color:#fde68a
+    style AUTHPAGES fill:#0f1115,stroke:#6b7280,stroke-width:1px,color:#6b7280
+```
+
+### 4-2. 컴포넌트 · 라이브러리 구조
+
+```mermaid
+%%{init: {'flowchart': {'rankSpacing': 40, 'nodeSpacing': 24, 'padding': 16}}}%%
+flowchart TB
+    classDef comp fill:#0a2215,stroke:#4ade80,color:#dcfce7,padding:6px 12px
+    classDef lib  fill:#1a0a2e,stroke:#c084fc,color:#f3e8ff,padding:6px 12px
+    classDef store fill:#280a18,stroke:#f472b6,color:#fce7f3,padding:6px 12px
+    classDef ext  fill:#1f1a00,stroke:#fbbf24,color:#fef3c7,padding:6px 12px
+    classDef prov fill:#0c1e33,stroke:#60a5fa,color:#bfdbfe,padding:6px 12px
+
+    subgraph COMPONENTS ["Components"]
+        direction TB
+
+        subgraph C_LAYOUT ["layout/"]
+            APPHEADER["AppHeader<br/>SearchBar · WalletDropdown"]:::comp
+        end
+
+        subgraph C_MINT ["mint/"]
+            MINTFORM["MintForm<br/>PSA 분석 · IPFS · 민팅"]:::comp
+            GRADED["GradedCardSection<br/>카드 정보 입력"]:::comp
+            IMGPUT["ImageInput<br/>이미지 업로드"]:::comp
+            MINTFORM --> GRADED --> IMGPUT
+        end
+
+        subgraph C_MARKET ["marketplace/"]
+            UNIFIED["CollectionUnifiedOrderBook<br/>통합 오더북"]:::comp
+            BIDPANEL["CollectionCriteriaBidPanel<br/>구매 · 입찰"]:::comp
+            LISTMODAL["ListRwaModal<br/>판매 등록"]:::comp
+            OWNEDMODAL["CollectionOwnedRwaListModal<br/>보유 자산 리스팅"]:::comp
+            TOKENDETAIL["RwaDetailAssetPanel<br/>토큰 상세 · Zoom"]:::comp
+            ORDERBOOK["RwaOrderBook<br/>토큰별 오더북"]:::comp
+            MATCHPANEL["TokenCriteriaMatchPanel<br/>입찰 수락"]:::comp
+            MKTBOOK["MarketplaceOrderBook<br/>기타 리스팅"]:::comp
+            TRADEGUIDE["CollectionTradeGuide"]:::comp
+            COVERFRAME["CollectionCoverFrame"]:::comp
+        end
+
+        subgraph C_WALLET ["wallet/"]
+            WALLETCONNECT["WalletConnect<br/>MetaMask 연결 · 네트워크"]:::comp
+        end
+
+        subgraph C_MYASSET ["my-assets/"]
+            MYASSETS["MyAssets<br/>보유 RWA 목록 · 리스팅"]:::comp
+        end
+
+        subgraph C_COMMON ["common/"]
+            IMGZOOM["RwaImageZoom"]:::comp
+            GRADEDPANEL["GradedMetadataPanel"]:::comp
+        end
+    end
+
+    subgraph LIBS ["Libraries"]
+        direction TB
+
+        subgraph L_API ["lib/"]
+            API["api.ts<br/>REST API · IPFS · 마켓 조회"]:::lib
+            AUTH["auth.ts<br/>Google OAuth · 세션"]:::lib
+            GAS["chainGas.ts<br/>가스비 추정"]:::lib
+            WERROR["walletError.ts<br/>에러 핸들링"]:::lib
+        end
+
+        subgraph L_SEAPORT ["lib/seaport/"]
+            SUBMIT["submitAskListing.ts<br/>판매 등록 실행"]:::lib
+            CRITERIA["criteriaMatch.ts<br/>입찰 매칭 빌드"]:::lib
+            RUNCRITERIA["runCriteriaMatch.ts<br/>온체인 매칭 실행"]:::lib
+            MERKLE["merkle.ts<br/>SeaportMerkleTree"]:::lib
+            PLATFEE["platformFee.ts<br/>플랫폼 수수료 계산"]:::lib
+            BIDUSDC["bidUsdc.ts<br/>입찰 USDC 추출"]:::lib
+            FULFILL["seaportFulfillOrderArgs.ts<br/>체결 인자 빌드"]:::lib
+        end
+    end
+
+    subgraph STATE ["State Management"]
+        direction LR
+        APPSTORE["useAppStore (Zustand)<br/>지갑 · USDC 잔고 · refresh"]:::store
+        AUTHSTORE["useAuthStore (Zustand)<br/>Google 세션 · 사용자"]:::store
+        RQUERY["React Query<br/>서버 데이터 캐싱 · 갱신"]:::store
+    end
+
+    subgraph PROVIDERS ["Providers"]
+        direction LR
+        WAGMIPROV["WagmiProvider<br/>지갑 연결 · 트랜잭션"]:::prov
+        QUERYPROV["QueryClientProvider<br/>React Query"]:::prov
+        AUTHPROV["AuthProvider<br/>세션 초기화"]:::prov
+        WALLETPROV["WalletDataProvider<br/>Zustand ↔ Wagmi 동기화"]:::prov
+    end
+
+    subgraph EXTERNAL ["External"]
+        direction LR
+        BACKEND["🖥️ Backend API<br/>NestJS REST"]:::ext
+        CHAIN["⛓️ Blockchain<br/>Sepolia · Seaport v1.5"]:::ext
+        IPFS["📦 IPFS<br/>Pinata Gateway"]:::ext
+    end
+
+    COMPONENTS --> LIBS
+    COMPONENTS --> STATE
+    LIBS --> EXTERNAL
+    STATE --> EXTERNAL
+    PROVIDERS -.-> STATE
+
+    style COMPONENTS fill:#030712,stroke:#4ade80,stroke-width:2px,color:#86efac
+    style LIBS fill:#030712,stroke:#c084fc,stroke-width:2px,color:#d8b4fe
+    style STATE fill:#030712,stroke:#f472b6,stroke-width:2px,color:#f9a8d4
+    style PROVIDERS fill:#030712,stroke:#60a5fa,stroke-width:2px,color:#93c5fd
+    style EXTERNAL fill:#030712,stroke:#fbbf24,stroke-width:2px,color:#fde68a
+
+    style C_LAYOUT fill:#060f1c,stroke:#4ade80,stroke-width:1px,color:#86efac
+    style C_MINT fill:#060f1c,stroke:#4ade80,stroke-width:1px,color:#86efac
+    style C_MARKET fill:#060f1c,stroke:#4ade80,stroke-width:1px,color:#86efac
+    style C_WALLET fill:#060f1c,stroke:#4ade80,stroke-width:1px,color:#86efac
+    style C_MYASSET fill:#060f1c,stroke:#4ade80,stroke-width:1px,color:#86efac
+    style C_COMMON fill:#060f1c,stroke:#4ade80,stroke-width:1px,color:#86efac
+
+    style L_API fill:#0d0520,stroke:#c084fc,stroke-width:1px,color:#d8b4fe
+    style L_SEAPORT fill:#0d0520,stroke:#c084fc,stroke-width:1px,color:#d8b4fe
+```
+
+### 4-3. 데이터 흐름
+
+```mermaid
+%%{init: {'flowchart': {'rankSpacing': 40, 'nodeSpacing': 30, 'padding': 16}}}%%
+flowchart LR
+    classDef user  fill:#0c1e33,stroke:#60a5fa,color:#bfdbfe,padding:8px 14px
+    classDef front fill:#0a2215,stroke:#4ade80,color:#dcfce7,padding:8px 14px
+    classDef state fill:#280a18,stroke:#f472b6,color:#fce7f3,padding:8px 14px
+    classDef back  fill:#1f1a00,stroke:#fbbf24,color:#fef3c7,padding:8px 14px
+    classDef chain fill:#1a0a2e,stroke:#c084fc,color:#f3e8ff,padding:8px 14px
+
+    USER(["👤 사용자"]):::user
+
+    subgraph FE ["Frontend (Next.js)"]
+        direction TB
+        PAGE["Page Component<br/>UI 렌더링"]:::front
+        HOOK["Hooks<br/>useQuery · useMemo · useCallback"]:::front
+        STORE["Zustand Store<br/>지갑 상태 · 잔고"]:::state
+        LIB["Seaport Lib<br/>서명 · 매칭 · 수수료"]:::front
+    end
+
+    subgraph BE ["Backend (NestJS)"]
+        direction TB
+        CTRL["Controller<br/>REST 엔드포인트"]:::back
+        SVC["Service<br/>검증 · 비즈니스 로직"]:::back
+        DB["PostgreSQL<br/>주문 · 컬렉션"]:::back
+        CTRL --> SVC --> DB
+    end
+
+    subgraph BC ["Blockchain"]
+        direction TB
+        SEAPORT["Seaport v1.5<br/>주문 체결"]:::chain
+        ERC721["Tokenable_RWA<br/>NFT 발행 · 전송"]:::chain
+        ERC20["USDC<br/>결제 · 승인"]:::chain
+    end
+
+    USER -->|"액션"| PAGE
+    PAGE --> HOOK
+    HOOK -->|"데이터 요청"| CTRL
+    HOOK -->|"상태 읽기"| STORE
+    PAGE -->|"트랜잭션 빌드"| LIB
+    LIB -->|"EIP-712 서명"| USER
+    LIB -->|"컨트랙트 호출"| SEAPORT
+    LIB --> ERC721
+    LIB --> ERC20
+    STORE -.->|"Wagmi 동기화"| ERC20
+
+    SEAPORT -->|"NFT 이전"| ERC721
+    SEAPORT -->|"USDC 분배<br/>판매자 + 플랫폼 수수료"| ERC20
+
+    style FE fill:#030712,stroke:#4ade80,stroke-width:2px,color:#86efac
+    style BE fill:#030712,stroke:#fbbf24,stroke-width:2px,color:#fde68a
+    style BC fill:#030712,stroke:#c084fc,stroke-width:2px,color:#d8b4fe
+```
+
+### 4-4. 파일 트리 요약
+
+```
+frontend/
+├── app/
+│   ├── layout.tsx              # RootLayout — Providers · AppHeader
+│   ├── globals.css             # Tailwind v4 · 테마 · 스크롤바
+│   ├── providers.tsx           # Wagmi · Query · Auth · WalletData
+│   ├── page.tsx                # / Landing
+│   ├── exchange/page.tsx       # /exchange 컬렉션 허브
+│   ├── vault/page.tsx          # /vault 민팅 · 보유자산
+│   ├── portfolio/page.tsx      # /portfolio 대시보드
+│   └── marketplace/
+│       ├── [tokenId]/page.tsx  # 토큰 상세
+│       ├── collections/[collectionKey]/page.tsx  # 컬렉션 오더북
+│       └── other-listings/page.tsx               # 미분류 리스팅
+│
+├── components/
+│   ├── layout/AppHeader.tsx    # 헤더 — 검색 · 지갑 · 내비게이션
+│   ├── mint/                   # MintForm · GradedCardSection · ImageInput
+│   ├── marketplace/            # 오더북 · 입찰 · 리스팅 · 매칭 패널
+│   ├── my-assets/MyAssets.tsx  # 보유 RWA 목록
+│   ├── wallet/WalletConnect.tsx
+│   └── common/                 # RwaImageZoom · GradedMetadataPanel
+│
+├── lib/
+│   ├── api.ts                  # REST API · IPFS 헬퍼
+│   ├── auth.ts                 # Google OAuth · 세션
+│   ├── chainGas.ts             # 가스비 추정
+│   ├── walletError.ts          # 지갑 에러 매핑
+│   └── seaport/
+│       ├── submitAskListing.ts # 판매 등록
+│       ├── criteriaMatch.ts    # 입찰 매칭 빌드
+│       ├── runCriteriaMatch.ts # 온체인 매칭
+│       ├── platformFee.ts      # 플랫폼 수수료
+│       ├── merkle.ts           # Merkle Tree
+│       └── ...                 # bidUsdc · eip712Uint · constants
+│
+├── store/
+│   ├── index.ts                # useAppStore (지갑 · USDC · refresh)
+│   └── authStore.ts            # useAuthStore (Google 세션)
+│
+├── constants/
+│   └── contracts.ts            # 컨트랙트 주소 · ABI · 수수료 설정
+│
+├── config/
+│   └── wagmi.ts                # Wagmi — Sepolia · MetaMask · Alchemy
+│
+├── providers/
+│   ├── AuthProvider.tsx        # Google 세션 초기화
+│   └── WalletDataProvider.tsx  # Wagmi ↔ Zustand 동기화
+│
+└── types/
+    └── gradedCard.ts           # 그레이딩 카드 타입 정의
+```
+
+---
+
 ## 범례
 
 | 아이콘 | 의미 |
