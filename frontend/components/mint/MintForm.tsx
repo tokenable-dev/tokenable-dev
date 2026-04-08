@@ -519,18 +519,21 @@ export function MintForm() {
 
   if (step === "success" && result) {
     return (
-      <div className="bg-gray-900/50 border border-mint-deep/35 rounded-xl p-6">
-        <div className="text-center mb-5">
-          <h3 className="text-xl font-bold text-white">Asset Minted Successfully!</h3>
+      <div className="rounded-2xl border border-mint-deep/35 bg-[#0a0e14]/80 p-6 sm:p-8">
+        <div className="text-center mb-6">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-mint/10 border border-mint/25 mb-4">
+            <svg className="w-8 h-8 text-mint" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+          </div>
+          <h3 className="text-xl font-bold text-white">Asset Minted Successfully</h3>
         </div>
         <div className="space-y-3">
-          <div className="bg-gray-800/50 rounded-lg p-3">
+          <div className="bg-gray-800/50 rounded-xl p-4">
             <p className="text-xs text-gray-500 mb-1">Token URI</p>
             <p className="text-xs font-mono text-mint break-all">
               {result.tokenURI}
             </p>
           </div>
-          <div className="bg-gray-800/50 rounded-lg p-3">
+          <div className="bg-gray-800/50 rounded-xl p-4">
             <p className="text-xs text-gray-500 mb-1">Transaction Hash</p>
             <p className="text-xs font-mono text-blue-400 break-all">
               {result.txHash}
@@ -543,15 +546,15 @@ export function MintForm() {
           )}
           {receipt && (
             <p className="text-xs text-mint text-center">
-              ✓ Confirmed in block #{receipt.blockNumber.toString()}
+              Confirmed in block #{receipt.blockNumber.toString()}
             </p>
           )}
         </div>
         <button
           onClick={resetForm}
-          className="mt-5 w-full py-2.5 bg-gray-800 hover:bg-gray-700 text-white text-sm font-medium rounded-lg transition-colors"
+          className="mt-6 w-full py-3 bg-gray-800/80 hover:bg-gray-700/80 text-white text-sm font-medium rounded-xl transition-colors"
         >
-          Mint Another
+          Tokenize Another
         </button>
       </div>
     );
@@ -559,8 +562,8 @@ export function MintForm() {
 
   return (
     <>
-    <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-6 transition-all duration-200">
-      <h2 className="text-lg font-bold text-white mb-5">Mint Graded Card Asset</h2>
+    <div className="rounded-2xl border border-gray-800 bg-[#0a0e14]/80 p-6 sm:p-8 transition-all duration-200">
+      <h2 className="text-base font-bold text-white text-center mb-6">Card Information</h2>
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <>
@@ -576,15 +579,13 @@ export function MintForm() {
             />
 
             <div className="space-y-4">
-              <section className="overflow-hidden rounded-xl border border-gray-800/90 bg-gray-900/35">
-                <header className="border-b border-gray-800/80 bg-black/20 px-4 py-3 sm:px-5 sm:py-4">
-                  <h3 className="text-sm font-semibold text-white tracking-tight">
-                    RWA mint image
+              <section className="overflow-hidden rounded-xl border border-gray-700/50 bg-gray-800/30">
+                <header className="border-b border-gray-700/40 px-4 py-3 sm:px-5">
+                  <h3 className="text-sm font-medium text-gray-300">
+                    Mint Image Preview
                   </h3>
-                  <p className="mt-2 text-[11px] leading-relaxed text-gray-400">
-                    After analysis of your slab front, if PSA returns an official image URL,{" "}
-                    <span className="font-medium text-gray-300">that image</span> is used for
-                    the asset. Otherwise your slab photo is used.
+                  <p className="mt-1 text-[11px] leading-relaxed text-gray-500">
+                    PSA official image is preferred. Falls back to your slab photo.
                   </p>
                 </header>
 
@@ -682,17 +683,10 @@ export function MintForm() {
             </div>
         </>
 
-        <div className="space-y-3 rounded-xl border border-gray-800/90 bg-gray-900/30 p-4">
-            <p className="text-xs leading-relaxed text-gray-400">
-              <strong className="text-gray-300">Auto analysis:</strong> After you choose a
-              slab front, OCR, PSA API, and JustTCG run and the form fills in. If you enter{" "}
-              <strong className="text-white">Cert #</strong> or{" "}
-              <strong className="text-white">Cert URL</strong> first, PSA lookup uses that
-              before OCR (recommended when the cert is hard to read).
-            </p>
-            <p className="text-xs leading-relaxed text-gray-400">
-              <strong className="text-gray-300">Photo tip:</strong> One front photo is enough.
-              Keep the label, card art, and cert number clearly visible.
+        <div className="space-y-3 rounded-xl border border-gray-700/50 bg-gray-800/20 p-4">
+            <p className="text-xs leading-relaxed text-gray-500">
+              After slab upload, OCR + PSA API + JustTCG run automatically.
+              Enter <span className="text-gray-300">Cert #</span> or <span className="text-gray-300">Cert URL</span> first for best results.
             </p>
             <button
               type="button"
@@ -702,9 +696,9 @@ export function MintForm() {
                 isProcessing ||
                 !(form.verification.slabFront instanceof File)
               }
-              className="w-full rounded-lg border border-gray-600 bg-gray-800/80 py-2.5 text-sm font-medium text-gray-200 transition-colors hover:bg-gray-800 disabled:opacity-50"
+              className="w-full rounded-xl border border-gray-600/60 bg-gray-800/60 py-2.5 text-sm font-medium text-gray-300 transition-colors hover:bg-gray-700/60 disabled:opacity-50"
             >
-              {analyzeLoading ? "Working…" : "Re-run analysis"}
+              {analyzeLoading ? "Working…" : "Re-run Analysis"}
             </button>
             {analyzeError && (
               <p className="text-xs text-red-400 break-words">{analyzeError}</p>
@@ -750,13 +744,9 @@ export function MintForm() {
             )}
           </div>
 
-        <div className="space-y-4 rounded-xl border border-gray-800/80 bg-gray-900/30 p-4 sm:p-5">
-            <p className="text-[11px] leading-relaxed text-gray-500">
-              Enter asset name and description after slab analysis and the mint image are
-              ready.
-            </p>
+        <div className="space-y-4">
             <div>
-              <label className="block text-sm text-gray-400 mb-1.5" htmlFor="name">
+              <label className="block text-sm font-medium text-gray-300 mb-2" htmlFor="name">
                 Asset Name <span className="text-red-400">*</span>
               </label>
               <input
@@ -771,12 +761,12 @@ export function MintForm() {
                     ? "Name was set by PSA analysis and cannot be edited"
                     : undefined
                 }
-                className="w-full bg-gray-800 border border-gray-700 focus:border-mint rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 outline-none transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                className="w-full bg-gray-800/80 border border-gray-700/60 focus:border-mint rounded-xl px-4 py-3 text-sm text-white placeholder-gray-600 outline-none transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                 required
               />
               {psaFieldLocks.assetName && (
                 <p className="mt-1 text-[11px] text-gray-500">
-                  Name is fixed by PSA analysis.
+                  Set by PSA analysis
                 </p>
               )}
               {errors.name && (
@@ -785,7 +775,7 @@ export function MintForm() {
             </div>
 
             <div>
-              <label className="block text-sm text-gray-400 mb-1.5" htmlFor="description">
+              <label className="block text-sm font-medium text-gray-300 mb-2" htmlFor="description">
                 Description{" "}
                 <span className="text-gray-500 text-xs font-normal">(optional)</span>
               </label>
@@ -795,7 +785,7 @@ export function MintForm() {
                 onChange={(e) => updateForm("description", e.target.value)}
                 rows={2}
                 placeholder="Describe your graded card..."
-                className="w-full bg-gray-800 border border-gray-700 focus:border-mint rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 outline-none transition-colors resize-none"
+                className="w-full bg-gray-800/80 border border-gray-700/60 focus:border-mint rounded-xl px-4 py-3 text-sm text-white placeholder-gray-600 outline-none transition-colors resize-none"
               />
             </div>
           </div>
@@ -820,9 +810,13 @@ export function MintForm() {
         <button
           type="submit"
           disabled={isProcessing || slabAnalyzing}
-          className="w-full py-3 bg-gradient-to-r from-mint to-mint-dim hover:brightness-105 disabled:opacity-50 disabled:cursor-not-allowed text-mint-ink text-sm font-semibold rounded-lg transition-all duration-200 shadow-lg shadow-mint/25"
+          className="w-full py-3.5 bg-gradient-to-r from-mint to-mint-dim hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed text-mint-ink text-sm font-bold rounded-xl transition-all duration-200 shadow-lg shadow-mint/25"
         >
-          {isProcessing ? "Processing..." : slabAnalyzing ? "Analyzing slab…" : "Mint"}
+          {isProcessing
+            ? "Processing..."
+            : slabAnalyzing
+              ? "Analyzing slab…"
+              : "Submit Request"}
         </button>
       </form>
     </div>

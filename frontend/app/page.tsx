@@ -1,191 +1,92 @@
 "use client";
 
-import { Suspense, useState, useEffect } from "react";
-import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { WalletConnect } from "@/components/wallet";
-import { MintForm } from "@/components/mint";
-import { MyAssets } from "@/components/my-assets";
-import { Marketplace } from "@/components/marketplace";
-import { useAuthStore } from "@/store/authStore";
+import { ASSETS } from "@/constants/assets";
 
-type Tab = "mint" | "my-rwa" | "marketplace";
-
-const TABS: { id: Tab; label: string }[] = [
-  { id: "mint", label: "Mint" },
-  { id: "my-rwa", label: "My Assets" },
-  { id: "marketplace", label: "Exchange" },
+const STATS = [
+  { value: "$ 10 T", label: "RWA Market by 2030" },
+  { value: "5 %", label: "Transaction Fee" },
+  { value: "24/7", label: "Order-Book Trading" },
+  { value: "$ 100 M", label: "AUM Target 2026" },
 ];
 
-/** Reads ?tab= param and syncs it to the parent state */
-function TabParamSync({ onTab }: { onTab: (t: Tab) => void }) {
-  const searchParams = useSearchParams();
-  useEffect(() => {
-    const tab = searchParams.get("tab");
-    if (tab === "my-rwa" || tab === "marketplace" || tab === "mint") {
-      onTab(tab);
-    }
-  }, [searchParams, onTab]);
-  return null;
-}
-
-/** ?email_verify=ok|invalid|missing 처리 후 쿼리 제거 */
-function EmailVerifyToastSync() {
-  const searchParams = useSearchParams();
-  const refresh = useAuthStore((s) => s.refresh);
-  const [msg, setMsg] = useState<string | null>(null);
-
-  useEffect(() => {
-    const v = searchParams.get("email_verify");
-    if (!v) return;
-    void refresh();
-    const messages: Record<string, string> = {
-      ok: "이메일 인증이 완료되었습니다.",
-      invalid: "인증 링크가 만료되었거나 잘못되었습니다.",
-      missing: "인증 요청이 올바르지 않습니다.",
-    };
-    setMsg(messages[v] ?? "이메일 인증을 확인할 수 없습니다.");
-    if (typeof window !== "undefined") {
-      const u = new URL(window.location.href);
-      u.searchParams.delete("email_verify");
-      window.history.replaceState({}, "", u.pathname + (u.search || ""));
-    }
-    const t = setTimeout(() => setMsg(null), 8000);
-    return () => clearTimeout(t);
-  }, [searchParams, refresh]);
-
-  if (!msg) return null;
+export default function LandingPage() {
   return (
-    <div className="fixed bottom-6 left-1/2 z-[60] max-w-md w-[calc(100%-2rem)] -translate-x-1/2 px-4 py-3 rounded-lg bg-[#0a1210]/95 border border-mint/25 text-sm text-mint/95 shadow-xl shadow-mint/10 text-center">
-      {msg}
-    </div>
-  );
-}
+    <div className="relative min-h-screen bg-[#030712] text-white overflow-hidden">
+      {/* Ambient glow effects */}
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute top-[10%] left-[8%] h-64 w-64 rounded-full bg-mint/8 blur-[120px]" />
+        <div className="absolute top-[8%] right-[6%] h-72 w-72 rounded-full bg-mint/10 blur-[140px]" />
+        <div className="absolute bottom-[10%] left-[15%] h-56 w-56 rounded-full bg-mint/6 blur-[100px]" />
+        <div className="absolute bottom-[5%] right-[10%] h-48 w-48 rounded-full bg-mint-deep/8 blur-[110px]" />
+      </div>
 
-export default function Home() {
-  const [activeTab, setActiveTab] = useState<Tab>("mint");
-
-  return (
-    <div className="min-h-screen bg-gray-950 text-white">
-      {/* Reads ?tab= query param — must be in Suspense per Next.js requirement */}
-      <Suspense fallback={null}>
-        <TabParamSync onTab={setActiveTab} />
-      </Suspense>
-      <Suspense fallback={null}>
-        <EmailVerifyToastSync />
-      </Suspense>
+      {/* Subtle grid overlay */}
+      <div
+        className="pointer-events-none absolute inset-0 opacity-[0.03]"
+        style={{
+          backgroundImage:
+            "radial-gradient(circle, rgba(148,255,212,0.3) 1px, transparent 1px)",
+          backgroundSize: "48px 48px",
+        }}
+      />
 
       {/* Hero */}
-      <section className="max-w-6xl mx-auto px-4 sm:px-6 pt-10 pb-6">
-        {/* <h1 className="mb-2">
+      <section className="relative z-10 flex flex-col items-center justify-center px-6 pt-28 sm:pt-36 pb-16">
+        <div className="flex items-center gap-4 mb-8">
           <img
-            src={ASSETS.logo.tokenable}
-            alt="Tokenable RWA Exchange"
-            width={186}
-            height={37}
-            className="h-9 sm:h-10 w-auto"
+            src={ASSETS.icons.tokenable}
+            alt="Tokenable"
+            width={56}
+            height={56}
+            className="h-14 w-14 object-contain"
           />
-        </h1> */}
-        <p className="text-gray-400 text-sm max-w-xl">
-          Mint, collect, and trade tokenized assets on Ethereum Sepolia. Listings use
-          OpenSea Seaport; prices are shown in USDC.
-        </p>
-      </section>
-
-      {/* Main */}
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 pb-16">
-        {/* Tabs */}
-        <div className="flex gap-1 bg-gray-900/50 border border-gray-800 rounded-xl p-1 mb-5">
-          {TABS.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${
-                activeTab === tab.id
-                  ? "bg-mint/12 text-mint border border-mint-deep/35 shadow-sm shadow-mint/10"
-                  : "text-gray-500 hover:text-gray-300"
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
+          <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight">
+            TOKENABLE
+          </h1>
         </div>
 
-        {/* Tab panels */}
-        {activeTab === "mint" && (
-          <div className="space-y-5">
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-800 bg-gray-900/30 px-4 py-3">
-              <p className="text-xs text-gray-500 max-w-md">
-                Web3: connect MetaMask to mint & list. Prefer linking the same address in{" "}
-                <Link href="/profile" className="text-mint hover:underline">
-                  Profile
-                </Link>{" "}
-                after logging in.
-              </p>
-              <WalletConnect />
-            </div>
-            <MintForm />
-            <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-5">
-              <h3 className="text-sm font-semibold text-gray-400 mb-4 uppercase tracking-wider">
-                How It Works
-              </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                {[
-                  {
-                    step: "01",
-                    title: "Fill in Details",
-                    desc: "Enter asset name, description, and upload your image",
-                  },
-                  {
-                    step: "02",
-                    title: "IPFS Upload",
-                    desc: "Image and metadata are uploaded to Pinata IPFS",
-                  },
-                  {
-                    step: "03",
-                    title: "Sign & Mint",
-                    desc: "Approve the transaction in MetaMask to mint your asset",
-                  },
-                ].map(({ step, title, desc }) => (
-                  <div key={step} className="flex gap-3">
-                    <span className="text-xl font-black text-gray-700 shrink-0">
-                      {step}
-                    </span>
-                    <div>
-                      <p className="text-sm font-medium text-gray-200">
-                        {title}
-                      </p>
-                      <p className="text-xs text-gray-500 mt-0.5">{desc}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
+        <h2 className="text-xl sm:text-2xl font-semibold text-gray-200 mb-4 text-center">
+          RWA Exchange&ensp;-&ensp;Real World Asset Trading Platform
+        </h2>
 
-        {activeTab === "my-rwa" && (
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-white">My Assets</h2>
-              <p className="text-xs text-gray-500">
-                Click &ldquo;List for Sale&rdquo; to sell on the Exchange
-              </p>
-            </div>
-            <MyAssets />
-          </div>
-        )}
+        <p className="max-w-lg text-center text-sm sm:text-base text-gray-400 leading-relaxed mb-10">
+          Tokenize, trade, and settle physical collectibles on-chain.
+          <br />
+          PSA-graded cards, instant settlement, 5% fee.
+        </p>
 
-        {activeTab === "marketplace" && (
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-white">Exchange</h2>
-              <p className="text-xs text-gray-500">Prices in USDC</p>
+        <Link
+          href="/exchange"
+          className="group relative inline-flex items-center justify-center rounded-full bg-mint px-8 py-3.5 text-base font-bold text-[#030712] transition-all hover:brightness-110 hover:shadow-lg hover:shadow-mint/25 active:scale-[0.97]"
+        >
+          RWA Exchange
+        </Link>
+      </section>
+
+      {/* Stats */}
+      <section className="relative z-10 max-w-5xl mx-auto px-6 pb-24">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+          {STATS.map(({ value, label }) => (
+            <div
+              key={label}
+              className="flex flex-col items-center justify-center rounded-2xl border border-mint-deep/25 bg-[#060d0b]/60 backdrop-blur-sm px-4 py-8 sm:py-10 transition-colors hover:border-mint-deep/45"
+            >
+              <span className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white mb-2">
+                {value}
+              </span>
+              <span className="text-xs sm:text-sm text-gray-400 text-center">
+                {label}
+              </span>
             </div>
-            <Marketplace />
-          </div>
-        )}
-      </main>
+          ))}
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="relative z-10 border-t border-gray-800/50 py-8 text-center text-xs text-gray-600">
+        &copy; {new Date().getFullYear()} Tokenable. All rights reserved.
+      </footer>
     </div>
   );
 }

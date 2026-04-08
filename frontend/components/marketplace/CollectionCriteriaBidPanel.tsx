@@ -669,7 +669,7 @@ export function CollectionCriteriaBidPanel({
             </button>
           ) : (
             <Link
-              href="/?tab=my-rwa"
+              href="/vault?tab=my-rwa"
               className="block text-center rounded-lg py-2.5 text-sm font-semibold text-mint border border-mint/25 bg-mint/[0.06] hover:bg-mint/[0.1]"
             >
               My Assets — list for sale

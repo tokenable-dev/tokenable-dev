@@ -4,7 +4,7 @@ import type { GradingCompany, PsaFieldLocks } from "@/types/gradedCard";
 import { ImageInput } from "./ImageInput";
 
 const inputClass =
-  "w-full bg-gray-800 border border-gray-700 focus:border-mint rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 outline-none transition-colors";
+  "w-full bg-gray-800/80 border border-gray-700/60 focus:border-mint rounded-xl px-4 py-3 text-sm text-white placeholder-gray-600 outline-none transition-colors";
 
 function lockedHint(locked: boolean): string | undefined {
   return locked ? "Set by PSA analysis and cannot be edited" : undefined;
@@ -27,7 +27,6 @@ interface GradedCardSectionProps {
   psaFieldLocks?: PsaFieldLocks;
 }
 
-/** PSA: slab upload first; understated styling */
 function PsaSlabUploadHero({
   verification,
   onVerificationChange,
@@ -39,43 +38,41 @@ function PsaSlabUploadHero({
 }) {
   const L = psaFieldLocks;
   return (
-    <section
-      className="rounded-xl border-2 border-gray-600/70 bg-gray-900/40 p-4 shadow-sm shadow-black/20 sm:p-5"
-      aria-labelledby="psa-slab-hero-title"
-    >
-      <div className="mb-4">
-        <span className="inline-flex items-center rounded-md border border-gray-600/80 bg-gray-800/80 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-gray-400">
-          Required · Step 1
-        </span>
-        <h4
-          id="psa-slab-hero-title"
-          className="mt-2.5 text-base font-semibold tracking-tight text-white sm:text-lg"
-        >
-          Upload slab front photo
-        </h4>
-        <p className="mt-1.5 max-w-2xl text-xs leading-relaxed text-gray-400 sm:text-sm">
-          Minting runs from this slab image. OCR, PSA lookup, and JustTCG run after upload.
-          You do not need a separate card photo.
-        </p>
-      </div>
-
-      <div className="max-w-xl space-y-4">
+    <section aria-labelledby="psa-slab-hero-title">
+      <label
+        id="psa-slab-hero-title"
+        className="block text-sm font-medium text-gray-300 mb-2"
+      >
+        Upload card photos (front &amp; back)
+      </label>
+      <div className="rounded-xl border border-dashed border-gray-600/70 bg-gray-800/30 p-4 space-y-4">
         <div>
-          <p className="mb-1.5 text-xs font-medium text-gray-400">Slab front (required)</p>
-          <div className="rounded-lg border border-gray-600/90 bg-gray-950/40 p-3">
-            <ImageInput
-              label="Choose file or click to upload"
-              value={verification.slabFront}
-              onChange={(f) => onVerificationChange({ ...verification, slabFront: f })}
-              mode="file"
-              required
-            />
-          </div>
+          <p className="mb-1.5 text-xs font-medium text-gray-400">
+            Slab front <span className="text-red-400">*</span>
+          </p>
+          <ImageInput
+            label="Choose file or drag &amp; drop"
+            value={verification.slabFront}
+            onChange={(f) => onVerificationChange({ ...verification, slabFront: f })}
+            mode="file"
+            required
+          />
         </div>
         <div>
-          <label className="mb-1 block text-xs text-gray-500">
+          <p className="mb-1.5 text-xs font-medium text-gray-400">
+            Slab back <span className="text-gray-600">(optional)</span>
+          </p>
+          <ImageInput
+            label="Choose file or drag &amp; drop"
+            value={verification.slabBack}
+            onChange={(f) => onVerificationChange({ ...verification, slabBack: f })}
+            mode="file"
+          />
+        </div>
+        <div>
+          <label className="block text-xs text-gray-500 mb-1.5">
             Certification URL{" "}
-            <span className="text-gray-600">(optional — used before OCR if set)</span>
+            <span className="text-gray-600">(optional — speeds up PSA lookup)</span>
           </label>
           <input
             type="url"
@@ -89,6 +86,9 @@ function PsaSlabUploadHero({
             className={`${inputClass} disabled:cursor-not-allowed disabled:opacity-60`}
           />
         </div>
+        <p className="text-[11px] leading-relaxed text-gray-500">
+          After upload, OCR + PSA API + JustTCG run automatically and fill in card details.
+        </p>
       </div>
     </section>
   );
@@ -108,164 +108,154 @@ export function GradedCardSection({
   const L = psaFieldLocks;
 
   return (
-    <div className="border-t border-gray-800 pt-6 transition-opacity duration-200">
-      <h3 className="text-base font-semibold text-white mb-1 flex items-center gap-2">
-        <span className="w-1 h-5 bg-mint/70 rounded-full" />
-        Graded Card Information
-      </h3>
-      <p className="text-xs text-gray-500 mb-4">
-        {L?.gradingCompany
-          ? "Fields confirmed by PSA analysis cannot be edited. Change the slab to re-analyze."
-          : "Start with the slab upload above. Card and grade fields fill in after analysis."}
-      </p>
-
-      <div className="space-y-5">
-        <PsaSlabUploadHero
-          verification={verification}
-          onVerificationChange={onVerificationChange}
-          psaFieldLocks={L}
+    <div className="space-y-6 transition-opacity duration-200">
+      {/* Card Name */}
+      <div>
+        <label className="block text-sm font-medium text-gray-300 mb-2">Card Name</label>
+        <input
+          type="text"
+          value={card.name}
+          onChange={(e) => onCardChange({ ...card, name: e.target.value })}
+          placeholder="e.g. Pikachu Van Gogh"
+          disabled={Boolean(L?.cardName)}
+          title={lockedHint(Boolean(L?.cardName))}
+          className={`${inputClass} disabled:opacity-60 disabled:cursor-not-allowed`}
         />
+      </div>
 
-        <div className="flex items-center justify-between gap-3 rounded-lg border border-gray-700/90 bg-gray-900/50 px-3 py-2.5">
-          <span className="text-sm text-gray-400">Grading company</span>
-          <span
-            className="text-sm font-medium text-white"
+      {/* Grading Company + Grade — side by side like the image */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">
+            Grading Company
+          </label>
+          <div
+            className="flex items-center justify-between bg-gray-800/80 border border-gray-700/60 rounded-xl px-4 py-3 text-sm text-white cursor-default"
             title={L?.gradingCompany ? lockedHint(true) : undefined}
           >
-            PSA
-          </span>
-        </div>
-
-        {hasCompany && (
-          <div className="space-y-5 transition-opacity duration-300">
-            {/* Card Information */}
-            <div className="bg-gray-800/40 rounded-lg p-4 border border-gray-700/50">
-              <h4 className="text-xs font-semibold text-mint/90 uppercase tracking-wider mb-3">
-                Card Information
-              </h4>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="sm:col-span-2">
-                  <label className="block text-xs text-gray-500 mb-1">
-                    Card Name <span className="text-gray-600">(optional)</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={card.name}
-                    onChange={(e) => onCardChange({ ...card, name: e.target.value })}
-                    placeholder="e.g. 2023 Topps Chrome Refractor"
-                    disabled={Boolean(L?.cardName)}
-                    title={lockedHint(Boolean(L?.cardName))}
-                    className={`${inputClass} disabled:opacity-60 disabled:cursor-not-allowed`}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">
-                    Player / Character Name{" "}
-                    <span className="text-gray-600">(optional)</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={card.player}
-                    onChange={(e) => onCardChange({ ...card, player: e.target.value })}
-                    placeholder="e.g. Shohei Ohtani"
-                    disabled={Boolean(L?.player)}
-                    title={lockedHint(Boolean(L?.player))}
-                    className={`${inputClass} disabled:opacity-60 disabled:cursor-not-allowed`}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">
-                    Year <span className="text-gray-600">(optional)</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={card.year}
-                    onChange={(e) => onCardChange({ ...card, year: e.target.value })}
-                    placeholder="e.g. 2023"
-                    disabled={Boolean(L?.year)}
-                    title={lockedHint(Boolean(L?.year))}
-                    className={`${inputClass} disabled:opacity-60 disabled:cursor-not-allowed`}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">
-                    Set / Series <span className="text-gray-600">(optional)</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={card.set}
-                    onChange={(e) => onCardChange({ ...card, set: e.target.value })}
-                    placeholder="e.g. Topps Chrome"
-                    disabled={Boolean(L?.set)}
-                    title={lockedHint(Boolean(L?.set))}
-                    className={`${inputClass} disabled:opacity-60 disabled:cursor-not-allowed`}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">
-                    Card Number <span className="text-gray-600">(optional)</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={card.number}
-                    onChange={(e) => onCardChange({ ...card, number: e.target.value })}
-                    placeholder="e.g. 1"
-                    disabled={Boolean(L?.number)}
-                    title={lockedHint(Boolean(L?.number))}
-                    className={`${inputClass} disabled:opacity-60 disabled:cursor-not-allowed`}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Grading Information */}
-            <div className="bg-gray-800/40 rounded-lg p-4 border border-gray-700/50">
-              <h4 className="text-xs font-semibold text-mint/90 uppercase tracking-wider mb-3">
-                Grading Information
-              </h4>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">
-                    Certification Number{" "}
-                    <span className="text-gray-600">(optional)</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={grade.certNumber}
-                    onChange={(e) => onGradeChange({ certNumber: e.target.value })}
-                    placeholder="e.g. 12345678"
-                    disabled={Boolean(L?.certNumber)}
-                    title={lockedHint(Boolean(L?.certNumber))}
-                    className={`${inputClass} disabled:opacity-60 disabled:cursor-not-allowed`}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">
-                    Grade <span className="text-gray-600">(optional)</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={grade.score}
-                    onChange={(e) => onGradeChange({ score: e.target.value })}
-                    placeholder="e.g. 10"
-                    disabled={Boolean(L?.score)}
-                    title={lockedHint(Boolean(L?.score))}
-                    className={`${inputClass} disabled:opacity-60 disabled:cursor-not-allowed`}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Company-specific fields */}
-            <CompanySpecificBlock
-              company="PSA"
-              subgrades={grade.subgrades}
-              onChange={(subgrades) => onGradeChange({ subgrades })}
-              psaFieldLocks={L}
-            />
+            <span>PSA</span>
+            <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
           </div>
-        )}
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">Grade</label>
+          <div className="relative">
+            <select
+              value={grade.score}
+              onChange={(e) => onGradeChange({ score: e.target.value })}
+              disabled={Boolean(L?.score)}
+              title={lockedHint(Boolean(L?.score))}
+              className={`${inputClass} appearance-none pr-10 disabled:opacity-60 disabled:cursor-not-allowed`}
+            >
+              <option value="">Select grade</option>
+              <option value="10">10 - Gem Mint</option>
+              <option value="9">9 - Mint</option>
+              <option value="8.5">8.5 - NM-MT+</option>
+              <option value="8">8 - NM-MT</option>
+              <option value="7.5">7.5 - Near Mint+</option>
+              <option value="7">7 - Near Mint</option>
+              <option value="6.5">6.5 - EX-MT+</option>
+              <option value="6">6 - EX-MT</option>
+              <option value="5.5">5.5 - Excellent+</option>
+              <option value="5">5 - Excellent</option>
+              <option value="4.5">4.5 - VG-EX+</option>
+              <option value="4">4 - VG-EX</option>
+              <option value="3.5">3.5 - VG+</option>
+              <option value="3">3 - VG</option>
+              <option value="2.5">2.5 - Good+</option>
+              <option value="2">2 - Good</option>
+              <option value="1.5">1.5 - Fair</option>
+              <option value="1">1 - Poor</option>
+            </select>
+            <svg className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+          </div>
+        </div>
       </div>
+
+      {/* Cert Number */}
+      <div>
+        <label className="block text-sm font-medium text-gray-300 mb-2">Cert Number</label>
+        <input
+          type="text"
+          value={grade.certNumber}
+          onChange={(e) => onGradeChange({ certNumber: e.target.value })}
+          placeholder="PSA Certification Number"
+          disabled={Boolean(L?.certNumber)}
+          title={lockedHint(Boolean(L?.certNumber))}
+          className={`${inputClass} disabled:opacity-60 disabled:cursor-not-allowed`}
+        />
+      </div>
+
+      {/* Player, Year, Set, Card Number */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">
+            Player / Character
+          </label>
+          <input
+            type="text"
+            value={card.player}
+            onChange={(e) => onCardChange({ ...card, player: e.target.value })}
+            placeholder="e.g. Shohei Ohtani"
+            disabled={Boolean(L?.player)}
+            title={lockedHint(Boolean(L?.player))}
+            className={`${inputClass} disabled:opacity-60 disabled:cursor-not-allowed`}
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">Year</label>
+          <input
+            type="text"
+            value={card.year}
+            onChange={(e) => onCardChange({ ...card, year: e.target.value })}
+            placeholder="e.g. 2023"
+            disabled={Boolean(L?.year)}
+            title={lockedHint(Boolean(L?.year))}
+            className={`${inputClass} disabled:opacity-60 disabled:cursor-not-allowed`}
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">Set / Series</label>
+          <input
+            type="text"
+            value={card.set}
+            onChange={(e) => onCardChange({ ...card, set: e.target.value })}
+            placeholder="e.g. Topps Chrome"
+            disabled={Boolean(L?.set)}
+            title={lockedHint(Boolean(L?.set))}
+            className={`${inputClass} disabled:opacity-60 disabled:cursor-not-allowed`}
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">Card Number</label>
+          <input
+            type="text"
+            value={card.number}
+            onChange={(e) => onCardChange({ ...card, number: e.target.value })}
+            placeholder="e.g. 1"
+            disabled={Boolean(L?.number)}
+            title={lockedHint(Boolean(L?.number))}
+            className={`${inputClass} disabled:opacity-60 disabled:cursor-not-allowed`}
+          />
+        </div>
+      </div>
+
+      {/* Upload card photos */}
+      <PsaSlabUploadHero
+        verification={verification}
+        onVerificationChange={onVerificationChange}
+        psaFieldLocks={L}
+      />
+
+      {/* PSA Specific Details — collapsible */}
+      {hasCompany && (
+        <CompanySpecificBlock
+          company="PSA"
+          subgrades={grade.subgrades}
+          onChange={(subgrades) => onGradeChange({ subgrades })}
+          psaFieldLocks={L}
+        />
+      )}
     </div>
   );
 }
@@ -289,10 +279,12 @@ function CompanySpecificBlock({
   }
 
   return (
-    <div className="bg-gray-800/40 rounded-lg p-4 border border-gray-700/50">
-      <h4 className="text-xs font-semibold text-mint/90 uppercase tracking-wider mb-3">
-        {company} Specific
-      </h4>
+    <details className="group rounded-xl border border-gray-700/50 bg-gray-800/30 overflow-hidden">
+      <summary className="flex items-center justify-between cursor-pointer px-4 py-3 text-sm font-medium text-gray-300 hover:text-white transition-colors select-none">
+        <span>{company} Details</span>
+        <svg className="w-4 h-4 text-gray-500 transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+      </summary>
+      <div className="px-4 pb-4 pt-1">
 
       {company === "PSA" && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -406,7 +398,8 @@ function CompanySpecificBlock({
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </details>
   );
 }
 
@@ -427,7 +420,7 @@ function InputField({
 }) {
   return (
     <div>
-      <label className="block text-xs text-gray-500 mb-1">
+      <label className="block text-xs font-medium text-gray-400 mb-1.5">
         {label}
         {optional && <span className="text-gray-600 ml-1">(optional)</span>}
       </label>

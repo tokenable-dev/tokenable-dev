@@ -28,7 +28,7 @@ export default function MarketplaceOtherListingsPage() {
     <div className="min-h-screen bg-gray-950 text-white">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 pb-20">
         <Link
-          href="/?tab=marketplace"
+          href="/exchange"
           className="inline-flex text-sm text-mint/90 hover:text-mint mb-6"
         >
           ← Back to Exchange
