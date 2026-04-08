@@ -60,6 +60,12 @@ jobs:
             echo "::error::NEXT_PUBLIC_USDC_CONTRACT_ADDRESS 가 비어 있습니다. Secrets 또는 Variables 에 추가하세요."
             exit 1
           fi
+          # Platform fee — secrets 우선, 없으면 variables 폴백
+          FEE_RCPT="${{ secrets.NEXT_PUBLIC_PLATFORM_FEE_RECIPIENT }}"
+          FEE_BPS="${{ secrets.NEXT_PUBLIC_PLATFORM_FEE_BPS }}"
+          if [ -z "$FEE_RCPT" ]; then FEE_RCPT="${{ vars.NEXT_PUBLIC_PLATFORM_FEE_RECIPIENT }}"; fi
+          if [ -z "$FEE_BPS" ];  then FEE_BPS="${{ vars.NEXT_PUBLIC_PLATFORM_FEE_BPS }}"; fi
+
           docker build \
             --build-arg NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }} \
             --build-arg NEXT_PUBLIC_RWA_CONTRACT_ADDRESS="$RWA" \
@@ -69,6 +75,8 @@ jobs:
             --build-arg NEXT_PUBLIC_PINATA_GATEWAY=${{ secrets.NEXT_PUBLIC_PINATA_GATEWAY }} \
             --build-arg NEXT_PUBLIC_ALCHEMY_RPC_URL=${{ secrets.NEXT_PUBLIC_ALCHEMY_RPC_URL }} \
             --build-arg NEXT_PUBLIC_SHOW_AUTH_LINKS=${{ secrets.NEXT_PUBLIC_SHOW_AUTH_LINKS }} \
+            --build-arg NEXT_PUBLIC_PLATFORM_FEE_RECIPIENT="$FEE_RCPT" \
+            --build-arg NEXT_PUBLIC_PLATFORM_FEE_BPS="$FEE_BPS" \
             -t ${{ env.ECR_REGISTRY }}/tokenable-frontend:${{ env.IMAGE_TAG }} \
             -t ${{ env.ECR_REGISTRY }}/tokenable-frontend:${{ github.ref_name }} \
             ./frontend
