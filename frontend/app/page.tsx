@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { ASSETS } from "@/constants/assets";
+import { MarketIndexes } from "@/components/landing/MarketIndexes";
 
 const STATS = [
   { value: "$ 10 T", label: "RWA Market by 2030" },
@@ -10,23 +11,68 @@ const STATS = [
   { value: "$ 100 M", label: "AUM Target 2026" },
 ];
 
+/**
+ * Reference: sparse teal “aurora” blobs — solid fills + heavy `filter:blur(80–140px)`.
+ * Blob size must be large enough vs blur radius or the glow vanishes.
+ */
+const AURORA_ORBS: Array<{
+  top: string;
+  left: string;
+  size: number;
+  blur: number;
+  fill: string;
+}> = [
+  /* small accent — top left */
+  { top: "9%", left: "11%", size: 140, blur: 74, fill: "rgba(0, 255, 170, 0.24)" },
+  /* medium — top right */
+  { top: "11%", left: "86%", size: 220, blur: 94, fill: "rgba(45, 212, 191, 0.17)" },
+  /* mid-height left */
+  { top: "36%", left: "4%", size: 260, blur: 104, fill: "rgba(52, 211, 153, 0.135)" },
+  /* large wash — behind Market Indexes band */
+  { top: "62%", left: "18%", size: 440, blur: 126, fill: "rgba(0, 255, 163, 0.092)" },
+  /* large — bottom right */
+  { top: "78%", left: "78%", size: 400, blur: 120, fill: "rgba(20, 184, 166, 0.115)" },
+  /* subtle depth — center-right */
+  { top: "48%", left: "72%", size: 180, blur: 88, fill: "rgba(148, 255, 212, 0.125)" },
+];
+
+function AmbientAurora() {
+  return (
+    <div
+      className="pointer-events-none absolute inset-0 z-[1] overflow-hidden"
+      aria-hidden
+    >
+      {AURORA_ORBS.map((o, i) => (
+        <div
+          key={i}
+          className="absolute rounded-full -translate-x-1/2 -translate-y-1/2 will-change-transform"
+          style={{
+            top: o.top,
+            left: o.left,
+            width: o.size,
+            height: o.size,
+            background: o.fill,
+            filter: `blur(${o.blur}px)`,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
 export default function LandingPage() {
   return (
-    <div className="relative min-h-screen bg-[#030712] text-white overflow-hidden">
-      {/* Ambient glow effects */}
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute top-[10%] left-[8%] h-64 w-64 rounded-full bg-mint/8 blur-[120px]" />
-        <div className="absolute top-[8%] right-[6%] h-72 w-72 rounded-full bg-mint/10 blur-[140px]" />
-        <div className="absolute bottom-[10%] left-[15%] h-56 w-56 rounded-full bg-mint/6 blur-[100px]" />
-        <div className="absolute bottom-[5%] right-[10%] h-48 w-48 rounded-full bg-mint-deep/8 blur-[110px]" />
-      </div>
+    <div className="relative min-h-screen overflow-hidden bg-[#08090e] text-white">
+      <div className="pointer-events-none absolute inset-0 z-0 bg-gradient-to-b from-[#090a10] via-[#08090e] to-[#050508]" />
 
-      {/* Subtle grid overlay */}
+      <AmbientAurora />
+
+      {/* Subtle grid overlay — above glows so dots stay visible */}
       <div
-        className="pointer-events-none absolute inset-0 opacity-[0.03]"
+        className="pointer-events-none absolute inset-0 z-[2] opacity-[0.028]"
         style={{
           backgroundImage:
-            "radial-gradient(circle, rgba(148,255,212,0.3) 1px, transparent 1px)",
+            "radial-gradient(circle, rgba(148,255,212,0.35) 1px, transparent 1px)",
           backgroundSize: "48px 48px",
         }}
       />
@@ -70,7 +116,7 @@ export default function LandingPage() {
           {STATS.map(({ value, label }) => (
             <div
               key={label}
-              className="flex flex-col items-center justify-center rounded-2xl border border-mint-deep/25 bg-[#060d0b]/60 backdrop-blur-sm px-4 py-8 sm:py-10 transition-colors hover:border-mint-deep/45"
+              className="flex flex-col items-center justify-center rounded-2xl border border-emerald-500/20 bg-[#060d0b]/65 backdrop-blur-sm px-4 py-8 sm:py-10 transition-colors hover:border-emerald-400/40"
             >
               <span className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white mb-2">
                 {value}
@@ -82,6 +128,8 @@ export default function LandingPage() {
           ))}
         </div>
       </section>
+
+      <MarketIndexes />
 
       {/* Footer */}
       <footer className="relative z-10 border-t border-gray-800/50 py-8 text-center text-xs text-gray-600">
