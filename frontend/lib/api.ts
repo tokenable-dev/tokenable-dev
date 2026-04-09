@@ -120,6 +120,93 @@ export async function analyzePsaSlab(
   return res.json() as Promise<PsaAnalyzeResult>;
 }
 
+// ─── JustTCG — market stats (via backend /price/*) ─────────────────────────────
+
+/** One row from `GET /price/games` (JustTCG `data[]`). */
+export interface JustTcgGameSummary {
+  id: string;
+  name: string;
+  cards_count?: number;
+  game_value_usd: number;
+  game_value_change_7d_pct: number;
+  game_value_change_30d_pct?: number;
+  game_value_change_90d_pct?: number;
+}
+
+export interface JustTcgGamesResponse {
+  data: JustTcgGameSummary[];
+  _metadata?: unknown;
+}
+
+/** Full TCG market list + aggregate stats — requires backend `TCG_API_KEY`. */
+export async function getPriceGames(): Promise<JustTcgGamesResponse> {
+  const res = await backendFetch(`${getApiUrl()}/price/games`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    const msg =
+      typeof (err as { error?: unknown }).error === "string"
+        ? (err as { error: string }).error
+        : (err as { message?: string }).message;
+    throw new Error(msg ?? "Failed to load market indexes");
+  }
+  return res.json() as Promise<JustTcgGamesResponse>;
+}
+
+/** JustTCG variant price sample — used for landing sparklines */
+export interface JustTcgPriceHistoryPoint {
+  p: number;
+  t: number;
+}
+
+export interface JustTcgCardVariant {
+  priceHistory?: JustTcgPriceHistoryPoint[] | null;
+}
+
+export interface JustTcgCardRow {
+  id?: string;
+  name?: string;
+  variants?: JustTcgCardVariant[] | null;
+}
+
+export interface JustTcgCardsListResponse {
+  data: JustTcgCardRow[];
+  meta?: { total?: number; limit?: number; offset?: number; hasMore?: boolean };
+}
+
+/**
+ * Search cards in a game with price history (first pages) — for charts.
+ * Picks first variant with `priceHistory` of length ≥ 2 on the client.
+ */
+export async function searchCardsWithPriceHistory(params: {
+  game: string;
+  /** Scan more rows if early hits lack history (default 24) */
+  limit?: number;
+  priceHistoryDuration?: "7d" | "30d" | "90d" | "180d";
+  /** Omit to search all conditions (often needed for priceHistory on list API). */
+  condition?: string;
+}): Promise<JustTcgCardsListResponse> {
+  const sp = new URLSearchParams();
+  sp.set("game", params.game);
+  sp.set("limit", String(params.limit ?? 24));
+  sp.set("include_price_history", "true");
+  sp.set("priceHistoryDuration", params.priceHistoryDuration ?? "30d");
+  if (params.condition !== undefined && params.condition !== "") {
+    sp.set("condition", params.condition);
+  }
+  const res = await backendFetch(
+    `${getApiUrl()}/price/cards?${sp.toString()}`,
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    const msg =
+      typeof (err as { error?: unknown }).error === "string"
+        ? (err as { error: string }).error
+        : (err as { message?: string }).message;
+    throw new Error(msg ?? "Failed to load price history");
+  }
+  return res.json() as Promise<JustTcgCardsListResponse>;
+}
+
 // ─── Blockchain — RWA (ERC-721) ───────────────────────────────────────────────
 
 export async function getRwaTokensByOwner(address: string): Promise<number[]> {
