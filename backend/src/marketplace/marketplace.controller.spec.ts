@@ -21,7 +21,6 @@ describe('MarketplaceController', () => {
     findByHash: jest.fn(),
     cancelOrder: jest.fn(),
     fulfillOrder: jest.fn(),
-    reactivateOrder: jest.fn(),
     fulfillMatchedPair: jest.fn(),
   };
 
@@ -122,17 +121,5 @@ describe('MarketplaceController', () => {
     service.fulfillOrder.mockResolvedValue({} as never);
     await controller.fulfillOrder('0xh');
     expect(service.fulfillOrder).toHaveBeenCalledWith('0xh');
-  });
-
-  it('reactivateOrder forwards hash and caller', async () => {
-    service.reactivateOrder.mockResolvedValue({} as never);
-    await controller.reactivateOrder(
-      '0xh',
-      '0xD5abDD307414718C59949Ac5465930a1F8a52691',
-    );
-    expect(service.reactivateOrder).toHaveBeenCalledWith(
-      '0xh',
-      '0xD5abDD307414718C59949Ac5465930a1F8a52691',
-    );
   });
 });

@@ -399,23 +399,6 @@ export class MarketplaceService {
     return { ask, bid };
   }
 
-  async reactivateOrder(orderHash: string, callerAddress: string): Promise<Order> {
-    const order = await this.findByHash(orderHash);
-
-    if (order.offerer.toLowerCase() !== callerAddress.toLowerCase()) {
-      throw new BadRequestException('Only the offerer can reactivate this order');
-    }
-    if (order.status === OrderStatus.ACTIVE) {
-      throw new BadRequestException('Order is already active');
-    }
-    if (order.status === OrderStatus.EXPIRED) {
-      throw new BadRequestException('Cannot reactivate an expired order');
-    }
-
-    order.status = OrderStatus.ACTIVE;
-    return this.orderRepo.save(order);
-  }
-
   private async expireOrders(): Promise<void> {
     await this.orderRepo.update(
       { status: OrderStatus.ACTIVE, endTime: LessThan(new Date()) },

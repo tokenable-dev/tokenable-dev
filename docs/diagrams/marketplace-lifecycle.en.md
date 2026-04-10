@@ -635,6 +635,262 @@ frontend/
 
 ---
 
+## Part 5 — Backend Architecture
+
+> NestJS · TypeORM · PostgreSQL · Global prefix `api` · Swagger at `/api/docs`
+
+### 5-1. HTTP Entry & Controller Routes
+
+```mermaid
+%%{init: {'flowchart': {'rankSpacing': 44, 'nodeSpacing': 28, 'padding': 18}}}%%
+flowchart TD
+    classDef entry fill:#1f1a00,stroke:#fbbf24,color:#fef3c7,padding:8px 14px
+    classDef route fill:#0c1e33,stroke:#60a5fa,color:#bfdbfe,padding:8px 14px
+    classDef data  fill:#1a0a2e,stroke:#c084fc,color:#f3e8ff,padding:8px 14px
+    classDef ext   fill:#0a2215,stroke:#4ade80,color:#dcfce7,padding:8px 14px
+
+    CLIENT(["Client<br/>Next.js · curl"]):::entry
+
+    GATE["main.ts<br/>prefix api · ValidationPipe · CORS · cookies · Swagger /api/docs"]:::entry
+
+    subgraph REST ["REST namespaces"]
+        direction TB
+        R_AUTH["/api/auth<br/>Google OAuth · JWT cookies · wallet link"]:::route
+        R_MKT["/api/marketplace<br/>orders · fulfill sync · collections"]:::route
+        R_RWA["/api/rwa<br/>IPFS metadata upload · mint helpers"]:::route
+        R_BC["/api/blockchain<br/>token lists · contract reads"]:::route
+        R_PRICE["/api/price<br/>JustTCG proxy (games/cards)"]:::route
+        R_PSA["/api/psa<br/>slab OCR · PSA API · JustTCG search"]:::route
+    end
+
+    subgraph PERSIST ["Persistence"]
+        PG[("PostgreSQL<br/>orders · marketplace_collections · users")]:::data
+    end
+
+    subgraph OUT ["External systems"]
+        ETH["Ethereum RPC<br/>ethers.js"]:::ext
+        PIN["Pinata IPFS"]:::ext
+        JT["JustTCG API"]:::ext
+        PSAHTTP["PSA Public API"]:::ext
+    end
+
+    CLIENT --> GATE
+    GATE --> REST
+    R_MKT --> PG
+    R_AUTH --> PG
+    R_RWA --> PIN
+    R_BC --> ETH
+    R_PRICE --> JT
+    R_PSA --> PIN
+    R_PSA --> JT
+    R_PSA --> PSAHTTP
+
+    style GATE fill:#0f0d00,stroke:#fbbf24,stroke-width:2px,color:#fde68a
+    style REST fill:#060f1c,stroke:#60a5fa,stroke-width:2px,color:#93c5fd
+    style PERSIST fill:#090514,stroke:#c084fc,stroke-width:2px,color:#d8b4fe
+    style OUT fill:#030f08,stroke:#4ade80,stroke-width:2px,color:#86efac
+```
+
+### 5-2. Nest Module & Service Structure
+
+```mermaid
+%%{init: {'flowchart': {'rankSpacing': 36, 'nodeSpacing': 22, 'padding': 14}}}%%
+flowchart TB
+    classDef mod   fill:#1f1a00,stroke:#fbbf24,color:#fef3c7,padding:6px 12px
+    classDef ctrl  fill:#0c1e33,stroke:#60a5fa,color:#bfdbfe,padding:6px 12px
+    classDef svc   fill:#0a2215,stroke:#4ade80,color:#dcfce7,padding:6px 12px
+    classDef util  fill:#1a0a2e,stroke:#c084fc,color:#f3e8ff,padding:6px 12px
+    classDef ent   fill:#280a18,stroke:#f472b6,color:#fce7f3,padding:6px 12px
+
+    subgraph APP ["AppModule"]
+        direction TB
+        CFG["ConfigModule global"]:::mod
+        ORM["TypeORM<br/>Order · MarketplaceCollection · User"]:::ent
+    end
+
+    subgraph M_AUTH ["auth/ — AuthModule"]
+        direction TB
+        ACTRL["AuthController"]:::ctrl
+        ASVC["AuthService"]:::svc
+        GSTR["GoogleStrategy · JwtStrategy"]:::svc
+        subgraph AUTH_DEP ["Imports"]
+            UMOD["UserModule → UserService"]:::svc
+            MMOD["MailModule → MailService"]:::svc
+        end
+        ACTRL --> ASVC
+        ASVC --> GSTR
+        ASVC --> AUTH_DEP
+    end
+
+    subgraph M_MKT ["marketplace/ — MarketplaceModule"]
+        direction TB
+        MCTRL["MarketplaceController"]:::ctrl
+        MSVC["MarketplaceService"]:::svc
+        CSV["CollectionService<br/>collection rows · cover · labels"]:::svc
+        MCTRL --> MSVC
+        MCTRL --> CSV
+        MBLOCK["BlockchainModule import"]:::util
+        MSVC --> MBLOCK
+    end
+
+    subgraph M_NFT ["nft/ — NftModule"]
+        NCTRL["NftController /rwa"]:::ctrl
+        NSVC["NftService"]:::svc
+        NCTRL --> NSVC
+        UTL["UtilModule → PinataService"]:::util
+        NSVC --> UTL
+    end
+
+    subgraph M_BC ["blockchain/ — BlockchainModule"]
+        BCTRL["BlockchainController"]:::ctrl
+        BSV["BlockchainService"]:::svc
+        ETHF["ethers Provider · USDC · TokenableRWA factories"]:::util
+        BCTRL --> BSV
+        BSV --> ETHF
+    end
+
+    subgraph M_PRICE ["price/ — PriceModule"]
+        PCTRL["PriceController"]:::ctrl
+        PSV["PriceService<br/>JustTCG · price.mock"]:::svc
+        PCTRL --> PSV
+    end
+
+    subgraph M_PSA ["psa/ — PsaModule"]
+        PSACTRL["PsaController"]:::ctrl
+        PSASVC["PsaService<br/>OCR · images · merge"]:::svc
+        PSAAPI["PsaPublicApiService"]:::svc
+        PSACTRL --> PSASVC
+        PSASVC --> PSAAPI
+        PIMP["PriceModule import"]:::util
+        PSASVC --> PIMP
+    end
+
+    subgraph M_UTIL ["util/ — UtilModule"]
+        PIN["PinataService"]:::svc
+    end
+
+    APP --> M_AUTH
+    APP --> M_MKT
+    APP --> M_NFT
+    APP --> M_BC
+    APP --> M_PRICE
+    APP --> M_PSA
+    APP --> M_UTIL
+
+    style APP fill:#030712,stroke:#fbbf24,stroke-width:2px,color:#fde68a
+    style M_AUTH fill:#030712,stroke:#60a5fa,stroke-width:1px,color:#93c5fd
+    style M_MKT fill:#030712,stroke:#4ade80,stroke-width:1px,color:#86efac
+    style M_NFT fill:#030712,stroke:#4ade80,stroke-width:1px,color:#86efac
+    style M_BC fill:#030712,stroke:#c084fc,stroke-width:1px,color:#d8b4fe
+    style M_PRICE fill:#030712,stroke:#4ade80,stroke-width:1px,color:#86efac
+    style M_PSA fill:#030712,stroke:#60a5fa,stroke-width:1px,color:#93c5fd
+    style M_UTIL fill:#030712,stroke:#c084fc,stroke-width:1px,color:#d8b4fe
+```
+
+### 5-3. Request Pipeline & External I/O
+
+```mermaid
+%%{init: {'flowchart': {'rankSpacing': 38, 'nodeSpacing': 28, 'padding': 16}}}%%
+flowchart LR
+    classDef pipe fill:#111827,stroke:#6b7280,color:#e5e7eb,padding:8px 14px
+    classDef app  fill:#1f1a00,stroke:#fbbf24,color:#fef3c7,padding:8px 14px
+    classDef dom  fill:#0c1e33,stroke:#60a5fa,color:#bfdbfe,padding:8px 14px
+    classDef io   fill:#0a2215,stroke:#4ade80,color:#dcfce7,padding:8px 14px
+
+    REQ(["HTTP request"]):::pipe
+
+    subgraph L1 ["Cross-cutting"]
+        VP["ValidationPipe<br/>DTO whitelist · transform"]:::pipe
+        CK["cookie-parser<br/>JWT cookie"]:::pipe
+    end
+
+    subgraph L2 ["Domain"]
+        direction TB
+        CT["@Controller<br/>routing · Swagger tags"]:::dom
+        SV["@Injectable Service<br/>business logic · transactions"]:::dom
+        REP["TypeORM Repository<br/>orders / collections / users"]:::dom
+        CT --> SV --> REP
+    end
+
+    subgraph L3 ["External I/O"]
+        ETH["ethers<br/>Sepolia reads"]:::io
+        PIN["Pinata<br/>JSON & image pins"]:::io
+        JT["fetch → JustTCG"]:::io
+        MAIL["SMTP<br/>verification email"]:::io
+    end
+
+    REQ --> VP --> CK --> CT
+    SV --> ETH
+    SV --> PIN
+    SV --> JT
+    SV --> MAIL
+
+    style L1 fill:#0f1115,stroke:#6b7280,stroke-width:2px,color:#d1d5db
+    style L2 fill:#060f1c,stroke:#60a5fa,stroke-width:2px,color:#93c5fd
+    style L3 fill:#030f08,stroke:#4ade80,stroke-width:2px,color:#86efac
+```
+
+### 5-4. File Tree Summary
+
+```
+backend/
+├── src/
+│   ├── main.ts                 # Bootstrap — api prefix · CORS · Swagger
+│   ├── app.module.ts           # Config · TypeORM · feature modules
+│   │
+│   ├── auth/
+│   │   ├── auth.controller.ts  # /auth — Google · JWT · session · wallet
+│   │   ├── auth.service.ts
+│   │   ├── guards/             # JwtAuthGuard
+│   │   └── strategies/       # google · jwt
+│   │
+│   ├── user/
+│   │   ├── user.service.ts
+│   │   └── entities/user.entity.ts
+│   │
+│   ├── mail/
+│   │   └── mail.service.ts     # SMTP (used by Auth)
+│   │
+│   ├── marketplace/
+│   │   ├── marketplace.controller.ts  # /marketplace — Seaport order book DB
+│   │   ├── marketplace.service.ts
+│   │   ├── collection.service.ts
+│   │   ├── entities/           # order · marketplace-collection
+│   │   └── *.util.ts           # bucket-key · cover · label helpers
+│   │
+│   ├── nft/
+│   │   ├── nft.controller.ts   # /rwa — IPFS upload
+│   │   ├── nft.service.ts
+│   │   └── dto/
+│   │
+│   ├── blockchain/
+│   │   ├── blockchain.controller.ts
+│   │   ├── blockchain.service.ts
+│   │   ├── abis/
+│   │   └── providers/          # ethers · USDC · RWA factories
+│   │
+│   ├── price/
+│   │   ├── price.controller.ts # /price — JustTCG proxy
+│   │   ├── price.service.ts
+│   │   └── price.mock.ts       # static responses when TCG_USE_MOCK
+│   │
+│   ├── psa/
+│   │   ├── psa.controller.ts   # /psa/analyze
+│   │   ├── psa.service.ts      # OCR · merge · JustTCG search
+│   │   ├── psa-public-api.service.ts
+│   │   └── psa-*.util.ts
+│   │
+│   └── util/
+│       └── pinata/pinata.service.ts
+│
+├── sql/
+│   └── bootstrap-empty-prod-db.sql
+│
+└── Dockerfile
+```
+
+---
+
 ## Legend
 
 | Icon | Meaning |

@@ -131,19 +131,9 @@ export class MarketplaceController {
     summary:
       'After matchAdvancedOrders(ask + criteria bid), mark both orders fulfilled',
   })
+  @ApiBody({ type: FulfillMatchedPairDto })
   @Post('orders/fulfill-matched-pair')
   fulfillMatchedPair(@Body() body: FulfillMatchedPairDto) {
     return this.marketplaceService.fulfillMatchedPair(body.askOrderHash, body.bidOrderHash);
-  }
-
-  @ApiOperation({ summary: 'Reactivate order (offerer only)' })
-  @ApiParam({ name: 'hash' })
-  @ApiQuery({ name: 'callerAddress' })
-  @Patch('orders/:hash/reactivate')
-  reactivateOrder(
-    @Param('hash') hash: string,
-    @Query('callerAddress') callerAddress: string,
-  ): Promise<Order> {
-    return this.marketplaceService.reactivateOrder(hash, callerAddress);
   }
 }

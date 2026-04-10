@@ -1,6 +1,6 @@
-# 개발·배포·DB·API (통합 가이드)
+# 개발·배포 가이드 (통합)
 
-레포 루트 [README.md](../README.md)에서 클론·설치·실행 흐름을 보고, 여기서는 **DB**, **API**, **Seaport**, **배포**, **트러블슈팅**만 정리합니다.
+레포 루트 [README.md](../README.md)에서 클론·설치·실행 흐름을 보고, 여기서는 **로컬 DB·API**, **Seaport**, **JustTCG**, **EC2 배포**, **트러블슈팅**, **다이어그램**을 정리합니다.
 
 ---
 
@@ -61,38 +61,159 @@ cd backend && pnpm start:dev
 | 환경 | 백엔드 | 프론트 |
 |------|--------|--------|
 | **로컬** | `backend/.env` → `RWA_CONTRACT_ADDRESS` | `frontend/.env.local` → `NEXT_PUBLIC_RWA_CONTRACT_ADDRESS` |
-| **배포** | EC2 `~/.env.production.backend` → `RWA_CONTRACT_ADDRESS` | GitHub Actions 빌드 시 Secret `NEXT_PUBLIC_RWA_CONTRACT_ADDRESS` (번들에 박힘) |
+| **배포** | EC2 `~/.env.production.backend` → `RWA_CONTRACT_ADDRESS` | GitHub Actions 빌드 시 Secret/Variable `NEXT_PUBLIC_RWA_CONTRACT_ADDRESS` (번들에 박힘) |
 
 `frontend/constants/contracts.ts`의 기본 폴백은 **로컬 개발용 주소**를 두며, 프로덕션에서는 반드시 env로 덮어씁니다.  
 로컬·배포 컨트랙트가 다르면 **같은 tokenId라도 다른 NFT가 되므로** 환경을 섞지 않도록 합니다.
 
+### 로컬에서 프론트·백엔드만 Docker로
+
+`docker-compose.local.yml` 오버레이를 사용합니다 (레포 루트).
+
 ---
 
-## 4. develop → 개발 서버 배포 (요약)
+## 4. JustTCG 가격 API
 
-개발 URL 예: nginx가 `/` → Next, `/api` → Nest.
+엔드포인트·쿼리·에러 코드 전체는 별도 문서:
 
-### GitHub Actions / Secrets
+→ **[price-api.md](./price-api.md)**
 
-`NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_RWA_CONTRACT_ADDRESS` (레거시: `NEXT_PUBLIC_NFT_CONTRACT_ADDRESS`), `NEXT_PUBLIC_USDC_CONTRACT_ADDRESS`, RPC, Pinata, ECR·AWS 등 — CI와 EC2 `~/app` 설정에 맞출 것.
+| 변수 | 설명 |
+|------|------|
+| `TCG_API_KEY` | JustTCG 실호출 시 필수 (`PriceService`). |
+| `TCG_USE_MOCK` | `true` / `1` / `yes` 이면 **외부 JustTCG 호출 없이** `backend/src/price/price.mock.ts` 고정 응답 (무료 플랜 한도 회피 등). 이 경우 `TCG_API_KEY`는 사용되지 않습니다. |
 
-**주의**: 백엔드가 읽는 RWA 컨트랙트 주소(`RWA_CONTRACT_ADDRESS`, 레거시 `NFT_CONTRACT_ADDRESS`)는 EC2의 **`/home/ubuntu/.env.production.backend`** 등과 프론트 빌드 인자가 **일치**해야 합니다.
+---
 
-### EC2에서 수동 재기동 예시
+## 5. 배포 (develop → EC2)
+
+`develop` 브랜치 푸시 시 GitHub Actions가 ECR에 이미지를 올리고, EC2에서 `docker-compose`로 당겨 씁니다. (워크플로: `.github/workflows/deploy.yml`)
+
+### 5.1 사전 준비 (한 번만 확인)
+
+#### GitHub Repository secrets / variables
+
+배포·프론트 빌드에 필요합니다. 이름은 대소문자까지 동일해야 합니다. **`NEXT_PUBLIC_*`는 Repository secrets에 두는 것을 권장**합니다. Variables만 있으면 워크플로가 못 읽을 수 있어, `deploy.yml`은 Secrets 우선·Variables 폴백을 씁니다.
+
+| Name | 설명 |
+|------|------|
+| `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | ECR 푸시 |
+| `ECR_REGISTRY` | 예: `717728193407.dkr.ecr.ap-northeast-2.amazonaws.com` |
+| `DEV_EC2_HOST`, `DEV_EC2_SSH_KEY` | **develop** 배포 시 EC2 SSH |
+| `NEXT_PUBLIC_API_URL` | 예: `http://<공인IP>/api` |
+| `NEXT_PUBLIC_RWA_CONTRACT_ADDRESS` | Sepolia TokenableRWA (필수; 레거시 `NEXT_PUBLIC_NFT_CONTRACT_ADDRESS` 폴백 가능) |
+| `NEXT_PUBLIC_USDC_CONTRACT_ADDRESS` | Sepolia USDC |
+| `NEXT_PUBLIC_ALCHEMY_RPC_URL`, `NEXT_PUBLIC_PINATA_GATEWAY` | 프론트 번들용 |
+| `NEXT_PUBLIC_MARKETPLACE_ADDRESS` | Seaport 등 (워크플로 build-arg) |
+| `NEXT_PUBLIC_SHOW_AUTH_LINKS` | 선택 |
+| `NEXT_PUBLIC_PLATFORM_FEE_RECIPIENT`, `NEXT_PUBLIC_PLATFORM_FEE_BPS` | 선택 (Secrets 또는 Variables) |
+
+**main → 프로덕션** 배포 단계는 워크플로에 준비되어 있으며 `PROD_EC2_HOST`, `PROD_EC2_SSH_KEY`가 필요합니다.
+
+#### EC2
+
+- 앱 경로: **`/home/ubuntu/app`** (레포 클론)
+- 백엔드 환경: **`/home/ubuntu/.env.production.backend`** (`docker-compose.ec2.yml`에서 `env_file`로 주입)
+
+### 5.2 로컬 — 커밋 후 푸시
+
+```bash
+cd /path/to/tokenable-dev
+git checkout develop
+git pull origin develop
+# 변경 반영 후
+git add -A
+git commit -m "your message"
+git push origin develop
+```
+
+### 5.3 GitHub Actions
+
+리포지토리 **Actions** 탭에서 **Deploy** 워크플로가 **성공**할 때까지 기다립니다 (Build & Push + Deploy to Dev Server). ECR에는 `develop` 등 브랜치 태그와 커밋 SHA 태그가 함께 푸시되며, EC2 스크립트는 **`IMAGE_TAG=develop`**으로 pull합니다.
+
+### 5.4 EC2 — 이미지 pull & 컨테이너 기동 (수동 시)
+
+SSH 접속 후:
 
 ```bash
 cd /home/ubuntu/app
+
+export ECR_REGISTRY=717728193407.dkr.ecr.ap-northeast-2.amazonaws.com
+export IMAGE_TAG=develop
+
+git fetch origin
+git checkout develop
 git pull origin develop
-export ECR_REGISTRY=... && export IMAGE_TAG=develop
+
+aws ecr get-login-password --region ap-northeast-2 \
+  | docker login --username AWS --password-stdin "$ECR_REGISTRY"
+
 docker compose -f docker-compose.yml -f docker-compose.ec2.yml pull
 docker compose -f docker-compose.yml -f docker-compose.ec2.yml up -d --force-recreate --remove-orphans
 ```
 
-로컬에서 프론트·백엔드만 Docker로: `docker-compose.local.yml` 등 레포에 있는 오버레이 파일을 사용.
+> 서버에 `docker compose`(V2)만 있으면 위 명령을 쓰고, 구식 `docker-compose`만 있으면 하이픈 형태로 바꿉니다.
+
+### 5.5 백엔드만 다시 올릴 때 (필요 시)
+
+`.env.production.backend`만 수정했을 때 등:
+
+```bash
+cd /home/ubuntu/app
+export ECR_REGISTRY=717728193407.dkr.ecr.ap-northeast-2.amazonaws.com
+export IMAGE_TAG=develop
+docker compose -f docker-compose.yml -f docker-compose.ec2.yml up -d --force-recreate backend
+```
+
+### 5.6 Postgres — 빈 DB일 때 (테이블 없음)
+
+`\dt`에 아무 관계도 없으면, 레포의 부트스트랩 SQL을 **한 번** 적용합니다.
+
+```bash
+docker exec tokenable-postgres psql -U tokenable -d tokenable -c '\dt'
+```
+
+비어 있으면:
+
+```bash
+docker exec -i tokenable-postgres psql -U tokenable -d tokenable < /home/ubuntu/app/backend/sql/bootstrap-empty-prod-db.sql
+docker exec tokenable-postgres psql -U tokenable -d tokenable -c '\dt'
+```
+
+`users`, `orders`, `marketplace_collections`가 보이면 됩니다.
+
+그다음 **`/home/ubuntu/.env.production.backend`에서 `TYPEORM_SYNC`는 제거하거나 `false`**로 두고, **5.5**로 백엔드를 재기동하세요. (운영에서는 스키마 자동 동기화를 켜 둔 채로 두지 않는 것이 안전합니다.)
+
+### 5.7 동작 확인
+
+- 브라우저: `http://<공인IP>` (시크릿 창 또는 강력 새로고침)
+- Network: `/api/marketplace/orders`, `/api/marketplace/collections` → **200**
+- 세션: `/api/auth/session` → **200** + 비로그인 시 `{ "user": null }` (해당 브랜치 배포 시)
+
+### 5.8 자주 쓰는 점검
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.ec2.yml ps
+docker logs tokenable-backend 2>&1 | tail -80
+docker exec tokenable-backend env | grep -E 'TYPEORM|POSTGRES|NODE_ENV'
+```
+
+### 5.9 프론트 번들에 주소가 안 박히는 경우
+
+`NEXT_PUBLIC_RWA_CONTRACT_ADDRESS` 등은 **Docker 빌드 시** 번들에 들어갑니다. Secrets/Variables에 값이 있고 Actions가 성공한 뒤, EC2에서 **프론트 이미지를 pull·재기동**해야 브라우저에 반영됩니다.
+
+### 배포 관련 파일
+
+| Path | 내용 |
+|------|------|
+| `.github/workflows/deploy.yml` | ECR 빌드·푸시, EC2 배포 단계 |
+| `docker-compose.yml` / `docker-compose.ec2.yml` | 서비스·이미지 태그·백엔드 `env_file` |
+| `frontend/Dockerfile` | `NEXT_PUBLIC_*` build-arg |
+| `backend/sql/bootstrap-empty-prod-db.sql` | 빈 DB 초기 스키마 |
 
 ---
 
-## 5. PSA 슬랩 분석 `/api/psa/analyze` — 배포 500 점검
+## 6. PSA 슬랩 분석 `/api/psa/analyze` — 배포 500 점검
 
 1. 백엔드 로그에서 `PSA analyze failed:` 뒤 메시지 확인: `docker compose logs -f backend --tail=200`.
 2. **sharp / tesseract.js**: Alpine musl 빌드 불일치 시 로드 실패 — Dockerfile이 Debian 기반인지 확인 후 이미지 재빌드.
@@ -104,16 +225,6 @@ docker compose -f docker-compose.yml -f docker-compose.ec2.yml up -d --force-rec
 
 ---
 
-## 6. JustTCG 가격 API (상세 레퍼런스)
-
-엔드포인트·쿼리·에러 코드 전체는 별도 문서:
-
-→ **[price-api.md](./price-api.md)**
-
-서버에 `TCG_API_KEY` 필요.
-
----
-
 ## 7. Draw.io / 다이어그램
 
 | 파일 | 내용 |
@@ -121,7 +232,7 @@ docker compose -f docker-compose.yml -f docker-compose.ec2.yml up -d --force-rec
 | [marketplace-seaport-criteria-architecture.drawio](./diagrams/marketplace-seaport-criteria-architecture.drawio) | Seaport criteria + Merkle 흐름 |
 | [psa-slab-upload-ocr-api-flow.drawio](./diagrams/psa-slab-upload-ocr-api-flow.drawio) | PSA 슬랩 업로드·OCR |
 
-과거에 쓰이던 통합 다이어그램(`tokenable-all-diagrams.drawio`)은 내용이 현재 코드와 어긋나 **제거**했습니다. 아키텍처는 위 두 파일과 이 문서의 API 표를 기준으로 합니다.
+과거에 쓰이던 통합 다이어그램(`tokenable-all-diagrams.drawio`)은 내용이 현재 코드와 어긋나 **제거**했습니다. 아키텍처는 위 파일과 이 문서의 API 표를 기준으로 합니다.
 
 ---
 

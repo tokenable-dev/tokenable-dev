@@ -78,8 +78,8 @@ tokenable-dev/
 
 | Diagram | Description |
 |---------|-------------|
-| **[Marketplace Pipeline (KR)](docs/diagrams/marketplace-lifecycle.md)** | 전체 흐름도 · 기술 시퀀스 · DB 저장 구조 (한국어) |
-| **[Marketplace Pipeline (EN)](docs/diagrams/marketplace-lifecycle.en.md)** | Overall flow · Technical sequence · DB schema (English) |
+| **[Marketplace Pipeline (KR)](docs/diagrams/marketplace-lifecycle.md)** | 흐름도 · 시퀀스 · DB · 프론트(Part 4) · 백엔드(Part 5) |
+| **[Marketplace Pipeline (EN)](docs/diagrams/marketplace-lifecycle.en.md)** | Flow · sequence · DB · frontend (Part 4) · backend (Part 5) |
 | **[Seaport Criteria Architecture](docs/diagrams/marketplace-seaport-criteria-architecture.drawio)** | Seaport criteria bid architecture |
 | **[Mint → RWA Exchange](docs/diagrams/tokenable-mint-rwa-exchange-full-architecture.drawio)** | Full mint-to-exchange architecture |
 | **[PSA Upload & OCR Flow](docs/diagrams/psa-slab-upload-ocr-api-flow.drawio)** | PSA slab upload & OCR API flow |
