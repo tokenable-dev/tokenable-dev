@@ -121,7 +121,7 @@
         <mxCell id="s7" value="G) API 엔드포인트 빠른 표" style="swimlane;horizontal=1;startSize=36;fillColor=#e1d5e7;strokeColor=#9673a6;fontStyle=1;fontSize=14;align=left;spacingLeft=10;" vertex="1" parent="1">
           <mxGeometry x="40" y="2180" width="1900" height="220" as="geometry" />
         </mxCell>
-        <mxCell id="s7a" value="POST `/marketplace/orders` — `createOrder`&#xa;POST `/marketplace/orders/replace-listing` — `replaceSellerListing` (body: old hash + `CreateOrderDto` ask)&#xa;POST `/marketplace/orders/fulfill-matched-pair` — `{ askOrderHash, bidOrderHash }`&#xa;PATCH `/marketplace/orders/:hash/fulfill` — 단일 `fulfillOrder`&#xa;PATCH `/marketplace/orders/:hash/cancel?callerAddress=…` — `cancelOrder`&#xa;PATCH `/marketplace/orders/:hash/reactivate?callerAddress=…` — `reactivateOrder`&#xa;GET merkle-set — 컬렉션별 활성 tokenId (클라이언트 Merkle)" style="rounded=0;whiteSpace=wrap;html=1;align=left;spacingLeft=12;fontSize=11;fillColor=#ffffff;fontFamily=Courier New;" vertex="1" parent="s7">
+        <mxCell id="s7a" value="POST `/marketplace/orders` — `createOrder`&#xa;POST `/marketplace/orders/replace-listing` — `replaceSellerListing` (body: old hash + `CreateOrderDto` ask)&#xa;POST `/marketplace/orders/fulfill-matched-pair` — `{ askOrderHash, bidOrderHash }`&#xa;PATCH `/marketplace/orders/:hash/fulfill` — 단일 `fulfillOrder`&#xa;PATCH `/marketplace/orders/:hash/cancel?callerAddress=…` — `cancelOrder`&#xa;GET merkle-set — 컬렉션별 활성 tokenId (클라이언트 Merkle)" style="rounded=0;whiteSpace=wrap;html=1;align=left;spacingLeft=12;fontSize=11;fillColor=#ffffff;fontFamily=Courier New;" vertex="1" parent="s7">
           <mxGeometry x="24" y="52" width="1850" height="148" as="geometry" />
         </mxCell>
 

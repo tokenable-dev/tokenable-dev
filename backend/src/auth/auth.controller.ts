@@ -13,7 +13,12 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiQuery,
+  ApiTags,
+} from '@nestjs/swagger';
 import type { Request, Response } from 'express';
 import { getAddress } from 'ethers';
 import type { User } from '../user/entities/user.entity';
@@ -74,6 +79,11 @@ export class AuthController {
 
   @Get('verify-email')
   @ApiOperation({ summary: '이메일 인증 링크 (메일에서 클릭)' })
+  @ApiQuery({
+    name: 'token',
+    required: true,
+    description: '메일에 포함된 일회용 인증 토큰',
+  })
   async verifyEmail(
     @Query('token') token: string | undefined,
     @Res() res: Response,

@@ -645,6 +645,262 @@ frontend/
 
 ---
 
+## Part 5 — 백엔드 아키텍처
+
+> NestJS · TypeORM · PostgreSQL · 글로벌 prefix `api` · Swagger `/api/docs`
+
+### 5-1. HTTP 진입점·컨트롤러 라우트
+
+```mermaid
+%%{init: {'flowchart': {'rankSpacing': 44, 'nodeSpacing': 28, 'padding': 18}}}%%
+flowchart TD
+    classDef entry fill:#1f1a00,stroke:#fbbf24,color:#fef3c7,padding:8px 14px
+    classDef route fill:#0c1e33,stroke:#60a5fa,color:#bfdbfe,padding:8px 14px
+    classDef data  fill:#1a0a2e,stroke:#c084fc,color:#f3e8ff,padding:8px 14px
+    classDef ext   fill:#0a2215,stroke:#4ade80,color:#dcfce7,padding:8px 14px
+
+    CLIENT(["클라이언트<br/>Next.js · curl"]):::entry
+
+    GATE["main.ts<br/>prefix api · ValidationPipe · CORS · cookie · Swagger /api/docs"]:::entry
+
+    subgraph REST ["REST 네임스페이스"]
+        direction TB
+        R_AUTH["/api/auth<br/>Google OAuth · JWT 쿠키 · 지갑 연결"]:::route
+        R_MKT["/api/marketplace<br/>주문 등록·조회·체결 동기화·컬렉션"]:::route
+        R_RWA["/api/rwa<br/>IPFS 메타 업로드 · 민팅 보조"]:::route
+        R_BC["/api/blockchain<br/>토큰 목록 · 컨트랙트 읽기"]:::route
+        R_PRICE["/api/price<br/>JustTCG 프록시 (games/cards)"]:::route
+        R_PSA["/api/psa<br/>슬랩 OCR · PSA API · JustTCG 검색"]:::route
+    end
+
+    subgraph PERSIST ["영속 계층"]
+        PG[("PostgreSQL<br/>orders · marketplace_collections · users")]:::data
+    end
+
+    subgraph OUT ["외부 연동"]
+        ETH["Ethereum RPC<br/>ethers.js"]:::ext
+        PIN["Pinata IPFS"]:::ext
+        JT["JustTCG API"]:::ext
+        PSAHTTP["PSA Public API"]:::ext
+    end
+
+    CLIENT --> GATE
+    GATE --> REST
+    R_MKT --> PG
+    R_AUTH --> PG
+    R_RWA --> PIN
+    R_BC --> ETH
+    R_PRICE --> JT
+    R_PSA --> PIN
+    R_PSA --> JT
+    R_PSA --> PSAHTTP
+
+    style GATE fill:#0f0d00,stroke:#fbbf24,stroke-width:2px,color:#fde68a
+    style REST fill:#060f1c,stroke:#60a5fa,stroke-width:2px,color:#93c5fd
+    style PERSIST fill:#090514,stroke:#c084fc,stroke-width:2px,color:#d8b4fe
+    style OUT fill:#030f08,stroke:#4ade80,stroke-width:2px,color:#86efac
+```
+
+### 5-2. Nest 모듈·서비스 구조
+
+```mermaid
+%%{init: {'flowchart': {'rankSpacing': 36, 'nodeSpacing': 22, 'padding': 14}}}%%
+flowchart TB
+    classDef mod   fill:#1f1a00,stroke:#fbbf24,color:#fef3c7,padding:6px 12px
+    classDef ctrl  fill:#0c1e33,stroke:#60a5fa,color:#bfdbfe,padding:6px 12px
+    classDef svc   fill:#0a2215,stroke:#4ade80,color:#dcfce7,padding:6px 12px
+    classDef util  fill:#1a0a2e,stroke:#c084fc,color:#f3e8ff,padding:6px 12px
+    classDef ent   fill:#280a18,stroke:#f472b6,color:#fce7f3,padding:6px 12px
+
+    subgraph APP ["AppModule"]
+        direction TB
+        CFG["ConfigModule global"]:::mod
+        ORM["TypeORM<br/>Order · MarketplaceCollection · User"]:::ent
+    end
+
+    subgraph M_AUTH ["auth/ — AuthModule"]
+        direction TB
+        ACTRL["AuthController"]:::ctrl
+        ASVC["AuthService"]:::svc
+        GSTR["GoogleStrategy · JwtStrategy"]:::svc
+        subgraph AUTH_DEP ["의존"]
+            UMOD["UserModule → UserService"]:::svc
+            MMOD["MailModule → MailService"]:::svc
+        end
+        ACTRL --> ASVC
+        ASVC --> GSTR
+        ASVC --> AUTH_DEP
+    end
+
+    subgraph M_MKT ["marketplace/ — MarketplaceModule"]
+        direction TB
+        MCTRL["MarketplaceController"]:::ctrl
+        MSVC["MarketplaceService"]:::svc
+        CSV["CollectionService<br/>컬렉션·커버·라벨 유틸"]:::svc
+        MCTRL --> MSVC
+        MCTRL --> CSV
+        MBLOCK["BlockchainModule import"]:::util
+        MSVC --> MBLOCK
+    end
+
+    subgraph M_NFT ["nft/ — NftModule"]
+        NCTRL["NftController /rwa"]:::ctrl
+        NSVC["NftService"]:::svc
+        NCTRL --> NSVC
+        UTL["UtilModule → PinataService"]:::util
+        NSVC --> UTL
+    end
+
+    subgraph M_BC ["blockchain/ — BlockchainModule"]
+        BCTRL["BlockchainController"]:::ctrl
+        BSV["BlockchainService"]:::svc
+        ETHF["ethers Provider · USDC · TokenableRWA factories"]:::util
+        BCTRL --> BSV
+        BSV --> ETHF
+    end
+
+    subgraph M_PRICE ["price/ — PriceModule"]
+        PCTRL["PriceController"]:::ctrl
+        PSV["PriceService<br/>JustTCG · price.mock"]:::svc
+        PCTRL --> PSV
+    end
+
+    subgraph M_PSA ["psa/ — PsaModule"]
+        PSACTRL["PsaController"]:::ctrl
+        PSASVC["PsaService<br/>OCR · 이미지 · 병합"]:::svc
+        PSAAPI["PsaPublicApiService"]:::svc
+        PSACTRL --> PSASVC
+        PSASVC --> PSAAPI
+        PIMP["PriceModule import"]:::util
+        PSASVC --> PIMP
+    end
+
+    subgraph M_UTIL ["util/ — UtilModule"]
+        PIN["PinataService"]:::svc
+    end
+
+    APP --> M_AUTH
+    APP --> M_MKT
+    APP --> M_NFT
+    APP --> M_BC
+    APP --> M_PRICE
+    APP --> M_PSA
+    APP --> M_UTIL
+
+    style APP fill:#030712,stroke:#fbbf24,stroke-width:2px,color:#fde68a
+    style M_AUTH fill:#030712,stroke:#60a5fa,stroke-width:1px,color:#93c5fd
+    style M_MKT fill:#030712,stroke:#4ade80,stroke-width:1px,color:#86efac
+    style M_NFT fill:#030712,stroke:#4ade80,stroke-width:1px,color:#86efac
+    style M_BC fill:#030712,stroke:#c084fc,stroke-width:1px,color:#d8b4fe
+    style M_PRICE fill:#030712,stroke:#4ade80,stroke-width:1px,color:#86efac
+    style M_PSA fill:#030712,stroke:#60a5fa,stroke-width:1px,color:#93c5fd
+    style M_UTIL fill:#030712,stroke:#c084fc,stroke-width:1px,color:#d8b4fe
+```
+
+### 5-3. 요청 처리·외부 연동 흐름
+
+```mermaid
+%%{init: {'flowchart': {'rankSpacing': 38, 'nodeSpacing': 28, 'padding': 16}}}%%
+flowchart LR
+    classDef pipe fill:#111827,stroke:#6b7280,color:#e5e7eb,padding:8px 14px
+    classDef app  fill:#1f1a00,stroke:#fbbf24,color:#fef3c7,padding:8px 14px
+    classDef dom  fill:#0c1e33,stroke:#60a5fa,color:#bfdbfe,padding:8px 14px
+    classDef io   fill:#0a2215,stroke:#4ade80,color:#dcfce7,padding:8px 14px
+
+    REQ(["HTTP 요청"]):::pipe
+
+    subgraph L1 ["Cross-cutting"]
+        VP["ValidationPipe<br/>DTO whitelist · transform"]:::pipe
+        CK["cookie-parser<br/>JWT 쿠키"]:::pipe
+    end
+
+    subgraph L2 ["도메인"]
+        direction TB
+        CT["@Controller<br/>라우팅 · Swagger 태그"]:::dom
+        SV["@Injectable Service<br/>비즈니스 로직 · 트랜잭션"]:::dom
+        REP["TypeORM Repository<br/>orders / collections / users"]:::dom
+        CT --> SV --> REP
+    end
+
+    subgraph L3 ["외부 I/O"]
+        ETH["ethers<br/>Sepolia 읽기"]:::io
+        PIN["Pinata<br/>JSON·이미지 핀"]:::io
+        JT["fetch → JustTCG"]:::io
+        MAIL["SMTP<br/>인증 메일"]:::io
+    end
+
+    REQ --> VP --> CK --> CT
+    SV --> ETH
+    SV --> PIN
+    SV --> JT
+    SV --> MAIL
+
+    style L1 fill:#0f1115,stroke:#6b7280,stroke-width:2px,color:#d1d5db
+    style L2 fill:#060f1c,stroke:#60a5fa,stroke-width:2px,color:#93c5fd
+    style L3 fill:#030f08,stroke:#4ade80,stroke-width:2px,color:#86efac
+```
+
+### 5-4. 파일 트리 요약
+
+```
+backend/
+├── src/
+│   ├── main.ts                 # 부트스트랩 — prefix api · CORS · Swagger
+│   ├── app.module.ts           # Config · TypeORM · Feature 모듈 조립
+│   │
+│   ├── auth/
+│   │   ├── auth.controller.ts  # /auth — Google · JWT · 세션 · 지갑 연결
+│   │   ├── auth.service.ts
+│   │   ├── guards/             # JwtAuthGuard
+│   │   └── strategies/         # google · jwt
+│   │
+│   ├── user/
+│   │   ├── user.service.ts
+│   │   └── entities/user.entity.ts
+│   │
+│   ├── mail/
+│   │   └── mail.service.ts     # SMTP (Auth에서 사용)
+│   │
+│   ├── marketplace/
+│   │   ├── marketplace.controller.ts  # /marketplace — Seaport 오더북 DB
+│   │   ├── marketplace.service.ts
+│   │   ├── collection.service.ts
+│   │   ├── entities/           # order · marketplace-collection
+│   │   └── *.util.ts           # bucket-key · 커버·라벨 추출
+│   │
+│   ├── nft/
+│   │   ├── nft.controller.ts   # /rwa — IPFS 업로드
+│   │   ├── nft.service.ts
+│   │   └── dto/
+│   │
+│   ├── blockchain/
+│   │   ├── blockchain.controller.ts
+│   │   ├── blockchain.service.ts
+│   │   ├── abis/
+│   │   └── providers/          # ethers · USDC · RWA 팩토리
+│   │
+│   ├── price/
+│   │   ├── price.controller.ts # /price — JustTCG 프록시
+│   │   ├── price.service.ts
+│   │   └── price.mock.ts       # TCG_USE_MOCK 시 고정 응답
+│   │
+│   ├── psa/
+│   │   ├── psa.controller.ts   # /psa/analyze
+│   │   ├── psa.service.ts      # OCR · 병합 · JustTCG 검색
+│   │   ├── psa-public-api.service.ts
+│   │   └── psa-*.util.ts
+│   │
+│   └── util/
+│       └── pinata/pinata.service.ts
+│
+├── sql/
+│   └── bootstrap-empty-prod-db.sql
+│
+└── Dockerfile
+```
+
+---
+
 ## 범례
 
 | 아이콘 | 의미 |
