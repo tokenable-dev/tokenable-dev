@@ -65,6 +65,15 @@ interface CollectionUnifiedOrderBookProps {
   collectionBids: Order[];
   address?: string;
   onInvalidate?: () => void;
+  /** When user clicks a depth row, parent can map price + orders into the trade ticket. */
+  onSelectLevel?: (sel: {
+    side: "ask" | "bid";
+    levelKey: string;
+    price: number;
+    orders: Order[];
+  }) => void;
+  /** Highlights the row that is driving the trade ticket. */
+  selectedLevelKey?: string | null;
 }
 
 export function CollectionUnifiedOrderBook({
@@ -73,6 +82,8 @@ export function CollectionUnifiedOrderBook({
   collectionBids,
   address: addressProp,
   onInvalidate,
+  onSelectLevel,
+  selectedLevelKey,
 }: CollectionUnifiedOrderBookProps) {
   const [cancelling, setCancelling] = useState<string | null>(null);
   const [instantBusy, setInstantBusy] = useState<string | null>(null);
@@ -177,28 +188,40 @@ export function CollectionUnifiedOrderBook({
     return Number.isFinite(max) && max > 0 ? max : null;
   }, [bidRows]);
 
-  const midLabel = useMemo(() => {
+  /** Center strip: best ask (buyers’ reference) vs best bid — matches “last / reference price” row in pro OB UIs */
+  const bookCenterDisplay = useMemo(() => {
+    const fmt = (n: number) =>
+      n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     if (bestAskPrice != null && bestBidPrice != null) {
-      return ((bestAskPrice + bestBidPrice) / 2).toLocaleString("en-US", {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      });
+      return {
+        primary: fmt(bestAskPrice),
+        primaryTone: "ask" as const,
+        secondary: fmt(bestBidPrice),
+        caption: `Spread ${fmt(bestAskPrice - bestBidPrice)} USDC`,
+      };
     }
-    if (bestAskPrice != null)
-      return bestAskPrice.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    if (bestBidPrice != null)
-      return bestBidPrice.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    return "—";
-  }, [bestAskPrice, bestBidPrice]);
-
-  const spreadText = useMemo(() => {
-    if (bestAskPrice != null && bestBidPrice != null) {
-      const s = bestAskPrice - bestBidPrice;
-      return `Spread ${s.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDC`;
+    if (bestAskPrice != null) {
+      return {
+        primary: fmt(bestAskPrice),
+        primaryTone: "ask" as const,
+        secondary: null as string | null,
+        caption: "Best ask (floor)",
+      };
     }
-    if (bestAskPrice != null) return `Best ask ${formatPriceUsdc(bestAskPrice)} USDC`;
-    if (bestBidPrice != null) return `Best bid ${formatPriceUsdc(bestBidPrice)} USDC`;
-    return "No orders";
+    if (bestBidPrice != null) {
+      return {
+        primary: fmt(bestBidPrice),
+        primaryTone: "bid" as const,
+        secondary: null as string | null,
+        caption: "Best collection bid",
+      };
+    }
+    return {
+      primary: "—",
+      primaryTone: "none" as const,
+      secondary: null as string | null,
+      caption: "No orders",
+    };
   }, [bestAskPrice, bestBidPrice]);
 
   const myAsks = useMemo(() => {
@@ -296,11 +319,6 @@ export function CollectionUnifiedOrderBook({
       };
     }
   }, [selectedAsk, selectedInstantBid]);
-
-  const bidCount = bidRows.length;
-  const askCount = askRows.length;
-  const denom = bidCount + askCount || 1;
-  const bidPct = Math.round((bidCount / denom) * 100);
 
   async function handleCancelBid(o: Order) {
     if (!address) return;
@@ -402,110 +420,156 @@ export function CollectionUnifiedOrderBook({
   }, [instantModalOpen, canInstantMatch]);
 
   return (
-    <div className="rounded-2xl border border-mint-deep/20 bg-gradient-to-b from-[#0c1018] to-[#07090c] overflow-hidden shadow-[0_12px_40px_-12px_rgba(0,0,0,0.65)]">
-      <div className="px-4 pt-4 pb-1 flex items-start justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-bold text-white tracking-tight">Order book</h2>
-          <p className="text-[11px] text-gray-500 mt-0.5">Price (USDC) · Qty (listings)</p>
+    <div className="relative overflow-hidden rounded-2xl border border-gray-800/90 bg-[#12151c] shadow-[0_16px_48px_-20px_rgba(0,0,0,0.75)]">
+      <div
+        className="pointer-events-none absolute -right-8 -top-12 h-40 w-52 rounded-full bg-emerald-500/[0.12] blur-3xl"
+        aria-hidden
+      />
+      <div className="relative border-b border-gray-800/80 px-2.5 pt-2.5 pb-1.5 sm:px-3 flex items-end justify-between gap-2">
+        <h2 className="text-sm font-bold text-white tracking-tight">Order Book</h2>
+        <div className="flex rounded-lg bg-black/30 p-0.5 ring-1 ring-white/[0.06]">
+          <button
+            type="button"
+            onClick={() => setTab("book")}
+            className={`rounded-md px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide transition-colors ${
+              tab === "book"
+                ? "bg-white/[0.08] text-white shadow-sm"
+                : "text-gray-500 hover:text-gray-300"
+            }`}
+          >
+            Book
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab("trades")}
+            className={`rounded-md px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide transition-colors ${
+              tab === "trades"
+                ? "bg-white/[0.08] text-white shadow-sm"
+                : "text-gray-500 hover:text-gray-300"
+            }`}
+          >
+            Trades
+          </button>
         </div>
-      </div>
-
-      <div className="flex border-b border-gray-800/90 mt-1">
-        <button
-          type="button"
-          onClick={() => setTab("book")}
-          className={`flex-1 py-2.5 text-xs font-semibold tracking-wide transition-colors ${
-            tab === "book"
-              ? "text-white border-b-2 border-mint bg-white/[0.03]"
-              : "text-gray-500 hover:text-gray-300"
-          }`}
-        >
-          Order book
-        </button>
-        <button
-          type="button"
-          onClick={() => setTab("trades")}
-          className={`flex-1 py-2.5 text-xs font-semibold tracking-wide transition-colors ${
-            tab === "trades"
-              ? "text-white border-b-2 border-mint bg-white/[0.03]"
-              : "text-gray-500 hover:text-gray-300"
-          }`}
-        >
-          Recent trades
-        </button>
       </div>
 
       {tab === "book" && (
         <>
-          <div className="grid grid-cols-[1fr_44px] gap-1 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-500 border-b border-gray-800/80">
-            <span>Price</span>
-            <span className="text-right">Qty</span>
+          <div className="relative grid grid-cols-[1fr_44px] gap-1.5 px-2.5 sm:px-3 py-1.5 text-[9px] font-medium text-gray-500 border-b border-gray-800/80">
+            <span>Price (USDC)</span>
+            <span className="text-right tabular-nums">Count</span>
           </div>
 
-          {/* Asks — red, highest price at top */}
-          <div className="min-h-[48px] max-h-[180px] flex flex-col justify-end gap-px px-1 pt-1 overflow-y-auto">
+          {/* Asks — sell side; depth bars from the right */}
+          <div className="min-h-[36px] max-h-[100px] flex flex-col justify-end gap-px px-1 pt-0.5 overflow-y-auto">
             {askLevels.length === 0 ? (
-              <div className="py-5 text-center text-[11px] text-gray-600">No sell orders</div>
+              <div className="py-3 text-center text-[10px] text-gray-600">No sell orders</div>
             ) : (
               askLevels.map((level) => (
-                <div
+                <button
                   key={level.key}
-                  className="relative min-h-[28px] flex items-start rounded-sm overflow-hidden group"
+                  type="button"
+                  onClick={() =>
+                    onSelectLevel?.({
+                      side: "ask",
+                      levelKey: level.key,
+                      price: level.price,
+                      orders: level.orders,
+                    })
+                  }
+                  className={`relative min-h-[24px] w-full text-left flex items-center rounded-[2px] overflow-hidden transition-colors cursor-pointer hover:bg-white/[0.04] focus:outline-none focus-visible:ring-1 focus-visible:ring-rose-500/40 ${
+                    selectedLevelKey === level.key ? "ring-1 ring-rose-500/50 bg-white/[0.06]" : ""
+                  }`}
                 >
                   <div
-                    className="absolute inset-y-0 right-0 bg-rose-500/[0.14] transition-[width]"
+                    className="absolute inset-y-0 right-0 bg-gradient-to-l from-rose-600/35 to-rose-600/[0.07] transition-[width]"
                     style={{ width: `${Math.min(100, level.depth * 100)}%` }}
                   />
-                  <div className="relative z-10 grid grid-cols-[1fr_44px] gap-1 w-full px-2 py-1.5 text-[11px] font-mono tabular-nums items-center">
-                    <span className="text-rose-400 font-medium leading-tight">
-                      {formatPriceUsdc(level.price)}
-                    </span>
-                    <span className="text-right text-gray-400 leading-tight">{level.count}</span>
+                  <div className="relative z-10 grid grid-cols-[1fr_44px] gap-1.5 w-full px-2 py-1 text-[11px] font-mono tabular-nums items-center leading-none pointer-events-none">
+                    <span className="text-red-300/95 font-medium">{formatPriceUsdc(level.price)}</span>
+                    <span className="text-right text-gray-200/90">{level.count}</span>
                   </div>
-                </div>
+                </button>
               ))
             )}
           </div>
 
-          {/* Mid */}
-          <div className="my-0.5 mx-1 rounded-lg bg-gray-900/90 border border-gray-800 py-2.5 px-2">
-            <div className="text-center">
-              <div className="text-lg font-bold text-mint tabular-nums tracking-tight">
-                {midLabel}
+          {/* Reference price — large figure + arrow (no trade tape yet; ask/bid reference) */}
+          <div className="relative mx-0.5 my-0.5 border-y border-gray-800/90 bg-[#0c0f14]/95 py-1.5 px-1.5">
+            <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-0.5">
+              <div className="flex items-center gap-1">
+                <span
+                  className={`text-lg sm:text-xl font-bold tabular-nums tracking-tight ${
+                    bookCenterDisplay.primaryTone === "ask"
+                      ? "text-red-400"
+                      : bookCenterDisplay.primaryTone === "bid"
+                        ? "text-emerald-400"
+                        : "text-gray-500"
+                  }`}
+                >
+                  {bookCenterDisplay.primary}
+                </span>
+                {bookCenterDisplay.primaryTone === "ask" && (
+                  <span className="text-base text-red-400/90 leading-none" aria-hidden>
+                    ↓
+                  </span>
+                )}
+                {bookCenterDisplay.primaryTone === "bid" && (
+                  <span className="text-base text-emerald-400/90 leading-none" aria-hidden>
+                    ↑
+                  </span>
+                )}
               </div>
-              <div className="text-[10px] text-gray-500 mt-0.5">{spreadText}</div>
-              <div className="text-[10px] text-gray-600 mt-1">Collection mid · USDC</div>
+              {bookCenterDisplay.secondary != null && (
+                <span className="text-xs font-mono tabular-nums text-gray-500">
+                  {bookCenterDisplay.secondary}
+                </span>
+              )}
             </div>
+            <p className="text-center text-[9px] text-gray-600 mt-1 tabular-nums leading-tight">
+              {bookCenterDisplay.caption}
+            </p>
           </div>
 
-          {/* Bids — green */}
-          <div className="max-h-[220px] overflow-y-auto flex flex-col gap-px px-1 pb-1">
+          {/* Bids — buy side; depth bars from the left */}
+          <div className="max-h-[100px] overflow-y-auto flex flex-col gap-px px-1 pb-1.5">
             {bidLevels.length === 0 ? (
-              <div className="py-6 text-center text-[11px] text-gray-600">No buy orders</div>
+              <div className="py-3 text-center text-[10px] text-gray-600">No buy orders</div>
             ) : (
               bidLevels.map((level) => (
-                <div
+                <button
                   key={level.key}
-                  className="relative min-h-[28px] flex items-start rounded-sm overflow-hidden group"
+                  type="button"
+                  onClick={() =>
+                    onSelectLevel?.({
+                      side: "bid",
+                      levelKey: level.key,
+                      price: level.price,
+                      orders: level.orders,
+                    })
+                  }
+                  className={`relative min-h-[24px] w-full text-left flex items-center rounded-[2px] overflow-hidden transition-colors cursor-pointer hover:bg-white/[0.04] focus:outline-none focus-visible:ring-1 focus-visible:ring-emerald-500/40 ${
+                    selectedLevelKey === level.key ? "ring-1 ring-emerald-500/50 bg-white/[0.06]" : ""
+                  }`}
                 >
                   <div
-                    className="absolute inset-y-0 left-0 bg-mint/[0.12] transition-[width]"
+                    className="absolute inset-y-0 left-0 bg-gradient-to-r from-emerald-600/35 to-emerald-600/[0.07] transition-[width]"
                     style={{ width: `${Math.min(100, level.depth * 100)}%` }}
                   />
-                  <div className="relative z-10 grid grid-cols-[1fr_44px] gap-1 w-full px-2 py-1.5 text-[11px] font-mono tabular-nums items-center">
-                    <span className="text-mint font-medium leading-tight">
+                  <div className="relative z-10 grid grid-cols-[1fr_44px] gap-1.5 w-full px-2 py-1 text-[11px] font-mono tabular-nums items-center leading-none pointer-events-none">
+                    <span className="text-emerald-300/95 font-medium">
                       {formatPriceUsdc(level.price)}
                     </span>
-                    <span className="text-right text-gray-400 leading-tight">{level.count}</span>
+                    <span className="text-right text-gray-200/90">{level.count}</span>
                   </div>
-                </div>
+                </button>
               ))
             )}
           </div>
 
           {(myBids.length > 0 ||
             (myAsks.length > 0 && bidRows.length > 0 && address)) && (
-            <div className="px-3 py-3 border-t border-gray-800/80 space-y-3">
+            <div className="px-2 py-2 border-t border-gray-800/80 space-y-2">
               {myBids.length > 0 && (
                 <div className="space-y-1.5">
                   <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-500">
@@ -585,15 +649,13 @@ export function CollectionUnifiedOrderBook({
             </div>
           )}
 
-          <div className="px-3 py-2 border-t border-gray-800/90">
-            <div className="h-1.5 w-full rounded-full overflow-hidden flex bg-gray-800">
-              <div className="h-full bg-mint/80 transition-all" style={{ width: `${bidPct}%` }} />
-              <div className="h-full flex-1 bg-rose-500/80" />
-            </div>
-            <div className="flex justify-between text-[10px] text-gray-500 mt-1 font-mono">
-              <span className="text-mint/90">Bids {bidPct}%</span>
-              <span className="text-rose-400/90">Asks {100 - bidPct}%</span>
-            </div>
+          <div className="flex justify-between gap-2 px-2.5 py-1.5 border-t border-gray-800/80 text-[9px] font-mono text-gray-600 tabular-nums">
+            <span>
+              Bids <span className="text-emerald-500/80">{bidRows.length}</span>
+            </span>
+            <span>
+              Asks <span className="text-rose-400/80">{askRows.length}</span>
+            </span>
           </div>
         </>
       )}

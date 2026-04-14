@@ -1,7 +1,8 @@
 # develop 푸시 → ECR 빌드 후 EC2에서 docker-compose pull
 #
-# Repository secrets (개발 서버 URL 예: http://54.116.29.201)
-#   NEXT_PUBLIC_API_URL=http://54.116.29.201/api
+# Repository secrets
+#   NEXT_PUBLIC_API_URL — leave unset / remove secret for Nginx same-origin /api (works for IP, domain, https).
+#                         Set only if the browser must call a different API host (e.g. https://api.other.com/api).
 #   NEXT_PUBLIC_ALCHEMY_RPC_URL=https://eth-sepolia.g.alchemy.com/v2/<KEY>
 #   NEXT_PUBLIC_RWA_CONTRACT_ADDRESS (필수) — **Repository secrets** 에 넣어야 함 (Variables 만 있으면 빌드에 안 넘어감 → 아래에서 vars 폴백)
 #   레거시 NEXT_PUBLIC_NFT_CONTRACT_ADDRESS (선택)
@@ -66,8 +67,14 @@ jobs:
           if [ -z "$FEE_RCPT" ]; then FEE_RCPT="${{ vars.NEXT_PUBLIC_PLATFORM_FEE_RECIPIENT }}"; fi
           if [ -z "$FEE_BPS" ];  then FEE_BPS="${{ vars.NEXT_PUBLIC_PLATFORM_FEE_BPS }}"; fi
 
+          EXTRA_BUILD_ARGS=()
+          API_URL="${{ secrets.NEXT_PUBLIC_API_URL }}"
+          if [ -n "$API_URL" ]; then
+            EXTRA_BUILD_ARGS+=(--build-arg "NEXT_PUBLIC_API_URL=$API_URL")
+          fi
+
           docker build \
-            --build-arg NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }} \
+            "${EXTRA_BUILD_ARGS[@]}" \
             --build-arg NEXT_PUBLIC_RWA_CONTRACT_ADDRESS="$RWA" \
             --build-arg NEXT_PUBLIC_NFT_CONTRACT_ADDRESS="$NFT" \
             --build-arg NEXT_PUBLIC_USDC_CONTRACT_ADDRESS="$USDC" \

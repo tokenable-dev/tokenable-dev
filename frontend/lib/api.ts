@@ -2,13 +2,15 @@ import type { PublicClient } from "viem";
 import { TOKENABLE_RWA_ADDRESS, TOKENABLE_RWA_READ_ABI } from "@/constants/contracts";
 
 /**
- * 브라우저: Next rewrites로 동일 출처 `/api` → 백엔드 (httpOnly 쿠키 인증).
- * 서버/빌드: INTERNAL_API_URL 또는 직접 백엔드 URL.
- * NEXT_PUBLIC_API_URL 이 있으면 그대로 사용 (별도 도메인 API).
+ * EC2+Nginx: leave NEXT_PUBLIC_API_URL unset so the browser uses
+ * `window.location.origin + '/api'` (IP, http/https domain; avoids mixed content).
+ * Set NEXT_PUBLIC_API_URL only when the API is on a different host.
+ * Server/SSR: INTERNAL_API_URL or direct backend URL.
  */
 export function getApiUrl(): string {
-  if (process.env.NEXT_PUBLIC_API_URL) {
-    return process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, "");
+  const explicit = process.env.NEXT_PUBLIC_API_URL?.trim();
+  if (explicit) {
+    return explicit.replace(/\/$/, "");
   }
   if (typeof window !== "undefined") {
     return `${window.location.origin}/api`;
