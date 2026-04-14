@@ -38,7 +38,9 @@ Match **the URL users actually type** in the address bar.
 ## DNS and TLS
 
 - Point the domain **A record** at the instance public IP.
-- Terminate **HTTPS on Nginx** (`443` is already mapped in `docker-compose.yml`). Mount certificates and add a `listen 443 ssl` server block in `nginx.conf` (e.g. Let’s Encrypt via Certbot).
+- Terminate **HTTPS on Nginx** (`443` is already mapped in `docker-compose.yml`). Use Certbot **webroot** with `/.well-known/acme-challenge/` (see `nginx/nginx.conf`).
+
+**Git vs server:** The repo keeps **`nginx/nginx.conf`** as **HTTP only** (port 80 + ACME + proxy) so deploys work before certificates exist. After `certbot certonly` succeeds on the server, copy the template: `cp nginx/nginx.tls.conf nginx/nginx.conf` and recreate the Nginx container. Do **not** commit that HTTPS `nginx.conf` back to Git (or you will break fresh deploys). Adjust `server_name` and certificate paths in `nginx/nginx.tls.conf` if your domain differs from `tokenable-dev.com`.
 
 `X-Forwarded-Proto` is already passed to the backend so it can infer the client scheme.
 
@@ -58,6 +60,6 @@ Match **the URL users actually type** in the address bar.
 | `frontend/Dockerfile` | `NEXT_PUBLIC_*` build args |
 | `.github/workflows/deploy.yml` | Optional `NEXT_PUBLIC_API_URL` build-arg |
 | `docker-compose.yml` | `INTERNAL_API_URL`, Nginx ports |
-| `nginx/nginx.conf` | `/api` → backend, `/` → frontend |
+| `nginx/nginx.conf` | HTTP + ACME + `/api` → backend (Git); HTTPS template: `nginx/nginx.tls.conf` |
 | `backend/src/main.ts` | `CORS_ORIGIN` |
 | `backend/src/auth/*` | `FRONTEND_URL`, `GOOGLE_CALLBACK_URL`, cookies |
