@@ -20,16 +20,13 @@ import {
   USDC_ADDRESS,
   USDC_ABI,
 } from "@/constants/contracts";
-import { createOrder, fulfillOrderApi, type Order } from "@/lib/api";
+import { createOrder, type Order } from "@/lib/api";
 import { GAS_FALLBACK, gasWithCapFast } from "@/lib/chainGas";
 import { mapWalletError } from "@/lib/walletError";
 import { assertMerkleRootBytes32 } from "@/lib/seaport/eip712Uint";
-import {
-  FULFILL_EXTRA_DATA,
-  fulfillSeaportOrderArgs,
-} from "@/lib/seaportFulfillOrderArgs";
 import { SeaportMerkleTree } from "@/lib/seaport/merkle";
 import { feePercent } from "@/lib/seaport/platformFee";
+import { fulfillAskListingOrder } from "@/lib/seaport/fulfillAskListing";
 
 const ZERO_BYTES32 =
   "0x0000000000000000000000000000000000000000000000000000000000000000" as const;
@@ -113,12 +110,15 @@ export function CollectionCriteriaBidPanel({
   connectedAddress,
   onPlaced,
   onOpenSellModal,
+  presetPriceFromBook,
 }: {
   collectionKey: string;
   activeAsks?: Order[];
   connectedAddress?: `0x${string}` | string | null;
   onPlaced?: (order: Order) => void;
   onOpenSellModal?: () => void;
+  /** Synced when user clicks a bid row on the order book (criteria bid price). */
+  presetPriceFromBook?: string | null;
 }) {
   const { address: wagmiAddress, isConnected } = useAccount();
   const address =
@@ -178,9 +178,16 @@ export function CollectionCriteriaBidPanel({
 
   const lowestAskUsdc = lowestAsk ? formatUsdc6(String(askPriceMicros(lowestAsk))) : null;
 
+  useEffect(() => {
+    if (presetPriceFromBook != null && presetPriceFromBook.trim() !== "") {
+      setPrice(presetPriceFromBook);
+      priceTouchedRef.current = false;
+    }
+  }, [presetPriceFromBook]);
+
   /** Prefill so Buy isn’t stuck disabled on empty input (common after page load). */
   useEffect(() => {
-    if (priceTouchedRef.current || !lowestAsk) return;
+    if (priceTouchedRef.current || !lowestAsk || presetPriceFromBook != null) return;
     try {
       const s = formatUnits(askPriceMicros(lowestAsk), 6);
       const n = parseFloat(s);
@@ -188,7 +195,8 @@ export function CollectionCriteriaBidPanel({
     } catch {
       /* ignore */
     }
-  }, [lowestAsk]);
+  }, [lowestAsk, presetPriceFromBook]);
+
 
   const priceInUnits = useMemo(() => {
     try {
@@ -247,76 +255,26 @@ export function CollectionCriteriaBidPanel({
 
   async function runInstantPurchase(ask: Order) {
     if (!address || !publicClient) return;
-    const payUnits = askPriceMicros(ask);
-
-    let allowance = usdcAllowanceRaw as bigint | undefined;
-    if (allowance === undefined) {
-      allowance = await publicClient.readContract({
-        address: USDC_ADDRESS,
-        abi: USDC_ABI,
-        functionName: "allowance",
-        args: [address, SEAPORT_ADDRESS],
-      });
-    }
-
-    /** Fulfill 가스 추정을 approve·영수증 대기와 겹쳐서 두 번째 트랜잭션 팝업까지 지연 완화 */
-    const gasFulfillPromise = gasWithCapFast(
-      publicClient,
-      {
-        address: SEAPORT_ADDRESS,
-        abi: SEAPORT_ABI,
-        functionName: "fulfillOrder",
-        args: [fulfillSeaportOrderArgs(ask), FULFILL_EXTRA_DATA],
-        account: address,
-      },
-      GAS_FALLBACK.fulfillOrder,
-    );
-
-    if (allowance < payUnits) {
-      setStep("approving");
-      const gasApprovePromise = gasWithCapFast(
-        publicClient,
-        {
-          address: USDC_ADDRESS,
-          abi: USDC_ABI,
-          functionName: "approve",
-          args: [SEAPORT_ADDRESS, payUnits],
-          account: address,
-        },
-        GAS_FALLBACK.erc20Approve,
-      );
-      const gasApprove = await gasApprovePromise;
-      const approveTx = await writeContractAsync({
-        address: USDC_ADDRESS,
-        abi: USDC_ABI,
-        functionName: "approve",
-        args: [SEAPORT_ADDRESS, payUnits],
-        chainId: sepolia.id,
-        gas: gasApprove,
-      });
-      await publicClient.waitForTransactionReceipt({ hash: approveTx });
-    }
-
     setStep("buying");
-    const gasFulfill = await gasFulfillPromise;
-    const fulfillTx = await writeContractAsync({
-      address: SEAPORT_ADDRESS,
-      abi: SEAPORT_ABI,
-      functionName: "fulfillOrder",
-      args: [fulfillSeaportOrderArgs(ask), FULFILL_EXTRA_DATA],
-      chainId: sepolia.id,
-      gas: gasFulfill,
-    });
-    const receipt = await publicClient.waitForTransactionReceipt({ hash: fulfillTx });
-    if (receipt.status === "reverted") {
-      throw new Error("Purchase was reverted on-chain. Check USDC balance and try again.");
+    setErrorMsg("");
+    try {
+      await fulfillAskListingOrder({
+        ask,
+        address,
+        publicClient,
+        writeContractAsync: writeContractAsync as Parameters<
+          typeof fulfillAskListingOrder
+        >[0]["writeContractAsync"],
+        chainId: sepolia.id,
+      });
+      setLastOutcome("instant");
+      setStep("success");
+      onPlaced?.(ask);
+      void invalidateAfterTrade();
+    } catch (e: unknown) {
+      setStep("error");
+      setErrorMsg(mapWalletError(e).message);
     }
-
-    await fulfillOrderApi(ask.orderHash);
-    setLastOutcome("instant");
-    setStep("success");
-    onPlaced?.(ask);
-    void invalidateAfterTrade();
   }
 
   async function handleSubmit() {

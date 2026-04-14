@@ -71,6 +71,7 @@ tokenable-dev/
 | Document | Contents |
 |----------|----------|
 | **[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)** | DB reset, TypeORM, API summary, Seaport, deploy, PSA troubleshooting, diagram index |
+| **[docs/DEPLOY_EC2_DOMAIN.md](docs/DEPLOY_EC2_DOMAIN.md)** | EC2 Docker, domain, same-origin `/api`, CORS, OAuth, TLS checklist |
 | **[docs/price-api.md](docs/price-api.md)** | JustTCG price API (long reference) |
 | **[backend/sql/README.md](backend/sql/README.md)** | Why there are no SQL migrations |
 
