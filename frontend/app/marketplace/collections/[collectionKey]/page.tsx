@@ -366,7 +366,7 @@ export default function MarketplaceCollectionPage() {
           {tokenIds.length === 0 ? (
             <div className="rounded-2xl border border-gray-800 bg-gray-900/30 px-4 py-8 text-center text-sm text-gray-400">
               No listings yet. List an asset from{" "}
-              <Link href="/vault?tab=my-rwa" className="text-mint hover:underline">
+              <Link href="/portfolio" className="text-mint hover:underline">
                 My Assets
               </Link>
               .

@@ -20,6 +20,7 @@ import {
   type PsaFieldLocks,
 } from "@/types/gradedCard";
 import { GradedCardSection } from "./GradedCardSection";
+import { WalletConnect } from "@/components/wallet/WalletConnect";
 
 type Step = "idle" | "uploading" | "minting" | "success" | "error";
 
@@ -685,8 +686,10 @@ export function MintForm() {
 
         <div className="space-y-3 rounded-xl border border-gray-700/50 bg-gray-800/20 p-4">
             <p className="text-xs leading-relaxed text-gray-500">
-              After slab upload, OCR + PSA API + JustTCG run automatically.
-              Enter <span className="text-gray-300">Cert #</span> or <span className="text-gray-300">Cert URL</span> first for best results.
+              Start with <span className="text-gray-300">slab photos</span> at the top. After upload,
+              OCR + PSA API + JustTCG run automatically. Add{" "}
+              <span className="text-gray-300">Cert URL</span> in the upload section if you have it — it
+              speeds up lookup.
             </p>
             <button
               type="button"
@@ -807,17 +810,23 @@ export function MintForm() {
           </div>
         )}
 
-        <button
-          type="submit"
-          disabled={isProcessing || slabAnalyzing}
-          className="w-full py-3.5 bg-gradient-to-r from-mint to-mint-dim hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed text-mint-ink text-sm font-bold rounded-xl transition-all duration-200 shadow-lg shadow-mint/25"
-        >
-          {isProcessing
-            ? "Processing..."
-            : slabAnalyzing
-              ? "Analyzing slab…"
-              : "Submit Request"}
-        </button>
+        {!isConnected ? (
+          <WalletConnect
+            connectButtonClassName="w-full py-3.5 bg-gradient-to-r from-mint to-mint-dim hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed text-mint-ink text-sm font-bold rounded-xl transition-all duration-200 shadow-lg shadow-mint/25"
+          />
+        ) : (
+          <button
+            type="submit"
+            disabled={isProcessing || slabAnalyzing}
+            className="w-full py-3.5 bg-gradient-to-r from-mint to-mint-dim hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed text-mint-ink text-sm font-bold rounded-xl transition-all duration-200 shadow-lg shadow-mint/25"
+          >
+            {isProcessing
+              ? "Processing..."
+              : slabAnalyzing
+                ? "Analyzing slab…"
+                : "Submit Request"}
+          </button>
+        )}
       </form>
     </div>
 

@@ -49,7 +49,7 @@ export function CollectionTradeGuide() {
                 <li>
                   <strong className="text-gray-300">List</strong> —{" "}
                   <Link
-                    href="/vault?tab=my-rwa"
+                    href="/portfolio"
                     className="text-mint hover:underline font-medium"
                   >
                     My Assets

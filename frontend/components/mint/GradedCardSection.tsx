@@ -109,6 +109,12 @@ export function GradedCardSection({
 
   return (
     <div className="space-y-6 transition-opacity duration-200">
+      <PsaSlabUploadHero
+        verification={verification}
+        onVerificationChange={onVerificationChange}
+        psaFieldLocks={L}
+      />
+
       {/* Card Name */}
       <div>
         <label className="block text-sm font-medium text-gray-300 mb-2">Card Name</label>
@@ -239,13 +245,6 @@ export function GradedCardSection({
           />
         </div>
       </div>
-
-      {/* Upload card photos */}
-      <PsaSlabUploadHero
-        verification={verification}
-        onVerificationChange={onVerificationChange}
-        psaFieldLocks={L}
-      />
 
       {/* PSA Specific Details — collapsible */}
       {hasCompany && (

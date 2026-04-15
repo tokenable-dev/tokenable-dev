@@ -1,14 +1,10 @@
 "use client";
 
 import { Suspense, useState, useEffect } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { WalletConnect } from "@/components/wallet";
 import { MintForm } from "@/components/mint";
-import { MyAssets } from "@/components/my-assets";
 import { useAuthStore } from "@/store/authStore";
-
-type Tab = "mint" | "my-rwa";
 
 const STEPS = [
   { num: 1, label: "Request" },
@@ -17,14 +13,17 @@ const STEPS = [
   { num: 4, label: "Mint" },
 ] as const;
 
-function TabParamSync({ onTab }: { onTab: (t: Tab) => void }) {
+/** Legacy `/vault?tab=my-rwa` → Portfolio (My Assets lives in header → Portfolio). */
+function LegacyVaultTabRedirect() {
   const searchParams = useSearchParams();
+  const router = useRouter();
+
   useEffect(() => {
-    const tab = searchParams.get("tab");
-    if (tab === "my-rwa" || tab === "mint") {
-      onTab(tab);
+    if (searchParams.get("tab") === "my-rwa") {
+      router.replace("/portfolio");
     }
-  }, [searchParams, onTab]);
+  }, [searchParams, router]);
+
   return null;
 }
 
@@ -107,92 +106,44 @@ function Stepper({ active }: { active: number }) {
 }
 
 export default function VaultPage() {
-  const [activeTab, setActiveTab] = useState<Tab>("mint");
-
   return (
     <div className="min-h-screen bg-[#030712] text-white">
       <Suspense fallback={null}>
-        <TabParamSync onTab={setActiveTab} />
+        <LegacyVaultTabRedirect />
       </Suspense>
       <Suspense fallback={null}>
         <EmailVerifyToastSync />
       </Suspense>
 
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8 pb-20">
-        {/* Tab selector */}
-        <div className="flex gap-1 bg-gray-900/50 border border-gray-800 rounded-xl p-1 mb-8 max-w-xs mx-auto">
-          <button
-            onClick={() => setActiveTab("mint")}
-            className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${
-              activeTab === "mint"
-                ? "bg-mint/12 text-mint border border-mint-deep/35 shadow-sm shadow-mint/10"
-                : "text-gray-500 hover:text-gray-300"
-            }`}
-          >
-            Tokenize
-          </button>
-          <button
-            onClick={() => setActiveTab("my-rwa")}
-            className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${
-              activeTab === "my-rwa"
-                ? "bg-mint/12 text-mint border border-mint-deep/35 shadow-sm shadow-mint/10"
-                : "text-gray-500 hover:text-gray-300"
-            }`}
-          >
-            My Assets
-          </button>
+        <Stepper active={1} />
+
+        <div className="text-center mb-10">
+          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight mb-3">
+            Vault Tokenization
+          </h1>
+          <p className="text-sm text-gray-400 max-w-md mx-auto leading-relaxed">
+            Deposit your physical collectible into Tokenable Vault and receive
+            tokenized ownership on-chain.
+          </p>
+          <p className="text-xs text-gray-500 max-w-lg mx-auto mt-3 leading-relaxed">
+            When you are ready to mint, use{" "}
+            <span className="text-gray-400">Connect MetaMask</span> at the
+            bottom of the form. After minting, open{" "}
+            <span className="text-gray-400">My Assets</span> from the wallet
+            menu or visit{" "}
+            <Link href="/portfolio" className="text-mint hover:underline">
+              Portfolio
+            </Link>
+            . Link the same address in{" "}
+            <Link href="/profile" className="text-mint hover:underline">
+              Profile
+            </Link>{" "}
+            if you use email login.
+          </p>
         </div>
 
-        {activeTab === "mint" && (
-          <>
-            {/* Stepper */}
-            <Stepper active={1} />
-
-            {/* Title */}
-            <div className="text-center mb-10">
-              <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight mb-3">
-                Vault Tokenization
-              </h1>
-              <p className="text-sm text-gray-400 max-w-md mx-auto leading-relaxed">
-                Deposit your physical collectible into Tokenable Vault and
-                receive tokenized ownership on-chain.
-              </p>
-            </div>
-
-            {/* Wallet connect bar */}
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-800 bg-gray-900/30 px-4 py-3 mb-6">
-              <p className="text-xs text-gray-500 max-w-md">
-                Connect MetaMask to tokenize your asset. Prefer linking the same
-                address in{" "}
-                <Link href="/profile" className="text-mint hover:underline">
-                  Profile
-                </Link>
-                .
-              </p>
-              <WalletConnect />
-            </div>
-
-            {/* Mint Form */}
-            <MintForm />
-          </>
-        )}
-
-        {activeTab === "my-rwa" && (
-          <div>
-            <div className="flex items-center justify-between mb-6">
-              <h1 className="text-2xl font-extrabold tracking-tight">
-                My Assets
-              </h1>
-              <p className="text-xs text-gray-500">
-                Click &ldquo;List for Sale&rdquo; to sell on the{" "}
-                <Link href="/exchange" className="text-mint hover:underline">
-                  Exchange
-                </Link>
-              </p>
-            </div>
-            <MyAssets />
-          </div>
-        )}
+        <MintForm />
       </div>
     </div>
   );
