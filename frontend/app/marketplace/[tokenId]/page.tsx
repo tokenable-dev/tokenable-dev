@@ -41,6 +41,10 @@ import { ListRwaModal } from "@/components/marketplace/ListRwaModal";
 import { RwaOrderBook } from "@/components/marketplace/RwaOrderBook";
 import { TokenCriteriaMatchPanel } from "@/components/marketplace/TokenCriteriaMatchPanel";
 import { ASSETS } from "@/constants/assets";
+import {
+  computeMarketBucketKey,
+  extractBucketComponentsFromMetadata,
+} from "@/lib/marketplace/bucketKey";
 import { useAppStore, selectWallet, selectUsdcBalance, selectRefresh } from "@/store";
 import { GAS_FALLBACK, gasWithCapFast } from "@/lib/chainGas";
 import { maxUint256 } from "viem";
@@ -220,14 +224,44 @@ export default function RwaDetailPage() {
 
   const fromCollectionParam = searchParams.get("fromCollection")?.trim() ?? "";
 
+  // IPFS metadata for this token (query key separate from exchange card list queries).
+  const { data: metaBundle, isLoading: metaLoading } = useQuery({
+    queryKey: ["marketplace-detail-metadata", tokenId, publicClient?.chain?.id],
+    queryFn: async () => {
+      const tokenURI = await resolveRwaTokenUri(tokenId, publicClient ?? undefined);
+      if (!tokenURI) return null;
+      const metadata = await fetchIpfsMetadata(tokenURI).catch(() => null);
+      return { metadata, tokenURI };
+    },
+    enabled: tokenIdOk,
+    staleTime: 60_000,
+  });
+
+  const { data: metadataDerivedCollectionKey } = useQuery({
+    queryKey: ["metadata-bucket-key", tokenId, metaBundle?.tokenURI],
+    queryFn: async () => {
+      const meta = metaBundle?.metadata;
+      if (!meta) return null;
+      const c = extractBucketComponentsFromMetadata(meta as Record<string, unknown>);
+      if (!c) return null;
+      return await computeMarketBucketKey(c);
+    },
+    enabled: tokenIdOk && !!metaBundle?.metadata,
+    staleTime: 60_000,
+  });
+
+  const collectionKeyForMatch = useMemo(() => {
+    const fromListing = listing?.collectionKey?.trim();
+    if (fromListing) return fromListing;
+    if (fromCollectionParam) return fromCollectionParam;
+    return metadataDerivedCollectionKey ?? null;
+  }, [listing?.collectionKey, fromCollectionParam, metadataDerivedCollectionKey]);
+
   const collectionKeyForRedirect = useMemo(() => {
     if (fromCollectionParam) return fromCollectionParam;
     if (listing?.collectionKey) return listing.collectionKey;
-    return null;
-  }, [fromCollectionParam, listing?.collectionKey]);
-
-  const collectionKeyForMatch =
-    (listing?.collectionKey?.trim() || fromCollectionParam || null) as string | null;
+    return metadataDerivedCollectionKey ?? null;
+  }, [fromCollectionParam, listing?.collectionKey, metadataDerivedCollectionKey]);
 
   const { data: collectionDetail } = useQuery({
     queryKey: ["marketplace-collection", collectionKeyForMatch],
@@ -246,19 +280,6 @@ export default function RwaDetailPage() {
       router.replace("/?tab=marketplace", { scroll: true });
     }
   }, [router, collectionKeyForRedirect]);
-
-  // 키를 목록 카드(Marketplace OrderCard)의 ["rwa-metadata", tokenId]와 분리해야 함.
-  const { data: metaBundle, isLoading: metaLoading } = useQuery({
-    queryKey: ["marketplace-detail-metadata", tokenId, publicClient?.chain?.id],
-    queryFn: async () => {
-      const tokenURI = await resolveRwaTokenUri(tokenId, publicClient ?? undefined);
-      if (!tokenURI) return null;
-      const metadata = await fetchIpfsMetadata(tokenURI).catch(() => null);
-      return { metadata, tokenURI };
-    },
-    enabled: tokenIdOk,
-    staleTime: 60_000,
-  });
 
   const {
     data: ownerOnChain,
@@ -1008,6 +1029,11 @@ export default function RwaDetailPage() {
             {listModalOpen && (
               <ListRwaModal
                 tokenId={tokenId}
+                collectionKey={collectionKeyForMatch ?? undefined}
+                collectionBids={collectionBids}
+                existingAskOrder={
+                  listing && isListingSeller ? listing : undefined
+                }
                 initialPriceUsdc={listModalInitialPrice}
                 onClose={() => {
                   setListModalOpen(false);

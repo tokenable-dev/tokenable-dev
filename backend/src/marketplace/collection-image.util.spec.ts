@@ -2,6 +2,7 @@ import {
   extractCollectionRepresentativeImage,
   extractCoverFromJustTcgCardLike,
   extractJustTcgCardIdFromMetadata,
+  extractJustTcgProductIdentifiersFromMetadata,
   extractJustTcgRepresentativeImage,
 } from './collection-image.util';
 
@@ -79,6 +80,26 @@ describe('extractJustTcgRepresentativeImage', () => {
     expect(extractJustTcgRepresentativeImage(meta)).toBe(
       'https://tcgplayer-cdn.tcgplayer.com/product/219042_200w.jpg',
     );
+  });
+
+  it('extractJustTcgProductIdentifiersFromMetadata fills tcgplayerId when id is absent', () => {
+    const meta = {
+      properties: {
+        graded: {
+          justtcg: {
+            topMatch: {
+              name: 'Pikachu',
+              tcgplayerId: '219042',
+            },
+          },
+        },
+      },
+    };
+    expect(extractJustTcgProductIdentifiersFromMetadata(meta)).toEqual({
+      cardId: null,
+      tcgplayerId: '219042',
+      variantId: null,
+    });
   });
 
   it('extractJustTcgCardIdFromMetadata reads topMatch.id', () => {

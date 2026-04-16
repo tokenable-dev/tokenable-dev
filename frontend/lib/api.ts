@@ -428,10 +428,14 @@ export interface MarketplaceCollectionDetail {
 }
 
 export async function getMarketplaceCollectionDetail(
-  collectionKey: string
+  collectionKey: string,
+  opts?: { bypassCache?: boolean },
 ): Promise<MarketplaceCollectionDetail> {
   const enc = encodeURIComponent(collectionKey);
-  const res = await backendFetch(`${getApiUrl()}/marketplace/collections/${enc}`);
+  const qs = opts?.bypassCache ? `?nocache=${Date.now()}` : "";
+  const res = await backendFetch(`${getApiUrl()}/marketplace/collections/${enc}${qs}`, {
+    ...(opts?.bypassCache ? { cache: "no-store" as RequestCache } : {}),
+  });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(
@@ -441,12 +445,113 @@ export async function getMarketplaceCollectionDetail(
   return res.json() as Promise<MarketplaceCollectionDetail>;
 }
 
-/** Merkle leaf set — active listing token IDs in this collection */
-export async function getMerkleEligibleTokenIds(
-  collectionKey: string
-): Promise<{ tokenIds: string[] }> {
+export interface CollectionUsdPoint {
+  t: number;
+  v: number;
+}
+
+export interface CollectionGradePrices {
+  psa10: number | null;
+  psa9: number | null;
+  raw: number | null;
+}
+
+/** Full dual-series bundle for collection detail chart */
+export interface CollectionMarketSeries {
+  collectionKey: string;
+  justtcgCardId: string | null;
+  categoryLabel: string | null;
+  marketChangePct: number | null;
+  gradePrices: CollectionGradePrices;
+  externalUsd: CollectionUsdPoint[];
+  platformUsd: CollectionUsdPoint[];
+}
+
+/** JustTCG allows at most `180d` for `priceHistoryDuration` (single request = max history). */
+export async function getCollectionMarketSeries(
+  collectionKey: string,
+  priceHistoryDuration: "7d" | "30d" | "90d" | "180d" = "180d"
+): Promise<CollectionMarketSeries> {
+  const enc = encodeURIComponent(collectionKey);
+  const sp = new URLSearchParams();
+  sp.set("priceHistoryDuration", priceHistoryDuration);
   const res = await backendFetch(
-    `${getApiUrl()}/marketplace/collections/${encodeURIComponent(collectionKey)}/merkle-set`
+    `${getApiUrl()}/marketplace/collections/${enc}/market-series?${sp.toString()}`
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(
+      (err as { message?: string }).message ?? "Failed to load market series"
+    );
+  }
+  return res.json() as Promise<CollectionMarketSeries>;
+}
+
+/** Fulfilled listing fill for collection tape (same source as chart platform series). */
+export interface CollectionPlatformTapeFill {
+  t: number;
+  priceUsdc: number;
+  tokenId: string;
+  orderHash: string;
+}
+
+/** DB-only: chart points + tape rows — poll without re-calling JustTCG. */
+export async function getCollectionPlatformTrades(
+  collectionKey: string
+): Promise<{ platformUsd: CollectionUsdPoint[]; trades: CollectionPlatformTapeFill[] }> {
+  const enc = encodeURIComponent(collectionKey);
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/collections/${enc}/platform-trades`
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(
+      (err as { message?: string }).message ?? "Failed to load platform trades"
+    );
+  }
+  return res.json() as Promise<{
+    platformUsd: CollectionUsdPoint[];
+    trades: CollectionPlatformTapeFill[];
+  }>;
+}
+
+export interface CollectionListMarketSnapshot {
+  collectionKey: string;
+  justtcgCardId: string | null;
+  categoryLabel: string | null;
+  marketChangePct: number | null;
+  gradePrices: CollectionGradePrices;
+  sparklineUsd: CollectionUsdPoint[];
+}
+
+export async function postMarketplaceCollectionSnapshots(body: {
+  collectionKeys: string[];
+  priceHistoryDuration?: "7d" | "30d" | "90d" | "180d";
+}): Promise<{ items: CollectionListMarketSnapshot[] }> {
+  const res = await backendFetch(`${getApiUrl()}/marketplace/collections/market-snapshots`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(
+      (err as { message?: string }).message ?? "Failed to load collection snapshots"
+    );
+  }
+  return res.json() as Promise<{ items: CollectionListMarketSnapshot[] }>;
+}
+
+/** Merkle leaf set — minted RWAs in this collection bucket (server metadata scan) */
+export async function getMerkleEligibleTokenIds(
+  collectionKey: string,
+  opts?: { bypassCache?: boolean },
+): Promise<{ tokenIds: string[] }> {
+  const sp = new URLSearchParams();
+  if (opts?.bypassCache) sp.set("bypassCache", "1");
+  const q = sp.toString();
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/collections/${encodeURIComponent(collectionKey)}/merkle-set${q ? `?${q}` : ""}`,
   );
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));

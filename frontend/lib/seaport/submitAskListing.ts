@@ -10,7 +10,7 @@ import {
   SEAPORT_ORDER_TYPES,
 } from "@/constants/contracts";
 import { createOrder, replaceListingApi, type CreateOrderPayload, type Order } from "@/lib/api";
-import { gasWithCap } from "@/lib/chainGas";
+import { GAS_FALLBACK, gasWithCapFast } from "@/lib/chainGas";
 import { normalizeDecimalTokenId } from "@/lib/normalizeTokenId";
 import {
   buildAskConsideration,
@@ -57,30 +57,36 @@ export async function submitAskListingOrder(params: {
   }
 
   const priceInUnits = parseUnits(priceUsdc, 6);
-  const counter = await publicClient.readContract({
-    address: SEAPORT_ADDRESS,
-    abi: SEAPORT_ABI,
-    functionName: "getCounter",
-    args: [address],
-  });
   const now = BigInt(Math.floor(Date.now() / 1000));
   const endTime = now + BigInt(ORDER_DURATION_SECONDS);
   const salt = BigInt(Math.floor(Math.random() * 1_000_000_000_000));
 
-  const alreadyAll = await publicClient.readContract({
-    address: TOKENABLE_RWA_ADDRESS,
-    abi: TOKENABLE_RWA_APPROVE_ABI,
-    functionName: "isApprovedForAll",
-    args: [address, SEAPORT_ADDRESS],
-  });
-  if (!alreadyAll) {
-    const gasSetAll = await gasWithCap(publicClient, {
+  const [counter, alreadyAll] = await Promise.all([
+    publicClient.readContract({
+      address: SEAPORT_ADDRESS,
+      abi: SEAPORT_ABI,
+      functionName: "getCounter",
+      args: [address],
+    }),
+    publicClient.readContract({
       address: TOKENABLE_RWA_ADDRESS,
       abi: TOKENABLE_RWA_APPROVE_ABI,
-      functionName: "setApprovalForAll",
-      args: [SEAPORT_ADDRESS, true],
-      account: address,
-    });
+      functionName: "isApprovedForAll",
+      args: [address, SEAPORT_ADDRESS],
+    }),
+  ]);
+  if (!alreadyAll) {
+    const gasSetAll = await gasWithCapFast(
+      publicClient,
+      {
+        address: TOKENABLE_RWA_ADDRESS,
+        abi: TOKENABLE_RWA_APPROVE_ABI,
+        functionName: "setApprovalForAll",
+        args: [SEAPORT_ADDRESS, true],
+        account: address,
+      },
+      GAS_FALLBACK.setApprovalForAll,
+    );
     const setAllTx = await writeContractAsync({
       address: TOKENABLE_RWA_ADDRESS,
       abi: TOKENABLE_RWA_APPROVE_ABI,
@@ -89,7 +95,7 @@ export async function submitAskListingOrder(params: {
       chainId: sepolia.id,
       gas: gasSetAll,
     });
-    void publicClient.waitForTransactionReceipt({ hash: setAllTx }).catch(() => {});
+    await publicClient.waitForTransactionReceipt({ hash: setAllTx });
   }
 
   const considerationItems = buildAskConsideration(priceInUnits, address);

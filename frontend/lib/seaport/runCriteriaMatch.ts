@@ -2,19 +2,13 @@ import type { Abi, PublicClient, Address } from "viem";
 import { sepolia } from "@/config/wagmi";
 import { SEAPORT_ADDRESS, SEAPORT_ABI_WITH_MATCH_ADVANCED } from "@/constants/contracts";
 import { fulfillMatchedPairApi, getMerkleEligibleTokenIds, type Order } from "@/lib/api";
+import { canonicalBytes32Hex } from "@/lib/seaport/collectionCriteriaRoot";
 import { buildCriteriaMatchExecution, isCriteriaCollectionBid } from "@/lib/seaport/criteriaMatch";
 import { matchAdvancedOrdersArgs } from "@/lib/seaport/matchAdvancedOrdersArgs";
 import { SeaportMerkleTree } from "@/lib/seaport/merkle";
 import { GAS_FALLBACK, gasWithCapFast } from "@/lib/chainGas";
 import { normalizeDecimalTokenId } from "@/lib/normalizeTokenId";
 import { mapWalletError } from "@/lib/walletError";
-
-function normRootHex(s: string): string {
-  const t = String(s).trim().toLowerCase();
-  if (t.startsWith("0x")) return t;
-  if (/^[0-9a-f]{64}$/i.test(t)) return `0x${t}`;
-  return t;
-}
 
 export type MatchWriteContractAsync = (args: {
   address: Address;
@@ -33,9 +27,22 @@ export async function runCriteriaMatch(params: {
   listing: Order;
   tokenId: string | number;
   collectionKey: string;
+  /**
+   * When the caller already fetched a fresh merkle set (e.g. list-then-match), pass it here so
+   * proof/root match that snapshot. Otherwise we bypass server cache to avoid stale sets vs bids.
+   */
+  merkleTokenIds?: string[];
 }): Promise<void> {
-  const { address, publicClient, writeContractAsync, bid, listing, tokenId, collectionKey } =
-    params;
+  const {
+    address,
+    publicClient,
+    writeContractAsync,
+    bid,
+    listing,
+    tokenId,
+    collectionKey,
+    merkleTokenIds: merkleTokenIdsParam,
+  } = params;
 
   if (!isCriteriaCollectionBid(bid)) {
     throw new Error("Not a criteria collection bid");
@@ -43,7 +50,9 @@ export async function runCriteriaMatch(params: {
 
   const tidBn = BigInt(normalizeDecimalTokenId(tokenId));
 
-  const { tokenIds } = await getMerkleEligibleTokenIds(collectionKey);
+  const tokenIds =
+    merkleTokenIdsParam ??
+    (await getMerkleEligibleTokenIds(collectionKey, { bypassCache: true })).tokenIds;
   const ids = tokenIds.map((x) => BigInt(normalizeDecimalTokenId(x)));
   if (ids.length === 0) {
     throw new Error("Merkle set is empty.");
@@ -55,10 +64,12 @@ export async function runCriteriaMatch(params: {
   const tree = new SeaportMerkleTree(ids);
   const currentRoot = tree.getHexRoot();
   const bidRoot = bid.parameters?.consideration?.[0]?.identifierOrCriteria;
-  if (!bidRoot) {
-    throw new Error("Invalid bid: missing Merkle root.");
+  const bidCanon = canonicalBytes32Hex(bidRoot);
+  const curCanon = canonicalBytes32Hex(currentRoot);
+  if (!bidCanon || !curCanon) {
+    throw new Error("Invalid bid: missing or malformed Merkle root.");
   }
-  if (normRootHex(String(bidRoot)) !== normRootHex(currentRoot)) {
+  if (bidCanon !== curCanon) {
     throw new Error(
       "This bid’s Merkle root does not match the current listing set. The buyer should cancel and place a new collection bid."
     );
@@ -91,15 +102,16 @@ export async function runCriteriaMatch(params: {
     GAS_FALLBACK.matchAdvancedOrders,
   );
 
-  await publicClient.simulateContract({
-    address: SEAPORT_ADDRESS,
-    abi: SEAPORT_ABI_WITH_MATCH_ADVANCED,
-    functionName: "matchAdvancedOrders",
-    args: prepared.args as readonly [unknown, unknown, unknown, unknown],
-    account: address,
-  });
-
-  const gas = await gasPromise;
+  const [, gas] = await Promise.all([
+    publicClient.simulateContract({
+      address: SEAPORT_ADDRESS,
+      abi: SEAPORT_ABI_WITH_MATCH_ADVANCED,
+      functionName: "matchAdvancedOrders",
+      args: prepared.args as readonly [unknown, unknown, unknown, unknown],
+      account: address,
+    }),
+    gasPromise,
+  ]);
 
   const hash = await writeContractAsync({
     address: SEAPORT_ADDRESS,

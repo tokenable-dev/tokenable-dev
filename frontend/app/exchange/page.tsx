@@ -1,15 +1,23 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import {
   getActiveOrders,
   getMarketplaceCollections,
+  postMarketplaceCollectionSnapshots,
+  type CollectionListMarketSnapshot,
   type MarketplaceCollectionSummary,
   type Order,
 } from "@/lib/api";
 import { CollectionCoverFrame } from "@/components/marketplace/CollectionCoverFrame";
+import { CollectionCategoryFilterBar } from "@/components/marketplace/CollectionCategoryFilterBar";
+import { CollectionListSparkline } from "@/components/marketplace/CollectionListSparkline";
+import {
+  collectionMatchesCategoryFilter,
+  type CollectionCategoryFilterId,
+} from "@/lib/collectionCategoryFilter";
 import { useShallow } from "zustand/react/shallow";
 import { useAppStore, selectWallet, selectUsdcBalance } from "@/store";
 
@@ -60,14 +68,23 @@ function StatCard({
   );
 }
 
+function formatUsd(n: number | null | undefined): string {
+  if (n == null || !Number.isFinite(n)) return "—";
+  return `$${n.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+}
+
 function CollectionRow({
   collection,
+  rank,
   floorPrice,
   listingCount,
+  snapshot,
 }: {
   collection: MarketplaceCollectionSummary;
+  rank: number;
   floorPrice: number | null;
   listingCount: number;
+  snapshot: CollectionListMarketSnapshot | undefined;
 }) {
   const comp = collection.components as {
     cardName?: string;
@@ -85,61 +102,92 @@ function CollectionRow({
     .filter(Boolean)
     .join("  ");
 
+  const pct = snapshot?.marketChangePct;
+  const category = snapshot?.categoryLabel;
+  const g = snapshot?.gradePrices;
+
   return (
     <Link
       href={`/marketplace/collections/${encodeURIComponent(collection.collectionKey)}`}
-      className="group flex items-center gap-3 sm:gap-4 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl transition-colors hover:bg-gray-800/40"
+      className="group flex items-center gap-3 sm:gap-4 px-3 sm:px-4 py-3.5 sm:py-4 rounded-2xl border border-gray-800/50 bg-[#0d0d0d] transition-colors hover:border-gray-700/80 hover:bg-[#121212]"
     >
-      <div className="shrink-0 w-8 h-8 flex items-center justify-center text-mint/60 text-sm">
-        ★
-      </div>
-
-      {collection.coverImageUrl ? (
-        <div className="shrink-0 w-10 h-10 sm:w-12 sm:h-12 overflow-hidden rounded-lg">
-          <CollectionCoverFrame
-            imageUrl={collection.coverImageUrl}
-            variant="compact"
-            className="w-full h-full"
-          />
+      <div className="relative shrink-0 w-[72px] sm:w-[84px]">
+        <div className="absolute left-1.5 top-1.5 z-10 flex h-6 min-w-[1.5rem] items-center justify-center rounded-md bg-emerald-500 px-1.5 text-[11px] font-bold text-black shadow-sm">
+          {rank}
         </div>
-      ) : (
-        <div className="shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-gray-800 border border-gray-700" />
-      )}
-
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <h3 className="text-[13px] font-bold text-white truncate group-hover:text-mint transition-colors">
-            {collection.displayLabel}
-          </h3>
-        </div>
-        {subtitle && (
-          <p className="text-[11px] text-gray-500 mt-0.5 truncate">{subtitle}</p>
+        {collection.coverImageUrl ? (
+          <div className="aspect-[3/4] w-full overflow-hidden rounded-xl border border-gray-800/80">
+            <CollectionCoverFrame
+              imageUrl={collection.coverImageUrl}
+              variant="compact"
+              className="h-full w-full object-cover"
+            />
+          </div>
+        ) : (
+          <div className="aspect-[3/4] w-full rounded-xl border border-gray-800 bg-gray-900" />
         )}
       </div>
 
-      <div className="hidden sm:flex items-center gap-5 text-xs shrink-0">
-        <div>
-          <span className="text-gray-500">Price </span>
-          <span className="font-bold text-white">
-            {floorPrice !== null
-              ? `$${floorPrice.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`
-              : "—"}
-          </span>
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2 gap-y-1.5">
+          <h3 className="max-w-[min(100%,260px)] truncate text-[15px] sm:text-base font-bold text-white transition-colors group-hover:text-emerald-300/95 sm:max-w-none">
+            {collection.displayLabel}
+          </h3>
+          {pct != null && Number.isFinite(pct) ? (
+            <span
+              className={`inline-flex shrink-0 items-center gap-0.5 rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums ${
+                pct >= 0
+                  ? "bg-emerald-500/15 text-emerald-400"
+                  : "bg-rose-500/15 text-rose-300"
+              }`}
+            >
+              <span aria-hidden>{pct >= 0 ? "↗" : "↘"}</span>
+              {pct >= 0 ? "+" : ""}
+              {pct.toFixed(2)}%
+            </span>
+          ) : null}
+          {category ? (
+            <span className="inline-flex shrink-0 rounded-full bg-amber-500/15 px-2 py-0.5 text-[11px] font-medium text-amber-200/90">
+              {category}
+            </span>
+          ) : null}
         </div>
-        <div>
-          <span className="text-gray-500">Orders </span>
-          <span className="font-bold text-white">{listingCount}</span>
-        </div>
+        <p className="mt-1.5 text-xs leading-snug text-gray-500">
+          <span className="tabular-nums">PSA 10: {formatUsd(g?.psa10)}</span>
+          <span className="mx-1.5 text-gray-700">·</span>
+          <span className="tabular-nums">PSA 9: {formatUsd(g?.psa9)}</span>
+          <span className="mx-1.5 text-gray-700">·</span>
+          <span className="tabular-nums">Raw: {formatUsd(g?.raw)}</span>
+          {floorPrice != null ? (
+            <>
+              <span className="mx-1.5 text-gray-700">·</span>
+              <span className="text-gray-600">Floor</span>{" "}
+              <span className="tabular-nums text-gray-400">
+                ${floorPrice.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+              </span>
+            </>
+          ) : null}
+        </p>
+        {subtitle ? (
+          <p className="mt-1 truncate text-[11px] text-gray-600">{subtitle}</p>
+        ) : null}
+        <p className="mt-1 text-[11px] text-gray-600 tabular-nums">
+          {listingCount} listing{listingCount === 1 ? "" : "s"}
+        </p>
       </div>
 
-      <span className="shrink-0 text-gray-600 group-hover:text-mint transition-colors text-sm">
-        →
-      </span>
+      <div className="flex shrink-0 flex-col items-end gap-1">
+        <CollectionListSparkline
+          points={snapshot?.sparklineUsd}
+          positive={pct == null ? undefined : pct >= 0}
+        />
+      </div>
     </Link>
   );
 }
 
 export default function ExchangePage() {
+  const [categoryFilter, setCategoryFilter] = useState<CollectionCategoryFilterId>("all");
   const { address, isConnected } = useAppStore(useShallow(selectWallet));
   const { usdcBalanceFormatted } = useAppStore(useShallow(selectUsdcBalance));
 
@@ -170,9 +218,10 @@ export default function ExchangePage() {
       if (!key) continue;
       try {
         const price = Number(BigInt(o.considerationAmount ?? "0")) / USDC_DECIMALS;
-        const existing = map.get(key);
+        const k = key.toLowerCase();
+        const existing = map.get(k);
         if (existing === undefined || price < existing) {
-          map.set(key, price);
+          map.set(k, price);
         }
       } catch {
         /* skip */
@@ -181,12 +230,55 @@ export default function ExchangePage() {
     return map;
   }, [orders]);
 
+  const sortedForRank = useMemo(() => {
+    return [...collectionsWithListings].sort((a, b) => {
+      const fa = floorPrices.get(a.collectionKey.toLowerCase()) ?? -1;
+      const fb = floorPrices.get(b.collectionKey.toLowerCase()) ?? -1;
+      if (fb !== fa) return fb - fa;
+      return a.displayLabel.localeCompare(b.displayLabel);
+    });
+  }, [collectionsWithListings, floorPrices]);
+
+  const snapshotKeys = useMemo(
+    () => sortedForRank.map((c) => c.collectionKey),
+    [sortedForRank],
+  );
+
+  const { data: snapshotPack } = useQuery({
+    queryKey: ["marketplace-collection-snapshots", snapshotKeys.join("|")],
+    queryFn: () =>
+      postMarketplaceCollectionSnapshots({
+        collectionKeys: snapshotKeys,
+        priceHistoryDuration: "30d",
+      }),
+    enabled: snapshotKeys.length > 0 && !isLoading,
+    staleTime: 60_000,
+  });
+
+  const snapshotByKey = useMemo(() => {
+    const m = new Map<string, CollectionListMarketSnapshot>();
+    for (const it of snapshotPack?.items ?? []) {
+      m.set(it.collectionKey.toLowerCase(), it);
+    }
+    return m;
+  }, [snapshotPack]);
+
   const orphanAsks = orders.filter(
     (o) => o.side !== "bid" && (!o.collectionKey || !String(o.collectionKey).trim()),
   );
 
+  const filteredSorted = useMemo(() => {
+    return sortedForRank.filter((c) =>
+      collectionMatchesCategoryFilter(
+        categoryFilter,
+        c,
+        snapshotByKey.get(c.collectionKey.toLowerCase()),
+      ),
+    );
+  }, [sortedForRank, snapshotByKey, categoryFilter]);
+
   return (
-    <div className="min-h-screen bg-gray-950 text-white">
+    <div className="min-h-screen bg-black text-white">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 pb-20">
         {/* Title */}
         <div className="mb-8">
@@ -223,7 +315,12 @@ export default function ExchangePage() {
 
         {/* Collection list */}
         <div className="mb-6">
-          <h2 className="text-lg font-bold mb-4">Card Trading List</h2>
+          <h2 className="text-lg font-bold mb-3">Card Trading List</h2>
+          {!isLoading && collectionsWithListings.length > 0 ? (
+            <div className="mb-4">
+              <CollectionCategoryFilterBar value={categoryFilter} onChange={setCategoryFilter} />
+            </div>
+          ) : null}
         </div>
 
         {isLoading ? (
@@ -231,7 +328,7 @@ export default function ExchangePage() {
             {[...Array(5)].map((_, i) => (
               <div
                 key={i}
-                className="h-20 bg-gray-800/60 rounded-xl animate-pulse"
+                className="h-28 bg-gray-800/60 rounded-2xl animate-pulse"
               />
             ))}
           </div>
@@ -246,25 +343,36 @@ export default function ExchangePage() {
               .
             </p>
           </div>
+        ) : filteredSorted.length === 0 && collectionsWithListings.length > 0 ? (
+          <div className="rounded-2xl border border-gray-800/80 bg-[#0d0d0d] px-6 py-12 text-center">
+            <p className="text-sm text-gray-400">
+              No collections match this category yet.
+            </p>
+            <p className="mt-2 text-xs text-gray-600">
+              Categories use JustTCG game data and listing text — try ALL or Others.
+            </p>
+          </div>
         ) : (
-          <div className="rounded-2xl border border-gray-800 bg-gray-900/30 divide-y divide-gray-800/60">
-            {collectionsWithListings.map((c) => (
+          <div className="space-y-3">
+            {filteredSorted.map((c, i) => (
               <CollectionRow
                 key={c.collectionKey}
+                rank={i + 1}
                 collection={c}
-                floorPrice={floorPrices.get(c.collectionKey) ?? null}
+                floorPrice={floorPrices.get(c.collectionKey.toLowerCase()) ?? null}
                 listingCount={c.activeListingCount}
+                snapshot={snapshotByKey.get(c.collectionKey.toLowerCase())}
               />
             ))}
-            {orphanAsks.length > 0 && (
+            {categoryFilter === "all" && orphanAsks.length > 0 && (
               <Link
                 href="/marketplace/other-listings"
-                className="group flex items-center gap-3 sm:gap-4 px-3 sm:px-4 py-2.5 sm:py-3 transition-colors hover:bg-gray-800/40"
+                className="group flex items-center gap-3 sm:gap-4 px-3 sm:px-4 py-3.5 sm:py-4 rounded-2xl border border-gray-800/50 bg-[#0d0d0d] transition-colors hover:border-gray-700/80 hover:bg-[#121212]"
               >
-                <div className="shrink-0 w-8 h-8 flex items-center justify-center text-gray-600 text-sm">
+                <div className="shrink-0 w-9 h-9 flex items-center justify-center text-gray-600 text-sm">
                   ○
                 </div>
-                <div className="shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-gray-800/60 border border-gray-700/50 flex items-center justify-center text-gray-600 text-sm">
+                <div className="flex h-[96px] sm:h-[112px] w-[72px] sm:w-[84px] shrink-0 items-center justify-center rounded-xl border border-gray-700/50 bg-gray-800/60 text-gray-600 text-sm">
                   ?
                 </div>
                 <div className="flex-1 min-w-0">

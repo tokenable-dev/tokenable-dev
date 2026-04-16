@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   useAccount,
@@ -10,7 +10,7 @@ import {
   useWalletClient,
   useWriteContract,
 } from "wagmi";
-import { formatUnits, hexToBigInt, maxUint256, parseUnits } from "viem";
+import { formatUnits, hexToBigInt, maxUint256, parseUnits, type Address } from "viem";
 import { sepolia } from "@/config/wagmi";
 import {
   SEAPORT_ADDRESS,
@@ -20,13 +20,15 @@ import {
   USDC_ADDRESS,
   USDC_ABI,
 } from "@/constants/contracts";
-import { createOrder, type Order } from "@/lib/api";
+import { createOrder, getMerkleEligibleTokenIds, type Order } from "@/lib/api";
 import { GAS_FALLBACK, gasWithCapFast } from "@/lib/chainGas";
 import { mapWalletError } from "@/lib/walletError";
 import { assertMerkleRootBytes32 } from "@/lib/seaport/eip712Uint";
 import { SeaportMerkleTree } from "@/lib/seaport/merkle";
 import { feePercent } from "@/lib/seaport/platformFee";
 import { fulfillAskListingOrder } from "@/lib/seaport/fulfillAskListing";
+import type { MatchWriteContractAsync } from "@/lib/seaport/runCriteriaMatch";
+import { tryMatchCriteriaBidAgainstBook } from "@/lib/seaport/tryMatchCriteriaBidAgainstBook";
 
 const ZERO_BYTES32 =
   "0x0000000000000000000000000000000000000000000000000000000000000000" as const;
@@ -40,6 +42,7 @@ type Step =
   | "approving"
   | "signing"
   | "submitting"
+  | "matching"
   | "buying"
   | "success"
   | "error";
@@ -86,39 +89,28 @@ function formatUsdc6(amountStr: string): string {
   }
 }
 
-/** Same rule as backend `merkleEligibleTokenIds`: active ask rows → distinct token_id strings. */
-function merkleTokenIdsFromActiveAsks(asks: Order[]): string[] {
-  const idsAsk = asks
-    .filter((o) => o.status === "active" && isListingAskRow(o))
-    .map((o) => String(o.tokenId ?? "").trim())
-    .filter((id) => id !== "");
-  const ids = [...new Set(idsAsk)];
-  ids.sort((a, b) => {
-    const ba = BigInt(a);
-    const bb = BigInt(b);
-    if (ba < bb) return -1;
-    if (ba > bb) return 1;
-    return 0;
-  });
-  return ids;
-}
-
 export function CollectionCriteriaBidPanel({
   collectionKey,
   activeAsks = [],
   /** Prefer parent (Zustand) address so this panel matches OrderBook / rest of page. */
   connectedAddress,
   onPlaced,
+  /** Listing price (USDC) actually paid on a successful instant buy — for live last-print UI without polling. */
+  onInstantBuyFillUsdc,
   onOpenSellModal,
   presetPriceFromBook,
+  /** Lighter chrome when nested in the exchange column (avoids cramped card-in-card). */
+  variant = "card",
 }: {
   collectionKey: string;
   activeAsks?: Order[];
   connectedAddress?: `0x${string}` | string | null;
   onPlaced?: (order: Order) => void;
+  onInstantBuyFillUsdc?: (usdc: number) => void;
   onOpenSellModal?: () => void;
   /** Synced when user clicks a bid row on the order book (criteria bid price). */
   presetPriceFromBook?: string | null;
+  variant?: "card" | "embedded";
 }) {
   const { address: wagmiAddress, isConnected } = useAccount();
   const address =
@@ -130,11 +122,26 @@ export function CollectionCriteriaBidPanel({
   const { writeContractAsync } = useWriteContract();
   const queryClient = useQueryClient();
 
+  const {
+    data: merkleSet,
+    isLoading: merkleLoading,
+    isError: merkleIsError,
+  } = useQuery({
+    queryKey: ["merkle-set", collectionKey],
+    queryFn: () => getMerkleEligibleTokenIds(collectionKey),
+    enabled: String(collectionKey ?? "").trim().length > 0,
+    staleTime: 30_000,
+  });
+
+  const merkleLeafTokenIds = merkleSet?.tokenIds ?? [];
+
   const [price, setPrice] = useState("");
   const priceTouchedRef = useRef(false);
   const [step, setStep] = useState<Step>("idle");
   const [errorMsg, setErrorMsg] = useState("");
   const [lastOutcome, setLastOutcome] = useState<"instant" | "bid" | null>(null);
+  /** When bid saved but auto matchAdvancedOrders didn’t run — explain without failing the flow. */
+  const [postBidMatchHint, setPostBidMatchHint] = useState<string | null>(null);
 
   const { data: counter } = useReadContract({
     address: SEAPORT_ADDRESS,
@@ -167,12 +174,6 @@ export function CollectionCriteriaBidPanel({
     if (usdcBalRaw == null) return null;
     return Number(formatUnits(usdcBalRaw as bigint, 6));
   }, [usdcBalRaw]);
-
-  /** 오더북과 동일한 activeAsks에서 Merkle leaf 후보를 뽑음 — 별도 merkle-set API 캐시와 어긋나 입찰이 막히는 문제 방지 */
-  const bidMerkleTokenIds = useMemo(
-    () => merkleTokenIdsFromActiveAsks(activeAsks),
-    [activeAsks]
-  );
 
   const lowestAsk = useMemo(() => pickLowestActiveAsk(activeAsks), [activeAsks]);
 
@@ -236,7 +237,8 @@ export function CollectionCriteriaBidPanel({
     }
   }, [priceInUnits]);
 
-  const canPlaceCriteriaBid = bidMerkleTokenIds.length > 0 && counter !== undefined;
+  const canPlaceCriteriaBid =
+    merkleLeafTokenIds.length > 0 && counter !== undefined && !merkleLoading && !merkleIsError;
 
   const priceOk = priceInUnits != null;
 
@@ -269,6 +271,14 @@ export function CollectionCriteriaBidPanel({
       });
       setLastOutcome("instant");
       setStep("success");
+      try {
+        const paid = Number(formatUnits(askPriceMicros(ask), 6));
+        if (Number.isFinite(paid) && paid > 0) {
+          onInstantBuyFillUsdc?.(paid);
+        }
+      } catch {
+        /* ignore */
+      }
       onPlaced?.(ask);
       void invalidateAfterTrade();
     } catch (e: unknown) {
@@ -314,14 +324,19 @@ export function CollectionCriteriaBidPanel({
       setErrorMsg("Could not read Seaport counter.");
       return;
     }
-    const tokenIds = bidMerkleTokenIds.map((x) => BigInt(x));
+    const tokenIds = merkleLeafTokenIds.map((x) => BigInt(x));
     if (tokenIds.length === 0) {
-      setErrorMsg("No active listings in this book to anchor a collection bid.");
+      setErrorMsg(
+        merkleIsError
+          ? "Could not load Merkle token set for this collection. Retry in a moment."
+          : "No minted RWAs map to this collection bucket — you cannot place a criteria bid here.",
+      );
       return;
     }
 
     const bidUnits = priceInUnits;
     setErrorMsg("");
+    setPostBidMatchHint(null);
     const now = BigInt(Math.floor(Date.now() / 1000));
     const endTime = now + BigInt(ORDER_DURATION_SECONDS);
     const salt = BigInt(Math.floor(Math.random() * 1_000_000_000_000));
@@ -401,35 +416,37 @@ export function CollectionCriteriaBidPanel({
         message: orderMessage as never,
       });
 
-      const allowanceAfterSign = await publicClient.readContract({
-        address: USDC_ADDRESS,
-        abi: USDC_ABI,
-        functionName: "allowance",
-        args: [address, SEAPORT_ADDRESS],
-      });
-      if (allowanceAfterSign < bidUnits) {
-        setStep("approving");
-        const gasApprove =
-          (await usdcApproveGasPromise) ??
-          (await gasWithCapFast(
-            publicClient,
-            {
-              address: USDC_ADDRESS,
-              abi: USDC_ABI,
-              functionName: "approve",
-              args: [SEAPORT_ADDRESS, maxUint256],
-              account: address,
-            },
-            GAS_FALLBACK.erc20Approve,
-          ));
-        await writeContractAsync({
+      if (needsUsdcApprove) {
+        const allowanceAfterSign = await publicClient.readContract({
           address: USDC_ADDRESS,
           abi: USDC_ABI,
-          functionName: "approve",
-          args: [SEAPORT_ADDRESS, maxUint256],
-          chainId: sepolia.id,
-          gas: gasApprove,
+          functionName: "allowance",
+          args: [address, SEAPORT_ADDRESS],
         });
+        if (allowanceAfterSign < bidUnits) {
+          setStep("approving");
+          const gasApprove =
+            (await usdcApproveGasPromise) ??
+            (await gasWithCapFast(
+              publicClient,
+              {
+                address: USDC_ADDRESS,
+                abi: USDC_ABI,
+                functionName: "approve",
+                args: [SEAPORT_ADDRESS, maxUint256],
+                account: address,
+              },
+              GAS_FALLBACK.erc20Approve,
+            ));
+          await writeContractAsync({
+            address: USDC_ADDRESS,
+            abi: USDC_ABI,
+            functionName: "approve",
+            args: [SEAPORT_ADDRESS, maxUint256],
+            chainId: sepolia.id,
+            gas: gasApprove,
+          });
+        }
       }
 
       setStep("submitting");
@@ -475,7 +492,29 @@ export function CollectionCriteriaBidPanel({
         considerationAmount: str(bidUnits),
       });
 
-      setLastOutcome("bid");
+      setStep("matching");
+      const matchWrite = ((args: Parameters<MatchWriteContractAsync>[0]) =>
+        writeContractAsync(
+          args as Parameters<typeof writeContractAsync>[0],
+        )) as MatchWriteContractAsync;
+
+      const matchResult = await tryMatchCriteriaBidAgainstBook({
+        bid: order,
+        collectionKey,
+        address: address as Address,
+        publicClient,
+        writeContractAsync: matchWrite,
+        listingHints: activeAsks,
+      });
+
+      if (matchResult.matched) {
+        setLastOutcome("instant");
+        onInstantBuyFillUsdc?.(matchResult.fillUsdc);
+        setPostBidMatchHint(null);
+      } else {
+        setLastOutcome("bid");
+        setPostBidMatchHint(matchResult.hint ?? null);
+      }
       setStep("success");
       onPlaced?.(order);
       void invalidateAfterTrade();
@@ -497,33 +536,62 @@ export function CollectionCriteriaBidPanel({
     !publicClient ||
     !priceOk ||
     walletSignerMissing ||
-    (!crossesBook && !canPlaceCriteriaBid);
+    (!crossesBook && (!canPlaceCriteriaBid || merkleLoading));
 
   const busyLabel =
     step === "approving"
-      ? "Approving USDC…"
+      ? "Approving…"
       : step === "buying"
-        ? "Completing purchase…"
-        : step === "signing"
-          ? "Sign in wallet…"
-          : step === "submitting"
-            ? "Submitting…"
-            : step;
+        ? "Buying…"
+        : step === "matching"
+          ? "Matching…"
+          : step === "signing"
+            ? "Sign…"
+            : step === "submitting"
+              ? "Submit…"
+              : step;
+
+  const embedded = variant === "embedded";
+
+  const buyHelpTitle =
+    "Price at or above the best ask: instant buy at that listing’s USDC price. Below best ask: post a collection bid up to your amount. Click the order book to pre-fill price.";
 
   return (
-    <div className="rounded-2xl border border-gray-800/90 bg-[#0b0e11] overflow-hidden shadow-[0_12px_32px_-16px_rgba(0,0,0,0.55)]">
-      <div className="px-4 pt-4 pb-3 border-b border-gray-800/80">
-        <h2 className="text-lg font-bold text-white tracking-tight">Buy in this collection</h2>
-        <p className="text-[11px] text-gray-500 mt-1 leading-relaxed">
-          One amount, one action: if your price is at or above the{" "}
-          <span className="text-gray-400">best ask</span>, you buy that listing now; otherwise you
-          place a collection bid at your max USDC.
-        </p>
-      </div>
+    <div
+      className={
+        embedded
+          ? "min-w-0 overflow-x-hidden overflow-y-visible"
+          : "rounded-2xl border border-gray-800/90 bg-[#0b0e11] overflow-hidden shadow-[0_12px_32px_-16px_rgba(0,0,0,0.55)]"
+      }
+    >
+      {embedded ? (
+        <div className="flex items-center justify-between gap-2 border-b border-zinc-800/80 pb-2 pt-0.5">
+          <h2 className="text-xs font-semibold tracking-tight text-white">Buy</h2>
+          <span
+            className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded border border-zinc-800/80 text-[9px] font-semibold leading-none text-zinc-500"
+            title={buyHelpTitle}
+          >
+            i
+          </span>
+        </div>
+      ) : (
+        <div className="border-b border-gray-800/80 px-4 pb-3 pt-4">
+          <h2 className="text-lg font-bold tracking-tight text-white">Buy in this collection</h2>
+          <p className="mt-0.5 text-[11px] leading-snug text-gray-500">
+            One price, one button: at or above the <span className="text-gray-400">best ask</span> you
+            buy the <span className="text-gray-400">cheapest listing</span> (you pay its list price);
+            below that you place a collection bid up to your amount.
+          </p>
+        </div>
+      )}
 
-      <div className="px-4 py-4 space-y-4">
-        <div className="flex justify-between text-[11px] text-gray-500">
-          <span>Wallet USDC</span>
+      <div className={`${embedded ? "space-y-2 pt-2" : "space-y-4 px-4 py-4"}`}>
+        <div
+          className={`flex justify-between text-gray-500 ${embedded ? "text-[10px]" : "text-[11px]"}`}
+        >
+          <span title={embedded ? "Wallet USDC balance on-chain" : undefined}>
+            {embedded ? "Balance" : "Wallet USDC"}
+          </span>
           <span className="font-mono text-gray-400 tabular-nums">
             {balanceUsdc != null
               ? `${balanceUsdc.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -532,30 +600,44 @@ export function CollectionCriteriaBidPanel({
         </div>
 
         {lowestAsk ? (
-          <div className="space-y-0.5">
-            <p className="text-[10px] text-gray-600">
-              Best ask:{" "}
-              <span className="font-mono text-gray-400 tabular-nums">{lowestAskUsdc} USDC</span>
-              <span className="text-gray-600"> · token #{lowestAsk.tokenId}</span>
-            </p>
-            {feePercent() > 0 && (
-              <p className="text-[10px] text-gray-600">
-                Includes {feePercent()}% platform fee
-              </p>
-            )}
-          </div>
+          <p
+            className="text-[10px] text-gray-600"
+            title={
+              feePercent() > 0
+                ? `Best ask in book. Includes ${feePercent()}% platform fee in the flow.`
+                : "Best ask (floor) in the order book."
+            }
+          >
+            <span className="text-zinc-500">Ask</span>{" "}
+            <span className="font-mono tabular-nums text-gray-400">{lowestAskUsdc}</span>
+            <span className="text-gray-600"> · #{lowestAsk.tokenId}</span>
+          </p>
         ) : (
-          <p className="text-[10px] text-gray-600">
-            No active listings — add a listing first, or wait for sellers (collection bids need asks in
-            the book).
+          <p
+            className="text-[10px] text-gray-600"
+            title="Best ask is hidden when the book has no sells. You can still post a collection bid if this pool has minted RWAs."
+          >
+            {embedded
+              ? "No asks in book."
+              : "No active listings — you can still place a collection bid for this pool (covers all minted RWAs in the bucket)."}
           </p>
         )}
 
         <div>
-          <label className="block text-[10px] font-medium uppercase tracking-wide text-gray-500 mb-1">
+          <label
+            className={`block font-medium uppercase tracking-wide text-gray-500 mb-0.5 ${
+              embedded ? "text-[9px]" : "text-[10px]"
+            }`}
+          >
             Price (USDC)
           </label>
-          <div className="flex rounded-lg border border-gray-800 bg-black/50 overflow-hidden focus-within:border-gray-700">
+          <div
+            className={
+              embedded
+                ? "flex overflow-hidden rounded-md border border-zinc-700/90 bg-zinc-900/80 focus-within:border-zinc-500"
+                : "flex rounded-md border border-gray-800 bg-black/50 overflow-hidden focus-within:border-gray-700"
+            }
+          >
             <input
               type="text"
               inputMode="decimal"
@@ -566,32 +648,67 @@ export function CollectionCriteriaBidPanel({
                 priceTouchedRef.current = true;
                 setPrice(e.target.value);
               }}
-              className="flex-1 min-w-0 bg-transparent px-3 py-2.5 text-sm text-white placeholder:text-gray-600 font-mono tabular-nums"
+              className={`flex-1 min-w-0 bg-transparent text-white placeholder:text-gray-600 font-mono tabular-nums ${
+                embedded ? "px-2 py-1.5 text-xs" : "px-3 py-2.5 text-sm"
+              }`}
             />
-            <span className="shrink-0 px-3 py-2.5 text-[11px] font-semibold text-gray-500 border-l border-gray-800/90 bg-black/30">
+            <span
+              className={`shrink-0 font-semibold border-l font-mono tabular-nums ${
+                embedded
+                  ? "border-zinc-700/90 bg-zinc-900/60 px-2 py-1.5 text-[10px] text-zinc-500"
+                  : "text-gray-500 border-gray-800/90 bg-black/30 px-3 py-2.5 text-[11px]"
+              }`}
+            >
               USDC
             </span>
           </div>
         </div>
 
-        {priceOk && crossesBook && lowestAsk ? (
+        {priceOk && crossesBook && lowestAsk && enteredAboveBestAsk && enteredUsdcLabel != null ? (
+          <p
+            className={`text-[10px] text-amber-200/80 ${embedded ? "leading-snug" : "leading-relaxed rounded-lg border border-amber-500/20 bg-amber-500/[0.06] px-2 py-1.5"}`}
+            title={`Instant buy charges the listing price (${lowestAskUsdc} USDC), not your typed amount.`}
+          >
+            {embedded
+              ? `You pay ${lowestAskUsdc} USDC (list), not ${enteredUsdcLabel}.`
+              : `You entered ${enteredUsdcLabel} USDC — you won&apos;t be charged that full amount; only ${lowestAskUsdc} USDC (listing price) is used for this purchase.`}
+          </p>
+        ) : null}
+
+        {!embedded && priceOk && crossesBook && lowestAsk ? (
           <div className="space-y-1.5">
-            <p className="text-[10px] text-emerald-400/85 leading-relaxed">
+            <p className="text-[10px] leading-relaxed text-emerald-400/85">
               This price crosses the book — instant buy uses the{" "}
-              <span className="font-semibold">cheapest listing</span>: token #{lowestAsk.tokenId}{" "}
-              at {lowestAskUsdc} USDC (that&apos;s what you pay on-chain).
+              <span className="font-semibold">cheapest listing</span>: token #{lowestAsk.tokenId} at{" "}
+              {lowestAskUsdc} USDC (that&apos;s what you pay on-chain).
             </p>
-            {enteredAboveBestAsk && enteredUsdcLabel != null ? (
-              <p className="text-[10px] text-amber-200/70 leading-relaxed rounded-lg border border-amber-500/20 bg-amber-500/[0.06] px-2 py-1.5">
-                You entered {enteredUsdcLabel} USDC — you won&apos;t be charged that full amount;
-                only {lowestAskUsdc} USDC (listing price) is used for this purchase.
-              </p>
-            ) : null}
           </div>
-        ) : priceOk && !crossesBook ? (
-          <p className="text-[10px] text-gray-600 leading-relaxed">
-            Below best ask — places a collection bid at your amount. Eligible token(s) in book:{" "}
-            <span className="text-gray-400 font-mono">{bidMerkleTokenIds.length}</span>.
+        ) : null}
+
+        {!embedded && priceOk && !crossesBook ? (
+          <p className="text-[10px] leading-relaxed text-gray-600">
+            Below best ask — collection bid at your amount. Minted token(s) in this pool (Merkle):{" "}
+            <span className="font-mono text-gray-400">
+              {merkleLoading ? "…" : merkleLeafTokenIds.length}
+            </span>
+            .
+          </p>
+        ) : null}
+
+        {embedded && priceOk && !crossesBook ? (
+          <p
+            className="text-[10px] text-zinc-600"
+            title="Merkle leaves = every minted RWA in this collection bucket so new listings stay matchable."
+          >
+            Bid ·{" "}
+            {merkleLoading ? "…" : `${merkleLeafTokenIds.length} token${merkleLeafTokenIds.length === 1 ? "" : "s"}`}{" "}
+            in pool
+          </p>
+        ) : null}
+
+        {merkleIsError ? (
+          <p className="text-[10px] text-rose-400/90">
+            Could not load pool Merkle set. Check your connection and retry.
           </p>
         ) : null}
 
@@ -599,49 +716,94 @@ export function CollectionCriteriaBidPanel({
           type="button"
           disabled={submitDisabled}
           onClick={() => void handleSubmit()}
-          className="w-full rounded-xl py-3 text-sm font-bold bg-emerald-600 text-white hover:bg-emerald-500 disabled:opacity-40"
+          title={
+            crossesBook && lowestAsk
+              ? `Instant buy: pay ${lowestAskUsdc} USDC for token #${lowestAsk.tokenId} (listing price).`
+              : !crossesBook && priceOk
+                ? "Sign a collection bid up to your entered USDC amount."
+                : undefined
+          }
+          className={`w-full min-h-[40px] font-bold text-white shadow-md shadow-black/20 transition hover:brightness-110 active:scale-[0.99] disabled:pointer-events-none disabled:opacity-40 ${
+            embedded
+              ? "rounded-md bg-[#16A34A] px-3 py-2 text-xs"
+              : "rounded-xl bg-emerald-600 py-3 text-sm hover:bg-emerald-500"
+          }`}
         >
           {!address
-            ? "Connect wallet"
+            ? embedded
+              ? "Connect"
+              : "Connect wallet"
             : walletSignerMissing
-              ? "Open wallet…"
+              ? embedded
+                ? "Open wallet"
+                : "Open wallet…"
               : busy
                 ? busyLabel
                 : crossesBook && lowestAsk
-                  ? `Buy now · ${lowestAskUsdc} USDC`
-                  : "Buy"}
+                  ? "Buy now"
+                  : embedded
+                    ? "Place bid"
+                    : "Buy"}
         </button>
 
-        {errorMsg && <p className="text-[11px] text-rose-400/90">{errorMsg}</p>}
-        {step === "success" && (
-          <p className="text-[11px] text-emerald-400/90">
-            {lastOutcome === "instant"
-              ? "Purchase complete. The RWA is in your wallet."
-              : "Collection bid saved. Sellers can match from their listing."}
+        {errorMsg && (
+          <p className={`text-rose-400/90 ${embedded ? "text-[10px]" : "text-[11px]"}`}>
+            {errorMsg}
           </p>
         )}
+        {step === "success" && (
+          <>
+            <p
+              className={`text-emerald-400/90 ${embedded ? "text-[10px]" : "text-[11px]"}`}
+              title={
+                lastOutcome === "instant"
+                  ? "Purchase complete — check your wallet for the RWA."
+                  : "Collection bid is on the book; sellers can fulfill against it."
+              }
+            >
+              {embedded
+                ? lastOutcome === "instant"
+                  ? "Bought."
+                  : "Bid placed."
+                : lastOutcome === "instant"
+                  ? "Purchase complete. The RWA is in your wallet."
+                  : "Collection bid saved. Sellers can match from their listing."}
+            </p>
+            {lastOutcome === "bid" && postBidMatchHint ? (
+              <p
+                className={`text-amber-200/85 ${embedded ? "text-[10px] leading-snug" : "text-[11px] leading-snug"}`}
+              >
+                {postBidMatchHint}
+              </p>
+            ) : null}
+          </>
+        )}
 
-        <div className="pt-2 border-t border-gray-800/80">
-          <p className="text-[11px] text-gray-500 mb-2">
-            Selling is per token: list a specific RWA from your wallet.
-          </p>
-          {onOpenSellModal ? (
-            <button
-              type="button"
-              onClick={onOpenSellModal}
-              className="w-full text-center rounded-lg py-2.5 text-sm font-semibold text-mint border border-mint/25 bg-mint/[0.06] hover:bg-mint/[0.1]"
-            >
-              List for sale in this collection
-            </button>
-          ) : (
-            <Link
-              href="/portfolio"
-              className="block text-center rounded-lg py-2.5 text-sm font-semibold text-mint border border-mint/25 bg-mint/[0.06] hover:bg-mint/[0.1]"
-            >
-              My Assets — list for sale
-            </Link>
-          )}
-        </div>
+        {!embedded && (
+          <div className="pt-2 border-t border-gray-800/80">
+            <p className="text-[11px] text-gray-500 mb-2">
+              Selling is per token: list a specific RWA from your wallet.
+            </p>
+            {onOpenSellModal ? (
+              <button
+                type="button"
+                onClick={onOpenSellModal}
+                title="Open listing flow for this collection"
+                className="w-full min-h-[40px] text-center rounded-md py-2 text-xs font-bold text-mint border border-mint/25 bg-mint/[0.06] hover:bg-mint/[0.1]"
+              >
+                List for sale
+              </button>
+            ) : (
+              <Link
+                href="/portfolio"
+                title="Manage assets and create listings"
+                className="block w-full min-h-[40px] text-center rounded-md py-2 text-xs font-bold text-mint border border-mint/25 bg-mint/[0.06] hover:bg-mint/[0.1]"
+              >
+                Portfolio
+              </Link>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

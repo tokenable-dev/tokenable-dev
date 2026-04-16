@@ -18,7 +18,7 @@ export const GAS_FALLBACK = {
 } as const;
 
 /** RPC `estimateGas`가 느릴 때 지갑 팝업까지 지연되지 않도록 짧게 두고 fallback 사용 */
-const ESTIMATE_BUDGET_MS = 900;
+const ESTIMATE_BUDGET_MS = 400;
 
 export async function gasWithCap(
   publicClient: PublicClient,

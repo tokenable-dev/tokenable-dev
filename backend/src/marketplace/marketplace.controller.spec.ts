@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { CollectionMarketService } from './collection-market.service';
 import { CollectionService } from './collection.service';
 import { MarketplaceController } from './marketplace.controller';
 import { MarketplaceService } from './marketplace.service';
@@ -24,6 +25,11 @@ describe('MarketplaceController', () => {
     fulfillMatchedPair: jest.fn(),
   };
 
+  const collectionMarketService = {
+    batchListSnapshots: jest.fn(),
+    getCollectionMarketBundle: jest.fn(),
+  };
+
   let controller: MarketplaceController;
 
   beforeEach(async () => {
@@ -33,6 +39,7 @@ describe('MarketplaceController', () => {
       providers: [
         { provide: MarketplaceService, useValue: service },
         { provide: CollectionService, useValue: collectionService },
+        { provide: CollectionMarketService, useValue: collectionMarketService },
       ],
     }).compile();
     controller = module.get(MarketplaceController);

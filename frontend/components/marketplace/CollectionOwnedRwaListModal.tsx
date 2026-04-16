@@ -28,11 +28,17 @@ export function CollectionOwnedRwaListModal({
   onClose,
   collectionKey,
   collectionLabel,
+  collectionBids = [],
+  listPricePresetUsdc,
 }: {
   open: boolean;
   onClose: () => void;
   collectionKey: string;
   collectionLabel: string;
+  /** Active collection criteria bids — used to auto `matchAdvancedOrders` after listing when price crosses a bid. */
+  collectionBids?: Order[];
+  /** When user clicked a bid row on the book, prefill this USDC price in the list modal (e.g. undercut a high ask to hit the bid). */
+  listPricePresetUsdc?: string | null;
 }) {
   const { address: effectiveAddr } = useAccount();
   const queryClient = useQueryClient();
@@ -219,6 +225,13 @@ export function CollectionOwnedRwaListModal({
                             </p>
                             <button
                               type="button"
+                              onClick={() => setListingTokenId(asset.tokenId)}
+                              className="w-full py-1.5 text-[11px] font-semibold bg-mint/10 hover:bg-mint/15 text-mint rounded-lg border border-mint-deep/35 mb-1.5"
+                            >
+                              Change price
+                            </button>
+                            <button
+                              type="button"
                               disabled={cancellingHash === order.orderHash}
                               onClick={() => void handleCancel(order)}
                               className="w-full py-1.5 text-[11px] font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg border border-slate-600/50 disabled:opacity-40"
@@ -248,6 +261,13 @@ export function CollectionOwnedRwaListModal({
       {listingTokenId != null && (
         <ListRwaModal
           tokenId={listingTokenId}
+          collectionKey={collectionKey}
+          collectionBids={collectionBids}
+          existingAskOrder={(() => {
+            const o = activeByToken.get(listingTokenId);
+            return o?.side === "ask" && o.status === "active" ? o : undefined;
+          })()}
+          initialPriceUsdc={listPricePresetUsdc ?? undefined}
           onClose={() => setListingTokenId(null)}
           onListed={() => {
             setListingTokenId(null);

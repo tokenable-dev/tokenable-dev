@@ -8,7 +8,9 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
+import { CollectionMarketService } from './collection-market.service';
 import { CollectionService } from './collection.service';
+import { BatchMarketSnapshotsDto } from './dto/batch-market-snapshots.dto';
 import {
   ApiBody,
   ApiOperation,
@@ -28,6 +30,7 @@ export class MarketplaceController {
   constructor(
     private readonly marketplaceService: MarketplaceService,
     private readonly collectionService: CollectionService,
+    private readonly collectionMarketService: CollectionMarketService,
   ) {}
 
   @ApiOperation({ summary: 'Seaport order registration (off-chain DB)' })
@@ -63,6 +66,44 @@ export class MarketplaceController {
     return this.collectionService.listSummaries();
   }
 
+  @ApiOperation({
+    summary: 'Batch list-row snapshots (JustTCG sparkline + grade strip + category)',
+  })
+  @ApiBody({ type: BatchMarketSnapshotsDto })
+  @Post('collections/market-snapshots')
+  batchMarketSnapshots(@Body() body: BatchMarketSnapshotsDto) {
+    return this.collectionMarketService.batchListSnapshots(
+      body.collectionKeys ?? [],
+      body.priceHistoryDuration ?? '30d',
+    );
+  }
+
+  @ApiOperation({
+    summary:
+      'Dual-series chart data: external (JustTCG, max 180d history) + platform snapshot. Prefer one call on page load; poll GET …/platform-trades for fills only.',
+  })
+  @ApiParam({ name: 'key', description: 'collection_key' })
+  @Get('collections/:key/market-series')
+  getCollectionMarketSeries(
+    @Param('key') key: string,
+    @Query('priceHistoryDuration') priceHistoryDuration?: string,
+  ) {
+    const d = ['7d', '30d', '90d', '180d'].includes(String(priceHistoryDuration))
+      ? (priceHistoryDuration as '7d' | '30d' | '90d' | '180d')
+      : '180d';
+    return this.collectionMarketService.getCollectionMarketBundle(key, d);
+  }
+
+  @ApiOperation({
+    summary:
+      'Fulfilled listings for this collection (DB): chart points + tape rows for the order book Trades tab.',
+  })
+  @ApiParam({ name: 'key', description: 'collection_key' })
+  @Get('collections/:key/platform-trades')
+  getCollectionPlatformTrades(@Param('key') key: string) {
+    return this.collectionMarketService.platformTradesForApi(key);
+  }
+
   @ApiOperation({ summary: 'Collection detail + order book (listings + collection bids)' })
   @ApiParam({ name: 'key', description: 'collection_key' })
   @Get('collections/:key')
@@ -85,12 +126,18 @@ export class MarketplaceController {
   }
 
   @ApiOperation({
-    summary: 'Token IDs for Merkle tree (active listings in collection)',
+    summary:
+      'Token IDs for Merkle tree: all minted RWAs in this collection bucket (metadata), not only active asks',
   })
   @ApiParam({ name: 'key', description: 'collection_key' })
   @Get('collections/:key/merkle-set')
-  merkleSet(@Param('key') key: string) {
-    return this.collectionService.merkleEligibleTokenIds(key);
+  merkleSet(
+    @Param('key') key: string,
+    @Query('bypassCache') bypassCache?: string,
+  ) {
+    return this.collectionService.merkleEligibleTokenIds(key, {
+      bypassCache: bypassCache === '1' || bypassCache === 'true',
+    });
   }
 
   @ApiOperation({ summary: 'Order history by tokenId' })

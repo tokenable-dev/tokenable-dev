@@ -1,17 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   getRwaTokensByOwner,
   getRwaTokenURI,
   getActiveOrders,
+  getMarketplaceCollectionDetail,
   cancelOrder,
   fetchIpfsMetadata,
   resolveIpfsImage,
   type RwaMetadata,
   type Order,
 } from "@/lib/api";
+import {
+  computeMarketBucketKey,
+  extractBucketComponentsFromMetadata,
+} from "@/lib/marketplace/bucketKey";
 import { useShallow } from "zustand/react/shallow";
 import { useAppStore, selectWallet, selectRefresh } from "@/store";
 import { ListRwaModal } from "@/components/marketplace/ListRwaModal";
@@ -81,15 +86,25 @@ function RwaCard({
             {listingPrice} USDC
           </p>
         )}
-        <div className="mt-auto pt-3">
+        <div className="mt-auto pt-3 flex flex-col gap-2">
           {activeOrder ? (
-            <button
-              onClick={() => onCancel(activeOrder)}
-              disabled={isCancelling}
-              className="w-full py-2 text-xs font-medium bg-slate-800/80 hover:bg-slate-700/80 disabled:opacity-50 disabled:cursor-not-allowed text-slate-300 hover:text-slate-200 rounded-lg transition-colors border border-slate-600/60"
-            >
-              {isCancelling ? "Cancelling..." : "Cancel Listing"}
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={() => onList(asset.tokenId)}
+                className="w-full py-2 text-xs font-semibold bg-mint/10 hover:bg-mint/15 text-mint rounded-lg transition-colors border border-mint-deep/35"
+              >
+                Change price
+              </button>
+              <button
+                type="button"
+                onClick={() => onCancel(activeOrder)}
+                disabled={isCancelling}
+                className="w-full py-2 text-xs font-medium bg-slate-800/80 hover:bg-slate-700/80 disabled:opacity-50 disabled:cursor-not-allowed text-slate-300 hover:text-slate-200 rounded-lg transition-colors border border-slate-600/60"
+              >
+                {isCancelling ? "Cancelling..." : "Cancel listing"}
+              </button>
+            </>
           ) : (
             <button
               onClick={() => onList(asset.tokenId)}
@@ -139,6 +154,30 @@ export function MyAssets() {
       );
     },
     enabled: !!tokenIds?.length,
+  });
+
+  const listingAsset = useMemo(() => {
+    if (listingTokenId == null || !assets?.length) return null;
+    return assets.find((a) => a.tokenId === listingTokenId) ?? null;
+  }, [listingTokenId, assets]);
+
+  const { data: listModalCollectionKey } = useQuery({
+    queryKey: ["metadata-bucket-key-owned", listingTokenId, listingAsset?.tokenURI],
+    queryFn: async () => {
+      const meta = listingAsset?.metadata;
+      if (!meta) return null;
+      const c = extractBucketComponentsFromMetadata(meta as Record<string, unknown>);
+      if (!c) return null;
+      return await computeMarketBucketKey(c);
+    },
+    enabled: listingTokenId != null && !!listingAsset?.metadata,
+  });
+
+  const { data: listModalCollectionDetail } = useQuery({
+    queryKey: ["marketplace-collection", listModalCollectionKey],
+    queryFn: () => getMarketplaceCollectionDetail(listModalCollectionKey!),
+    enabled: !!listModalCollectionKey,
+    staleTime: 15_000,
   });
 
   const { data: orders } = useQuery({
@@ -256,6 +295,12 @@ export function MyAssets() {
       {listingTokenId !== null && (
         <ListRwaModal
           tokenId={listingTokenId}
+          collectionKey={listModalCollectionKey ?? undefined}
+          collectionBids={listModalCollectionDetail?.collectionBids ?? []}
+          existingAskOrder={(() => {
+            const o = activeOrderMap.get(listingTokenId);
+            return o?.side === "ask" && o.status === "active" ? o : undefined;
+          })()}
           onClose={() => setListingTokenId(null)}
           onListed={handleOptimisticList}
         />

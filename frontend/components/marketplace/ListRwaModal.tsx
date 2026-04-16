@@ -1,46 +1,91 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import {
   useAccount,
-  useReadContract,
   useWriteContract,
   usePublicClient,
   useWalletClient,
 } from "wagmi";
-import { parseUnits } from "viem";
+import { formatUnits, type Address } from "viem";
+import type { Order } from "@/lib/api";
 import { sepolia } from "@/config/wagmi";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   TOKENABLE_RWA_ADDRESS,
-  USDC_ADDRESS,
   SEAPORT_ADDRESS,
   TOKENABLE_RWA_APPROVE_ABI,
-  SEAPORT_ABI,
-  SEAPORT_ORDER_TYPES,
 } from "@/constants/contracts";
-import { createOrder } from "@/lib/api";
-import { gasWithCap } from "@/lib/chainGas";
-import { mapWalletError } from "@/lib/walletError";
 import {
-  buildAskConsideration,
-  buildAskConsiderationPayload,
-  computeFeeSplit,
-  feePercent,
-} from "@/lib/seaport/platformFee";
+  getMarketplaceCollectionDetail,
+  getMerkleEligibleTokenIds,
+  getOrderByHash,
+} from "@/lib/api";
+import { GAS_FALLBACK, gasWithCapFast } from "@/lib/chainGas";
+import { mapWalletError } from "@/lib/walletError";
+import { askGrossUsdcMicros, bidUsdcAmount } from "@/lib/seaport/bidUsdc";
+import { isCriteriaCollectionBid } from "@/lib/seaport/criteriaMatch";
+import {
+  runCriteriaMatch,
+  mapMatchError,
+  type MatchWriteContractAsync,
+} from "@/lib/seaport/runCriteriaMatch";
+import { bidMerkleRootMatchesCollection } from "@/lib/seaport/collectionCriteriaRoot";
+import { SeaportMerkleTree } from "@/lib/seaport/merkle";
+import { normalizeDecimalTokenId } from "@/lib/normalizeTokenId";
+import { submitAskListingOrder } from "@/lib/seaport/submitAskListing";
+import { feePercent } from "@/lib/seaport/platformFee";
 
 const ZERO_BYTES32 =
   "0x0000000000000000000000000000000000000000000000000000000000000000" as const;
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000" as `0x${string}`;
-const ORDER_DURATION_SECONDS = 30 * 24 * 60 * 60; // 30 days
+
+function orderCollectionKey(o: Order | null | undefined): string {
+  if (!o) return "";
+  const any = o as Order & { collection_key?: string };
+  const k = o.collectionKey ?? any.collection_key;
+  return k != null ? String(k).trim() : "";
+}
+
+/**
+ * Modal props sometimes omit `collectionKey` (e.g. My Assets), but the saved ask row has it —
+ * use API fields so matchAdvancedOrders still runs after replace/create.
+ */
+function resolveMatchCollectionKey(
+  created: Order,
+  propKey: string | null | undefined,
+  existingAsk?: Order | null,
+  bids?: Order[],
+): string | undefined {
+  const a = orderCollectionKey(created);
+  const b = propKey != null ? propKey.trim() : "";
+  const c = orderCollectionKey(existingAsk ?? undefined);
+  let fromBid = "";
+  for (const x of bids ?? []) {
+    if (x.status === "active" && isCriteriaCollectionBid(x)) {
+      const k = orderCollectionKey(x);
+      if (k) {
+        fromBid = k;
+        break;
+      }
+    }
+  }
+  return a || b || c || fromBid || undefined;
+}
 
 type Step =
   | "idle"
   | "approving"
   | "signing"
   | "submitting"
+  | "matching"
   | "success"
   | "error";
+
+interface ListSuccessMeta {
+  matched: boolean;
+  hint?: string;
+}
 
 interface ListRwaModalProps {
   tokenId: number;
@@ -48,6 +93,11 @@ interface ListRwaModalProps {
   onListed?: (tokenId: number) => void;
   /** 풀 최대가로 재리스트할 때 가격 필드에 미리 채움 (예: "3.00") */
   initialPriceUsdc?: string | null;
+  /** Active ask to replace (e.g. lower price) — replace-listing, then instant collection-bid match. */
+  existingAskOrder?: Order | null;
+  /** With `collectionBids`, after you list we automatically run `matchAdvancedOrders` when your price crosses an eligible collection bid (no separate “instant match” step). */
+  collectionKey?: string | null;
+  collectionBids?: Order[];
 }
 
 export function ListRwaModal({
@@ -55,40 +105,301 @@ export function ListRwaModal({
   onClose,
   onListed,
   initialPriceUsdc,
+  existingAskOrder,
+  collectionKey,
+  collectionBids,
 }: ListRwaModalProps) {
   const { address } = useAccount();
   const publicClient = usePublicClient({ chainId: sepolia.id });
   const { data: walletClient } = useWalletClient({ chainId: sepolia.id });
+  const walletClientRef = useRef(walletClient);
+  walletClientRef.current = walletClient;
   const queryClient = useQueryClient();
 
   const [price, setPrice] = useState("");
   const [step, setStep] = useState<Step>("idle");
   const [errorMsg, setErrorMsg] = useState("");
+  const [successMeta, setSuccessMeta] = useState<ListSuccessMeta | null>(null);
+
+  /** Highest active criteria bid (including your own) — same wallet can bid + list; instant match still runs on-chain. */
+  const topCollectionBid = useMemo(() => {
+    if (!collectionBids?.length) return null;
+    const rows = collectionBids.filter(
+      (b) => b.status === "active" && isCriteriaCollectionBid(b),
+    );
+    if (!rows.length) return null;
+    rows.sort((a, b) => {
+      const da = bidUsdcAmount(a);
+      const db = bidUsdcAmount(b);
+      if (da > db) return -1;
+      if (da < db) return 1;
+      return 0;
+    });
+    const top = rows[0];
+    const micros = bidUsdcAmount(top);
+    let label: string;
+    try {
+      const n = Number(formatUnits(micros, 6));
+      label = n.toLocaleString("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+    } catch {
+      label = String(micros);
+    }
+    return { micros, label, inputValue: formatUnits(micros, 6) };
+  }, [collectionBids, address]);
+
+  const isReplaceListing = useMemo(() => {
+    if (!existingAskOrder || !address) return false;
+    if (existingAskOrder.side !== "ask" || existingAskOrder.status !== "active") return false;
+    if (Number(normalizeDecimalTokenId(existingAskOrder.tokenId)) !== Number(tokenId)) {
+      return false;
+    }
+    return existingAskOrder.offerer.toLowerCase() === address.toLowerCase();
+  }, [existingAskOrder, address, tokenId]);
+
+  /** Live book price before this edit — drives “$5 ask vs $4 bid” UX. */
+  const currentAskDisplay = useMemo(() => {
+    if (!isReplaceListing || !existingAskOrder?.considerationAmount) return null;
+    try {
+      const micros = BigInt(existingAskOrder.considerationAmount);
+      const n = Number(formatUnits(micros, 6));
+      if (!Number.isFinite(n)) return null;
+      const label = n.toLocaleString("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+      return { micros, label, inputValue: formatUnits(micros, 6) };
+    } catch {
+      return null;
+    }
+  }, [isReplaceListing, existingAskOrder?.considerationAmount]);
 
   useEffect(() => {
     if (initialPriceUsdc != null && initialPriceUsdc.trim() !== "") {
       setPrice(initialPriceUsdc.trim());
+      return;
     }
-  }, [initialPriceUsdc, tokenId]);
+    if (existingAskOrder?.considerationAmount) {
+      try {
+        setPrice(formatUnits(BigInt(existingAskOrder.considerationAmount), 6));
+      } catch {
+        setPrice("");
+      }
+      return;
+    }
+    setPrice("");
+  }, [initialPriceUsdc, tokenId, existingAskOrder?.orderHash]);
 
   const { writeContractAsync } = useWriteContract();
 
-  // Seaport counter for the seller
-  const { data: counter } = useReadContract({
-    address: SEAPORT_ADDRESS,
-    abi: SEAPORT_ABI,
-    functionName: "getCounter",
-    args: address ? [address] : undefined,
-    chainId: sepolia.id,
-    query: { enabled: !!address },
-  });
+  async function tryMatchAfterListing(created: Order): Promise<ListSuccessMeta> {
+    let key = resolveMatchCollectionKey(
+      created,
+      collectionKey,
+      existingAskOrder,
+      collectionBids,
+    );
+    if (!key && created.orderHash) {
+      try {
+        const refreshed = await getOrderByHash(created.orderHash);
+        key = resolveMatchCollectionKey(
+          refreshed,
+          collectionKey,
+          existingAskOrder,
+          collectionBids,
+        );
+      } catch {
+        /* keep */
+      }
+    }
+    /** Modal is opened in a collection context — use prop even if API row omitted `collectionKey` (avoids skipping match entirely). */
+    if (!key && collectionKey != null && String(collectionKey).trim() !== "") {
+      key = String(collectionKey).trim();
+    }
+    // Match uses `writeContractAsync`; do not require `useWalletClient` here (it can be undefined briefly after awaits).
+    if (!key || !address || !publicClient) {
+      return { matched: false };
+    }
+
+    function mergeBidsByOrderHash(api: Order[], hints: Order[]): Order[] {
+      const m = new Map<string, Order>();
+      for (const b of api) {
+        if (b?.orderHash) m.set(b.orderHash, b);
+      }
+      for (const b of hints) {
+        if (b?.orderHash && !m.has(b.orderHash)) m.set(b.orderHash, b);
+      }
+      return [...m.values()];
+    }
+
+    const propBids = collectionBids ?? [];
+    const askAm = askGrossUsdcMicros(created);
+
+    let bids: Order[] = [];
+    for (let attempt = 0; attempt < 8; attempt++) {
+      const detail = await getMarketplaceCollectionDetail(key, {
+        bypassCache: true,
+      }).catch(() => null);
+      const fromApi = detail?.collectionBids ?? [];
+      bids = mergeBidsByOrderHash(fromApi, propBids);
+
+      if (bids.length > 0) {
+        const hasCrossing = bids.some((b) => {
+          if (b.status !== "active" || !isCriteriaCollectionBid(b)) return false;
+          const bk = orderCollectionKey(b);
+          if (bk && bk.toLowerCase() !== key.toLowerCase()) return false;
+          return bidUsdcAmount(b) >= askAm;
+        });
+        if (hasCrossing) break;
+      }
+
+      if (attempt < 7) {
+        await new Promise((r) => setTimeout(r, 150 * (attempt + 1)));
+      }
+    }
+
+    if (!bids.length) {
+      return { matched: false };
+    }
+
+    const tidBn = BigInt(normalizeDecimalTokenId(tokenId));
+    let merkleTokenIds: string[] | null = null;
+    const merkleAttempts = 5;
+    const merkleDelayMs = 200;
+    for (let i = 0; i < merkleAttempts; i++) {
+      const { tokenIds } = await getMerkleEligibleTokenIds(key, { bypassCache: true });
+      const ids = tokenIds.map((x) => BigInt(normalizeDecimalTokenId(x)));
+      if (!ids.length || !ids.some((id) => id === tidBn)) {
+        if (i < merkleAttempts - 1) {
+          await new Promise((r) => setTimeout(r, merkleDelayMs));
+        }
+        continue;
+      }
+      merkleTokenIds = tokenIds;
+      break;
+    }
+    if (!merkleTokenIds?.length) {
+      return {
+        matched: false,
+        hint:
+          "Your listing is not in the collection Merkle set yet (indexing delay). Wait a few seconds and try again from the collection page.",
+      };
+    }
+    const currentRoot = new SeaportMerkleTree(
+      merkleTokenIds.map((x) => BigInt(normalizeDecimalTokenId(x))),
+    ).getHexRoot();
+
+    const pricedBids = bids.filter((b) => {
+      if (b.status !== "active" || !isCriteriaCollectionBid(b)) return false;
+      const bk = orderCollectionKey(b);
+      if (bk && bk.toLowerCase() !== key.toLowerCase()) return false;
+      return bidUsdcAmount(b) >= askAm;
+    });
+
+    if (pricedBids.length === 0) {
+      const hasCriteriaBids = bids.some(
+        (b) => b.status === "active" && isCriteriaCollectionBid(b),
+      );
+      return {
+        matched: false,
+        hint: hasCriteriaBids
+          ? "There are collection bids, but none at or above your list price. Try the bid price or lower."
+          : undefined,
+      };
+    }
+
+    const candidates = pricedBids
+      .filter((b) => bidMerkleRootMatchesCollection(b, currentRoot))
+      .sort((a, b) => (bidUsdcAmount(a) > bidUsdcAmount(b) ? -1 : 1));
+
+    if (candidates.length === 0) {
+      return {
+        matched: false,
+        hint:
+          "No bid’s Merkle root matches the server’s current leaf set. Common causes: (1) the bid was placed before a new RWA in this pool was minted — the buyer must cancel and re-place the bid; (2) a flaky IPFS/metadata scan — try listing again in a few seconds; (3) env drift between bid and list (wrong collection).",
+      };
+    }
+
+    const matchWrite = ((args: Parameters<MatchWriteContractAsync>[0]) =>
+      writeContractAsync(
+        args as Parameters<typeof writeContractAsync>[0],
+      )) as MatchWriteContractAsync;
+
+    let lastErr = "";
+    let listing: Order = created;
+
+    for (const bid of candidates) {
+      try {
+        if (askGrossUsdcMicros(listing) > bidUsdcAmount(bid)) {
+          const wc = walletClientRef.current;
+          if (!wc) {
+            lastErr =
+              "Wallet signer not ready — unlock your wallet, then change the list price to the bid or try again.";
+            continue;
+          }
+          listing = await submitAskListingOrder({
+            tokenId,
+            priceUsdc: formatUnits(bidUsdcAmount(bid), 6),
+            address: address as Address,
+            publicClient,
+            walletClient: wc,
+            writeContractAsync: writeContractAsync as Parameters<
+              typeof submitAskListingOrder
+            >[0]["writeContractAsync"],
+            mode: "replace",
+            oldOrderHash: listing.orderHash,
+          });
+        }
+
+        await runCriteriaMatch({
+          address: address as Address,
+          publicClient,
+          writeContractAsync: matchWrite,
+          bid,
+          listing,
+          tokenId,
+          collectionKey: key,
+          merkleTokenIds,
+        });
+
+        return { matched: true };
+      } catch (e: unknown) {
+        lastErr = mapMatchError(e);
+      }
+    }
+
+    const merkleHint = lastErr.toLowerCase().includes("merkle")
+      ? " If this persists, the buyer may need to cancel and re-place their collection bid for the updated listing set."
+      : "";
+
+    return {
+      matched: false,
+      hint: lastErr
+        ? `${lastErr}${merkleHint}`
+        : "Could not fill a collection bid automatically.",
+    };
+  }
+
+  async function invalidateListingQueries(created: Order) {
+    await queryClient.invalidateQueries({ queryKey: ["marketplace-orders"] });
+    await queryClient.invalidateQueries({ queryKey: ["marketplace-collection"] });
+    await queryClient.invalidateQueries({ queryKey: ["merkle-set"] });
+    const colKey =
+      orderCollectionKey(created) ||
+      (collectionKey != null ? collectionKey.trim() : "") ||
+      orderCollectionKey(existingAskOrder);
+    if (colKey) {
+      await queryClient.invalidateQueries({ queryKey: ["merkle-set", colKey] });
+    }
+    if (address) {
+      await queryClient.invalidateQueries({ queryKey: ["my-rwa-ids", address] });
+    }
+  }
 
   async function handleList() {
     if (!address || !price || parseFloat(price) <= 0) return;
-    if (counter === undefined) {
-      setErrorMsg("Could not read Seaport counter. Try again.");
-      return;
-    }
     if (!walletClient) {
       setErrorMsg("Wallet not connected. Please reconnect.");
       return;
@@ -99,12 +410,42 @@ export function ListRwaModal({
     }
 
     setErrorMsg("");
-    const priceInUnits = parseUnits(price, 6);
-    const now = BigInt(Math.floor(Date.now() / 1000));
-    const endTime = now + BigInt(ORDER_DURATION_SECONDS);
-    const salt = BigInt(Math.floor(Math.random() * 1_000_000_000_000));
+    setSuccessMeta(null);
 
     try {
+      if (isReplaceListing && existingAskOrder) {
+        setStep("submitting");
+        let created = await submitAskListingOrder({
+          tokenId,
+          priceUsdc: price.trim(),
+          address: address as Address,
+          publicClient,
+          walletClient,
+          writeContractAsync: writeContractAsync as Parameters<
+            typeof submitAskListingOrder
+          >[0]["writeContractAsync"],
+          mode: "replace",
+          oldOrderHash: existingAskOrder.orderHash,
+        });
+        if (!orderCollectionKey(created) && created.orderHash) {
+          try {
+            const refreshed = await getOrderByHash(created.orderHash);
+            if (orderCollectionKey(refreshed)) created = refreshed;
+          } catch {
+            /* keep created */
+          }
+        }
+
+        setStep("matching");
+        const meta = await tryMatchAfterListing(created);
+
+        onListed?.(tokenId);
+        setSuccessMeta(meta);
+        setStep("success");
+        await invalidateListingQueries(created);
+        return;
+      }
+
       // ── Step 1: OpenSea-style setApprovalForAll(Seaport, true) — 한 번이면 전 토큰 리스팅 가능
       const alreadyAll = await publicClient.readContract({
         address: TOKENABLE_RWA_ADDRESS,
@@ -114,13 +455,17 @@ export function ListRwaModal({
       });
       if (!alreadyAll) {
         setStep("approving");
-        const gasSetAll = await gasWithCap(publicClient, {
-          address: TOKENABLE_RWA_ADDRESS,
-          abi: TOKENABLE_RWA_APPROVE_ABI,
-          functionName: "setApprovalForAll",
-          args: [SEAPORT_ADDRESS, true],
-          account: address,
-        });
+               const gasSetAll = await gasWithCapFast(
+          publicClient,
+          {
+            address: TOKENABLE_RWA_ADDRESS,
+            abi: TOKENABLE_RWA_APPROVE_ABI,
+            functionName: "setApprovalForAll",
+            args: [SEAPORT_ADDRESS, true],
+            account: address,
+          },
+          GAS_FALLBACK.setApprovalForAll,
+        );
         const setAllTx = await writeContractAsync({
           address: TOKENABLE_RWA_ADDRESS,
           abi: TOKENABLE_RWA_APPROVE_ABI,
@@ -129,98 +474,47 @@ export function ListRwaModal({
           chainId: sepolia.id,
           gas: gasSetAll,
         });
-        void publicClient.waitForTransactionReceipt({ hash: setAllTx }).catch(() => {});
+        await publicClient.waitForTransactionReceipt({ hash: setAllTx });
       }
 
-      // ── Step 2: EIP-712 sign (온체인 승인 채굴 대기 없음) ───────────────────────
+      // Sign + POST: same code path as price replace (`submitAskListingOrder`) so counter / startTime / salt
+      // are read together after any approval wait — avoids a mismatched first-listing signature vs replace.
       setStep("signing");
+      const wc = walletClientRef.current ?? walletClient;
+      if (!wc) {
+        setErrorMsg("Wallet not connected. Please reconnect.");
+        setStep("error");
+        return;
+      }
 
-      const considerationItems = buildAskConsideration(priceInUnits, address);
-
-      const orderMessage = {
-        offerer: address,
-        zone: ZERO_ADDRESS,
-        offer: [
-          {
-            itemType: 2, // ERC721
-            token: TOKENABLE_RWA_ADDRESS,
-            identifierOrCriteria: BigInt(tokenId),
-            startAmount: BigInt(1),
-            endAmount: BigInt(1),
-          },
-        ],
-        consideration: considerationItems,
-        orderType: 0, // FULL_OPEN
-        startTime: now,
-        endTime: endTime,
-        zoneHash: ZERO_BYTES32,
-        salt: salt,
-        conduitKey: ZERO_BYTES32,
-        counter: counter as bigint,
-      };
-
-      const signature = await walletClient.signTypedData({
-        account: address,
-        domain: {
-          name: "Seaport",
-          version: "1.5",
-          chainId: sepolia.id,
-          verifyingContract: SEAPORT_ADDRESS,
-        },
-        types: SEAPORT_ORDER_TYPES,
-        primaryType: "OrderComponents",
-        message: orderMessage as never,
+      let createdFinal = await submitAskListingOrder({
+        tokenId,
+        priceUsdc: price.trim(),
+        address: address as Address,
+        publicClient,
+        walletClient: wc,
+        writeContractAsync: writeContractAsync as Parameters<
+          typeof submitAskListingOrder
+        >[0]["writeContractAsync"],
+        mode: "create",
       });
+      if (!orderCollectionKey(createdFinal) && createdFinal.orderHash) {
+        try {
+          const refreshed = await getOrderByHash(createdFinal.orderHash);
+          if (orderCollectionKey(refreshed)) createdFinal = refreshed;
+        } catch {
+          /* keep created */
+        }
+      }
 
-      // ── Step 3: POST to backend ───────────────────────────────────────────────
-      setStep("submitting");
-
-      const str = (v: unknown): string => String(v);
-      const considerationPayload = buildAskConsiderationPayload(priceInUnits, address);
-
-      const created = await createOrder({
-        side: "ask",
-        parameters: {
-          offerer: address,
-          zone: ZERO_ADDRESS,
-          zoneHash: ZERO_BYTES32,
-          startTime: str(now),
-          endTime: str(endTime),
-          orderType: 0,
-          offer: [
-            {
-              itemType: 2,
-              token: TOKENABLE_RWA_ADDRESS,
-              identifierOrCriteria: str(tokenId),
-              startAmount: "1",
-              endAmount: "1",
-            },
-          ],
-          consideration: considerationPayload,
-          totalOriginalConsiderationItems: considerationPayload.length,
-          salt: str(salt),
-          conduitKey: ZERO_BYTES32,
-          counter: str(counter),
-        },
-        signature,
-        tokenContract: TOKENABLE_RWA_ADDRESS,
-        tokenId: String(tokenId),
-        considerationToken: USDC_ADDRESS,
-        considerationAmount: String(priceInUnits),
-      });
+      setStep("matching");
+      const meta = await tryMatchAfterListing(createdFinal);
 
       onListed?.(tokenId);
+      setSuccessMeta(meta);
       setStep("success");
 
-      await queryClient.invalidateQueries({ queryKey: ["marketplace-orders"] });
-      await queryClient.invalidateQueries({ queryKey: ["marketplace-collection"] });
-      await queryClient.invalidateQueries({ queryKey: ["merkle-set"] });
-      if (created.collectionKey) {
-        await queryClient.invalidateQueries({
-          queryKey: ["merkle-set", created.collectionKey],
-        });
-      }
-      await queryClient.invalidateQueries({ queryKey: ["my-rwa-ids", address] });
+      await invalidateListingQueries(createdFinal);
     } catch (err: unknown) {
       setErrorMsg(mapWalletError(err).message);
       setStep("error");
@@ -228,12 +522,21 @@ export function ListRwaModal({
   }
 
   const isProcessing =
-    step === "approving" || step === "signing" || step === "submitting";
+    step === "approving" ||
+    step === "signing" ||
+    step === "submitting" ||
+    step === "matching";
 
+  const showMatchStep = Boolean(
+    collectionKey?.trim() ||
+      orderCollectionKey(existingAskOrder) ||
+      topCollectionBid != null,
+  );
   const stepLabels: { label: string; active: boolean }[] = [
     { label: "1. Approve marketplace", active: step === "approving" },
     { label: "2. Sign Order", active: step === "signing" },
     { label: "3. Submitting", active: step === "submitting" },
+    ...(showMatchStep ? [{ label: "4. Match bid", active: step === "matching" }] : []),
   ];
 
   return (
@@ -252,18 +555,36 @@ export function ListRwaModal({
 
         {step === "success" ? (
           <div className="text-center py-4">
-            <div className="text-4xl mb-3">🎉</div>
-            <h3 className="text-lg font-bold text-white mb-1">Listed Successfully!</h3>
+            <div className="text-4xl mb-3">{successMeta?.matched ? "✓" : "🎉"}</div>
+            <h3 className="text-lg font-bold text-white mb-1">
+              {successMeta?.matched
+                ? "Matched a collection bid"
+                : isReplaceListing
+                  ? "Listing updated"
+                  : "Listed successfully"}
+            </h3>
             <p className="text-sm text-gray-400">
-              Asset #{tokenId} is now listed for {price} USDC
+              {successMeta?.matched
+                ? `Asset #${tokenId} sold via matchAdvancedOrders (check your wallet for USDC).`
+                : isReplaceListing
+                  ? `Asset #${tokenId} ask is now ${price} USDC.`
+                  : `Asset #${tokenId} is now listed for ${price} USDC`}
             </p>
-            {feePercent() > 0 && (
+            {!successMeta?.matched && feePercent() > 0 && (
               <p className="text-xs text-gray-500 mt-1">
                 {feePercent()}% platform fee included · You&apos;ll receive{" "}
                 {(parseFloat(price) * (1 - feePercent() / 100)).toFixed(2)} USDC on sale
               </p>
             )}
-            <p className="text-xs text-gray-600 mt-2">Listing valid for 30 days</p>
+            {!successMeta?.matched && (
+              <p className="text-xs text-gray-600 mt-2">Listing valid for 30 days</p>
+            )}
+            {!successMeta?.matched && successMeta?.hint ? (
+              <p className="text-[11px] text-amber-200/85 mt-3 text-left leading-relaxed rounded-lg border border-amber-500/25 bg-amber-500/[0.07] px-3 py-2">
+                A collection bid at or above your price was found, but it could not be filled
+                automatically. {successMeta.hint}
+              </p>
+            ) : null}
             <button
               onClick={onClose}
               className="mt-5 w-full py-2 bg-gray-800 hover:bg-gray-700 text-white text-sm rounded-lg transition-colors"
@@ -274,15 +595,30 @@ export function ListRwaModal({
         ) : (
           <>
             <h2 className="text-lg font-bold text-white mb-1">
-              List Asset #{tokenId} for Sale
+              {isReplaceListing ? `Update listing · #${tokenId}` : `List Asset #${tokenId} for Sale`}
             </h2>
-            <p className="text-sm text-gray-500 mb-5">
-              Set a price in USDC. Your asset will be listed via Seaport.
+            <p className="text-sm text-gray-500 mb-3">
+              {isReplaceListing
+                ? "Enter the new USDC price and confirm."
+                : "Set a price in USDC. Your asset will be listed via Seaport."}
             </p>
+
+            {currentAskDisplay ? (
+              <div className="mb-3 rounded-lg border border-slate-600/50 bg-slate-800/50 px-3 py-2.5">
+                <p className="text-[10px] font-medium uppercase tracking-wide text-slate-500">
+                  Current ask (on the book)
+                </p>
+                <p className="text-base font-semibold tabular-nums text-white mt-1">
+                  <span className="text-slate-400 text-sm font-normal mr-0.5">$</span>
+                  {currentAskDisplay.label}
+                  <span className="text-slate-500 font-normal text-xs ml-1">USDC</span>
+                </p>
+              </div>
+            ) : null}
 
             <div className="mb-4">
               <label className="block text-sm text-gray-400 mb-1.5">
-                Price (USDC)
+                {isReplaceListing ? "New price (USDC)" : "Price (USDC)"}
               </label>
               <div className="relative">
                 <input
@@ -343,7 +679,11 @@ export function ListRwaModal({
               disabled={isProcessing || !price || parseFloat(price) <= 0}
               className="w-full py-2.5 bg-gradient-to-r from-mint to-mint-dim hover:brightness-105 disabled:opacity-50 disabled:cursor-not-allowed text-mint-ink text-sm font-semibold rounded-lg transition-all"
             >
-              {isProcessing ? "Processing..." : "List for Sale"}
+              {isProcessing
+                ? "Processing..."
+                : isReplaceListing
+                  ? "Confirm"
+                  : "List for sale"}
             </button>
           </>
         )}

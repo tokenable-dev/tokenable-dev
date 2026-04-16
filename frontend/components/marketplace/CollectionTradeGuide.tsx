@@ -36,8 +36,9 @@ export function CollectionTradeGuide() {
                 <li>
                   <strong className="text-gray-300">Collection bid</strong> — sign a Seaport order with{" "}
                   <strong className="text-gray-300">ERC721_WITH_CRITERIA</strong> and the Merkle root
-                  for this collection&apos;s active listings. One bid can match any listed token in the
-                  set when a seller runs <strong className="text-gray-300">matchAdvancedOrders</strong>.
+                  for this collection&apos;s active listings. When a seller lists at your price (or
+                  lower) from this collection page, the app runs <strong className="text-gray-300">matchAdvancedOrders</strong>{" "}
+                  for you.
                 </li>
               </ul>
             </div>
@@ -57,10 +58,11 @@ export function CollectionTradeGuide() {
                   → approve Seaport for all your RWAs once (setApprovalForAll), then sign each ask.
                 </li>
                 <li>
-                  <strong className="text-gray-300">Match a collection bid</strong> — on the token page,
-                  use <strong className="text-gray-300">Match collection bid</strong> (proof + on-chain
-                  match). On the collection order book, use <strong className="text-gray-300">Sell</strong> on a bid
-                  row to reprice your listing when needed and run the same match in one flow.
+                  <strong className="text-gray-300">Fill a collection bid</strong> — open{" "}
+                  <strong className="text-gray-300">Sell</strong>, pick your asset, and list at the
+                  bid price (or less). The listing step triggers on-chain settlement when the Merkle
+                  snapshot matches. Per-token page still has <strong className="text-gray-300">Match collection bid</strong>{" "}
+                  if you already have a live listing there.
                 </li>
               </ul>
             </div>

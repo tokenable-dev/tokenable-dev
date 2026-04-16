@@ -113,6 +113,10 @@ export class MarketplaceService {
       await em.save(old);
 
       const order = await this.materializeOrderFromDto(dto);
+      /** Re-attach bucket if IPFS/RPC flaked on replace but the prior row had a key (instant match needs it). */
+      if (!order.collectionKey && old.collectionKey) {
+        order.collectionKey = old.collectionKey;
+      }
       return this.persistOrder(order, em);
     });
   }

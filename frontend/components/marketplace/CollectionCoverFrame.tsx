@@ -1,6 +1,7 @@
 "use client";
 
 import { resolveIpfsImage } from "@/lib/api";
+import { CollectionImageLoupe } from "@/components/marketplace/CollectionImageLoupe";
 
 export interface CollectionCoverFrameProps {
   /** `ipfs://` 또는 https — 내부에서 게이트웨이 변환 */
@@ -9,6 +10,8 @@ export interface CollectionCoverFrameProps {
   /** 목록 썸네일 · 상단 중간 크기 · 컬렉션 페이지 대형 히어로 */
   variant?: "compact" | "featured" | "hero";
   className?: string;
+  /** hero 전용: 호버 시 돋보기 렌즈 */
+  heroLoupe?: boolean;
 }
 
 /**
@@ -20,6 +23,7 @@ export function CollectionCoverFrame({
   alt = "",
   variant = "compact",
   className = "",
+  heroLoupe = false,
 }: CollectionCoverFrameProps) {
   const resolved = resolveIpfsImage(imageUrl);
   const isLarge =
@@ -79,17 +83,29 @@ export function CollectionCoverFrame({
               : "min-h-0 w-full flex-1"
           }`}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={resolved}
-            alt={alt}
-            className="absolute inset-0 h-full w-full object-contain object-center"
-            style={{ filter: "saturate(1.04) contrast(1.02)" }}
-          />
-          <div
-            className="pointer-events-none absolute inset-x-0 top-0 h-2/5 bg-gradient-to-b from-white/[0.045] to-transparent"
-            aria-hidden
-          />
+          {variant === "hero" && heroLoupe ? (
+            <CollectionImageLoupe
+              imageUrl={imageUrl}
+              alt={alt}
+              radiusClass="rounded-none"
+              embedInFrame
+              className="absolute inset-0 h-full w-full min-h-0"
+            />
+          ) : (
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={resolved}
+                alt={alt}
+                className="absolute inset-0 h-full w-full object-contain object-center"
+                style={{ filter: "saturate(1.04) contrast(1.02)" }}
+              />
+              <div
+                className="pointer-events-none absolute inset-x-0 top-0 h-2/5 bg-gradient-to-b from-white/[0.045] to-transparent"
+                aria-hidden
+              />
+            </>
+          )}
         </div>
       </div>
     </div>

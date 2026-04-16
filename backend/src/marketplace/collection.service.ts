@@ -12,7 +12,11 @@ import {
   buildCollectionDisplayLabel,
   extractJustTcgQueryUsed,
 } from './collection-label.util';
-import { extractCollectionRepresentativeImage } from './collection-image.util';
+import {
+  extractCollectionRepresentativeImage,
+  extractJustTcgProductIdentifiersFromMetadata,
+  type JustTcgProductIdentifiers,
+} from './collection-image.util';
 import { MarketplaceCollection } from './entities/marketplace-collection.entity';
 import { Order, OrderSide, OrderStatus } from './entities/order.entity';
 
@@ -29,6 +33,19 @@ export interface CollectionSummary {
 
 @Injectable()
 export class CollectionService {
+  /**
+   * Merkle leaf scans are expensive (IPFS × minted count). Cache by collection + totalMinted so
+   * new mints naturally miss; listings of existing tokens stay valid without cache bust.
+   */
+  private readonly merkleSetCache = new Map<
+    string,
+    { tokenIds: string[]; expiresAtMs: number }
+  >();
+  private static readonly MERKLE_SET_CACHE_TTL_MS = 45_000;
+  /** Lower parallelism reduces Pinata/IPFS flakes that change the Merkle leaf set between requests. */
+  private static readonly MERKLE_SCAN_CONCURRENCY = 4;
+  private static readonly MERKLE_TOKEN_LOOKUP_ATTEMPTS = 3;
+
   constructor(
     @InjectRepository(MarketplaceCollection)
     private readonly collectionRepo: Repository<MarketplaceCollection>,
@@ -167,7 +184,42 @@ export class CollectionService {
   }
 
   /**
-   * 대표 이미지: DB 저장값 → 없으면 활성 주문 토큰의 IPFS 메타에서만 추출·백필 (JustTCG HTTP API 없음).
+   * Active listing IPFS metadata → JustTCG identifiers (slug / tcgplayerId / variantId).
+   */
+  async resolveJustTcgProductIdentifiersForCollection(
+    collectionKey: string,
+  ): Promise<JustTcgProductIdentifiers> {
+    const empty: JustTcgProductIdentifiers = {
+      cardId: null,
+      tcgplayerId: null,
+      variantId: null,
+    };
+    const k = collectionKey.toLowerCase();
+    const asks = await this.activeListingsForCollection(k);
+    for (const o of asks) {
+      if (!o.tokenId || String(o.tokenId).trim() === '' || o.tokenId === '0') continue;
+      try {
+        const uri = await this.blockchain.getRwaTokenURI(Number(o.tokenId));
+        const meta = await this.fetchIpfsMetadataJson(uri);
+        const ids = extractJustTcgProductIdentifiersFromMetadata(meta);
+        if (ids.cardId || ids.tcgplayerId || ids.variantId) return ids;
+      } catch {
+        /* next listing */
+      }
+    }
+    return empty;
+  }
+
+  /**
+   * 활성 매도 주문의 IPFS 메타에서 JustTCG 카드 slug (`topMatch.id` / `cardId`).
+   */
+  async resolveJustTcgCardIdForCollection(collectionKey: string): Promise<string | null> {
+    const ids = await this.resolveJustTcgProductIdentifiersForCollection(collectionKey);
+    return ids.cardId;
+  }
+
+  /**
+   * Representative image: DB value; else first active listing IPFS metadata (no JustTCG HTTP).
    */
   async resolveRepresentativeImageForCollection(
     collectionKey: string,
@@ -205,16 +257,57 @@ export class CollectionService {
     return null;
   }
 
-  /** Merkle leaves: distinct token IDs from active listings in this collection (buyer builds tree client-side). */
-  async merkleEligibleTokenIds(collectionKey: string): Promise<{ tokenIds: string[] }> {
-    const listings = await this.activeListingsForCollection(collectionKey);
-    const ids = [
-      ...new Set(
-        listings
-          .map((o) => o.tokenId)
-          .filter((id) => id != null && String(id).trim() !== ''),
-      ),
-    ];
+  /**
+   * Merkle leaves: every minted RWA whose metadata maps to this collection bucket (not only active asks).
+   * Criteria bids stay valid when a new token from the same pool lists — the leaf was already in the tree.
+   */
+  async merkleEligibleTokenIds(
+    collectionKey: string,
+    options?: { bypassCache?: boolean },
+  ): Promise<{ tokenIds: string[] }> {
+    const k = collectionKey.toLowerCase();
+    const { totalMinted } = await this.blockchain.getRwaInfo();
+    const cacheKey = `${k}:${totalMinted}`;
+    const now = Date.now();
+    if (!options?.bypassCache) {
+      const hit = this.merkleSetCache.get(cacheKey);
+      if (hit && hit.expiresAtMs > now) {
+        return { tokenIds: hit.tokenIds };
+      }
+    }
+
+    const tokenIds = await this.scanMintedTokenIdsForCollectionKey(k, totalMinted);
+    this.merkleSetCache.set(cacheKey, {
+      tokenIds,
+      expiresAtMs: now + CollectionService.MERKLE_SET_CACHE_TTL_MS,
+    });
+    return { tokenIds };
+  }
+
+  private async scanMintedTokenIdsForCollectionKey(
+    targetKeyLower: string,
+    totalMinted: number,
+  ): Promise<string[]> {
+    if (totalMinted <= 0) {
+      return [];
+    }
+    /** `TokenableRWA.totalMinted()` = `_nextTokenId` → minted ids are `0 .. totalMinted - 1` (not `1..totalMinted`). */
+    const maxId = totalMinted - 1;
+    const ids: string[] = [];
+    const concurrency = CollectionService.MERKLE_SCAN_CONCURRENCY;
+    for (let start = 0; start <= maxId; start += concurrency) {
+      const end = Math.min(start + concurrency - 1, maxId);
+      const chunk: number[] = [];
+      for (let tid = start; tid <= end; tid++) {
+        chunk.push(tid);
+      }
+      const flags = await Promise.all(
+        chunk.map((tid) => this.mintedTokenBelongsToCollection(tid, targetKeyLower)),
+      );
+      for (let i = 0; i < chunk.length; i++) {
+        if (flags[i]) ids.push(String(chunk[i]));
+      }
+    }
     ids.sort((a, b) => {
       const ba = BigInt(a);
       const bb = BigInt(b);
@@ -222,6 +315,29 @@ export class CollectionService {
       if (ba > bb) return 1;
       return 0;
     });
-    return { tokenIds: ids };
+    return ids;
+  }
+
+  private async mintedTokenBelongsToCollection(
+    tokenId: number,
+    targetKeyLower: string,
+  ): Promise<boolean> {
+    const max = CollectionService.MERKLE_TOKEN_LOOKUP_ATTEMPTS;
+    for (let attempt = 0; attempt < max; attempt++) {
+      if (attempt > 0) {
+        await new Promise((r) => setTimeout(r, 100 * attempt));
+      }
+      try {
+        const uri = await this.blockchain.getRwaTokenURI(tokenId);
+        const meta = await this.fetchIpfsMetadataJson(uri);
+        const comp = extractBucketComponentsFromMetadata(meta);
+        if (!comp) return false;
+        const key = computeMarketBucketKey(comp);
+        return key.toLowerCase() === targetKeyLower;
+      } catch {
+        /* transient RPC / IPFS — retry */
+      }
+    }
+    return false;
   }
 }
