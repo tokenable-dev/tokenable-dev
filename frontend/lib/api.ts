@@ -524,6 +524,9 @@ export interface CollectionListMarketSnapshot {
   sparklineUsd: CollectionUsdPoint[];
 }
 
+/** Must match backend `BatchMarketSnapshotsDto` @ArrayMaxSize */
+export const MARKETPLACE_COLLECTION_SNAPSHOTS_MAX_KEYS = 40;
+
 export async function postMarketplaceCollectionSnapshots(body: {
   collectionKeys: string[];
   priceHistoryDuration?: "7d" | "30d" | "90d" | "180d";
@@ -540,6 +543,28 @@ export async function postMarketplaceCollectionSnapshots(body: {
     );
   }
   return res.json() as Promise<{ items: CollectionListMarketSnapshot[] }>;
+}
+
+/**
+ * Fetches market snapshots for any number of keys by chunking POST bodies
+ * (backend validates max {@link MARKETPLACE_COLLECTION_SNAPSHOTS_MAX_KEYS} per request).
+ */
+export async function postMarketplaceCollectionSnapshotsBatched(
+  collectionKeys: string[],
+  priceHistoryDuration: "7d" | "30d" | "90d" | "180d" = "30d",
+): Promise<{ items: CollectionListMarketSnapshot[] }> {
+  const max = MARKETPLACE_COLLECTION_SNAPSHOTS_MAX_KEYS;
+  if (collectionKeys.length === 0) return { items: [] };
+  const items: CollectionListMarketSnapshot[] = [];
+  for (let i = 0; i < collectionKeys.length; i += max) {
+    const chunk = collectionKeys.slice(i, i + max);
+    const pack = await postMarketplaceCollectionSnapshots({
+      collectionKeys: chunk,
+      priceHistoryDuration,
+    });
+    items.push(...pack.items);
+  }
+  return { items };
 }
 
 /** Merkle leaf set — minted RWAs in this collection bucket (server metadata scan) */

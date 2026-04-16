@@ -6,7 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   getActiveOrders,
   getMarketplaceCollections,
-  postMarketplaceCollectionSnapshots,
+  postMarketplaceCollectionSnapshotsBatched,
   type CollectionListMarketSnapshot,
   type MarketplaceCollectionSummary,
   type Order,
@@ -247,10 +247,7 @@ export default function ExchangePage() {
   const { data: snapshotPack } = useQuery({
     queryKey: ["marketplace-collection-snapshots", snapshotKeys.join("|")],
     queryFn: () =>
-      postMarketplaceCollectionSnapshots({
-        collectionKeys: snapshotKeys,
-        priceHistoryDuration: "30d",
-      }),
+      postMarketplaceCollectionSnapshotsBatched(snapshotKeys, "30d"),
     enabled: snapshotKeys.length > 0 && !isLoading,
     staleTime: 60_000,
   });
