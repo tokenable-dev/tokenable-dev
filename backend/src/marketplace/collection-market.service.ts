@@ -35,6 +35,18 @@ export interface PlatformTapeFillRow {
   priceUsdc: number;
   tokenId: string;
   orderHash: string;
+  /**
+   * `buy` = buyer fulfilled listing (`fulfillOrder` on ask).
+   * `sell` = seller matched listing to collection bid (`fulfillMatchedPair`).
+   * Older rows without `_tapeFillSide` in parameters default to `buy`.
+   */
+  tapeAggressor: 'buy' | 'sell';
+}
+
+function tapeAggressorFromOrderParameters(parameters: Record<string, unknown>): 'buy' | 'sell' {
+  const s = parameters['_tapeFillSide'];
+  if (s === 'sell') return 'sell';
+  return 'buy';
 }
 
 @Injectable()
@@ -92,6 +104,7 @@ export class CollectionMarketService {
         priceUsdc: this.usdcNumber(o.considerationAmount)!,
         tokenId: String(o.tokenId),
         orderHash: o.orderHash,
+        tapeAggressor: tapeAggressorFromOrderParameters(o.parameters),
       }));
     return { platformUsd, trades };
   }

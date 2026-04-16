@@ -18,6 +18,10 @@ import {
   collectionMatchesCategoryFilter,
   type CollectionCategoryFilterId,
 } from "@/lib/collectionCategoryFilter";
+import {
+  computeCollectionMarketCapUsd,
+  formatMarketCapUsd,
+} from "@/lib/gradedCardMarketCap";
 import { useShallow } from "zustand/react/shallow";
 import { useAppStore, selectWallet, selectUsdcBalance } from "@/store";
 
@@ -92,7 +96,15 @@ function CollectionRow({
     gradingCompany?: string;
     cardSet?: string;
     cardNumber?: string;
+    psaTotalPopulation?: number;
   };
+
+  const marketCap = computeCollectionMarketCapUsd({
+    components: collection.components as Record<string, unknown>,
+    gradeScoreStr: comp.gradeScore,
+    poketraceCard: null,
+    gradePrices: snapshot?.gradePrices ?? null,
+  });
 
   const subtitle = [
     comp.gradingCompany,
@@ -164,6 +176,15 @@ function CollectionRow({
               <span className="text-gray-600">Floor</span>{" "}
               <span className="tabular-nums text-gray-400">
                 ${floorPrice.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+              </span>
+            </>
+          ) : null}
+          {marketCap.usd != null ? (
+            <>
+              <span className="mx-1.5 text-gray-700">·</span>
+              <span className="text-gray-600">시가총액</span>{" "}
+              <span className="tabular-nums text-emerald-400/95">
+                {formatMarketCapUsd(marketCap.usd)}
               </span>
             </>
           ) : null}

@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { CollectionMarketService } from './collection-market.service';
 import { CollectionService } from './collection.service';
 import { MarketplaceController } from './marketplace.controller';
+import { PoketraceService } from '../poketrace/poketrace.service';
 import { MarketplaceService } from './marketplace.service';
 import { OrderStatus } from './entities/order.entity';
 
@@ -30,6 +31,12 @@ describe('MarketplaceController', () => {
     getCollectionMarketBundle: jest.fn(),
   };
 
+  const poketraceService = {
+    getPreviewForCollection: jest.fn(),
+    getNearMintHistoryForCollection: jest.fn(),
+    getBatchMintPreviews: jest.fn(),
+  };
+
   let controller: MarketplaceController;
 
   beforeEach(async () => {
@@ -40,6 +47,7 @@ describe('MarketplaceController', () => {
         { provide: MarketplaceService, useValue: service },
         { provide: CollectionService, useValue: collectionService },
         { provide: CollectionMarketService, useValue: collectionMarketService },
+        { provide: PoketraceService, useValue: poketraceService },
       ],
     }).compile();
     controller = module.get(MarketplaceController);

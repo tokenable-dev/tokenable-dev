@@ -28,6 +28,7 @@ import { SeaportMerkleTree } from "@/lib/seaport/merkle";
 import { feePercent } from "@/lib/seaport/platformFee";
 import { fulfillAskListingOrder } from "@/lib/seaport/fulfillAskListing";
 import type { MatchWriteContractAsync } from "@/lib/seaport/runCriteriaMatch";
+import { getChainTimestampSec } from "@/lib/seaport/seaportOrderTime";
 import { tryMatchCriteriaBidAgainstBook } from "@/lib/seaport/tryMatchCriteriaBidAgainstBook";
 
 const ZERO_BYTES32 =
@@ -101,6 +102,7 @@ export function CollectionCriteriaBidPanel({
   presetPriceFromBook,
   /** Lighter chrome when nested in the exchange column (avoids cramped card-in-card). */
   variant = "card",
+  onPurchaseFilled,
 }: {
   collectionKey: string;
   activeAsks?: Order[];
@@ -111,6 +113,8 @@ export function CollectionCriteriaBidPanel({
   /** Synced when user clicks a bid row on the order book (criteria bid price). */
   presetPriceFromBook?: string | null;
   variant?: "card" | "embedded";
+  /** Instant buy or bid+match filled — parent may show a celebration modal. */
+  onPurchaseFilled?: () => void;
 }) {
   const { address: wagmiAddress, isConnected } = useAccount();
   const address =
@@ -280,6 +284,7 @@ export function CollectionCriteriaBidPanel({
         /* ignore */
       }
       onPlaced?.(ask);
+      onPurchaseFilled?.();
       void invalidateAfterTrade();
     } catch (e: unknown) {
       setStep("error");
@@ -337,11 +342,18 @@ export function CollectionCriteriaBidPanel({
     const bidUnits = priceInUnits;
     setErrorMsg("");
     setPostBidMatchHint(null);
-    const now = BigInt(Math.floor(Date.now() / 1000));
-    const endTime = now + BigInt(ORDER_DURATION_SECONDS);
-    const salt = BigInt(Math.floor(Math.random() * 1_000_000_000_000));
 
     try {
+      if (!publicClient) {
+        setErrorMsg("Network client not ready. Try again.");
+        setStep("error");
+        return;
+      }
+      /** Same as listings: wall clock can run ahead of `block.timestamp` and break Seaport’s startTime check. */
+      const now = await getChainTimestampSec(publicClient);
+      const endTime = now + BigInt(ORDER_DURATION_SECONDS);
+      const salt = BigInt(Math.floor(Math.random() * 1_000_000_000_000));
+
       const tree = new SeaportMerkleTree(tokenIds);
       const rootHex = tree.getHexRoot();
       assertMerkleRootBytes32(rootHex);
@@ -511,6 +523,7 @@ export function CollectionCriteriaBidPanel({
         setLastOutcome("instant");
         onInstantBuyFillUsdc?.(matchResult.fillUsdc);
         setPostBidMatchHint(null);
+        onPurchaseFilled?.();
       } else {
         setLastOutcome("bid");
         setPostBidMatchHint(matchResult.hint ?? null);
@@ -799,7 +812,7 @@ export function CollectionCriteriaBidPanel({
                 title="Manage assets and create listings"
                 className="block w-full min-h-[40px] text-center rounded-md py-2 text-xs font-bold text-mint border border-mint/25 bg-mint/[0.06] hover:bg-mint/[0.1]"
               >
-                Portfolio
+                My Assets
               </Link>
             )}
           </div>

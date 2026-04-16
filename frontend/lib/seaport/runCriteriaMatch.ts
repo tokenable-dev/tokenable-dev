@@ -1,6 +1,12 @@
 import type { Abi, PublicClient, Address } from "viem";
+import { formatUnits } from "viem";
 import { sepolia } from "@/config/wagmi";
-import { SEAPORT_ADDRESS, SEAPORT_ABI_WITH_MATCH_ADVANCED } from "@/constants/contracts";
+import {
+  SEAPORT_ADDRESS,
+  SEAPORT_ABI_WITH_MATCH_ADVANCED,
+  USDC_ADDRESS,
+  USDC_ABI,
+} from "@/constants/contracts";
 import { fulfillMatchedPairApi, getMerkleEligibleTokenIds, type Order } from "@/lib/api";
 import { canonicalBytes32Hex } from "@/lib/seaport/collectionCriteriaRoot";
 import { buildCriteriaMatchExecution, isCriteriaCollectionBid } from "@/lib/seaport/criteriaMatch";
@@ -9,6 +15,11 @@ import { SeaportMerkleTree } from "@/lib/seaport/merkle";
 import { GAS_FALLBACK, gasWithCapFast } from "@/lib/chainGas";
 import { normalizeDecimalTokenId } from "@/lib/normalizeTokenId";
 import { mapWalletError } from "@/lib/walletError";
+import {
+  explainSeaportOrderInactive,
+  getChainTimestampSec,
+  isSeaportOrderActiveAt,
+} from "@/lib/seaport/seaportOrderTime";
 
 export type MatchWriteContractAsync = (args: {
   address: Address;
@@ -18,6 +29,62 @@ export type MatchWriteContractAsync = (args: {
   chainId: number;
   gas: bigint;
 }) => Promise<`0x${string}`>;
+
+/** ERC20 offer item in Seaport order parameters. */
+const ITEM_ERC20 = 1;
+
+/**
+ * Criteria bids do not escrow USDC — at match time Seaport transfers from the buyer (`offerer`).
+ * Fail early with a clear message instead of an opaque ERC20 revert.
+ */
+async function assertBuyerUsdcReadyForCriteriaBid(
+  publicClient: PublicClient,
+  bid: Order,
+): Promise<void> {
+  const offer0 = bid.parameters?.offer?.[0];
+  if (!offer0 || Number(offer0.itemType) !== ITEM_ERC20) return;
+  if (
+    String(offer0.token).toLowerCase() !== String(USDC_ADDRESS).toLowerCase()
+  ) {
+    return;
+  }
+  const buyer = bid.offerer as Address;
+  let needed: bigint;
+  try {
+    needed = BigInt(String(offer0.startAmount).trim());
+  } catch {
+    return;
+  }
+  if (needed <= BigInt(0)) return;
+
+  const [bal, allowance] = await Promise.all([
+    publicClient.readContract({
+      address: USDC_ADDRESS,
+      abi: USDC_ABI,
+      functionName: "balanceOf",
+      args: [buyer],
+    }),
+    publicClient.readContract({
+      address: USDC_ADDRESS,
+      abi: USDC_ABI,
+      functionName: "allowance",
+      args: [buyer, SEAPORT_ADDRESS],
+    }),
+  ]);
+
+  if ((bal as bigint) < needed) {
+    throw new Error(
+      `Buyer USDC insufficient: ${buyer} has ${formatUnits(bal as bigint, 6)} USDC but this bid requires ${formatUnits(needed, 6)} USDC at execution time. ` +
+        `Collection bids do not lock USDC — the buyer must still hold the funds when you match. ` +
+        `If you are both buyer and seller, top up that wallet or cancel the bid and list without crossing.`,
+    );
+  }
+  if ((allowance as bigint) < needed) {
+    throw new Error(
+      `Buyer USDC allowance too low for Seaport: ${buyer} must approve at least ${formatUnits(needed, 6)} USDC for Seaport (same as when placing the collection bid).`,
+    );
+  }
+}
 
 export async function runCriteriaMatch(params: {
   address: Address;
@@ -75,7 +142,17 @@ export async function runCriteriaMatch(params: {
     );
   }
 
+  const chainNow = await getChainTimestampSec(publicClient);
+  if (!isSeaportOrderActiveAt(bid, chainNow)) {
+    throw new Error(explainSeaportOrderInactive(bid, chainNow, "bid"));
+  }
+  if (!isSeaportOrderActiveAt(listing, chainNow)) {
+    throw new Error(explainSeaportOrderInactive(listing, chainNow, "listing"));
+  }
+
   const proof = tree.getCriteriaProof(tidBn);
+
+  await assertBuyerUsdcReadyForCriteriaBid(publicClient, bid);
 
   const exec = buildCriteriaMatchExecution({
     criteriaBidOrder: bid,
@@ -138,18 +215,36 @@ export async function runCriteriaMatch(params: {
 const GENERIC_CONTRACT =
   "The contract could not complete this action. Check balances, approvals, and listing status.";
 
-export function mapMatchError(e: unknown): string {
+export function mapMatchError(
+  e: unknown,
+  ctx?: {
+    /** `bid.offerer` — shown when USDC transfer fails so users know whose wallet matters. */
+    bidOfferer?: string;
+  },
+): string {
   const { message, code } = mapWalletError(e);
   if (code !== "REVERT") return message;
 
   const low = message.toLowerCase();
+  if (
+    low.includes("invalidtime") ||
+    low.includes("not active on-chain") ||
+    low.includes("seaport invalidtime")
+  ) {
+    return message;
+  }
   if (
     low.includes("allowance") ||
     low.includes("erc20") ||
     (low.includes("transfer") &&
       (low.includes("fail") || low.includes("exceed") || low.includes("insufficient")))
   ) {
-    return `${message} You’re selling: Seaport still pulls USDC from the buyer’s wallet. They need enough USDC and an allowance to Seaport (the same approval used when placing the collection bid).`;
+    const who = ctx?.bidOfferer
+      ? `The wallet that signed this bid (buyer) is ${ctx.bidOfferer}. `
+      : "";
+    return `${message} ${who}` +
+      `Seaport moves USDC from that buyer when the match executes. A collection bid does not escrow tokens first — if their balance fell or Seaport’s USDC allowance was revoked or spent, this revert happens. ` +
+      `If you are both buyer and seller, that same address must still hold the full bid USDC plus an active approve(Seaport).`;
   }
 
   if (message === GENERIC_CONTRACT) {

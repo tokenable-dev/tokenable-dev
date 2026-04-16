@@ -2,7 +2,6 @@
 
 import { Suspense, useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import Link from "next/link";
 import { MintForm } from "@/components/mint";
 import { useAuthStore } from "@/store/authStore";
 
@@ -13,7 +12,7 @@ const STEPS = [
   { num: 4, label: "Mint" },
 ] as const;
 
-/** Legacy `/vault?tab=my-rwa` → Portfolio (My Assets lives in header → Portfolio). */
+/** Legacy `/vault?tab=my-rwa` → `/portfolio` (My Assets). */
 function LegacyVaultTabRedirect() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -118,30 +117,22 @@ export default function VaultPage() {
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8 pb-20">
         <Stepper active={1} />
 
-        <div className="text-center mb-10">
-          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight mb-3">
-            Vault Tokenization
+        <header className="mb-8 text-center">
+          <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
+            Card
           </h1>
-          <p className="text-sm text-gray-400 max-w-md mx-auto leading-relaxed">
+          <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-white/90 sm:text-base">
             Deposit your physical collectible into Tokenable Vault and receive
             tokenized ownership on-chain.
           </p>
-          <p className="text-xs text-gray-500 max-w-lg mx-auto mt-3 leading-relaxed">
-            When you are ready to mint, use{" "}
-            <span className="text-gray-400">Connect MetaMask</span> at the
-            bottom of the form. After minting, open{" "}
-            <span className="text-gray-400">My Assets</span> from the wallet
-            menu or visit{" "}
-            <Link href="/portfolio" className="text-mint hover:underline">
-              Portfolio
-            </Link>
-            . Link the same address in{" "}
-            <Link href="/profile" className="text-mint hover:underline">
-              Profile
-            </Link>{" "}
-            if you use email login.
-          </p>
-        </div>
+          <div
+            className="mx-auto mt-8 h-px w-full max-w-xl bg-mint/75"
+            aria-hidden
+          />
+          <h2 className="mt-6 text-base font-bold text-white sm:text-lg">
+            Card Information
+          </h2>
+        </header>
 
         <MintForm />
       </div>

@@ -315,6 +315,13 @@ export class MarketplaceService {
     }
 
     order.status = OrderStatus.FULFILLED;
+    /** Tape UI: direct listing fill = buyer took offer (vs matchAdvanced pair = sell into bid). */
+    if (order.side === OrderSide.ASK) {
+      order.parameters = {
+        ...(order.parameters ?? {}),
+        _tapeFillSide: 'buy',
+      };
+    }
     const saved = await this.orderRepo.save(order);
 
     const cons0 = (saved.parameters as { consideration?: { itemType?: number }[] })?.consideration?.[0];
@@ -382,6 +389,10 @@ export class MarketplaceService {
 
     ask.status = OrderStatus.FULFILLED;
     bid.status = OrderStatus.FULFILLED;
+    ask.parameters = {
+      ...(ask.parameters ?? {}),
+      _tapeFillSide: 'sell',
+    };
     await this.orderRepo.save([ask, bid]);
 
     const cleared = await this.orderRepo.update(

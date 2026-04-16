@@ -27,7 +27,10 @@ export interface CollectionOverviewBoardProps {
   badgeLabel?: string;
   imageUrl: string | null;
   metadataRows: { label: string; value: string }[];
+  /** 비우면 헤더 오른쪽 인라인 스탯 숨김 */
   stats: CollectionOverviewStat[];
+  /** 차트 바로 위 (Current Price / Change / Volatility / MCap 등) */
+  chartMetricsRow?: ReactNode;
   /** Depth book (optional — e.g. rendered in a unified trade section below) */
   orderBook?: ReactNode;
   /** Buy / sell ticket — optional; pairs with orderBook when used in overview */
@@ -43,6 +46,8 @@ export interface CollectionOverviewBoardProps {
   heroCoverLoupe?: boolean;
   /** Extra collection fields + expand — omit for plain metadata grid only */
   metadataExpand?: Omit<CollectionMetadataExpandableProps, "metadataRows">;
+  /** e.g. PokeTrace external market strip — rendered under metadata on the left */
+  leftColumnFooter?: ReactNode;
 }
 
 function withFlushProp(node: ReactNode): ReactNode {
@@ -81,6 +86,7 @@ export function CollectionOverviewBoard({
   imageUrl,
   metadataRows,
   stats,
+  chartMetricsRow,
   orderBook,
   tradeTicket,
   listingCount,
@@ -89,6 +95,7 @@ export function CollectionOverviewBoard({
   tradePanel,
   heroCoverLoupe = false,
   metadataExpand,
+  leftColumnFooter,
 }: CollectionOverviewBoardProps) {
   const hasBookColumn = orderBook != null || tradeTicket != null;
   const exchangeTriple = tradePanel != null && orderBookNextToChart != null;
@@ -146,18 +153,22 @@ export function CollectionOverviewBoard({
             </button>
           </div>
 
-          <div
-            className="hidden lg:block w-px shrink-0 self-stretch bg-zinc-800/90 mx-5 xl:mx-6"
-            aria-hidden
-          />
+          {stats.length > 0 ? (
+            <>
+              <div
+                className="hidden lg:block w-px shrink-0 self-stretch bg-zinc-800/90 mx-5 xl:mx-6"
+                aria-hidden
+              />
 
-          <div className="min-w-0 flex-1 border-t border-zinc-800/80 pt-3 lg:flex lg:min-w-0 lg:items-center lg:border-t-0 lg:pt-0">
-            <div className="-mx-1 flex gap-4 overflow-x-auto px-1 pb-0.5 scrollbar-platform sm:gap-6 lg:mx-0 lg:flex-wrap lg:gap-x-7 lg:gap-y-2 lg:overflow-visible lg:px-0 lg:pb-0">
-              {stats.map((s) => (
-                <HeaderInlineStat key={s.label} stat={s} />
-              ))}
-            </div>
-          </div>
+              <div className="min-w-0 flex-1 border-t border-zinc-800/80 pt-3 lg:flex lg:min-w-0 lg:items-center lg:border-t-0 lg:pt-0">
+                <div className="-mx-1 flex gap-4 overflow-x-auto px-1 pb-0.5 scrollbar-platform sm:gap-6 lg:mx-0 lg:flex-wrap lg:gap-x-7 lg:gap-y-2 lg:overflow-visible lg:px-0 lg:pb-0">
+                  {stats.map((s) => (
+                    <HeaderInlineStat key={s.label} stat={s} />
+                  ))}
+                </div>
+              </div>
+            </>
+          ) : null}
 
           <button
             type="button"
@@ -226,17 +237,21 @@ export function CollectionOverviewBoard({
               ))}
             </dl>
           ) : null}
+          {leftColumnFooter}
         </div>
 
-        {/* Middle: chart (+ order book in exchange layout) — stats live in header bar */}
+        {/* Middle: chart (+ order book in exchange layout). Metrics sit above the chart only, not the book/trade column. */}
         <div className="min-w-0 flex flex-col gap-4 items-stretch w-full">
           {exchangeTriple ? (
             <div
               className="flex w-full min-w-0 flex-col gap-4 max-xl:gap-4 xl:h-[min(720px,74svh)] xl:max-h-[min(720px,74svh)] xl:min-h-[min(720px,74svh)] xl:flex-row xl:items-stretch xl:gap-4"
             >
               {/* Chart first on narrow screens (readable size); xl+ shares fixed row with book+trade */}
-              <div className="order-1 flex min-w-0 flex-1 flex-col xl:order-1 xl:h-full xl:min-h-0">
-                <div className="flex w-full min-w-0 flex-col xl:h-full xl:min-h-0 xl:flex-1">
+              <div className="order-1 flex min-w-0 flex-1 flex-col gap-3 xl:order-1 xl:h-full xl:min-h-0">
+                {chartMetricsRow != null ? (
+                  <div className="w-full min-w-0 shrink-0">{chartMetricsRow}</div>
+                ) : null}
+                <div className="flex w-full min-w-0 min-h-0 flex-1 flex-col xl:h-full xl:min-h-0">
                   {priceChart ?? (
                     <CollectionPriceHistoryPlaceholder className="w-full min-h-[360px] max-xl:min-h-[min(400px,50svh)] xl:h-full xl:min-h-0" />
                   )}
@@ -259,7 +274,10 @@ export function CollectionOverviewBoard({
             </div>
           ) : tradePanel != null ? (
             <div className="w-full max-w-6xl mx-auto grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(320px,min(440px,36vw))] gap-4 min-w-0 items-start">
-              <div className="min-w-0 w-full">
+              <div className="flex min-w-0 w-full flex-col gap-3">
+                {chartMetricsRow != null ? (
+                  <div className="w-full min-w-0 shrink-0">{chartMetricsRow}</div>
+                ) : null}
                 {priceChart ?? (
                   <CollectionPriceHistoryPlaceholder className="min-h-[240px] sm:min-h-[300px] w-full" />
                 )}
@@ -269,7 +287,10 @@ export function CollectionOverviewBoard({
               </div>
             </div>
           ) : (
-            <div className="w-full max-w-3xl mx-auto min-w-0">
+            <div className="flex w-full max-w-3xl mx-auto min-w-0 flex-col gap-3">
+              {chartMetricsRow != null ? (
+                <div className="w-full min-w-0 shrink-0">{chartMetricsRow}</div>
+              ) : null}
               {priceChart ?? (
                 <CollectionPriceHistoryPlaceholder className="min-h-[240px] sm:min-h-[280px] w-full" />
               )}

@@ -41,6 +41,8 @@ export interface CollectionMetadataExpandableProps {
     justtcgCardId: string | null;
     categoryLabel: string | null;
   } | null;
+  /** PokeTrace catalog id when server matched a card */
+  poketraceCardId?: string | null;
 }
 
 /**
@@ -55,6 +57,7 @@ export function CollectionMetadataExpandable({
   representativeImageUrl,
   components,
   marketSeriesMeta,
+  poketraceCardId,
 }: CollectionMetadataExpandableProps) {
   const [expanded, setExpanded] = useState(false);
 
@@ -150,10 +153,20 @@ export function CollectionMetadataExpandable({
                   {queryUsed?.trim() ? (
                     <div className="rounded-lg border border-gray-800/70 bg-black/20 px-2.5 py-2 sm:col-span-2">
                       <dt className="text-[10px] font-medium uppercase tracking-wide text-gray-500">
-                        JustTCG query
+                        Match query
                       </dt>
                       <dd className="mt-0.5 font-mono text-[11px] text-zinc-200 break-all">
                         {queryUsed}
+                      </dd>
+                    </div>
+                  ) : null}
+                  {poketraceCardId?.trim() ? (
+                    <div className="rounded-lg border border-gray-800/70 bg-black/20 px-2.5 py-2 sm:col-span-2">
+                      <dt className="text-[10px] font-medium uppercase tracking-wide text-gray-500">
+                        PokeTrace card ID
+                      </dt>
+                      <dd className="mt-0.5 font-mono text-[11px] text-zinc-200 break-all">
+                        {poketraceCardId}
                       </dd>
                     </div>
                   ) : null}

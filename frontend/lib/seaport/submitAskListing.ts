@@ -16,6 +16,7 @@ import {
   buildAskConsideration,
   buildAskConsiderationPayload,
 } from "@/lib/seaport/platformFee";
+import { getChainTimestampSec } from "@/lib/seaport/seaportOrderTime";
 
 const ZERO_BYTES32 =
   "0x0000000000000000000000000000000000000000000000000000000000000000" as const;
@@ -57,7 +58,8 @@ export async function submitAskListingOrder(params: {
   }
 
   const priceInUnits = parseUnits(priceUsdc, 6);
-  const now = BigInt(Math.floor(Date.now() / 1000));
+  /** Wall clock can be ahead of `block.timestamp` — Seaport requires `startTime <= now` at fill time. */
+  const now = await getChainTimestampSec(publicClient);
   const endTime = now + BigInt(ORDER_DURATION_SECONDS);
   const salt = BigInt(Math.floor(Math.random() * 1_000_000_000_000));
 

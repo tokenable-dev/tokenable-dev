@@ -92,6 +92,11 @@ export interface PsaAnalyzeResult {
     topMatch: unknown | null;
     rawResponse: unknown;
   };
+  /** PokeTrace catalog id — persist as graded.poketrace on mint */
+  poketraceMint?: {
+    cardId: string;
+    searchQuery: string;
+  };
   /** PSA cert-images 등 — 앞면 URL은 민팅 시 imageUrl로 쓸 수 있음 */
   psaCertImages?: { front?: string; back?: string };
   /** 백엔드가 부분 실복구 시 단계별 안내 */
@@ -117,6 +122,24 @@ export async function analyzePsaSlab(
     const err = await res.json().catch(() => ({ message: "PSA analyze failed" }));
     throw new Error(
       (err as { message?: string }).message ?? "PSA analyze failed"
+    );
+  }
+  return res.json() as Promise<PsaAnalyzeResult>;
+}
+
+/** 슬랩 사진 없이 Cert 번호(또는 psacard.com/cert/ URL)만으로 PSA + JustTCG 조회 */
+export async function analyzePsaByCertNumber(
+  certNumberOrUrl: string
+): Promise<PsaAnalyzeResult> {
+  const res = await backendFetch(`${getApiUrl()}/psa/analyze-by-cert`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ certNumber: certNumberOrUrl.trim() }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ message: "PSA cert lookup failed" }));
+    throw new Error(
+      (err as { message?: string }).message ?? "PSA cert lookup failed"
     );
   }
   return res.json() as Promise<PsaAnalyzeResult>;
@@ -487,12 +510,125 @@ export async function getCollectionMarketSeries(
   return res.json() as Promise<CollectionMarketSeries>;
 }
 
+/** PokeTrace — raw (Near Mint) market bands; PSA tier $ amounts need PokeTrace Pro on their API */
+export interface PoketracePriceBand {
+  avg: number | null;
+  low: number | null;
+  high: number | null;
+  lastUpdated: string | null;
+  saleCount: number | null;
+  approxSaleCount: boolean | null;
+  avg1d?: number | null;
+  avg7d?: number | null;
+  avg30d?: number | null;
+  median3d?: number | null;
+  median7d?: number | null;
+  median30d?: number | null;
+}
+
+export interface CollectionPoketracePreview {
+  enabled: boolean;
+  searchQuery: string;
+  matched: boolean;
+  message?: string;
+  card: null | {
+    id: string;
+    name: string;
+    cardNumber: string;
+    setName: string;
+    setSlug: string | null;
+    image: string | null;
+    tcgplayerId: string | null;
+    currency: string | null;
+    market: string | null;
+    lastUpdated: string | null;
+    topPrice: number | null;
+    totalSaleCount: number | null;
+    hasGraded: boolean;
+    gradedTiersAvailable: string[];
+    ebayNearMint: PoketracePriceBand | null;
+    tcgplayerNearMint: PoketracePriceBand | null;
+  };
+}
+
+export async function getCollectionPoketracePreview(
+  collectionKey: string
+): Promise<CollectionPoketracePreview> {
+  const enc = encodeURIComponent(collectionKey);
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/collections/${enc}/poketrace`
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(
+      (err as { message?: string }).message ?? "Failed to load PokeTrace preview"
+    );
+  }
+  return res.json() as Promise<CollectionPoketracePreview>;
+}
+
+/** Batch PokeTrace previews from mint IPFS metadata (My Assets); keys are token ids */
+export async function postBatchMintPoketracePreviews(
+  items: Array<{ tokenId: number; metadata: unknown }>
+): Promise<Record<number, CollectionPoketracePreview>> {
+  const res = await backendFetch(`${getApiUrl()}/marketplace/poketrace/mint-previews`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ items }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(
+      (err as { message?: string }).message ?? "Failed to load PokeTrace mint previews"
+    );
+  }
+  const raw = (await res.json()) as Record<string, CollectionPoketracePreview>;
+  const out: Record<number, CollectionPoketracePreview> = {};
+  for (const [k, v] of Object.entries(raw)) {
+    const id = Number(k);
+    if (Number.isFinite(id)) out[id] = v;
+  }
+  return out;
+}
+
+/** GET /cards/:id/prices/NEAR_MINT/history — server-trimmed to UTC days in window */
+export interface CollectionPoketraceNmHistory {
+  enabled: boolean;
+  searchQuery: string;
+  matched: boolean;
+  message?: string;
+  days: number;
+  points: CollectionUsdPoint[];
+  source: string;
+  upstreamRequests: number;
+}
+
+export async function getCollectionPoketraceNmHistory(
+  collectionKey: string,
+  days = 90
+): Promise<CollectionPoketraceNmHistory> {
+  const enc = encodeURIComponent(collectionKey);
+  const d = Math.min(365, Math.max(1, Math.floor(days)));
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/collections/${enc}/poketrace/nm-history?days=${d}`
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(
+      (err as { message?: string }).message ?? "Failed to load PokeTrace NM history"
+    );
+  }
+  return res.json() as Promise<CollectionPoketraceNmHistory>;
+}
+
 /** Fulfilled listing fill for collection tape (same source as chart platform series). */
 export interface CollectionPlatformTapeFill {
   t: number;
   priceUsdc: number;
   tokenId: string;
   orderHash: string;
+  /** buy = instant take of listing; sell = matched listing to collection bid (new fills only). */
+  tapeAggressor?: "buy" | "sell";
 }
 
 /** DB-only: chart points + tape rows — poll without re-calling JustTCG. */

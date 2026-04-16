@@ -12,11 +12,25 @@ import {
   getOrderHistoryByTokenId,
   fetchIpfsMetadata,
   resolveIpfsImage,
+  postBatchMintPoketracePreviews,
   type RwaMetadata,
   type Order,
+  type CollectionPoketracePreview,
+  type PoketracePriceBand,
 } from "@/lib/api";
 import { useAppStore, selectUsdcBalance } from "@/store";
 import { useShallow } from "zustand/react/shallow";
+import type { GradedCardMetadata } from "@/types/gradedCard";
+import {
+  loadNmBaselineMap,
+  saveNmBaselineMap,
+  type NmBaselineEntry,
+} from "@/lib/portfolioNmBaseline";
+import {
+  appendPortfolioValueSnapshot,
+  loadPortfolioValueHistory,
+  buildPortfolioChartPoints,
+} from "@/lib/portfolioValueHistory";
 
 const USDC_DECIMALS = 1_000_000;
 
@@ -26,14 +40,26 @@ interface OwnedAsset {
   imageUrl: string | null;
 }
 
-interface AssetRow {
+interface PricedAssetRow {
   tokenId: number;
   name: string;
   imageUrl: string | null;
   category: string | null;
   amount: number;
-  avgBuy: number | null;
+  /** Mark for value: PokeTrace NM blend when available, else active ask */
   currentPrice: number | null;
+  priceSource: "poketrace-nm" | "listing" | "none";
+  nmShortLabel: string | null;
+  /** Secondary line under title (set / year / card name) */
+  subtitle: string;
+  gradeLabel: string | null;
+  acquiredLabel: string | null;
+}
+
+interface AssetRow extends PricedAssetRow {
+  /** First saved NM snapshot (this browser) used for P&amp;L */
+  nmBaselineUsd: number | null;
+  /** Current NM vs baseline (NM market movement) */
   pnl: number | null;
   pnlPct: number | null;
 }
@@ -56,12 +82,141 @@ function fmtUsd(v: number): string {
   return `$${v.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
 }
 
+/** PokeTrace NM band → single USD (matches collection page blending). */
+function poketraceBandPrimaryUsd(b: PoketracePriceBand | null): number | null {
+  if (!b) return null;
+  if (typeof b.avg === "number" && Number.isFinite(b.avg) && b.avg > 0) return b.avg;
+  if (
+    typeof b.low === "number" &&
+    typeof b.high === "number" &&
+    Number.isFinite(b.low) &&
+    Number.isFinite(b.high) &&
+    b.low > 0 &&
+    b.high > 0
+  ) {
+    return (b.low + b.high) / 2;
+  }
+  return null;
+}
+
+function pickLongWindowPoketraceUsd(b: PoketracePriceBand | null): {
+  usd: number;
+  label: string;
+  windowDays: number;
+} | null {
+  if (!b) return null;
+  const order: [keyof PoketracePriceBand, string, number][] = [
+    ["median30d", "30d med", 30],
+    ["avg30d", "30d avg", 30],
+    ["median7d", "7d med", 7],
+    ["avg7d", "7d avg", 7],
+    ["median3d", "3d med", 3],
+    ["avg1d", "1d avg", 1],
+  ];
+  for (const [k, label, windowDays] of order) {
+    const v = b[k];
+    if (typeof v === "number" && Number.isFinite(v) && v > 0) {
+      return { usd: v, label, windowDays };
+    }
+  }
+  const spot = poketraceBandPrimaryUsd(b);
+  if (spot != null) return { usd: spot, label: "spot", windowDays: 30 };
+  return null;
+}
+
+function poketraceBlendedExternal(
+  card: NonNullable<CollectionPoketracePreview["card"]>,
+): { usd: number; shortLabel: string; windowDays: number } | null {
+  const e = pickLongWindowPoketraceUsd(card.ebayNearMint);
+  const t = pickLongWindowPoketraceUsd(card.tcgplayerNearMint);
+  if (e && t) {
+    return {
+      usd: (e.usd + t.usd) / 2,
+      shortLabel: `${e.label} + ${t.label} · eBay/TCG NM`,
+      windowDays: Math.max(e.windowDays, t.windowDays),
+    };
+  }
+  if (e) return { usd: e.usd, shortLabel: `${e.label} · eBay NM`, windowDays: e.windowDays };
+  if (t) return { usd: t.usd, shortLabel: `${t.label} · TCG NM`, windowDays: t.windowDays };
+  return null;
+}
+
 function extractCategory(meta: RwaMetadata | null): string | null {
   if (!meta?.attributes) return null;
   const cat = meta.attributes.find(
     (a) => a.trait_type === "PSA Category" || a.trait_type === "Set",
   );
   return cat?.value ?? null;
+}
+
+function getGraded(meta: RwaMetadata | null): GradedCardMetadata | undefined {
+  const g = meta?.properties?.graded;
+  return g && typeof g === "object" ? (g as GradedCardMetadata) : undefined;
+}
+
+function buildAssetSubtitle(meta: RwaMetadata | null, displayName: string): string {
+  const g = getGraded(meta);
+  if (g?.card) {
+    const parts: string[] = [];
+    if (g.card.year != null) parts.push(String(g.card.year));
+    if (g.psa?.category?.trim()) parts.push(g.psa.category.trim());
+    else if (g.card.set?.trim()) parts.push(g.card.set.trim());
+    const cn = g.card.name?.trim();
+    if (cn && cn !== displayName) parts.push(cn);
+    if (parts.length > 0) return parts.join(" · ");
+  }
+  const attrYear = meta?.attributes?.find((a) => a.trait_type === "Year");
+  const attrSet = meta?.attributes?.find(
+    (a) => a.trait_type === "Set" || a.trait_type === "PSA Category",
+  );
+  if (attrYear?.value || attrSet?.value) {
+    return [attrYear?.value, attrSet?.value].filter(Boolean).join(" · ");
+  }
+  const desc = meta?.description?.trim();
+  if (desc && desc.length <= 200 && !desc.startsWith("http")) {
+    const line = desc.split("\n")[0].trim();
+    return line.length > 120 ? `${line.slice(0, 117)}…` : line;
+  }
+  return "";
+}
+
+function formatGradeDisplay(meta: RwaMetadata | null): string | null {
+  const g = getGraded(meta);
+  const company = (g?.gradingCompany ?? "PSA").trim();
+  const score = g?.grade?.score ?? g?.psa?.gradeScore;
+  if (score != null && String(score).trim() !== "" && !Number.isNaN(Number(score))) {
+    return `${company} ${score}`.trim();
+  }
+  const gl = g?.psa?.gradeLabel?.trim();
+  if (gl) return `${company} ${gl}`.replace(/\s+/g, " ").trim();
+  const attr = meta?.attributes?.find(
+    (a) =>
+      a.trait_type === "Grade" ||
+      (a.trait_type?.toLowerCase().includes("grade") ?? false),
+  );
+  return attr?.value?.trim() ?? null;
+}
+
+function earliestBuyDateLabel(
+  tokenId: number,
+  fulfilledOrders: Order[],
+  wallet: string | undefined,
+): string | null {
+  if (!wallet) return null;
+  const buys = fulfilledOrders.filter(
+    (o) =>
+      Number(o.tokenId) === tokenId &&
+      o.offerer.toLowerCase() !== wallet.toLowerCase(),
+  );
+  if (buys.length === 0) return null;
+  const t = Math.min(
+    ...buys.map((o) => new Date(o.updatedAt ?? o.createdAt).getTime()),
+  );
+  return new Date(t).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 }
 
 const BADGE_COLORS: Record<string, string> = {
@@ -442,6 +597,7 @@ export default function PortfolioPage() {
   const { address, isConnected } = useAccount();
   const { usdcBalanceFormatted } = useAppStore(useShallow(selectUsdcBalance));
   const [period, setPeriod] = useState<ChartPeriod>("1D");
+  const [portfolioHistoryVersion, setPortfolioHistoryVersion] = useState(0);
 
   const { data: tokenIds = [], isLoading: idsLoading } = useQuery({
     queryKey: ["portfolio-ids", address],
@@ -471,6 +627,32 @@ export default function PortfolioPage() {
     },
     enabled: tokenIds.length > 0,
   });
+
+  const {
+    data: poketraceByToken = {},
+    isLoading: poketraceLoading,
+    isError: poketraceError,
+  } = useQuery({
+    queryKey: ["portfolio-poketrace", address, tokenIds.join(",")],
+    queryFn: () =>
+      postBatchMintPoketracePreviews(
+        assets.map((a) => ({ tokenId: a.tokenId, metadata: a.metadata })),
+      ),
+    enabled:
+      Boolean(address) &&
+      isConnected &&
+      !assetsLoading &&
+      assets.length > 0,
+    staleTime: 5 * 60_000,
+  });
+
+  /** Until PokeTrace batch settles, avoid using listing $ as “current” (then switch to NM → ask). */
+  const valuesPending =
+    Boolean(address) &&
+    isConnected &&
+    assets.length > 0 &&
+    poketraceLoading &&
+    !poketraceError;
 
   const { data: allOrders = [] } = useQuery({
     queryKey: ["marketplace-orders-all"],
@@ -522,40 +704,109 @@ export default function PortfolioPage() {
     [histories],
   );
 
-  const assetRows: AssetRow[] = useMemo(() => {
+  const [nmBaselineMap, setNmBaselineMap] = useState<
+    Record<number, NmBaselineEntry>
+  >({});
+
+  useEffect(() => {
+    if (!address) {
+      setNmBaselineMap({});
+      return;
+    }
+    setNmBaselineMap(loadNmBaselineMap(address));
+  }, [address]);
+
+  const pricedRows: PricedAssetRow[] = useMemo(() => {
+    const pricingResolved = !poketraceLoading || poketraceError;
     return assets.map((a) => {
-      const currentPrice = priceMap.get(a.tokenId) ?? null;
-      const buyOrders = fulfilledOrders.filter(
-        (o) =>
-          Number(o.tokenId) === a.tokenId &&
-          o.offerer.toLowerCase() !== address?.toLowerCase(),
-      );
-      const avgBuy =
-        buyOrders.length > 0
-          ? buyOrders.reduce(
-              (sum, o) => sum + Number(o.considerationAmount) / USDC_DECIMALS,
-              0,
-            ) / buyOrders.length
-          : null;
-      const pnl =
-        currentPrice != null && avgBuy != null ? currentPrice - avgBuy : null;
-      const pnlPct =
-        pnl != null && avgBuy != null && avgBuy > 0
-          ? (pnl / avgBuy) * 100
-          : null;
+      const listingPrice = priceMap.get(a.tokenId) ?? null;
+      const pt = poketraceByToken[a.tokenId];
+      const nmBlend =
+        pt?.matched && pt.card ? poketraceBlendedExternal(pt.card) : null;
+      const markUsd = nmBlend?.usd ?? null;
+
+      let currentPrice: number | null = null;
+      let priceSource: PricedAssetRow["priceSource"] = "none";
+      let nmShortLabel: string | null = null;
+
+      if (pricingResolved) {
+        if (markUsd != null) {
+          currentPrice = markUsd;
+          priceSource = "poketrace-nm";
+          nmShortLabel = nmBlend?.shortLabel ?? null;
+        } else if (listingPrice != null) {
+          currentPrice = listingPrice;
+          priceSource = "listing";
+        }
+      }
+
+      const displayName = a.metadata?.name ?? `RWA #${a.tokenId}`;
       return {
         tokenId: a.tokenId,
-        name: a.metadata?.name ?? `RWA #${a.tokenId}`,
+        name: displayName,
         imageUrl: a.imageUrl,
         category: extractCategory(a.metadata),
         amount: 1,
-        avgBuy,
         currentPrice,
+        priceSource,
+        nmShortLabel,
+        subtitle: buildAssetSubtitle(a.metadata, displayName),
+        gradeLabel: formatGradeDisplay(a.metadata),
+        acquiredLabel: earliestBuyDateLabel(
+          a.tokenId,
+          fulfilledOrders,
+          address,
+        ),
+      };
+    });
+  }, [
+    assets,
+    priceMap,
+    fulfilledOrders,
+    address,
+    poketraceByToken,
+    poketraceLoading,
+    poketraceError,
+  ]);
+
+  useEffect(() => {
+    if (!address || valuesPending) return;
+    setNmBaselineMap((prev) => {
+      let next = prev;
+      let changed = false;
+      for (const r of pricedRows) {
+        if (r.priceSource !== "poketrace-nm" || r.currentPrice == null) continue;
+        if (next[r.tokenId] !== undefined) continue;
+        if (next === prev) next = { ...prev };
+        changed = true;
+        next[r.tokenId] = { v: r.currentPrice, t: Date.now() };
+      }
+      if (changed) saveNmBaselineMap(address, next);
+      return changed ? next : prev;
+    });
+  }, [address, valuesPending, pricedRows]);
+
+  const assetRows: AssetRow[] = useMemo(() => {
+    return pricedRows.map((r) => {
+      const b = nmBaselineMap[r.tokenId];
+      let nmBaselineUsd: number | null = null;
+      let pnl: number | null = null;
+      let pnlPct: number | null = null;
+
+      if (r.priceSource === "poketrace-nm" && r.currentPrice != null && b != null) {
+        nmBaselineUsd = b.v;
+        pnl = r.currentPrice - b.v;
+        if (b.v > 0) pnlPct = (pnl / b.v) * 100;
+      }
+
+      return {
+        ...r,
+        nmBaselineUsd,
         pnl,
         pnlPct,
       };
     });
-  }, [assets, priceMap, fulfilledOrders, address]);
+  }, [pricedRows, nmBaselineMap]);
 
   const txRows: TxRow[] = useMemo(() => {
     if (!address) return [];
@@ -589,8 +840,8 @@ export default function PortfolioPage() {
   );
 
   const totalPnlPct = useMemo(() => {
-    const totalCost = assetRows.reduce((s, r) => s + (r.avgBuy ?? 0), 0);
-    return totalCost > 0 ? (totalPnl / totalCost) * 100 : 0;
+    const sumBaseline = assetRows.reduce((s, r) => s + (r.nmBaselineUsd ?? 0), 0);
+    return sumBaseline > 0 ? (totalPnl / sumBaseline) * 100 : 0;
   }, [assetRows, totalPnl]);
 
   const uniqueTraders = useMemo(() => {
@@ -604,25 +855,39 @@ export default function PortfolioPage() {
     return addrs.size;
   }, [histories]);
 
-  const chartPoints = useMemo(() => {
-    const base = totalValue || 0;
-    const pts: number[] = [];
-    const count = period === "1D" ? 24 : period === "1W" ? 7 : 30;
-    for (let i = 0; i < count; i++) {
-      const noise = (Math.sin(i * 1.3 + base * 0.01) * 0.04 + Math.cos(i * 0.7) * 0.02);
-      pts.push(base * (0.92 + 0.08 * (i / count) + noise));
-    }
-    pts.push(base);
-    return pts;
-  }, [totalValue, period]);
-
   const isLoading = idsLoading || assetsLoading;
+  const chartValuesPending = isLoading || valuesPending;
+
+  const portfolioValueHistory = useMemo(
+    () => (address ? loadPortfolioValueHistory(address) : []),
+    [address, portfolioHistoryVersion],
+  );
+
+  useEffect(() => {
+    if (!address || chartValuesPending) return;
+    if (appendPortfolioValueSnapshot(address, totalValue)) {
+      setPortfolioHistoryVersion((n) => n + 1);
+    }
+  }, [address, chartValuesPending, totalValue]);
+
+  const chartPoints = useMemo(() => {
+    if (chartValuesPending) return [];
+    const baselineTotal = assetRows.reduce((s, r) => s + (r.nmBaselineUsd ?? 0), 0);
+    const startFallback = baselineTotal > 0 ? baselineTotal : totalValue;
+    return buildPortfolioChartPoints(
+      portfolioValueHistory,
+      period,
+      Date.now(),
+      totalValue,
+      startFallback,
+    );
+  }, [portfolioValueHistory, period, totalValue, assetRows, chartValuesPending]);
 
   if (!isConnected) {
     return (
       <div className="min-h-screen bg-[#030712] text-white flex items-center justify-center">
         <div className="text-center">
-          <p className="text-gray-400 mb-3">Connect your wallet to view portfolio</p>
+          <p className="text-gray-400 mb-3">Connect your wallet to access My Assets</p>
           <Link
             href="/vault"
             className="text-sm text-mint hover:underline"
@@ -640,7 +905,7 @@ export default function PortfolioPage() {
         {/* Title */}
         <div className="mb-8">
           <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight mb-1">
-            Portfolio
+            My Assets
           </h1>
           <p className="text-sm text-gray-400">Your tokenized assets</p>
         </div>
@@ -650,22 +915,30 @@ export default function PortfolioPage() {
           <div className="flex items-start justify-between mb-2">
             <div>
               <p className="text-sm font-semibold text-white mb-0.5">Chart</p>
-              <p className="text-[11px] text-gray-500 mb-1">Your total assets</p>
+              <p className="text-[11px] text-gray-500 mb-1">
+                Total value (NM / ask) · curve from saved snapshots in this browser
+              </p>
               <div className="flex items-center gap-2.5">
-                <span className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-                  {fmtUsd(totalValue)}
-                </span>
-                {totalPnlPct !== 0 && (
-                  <span
-                    className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${
-                      totalPnlPct >= 0
-                        ? "bg-mint/15 text-mint"
-                        : "bg-red-500/15 text-red-400"
-                    }`}
-                  >
-                    {totalPnlPct >= 0 ? "+" : ""}
-                    {totalPnlPct.toFixed(1)}%
-                  </span>
+                {chartValuesPending ? (
+                  <span className="inline-block h-9 w-28 animate-pulse rounded-lg bg-gray-800/80" />
+                ) : (
+                  <>
+                    <span className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+                      {fmtUsd(totalValue)}
+                    </span>
+                    {totalPnlPct !== 0 && (
+                      <span
+                        className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${
+                          totalPnlPct >= 0
+                            ? "bg-mint/15 text-mint"
+                            : "bg-red-500/15 text-red-400"
+                        }`}
+                      >
+                        {totalPnlPct >= 0 ? "+" : ""}
+                        {totalPnlPct.toFixed(1)}%
+                      </span>
+                    )}
+                  </>
                 )}
               </div>
             </div>
@@ -686,7 +959,7 @@ export default function PortfolioPage() {
             </div>
           </div>
           <div className="h-[240px] sm:h-[280px]">
-            {isLoading ? (
+            {chartValuesPending ? (
               <div className="w-full h-full bg-gray-800/40 rounded-lg animate-pulse" />
             ) : (
               <PortfolioChart
@@ -711,24 +984,44 @@ export default function PortfolioPage() {
             sub="All time"
           />
           <StatCard
-            label="24h P&L"
-            value={`${totalPnl >= 0 ? "+" : ""}${fmtUsd(totalPnl)}`}
-            sub={
-              totalPnlPct !== 0
-                ? `${totalPnlPct >= 0 ? "+" : ""}${totalPnlPct.toFixed(1)}%`
-                : undefined
+            label="P&amp;L"
+            value={
+              chartValuesPending
+                ? "…"
+                : `${totalPnl >= 0 ? "+" : ""}${fmtUsd(totalPnl)}`
             }
-            accent={totalPnl !== 0}
+            sub={
+              chartValuesPending
+                ? undefined
+                : totalPnlPct !== 0
+                  ? `${totalPnlPct >= 0 ? "+" : ""}${totalPnlPct.toFixed(1)}% · NM vs baseline`
+                  : "NM vs saved baseline"
+            }
+            accent={!chartValuesPending && totalPnl !== 0}
           />
         </div>
 
-        {/* Asset Inventory */}
+        {/* Asset Inventory — card grid */}
         <div className="rounded-2xl border border-gray-800 bg-[#0b1118] p-5 sm:p-6 mb-6">
-          <h2 className="text-sm font-bold mb-4">Asset Inventory</h2>
+          <h2 className="text-sm font-bold mb-1">Asset Inventory</h2>
+          <p className="text-[11px] text-gray-500 mb-5">
+            Current value uses PokeTrace NM when matched, else your ask. P&amp;L is the change in
+            that NM reference vs the first value stored in this browser for each token (not
+            purchase cost). Graded slab tier $ ≠ raw NM.
+          </p>
           {isLoading ? (
-            <div className="space-y-3">
-              {[...Array(3)].map((_, i) => (
-                <div key={i} className="h-11 bg-gray-800/40 rounded-lg animate-pulse" />
+            <div className="-mx-1 flex flex-nowrap gap-4 overflow-x-auto overflow-y-hidden pb-2 pt-0.5 scrollbar-platform">
+              {[...Array(5)].map((_, i) => (
+                <div
+                  key={i}
+                  className="w-[min(260px,calc(100vw-4rem))] shrink-0 overflow-hidden rounded-xl border border-gray-800/80 bg-gray-900/40"
+                >
+                  <div className="aspect-[3/4] animate-pulse bg-gray-800/50" />
+                  <div className="space-y-2 p-4">
+                    <div className="h-4 w-2/3 animate-pulse rounded bg-gray-800/60" />
+                    <div className="h-3 w-full animate-pulse rounded bg-gray-800/40" />
+                  </div>
+                </div>
               ))}
             </div>
           ) : assetRows.length === 0 ? (
@@ -739,68 +1032,126 @@ export default function PortfolioPage() {
               </Link>
             </p>
           ) : (
-            <div className="overflow-hidden rounded-xl border border-gray-800/60 max-h-[264px] overflow-y-auto scrollbar-thin">
-              <table className="w-full text-[13px] table-fixed">
-                <colgroup>
-                  <col style={{ width: "36%" }} />
-                  <col style={{ width: "12%" }} />
-                  <col style={{ width: "16%" }} />
-                  <col style={{ width: "16%" }} />
-                  <col style={{ width: "20%" }} />
-                </colgroup>
-                <thead className="sticky top-0 z-10">
-                  <tr className="bg-[#111a25] text-left text-xs text-gray-500">
-                    <th className="px-4 py-2.5 font-medium">Card</th>
-                    <th className="px-4 py-2.5 font-medium">Amount</th>
-                    <th className="px-4 py-2.5 font-medium">AVG BUY</th>
-                    <th className="px-4 py-2.5 font-medium">Current</th>
-                    <th className="px-4 py-2.5 font-medium">P&amp;L</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-800/40">
-                  {assetRows.map((r) => (
-                    <tr
-                      key={r.tokenId}
-                      onClick={() => router.push(`/marketplace/${r.tokenId}`)}
-                      className="hover:bg-white/[0.03] transition-colors cursor-pointer"
-                    >
-                      <td className="px-4 py-2.5">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <span className="text-[13px] text-gray-200 font-medium truncate">
-                            {r.name}
-                          </span>
-                          {r.category && <CategoryBadge label={r.category} />}
-                        </div>
-                      </td>
-                      <td className="px-4 py-2.5 text-gray-400">{r.amount.toFixed(1)}</td>
-                      <td className="px-4 py-2.5 text-gray-400">
-                        {r.avgBuy != null
-                          ? `$${r.avgBuy.toLocaleString(undefined, { maximumFractionDigits: 0 })}`
-                          : "—"}
-                      </td>
-                      <td className="px-4 py-2.5 text-gray-400">
-                        {r.currentPrice != null
-                          ? `$${r.currentPrice.toLocaleString(undefined, { maximumFractionDigits: 0 })}`
-                          : "—"}
-                      </td>
-                      <td className="px-4 py-2.5">
-                        {r.pnl != null ? (
-                          <span className={r.pnl >= 0 ? "text-mint" : "text-red-400"}>
-                            {r.pnl >= 0 ? "+" : ""}${Math.abs(r.pnl).toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                            {r.pnlPct != null && (
-                              <span className="ml-1 opacity-70">
-                                ({r.pnlPct >= 0 ? "+" : ""}{r.pnlPct.toFixed(1)}%)
-                              </span>
-                            )}
-                          </span>
-                        ) : (
-                          <span className="text-gray-600">—</span>
+            <div className="-mx-1 flex flex-nowrap gap-4 overflow-x-auto overflow-y-hidden pb-2 pt-0.5 scrollbar-platform snap-x snap-mandatory scroll-pl-1">
+              {assetRows.map((r) => (
+                <button
+                  key={r.tokenId}
+                  type="button"
+                  onClick={() => router.push(`/marketplace/${r.tokenId}`)}
+                  className="group flex w-[min(260px,calc(100vw-4rem))] shrink-0 snap-start flex-col overflow-hidden rounded-xl border border-gray-800/90 bg-gradient-to-b from-gray-900/80 to-[#0a1018] text-left shadow-lg shadow-black/20 transition-all hover:border-mint/25 hover:shadow-mint/5"
+                >
+                  <div className="relative aspect-[3/4] w-full bg-[#070a0f]">
+                    {r.imageUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={r.imageUrl}
+                        alt=""
+                        className="h-full w-full object-contain object-center p-3 transition-transform duration-300 group-hover:scale-[1.02]"
+                        loading="lazy"
+                        referrerPolicy="no-referrer"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full flex-col items-center justify-center gap-2 p-4 text-center">
+                        <span className="font-mono text-[11px] text-gray-600">#{r.tokenId}</span>
+                        <span className="text-[10px] text-gray-600">No preview image</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex flex-1 flex-col gap-3 p-4 pt-3">
+                    <div className="min-w-0 space-y-1">
+                      <div className="flex min-w-0 items-start gap-2">
+                        <h3 className="min-w-0 flex-1 truncate text-[15px] font-semibold leading-tight text-white">
+                          {r.name}
+                        </h3>
+                        {r.category && (
+                          <CategoryBadge label={r.category} />
                         )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                      </div>
+                      {r.subtitle ? (
+                        <p className="truncate text-[11px] leading-tight text-gray-500">
+                          {r.subtitle}
+                        </p>
+                      ) : null}
+                    </div>
+                    <dl className="space-y-2 border-t border-gray-800/80 pt-3 text-[12px]">
+                      <div className="space-y-0.5">
+                        <div className="flex justify-between gap-2">
+                          <dt className="text-gray-500">Current value</dt>
+                          <dd className="font-medium tabular-nums text-gray-200">
+                            {valuesPending ? (
+                              <span className="inline-block h-4 w-16 animate-pulse rounded bg-gray-800/80 align-middle" />
+                            ) : r.currentPrice != null ? (
+                              `$${r.currentPrice.toLocaleString(undefined, {
+                                maximumFractionDigits: 0,
+                              })}`
+                            ) : (
+                              "—"
+                            )}
+                          </dd>
+                        </div>
+                        {!valuesPending && r.priceSource === "poketrace-nm" && r.nmShortLabel ? (
+                          <p className="text-[10px] leading-tight text-gray-600 text-right">
+                            {r.nmShortLabel}
+                          </p>
+                        ) : null}
+                        {!valuesPending && r.priceSource === "listing" ? (
+                          <p className="text-[10px] leading-tight text-gray-600 text-right">
+                            Listed ask
+                          </p>
+                        ) : null}
+                      </div>
+                      <div className="flex justify-between gap-2">
+                        <dt className="text-gray-500" title="Versus first NM ref. saved in this browser for this token">
+                          P&amp;L
+                        </dt>
+                        <dd className="tabular-nums">
+                          {valuesPending ? (
+                            <span className="inline-block h-4 w-20 animate-pulse rounded bg-gray-800/80 align-middle" />
+                          ) : r.pnl != null ? (
+                            <span
+                              className={
+                                r.pnl >= 0 ? "font-medium text-mint" : "font-medium text-red-400"
+                              }
+                            >
+                              {r.pnl >= 0 ? "+" : ""}$
+                              {Math.abs(r.pnl).toLocaleString(undefined, {
+                                maximumFractionDigits: 0,
+                              })}
+                              {r.pnlPct != null && (
+                                <span className="ml-1 text-[10px] opacity-80">
+                                  ({r.pnlPct >= 0 ? "+" : ""}
+                                  {r.pnlPct.toFixed(1)}%)
+                                </span>
+                              )}
+                            </span>
+                          ) : (
+                            <span className="text-gray-600">—</span>
+                          )}
+                        </dd>
+                      </div>
+                      {!valuesPending &&
+                        r.priceSource !== "poketrace-nm" &&
+                        r.currentPrice != null && (
+                          <p className="text-[10px] leading-snug text-gray-600">
+                            P&amp;L needs a PokeTrace NM match (listed ask only here).
+                          </p>
+                        )}
+                      <div className="flex justify-between gap-2">
+                        <dt className="text-gray-500">Grade</dt>
+                        <dd className="text-right text-gray-200">
+                          {r.gradeLabel ?? "—"}
+                        </dd>
+                      </div>
+                      <div className="flex justify-between gap-2">
+                        <dt className="text-gray-500">Acquired</dt>
+                        <dd className="text-right text-gray-400">
+                          {r.acquiredLabel ?? "—"}
+                        </dd>
+                      </div>
+                    </dl>
+                  </div>
+                </button>
+              ))}
             </div>
           )}
         </div>

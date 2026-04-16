@@ -1,17 +1,31 @@
 "use client";
 
-import { useMemo } from "react";
+import {
+  useCallback,
+  useId,
+  useMemo,
+  useState,
+  type CSSProperties,
+  type MouseEvent,
+} from "react";
 import type { CollectionUsdPoint } from "@/lib/api";
 
-/** Reference palette — mint dashed = external, magenta solid = platform fills */
-const MARKET_STROKE = "#50E3C2";
-const ACTUAL_STROKE = "#BD10E0";
-const SNAPSHOT_STROKE = "rgba(80, 227, 194, 0.45)";
-const EXTERNAL_DASH = "5 4";
-const AXIS_STROKE = "rgba(255,255,255,0.28)";
-const GRID_STROKE = "rgba(255,255,255,0.06)";
-const LABEL_FILL = "rgba(255,255,255,0.88)";
-const PLOT_BG = "rgba(255,255,255,0.03)";
+/** Fintech-style neon: external = teal, platform = magenta (reference-aligned) */
+const EXTERNAL_REF_STROKE = "#2EE6D0";
+const PLATFORM_STROKE = "#D946EF";
+const AXIS_STROKE = "rgba(255,255,255,0.16)";
+const LABEL_FILL = "rgba(255,255,255,0.82)";
+/** Plot field — near-black, no grid lines */
+const PLOT_BG = "#060708";
+const PLOT_STROKE = "rgba(255,255,255,0.06)";
+
+function LegendHollowDot({ stroke }: { stroke: string }) {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" className="shrink-0" aria-hidden>
+      <circle cx="7" cy="7" r="4.5" fill="none" stroke={stroke} strokeWidth="1.5" />
+    </svg>
+  );
+}
 
 const VB_W = 560;
 const VB_H = 340;
@@ -33,7 +47,6 @@ function linspace(a: number, b: number, n: number): number[] {
   return Array.from({ length: n }, (_, i) => a + ((b - a) * i) / (n - 1));
 }
 
-/** ~4–6 “nice” USD ticks between min and max (reference-style $25, $50, …). */
 function pickNiceUsdTicks(vMin: number, vMax: number, target = 5): number[] {
   if (!(vMax > vMin)) return [vMin];
   const span = vMax - vMin;
@@ -65,7 +78,59 @@ function formatTickDate(tSec: number): string {
   });
 }
 
-/** Same-timestamp fills: keep last print for step path (DB rounds to seconds). */
+function formatHoverWhen(tSec: number): string {
+  return new Date(tSec * 1000).toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+/** Linear interpolate v at time t along sorted series (for hover readout). */
+function sampleSeriesAtT(points: CollectionUsdPoint[], t: number): number | null {
+  const p = [...points].sort((a, b) => a.t - b.t);
+  if (p.length === 0) return null;
+  if (t <= p[0].t) return p[0].v;
+  if (t >= p[p.length - 1].t) return p[p.length - 1].v;
+  for (let i = 0; i < p.length - 1; i++) {
+    const a = p[i];
+    const b = p[i + 1];
+    if (t >= a.t && t <= b.t) {
+      const span = b.t - a.t;
+      const u = span > 0 ? (t - a.t) / span : 0;
+      return a.v + u * (b.v - a.v);
+    }
+  }
+  return null;
+}
+
+function formatTooltipUsd(v: number | null): string {
+  if (v == null || !Number.isFinite(v)) return "—";
+  return v >= 100 ? `$${v.toFixed(0)}` : `$${v.toFixed(2)}`;
+}
+
+function tooltipFixedPosition(clientX: number, clientY: number): CSSProperties {
+  if (typeof window === "undefined") {
+    return { position: "fixed", left: 0, top: 0, visibility: "hidden" };
+  }
+  const tw = 220;
+  const th = 96;
+  const pad = 12;
+  let left = clientX + pad;
+  let top = clientY + pad;
+  left = Math.min(left, window.innerWidth - tw - 8);
+  top = Math.min(top, window.innerHeight - th - 8);
+  left = Math.max(8, left);
+  top = Math.max(8, top);
+  return { position: "fixed", left, top };
+}
+
+function clamp(n: number, lo: number, hi: number): number {
+  return Math.max(lo, Math.min(hi, n));
+}
+
 function dedupeTimeKeepLast(points: CollectionUsdPoint[]): CollectionUsdPoint[] {
   const sorted = [...points].sort((a, b) => a.t - b.t);
   const out: CollectionUsdPoint[] = [];
@@ -79,48 +144,62 @@ function dedupeTimeKeepLast(points: CollectionUsdPoint[]): CollectionUsdPoint[] 
   return out;
 }
 
-/** One sample per UTC calendar day: last fill that day (reduces clutter when many trades/day). */
 function utcDayKey(tSec: number): string {
   const d = new Date(tSec * 1000);
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
 }
 
-function aggregatePlatformByUtcDayLastFill(points: CollectionUsdPoint[]): CollectionUsdPoint[] {
+/**
+ * One sample per UTC calendar day: anchor at 12:00 UTC, but **never after `nowSec`** — otherwise
+ * “today’s” point sits in the future and draws past the chart’s right edge (often mistaken for +9h TZ bugs).
+ */
+function buildPlatformUtcDayStaticPoints(
+  points: CollectionUsdPoint[],
+  nowSec: number,
+): CollectionUsdPoint[] {
   if (points.length === 0) return [];
   const sorted = [...points].sort((a, b) => a.t - b.t);
-  const byDay = new Map<string, CollectionUsdPoint>();
+  const byDay = new Map<string, { sum: number; count: number }>();
   for (const p of sorted) {
+    if (!(typeof p.v === "number" && Number.isFinite(p.v) && p.v > 0)) continue;
     const k = utcDayKey(p.t);
-    const prev = byDay.get(k);
-    if (!prev || p.t >= prev.t) byDay.set(k, p);
+    const cur = byDay.get(k) ?? { sum: 0, count: 0 };
+    cur.sum += p.v;
+    cur.count += 1;
+    byDay.set(k, cur);
   }
-  return [...byDay.values()].sort((a, b) => a.t - b.t);
+  const keys = [...byDay.keys()].sort();
+  const out: CollectionUsdPoint[] = [];
+  for (const k of keys) {
+    const agg = byDay.get(k)!;
+    const parts = k.split("-").map(Number);
+    const y = parts[0]!;
+    const mo = parts[1]!;
+    const d = parts[2]!;
+    const tNoon = Math.floor(Date.UTC(y, mo - 1, d, 12, 0, 0) / 1000);
+    const t = Math.min(tNoon, nowSec);
+    out.push({ t, v: agg.sum / agg.count });
+  }
+  return out;
 }
 
-/**
- * When fills cluster in time vs a 6M window, zoom the x-axis so the chart reads as a chart, not a spike.
- */
 function computeSmartTimeDomain(
-  ext: CollectionUsdPoint[],
   plat: CollectionUsdPoint[],
   nowSec: number,
   wideWindowSec: number,
 ): { tMin: number; tMax: number } {
-  const all = [...ext, ...plat];
-  if (all.length === 0) {
+  if (plat.length === 0) {
     return { tMin: nowSec - 7 * DAY, tMax: nowSec };
   }
-  const ts = all.map((p) => p.t);
+  const ts = plat.map((p) => p.t);
   const dataTMin = Math.min(...ts);
   const dataTMax = Math.max(...ts);
   const dataSpan = Math.max(dataTMax - dataTMin, SEC);
   const windowLo = nowSec - wideWindowSec;
   const windowSpan = Math.max(nowSec - windowLo, DAY);
-
   const sparseVsWideWindow = dataSpan < 0.14 * windowSpan;
-  const onlyPlatformOrThinExternal = ext.length === 0 || sparseVsWideWindow;
 
-  if (onlyPlatformOrThinExternal && plat.length > 0) {
+  if (sparseVsWideWindow) {
     const pad = Math.max(2 * HOUR, Math.min(3 * DAY, Math.max(dataSpan * 0.12, 4 * HOUR)));
     let lo = dataTMin - pad;
     let hi = Math.max(dataTMax + pad, nowSec + 2 * HOUR);
@@ -141,43 +220,10 @@ function computeSmartTimeDomain(
   };
 }
 
-function buildStepPathAfterPlot(
-  points: CollectionUsdPoint[],
-  tMin: number,
-  tMax: number,
-  vMin: number,
-  vMax: number,
-): string {
-  if (points.length === 0) return "";
-  const tr = Math.max(tMax - tMin, 1);
-  const vr = Math.max(vMax - vMin, 1e-6);
-  const xy = (t: number, v: number) => ({
-    x: plotX + ((t - tMin) / tr) * plotW,
-    y: plotY + (1 - (v - vMin) / vr) * plotH,
-  });
-  const p = dedupeTimeKeepLast(points);
-  if (p.length === 1) {
-    const { x, y } = xy(p[0].t, p[0].v);
-    const dx = Math.max(plotW * 0.04, 8);
-    return `M ${(x - dx).toFixed(1)} ${y.toFixed(1)} L ${(x + dx).toFixed(1)} ${y.toFixed(1)}`;
-  }
-  let d = "";
-  for (let i = 0; i < p.length; i++) {
-    const { x, y } = xy(p[i].t, p[i].v);
-    if (i === 0) {
-      d += `M ${x.toFixed(1)} ${y.toFixed(1)}`;
-    } else {
-      const prev = xy(p[i - 1].t, p[i - 1].v);
-      d += ` L ${x.toFixed(1)} ${prev.y.toFixed(1)} L ${x.toFixed(1)} ${y.toFixed(1)}`;
-    }
-  }
-  const last = p[p.length - 1];
-  const { y: yLast } = xy(last.t, last.v);
-  const xEnd = plotX + plotW;
-  d += ` L ${xEnd.toFixed(1)} ${yLast.toFixed(1)}`;
-  return d;
-}
-
+/**
+ * Straight polyline through (t,v) points — platform daily series + external curves.
+ * All x/y are clamped to the plot rect so single-point “stub” lines never extend past the frame.
+ */
 function buildLinePathPlot(
   points: CollectionUsdPoint[],
   tMin: number,
@@ -188,14 +234,27 @@ function buildLinePathPlot(
   if (points.length === 0) return "";
   const tr = Math.max(tMax - tMin, 1);
   const vr = Math.max(vMax - vMin, 1e-6);
+  const xMax = plotX + plotW;
+  const yMax = plotY + plotH;
   const xy = (pt: CollectionUsdPoint) => ({
-    x: plotX + ((pt.t - tMin) / tr) * plotW,
-    y: plotY + (1 - (pt.v - vMin) / vr) * plotH,
+    x: clamp(plotX + ((pt.t - tMin) / tr) * plotW, plotX, xMax),
+    y: clamp(plotY + (1 - (pt.v - vMin) / vr) * plotH, plotY, yMax),
   });
   if (points.length === 1) {
     const { x, y } = xy(points[0]);
     const dx = Math.max(plotW * 0.04, 8);
-    return `M ${(x - dx).toFixed(1)} ${y.toFixed(1)} L ${(x + dx).toFixed(1)} ${y.toFixed(1)}`;
+    let x0 = x - dx;
+    let x1 = x + dx;
+    x0 = clamp(x0, plotX, xMax);
+    x1 = clamp(x1, plotX, xMax);
+    if (x1 - x0 < 6) {
+      const mid = clamp(x, plotX + 3, xMax - 3);
+      x0 = mid - 4;
+      x1 = mid + 4;
+      x0 = clamp(x0, plotX, xMax);
+      x1 = clamp(x1, plotX, xMax);
+    }
+    return `M ${x0.toFixed(1)} ${y.toFixed(1)} L ${x1.toFixed(1)} ${y.toFixed(1)}`;
   }
   return points
     .map((pt, i) => {
@@ -205,52 +264,100 @@ function buildLinePathPlot(
     .join(" ");
 }
 
+/**
+ * Tokenable (platform) line series vs PokeTrace external NM summary (single horizontal).
+ * No JustTCG — one upstream preview supplies the external level.
+ */
 export function CollectionDualPriceChart({
-  externalUsd,
   platformUsd,
-  externalSnapshotUsd = null,
-  gradeLabel,
+  externalMarketUsd = null,
+  /** When set with external ref, x-axis is fixed to [now − N days, now] (matches PokeTrace rolling). */
+  externalWindowDays = null,
+  /**
+   * Optional polyline: API daily/history points or rolling snapshot fields (x ≈ lookback).
+   * When length ≥ 2, draws instead of a flat horizontal ref.
+   */
+  externalRollingUsd = null,
+  /** `synthetic` = illustrative curve from one anchor (no extra API history) */
+  externalRollingKind = "snapshot",
   isLoading,
   errorMessage,
   variant = "default",
 }: {
-  externalUsd: CollectionUsdPoint[];
   platformUsd: CollectionUsdPoint[];
-  /** JustTCG grade strip when time series is empty (horizontal reference). */
-  externalSnapshotUsd?: number | null;
-  gradeLabel?: string | null;
+  /** Blended long-window NM ref (e.g. median30d / avg30d) — horizontal dashed */
+  externalMarketUsd?: number | null;
+  externalWindowDays?: number | null;
+  externalRollingUsd?: CollectionUsdPoint[] | null;
+  externalRollingKind?: "history" | "snapshot" | "synthetic";
   isLoading?: boolean;
   errorMessage?: string | null;
   variant?: "default" | "exchange";
 }) {
+  const plotClipId = useId().replace(/:/g, "");
   const exchange = variant === "exchange";
   const nowSec = Math.floor(Date.now() / 1000);
   const wideWindowSec = 180 * DAY;
 
-  const ext = useMemo(
-    () => [...externalUsd].sort((a, b) => a.t - b.t),
-    [externalUsd],
-  );
   const platRaw = useMemo(
     () => [...platformUsd].sort((a, b) => a.t - b.t),
     [platformUsd],
   );
 
-  /** Draw the step line from daily last fills — not every trade (avoids noisy dots). */
-  const platDaily = useMemo(() => aggregatePlatformByUtcDayLastFill(platRaw), [platRaw]);
+  const extRolling = useMemo(
+    () =>
+      externalRollingUsd && externalRollingUsd.length > 0
+        ? [...externalRollingUsd].sort((a, b) => a.t - b.t)
+        : [],
+    [externalRollingUsd],
+  );
+
+  const hasExtSignal =
+    extRolling.length > 0 ||
+    (externalMarketUsd != null &&
+      Number.isFinite(externalMarketUsd) &&
+      externalMarketUsd > 0);
+
+  const usePoketraceFixedWindow =
+    hasExtSignal &&
+    externalWindowDays != null &&
+    Number.isFinite(externalWindowDays) &&
+    externalWindowDays > 0;
 
   const merged = useMemo(() => {
-    const hasSnap =
-      externalSnapshotUsd != null &&
-      Number.isFinite(externalSnapshotUsd) &&
-      externalSnapshotUsd > 0;
+    let tMin: number;
+    let tMax: number;
+    let platForChart: CollectionUsdPoint[];
 
-    const { tMin: t0, tMax: t1 } = computeSmartTimeDomain(ext, platRaw, nowSec, wideWindowSec);
-    const tMin = t0;
-    const tMax = Math.max(t1, tMin + 60 * SEC);
+    if (usePoketraceFixedWindow) {
+      const w = externalWindowDays!;
+      tMax = nowSec + 6 * HOUR;
+      tMin = nowSec - w * DAY;
+      platForChart = platRaw.filter((p) => p.t >= tMin && p.t <= tMax);
+    } else {
+      const { tMin: t0, tMax: t1 } = computeSmartTimeDomain(platRaw, nowSec, wideWindowSec);
+      tMin = t0;
+      tMax = Math.max(t1, tMin + 60 * SEC);
+      platForChart = platRaw;
+    }
 
-    const allV: number[] = [...ext.map((p) => p.v), ...platRaw.map((p) => p.v)];
-    if (hasSnap) allV.push(externalSnapshotUsd!);
+    const platStaticRaw = buildPlatformUtcDayStaticPoints(platForChart, nowSec);
+    const platStatic = platStaticRaw.map((p) => ({
+      ...p,
+      t: Math.min(Math.max(p.t, tMin), tMax),
+    }));
+
+    const extForChart = extRolling.filter((p) => p.t >= tMin && p.t <= tMax);
+    const useExtPolyline = extForChart.length >= 2;
+
+    const allV: number[] = [
+      ...platStatic.map((p) => p.v),
+      ...platForChart.map((p) => p.v),
+      ...extForChart.map((p) => p.v),
+    ];
+    if (!useExtPolyline && externalMarketUsd != null && Number.isFinite(externalMarketUsd)) {
+      allV.push(externalMarketUsd);
+    }
 
     if (allV.length === 0) {
       return {
@@ -258,12 +365,14 @@ export function CollectionDualPriceChart({
         tMax,
         vMin: 0,
         vMax: 1,
-        extPath: "",
         platPath: "",
-        lastPrintDot: null as { cx: number; cy: number } | null,
-        snapY: null as number | null,
+        extPath: "",
+        extRefY: null as number | null,
         yTicks: [] as number[],
         xTicks: [] as number[],
+        platLinePts: [] as CollectionUsdPoint[],
+        extLinePts: [] as CollectionUsdPoint[],
+        extIsPolyline: false,
       };
     }
 
@@ -273,69 +382,139 @@ export function CollectionDualPriceChart({
     const vLo = Math.max(0, vMinD - vPad);
     const vHi = vMaxD + vPad;
     const yTicks = pickNiceUsdTicks(vLo, vHi, 5);
-    const xTicks = linspace(tMin, tMax, 5);
+    const xTicks = linspace(tMin, tMax, 6);
     const tr = Math.max(tMax - tMin, 1);
     const vr = Math.max(vHi - vLo, 1e-6);
 
-    const snapY =
-      hasSnap && vHi > vLo ? plotY + (1 - (externalSnapshotUsd! - vLo) / vr) * plotH : null;
+    const showHoriz =
+      !useExtPolyline &&
+      externalMarketUsd != null &&
+      Number.isFinite(externalMarketUsd) &&
+      externalMarketUsd > 0;
 
-    const linePts = dedupeTimeKeepLast(platDaily);
-    let lastPrintDot: { cx: number; cy: number } | null = null;
-    if (platRaw.length > 0) {
-      const last = platRaw[platRaw.length - 1];
-      lastPrintDot = {
-        cx: plotX + ((last.t - tMin) / tr) * plotW,
-        cy: plotY + (1 - (last.v - vLo) / vr) * plotH,
-      };
-    }
+    const extRefY =
+      showHoriz && vHi > vLo
+        ? plotY + (1 - (externalMarketUsd! - vLo) / vr) * plotH
+        : null;
+
+    const extPath = useExtPolyline
+      ? buildLinePathPlot(extForChart, tMin, tMax, vLo, vHi)
+      : "";
+
+    const linePts = dedupeTimeKeepLast(platStatic);
 
     return {
       tMin,
       tMax,
       vMin: vLo,
       vMax: vHi,
-      extPath: buildLinePathPlot(ext, tMin, tMax, vLo, vHi),
-      platPath: buildStepPathAfterPlot(linePts, tMin, tMax, vLo, vHi),
-      lastPrintDot,
-      snapY,
+      platPath: buildLinePathPlot(linePts, tMin, tMax, vLo, vHi),
+      extPath,
+      extRefY,
       yTicks,
       xTicks,
+      platLinePts: linePts,
+      extLinePts: extForChart,
+      extIsPolyline: useExtPolyline,
     };
-  }, [ext, platRaw, platDaily, externalSnapshotUsd, nowSec]);
+  }, [
+    platRaw,
+    externalMarketUsd,
+    externalWindowDays,
+    usePoketraceFixedWindow,
+    extRolling,
+    nowSec,
+  ]);
 
-  const hasExternal = ext.length > 0;
+  const [hover, setHover] = useState<{
+    tSec: number;
+    xSvg: number;
+    clientX: number;
+    clientY: number;
+  } | null>(null);
+
+  const hoverSample = useMemo(() => {
+    if (hover == null) return null;
+    const t = hover.tSec;
+    const vr = Math.max(merged.vMax - merged.vMin, 1e-6);
+    const platV = sampleSeriesAtT(merged.platLinePts, t);
+    let extV: number | null = null;
+    if (merged.extIsPolyline) {
+      extV = sampleSeriesAtT(merged.extLinePts, t);
+    } else if (
+      externalMarketUsd != null &&
+      Number.isFinite(externalMarketUsd) &&
+      externalMarketUsd > 0
+    ) {
+      extV = externalMarketUsd;
+    }
+    const yPlat =
+      platV != null
+        ? plotY + (1 - (platV - merged.vMin) / vr) * plotH
+        : null;
+    const yExt =
+      extV != null
+        ? plotY + (1 - (extV - merged.vMin) / vr) * plotH
+        : null;
+    return { platV, extV, yPlat, yExt, t };
+  }, [hover, merged, externalMarketUsd]);
+
+  const onPlotPointerMove = useCallback(
+    (e: MouseEvent<SVGRectElement>) => {
+      const svg = e.currentTarget.ownerSVGElement;
+      if (!svg) return;
+      const r = svg.getBoundingClientRect();
+      const x = ((e.clientX - r.left) / Math.max(r.width, 1e-6)) * VB_W;
+      if (x < plotX || x > plotX + plotW) {
+        setHover(null);
+        return;
+      }
+      const tr = merged.tMax - merged.tMin;
+      const tSec = merged.tMin + ((x - plotX) / plotW) * tr;
+      setHover({
+        tSec,
+        xSvg: x,
+        clientX: e.clientX,
+        clientY: e.clientY,
+      });
+    },
+    [merged.tMin, merged.tMax],
+  );
+
+  const onPlotPointerLeave = useCallback(() => setHover(null), []);
+
   const hasPlatform = platRaw.length > 0;
-  const hasSnapshot =
-    externalSnapshotUsd != null &&
-    Number.isFinite(externalSnapshotUsd) &&
-    externalSnapshotUsd > 0;
-
-  const title =
-    gradeLabel && String(gradeLabel).trim().length > 0
-      ? `Price Chart (${String(gradeLabel).trim()})`
-      : "Price Chart";
-
-  const subtitle = (() => {
-    if (hasExternal) {
-      return "Purple line = Tokenable (last fill per UTC day). Ring = latest trade.";
+  const hasPlatformInView = useMemo(() => {
+    if (!usePoketraceFixedWindow || !externalWindowDays) {
+      return platRaw.length > 0;
     }
-    if (hasSnapshot) {
-      return "No JustTCG series — mint = PSA 10 ref. Purple = daily last fill; ring = latest trade.";
-    }
-    return "Purple = daily last fill on Tokenable; ring = most recent trade.";
-  })();
+    const tMax = nowSec + 6 * HOUR;
+    const tMin = nowSec - externalWindowDays * DAY;
+    return platRaw.some((p) => p.t >= tMin && p.t <= tMax);
+  }, [platRaw, usePoketraceFixedWindow, externalWindowDays, nowSec]);
+
+  const title = "Price Chart";
 
   if (isLoading) {
     return (
       <div
         className={
           exchange
-            ? "flex min-h-[300px] flex-col items-center justify-center rounded-xl border border-zinc-800/90 bg-zinc-950/90 max-xl:min-h-[min(360px,44svh)] xl:h-full xl:min-h-0"
-            : "flex min-h-[260px] items-center justify-center rounded-xl border border-white/[0.08] bg-[#111113]"
+            ? "flex min-h-[300px] flex-col items-center justify-center gap-3 rounded-2xl border border-white/[0.07] bg-[#030304] px-4 max-xl:min-h-[min(360px,44svh)] xl:h-full xl:min-h-0"
+            : "flex min-h-[260px] flex-col items-center justify-center gap-3 rounded-2xl border border-white/[0.07] bg-[#030304] px-4"
         }
+        role="status"
+        aria-live="polite"
+        aria-busy="true"
       >
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#50E3C2] border-t-transparent" />
+        <div
+          className="h-8 w-8 animate-spin rounded-full border-2 border-solid border-t-transparent"
+          style={{
+            borderColor: `${EXTERNAL_REF_STROKE}40`,
+            borderTopColor: "transparent",
+          }}
+        />
+        <p className="text-xs text-zinc-600 text-center">Loading trades and market reference…</p>
       </div>
     );
   }
@@ -345,8 +524,8 @@ export function CollectionDualPriceChart({
       <div
         className={
           exchange
-            ? "flex min-h-[260px] flex-col items-center justify-center rounded-xl border border-zinc-800/90 bg-zinc-950/90 px-4 py-6 text-center text-sm text-rose-200/90 max-xl:min-h-[min(320px,40svh)] xl:h-full xl:min-h-0"
-            : "rounded-xl border border-rose-500/25 bg-rose-500/[0.06] px-4 py-6 text-center text-sm text-rose-200/90"
+            ? "flex min-h-[260px] flex-col items-center justify-center rounded-2xl border border-white/[0.07] bg-[#030304] px-4 py-6 text-center text-sm text-rose-200/90 max-xl:min-h-[min(320px,40svh)] xl:h-full xl:min-h-0"
+            : "rounded-2xl border border-rose-500/20 bg-[#030304] px-4 py-6 text-center text-sm text-rose-200/90"
         }
       >
         {errorMessage}
@@ -354,16 +533,16 @@ export function CollectionDualPriceChart({
     );
   }
 
-  if (!hasExternal && !hasPlatform && !hasSnapshot) {
+  if (!hasPlatform && !hasExtSignal) {
     return (
       <div
         className={
           exchange
-            ? "flex min-h-[260px] flex-col items-center justify-center rounded-xl border border-zinc-800/90 bg-zinc-950/90 px-4 py-8 text-center text-sm text-gray-500 max-xl:min-h-[min(320px,40svh)] xl:h-full xl:min-h-0"
-            : "rounded-xl border border-white/[0.08] bg-[#111113] px-4 py-8 text-center text-sm text-gray-500"
+            ? "flex min-h-[260px] flex-col items-center justify-center rounded-2xl border border-white/[0.07] bg-[#030304] px-4 py-8 text-center text-sm text-zinc-600 max-xl:min-h-[min(320px,40svh)] xl:h-full xl:min-h-0"
+            : "rounded-2xl border border-white/[0.07] bg-[#030304] px-4 py-8 text-center text-sm text-zinc-600"
         }
       >
-        No price data yet — trades and JustTCG history will appear here.
+        No price data yet — on-chain trades and real market data will appear here.
       </div>
     );
   }
@@ -372,37 +551,27 @@ export function CollectionDualPriceChart({
     <div
       className={
         exchange
-          ? "flex min-h-[320px] flex-col overflow-hidden rounded-xl border border-zinc-800/90 bg-zinc-950/90 text-white max-xl:min-h-[min(380px,48svh)] xl:h-full xl:min-h-0"
-          : "rounded-xl border border-white/[0.08] bg-[#111113] text-white"
+          ? "flex min-h-[320px] flex-col overflow-hidden rounded-2xl border border-white/[0.07] bg-[#030304] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] max-xl:min-h-[min(380px,48svh)] xl:h-full xl:min-h-0"
+          : "rounded-2xl border border-white/[0.07] bg-[#030304] text-white"
       }
     >
-      <div className="flex shrink-0 flex-wrap items-start justify-between gap-3 px-4 pt-3 pb-2 sm:px-5 sm:pt-4">
+      <div className="flex shrink-0 flex-wrap items-start justify-between gap-4 px-4 pt-4 pb-2 sm:px-5 sm:pt-5">
         <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <h3 className="text-sm font-medium tracking-tight text-white">{title}</h3>
-          <p className="text-[10px] leading-snug text-zinc-500">{subtitle}</p>
+          <h3 className="text-[15px] font-semibold tracking-tight text-white">{title}</h3>
         </div>
-        <div className="flex flex-col items-end gap-1.5 text-[11px]">
-          <div className="flex items-center gap-2 text-white/90">
-            <span
-              className="inline-block h-0 w-6 shrink-0 border-b-2 border-dashed border-[#50E3C2]"
-              aria-hidden
-            />
-            <span className={hasExternal ? "" : "text-white/40"}>JustTCG</span>
-          </div>
-          {hasSnapshot && !hasExternal ? (
-            <div className="flex items-center gap-2 text-white/70">
-              <span className="h-px w-6 shrink-0 bg-[#50E3C2]/50" aria-hidden />
-              <span className="text-[10px]">PSA 10 ref.</span>
-            </div>
-          ) : null}
-          <div className="flex items-center gap-2 text-white/90">
-            <span
-              className="h-2 w-2 shrink-0 rounded-full"
-              style={{ background: ACTUAL_STROKE }}
-              aria-hidden
-            />
-            <span className={hasPlatform ? "" : "text-white/40"}>Tokenable</span>
-          </div>
+        <div className="grid shrink-0 grid-cols-[14px_auto] items-center gap-x-2 gap-y-2.5 text-[11px] font-medium leading-tight text-white/90">
+          <span className="flex h-[14px] w-[14px] items-center justify-center" aria-hidden>
+            <LegendHollowDot stroke={EXTERNAL_REF_STROKE} />
+          </span>
+          <span className={hasExtSignal ? "whitespace-nowrap" : "whitespace-nowrap text-white/35"}>
+            Real market price
+          </span>
+          <span className="flex h-[14px] w-[14px] items-center justify-center" aria-hidden>
+            <LegendHollowDot stroke={PLATFORM_STROKE} />
+          </span>
+          <span className={hasPlatformInView ? "whitespace-nowrap" : "whitespace-nowrap text-white/35"}>
+            Tokenable price
+          </span>
         </div>
       </div>
 
@@ -429,50 +598,23 @@ export function CollectionDualPriceChart({
             }
             preserveAspectRatio="xMidYMid meet"
             role="img"
-            aria-label="Price chart: JustTCG reference and Tokenable fill prices"
+            aria-label="Price chart: Tokenable price and real market reference"
           >
+            <defs>
+              <clipPath id={plotClipId}>
+                <rect x={plotX} y={plotY} width={plotW} height={plotH} />
+              </clipPath>
+            </defs>
             <rect
               x={plotX}
               y={plotY}
               width={plotW}
               height={plotH}
-              rx={6}
+              rx={4}
               fill={PLOT_BG}
-              stroke="rgba(255,255,255,0.05)"
+              stroke={PLOT_STROKE}
               strokeWidth={1}
             />
-
-            {merged.yTicks.map((yv) => {
-              const vr = Math.max(merged.vMax - merged.vMin, 1e-6);
-              const py = plotY + (1 - (yv - merged.vMin) / vr) * plotH;
-              return (
-                <line
-                  key={`gy-${yv}`}
-                  x1={plotX}
-                  y1={py}
-                  x2={plotX + plotW}
-                  y2={py}
-                  stroke={GRID_STROKE}
-                  strokeWidth={1}
-                />
-              );
-            })}
-
-            {merged.xTicks.map((tv) => {
-              const tr = Math.max(merged.tMax - merged.tMin, 1);
-              const px = plotX + ((tv - merged.tMin) / tr) * plotW;
-              return (
-                <line
-                  key={`gx-${tv}`}
-                  x1={px}
-                  y1={plotY}
-                  x2={px}
-                  y2={plotY + plotH}
-                  stroke={GRID_STROKE}
-                  strokeWidth={1}
-                />
-              );
-            })}
 
             <line
               x1={plotX}
@@ -497,12 +639,13 @@ export function CollectionDualPriceChart({
               return (
                 <text
                   key={`y-${yv}`}
-                  x={plotX - 8}
+                  x={plotX - 10}
                   y={py + 3}
                   textAnchor="end"
                   fill={LABEL_FILL}
-                  fontSize={10}
-                  fontFamily="system-ui, sans-serif"
+                  fontSize={11}
+                  fontFamily="ui-sans-serif, system-ui, sans-serif"
+                  style={{ fontFeatureSettings: '"tnum"' }}
                 >
                   {formatUsdTick(yv)}
                 </text>
@@ -519,88 +662,151 @@ export function CollectionDualPriceChart({
                   y={VB_H - 10}
                   textAnchor="middle"
                   fill={LABEL_FILL}
-                  fontSize={10}
-                  fontFamily="system-ui, sans-serif"
+                  fontSize={11}
+                  fontFamily="ui-sans-serif, system-ui, sans-serif"
+                  opacity={0.9}
                 >
                   {formatTickDate(tv)}
                 </text>
               );
             })}
 
-            {merged.snapY != null && hasSnapshot && !hasExternal ? (
-              <g aria-label="PSA 10 snapshot reference">
-                <line
-                  x1={plotX}
-                  y1={merged.snapY}
-                  x2={plotX + plotW}
-                  y2={merged.snapY}
-                  stroke={SNAPSHOT_STROKE}
-                  strokeWidth={1.25}
-                  strokeDasharray="4 6"
-                />
-                <text
-                  x={plotX + plotW - 4}
-                  y={merged.snapY - 4}
-                  textAnchor="end"
-                  fill={MARKET_STROKE}
-                  fontSize={9}
-                  opacity={0.85}
-                  fontFamily="system-ui, sans-serif"
-                >
-                  {`PSA 10 · $${externalSnapshotUsd!.toFixed(2)}`}
-                </text>
-              </g>
-            ) : null}
-
-            <g aria-label="Market price (external)">
+            <g clipPath={`url(#${plotClipId})`}>
               {merged.extPath ? (
-                <path
-                  d={merged.extPath}
-                  fill="none"
-                  stroke={MARKET_STROKE}
-                  strokeWidth={2}
-                  strokeDasharray={EXTERNAL_DASH}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              ) : null}
-            </g>
-
-            <g aria-label="Tokenable price">
-              {merged.platPath ? (
-                <path
-                  d={merged.platPath}
-                  fill="none"
-                  stroke={ACTUAL_STROKE}
-                  strokeWidth={2}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              ) : null}
-              {merged.lastPrintDot ? (
-                <g aria-label="Most recent on-chain fill">
-                  <circle
-                    cx={merged.lastPrintDot.cx}
-                    cy={merged.lastPrintDot.cy}
-                    r={7}
+                <g aria-label="Real market price curve">
+                  <path
+                    d={merged.extPath}
                     fill="none"
-                    stroke={ACTUAL_STROKE}
-                    strokeWidth={1.5}
-                    opacity={0.55}
-                  />
-                  <circle
-                    cx={merged.lastPrintDot.cx}
-                    cy={merged.lastPrintDot.cy}
-                    r={3.5}
-                    fill={ACTUAL_STROKE}
-                    stroke="rgba(0,0,0,0.45)"
-                    strokeWidth={1}
+                    stroke={EXTERNAL_REF_STROKE}
+                    strokeWidth={1.75}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
                   />
                 </g>
               ) : null}
+
+              {merged.extRefY != null &&
+              externalMarketUsd != null &&
+              Number.isFinite(externalMarketUsd) ? (
+                <g aria-label="Real market price reference">
+                  <line
+                    x1={plotX}
+                    y1={merged.extRefY}
+                    x2={plotX + plotW}
+                    y2={merged.extRefY}
+                    stroke={EXTERNAL_REF_STROKE}
+                    strokeWidth={1.25}
+                    opacity={0.85}
+                  />
+                </g>
+              ) : null}
+
+              <g aria-label="Tokenable price series">
+                {merged.platPath ? (
+                  <path
+                    d={merged.platPath}
+                    fill="none"
+                    stroke={PLATFORM_STROKE}
+                    strokeWidth={1.75}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                ) : null}
+              </g>
+
+              {hoverSample && hover ? (
+                <g pointerEvents="none" aria-hidden>
+                  <line
+                    x1={hover.xSvg}
+                    y1={plotY}
+                    x2={hover.xSvg}
+                    y2={plotY + plotH}
+                    stroke="rgba(255,255,255,0.22)"
+                    strokeWidth={1}
+                    strokeDasharray="3 4"
+                  />
+                  {hoverSample.yPlat != null ? (
+                    <circle
+                      cx={hover.xSvg}
+                      cy={hoverSample.yPlat}
+                      r={4}
+                      fill={PLATFORM_STROKE}
+                      stroke="rgba(0,0,0,0.35)"
+                      strokeWidth={1}
+                    />
+                  ) : null}
+                  {hoverSample.yExt != null ? (
+                    <circle
+                      cx={hover.xSvg}
+                      cy={hoverSample.yExt}
+                      r={4}
+                      fill={EXTERNAL_REF_STROKE}
+                      stroke="rgba(0,0,0,0.35)"
+                      strokeWidth={1}
+                    />
+                  ) : null}
+                </g>
+              ) : null}
             </g>
+
+            {merged.extRefY != null &&
+            externalMarketUsd != null &&
+            Number.isFinite(externalMarketUsd) ? (
+              <text
+                x={plotX + plotW - 4}
+                y={merged.extRefY - 4}
+                textAnchor="end"
+                fill={EXTERNAL_REF_STROKE}
+                fontSize={9}
+                opacity={0.9}
+                fontFamily="system-ui, sans-serif"
+              >
+                {`Market · $${externalMarketUsd.toFixed(2)}`}
+              </text>
+            ) : null}
+
+            <rect
+              x={plotX}
+              y={plotY}
+              width={plotW}
+              height={plotH}
+              fill="transparent"
+              style={{ cursor: "crosshair" }}
+              onMouseMove={onPlotPointerMove}
+              onMouseLeave={onPlotPointerLeave}
+            />
           </svg>
         </div>
+        {hoverSample && hover ? (
+          <div
+            className="pointer-events-none fixed z-[80] max-w-[220px] rounded-xl border border-white/10 bg-[#0a0a0c]/95 px-3 py-2 text-[11px] leading-snug text-zinc-100 shadow-2xl backdrop-blur-md"
+            style={tooltipFixedPosition(hover.clientX, hover.clientY)}
+          >
+            <div className="text-[10px] font-medium text-zinc-400 tabular-nums">
+              {formatHoverWhen(hoverSample.t)}
+            </div>
+            <div className="mt-1.5 space-y-1">
+              <div className="flex justify-between gap-4">
+                <span className="text-zinc-500">Tokenable price</span>
+                <span
+                  className="tabular-nums font-medium"
+                  style={{ color: PLATFORM_STROKE }}
+                >
+                  {formatTooltipUsd(hoverSample.platV)}
+                </span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <span className="text-zinc-500">Real market</span>
+                <span
+                  className="tabular-nums font-medium"
+                  style={{ color: EXTERNAL_REF_STROKE }}
+                >
+                  {formatTooltipUsd(hoverSample.extV)}
+                </span>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
     </div>
   );

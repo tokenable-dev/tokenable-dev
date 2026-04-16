@@ -1,6 +1,7 @@
 import { getMerkleEligibleTokenIds, type Order } from "@/lib/api";
 import { SeaportMerkleTree } from "@/lib/seaport/merkle";
 import { normalizeDecimalTokenId } from "@/lib/normalizeTokenId";
+import type { Hex } from "viem";
 
 /**
  * Normalize bytes32 / uint256 Merkle roots from API JSON (0x-hex, bare 64-hex, decimal string, bigint).
@@ -38,6 +39,46 @@ export function canonicalBytes32Hex(raw: unknown): `0x${string}` | null {
   return null;
 }
 
+/** Token IDs + root for `matchAdvancedOrders` — single source for proof + root equality checks. */
+export type MerkleMatchSnapshot = { tokenIds: string[]; rootHex: Hex };
+
+/**
+ * Loads the collection Merkle leaf set with aggressive retries (indexing / IPFS lag after a new list).
+ */
+export async function fetchMerkleSnapshotForMatch(
+  collectionKey: string,
+  opts?: {
+    expectTokenId?: number | string;
+    maxAttempts?: number;
+    delayMs?: number;
+    bypassMerkleCache?: boolean;
+  },
+): Promise<MerkleMatchSnapshot | null> {
+  const max = Math.max(1, opts?.maxAttempts ?? 12);
+  const delayMs = opts?.delayMs ?? 220;
+  const expectTid =
+    opts?.expectTokenId != null ? BigInt(normalizeDecimalTokenId(opts.expectTokenId)) : null;
+  const bypass = opts?.bypassMerkleCache ?? false;
+
+  for (let i = 0; i < max; i++) {
+    const { tokenIds } = await getMerkleEligibleTokenIds(collectionKey, {
+      bypassCache: bypass || i > 0,
+    });
+    const ids = tokenIds.map((x) => BigInt(normalizeDecimalTokenId(x)));
+    if (!ids.length) {
+      if (i < max - 1) await new Promise((r) => setTimeout(r, delayMs + i * 45));
+      continue;
+    }
+    if (expectTid != null && !ids.some((id) => id === expectTid)) {
+      if (i < max - 1) await new Promise((r) => setTimeout(r, delayMs + i * 45));
+      continue;
+    }
+    const rootHex = new SeaportMerkleTree(ids).getHexRoot();
+    return { tokenIds, rootHex };
+  }
+  return null;
+}
+
 export async function getCollectionCriteriaMerkleRootHex(
   collectionKey: string,
   opts?: {
@@ -49,28 +90,13 @@ export async function getCollectionCriteriaMerkleRootHex(
     bypassMerkleCache?: boolean;
   },
 ): Promise<`0x${string}` | null> {
-  const max = Math.max(1, opts?.maxAttempts ?? 1);
-  const delayMs = opts?.delayMs ?? 400;
-  const expectTid =
-    opts?.expectTokenId != null ? BigInt(normalizeDecimalTokenId(opts.expectTokenId)) : null;
-  const bypass = opts?.bypassMerkleCache ?? false;
-
-  for (let i = 0; i < max; i++) {
-    const { tokenIds } = await getMerkleEligibleTokenIds(collectionKey, {
-      bypassCache: bypass || i > 0,
-    });
-    const ids = tokenIds.map((x) => BigInt(normalizeDecimalTokenId(x)));
-    if (!ids.length) {
-      if (i < max - 1) await new Promise((r) => setTimeout(r, delayMs));
-      continue;
-    }
-    if (expectTid != null && !ids.some((id) => id === expectTid)) {
-      if (i < max - 1) await new Promise((r) => setTimeout(r, delayMs));
-      continue;
-    }
-    return new SeaportMerkleTree(ids).getHexRoot();
-  }
-  return null;
+  const snap = await fetchMerkleSnapshotForMatch(collectionKey, {
+    expectTokenId: opts?.expectTokenId,
+    maxAttempts: opts?.maxAttempts ?? 1,
+    delayMs: opts?.delayMs ?? 400,
+    bypassMerkleCache: opts?.bypassMerkleCache ?? false,
+  });
+  return snap?.rootHex ?? null;
 }
 
 export function bidMerkleRootMatchesCollection(bid: Order, currentRootHex: string): boolean {
@@ -79,4 +105,17 @@ export function bidMerkleRootMatchesCollection(bid: Order, currentRootHex: strin
   const c = canonicalBytes32Hex(currentRootHex);
   if (!b || !c) return false;
   return b === c;
+}
+
+/**
+ * Seaport criteria bids embed one Merkle root at sign time; when new RWAs join the pool the canonical
+ * root changes, so older bids cannot `matchAdvancedOrders` until the buyer cancels and re-signs.
+ * Returns false when `currentRootHex` is unknown so we don’t flash false warnings during load.
+ */
+export function isCollectionBidMerkleStale(
+  bid: Order,
+  currentRootHex: string | null | undefined,
+): boolean {
+  if (currentRootHex == null || currentRootHex === "") return false;
+  return !bidMerkleRootMatchesCollection(bid, currentRootHex);
 }

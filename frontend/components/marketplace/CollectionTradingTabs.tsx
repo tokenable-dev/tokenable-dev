@@ -47,6 +47,7 @@ export function CollectionTradingTabs({
   onInvalidate,
   /** Called with on-chain listing fill price after a successful instant buy (updates last print without polling). */
   onInstantBuyFillUsdc,
+  onPurchaseFilled,
   presetPriceFromBook,
   listingCount,
   /** Fused with order book: shared outer chrome, full height, scroll inside. */
@@ -65,6 +66,8 @@ export function CollectionTradingTabs({
   connectedAddress?: string;
   onInvalidate: () => void;
   onInstantBuyFillUsdc?: (usdc: number) => void;
+  /** Instant buy / bid match filled — e.g. celebration modal (Buy panel). */
+  onPurchaseFilled?: () => void;
   presetPriceFromBook?: string | null;
   listingCount: number;
   flush?: boolean;
@@ -182,6 +185,7 @@ export function CollectionTradingTabs({
               address={connectedAddress}
               onInvalidate={onInvalidate}
               collectionLabel={collectionLabel}
+              collectionKey={collectionKey}
               embedded
             />
           </div>
@@ -206,6 +210,7 @@ export function CollectionTradingTabs({
                     onInstantBuyFillUsdc={onInstantBuyFillUsdc}
                     onOpenSellModal={onOpenSellModal}
                     presetPriceFromBook={presetPriceFromBook}
+                    onPurchaseFilled={onPurchaseFilled}
                   />
                 </div>
               ) : (

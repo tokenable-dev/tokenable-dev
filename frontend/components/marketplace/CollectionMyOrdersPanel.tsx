@@ -4,6 +4,8 @@ import { useState } from "react";
 import { formatUnits } from "viem";
 import { cancelOrder, type Order } from "@/lib/api";
 import { isCriteriaCollectionBid } from "@/lib/seaport/criteriaMatch";
+import { isCollectionBidMerkleStale } from "@/lib/seaport/collectionCriteriaRoot";
+import { useCollectionMerkleRootHex } from "@/lib/seaport/useCollectionMerkleRootHex";
 
 function formatUsdc6(amountStr: string): string {
   try {
@@ -37,6 +39,8 @@ export function CollectionMyOrdersPanel({
   address,
   onInvalidate,
   collectionLabel,
+  /** Used to compare each criteria bid’s signed Merkle root vs the current pool (staleness). */
+  collectionKey,
   /** When true, omit outer section chrome (for use inside a parent tab panel). */
   embedded = false,
 }: {
@@ -45,9 +49,11 @@ export function CollectionMyOrdersPanel({
   address?: string | null;
   onInvalidate?: () => void;
   collectionLabel?: string;
+  collectionKey?: string;
   embedded?: boolean;
 }) {
   const [cancelling, setCancelling] = useState<string | null>(null);
+  const { data: currentMerkleRootHex } = useCollectionMerkleRootHex(collectionKey);
 
   const addr = address?.toLowerCase() ?? "";
 
@@ -139,6 +145,14 @@ export function CollectionMyOrdersPanel({
                   <span className="text-zinc-500">Bid</span>{" "}
                   <span className="font-mono tabular-nums text-zinc-400">≤{bidMaxUsdc(o)}</span>
                   <span className="text-zinc-600"> USDC</span>
+                  {isCollectionBidMerkleStale(o, currentMerkleRootHex) ? (
+                    <span
+                      className="ml-1.5 rounded border border-amber-500/35 bg-amber-500/[0.12] px-1 py-px text-[9px] font-medium text-amber-200/95"
+                      title="This bid was signed with an older Merkle pool. Cancel it and place again from Buy (same USDC) so matchAdvancedOrders can run."
+                    >
+                      Pool outdated
+                    </span>
+                  ) : null}
                 </div>
                 <button
                   type="button"
@@ -232,6 +246,14 @@ export function CollectionMyOrdersPanel({
                       <p className="mt-0.5 font-mono text-[11px] tabular-nums text-gray-500">
                         Up to {bidMaxUsdc(o)} USDC · criteria
                       </p>
+                      {isCollectionBidMerkleStale(o, currentMerkleRootHex) ? (
+                        <p className="mt-2 text-[10px] leading-relaxed text-amber-200/90">
+                          Merkle pool changed since this bid was signed —{" "}
+                          <span className="text-amber-100/95">cancel and place again from Buy</span>{" "}
+                          (same USDC) so instant match can run. Seaport locks the root inside your
+                          signature; it cannot auto-update.
+                        </p>
+                      ) : null}
                     </div>
                     <button
                       type="button"

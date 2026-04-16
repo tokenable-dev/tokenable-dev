@@ -1,17 +1,23 @@
 import type { PublicClient, Address } from "viem";
 import { formatUnits } from "viem";
 import type { Order } from "@/lib/api";
-import { getMarketplaceCollectionDetail, getMerkleEligibleTokenIds } from "@/lib/api";
+import { getMarketplaceCollectionDetail } from "@/lib/api";
 import { bidUsdcAmount } from "@/lib/seaport/bidUsdc";
-import { bidMerkleRootMatchesCollection } from "@/lib/seaport/collectionCriteriaRoot";
+import {
+  bidMerkleRootMatchesCollection,
+  fetchMerkleSnapshotForMatch,
+} from "@/lib/seaport/collectionCriteriaRoot";
 import { isCriteriaCollectionBid } from "@/lib/seaport/criteriaMatch";
 import {
   runCriteriaMatch,
   mapMatchError,
   type MatchWriteContractAsync,
 } from "@/lib/seaport/runCriteriaMatch";
-import { SeaportMerkleTree } from "@/lib/seaport/merkle";
 import { normalizeDecimalTokenId } from "@/lib/normalizeTokenId";
+import {
+  getChainTimestampSec,
+  isSeaportOrderActiveAt,
+} from "@/lib/seaport/seaportOrderTime";
 
 function orderCollectionKey(o: Order): string {
   const any = o as Order & { collection_key?: string };
@@ -70,7 +76,7 @@ export async function tryMatchCriteriaBidAgainstBook(params: {
   const hints = listingHints ?? [];
 
   let listings: Order[] = [];
-  for (let attempt = 0; attempt < 8; attempt++) {
+  for (let attempt = 0; attempt < 12; attempt++) {
     const detail = await getMarketplaceCollectionDetail(key, {
       bypassCache: true,
     }).catch(() => null);
@@ -88,8 +94,8 @@ export async function tryMatchCriteriaBidAgainstBook(params: {
       if (hasCrossing) break;
     }
 
-    if (attempt < 7) {
-      await new Promise((r) => setTimeout(r, 150 * (attempt + 1)));
+    if (attempt < 11) {
+      await new Promise((r) => setTimeout(r, 120 + attempt * 35));
     }
   }
 
@@ -111,31 +117,21 @@ export async function tryMatchCriteriaBidAgainstBook(params: {
     return Number(a.tokenId) - Number(b.tokenId);
   });
 
-  let merkleTokenIds: string[] | null = null;
-  const merkleAttempts = 5;
-  const merkleDelayMs = 200;
-  for (let i = 0; i < merkleAttempts; i++) {
-    const { tokenIds } = await getMerkleEligibleTokenIds(key, { bypassCache: true });
-    if (!tokenIds.length) {
-      if (i < merkleAttempts - 1) {
-        await new Promise((r) => setTimeout(r, merkleDelayMs));
-      }
-      continue;
-    }
-    merkleTokenIds = tokenIds;
-    break;
-  }
+  const merkleSnap = await fetchMerkleSnapshotForMatch(key, {
+    maxAttempts: 14,
+    delayMs: 200,
+    bypassMerkleCache: true,
+  });
 
-  if (!merkleTokenIds?.length) {
+  if (!merkleSnap?.tokenIds.length) {
     return {
       matched: false,
       hint: "Could not load the collection Merkle set. Try again in a few seconds.",
     };
   }
 
-  const currentRoot = new SeaportMerkleTree(
-    merkleTokenIds.map((x) => BigInt(normalizeDecimalTokenId(x))),
-  ).getHexRoot();
+  const merkleTokenIds = merkleSnap.tokenIds;
+  const currentRoot = merkleSnap.rootHex;
 
   if (!bidMerkleRootMatchesCollection(bid, currentRoot)) {
     return {
@@ -145,8 +141,13 @@ export async function tryMatchCriteriaBidAgainstBook(params: {
     };
   }
 
+  const chainNow = await getChainTimestampSec(publicClient);
+
   let lastErr = "";
   for (const listing of asks) {
+    if (!isSeaportOrderActiveAt(listing, chainNow)) {
+      continue;
+    }
     const tidBn = BigInt(normalizeDecimalTokenId(listing.tokenId));
     const ids = merkleTokenIds.map((x) => BigInt(normalizeDecimalTokenId(x)));
     if (!ids.some((id) => id === tidBn)) {
@@ -170,7 +171,7 @@ export async function tryMatchCriteriaBidAgainstBook(params: {
         fillUsdc: Number.isFinite(fillUsdc) && fillUsdc > 0 ? fillUsdc : Number(formatUnits(bidOffer, 6)),
       };
     } catch (e: unknown) {
-      lastErr = mapMatchError(e);
+      lastErr = mapMatchError(e, { bidOfferer: bid.offerer });
     }
   }
 

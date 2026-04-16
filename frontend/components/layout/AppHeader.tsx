@@ -431,7 +431,7 @@ export function AppHeader() {
               href="/portfolio"
               className="text-sm text-gray-400 hover:text-white transition-colors"
             >
-              Portfolio
+              My Assets
             </Link>
             <Link
               href="/vault"

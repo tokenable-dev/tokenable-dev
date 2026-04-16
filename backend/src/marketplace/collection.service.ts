@@ -19,6 +19,8 @@ import {
 } from './collection-image.util';
 import { MarketplaceCollection } from './entities/marketplace-collection.entity';
 import { Order, OrderSide, OrderStatus } from './entities/order.entity';
+import { buildPoketraceQueryFromRwaMetadata } from '../poketrace/poketrace-mint-query.util';
+import { PoketraceService } from '../poketrace/poketrace.service';
 
 export interface CollectionSummary {
   collectionKey: string;
@@ -53,6 +55,7 @@ export class CollectionService {
     private readonly orderRepo: Repository<Order>,
     private readonly blockchain: BlockchainService,
     private readonly config: ConfigService,
+    private readonly poketrace: PoketraceService,
   ) {}
 
   private async fetchIpfsMetadataJson(tokenUri: string): Promise<Record<string, unknown>> {
@@ -69,6 +72,28 @@ export class CollectionService {
       throw new Error(`Failed to fetch RWA metadata (${res.status})`);
     }
     return (await res.json()) as Record<string, unknown>;
+  }
+
+  /**
+   * 기존 컬렉션 행에 `psaTotalPopulation`이 없을 때만 메타에서 채움 (첫 민트는 ensure 시 포함됨).
+   */
+  private async mergePsaPopulationFromMetaIfMissing(
+    collectionKey: string,
+    meta: Record<string, unknown>,
+  ): Promise<void> {
+    const fresh = extractBucketComponentsFromMetadata(meta);
+    if (fresh?.psaTotalPopulation == null) return;
+    const key = collectionKey.toLowerCase();
+    const row = await this.collectionRepo.findOne({ where: { collectionKey: key } });
+    if (!row) return;
+    const comp = row.components as Record<string, unknown>;
+    if (comp.psaTotalPopulation != null) return;
+    await this.collectionRepo.update(
+      { collectionKey: key },
+      {
+        components: { ...comp, psaTotalPopulation: fresh.psaTotalPopulation },
+      },
+    );
   }
 
   /** IPFS 메타에서만 커버 URL 추출 후 DB에 없을 때만 저장 */
@@ -115,6 +140,7 @@ export class CollectionService {
           : undefined;
       if (code === '23505') {
         await this.persistCoverFromMetaIfMissing(collectionKey, meta);
+        await this.mergePsaPopulationFromMetaIfMissing(collectionKey, meta);
       } else {
         throw e;
       }
@@ -158,6 +184,89 @@ export class CollectionService {
     return this.collectionRepo.findOne({
       where: { collectionKey: key.toLowerCase() },
     });
+  }
+
+  /**
+   * DB `components.psaTotalPopulation`이 비어 있을 때, 활성 ask의 IPFS 메타에서 PSA 인구를 읽어 저장.
+   * (구버전 컬렉션 행 보강 — 시가총액 등 프론트 계산용)
+   */
+  async ensurePsaTotalPopulationFromListings(collectionKey: string): Promise<void> {
+    const k = collectionKey.toLowerCase();
+    const row = await this.collectionRepo.findOne({ where: { collectionKey: k } });
+    if (!row) return;
+    const comp = row.components as Record<string, unknown>;
+    if (typeof comp.psaTotalPopulation === 'number' && comp.psaTotalPopulation > 0) {
+      return;
+    }
+
+    const asks = await this.activeListingsForCollection(k);
+    for (const o of asks) {
+      if (!o.tokenId || String(o.tokenId).trim() === '') continue;
+      try {
+        const uri = await this.blockchain.getRwaTokenURI(Number(o.tokenId));
+        const meta = await this.fetchIpfsMetadataJson(uri);
+        const extracted = extractBucketComponentsFromMetadata(meta);
+        let pop: number | undefined = extracted?.psaTotalPopulation;
+        if (pop == null || !Number.isFinite(pop) || pop <= 0) {
+          const graded = (meta.properties as Record<string, unknown> | undefined)?.graded ?? meta.graded;
+          const psa =
+            graded && typeof graded === 'object'
+              ? (graded as Record<string, unknown>).psa
+              : undefined;
+          const raw =
+            psa && typeof psa === 'object'
+              ? (psa as Record<string, unknown>).totalPopulation
+              : undefined;
+          if (typeof raw === 'number' && Number.isFinite(raw) && raw > 0) {
+            pop = Math.floor(raw);
+          }
+        }
+        if (pop != null && Number.isFinite(pop) && pop > 0) {
+          await this.collectionRepo.update(
+            { collectionKey: k },
+            { components: { ...comp, psaTotalPopulation: Math.floor(pop) } },
+          );
+          return;
+        }
+      } catch {
+        /* try next listing */
+      }
+    }
+  }
+
+  /**
+   * DB `components.poketraceCardId`가 비어 있을 때, 활성 ask IPFS 메타의
+   * `properties.graded.poketrace.cardId`를 저장. PokeTrace 검색 대신 GET /cards/:id로 고정 매칭.
+   */
+  async ensurePoketraceCardIdFromListings(collectionKey: string): Promise<void> {
+    const k = collectionKey.toLowerCase();
+    const row = await this.collectionRepo.findOne({ where: { collectionKey: k } });
+    if (!row) return;
+    const comp = row.components as Record<string, unknown>;
+    const existing = comp.poketraceCardId;
+    if (typeof existing === 'string' && existing.trim().length > 0) {
+      return;
+    }
+
+    const asks = await this.activeListingsForCollection(k);
+    for (const o of asks) {
+      if (!o.tokenId || String(o.tokenId).trim() === '') continue;
+      try {
+        const uri = await this.blockchain.getRwaTokenURI(Number(o.tokenId));
+        const meta = await this.fetchIpfsMetadataJson(uri);
+        const pid = buildPoketraceQueryFromRwaMetadata(meta).poketraceCardId;
+        if (pid && pid.trim()) {
+          await this.collectionRepo.update(
+            { collectionKey: k },
+            { components: { ...comp, poketraceCardId: pid.trim() } },
+          );
+          this.poketrace.invalidateCollectionPoketraceCaches(k);
+          return;
+        }
+      } catch {
+        /* try next listing */
+      }
+    }
   }
 
   async activeListingsForCollection(collectionKey: string): Promise<Order[]> {

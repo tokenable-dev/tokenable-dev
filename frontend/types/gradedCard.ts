@@ -35,6 +35,14 @@ export interface GradedCardMetadata {
     queryUsed: string;
     topMatch?: unknown;
   };
+  /**
+   * PokeTrace catalog card id resolved at PSA analyze — enables GET /cards/:id for NM pricing
+   * without relying on fuzzy search alone.
+   */
+  poketrace?: {
+    cardId: string;
+    searchQuery: string;
+  };
   /** Collection cover on IPFS after server trims slab top (mint response) */
   collectionCoverImage?: string;
   /** Fields filled by the PSA pipeline (cert, gradeLabel, etc.) */

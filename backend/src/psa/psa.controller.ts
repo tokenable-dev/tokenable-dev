@@ -97,4 +97,42 @@ export class PsaController {
       );
     }
   }
+
+  @ApiOperation({
+    summary: 'Cert 번호만으로 PSA Public API + JustTCG 조회 (OCR 없음)',
+    description:
+      '슬랩 사진 없이 `certNumber`만 보냅니다. 값은 7~10자리 숫자이거나 `https://www.psacard.com/cert/12345678` 형태일 수 있습니다. `PSA_PUBLIC_API_TOKEN`이 있으면 공식 API로 메타·이미지 URL을 보강합니다.',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['certNumber'],
+      properties: {
+        certNumber: {
+          type: 'string',
+          description:
+            'PSA Cert 숫자만 또는 psacard.com/cert/… URL (본문 JSON)',
+        },
+      },
+    },
+  })
+  @Post('analyze-by-cert')
+  async analyzeByCert(
+    @Body() body: { certNumber?: string },
+  ): Promise<PsaAnalyzeResult> {
+    const raw = body?.certNumber?.trim();
+    if (!raw) {
+      throw new BadRequestException('certNumber 필드가 필요합니다.');
+    }
+    try {
+      return await this.psaService.analyzeByCertNumber(raw);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      const stack = err instanceof Error ? err.stack : undefined;
+      this.logger.error(`PSA analyze-by-cert failed: ${msg}`, stack);
+      throw new InternalServerErrorException(
+        'PSA Cert 조회 중 서버 오류가 발생했습니다. 백엔드 로그의 스택 트레이스를 확인하세요.',
+      );
+    }
+  }
 }

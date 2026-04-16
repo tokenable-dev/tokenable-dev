@@ -8,6 +8,8 @@ interface ImageInputProps {
   value: File | string | null;
   onChange: (value: File | string | null) => void;
   label?: string;
+  /** When false, no label row is rendered (parent supplies heading copy). */
+  showLabel?: boolean;
   required?: boolean;
   /** "file" = upload only, "fileOrUrl" = toggle between file upload and URL input */
   mode?: ImageMode;
@@ -20,6 +22,7 @@ export function ImageInput({
   value,
   onChange,
   label = "Card Image",
+  showLabel = true,
   required = false,
   mode = "fileOrUrl",
 }: ImageInputProps) {
@@ -68,10 +71,12 @@ export function ImageInput({
 
   return (
     <div>
-      <label className="block text-sm text-gray-400 mb-1.5">
-        {label}
-        {required && <span className="text-red-400 ml-0.5">*</span>}
-      </label>
+      {showLabel && (
+        <label className="block text-sm text-gray-400 mb-1.5">
+          {label}
+          {required && <span className="text-red-400 ml-0.5">*</span>}
+        </label>
+      )}
 
       {mode === "fileOrUrl" && (
         <div className="flex gap-2 mb-2">
@@ -133,7 +138,7 @@ export function ImageInput({
               </div>
             ) : (
               <span className="text-sm text-gray-500 group-hover:text-gray-300 transition-colors">
-                Click to select PNG, JPG, GIF, WEBP
+                Tap or drop an image — PNG, JPG, WEBP
               </span>
             )}
           </div>

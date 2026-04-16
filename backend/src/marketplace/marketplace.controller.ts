@@ -8,9 +8,11 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
+import { PoketraceService } from '../poketrace/poketrace.service';
 import { CollectionMarketService } from './collection-market.service';
 import { CollectionService } from './collection.service';
 import { BatchMarketSnapshotsDto } from './dto/batch-market-snapshots.dto';
+import { BatchMintPoketracePreviewsDto } from './dto/batch-mint-poketrace-previews.dto';
 import {
   ApiBody,
   ApiOperation,
@@ -31,6 +33,7 @@ export class MarketplaceController {
     private readonly marketplaceService: MarketplaceService,
     private readonly collectionService: CollectionService,
     private readonly collectionMarketService: CollectionMarketService,
+    private readonly poketraceService: PoketraceService,
   ) {}
 
   @ApiOperation({ summary: 'Seaport order registration (off-chain DB)' })
@@ -80,6 +83,63 @@ export class MarketplaceController {
 
   @ApiOperation({
     summary:
+      'PokeTrace: matched catalog card + raw (Near Mint) eBay/TCGPlayer bands. PSA graded tier prices require a PokeTrace Pro API plan; token stays server-side.',
+  })
+  @ApiParam({ name: 'key', description: 'collection_key' })
+  @Get('collections/:key/poketrace')
+  async getCollectionPoketrace(@Param('key') key: string) {
+    const k = decodeURIComponent(key).toLowerCase();
+    const col = await this.collectionService.findOne(k);
+    return this.poketraceService.getPreviewForCollection(col);
+  }
+
+  @ApiOperation({
+    summary:
+      'PokeTrace: Near Mint USD history (eBay) for the resolved catalog card. Upstream may paginate; default 90 calendar days.',
+  })
+  @ApiParam({ name: 'key', description: 'collection_key' })
+  @ApiQuery({
+    name: 'days',
+    required: false,
+    description: 'Calendar days (1–365), default 90',
+  })
+  @Get('collections/:key/poketrace/nm-history')
+  async getCollectionPoketraceNmHistory(
+    @Param('key') key: string,
+    @Query('days') daysRaw?: string,
+  ) {
+    const k = decodeURIComponent(key).toLowerCase();
+    const col = await this.collectionService.findOne(k);
+    const parsed =
+      daysRaw != null && String(daysRaw).trim() !== ''
+        ? parseInt(String(daysRaw), 10)
+        : NaN;
+    const days = Number.isFinite(parsed)
+      ? Math.min(365, Math.max(1, parsed))
+      : 90;
+    return this.poketraceService.getNearMintHistoryForCollection(col, {
+      days,
+    });
+  }
+
+  @ApiOperation({
+    summary:
+      'PokeTrace (My Assets): batch resolve raw NM eBay/TCG bands from per-token IPFS metadata. Dedupes identical card queries server-side; max 32 items.',
+  })
+  @ApiBody({ type: BatchMintPoketracePreviewsDto })
+  @Post('poketrace/mint-previews')
+  postMintPoketracePreviews(@Body() body: BatchMintPoketracePreviewsDto) {
+    const items = body.items ?? [];
+    return this.poketraceService.getBatchMintPreviews(
+      items.map((i) => ({
+        tokenId: i.tokenId,
+        metadata: i.metadata,
+      })),
+    );
+  }
+
+  @ApiOperation({
+    summary:
       'Dual-series chart data: external (JustTCG, max 180d history) + platform snapshot. Prefer one call on page load; poll GET …/platform-trades for fills only.',
   })
   @ApiParam({ name: 'key', description: 'collection_key' })
@@ -108,14 +168,21 @@ export class MarketplaceController {
   @ApiParam({ name: 'key', description: 'collection_key' })
   @Get('collections/:key')
   async getCollection(@Param('key') key: string) {
-    const col = await this.collectionService.findOne(key);
+    const k = decodeURIComponent(key).toLowerCase();
+    const exists = await this.collectionService.findOne(k);
+    if (!exists) {
+      throw new NotFoundException(`Collection not found: ${key}`);
+    }
+    await this.collectionService.ensurePsaTotalPopulationFromListings(k);
+    await this.collectionService.ensurePoketraceCardIdFromListings(k);
+    const col = await this.collectionService.findOne(k);
     if (!col) {
       throw new NotFoundException(`Collection not found: ${key}`);
     }
     const [listings, collectionBids, representativeImageUrl] = await Promise.all([
-      this.collectionService.activeListingsForCollection(key),
-      this.collectionService.activeBidsForCollection(key),
-      this.collectionService.resolveRepresentativeImageForCollection(key),
+      this.collectionService.activeListingsForCollection(k),
+      this.collectionService.activeBidsForCollection(k),
+      this.collectionService.resolveRepresentativeImageForCollection(k),
     ]);
     return {
       collection: col,

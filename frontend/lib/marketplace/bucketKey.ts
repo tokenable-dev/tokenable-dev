@@ -8,6 +8,8 @@ export interface MarketBucketComponents {
   cardName: string;
   cardSet: string;
   gradeScore: string;
+  /** PSA TotalPopulation — not part of bucket hash */
+  psaTotalPopulation?: number;
 }
 
 const KEY_VERSION = 1;
@@ -43,12 +45,19 @@ export function extractBucketComponentsFromMetadata(
   const gradeScore = normalizeGradeScore(scoreVal);
   if (!gradingCompany || !cardName || !gradeScore) return null;
 
-  return {
+  const out: MarketBucketComponents = {
     gradingCompany,
     cardName,
     cardSet,
     gradeScore,
   };
+
+  const pop = psa?.totalPopulation;
+  if (typeof pop === "number" && Number.isFinite(pop) && pop >= 0) {
+    out.psaTotalPopulation = Math.floor(pop);
+  }
+
+  return out;
 }
 
 function normalizeGradeScore(v: unknown): string {

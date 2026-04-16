@@ -6,6 +6,7 @@ import { PsaService } from './psa.service';
 describe('PsaController', () => {
   const psaService = {
     analyzeSlabImages: jest.fn(),
+    analyzeByCertNumber: jest.fn(),
   };
 
   let controller: PsaController;
@@ -69,5 +70,26 @@ describe('PsaController', () => {
       undefined,
       '83179580',
     );
+  });
+
+  it('throws when analyze-by-cert body missing certNumber', async () => {
+    await expect(controller.analyzeByCert({} as never)).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+    expect(psaService.analyzeByCertNumber).not.toHaveBeenCalled();
+  });
+
+  it('calls analyzeByCertNumber for analyze-by-cert', async () => {
+    psaService.analyzeByCertNumber.mockResolvedValue({
+      ocr: { combinedText: '' },
+      psa: { certNumber: '83179580' },
+      psaApi: { lookup: { status: 'disabled', reason: 'no_token' } },
+      justtcg: { queryUsed: '', topMatch: null, rawResponse: {} },
+    });
+    const out = await controller.analyzeByCert({
+      certNumber: '83179580',
+    } as never);
+    expect(psaService.analyzeByCertNumber).toHaveBeenCalledWith('83179580');
+    expect(out.psa.certNumber).toBe('83179580');
   });
 });

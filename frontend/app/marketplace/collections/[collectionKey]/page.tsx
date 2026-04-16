@@ -9,27 +9,104 @@ import type { Address } from "viem";
 import { formatUnits } from "viem";
 import {
   getCollectionMarketSeries,
+  getCollectionPoketracePreview,
   getCollectionPlatformTrades,
   getMarketplaceCollectionDetail,
+  type CollectionPoketracePreview,
   type Order,
+  type PoketracePriceBand,
 } from "@/lib/api";
-import {
-  CollectionOverviewBoard,
-  type CollectionOverviewStat,
-} from "@/components/marketplace/CollectionOverviewBoard";
+import { CollectionOverviewBoard } from "@/components/marketplace/CollectionOverviewBoard";
+import { CollectionPriceMetricsStrip } from "@/components/marketplace/CollectionPriceMetricsStrip";
 import type { BookRowSelection } from "@/components/marketplace/CollectionTradeTicket";
 import { CollectionUnifiedOrderBook } from "@/components/marketplace/CollectionUnifiedOrderBook";
 import { CollectionTradingTabs } from "@/components/marketplace/CollectionTradingTabs";
 import { CollectionTradeGuide } from "@/components/marketplace/CollectionTradeGuide";
 import { CollectionOwnedRwaListModal } from "@/components/marketplace/CollectionOwnedRwaListModal";
-import { CollectionDualPriceChart } from "@/components/marketplace/CollectionDualPriceChart";
 import {
-  CHART_EXTERNAL_HISTORY,
-  chartDisplayWindowStartSec,
-} from "@/components/marketplace/chartTimeRange";
+  TradeCelebrationModal,
+  type TradeCelebrationKind,
+} from "@/components/marketplace/TradeCelebrationModal";
+import { CollectionDualPriceChart } from "@/components/marketplace/CollectionDualPriceChart";
 import { CollectionRwaCard } from "@/components/marketplace/CollectionRwaCard";
 import { useAppStore, selectWallet } from "@/store";
 import { isCriteriaCollectionBid } from "@/lib/seaport/criteriaMatch";
+import {
+  buildPoketraceRollingSnapshotSeries,
+  buildSyntheticNmIllustratedSeries,
+  rollingSnapshotMaxLookbackDays,
+} from "@/lib/poketraceRollingSeries";
+import {
+  computeCollectionMarketCapUsd,
+  formatMarketCapUsd,
+} from "@/lib/gradedCardMarketCap";
+
+/** Same fill can appear from session overlay + DB poll with timestamps minutes apart */
+const SESSION_FILL_DEDUP_SEC = 300;
+
+/** PokeTrace band → single USD for chart (avg, else midpoint of low/high). */
+function poketraceBandPrimaryUsd(b: PoketracePriceBand | null): number | null {
+  if (!b) return null;
+  if (typeof b.avg === "number" && Number.isFinite(b.avg) && b.avg > 0) return b.avg;
+  if (
+    typeof b.low === "number" &&
+    typeof b.high === "number" &&
+    Number.isFinite(b.low) &&
+    Number.isFinite(b.high) &&
+    b.low > 0 &&
+    b.high > 0
+  ) {
+    return (b.low + b.high) / 2;
+  }
+  return null;
+}
+
+/** Prefer longest window: 30d median/avg → shorter rollings → spot. */
+function pickLongWindowPoketraceUsd(b: PoketracePriceBand | null): {
+  usd: number;
+  label: string;
+  /** Calendar span that PokeTrace rolling field implies (chart x-axis when blended). */
+  windowDays: number;
+} | null {
+  if (!b) return null;
+  const order: [keyof PoketracePriceBand, string, number][] = [
+    ["median30d", "30d med", 30],
+    ["avg30d", "30d avg", 30],
+    ["median7d", "7d med", 7],
+    ["avg7d", "7d avg", 7],
+    ["median3d", "3d med", 3],
+    ["avg1d", "1d avg", 1],
+  ];
+  for (const [k, label, windowDays] of order) {
+    const v = b[k];
+    if (typeof v === "number" && Number.isFinite(v) && v > 0) {
+      return { usd: v, label, windowDays };
+    }
+  }
+  const spot = poketraceBandPrimaryUsd(b);
+  /** Spot — no rolling; use 30d-wide axis as generic market context */
+  if (spot != null) return { usd: spot, label: "spot", windowDays: 30 };
+  return null;
+}
+
+function poketraceBlendedExternal(card: NonNullable<CollectionPoketracePreview["card"]>): {
+  usd: number;
+  shortLabel: string;
+  windowDays: number;
+} | null {
+  const e = pickLongWindowPoketraceUsd(card.ebayNearMint);
+  const t = pickLongWindowPoketraceUsd(card.tcgplayerNearMint);
+  if (e && t) {
+    return {
+      usd: (e.usd + t.usd) / 2,
+      shortLabel: `${e.label} + ${t.label} · eBay/TCG NM`,
+      windowDays: Math.max(e.windowDays, t.windowDays),
+    };
+  }
+  if (e) return { usd: e.usd, shortLabel: `${e.label} · eBay NM`, windowDays: e.windowDays };
+  if (t) return { usd: t.usd, shortLabel: `${t.label} · TCG NM`, windowDays: t.windowDays };
+  return null;
+}
 
 function bestAskByToken(asks: Order[]): Map<number, Order> {
   const m = new Map<number, Order>();
@@ -81,6 +158,7 @@ export default function MarketplaceCollectionPage() {
   const key = typeof collectionKey === "string" ? decodeURIComponent(collectionKey) : "";
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [sellModalOpen, setSellModalOpen] = useState(false);
+  const [tradeCelebration, setTradeCelebration] = useState<TradeCelebrationKind | null>(null);
   const [bookSelection, setBookSelection] = useState<BookRowSelection | null>(null);
   /** Last fill this session (fixed timestamp) — merged into chart until series refetch includes it. */
   const [sessionFillPoint, setSessionFillPoint] = useState<{
@@ -95,25 +173,81 @@ export default function MarketplaceCollectionPage() {
     retry: false,
   });
 
-  /** One load: JustTCG max history (180d) + metadata; do not poll — avoids repeat JustTCG calls. */
   const {
-    data: marketSeries,
-    isLoading: seriesLoading,
-    isError: seriesError,
-    error: seriesErr,
+    data: poketracePreview,
+    isLoading: poketraceLoading,
+    isError: poketraceQueryError,
+    error: poketraceQueryErr,
   } = useQuery({
-    queryKey: ["marketplace-collection-series", key, CHART_EXTERNAL_HISTORY],
-    queryFn: () => getCollectionMarketSeries(key, CHART_EXTERNAL_HISTORY),
-    enabled: key.length > 0,
-    retry: 1,
-    staleTime: Number.POSITIVE_INFINITY,
-    gcTime: 86_400_000,
+    queryKey: ["collection-poketrace", key],
+    queryFn: () => getCollectionPoketracePreview(key),
+    enabled: key.length > 0 && !isLoading && !isError && !!data,
+    staleTime: 900_000,
+    /** PokeTrace free/public tiers are strict — align with server preview cache; no refetch spam */
+    retry: false,
     refetchOnMount: false,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   });
 
-  /** DB-only — chart points + Trades tab tape (polls without JustTCG). */
+  const { data: marketSeriesHeader } = useQuery({
+    queryKey: ["collection-market-series", key],
+    queryFn: () => getCollectionMarketSeries(key, "90d"),
+    enabled: key.length > 0 && !isLoading && !isError && !!data,
+    staleTime: 120_000,
+  });
+
+  /** Single PokeTrace preview drives external chart level + panel (no extra JustTCG request). */
+  const poketraceExternalChart = useMemo(() => {
+    const card = poketracePreview?.matched ? poketracePreview.card : null;
+    if (!card) return null;
+    return poketraceBlendedExternal(card);
+  }, [poketracePreview]);
+
+  /** Same snapshot, multiple rollings → fallback polyline when we lack a blended anchor. */
+  const poketraceRollingSeriesUsd = useMemo(() => {
+    const card = poketracePreview?.matched ? poketracePreview.card : null;
+    if (!card) return [];
+    const nowSec = Math.floor(Date.now() / 1000);
+    return buildPoketraceRollingSnapshotSeries(card.ebayNearMint, card.tcgplayerNearMint, nowSec);
+  }, [poketracePreview]);
+
+  /**
+   * One preview fetch only — 90d illustrative curve from blended NM anchor (no NM history API;
+   * avoids PokeTrace rate limits). Fallback: rolling snapshot polyline from the same response.
+   */
+  const chartExternalRollingUsd = useMemo(() => {
+    const card = poketracePreview?.matched ? poketracePreview.card : null;
+    const nowSec = Math.floor(Date.now() / 1000);
+    const blended = poketraceExternalChart;
+    if (blended && blended.usd > 0) {
+      return buildSyntheticNmIllustratedSeries({
+        anchorUsd: blended.usd,
+        windowDays: 90,
+        nowSec,
+        seed: `${key}|${card?.id ?? ""}`,
+      });
+    }
+    return poketraceRollingSeriesUsd;
+  }, [poketracePreview, poketraceExternalChart, poketraceRollingSeriesUsd, key]);
+
+  const chartExternalRollingKind = useMemo<"synthetic" | "snapshot">(() => {
+    if (poketraceExternalChart && poketraceExternalChart.usd > 0) return "synthetic";
+    return "snapshot";
+  }, [poketraceExternalChart]);
+
+  const chartExternalWindowDays = useMemo(() => {
+    const nowSec = Math.floor(Date.now() / 1000);
+    if (poketraceExternalChart && poketraceExternalChart.usd > 0) return 90;
+    if (!poketraceExternalChart) return null;
+    let w = poketraceExternalChart.windowDays;
+    if (poketraceRollingSeriesUsd.length >= 2) {
+      w = Math.max(w, rollingSnapshotMaxLookbackDays(poketraceRollingSeriesUsd, nowSec));
+    }
+    return w;
+  }, [poketraceExternalChart, poketraceRollingSeriesUsd]);
+
+  /** DB-only — chart points + Trades tab tape. */
   const { data: platformTradesData, isLoading: platformTradesLoading } = useQuery({
     queryKey: ["collection-platform-trades", key],
     queryFn: () => getCollectionPlatformTrades(key),
@@ -123,15 +257,9 @@ export default function MarketplaceCollectionPage() {
   });
 
   const platformPtsBase = useMemo(
-    () => platformTradesData?.platformUsd ?? marketSeries?.platformUsd ?? [],
-    [platformTradesData?.platformUsd, marketSeries?.platformUsd]
+    () => platformTradesData?.platformUsd ?? [],
+    [platformTradesData?.platformUsd]
   );
-
-  const axisNowSec = Math.floor(Date.now() / 1000);
-  const chartWindowStartSec = chartDisplayWindowStartSec(axisNowSec);
-
-  /** Full series for chart (component picks a readable time window — no extra clip here). */
-  const displayExternalUsd = useMemo(() => marketSeries?.externalUsd ?? [], [marketSeries?.externalUsd]);
 
   const displayPlatformUsd = useMemo(() => {
     const raw = platformPtsBase;
@@ -141,7 +269,12 @@ export default function MarketplaceCollectionPage() {
       Number.isFinite(sessionFillPoint.v) &&
       sessionFillPoint.v > 0
     ) {
-      pts.push(sessionFillPoint);
+      const alreadyInSeries = pts.some(
+        (p) =>
+          Math.abs(p.v - sessionFillPoint.v) < 1e-4 &&
+          Math.abs(p.t - sessionFillPoint.t) <= SESSION_FILL_DEDUP_SEC
+      );
+      if (!alreadyInSeries) pts.push(sessionFillPoint);
     }
     pts.sort((a, b) => a.t - b.t);
     const deduped: { t: number; v: number }[] = [];
@@ -153,11 +286,38 @@ export default function MarketplaceCollectionPage() {
       }
     }
     return deduped;
-  }, [platformPtsBase, sessionFillPoint, chartWindowStartSec]);
+  }, [platformPtsBase, sessionFillPoint]);
+
+  const platformPriceSamples = useMemo(
+    () => displayPlatformUsd.map((p) => p.v),
+    [displayPlatformUsd]
+  );
+
+  /** 메트릭 Current Price — 플랫폼 체결 시계열의 최신점(세션 오버레이 포함) */
+  const lastPlatformTradePriceUsd = useMemo(() => {
+    const pts = displayPlatformUsd;
+    if (!pts.length) return null;
+    const last = pts[pts.length - 1];
+    return typeof last.v === "number" && Number.isFinite(last.v) && last.v > 0
+      ? last.v
+      : null;
+  }, [displayPlatformUsd]);
+
+  /** 직전 체결 → 최근 체결 사이 변동률 % (동일 시계열) */
+  const lastTwoTradesPriceChangePct = useMemo(() => {
+    const pts = displayPlatformUsd;
+    if (pts.length < 2) return null;
+    const prev = pts[pts.length - 2].v;
+    const last = pts[pts.length - 1].v;
+    if (!(typeof prev === "number" && Number.isFinite(prev) && prev > 0)) return null;
+    if (!(typeof last === "number" && Number.isFinite(last))) return null;
+    return ((last - prev) / prev) * 100;
+  }, [displayPlatformUsd]);
 
   function invalidateCollection() {
     void queryClient.invalidateQueries({ queryKey: ["marketplace-collection", key] });
     void queryClient.invalidateQueries({ queryKey: ["collection-platform-trades", key] });
+    void queryClient.invalidateQueries({ queryKey: ["collection-market-series", key] });
     void queryClient.invalidateQueries({ queryKey: ["merkle-set", key] });
     void queryClient.invalidateQueries({ queryKey: ["merkle-set"] });
   }
@@ -189,10 +349,33 @@ export default function MarketplaceCollectionPage() {
           cardSet?: string;
           cardNumber?: string;
           variant?: string;
+          psaTotalPopulation?: number;
         }
       | undefined;
     return raw ?? {};
   }, [data?.collection?.components]);
+
+  const marketCapComputation = useMemo(
+    () =>
+      data?.collection
+        ? computeCollectionMarketCapUsd({
+            components: data.collection.components as Record<string, unknown>,
+            gradeScoreStr: comp.gradeScore,
+            poketraceCard:
+              poketracePreview?.matched && poketracePreview.card
+                ? poketracePreview.card
+                : null,
+            gradePrices: marketSeriesHeader?.gradePrices ?? null,
+          })
+        : null,
+    [
+      data?.collection,
+      comp.gradeScore,
+      poketracePreview?.matched,
+      poketracePreview?.card,
+      marketSeriesHeader?.gradePrices,
+    ],
+  );
 
   const metadataRows = useMemo(() => {
     const rows: { label: string; value: string }[] = [];
@@ -226,36 +409,16 @@ export default function MarketplaceCollectionPage() {
     setSessionFillPoint(null);
   }, [key]);
 
-  /** Clear session overlay once DB poll includes this fill (clock may differ by a few seconds). */
+  /** Clear session overlay once DB poll includes this fill (timestamps often differ by more than a few seconds). */
   useEffect(() => {
     if (!sessionFillPoint || !platformPtsBase.length) return;
     const found = platformPtsBase.some(
       (p) =>
         Math.abs(p.v - sessionFillPoint.v) < 1e-4 &&
-        Math.abs(p.t - sessionFillPoint.t) <= 5
+        Math.abs(p.t - sessionFillPoint.t) <= SESSION_FILL_DEDUP_SEC
     );
     if (found) setSessionFillPoint(null);
   }, [platformPtsBase, sessionFillPoint]);
-
-  /**
-   * JustTCG 외부 시세: 차트와 동일한 기간(180d) 시계열 포인트의 산술평균, 없으면 PSA10 스냅샷.
-   * Tokenable Floor(최저 매도호가)와는 별개 — 카드 매칭이 어긋나면 값이 엇갈릴 수 있음.
-   */
-  const justtcgAverageUsd = useMemo(() => {
-    const windowPts = displayExternalUsd.filter((p) => p.t >= chartWindowStartSec);
-    const finite = windowPts
-      .map((p) => p.v)
-      .filter((v): v is number => typeof v === "number" && Number.isFinite(v));
-    if (finite.length > 0) {
-      const mean = finite.reduce((a, b) => a + b, 0) / finite.length;
-      return { amount: mean, sub: "JustTCG · 180d avg (market history)" as const };
-    }
-    const p10 = marketSeries?.gradePrices?.psa10;
-    if (p10 != null && Number.isFinite(p10)) {
-      return { amount: p10, sub: "JustTCG · PSA 10 (snapshot)" as const };
-    }
-    return null;
-  }, [displayExternalUsd, chartWindowStartSec, marketSeries?.gradePrices?.psa10]);
 
   const marketMetrics = useMemo(() => {
     const askPrices = asks
@@ -281,74 +444,6 @@ export default function MarketplaceCollectionPage() {
     return { floor, listingsNotional, spreadPct };
   }, [asks, collectionBids]);
 
-  const overviewStats: CollectionOverviewStat[] = useMemo(
-    () => [
-      {
-        label: "Floor",
-        value:
-          marketMetrics.floor != null
-            ? `$${marketMetrics.floor.toLocaleString("en-US", {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}`
-            : "—",
-        tone: "neutral",
-        sub: "Best ask · USDC",
-      },
-      {
-        label: "Market",
-        value:
-          marketSeries?.marketChangePct != null
-            ? `${marketSeries.marketChangePct >= 0 ? "+" : ""}${marketSeries.marketChangePct.toFixed(2)}%`
-            : "—",
-        tone:
-          marketSeries?.marketChangePct == null
-            ? "neutral"
-            : marketSeries.marketChangePct >= 0
-              ? "up"
-              : "down",
-        sub: "JustTCG · series Δ (first→last)",
-      },
-      {
-        label: "Avg",
-        value:
-          justtcgAverageUsd != null
-            ? `$${justtcgAverageUsd.amount.toLocaleString("en-US", {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}`
-            : "—",
-        tone: "neutral",
-        sub: justtcgAverageUsd?.sub ?? "JustTCG · no series",
-      },
-      {
-        label: "Spread",
-        value:
-          marketMetrics.spreadPct != null
-            ? `${marketMetrics.spreadPct.toFixed(1)}%`
-            : "—",
-        tone: "neutral",
-        sub: "Book mid",
-      },
-      {
-        label: "Notional",
-        value: `$${marketMetrics.listingsNotional.toLocaleString("en-US", {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        })}`,
-        tone: "neutral",
-        sub: "Listings · USDC",
-      },
-    ],
-    [
-      marketMetrics.floor,
-      marketMetrics.listingsNotional,
-      marketMetrics.spreadPct,
-      marketSeries?.marketChangePct,
-      justtcgAverageUsd,
-    ]
-  );
-
   /** Sync buy/bid price field when user clicks a row in the order book (ask or bid). */
   const presetPriceFromBook = useMemo(() => {
     if (bookSelection == null) return null;
@@ -364,6 +459,12 @@ export default function MarketplaceCollectionPage() {
     return presetPriceFromBook;
   }, [bookSelection, presetPriceFromBook]);
 
+  /** First bid order at the selected depth — drives list-then-match priority (same price, multiple bids). */
+  const preferredBidOrderHash = useMemo(() => {
+    if (bookSelection?.side !== "bid" || !bookSelection.orders.length) return null;
+    return bookSelection.orders[0]?.orderHash ?? null;
+  }, [bookSelection]);
+
   if (!key) {
     return (
       <div className="min-h-[40vh] flex items-center justify-center text-gray-500 text-sm">
@@ -378,14 +479,8 @@ export default function MarketplaceCollectionPage() {
         <div className="w-full max-w-[1680px] mx-auto px-4 sm:px-5 lg:px-8 xl:px-10 py-8 pb-20">
           <div className="h-4 w-40 bg-gray-800/80 rounded animate-pulse mb-6" />
           <div className="rounded-2xl border border-gray-800/90 bg-[#0b0e11] overflow-hidden animate-pulse mb-10">
-            <div className="flex flex-wrap items-center gap-4 border-b border-gray-800/80 px-4 py-4 sm:px-6">
-              <div className="h-10 w-40 rounded-md bg-gray-800/50" />
-              <div className="hidden h-8 w-px bg-gray-800/80 sm:block" />
-              <div className="flex flex-1 gap-4 overflow-hidden">
-                {[...Array(4)].map((_, i) => (
-                  <div key={i} className="h-12 w-16 shrink-0 rounded-md bg-gray-800/45" />
-                ))}
-              </div>
+            <div className="border-b border-gray-800/80 px-4 py-4 sm:px-6">
+              <div className="h-10 w-48 rounded-md bg-gray-800/50" />
             </div>
             <div className="grid gap-6 p-6 lg:grid-cols-[minmax(180px,240px)_minmax(0,1fr)_minmax(300px,420px)]">
               <div className="flex justify-center">
@@ -444,6 +539,17 @@ export default function MarketplaceCollectionPage() {
           badgeLabel="Collection"
           imageUrl={representativeImageUrl}
           metadataRows={metadataRows}
+          stats={[]}
+          chartMetricsRow={
+            <CollectionPriceMetricsStrip
+              lastPlatformTradeUsd={lastPlatformTradePriceUsd}
+              priceChangePct={lastTwoTradesPriceChangePct}
+              platformPriceSamples={platformPriceSamples}
+              bookSpreadPct={marketMetrics.spreadPct}
+              marketCapUsd={marketCapComputation?.usd ?? null}
+              formatMarketCap={formatMarketCapUsd}
+            />
+          }
           heroCoverLoupe
           metadataExpand={{
             collectionKey: collection.collectionKey,
@@ -452,34 +558,21 @@ export default function MarketplaceCollectionPage() {
             createdAt: collection.createdAt,
             representativeImageUrl,
             components: collection.components,
-            marketSeriesMeta: marketSeries
-              ? {
-                  justtcgCardId: marketSeries.justtcgCardId,
-                  categoryLabel: marketSeries.categoryLabel,
-                }
-              : null,
+            marketSeriesMeta: null,
           }}
-          stats={overviewStats}
           listingCount={asks.length}
           priceChart={
             <CollectionDualPriceChart
               variant="exchange"
-              externalUsd={displayExternalUsd}
               platformUsd={displayPlatformUsd}
-              externalSnapshotUsd={marketSeries?.gradePrices?.psa10 ?? null}
-              gradeLabel={
-                comp.gradingCompany && comp.gradeScore
-                  ? `${comp.gradingCompany} ${comp.gradeScore}`
-                  : comp.gradeScore ?? null
+              externalMarketUsd={poketraceExternalChart?.usd ?? null}
+              externalWindowDays={chartExternalWindowDays}
+              externalRollingUsd={
+                chartExternalRollingUsd.length > 0 ? chartExternalRollingUsd : null
               }
-              isLoading={seriesLoading}
-              errorMessage={
-                seriesError
-                  ? seriesErr instanceof Error
-                    ? seriesErr.message
-                    : "Could not load chart"
-                  : null
-              }
+              externalRollingKind={chartExternalRollingKind}
+              isLoading={platformTradesLoading || poketraceLoading}
+              errorMessage={null}
             />
           }
           orderBookNextToChart={
@@ -500,7 +593,10 @@ export default function MarketplaceCollectionPage() {
             <CollectionTradingTabs
               bookSelection={bookSelection}
               address={address as Address | undefined}
-              onBuySuccess={() => invalidateCollection()}
+              onBuySuccess={() => {
+                setTradeCelebration("purchase");
+                void invalidateCollection();
+              }}
               onOpenSellModal={() => setSellModalOpen(true)}
               collectionKey={collection.collectionKey}
               collectionLabel={collection.displayLabel}
@@ -511,6 +607,7 @@ export default function MarketplaceCollectionPage() {
               onInstantBuyFillUsdc={(usdc) =>
                 setSessionFillPoint({ t: Math.floor(Date.now() / 1000), v: usdc })
               }
+              onPurchaseFilled={() => setTradeCelebration("purchase")}
               presetPriceFromBook={presetPriceFromBook}
               listingCount={asks.length}
             />
@@ -587,6 +684,12 @@ export default function MarketplaceCollectionPage() {
         </div>
       </div>
 
+      <TradeCelebrationModal
+        open={tradeCelebration != null}
+        kind={tradeCelebration ?? "purchase"}
+        onClose={() => setTradeCelebration(null)}
+      />
+
       <CollectionOwnedRwaListModal
         open={sellModalOpen}
         onClose={() => setSellModalOpen(false)}
@@ -594,6 +697,8 @@ export default function MarketplaceCollectionPage() {
         collectionLabel={collection.displayLabel}
         collectionBids={collectionBids}
         listPricePresetUsdc={listPricePresetUsdc}
+        preferredBidOrderHash={preferredBidOrderHash}
+        onSaleCelebration={() => setTradeCelebration("sale")}
       />
     </div>
   );

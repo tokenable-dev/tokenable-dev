@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import type { GradingCompany, PsaFieldLocks } from "@/types/gradedCard";
 import { ImageInput } from "./ImageInput";
 
@@ -9,6 +10,9 @@ const inputClass =
 function lockedHint(locked: boolean): string | undefined {
   return locked ? "Set by PSA analysis and cannot be edited" : undefined;
 }
+
+/** Vault mint: slab OCR path vs cert-only PSA API lookup */
+export type PsaInputMode = "slab" | "cert";
 
 interface GradedCardSectionProps {
   /** Mint supports PSA only; prop kept for typing */
@@ -25,6 +29,12 @@ interface GradedCardSectionProps {
   onVerificationChange: (v: GradedCardSectionProps["verification"]) => void;
   /** Fields filled by PSA analysis — read-only when locked */
   psaFieldLocks?: PsaFieldLocks;
+  psaInputMode?: PsaInputMode;
+  onPsaInputModeChange?: (mode: PsaInputMode) => void;
+  onCertLookup?: () => void;
+  certLookupBusy?: boolean;
+  /** Render between slab/cert hero and the collapsible card & PSA fields (e.g. mint preview + Mint CTA) */
+  slotAfterHero?: ReactNode;
 }
 
 function PsaSlabUploadHero({
@@ -38,41 +48,106 @@ function PsaSlabUploadHero({
 }) {
   const L = psaFieldLocks;
   return (
-    <section aria-labelledby="psa-slab-hero-title">
+    <section aria-labelledby="psa-slab-hero-title" className="space-y-4">
+      <div>
+        <h3
+          id="psa-slab-hero-title"
+          className="text-lg font-semibold tracking-tight text-white"
+        >
+          Upload a photo
+        </h3>
+        <p className="mt-1.5 text-sm leading-relaxed text-gray-500">
+          One picture of your slab is enough. We scan the label and fill in the card for you.
+        </p>
+      </div>
+
+      <div className="rounded-2xl border border-dashed border-gray-600/70 bg-gray-800/25 p-4 sm:p-5">
+        <ImageInput
+          showLabel={false}
+          value={verification.slabFront}
+          onChange={(f) =>
+            onVerificationChange({
+              ...verification,
+              slabFront: f,
+              slabBack: null,
+            })
+          }
+          mode="file"
+          required
+        />
+      </div>
+
+      <details className="rounded-xl border border-gray-700/40 bg-gray-900/25 px-4 py-3">
+        <summary className="cursor-pointer list-none text-xs text-gray-500 hover:text-gray-400 [&::-webkit-details-marker]:hidden">
+          <span className="underline decoration-gray-600 underline-offset-2">
+            Have a PSA cert page URL? (optional, faster lookup)
+          </span>
+        </summary>
+        <input
+          type="url"
+          value={verification.certUrl}
+          onChange={(e) =>
+            onVerificationChange({ ...verification, certUrl: e.target.value })
+          }
+          placeholder="https://www.psacard.com/cert/…"
+          disabled={Boolean(L?.certUrl)}
+          title={lockedHint(Boolean(L?.certUrl))}
+          className={`${inputClass} mt-3 disabled:cursor-not-allowed disabled:opacity-60`}
+        />
+      </details>
+    </section>
+  );
+}
+
+function PsaCertLookupHero({
+  grade,
+  onGradeChange,
+  verification,
+  onVerificationChange,
+  onCertLookup,
+  certLookupBusy,
+  psaFieldLocks,
+}: {
+  grade: GradedCardSectionProps["grade"];
+  onGradeChange: GradedCardSectionProps["onGradeChange"];
+  verification: GradedCardSectionProps["verification"];
+  onVerificationChange: GradedCardSectionProps["onVerificationChange"];
+  onCertLookup: () => void;
+  certLookupBusy: boolean;
+  psaFieldLocks?: PsaFieldLocks;
+}) {
+  const L = psaFieldLocks;
+  const hasHint =
+    Boolean(grade.certNumber.trim()) || Boolean(verification.certUrl.trim());
+  return (
+    <section aria-labelledby="psa-cert-hero-title">
       <label
-        id="psa-slab-hero-title"
+        id="psa-cert-hero-title"
         className="block text-sm font-medium text-gray-300 mb-2"
       >
-        Upload card photos (front &amp; back)
+        PSA cert lookup (no photos)
       </label>
       <div className="rounded-xl border border-dashed border-gray-600/70 bg-gray-800/30 p-4 space-y-4">
         <div>
           <p className="mb-1.5 text-xs font-medium text-gray-400">
-            Slab front <span className="text-red-400">*</span>
+            Cert # <span className="text-red-400">*</span>
           </p>
-          <ImageInput
-            label="Choose file or drag &amp; drop"
-            value={verification.slabFront}
-            onChange={(f) => onVerificationChange({ ...verification, slabFront: f })}
-            mode="file"
-            required
-          />
-        </div>
-        <div>
-          <p className="mb-1.5 text-xs font-medium text-gray-400">
-            Slab back <span className="text-gray-600">(optional)</span>
-          </p>
-          <ImageInput
-            label="Choose file or drag &amp; drop"
-            value={verification.slabBack}
-            onChange={(f) => onVerificationChange({ ...verification, slabBack: f })}
-            mode="file"
+          <input
+            type="text"
+            inputMode="numeric"
+            autoComplete="off"
+            value={grade.certNumber}
+            onChange={(e) => onGradeChange({ certNumber: e.target.value })}
+            placeholder="7–10 digit PSA cert number"
+            disabled={Boolean(L?.certNumber)}
+            title={lockedHint(Boolean(L?.certNumber))}
+            className={`${inputClass} disabled:cursor-not-allowed disabled:opacity-60`}
           />
         </div>
         <div>
           <label className="block text-xs text-gray-500 mb-1.5">
             Certification URL{" "}
-            <span className="text-gray-600">(optional — speeds up PSA lookup)</span>
+            <span className="text-gray-600">(optional — or paste URL instead of digits)</span>
           </label>
           <input
             type="url"
@@ -80,14 +155,23 @@ function PsaSlabUploadHero({
             onChange={(e) =>
               onVerificationChange({ ...verification, certUrl: e.target.value })
             }
-            placeholder="https://..."
+            placeholder="https://www.psacard.com/cert/…"
             disabled={Boolean(L?.certUrl)}
             title={lockedHint(Boolean(L?.certUrl))}
             className={`${inputClass} disabled:cursor-not-allowed disabled:opacity-60`}
           />
         </div>
+        <button
+          type="button"
+          onClick={onCertLookup}
+          disabled={certLookupBusy || !hasHint}
+          className="w-full rounded-xl border border-mint/40 bg-mint/10 py-2.5 text-sm font-medium text-mint transition-colors hover:bg-mint/15 disabled:opacity-50"
+        >
+          {certLookupBusy ? "Looking up…" : "Look up PSA data"}
+        </button>
         <p className="text-[11px] leading-relaxed text-gray-500">
-          After upload, OCR + PSA API + JustTCG run automatically and fill in card details.
+          Uses PSA Public API and JustTCG only — no photo OCR. Switch to{" "}
+          <span className="text-gray-400">Photo</span> if you want to scan the slab.
         </p>
       </div>
     </section>
@@ -103,18 +187,96 @@ export function GradedCardSection({
   verification,
   onVerificationChange,
   psaFieldLocks,
+  psaInputMode = "slab",
+  onPsaInputModeChange,
+  onCertLookup,
+  certLookupBusy = false,
+  slotAfterHero,
 }: GradedCardSectionProps) {
   const hasCompany = !!gradingCompany;
   const L = psaFieldLocks;
+  const mode = psaInputMode;
+  const setMode = onPsaInputModeChange;
+  const certLookup = onCertLookup ?? (() => {});
 
   return (
     <div className="space-y-6 transition-opacity duration-200">
-      <PsaSlabUploadHero
-        verification={verification}
-        onVerificationChange={onVerificationChange}
-        psaFieldLocks={L}
-      />
+      {setMode && (
+        <div
+          className="flex rounded-xl border border-gray-700/60 bg-gray-900/50 p-1"
+          role="tablist"
+          aria-label="PSA data source"
+        >
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === "slab"}
+            onClick={() => setMode("slab")}
+            className={`flex-1 rounded-lg px-3 py-2 text-xs font-medium transition-colors sm:text-sm ${
+              mode === "slab"
+                ? "bg-gray-800 text-white shadow-sm"
+                : "text-gray-500 hover:text-gray-300"
+            }`}
+          >
+            Photo
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === "cert"}
+            onClick={() => setMode("cert")}
+            className={`flex-1 rounded-lg px-3 py-2 text-xs font-medium transition-colors sm:text-sm ${
+              mode === "cert"
+                ? "bg-gray-800 text-white shadow-sm"
+                : "text-gray-500 hover:text-gray-300"
+            }`}
+          >
+            Cert #
+          </button>
+        </div>
+      )}
 
+      {mode === "slab" ? (
+        <PsaSlabUploadHero
+          verification={verification}
+          onVerificationChange={onVerificationChange}
+          psaFieldLocks={L}
+        />
+      ) : (
+        <PsaCertLookupHero
+          grade={grade}
+          onGradeChange={onGradeChange}
+          verification={verification}
+          onVerificationChange={onVerificationChange}
+          onCertLookup={certLookup}
+          certLookupBusy={certLookupBusy}
+          psaFieldLocks={L}
+        />
+      )}
+
+      {slotAfterHero}
+
+      <details
+        className="group rounded-xl border border-gray-700/50 bg-gray-800/20 overflow-hidden"
+      >
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3.5 text-sm font-medium text-gray-200 transition-colors hover:bg-gray-800/35 [&::-webkit-details-marker]:hidden">
+          <span>Card &amp; PSA details</span>
+          <svg
+            className="h-4 w-4 shrink-0 text-gray-500 transition-transform group-open:rotate-180"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            aria-hidden
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M19 9l-7 7-7-7"
+            />
+          </svg>
+        </summary>
+        <div className="space-y-6 border-t border-gray-700/40 px-4 pb-5 pt-4">
       {/* Card Name */}
       <div>
         <label className="block text-sm font-medium text-gray-300 mb-2">Card Name</label>
@@ -178,19 +340,21 @@ export function GradedCardSection({
         </div>
       </div>
 
-      {/* Cert Number */}
-      <div>
-        <label className="block text-sm font-medium text-gray-300 mb-2">Cert Number</label>
-        <input
-          type="text"
-          value={grade.certNumber}
-          onChange={(e) => onGradeChange({ certNumber: e.target.value })}
-          placeholder="PSA Certification Number"
-          disabled={Boolean(L?.certNumber)}
-          title={lockedHint(Boolean(L?.certNumber))}
-          className={`${inputClass} disabled:opacity-60 disabled:cursor-not-allowed`}
-        />
-      </div>
+      {/* Cert Number — hidden in cert-only mode (entered in hero) */}
+      {mode === "slab" && (
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">Cert Number</label>
+          <input
+            type="text"
+            value={grade.certNumber}
+            onChange={(e) => onGradeChange({ certNumber: e.target.value })}
+            placeholder="PSA Certification Number"
+            disabled={Boolean(L?.certNumber)}
+            title={lockedHint(Boolean(L?.certNumber))}
+            className={`${inputClass} disabled:opacity-60 disabled:cursor-not-allowed`}
+          />
+        </div>
+      )}
 
       {/* Player, Year, Set, Card Number */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -246,7 +410,7 @@ export function GradedCardSection({
         </div>
       </div>
 
-      {/* PSA Specific Details — collapsible */}
+      {/* PSA-specific extra fields (inside Card & PSA panel) */}
       {hasCompany && (
         <CompanySpecificBlock
           company="PSA"
@@ -255,6 +419,8 @@ export function GradedCardSection({
           psaFieldLocks={L}
         />
       )}
+        </div>
+      </details>
     </div>
   );
 }
@@ -278,12 +444,10 @@ function CompanySpecificBlock({
   }
 
   return (
-    <details className="group rounded-xl border border-gray-700/50 bg-gray-800/30 overflow-hidden">
-      <summary className="flex items-center justify-between cursor-pointer px-4 py-3 text-sm font-medium text-gray-300 hover:text-white transition-colors select-none">
-        <span>{company} Details</span>
-        <svg className="w-4 h-4 text-gray-500 transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-      </summary>
-      <div className="px-4 pb-4 pt-1">
+    <div className="rounded-lg border border-gray-700/35 bg-gray-900/25 p-3 sm:p-4">
+      <p className="mb-3 text-[11px] font-medium uppercase tracking-wide text-gray-500">
+        {company} — population &amp; extras
+      </p>
 
       {company === "PSA" && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -397,8 +561,7 @@ function CompanySpecificBlock({
           </div>
         </div>
       )}
-      </div>
-    </details>
+    </div>
   );
 }
 

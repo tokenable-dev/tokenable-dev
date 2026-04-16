@@ -8,6 +8,14 @@ export interface MarketBucketComponents {
   cardSet: string;
   /** Numeric grade as stable string, e.g. "10", "9.5". */
   gradeScore: string;
+  /**
+   * PSA TotalPopulation for this cert line (same for all RWAs in the bucket). Not part of the bucket hash.
+   */
+  psaTotalPopulation?: number;
+  /**
+   * Optional card # (e.g. 086) — **not** part of {@link computeMarketBucketKey}; used for PokeTrace/JustTCG search only.
+   */
+  cardNumber?: string;
 }
 
 const KEY_VERSION = 1;
@@ -34,8 +42,11 @@ export function extractBucketComponentsFromMetadata(
 
   const rawName = String(card?.name ?? '').trim();
   const rawSet = String(card?.set ?? '').trim();
+  const rawNum =
+    String(card?.number ?? '').trim() || String(psa?.cardNumberHint ?? '').trim();
   const cardName = normalizePart(rawName || String(psa?.cardNameHint ?? ''));
   const cardSet = normalizePart(rawSet || String(psa?.setHint ?? ''));
+  const cardNumber = rawNum ? normalizePart(rawNum) : '';
 
   let scoreVal: unknown = grade?.score;
   if (scoreVal == null || scoreVal === '') scoreVal = psa?.gradeScore;
@@ -43,12 +54,20 @@ export function extractBucketComponentsFromMetadata(
   const gradeScore = normalizeGradeScore(scoreVal);
   if (!gradingCompany || !cardName || !gradeScore) return null;
 
-  return {
+  const out: MarketBucketComponents = {
     gradingCompany,
     cardName,
     cardSet,
     gradeScore,
   };
+  if (cardNumber) out.cardNumber = cardNumber;
+
+  const pop = psa?.totalPopulation;
+  if (typeof pop === 'number' && Number.isFinite(pop) && pop >= 0) {
+    out.psaTotalPopulation = Math.floor(pop);
+  }
+
+  return out;
 }
 
 function normalizeGradeScore(v: unknown): string {

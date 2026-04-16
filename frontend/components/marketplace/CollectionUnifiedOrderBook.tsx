@@ -86,9 +86,13 @@ function OrderBookCenterStrip({ model }: { model: BookCenterModel }) {
   const showDown =
     model.tone === "ask" || (model.tone === "last" && model.lastSide === "sell");
 
+  const hasCaption = model.caption.trim().length > 0;
+
   return (
     <div
-      className="relative flex min-h-[5.5rem] shrink-0 flex-col items-center justify-center gap-1 border-y border-gray-800/90 bg-[#080a0e] px-2 py-2 sm:py-2.5"
+      className={`relative flex shrink-0 flex-col items-center justify-center gap-1 border-y border-gray-800/90 bg-[#080a0e] px-2 py-2 sm:py-2.5 ${
+        hasCaption ? "min-h-[5.5rem]" : "min-h-[4rem]"
+      }`}
       title={model.title}
     >
       <div className="flex flex-wrap items-center justify-center gap-x-2.5 gap-y-1">
@@ -115,9 +119,11 @@ function OrderBookCenterStrip({ model }: { model: BookCenterModel }) {
           </span>
         ) : null}
       </div>
-      <p className="line-clamp-2 flex h-[2.5rem] w-full items-center justify-center px-1 text-center text-[9px] leading-snug text-zinc-600">
-        {model.caption}
-      </p>
+      {hasCaption ? (
+        <p className="line-clamp-2 flex h-[2.5rem] w-full items-center justify-center px-1 text-center text-[9px] leading-snug text-zinc-600">
+          {model.caption}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -263,51 +269,30 @@ export function CollectionUnifiedOrderBook({
       Number.isFinite(lastTradePriceUsdc) &&
       lastTradePriceUsdc > 0
     ) {
-      let secondary: string | null = null;
-      if (bestAskPrice != null && bestBidPrice != null) {
-        secondary = `Ask ${fmt(bestAskPrice)} · Bid ${fmt(bestBidPrice)}`;
-      } else if (bestAskPrice != null) {
-        secondary = `Ask ${fmt(bestAskPrice)}`;
-      } else if (bestBidPrice != null) {
-        secondary = `Bid ${fmt(bestBidPrice)}`;
-      }
       return {
         primary: fmt(lastTradePriceUsdc),
         tone: "last",
         lastSide: lastTradeSide ?? null,
-        secondary,
-        caption: "Last sale · USDC",
-        title:
-          "Most recent on-platform purchase price for this collection. Book quotes shown for context only.",
+        secondary: null,
+        caption: "",
+        title: "Most recent on-platform purchase price (USDC).",
       };
     }
 
-    const bookCaptionParts: string[] = [];
-    if (bestAskPrice != null && bestBidPrice != null) {
-      bookCaptionParts.push(
-        `Ask ${fmt(bestAskPrice)} · Bid ${fmt(bestBidPrice)} · Spread ${fmt(bestAskPrice - bestBidPrice)}`,
-      );
-    } else if (bestAskPrice != null) {
-      bookCaptionParts.push(`Best ask ${fmt(bestAskPrice)}`);
-    } else if (bestBidPrice != null) {
-      bookCaptionParts.push(`Best bid ${fmt(bestBidPrice)}`);
-    }
-    bookCaptionParts.push("No on-platform sales yet");
-
     if (bestAskPrice != null || bestBidPrice != null) {
       return {
-        primary: "—",
+        primary: "N/A",
         tone: "none",
         lastSide: null,
         secondary: null,
-        caption: bookCaptionParts.join(" · "),
+        caption: "",
         title:
           "Last traded price appears here after a sale is recorded. The number is not an average of bid and ask.",
       };
     }
 
     return {
-      primary: "—",
+      primary: "N/A",
       tone: "none",
       lastSide: null,
       secondary: null,
@@ -560,8 +545,8 @@ export function CollectionUnifiedOrderBook({
               </div>
               {bidRows.length > 0 && !compact && (
                 <p className="text-[9px] leading-snug text-gray-600">
-                  Selling: use the <span className="text-gray-400">Sell</span> tab — manage in{" "}
-                  <span className="text-gray-500">Orders</span>.
+                  Selling: use the <span className="text-gray-400">Sell</span> tab or list from your asset;
+                  crossing bids fill automatically when you list at or below a collection bid.
                 </p>
               )}
             </div>
@@ -602,8 +587,14 @@ export function CollectionUnifiedOrderBook({
                         maximumFractionDigits: 2,
                       })}
                     </span>
-                    <span className="text-center text-[9px] font-sans font-medium uppercase tracking-wide text-emerald-500/90 sm:text-[10px]">
-                      Buy
+                    <span
+                      className={`text-center text-[9px] font-sans font-medium uppercase tracking-wide sm:text-[10px] ${
+                        row.tapeAggressor === "sell"
+                          ? "text-rose-400/95"
+                          : "text-emerald-500/90"
+                      }`}
+                    >
+                      {row.tapeAggressor === "sell" ? "Sell" : "Buy"}
                     </span>
                     <span className="text-right">
                       <Link

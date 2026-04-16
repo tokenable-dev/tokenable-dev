@@ -36,9 +36,11 @@ export function CollectionTradeGuide() {
                 <li>
                   <strong className="text-gray-300">Collection bid</strong> — sign a Seaport order with{" "}
                   <strong className="text-gray-300">ERC721_WITH_CRITERIA</strong> and the Merkle root
-                  for this collection&apos;s active listings. When a seller lists at your price (or
-                  lower) from this collection page, the app runs <strong className="text-gray-300">matchAdvancedOrders</strong>{" "}
-                  for you.
+                  for this collection&apos;s <strong className="text-gray-300">current minted-in-bucket</strong>{" "}
+                  token set. When that set grows, the root changes: older bids need to be{" "}
+                  <strong className="text-gray-300">cancelled and re-signed</strong> (Orders shows{" "}
+                  <span className="text-amber-200/90">Pool outdated</span>). New listings can still trigger{" "}
+                  <strong className="text-gray-300">matchAdvancedOrders</strong> when roots align.
                 </li>
               </ul>
             </div>
@@ -68,9 +70,10 @@ export function CollectionTradeGuide() {
             </div>
           </div>
           <p className="text-[11px] text-gray-600">
-            Settlement is on-chain via Seaport. The Merkle leaf set is derived from active listings for
-            the collection; bids must use the same root as the current set, or sellers should ask buyers
-            to cancel and re-bid after listings change.
+            Settlement is on-chain via Seaport. The Merkle leaf set follows{" "}
+            <strong className="text-gray-500">minted RWAs in this card bucket</strong> (not only live
+            asks). Your bid embeds one fixed root at sign time — it cannot track future mints without a new
+            signature.
           </p>
         </div>
       )}

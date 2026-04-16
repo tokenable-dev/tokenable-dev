@@ -23,6 +23,20 @@ describe('bucket-key.util', () => {
     });
   });
 
+  it('includes optional cardNumber from card.number or psa.cardNumberHint', () => {
+    const meta = {
+      properties: {
+        graded: {
+          gradingCompany: 'PSA',
+          card: { name: 'Mewtwo VSTAR', set: 'Pokemon GO', number: '086/078' },
+          grade: { score: 10 },
+        },
+      },
+    };
+    const c = extractBucketComponentsFromMetadata(meta);
+    expect(c?.cardNumber).toBe('086/078');
+  });
+
   it('computes deterministic 64-char hex key', () => {
     const c = {
       gradingCompany: 'psa',
@@ -37,5 +51,20 @@ describe('bucket-key.util', () => {
 
   it('returns null without graded block', () => {
     expect(extractBucketComponentsFromMetadata({ name: 'x' })).toBeNull();
+  });
+
+  it('extracts psaTotalPopulation when psa.totalPopulation is set', () => {
+    const meta = {
+      properties: {
+        graded: {
+          gradingCompany: 'PSA',
+          card: { name: 'Charizard', set: 'Base' },
+          grade: { score: 10 },
+          psa: { totalPopulation: 125 },
+        },
+      },
+    };
+    const c = extractBucketComponentsFromMetadata(meta);
+    expect(c?.psaTotalPopulation).toBe(125);
   });
 });
