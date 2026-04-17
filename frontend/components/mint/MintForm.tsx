@@ -818,10 +818,7 @@ export function MintForm() {
                 </div>
               )}
 
-              <details
-                open
-                className="group rounded-xl border border-gray-700/50 bg-gray-800/20 overflow-hidden"
-              >
+              <details className="group rounded-xl border border-gray-700/50 bg-gray-800/20 overflow-hidden">
                 <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3.5 text-sm font-medium text-gray-200 transition-colors hover:bg-gray-800/35 [&::-webkit-details-marker]:hidden">
                   <span>Asset listing</span>
                   <svg

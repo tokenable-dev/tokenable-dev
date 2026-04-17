@@ -229,34 +229,15 @@ export default function ExchangePage() {
     (c) => c.activeListingCount > 0,
   );
 
-  const floorPrices = useMemo(() => {
-    const map = new Map<string, number>();
-    const askOrders = orders.filter((o) => o.side !== "bid");
-    for (const o of askOrders) {
-      const key = o.collectionKey;
-      if (!key) continue;
-      try {
-        const price = Number(BigInt(o.considerationAmount ?? "0")) / USDC_DECIMALS;
-        const k = key.toLowerCase();
-        const existing = map.get(k);
-        if (existing === undefined || price < existing) {
-          map.set(k, price);
-        }
-      } catch {
-        /* skip */
-      }
-    }
-    return map;
-  }, [orders]);
-
+  /** Oldest collection buckets first (stable for “what listed first”). */
   const sortedForRank = useMemo(() => {
     return [...collectionsWithListings].sort((a, b) => {
-      const fa = floorPrices.get(a.collectionKey.toLowerCase()) ?? -1;
-      const fb = floorPrices.get(b.collectionKey.toLowerCase()) ?? -1;
-      if (fb !== fa) return fb - fa;
+      const ta = new Date(a.createdAt).getTime();
+      const tb = new Date(b.createdAt).getTime();
+      if (ta !== tb) return ta - tb;
       return a.displayLabel.localeCompare(b.displayLabel);
     });
-  }, [collectionsWithListings, floorPrices]);
+  }, [collectionsWithListings]);
 
   const snapshotKeys = useMemo(
     () => sortedForRank.map((c) => c.collectionKey),

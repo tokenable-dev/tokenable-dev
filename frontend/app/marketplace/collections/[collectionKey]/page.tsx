@@ -129,13 +129,26 @@ function bestAskByToken(asks: Order[]): Map<number, Order> {
   return m;
 }
 
-function sortedTokenIds(asks: Order[]): number[] {
-  const s = new Set<number>();
-  for (const o of asks) {
+/** Individual listing strip: oldest active ask first (not lowest token id). */
+function sortedTokenIdsByOldestListing(asks: Order[]): number[] {
+  const rows = asks.filter(
+    (o) => String(o.side ?? "ask").toLowerCase() !== "bid",
+  );
+  rows.sort((a, b) => {
+    const ta = new Date(a.createdAt ?? 0).getTime();
+    const tb = new Date(b.createdAt ?? 0).getTime();
+    if (ta !== tb) return ta - tb;
+    return Number(a.tokenId) - Number(b.tokenId);
+  });
+  const seen = new Set<number>();
+  const out: number[] = [];
+  for (const o of rows) {
     const id = Number(o.tokenId);
-    if (Number.isFinite(id)) s.add(id);
+    if (!Number.isFinite(id) || seen.has(id)) continue;
+    seen.add(id);
+    out.push(id);
   }
-  return [...s].sort((a, b) => a - b);
+  return out;
 }
 
 function bidDisplayUsdc(b: Order): number {
@@ -338,7 +351,10 @@ export default function MarketplaceCollectionPage() {
   );
 
   const askMap = useMemo(() => bestAskByToken(asks), [asks]);
-  const tokenIds = useMemo(() => (data ? sortedTokenIds(asks) : []), [data, asks]);
+  const tokenIds = useMemo(
+    () => (data ? sortedTokenIdsByOldestListing(asks) : []),
+    [data, asks],
+  );
 
   const comp = useMemo(() => {
     const raw = data?.collection?.components as

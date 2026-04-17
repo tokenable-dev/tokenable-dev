@@ -173,7 +173,7 @@ export class CollectionService {
 
   async listSummaries(): Promise<CollectionSummary[]> {
     const collections = await this.collectionRepo.find({
-      order: { createdAt: 'DESC' },
+      order: { createdAt: 'ASC' },
     });
 
     const countRows = await this.orderRepo
@@ -298,7 +298,7 @@ export class CollectionService {
         status: OrderStatus.ACTIVE,
         side: OrderSide.ASK,
       },
-      order: { createdAt: 'DESC' },
+      order: { createdAt: 'ASC' },
     });
   }
 
