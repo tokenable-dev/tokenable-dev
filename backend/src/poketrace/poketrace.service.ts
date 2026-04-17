@@ -12,6 +12,10 @@ import {
   trimHistoryToWindow,
   type HistoryPoint,
 } from './poketrace-history.util';
+import {
+  buildMockPoketraceNmHistory,
+  buildMockPoketracePreview,
+} from './poketrace.mock';
 
 const POKETRACE_BASE = 'https://api.poketrace.com/v1';
 
@@ -19,6 +23,12 @@ type UnknownRecord = Record<string, unknown>;
 
 function isRecord(x: unknown): x is UnknownRecord {
   return typeof x === 'object' && x !== null;
+}
+
+/** PokeTrace returns this string on soft rate limits; HTTP may be 429 or 200 with error payload */
+function isPokeTraceRateLimitMessage(msg: string, httpStatus?: number): boolean {
+  if (httpStatus === 429) return true;
+  return /too\s+many\s+requests|slow\s+down|rate\s*limit/i.test(msg);
 }
 
 function truncateSearchQuery(s: string, maxLen: number): string {
@@ -114,6 +124,26 @@ export function buildPoketraceSearchQueryAttempts(
     fallbacks.push(denoised);
   }
 
+  /**
+   * JP slab text is often long; PokeTrace search matches English card titles for many JP promos
+   * (e.g. Sword & Shield VMAX Climax FA Pikachu VMAX #046 / s8b).
+   */
+  if (
+    nameNorm &&
+    wantPrimary &&
+    /\bpikachu\b/i.test(nameNorm) &&
+    /\bvmax\b/i.test(nameNorm)
+  ) {
+    fallbacks.push(
+      finalizePoketraceSearchString(`Pikachu VMAX ${wantPrimary}`, 120),
+    );
+    if (/\bvmax\s*climax\b/i.test(set)) {
+      fallbacks.push(
+        finalizePoketraceSearchString(`s8b Pikachu VMAX ${wantPrimary}`, 120),
+      );
+    }
+  }
+
   const seen = new Set<string>();
   const out: string[] = [];
   for (const q of [primary, ...fallbacks]) {
@@ -173,6 +203,14 @@ function scoreSetAlignment(row: UnknownRecord, wantSet: string): number {
     if (tok.length > 2 && bundle.includes(tok)) s += 5;
   }
   return Math.min(70, s);
+}
+
+/** PokeTrace rows may use numeric `id`; always coerce for API paths + strict checks. */
+function poketraceCardIdFromRow(row: UnknownRecord): string | null {
+  const id = row.id;
+  if (id === undefined || id === null) return null;
+  const s = String(id).trim();
+  return s.length > 0 ? s : null;
 }
 
 function pickBestCard(
@@ -282,6 +320,8 @@ export type PoketraceNmHistoryResult = {
   searchQuery: string;
   matched: boolean;
   message?: string;
+  /** True when {@link buildMockPoketraceNmHistory} is used (testing / upstream failure). */
+  isMockData?: boolean;
   /** Requested window (calendar days) */
   days: number;
   /** Unix seconds, USD — eBay NEAR_MINT tier when available */
@@ -295,6 +335,8 @@ export type PoketraceCollectionPreview = {
   searchQuery: string;
   matched: boolean;
   message?: string;
+  /** True when {@link buildMockPoketracePreview} is used (testing / upstream failure). */
+  isMockData?: boolean;
   card: null | {
     id: string;
     name: string;
@@ -367,19 +409,106 @@ export class PoketraceService {
   private lastPokeTraceCompletedAt = 0;
   private readonly pokeTraceMinIntervalMs: number;
 
+  /** Backoff retries for 429 / "Too many requests" (inside serialized queue) */
+  private readonly pokeTraceRetryMax: number;
+  private readonly pokeTraceRetryBaseMs: number;
+
+  /** GET /cards/:id JSON — shared by preview, resolve enrich, NM history card id */
+  private readonly cardDetailCache = new Map<
+    string,
+    { at: number; value: unknown }
+  >();
+  private readonly cardDetailCacheTtlMs = 900_000;
+  private readonly cardDetailInflight = new Map<string, Promise<unknown>>();
+
   private readonly historyInflight = new Map<
     string,
     Promise<PoketraceNmHistoryResult>
   >();
 
+  /**
+   * When PokeTrace returns no match, errors, or empty NM history — serve deterministic mock data
+   * so UI/tests keep working (set in `.env`: `POKETRACE_MOCK_ON_FAILURE=1`).
+   */
+  private readonly mockOnFailure: boolean;
+  /** Skip all upstream PokeTrace HTTP calls; always return mock (`POKETRACE_FORCE_MOCK_DATA=1`). */
+  private readonly forceMock: boolean;
+
   constructor(private readonly config: ConfigService) {
     this.apiKey =
       this.config.get<string>('POKETRACE_PUBLIC_API_TOKEN')?.trim() || null;
+    this.mockOnFailure = this.envTruthy('POKETRACE_MOCK_ON_FAILURE');
+    this.forceMock = this.envTruthy('POKETRACE_FORCE_MOCK_DATA');
     const raw = this.config.get<string>('POKETRACE_MIN_INTERVAL_MS');
     const n = parseInt(String(raw ?? ''), 10);
     this.pokeTraceMinIntervalMs = Number.isFinite(n)
       ? Math.min(10_000, Math.max(0, n))
-      : 700;
+      : 1100;
+    const rmax = parseInt(
+      String(this.config.get<string>('POKETRACE_RETRY_MAX') ?? ''),
+      10,
+    );
+    this.pokeTraceRetryMax = Number.isFinite(rmax)
+      ? Math.min(8, Math.max(0, rmax))
+      : 3;
+    const rbase = parseInt(
+      String(this.config.get<string>('POKETRACE_RETRY_BASE_MS') ?? ''),
+      10,
+    );
+    this.pokeTraceRetryBaseMs = Number.isFinite(rbase)
+      ? Math.min(60_000, Math.max(250, rbase))
+      : 1500;
+  }
+
+  private envTruthy(key: string): boolean {
+    const v = this.config.get<string>(key)?.trim().toLowerCase();
+    return v === '1' || v === 'true' || v === 'yes' || v === 'on';
+  }
+
+  /**
+   * If real upstream did not yield a usable preview, optionally substitute mock data.
+   */
+  private maybeMockPreview(
+    col: MarketplaceCollection,
+    result: PoketraceCollectionPreview,
+  ): PoketraceCollectionPreview {
+    if (this.forceMock) {
+      return buildMockPoketracePreview(col);
+    }
+    if (!this.mockOnFailure) {
+      return result;
+    }
+    if (result.matched && result.card) {
+      return result;
+    }
+    return buildMockPoketracePreview(col);
+  }
+
+  /**
+   * If NM history is missing or too short for charts, optionally substitute mock series.
+   */
+  private maybeMockNmHistory(
+    col: MarketplaceCollection,
+    days: number,
+    result: PoketraceNmHistoryResult,
+  ): PoketraceNmHistoryResult {
+    if (this.forceMock) {
+      return buildMockPoketraceNmHistory({
+        searchQuery: buildPoketraceSearchQuery(col),
+        days,
+      });
+    }
+    if (!this.mockOnFailure) {
+      return result;
+    }
+    if (result.matched && result.points.length >= 2) {
+      return result;
+    }
+    return buildMockPoketraceNmHistory({
+      searchQuery:
+        result.searchQuery?.trim() || buildPoketraceSearchQuery(col),
+      days,
+    });
   }
 
   /**
@@ -432,36 +561,90 @@ export class PoketraceService {
     };
   }
 
+  /**
+   * Single HTTP JSON call with exponential backoff on rate limits.
+   * `throw` — non-OK after retries → Error (search, card by id).
+   * `return` — always returns last status/body (history pagination surfaces API messages).
+   */
+  private async pokeTraceExecute(
+    url: string,
+    errorMode: 'throw' | 'return',
+  ): Promise<{ status: number; body: unknown }> {
+    let last: { status: number; body: unknown } | null = null;
+    for (let attempt = 0; attempt <= this.pokeTraceRetryMax; attempt++) {
+      const res = await fetch(url, { headers: this.headers() });
+      const body = (await res.json()) as unknown;
+      last = { status: res.status, body };
+      if (res.ok) return last;
+
+      const msg = isRecord(body) && typeof body.error === 'string'
+        ? body.error
+        : `PokeTrace HTTP ${res.status}`;
+      const rateLimited = isPokeTraceRateLimitMessage(msg, res.status);
+      if (rateLimited && attempt < this.pokeTraceRetryMax) {
+        const delay = Math.min(
+          32_000,
+          this.pokeTraceRetryBaseMs * 2 ** attempt,
+        );
+        this.logger.warn(
+          `PokeTrace rate limited (${msg.slice(0, 120)}), retry ${attempt + 1}/${this.pokeTraceRetryMax} in ${delay}ms`,
+        );
+        await new Promise<void>((r) => setTimeout(r, delay));
+        continue;
+      }
+      if (errorMode === 'throw') throw new Error(msg);
+      return last;
+    }
+    if (errorMode === 'throw') {
+      const msg = isRecord(last?.body) && typeof last.body.error === 'string'
+        ? last.body.error
+        : `PokeTrace HTTP ${last?.status ?? '?'}`;
+      throw new Error(msg);
+    }
+    return last ?? { status: 0, body: {} };
+  }
+
   async searchCards(search: string, limit = 12): Promise<unknown> {
     return this.runSerializedPokeTrace(async () => {
       const url = new URL(`${POKETRACE_BASE}/cards`);
       url.searchParams.set('search', search);
       url.searchParams.set('limit', String(limit));
-      const res = await fetch(url.toString(), { headers: this.headers() });
-      const body = (await res.json()) as unknown;
-      if (!res.ok) {
-        const msg = isRecord(body) && typeof body.error === 'string'
-          ? body.error
-          : `PokeTrace HTTP ${res.status}`;
-        throw new Error(msg);
-      }
+      const { body } = await this.pokeTraceExecute(url.toString(), 'throw');
       return body;
     });
   }
 
+  /**
+   * GET /cards/:id with in-memory cache + inflight dedupe + retry on rate limit.
+   * Preview + NM history + resolve often need the same catalog row — avoids duplicate HTTP.
+   */
   async getCardById(id: string): Promise<unknown> {
-    return this.runSerializedPokeTrace(async () => {
-      const url = `${POKETRACE_BASE}/cards/${encodeURIComponent(id)}`;
-      const res = await fetch(url, { headers: this.headers() });
-      const body = (await res.json()) as unknown;
-      if (!res.ok) {
-        const msg = isRecord(body) && typeof body.error === 'string'
-          ? body.error
-          : `PokeTrace HTTP ${res.status}`;
-        throw new Error(msg);
-      }
+    const key = id.trim();
+    if (!key) throw new Error('PokeTrace card id empty');
+
+    const hit = this.cardDetailCache.get(key);
+    if (hit && Date.now() - hit.at < this.cardDetailCacheTtlMs) {
+      return hit.value;
+    }
+
+    const pending = this.cardDetailInflight.get(key);
+    if (pending) return pending;
+
+    const flight = this.runSerializedPokeTrace(async () => {
+      const url = `${POKETRACE_BASE}/cards/${encodeURIComponent(key)}`;
+      const { body } = await this.pokeTraceExecute(url, 'throw');
       return body;
-    });
+    })
+      .then((body) => {
+        this.cardDetailCache.set(key, { at: Date.now(), value: body });
+        return body;
+      })
+      .finally(() => {
+        this.cardDetailInflight.delete(key);
+      });
+
+    this.cardDetailInflight.set(key, flight);
+    return flight;
   }
 
   /**
@@ -492,7 +675,19 @@ export class PoketraceService {
         upstreamRequests: 0,
       };
     }
+    if (this.forceMock) {
+      return buildMockPoketraceNmHistory({
+        searchQuery: buildPoketraceSearchQuery(col),
+        days,
+      });
+    }
     if (!this.isConfigured()) {
+      if (this.mockOnFailure) {
+        return buildMockPoketraceNmHistory({
+          searchQuery: buildPoketraceSearchQuery(col),
+          days,
+        });
+      }
       return {
         enabled: false,
         searchQuery: buildPoketraceSearchQuery(col),
@@ -510,11 +705,11 @@ export class PoketraceService {
     const inflight = this.historyInflight.get(cacheKey);
     if (inflight) return inflight;
 
-    const flight = this.runNmHistoryFetch(col, days, maxRequests).finally(
-      () => {
+    const flight = this.runNmHistoryFetch(col, days, maxRequests)
+      .then((r) => this.maybeMockNmHistory(col, days, r))
+      .finally(() => {
         this.historyInflight.delete(cacheKey);
-      },
-    );
+      });
     this.historyInflight.set(cacheKey, flight);
     return flight;
   }
@@ -553,17 +748,15 @@ export class PoketraceService {
         url.searchParams.set('source', 'ebay');
         if (cursor) url.searchParams.set('cursor', cursor);
 
-        const { res, body } = await this.runSerializedPokeTrace(async () => {
-          const res = await fetch(url.toString(), { headers: this.headers() });
-          const body = (await res.json()) as unknown;
-          return { res, body };
-        });
+        const { status, body } = await this.runSerializedPokeTrace(() =>
+          this.pokeTraceExecute(url.toString(), 'return'),
+        );
         upstreamRequests++;
 
-        if (!res.ok) {
+        if (status < 200 || status >= 300) {
           const msg = isRecord(body) && typeof body.error === 'string'
             ? body.error
-            : `PokeTrace HTTP ${res.status}`;
+            : `PokeTrace HTTP ${status}`;
           return {
             enabled: true,
             searchQuery,
@@ -652,8 +845,9 @@ export class PoketraceService {
       } as MarketplaceCollection;
 
       const picked = pickBestCard(data, col);
-      if (!picked || typeof picked.id !== 'string') return null;
-      return { cardId: String(picked.id), searchQuery };
+      const pid = picked ? poketraceCardIdFromRow(picked) : null;
+      if (!picked || !pid) return null;
+      return { cardId: pid, searchQuery };
     } catch (e) {
       this.logger.warn(
         `PokeTrace tryResolveCardIdForMintMetadata: ${e instanceof Error ? e.message : String(e)}`,
@@ -701,9 +895,15 @@ export class PoketraceService {
             }
             if (row && typeof row.id === 'string') {
               let useRow: UnknownRecord = row;
-              if (!hasSearchablePricePayload(row.prices)) {
+              const rowId = String(row.id).trim();
+              const sameAsDirect =
+                rowId.length > 0 && rowId === directId.trim();
+              if (
+                !hasSearchablePricePayload(row.prices) &&
+                !sameAsDirect
+              ) {
                 try {
-                  const detail2 = await this.getCardById(String(row.id));
+                  const detail2 = await this.getCardById(rowId);
                   if (isRecord(detail2) && isRecord(detail2.data)) {
                     useRow = detail2.data as UnknownRecord;
                   }
@@ -754,7 +954,8 @@ export class PoketraceService {
         searchQuery = searchQueryUsed;
 
         const picked = pickBestCard(data, col);
-        if (!picked || typeof picked.id !== 'string') {
+        const pickedId = picked ? poketraceCardIdFromRow(picked) : null;
+        if (!picked || !pickedId) {
           const v = {
             searchQuery,
             matched: false as const,
@@ -767,7 +968,7 @@ export class PoketraceService {
         let row: UnknownRecord = picked;
         if (!hasSearchablePricePayload(picked.prices)) {
           try {
-            const detail = await this.getCardById(picked.id);
+            const detail = await this.getCardById(pickedId);
             if (isRecord(detail) && isRecord(detail.data)) {
               row = detail.data;
             }
@@ -781,7 +982,7 @@ export class PoketraceService {
         const out = {
           searchQuery,
           row,
-          cardId: String(row.id),
+          cardId: pickedId,
         };
         this.resolveCache.set(key, { at: Date.now(), value: out });
         return out;
@@ -815,7 +1016,13 @@ export class PoketraceService {
         card: null,
       };
     }
+    if (this.forceMock) {
+      return buildMockPoketracePreview(col);
+    }
     if (!this.isConfigured()) {
+      if (this.mockOnFailure) {
+        return buildMockPoketracePreview(col);
+      }
       return {
         enabled: false,
         searchQuery: buildPoketraceSearchQuery(col),
@@ -829,7 +1036,7 @@ export class PoketraceService {
 
     const anyHit = this.previewResponseCache.get(cacheKey);
     if (anyHit && Date.now() - anyHit.at < this.previewCacheTtlMs) {
-      return anyHit.value;
+      return this.maybeMockPreview(col, anyHit.value);
     }
 
     const inflight = this.previewInflight.get(cacheKey);
@@ -837,8 +1044,9 @@ export class PoketraceService {
 
     const flight = (async () => {
       const out = await this.runPreviewFetch(col);
-      this.previewResponseCache.set(cacheKey, { at: Date.now(), value: out });
-      return out;
+      const merged = this.maybeMockPreview(col, out);
+      this.previewResponseCache.set(cacheKey, { at: Date.now(), value: merged });
+      return merged;
     })().finally(() => {
       this.previewInflight.delete(cacheKey);
     });
@@ -848,9 +1056,9 @@ export class PoketraceService {
   }
 
   /**
-   * One search call is usually enough — list hits include the same `prices` shape as GET /cards/:id.
-   * We only call GET /cards/:id when the search row has no NM bands, and we still surface search data
-   * if that second call fails (e.g. rate limit on the 2nd request).
+   * Resolve uses search + optional GET /cards/:id when NM bands are missing.
+   * Card GETs are cached by id and deduped in-flight; rate limits trigger backoff retries.
+   * Direct catalog id skips a redundant second GET when it would repeat the same id.
    */
   private async runPreviewFetch(
     col: MarketplaceCollection,

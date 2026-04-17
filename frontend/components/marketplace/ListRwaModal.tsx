@@ -42,6 +42,24 @@ const ZERO_BYTES32 =
   "0x0000000000000000000000000000000000000000000000000000000000000000" as const;
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000" as `0x${string}`;
 
+/** Caps each marketplace HTTP call during instant-match so step 4 cannot hang forever. */
+function matchFlowHttpSignal(): AbortSignal | undefined {
+  if (typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function") {
+    return AbortSignal.timeout(22_000);
+  }
+  return undefined;
+}
+
+function isAbortLikeError(e: unknown): boolean {
+  if (!(e instanceof Error)) return false;
+  if (e.name === "AbortError" || e.name === "TimeoutError") return true;
+  return (
+    typeof DOMException !== "undefined" &&
+    e instanceof DOMException &&
+    e.name === "AbortError"
+  );
+}
+
 function orderCollectionKey(o: Order | null | undefined): string {
   if (!o) return "";
   const any = o as Order & { collection_key?: string };
@@ -231,6 +249,18 @@ export function ListRwaModal({
     }
   }, [isReplaceListing, existingAskOrder?.considerationAmount]);
 
+  /** After success, close the modal — short delay so instant-match copy is readable when parent keeps the modal mounted. */
+  useEffect(() => {
+    if (step !== "success") return;
+    const delayMs = successMeta?.matched
+      ? 1800
+      : successMeta?.hint
+        ? 4200
+        : 900;
+    const id = window.setTimeout(() => onClose(), delayMs);
+    return () => window.clearTimeout(id);
+  }, [step, successMeta?.matched, successMeta?.hint, onClose]);
+
   useEffect(() => {
     if (initialPriceUsdc != null && initialPriceUsdc.trim() !== "") {
       setPrice(initialPriceUsdc.trim());
@@ -300,7 +330,32 @@ export function ListRwaModal({
    * List-then-instant-match: refetch bids + Merkle with retries (indexing lag), optional multi-round,
    * and preferred bid hash (from order book) first.
    */
-  async function tryMatchAfterListing(created: Order): Promise<ListSuccessMeta> {
+  /**
+   * `tryMatchAfterListing` can run a long time (Merkle retries, RPC) or wait on a **second**
+   * wallet tx for `matchAdvancedOrders`. Never block the modal forever — cap wall time and still show success.
+   */
+  async function tryMatchAfterListingWithTimeout(
+    created: Order,
+  ): Promise<ListSuccessMeta> {
+    /** Cap “Processing…” so the UI always reaches the success screen (listing is already on-chain). */
+    const timeoutMs = 90_000;
+    return Promise.race([
+      tryMatchAfterListing(created),
+      new Promise<ListSuccessMeta>((resolve) =>
+        setTimeout(
+          () =>
+            resolve({
+              matched: false,
+              hint:
+                "Automatic bid matching took too long (indexing) or is waiting on another wallet confirmation. Your listing is already saved — refresh this page or match from the collection order book.",
+            }),
+          timeoutMs,
+        ),
+      ),
+    ]);
+  }
+
+  async function resolveCollectionKeyForMatch(created: Order): Promise<string | undefined> {
     let key = resolveMatchCollectionKey(
       created,
       collectionKey,
@@ -309,7 +364,9 @@ export function ListRwaModal({
     );
     if (!key && created.orderHash) {
       try {
-        const refreshed = await getOrderByHash(created.orderHash);
+        const refreshed = await getOrderByHash(created.orderHash, {
+          signal: matchFlowHttpSignal(),
+        });
         key = resolveMatchCollectionKey(
           refreshed,
           collectionKey,
@@ -323,6 +380,43 @@ export function ListRwaModal({
     if (!key && collectionKey != null && String(collectionKey).trim() !== "") {
       key = String(collectionKey).trim();
     }
+    return key;
+  }
+
+  /**
+   * When false, there is no collection bid ≥ list price (after one fresh API read) — skip step 4 and
+   * Merkle polling; listing is already on the order book.
+   */
+  async function shouldRunInstantMatchAfterList(created: Order): Promise<boolean> {
+    const key = await resolveCollectionKeyForMatch(created);
+    if (!key || !address || !publicClient) return false;
+    const askAm = askGrossUsdcMicros(created);
+    const propBids = collectionBids ?? [];
+    const crosses = (rows: Order[]) =>
+      rows.some((b) => {
+        if (b.status !== "active" || !isCriteriaCollectionBid(b)) return false;
+        const bk = orderCollectionKey(b);
+        if (bk && bk.toLowerCase() !== key.toLowerCase()) return false;
+        return bidUsdcAmount(b) >= askAm;
+      });
+    const uiSaysCross =
+      topCollectionBid != null && topCollectionBid.micros >= askAm;
+    if (uiSaysCross || crosses(propBids)) return true;
+    let detail: Awaited<ReturnType<typeof getMarketplaceCollectionDetail>> | null = null;
+    try {
+      detail = await getMarketplaceCollectionDetail(key, {
+        bypassCache: true,
+        signal: matchFlowHttpSignal(),
+      });
+    } catch (e) {
+      if (!isAbortLikeError(e)) throw e;
+    }
+    const merged = mergeBidsByOrderHash(detail?.collectionBids ?? [], propBids);
+    return crosses(merged);
+  }
+
+  async function tryMatchAfterListing(created: Order): Promise<ListSuccessMeta> {
+    const key = await resolveCollectionKeyForMatch(created);
     if (!key || !address || !publicClient) {
       return { matched: false };
     }
@@ -334,23 +428,46 @@ export function ListRwaModal({
         args as Parameters<typeof writeContractAsync>[0],
       )) as MatchWriteContractAsync;
 
+    const bidCrossesAsk = (rows: Order[]) =>
+      rows.some((b) => {
+        if (b.status !== "active" || !isCriteriaCollectionBid(b)) return false;
+        const bk = orderCollectionKey(b);
+        if (bk && bk.toLowerCase() !== key.toLowerCase()) return false;
+        return bidUsdcAmount(b) >= askAm;
+      });
+
+    /** UI or props already show a crossing bid — poll API/Merkle with shorter gaps. */
+    const hotPath =
+      bidCrossesAsk(propBids) ||
+      (topCollectionBid != null && topCollectionBid.micros >= askAm);
+
     const maxMatchRounds = 3;
     let lastMeta: ListSuccessMeta = { matched: false };
 
     for (let round = 0; round < maxMatchRounds; round++) {
       if (round > 0) {
-        await new Promise((r) => setTimeout(r, 380 * round));
+        await new Promise((r) => setTimeout(r, 200 * round));
         await queryClient.invalidateQueries({ queryKey: ["marketplace-collection", key] });
         await queryClient.invalidateQueries({ queryKey: ["merkle-set", key] });
         await queryClient.invalidateQueries({ queryKey: ["merkle-set"] });
       }
 
       let bids: Order[] = [];
-      const detailAttempts = 12;
+      const detailAttempts = hotPath ? 8 : 12;
       for (let attempt = 0; attempt < detailAttempts; attempt++) {
-        const detail = await getMarketplaceCollectionDetail(key, {
-          bypassCache: true,
-        }).catch(() => null);
+        let detail: Awaited<ReturnType<typeof getMarketplaceCollectionDetail>> | null = null;
+        try {
+          detail = await getMarketplaceCollectionDetail(key, {
+            bypassCache: true,
+            signal: matchFlowHttpSignal(),
+          });
+        } catch (e) {
+          if (isAbortLikeError(e)) {
+            detail = null;
+          } else {
+            throw e;
+          }
+        }
         const fromApi = detail?.collectionBids ?? [];
         bids = mergeBidsByOrderHash(fromApi, propBids);
 
@@ -365,7 +482,8 @@ export function ListRwaModal({
         }
 
         if (attempt < detailAttempts - 1) {
-          await new Promise((r) => setTimeout(r, 120 + attempt * 35));
+          const gapMs = hotPath ? 55 + attempt * 22 : 120 + attempt * 35;
+          await new Promise((r) => setTimeout(r, gapMs));
         }
       }
 
@@ -376,8 +494,8 @@ export function ListRwaModal({
 
       const merkleSnap = await fetchMerkleSnapshotForMatch(key, {
         expectTokenId: tokenId,
-        maxAttempts: 14,
-        delayMs: 200,
+        maxAttempts: hotPath ? 18 : 14,
+        delayMs: hotPath ? 110 : 200,
         bypassMerkleCache: true,
       });
 
@@ -410,7 +528,8 @@ export function ListRwaModal({
             : undefined,
         };
         if (hasCriteriaBids) break;
-        continue;
+        // No collection bids in this pool — listing is on the book; don’t spin rounds.
+        break;
       }
 
       const merkleOk = pricedBids.filter((b) =>
@@ -560,16 +679,22 @@ export function ListRwaModal({
           }
         }
 
-        setStep("matching");
-        {
-          const ck = collectionKey?.trim();
-          if (ck) {
-            await queryClient.invalidateQueries({ queryKey: ["marketplace-collection", ck] });
-            await queryClient.invalidateQueries({ queryKey: ["merkle-set", ck] });
-            await queryClient.invalidateQueries({ queryKey: ["merkle-set"] });
+        let meta: ListSuccessMeta;
+        const runInstantMatch = await shouldRunInstantMatchAfterList(created);
+        if (runInstantMatch) {
+          setStep("matching");
+          {
+            const ck = collectionKey?.trim();
+            if (ck) {
+              await queryClient.invalidateQueries({ queryKey: ["marketplace-collection", ck] });
+              await queryClient.invalidateQueries({ queryKey: ["merkle-set", ck] });
+              await queryClient.invalidateQueries({ queryKey: ["merkle-set"] });
+            }
           }
+          meta = await tryMatchAfterListingWithTimeout(created);
+        } else {
+          meta = { matched: false };
         }
-        const meta = await tryMatchAfterListing(created);
         if (meta.matched) {
           onMatchedSale?.();
         }
@@ -642,16 +767,22 @@ export function ListRwaModal({
         }
       }
 
-      setStep("matching");
-      {
-        const ck = collectionKey?.trim();
-        if (ck) {
-          await queryClient.invalidateQueries({ queryKey: ["marketplace-collection", ck] });
-          await queryClient.invalidateQueries({ queryKey: ["merkle-set", ck] });
-          await queryClient.invalidateQueries({ queryKey: ["merkle-set"] });
+      let meta: ListSuccessMeta;
+      const runInstantMatch = await shouldRunInstantMatchAfterList(createdFinal);
+      if (runInstantMatch) {
+        setStep("matching");
+        {
+          const ck = collectionKey?.trim();
+          if (ck) {
+            await queryClient.invalidateQueries({ queryKey: ["marketplace-collection", ck] });
+            await queryClient.invalidateQueries({ queryKey: ["merkle-set", ck] });
+            await queryClient.invalidateQueries({ queryKey: ["merkle-set"] });
+          }
         }
+        meta = await tryMatchAfterListingWithTimeout(createdFinal);
+      } else {
+        meta = { matched: false };
       }
-      const meta = await tryMatchAfterListing(createdFinal);
       if (meta.matched) {
         onMatchedSale?.();
       }
@@ -682,34 +813,43 @@ export function ListRwaModal({
     { label: "1. Approve marketplace", active: step === "approving" },
     { label: "2. Sign Order", active: step === "signing" },
     { label: "3. Submitting", active: step === "submitting" },
-    ...(showMatchStep ? [{ label: "4. Match bid", active: step === "matching" }] : []),
+    ...(showMatchStep
+      ? [{ label: "4. Instant match (if bid)", active: step === "matching" }]
+      : []),
   ];
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center px-4 py-5 sm:px-6 sm:py-8">
       <div
         className="absolute inset-0 bg-black/70 backdrop-blur-sm"
         onClick={onClose}
       />
-      <div className="relative flex w-full max-w-[min(100%,26rem)] flex-col rounded-2xl border border-gray-700 bg-gray-900 px-7 py-8 sm:px-9 sm:py-10">
+      <div className="relative flex w-full max-w-[min(100%,22rem)] flex-col rounded-2xl border border-zinc-700/90 bg-zinc-950 px-6 py-6 shadow-xl shadow-black/40 sm:py-8">
         <button
+          type="button"
+          aria-label="Close"
           onClick={onClose}
-          className="absolute right-4 top-4 text-lg text-gray-500 transition-colors hover:text-white sm:right-5 sm:top-5"
+          className="absolute right-3.5 top-3.5 rounded-lg p-1 text-sm text-zinc-500 transition-colors hover:bg-white/5 hover:text-zinc-200 sm:right-4 sm:top-4"
         >
           ✕
         </button>
 
         {step === "success" ? (
-          <div className="flex flex-col px-0 pb-1 pt-2 text-center sm:pt-3 sm:pr-2">
-            <div className="mb-3 text-4xl">{successMeta?.matched ? "✓" : "🎉"}</div>
-            <h3 className="text-lg font-bold text-white mb-1">
+          <div className="flex flex-col px-0 pb-1 pt-1 text-center sm:pt-2">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-mint/85">
+              {successMeta?.matched ? "Sold" : isReplaceListing ? "Updated" : "Listed"}
+            </p>
+            <div className="mb-2 mt-2 text-3xl leading-none">
+              {successMeta?.matched ? "✓" : "🎉"}
+            </div>
+            <h3 className="text-base font-semibold tracking-tight text-white mb-1">
               {successMeta?.matched
                 ? "Matched a collection bid"
                 : isReplaceListing
                   ? "Listing updated"
                   : "Listed successfully"}
             </h3>
-            <p className="text-sm text-gray-400">
+            <p className="text-[13px] leading-relaxed text-zinc-400">
               {successMeta?.matched
                 ? `Asset #${tokenId} sold via matchAdvancedOrders (check your wallet for USDC).`
                 : isReplaceListing
@@ -717,56 +857,65 @@ export function ListRwaModal({
                   : `Asset #${tokenId} is now listed for ${price} USDC`}
             </p>
             {!successMeta?.matched && feePercent() > 0 && (
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-zinc-500 mt-2">
                 {feePercent()}% platform fee included · You&apos;ll receive{" "}
                 {(parseFloat(price) * (1 - feePercent() / 100)).toFixed(2)} USDC on sale
               </p>
             )}
             {!successMeta?.matched && (
-              <p className="text-xs text-gray-600 mt-2">Listing valid for 30 days</p>
+              <p className="text-[11px] text-zinc-600 mt-2">Listing valid for 30 days</p>
             )}
             {!successMeta?.matched && successMeta?.hint ? (
-              <p className="text-[11px] text-amber-200/85 mt-3 text-left leading-relaxed rounded-lg border border-amber-500/25 bg-amber-500/[0.07] px-3 py-2">
+              <p className="text-[11px] text-amber-200/90 mt-3 text-left leading-relaxed rounded-lg border border-amber-500/30 bg-amber-500/[0.08] px-3 py-2.5">
                 A collection bid at or above your price was found, but it could not be filled
                 automatically. {successMeta.hint}
               </p>
             ) : null}
             <button
+              type="button"
               onClick={onClose}
-              className="mt-8 w-full rounded-xl bg-gray-800 py-3 text-sm text-white transition-colors hover:bg-gray-700"
+              className="mt-6 w-full rounded-xl border border-zinc-600/80 bg-zinc-800/90 py-2.5 text-sm font-medium text-zinc-100 transition-colors hover:bg-zinc-700"
             >
               Close
             </button>
           </div>
         ) : (
-          <div className="flex flex-col gap-6 pt-2 pr-10 sm:pr-12">
-            <div>
-              <h2 className="text-xl font-bold leading-snug text-white sm:text-[1.35rem]">
-                {isReplaceListing ? `Update listing · #${tokenId}` : `List Asset #${tokenId} for Sale`}
-              </h2>
-              <p className="mt-2 text-sm leading-relaxed text-gray-500">
-                {isReplaceListing
-                  ? "Enter the new USDC price and confirm."
-                  : "Set a price in USDC. Your asset will be listed via Seaport."}
-              </p>
-            </div>
+          <div className="flex min-w-0 flex-col gap-5 pt-1">
+            <header className="flex gap-3 border-b border-white/[0.06] pb-4">
+              <div className="min-w-0 flex-1 space-y-2">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-mint/90">
+                  {isReplaceListing ? "Update listing" : "New listing"}
+                </p>
+                <h2 className="text-lg font-semibold tracking-tight text-white sm:text-[1.125rem]">
+                  Asset #{tokenId}
+                </h2>
+                <p className="text-[13px] leading-relaxed text-zinc-500">
+                  {isReplaceListing
+                    ? "Set a new USDC price. Your existing ask will be replaced on the order book."
+                    : "Choose a USDC price. The listing is published through Seaport."}
+                </p>
+              </div>
+              {/* Reserve same width as close control so title lines align with body below */}
+              <div className="w-7 shrink-0 sm:w-8" aria-hidden />
+            </header>
 
             {currentAskDisplay ? (
-              <div className="rounded-xl border border-slate-600/50 bg-slate-800/50 px-4 py-3">
-                <p className="text-[10px] font-medium uppercase tracking-wide text-slate-500">
-                  Current ask (on the book)
+              <div className="rounded-xl border border-zinc-600/60 bg-zinc-900/60 px-3.5 py-2.5">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+                  Current ask
                 </p>
-                <p className="text-base font-semibold tabular-nums text-white mt-1">
-                  <span className="text-slate-400 text-sm font-normal mr-0.5">$</span>
+                <p className="mt-1.5 text-base font-semibold tabular-nums text-white">
+                  <span className="text-zinc-500 text-sm font-normal mr-0.5">$</span>
                   {currentAskDisplay.label}
-                  <span className="text-slate-500 font-normal text-xs ml-1">USDC</span>
+                  <span className="text-zinc-500 font-normal text-xs ml-1.5">USDC</span>
                 </p>
               </div>
             ) : null}
 
-            <div>
-              <label className="mb-2 block text-sm text-gray-400">
-                {isReplaceListing ? "New price (USDC)" : "Price (USDC)"}
+            <div className="space-y-2">
+              <label className="block text-xs font-medium text-zinc-400">
+                {isReplaceListing ? "New price" : "Your price"}
+                <span className="ml-1 font-normal text-zinc-600">(USDC)</span>
               </label>
               <div className="relative">
                 <input
@@ -777,23 +926,23 @@ export function ListRwaModal({
                   value={price}
                   onChange={(e) => setPrice(e.target.value)}
                   disabled={isProcessing}
-                  className="w-full rounded-xl border border-gray-700 bg-gray-800 px-4 py-3 pr-16 text-base text-white outline-none placeholder:text-gray-600 focus:border-mint"
+                  className="w-full rounded-xl border border-zinc-600/80 bg-zinc-900/80 px-4 py-2.5 pr-16 text-[15px] tabular-nums text-white outline-none ring-mint/0 transition-[border,box-shadow] placeholder:text-zinc-600 focus:border-mint/70 focus:ring-2 focus:ring-mint/20 disabled:opacity-60"
                 />
-                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-gray-500">
+                <span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-[11px] font-medium uppercase tracking-wide text-zinc-500">
                   USDC
                 </span>
               </div>
               {price && parseFloat(price) > 0 && feePercent() > 0 && (
-                <div className="mt-3 space-y-1.5 text-[11px]">
-                  <div className="flex justify-between text-gray-500">
+                <div className="mt-3 space-y-1.5 rounded-lg border border-zinc-700/50 bg-zinc-900/40 px-3 py-2.5 text-[11px]">
+                  <div className="flex justify-between gap-2 text-zinc-500">
                     <span>Platform fee ({feePercent()}%)</span>
-                    <span className="font-mono text-gray-400">
+                    <span className="font-mono text-zinc-400 tabular-nums">
                       {(parseFloat(price) * feePercent() / 100).toFixed(2)} USDC
                     </span>
                   </div>
-                  <div className="flex justify-between text-gray-500">
-                    <span>You receive</span>
-                    <span className="font-mono text-white">
+                  <div className="flex justify-between gap-2 border-t border-zinc-700/40 pt-1.5 text-zinc-500">
+                    <span className="text-zinc-400">You receive</span>
+                    <span className="font-mono font-medium tabular-nums text-white">
                       {(parseFloat(price) * (1 - feePercent() / 100)).toFixed(2)} USDC
                     </span>
                   </div>
@@ -802,15 +951,15 @@ export function ListRwaModal({
             </div>
 
             {bidsAtExactListPrice.length >= 2 && tieBreakBidHash ? (
-              <div className="rounded-xl border border-mint-deep/35 bg-mint/[0.06] px-3 py-3">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-mint/90">
+              <div className="rounded-xl border border-mint/25 bg-mint/[0.07] px-3 py-2.5">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-mint/95">
                   Same-price bids
                 </p>
-                <p className="mt-1.5 text-[11px] leading-relaxed text-gray-400">
-                  {bidsAtExactListPrice.length} collection bids match this exact price. Choose
-                  which buyer to match first (if that fill fails, others are tried).
+                <p className="mt-1.5 text-[11px] leading-relaxed text-zinc-400">
+                  {bidsAtExactListPrice.length} collection bids match this price. Pick which buyer to
+                  try first (if that fill fails, others are tried).
                 </p>
-                <ul className="mt-2.5 space-y-2">
+                <ul className="mt-2.5 space-y-1.5">
                   {bidsAtExactListPrice.map((b) => {
                     const id = String(b.orderHash);
                     const selected = tieBreakBidHash === id;
@@ -819,8 +968,8 @@ export function ListRwaModal({
                         <label
                           className={`flex cursor-pointer items-center gap-2.5 rounded-lg border px-2.5 py-2 text-left transition-colors ${
                             selected
-                              ? "border-mint/50 bg-mint/[0.08]"
-                              : "border-white/[0.08] bg-white/[0.02] hover:border-white/15"
+                              ? "border-mint/45 bg-mint/[0.1]"
+                              : "border-zinc-600/50 bg-zinc-900/40 hover:border-zinc-500/60"
                           }`}
                         >
                           <input
@@ -831,7 +980,7 @@ export function ListRwaModal({
                             disabled={isProcessing}
                             onChange={() => setTieBreakBidHash(id)}
                           />
-                          <span className="text-[12px] text-gray-200">
+                          <span className="text-[12px] text-zinc-200">
                             Buyer{" "}
                             <span className="font-mono text-mint/90">
                               {shortBidder(b.offerer)}
@@ -845,14 +994,20 @@ export function ListRwaModal({
               </div>
             ) : null}
 
-            <div className="grid grid-cols-2 gap-2 sm:gap-2.5">
+            <div
+              className={
+                stepLabels.length === 3
+                  ? "grid grid-cols-3 gap-1.5"
+                  : "grid grid-cols-2 gap-1.5"
+              }
+            >
               {stepLabels.map(({ label, active }) => (
                 <div
                   key={label}
-                  className={`rounded-xl px-2 py-2.5 text-center text-[11px] leading-tight sm:text-xs ${
+                  className={`rounded-lg px-1.5 py-2 text-center text-[9px] font-medium leading-tight sm:text-[10px] sm:leading-snug ${
                     active
-                      ? "bg-mint-dim text-mint-ink animate-pulse"
-                      : "bg-gray-800 text-gray-500"
+                      ? "bg-mint-dim text-mint-ink shadow-sm shadow-mint/10 animate-pulse"
+                      : "border border-zinc-700/80 bg-zinc-900/50 text-zinc-500"
                   }`}
                 >
                   {label}
@@ -861,20 +1016,21 @@ export function ListRwaModal({
             </div>
 
             {step === "error" && errorMsg && (
-              <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-3">
-                <p className="text-xs text-red-400 break-all">{errorMsg}</p>
+              <div className="rounded-xl border border-red-500/35 bg-red-950/40 p-3">
+                <p className="text-xs text-red-300/95 break-all">{errorMsg}</p>
               </div>
             )}
 
             <button
+              type="button"
               onClick={() => void handleList()}
               disabled={isProcessing || !price || parseFloat(price) <= 0}
-              className="mt-1 w-full rounded-xl bg-gradient-to-r from-mint to-mint-dim py-3.5 text-sm font-semibold text-mint-ink transition-all hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-50"
+              className="mt-0.5 w-full rounded-xl bg-gradient-to-r from-mint to-mint-dim py-3 text-sm font-semibold text-mint-ink shadow-md shadow-mint/10 transition-all hover:brightness-[1.03] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {isProcessing
                 ? "Processing..."
                 : isReplaceListing
-                  ? "Confirm"
+                  ? "Update listing"
                   : "List for sale"}
             </button>
           </div>

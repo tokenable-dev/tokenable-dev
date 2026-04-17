@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { GetCardsDto } from '../price/dto/get-cards.dto';
@@ -15,15 +16,45 @@ import {
   type UsdPoint,
 } from './collection-market.util';
 import { Order, OrderSide, OrderStatus } from './entities/order.entity';
+import { PoketraceService } from '../poketrace/poketrace.service';
 
 export type PriceHistoryDuration = '7d' | '30d' | '90d' | '180d';
+
+function priceHistoryDurationToDays(d: PriceHistoryDuration): number {
+  switch (d) {
+    case '7d':
+      return 7;
+    case '30d':
+      return 30;
+    case '90d':
+      return 90;
+    case '180d':
+      return 180;
+    default:
+      return 30;
+  }
+}
+
+/** Where list-row % change + sparkline external series came from */
+export type MarketChangePriceSource =
+  | 'poketrace_nm_ebay'
+  | 'justtcg_card_history';
 
 export interface CollectionMarketBundle {
   collectionKey: string;
   justtcgCardId: string | null;
   categoryLabel: string | null;
-  /** Percent change from first to last point of external (JustTCG) series */
+  /**
+   * Percent change from first to last point of the chosen external series
+   * (sorted by time): ((last - first) / first) * 100.
+   */
   marketChangePct: number | null;
+  /** Requested JustTCG priceHistory window; also used as PokeTrace NM `days` cap */
+  marketChangeWindow: PriceHistoryDuration;
+  /** Series used for `marketChangePct` + sparkline (PokeTrace preferred when available) */
+  marketChangeSource: MarketChangePriceSource | null;
+  /** True when %/sparkline use JustTCG while `TCG_USE_MOCK` is on (fixture data) */
+  isMockExternalPrices: boolean;
   gradePrices: GradePriceStrip;
   externalUsd: UsdPoint[];
   platformUsd: UsdPoint[];
@@ -56,9 +87,16 @@ export class CollectionMarketService {
   constructor(
     private readonly collectionService: CollectionService,
     private readonly priceService: PriceService,
+    private readonly poketraceService: PoketraceService,
+    private readonly config: ConfigService,
     @InjectRepository(Order)
     private readonly orderRepo: Repository<Order>,
   ) {}
+
+  private isTcgMock(): boolean {
+    const v = this.config.get<string>('TCG_USE_MOCK');
+    return v === 'true' || v === '1' || v === 'yes';
+  }
 
   private usdcNumber(amount: string): number | null {
     try {
@@ -196,13 +234,48 @@ export class CollectionMarketService {
       }
     }
 
+    /** Default: JustTCG representative card price history */
+    const tcgMock = this.isTcgMock();
+    let externalUsd: UsdPoint[] = parsed.history;
+    let marketChangePct = percentChangeFromPoints(parsed.history);
+    let marketChangeSource: MarketChangePriceSource | null =
+      parsed.history.length >= 2 ? 'justtcg_card_history' : null;
+
+    /** Prefer PokeTrace eBay NEAR_MINT sale timeline when catalog resolves + history returns */
+    if (col) {
+      try {
+        const nm = await this.poketraceService.getNearMintHistoryForCollection(
+          col,
+          {
+            days: priceHistoryDurationToDays(priceHistoryDuration),
+            maxRequests: 3,
+          },
+        );
+        if (nm.matched && nm.points.length >= 2) {
+          externalUsd = nm.points;
+          marketChangePct = percentChangeFromPoints(nm.points);
+          marketChangeSource = 'poketrace_nm_ebay';
+        }
+      } catch (e) {
+        this.logger.warn(
+          `PokeTrace NM history for exchange snapshot ${key}: ${String(e)}`,
+        );
+      }
+    }
+
+    const isMockExternalPrices =
+      marketChangeSource === 'justtcg_card_history' && tcgMock;
+
     return {
       collectionKey: key,
       justtcgCardId: ids.cardId,
       categoryLabel: parsed.gameLabel,
-      marketChangePct: percentChangeFromPoints(parsed.history),
+      marketChangePct,
+      marketChangeWindow: priceHistoryDuration,
+      marketChangeSource,
+      isMockExternalPrices,
       gradePrices: parsed.grades,
-      externalUsd: parsed.history,
+      externalUsd,
       platformUsd,
     };
   }
@@ -224,6 +297,9 @@ export class CollectionMarketService {
           justtcgCardId: null,
           categoryLabel: null,
           marketChangePct: null,
+          marketChangeWindow: priceHistoryDuration,
+          marketChangeSource: null,
+          isMockExternalPrices: false,
           gradePrices: { psa10: null, psa9: null, raw: null },
           sparklineUsd: [],
         });
@@ -238,6 +314,9 @@ export interface CollectionListSnapshot {
   justtcgCardId: string | null;
   categoryLabel: string | null;
   marketChangePct: number | null;
+  marketChangeWindow: PriceHistoryDuration;
+  marketChangeSource: MarketChangePriceSource | null;
+  isMockExternalPrices: boolean;
   gradePrices: GradePriceStrip;
   /** Downsampled external series for list sparkline */
   sparklineUsd: UsdPoint[];
@@ -250,6 +329,9 @@ function bundleToListSnapshot(bundle: CollectionMarketBundle): CollectionListSna
     justtcgCardId: bundle.justtcgCardId,
     categoryLabel: bundle.categoryLabel,
     marketChangePct: bundle.marketChangePct,
+    marketChangeWindow: bundle.marketChangeWindow,
+    marketChangeSource: bundle.marketChangeSource,
+    isMockExternalPrices: bundle.isMockExternalPrices,
     gradePrices: bundle.gradePrices,
     sparklineUsd: spark,
   };

@@ -80,6 +80,7 @@ jobs:
             --build-arg NEXT_PUBLIC_USDC_CONTRACT_ADDRESS="$USDC" \
             --build-arg NEXT_PUBLIC_MARKETPLACE_ADDRESS=${{ secrets.NEXT_PUBLIC_MARKETPLACE_ADDRESS }} \
             --build-arg NEXT_PUBLIC_PINATA_GATEWAY=${{ secrets.NEXT_PUBLIC_PINATA_GATEWAY }} \
+            --build-arg NEXT_PUBLIC_IPFS_GATEWAY=ipfs.io \
             --build-arg NEXT_PUBLIC_ALCHEMY_RPC_URL=${{ secrets.NEXT_PUBLIC_ALCHEMY_RPC_URL }} \
             --build-arg NEXT_PUBLIC_SHOW_AUTH_LINKS=${{ secrets.NEXT_PUBLIC_SHOW_AUTH_LINKS }} \
             --build-arg NEXT_PUBLIC_PLATFORM_FEE_RECIPIENT="$FEE_RCPT" \

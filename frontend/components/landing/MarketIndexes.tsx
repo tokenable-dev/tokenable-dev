@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getPriceGames, type JustTcgPriceHistoryPoint } from "@/lib/api";
-import { buildImpliedGameValueTrend } from "@/lib/justtcgGameValueTrend";
+import { buildGameIndex180dComparisonSeries } from "@/lib/justtcgGameValueTrend";
 import { buildMarketIndexCards, type MarketIndexCard } from "@/lib/justtcgMarketIndexes";
 
 function formatIndexValue(usd: number): string {
@@ -16,7 +16,7 @@ function buildSparklinePath(
   w: number,
   h: number,
 ): { d: string; up: boolean } {
-  const pad = 3;
+  const pad = 4;
   if (points.length === 0) return { d: "", up: true };
 
   const sorted = [...points].sort((a, b) => a.t - b.t);
@@ -33,23 +33,27 @@ function buildSparklinePath(
     };
   }
 
-  const t0 = sorted[0].t;
-  const t1 = sorted[sorted.length - 1].t;
+  const t0 = sorted[0]!.t;
+  const t1 = sorted[sorted.length - 1]!.t;
   const tr = Math.max(t1 - t0, 1);
 
   const coords = sorted.map((pt) => {
-    const x = ((pt.t - t0) / tr) * w;
+    const x = pad + ((pt.t - t0) / tr) * (w - 2 * pad);
     const y = h - pad - ((pt.p - minP) / range) * (h - 2 * pad);
     return `${x.toFixed(2)},${y.toFixed(2)}`;
   });
   const d = `M ${coords.join(" L ")}`;
-  const up = sorted[sorted.length - 1].p >= sorted[0].p;
+  const up = sorted[sorted.length - 1]!.p >= sorted[0]!.p;
   return { d, up };
 }
 
-function PriceHistorySparkline({ points }: { points: JustTcgPriceHistoryPoint[] | null }) {
-  const w = 128;
-  const h = 40;
+function PriceHistorySparkline({
+  points,
+}: {
+  points: JustTcgPriceHistoryPoint[] | null;
+}) {
+  const w = 280;
+  const h = 72;
 
   const { d, strokeUp } = useMemo(() => {
     if (!points?.length) {
@@ -59,22 +63,18 @@ function PriceHistorySparkline({ points }: { points: JustTcgPriceHistoryPoint[] 
     return { d: path, strokeUp: up };
   }, [points]);
 
-  const stroke = strokeUp
-    ? "rgba(52, 211, 153, 0.95)"
-    : "rgba(248, 113, 113, 0.95)";
+  const stroke = strokeUp ? "#00c853" : "rgba(248, 113, 113, 0.95)";
 
   if (!d) {
     return (
-      <p className="mt-3 text-[10px] text-gray-600 leading-snug">
-        No chart data
-      </p>
+      <p className="text-[11px] leading-snug text-zinc-500">No chart data</p>
     );
   }
 
   return (
-    <div className="mt-3">
+    <div className="w-full">
       <svg
-        className="w-full max-w-[128px] h-10"
+        className="h-[72px] w-full"
         viewBox={`0 0 ${w} ${h}`}
         preserveAspectRatio="none"
         aria-hidden
@@ -83,58 +83,60 @@ function PriceHistorySparkline({ points }: { points: JustTcgPriceHistoryPoint[] 
           d={d}
           fill="none"
           stroke={stroke}
-          strokeWidth={1.75}
+          strokeWidth={2.5}
           strokeLinecap="round"
           strokeLinejoin="round"
           vectorEffect="non-scaling-stroke"
         />
       </svg>
-      <p className="text-[9px] text-gray-600 mt-1 leading-snug">
-        Market cap trend (7d / 30d / 90d %)
-      </p>
     </div>
   );
 }
 
 function IndexCard({ card }: { card: MarketIndexCard }) {
-  const chartPoints = useMemo(
+  const series = useMemo(
     () =>
-      buildImpliedGameValueTrend({
+      buildGameIndex180dComparisonSeries({
         valueUsd: card.valueUsd,
         change7dPct: card.change7dPct,
-        change30dPct: card.change30dPct,
-        change90dPct: card.change90dPct,
+        change180dPct: card.change180dPct,
+        rawChange90dPct: card.rawChange90dPct,
+        rawChange30dPct: card.rawChange30dPct,
       }),
     [card],
   );
 
-  const up = card.change7dPct >= 0;
-  const pct = Number.isFinite(card.change7dPct)
-    ? card.change7dPct.toLocaleString("en-US", {
+  const pct = series.changePct;
+  const up = pct >= 0;
+  const pctLabel = Number.isFinite(pct)
+    ? Math.abs(pct).toLocaleString("en-US", {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
       })
     : "—";
 
   return (
-    <div className="rounded-2xl border border-emerald-500/20 bg-[#060d0b]/75 backdrop-blur-sm px-4 py-4 sm:px-5 sm:py-5 flex flex-col transition-colors hover:border-emerald-400/35">
-      <h3 className="text-sm font-bold text-white leading-snug mb-3 min-h-[2.5rem]">
+    <div className="flex flex-col rounded-2xl border border-white/[0.08] bg-[#121212] px-5 py-5 transition-colors hover:border-white/[0.12] sm:px-6 sm:py-6">
+      <h3 className="min-h-[2.75rem] text-[15px] font-bold leading-snug text-white sm:text-base">
         {card.title}
       </h3>
 
-      <p className="text-2xl sm:text-[1.65rem] font-extrabold tracking-tight text-white tabular-nums">
-        {formatIndexValue(card.valueUsd)}
-      </p>
-
-      <div className="mt-1 flex items-center gap-1.5 text-xs font-semibold tabular-nums">
-        <span className={up ? "text-emerald-400" : "text-red-400"}>
-          {up ? "↑" : "↓"} {pct}%
-        </span>
-        <span className="text-gray-600 font-normal">7d (market)</span>
+      <div className="mt-3">
+        <PriceHistorySparkline
+          points={series.points.length >= 2 ? series.points : null}
+        />
       </div>
 
-      <div className="mt-auto pt-1">
-        <PriceHistorySparkline points={chartPoints.length >= 2 ? chartPoints : null} />
+      <div className="mt-5 border-t border-white/[0.06] pt-4">
+        <p className="text-2xl font-extrabold tracking-tight text-white tabular-nums sm:text-3xl">
+          {formatIndexValue(card.valueUsd)}
+        </p>
+
+        <div className="mt-1.5 text-xs font-semibold tabular-nums sm:text-sm">
+          <span className={up ? "text-[#00c853]" : "text-red-400"}>
+            {pctLabel}% {up ? "↗" : "↘"}
+          </span>
+        </div>
       </div>
     </div>
   );
@@ -154,17 +156,23 @@ export function MarketIndexes() {
   }, [data]);
 
   return (
-    <section className="relative z-10 max-w-6xl mx-auto px-6 pb-16">
-      <h2 className="text-lg sm:text-xl font-bold text-white tracking-tight text-center mb-6">
-        Market Indexes
-      </h2>
+    <section className="relative z-10 mx-auto max-w-6xl px-6 pb-16">
+      <div className="mb-8 text-center">
+        <h2 className="text-lg font-bold tracking-tight text-white sm:text-xl">
+          Market Indexes
+        </h2>
+        <p className="mx-auto mt-2 max-w-2xl text-sm leading-relaxed text-zinc-500">
+          Numbers and charts compare the current aggregate index to about 180 days
+          earlier.
+        </p>
+      </div>
 
       {isLoading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-4">
           {[1, 2, 3, 4].map((i) => (
             <div
               key={i}
-              className="rounded-2xl border border-emerald-500/15 bg-gray-900/40 h-[200px] animate-pulse"
+              className="h-[280px] animate-pulse rounded-2xl border border-white/[0.06] bg-[#121212]/80"
             />
           ))}
         </div>
@@ -175,7 +183,7 @@ export function MarketIndexes() {
       ) : cards.length === 0 ? (
         <p className="text-sm text-gray-500">No market data available.</p>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-4">
           {cards.map((card) => (
             <IndexCard key={card.gameId} card={card} />
           ))}

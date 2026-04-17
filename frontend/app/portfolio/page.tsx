@@ -717,7 +717,6 @@ export default function PortfolioPage() {
   }, [address]);
 
   const pricedRows: PricedAssetRow[] = useMemo(() => {
-    const pricingResolved = !poketraceLoading || poketraceError;
     return assets.map((a) => {
       const listingPrice = priceMap.get(a.tokenId) ?? null;
       const pt = poketraceByToken[a.tokenId];
@@ -729,15 +728,14 @@ export default function PortfolioPage() {
       let priceSource: PricedAssetRow["priceSource"] = "none";
       let nmShortLabel: string | null = null;
 
-      if (pricingResolved) {
-        if (markUsd != null) {
-          currentPrice = markUsd;
-          priceSource = "poketrace-nm";
-          nmShortLabel = nmBlend?.shortLabel ?? null;
-        } else if (listingPrice != null) {
-          currentPrice = listingPrice;
-          priceSource = "listing";
-        }
+      /** NM when batch has returned; until then use listing ask so chart / totals render immediately. */
+      if (markUsd != null) {
+        currentPrice = markUsd;
+        priceSource = "poketrace-nm";
+        nmShortLabel = nmBlend?.shortLabel ?? null;
+      } else if (listingPrice != null) {
+        currentPrice = listingPrice;
+        priceSource = "listing";
       }
 
       const displayName = a.metadata?.name ?? `RWA #${a.tokenId}`;
@@ -856,7 +854,8 @@ export default function PortfolioPage() {
   }, [histories]);
 
   const isLoading = idsLoading || assetsLoading;
-  const chartValuesPending = isLoading || valuesPending;
+  /** Chart uses listing + NM as soon as priced; do not block on PokeTrace batch. */
+  const chartValuesPending = isLoading;
 
   const portfolioValueHistory = useMemo(
     () => (address ? loadPortfolioValueHistory(address) : []),
@@ -864,14 +863,14 @@ export default function PortfolioPage() {
   );
 
   useEffect(() => {
-    if (!address || chartValuesPending) return;
+    if (!address || isLoading) return;
     if (appendPortfolioValueSnapshot(address, totalValue)) {
       setPortfolioHistoryVersion((n) => n + 1);
     }
-  }, [address, chartValuesPending, totalValue]);
+  }, [address, isLoading, totalValue]);
 
   const chartPoints = useMemo(() => {
-    if (chartValuesPending) return [];
+    if (isLoading) return [];
     const baselineTotal = assetRows.reduce((s, r) => s + (r.nmBaselineUsd ?? 0), 0);
     const startFallback = baselineTotal > 0 ? baselineTotal : totalValue;
     return buildPortfolioChartPoints(
@@ -881,7 +880,7 @@ export default function PortfolioPage() {
       totalValue,
       startFallback,
     );
-  }, [portfolioValueHistory, period, totalValue, assetRows, chartValuesPending]);
+  }, [portfolioValueHistory, period, totalValue, assetRows, isLoading]);
 
   if (!isConnected) {
     return (
@@ -905,7 +904,7 @@ export default function PortfolioPage() {
         {/* Title */}
         <div className="mb-8">
           <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight mb-1">
-            My Assets
+            Portfolio
           </h1>
           <p className="text-sm text-gray-400">Your tokenized assets</p>
         </div>
@@ -916,7 +915,7 @@ export default function PortfolioPage() {
             <div>
               <p className="text-sm font-semibold text-white mb-0.5">Chart</p>
               <p className="text-[11px] text-gray-500 mb-1">
-                Total value (NM / ask) · curve from saved snapshots in this browser
+                Total value (NM when loaded, else listing ask) · history from snapshots in this browser
               </p>
               <div className="flex items-center gap-2.5">
                 {chartValuesPending ? (
@@ -1001,9 +1000,9 @@ export default function PortfolioPage() {
           />
         </div>
 
-        {/* Asset Inventory — card grid */}
+        {/* My Assets — card grid */}
         <div className="rounded-2xl border border-gray-800 bg-[#0b1118] p-5 sm:p-6 mb-6">
-          <h2 className="text-sm font-bold mb-1">Asset Inventory</h2>
+          <h2 className="text-sm font-bold mb-1">My Assets</h2>
           <p className="text-[11px] text-gray-500 mb-5">
             Current value uses PokeTrace NM when matched, else your ask. P&amp;L is the change in
             that NM reference vs the first value stored in this browser for each token (not
@@ -1078,7 +1077,7 @@ export default function PortfolioPage() {
                         <div className="flex justify-between gap-2">
                           <dt className="text-gray-500">Current value</dt>
                           <dd className="font-medium tabular-nums text-gray-200">
-                            {valuesPending ? (
+                            {valuesPending && r.currentPrice == null ? (
                               <span className="inline-block h-4 w-16 animate-pulse rounded bg-gray-800/80 align-middle" />
                             ) : r.currentPrice != null ? (
                               `$${r.currentPrice.toLocaleString(undefined, {
@@ -1089,12 +1088,12 @@ export default function PortfolioPage() {
                             )}
                           </dd>
                         </div>
-                        {!valuesPending && r.priceSource === "poketrace-nm" && r.nmShortLabel ? (
+                        {r.priceSource === "poketrace-nm" && r.nmShortLabel ? (
                           <p className="text-[10px] leading-tight text-gray-600 text-right">
                             {r.nmShortLabel}
                           </p>
                         ) : null}
-                        {!valuesPending && r.priceSource === "listing" ? (
+                        {r.priceSource === "listing" ? (
                           <p className="text-[10px] leading-tight text-gray-600 text-right">
                             Listed ask
                           </p>

@@ -17,6 +17,7 @@ const MOCK_GAMES = [
     game_value_change_7d_pct: 1.46,
     game_value_change_30d_pct: 3.63,
     game_value_change_90d_pct: 11.21,
+    game_value_change_180d_pct: 18.4,
     cards_pos_7d_count: 19522,
     cards_neg_7d_count: 16131,
     sealed_cards_pos_7d_count: 795,

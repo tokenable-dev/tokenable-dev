@@ -70,7 +70,8 @@ export class MarketplaceController {
   }
 
   @ApiOperation({
-    summary: 'Batch list-row snapshots (JustTCG sparkline + grade strip + category)',
+    summary:
+      'Batch list-row snapshots: grade strip + category from JustTCG; sparkline + % change prefer PokeTrace NM eBay history when resolved, else JustTCG price history',
   })
   @ApiBody({ type: BatchMarketSnapshotsDto })
   @Post('collections/market-snapshots')

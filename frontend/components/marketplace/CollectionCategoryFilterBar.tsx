@@ -25,7 +25,7 @@ export function CollectionCategoryFilterBar({
 }) {
   return (
     <div className="-mx-1 overflow-x-auto pb-1">
-      <div className="flex min-w-min items-center gap-2 px-1 sm:gap-3">
+      <div className="flex min-w-min items-center gap-2 px-1 sm:gap-3.5">
         {FILTERS.map((f) => {
           const active = value === f.id;
           return (
@@ -33,14 +33,14 @@ export function CollectionCategoryFilterBar({
               key={f.id}
               type="button"
               onClick={() => onChange(f.id)}
-              className={`shrink-0 rounded-lg border px-3 py-2 text-sm font-semibold transition-colors sm:px-4 ${
+              className={`shrink-0 rounded-xl border px-4 py-3 text-lg font-semibold transition-colors sm:px-6 sm:py-3.5 sm:text-xl ${
                 active
                   ? "border-mint-deep/40 bg-mint text-mint-ink shadow-sm shadow-mint/20"
                   : "border-gray-700/80 bg-[#141414] text-white hover:border-gray-600 hover:bg-[#1a1a1a]"
               }`}
             >
               <span className="inline-flex items-center gap-1.5">
-                {f.emoji ? <span className="text-base leading-none">{f.emoji}</span> : null}
+                {f.emoji ? <span className="text-xl leading-none sm:text-2xl">{f.emoji}</span> : null}
                 {f.label}
               </span>
             </button>

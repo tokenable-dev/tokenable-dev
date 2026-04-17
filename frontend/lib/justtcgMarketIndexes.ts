@@ -8,6 +8,11 @@ export type MarketIndexCard = {
   change30dPct: number;
   change90dPct: number;
   gameId: string;
+  /** JustTCG `game_value_change_180d_pct` when returned on the game row */
+  change180dPct?: number;
+  /** Raw trailing 90d / 30d from API (for 180d-back estimates when 180d field is absent) */
+  rawChange90dPct?: number;
+  rawChange30dPct?: number;
 };
 
 type SlotDef = {
@@ -15,13 +20,19 @@ type SlotDef = {
   test: (g: JustTcgGameSummary) => boolean;
 };
 
+function optNum(n: unknown): number | undefined {
+  if (n === undefined || n === null) return undefined;
+  const x = Number(n);
+  return Number.isFinite(x) ? x : undefined;
+}
+
 const SLOTS: SlotDef[] = [
   {
-    title: "Pokemon Index",
+    title: "🐻 Pokemon Index",
     test: (g) => g.id === "pokemon",
   },
   {
-    title: "Baseball Index",
+    title: "⚾ Baseball Index",
     test: (g) => {
       const id = g.id.toLowerCase();
       const name = g.name.toLowerCase();
@@ -32,7 +43,7 @@ const SLOTS: SlotDef[] = [
     },
   },
   {
-    title: "NFL Index",
+    title: "🏈 NFL Index",
     test: (g) => {
       const id = g.id.toLowerCase();
       const name = g.name.toLowerCase();
@@ -43,7 +54,7 @@ const SLOTS: SlotDef[] = [
     },
   },
   {
-    title: "Basketball Index",
+    title: "🏀 NBA Index",
     test: (g) => {
       const id = g.id.toLowerCase();
       const name = g.name.toLowerCase();
@@ -59,13 +70,18 @@ function toCard(g: JustTcgGameSummary, title: string): MarketIndexCard {
   const r7 = Number(g.game_value_change_7d_pct) || 0;
   const r30 = Number(g.game_value_change_30d_pct);
   const r90 = Number(g.game_value_change_90d_pct);
+  const r30f = Number.isFinite(r30) ? r30 : r7;
+  const r90f = Number.isFinite(r90) ? r90 : Number.isFinite(r30) ? r30 : r7;
   return {
     title,
     valueUsd: Number(g.game_value_usd) || 0,
     change7dPct: r7,
-    change30dPct: Number.isFinite(r30) ? r30 : r7,
-    change90dPct: Number.isFinite(r90) ? r90 : Number.isFinite(r30) ? r30 : r7,
+    change30dPct: r30f,
+    change90dPct: r90f,
     gameId: g.id,
+    change180dPct: optNum(g.game_value_change_180d_pct),
+    rawChange90dPct: optNum(g.game_value_change_90d_pct),
+    rawChange30dPct: optNum(g.game_value_change_30d_pct),
   };
 }
 

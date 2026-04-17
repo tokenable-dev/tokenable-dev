@@ -285,6 +285,7 @@ export function CollectionOwnedRwaListModal({
             void queryClient.invalidateQueries({
               queryKey: ["collection-owned-rwa", effectiveAddr, collectionKey],
             });
+            onClose();
           }}
         />
       )}

@@ -29,5 +29,7 @@ describe('buildPoketraceSearchQueryAttempts', () => {
           q.length < attempts[0].length,
       ),
     ).toBe(true);
+    expect(attempts.some((q) => /Pikachu VMAX 046/i.test(q))).toBe(true);
+    expect(attempts.some((q) => /s8b.*Pikachu VMAX 046/i.test(q))).toBe(true);
   });
 });

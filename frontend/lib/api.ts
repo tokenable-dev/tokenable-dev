@@ -156,6 +156,8 @@ export interface JustTcgGameSummary {
   game_value_change_7d_pct: number;
   game_value_change_30d_pct?: number;
   game_value_change_90d_pct?: number;
+  /** When present on JustTCG `GET /games`, use for true 180d aggregate index change. */
+  game_value_change_180d_pct?: number;
 }
 
 export interface JustTcgGamesResponse {
@@ -399,8 +401,13 @@ export async function getOrderHistoryByTokenId(tokenId: number): Promise<Order[]
 }
 
 /** orderHash로 단건 조회 */
-export async function getOrderByHash(orderHash: string): Promise<Order> {
-  const res = await backendFetch(`${getApiUrl()}/marketplace/orders/${orderHash}`);
+export async function getOrderByHash(
+  orderHash: string,
+  opts?: { signal?: AbortSignal },
+): Promise<Order> {
+  const res = await backendFetch(`${getApiUrl()}/marketplace/orders/${orderHash}`, {
+    signal: opts?.signal,
+  });
   if (!res.ok) throw new Error("Failed to fetch order");
   return res.json() as Promise<Order>;
 }
@@ -452,12 +459,13 @@ export interface MarketplaceCollectionDetail {
 
 export async function getMarketplaceCollectionDetail(
   collectionKey: string,
-  opts?: { bypassCache?: boolean },
+  opts?: { bypassCache?: boolean; signal?: AbortSignal },
 ): Promise<MarketplaceCollectionDetail> {
   const enc = encodeURIComponent(collectionKey);
   const qs = opts?.bypassCache ? `?nocache=${Date.now()}` : "";
   const res = await backendFetch(`${getApiUrl()}/marketplace/collections/${enc}${qs}`, {
     ...(opts?.bypassCache ? { cache: "no-store" as RequestCache } : {}),
+    signal: opts?.signal,
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -485,6 +493,10 @@ export interface CollectionMarketSeries {
   justtcgCardId: string | null;
   categoryLabel: string | null;
   marketChangePct: number | null;
+  /** Present when served by a recent backend (exchange list uses same bundle fields) */
+  marketChangeWindow?: "7d" | "30d" | "90d" | "180d";
+  marketChangeSource?: "poketrace_nm_ebay" | "justtcg_card_history" | null;
+  isMockExternalPrices?: boolean;
   gradePrices: CollectionGradePrices;
   externalUsd: CollectionUsdPoint[];
   platformUsd: CollectionUsdPoint[];
@@ -531,6 +543,8 @@ export interface CollectionPoketracePreview {
   searchQuery: string;
   matched: boolean;
   message?: string;
+  /** True when the backend used PokeTrace mock fallback (see POKETRACE_MOCK_ON_FAILURE) */
+  isMockData?: boolean;
   card: null | {
     id: string;
     name: string;
@@ -597,6 +611,8 @@ export interface CollectionPoketraceNmHistory {
   searchQuery: string;
   matched: boolean;
   message?: string;
+  /** Present when the backend served synthetic NM history for testing */
+  isMockData?: boolean;
   days: number;
   points: CollectionUsdPoint[];
   source: string;
@@ -655,7 +671,13 @@ export interface CollectionListMarketSnapshot {
   collectionKey: string;
   justtcgCardId: string | null;
   categoryLabel: string | null;
+  /** First→last point % on the external series used for this row */
   marketChangePct: number | null;
+  /** Window requested for JustTCG history; PokeTrace NM uses the same span in days */
+  marketChangeWindow?: "7d" | "30d" | "90d" | "180d";
+  marketChangeSource?: "poketrace_nm_ebay" | "justtcg_card_history" | null;
+  /** JustTCG path while server `TCG_USE_MOCK` is enabled */
+  isMockExternalPrices?: boolean;
   gradePrices: CollectionGradePrices;
   sparklineUsd: CollectionUsdPoint[];
 }
@@ -706,13 +728,14 @@ export async function postMarketplaceCollectionSnapshotsBatched(
 /** Merkle leaf set — minted RWAs in this collection bucket (server metadata scan) */
 export async function getMerkleEligibleTokenIds(
   collectionKey: string,
-  opts?: { bypassCache?: boolean },
+  opts?: { bypassCache?: boolean; signal?: AbortSignal },
 ): Promise<{ tokenIds: string[] }> {
   const sp = new URLSearchParams();
   if (opts?.bypassCache) sp.set("bypassCache", "1");
   const q = sp.toString();
   const res = await backendFetch(
     `${getApiUrl()}/marketplace/collections/${encodeURIComponent(collectionKey)}/merkle-set${q ? `?${q}` : ""}`,
+    { signal: opts?.signal },
   );
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -724,14 +747,18 @@ export async function getMerkleEligibleTokenIds(
 }
 
 /** After on-chain matchAdvancedOrders */
-export async function fulfillMatchedPairApi(body: {
-  bidOrderHash: string;
-  askOrderHash: string;
-}): Promise<{ ask: Order; bid: Order }> {
+export async function fulfillMatchedPairApi(
+  body: {
+    bidOrderHash: string;
+    askOrderHash: string;
+  },
+  opts?: { signal?: AbortSignal },
+): Promise<{ ask: Order; bid: Order }> {
   const res = await backendFetch(`${getApiUrl()}/marketplace/orders/fulfill-matched-pair`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
+    signal: opts?.signal,
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ message: "Failed to record match" }));
@@ -787,26 +814,83 @@ export interface RwaMetadata {
   external_url?: string;
 }
 
-const PINATA_GATEWAY =
-  process.env.NEXT_PUBLIC_PINATA_GATEWAY ??
-  "chocolate-voluntary-raccoon-677.mypinata.cloud";
+/**
+ * Hostname only (no `https://`). Used for browser `<img>` and client-side metadata `fetch`.
+ * Pinata **dedicated** gateways with Dashboard “Restricted” access reject anonymous browser requests
+ * (no JWT) → all collection images 403. Default `ipfs.io` works for public CIDs.
+ * Set `NEXT_PUBLIC_IPFS_GATEWAY` to an **open** dedicated host if you enable public reads there.
+ */
+const IPFS_PUBLIC_GATEWAY_HOST =
+  process.env.NEXT_PUBLIC_IPFS_GATEWAY?.trim() || "ipfs.io";
 
-function buildPinataUrl(cid: string): string {
-  return `https://${PINATA_GATEWAY}/ipfs/${cid}`;
+function buildPublicIpfsUrl(ipfsPath: string): string {
+  const p = ipfsPath.replace(/^\/+/, "");
+  if (!p) return "";
+  const host = IPFS_PUBLIC_GATEWAY_HOST || "ipfs.io";
+  return `https://${host}/ipfs/${p}`;
+}
+
+/**
+ * Any host’s `/ipfs/<...>` path → configured public gateway (normalizes stale pinata/ipfs.io links in DB).
+ */
+function rewriteHttpsIpfsToPublicGateway(uri: string): string | null {
+  try {
+    const u = new URL(uri);
+    const prefix = "/ipfs/";
+    const idx = u.pathname.indexOf(prefix);
+    if (idx === -1) return null;
+    const afterPath = u.pathname.slice(idx + prefix.length);
+    const tail = (afterPath ? `${afterPath}` : "") + (u.search || "");
+    const decoded = (() => {
+      try {
+        return decodeURIComponent(tail);
+      } catch {
+        return tail;
+      }
+    })();
+    if (!decoded) return null;
+    return buildPublicIpfsUrl(decoded);
+  } catch {
+    return null;
+  }
 }
 
 export async function fetchIpfsMetadata(tokenURI: string): Promise<RwaMetadata> {
-  const cid = tokenURI.replace("ipfs://", "");
-  const url = buildPinataUrl(cid);
+  const raw = tokenURI.trim();
+  if (!raw) throw new Error("Empty token URI");
+
+  let url: string;
+  if (/^ipfs:\/\//i.test(raw)) {
+    const path = raw.replace(/^ipfs:\/\//i, "").replace(/^\/+/, "");
+    url = buildPublicIpfsUrl(path);
+  } else if (/^https?:\/\//i.test(raw)) {
+    url = rewriteHttpsIpfsToPublicGateway(raw) ?? raw;
+  } else {
+    url = buildPublicIpfsUrl(raw.replace(/^\/+/, ""));
+  }
+
+  if (!url) throw new Error("Invalid token URI");
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Failed to fetch metadata: ${url}`);
   return res.json() as Promise<RwaMetadata>;
 }
 
 export function resolveIpfsImage(uri: string): string {
-  if (!uri) return "";
-  if (uri.startsWith("ipfs://")) {
-    return buildPinataUrl(uri.replace("ipfs://", ""));
+  if (!uri?.trim()) return "";
+  const trimmed = uri.trim();
+
+  if (/^ipfs:\/\//i.test(trimmed)) {
+    const path = trimmed.replace(/^ipfs:\/\//i, "").replace(/^\/+/, "");
+    return path ? buildPublicIpfsUrl(path) : "";
   }
-  return uri;
+
+  const fromHttps = rewriteHttpsIpfsToPublicGateway(trimmed);
+  if (fromHttps) return fromHttps;
+
+  /** Bare CID / path (no scheme) — treat as IPFS content id from our indexer */
+  if (/^(Qm[1-9A-HJ-NP-Za-km-z]{40,}|bafy[a-z2-7]{50,})$/i.test(trimmed)) {
+    return buildPublicIpfsUrl(trimmed);
+  }
+
+  return trimmed;
 }

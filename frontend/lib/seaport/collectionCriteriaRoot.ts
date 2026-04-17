@@ -59,11 +59,29 @@ export async function fetchMerkleSnapshotForMatch(
   const expectTid =
     opts?.expectTokenId != null ? BigInt(normalizeDecimalTokenId(opts.expectTokenId)) : null;
   const bypass = opts?.bypassMerkleCache ?? false;
+  /** Avoid hanging step 4 if the merkle-set endpoint stalls (gateway / server load). */
+  const fetchSignal = () =>
+    typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function"
+      ? AbortSignal.timeout(25_000)
+      : undefined;
 
   for (let i = 0; i < max; i++) {
-    const { tokenIds } = await getMerkleEligibleTokenIds(collectionKey, {
-      bypassCache: bypass || i > 0,
-    });
+    let tokenIds: string[];
+    try {
+      const res = await getMerkleEligibleTokenIds(collectionKey, {
+        bypassCache: bypass || i > 0,
+        signal: fetchSignal(),
+      });
+      tokenIds = res.tokenIds;
+    } catch (e: unknown) {
+      const name = e instanceof Error ? e.name : "";
+      const isAbort =
+        name === "AbortError" ||
+        name === "TimeoutError" ||
+        (typeof DOMException !== "undefined" && e instanceof DOMException && e.name === "AbortError");
+      if (!isAbort) throw e;
+      tokenIds = [];
+    }
     const ids = tokenIds.map((x) => BigInt(normalizeDecimalTokenId(x)));
     if (!ids.length) {
       if (i < max - 1) await new Promise((r) => setTimeout(r, delayMs + i * 45));

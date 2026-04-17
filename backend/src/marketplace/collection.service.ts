@@ -64,14 +64,36 @@ export class CollectionService {
       const path = url.replace(/^ipfs:\/\//i, '').replace(/^ipfs\//i, '');
       const gw =
         this.config.get<string>('PINATA_GATEWAY') ??
-        'chocolate-voluntary-raccoon-677.mypinata.cloud';
+        'gray-immense-roadrunner-588.mypinata.cloud';
       url = `https://${gw}/ipfs/${path}`;
     }
-    const res = await fetch(url);
-    if (!res.ok) {
-      throw new Error(`Failed to fetch RWA metadata (${res.status})`);
+
+    const maxAttempts = 6;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      const res = await fetch(url);
+      if (res.ok) {
+        return (await res.json()) as Record<string, unknown>;
+      }
+
+      const retriable =
+        res.status === 429 ||
+        res.status === 408 ||
+        res.status === 500 ||
+        res.status === 502 ||
+        res.status === 503 ||
+        res.status === 504;
+      if (!retriable || attempt === maxAttempts - 1) {
+        throw new Error(`Failed to fetch RWA metadata (${res.status})`);
+      }
+
+      let delayMs = 900 * Math.pow(2, attempt) + Math.floor(Math.random() * 350);
+      const ra = res.headers.get('retry-after');
+      if (ra && /^\d+$/.test(ra.trim())) {
+        delayMs = Math.max(delayMs, Math.min(60_000, parseInt(ra.trim(), 10) * 1000));
+      }
+      await new Promise((r) => setTimeout(r, delayMs));
     }
-    return (await res.json()) as Record<string, unknown>;
+    throw new Error('Failed to fetch RWA metadata');
   }
 
   /**

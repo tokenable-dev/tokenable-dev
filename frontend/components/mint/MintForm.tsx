@@ -472,22 +472,6 @@ export function MintForm() {
     return () => URL.revokeObjectURL(u);
   }, [form.image]);
 
-  function handleAnalyzePsaManual() {
-    if (psaInputMode === "cert") {
-      void executePsaCertLookup();
-      return;
-    }
-    const front =
-      form.verification.slabFront instanceof File ? form.verification.slabFront : null;
-    const back =
-      form.verification.slabBack instanceof File ? form.verification.slabBack : null;
-    if (!front) {
-      setAnalyzeError("Upload a slab photo first (Photo tab).");
-      return;
-    }
-    void executePsaAnalyze(front, back);
-  }
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!validate() || !address || !isConnected) return;
@@ -816,103 +800,23 @@ export function MintForm() {
                 </div>
               </details>
 
-              <details className="group rounded-xl border border-gray-700/50 bg-gray-800/20 overflow-hidden">
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3.5 text-sm font-medium text-gray-200 transition-colors hover:bg-gray-800/35 [&::-webkit-details-marker]:hidden">
-                  <span>PSA analysis &amp; re-run</span>
-                  <svg
-                    className="h-4 w-4 shrink-0 text-gray-500 transition-transform group-open:rotate-180"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    aria-hidden
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M19 9l-7 7-7-7"
-                    />
-                  </svg>
-                </summary>
-                <div className="space-y-3 border-t border-gray-700/40 px-4 pb-4 pt-3">
-            <p className="text-xs leading-relaxed text-gray-500">
-              {psaInputMode === "slab" ? (
-                <>
-                  Start with <span className="text-gray-300">slab photos</span> at the top. After
-                  upload, OCR + PSA API + JustTCG run automatically. Add a{" "}
-                  <span className="text-gray-300">Cert URL</span> if you have it — it speeds up
-                  lookup.
-                </>
-              ) : (
-                <>
-                  Enter a <span className="text-gray-300">PSA cert #</span> or{" "}
-                  <span className="text-gray-300">psacard.com/cert/…</span> URL, then use{" "}
-                  <span className="text-gray-300">Look up</span> or{" "}
-                  <span className="text-gray-300">Re-run</span> below. No slab photos required.
-                </>
-              )}
-            </p>
-            <button
-              type="button"
-              onClick={() => void handleAnalyzePsaManual()}
-              disabled={
-                analyzeLoading ||
-                isProcessing ||
-                (psaInputMode === "slab" &&
-                  !(form.verification.slabFront instanceof File))
-              }
-              className="w-full rounded-xl border border-gray-600/60 bg-gray-800/60 py-2.5 text-sm font-medium text-gray-300 transition-colors hover:bg-gray-700/60 disabled:opacity-50"
-            >
-              {analyzeLoading
-                ? "Working…"
-                : psaInputMode === "cert"
-                  ? "Re-run Cert Lookup"
-                  : "Re-run Analysis"}
-            </button>
-            {analyzeError && (
-              <p className="text-xs text-red-400 break-words">{analyzeError}</p>
-            )}
-            {lastAnalyze?.warnings && lastAnalyze.warnings.length > 0 && (
-              <ul className="text-[11px] text-amber-200/85 space-y-1 list-disc pl-4 border border-amber-500/20 rounded-lg p-3 bg-amber-500/[0.06]">
-                {lastAnalyze.warnings.map((w, i) => (
-                  <li key={i} className="leading-snug">
-                    {w}
-                  </li>
-                ))}
-              </ul>
-            )}
-            {lastAnalyze && !analyzeError && (
-              <details className="text-xs text-gray-500">
-                <summary className="cursor-pointer text-gray-400 hover:text-gray-300">
-                  Extraction summary (debug)
-                </summary>
-                <pre className="mt-2 max-h-40 overflow-auto rounded-lg bg-black/30 p-2 text-[10px] text-gray-400 whitespace-pre-wrap">
-                  {JSON.stringify(
-                    {
-                      psa: lastAnalyze.psa,
-                      psaApi: (() => {
-                        const l = lastAnalyze.psaApi.lookup;
-                        if (l.status === "success") {
-                          return {
-                            status: l.status,
-                            certNumber: l.certNumber,
-                            hasPSACert: !!(l.raw as { PSACert?: unknown })
-                              ?.PSACert,
-                          };
-                        }
-                        return l;
-                      })(),
-                      justtcgQuery: lastAnalyze.justtcg.queryUsed,
-                      hasJustTcgMatch: !!lastAnalyze.justtcg.topMatch,
-                    },
-                    null,
-                    2
-                  )}
-                </pre>
-              </details>
-            )}
+              {(analyzeError ||
+                (lastAnalyze?.warnings && lastAnalyze.warnings.length > 0)) && (
+                <div className="space-y-2 rounded-lg border border-gray-700/50 bg-gray-900/30 px-4 py-3">
+                  {analyzeError ? (
+                    <p className="text-xs text-red-400 break-words">{analyzeError}</p>
+                  ) : null}
+                  {lastAnalyze?.warnings && lastAnalyze.warnings.length > 0 ? (
+                    <ul className="list-disc space-y-1 pl-4 text-[11px] text-amber-200/85">
+                      {lastAnalyze.warnings.map((w, i) => (
+                        <li key={i} className="leading-snug">
+                          {w}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
                 </div>
-              </details>
+              )}
 
               <details
                 open

@@ -179,15 +179,29 @@ export async function runCriteriaMatch(params: {
     GAS_FALLBACK.matchAdvancedOrders,
   );
 
-  const [, gas] = await Promise.all([
-    publicClient.simulateContract({
-      address: SEAPORT_ADDRESS,
-      abi: SEAPORT_ABI_WITH_MATCH_ADVANCED,
-      functionName: "matchAdvancedOrders",
-      args: prepared.args as readonly [unknown, unknown, unknown, unknown],
-      account: address,
-    }),
-    gasPromise,
+  const SIMULATION_MS = 55_000;
+  const [, gas] = await Promise.race([
+    Promise.all([
+      publicClient.simulateContract({
+        address: SEAPORT_ADDRESS,
+        abi: SEAPORT_ABI_WITH_MATCH_ADVANCED,
+        functionName: "matchAdvancedOrders",
+        args: prepared.args as readonly [unknown, unknown, unknown, unknown],
+        account: address,
+      }),
+      gasPromise,
+    ]),
+    new Promise<never>((_, reject) =>
+      setTimeout(
+        () =>
+          reject(
+            new Error(
+              "Simulation timed out (RPC slow or overloaded). Try again in a moment.",
+            ),
+          ),
+        SIMULATION_MS,
+      ),
+    ),
   ]);
 
   const hash = await writeContractAsync({
@@ -199,17 +213,55 @@ export async function runCriteriaMatch(params: {
     gas,
   });
 
-  const receipt = await publicClient.waitForTransactionReceipt({ hash });
+  const receipt = await Promise.race([
+    publicClient.waitForTransactionReceipt({ hash }),
+    new Promise<never>((_, reject) =>
+      setTimeout(
+        () =>
+          reject(
+            new Error(
+              "Match transaction confirmation timed out. Check the explorer for this tx or try again.",
+            ),
+          ),
+        120_000,
+      ),
+    ),
+  ]);
   if (receipt.status === "reverted") {
     throw new Error(
       `Seaport match reverted on-chain (tx ${hash}). Simulation may differ from execution; check the buyer’s USDC balance and approval to Seaport.`,
     );
   }
 
-  await fulfillMatchedPairApi({
-    bidOrderHash: bid.orderHash,
-    askOrderHash: listing.orderHash,
-  });
+  /** Listing modal must not hang if the indexer/API stalls after a successful match on-chain. */
+  const FULFILL_MS = 38_000;
+  const fulfillAbort = new AbortController();
+  const fulfillTimer = setTimeout(() => fulfillAbort.abort(), FULFILL_MS);
+  try {
+    await fulfillMatchedPairApi(
+      {
+        bidOrderHash: bid.orderHash,
+        askOrderHash: listing.orderHash,
+      },
+      { signal: fulfillAbort.signal },
+    );
+  } catch (e: unknown) {
+    const aborted =
+      fulfillAbort.signal.aborted ||
+      (e instanceof Error && e.name === "AbortError") ||
+      (typeof DOMException !== "undefined" &&
+        e instanceof DOMException &&
+        e.name === "AbortError");
+    if (aborted) {
+      console.warn(
+        "[runCriteriaMatch] fulfillMatchedPairApi timed out; match likely succeeded on-chain — refresh or check explorer.",
+      );
+      return;
+    }
+    throw e;
+  } finally {
+    clearTimeout(fulfillTimer);
+  }
 }
 
 const GENERIC_CONTRACT =

@@ -9,7 +9,15 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { EntityManager, LessThan, Not, QueryFailedError, Repository } from 'typeorm';
+import {
+  EntityManager,
+  In,
+  IsNull,
+  LessThan,
+  Not,
+  QueryFailedError,
+  Repository,
+} from 'typeorm';
 import { CollectionService } from './collection.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { Order, OrderSide, OrderStatus } from './entities/order.entity';
@@ -144,6 +152,24 @@ export class MarketplaceService {
         this.logger.warn(
           `Collection not attached for token #${dto.tokenId}: ${String(e)}`,
         );
+        const tidRaw = String(dto.tokenId);
+        const tidNorm = normalizeDecimalTokenId(tidRaw);
+        const tidVariants = [...new Set([tidRaw, tidNorm].filter((s) => s.length > 0))];
+        const prior = await this.orderRepo.findOne({
+          where: {
+            tokenContract: dto.tokenContract,
+            side: OrderSide.ASK,
+            tokenId: In(tidVariants),
+            collectionKey: Not(IsNull()),
+          },
+          order: { updatedAt: 'DESC' },
+        });
+        if (prior?.collectionKey) {
+          collectionKey = prior.collectionKey;
+          this.logger.log(
+            `Reused collection_key from a prior ask for token #${dto.tokenId} (metadata fetch failed).`,
+          );
+        }
       }
     }
 

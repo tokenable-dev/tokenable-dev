@@ -594,6 +594,7 @@ export default function MarketplaceCollectionPage() {
               bookSelection={bookSelection}
               address={address as Address | undefined}
               onBuySuccess={() => {
+                setSellModalOpen(false);
                 setTradeCelebration("purchase");
                 void invalidateCollection();
               }}
@@ -607,7 +608,10 @@ export default function MarketplaceCollectionPage() {
               onInstantBuyFillUsdc={(usdc) =>
                 setSessionFillPoint({ t: Math.floor(Date.now() / 1000), v: usdc })
               }
-              onPurchaseFilled={() => setTradeCelebration("purchase")}
+              onPurchaseFilled={() => {
+                setSellModalOpen(false);
+                setTradeCelebration("purchase");
+              }}
               presetPriceFromBook={presetPriceFromBook}
               listingCount={asks.length}
             />

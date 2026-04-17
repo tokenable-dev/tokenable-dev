@@ -32,8 +32,8 @@ export function CollectionListSparkline({
   positive?: boolean;
   className?: string;
 }) {
-  const w = 96;
-  const h = 44;
+  const w = 152;
+  const h = 66;
   const { d, up } = useMemo(() => {
     if (!points?.length) return { d: "", up: true };
     const sorted = [...points].sort((a, b) => a.t - b.t);
@@ -54,7 +54,7 @@ export function CollectionListSparkline({
   if (!d) {
     return (
       <div
-        className={`flex h-12 w-28 shrink-0 items-center justify-center rounded-lg border border-gray-800/60 bg-black/40 ${className}`}
+        className={`flex h-20 w-40 shrink-0 items-center justify-center rounded-xl border border-gray-800/60 bg-black/40 ${className}`}
         aria-hidden
       />
     );
@@ -62,7 +62,7 @@ export function CollectionListSparkline({
 
   return (
     <svg
-      className={`h-12 w-28 shrink-0 ${className}`}
+      className={`h-20 w-40 shrink-0 ${className}`}
       viewBox={`0 0 ${w} ${h}`}
       preserveAspectRatio="none"
       aria-hidden
@@ -71,7 +71,7 @@ export function CollectionListSparkline({
         d={d}
         fill="none"
         stroke={stroke}
-        strokeWidth={1.75}
+        strokeWidth={2.25}
         strokeLinecap="round"
         strokeLinejoin="round"
         vectorEffect="non-scaling-stroke"
