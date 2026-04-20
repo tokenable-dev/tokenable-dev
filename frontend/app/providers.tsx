@@ -6,6 +6,7 @@ import { WagmiProvider } from "wagmi";
 import { wagmiConfig } from "@/config/wagmi";
 import { WalletDataProvider } from "@/providers/WalletDataProvider";
 import { AuthProvider } from "@/providers/AuthProvider";
+import { MarketplaceQueryPersistence } from "@/components/providers/MarketplaceQueryPersistence";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -23,6 +24,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <WagmiProvider config={wagmiConfig}>
       <QueryClientProvider client={queryClient}>
+        <MarketplaceQueryPersistence />
         {/* Syncs wagmi on-chain data → Zustand store for all children */}
         <AuthProvider>
           <WalletDataProvider>{children}</WalletDataProvider>

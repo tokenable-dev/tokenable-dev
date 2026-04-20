@@ -43,6 +43,8 @@ export type GameIndex180dSeries = {
   points: JustTcgPriceHistoryPoint[];
   /** % change from first to last point. */
   changePct: number;
+  /** Shown next to the chart (sparkline spans ~180 calendar days). */
+  comparisonAnchorLabel: string;
 };
 
 /**
@@ -50,6 +52,64 @@ export type GameIndex180dSeries = {
  * Uses `game_value_change_180d_pct` when JustTCG includes it; otherwise estimates
  * past value by compounding published trailing returns (90d×2, else 30d×6, else 7d×(180/7)).
  */
+/**
+ * Sparkline path: same ~180d window and headline % as
+ * {@link buildGameIndex180dComparisonSeries}, but adds intermediate samples at
+ * ~90d / ~30d / ~7d from trailing returns so the line is not a single straight
+ * segment (still modelled from published aggregates, not tick-level history).
+ */
+export function buildGameIndexSparklinePoints(params: {
+  valueUsd: number;
+  change7dPct: number;
+  change30dPct: number;
+  change90dPct: number;
+  change180dPct?: number;
+  rawChange90dPct?: number;
+  rawChange30dPct?: number;
+}): JustTcgPriceHistoryPoint[] {
+  const series = buildGameIndex180dComparisonSeries({
+    valueUsd: params.valueUsd,
+    change7dPct: params.change7dPct,
+    change180dPct: params.change180dPct,
+    rawChange90dPct: params.rawChange90dPct,
+    rawChange30dPct: params.rawChange30dPct,
+  });
+  if (series.points.length < 2) return series.points;
+
+  const left = series.points[0]!;
+  const right = series.points[series.points.length - 1]!;
+
+  const implied = buildImpliedGameValueTrend({
+    valueUsd: params.valueUsd,
+    change7dPct: params.change7dPct,
+    change30dPct: params.change30dPct,
+    change90dPct: params.change90dPct,
+  });
+
+  const inner = implied.filter((q) => q.t > left.t);
+  const merged = [left, ...inner].sort((a, b) => a.t - b.t);
+
+  const out: JustTcgPriceHistoryPoint[] = [];
+  for (const p of merged) {
+    if (out.length && out[out.length - 1]!.t === p.t) {
+      out[out.length - 1] = p;
+    } else {
+      out.push(p);
+    }
+  }
+
+  if (!out.length) return series.points;
+
+  const last = out[out.length - 1]!;
+  if (last.t === right.t) {
+    out[out.length - 1] = right;
+  } else {
+    out.push(right);
+  }
+
+  return out;
+}
+
 export function buildGameIndex180dComparisonSeries(params: {
   valueUsd: number;
   change7dPct: number;
@@ -61,8 +121,10 @@ export function buildGameIndex180dComparisonSeries(params: {
   const now = Math.floor(Date.now() / 1000);
   const t0 = now - 180 * DAY_SEC;
 
+  const anchor = "vs ~6 months ago";
+
   if (!Number.isFinite(v) || v <= 0) {
-    return { points: [], changePct: 0 };
+    return { points: [], changePct: 0, comparisonAnchorLabel: anchor };
   }
 
   if (
@@ -77,6 +139,7 @@ export function buildGameIndex180dComparisonSeries(params: {
         { p: v, t: now },
       ],
       changePct: r180,
+      comparisonAnchorLabel: anchor,
     };
   }
 
@@ -93,6 +156,7 @@ export function buildGameIndex180dComparisonSeries(params: {
         { p: v, t: now },
       ],
       changePct: pct,
+      comparisonAnchorLabel: anchor,
     };
   }
 
@@ -109,6 +173,7 @@ export function buildGameIndex180dComparisonSeries(params: {
         { p: v, t: now },
       ],
       changePct: pct,
+      comparisonAnchorLabel: anchor,
     };
   }
 
@@ -122,5 +187,6 @@ export function buildGameIndex180dComparisonSeries(params: {
       { p: v, t: now },
     ],
     changePct: pct,
+    comparisonAnchorLabel: anchor,
   };
 }

@@ -219,7 +219,8 @@ export default function ExchangePage() {
   const { data: collectionSummaries = [], isLoading: colLoading } = useQuery({
     queryKey: ["marketplace-collections"],
     queryFn: getMarketplaceCollections,
-    refetchInterval: 15_000,
+    /** Defaults + localStorage persist in MarketplaceQueryPersistence — avoid constant refetch */
+    refetchInterval: 5 * 60 * 1000,
   });
 
   const isLoading = ordersLoading || colLoading;
@@ -244,13 +245,16 @@ export default function ExchangePage() {
     [sortedForRank],
   );
 
-  const { data: snapshotPack } = useQuery({
+  const { data: snapshotPack, isPending: snapshotsPending } = useQuery({
     queryKey: ["marketplace-collection-snapshots", snapshotKeys.join("|")],
     queryFn: () =>
       postMarketplaceCollectionSnapshotsBatched(snapshotKeys, "30d"),
     enabled: snapshotKeys.length > 0 && !isLoading,
-    staleTime: 60_000,
   });
+
+  /** PokeTrace / JustTCG bundle for sparklines & % — show bar while this request runs */
+  const showMarketSnapshotLoadingBar =
+    snapshotKeys.length > 0 && !isLoading && snapshotsPending;
 
   const snapshotByKey = useMemo(() => {
     const m = new Map<string, CollectionListMarketSnapshot>();
@@ -327,6 +331,24 @@ export default function ExchangePage() {
         {/* Collection list */}
         <div className="mb-6">
           <h2 className="mb-3 text-2xl font-bold sm:text-3xl">Card Trading List</h2>
+          {showMarketSnapshotLoadingBar ? (
+            <div
+              className="mb-4 space-y-2"
+              role="status"
+              aria-live="polite"
+              aria-busy="true"
+            >
+              <p className="text-center text-xs text-zinc-500 sm:text-left">
+                Loading market prices and charts…
+              </p>
+              <div
+                className="relative h-1.5 w-full overflow-hidden rounded-full bg-zinc-800/90"
+                aria-hidden
+              >
+                <div className="absolute left-0 top-0 h-full w-[32%] rounded-full bg-mint/90 shadow-[0_0_14px_rgba(148,255,212,0.35)] exchange-snapshot-loading-fill" />
+              </div>
+            </div>
+          ) : null}
           {!isLoading && collectionsWithListings.length > 0 ? (
             <div className="mb-4">
               <CollectionCategoryFilterBar value={categoryFilter} onChange={setCategoryFilter} />

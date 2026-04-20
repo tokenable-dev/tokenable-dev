@@ -391,6 +391,15 @@ export function MintForm() {
     [applyPsaAnalyzeResult, certHintForPsa],
   );
 
+  /** After a cert lookup: clear result and locks so the user can change cert #, then press Look up. */
+  const resetCertLookupToEdit = useCallback(() => {
+    analyzeNonceRef.current += 1;
+    setAnalyzeLoading(false);
+    setAnalyzeError("");
+    setLastAnalyze(null);
+    setPsaFieldLocks(EMPTY_PSA_FIELD_LOCKS);
+  }, []);
+
   const executePsaCertLookup = useCallback(async () => {
     const hint = certHintForPsa();
     if (!hint?.trim()) {
@@ -560,6 +569,12 @@ export function MintForm() {
   const certLookupAnalyzing = psaInputMode === "cert" && analyzeLoading;
   const showPsaAnalyzeOverlay = slabAnalyzing || certLookupAnalyzing;
 
+  /** Vault: show Mint only after slab photo is chosen, or after cert lookup completes. */
+  const showMintReady =
+    psaInputMode === "slab"
+      ? form.verification.slabFront instanceof File
+      : Boolean(lastAnalyze);
+
   useEffect(() => {
     if (!showPsaAnalyzeOverlay) return;
     const prevOverflow = document.body.style.overflow;
@@ -637,14 +652,16 @@ export function MintForm() {
               psaInputMode={psaInputMode}
               onPsaInputModeChange={handlePsaInputModeChange}
               onCertLookup={() => void executePsaCertLookup()}
+              onCertLookupReset={resetCertLookupToEdit}
               certLookupBusy={analyzeLoading}
+              certLookupHasResult={psaInputMode === "cert" && lastAnalyze !== null}
               slotAfterHero={
                 <div className="space-y-4">
         {!isConnected ? (
           <WalletConnect
             connectButtonClassName="w-full py-3.5 bg-gradient-to-r from-mint to-mint-dim hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed text-mint-ink text-sm font-bold rounded-xl transition-all duration-200 shadow-lg shadow-mint/25"
           />
-        ) : (
+        ) : showMintReady ? (
           <button
             type="submit"
             disabled={isProcessing || showPsaAnalyzeOverlay}
@@ -658,7 +675,7 @@ export function MintForm() {
                   : "Analyzing slab…"
                 : "Mint"}
           </button>
-        )}
+        ) : null}
 
         {isProcessing && (
           <div className="flex items-center gap-2 py-1">
@@ -679,7 +696,7 @@ export function MintForm() {
 
               <details className="group rounded-xl border border-gray-700/50 bg-gray-800/20 overflow-hidden">
                 <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3.5 text-sm font-medium text-gray-200 transition-colors hover:bg-gray-800/35 [&::-webkit-details-marker]:hidden">
-                  <span>Mint Image Preview</span>
+                  <span>Mint image</span>
                   <svg
                     className="h-4 w-4 shrink-0 text-gray-500 transition-transform group-open:rotate-180"
                     fill="none"
@@ -696,9 +713,6 @@ export function MintForm() {
                   </svg>
                 </summary>
                 <div className="space-y-5 border-t border-gray-700/40 px-4 pb-4 pt-3 sm:px-5">
-                  <p className="text-[11px] leading-relaxed text-gray-500">
-                    PSA official image is preferred. Falls back to your slab photo.
-                  </p>
               {showPsaAnalyzeOverlay ? (
                 <div className="rounded-lg border border-dashed border-gray-700/80 bg-gray-900/20 px-4 py-8 text-center">
                   <p className="text-sm text-gray-500">
@@ -711,9 +725,6 @@ export function MintForm() {
                 <div className="space-y-4 rounded-lg border border-gray-700/80 bg-gray-900/40 p-4 sm:p-5">
                   <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:gap-8">
                     <div className="mx-auto flex shrink-0 flex-col items-center lg:mx-0">
-                      <span className="mb-2 inline-flex items-center rounded-md border border-gray-600 bg-gray-800/80 px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-gray-400">
-                        PSA · Mint image
-                      </span>
                       <div className="rounded-xl border border-gray-700 bg-[#070a0f] p-3">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
@@ -724,22 +735,10 @@ export function MintForm() {
                           referrerPolicy="no-referrer"
                         />
                       </div>
-                      <p className="mt-2 max-w-[260px] text-center text-[10px] leading-snug text-gray-500">
-                        From the PSA API. Shown in marketplace and wallets as the card art.
-                      </p>
                     </div>
-                    <div className="flex min-w-0 flex-1 flex-col justify-center gap-3 pt-0 lg:pt-4">
-                      <div className="rounded-lg border border-gray-700/80 bg-gray-800/50 p-3">
-                        <p className="mb-1.5 text-xs font-medium text-gray-200">
-                          Minting with PSA cert image
-                        </p>
-                        <p className="text-[11px] leading-snug text-gray-400">
-                          Only this image from PSA is uploaded to IPFS as the RWA image. The
-                          slab snapshot cannot be substituted.
-                        </p>
-                      </div>
-                      <p className="pl-0.5 text-[11px] text-gray-500">
-                        Marketplace and wallet use this PSA image as display art.
+                    <div className="flex min-w-0 flex-1 flex-col justify-center pt-0 lg:pt-2">
+                      <p className="text-xs text-gray-500">
+                        PSA image is used for IPFS and marketplace art.
                       </p>
                     </div>
                   </div>
@@ -750,13 +749,7 @@ export function MintForm() {
                 form.image instanceof File &&
                 mintImageBlobUrl && (
                   <div className="space-y-2 rounded-lg border border-gray-700/80 bg-gray-900/35 p-4 sm:p-5">
-                    <p className="text-xs font-medium text-gray-200">
-                      Mint image — slab photo
-                    </p>
-                    <p className="text-[11px] leading-relaxed text-gray-500">
-                      No PSA official image URL for this run. The slab capture below will be
-                      used as the RWA image.
-                    </p>
+                    <p className="text-xs font-medium text-gray-300">Slab photo → mint image</p>
                     <div className="inline-block rounded-lg border border-gray-700/80 bg-[#0a0e14] p-3">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
@@ -771,23 +764,11 @@ export function MintForm() {
               {!lastAnalyze?.psaCertImages?.front &&
                 !(form.image instanceof File) &&
                 !showPsaAnalyzeOverlay && (
-                  <div className="rounded-lg border border-dashed border-gray-700/80 bg-gray-900/20 px-4 py-6 text-center">
-                    <p className="mb-1 text-sm font-medium text-gray-300">
-                      No mint image yet
-                    </p>
-                    <p className="mx-auto max-w-md text-[11px] leading-relaxed text-gray-500">
-                      {psaInputMode === "cert" ? (
-                        <>
-                          Enter a <strong className="text-gray-400">PSA cert #</strong> or cert URL
-                          and run <strong className="text-gray-400">Look up</strong>. When PSA returns
-                          an image URL, it will show here.
-                        </>
-                      ) : (
-                        <>
-                          <strong className="text-gray-400">Upload a photo</strong> above. After
-                          analysis, the PSA image or your photo will show here.
-                        </>
-                      )}
+                  <div className="rounded-lg border border-dashed border-gray-700/60 bg-gray-900/20 px-4 py-5 text-center">
+                    <p className="text-xs text-gray-500">
+                      {psaInputMode === "cert"
+                        ? "Run cert lookup for a PSA image, or use Photo mode."
+                        : "Appears here after slab analysis."}
                     </p>
                   </div>
                 )}

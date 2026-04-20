@@ -99,7 +99,10 @@ export function CollectionOwnedRwaListModal({
         })
       );
 
-      return enriched.filter((x): x is OwnedInCollection => x != null).sort((a, b) => a.tokenId - b.tokenId);
+      /** Newest mints first — token ids are sequential for this collection contract. */
+      return enriched
+        .filter((x): x is OwnedInCollection => x != null)
+        .sort((a, b) => b.tokenId - a.tokenId);
     },
     enabled: open && !!effectiveAddr && !!collectionKey,
     staleTime: 30_000,
