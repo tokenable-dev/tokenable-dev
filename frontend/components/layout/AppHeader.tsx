@@ -23,9 +23,9 @@ function SearchBar() {
   const router = useRouter();
 
   const { data: collections = [] } = useQuery<MarketplaceCollectionSummary[]>({
-    queryKey: ["marketplace-collections-search"],
+    /** Same key as Exchange — one network cache + localStorage persist */
+    queryKey: ["marketplace-collections"],
     queryFn: getMarketplaceCollections,
-    staleTime: 60_000,
   });
 
   const filtered = useMemo(() => {

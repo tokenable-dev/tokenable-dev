@@ -44,27 +44,52 @@ function AmbientAurora() {
 
 function FeeBadgeIcons() {
   return (
-    <div className="flex items-center justify-center text-mint/90" aria-hidden>
-      <span className="flex h-11 w-11 items-center justify-center rounded-xl border border-mint/25 bg-mint/[0.08] shadow-[inset_0_1px_0_0_rgba(148,255,212,0.12)]">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" className="text-mint">
-          <path
-            d="M12 4v16m0 0l-4-4m4 4 4-4"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-      </span>
+    <div className="flex items-center justify-center" aria-hidden>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={ASSETS.icons.lowestTransactionFee}
+        alt=""
+        width={78}
+        height={78}
+        className="h-11 w-11 object-contain sm:h-12 sm:w-12"
+      />
+    </div>
+  );
+}
+
+/** Fast / instant settlement — provided mark */
+function InstantSettlementIcons() {
+  return (
+    <div className="flex items-center justify-center" aria-hidden>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={ASSETS.icons.instantSettlement}
+        alt=""
+        width={72}
+        height={72}
+        className="h-11 w-11 object-contain sm:h-12 sm:w-12"
+      />
     </div>
   );
 }
 
 function Psa10Mark() {
   return (
-    <div className="flex items-baseline justify-center gap-0.5 select-none">
-      <span className="text-3xl font-black tracking-tight text-[#2563eb] sm:text-4xl">PSA</span>
-      <span className="text-3xl font-black tracking-tight text-[#dc2626] sm:text-4xl">10</span>
+    <div
+      className="flex items-end justify-center gap-1.5 select-none sm:gap-2"
+      aria-label="PSA 10"
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={ASSETS.icons.psaMark}
+        alt=""
+        width={104}
+        height={40}
+        className="h-10 w-auto max-w-[min(100%,7.25rem)] object-contain object-bottom sm:h-12"
+      />
+      <span className="text-4xl font-black leading-[0.85] tracking-tight text-white sm:text-5xl">
+        10
+      </span>
     </div>
   );
 }
@@ -121,7 +146,7 @@ export default function LandingPage() {
         </div>
 
         <h1 className="mb-5 max-w-4xl text-center text-[1.65rem] font-bold leading-tight tracking-tight text-white sm:text-4xl md:text-5xl lg:text-[3.25rem] lg:leading-[1.12]">
-          Tokenized Collectibles Exchanges
+          Tokenized Collectibles Exchange
         </h1>
 
         <p className="mb-11 max-w-xl text-center text-sm leading-relaxed text-gray-400 sm:text-base sm:leading-relaxed">
@@ -163,9 +188,7 @@ export default function LandingPage() {
           </FeatureStat>
 
           <FeatureStat label="Instant Settlement">
-            <span className="text-3xl font-extrabold tracking-tight text-white tabular-nums sm:text-4xl">
-              $100M
-            </span>
+            <InstantSettlementIcons />
           </FeatureStat>
         </div>
       </section>

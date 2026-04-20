@@ -134,3 +134,16 @@ html.collection-details-scroll::-webkit-scrollbar-thumb:hover {
 html.collection-details-scroll::-webkit-scrollbar-corner {
   background: rgba(3, 7, 18, 0.98);
 }
+
+/** RWA Exchange — indeterminate bar while PokeTrace / market snapshots load */
+@keyframes exchange-market-snapshot-sweep {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(380%);
+  }
+}
+.exchange-snapshot-loading-fill {
+  animation: exchange-market-snapshot-sweep 1.25s ease-in-out infinite;
+}

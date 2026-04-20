@@ -152,6 +152,10 @@ export interface JustTcgGameSummary {
   id: string;
   name: string;
   cards_count?: number;
+  /**
+   * JustTCG aggregate catalog value for the game in USD (sum over cards of each
+   * card’s highest variant price). See JustTCG `/games` — `game_value_usd`.
+   */
   game_value_usd: number;
   game_value_change_7d_pct: number;
   game_value_change_30d_pct?: number;

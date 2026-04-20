@@ -21,6 +21,12 @@ export const ASSETS = {
   /** 아이콘 (favicon, 앱 아이콘 등) */
   icons: {
     tokenable: `${ASSETS_BASE}/icons/tokenable_icon.png`,
+    /** PSA wordmark PNG (landing hero). */
+    psaMark: `${ASSETS_BASE}/icons/psa-logo.png`,
+    /** Lowest transaction fee — landing feature stat. */
+    lowestTransactionFee: `${ASSETS_BASE}/icons/lowest-transaction-fee.png`,
+    /** Instant settlement — landing feature stat. */
+    instantSettlement: `${ASSETS_BASE}/icons/instant-settlement.png`,
   },
 
   /** 기타 이미지 */
