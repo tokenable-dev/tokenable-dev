@@ -248,11 +248,11 @@ export function CollectionCriteriaBidPanel({
 
   async function invalidateAfterTrade() {
     await queryClient.invalidateQueries({ queryKey: ["marketplace-collection", collectionKey] });
-    await queryClient.invalidateQueries({ queryKey: ["marketplace-orders"] });
+    await queryClient.invalidateQueries({ queryKey: ["orders"] });
     await queryClient.invalidateQueries({ queryKey: ["merkle-set"] });
     await queryClient.invalidateQueries({ queryKey: ["merkle-set", collectionKey] });
-    await queryClient.invalidateQueries({ queryKey: ["my-rwa-ids"] });
-    await queryClient.invalidateQueries({ queryKey: ["my-rwas"] });
+    await queryClient.invalidateQueries({ queryKey: ["rwa-tokens"] });
+    await queryClient.invalidateQueries({ queryKey: ["rwa-metadata-batch"] });
     await queryClient.invalidateQueries({
       predicate: (q) =>
         Array.isArray(q.queryKey) && q.queryKey[0] === "readContract",

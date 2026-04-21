@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { resolveIpfsImage } from "@/lib/api";
+import { useResolvedMediaUrl } from "@/hooks/useResolvedMediaUrl";
 
 const LENS_PX = 104;
 const ZOOM = 2.25;
@@ -39,7 +39,7 @@ export function CollectionImageLoupe({
   className?: string;
   embedInFrame?: boolean;
 }) {
-  const resolved = resolveIpfsImage(imageUrl);
+  const { url: resolved } = useResolvedMediaUrl(imageUrl);
   const wrapRef = useRef<HTMLDivElement>(null);
   const [natural, setNatural] = useState({ w: 0, h: 0 });
   const [active, setActive] = useState(false);
@@ -114,21 +114,27 @@ export function CollectionImageLoupe({
         onMove(e);
       }}
     >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={resolved}
-        alt={alt}
-        className="relative z-0 block h-full w-full object-contain object-center select-none"
-        style={{ filter: "saturate(1.04) contrast(1.02)" }}
-        draggable={false}
-        onLoad={onImgLoad}
-      />
+      {resolved ? (
+        <>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={resolved}
+            alt={alt}
+            className="relative z-0 block h-full w-full object-contain object-center select-none"
+            style={{ filter: "saturate(1.04) contrast(1.02)" }}
+            draggable={false}
+            onLoad={onImgLoad}
+          />
+        </>
+      ) : (
+        <div className="relative z-0 block h-full w-full bg-gray-900/80 animate-pulse" aria-hidden />
+      )}
       <div
         className="pointer-events-none absolute inset-x-0 top-0 h-2/5 bg-gradient-to-b from-white/[0.045] to-transparent"
         aria-hidden
       />
 
-      {showLens ? (
+      {showLens && resolved ? (
         <div
           className="pointer-events-none absolute z-10 rounded-full border-2 border-white/50 bg-black/15 shadow-[0_8px_24px_rgba(0,0,0,0.55)] backdrop-blur-[0.5px] overflow-hidden"
           style={{

@@ -4,23 +4,24 @@ import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAccount } from "wagmi";
 import {
-  fetchIpfsMetadata,
+  postRwaMetadataBatch,
   getActiveOrders,
-  getRwaTokenURI,
   getRwaTokensByOwner,
-  resolveIpfsImage,
   cancelOrder,
   type Order,
+  type OrderListItem,
   type RwaMetadata,
 } from "@/lib/api";
 import { metadataMatchesCollectionKey } from "@/lib/marketplace/bucketKey";
 import { ListRwaModal } from "@/components/marketplace/ListRwaModal";
 import { TOKENABLE_RWA_DISPLAY_NAME } from "@/constants/contracts";
+import { rq, marketplaceRqPolicy } from "@/lib/queryKeys";
 
 interface OwnedInCollection {
   tokenId: number;
-  tokenURI: string;
+  tokenURI: string | null;
   metadata: RwaMetadata | null;
+  imageUrl: string | null;
 }
 
 export function CollectionOwnedRwaListModal({
@@ -82,52 +83,48 @@ export function CollectionOwnedRwaListModal({
       const ids = await getRwaTokensByOwner(effectiveAddr);
       if (ids.length === 0) return [];
 
-      const enriched = await Promise.all(
-        ids.map(async (tokenId): Promise<OwnedInCollection | null> => {
-          try {
-            const tokenURI = await getRwaTokenURI(tokenId);
-            const metadata = tokenURI
-              ? await fetchIpfsMetadata(tokenURI).catch(() => null)
-              : null;
-            const metaObj = metadata as Record<string, unknown> | null;
-            const match = await metadataMatchesCollectionKey(metaObj, collectionKey);
-            if (!match) return null;
-            return { tokenId, tokenURI, metadata };
-          } catch {
-            return null;
-          }
-        })
-      );
+      const { items } = await postRwaMetadataBatch({ tokenIds: ids });
+      const enriched: OwnedInCollection[] = [];
+      for (const row of items) {
+        const metaObj = row.metadata as Record<string, unknown> | null;
+        const match = await metadataMatchesCollectionKey(metaObj, collectionKey);
+        if (!match) continue;
+        enriched.push({
+          tokenId: row.tokenId,
+          tokenURI: row.tokenURI ?? null,
+          metadata: row.metadata,
+          imageUrl: row.imageUrl ?? null,
+        });
+      }
 
-      /** Newest mints first — token ids are sequential for this collection contract. */
-      return enriched
-        .filter((x): x is OwnedInCollection => x != null)
-        .sort((a, b) => b.tokenId - a.tokenId);
+      return enriched.sort((a, b) => b.tokenId - a.tokenId);
     },
     enabled: open && !!effectiveAddr && !!collectionKey,
     staleTime: 30_000,
   });
 
   const { data: orders } = useQuery({
-    queryKey: ["marketplace-orders"],
+    queryKey: rq.ordersActive(),
     queryFn: getActiveOrders,
     enabled: open && !!effectiveAddr,
+    refetchInterval: marketplaceRqPolicy.ordersRefetchMs,
+    staleTime: marketplaceRqPolicy.ordersStaleMs,
   });
 
   const activeByToken = useMemo(() => {
-    const m = new Map<number, Order>();
+    const m = new Map<number, OrderListItem>();
     for (const o of orders ?? []) {
-      if (o.status === "active") m.set(Number(o.tokenId), o);
+      if (o.status === "active" && o.side === "ask") m.set(Number(o.tokenId), o);
     }
     return m;
   }, [orders]);
 
-  async function handleCancel(order: Order) {
+  async function handleCancel(order: OrderListItem) {
     if (!effectiveAddr) return;
     setCancellingHash(order.orderHash);
     try {
       await cancelOrder(order.orderHash, effectiveAddr);
-      await queryClient.invalidateQueries({ queryKey: ["marketplace-orders"] });
+      await queryClient.invalidateQueries({ queryKey: ["orders"] });
       await queryClient.invalidateQueries({ queryKey: ["marketplace-collection", collectionKey] });
     } finally {
       setCancellingHash(null);
@@ -135,6 +132,9 @@ export function CollectionOwnedRwaListModal({
   }
 
   if (!open) return null;
+
+  const listingAsk =
+    listingTokenId != null ? activeByToken.get(listingTokenId) : undefined;
 
   return (
     <div
@@ -190,9 +190,7 @@ export function CollectionOwnedRwaListModal({
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 sm:gap-5">
               {rows.map((asset) => {
-                const imageUrl = asset.metadata?.image
-                  ? resolveIpfsImage(asset.metadata.image)
-                  : null;
+                const imageUrl = asset.imageUrl;
                 const order = activeByToken.get(asset.tokenId);
                 const listed = !!order;
 
@@ -230,7 +228,7 @@ export function CollectionOwnedRwaListModal({
                         {listed && order ? (
                           <>
                             <p className="text-xs text-mint/90 mb-2 font-medium tabular-nums">
-                              {(Number(order.considerationAmount) / 1_000_000).toLocaleString()} USDC
+                              {(Number(order.price) / 1_000_000).toLocaleString()} USDC
                             </p>
                             <button
                               type="button"
@@ -273,16 +271,18 @@ export function CollectionOwnedRwaListModal({
           collectionKey={collectionKey}
           collectionBids={collectionBids}
           preferredBidOrderHash={preferredBidOrderHash ?? undefined}
-          existingAskOrder={(() => {
-            const o = activeByToken.get(listingTokenId);
-            return o?.side === "ask" && o.status === "active" ? o : undefined;
-          })()}
+          existingAskOrder={undefined}
+          existingAskOrderHash={
+            listingAsk?.side === "ask" && listingAsk.status === "active"
+              ? listingAsk.orderHash
+              : undefined
+          }
           initialPriceUsdc={listPricePresetUsdc ?? undefined}
           onMatchedSale={() => onSaleCelebration?.()}
           onClose={() => setListingTokenId(null)}
           onListed={() => {
             setListingTokenId(null);
-            void queryClient.invalidateQueries({ queryKey: ["marketplace-orders"] });
+            void queryClient.invalidateQueries({ queryKey: ["orders"] });
             void queryClient.invalidateQueries({ queryKey: ["marketplace-collection", collectionKey] });
             void queryClient.invalidateQueries({ queryKey: ["merkle-set", collectionKey] });
             void queryClient.invalidateQueries({

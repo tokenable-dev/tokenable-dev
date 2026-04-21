@@ -2,10 +2,15 @@
 
 import { useMemo } from "react";
 import Link from "next/link";
-import type { Order } from "@/lib/api";
+import type { Order, OrderListItem } from "@/lib/api";
 
-function priceUsdc(o: Order): number {
-  return Number(o.considerationAmount) / 1_000_000;
+export type OrderBookRow = Order | OrderListItem;
+
+function priceUsdc(o: OrderBookRow): number {
+  if ("considerationAmount" in o && o.considerationAmount != null) {
+    return Number(o.considerationAmount) / 1_000_000;
+  }
+  return Number((o as OrderListItem).price) / 1_000_000;
 }
 
 /** 마켓플레이스 — 매도(ask) 호가를 거래소 식으로 나열 */
@@ -16,7 +21,7 @@ export function MarketplaceOrderBook({
   variant = "compact",
   className = "",
 }: {
-  orders: Order[];
+  orders: OrderBookRow[];
   subtitle?: string;
   variant?: "compact" | "full";
   className?: string;

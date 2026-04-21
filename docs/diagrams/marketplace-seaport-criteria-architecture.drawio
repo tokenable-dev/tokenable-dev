@@ -8,7 +8,7 @@
         <mxCell id="t1" value="Marketplace — Seaport ERC721_WITH_CRITERIA + Merkle (현재 제품 구조 요약)" style="text;html=1;fontSize=22;fontStyle=1;align=left;fontColor=#1a1a1a;" vertex="1" parent="1">
           <mxGeometry x="40" y="24" width="1200" height="36" as="geometry" />
         </mxCell>
-        <mxCell id="t1b" value="코드 기준: `frontend/lib/seaport/*`, `CollectionCriteriaBidPanel`, `CollectionUnifiedOrderBook`, `TokenCriteriaMatchPanel`, `submitAskListing.ts` · backend `MarketplaceService` + `marketplace.controller` · DB `orders` (bucket_bid_id 제거, 마이그레이션 `010`)" style="text;html=1;fontSize=11;fontStyle=2;align=left;fillColor=#f5f5f5;" vertex="1" parent="1">
+        <mxCell id="t1b" value="코드 기준: `frontend/lib/seaport/*`, `CollectionCriteriaBidPanel`, `CollectionUnifiedOrderBook`, `TokenCriteriaMatchPanel`, `submitAskListing.ts` · backend `MarketplaceService` + `marketplace.controller` · DB `orders` · 병행 규칙 매칭: `docs/marketplace-trading.md` + `trading/*` (`bids`/`asks`/…)" style="text;html=1;fontSize=11;fontStyle=2;align=left;fillColor=#f5f5f5;" vertex="1" parent="1">
           <mxGeometry x="40" y="58" width="1900" height="36" as="geometry" />
         </mxCell>
 
@@ -128,8 +128,15 @@
         <mxCell id="s8" value="H) 관련 소스 파일 (탐색용)" style="swimlane;horizontal=1;startSize=36;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;fontSize=14;align=left;spacingLeft=10;" vertex="1" parent="1">
           <mxGeometry x="40" y="2440" width="1900" height="180" as="geometry" />
         </mxCell>
-        <mxCell id="s8a" value="frontend: `lib/seaport/criteriaMatch.ts` (normalizeSeaportZone 포함), `runCriteriaMatch.ts`, `submitAskListing.ts`, `merkle.ts`, `matchAdvancedOrdersArgs.ts`, `seaportFulfillOrderArgs.ts` (normalizeSeaportZone 적용), `constants/contracts.ts` (Seaport ABI)&#xa;backend: `marketplace.service.ts`, `marketplace.controller.ts`, `entities/order.entity.ts`, `entities/marketplace-collection.entity.ts`&#xa;schema: TypeORM entities + `backend/sql/README.md`" style="rounded=0;whiteSpace=wrap;html=1;align=left;spacingLeft=12;fontSize=11;fillColor=#ffffff;" vertex="1" parent="s8">
+        <mxCell id="s8a" value="frontend: `lib/seaport/criteriaMatch.ts` (normalizeSeaportZone 포함), `runCriteriaMatch.ts`, `submitAskListing.ts`, `merkle.ts`, `matchAdvancedOrdersArgs.ts`, `seaportFulfillOrderArgs.ts` (normalizeSeaportZone 적용), `constants/contracts.ts` (Seaport ABI)&#xa;backend: `marketplace.service.ts`, `marketplace.controller.ts`, `trading/bids.controller.ts`, `trading/trade.controller.ts`, `trading/trade-orchestrator.service.ts`, `entities/order.entity.ts`, `entities/marketplace-collection.entity.ts`, `entities/bid.entity.ts`, `entities/ask.entity.ts` …&#xa;schema: TypeORM entities + `backend/sql/README.md` · relational 요약: `docs/marketplace-trading.md`" style="rounded=0;whiteSpace=wrap;html=1;align=left;spacingLeft=12;fontSize=11;fillColor=#ffffff;" vertex="1" parent="s8">
           <mxGeometry x="24" y="52" width="1850" height="108" as="geometry" />
+        </mxCell>
+
+        <mxCell id="s9" value="I) 규칙 기반 매칭 레이어 (Seaport와 병행)" style="swimlane;horizontal=1;startSize=36;fillColor=#e1d5e7;strokeColor=#9673a6;fontStyle=1;fontSize=14;align=left;spacingLeft=10;" vertex="1" parent="1">
+          <mxGeometry x="40" y="2640" width="1900" height="200" as="geometry" />
+        </mxCell>
+        <mxCell id="s9a" value="GET `/marketplace/bids` · POST `/marketplace/trade/match` (202, Idempotency-Key) · GET `/marketplace/trade/executions/:id`&#xa;`TradeOrchestratorService` → `pending` + ask locked · `SettlementProcessorService` → `locked` → executed | failed&#xa;`RuleEngineService` · `OutboxPublisherService` · draw.io: `marketplace-trading-relational-layer.drawio`" style="rounded=0;whiteSpace=wrap;html=1;align=left;spacingLeft=12;fontSize=11;fillColor=#ffffff;fontFamily=Courier New;" vertex="1" parent="s9">
+          <mxGeometry x="24" y="52" width="1850" height="128" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>

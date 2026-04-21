@@ -23,6 +23,9 @@ const mockBlockchainService = {
   getRwaTokenURI: jest.fn().mockResolvedValue('ipfs://QmTest'),
   getRwaBalance: jest.fn().mockResolvedValue(2),
   getRwaTokensByOwner: jest.fn().mockResolvedValue([0, 1]),
+  batchRwaMetadata: jest.fn().mockResolvedValue({
+    items: [{ tokenId: 0, metadata: { name: 'Test' } }],
+  }),
 };
 
 describe('BlockchainController', () => {

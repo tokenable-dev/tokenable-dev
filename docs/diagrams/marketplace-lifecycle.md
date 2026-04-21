@@ -2,6 +2,8 @@
 
 > Seaport v1.5 · 오프체인 오더북(백엔드) · 온체인 `fulfillOrder` / `matchAdvancedOrders` 기준
 
+> **부록 (2026-04):** 동일 백엔드에 **규칙 기반 입찰·매칭·정산 워커**가 추가되었습니다 (`bids` / `asks` / `match_intents` / `trade_executions` 등). 현재 제품 UI의 기본 경로는 여전히 Seaport `orders` 입니다. 상세는 **[marketplace-trading.md](../marketplace-trading.md)** 및 **[marketplace-trading-relational-layer.drawio](./marketplace-trading-relational-layer.drawio)**.
+
 ---
 
 ## Part 1 — 전체 흐름도
@@ -863,6 +865,8 @@ backend/
 │   │
 │   ├── marketplace/
 │   │   ├── marketplace.controller.ts  # /marketplace — Seaport 오더북 DB
+│   │   ├── trading/bids.controller.ts  # GET /marketplace/bids
+│   │   ├── trading/trade.controller.ts # POST /trade/match, GET executions/:id
 │   │   ├── marketplace.service.ts
 │   │   ├── collection.service.ts
 │   │   ├── entities/           # order · marketplace-collection

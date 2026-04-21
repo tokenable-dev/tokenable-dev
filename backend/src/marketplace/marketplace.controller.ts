@@ -2,7 +2,6 @@ import {
   Body,
   Controller,
   Get,
-  NotFoundException,
   Param,
   Patch,
   Post,
@@ -12,7 +11,8 @@ import { PoketraceService } from '../poketrace/poketrace.service';
 import { CollectionMarketService } from './collection-market.service';
 import { CollectionService } from './collection.service';
 import { BatchMarketSnapshotsDto } from './dto/batch-market-snapshots.dto';
-import { BatchMintPoketracePreviewsDto } from './dto/batch-mint-poketrace-previews.dto';
+import { MintPreviewsByTokenIdsDto } from './dto/mint-previews-by-token-ids.dto';
+import { OrdersBatchByTokenDto } from './dto/orders-batch-by-token.dto';
 import {
   ApiBody,
   ApiOperation,
@@ -57,21 +57,42 @@ export class MarketplaceController {
     );
   }
 
-  @ApiOperation({ summary: 'Active listings (asks)' })
-  @Get('orders')
-  findActiveOrders(): Promise<Order[]> {
-    return this.marketplaceService.findActiveOrders();
+  @ApiOperation({
+    summary: 'Order history for many token ids in one DB round-trip (payload: list rows only)',
+  })
+  @ApiBody({ type: OrdersBatchByTokenDto })
+  @Post('orders/batch-by-token')
+  batchOrdersByToken(@Body() body: OrdersBatchByTokenDto) {
+    return this.marketplaceService.findOrdersBatchByTokenIds(body.tokenIds ?? []);
   }
 
-  @ApiOperation({ summary: 'Collection list' })
+  @ApiOperation({
+    summary: 'Active listings (asks) — lightweight rows (no Seaport parameters / signature)',
+  })
+  @Get('orders')
+  findActiveOrders() {
+    return this.marketplaceService.findActiveOrderListItems();
+  }
+
+  @ApiOperation({ summary: 'Collection list (cursor pagination)' })
+  @ApiQuery({ name: 'limit', required: false, description: 'Page size (default 24, max 60)' })
+  @ApiQuery({ name: 'cursor', required: false, description: 'Opaque cursor from prior page' })
   @Get('collections')
-  listCollections() {
-    return this.collectionService.listSummaries();
+  listCollections(@Query('limit') limitRaw?: string, @Query('cursor') cursor?: string) {
+    const parsed =
+      limitRaw != null && String(limitRaw).trim() !== ''
+        ? parseInt(String(limitRaw), 10)
+        : 24;
+    const limit = Number.isFinite(parsed) ? parsed : 24;
+    return this.collectionService.listSummariesPaged({
+      limit,
+      cursor: cursor?.trim() || null,
+    });
   }
 
   @ApiOperation({
     summary:
-      'Batch list-row snapshots: grade strip + category from JustTCG; sparkline + % change prefer PokeTrace NM eBay history when resolved, else JustTCG price history',
+      'Batch list-row snapshots: JustTCG grade strip + category; sparkline slot is legacy (empty when bundle has no external series). Pool floor/median/band/vol: use GET …/collections/:key/stats or `marketStats` on each item when present.',
   })
   @ApiBody({ type: BatchMarketSnapshotsDto })
   @Post('collections/market-snapshots')
@@ -125,23 +146,17 @@ export class MarketplaceController {
 
   @ApiOperation({
     summary:
-      'PokeTrace (My Assets): batch resolve raw NM eBay/TCG bands from per-token IPFS metadata. Dedupes identical card queries server-side; max 32 items.',
+      'PokeTrace (My Assets): batch resolve NM bands — server loads IPFS metadata from token ids (max 32).',
   })
-  @ApiBody({ type: BatchMintPoketracePreviewsDto })
+  @ApiBody({ type: MintPreviewsByTokenIdsDto })
   @Post('poketrace/mint-previews')
-  postMintPoketracePreviews(@Body() body: BatchMintPoketracePreviewsDto) {
-    const items = body.items ?? [];
-    return this.poketraceService.getBatchMintPreviews(
-      items.map((i) => ({
-        tokenId: i.tokenId,
-        metadata: i.metadata,
-      })),
-    );
+  postMintPoketracePreviews(@Body() body: MintPreviewsByTokenIdsDto) {
+    return this.poketraceService.getBatchMintPreviewsFromTokenIds(body.tokenIds ?? []);
   }
 
   @ApiOperation({
     summary:
-      'Dual-series chart data: external (JustTCG, max 180d history) + platform snapshot. Prefer one call on page load; poll GET …/platform-trades for fills only.',
+      'Chart bundle: platform fills (USDC) + JustTCG grade/category metadata. External “card history” series is empty (`marketChangeSource: none`); use GET …/collections/:key/stats for listing-pool statistics.',
   })
   @ApiParam({ name: 'key', description: 'collection_key' })
   @Get('collections/:key/market-series')
@@ -165,20 +180,30 @@ export class MarketplaceController {
     return this.collectionMarketService.platformTradesForApi(key);
   }
 
-  @ApiOperation({ summary: 'Collection detail + order book (listings + collection bids)' })
+  @ApiOperation({
+    summary:
+      'Collection market pool statistics (USDC only): Tukey IQR trim, floor = 10th percentile on trimmed set, volatility = sample stdev on trimmed set. sampleSize < 5 → numeric fields null and isReliable false. `reference.poketraceCardId` is metadata only.',
+  })
+  @ApiParam({ name: 'key', description: 'collection_key' })
+  @Get('collections/:key/stats')
+  getCollectionMarketStats(@Param('key') key: string) {
+    const k = decodeURIComponent(key).toLowerCase();
+    return this.collectionMarketService.getCollectionMarketStats(k);
+  }
+
+  @ApiOperation({
+    summary:
+      'Collection detail + order book (listings + collection bids). `collection` is null when no `marketplace_collections` row yet (same key may still have orders); avoids 404 for client prefetch.',
+  })
   @ApiParam({ name: 'key', description: 'collection_key' })
   @Get('collections/:key')
   async getCollection(@Param('key') key: string) {
     const k = decodeURIComponent(key).toLowerCase();
-    const exists = await this.collectionService.findOne(k);
-    if (!exists) {
-      throw new NotFoundException(`Collection not found: ${key}`);
-    }
-    await this.collectionService.ensurePsaTotalPopulationFromListings(k);
-    await this.collectionService.ensurePoketraceCardIdFromListings(k);
-    const col = await this.collectionService.findOne(k);
-    if (!col) {
-      throw new NotFoundException(`Collection not found: ${key}`);
+    let col = await this.collectionService.findOne(k);
+    if (col) {
+      await this.collectionService.ensurePsaTotalPopulationFromListings(k);
+      await this.collectionService.ensurePoketraceCardIdFromListings(k);
+      col = await this.collectionService.findOne(k);
     }
     const [listings, collectionBids, representativeImageUrl] = await Promise.all([
       this.collectionService.activeListingsForCollection(k),
@@ -186,7 +211,7 @@ export class MarketplaceController {
       this.collectionService.resolveRepresentativeImageForCollection(k),
     ]);
     return {
-      collection: col,
+      collection: col ?? null,
       listings,
       collectionBids,
       representativeImageUrl,
@@ -208,10 +233,24 @@ export class MarketplaceController {
     });
   }
 
-  @ApiOperation({ summary: 'Order history by tokenId' })
+  @ApiOperation({
+    summary:
+      'Orders for a token: full rows (incl. Seaport parameters). Use activeOnly=true for a single active ask.',
+  })
   @ApiParam({ name: 'tokenId' })
+  @ApiQuery({
+    name: 'activeOnly',
+    required: false,
+    description: 'When true, returns one active ask or null (still includes parameters for fulfill UI)',
+  })
   @Get('orders/token/:tokenId')
-  findByTokenId(@Param('tokenId') tokenId: string): Promise<Order[]> {
+  findByTokenId(
+    @Param('tokenId') tokenId: string,
+    @Query('activeOnly') activeOnly?: string,
+  ): Promise<Order[] | Order | null> {
+    if (activeOnly === 'true' || activeOnly === '1') {
+      return this.marketplaceService.findActiveAskByTokenId(tokenId);
+    }
     return this.marketplaceService.findByTokenId(tokenId);
   }
 

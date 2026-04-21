@@ -1,23 +1,20 @@
 "use client";
 
 import { useMemo, useState, useEffect, useCallback, useRef } from "react";
+import { useQueries } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
 import { useAccount } from "wagmi";
 import {
-  getRwaTokensByOwner,
-  getRwaTokenURI,
-  getActiveOrders,
-  getOrderHistoryByTokenId,
-  fetchIpfsMetadata,
-  resolveIpfsImage,
-  postBatchMintPoketracePreviews,
   type RwaMetadata,
-  type Order,
-  type CollectionPoketracePreview,
-  type PoketracePriceBand,
+  type OrderListItem,
+  getCollectionMarketSeries,
+  getCollectionMarketStats,
+  type CollectionMarketSeries,
+  type CollectionMarketStats,
 } from "@/lib/api";
+import { extractBucketComponentsFromMetadata, computeMarketBucketKey } from "@/lib/marketplace/bucketKey";
+import { useUserAssets } from "@/hooks/useUserAssets";
 import { useAppStore, selectUsdcBalance } from "@/store";
 import { useShallow } from "zustand/react/shallow";
 import type { GradedCardMetadata } from "@/types/gradedCard";
@@ -26,6 +23,9 @@ import {
   saveNmBaselineMap,
   type NmBaselineEntry,
 } from "@/lib/portfolioNmBaseline";
+import { formatLiquidityDepthLabel, NO_EXTERNAL_PRICE } from "@/lib/collectionMarketPricing";
+import { justtcgRepresentativeUsd } from "@/lib/externalMarketPrice";
+import { nmSpotUsdFromPoketracePreview, parseGradeScoreNumber } from "@/lib/gradedCardMarketCap";
 import {
   appendPortfolioValueSnapshot,
   loadPortfolioValueHistory,
@@ -46,10 +46,13 @@ interface PricedAssetRow {
   imageUrl: string | null;
   category: string | null;
   amount: number;
-  /** Mark for value: PokeTrace NM blend when available, else active ask */
+  /** External NM spot: PokeTrace mint preview, else JustTCG grade strip for the bucket. */
   currentPrice: number | null;
-  priceSource: "poketrace-nm" | "listing" | "none";
-  nmShortLabel: string | null;
+  priceSource: "poketrace" | "justtcg" | "none";
+  /** On-platform listing depth (optional subtitle). */
+  liquidityLabel: string | null;
+  /** Your active ask (execution intent), not the pool estimate */
+  listPriceUsd: number | null;
   /** Secondary line under title (set / year / card name) */
   subtitle: string;
   gradeLabel: string | null;
@@ -57,9 +60,8 @@ interface PricedAssetRow {
 }
 
 interface AssetRow extends PricedAssetRow {
-  /** First saved NM snapshot (this browser) used for P&amp;L */
+  /** First saved external spot snapshot (this browser) for P&amp;L vs NM movement */
   nmBaselineUsd: number | null;
-  /** Current NM vs baseline (NM market movement) */
   pnl: number | null;
   pnlPct: number | null;
 }
@@ -82,65 +84,6 @@ function fmtUsd(v: number): string {
   return `$${v.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
 }
 
-/** PokeTrace NM band → single USD (matches collection page blending). */
-function poketraceBandPrimaryUsd(b: PoketracePriceBand | null): number | null {
-  if (!b) return null;
-  if (typeof b.avg === "number" && Number.isFinite(b.avg) && b.avg > 0) return b.avg;
-  if (
-    typeof b.low === "number" &&
-    typeof b.high === "number" &&
-    Number.isFinite(b.low) &&
-    Number.isFinite(b.high) &&
-    b.low > 0 &&
-    b.high > 0
-  ) {
-    return (b.low + b.high) / 2;
-  }
-  return null;
-}
-
-function pickLongWindowPoketraceUsd(b: PoketracePriceBand | null): {
-  usd: number;
-  label: string;
-  windowDays: number;
-} | null {
-  if (!b) return null;
-  const order: [keyof PoketracePriceBand, string, number][] = [
-    ["median30d", "30d med", 30],
-    ["avg30d", "30d avg", 30],
-    ["median7d", "7d med", 7],
-    ["avg7d", "7d avg", 7],
-    ["median3d", "3d med", 3],
-    ["avg1d", "1d avg", 1],
-  ];
-  for (const [k, label, windowDays] of order) {
-    const v = b[k];
-    if (typeof v === "number" && Number.isFinite(v) && v > 0) {
-      return { usd: v, label, windowDays };
-    }
-  }
-  const spot = poketraceBandPrimaryUsd(b);
-  if (spot != null) return { usd: spot, label: "spot", windowDays: 30 };
-  return null;
-}
-
-function poketraceBlendedExternal(
-  card: NonNullable<CollectionPoketracePreview["card"]>,
-): { usd: number; shortLabel: string; windowDays: number } | null {
-  const e = pickLongWindowPoketraceUsd(card.ebayNearMint);
-  const t = pickLongWindowPoketraceUsd(card.tcgplayerNearMint);
-  if (e && t) {
-    return {
-      usd: (e.usd + t.usd) / 2,
-      shortLabel: `${e.label} + ${t.label} · eBay/TCG NM`,
-      windowDays: Math.max(e.windowDays, t.windowDays),
-    };
-  }
-  if (e) return { usd: e.usd, shortLabel: `${e.label} · eBay NM`, windowDays: e.windowDays };
-  if (t) return { usd: t.usd, shortLabel: `${t.label} · TCG NM`, windowDays: t.windowDays };
-  return null;
-}
-
 function extractCategory(meta: RwaMetadata | null): string | null {
   if (!meta?.attributes) return null;
   const cat = meta.attributes.find(
@@ -152,6 +95,14 @@ function extractCategory(meta: RwaMetadata | null): string | null {
 function getGraded(meta: RwaMetadata | null): GradedCardMetadata | undefined {
   const g = meta?.properties?.graded;
   return g && typeof g === "object" ? (g as GradedCardMetadata) : undefined;
+}
+
+function gradeScoreForJustTcg(meta: RwaMetadata | null): number | null {
+  const g = getGraded(meta);
+  if (g?.psa?.gradeScore != null) return parseGradeScoreNumber(String(g.psa.gradeScore));
+  if (g?.grade?.score != null && Number.isFinite(g.grade.score))
+    return parseGradeScoreNumber(String(g.grade.score));
+  return null;
 }
 
 function buildAssetSubtitle(meta: RwaMetadata | null, displayName: string): string {
@@ -199,7 +150,7 @@ function formatGradeDisplay(meta: RwaMetadata | null): string | null {
 
 function earliestBuyDateLabel(
   tokenId: number,
-  fulfilledOrders: Order[],
+  fulfilledOrders: OrderListItem[],
   wallet: string | undefined,
 ): string | null {
   if (!wallet) return null;
@@ -599,86 +550,163 @@ export default function PortfolioPage() {
   const [period, setPeriod] = useState<ChartPeriod>("1D");
   const [portfolioHistoryVersion, setPortfolioHistoryVersion] = useState(0);
 
-  const { data: tokenIds = [], isLoading: idsLoading } = useQuery({
-    queryKey: ["portfolio-ids", address],
-    queryFn: () => getRwaTokensByOwner(address!),
-    enabled: !!address && isConnected,
-  });
-
-  const { data: assets = [], isLoading: assetsLoading } = useQuery({
-    queryKey: ["portfolio-assets", tokenIds],
-    queryFn: async (): Promise<OwnedAsset[]> => {
-      if (!tokenIds.length) return [];
-      return Promise.all(
-        tokenIds.map(async (tokenId): Promise<OwnedAsset> => {
-          try {
-            const uri = await getRwaTokenURI(tokenId);
-            const meta = uri ? await fetchIpfsMetadata(uri).catch(() => null) : null;
-            return {
-              tokenId,
-              metadata: meta,
-              imageUrl: meta?.image ? resolveIpfsImage(meta.image) : null,
-            };
-          } catch {
-            return { tokenId, metadata: null, imageUrl: null };
-          }
-        }),
-      );
-    },
-    enabled: tokenIds.length > 0,
-  });
-
   const {
-    data: poketraceByToken = {},
-    isLoading: poketraceLoading,
-    isError: poketraceError,
-  } = useQuery({
-    queryKey: ["portfolio-poketrace", address, tokenIds.join(",")],
-    queryFn: () =>
-      postBatchMintPoketracePreviews(
-        assets.map((a) => ({ tokenId: a.tokenId, metadata: a.metadata })),
-      ),
-    enabled:
-      Boolean(address) &&
-      isConnected &&
-      !assetsLoading &&
-      assets.length > 0,
-    staleTime: 5 * 60_000,
+    tokenIds,
+    assets: hookAssets,
+    activeOrders: allOrders,
+    historiesFlat,
+    isLoadingIds: idsLoading,
+    isLoadingMetadata: assetsLoading,
+    poketraceByToken,
+    poketraceLoading,
+  } = useUserAssets(isConnected ? address : undefined, {
+    enabled: Boolean(address && isConnected),
+    includeOrderHistory: true,
+    includePoketrace: true,
   });
 
-  /** Until PokeTrace batch settles, avoid using listing $ as “current” (then switch to NM → ask). */
+  const assets: OwnedAsset[] = useMemo(
+    () =>
+      hookAssets.map((a) => ({
+        tokenId: a.tokenId,
+        metadata: a.metadata,
+        imageUrl: a.imageUrl,
+      })),
+    [hookAssets],
+  );
+
+  const listingCollectionKeyByToken = useMemo(() => {
+    const m = new Map<number, string>();
+    const viewer = address?.trim().toLowerCase() ?? "";
+    for (const o of allOrders) {
+      if (o.status !== "active" || o.side !== "ask") continue;
+      if (o.offerer.toLowerCase() !== viewer) continue;
+      const ck = o.collectionKey?.trim();
+      if (ck) m.set(Number(o.tokenId), ck.toLowerCase());
+    }
+    return m;
+  }, [allOrders, address]);
+
+  const [metaCollectionKeyByToken, setMetaCollectionKeyByToken] = useState<
+    Record<number, string>
+  >({});
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const out: Record<number, string> = {};
+      for (const a of assets) {
+        if (listingCollectionKeyByToken.has(a.tokenId)) continue;
+        const comp = extractBucketComponentsFromMetadata(
+          (a.metadata ?? {}) as Record<string, unknown>,
+        );
+        if (!comp) continue;
+        try {
+          out[a.tokenId] = await computeMarketBucketKey(comp);
+        } catch {
+          /* skip */
+        }
+      }
+      if (!cancelled) setMetaCollectionKeyByToken(out);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [assets, listingCollectionKeyByToken]);
+
+  const tokenToCollectionKey = useMemo(() => {
+    const o: Record<number, string> = { ...metaCollectionKeyByToken };
+    for (const [tid, k] of listingCollectionKeyByToken.entries()) {
+      o[tid] = k;
+    }
+    return o;
+  }, [listingCollectionKeyByToken, metaCollectionKeyByToken]);
+
+  /** Set NEXT_PUBLIC_MARKETPLACE_PIPELINE_DIAG=1 to compare active-listing DB key vs client meta-hash (backend logs use MARKETPLACE_PIPELINE_DIAG). */
+  useEffect(() => {
+    if (process.env.NEXT_PUBLIC_MARKETPLACE_PIPELINE_DIAG !== "1") return;
+    for (const a of assets) {
+      const fromOrder = listingCollectionKeyByToken.get(a.tokenId);
+      const fromMeta = metaCollectionKeyByToken[a.tokenId];
+      if (fromOrder && fromMeta && fromOrder !== fromMeta) {
+        console.warn("[collection_key_pipeline] listing vs meta hash mismatch", {
+          tokenId: a.tokenId,
+          fromActiveListingOrder: fromOrder,
+          fromClientMetadata: fromMeta,
+          note: "Order row collection_key differs from computeMarketBucketKey(metadata).",
+        });
+      }
+      if (fromOrder && fromMeta && fromOrder === fromMeta) {
+        console.info("[collection_key_pipeline] listing and meta keys match", {
+          tokenId: a.tokenId,
+          collectionKey: fromOrder,
+        });
+      }
+    }
+  }, [assets, listingCollectionKeyByToken, metaCollectionKeyByToken]);
+
+  const uniqueCollectionKeys = useMemo(() => {
+    const s = new Set<string>();
+    for (const a of assets) {
+      const k = tokenToCollectionKey[a.tokenId];
+      if (k) s.add(k);
+    }
+    return [...s];
+  }, [assets, tokenToCollectionKey]);
+
+  const statsQueries = useQueries({
+    queries: uniqueCollectionKeys.map((k) => ({
+      queryKey: ["collection-market-stats", k],
+      queryFn: () => getCollectionMarketStats(k),
+      staleTime: 60_000,
+      enabled: k.length > 0 && Boolean(address && isConnected),
+    })),
+  });
+
+  const statsByCollectionKey = useMemo(() => {
+    const m = new Map<string, CollectionMarketStats>();
+    uniqueCollectionKeys.forEach((k, i) => {
+      const d = statsQueries[i]?.data;
+      if (d) m.set(k.toLowerCase(), d);
+    });
+    return m;
+  }, [uniqueCollectionKeys, statsQueries]);
+
+  const seriesQueries = useQueries({
+    queries: uniqueCollectionKeys.map((k) => ({
+      queryKey: ["collection-market-series", "portfolio", k],
+      queryFn: () => getCollectionMarketSeries(k, "90d"),
+      staleTime: 120_000,
+      enabled: k.length > 0 && Boolean(address && isConnected),
+    })),
+  });
+
+  const seriesByCollectionKey = useMemo(() => {
+    const m = new Map<string, CollectionMarketSeries>();
+    uniqueCollectionKeys.forEach((k, i) => {
+      const d = seriesQueries[i]?.data;
+      if (d) m.set(k.toLowerCase(), d);
+    });
+    return m;
+  }, [uniqueCollectionKeys, seriesQueries]);
+
+  const statsLoadingAny = statsQueries.some((q) => q.isLoading);
+  const seriesLoadingAny = seriesQueries.some((q) => q.isLoading);
+
+  /** External + per-bucket series + pool stats still loading when needed */
   const valuesPending =
     Boolean(address) &&
     isConnected &&
     assets.length > 0 &&
-    poketraceLoading &&
-    !poketraceError;
-
-  const { data: allOrders = [] } = useQuery({
-    queryKey: ["marketplace-orders-all"],
-    queryFn: getActiveOrders,
-    enabled: isConnected,
-    refetchInterval: 30_000,
-  });
-
-  const { data: histories = [] } = useQuery({
-    queryKey: ["portfolio-history", tokenIds],
-    queryFn: async (): Promise<Order[]> => {
-      if (!tokenIds.length) return [];
-      const results = await Promise.all(
-        tokenIds.map((id) => getOrderHistoryByTokenId(id).catch(() => [] as Order[])),
-      );
-      return results.flat();
-    },
-    enabled: tokenIds.length > 0,
-  });
+    (poketraceLoading ||
+      (uniqueCollectionKeys.length > 0 && (statsLoadingAny || seriesLoadingAny)));
 
   const myActiveListings = useMemo(
     () =>
       allOrders.filter(
         (o) =>
           o.status === "active" &&
-          (o.side === "ask" || !o.side) &&
+          o.side === "ask" &&
           o.offerer.toLowerCase() === address?.toLowerCase(),
       ),
     [allOrders, address],
@@ -687,26 +715,24 @@ export default function PortfolioPage() {
   const priceMap = useMemo(() => {
     const m = new Map<number, number>();
     for (const o of myActiveListings) {
-      m.set(Number(o.tokenId), Number(o.considerationAmount) / USDC_DECIMALS);
+      m.set(Number(o.tokenId), Number(o.price) / USDC_DECIMALS);
     }
     return m;
   }, [myActiveListings]);
 
   const fulfilledOrders = useMemo(
     () =>
-      histories
+      historiesFlat
         .filter((o) => o.status === "fulfilled")
         .sort(
           (a, b) =>
             new Date(b.updatedAt ?? b.createdAt).getTime() -
             new Date(a.updatedAt ?? a.createdAt).getTime(),
         ),
-    [histories],
+    [historiesFlat],
   );
 
-  const [nmBaselineMap, setNmBaselineMap] = useState<
-    Record<number, NmBaselineEntry>
-  >({});
+  const [nmBaselineMap, setNmBaselineMap] = useState<Record<number, NmBaselineEntry>>({});
 
   useEffect(() => {
     if (!address) {
@@ -719,24 +745,27 @@ export default function PortfolioPage() {
   const pricedRows: PricedAssetRow[] = useMemo(() => {
     return assets.map((a) => {
       const listingPrice = priceMap.get(a.tokenId) ?? null;
-      const pt = poketraceByToken[a.tokenId];
-      const nmBlend =
-        pt?.matched && pt.card ? poketraceBlendedExternal(pt.card) : null;
-      const markUsd = nmBlend?.usd ?? null;
+      const ck = tokenToCollectionKey[a.tokenId]?.toLowerCase() ?? null;
+      const stats = ck ? statsByCollectionKey.get(ck) ?? null : null;
+      const series = ck ? seriesByCollectionKey.get(ck) ?? null : null;
+
+      const poke = nmSpotUsdFromPoketracePreview(poketraceByToken[a.tokenId]);
+      const jt =
+        poke == null
+          ? justtcgRepresentativeUsd(series?.gradePrices ?? null, gradeScoreForJustTcg(a.metadata))
+          : null;
 
       let currentPrice: number | null = null;
       let priceSource: PricedAssetRow["priceSource"] = "none";
-      let nmShortLabel: string | null = null;
-
-      /** NM when batch has returned; until then use listing ask so chart / totals render immediately. */
-      if (markUsd != null) {
-        currentPrice = markUsd;
-        priceSource = "poketrace-nm";
-        nmShortLabel = nmBlend?.shortLabel ?? null;
-      } else if (listingPrice != null) {
-        currentPrice = listingPrice;
-        priceSource = "listing";
+      if (poke != null) {
+        currentPrice = poke;
+        priceSource = "poketrace";
+      } else if (jt != null) {
+        currentPrice = jt;
+        priceSource = "justtcg";
       }
+
+      const liquidityLabel = ck ? formatLiquidityDepthLabel(stats ?? undefined) : null;
 
       const displayName = a.metadata?.name ?? `RWA #${a.tokenId}`;
       return {
@@ -747,7 +776,8 @@ export default function PortfolioPage() {
         amount: 1,
         currentPrice,
         priceSource,
-        nmShortLabel,
+        liquidityLabel,
+        listPriceUsd: listingPrice,
         subtitle: buildAssetSubtitle(a.metadata, displayName),
         gradeLabel: formatGradeDisplay(a.metadata),
         acquiredLabel: earliestBuyDateLabel(
@@ -762,9 +792,10 @@ export default function PortfolioPage() {
     priceMap,
     fulfilledOrders,
     address,
+    tokenToCollectionKey,
+    statsByCollectionKey,
+    seriesByCollectionKey,
     poketraceByToken,
-    poketraceLoading,
-    poketraceError,
   ]);
 
   useEffect(() => {
@@ -773,7 +804,8 @@ export default function PortfolioPage() {
       let next = prev;
       let changed = false;
       for (const r of pricedRows) {
-        if (r.priceSource !== "poketrace-nm" || r.currentPrice == null) continue;
+        if (r.priceSource !== "poketrace" && r.priceSource !== "justtcg") continue;
+        if (r.currentPrice == null) continue;
         if (next[r.tokenId] !== undefined) continue;
         if (next === prev) next = { ...prev };
         changed = true;
@@ -791,7 +823,11 @@ export default function PortfolioPage() {
       let pnl: number | null = null;
       let pnlPct: number | null = null;
 
-      if (r.priceSource === "poketrace-nm" && r.currentPrice != null && b != null) {
+      if (
+        (r.priceSource === "poketrace" || r.priceSource === "justtcg") &&
+        r.currentPrice != null &&
+        b != null
+      ) {
         nmBaselineUsd = b.v;
         pnl = r.currentPrice - b.v;
         if (b.v > 0) pnlPct = (pnl / b.v) * 100;
@@ -806,6 +842,37 @@ export default function PortfolioPage() {
     });
   }, [pricedRows, nmBaselineMap]);
 
+  const ASSET_PAGE = 10;
+  const [visibleAssetCount, setVisibleAssetCount] = useState(ASSET_PAGE);
+  useEffect(() => {
+    setVisibleAssetCount((n) =>
+      assetRows.length === 0
+        ? ASSET_PAGE
+        : Math.min(Math.max(n, ASSET_PAGE), assetRows.length),
+    );
+  }, [assetRows.length]);
+
+  const visibleAssetRows = useMemo(
+    () => assetRows.slice(0, visibleAssetCount),
+    [assetRows, visibleAssetCount],
+  );
+
+  const assetScrollSentinelRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const el = assetScrollSentinelRef.current;
+    if (!el || visibleAssetCount >= assetRows.length) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          setVisibleAssetCount((c) => Math.min(c + ASSET_PAGE, assetRows.length));
+        }
+      },
+      { root: null, rootMargin: "160px" },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [visibleAssetCount, assetRows.length]);
+
   const txRows: TxRow[] = useMemo(() => {
     if (!address) return [];
     return fulfilledOrders.map((o) => {
@@ -816,7 +883,7 @@ export default function PortfolioPage() {
         asset: asset?.metadata?.name ?? `RWA #${o.tokenId}`,
         category: asset ? extractCategory(asset.metadata) : null,
         amount: 1,
-        price: Number(o.considerationAmount) / USDC_DECIMALS,
+        price: Number(o.price) / USDC_DECIMALS,
         date: new Date(o.updatedAt ?? o.createdAt).toLocaleDateString("en-US", {
           month: "short",
           day: "numeric",
@@ -844,18 +911,18 @@ export default function PortfolioPage() {
 
   const uniqueTraders = useMemo(() => {
     const addrs = new Set<string>();
-    for (const o of histories) {
+    for (const o of historiesFlat) {
       addrs.add(o.offerer.toLowerCase());
-      for (const c of o.parameters.consideration) {
-        if (c.recipient) addrs.add(c.recipient.toLowerCase());
+      for (const r of o.considerationRecipients ?? []) {
+        if (r) addrs.add(r.toLowerCase());
       }
     }
     return addrs.size;
-  }, [histories]);
+  }, [historiesFlat]);
 
-  const isLoading = idsLoading || assetsLoading;
-  /** Chart uses listing + NM as soon as priced; do not block on PokeTrace batch. */
-  const chartValuesPending = isLoading;
+  const isLoading = idsLoading || assetsLoading || poketraceLoading;
+  const chartValuesPending =
+    isLoading || (uniqueCollectionKeys.length > 0 && seriesLoadingAny);
 
   const portfolioValueHistory = useMemo(
     () => (address ? loadPortfolioValueHistory(address) : []),
@@ -915,7 +982,9 @@ export default function PortfolioPage() {
             <div>
               <p className="text-sm font-semibold text-white mb-0.5">Chart</p>
               <p className="text-[11px] text-gray-500 mb-1">
-                Total value (NM when loaded, else listing ask) · history from snapshots in this browser
+                Total value = sum of external spot prices (PokéTrace per token, else JustTCG for the
+                bucket) · history from snapshots in this
+                browser
               </p>
               <div className="flex items-center gap-2.5">
                 {chartValuesPending ? (
@@ -993,8 +1062,8 @@ export default function PortfolioPage() {
               chartValuesPending
                 ? undefined
                 : totalPnlPct !== 0
-                  ? `${totalPnlPct >= 0 ? "+" : ""}${totalPnlPct.toFixed(1)}% · NM vs baseline`
-                  : "NM vs saved baseline"
+                  ? `${totalPnlPct >= 0 ? "+" : ""}${totalPnlPct.toFixed(1)}% · vs saved external baseline`
+                  : "External spot vs first snapshot in this browser"
             }
             accent={!chartValuesPending && totalPnl !== 0}
           />
@@ -1004,9 +1073,9 @@ export default function PortfolioPage() {
         <div className="rounded-2xl border border-gray-800 bg-[#0b1118] p-5 sm:p-6 mb-6">
           <h2 className="text-sm font-bold mb-1">My Assets</h2>
           <p className="text-[11px] text-gray-500 mb-5">
-            Current value uses PokeTrace NM when matched, else your ask. P&amp;L is the change in
-            that NM reference vs the first value stored in this browser for each token (not
-            purchase cost). Graded slab tier $ ≠ raw NM.
+            Market price = PokéTrace NM when the mint is matched, otherwise JustTCG for the listing
+            bucket. P&amp;L is change vs the first external spot snapshot stored in this browser for
+            each token (not purchase cost). Listing-pool stats are liquidity only.
           </p>
           {isLoading ? (
             <div className="-mx-1 flex flex-nowrap gap-4 overflow-x-auto overflow-y-hidden pb-2 pt-0.5 scrollbar-platform">
@@ -1032,7 +1101,7 @@ export default function PortfolioPage() {
             </p>
           ) : (
             <div className="-mx-1 flex flex-nowrap gap-4 overflow-x-auto overflow-y-hidden pb-2 pt-0.5 scrollbar-platform snap-x snap-mandatory scroll-pl-1">
-              {assetRows.map((r) => (
+              {visibleAssetRows.map((r) => (
                 <button
                   key={r.tokenId}
                   type="button"
@@ -1075,7 +1144,7 @@ export default function PortfolioPage() {
                     <dl className="space-y-2 border-t border-gray-800/80 pt-3 text-[12px]">
                       <div className="space-y-0.5">
                         <div className="flex justify-between gap-2">
-                          <dt className="text-gray-500">Current value</dt>
+                          <dt className="text-gray-500">Market price</dt>
                           <dd className="font-medium tabular-nums text-gray-200">
                             {valuesPending && r.currentPrice == null ? (
                               <span className="inline-block h-4 w-16 animate-pulse rounded bg-gray-800/80 align-middle" />
@@ -1088,19 +1157,33 @@ export default function PortfolioPage() {
                             )}
                           </dd>
                         </div>
-                        {r.priceSource === "poketrace-nm" && r.nmShortLabel ? (
+                        {r.currentPrice != null && r.priceSource !== "none" ? (
                           <p className="text-[10px] leading-tight text-gray-600 text-right">
-                            {r.nmShortLabel}
+                            {r.priceSource === "poketrace"
+                              ? "PokéTrace NM"
+                              : "JustTCG (bucket fallback)"}
                           </p>
                         ) : null}
-                        {r.priceSource === "listing" ? (
+                        {r.liquidityLabel ? (
                           <p className="text-[10px] leading-tight text-gray-600 text-right">
-                            Listed ask
+                            {r.liquidityLabel}
+                          </p>
+                        ) : null}
+                        {r.listPriceUsd != null ? (
+                          <p className="text-[10px] leading-tight text-gray-600 text-right">
+                            Your ask: $
+                            {r.listPriceUsd.toLocaleString(undefined, {
+                              maximumFractionDigits: 0,
+                            })}{" "}
+                            (your listing, not the external spot)
                           </p>
                         ) : null}
                       </div>
                       <div className="flex justify-between gap-2">
-                        <dt className="text-gray-500" title="Versus first NM ref. saved in this browser for this token">
+                        <dt
+                          className="text-gray-500"
+                          title="Versus first saved external spot snapshot for this token in this browser"
+                        >
                           P&amp;L
                         </dt>
                         <dd className="tabular-nums">
@@ -1128,11 +1211,10 @@ export default function PortfolioPage() {
                           )}
                         </dd>
                       </div>
-                      {!valuesPending &&
-                        r.priceSource !== "poketrace-nm" &&
-                        r.currentPrice != null && (
+                      {!valuesPending && r.currentPrice == null && (
                           <p className="text-[10px] leading-snug text-gray-600">
-                            P&amp;L needs a PokeTrace NM match (listed ask only here).
+                            {NO_EXTERNAL_PRICE} — match PokéTrace on mint or ensure JustTCG data for
+                            this bucket.
                           </p>
                         )}
                       <div className="flex justify-between gap-2">
@@ -1151,6 +1233,13 @@ export default function PortfolioPage() {
                   </div>
                 </button>
               ))}
+              {visibleAssetCount < assetRows.length ? (
+                <div
+                  ref={assetScrollSentinelRef}
+                  className="h-32 w-4 shrink-0 snap-start"
+                  aria-hidden
+                />
+              ) : null}
             </div>
           )}
         </div>

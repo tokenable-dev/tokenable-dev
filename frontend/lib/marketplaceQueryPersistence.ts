@@ -1,25 +1,26 @@
 import type { QueryClient } from "@tanstack/react-query";
+import { rq, marketplaceRqPolicy } from "@/lib/queryKeys";
 
-const SCHEMA = 1;
+/** Bump when persisted shape changes or to drop stale browser caches (e.g. after DB resets). */
+const SCHEMA = 3;
 /** Cached list + snapshots stay usable for 24h; after that next visit refetches. */
 const TTL_MS = 24 * 60 * 60 * 1000;
-const LS_COLLECTIONS = "tokenable.rq.marketplace-collections.v1";
-const LS_SNAPSHOTS_MAP = "tokenable.rq.marketplace-snapshots-map.v1";
+const LS_COLLECTIONS = "tokenable.rq.collections-marketplace.v2";
+const LS_SNAPSHOTS_MAP = "tokenable.rq.collection-snapshots-map.v2";
 
 function isFresh(savedAt: number): boolean {
   return Date.now() - savedAt < TTL_MS;
 }
 
 function configureMarketplaceDefaults(queryClient: QueryClient): void {
-  const fiveMin = 5 * 60 * 1000;
   const oneDay = 24 * 60 * 60 * 1000;
-  queryClient.setQueryDefaults(["marketplace-collections"], {
-    staleTime: fiveMin,
+  queryClient.setQueryDefaults(rq.collectionsMarketplace(), {
+    staleTime: marketplaceRqPolicy.collectionsStaleMs,
     gcTime: oneDay,
     refetchOnWindowFocus: false,
   });
-  queryClient.setQueryDefaults(["marketplace-collection-snapshots"], {
-    staleTime: fiveMin,
+  queryClient.setQueryDefaults(["collection-snapshots"], {
+    staleTime: marketplaceRqPolicy.snapshotsStaleMs,
     gcTime: oneDay,
     refetchOnWindowFocus: false,
   });
@@ -36,44 +37,67 @@ export function hydrateMarketplaceQueries(queryClient: QueryClient): void {
   try {
     const rawCol = localStorage.getItem(LS_COLLECTIONS);
     if (rawCol) {
-      const parsed = JSON.parse(rawCol) as {
-        v: number;
-        savedAt: number;
-        data: unknown;
-      };
-      if (
+      let parsed: { v?: number; savedAt?: number; data?: unknown };
+      try {
+        parsed = JSON.parse(rawCol) as { v?: number; savedAt?: number; data?: unknown };
+      } catch {
+        parsed = {};
+      }
+      if (parsed.v != null && parsed.v !== SCHEMA) {
+        localStorage.removeItem(LS_COLLECTIONS);
+      } else if (
         parsed.v === SCHEMA &&
+        typeof parsed.savedAt === "number" &&
         isFresh(parsed.savedAt) &&
         parsed.data != null
       ) {
-        queryClient.setQueryData(["marketplace-collections"], parsed.data);
+        queryClient.setQueryData(rq.collectionsMarketplace(), parsed.data);
       }
     }
 
     const rawSnap = localStorage.getItem(LS_SNAPSHOTS_MAP);
     if (rawSnap) {
-      const parsed = JSON.parse(rawSnap) as {
-        v: number;
-        savedAt: number;
-        map: Record<string, unknown> | undefined;
-      };
-      if (
+      let parsed: { v?: number; savedAt?: number; map?: Record<string, unknown> };
+      try {
+        parsed = JSON.parse(rawSnap) as {
+          v?: number;
+          savedAt?: number;
+          map?: Record<string, unknown>;
+        };
+      } catch {
+        parsed = {};
+      }
+      if (parsed.v != null && parsed.v !== SCHEMA) {
+        localStorage.removeItem(LS_SNAPSHOTS_MAP);
+      } else if (
         parsed.v === SCHEMA &&
+        typeof parsed.savedAt === "number" &&
         isFresh(parsed.savedAt) &&
         parsed.map &&
         typeof parsed.map === "object"
       ) {
         for (const k of Object.keys(parsed.map)) {
-          queryClient.setQueryData(
-            ["marketplace-collection-snapshots", k],
-            parsed.map[k],
-          );
+          let keys: string[];
+          try {
+            keys = JSON.parse(k) as string[];
+            if (!Array.isArray(keys)) continue;
+          } catch {
+            continue;
+          }
+          queryClient.setQueryData(rq.collectionSnapshots(keys), parsed.map[k]);
         }
       }
     }
   } catch {
     /* ignore corrupt storage */
   }
+
+  /**
+   * LS is only a paint-time cache; always prefer the server after hydration so an empty
+   * or reset DB is not masked for the full collections stale window.
+   */
+  void queryClient.invalidateQueries({ queryKey: rq.collectionsMarketplace() });
+  void queryClient.invalidateQueries({ queryKey: ["collection-snapshots"] });
 }
 
 let persistTimer: ReturnType<typeof setTimeout> | null = null;
@@ -81,7 +105,7 @@ let persistTimer: ReturnType<typeof setTimeout> | null = null;
 function flushMarketplaceToStorage(queryClient: QueryClient): void {
   if (typeof window === "undefined") return;
   try {
-    const col = queryClient.getQueryData(["marketplace-collections"]);
+    const col = queryClient.getQueryData(rq.collectionsMarketplace());
     if (col != null) {
       localStorage.setItem(
         LS_COLLECTIONS,
@@ -94,14 +118,15 @@ function flushMarketplaceToStorage(queryClient: QueryClient): void {
     }
 
     const rows = queryClient.getQueriesData({
-      queryKey: ["marketplace-collection-snapshots"],
+      queryKey: ["collection-snapshots"],
     });
     const map: Record<string, unknown> = {};
     for (const [queryKey, data] of rows) {
       if (!Array.isArray(queryKey) || queryKey.length < 2) continue;
       const sub = queryKey[1];
-      if (typeof sub === "string" && sub.length > 0 && data != null) {
-        map[sub] = data;
+      if (Array.isArray(sub) && sub.length > 0 && data != null) {
+        const sorted = [...(sub as string[])].slice().sort();
+        map[JSON.stringify(sorted)] = data;
       }
     }
     if (Object.keys(map).length > 0) {

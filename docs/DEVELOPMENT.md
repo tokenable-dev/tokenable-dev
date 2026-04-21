@@ -1,6 +1,6 @@
 # 개발·배포 가이드 (통합)
 
-레포 루트 [README.md](../README.md)에서 클론·설치·실행 흐름을 보고, 여기서는 **로컬 DB·API**, **Seaport**, **JustTCG**, **EC2 배포**, **트러블슈팅**, **다이어그램**을 정리합니다.
+레포 루트 [README.md](../README.md)에서 클론·설치·실행 흐름을 보고, 여기서는 **로컬 DB·API**, **Seaport**, **규칙 기반 매칭(relational)**, **JustTCG**, **EC2 배포**, **트러블슈팅**, **다이어그램**을 정리합니다.
 
 ---
 
@@ -45,6 +45,12 @@ cd backend && pnpm start:dev
 | `POST` | `/api/marketplace/orders/fulfill-matched-pair` | criteria 매칭 후 동기화 |
 | `GET` | `/api/marketplace/collections` / `collections/:key` | 컬렉션 |
 | `GET` | `/api/marketplace/collections/:key/merkle-set` | Merkle leaf용 tokenIds |
+| `GET` | `/api/marketplace/bids` | 활성 입찰 목록 (`collectionKey` 필수, `tokenId` 선택 시 적용 가능 여부) |
+| `GET` | `/api/marketplace/bids/:id` | 입찰 단건 (`rule` JSON 포함) |
+| `POST` | `/api/marketplace/trade/match` | 매칭 예약 — **202**, 헤더 `Idempotency-Key` 권장 |
+| `GET` | `/api/marketplace/trade/executions/:id` | 정산 상태 폴링 |
+
+**규칙 기반 매칭** 상세(테이블·상태·워커·Seaport와의 관계): **[marketplace-trading.md](./marketplace-trading.md)**.
 
 ---
 
@@ -53,6 +59,7 @@ cd backend && pnpm start:dev
 - 매도 **ask**, 매수는 **ERC721_WITH_CRITERIA** 컬렉션 입찰만 (`collectionKey`, Merkle root).
 - 온체인: `fulfillOrder`, `matchAdvancedOrders` (recipient `address(0)` 등은 코드 `criteriaMatch.ts` 참고).
 - **흐름 다이어그램**: [diagrams/marketplace-seaport-criteria-architecture.drawio](./diagrams/marketplace-seaport-criteria-architecture.drawio)
+- **동일 앱의 relational 축**은 위 API 표의 `bids` / `trade/match` 참고 (UI 기본은 Seaport `orders` 경로).
 
 ### TokenableRWA 주소 (로컬 vs 배포 서버)
 
@@ -60,7 +67,7 @@ cd backend && pnpm start:dev
 
 | 환경 | 백엔드 | 프론트 |
 |------|--------|--------|
-| **로컬** | `backend/.env` → `RWA_CONTRACT_ADDRESS` | `frontend/.env.local` → `NEXT_PUBLIC_RWA_CONTRACT_ADDRESS` |
+| **로컬** | `backend/.env` → `RWA_CONTRACT_ADDRESS` | `frontend/.env` → `NEXT_PUBLIC_RWA_CONTRACT_ADDRESS` |
 | **배포** | EC2 `~/.env.production.backend` → `RWA_CONTRACT_ADDRESS` | GitHub Actions 빌드 시 Secret/Variable `NEXT_PUBLIC_RWA_CONTRACT_ADDRESS` (번들에 박힘) |
 
 `frontend/constants/contracts.ts`의 기본 폴백은 **로컬 개발용 주소**를 두며, 프로덕션에서는 반드시 env로 덮어씁니다.  
@@ -180,7 +187,7 @@ docker exec -i tokenable-postgres psql -U tokenable -d tokenable < /home/ubuntu/
 docker exec tokenable-postgres psql -U tokenable -d tokenable -c '\dt'
 ```
 
-`users`, `orders`, `marketplace_collections`가 보이면 됩니다.
+`users`, `orders`, `marketplace_collections`가 보이면 됩니다. (TypeORM `synchronize` 또는 개발 기동 후 `bids`, `asks`, `match_intents`, `trade_executions` 등이 추가될 수 있습니다.)
 
 그다음 **`/home/ubuntu/.env.production.backend`에서 `TYPEORM_SYNC`는 제거하거나 `false`**로 두고, **5.5**로 백엔드를 재기동하세요. (운영에서는 스키마 자동 동기화를 켜 둔 채로 두지 않는 것이 안전합니다.)
 
@@ -229,7 +236,9 @@ docker exec tokenable-backend env | grep -E 'TYPEORM|POSTGRES|NODE_ENV'
 
 | 파일 | 내용 |
 |------|------|
-| [marketplace-seaport-criteria-architecture.drawio](./diagrams/marketplace-seaport-criteria-architecture.drawio) | Seaport criteria + Merkle 흐름 |
+| [marketplace-seaport-criteria-architecture.drawio](./diagrams/marketplace-seaport-criteria-architecture.drawio) | Seaport criteria + Merkle 흐름 (하단에 relational 안내) |
+| [marketplace-trading-relational-layer.drawio](./diagrams/marketplace-trading-relational-layer.drawio) | 규칙 기반 매칭 레이어 (API·DB·워커) |
+| [marketplace-trading.md](./marketplace-trading.md) | relational 매칭 문서 (Seaport와 병행) |
 | [psa-slab-upload-ocr-api-flow.drawio](./diagrams/psa-slab-upload-ocr-api-flow.drawio) | PSA 슬랩 업로드·OCR |
 
 과거에 쓰이던 통합 다이어그램(`tokenable-all-diagrams.drawio`)은 내용이 현재 코드와 어긋나 **제거**했습니다. 아키텍처는 위 파일과 이 문서의 API 표를 기준으로 합니다.

@@ -9,13 +9,17 @@ import type { Address } from "viem";
 import { formatUnits } from "viem";
 import {
   getCollectionMarketSeries,
+  getCollectionMarketStats,
+  getCollectionPoketraceNmHistory,
   getCollectionPoketracePreview,
   getCollectionPlatformTrades,
   getMarketplaceCollectionDetail,
-  type CollectionPoketracePreview,
   type Order,
-  type PoketracePriceBand,
 } from "@/lib/api";
+import {
+  coefficientOfVariationPctFromUsdSeries,
+  resolveExternalMarketUsd,
+} from "@/lib/externalMarketPrice";
 import { CollectionOverviewBoard } from "@/components/marketplace/CollectionOverviewBoard";
 import { CollectionPriceMetricsStrip } from "@/components/marketplace/CollectionPriceMetricsStrip";
 import type { BookRowSelection } from "@/components/marketplace/CollectionTradeTicket";
@@ -29,84 +33,17 @@ import {
 } from "@/components/marketplace/TradeCelebrationModal";
 import { CollectionDualPriceChart } from "@/components/marketplace/CollectionDualPriceChart";
 import { CollectionRwaCard } from "@/components/marketplace/CollectionRwaCard";
+import { CollectionPoketracePanel } from "@/components/marketplace/CollectionPoketracePanel";
 import { useAppStore, selectWallet } from "@/store";
 import { isCriteriaCollectionBid } from "@/lib/seaport/criteriaMatch";
 import {
-  buildPoketraceRollingSnapshotSeries,
-  buildSyntheticNmIllustratedSeries,
-  rollingSnapshotMaxLookbackDays,
-} from "@/lib/poketraceRollingSeries";
-import {
   computeCollectionMarketCapUsd,
   formatMarketCapUsd,
+  parseGradeScoreNumber,
 } from "@/lib/gradedCardMarketCap";
 
 /** Same fill can appear from session overlay + DB poll with timestamps minutes apart */
 const SESSION_FILL_DEDUP_SEC = 300;
-
-/** PokeTrace band → single USD for chart (avg, else midpoint of low/high). */
-function poketraceBandPrimaryUsd(b: PoketracePriceBand | null): number | null {
-  if (!b) return null;
-  if (typeof b.avg === "number" && Number.isFinite(b.avg) && b.avg > 0) return b.avg;
-  if (
-    typeof b.low === "number" &&
-    typeof b.high === "number" &&
-    Number.isFinite(b.low) &&
-    Number.isFinite(b.high) &&
-    b.low > 0 &&
-    b.high > 0
-  ) {
-    return (b.low + b.high) / 2;
-  }
-  return null;
-}
-
-/** Prefer longest window: 30d median/avg → shorter rollings → spot. */
-function pickLongWindowPoketraceUsd(b: PoketracePriceBand | null): {
-  usd: number;
-  label: string;
-  /** Calendar span that PokeTrace rolling field implies (chart x-axis when blended). */
-  windowDays: number;
-} | null {
-  if (!b) return null;
-  const order: [keyof PoketracePriceBand, string, number][] = [
-    ["median30d", "30d med", 30],
-    ["avg30d", "30d avg", 30],
-    ["median7d", "7d med", 7],
-    ["avg7d", "7d avg", 7],
-    ["median3d", "3d med", 3],
-    ["avg1d", "1d avg", 1],
-  ];
-  for (const [k, label, windowDays] of order) {
-    const v = b[k];
-    if (typeof v === "number" && Number.isFinite(v) && v > 0) {
-      return { usd: v, label, windowDays };
-    }
-  }
-  const spot = poketraceBandPrimaryUsd(b);
-  /** Spot — no rolling; use 30d-wide axis as generic market context */
-  if (spot != null) return { usd: spot, label: "spot", windowDays: 30 };
-  return null;
-}
-
-function poketraceBlendedExternal(card: NonNullable<CollectionPoketracePreview["card"]>): {
-  usd: number;
-  shortLabel: string;
-  windowDays: number;
-} | null {
-  const e = pickLongWindowPoketraceUsd(card.ebayNearMint);
-  const t = pickLongWindowPoketraceUsd(card.tcgplayerNearMint);
-  if (e && t) {
-    return {
-      usd: (e.usd + t.usd) / 2,
-      shortLabel: `${e.label} + ${t.label} · eBay/TCG NM`,
-      windowDays: Math.max(e.windowDays, t.windowDays),
-    };
-  }
-  if (e) return { usd: e.usd, shortLabel: `${e.label} · eBay NM`, windowDays: e.windowDays };
-  if (t) return { usd: t.usd, shortLabel: `${t.label} · TCG NM`, windowDays: t.windowDays };
-  return null;
-}
 
 function bestAskByToken(asks: Order[]): Map<number, Order> {
   const m = new Map<number, Order>();
@@ -203,62 +140,73 @@ export default function MarketplaceCollectionPage() {
     refetchOnReconnect: false,
   });
 
-  const { data: marketSeriesHeader } = useQuery({
+  const { data: marketSeriesHeader, isLoading: marketSeriesLoading } = useQuery({
     queryKey: ["collection-market-series", key],
     queryFn: () => getCollectionMarketSeries(key, "90d"),
     enabled: key.length > 0 && !isLoading && !isError && !!data,
     staleTime: 120_000,
   });
 
-  /** Single PokeTrace preview drives external chart level + panel (no extra JustTCG request). */
-  const poketraceExternalChart = useMemo(() => {
-    const card = poketracePreview?.matched ? poketracePreview.card : null;
-    if (!card) return null;
-    return poketraceBlendedExternal(card);
-  }, [poketracePreview]);
+  const { data: nmHistory, isLoading: nmHistoryLoading } = useQuery({
+    queryKey: ["collection-poketrace-nm-history", key, 90],
+    queryFn: () => getCollectionPoketraceNmHistory(key, 90),
+    enabled: key.length > 0 && !isLoading && !isError && !!data,
+    staleTime: 300_000,
+    retry: false,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  });
 
-  /** Same snapshot, multiple rollings → fallback polyline when we lack a blended anchor. */
-  const poketraceRollingSeriesUsd = useMemo(() => {
-    const card = poketracePreview?.matched ? poketracePreview.card : null;
-    if (!card) return [];
-    const nowSec = Math.floor(Date.now() / 1000);
-    return buildPoketraceRollingSnapshotSeries(card.ebayNearMint, card.tcgplayerNearMint, nowSec);
-  }, [poketracePreview]);
+  const { data: marketStats, isLoading: marketStatsLoading } = useQuery({
+    queryKey: ["collection-market-stats", key],
+    queryFn: () => getCollectionMarketStats(key),
+    enabled: key.length > 0 && !isLoading && !isError && !!data,
+    staleTime: 60_000,
+    refetchInterval: 45_000,
+    refetchIntervalInBackground: false,
+  });
 
-  /**
-   * One preview fetch only — 90d illustrative curve from blended NM anchor (no NM history API;
-   * avoids PokeTrace rate limits). Fallback: rolling snapshot polyline from the same response.
-   */
+  const pokeHistPts = nmHistory?.points ?? [];
+  const pokeHistOk = pokeHistPts.length >= 2;
+  const jtHistPts = marketSeriesHeader?.externalUsd ?? [];
+  const jtHistOk = jtHistPts.length >= 2;
+
   const chartExternalRollingUsd = useMemo(() => {
-    const card = poketracePreview?.matched ? poketracePreview.card : null;
-    const nowSec = Math.floor(Date.now() / 1000);
-    const blended = poketraceExternalChart;
-    if (blended && blended.usd > 0) {
-      return buildSyntheticNmIllustratedSeries({
-        anchorUsd: blended.usd,
-        windowDays: 90,
-        nowSec,
-        seed: `${key}|${card?.id ?? ""}`,
-      });
-    }
-    return poketraceRollingSeriesUsd;
-  }, [poketracePreview, poketraceExternalChart, poketraceRollingSeriesUsd, key]);
-
-  const chartExternalRollingKind = useMemo<"synthetic" | "snapshot">(() => {
-    if (poketraceExternalChart && poketraceExternalChart.usd > 0) return "synthetic";
-    return "snapshot";
-  }, [poketraceExternalChart]);
+    if (pokeHistOk) return pokeHistPts;
+    if (jtHistOk) return jtHistPts;
+    return [];
+  }, [pokeHistOk, pokeHistPts, jtHistOk, jtHistPts]);
 
   const chartExternalWindowDays = useMemo(() => {
-    const nowSec = Math.floor(Date.now() / 1000);
-    if (poketraceExternalChart && poketraceExternalChart.usd > 0) return 90;
-    if (!poketraceExternalChart) return null;
-    let w = poketraceExternalChart.windowDays;
-    if (poketraceRollingSeriesUsd.length >= 2) {
-      w = Math.max(w, rollingSnapshotMaxLookbackDays(poketraceRollingSeriesUsd, nowSec));
-    }
-    return w;
-  }, [poketraceExternalChart, poketraceRollingSeriesUsd]);
+    if (pokeHistOk) return nmHistory?.days ?? 90;
+    return null;
+  }, [pokeHistOk, nmHistory?.days]);
+
+  const externalVolatilityCvPct = useMemo(
+    () => (pokeHistOk ? coefficientOfVariationPctFromUsdSeries(pokeHistPts) : null),
+    [pokeHistOk, pokeHistPts],
+  );
+
+  const nmHistApprox = nmHistory?.matchConfidence === "approximate";
+
+  const chartExternalLegend = pokeHistOk
+    ? nmHistApprox
+      ? "PokéTrace NM (daily · approximate match)"
+      : "PokéTrace NM (daily)"
+    : jtHistOk
+      ? "JustTCG (external)"
+      : "External market (NM)";
+
+  const chartExternalShort = pokeHistOk
+    ? nmHistApprox
+      ? "PokéTrace NM ~"
+      : "PokéTrace NM"
+    : jtHistOk
+      ? "JustTCG"
+      : "External NM";
+
+  const chartExternalRollingKind = pokeHistOk || jtHistOk ? "history" : "snapshot";
 
   /** DB-only — chart points + Trades tab tape. */
   const { data: platformTradesData, isLoading: platformTradesLoading } = useQuery({
@@ -331,6 +279,9 @@ export default function MarketplaceCollectionPage() {
     void queryClient.invalidateQueries({ queryKey: ["marketplace-collection", key] });
     void queryClient.invalidateQueries({ queryKey: ["collection-platform-trades", key] });
     void queryClient.invalidateQueries({ queryKey: ["collection-market-series", key] });
+    void queryClient.invalidateQueries({ queryKey: ["collection-market-stats", key] });
+    void queryClient.invalidateQueries({ queryKey: ["collection-poketrace", key] });
+    void queryClient.invalidateQueries({ queryKey: ["collection-poketrace-nm-history", key] });
     void queryClient.invalidateQueries({ queryKey: ["merkle-set", key] });
     void queryClient.invalidateQueries({ queryKey: ["merkle-set"] });
   }
@@ -371,24 +322,41 @@ export default function MarketplaceCollectionPage() {
     return raw ?? {};
   }, [data?.collection?.components]);
 
+  const resolvedExternal = useMemo(
+    () =>
+      resolveExternalMarketUsd({
+        poketracePreview,
+        gradePrices: marketSeriesHeader?.gradePrices ?? null,
+        gradeScore: parseGradeScoreNumber(comp.gradeScore),
+      }),
+    [poketracePreview, marketSeriesHeader?.gradePrices, comp.gradeScore],
+  );
+
+  const chartExternalRefTag =
+    resolvedExternal.source === "poketrace"
+      ? resolvedExternal.poketraceMatchConfidence === "approximate"
+        ? "PokéTrace NM ~"
+        : "PokéTrace NM"
+      : resolvedExternal.source === "justtcg"
+        ? "JustTCG"
+        : "External NM";
+
   const marketCapComputation = useMemo(
     () =>
       data?.collection
         ? computeCollectionMarketCapUsd({
             components: data.collection.components as Record<string, unknown>,
             gradeScoreStr: comp.gradeScore,
-            poketraceCard:
-              poketracePreview?.matched && poketracePreview.card
-                ? poketracePreview.card
-                : null,
+            poketraceCard: poketracePreview?.card ?? null,
+            poketraceMatchConfidence: poketracePreview?.matchConfidence,
             gradePrices: marketSeriesHeader?.gradePrices ?? null,
           })
         : null,
     [
       data?.collection,
       comp.gradeScore,
-      poketracePreview?.matched,
       poketracePreview?.card,
+      poketracePreview?.matchConfidence,
       marketSeriesHeader?.gradePrices,
     ],
   );
@@ -524,11 +492,13 @@ export default function MarketplaceCollectionPage() {
     );
   }
 
-  if (isError || !data) {
+  if (isError || !data || !data.collection) {
     return (
       <div className="max-w-6xl mx-auto px-4 py-16 text-center">
         <p className="text-red-400 text-sm mb-4">
-          {error instanceof Error ? error.message : "Collection not found."}
+          {isError && error instanceof Error
+            ? error.message
+            : "Collection not found (no summary row for this bucket yet). List an NFT in this bucket or open it from the exchange after the first listing."}
         </p>
         <Link href="/exchange" className="text-mint text-sm hover:underline">
           ← Back to Exchange
@@ -558,6 +528,15 @@ export default function MarketplaceCollectionPage() {
           stats={[]}
           chartMetricsRow={
             <CollectionPriceMetricsStrip
+              externalMarketUsd={resolvedExternal.usd}
+              externalPriceSource={resolvedExternal.source}
+              externalPoketraceMatchConfidence={resolvedExternal.poketraceMatchConfidence}
+              externalPriceLoading={
+                poketraceLoading || nmHistoryLoading || marketSeriesLoading
+              }
+              externalVolatilityCvPct={externalVolatilityCvPct}
+              marketStats={marketStats ?? null}
+              marketStatsLoading={marketStatsLoading}
               lastPlatformTradeUsd={lastPlatformTradePriceUsd}
               priceChangePct={lastTwoTradesPriceChangePct}
               platformPriceSamples={platformPriceSamples}
@@ -581,13 +560,20 @@ export default function MarketplaceCollectionPage() {
             <CollectionDualPriceChart
               variant="exchange"
               platformUsd={displayPlatformUsd}
-              externalMarketUsd={poketraceExternalChart?.usd ?? null}
+              externalMarketUsd={
+                chartExternalRollingUsd.length >= 2 ? null : resolvedExternal.usd
+              }
               externalWindowDays={chartExternalWindowDays}
               externalRollingUsd={
                 chartExternalRollingUsd.length > 0 ? chartExternalRollingUsd : null
               }
               externalRollingKind={chartExternalRollingKind}
-              isLoading={platformTradesLoading || poketraceLoading}
+              externalLegendLabel={chartExternalLegend}
+              externalSeriesShortLabel={chartExternalShort}
+              externalRefLineTag={chartExternalRefTag}
+              isLoading={
+                platformTradesLoading || nmHistoryLoading || marketSeriesLoading
+              }
               errorMessage={null}
             />
           }
@@ -633,6 +619,28 @@ export default function MarketplaceCollectionPage() {
             />
           }
         />
+
+        <section className="mt-8 max-w-3xl" aria-label="PokeTrace reference">
+          <h3 className="text-sm font-semibold text-zinc-400 mb-2">
+            PokeTrace NM detail
+          </h3>
+          <p className="text-[11px] text-zinc-600 mb-3 leading-relaxed">
+            eBay / TCGPlayer Near Mint bands and metadata for the matched catalog card. The strip
+            and chart use this (and JustTCG when needed) as the external market path — not listing
+            pool medians.
+          </p>
+          <CollectionPoketracePanel
+            data={poketracePreview}
+            isLoading={poketraceLoading}
+            error={
+              poketraceQueryErr instanceof Error
+                ? poketraceQueryErr
+                : poketraceQueryError
+                  ? new Error("Failed to load PokeTrace reference")
+                  : null
+            }
+          />
+        </section>
 
         <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px]">
           <span className="inline-flex items-center gap-1.5 rounded-full border border-rose-500/20 bg-rose-500/[0.06] px-3 py-1 font-medium text-rose-200/90 tabular-nums">

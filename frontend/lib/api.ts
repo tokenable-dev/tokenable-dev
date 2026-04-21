@@ -94,8 +94,11 @@ export interface PsaAnalyzeResult {
   };
   /** PokeTrace catalog id — persist as graded.poketrace on mint */
   poketraceMint?: {
-    cardId: string;
-    searchQuery: string;
+    matchConfidence: "verified" | "approximate";
+    cardId?: string;
+    searchQuery?: string;
+    approximateCardId?: string;
+    approximateSearchQuery?: string;
   };
   /** PSA cert-images 등 — 앞면 URL은 민팅 시 imageUrl로 쓸 수 있음 */
   psaCertImages?: { front?: string; back?: string };
@@ -246,6 +249,63 @@ export async function getRwaTokensByOwner(address: string): Promise<number[]> {
   return res.json() as Promise<number[]>;
 }
 
+/** 서버에서 tokenURI + metadata JSON + 브라우저용 imageUrl(https)까지 일괄 처리 (클라이언트는 IPFS에 직접 접속하지 않음) */
+export async function postRwaMetadataBatch(body: {
+  tokenIds: number[];
+}): Promise<{
+  items: Array<{
+    tokenId: number;
+    tokenURI: string | null;
+    metadata: RwaMetadata | null;
+    imageUrl: string | null;
+  }>;
+}> {
+  const res = await backendFetch(`${getApiUrl()}/blockchain/rwa/metadata/batch`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error("Failed to batch-load RWA metadata");
+  return res.json() as Promise<{
+    items: Array<{
+      tokenId: number;
+      tokenURI: string | null;
+      metadata: RwaMetadata | null;
+      imageUrl: string | null;
+    }>;
+  }>;
+}
+
+export type ResolvedRwaAsset = {
+  tokenId: number;
+  tokenURI: string;
+  metadata: RwaMetadata | null;
+  imageUrl: string | null;
+};
+
+/** 단일 토큰: tokenURI → metadata → imageUrl 전부 서버 게이트웨이·캐시 */
+export async function getResolvedRwaAsset(tokenId: number): Promise<ResolvedRwaAsset> {
+  const res = await backendFetch(`${getApiUrl()}/blockchain/rwa/asset/${tokenId}`);
+  if (res.status === 404) {
+    return { tokenId, tokenURI: "", metadata: null, imageUrl: null };
+  }
+  if (!res.ok) throw new Error("Failed to load resolved RWA asset");
+  return res.json() as Promise<ResolvedRwaAsset>;
+}
+
+/** 컬렉션 커버 등 임의 URI → 서버가 선택한 https URL (게이트웨이 폴백) */
+export async function postResolveMediaUrls(uris: string[]): Promise<{
+  items: Array<{ uri: string; httpsUrl: string | null }>;
+}> {
+  const res = await backendFetch(`${getApiUrl()}/blockchain/media/resolve`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ uris }),
+  });
+  if (!res.ok) throw new Error("Failed to resolve media URLs");
+  return res.json() as Promise<{ items: Array<{ uri: string; httpsUrl: string | null }> }>;
+}
+
 export async function getRwaTokenURI(tokenId: number): Promise<string> {
   const res = await backendFetch(`${getApiUrl()}/blockchain/rwa/token-uri/${tokenId}`);
   /** 404 = tokenId not minted on current contract (e.g. after redeploy / address change) */
@@ -342,6 +402,22 @@ export interface Order {
   updatedAt?: string;
 }
 
+/** `GET /marketplace/orders` — no Seaport parameters / signature */
+export interface OrderListItem {
+  id: number;
+  orderHash: string;
+  tokenId: string;
+  collectionKey: string | null;
+  /** USDC micros (same as DB consideration_amount) */
+  price: string;
+  side: "ask" | "bid";
+  status: OrderStatus;
+  createdAt: string;
+  updatedAt?: string;
+  offerer: string;
+  considerationRecipients: string[];
+}
+
 export interface CreateOrderPayload {
   parameters: SeaportOrderParameters;
   signature: string;
@@ -355,11 +431,49 @@ export interface CreateOrderPayload {
   collectionKey?: string;
 }
 
-/** 활성 주문 목록 */
-export async function getActiveOrders(): Promise<Order[]> {
+/** 활성 매도(ask) 주문 — 경량 리스트 */
+export async function getActiveOrders(): Promise<OrderListItem[]> {
   const res = await backendFetch(`${getApiUrl()}/marketplace/orders`);
   if (!res.ok) throw new Error("Failed to fetch orders");
-  return res.json() as Promise<Order[]>;
+  const raw = (await res.json()) as OrderListItem[];
+  return raw.map((o) => ({
+    ...o,
+    considerationRecipients: Array.isArray(o.considerationRecipients)
+      ? o.considerationRecipients
+      : [],
+  }));
+}
+
+/** 단일 토큰의 활성 ask (Seaport parameters 포함 — fulfill UI용) */
+export async function getActiveOrderForToken(
+  tokenId: number,
+  opts?: { signal?: AbortSignal },
+): Promise<Order | null> {
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/orders/token/${encodeURIComponent(String(tokenId))}?activeOnly=true`,
+    { signal: opts?.signal },
+  );
+  if (!res.ok) throw new Error("Failed to fetch order for token");
+  /** Nest often responds with 204 or empty body when there is no active ask — avoid `res.json()` on empty. */
+  if (res.status === 204) return null;
+  const text = await res.text();
+  if (!text.trim()) return null;
+  const j: unknown = JSON.parse(text) as unknown;
+  if (j == null) return null;
+  return j as Order;
+}
+
+/** 여러 tokenId의 주문 이력을 한 번에 (경량 행) */
+export async function postOrdersBatchByToken(tokenIds: number[]): Promise<
+  Record<string, OrderListItem[]>
+> {
+  const res = await backendFetch(`${getApiUrl()}/marketplace/orders/batch-by-token`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ tokenIds }),
+  });
+  if (!res.ok) throw new Error("Failed to fetch order batch");
+  return res.json() as Promise<Record<string, OrderListItem[]>>;
 }
 
 export interface MarketplaceCollectionSummary {
@@ -373,28 +487,41 @@ export interface MarketplaceCollectionSummary {
   coverImageUrl?: string | null;
 }
 
-/** graded/JustTCG 기준 컬렉션 요약 (활성 매도 개수 포함) */
-export async function getMarketplaceCollections(): Promise<
-  MarketplaceCollectionSummary[]
-> {
-  const res = await backendFetch(`${getApiUrl()}/marketplace/collections`);
+/** graded/JustTCG 기준 컬렉션 요약 페이지 (커서 기반) */
+export async function getMarketplaceCollectionsPage(opts?: {
+  cursor?: string | null;
+  limit?: number;
+}): Promise<{
+  items: MarketplaceCollectionSummary[];
+  nextCursor: string | null;
+}> {
+  const sp = new URLSearchParams();
+  if (opts?.cursor) sp.set("cursor", opts.cursor);
+  if (opts?.limit != null) sp.set("limit", String(opts.limit));
+  const q = sp.toString();
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/collections${q ? `?${q}` : ""}`,
+  );
   if (!res.ok) throw new Error("Failed to fetch collections");
-  return res.json() as Promise<MarketplaceCollectionSummary[]>;
+  return res.json() as Promise<{
+    items: MarketplaceCollectionSummary[];
+    nextCursor: string | null;
+  }>;
 }
 
-/** tokenId로 해당 RWA의 활성 매도(ask) 리스팅 1건 조회 */
-export async function getOrderByTokenId(tokenId: number): Promise<Order | null> {
-  const res = await backendFetch(`${getApiUrl()}/marketplace/orders`);
-  if (!res.ok) throw new Error("Failed to fetch orders");
-  const orders = (await res.json()) as Order[];
-  return (
-    orders.find(
-      (o) =>
-        o.tokenId === String(tokenId) &&
-        o.status === "active" &&
-        (o.side === "ask" || o.side == null)
-    ) ?? null
-  );
+/** 검색/레거시 호환: 모든 페이지를 순차 로드 (캡 30페이지) */
+export async function fetchAllMarketplaceCollectionSummaries(): Promise<
+  MarketplaceCollectionSummary[]
+> {
+  const out: MarketplaceCollectionSummary[] = [];
+  let cursor: string | null = null;
+  for (let i = 0; i < 30; i++) {
+    const page = await getMarketplaceCollectionsPage({ cursor, limit: 60 });
+    out.push(...page.items);
+    if (!page.nextCursor) break;
+    cursor = page.nextCursor;
+  }
+  return out;
 }
 
 /** tokenId로 전체 주문 이력 조회 (active/fulfilled/cancelled/expired 모두) */
@@ -447,13 +574,14 @@ export async function cancelOrder(
 }
 
 export interface MarketplaceCollectionDetail {
+  /** Null until first listing (or other flow) creates `marketplace_collections` for this key. */
   collection: {
     collectionKey: string;
     displayLabel: string;
     queryUsed: string | null;
     components: Record<string, unknown>;
     createdAt: string;
-  };
+  } | null;
   listings: Order[];
   /** ERC721_WITH_CRITERIA collection bids */
   collectionBids: Order[];
@@ -480,6 +608,18 @@ export async function getMarketplaceCollectionDetail(
   return res.json() as Promise<MarketplaceCollectionDetail>;
 }
 
+/**
+ * Same payload as {@link getMarketplaceCollectionDetail} but returns `null` when the bucket has no
+ * `marketplace_collections` row yet (`collection` is null). HTTP is always 200 from the detail endpoint.
+ */
+export async function getMarketplaceCollectionDetailOrNull(
+  collectionKey: string,
+  opts?: { bypassCache?: boolean; signal?: AbortSignal },
+): Promise<MarketplaceCollectionDetail | null> {
+  const d = await getMarketplaceCollectionDetail(collectionKey, opts);
+  return d.collection ? d : null;
+}
+
 export interface CollectionUsdPoint {
   t: number;
   v: number;
@@ -499,7 +639,7 @@ export interface CollectionMarketSeries {
   marketChangePct: number | null;
   /** Present when served by a recent backend (exchange list uses same bundle fields) */
   marketChangeWindow?: "7d" | "30d" | "90d" | "180d";
-  marketChangeSource?: "poketrace_nm_ebay" | "justtcg_card_history" | null;
+  marketChangeSource?: "poketrace_nm_ebay" | "justtcg_card_history" | "none" | null;
   isMockExternalPrices?: boolean;
   gradePrices: CollectionGradePrices;
   externalUsd: CollectionUsdPoint[];
@@ -526,6 +666,40 @@ export async function getCollectionMarketSeries(
   return res.json() as Promise<CollectionMarketSeries>;
 }
 
+/** Listing-pool statistics for a collection (same contract as GET …/collections/:key/stats). */
+export interface CollectionMarketStats {
+  collectionKey: string;
+  floor: number | null;
+  median: number | null;
+  p25: number | null;
+  p75: number | null;
+  band: { low: number | null; high: number | null };
+  volatility: number | null;
+  sampleSize: number;
+  isReliable: boolean;
+  dataQuality: {
+    sampleSize: number;
+    trimmed: boolean;
+    currency: "USDC";
+  };
+  sources: { listings: boolean; trades?: boolean };
+  reference?: { poketraceCardId: string | null };
+}
+
+export async function getCollectionMarketStats(
+  collectionKey: string,
+): Promise<CollectionMarketStats> {
+  const enc = encodeURIComponent(collectionKey);
+  const res = await backendFetch(`${getApiUrl()}/marketplace/collections/${enc}/stats`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(
+      (err as { message?: string }).message ?? "Failed to load collection market stats",
+    );
+  }
+  return res.json() as Promise<CollectionMarketStats>;
+}
+
 /** PokeTrace — raw (Near Mint) market bands; PSA tier $ amounts need PokeTrace Pro on their API */
 export interface PoketracePriceBand {
   avg: number | null;
@@ -547,6 +721,8 @@ export interface CollectionPoketracePreview {
   searchQuery: string;
   matched: boolean;
   message?: string;
+  /** Strict verified catalog id vs relaxed approximate reference (charts / NM). */
+  matchConfidence?: "verified" | "approximate";
   /** True when the backend used PokeTrace mock fallback (see POKETRACE_MOCK_ON_FAILURE) */
   isMockData?: boolean;
   card: null | {
@@ -585,14 +761,14 @@ export async function getCollectionPoketracePreview(
   return res.json() as Promise<CollectionPoketracePreview>;
 }
 
-/** Batch PokeTrace previews from mint IPFS metadata (My Assets); keys are token ids */
+/** PokeTrace batch — 서버가 tokenId별 메타데이터를 조회 (요청은 id 목록만) */
 export async function postBatchMintPoketracePreviews(
-  items: Array<{ tokenId: number; metadata: unknown }>
+  tokenIds: number[],
 ): Promise<Record<number, CollectionPoketracePreview>> {
   const res = await backendFetch(`${getApiUrl()}/marketplace/poketrace/mint-previews`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ items }),
+    body: JSON.stringify({ tokenIds }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -615,6 +791,7 @@ export interface CollectionPoketraceNmHistory {
   searchQuery: string;
   matched: boolean;
   message?: string;
+  matchConfidence?: "verified" | "approximate";
   /** Present when the backend served synthetic NM history for testing */
   isMockData?: boolean;
   days: number;
@@ -675,15 +852,17 @@ export interface CollectionListMarketSnapshot {
   collectionKey: string;
   justtcgCardId: string | null;
   categoryLabel: string | null;
-  /** First→last point % on the external series used for this row */
+  /** Legacy bundle field; prefer {@link CollectionMarketStats} via `marketStats` or GET …/stats */
   marketChangePct: number | null;
-  /** Window requested for JustTCG history; PokeTrace NM uses the same span in days */
+  /** Window label for bundle metadata */
   marketChangeWindow?: "7d" | "30d" | "90d" | "180d";
-  marketChangeSource?: "poketrace_nm_ebay" | "justtcg_card_history" | null;
+  marketChangeSource?: "poketrace_nm_ebay" | "justtcg_card_history" | "none" | null;
   /** JustTCG path while server `TCG_USE_MOCK` is enabled */
   isMockExternalPrices?: boolean;
   gradePrices: CollectionGradePrices;
   sparklineUsd: CollectionUsdPoint[];
+  /** Pool stats (listing-derived); same contract as {@link getCollectionMarketStats} */
+  marketStats?: CollectionMarketStats | null;
 }
 
 /** Must match backend `BatchMarketSnapshotsDto` @ArrayMaxSize */
@@ -806,7 +985,7 @@ export async function fulfillOrderApi(orderHash: string): Promise<Order> {
   return res.json() as Promise<Order>;
 }
 
-// ─── IPFS / Pinata ────────────────────────────────────────────────────────────
+// ─── RWA metadata shape (IPFS fetch는 백엔드만 수행 — `postRwaMetadataBatch` / `getResolvedRwaAsset` / `postResolveMediaUrls`) ─
 
 export interface RwaMetadata {
   name?: string;
@@ -816,85 +995,4 @@ export interface RwaMetadata {
   /** OpenSea-style — 민팅 시 graded PSA 등이 여기 포함 */
   properties?: Record<string, unknown>;
   external_url?: string;
-}
-
-/**
- * Hostname only (no `https://`). Used for browser `<img>` and client-side metadata `fetch`.
- * Pinata **dedicated** gateways with Dashboard “Restricted” access reject anonymous browser requests
- * (no JWT) → all collection images 403. Default `ipfs.io` works for public CIDs.
- * Set `NEXT_PUBLIC_IPFS_GATEWAY` to an **open** dedicated host if you enable public reads there.
- */
-const IPFS_PUBLIC_GATEWAY_HOST =
-  process.env.NEXT_PUBLIC_IPFS_GATEWAY?.trim() || "ipfs.io";
-
-function buildPublicIpfsUrl(ipfsPath: string): string {
-  const p = ipfsPath.replace(/^\/+/, "");
-  if (!p) return "";
-  const host = IPFS_PUBLIC_GATEWAY_HOST || "ipfs.io";
-  return `https://${host}/ipfs/${p}`;
-}
-
-/**
- * Any host’s `/ipfs/<...>` path → configured public gateway (normalizes stale pinata/ipfs.io links in DB).
- */
-function rewriteHttpsIpfsToPublicGateway(uri: string): string | null {
-  try {
-    const u = new URL(uri);
-    const prefix = "/ipfs/";
-    const idx = u.pathname.indexOf(prefix);
-    if (idx === -1) return null;
-    const afterPath = u.pathname.slice(idx + prefix.length);
-    const tail = (afterPath ? `${afterPath}` : "") + (u.search || "");
-    const decoded = (() => {
-      try {
-        return decodeURIComponent(tail);
-      } catch {
-        return tail;
-      }
-    })();
-    if (!decoded) return null;
-    return buildPublicIpfsUrl(decoded);
-  } catch {
-    return null;
-  }
-}
-
-export async function fetchIpfsMetadata(tokenURI: string): Promise<RwaMetadata> {
-  const raw = tokenURI.trim();
-  if (!raw) throw new Error("Empty token URI");
-
-  let url: string;
-  if (/^ipfs:\/\//i.test(raw)) {
-    const path = raw.replace(/^ipfs:\/\//i, "").replace(/^\/+/, "");
-    url = buildPublicIpfsUrl(path);
-  } else if (/^https?:\/\//i.test(raw)) {
-    url = rewriteHttpsIpfsToPublicGateway(raw) ?? raw;
-  } else {
-    url = buildPublicIpfsUrl(raw.replace(/^\/+/, ""));
-  }
-
-  if (!url) throw new Error("Invalid token URI");
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`Failed to fetch metadata: ${url}`);
-  return res.json() as Promise<RwaMetadata>;
-}
-
-export function resolveIpfsImage(uri: string): string {
-  if (!uri?.trim()) return "";
-  const trimmed = uri.trim();
-
-  if (/^ipfs:\/\//i.test(trimmed)) {
-    const path = trimmed.replace(/^ipfs:\/\//i, "").replace(/^\/+/, "");
-    return path ? buildPublicIpfsUrl(path) : "";
-  }
-
-  const fromHttps = rewriteHttpsIpfsToPublicGateway(trimmed);
-  if (fromHttps) return fromHttps;
-
-  /** Bare CID / path (no scheme) — treat as IPFS content id from our indexer */
-  if (/^(Qm[1-9A-HJ-NP-Za-km-z]{40,}|bafy[a-z2-7]{50,})$/i.test(trimmed)) {
-    return buildPublicIpfsUrl(trimmed);
-  }
-
-  return trimmed;
 }

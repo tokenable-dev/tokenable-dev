@@ -1,6 +1,6 @@
 # Tokenable RWA Marketplace
 
-A decentralized marketplace for real-world asset (RWA) tokens on EVM chains. Users mint, list, and trade ERC-721–backed assets with USDC. Built as a monorepo with a modern Web3 stack.
+A decentralized marketplace for real-world asset (RWA) tokens on EVM chains. Users mint, list, and trade RWA-backed assets with USDC. Settlement is primarily **OpenSea Seaport 1.5** (signed off-chain orders synced to Postgres); the backend also exposes an optional **relational rule-based matching API** for bids/asks/match intents (see [docs/marketplace-trading.md](docs/marketplace-trading.md)). Built as a monorepo with a modern Web3 stack.
 
 ---
 
@@ -62,7 +62,7 @@ tokenable-dev/
 | ------------ | --------------------------------------------------------------------------- |
 | **frontend** | Next.js application for wallet connection, RWA minting, browsing, and trading |
 | **backend**  | NestJS API server handling IPFS uploads, blockchain reads, and marketplace data |
-| **contracts** | Solidity: TokenableRWA (ERC-721), MockUSDC (ERC-20) — trading uses OpenSea Seaport (no custom marketplace contract) |
+| **contracts** | Solidity: TokenableRWA (ERC-721), MockUSDC (ERC-20) — primary trading: Seaport; optional relational match layer in Nest (`docs/marketplace-trading.md`) |
 
 ---
 
@@ -70,7 +70,8 @@ tokenable-dev/
 
 | Document | Contents |
 |----------|----------|
-| **[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)** | DB reset, TypeORM, API summary, Seaport, deploy, PSA troubleshooting, diagram index |
+| **[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)** | DB reset, TypeORM, API summary, Seaport + relational trading, deploy, PSA troubleshooting, diagram index |
+| **[docs/marketplace-trading.md](docs/marketplace-trading.md)** | Rule-based `bids`/`asks`/match API vs Seaport `orders` |
 | **[docs/DEPLOY_EC2_DOMAIN.md](docs/DEPLOY_EC2_DOMAIN.md)** | EC2 Docker, domain, same-origin `/api`, CORS, OAuth, TLS checklist |
 | **[docs/price-api.md](docs/price-api.md)** | JustTCG price API (long reference) |
 | **[backend/sql/README.md](backend/sql/README.md)** | Why there are no SQL migrations |
@@ -82,6 +83,7 @@ tokenable-dev/
 | **[Marketplace Pipeline (KR)](docs/diagrams/marketplace-lifecycle.md)** | 흐름도 · 시퀀스 · DB · 프론트(Part 4) · 백엔드(Part 5) |
 | **[Marketplace Pipeline (EN)](docs/diagrams/marketplace-lifecycle.en.md)** | Flow · sequence · DB · frontend (Part 4) · backend (Part 5) |
 | **[Seaport Criteria Architecture](docs/diagrams/marketplace-seaport-criteria-architecture.drawio)** | Seaport criteria bid architecture |
+| **[Relational trading layer](docs/diagrams/marketplace-trading-relational-layer.drawio)** | Rule engine, DB tables, settlement worker (draw.io) |
 | **[Mint → RWA Exchange](docs/diagrams/tokenable-mint-rwa-exchange-full-architecture.drawio)** | Full mint-to-exchange architecture |
 | **[PSA Upload & OCR Flow](docs/diagrams/psa-slab-upload-ocr-api-flow.drawio)** | PSA slab upload & OCR API flow |
 
@@ -120,7 +122,7 @@ cd ../contracts && pnpm install
 Create env files yourself (not committed):
 
 - `backend/.env` — RPC, Postgres, Pinata, JWT/Google 등 (`RWA_CONTRACT_ADDRESS` 권장; 레거시 `NFT_CONTRACT_ADDRESS` 호환)
-- `frontend/.env.local` — `NEXT_PUBLIC_*` (로컬에서만; `NEXT_PUBLIC_RWA_CONTRACT_ADDRESS` 권장)
+- `frontend/.env` — `NEXT_PUBLIC_*` (로컬에서만; `NEXT_PUBLIC_RWA_CONTRACT_ADDRESS` 권장)
 - `contracts/.env` — 배포용 private key / RPC 등
 
 필수 항목은 RPC URL, 컨트랙트 주소, IPFS(Pinata) 자격 증명 등이다.
@@ -134,7 +136,7 @@ pnpm run deploy:usdc      # MockUSDC → Sepolia
 pnpm run deploy:rwa       # TokenableRWA → Sepolia (same as deploy:rwa-sepolia)
 ```
 
-Update `backend/.env` and `frontend/.env.local` with the deployed contract addresses.
+Update `backend/.env` and `frontend/.env` with the deployed contract addresses.
 
 ### 5. Run the application
 

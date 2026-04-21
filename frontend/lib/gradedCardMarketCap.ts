@@ -39,7 +39,7 @@ function pickAvgFromBand(band: { avg: number | null; low: number | null; high: n
 }
 
 /** eBay / TCGPlayer NM에서 대표 단가(USD) */
-function blendNearMintUnitUsd(
+export function blendNearMintUnitUsd(
   card: NonNullable<CollectionPoketracePreview["card"]>
 ): { unitUsd: number | null; confidence: MarketCapConfidence; source: string } {
   const e = pickAvgFromBand(card.ebayNearMint);
@@ -65,6 +65,16 @@ function blendNearMintUnitUsd(
   }
 
   return { unitUsd: null, confidence: "low", source: "none" };
+}
+
+/** NM blended spot USD — same weights as PSA market-cap unit; for strip / portfolio / failover. */
+export function nmSpotUsdFromPoketracePreview(
+  preview: CollectionPoketracePreview | null | undefined,
+): number | null {
+  if (!preview?.matched || !preview.card) return null;
+  /** Approximate catalog rows: panel/chart reference only — not primary external USD. */
+  if (preview.matchConfidence === "approximate") return null;
+  return blendNearMintUnitUsd(preview.card).unitUsd;
 }
 
 function gradeMultiplier(gradeScore: number | undefined): number {
@@ -156,6 +166,8 @@ export function computeCollectionMarketCapUsd(params: {
   components: Record<string, unknown>;
   gradeScoreStr: string | undefined | null;
   poketraceCard: CollectionPoketracePreview["card"];
+  /** When preview is approximate-match, skip PokeTrace $ path (same as primary price policy). */
+  poketraceMatchConfidence?: CollectionPoketracePreview["matchConfidence"];
   gradePrices: CollectionGradePrices | null | undefined;
 }): MarketCapComputation {
   const population = parsePsaTotalPopulation(params.components);
@@ -171,7 +183,7 @@ export function computeCollectionMarketCapUsd(params: {
     };
   }
 
-  if (params.poketraceCard) {
+  if (params.poketraceMatchConfidence !== "approximate" && params.poketraceCard) {
     const fromPt = computePsaMarketCapUsd({
       totalPopulation: population,
       gradeScore: gradeNum,

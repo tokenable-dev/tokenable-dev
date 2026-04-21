@@ -4,13 +4,13 @@ import Link from "next/link";
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useAccount, useConnect, useDisconnect, useBalance } from "wagmi";
-import { useQuery } from "@tanstack/react-query";
 import { formatUnits } from "viem";
 import { ASSETS } from "@/constants/assets";
 import { sepolia } from "@/config/wagmi";
 import { ensureSepoliaNetwork } from "@/lib/ensureSepoliaNetwork";
-import { getMarketplaceCollections, type MarketplaceCollectionSummary } from "@/lib/api";
-import { resolveIpfsImage } from "@/lib/api";
+import type { MarketplaceCollectionSummary } from "@/lib/api";
+import { useMarketplaceCollectionsInfinite } from "@/hooks/useMarketplaceCollectionsInfinite";
+import { useResolvedMediaUrlMap } from "@/hooks/useResolvedMediaUrl";
 import { useAppStore, selectUsdcBalance } from "@/store";
 import { useShallow } from "zustand/react/shallow";
 
@@ -22,11 +22,24 @@ function SearchBar() {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
-  const { data: collections = [] } = useQuery<MarketplaceCollectionSummary[]>({
-    /** Same key as Exchange — one network cache + localStorage persist */
-    queryKey: ["marketplace-collections"],
-    queryFn: getMarketplaceCollections,
-  });
+  const colInfinite = useMarketplaceCollectionsInfinite();
+  const collections = useMemo<MarketplaceCollectionSummary[]>(
+    () => colInfinite.data?.pages.flatMap((p) => p.items) ?? [],
+    [colInfinite.data],
+  );
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    void (async () => {
+      while (!cancelled && colInfinite.hasNextPage) {
+        await colInfinite.fetchNextPage();
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, colInfinite.hasNextPage, colInfinite.fetchNextPage]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -100,6 +113,14 @@ function SearchBar() {
 
   const showDropdown = open && query.trim().length > 0;
 
+  const coverSources = useMemo(
+    () => filtered.map((c) => c.coverImageUrl),
+    [filtered],
+  );
+  const { map: coverUrlMap } = useResolvedMediaUrlMap(coverSources, {
+    enabled: showDropdown && filtered.length > 0,
+  });
+
   return (
     <div ref={wrapperRef} className="relative">
       <div
@@ -155,7 +176,10 @@ function SearchBar() {
                     {c.coverImageUrl ? (
                       /* eslint-disable-next-line @next/next/no-img-element */
                       <img
-                        src={resolveIpfsImage(c.coverImageUrl)}
+                        src={
+                          coverUrlMap.get(c.coverImageUrl.trim()) ??
+                          c.coverImageUrl.trim()
+                        }
                         alt=""
                         className="w-full h-full object-cover"
                         loading="lazy"

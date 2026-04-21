@@ -255,10 +255,21 @@ export function MintForm() {
           topMatch: lastAnalyze.justtcg.topMatch ?? undefined,
         };
         if (lastAnalyze.poketraceMint) {
-          metadata.poketrace = {
-            cardId: lastAnalyze.poketraceMint.cardId,
-            searchQuery: lastAnalyze.poketraceMint.searchQuery,
-          };
+          const pm = lastAnalyze.poketraceMint;
+          const pt: Record<string, string> = {};
+          if (pm.cardId?.trim() && pm.searchQuery != null) {
+            pt.cardId = pm.cardId.trim();
+            pt.searchQuery = pm.searchQuery;
+          }
+          if (pm.approximateCardId?.trim()) {
+            pt.approximateCardId = pm.approximateCardId.trim();
+            if (pm.approximateSearchQuery != null) {
+              pt.approximateSearchQuery = pm.approximateSearchQuery;
+            }
+          }
+          if (Object.keys(pt).length > 0) {
+            metadata.poketrace = pt as typeof metadata.poketrace;
+          }
         }
         const l = lastAnalyze.psaApi.lookup;
         metadata.psaApi = {

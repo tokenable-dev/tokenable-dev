@@ -38,9 +38,8 @@ export class Order {
   offerer: string;
 
   @Column({
-    type: 'enum',
-    enum: OrderSide,
-    enumName: 'orders_side_enum',
+    type: 'varchar',
+    length: 16,
     default: OrderSide.ASK,
   })
   side: OrderSide;
@@ -78,9 +77,8 @@ export class Order {
   signature: string;
 
   @Column({
-    type: 'enum',
-    enum: OrderStatus,
-    enumName: 'orders_status_enum',
+    type: 'varchar',
+    length: 32,
     default: OrderStatus.ACTIVE,
   })
   status: OrderStatus;

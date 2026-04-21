@@ -60,7 +60,7 @@ async function bootstrap() {
     .addTag('blockchain', 'Sepolia 읽기 전용 — USDC · Tokenable_RWA')
     .addTag(
       'marketplace',
-      'Seaport 오프체인 오더북 — 주문 등록·조회·체결 동기화·컬렉션',
+      'Seaport 오프체인 오더북 + 컬렉션 — 주문 등록·조회·체결 동기화; 규칙 매칭(bids/trade/match) 병행',
     )
     .addTag(
       'price',

@@ -84,7 +84,7 @@ export function TokenCriteriaMatchPanel({
 
       onSaleMatched?.();
       setStep("success");
-      await queryClient.invalidateQueries({ queryKey: ["marketplace-orders"] });
+      await queryClient.invalidateQueries({ queryKey: ["orders"] });
       await queryClient.invalidateQueries({ queryKey: ["marketplace-order-by-token", tokenId] });
       await queryClient.invalidateQueries({ queryKey: ["marketplace-collection", collectionKey] });
       await queryClient.invalidateQueries({ queryKey: ["rwa-activity", tokenId] });

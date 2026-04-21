@@ -3,14 +3,15 @@
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { getActiveOrders } from "@/lib/api";
+import { rq, marketplaceRqPolicy } from "@/lib/queryKeys";
 import { MarketplaceOrderBook } from "@/components/marketplace/MarketplaceOrderBook";
 
 export default function MarketplaceOtherListingsPage() {
-
   const { data: orders = [], isLoading } = useQuery({
-    queryKey: ["marketplace-orders"],
+    queryKey: rq.ordersActive(),
     queryFn: getActiveOrders,
-    refetchInterval: 15_000,
+    refetchInterval: marketplaceRqPolicy.ordersRefetchMs,
+    staleTime: marketplaceRqPolicy.ordersStaleMs,
   });
 
   const asks = orders.filter((o) => o.side !== "bid");

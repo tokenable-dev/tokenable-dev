@@ -40,8 +40,10 @@ export interface GradedCardMetadata {
    * without relying on fuzzy search alone.
    */
   poketrace?: {
-    cardId: string;
-    searchQuery: string;
+    cardId?: string;
+    searchQuery?: string;
+    approximateCardId?: string;
+    approximateSearchQuery?: string;
   };
   /** Collection cover on IPFS after server trims slab top (mint response) */
   collectionCoverImage?: string;

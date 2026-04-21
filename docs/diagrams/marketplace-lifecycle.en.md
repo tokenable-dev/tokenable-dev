@@ -2,6 +2,8 @@
 
 > Seaport v1.5 · Off-chain order book (backend) · On-chain `fulfillOrder` / `matchAdvancedOrders`
 
+> **Addendum (2026-04):** The backend also exposes a **relational rule-based matching layer** (`bids`, `asks`, `match_intents`, `trade_executions`, idempotency, outbox, settlement worker). The **default UI path remains Seaport** `orders`. See **[marketplace-trading.md](../marketplace-trading.md)** and **[marketplace-trading-relational-layer.drawio](./marketplace-trading-relational-layer.drawio)**.
+
 ---
 
 ## Part 1 — Overall Flow
@@ -853,6 +855,8 @@ backend/
 │   │
 │   ├── marketplace/
 │   │   ├── marketplace.controller.ts  # /marketplace — Seaport order book DB
+│   │   ├── trading/bids.controller.ts  # GET /marketplace/bids
+│   │   ├── trading/trade.controller.ts # POST /trade/match, GET executions/:id
 │   │   ├── marketplace.service.ts
 │   │   ├── collection.service.ts
 │   │   ├── entities/           # order · marketplace-collection
