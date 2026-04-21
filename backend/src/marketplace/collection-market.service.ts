@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 import { GetCardsDto } from '../price/dto/get-cards.dto';
 import { PriceService } from '../price/price.service';
 import { CollectionService } from './collection.service';
@@ -9,53 +9,63 @@ import {
   candidateJustTcgGamesForCollection,
   hasUsefulJustTcgMarketData,
   parseJustTcgCardsResponseBest,
-  percentChangeFromPoints,
   scoreMarketPriceParsed,
   type GradePriceStrip,
   type ParsedJustTcgMarket,
   type UsdPoint,
 } from './collection-market.util';
 import { Order, OrderSide, OrderStatus } from './entities/order.entity';
-import { PoketraceService } from '../poketrace/poketrace.service';
+import { computeRobustMarketStatsFromUsdPrices } from './collection-market-stats.util';
 
 export type PriceHistoryDuration = '7d' | '30d' | '90d' | '180d';
 
-function priceHistoryDurationToDays(d: PriceHistoryDuration): number {
-  switch (d) {
-    case '7d':
-      return 7;
-    case '30d':
-      return 30;
-    case '90d':
-      return 90;
-    case '180d':
-      return 180;
-    default:
-      return 30;
-  }
-}
-
-/** Where list-row % change + sparkline external series came from */
+/**
+ * Collection “market price” in the product is **external** (PokéTrace primary, JustTCG fallback).
+ * `GET …/collections/:key/stats` is **listing-pool liquidity only**, not catalog price.
+ */
 export type MarketChangePriceSource =
   | 'poketrace_nm_ebay'
-  | 'justtcg_card_history';
+  | 'justtcg_card_history'
+  | 'none';
+
+/** Listing-pool depth / distribution (USDC) — liquidity signal; not primary “market price”. */
+export interface CollectionMarketStatsResponse {
+  collectionKey: string;
+  floor: number | null;
+  median: number | null;
+  p25: number | null;
+  p75: number | null;
+  band: { low: number | null; high: number | null };
+  volatility: number | null;
+  sampleSize: number;
+  /** Strong on-platform liquidity (`sampleSize` threshold), not external price validity. */
+  isReliable: boolean;
+  dataQuality: {
+    sampleSize: number;
+    trimmed: boolean;
+    currency: 'USDC';
+  };
+  sources: { listings: boolean; trades?: boolean };
+  reference?: { poketraceCardId: string | null };
+}
 
 export interface CollectionMarketBundle {
   collectionKey: string;
   justtcgCardId: string | null;
   categoryLabel: string | null;
   /**
-   * Percent change from first to last point of the chosen external series
-   * (sorted by time): ((last - first) / first) * 100.
+   * Deprecated for collection “market price”: kept null with `marketChangeSource: 'none'`.
+   * Use `GET …/collections/:key/stats` (listing pool) instead.
    */
   marketChangePct: number | null;
-  /** Requested JustTCG priceHistory window; also used as PokeTrace NM `days` cap */
+  /** Window label only (grade strip / JustTCG metadata still keyed by this window). */
   marketChangeWindow: PriceHistoryDuration;
-  /** Series used for `marketChangePct` + sparkline (PokeTrace preferred when available) */
+  /** No external card time-series in bundle; pool stats live on `/stats`. */
   marketChangeSource: MarketChangePriceSource | null;
-  /** True when %/sparkline use JustTCG while `TCG_USE_MOCK` is on (fixture data) */
+  /** Always false when external series is empty (legacy field). */
   isMockExternalPrices: boolean;
   gradePrices: GradePriceStrip;
+  /** Deprecated: empty — collection external chart must not use JustTCG/PokéTrace blend here. */
   externalUsd: UsdPoint[];
   platformUsd: UsdPoint[];
 }
@@ -87,24 +97,68 @@ export class CollectionMarketService {
   constructor(
     private readonly collectionService: CollectionService,
     private readonly priceService: PriceService,
-    private readonly poketraceService: PoketraceService,
     private readonly config: ConfigService,
     @InjectRepository(Order)
     private readonly orderRepo: Repository<Order>,
   ) {}
 
-  private isTcgMock(): boolean {
-    const v = this.config.get<string>('TCG_USE_MOCK');
-    return v === 'true' || v === '1' || v === 'yes';
+  /** Canonical USDC contract for listing consideration (env or Sepolia default). */
+  private usdcContractAddressLower(): string {
+    const raw = this.config.get<string>('USDC_CONTRACT_ADDRESS');
+    if (raw && String(raw).trim()) {
+      return String(raw).trim().toLowerCase();
+    }
+    return '0x1c7d4b196cb0c7b01d743fbc6116a902379c7238';
   }
 
-  private usdcNumber(amount: string): number | null {
+  private isUsdcConsiderationToken(token: string | null | undefined): boolean {
+    if (!token || !String(token).trim()) return false;
+    return String(token).trim().toLowerCase() === this.usdcContractAddressLower();
+  }
+
+  private usdcMicrosToNumber(amount: string): number | null {
     try {
       const v = Number(BigInt(amount)) / 1_000_000;
       return Number.isFinite(v) ? v : null;
     } catch {
       return null;
     }
+  }
+
+  /**
+   * Same rules as stats/trades USDC extraction (6-decimal micros string).
+   * Used for counting skips in `getCollectionMarketStats` diagnostics without double-logging.
+   */
+  private classifyUsdcConsideration(o: Order): {
+    usd: number | null;
+    skip: 'none' | 'non_usdc' | 'invalid_amount';
+  } {
+    if (!this.isUsdcConsiderationToken(o.considerationToken)) {
+      return { usd: null, skip: 'non_usdc' };
+    }
+    const v = this.usdcMicrosToNumber(o.considerationAmount);
+    if (v == null || v <= 0) return { usd: null, skip: 'invalid_amount' };
+    return { usd: v, skip: 'none' };
+  }
+
+  /**
+   * Stats pipeline: USDC 6-decimal micros only. Non-USDC rows are ignored with a warning.
+   */
+  private usdcPriceFromOrder(o: Order, label: string): number | null {
+    const { usd, skip } = this.classifyUsdcConsideration(o);
+    if (skip === 'non_usdc') {
+      this.logger.warn(
+        `collection market stats: skipping non-USDC order (${label}) orderHash=${o.orderHash} token=${o.considerationToken}`,
+      );
+      return null;
+    }
+    if (skip === 'invalid_amount') {
+      this.logger.warn(
+        `collection market stats: invalid USDC considerationAmount (${label}) orderHash=${o.orderHash} amount=${String(o.considerationAmount).slice(0, 48)}`,
+      );
+      return null;
+    }
+    return usd;
   }
 
   /**
@@ -126,25 +180,184 @@ export class CollectionMarketService {
     const valid: Order[] = [];
     for (const o of rows) {
       if (!o.tokenId || o.tokenId === '0') continue;
-      const v = this.usdcNumber(o.considerationAmount);
+      const v = this.usdcPriceFromOrder(o, 'platform-trades');
       if (v == null) continue;
       valid.push(o);
     }
     const platformUsd: UsdPoint[] = valid.map((o) => ({
       t: Math.floor(o.updatedAt.getTime() / 1000),
-      v: this.usdcNumber(o.considerationAmount)!,
+      v: this.usdcMicrosToNumber(o.considerationAmount)!,
     }));
     const recent = valid.slice(-80);
     const trades: PlatformTapeFillRow[] = [...recent]
       .reverse()
       .map((o) => ({
         t: Math.floor(o.updatedAt.getTime() / 1000),
-        priceUsdc: this.usdcNumber(o.considerationAmount)!,
+        priceUsdc: this.usdcMicrosToNumber(o.considerationAmount)!,
         tokenId: String(o.tokenId),
         orderHash: o.orderHash,
         tapeAggressor: tapeAggressorFromOrderParameters(o.parameters),
       }));
     return { platformUsd, trades };
+  }
+
+  /**
+   * Listing + fulfilled ask pool statistics for `collectionKey`.
+   * `poketraceCardId` is returned under `reference` only — never used in floor/median/band/vol.
+   */
+  async getCollectionMarketStats(
+    collectionKey: string,
+  ): Promise<CollectionMarketStatsResponse> {
+    const key = collectionKey.toLowerCase();
+    /** Pool stats are listing-derived; a `marketplace_collections` row is optional (e.g. client-derived bucket key before first listing). */
+    const col = await this.collectionService.findOne(key);
+    const expectedUsdc = this.usdcContractAddressLower();
+
+    const prices: number[] = [];
+    const asks = await this.collectionService.activeListingsForCollection(key);
+    let askNonUsdc = 0;
+    let askInvalidAmount = 0;
+    let poolFromActiveAsks = 0;
+    for (const o of asks) {
+      const { usd, skip } = this.classifyUsdcConsideration(o);
+      if (skip === 'non_usdc') {
+        askNonUsdc++;
+        this.logger.warn(
+          `collection market stats: skipping non-USDC order (active-listing) orderHash=${o.orderHash} token=${o.considerationToken}`,
+        );
+        continue;
+      }
+      if (skip === 'invalid_amount') {
+        askInvalidAmount++;
+        this.logger.warn(
+          `collection market stats: invalid USDC considerationAmount (active-listing) orderHash=${o.orderHash} amount=${String(o.considerationAmount).slice(0, 48)}`,
+        );
+        continue;
+      }
+      prices.push(usd!);
+      poolFromActiveAsks++;
+    }
+
+    let poolFromFulfilledAsks = 0;
+    const fulfilled = await this.orderRepo.find({
+      where: {
+        collectionKey: key,
+        status: OrderStatus.FULFILLED,
+        side: OrderSide.ASK,
+      },
+      order: { updatedAt: 'ASC' },
+    });
+    let fulfilledSkippedToken = 0;
+    let fulfilledNonUsdc = 0;
+    let fulfilledInvalidAmount = 0;
+    for (const o of fulfilled) {
+      if (!o.tokenId || o.tokenId === '0') {
+        fulfilledSkippedToken++;
+        continue;
+      }
+      const { usd, skip } = this.classifyUsdcConsideration(o);
+      if (skip === 'non_usdc') {
+        fulfilledNonUsdc++;
+        this.logger.warn(
+          `collection market stats: skipping non-USDC order (fulfilled-ask) orderHash=${o.orderHash} token=${o.considerationToken}`,
+        );
+        continue;
+      }
+      if (skip === 'invalid_amount') {
+        fulfilledInvalidAmount++;
+        this.logger.warn(
+          `collection market stats: invalid USDC considerationAmount (fulfilled-ask) orderHash=${o.orderHash} amount=${String(o.considerationAmount).slice(0, 48)}`,
+        );
+        continue;
+      }
+      prices.push(usd!);
+      poolFromFulfilledAsks++;
+    }
+    const tradesUsed = poolFromFulfilledAsks > 0;
+
+    const stats = computeRobustMarketStatsFromUsdPrices(prices);
+    const comp = (col?.components ?? {}) as Record<string, unknown>;
+    const pid =
+      typeof comp.poketraceCardId === 'string' && comp.poketraceCardId.trim()
+        ? comp.poketraceCardId.trim()
+        : null;
+
+    const rawPoolN = prices.length;
+    let unreliableReason: string | null = null;
+    if (rawPoolN === 0) {
+      unreliableReason =
+        asks.length === 0 && fulfilled.length === 0
+          ? 'no_order_rows_for_collection_key'
+          : 'no_usdc_prices_after_filter';
+    } else if (rawPoolN < 5) {
+      unreliableReason = 'sample_below_min_reliable(5)';
+    }
+
+    const diag = this.config.get<string>('MARKETPLACE_PIPELINE_DIAG');
+    const diagOn = diag === '1' || diag === 'true';
+    let globalActiveAskNullKeyCount: number | undefined;
+    let globalActiveAskTotal: number | undefined;
+    if (diagOn && rawPoolN === 0) {
+      globalActiveAskNullKeyCount = await this.orderRepo.count({
+        where: { side: OrderSide.ASK, status: OrderStatus.ACTIVE, collectionKey: IsNull() },
+      });
+      globalActiveAskTotal = await this.orderRepo.count({
+        where: { side: OrderSide.ASK, status: OrderStatus.ACTIVE },
+      });
+    }
+
+    this.logger.log(
+      JSON.stringify({
+        msg: 'collection_market_stats',
+        collectionKey: key,
+        marketplaceCollectionRow: Boolean(col),
+        referencePoketraceCardIdPresent: Boolean(pid),
+        usdcAddressExpectedLower: expectedUsdc,
+        activeAskRowsDb: asks.length,
+        poolFromActiveAsks,
+        activeAskSkippedNonUsdc: askNonUsdc,
+        activeAskSkippedInvalidAmount: askInvalidAmount,
+        fulfilledAskRowsDb: fulfilled.length,
+        poolFromFulfilledAsks,
+        fulfilledSkippedNoTokenOrZero: fulfilledSkippedToken,
+        fulfilledSkippedNonUsdc: fulfilledNonUsdc,
+        fulfilledSkippedInvalidAmount: fulfilledInvalidAmount,
+        /** USDC prices merged into pool (active + eligible fulfilled) before IQR / min-sample gate */
+        usdcObservationCount: rawPoolN,
+        sampleSize: stats.sampleSize,
+        isReliable: stats.isReliable,
+        unreliableReason,
+        ...(diagOn && rawPoolN === 0
+          ? {
+              globalActiveAskTotal,
+              globalActiveAskRowsWithNullCollectionKey: globalActiveAskNullKeyCount,
+              pipelineHint:
+                'If globalActiveAskRowsWithNullCollectionKey > 0 but activeAskRowsDb is 0, orders likely have NULL collection_key while UI stats use a meta-derived 64-char key.',
+            }
+          : {}),
+        note:
+          'Active listing query: orders.collection_key = key AND status = active AND side = ask. Stats path lowercases key; sha256 digest is lowercase hex.',
+      }),
+    );
+
+    return {
+      collectionKey: key,
+      floor: stats.floor,
+      median: stats.median,
+      p25: stats.p25,
+      p75: stats.p75,
+      band: stats.band,
+      volatility: stats.volatility,
+      sampleSize: stats.sampleSize,
+      isReliable: stats.isReliable,
+      dataQuality: {
+        sampleSize: stats.sampleSize,
+        trimmed: stats.trimmed,
+        currency: 'USDC',
+      },
+      sources: { listings: true, trades: tradesUsed },
+      reference: { poketraceCardId: pid },
+    };
   }
 
   async getCollectionMarketBundle(
@@ -174,7 +387,7 @@ export class CollectionMarketService {
     if (ids.cardId) {
       directQueries.push({
         cardId: ids.cardId,
-        include_price_history: true,
+        include_price_history: false,
         priceHistoryDuration,
         limit: 1,
       });
@@ -182,7 +395,7 @@ export class CollectionMarketService {
     if (ids.variantId) {
       directQueries.push({
         variantId: ids.variantId,
-        include_price_history: true,
+        include_price_history: false,
         priceHistoryDuration,
         limit: 1,
       });
@@ -190,7 +403,7 @@ export class CollectionMarketService {
     if (ids.tcgplayerId) {
       directQueries.push({
         tcgplayerId: ids.tcgplayerId,
-        include_price_history: true,
+        include_price_history: false,
         priceHistoryDuration,
         limit: 1,
       });
@@ -220,7 +433,7 @@ export class CollectionMarketService {
           const raw = await this.priceService.getCards({
             q,
             game,
-            include_price_history: true,
+            include_price_history: false,
             priceHistoryDuration,
             limit: 12,
           });
@@ -234,37 +447,11 @@ export class CollectionMarketService {
       }
     }
 
-    /** Default: JustTCG representative card price history */
-    const tcgMock = this.isTcgMock();
-    let externalUsd: UsdPoint[] = parsed.history;
-    let marketChangePct = percentChangeFromPoints(parsed.history);
-    let marketChangeSource: MarketChangePriceSource | null =
-      parsed.history.length >= 2 ? 'justtcg_card_history' : null;
-
-    /** Prefer PokeTrace eBay NEAR_MINT sale timeline when catalog resolves + history returns */
-    if (col) {
-      try {
-        const nm = await this.poketraceService.getNearMintHistoryForCollection(
-          col,
-          {
-            days: priceHistoryDurationToDays(priceHistoryDuration),
-            maxRequests: 3,
-          },
-        );
-        if (nm.matched && nm.points.length >= 2) {
-          externalUsd = nm.points;
-          marketChangePct = percentChangeFromPoints(nm.points);
-          marketChangeSource = 'poketrace_nm_ebay';
-        }
-      } catch (e) {
-        this.logger.warn(
-          `PokeTrace NM history for exchange snapshot ${key}: ${String(e)}`,
-        );
-      }
-    }
-
-    const isMockExternalPrices =
-      marketChangeSource === 'justtcg_card_history' && tcgMock;
+    /** Collection “market price” = `GET …/stats` (listings). Bundle keeps grade strip from JustTCG only. */
+    const externalUsd: UsdPoint[] = [];
+    const marketChangePct: number | null = null;
+    const marketChangeSource: MarketChangePriceSource | null = 'none';
+    const isMockExternalPrices = false;
 
     return {
       collectionKey: key,
@@ -285,27 +472,32 @@ export class CollectionMarketService {
     priceHistoryDuration: PriceHistoryDuration = '30d',
   ): Promise<{ items: CollectionListSnapshot[] }> {
     const keys = [...new Set(collectionKeys.map((k) => k.toLowerCase()))].slice(0, 40);
-    const items: CollectionListSnapshot[] = [];
-    for (const key of keys) {
-      try {
-        const bundle = await this.getCollectionMarketBundle(key, priceHistoryDuration);
-        items.push(bundleToListSnapshot(bundle));
-      } catch (e) {
-        this.logger.warn(`batch snapshot failed for ${key}: ${String(e)}`);
-        items.push({
-          collectionKey: key,
-          justtcgCardId: null,
-          categoryLabel: null,
-          marketChangePct: null,
-          marketChangeWindow: priceHistoryDuration,
-          marketChangeSource: null,
-          isMockExternalPrices: false,
-          gradePrices: { psa10: null, psa9: null, raw: null },
-          sparklineUsd: [],
-        });
-      }
-    }
-    return { items };
+    const settled = await Promise.all(
+      keys.map(async (key) => {
+        try {
+          const [bundle, stats] = await Promise.all([
+            this.getCollectionMarketBundle(key, priceHistoryDuration),
+            this.getCollectionMarketStats(key).catch(() => null),
+          ]);
+          return bundleToListSnapshot(bundle, stats);
+        } catch (e) {
+          this.logger.warn(`batch snapshot failed for ${key}: ${String(e)}`);
+          return {
+            collectionKey: key,
+            justtcgCardId: null,
+            categoryLabel: null,
+            marketChangePct: null,
+            marketChangeWindow: priceHistoryDuration,
+            marketChangeSource: null,
+            isMockExternalPrices: false,
+            gradePrices: { psa10: null, psa9: null, raw: null },
+            sparklineUsd: [],
+            marketStats: null,
+          } satisfies CollectionListSnapshot;
+        }
+      }),
+    );
+    return { items: settled };
   }
 }
 
@@ -320,9 +512,14 @@ export interface CollectionListSnapshot {
   gradePrices: GradePriceStrip;
   /** Downsampled external series for list sparkline */
   sparklineUsd: UsdPoint[];
+  /** Pool stats — same as `GET …/collections/:key/stats` when available */
+  marketStats: CollectionMarketStatsResponse | null;
 }
 
-function bundleToListSnapshot(bundle: CollectionMarketBundle): CollectionListSnapshot {
+function bundleToListSnapshot(
+  bundle: CollectionMarketBundle,
+  marketStats: CollectionMarketStatsResponse | null,
+): CollectionListSnapshot {
   const spark = downsampleSpark(bundle.externalUsd, 24);
   return {
     collectionKey: bundle.collectionKey,
@@ -334,6 +531,7 @@ function bundleToListSnapshot(bundle: CollectionMarketBundle): CollectionListSna
     isMockExternalPrices: bundle.isMockExternalPrices,
     gradePrices: bundle.gradePrices,
     sparklineUsd: spark,
+    marketStats,
   };
 }
 

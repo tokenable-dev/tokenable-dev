@@ -12,7 +12,7 @@
         <mxCell id="hdr-title" value="Tokenable — 민팅 · RWA 메타데이터 · Exchange(Seaport) 판매·구매 구조" style="text;html=1;fontSize=20;fontStyle=1;align=left;fontColor=#94ffd4;" vertex="1" parent="1">
           <mxGeometry x="56" y="40" width="1800" height="32" as="geometry" />
         </mxCell>
-        <mxCell id="hdr-sub" value="코드 기준 단일 뷰 · Sepolia · Seaport 1.5 · ERC-721 Tokenable RWA + USDC · 오프체인 주문은 NestJS + PostgreSQL에 동기화" style="text;html=1;fontSize=12;fontStyle=2;align=left;fontColor=#6fd4b8;" vertex="1" parent="1">
+        <mxCell id="hdr-sub" value="코드 기준 단일 뷰 · Sepolia · Seaport 1.5 · ERC-721 Tokenable RWA + USDC · 오프체인 주문은 NestJS + PostgreSQL에 동기화 · 병행: 규칙 매칭 테이블(bids/asks/…) — docs/marketplace-trading.md" style="text;html=1;fontSize=12;fontStyle=2;align=left;fontColor=#6fd4b8;" vertex="1" parent="1">
           <mxGeometry x="56" y="66" width="2200" height="22" as="geometry" />
         </mxCell>
 
@@ -43,13 +43,13 @@
         </mxCell>
 
         <!-- ===== B: EXCHANGE BACKBONE ===== -->
-        <mxCell id="sw-b" value="B — Exchange 백본: 오프체인 주문 레지스트리 + Seaport 온체인" style="swimlane;horizontal=1;startSize=36;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;fontSize=14;align=left;spacingLeft=12;" vertex="1" parent="1">
+        <mxCell id="sw-b" value="B — Exchange 백본: Seaport 오프체인 orders + 병행 relational 매칭" style="swimlane;horizontal=1;startSize=36;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;fontSize=14;align=left;spacingLeft=12;" vertex="1" parent="1">
           <mxGeometry x="40" y="320" width="2400" height="220" as="geometry" />
         </mxCell>
-        <mxCell id="b1" value="API (NestJS `MarketplaceController`)&#xa;• `POST /marketplace/orders` — `createOrder` (ask | bid)&#xa;• `POST /marketplace/orders/replace-listing` — 가격 변경(리프라이스)·Merkle 안정화&#xa;• `PATCH .../orders/:hash/fulfill` — 단일 `fulfillOrder` 후 DB 동기화&#xa;• `POST .../fulfill-matched-pair` — `matchAdvancedOrders` 후 쌍 체결&#xa;• `PATCH .../orders/:hash/cancel?callerAddress=…` — `cancelOrder`&#xa;• `GET .../merkle-set/:collectionKey` — criteria 입찰용 leaf tokenId[]" style="rounded=1;whiteSpace=wrap;html=1;align=left;spacingLeft=10;fontSize=11;fillColor=#ffffff;strokeColor=#6c8ebf;" vertex="1" parent="sw-b">
+        <mxCell id="b1" value="API (NestJS)&#xa;• `MarketplaceController`: `POST /marketplace/orders` … `fulfill-matched-pair` … `merkle-set` (Seaport 동기화)&#xa;• `BidsController` / `TradeController`: `GET /bids`, `POST /trade/match` (202), `GET /trade/executions/:id` — docs/marketplace-trading.md" style="rounded=1;whiteSpace=wrap;html=1;align=left;spacingLeft=10;fontSize=11;fillColor=#ffffff;strokeColor=#6c8ebf;" vertex="1" parent="sw-b">
           <mxGeometry x="16" y="52" width="520" height="156" as="geometry" />
         </mxCell>
-        <mxCell id="b2" value="PostgreSQL `orders` (핵심)&#xa;• `order_hash`, `side` (ask|bid), `offerer`, `signature`&#xa;• `parameters` JSONB — Seaport `OrderParameters` 전체&#xa;• ask: 실제 `token_id` / criteria bid: sentinel `&quot;0&quot;` + `collection_key`&#xa;• bid criteria: `consideration[0].itemType=4`, `identifierOrCriteria` = Merkle root&#xa;• `consideration_amount` (USDC 6 decimals 문자열)" style="rounded=1;whiteSpace=wrap;html=1;align=left;spacingLeft=10;fontSize=11;fillColor=#f8f4fc;strokeColor=#9673a6;" vertex="1" parent="sw-b">
+        <mxCell id="b2" value="PostgreSQL&#xa;• `orders` — Seaport 서명 주문(핵심 UI 경로)&#xa;• `bids`, `asks`, `match_intents`, `trade_executions`, `idempotency_keys`, `outbox_events` — 규칙 엔진·정산 워커(병행)" style="rounded=1;whiteSpace=wrap;html=1;align=left;spacingLeft=10;fontSize=11;fillColor=#f8f4fc;strokeColor=#9673a6;" vertex="1" parent="sw-b">
           <mxGeometry x="560" y="52" width="540" height="156" as="geometry" />
         </mxCell>
         <mxCell id="b3" value="Seaport (Sepolia `SEAPORT_ADDRESS`)&#xa;• `getCounter(offerer)` — 주문 서명 전 카운터&#xa;• `fulfillOrder(applied, fulfillerConduitKey)` — 단일 ask 매수&#xa;• `matchAdvancedOrders(orders, criteriaResolvers, fulfillments, recipient)`&#xa;  ‣ criteria bid(인덱스 0) + listing(1) + `recipient = address(0)` (`criteriaMatch.ts`)" style="rounded=1;whiteSpace=wrap;html=1;align=left;spacingLeft=10;fontSize=11;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="sw-b">
@@ -117,7 +117,7 @@
         <mxCell id="e3" value="프로토콜: OpenSea Seaport 1.5 — 주문은 오프체인 서명, 이행은 온체인&#xa;Exchange UI 카피: 앱 내 &quot;Exchange&quot; = 이 Seaport + DB 인덱스 제품면" style="rounded=0;whiteSpace=wrap;html=1;align=left;spacingLeft=8;fontSize=10;fillColor=#ffffff;" vertex="1" parent="sw-e">
           <mxGeometry x="1132" y="44" width="620" height="64" as="geometry" />
         </mxCell>
-        <mxCell id="e4" value="편집: diagrams.net 에서 열기 · 인쇄 시 Page Scale 조절&#xa;관련: `marketplace-seaport-criteria-architecture.drawio` (세부 시퀀스)" style="rounded=0;whiteSpace=wrap;html=1;align=left;spacingLeft=8;fontSize=10;fillColor=#eefbf6;fontStyle=2;" vertex="1" parent="sw-e">
+        <mxCell id="e4" value="편집: diagrams.net 에서 열기 · 인쇄 시 Page Scale 조절&#xa;관련: `marketplace-seaport-criteria-architecture.drawio` · `marketplace-trading-relational-layer.drawio` · `docs/marketplace-trading.md`" style="rounded=0;whiteSpace=wrap;html=1;align=left;spacingLeft=8;fontSize=10;fillColor=#eefbf6;fontStyle=2;" vertex="1" parent="sw-e">
           <mxGeometry x="1772" y="44" width="608" height="64" as="geometry" />
         </mxCell>
 

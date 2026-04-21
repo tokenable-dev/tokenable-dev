@@ -1,10 +1,10 @@
 "use client";
 
-import { resolveIpfsImage } from "@/lib/api";
 import { CollectionImageLoupe } from "@/components/marketplace/CollectionImageLoupe";
+import { useResolvedMediaUrl } from "@/hooks/useResolvedMediaUrl";
 
 export interface CollectionCoverFrameProps {
-  /** `ipfs://` 또는 https — 내부에서 게이트웨이 변환 */
+  /** `ipfs://`, `https://…/ipfs/…`, 또는 일반 https — 브라우저는 API로만 해석 */
   imageUrl: string;
   alt?: string;
   /** 목록 썸네일 · 상단 중간 크기 · 컬렉션 페이지 대형 히어로 */
@@ -25,7 +25,7 @@ export function CollectionCoverFrame({
   className = "",
   heroLoupe = false,
 }: CollectionCoverFrameProps) {
-  const resolved = resolveIpfsImage(imageUrl);
+  const { url: resolved } = useResolvedMediaUrl(imageUrl);
   const isLarge =
     variant === "featured" || variant === "hero";
   const outerPad =
@@ -93,13 +93,19 @@ export function CollectionCoverFrame({
             />
           ) : (
             <>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={resolved}
-                alt={alt}
-                className="absolute inset-0 h-full w-full object-contain object-center"
-                style={{ filter: "saturate(1.04) contrast(1.02)" }}
-              />
+              {resolved ? (
+                <>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={resolved}
+                    alt={alt}
+                    className="absolute inset-0 h-full w-full object-contain object-center"
+                    style={{ filter: "saturate(1.04) contrast(1.02)" }}
+                  />
+                </>
+              ) : (
+                <div className="absolute inset-0 bg-gray-900/80 animate-pulse" aria-hidden />
+              )}
               <div
                 className="pointer-events-none absolute inset-x-0 top-0 h-2/5 bg-gradient-to-b from-white/[0.045] to-transparent"
                 aria-hidden

@@ -87,19 +87,27 @@ export function CollectionPoketracePanel({
     return (
       <div className="w-full rounded-xl border border-zinc-800/80 bg-zinc-950/50 px-3 py-3">
         <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500 mb-1.5">
-          Real Market Price
+          PokeTrace reference (NM)
         </p>
         <p className="text-[13px] text-zinc-400 leading-snug">
-          {data.message ?? "No price match for this card."}
+          {data.message ??
+            "Reference unavailable — catalog match not loaded. External market price uses PokeTrace when matched, otherwise JustTCG; listing-pool stats are liquidity only."}
         </p>
       </div>
     );
   }
 
   const c = data.card;
+  const approx = data.matchConfidence === "approximate";
 
   return (
     <div className="w-full rounded-xl border border-emerald-500/25 bg-gradient-to-b from-emerald-500/[0.06] to-black/20 px-3 py-3 shadow-[0_8px_32px_-16px_rgba(16,185,129,0.35)]">
+      {approx ? (
+        <p className="mb-2 rounded-md border border-amber-500/30 bg-amber-500/[0.08] px-2 py-1.5 text-[11px] font-medium leading-snug text-amber-100/95">
+          Approximate market data: catalog match is not fully verified for this card. Prices and
+          trends are indicative only.
+        </p>
+      ) : null}
       <div className="flex items-start gap-3">
         {c.image ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -113,7 +121,7 @@ export function CollectionPoketracePanel({
         )}
         <div className="min-w-0 flex-1">
           <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-400/90">
-            Real Market Price
+            PokeTrace reference (NM)
           </p>
           <p className="mt-0.5 text-[14px] font-semibold text-white leading-snug line-clamp-2">
             {c.name}

@@ -52,11 +52,14 @@ export interface PsaAnalyzeResult {
   };
   /**
    * PokeTrace catalog id resolved after PSA+JustTCG — persist on mint as `graded.poketrace`
-   * for stable NM lookups (GET /cards/:id instead of blind search).
+   * (`cardId` = strict verified, `approximateCardId` = relaxed chart reference only).
    */
   poketraceMint?: {
-    cardId: string;
-    searchQuery: string;
+    matchConfidence: 'verified' | 'approximate';
+    cardId?: string;
+    searchQuery?: string;
+    approximateCardId?: string;
+    approximateSearchQuery?: string;
   };
   /** PSA GetImages / GetByCertNumber에서 가져온 슬랩 사진 URL (앞면은 민팅 imageUrl 후보) */
   psaCertImages?: { front?: string; back?: string };
@@ -547,7 +550,7 @@ export class PsaService {
       warnings.push('JustTCG 카드 검색이 실패했습니다.');
     }
 
-    let poketraceMint: { cardId: string; searchQuery: string } | null = null;
+    let poketraceMint: PsaAnalyzeResult['poketraceMint'] = undefined;
     try {
       const nameForPt = normalizePsaCardNameForPoketrace(
         String(psaParsed.cardNameHint ?? ''),
@@ -556,13 +559,31 @@ export class PsaService {
       const numForPt =
         primaryCardNumberForPoketrace(numRaw) ||
         numRaw.replace(/^#/, '').trim();
-      poketraceMint = await this.poketraceService.tryResolveCardIdForMintMetadata(
+      const setForPt =
+        typeof psaParsed.setHint === 'string' && psaParsed.setHint.trim()
+          ? psaParsed.setHint.trim()
+          : undefined;
+      const pt = await this.poketraceService.tryResolveCardIdForMintMetadata(
         queryUsed,
         {
           cardName: nameForPt || String(psaParsed.cardNameHint ?? ''),
           cardNumber: numForPt,
+          cardSet: setForPt,
         },
       );
+      if (pt?.verified) {
+        poketraceMint = {
+          matchConfidence: 'verified',
+          cardId: pt.verified.cardId,
+          searchQuery: pt.verified.searchQuery,
+        };
+      } else if (pt?.approximate) {
+        poketraceMint = {
+          matchConfidence: 'approximate',
+          approximateCardId: pt.approximate.cardId,
+          approximateSearchQuery: pt.approximate.searchQuery,
+        };
+      }
     } catch (e) {
       this.logger.warn(
         `PokeTrace mint id resolve skipped: ${e instanceof Error ? e.message : String(e)}`,
@@ -593,7 +614,7 @@ export class PsaService {
         topMatch,
         rawResponse,
       },
-      ...(poketraceMint ? { poketraceMint } : {}),
+      ...(poketraceMint != null ? { poketraceMint } : {}),
       ...(psaCertImages ? { psaCertImages } : {}),
       ...(warnings.length > 0 ? { warnings } : {}),
     };

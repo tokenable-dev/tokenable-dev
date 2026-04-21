@@ -5,12 +5,13 @@ import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import {
   getActiveOrders,
-  getMarketplaceCollections,
   postMarketplaceCollectionSnapshotsBatched,
   type CollectionListMarketSnapshot,
   type MarketplaceCollectionSummary,
-  type Order,
+  type OrderListItem,
 } from "@/lib/api";
+import { rq, marketplaceRqPolicy } from "@/lib/queryKeys";
+import { useMarketplaceCollectionsInfinite } from "@/hooks/useMarketplaceCollectionsInfinite";
 import { CollectionCoverFrame } from "@/components/marketplace/CollectionCoverFrame";
 import { CollectionCategoryFilterBar } from "@/components/marketplace/CollectionCategoryFilterBar";
 import { CollectionListSparkline } from "@/components/marketplace/CollectionListSparkline";
@@ -21,14 +22,17 @@ import {
 import {
   computeCollectionMarketCapUsd,
   formatMarketCapUsd,
+  parseGradeScoreNumber,
 } from "@/lib/gradedCardMarketCap";
+import { formatLiquidityDepthLabel, NO_EXTERNAL_PRICE } from "@/lib/collectionMarketPricing";
+import { justtcgRepresentativeUsd } from "@/lib/externalMarketPrice";
 import { useShallow } from "zustand/react/shallow";
 import { useAppStore, selectWallet, selectUsdcBalance } from "@/store";
 
 const USDC_DECIMALS = 1_000_000;
 
 function useMarketStats(
-  orders: Order[],
+  orders: OrderListItem[],
   viewerAddress: string | null | undefined,
 ) {
   return useMemo(() => {
@@ -41,7 +45,7 @@ function useMarketStats(
     let totalValueMicros = BigInt(0);
     for (const o of myAsks) {
       try {
-        totalValueMicros += BigInt(o.considerationAmount ?? "0");
+        totalValueMicros += BigInt(o.price ?? "0");
       } catch {
         /* skip */
       }
@@ -109,6 +113,11 @@ function CollectionRow({
     psaTotalPopulation?: number;
   };
 
+  const ms = snapshot?.marketStats ?? null;
+  const jtSpot = justtcgRepresentativeUsd(
+    snapshot?.gradePrices ?? null,
+    parseGradeScoreNumber(comp.gradeScore),
+  );
   const marketCap = computeCollectionMarketCapUsd({
     components: collection.components as Record<string, unknown>,
     gradeScoreStr: comp.gradeScore,
@@ -174,9 +183,22 @@ function CollectionRow({
           </div>
         ) : null}
         <p className="mt-2.5 text-base leading-snug text-gray-500 sm:text-lg">
+          <span className="text-gray-500">JustTCG metadata:</span>{" "}
           <span className="tabular-nums">PSA 10: {formatUsd(g?.psa10)}</span>
           <span className="mx-2 text-gray-700">·</span>
           <span className="tabular-nums">PSA 9: {formatUsd(g?.psa9)}</span>
+          <span className="mx-2 text-gray-700">·</span>
+          <span className="text-gray-500">Market ref (JustTCG):</span>{" "}
+          {jtSpot != null ? (
+            <span className="tabular-nums text-teal-400/95">{formatUsd(jtSpot)}</span>
+          ) : (
+            <span className="text-gray-600">{NO_EXTERNAL_PRICE}</span>
+          )}
+          <span className="mx-2 text-gray-700">·</span>
+          <span className="text-gray-500">On-platform:</span>{" "}
+          <span className="tabular-nums text-zinc-400">
+            {formatLiquidityDepthLabel(ms) ?? "—"}
+          </span>
           {marketCap.usd != null ? (
             <>
               <span className="mx-2 text-gray-700">·</span>
@@ -211,17 +233,24 @@ export default function ExchangePage() {
   const { usdcBalanceFormatted } = useAppStore(useShallow(selectUsdcBalance));
 
   const { data: orders = [], isLoading: ordersLoading } = useQuery({
-    queryKey: ["marketplace-orders"],
+    queryKey: rq.ordersActive(),
     queryFn: getActiveOrders,
-    refetchInterval: 15_000,
+    refetchInterval: marketplaceRqPolicy.ordersRefetchMs,
+    staleTime: marketplaceRqPolicy.ordersStaleMs,
   });
 
-  const { data: collectionSummaries = [], isLoading: colLoading } = useQuery({
-    queryKey: ["marketplace-collections"],
-    queryFn: getMarketplaceCollections,
-    /** Defaults + localStorage persist in MarketplaceQueryPersistence — avoid constant refetch */
-    refetchInterval: 5 * 60 * 1000,
-  });
+  const {
+    data: colPages,
+    isLoading: colLoading,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useMarketplaceCollectionsInfinite();
+
+  const collectionSummaries = useMemo(
+    () => colPages?.pages.flatMap((p) => p.items) ?? [],
+    [colPages],
+  );
 
   const isLoading = ordersLoading || colLoading;
   const stats = useMarketStats(orders, address);
@@ -230,31 +259,33 @@ export default function ExchangePage() {
     (c) => c.activeListingCount > 0,
   );
 
-  /** Oldest collection buckets first (stable for “what listed first”). */
+  /** Newest buckets first (matches API `listSummariesPaged` order so a fresh list surfaces immediately). */
   const sortedForRank = useMemo(() => {
     return [...collectionsWithListings].sort((a, b) => {
       const ta = new Date(a.createdAt).getTime();
       const tb = new Date(b.createdAt).getTime();
-      if (ta !== tb) return ta - tb;
+      if (ta !== tb) return tb - ta;
       return a.displayLabel.localeCompare(b.displayLabel);
     });
   }, [collectionsWithListings]);
 
-  const snapshotKeys = useMemo(
-    () => sortedForRank.map((c) => c.collectionKey),
-    [sortedForRank],
-  );
+  const snapshotKeysSorted = useMemo(() => {
+    const u = new Set<string>();
+    for (const c of sortedForRank) u.add(c.collectionKey.toLowerCase());
+    return [...u].sort();
+  }, [sortedForRank]);
 
   const { data: snapshotPack, isPending: snapshotsPending } = useQuery({
-    queryKey: ["marketplace-collection-snapshots", snapshotKeys.join("|")],
+    queryKey: rq.collectionSnapshots(snapshotKeysSorted),
     queryFn: () =>
-      postMarketplaceCollectionSnapshotsBatched(snapshotKeys, "30d"),
-    enabled: snapshotKeys.length > 0 && !isLoading,
+      postMarketplaceCollectionSnapshotsBatched(snapshotKeysSorted, "30d"),
+    enabled: snapshotKeysSorted.length > 0 && !isLoading,
+    staleTime: marketplaceRqPolicy.snapshotsStaleMs,
   });
 
-  /** PokeTrace / JustTCG bundle for sparklines & % — show bar while this request runs */
+  /** Snapshots (pool stats + JustTCG metadata + sparkline slot) — show bar while this request runs */
   const showMarketSnapshotLoadingBar =
-    snapshotKeys.length > 0 && !isLoading && snapshotsPending;
+    snapshotKeysSorted.length > 0 && !isLoading && snapshotsPending;
 
   const snapshotByKey = useMemo(() => {
     const m = new Map<string, CollectionListMarketSnapshot>();
@@ -339,7 +370,7 @@ export default function ExchangePage() {
               aria-busy="true"
             >
               <p className="text-center text-xs text-zinc-500 sm:text-left">
-                Loading market prices and charts…
+                Loading listing pool stats and charts…
               </p>
               <div
                 className="relative h-1.5 w-full overflow-hidden rounded-full bg-zinc-800/90"
@@ -395,6 +426,18 @@ export default function ExchangePage() {
                 snapshot={snapshotByKey.get(c.collectionKey.toLowerCase())}
               />
             ))}
+            {hasNextPage ? (
+              <div className="flex justify-center pt-4">
+                <button
+                  type="button"
+                  onClick={() => void fetchNextPage()}
+                  disabled={isFetchingNextPage}
+                  className="rounded-xl border border-zinc-700 bg-zinc-900/80 px-5 py-2.5 text-sm font-semibold text-zinc-200 hover:bg-zinc-800 disabled:opacity-50"
+                >
+                  {isFetchingNextPage ? "Loading…" : "Load more collections"}
+                </button>
+              </div>
+            ) : null}
             {categoryFilter === "all" && orphanAsks.length > 0 && (
               <Link
                 href="/marketplace/other-listings"

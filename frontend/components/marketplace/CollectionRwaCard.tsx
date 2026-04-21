@@ -2,14 +2,9 @@
 
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { usePublicClient, useReadContract } from "wagmi";
+import { useReadContract } from "wagmi";
 import { sepolia } from "@/config/wagmi";
-import {
-  fetchIpfsMetadata,
-  resolveIpfsImage,
-  resolveRwaTokenUri,
-  type Order,
-} from "@/lib/api";
+import { getResolvedRwaAsset, type Order } from "@/lib/api";
 import {
   TOKENABLE_RWA_ADDRESS,
   TOKENABLE_RWA_READ_ABI,
@@ -50,16 +45,9 @@ export function CollectionRwaCard({
   collectionBidCount,
   address,
 }: CollectionRwaCardProps) {
-  const publicClient = usePublicClient({ chainId: sepolia.id });
-
   const { data: metaBundle } = useQuery({
-    queryKey: ["marketplace-detail-metadata", tokenId, publicClient?.chain?.id],
-    queryFn: async () => {
-      const tokenURI = await resolveRwaTokenUri(tokenId, publicClient ?? undefined);
-      if (!tokenURI) return null;
-      const metadata = await fetchIpfsMetadata(tokenURI).catch(() => null);
-      return { metadata, tokenURI };
-    },
+    queryKey: ["marketplace-detail-metadata", tokenId],
+    queryFn: () => getResolvedRwaAsset(tokenId),
     staleTime: 60_000,
   });
 
@@ -71,9 +59,7 @@ export function CollectionRwaCard({
     chainId: sepolia.id,
   });
 
-  const imageUrl = metaBundle?.metadata?.image
-    ? resolveIpfsImage(metaBundle.metadata.image)
-    : null;
+  const imageUrl = metaBundle?.imageUrl ?? null;
   const name = metaBundle?.metadata?.name ?? `Asset #${tokenId}`;
 
   const ownerAddr =

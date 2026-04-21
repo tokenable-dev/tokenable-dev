@@ -21,6 +21,7 @@ import {
 import { CollectionService } from './collection.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { Order, OrderSide, OrderStatus } from './entities/order.entity';
+import { orderToListItem, type OrderListItem } from './order-list.util';
 
 const CRITERIA_TOKEN_SENTINEL = '0';
 
@@ -76,7 +77,23 @@ export class MarketplaceService {
     }
 
     const order = await this.materializeOrderFromDto(dto);
-    return this.persistOrder(order, this.orderRepo.manager);
+    const saved = await this.persistOrder(order, this.orderRepo.manager);
+    const diagOn =
+      this.config.get<string>('MARKETPLACE_PIPELINE_DIAG') === '1' ||
+      this.config.get<string>('MARKETPLACE_PIPELINE_DIAG') === 'true';
+    if (side === OrderSide.ASK && diagOn) {
+      this.logger.log(
+        JSON.stringify({
+          msg: 'collection_key_pipeline',
+          step: 'createOrder_persisted',
+          tokenId: String(saved.tokenId),
+          orderHash: saved.orderHash,
+          collectionKeyPersisted: saved.collectionKey,
+          collectionKeyIsNull: saved.collectionKey == null,
+        }),
+      );
+    }
+    return saved;
   }
 
   /**
@@ -121,11 +138,29 @@ export class MarketplaceService {
       await em.save(old);
 
       const order = await this.materializeOrderFromDto(dto);
+      const materializedKeyNull = order.collectionKey == null;
       /** Re-attach bucket if IPFS/RPC flaked on replace but the prior row had a key (instant match needs it). */
       if (!order.collectionKey && old.collectionKey) {
         order.collectionKey = old.collectionKey;
       }
-      return this.persistOrder(order, em);
+      const saved = await this.persistOrder(order, em);
+      const diagOn =
+        this.config.get<string>('MARKETPLACE_PIPELINE_DIAG') === '1' ||
+        this.config.get<string>('MARKETPLACE_PIPELINE_DIAG') === 'true';
+      if (diagOn) {
+        this.logger.log(
+          JSON.stringify({
+            msg: 'collection_key_pipeline',
+            step: 'replaceSellerListing_persisted',
+            tokenId: String(saved.tokenId),
+            orderHash: saved.orderHash,
+            collectionKeyPersisted: saved.collectionKey,
+            reattachedCollectionKeyFromPriorListing:
+              materializedKeyNull && saved.collectionKey != null,
+          }),
+        );
+      }
+      return saved;
     });
   }
 
@@ -170,6 +205,39 @@ export class MarketplaceService {
             `Reused collection_key from a prior ask for token #${dto.tokenId} (metadata fetch failed).`,
           );
         }
+      }
+      const tid = String(dto.tokenId);
+      const diagOn =
+        this.config.get<string>('MARKETPLACE_PIPELINE_DIAG') === '1' ||
+        this.config.get<string>('MARKETPLACE_PIPELINE_DIAG') === 'true';
+      if (!collectionKey) {
+        this.logger.warn(
+          JSON.stringify({
+            msg: 'collection_key_pipeline',
+            step: 'materializeOrderFromDto',
+            outcome: 'collection_key_null_before_insert',
+            side: 'ask',
+            tokenId: tid,
+            tokenContract: dto.tokenContract,
+            note: 'Order will persist with collection_key NULL unless replace flow reuses prior listing key.',
+          }),
+        );
+      } else if (diagOn) {
+        const ck = collectionKey;
+        this.logger.log(
+          JSON.stringify({
+            msg: 'collection_key_pipeline',
+            step: 'materializeOrderFromDto',
+            outcome: 'collection_key_resolved',
+            side: 'ask',
+            tokenId: tid,
+            collectionKey: ck,
+            collectionKeyLength: ck.length,
+            matchesSha256HexPattern: /^[0-9a-f]{64}$/i.test(ck),
+            isAllLowercase: ck === ck.toLowerCase(),
+            statsQueryWillUse: ck.toLowerCase(),
+          }),
+        );
       }
     }
 
@@ -301,10 +369,73 @@ export class MarketplaceService {
     });
   }
 
+  async findActiveOrderListItems(): Promise<OrderListItem[]> {
+    const rows = await this.findActiveOrders();
+    return rows.map((o) => orderToListItem(o));
+  }
+
+  /**
+   * Active ask listing for an ERC-721 token (not criteria bid tokenId "0").
+   */
+  async findActiveAskByTokenId(tokenIdRaw: string): Promise<Order | null> {
+    await this.expireOrders();
+    const tid = String(tokenIdRaw ?? '').trim();
+    const variants = [...new Set([tid, normalizeDecimalTokenId(tid)].filter((s) => s.length > 0))];
+    if (variants.length === 0) return null;
+    return this.orderRepo.findOne({
+      where: {
+        tokenId: In(variants),
+        status: OrderStatus.ACTIVE,
+        side: OrderSide.ASK,
+      },
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  /**
+   * Order history keyed by requested token id string (one batch query; no N+1).
+   */
+  async findOrdersBatchByTokenIds(tokenIds: number[]): Promise<Record<string, OrderListItem[]>> {
+    await this.expireOrders();
+    const out: Record<string, OrderListItem[]> = {};
+    const requested = [...new Set(tokenIds.map((n) => Math.floor(Number(n))))].filter((n) => n >= 0);
+    for (const n of requested) {
+      out[String(n)] = [];
+    }
+    if (requested.length === 0) return out;
+
+    const variants = new Set<string>();
+    for (const n of requested) {
+      const s = String(n);
+      variants.add(s);
+      variants.add(normalizeDecimalTokenId(s));
+    }
+
+    const rows = await this.orderRepo.find({
+      where: { tokenId: In([...variants]) },
+      order: { updatedAt: 'DESC' },
+    });
+
+    for (const o of rows) {
+      const item = orderToListItem(o);
+      const nk = normalizeDecimalTokenId(String(o.tokenId));
+      for (const n of requested) {
+        if (normalizeDecimalTokenId(String(n)) === nk) {
+          out[String(n)].push(item);
+          break;
+        }
+      }
+    }
+
+    return out;
+  }
+
   async findByTokenId(tokenId: string): Promise<Order[]> {
     await this.expireOrders();
+    const tid = String(tokenId ?? '').trim();
+    const variants = [...new Set([tid, normalizeDecimalTokenId(tid)].filter((s) => s.length > 0))];
     return this.orderRepo.find({
-      where: { tokenId },
+      where: { tokenId: In(variants) },
       order: { updatedAt: 'DESC' },
     });
   }

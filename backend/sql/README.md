@@ -38,7 +38,7 @@ If you use a **local Postgres** without Docker, drop and recreate the database o
 docker exec -i tokenable-postgres psql -U tokenable -d tokenable < /home/ubuntu/app/backend/sql/bootstrap-empty-prod-db.sql
 ```
 
-적용 후 `\dt` 로 `users`, `orders`, `marketplace_collections` 가 보이는지 확인하고, **`TYPEORM_SYNC`는 끄거나 제거**한 뒤 백엔드를 재시작하세요.
+적용 후 `\dt` 로 `users`, `orders`, `marketplace_collections` 가 보이는지 확인하고, **`TYPEORM_SYNC`는 끄거나 제거**한 뒤 백엔드를 재시작하세요. (최신 엔티티가 포함된 이미지라면 `bids`, `asks`, `match_intents`, `trade_executions` 등도 나타날 수 있습니다 — [docs/marketplace-trading.md](../../docs/marketplace-trading.md).)
 
 ---
 

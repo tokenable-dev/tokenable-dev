@@ -21,7 +21,7 @@ function requireHexAddr(
   const raw = primary?.trim() || legacy?.trim() || "";
   if (!raw || !ADDR.test(raw)) {
     throw new Error(
-      `[contracts] Set ${label} in the environment (e.g. frontend/.env.local). See frontend/.env.example.`,
+      `[contracts] Set ${label} in the environment (e.g. frontend/.env). See frontend/.env.example.`,
     );
   }
   return raw as `0x${string}`;

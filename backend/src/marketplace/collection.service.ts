@@ -1,12 +1,14 @@
-import { Injectable } from '@nestjs/common';
-import { QueryFailedError } from 'typeorm';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { IsNull, QueryDeepPartialEntity, QueryFailedError, Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
 import { BlockchainService } from '../blockchain/blockchain.service';
+import { IpfsGatewayResolverService } from '../blockchain/ipfs-gateway-resolver.service';
 import {
   computeMarketBucketKey,
   extractBucketComponentsFromMetadata,
+  extractOrDiagnoseBucketComponents,
+  metaShapeSampleForBucketLog,
 } from './bucket-key.util';
 import {
   buildCollectionDisplayLabel,
@@ -19,8 +21,14 @@ import {
 } from './collection-image.util';
 import { MarketplaceCollection } from './entities/marketplace-collection.entity';
 import { Order, OrderSide, OrderStatus } from './entities/order.entity';
-import { buildPoketraceQueryFromRwaMetadata } from '../poketrace/poketrace-mint-query.util';
-import { PoketraceService } from '../poketrace/poketrace.service';
+import {
+  buildPoketraceQueryFromRwaMetadata,
+  exactPoketraceCatalogMatch,
+} from '../poketrace/poketrace-mint-query.util';
+import {
+  extractPoketraceCardDataRow,
+  PoketraceService,
+} from '../poketrace/poketrace.service';
 
 export interface CollectionSummary {
   collectionKey: string;
@@ -34,7 +42,9 @@ export interface CollectionSummary {
 }
 
 @Injectable()
-export class CollectionService {
+export class CollectionService implements OnModuleInit {
+  private readonly logger = new Logger(CollectionService.name);
+
   /**
    * Merkle leaf scans are expensive (IPFS × minted count). Cache by collection + totalMinted so
    * new mints naturally miss; listings of existing tokens stay valid without cache bust.
@@ -56,44 +66,65 @@ export class CollectionService {
     private readonly blockchain: BlockchainService,
     private readonly config: ConfigService,
     private readonly poketrace: PoketraceService,
+    private readonly ipfsResolver: IpfsGatewayResolverService,
   ) {}
 
-  private async fetchIpfsMetadataJson(tokenUri: string): Promise<Record<string, unknown>> {
-    let url = tokenUri.trim();
-    if (url.startsWith('ipfs://')) {
-      const path = url.replace(/^ipfs:\/\//i, '').replace(/^ipfs\//i, '');
-      const gw =
-        this.config.get<string>('PINATA_GATEWAY') ??
-        'gray-immense-roadrunner-588.mypinata.cloud';
-      url = `https://${gw}/ipfs/${path}`;
+  async onModuleInit(): Promise<void> {
+    const v = this.config.get<string>('MARKETPLACE_PIPELINE_DIAG');
+    if (v === '1' || v === 'true') {
+      try {
+        await this.logNullCollectionKeyActiveAskSummary();
+      } catch (e) {
+        this.logger.error(`MARKETPLACE_PIPELINE_DIAG boot audit failed: ${String(e)}`);
+      }
     }
 
-    const maxAttempts = 6;
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      const res = await fetch(url);
-      if (res.ok) {
-        return (await res.json()) as Record<string, unknown>;
+    const ptAudit = this.config.get<string>('POKETRACE_COLLECTION_AUDIT_ON_BOOT');
+    if (ptAudit === '1' || ptAudit === 'true') {
+      try {
+        await this.auditStalePoketraceCardIdsOnBoot();
+      } catch (e) {
+        this.logger.error(`POKETRACE_COLLECTION_AUDIT_ON_BOOT failed: ${String(e)}`);
       }
-
-      const retriable =
-        res.status === 429 ||
-        res.status === 408 ||
-        res.status === 500 ||
-        res.status === 502 ||
-        res.status === 503 ||
-        res.status === 504;
-      if (!retriable || attempt === maxAttempts - 1) {
-        throw new Error(`Failed to fetch RWA metadata (${res.status})`);
-      }
-
-      let delayMs = 900 * Math.pow(2, attempt) + Math.floor(Math.random() * 350);
-      const ra = res.headers.get('retry-after');
-      if (ra && /^\d+$/.test(ra.trim())) {
-        delayMs = Math.max(delayMs, Math.min(60_000, parseInt(ra.trim(), 10) * 1000));
-      }
-      await new Promise((r) => setTimeout(r, delayMs));
     }
-    throw new Error('Failed to fetch RWA metadata');
+  }
+
+  /**
+   * `MARKETPLACE_PIPELINE_DIAG=1` on boot: counts active asks with `collection_key` NULL (root cause for UI↔DB key skew).
+   */
+  private async logNullCollectionKeyActiveAskSummary(): Promise<void> {
+    const rows = await this.orderRepo
+      .createQueryBuilder('o')
+      .select('o.token_id', 'tokenId')
+      .addSelect('COUNT(*)::int', 'cnt')
+      .where('o.collection_key IS NULL')
+      .andWhere("o.side = 'ask'")
+      .andWhere("o.status = 'active'")
+      .groupBy('o.token_id')
+      .orderBy('cnt', 'DESC')
+      .limit(50)
+      .getRawMany<{ tokenId: string; cnt: number }>();
+
+    const totalNullKeyActiveAsks = await this.orderRepo.count({
+      where: { side: OrderSide.ASK, status: OrderStatus.ACTIVE, collectionKey: IsNull() },
+    });
+    const totalActiveAsks = await this.orderRepo.count({
+      where: { side: OrderSide.ASK, status: OrderStatus.ACTIVE },
+    });
+
+    this.logger.warn(
+      JSON.stringify({
+        msg: 'collection_key_pipeline',
+        step: 'db_audit_on_boot',
+        totalActiveAsks,
+        totalActiveAskRowsWithNullCollectionKey: totalNullKeyActiveAsks,
+        topTokenIdsGroupedByNullKeyActiveAskCount: rows.map((r) => ({
+          tokenId: r.tokenId,
+          cnt: Number(r.cnt),
+        })),
+        note: 'Compare with UI meta-hash: if orders are null-key but UI computes a 64-char key, GET …/stats will return an empty pool for that key.',
+      }),
+    );
   }
 
   /**
@@ -137,20 +168,64 @@ export class CollectionService {
    */
   async ensureCollectionForListing(tokenId: string): Promise<string | null> {
     const uri = await this.blockchain.getRwaTokenURI(Number(tokenId));
-    const meta = await this.fetchIpfsMetadataJson(uri);
-    const components = extractBucketComponentsFromMetadata(meta);
-    if (!components) return null;
+    const meta = await this.ipfsResolver.fetchMetadataJson(uri);
+    const extracted = extractOrDiagnoseBucketComponents(meta);
+    if (!extracted.ok) {
+      this.logger.warn(
+        JSON.stringify({
+          msg: 'collection_key_pipeline',
+          step: 'ensureCollectionForListing',
+          outcome: 'extract_bucket_failed',
+          tokenId: String(tokenId),
+          tokenUriSample: typeof uri === 'string' ? uri.slice(0, 120) : String(uri).slice(0, 120),
+          diagnosis: {
+            code: extracted.code,
+            gradedSource: extracted.gradedSource,
+            detail: extracted.detail,
+          },
+          metaSample: metaShapeSampleForBucketLog(meta),
+        }),
+      );
+      return null;
+    }
+    const components = extracted.components;
 
     const queryUsed = extractJustTcgQueryUsed(meta);
     const displayLabel = buildCollectionDisplayLabel(components, queryUsed);
     const collectionKey = computeMarketBucketKey(components);
+    const diagOn =
+      this.config.get<string>('MARKETPLACE_PIPELINE_DIAG') === '1' ||
+      this.config.get<string>('MARKETPLACE_PIPELINE_DIAG') === 'true';
+    if (diagOn) {
+      this.logger.log(
+        JSON.stringify({
+          msg: 'collection_key_pipeline',
+          step: 'ensureCollectionForListing',
+          outcome: 'bucket_key_computed',
+          tokenId: String(tokenId),
+          collectionKey,
+          gradedSource: extracted.gradedSource,
+          keyFormatNote: 'sha256 hex is lowercase in Node crypto; DB stores this string.',
+        }),
+      );
+    }
     const coverImageUrl = extractCollectionRepresentativeImage(meta) ?? null;
+
+    const pq = buildPoketraceQueryFromRwaMetadata(meta);
+    const compRecord: Record<string, unknown> = {
+      ...(components as unknown as Record<string, unknown>),
+    };
+    if (pq.poketraceCardId?.trim()) {
+      compRecord.poketraceCardId = pq.poketraceCardId.trim();
+    } else if (pq.approximatePoketraceCardId?.trim()) {
+      compRecord.approximatePoketraceCardId = pq.approximatePoketraceCardId.trim();
+    }
 
     const row = this.collectionRepo.create({
       collectionKey,
       displayLabel,
       queryUsed,
-      components: components as unknown as Record<string, unknown>,
+      components: compRecord,
       coverImageUrl,
     });
     try {
@@ -163,6 +238,7 @@ export class CollectionService {
       if (code === '23505') {
         await this.persistCoverFromMetaIfMissing(collectionKey, meta);
         await this.mergePsaPopulationFromMetaIfMissing(collectionKey, meta);
+        await this.mergePoketraceCardIdFromMetaIfMissing(collectionKey, meta);
       } else {
         throw e;
       }
@@ -202,6 +278,97 @@ export class CollectionService {
     }));
   }
 
+  private encodeCollectionCursor(row: { createdAt: Date; collectionKey: string }): string {
+    const payload = {
+      ca: row.createdAt.toISOString(),
+      ck: row.collectionKey.toLowerCase(),
+    };
+    return Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url');
+  }
+
+  private decodeCollectionCursor(cursor: string): { ca: Date; ck: string } {
+    const j = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8')) as {
+      ca: string;
+      ck: string;
+    };
+    return { ca: new Date(j.ca), ck: String(j.ck).toLowerCase() };
+  }
+
+  /**
+   * Cursor-paginated collection summaries (stable sort: createdAt DESC, collectionKey ASC).
+   * Newest buckets first so a fresh listing appears on page 1 without “load more” to the end.
+   */
+  async listSummariesPaged(input: {
+    limit?: number;
+    cursor?: string | null;
+  }): Promise<{
+    items: CollectionSummary[];
+    nextCursor: string | null;
+  }> {
+    const limit = Math.min(Math.max(input.limit ?? 24, 1), 60);
+    const qb = this.collectionRepo.createQueryBuilder('c');
+
+    const cur = input.cursor?.trim();
+    if (cur) {
+      try {
+        const { ca, ck } = this.decodeCollectionCursor(cur);
+        /** Keyset page after (ca, ck) for ORDER BY created_at DESC, collection_key ASC */
+        qb.where(
+          '(c.created_at < :ca OR (c.created_at = :ca AND c.collection_key > :ck))',
+          { ca, ck },
+        );
+      } catch {
+        /* invalid cursor — ignore */
+      }
+    }
+
+    qb.orderBy('c.created_at', 'DESC').addOrderBy('c.collection_key', 'ASC').take(limit + 1);
+
+    const rows = await qb.getMany();
+    const page = rows.slice(0, limit);
+    const hasMore = rows.length > limit;
+    const nextCursor =
+      hasMore && page.length > 0
+        ? this.encodeCollectionCursor({
+            createdAt: page[page.length - 1].createdAt,
+            collectionKey: page[page.length - 1].collectionKey,
+          })
+        : null;
+
+    if (page.length === 0) {
+      return { items: [], nextCursor: null };
+    }
+
+    const keys = page.map((c) => c.collectionKey.toLowerCase());
+    const countRows = await this.orderRepo
+      .createQueryBuilder('o')
+      .select('o.collection_key', 'key')
+      .addSelect('COUNT(o.id)::int', 'cnt')
+      .where('o.collection_key IS NOT NULL')
+      .andWhere('o.collection_key IN (:...keys)', { keys })
+      .andWhere('o.status = :st', { st: OrderStatus.ACTIVE })
+      .andWhere('o.side = :side', { side: OrderSide.ASK })
+      .groupBy('o.collection_key')
+      .getRawMany<{ key: string; cnt: number }>();
+
+    const countMap = new Map<string, number>();
+    for (const r of countRows) {
+      countMap.set(String(r.key).toLowerCase(), Number(r.cnt));
+    }
+
+    const items: CollectionSummary[] = page.map((c) => ({
+      collectionKey: c.collectionKey,
+      displayLabel: c.displayLabel,
+      queryUsed: c.queryUsed,
+      components: c.components,
+      createdAt: c.createdAt,
+      activeListingCount: countMap.get(c.collectionKey.toLowerCase()) ?? 0,
+      coverImageUrl: c.coverImageUrl ?? null,
+    }));
+
+    return { items, nextCursor };
+  }
+
   async findOne(key: string): Promise<MarketplaceCollection | null> {
     return this.collectionRepo.findOne({
       where: { collectionKey: key.toLowerCase() },
@@ -226,7 +393,7 @@ export class CollectionService {
       if (!o.tokenId || String(o.tokenId).trim() === '') continue;
       try {
         const uri = await this.blockchain.getRwaTokenURI(Number(o.tokenId));
-        const meta = await this.fetchIpfsMetadataJson(uri);
+        const meta = await this.ipfsResolver.fetchMetadataJson(uri);
         const extracted = extractBucketComponentsFromMetadata(meta);
         let pop: number | undefined = extracted?.psaTotalPopulation;
         if (pop == null || !Number.isFinite(pop) || pop <= 0) {
@@ -257,38 +424,276 @@ export class CollectionService {
   }
 
   /**
-   * DB `components.poketraceCardId`가 비어 있을 때, 활성 ask IPFS 메타의
-   * `properties.graded.poketrace.cardId`를 저장. PokeTrace 검색 대신 GET /cards/:id로 고정 매칭.
+   * `components.poketraceCardId` 보강: 활성 ask 메타에서 읽되, **서로 다른 id가 섞이면 저장하지 않음**
+   * (PokeTrace 가격은 카탈로그 id만 허용 — 잘못된 단일 id 고정 방지).
    */
   async ensurePoketraceCardIdFromListings(collectionKey: string): Promise<void> {
     const k = collectionKey.toLowerCase();
     const row = await this.collectionRepo.findOne({ where: { collectionKey: k } });
     if (!row) return;
     const comp = row.components as Record<string, unknown>;
-    const existing = comp.poketraceCardId;
-    if (typeof existing === 'string' && existing.trim().length > 0) {
-      return;
-    }
+    const existing =
+      typeof comp.poketraceCardId === 'string' ? comp.poketraceCardId.trim() : '';
 
     const asks = await this.activeListingsForCollection(k);
+    const ids = new Set<string>();
+    const approxIds = new Set<string>();
     for (const o of asks) {
       if (!o.tokenId || String(o.tokenId).trim() === '') continue;
       try {
         const uri = await this.blockchain.getRwaTokenURI(Number(o.tokenId));
-        const meta = await this.fetchIpfsMetadataJson(uri);
-        const pid = buildPoketraceQueryFromRwaMetadata(meta).poketraceCardId;
-        if (pid && pid.trim()) {
-          await this.collectionRepo.update(
-            { collectionKey: k },
-            { components: { ...comp, poketraceCardId: pid.trim() } },
-          );
-          this.poketrace.invalidateCollectionPoketraceCaches(k);
-          return;
-        }
+        const meta = await this.ipfsResolver.fetchMetadataJson(uri);
+        const pq = buildPoketraceQueryFromRwaMetadata(meta);
+        const pid = pq.poketraceCardId?.trim();
+        if (pid) ids.add(pid);
+        const aid = pq.approximatePoketraceCardId?.trim();
+        if (aid) approxIds.add(aid);
       } catch {
-        /* try next listing */
+        /* skip */
       }
     }
+
+    const nextComp: Record<string, unknown> = { ...comp };
+    let dirty = false;
+
+    if (ids.size > 1) {
+      this.logger.warn(
+        `Collection ${k}: conflicting poketraceCardId across active listings (${[...ids].join(', ')}); not updating`,
+      );
+    } else if (ids.size === 1) {
+      const only = [...ids][0];
+      if (existing !== only) {
+        nextComp.poketraceCardId = only;
+        delete nextComp.approximatePoketraceCardId;
+        dirty = true;
+      }
+    }
+
+    const existingApprox =
+      typeof comp.approximatePoketraceCardId === 'string'
+        ? comp.approximatePoketraceCardId.trim()
+        : '';
+    const hasVerified =
+      typeof nextComp.poketraceCardId === 'string' &&
+      String(nextComp.poketraceCardId).trim() !== '';
+    if (!hasVerified) {
+      if (approxIds.size > 1) {
+        this.logger.warn(
+          `Collection ${k}: conflicting approximatePoketraceCardId across active listings (${[...approxIds].join(', ')}); not updating approximate`,
+        );
+      } else if (approxIds.size === 1) {
+        const onlyA = [...approxIds][0];
+        if (existingApprox !== onlyA) {
+          nextComp.approximatePoketraceCardId = onlyA;
+          dirty = true;
+        }
+      }
+    }
+
+    if (!dirty) return;
+
+    await this.collectionRepo.update(
+      { collectionKey: k },
+      {
+        components: nextComp as QueryDeepPartialEntity<Record<string, unknown>>,
+      },
+    );
+    this.poketrace.invalidateCollectionPoketraceCaches(k);
+  }
+
+  /**
+   * `components.poketraceCardId` + GET /cards/:id vs bucket `cardName` / `cardSet` / `cardNumber`
+   * — **exact normalized triple** only. Mismatch → optional DB strip + cache bust.
+   */
+  async auditPoketraceCardIdExact(
+    collectionKey: string,
+    options?: { clearOnMismatch?: boolean },
+  ): Promise<{
+    checked: boolean;
+    ok: boolean;
+    cleared: boolean;
+    failCodes: string[];
+  }> {
+    const k = collectionKey.toLowerCase();
+    const dbRow = await this.collectionRepo.findOne({ where: { collectionKey: k } });
+    if (!dbRow) {
+      return {
+        checked: false,
+        ok: false,
+        cleared: false,
+        failCodes: ['collection_not_found'],
+      };
+    }
+    const comp = dbRow.components as Record<string, unknown>;
+    const pid =
+      typeof comp.poketraceCardId === 'string' ? comp.poketraceCardId.trim() : '';
+    if (!pid) {
+      return { checked: false, ok: true, cleared: false, failCodes: [] };
+    }
+
+    const wantName = String(comp.cardName ?? '').trim();
+    const wantSet = String(comp.cardSet ?? '').trim();
+    const wantNum = String(comp.cardNumber ?? '').trim();
+    if (!wantName || !wantSet || !wantNum) {
+      this.logger.warn(
+        JSON.stringify({
+          msg: 'poketrace_collection_audit_skipped',
+          collectionKey: k,
+          reason: 'incomplete_components_cannot_verify_exact',
+        }),
+      );
+      return {
+        checked: true,
+        ok: false,
+        cleared: false,
+        failCodes: ['incomplete_components'],
+      };
+    }
+
+    let raw: unknown;
+    try {
+      raw = await this.poketrace.getCardById(pid);
+    } catch (e) {
+      this.logger.warn(
+        JSON.stringify({
+          msg: 'poketrace_collection_audit_fetch_failed',
+          collectionKey: k,
+          poketraceCardId: pid,
+          error: e instanceof Error ? e.message : String(e),
+        }),
+      );
+      return {
+        checked: true,
+        ok: false,
+        cleared: false,
+        failCodes: ['upstream_fetch_failed'],
+      };
+    }
+
+    const ptRow = extractPoketraceCardDataRow(raw);
+    if (!ptRow) {
+      return {
+        checked: true,
+        ok: false,
+        cleared: false,
+        failCodes: ['empty_card_payload'],
+      };
+    }
+
+    const ex = exactPoketraceCatalogMatch(
+      { cardName: wantName, cardSet: wantSet, cardNumber: wantNum },
+      ptRow,
+    );
+    if (ex.ok) {
+      return { checked: true, ok: true, cleared: false, failCodes: [] };
+    }
+
+    this.logger.warn(
+      JSON.stringify({
+        msg: 'poketrace_collection_id_mismatch',
+        collectionKey: k,
+        poketraceCardId: pid,
+        failCodes: ex.failCodes,
+        normalized: ex.normalized,
+      }),
+    );
+
+    if (options?.clearOnMismatch) {
+      const nextComponents: Record<string, unknown> = { ...comp };
+      delete nextComponents.poketraceCardId;
+      await this.collectionRepo.update(
+        { collectionKey: k },
+        {
+          components: nextComponents as QueryDeepPartialEntity<
+            Record<string, unknown>
+          >,
+        },
+      );
+      this.poketrace.invalidateCollectionPoketraceCaches(k);
+      return { checked: true, ok: false, cleared: true, failCodes: ex.failCodes };
+    }
+
+    return { checked: true, ok: false, cleared: false, failCodes: ex.failCodes };
+  }
+
+  /** `POKETRACE_COLLECTION_AUDIT_ON_BOOT=1`: clear stale catalog ids that fail the exact triple. */
+  private async auditStalePoketraceCardIdsOnBoot(): Promise<void> {
+    const rows = await this.collectionRepo.find({ select: ['collectionKey', 'components'] });
+    let cleared = 0;
+    let mismatchNotCleared = 0;
+    let incomplete = 0;
+    for (const c of rows) {
+      const comp = c.components as Record<string, unknown>;
+      if (typeof comp.poketraceCardId !== 'string' || !comp.poketraceCardId.trim()) {
+        continue;
+      }
+      const r = await this.auditPoketraceCardIdExact(c.collectionKey, {
+        clearOnMismatch: true,
+      });
+      if (!r.checked) continue;
+      if (r.ok) continue;
+      if (r.failCodes.includes('incomplete_components')) {
+        incomplete++;
+        continue;
+      }
+      if (r.cleared) cleared++;
+      else mismatchNotCleared++;
+    }
+    this.logger.warn(
+      JSON.stringify({
+        msg: 'poketrace_collection_boot_audit_summary',
+        collectionsTableRows: rows.length,
+        stalePoketraceIdsCleared: cleared,
+        mismatchesNotCleared: mismatchNotCleared,
+        incompleteComponents: incomplete,
+      }),
+    );
+  }
+
+  /** 중복 컬렉션 키 충돌 시 메타에만 있고 DB에 없는 poketrace / approximate id 병합 */
+  private async mergePoketraceCardIdFromMetaIfMissing(
+    collectionKey: string,
+    meta: Record<string, unknown>,
+  ): Promise<void> {
+    const key = collectionKey.toLowerCase();
+    const dbRow = await this.collectionRepo.findOne({ where: { collectionKey: key } });
+    if (!dbRow) return;
+    const comp = dbRow.components as Record<string, unknown>;
+    const pq = buildPoketraceQueryFromRwaMetadata(meta);
+    if (typeof comp.poketraceCardId === 'string' && comp.poketraceCardId.trim()) {
+      return;
+    }
+    const pid = pq.poketraceCardId?.trim();
+    if (pid) {
+      await this.collectionRepo.update(
+        { collectionKey: key },
+        {
+          components: { ...comp, poketraceCardId: pid } as QueryDeepPartialEntity<
+            Record<string, unknown>
+          >,
+        },
+      );
+      this.poketrace.invalidateCollectionPoketraceCaches(key);
+      return;
+    }
+    if (
+      typeof comp.approximatePoketraceCardId === 'string' &&
+      comp.approximatePoketraceCardId.trim()
+    ) {
+      return;
+    }
+    const apid = pq.approximatePoketraceCardId?.trim();
+    if (!apid) return;
+    await this.collectionRepo.update(
+      { collectionKey: key },
+      {
+        components: {
+          ...comp,
+          approximatePoketraceCardId: apid,
+        } as QueryDeepPartialEntity<Record<string, unknown>>,
+      },
+    );
+    this.poketrace.invalidateCollectionPoketraceCaches(key);
   }
 
   async activeListingsForCollection(collectionKey: string): Promise<Order[]> {
@@ -328,10 +733,11 @@ export class CollectionService {
     const k = collectionKey.toLowerCase();
     const asks = await this.activeListingsForCollection(k);
     for (const o of asks) {
-      if (!o.tokenId || String(o.tokenId).trim() === '' || o.tokenId === '0') continue;
+      // Active asks only (not criteria bids). ERC-721 token id 0 is valid — do not skip.
+      if (!o.tokenId || String(o.tokenId).trim() === '') continue;
       try {
         const uri = await this.blockchain.getRwaTokenURI(Number(o.tokenId));
-        const meta = await this.fetchIpfsMetadataJson(uri);
+        const meta = await this.ipfsResolver.fetchMetadataJson(uri);
         const ids = extractJustTcgProductIdentifiersFromMetadata(meta);
         if (ids.cardId || ids.tcgplayerId || ids.variantId) return ids;
       } catch {
@@ -374,7 +780,7 @@ export class CollectionService {
     for (const tokenId of tokenIds) {
       try {
         const uri = await this.blockchain.getRwaTokenURI(Number(tokenId));
-        const meta = await this.fetchIpfsMetadataJson(uri);
+        const meta = await this.ipfsResolver.fetchMetadataJson(uri);
         const img = extractCollectionRepresentativeImage(meta);
         if (img) {
           await this.collectionRepo.update({ collectionKey: k }, { coverImageUrl: img });
@@ -460,7 +866,7 @@ export class CollectionService {
       }
       try {
         const uri = await this.blockchain.getRwaTokenURI(tokenId);
-        const meta = await this.fetchIpfsMetadataJson(uri);
+        const meta = await this.ipfsResolver.fetchMetadataJson(uri);
         const comp = extractBucketComponentsFromMetadata(meta);
         if (!comp) return false;
         const key = computeMarketBucketKey(comp);

@@ -15,6 +15,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { USDC_ADDRESS, USDC_ABI } from "@/constants/contracts";
 import { useAppStore } from "@/store";
 import { ensureSepoliaNetwork } from "@/lib/ensureSepoliaNetwork";
+import { rq } from "@/lib/queryKeys";
 
 const POLL_INTERVAL_MS = 8_000;
 
@@ -91,7 +92,7 @@ export function WalletDataProvider({ children }: { children: React.ReactNode }) 
     if (address) {
       void queryClient.invalidateQueries({ queryKey: ["token-balance", address] });
       void queryClient.invalidateQueries({ queryKey: ["rwa-balance", address] });
-      void queryClient.invalidateQueries({ queryKey: ["my-rwa-ids", address] });
+      void queryClient.invalidateQueries({ queryKey: rq.rwaTokens(address) });
     }
   }, [refreshTick, refetchBalance, queryClient, address]);
 

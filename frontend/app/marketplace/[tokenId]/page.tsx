@@ -3,20 +3,27 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { usePublicClient, useReadContract } from "wagmi";
+import { useReadContract } from "wagmi";
 import { sepolia } from "@/config/wagmi";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useShallow } from "zustand/react/shallow";
 import {
-  getOrderByTokenId,
+  getActiveOrderForToken,
+  getCollectionMarketSeries,
+  getCollectionMarketStats,
+  getCollectionPoketraceNmHistory,
   getOrderHistoryByTokenId,
-  fetchIpfsMetadata,
-  getMarketplaceCollectionDetail,
-  resolveIpfsImage,
-  resolveRwaTokenUri,
+  getResolvedRwaAsset,
+  getMarketplaceCollectionDetailOrNull,
   postBatchMintPoketracePreviews,
   type Order,
 } from "@/lib/api";
+import {
+  coefficientOfVariationPctFromUsdSeries,
+  resolveExternalMarketUsd,
+} from "@/lib/externalMarketPrice";
+import { parseGradeScoreNumber } from "@/lib/gradedCardMarketCap";
+import { CollectionPriceMetricsStrip } from "@/components/marketplace/CollectionPriceMetricsStrip";
 import { GradedMetadataPanel } from "@/components/common";
 import {
   RwaDetailAssetPanel,
@@ -41,6 +48,7 @@ import {
   extractBucketComponentsFromMetadata,
 } from "@/lib/marketplace/bucketKey";
 import { useAppStore, selectWallet } from "@/store";
+import type { GradedCardMetadata } from "@/types/gradedCard";
 
 // ─── Activity history (DB 기반) ───────────────────────────────────────────────
 
@@ -178,7 +186,6 @@ export default function RwaDetailPage() {
 
   const { address, isConnected } = useAppStore(useShallow(selectWallet));
 
-  const publicClient = usePublicClient({ chainId: sepolia.id });
   const queryClient = useQueryClient();
 
   const [detailsExtraOpen, setDetailsExtraOpen] = useState(false);
@@ -194,23 +201,18 @@ export default function RwaDetailPage() {
     data: listing,
     isError: listingError,
   } = useQuery({
-    queryKey: ["marketplace-order-by-token", tokenId],
-    queryFn: () => getOrderByTokenId(tokenId),
+    queryKey: ["orders", "by-token-active", tokenId],
+    queryFn: () => getActiveOrderForToken(tokenId),
     retry: 1,
     enabled: tokenIdOk,
   });
 
   const fromCollectionParam = searchParams.get("fromCollection")?.trim() ?? "";
 
-  // IPFS metadata for this token (query key separate from exchange card list queries).
+  // Metadata + image via backend only (shared query key with collection cards).
   const { data: metaBundle, isLoading: metaLoading } = useQuery({
-    queryKey: ["marketplace-detail-metadata", tokenId, publicClient?.chain?.id],
-    queryFn: async () => {
-      const tokenURI = await resolveRwaTokenUri(tokenId, publicClient ?? undefined);
-      if (!tokenURI) return null;
-      const metadata = await fetchIpfsMetadata(tokenURI).catch(() => null);
-      return { metadata, tokenURI };
-    },
+    queryKey: ["marketplace-detail-metadata", tokenId],
+    queryFn: () => getResolvedRwaAsset(tokenId),
     enabled: tokenIdOk,
     staleTime: 60_000,
   });
@@ -243,9 +245,31 @@ export default function RwaDetailPage() {
 
   const { data: collectionDetail } = useQuery({
     queryKey: ["marketplace-collection", collectionKeyForMatch],
-    queryFn: () => getMarketplaceCollectionDetail(collectionKeyForMatch!),
+    queryFn: () => getMarketplaceCollectionDetailOrNull(collectionKeyForMatch!),
     enabled: !!collectionKeyForMatch && tokenIdOk,
     staleTime: 15_000,
+  });
+
+  const { data: tokenPagePoolStats, isLoading: tokenPagePoolStatsLoading } = useQuery({
+    queryKey: ["collection-market-stats", "rwa-detail", collectionKeyForMatch],
+    queryFn: () => getCollectionMarketStats(collectionKeyForMatch!),
+    enabled: !!collectionKeyForMatch && tokenIdOk,
+    staleTime: 60_000,
+  });
+
+  const { data: tokenMarketSeries, isLoading: tokenSeriesLoading } = useQuery({
+    queryKey: ["collection-market-series", "rwa-detail", collectionKeyForMatch],
+    queryFn: () => getCollectionMarketSeries(collectionKeyForMatch!, "90d"),
+    enabled: !!collectionKeyForMatch && tokenIdOk,
+    staleTime: 120_000,
+  });
+
+  const { data: tokenNmHistory, isLoading: tokenNmHistLoading } = useQuery({
+    queryKey: ["collection-poketrace-nm-history", "rwa-detail", collectionKeyForMatch, 90],
+    queryFn: () => getCollectionPoketraceNmHistory(collectionKeyForMatch!, 90),
+    enabled: !!collectionKeyForMatch && tokenIdOk,
+    staleTime: 300_000,
+    retry: false,
   });
 
   const navigateToCollectionAfterTrade = useCallback(() => {
@@ -290,12 +314,9 @@ export default function RwaDetailPage() {
     isError: poketraceIsError,
     error: poketraceErr,
   } = useQuery({
-    queryKey: ["rwa-detail-poketrace", tokenId, metaBundle?.tokenURI],
-    queryFn: () =>
-      postBatchMintPoketracePreviews([
-        { tokenId, metadata: metadata as Record<string, unknown> },
-      ]),
-    enabled: tokenIdOk && !!metadata,
+    queryKey: ["poketrace-mint-previews", "detail", tokenId],
+    queryFn: () => postBatchMintPoketracePreviews([tokenId]),
+    enabled: tokenIdOk,
     staleTime: 120_000,
   });
 
@@ -306,6 +327,28 @@ export default function RwaDetailPage() {
       : poketraceIsError
         ? new Error("Could not load prices")
         : null;
+
+  const tokenGradeScoreStr = useMemo(() => {
+    const g = metadata?.properties?.graded as GradedCardMetadata | undefined;
+    if (g?.psa?.gradeScore != null) return String(g.psa.gradeScore);
+    if (g?.grade?.score != null && Number.isFinite(g.grade.score)) return String(g.grade.score);
+    return null;
+  }, [metadata]);
+
+  const tokenResolvedExternal = useMemo(
+    () =>
+      resolveExternalMarketUsd({
+        poketracePreview,
+        gradePrices: tokenMarketSeries?.gradePrices ?? null,
+        gradeScore: parseGradeScoreNumber(tokenGradeScoreStr),
+      }),
+    [poketracePreview, tokenMarketSeries?.gradePrices, tokenGradeScoreStr],
+  );
+
+  const tokenExternalVol = useMemo(() => {
+    const pts = tokenNmHistory?.points;
+    return pts && pts.length >= 3 ? coefficientOfVariationPctFromUsdSeries(pts) : null;
+  }, [tokenNmHistory?.points]);
 
   // ── Buy (ask listing) ─────────────────────────────────────────────────────
 
@@ -342,26 +385,27 @@ export default function RwaDetailPage() {
   ]);
 
   async function invalidateMarketplaceQueries() {
-    await queryClient.invalidateQueries({ queryKey: ["marketplace-orders"] });
-    await queryClient.invalidateQueries({ queryKey: ["marketplace-order-by-token", tokenId] });
+    await queryClient.invalidateQueries({ queryKey: ["orders"] });
+    await queryClient.invalidateQueries({ queryKey: ["orders", "by-token-active", tokenId] });
     await queryClient.invalidateQueries({
       queryKey: ["marketplace-detail-metadata", tokenId],
     });
     await queryClient.invalidateQueries({ queryKey: ["rwa-activity", tokenId] });
     /** 모든 지갑의 My Assets 목록·메타 (거래 후 판매자/구매자 캐시 동기화) */
-    await queryClient.invalidateQueries({ queryKey: ["my-rwa-ids"] });
-    await queryClient.invalidateQueries({ queryKey: ["my-rwas"] });
+    await queryClient.invalidateQueries({ queryKey: ["rwa-tokens"] });
+    await queryClient.invalidateQueries({ queryKey: ["rwa-metadata-batch"] });
     await queryClient.invalidateQueries({ queryKey: ["marketplace-collection"] });
     if (collectionKeyForMatch) {
       await queryClient.invalidateQueries({
         queryKey: ["marketplace-collection", collectionKeyForMatch],
       });
     }
+    await queryClient.invalidateQueries({ queryKey: ["collection-market-stats"] });
   }
 
   // ── Derived ────────────────────────────────────────────────────────────────
 
-  const imageUrl = metadata?.image ? resolveIpfsImage(metadata.image) : null;
+  const imageUrl = metaBundle?.imageUrl ?? null;
   const isPageLoading = ownerLoading;
   const showMain = tokenIdOk && !ownerLoading && !ownerError && ownerOnChain != null;
 
@@ -469,6 +513,37 @@ export default function RwaDetailPage() {
                   <p className="text-xs text-orange-400 px-1">Could not load listing.</p>
                 )}
 
+                {collectionKeyForMatch && (
+                  <div className="rounded-2xl border border-gray-800/90 bg-[#0a0d11]/90 p-3 space-y-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500 px-0.5">
+                      Market price
+                    </p>
+                    <p className="text-[11px] text-zinc-600 px-0.5 -mt-1 mb-1">
+                      PokéTrace NM primary, JustTCG fallback. On-platform listing stats are a
+                      liquidity hint only.
+                    </p>
+                    <CollectionPriceMetricsStrip
+                      externalMarketUsd={tokenResolvedExternal.usd}
+                      externalPriceSource={tokenResolvedExternal.source}
+                      externalPoketraceMatchConfidence={
+                        tokenResolvedExternal.poketraceMatchConfidence
+                      }
+                      externalPriceLoading={
+                        poketraceLoading || tokenSeriesLoading || tokenNmHistLoading
+                      }
+                      externalVolatilityCvPct={tokenExternalVol}
+                      marketStats={tokenPagePoolStats ?? null}
+                      marketStatsLoading={tokenPagePoolStatsLoading}
+                      lastPlatformTradeUsd={null}
+                      priceChangePct={null}
+                      platformPriceSamples={[]}
+                      bookSpreadPct={null}
+                      marketCapUsd={null}
+                      formatMarketCap={() => "—"}
+                    />
+                  </div>
+                )}
+
                 {listing && collectionKeyForMatch && (
                   <TokenCriteriaMatchPanel
                     listing={listing}
@@ -479,11 +554,16 @@ export default function RwaDetailPage() {
                   />
                 )}
 
-                <CollectionPoketracePanel
-                  data={poketracePreview}
-                  isLoading={poketraceLoading}
-                  error={poketraceError}
-                />
+                <div className="space-y-1">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500 px-1">
+                    PokeTrace NM bands
+                  </p>
+                  <CollectionPoketracePanel
+                    data={poketracePreview}
+                    isLoading={poketraceLoading}
+                    error={poketraceError}
+                  />
+                </div>
 
                 <div className="rounded-2xl border border-gray-800/90 bg-[#0a0d11]/90 p-3 space-y-3">
                     <button

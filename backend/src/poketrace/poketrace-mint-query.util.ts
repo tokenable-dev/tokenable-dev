@@ -43,6 +43,8 @@ export function buildPoketraceQueryFromRwaMetadata(metadata: unknown): {
   cardNumber: string;
   /** Mint-time PokeTrace catalog id — skip blind search when present */
   poketraceCardId: string | null;
+  /** Relaxed mint match — charts only when no verified id; never used as strict catalog key */
+  approximatePoketraceCardId: string | null;
   poketraceSearchQuery: string | null;
 } {
   if (!isRecord(metadata)) {
@@ -51,6 +53,7 @@ export function buildPoketraceQueryFromRwaMetadata(metadata: unknown): {
       cardName: '',
       cardNumber: '',
       poketraceCardId: null,
+      approximatePoketraceCardId: null,
       poketraceSearchQuery: null,
     };
   }
@@ -63,6 +66,11 @@ export function buildPoketraceQueryFromRwaMetadata(metadata: unknown): {
   const poketraceCardId =
     typeof poketraceMeta?.cardId === 'string' && poketraceMeta.cardId.trim()
       ? poketraceMeta.cardId.trim()
+      : null;
+  const approximatePoketraceCardId =
+    typeof poketraceMeta?.approximateCardId === 'string' &&
+    poketraceMeta.approximateCardId.trim()
+      ? poketraceMeta.approximateCardId.trim()
       : null;
   const poketraceSearchQueryStored =
     typeof poketraceMeta?.searchQuery === 'string' && poketraceMeta.searchQuery.trim()
@@ -98,6 +106,7 @@ export function buildPoketraceQueryFromRwaMetadata(metadata: unknown): {
       cardName,
       cardNumber,
       poketraceCardId,
+      approximatePoketraceCardId,
       poketraceSearchQuery: poketraceSearchQueryStored,
     };
   }
@@ -128,6 +137,7 @@ export function buildPoketraceQueryFromRwaMetadata(metadata: unknown): {
     cardName,
     cardNumber,
     poketraceCardId,
+    approximatePoketraceCardId,
     poketraceSearchQuery: poketraceSearchQueryStored,
   };
 }
@@ -139,4 +149,86 @@ export function mintPreviewDedupeKey(
 ): string {
   const raw = `${query}|${cardName}|${cardNumber}`;
   return `mintpv_${createHash('sha256').update(raw).digest('hex').slice(0, 32)}`;
+}
+
+/**
+ * Latin-heavy catalog text: case + whitespace + punctuation stripped for **equality** checks only.
+ * (Recall is intentionally sacrificed — ambiguous Unicode sets may need a different policy later.)
+ */
+export function normalizeForExactCatalogMatch(s: string): string {
+  return normalizePsaCardNameForPoketrace(s)
+    .toLowerCase()
+    .replace(/\s+/g, '')
+    .replace(/[^a-z0-9]/g, '');
+}
+
+/** Card # / promo codes: `#SV49`, `086/078` → same normalization key for exact compare. */
+export function normalizeForExactCardNumberKey(s: string): string {
+  return s
+    .replace(/^#/, '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '')
+    .replace(/[^a-z0-9]/g, '');
+}
+
+export type PoketraceExactCatalogHints = {
+  cardName: string;
+  cardNumber: string;
+  cardSet: string;
+};
+
+export type PoketraceExactMatchResult = {
+  ok: boolean;
+  failCodes: string[];
+  normalized: {
+    nameWant: string;
+    nameGot: string;
+    setWant: string;
+    setGot: string;
+    numWant: string;
+    numGot: string;
+  };
+};
+
+/**
+ * Precision gate: **all three** must match after normalization or the catalog row is rejected.
+ * `row` is a PokeTrace `GET /cards/:id` `data` object (or search hit row).
+ */
+export function exactPoketraceCatalogMatch(
+  hints: PoketraceExactCatalogHints,
+  row: Record<string, unknown>,
+): PoketraceExactMatchResult {
+  const set = isRecord(row.set) ? row.set : null;
+  const setNameGot = typeof set?.name === 'string' ? set.name : '';
+  const nameGot = typeof row.name === 'string' ? row.name : '';
+  const numGot = typeof row.cardNumber === 'string' ? row.cardNumber : '';
+
+  const nameWant = normalizeForExactCatalogMatch(hints.cardName);
+  const nameGotN = normalizeForExactCatalogMatch(nameGot);
+  const setWant = normalizeForExactCatalogMatch(hints.cardSet);
+  const setGotN = normalizeForExactCatalogMatch(setNameGot);
+  /** Same physical # as slab `086/078` → `086` vs catalog `086/078` must still align. */
+  const numWant = normalizeForExactCardNumberKey(
+    primaryCardNumberForPoketrace(hints.cardNumber),
+  );
+  const numGotN = normalizeForExactCardNumberKey(primaryCardNumberForPoketrace(numGot));
+
+  const failCodes: string[] = [];
+  if (nameWant !== nameGotN) failCodes.push('name_mismatch');
+  if (setWant !== setGotN) failCodes.push('set_mismatch');
+  if (numWant !== numGotN) failCodes.push('number_mismatch');
+
+  return {
+    ok: failCodes.length === 0,
+    failCodes,
+    normalized: {
+      nameWant,
+      nameGot: nameGotN,
+      setWant,
+      setGot: setGotN,
+      numWant,
+      numGot: numGotN,
+    },
+  };
 }

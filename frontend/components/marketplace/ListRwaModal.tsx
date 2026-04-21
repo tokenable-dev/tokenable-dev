@@ -10,13 +10,14 @@ import {
 import { formatUnits, parseUnits, type Address } from "viem";
 import type { Order } from "@/lib/api";
 import { sepolia } from "@/config/wagmi";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   TOKENABLE_RWA_ADDRESS,
   SEAPORT_ADDRESS,
   TOKENABLE_RWA_APPROVE_ABI,
 } from "@/constants/contracts";
 import { getMarketplaceCollectionDetail, getOrderByHash } from "@/lib/api";
+import { rq } from "@/lib/queryKeys";
 import { GAS_FALLBACK, gasWithCapFast } from "@/lib/chainGas";
 import { mapWalletError } from "@/lib/walletError";
 import { askGrossUsdcMicros, bidUsdcAmount } from "@/lib/seaport/bidUsdc";
@@ -123,6 +124,8 @@ interface ListRwaModalProps {
   initialPriceUsdc?: string | null;
   /** Active ask to replace (e.g. lower price) — replace-listing, then instant collection-bid match. */
   existingAskOrder?: Order | null;
+  /** When only a lightweight list row is available, pass hash — modal loads full Seaport order. */
+  existingAskOrderHash?: string | null;
   /** With `collectionBids`, after you list we automatically run `matchAdvancedOrders` when your price crosses an eligible collection bid (no separate “instant match” step). */
   collectionKey?: string | null;
   collectionBids?: Order[];
@@ -137,6 +140,7 @@ export function ListRwaModal({
   onListed,
   initialPriceUsdc,
   existingAskOrder,
+  existingAskOrderHash,
   collectionKey,
   collectionBids,
   preferredBidOrderHash,
@@ -147,6 +151,14 @@ export function ListRwaModal({
   const walletClientRef = useRef(walletClient);
   walletClientRef.current = walletClient;
   const queryClient = useQueryClient();
+
+  const { data: existingAskFetched } = useQuery({
+    queryKey: ["orders", "detail", existingAskOrderHash ?? ""],
+    queryFn: () => getOrderByHash(existingAskOrderHash!),
+    enabled: Boolean(existingAskOrderHash?.trim()) && !existingAskOrder,
+    staleTime: 15_000,
+  });
+  const resolvedExistingAsk = existingAskOrder ?? existingAskFetched ?? null;
 
   const [price, setPrice] = useState("");
   /** When several collection bids equal the list price exactly, seller picks which to try first. */
@@ -224,19 +236,20 @@ export function ListRwaModal({
   }, [bidsAtExactListPrice.length, tieBreakBidHash, preferredBidOrderHash]);
 
   const isReplaceListing = useMemo(() => {
-    if (!existingAskOrder || !address) return false;
-    if (existingAskOrder.side !== "ask" || existingAskOrder.status !== "active") return false;
-    if (Number(normalizeDecimalTokenId(existingAskOrder.tokenId)) !== Number(tokenId)) {
+    if (!resolvedExistingAsk || !address) return false;
+    if (resolvedExistingAsk.side !== "ask" || resolvedExistingAsk.status !== "active")
+      return false;
+    if (Number(normalizeDecimalTokenId(resolvedExistingAsk.tokenId)) !== Number(tokenId)) {
       return false;
     }
-    return existingAskOrder.offerer.toLowerCase() === address.toLowerCase();
-  }, [existingAskOrder, address, tokenId]);
+    return resolvedExistingAsk.offerer.toLowerCase() === address.toLowerCase();
+  }, [resolvedExistingAsk, address, tokenId]);
 
   /** Live book price before this edit — drives “$5 ask vs $4 bid” UX. */
   const currentAskDisplay = useMemo(() => {
-    if (!isReplaceListing || !existingAskOrder?.considerationAmount) return null;
+    if (!isReplaceListing || !resolvedExistingAsk?.considerationAmount) return null;
     try {
-      const micros = BigInt(existingAskOrder.considerationAmount);
+      const micros = BigInt(resolvedExistingAsk.considerationAmount);
       const n = Number(formatUnits(micros, 6));
       if (!Number.isFinite(n)) return null;
       const label = n.toLocaleString("en-US", {
@@ -247,7 +260,7 @@ export function ListRwaModal({
     } catch {
       return null;
     }
-  }, [isReplaceListing, existingAskOrder?.considerationAmount]);
+  }, [isReplaceListing, resolvedExistingAsk?.considerationAmount]);
 
   /** After success, close the modal — short delay so instant-match copy is readable when parent keeps the modal mounted. */
   useEffect(() => {
@@ -266,16 +279,16 @@ export function ListRwaModal({
       setPrice(initialPriceUsdc.trim());
       return;
     }
-    if (existingAskOrder?.considerationAmount) {
+    if (resolvedExistingAsk?.considerationAmount) {
       try {
-        setPrice(formatUnits(BigInt(existingAskOrder.considerationAmount), 6));
+        setPrice(formatUnits(BigInt(resolvedExistingAsk.considerationAmount), 6));
       } catch {
         setPrice("");
       }
       return;
     }
     setPrice("");
-  }, [initialPriceUsdc, tokenId, existingAskOrder?.orderHash]);
+  }, [initialPriceUsdc, tokenId, resolvedExistingAsk?.orderHash]);
 
   const { writeContractAsync } = useWriteContract();
 
@@ -359,7 +372,7 @@ export function ListRwaModal({
     let key = resolveMatchCollectionKey(
       created,
       collectionKey,
-      existingAskOrder,
+      resolvedExistingAsk,
       collectionBids,
     );
     if (!key && created.orderHash) {
@@ -370,7 +383,7 @@ export function ListRwaModal({
         key = resolveMatchCollectionKey(
           refreshed,
           collectionKey,
-          existingAskOrder,
+          resolvedExistingAsk,
           collectionBids,
         );
       } catch {
@@ -626,18 +639,22 @@ export function ListRwaModal({
   }
 
   async function invalidateListingQueries(created: Order) {
-    await queryClient.invalidateQueries({ queryKey: ["marketplace-orders"] });
+    await queryClient.invalidateQueries({ queryKey: ["orders"] });
+    await queryClient.invalidateQueries({ queryKey: ["rwa-metadata-batch"] });
+    await queryClient.invalidateQueries({ queryKey: ["poketrace-mint-previews"] });
+    await queryClient.invalidateQueries({ queryKey: rq.collectionsMarketplace() });
+    await queryClient.invalidateQueries({ queryKey: ["collection-snapshots"] });
     await queryClient.invalidateQueries({ queryKey: ["marketplace-collection"] });
     await queryClient.invalidateQueries({ queryKey: ["merkle-set"] });
     const colKey =
       orderCollectionKey(created) ||
       (collectionKey != null ? collectionKey.trim() : "") ||
-      orderCollectionKey(existingAskOrder);
+      orderCollectionKey(resolvedExistingAsk);
     if (colKey) {
       await queryClient.invalidateQueries({ queryKey: ["merkle-set", colKey] });
     }
     if (address) {
-      await queryClient.invalidateQueries({ queryKey: ["my-rwa-ids", address] });
+      await queryClient.invalidateQueries({ queryKey: rq.rwaTokens(address) });
     }
   }
 
@@ -656,7 +673,7 @@ export function ListRwaModal({
     setSuccessMeta(null);
 
     try {
-      if (isReplaceListing && existingAskOrder) {
+      if (isReplaceListing && resolvedExistingAsk) {
         setStep("submitting");
         let created = await submitAskListingOrder({
           tokenId,
@@ -668,7 +685,7 @@ export function ListRwaModal({
             typeof submitAskListingOrder
           >[0]["writeContractAsync"],
           mode: "replace",
-          oldOrderHash: existingAskOrder.orderHash,
+          oldOrderHash: resolvedExistingAsk.orderHash,
         });
         if (!orderCollectionKey(created) && created.orderHash) {
           try {
@@ -806,7 +823,7 @@ export function ListRwaModal({
 
   const showMatchStep = Boolean(
     collectionKey?.trim() ||
-      orderCollectionKey(existingAskOrder) ||
+      orderCollectionKey(resolvedExistingAsk) ||
       topCollectionBid != null,
   );
   const stepLabels: { label: string; active: boolean }[] = [

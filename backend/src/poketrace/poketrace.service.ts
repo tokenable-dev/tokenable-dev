@@ -1,9 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { BlockchainService } from '../blockchain/blockchain.service';
 import type { MarketplaceCollection } from '../marketplace/entities/marketplace-collection.entity';
 import {
   buildPoketraceQueryFromRwaMetadata,
+  exactPoketraceCatalogMatch,
   mintPreviewDedupeKey,
+  normalizeForExactCardNumberKey,
+  normalizeForExactCatalogMatch,
   normalizePsaCardNameForPoketrace,
   primaryCardNumberForPoketrace,
 } from './poketrace-mint-query.util';
@@ -81,7 +85,9 @@ export function buildPoketraceSearchQuery(col: MarketplaceCollection): string {
 
 /**
  * Primary JustTCG-style query often misses on PokeTrace (JP-only wording, "Japanese", etc.).
- * Try progressively simpler strings; first hit wins in {@link resolveMatchedCardRow}.
+ * Progressive strings for **mint-time** id discovery (`tryResolveCardIdForMintMetadata`) only.
+ * Collection **reference** NM bands: `components.poketraceCardId` + GET /cards/:id — no search.
+ * Product pricing elsewhere uses external NM (PokéTrace / JustTCG); pool stats are liquidity only.
  */
 export function buildPoketraceSearchQueryAttempts(
   col: MarketplaceCollection,
@@ -205,6 +211,150 @@ function scoreSetAlignment(row: UnknownRecord, wantSet: string): number {
   return Math.min(70, s);
 }
 
+/**
+ * Relaxed mint fallback — **never** written to `poketraceCardId`.
+ * Gates: same policy as strict for **set + primary #**; **name** only allows normalized substring.
+ */
+const RELAXED_SCORE_SUM_MIN = 30;
+
+function stableCatalogIdForSort(row: UnknownRecord): string {
+  const id = poketraceCardIdFromRow(row);
+  return id ?? '';
+}
+
+/** Higher = more liquid — tie-break for deterministic representative among same set+number. */
+function catalogRowLiquidityScore(row: UnknownRecord): number {
+  const n = row.totalSaleCount;
+  return typeof n === 'number' && Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+function relaxedCompositeScore(
+  row: UnknownRecord,
+  nameH: string,
+  numH: string,
+  setH: string,
+): number {
+  return scoreSearchHit(row, nameH, numH) + scoreSetAlignment(row, setH);
+}
+
+/** Same inputs → same row order: score desc, liquidity desc, catalog id asc. */
+function compareCatalogRowsDeterministic(
+  a: UnknownRecord,
+  b: UnknownRecord,
+  nameH: string,
+  numH: string,
+  setH: string,
+): number {
+  const scb = relaxedCompositeScore(b, nameH, numH, setH);
+  const sca = relaxedCompositeScore(a, nameH, numH, setH);
+  if (scb !== sca) return scb - sca;
+  const lb = catalogRowLiquidityScore(b);
+  const la = catalogRowLiquidityScore(a);
+  if (lb !== la) return lb - la;
+  return stableCatalogIdForSort(a).localeCompare(stableCatalogIdForSort(b));
+}
+
+function relaxedMintNameContains(hintName: string, row: UnknownRecord): boolean {
+  const apiName = String(row.name ?? '');
+  const a = normalizeForExactCatalogMatch(
+    normalizePsaCardNameForPoketrace(hintName),
+  );
+  const b = normalizeForExactCatalogMatch(
+    normalizePsaCardNameForPoketrace(apiName),
+  );
+  if (!a && !b) return true;
+  if (!a || !b) return false;
+  if (Math.min(a.length, b.length) < 4) return a === b;
+  return a.includes(b) || b.includes(a);
+}
+
+/** Same normalized key as strict `exactPoketraceCatalogMatch` set leg — not score-based. */
+function relaxedMintSetExactNormalized(setHint: string, row: UnknownRecord): boolean {
+  const set = isRecord(row.set) ? row.set : null;
+  const setNameGot = typeof set?.name === 'string' ? set.name : '';
+  const a = normalizeForExactCatalogMatch(setHint);
+  const b = normalizeForExactCatalogMatch(setNameGot);
+  return Boolean(a && b && a === b);
+}
+
+/** Primary segment only (086/078 → 086), then same key as strict number leg — no substring recall. */
+function relaxedMintNumberPrimaryExact(hintNum: string, row: UnknownRecord): boolean {
+  const num = String(row.cardNumber ?? '');
+  const w = hintNum.replace(/^#/, '').trim();
+  const n = num.replace(/^#/, '').trim();
+  if (!w || !n) return false;
+  const p1 = normalizeForExactCardNumberKey(primaryCardNumberForPoketrace(w));
+  const p2 = normalizeForExactCardNumberKey(primaryCardNumberForPoketrace(n));
+  return Boolean(p1 && p2 && p1 === p2);
+}
+
+type PickRelaxedMintResult = {
+  row: UnknownRecord | null;
+  /** Present when there were ≥2 relaxed candidates — DIAG only. */
+  deterministicRanking?: Array<{
+    id: string | null;
+    compositeScore: number;
+    liquidity: number;
+  }>;
+};
+
+function pickRelaxedRowForMint(
+  data: unknown[],
+  nameH: string,
+  numH: string,
+  setH: string,
+): PickRelaxedMintResult {
+  if (!setH.trim()) return { row: null };
+  const rows = data.filter(isRecord) as UnknownRecord[];
+  const candidates = rows.filter(
+    (r) =>
+      relaxedMintNameContains(nameH, r) &&
+      relaxedMintNumberPrimaryExact(numH, r) &&
+      relaxedMintSetExactNormalized(setH, r),
+  );
+  if (candidates.length === 0) return { row: null };
+  const sorted = [...candidates].sort((a, b) =>
+    compareCatalogRowsDeterministic(a, b, nameH, numH, setH),
+  );
+  const best = sorted[0]!;
+  const bestSc = relaxedCompositeScore(best, nameH, numH, setH);
+  if (bestSc < RELAXED_SCORE_SUM_MIN) {
+    return { row: null };
+  }
+  const deterministicRanking =
+    sorted.length >= 2
+      ? sorted.slice(0, 10).map((r) => ({
+          id: poketraceCardIdFromRow(r),
+          compositeScore: relaxedCompositeScore(r, nameH, numH, setH),
+          liquidity: catalogRowLiquidityScore(r),
+        }))
+      : undefined;
+  return { row: best, deterministicRanking };
+}
+
+/** GET /cards/:id (or wrapped) JSON → catalog row */
+export function extractPoketraceCardDataRow(raw: unknown): UnknownRecord | null {
+  if (isRecord(raw) && isRecord(raw.data)) return raw.data as UnknownRecord;
+  if (isRecord(raw) && (typeof raw.id === 'string' || typeof raw.id === 'number')) {
+    return raw as UnknownRecord;
+  }
+  return null;
+}
+
+/** Mint-time strict + relaxed resolve counters — see `getMintPoketraceResolveStats` / snapshot log. */
+const mintPoketraceResolveStats = {
+  attempts: 0,
+  catalogIdSaved: 0,
+  approximateCatalogIdSaved: 0,
+  poketracePreviewVerifiedCount: 0,
+  poketracePreviewApproximateCount: 0,
+  rejectedMissingRequiredHint: 0,
+  rejectedNoSearchHits: 0,
+  rejectedNoExactCatalogRow: 0,
+  rejectedAmbiguousMultipleExactRows: 0,
+  rejectedUpstreamError: 0,
+};
+
 /** PokeTrace rows may use numeric `id`; always coerce for API paths + strict checks. */
 function poketraceCardIdFromRow(row: UnknownRecord): string | null {
   const id = row.id;
@@ -233,6 +383,108 @@ function pickBestCard(
     }
   }
   return best;
+}
+
+/**
+ * Structured payload for `POKETRACE_MATCH_DIAG=1` — compares marketplace `components` vs GET /cards/:id row.
+ * Uses the same **exact triple** (name + set + number) as mint-time id persistence.
+ */
+function buildPoketraceAlignmentReport(
+  col: MarketplaceCollection,
+  row: UnknownRecord,
+): Record<string, unknown> {
+  const comp = col.components as UnknownRecord;
+  const wantName = String(comp.cardName ?? '').trim();
+  const wantSet = String(comp.cardSet ?? '').trim();
+  const wantNum = String(comp.cardNumber ?? '').trim();
+  const wantYear = String(comp.year ?? comp.psaYear ?? '').trim();
+  const wantLang = String(comp.language ?? comp.variant ?? '').trim();
+  const storedId =
+    typeof comp.poketraceCardId === 'string' ? comp.poketraceCardId.trim() : '';
+
+  const ptSet = isRecord(row.set) ? row.set : null;
+  const ptSetName = typeof ptSet?.name === 'string' ? ptSet.name : '';
+  const ptSetSlug = typeof ptSet?.slug === 'string' ? ptSet.slug : '';
+  const ptName = String(row.name ?? '');
+  const ptNum = String(row.cardNumber ?? '');
+  const ptImage = typeof row.image === 'string' ? row.image : null;
+  const ptId = String(row.id ?? '');
+  const ptLang =
+    typeof row.language === 'string'
+      ? row.language
+      : typeof (row as { locale?: unknown }).locale === 'string'
+        ? String((row as { locale?: string }).locale)
+        : '';
+
+  const canExact = Boolean(wantName && wantSet && wantNum);
+  const exact = canExact
+    ? exactPoketraceCatalogMatch(
+        { cardName: wantName, cardSet: wantSet, cardNumber: wantNum },
+        row,
+      )
+    : null;
+
+  const mismatchHints = exact
+    ? [...exact.failCodes]
+    : ['incomplete_components_for_exact_check'];
+  if (wantYear && ptSetName && !String(ptSetName).includes(wantYear))
+    mismatchHints.push('year_not_found_in_poketrace_set_name');
+  if (wantLang && ptLang && wantLang.toLowerCase() !== ptLang.toLowerCase())
+    mismatchHints.push('language_or_variant_mismatch');
+  else if (wantLang && !ptLang) mismatchHints.push('language_unknown_on_poketrace');
+
+  let likelyCause:
+    | 'A_stored_id_points_wrong_catalog_card'
+    | 'B_mint_search_pick_possible'
+    | 'C_ambiguous_search_or_partial_scores'
+    | 'aligned' = 'aligned';
+  if (exact?.ok) likelyCause = 'aligned';
+  else if (storedId && String(ptId) === String(storedId))
+    likelyCause = 'A_stored_id_points_wrong_catalog_card';
+  else if (String(col.collectionKey).toLowerCase().startsWith('mintpt_'))
+    likelyCause = 'B_mint_search_pick_possible';
+  else likelyCause = 'C_ambiguous_search_or_partial_scores';
+
+  return {
+    collectionKey: col.collectionKey,
+    likelyCause,
+    storedPoketraceCardId: storedId || null,
+    poketraceResolved: {
+      id: ptId,
+      name: ptName,
+      setName: ptSetName,
+      setSlug: ptSetSlug || null,
+      cardNumber: ptNum,
+      imageUrl: ptImage,
+      language: ptLang || null,
+    },
+    ourComponentsSignals: {
+      cardName: wantName || null,
+      cardSet: wantSet || null,
+      cardNumber: wantNum || null,
+      year: wantYear || null,
+      languageOrVariant: wantLang || null,
+    },
+    exactTriple: exact
+      ? {
+          ok: exact.ok,
+          failCodes: exact.failCodes,
+          normalized: exact.normalized,
+        }
+      : {
+          ok: null,
+          note: 'Need non-empty cardName, cardSet, and cardNumber on collection.components for exact diagnostics.',
+        },
+    mismatchHints,
+    likelyCauseNote:
+      likelyCause === 'A_stored_id_points_wrong_catalog_card'
+        ? 'GET /cards/:id returned this row for components.poketraceCardId — exactTriple failCodes show which field disagrees.'
+        : likelyCause === 'B_mint_search_pick_possible'
+          ? 'Mint preview key (mintpt_*) — compare failCodes with `poketrace_tryResolve_search` / `poketrace_tryResolve_exact_candidates` logs.'
+          : likelyCause === 'aligned'
+            ? 'Exact name + set + number (normalized) match this catalog row.'
+            : 'See exactTriple / mismatchHints.',
+  };
 }
 
 export type PriceBand = {
@@ -322,6 +574,8 @@ export type PoketraceNmHistoryResult = {
   message?: string;
   /** True when {@link buildMockPoketraceNmHistory} is used (testing / upstream failure). */
   isMockData?: boolean;
+  /** Catalog reference tier for this series — UI must label approximate flows. */
+  matchConfidence?: 'verified' | 'approximate';
   /** Requested window (calendar days) */
   days: number;
   /** Unix seconds, USD — eBay NEAR_MINT tier when available */
@@ -335,6 +589,8 @@ export type PoketraceCollectionPreview = {
   searchQuery: string;
   matched: boolean;
   message?: string;
+  /** Strict GET /cards/:id key vs relaxed catalog reference for charts. */
+  matchConfidence?: 'verified' | 'approximate';
   /** True when {@link buildMockPoketracePreview} is used (testing / upstream failure). */
   isMockData?: boolean;
   card: null | {
@@ -356,6 +612,12 @@ export type PoketraceCollectionPreview = {
     ebayNearMint: PriceBand | null;
     tcgplayerNearMint: PriceBand | null;
   };
+};
+
+/** PSA mint pipeline — strict `verified` vs relaxed `approximate` (never mixed on-chain id field). */
+export type PoketraceMintResolveResult = {
+  verified: { cardId: string; searchQuery: string } | null;
+  approximate: { cardId: string; searchQuery: string } | null;
 };
 
 @Injectable()
@@ -385,6 +647,7 @@ export class PoketraceService {
           searchQuery: string;
           row: UnknownRecord;
           cardId: string;
+          matchConfidence: 'verified' | 'approximate';
         }
         | {
           searchQuery: string;
@@ -399,7 +662,12 @@ export class PoketraceService {
   private readonly resolveInflight = new Map<
     string,
     Promise<
-      | { searchQuery: string; row: UnknownRecord; cardId: string }
+      | {
+        searchQuery: string;
+        row: UnknownRecord;
+        cardId: string;
+        matchConfidence: 'verified' | 'approximate';
+      }
       | { searchQuery: string; matched: false; message: string }
     >
   >();
@@ -434,7 +702,10 @@ export class PoketraceService {
   /** Skip all upstream PokeTrace HTTP calls; always return mock (`POKETRACE_FORCE_MOCK_DATA=1`). */
   private readonly forceMock: boolean;
 
-  constructor(private readonly config: ConfigService) {
+  constructor(
+    private readonly config: ConfigService,
+    private readonly blockchain: BlockchainService,
+  ) {
     this.apiKey =
       this.config.get<string>('POKETRACE_PUBLIC_API_TOKEN')?.trim() || null;
     this.mockOnFailure = this.envTruthy('POKETRACE_MOCK_ON_FAILURE');
@@ -463,6 +734,63 @@ export class PoketraceService {
   private envTruthy(key: string): boolean {
     const v = this.config.get<string>(key)?.trim().toLowerCase();
     return v === '1' || v === 'true' || v === 'yes' || v === 'on';
+  }
+
+  /** Log GET /cards/:id vs `collection.components` alignment (JSON line). */
+  private matchDiagOn(): boolean {
+    return this.envTruthy('POKETRACE_MATCH_DIAG');
+  }
+
+  private logMintResolveStatsSnapshot(): void {
+    const a = Math.max(1, mintPoketraceResolveStats.attempts);
+    const strictS = mintPoketraceResolveStats.catalogIdSaved;
+    const approxS = mintPoketraceResolveStats.approximateCatalogIdSaved;
+    const pv = mintPoketraceResolveStats.poketracePreviewVerifiedCount;
+    const pa = mintPoketraceResolveStats.poketracePreviewApproximateCount;
+    const ptot = Math.max(1, pv + pa);
+    this.logger.log(
+      JSON.stringify({
+        msg: 'poketrace_mint_resolve_stats_snapshot',
+        ...mintPoketraceResolveStats,
+        strictSaveRatePct: Math.round((10_000 * strictS) / a) / 100,
+        approximateOnlySaveRatePct: Math.round((10_000 * approxS) / a) / 100,
+        combinedStrictOrApproxMintRatePct:
+          Math.round((10_000 * (strictS + approxS)) / a) / 100,
+        saveRatePct: Math.round((10_000 * strictS) / a) / 100,
+        noStrictCatalogIdRatePct: Math.round((10_000 * (a - strictS)) / a) / 100,
+        noCatalogIdRatePct: Math.round((10_000 * (a - strictS)) / a) / 100,
+        approximatePreviewSharePct: Math.round((10_000 * pa) / ptot) / 100,
+      }),
+    );
+  }
+
+  /** Cumulative mint PokeTrace id resolution (exact triple gate). */
+  getMintPoketraceResolveStats(): Readonly<typeof mintPoketraceResolveStats> & {
+    saveRatePct: number;
+    noCatalogIdRatePct: number;
+    strictSaveRatePct: number;
+    approximateOnlySaveRatePct: number;
+    combinedStrictOrApproxMintRatePct: number;
+    noStrictCatalogIdRatePct: number;
+    approximatePreviewSharePct: number;
+  } {
+    const a = Math.max(1, mintPoketraceResolveStats.attempts);
+    const strictS = mintPoketraceResolveStats.catalogIdSaved;
+    const approxS = mintPoketraceResolveStats.approximateCatalogIdSaved;
+    const pv = mintPoketraceResolveStats.poketracePreviewVerifiedCount;
+    const pa = mintPoketraceResolveStats.poketracePreviewApproximateCount;
+    const ptot = Math.max(1, pv + pa);
+    return {
+      ...mintPoketraceResolveStats,
+      saveRatePct: Math.round((10_000 * strictS) / a) / 100,
+      noCatalogIdRatePct: Math.round((10_000 * (a - strictS)) / a) / 100,
+      strictSaveRatePct: Math.round((10_000 * strictS) / a) / 100,
+      approximateOnlySaveRatePct: Math.round((10_000 * approxS) / a) / 100,
+      combinedStrictOrApproxMintRatePct:
+        Math.round((10_000 * (strictS + approxS)) / a) / 100,
+      noStrictCatalogIdRatePct: Math.round((10_000 * (a - strictS)) / a) / 100,
+      approximatePreviewSharePct: Math.round((10_000 * pa) / ptot) / 100,
+    };
   }
 
   /**
@@ -733,7 +1061,7 @@ export class PoketraceService {
       };
     }
 
-    const { searchQuery, cardId } = resolved;
+    const { searchQuery, cardId, matchConfidence } = resolved;
     let merged: HistoryPoint[] = [];
     let upstreamRequests = 0;
     let cursor: string | undefined;
@@ -761,6 +1089,7 @@ export class PoketraceService {
             enabled: true,
             searchQuery,
             matched: true,
+            matchConfidence,
             message: msg,
             days,
             points: merged.length > 0
@@ -784,6 +1113,7 @@ export class PoketraceService {
         enabled: true,
         searchQuery,
         matched: true,
+        matchConfidence,
         days,
         points: trimmed,
         source: 'ebay NEAR_MINT',
@@ -795,6 +1125,7 @@ export class PoketraceService {
         enabled: true,
         searchQuery,
         matched: true,
+        matchConfidence,
         message: e instanceof Error ? e.message : String(e),
         days,
         points: [],
@@ -805,71 +1136,305 @@ export class PoketraceService {
   }
 
   /**
-   * Cert/PSA analyze → mint: one PokeTrace search to pin catalog `cardId` for stable later lookups.
+   * Mint: search → **strict** exact triple (`verified.cardId`) → else **relaxed** scored pick (`approximate` only).
    */
   async tryResolveCardIdForMintMetadata(
     searchQueryRaw: string,
-    hints: { cardName: string; cardNumber: string },
-  ): Promise<{ cardId: string; searchQuery: string } | null> {
+    hints: { cardName: string; cardNumber: string; cardSet?: string },
+  ): Promise<PoketraceMintResolveResult | null> {
     if (!this.isConfigured()) return null;
-    const q = truncateSearchQuery(searchQueryRaw.trim() || '', 120);
-    const hasHints =
-      hints.cardName.trim().length >= 2 || hints.cardNumber.trim().length >= 1;
-    if ((!q || q === 'pokemon') && !hasHints) return null;
 
-    const searchQuery =
-      q && q !== 'pokemon'
-        ? q
-        : truncateSearchQuery(
-            [hints.cardName, hints.cardNumber].filter(Boolean).join(' '),
-            120,
-          ) || 'pokemon';
+    const none: PoketraceMintResolveResult = { verified: null, approximate: null };
 
+    mintPoketraceResolveStats.attempts++;
     try {
+      const nameH = hints.cardName.trim();
+      const numH = hints.cardNumber.trim();
+      const setH = (hints.cardSet ?? '').trim();
+
+      if (!nameH || !numH || !setH) {
+        mintPoketraceResolveStats.rejectedMissingRequiredHint++;
+        if (this.matchDiagOn()) {
+          this.logger.warn(
+            JSON.stringify({
+              msg: 'poketrace_tryResolve_rejected',
+              reason: 'missing_required_hint',
+              failCodes: [
+                !nameH ? 'name_hint_empty' : null,
+                !setH ? 'set_hint_empty' : null,
+                !numH ? 'number_hint_empty' : null,
+              ].filter(Boolean),
+              hintLengths: {
+                cardName: nameH.length,
+                cardSet: setH.length,
+                cardNumber: numH.length,
+              },
+              normalizedHints: {
+                cardName: normalizeForExactCatalogMatch(nameH),
+                cardSet: normalizeForExactCatalogMatch(setH),
+                cardNumber: normalizeForExactCardNumberKey(numH),
+              },
+            }),
+          );
+        }
+        return none;
+      }
+
+      const hintsStrict = { cardName: nameH, cardNumber: numH, cardSet: setH };
+
+      const q = truncateSearchQuery(searchQueryRaw.trim() || '', 120);
+      const hasHints = nameH.length >= 2 || numH.length >= 1;
+      if ((!q || q === 'pokemon') && !hasHints) {
+        mintPoketraceResolveStats.rejectedMissingRequiredHint++;
+        return none;
+      }
+
+      const searchQuery =
+        q && q !== 'pokemon'
+          ? q
+          : truncateSearchQuery(
+              [nameH, numH].filter(Boolean).join(' '),
+              120,
+            ) || 'pokemon';
+
       const searchBody = await this.searchCards(searchQuery, 15);
       const data = isRecord(searchBody) && Array.isArray(searchBody.data)
         ? searchBody.data
         : [];
-      if (data.length === 0) return null;
+      if (data.length === 0) {
+        mintPoketraceResolveStats.rejectedNoSearchHits++;
+        if (this.matchDiagOn()) {
+          this.logger.warn(
+            JSON.stringify({
+              msg: 'poketrace_tryResolve_rejected',
+              reason: 'no_search_hits',
+              searchQuery,
+            }),
+          );
+        }
+        return none;
+      }
 
       const col = {
         collectionKey: 'mint_resolve_temp',
         displayLabel: searchQuery,
         queryUsed: searchQuery,
         components: {
-          cardName: hints.cardName,
-          cardNumber: hints.cardNumber,
+          cardName: nameH,
+          cardNumber: numH,
+          cardSet: setH,
         },
         coverImageUrl: null,
         createdAt: new Date(),
       } as MarketplaceCollection;
 
-      const picked = pickBestCard(data, col);
-      const pid = picked ? poketraceCardIdFromRow(picked) : null;
-      if (!picked || !pid) return null;
-      return { cardId: pid, searchQuery };
+      if (this.matchDiagOn()) {
+        const top = data
+          .filter(isRecord)
+          .map((r) => {
+            const id = poketraceCardIdFromRow(r);
+            const sc =
+              scoreSearchHit(r, nameH, numH) + scoreSetAlignment(r, setH);
+            return {
+              id,
+              score: sc,
+              name: typeof r.name === 'string' ? r.name : null,
+              num: typeof r.cardNumber === 'string' ? r.cardNumber : null,
+            };
+          })
+          .sort((a, b) => b.score - a.score)
+          .slice(0, 6);
+        this.logger.log(
+          JSON.stringify({
+            msg: 'poketrace_tryResolve_search',
+            searchQuery,
+            hints: {
+              cardName: nameH,
+              cardNumber: numH,
+              cardSet: setH,
+            },
+            topHits: top,
+          }),
+        );
+      }
+
+      const rows = data.filter(isRecord) as UnknownRecord[];
+      const exactRows = rows.filter((r) =>
+        exactPoketraceCatalogMatch(hintsStrict, r).ok,
+      );
+      const strictWithPid = exactRows
+        .filter((r) => poketraceCardIdFromRow(r))
+        .sort((a, b) =>
+          stableCatalogIdForSort(a).localeCompare(stableCatalogIdForSort(b)),
+        );
+
+      if (this.matchDiagOn()) {
+        const sample = rows.slice(0, 12).map((r) => {
+          const ex = exactPoketraceCatalogMatch(hintsStrict, r);
+          return {
+            id: poketraceCardIdFromRow(r),
+            exactOk: ex.ok,
+            failCodes: ex.failCodes,
+            normalized: ex.normalized,
+          };
+        });
+        this.logger.log(
+          JSON.stringify({
+            msg: 'poketrace_tryResolve_exact_candidates',
+            searchQuery,
+            exactMatchCount: exactRows.length,
+            strictDeterministicOrderIds: strictWithPid.map((r) =>
+              poketraceCardIdFromRow(r),
+            ),
+            evaluatedSample: sample,
+          }),
+        );
+      }
+
+      let verified: PoketraceMintResolveResult['verified'] = null;
+      if (strictWithPid.length > 0) {
+        const chosen = strictWithPid[0]!;
+        const pid = poketraceCardIdFromRow(chosen)!;
+        verified = { cardId: pid, searchQuery };
+        mintPoketraceResolveStats.catalogIdSaved++;
+        if (strictWithPid.length > 1 && this.matchDiagOn()) {
+          this.logger.warn(
+            JSON.stringify({
+              msg: 'poketrace_tryResolve_strict_deterministic_pick',
+              pickedId: pid,
+              tiedExactTripleIds: strictWithPid.map((r) => poketraceCardIdFromRow(r)),
+              rule: 'lexicographic_min_catalog_id_among_exact_name_set_number_rows',
+            }),
+          );
+        }
+      }
+
+      let approximate: PoketraceMintResolveResult['approximate'] = null;
+      if (!verified) {
+        const { row: relaxed, deterministicRanking } = pickRelaxedRowForMint(
+          data,
+          nameH,
+          numH,
+          setH,
+        );
+        if (this.matchDiagOn() && deterministicRanking) {
+          this.logger.log(
+            JSON.stringify({
+              msg: 'poketrace_tryResolve_relaxed_deterministic_ranking',
+              searchQuery,
+              tieBreakOrder: [
+                'compositeScore_desc',
+                'totalSaleCount_desc',
+                'catalog_id_lex_asc',
+              ],
+              ranking: deterministicRanking,
+            }),
+          );
+        }
+        const apid = relaxed ? poketraceCardIdFromRow(relaxed) : null;
+        if (apid && relaxed) {
+          const relaxedRow = relaxed;
+          approximate = { cardId: apid, searchQuery };
+          mintPoketraceResolveStats.approximateCatalogIdSaved++;
+          if (this.matchDiagOn()) {
+            const set = isRecord(relaxedRow.set) ? relaxedRow.set : null;
+            const rowSetName = typeof set?.name === 'string' ? set.name : '';
+            this.logger.log(
+              JSON.stringify({
+                msg: 'poketrace_tryResolve_relaxed_accepted',
+                cardId: apid,
+                searchQuery,
+                relaxedGates: {
+                  name: 'normalized_substring_contains',
+                  set: 'normalizeForExactCatalogMatch_equality',
+                  number: 'primary_segment_then_normalizeForExactCardNumberKey_equality',
+                },
+                hints: { cardName: nameH, cardSet: setH, cardNumber: numH },
+                row: {
+                  name: typeof relaxedRow.name === 'string' ? relaxedRow.name : '',
+                  setName: rowSetName,
+                  cardNumber:
+                    typeof relaxedRow.cardNumber === 'string'
+                      ? relaxedRow.cardNumber
+                      : '',
+                },
+                normalized: {
+                  nameHint: normalizeForExactCatalogMatch(
+                    normalizePsaCardNameForPoketrace(nameH),
+                  ),
+                  nameRow: normalizeForExactCatalogMatch(
+                    normalizePsaCardNameForPoketrace(String(relaxedRow.name ?? '')),
+                  ),
+                  setHint: normalizeForExactCatalogMatch(setH),
+                  setRow: normalizeForExactCatalogMatch(rowSetName),
+                  numHint: normalizeForExactCardNumberKey(
+                    primaryCardNumberForPoketrace(numH.replace(/^#/, '').trim()),
+                  ),
+                  numRow: normalizeForExactCardNumberKey(
+                    primaryCardNumberForPoketrace(
+                      String(relaxedRow.cardNumber ?? '').replace(/^#/, '').trim(),
+                    ),
+                  ),
+                },
+              }),
+            );
+          }
+        }
+      }
+
+      if (!verified && !approximate) {
+        mintPoketraceResolveStats.rejectedNoExactCatalogRow++;
+        const picked = pickBestCard(data, col);
+        if (this.matchDiagOn() && picked) {
+          const ex = exactPoketraceCatalogMatch(hintsStrict, picked);
+          this.logger.warn(
+            JSON.stringify({
+              msg: 'poketrace_tryResolve_best_rank_misses_exact',
+              bestPickId: poketraceCardIdFromRow(picked),
+              failCodes: ex.failCodes,
+              normalized: ex.normalized,
+            }),
+          );
+        }
+      }
+
+      return { verified, approximate };
     } catch (e) {
+      mintPoketraceResolveStats.rejectedUpstreamError++;
       this.logger.warn(
         `PokeTrace tryResolveCardIdForMintMetadata: ${e instanceof Error ? e.message : String(e)}`,
       );
-      return null;
+      return none;
+    } finally {
+      this.logMintResolveStatsSnapshot();
     }
   }
 
   /**
-   * Cached search → card row (shared by preview + NM history).
+   * Cached **GET /cards/:id** only — no search, no pickBestCard (shared by preview + NM history).
+   * Uses `components.poketraceCardId` (verified) first, else `components.approximatePoketraceCardId`.
    */
   private async resolveMatchedCardRow(
     col: MarketplaceCollection,
   ): Promise<
-    | { searchQuery: string; row: UnknownRecord; cardId: string }
+    | {
+      searchQuery: string;
+      row: UnknownRecord;
+      cardId: string;
+      matchConfidence: 'verified' | 'approximate';
+    }
     | { searchQuery: string; matched: false; message: string }
   > {
     const key = col.collectionKey.toLowerCase();
     const hit = this.resolveCache.get(key);
     if (hit && Date.now() - hit.at < this.resolveCacheTtlMs) {
       return hit.value as
-        | { searchQuery: string; row: UnknownRecord; cardId: string }
+        | {
+          searchQuery: string;
+          row: UnknownRecord;
+          cardId: string;
+          matchConfidence: 'verified' | 'approximate';
+        }
         | { searchQuery: string; matched: false; message: string };
     }
 
@@ -877,16 +1442,40 @@ export class PoketraceService {
     if (infl) return infl;
 
     const flight = (async () => {
-      let searchQuery = buildPoketraceSearchQuery(col);
+      const comp = col.components as UnknownRecord;
+      const directId =
+        typeof comp?.poketraceCardId === 'string'
+          ? comp.poketraceCardId.trim()
+          : '';
+      const approxId =
+        typeof comp?.approximatePoketraceCardId === 'string'
+          ? comp.approximatePoketraceCardId.trim()
+          : '';
+      const tryOrder: Array<{
+        id: string;
+        matchConfidence: 'verified' | 'approximate';
+      }> = [];
+      if (directId) tryOrder.push({ id: directId, matchConfidence: 'verified' });
+      else if (approxId) {
+        tryOrder.push({ id: approxId, matchConfidence: 'approximate' });
+      }
+
       try {
-        const comp = col.components as UnknownRecord;
-        const directId =
-          typeof comp?.poketraceCardId === 'string'
-            ? comp.poketraceCardId.trim()
-            : '';
-        if (directId) {
+        if (tryOrder.length === 0) {
+          const v = {
+            searchQuery: '',
+            matched: false as const,
+            message:
+              'Reference unavailable: no PokeTrace catalog id on this collection. Optional — set properties.graded.poketrace.cardId (verified) or approximateCardId on listed NFTs for NM reference bands. Primary market values use listing-pool statistics (GET …/collections/:key/stats).',
+          };
+          this.resolveCache.set(key, { at: Date.now(), value: v });
+          return v;
+        }
+
+        for (const { id, matchConfidence } of tryOrder) {
+          const searchQuery = `poketrace:${id}`;
           try {
-            const rawDetail = await this.getCardById(directId);
+            const rawDetail = await this.getCardById(id);
             let row: UnknownRecord | null = null;
             if (isRecord(rawDetail) && isRecord(rawDetail.data)) {
               row = rawDetail.data as UnknownRecord;
@@ -897,11 +1486,8 @@ export class PoketraceService {
               let useRow: UnknownRecord = row;
               const rowId = String(row.id).trim();
               const sameAsDirect =
-                rowId.length > 0 && rowId === directId.trim();
-              if (
-                !hasSearchablePricePayload(row.prices) &&
-                !sameAsDirect
-              ) {
+                rowId.length > 0 && rowId === id.trim();
+              if (!hasSearchablePricePayload(row.prices) && !sameAsDirect) {
                 try {
                   const detail2 = await this.getCardById(rowId);
                   if (isRecord(detail2) && isRecord(detail2.data)) {
@@ -909,7 +1495,7 @@ export class PoketraceService {
                   }
                 } catch (e) {
                   this.logger.warn(
-                    `PokeTrace GET /cards/:id (direct) enrich: ${e instanceof Error ? e.message : String(e)}`,
+                    `PokeTrace GET /cards/:id enrich: ${e instanceof Error ? e.message : String(e)}`,
                   );
                 }
               }
@@ -917,78 +1503,29 @@ export class PoketraceService {
                 searchQuery,
                 row: useRow,
                 cardId: String(useRow.id),
+                matchConfidence,
               };
               this.resolveCache.set(key, { at: Date.now(), value: out });
               return out;
             }
           } catch (e) {
             this.logger.warn(
-              `PokeTrace catalog id ${directId} failed, falling back to search: ${e instanceof Error ? e.message : String(e)}`,
+              `PokeTrace GET /cards/${id}: ${e instanceof Error ? e.message : String(e)}`,
             );
           }
         }
 
-        const attempts = buildPoketraceSearchQueryAttempts(col);
-        let data: unknown[] = [];
-        let searchQueryUsed = attempts[0] ?? searchQuery;
-        for (const q of attempts) {
-          searchQueryUsed = q;
-          const searchBody = await this.searchCards(q, 15);
-          const chunk = isRecord(searchBody) && Array.isArray(searchBody.data)
-            ? searchBody.data
-            : [];
-          if (chunk.length > 0) {
-            data = chunk;
-            break;
-          }
-        }
-        if (data.length === 0) {
-          const v = {
-            searchQuery: attempts[0] ?? searchQuery,
-            matched: false as const,
-            message: 'No PokeTrace cards matched this search',
-          };
-          this.resolveCache.set(key, { at: Date.now(), value: v });
-          return v;
-        }
-        searchQuery = searchQueryUsed;
-
-        const picked = pickBestCard(data, col);
-        const pickedId = picked ? poketraceCardIdFromRow(picked) : null;
-        if (!picked || !pickedId) {
-          const v = {
-            searchQuery,
-            matched: false as const,
-            message: 'Could not resolve card id',
-          };
-          this.resolveCache.set(key, { at: Date.now(), value: v });
-          return v;
-        }
-
-        let row: UnknownRecord = picked;
-        if (!hasSearchablePricePayload(picked.prices)) {
-          try {
-            const detail = await this.getCardById(pickedId);
-            if (isRecord(detail) && isRecord(detail.data)) {
-              row = detail.data;
-            }
-          } catch (e) {
-            this.logger.warn(
-              `PokeTrace GET /cards/:id skipped (resolve): ${e instanceof Error ? e.message : String(e)}`,
-            );
-          }
-        }
-
-        const out = {
-          searchQuery,
-          row,
-          cardId: pickedId,
+        const lastId = tryOrder[tryOrder.length - 1]!.id;
+        const v = {
+          searchQuery: `poketrace:${lastId}`,
+          matched: false as const,
+          message: `PokeTrace catalog id ${lastId} did not return a usable card row`,
         };
-        this.resolveCache.set(key, { at: Date.now(), value: out });
-        return out;
+        this.resolveCache.set(key, { at: Date.now(), value: v });
+        return v;
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
-        const v = { searchQuery, matched: false as const, message: msg };
+        const v = { searchQuery: '', matched: false as const, message: msg };
         this.resolveCache.set(key, { at: Date.now(), value: v });
         return v;
       } finally {
@@ -1056,27 +1593,40 @@ export class PoketraceService {
   }
 
   /**
-   * Resolve uses search + optional GET /cards/:id when NM bands are missing.
-   * Card GETs are cached by id and deduped in-flight; rate limits trigger backoff retries.
-   * Direct catalog id skips a redundant second GET when it would repeat the same id.
+   * Preview from GET /cards/:id only (via {@link resolveMatchedCardRow}); no search.
    */
   private async runPreviewFetch(
     col: MarketplaceCollection,
   ): Promise<PoketraceCollectionPreview> {
-    const searchQuery = buildPoketraceSearchQuery(col);
+    const comp = col.components as UnknownRecord;
+    const fallbackSearchQuery = buildPoketraceSearchQuery(col);
     try {
       const resolved = await this.resolveMatchedCardRow(col);
       if (!('cardId' in resolved)) {
         return {
           enabled: true,
-          searchQuery: resolved.searchQuery,
+          searchQuery: resolved.searchQuery || fallbackSearchQuery,
           matched: false,
           message: resolved.message,
           card: null,
         };
       }
 
-      const { row } = resolved;
+      const { row, matchConfidence } = resolved;
+      if (matchConfidence === 'verified') {
+        mintPoketraceResolveStats.poketracePreviewVerifiedCount++;
+      } else {
+        mintPoketraceResolveStats.poketracePreviewApproximateCount++;
+      }
+
+      if (this.matchDiagOn()) {
+        this.logger.log(
+          JSON.stringify({
+            msg: 'poketrace_match_diagnostic',
+            ...buildPoketraceAlignmentReport(col, row),
+          }),
+        );
+      }
 
       const set = isRecord(row.set) ? row.set : null;
       const setName = typeof set?.name === 'string' ? set.name : '';
@@ -1098,6 +1648,7 @@ export class PoketraceService {
       return {
         enabled: true,
         searchQuery: resolved.searchQuery,
+        matchConfidence,
         matched: true,
         card: {
           id: String(row.id),
@@ -1126,7 +1677,7 @@ export class PoketraceService {
       this.logger.warn(`PokeTrace preview failed: ${String(e)}`);
       return {
         enabled: true,
-        searchQuery,
+        searchQuery: fallbackSearchQuery,
         matched: false,
         message: e instanceof Error ? e.message : String(e),
         card: null,
@@ -1141,9 +1692,18 @@ export class PoketraceService {
   async getPreviewForMintMetadata(
     metadata: unknown,
   ): Promise<PoketraceCollectionPreview> {
-    const { query, cardName, cardNumber, poketraceCardId } =
-      buildPoketraceQueryFromRwaMetadata(metadata);
-    if (!poketraceCardId?.trim() && !query.trim()) {
+    const {
+      query,
+      cardName,
+      cardNumber,
+      poketraceCardId,
+      approximatePoketraceCardId,
+    } = buildPoketraceQueryFromRwaMetadata(metadata);
+    if (
+      !poketraceCardId?.trim() &&
+      !approximatePoketraceCardId?.trim() &&
+      !query.trim()
+    ) {
       return {
         enabled: this.isConfigured(),
         searchQuery: '',
@@ -1154,11 +1714,14 @@ export class PoketraceService {
     }
     const colKey = poketraceCardId?.trim()
       ? `mintpt_${poketraceCardId.trim()}`
-      : mintPreviewDedupeKey(query, cardName, cardNumber);
+      : approximatePoketraceCardId?.trim()
+        ? `mintpt_approx_${approximatePoketraceCardId.trim()}`
+        : mintPreviewDedupeKey(query, cardName, cardNumber);
     const col = this.mintSyntheticCollection(colKey, query.trim() || 'pokemon', {
       cardName,
       cardNumber,
       poketraceCardId,
+      approximatePoketraceCardId,
     });
     return this.getPreviewForCollection(col);
   }
@@ -1180,17 +1743,31 @@ export class PoketraceService {
         cardName: string;
         cardNumber: string;
         poketraceCardId: string | null;
+        approximatePoketraceCardId: string | null;
         tokenIds: number[];
       }
     >();
 
     for (const it of slice) {
-      const { query, cardName, cardNumber, poketraceCardId } =
-        buildPoketraceQueryFromRwaMetadata(it.metadata);
-      if (!poketraceCardId?.trim() && !query.trim()) continue;
+      const {
+        query,
+        cardName,
+        cardNumber,
+        poketraceCardId,
+        approximatePoketraceCardId,
+      } = buildPoketraceQueryFromRwaMetadata(it.metadata);
+      if (
+        !poketraceCardId?.trim() &&
+        !approximatePoketraceCardId?.trim() &&
+        !query.trim()
+      ) {
+        continue;
+      }
       const dk = poketraceCardId?.trim()
         ? `mintpt_${poketraceCardId.trim()}`
-        : mintPreviewDedupeKey(query, cardName, cardNumber);
+        : approximatePoketraceCardId?.trim()
+          ? `mintpt_approx_${approximatePoketraceCardId.trim()}`
+          : mintPreviewDedupeKey(query, cardName, cardNumber);
       const g = groups.get(dk);
       if (g) {
         g.tokenIds.push(it.tokenId);
@@ -1200,6 +1777,7 @@ export class PoketraceService {
           cardName,
           cardNumber,
           poketraceCardId,
+          approximatePoketraceCardId,
           tokenIds: [it.tokenId],
         });
       }
@@ -1208,11 +1786,14 @@ export class PoketraceService {
     for (const [, g] of groups) {
       const colKey = g.poketraceCardId?.trim()
         ? `mintpt_${g.poketraceCardId.trim()}`
-        : mintPreviewDedupeKey(g.query, g.cardName, g.cardNumber);
+        : g.approximatePoketraceCardId?.trim()
+          ? `mintpt_approx_${g.approximatePoketraceCardId.trim()}`
+          : mintPreviewDedupeKey(g.query, g.cardName, g.cardNumber);
       const col = this.mintSyntheticCollection(colKey, g.query.trim() || 'pokemon', {
         cardName: g.cardName,
         cardNumber: g.cardNumber,
         poketraceCardId: g.poketraceCardId,
+        approximatePoketraceCardId: g.approximatePoketraceCardId,
       });
       const preview = await this.getPreviewForCollection(col);
       for (const tid of g.tokenIds) {
@@ -1223,6 +1804,21 @@ export class PoketraceService {
     return out;
   }
 
+  /**
+   * Same as {@link getBatchMintPreviews} but metadata is resolved server-side (no huge JSON bodies).
+   */
+  async getBatchMintPreviewsFromTokenIds(
+    tokenIds: number[],
+  ): Promise<Record<number, PoketraceCollectionPreview>> {
+    const { items } = await this.blockchain.batchRwaMetadata(tokenIds);
+    return this.getBatchMintPreviews(
+      items.map((it) => ({
+        tokenId: it.tokenId,
+        metadata: it.metadata ?? {},
+      })),
+    );
+  }
+
   private mintSyntheticCollection(
     collectionKey: string,
     query: string,
@@ -1230,6 +1826,7 @@ export class PoketraceService {
       cardName: string;
       cardNumber: string;
       poketraceCardId?: string | null;
+      approximatePoketraceCardId?: string | null;
     },
   ): MarketplaceCollection {
     const components: UnknownRecord = {
@@ -1237,7 +1834,9 @@ export class PoketraceService {
       cardNumber: hints.cardNumber,
     };
     const pid = hints.poketraceCardId?.trim();
+    const apid = hints.approximatePoketraceCardId?.trim();
     if (pid) components.poketraceCardId = pid;
+    else if (apid) components.approximatePoketraceCardId = apid;
     return {
       collectionKey,
       displayLabel: query.slice(0, 240),

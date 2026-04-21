@@ -103,6 +103,7 @@ export function buildMockPoketracePreview(
     enabled: true,
     searchQuery,
     matched: true,
+    matchConfidence: 'verified',
     message:
       'Mock PokeTrace preview (set POKETRACE_MOCK_ON_FAILURE=1 or POKETRACE_FORCE_MOCK_DATA=1)',
     isMockData: true,

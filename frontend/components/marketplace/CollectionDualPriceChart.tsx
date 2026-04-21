@@ -265,8 +265,8 @@ function buildLinePathPlot(
 }
 
 /**
- * Tokenable (platform) line series vs PokeTrace external NM summary (single horizontal).
- * No JustTCG — one upstream preview supplies the external level.
+ * On-platform trades (magenta) vs external NM reference (teal): PokéTrace history, JustTCG history,
+ * or a horizontal spot when only a single external level exists.
  */
 export function CollectionDualPriceChart({
   platformUsd,
@@ -280,16 +280,30 @@ export function CollectionDualPriceChart({
   externalRollingUsd = null,
   /** `synthetic` = illustrative curve from one anchor (no extra API history) */
   externalRollingKind = "snapshot",
+  /** Legend copy for the teal series (external NM path). */
+  externalLegendLabel = "External market (NM)",
+  /** Shorter label for hover tooltip row */
+  externalSeriesShortLabel = "External NM",
+  /** Right-edge tag when drawing a horizontal external ref line (no polyline). */
+  externalRefLineTag = "External NM",
+  chartTitle = "External market vs on-platform trades",
+  emptyStateMessage,
   isLoading,
   errorMessage,
   variant = "default",
 }: {
   platformUsd: CollectionUsdPoint[];
-  /** Blended long-window NM ref (e.g. median30d / avg30d) — horizontal dashed */
+  /** Optional horizontal ref when no polyline (USDC). */
   externalMarketUsd?: number | null;
   externalWindowDays?: number | null;
   externalRollingUsd?: CollectionUsdPoint[] | null;
   externalRollingKind?: "history" | "snapshot" | "synthetic";
+  externalLegendLabel?: string;
+  externalSeriesShortLabel?: string;
+  externalRefLineTag?: string;
+  chartTitle?: string;
+  /** Shown when there is no platform series and no external signal */
+  emptyStateMessage?: string;
   isLoading?: boolean;
   errorMessage?: string | null;
   variant?: "default" | "exchange";
@@ -493,7 +507,7 @@ export function CollectionDualPriceChart({
     return platRaw.some((p) => p.t >= tMin && p.t <= tMax);
   }, [platRaw, usePoketraceFixedWindow, externalWindowDays, nowSec]);
 
-  const title = "Price Chart";
+  const title = chartTitle;
 
   if (isLoading) {
     return (
@@ -514,7 +528,7 @@ export function CollectionDualPriceChart({
             borderTopColor: "transparent",
           }}
         />
-        <p className="text-xs text-zinc-600 text-center">Loading trades and market reference…</p>
+        <p className="text-xs text-zinc-600 text-center">Loading chart…</p>
       </div>
     );
   }
@@ -542,7 +556,8 @@ export function CollectionDualPriceChart({
             : "rounded-2xl border border-white/[0.07] bg-[#030304] px-4 py-8 text-center text-sm text-zinc-600"
         }
       >
-        No price data yet — on-chain trades and real market data will appear here.
+        {emptyStateMessage ??
+          "No chart data yet — on-platform trades and an external NM series will appear here."}
       </div>
     );
   }
@@ -564,7 +579,7 @@ export function CollectionDualPriceChart({
             <LegendHollowDot stroke={EXTERNAL_REF_STROKE} />
           </span>
           <span className={hasExtSignal ? "whitespace-nowrap" : "whitespace-nowrap text-white/35"}>
-            Real market price
+            {externalLegendLabel}
           </span>
           <span className="flex h-[14px] w-[14px] items-center justify-center" aria-hidden>
             <LegendHollowDot stroke={PLATFORM_STROKE} />
@@ -598,7 +613,7 @@ export function CollectionDualPriceChart({
             }
             preserveAspectRatio="xMidYMid meet"
             role="img"
-            aria-label="Price chart: Tokenable price and real market reference"
+            aria-label={`Chart: on-platform trades and ${externalLegendLabel}`}
           >
             <defs>
               <clipPath id={plotClipId}>
@@ -673,7 +688,7 @@ export function CollectionDualPriceChart({
 
             <g clipPath={`url(#${plotClipId})`}>
               {merged.extPath ? (
-                <g aria-label="Real market price curve">
+                <g aria-label={externalLegendLabel}>
                   <path
                     d={merged.extPath}
                     fill="none"
@@ -688,7 +703,7 @@ export function CollectionDualPriceChart({
               {merged.extRefY != null &&
               externalMarketUsd != null &&
               Number.isFinite(externalMarketUsd) ? (
-                <g aria-label="Real market price reference">
+                <g aria-label={`${externalLegendLabel} reference line`}>
                   <line
                     x1={plotX}
                     y1={merged.extRefY}
@@ -761,7 +776,7 @@ export function CollectionDualPriceChart({
                 opacity={0.9}
                 fontFamily="system-ui, sans-serif"
               >
-                {`Market · $${externalMarketUsd.toFixed(2)}`}
+                {`${externalRefLineTag} · $${externalMarketUsd.toFixed(2)}`}
               </text>
             ) : null}
 
@@ -796,7 +811,7 @@ export function CollectionDualPriceChart({
                 </span>
               </div>
               <div className="flex justify-between gap-4">
-                <span className="text-zinc-500">Real market</span>
+                <span className="text-zinc-500">{externalSeriesShortLabel}</span>
                 <span
                   className="tabular-nums font-medium"
                   style={{ color: EXTERNAL_REF_STROKE }}
