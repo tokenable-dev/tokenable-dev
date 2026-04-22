@@ -3,6 +3,8 @@
 > Seaport v1.5 · 오프체인 오더북(백엔드) · 온체인 `fulfillOrder` / `matchAdvancedOrders` 기준
 
 > **부록 (2026-04):** 동일 백엔드에 **규칙 기반 입찰·매칭·정산 워커**가 추가되었습니다 (`bids` / `asks` / `match_intents` / `trade_executions` 등). 현재 제품 UI의 기본 경로는 여전히 Seaport `orders` 입니다. 상세는 **[marketplace-trading.md](../marketplace-trading.md)** 및 **[marketplace-trading-relational-layer.drawio](./marketplace-trading-relational-layer.drawio)**.
+>
+> **HTTP 경로 표기:** 아래 시퀀스의 `POST /api/...` 는 Nest 글로벌 프리픽스 **`api`** 를 포함한 전체 경로입니다. 전체 표는 **[API-REFERENCE.md](../API-REFERENCE.md)**.
 
 ---
 
@@ -126,9 +128,9 @@ sequenceDiagram
     rect rgba(147, 197, 253, 0.15)
         Note over U,C: ① 발행 · Mint
         U  ->> A  : 카드 이미지 + 정보 입력
-        A  ->> S  : POST /psa/analyze
+        A  ->> S  : POST /api/psa/analyze
         S -->> A  : 등급 정보 반환
-        A  ->> S  : POST /rwa/upload → IPFS
+        A  ->> S  : POST /api/rwa/upload → IPFS
         S -->> A  : tokenURI (IPFS CID)
         A  ->> C  : ERC721.mint(address, tokenURI)
         C -->> U  : 🎉 tokenId 발급
@@ -145,7 +147,7 @@ sequenceDiagram
         A  ->> C  : Seaport.getCounter(seller)
         A -->> U  : 🖊️ MetaMask 서명 요청 — EIP-712 매도 주문
         U  ->> A  : 서명 승인
-        A  ->> S  : POST /marketplace/orders [side: ask]
+        A  ->> S  : POST /api/marketplace/orders [side: ask]
         S  ->> DB : INSERT orders<br/>{order_hash, offerer, side:ask,<br/>token_contract, token_id,<br/>consideration_token, consideration_amount,<br/>parameters(jsonb), signature,<br/>status:active, start_time, end_time,<br/>collection_key}
         S  ->> DB : UPSERT marketplace_collections<br/>{collection_key, display_label,<br/>components(jsonb), cover_image_url}
         S -->> A  : ASK ACTIVE
@@ -159,7 +161,7 @@ sequenceDiagram
         A  ->> C  : Seaport.getCounter(buyer)
         A -->> U  : 🖊️ MetaMask 서명 요청 — EIP-712 매수 주문
         U  ->> A  : 서명 승인
-        A  ->> S  : POST /marketplace/orders [side: bid]
+        A  ->> S  : POST /api/marketplace/orders [side: bid]
         S  ->> DB : INSERT orders<br/>{order_hash, offerer, side:bid,<br/>token_id:"0"(criteria sentinel),<br/>consideration_amount(입찰가),<br/>parameters(merkleRoot 포함 jsonb),<br/>signature, status:active,<br/>collection_key}
         S -->> A  : BID ACTIVE
     end
@@ -170,7 +172,7 @@ sequenceDiagram
         A  ->> C  : USDC.approve(Seaport, askPrice)
         A  ->> C  : Seaport.fulfillOrder(orderParams, extraData)
         C -->> U  : 💸 NFT → 구매자 / USDC → 판매자
-        A  ->> S  : PATCH /orders/:hash/fulfill
+        A  ->> S  : PATCH /api/marketplace/orders/:hash/fulfill
         S  ->> DB : UPDATE orders<br/>SET status=fulfilled<br/>WHERE order_hash=:hash
         S  ->> DB : UPDATE orders<br/>SET status=cancelled<br/>WHERE token_contract=:contract<br/>AND token_id=:id<br/>AND status=active AND id≠fulfilled_id
         S -->> A  : FULFILLED
@@ -182,17 +184,17 @@ sequenceDiagram
         opt 리스팅가 > 입찰가  (needsReprice = true)
             A -->> U  : 🖊️ MetaMask 서명 요청 — 재리스팅 EIP-712
             U  ->> A  : 서명 승인
-            A  ->> S  : POST /orders/replace-listing
+            A  ->> S  : POST /api/marketplace/orders/replace-listing
             S  ->> DB : UPDATE orders SET status=cancelled<br/>WHERE order_hash=:oldHash
             S  ->> DB : INSERT orders<br/>{새 ask, status:active, 재조정된 consideration_amount}
             S -->> A  : 기존 CANCELLED · 신규 ASK ACTIVE
         end
-        A  ->> S  : GET /collections/:key/merkle-set
+        A  ->> S  : GET /api/marketplace/collections/:key/merkle-set
         S -->> A  : tokenIds[]
         Note over A: getCriteriaProof(tokenId)<br/>buildCriteriaMatchExecution()<br/>simulateContract 사전 검증
         A  ->> C  : Seaport.matchAdvancedOrders(orders, proof, fulfillments)
         C -->> U  : 💸 NFT → 구매자 / USDC → 판매자
-        A  ->> S  : POST /orders/fulfill-matched-pair
+        A  ->> S  : POST /api/marketplace/orders/fulfill-matched-pair
         S  ->> DB : UPDATE orders<br/>SET status=fulfilled<br/>WHERE order_hash IN [askHash, bidHash]
         S  ->> DB : UPDATE orders<br/>SET status=cancelled<br/>WHERE token_contract=:contract<br/>AND token_id=:id<br/>AND status=active (나머지 전부 취소)
         S -->> A  : ask + bid FULFILLED
@@ -201,7 +203,7 @@ sequenceDiagram
     rect rgba(251, 146, 60, 0.12)
         Note over U,C: ⑥ 주문 취소 · Cancel
         U  ->> A  : 취소 버튼 클릭
-        A  ->> S  : PATCH /orders/:hash/cancel?callerAddress=...
+        A  ->> S  : PATCH /api/marketplace/orders/:hash/cancel?callerAddress=...
         S  ->> DB : UPDATE orders<br/>SET status=cancelled<br/>WHERE order_hash=:hash AND offerer=:caller
         S -->> A  : CANCELLED
     end
@@ -382,7 +384,7 @@ flowchart TD
 
         subgraph NAV ["메인 라우트"]
             direction LR
-            HOME["/ <br/> Landing Page<br/>RWA Exchange 진입"]:::page
+            HOME["/ <br/> Landing<br/>Market Indexes · Exchange 진입"]:::page
             EXCHANGE["/exchange<br/>컬렉션 허브<br/>Stats · Filters · Listings"]:::page
             VAULT["/vault<br/>Vault Tokenization<br/>Mint · My Assets"]:::page
             PORTFOLIO["/portfolio<br/>Portfolio Dashboard<br/>Chart · Inventory · History"]:::page
@@ -668,7 +670,7 @@ flowchart TD
     subgraph REST ["REST 네임스페이스"]
         direction TB
         R_AUTH["/api/auth<br/>Google OAuth · JWT 쿠키 · 지갑 연결"]:::route
-        R_MKT["/api/marketplace<br/>주문 등록·조회·체결 동기화·컬렉션"]:::route
+        R_MKT["/api/marketplace<br/>orders · collections · market-snapshots<br/>· poketrace 헬퍼 · poketrace/* 프록시"]:::route
         R_RWA["/api/rwa<br/>IPFS 메타 업로드 · 민팅 보조"]:::route
         R_BC["/api/blockchain<br/>토큰 목록 · 컨트랙트 읽기"]:::route
         R_PRICE["/api/price<br/>JustTCG 프록시 (games/cards)"]:::route
@@ -684,11 +686,13 @@ flowchart TD
         PIN["Pinata IPFS"]:::ext
         JT["JustTCG API"]:::ext
         PSAHTTP["PSA Public API"]:::ext
+        PTR["PokeTrace API<br/>(HTTP upstream)"]:::ext
     end
 
     CLIENT --> GATE
     GATE --> REST
     R_MKT --> PG
+    R_MKT --> PTR
     R_AUTH --> PG
     R_RWA --> PIN
     R_BC --> ETH
@@ -717,7 +721,7 @@ flowchart TB
     subgraph APP ["AppModule"]
         direction TB
         CFG["ConfigModule global"]:::mod
-        ORM["TypeORM<br/>Order · MarketplaceCollection · User"]:::ent
+        ORM["TypeORM<br/>Order · Collection · User · Bid · Ask · TradeExecution …"]:::ent
     end
 
     subgraph M_AUTH ["auth/ — AuthModule"]
@@ -736,11 +740,15 @@ flowchart TB
 
     subgraph M_MKT ["marketplace/ — MarketplaceModule"]
         direction TB
-        MCTRL["MarketplaceController"]:::ctrl
+        MCTRL["MarketplaceController<br/>PoketraceProxyController<br/>BidsController · TradeController"]:::ctrl
         MSVC["MarketplaceService"]:::svc
-        CSV["CollectionService<br/>컬렉션·커버·라벨 유틸"]:::svc
+        CSV["CollectionService"]:::svc
+        CMKT["CollectionMarketService"]:::svc
+        PTRSVC["PoketraceModule → PoketraceService"]:::svc
         MCTRL --> MSVC
         MCTRL --> CSV
+        MCTRL --> CMKT
+        MCTRL --> PTRSVC
         MBLOCK["BlockchainModule import"]:::util
         MSVC --> MBLOCK
     end
@@ -763,7 +771,7 @@ flowchart TB
 
     subgraph M_PRICE ["price/ — PriceModule"]
         PCTRL["PriceController"]:::ctrl
-        PSV["PriceService<br/>JustTCG · price.mock"]:::svc
+        PSV["PriceService<br/>JustTCG · TCG_API_KEY 필수"]:::svc
         PCTRL --> PSV
     end
 
@@ -864,13 +872,19 @@ backend/
 │   │   └── mail.service.ts     # SMTP (Auth에서 사용)
 │   │
 │   ├── marketplace/
-│   │   ├── marketplace.controller.ts  # /marketplace — Seaport 오더북 DB
-│   │   ├── trading/bids.controller.ts  # GET /marketplace/bids
-│   │   ├── trading/trade.controller.ts # POST /trade/match, GET executions/:id
+│   │   ├── marketplace.controller.ts   # orders · collections · snapshots…
+│   │   ├── poketrace-proxy.controller.ts  # GET /marketplace/poketrace/*
+│   │   ├── trading/bids.controller.ts # GET /marketplace/bids
+│   │   ├── trading/trade.controller.ts # POST /marketplace/trade/match …
 │   │   ├── marketplace.service.ts
 │   │   ├── collection.service.ts
-│   │   ├── entities/           # order · marketplace-collection
-│   │   └── *.util.ts           # bucket-key · 커버·라벨 추출
+│   │   ├── collection-market.service.ts
+│   │   ├── entities/           # order · marketplace-collection · bids/asks/…
+│   │   └── trading/*.service.ts
+│   │
+│   ├── poketrace/
+│   │   ├── poketrace.service.ts
+│   │   ├── poketrace-api.registry.ts · poketrace-period.util.ts · poketrace-upstream.urls.ts
 │   │
 │   ├── nft/
 │   │   ├── nft.controller.ts   # /rwa — IPFS 업로드
@@ -885,8 +899,7 @@ backend/
 │   │
 │   ├── price/
 │   │   ├── price.controller.ts # /price — JustTCG 프록시
-│   │   ├── price.service.ts
-│   │   └── price.mock.ts       # TCG_USE_MOCK 시 고정 응답
+│   │   └── price.service.ts    # TCG_API_KEY 필수 (mock 파일 없음)
 │   │
 │   ├── psa/
 │   │   ├── psa.controller.ts   # /psa/analyze

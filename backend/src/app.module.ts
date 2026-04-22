@@ -11,6 +11,7 @@ import { UtilModule } from './util/util.module';
 import { Ask } from './marketplace/entities/ask.entity';
 import { Bid } from './marketplace/entities/bid.entity';
 import { IdempotencyKey } from './marketplace/entities/idempotency-key.entity';
+import { HiddenAsset } from './marketplace/entities/hidden-asset.entity';
 import { MatchIntent } from './marketplace/entities/match-intent.entity';
 import { MarketplaceCollection } from './marketplace/entities/marketplace-collection.entity';
 import { Order } from './marketplace/entities/order.entity';
@@ -42,6 +43,7 @@ import { User } from './user/entities/user.entity';
           TradeExecution,
           IdempotencyKey,
           OutboxEvent,
+          HiddenAsset,
         ],
         // 프로덕션은 기본 false. 빈 DB 최초 부트스트랩 시에만 TYPEORM_SYNC=true (이후 반드시 끌 것)
         synchronize:

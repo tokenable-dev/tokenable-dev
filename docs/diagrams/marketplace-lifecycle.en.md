@@ -3,6 +3,8 @@
 > Seaport v1.5 · Off-chain order book (backend) · On-chain `fulfillOrder` / `matchAdvancedOrders`
 
 > **Addendum (2026-04):** The backend also exposes a **relational rule-based matching layer** (`bids`, `asks`, `match_intents`, `trade_executions`, idempotency, outbox, settlement worker). The **default UI path remains Seaport** `orders`. See **[marketplace-trading.md](../marketplace-trading.md)** and **[marketplace-trading-relational-layer.drawio](./marketplace-trading-relational-layer.drawio)**.
+>
+> **Paths:** Sequence diagram labels like `POST /api/…` include the Nest global prefix **`api`**. Full route list: **[API-REFERENCE.md](../API-REFERENCE.md)**.
 
 ---
 
@@ -117,9 +119,9 @@ sequenceDiagram
     rect rgba(147, 197, 253, 0.15)
         Note over U,C: ① Mint
         U  ->> A  : Upload card image + info
-        A  ->> S  : POST /psa/analyze
+        A  ->> S  : POST /api/psa/analyze
         S -->> A  : Grade data returned
-        A  ->> S  : POST /rwa/upload → IPFS
+        A  ->> S  : POST /api/rwa/upload → IPFS
         S -->> A  : tokenURI (IPFS CID)
         A  ->> C  : ERC721.mint(address, tokenURI)
         C -->> U  : 🎉 tokenId issued
@@ -136,7 +138,7 @@ sequenceDiagram
         A  ->> C  : Seaport.getCounter(seller)
         A -->> U  : 🖊️ MetaMask signature request — EIP-712 sell order
         U  ->> A  : Approve signature
-        A  ->> S  : POST /marketplace/orders [side: ask]
+        A  ->> S  : POST /api/marketplace/orders [side: ask]
         S  ->> DB : INSERT orders<br/>{order_hash, offerer, side:ask,<br/>token_contract, token_id,<br/>consideration_token, consideration_amount,<br/>parameters(jsonb), signature,<br/>status:active, start_time, end_time,<br/>collection_key}
         S  ->> DB : UPSERT marketplace_collections<br/>{collection_key, display_label,<br/>components(jsonb), cover_image_url}
         S -->> A  : ASK ACTIVE
@@ -150,7 +152,7 @@ sequenceDiagram
         A  ->> C  : Seaport.getCounter(buyer)
         A -->> U  : 🖊️ MetaMask signature request — EIP-712 buy order
         U  ->> A  : Approve signature
-        A  ->> S  : POST /marketplace/orders [side: bid]
+        A  ->> S  : POST /api/marketplace/orders [side: bid]
         S  ->> DB : INSERT orders<br/>{order_hash, offerer, side:bid,<br/>token_id:"0" (criteria sentinel),<br/>consideration_amount (bid price),<br/>parameters (includes merkleRoot jsonb),<br/>signature, status:active,<br/>collection_key}
         S -->> A  : BID ACTIVE
     end
@@ -161,7 +163,7 @@ sequenceDiagram
         A  ->> C  : USDC.approve(Seaport, askPrice)
         A  ->> C  : Seaport.fulfillOrder(orderParams, extraData)
         C -->> U  : 💸 NFT → buyer / USDC → seller
-        A  ->> S  : PATCH /orders/:hash/fulfill
+        A  ->> S  : PATCH /api/marketplace/orders/:hash/fulfill
         S  ->> DB : UPDATE orders<br/>SET status=fulfilled<br/>WHERE order_hash=:hash
         S  ->> DB : UPDATE orders<br/>SET status=cancelled<br/>WHERE token_contract=:contract<br/>AND token_id=:id<br/>AND status=active AND id≠fulfilled_id
         S -->> A  : FULFILLED
@@ -173,17 +175,17 @@ sequenceDiagram
         opt Listing price > bid price (needsReprice = true)
             A -->> U  : 🖊️ MetaMask signature request — re-listing EIP-712
             U  ->> A  : Approve signature
-            A  ->> S  : POST /orders/replace-listing
+            A  ->> S  : POST /api/marketplace/orders/replace-listing
             S  ->> DB : UPDATE orders SET status=cancelled<br/>WHERE order_hash=:oldHash
             S  ->> DB : INSERT orders<br/>{new ask, status:active, repriced consideration_amount}
             S -->> A  : Old CANCELLED / New ASK ACTIVE
         end
-        A  ->> S  : GET /collections/:key/merkle-set
+        A  ->> S  : GET /api/marketplace/collections/:key/merkle-set
         S -->> A  : tokenIds[]
         Note over A: getCriteriaProof(tokenId)<br/>buildCriteriaMatchExecution()<br/>simulateContract pre-validation
         A  ->> C  : Seaport.matchAdvancedOrders(orders, proof, fulfillments)
         C -->> U  : 💸 NFT → buyer / USDC → seller
-        A  ->> S  : POST /orders/fulfill-matched-pair
+        A  ->> S  : POST /api/marketplace/orders/fulfill-matched-pair
         S  ->> DB : UPDATE orders<br/>SET status=fulfilled<br/>WHERE order_hash IN [askHash, bidHash]
         S  ->> DB : UPDATE orders<br/>SET status=cancelled<br/>WHERE token_contract=:contract<br/>AND token_id=:id<br/>AND status=active (cancel remaining)
         S -->> A  : ask + bid FULFILLED
@@ -192,7 +194,7 @@ sequenceDiagram
     rect rgba(251, 146, 60, 0.12)
         Note over U,C: ⑥ Cancel Order
         U  ->> A  : Click cancel button
-        A  ->> S  : PATCH /orders/:hash/cancel?callerAddress=...
+        A  ->> S  : PATCH /api/marketplace/orders/:hash/cancel?callerAddress=...
         S  ->> DB : UPDATE orders<br/>SET status=cancelled<br/>WHERE order_hash=:hash AND offerer=:caller
         S -->> A  : CANCELLED
     end
@@ -372,7 +374,7 @@ flowchart TD
 
         subgraph NAV ["Main Routes"]
             direction LR
-            HOME["/ <br/> Landing Page<br/>RWA Exchange Entry"]:::page
+            HOME["/ <br/> Landing<br/>Market Indexes · Exchange entry"]:::page
             EXCHANGE["/exchange<br/>Collection Hub<br/>Stats · Filters · Listings"]:::page
             VAULT["/vault<br/>Vault Tokenization<br/>Mint · My Assets"]:::page
             PORTFOLIO["/portfolio<br/>Portfolio Dashboard<br/>Chart · Inventory · History"]:::page
@@ -658,7 +660,7 @@ flowchart TD
     subgraph REST ["REST namespaces"]
         direction TB
         R_AUTH["/api/auth<br/>Google OAuth · JWT cookies · wallet link"]:::route
-        R_MKT["/api/marketplace<br/>orders · fulfill sync · collections"]:::route
+        R_MKT["/api/marketplace<br/>orders · collections · snapshots<br/>· poketrace helpers · poketrace/* proxy"]:::route
         R_RWA["/api/rwa<br/>IPFS metadata upload · mint helpers"]:::route
         R_BC["/api/blockchain<br/>token lists · contract reads"]:::route
         R_PRICE["/api/price<br/>JustTCG proxy (games/cards)"]:::route
@@ -674,11 +676,13 @@ flowchart TD
         PIN["Pinata IPFS"]:::ext
         JT["JustTCG API"]:::ext
         PSAHTTP["PSA Public API"]:::ext
+        PTR["PokeTrace API<br/>(HTTP upstream)"]:::ext
     end
 
     CLIENT --> GATE
     GATE --> REST
     R_MKT --> PG
+    R_MKT --> PTR
     R_AUTH --> PG
     R_RWA --> PIN
     R_BC --> ETH
@@ -707,7 +711,7 @@ flowchart TB
     subgraph APP ["AppModule"]
         direction TB
         CFG["ConfigModule global"]:::mod
-        ORM["TypeORM<br/>Order · MarketplaceCollection · User"]:::ent
+        ORM["TypeORM<br/>Order · Collection · User · Bid · Ask · TradeExecution …"]:::ent
     end
 
     subgraph M_AUTH ["auth/ — AuthModule"]
@@ -726,11 +730,15 @@ flowchart TB
 
     subgraph M_MKT ["marketplace/ — MarketplaceModule"]
         direction TB
-        MCTRL["MarketplaceController"]:::ctrl
+        MCTRL["MarketplaceController<br/>PoketraceProxyController<br/>BidsController · TradeController"]:::ctrl
         MSVC["MarketplaceService"]:::svc
-        CSV["CollectionService<br/>collection rows · cover · labels"]:::svc
+        CSV["CollectionService"]:::svc
+        CMKT["CollectionMarketService"]:::svc
+        PTRSVC["PoketraceModule → PoketraceService"]:::svc
         MCTRL --> MSVC
         MCTRL --> CSV
+        MCTRL --> CMKT
+        MCTRL --> PTRSVC
         MBLOCK["BlockchainModule import"]:::util
         MSVC --> MBLOCK
     end
@@ -753,7 +761,7 @@ flowchart TB
 
     subgraph M_PRICE ["price/ — PriceModule"]
         PCTRL["PriceController"]:::ctrl
-        PSV["PriceService<br/>JustTCG · price.mock"]:::svc
+        PSV["PriceService<br/>JustTCG · TCG_API_KEY required"]:::svc
         PCTRL --> PSV
     end
 
@@ -854,13 +862,19 @@ backend/
 │   │   └── mail.service.ts     # SMTP (used by Auth)
 │   │
 │   ├── marketplace/
-│   │   ├── marketplace.controller.ts  # /marketplace — Seaport order book DB
-│   │   ├── trading/bids.controller.ts  # GET /marketplace/bids
-│   │   ├── trading/trade.controller.ts # POST /trade/match, GET executions/:id
+│   │   ├── marketplace.controller.ts   # orders · collections · snapshots …
+│   │   ├── poketrace-proxy.controller.ts  # GET /marketplace/poketrace/*
+│   │   ├── trading/bids.controller.ts # GET /marketplace/bids
+│   │   ├── trading/trade.controller.ts # POST /marketplace/trade/match …
 │   │   ├── marketplace.service.ts
 │   │   ├── collection.service.ts
-│   │   ├── entities/           # order · marketplace-collection
-│   │   └── *.util.ts           # bucket-key · cover · label helpers
+│   │   ├── collection-market.service.ts
+│   │   ├── entities/           # order · marketplace-collection · bids/asks/…
+│   │   └── trading/*.service.ts
+│   │
+│   ├── poketrace/
+│   │   ├── poketrace.service.ts
+│   │   ├── poketrace-api.registry.ts · poketrace-period.util.ts · poketrace-upstream.urls.ts
 │   │
 │   ├── nft/
 │   │   ├── nft.controller.ts   # /rwa — IPFS upload
@@ -875,8 +889,7 @@ backend/
 │   │
 │   ├── price/
 │   │   ├── price.controller.ts # /price — JustTCG proxy
-│   │   ├── price.service.ts
-│   │   └── price.mock.ts       # static responses when TCG_USE_MOCK
+│   │   └── price.service.ts    # TCG_API_KEY required (no mock file)
 │   │
 │   ├── psa/
 │   │   ├── psa.controller.ts   # /psa/analyze

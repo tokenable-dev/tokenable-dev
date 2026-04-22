@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useEffect, useCallback, useRef } from "react";
-import { useQueries, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAccount } from "wagmi";
@@ -11,8 +11,11 @@ import {
   type CollectionPoketracePreview,
   getCollectionMarketSeries,
   getCollectionMarketStats,
+  getMyHiddenAssetTokenIds,
+  hideMyAssetToken,
   type CollectionMarketSeries,
   type CollectionMarketStats,
+  unhideMyAssetToken,
 } from "@/lib/api";
 import { extractBucketComponentsFromMetadata, computeMarketBucketKey } from "@/lib/marketplace/bucketKey";
 import { useUserAssets } from "@/hooks/useUserAssets";
@@ -553,6 +556,8 @@ export default function PortfolioPage() {
   const { usdcBalanceFormatted } = useAppStore(useShallow(selectUsdcBalance));
   const [period, setPeriod] = useState<ChartPeriod>("1D");
   const [assetFilter, setAssetFilter] = useState<AssetListFilter>("all");
+  const [showHiddenAssets, setShowHiddenAssets] = useState(false);
+  const [mutatingHiddenTokenIds, setMutatingHiddenTokenIds] = useState<number[]>([]);
 
   const {
     tokenIds,
@@ -567,6 +572,37 @@ export default function PortfolioPage() {
     enabled: Boolean(address && isConnected),
     includeOrderHistory: true,
     includePoketrace: true,
+  });
+
+  const hiddenAssetsQuery = useQuery({
+    queryKey: ["my-hidden-assets", address?.toLowerCase() ?? ""],
+    queryFn: () => getMyHiddenAssetTokenIds(address!),
+    enabled: Boolean(address && isConnected),
+    staleTime: 30_000,
+  });
+  const hiddenTokenSet = useMemo(
+    () => new Set((hiddenAssetsQuery.data ?? []).map((n) => Number(n))),
+    [hiddenAssetsQuery.data],
+  );
+
+  const hideMutation = useMutation({
+    mutationFn: async (tokenId: number) => {
+      if (!address) return;
+      await hideMyAssetToken(address, tokenId);
+    },
+    onSuccess: async () => {
+      await hiddenAssetsQuery.refetch();
+    },
+  });
+
+  const unhideMutation = useMutation({
+    mutationFn: async (tokenId: number) => {
+      if (!address) return;
+      await unhideMyAssetToken(address, tokenId);
+    },
+    onSuccess: async () => {
+      await hiddenAssetsQuery.refetch();
+    },
   });
 
   const assets: OwnedAsset[] = useMemo(
@@ -930,16 +966,24 @@ export default function PortfolioPage() {
 
   const ASSET_PAGE = 10;
   const [visibleAssetCount, setVisibleAssetCount] = useState(ASSET_PAGE);
-  const listedAssetCount = useMemo(
-    () => assetRows.filter((r) => r.listPriceUsd != null).length,
-    [assetRows],
+  const visiblePoolAssetRows = useMemo(
+    () =>
+      showHiddenAssets
+        ? assetRows
+        : assetRows.filter((r) => !hiddenTokenSet.has(Number(r.tokenId))),
+    [assetRows, showHiddenAssets, hiddenTokenSet],
   );
-  const unlistedAssetCount = assetRows.length - listedAssetCount;
+  const hiddenAssetCount = assetRows.length - visiblePoolAssetRows.length;
+  const listedAssetCount = useMemo(
+    () => visiblePoolAssetRows.filter((r) => r.listPriceUsd != null).length,
+    [visiblePoolAssetRows],
+  );
+  const unlistedAssetCount = visiblePoolAssetRows.length - listedAssetCount;
   const filteredAssetRows = useMemo(() => {
-    if (assetFilter === "listed") return assetRows.filter((r) => r.listPriceUsd != null);
-    if (assetFilter === "unlisted") return assetRows.filter((r) => r.listPriceUsd == null);
-    return assetRows;
-  }, [assetRows, assetFilter]);
+    if (assetFilter === "listed") return visiblePoolAssetRows.filter((r) => r.listPriceUsd != null);
+    if (assetFilter === "unlisted") return visiblePoolAssetRows.filter((r) => r.listPriceUsd == null);
+    return visiblePoolAssetRows;
+  }, [visiblePoolAssetRows, assetFilter]);
 
   useEffect(() => {
     setVisibleAssetCount((n) =>
@@ -1264,7 +1308,7 @@ export default function PortfolioPage() {
                   assetFilter === "all" ? "bg-mint text-[#061018]" : "text-gray-400 hover:text-white"
                 }`}
               >
-                All <span className="tabular-nums">({assetRows.length})</span>
+                All <span className="tabular-nums">({visiblePoolAssetRows.length})</span>
               </button>
               <button
                 type="button"
@@ -1289,13 +1333,27 @@ export default function PortfolioPage() {
                 Not listed <span className="tabular-nums">({unlistedAssetCount})</span>
               </button>
             </div>
+            <button
+              type="button"
+              onClick={() => setShowHiddenAssets((v) => !v)}
+              className={`rounded-full border px-3 py-1 text-[11px] font-semibold transition-colors ${
+                showHiddenAssets
+                  ? "border-amber-400/50 bg-amber-500/15 text-amber-200"
+                  : "border-gray-700/80 bg-gray-900/70 text-gray-400 hover:text-white"
+              }`}
+            >
+              {showHiddenAssets ? "Hide Hidden" : "Show Hidden"}
+              {hiddenAssetCount > 0 ? (
+                <span className="ml-1 tabular-nums">({hiddenAssetCount})</span>
+              ) : null}
+            </button>
           </div>
           {isLoading ? (
-            <div className="-mx-1 flex flex-nowrap gap-4 overflow-x-auto overflow-y-hidden pb-2 pt-0.5 scrollbar-platform">
+            <div className="-mx-1 grid grid-cols-1 gap-4 pb-2 pt-0.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {[...Array(5)].map((_, i) => (
                 <div
                   key={i}
-                  className="w-[min(260px,calc(100vw-4rem))] shrink-0 overflow-hidden rounded-xl border border-gray-800/80 bg-gray-900/40"
+                  className="w-full overflow-hidden rounded-xl border border-gray-800/80 bg-gray-900/40"
                 >
                   <div className="aspect-[3/4] animate-pulse bg-gray-800/50" />
                   <div className="space-y-2 p-4">
@@ -1319,8 +1377,15 @@ export default function PortfolioPage() {
                 : "All cards are currently listed. Cancel a listing to move back to not listed."}
             </p>
           ) : (
-            <div className="-mx-1 flex flex-nowrap gap-4 overflow-x-auto overflow-y-hidden pb-2 pt-0.5 scrollbar-platform snap-x snap-mandatory scroll-pl-1">
-              {visibleAssetRows.map((r) => (
+            <div
+              className={
+                filteredAssetRows.length > 4
+                  ? "max-h-[560px] overflow-y-auto pr-1 scrollbar-platform"
+                  : "overflow-visible"
+              }
+            >
+              <div className="-mx-1 grid grid-cols-1 gap-4 pb-2 pt-0.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {filteredAssetRows.map((r) => (
                 (() => {
                   const tokenableVsEbayPct =
                     r.listPriceUsd != null &&
@@ -1331,9 +1396,10 @@ export default function PortfolioPage() {
                       ? ((r.listPriceUsd - r.currentPrice) / r.currentPrice) * 100
                       : null;
                   return (
-                <button
+                <div
                   key={r.tokenId}
-                  type="button"
+                  role="button"
+                  tabIndex={0}
                   onClick={() => {
                     if (r.poketraceRaw) {
                       queryClient.setQueryData(
@@ -1343,9 +1409,53 @@ export default function PortfolioPage() {
                     }
                     router.push(`/marketplace/${r.tokenId}`);
                   }}
-                  className="group flex w-[min(260px,calc(100vw-4rem))] shrink-0 snap-start flex-col overflow-hidden rounded-xl border border-gray-800/90 bg-gradient-to-b from-gray-900/80 to-[#0a1018] text-left shadow-lg shadow-black/20 transition-all hover:border-mint/25 hover:shadow-mint/5"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      if (r.poketraceRaw) {
+                        queryClient.setQueryData(
+                          ["poketrace-mint-previews", "detail", r.tokenId],
+                          { [r.tokenId]: r.poketraceRaw },
+                        );
+                      }
+                      router.push(`/marketplace/${r.tokenId}`);
+                    }
+                  }}
+                  className="group flex w-full flex-col overflow-hidden rounded-xl border border-gray-800/90 bg-gradient-to-b from-gray-900/80 to-[#0a1018] text-left shadow-lg shadow-black/20 transition-all hover:border-mint/25 hover:shadow-mint/5"
                 >
                   <div className="relative aspect-[3/4] w-full bg-[#070a0f]">
+                    <div className="absolute left-2 top-2 z-10">
+                      <button
+                        type="button"
+                        onClick={async (e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          const tokenId = Number(r.tokenId);
+                          if (mutatingHiddenTokenIds.includes(tokenId)) return;
+                          setMutatingHiddenTokenIds((prev) => [...prev, tokenId]);
+                          try {
+                            if (hiddenTokenSet.has(tokenId)) {
+                              await unhideMutation.mutateAsync(tokenId);
+                            } else {
+                              await hideMutation.mutateAsync(tokenId);
+                            }
+                          } finally {
+                            setMutatingHiddenTokenIds((prev) => prev.filter((n) => n !== tokenId));
+                          }
+                        }}
+                        className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-bold tracking-wide transition-colors ${
+                          hiddenTokenSet.has(Number(r.tokenId))
+                            ? "border-amber-300/45 bg-amber-500/25 text-amber-100 hover:bg-amber-500/35"
+                            : "border-zinc-400/45 bg-black/45 text-zinc-200 hover:bg-black/65"
+                        }`}
+                      >
+                        {mutatingHiddenTokenIds.includes(Number(r.tokenId))
+                          ? "Saving..."
+                          : hiddenTokenSet.has(Number(r.tokenId))
+                            ? "Unhide"
+                            : "Hide"}
+                      </button>
+                    </div>
                     {tokenableVsEbayPct != null ? (
                       <div className="group absolute right-2 top-2 z-10">
                         <span
@@ -1398,6 +1508,11 @@ export default function PortfolioPage() {
                         >
                           {r.listPriceUsd != null ? "Listed" : "Not listed"}
                         </span>
+                        {hiddenTokenSet.has(Number(r.tokenId)) ? (
+                          <span className="inline-flex items-center rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-200">
+                            Hidden
+                          </span>
+                        ) : null}
                         {r.category && (
                           <CategoryBadge label={r.category} />
                         )}
@@ -1441,17 +1556,11 @@ export default function PortfolioPage() {
                       </div>
                     </dl>
                   </div>
-                </button>
+                </div>
                   );
                 })()
               ))}
-              {visibleAssetCount < filteredAssetRows.length ? (
-                <div
-                  ref={assetScrollSentinelRef}
-                  className="h-32 w-4 shrink-0 snap-start"
-                  aria-hidden
-                />
-              ) : null}
+              </div>
             </div>
           )}
         </div>

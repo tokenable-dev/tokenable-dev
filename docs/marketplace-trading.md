@@ -27,6 +27,8 @@
 
 Swagger: `/api/docs` → `marketplace` 태그.
 
+전체 REST 목록: **[API-REFERENCE.md](./API-REFERENCE.md)**.
+
 ---
 
 ## 3. DB 엔티티 (TypeORM)

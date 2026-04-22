@@ -30,6 +30,7 @@ import {
 import { CreateOrderDto } from './dto/create-order.dto';
 import { FulfillMatchedPairDto } from './dto/fulfill-matched-pair.dto';
 import { ReplaceListingDto } from './dto/replace-listing.dto';
+import { HiddenAssetsService } from './hidden-assets.service';
 import { Order } from './entities/order.entity';
 import { MarketplaceService } from './marketplace.service';
 
@@ -41,6 +42,7 @@ export class MarketplaceController {
     private readonly collectionService: CollectionService,
     private readonly collectionMarketService: CollectionMarketService,
     private readonly poketraceService: PoketraceService,
+    private readonly hiddenAssetsService: HiddenAssetsService,
   ) {}
 
   @ApiOperation({ summary: 'Seaport order registration (off-chain DB)' })
@@ -362,5 +364,53 @@ export class MarketplaceController {
   @Post('orders/fulfill-matched-pair')
   fulfillMatchedPair(@Body() body: FulfillMatchedPairDto) {
     return this.marketplaceService.fulfillMatchedPair(body.askOrderHash, body.bidOrderHash);
+  }
+
+  @ApiOperation({ summary: 'My Assets: list hidden tokenIds for a wallet' })
+  @ApiQuery({ name: 'walletAddress', required: true })
+  @Get('my-assets/hidden')
+  listHiddenAssetTokenIds(@Query('walletAddress') walletAddress?: string) {
+    const w = walletAddress?.trim() ?? '';
+    if (!w) throw new BadRequestException('walletAddress is required');
+    return this.hiddenAssetsService.listTokenIds(w).then((tokenIds) => ({ tokenIds }));
+  }
+
+  @ApiOperation({ summary: 'My Assets: hide token from portfolio view' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['walletAddress', 'tokenId'],
+      properties: {
+        walletAddress: { type: 'string' },
+        tokenId: { type: 'number' },
+      },
+    },
+  })
+  @Post('my-assets/hidden')
+  hideAsset(@Body() body: { walletAddress?: string; tokenId?: number }) {
+    const w = body.walletAddress?.trim() ?? '';
+    const tokenId = Number(body.tokenId);
+    if (!w) throw new BadRequestException('walletAddress is required');
+    if (!Number.isFinite(tokenId) || tokenId < 0) {
+      throw new BadRequestException('tokenId must be a non-negative number');
+    }
+    return this.hiddenAssetsService.hide(w, tokenId);
+  }
+
+  @ApiOperation({ summary: 'My Assets: unhide token from portfolio view' })
+  @ApiQuery({ name: 'walletAddress', required: true })
+  @ApiQuery({ name: 'tokenId', required: true })
+  @Patch('my-assets/hidden')
+  unhideAsset(
+    @Query('walletAddress') walletAddress?: string,
+    @Query('tokenId') tokenIdRaw?: string,
+  ) {
+    const w = walletAddress?.trim() ?? '';
+    const tokenId = Number(tokenIdRaw);
+    if (!w) throw new BadRequestException('walletAddress is required');
+    if (!Number.isFinite(tokenId) || tokenId < 0) {
+      throw new BadRequestException('tokenId must be a non-negative number');
+    }
+    return this.hiddenAssetsService.unhide(w, tokenId);
   }
 }

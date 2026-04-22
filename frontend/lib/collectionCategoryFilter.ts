@@ -85,7 +85,11 @@ export function inferSportBucketFromHaystack(hay: string): CollectionSportBucket
     return "soccer";
   }
 
-  if (/\bnba\b|basketball|panini nba|\bhoops\b/i.test(hay)) {
+  if (
+    /\bnba\b|basketball|panini nba|\bhoops\b|michael jordan|upper deck jordan|fleer (?:basketball|ultra)|skybox (?:basketball|premium)|topps chrome basketball/i.test(
+      hay,
+    )
+  ) {
     return "nba";
   }
 

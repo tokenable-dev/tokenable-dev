@@ -76,7 +76,8 @@ tokenable-dev/
 
 | Document | Contents |
 |----------|----------|
-| **[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)** | **Product surfaces + external data**, DB reset, TypeORM, marketplace & PokéTrace APIs, JustTCG env, Seaport + relational trading, CI/CD → EC2, PSA troubleshooting, diagram index |
+| **[docs/API-REFERENCE.md](docs/API-REFERENCE.md)** | Full **`/api/*`** route tables (auth, blockchain, price, psa, marketplace, PokéTrace proxy, bids/trade) + App Router pages |
+| **[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)** | Product surfaces, DB, API summary + link to API-REFERENCE, Seaport + relational trading, CI/CD → EC2, PSA troubleshooting, diagram index |
 | **[docs/marketplace-trading.md](docs/marketplace-trading.md)** | Rule-based `bids`/`asks`/match API vs Seaport `orders` |
 | **[docs/DEPLOY_EC2_DOMAIN.md](docs/DEPLOY_EC2_DOMAIN.md)** | EC2 Docker, domain, same-origin `/api`, CORS, OAuth, TLS checklist |
 | **[docs/price-api.md](docs/price-api.md)** | JustTCG HTTP API (detailed reference) |

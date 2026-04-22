@@ -7,6 +7,7 @@ import { CollectionService } from './collection.service';
 import { Ask } from './entities/ask.entity';
 import { Bid } from './entities/bid.entity';
 import { IdempotencyKey } from './entities/idempotency-key.entity';
+import { HiddenAsset } from './entities/hidden-asset.entity';
 import { MatchIntent } from './entities/match-intent.entity';
 import { MarketplaceCollection } from './entities/marketplace-collection.entity';
 import { Order } from './entities/order.entity';
@@ -24,6 +25,7 @@ import { TokenResolutionService } from './trading/token-resolution.service';
 import { TradeController } from './trading/trade.controller';
 import { TradeExecutionQueryService } from './trading/trade-execution-query.service';
 import { TradeOrchestratorService } from './trading/trade-orchestrator.service';
+import { HiddenAssetsService } from './hidden-assets.service';
 
 @Module({
   imports: [
@@ -36,6 +38,7 @@ import { TradeOrchestratorService } from './trading/trade-orchestrator.service';
       TradeExecution,
       IdempotencyKey,
       OutboxEvent,
+      HiddenAsset,
     ]),
     BlockchainModule,
     PoketraceModule,
@@ -57,6 +60,7 @@ import { TradeOrchestratorService } from './trading/trade-orchestrator.service';
     TradeExecutionQueryService,
     SettlementProcessorService,
     OutboxPublisherService,
+    HiddenAssetsService,
   ],
   exports: [
     MarketplaceService,
