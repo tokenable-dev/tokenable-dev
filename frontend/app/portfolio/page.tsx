@@ -928,7 +928,7 @@ export default function PortfolioPage() {
 
   const assetRows: AssetRow[] = useMemo(() => {
     const wallet = address?.toLowerCase() ?? "";
-    return pricedRows.map((r) => {
+    const rows = pricedRows.map((r) => {
       const b = nmBaselineMap[r.tokenId];
       let costBasisUsd: number | null = null;
       let pnl: number | null = null;
@@ -962,6 +962,10 @@ export default function PortfolioPage() {
         pnlPct,
       };
     });
+
+    // Newest minted first (higher tokenId first).
+    rows.sort((a, b) => Number(b.tokenId) - Number(a.tokenId));
+    return rows;
   }, [pricedRows, nmBaselineMap, fulfilledOrders, address]);
 
   const ASSET_PAGE = 10;
