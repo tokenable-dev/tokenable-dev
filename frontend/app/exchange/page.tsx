@@ -7,6 +7,7 @@ import {
   getActiveOrders,
   postMarketplaceCollectionSnapshotsBatched,
   type CollectionListMarketSnapshot,
+  type CollectionUsdPoint,
   type MarketplaceCollectionSummary,
   type OrderListItem,
 } from "@/lib/api";
@@ -17,12 +18,57 @@ import { CollectionCategoryFilterBar } from "@/components/marketplace/Collection
 import { CollectionListSparkline } from "@/components/marketplace/CollectionListSparkline";
 import {
   collectionMatchesCategoryFilter,
+  inferCollectionSportBucket,
   type CollectionCategoryFilterId,
 } from "@/lib/collectionCategoryFilter";
 import { parseGradeScoreNumber } from "@/lib/gradedCardMarketCap";
 import { justtcgRepresentativeUsd } from "@/lib/externalMarketPrice";
 
 const USDC_DECIMALS = 1_000_000;
+
+function seeded01FromKey(key: string): number {
+  if (!key) return 0.5;
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < key.length; i++) {
+    h ^= key.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return (h >>> 0) / 0xffffffff;
+}
+
+function isMockSportBucket(bucket: string): bucket is "nba" | "mlb" | "nfl" {
+  return bucket === "nba" || bucket === "mlb" || bucket === "nfl";
+}
+
+function buildMockSportsSparkline(collectionKey: string, days = 365): CollectionUsdPoint[] {
+  const seed = seeded01FromKey(collectionKey);
+  const startUsd = 900;
+  const endUsd = 1500;
+  const spanUsd = endUsd - startUsd;
+  const waveAmp = 0.008 + seed * 0.014;
+  const n = Math.max(30, Math.min(365, Math.floor(days)));
+  const now = Math.floor(Date.now() / 1000);
+  const out: CollectionUsdPoint[] = [];
+  for (let i = 0; i < n; i++) {
+    const progress = i / Math.max(1, n - 1);
+    const age = n - 1 - i;
+    const t = now - age * 86400;
+    const phase = progress * Math.PI * 6;
+    const cyc = Math.sin(phase + seed * Math.PI * 2) * waveAmp;
+    const base = startUsd + spanUsd * progress;
+    out.push({ t, v: Math.max(1, Math.round(base * (1 + cyc) * 100) / 100) });
+  }
+  return out;
+}
+
+function percentChangeFromPoints(points: CollectionUsdPoint[] | null | undefined): number | null {
+  const arr = points ?? [];
+  if (arr.length < 2) return null;
+  const first = arr[0]?.v;
+  const last = arr[arr.length - 1]?.v;
+  if (!Number.isFinite(first) || !Number.isFinite(last) || !first || first <= 0) return null;
+  return ((last - first) / first) * 100;
+}
 
 function useMarketStats(orders: OrderListItem[], collectionsCount: number) {
   return useMemo(() => {
@@ -151,10 +197,19 @@ function CollectionRow({
       ? snapshot.lastTokenableTradeUsdc
       : null;
   const refUsd = jtSpot != null && Number.isFinite(jtSpot) && jtSpot > 0 ? jtSpot : null;
+  const bucket = inferCollectionSportBucket(collection, snapshot);
+  const mockSparkline = isMockSportBucket(bucket)
+    ? buildMockSportsSparkline(collection.collectionKey, 365)
+    : null;
+  const sparklinePoints =
+    snapshot?.sparklineUsd != null && snapshot.sparklineUsd.length >= 2
+      ? snapshot.sparklineUsd
+      : mockSparkline;
+  const fallbackRefUsd = mockSparkline?.[mockSparkline.length - 1]?.v ?? null;
+  const effectiveRefUsd = refUsd ?? fallbackRefUsd;
   const tokenablePrice = floor ?? lastTrade;
-  const tokenableVsRefPct = percentDiffVersusRef(tokenablePrice, refUsd);
-  const upTo1yChangePct =
-    pct != null && Number.isFinite(pct) ? pct : null;
+  const tokenableVsRefPct = percentDiffVersusRef(tokenablePrice, effectiveRefUsd);
+  const upTo1yChangePct = pct != null && Number.isFinite(pct) ? pct : percentChangeFromPoints(sparklinePoints);
 
   return (
     <Link
@@ -191,7 +246,7 @@ function CollectionRow({
                     ? "border-amber-300/35 bg-amber-500/20 text-amber-200"
                     : "border-emerald-300/35 bg-emerald-500/20 text-emerald-200"
                 }`}
-                title={`Tokenable (${tokenablePrice != null ? formatUsd(tokenablePrice) : "—"}) vs eBay (${refUsd != null ? formatUsd(refUsd) : "—"})`}
+                title={`Tokenable (${tokenablePrice != null ? formatUsd(tokenablePrice) : "—"}) vs eBay (${effectiveRefUsd != null ? formatUsd(effectiveRefUsd) : "—"})`}
               >
                 Market Gap {tokenableVsRefPct >= 0 ? "+" : ""}
                 {tokenableVsRefPct.toFixed(1)}%
@@ -223,7 +278,11 @@ function CollectionRow({
               className="tabular-nums text-base font-bold text-cyan-300 sm:text-lg"
               title="External eBay reference price."
             >
-              {refUsd != null ? formatUsd(refUsd) : <span className="font-medium text-zinc-600">—</span>}
+              {effectiveRefUsd != null ? (
+                formatUsd(effectiveRefUsd)
+              ) : (
+                <span className="font-medium text-zinc-600">—</span>
+              )}
             </dd>
           </div>
           <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
@@ -240,8 +299,8 @@ function CollectionRow({
 
       <div className="flex shrink-0 flex-col items-end gap-1">
         <CollectionListSparkline
-          points={snapshot?.sparklineUsd}
-          positive={pct == null ? undefined : pct >= 0}
+          points={sparklinePoints}
+          positive={upTo1yChangePct == null ? undefined : upTo1yChangePct >= 0}
         />
       </div>
     </Link>
@@ -279,6 +338,13 @@ function CollectionGridCard({
           snapshot.lastTokenableTradeUsdc > 0
         ? snapshot.lastTokenableTradeUsdc
         : null;
+  const bucket = inferCollectionSportBucket(collection, snapshot);
+  const mockSparkline = isMockSportBucket(bucket)
+    ? buildMockSportsSparkline(collection.collectionKey, 365)
+    : null;
+  const fallbackRefUsd = mockSparkline?.[mockSparkline.length - 1]?.v ?? null;
+  const eBayUsd =
+    jtSpot != null && Number.isFinite(jtSpot) && jtSpot > 0 ? jtSpot : fallbackRefUsd;
 
   return (
     <Link
@@ -299,6 +365,23 @@ function CollectionGridCard({
       <div className="space-y-2 p-3">
         <h3 className="truncate text-lg font-semibold text-white">{collection.displayLabel}</h3>
         {subtitle ? <p className="truncate text-xs text-zinc-500">{subtitle}</p> : null}
+        <div className="rounded-xl border border-zinc-800/70 bg-black/30 px-1.5 py-1">
+          <CollectionListSparkline
+            points={
+              snapshot?.sparklineUsd != null && snapshot.sparklineUsd.length >= 2
+                ? snapshot.sparklineUsd
+                : mockSparkline
+            }
+            positive={
+              snapshot?.marketChangePct != null
+                ? snapshot.marketChangePct >= 0
+                : percentChangeFromPoints(mockSparkline) != null
+                  ? Number(percentChangeFromPoints(mockSparkline)) >= 0
+                  : undefined
+            }
+            className="h-14 w-full"
+          />
+        </div>
         <div className="space-y-1.5 border-t border-zinc-800/80 pt-2 text-sm">
           <p className="flex items-center justify-between gap-2">
             <span className="text-zinc-500">Active Listings</span>
@@ -307,7 +390,7 @@ function CollectionGridCard({
           <p className="flex items-center justify-between gap-2">
             <span className="text-zinc-500">eBay Price</span>
             <span className="font-semibold tabular-nums text-cyan-300">
-              {jtSpot != null && Number.isFinite(jtSpot) && jtSpot > 0 ? formatUsd(jtSpot) : "—"}
+              {eBayUsd != null ? formatUsd(eBayUsd) : "—"}
             </span>
           </p>
           <p className="flex items-center justify-between gap-2">

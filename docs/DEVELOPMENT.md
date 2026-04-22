@@ -52,38 +52,22 @@ cd backend && pnpm start:dev
 ## 2. API
 
 - **Swagger**: 백엔드 기동 후 `{API}/api/docs` (예: `http://localhost:4000/api/docs`).
-- 프론트 래퍼: `frontend/lib/api.ts`, 베이스 URL은 `getApiUrl()`.
+- 프론트 래퍼: `frontend/lib/api.ts`, 베이스 URL은 `getApiUrl()` (브라우저에서는 보통 `{origin}/api`).
+- **전체 라우트 표** (auth · rwa · blockchain · price · psa · marketplace · poketrace 프록시 · bids/trade): **[API-REFERENCE.md](./API-REFERENCE.md)** — 스키마 변경 시 Swagger와 함께 그 문서를 갱신합니다.
 
-### Marketplace (요약)
+### 한 줄 요약
 
-| Method | Path | 설명 |
-|--------|------|------|
-| `POST` | `/api/marketplace/orders` | Seaport 주문 등록 |
-| `POST` | `/api/marketplace/orders/replace-listing` | 활성 ask 교체 |
-| `POST` | `/api/marketplace/orders/batch-by-token` | 토큰 ID 목록별 주문 배치 조회 |
-| `GET` | `/api/marketplace/orders` | 활성 매도 목록 |
-| `GET` | `/api/marketplace/orders/token/:tokenId` | 토큰별 이력 |
-| `GET` | `/api/marketplace/orders/:hash` | 단건 |
-| `PATCH` | `/api/marketplace/orders/:hash/cancel` | 취소 (`callerAddress`) |
-| `PATCH` | `/api/marketplace/orders/:hash/fulfill` | 단일 체결 동기화 |
-| `POST` | `/api/marketplace/orders/fulfill-matched-pair` | criteria 매칭 후 동기화 |
-| `GET` | `/api/marketplace/collections` | 컬렉션 목록(커서) |
-| `POST` | `/api/marketplace/collections/market-snapshots` | 배치 마켓 스냅샷(차트·풀 통계 등) |
-| `GET` | `/api/marketplace/collections/:key` | 컬렉션 상세 |
-| `GET` | `/api/marketplace/collections/:key/poketrace` | PokéTrace 프리뷰 |
-| `GET` | `/api/marketplace/collections/:key/poketrace/price-history` | 티어 가격 히스토리 |
-| `GET` | `/api/marketplace/collections/:key/market-series` | 외부 시계열 헤더 |
-| `GET` | `/api/marketplace/collections/:key/platform-trades` | 온플랫폼 거래 |
-| `GET` | `/api/marketplace/collections/:key/stats` | 풀 통계 |
-| `GET` | `/api/marketplace/collections/:key/merkle-set` | Merkle leaf용 tokenIds |
-| `POST` | `/api/marketplace/poketrace/mint-previews` | 민트 프리뷰 배치 |
-| `GET` | `/api/marketplace/poketrace/*` | PokéTrace 카탈로그/카드 프록시 (Swagger: marketplace 태그) |
-| `GET` | `/api/marketplace/bids` | 활성 입찰 목록 (`collectionKey` 필수, `tokenId` 선택 시 적용 가능 여부) |
-| `GET` | `/api/marketplace/bids/:id` | 입찰 단건 (`rule` JSON 포함) |
-| `POST` | `/api/marketplace/trade/match` | 매칭 예약 — **202**, 헤더 `Idempotency-Key` 권장 |
-| `GET` | `/api/marketplace/trade/executions/:id` | 정산 상태 폴링 |
+| 영역 | 역할 |
+|------|------|
+| `/api/auth/*` | Google OAuth, JWT 쿠키, 세션, 지갑 연결 |
+| `/api/rwa/upload` | IPFS 메타 업로드 |
+| `/api/blockchain/*` | USDC · TokenableRWA 읽기, 메타 배치, 미디어 resolve |
+| `/api/price/*` | JustTCG (`TCG_API_KEY` 필수) |
+| `/api/psa/*` | 슬랩 OCR · Cert 조회 |
+| `/api/marketplace/*` | Seaport 오더북, 컬렉션·차트·스냅샷, PokéTrace 컬렉션 헬퍼, `poketrace/*` 업스트림 프록시 |
+| `/api/marketplace/bids`, `/api/marketplace/trade` | 규칙 기반 relational 레이어 |
 
-**규칙 기반 매칭** 상세(테이블·상태·워커·Seaport와의 관계): **[marketplace-trading.md](./marketplace-trading.md)**.
+**규칙 기반 매칭** 상세: **[marketplace-trading.md](./marketplace-trading.md)**.
 
 ---
 
@@ -279,4 +263,4 @@ docker exec tokenable-backend env | grep -E 'TYPEORM|POSTGRES|NODE_ENV'
 
 ---
 
-*문서를 바꿀 때는 Swagger와 실제 코드를 우선 확인하세요.*
+*문서를 바꿀 때는 Swagger와 실제 코드를 우선 확인하세요. HTTP 경로의 단일 요약본은 **[API-REFERENCE.md](./API-REFERENCE.md)** 를 갱신합니다.*

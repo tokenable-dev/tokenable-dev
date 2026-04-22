@@ -52,7 +52,6 @@ function formatTapeTime(tSec: number): string {
   });
 }
 
-const MAX_BOOK_ROWS = 12;
 const MAX_TAPE_ROWS = 50;
 
 type BookTab = "book" | "trades";
@@ -192,7 +191,8 @@ export function CollectionUnifiedOrderBook({
       const levelNotional = price * orders.length;
       return { price, orders, count: orders.length, key: `ask-${k}`, levelNotional };
     });
-    const rev = [...raw].reverse().slice(0, MAX_BOOK_ROWS);
+    // Keep all price levels; rows are scrollable so older levels don't disappear.
+    const rev = [...raw].reverse();
     const maxN = Math.max(...rev.map((L) => L.levelNotional), 1e-9);
     return rev.map((L) => ({
       ...L,
@@ -201,12 +201,11 @@ export function CollectionUnifiedOrderBook({
   }, [askRows]);
 
   const bidLevels = useMemo(() => {
-    const slice = bidRows.slice(0, MAX_BOOK_ROWS);
     const maxCum =
-      slice.reduce((acc, b) => acc + priceUsdcFromOrder(b), 0) || 1;
+      bidRows.reduce((acc, b) => acc + priceUsdcFromOrder(b), 0) || 1;
 
     const byKey = new Map<number, Order[]>();
-    const sorted = [...slice].sort((a, b) => {
+    const sorted = [...bidRows].sort((a, b) => {
       const pa = priceUsdcFromOrder(a);
       const pb = priceUsdcFromOrder(b);
       if (pb !== pa) return pb - pa;

@@ -20,10 +20,10 @@
         <mxCell id="sw-a" value="A — 민팅 파이프라인 (MintForm · IPFS · ERC-721)" style="swimlane;horizontal=1;startSize=36;fillColor=#e8f5f1;strokeColor=#4a9d82;fontStyle=1;fontSize=14;align=left;spacingLeft=12;" vertex="1" parent="1">
           <mxGeometry x="40" y="104" width="2400" height="200" as="geometry" />
         </mxCell>
-        <mxCell id="a1" value="① UI · 기술&#xa;• `MintForm.tsx` (React)&#xa;• 선택: PSA 슬랩 이미지 → `POST /psa/analyze` (OCR + JustTCG + PSA Public API 보강)" style="rounded=1;whiteSpace=wrap;html=1;align=left;spacingLeft=10;fontSize=11;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="sw-a">
+        <mxCell id="a1" value="① UI · 기술&#xa;• `MintForm.tsx` (React)&#xa;• 선택: PSA 슬랩 이미지 → `POST /api/psa/analyze` (OCR + JustTCG + PSA Public API 보강)" style="rounded=1;whiteSpace=wrap;html=1;align=left;spacingLeft=10;fontSize=11;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="sw-a">
           <mxGeometry x="16" y="52" width="280" height="136" as="geometry" />
         </mxCell>
-        <mxCell id="a2" value="② 메타 업로드&#xa;• `uploadRwaMetadata(FormData)` → `POST /rwa/upload`&#xa;• `NftService.uploadToIpfs` — 이미지 Pinata 업로드 → `uploadMetadata` JSON&#xa;• 반환: `tokenURI = ipfs://{metadataCID}`" style="rounded=1;whiteSpace=wrap;html=1;align=left;spacingLeft=10;fontSize=11;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="sw-a">
+        <mxCell id="a2" value="② 메타 업로드&#xa;• `uploadRwaMetadata(FormData)` → `POST /api/rwa/upload`&#xa;• `NftService.uploadToIpfs` — 이미지 Pinata 업로드 → `uploadMetadata` JSON&#xa;• 반환: `tokenURI = ipfs://{metadataCID}`" style="rounded=1;whiteSpace=wrap;html=1;align=left;spacingLeft=10;fontSize=11;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="sw-a">
           <mxGeometry x="320" y="52" width="340" height="136" as="geometry" />
         </mxCell>
         <mxCell id="a3" value="③ 온체인 민트&#xa;• `wagmi` `useWriteContract` + `viem` `publicClient`&#xa;• `gasWithCapFast` (가스 추정·캡)&#xa;• 컨트랙트: `TokenableRWA.mint(to: address, _tokenURI: string)`&#xa;• ABI: `TOKENABLE_RWA_MINT_ABI` (`constants/contracts.ts`)" style="rounded=1;whiteSpace=wrap;html=1;align=left;spacingLeft=10;fontSize=11;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="sw-a">
@@ -46,7 +46,7 @@
         <mxCell id="sw-b" value="B — Exchange 백본: Seaport 오프체인 orders + 병행 relational 매칭" style="swimlane;horizontal=1;startSize=36;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;fontSize=14;align=left;spacingLeft=12;" vertex="1" parent="1">
           <mxGeometry x="40" y="320" width="2400" height="220" as="geometry" />
         </mxCell>
-        <mxCell id="b1" value="API (NestJS)&#xa;• `MarketplaceController`: `POST /marketplace/orders` … `fulfill-matched-pair` … `merkle-set` (Seaport 동기화)&#xa;• `BidsController` / `TradeController`: `GET /bids`, `POST /trade/match` (202), `GET /trade/executions/:id` — docs/marketplace-trading.md" style="rounded=1;whiteSpace=wrap;html=1;align=left;spacingLeft=10;fontSize=11;fillColor=#ffffff;strokeColor=#6c8ebf;" vertex="1" parent="sw-b">
+        <mxCell id="b1" value="API (NestJS, 글로벌 프리픽스 `/api`)&#xa;• `MarketplaceController` + `PoketraceProxyController`: orders · collections · `market-snapshots` · poketrace/* 프록시&#xa;• `BidsController` / `TradeController`: `GET /marketplace/bids`, `POST /marketplace/trade/match`(202), `GET …/executions/:id` — docs/marketplace-trading.md · 전체 표 docs/API-REFERENCE.md" style="rounded=1;whiteSpace=wrap;html=1;align=left;spacingLeft=10;fontSize=11;fillColor=#ffffff;strokeColor=#6c8ebf;" vertex="1" parent="sw-b">
           <mxGeometry x="16" y="52" width="520" height="156" as="geometry" />
         </mxCell>
         <mxCell id="b2" value="PostgreSQL&#xa;• `orders` — Seaport 서명 주문(핵심 UI 경로)&#xa;• `bids`, `asks`, `match_intents`, `trade_executions`, `idempotency_keys`, `outbox_events` — 규칙 엔진·정산 워커(병행)" style="rounded=1;whiteSpace=wrap;html=1;align=left;spacingLeft=10;fontSize=11;fillColor=#f8f4fc;strokeColor=#9673a6;" vertex="1" parent="sw-b">
@@ -89,7 +89,7 @@
         <mxCell id="d1" value="① 단일 리스팅 매수 (토큰 상세 등)&#xa;• 사전: USDC `allowance(buyer, SEAPORT)` &lt; 가격이면 `approve`&#xa;• `fulfillOrder(fulfillSeaportOrderArgs(listing), FULFILL_EXTRA_DATA)`&#xa;• 체결 후 `PATCH fulfill` 또는 `fulfillOrderApi` — DB active → fulfilled&#xa;• 상위 컴포넌트: `page.tsx` token detail, `CollectionCriteriaBidPanel` (북크로스 시)" style="rounded=1;whiteSpace=wrap;html=1;align=left;spacingLeft=10;fontSize=11;fillColor=#ffffff;strokeColor=#4a9d82;" vertex="1" parent="sw-d">
           <mxGeometry x="16" y="52" width="580" height="120" as="geometry" />
         </mxCell>
-        <mxCell id="d2" value="② 컬렉션 criteria 입찰 (한도 주문)&#xa;• `GET merkle-set` → `SeaportMerkleTree` → root를 입찰 `identifierOrCriteria`에&#xa;• Offer: USDC (itemType 1) — 최대 지불 의사&#xa;• Consideration: ERC721_WITH_CRITERIA (itemType 4) + Merkle root&#xa;• `createOrder` side=bid, tokenId=&quot;0&quot;, collectionKey 필수&#xa;• UI: `CollectionCriteriaBidPanel.tsx`" style="rounded=1;whiteSpace=wrap;html=1;align=left;spacingLeft=10;fontSize=11;fillColor=#e8f5e9;strokeColor=#4a9d82;" vertex="1" parent="sw-d">
+        <mxCell id="d2" value="② 컬렉션 criteria 입찰 (한도 주문)&#xa;• `GET /api/marketplace/collections/:key/merkle-set` → `SeaportMerkleTree` → root를 입찰 `identifierOrCriteria`에&#xa;• Offer: USDC (itemType 1) — 최대 지불 의사&#xa;• Consideration: ERC721_WITH_CRITERIA (itemType 4) + Merkle root&#xa;• `POST /api/marketplace/orders` side=bid, tokenId=&quot;0&quot;, collectionKey 필수&#xa;• UI: `CollectionCriteriaBidPanel.tsx`" style="rounded=1;whiteSpace=wrap;html=1;align=left;spacingLeft=10;fontSize=11;fillColor=#e8f5e9;strokeColor=#4a9d82;" vertex="1" parent="sw-d">
           <mxGeometry x="16" y="188" width="580" height="132" as="geometry" />
         </mxCell>
         <mxCell id="d3" value="③ 북 크로스 (입력 가격 ≥ 최저 매도호가)&#xa;• 최저가 리스팅 `pickLowestActiveAsk` 선택&#xa;• 실제 체결·지불액은 리스팅 `considerationAmount` (최저가만)&#xa;• `runInstantPurchase` → 동일 `fulfillOrder` 경로" style="rounded=1;whiteSpace=wrap;html=1;align=left;spacingLeft=10;fontSize=11;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="sw-d">

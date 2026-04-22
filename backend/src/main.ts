@@ -48,6 +48,8 @@ async function bootstrap() {
         '**인증**: 대부분의 `auth` 엔드포인트는 **HttpOnly 쿠키 `access_token`**(Google OAuth 후 발급) 또는 **`Authorization: Bearer`** 로 동작합니다. Swagger에서 보호된 라우트는 🔓 버튼으로 JWT를 넣을 수 있습니다.',
         '',
         '**가격 API (`price`)**: JustTCG 프록시 — `TCG_API_KEY` 필수.',
+        '**PokéTrace**: `GET /api/marketplace/poketrace/*` — `PoketraceProxyController` (Pro 토큰 `POKETRACE_PUBLIC_API_TOKEN`).',
+        '**전체 경로 표**: 레포 `docs/API-REFERENCE.md` (Swagger `/api/docs`와 병행).',
       ].join('\n'),
     )
     .setVersion('1.0')
