@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import ReactECharts from "echarts-for-react";
-import type { EChartsOption } from "echarts";
+import type { EChartsOption, LineSeriesOption } from "echarts";
 import type { CollectionUsdPoint } from "@/lib/api";
 
 const EXTERNAL_REF_STROKE = "#2EE6D0";
@@ -228,6 +228,43 @@ export function CollectionDualPriceChart({
           ]
         : [];
 
+    const series: LineSeriesOption[] = [];
+    if (merged.extIsPolyline) {
+      series.push({
+        name: externalSeriesShortLabel,
+        type: "line",
+        data: merged.externalSeries,
+        showSymbol: false,
+        smooth: false,
+        connectNulls: true,
+        lineStyle: { color: EXTERNAL_REF_STROKE, width: 1.75 },
+        emphasis: { focus: "series" },
+      });
+    }
+    if (externalFlatSeries.length) {
+      series.push({
+        name: externalRefLineTag,
+        type: "line",
+        data: externalFlatSeries,
+        showSymbol: false,
+        smooth: false,
+        lineStyle: { color: EXTERNAL_REF_STROKE, width: 1.25, type: "solid", opacity: 0.85 },
+        emphasis: { focus: "series" },
+      });
+    }
+    series.push({
+      name: "Tokenable price",
+      type: "line",
+      data: merged.platformSeries,
+      showSymbol: merged.platformSeries.length <= 2,
+      symbolSize: 6,
+      smooth: false,
+      connectNulls: true,
+      lineStyle: { color: PLATFORM_STROKE, width: 1.75 },
+      itemStyle: { color: PLATFORM_STROKE },
+      emphasis: { focus: "series" },
+    });
+
     return {
       backgroundColor: "#060708",
       animationDuration: 250,
@@ -305,47 +342,7 @@ export function CollectionDualPriceChart({
           ].join("");
         },
       },
-      series: [
-        ...(merged.extIsPolyline
-          ? [
-              {
-                name: externalSeriesShortLabel,
-                type: "line",
-                data: merged.externalSeries,
-                showSymbol: false,
-                smooth: false,
-                connectNulls: true,
-                lineStyle: { color: EXTERNAL_REF_STROKE, width: 1.75 },
-                emphasis: { focus: "series" },
-              },
-            ]
-          : []),
-        ...(externalFlatSeries.length
-          ? [
-              {
-                name: externalRefLineTag,
-                type: "line",
-                data: externalFlatSeries,
-                showSymbol: false,
-                smooth: false,
-                lineStyle: { color: EXTERNAL_REF_STROKE, width: 1.25, type: "solid", opacity: 0.85 },
-                emphasis: { focus: "series" },
-              },
-            ]
-          : []),
-        {
-          name: "Tokenable price",
-          type: "line",
-          data: merged.platformSeries,
-          showSymbol: merged.platformSeries.length <= 2,
-          symbolSize: 6,
-          smooth: false,
-          connectNulls: true,
-          lineStyle: { color: PLATFORM_STROKE, width: 1.75 },
-          itemStyle: { color: PLATFORM_STROKE },
-          emphasis: { focus: "series" },
-        },
-      ],
+      series,
     };
   }, [merged, externalMarketUsd, externalSeriesShortLabel, externalRefLineTag, externalRollingKind]);
 
