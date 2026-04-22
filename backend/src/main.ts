@@ -47,7 +47,7 @@ async function bootstrap() {
         '',
         '**인증**: 대부분의 `auth` 엔드포인트는 **HttpOnly 쿠키 `access_token`**(Google OAuth 후 발급) 또는 **`Authorization: Bearer`** 로 동작합니다. Swagger에서 보호된 라우트는 🔓 버튼으로 JWT를 넣을 수 있습니다.',
         '',
-        '**가격 API (`price`)**: `TCG_USE_MOCK=true` 이면 JustTCG 네트워크 호출 없이 고정 목 응답입니다. 실호출 시 `TCG_API_KEY`가 필요합니다.',
+        '**가격 API (`price`)**: JustTCG 프록시 — `TCG_API_KEY` 필수.',
       ].join('\n'),
     )
     .setVersion('1.0')
@@ -64,7 +64,7 @@ async function bootstrap() {
     )
     .addTag(
       'price',
-      'JustTCG 프록시 — games / sets / cards / batch (`TCG_USE_MOCK` 시 목 데이터)',
+      'JustTCG 프록시 — games / sets / cards / batch',
     )
     .addTag('psa', '슬랩 이미지 OCR · PSA Public API · JustTCG 검색')
     .build();

@@ -99,7 +99,6 @@ export function useUserAssets(
     queryKey: rq.poketraceMintPreviews(address, tokenIds),
     queryFn: () => postBatchMintPoketracePreviews(tokenIds),
     enabled: enabled && includePoketrace && tokenIds.length > 0,
-    staleTime: marketplaceRqPolicy.poketraceStaleMs,
   });
 
   const assets: UserOwnedAsset[] = useMemo(() => {

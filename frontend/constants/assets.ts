@@ -21,12 +21,24 @@ export const ASSETS = {
   /** 아이콘 (favicon, 앱 아이콘 등) */
   icons: {
     tokenable: `${ASSETS_BASE}/icons/tokenable_icon.png`,
-    /** PSA wordmark PNG (landing hero). */
+    /** PSA wordmark PNG (landing / docs). */
     psaMark: `${ASSETS_BASE}/icons/psa-logo.png`,
-    /** Lowest transaction fee — landing feature stat. */
-    lowestTransactionFee: `${ASSETS_BASE}/icons/lowest-transaction-fee.png`,
-    /** Instant settlement — landing feature stat. */
-    instantSettlement: `${ASSETS_BASE}/icons/instant-settlement.png`,
+    /** Landing feature stat — Lowest Fees. */
+    lowestFees: `${ASSETS_BASE}/icons/landing-lowest-fees.png`,
+    /** Landing feature stat — PSA, TAG, BGS gems. */
+    gemsOnly: `${ASSETS_BASE}/icons/landing-gems-only.png`,
+    /** Landing feature stat — vaulted & authenticated. */
+    vaultedAuthenticated: `${ASSETS_BASE}/icons/landing-vaulted-authenticated.png`,
+    /** Market Indexes cards — Pokemon slot. */
+    marketIndexPokemon: `${ASSETS_BASE}/icons/market-index-pokemon.png`,
+    /** Market Indexes cards — MLB slot. */
+    marketIndexMlb: `${ASSETS_BASE}/icons/market-index-mlb.png`,
+    /** Market Indexes cards — NFL slot. */
+    marketIndexNfl: `${ASSETS_BASE}/icons/market-index-nfl.png`,
+    /** Market Indexes cards — NBA slot. */
+    marketIndexNba: `${ASSETS_BASE}/icons/market-index-nba.png`,
+    /** Exchange category filter — Soccer. */
+    marketIndexSoccer: `${ASSETS_BASE}/icons/market-index-soccer.png`,
   },
 
   /** 기타 이미지 */

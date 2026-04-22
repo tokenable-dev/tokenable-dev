@@ -20,7 +20,12 @@ import {
   USDC_ADDRESS,
   USDC_ABI,
 } from "@/constants/contracts";
-import { createOrder, getMerkleEligibleTokenIds, type Order } from "@/lib/api";
+import {
+  createOrder,
+  getMerkleEligibleTokenIds,
+  postRwaMetadataBatch,
+  type Order,
+} from "@/lib/api";
 import { GAS_FALLBACK, gasWithCapFast } from "@/lib/chainGas";
 import { mapWalletError } from "@/lib/walletError";
 import { assertMerkleRootBytes32 } from "@/lib/seaport/eip712Uint";
@@ -79,6 +84,20 @@ function pickLowestActiveAsk(activeAsks: Order[]): Order | null {
     return Number(a.tokenId) - Number(b.tokenId);
   });
   return cands[0];
+}
+
+/** All active asks at the current floor price, sorted for deterministic picker UI. */
+function pickLowestActiveAskCandidates(activeAsks: Order[]): Order[] {
+  const cands = activeAsks.filter((o) => o.status === "active" && isListingAskRow(o));
+  if (cands.length === 0) return [];
+  cands.sort((a, b) => {
+    const pa = askPriceMicros(a);
+    const pb = askPriceMicros(b);
+    if (pa !== pb) return pa < pb ? -1 : 1;
+    return Number(a.tokenId) - Number(b.tokenId);
+  });
+  const floor = askPriceMicros(cands[0]!);
+  return cands.filter((o) => askPriceMicros(o) === floor);
 }
 
 function formatUsdc6(amountStr: string): string {
@@ -146,6 +165,9 @@ export function CollectionCriteriaBidPanel({
   const [lastOutcome, setLastOutcome] = useState<"instant" | "bid" | null>(null);
   /** When bid saved but auto matchAdvancedOrders didn’t run — explain without failing the flow. */
   const [postBidMatchHint, setPostBidMatchHint] = useState<string | null>(null);
+  /** Same-price floor asks: let buyer choose token before instant purchase. */
+  const [selectedFloorAskHash, setSelectedFloorAskHash] = useState<string | null>(null);
+  const [showAskChooserModal, setShowAskChooserModal] = useState(false);
 
   const { data: counter } = useReadContract({
     address: SEAPORT_ADDRESS,
@@ -179,7 +201,55 @@ export function CollectionCriteriaBidPanel({
     return Number(formatUnits(usdcBalRaw as bigint, 6));
   }, [usdcBalRaw]);
 
-  const lowestAsk = useMemo(() => pickLowestActiveAsk(activeAsks), [activeAsks]);
+  const lowestAskCandidates = useMemo(
+    () => pickLowestActiveAskCandidates(activeAsks),
+    [activeAsks],
+  );
+  const lowestAsk = useMemo(() => {
+    if (lowestAskCandidates.length === 0) return null;
+    if (!selectedFloorAskHash) return lowestAskCandidates[0]!;
+    return (
+      lowestAskCandidates.find((o) => o.orderHash === selectedFloorAskHash) ??
+      lowestAskCandidates[0]!
+    );
+  }, [lowestAskCandidates, selectedFloorAskHash]);
+
+  useEffect(() => {
+    if (lowestAskCandidates.length < 2) {
+      setSelectedFloorAskHash(null);
+      return;
+    }
+    const hashes = lowestAskCandidates.map((o) => o.orderHash);
+    setSelectedFloorAskHash((prev) => (prev && hashes.includes(prev) ? prev : hashes[0]!));
+  }, [lowestAskCandidates]);
+
+  const floorAskTokenIds = useMemo(
+    () => lowestAskCandidates.map((o) => Number(o.tokenId)).filter((id) => Number.isFinite(id)),
+    [lowestAskCandidates],
+  );
+
+  const { data: floorAskMetaPack } = useQuery({
+    queryKey: [
+      "floor-ask-metadata",
+      collectionKey,
+      [...floorAskTokenIds].sort((a, b) => a - b).join(","),
+    ],
+    queryFn: () => postRwaMetadataBatch({ tokenIds: floorAskTokenIds }),
+    enabled: showAskChooserModal && floorAskTokenIds.length > 0,
+    staleTime: 60_000,
+  });
+
+  const floorMetaByTokenId = useMemo(() => {
+    const m = new Map<number, { name?: string; imageUrl: string | null }>();
+    for (const it of floorAskMetaPack?.items ?? []) {
+      const name =
+        typeof it.metadata?.name === "string" && it.metadata.name.trim().length > 0
+          ? it.metadata.name.trim()
+          : undefined;
+      m.set(it.tokenId, { name, imageUrl: it.imageUrl ?? null });
+    }
+    return m;
+  }, [floorAskMetaPack]);
 
   const lowestAskUsdc = lowestAsk ? formatUsdc6(String(askPriceMicros(lowestAsk))) : null;
 
@@ -306,13 +376,18 @@ export function CollectionCriteriaBidPanel({
       return;
     }
 
-    const lowest = pickLowestActiveAsk(activeAsks);
+    const lowest = lowestAsk ?? pickLowestActiveAsk(activeAsks);
     const willFill = lowest != null && priceInUnits >= askPriceMicros(lowest);
 
     if (willFill && lowest) {
+      if (lowestAskCandidates.length >= 2 && !showAskChooserModal) {
+        setShowAskChooserModal(true);
+        return;
+      }
       setErrorMsg("");
       try {
         await runInstantPurchase(lowest);
+        setShowAskChooserModal(false);
       } catch (e: unknown) {
         setErrorMsg(mapWalletError(e).message);
         setStep("error");
@@ -636,6 +711,13 @@ export function CollectionCriteriaBidPanel({
           </p>
         )}
 
+        {crossesBook && lowestAskCandidates.length >= 2 ? (
+          <p className="text-[10px] text-zinc-500">
+            {lowestAskCandidates.length} cards are listed at this floor price. Press{" "}
+            <span className="text-zinc-300">Buy now</span> to choose one.
+          </p>
+        ) : null}
+
         <div>
           <label
             className={`block font-medium uppercase tracking-wide text-gray-500 mb-0.5 ${
@@ -818,6 +900,93 @@ export function CollectionCriteriaBidPanel({
           </div>
         )}
       </div>
+
+      {showAskChooserModal && crossesBook && lowestAskCandidates.length >= 2 ? (
+        <div className="fixed inset-0 z-[130] flex items-center justify-center px-4">
+          <button
+            type="button"
+            aria-label="Close card chooser"
+            className="absolute inset-0 bg-black/75 backdrop-blur-sm"
+            onClick={() => setShowAskChooserModal(false)}
+          />
+          <div className="relative z-[131] w-full max-w-3xl rounded-2xl border border-zinc-700/90 bg-zinc-950 p-4 sm:p-5">
+            <div className="mb-3 flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-base font-bold text-white sm:text-lg">Choose card to buy</h3>
+                <p className="mt-1 text-xs text-zinc-500">
+                  {lowestAskCandidates.length} cards at {lowestAskUsdc ?? "floor"} USDC.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAskChooserModal(false)}
+                className="rounded-md px-2 py-1 text-zinc-400 hover:bg-white/5 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="grid max-h-[56vh] grid-cols-2 gap-3 overflow-y-auto pr-1 sm:grid-cols-3">
+              {lowestAskCandidates.map((o) => {
+                const tokenId = Number(o.tokenId);
+                const meta = floorMetaByTokenId.get(tokenId);
+                const selected = lowestAsk?.orderHash === o.orderHash;
+                return (
+                  <button
+                    key={o.orderHash}
+                    type="button"
+                    onClick={() => setSelectedFloorAskHash(o.orderHash)}
+                    className={`rounded-xl border p-2 text-left transition-colors ${
+                      selected
+                        ? "border-mint/45 bg-mint/[0.10]"
+                        : "border-zinc-700/70 bg-zinc-900/60 hover:border-zinc-500/80"
+                    }`}
+                  >
+                    <div className="aspect-square overflow-hidden rounded-lg border border-zinc-800/80 bg-zinc-900">
+                      {meta?.imageUrl ? (
+                        <img
+                          src={meta.imageUrl}
+                          alt={meta?.name ?? `Token #${tokenId}`}
+                          className="h-full w-full object-cover"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="flex h-full items-center justify-center text-xs text-zinc-600">
+                          #{tokenId}
+                        </div>
+                      )}
+                    </div>
+                    <p className="mt-2 truncate text-xs font-semibold text-zinc-200">
+                      {meta?.name ?? `Token #${tokenId}`}
+                    </p>
+                    <p className="mt-0.5 text-[11px] font-mono text-zinc-400">
+                      #{tokenId} · {formatUsdc6(String(askPriceMicros(o)))} USDC
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="mt-4 flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowAskChooserModal(false)}
+                className="rounded-md border border-zinc-700/90 bg-zinc-900/70 px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-zinc-800"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleSubmit()}
+                disabled={busy || !lowestAsk}
+                className="flex-1 rounded-md bg-emerald-600 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-500 disabled:opacity-50"
+              >
+                {busy ? "Buying…" : `Buy selected · ${lowestAskUsdc ?? "USDC"}`}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

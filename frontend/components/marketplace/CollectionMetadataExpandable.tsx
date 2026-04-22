@@ -38,7 +38,6 @@ export interface CollectionMetadataExpandableProps {
   representativeImageUrl?: string | null;
   components: Record<string, unknown>;
   marketSeriesMeta?: {
-    justtcgCardId: string | null;
     categoryLabel: string | null;
   } | null;
   /** PokeTrace catalog id when server matched a card */
@@ -167,16 +166,6 @@ export function CollectionMetadataExpandable({
                       </dt>
                       <dd className="mt-0.5 font-mono text-[11px] text-zinc-200 break-all">
                         {poketraceCardId}
-                      </dd>
-                    </div>
-                  ) : null}
-                  {marketSeriesMeta?.justtcgCardId ? (
-                    <div className="rounded-lg border border-gray-800/70 bg-black/20 px-2.5 py-2 sm:col-span-2">
-                      <dt className="text-[10px] font-medium uppercase tracking-wide text-gray-500">
-                        JustTCG card ID
-                      </dt>
-                      <dd className="mt-0.5 font-mono text-[11px] text-zinc-200 break-all">
-                        {marketSeriesMeta.justtcgCardId}
                       </dd>
                     </div>
                   ) : null}

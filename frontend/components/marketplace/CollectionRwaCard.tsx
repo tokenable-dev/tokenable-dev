@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { useReadContract } from "wagmi";
 import { sepolia } from "@/config/wagmi";
-import { getResolvedRwaAsset, type Order } from "@/lib/api";
+import { getResolvedRwaAsset, type Order, type RwaMetadata } from "@/lib/api";
+import type { GradedCardMetadata } from "@/types/gradedCard";
 import {
   TOKENABLE_RWA_ADDRESS,
   TOKENABLE_RWA_READ_ABI,
@@ -15,6 +16,34 @@ function formatTokenIdShort(id: number): string {
   const s = String(Math.trunc(id));
   if (s.length <= 10) return `#${s}`;
   return `#${s.slice(0, 5)}…${s.slice(-4)}`;
+}
+
+function shortenAddr(addr: string | undefined): string {
+  const s = (addr ?? "").trim().toLowerCase();
+  if (!s.startsWith("0x") || s.length < 12) return "—";
+  return `${s.slice(0, 6)}…${s.slice(-4)}`;
+}
+
+function certNumberFromMetadata(meta: RwaMetadata | null): string | null {
+  const raw = meta?.properties?.graded;
+  const g =
+    raw && typeof raw === "object" ? (raw as GradedCardMetadata) : undefined;
+  const fromGrade = g?.grade?.certNumber?.trim();
+  const fromPsa = g?.psa?.certNumber?.trim();
+  if (fromGrade) return fromGrade;
+  if (fromPsa) return fromPsa;
+  if (meta?.attributes) {
+    for (const a of meta.attributes) {
+      const tt = (a.trait_type ?? "").toLowerCase();
+      if (
+        (tt.includes("cert") || tt.includes("psa cert")) &&
+        String(a.value ?? "").trim() !== ""
+      ) {
+        return String(a.value).trim();
+      }
+    }
+  }
+  return null;
 }
 
 function formatUsdc(amount: string): string {
@@ -33,8 +62,6 @@ interface CollectionRwaCardProps {
   collectionKey: string;
   /** Best active ask for this token, if any */
   listing: Order | null;
-  /** Active collection-wide (criteria) bids for this collection */
-  collectionBidCount: number;
   address: string | undefined;
 }
 
@@ -42,7 +69,6 @@ export function CollectionRwaCard({
   tokenId,
   collectionKey,
   listing,
-  collectionBidCount,
   address,
 }: CollectionRwaCardProps) {
   const { data: metaBundle } = useQuery({
@@ -60,7 +86,12 @@ export function CollectionRwaCard({
   });
 
   const imageUrl = metaBundle?.imageUrl ?? null;
-  const name = metaBundle?.metadata?.name ?? `Asset #${tokenId}`;
+  const meta = metaBundle?.metadata ?? null;
+  const name = meta?.name ?? `Asset #${tokenId}`;
+  const certLabel = certNumberFromMetadata(meta);
+  const sellerAddr = listing
+    ? (listing.offerer || listing.parameters?.offerer)
+    : undefined;
 
   const ownerAddr =
     typeof ownerOnChain === "string" ? ownerOnChain.toLowerCase() : "";
@@ -71,7 +102,7 @@ export function CollectionRwaCard({
   const sellHref = `${detailHref}&list=1`;
 
   return (
-    <article className="group flex flex-col rounded-2xl border border-gray-800/90 bg-gray-900/35 overflow-hidden shadow-sm shadow-black/25 transition-colors hover:border-mint/30 hover:bg-gray-900/55">
+    <article className="group flex flex-col rounded-2xl border border-gray-800/90 bg-gray-900/35 overflow-hidden shadow-sm shadow-black/25 transition-colors hover:border-gray-700/80 hover:bg-gray-900/55">
       <Link
         href={detailHref}
         className="relative block aspect-[3/4] bg-gradient-to-br from-gray-900 to-gray-950"
@@ -106,11 +137,20 @@ export function CollectionRwaCard({
           <p className="text-xs text-gray-500">Not listed</p>
         )}
 
-        {collectionBidCount > 0 && (
-          <p className="text-[10px] text-emerald-400/90">
-            {collectionBidCount} collection bid{collectionBidCount === 1 ? "" : "s"}
-          </p>
-        )}
+        <dl className="grid gap-1.5 text-[10px] leading-snug text-zinc-400 sm:text-[11px]">
+          <div className="flex items-baseline justify-between gap-2">
+            <dt className="shrink-0 font-medium text-zinc-500">Seller</dt>
+            <dd className="min-w-0 truncate font-mono text-zinc-200" title={sellerAddr}>
+              {listing ? shortenAddr(sellerAddr) : "—"}
+            </dd>
+          </div>
+          <div className="flex items-baseline justify-between gap-2">
+            <dt className="shrink-0 font-medium text-zinc-500">Cert number</dt>
+            <dd className="min-w-0 truncate text-right tabular-nums text-zinc-200" title={certLabel ?? ""}>
+              {certLabel ?? "—"}
+            </dd>
+          </div>
+        </dl>
 
         <div className="mt-1">
           {isOwner ? (

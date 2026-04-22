@@ -161,8 +161,8 @@ export function ListRwaModal({
   const resolvedExistingAsk = existingAskOrder ?? existingAskFetched ?? null;
 
   const [price, setPrice] = useState("");
-  /** When several collection bids equal the list price exactly, seller picks which to try first. */
-  const [tieBreakBidHash, setTieBreakBidHash] = useState<string | null>(null);
+  /** Seller-selected target bid when multiple crossing bids can fill instantly. */
+  const [selectedBidHash, setSelectedBidHash] = useState<string | null>(null);
   const [step, setStep] = useState<Step>("idle");
   const [errorMsg, setErrorMsg] = useState("");
   const [successMeta, setSuccessMeta] = useState<ListSuccessMeta | null>(null);
@@ -208,32 +208,40 @@ export function ListRwaModal({
     }
   }, [price]);
 
-  const bidsAtExactListPrice = useMemo(() => {
+  const crossingBidsForInstantSale = useMemo(() => {
     if (askMicrosFromPrice == null || !collectionBids?.length) return [];
     const ck = collectionKey?.trim();
-    return collectionBids.filter((b) => {
+    const rows = collectionBids.filter((b) => {
       if (b.status !== "active" || !isCriteriaCollectionBid(b)) return false;
       const bk = orderCollectionKey(b);
       if (ck && bk && bk.toLowerCase() !== ck.toLowerCase()) return false;
-      return bidUsdcAmount(b) === askMicrosFromPrice;
+      return bidUsdcAmount(b) >= askMicrosFromPrice;
     });
+    rows.sort((a, b) => {
+      const da = bidUsdcAmount(a);
+      const db = bidUsdcAmount(b);
+      if (da > db) return -1;
+      if (da < db) return 1;
+      return 0;
+    });
+    return rows;
   }, [collectionBids, collectionKey, askMicrosFromPrice]);
 
   useEffect(() => {
-    if (bidsAtExactListPrice.length < 2) {
-      setTieBreakBidHash(null);
+    if (crossingBidsForInstantSale.length < 2) {
+      setSelectedBidHash(null);
       return;
     }
-    const hashes = bidsAtExactListPrice.map((b) => String(b.orderHash));
-    setTieBreakBidHash((prev) =>
+    const hashes = crossingBidsForInstantSale.map((b) => String(b.orderHash));
+    setSelectedBidHash((prev) =>
       prev && hashes.includes(prev) ? prev : hashes[0] ?? null,
     );
-  }, [bidsAtExactListPrice]);
+  }, [crossingBidsForInstantSale]);
 
   const preferredBidForMatch = useMemo(() => {
-    if (bidsAtExactListPrice.length >= 2 && tieBreakBidHash) return tieBreakBidHash;
+    if (crossingBidsForInstantSale.length >= 2 && selectedBidHash) return selectedBidHash;
     return preferredBidOrderHash ?? null;
-  }, [bidsAtExactListPrice.length, tieBreakBidHash, preferredBidOrderHash]);
+  }, [crossingBidsForInstantSale.length, selectedBidHash, preferredBidOrderHash]);
 
   const isReplaceListing = useMemo(() => {
     if (!resolvedExistingAsk || !address) return false;
@@ -967,19 +975,20 @@ export function ListRwaModal({
               )}
             </div>
 
-            {bidsAtExactListPrice.length >= 2 && tieBreakBidHash ? (
+            {crossingBidsForInstantSale.length >= 2 && selectedBidHash ? (
               <div className="rounded-xl border border-mint/25 bg-mint/[0.07] px-3 py-2.5">
                 <p className="text-[10px] font-semibold uppercase tracking-wide text-mint/95">
-                  Same-price bids
+                  Instant sell target
                 </p>
                 <p className="mt-1.5 text-[11px] leading-relaxed text-zinc-400">
-                  {bidsAtExactListPrice.length} collection bids match this price. Pick which buyer to
-                  try first (if that fill fails, others are tried).
+                  {crossingBidsForInstantSale.length} bids can fill now at this price. Pick which bid to
+                  try first (if it fails, others are tried in price order).
                 </p>
                 <ul className="mt-2.5 space-y-1.5">
-                  {bidsAtExactListPrice.map((b) => {
+                  {crossingBidsForInstantSale.map((b) => {
                     const id = String(b.orderHash);
-                    const selected = tieBreakBidHash === id;
+                    const selected = selectedBidHash === id;
+                    const usdc = Number(formatUnits(bidUsdcAmount(b), 6));
                     return (
                       <li key={id}>
                         <label
@@ -991,13 +1000,20 @@ export function ListRwaModal({
                         >
                           <input
                             type="radio"
-                            name="tie-break-bid"
+                            name="instant-target-bid"
                             className="accent-mint"
                             checked={selected}
                             disabled={isProcessing}
-                            onChange={() => setTieBreakBidHash(id)}
+                            onChange={() => setSelectedBidHash(id)}
                           />
                           <span className="text-[12px] text-zinc-200">
+                            <span className="mr-2 font-mono tabular-nums text-emerald-300">
+                              {usdc.toLocaleString("en-US", {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })}{" "}
+                              USDC
+                            </span>
                             Buyer{" "}
                             <span className="font-mono text-mint/90">
                               {shortBidder(b.offerer)}

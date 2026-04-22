@@ -2,6 +2,9 @@ import type { JustTcgPriceHistoryPoint } from "@/lib/api";
 
 const DAY_SEC = 86400;
 
+/** Market index cards: compare “now” vs this many calendar days ago (landing). */
+export const MARKET_INDEX_COMPARISON_DAYS = 365;
+
 /**
  * Builds a 4-point series of implied total market value (USD) from current
  * `game_value_usd` and JustTCG aggregate % changes (7d / 30d / 90d windows).
@@ -38,38 +41,159 @@ function safePct(n: number): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-export type GameIndex180dSeries = {
-  /** Two points: ~180d ago → now (aggregate index USD). */
+export type GameIndexComparisonSeries = {
   points: JustTcgPriceHistoryPoint[];
-  /** % change from first to last point. */
   changePct: number;
-  /** Shown next to the chart (sparkline spans ~180 calendar days). */
   comparisonAnchorLabel: string;
 };
 
+/** @deprecated Use {@link GameIndexComparisonSeries} */
+export type GameIndex180dSeries = GameIndexComparisonSeries;
+
 /**
- * Sparkline + % for aggregate game index (`game_value_usd`) vs ~180d ago.
- * Uses `game_value_change_180d_pct` when JustTCG includes it; otherwise estimates
- * past value by compounding published trailing returns (90d×2, else 30d×6, else 7d×(180/7)).
+ * Sparkline + % for aggregate game index (`game_value_usd`) vs {@link MARKET_INDEX_COMPARISON_DAYS} ago.
+ * Uses `game_value_change_365d_pct` when JustTCG includes it; else compounds `game_value_change_180d_pct`
+ * over (365/180) periods, then 90d / 30d / 7d windows scaled to the same horizon — **not tick-level history**.
  */
+export function buildGameIndexComparisonSeries(params: {
+  valueUsd: number;
+  change7dPct: number;
+  comparisonDays?: number;
+  change365dPct?: number;
+  change180dPct?: number;
+  rawChange90dPct?: number;
+  rawChange30dPct?: number;
+}): GameIndexComparisonSeries {
+  const comparisonDays = params.comparisonDays ?? MARKET_INDEX_COMPARISON_DAYS;
+  const v = params.valueUsd;
+  const now = Math.floor(Date.now() / 1000);
+  const t0 = now - comparisonDays * DAY_SEC;
+  const anchor =
+    comparisonDays >= 330 ? "vs ~1 year ago" : "vs ~6 months ago";
+
+  if (!Number.isFinite(v) || v <= 0) {
+    return { points: [], changePct: 0, comparisonAnchorLabel: anchor };
+  }
+
+  if (
+    params.change365dPct !== undefined &&
+    Number.isFinite(params.change365dPct) &&
+    comparisonDays >= 300
+  ) {
+    const r365 = params.change365dPct;
+    const past = v / (1 + r365 / 100);
+    return {
+      points: [
+        { p: past, t: t0 },
+        { p: v, t: now },
+      ],
+      changePct: r365,
+      comparisonAnchorLabel: anchor,
+    };
+  }
+
+  if (params.change180dPct !== undefined && Number.isFinite(params.change180dPct)) {
+    const r180 = params.change180dPct;
+    const periods = comparisonDays / 180;
+    const past = v / (1 + r180 / 100) ** periods;
+    const pct = (v / past - 1) * 100;
+    return {
+      points: [
+        { p: past, t: t0 },
+        { p: v, t: now },
+      ],
+      changePct: pct,
+      comparisonAnchorLabel: anchor,
+    };
+  }
+
+  if (
+    params.rawChange90dPct !== undefined &&
+    Number.isFinite(params.rawChange90dPct)
+  ) {
+    const r90 = params.rawChange90dPct;
+    const periods = comparisonDays / 90;
+    const past = v / (1 + r90 / 100) ** periods;
+    const pct = (v / past - 1) * 100;
+    return {
+      points: [
+        { p: past, t: t0 },
+        { p: v, t: now },
+      ],
+      changePct: pct,
+      comparisonAnchorLabel: anchor,
+    };
+  }
+
+  if (
+    params.rawChange30dPct !== undefined &&
+    Number.isFinite(params.rawChange30dPct)
+  ) {
+    const r30 = params.rawChange30dPct;
+    const periods = comparisonDays / 30;
+    const past = v / (1 + r30 / 100) ** periods;
+    const pct = (v / past - 1) * 100;
+    return {
+      points: [
+        { p: past, t: t0 },
+        { p: v, t: now },
+      ],
+      changePct: pct,
+      comparisonAnchorLabel: anchor,
+    };
+  }
+
+  const r7 = safePct(params.change7dPct);
+  const periods = comparisonDays / 7;
+  const past = v / (1 + r7 / 100) ** periods;
+  const pct = (v / past - 1) * 100;
+  return {
+    points: [
+      { p: past, t: t0 },
+      { p: v, t: now },
+    ],
+    changePct: pct,
+    comparisonAnchorLabel: anchor,
+  };
+}
+
 /**
- * Sparkline path: same ~180d window and headline % as
- * {@link buildGameIndex180dComparisonSeries}, but adds intermediate samples at
- * ~90d / ~30d / ~7d from trailing returns so the line is not a single straight
- * segment (still modelled from published aggregates, not tick-level history).
+ * @deprecated Use {@link buildGameIndexComparisonSeries} (defaults to 1y).
+ * Kept for any external imports; passes `comparisonDays: 180`.
+ */
+export function buildGameIndex180dComparisonSeries(params: {
+  valueUsd: number;
+  change7dPct: number;
+  change180dPct?: number;
+  rawChange90dPct?: number;
+  rawChange30dPct?: number;
+}): GameIndexComparisonSeries {
+  return buildGameIndexComparisonSeries({
+    ...params,
+    comparisonDays: 180,
+  });
+}
+
+/**
+ * Sparkline path: same horizon as {@link buildGameIndexComparisonSeries}, plus intermediate
+ * samples at ~90d / ~30d / ~7d from trailing returns so the line is not a single straight segment.
  */
 export function buildGameIndexSparklinePoints(params: {
   valueUsd: number;
   change7dPct: number;
   change30dPct: number;
   change90dPct: number;
+  comparisonDays?: number;
+  change365dPct?: number;
   change180dPct?: number;
   rawChange90dPct?: number;
   rawChange30dPct?: number;
 }): JustTcgPriceHistoryPoint[] {
-  const series = buildGameIndex180dComparisonSeries({
+  const series = buildGameIndexComparisonSeries({
     valueUsd: params.valueUsd,
     change7dPct: params.change7dPct,
+    comparisonDays: params.comparisonDays ?? MARKET_INDEX_COMPARISON_DAYS,
+    change365dPct: params.change365dPct,
     change180dPct: params.change180dPct,
     rawChange90dPct: params.rawChange90dPct,
     rawChange30dPct: params.rawChange30dPct,
@@ -108,85 +232,4 @@ export function buildGameIndexSparklinePoints(params: {
   }
 
   return out;
-}
-
-export function buildGameIndex180dComparisonSeries(params: {
-  valueUsd: number;
-  change7dPct: number;
-  change180dPct?: number;
-  rawChange90dPct?: number;
-  rawChange30dPct?: number;
-}): GameIndex180dSeries {
-  const v = params.valueUsd;
-  const now = Math.floor(Date.now() / 1000);
-  const t0 = now - 180 * DAY_SEC;
-
-  const anchor = "vs ~6 months ago";
-
-  if (!Number.isFinite(v) || v <= 0) {
-    return { points: [], changePct: 0, comparisonAnchorLabel: anchor };
-  }
-
-  if (
-    params.change180dPct !== undefined &&
-    Number.isFinite(params.change180dPct)
-  ) {
-    const r180 = params.change180dPct;
-    const past = v / (1 + r180 / 100);
-    return {
-      points: [
-        { p: past, t: t0 },
-        { p: v, t: now },
-      ],
-      changePct: r180,
-      comparisonAnchorLabel: anchor,
-    };
-  }
-
-  if (
-    params.rawChange90dPct !== undefined &&
-    Number.isFinite(params.rawChange90dPct)
-  ) {
-    const r90 = params.rawChange90dPct;
-    const past = v / (1 + r90 / 100) ** 2;
-    const pct = ((v / past - 1) * 100);
-    return {
-      points: [
-        { p: past, t: t0 },
-        { p: v, t: now },
-      ],
-      changePct: pct,
-      comparisonAnchorLabel: anchor,
-    };
-  }
-
-  if (
-    params.rawChange30dPct !== undefined &&
-    Number.isFinite(params.rawChange30dPct)
-  ) {
-    const r30 = params.rawChange30dPct;
-    const past = v / (1 + r30 / 100) ** 6;
-    const pct = ((v / past - 1) * 100);
-    return {
-      points: [
-        { p: past, t: t0 },
-        { p: v, t: now },
-      ],
-      changePct: pct,
-      comparisonAnchorLabel: anchor,
-    };
-  }
-
-  const r7 = safePct(params.change7dPct);
-  const periods = 180 / 7;
-  const past = v / (1 + r7 / 100) ** periods;
-  const pct = ((v / past - 1) * 100);
-  return {
-    points: [
-      { p: past, t: t0 },
-      { p: v, t: now },
-    ],
-    changePct: pct,
-    comparisonAnchorLabel: anchor,
-  };
 }

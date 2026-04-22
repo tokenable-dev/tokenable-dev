@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -8,6 +9,12 @@ import {
   Query,
 } from '@nestjs/common';
 import { PoketraceService } from '../poketrace/poketrace.service';
+import {
+  isPoketraceHistoryPeriod,
+  poketracePeriodToMaxCalendarDays,
+  type PoketraceHistoryPeriod,
+} from '../poketrace/poketrace-period.util';
+import { poketraceHistoryTierFromComponents } from './poketrace-catalog-tier.util';
 import { CollectionMarketService } from './collection-market.service';
 import { CollectionService } from './collection.service';
 import { BatchMarketSnapshotsDto } from './dto/batch-market-snapshots.dto';
@@ -75,15 +82,15 @@ export class MarketplaceController {
   }
 
   @ApiOperation({ summary: 'Collection list (cursor pagination)' })
-  @ApiQuery({ name: 'limit', required: false, description: 'Page size (default 24, max 60)' })
+  @ApiQuery({ name: 'limit', required: false, description: 'Page size (default 30, max 60)' })
   @ApiQuery({ name: 'cursor', required: false, description: 'Opaque cursor from prior page' })
   @Get('collections')
   listCollections(@Query('limit') limitRaw?: string, @Query('cursor') cursor?: string) {
     const parsed =
       limitRaw != null && String(limitRaw).trim() !== ''
         ? parseInt(String(limitRaw), 10)
-        : 24;
-    const limit = Number.isFinite(parsed) ? parsed : 24;
+        : 30;
+    const limit = Number.isFinite(parsed) ? parsed : 30;
     return this.collectionService.listSummariesPaged({
       limit,
       cursor: cursor?.trim() || null,
@@ -92,14 +99,14 @@ export class MarketplaceController {
 
   @ApiOperation({
     summary:
-      'Batch list-row snapshots: JustTCG grade strip + category; sparkline slot is legacy (empty when bundle has no external series). Pool floor/median/band/vol: use GET …/collections/:key/stats or `marketStats` on each item when present.',
+      'Batch list-row snapshots: PokeTrace NM grade strip + category + eBay NEAR_MINT sparkline when history is available. Pool floor/median/band/vol: use GET …/collections/:key/stats or `marketStats` on each item when present.',
   })
   @ApiBody({ type: BatchMarketSnapshotsDto })
   @Post('collections/market-snapshots')
   batchMarketSnapshots(@Body() body: BatchMarketSnapshotsDto) {
     return this.collectionMarketService.batchListSnapshots(
       body.collectionKeys ?? [],
-      body.priceHistoryDuration ?? '30d',
+      body.priceHistoryDuration ?? '365d',
     );
   }
 
@@ -117,7 +124,68 @@ export class MarketplaceController {
 
   @ApiOperation({
     summary:
-      'PokeTrace: Near Mint USD history (eBay) for the resolved catalog card. Upstream may paginate; default 90 calendar days.',
+      'PokeTrace: tier price history for the resolved catalog card. Unified params: `tier` + `period` (OpenAPI 1.5). Optional `maxDays` trims tighter than `period`.',
+  })
+  @ApiParam({ name: 'key', description: 'collection_key' })
+  @ApiQuery({
+    name: 'tier',
+    required: false,
+    description: 'e.g. NEAR_MINT, PSA_10',
+    example: 'NEAR_MINT',
+  })
+  @ApiQuery({
+    name: 'period',
+    required: false,
+    enum: ['7d', '30d', '90d', '1y', 'all'],
+    description: 'PokeTrace history window (default 90d)',
+  })
+  @ApiQuery({
+    name: 'maxDays',
+    required: false,
+    description:
+      'Optional post-fetch UTC-day trim (1–4000). Defaults to span implied by `period`.',
+  })
+  @Get('collections/:key/poketrace/price-history')
+  async getCollectionPoketracePriceHistory(
+    @Param('key') key: string,
+    @Query('tier') tierRaw?: string,
+    @Query('period') periodRaw?: string,
+    @Query('maxDays') maxDaysRaw?: string,
+  ) {
+    const k = decodeURIComponent(key).toLowerCase();
+    const col = await this.collectionService.findOne(k);
+    const trimmed = (tierRaw ?? '').trim();
+    const tier =
+      trimmed.length > 0
+        ? trimmed
+        : poketraceHistoryTierFromComponents(
+            col?.components as Record<string, unknown> | undefined,
+          );
+    if (!/^[A-Za-z0-9_]+$/.test(tier)) {
+      throw new BadRequestException('Invalid tier');
+    }
+    const periodStr = String(periodRaw ?? '90d');
+    const period: PoketraceHistoryPeriod = isPoketraceHistoryPeriod(periodStr)
+      ? periodStr
+      : '90d';
+    const parsedMax =
+      maxDaysRaw != null && String(maxDaysRaw).trim() !== ''
+        ? parseInt(String(maxDaysRaw), 10)
+        : NaN;
+    const maxCalendarDays = Number.isFinite(parsedMax)
+      ? Math.min(4000, Math.max(1, parsedMax))
+      : poketracePeriodToMaxCalendarDays(period);
+    return this.poketraceService.getTierPriceHistoryForCollection(col, {
+      tier,
+      period,
+      maxCalendarDays,
+      maxRequests: 5,
+    });
+  }
+
+  @ApiOperation({
+    summary:
+      'PokeTrace: Near Mint history — legacy alias. Prefer GET …/poketrace/price-history?tier=NEAR_MINT&period=…',
   })
   @ApiParam({ name: 'key', description: 'collection_key' })
   @ApiQuery({
@@ -156,18 +224,23 @@ export class MarketplaceController {
 
   @ApiOperation({
     summary:
-      'Chart bundle: platform fills (USDC) + JustTCG grade/category metadata. External “card history” series is empty (`marketChangeSource: none`); use GET …/collections/:key/stats for listing-pool statistics.',
+      'Chart bundle: platform fills (USDC) + PokeTrace NM reference prices, category, eBay NEAR_MINT history series, and window % change when computable. Listing-pool statistics: GET …/collections/:key/stats.',
   })
   @ApiParam({ name: 'key', description: 'collection_key' })
   @Get('collections/:key/market-series')
   getCollectionMarketSeries(
     @Param('key') key: string,
     @Query('priceHistoryDuration') priceHistoryDuration?: string,
+    @Query('hintTokenId') hintTokenId?: string,
   ) {
-    const d = ['7d', '30d', '90d', '180d'].includes(String(priceHistoryDuration))
-      ? (priceHistoryDuration as '7d' | '30d' | '90d' | '180d')
-      : '180d';
-    return this.collectionMarketService.getCollectionMarketBundle(key, d);
+    const d = ['7d', '30d', '90d', '180d', '365d'].includes(String(priceHistoryDuration))
+      ? (priceHistoryDuration as '7d' | '30d' | '90d' | '180d' | '365d')
+      : '365d';
+    const hint =
+      hintTokenId != null && /^\d+$/.test(String(hintTokenId).trim())
+        ? String(hintTokenId).trim()
+        : undefined;
+    return this.collectionMarketService.getCollectionMarketBundle(key, d, hint);
   }
 
   @ApiOperation({

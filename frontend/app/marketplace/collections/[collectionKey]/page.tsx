@@ -10,7 +10,7 @@ import { formatUnits } from "viem";
 import {
   getCollectionMarketSeries,
   getCollectionMarketStats,
-  getCollectionPoketraceNmHistory,
+  getCollectionPoketracePriceHistory,
   getCollectionPoketracePreview,
   getCollectionPlatformTrades,
   getMarketplaceCollectionDetail,
@@ -18,8 +18,13 @@ import {
 } from "@/lib/api";
 import {
   coefficientOfVariationPctFromUsdSeries,
+  percentChangeFromUsdPoints,
   resolveExternalMarketUsd,
 } from "@/lib/externalMarketPrice";
+import {
+  poketraceHistoryTierFromComponents,
+  poketraceTierDisplayLabel,
+} from "@/lib/poketraceHistoryTier";
 import { CollectionOverviewBoard } from "@/components/marketplace/CollectionOverviewBoard";
 import { CollectionPriceMetricsStrip } from "@/components/marketplace/CollectionPriceMetricsStrip";
 import type { BookRowSelection } from "@/components/marketplace/CollectionTradeTicket";
@@ -32,6 +37,10 @@ import {
   type TradeCelebrationKind,
 } from "@/components/marketplace/TradeCelebrationModal";
 import { CollectionDualPriceChart } from "@/components/marketplace/CollectionDualPriceChart";
+import {
+  CHART_EXTERNAL_HISTORY,
+  CHART_EXTERNAL_HISTORY_DAYS,
+} from "@/components/marketplace/chartTimeRange";
 import { CollectionRwaCard } from "@/components/marketplace/CollectionRwaCard";
 import { CollectionPoketracePanel } from "@/components/marketplace/CollectionPoketracePanel";
 import { useAppStore, selectWallet } from "@/store";
@@ -123,6 +132,26 @@ export default function MarketplaceCollectionPage() {
     retry: false,
   });
 
+  const comp = useMemo(() => {
+    const raw = data?.collection?.components as
+      | {
+          cardName?: string;
+          gradingCompany?: string;
+          gradeScore?: string;
+          cardSet?: string;
+          cardNumber?: string;
+          variant?: string;
+          psaTotalPopulation?: number;
+        }
+      | undefined;
+    return raw ?? {};
+  }, [data?.collection?.components]);
+
+  const pokeHistoryTier = useMemo(
+    () => poketraceHistoryTierFromComponents(comp as Record<string, unknown>),
+    [comp],
+  );
+
   const {
     data: poketracePreview,
     isLoading: poketraceLoading,
@@ -132,30 +161,47 @@ export default function MarketplaceCollectionPage() {
     queryKey: ["collection-poketrace", key],
     queryFn: () => getCollectionPoketracePreview(key),
     enabled: key.length > 0 && !isLoading && !isError && !!data,
-    staleTime: 900_000,
-    /** PokeTrace free/public tiers are strict — align with server preview cache; no refetch spam */
-    retry: false,
-    refetchOnMount: false,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
   });
 
   const { data: marketSeriesHeader, isLoading: marketSeriesLoading } = useQuery({
-    queryKey: ["collection-market-series", key],
-    queryFn: () => getCollectionMarketSeries(key, "90d"),
+    queryKey: ["collection-market-series", key, CHART_EXTERNAL_HISTORY],
+    queryFn: () => getCollectionMarketSeries(key, CHART_EXTERNAL_HISTORY),
     enabled: key.length > 0 && !isLoading && !isError && !!data,
     staleTime: 120_000,
   });
 
   const { data: nmHistory, isLoading: nmHistoryLoading } = useQuery({
-    queryKey: ["collection-poketrace-nm-history", key, 90],
-    queryFn: () => getCollectionPoketraceNmHistory(key, 90),
+    queryKey: [
+      "collection-poketrace-price-history",
+      key,
+      pokeHistoryTier,
+      CHART_EXTERNAL_HISTORY,
+      CHART_EXTERNAL_HISTORY_DAYS,
+    ],
+    queryFn: () =>
+      getCollectionPoketracePriceHistory(key, {
+        tier: pokeHistoryTier,
+        period: CHART_EXTERNAL_HISTORY,
+        maxDays: CHART_EXTERNAL_HISTORY_DAYS,
+      }),
     enabled: key.length > 0 && !isLoading && !isError && !!data,
-    staleTime: 300_000,
-    retry: false,
-    refetchOnMount: false,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
+  });
+
+  const { data: pokeYearHistory, isLoading: pokeYearHistoryLoading } = useQuery({
+    queryKey: [
+      "collection-poketrace-price-history",
+      key,
+      pokeHistoryTier,
+      "1y",
+      365,
+    ],
+    queryFn: () =>
+      getCollectionPoketracePriceHistory(key, {
+        tier: pokeHistoryTier,
+        period: "1y",
+        maxDays: 365,
+      }),
+    enabled: key.length > 0 && !isLoading && !isError && !!data,
   });
 
   const { data: marketStats, isLoading: marketStatsLoading } = useQuery({
@@ -169,6 +215,8 @@ export default function MarketplaceCollectionPage() {
 
   const pokeHistPts = nmHistory?.points ?? [];
   const pokeHistOk = pokeHistPts.length >= 2;
+  const pokeYearPts = pokeYearHistory?.points ?? [];
+  const pokeYearOk = pokeYearPts.length >= 2;
   const jtHistPts = marketSeriesHeader?.externalUsd ?? [];
   const jtHistOk = jtHistPts.length >= 2;
 
@@ -179,32 +227,54 @@ export default function MarketplaceCollectionPage() {
   }, [pokeHistOk, pokeHistPts, jtHistOk, jtHistPts]);
 
   const chartExternalWindowDays = useMemo(() => {
-    if (pokeHistOk) return nmHistory?.days ?? 90;
+    if (pokeHistOk) return nmHistory?.days ?? CHART_EXTERNAL_HISTORY_DAYS;
+    /** Bundle `externalUsd` is fetched for up to `marketChangeWindow`; fixed x-axis avoids clipping vs platform-only smart domain. */
+    if (jtHistOk) {
+      const w = marketSeriesHeader?.marketChangeWindow;
+      if (w === "7d") return 7;
+      if (w === "30d") return 30;
+      if (w === "90d") return 90;
+      if (w === "180d") return 180;
+      if (w === "365d") return 365;
+      return CHART_EXTERNAL_HISTORY_DAYS;
+    }
     return null;
-  }, [pokeHistOk, nmHistory?.days]);
+  }, [
+    pokeHistOk,
+    nmHistory?.days,
+    jtHistOk,
+    marketSeriesHeader?.marketChangeWindow,
+  ]);
 
-  const externalVolatilityCvPct = useMemo(
-    () => (pokeHistOk ? coefficientOfVariationPctFromUsdSeries(pokeHistPts) : null),
-    [pokeHistOk, pokeHistPts],
-  );
+  const externalVolatilityCvPct = useMemo(() => {
+    const y = coefficientOfVariationPctFromUsdSeries(pokeYearPts);
+    if (y != null) return y;
+    return pokeHistOk ? coefficientOfVariationPctFromUsdSeries(pokeHistPts) : null;
+  }, [pokeHistOk, pokeHistPts, pokeYearPts]);
 
   const nmHistApprox = nmHistory?.matchConfidence === "approximate";
+  const pokeTierLabel = poketraceTierDisplayLabel(pokeHistoryTier);
+
+  const externalPriceChange1yPct = useMemo(
+    () => (pokeYearOk ? percentChangeFromUsdPoints(pokeYearPts) : null),
+    [pokeYearOk, pokeYearPts],
+  );
 
   const chartExternalLegend = pokeHistOk
     ? nmHistApprox
-      ? "PokéTrace NM (daily · approximate match)"
-      : "PokéTrace NM (daily)"
+      ? `PokéTrace ${pokeTierLabel} (daily · approximate match)`
+      : `PokéTrace ${pokeTierLabel} (daily)`
     : jtHistOk
-      ? "JustTCG (external)"
-      : "External market (NM)";
+      ? `PokéTrace ${pokeTierLabel} (bundle series)`
+      : `External market (${pokeTierLabel})`;
 
   const chartExternalShort = pokeHistOk
     ? nmHistApprox
-      ? "PokéTrace NM ~"
-      : "PokéTrace NM"
+      ? `PokéTrace ${pokeTierLabel} ~`
+      : `PokéTrace ${pokeTierLabel}`
     : jtHistOk
-      ? "JustTCG"
-      : "External NM";
+      ? `PokéTrace ${pokeTierLabel}`
+      : `PokéTrace ${pokeTierLabel}`;
 
   const chartExternalRollingKind = pokeHistOk || jtHistOk ? "history" : "snapshot";
 
@@ -254,34 +324,41 @@ export default function MarketplaceCollectionPage() {
     [displayPlatformUsd]
   );
 
-  /** 메트릭 Current Price — 플랫폼 체결 시계열의 최신점(세션 오버레이 포함) */
-  const lastPlatformTradePriceUsd = useMemo(() => {
-    const pts = displayPlatformUsd;
-    if (!pts.length) return null;
-    const last = pts[pts.length - 1];
-    return typeof last.v === "number" && Number.isFinite(last.v) && last.v > 0
-      ? last.v
-      : null;
-  }, [displayPlatformUsd]);
+  const orderBookTapeFills = useMemo(() => {
+    const raw = platformTradesData?.trades ?? [];
+    if (raw.length > 0) return raw;
+    if (displayPlatformUsd.length === 0) return [];
+    return [...displayPlatformUsd]
+      .sort((a, b) => b.t - a.t)
+      .slice(0, 80)
+      .map((p, i) => ({
+        t: p.t,
+        priceUsdc: p.v,
+        tokenId: "—",
+        orderHash: `synthetic-${p.t}-${i}`,
+        tapeAggressor: "buy" as const,
+      }));
+  }, [platformTradesData?.trades, displayPlatformUsd]);
 
-  /** 직전 체결 → 최근 체결 사이 변동률 % (동일 시계열) */
-  const lastTwoTradesPriceChangePct = useMemo(() => {
-    const pts = displayPlatformUsd;
-    if (pts.length < 2) return null;
-    const prev = pts[pts.length - 2].v;
-    const last = pts[pts.length - 1].v;
-    if (!(typeof prev === "number" && Number.isFinite(prev) && prev > 0)) return null;
-    if (!(typeof last === "number" && Number.isFinite(last))) return null;
-    return ((last - prev) / prev) * 100;
-  }, [displayPlatformUsd]);
+  const volatilityFootnote = useMemo(() => {
+    const yPos = pokeYearPts.filter((p) => p.v > 0).length;
+    if (yPos >= 3) return "~1y PokéTrace tier daily closes";
+    const sPos = pokeHistPts.filter((p) => p.v > 0).length;
+    if (sPos >= 3) return "PokéTrace chart-window tier daily closes";
+    return null;
+  }, [pokeYearPts, pokeHistPts]);
 
   function invalidateCollection() {
     void queryClient.invalidateQueries({ queryKey: ["marketplace-collection", key] });
     void queryClient.invalidateQueries({ queryKey: ["collection-platform-trades", key] });
-    void queryClient.invalidateQueries({ queryKey: ["collection-market-series", key] });
+    void queryClient.invalidateQueries({
+      queryKey: ["collection-market-series", key, CHART_EXTERNAL_HISTORY],
+    });
     void queryClient.invalidateQueries({ queryKey: ["collection-market-stats", key] });
     void queryClient.invalidateQueries({ queryKey: ["collection-poketrace", key] });
-    void queryClient.invalidateQueries({ queryKey: ["collection-poketrace-nm-history", key] });
+    void queryClient.invalidateQueries({
+      queryKey: ["collection-poketrace-price-history", key],
+    });
     void queryClient.invalidateQueries({ queryKey: ["merkle-set", key] });
     void queryClient.invalidateQueries({ queryKey: ["merkle-set"] });
   }
@@ -296,31 +373,11 @@ export default function MarketplaceCollectionPage() {
     return data.collectionBids.filter((b) => b.status === "active");
   }, [data?.collectionBids]);
 
-  const criteriaBidCount = useMemo(
-    () => collectionBids.filter((b) => isCriteriaCollectionBid(b)).length,
-    [collectionBids]
-  );
-
   const askMap = useMemo(() => bestAskByToken(asks), [asks]);
   const tokenIds = useMemo(
     () => (data ? sortedTokenIdsByOldestListing(asks) : []),
     [data, asks],
   );
-
-  const comp = useMemo(() => {
-    const raw = data?.collection?.components as
-      | {
-          cardName?: string;
-          gradingCompany?: string;
-          gradeScore?: string;
-          cardSet?: string;
-          cardNumber?: string;
-          variant?: string;
-          psaTotalPopulation?: number;
-        }
-      | undefined;
-    return raw ?? {};
-  }, [data?.collection?.components]);
 
   const resolvedExternal = useMemo(
     () =>
@@ -328,18 +385,22 @@ export default function MarketplaceCollectionPage() {
         poketracePreview,
         gradePrices: marketSeriesHeader?.gradePrices ?? null,
         gradeScore: parseGradeScoreNumber(comp.gradeScore),
+        components: comp as Record<string, unknown>,
       }),
-    [poketracePreview, marketSeriesHeader?.gradePrices, comp.gradeScore],
+    [
+      poketracePreview,
+      marketSeriesHeader?.gradePrices,
+      comp.gradeScore,
+      comp,
+    ],
   );
 
   const chartExternalRefTag =
     resolvedExternal.source === "poketrace"
       ? resolvedExternal.poketraceMatchConfidence === "approximate"
-        ? "PokéTrace NM ~"
-        : "PokéTrace NM"
-      : resolvedExternal.source === "justtcg"
-        ? "JustTCG"
-        : "External NM";
+        ? `PokéTrace ${pokeTierLabel} ~`
+        : `PokéTrace ${pokeTierLabel}`
+      : `External ${pokeTierLabel}`;
 
   const marketCapComputation = useMemo(
     () =>
@@ -350,13 +411,13 @@ export default function MarketplaceCollectionPage() {
             poketraceCard: poketracePreview?.card ?? null,
             poketraceMatchConfidence: poketracePreview?.matchConfidence,
             gradePrices: marketSeriesHeader?.gradePrices ?? null,
+            poketracePreview: poketracePreview ?? null,
           })
         : null,
     [
       data?.collection,
       comp.gradeScore,
-      poketracePreview?.card,
-      poketracePreview?.matchConfidence,
+      poketracePreview,
       marketSeriesHeader?.gradePrices,
     ],
   );
@@ -530,18 +591,21 @@ export default function MarketplaceCollectionPage() {
             <CollectionPriceMetricsStrip
               externalMarketUsd={resolvedExternal.usd}
               externalPriceSource={resolvedExternal.source}
+              poketraceTierDisplay={pokeTierLabel}
               externalPoketraceMatchConfidence={resolvedExternal.poketraceMatchConfidence}
               externalPriceLoading={
                 poketraceLoading || nmHistoryLoading || marketSeriesLoading
               }
               externalVolatilityCvPct={externalVolatilityCvPct}
+              volatilityFootnote={volatilityFootnote}
               marketStats={marketStats ?? null}
               marketStatsLoading={marketStatsLoading}
-              lastPlatformTradeUsd={lastPlatformTradePriceUsd}
-              priceChangePct={lastTwoTradesPriceChangePct}
               platformPriceSamples={platformPriceSamples}
               bookSpreadPct={marketMetrics.spreadPct}
+              externalPriceChange1yPct={externalPriceChange1yPct}
+              externalPriceChange1yLoading={pokeYearHistoryLoading}
               marketCapUsd={marketCapComputation?.usd ?? null}
+              marketCapMethodHint={marketCapComputation?.methodLabel ?? null}
               formatMarketCap={formatMarketCapUsd}
             />
           }
@@ -587,7 +651,7 @@ export default function MarketplaceCollectionPage() {
               compact
               lastTradePriceUsdc={orderBookLastSaleUsdc}
               lastTradeSide="buy"
-              tapeFills={platformTradesData?.trades ?? []}
+              tapeFills={orderBookTapeFills}
               tapeLoading={platformTradesLoading}
             />
           }
@@ -622,15 +686,12 @@ export default function MarketplaceCollectionPage() {
 
         <section className="mt-8 max-w-3xl" aria-label="PokeTrace reference">
           <h3 className="text-sm font-semibold text-zinc-400 mb-2">
-            PokeTrace NM detail
+            Card detail
           </h3>
-          <p className="text-[11px] text-zinc-600 mb-3 leading-relaxed">
-            eBay / TCGPlayer Near Mint bands and metadata for the matched catalog card. The strip
-            and chart use this (and JustTCG when needed) as the external market path — not listing
-            pool medians.
-          </p>
           <CollectionPoketracePanel
             data={poketracePreview}
+            historyTier={pokeHistoryTier}
+            tierLabel={pokeTierLabel}
             isLoading={poketraceLoading}
             error={
               poketraceQueryErr instanceof Error
@@ -646,10 +707,6 @@ export default function MarketplaceCollectionPage() {
           <span className="inline-flex items-center gap-1.5 rounded-full border border-rose-500/20 bg-rose-500/[0.06] px-3 py-1 font-medium text-rose-200/90 tabular-nums">
             <span className="h-1.5 w-1.5 rounded-full bg-rose-400/90" aria-hidden />
             {asks.length} listing{asks.length === 1 ? "" : "s"}
-          </span>
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/[0.06] px-3 py-1 font-medium text-emerald-200/90 tabular-nums">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400/80" aria-hidden />
-            {criteriaBidCount} collection bid{criteriaBidCount === 1 ? "" : "s"}
           </span>
         </div>
 
@@ -685,7 +742,6 @@ export default function MarketplaceCollectionPage() {
                     tokenId={tid}
                     collectionKey={key}
                     listing={askMap.get(tid) ?? null}
-                    collectionBidCount={criteriaBidCount}
                     address={address}
                   />
                 </div>
