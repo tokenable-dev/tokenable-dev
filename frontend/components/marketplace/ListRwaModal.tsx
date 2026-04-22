@@ -8,7 +8,7 @@ import {
   useWalletClient,
 } from "wagmi";
 import { formatUnits, parseUnits, type Address } from "viem";
-import type { Order } from "@/lib/api";
+import { cancelOrder, type Order } from "@/lib/api";
 import { sepolia } from "@/config/wagmi";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -24,7 +24,9 @@ import { askGrossUsdcMicros, bidUsdcAmount } from "@/lib/seaport/bidUsdc";
 import { isCriteriaCollectionBid } from "@/lib/seaport/criteriaMatch";
 import {
   runCriteriaMatch,
+  classifyMatchFailureCode,
   mapMatchError,
+  type MatchFailureCode,
   type MatchWriteContractAsync,
 } from "@/lib/seaport/runCriteriaMatch";
 import {
@@ -112,6 +114,8 @@ type Step =
 interface ListSuccessMeta {
   matched: boolean;
   hint?: string;
+  reasonCode?: MatchFailureCode;
+  instantOnlyCancelled?: boolean;
 }
 
 interface ListRwaModalProps {
@@ -463,7 +467,7 @@ export function ListRwaModal({
       (topCollectionBid != null && topCollectionBid.micros >= askAm);
 
     const maxMatchRounds = 3;
-    let lastMeta: ListSuccessMeta = { matched: false };
+    let lastMeta: ListSuccessMeta = { matched: false, reasonCode: "unknown" };
 
     for (let round = 0; round < maxMatchRounds; round++) {
       if (round > 0) {
@@ -509,7 +513,7 @@ export function ListRwaModal({
       }
 
       if (!bids.length) {
-        lastMeta = { matched: false };
+        lastMeta = { matched: false, reasonCode: "unknown" };
         continue;
       }
 
@@ -523,6 +527,7 @@ export function ListRwaModal({
       if (!merkleSnap?.tokenIds.length) {
         lastMeta = {
           matched: false,
+          reasonCode: "merkle_mismatch",
           hint:
             "Your listing is not in the collection Merkle set yet (indexing delay). Retrying… If this persists, open this collection again in a few seconds.",
         };
@@ -544,6 +549,7 @@ export function ListRwaModal({
         );
         lastMeta = {
           matched: false,
+          reasonCode: hasCriteriaBids ? "unknown" : undefined,
           hint: hasCriteriaBids
             ? "There are collection bids, but none at or above your list price. Try the bid price or lower."
             : undefined,
@@ -561,6 +567,7 @@ export function ListRwaModal({
       if (candidates.length === 0) {
         lastMeta = {
           matched: false,
+          reasonCode: "merkle_mismatch",
           hint:
             "No bid’s Merkle root matches the server’s current leaf set. The buyer must cancel and re-place their collection bid after pool updates, then list again (or use Match on the token page).",
         };
@@ -568,6 +575,7 @@ export function ListRwaModal({
       }
 
       let lastErr = "";
+      let lastReason: MatchFailureCode = "unknown";
       let listing: Order = created;
 
       for (const bid of candidates) {
@@ -628,6 +636,7 @@ export function ListRwaModal({
           return { matched: true };
         } catch (e: unknown) {
           lastErr = mapMatchError(e, { bidOfferer: bid.offerer });
+          lastReason = classifyMatchFailureCode(e);
         }
       }
 
@@ -637,6 +646,7 @@ export function ListRwaModal({
 
       lastMeta = {
         matched: false,
+        reasonCode: lastReason,
         hint: lastErr
           ? `${lastErr}${merkleHint}`
           : "Could not fill a collection bid automatically.",
@@ -644,6 +654,12 @@ export function ListRwaModal({
     }
 
     return lastMeta;
+  }
+
+  function applyInstantOnlyProtection(meta: ListSuccessMeta): ListSuccessMeta {
+    const next = { ...meta };
+    if (!next.matched) next.instantOnlyCancelled = true;
+    return next;
   }
 
   async function invalidateListingQueries(created: Order) {
@@ -717,6 +733,24 @@ export function ListRwaModal({
             }
           }
           meta = await tryMatchAfterListingWithTimeout(created);
+          if (!meta.matched) {
+            try {
+              await cancelOrder(created.orderHash, address);
+              meta = applyInstantOnlyProtection({
+                ...meta,
+                hint:
+                  "Instant-only protection cancelled this listing because immediate match failed. " +
+                  (meta.hint ?? ""),
+              });
+            } catch {
+              meta = applyInstantOnlyProtection({
+                ...meta,
+                hint:
+                  "Immediate match failed and auto-cancel could not be completed. Listing may remain on order book. " +
+                  (meta.hint ?? ""),
+              });
+            }
+          }
         } else {
           meta = { matched: false };
         }
@@ -805,6 +839,24 @@ export function ListRwaModal({
           }
         }
         meta = await tryMatchAfterListingWithTimeout(createdFinal);
+        if (!meta.matched) {
+          try {
+            await cancelOrder(createdFinal.orderHash, address);
+            meta = applyInstantOnlyProtection({
+              ...meta,
+              hint:
+                "Instant-only protection cancelled this listing because immediate match failed. " +
+                (meta.hint ?? ""),
+            });
+          } catch {
+            meta = applyInstantOnlyProtection({
+              ...meta,
+              hint:
+                "Immediate match failed and auto-cancel could not be completed. Listing may remain on order book. " +
+                (meta.hint ?? ""),
+            });
+          }
+        }
       } else {
         meta = { matched: false };
       }
@@ -891,10 +943,31 @@ export function ListRwaModal({
               <p className="text-[11px] text-zinc-600 mt-2">Listing valid for 30 days</p>
             )}
             {!successMeta?.matched && successMeta?.hint ? (
-              <p className="text-[11px] text-amber-200/90 mt-3 text-left leading-relaxed rounded-lg border border-amber-500/30 bg-amber-500/[0.08] px-3 py-2.5">
-                A collection bid at or above your price was found, but it could not be filled
-                automatically. {successMeta.hint}
-              </p>
+              <div className="text-[11px] text-amber-200/90 mt-3 text-left leading-relaxed rounded-lg border border-amber-500/30 bg-amber-500/[0.08] px-3 py-2.5 space-y-1.5">
+                <p>
+                  A collection bid at or above your price was found, but it could not be filled
+                  automatically.
+                </p>
+                {successMeta.reasonCode === "insufficient_balance" ? (
+                  <p>Reason: Buyer balance insufficient.</p>
+                ) : null}
+                {successMeta.reasonCode === "insufficient_allowance" ? (
+                  <p>Reason: Buyer allowance insufficient.</p>
+                ) : null}
+                {successMeta.reasonCode === "merkle_mismatch" ? (
+                  <p>Reason: Merkle root mismatch.</p>
+                ) : null}
+                {successMeta.reasonCode === "expired_or_inactive" ? (
+                  <p>Reason: Bid or listing expired/inactive.</p>
+                ) : null}
+                {successMeta.reasonCode === "timeout" ? (
+                  <p>Reason: Matching timed out.</p>
+                ) : null}
+                {successMeta.instantOnlyCancelled ? (
+                  <p>Protection: Listing was auto-cancelled to enforce instant-only execution.</p>
+                ) : null}
+                <p>{successMeta.hint}</p>
+              </div>
             ) : null}
             <button
               type="button"
@@ -984,7 +1057,7 @@ export function ListRwaModal({
                   {crossingBidsForInstantSale.length} bids can fill now at this price. Pick which bid to
                   try first (if it fails, others are tried in price order).
                 </p>
-                <ul className="mt-2.5 space-y-1.5">
+                <ul className="mt-2.5 max-h-[112px] space-y-1.5 overflow-y-auto pr-1 scrollbar-platform">
                   {crossingBidsForInstantSale.map((b) => {
                     const id = String(b.orderHash);
                     const selected = selectedBidHash === id;

@@ -49,6 +49,13 @@ function formatTickDate(tSec: number): string {
   return new Date(tSec * 1000).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
+function formatTickMonth(tSec: number): string {
+  return new Date(tSec * 1000).toLocaleDateString("en-US", {
+    month: "short",
+    year: "2-digit",
+  });
+}
+
 function formatHoverWhen(tSec: number): string {
   return new Date(tSec * 1000).toLocaleString("en-US", {
     month: "short",
@@ -265,6 +272,8 @@ export function CollectionDualPriceChart({
       emphasis: { focus: "series" },
     });
 
+    const monthMs = 30 * DAY * 1000;
+
     return {
       backgroundColor: "#060708",
       animationDuration: 250,
@@ -278,13 +287,17 @@ export function CollectionDualPriceChart({
         type: "time",
         min: merged.tMin * 1000,
         max: merged.tMax * 1000,
+        ...(exchange ? { minInterval: monthMs } : {}),
         axisLine: { lineStyle: { color: AXIS_LINE } },
         axisTick: { show: false },
         splitLine: { show: false },
         axisLabel: {
           color: AXIS_LABEL,
           fontSize: 11,
-          formatter: (value: number) => formatTickDate(Math.floor(value / 1000)),
+          formatter: (value: number) =>
+            exchange
+              ? formatTickMonth(Math.floor(value / 1000))
+              : formatTickDate(Math.floor(value / 1000)),
         },
       },
       yAxis: {

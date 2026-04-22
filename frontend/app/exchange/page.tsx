@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -491,12 +491,18 @@ export default function ExchangePage() {
       .slice(0, 10);
   }, [collectionSummaries]);
 
-  const trendingRailRef = useRef<HTMLDivElement | null>(null);
+  const MAX_TRENDING_VISIBLE = 4;
+  const [trendingStart, setTrendingStart] = useState(0);
+  const maxTrendingStart = Math.max(0, trendingNow.length - MAX_TRENDING_VISIBLE);
+  const trendingVisible = useMemo(
+    () => trendingNow.slice(trendingStart, trendingStart + MAX_TRENDING_VISIBLE),
+    [trendingNow, trendingStart],
+  );
   const scrollTrending = (dir: "left" | "right") => {
-    const el = trendingRailRef.current;
-    if (!el) return;
-    const delta = Math.max(260, Math.floor(el.clientWidth * 0.78));
-    el.scrollBy({ left: dir === "left" ? -delta : delta, behavior: "smooth" });
+    setTrendingStart((prev) => {
+      if (dir === "left") return Math.max(0, prev - 1);
+      return Math.min(maxTrendingStart, prev + 1);
+    });
   };
 
   return (
@@ -541,7 +547,12 @@ export default function ExchangePage() {
                 type="button"
                 onClick={() => scrollTrending("left")}
                 aria-label="Scroll trending left"
-                className="absolute left-0 top-1/2 z-20 -translate-y-1/2 rounded-full border border-zinc-700/80 bg-zinc-950/85 p-2 text-zinc-300 transition-colors hover:border-mint/40 hover:text-mint"
+                disabled={trendingStart <= 0}
+                className={`absolute left-0 top-1/2 z-20 -translate-y-1/2 rounded-full border bg-zinc-950/85 p-2 transition-colors ${
+                  trendingStart > 0
+                    ? "border-zinc-700/80 text-zinc-300 hover:border-mint/40 hover:text-mint"
+                    : "cursor-not-allowed border-zinc-800/70 text-zinc-700"
+                }`}
               >
                 ‹
               </button>
@@ -549,16 +560,18 @@ export default function ExchangePage() {
                 type="button"
                 onClick={() => scrollTrending("right")}
                 aria-label="Scroll trending right"
-                className="absolute right-0 top-1/2 z-20 -translate-y-1/2 rounded-full border border-zinc-700/80 bg-zinc-950/85 p-2 text-zinc-300 transition-colors hover:border-mint/40 hover:text-mint"
+                disabled={trendingStart >= maxTrendingStart}
+                className={`absolute right-0 top-1/2 z-20 -translate-y-1/2 rounded-full border bg-zinc-950/85 p-2 transition-colors ${
+                  trendingStart < maxTrendingStart
+                    ? "border-zinc-700/80 text-zinc-300 hover:border-mint/40 hover:text-mint"
+                    : "cursor-not-allowed border-zinc-800/70 text-zinc-700"
+                }`}
               >
                 ›
               </button>
 
-              <div
-                ref={trendingRailRef}
-                className="flex snap-x snap-mandatory justify-center gap-5 overflow-x-auto overflow-y-hidden px-12 pb-2 pt-1 scrollbar-platform"
-              >
-              {trendingNow.map((c) => {
+              <div className="grid grid-cols-1 gap-5 px-12 pb-2 pt-1 sm:grid-cols-2 xl:grid-cols-4">
+              {trendingVisible.map((c) => {
                 const s = snapshotByKey.get(c.collectionKey.toLowerCase());
                 const ms = s?.marketStats ?? null;
                 const tokenablePrice =
@@ -578,7 +591,7 @@ export default function ExchangePage() {
                   <Link
                     key={c.collectionKey}
                     href={`/marketplace/collections/${encodeURIComponent(c.collectionKey)}`}
-                    className="group w-[220px] shrink-0 snap-start"
+                    className="group w-full"
                   >
                     <div className="overflow-hidden rounded-2xl border border-zinc-800/80 bg-[#0d1118] transition-colors group-hover:border-mint/35">
                       <div className="aspect-[3/4] bg-[#0a0e14]">
@@ -615,6 +628,10 @@ export default function ExchangePage() {
                   </Link>
                 );
               })}
+              </div>
+              <div className="mt-3 flex items-center justify-center text-xs text-zinc-500">
+                Showing {trendingStart + 1}-{Math.min(trendingStart + MAX_TRENDING_VISIBLE, trendingNow.length)} of{" "}
+                {trendingNow.length}
               </div>
             </div>
           </section>

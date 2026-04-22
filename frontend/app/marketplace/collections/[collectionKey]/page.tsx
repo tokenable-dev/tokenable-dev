@@ -866,6 +866,7 @@ export default function MarketplaceCollectionPage() {
           priceChart={
             <CollectionDualPriceChart
               variant="exchange"
+              chartTitle=""
               platformUsd={displayPlatformUsd}
               externalMarketUsd={
                 effectiveExternalRollingUsd.length >= 2 ? null : resolvedExternalForDisplay.usd

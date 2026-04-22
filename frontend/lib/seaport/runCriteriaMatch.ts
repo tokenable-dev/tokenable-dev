@@ -30,6 +30,14 @@ export type MatchWriteContractAsync = (args: {
   gas: bigint;
 }) => Promise<`0x${string}`>;
 
+export type MatchFailureCode =
+  | "insufficient_balance"
+  | "insufficient_allowance"
+  | "merkle_mismatch"
+  | "expired_or_inactive"
+  | "timeout"
+  | "unknown";
+
 /** ERC20 offer item in Seaport order parameters. */
 const ITEM_ERC20 = 1;
 
@@ -304,4 +312,30 @@ export function mapMatchError(
   }
 
   return message;
+}
+
+export function classifyMatchFailureCode(e: unknown): MatchFailureCode {
+  const { message, code } = mapWalletError(e);
+  const low = message.toLowerCase();
+  if (
+    low.includes("balance insufficient") ||
+    low.includes("insufficient balance") ||
+    (low.includes("erc20") && low.includes("insufficient"))
+  ) {
+    return "insufficient_balance";
+  }
+  if (low.includes("allowance too low") || low.includes("allowance")) {
+    return "insufficient_allowance";
+  }
+  if (low.includes("merkle root") || low.includes("leaf set") || low.includes("criteria")) {
+    return "merkle_mismatch";
+  }
+  if (low.includes("invalidtime") || low.includes("not active on-chain") || low.includes("expired")) {
+    return "expired_or_inactive";
+  }
+  if (low.includes("timed out") || low.includes("timeout")) {
+    return "timeout";
+  }
+  if (code === "REVERT") return "unknown";
+  return "unknown";
 }

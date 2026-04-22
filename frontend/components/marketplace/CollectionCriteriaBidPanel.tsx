@@ -926,7 +926,7 @@ export function CollectionCriteriaBidPanel({
               </button>
             </div>
 
-            <div className="grid max-h-[56vh] grid-cols-2 gap-3 overflow-y-auto pr-1 sm:grid-cols-3">
+            <div className="grid max-h-[52vh] grid-cols-2 gap-3 overflow-y-auto overscroll-contain pr-1 scrollbar-platform sm:grid-cols-3">
               {lowestAskCandidates.map((o) => {
                 const tokenId = Number(o.tokenId);
                 const meta = floorMetaByTokenId.get(tokenId);
