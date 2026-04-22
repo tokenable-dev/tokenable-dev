@@ -305,7 +305,7 @@ export class CollectionService implements OnModuleInit {
     items: CollectionSummary[];
     nextCursor: string | null;
   }> {
-    const limit = Math.min(Math.max(input.limit ?? 24, 1), 60);
+    const limit = Math.min(Math.max(input.limit ?? 30, 1), 60);
     const qb = this.collectionRepo.createQueryBuilder('c');
 
     const cur = input.cursor?.trim();
@@ -720,10 +720,13 @@ export class CollectionService implements OnModuleInit {
   }
 
   /**
-   * Active listing IPFS metadata → JustTCG identifiers (slug / tcgplayerId / variantId).
+   * IPFS metadata → JustTCG identifiers (slug / tcgplayerId / variantId).
+   * Order: optional `hintTokenId` (e.g. portfolio holder) → active asks → recent fulfilled asks.
+   * Without fulfilled/hint, holders who never listed have no active ask row → JustTCG strip was always empty.
    */
   async resolveJustTcgProductIdentifiersForCollection(
     collectionKey: string,
+    hintTokenId?: string | null,
   ): Promise<JustTcgProductIdentifiers> {
     const empty: JustTcgProductIdentifiers = {
       cardId: null,
@@ -731,19 +734,54 @@ export class CollectionService implements OnModuleInit {
       variantId: null,
     };
     const k = collectionKey.toLowerCase();
+
+    const tryToken = async (tokenIdStr: string): Promise<JustTcgProductIdentifiers | null> => {
+      if (!tokenIdStr || String(tokenIdStr).trim() === '') return null;
+      try {
+        const uri = await this.blockchain.getRwaTokenURI(Number(tokenIdStr));
+        const meta = await this.ipfsResolver.fetchMetadataJson(uri);
+        return extractJustTcgProductIdentifiersFromMetadata(meta);
+      } catch {
+        return null;
+      }
+    };
+
+    const merge = (ids: JustTcgProductIdentifiers | null): JustTcgProductIdentifiers | null => {
+      if (!ids) return null;
+      if (ids.cardId || ids.tcgplayerId || ids.variantId) return ids;
+      return null;
+    };
+
+    const hint = hintTokenId?.trim();
+    if (hint) {
+      const ids = merge(await tryToken(hint));
+      if (ids) return ids;
+    }
+
     const asks = await this.activeListingsForCollection(k);
     for (const o of asks) {
-      // Active asks only (not criteria bids). ERC-721 token id 0 is valid — do not skip.
-      if (!o.tokenId || String(o.tokenId).trim() === '') continue;
-      try {
-        const uri = await this.blockchain.getRwaTokenURI(Number(o.tokenId));
-        const meta = await this.ipfsResolver.fetchMetadataJson(uri);
-        const ids = extractJustTcgProductIdentifiersFromMetadata(meta);
-        if (ids.cardId || ids.tcgplayerId || ids.variantId) return ids;
-      } catch {
-        /* next listing */
-      }
+      const ids = merge(await tryToken(String(o.tokenId)));
+      if (ids) return ids;
     }
+
+    const fulfilled = await this.orderRepo.find({
+      where: {
+        collectionKey: k,
+        status: OrderStatus.FULFILLED,
+        side: OrderSide.ASK,
+      },
+      order: { updatedAt: 'DESC' },
+      take: 40,
+    });
+    const seen = new Set<string>();
+    for (const o of fulfilled) {
+      const tid = String(o.tokenId ?? '');
+      if (!tid || seen.has(tid)) continue;
+      seen.add(tid);
+      const ids = merge(await tryToken(tid));
+      if (ids) return ids;
+    }
+
     return empty;
   }
 
@@ -751,7 +789,7 @@ export class CollectionService implements OnModuleInit {
    * 활성 매도 주문의 IPFS 메타에서 JustTCG 카드 slug (`topMatch.id` / `cardId`).
    */
   async resolveJustTcgCardIdForCollection(collectionKey: string): Promise<string | null> {
-    const ids = await this.resolveJustTcgProductIdentifiersForCollection(collectionKey);
+    const ids = await this.resolveJustTcgProductIdentifiersForCollection(collectionKey, null);
     return ids.cardId;
   }
 

@@ -41,6 +41,7 @@ export function buildPoketraceQueryFromRwaMetadata(metadata: unknown): {
   query: string;
   cardName: string;
   cardNumber: string;
+  cardSet: string;
   /** Mint-time PokeTrace catalog id — skip blind search when present */
   poketraceCardId: string | null;
   /** Relaxed mint match — charts only when no verified id; never used as strict catalog key */
@@ -52,6 +53,7 @@ export function buildPoketraceQueryFromRwaMetadata(metadata: unknown): {
       query: '',
       cardName: '',
       cardNumber: '',
+      cardSet: '',
       poketraceCardId: null,
       approximatePoketraceCardId: null,
       poketraceSearchQuery: null,
@@ -98,6 +100,10 @@ export function buildPoketraceQueryFromRwaMetadata(metadata: unknown): {
   const cardName = normalizePsaCardNameForPoketrace(cardNameRaw) || cardNameRaw;
   const cardNumber =
     primaryCardNumberForPoketrace(cardNumberRaw) || cardNumberRaw.replace(/^#/, '');
+  const cardSet =
+    (typeof psa?.setHint === 'string' && psa.setHint.trim()) ||
+    (typeof card?.set === 'string' && card.set.trim()) ||
+    '';
 
   if (qFromJt) {
     const query = normalizePoketraceSearchQueryString(qFromJt) || qFromJt.trim();
@@ -105,6 +111,7 @@ export function buildPoketraceQueryFromRwaMetadata(metadata: unknown): {
       query,
       cardName,
       cardNumber,
+      cardSet,
       poketraceCardId,
       approximatePoketraceCardId,
       poketraceSearchQuery: poketraceSearchQueryStored,
@@ -114,10 +121,7 @@ export function buildPoketraceQueryFromRwaMetadata(metadata: unknown): {
   const parts: string[] = [];
   if (cardName) parts.push(cardName);
   if (cardNumber) parts.push(cardNumber.replace(/^#/, ''));
-  const setHint =
-    (typeof psa?.setHint === 'string' && psa.setHint.trim()) ||
-    (typeof card?.set === 'string' && card.set.trim()) ||
-    '';
+  const setHint = cardSet;
   if (setHint) parts.push(setHint);
   const year =
     (typeof psa?.year === 'string' && psa.year.trim()) ||
@@ -136,6 +140,7 @@ export function buildPoketraceQueryFromRwaMetadata(metadata: unknown): {
     query: finalQuery,
     cardName,
     cardNumber,
+    cardSet,
     poketraceCardId,
     approximatePoketraceCardId,
     poketraceSearchQuery: poketraceSearchQueryStored,
@@ -160,6 +165,43 @@ export function normalizeForExactCatalogMatch(s: string): string {
     .toLowerCase()
     .replace(/\s+/g, '')
     .replace(/[^a-z0-9]/g, '');
+}
+
+function normalizeSetTokens(s: string): string[] {
+  const raw = s
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  const out: string[] = [];
+  for (let t of raw) {
+    if (t === 'pokemon' || t === 'tcg' || t === 'card' || t === 'cards') continue;
+    if (t === 'en' || t === 'english' || t === 'jp' || t === 'japanese') continue;
+    if (t === 'promos') t = 'promo';
+    if (t === 'blackstar') {
+      out.push('black');
+      out.push('star');
+      continue;
+    }
+    if (t.startsWith('sv')) t = 'sv';
+    out.push(t);
+  }
+  return [...new Set(out)];
+}
+
+function setLooksEquivalent(setWantRaw: string, setGotRaw: string): boolean {
+  const setWant = normalizeForExactCatalogMatch(setWantRaw);
+  const setGot = normalizeForExactCatalogMatch(setGotRaw);
+  if (setWant === setGot) return true;
+  const a = normalizeSetTokens(setWantRaw);
+  const b = normalizeSetTokens(setGotRaw);
+  if (a.length === 0 || b.length === 0) return false;
+  const bSet = new Set(b);
+  const overlap = a.filter((t) => bSet.has(t)).length;
+  const ratio = overlap / Math.min(a.length, b.length);
+  return overlap >= 2 && ratio >= 0.6;
 }
 
 /** Card # / promo codes: `#SV49`, `086/078` → same normalization key for exact compare. */
@@ -216,7 +258,7 @@ export function exactPoketraceCatalogMatch(
 
   const failCodes: string[] = [];
   if (nameWant !== nameGotN) failCodes.push('name_mismatch');
-  if (setWant !== setGotN) failCodes.push('set_mismatch');
+  if (!setLooksEquivalent(hints.cardSet, setNameGot)) failCodes.push('set_mismatch');
   if (numWant !== numGotN) failCodes.push('number_mismatch');
 
   return {

@@ -2,6 +2,7 @@ import type {
   CollectionGradePrices,
   CollectionPoketracePreview,
 } from "@/lib/api";
+import { poketraceHistoryTierFromComponents } from "@/lib/poketraceHistoryTier";
 
 /**
  * PSA 슬랩만 취급할 때의 "시가총액" 참고치.
@@ -72,9 +73,31 @@ export function nmSpotUsdFromPoketracePreview(
   preview: CollectionPoketracePreview | null | undefined,
 ): number | null {
   if (!preview?.matched || !preview.card) return null;
-  /** Approximate catalog rows: panel/chart reference only — not primary external USD. */
-  if (preview.matchConfidence === "approximate") return null;
   return blendNearMintUnitUsd(preview.card).unitUsd;
+}
+
+/** PSA tier eBay band when Pro exposes it; else NM blend (matches server `blendCatalogSpotUsdFromPreview`). */
+export function catalogSpotUsdFromPoketracePreview(
+  preview: CollectionPoketracePreview | null | undefined,
+  historyTier: string,
+): number | null {
+  if (!preview?.matched || !preview.card) return null;
+  const c = preview.card;
+  const tier = String(historyTier ?? "").trim();
+  const map = c.ebayPsaTiers;
+  if (map && tier.startsWith("PSA_")) {
+    const v = pickAvgFromBand(map[tier] ?? null);
+    if (v != null) return v;
+  }
+  if (historyTier === "PSA_10") {
+    const v = pickAvgFromBand(c.ebayPsa10 ?? null);
+    if (v != null) return v;
+  }
+  if (historyTier === "PSA_9") {
+    const v = pickAvgFromBand(c.ebayPsa9 ?? null);
+    if (v != null) return v;
+  }
+  return nmSpotUsdFromPoketracePreview(preview);
 }
 
 function gradeMultiplier(gradeScore: number | undefined): number {
@@ -160,7 +183,7 @@ function unitUsdFromGradePrices(
 /**
  * 컬렉션 버킷 단위 시가총액 (PSA 인구 × 단가).
  * - 상세: PokeTrace 카드가 있으면 NM 블렌드 + 등급계수 (`computePsaMarketCapUsd`)
- * - 목록 등: 스냅샷의 JustTCG 등급별 시세(`gradePrices`) × 인구
+ * - 목록 등: 스냅샷의 PokeTrace NM 스트립(`gradePrices`) × 인구
  */
 export function computeCollectionMarketCapUsd(params: {
   components: Record<string, unknown>;
@@ -169,9 +192,12 @@ export function computeCollectionMarketCapUsd(params: {
   /** When preview is approximate-match, skip PokeTrace $ path (same as primary price policy). */
   poketraceMatchConfidence?: CollectionPoketracePreview["matchConfidence"];
   gradePrices: CollectionGradePrices | null | undefined;
+  /** Full preview when available — used for slab tier spot (PSA_9, PSA_8, …). */
+  poketracePreview?: CollectionPoketracePreview | null;
 }): MarketCapComputation {
   const population = parsePsaTotalPopulation(params.components);
   const gradeNum = parseGradeScoreNumber(params.gradeScoreStr);
+  const historyTier = poketraceHistoryTierFromComponents(params.components);
 
   if (population == null) {
     return {
@@ -181,6 +207,31 @@ export function computeCollectionMarketCapUsd(params: {
       unitUsd: null,
       population: null,
     };
+  }
+
+  if (
+    params.poketraceMatchConfidence !== "approximate" &&
+    params.poketraceCard &&
+    historyTier !== "NEAR_MINT"
+  ) {
+    const previewForSpot: CollectionPoketracePreview =
+      params.poketracePreview ??
+      ({
+        enabled: true,
+        matched: true,
+        searchQuery: "",
+        card: params.poketraceCard,
+      } as CollectionPoketracePreview);
+    const spot = catalogSpotUsdFromPoketracePreview(previewForSpot, historyTier);
+    if (spot != null && Number.isFinite(spot) && spot > 0) {
+      return {
+        usd: spot * population,
+        confidence: "high",
+        methodLabel: `PSA 인구 ${population.toLocaleString()} × PokeTrace ${historyTier}`,
+        unitUsd: spot,
+        population,
+      };
+    }
   }
 
   if (params.poketraceMatchConfidence !== "approximate" && params.poketraceCard) {
@@ -198,7 +249,7 @@ export function computeCollectionMarketCapUsd(params: {
       return {
         usd: unit * population,
         confidence: "medium",
-        methodLabel: `PSA 인구 × JustTCG 등급 시세`,
+        methodLabel: `PSA 인구 × PokeTrace NM (ref)`,
         unitUsd: unit,
         population,
       };

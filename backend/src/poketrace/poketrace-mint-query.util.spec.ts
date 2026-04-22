@@ -79,6 +79,23 @@ describe('exactPoketraceCatalogMatch', () => {
     expect(r.ok).toBe(false);
     expect(r.failCodes).toContain('number_mismatch');
   });
+
+  it('accepts practical set variants (SVP promo naming)', () => {
+    const r = exactPoketraceCatalogMatch(
+      {
+        cardName: 'Pikachu with Grey Felt Hat',
+        cardSet: 'POKEMON SVP EN-SV BLACK STAR PROMO',
+        cardNumber: '085',
+      },
+      {
+        name: 'Pikachu with Grey Felt Hat',
+        cardNumber: '085',
+        set: { name: 'SV Black Star Promos' },
+      },
+    );
+    expect(r.ok).toBe(true);
+    expect(r.failCodes).toEqual([]);
+  });
 });
 
 describe('buildPoketraceQueryFromRwaMetadata', () => {
@@ -98,6 +115,7 @@ describe('buildPoketraceQueryFromRwaMetadata', () => {
     });
     expect(out.cardName).toBe('MEWTWO VSTAR');
     expect(out.cardNumber).toBe('086');
+    expect(out.cardSet).toBe('POKEMON GO');
     expect(out.query).toContain('MEWTWO VSTAR');
     expect(out.query).toContain('086');
     expect(out.poketraceCardId).toBeNull();
@@ -118,6 +136,7 @@ describe('buildPoketraceQueryFromRwaMetadata', () => {
     });
     expect(out.poketraceCardId).toBe('abc-123');
     expect(out.approximatePoketraceCardId).toBeNull();
+    expect(out.cardSet).toBe('');
     expect(out.query).toContain('legacy');
   });
 

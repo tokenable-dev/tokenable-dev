@@ -62,12 +62,12 @@ export function CollectionCoverFrame({
 
   const heroGlow =
     variant === "hero"
-      ? "shadow-[0_20px_56px_-12px_rgba(0,0,0,0.75),0_0_0_1px_rgba(167,243,208,0.14),0_0_48px_-20px_rgba(52,211,153,0.12)]"
-      : "shadow-[0_12px_40px_-8px_rgba(0,0,0,0.65),0_0_0_1px_rgba(167,243,208,0.12)]";
+      ? "shadow-[0_20px_56px_-12px_rgba(0,0,0,0.75),0_0_0_1px_rgba(255,255,255,0.06),0_0_40px_-24px_rgba(0,0,0,0.55)]"
+      : "shadow-[0_12px_40px_-8px_rgba(0,0,0,0.65),0_0_0_1px_rgba(255,255,255,0.06)]";
 
   return (
     <div
-      className={`relative ${radiusOuter} ${outerPad} bg-gradient-to-br from-mint/45 via-mint-deep/30 to-gray-950 ${heroGlow} ${
+      className={`relative ${radiusOuter} ${outerPad} bg-gradient-to-br from-white/[0.08] via-gray-800/40 to-gray-950 ${heroGlow} ${
         variant === "hero" ? heroOuter : variant === "featured" ? featuredOuter : ""
       } ${className}`}
     >

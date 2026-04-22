@@ -2,7 +2,7 @@ import type { QueryClient } from "@tanstack/react-query";
 import { rq, marketplaceRqPolicy } from "@/lib/queryKeys";
 
 /** Bump when persisted shape changes or to drop stale browser caches (e.g. after DB resets). */
-const SCHEMA = 3;
+const SCHEMA = 4;
 /** Cached list + snapshots stay usable for 24h; after that next visit refetches. */
 const TTL_MS = 24 * 60 * 60 * 1000;
 const LS_COLLECTIONS = "tokenable.rq.collections-marketplace.v2";
@@ -78,13 +78,25 @@ export function hydrateMarketplaceQueries(queryClient: QueryClient): void {
       ) {
         for (const k of Object.keys(parsed.map)) {
           let keys: string[];
+          let duration: "7d" | "30d" | "90d" | "180d" | "365d" = "365d";
           try {
-            keys = JSON.parse(k) as string[];
-            if (!Array.isArray(keys)) continue;
+            const raw = JSON.parse(k) as unknown;
+            if (Array.isArray(raw) && raw.length >= 1) {
+              if (Array.isArray(raw[0])) {
+                keys = raw[0] as string[];
+                const d = raw[1];
+                if (d === "7d" || d === "30d" || d === "90d" || d === "180d" || d === "365d") {
+                  duration = d;
+                }
+              } else {
+                keys = raw as string[];
+              }
+            } else continue;
+            if (!Array.isArray(keys) || keys.length === 0) continue;
           } catch {
             continue;
           }
-          queryClient.setQueryData(rq.collectionSnapshots(keys), parsed.map[k]);
+          queryClient.setQueryData(rq.collectionSnapshots(keys, duration), parsed.map[k]);
         }
       }
     }
@@ -124,9 +136,18 @@ function flushMarketplaceToStorage(queryClient: QueryClient): void {
     for (const [queryKey, data] of rows) {
       if (!Array.isArray(queryKey) || queryKey.length < 2) continue;
       const sub = queryKey[1];
+      const durationRaw = queryKey[2];
+      const duration =
+        durationRaw === "7d" ||
+        durationRaw === "30d" ||
+        durationRaw === "90d" ||
+        durationRaw === "180d" ||
+        durationRaw === "365d"
+          ? durationRaw
+          : "365d";
       if (Array.isArray(sub) && sub.length > 0 && data != null) {
         const sorted = [...(sub as string[])].slice().sort();
-        map[JSON.stringify(sorted)] = data;
+        map[JSON.stringify([sorted, duration])] = data;
       }
     }
     if (Object.keys(map).length > 0) {

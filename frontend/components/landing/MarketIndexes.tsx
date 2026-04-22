@@ -4,14 +4,33 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getPriceGames, type JustTcgPriceHistoryPoint } from "@/lib/api";
 import {
-  buildGameIndex180dComparisonSeries,
+  buildGameIndexComparisonSeries,
   buildGameIndexSparklinePoints,
 } from "@/lib/justtcgGameValueTrend";
 import { buildMarketIndexCards, type MarketIndexCard } from "@/lib/justtcgMarketIndexes";
+import { ASSETS } from "@/constants/assets";
+import {
+  MARKET_RASTER_ICON_FRAME,
+  MARKET_RASTER_ICON_IMG,
+  MARKET_RASTER_ICON_IMG_NBA,
+} from "@/lib/marketRasterIconFrame";
 
-function formatIndexValue(usd: number): string {
-  if (!Number.isFinite(usd) || usd <= 0) return "—";
-  return Math.round(usd).toLocaleString("en-US");
+function marketIndexCardIconSrc(card: MarketIndexCard): string | undefined {
+  const id = card.gameId.toLowerCase();
+  const title = card.title.toLowerCase();
+  if (id.includes("pokemon") || title.includes("pokemon")) {
+    return ASSETS.icons.marketIndexPokemon;
+  }
+  if (title.includes("baseball") || /\bmlb\b/.test(id) || title.includes("mlb")) {
+    return ASSETS.icons.marketIndexMlb;
+  }
+  if (title.includes("nfl") || /\bnfl\b/.test(id)) {
+    return ASSETS.icons.marketIndexNfl;
+  }
+  if (title.includes("nba") || /\bnba\b/.test(id)) {
+    return ASSETS.icons.marketIndexNba;
+  }
+  return undefined;
 }
 
 /** Compact USD for spark axis / endpoint hints (e.g. $709k, $1.2M). */
@@ -86,7 +105,7 @@ function PriceHistorySparkline({
   showSpanAxis,
 }: {
   points: JustTcgPriceHistoryPoint[] | null;
-  /** When true, draw start/end dots and a ~6mo→now caption under the chart. */
+  /** When true, draw start/end dots and a ~1yr→now caption under the chart. */
   showSpanAxis?: boolean;
 }) {
   const w = 280;
@@ -116,7 +135,7 @@ function PriceHistorySparkline({
       className="w-full"
       title={
         showSpanAxis
-          ? "Time left → right (~6 mo to now). Path uses ~180d anchor plus ~90d / ~30d / ~7d implied levels from JustTCG returns (not tick history)."
+          ? "Time left → right (~1 year to now). Path uses 365d (or compounded shorter-window) anchor plus ~90d / ~30d / ~7d implied levels from JustTCG returns (not tick history)."
           : undefined
       }
     >
@@ -148,7 +167,7 @@ function PriceHistorySparkline({
       {showSpanAxis && scale ? (
         <div className="mt-1.5 flex justify-between gap-2 px-0.5 text-[11px] tabular-nums sm:text-xs">
           <span className="min-w-0 truncate text-white/90">
-            <span className="font-semibold text-zinc-500">~6 mo</span>
+            <span className="font-semibold text-zinc-500">~1 yr</span>
             <span className="mx-1 text-zinc-600">·</span>
             <span className="font-semibold">{formatSparkUsd(scale.startP)}</span>
           </span>
@@ -164,35 +183,43 @@ function PriceHistorySparkline({
 }
 
 function IndexCard({ card }: { card: MarketIndexCard }) {
+  const showChart = card.demoMock || !card.synthetic;
+
   const series = useMemo(
     () =>
-      buildGameIndex180dComparisonSeries({
-        valueUsd: card.valueUsd,
-        change7dPct: card.change7dPct,
-        change180dPct: card.change180dPct,
-        rawChange90dPct: card.rawChange90dPct,
-        rawChange30dPct: card.rawChange30dPct,
-      }),
-    [card],
+      !showChart
+        ? { points: [] as JustTcgPriceHistoryPoint[], changePct: NaN, comparisonAnchorLabel: "" }
+        : buildGameIndexComparisonSeries({
+            valueUsd: card.valueUsd,
+            change7dPct: card.change7dPct,
+            change365dPct: card.change365dPct,
+            change180dPct: card.change180dPct,
+            rawChange90dPct: card.rawChange90dPct,
+            rawChange30dPct: card.rawChange30dPct,
+          }),
+    [card, showChart],
   );
 
   const sparkPoints = useMemo(
     () =>
-      buildGameIndexSparklinePoints({
-        valueUsd: card.valueUsd,
-        change7dPct: card.change7dPct,
-        change30dPct: card.change30dPct,
-        change90dPct: card.change90dPct,
-        change180dPct: card.change180dPct,
-        rawChange90dPct: card.rawChange90dPct,
-        rawChange30dPct: card.rawChange30dPct,
-      }),
-    [card],
+      !showChart
+        ? []
+        : buildGameIndexSparklinePoints({
+            valueUsd: card.valueUsd,
+            change7dPct: card.change7dPct,
+            change30dPct: card.change30dPct,
+            change90dPct: card.change90dPct,
+            change365dPct: card.change365dPct,
+            change180dPct: card.change180dPct,
+            rawChange90dPct: card.rawChange90dPct,
+            rawChange30dPct: card.rawChange30dPct,
+          }),
+    [card, showChart],
   );
 
   const pct = series.changePct;
   const up = pct >= 0;
-  const pctFinite = Number.isFinite(pct);
+  const pctFinite = showChart && Number.isFinite(pct);
   const pctSigned = pctFinite
     ? `${up ? "+" : "-"}${Math.abs(pct).toLocaleString("en-US", {
         minimumFractionDigits: 1,
@@ -200,23 +227,56 @@ function IndexCard({ card }: { card: MarketIndexCard }) {
       })}%`
     : "—";
 
-  const pctAria = pctFinite
-    ? `${up ? "Up" : "Down"} ${Math.abs(pct).toFixed(1)} percent vs about six months ago`
-    : "Change unavailable";
+  const pctAria = !showChart
+    ? "Index not available from JustTCG catalog for this slot"
+    : pctFinite
+      ? `${up ? "Up" : "Down"} ${Math.abs(pct).toFixed(1)} percent vs about one year ago`
+      : "Change unavailable";
 
-  const idxFormatted = formatIndexValue(card.valueUsd);
+  const titleIconSrc = useMemo(
+    () => marketIndexCardIconSrc(card),
+    [card.gameId, card.title],
+  );
+
+  const iconImgClass =
+    titleIconSrc === ASSETS.icons.marketIndexNba
+      ? MARKET_RASTER_ICON_IMG_NBA
+      : MARKET_RASTER_ICON_IMG;
 
   return (
     <div className="flex flex-col rounded-2xl border border-white/[0.08] bg-[#121212] px-5 py-5 transition-colors hover:border-white/[0.12] sm:px-6 sm:py-6">
-      <h3 className="min-h-[2.75rem] text-[15px] font-bold leading-snug text-white sm:text-base">
-        {card.title}
+      <h3 className="flex min-h-[2.75rem] items-center gap-2.5 text-[15px] font-bold leading-snug text-white sm:text-base">
+        {titleIconSrc ? (
+          <span className={MARKET_RASTER_ICON_FRAME} aria-hidden>
+            {/* eslint-disable-next-line @next/next/no-img-element -- small raster badges from /public */}
+            <img
+              src={titleIconSrc}
+              alt=""
+              width={32}
+              height={32}
+              className={iconImgClass}
+            />
+          </span>
+        ) : null}
+        <span className="min-w-0 flex-1">{card.title}</span>
       </h3>
 
       <div className="mt-3 rounded-xl border border-white/[0.06] bg-black/35 px-3 pb-3 pt-2.5 sm:px-4 sm:pb-4 sm:pt-3">
-        <PriceHistorySparkline
-          points={sparkPoints.length >= 2 ? sparkPoints : null}
-          showSpanAxis
-        />
+        {!showChart ? (
+          <p className="min-h-[72px] px-0.5 py-2 text-left text-[11px] leading-relaxed text-zinc-500 sm:text-xs">
+            No matching game row in JustTCG’s catalog for this slot yet (supported lineup is
+            TCG-first). Numbers fill in automatically when{" "}
+            <code className="rounded bg-white/[0.06] px-1 font-mono text-[10px] text-zinc-400">
+              /price/games
+            </code>{" "}
+            includes one.
+          </p>
+        ) : (
+          <PriceHistorySparkline
+            points={sparkPoints.length >= 2 ? sparkPoints : null}
+            showSpanAxis
+          />
+        )}
         <div
           className="mt-3 flex items-baseline justify-center gap-2 border-t border-white/[0.06] pt-3 sm:justify-start"
           aria-label={pctAria}
@@ -228,29 +288,15 @@ function IndexCard({ card }: { card: MarketIndexCard }) {
           >
             {pctSigned}
           </p>
-          <span
-            className="rounded bg-white/[0.06] px-1.5 py-0.5 text-[10px] font-bold tabular-nums uppercase tracking-wide text-zinc-400"
-            title={series.comparisonAnchorLabel}
-          >
-            6M
-          </span>
+          {showChart ? (
+            <span
+              className="rounded bg-white/[0.06] px-1.5 py-0.5 text-[10px] font-bold tabular-nums uppercase tracking-wide text-zinc-400"
+              title={series.comparisonAnchorLabel}
+            >
+              1Y
+            </span>
+          ) : null}
         </div>
-      </div>
-
-      <div className="mt-4 border-t border-white/[0.06] pt-4">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-zinc-500 sm:text-xs">
-          JustTCG catalog total
-        </p>
-        <p className="mt-1.5 text-lg font-extrabold tracking-tight text-white tabular-nums sm:text-xl">
-          {idxFormatted === "—" ? (
-            idxFormatted
-          ) : (
-            <>
-              <span className="text-zinc-500">$</span>
-              {idxFormatted}
-            </>
-          )}
-        </p>
       </div>
     </div>
   );

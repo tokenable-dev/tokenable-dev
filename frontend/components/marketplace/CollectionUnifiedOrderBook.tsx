@@ -597,12 +597,16 @@ export function CollectionUnifiedOrderBook({
                       {row.tapeAggressor === "sell" ? "Sell" : "Buy"}
                     </span>
                     <span className="text-right">
-                      <Link
-                        href={`/marketplace/${encodeURIComponent(row.tokenId)}`}
-                        className="text-mint/90 hover:text-mint hover:underline"
-                      >
-                        #{row.tokenId}
-                      </Link>
+                      {/^\d+$/.test(String(row.tokenId)) ? (
+                        <Link
+                          href={`/marketplace/${encodeURIComponent(row.tokenId)}`}
+                          className="text-mint/90 hover:text-mint hover:underline"
+                        >
+                          #{row.tokenId}
+                        </Link>
+                      ) : (
+                        <span className="text-gray-500">{row.tokenId}</span>
+                      )}
                     </span>
                     <span className="min-w-0 truncate text-right text-gray-500" title={new Date(row.t * 1000).toISOString()}>
                       {formatTapeTime(row.t)}

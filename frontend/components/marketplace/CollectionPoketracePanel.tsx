@@ -17,6 +17,19 @@ function formatUsd(b: PoketracePriceBand | null): string {
   return "—";
 }
 
+function slabTierEbayBand(
+  c: NonNullable<CollectionPoketracePreview["card"]>,
+  historyTier: string,
+): PoketracePriceBand | null {
+  const t = String(historyTier ?? "").trim();
+  if (!t.startsWith("PSA_")) return null;
+  const fromMap = c.ebayPsaTiers?.[t];
+  if (fromMap) return fromMap;
+  if (t === "PSA_10") return c.ebayPsa10 ?? null;
+  if (t === "PSA_9") return c.ebayPsa9 ?? null;
+  return null;
+}
+
 function BandRow({
   label,
   band,
@@ -51,10 +64,16 @@ export function CollectionPoketracePanel({
   data,
   isLoading,
   error,
+  historyTier = "NEAR_MINT",
+  tierLabel = "Near Mint",
 }: {
   data: CollectionPoketracePreview | undefined;
   isLoading: boolean;
   error: Error | null;
+  /** Path tier for slab pricing (e.g. PSA_9) — same as price-history requests */
+  historyTier?: string;
+  /** Human label (e.g. "PSA 9") */
+  tierLabel?: string | null;
 }) {
   if (isLoading) {
     return (
@@ -87,27 +106,23 @@ export function CollectionPoketracePanel({
     return (
       <div className="w-full rounded-xl border border-zinc-800/80 bg-zinc-950/50 px-3 py-3">
         <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500 mb-1.5">
-          PokeTrace reference (NM)
+          PokéTrace catalog
         </p>
         <p className="text-[13px] text-zinc-400 leading-snug">
           {data.message ??
-            "Reference unavailable — catalog match not loaded. External market price uses PokeTrace when matched, otherwise JustTCG; listing-pool stats are liquidity only."}
+            "Reference unavailable — catalog match not loaded. External market price uses PokéTrace when matched; listing-pool stats are liquidity only."}
         </p>
       </div>
     );
   }
 
   const c = data.card;
-  const approx = data.matchConfidence === "approximate";
+  const tier = String(historyTier ?? "NEAR_MINT").trim();
+  const slabBand = tier.startsWith("PSA_") ? slabTierEbayBand(c, tier) : null;
+  const tierHuman = (tierLabel ?? "Near Mint").trim() || "Near Mint";
 
   return (
     <div className="w-full rounded-xl border border-emerald-500/25 bg-gradient-to-b from-emerald-500/[0.06] to-black/20 px-3 py-3 shadow-[0_8px_32px_-16px_rgba(16,185,129,0.35)]">
-      {approx ? (
-        <p className="mb-2 rounded-md border border-amber-500/30 bg-amber-500/[0.08] px-2 py-1.5 text-[11px] font-medium leading-snug text-amber-100/95">
-          Approximate market data: catalog match is not fully verified for this card. Prices and
-          trends are indicative only.
-        </p>
-      ) : null}
       <div className="flex items-start gap-3">
         {c.image ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -120,9 +135,6 @@ export function CollectionPoketracePanel({
           <div className="h-16 w-[46px] shrink-0 rounded-md border border-zinc-800 bg-zinc-900/80" />
         )}
         <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-400/90">
-            PokeTrace reference (NM)
-          </p>
           <p className="mt-0.5 text-[14px] font-semibold text-white leading-snug line-clamp-2">
             {c.name}
           </p>
@@ -137,8 +149,13 @@ export function CollectionPoketracePanel({
       </div>
 
       <dl className="mt-3 space-y-2">
-        <BandRow label="eBay" band={c.ebayNearMint} />
-        <BandRow label="TCGPlayer" band={c.tcgplayerNearMint} />
+        {slabBand ? (
+          <BandRow label={`eBay (${tierHuman})`} band={slabBand} />
+        ) : tier.startsWith("PSA_") ? (
+          <div className="rounded-lg border border-zinc-800/80 bg-black/20 px-2.5 py-2">
+            <p className="text-[11px] font-medium text-zinc-500">eBay ({tierHuman})</p>
+          </div>
+        ) : null}
       </dl>
 
       {c.topPrice != null && Number.isFinite(c.topPrice) ? (

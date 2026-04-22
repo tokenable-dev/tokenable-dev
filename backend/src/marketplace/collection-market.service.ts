@@ -2,29 +2,32 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
-import { GetCardsDto } from '../price/dto/get-cards.dto';
-import { PriceService } from '../price/price.service';
+import { PoketraceService } from '../poketrace/poketrace.service';
 import { CollectionService } from './collection.service';
 import {
-  candidateJustTcgGamesForCollection,
-  hasUsefulJustTcgMarketData,
-  parseJustTcgCardsResponseBest,
-  scoreMarketPriceParsed,
+  percentChangeFromPoints,
   type GradePriceStrip,
-  type ParsedJustTcgMarket,
   type UsdPoint,
 } from './collection-market.util';
+import {
+  blendCatalogSpotUsdFromPreview,
+  gradeStripFromHistoryTier,
+  nmHistoryDaysForBundleWindow,
+} from './poketrace-grade-strip.util';
+import { poketraceHistoryTierFromComponents } from './poketrace-catalog-tier.util';
+import { tokenablePriceHistoryDurationToPeriod } from '../poketrace/poketrace-period.util';
 import { Order, OrderSide, OrderStatus } from './entities/order.entity';
 import { computeRobustMarketStatsFromUsdPrices } from './collection-market-stats.util';
 
-export type PriceHistoryDuration = '7d' | '30d' | '90d' | '180d';
+export type PriceHistoryDuration = '7d' | '30d' | '90d' | '180d' | '365d';
 
 /**
- * Collection “market price” in the product is **external** (PokéTrace primary, JustTCG fallback).
+ * Collection catalog reference prices: **PokeTrace** (PSA slab → `PSA_10` / `PSA_9` history + bands; else NM).
  * `GET …/collections/:key/stats` is **listing-pool liquidity only**, not catalog price.
  */
 export type MarketChangePriceSource =
   | 'poketrace_nm_ebay'
+  | 'poketrace_graded_ebay'
   | 'justtcg_card_history'
   | 'none';
 
@@ -51,21 +54,20 @@ export interface CollectionMarketStatsResponse {
 
 export interface CollectionMarketBundle {
   collectionKey: string;
+  /** Legacy field — always null (catalog ids live under PokeTrace preview / `components.poketraceCardId`). */
   justtcgCardId: string | null;
   categoryLabel: string | null;
-  /**
-   * Deprecated for collection “market price”: kept null with `marketChangeSource: 'none'`.
-   * Use `GET …/collections/:key/stats` (listing pool) instead.
-   */
+  /** Percent change over {@link marketChangeWindow} from PokeTrace NM eBay history when available. */
   marketChangePct: number | null;
-  /** Window label only (grade strip / JustTCG metadata still keyed by this window). */
+  /** Calendar window aligned with NM history (chart uses max days upstream). */
   marketChangeWindow: PriceHistoryDuration;
-  /** No external card time-series in bundle; pool stats live on `/stats`. */
+  /** `poketrace_nm_ebay` when `marketChangePct` is from NM history; else `none`. */
   marketChangeSource: MarketChangePriceSource | null;
-  /** Always false when external series is empty (legacy field). */
+  /** Legacy — always false. */
   isMockExternalPrices: boolean;
+  /** NM-derived reference strip (same USD on psa10/psa9/raw — PokeTrace does not split graded tiers on public NM). */
   gradePrices: GradePriceStrip;
-  /** Deprecated: empty — collection external chart must not use JustTCG/PokéTrace blend here. */
+  /** PokeTrace eBay NEAR_MINT daily series (downsampled for list snapshots). */
   externalUsd: UsdPoint[];
   platformUsd: UsdPoint[];
 }
@@ -96,7 +98,7 @@ export class CollectionMarketService {
 
   constructor(
     private readonly collectionService: CollectionService,
-    private readonly priceService: PriceService,
+    private readonly poketraceService: PoketraceService,
     private readonly config: ConfigService,
     @InjectRepository(Order)
     private readonly orderRepo: Repository<Order>,
@@ -362,106 +364,67 @@ export class CollectionMarketService {
 
   async getCollectionMarketBundle(
     collectionKey: string,
-    priceHistoryDuration: PriceHistoryDuration = '30d',
+    priceHistoryDuration: PriceHistoryDuration = '365d',
+    _hintTokenId?: string | null,
   ): Promise<CollectionMarketBundle> {
     const key = collectionKey.toLowerCase();
     const col = await this.collectionService.findOne(key);
-    const ids = await this.collectionService.resolveJustTcgProductIdentifiersForCollection(key);
     const { platformUsd } = await this.platformTradesForApi(key);
 
-    const empty: ParsedJustTcgMarket = {
-      history: [],
-      grades: { psa10: null, psa9: null, raw: null },
-      gameLabel: null,
-    };
-    let parsed: ParsedJustTcgMarket = { ...empty };
+    const window: PriceHistoryDuration = ['7d', '30d', '90d', '180d', '365d'].includes(
+      priceHistoryDuration,
+    )
+      ? priceHistoryDuration
+      : '365d';
+    const chartHistoryDays = nmHistoryDaysForBundleWindow(window);
+    const historyTier = poketraceHistoryTierFromComponents(
+      col?.components as Record<string, unknown> | undefined,
+    );
+    const historyPeriod = tokenablePriceHistoryDurationToPeriod(window);
 
-    const mergeRaw = (raw: unknown) => {
-      const next = parseJustTcgCardsResponseBest(raw);
-      if (scoreMarketPriceParsed(next) > scoreMarketPriceParsed(parsed)) {
-        parsed = next;
-      }
-    };
+    const [preview, tierHist] = await Promise.all([
+      this.poketraceService.getPreviewForCollection(col),
+      this.poketraceService.getTierPriceHistoryForCollection(col, {
+        tier: historyTier,
+        period: historyPeriod,
+        maxCalendarDays: chartHistoryDays,
+        maxRequests: 5,
+      }),
+    ]);
 
-    const directQueries: GetCardsDto[] = [];
-    if (ids.cardId) {
-      directQueries.push({
-        cardId: ids.cardId,
-        include_price_history: false,
-        priceHistoryDuration,
-        limit: 1,
-      });
-    }
-    if (ids.variantId) {
-      directQueries.push({
-        variantId: ids.variantId,
-        include_price_history: false,
-        priceHistoryDuration,
-        limit: 1,
-      });
-    }
-    if (ids.tcgplayerId) {
-      directQueries.push({
-        tcgplayerId: ids.tcgplayerId,
-        include_price_history: false,
-        priceHistoryDuration,
-        limit: 1,
-      });
-    }
+    const catalogSpot = blendCatalogSpotUsdFromPreview(preview, historyTier);
+    const grades = gradeStripFromHistoryTier(historyTier, catalogSpot);
 
-    for (const opts of directQueries) {
-      if (hasUsefulJustTcgMarketData(parsed)) break;
-      try {
-        const raw = await this.priceService.getCards(opts);
-        mergeRaw(raw);
-      } catch (e) {
-        this.logger.warn(
-          `JustTCG direct lookup failed for collection ${key} opts=${JSON.stringify(opts)}: ${String(e)}`,
-        );
-      }
-    }
+    const externalUsd: UsdPoint[] = tierHist.points.map((p) => ({
+      t: p.t,
+      v: p.v,
+    }));
 
-    const q = col?.queryUsed?.trim();
-    if (q && q.length >= 2 && col && !hasUsefulJustTcgMarketData(parsed)) {
-      const games = candidateJustTcgGamesForCollection({
-        queryUsed: col.queryUsed,
-        displayLabel: col.displayLabel,
-        components: col.components as Record<string, unknown>,
-      });
-      for (const game of games) {
-        try {
-          const raw = await this.priceService.getCards({
-            q,
-            game,
-            include_price_history: false,
-            priceHistoryDuration,
-            limit: 12,
-          });
-          mergeRaw(raw);
-          if (hasUsefulJustTcgMarketData(parsed)) break;
-        } catch (e) {
-          this.logger.warn(
-            `JustTCG search failed for collection ${key} game=${game}: ${String(e)}`,
-          );
-        }
-      }
-    }
+    const marketChangePct = percentChangeFromPoints(externalUsd);
+    const marketChangeSource: MarketChangePriceSource | null =
+      marketChangePct != null && externalUsd.length >= 2
+        ? historyTier === 'NEAR_MINT'
+          ? 'poketrace_nm_ebay'
+          : 'poketrace_graded_ebay'
+        : 'none';
 
-    /** Collection “market price” = `GET …/stats` (listings). Bundle keeps grade strip from JustTCG only. */
-    const externalUsd: UsdPoint[] = [];
-    const marketChangePct: number | null = null;
-    const marketChangeSource: MarketChangePriceSource | null = 'none';
-    const isMockExternalPrices = false;
+    const categoryParts =
+      preview.matched && preview.card
+        ? [preview.card.setName, preview.card.name]
+            .map((s) => String(s).trim())
+            .filter((s) => s.length > 0)
+        : [];
+    const categoryLabel = categoryParts.length > 0 ? categoryParts.join(' · ') : null;
 
     return {
       collectionKey: key,
-      justtcgCardId: ids.cardId,
-      categoryLabel: parsed.gameLabel,
+      justtcgCardId: null,
+      categoryLabel,
       marketChangePct,
-      marketChangeWindow: priceHistoryDuration,
+      marketChangeWindow: window,
       marketChangeSource,
-      isMockExternalPrices,
-      gradePrices: parsed.grades,
+      isMockExternalPrices: false,
+      gradePrices: grades,
       externalUsd,
       platformUsd,
     };
@@ -469,9 +432,9 @@ export class CollectionMarketService {
 
   async batchListSnapshots(
     collectionKeys: string[],
-    priceHistoryDuration: PriceHistoryDuration = '30d',
+    priceHistoryDuration: PriceHistoryDuration = '365d',
   ): Promise<{ items: CollectionListSnapshot[] }> {
-    const keys = [...new Set(collectionKeys.map((k) => k.toLowerCase()))].slice(0, 40);
+    const keys = [...new Set(collectionKeys.map((k) => k.toLowerCase()))].slice(0, 60);
     const settled = await Promise.all(
       keys.map(async (key) => {
         try {
@@ -493,6 +456,8 @@ export class CollectionMarketService {
             gradePrices: { psa10: null, psa9: null, raw: null },
             sparklineUsd: [],
             marketStats: null,
+            lastTokenableTradeUsdc: null,
+            lastTokenableTradeAtSec: null,
           } satisfies CollectionListSnapshot;
         }
       }),
@@ -514,13 +479,19 @@ export interface CollectionListSnapshot {
   sparklineUsd: UsdPoint[];
   /** Pool stats — same as `GET …/collections/:key/stats` when available */
   marketStats: CollectionMarketStatsResponse | null;
+  /** Most recent fulfilled ask (USDC) on Tokenable for this bucket; null if no sales yet */
+  lastTokenableTradeUsdc: number | null;
+  /** Unix seconds for {@link lastTokenableTradeUsdc} */
+  lastTokenableTradeAtSec: number | null;
 }
 
 function bundleToListSnapshot(
   bundle: CollectionMarketBundle,
   marketStats: CollectionMarketStatsResponse | null,
 ): CollectionListSnapshot {
-  const spark = downsampleSpark(bundle.externalUsd, 24);
+  const spark = downsampleSpark(bundle.externalUsd, 48);
+  const lastPt =
+    bundle.platformUsd.length > 0 ? bundle.platformUsd[bundle.platformUsd.length - 1]! : null;
   return {
     collectionKey: bundle.collectionKey,
     justtcgCardId: bundle.justtcgCardId,
@@ -532,6 +503,10 @@ function bundleToListSnapshot(
     gradePrices: bundle.gradePrices,
     sparklineUsd: spark,
     marketStats,
+    lastTokenableTradeUsdc:
+      lastPt != null && Number.isFinite(lastPt.v) && lastPt.v > 0 ? lastPt.v : null,
+    lastTokenableTradeAtSec:
+      lastPt != null && Number.isFinite(lastPt.t) && lastPt.t > 0 ? lastPt.t : null,
   };
 }
 

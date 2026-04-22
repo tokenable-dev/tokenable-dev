@@ -4,12 +4,12 @@ import { ArrayMaxSize, IsArray, IsIn, IsOptional, IsString } from 'class-validat
 export class BatchMarketSnapshotsDto {
   @ApiProperty({ type: [String], description: 'Marketplace collection_key values' })
   @IsArray()
-  @ArrayMaxSize(40)
+  @ArrayMaxSize(60)
   @IsString({ each: true })
   collectionKeys!: string[];
 
-  @ApiPropertyOptional({ enum: ['7d', '30d', '90d', '180d'] })
+  @ApiPropertyOptional({ enum: ['7d', '30d', '90d', '180d', '365d'] })
   @IsOptional()
-  @IsIn(['7d', '30d', '90d', '180d'])
-  priceHistoryDuration?: '7d' | '30d' | '90d' | '180d';
+  @IsIn(['7d', '30d', '90d', '180d', '365d'])
+  priceHistoryDuration?: '7d' | '30d' | '90d' | '180d' | '365d';
 }

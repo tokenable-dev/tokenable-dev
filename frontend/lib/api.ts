@@ -165,6 +165,8 @@ export interface JustTcgGameSummary {
   game_value_change_90d_pct?: number;
   /** When present on JustTCG `GET /games`, use for true 180d aggregate index change. */
   game_value_change_180d_pct?: number;
+  /** If present on `GET /games`, used for 1y index comparison (preferred over compounding shorter windows). */
+  game_value_change_365d_pct?: number;
 }
 
 export interface JustTcgGamesResponse {
@@ -634,26 +636,41 @@ export interface CollectionGradePrices {
 /** Full dual-series bundle for collection detail chart */
 export interface CollectionMarketSeries {
   collectionKey: string;
+  /** Legacy — always null; use PokeTrace preview / `components.poketraceCardId`. */
   justtcgCardId: string | null;
   categoryLabel: string | null;
   marketChangePct: number | null;
   /** Present when served by a recent backend (exchange list uses same bundle fields) */
-  marketChangeWindow?: "7d" | "30d" | "90d" | "180d";
-  marketChangeSource?: "poketrace_nm_ebay" | "justtcg_card_history" | "none" | null;
+  marketChangeWindow?: "7d" | "30d" | "90d" | "180d" | "365d";
+  marketChangeSource?:
+    | "poketrace_nm_ebay"
+    | "poketrace_graded_ebay"
+    | "justtcg_card_history"
+    | "none"
+    | null;
+  /** Legacy (backend currently always false) */
   isMockExternalPrices?: boolean;
   gradePrices: CollectionGradePrices;
   externalUsd: CollectionUsdPoint[];
   platformUsd: CollectionUsdPoint[];
 }
 
-/** JustTCG allows at most `180d` for `priceHistoryDuration` (single request = max history). */
+/** PokeTrace NM chart bundle — `priceHistoryDuration` caps eBay NEAR_MINT history length for `externalUsd`. */
 export async function getCollectionMarketSeries(
   collectionKey: string,
-  priceHistoryDuration: "7d" | "30d" | "90d" | "180d" = "180d"
+  priceHistoryDuration: "7d" | "30d" | "90d" | "180d" | "365d" = "365d",
+  opts?: { hintTokenId?: number },
 ): Promise<CollectionMarketSeries> {
   const enc = encodeURIComponent(collectionKey);
   const sp = new URLSearchParams();
   sp.set("priceHistoryDuration", priceHistoryDuration);
+  if (
+    opts?.hintTokenId != null &&
+    Number.isFinite(opts.hintTokenId) &&
+    opts.hintTokenId >= 0
+  ) {
+    sp.set("hintTokenId", String(Math.floor(opts.hintTokenId)));
+  }
   const res = await backendFetch(
     `${getApiUrl()}/marketplace/collections/${enc}/market-series?${sp.toString()}`
   );
@@ -723,7 +740,7 @@ export interface CollectionPoketracePreview {
   message?: string;
   /** Strict verified catalog id vs relaxed approximate reference (charts / NM). */
   matchConfidence?: "verified" | "approximate";
-  /** True when the backend used PokeTrace mock fallback (see POKETRACE_MOCK_ON_FAILURE) */
+  /** Legacy; backend no longer sets mock PokeTrace payloads */
   isMockData?: boolean;
   card: null | {
     id: string;
@@ -742,6 +759,10 @@ export interface CollectionPoketracePreview {
     gradedTiersAvailable: string[];
     ebayNearMint: PoketracePriceBand | null;
     tcgplayerNearMint: PoketracePriceBand | null;
+    ebayPsa10?: PoketracePriceBand | null;
+    ebayPsa9?: PoketracePriceBand | null;
+    /** eBay PSA tier bands keyed as `PSA_1` … `PSA_10` when upstream sends them */
+    ebayPsaTiers?: Record<string, PoketracePriceBand | null>;
   };
 }
 
@@ -785,37 +806,98 @@ export async function postBatchMintPoketracePreviews(
   return out;
 }
 
-/** GET /cards/:id/prices/NEAR_MINT/history — server-trimmed to UTC days in window */
+/** PokeTrace GET …/prices/{tier}/history — server-trimmed to UTC days (`days` / `maxDays`). */
+export type PoketraceHistoryPeriod = "7d" | "30d" | "90d" | "1y" | "all";
+
 export interface CollectionPoketraceNmHistory {
   enabled: boolean;
   searchQuery: string;
   matched: boolean;
   message?: string;
   matchConfidence?: "verified" | "approximate";
-  /** Present when the backend served synthetic NM history for testing */
+  /** Legacy; backend no longer sets synthetic NM history */
   isMockData?: boolean;
   days: number;
+  tier?: string;
+  period?: PoketraceHistoryPeriod;
   points: CollectionUsdPoint[];
   source: string;
   upstreamRequests: number;
 }
 
-export async function getCollectionPoketraceNmHistory(
+function calendarDaysToPoketracePeriod(days: number): PoketraceHistoryPeriod {
+  const d = Math.min(4000, Math.max(1, Math.floor(days)));
+  if (d <= 7) return "7d";
+  if (d <= 30) return "30d";
+  if (d <= 90) return "90d";
+  if (d <= 366) return "1y";
+  return "all";
+}
+
+/** Unified collection price history (same endpoint for list/detail/portfolio). */
+export async function getCollectionPoketracePriceHistory(
   collectionKey: string,
-  days = 90
+  opts: {
+    tier?: string;
+    period?: PoketraceHistoryPeriod;
+    maxDays?: number;
+  } = {},
 ): Promise<CollectionPoketraceNmHistory> {
   const enc = encodeURIComponent(collectionKey);
-  const d = Math.min(365, Math.max(1, Math.floor(days)));
+  const tier = (opts.tier ?? "NEAR_MINT").trim() || "NEAR_MINT";
+  const period = opts.period ?? "90d";
+  const sp = new URLSearchParams();
+  sp.set("tier", tier);
+  sp.set("period", period);
+  if (
+    opts.maxDays != null &&
+    Number.isFinite(opts.maxDays) &&
+    opts.maxDays > 0
+  ) {
+    sp.set("maxDays", String(Math.min(4000, Math.floor(opts.maxDays))));
+  }
   const res = await backendFetch(
-    `${getApiUrl()}/marketplace/collections/${enc}/poketrace/nm-history?days=${d}`
+    `${getApiUrl()}/marketplace/collections/${enc}/poketrace/price-history?${sp.toString()}`
   );
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(
-      (err as { message?: string }).message ?? "Failed to load PokeTrace NM history"
+      (err as { message?: string }).message ??
+        "Failed to load PokeTrace price history"
     );
   }
   return res.json() as Promise<CollectionPoketraceNmHistory>;
+}
+
+/** @deprecated Prefer {@link getCollectionPoketracePriceHistory} with `period` + optional `maxDays`. */
+export async function getCollectionPoketraceNmHistory(
+  collectionKey: string,
+  days = 90
+): Promise<CollectionPoketraceNmHistory> {
+  const d = Math.min(365, Math.max(1, Math.floor(days)));
+  return getCollectionPoketracePriceHistory(collectionKey, {
+    tier: "NEAR_MINT",
+    period: calendarDaysToPoketracePeriod(d),
+    maxDays: d,
+  });
+}
+
+/** Upstream operation list (no secrets). */
+export async function getPoketraceUpstreamCatalog(): Promise<{
+  upstreamBase: string;
+  operations: readonly unknown[];
+}> {
+  const res = await backendFetch(`${getApiUrl()}/marketplace/poketrace/catalog`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(
+      (err as { message?: string }).message ?? "Failed to load PokeTrace catalog"
+    );
+  }
+  return res.json() as Promise<{
+    upstreamBase: string;
+    operations: readonly unknown[];
+  }>;
 }
 
 /** Fulfilled listing fill for collection tape (same source as chart platform series). */
@@ -850,27 +932,37 @@ export async function getCollectionPlatformTrades(
 
 export interface CollectionListMarketSnapshot {
   collectionKey: string;
+  /** Legacy — always null; use PokeTrace preview / `components.poketraceCardId`. */
   justtcgCardId: string | null;
   categoryLabel: string | null;
   /** Legacy bundle field; prefer {@link CollectionMarketStats} via `marketStats` or GET …/stats */
   marketChangePct: number | null;
   /** Window label for bundle metadata */
-  marketChangeWindow?: "7d" | "30d" | "90d" | "180d";
-  marketChangeSource?: "poketrace_nm_ebay" | "justtcg_card_history" | "none" | null;
-  /** JustTCG path while server `TCG_USE_MOCK` is enabled */
+  marketChangeWindow?: "7d" | "30d" | "90d" | "180d" | "365d";
+  marketChangeSource?:
+    | "poketrace_nm_ebay"
+    | "poketrace_graded_ebay"
+    | "justtcg_card_history"
+    | "none"
+    | null;
+  /** Legacy bundle field (backend currently always false) */
   isMockExternalPrices?: boolean;
   gradePrices: CollectionGradePrices;
   sparklineUsd: CollectionUsdPoint[];
   /** Pool stats (listing-derived); same contract as {@link getCollectionMarketStats} */
   marketStats?: CollectionMarketStats | null;
+  /** Most recent fulfilled listing price (USDC) on Tokenable — list batch snapshots */
+  lastTokenableTradeUsdc?: number | null;
+  /** Unix seconds for {@link lastTokenableTradeUsdc} */
+  lastTokenableTradeAtSec?: number | null;
 }
 
 /** Must match backend `BatchMarketSnapshotsDto` @ArrayMaxSize */
-export const MARKETPLACE_COLLECTION_SNAPSHOTS_MAX_KEYS = 40;
+export const MARKETPLACE_COLLECTION_SNAPSHOTS_MAX_KEYS = 60;
 
 export async function postMarketplaceCollectionSnapshots(body: {
   collectionKeys: string[];
-  priceHistoryDuration?: "7d" | "30d" | "90d" | "180d";
+  priceHistoryDuration?: "7d" | "30d" | "90d" | "180d" | "365d";
 }): Promise<{ items: CollectionListMarketSnapshot[] }> {
   const res = await backendFetch(`${getApiUrl()}/marketplace/collections/market-snapshots`, {
     method: "POST",
@@ -892,7 +984,7 @@ export async function postMarketplaceCollectionSnapshots(body: {
  */
 export async function postMarketplaceCollectionSnapshotsBatched(
   collectionKeys: string[],
-  priceHistoryDuration: "7d" | "30d" | "90d" | "180d" = "30d",
+  priceHistoryDuration: "7d" | "30d" | "90d" | "180d" | "365d" = "365d",
 ): Promise<{ items: CollectionListMarketSnapshot[] }> {
   const max = MARKETPLACE_COLLECTION_SNAPSHOTS_MAX_KEYS;
   if (collectionKeys.length === 0) return { items: [] };

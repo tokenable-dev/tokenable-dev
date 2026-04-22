@@ -60,10 +60,21 @@ export function parsePokeTraceHistoryBody(body: unknown): {
   points.sort((a, b) => a.t - b.t);
 
   let nextCursor: string | null = null;
+  const pag = isRecord(body.pagination) ? body.pagination : null;
+  const nestedCursor =
+    pag && typeof pag.nextCursor === 'string' ? pag.nextCursor : null;
   const c =
-    body.nextCursor ?? body.cursor ?? body.next ?? body.pageToken ?? null;
+    body.nextCursor ??
+    nestedCursor ??
+    body.cursor ??
+    body.next ??
+    body.pageToken ??
+    null;
   if (typeof c === 'string' && c.length > 0) nextCursor = c;
-  if (typeof body.hasMore === 'boolean' && body.hasMore === false) {
+  const hasMoreFalse =
+    (typeof body.hasMore === 'boolean' && body.hasMore === false) ||
+    (pag && typeof pag.hasMore === 'boolean' && pag.hasMore === false);
+  if (hasMoreFalse) {
     nextCursor = null;
   }
 

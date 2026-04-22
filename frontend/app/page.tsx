@@ -47,49 +47,42 @@ function FeeBadgeIcons() {
     <div className="flex items-center justify-center" aria-hidden>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src={ASSETS.icons.lowestTransactionFee}
+        src={ASSETS.icons.lowestFees}
         alt=""
         width={78}
         height={78}
-        className="h-11 w-11 object-contain sm:h-12 sm:w-12"
+        className="h-11 w-11 object-contain grayscale saturate-0 sm:h-12 sm:w-12"
       />
     </div>
   );
 }
 
-/** Fast / instant settlement — provided mark */
-function InstantSettlementIcons() {
+function GemsOnlyIcon() {
   return (
     <div className="flex items-center justify-center" aria-hidden>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src={ASSETS.icons.instantSettlement}
+        src={ASSETS.icons.gemsOnly}
         alt=""
-        width={72}
-        height={72}
-        className="h-11 w-11 object-contain sm:h-12 sm:w-12"
+        width={78}
+        height={78}
+        className="h-11 w-11 object-contain grayscale saturate-0 sm:h-12 sm:w-12"
       />
     </div>
   );
 }
 
-function Psa10Mark() {
+function VaultedAuthenticatedIcon() {
   return (
-    <div
-      className="flex items-end justify-center gap-1.5 select-none sm:gap-2"
-      aria-label="PSA 10"
-    >
+    <div className="flex items-center justify-center" aria-hidden>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src={ASSETS.icons.psaMark}
+        src={ASSETS.icons.vaultedAuthenticated}
         alt=""
-        width={104}
-        height={40}
-        className="h-10 w-auto max-w-[min(100%,7.25rem)] object-contain object-bottom sm:h-12"
+        width={78}
+        height={78}
+        className="h-11 w-11 object-contain grayscale saturate-0 sm:h-12 sm:w-12"
       />
-      <span className="text-4xl font-black leading-[0.85] tracking-tight text-white sm:text-5xl">
-        10
-      </span>
     </div>
   );
 }
@@ -150,8 +143,9 @@ export default function LandingPage() {
         </h1>
 
         <p className="mb-11 max-w-xl text-center text-sm leading-relaxed text-gray-400 sm:text-base sm:leading-relaxed">
-          Trade tokenized collectibles with instant settlement on-chain. All cards are graded gems PSA
-          10 and vaulted and authenticated.
+          Trade collectibles with instant settlement and low fees.
+          <br />
+          All cards are vaulted and authenticated PSA, TAG, BGS gems.
         </p>
 
         <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-center sm:gap-4">
@@ -159,7 +153,7 @@ export default function LandingPage() {
             href="/exchange"
             className="inline-flex min-w-[200px] items-center justify-center rounded-full bg-mint px-8 py-3.5 text-center text-base font-bold text-[#030712] shadow-lg shadow-mint/15 transition hover:brightness-110 hover:shadow-mint/25 active:scale-[0.98] sm:min-w-[220px]"
           >
-            Collectibles Markets
+            Exchange
           </Link>
           <Link
             href="/vault"
@@ -179,16 +173,16 @@ export default function LandingPage() {
             </span>
           </FeatureStat>
 
-          <FeatureStat label="Lowest Transaction Fee">
+          <FeatureStat label="Lowest Fees">
             <FeeBadgeIcons />
           </FeatureStat>
 
-          <FeatureStat label="PSA 10 Gem Only">
-            <Psa10Mark />
+          <FeatureStat label="PSA, TAG, BGS Gems Only">
+            <GemsOnlyIcon />
           </FeatureStat>
 
-          <FeatureStat label="Instant Settlement">
-            <InstantSettlementIcons />
+          <FeatureStat label="100% Vaulted & Authenticated">
+            <VaultedAuthenticatedIcon />
           </FeatureStat>
         </div>
       </section>

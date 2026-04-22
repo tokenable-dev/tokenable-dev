@@ -17,11 +17,20 @@ import {
   type HistoryPoint,
 } from './poketrace-history.util';
 import {
-  buildMockPoketraceNmHistory,
-  buildMockPoketracePreview,
-} from './poketrace.mock';
-
-const POKETRACE_BASE = 'https://api.poketrace.com/v1';
+  calendarDaysToFetchPeriod,
+  type PoketraceHistoryPeriod,
+} from './poketrace-period.util';
+import {
+  buildPoketraceGetCardUrl,
+  buildPoketraceListCardsUrl,
+  buildPoketraceListingsUrl,
+  buildPoketraceListSetsUrl,
+  buildPoketracePriceHistoryUrl,
+  type PoketraceListCardsQuery,
+  type PoketraceListingsQuery,
+  type PoketraceListSetsQuery,
+  type PoketracePriceHistoryQuery,
+} from './poketrace-upstream.urls';
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -87,7 +96,7 @@ export function buildPoketraceSearchQuery(col: MarketplaceCollection): string {
  * Primary JustTCG-style query often misses on PokeTrace (JP-only wording, "Japanese", etc.).
  * Progressive strings for **mint-time** id discovery (`tryResolveCardIdForMintMetadata`) only.
  * Collection **reference** NM bands: `components.poketraceCardId` + GET /cards/:id — no search.
- * Product pricing elsewhere uses external NM (PokéTrace / JustTCG); pool stats are liquidity only.
+ * Product pricing elsewhere uses external NM (PokéTrace); pool stats are liquidity only.
  */
 export function buildPoketraceSearchQueryAttempts(
   col: MarketplaceCollection,
@@ -553,17 +562,40 @@ function hasSearchablePricePayload(prices: unknown): boolean {
 function summarizeRawPrices(prices: unknown): {
   ebayNearMint: PriceBand | null;
   tcgplayerNearMint: PriceBand | null;
+  ebayPsa10: PriceBand | null;
+  ebayPsa9: PriceBand | null;
+  /** eBay keys like `PSA_10`, `PSA_9`, … from upstream `prices.ebay` */
+  ebayPsaTiers: Record<string, PriceBand | null>;
 } {
   if (!isRecord(prices)) {
-    return { ebayNearMint: null, tcgplayerNearMint: null };
+    return {
+      ebayNearMint: null,
+      tcgplayerNearMint: null,
+      ebayPsa10: null,
+      ebayPsa9: null,
+      ebayPsaTiers: {},
+    };
   }
   const ebay = isRecord(prices.ebay) ? prices.ebay : null;
   const tcg = isRecord(prices.tcgplayer) ? prices.tcgplayer : null;
   const nm = (o: UnknownRecord | null) =>
     o ? bandFromTier(o.NEAR_MINT) : null;
+  const tierBand = (o: UnknownRecord | null, key: string) =>
+    o && isRecord(o[key]) ? bandFromTier(o[key]) : null;
+  const ebayPsaTiers: Record<string, PriceBand | null> = {};
+  if (ebay) {
+    for (const key of Object.keys(ebay)) {
+      if (key.startsWith('PSA_')) {
+        ebayPsaTiers[key] = tierBand(ebay, key);
+      }
+    }
+  }
   return {
     ebayNearMint: nm(ebay),
     tcgplayerNearMint: nm(tcg),
+    ebayPsa10: ebayPsaTiers['PSA_10'] ?? tierBand(ebay, 'PSA_10'),
+    ebayPsa9: ebayPsaTiers['PSA_9'] ?? tierBand(ebay, 'PSA_9'),
+    ebayPsaTiers,
   };
 }
 
@@ -572,13 +604,15 @@ export type PoketraceNmHistoryResult = {
   searchQuery: string;
   matched: boolean;
   message?: string;
-  /** True when {@link buildMockPoketraceNmHistory} is used (testing / upstream failure). */
-  isMockData?: boolean;
   /** Catalog reference tier for this series — UI must label approximate flows. */
   matchConfidence?: 'verified' | 'approximate';
-  /** Requested window (calendar days) */
+  /** Requested window (calendar days) — post-fetch trim */
   days: number;
-  /** Unix seconds, USD — eBay NEAR_MINT tier when available */
+  /** Upstream tier path segment (e.g. NEAR_MINT, PSA_10). */
+  tier?: string;
+  /** PokeTrace `period` query used for GET …/prices/{tier}/history. */
+  period?: PoketraceHistoryPeriod;
+  /** Unix seconds, USD — tier median/avg from upstream */
   points: Array<{ t: number; v: number }>;
   source: string;
   upstreamRequests: number;
@@ -591,8 +625,6 @@ export type PoketraceCollectionPreview = {
   message?: string;
   /** Strict GET /cards/:id key vs relaxed catalog reference for charts. */
   matchConfidence?: 'verified' | 'approximate';
-  /** True when {@link buildMockPoketracePreview} is used (testing / upstream failure). */
-  isMockData?: boolean;
   card: null | {
     id: string;
     name: string;
@@ -611,6 +643,11 @@ export type PoketraceCollectionPreview = {
     gradedTiersAvailable: string[];
     ebayNearMint: PriceBand | null;
     tcgplayerNearMint: PriceBand | null;
+    /** eBay graded tier (Pro `GET /cards/:id`) — used when collection is PSA slab */
+    ebayPsa10?: PriceBand | null;
+    ebayPsa9?: PriceBand | null;
+    /** All PSA_* eBay tier bands returned by upstream (PSA_1 … PSA_10, etc.) */
+    ebayPsaTiers?: Record<string, PriceBand | null>;
   };
 };
 
@@ -672,8 +709,14 @@ export class PoketraceService {
     >
   >();
 
-  /** Global spacing between PokeTrace HTTP calls (process-wide) — reduces 429 bursts */
-  private pokeTraceMutex = Promise.resolve();
+  /**
+   * Bounded concurrent upstream calls (list snapshots fire many bundles in parallel).
+   * Pro burst: 30/10s — default 4 slots; set `POKETRACE_MAX_IN_FLIGHT=1` to restore strict serial.
+   */
+  private readonly pokeTraceMaxInFlight: number;
+  private pokeTraceSlotInUse = 0;
+  private readonly pokeTraceSlotWaiters: Array<() => void> = [];
+  /** When `pokeTraceMaxInFlight <= 1`, enforce min gap between calls (Free-tier friendly). */
   private lastPokeTraceCompletedAt = 0;
   private readonly pokeTraceMinIntervalMs: number;
 
@@ -694,22 +737,12 @@ export class PoketraceService {
     Promise<PoketraceNmHistoryResult>
   >();
 
-  /**
-   * When PokeTrace returns no match, errors, or empty NM history — serve deterministic mock data
-   * so UI/tests keep working (set in `.env`: `POKETRACE_MOCK_ON_FAILURE=1`).
-   */
-  private readonly mockOnFailure: boolean;
-  /** Skip all upstream PokeTrace HTTP calls; always return mock (`POKETRACE_FORCE_MOCK_DATA=1`). */
-  private readonly forceMock: boolean;
-
   constructor(
     private readonly config: ConfigService,
     private readonly blockchain: BlockchainService,
   ) {
     this.apiKey =
       this.config.get<string>('POKETRACE_PUBLIC_API_TOKEN')?.trim() || null;
-    this.mockOnFailure = this.envTruthy('POKETRACE_MOCK_ON_FAILURE');
-    this.forceMock = this.envTruthy('POKETRACE_FORCE_MOCK_DATA');
     const raw = this.config.get<string>('POKETRACE_MIN_INTERVAL_MS');
     const n = parseInt(String(raw ?? ''), 10);
     this.pokeTraceMinIntervalMs = Number.isFinite(n)
@@ -729,6 +762,13 @@ export class PoketraceService {
     this.pokeTraceRetryBaseMs = Number.isFinite(rbase)
       ? Math.min(60_000, Math.max(250, rbase))
       : 1500;
+    const inflRaw = parseInt(
+      String(this.config.get<string>('POKETRACE_MAX_IN_FLIGHT') ?? ''),
+      10,
+    );
+    this.pokeTraceMaxInFlight = Number.isFinite(inflRaw)
+      ? Math.min(12, Math.max(1, inflRaw))
+      : 4;
   }
 
   private envTruthy(key: string): boolean {
@@ -794,52 +834,6 @@ export class PoketraceService {
   }
 
   /**
-   * If real upstream did not yield a usable preview, optionally substitute mock data.
-   */
-  private maybeMockPreview(
-    col: MarketplaceCollection,
-    result: PoketraceCollectionPreview,
-  ): PoketraceCollectionPreview {
-    if (this.forceMock) {
-      return buildMockPoketracePreview(col);
-    }
-    if (!this.mockOnFailure) {
-      return result;
-    }
-    if (result.matched && result.card) {
-      return result;
-    }
-    return buildMockPoketracePreview(col);
-  }
-
-  /**
-   * If NM history is missing or too short for charts, optionally substitute mock series.
-   */
-  private maybeMockNmHistory(
-    col: MarketplaceCollection,
-    days: number,
-    result: PoketraceNmHistoryResult,
-  ): PoketraceNmHistoryResult {
-    if (this.forceMock) {
-      return buildMockPoketraceNmHistory({
-        searchQuery: buildPoketraceSearchQuery(col),
-        days,
-      });
-    }
-    if (!this.mockOnFailure) {
-      return result;
-    }
-    if (result.matched && result.points.length >= 2) {
-      return result;
-    }
-    return buildMockPoketraceNmHistory({
-      searchQuery:
-        result.searchQuery?.trim() || buildPoketraceSearchQuery(col),
-      days,
-    });
-  }
-
-  /**
    * Collection `components` updated (e.g. poketraceCardId) — drop cached search/preview so
    * the next request re-resolves against PokeTrace.
    */
@@ -850,32 +844,54 @@ export class PoketraceService {
     this.previewInflight.delete(k);
     this.resolveInflight.delete(k);
     for (const key of [...this.historyInflight.keys()]) {
-      if (key.startsWith(`${k}:`)) this.historyInflight.delete(key);
+      if (key.startsWith(`${k}:hist:`)) this.historyInflight.delete(key);
     }
   }
 
-  /** One at a time + optional gap — all search / GET card / history share this queue */
-  private runSerializedPokeTrace<T>(fn: () => Promise<T>): Promise<T> {
-    const next = this.pokeTraceMutex.then(async () => {
-      const gap = Math.max(
-        0,
-        this.pokeTraceMinIntervalMs -
-          (Date.now() - this.lastPokeTraceCompletedAt),
-      );
-      if (gap > 0) {
-        await new Promise<void>((r) => setTimeout(r, gap));
-      }
-      try {
-        return await fn();
-      } finally {
-        this.lastPokeTraceCompletedAt = Date.now();
-      }
+  private acquirePokeTraceSlot(): Promise<void> {
+    if (this.pokeTraceSlotInUse < this.pokeTraceMaxInFlight) {
+      this.pokeTraceSlotInUse++;
+      return Promise.resolve();
+    }
+    return new Promise((resolve) => {
+      this.pokeTraceSlotWaiters.push(() => {
+        this.pokeTraceSlotInUse++;
+        resolve();
+      });
     });
-    this.pokeTraceMutex = next.then(
-      () => undefined,
-      () => undefined,
-    );
-    return next;
+  }
+
+  private releasePokeTraceSlot(): void {
+    this.pokeTraceSlotInUse--;
+    const next = this.pokeTraceSlotWaiters.shift();
+    if (next) next();
+  }
+
+  /** Bounded parallelism + optional inter-call gap when single-flight. */
+  private runSerializedPokeTrace<T>(fn: () => Promise<T>): Promise<T> {
+    return (async () => {
+      await this.acquirePokeTraceSlot();
+      try {
+        const strictSerial = this.pokeTraceMaxInFlight <= 1;
+        if (strictSerial) {
+          const gap = Math.max(
+            0,
+            this.pokeTraceMinIntervalMs -
+              (Date.now() - this.lastPokeTraceCompletedAt),
+          );
+          if (gap > 0) {
+            await new Promise<void>((r) => setTimeout(r, gap));
+          }
+        }
+        try {
+          return await fn();
+        } finally {
+          this.lastPokeTraceCompletedAt = Date.now();
+        }
+      } finally {
+        this.releasePokeTraceSlot();
+      }
+    })();
   }
 
   isConfigured(): boolean {
@@ -934,10 +950,11 @@ export class PoketraceService {
 
   async searchCards(search: string, limit = 12): Promise<unknown> {
     return this.runSerializedPokeTrace(async () => {
-      const url = new URL(`${POKETRACE_BASE}/cards`);
-      url.searchParams.set('search', search);
-      url.searchParams.set('limit', String(limit));
-      const { body } = await this.pokeTraceExecute(url.toString(), 'throw');
+      const url = buildPoketraceListCardsUrl({
+        search,
+        limit: Math.min(20, Math.max(1, limit)),
+      });
+      const { body } = await this.pokeTraceExecute(url, 'throw');
       return body;
     });
   }
@@ -959,7 +976,7 @@ export class PoketraceService {
     if (pending) return pending;
 
     const flight = this.runSerializedPokeTrace(async () => {
-      const url = `${POKETRACE_BASE}/cards/${encodeURIComponent(key)}`;
+      const url = buildPoketraceGetCardUrl(key);
       const { body } = await this.pokeTraceExecute(url, 'throw');
       return body;
     })
@@ -976,7 +993,7 @@ export class PoketraceService {
   }
 
   /**
-   * GET /cards/:id/prices/NEAR_MINT/history — Pro+; may paginate (cursor). Max `maxRequests` upstream calls.
+   * GET /cards/:id/prices/NEAR_MINT/history — legacy wrapper; maps `days` → PokeTrace `period` + trim window.
    */
   async getNearMintHistoryForCollection(
     col: MarketplaceCollection | null,
@@ -990,6 +1007,37 @@ export class PoketraceService {
       Math.max(1, Math.floor(options?.maxRequests ?? 3)),
       5,
     );
+    const period = calendarDaysToFetchPeriod(days);
+    return this.getTierPriceHistoryForCollection(col, {
+      tier: 'NEAR_MINT',
+      period,
+      maxCalendarDays: days,
+      maxRequests,
+    });
+  }
+
+  /**
+   * Resolved collection catalog card — GET …/prices/{tier}/history (`period` per OpenAPI 1.5).
+   */
+  async getTierPriceHistoryForCollection(
+    col: MarketplaceCollection | null,
+    options: {
+      tier: string;
+      period: PoketraceHistoryPeriod;
+      maxCalendarDays: number;
+      maxRequests?: number;
+    },
+  ): Promise<PoketraceNmHistoryResult> {
+    const tier = String(options.tier ?? 'NEAR_MINT').trim() || 'NEAR_MINT';
+    const period = options.period;
+    const maxCalendarDays = Math.min(
+      4000,
+      Math.max(1, Math.floor(options.maxCalendarDays)),
+    );
+    const maxRequests = Math.min(
+      Math.max(1, Math.floor(options.maxRequests ?? 3)),
+      5,
+    );
 
     if (!col) {
       return {
@@ -997,54 +1045,53 @@ export class PoketraceService {
         searchQuery: '',
         matched: false,
         message: 'Collection not found',
-        days,
+        days: maxCalendarDays,
+        tier,
+        period,
         points: [],
-        source: 'ebay NEAR_MINT',
+        source: `poketrace:${tier}`,
         upstreamRequests: 0,
       };
     }
-    if (this.forceMock) {
-      return buildMockPoketraceNmHistory({
-        searchQuery: buildPoketraceSearchQuery(col),
-        days,
-      });
-    }
     if (!this.isConfigured()) {
-      if (this.mockOnFailure) {
-        return buildMockPoketraceNmHistory({
-          searchQuery: buildPoketraceSearchQuery(col),
-          days,
-        });
-      }
       return {
         enabled: false,
         searchQuery: buildPoketraceSearchQuery(col),
         matched: false,
         message: 'PokeTrace is not configured (POKETRACE_PUBLIC_API_TOKEN)',
-        days,
+        days: maxCalendarDays,
+        tier,
+        period,
         points: [],
-        source: 'ebay NEAR_MINT',
+        source: `poketrace:${tier}`,
         upstreamRequests: 0,
       };
     }
 
-    const cacheKey = `${col.collectionKey.toLowerCase()}:hist:${days}`;
+    const cacheKey =
+      `${col.collectionKey.toLowerCase()}:hist:${tier}:${period}:${maxCalendarDays}`;
 
     const inflight = this.historyInflight.get(cacheKey);
     if (inflight) return inflight;
 
-    const flight = this.runNmHistoryFetch(col, days, maxRequests)
-      .then((r) => this.maybeMockNmHistory(col, days, r))
-      .finally(() => {
-        this.historyInflight.delete(cacheKey);
-      });
+    const flight = this.runTierHistoryFetch(
+      col,
+      tier,
+      period,
+      maxCalendarDays,
+      maxRequests,
+    ).finally(() => {
+      this.historyInflight.delete(cacheKey);
+    });
     this.historyInflight.set(cacheKey, flight);
     return flight;
   }
 
-  private async runNmHistoryFetch(
+  private async runTierHistoryFetch(
     col: MarketplaceCollection,
-    days: number,
+    tier: string,
+    period: PoketraceHistoryPeriod,
+    maxCalendarDays: number,
     maxRequests: number,
   ): Promise<PoketraceNmHistoryResult> {
     const resolved = await this.resolveMatchedCardRow(col);
@@ -1054,9 +1101,11 @@ export class PoketraceService {
         searchQuery: resolved.searchQuery,
         matched: false,
         message: resolved.message,
-        days,
+        days: maxCalendarDays,
+        tier,
+        period,
         points: [],
-        source: 'ebay NEAR_MINT',
+        source: `poketrace:${tier}`,
         upstreamRequests: 0,
       };
     }
@@ -1068,16 +1117,13 @@ export class PoketraceService {
 
     try {
       for (let i = 0; i < maxRequests; i++) {
-        const url = new URL(
-          `${POKETRACE_BASE}/cards/${encodeURIComponent(cardId)}/prices/NEAR_MINT/history`,
-        );
-        url.searchParams.set('days', String(days));
-        url.searchParams.set('market', 'US');
-        url.searchParams.set('source', 'ebay');
-        if (cursor) url.searchParams.set('cursor', cursor);
+        const url = buildPoketracePriceHistoryUrl(cardId, tier, {
+          period,
+          cursor,
+        });
 
         const { status, body } = await this.runSerializedPokeTrace(() =>
-          this.pokeTraceExecute(url.toString(), 'return'),
+          this.pokeTraceExecute(url, 'return'),
         );
         upstreamRequests++;
 
@@ -1091,11 +1137,17 @@ export class PoketraceService {
             matched: true,
             matchConfidence,
             message: msg,
-            days,
+            days: maxCalendarDays,
+            tier,
+            period,
             points: merged.length > 0
-              ? trimHistoryToWindow(merged, Math.floor(Date.now() / 1000), days)
+              ? trimHistoryToWindow(
+                merged,
+                Math.floor(Date.now() / 1000),
+                maxCalendarDays,
+              )
               : [],
-            source: 'ebay NEAR_MINT',
+            source: `poketrace:${tier}`,
             upstreamRequests,
           };
         }
@@ -1107,32 +1159,79 @@ export class PoketraceService {
       }
 
       const nowSec = Math.floor(Date.now() / 1000);
-      const trimmed = trimHistoryToWindow(merged, nowSec, days);
+      const trimmed = trimHistoryToWindow(merged, nowSec, maxCalendarDays);
 
       return {
         enabled: true,
         searchQuery,
         matched: true,
         matchConfidence,
-        days,
+        days: maxCalendarDays,
+        tier,
+        period,
         points: trimmed,
-        source: 'ebay NEAR_MINT',
+        source: `poketrace:${tier}`,
         upstreamRequests,
       };
     } catch (e) {
-      this.logger.warn(`PokeTrace NM history failed: ${String(e)}`);
+      this.logger.warn(`PokeTrace tier history failed (${tier}): ${String(e)}`);
       return {
         enabled: true,
         searchQuery,
         matched: true,
         matchConfidence,
         message: e instanceof Error ? e.message : String(e),
-        days,
+        days: maxCalendarDays,
+        tier,
+        period,
         points: [],
-        source: 'ebay NEAR_MINT',
+        source: `poketrace:${tier}`,
         upstreamRequests,
       };
     }
+  }
+
+  /** Low-level: GET /cards (OpenAPI) — used by proxy + internal search. */
+  async upstreamListCards(q: PoketraceListCardsQuery): Promise<unknown> {
+    return this.runSerializedPokeTrace(async () => {
+      const url = buildPoketraceListCardsUrl(q);
+      const { body } = await this.pokeTraceExecute(url, 'throw');
+      return body;
+    });
+  }
+
+  async upstreamListSets(q: PoketraceListSetsQuery): Promise<unknown> {
+    return this.runSerializedPokeTrace(async () => {
+      const url = buildPoketraceListSetsUrl(q);
+      const { body } = await this.pokeTraceExecute(url, 'throw');
+      return body;
+    });
+  }
+
+  /**
+   * GET …/prices/{tier}/history for a known catalog id (no collection resolve).
+   */
+  async upstreamPriceHistory(
+    cardId: string,
+    tier: string,
+    q: PoketracePriceHistoryQuery,
+  ): Promise<{ status: number; body: unknown }> {
+    return this.runSerializedPokeTrace(() =>
+      this.pokeTraceExecute(
+        buildPoketracePriceHistoryUrl(cardId, tier, q),
+        'return',
+      ),
+    );
+  }
+
+  /** Scale plan — returns 403 on Free/Pro per upstream. */
+  async upstreamSoldListings(
+    cardId: string,
+    q: PoketraceListingsQuery,
+  ): Promise<{ status: number; body: unknown }> {
+    return this.runSerializedPokeTrace(() =>
+      this.pokeTraceExecute(buildPoketraceListingsUrl(cardId, q), 'return'),
+    );
   }
 
   /**
@@ -1410,9 +1509,121 @@ export class PoketraceService {
     }
   }
 
+  private async hydrateCatalogRowForResolve(
+    id: string,
+    searchQuery: string,
+    matchConfidence: 'verified' | 'approximate',
+  ): Promise<
+    | {
+        searchQuery: string;
+        row: UnknownRecord;
+        cardId: string;
+        matchConfidence: 'verified' | 'approximate';
+      }
+    | null
+  > {
+    const rawDetail = await this.getCardById(id);
+    let row: UnknownRecord | null = null;
+    if (isRecord(rawDetail) && isRecord(rawDetail.data)) {
+      row = rawDetail.data as UnknownRecord;
+    } else if (isRecord(rawDetail) && typeof rawDetail.id === 'string') {
+      row = rawDetail as UnknownRecord;
+    }
+    if (!row || typeof row.id !== 'string') return null;
+    let useRow: UnknownRecord = row;
+    const rowId = String(row.id).trim();
+    const sameAsDirect = rowId.length > 0 && rowId === id.trim();
+    if (!hasSearchablePricePayload(row.prices) && !sameAsDirect) {
+      try {
+        const detail2 = await this.getCardById(rowId);
+        if (isRecord(detail2) && isRecord(detail2.data)) {
+          useRow = detail2.data as UnknownRecord;
+        }
+      } catch (e) {
+        this.logger.warn(
+          `PokeTrace GET /cards/:id enrich: ${e instanceof Error ? e.message : String(e)}`,
+        );
+      }
+    }
+    return {
+      searchQuery,
+      row: useRow,
+      cardId: String(useRow.id),
+      matchConfidence,
+    };
+  }
+
   /**
-   * Cached **GET /cards/:id** only — no search, no pickBestCard (shared by preview + NM history).
-   * Uses `components.poketraceCardId` (verified) first, else `components.approximatePoketraceCardId`.
+   * When no catalog id is stored on the collection row, resolve the same way as mint-time search
+   * (strict hints from `components`), then a single scored search as a last resort.
+   */
+  private async resolveCollectionViaSearchFallback(
+    col: MarketplaceCollection,
+  ): Promise<
+    | {
+        searchQuery: string;
+        row: UnknownRecord;
+        cardId: string;
+        matchConfidence: 'verified' | 'approximate';
+      }
+    | null
+  > {
+    if (!this.isConfigured()) return null;
+
+    const comp = col.components as UnknownRecord;
+    const nameH = String(comp?.cardName ?? '').trim();
+    const numH = String(comp?.cardNumber ?? '')
+      .trim()
+      .replace(/^#/, '');
+    let setH = String(comp?.cardSet ?? '').trim();
+
+    if (!nameH || !numH) return null;
+    if (!setH) {
+      const qu = String(col.queryUsed ?? '').trim();
+      if (qu.length >= 6) setH = qu;
+      else return null;
+    }
+
+    const hints = { cardName: nameH, cardNumber: numH, cardSet: setH };
+    const attempts = buildPoketraceSearchQueryAttempts(col);
+    const maxQ = Math.min(3, attempts.length);
+    for (let i = 0; i < maxQ; i++) {
+      const q = attempts[i]!;
+      const res = await this.tryResolveCardIdForMintMetadata(q, hints);
+      const pick = res?.verified ?? res?.approximate;
+      if (!pick?.cardId) continue;
+      const hydrated = await this.hydrateCatalogRowForResolve(
+        pick.cardId,
+        pick.searchQuery,
+        res?.verified ? 'verified' : 'approximate',
+      );
+      if (hydrated) return hydrated;
+    }
+
+    const qSingle = buildPoketraceSearchQuery(col).trim();
+    if (!qSingle || qSingle.toLowerCase() === 'pokemon') return null;
+    try {
+      const searchBody = await this.searchCards(qSingle, 12);
+      const data =
+        isRecord(searchBody) && Array.isArray(searchBody.data) ? searchBody.data : [];
+      if (data.length === 0) return null;
+      const picked = pickBestCard(data, col);
+      const pid = picked ? poketraceCardIdFromRow(picked) : null;
+      if (!picked || !pid) return null;
+      const sc =
+        scoreSearchHit(picked, nameH, numH) + scoreSetAlignment(picked, setH);
+      if (sc < 6) return null;
+      return await this.hydrateCatalogRowForResolve(pid, qSingle, 'approximate');
+    } catch (e) {
+      this.logger.warn(
+        `PokeTrace collection search-fallback: ${e instanceof Error ? e.message : String(e)}`,
+      );
+      return null;
+    }
+  }
+
+  /**
+   * Cached resolve for preview + NM history: stored catalog ids, else mint-style search fallback.
    */
   private async resolveMatchedCardRow(
     col: MarketplaceCollection,
@@ -1443,6 +1654,16 @@ export class PoketraceService {
 
     const flight = (async () => {
       const comp = col.components as UnknownRecord;
+      const strictHints =
+        String(comp?.cardName ?? '').trim() &&
+        String(comp?.cardNumber ?? '').trim() &&
+        String(comp?.cardSet ?? '').trim()
+          ? {
+              cardName: String(comp.cardName),
+              cardNumber: String(comp.cardNumber),
+              cardSet: String(comp.cardSet),
+            }
+          : null;
       const directId =
         typeof comp?.poketraceCardId === 'string'
           ? comp.poketraceCardId.trim()
@@ -1462,57 +1683,52 @@ export class PoketraceService {
 
       try {
         if (tryOrder.length === 0) {
+          const searched = await this.resolveCollectionViaSearchFallback(col);
+          if (searched) {
+            this.resolveCache.set(key, { at: Date.now(), value: searched });
+            return searched;
+          }
           const v = {
-            searchQuery: '',
+            searchQuery: buildPoketraceSearchQuery(col),
             matched: false as const,
             message:
-              'Reference unavailable: no PokeTrace catalog id on this collection. Optional — set properties.graded.poketrace.cardId (verified) or approximateCardId on listed NFTs for NM reference bands. Primary market values use listing-pool statistics (GET …/collections/:key/stats).',
+              'Reference unavailable: no stored PokeTrace catalog id and search did not resolve a card (needs card name, number, and set or queryUsed on the collection). Listing-pool statistics: GET …/collections/:key/stats.',
           };
           this.resolveCache.set(key, { at: Date.now(), value: v });
           return v;
         }
 
         for (const { id, matchConfidence } of tryOrder) {
-          const searchQuery = `poketrace:${id}`;
           try {
-            const rawDetail = await this.getCardById(id);
-            let row: UnknownRecord | null = null;
-            if (isRecord(rawDetail) && isRecord(rawDetail.data)) {
-              row = rawDetail.data as UnknownRecord;
-            } else if (isRecord(rawDetail) && typeof rawDetail.id === 'string') {
-              row = rawDetail as UnknownRecord;
-            }
-            if (row && typeof row.id === 'string') {
-              let useRow: UnknownRecord = row;
-              const rowId = String(row.id).trim();
-              const sameAsDirect =
-                rowId.length > 0 && rowId === id.trim();
-              if (!hasSearchablePricePayload(row.prices) && !sameAsDirect) {
-                try {
-                  const detail2 = await this.getCardById(rowId);
-                  if (isRecord(detail2) && isRecord(detail2.data)) {
-                    useRow = detail2.data as UnknownRecord;
-                  }
-                } catch (e) {
+            const hydrated = await this.hydrateCatalogRowForResolve(
+              id,
+              `poketrace:${id}`,
+              matchConfidence,
+            );
+            if (hydrated) {
+              if (strictHints) {
+                const ex = exactPoketraceCatalogMatch(strictHints, hydrated.row);
+                if (!ex.ok) {
                   this.logger.warn(
-                    `PokeTrace GET /cards/:id enrich: ${e instanceof Error ? e.message : String(e)}`,
+                    `PokeTrace catalog id ${id} mismatched collection hints (${ex.failCodes.join(',')}); trying fallback`,
                   );
+                  continue;
                 }
               }
-              const out = {
-                searchQuery,
-                row: useRow,
-                cardId: String(useRow.id),
-                matchConfidence,
-              };
-              this.resolveCache.set(key, { at: Date.now(), value: out });
-              return out;
+              this.resolveCache.set(key, { at: Date.now(), value: hydrated });
+              return hydrated;
             }
           } catch (e) {
             this.logger.warn(
               `PokeTrace GET /cards/${id}: ${e instanceof Error ? e.message : String(e)}`,
             );
           }
+        }
+
+        const searchedAfterIds = await this.resolveCollectionViaSearchFallback(col);
+        if (searchedAfterIds) {
+          this.resolveCache.set(key, { at: Date.now(), value: searchedAfterIds });
+          return searchedAfterIds;
         }
 
         const lastId = tryOrder[tryOrder.length - 1]!.id;
@@ -1553,13 +1769,7 @@ export class PoketraceService {
         card: null,
       };
     }
-    if (this.forceMock) {
-      return buildMockPoketracePreview(col);
-    }
     if (!this.isConfigured()) {
-      if (this.mockOnFailure) {
-        return buildMockPoketracePreview(col);
-      }
       return {
         enabled: false,
         searchQuery: buildPoketraceSearchQuery(col),
@@ -1573,7 +1783,7 @@ export class PoketraceService {
 
     const anyHit = this.previewResponseCache.get(cacheKey);
     if (anyHit && Date.now() - anyHit.at < this.previewCacheTtlMs) {
-      return this.maybeMockPreview(col, anyHit.value);
+      return anyHit.value;
     }
 
     const inflight = this.previewInflight.get(cacheKey);
@@ -1581,9 +1791,8 @@ export class PoketraceService {
 
     const flight = (async () => {
       const out = await this.runPreviewFetch(col);
-      const merged = this.maybeMockPreview(col, out);
-      this.previewResponseCache.set(cacheKey, { at: Date.now(), value: merged });
-      return merged;
+      this.previewResponseCache.set(cacheKey, { at: Date.now(), value: out });
+      return out;
     })().finally(() => {
       this.previewInflight.delete(cacheKey);
     });
@@ -1635,9 +1844,13 @@ export class PoketraceService {
       const tcgplayerId =
         typeof refs?.tcgplayerId === 'string' ? refs.tcgplayerId : null;
 
-      const { ebayNearMint, tcgplayerNearMint } = summarizeRawPrices(
-        row.prices,
-      );
+      const {
+        ebayNearMint,
+        tcgplayerNearMint,
+        ebayPsa10,
+        ebayPsa9,
+        ebayPsaTiers,
+      } = summarizeRawPrices(row.prices);
 
       const gradedTiers = Array.isArray(row.gradedOptions)
         ? (row.gradedOptions as string[]).filter(
@@ -1671,6 +1884,10 @@ export class PoketraceService {
           gradedTiersAvailable: gradedTiers.slice(0, 12),
           ebayNearMint,
           tcgplayerNearMint,
+          ebayPsa10,
+          ebayPsa9,
+          ebayPsaTiers:
+            Object.keys(ebayPsaTiers).length > 0 ? ebayPsaTiers : undefined,
         },
       };
     } catch (e) {
@@ -1696,6 +1913,7 @@ export class PoketraceService {
       query,
       cardName,
       cardNumber,
+      cardSet,
       poketraceCardId,
       approximatePoketraceCardId,
     } = buildPoketraceQueryFromRwaMetadata(metadata);
@@ -1720,6 +1938,7 @@ export class PoketraceService {
     const col = this.mintSyntheticCollection(colKey, query.trim() || 'pokemon', {
       cardName,
       cardNumber,
+      cardSet,
       poketraceCardId,
       approximatePoketraceCardId,
     });
@@ -1742,6 +1961,7 @@ export class PoketraceService {
         query: string;
         cardName: string;
         cardNumber: string;
+        cardSet: string;
         poketraceCardId: string | null;
         approximatePoketraceCardId: string | null;
         tokenIds: number[];
@@ -1753,6 +1973,7 @@ export class PoketraceService {
         query,
         cardName,
         cardNumber,
+        cardSet,
         poketraceCardId,
         approximatePoketraceCardId,
       } = buildPoketraceQueryFromRwaMetadata(it.metadata);
@@ -1776,6 +1997,7 @@ export class PoketraceService {
           query,
           cardName,
           cardNumber,
+          cardSet,
           poketraceCardId,
           approximatePoketraceCardId,
           tokenIds: [it.tokenId],
@@ -1792,6 +2014,7 @@ export class PoketraceService {
       const col = this.mintSyntheticCollection(colKey, g.query.trim() || 'pokemon', {
         cardName: g.cardName,
         cardNumber: g.cardNumber,
+        cardSet: g.cardSet,
         poketraceCardId: g.poketraceCardId,
         approximatePoketraceCardId: g.approximatePoketraceCardId,
       });
@@ -1825,6 +2048,7 @@ export class PoketraceService {
     hints: {
       cardName: string;
       cardNumber: string;
+      cardSet?: string;
       poketraceCardId?: string | null;
       approximatePoketraceCardId?: string | null;
     },
@@ -1833,6 +2057,9 @@ export class PoketraceService {
       cardName: hints.cardName,
       cardNumber: hints.cardNumber,
     };
+    if (hints.cardSet?.trim()) {
+      components.cardSet = hints.cardSet.trim();
+    }
     const pid = hints.poketraceCardId?.trim();
     const apid = hints.approximatePoketraceCardId?.trim();
     if (pid) components.poketraceCardId = pid;

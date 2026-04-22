@@ -150,8 +150,9 @@ function utcDayKey(tSec: number): string {
 }
 
 /**
- * One sample per UTC calendar day: anchor at 12:00 UTC, but **never after `nowSec`** — otherwise
- * “today’s” point sits in the future and draws past the chart’s right edge (often mistaken for +9h TZ bugs).
+ * One sample per UTC calendar day: keep the **last** trade/marker that day, plot **x** at 12:00 UTC
+ * (clamped to `nowSec`). Used for **both** Tokenable platform trades and PokéTrace external daily
+ * series so the two lines share the same day bucket and do not look time-shifted.
  */
 function buildPlatformUtcDayStaticPoints(
   points: CollectionUsdPoint[],
@@ -159,26 +160,24 @@ function buildPlatformUtcDayStaticPoints(
 ): CollectionUsdPoint[] {
   if (points.length === 0) return [];
   const sorted = [...points].sort((a, b) => a.t - b.t);
-  const byDay = new Map<string, { sum: number; count: number }>();
+  const byDay = new Map<string, CollectionUsdPoint>();
   for (const p of sorted) {
     if (!(typeof p.v === "number" && Number.isFinite(p.v) && p.v > 0)) continue;
     const k = utcDayKey(p.t);
-    const cur = byDay.get(k) ?? { sum: 0, count: 0 };
-    cur.sum += p.v;
-    cur.count += 1;
-    byDay.set(k, cur);
+    const prev = byDay.get(k);
+    if (!prev || p.t >= prev.t) byDay.set(k, p);
   }
   const keys = [...byDay.keys()].sort();
   const out: CollectionUsdPoint[] = [];
   for (const k of keys) {
-    const agg = byDay.get(k)!;
+    const last = byDay.get(k)!;
     const parts = k.split("-").map(Number);
     const y = parts[0]!;
     const mo = parts[1]!;
     const d = parts[2]!;
     const tNoon = Math.floor(Date.UTC(y, mo - 1, d, 12, 0, 0) / 1000);
     const t = Math.min(tNoon, nowSec);
-    out.push({ t, v: agg.sum / agg.count });
+    out.push({ t, v: last.v });
   }
   return out;
 }
@@ -265,7 +264,7 @@ function buildLinePathPlot(
 }
 
 /**
- * On-platform trades (magenta) vs external NM reference (teal): PokéTrace history, JustTCG history,
+ * On-platform trades (magenta) vs external NM reference (teal): PokéTrace history / bundle series,
  * or a horizontal spot when only a single external level exists.
  */
 export function CollectionDualPriceChart({
@@ -361,7 +360,12 @@ export function CollectionDualPriceChart({
       t: Math.min(Math.max(p.t, tMin), tMax),
     }));
 
-    const extForChart = extRolling.filter((p) => p.t >= tMin && p.t <= tMax);
+    const extFiltered = extRolling.filter((p) => p.t >= tMin && p.t <= tMax);
+    /** Same UTC-day + noon-x as `platStatic` so PokeTrace and Tokenable points align on the x-axis. */
+    const extForChart = buildPlatformUtcDayStaticPoints(extFiltered, nowSec).map((p) => ({
+      ...p,
+      t: Math.min(Math.max(p.t, tMin), tMax),
+    }));
     const useExtPolyline = extForChart.length >= 2;
 
     const allV: number[] = [

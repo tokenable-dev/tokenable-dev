@@ -1,24 +1,11 @@
 "use client";
 
 import type { CollectionMarketStats } from "@/lib/api";
-import type { ExternalMarketPriceSource } from "@/lib/externalMarketPrice";
 import {
   formatLiquidityDepthLabel,
   formatUsdCompact,
   NO_EXTERNAL_PRICE,
 } from "@/lib/collectionMarketPricing";
-
-function InfoHint({ text }: { text: string }) {
-  return (
-    <span
-      className="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border border-zinc-600 text-[9px] font-bold text-zinc-500"
-      title={text}
-      aria-label={text}
-    >
-      i
-    </span>
-  );
-}
 
 function metricVolatilityFromPrices(usdValues: number[]): number | null {
   const vals = usdValues.filter((v) => Number.isFinite(v) && v > 0);
@@ -31,55 +18,53 @@ function metricVolatilityFromPrices(usdValues: number[]): number | null {
   return Math.min(999, Math.round(cv * 10) / 10);
 }
 
-function sourceSubtitle(
-  src: ExternalMarketPriceSource | null | undefined,
-  poketraceMatchConfidence?: "verified" | "approximate" | null,
-): string {
-  if (src === "poketrace") {
-    if (poketraceMatchConfidence === "approximate") {
-      return "PokéTrace Near Mint · approximate catalog match";
-    }
-    return "PokéTrace Near Mint";
-  }
-  if (src === "justtcg") return "JustTCG grade strip (fallback)";
-  return "";
-}
-
 export interface CollectionPriceMetricsStripProps {
-  /** Primary spot: PokéTrace NM → JustTCG; never listing-pool median. */
+  /** Primary spot from PokéTrace (slab tier band or NM when ungraded path). */
   externalMarketUsd?: number | null;
-  externalPriceSource?: ExternalMarketPriceSource | null;
+  externalPriceSource?: string | null;
+  /** e.g. "PSA 9" for chart / strip alignment */
+  poketraceTierDisplay?: string | null;
   /** When external price is from PokéTrace, mirrors preview `matchConfidence`. */
   externalPoketraceMatchConfidence?: "verified" | "approximate" | null;
   externalPriceLoading?: boolean;
-  /** CV% from PokéTrace NM history when available. */
+  /** CV% from PokéTrace tier daily history. */
   externalVolatilityCvPct?: number | null;
-  /** Listing pool — liquidity hint only (optional one-liner under market price). */
+  /** e.g. "~1y PokéTrace tier daily closes" */
+  volatilityFootnote?: string | null;
+  /** Fallback when PokeTrace series is too short */
+  platformPriceSamples?: number[];
+  bookSpreadPct?: number | null;
+  /** Listing pool — liquidity hint only */
   marketStats?: CollectionMarketStats | null;
   marketStatsLoading?: boolean;
-  /** 가장 최근 플랫폼(온체인) 체결가 USDC — execution context */
-  lastPlatformTradeUsd: number | null;
-  priceChangePct: number | null;
-  /** 플랫폼 체결 시계열 — recent-trade change & fallback volatility */
-  platformPriceSamples: number[];
-  bookSpreadPct: number | null;
-  marketCapUsd: number | null;
+  /** % change: oldest → newest point in ~1y PokéTrace tier series vs current strip spot */
+  externalPriceChange1yPct?: number | null;
+  externalPriceChange1yLoading?: boolean;
+  marketCapUsd?: number | null;
+  /** How market cap was derived (PSA pop × tier spot, etc.) */
+  marketCapMethodHint?: string | null;
+  showPriceChange?: boolean;
+  showVolatility?: boolean;
+  showMarketCap?: boolean;
+  compact?: boolean;
   formatMarketCap: (usd: number | null) => string;
 }
 
 export function CollectionPriceMetricsStrip({
   externalMarketUsd = null,
-  externalPriceSource = null,
-  externalPoketraceMatchConfidence = null,
   externalPriceLoading = false,
   externalVolatilityCvPct = null,
+  platformPriceSamples = [],
+  bookSpreadPct = null,
   marketStats = null,
   marketStatsLoading = false,
-  lastPlatformTradeUsd,
-  priceChangePct,
-  platformPriceSamples,
-  bookSpreadPct,
-  marketCapUsd,
+  externalPriceChange1yPct = null,
+  externalPriceChange1yLoading = false,
+  marketCapUsd = null,
+  showPriceChange = true,
+  showVolatility = true,
+  showMarketCap = true,
+  compact = false,
   formatMarketCap,
 }: CollectionPriceMetricsStripProps) {
   const volFromTrades = metricVolatilityFromPrices(platformPriceSamples);
@@ -88,7 +73,7 @@ export function CollectionPriceMetricsStrip({
       ? externalVolatilityCvPct
       : volFromTrades ?? bookSpreadPct;
 
-  const change = priceChangePct;
+  const change = externalPriceChange1yPct;
   const changeUp = change != null && change > 0;
   const changeDown = change != null && change < 0;
 
@@ -97,116 +82,91 @@ export function CollectionPriceMetricsStrip({
     Number.isFinite(externalMarketUsd) &&
     externalMarketUsd > 0;
 
-  const liquidityLine = marketStatsLoading
-    ? "Loading on-platform depth…"
-    : formatLiquidityDepthLabel(marketStats ?? undefined);
+  const visibleMetricCount =
+    1 + (showPriceChange ? 1 : 0) + (showVolatility ? 1 : 0) + (showMarketCap ? 1 : 0);
+  const gridClass =
+    visibleMetricCount <= 1
+      ? "grid-cols-1"
+      : visibleMetricCount === 2
+        ? "grid-cols-2"
+        : visibleMetricCount === 3
+          ? "grid-cols-2 sm:grid-cols-3"
+          : "grid-cols-2 sm:grid-cols-4";
+
+  const valueMainClass = compact
+    ? "w-full text-[clamp(0.88rem,2.7vw,1.15rem)] leading-none font-bold tabular-nums tracking-tight text-zinc-50 whitespace-nowrap"
+    : "w-full text-[clamp(1.05rem,4vw,2.05rem)] leading-none font-bold tabular-nums tracking-tight text-zinc-50 whitespace-nowrap";
+  const valueSubClass = compact
+    ? "w-full text-[clamp(0.82rem,2.5vw,1.05rem)] leading-none font-bold tabular-nums tracking-tight whitespace-nowrap"
+    : "w-full text-[clamp(1rem,3.6vw,1.75rem)] leading-none font-bold tabular-nums tracking-tight whitespace-nowrap";
+  const labelClass = compact
+    ? "text-[10px] font-semibold tracking-wide text-slate-300 mb-1.5"
+    : "text-xs font-semibold tracking-wide text-slate-200 mb-1.5";
 
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4 w-full min-w-0 mb-4">
-      <div
-        className="rounded-2xl border border-zinc-800/90 bg-zinc-950/80 px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
-        title="External Near Mint estimate — PokéTrace primary, JustTCG fallback. Not derived from this site’s listing pool."
-      >
-        <div className="flex items-center gap-1.5">
-          <p className="text-[11px] font-medium text-zinc-500">Market price</p>
-          <InfoHint text="PokéTrace NM blended spot when matched; otherwise JustTCG grade strip. Internal listing stats are never used as this number." />
-        </div>
+    <div className={`grid ${gridClass} gap-3 sm:gap-4 w-full min-w-0 mb-4`}>
+      <div className="min-w-0 overflow-hidden rounded-2xl border border-emerald-900/40 bg-zinc-950/90 px-4 py-4 min-h-[118px] flex flex-col justify-center shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+        <p className={labelClass}>Market price</p>
         {externalPriceLoading && !showExternalPrimary ? (
-          <div className="mt-2 h-9 w-28 animate-pulse rounded-md bg-zinc-800/70" />
+          <div className="h-11 w-36 animate-pulse rounded-md bg-zinc-800/70" />
         ) : showExternalPrimary ? (
-          <>
-            <p className="mt-2 text-2xl font-bold tabular-nums text-teal-400 sm:text-[1.65rem]">
-              {formatUsdCompact(externalMarketUsd)}
-            </p>
-            {externalPriceSource ? (
-              <p className="mt-1 text-[10px] leading-snug text-zinc-500 tabular-nums">
-                {sourceSubtitle(externalPriceSource, externalPoketraceMatchConfidence)}
-              </p>
-            ) : null}
-          </>
-        ) : (
-          <>
-            <p className="mt-2 text-lg font-semibold leading-snug text-zinc-500">{NO_EXTERNAL_PRICE}</p>
-            <p className="mt-1 text-[9px] text-zinc-600">Configure PokéTrace match or JustTCG data.</p>
-          </>
-        )}
-        {liquidityLine && (marketStats != null || marketStatsLoading) ? (
-          <p className="mt-2 border-t border-zinc-800/80 pt-2 text-[9px] leading-snug text-zinc-600">
-            Liquidity: {liquidityLine}
+          <p className={valueMainClass}>
+            {formatUsdCompact(externalMarketUsd)}
           </p>
-        ) : null}
+        ) : (
+          <p className="text-lg font-semibold leading-snug text-zinc-500">{NO_EXTERNAL_PRICE}</p>
+        )}
       </div>
 
-      <div className="rounded-2xl border border-zinc-800/90 bg-zinc-950/80 px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-        <div className="flex items-center gap-1.5">
-          <p className="text-[11px] font-medium text-zinc-500">Recent trade</p>
-          <InfoHint text="Latest on-platform trade (USDC) — execution, not the external catalog price." />
-        </div>
-        <p
-          className={`mt-2 text-2xl font-bold tabular-nums sm:text-[1.65rem] ${
-            lastPlatformTradeUsd != null && Number.isFinite(lastPlatformTradeUsd)
-              ? "text-fuchsia-400/95"
-              : "text-zinc-500"
-          }`}
-        >
-          {lastPlatformTradeUsd != null && Number.isFinite(lastPlatformTradeUsd)
-            ? `$${lastPlatformTradeUsd.toLocaleString("en-US", {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}`
-            : "—"}
-        </p>
-        <div className="mt-2 flex items-center gap-1.5">
-          <p className="text-[10px] font-medium text-zinc-600">Δ vs prior trade</p>
-        </div>
-        <p
-          className={`mt-0.5 flex items-baseline gap-1.5 text-lg font-bold tabular-nums ${
-            change == null || !Number.isFinite(change)
-              ? "text-zinc-500"
-              : changeUp
-                ? "text-emerald-400"
-                : changeDown
-                  ? "text-rose-400"
-                  : "text-zinc-100"
-          }`}
-        >
-          {change != null && Number.isFinite(change) ? (
-            <>
-              <span>
-                {change > 0 ? "+" : ""}
-                {change.toFixed(1)}%
-              </span>
-              <span className="text-base" aria-hidden>
-                {changeUp ? "↗" : changeDown ? "↘" : ""}
-              </span>
-            </>
+      {showPriceChange ? (
+        <div className="min-w-0 overflow-hidden rounded-2xl border border-zinc-700/80 bg-zinc-950/80 px-4 py-4 min-h-[118px] flex flex-col justify-center shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+          <p className={labelClass}>Price change</p>
+          {externalPriceChange1yLoading && change == null ? (
+            <div className="h-9 w-24 animate-pulse rounded-md bg-zinc-800/70" />
           ) : (
-            "—"
+            <p
+              className={`${valueSubClass} ${
+                change == null || !Number.isFinite(change)
+                  ? "text-zinc-500"
+                  : changeUp
+                    ? "text-emerald-300"
+                    : changeDown
+                      ? "text-rose-300"
+                      : "text-zinc-100"
+              }`}
+            >
+              {change != null && Number.isFinite(change) ? (
+                <>
+                  {change > 0 ? "+" : ""}
+                  {change.toFixed(1)}%
+                </>
+              ) : (
+                "—"
+              )}
+            </p>
           )}
-        </p>
-      </div>
-
-      <div className="rounded-2xl border border-zinc-800/90 bg-zinc-950/80 px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-        <div className="flex items-center gap-1.5">
-          <p className="text-[11px] font-medium text-zinc-500">NM volatility</p>
-          <InfoHint text="Coefficient of variation on PokéTrace NM daily history when available; otherwise approximated from on-platform trades or bid/ask spread." />
         </div>
-        <p className="mt-2 text-2xl font-bold tabular-nums text-white sm:text-[1.65rem]">
-          {volatilityPct != null && Number.isFinite(volatilityPct)
-            ? `${volatilityPct.toFixed(0)}%`
-            : "—"}
-        </p>
-        <p className="mt-1 text-[9px] text-zinc-600">
-          {externalVolatilityCvPct != null ? "From PokéTrace NM history" : "External or execution proxy"}
-        </p>
-      </div>
+      ) : null}
 
-      <div className="rounded-2xl border border-zinc-800/90 bg-zinc-950/80 px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-        <p className="text-[11px] font-medium text-zinc-500">Market cap (est.)</p>
-        <p className="mt-2 text-2xl font-bold tabular-nums text-white sm:text-[1.65rem]">
-          {formatMarketCap(marketCapUsd)}
-        </p>
-      </div>
+      {showVolatility ? (
+        <div className="min-w-0 overflow-hidden rounded-2xl border border-zinc-700/80 bg-zinc-950/80 px-4 py-4 min-h-[118px] flex flex-col justify-center shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+          <p className={labelClass}>Volatility</p>
+          <p className={`${valueSubClass} text-sky-200`}>
+            {volatilityPct != null && Number.isFinite(volatilityPct)
+              ? `${volatilityPct.toFixed(0)}%`
+              : "—"}
+          </p>
+        </div>
+      ) : null}
+
+      {showMarketCap ? (
+        <div className="min-w-0 overflow-hidden rounded-2xl border border-zinc-700/80 bg-zinc-950/80 px-4 py-4 min-h-[118px] flex flex-col justify-center shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+          <p className={labelClass}>Market cap</p>
+          <p className={`${valueSubClass} text-amber-100/95`}>
+            {formatMarketCap(marketCapUsd)}
+          </p>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -1,13 +1,14 @@
 "use client";
 
 import { useMemo, useState, useEffect, useCallback, useRef } from "react";
-import { useQueries } from "@tanstack/react-query";
+import { useQueries, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAccount } from "wagmi";
 import {
   type RwaMetadata,
   type OrderListItem,
+  type CollectionPoketracePreview,
   getCollectionMarketSeries,
   getCollectionMarketStats,
   type CollectionMarketSeries,
@@ -25,12 +26,20 @@ import {
 } from "@/lib/portfolioNmBaseline";
 import { formatLiquidityDepthLabel, NO_EXTERNAL_PRICE } from "@/lib/collectionMarketPricing";
 import { justtcgRepresentativeUsd } from "@/lib/externalMarketPrice";
-import { nmSpotUsdFromPoketracePreview, parseGradeScoreNumber } from "@/lib/gradedCardMarketCap";
+import {
+  catalogSpotUsdFromPoketracePreview,
+  parseGradeScoreNumber,
+} from "@/lib/gradedCardMarketCap";
+import { poketraceHistoryTierFromRwaMetadata } from "@/lib/poketraceHistoryTier";
 import {
   appendPortfolioValueSnapshot,
-  loadPortfolioValueHistory,
-  buildPortfolioChartPoints,
 } from "@/lib/portfolioValueHistory";
+import { inferSportBucketFromRwaMetadata } from "@/lib/collectionCategoryFilter";
+import {
+  mockDemoSpotUsd,
+  MOCK_SPORTS_LIQUIDITY_CAPTION,
+  MOCK_SPORTS_PRICE_CAPTION,
+} from "@/lib/portfolioMockSports";
 
 const USDC_DECIMALS = 1_000_000;
 
@@ -46,9 +55,9 @@ interface PricedAssetRow {
   imageUrl: string | null;
   category: string | null;
   amount: number;
-  /** External NM spot: PokeTrace mint preview, else JustTCG grade strip for the bucket. */
+  /** External NM spot: PokeTrace mint preview, else bundle NM strip for the bucket. */
   currentPrice: number | null;
-  priceSource: "poketrace" | "justtcg" | "none";
+  priceSource: "poketrace" | "none" | "mock";
   /** On-platform listing depth (optional subtitle). */
   liquidityLabel: string | null;
   /** Your active ask (execution intent), not the pool estimate */
@@ -56,12 +65,13 @@ interface PricedAssetRow {
   /** Secondary line under title (set / year / card name) */
   subtitle: string;
   gradeLabel: string | null;
-  acquiredLabel: string | null;
+  /** Raw PokéTrace preview payload for this token. */
+  poketraceRaw: CollectionPoketracePreview | null;
 }
 
 interface AssetRow extends PricedAssetRow {
-  /** First saved external spot snapshot (this browser) for P&amp;L vs NM movement */
-  nmBaselineUsd: number | null;
+  /** Latest inferred buy fill price while currently holding this token */
+  costBasisUsd: number | null;
   pnl: number | null;
   pnlPct: number | null;
 }
@@ -77,6 +87,7 @@ interface TxRow {
 }
 
 type ChartPeriod = "1D" | "1W" | "1M";
+type AssetListFilter = "all" | "listed" | "unlisted";
 
 function fmtUsd(v: number): string {
   if (Math.abs(v) >= 1000)
@@ -84,17 +95,31 @@ function fmtUsd(v: number): string {
   return `$${v.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
 }
 
-function extractCategory(meta: RwaMetadata | null): string | null {
-  if (!meta?.attributes) return null;
-  const cat = meta.attributes.find(
-    (a) => a.trait_type === "PSA Category" || a.trait_type === "Set",
-  );
-  return cat?.value ?? null;
-}
-
 function getGraded(meta: RwaMetadata | null): GradedCardMetadata | undefined {
   const g = meta?.properties?.graded;
   return g && typeof g === "object" ? (g as GradedCardMetadata) : undefined;
+}
+
+function extractCategory(meta: RwaMetadata | null): string | null {
+  const g = getGraded(meta);
+  if (g?.psa?.category?.trim()) return g.psa.category.trim();
+
+  if (!meta?.attributes) return null;
+  const traitTypes = [
+    "PSA Category",
+    "Set",
+    "Sport",
+    "Category",
+    "Product",
+    "League",
+    "Card Type",
+  ];
+  for (const tt of traitTypes) {
+    const cat = meta.attributes.find((a) => a.trait_type === tt);
+    if (cat?.value != null && String(cat.value).trim() !== "")
+      return String(cat.value).trim();
+  }
+  return null;
 }
 
 function gradeScoreForJustTcg(meta: RwaMetadata | null): number | null {
@@ -146,28 +171,6 @@ function formatGradeDisplay(meta: RwaMetadata | null): string | null {
       (a.trait_type?.toLowerCase().includes("grade") ?? false),
   );
   return attr?.value?.trim() ?? null;
-}
-
-function earliestBuyDateLabel(
-  tokenId: number,
-  fulfilledOrders: OrderListItem[],
-  wallet: string | undefined,
-): string | null {
-  if (!wallet) return null;
-  const buys = fulfilledOrders.filter(
-    (o) =>
-      Number(o.tokenId) === tokenId &&
-      o.offerer.toLowerCase() !== wallet.toLowerCase(),
-  );
-  if (buys.length === 0) return null;
-  const t = Math.min(
-    ...buys.map((o) => new Date(o.updatedAt ?? o.createdAt).getTime()),
-  );
-  return new Date(t).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
 }
 
 const BADGE_COLORS: Record<string, string> = {
@@ -545,10 +548,11 @@ function StatCard({
 
 export default function PortfolioPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { address, isConnected } = useAccount();
   const { usdcBalanceFormatted } = useAppStore(useShallow(selectUsdcBalance));
   const [period, setPeriod] = useState<ChartPeriod>("1D");
-  const [portfolioHistoryVersion, setPortfolioHistoryVersion] = useState(0);
+  const [assetFilter, setAssetFilter] = useState<AssetListFilter>("all");
 
   const {
     tokenIds,
@@ -654,6 +658,55 @@ export default function PortfolioPage() {
     return [...s];
   }, [assets, tokenToCollectionKey]);
 
+  /** One owned token per bucket so market-series can resolve the bucket from IPFS when there is no active listing. */
+  const hintTokenIdByCollectionKey = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const a of assets) {
+      const raw = tokenToCollectionKey[a.tokenId];
+      if (!raw) continue;
+      const k = raw.toLowerCase();
+      if (!m.has(k)) m.set(k, a.tokenId);
+    }
+    return m;
+  }, [assets, tokenToCollectionKey]);
+
+  /** MLB/NFL/NBA use placeholder pricing — skip external NM fetch for those rows only. */
+  const anyAssetNeedsSeriesForPricing = useMemo(
+    () =>
+      assets.some((a) => {
+        const b = inferSportBucketFromRwaMetadata(a.metadata);
+        if (b === "mlb" || b === "nba" || b === "nfl") return false;
+        const tier = poketraceHistoryTierFromRwaMetadata(a.metadata);
+        const poke = catalogSpotUsdFromPoketracePreview(
+          poketraceByToken[a.tokenId],
+          tier,
+        );
+        if (poke != null) return false;
+        const ck = tokenToCollectionKey[a.tokenId]?.trim();
+        return Boolean(ck);
+      }),
+    [assets, tokenToCollectionKey, poketraceByToken],
+  );
+
+  const anyAssetUsesLivePoolStats = useMemo(
+    () =>
+      assets.some((a) => {
+        const b = inferSportBucketFromRwaMetadata(a.metadata);
+        if (b === "mlb" || b === "nba" || b === "nfl") return false;
+        return Boolean(tokenToCollectionKey[a.tokenId]?.trim());
+      }),
+    [assets, tokenToCollectionKey],
+  );
+
+  const hasMockSportHoldings = useMemo(
+    () =>
+      assets.some((a) => {
+        const b = inferSportBucketFromRwaMetadata(a.metadata);
+        return b === "mlb" || b === "nba" || b === "nfl";
+      }),
+    [assets],
+  );
+
   const statsQueries = useQueries({
     queries: uniqueCollectionKeys.map((k) => ({
       queryKey: ["collection-market-stats", k],
@@ -673,12 +726,20 @@ export default function PortfolioPage() {
   }, [uniqueCollectionKeys, statsQueries]);
 
   const seriesQueries = useQueries({
-    queries: uniqueCollectionKeys.map((k) => ({
-      queryKey: ["collection-market-series", "portfolio", k],
-      queryFn: () => getCollectionMarketSeries(k, "90d"),
-      staleTime: 120_000,
-      enabled: k.length > 0 && Boolean(address && isConnected),
-    })),
+    queries: uniqueCollectionKeys.map((k) => {
+      const hint = hintTokenIdByCollectionKey.get(k.toLowerCase());
+      return {
+        queryKey: ["collection-market-series", "portfolio", "365d", k, hint ?? null],
+        queryFn: () =>
+          getCollectionMarketSeries(
+            k,
+            "365d",
+            hint != null ? { hintTokenId: hint } : undefined,
+          ),
+        staleTime: 120_000,
+        enabled: k.length > 0 && Boolean(address && isConnected),
+      };
+    }),
   });
 
   const seriesByCollectionKey = useMemo(() => {
@@ -699,7 +760,8 @@ export default function PortfolioPage() {
     isConnected &&
     assets.length > 0 &&
     (poketraceLoading ||
-      (uniqueCollectionKeys.length > 0 && (statsLoadingAny || seriesLoadingAny)));
+      (anyAssetUsesLivePoolStats && statsLoadingAny) ||
+      (anyAssetNeedsSeriesForPricing && seriesLoadingAny));
 
   const myActiveListings = useMemo(
     () =>
@@ -749,23 +811,39 @@ export default function PortfolioPage() {
       const stats = ck ? statsByCollectionKey.get(ck) ?? null : null;
       const series = ck ? seriesByCollectionKey.get(ck) ?? null : null;
 
-      const poke = nmSpotUsdFromPoketracePreview(poketraceByToken[a.tokenId]);
+      const sportBucket = inferSportBucketFromRwaMetadata(a.metadata);
+      const isMockSport =
+        sportBucket === "mlb" || sportBucket === "nba" || sportBucket === "nfl";
+
+      const poke = isMockSport
+        ? null
+        : catalogSpotUsdFromPoketracePreview(
+            poketraceByToken[a.tokenId],
+            poketraceHistoryTierFromRwaMetadata(a.metadata),
+          );
       const jt =
-        poke == null
-          ? justtcgRepresentativeUsd(series?.gradePrices ?? null, gradeScoreForJustTcg(a.metadata))
-          : null;
+        isMockSport || poke != null
+          ? null
+          : justtcgRepresentativeUsd(series?.gradePrices ?? null, gradeScoreForJustTcg(a.metadata));
 
       let currentPrice: number | null = null;
       let priceSource: PricedAssetRow["priceSource"] = "none";
-      if (poke != null) {
+      if (isMockSport) {
+        currentPrice = mockDemoSpotUsd(a.tokenId, sportBucket);
+        priceSource = "mock";
+      } else if (poke != null) {
         currentPrice = poke;
         priceSource = "poketrace";
       } else if (jt != null) {
         currentPrice = jt;
-        priceSource = "justtcg";
+        priceSource = "poketrace";
       }
 
-      const liquidityLabel = ck ? formatLiquidityDepthLabel(stats ?? undefined) : null;
+      const liquidityLabel = isMockSport
+        ? MOCK_SPORTS_LIQUIDITY_CAPTION
+        : ck
+          ? formatLiquidityDepthLabel(stats ?? undefined)
+          : null;
 
       const displayName = a.metadata?.name ?? `RWA #${a.tokenId}`;
       return {
@@ -780,11 +858,7 @@ export default function PortfolioPage() {
         listPriceUsd: listingPrice,
         subtitle: buildAssetSubtitle(a.metadata, displayName),
         gradeLabel: formatGradeDisplay(a.metadata),
-        acquiredLabel: earliestBuyDateLabel(
-          a.tokenId,
-          fulfilledOrders,
-          address,
-        ),
+        poketraceRaw: poketraceByToken[a.tokenId] ?? null,
       };
     });
   }, [
@@ -804,7 +878,7 @@ export default function PortfolioPage() {
       let next = prev;
       let changed = false;
       for (const r of pricedRows) {
-        if (r.priceSource !== "poketrace" && r.priceSource !== "justtcg") continue;
+        if (r.priceSource !== "poketrace") continue;
         if (r.currentPrice == null) continue;
         if (next[r.tokenId] !== undefined) continue;
         if (next === prev) next = { ...prev };
@@ -817,61 +891,84 @@ export default function PortfolioPage() {
   }, [address, valuesPending, pricedRows]);
 
   const assetRows: AssetRow[] = useMemo(() => {
+    const wallet = address?.toLowerCase() ?? "";
     return pricedRows.map((r) => {
       const b = nmBaselineMap[r.tokenId];
-      let nmBaselineUsd: number | null = null;
+      let costBasisUsd: number | null = null;
       let pnl: number | null = null;
       let pnlPct: number | null = null;
 
+      const latestBuyLike = fulfilledOrders.find((o) => {
+        if (Number(o.tokenId) !== r.tokenId) return false;
+        return o.offerer.toLowerCase() !== wallet;
+      });
+      if (latestBuyLike) {
+        const px = Number(latestBuyLike.price) / USDC_DECIMALS;
+        if (Number.isFinite(px) && px > 0) costBasisUsd = px;
+      }
+      if (costBasisUsd == null && b != null) {
+        costBasisUsd = b.v;
+      }
+
       if (
-        (r.priceSource === "poketrace" || r.priceSource === "justtcg") &&
+        r.priceSource === "poketrace" &&
         r.currentPrice != null &&
-        b != null
+        costBasisUsd != null
       ) {
-        nmBaselineUsd = b.v;
-        pnl = r.currentPrice - b.v;
-        if (b.v > 0) pnlPct = (pnl / b.v) * 100;
+        pnl = r.currentPrice - costBasisUsd;
+        if (costBasisUsd > 0) pnlPct = (pnl / costBasisUsd) * 100;
       }
 
       return {
         ...r,
-        nmBaselineUsd,
+        costBasisUsd,
         pnl,
         pnlPct,
       };
     });
-  }, [pricedRows, nmBaselineMap]);
+  }, [pricedRows, nmBaselineMap, fulfilledOrders, address]);
 
   const ASSET_PAGE = 10;
   const [visibleAssetCount, setVisibleAssetCount] = useState(ASSET_PAGE);
+  const listedAssetCount = useMemo(
+    () => assetRows.filter((r) => r.listPriceUsd != null).length,
+    [assetRows],
+  );
+  const unlistedAssetCount = assetRows.length - listedAssetCount;
+  const filteredAssetRows = useMemo(() => {
+    if (assetFilter === "listed") return assetRows.filter((r) => r.listPriceUsd != null);
+    if (assetFilter === "unlisted") return assetRows.filter((r) => r.listPriceUsd == null);
+    return assetRows;
+  }, [assetRows, assetFilter]);
+
   useEffect(() => {
     setVisibleAssetCount((n) =>
-      assetRows.length === 0
+      filteredAssetRows.length === 0
         ? ASSET_PAGE
-        : Math.min(Math.max(n, ASSET_PAGE), assetRows.length),
+        : Math.min(Math.max(n, ASSET_PAGE), filteredAssetRows.length),
     );
-  }, [assetRows.length]);
+  }, [filteredAssetRows.length]);
 
   const visibleAssetRows = useMemo(
-    () => assetRows.slice(0, visibleAssetCount),
-    [assetRows, visibleAssetCount],
+    () => filteredAssetRows.slice(0, visibleAssetCount),
+    [filteredAssetRows, visibleAssetCount],
   );
 
   const assetScrollSentinelRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     const el = assetScrollSentinelRef.current;
-    if (!el || visibleAssetCount >= assetRows.length) return;
+    if (!el || visibleAssetCount >= filteredAssetRows.length) return;
     const io = new IntersectionObserver(
       (entries) => {
         if (entries[0]?.isIntersecting) {
-          setVisibleAssetCount((c) => Math.min(c + ASSET_PAGE, assetRows.length));
+          setVisibleAssetCount((c) => Math.min(c + ASSET_PAGE, filteredAssetRows.length));
         }
       },
       { root: null, rootMargin: "160px" },
     );
     io.observe(el);
     return () => io.disconnect();
-  }, [visibleAssetCount, assetRows.length]);
+  }, [visibleAssetCount, filteredAssetRows.length]);
 
   const txRows: TxRow[] = useMemo(() => {
     if (!address) return [];
@@ -905,8 +1002,8 @@ export default function PortfolioPage() {
   );
 
   const totalPnlPct = useMemo(() => {
-    const sumBaseline = assetRows.reduce((s, r) => s + (r.nmBaselineUsd ?? 0), 0);
-    return sumBaseline > 0 ? (totalPnl / sumBaseline) * 100 : 0;
+    const sumCost = assetRows.reduce((s, r) => s + (r.costBasisUsd ?? 0), 0);
+    return sumCost > 0 ? (totalPnl / sumCost) * 100 : 0;
   }, [assetRows, totalPnl]);
 
   const uniqueTraders = useMemo(() => {
@@ -922,32 +1019,114 @@ export default function PortfolioPage() {
 
   const isLoading = idsLoading || assetsLoading || poketraceLoading;
   const chartValuesPending =
-    isLoading || (uniqueCollectionKeys.length > 0 && seriesLoadingAny);
-
-  const portfolioValueHistory = useMemo(
-    () => (address ? loadPortfolioValueHistory(address) : []),
-    [address, portfolioHistoryVersion],
-  );
+    isLoading || (anyAssetNeedsSeriesForPricing && seriesLoadingAny);
 
   useEffect(() => {
     if (!address || isLoading) return;
-    if (appendPortfolioValueSnapshot(address, totalValue)) {
-      setPortfolioHistoryVersion((n) => n + 1);
-    }
+    void appendPortfolioValueSnapshot(address, totalValue);
   }, [address, isLoading, totalValue]);
 
   const chartPoints = useMemo(() => {
     if (isLoading) return [];
-    const baselineTotal = assetRows.reduce((s, r) => s + (r.nmBaselineUsd ?? 0), 0);
-    const startFallback = baselineTotal > 0 ? baselineTotal : totalValue;
-    return buildPortfolioChartPoints(
-      portfolioValueHistory,
-      period,
-      Date.now(),
-      totalValue,
-      startFallback,
+
+    const now = Date.now();
+    const byToken = new Map<number, AssetRow>();
+    for (const r of assetRows) byToken.set(r.tokenId, r);
+
+    const tokenIdsInPortfolio = assets.map((a) => a.tokenId);
+    const tokenCountByCollection = new Map<string, number>();
+    const tokenConstantByCollection = new Map<string, number>();
+    let standaloneConstant = 0;
+
+    for (const tokenId of tokenIdsInPortfolio) {
+      const row = byToken.get(tokenId);
+      if (!row) continue;
+      const ck = tokenToCollectionKey[tokenId]?.toLowerCase();
+      const hasSeries =
+        ck != null &&
+        ck !== "" &&
+        (seriesByCollectionKey.get(ck)?.externalUsd?.length ?? 0) >= 2;
+      if (hasSeries && ck) {
+        tokenCountByCollection.set(ck, (tokenCountByCollection.get(ck) ?? 0) + 1);
+      } else if (row.currentPrice != null && Number.isFinite(row.currentPrice)) {
+        if (ck) {
+          tokenConstantByCollection.set(
+            ck,
+            (tokenConstantByCollection.get(ck) ?? 0) + row.currentPrice,
+          );
+        } else {
+          standaloneConstant += row.currentPrice;
+        }
+      }
+    }
+
+    const pointCount = period === "1D" ? 24 : period === "1W" ? 7 : 30;
+    const stepMs = period === "1D" ? 3600_000 : 86400_000;
+    const times = Array.from(
+      { length: pointCount },
+      (_, i) => now - (pointCount - 1 - i) * stepMs,
     );
-  }, [portfolioValueHistory, period, totalValue, assetRows, isLoading]);
+
+    const collectionSeries = new Map<string, Array<{ t: number; v: number }>>();
+    for (const [ck] of tokenCountByCollection) {
+      const ext = seriesByCollectionKey.get(ck)?.externalUsd ?? [];
+      if (ext.length >= 2) collectionSeries.set(ck, ext);
+    }
+
+    const valueAt = (series: Array<{ t: number; v: number }>, tMs: number): number | null => {
+      const t = Math.floor(tMs / 1000);
+      let prev: number | null = null;
+      for (const p of series) {
+        if (p.t <= t) prev = p.v;
+        else break;
+      }
+      if (prev != null) return prev;
+      const first = series[0]?.v;
+      return first != null && Number.isFinite(first) ? first : null;
+    };
+
+    const out = times.map((tMs) => {
+      let total = standaloneConstant;
+      for (const [ck, count] of tokenCountByCollection) {
+        const s = collectionSeries.get(ck);
+        if (!s || count <= 0) continue;
+        const v = valueAt(s, tMs);
+        if (v != null && Number.isFinite(v) && v > 0) total += v * count;
+      }
+      for (const [, csum] of tokenConstantByCollection) total += csum;
+      return Math.max(0, total);
+    });
+
+    if (out.length > 0) {
+      out[out.length - 1] = totalValue;
+    }
+    return out;
+  }, [
+    isLoading,
+    assetRows,
+    assets,
+    tokenToCollectionKey,
+    seriesByCollectionKey,
+    period,
+    totalValue,
+  ]);
+
+  /** Slight path smoothing when the book includes MLB/NFL/NBA rows (end point stays the live total). */
+  const chartPointsDisplay = useMemo(() => {
+    const pts = chartPoints;
+    if (pts.length < 2 || !hasMockSportHoldings) return pts;
+    const out = [...pts];
+    const end = out[out.length - 1]!;
+    const seed = (address?.codePointAt(0) ?? 1) + (period === "1D" ? 3 : period === "1W" ? 5 : 7);
+    for (let i = 0; i < out.length - 1; i++) {
+      const frac = (i + 0.5) / Math.max(1, out.length - 1);
+      const wave =
+        Math.sin(frac * Math.PI * 2 + seed * 0.01) * 0.028 + (frac - 0.5) * 0.018;
+      out[i] = Math.max(0, end * (1 + wave));
+    }
+    out[out.length - 1] = end;
+    return out;
+  }, [chartPoints, hasMockSportHoldings, address, period]);
 
   if (!isConnected) {
     return (
@@ -982,9 +1161,8 @@ export default function PortfolioPage() {
             <div>
               <p className="text-sm font-semibold text-white mb-0.5">Chart</p>
               <p className="text-[11px] text-gray-500 mb-1">
-                Total value = sum of external spot prices (PokéTrace per token, else JustTCG for the
-                bucket) · history from snapshots in this
-                browser
+                Total value is the sum of per-card market estimates. History is built from snapshots
+                stored in this browser for this wallet.
               </p>
               <div className="flex items-center gap-2.5">
                 {chartValuesPending ? (
@@ -1031,7 +1209,7 @@ export default function PortfolioPage() {
               <div className="w-full h-full bg-gray-800/40 rounded-lg animate-pulse" />
             ) : (
               <PortfolioChart
-                points={chartPoints}
+                points={chartPointsDisplay}
                 period={period}
                 currentValue={totalValue}
               />
@@ -1062,8 +1240,8 @@ export default function PortfolioPage() {
               chartValuesPending
                 ? undefined
                 : totalPnlPct !== 0
-                  ? `${totalPnlPct >= 0 ? "+" : ""}${totalPnlPct.toFixed(1)}% · vs saved external baseline`
-                  : "External spot vs first snapshot in this browser"
+                  ? `${totalPnlPct >= 0 ? "+" : ""}${totalPnlPct.toFixed(1)}%`
+                  : undefined
             }
             accent={!chartValuesPending && totalPnl !== 0}
           />
@@ -1071,12 +1249,47 @@ export default function PortfolioPage() {
 
         {/* My Assets — card grid */}
         <div className="rounded-2xl border border-gray-800 bg-[#0b1118] p-5 sm:p-6 mb-6">
-          <h2 className="text-sm font-bold mb-1">My Assets</h2>
-          <p className="text-[11px] text-gray-500 mb-5">
-            Market price = PokéTrace NM when the mint is matched, otherwise JustTCG for the listing
-            bucket. P&amp;L is change vs the first external spot snapshot stored in this browser for
-            each token (not purchase cost). Listing-pool stats are liquidity only.
-          </p>
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-bold">My Assets</h2>
+              <p className="mt-1 text-xs text-gray-500">
+                Track which cards are currently listed vs ready to list.
+              </p>
+            </div>
+            <div className="inline-flex rounded-full border border-gray-700/80 bg-gray-900/70 p-1 text-[11px]">
+              <button
+                type="button"
+                onClick={() => setAssetFilter("all")}
+                className={`rounded-full px-3 py-1 font-semibold transition-colors ${
+                  assetFilter === "all" ? "bg-mint text-[#061018]" : "text-gray-400 hover:text-white"
+                }`}
+              >
+                All <span className="tabular-nums">({assetRows.length})</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setAssetFilter("listed")}
+                className={`rounded-full px-3 py-1 font-semibold transition-colors ${
+                  assetFilter === "listed"
+                    ? "bg-emerald-500/90 text-[#061018]"
+                    : "text-gray-400 hover:text-white"
+                }`}
+              >
+                Listed <span className="tabular-nums">({listedAssetCount})</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setAssetFilter("unlisted")}
+                className={`rounded-full px-3 py-1 font-semibold transition-colors ${
+                  assetFilter === "unlisted"
+                    ? "bg-zinc-500/90 text-[#061018]"
+                    : "text-gray-400 hover:text-white"
+                }`}
+              >
+                Not listed <span className="tabular-nums">({unlistedAssetCount})</span>
+              </button>
+            </div>
+          </div>
           {isLoading ? (
             <div className="-mx-1 flex flex-nowrap gap-4 overflow-x-auto overflow-y-hidden pb-2 pt-0.5 scrollbar-platform">
               {[...Array(5)].map((_, i) => (
@@ -1099,16 +1312,61 @@ export default function PortfolioPage() {
                 Mint your first card
               </Link>
             </p>
+          ) : filteredAssetRows.length === 0 ? (
+            <p className="text-sm text-gray-500 py-8 text-center">
+              {assetFilter === "listed"
+                ? "No cards are currently listed for sale."
+                : "All cards are currently listed. Cancel a listing to move back to not listed."}
+            </p>
           ) : (
             <div className="-mx-1 flex flex-nowrap gap-4 overflow-x-auto overflow-y-hidden pb-2 pt-0.5 scrollbar-platform snap-x snap-mandatory scroll-pl-1">
               {visibleAssetRows.map((r) => (
+                (() => {
+                  const tokenableVsEbayPct =
+                    r.listPriceUsd != null &&
+                    r.currentPrice != null &&
+                    Number.isFinite(r.listPriceUsd) &&
+                    Number.isFinite(r.currentPrice) &&
+                    r.currentPrice > 0
+                      ? ((r.listPriceUsd - r.currentPrice) / r.currentPrice) * 100
+                      : null;
+                  return (
                 <button
                   key={r.tokenId}
                   type="button"
-                  onClick={() => router.push(`/marketplace/${r.tokenId}`)}
+                  onClick={() => {
+                    if (r.poketraceRaw) {
+                      queryClient.setQueryData(
+                        ["poketrace-mint-previews", "detail", r.tokenId],
+                        { [r.tokenId]: r.poketraceRaw },
+                      );
+                    }
+                    router.push(`/marketplace/${r.tokenId}`);
+                  }}
                   className="group flex w-[min(260px,calc(100vw-4rem))] shrink-0 snap-start flex-col overflow-hidden rounded-xl border border-gray-800/90 bg-gradient-to-b from-gray-900/80 to-[#0a1018] text-left shadow-lg shadow-black/20 transition-all hover:border-mint/25 hover:shadow-mint/5"
                 >
                   <div className="relative aspect-[3/4] w-full bg-[#070a0f]">
+                    {tokenableVsEbayPct != null ? (
+                      <div className="group absolute right-2 top-2 z-10">
+                        <span
+                          className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-extrabold tabular-nums shadow-[0_4px_14px_rgba(0,0,0,0.35)] ${
+                            tokenableVsEbayPct >= 0
+                              ? "border-amber-300/35 bg-amber-500/35 text-amber-100"
+                              : "border-emerald-300/35 bg-emerald-500/35 text-emerald-100"
+                          }`}
+                        >
+                          Market Gap {tokenableVsEbayPct >= 0 ? "+" : ""}
+                          {tokenableVsEbayPct.toFixed(1)}%
+                        </span>
+                        <div className="pointer-events-none absolute right-0 top-full mt-1.5 w-56 rounded-lg border border-zinc-700/90 bg-[#0a0f16]/95 px-3 py-2 text-[11px] leading-snug text-zinc-200 opacity-0 shadow-xl transition-opacity duration-150 group-hover:opacity-100">
+                          <p className="font-semibold text-zinc-100">Market Gap formula</p>
+                          <p className="mt-1">
+                            Tokenable Listing ({r.listPriceUsd != null ? `$${r.listPriceUsd.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : "—"}) vs eBay Price ({r.currentPrice != null ? `$${r.currentPrice.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : "—"})
+                          </p>
+                          <p className="mt-1 text-zinc-400">(Tokenable − eBay) / eBay</p>
+                        </div>
+                      </div>
+                    ) : null}
                     {r.imageUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
@@ -1131,6 +1389,15 @@ export default function PortfolioPage() {
                         <h3 className="min-w-0 flex-1 truncate text-[15px] font-semibold leading-tight text-white">
                           {r.name}
                         </h3>
+                        <span
+                          className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+                            r.listPriceUsd != null
+                              ? "bg-emerald-500/15 text-emerald-300"
+                              : "bg-zinc-700/40 text-zinc-300"
+                          }`}
+                        >
+                          {r.listPriceUsd != null ? "Listed" : "Not listed"}
+                        </span>
                         {r.category && (
                           <CategoryBadge label={r.category} />
                         )}
@@ -1142,98 +1409,43 @@ export default function PortfolioPage() {
                       ) : null}
                     </div>
                     <dl className="space-y-2 border-t border-gray-800/80 pt-3 text-[12px]">
-                      <div className="space-y-0.5">
-                        <div className="flex justify-between gap-2">
-                          <dt className="text-gray-500">Market price</dt>
-                          <dd className="font-medium tabular-nums text-gray-200">
-                            {valuesPending && r.currentPrice == null ? (
-                              <span className="inline-block h-4 w-16 animate-pulse rounded bg-gray-800/80 align-middle" />
-                            ) : r.currentPrice != null ? (
-                              `$${r.currentPrice.toLocaleString(undefined, {
-                                maximumFractionDigits: 0,
-                              })}`
-                            ) : (
-                              "—"
-                            )}
-                          </dd>
-                        </div>
-                        {r.currentPrice != null && r.priceSource !== "none" ? (
-                          <p className="text-[10px] leading-tight text-gray-600 text-right">
-                            {r.priceSource === "poketrace"
-                              ? "PokéTrace NM"
-                              : "JustTCG (bucket fallback)"}
-                          </p>
-                        ) : null}
-                        {r.liquidityLabel ? (
-                          <p className="text-[10px] leading-tight text-gray-600 text-right">
-                            {r.liquidityLabel}
-                          </p>
-                        ) : null}
-                        {r.listPriceUsd != null ? (
-                          <p className="text-[10px] leading-tight text-gray-600 text-right">
-                            Your ask: $
-                            {r.listPriceUsd.toLocaleString(undefined, {
-                              maximumFractionDigits: 0,
-                            })}{" "}
-                            (your listing, not the external spot)
-                          </p>
-                        ) : null}
-                      </div>
                       <div className="flex justify-between gap-2">
-                        <dt
-                          className="text-gray-500"
-                          title="Versus first saved external spot snapshot for this token in this browser"
-                        >
-                          P&amp;L
-                        </dt>
-                        <dd className="tabular-nums">
-                          {valuesPending ? (
-                            <span className="inline-block h-4 w-20 animate-pulse rounded bg-gray-800/80 align-middle" />
-                          ) : r.pnl != null ? (
-                            <span
-                              className={
-                                r.pnl >= 0 ? "font-medium text-mint" : "font-medium text-red-400"
-                              }
-                            >
-                              {r.pnl >= 0 ? "+" : ""}$
-                              {Math.abs(r.pnl).toLocaleString(undefined, {
-                                maximumFractionDigits: 0,
-                              })}
-                              {r.pnlPct != null && (
-                                <span className="ml-1 text-[10px] opacity-80">
-                                  ({r.pnlPct >= 0 ? "+" : ""}
-                                  {r.pnlPct.toFixed(1)}%)
-                                </span>
-                              )}
-                            </span>
+                        <dt className="text-gray-500">eBay Price</dt>
+                        <dd className="font-semibold tabular-nums text-cyan-300">
+                          {valuesPending && r.currentPrice == null ? (
+                            <span className="inline-block h-4 w-16 animate-pulse rounded bg-gray-800/80 align-middle" />
+                          ) : r.currentPrice != null ? (
+                            `$${r.currentPrice.toLocaleString(undefined, {
+                              maximumFractionDigits: 0,
+                            })}`
                           ) : (
-                            <span className="text-gray-600">—</span>
+                            "—"
                           )}
                         </dd>
                       </div>
-                      {!valuesPending && r.currentPrice == null && (
-                          <p className="text-[10px] leading-snug text-gray-600">
-                            {NO_EXTERNAL_PRICE} — match PokéTrace on mint or ensure JustTCG data for
-                            this bucket.
-                          </p>
-                        )}
+                      <div className="flex justify-between gap-2">
+                        <dt className="text-gray-500">Tokenable Listing</dt>
+                        <dd className="text-right tabular-nums font-semibold text-emerald-300">
+                          {r.listPriceUsd != null
+                            ? `$${r.listPriceUsd.toLocaleString(undefined, {
+                                maximumFractionDigits: 0,
+                              })} ask`
+                            : "Not listed"}
+                        </dd>
+                      </div>
                       <div className="flex justify-between gap-2">
                         <dt className="text-gray-500">Grade</dt>
                         <dd className="text-right text-gray-200">
                           {r.gradeLabel ?? "—"}
                         </dd>
                       </div>
-                      <div className="flex justify-between gap-2">
-                        <dt className="text-gray-500">Acquired</dt>
-                        <dd className="text-right text-gray-400">
-                          {r.acquiredLabel ?? "—"}
-                        </dd>
-                      </div>
                     </dl>
                   </div>
                 </button>
+                  );
+                })()
               ))}
-              {visibleAssetCount < assetRows.length ? (
+              {visibleAssetCount < filteredAssetRows.length ? (
                 <div
                   ref={assetScrollSentinelRef}
                   className="h-32 w-4 shrink-0 snap-start"

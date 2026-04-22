@@ -1,4 +1,8 @@
-import type { CollectionListMarketSnapshot, MarketplaceCollectionSummary } from "@/lib/api";
+import type {
+  CollectionListMarketSnapshot,
+  MarketplaceCollectionSummary,
+  RwaMetadata,
+} from "@/lib/api";
 
 export type CollectionCategoryFilterId =
   | "all"
@@ -37,11 +41,36 @@ function buildHaystack(
     .toLowerCase();
 }
 
-export function inferCollectionSportBucket(
-  collection: MarketplaceCollectionSummary,
-  snapshot: CollectionListMarketSnapshot | undefined,
-): CollectionSportBucket {
-  const hay = buildHaystack(collection, snapshot);
+function pushHayPart(parts: string[], v: unknown) {
+  if (typeof v === "string" && v.trim().length > 0) parts.push(v.trim());
+}
+
+/** Best-effort text for sport bucket rules (mint IPFS / portfolio metadata). */
+export function buildHaystackFromRwaMetadata(meta: RwaMetadata | null): string {
+  if (!meta) return "";
+  const parts: string[] = [];
+  pushHayPart(parts, meta.name);
+  pushHayPart(parts, meta.description);
+  for (const a of meta.attributes ?? []) {
+    pushHayPart(parts, a.trait_type);
+    if (a.value != null) pushHayPart(parts, String(a.value));
+  }
+  const props = meta.properties as Record<string, unknown> | undefined;
+  const graded = (props?.graded ?? (meta as { graded?: unknown }).graded) as
+    | Record<string, unknown>
+    | undefined;
+  if (graded && typeof graded === "object") {
+    const card = graded.card as Record<string, unknown> | undefined;
+    pushHayPart(parts, card?.name);
+    pushHayPart(parts, card?.set);
+    const psa = graded.psa as Record<string, unknown> | undefined;
+    pushHayPart(parts, psa?.category);
+    pushHayPart(parts, graded.gradingCompany);
+  }
+  return parts.join(" ").toLowerCase();
+}
+
+export function inferSportBucketFromHaystack(hay: string): CollectionSportBucket {
   if (!hay.trim()) return "other";
 
   if (/\bpokemon\b|ポケ|pikachu|charizard/i.test(hay)) {
@@ -77,6 +106,19 @@ export function inferCollectionSportBucket(
   }
 
   return "other";
+}
+
+export function inferSportBucketFromRwaMetadata(
+  meta: RwaMetadata | null,
+): CollectionSportBucket {
+  return inferSportBucketFromHaystack(buildHaystackFromRwaMetadata(meta));
+}
+
+export function inferCollectionSportBucket(
+  collection: MarketplaceCollectionSummary,
+  snapshot: CollectionListMarketSnapshot | undefined,
+): CollectionSportBucket {
+  return inferSportBucketFromHaystack(buildHaystack(collection, snapshot));
 }
 
 export function collectionMatchesCategoryFilter(

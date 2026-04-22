@@ -10,7 +10,7 @@ export function useMarketplaceCollectionsInfinite() {
     queryFn: ({ pageParam }) =>
       getMarketplaceCollectionsPage({
         cursor: pageParam as string | null,
-        limit: 24,
+        limit: 30,
       }),
     initialPageParam: null as string | null,
     getNextPageParam: (last) => last.nextCursor,

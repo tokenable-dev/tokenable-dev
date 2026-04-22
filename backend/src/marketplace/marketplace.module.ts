@@ -1,7 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BlockchainModule } from '../blockchain/blockchain.module';
-import { PriceModule } from '../price/price.module';
 import { PoketraceModule } from '../poketrace/poketrace.module';
 import { CollectionMarketService } from './collection-market.service';
 import { CollectionService } from './collection.service';
@@ -14,6 +13,7 @@ import { Order } from './entities/order.entity';
 import { OutboxEvent } from './entities/outbox-event.entity';
 import { TradeExecution } from './entities/trade-execution.entity';
 import { MarketplaceController } from './marketplace.controller';
+import { PoketraceProxyController } from './poketrace-proxy.controller';
 import { MarketplaceService } from './marketplace.service';
 import { BidsController } from './trading/bids.controller';
 import { BidsQueryService } from './trading/bids-query.service';
@@ -38,10 +38,14 @@ import { TradeOrchestratorService } from './trading/trade-orchestrator.service';
       OutboxEvent,
     ]),
     BlockchainModule,
-    PriceModule,
     PoketraceModule,
   ],
-  controllers: [MarketplaceController, BidsController, TradeController],
+  controllers: [
+    MarketplaceController,
+    PoketraceProxyController,
+    BidsController,
+    TradeController,
+  ],
   providers: [
     MarketplaceService,
     CollectionService,

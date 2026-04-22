@@ -4,7 +4,7 @@ import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { CollectionMarketService } from './collection-market.service';
 import { CollectionService } from './collection.service';
-import { PriceService } from '../price/price.service';
+import { PoketraceService } from '../poketrace/poketrace.service';
 import { Order, OrderSide, OrderStatus } from './entities/order.entity';
 
 const USDC = '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238';
@@ -42,7 +42,10 @@ describe('CollectionMarketService.getCollectionMarketStats', () => {
     findOne: jest.fn(),
     activeListingsForCollection: jest.fn(),
   };
-  const priceService = {};
+  const poketraceService = {
+    getPreviewForCollection: jest.fn(),
+    getNearMintHistoryForCollection: jest.fn(),
+  };
   const orderRepo = { find: jest.fn() };
   const configService = {
     get: jest.fn((k: string) => (k === 'USDC_CONTRACT_ADDRESS' ? USDC : undefined)),
@@ -55,7 +58,7 @@ describe('CollectionMarketService.getCollectionMarketStats', () => {
       providers: [
         CollectionMarketService,
         { provide: CollectionService, useValue: collectionService },
-        { provide: PriceService, useValue: priceService },
+        { provide: PoketraceService, useValue: poketraceService },
         { provide: ConfigService, useValue: configService },
         { provide: getRepositoryToken(Order), useValue: orderRepo },
       ],
