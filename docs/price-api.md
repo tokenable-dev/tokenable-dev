@@ -1,24 +1,23 @@
-# Price API — 포켓몬 카드 실시간 가격
+# Price API — JustTCG (TCG 실시간·카탈로그 가격)
 
 > **데이터 제공**: [JustTCG](https://justtcg.com) — The Dedicated Pricing API for Trading Card Games  
 > **Base URL (로컬 예시)**: `http://localhost:4000/api/price` — Nest **글로벌 prefix `/api`** 포함  
 > **Swagger**: `{호스트}/api/docs` → **price** 태그 (최종 스키마·파라미터는 코드와 동기화)  
-> **백엔드**: `backend/src/price/price.controller.ts`, 서버 env **`TCG_API_KEY`** 필수  
-> **플랫폼 대상**: 포켓몬(Pokemon) 중심 — 호출 시 `game=pokemon` 등 문서·기획에 맞게 지정
+> **백엔드**: `backend/src/price/price.controller.ts`, 서버 env **`TCG_API_KEY` 필수** (`PriceService` — mock 분기 없음)
 
 ---
 
-## 플랫폼 사용 게임
+## 플랫폼에서의 역할
 
-이 플랫폼은 **포켓몬만** 취급합니다.
+- **민팅·컬렉션 메타**는 주로 **포켓몬·등급 카드**를 전제로 하지만, **랜딩 Market Indexes** 등은 `GET /price/games`로 노출되는 **여러 JustTCG 게임 ID**(야구·축구·농구 등)를 함께 쓸 수 있다. 호출 시 `game` 쿼리는 화면·기획에 맞게 지정한다.
+- 아래 표의 숫자·통계는 **문서 작성 시점 예시**이며, 실제 값은 API 응답을 따른다.
 
 | Game ID | 게임명 | 카드 수 | 세트 수 | 시장 총 가치 |
 | --- | --- | --- | --- | --- |
 | **`pokemon`** | **Pokemon (영문판)** | **28,230** | **210** | **$709,469** |
 | `pokemon-japan` | Pokemon Japan (일본판) | 21,383 | 429 | $28,515 |
 
-> JustTCG는 총 17개 TCG 게임을 지원하지만 이 플랫폼에서는 위 두 게임 ID만 사용합니다.
-> 영문판과 일본판은 별도 game ID로 관리됩니다. 기본은 `pokemon`, 일본판 카드는 `pokemon-japan`을 사용하세요.
+> JustTCG는 여러 TCG 게임을 지원한다. 포켓몬 관련 카드 검색·배치에는 보통 `pokemon` 또는 `pokemon-japan`을 쓴다.
 
 ---
 

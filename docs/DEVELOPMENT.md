@@ -4,6 +4,29 @@
 
 ---
 
+## 0. 제품 화면 · 외부 데이터 (최신)
+
+### 프론트 주요 경로
+
+| 경로 | 역할 |
+|------|------|
+| `/` | 랜딩 — Market Indexes (`GET /api/price/games` 기반 카드 등) |
+| `/exchange` | 컬렉션 목록 · 카테고리 필터 · Trending · 리스트/그리드 |
+| `/portfolio` | 보유 자산 · 리스팅 여부 · 참고가 대비 플랫폼 가격 |
+| `/vault` | 민팅·등록 진입 |
+| `/marketplace/collections/:key` | 호가북 · Tokenable+PokéTrace 듀얼 차트 · criteria 입찰/매도 · 개별 리스팅(판매자·cert·가격) |
+| `/marketplace/:tokenId` | 토큰 상세 |
+
+### 외부 가격 · 프록시
+
+| 구분 | 엔드포인트 / 코드 | 비고 |
+|------|-------------------|------|
+| **JustTCG** | `GET /api/price/games`, `/sets`, `/cards`, … | `PriceService`, **`TCG_API_KEY` 필수** (`ConfigService.getOrThrow`). 로컬 mock 전용 분기는 제거됨. |
+| **PokéTrace** | `GET /api/marketplace/poketrace/catalog`, `/cards`, `/cards/:cardId/prices/:tier/history`, … | `PoketraceProxyController` + `PoketraceService` — 컬렉션/토큰 차트·티어 히스토리 |
+| **컬렉션 배치 스냅샷** | `POST /api/marketplace/collections/market-snapshots` | Exchange 등에서 여러 컬렉션의 풀 통계·스파크라인·외부 참조가를 한 번에 |
+
+---
+
 ## 1. 데이터베이스 (PostgreSQL + TypeORM)
 
 - **스키마 정의**: `backend/src/**/entities/` — 엔티티가 유일한 소스입니다.
@@ -37,14 +60,24 @@ cd backend && pnpm start:dev
 |--------|------|------|
 | `POST` | `/api/marketplace/orders` | Seaport 주문 등록 |
 | `POST` | `/api/marketplace/orders/replace-listing` | 활성 ask 교체 |
+| `POST` | `/api/marketplace/orders/batch-by-token` | 토큰 ID 목록별 주문 배치 조회 |
 | `GET` | `/api/marketplace/orders` | 활성 매도 목록 |
 | `GET` | `/api/marketplace/orders/token/:tokenId` | 토큰별 이력 |
 | `GET` | `/api/marketplace/orders/:hash` | 단건 |
 | `PATCH` | `/api/marketplace/orders/:hash/cancel` | 취소 (`callerAddress`) |
 | `PATCH` | `/api/marketplace/orders/:hash/fulfill` | 단일 체결 동기화 |
 | `POST` | `/api/marketplace/orders/fulfill-matched-pair` | criteria 매칭 후 동기화 |
-| `GET` | `/api/marketplace/collections` / `collections/:key` | 컬렉션 |
+| `GET` | `/api/marketplace/collections` | 컬렉션 목록(커서) |
+| `POST` | `/api/marketplace/collections/market-snapshots` | 배치 마켓 스냅샷(차트·풀 통계 등) |
+| `GET` | `/api/marketplace/collections/:key` | 컬렉션 상세 |
+| `GET` | `/api/marketplace/collections/:key/poketrace` | PokéTrace 프리뷰 |
+| `GET` | `/api/marketplace/collections/:key/poketrace/price-history` | 티어 가격 히스토리 |
+| `GET` | `/api/marketplace/collections/:key/market-series` | 외부 시계열 헤더 |
+| `GET` | `/api/marketplace/collections/:key/platform-trades` | 온플랫폼 거래 |
+| `GET` | `/api/marketplace/collections/:key/stats` | 풀 통계 |
 | `GET` | `/api/marketplace/collections/:key/merkle-set` | Merkle leaf용 tokenIds |
+| `POST` | `/api/marketplace/poketrace/mint-previews` | 민트 프리뷰 배치 |
+| `GET` | `/api/marketplace/poketrace/*` | PokéTrace 카탈로그/카드 프록시 (Swagger: marketplace 태그) |
 | `GET` | `/api/marketplace/bids` | 활성 입찰 목록 (`collectionKey` 필수, `tokenId` 선택 시 적용 가능 여부) |
 | `GET` | `/api/marketplace/bids/:id` | 입찰 단건 (`rule` JSON 포함) |
 | `POST` | `/api/marketplace/trade/match` | 매칭 예약 — **202**, 헤더 `Idempotency-Key` 권장 |
@@ -87,8 +120,9 @@ cd backend && pnpm start:dev
 
 | 변수 | 설명 |
 |------|------|
-| `TCG_API_KEY` | JustTCG 실호출 시 필수 (`PriceService`). |
-| `TCG_USE_MOCK` | `true` / `1` / `yes` 이면 **외부 JustTCG 호출 없이** `backend/src/price/price.mock.ts` 고정 응답 (무료 플랜 한도 회피 등). 이 경우 `TCG_API_KEY`는 사용되지 않습니다. |
+| `TCG_API_KEY` | **필수** — `PriceService`가 `getOrThrow`로 읽으며, 없으면 백엔드 기동 실패. JustTCG 실호출만 사용한다. |
+
+> 과거에 있던 **로컬 mock 전용 env / `price.mock.ts`** 분기는 제거되었다. 한도·키 관리는 JustTCG 플랜·키 로테이션으로 처리한다.
 
 ---
 

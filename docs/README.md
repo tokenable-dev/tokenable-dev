@@ -2,9 +2,10 @@
 
 | File | Purpose |
 |------|---------|
-| [DEVELOPMENT.md](./DEVELOPMENT.md) | **통합 가이드** — 로컬 DB·API·Seaport·relational 매칭·JustTCG·**EC2 배포**·PSA 트러블슈팅·다이어그램 인덱스 |
+| [DEVELOPMENT.md](./DEVELOPMENT.md) | **통합 가이드** — 제품 화면·외부 연동(JustTCG / PokéTrace / 배치 스냅샷) · 로컬 DB · Marketplace·PokéTrace API 요약 · Seaport · relational 매칭 · **develop push → CI/CD·EC2** · PSA 트러블슈팅 · 다이어그램 인덱스 |
 | [marketplace-trading.md](./marketplace-trading.md) | Seaport `orders`와 병행하는 규칙 기반 입찰·매칭 API |
-| [price-api.md](./price-api.md) | JustTCG API reference (long) |
+| [price-api.md](./price-api.md) | JustTCG HTTP API reference (상세) |
+| [DEPLOY_EC2_DOMAIN.md](./DEPLOY_EC2_DOMAIN.md) | EC2·도메인·CORS·TLS |
 | [diagrams/](./diagrams/) | Marketplace pipeline, Seaport + relational trading draw.io, PSA upload/OCR |
 
 ### Diagrams Index

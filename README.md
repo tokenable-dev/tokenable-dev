@@ -1,19 +1,24 @@
 # Tokenable RWA Marketplace
 
-A decentralized marketplace for real-world asset (RWA) tokens on EVM chains. Users mint, list, and trade RWA-backed assets with USDC. Settlement is primarily **OpenSea Seaport 1.5** (signed off-chain orders synced to Postgres); the backend also exposes an optional **relational rule-based matching API** for bids/asks/match intents (see [docs/marketplace-trading.md](docs/marketplace-trading.md)). Built as a monorepo with a modern Web3 stack.
+A decentralized marketplace for graded-card RWAs on EVM chains (Sepolia-first). Users mint via IPFS, list, and trade with USDC. Settlement is primarily **OpenSea Seaport 1.5** (signed off-chain orders synced to Postgres). Market data combines **JustTCG** pricing with **PokéTrace** proxies on the Nest API; an optional **relational rule-based matching API** exists alongside Seaport (`docs/marketplace-trading.md`). Monorepo: Next.js frontend + Nest backend + Hardhat contracts.
 
 ---
 
 ## Project Description
 
-This project is a full-stack RWA marketplace that allows users to:
+Full-stack marketplace for graded-card RWAs on EVM testnets (Sepolia): mint, discover collections, trade with USDC via **Seaport 1.5** off-chain orders. External references combine **JustTCG** catalog/value signals with **PokéTrace** (proxied through the Nest API for catalog and tier price history).
 
-- **Mint** RWAs by uploading images and metadata to IPFS
-- **List** owned assets for sale with USDC pricing (Seaport off-chain orders)
-- **Purchase** listings or place **collection-wide criteria bids** (USDC, Merkle-anchored token sets)
-- **View** asset details, activity history, and magnified image previews
+### What users see today
 
-The application is designed for EVM-compatible chains and follows a non-custodial model where users retain control of their assets until a sale is completed.
+| Area | Notes |
+|------|--------|
+| **Landing (`/`)** | Hero + **Market Indexes** (JustTCG game-level aggregates / sparklines; MLB/NFL/NBA demo slots alongside Pokémon where configured). |
+| **Exchange (`/exchange`)** | All collections (including zero listings), sorted by pool pricing; category chips; optional grid/list view; **Trending** strip. |
+| **Collection detail (`/marketplace/collections/[key]`)** | Unified order book, dual **Tokenable vs PokéTrace** price chart (aligned time axis), criteria bids / listings, **Individual listings** strip (seller, cert #, USDC). |
+| **Portfolio (`/portfolio`)** | Holdings with listing vs unlisted distinction and reference vs on-platform pricing. |
+| **Vault / mint** | PSA-oriented graded metadata → IPFS; same assets list on the marketplace. |
+
+Trading remains non-custodial until settlement; criteria bids cover Merkle-eligible token sets per collection key.
 
 ---
 
@@ -21,19 +26,20 @@ The application is designed for EVM-compatible chains and follows a non-custodia
 
 ### Frontend
 
-- **React** / **Next.js** (App Router)
-- **wagmi** + **viem** — Ethereum wallet connection and contract interaction
+- **React 19** / **Next.js 16** (App Router)
+- **wagmi** + **viem** — Wallet + contract reads/writes
 - **Tailwind CSS** — Styling
-- **Zustand** — Global state management
-- **TanStack Query** — Data fetching and caching
+- **Zustand** — Lightweight global state (wallet/session)
+- **TanStack Query** — Server state, infinite lists, marketplace snapshots
 
 ### Backend
 
 - **Node.js** / **TypeScript**
-- **NestJS** — API framework
-- **ethers.js** — Blockchain interaction
-- **Pinata** — IPFS pinning for RWA assets
-- **Swagger** — API documentation
+- **NestJS** — REST API, Swagger under `/api/docs`
+- **JustTCG** — Live card/game pricing (`TCG_API_KEY` required; see [docs/price-api.md](docs/price-api.md))
+- **PokéTrace** — Server-side proxy + tiered history for collection/token charts (`/api/marketplace/poketrace/*`)
+- **Pinata** — IPFS pinning for RWA metadata/images
+- **PostgreSQL + TypeORM** — Orders, collections, optional relational trading layer ([docs/marketplace-trading.md](docs/marketplace-trading.md))
 
 ### Smart Contracts
 
@@ -70,11 +76,13 @@ tokenable-dev/
 
 | Document | Contents |
 |----------|----------|
-| **[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)** | DB reset, TypeORM, API summary, Seaport + relational trading, deploy, PSA troubleshooting, diagram index |
+| **[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)** | **Product surfaces + external data**, DB reset, TypeORM, marketplace & PokéTrace APIs, JustTCG env, Seaport + relational trading, CI/CD → EC2, PSA troubleshooting, diagram index |
 | **[docs/marketplace-trading.md](docs/marketplace-trading.md)** | Rule-based `bids`/`asks`/match API vs Seaport `orders` |
 | **[docs/DEPLOY_EC2_DOMAIN.md](docs/DEPLOY_EC2_DOMAIN.md)** | EC2 Docker, domain, same-origin `/api`, CORS, OAuth, TLS checklist |
-| **[docs/price-api.md](docs/price-api.md)** | JustTCG price API (long reference) |
+| **[docs/price-api.md](docs/price-api.md)** | JustTCG HTTP API (detailed reference) |
 | **[backend/sql/README.md](backend/sql/README.md)** | Why there are no SQL migrations |
+
+CI/CD: a push to **`develop`** runs GitHub Actions (see `docs/DEVELOPMENT.md` §5 and `.github/workflows/deploy.yml`).
 
 ### Architecture & Pipeline Diagrams
 

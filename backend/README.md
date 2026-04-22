@@ -10,4 +10,6 @@ pnpm start:dev
 
 **Database:** schema comes from TypeORM entities; no `sql/migrations` folder. See **[sql/README.md](./sql/README.md)** and **[../docs/DEVELOPMENT.md](../docs/DEVELOPMENT.md)**.
 
-**Marketplace:** Seaport off-chain orders (`MarketplaceService`, `marketplace.controller.ts`) plus optional **relational trading** (`src/marketplace/trading/*`, `bids` / `asks` / `match_intents` / `trade_executions`). Overview: **[../docs/marketplace-trading.md](../docs/marketplace-trading.md)**.
+**Marketplace:** Seaport off-chain orders (`MarketplaceService`, `marketplace.controller.ts`), **PokéTrace proxy** (`poketrace-proxy.controller.ts`, `src/poketrace/*`), collection **batch snapshots** (`POST …/collections/market-snapshots`), plus optional **relational trading** (`src/marketplace/trading/*`). Overview: **[../docs/marketplace-trading.md](../docs/marketplace-trading.md)** · 통합 가이드: **[../docs/DEVELOPMENT.md](../docs/DEVELOPMENT.md)**.
+
+**Price:** JustTCG integration — **`TCG_API_KEY` required** in `backend/.env` (`PriceService`).
