@@ -214,9 +214,9 @@ function CollectionRow({
   return (
     <Link
       href={`/marketplace/collections/${encodeURIComponent(collection.collectionKey)}`}
-      className="group flex items-center gap-5 rounded-3xl border border-zinc-700/70 bg-gradient-to-r from-[#0f1117] via-[#10131a] to-[#0e1218] px-5 py-5 transition-all hover:border-mint/35 hover:shadow-[0_0_26px_rgba(148,255,212,0.08)] sm:gap-6 sm:px-6 sm:py-6"
+      className="group flex flex-col gap-4 rounded-3xl border border-zinc-700/70 bg-gradient-to-r from-[#0f1117] via-[#10131a] to-[#0e1218] px-4 py-4 transition-all hover:border-mint/35 hover:shadow-[0_0_26px_rgba(148,255,212,0.08)] sm:flex-row sm:items-center sm:gap-6 sm:px-6 sm:py-6"
     >
-      <div className="relative w-[156px] shrink-0 sm:w-[196px]">
+      <div className="relative w-full max-w-[156px] shrink-0 self-center sm:w-[196px] sm:max-w-none sm:self-auto">
         {collection.coverImageUrl ? (
           <div className="aspect-[3/4] w-full overflow-hidden rounded-2xl border border-gray-800/80">
             <CollectionCoverFrame
@@ -269,11 +269,11 @@ function CollectionRow({
         ) : null}
         <dl className="mt-3 grid gap-y-2 text-sm leading-tight text-zinc-300 sm:text-base">
           <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <dt className="min-w-[9.5rem] shrink-0 text-zinc-400">Active Listings</dt>
+            <dt className="min-w-[7.25rem] shrink-0 text-zinc-400 sm:min-w-[9.5rem]">Active Listings</dt>
             <dd className="tabular-nums text-base font-bold text-white sm:text-lg">{listingCount}</dd>
           </div>
           <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <dt className="min-w-[9.5rem] shrink-0 text-zinc-400">eBay Price</dt>
+            <dt className="min-w-[7.25rem] shrink-0 text-zinc-400 sm:min-w-[9.5rem]">eBay Price</dt>
             <dd
               className="tabular-nums text-base font-bold text-cyan-300 sm:text-lg"
               title="External eBay reference price."
@@ -286,7 +286,7 @@ function CollectionRow({
             </dd>
           </div>
           <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <dt className="min-w-[9.5rem] shrink-0 text-zinc-400">Tokenable Price</dt>
+            <dt className="min-w-[7.25rem] shrink-0 text-zinc-400 sm:min-w-[9.5rem]">Tokenable Price</dt>
             <dd
               className="tabular-nums text-base font-bold text-emerald-300 sm:text-lg"
               title={floor != null ? "Current Tokenable floor listing (active asks)." : "Most recent Tokenable trade (fallback when no active floor)."}
@@ -297,10 +297,11 @@ function CollectionRow({
         </dl>
       </div>
 
-      <div className="flex shrink-0 flex-col items-end gap-1">
+      <div className="flex w-full shrink-0 flex-col items-stretch gap-1 sm:w-auto sm:items-end">
         <CollectionListSparkline
           points={sparklinePoints}
           positive={upTo1yChangePct == null ? undefined : upTo1yChangePct >= 0}
+          className="h-16 w-full sm:h-20 sm:w-40"
         />
       </div>
     </Link>
