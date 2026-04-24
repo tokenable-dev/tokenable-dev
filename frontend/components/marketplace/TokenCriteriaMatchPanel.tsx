@@ -27,11 +27,14 @@ export function TokenCriteriaMatchPanel({
   collectionKey,
   tokenId,
   collectionBids,
+  onSaleMatched,
 }: {
   listing: Order;
   collectionKey: string;
   tokenId: number;
   collectionBids: Order[];
+  /** Seller matched a collection bid — parent may show a celebration modal. */
+  onSaleMatched?: () => void;
 }) {
   const { address } = useAccount();
   const publicClient = usePublicClient({ chainId: sepolia.id });
@@ -79,14 +82,15 @@ export function TokenCriteriaMatchPanel({
         collectionKey,
       });
 
+      onSaleMatched?.();
       setStep("success");
-      await queryClient.invalidateQueries({ queryKey: ["marketplace-orders"] });
+      await queryClient.invalidateQueries({ queryKey: ["orders"] });
       await queryClient.invalidateQueries({ queryKey: ["marketplace-order-by-token", tokenId] });
       await queryClient.invalidateQueries({ queryKey: ["marketplace-collection", collectionKey] });
       await queryClient.invalidateQueries({ queryKey: ["rwa-activity", tokenId] });
       await queryClient.invalidateQueries({ queryKey: ["merkle-set", collectionKey] });
     } catch (e: unknown) {
-      setErrorMsg(mapMatchError(e));
+      setErrorMsg(mapMatchError(e, { bidOfferer: bid.offerer }));
       setStep("error");
     } finally {
       setActiveBidHash(null);
@@ -97,8 +101,8 @@ export function TokenCriteriaMatchPanel({
 
   if (criteriaBids.length === 0) {
     return (
-      <div className="rounded-xl border border-gray-800/80 bg-black/20 px-3 py-3 text-[11px] text-gray-500">
-        No collection bid at or above this ask. Buyers place criteria bids on the collection page.
+      <div className="rounded-xl border border-gray-800/80 bg-black/20 px-3 py-3 text-[12px] text-gray-500">
+        No collection bid at this price or higher.
       </div>
     );
   }
@@ -109,12 +113,7 @@ export function TokenCriteriaMatchPanel({
       className="rounded-xl border border-mint-deep/25 bg-[#0a0d11]/90 px-3 py-3 space-y-2"
     >
       <h3 className="text-xs font-semibold text-white">Match collection bid</h3>
-      <p className="text-[10px] text-gray-500 leading-relaxed">
-        Fills a buyer&apos;s criteria bid against this listing via{" "}
-        <span className="text-gray-400">matchAdvancedOrders</span>. Anyone can submit; gas is paid
-        by your wallet.
-      </p>
-      <ul className="space-y-2">
+      <ul className="space-y-2 mt-1">
         {criteriaBids.map((b) => (
           <li
             key={b.orderHash}
@@ -137,7 +136,7 @@ export function TokenCriteriaMatchPanel({
         ))}
       </ul>
       {step === "success" && (
-        <p className="text-[11px] text-emerald-400/90">Match recorded. Balances may take a moment to refresh.</p>
+        <p className="text-[11px] text-emerald-400/90">Matched.</p>
       )}
       {step === "error" && errorMsg && (
         <p className="text-[11px] text-rose-400/90 break-words">{errorMsg}</p>

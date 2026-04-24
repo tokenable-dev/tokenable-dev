@@ -36,8 +36,11 @@ export function CollectionTradeGuide() {
                 <li>
                   <strong className="text-gray-300">Collection bid</strong> — sign a Seaport order with{" "}
                   <strong className="text-gray-300">ERC721_WITH_CRITERIA</strong> and the Merkle root
-                  for this collection&apos;s active listings. One bid can match any listed token in the
-                  set when a seller runs <strong className="text-gray-300">matchAdvancedOrders</strong>.
+                  for this collection&apos;s <strong className="text-gray-300">current minted-in-bucket</strong>{" "}
+                  token set. When that set grows, the root changes: older bids need to be{" "}
+                  <strong className="text-gray-300">cancelled and re-signed</strong> (Orders shows{" "}
+                  <span className="text-amber-200/90">Pool outdated</span>). New listings can still trigger{" "}
+                  <strong className="text-gray-300">matchAdvancedOrders</strong> when roots align.
                 </li>
               </ul>
             </div>
@@ -49,7 +52,7 @@ export function CollectionTradeGuide() {
                 <li>
                   <strong className="text-gray-300">List</strong> —{" "}
                   <Link
-                    href="/?tab=my-rwa"
+                    href="/portfolio"
                     className="text-mint hover:underline font-medium"
                   >
                     My Assets
@@ -57,18 +60,20 @@ export function CollectionTradeGuide() {
                   → approve Seaport for all your RWAs once (setApprovalForAll), then sign each ask.
                 </li>
                 <li>
-                  <strong className="text-gray-300">Match a collection bid</strong> — on the token page,
-                  use <strong className="text-gray-300">Match collection bid</strong> (proof + on-chain
-                  match). On the collection order book, use <strong className="text-gray-300">Sell</strong> on a bid
-                  row to reprice your listing when needed and run the same match in one flow.
+                  <strong className="text-gray-300">Fill a collection bid</strong> — open{" "}
+                  <strong className="text-gray-300">Sell</strong>, pick your asset, and list at the
+                  bid price (or less). The listing step triggers on-chain settlement when the Merkle
+                  snapshot matches. Per-token page still has <strong className="text-gray-300">Match collection bid</strong>{" "}
+                  if you already have a live listing there.
                 </li>
               </ul>
             </div>
           </div>
           <p className="text-[11px] text-gray-600">
-            Settlement is on-chain via Seaport. The Merkle leaf set is derived from active listings for
-            the collection; bids must use the same root as the current set, or sellers should ask buyers
-            to cancel and re-bid after listings change.
+            Settlement is on-chain via Seaport. The Merkle leaf set follows{" "}
+            <strong className="text-gray-500">minted RWAs in this card bucket</strong> (not only live
+            asks). Your bid embeds one fixed root at sign time — it cannot track future mints without a new
+            signature.
           </p>
         </div>
       )}

@@ -1,0 +1,4 @@
+# Let's Encrypt webroot; challenge files must not be committed.
+*
+!.gitignore
+!.gitkeep

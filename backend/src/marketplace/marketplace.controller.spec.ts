@@ -1,12 +1,15 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { CollectionMarketService } from './collection-market.service';
 import { CollectionService } from './collection.service';
 import { MarketplaceController } from './marketplace.controller';
+import { PoketraceService } from '../poketrace/poketrace.service';
 import { MarketplaceService } from './marketplace.service';
 import { OrderStatus } from './entities/order.entity';
 
 describe('MarketplaceController', () => {
   const collectionService = {
     listSummaries: jest.fn(),
+    listSummariesPaged: jest.fn(),
     findOne: jest.fn(),
     activeListingsForCollection: jest.fn(),
     activeBidsForCollection: jest.fn(),
@@ -16,13 +19,25 @@ describe('MarketplaceController', () => {
 
   const service = {
     createOrder: jest.fn(),
-    findActiveOrders: jest.fn(),
+    findActiveOrderListItems: jest.fn(),
     findByTokenId: jest.fn(),
     findByHash: jest.fn(),
     cancelOrder: jest.fn(),
     fulfillOrder: jest.fn(),
-    reactivateOrder: jest.fn(),
     fulfillMatchedPair: jest.fn(),
+  };
+
+  const collectionMarketService = {
+    batchListSnapshots: jest.fn(),
+    getCollectionMarketBundle: jest.fn(),
+    getCollectionMarketStats: jest.fn(),
+  };
+
+  const poketraceService = {
+    getPreviewForCollection: jest.fn(),
+    getNearMintHistoryForCollection: jest.fn(),
+    getBatchMintPreviews: jest.fn(),
+    getBatchMintPreviewsFromTokenIds: jest.fn(),
   };
 
   let controller: MarketplaceController;
@@ -34,6 +49,8 @@ describe('MarketplaceController', () => {
       providers: [
         { provide: MarketplaceService, useValue: service },
         { provide: CollectionService, useValue: collectionService },
+        { provide: CollectionMarketService, useValue: collectionMarketService },
+        { provide: PoketraceService, useValue: poketraceService },
       ],
     }).compile();
     controller = module.get(MarketplaceController);
@@ -90,8 +107,9 @@ describe('MarketplaceController', () => {
   });
 
   it('findActiveOrders forwards to service', async () => {
-    service.findActiveOrders.mockResolvedValue([]);
+    service.findActiveOrderListItems.mockResolvedValue([]);
     await expect(controller.findActiveOrders()).resolves.toEqual([]);
+    expect(service.findActiveOrderListItems).toHaveBeenCalled();
   });
 
   it('findByTokenId forwards to service', async () => {
@@ -124,15 +142,24 @@ describe('MarketplaceController', () => {
     expect(service.fulfillOrder).toHaveBeenCalledWith('0xh');
   });
 
-  it('reactivateOrder forwards hash and caller', async () => {
-    service.reactivateOrder.mockResolvedValue({} as never);
-    await controller.reactivateOrder(
-      '0xh',
-      '0xD5abDD307414718C59949Ac5465930a1F8a52691',
-    );
-    expect(service.reactivateOrder).toHaveBeenCalledWith(
-      '0xh',
-      '0xD5abDD307414718C59949Ac5465930a1F8a52691',
-    );
+  it('getCollectionMarketStats forwards decoded lowercase key', async () => {
+    const stats = {
+      collectionKey: 'my-key',
+      floor: 1,
+      median: 2,
+      p25: 1.5,
+      p75: 2.5,
+      band: { low: 1.5, high: 2.5 },
+      volatility: 0.5,
+      sampleSize: 5,
+      isReliable: true,
+      dataQuality: { sampleSize: 5, trimmed: false, currency: 'USDC' as const },
+      sources: { listings: true, trades: false },
+      reference: { poketraceCardId: null },
+    };
+    collectionMarketService.getCollectionMarketStats.mockResolvedValue(stats);
+    const out = await controller.getCollectionMarketStats('MY-key');
+    expect(collectionMarketService.getCollectionMarketStats).toHaveBeenCalledWith('my-key');
+    expect(out).toBe(stats);
   });
 });

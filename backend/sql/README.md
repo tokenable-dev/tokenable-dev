@@ -38,4 +38,17 @@ If you use a **local Postgres** without Docker, drop and recreate the database o
 docker exec -i tokenable-postgres psql -U tokenable -d tokenable < /home/ubuntu/app/backend/sql/bootstrap-empty-prod-db.sql
 ```
 
-적용 후 `\dt` 로 `users`, `orders`, `marketplace_collections` 가 보이는지 확인하고, **`TYPEORM_SYNC`는 끄거나 제거**한 뒤 백엔드를 재시작하세요.
+적용 후 `\dt` 로 `users`, `orders`, `marketplace_collections` 가 보이는지 확인하고, **`TYPEORM_SYNC`는 끄거나 제거**한 뒤 백엔드를 재시작하세요. (최신 엔티티가 포함된 이미지라면 `bids`, `asks`, `match_intents`, `trade_executions` 등도 나타날 수 있습니다 — [docs/marketplace-trading.md](../../docs/marketplace-trading.md).)
+
+---
+
+## Dev: chart / platform trade history (about 2 months)
+
+컬렉션 상세·Exchange 차트의 **플랫폼(온체인 체결) 시계열**은 DB의 `orders` 중 `fulfilled` **ask**를 씁니다. 로컬에서 곡선만 빠르게 보고 싶으면 `seed-dev-platform-chart-fills.sql`로 과거 체결처럼 보이는 행을 넣을 수 있습니다(재실행 시 `_seedChart` 로 넣었던 행만 지우고 다시 삽입).
+
+```bash
+# repo root, Docker Postgres
+docker exec -i tokenable-postgres psql -U tokenable -d tokenable < backend/sql/seed-dev-platform-chart-fills.sql
+```
+
+파일 상단의 `rwa_contract` / `usdc_contract` 는 `backend/.env` 와 맞추세요. `marketplace_collections` 에 행이 하나 있어야 하며, 가능하면 해당 컬렉션에 맞는 `token_id` 를 기존 주문에서 재사용합니다.

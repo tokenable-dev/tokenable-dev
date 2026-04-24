@@ -10,8 +10,13 @@ import {
   SEAPORT_ORDER_TYPES,
 } from "@/constants/contracts";
 import { createOrder, replaceListingApi, type CreateOrderPayload, type Order } from "@/lib/api";
-import { gasWithCap } from "@/lib/chainGas";
+import { GAS_FALLBACK, gasWithCapFast } from "@/lib/chainGas";
 import { normalizeDecimalTokenId } from "@/lib/normalizeTokenId";
+import {
+  buildAskConsideration,
+  buildAskConsiderationPayload,
+} from "@/lib/seaport/platformFee";
+import { getChainTimestampSec } from "@/lib/seaport/seaportOrderTime";
 
 const ZERO_BYTES32 =
   "0x0000000000000000000000000000000000000000000000000000000000000000" as const;
@@ -53,30 +58,37 @@ export async function submitAskListingOrder(params: {
   }
 
   const priceInUnits = parseUnits(priceUsdc, 6);
-  const counter = await publicClient.readContract({
-    address: SEAPORT_ADDRESS,
-    abi: SEAPORT_ABI,
-    functionName: "getCounter",
-    args: [address],
-  });
-  const now = BigInt(Math.floor(Date.now() / 1000));
+  /** Wall clock can be ahead of `block.timestamp` — Seaport requires `startTime <= now` at fill time. */
+  const now = await getChainTimestampSec(publicClient);
   const endTime = now + BigInt(ORDER_DURATION_SECONDS);
   const salt = BigInt(Math.floor(Math.random() * 1_000_000_000_000));
 
-  const alreadyAll = await publicClient.readContract({
-    address: TOKENABLE_RWA_ADDRESS,
-    abi: TOKENABLE_RWA_APPROVE_ABI,
-    functionName: "isApprovedForAll",
-    args: [address, SEAPORT_ADDRESS],
-  });
-  if (!alreadyAll) {
-    const gasSetAll = await gasWithCap(publicClient, {
+  const [counter, alreadyAll] = await Promise.all([
+    publicClient.readContract({
+      address: SEAPORT_ADDRESS,
+      abi: SEAPORT_ABI,
+      functionName: "getCounter",
+      args: [address],
+    }),
+    publicClient.readContract({
       address: TOKENABLE_RWA_ADDRESS,
       abi: TOKENABLE_RWA_APPROVE_ABI,
-      functionName: "setApprovalForAll",
-      args: [SEAPORT_ADDRESS, true],
-      account: address,
-    });
+      functionName: "isApprovedForAll",
+      args: [address, SEAPORT_ADDRESS],
+    }),
+  ]);
+  if (!alreadyAll) {
+    const gasSetAll = await gasWithCapFast(
+      publicClient,
+      {
+        address: TOKENABLE_RWA_ADDRESS,
+        abi: TOKENABLE_RWA_APPROVE_ABI,
+        functionName: "setApprovalForAll",
+        args: [SEAPORT_ADDRESS, true],
+        account: address,
+      },
+      GAS_FALLBACK.setApprovalForAll,
+    );
     const setAllTx = await writeContractAsync({
       address: TOKENABLE_RWA_ADDRESS,
       abi: TOKENABLE_RWA_APPROVE_ABI,
@@ -85,8 +97,10 @@ export async function submitAskListingOrder(params: {
       chainId: sepolia.id,
       gas: gasSetAll,
     });
-    void publicClient.waitForTransactionReceipt({ hash: setAllTx }).catch(() => {});
+    await publicClient.waitForTransactionReceipt({ hash: setAllTx });
   }
+
+  const considerationItems = buildAskConsideration(priceInUnits, address);
 
   const orderMessage = {
     offerer: address,
@@ -100,16 +114,7 @@ export async function submitAskListingOrder(params: {
         endAmount: BigInt(1),
       },
     ],
-    consideration: [
-      {
-        itemType: 1,
-        token: USDC_ADDRESS,
-        identifierOrCriteria: BigInt(0),
-        startAmount: priceInUnits,
-        endAmount: priceInUnits,
-        recipient: address,
-      },
-    ],
+    consideration: considerationItems,
     orderType: 0,
     startTime: now,
     endTime: endTime,
@@ -133,6 +138,7 @@ export async function submitAskListingOrder(params: {
   });
 
   const str = (v: unknown): string => String(v);
+  const considerationPayload = buildAskConsiderationPayload(priceInUnits, address);
   const payload: CreateOrderPayload = {
     side: "ask",
     parameters: {
@@ -151,17 +157,8 @@ export async function submitAskListingOrder(params: {
           endAmount: "1",
         },
       ],
-      consideration: [
-        {
-          itemType: 1,
-          token: USDC_ADDRESS,
-          identifierOrCriteria: "0",
-          startAmount: str(priceInUnits),
-          endAmount: str(priceInUnits),
-          recipient: address,
-        },
-      ],
-      totalOriginalConsiderationItems: 1,
+      consideration: considerationPayload,
+      totalOriginalConsiderationItems: considerationPayload.length,
       salt: str(salt),
       conduitKey: ZERO_BYTES32,
       counter: str(counter),

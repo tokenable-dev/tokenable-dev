@@ -2,7 +2,74 @@
  * MetaMask / wagmi / viem에서 넘어오는 원문 에러를 사용자용 문구로 매핑한다.
  */
 
-import { ContractFunctionRevertedError } from "viem";
+import {
+  ContractFunctionRevertedError,
+  decodeErrorResult,
+  type Hex,
+} from "viem";
+
+/** Seaport `ConsiderationErrors` — decode raw `data` when RPC only exposes the selector. */
+const SEAPORT_INVALID_TIME_ABI = [
+  {
+    type: "error",
+    name: "InvalidTime",
+    inputs: [
+      { name: "startTime", type: "uint256" },
+      { name: "endTime", type: "uint256" },
+    ],
+  },
+] as const;
+
+const SEAPORT_INVALID_TIME_SHORT =
+  "Seaport InvalidTime: the match ran outside the bid or listing’s valid time window (often an expired on-chain order still shown as active). Re-list the NFT or place a new collection bid, then try again.";
+
+function extractRevertHexData(err: unknown): Hex | null {
+  let cur: unknown = err;
+  for (let d = 0; d < 16 && cur != null; d++) {
+    if (typeof cur === "object" && cur !== null) {
+      const o = cur as Record<string, unknown>;
+      const data = o.data;
+      if (
+        typeof data === "string" &&
+        data.startsWith("0x") &&
+        data.length >= 10
+      ) {
+        return data as Hex;
+      }
+    }
+    cur =
+      typeof cur === "object" && cur !== null && "cause" in cur
+        ? (cur as { cause: unknown }).cause
+        : null;
+  }
+  return null;
+}
+
+function decodeSeaportInvalidTimeData(data: Hex): string | null {
+  if (data.length === 10 && data.toLowerCase() === "0x21ccfeb7") {
+    return SEAPORT_INVALID_TIME_SHORT;
+  }
+  try {
+    const d = decodeErrorResult({
+      abi: SEAPORT_INVALID_TIME_ABI,
+      data,
+    });
+    if (d.errorName !== "InvalidTime") return null;
+    const [startTime, endTime] = d.args as unknown as [bigint, bigint];
+    return (
+      `Seaport InvalidTime: chain time must satisfy startTime ≤ now < endTime (order window start=${startTime.toString()} end=${endTime.toString()} sec). ` +
+      `Usually the listing or collection bid expired — re-list, or ask the buyer to place a new bid.`
+    );
+  } catch {
+    return null;
+  }
+}
+
+function decodeRevertDataBestEffort(err: unknown): string | null {
+  const data = extractRevertHexData(err);
+  if (!data || data.length < 10) return null;
+  return decodeSeaportInvalidTimeData(data);
+}
 
 export type WalletErrorCode =
   | "USER_REJECTED"
@@ -85,7 +152,19 @@ function extractViemContractRevertReason(err: unknown): string | null {
         }
         return data.errorName;
       }
-      if (cur.signature) return `Revert data ${String(cur.signature).slice(0, 18)}… (custom error)`;
+      const rawData = extractRevertHexData(cur);
+      if (rawData) {
+        const decoded = decodeSeaportInvalidTimeData(rawData);
+        if (decoded) return decoded;
+      }
+      if (cur.signature) {
+        const sig = String(cur.signature);
+        if (/^0x[0-9a-f]{8}$/i.test(sig)) {
+          const decoded = decodeSeaportInvalidTimeData(sig as Hex);
+          if (decoded) return decoded;
+        }
+        return `Revert data ${sig.slice(0, 18)}… (custom error)`;
+      }
     }
     cur =
       typeof cur === "object" && cur !== null && "cause" in cur
@@ -208,6 +287,7 @@ export function mapWalletError(err: unknown): WalletErrorResult {
   if (/execution reverted|revert|reverted|requirement failed/i.test(lower)) {
     const walked = walkCollectErrorText(err);
     const detail =
+      decodeRevertDataBestEffort(err) ||
       extractRevertDetail(text) ||
       extractViemContractRevertReason(err) ||
       extractRevertDetail(walked) ||
@@ -238,6 +318,13 @@ export function mapWalletError(err: unknown): WalletErrorResult {
 
   const condensed = text.replace(/\s+/g, " ").trim();
   if (condensed.length > 0) {
+    const bare = condensed.match(/^(0x[0-9a-f]{8})$/i);
+    if (bare?.[1]?.toLowerCase() === "0x21ccfeb7") {
+      return {
+        code: "UNKNOWN",
+        message: SEAPORT_INVALID_TIME_SHORT,
+      };
+    }
     return {
       code: "UNKNOWN",
       message:

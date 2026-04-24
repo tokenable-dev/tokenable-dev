@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<mxfile host="app.diagrams.net" modified="2026-03-30T12:00:00.000Z" agent="Tokenable" version="24.7.7" type="device" compressed="false">
+<mxfile host="app.diagrams.net" modified="2026-04-08T00:00:00.000Z" agent="Tokenable" version="24.7.7" type="device" compressed="false">
   <diagram id="page-structure" name="1 — 액터·레이어·저장소">
     <mxGraphModel dx="1600" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2000" pageHeight="1400" math="0" shadow="0">
       <root>
@@ -8,7 +8,7 @@
         <mxCell id="t1" value="Marketplace — Seaport ERC721_WITH_CRITERIA + Merkle (현재 제품 구조 요약)" style="text;html=1;fontSize=22;fontStyle=1;align=left;fontColor=#1a1a1a;" vertex="1" parent="1">
           <mxGeometry x="40" y="24" width="1200" height="36" as="geometry" />
         </mxCell>
-        <mxCell id="t1b" value="코드 기준: `frontend/lib/seaport/*`, `CollectionCriteriaBidPanel`, `CollectionUnifiedOrderBook`, `TokenCriteriaMatchPanel`, `submitAskListing.ts` · backend `MarketplaceService` + `marketplace.controller` · DB `orders` (bucket_bid_id 제거, 마이그레이션 `010`)" style="text;html=1;fontSize=11;fontStyle=2;align=left;fillColor=#f5f5f5;" vertex="1" parent="1">
+        <mxCell id="t1b" value="코드 기준: `frontend/lib/seaport/*`, `CollectionCriteriaBidPanel`, `CollectionUnifiedOrderBook`, `TokenCriteriaMatchPanel`, `submitAskListing.ts` · backend `MarketplaceService` + `marketplace.controller` · DB `orders` · 병행 규칙 매칭: `docs/marketplace-trading.md` + `trading/*` (`bids`/`asks`/…)" style="text;html=1;fontSize=11;fontStyle=2;align=left;fillColor=#f5f5f5;" vertex="1" parent="1">
           <mxGeometry x="40" y="58" width="1900" height="36" as="geometry" />
         </mxCell>
 
@@ -29,7 +29,7 @@
         <mxCell id="lane3" value="③ 서버 (NestJS)" style="swimlane;horizontal=1;startSize=32;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;fontSize=13;align=left;spacingLeft=8;" vertex="1" parent="1">
           <mxGeometry x="1200" y="110" width="740" height="200" as="geometry" />
         </mxCell>
-        <mxCell id="c3" value="`POST /marketplace/orders` — `createOrder` (bid는 itemType 4만)&#xa;`POST .../orders/replace-listing` — `replaceSellerListing` (ask만, 트랜잭션 내 cancel+insert)&#xa;`POST .../orders/fulfill-matched-pair` — `fulfillMatchedPair` (on-chain match 후)&#xa;`PATCH .../orders/:hash/fulfill` — `fulfillOrder` (단일 주문 체결 동기화)&#xa;`GET .../merkle-set/:collectionKey` — 활성 리스팅 tokenId 집합" style="rounded=1;whiteSpace=wrap;html=1;align=left;spacingLeft=10;fontSize=11;fillColor=#ffffff;" vertex="1" parent="lane3">
+        <mxCell id="c3" value="(HTTP 글로벌 프리픽스 `/api`)&#xa;`POST /marketplace/orders` — `createOrder` (bid는 itemType 4만)&#xa;`POST .../orders/replace-listing` — `replaceSellerListing` (ask만, 트랜잭션 내 cancel+insert)&#xa;`POST .../orders/fulfill-matched-pair` — `fulfillMatchedPair` (on-chain match 후)&#xa;`PATCH .../orders/:hash/fulfill` — `fulfillOrder` (단일 주문 체결 동기화)&#xa;`GET .../collections/:key/merkle-set` — 버킷 Merkle 대상 tokenId 집합 (민팅 포함)" style="rounded=1;whiteSpace=wrap;html=1;align=left;spacingLeft=10;fontSize=11;fillColor=#ffffff;" vertex="1" parent="lane3">
           <mxGeometry x="16" y="48" width="708" height="136" as="geometry" />
         </mxCell>
 
@@ -46,7 +46,7 @@
         <mxCell id="lane5" value="⑤ 프론트 컴포넌트 맵" style="swimlane;horizontal=1;startSize=32;fillColor=#f8cecc;strokeColor=#b85450;fontStyle=1;fontSize=13;align=left;spacingLeft=8;" vertex="1" parent="1">
           <mxGeometry x="40" y="590" width="1900" height="200" as="geometry" />
         </mxCell>
-        <mxCell id="c5" value="컬렉션 페이지: `CollectionCriteriaBidPanel` (입찰), `CollectionUnifiedOrderBook` (asks + bids, Instant sell)&#xa;토큰 페이지: `TokenCriteriaMatchPanel` + `RwaOrderBook` (리스팅·매칭·단일 매수)&#xa;공통: `runCriteriaMatch.ts` (Merkle 검증 → simulate → matchAdvancedOrders → `fulfillMatchedPairApi`)&#xa;`submitAskListing.ts` — create 또는 replace-listing 경로로 ask 저장" style="rounded=1;whiteSpace=wrap;html=1;align=left;spacingLeft=10;fontSize=11;fillColor=#ffffff;" vertex="1" parent="lane5">
+        <mxCell id="c5" value="컬렉션 페이지: `CollectionCriteriaBidPanel` (입찰), `CollectionUnifiedOrderBook` (asks + bids, Instant sell)&#xa;토큰 페이지: `TokenCriteriaMatchPanel` + `RwaOrderBook` (리스팅·매칭·단일 매수)&#xa;공통: `runCriteriaMatch.ts` (Merkle 검증 → simulate → matchAdvancedOrders → `fulfillMatchedPairApi`)&#xa;`submitAskListing.ts` — create 또는 replace-listing 경로로 ask 저장&#xa;`normalizeSeaportZone()` — 32-byte zero를 20-byte zeroAddress로 정규화 (`criteriaMatch.ts`, `seaportFulfillOrderArgs.ts`)" style="rounded=1;whiteSpace=wrap;html=1;align=left;spacingLeft=10;fontSize=11;fillColor=#ffffff;" vertex="1" parent="lane5">
           <mxGeometry x="24" y="48" width="1850" height="136" as="geometry" />
         </mxCell>
 
@@ -76,7 +76,7 @@
         <mxCell id="s1" value="A) 컬렉션 매수 입찰 (buyer)" style="swimlane;horizontal=1;startSize=36;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;fontSize=14;align=left;spacingLeft=10;" vertex="1" parent="1">
           <mxGeometry x="40" y="70" width="1900" height="380" as="geometry" />
         </mxCell>
-        <mxCell id="s1a" value="1. `GET /marketplace/.../merkle-set/:collectionKey` — 활성 리스팅에서 나온 `tokenIds[]`&#xa;2. `SeaportMerkleTree(tokenIds)` — `rootHex`, 입찰 시 서명에 사용&#xa;3. USDC `approve` Seaport (또는 Permit 경로)&#xa;4. `getCounter(offerer)` + EIP-712 Seaport 서명 — `consideration[0].itemType=4`, `identifierOrCriteria=root`&#xa;5. `POST /marketplace/orders` — `side=bid`, `tokenId=&quot;0&quot;`, `collectionKey` 필수&#xa;6. 서버 `assertValidCriteriaBid` + `materializeOrderFromDto` — `token_id` 행은 sentinel `0`, `collection_key` 저장&#xa;UI: `CollectionCriteriaBidPanel.tsx`" style="rounded=1;whiteSpace=wrap;html=1;align=left;spacingLeft=12;fontSize=11;fillColor=#ffffff;" vertex="1" parent="s1">
+        <mxCell id="s1a" value="1. `GET /api/marketplace/collections/:key/merkle-set` — 버킷 내 minted RWA tokenIds (`getMerkleEligibleTokenIds`), 활성 리스팅만이 아님&#xa;2. `SeaportMerkleTree(tokenIds)` — `rootHex`, 입찰 시 서명에 사용&#xa;3. USDC `approve` Seaport (또는 Permit 경로)&#xa;4. `getCounter(offerer)` + EIP-712 Seaport 서명 — `consideration[0].itemType=4`, `identifierOrCriteria=root`&#xa;5. `POST /api/marketplace/orders` — `side=bid`, `tokenId=&quot;0&quot;`, `collectionKey` 필수&#xa;6. 서버 `assertValidCriteriaBid` + `materializeOrderFromDto` — `token_id` 행은 sentinel `0`, `collection_key` 저장&#xa;UI: `CollectionCriteriaBidPanel.tsx`" style="rounded=1;whiteSpace=wrap;html=1;align=left;spacingLeft=12;fontSize=11;fillColor=#ffffff;" vertex="1" parent="s1">
           <mxGeometry x="24" y="52" width="920" height="300" as="geometry" />
         </mxCell>
         <mxCell id="s1b" value="검증 포인트&#xa;• offer[0] = USDC ERC20&#xa;• consideration[0] = ERC721_WITH_CRITERIA, token = RWA&#xa;• `dto.tokenId === &quot;0&quot;`&#xa;• `collectionKey`로 `marketplace_collections` 존재 확인" style="rounded=1;whiteSpace=wrap;html=1;align=left;spacingLeft=12;fontSize=11;fillColor=#fff2cc;" vertex="1" parent="s1">
@@ -121,15 +121,22 @@
         <mxCell id="s7" value="G) API 엔드포인트 빠른 표" style="swimlane;horizontal=1;startSize=36;fillColor=#e1d5e7;strokeColor=#9673a6;fontStyle=1;fontSize=14;align=left;spacingLeft=10;" vertex="1" parent="1">
           <mxGeometry x="40" y="2180" width="1900" height="220" as="geometry" />
         </mxCell>
-        <mxCell id="s7a" value="POST `/marketplace/orders` — `createOrder`&#xa;POST `/marketplace/orders/replace-listing` — `replaceSellerListing` (body: old hash + `CreateOrderDto` ask)&#xa;POST `/marketplace/orders/fulfill-matched-pair` — `{ askOrderHash, bidOrderHash }`&#xa;PATCH `/marketplace/orders/:hash/fulfill` — 단일 `fulfillOrder`&#xa;POST `/marketplace/orders/:hash/cancel` — `cancelOrder`&#xa;GET merkle-set — 컬렉션별 활성 tokenId (클라이언트 Merkle)" style="rounded=0;whiteSpace=wrap;html=1;align=left;spacingLeft=12;fontSize=11;fillColor=#ffffff;fontFamily=Courier New;" vertex="1" parent="s7">
+        <mxCell id="s7a" value="(모든 경로 앞에 글로벌 프리픽스 `/api`)&#xa;POST `/marketplace/orders` — `createOrder`&#xa;POST `/marketplace/orders/replace-listing` — `replaceSellerListing`&#xa;POST `/marketplace/orders/fulfill-matched-pair` — `{ askOrderHash, bidOrderHash }`&#xa;PATCH `/marketplace/orders/:hash/fulfill` — 단일 `fulfillOrder`&#xa;PATCH `/marketplace/orders/:hash/cancel?callerAddress=…` — `cancelOrder`&#xa;GET `/marketplace/collections/:key/merkle-set` — Merkle leaf tokenIds" style="rounded=0;whiteSpace=wrap;html=1;align=left;spacingLeft=12;fontSize=11;fillColor=#ffffff;fontFamily=Courier New;" vertex="1" parent="s7">
           <mxGeometry x="24" y="52" width="1850" height="148" as="geometry" />
         </mxCell>
 
         <mxCell id="s8" value="H) 관련 소스 파일 (탐색용)" style="swimlane;horizontal=1;startSize=36;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;fontSize=14;align=left;spacingLeft=10;" vertex="1" parent="1">
           <mxGeometry x="40" y="2440" width="1900" height="180" as="geometry" />
         </mxCell>
-        <mxCell id="s8a" value="frontend: `lib/seaport/criteriaMatch.ts`, `runCriteriaMatch.ts`, `submitAskListing.ts`, `merkle.ts`, `matchAdvancedOrdersArgs.ts`, `constants/contracts.ts` (Seaport ABI)&#xa;backend: `marketplace.service.ts`, `marketplace.controller.ts`, `entities/order.entity.ts`&#xa;schema: TypeORM entities + `backend/sql/README.md`" style="rounded=0;whiteSpace=wrap;html=1;align=left;spacingLeft=12;fontSize=11;fillColor=#ffffff;" vertex="1" parent="s8">
+        <mxCell id="s8a" value="frontend: `lib/seaport/criteriaMatch.ts` (normalizeSeaportZone 포함), `runCriteriaMatch.ts`, `submitAskListing.ts`, `merkle.ts`, `matchAdvancedOrdersArgs.ts`, `seaportFulfillOrderArgs.ts` (normalizeSeaportZone 적용), `constants/contracts.ts` (Seaport ABI)&#xa;backend: `marketplace.service.ts`, `marketplace.controller.ts`, `poketrace-proxy.controller.ts`, `collection-market.service.ts`, `trading/bids.controller.ts`, `trading/trade.controller.ts`, `trading/trade-orchestrator.service.ts`, `entities/order.entity.ts`, `entities/marketplace-collection.entity.ts`, `entities/bid.entity.ts`, `entities/ask.entity.ts` …&#xa;schema: TypeORM entities + `backend/sql/README.md` · relational 요약: `docs/marketplace-trading.md`" style="rounded=0;whiteSpace=wrap;html=1;align=left;spacingLeft=12;fontSize=11;fillColor=#ffffff;" vertex="1" parent="s8">
           <mxGeometry x="24" y="52" width="1850" height="108" as="geometry" />
+        </mxCell>
+
+        <mxCell id="s9" value="I) 규칙 기반 매칭 레이어 (Seaport와 병행)" style="swimlane;horizontal=1;startSize=36;fillColor=#e1d5e7;strokeColor=#9673a6;fontStyle=1;fontSize=14;align=left;spacingLeft=10;" vertex="1" parent="1">
+          <mxGeometry x="40" y="2640" width="1900" height="200" as="geometry" />
+        </mxCell>
+        <mxCell id="s9a" value="GET `/marketplace/bids` · POST `/marketplace/trade/match` (202, Idempotency-Key) · GET `/marketplace/trade/executions/:id`&#xa;`TradeOrchestratorService` → `pending` + ask locked · `SettlementProcessorService` → `locked` → executed | failed&#xa;`RuleEngineService` · `OutboxPublisherService` · draw.io: `marketplace-trading-relational-layer.drawio`" style="rounded=0;whiteSpace=wrap;html=1;align=left;spacingLeft=12;fontSize=11;fillColor=#ffffff;fontFamily=Courier New;" vertex="1" parent="s9">
+          <mxGeometry x="24" y="52" width="1850" height="128" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>

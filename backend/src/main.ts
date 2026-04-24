@@ -40,18 +40,35 @@ async function bootstrap() {
 
   const swaggerConfig = new DocumentBuilder()
     .setTitle('Tokenable RWA API')
-    .setDescription('RWA 마켓플레이스 백엔드 API 문서')
+    .setDescription(
+      [
+        'RWA 마켓플레이스 백엔드 — 모든 HTTP 라우트는 **`/api`** 접두사 아래에 있습니다.',
+        '이 문서 UI는 **`/api/docs`** (예: `http://localhost:4000/api/docs`).',
+        '',
+        '**인증**: 대부분의 `auth` 엔드포인트는 **HttpOnly 쿠키 `access_token`**(Google OAuth 후 발급) 또는 **`Authorization: Bearer`** 로 동작합니다. Swagger에서 보호된 라우트는 🔓 버튼으로 JWT를 넣을 수 있습니다.',
+        '',
+        '**가격 API (`price`)**: JustTCG 프록시 — `TCG_API_KEY` 필수.',
+        '**PokéTrace**: `GET /api/marketplace/poketrace/*` — `PoketraceProxyController` (Pro 토큰 `POKETRACE_PUBLIC_API_TOKEN`).',
+        '**전체 경로 표**: 레포 `docs/API-REFERENCE.md` (Swagger `/api/docs`와 병행).',
+      ].join('\n'),
+    )
     .setVersion('1.0')
     .addBearerAuth(
       { type: 'http', scheme: 'bearer', bearerFormat: 'JWT', in: 'header' },
       'access-token',
     )
-    .addTag('auth', '인증')
-    .addTag('rwa', 'RWA (IPFS 메타데이터 업로드)')
-    .addTag('blockchain', '블록체인 / 토큰')
-    .addTag('marketplace', '마켓플레이스 (Seaport 주문)')
-    .addTag('price', 'TCG 카드 실시간 가격 (JustTCG)')
-    .addTag('psa', 'PSA 슬랩 OCR + JustTCG 보강')
+    .addTag('auth', 'Google OAuth · JWT 쿠키 · 세션 · 지갑 연결')
+    .addTag('rwa', 'RWA 메타데이터 multipart 업로드 → IPFS (Pinata)')
+    .addTag('blockchain', 'Sepolia 읽기 전용 — USDC · Tokenable_RWA')
+    .addTag(
+      'marketplace',
+      'Seaport 오프체인 오더북 + 컬렉션 — 주문 등록·조회·체결 동기화; 규칙 매칭(bids/trade/match) 병행',
+    )
+    .addTag(
+      'price',
+      'JustTCG 프록시 — games / sets / cards / batch',
+    )
+    .addTag('psa', '슬랩 이미지 OCR · PSA Public API · JustTCG 검색')
     .build();
 
   const document = SwaggerModule.createDocument(app, swaggerConfig);

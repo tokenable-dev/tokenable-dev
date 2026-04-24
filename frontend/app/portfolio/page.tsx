@@ -1,0 +1,1644 @@
+"use client";
+
+import { useMemo, useState, useEffect, useCallback, useRef } from "react";
+import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useAccount } from "wagmi";
+import {
+  type RwaMetadata,
+  type OrderListItem,
+  type CollectionPoketracePreview,
+  getCollectionMarketSeries,
+  getCollectionMarketStats,
+  getMyHiddenAssetTokenIds,
+  hideMyAssetToken,
+  type CollectionMarketSeries,
+  type CollectionMarketStats,
+  unhideMyAssetToken,
+} from "@/lib/api";
+import { extractBucketComponentsFromMetadata, computeMarketBucketKey } from "@/lib/marketplace/bucketKey";
+import { useUserAssets } from "@/hooks/useUserAssets";
+import { useAppStore, selectUsdcBalance } from "@/store";
+import { useShallow } from "zustand/react/shallow";
+import type { GradedCardMetadata } from "@/types/gradedCard";
+import {
+  loadNmBaselineMap,
+  saveNmBaselineMap,
+  type NmBaselineEntry,
+} from "@/lib/portfolioNmBaseline";
+import { formatLiquidityDepthLabel, NO_EXTERNAL_PRICE } from "@/lib/collectionMarketPricing";
+import { justtcgRepresentativeUsd } from "@/lib/externalMarketPrice";
+import {
+  catalogSpotUsdFromPoketracePreview,
+  parseGradeScoreNumber,
+} from "@/lib/gradedCardMarketCap";
+import { poketraceHistoryTierFromRwaMetadata } from "@/lib/poketraceHistoryTier";
+import {
+  appendPortfolioValueSnapshot,
+} from "@/lib/portfolioValueHistory";
+import { inferSportBucketFromRwaMetadata } from "@/lib/collectionCategoryFilter";
+import {
+  mockDemoSpotUsd,
+  MOCK_SPORTS_LIQUIDITY_CAPTION,
+  MOCK_SPORTS_PRICE_CAPTION,
+} from "@/lib/portfolioMockSports";
+
+const USDC_DECIMALS = 1_000_000;
+
+interface OwnedAsset {
+  tokenId: number;
+  metadata: RwaMetadata | null;
+  imageUrl: string | null;
+}
+
+interface PricedAssetRow {
+  tokenId: number;
+  name: string;
+  imageUrl: string | null;
+  category: string | null;
+  amount: number;
+  /** External NM spot: PokeTrace mint preview, else bundle NM strip for the bucket. */
+  currentPrice: number | null;
+  priceSource: "poketrace" | "none" | "mock";
+  /** On-platform listing depth (optional subtitle). */
+  liquidityLabel: string | null;
+  /** Your active ask (execution intent), not the pool estimate */
+  listPriceUsd: number | null;
+  /** Secondary line under title (set / year / card name) */
+  subtitle: string;
+  gradeLabel: string | null;
+  /** Raw PokéTrace preview payload for this token. */
+  poketraceRaw: CollectionPoketracePreview | null;
+}
+
+interface AssetRow extends PricedAssetRow {
+  /** Latest inferred buy fill price while currently holding this token */
+  costBasisUsd: number | null;
+  pnl: number | null;
+  pnlPct: number | null;
+}
+
+interface TxRow {
+  type: "BUY" | "SELL";
+  asset: string;
+  category: string | null;
+  amount: number;
+  price: number;
+  date: string;
+  orderHash: string;
+}
+
+type ChartPeriod = "1D" | "1W" | "1M";
+type AssetListFilter = "all" | "listed" | "unlisted";
+
+function fmtUsd(v: number): string {
+  if (Math.abs(v) >= 1000)
+    return `$${(v / 1000).toFixed(1)}K`;
+  return `$${v.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+}
+
+function getGraded(meta: RwaMetadata | null): GradedCardMetadata | undefined {
+  const g = meta?.properties?.graded;
+  return g && typeof g === "object" ? (g as GradedCardMetadata) : undefined;
+}
+
+function extractCategory(meta: RwaMetadata | null): string | null {
+  const g = getGraded(meta);
+  if (g?.psa?.category?.trim()) return g.psa.category.trim();
+
+  if (!meta?.attributes) return null;
+  const traitTypes = [
+    "PSA Category",
+    "Set",
+    "Sport",
+    "Category",
+    "Product",
+    "League",
+    "Card Type",
+  ];
+  for (const tt of traitTypes) {
+    const cat = meta.attributes.find((a) => a.trait_type === tt);
+    if (cat?.value != null && String(cat.value).trim() !== "")
+      return String(cat.value).trim();
+  }
+  return null;
+}
+
+function gradeScoreForJustTcg(meta: RwaMetadata | null): number | null {
+  const g = getGraded(meta);
+  if (g?.psa?.gradeScore != null) return parseGradeScoreNumber(String(g.psa.gradeScore));
+  if (g?.grade?.score != null && Number.isFinite(g.grade.score))
+    return parseGradeScoreNumber(String(g.grade.score));
+  return null;
+}
+
+function buildAssetSubtitle(meta: RwaMetadata | null, displayName: string): string {
+  const g = getGraded(meta);
+  if (g?.card) {
+    const parts: string[] = [];
+    if (g.card.year != null) parts.push(String(g.card.year));
+    if (g.psa?.category?.trim()) parts.push(g.psa.category.trim());
+    else if (g.card.set?.trim()) parts.push(g.card.set.trim());
+    const cn = g.card.name?.trim();
+    if (cn && cn !== displayName) parts.push(cn);
+    if (parts.length > 0) return parts.join(" · ");
+  }
+  const attrYear = meta?.attributes?.find((a) => a.trait_type === "Year");
+  const attrSet = meta?.attributes?.find(
+    (a) => a.trait_type === "Set" || a.trait_type === "PSA Category",
+  );
+  if (attrYear?.value || attrSet?.value) {
+    return [attrYear?.value, attrSet?.value].filter(Boolean).join(" · ");
+  }
+  const desc = meta?.description?.trim();
+  if (desc && desc.length <= 200 && !desc.startsWith("http")) {
+    const line = desc.split("\n")[0].trim();
+    return line.length > 120 ? `${line.slice(0, 117)}…` : line;
+  }
+  return "";
+}
+
+function formatGradeDisplay(meta: RwaMetadata | null): string | null {
+  const g = getGraded(meta);
+  const company = (g?.gradingCompany ?? "PSA").trim();
+  const score = g?.grade?.score ?? g?.psa?.gradeScore;
+  if (score != null && String(score).trim() !== "" && !Number.isNaN(Number(score))) {
+    return `${company} ${score}`.trim();
+  }
+  const gl = g?.psa?.gradeLabel?.trim();
+  if (gl) return `${company} ${gl}`.replace(/\s+/g, " ").trim();
+  const attr = meta?.attributes?.find(
+    (a) =>
+      a.trait_type === "Grade" ||
+      (a.trait_type?.toLowerCase().includes("grade") ?? false),
+  );
+  return attr?.value?.trim() ?? null;
+}
+
+const BADGE_COLORS: Record<string, string> = {
+  pokemon: "#6b3a2a",
+  "pokémon": "#6b3a2a",
+  nba: "#2e3a6b",
+  baseball: "#5c4024",
+  football: "#4a3520",
+  soccer: "#264a3a",
+  yugioh: "#4a2a5c",
+  "yu-gi-oh": "#4a2a5c",
+  magic: "#5c2a3a",
+};
+
+function CategoryBadge({ label }: { label: string }) {
+  const key = label.toLowerCase().trim();
+  const bg = Object.entries(BADGE_COLORS).find(([k]) =>
+    key.includes(k),
+  )?.[1] ?? "#3a3a3a";
+  const short =
+    label.length > 12 ? label.slice(0, 10) + "…" : label;
+  return (
+    <span
+      className="inline-flex items-center text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0 text-gray-300"
+      style={{ backgroundColor: bg }}
+    >
+      {short}
+    </span>
+  );
+}
+
+function generateTimeLabels(period: ChartPeriod, count: number): string[] {
+  const now = new Date();
+  const labels: string[] = [];
+  if (period === "1D") {
+    for (let i = 0; i < count; i++) {
+      const t = new Date(now.getTime() - (count - 1 - i) * 3600_000);
+      labels.push(
+        `${String(t.getHours()).padStart(2, "0")}:${String(t.getMinutes()).padStart(2, "0")}`,
+      );
+    }
+  } else if (period === "1W") {
+    const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    for (let i = 0; i < count; i++) {
+      const t = new Date(now.getTime() - (count - 1 - i) * 86400_000);
+      labels.push(days[t.getDay()]);
+    }
+  } else {
+    for (let i = 0; i < count; i++) {
+      const t = new Date(now.getTime() - (count - 1 - i) * 86400_000);
+      labels.push(`${t.getMonth() + 1}/${t.getDate()}`);
+    }
+  }
+  return labels;
+}
+
+function niceYTicks(min: number, max: number, count = 5): number[] {
+  if (max <= min) return [min];
+  const range = max - min;
+  const rough = range / (count - 1);
+  const mag = Math.pow(10, Math.floor(Math.log10(rough)));
+  const nice = [1, 2, 5, 10].find((n) => n * mag >= rough)! * mag;
+  const lo = Math.floor(min / nice) * nice;
+  const ticks: number[] = [];
+  for (let v = lo; v <= max + nice * 0.01; v += nice) ticks.push(v);
+  return ticks;
+}
+
+function fmtAxisVal(v: number): string {
+  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`;
+  if (v >= 1_000) return `${(v / 1_000).toFixed(v >= 10_000 ? 0 : 1)}K`;
+  return v.toLocaleString(undefined, { maximumFractionDigits: 0 });
+}
+
+function PortfolioChart({
+  points,
+  period,
+  currentValue,
+}: {
+  points: number[];
+  period: ChartPeriod;
+  currentValue: number;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [hover, setHover] = useState<{ idx: number; x: number; y: number } | null>(null);
+
+  if (points.length < 2)
+    return (
+      <div className="flex items-center justify-center text-gray-600 text-sm h-full">
+        Not enough data
+      </div>
+    );
+
+  const W = 800;
+  const H = 260;
+  const LEFT = 54;
+  const RIGHT = 16;
+  const TOP = 20;
+  const BOT = 48;
+  const chartW = W - LEFT - RIGHT;
+  const chartH = H - TOP - BOT;
+
+  const dataMin = Math.min(...points);
+  const dataMax = Math.max(...points);
+  const pad = (dataMax - dataMin) * 0.1 || 1;
+  const yMin = dataMin - pad;
+  const yMax = dataMax + pad;
+
+  const ticks = niceYTicks(yMin, yMax, 5);
+  const timeLabels = generateTimeLabels(period, points.length);
+
+  const xOf = (i: number) => LEFT + (i / (points.length - 1)) * chartW;
+  const yOf = (v: number) => TOP + (1 - (v - yMin) / (yMax - yMin)) * chartH;
+
+  const linePath = points
+    .map((v, i) => `${i === 0 ? "M" : "L"}${xOf(i).toFixed(2)},${yOf(v).toFixed(2)}`)
+    .join(" ");
+  const areaPath = `${linePath} L${xOf(points.length - 1).toFixed(2)},${(TOP + chartH).toFixed(2)} L${xOf(0).toFixed(2)},${(TOP + chartH).toFixed(2)} Z`;
+
+  const volumeBars = useMemo(() => {
+    const bars: number[] = [];
+    for (let i = 0; i < points.length; i++) {
+      const diff = i > 0 ? Math.abs(points[i] - points[i - 1]) : 0;
+      bars.push(diff);
+    }
+    const bMax = Math.max(...bars) || 1;
+    return bars.map((b) => b / bMax);
+  }, [points]);
+
+  const barH = 24;
+  const barY = TOP + chartH + 2;
+  const barW = Math.max(2, chartW / points.length - 1);
+
+  const labelStep = Math.max(1, Math.floor(points.length / 6));
+
+  function handleMouseMove(e: React.MouseEvent<SVGSVGElement>) {
+    const svg = e.currentTarget;
+    const rect = svg.getBoundingClientRect();
+    const mx = ((e.clientX - rect.left) / rect.width) * W;
+    const idx = Math.round(((mx - LEFT) / chartW) * (points.length - 1));
+    if (idx < 0 || idx >= points.length) {
+      setHover(null);
+      return;
+    }
+    setHover({ idx, x: xOf(idx), y: yOf(points[idx]) });
+  }
+
+  const lastX = xOf(points.length - 1);
+  const lastY = yOf(points[points.length - 1]);
+
+  return (
+    <div ref={containerRef} className="w-full h-full">
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        className="w-full h-full"
+        preserveAspectRatio="xMidYMid meet"
+        onMouseMove={handleMouseMove}
+        onMouseLeave={() => setHover(null)}
+      >
+        <defs>
+          <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="rgba(148,255,212,0.15)" />
+            <stop offset="80%" stopColor="rgba(148,255,212,0.02)" />
+            <stop offset="100%" stopColor="rgba(148,255,212,0)" />
+          </linearGradient>
+          <filter id="glow">
+            <feGaussianBlur stdDeviation="3" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+        </defs>
+
+        {/* Grid lines */}
+        {ticks.map((t) => {
+          const y = yOf(t);
+          if (y < TOP - 2 || y > TOP + chartH + 2) return null;
+          return (
+            <g key={t}>
+              <line
+                x1={LEFT}
+                x2={W - RIGHT}
+                y1={y}
+                y2={y}
+                stroke="rgba(255,255,255,0.04)"
+                strokeWidth="1"
+              />
+              <text
+                x={LEFT - 8}
+                y={y + 3.5}
+                textAnchor="end"
+                className="fill-gray-600"
+                fontSize="9"
+                fontFamily="monospace"
+              >
+                {fmtAxisVal(t)}
+              </text>
+            </g>
+          );
+        })}
+
+        {/* X-axis labels */}
+        {timeLabels.map((label, i) => {
+          if (i % labelStep !== 0 && i !== points.length - 1) return null;
+          return (
+            <text
+              key={i}
+              x={xOf(i)}
+              y={H - 4}
+              textAnchor="middle"
+              className="fill-gray-600"
+              fontSize="9"
+              fontFamily="monospace"
+            >
+              {label}
+            </text>
+          );
+        })}
+
+        {/* Volume bars */}
+        {volumeBars.map((v, i) => (
+          <rect
+            key={i}
+            x={xOf(i) - barW / 2}
+            y={barY + barH * (1 - v)}
+            width={barW}
+            height={barH * v}
+            rx="1"
+            fill={
+              hover?.idx === i
+                ? "rgba(148,255,212,0.5)"
+                : "rgba(148,255,212,0.12)"
+            }
+          />
+        ))}
+
+        {/* Area fill */}
+        <path d={areaPath} fill="url(#areaGrad)" />
+
+        {/* Line */}
+        <path
+          d={linePath}
+          fill="none"
+          stroke="#94ffd4"
+          strokeWidth="2"
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
+
+        {/* Hover crosshair */}
+        {hover && (
+          <>
+            <line
+              x1={hover.x}
+              x2={hover.x}
+              y1={TOP}
+              y2={TOP + chartH}
+              stroke="rgba(148,255,212,0.2)"
+              strokeWidth="1"
+              strokeDasharray="3 3"
+            />
+            <circle
+              cx={hover.x}
+              cy={hover.y}
+              r="4"
+              fill="#94ffd4"
+              stroke="#030712"
+              strokeWidth="2"
+            />
+            {/* Tooltip */}
+            <g>
+              <rect
+                x={hover.x - 36}
+                y={hover.y - 28}
+                width="72"
+                height="20"
+                rx="6"
+                fill="#1a2332"
+                stroke="rgba(148,255,212,0.3)"
+                strokeWidth="1"
+              />
+              <text
+                x={hover.x}
+                y={hover.y - 15}
+                textAnchor="middle"
+                fill="white"
+                fontSize="10"
+                fontWeight="600"
+              >
+                ${points[hover.idx].toLocaleString(undefined, { maximumFractionDigits: 0 })}
+              </text>
+            </g>
+          </>
+        )}
+
+        {/* Current value dot + tooltip (when not hovering) */}
+        {!hover && (
+          <>
+            <circle
+              cx={lastX}
+              cy={lastY}
+              r="5"
+              fill="#94ffd4"
+              stroke="#030712"
+              strokeWidth="2.5"
+              filter="url(#glow)"
+            />
+            <circle
+              cx={lastX}
+              cy={lastY}
+              r="9"
+              fill="none"
+              stroke="rgba(148,255,212,0.25)"
+              strokeWidth="1.5"
+            />
+            <g>
+              <rect
+                x={lastX - 40}
+                y={lastY - 30}
+                width="80"
+                height="22"
+                rx="6"
+                fill="#1a2332"
+                stroke="rgba(148,255,212,0.3)"
+                strokeWidth="1"
+              />
+              <text
+                x={lastX}
+                y={lastY - 16}
+                textAnchor="middle"
+                fill="white"
+                fontSize="11"
+                fontWeight="700"
+              >
+                ${currentValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+              </text>
+            </g>
+          </>
+        )}
+      </svg>
+    </div>
+  );
+}
+
+function StatCard({
+  label,
+  value,
+  sub,
+  accent,
+}: {
+  label: string;
+  value: string;
+  sub?: string;
+  accent?: boolean;
+}) {
+  return (
+    <div className="rounded-2xl border border-gray-800 bg-gray-900/40 px-5 py-5">
+      <p className="text-xs text-gray-500 mb-2">{label}</p>
+      <p
+        className={`text-2xl font-extrabold tracking-tight ${accent ? "text-mint" : "text-white"}`}
+      >
+        {value}
+      </p>
+      {sub && (
+        <p
+          className={`text-xs mt-1 ${accent ? "text-mint/70" : "text-gray-500"}`}
+        >
+          {sub}
+        </p>
+      )}
+    </div>
+  );
+}
+
+export default function PortfolioPage() {
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const { address, isConnected } = useAccount();
+  const { usdcBalanceFormatted } = useAppStore(useShallow(selectUsdcBalance));
+  const [period, setPeriod] = useState<ChartPeriod>("1D");
+  const [assetFilter, setAssetFilter] = useState<AssetListFilter>("all");
+  const [showHiddenAssets, setShowHiddenAssets] = useState(false);
+  const [mutatingHiddenTokenIds, setMutatingHiddenTokenIds] = useState<number[]>([]);
+
+  const {
+    tokenIds,
+    assets: hookAssets,
+    activeOrders: allOrders,
+    historiesFlat,
+    isLoadingIds: idsLoading,
+    isLoadingMetadata: assetsLoading,
+    poketraceByToken,
+    poketraceLoading,
+  } = useUserAssets(isConnected ? address : undefined, {
+    enabled: Boolean(address && isConnected),
+    includeOrderHistory: true,
+    includePoketrace: true,
+  });
+
+  const hiddenAssetsQuery = useQuery({
+    queryKey: ["my-hidden-assets", address?.toLowerCase() ?? ""],
+    queryFn: () => getMyHiddenAssetTokenIds(address!),
+    enabled: Boolean(address && isConnected),
+    staleTime: 30_000,
+  });
+  const hiddenTokenSet = useMemo(
+    () => new Set((hiddenAssetsQuery.data ?? []).map((n) => Number(n))),
+    [hiddenAssetsQuery.data],
+  );
+
+  const hideMutation = useMutation({
+    mutationFn: async (tokenId: number) => {
+      if (!address) return;
+      await hideMyAssetToken(address, tokenId);
+    },
+    onSuccess: async () => {
+      await hiddenAssetsQuery.refetch();
+    },
+  });
+
+  const unhideMutation = useMutation({
+    mutationFn: async (tokenId: number) => {
+      if (!address) return;
+      await unhideMyAssetToken(address, tokenId);
+    },
+    onSuccess: async () => {
+      await hiddenAssetsQuery.refetch();
+    },
+  });
+
+  const assets: OwnedAsset[] = useMemo(
+    () =>
+      hookAssets.map((a) => ({
+        tokenId: a.tokenId,
+        metadata: a.metadata,
+        imageUrl: a.imageUrl,
+      })),
+    [hookAssets],
+  );
+
+  const listingCollectionKeyByToken = useMemo(() => {
+    const m = new Map<number, string>();
+    const viewer = address?.trim().toLowerCase() ?? "";
+    for (const o of allOrders) {
+      if (o.status !== "active" || o.side !== "ask") continue;
+      if (o.offerer.toLowerCase() !== viewer) continue;
+      const ck = o.collectionKey?.trim();
+      if (ck) m.set(Number(o.tokenId), ck.toLowerCase());
+    }
+    return m;
+  }, [allOrders, address]);
+
+  const [metaCollectionKeyByToken, setMetaCollectionKeyByToken] = useState<
+    Record<number, string>
+  >({});
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const out: Record<number, string> = {};
+      for (const a of assets) {
+        if (listingCollectionKeyByToken.has(a.tokenId)) continue;
+        const comp = extractBucketComponentsFromMetadata(
+          (a.metadata ?? {}) as Record<string, unknown>,
+        );
+        if (!comp) continue;
+        try {
+          out[a.tokenId] = await computeMarketBucketKey(comp);
+        } catch {
+          /* skip */
+        }
+      }
+      if (!cancelled) setMetaCollectionKeyByToken(out);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [assets, listingCollectionKeyByToken]);
+
+  const tokenToCollectionKey = useMemo(() => {
+    const o: Record<number, string> = { ...metaCollectionKeyByToken };
+    for (const [tid, k] of listingCollectionKeyByToken.entries()) {
+      o[tid] = k;
+    }
+    return o;
+  }, [listingCollectionKeyByToken, metaCollectionKeyByToken]);
+
+  /** Set NEXT_PUBLIC_MARKETPLACE_PIPELINE_DIAG=1 to compare active-listing DB key vs client meta-hash (backend logs use MARKETPLACE_PIPELINE_DIAG). */
+  useEffect(() => {
+    if (process.env.NEXT_PUBLIC_MARKETPLACE_PIPELINE_DIAG !== "1") return;
+    for (const a of assets) {
+      const fromOrder = listingCollectionKeyByToken.get(a.tokenId);
+      const fromMeta = metaCollectionKeyByToken[a.tokenId];
+      if (fromOrder && fromMeta && fromOrder !== fromMeta) {
+        console.warn("[collection_key_pipeline] listing vs meta hash mismatch", {
+          tokenId: a.tokenId,
+          fromActiveListingOrder: fromOrder,
+          fromClientMetadata: fromMeta,
+          note: "Order row collection_key differs from computeMarketBucketKey(metadata).",
+        });
+      }
+      if (fromOrder && fromMeta && fromOrder === fromMeta) {
+        console.info("[collection_key_pipeline] listing and meta keys match", {
+          tokenId: a.tokenId,
+          collectionKey: fromOrder,
+        });
+      }
+    }
+  }, [assets, listingCollectionKeyByToken, metaCollectionKeyByToken]);
+
+  const uniqueCollectionKeys = useMemo(() => {
+    const s = new Set<string>();
+    for (const a of assets) {
+      const k = tokenToCollectionKey[a.tokenId];
+      if (k) s.add(k);
+    }
+    return [...s];
+  }, [assets, tokenToCollectionKey]);
+
+  /** One owned token per bucket so market-series can resolve the bucket from IPFS when there is no active listing. */
+  const hintTokenIdByCollectionKey = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const a of assets) {
+      const raw = tokenToCollectionKey[a.tokenId];
+      if (!raw) continue;
+      const k = raw.toLowerCase();
+      if (!m.has(k)) m.set(k, a.tokenId);
+    }
+    return m;
+  }, [assets, tokenToCollectionKey]);
+
+  /** MLB/NFL/NBA use placeholder pricing — skip external NM fetch for those rows only. */
+  const anyAssetNeedsSeriesForPricing = useMemo(
+    () =>
+      assets.some((a) => {
+        const b = inferSportBucketFromRwaMetadata(a.metadata);
+        if (b === "mlb" || b === "nba" || b === "nfl") return false;
+        const tier = poketraceHistoryTierFromRwaMetadata(a.metadata);
+        const poke = catalogSpotUsdFromPoketracePreview(
+          poketraceByToken[a.tokenId],
+          tier,
+        );
+        if (poke != null) return false;
+        const ck = tokenToCollectionKey[a.tokenId]?.trim();
+        return Boolean(ck);
+      }),
+    [assets, tokenToCollectionKey, poketraceByToken],
+  );
+
+  const anyAssetUsesLivePoolStats = useMemo(
+    () =>
+      assets.some((a) => {
+        const b = inferSportBucketFromRwaMetadata(a.metadata);
+        if (b === "mlb" || b === "nba" || b === "nfl") return false;
+        return Boolean(tokenToCollectionKey[a.tokenId]?.trim());
+      }),
+    [assets, tokenToCollectionKey],
+  );
+
+  const hasMockSportHoldings = useMemo(
+    () =>
+      assets.some((a) => {
+        const b = inferSportBucketFromRwaMetadata(a.metadata);
+        return b === "mlb" || b === "nba" || b === "nfl";
+      }),
+    [assets],
+  );
+
+  const statsQueries = useQueries({
+    queries: uniqueCollectionKeys.map((k) => ({
+      queryKey: ["collection-market-stats", k],
+      queryFn: () => getCollectionMarketStats(k),
+      staleTime: 60_000,
+      enabled: k.length > 0 && Boolean(address && isConnected),
+    })),
+  });
+
+  const statsByCollectionKey = useMemo(() => {
+    const m = new Map<string, CollectionMarketStats>();
+    uniqueCollectionKeys.forEach((k, i) => {
+      const d = statsQueries[i]?.data;
+      if (d) m.set(k.toLowerCase(), d);
+    });
+    return m;
+  }, [uniqueCollectionKeys, statsQueries]);
+
+  const seriesQueries = useQueries({
+    queries: uniqueCollectionKeys.map((k) => {
+      const hint = hintTokenIdByCollectionKey.get(k.toLowerCase());
+      return {
+        queryKey: ["collection-market-series", "portfolio", "365d", k, hint ?? null],
+        queryFn: () =>
+          getCollectionMarketSeries(
+            k,
+            "365d",
+            hint != null ? { hintTokenId: hint } : undefined,
+          ),
+        staleTime: 120_000,
+        enabled: k.length > 0 && Boolean(address && isConnected),
+      };
+    }),
+  });
+
+  const seriesByCollectionKey = useMemo(() => {
+    const m = new Map<string, CollectionMarketSeries>();
+    uniqueCollectionKeys.forEach((k, i) => {
+      const d = seriesQueries[i]?.data;
+      if (d) m.set(k.toLowerCase(), d);
+    });
+    return m;
+  }, [uniqueCollectionKeys, seriesQueries]);
+
+  const statsLoadingAny = statsQueries.some((q) => q.isLoading);
+  const seriesLoadingAny = seriesQueries.some((q) => q.isLoading);
+
+  /** External + per-bucket series + pool stats still loading when needed */
+  const valuesPending =
+    Boolean(address) &&
+    isConnected &&
+    assets.length > 0 &&
+    (poketraceLoading ||
+      (anyAssetUsesLivePoolStats && statsLoadingAny) ||
+      (anyAssetNeedsSeriesForPricing && seriesLoadingAny));
+
+  const myActiveListings = useMemo(
+    () =>
+      allOrders.filter(
+        (o) =>
+          o.status === "active" &&
+          o.side === "ask" &&
+          o.offerer.toLowerCase() === address?.toLowerCase(),
+      ),
+    [allOrders, address],
+  );
+
+  const priceMap = useMemo(() => {
+    const m = new Map<number, number>();
+    for (const o of myActiveListings) {
+      m.set(Number(o.tokenId), Number(o.price) / USDC_DECIMALS);
+    }
+    return m;
+  }, [myActiveListings]);
+
+  const fulfilledOrders = useMemo(
+    () =>
+      historiesFlat
+        .filter((o) => o.status === "fulfilled")
+        .sort(
+          (a, b) =>
+            new Date(b.updatedAt ?? b.createdAt).getTime() -
+            new Date(a.updatedAt ?? a.createdAt).getTime(),
+        ),
+    [historiesFlat],
+  );
+
+  const [nmBaselineMap, setNmBaselineMap] = useState<Record<number, NmBaselineEntry>>({});
+
+  useEffect(() => {
+    if (!address) {
+      setNmBaselineMap({});
+      return;
+    }
+    setNmBaselineMap(loadNmBaselineMap(address));
+  }, [address]);
+
+  const pricedRows: PricedAssetRow[] = useMemo(() => {
+    return assets.map((a) => {
+      const listingPrice = priceMap.get(a.tokenId) ?? null;
+      const ck = tokenToCollectionKey[a.tokenId]?.toLowerCase() ?? null;
+      const stats = ck ? statsByCollectionKey.get(ck) ?? null : null;
+      const series = ck ? seriesByCollectionKey.get(ck) ?? null : null;
+
+      const sportBucket = inferSportBucketFromRwaMetadata(a.metadata);
+      const isMockSport =
+        sportBucket === "mlb" || sportBucket === "nba" || sportBucket === "nfl";
+
+      const poke = isMockSport
+        ? null
+        : catalogSpotUsdFromPoketracePreview(
+            poketraceByToken[a.tokenId],
+            poketraceHistoryTierFromRwaMetadata(a.metadata),
+          );
+      const jt =
+        isMockSport || poke != null
+          ? null
+          : justtcgRepresentativeUsd(series?.gradePrices ?? null, gradeScoreForJustTcg(a.metadata));
+
+      let currentPrice: number | null = null;
+      let priceSource: PricedAssetRow["priceSource"] = "none";
+      if (isMockSport) {
+        currentPrice = mockDemoSpotUsd(a.tokenId, sportBucket);
+        priceSource = "mock";
+      } else if (poke != null) {
+        currentPrice = poke;
+        priceSource = "poketrace";
+      } else if (jt != null) {
+        currentPrice = jt;
+        priceSource = "poketrace";
+      }
+
+      const liquidityLabel = isMockSport
+        ? MOCK_SPORTS_LIQUIDITY_CAPTION
+        : ck
+          ? formatLiquidityDepthLabel(stats ?? undefined)
+          : null;
+
+      const displayName = a.metadata?.name ?? `RWA #${a.tokenId}`;
+      return {
+        tokenId: a.tokenId,
+        name: displayName,
+        imageUrl: a.imageUrl,
+        category: extractCategory(a.metadata),
+        amount: 1,
+        currentPrice,
+        priceSource,
+        liquidityLabel,
+        listPriceUsd: listingPrice,
+        subtitle: buildAssetSubtitle(a.metadata, displayName),
+        gradeLabel: formatGradeDisplay(a.metadata),
+        poketraceRaw: poketraceByToken[a.tokenId] ?? null,
+      };
+    });
+  }, [
+    assets,
+    priceMap,
+    fulfilledOrders,
+    address,
+    tokenToCollectionKey,
+    statsByCollectionKey,
+    seriesByCollectionKey,
+    poketraceByToken,
+  ]);
+
+  useEffect(() => {
+    if (!address || valuesPending) return;
+    setNmBaselineMap((prev) => {
+      let next = prev;
+      let changed = false;
+      for (const r of pricedRows) {
+        if (r.priceSource !== "poketrace") continue;
+        if (r.currentPrice == null) continue;
+        if (next[r.tokenId] !== undefined) continue;
+        if (next === prev) next = { ...prev };
+        changed = true;
+        next[r.tokenId] = { v: r.currentPrice, t: Date.now() };
+      }
+      if (changed) saveNmBaselineMap(address, next);
+      return changed ? next : prev;
+    });
+  }, [address, valuesPending, pricedRows]);
+
+  const assetRows: AssetRow[] = useMemo(() => {
+    const wallet = address?.toLowerCase() ?? "";
+    const rows = pricedRows.map((r) => {
+      const b = nmBaselineMap[r.tokenId];
+      let costBasisUsd: number | null = null;
+      let pnl: number | null = null;
+      let pnlPct: number | null = null;
+
+      const latestBuyLike = fulfilledOrders.find((o) => {
+        if (Number(o.tokenId) !== r.tokenId) return false;
+        return o.offerer.toLowerCase() !== wallet;
+      });
+      if (latestBuyLike) {
+        const px = Number(latestBuyLike.price) / USDC_DECIMALS;
+        if (Number.isFinite(px) && px > 0) costBasisUsd = px;
+      }
+      if (costBasisUsd == null && b != null) {
+        costBasisUsd = b.v;
+      }
+
+      if (
+        r.priceSource === "poketrace" &&
+        r.currentPrice != null &&
+        costBasisUsd != null
+      ) {
+        pnl = r.currentPrice - costBasisUsd;
+        if (costBasisUsd > 0) pnlPct = (pnl / costBasisUsd) * 100;
+      }
+
+      return {
+        ...r,
+        costBasisUsd,
+        pnl,
+        pnlPct,
+      };
+    });
+
+    // Newest minted first (higher tokenId first).
+    rows.sort((a, b) => Number(b.tokenId) - Number(a.tokenId));
+    return rows;
+  }, [pricedRows, nmBaselineMap, fulfilledOrders, address]);
+
+  const ASSET_PAGE = 10;
+  const [visibleAssetCount, setVisibleAssetCount] = useState(ASSET_PAGE);
+  const visiblePoolAssetRows = useMemo(
+    () =>
+      showHiddenAssets
+        ? assetRows
+        : assetRows.filter((r) => !hiddenTokenSet.has(Number(r.tokenId))),
+    [assetRows, showHiddenAssets, hiddenTokenSet],
+  );
+  const hiddenAssetCount = assetRows.length - visiblePoolAssetRows.length;
+  const listedAssetCount = useMemo(
+    () => visiblePoolAssetRows.filter((r) => r.listPriceUsd != null).length,
+    [visiblePoolAssetRows],
+  );
+  const unlistedAssetCount = visiblePoolAssetRows.length - listedAssetCount;
+  const filteredAssetRows = useMemo(() => {
+    if (assetFilter === "listed") return visiblePoolAssetRows.filter((r) => r.listPriceUsd != null);
+    if (assetFilter === "unlisted") return visiblePoolAssetRows.filter((r) => r.listPriceUsd == null);
+    return visiblePoolAssetRows;
+  }, [visiblePoolAssetRows, assetFilter]);
+
+  useEffect(() => {
+    setVisibleAssetCount((n) =>
+      filteredAssetRows.length === 0
+        ? ASSET_PAGE
+        : Math.min(Math.max(n, ASSET_PAGE), filteredAssetRows.length),
+    );
+  }, [filteredAssetRows.length]);
+
+  const visibleAssetRows = useMemo(
+    () => filteredAssetRows.slice(0, visibleAssetCount),
+    [filteredAssetRows, visibleAssetCount],
+  );
+
+  const assetScrollSentinelRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const el = assetScrollSentinelRef.current;
+    if (!el || visibleAssetCount >= filteredAssetRows.length) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          setVisibleAssetCount((c) => Math.min(c + ASSET_PAGE, filteredAssetRows.length));
+        }
+      },
+      { root: null, rootMargin: "160px" },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [visibleAssetCount, filteredAssetRows.length]);
+
+  const txRows: TxRow[] = useMemo(() => {
+    if (!address) return [];
+    return fulfilledOrders.map((o) => {
+      const isSeller = o.offerer.toLowerCase() === address.toLowerCase();
+      const asset = assets.find((a) => a.tokenId === Number(o.tokenId));
+      return {
+        type: isSeller ? "SELL" : "BUY",
+        asset: asset?.metadata?.name ?? `RWA #${o.tokenId}`,
+        category: asset ? extractCategory(asset.metadata) : null,
+        amount: 1,
+        price: Number(o.price) / USDC_DECIMALS,
+        date: new Date(o.updatedAt ?? o.createdAt).toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+        }),
+        orderHash: o.orderHash,
+      };
+    });
+  }, [fulfilledOrders, address, assets]);
+
+  const totalValue = useMemo(
+    () => assetRows.reduce((s, r) => s + (r.currentPrice ?? 0), 0),
+    [assetRows],
+  );
+
+  const totalPnl = useMemo(
+    () => assetRows.reduce((s, r) => s + (r.pnl ?? 0), 0),
+    [assetRows],
+  );
+
+  const totalPnlPct = useMemo(() => {
+    const sumCost = assetRows.reduce((s, r) => s + (r.costBasisUsd ?? 0), 0);
+    return sumCost > 0 ? (totalPnl / sumCost) * 100 : 0;
+  }, [assetRows, totalPnl]);
+
+  const uniqueTraders = useMemo(() => {
+    const addrs = new Set<string>();
+    for (const o of historiesFlat) {
+      addrs.add(o.offerer.toLowerCase());
+      for (const r of o.considerationRecipients ?? []) {
+        if (r) addrs.add(r.toLowerCase());
+      }
+    }
+    return addrs.size;
+  }, [historiesFlat]);
+
+  const isLoading = idsLoading || assetsLoading || poketraceLoading;
+  const chartValuesPending =
+    isLoading || (anyAssetNeedsSeriesForPricing && seriesLoadingAny);
+
+  useEffect(() => {
+    if (!address || isLoading) return;
+    void appendPortfolioValueSnapshot(address, totalValue);
+  }, [address, isLoading, totalValue]);
+
+  const chartPoints = useMemo(() => {
+    if (isLoading) return [];
+
+    const now = Date.now();
+    const byToken = new Map<number, AssetRow>();
+    for (const r of assetRows) byToken.set(r.tokenId, r);
+
+    const tokenIdsInPortfolio = assets.map((a) => a.tokenId);
+    const tokenCountByCollection = new Map<string, number>();
+    const tokenConstantByCollection = new Map<string, number>();
+    let standaloneConstant = 0;
+
+    for (const tokenId of tokenIdsInPortfolio) {
+      const row = byToken.get(tokenId);
+      if (!row) continue;
+      const ck = tokenToCollectionKey[tokenId]?.toLowerCase();
+      const hasSeries =
+        ck != null &&
+        ck !== "" &&
+        (seriesByCollectionKey.get(ck)?.externalUsd?.length ?? 0) >= 2;
+      if (hasSeries && ck) {
+        tokenCountByCollection.set(ck, (tokenCountByCollection.get(ck) ?? 0) + 1);
+      } else if (row.currentPrice != null && Number.isFinite(row.currentPrice)) {
+        if (ck) {
+          tokenConstantByCollection.set(
+            ck,
+            (tokenConstantByCollection.get(ck) ?? 0) + row.currentPrice,
+          );
+        } else {
+          standaloneConstant += row.currentPrice;
+        }
+      }
+    }
+
+    const pointCount = period === "1D" ? 24 : period === "1W" ? 7 : 30;
+    const stepMs = period === "1D" ? 3600_000 : 86400_000;
+    const times = Array.from(
+      { length: pointCount },
+      (_, i) => now - (pointCount - 1 - i) * stepMs,
+    );
+
+    const collectionSeries = new Map<string, Array<{ t: number; v: number }>>();
+    for (const [ck] of tokenCountByCollection) {
+      const ext = seriesByCollectionKey.get(ck)?.externalUsd ?? [];
+      if (ext.length >= 2) collectionSeries.set(ck, ext);
+    }
+
+    const valueAt = (series: Array<{ t: number; v: number }>, tMs: number): number | null => {
+      const t = Math.floor(tMs / 1000);
+      let prev: number | null = null;
+      for (const p of series) {
+        if (p.t <= t) prev = p.v;
+        else break;
+      }
+      if (prev != null) return prev;
+      const first = series[0]?.v;
+      return first != null && Number.isFinite(first) ? first : null;
+    };
+
+    const out = times.map((tMs) => {
+      let total = standaloneConstant;
+      for (const [ck, count] of tokenCountByCollection) {
+        const s = collectionSeries.get(ck);
+        if (!s || count <= 0) continue;
+        const v = valueAt(s, tMs);
+        if (v != null && Number.isFinite(v) && v > 0) total += v * count;
+      }
+      for (const [, csum] of tokenConstantByCollection) total += csum;
+      return Math.max(0, total);
+    });
+
+    if (out.length > 0) {
+      out[out.length - 1] = totalValue;
+    }
+    return out;
+  }, [
+    isLoading,
+    assetRows,
+    assets,
+    tokenToCollectionKey,
+    seriesByCollectionKey,
+    period,
+    totalValue,
+  ]);
+
+  /** Slight path smoothing when the book includes MLB/NFL/NBA rows (end point stays the live total). */
+  const chartPointsDisplay = useMemo(() => {
+    const pts = chartPoints;
+    if (pts.length < 2 || !hasMockSportHoldings) return pts;
+    const out = [...pts];
+    const end = out[out.length - 1]!;
+    const seed = (address?.codePointAt(0) ?? 1) + (period === "1D" ? 3 : period === "1W" ? 5 : 7);
+    for (let i = 0; i < out.length - 1; i++) {
+      const frac = (i + 0.5) / Math.max(1, out.length - 1);
+      const wave =
+        Math.sin(frac * Math.PI * 2 + seed * 0.01) * 0.028 + (frac - 0.5) * 0.018;
+      out[i] = Math.max(0, end * (1 + wave));
+    }
+    out[out.length - 1] = end;
+    return out;
+  }, [chartPoints, hasMockSportHoldings, address, period]);
+
+  if (!isConnected) {
+    return (
+      <div className="min-h-screen bg-[#030712] text-white flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-gray-400 mb-3">Connect your wallet to access My Assets</p>
+          <Link
+            href="/vault"
+            className="text-sm text-mint hover:underline"
+          >
+            Go to Vault
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-[#030712] text-white">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 pb-20">
+        {/* Title */}
+        <div className="mb-8">
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight mb-1">
+            Portfolio
+          </h1>
+          <p className="text-sm text-gray-400">Your tokenized assets</p>
+        </div>
+
+        {/* Chart */}
+        <div className="rounded-2xl border border-gray-800 bg-gray-900/40 p-5 sm:p-6 mb-6">
+          <div className="flex items-start justify-between mb-2">
+            <div>
+              <p className="text-sm font-semibold text-white mb-0.5">Chart</p>
+              <p className="text-[11px] text-gray-500 mb-1">
+                Total value is the sum of per-card market estimates. History is built from snapshots
+                stored in this browser for this wallet.
+              </p>
+              <div className="flex items-center gap-2.5">
+                {chartValuesPending ? (
+                  <span className="inline-block h-9 w-28 animate-pulse rounded-lg bg-gray-800/80" />
+                ) : (
+                  <>
+                    <span className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+                      {fmtUsd(totalValue)}
+                    </span>
+                    {totalPnlPct !== 0 && (
+                      <span
+                        className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${
+                          totalPnlPct >= 0
+                            ? "bg-mint/15 text-mint"
+                            : "bg-red-500/15 text-red-400"
+                        }`}
+                      >
+                        {totalPnlPct >= 0 ? "+" : ""}
+                        {totalPnlPct.toFixed(1)}%
+                      </span>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+            <div className="flex gap-1">
+              {(["1D", "1W", "1M"] as ChartPeriod[]).map((p) => (
+                <button
+                  key={p}
+                  onClick={() => setPeriod(p)}
+                  className={`px-3.5 py-1.5 text-xs font-semibold rounded-full transition-colors ${
+                    period === p
+                      ? "bg-mint text-[#030712]"
+                      : "border border-gray-700 text-gray-400 hover:text-white hover:border-gray-600"
+                  }`}
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="h-[240px] sm:h-[280px]">
+            {chartValuesPending ? (
+              <div className="w-full h-full bg-gray-800/40 rounded-lg animate-pulse" />
+            ) : (
+              <PortfolioChart
+                points={chartPointsDisplay}
+                period={period}
+                currentValue={totalValue}
+              />
+            )}
+          </div>
+        </div>
+
+        {/* Stats */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+          <StatCard
+            label="Amount"
+            value={String(assets.length)}
+            sub="Cards"
+          />
+          <StatCard
+            label="Total Traders"
+            value={String(uniqueTraders)}
+            sub="All time"
+          />
+          <StatCard
+            label="P&amp;L"
+            value={
+              chartValuesPending
+                ? "…"
+                : `${totalPnl >= 0 ? "+" : ""}${fmtUsd(totalPnl)}`
+            }
+            sub={
+              chartValuesPending
+                ? undefined
+                : totalPnlPct !== 0
+                  ? `${totalPnlPct >= 0 ? "+" : ""}${totalPnlPct.toFixed(1)}%`
+                  : undefined
+            }
+            accent={!chartValuesPending && totalPnl !== 0}
+          />
+        </div>
+
+        {/* My Assets — card grid */}
+        <div className="rounded-2xl border border-gray-800 bg-[#0b1118] p-5 sm:p-6 mb-6">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-bold">My Assets</h2>
+              <p className="mt-1 text-xs text-gray-500">
+                Track which cards are currently listed vs ready to list.
+              </p>
+            </div>
+            <div className="inline-flex rounded-full border border-gray-700/80 bg-gray-900/70 p-1 text-[11px]">
+              <button
+                type="button"
+                onClick={() => setAssetFilter("all")}
+                className={`rounded-full px-3 py-1 font-semibold transition-colors ${
+                  assetFilter === "all" ? "bg-mint text-[#061018]" : "text-gray-400 hover:text-white"
+                }`}
+              >
+                All <span className="tabular-nums">({visiblePoolAssetRows.length})</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setAssetFilter("listed")}
+                className={`rounded-full px-3 py-1 font-semibold transition-colors ${
+                  assetFilter === "listed"
+                    ? "bg-emerald-500/90 text-[#061018]"
+                    : "text-gray-400 hover:text-white"
+                }`}
+              >
+                Listed <span className="tabular-nums">({listedAssetCount})</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setAssetFilter("unlisted")}
+                className={`rounded-full px-3 py-1 font-semibold transition-colors ${
+                  assetFilter === "unlisted"
+                    ? "bg-zinc-500/90 text-[#061018]"
+                    : "text-gray-400 hover:text-white"
+                }`}
+              >
+                Not listed <span className="tabular-nums">({unlistedAssetCount})</span>
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowHiddenAssets((v) => !v)}
+              className={`rounded-full border px-3 py-1 text-[11px] font-semibold transition-colors ${
+                showHiddenAssets
+                  ? "border-amber-400/50 bg-amber-500/15 text-amber-200"
+                  : "border-gray-700/80 bg-gray-900/70 text-gray-400 hover:text-white"
+              }`}
+            >
+              {showHiddenAssets ? "Hide Hidden" : "Show Hidden"}
+              {hiddenAssetCount > 0 ? (
+                <span className="ml-1 tabular-nums">({hiddenAssetCount})</span>
+              ) : null}
+            </button>
+          </div>
+          {isLoading ? (
+            <div className="-mx-1 grid grid-cols-1 gap-4 pb-2 pt-0.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {[...Array(5)].map((_, i) => (
+                <div
+                  key={i}
+                  className="w-full overflow-hidden rounded-xl border border-gray-800/80 bg-gray-900/40"
+                >
+                  <div className="aspect-[3/4] animate-pulse bg-gray-800/50" />
+                  <div className="space-y-2 p-4">
+                    <div className="h-4 w-2/3 animate-pulse rounded bg-gray-800/60" />
+                    <div className="h-3 w-full animate-pulse rounded bg-gray-800/40" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : assetRows.length === 0 ? (
+            <p className="text-sm text-gray-500 py-8 text-center">
+              No assets yet.{" "}
+              <Link href="/vault" className="text-mint hover:underline">
+                Mint your first card
+              </Link>
+            </p>
+          ) : filteredAssetRows.length === 0 ? (
+            <p className="text-sm text-gray-500 py-8 text-center">
+              {assetFilter === "listed"
+                ? "No cards are currently listed for sale."
+                : "All cards are currently listed. Cancel a listing to move back to not listed."}
+            </p>
+          ) : (
+            <div
+              className={
+                filteredAssetRows.length > 4
+                  ? "max-h-[560px] overflow-y-auto pr-1 scrollbar-platform"
+                  : "overflow-visible"
+              }
+            >
+              <div className="-mx-1 grid grid-cols-1 gap-4 pb-2 pt-0.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {filteredAssetRows.map((r) => (
+                (() => {
+                  const tokenableVsEbayPct =
+                    r.listPriceUsd != null &&
+                    r.currentPrice != null &&
+                    Number.isFinite(r.listPriceUsd) &&
+                    Number.isFinite(r.currentPrice) &&
+                    r.currentPrice > 0
+                      ? ((r.listPriceUsd - r.currentPrice) / r.currentPrice) * 100
+                      : null;
+                  return (
+                <div
+                  key={r.tokenId}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => {
+                    if (r.poketraceRaw) {
+                      queryClient.setQueryData(
+                        ["poketrace-mint-previews", "detail", r.tokenId],
+                        { [r.tokenId]: r.poketraceRaw },
+                      );
+                    }
+                    router.push(`/marketplace/${r.tokenId}`);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      if (r.poketraceRaw) {
+                        queryClient.setQueryData(
+                          ["poketrace-mint-previews", "detail", r.tokenId],
+                          { [r.tokenId]: r.poketraceRaw },
+                        );
+                      }
+                      router.push(`/marketplace/${r.tokenId}`);
+                    }
+                  }}
+                  className="group flex w-full flex-col overflow-hidden rounded-xl border border-gray-800/90 bg-gradient-to-b from-gray-900/80 to-[#0a1018] text-left shadow-lg shadow-black/20 transition-all hover:border-mint/25 hover:shadow-mint/5"
+                >
+                  <div className="relative aspect-[3/4] w-full bg-[#070a0f]">
+                    <div className="absolute left-2 top-2 z-10">
+                      <button
+                        type="button"
+                        onClick={async (e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          const tokenId = Number(r.tokenId);
+                          if (mutatingHiddenTokenIds.includes(tokenId)) return;
+                          setMutatingHiddenTokenIds((prev) => [...prev, tokenId]);
+                          try {
+                            if (hiddenTokenSet.has(tokenId)) {
+                              await unhideMutation.mutateAsync(tokenId);
+                            } else {
+                              await hideMutation.mutateAsync(tokenId);
+                            }
+                          } finally {
+                            setMutatingHiddenTokenIds((prev) => prev.filter((n) => n !== tokenId));
+                          }
+                        }}
+                        className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-bold tracking-wide transition-colors ${
+                          hiddenTokenSet.has(Number(r.tokenId))
+                            ? "border-amber-300/45 bg-amber-500/25 text-amber-100 hover:bg-amber-500/35"
+                            : "border-zinc-400/45 bg-black/45 text-zinc-200 hover:bg-black/65"
+                        }`}
+                      >
+                        {mutatingHiddenTokenIds.includes(Number(r.tokenId))
+                          ? "Saving..."
+                          : hiddenTokenSet.has(Number(r.tokenId))
+                            ? "Unhide"
+                            : "Hide"}
+                      </button>
+                    </div>
+                    {tokenableVsEbayPct != null ? (
+                      <div className="group absolute right-2 top-2 z-10">
+                        <span
+                          className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-extrabold tabular-nums shadow-[0_4px_14px_rgba(0,0,0,0.35)] ${
+                            tokenableVsEbayPct >= 0
+                              ? "border-amber-300/35 bg-amber-500/35 text-amber-100"
+                              : "border-emerald-300/35 bg-emerald-500/35 text-emerald-100"
+                          }`}
+                        >
+                          Market Gap {tokenableVsEbayPct >= 0 ? "+" : ""}
+                          {tokenableVsEbayPct.toFixed(1)}%
+                        </span>
+                        <div className="pointer-events-none absolute right-0 top-full mt-1.5 w-56 rounded-lg border border-zinc-700/90 bg-[#0a0f16]/95 px-3 py-2 text-[11px] leading-snug text-zinc-200 opacity-0 shadow-xl transition-opacity duration-150 group-hover:opacity-100">
+                          <p className="font-semibold text-zinc-100">Market Gap formula</p>
+                          <p className="mt-1">
+                            Tokenable Listing ({r.listPriceUsd != null ? `$${r.listPriceUsd.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : "—"}) vs eBay Price ({r.currentPrice != null ? `$${r.currentPrice.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : "—"})
+                          </p>
+                          <p className="mt-1 text-zinc-400">(Tokenable − eBay) / eBay</p>
+                        </div>
+                      </div>
+                    ) : null}
+                    {r.imageUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={r.imageUrl}
+                        alt=""
+                        className="h-full w-full object-contain object-center p-3 transition-transform duration-300 group-hover:scale-[1.02]"
+                        loading="lazy"
+                        referrerPolicy="no-referrer"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full flex-col items-center justify-center gap-2 p-4 text-center">
+                        <span className="font-mono text-[11px] text-gray-600">#{r.tokenId}</span>
+                        <span className="text-[10px] text-gray-600">No preview image</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex flex-1 flex-col gap-3 p-4 pt-3">
+                    <div className="min-w-0 space-y-1">
+                      <div className="flex min-w-0 items-start gap-2">
+                        <h3 className="min-w-0 flex-1 truncate text-[15px] font-semibold leading-tight text-white">
+                          {r.name}
+                        </h3>
+                        <span
+                          className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+                            r.listPriceUsd != null
+                              ? "bg-emerald-500/15 text-emerald-300"
+                              : "bg-zinc-700/40 text-zinc-300"
+                          }`}
+                        >
+                          {r.listPriceUsd != null ? "Listed" : "Not listed"}
+                        </span>
+                        {hiddenTokenSet.has(Number(r.tokenId)) ? (
+                          <span className="inline-flex items-center rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-200">
+                            Hidden
+                          </span>
+                        ) : null}
+                        {r.category && (
+                          <CategoryBadge label={r.category} />
+                        )}
+                      </div>
+                      {r.subtitle ? (
+                        <p className="truncate text-[11px] leading-tight text-gray-500">
+                          {r.subtitle}
+                        </p>
+                      ) : null}
+                    </div>
+                    <dl className="space-y-2 border-t border-gray-800/80 pt-3 text-[12px]">
+                      <div className="flex justify-between gap-2">
+                        <dt className="text-gray-500">eBay Price</dt>
+                        <dd className="font-semibold tabular-nums text-cyan-300">
+                          {valuesPending && r.currentPrice == null ? (
+                            <span className="inline-block h-4 w-16 animate-pulse rounded bg-gray-800/80 align-middle" />
+                          ) : r.currentPrice != null ? (
+                            `$${r.currentPrice.toLocaleString(undefined, {
+                              maximumFractionDigits: 0,
+                            })}`
+                          ) : (
+                            "—"
+                          )}
+                        </dd>
+                      </div>
+                      <div className="flex justify-between gap-2">
+                        <dt className="text-gray-500">Tokenable Listing</dt>
+                        <dd className="text-right tabular-nums font-semibold text-emerald-300">
+                          {r.listPriceUsd != null
+                            ? `$${r.listPriceUsd.toLocaleString(undefined, {
+                                maximumFractionDigits: 0,
+                              })} ask`
+                            : "Not listed"}
+                        </dd>
+                      </div>
+                      <div className="flex justify-between gap-2">
+                        <dt className="text-gray-500">Grade</dt>
+                        <dd className="text-right text-gray-200">
+                          {r.gradeLabel ?? "—"}
+                        </dd>
+                      </div>
+                    </dl>
+                  </div>
+                </div>
+                  );
+                })()
+              ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Transaction History */}
+        <div className="rounded-2xl border border-gray-800 bg-[#0b1118] p-5 sm:p-6">
+          <h2 className="text-sm font-bold mb-4">Transaction History</h2>
+          {isLoading ? (
+            <div className="space-y-3">
+              {[...Array(3)].map((_, i) => (
+                <div key={i} className="h-11 bg-gray-800/40 rounded-lg animate-pulse" />
+              ))}
+            </div>
+          ) : txRows.length === 0 ? (
+            <p className="text-sm text-gray-500 py-8 text-center">
+              No transactions yet
+            </p>
+          ) : (
+            <div className="overflow-hidden rounded-xl border border-gray-800/60 max-h-[264px] overflow-y-auto scrollbar-thin">
+              <table className="w-full text-[13px] table-fixed">
+                <colgroup>
+                  <col style={{ width: "10%" }} />
+                  <col style={{ width: "36%" }} />
+                  <col style={{ width: "14%" }} />
+                  <col style={{ width: "16%" }} />
+                  <col style={{ width: "24%" }} />
+                </colgroup>
+                <thead className="sticky top-0 z-10">
+                  <tr className="bg-[#111a25] text-left text-xs text-gray-500">
+                    <th className="px-4 py-2.5 font-medium">Type</th>
+                    <th className="px-4 py-2.5 font-medium">Asset</th>
+                    <th className="px-4 py-2.5 font-medium">Amount</th>
+                    <th className="px-4 py-2.5 font-medium">Price</th>
+                    <th className="px-4 py-2.5 font-medium">Date</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-800/40">
+                  {txRows.map((tx) => (
+                    <tr
+                      key={tx.orderHash}
+                      className="hover:bg-white/[0.02] transition-colors"
+                    >
+                      <td className="px-4 py-2.5">
+                        <span
+                          className={`inline-flex items-center justify-center text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded ${
+                            tx.type === "BUY"
+                              ? "bg-mint/15 text-mint"
+                              : "bg-red-500/15 text-red-400"
+                          }`}
+                        >
+                          {tx.type}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="text-[13px] text-gray-200 font-medium truncate">
+                            {tx.asset}
+                          </span>
+                          {tx.category && <CategoryBadge label={tx.category} />}
+                        </div>
+                      </td>
+                      <td className="px-4 py-2.5 text-gray-400">{tx.amount}</td>
+                      <td className="px-4 py-2.5 text-gray-400">
+                        ${tx.price.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                      </td>
+                      <td className="px-4 py-2.5 text-gray-500">{tx.date}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

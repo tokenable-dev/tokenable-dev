@@ -2,6 +2,11 @@ import { Injectable, Logger } from '@nestjs/common';
 import { createWorker, PSM } from 'tesseract.js';
 import sharp from 'sharp';
 import { PriceService } from '../price/price.service';
+import { PoketraceService } from '../poketrace/poketrace.service';
+import {
+  normalizePsaCardNameForPoketrace,
+  primaryCardNumberForPoketrace,
+} from '../poketrace/poketrace-mint-query.util';
 import {
   buildJustTcgSearchQueryAfterMerge,
   parsePsaLabelFromOcr,
@@ -45,6 +50,17 @@ export interface PsaAnalyzeResult {
     topMatch: unknown | null;
     rawResponse: unknown;
   };
+  /**
+   * PokeTrace catalog id resolved after PSA+JustTCG — persist on mint as `graded.poketrace`
+   * (`cardId` = strict verified, `approximateCardId` = relaxed chart reference only).
+   */
+  poketraceMint?: {
+    matchConfidence: 'verified' | 'approximate';
+    cardId?: string;
+    searchQuery?: string;
+    approximateCardId?: string;
+    approximateSearchQuery?: string;
+  };
   /** PSA GetImages / GetByCertNumber에서 가져온 슬랩 사진 URL (앞면은 민팅 imageUrl 후보) */
   psaCertImages?: { front?: string; back?: string };
   /** 일부 단계 실패 시 복구·부분 결과 안내 (항상 200으로 내려갈 때 사용) */
@@ -78,6 +94,7 @@ export class PsaService {
   constructor(
     private readonly priceService: PriceService,
     private readonly psaPublicApi: PsaPublicApiService,
+    private readonly poketraceService: PoketraceService,
   ) {}
 
   private static readonly MAX_COMBINED_OCR_CHARS = 150_000;
@@ -335,6 +352,94 @@ export class PsaService {
       psaParsed = { ...psaParsed, certNumber: hintDigits };
     }
 
+    const ocr: PsaAnalyzeResult['ocr'] = {
+      combinedText,
+      frontText: frontText || undefined,
+      backText: backText || undefined,
+      labelStripText: labelStripText || undefined,
+      certDigitsText: certDigitsText || undefined,
+    };
+
+    return this.buildAnalyzeResultFromPsaParsedAndOcr(
+      psaParsed,
+      combinedText,
+      warnings,
+      ocr,
+    );
+  }
+
+  /**
+   * OCR 없이 Cert 번호(또는 psacard.com/cert/ URL)만으로 PSA Public API + JustTCG 조회.
+   */
+  async analyzeByCertNumber(certHint: string): Promise<PsaAnalyzeResult> {
+    try {
+      const hintDigits = resolveCertHintForLookup(certHint);
+      if (!hintDigits) {
+        return {
+          ocr: { combinedText: '' },
+          psa: {},
+          psaApi: {
+            lookup: {
+              status: 'error',
+              certNumber: '',
+              message:
+                '유효한 Cert 번호(7~10자리 숫자) 또는 psacard.com/cert/… 형태의 URL이 필요합니다.',
+            },
+          },
+          justtcg: {
+            queryUsed: 'pokemon',
+            topMatch: null,
+            rawResponse: null,
+          },
+          warnings: [
+            'Cert 조회에는 7~10자리 숫자 또는 PSA 인증 페이지 URL을 입력하세요.',
+          ],
+        };
+      }
+      const warnings: string[] = [];
+      return await this.buildAnalyzeResultFromPsaParsedAndOcr(
+        { certNumber: hintDigits },
+        '',
+        warnings,
+        { combinedText: '' },
+      );
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      this.logger.error(
+        `analyzeByCertNumber fatal: ${msg}`,
+        e instanceof Error ? e.stack : undefined,
+      );
+      return {
+        ocr: { combinedText: '' },
+        psa: {},
+        psaApi: {
+          lookup: {
+            status: 'error',
+            certNumber: '',
+            message: `Cert 조회 파이프라인 오류: ${msg}`,
+          },
+        },
+        justtcg: {
+          queryUsed: 'pokemon',
+          topMatch: null,
+          rawResponse: null,
+        },
+        warnings: [
+          'Cert 조회 중 예상치 못한 오류가 발생했습니다. 번호를 확인한 뒤 다시 시도하세요.',
+          msg,
+        ],
+      };
+    }
+  }
+
+  private async buildAnalyzeResultFromPsaParsedAndOcr(
+    psaParsedIn: ParsedPsaLabel,
+    combinedText: string,
+    warnings: string[],
+    ocr: PsaAnalyzeResult['ocr'],
+  ): Promise<PsaAnalyzeResult> {
+    let psaParsed = psaParsedIn;
+
     const digitsForImages = psaParsed.certNumber?.replace(/\D/g, '') ?? '';
     const certDigitsForError =
       digitsForImages.length >= 7 ? digitsForImages : '0000000';
@@ -445,6 +550,46 @@ export class PsaService {
       warnings.push('JustTCG 카드 검색이 실패했습니다.');
     }
 
+    let poketraceMint: PsaAnalyzeResult['poketraceMint'] = undefined;
+    try {
+      const nameForPt = normalizePsaCardNameForPoketrace(
+        String(psaParsed.cardNameHint ?? ''),
+      );
+      const numRaw = String(psaParsed.cardNumberHint ?? '');
+      const numForPt =
+        primaryCardNumberForPoketrace(numRaw) ||
+        numRaw.replace(/^#/, '').trim();
+      const setForPt =
+        typeof psaParsed.setHint === 'string' && psaParsed.setHint.trim()
+          ? psaParsed.setHint.trim()
+          : undefined;
+      const pt = await this.poketraceService.tryResolveCardIdForMintMetadata(
+        queryUsed,
+        {
+          cardName: nameForPt || String(psaParsed.cardNameHint ?? ''),
+          cardNumber: numForPt,
+          cardSet: setForPt,
+        },
+      );
+      if (pt?.verified) {
+        poketraceMint = {
+          matchConfidence: 'verified',
+          cardId: pt.verified.cardId,
+          searchQuery: pt.verified.searchQuery,
+        };
+      } else if (pt?.approximate) {
+        poketraceMint = {
+          matchConfidence: 'approximate',
+          approximateCardId: pt.approximate.cardId,
+          approximateSearchQuery: pt.approximate.searchQuery,
+        };
+      }
+    } catch (e) {
+      this.logger.warn(
+        `PokeTrace mint id resolve skipped: ${e instanceof Error ? e.message : String(e)}`,
+      );
+    }
+
     let certVerifyUrl: string | undefined;
     try {
       certVerifyUrl = psaParsed.certNumber
@@ -455,13 +600,7 @@ export class PsaService {
     }
 
     const result: PsaAnalyzeResult = {
-      ocr: {
-        combinedText,
-        frontText: frontText || undefined,
-        backText: backText || undefined,
-        labelStripText: labelStripText || undefined,
-        certDigitsText: certDigitsText || undefined,
-      },
+      ocr,
       psa: {
         ...psaParsed,
         certVerifyUrl,
@@ -475,6 +614,7 @@ export class PsaService {
         topMatch,
         rawResponse,
       },
+      ...(poketraceMint != null ? { poketraceMint } : {}),
       ...(psaCertImages ? { psaCertImages } : {}),
       ...(warnings.length > 0 ? { warnings } : {}),
     };

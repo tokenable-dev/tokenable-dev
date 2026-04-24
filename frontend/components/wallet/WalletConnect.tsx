@@ -6,7 +6,12 @@ import { formatUnits } from "viem";
 import { sepolia } from "@/config/wagmi";
 import { ensureSepoliaNetwork } from "@/lib/ensureSepoliaNetwork";
 
-export function WalletConnect() {
+export interface WalletConnectProps {
+  /** Overrides default Tailwind classes for the disconnected “Connect MetaMask” button */
+  connectButtonClassName?: string;
+}
+
+export function WalletConnect({ connectButtonClassName }: WalletConnectProps = {}) {
   const { address, isConnected, chain, connector } = useAccount();
   const { connect, connectors, isPending } = useConnect();
   const { disconnect } = useDisconnect();
@@ -81,9 +86,13 @@ export function WalletConnect() {
 
   return (
     <button
+      type="button"
       onClick={() => metaMaskConnector && connect({ connector: metaMaskConnector })}
       disabled={isPending || !metaMaskConnector}
-      className="px-4 py-2 bg-gradient-to-r from-mint to-mint-dim hover:brightness-105 disabled:opacity-50 disabled:cursor-not-allowed text-mint-ink text-sm font-semibold rounded-lg transition-all duration-200 shadow-lg shadow-mint/25"
+      className={
+        connectButtonClassName ??
+        "px-4 py-2 bg-gradient-to-r from-mint to-mint-dim hover:brightness-105 disabled:opacity-50 disabled:cursor-not-allowed text-mint-ink text-sm font-semibold rounded-lg transition-all duration-200 shadow-lg shadow-mint/25"
+      }
     >
       {isPending ? "Connecting..." : "Connect MetaMask"}
     </button>

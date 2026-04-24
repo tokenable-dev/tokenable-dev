@@ -2,13 +2,15 @@ import type { PublicClient } from "viem";
 import { TOKENABLE_RWA_ADDRESS, TOKENABLE_RWA_READ_ABI } from "@/constants/contracts";
 
 /**
- * 브라우저: Next rewrites로 동일 출처 `/api` → 백엔드 (httpOnly 쿠키 인증).
- * 서버/빌드: INTERNAL_API_URL 또는 직접 백엔드 URL.
- * NEXT_PUBLIC_API_URL 이 있으면 그대로 사용 (별도 도메인 API).
+ * EC2+Nginx: leave NEXT_PUBLIC_API_URL unset so the browser uses
+ * `window.location.origin + '/api'` (IP, http/https domain; avoids mixed content).
+ * Set NEXT_PUBLIC_API_URL only when the API is on a different host.
+ * Server/SSR: INTERNAL_API_URL or direct backend URL.
  */
 export function getApiUrl(): string {
-  if (process.env.NEXT_PUBLIC_API_URL) {
-    return process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, "");
+  const explicit = process.env.NEXT_PUBLIC_API_URL?.trim();
+  if (explicit) {
+    return explicit.replace(/\/$/, "");
   }
   if (typeof window !== "undefined") {
     return `${window.location.origin}/api`;
@@ -90,6 +92,14 @@ export interface PsaAnalyzeResult {
     topMatch: unknown | null;
     rawResponse: unknown;
   };
+  /** PokeTrace catalog id — persist as graded.poketrace on mint */
+  poketraceMint?: {
+    matchConfidence: "verified" | "approximate";
+    cardId?: string;
+    searchQuery?: string;
+    approximateCardId?: string;
+    approximateSearchQuery?: string;
+  };
   /** PSA cert-images 등 — 앞면 URL은 민팅 시 imageUrl로 쓸 수 있음 */
   psaCertImages?: { front?: string; back?: string };
   /** 백엔드가 부분 실복구 시 단계별 안내 */
@@ -120,12 +130,182 @@ export async function analyzePsaSlab(
   return res.json() as Promise<PsaAnalyzeResult>;
 }
 
+/** 슬랩 사진 없이 Cert 번호(또는 psacard.com/cert/ URL)만으로 PSA + JustTCG 조회 */
+export async function analyzePsaByCertNumber(
+  certNumberOrUrl: string
+): Promise<PsaAnalyzeResult> {
+  const res = await backendFetch(`${getApiUrl()}/psa/analyze-by-cert`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ certNumber: certNumberOrUrl.trim() }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ message: "PSA cert lookup failed" }));
+    throw new Error(
+      (err as { message?: string }).message ?? "PSA cert lookup failed"
+    );
+  }
+  return res.json() as Promise<PsaAnalyzeResult>;
+}
+
+// ─── JustTCG — market stats (via backend /price/*) ─────────────────────────────
+
+/** One row from `GET /price/games` (JustTCG `data[]`). */
+export interface JustTcgGameSummary {
+  id: string;
+  name: string;
+  cards_count?: number;
+  /**
+   * JustTCG aggregate catalog value for the game in USD (sum over cards of each
+   * card’s highest variant price). See JustTCG `/games` — `game_value_usd`.
+   */
+  game_value_usd: number;
+  game_value_change_7d_pct: number;
+  game_value_change_30d_pct?: number;
+  game_value_change_90d_pct?: number;
+  /** When present on JustTCG `GET /games`, use for true 180d aggregate index change. */
+  game_value_change_180d_pct?: number;
+  /** If present on `GET /games`, used for 1y index comparison (preferred over compounding shorter windows). */
+  game_value_change_365d_pct?: number;
+}
+
+export interface JustTcgGamesResponse {
+  data: JustTcgGameSummary[];
+  _metadata?: unknown;
+}
+
+/** Full TCG market list + aggregate stats — requires backend `TCG_API_KEY`. */
+export async function getPriceGames(): Promise<JustTcgGamesResponse> {
+  const res = await backendFetch(`${getApiUrl()}/price/games`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    const msg =
+      typeof (err as { error?: unknown }).error === "string"
+        ? (err as { error: string }).error
+        : (err as { message?: string }).message;
+    throw new Error(msg ?? "Failed to load market indexes");
+  }
+  return res.json() as Promise<JustTcgGamesResponse>;
+}
+
+/** JustTCG variant price sample — used for landing sparklines */
+export interface JustTcgPriceHistoryPoint {
+  p: number;
+  t: number;
+}
+
+export interface JustTcgCardVariant {
+  priceHistory?: JustTcgPriceHistoryPoint[] | null;
+}
+
+export interface JustTcgCardRow {
+  id?: string;
+  name?: string;
+  variants?: JustTcgCardVariant[] | null;
+}
+
+export interface JustTcgCardsListResponse {
+  data: JustTcgCardRow[];
+  meta?: { total?: number; limit?: number; offset?: number; hasMore?: boolean };
+}
+
+/**
+ * Search cards in a game with price history (first pages) — for charts.
+ * Picks first variant with `priceHistory` of length ≥ 2 on the client.
+ */
+export async function searchCardsWithPriceHistory(params: {
+  game: string;
+  /** Scan more rows if early hits lack history (default 24) */
+  limit?: number;
+  priceHistoryDuration?: "7d" | "30d" | "90d" | "180d";
+  /** Omit to search all conditions (often needed for priceHistory on list API). */
+  condition?: string;
+}): Promise<JustTcgCardsListResponse> {
+  const sp = new URLSearchParams();
+  sp.set("game", params.game);
+  sp.set("limit", String(params.limit ?? 24));
+  sp.set("include_price_history", "true");
+  sp.set("priceHistoryDuration", params.priceHistoryDuration ?? "30d");
+  if (params.condition !== undefined && params.condition !== "") {
+    sp.set("condition", params.condition);
+  }
+  const res = await backendFetch(
+    `${getApiUrl()}/price/cards?${sp.toString()}`,
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    const msg =
+      typeof (err as { error?: unknown }).error === "string"
+        ? (err as { error: string }).error
+        : (err as { message?: string }).message;
+    throw new Error(msg ?? "Failed to load price history");
+  }
+  return res.json() as Promise<JustTcgCardsListResponse>;
+}
+
 // ─── Blockchain — RWA (ERC-721) ───────────────────────────────────────────────
 
 export async function getRwaTokensByOwner(address: string): Promise<number[]> {
   const res = await backendFetch(`${getApiUrl()}/blockchain/rwa/tokens/${address}`);
   if (!res.ok) throw new Error("Failed to fetch owned assets");
   return res.json() as Promise<number[]>;
+}
+
+/** 서버에서 tokenURI + metadata JSON + 브라우저용 imageUrl(https)까지 일괄 처리 (클라이언트는 IPFS에 직접 접속하지 않음) */
+export async function postRwaMetadataBatch(body: {
+  tokenIds: number[];
+}): Promise<{
+  items: Array<{
+    tokenId: number;
+    tokenURI: string | null;
+    metadata: RwaMetadata | null;
+    imageUrl: string | null;
+  }>;
+}> {
+  const res = await backendFetch(`${getApiUrl()}/blockchain/rwa/metadata/batch`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error("Failed to batch-load RWA metadata");
+  return res.json() as Promise<{
+    items: Array<{
+      tokenId: number;
+      tokenURI: string | null;
+      metadata: RwaMetadata | null;
+      imageUrl: string | null;
+    }>;
+  }>;
+}
+
+export type ResolvedRwaAsset = {
+  tokenId: number;
+  tokenURI: string;
+  metadata: RwaMetadata | null;
+  imageUrl: string | null;
+};
+
+/** 단일 토큰: tokenURI → metadata → imageUrl 전부 서버 게이트웨이·캐시 */
+export async function getResolvedRwaAsset(tokenId: number): Promise<ResolvedRwaAsset> {
+  const res = await backendFetch(`${getApiUrl()}/blockchain/rwa/asset/${tokenId}`);
+  if (res.status === 404) {
+    return { tokenId, tokenURI: "", metadata: null, imageUrl: null };
+  }
+  if (!res.ok) throw new Error("Failed to load resolved RWA asset");
+  return res.json() as Promise<ResolvedRwaAsset>;
+}
+
+/** 컬렉션 커버 등 임의 URI → 서버가 선택한 https URL (게이트웨이 폴백) */
+export async function postResolveMediaUrls(uris: string[]): Promise<{
+  items: Array<{ uri: string; httpsUrl: string | null }>;
+}> {
+  const res = await backendFetch(`${getApiUrl()}/blockchain/media/resolve`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ uris }),
+  });
+  if (!res.ok) throw new Error("Failed to resolve media URLs");
+  return res.json() as Promise<{ items: Array<{ uri: string; httpsUrl: string | null }> }>;
 }
 
 export async function getRwaTokenURI(tokenId: number): Promise<string> {
@@ -224,6 +404,22 @@ export interface Order {
   updatedAt?: string;
 }
 
+/** `GET /marketplace/orders` — no Seaport parameters / signature */
+export interface OrderListItem {
+  id: number;
+  orderHash: string;
+  tokenId: string;
+  collectionKey: string | null;
+  /** USDC micros (same as DB consideration_amount) */
+  price: string;
+  side: "ask" | "bid";
+  status: OrderStatus;
+  createdAt: string;
+  updatedAt?: string;
+  offerer: string;
+  considerationRecipients: string[];
+}
+
 export interface CreateOrderPayload {
   parameters: SeaportOrderParameters;
   signature: string;
@@ -237,11 +433,49 @@ export interface CreateOrderPayload {
   collectionKey?: string;
 }
 
-/** 활성 주문 목록 */
-export async function getActiveOrders(): Promise<Order[]> {
+/** 활성 매도(ask) 주문 — 경량 리스트 */
+export async function getActiveOrders(): Promise<OrderListItem[]> {
   const res = await backendFetch(`${getApiUrl()}/marketplace/orders`);
   if (!res.ok) throw new Error("Failed to fetch orders");
-  return res.json() as Promise<Order[]>;
+  const raw = (await res.json()) as OrderListItem[];
+  return raw.map((o) => ({
+    ...o,
+    considerationRecipients: Array.isArray(o.considerationRecipients)
+      ? o.considerationRecipients
+      : [],
+  }));
+}
+
+/** 단일 토큰의 활성 ask (Seaport parameters 포함 — fulfill UI용) */
+export async function getActiveOrderForToken(
+  tokenId: number,
+  opts?: { signal?: AbortSignal },
+): Promise<Order | null> {
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/orders/token/${encodeURIComponent(String(tokenId))}?activeOnly=true`,
+    { signal: opts?.signal },
+  );
+  if (!res.ok) throw new Error("Failed to fetch order for token");
+  /** Nest often responds with 204 or empty body when there is no active ask — avoid `res.json()` on empty. */
+  if (res.status === 204) return null;
+  const text = await res.text();
+  if (!text.trim()) return null;
+  const j: unknown = JSON.parse(text) as unknown;
+  if (j == null) return null;
+  return j as Order;
+}
+
+/** 여러 tokenId의 주문 이력을 한 번에 (경량 행) */
+export async function postOrdersBatchByToken(tokenIds: number[]): Promise<
+  Record<string, OrderListItem[]>
+> {
+  const res = await backendFetch(`${getApiUrl()}/marketplace/orders/batch-by-token`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ tokenIds }),
+  });
+  if (!res.ok) throw new Error("Failed to fetch order batch");
+  return res.json() as Promise<Record<string, OrderListItem[]>>;
 }
 
 export interface MarketplaceCollectionSummary {
@@ -255,28 +489,41 @@ export interface MarketplaceCollectionSummary {
   coverImageUrl?: string | null;
 }
 
-/** graded/JustTCG 기준 컬렉션 요약 (활성 매도 개수 포함) */
-export async function getMarketplaceCollections(): Promise<
-  MarketplaceCollectionSummary[]
-> {
-  const res = await backendFetch(`${getApiUrl()}/marketplace/collections`);
+/** graded/JustTCG 기준 컬렉션 요약 페이지 (커서 기반) */
+export async function getMarketplaceCollectionsPage(opts?: {
+  cursor?: string | null;
+  limit?: number;
+}): Promise<{
+  items: MarketplaceCollectionSummary[];
+  nextCursor: string | null;
+}> {
+  const sp = new URLSearchParams();
+  if (opts?.cursor) sp.set("cursor", opts.cursor);
+  if (opts?.limit != null) sp.set("limit", String(opts.limit));
+  const q = sp.toString();
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/collections${q ? `?${q}` : ""}`,
+  );
   if (!res.ok) throw new Error("Failed to fetch collections");
-  return res.json() as Promise<MarketplaceCollectionSummary[]>;
+  return res.json() as Promise<{
+    items: MarketplaceCollectionSummary[];
+    nextCursor: string | null;
+  }>;
 }
 
-/** tokenId로 해당 RWA의 활성 매도(ask) 리스팅 1건 조회 */
-export async function getOrderByTokenId(tokenId: number): Promise<Order | null> {
-  const res = await backendFetch(`${getApiUrl()}/marketplace/orders`);
-  if (!res.ok) throw new Error("Failed to fetch orders");
-  const orders = (await res.json()) as Order[];
-  return (
-    orders.find(
-      (o) =>
-        o.tokenId === String(tokenId) &&
-        o.status === "active" &&
-        (o.side === "ask" || o.side == null)
-    ) ?? null
-  );
+/** 검색/레거시 호환: 모든 페이지를 순차 로드 (캡 30페이지) */
+export async function fetchAllMarketplaceCollectionSummaries(): Promise<
+  MarketplaceCollectionSummary[]
+> {
+  const out: MarketplaceCollectionSummary[] = [];
+  let cursor: string | null = null;
+  for (let i = 0; i < 30; i++) {
+    const page = await getMarketplaceCollectionsPage({ cursor, limit: 60 });
+    out.push(...page.items);
+    if (!page.nextCursor) break;
+    cursor = page.nextCursor;
+  }
+  return out;
 }
 
 /** tokenId로 전체 주문 이력 조회 (active/fulfilled/cancelled/expired 모두) */
@@ -287,8 +534,13 @@ export async function getOrderHistoryByTokenId(tokenId: number): Promise<Order[]
 }
 
 /** orderHash로 단건 조회 */
-export async function getOrderByHash(orderHash: string): Promise<Order> {
-  const res = await backendFetch(`${getApiUrl()}/marketplace/orders/${orderHash}`);
+export async function getOrderByHash(
+  orderHash: string,
+  opts?: { signal?: AbortSignal },
+): Promise<Order> {
+  const res = await backendFetch(`${getApiUrl()}/marketplace/orders/${orderHash}`, {
+    signal: opts?.signal,
+  });
   if (!res.ok) throw new Error("Failed to fetch order");
   return res.json() as Promise<Order>;
 }
@@ -323,14 +575,51 @@ export async function cancelOrder(
   return res.json() as Promise<Order>;
 }
 
+export async function getMyHiddenAssetTokenIds(
+  walletAddress: string,
+): Promise<number[]> {
+  const q = new URLSearchParams({ walletAddress }).toString();
+  const res = await backendFetch(`${getApiUrl()}/marketplace/my-assets/hidden?${q}`);
+  if (!res.ok) throw new Error("Failed to fetch hidden assets");
+  const j = (await res.json()) as { tokenIds?: number[] };
+  return Array.isArray(j.tokenIds) ? j.tokenIds : [];
+}
+
+export async function hideMyAssetToken(
+  walletAddress: string,
+  tokenId: number,
+): Promise<void> {
+  const res = await backendFetch(`${getApiUrl()}/marketplace/my-assets/hidden`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ walletAddress, tokenId }),
+  });
+  if (!res.ok) throw new Error("Failed to hide asset");
+}
+
+export async function unhideMyAssetToken(
+  walletAddress: string,
+  tokenId: number,
+): Promise<void> {
+  const q = new URLSearchParams({
+    walletAddress,
+    tokenId: String(tokenId),
+  }).toString();
+  const res = await backendFetch(`${getApiUrl()}/marketplace/my-assets/hidden?${q}`, {
+    method: "PATCH",
+  });
+  if (!res.ok) throw new Error("Failed to unhide asset");
+}
+
 export interface MarketplaceCollectionDetail {
+  /** Null until first listing (or other flow) creates `marketplace_collections` for this key. */
   collection: {
     collectionKey: string;
     displayLabel: string;
     queryUsed: string | null;
     components: Record<string, unknown>;
     createdAt: string;
-  };
+  } | null;
   listings: Order[];
   /** ERC721_WITH_CRITERIA collection bids */
   collectionBids: Order[];
@@ -339,10 +628,15 @@ export interface MarketplaceCollectionDetail {
 }
 
 export async function getMarketplaceCollectionDetail(
-  collectionKey: string
+  collectionKey: string,
+  opts?: { bypassCache?: boolean; signal?: AbortSignal },
 ): Promise<MarketplaceCollectionDetail> {
   const enc = encodeURIComponent(collectionKey);
-  const res = await backendFetch(`${getApiUrl()}/marketplace/collections/${enc}`);
+  const qs = opts?.bypassCache ? `?nocache=${Date.now()}` : "";
+  const res = await backendFetch(`${getApiUrl()}/marketplace/collections/${enc}${qs}`, {
+    ...(opts?.bypassCache ? { cache: "no-store" as RequestCache } : {}),
+    signal: opts?.signal,
+  });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(
@@ -352,12 +646,407 @@ export async function getMarketplaceCollectionDetail(
   return res.json() as Promise<MarketplaceCollectionDetail>;
 }
 
-/** Merkle leaf set — active listing token IDs in this collection */
-export async function getMerkleEligibleTokenIds(
-  collectionKey: string
-): Promise<{ tokenIds: string[] }> {
+/**
+ * Same payload as {@link getMarketplaceCollectionDetail} but returns `null` when the bucket has no
+ * `marketplace_collections` row yet (`collection` is null). HTTP is always 200 from the detail endpoint.
+ */
+export async function getMarketplaceCollectionDetailOrNull(
+  collectionKey: string,
+  opts?: { bypassCache?: boolean; signal?: AbortSignal },
+): Promise<MarketplaceCollectionDetail | null> {
+  const d = await getMarketplaceCollectionDetail(collectionKey, opts);
+  return d.collection ? d : null;
+}
+
+export interface CollectionUsdPoint {
+  t: number;
+  v: number;
+}
+
+export interface CollectionGradePrices {
+  psa10: number | null;
+  psa9: number | null;
+  raw: number | null;
+}
+
+/** Full dual-series bundle for collection detail chart */
+export interface CollectionMarketSeries {
+  collectionKey: string;
+  /** Legacy — always null; use PokeTrace preview / `components.poketraceCardId`. */
+  justtcgCardId: string | null;
+  categoryLabel: string | null;
+  marketChangePct: number | null;
+  /** Present when served by a recent backend (exchange list uses same bundle fields) */
+  marketChangeWindow?: "7d" | "30d" | "90d" | "180d" | "365d";
+  marketChangeSource?:
+    | "poketrace_nm_ebay"
+    | "poketrace_graded_ebay"
+    | "justtcg_card_history"
+    | "none"
+    | null;
+  /** Legacy (backend currently always false) */
+  isMockExternalPrices?: boolean;
+  gradePrices: CollectionGradePrices;
+  externalUsd: CollectionUsdPoint[];
+  platformUsd: CollectionUsdPoint[];
+}
+
+/** PokeTrace NM chart bundle — `priceHistoryDuration` caps eBay NEAR_MINT history length for `externalUsd`. */
+export async function getCollectionMarketSeries(
+  collectionKey: string,
+  priceHistoryDuration: "7d" | "30d" | "90d" | "180d" | "365d" = "365d",
+  opts?: { hintTokenId?: number },
+): Promise<CollectionMarketSeries> {
+  const enc = encodeURIComponent(collectionKey);
+  const sp = new URLSearchParams();
+  sp.set("priceHistoryDuration", priceHistoryDuration);
+  if (
+    opts?.hintTokenId != null &&
+    Number.isFinite(opts.hintTokenId) &&
+    opts.hintTokenId >= 0
+  ) {
+    sp.set("hintTokenId", String(Math.floor(opts.hintTokenId)));
+  }
   const res = await backendFetch(
-    `${getApiUrl()}/marketplace/collections/${encodeURIComponent(collectionKey)}/merkle-set`
+    `${getApiUrl()}/marketplace/collections/${enc}/market-series?${sp.toString()}`
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(
+      (err as { message?: string }).message ?? "Failed to load market series"
+    );
+  }
+  return res.json() as Promise<CollectionMarketSeries>;
+}
+
+/** Listing-pool statistics for a collection (same contract as GET …/collections/:key/stats). */
+export interface CollectionMarketStats {
+  collectionKey: string;
+  floor: number | null;
+  median: number | null;
+  p25: number | null;
+  p75: number | null;
+  band: { low: number | null; high: number | null };
+  volatility: number | null;
+  sampleSize: number;
+  isReliable: boolean;
+  dataQuality: {
+    sampleSize: number;
+    trimmed: boolean;
+    currency: "USDC";
+  };
+  sources: { listings: boolean; trades?: boolean };
+  reference?: { poketraceCardId: string | null };
+}
+
+export async function getCollectionMarketStats(
+  collectionKey: string,
+): Promise<CollectionMarketStats> {
+  const enc = encodeURIComponent(collectionKey);
+  const res = await backendFetch(`${getApiUrl()}/marketplace/collections/${enc}/stats`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(
+      (err as { message?: string }).message ?? "Failed to load collection market stats",
+    );
+  }
+  return res.json() as Promise<CollectionMarketStats>;
+}
+
+/** PokeTrace — raw (Near Mint) market bands; PSA tier $ amounts need PokeTrace Pro on their API */
+export interface PoketracePriceBand {
+  avg: number | null;
+  low: number | null;
+  high: number | null;
+  lastUpdated: string | null;
+  saleCount: number | null;
+  approxSaleCount: boolean | null;
+  avg1d?: number | null;
+  avg7d?: number | null;
+  avg30d?: number | null;
+  median3d?: number | null;
+  median7d?: number | null;
+  median30d?: number | null;
+}
+
+export interface CollectionPoketracePreview {
+  enabled: boolean;
+  searchQuery: string;
+  matched: boolean;
+  message?: string;
+  /** Strict verified catalog id vs relaxed approximate reference (charts / NM). */
+  matchConfidence?: "verified" | "approximate";
+  /** Legacy; backend no longer sets mock PokeTrace payloads */
+  isMockData?: boolean;
+  card: null | {
+    id: string;
+    name: string;
+    cardNumber: string;
+    setName: string;
+    setSlug: string | null;
+    image: string | null;
+    tcgplayerId: string | null;
+    currency: string | null;
+    market: string | null;
+    lastUpdated: string | null;
+    topPrice: number | null;
+    totalSaleCount: number | null;
+    hasGraded: boolean;
+    gradedTiersAvailable: string[];
+    ebayNearMint: PoketracePriceBand | null;
+    tcgplayerNearMint: PoketracePriceBand | null;
+    ebayPsa10?: PoketracePriceBand | null;
+    ebayPsa9?: PoketracePriceBand | null;
+    /** eBay PSA tier bands keyed as `PSA_1` … `PSA_10` when upstream sends them */
+    ebayPsaTiers?: Record<string, PoketracePriceBand | null>;
+  };
+}
+
+export async function getCollectionPoketracePreview(
+  collectionKey: string
+): Promise<CollectionPoketracePreview> {
+  const enc = encodeURIComponent(collectionKey);
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/collections/${enc}/poketrace`
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(
+      (err as { message?: string }).message ?? "Failed to load PokeTrace preview"
+    );
+  }
+  return res.json() as Promise<CollectionPoketracePreview>;
+}
+
+/** PokeTrace batch — 서버가 tokenId별 메타데이터를 조회 (요청은 id 목록만) */
+export async function postBatchMintPoketracePreviews(
+  tokenIds: number[],
+): Promise<Record<number, CollectionPoketracePreview>> {
+  const res = await backendFetch(`${getApiUrl()}/marketplace/poketrace/mint-previews`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ tokenIds }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(
+      (err as { message?: string }).message ?? "Failed to load PokeTrace mint previews"
+    );
+  }
+  const raw = (await res.json()) as Record<string, CollectionPoketracePreview>;
+  const out: Record<number, CollectionPoketracePreview> = {};
+  for (const [k, v] of Object.entries(raw)) {
+    const id = Number(k);
+    if (Number.isFinite(id)) out[id] = v;
+  }
+  return out;
+}
+
+/** PokeTrace GET …/prices/{tier}/history — server-trimmed to UTC days (`days` / `maxDays`). */
+export type PoketraceHistoryPeriod = "7d" | "30d" | "90d" | "1y" | "all";
+
+export interface CollectionPoketraceNmHistory {
+  enabled: boolean;
+  searchQuery: string;
+  matched: boolean;
+  message?: string;
+  matchConfidence?: "verified" | "approximate";
+  /** Legacy; backend no longer sets synthetic NM history */
+  isMockData?: boolean;
+  days: number;
+  tier?: string;
+  period?: PoketraceHistoryPeriod;
+  points: CollectionUsdPoint[];
+  source: string;
+  upstreamRequests: number;
+}
+
+function calendarDaysToPoketracePeriod(days: number): PoketraceHistoryPeriod {
+  const d = Math.min(4000, Math.max(1, Math.floor(days)));
+  if (d <= 7) return "7d";
+  if (d <= 30) return "30d";
+  if (d <= 90) return "90d";
+  if (d <= 366) return "1y";
+  return "all";
+}
+
+/** Unified collection price history (same endpoint for list/detail/portfolio). */
+export async function getCollectionPoketracePriceHistory(
+  collectionKey: string,
+  opts: {
+    tier?: string;
+    period?: PoketraceHistoryPeriod;
+    maxDays?: number;
+  } = {},
+): Promise<CollectionPoketraceNmHistory> {
+  const enc = encodeURIComponent(collectionKey);
+  const tier = (opts.tier ?? "NEAR_MINT").trim() || "NEAR_MINT";
+  const period = opts.period ?? "90d";
+  const sp = new URLSearchParams();
+  sp.set("tier", tier);
+  sp.set("period", period);
+  if (
+    opts.maxDays != null &&
+    Number.isFinite(opts.maxDays) &&
+    opts.maxDays > 0
+  ) {
+    sp.set("maxDays", String(Math.min(4000, Math.floor(opts.maxDays))));
+  }
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/collections/${enc}/poketrace/price-history?${sp.toString()}`
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(
+      (err as { message?: string }).message ??
+        "Failed to load PokeTrace price history"
+    );
+  }
+  return res.json() as Promise<CollectionPoketraceNmHistory>;
+}
+
+/** @deprecated Prefer {@link getCollectionPoketracePriceHistory} with `period` + optional `maxDays`. */
+export async function getCollectionPoketraceNmHistory(
+  collectionKey: string,
+  days = 90
+): Promise<CollectionPoketraceNmHistory> {
+  const d = Math.min(365, Math.max(1, Math.floor(days)));
+  return getCollectionPoketracePriceHistory(collectionKey, {
+    tier: "NEAR_MINT",
+    period: calendarDaysToPoketracePeriod(d),
+    maxDays: d,
+  });
+}
+
+/** Upstream operation list (no secrets). */
+export async function getPoketraceUpstreamCatalog(): Promise<{
+  upstreamBase: string;
+  operations: readonly unknown[];
+}> {
+  const res = await backendFetch(`${getApiUrl()}/marketplace/poketrace/catalog`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(
+      (err as { message?: string }).message ?? "Failed to load PokeTrace catalog"
+    );
+  }
+  return res.json() as Promise<{
+    upstreamBase: string;
+    operations: readonly unknown[];
+  }>;
+}
+
+/** Fulfilled listing fill for collection tape (same source as chart platform series). */
+export interface CollectionPlatformTapeFill {
+  t: number;
+  priceUsdc: number;
+  tokenId: string;
+  orderHash: string;
+  /** buy = instant take of listing; sell = matched listing to collection bid (new fills only). */
+  tapeAggressor?: "buy" | "sell";
+}
+
+/** DB-only: chart points + tape rows — poll without re-calling JustTCG. */
+export async function getCollectionPlatformTrades(
+  collectionKey: string
+): Promise<{ platformUsd: CollectionUsdPoint[]; trades: CollectionPlatformTapeFill[] }> {
+  const enc = encodeURIComponent(collectionKey);
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/collections/${enc}/platform-trades`
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(
+      (err as { message?: string }).message ?? "Failed to load platform trades"
+    );
+  }
+  return res.json() as Promise<{
+    platformUsd: CollectionUsdPoint[];
+    trades: CollectionPlatformTapeFill[];
+  }>;
+}
+
+export interface CollectionListMarketSnapshot {
+  collectionKey: string;
+  /** Legacy — always null; use PokeTrace preview / `components.poketraceCardId`. */
+  justtcgCardId: string | null;
+  categoryLabel: string | null;
+  /** Legacy bundle field; prefer {@link CollectionMarketStats} via `marketStats` or GET …/stats */
+  marketChangePct: number | null;
+  /** Window label for bundle metadata */
+  marketChangeWindow?: "7d" | "30d" | "90d" | "180d" | "365d";
+  marketChangeSource?:
+    | "poketrace_nm_ebay"
+    | "poketrace_graded_ebay"
+    | "justtcg_card_history"
+    | "none"
+    | null;
+  /** Legacy bundle field (backend currently always false) */
+  isMockExternalPrices?: boolean;
+  gradePrices: CollectionGradePrices;
+  sparklineUsd: CollectionUsdPoint[];
+  /** Pool stats (listing-derived); same contract as {@link getCollectionMarketStats} */
+  marketStats?: CollectionMarketStats | null;
+  /** Most recent fulfilled listing price (USDC) on Tokenable — list batch snapshots */
+  lastTokenableTradeUsdc?: number | null;
+  /** Unix seconds for {@link lastTokenableTradeUsdc} */
+  lastTokenableTradeAtSec?: number | null;
+}
+
+/** Must match backend `BatchMarketSnapshotsDto` @ArrayMaxSize */
+export const MARKETPLACE_COLLECTION_SNAPSHOTS_MAX_KEYS = 60;
+
+export async function postMarketplaceCollectionSnapshots(body: {
+  collectionKeys: string[];
+  priceHistoryDuration?: "7d" | "30d" | "90d" | "180d" | "365d";
+}): Promise<{ items: CollectionListMarketSnapshot[] }> {
+  const res = await backendFetch(`${getApiUrl()}/marketplace/collections/market-snapshots`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(
+      (err as { message?: string }).message ?? "Failed to load collection snapshots"
+    );
+  }
+  return res.json() as Promise<{ items: CollectionListMarketSnapshot[] }>;
+}
+
+/**
+ * Fetches market snapshots for any number of keys by chunking POST bodies
+ * (backend validates max {@link MARKETPLACE_COLLECTION_SNAPSHOTS_MAX_KEYS} per request).
+ */
+export async function postMarketplaceCollectionSnapshotsBatched(
+  collectionKeys: string[],
+  priceHistoryDuration: "7d" | "30d" | "90d" | "180d" | "365d" = "365d",
+): Promise<{ items: CollectionListMarketSnapshot[] }> {
+  const max = MARKETPLACE_COLLECTION_SNAPSHOTS_MAX_KEYS;
+  if (collectionKeys.length === 0) return { items: [] };
+  const items: CollectionListMarketSnapshot[] = [];
+  for (let i = 0; i < collectionKeys.length; i += max) {
+    const chunk = collectionKeys.slice(i, i + max);
+    const pack = await postMarketplaceCollectionSnapshots({
+      collectionKeys: chunk,
+      priceHistoryDuration,
+    });
+    items.push(...pack.items);
+  }
+  return { items };
+}
+
+/** Merkle leaf set — minted RWAs in this collection bucket (server metadata scan) */
+export async function getMerkleEligibleTokenIds(
+  collectionKey: string,
+  opts?: { bypassCache?: boolean; signal?: AbortSignal },
+): Promise<{ tokenIds: string[] }> {
+  const sp = new URLSearchParams();
+  if (opts?.bypassCache) sp.set("bypassCache", "1");
+  const q = sp.toString();
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/collections/${encodeURIComponent(collectionKey)}/merkle-set${q ? `?${q}` : ""}`,
+    { signal: opts?.signal },
   );
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -369,14 +1058,18 @@ export async function getMerkleEligibleTokenIds(
 }
 
 /** After on-chain matchAdvancedOrders */
-export async function fulfillMatchedPairApi(body: {
-  bidOrderHash: string;
-  askOrderHash: string;
-}): Promise<{ ask: Order; bid: Order }> {
+export async function fulfillMatchedPairApi(
+  body: {
+    bidOrderHash: string;
+    askOrderHash: string;
+  },
+  opts?: { signal?: AbortSignal },
+): Promise<{ ask: Order; bid: Order }> {
   const res = await backendFetch(`${getApiUrl()}/marketplace/orders/fulfill-matched-pair`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
+    signal: opts?.signal,
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ message: "Failed to record match" }));
@@ -420,7 +1113,7 @@ export async function fulfillOrderApi(orderHash: string): Promise<Order> {
   return res.json() as Promise<Order>;
 }
 
-// ─── IPFS / Pinata ────────────────────────────────────────────────────────────
+// ─── RWA metadata shape (IPFS fetch는 백엔드만 수행 — `postRwaMetadataBatch` / `getResolvedRwaAsset` / `postResolveMediaUrls`) ─
 
 export interface RwaMetadata {
   name?: string;
@@ -430,28 +1123,4 @@ export interface RwaMetadata {
   /** OpenSea-style — 민팅 시 graded PSA 등이 여기 포함 */
   properties?: Record<string, unknown>;
   external_url?: string;
-}
-
-const PINATA_GATEWAY =
-  process.env.NEXT_PUBLIC_PINATA_GATEWAY ??
-  "chocolate-voluntary-raccoon-677.mypinata.cloud";
-
-function buildPinataUrl(cid: string): string {
-  return `https://${PINATA_GATEWAY}/ipfs/${cid}`;
-}
-
-export async function fetchIpfsMetadata(tokenURI: string): Promise<RwaMetadata> {
-  const cid = tokenURI.replace("ipfs://", "");
-  const url = buildPinataUrl(cid);
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`Failed to fetch metadata: ${url}`);
-  return res.json() as Promise<RwaMetadata>;
-}
-
-export function resolveIpfsImage(uri: string): string {
-  if (!uri) return "";
-  if (uri.startsWith("ipfs://")) {
-    return buildPinataUrl(uri.replace("ipfs://", ""));
-  }
-  return uri;
 }

@@ -1,28 +1,39 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import {
-  usePublicClient,
-  useReadContract,
-  useWriteContract,
-  useWaitForTransactionReceipt,
-} from "wagmi";
+import { useReadContract } from "wagmi";
 import { sepolia } from "@/config/wagmi";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useShallow } from "zustand/react/shallow";
 import {
-  getOrderByTokenId,
+  getActiveOrderForToken,
+  getCollectionMarketSeries,
+  getCollectionMarketStats,
+  getCollectionPoketracePriceHistory,
   getOrderHistoryByTokenId,
-  fetchIpfsMetadata,
-  getMarketplaceCollectionDetail,
-  resolveIpfsImage,
-  resolveRwaTokenUri,
-  fulfillOrderApi,
+  getResolvedRwaAsset,
+  getMarketplaceCollectionDetailOrNull,
+  postBatchMintPoketracePreviews,
   type Order,
 } from "@/lib/api";
-import { mapWalletError } from "@/lib/walletError";
+import {
+  coefficientOfVariationPctFromUsdSeries,
+  percentChangeFromUsdPoints,
+  resolveExternalMarketUsd,
+} from "@/lib/externalMarketPrice";
+import { parseGradeScoreNumber } from "@/lib/gradedCardMarketCap";
+import {
+  poketraceHistoryTierFromComponents,
+  poketraceTierDisplayLabel,
+} from "@/lib/poketraceHistoryTier";
+import {
+  CHART_EXTERNAL_HISTORY,
+  CHART_EXTERNAL_HISTORY_DAYS,
+} from "@/components/marketplace/chartTimeRange";
+import { CollectionPriceMetricsStrip } from "@/components/marketplace/CollectionPriceMetricsStrip";
 import { GradedMetadataPanel } from "@/components/common";
 import {
   RwaDetailAssetPanel,
@@ -32,33 +43,37 @@ import {
   TOKENABLE_RWA_ADDRESS,
   TOKENABLE_RWA_DISPLAY_NAME,
   TOKENABLE_RWA_READ_ABI,
-  USDC_ADDRESS,
   SEAPORT_ADDRESS,
-  USDC_ABI,
-  SEAPORT_ABI,
 } from "@/constants/contracts";
-import { ListRwaModal } from "@/components/marketplace/ListRwaModal";
-import { RwaOrderBook } from "@/components/marketplace/RwaOrderBook";
-import { TokenCriteriaMatchPanel } from "@/components/marketplace/TokenCriteriaMatchPanel";
-import { ASSETS } from "@/constants/assets";
-import { useAppStore, selectWallet, selectUsdcBalance, selectRefresh } from "@/store";
-import { GAS_FALLBACK, gasWithCapFast } from "@/lib/chainGas";
-import { maxUint256 } from "viem";
 import {
-  FULFILL_EXTRA_DATA,
-  fulfillSeaportOrderArgs,
-} from "@/lib/seaportFulfillOrderArgs";
+  TradeCelebrationModal,
+  type TradeCelebrationKind,
+} from "@/components/marketplace/TradeCelebrationModal";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-type BuyStep = "idle" | "approving" | "buying" | "success" | "error";
+/** Huge modal (Seaport/wagmi) — load only when opened to shrink initial `[tokenId]` compile + main-thread work */
+const ListRwaModal = dynamic(
+  () =>
+    import("@/components/marketplace/ListRwaModal").then((m) => ({
+      default: m.ListRwaModal,
+    })),
+  { ssr: false },
+);
+import { CollectionPoketracePanel } from "@/components/marketplace/CollectionPoketracePanel";
+import { ASSETS } from "@/constants/assets";
+import {
+  computeMarketBucketKey,
+  extractBucketComponentsFromMetadata,
+} from "@/lib/marketplace/bucketKey";
+import { useAppStore, selectWallet } from "@/store";
+import type { GradedCardMetadata } from "@/types/gradedCard";
 
 // ─── Activity history (DB 기반) ───────────────────────────────────────────────
 
-function useActivityHistory(tokenId: number) {
+function useActivityHistory(tokenId: number, enabled: boolean) {
   return useQuery({
     queryKey: ["rwa-activity", tokenId],
     queryFn: () => getOrderHistoryByTokenId(tokenId),
+    enabled,
     staleTime: 15_000,
     retry: 1,
   });
@@ -188,21 +203,13 @@ export default function RwaDetailPage() {
   const tokenId = Number(params.tokenId);
 
   const { address, isConnected } = useAppStore(useShallow(selectWallet));
-  const { usdcBalance, usdcBalanceFormatted } = useAppStore(useShallow(selectUsdcBalance));
-  const refresh = useAppStore(selectRefresh);
 
-  const publicClient = usePublicClient({ chainId: sepolia.id });
   const queryClient = useQueryClient();
-  const { writeContractAsync } = useWriteContract();
 
-  const [buyStep, setBuyStep] = useState<BuyStep>("idle");
-  const [errorMsg, setErrorMsg] = useState("");
-  const [approveTxHash, setApproveTxHash] = useState<`0x${string}` | undefined>();
   const [detailsExtraOpen, setDetailsExtraOpen] = useState(false);
   const [listModalOpen, setListModalOpen] = useState(false);
   const [listModalInitialPrice, setListModalInitialPrice] = useState<string | null>(null);
-
-  useWaitForTransactionReceipt({ hash: approveTxHash, chainId: sepolia.id });
+  const [tradeCelebration, setTradeCelebration] = useState<TradeCelebrationKind | null>(null);
 
   const tokenIdOk = Number.isFinite(tokenId) && tokenId >= 0;
 
@@ -212,28 +219,122 @@ export default function RwaDetailPage() {
     data: listing,
     isError: listingError,
   } = useQuery({
-    queryKey: ["marketplace-order-by-token", tokenId],
-    queryFn: () => getOrderByTokenId(tokenId),
+    queryKey: ["orders", "by-token-active", tokenId],
+    queryFn: () => getActiveOrderForToken(tokenId),
     retry: 1,
     enabled: tokenIdOk,
   });
 
   const fromCollectionParam = searchParams.get("fromCollection")?.trim() ?? "";
 
+  // Metadata + image via backend only (shared query key with collection cards).
+  const { data: metaBundle, isLoading: metaLoading } = useQuery({
+    queryKey: ["marketplace-detail-metadata", tokenId],
+    queryFn: () => getResolvedRwaAsset(tokenId),
+    enabled: tokenIdOk,
+    staleTime: 60_000,
+  });
+
+  const metadataEarly = metaBundle?.metadata ?? null;
+
+  const pokeTierForToken = useMemo(() => {
+    const g = metadataEarly?.properties?.graded as GradedCardMetadata | undefined;
+    const score = g?.psa?.gradeScore ?? g?.grade?.score;
+    const gradingCompany =
+      g?.gradingCompany ?? (g?.psa != null ? "PSA" : undefined);
+    return poketraceHistoryTierFromComponents({
+      gradingCompany,
+      gradeScore: score != null ? String(score) : undefined,
+    });
+  }, [metadataEarly]);
+
+  const { data: metadataDerivedCollectionKey } = useQuery({
+    queryKey: ["metadata-bucket-key", tokenId, metaBundle?.tokenURI],
+    queryFn: async () => {
+      const meta = metaBundle?.metadata;
+      if (!meta) return null;
+      const c = extractBucketComponentsFromMetadata(meta as Record<string, unknown>);
+      if (!c) return null;
+      return await computeMarketBucketKey(c);
+    },
+    enabled: tokenIdOk && !!metaBundle?.metadata,
+    staleTime: 60_000,
+  });
+
+  const collectionKeyForMatch = useMemo(() => {
+    const fromListing = listing?.collectionKey?.trim();
+    if (fromListing) return fromListing;
+    if (fromCollectionParam) return fromCollectionParam;
+    return metadataDerivedCollectionKey ?? null;
+  }, [listing?.collectionKey, fromCollectionParam, metadataDerivedCollectionKey]);
+
   const collectionKeyForRedirect = useMemo(() => {
     if (fromCollectionParam) return fromCollectionParam;
     if (listing?.collectionKey) return listing.collectionKey;
-    return null;
-  }, [fromCollectionParam, listing?.collectionKey]);
-
-  const collectionKeyForMatch =
-    (listing?.collectionKey?.trim() || fromCollectionParam || null) as string | null;
+    return metadataDerivedCollectionKey ?? null;
+  }, [fromCollectionParam, listing?.collectionKey, metadataDerivedCollectionKey]);
 
   const { data: collectionDetail } = useQuery({
     queryKey: ["marketplace-collection", collectionKeyForMatch],
-    queryFn: () => getMarketplaceCollectionDetail(collectionKeyForMatch!),
+    queryFn: () => getMarketplaceCollectionDetailOrNull(collectionKeyForMatch!),
     enabled: !!collectionKeyForMatch && tokenIdOk,
     staleTime: 15_000,
+  });
+
+  const { data: tokenPagePoolStats, isLoading: tokenPagePoolStatsLoading } = useQuery({
+    queryKey: ["collection-market-stats", "rwa-detail", collectionKeyForMatch],
+    queryFn: () => getCollectionMarketStats(collectionKeyForMatch!),
+    enabled: !!collectionKeyForMatch && tokenIdOk,
+    staleTime: 60_000,
+  });
+
+  const { data: tokenMarketSeries, isLoading: tokenSeriesLoading } = useQuery({
+    queryKey: [
+      "collection-market-series",
+      "rwa-detail",
+      collectionKeyForMatch,
+      CHART_EXTERNAL_HISTORY,
+    ],
+    queryFn: () =>
+      getCollectionMarketSeries(collectionKeyForMatch!, CHART_EXTERNAL_HISTORY),
+    enabled: !!collectionKeyForMatch && tokenIdOk,
+    staleTime: 120_000,
+  });
+
+  const { data: tokenNmHistory, isLoading: tokenNmHistLoading } = useQuery({
+    queryKey: [
+      "collection-poketrace-price-history",
+      "rwa-detail",
+      collectionKeyForMatch,
+      pokeTierForToken,
+      CHART_EXTERNAL_HISTORY,
+      CHART_EXTERNAL_HISTORY_DAYS,
+    ],
+    queryFn: () =>
+      getCollectionPoketracePriceHistory(collectionKeyForMatch!, {
+        tier: pokeTierForToken,
+        period: CHART_EXTERNAL_HISTORY,
+        maxDays: CHART_EXTERNAL_HISTORY_DAYS,
+      }),
+    enabled: !!collectionKeyForMatch && tokenIdOk,
+  });
+
+  const { data: tokenYearHistory, isLoading: tokenYearHistLoading } = useQuery({
+    queryKey: [
+      "collection-poketrace-price-history",
+      "rwa-detail",
+      collectionKeyForMatch,
+      pokeTierForToken,
+      "1y",
+      365,
+    ],
+    queryFn: () =>
+      getCollectionPoketracePriceHistory(collectionKeyForMatch!, {
+        tier: pokeTierForToken,
+        period: "1y",
+        maxDays: 365,
+      }),
+    enabled: !!collectionKeyForMatch && tokenIdOk,
   });
 
   const navigateToCollectionAfterTrade = useCallback(() => {
@@ -247,24 +348,10 @@ export default function RwaDetailPage() {
     }
   }, [router, collectionKeyForRedirect]);
 
-  // 키를 목록 카드(Marketplace OrderCard)의 ["rwa-metadata", tokenId]와 분리해야 함.
-  const { data: metaBundle, isLoading: metaLoading } = useQuery({
-    queryKey: ["marketplace-detail-metadata", tokenId, publicClient?.chain?.id],
-    queryFn: async () => {
-      const tokenURI = await resolveRwaTokenUri(tokenId, publicClient ?? undefined);
-      if (!tokenURI) return null;
-      const metadata = await fetchIpfsMetadata(tokenURI).catch(() => null);
-      return { metadata, tokenURI };
-    },
-    enabled: tokenIdOk,
-    staleTime: 60_000,
-  });
-
   const {
     data: ownerOnChain,
     isLoading: ownerLoading,
     isError: ownerError,
-    refetch: refetchOwner,
   } = useReadContract({
     address: TOKENABLE_RWA_ADDRESS,
     abi: TOKENABLE_RWA_READ_ABI,
@@ -273,19 +360,14 @@ export default function RwaDetailPage() {
     chainId: sepolia.id,
     query: {
       enabled: tokenIdOk,
+      retry: 2,
+      staleTime: 60_000,
+      refetchOnWindowFocus: false,
+      refetchInterval: false,
     },
   });
 
-  const { data: usdcAllowanceBuy } = useReadContract({
-    address: USDC_ADDRESS,
-    abi: USDC_ABI,
-    functionName: "allowance",
-    args: address ? [address, SEAPORT_ADDRESS] : undefined,
-    chainId: sepolia.id,
-    query: { enabled: !!address },
-  });
-
-  const metadata = metaBundle?.metadata ?? null;
+  const metadata = metadataEarly;
   const tokenURIOnChain = metaBundle?.tokenURI ?? null;
 
   const {
@@ -293,15 +375,98 @@ export default function RwaDetailPage() {
     isLoading: activityLoading,
     isError: activityError,
     refetch: refetchActivity,
-  } = useActivityHistory(tokenId);
+  } = useActivityHistory(tokenId, tokenIdOk);
+
+  const {
+    data: poketraceMintMap,
+    isLoading: poketraceLoading,
+    isError: poketraceIsError,
+    error: poketraceErr,
+  } = useQuery({
+    queryKey: ["poketrace-mint-previews", "detail", tokenId],
+    queryFn: () => postBatchMintPoketracePreviews([tokenId]),
+    enabled: tokenIdOk,
+  });
+
+  const poketracePreview = poketraceMintMap?.[tokenId];
+  const poketraceError =
+    poketraceErr instanceof Error
+      ? poketraceErr
+      : poketraceIsError
+        ? new Error("Could not load prices")
+        : null;
+
+  const tokenGradeScoreStr = useMemo(() => {
+    const g = metadata?.properties?.graded as GradedCardMetadata | undefined;
+    if (g?.psa?.gradeScore != null) return String(g.psa.gradeScore);
+    if (g?.grade?.score != null && Number.isFinite(g.grade.score)) return String(g.grade.score);
+    return null;
+  }, [metadata]);
+
+  const tokenResolvedExternal = useMemo(
+    () =>
+      resolveExternalMarketUsd({
+        poketracePreview,
+        gradePrices: tokenMarketSeries?.gradePrices ?? null,
+        gradeScore: parseGradeScoreNumber(tokenGradeScoreStr),
+        components: {
+          gradingCompany:
+            (metadata?.properties?.graded as GradedCardMetadata | undefined)
+              ?.gradingCompany ??
+            ((metadata?.properties?.graded as GradedCardMetadata | undefined)?.psa
+              ? "PSA"
+              : undefined),
+          gradeScore: tokenGradeScoreStr ?? undefined,
+        },
+      }),
+    [
+      poketracePreview,
+      tokenMarketSeries?.gradePrices,
+      tokenGradeScoreStr,
+      metadata,
+    ],
+  );
+
+  const tokenNmPts = tokenNmHistory?.points ?? [];
+  const tokenYearPts = tokenYearHistory?.points ?? [];
+
+  const tokenExternalVol = useMemo(() => {
+    const y = coefficientOfVariationPctFromUsdSeries(tokenYearPts);
+    if (y != null) return y;
+    return tokenNmPts.length >= 3
+      ? coefficientOfVariationPctFromUsdSeries(tokenNmPts)
+      : null;
+  }, [tokenNmPts, tokenYearPts]);
+
+  const tokenPriceChange1yPct = useMemo(
+    () =>
+      tokenYearPts.length >= 2 ? percentChangeFromUsdPoints(tokenYearPts) : null,
+    [tokenYearPts],
+  );
+
+  const tokenTierLabel = poketraceTierDisplayLabel(pokeTierForToken);
+
+  const tokenVolatilityFootnote = useMemo(() => {
+    const yPos = tokenYearPts.filter((p) => p.v > 0).length;
+    if (yPos >= 3) return "~1y PokéTrace tier daily closes";
+    const sPos = tokenNmPts.filter((p) => p.v > 0).length;
+    if (sPos >= 3) return "PokéTrace chart-window tier daily closes";
+    return null;
+  }, [tokenYearPts, tokenNmPts]);
+
+  const showTokenPriceChange =
+    tokenYearHistLoading ||
+    (tokenPriceChange1yPct != null && Number.isFinite(tokenPriceChange1yPct));
+  const showTokenVolatility =
+    tokenNmHistLoading ||
+    tokenYearHistLoading ||
+    (tokenExternalVol != null && Number.isFinite(tokenExternalVol));
+  const showTokenMarketCap = false;
 
   // ── Buy (ask listing) ─────────────────────────────────────────────────────
 
   const isListingSeller =
     address?.toLowerCase() === listing?.offerer.toLowerCase();
-  const priceInUnits = listing ? BigInt(listing.considerationAmount) : BigInt(0);
-  const hasEnoughUsdc = isListingSeller || usdcBalance >= priceInUnits;
-  const isBuying = buyStep === "approving" || buyStep === "buying";
   const collectionBids = collectionDetail?.collectionBids ?? [];
 
   const ownerAddr =
@@ -333,129 +498,28 @@ export default function RwaDetailPage() {
   ]);
 
   async function invalidateMarketplaceQueries() {
-    await queryClient.invalidateQueries({ queryKey: ["marketplace-orders"] });
-    await queryClient.invalidateQueries({ queryKey: ["marketplace-order-by-token", tokenId] });
+    await queryClient.invalidateQueries({ queryKey: ["orders"] });
+    await queryClient.invalidateQueries({ queryKey: ["orders", "by-token-active", tokenId] });
     await queryClient.invalidateQueries({
       queryKey: ["marketplace-detail-metadata", tokenId],
     });
     await queryClient.invalidateQueries({ queryKey: ["rwa-activity", tokenId] });
     /** 모든 지갑의 My Assets 목록·메타 (거래 후 판매자/구매자 캐시 동기화) */
-    await queryClient.invalidateQueries({ queryKey: ["my-rwa-ids"] });
-    await queryClient.invalidateQueries({ queryKey: ["my-rwas"] });
+    await queryClient.invalidateQueries({ queryKey: ["rwa-tokens"] });
+    await queryClient.invalidateQueries({ queryKey: ["rwa-metadata-batch"] });
     await queryClient.invalidateQueries({ queryKey: ["marketplace-collection"] });
     if (collectionKeyForMatch) {
       await queryClient.invalidateQueries({
         queryKey: ["marketplace-collection", collectionKeyForMatch],
       });
     }
-  }
-
-  /** wagmi readContract 캐시 (ownerOf 등) */
-  async function invalidateWagmiReads() {
-    await queryClient.invalidateQueries({
-      predicate: (q) =>
-        Array.isArray(q.queryKey) && q.queryKey[0] === "readContract",
-    });
-  }
-
-  async function handleBuy() {
-    if (!address || !listing || !publicClient) return;
-    setBuyStep("approving");
-    setErrorMsg("");
-
-    try {
-      let allowance = usdcAllowanceBuy as bigint | undefined;
-      if (allowance === undefined) {
-        allowance = await publicClient.readContract({
-          address: USDC_ADDRESS,
-          abi: USDC_ABI,
-          functionName: "allowance",
-          args: [address, SEAPORT_ADDRESS],
-        });
-      }
-
-      const gasFulfillPromise = gasWithCapFast(
-        publicClient,
-        {
-          address: SEAPORT_ADDRESS,
-          abi: SEAPORT_ABI,
-          functionName: "fulfillOrder",
-          args: [fulfillSeaportOrderArgs(listing), FULFILL_EXTRA_DATA],
-          account: address,
-        },
-        GAS_FALLBACK.fulfillOrder,
-      );
-
-      const needsUsdcApprove = allowance < priceInUnits;
-
-      if (needsUsdcApprove) {
-        const gasApprove = await gasWithCapFast(
-          publicClient,
-          {
-            address: USDC_ADDRESS,
-            abi: USDC_ABI,
-            functionName: "approve",
-            args: [SEAPORT_ADDRESS, maxUint256],
-            account: address,
-          },
-          GAS_FALLBACK.erc20Approve,
-        );
-        const approveTx = await writeContractAsync({
-          address: USDC_ADDRESS,
-          abi: USDC_ABI,
-          functionName: "approve",
-          args: [SEAPORT_ADDRESS, maxUint256],
-          chainId: sepolia.id,
-          gas: gasApprove,
-        });
-        setApproveTxHash(approveTx);
-        await publicClient.waitForTransactionReceipt({ hash: approveTx });
-      } else {
-        setApproveTxHash(undefined);
-      }
-
-      setBuyStep("buying");
-
-      const gasFulfill = await gasFulfillPromise;
-      const fulfillTx = await writeContractAsync({
-        address: SEAPORT_ADDRESS,
-        abi: SEAPORT_ABI,
-        functionName: "fulfillOrder",
-        args: [fulfillSeaportOrderArgs(listing), FULFILL_EXTRA_DATA],
-        chainId: sepolia.id,
-        gas: gasFulfill,
-      });
-
-      const receipt = await publicClient.waitForTransactionReceipt({ hash: fulfillTx });
-      if (receipt.status === "reverted") {
-        throw new Error(
-          `Transaction was reverted on-chain (tx: ${fulfillTx}).\n` +
-            "Please ensure your account has enough Sepolia USDC and try again."
-        );
-      }
-
-      await fulfillOrderApi(listing.orderHash);
-
-      refresh();
-      await invalidateMarketplaceQueries();
-      await invalidateWagmiReads();
-      await refetchOwner();
-      setBuyStep("idle");
-      navigateToCollectionAfterTrade();
-    } catch (err: unknown) {
-      setErrorMsg(mapWalletError(err).message);
-      setBuyStep("error");
-    }
+    await queryClient.invalidateQueries({ queryKey: ["collection-market-stats"] });
   }
 
   // ── Derived ────────────────────────────────────────────────────────────────
 
-  const imageUrl = metadata?.image ? resolveIpfsImage(metadata.image) : null;
+  const imageUrl = metaBundle?.imageUrl ?? null;
   const isPageLoading = ownerLoading;
-  const priceDisplay = listing
-    ? (Number(listing.considerationAmount) / 1_000_000).toLocaleString()
-    : "—";
-
   const showMain = tokenIdOk && !ownerLoading && !ownerError && ownerOnChain != null;
 
   return (
@@ -556,180 +620,73 @@ export default function RwaDetailPage() {
                 metaLoading={metaLoading}
               />
 
-              {/* Right — 오더북 · 풀 · 매매 */}
+              {/* Right column */}
               <div className="space-y-4 xl:sticky xl:top-20 xl:self-start min-w-0">
-                <div className="rounded-2xl border border-gray-800/90 bg-[#0a0d11]/80 px-4 py-3 flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {listing ? (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-mint/10 border border-mint-deep/35 text-mint">
-                        <span className="w-1.5 h-1.5 rounded-full bg-mint inline-block" />
-                        Ask listed
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-gray-800/90 border border-gray-700/60 text-gray-400">
-                        No ask
-                      </span>
-                    )}
-                    <span className="text-[11px] text-gray-500 font-mono">
-                      {TOKENABLE_RWA_DISPLAY_NAME} · #{tokenId}
-                    </span>
+                {listingError && (
+                  <p className="text-xs text-orange-400 px-1">Could not load listing.</p>
+                )}
+
+                {collectionKeyForMatch && (
+                  <div className="rounded-2xl border border-gray-800/90 bg-[#0a0d11]/90 p-3 space-y-2">
+                    <CollectionPriceMetricsStrip
+                      externalMarketUsd={tokenResolvedExternal.usd}
+                      externalPriceSource={tokenResolvedExternal.source}
+                      poketraceTierDisplay={tokenTierLabel}
+                      externalPoketraceMatchConfidence={
+                        tokenResolvedExternal.poketraceMatchConfidence
+                      }
+                      externalPriceLoading={
+                        poketraceLoading || tokenSeriesLoading || tokenNmHistLoading
+                      }
+                      externalVolatilityCvPct={tokenExternalVol}
+                      volatilityFootnote={tokenVolatilityFootnote}
+                      marketStats={tokenPagePoolStats ?? null}
+                      marketStatsLoading={tokenPagePoolStatsLoading}
+                      platformPriceSamples={[]}
+                      bookSpreadPct={null}
+                      externalPriceChange1yPct={tokenPriceChange1yPct}
+                      externalPriceChange1yLoading={tokenYearHistLoading}
+                      marketCapUsd={null}
+                      marketCapMethodHint={null}
+                      showPriceChange={showTokenPriceChange}
+                      showVolatility={showTokenVolatility}
+                      showMarketCap={showTokenMarketCap}
+                      compact
+                      formatMarketCap={() => "—"}
+                    />
                   </div>
-                  <div className="flex items-center gap-2 text-xs">
-                    <span className="text-gray-500">Owner</span>
-                    <span className="font-mono text-mint font-medium">
-                      {shortAddr(typeof ownerOnChain === "string" ? ownerOnChain : undefined)}
-                      {isOwner && (
-                        <span className="ml-1 text-[10px] text-mint/80">(you)</span>
-                      )}
-                    </span>
-                  </div>
+                )}
+
+                <div className="space-y-1">
+                  <CollectionPoketracePanel
+                    data={poketracePreview}
+                    historyTier={pokeTierForToken}
+                    tierLabel={tokenTierLabel}
+                    isLoading={poketraceLoading}
+                    error={poketraceError}
+                  />
                 </div>
 
-                {listingError && (
-                  <p className="text-xs text-orange-400 px-1">
-                    Could not load listing from API.
-                  </p>
-                )}
-
-                {listing && collectionKeyForMatch && (
-                  <TokenCriteriaMatchPanel
-                    listing={listing}
-                    collectionKey={collectionKeyForMatch}
-                    tokenId={tokenId}
-                    collectionBids={collectionBids}
-                  />
-                )}
-
-                <RwaOrderBook
-                  listing={listing ?? null}
-                  bids={[]}
-                  bidsLoading={false}
-                  activity={activity}
-                  activityLoading={activityLoading}
-                  tokenId={tokenId}
-                  address={address}
-                  isOwner={isOwner}
-                  isAccepting={false}
-                  isBuying={isBuying}
-                  acceptingBidHash={null}
-                  cancelBidHash={null}
-                />
-
                 <div className="rounded-2xl border border-gray-800/90 bg-[#0a0d11]/90 p-3 space-y-3">
-                    {isConnected && address && listing && (
-                      <div className="flex items-center justify-between text-xs px-1 py-1.5 rounded-lg bg-gray-900/50 border border-gray-800/80">
-                        <span className="text-gray-500">Your balance</span>
-                        <span
-                          className={
-                            hasEnoughUsdc ? "text-gray-200 font-mono tabular-nums" : "text-orange-400 font-mono"
-                          }
-                        >
-                          {parseFloat(usdcBalanceFormatted).toLocaleString()} USDC
-                        </span>
-                      </div>
-                    )}
-                    <div className="grid grid-cols-2 gap-3">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setListModalInitialPrice(null);
-                          setListModalOpen(true);
-                        }}
-                        disabled={!isOwner || !isConnected}
-                        className="py-3.5 rounded-xl text-sm font-bold text-white bg-[#e53935] hover:bg-[#c62828] disabled:opacity-35 disabled:cursor-not-allowed shadow-[0_8px_24px_-8px_rgba(229,57,53,0.45)] transition-colors"
-                      >
-                        Sell
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void handleBuy()}
-                        disabled={
-                          !listing ||
-                          isOwner ||
-                          !isConnected ||
-                          isBuying ||
-                          !hasEnoughUsdc
-                        }
-                        className="py-3.5 rounded-xl text-sm font-bold text-white bg-[#00c853] hover:bg-[#00a844] disabled:opacity-35 disabled:cursor-not-allowed shadow-[0_8px_24px_-8px_rgba(0,200,83,0.35)] transition-colors"
-                      >
-                        {isBuying ? "Processing…" : "Buy"}
-                      </button>
-                    </div>
-                    <p className="text-[10px] text-center text-gray-600 leading-snug px-1">
-                      Sell lists at USDC. Buy fulfills the ask. Collection bids are placed on the
-                      collection page; match them above when price covers your listing.
-                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setListModalInitialPrice(null);
+                        setListModalOpen(true);
+                      }}
+                      disabled={!isOwner || !isConnected}
+                      className="w-full inline-flex min-w-0 justify-center items-center rounded-xl bg-mint/15 px-3 py-3.5 text-sm font-semibold text-mint border border-mint-deep/35 hover:bg-mint/25 disabled:opacity-35 disabled:cursor-not-allowed transition-colors shadow-[0_8px_28px_-14px_rgba(45,212,191,0.35)]"
+                    >
+                      {listing ? "Manage listing" : "List for sale"}
+                    </button>
                   </div>
 
-                <div className="space-y-3">
-                    {isBuying && listing && !isOwner && (
-                      <div className="flex gap-2">
-                        {[
-                          { label: "1. Approve USDC", active: buyStep === "approving" },
-                          { label: "2. Buy via Seaport", active: buyStep === "buying" },
-                        ].map(({ label, active }) => (
-                          <div
-                            key={label}
-                            className={`flex-1 text-center text-xs py-1.5 rounded-lg ${
-                              active
-                                ? "bg-mint-dim text-mint-ink animate-pulse"
-                                : "bg-gray-800 text-gray-500"
-                            }`}
-                          >
-                            {label}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {!listing && (
-                      <p className="text-center text-sm text-gray-500 py-3 px-2 bg-gray-900/40 rounded-xl border border-gray-800/80">
-                        No ask yet — list from Sell or open the collection page for collection bids.
-                      </p>
-                    )}
-
-                    {!isConnected && (
-                      <p className="text-center text-sm text-gray-500 py-3 px-2 bg-gray-900/40 rounded-xl border border-gray-800/80">
-                        Connect your wallet to trade.
-                      </p>
-                    )}
-
-                    {isConnected && listing && isListingSeller && (
-                      <p className="text-center text-sm text-gray-500 py-3 px-2 bg-gray-900/40 rounded-xl border border-gray-800/80">
-                        This is your listing · ask ${priceDisplay} USDC
-                      </p>
-                    )}
-
-                    {isConnected && listing && !isOwner && !hasEnoughUsdc && (
-                      <div className="px-4 py-3 text-sm text-orange-400 bg-orange-900/20 border border-orange-800/40 rounded-xl">
-                        Insufficient USDC for this ask.{" "}
-                        <a
-                          href="https://faucet.circle.com"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="underline hover:text-orange-300"
-                        >
-                          Get Sepolia USDC →
-                        </a>
-                      </div>
-                    )}
-
-                    {buyStep === "error" && errorMsg && (
-                      <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-3">
-                        <p className="text-xs text-red-300 leading-relaxed">{errorMsg}</p>
-                      </div>
-                    )}
-                  </div>
-
-                {/* Details — 블록체인 표준 정보 (마켓플레이스 참고 레이아웃) */}
                 <div className="bg-[#0a0d11]/90 border border-mint-deep/20 rounded-2xl p-4">
-                  <h3 className="text-sm font-semibold text-white mb-4">On-chain details</h3>
+                  <h3 className="text-sm font-semibold text-white mb-4">Details</h3>
                   <dl className="space-y-4">
                     <div>
                       <dt className="text-xs text-gray-500">Standard</dt>
-                      <dd className="text-sm text-gray-200 mt-0.5">
-                        ERC-721 token on the blockchain
-                      </dd>
+                      <dd className="text-sm text-gray-200 mt-0.5">ERC-721</dd>
                     </div>
                     <div>
                       <dt className="text-xs text-gray-500">Chain</dt>
@@ -787,14 +744,9 @@ export default function RwaDetailPage() {
 
                   {detailsExtraOpen && (
                     <div className="mt-4 pt-4 border-t border-gray-800 space-y-3 text-sm">
-                      <p className="text-[11px] text-gray-600 leading-relaxed">
-                        The contract stores only a{" "}
-                        <span className="text-gray-500">token URI</span> pointer; name,
-                        image, and traits are in the JSON on IPFS.
-                      </p>
                       {tokenURIOnChain && (
                         <div>
-                          <p className="text-xs text-gray-500">Token URI</p>
+                          <p className="text-xs text-gray-500">Metadata link</p>
                           <p
                             className="mt-1 font-mono text-[11px] text-gray-400 break-all"
                             title={tokenURIOnChain}
@@ -806,17 +758,14 @@ export default function RwaDetailPage() {
                         </div>
                       )}
                       <div>
-                        <p className="text-xs text-gray-500">Exchange protocol</p>
-                        <p className="mt-0.5">
-                          <a
-                            href={`https://sepolia.etherscan.io/address/${SEAPORT_ADDRESS}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-mint hover:text-mint-dim text-sm"
-                          >
-                            Seaport 1.6 ↗
-                          </a>
-                        </p>
+                        <a
+                          href={`https://sepolia.etherscan.io/address/${SEAPORT_ADDRESS}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-mint hover:text-mint-dim text-sm"
+                        >
+                          Seaport (trading) ↗
+                        </a>
                       </div>
                     </div>
                   )}
@@ -826,7 +775,7 @@ export default function RwaDetailPage() {
                     onClick={() => setDetailsExtraOpen((v) => !v)}
                     className="mt-4 w-full text-left text-xs text-gray-500 hover:text-gray-300 transition-colors py-1"
                   >
-                    {detailsExtraOpen ? "Show less" : "Show more"}
+                    {detailsExtraOpen ? "Less" : "More"}
                   </button>
                 </div>
               </div>
@@ -839,7 +788,6 @@ export default function RwaDetailPage() {
               />
             )}
 
-            {/* Activity history — 참고: 배지 + 가격 강조 + From/To + 시간 */}
             <div className="rounded-2xl border border-mint-deep/20 bg-[#0a0d11]/90 overflow-hidden shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
               <div className="flex items-center justify-between px-4 py-3.5 border-b border-gray-800/80">
                 <h2 className="text-base font-semibold text-white tracking-tight">
@@ -1005,10 +953,22 @@ export default function RwaDetailPage() {
               )}
             </div>
 
+            <TradeCelebrationModal
+              open={tradeCelebration != null}
+              kind={tradeCelebration ?? "purchase"}
+              onClose={() => setTradeCelebration(null)}
+            />
+
             {listModalOpen && (
               <ListRwaModal
                 tokenId={tokenId}
+                collectionKey={collectionKeyForMatch ?? undefined}
+                collectionBids={collectionBids}
+                existingAskOrder={
+                  listing && isListingSeller ? listing : undefined
+                }
                 initialPriceUsdc={listModalInitialPrice}
+                onMatchedSale={() => setTradeCelebration("sale")}
                 onClose={() => {
                   setListModalOpen(false);
                   setListModalInitialPrice(null);

@@ -3,13 +3,16 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
+    "dev": "NODE_OPTIONS=--max-old-space-size=16384 next dev",
+    "dev:webpack": "NODE_OPTIONS=--max-old-space-size=8192 next dev --webpack",
+    "build": "NODE_OPTIONS=--max-old-space-size=8192 next build",
     "start": "next start"
   },
   "dependencies": {
     "@metamask/sdk": "^0.33.1",
     "@tanstack/react-query": "^5.90.21",
+    "echarts": "^6.0.0",
+    "echarts-for-react": "^3.0.6",
     "merkletreejs": "^0.4.1",
     "next": "16.1.6",
     "react": "19.2.3",

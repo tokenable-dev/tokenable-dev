@@ -3,14 +3,15 @@
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { getActiveOrders } from "@/lib/api";
+import { rq, marketplaceRqPolicy } from "@/lib/queryKeys";
 import { MarketplaceOrderBook } from "@/components/marketplace/MarketplaceOrderBook";
 
 export default function MarketplaceOtherListingsPage() {
-
   const { data: orders = [], isLoading } = useQuery({
-    queryKey: ["marketplace-orders"],
+    queryKey: rq.ordersActive(),
     queryFn: getActiveOrders,
-    refetchInterval: 15_000,
+    refetchInterval: marketplaceRqPolicy.ordersRefetchMs,
+    staleTime: marketplaceRqPolicy.ordersStaleMs,
   });
 
   const asks = orders.filter((o) => o.side !== "bid");
@@ -28,7 +29,7 @@ export default function MarketplaceOtherListingsPage() {
     <div className="min-h-screen bg-gray-950 text-white">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 pb-20">
         <Link
-          href="/?tab=marketplace"
+          href="/exchange"
           className="inline-flex text-sm text-mint/90 hover:text-mint mb-6"
         >
           ← Back to Exchange

@@ -39,20 +39,59 @@ export function extractCoverFromJustTcgCardLike(
   return null;
 }
 
-/**
- * 민팅 시 JustTCG 검색 결과에 포함된 카드 ID (직접 조회 시 검색 오매칭보다 정확).
- * 예: `pokemon-pikachu-ex-surging-sparks-...`
- */
-export function extractJustTcgCardIdFromMetadata(meta: Record<string, unknown>): string | null {
+/** JustTCG lookups from mint metadata `graded.justtcg.topMatch`. */
+export interface JustTcgProductIdentifiers {
+  cardId: string | null;
+  tcgplayerId: string | null;
+  variantId: string | null;
+}
+
+function stringSlugFromCardLike(top: Record<string, unknown>): string | null {
+  for (const key of ['id', 'cardId']) {
+    const v = top[key];
+    if (typeof v === 'string' && v.trim().length > 0) return v.trim();
+  }
+  return null;
+}
+
+function tcgplayerIdFromCardLike(top: Record<string, unknown>): string | null {
+  const v = top.tcgplayerId;
+  if (typeof v === 'number' && Number.isFinite(v)) return String(Math.trunc(v));
+  if (typeof v === 'string' && /^\d+$/.test(v.trim())) return v.trim();
+  return null;
+}
+
+function variantIdFromCardLike(top: Record<string, unknown>): string | null {
+  const v = top.variantId;
+  if (typeof v === 'string' && v.trim().length > 0) return v.trim();
+  return null;
+}
+
+export function extractJustTcgProductIdentifiersFromMetadata(
+  meta: Record<string, unknown>,
+): JustTcgProductIdentifiers {
   const props = meta.properties as Record<string, unknown> | undefined;
   const graded = (props?.graded ?? meta.graded) as Record<string, unknown> | undefined;
   const jt = graded?.justtcg as Record<string, unknown> | undefined;
   const top = jt?.topMatch;
-  if (!top || typeof top !== 'object') return null;
-  const id = (top as Record<string, unknown>).id;
-  if (typeof id === 'string' && id.trim().length > 0) return id.trim();
-  return null;
+  if (!top || typeof top !== 'object') {
+    return { cardId: null, tcgplayerId: null, variantId: null };
+  }
+  const t = top as Record<string, unknown>;
+  return {
+    cardId: stringSlugFromCardLike(t),
+    tcgplayerId: tcgplayerIdFromCardLike(t),
+    variantId: variantIdFromCardLike(t),
+  };
 }
+
+/**
+ * Mint-time JustTCG card slug (`id` / `cardId` on topMatch).
+ */
+export function extractJustTcgCardIdFromMetadata(meta: Record<string, unknown>): string | null {
+  return extractJustTcgProductIdentifiersFromMetadata(meta).cardId;
+}
+
 
 /**
  * 컬렉션 대표 이미지 — RWA 메타데이터 루트 `image`(슬랩 사진) 대신 JustTCG 카드 아트만 사용.

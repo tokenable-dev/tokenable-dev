@@ -1,26 +1,29 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  getRwaTokensByOwner,
-  getRwaTokenURI,
-  getActiveOrders,
+  getMarketplaceCollectionDetail,
   cancelOrder,
-  fetchIpfsMetadata,
-  resolveIpfsImage,
   type RwaMetadata,
-  type Order,
+  type OrderListItem,
 } from "@/lib/api";
+import {
+  computeMarketBucketKey,
+  extractBucketComponentsFromMetadata,
+} from "@/lib/marketplace/bucketKey";
 import { useShallow } from "zustand/react/shallow";
 import { useAppStore, selectWallet, selectRefresh } from "@/store";
 import { ListRwaModal } from "@/components/marketplace/ListRwaModal";
 import { TOKENABLE_RWA_DISPLAY_NAME } from "@/constants/contracts";
+import { useUserAssets } from "@/hooks/useUserAssets";
+import { rq } from "@/lib/queryKeys";
 
 interface OwnedRwa {
   tokenId: number;
   tokenURI: string;
   metadata: RwaMetadata | null;
+  imageUrl: string | null;
 }
 
 function RwaCard({
@@ -31,17 +34,15 @@ function RwaCard({
   isCancelling,
 }: {
   asset: OwnedRwa;
-  activeOrder?: Order;
+  activeOrder?: OrderListItem;
   onList: (tokenId: number) => void;
-  onCancel: (order: Order) => void;
+  onCancel: (order: OrderListItem) => void;
   isCancelling: boolean;
 }) {
-  const imageUrl = asset.metadata?.image
-    ? resolveIpfsImage(asset.metadata.image)
-    : null;
+  const imageUrl = asset.imageUrl;
 
   const listingPrice = activeOrder
-    ? (Number(activeOrder.considerationAmount) / 1_000_000).toLocaleString()
+    ? (Number(activeOrder.price) / 1_000_000).toLocaleString()
     : undefined;
 
   return (
@@ -81,15 +82,25 @@ function RwaCard({
             {listingPrice} USDC
           </p>
         )}
-        <div className="mt-auto pt-3">
+        <div className="mt-auto pt-3 flex flex-col gap-2">
           {activeOrder ? (
-            <button
-              onClick={() => onCancel(activeOrder)}
-              disabled={isCancelling}
-              className="w-full py-2 text-xs font-medium bg-slate-800/80 hover:bg-slate-700/80 disabled:opacity-50 disabled:cursor-not-allowed text-slate-300 hover:text-slate-200 rounded-lg transition-colors border border-slate-600/60"
-            >
-              {isCancelling ? "Cancelling..." : "Cancel Listing"}
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={() => onList(asset.tokenId)}
+                className="w-full py-2 text-xs font-semibold bg-mint/10 hover:bg-mint/15 text-mint rounded-lg transition-colors border border-mint-deep/35"
+              >
+                Change price
+              </button>
+              <button
+                type="button"
+                onClick={() => onCancel(activeOrder)}
+                disabled={isCancelling}
+                className="w-full py-2 text-xs font-medium bg-slate-800/80 hover:bg-slate-700/80 disabled:opacity-50 disabled:cursor-not-allowed text-slate-300 hover:text-slate-200 rounded-lg transition-colors border border-slate-600/60"
+              >
+                {isCancelling ? "Cancelling..." : "Cancel listing"}
+              </button>
+            </>
           ) : (
             <button
               onClick={() => onList(asset.tokenId)}
@@ -114,55 +125,66 @@ export function MyAssets() {
   const [pendingListedIds, setPendingListedIds] = useState<Set<number>>(new Set());
   const [pendingCancelledHashes, setPendingCancelledHashes] = useState<Set<string>>(new Set());
 
-  const { data: tokenIds, isLoading } = useQuery({
-    queryKey: ["my-rwa-ids", address],
-    queryFn: () => getRwaTokensByOwner(address!),
-    enabled: !!address && isConnected,
+  const {
+    tokenIds,
+    assets: hookAssets,
+    activeOrders: orders,
+    isLoadingIds: isLoading,
+  } = useUserAssets(isConnected ? address : undefined, {
+    enabled: Boolean(address && isConnected),
+    includeOrderHistory: false,
+    includePoketrace: false,
   });
 
-  const { data: assets } = useQuery({
-    queryKey: ["my-rwas", tokenIds],
+  const assets: OwnedRwa[] = useMemo(
+    () =>
+      hookAssets.map((a) => ({
+        tokenId: a.tokenId,
+        tokenURI: "",
+        metadata: a.metadata,
+        imageUrl: a.imageUrl,
+      })),
+    [hookAssets],
+  );
+
+  const listingAsset = useMemo(() => {
+    if (listingTokenId == null || !assets?.length) return null;
+    return assets.find((a) => a.tokenId === listingTokenId) ?? null;
+  }, [listingTokenId, assets]);
+
+  const { data: listModalCollectionKey } = useQuery({
+    queryKey: ["metadata-bucket-key-owned", listingTokenId, listingAsset?.metadata],
     queryFn: async () => {
-      if (!tokenIds?.length) return [];
-      return Promise.all(
-        tokenIds.map(async (tokenId): Promise<OwnedRwa> => {
-          try {
-            const tokenURI = await getRwaTokenURI(tokenId);
-            const metadata = tokenURI
-              ? await fetchIpfsMetadata(tokenURI).catch(() => null)
-              : null;
-            return { tokenId, tokenURI, metadata };
-          } catch {
-            return { tokenId, tokenURI: "", metadata: null };
-          }
-        })
-      );
+      const meta = listingAsset?.metadata;
+      if (!meta) return null;
+      const c = extractBucketComponentsFromMetadata(meta as Record<string, unknown>);
+      if (!c) return null;
+      return await computeMarketBucketKey(c);
     },
-    enabled: !!tokenIds?.length,
+    enabled: listingTokenId != null && !!listingAsset?.metadata,
   });
 
-  const { data: orders } = useQuery({
-    queryKey: ["marketplace-orders"],
-    queryFn: getActiveOrders,
-    enabled: isConnected,
-    refetchInterval: 15_000,
+  const { data: listModalCollectionDetail } = useQuery({
+    queryKey: ["marketplace-collection", listModalCollectionKey],
+    queryFn: () => getMarketplaceCollectionDetail(listModalCollectionKey!),
+    enabled: !!listModalCollectionKey,
+    staleTime: 15_000,
   });
 
-  // tokenId → Order マップ (active only, not pending cancel)
-  const activeOrderMap = new Map<number, Order>();
+  const activeOrderMap = new Map<number, OrderListItem>();
   for (const order of orders ?? []) {
     if (
       order.status === "active" &&
+      order.side === "ask" &&
       !pendingCancelledHashes.has(order.orderHash)
     ) {
       activeOrderMap.set(Number(order.tokenId), order);
     }
   }
 
-  // pending listed IDs (optimistic)
-  function getActiveOrder(tokenId: number): Order | undefined {
+  function getActiveOrder(tokenId: number): OrderListItem | undefined {
     if (pendingListedIds.has(tokenId) && !activeOrderMap.has(tokenId)) {
-      return undefined; // will appear after refetch
+      return undefined;
     }
     return activeOrderMap.get(tokenId);
   }
@@ -171,7 +193,6 @@ export function MyAssets() {
     setPendingListedIds((prev) => new Set([...prev, tokenId]));
     setPendingCancelledHashes((prev) => {
       const next = new Set(prev);
-      // Remove any cancelled hash associated with this tokenId
       orders
         ?.filter((o) => Number(o.tokenId) === tokenId)
         .forEach((o) => next.delete(o.orderHash));
@@ -179,11 +200,10 @@ export function MyAssets() {
     });
   }
 
-  async function handleCancel(order: Order) {
+  async function handleCancel(order: OrderListItem) {
     if (!address) return;
     setCancellingOrderHash(order.orderHash);
 
-    // Optimistic update
     setPendingCancelledHashes((prev) => new Set([...prev, order.orderHash]));
     setPendingListedIds((prev) => {
       const next = new Set(prev);
@@ -194,10 +214,9 @@ export function MyAssets() {
     try {
       await cancelOrder(order.orderHash, address);
       refresh();
-      await queryClient.invalidateQueries({ queryKey: ["marketplace-orders"] });
-      await queryClient.invalidateQueries({ queryKey: ["my-rwa-ids", address] });
+      await queryClient.invalidateQueries({ queryKey: ["orders"] });
+      await queryClient.invalidateQueries({ queryKey: rq.rwaTokens(address) });
     } catch (err) {
-      // Rollback on failure
       setPendingCancelledHashes((prev) => {
         const next = new Set(prev);
         next.delete(order.orderHash);
@@ -236,6 +255,8 @@ export function MyAssets() {
     );
   }
 
+  const listingAsk = listingTokenId != null ? activeOrderMap.get(listingTokenId) : undefined;
+
   return (
     <>
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 items-stretch">
@@ -256,6 +277,14 @@ export function MyAssets() {
       {listingTokenId !== null && (
         <ListRwaModal
           tokenId={listingTokenId}
+          collectionKey={listModalCollectionKey ?? undefined}
+          collectionBids={listModalCollectionDetail?.collectionBids ?? []}
+          existingAskOrder={undefined}
+          existingAskOrderHash={
+            listingAsk?.side === "ask" && listingAsk.status === "active"
+              ? listingAsk.orderHash
+              : undefined
+          }
           onClose={() => setListingTokenId(null)}
           onListed={handleOptimisticList}
         />

@@ -1,14 +1,18 @@
 "use client";
 
+import type { ReactNode } from "react";
 import type { GradingCompany, PsaFieldLocks } from "@/types/gradedCard";
 import { ImageInput } from "./ImageInput";
 
 const inputClass =
-  "w-full bg-gray-800 border border-gray-700 focus:border-mint rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 outline-none transition-colors";
+  "w-full bg-gray-800/80 border border-gray-700/60 focus:border-mint rounded-xl px-4 py-3 text-sm text-white placeholder-gray-600 outline-none transition-colors";
 
 function lockedHint(locked: boolean): string | undefined {
   return locked ? "Set by PSA analysis and cannot be edited" : undefined;
 }
+
+/** Vault mint: slab OCR path vs cert-only PSA API lookup */
+export type PsaInputMode = "slab" | "cert";
 
 interface GradedCardSectionProps {
   /** Mint supports PSA only; prop kept for typing */
@@ -25,9 +29,18 @@ interface GradedCardSectionProps {
   onVerificationChange: (v: GradedCardSectionProps["verification"]) => void;
   /** Fields filled by PSA analysis — read-only when locked */
   psaFieldLocks?: PsaFieldLocks;
+  psaInputMode?: PsaInputMode;
+  onPsaInputModeChange?: (mode: PsaInputMode) => void;
+  onCertLookup?: () => void;
+  /** Cert mode: clear PSA result so user can edit cert # before pressing Look up (no API). */
+  onCertLookupReset?: () => void;
+  certLookupBusy?: boolean;
+  /** Cert mode: a PSA lookup already succeeded (soften Look up vs Mint). */
+  certLookupHasResult?: boolean;
+  /** Render between slab/cert hero and the collapsible card & PSA fields (e.g. mint preview + Mint CTA) */
+  slotAfterHero?: ReactNode;
 }
 
-/** PSA: slab upload first; understated styling */
 function PsaSlabUploadHero({
   verification,
   onVerificationChange,
@@ -39,56 +52,138 @@ function PsaSlabUploadHero({
 }) {
   const L = psaFieldLocks;
   return (
-    <section
-      className="rounded-xl border-2 border-gray-600/70 bg-gray-900/40 p-4 shadow-sm shadow-black/20 sm:p-5"
-      aria-labelledby="psa-slab-hero-title"
-    >
-      <div className="mb-4">
-        <span className="inline-flex items-center rounded-md border border-gray-600/80 bg-gray-800/80 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-gray-400">
-          Required · Step 1
-        </span>
-        <h4
-          id="psa-slab-hero-title"
-          className="mt-2.5 text-base font-semibold tracking-tight text-white sm:text-lg"
-        >
-          Upload slab front photo
-        </h4>
-        <p className="mt-1.5 max-w-2xl text-xs leading-relaxed text-gray-400 sm:text-sm">
-          Minting runs from this slab image. OCR, PSA lookup, and JustTCG run after upload.
-          You do not need a separate card photo.
-        </p>
+    <section aria-labelledby="psa-slab-hero-title" className="space-y-3">
+      <h3 id="psa-slab-hero-title" className="sr-only">
+        Slab photo upload
+      </h3>
+
+      <div className="rounded-2xl bg-gray-900/35 p-3 ring-1 ring-white/[0.06] sm:p-4">
+        <ImageInput
+          showLabel={false}
+          value={verification.slabFront}
+          onChange={(f) =>
+            onVerificationChange({
+              ...verification,
+              slabFront: f,
+              slabBack: null,
+            })
+          }
+          mode="file"
+          required
+        />
       </div>
 
-      <div className="max-w-xl space-y-4">
+      <details className="rounded-lg px-1 py-0.5 text-xs text-gray-500">
+        <summary className="cursor-pointer list-none font-medium text-gray-500 transition-colors hover:text-gray-400 [&::-webkit-details-marker]:hidden">
+          <span className="underline decoration-white/15 underline-offset-2">
+            Optional: PSA cert URL
+          </span>
+        </summary>
+        <input
+          type="url"
+          value={verification.certUrl}
+          onChange={(e) =>
+            onVerificationChange({ ...verification, certUrl: e.target.value })
+          }
+          placeholder="https://www.psacard.com/cert/…"
+          disabled={Boolean(L?.certUrl)}
+          title={lockedHint(Boolean(L?.certUrl))}
+          className={`${inputClass} mt-2 disabled:cursor-not-allowed disabled:opacity-60`}
+        />
+      </details>
+    </section>
+  );
+}
+
+function PsaCertLookupHero({
+  grade,
+  onGradeChange,
+  verification,
+  onVerificationChange,
+  onCertLookup,
+  onCertLookupReset,
+  certLookupBusy,
+  certLookupHasResult,
+  psaFieldLocks,
+}: {
+  grade: GradedCardSectionProps["grade"];
+  onGradeChange: GradedCardSectionProps["onGradeChange"];
+  verification: GradedCardSectionProps["verification"];
+  onVerificationChange: GradedCardSectionProps["onVerificationChange"];
+  onCertLookup: () => void;
+  onCertLookupReset?: () => void;
+  certLookupBusy: boolean;
+  certLookupHasResult?: boolean;
+  psaFieldLocks?: PsaFieldLocks;
+}) {
+  const L = psaFieldLocks;
+  const hasHint =
+    Boolean(grade.certNumber.trim()) || Boolean(verification.certUrl.trim());
+  const subduedLookup = Boolean(certLookupHasResult) && !certLookupBusy;
+  return (
+    <section aria-labelledby="psa-cert-hero-title">
+      <label
+        id="psa-cert-hero-title"
+        className="mb-2 block text-sm font-semibold text-white"
+      >
+        Cert lookup
+      </label>
+      <div className="space-y-4 rounded-xl bg-gray-900/35 p-4 ring-1 ring-white/[0.06]">
         <div>
-          <p className="mb-1.5 text-xs font-medium text-gray-400">Slab front (required)</p>
-          <div className="rounded-lg border border-gray-600/90 bg-gray-950/40 p-3">
-            <ImageInput
-              label="Choose file or click to upload"
-              value={verification.slabFront}
-              onChange={(f) => onVerificationChange({ ...verification, slabFront: f })}
-              mode="file"
-              required
-            />
-          </div>
+          <p className="mb-1.5 text-xs font-medium text-gray-400">
+            Cert # <span className="text-red-400">*</span>
+          </p>
+          <input
+            type="text"
+            inputMode="numeric"
+            autoComplete="off"
+            value={grade.certNumber}
+            onChange={(e) => onGradeChange({ certNumber: e.target.value })}
+            placeholder="7–10 digit PSA cert number"
+            disabled={Boolean(L?.certNumber)}
+            title={lockedHint(Boolean(L?.certNumber))}
+            className={`${inputClass} disabled:cursor-not-allowed disabled:opacity-60`}
+          />
         </div>
         <div>
-          <label className="mb-1 block text-xs text-gray-500">
-            Certification URL{" "}
-            <span className="text-gray-600">(optional — used before OCR if set)</span>
-          </label>
+          <label className="mb-1.5 block text-xs text-gray-500">Cert URL (optional)</label>
           <input
             type="url"
             value={verification.certUrl}
             onChange={(e) =>
               onVerificationChange({ ...verification, certUrl: e.target.value })
             }
-            placeholder="https://..."
+            placeholder="https://www.psacard.com/cert/…"
             disabled={Boolean(L?.certUrl)}
             title={lockedHint(Boolean(L?.certUrl))}
             className={`${inputClass} disabled:cursor-not-allowed disabled:opacity-60`}
           />
         </div>
+        <button
+          type="button"
+          onClick={() =>
+            subduedLookup ? onCertLookupReset?.() : onCertLookup()
+          }
+          disabled={
+            certLookupBusy || (subduedLookup ? false : !hasHint)
+          }
+          title={
+            subduedLookup
+              ? "Clear PSA result so you can change the cert # or URL, then press Look up."
+              : undefined
+          }
+          className={
+            subduedLookup
+              ? "w-full rounded-lg border border-white/[0.08] bg-white/[0.04] py-2 px-3 text-xs font-medium text-zinc-500 transition hover:border-white/[0.12] hover:bg-white/[0.07] hover:text-zinc-300 disabled:opacity-40"
+              : "w-full rounded-xl bg-mint py-3 text-sm font-bold text-[#030712] shadow-md shadow-mint/20 transition hover:brightness-110 disabled:opacity-50"
+          }
+        >
+          {certLookupBusy
+            ? "Looking up…"
+            : subduedLookup
+              ? "Clear & edit cert"
+              : "Look up"}
+        </button>
       </div>
     </section>
   );
@@ -103,169 +198,244 @@ export function GradedCardSection({
   verification,
   onVerificationChange,
   psaFieldLocks,
+  psaInputMode = "slab",
+  onPsaInputModeChange,
+  onCertLookup,
+  onCertLookupReset,
+  certLookupBusy = false,
+  certLookupHasResult = false,
+  slotAfterHero,
 }: GradedCardSectionProps) {
   const hasCompany = !!gradingCompany;
   const L = psaFieldLocks;
+  const mode = psaInputMode;
+  const setMode = onPsaInputModeChange;
+  const certLookup = onCertLookup ?? (() => {});
 
   return (
-    <div className="border-t border-gray-800 pt-6 transition-opacity duration-200">
-      <h3 className="text-base font-semibold text-white mb-1 flex items-center gap-2">
-        <span className="w-1 h-5 bg-mint/70 rounded-full" />
-        Graded Card Information
-      </h3>
-      <p className="text-xs text-gray-500 mb-4">
-        {L?.gradingCompany
-          ? "Fields confirmed by PSA analysis cannot be edited. Change the slab to re-analyze."
-          : "Start with the slab upload above. Card and grade fields fill in after analysis."}
-      </p>
+    <div className="space-y-6 transition-opacity duration-200">
+      {setMode && (
+        <div
+          className="flex rounded-xl bg-gray-900/60 p-1 ring-1 ring-white/[0.06]"
+          role="tablist"
+          aria-label="PSA data source"
+        >
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === "slab"}
+            onClick={() => setMode("slab")}
+            className={`flex-1 rounded-lg px-3 py-2.5 text-xs font-semibold transition-colors sm:text-sm ${
+              mode === "slab"
+                ? "bg-mint text-[#030712] shadow-sm"
+                : "text-gray-400 hover:text-white"
+            }`}
+          >
+            Photo
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === "cert"}
+            onClick={() => setMode("cert")}
+            className={`flex-1 rounded-lg px-3 py-2.5 text-xs font-semibold transition-colors sm:text-sm ${
+              mode === "cert"
+                ? "bg-mint text-[#030712] shadow-sm"
+                : "text-gray-400 hover:text-white"
+            }`}
+          >
+            Cert #
+          </button>
+        </div>
+      )}
 
-      <div className="space-y-5">
+      {mode === "slab" ? (
         <PsaSlabUploadHero
           verification={verification}
           onVerificationChange={onVerificationChange}
           psaFieldLocks={L}
         />
+      ) : (
+        <PsaCertLookupHero
+          grade={grade}
+          onGradeChange={onGradeChange}
+          verification={verification}
+          onVerificationChange={onVerificationChange}
+          onCertLookup={certLookup}
+          onCertLookupReset={onCertLookupReset}
+          certLookupBusy={certLookupBusy}
+          certLookupHasResult={certLookupHasResult}
+          psaFieldLocks={L}
+        />
+      )}
 
-        <div className="flex items-center justify-between gap-3 rounded-lg border border-gray-700/90 bg-gray-900/50 px-3 py-2.5">
-          <span className="text-sm text-gray-400">Grading company</span>
-          <span
-            className="text-sm font-medium text-white"
+      {slotAfterHero}
+
+      <details
+        className="group rounded-xl border border-gray-700/50 bg-gray-800/20 overflow-hidden"
+      >
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3.5 text-sm font-medium text-gray-200 transition-colors hover:bg-gray-800/35 [&::-webkit-details-marker]:hidden">
+          <span>Card &amp; PSA details</span>
+          <svg
+            className="h-4 w-4 shrink-0 text-gray-500 transition-transform group-open:rotate-180"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            aria-hidden
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M19 9l-7 7-7-7"
+            />
+          </svg>
+        </summary>
+        <div className="space-y-6 border-t border-gray-700/40 px-4 pb-5 pt-4">
+      {/* Card Name */}
+      <div>
+        <label className="block text-sm font-medium text-gray-300 mb-2">Card Name</label>
+        <input
+          type="text"
+          value={card.name}
+          onChange={(e) => onCardChange({ ...card, name: e.target.value })}
+          placeholder="e.g. Pikachu Van Gogh"
+          disabled={Boolean(L?.cardName)}
+          title={lockedHint(Boolean(L?.cardName))}
+          className={`${inputClass} disabled:opacity-60 disabled:cursor-not-allowed`}
+        />
+      </div>
+
+      {/* Grading Company + Grade — side by side like the image */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">
+            Grading Company
+          </label>
+          <div
+            className="flex items-center justify-between bg-gray-800/80 border border-gray-700/60 rounded-xl px-4 py-3 text-sm text-white cursor-default"
             title={L?.gradingCompany ? lockedHint(true) : undefined}
           >
-            PSA
-          </span>
-        </div>
-
-        {hasCompany && (
-          <div className="space-y-5 transition-opacity duration-300">
-            {/* Card Information */}
-            <div className="bg-gray-800/40 rounded-lg p-4 border border-gray-700/50">
-              <h4 className="text-xs font-semibold text-mint/90 uppercase tracking-wider mb-3">
-                Card Information
-              </h4>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="sm:col-span-2">
-                  <label className="block text-xs text-gray-500 mb-1">
-                    Card Name <span className="text-gray-600">(optional)</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={card.name}
-                    onChange={(e) => onCardChange({ ...card, name: e.target.value })}
-                    placeholder="e.g. 2023 Topps Chrome Refractor"
-                    disabled={Boolean(L?.cardName)}
-                    title={lockedHint(Boolean(L?.cardName))}
-                    className={`${inputClass} disabled:opacity-60 disabled:cursor-not-allowed`}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">
-                    Player / Character Name{" "}
-                    <span className="text-gray-600">(optional)</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={card.player}
-                    onChange={(e) => onCardChange({ ...card, player: e.target.value })}
-                    placeholder="e.g. Shohei Ohtani"
-                    disabled={Boolean(L?.player)}
-                    title={lockedHint(Boolean(L?.player))}
-                    className={`${inputClass} disabled:opacity-60 disabled:cursor-not-allowed`}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">
-                    Year <span className="text-gray-600">(optional)</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={card.year}
-                    onChange={(e) => onCardChange({ ...card, year: e.target.value })}
-                    placeholder="e.g. 2023"
-                    disabled={Boolean(L?.year)}
-                    title={lockedHint(Boolean(L?.year))}
-                    className={`${inputClass} disabled:opacity-60 disabled:cursor-not-allowed`}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">
-                    Set / Series <span className="text-gray-600">(optional)</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={card.set}
-                    onChange={(e) => onCardChange({ ...card, set: e.target.value })}
-                    placeholder="e.g. Topps Chrome"
-                    disabled={Boolean(L?.set)}
-                    title={lockedHint(Boolean(L?.set))}
-                    className={`${inputClass} disabled:opacity-60 disabled:cursor-not-allowed`}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">
-                    Card Number <span className="text-gray-600">(optional)</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={card.number}
-                    onChange={(e) => onCardChange({ ...card, number: e.target.value })}
-                    placeholder="e.g. 1"
-                    disabled={Boolean(L?.number)}
-                    title={lockedHint(Boolean(L?.number))}
-                    className={`${inputClass} disabled:opacity-60 disabled:cursor-not-allowed`}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Grading Information */}
-            <div className="bg-gray-800/40 rounded-lg p-4 border border-gray-700/50">
-              <h4 className="text-xs font-semibold text-mint/90 uppercase tracking-wider mb-3">
-                Grading Information
-              </h4>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">
-                    Certification Number{" "}
-                    <span className="text-gray-600">(optional)</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={grade.certNumber}
-                    onChange={(e) => onGradeChange({ certNumber: e.target.value })}
-                    placeholder="e.g. 12345678"
-                    disabled={Boolean(L?.certNumber)}
-                    title={lockedHint(Boolean(L?.certNumber))}
-                    className={`${inputClass} disabled:opacity-60 disabled:cursor-not-allowed`}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">
-                    Grade <span className="text-gray-600">(optional)</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={grade.score}
-                    onChange={(e) => onGradeChange({ score: e.target.value })}
-                    placeholder="e.g. 10"
-                    disabled={Boolean(L?.score)}
-                    title={lockedHint(Boolean(L?.score))}
-                    className={`${inputClass} disabled:opacity-60 disabled:cursor-not-allowed`}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Company-specific fields */}
-            <CompanySpecificBlock
-              company="PSA"
-              subgrades={grade.subgrades}
-              onChange={(subgrades) => onGradeChange({ subgrades })}
-              psaFieldLocks={L}
-            />
+            <span>PSA</span>
+            <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
           </div>
-        )}
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">Grade</label>
+          <div className="relative">
+            <select
+              value={grade.score}
+              onChange={(e) => onGradeChange({ score: e.target.value })}
+              disabled={Boolean(L?.score)}
+              title={lockedHint(Boolean(L?.score))}
+              className={`${inputClass} appearance-none pr-10 disabled:opacity-60 disabled:cursor-not-allowed`}
+            >
+              <option value="">Select grade</option>
+              <option value="10">10 - Gem Mint</option>
+              <option value="9">9 - Mint</option>
+              <option value="8.5">8.5 - NM-MT+</option>
+              <option value="8">8 - NM-MT</option>
+              <option value="7.5">7.5 - Near Mint+</option>
+              <option value="7">7 - Near Mint</option>
+              <option value="6.5">6.5 - EX-MT+</option>
+              <option value="6">6 - EX-MT</option>
+              <option value="5.5">5.5 - Excellent+</option>
+              <option value="5">5 - Excellent</option>
+              <option value="4.5">4.5 - VG-EX+</option>
+              <option value="4">4 - VG-EX</option>
+              <option value="3.5">3.5 - VG+</option>
+              <option value="3">3 - VG</option>
+              <option value="2.5">2.5 - Good+</option>
+              <option value="2">2 - Good</option>
+              <option value="1.5">1.5 - Fair</option>
+              <option value="1">1 - Poor</option>
+            </select>
+            <svg className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+          </div>
+        </div>
       </div>
+
+      {/* Cert Number — hidden in cert-only mode (entered in hero) */}
+      {mode === "slab" && (
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">Cert Number</label>
+          <input
+            type="text"
+            value={grade.certNumber}
+            onChange={(e) => onGradeChange({ certNumber: e.target.value })}
+            placeholder="PSA Certification Number"
+            disabled={Boolean(L?.certNumber)}
+            title={lockedHint(Boolean(L?.certNumber))}
+            className={`${inputClass} disabled:opacity-60 disabled:cursor-not-allowed`}
+          />
+        </div>
+      )}
+
+      {/* Player, Year, Set, Card Number */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">
+            Player / Character
+          </label>
+          <input
+            type="text"
+            value={card.player}
+            onChange={(e) => onCardChange({ ...card, player: e.target.value })}
+            placeholder="e.g. Shohei Ohtani"
+            disabled={Boolean(L?.player)}
+            title={lockedHint(Boolean(L?.player))}
+            className={`${inputClass} disabled:opacity-60 disabled:cursor-not-allowed`}
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">Year</label>
+          <input
+            type="text"
+            value={card.year}
+            onChange={(e) => onCardChange({ ...card, year: e.target.value })}
+            placeholder="e.g. 2023"
+            disabled={Boolean(L?.year)}
+            title={lockedHint(Boolean(L?.year))}
+            className={`${inputClass} disabled:opacity-60 disabled:cursor-not-allowed`}
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">Set / Series</label>
+          <input
+            type="text"
+            value={card.set}
+            onChange={(e) => onCardChange({ ...card, set: e.target.value })}
+            placeholder="e.g. Topps Chrome"
+            disabled={Boolean(L?.set)}
+            title={lockedHint(Boolean(L?.set))}
+            className={`${inputClass} disabled:opacity-60 disabled:cursor-not-allowed`}
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">Card Number</label>
+          <input
+            type="text"
+            value={card.number}
+            onChange={(e) => onCardChange({ ...card, number: e.target.value })}
+            placeholder="e.g. 1"
+            disabled={Boolean(L?.number)}
+            title={lockedHint(Boolean(L?.number))}
+            className={`${inputClass} disabled:opacity-60 disabled:cursor-not-allowed`}
+          />
+        </div>
+      </div>
+
+      {/* PSA-specific extra fields (inside Card & PSA panel) */}
+      {hasCompany && (
+        <CompanySpecificBlock
+          company="PSA"
+          subgrades={grade.subgrades}
+          onChange={(subgrades) => onGradeChange({ subgrades })}
+          psaFieldLocks={L}
+        />
+      )}
+        </div>
+      </details>
     </div>
   );
 }
@@ -289,10 +459,10 @@ function CompanySpecificBlock({
   }
 
   return (
-    <div className="bg-gray-800/40 rounded-lg p-4 border border-gray-700/50">
-      <h4 className="text-xs font-semibold text-mint/90 uppercase tracking-wider mb-3">
-        {company} Specific
-      </h4>
+    <div className="rounded-lg border border-gray-700/35 bg-gray-900/25 p-3 sm:p-4">
+      <p className="mb-3 text-[11px] font-medium uppercase tracking-wide text-gray-500">
+        {company} — population &amp; extras
+      </p>
 
       {company === "PSA" && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -427,7 +597,7 @@ function InputField({
 }) {
   return (
     <div>
-      <label className="block text-xs text-gray-500 mb-1">
+      <label className="block text-xs font-medium text-gray-400 mb-1.5">
         {label}
         {optional && <span className="text-gray-600 ml-1">(optional)</span>}
       </label>

@@ -132,7 +132,7 @@
         </mxCell>
 
         <!-- Legend -->
-        <mxCell id="leg" value="범례 · 환경변수&#xa;• PSA_PUBLIC_API_TOKEN — PSA Public API (없으면 PSA HTTP 호출 생략, OCR/JustTCG는 동작)&#xa;• TCG_API_KEY — JustTCG (백엔드 필수)&#xa;• OCR은 서버 로컬 tesseract.js; 별도 Google Vision 등 외부 OCR API 없음&#xa;• 배포 이슈: sharp/tesseract 메모리, HTTPS 아웃바운드, 업로드 본문 크기 — `docs/DEVELOPMENT.md` §5 참고" style="rounded=0;whiteSpace=wrap;html=1;align=left;spacingLeft=12;fontSize=10;fillColor=#ffffcc;strokeColor=#d6b656;" vertex="1" parent="1">
+        <mxCell id="leg" value="범례 · 환경변수&#xa;• PSA_PUBLIC_API_TOKEN — PSA Public API (없으면 PSA HTTP 호출 생략, OCR/JustTCG는 동작)&#xa;• TCG_API_KEY — JustTCG 실호출 시 필수 (mock 분기 제거됨)&#xa;• OCR은 서버 로컬 tesseract.js; 별도 Google Vision 등 외부 OCR API 없음&#xa;• 배포 이슈: sharp/tesseract 메모리, HTTPS 아웃바운드, 업로드 본문 크기 — `docs/DEVELOPMENT.md` §6 참고" style="rounded=0;whiteSpace=wrap;html=1;align=left;spacingLeft=12;fontSize=10;fillColor=#ffffcc;strokeColor=#d6b656;" vertex="1" parent="1">
           <mxGeometry x="40" y="1340" width="1840" height="100" as="geometry" />
         </mxCell>
       </root>
