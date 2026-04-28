@@ -225,7 +225,7 @@ export function RwaOrderBook({
           </div>
 
           {/* Asks — red, 스프레드에 붙은 쪽이 아래(매도 호가는 보통 최저가가 스프레드 근처) */}
-          <div className="min-h-[56px] max-h-[160px] flex flex-col justify-end gap-px px-1 pt-1 overflow-y-auto">
+          <div className="min-h-[56px] max-h-[160px] flex flex-col justify-end gap-px px-1 pt-1 overflow-y-auto overscroll-y-auto">
             {!listing ? (
               <div className="py-5 text-center text-[11px] text-gray-600">No sell orders</div>
             ) : (
@@ -276,7 +276,7 @@ export function RwaOrderBook({
           </div>
 
           {/* Bids — green */}
-          <div className="max-h-[220px] overflow-y-auto flex flex-col gap-px px-1 pb-1">
+          <div className="max-h-[220px] overflow-y-auto overscroll-y-auto flex flex-col gap-px px-1 pb-1">
             {bidsLoading ? (
               <div className="py-8 text-center text-xs text-gray-500 animate-pulse">Loading bids…</div>
             ) : bidLevels.length === 0 ? (
@@ -323,7 +323,7 @@ export function RwaOrderBook({
               <p className="text-[9px] font-semibold uppercase tracking-wider text-gray-500">
                 Your actions
               </p>
-              <ul className="space-y-1 max-h-[160px] overflow-y-auto">
+              <ul className="space-y-1 max-h-[160px] overflow-y-auto overscroll-y-auto">
                 {actionableBids.map((order) => {
                   const mine = address?.toLowerCase() === order.offerer.toLowerCase();
                   const p = priceFromOrder(order);
@@ -402,7 +402,7 @@ export function RwaOrderBook({
       )}
 
       {tab === "trades" && (
-        <div className="max-h-[420px] overflow-y-auto">
+        <div className="max-h-[420px] overflow-y-auto overscroll-y-auto">
           {activityLoading ? (
             <div className="py-12 text-center text-xs text-gray-500 animate-pulse">Loading…</div>
           ) : !activity?.length ? (

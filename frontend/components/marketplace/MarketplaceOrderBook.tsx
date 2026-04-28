@@ -80,7 +80,7 @@ export function MarketplaceOrderBook({
         <span className="text-right">Token</span>
       </div>
       <div
-        className={`overflow-y-auto flex-1 py-1 space-y-px min-h-[120px] ${isFull ? "px-1" : "px-1"}`}
+        className={`overflow-y-auto overscroll-y-auto flex-1 py-1 space-y-px min-h-[120px] ${isFull ? "px-1" : "px-1"}`}
       >
         {rows.length === 0 ? (
           <p className="text-[11px] text-gray-600 text-center py-8 px-2">No orders</p>

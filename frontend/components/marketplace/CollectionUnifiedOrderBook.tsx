@@ -353,13 +353,13 @@ export function CollectionUnifiedOrderBook({
 
       {tab === "book" &&
         (flush ? (
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden overscroll-contain">
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
             <div className="relative grid shrink-0 grid-cols-[1fr_44px] gap-1.5 border-b border-gray-800/80 px-2.5 py-1.5 text-[9px] font-medium text-gray-500 sm:px-3">
               <span>Price (USDC)</span>
               <span className="text-right tabular-nums">Count</span>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain scrollbar-platform">
+            <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-auto scrollbar-platform">
               <div className="flex min-h-full flex-col justify-end gap-px px-1 pt-0.5 pb-0.5">
                 {askLevels.length === 0 ? (
                   <div className="py-3 text-center text-[10px] text-gray-600">No sell orders</div>
@@ -402,7 +402,7 @@ export function CollectionUnifiedOrderBook({
               <OrderBookCenterStrip model={bookCenterModel} />
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain scrollbar-platform">
+            <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-auto scrollbar-platform">
               <div className="flex flex-col gap-px px-1 py-0.5 pb-1.5">
                 {bidLevels.length === 0 ? (
                   <div className="py-3 text-center text-[10px] text-gray-600">No buy orders</div>
@@ -574,7 +574,7 @@ export function CollectionUnifiedOrderBook({
                 <span className="text-right">Token</span>
                 <span className="text-right">Time</span>
               </div>
-              <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain scrollbar-platform px-1 py-0.5">
+              <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-auto scrollbar-platform px-1 py-0.5">
                 {tapeFills.slice(0, MAX_TAPE_ROWS).map((row) => (
                   <div
                     key={row.orderHash}

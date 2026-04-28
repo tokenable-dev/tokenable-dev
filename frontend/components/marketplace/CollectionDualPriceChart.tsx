@@ -479,18 +479,30 @@ export function CollectionDualPriceChart({
           : "rounded-2xl border border-white/[0.07] bg-[#030304] text-white"
       }
     >
-      <div className="flex shrink-0 flex-wrap items-start justify-between gap-4 px-4 pt-4 pb-2 sm:px-5 sm:pt-5">
+      <div className="flex shrink-0 flex-col gap-3 px-4 pt-4 pb-2 sm:px-5 sm:pt-5 lg:flex-row lg:items-start lg:justify-between lg:gap-4">
         <div className="flex min-w-0 flex-1 flex-col gap-2">
           <h3 className="text-[15px] font-semibold tracking-tight text-white">{chartTitle}</h3>
           {controls}
         </div>
-        <div className="grid shrink-0 grid-cols-[14px_auto] items-center gap-x-2 gap-y-2.5 text-[11px] font-medium leading-tight text-white/90">
+        <div className="grid w-full max-w-full grid-cols-[12px_minmax(0,1fr)] items-center gap-x-2 gap-y-2 text-[10px] font-medium leading-tight text-white/90 sm:w-auto sm:grid-cols-[14px_auto] sm:gap-y-2.5 sm:text-[11px] lg:shrink-0">
           <span className="inline-block h-[10px] w-[10px] rounded-full" style={{ background: EXTERNAL_REF_STROKE }} aria-hidden />
-          <span className={merged.hasExtSignal ? "whitespace-nowrap" : "whitespace-nowrap text-white/35"}>
+          <span
+            className={
+              merged.hasExtSignal
+                ? "min-w-0 truncate"
+                : "min-w-0 truncate text-white/35"
+            }
+          >
             {externalLegendLabel}
           </span>
           <span className="inline-block h-[10px] w-[10px] rounded-full" style={{ background: PLATFORM_STROKE }} aria-hidden />
-          <span className={merged.hasPlatformInView ? "whitespace-nowrap" : "whitespace-nowrap text-white/35"}>
+          <span
+            className={
+              merged.hasPlatformInView
+                ? "min-w-0 truncate"
+                : "min-w-0 truncate text-white/35"
+            }
+          >
             Tokenable price
           </span>
         </div>

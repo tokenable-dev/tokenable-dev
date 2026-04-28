@@ -4,7 +4,6 @@ import {
   InternalServerErrorException,
   Logger,
 } from '@nestjs/common';
-import { createWorker, PSM } from 'tesseract.js';
 import sharp from 'sharp';
 import { CardhedgerService } from '../cardhedger/cardhedger.service';
 import {
@@ -13,7 +12,6 @@ import {
   primaryCardNumber,
 } from '../marketplace/card-match.util';
 import {
-  parsePsaLabelFromOcr,
   psaCertVerifyUrl,
   resolveCertHintForLookup,
   type ParsedPsaLabel,
@@ -29,16 +27,66 @@ import {
   extractPsaCertImagesFromGetImagesBody,
 } from './psa-cert-images.util';
 
+export interface CardhedgerOcrNormalized {
+  raw_text: string;
+  parsed_entities: {
+    card_name: string;
+    set: string;
+    year: string;
+    card_number: string;
+    cert_number: string;
+    grade: string;
+    autograph_detected: boolean;
+    signer_guess: string | null;
+  };
+  confidence: number; // 0..1
+}
+
 export interface PsaAnalyzeResult {
   ocr: {
+    /** CardHedger OCR output only (no local OCR engines). */
+    cardhedger: {
+      front: CardhedgerOcrNormalized;
+      back?: CardhedgerOcrNormalized;
+      combined: CardhedgerOcrNormalized;
+    };
+    /** Back-compat: derived from CardHedger OCR (no Tesseract). */
     combinedText: string;
+    /** Back-compat: derived from CardHedger OCR (no Tesseract). */
     frontText?: string;
+    /** Back-compat: derived from CardHedger OCR (no Tesseract). */
     backText?: string;
   };
   psa: ParsedPsaLabel & {
     certVerifyUrl?: string;
     /** True when PSA Public API returned PSACert and fields were merged */
     enrichedFromOfficialApi?: boolean;
+  };
+  /**
+   * Two-layer identity to prevent PSA vs PSA/DNA market collapse.
+   * - `base_card` is used for Cardhedger matching (no autograph terms).
+   * - `variant` classifies the collectible market (graded vs autograph).
+   */
+  identity?: {
+    base_card: {
+      year?: string;
+      set?: string;
+      card_number?: string;
+      card_name?: string;
+      base_identity: string;
+    };
+    variant: {
+      variant_type: 'PSA' | 'PSA_DNA';
+      has_autograph: boolean;
+      signer?: string;
+      auto_grade?: string;
+    };
+    market_type: 'graded' | 'autograph';
+    pricing_source: 'CardHedger';
+    confidence_split: {
+      base_match: number; // 0..1
+      variant_match: number; // 0..1
+    };
   };
   /** PSA Public API (optional; needs PSA_PUBLIC_API_TOKEN). `lookup` includes full body on success. */
   psaApi: {
@@ -100,55 +148,184 @@ export class PsaService {
       .toBuffer();
   }
 
-  private async runOcrOnBuffer(buffer: Buffer): Promise<string> {
-    let processed: Buffer;
-    try {
-      processed = await this.preprocess(buffer);
-    } catch (e) {
-      this.logger.warn(`Image preprocess (sharp) failed: ${String(e)}`);
-      return '';
+  private static clamp01(n: number): number {
+    if (!Number.isFinite(n)) return 0;
+    if (n < 0) return 0;
+    if (n > 1) return 1;
+    return n;
+  }
+
+  private static normalizeOcrEntitiesFromCardhedger(raw: unknown): CardhedgerOcrNormalized {
+    const obj = (typeof raw === 'object' && raw != null ? raw : {}) as Record<string, unknown>;
+    const certInfo =
+      (typeof obj.cert_info === 'object' && obj.cert_info != null
+        ? (obj.cert_info as Record<string, unknown>)
+        : {}) ?? {};
+    const card =
+      (typeof obj.card === 'object' && obj.card != null ? (obj.card as Record<string, unknown>) : {}) ??
+      {};
+
+    const cert_number =
+      typeof certInfo.cert === 'string'
+        ? certInfo.cert
+        : typeof certInfo.cert === 'number'
+          ? String(certInfo.cert)
+          : '';
+
+    const card_name =
+      typeof card.name === 'string'
+        ? card.name
+        : typeof card.description === 'string'
+          ? card.description
+          : '';
+
+    const set =
+      typeof card.set === 'string'
+        ? card.set
+        : typeof (card.set as { name?: unknown } | undefined)?.name === 'string'
+          ? String((card.set as { name?: unknown }).name)
+          : '';
+
+    const year =
+      typeof card.year === 'string'
+        ? card.year
+        : typeof card.year === 'number'
+          ? String(card.year)
+          : '';
+
+    const card_number =
+      typeof card.number === 'string'
+        ? card.number
+        : typeof card.cardNumber === 'string'
+          ? card.cardNumber
+          : '';
+
+    const grade =
+      typeof certInfo.grade === 'string'
+        ? certInfo.grade
+        : typeof certInfo.grade_label === 'string'
+          ? certInfo.grade_label
+          : typeof certInfo.gradeScore === 'string'
+            ? certInfo.gradeScore
+            : typeof certInfo.gradeScore === 'number'
+              ? String(certInfo.gradeScore)
+              : '';
+
+    const autograph_detected =
+      Boolean(
+        (typeof certInfo.psa_type === 'string' && /DNA/i.test(certInfo.psa_type)) ||
+          (typeof certInfo.label_type === 'string' && /DNA/i.test(certInfo.label_type)) ||
+          (typeof certInfo.autograph === 'boolean' && certInfo.autograph === true) ||
+          (typeof certInfo.autograph_grade === 'string' && certInfo.autograph_grade.trim().length > 0),
+      ) || false;
+
+    const signer_guess =
+      typeof certInfo.signer === 'string' && certInfo.signer.trim()
+        ? certInfo.signer.trim()
+        : null;
+
+    const raw_text_parts = [
+      cert_number ? `CERT ${cert_number}` : '',
+      grade ? `GRADE ${grade}` : '',
+      card_name,
+      set,
+      year,
+      card_number ? `#${card_number}` : '',
+      autograph_detected ? 'AUTO' : '',
+      signer_guess ? `SIGNER ${signer_guess}` : '',
+    ].filter(Boolean);
+    const raw_text = raw_text_parts.join(' ').trim();
+
+    // CardHedger endpoint doesn't currently return explicit confidence; keep deterministic.
+    const confidence = PsaService.clamp01(
+      autograph_detected || cert_number ? 0.9 : card_name ? 0.75 : 0.3,
+    );
+
+    return {
+      raw_text,
+      parsed_entities: {
+        card_name: String(card_name ?? '').trim(),
+        set: String(set ?? '').trim(),
+        year: String(year ?? '').trim(),
+        card_number: String(card_number ?? '').replace(/^#/, '').trim(),
+        cert_number: String(cert_number ?? '').replace(/\D/g, '').trim(),
+        grade: String(grade ?? '').trim(),
+        autograph_detected,
+        signer_guess,
+      },
+      confidence,
+    };
+  }
+
+  private static combineNormalizedOcr(
+    front: CardhedgerOcrNormalized,
+    back?: CardhedgerOcrNormalized,
+  ): CardhedgerOcrNormalized {
+    const pick = (a: string, b: string): string => (a && a.trim() ? a : b);
+    return {
+      raw_text: [front.raw_text, back?.raw_text].filter(Boolean).join('\n---\n').trim(),
+      parsed_entities: {
+        card_name: pick(front.parsed_entities.card_name, back?.parsed_entities.card_name ?? ''),
+        set: pick(front.parsed_entities.set, back?.parsed_entities.set ?? ''),
+        year: pick(front.parsed_entities.year, back?.parsed_entities.year ?? ''),
+        card_number: pick(
+          front.parsed_entities.card_number,
+          back?.parsed_entities.card_number ?? '',
+        ),
+        cert_number: pick(front.parsed_entities.cert_number, back?.parsed_entities.cert_number ?? ''),
+        grade: pick(front.parsed_entities.grade, back?.parsed_entities.grade ?? ''),
+        autograph_detected:
+          Boolean(front.parsed_entities.autograph_detected) ||
+          Boolean(back?.parsed_entities.autograph_detected),
+        signer_guess:
+          front.parsed_entities.signer_guess ?? back?.parsed_entities.signer_guess ?? null,
+      },
+      confidence: PsaService.clamp01(
+        Math.max(front.confidence, back?.confidence ?? 0),
+      ),
+    };
+  }
+
+  private static psaParsedFromNormalizedOcr(n: CardhedgerOcrNormalized): ParsedPsaLabel {
+    const e = n.parsed_entities;
+    const gradeLabel = e.grade || undefined;
+    const digits = e.cert_number ? resolveCertHintForLookup(e.cert_number) : undefined;
+    const year = e.year ? e.year.replace(/\D/g, '').slice(0, 4) : undefined;
+    const cardNumberHint = e.card_number ? e.card_number.replace(/^#/, '').trim() : undefined;
+    const cardNameHint = e.card_name || undefined;
+    const setHint = e.set || undefined;
+
+    // gradeScore is optional and should not be inferred beyond explicit numeric text.
+    let gradeScore: number | undefined;
+    const m = e.grade.match(/(\d+(?:\.\d+)?)/);
+    if (m) {
+      const num = parseFloat(m[1]);
+      if (!Number.isNaN(num)) gradeScore = num;
     }
-    let worker: Awaited<ReturnType<typeof createWorker>>;
-    try {
-      worker = await createWorker('eng');
-    } catch (e) {
-      this.logger.warn(`Tesseract worker create failed: ${String(e)}`);
-      return '';
-    }
-    try {
-      await worker.setParameters({
-        tessedit_pageseg_mode: PSM.AUTO,
-      });
-      const {
-        data: { text },
-      } = await worker.recognize(processed);
-      return text ?? '';
-    } catch (e) {
-      this.logger.warn(`Tesseract recognize failed: ${String(e)}`);
-      return '';
-    } finally {
-      try {
-        await worker.terminate();
-      } catch {
-        /* ignore */
-      }
-    }
+
+    return {
+      ...(digits ? { certNumber: digits } : {}),
+      ...(gradeLabel ? { gradeLabel } : {}),
+      ...(gradeScore != null ? { gradeScore } : {}),
+      ...(year ? { year } : {}),
+      ...(cardNameHint ? { cardNameHint } : {}),
+      ...(cardNumberHint ? { cardNumberHint } : {}),
+      ...(setHint ? { setHint } : {}),
+    };
   }
 
 
-  private async tryResolveByCardhedgerCertOcr(frontImage: Buffer): Promise<{
+  private async tryResolveByCardhedgerCertOcr(image: Buffer): Promise<{
     certCandidates: string[];
+    normalized: CardhedgerOcrNormalized;
     cardId?: string;
     searchQuery?: string;
     imageUrl?: string;
   }> {
+    // HARD ENFORCEMENT: all OCR must be CardHedger OCR API.
+    this.cardhedgerService.assertConfigured();
     try {
-      this.cardhedgerService.assertConfigured();
-    } catch {
-      return { certCandidates: [] };
-    }
-    try {
-      const jpg = await sharp(frontImage)
+      const jpg = await sharp(image)
         .resize({ width: 1800, fit: 'inside', withoutEnlargement: true })
         .jpeg({ quality: 85 })
         .toBuffer();
@@ -165,16 +342,8 @@ export class PsaService {
           { body },
         );
         if (typeof raw !== 'object' || raw == null) continue;
-        const certInfo = (raw as { cert_info?: unknown }).cert_info as
-          | Record<string, unknown>
-          | undefined;
-        const certRaw =
-          typeof certInfo?.cert === 'string'
-            ? certInfo.cert
-            : typeof certInfo?.cert === 'number'
-              ? String(certInfo.cert)
-              : '';
-        const cert = resolveCertHintForLookup(certRaw);
+        const normalized = PsaService.normalizeOcrEntitiesFromCardhedger(raw);
+        const cert = resolveCertHintForLookup(normalized.parsed_entities.cert_number);
         const card = (raw as { card?: unknown }).card as
           | Record<string, unknown>
           | undefined;
@@ -188,21 +357,37 @@ export class PsaService {
             : undefined;
         const imageUrl =
           typeof card?.image === 'string' && card.image.trim() ? card.image.trim() : undefined;
-        if (cert) {
-          return {
-            certCandidates: [cert],
-            ...(cardId ? { cardId } : {}),
-            ...(searchQuery ? { searchQuery } : {}),
-            ...(imageUrl ? { imageUrl } : {}),
-          };
-        }
+        return {
+          certCandidates: cert ? [cert] : [],
+          normalized,
+          ...(cardId ? { cardId } : {}),
+          ...(searchQuery ? { searchQuery } : {}),
+          ...(imageUrl ? { imageUrl } : {}),
+        };
       }
-      return { certCandidates: [] };
+      return {
+        certCandidates: [],
+        normalized: {
+          raw_text: '',
+          parsed_entities: {
+            card_name: '',
+            set: '',
+            year: '',
+            card_number: '',
+            cert_number: '',
+            grade: '',
+            autograph_detected: false,
+            signer_guess: null,
+          },
+          confidence: 0,
+        },
+      };
     } catch (e) {
-      this.logger.warn(
-        `Cardhedger cert OCR fallback failed: ${e instanceof Error ? e.message : String(e)}`,
+      const msg = e instanceof Error ? e.message : String(e);
+      this.logger.warn(`Cardhedger OCR failed: ${msg}`);
+      throw new InternalServerErrorException(
+        'CardHedger OCR 처리에 실패했습니다. CARDHEDGER_API_KEY 설정 및 업스트림 상태를 확인하세요.',
       );
-      return { certCandidates: [] };
     }
   }
 
@@ -284,6 +469,123 @@ export class PsaService {
     return parts.join(' ').trim();
   }
 
+  private static cleanBaseCardName(raw: string): string {
+    return String(raw ?? '')
+      .replace(/\bPSA\/?DNA\b/gi, ' ')
+      .replace(/\bDNA\b/gi, ' ')
+      .replace(/\bAUTOGRAPH(?:ED)?\b/gi, ' ')
+      .replace(/\bSIGNED\b/gi, ' ')
+      .replace(/\bAUTO\b/gi, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  private static detectSignerFromText(text: string): string | undefined {
+    const t = String(text ?? '');
+    // Keep this intentionally conservative: only output signer when explicitly found.
+    if (/MUTSUHIRO\s+ARITA/i.test(t)) return 'Mutsuhiro Arita';
+    if (/\bARITA\b/i.test(t) && /\bMUTSUHIRO\b/i.test(t)) return 'Mutsuhiro Arita';
+    return undefined;
+  }
+
+  private static detectPsaVariant(psa: ParsedPsaLabel, ocrText: string): {
+    variant_type: 'PSA' | 'PSA_DNA';
+    has_autograph: boolean;
+    signer?: string;
+    auto_grade?: string;
+    variant_match_confidence: number;
+  } {
+    const labelType = String(psa.labelType ?? '');
+    const category = String(psa.category ?? '');
+    const autoGrade = String(psa.autographGrade ?? '').trim();
+    const ocr = String(ocrText ?? '');
+
+    const strongDna =
+      /DNA/i.test(labelType) ||
+      /PSA\s*\/\s*DNA/i.test(labelType) ||
+      /DNA/i.test(category) ||
+      /AUTOGRAPH/i.test(category) ||
+      (autoGrade.length > 0 && autoGrade !== '0');
+
+    const weakDna = !strongDna && /PSA\s*\/\s*DNA|PSA\/DNA|\bDNA\b/i.test(ocr);
+    const weakAuto = !strongDna && !weakDna && /\bAUTO\b|\bAUTOGRAPH\b|\bSIGNED\b/i.test(ocr);
+
+    const isDna = strongDna || weakDna || weakAuto;
+    const signer = isDna ? PsaService.detectSignerFromText(ocr) : undefined;
+
+    let variantMatch = 0.2;
+    if (strongDna) variantMatch = 0.95;
+    else if (weakDna) variantMatch = 0.7;
+    else if (weakAuto) variantMatch = 0.55;
+
+    return {
+      variant_type: isDna ? 'PSA_DNA' : 'PSA',
+      has_autograph: isDna,
+      ...(signer ? { signer } : {}),
+      ...(autoGrade ? { auto_grade: autoGrade } : {}),
+      variant_match_confidence: PsaService.clamp01(variantMatch),
+    };
+  }
+
+  private buildTwoLayerIdentity(
+    psa: ParsedPsaLabel,
+    combinedText: string,
+    cardhedgerMint?: PsaAnalyzeResult['cardhedgerMint'],
+  ): NonNullable<PsaAnalyzeResult['identity']> {
+    const year = typeof psa.year === 'string' && psa.year.trim() ? psa.year.trim() : undefined;
+    const setRaw =
+      typeof psa.setHint === 'string' && psa.setHint.trim() ? psa.setHint.trim() : undefined;
+    const cardNumberRaw =
+      typeof psa.cardNumberHint === 'string' && psa.cardNumberHint.trim()
+        ? psa.cardNumberHint.replace(/^#/, '').trim()
+        : undefined;
+    const cardNameRaw =
+      typeof psa.cardNameHint === 'string' && psa.cardNameHint.trim()
+        ? psa.cardNameHint.trim()
+        : undefined;
+
+    const card_name = cardNameRaw ? PsaService.cleanBaseCardName(cardNameRaw) : undefined;
+    const set = setRaw ? PsaService.cleanBaseCardName(setRaw) : undefined;
+    const card_number = cardNumberRaw ? cardNumberRaw : undefined;
+
+    const baseParts = [
+      card_name,
+      year,
+      set,
+      card_number ? `#${card_number}` : undefined,
+    ].filter(Boolean);
+    const base_identity = baseParts.join(' ').trim() || 'pokemon';
+
+    const variant = PsaService.detectPsaVariant(psa, combinedText);
+    const market_type: 'graded' | 'autograph' = variant.has_autograph ? 'autograph' : 'graded';
+
+    let baseMatch = 0.55; // default: heuristic match possible but not verified
+    if (cardhedgerMint?.matchConfidence === 'verified') baseMatch = 0.98;
+    else if (cardhedgerMint?.matchConfidence === 'approximate') baseMatch = 0.75;
+
+    return {
+      base_card: {
+        ...(year ? { year } : {}),
+        ...(set ? { set } : {}),
+        ...(card_number ? { card_number } : {}),
+        ...(card_name ? { card_name } : {}),
+        base_identity,
+      },
+      variant: {
+        variant_type: variant.variant_type,
+        has_autograph: variant.has_autograph,
+        ...(variant.signer ? { signer: variant.signer } : {}),
+        ...(variant.auto_grade ? { auto_grade: variant.auto_grade } : {}),
+      },
+      market_type,
+      pricing_source: 'CardHedger',
+      confidence_split: {
+        base_match: PsaService.clamp01(baseMatch),
+        variant_match: PsaService.clamp01(variant.variant_match_confidence),
+      },
+    };
+  }
+
   /** OCR(앞/뒤) + Cardhedger cert OCR 후보로 PSA 공식 메타 조회. */
   async analyzeSlabImages(
     slabFront: Buffer,
@@ -298,48 +600,28 @@ export class PsaService {
     slabBack: Buffer | undefined,
     certHint: string | undefined,
   ): Promise<PsaAnalyzeResult> {
-    const chOcr = await this.tryResolveByCardhedgerCertOcr(slabFront);
+    const frontOcr = await this.tryResolveByCardhedgerCertOcr(slabFront);
+    const backOcr =
+      slabBack && slabBack.length > 0 ? await this.tryResolveByCardhedgerCertOcr(slabBack) : undefined;
 
-    let frontText = '';
-    let backText = '';
-    try {
-      frontText = await this.runOcrOnBuffer(slabFront);
-    } catch (e) {
-      this.logger.warn(`OCR slab front failed: ${String(e)}`);
-    }
-    if (slabBack && slabBack.length > 0) {
-      try {
-        backText = await this.runOcrOnBuffer(slabBack);
-      } catch (e) {
-        this.logger.warn(`OCR slab back failed: ${String(e)}`);
-      }
-    }
+    const combinedNorm = PsaService.combineNormalizedOcr(frontOcr.normalized, backOcr?.normalized);
+    let psaParsed: ParsedPsaLabel = PsaService.psaParsedFromNormalizedOcr(combinedNorm);
 
-    let psaParsed: ParsedPsaLabel = {};
-
-    const parseFromPieces = (parts: string[]): ParsedPsaLabel => {
-      const combined = parts.filter(Boolean).join('\n---\n');
-      return parsePsaLabelFromOcr(combined);
-    };
-    try {
-      psaParsed = parseFromPieces([frontText, backText]);
-    } catch (e) {
-      this.logger.warn(`parsePsaLabelFromOcr(primary) failed: ${String(e)}`);
-    }
-
+    // HARD RULE: do not overwrite OCR-extracted cert; only use manual cert when OCR has none.
     const hintDigits = resolveCertHintForLookup(certHint);
-    if (hintDigits) {
+    if (!resolveCertHintForLookup(psaParsed.certNumber) && hintDigits) {
       psaParsed = { ...psaParsed, certNumber: hintDigits };
     }
-    let combinedText = [frontText, backText].filter(Boolean).join('\n---\n');
+
+    let combinedText = combinedNorm.raw_text || '';
     if (combinedText.length > PsaService.MAX_COMBINED_OCR_CHARS) {
       combinedText = combinedText.slice(0, PsaService.MAX_COMBINED_OCR_CHARS);
     }
 
     const finalCert = resolveCertHintForLookup(psaParsed.certNumber);
     const certCandidates = [
-      ...(hintDigits ? [hintDigits] : []),
-      ...chOcr.certCandidates,
+      ...frontOcr.certCandidates,
+      ...(backOcr?.certCandidates ?? []),
       ...(finalCert ? [finalCert] : []),
     ].filter((v, i, a) => a.indexOf(v) === i);
     if (certCandidates.length === 0) {
@@ -350,9 +632,14 @@ export class PsaService {
     psaParsed = { ...psaParsed, certNumber: certCandidates[0] };
 
     const ocr: PsaAnalyzeResult['ocr'] = {
+      cardhedger: {
+        front: frontOcr.normalized,
+        ...(backOcr?.normalized ? { back: backOcr.normalized } : {}),
+        combined: combinedNorm,
+      },
       combinedText,
-      frontText: frontText || undefined,
-      backText: backText || undefined,
+      frontText: frontOcr.normalized.raw_text || undefined,
+      backText: backOcr?.normalized.raw_text || undefined,
     };
 
     return this.buildAnalyzeResultFromPsaParsedAndOcr(
@@ -360,7 +647,11 @@ export class PsaService {
       combinedText,
       ocr,
       certCandidates,
-      chOcr,
+      {
+        ...(frontOcr.cardId ? { cardId: frontOcr.cardId } : {}),
+        ...(frontOcr.searchQuery ? { searchQuery: frontOcr.searchQuery } : {}),
+        ...(frontOcr.imageUrl ? { imageUrl: frontOcr.imageUrl } : {}),
+      },
     );
   }
 
@@ -374,10 +665,24 @@ export class PsaService {
         '유효한 Cert 번호(7~10자리 숫자) 또는 psacard.com/cert/… 형태의 URL이 필요합니다.',
       );
     }
+    const empty: CardhedgerOcrNormalized = {
+      raw_text: '',
+      parsed_entities: {
+        card_name: '',
+        set: '',
+        year: '',
+        card_number: '',
+        cert_number: '',
+        grade: '',
+        autograph_detected: false,
+        signer_guess: null,
+      },
+      confidence: 0,
+    };
     return this.buildAnalyzeResultFromPsaParsedAndOcr(
       { certNumber: hintDigits },
       '',
-      { combinedText: '' },
+      { cardhedger: { front: empty, combined: empty }, combinedText: '' },
       [hintDigits],
       undefined,
     );
@@ -559,6 +864,7 @@ export class PsaService {
         certVerifyUrl,
         enrichedFromOfficialApi,
       },
+      identity: this.buildTwoLayerIdentity(psaParsed, combinedText, cardhedgerMint),
       psaApi: {
         lookup: apiLookupSuccess,
       },

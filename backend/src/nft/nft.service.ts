@@ -21,7 +21,9 @@ function safeCollectionCoverFilename(name: string): string {
 function isPsaGraded(graded: Record<string, unknown> | undefined): boolean {
   if (!graded || typeof graded !== 'object') return false;
   const gc = graded.gradingCompany;
-  return typeof gc === 'string' && gc.toUpperCase() === 'PSA';
+  if (typeof gc !== 'string') return false;
+  const norm = gc.trim().toUpperCase().replace(/\s+/g, '');
+  return norm === 'PSA' || norm === 'PSA/DNA' || norm === 'PSADNA';
 }
 
 function parsePositiveNumber(raw: unknown): number | null {

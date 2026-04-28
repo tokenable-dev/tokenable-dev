@@ -51,16 +51,27 @@ export function buildCardQueryFromRwaMetadata(metadata: unknown): {
 
   const psa = graded && isRecord(graded.psa) ? graded.psa : null;
   const card = graded && isRecord(graded.card) ? graded.card : null;
+
+  // Two-layer identity (preferred): base_card is for Cardhedger matching (no autograph terms).
+  const identity = graded && isRecord(graded.identity) ? graded.identity : null;
+  const baseCard =
+    identity && isRecord(identity.base_card)
+      ? (identity.base_card as Record<string, unknown>)
+      : null;
+
   const cardNameRaw =
+    (typeof baseCard?.card_name === 'string' && baseCard.card_name.trim()) ||
     (typeof psa?.cardNameHint === 'string' && psa.cardNameHint.trim()) ||
     (typeof card?.name === 'string' && card.name.trim()) ||
     (typeof metadata.name === 'string' && metadata.name.trim()) ||
     '';
   const cardNumberRaw =
+    (typeof baseCard?.card_number === 'string' && baseCard.card_number.trim()) ||
     (typeof psa?.cardNumberHint === 'string' && psa.cardNumberHint.trim()) ||
     (card?.number != null ? String(card.number).trim() : '') ||
     '';
   const cardSet =
+    (typeof baseCard?.set === 'string' && baseCard.set.trim()) ||
     (typeof psa?.setHint === 'string' && psa.setHint.trim()) ||
     (typeof card?.set === 'string' && card.set.trim()) ||
     '';
