@@ -1,6 +1,6 @@
 # 개발·배포 가이드 (통합)
 
-레포 루트 [README.md](../README.md)에서 클론·설치·실행 흐름을 보고, 여기서는 **로컬 DB·API**, **Seaport**, **규칙 기반 매칭(relational)**, **JustTCG**, **EC2 배포**, **트러블슈팅**, **다이어그램**을 정리합니다.
+레포 루트 [README.md](../README.md)에서 클론·설치·실행 흐름을 보고, 여기서는 **로컬 DB·API**, **Seaport**, **규칙 기반 매칭(relational)**, **Cardhedger**, **EC2 배포**, **트러블슈팅**, **다이어그램**을 정리합니다.
 
 ---
 
@@ -10,7 +10,7 @@
 
 | 경로 | 역할 |
 |------|------|
-| `/` | 랜딩 — Market Indexes (`GET /api/price/games` 기반 카드 등) |
+| `/` | 랜딩 — Market Indexes (`GET /api/cardhedger/indexes` 기반 카드 등) |
 | `/exchange` | 컬렉션 목록 · 카테고리 필터 · Trending · 리스트/그리드 |
 | `/portfolio` | 보유 자산 · 리스팅 여부 · 참고가 대비 플랫폼 가격 |
 | `/vault` | 민팅·등록 진입 |
@@ -21,7 +21,7 @@
 
 | 구분 | 엔드포인트 / 코드 | 비고 |
 |------|-------------------|------|
-| **JustTCG** | `GET /api/price/games`, `/sets`, `/cards`, … | `PriceService`, **`TCG_API_KEY` 필수** (`ConfigService.getOrThrow`). 로컬 mock 전용 분기는 제거됨. |
+| **Cardhedger** | `GET /api/cardhedger/indexes`, `/api/cardhedger/v1/cards/*` | `CARDHEDGER_API_KEY` 기반 카탈로그/가격/검색 |
 | **PokéTrace** | `GET /api/marketplace/poketrace/catalog`, `/cards`, `/cards/:cardId/prices/:tier/history`, … | `PoketraceProxyController` + `PoketraceService` — 컬렉션/토큰 차트·티어 히스토리 |
 | **컬렉션 배치 스냅샷** | `POST /api/marketplace/collections/market-snapshots` | Exchange 등에서 여러 컬렉션의 풀 통계·스파크라인·외부 참조가를 한 번에 |
 
@@ -53,7 +53,7 @@ cd backend && pnpm start:dev
 
 - **Swagger**: 백엔드 기동 후 `{API}/api/docs` (예: `http://localhost:4000/api/docs`).
 - 프론트 래퍼: `frontend/lib/api.ts`, 베이스 URL은 `getApiUrl()` (브라우저에서는 보통 `{origin}/api`).
-- **전체 라우트 표** (auth · rwa · blockchain · price · psa · marketplace · poketrace 프록시 · bids/trade): **[API-REFERENCE.md](./API-REFERENCE.md)** — 스키마 변경 시 Swagger와 함께 그 문서를 갱신합니다.
+- **전체 라우트 표** (auth · rwa · blockchain · psa · marketplace · poketrace 프록시 · bids/trade): **[API-REFERENCE.md](./API-REFERENCE.md)** — 스키마 변경 시 Swagger와 함께 그 문서를 갱신합니다.
 
 ### 한 줄 요약
 
@@ -62,7 +62,6 @@ cd backend && pnpm start:dev
 | `/api/auth/*` | Google OAuth, JWT 쿠키, 세션, 지갑 연결 |
 | `/api/rwa/upload` | IPFS 메타 업로드 |
 | `/api/blockchain/*` | USDC · TokenableRWA 읽기, 메타 배치, 미디어 resolve |
-| `/api/price/*` | JustTCG (`TCG_API_KEY` 필수) |
 | `/api/psa/*` | 슬랩 OCR · Cert 조회 |
 | `/api/marketplace/*` | Seaport 오더북, 컬렉션·차트·스냅샷, PokéTrace 컬렉션 헬퍼, `poketrace/*` 업스트림 프록시 |
 | `/api/marketplace/bids`, `/api/marketplace/trade` | 규칙 기반 relational 레이어 |
@@ -96,17 +95,9 @@ cd backend && pnpm start:dev
 
 ---
 
-## 4. JustTCG 가격 API
+## 4. Cardhedger 가격 API
 
-엔드포인트·쿼리·에러 코드 전체는 별도 문서:
-
-→ **[price-api.md](./price-api.md)**
-
-| 변수 | 설명 |
-|------|------|
-| `TCG_API_KEY` | **필수** — `PriceService`가 `getOrThrow`로 읽으며, 없으면 백엔드 기동 실패. JustTCG 실호출만 사용한다. |
-
-> 과거에 있던 **로컬 mock 전용 env / `price.mock.ts`** 분기는 제거되었다. 한도·키 관리는 JustTCG 플랜·키 로테이션으로 처리한다.
+엔드포인트는 Swagger의 `Card Hedge · ...` 태그와 `/api/cardhedger/catalog`를 기준으로 확인합니다.
 
 ---
 
@@ -243,7 +234,7 @@ docker exec tokenable-backend env | grep -E 'TYPEORM|POSTGRES|NODE_ENV'
 1. 백엔드 로그에서 `PSA analyze failed:` 뒤 메시지 확인: `docker compose logs -f backend --tail=200`.
 2. **sharp / tesseract.js**: Alpine musl 빌드 불일치 시 로드 실패 — Dockerfile이 Debian 기반인지 확인 후 이미지 재빌드.
 3. **메모리**: 작은 인스턴스에서 OOM → 인스턴스 상향 또는 메모리 제한 완화.
-4. **아웃바운드 HTTPS**: PSA·JustTCG·이미지 URL 요청이 나가야 함.
+4. **아웃바운드 HTTPS**: PSA·Cardhedger·이미지 URL 요청이 나가야 함.
 5. **업로드 크기**: Nginx `client_max_body_size` vs Multer 한도(예: 15MB).
 
 컨테이너 안에서: `node -e "require('sharp'); console.log('ok')"` 로 네이티브 모듈 확인.

@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
-import { PoketraceService } from '../poketrace/poketrace.service';
+import { CardhedgerMarketDataService } from './cardhedger-market-data.service';
 import { CollectionService } from './collection.service';
 import {
   percentChangeFromPoints,
@@ -13,22 +13,21 @@ import {
   blendCatalogSpotUsdFromPreview,
   gradeStripFromHistoryTier,
   nmHistoryDaysForBundleWindow,
-} from './poketrace-grade-strip.util';
-import { poketraceHistoryTierFromComponents } from './poketrace-catalog-tier.util';
-import { tokenablePriceHistoryDurationToPeriod } from '../poketrace/poketrace-period.util';
+} from './market-grade-strip.util';
+import { marketHistoryTierFromComponents } from './market-history-tier.util';
+import { tokenablePriceHistoryDurationToPeriod } from './price-history-period.util';
 import { Order, OrderSide, OrderStatus } from './entities/order.entity';
 import { computeRobustMarketStatsFromUsdPrices } from './collection-market-stats.util';
 
 export type PriceHistoryDuration = '7d' | '30d' | '90d' | '180d' | '365d';
 
 /**
- * Collection catalog reference prices: **PokeTrace** (PSA slab → `PSA_10` / `PSA_9` history + bands; else NM).
+ * Collection catalog reference prices: Cardhedger PSA10 history + bands.
  * `GET …/collections/:key/stats` is **listing-pool liquidity only**, not catalog price.
  */
 export type MarketChangePriceSource =
-  | 'poketrace_nm_ebay'
-  | 'poketrace_graded_ebay'
-  | 'justtcg_card_history'
+  | 'cardhedger_nm'
+  | 'cardhedger_graded'
   | 'none';
 
 /** Listing-pool depth / distribution (USDC) — liquidity signal; not primary “market price”. */
@@ -49,25 +48,23 @@ export interface CollectionMarketStatsResponse {
     currency: 'USDC';
   };
   sources: { listings: boolean; trades?: boolean };
-  reference?: { poketraceCardId: string | null };
+  reference?: { cardhedgerCardId: string | null };
 }
 
 export interface CollectionMarketBundle {
   collectionKey: string;
-  /** Legacy field — always null (catalog ids live under PokeTrace preview / `components.poketraceCardId`). */
-  justtcgCardId: string | null;
   categoryLabel: string | null;
-  /** Percent change over {@link marketChangeWindow} from PokeTrace NM eBay history when available. */
+  /** Percent change over {@link marketChangeWindow} from Cardhedger history when available. */
   marketChangePct: number | null;
   /** Calendar window aligned with NM history (chart uses max days upstream). */
   marketChangeWindow: PriceHistoryDuration;
-  /** `poketrace_nm_ebay` when `marketChangePct` is from NM history; else `none`. */
+  /** Market change source label. */
   marketChangeSource: MarketChangePriceSource | null;
   /** Legacy — always false. */
   isMockExternalPrices: boolean;
-  /** NM-derived reference strip (same USD on psa10/psa9/raw — PokeTrace does not split graded tiers on public NM). */
+  /** Reference strip aligned to platform PSA10-only policy. */
   gradePrices: GradePriceStrip;
-  /** PokeTrace eBay NEAR_MINT daily series (downsampled for list snapshots). */
+  /** External USD reference series (downsampled for list snapshots). */
   externalUsd: UsdPoint[];
   platformUsd: UsdPoint[];
 }
@@ -98,11 +95,20 @@ export class CollectionMarketService {
 
   constructor(
     private readonly collectionService: CollectionService,
-    private readonly poketraceService: PoketraceService,
+    private readonly cardMarketData: CardhedgerMarketDataService,
     private readonly config: ConfigService,
     @InjectRepository(Order)
     private readonly orderRepo: Repository<Order>,
   ) {}
+
+  private async retryOnce<T>(fn: () => Promise<T>, waitMs = 250): Promise<T> {
+    try {
+      return await fn();
+    } catch {
+      await new Promise((r) => setTimeout(r, waitMs));
+      return fn();
+    }
+  }
 
   /** Canonical USDC contract for listing consideration (env or Sepolia default). */
   private usdcContractAddressLower(): string {
@@ -205,7 +211,7 @@ export class CollectionMarketService {
 
   /**
    * Listing + fulfilled ask pool statistics for `collectionKey`.
-   * `poketraceCardId` is returned under `reference` only — never used in floor/median/band/vol.
+   * `cardhedgerCardId` is returned under `reference` only — never used in floor/median/band/vol.
    */
   async getCollectionMarketStats(
     collectionKey: string,
@@ -279,9 +285,9 @@ export class CollectionMarketService {
 
     const stats = computeRobustMarketStatsFromUsdPrices(prices);
     const comp = (col?.components ?? {}) as Record<string, unknown>;
-    const pid =
-      typeof comp.poketraceCardId === 'string' && comp.poketraceCardId.trim()
-        ? comp.poketraceCardId.trim()
+    const chid =
+      typeof comp.cardhedgerCardId === 'string' && comp.cardhedgerCardId.trim()
+        ? comp.cardhedgerCardId.trim()
         : null;
 
     const rawPoolN = prices.length;
@@ -308,39 +314,44 @@ export class CollectionMarketService {
       });
     }
 
-    this.logger.log(
-      JSON.stringify({
-        msg: 'collection_market_stats',
-        collectionKey: key,
-        marketplaceCollectionRow: Boolean(col),
-        referencePoketraceCardIdPresent: Boolean(pid),
-        usdcAddressExpectedLower: expectedUsdc,
-        activeAskRowsDb: asks.length,
-        poolFromActiveAsks,
-        activeAskSkippedNonUsdc: askNonUsdc,
-        activeAskSkippedInvalidAmount: askInvalidAmount,
-        fulfilledAskRowsDb: fulfilled.length,
-        poolFromFulfilledAsks,
-        fulfilledSkippedNoTokenOrZero: fulfilledSkippedToken,
-        fulfilledSkippedNonUsdc: fulfilledNonUsdc,
-        fulfilledSkippedInvalidAmount: fulfilledInvalidAmount,
-        /** USDC prices merged into pool (active + eligible fulfilled) before IQR / min-sample gate */
-        usdcObservationCount: rawPoolN,
-        sampleSize: stats.sampleSize,
-        isReliable: stats.isReliable,
-        unreliableReason,
-        ...(diagOn && rawPoolN === 0
-          ? {
-              globalActiveAskTotal,
-              globalActiveAskRowsWithNullCollectionKey: globalActiveAskNullKeyCount,
-              pipelineHint:
-                'If globalActiveAskRowsWithNullCollectionKey > 0 but activeAskRowsDb is 0, orders likely have NULL collection_key while UI stats use a meta-derived 64-char key.',
-            }
-          : {}),
-        note:
-          'Active listing query: orders.collection_key = key AND status = active AND side = ask. Stats path lowercases key; sha256 digest is lowercase hex.',
-      }),
-    );
+    const statsLog = JSON.stringify({
+      msg: 'collection_market_stats',
+      collectionKey: key,
+      marketplaceCollectionRow: Boolean(col),
+      referenceCardhedgerCardIdPresent: Boolean(chid),
+      usdcAddressExpectedLower: expectedUsdc,
+      activeAskRowsDb: asks.length,
+      poolFromActiveAsks,
+      activeAskSkippedNonUsdc: askNonUsdc,
+      activeAskSkippedInvalidAmount: askInvalidAmount,
+      fulfilledAskRowsDb: fulfilled.length,
+      poolFromFulfilledAsks,
+      fulfilledSkippedNoTokenOrZero: fulfilledSkippedToken,
+      fulfilledSkippedNonUsdc: fulfilledNonUsdc,
+      fulfilledSkippedInvalidAmount: fulfilledInvalidAmount,
+      /** USDC prices merged into pool (active + eligible fulfilled) before IQR / min-sample gate */
+      usdcObservationCount: rawPoolN,
+      sampleSize: stats.sampleSize,
+      isReliable: stats.isReliable,
+      unreliableReason,
+      ...(diagOn && rawPoolN === 0
+        ? {
+            globalActiveAskTotal,
+            globalActiveAskRowsWithNullCollectionKey: globalActiveAskNullKeyCount,
+            pipelineHint:
+              'If globalActiveAskRowsWithNullCollectionKey > 0 but activeAskRowsDb is 0, orders likely have NULL collection_key while UI stats use a meta-derived 64-char key.',
+          }
+        : {}),
+      note:
+        'Active listing query: orders.collection_key = key AND status = active AND side = ask. Stats path lowercases key; sha256 digest is lowercase hex.',
+    });
+    // Normal state for a fresh DB / newly minted asset with no listings yet.
+    // Keep this out of INFO logs unless diagnostics are explicitly enabled.
+    if (unreliableReason === 'no_order_rows_for_collection_key' && !diagOn) {
+      this.logger.debug(statsLog);
+    } else {
+      this.logger.log(statsLog);
+    }
 
     return {
       collectionKey: key,
@@ -358,7 +369,7 @@ export class CollectionMarketService {
         currency: 'USDC',
       },
       sources: { listings: true, trades: tradesUsed },
-      reference: { poketraceCardId: pid },
+      reference: { cardhedgerCardId: chid },
     };
   }
 
@@ -377,14 +388,14 @@ export class CollectionMarketService {
       ? priceHistoryDuration
       : '365d';
     const chartHistoryDays = nmHistoryDaysForBundleWindow(window);
-    const historyTier = poketraceHistoryTierFromComponents(
+    const historyTier = marketHistoryTierFromComponents(
       col?.components as Record<string, unknown> | undefined,
     );
     const historyPeriod = tokenablePriceHistoryDurationToPeriod(window);
 
     const [preview, tierHist] = await Promise.all([
-      this.poketraceService.getPreviewForCollection(col),
-      this.poketraceService.getTierPriceHistoryForCollection(col, {
+      this.cardMarketData.getPreviewForCollection(col),
+      this.cardMarketData.getTierPriceHistoryForCollection(col, {
         tier: historyTier,
         period: historyPeriod,
         maxCalendarDays: chartHistoryDays,
@@ -404,8 +415,8 @@ export class CollectionMarketService {
     const marketChangeSource: MarketChangePriceSource | null =
       marketChangePct != null && externalUsd.length >= 2
         ? historyTier === 'NEAR_MINT'
-          ? 'poketrace_nm_ebay'
-          : 'poketrace_graded_ebay'
+          ? 'cardhedger_nm'
+          : 'cardhedger_graded'
         : 'none';
 
     const categoryParts =
@@ -418,7 +429,6 @@ export class CollectionMarketService {
 
     return {
       collectionKey: key,
-      justtcgCardId: null,
       categoryLabel,
       marketChangePct,
       marketChangeWindow: window,
@@ -439,7 +449,7 @@ export class CollectionMarketService {
       keys.map(async (key) => {
         try {
           const [bundle, stats] = await Promise.all([
-            this.getCollectionMarketBundle(key, priceHistoryDuration),
+            this.retryOnce(() => this.getCollectionMarketBundle(key, priceHistoryDuration)),
             this.getCollectionMarketStats(key).catch(() => null),
           ]);
           return bundleToListSnapshot(bundle, stats);
@@ -447,7 +457,6 @@ export class CollectionMarketService {
           this.logger.warn(`batch snapshot failed for ${key}: ${String(e)}`);
           return {
             collectionKey: key,
-            justtcgCardId: null,
             categoryLabel: null,
             marketChangePct: null,
             marketChangeWindow: priceHistoryDuration,
@@ -468,7 +477,6 @@ export class CollectionMarketService {
 
 export interface CollectionListSnapshot {
   collectionKey: string;
-  justtcgCardId: string | null;
   categoryLabel: string | null;
   marketChangePct: number | null;
   marketChangeWindow: PriceHistoryDuration;
@@ -494,7 +502,6 @@ function bundleToListSnapshot(
     bundle.platformUsd.length > 0 ? bundle.platformUsd[bundle.platformUsd.length - 1]! : null;
   return {
     collectionKey: bundle.collectionKey,
-    justtcgCardId: bundle.justtcgCardId,
     categoryLabel: bundle.categoryLabel,
     marketChangePct: bundle.marketChangePct,
     marketChangeWindow: bundle.marketChangeWindow,

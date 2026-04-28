@@ -1,4 +1,4 @@
-import { buildCollectionDisplayLabel, extractJustTcgQueryUsed } from './collection-label.util';
+import { buildCollectionDisplayLabel, extractCollectionQueryUsed } from './collection-label.util';
 import type { MarketBucketComponents } from './bucket-key.util';
 
 describe('collection-label.util', () => {
@@ -9,17 +9,17 @@ describe('collection-label.util', () => {
     gradeScore: '9',
   };
 
-  it('extractJustTcgQueryUsed from graded.justtcg', () => {
+  it('extractCollectionQueryUsed from graded.cardhedger.searchQuery', () => {
     const meta = {
       properties: {
         graded: {
-          justtcg: {
-            queryUsed: 'PIKACHU/GREY FELT HAT  POKEMON  SVP  #085',
+          cardhedger: {
+            searchQuery: 'PIKACHU/GREY FELT HAT  POKEMON  SVP  #085',
           },
         },
       },
     };
-    expect(extractJustTcgQueryUsed(meta)).toBe(
+    expect(extractCollectionQueryUsed(meta)).toBe(
       'PIKACHU/GREY FELT HAT POKEMON SVP #085',
     );
   });

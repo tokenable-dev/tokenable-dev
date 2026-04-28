@@ -7,8 +7,8 @@ import { useAccount, useConnect, useDisconnect, useBalance } from "wagmi";
 import { formatUnits } from "viem";
 import { ASSETS } from "@/constants/assets";
 import { sepolia } from "@/config/wagmi";
-import { ensureSepoliaNetwork } from "@/lib/ensureSepoliaNetwork";
-import type { MarketplaceCollectionSummary } from "@/lib/api";
+import type { MarketplaceCollectionSummary } from "@/lib/core";
+import { ensureSepoliaNetwork } from "@/lib/network";
 import { useMarketplaceCollectionsInfinite } from "@/hooks/useMarketplaceCollectionsInfinite";
 import { useResolvedMediaUrlMap } from "@/hooks/useResolvedMediaUrl";
 import { useAppStore, selectUsdcBalance } from "@/store";
@@ -446,10 +446,10 @@ export function AppHeader() {
           </Link>
           <div className="hidden sm:flex items-center gap-4">
             <Link
-              href="/exchange"
+              href="/markets"
               className="text-sm text-gray-400 hover:text-white transition-colors"
             >
-              Exchange
+              Markets
             </Link>
             <Link
               href="/portfolio"

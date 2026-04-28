@@ -4,7 +4,7 @@ import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { CollectionMarketService } from './collection-market.service';
 import { CollectionService } from './collection.service';
-import { PoketraceService } from '../poketrace/poketrace.service';
+import { CardhedgerMarketDataService } from './cardhedger-market-data.service';
 import { Order, OrderSide, OrderStatus } from './entities/order.entity';
 
 const USDC = '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238';
@@ -42,7 +42,7 @@ describe('CollectionMarketService.getCollectionMarketStats', () => {
     findOne: jest.fn(),
     activeListingsForCollection: jest.fn(),
   };
-  const poketraceService = {
+  const cardMarketDataService = {
     getPreviewForCollection: jest.fn(),
     getNearMintHistoryForCollection: jest.fn(),
   };
@@ -58,7 +58,7 @@ describe('CollectionMarketService.getCollectionMarketStats', () => {
       providers: [
         CollectionMarketService,
         { provide: CollectionService, useValue: collectionService },
-        { provide: PoketraceService, useValue: poketraceService },
+        { provide: CardhedgerMarketDataService, useValue: cardMarketDataService },
         { provide: ConfigService, useValue: configService },
         { provide: getRepositoryToken(Order), useValue: orderRepo },
       ],
@@ -74,13 +74,13 @@ describe('CollectionMarketService.getCollectionMarketStats', () => {
     expect(s.sampleSize).toBe(0);
     expect(s.isReliable).toBe(false);
     expect(s.floor).toBeNull();
-    expect(s.reference?.poketraceCardId).toBeNull();
+    expect(s.reference?.cardhedgerCardId).toBeNull();
   });
 
   it('same collectionKey + same listings yields identical stats (deterministic)', async () => {
     collectionService.findOne.mockResolvedValue({
       collectionKey: 'ab',
-      components: { poketraceCardId: 'ref-1' },
+      components: { cardhedgerCardId: 'ref-1' },
     });
     collectionService.activeListingsForCollection.mockResolvedValue([
       minimalAskOrder(10, '1'),
@@ -99,10 +99,10 @@ describe('CollectionMarketService.getCollectionMarketStats', () => {
     expect(first.dataQuality.sampleSize).toBe(5);
     expect(first.floor).not.toBeNull();
     expect(first.median).not.toBeNull();
-    expect(first.reference?.poketraceCardId).toBe('ref-1');
+    expect(first.reference?.cardhedgerCardId).toBe('ref-1');
   });
 
-  it('changing poketraceCardId reference does not change numeric pool stats', async () => {
+  it('changing cardhedgerCardId reference does not change numeric pool stats', async () => {
     collectionService.activeListingsForCollection.mockResolvedValue([
       minimalAskOrder(5, '1'),
       minimalAskOrder(15, '2'),
@@ -112,16 +112,16 @@ describe('CollectionMarketService.getCollectionMarketStats', () => {
     ]);
     collectionService.findOne.mockResolvedValueOnce({
       collectionKey: 'c',
-      components: { poketraceCardId: 'card-a' },
+      components: { cardhedgerCardId: 'card-a' },
     });
     const withA = await svc.getCollectionMarketStats('c');
     collectionService.findOne.mockResolvedValueOnce({
       collectionKey: 'c',
-      components: { poketraceCardId: 'card-b' },
+      components: { cardhedgerCardId: 'card-b' },
     });
     const withB = await svc.getCollectionMarketStats('c');
-    expect(withA.reference?.poketraceCardId).toBe('card-a');
-    expect(withB.reference?.poketraceCardId).toBe('card-b');
+    expect(withA.reference?.cardhedgerCardId).toBe('card-a');
+    expect(withB.reference?.cardhedgerCardId).toBe('card-b');
     expect(withB.floor).toBe(withA.floor);
     expect(withB.median).toBe(withA.median);
     expect(withB.p25).toBe(withA.p25);

@@ -19,7 +19,7 @@ export class MarketplaceCollection {
   components: Record<string, unknown>;
 
   /**
-   * 컬렉션 고정 커버 — JustTCG topMatch 등 카탈로그 카드 아트 URL만 (슬랩/cert 사진 아님).
+   * 컬렉션 고정 커버 — 카탈로그 카드 아트/PSA 이미지 URL (슬랩 촬영본과는 별도).
    * 첫 매도 등록 시 또는 나중에 resolve 시 한 번 채움.
    */
   @Column({ name: 'cover_image_url', type: 'text', nullable: true })

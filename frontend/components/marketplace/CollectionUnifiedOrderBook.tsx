@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { formatUnits } from "viem";
-import { type CollectionPlatformTapeFill, type Order } from "@/lib/api";
+import { type CollectionPlatformTapeFill, type Order } from "@/lib/core";
 import { isCriteriaCollectionBid } from "@/lib/seaport/criteriaMatch";
 
 function priceUsdcFromOrder(o: Order): number {

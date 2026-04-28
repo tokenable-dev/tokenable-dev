@@ -1,13 +1,13 @@
 import type { Address, Hash, PublicClient } from "viem";
-import { fulfillOrderApi, type Order } from "@/lib/api";
+import { fulfillOrderApi, type Order } from "@/lib/core";
 import {
   SEAPORT_ADDRESS,
   SEAPORT_ABI,
   USDC_ADDRESS,
   USDC_ABI,
 } from "@/constants/contracts";
-import { GAS_FALLBACK, gasWithCapFast } from "@/lib/chainGas";
-import { FULFILL_EXTRA_DATA, fulfillSeaportOrderArgs } from "@/lib/seaportFulfillOrderArgs";
+import { GAS_FALLBACK, gasWithCapFast } from "@/lib/network";
+import { FULFILL_EXTRA_DATA, fulfillSeaportOrderArgs } from "@/lib/seaport/fulfillOrderArgs";
 
 function askPriceMicros(o: Order): bigint {
   try {

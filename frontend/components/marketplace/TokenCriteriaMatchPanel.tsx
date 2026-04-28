@@ -4,7 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { useAccount, usePublicClient, useWriteContract } from "wagmi";
 import { sepolia } from "@/config/wagmi";
-import type { Order } from "@/lib/api";
+import type { Order } from "@/lib/core";
 import { bidUsdcAmount } from "@/lib/seaport/bidUsdc";
 import { isCriteriaCollectionBid } from "@/lib/seaport/criteriaMatch";
 import {

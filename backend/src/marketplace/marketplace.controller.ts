@@ -8,13 +8,12 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
-import { PoketraceService } from '../poketrace/poketrace.service';
+import { CardhedgerMarketDataService } from './cardhedger-market-data.service';
 import {
-  isPoketraceHistoryPeriod,
-  poketracePeriodToMaxCalendarDays,
-  type PoketraceHistoryPeriod,
-} from '../poketrace/poketrace-period.util';
-import { poketraceHistoryTierFromComponents } from './poketrace-catalog-tier.util';
+  isMarketHistoryPeriod,
+  marketPeriodToMaxCalendarDays,
+  type MarketHistoryPeriod,
+} from './price-history-period.util';
 import { CollectionMarketService } from './collection-market.service';
 import { CollectionService } from './collection.service';
 import { BatchMarketSnapshotsDto } from './dto/batch-market-snapshots.dto';
@@ -41,7 +40,7 @@ export class MarketplaceController {
     private readonly marketplaceService: MarketplaceService,
     private readonly collectionService: CollectionService,
     private readonly collectionMarketService: CollectionMarketService,
-    private readonly poketraceService: PoketraceService,
+    private readonly cardMarketData: CardhedgerMarketDataService,
     private readonly hiddenAssetsService: HiddenAssetsService,
   ) {}
 
@@ -101,7 +100,7 @@ export class MarketplaceController {
 
   @ApiOperation({
     summary:
-      'Batch list-row snapshots: PokeTrace NM grade strip + category + eBay NEAR_MINT sparkline when history is available. Pool floor/median/band/vol: use GET …/collections/:key/stats or `marketStats` on each item when present.',
+      'Batch list-row snapshots: Cardhedger-backed grade strip + category + external sparkline when history is available. Pool floor/median/band/vol: use GET …/collections/:key/stats or `marketStats` on each item when present.',
   })
   @ApiBody({ type: BatchMarketSnapshotsDto })
   @Post('collections/market-snapshots')
@@ -114,32 +113,38 @@ export class MarketplaceController {
 
   @ApiOperation({
     summary:
-      'PokeTrace: matched catalog card + raw (Near Mint) eBay/TCGPlayer bands. PSA graded tier prices require a PokeTrace Pro API plan; token stays server-side.',
+      'Cardhedger-backed preview: matched catalog card + PSA10 spot bands.',
   })
   @ApiParam({ name: 'key', description: 'collection_key' })
-  @Get('collections/:key/poketrace')
-  async getCollectionPoketrace(@Param('key') key: string) {
+  @Get('collections/:key/cardhedger')
+  async getCollectionCardhedger(@Param('key') key: string) {
     const k = decodeURIComponent(key).toLowerCase();
     const col = await this.collectionService.findOne(k);
-    return this.poketraceService.getPreviewForCollection(col);
+    return this.cardMarketData.getPreviewForCollection(col);
   }
 
   @ApiOperation({
     summary:
-      'PokeTrace: tier price history for the resolved catalog card. Unified params: `tier` + `period` (OpenAPI 1.5). Optional `maxDays` trims tighter than `period`.',
+      'Cardhedger AI market brief for this collection (card-match powered).',
   })
   @ApiParam({ name: 'key', description: 'collection_key' })
-  @ApiQuery({
-    name: 'tier',
-    required: false,
-    description: 'e.g. NEAR_MINT, PSA_10',
-    example: 'NEAR_MINT',
+  @Get('collections/:key/ai-insight')
+  async getCollectionAiInsight(@Param('key') key: string) {
+    const k = decodeURIComponent(key).toLowerCase();
+    const col = await this.collectionService.findOne(k);
+    return this.cardMarketData.getAiInsightForCollection(col);
+  }
+
+  @ApiOperation({
+    summary:
+      'Cardhedger-backed PSA10 price history for resolved card.',
   })
+  @ApiParam({ name: 'key', description: 'collection_key' })
   @ApiQuery({
     name: 'period',
     required: false,
     enum: ['7d', '30d', '90d', '1y', 'all'],
-    description: 'PokeTrace history window (default 90d)',
+    description: 'History window (default 90d)',
   })
   @ApiQuery({
     name: 'maxDays',
@@ -147,27 +152,16 @@ export class MarketplaceController {
     description:
       'Optional post-fetch UTC-day trim (1–4000). Defaults to span implied by `period`.',
   })
-  @Get('collections/:key/poketrace/price-history')
-  async getCollectionPoketracePriceHistory(
+  @Get('collections/:key/cardhedger/price-history')
+  async getCollectionCardhedgerPriceHistory(
     @Param('key') key: string,
-    @Query('tier') tierRaw?: string,
     @Query('period') periodRaw?: string,
     @Query('maxDays') maxDaysRaw?: string,
   ) {
     const k = decodeURIComponent(key).toLowerCase();
     const col = await this.collectionService.findOne(k);
-    const trimmed = (tierRaw ?? '').trim();
-    const tier =
-      trimmed.length > 0
-        ? trimmed
-        : poketraceHistoryTierFromComponents(
-            col?.components as Record<string, unknown> | undefined,
-          );
-    if (!/^[A-Za-z0-9_]+$/.test(tier)) {
-      throw new BadRequestException('Invalid tier');
-    }
     const periodStr = String(periodRaw ?? '90d');
-    const period: PoketraceHistoryPeriod = isPoketraceHistoryPeriod(periodStr)
+    const period: MarketHistoryPeriod = isMarketHistoryPeriod(periodStr)
       ? periodStr
       : '90d';
     const parsedMax =
@@ -176,9 +170,9 @@ export class MarketplaceController {
         : NaN;
     const maxCalendarDays = Number.isFinite(parsedMax)
       ? Math.min(4000, Math.max(1, parsedMax))
-      : poketracePeriodToMaxCalendarDays(period);
-    return this.poketraceService.getTierPriceHistoryForCollection(col, {
-      tier,
+      : marketPeriodToMaxCalendarDays(period);
+    return this.cardMarketData.getTierPriceHistoryForCollection(col, {
+      tier: 'PSA_10',
       period,
       maxCalendarDays,
       maxRequests: 5,
@@ -187,46 +181,17 @@ export class MarketplaceController {
 
   @ApiOperation({
     summary:
-      'PokeTrace: Near Mint history — legacy alias. Prefer GET …/poketrace/price-history?tier=NEAR_MINT&period=…',
-  })
-  @ApiParam({ name: 'key', description: 'collection_key' })
-  @ApiQuery({
-    name: 'days',
-    required: false,
-    description: 'Calendar days (1–365), default 90',
-  })
-  @Get('collections/:key/poketrace/nm-history')
-  async getCollectionPoketraceNmHistory(
-    @Param('key') key: string,
-    @Query('days') daysRaw?: string,
-  ) {
-    const k = decodeURIComponent(key).toLowerCase();
-    const col = await this.collectionService.findOne(k);
-    const parsed =
-      daysRaw != null && String(daysRaw).trim() !== ''
-        ? parseInt(String(daysRaw), 10)
-        : NaN;
-    const days = Number.isFinite(parsed)
-      ? Math.min(365, Math.max(1, parsed))
-      : 90;
-    return this.poketraceService.getNearMintHistoryForCollection(col, {
-      days,
-    });
-  }
-
-  @ApiOperation({
-    summary:
-      'PokeTrace (My Assets): batch resolve NM bands — server loads IPFS metadata from token ids (max 32).',
+      'My Assets: batch resolve Cardhedger PSA10 references from token ids (max 32).',
   })
   @ApiBody({ type: MintPreviewsByTokenIdsDto })
-  @Post('poketrace/mint-previews')
-  postMintPoketracePreviews(@Body() body: MintPreviewsByTokenIdsDto) {
-    return this.poketraceService.getBatchMintPreviewsFromTokenIds(body.tokenIds ?? []);
+  @Post('cardhedger/mint-previews')
+  postMintCardhedgerPreviews(@Body() body: MintPreviewsByTokenIdsDto) {
+    return this.cardMarketData.getBatchMintPreviewsFromTokenIds(body.tokenIds ?? []);
   }
 
   @ApiOperation({
     summary:
-      'Chart bundle: platform fills (USDC) + PokeTrace NM reference prices, category, eBay NEAR_MINT history series, and window % change when computable. Listing-pool statistics: GET …/collections/:key/stats.',
+      'Chart bundle: platform fills (USDC) + Cardhedger-backed reference prices and window % change. Listing-pool statistics: GET …/collections/:key/stats.',
   })
   @ApiParam({ name: 'key', description: 'collection_key' })
   @Get('collections/:key/market-series')
@@ -257,7 +222,7 @@ export class MarketplaceController {
 
   @ApiOperation({
     summary:
-      'Collection market pool statistics (USDC only): Tukey IQR trim, floor = 10th percentile on trimmed set, volatility = sample stdev on trimmed set. sampleSize < 5 → numeric fields null and isReliable false. `reference.poketraceCardId` is metadata only.',
+      'Collection market pool statistics (USDC only): Tukey IQR trim, floor = 10th percentile on trimmed set, volatility = sample stdev on trimmed set. sampleSize < 5 → numeric fields null and isReliable false. `reference.cardhedgerCardId` is metadata only.',
   })
   @ApiParam({ name: 'key', description: 'collection_key' })
   @Get('collections/:key/stats')
@@ -277,7 +242,7 @@ export class MarketplaceController {
     let col = await this.collectionService.findOne(k);
     if (col) {
       await this.collectionService.ensurePsaTotalPopulationFromListings(k);
-      await this.collectionService.ensurePoketraceCardIdFromListings(k);
+      await this.collectionService.ensureCardhedgerCardIdFromListings(k);
       col = await this.collectionService.findOne(k);
     }
     const [listings, collectionBids, representativeImageUrl] = await Promise.all([

@@ -20,7 +20,7 @@
         <mxCell id="sw-a" value="A — 민팅 파이프라인 (MintForm · IPFS · ERC-721)" style="swimlane;horizontal=1;startSize=36;fillColor=#e8f5f1;strokeColor=#4a9d82;fontStyle=1;fontSize=14;align=left;spacingLeft=12;" vertex="1" parent="1">
           <mxGeometry x="40" y="104" width="2400" height="200" as="geometry" />
         </mxCell>
-        <mxCell id="a1" value="① UI · 기술&#xa;• `MintForm.tsx` (React)&#xa;• 선택: PSA 슬랩 이미지 → `POST /api/psa/analyze` (OCR + JustTCG + PSA Public API 보강)" style="rounded=1;whiteSpace=wrap;html=1;align=left;spacingLeft=10;fontSize=11;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="sw-a">
+        <mxCell id="a1" value="① UI · 기술&#xa;• `MintForm.tsx` (React)&#xa;• 선택: PSA 슬랩 이미지 → `POST /api/psa/analyze` (OCR + Cardhedger + PSA Public API 보강)" style="rounded=1;whiteSpace=wrap;html=1;align=left;spacingLeft=10;fontSize=11;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="sw-a">
           <mxGeometry x="16" y="52" width="280" height="136" as="geometry" />
         </mxCell>
         <mxCell id="a2" value="② 메타 업로드&#xa;• `uploadRwaMetadata(FormData)` → `POST /api/rwa/upload`&#xa;• `NftService.uploadToIpfs` — 이미지 Pinata 업로드 → `uploadMetadata` JSON&#xa;• 반환: `tokenURI = ipfs://{metadataCID}`" style="rounded=1;whiteSpace=wrap;html=1;align=left;spacingLeft=10;fontSize=11;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="sw-a">
@@ -29,7 +29,7 @@
         <mxCell id="a3" value="③ 온체인 민트&#xa;• `wagmi` `useWriteContract` + `viem` `publicClient`&#xa;• `gasWithCapFast` (가스 추정·캡)&#xa;• 컨트랙트: `TokenableRWA.mint(to: address, _tokenURI: string)`&#xa;• ABI: `TOKENABLE_RWA_MINT_ABI` (`constants/contracts.ts`)" style="rounded=1;whiteSpace=wrap;html=1;align=left;spacingLeft=10;fontSize=11;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="sw-a">
           <mxGeometry x="684" y="52" width="360" height="136" as="geometry" />
         </mxCell>
-        <mxCell id="a4" value="④ 결과&#xa;• 새 `tokenId`, `tokenURI`가 체인에 영구 저장&#xa;• Exchange 컬렉션 키는 그레이드 메타(PSA/JustTCG)에서 유도 (`CollectionService`)" style="rounded=1;whiteSpace=wrap;html=1;align=left;spacingLeft=10;fontSize=11;fillColor=#ffffff;strokeColor=#6c8ebf;" vertex="1" parent="sw-a">
+        <mxCell id="a4" value="④ 결과&#xa;• 새 `tokenId`, `tokenURI`가 체인에 영구 저장&#xa;• Exchange 컬렉션 키는 그레이드 메타(PSA/Cardhedger)에서 유도 (`CollectionService`)" style="rounded=1;whiteSpace=wrap;html=1;align=left;spacingLeft=10;fontSize=11;fillColor=#ffffff;strokeColor=#6c8ebf;" vertex="1" parent="sw-a">
           <mxGeometry x="1068" y="52" width="320" height="136" as="geometry" />
         </mxCell>
         <mxCell id="e-a12" style="endArrow=block;html=1;strokeWidth=2;strokeColor=#4a9d82;" edge="1" parent="sw-a" source="a1" target="a2">

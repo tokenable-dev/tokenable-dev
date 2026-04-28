@@ -65,24 +65,11 @@ NestJS 글로벌 프리픽스는 **`api`** 입니다. 클라이언트 최종 URL
 
 ---
 
-## `price` (JustTCG)
-
-**환경 변수:** `TCG_API_KEY` 필수 (`PriceService.getOrThrow`). 로컬 mock 전용 파일·플래그는 제거됨.
-
-| Method | 경로 | 설명 |
-|--------|------|------|
-| GET | `/price/games` | 게임 목록·통계 |
-| GET | `/price/sets` | 세트 목록 (`game` 필수) |
-| GET | `/price/cards` | 카드 단건·검색 |
-| POST | `/price/cards/batch` | 카드 배치 (플랜별 상한) |
-
----
-
 ## `psa`
 
 | Method | 경로 | 설명 |
 |--------|------|------|
-| POST | `/psa/analyze` | multipart 슬랩 OCR + PSA API + JustTCG (선택 `certNumber`) |
+| POST | `/psa/analyze` | multipart 슬랩 OCR + PSA API (선택 `certNumber`) |
 | POST | `/psa/analyze-by-cert` | JSON `{ certNumber }` 만으로 동일 파이프라인 (이미지 없음) |
 
 ---

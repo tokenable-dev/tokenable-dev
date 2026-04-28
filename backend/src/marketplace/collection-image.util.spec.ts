@@ -1,19 +1,13 @@
-import {
-  extractCollectionRepresentativeImage,
-  extractCoverFromJustTcgCardLike,
-  extractJustTcgCardIdFromMetadata,
-  extractJustTcgProductIdentifiersFromMetadata,
-  extractJustTcgRepresentativeImage,
-} from './collection-image.util';
+import { extractCollectionRepresentativeImage } from './collection-image.util';
 
 describe('extractCollectionRepresentativeImage', () => {
-  it('prefers graded.collectionCoverImage over JustTCG', () => {
+  it('prefers graded.collectionCoverImage over other candidates', () => {
     const meta = {
       properties: {
         graded: {
           collectionCoverImage: 'ipfs://QmCrop',
-          justtcg: {
-            topMatch: { image: 'https://cdn.example.com/card.png' },
+          cardhedger: {
+            imageUrl: 'https://cdn.example.com/cardhedger.png',
           },
         },
       },
@@ -21,7 +15,7 @@ describe('extractCollectionRepresentativeImage', () => {
     expect(extractCollectionRepresentativeImage(meta)).toBe('ipfs://QmCrop');
   });
 
-  it('prefers psa.certImageSourceUrl over JustTCG when no collectionCoverImage', () => {
+  it('prefers psa.certImageSourceUrl when no collectionCoverImage', () => {
     const meta = {
       properties: {
         graded: {
@@ -29,8 +23,8 @@ describe('extractCollectionRepresentativeImage', () => {
             certImageSourceUrl:
               'https://d1htnxwo4o0jhw.cloudfront.net/cert/132386427/large/132386427_f.jpg',
           },
-          justtcg: {
-            topMatch: { image: 'https://cdn.example.com/card.png' },
+          cardhedger: {
+            imageUrl: 'https://cdn.example.com/cardhedger.png',
           },
         },
       },
@@ -39,94 +33,22 @@ describe('extractCollectionRepresentativeImage', () => {
       'https://d1htnxwo4o0jhw.cloudfront.net/cert/132386427/large/132386427_f.jpg',
     );
   });
-});
-
-describe('extractJustTcgRepresentativeImage', () => {
-  it('returns topMatch image URL, not root image', () => {
+  it('falls back to graded.cardhedger.imageUrl', () => {
     const meta = {
-      image: 'ipfs://slab-photo',
       properties: {
         graded: {
-          justtcg: {
-            topMatch: { image: 'https://cdn.example.com/card.png' },
+          cardhedger: {
+            imageUrl: 'https://cdn.example.com/cardhedger.png',
           },
         },
       },
     };
-    expect(extractJustTcgRepresentativeImage(meta)).toBe(
-      'https://cdn.example.com/card.png',
+    expect(extractCollectionRepresentativeImage(meta)).toBe(
+      'https://cdn.example.com/cardhedger.png',
     );
   });
 
-  it('returns null when no topMatch', () => {
-    expect(extractJustTcgRepresentativeImage({ image: 'ipfs://x' })).toBeNull();
-  });
-
-  it('derives TCGPlayer CDN URL from topMatch.tcgplayerId when API omits image fields', () => {
-    const meta = {
-      properties: {
-        graded: {
-          justtcg: {
-            topMatch: {
-              id: 'pokemon-example',
-              name: 'Pikachu',
-              tcgplayerId: '219042',
-              variants: [],
-            },
-          },
-        },
-      },
-    };
-    expect(extractJustTcgRepresentativeImage(meta)).toBe(
-      'https://tcgplayer-cdn.tcgplayer.com/product/219042_200w.jpg',
-    );
-  });
-
-  it('extractJustTcgProductIdentifiersFromMetadata fills tcgplayerId when id is absent', () => {
-    const meta = {
-      properties: {
-        graded: {
-          justtcg: {
-            topMatch: {
-              name: 'Pikachu',
-              tcgplayerId: '219042',
-            },
-          },
-        },
-      },
-    };
-    expect(extractJustTcgProductIdentifiersFromMetadata(meta)).toEqual({
-      cardId: null,
-      tcgplayerId: '219042',
-      variantId: null,
-    });
-  });
-
-  it('extractJustTcgCardIdFromMetadata reads topMatch.id', () => {
-    const meta = {
-      properties: {
-        graded: {
-          justtcg: {
-            topMatch: {
-              id: 'pokemon-pikachu-ex-surging-sparks-219',
-              tcgplayerId: '99999',
-            },
-          },
-        },
-      },
-    };
-    expect(extractJustTcgCardIdFromMetadata(meta)).toBe(
-      'pokemon-pikachu-ex-surging-sparks-219',
-    );
-  });
-
-  it('extractCoverFromJustTcgCardLike matches live /cards shape', () => {
-    expect(
-      extractCoverFromJustTcgCardLike({
-        id: 'pokemon-x',
-        tcgplayerId: '219042',
-        variants: [],
-      }),
-    ).toBe('https://tcgplayer-cdn.tcgplayer.com/product/219042_200w.jpg');
+  it('returns null when no supported metadata image exists', () => {
+    expect(extractCollectionRepresentativeImage({ image: 'ipfs://x' })).toBeNull();
   });
 });

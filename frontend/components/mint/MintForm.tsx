@@ -14,10 +14,10 @@ import {
   analyzePsaSlab,
   analyzePsaByCertNumber,
   type PsaAnalyzeResult,
-} from "@/lib/api";
+} from "@/lib/core";
 import { TOKENABLE_RWA_ADDRESS, TOKENABLE_RWA_MINT_ABI } from "@/constants/contracts";
 import { sepolia } from "@/config/wagmi";
-import { GAS_FALLBACK, gasWithCapFast } from "@/lib/chainGas";
+import { GAS_FALLBACK, gasWithCapFast } from "@/lib/network";
 import { useAppStore, selectRefresh } from "@/store";
 import {
   EMPTY_PSA_FIELD_LOCKS,
@@ -52,6 +52,12 @@ const INITIAL_STATE: GradedCardFormState = {
     slabFront: null,
     slabBack: null,
   },
+};
+
+type MintFriendlyError = {
+  title: string;
+  message: string;
+  hints: string[];
 };
 
 function computePsaLocksFromResult(
@@ -104,6 +110,8 @@ export function MintForm() {
   const [psaFieldLocks, setPsaFieldLocks] = useState<PsaFieldLocks>(EMPTY_PSA_FIELD_LOCKS);
   /** True while debounce timer is waiting (so overlay doesn't drop between runs) */
   const [debounceWaiting, setDebounceWaiting] = useState(false);
+  /** Visual smoothing: prevent 1-frame overlay flicker between state transitions */
+  const [analyzeOverlayVisible, setAnalyzeOverlayVisible] = useState(false);
   /** Slab photo OCR path vs Cert-only PSA API lookup */
   const [psaInputMode, setPsaInputMode] = useState<PsaInputMode>("slab");
   const formRef = useRef(form);
@@ -145,7 +153,7 @@ export function MintForm() {
     const next: Record<string, string> = {};
     if (!form.name.trim()) next.name = "Asset name is required";
     let hasImage = false;
-    if (lastAnalyze?.psaCertImages?.front) {
+    if (lastAnalyze?.psaCertImages?.front || lastAnalyze?.cardhedgerMint?.imageUrl) {
       hasImage = true;
     } else {
       hasImage =
@@ -250,26 +258,16 @@ export function MintForm() {
           : {}),
       };
       if (lastAnalyze) {
-        metadata.justtcg = {
-          queryUsed: lastAnalyze.justtcg.queryUsed,
-          topMatch: lastAnalyze.justtcg.topMatch ?? undefined,
-        };
-        if (lastAnalyze.poketraceMint) {
-          const pm = lastAnalyze.poketraceMint;
-          const pt: Record<string, string> = {};
-          if (pm.cardId?.trim() && pm.searchQuery != null) {
-            pt.cardId = pm.cardId.trim();
-            pt.searchQuery = pm.searchQuery;
-          }
-          if (pm.approximateCardId?.trim()) {
-            pt.approximateCardId = pm.approximateCardId.trim();
-            if (pm.approximateSearchQuery != null) {
-              pt.approximateSearchQuery = pm.approximateSearchQuery;
-            }
-          }
-          if (Object.keys(pt).length > 0) {
-            metadata.poketrace = pt as typeof metadata.poketrace;
-          }
+        if (
+          lastAnalyze.cardhedgerMint?.matchConfidence === "verified" &&
+          lastAnalyze.cardhedgerMint?.cardId?.trim()
+        ) {
+          metadata.cardhedger = {
+            cardId: lastAnalyze.cardhedgerMint.cardId.trim(),
+            ...(lastAnalyze.cardhedgerMint.searchQuery != null
+              ? { searchQuery: lastAnalyze.cardhedgerMint.searchQuery }
+              : {}),
+          };
         }
         const l = lastAnalyze.psaApi.lookup;
         metadata.psaApi = {
@@ -503,9 +501,10 @@ export function MintForm() {
       const data = new FormData();
       data.append("name", form.name);
       data.append("description", form.description.trim() || "No description");
-      const psaMintUrl = lastAnalyze?.psaCertImages?.front;
-      if (psaMintUrl) {
-        data.append("imageUrl", psaMintUrl);
+      const selectedMintImageUrl =
+        lastAnalyze?.psaCertImages?.front || lastAnalyze?.cardhedgerMint?.imageUrl;
+      if (selectedMintImageUrl) {
+        data.append("imageUrl", selectedMintImageUrl);
       } else if (form.image instanceof File) {
         data.append("image", form.image);
       } else if (typeof form.image === "string" && form.image.trim()) {
@@ -522,8 +521,7 @@ export function MintForm() {
             grade: meta.grade,
             verification: meta.verification,
             psa: meta.psa,
-            justtcg: meta.justtcg,
-            ...(meta.poketrace ? { poketrace: meta.poketrace } : {}),
+            ...(meta.cardhedger ? { cardhedger: meta.cardhedger } : {}),
           },
           attributes: buildOpenSeaAttributes(),
           external_url:
@@ -578,7 +576,56 @@ export function MintForm() {
     (analyzeLoading || debounceWaiting) &&
     form.verification.slabFront instanceof File;
   const certLookupAnalyzing = psaInputMode === "cert" && analyzeLoading;
-  const showPsaAnalyzeOverlay = slabAnalyzing || certLookupAnalyzing;
+  const showPsaAnalyzeOverlayRaw = slabAnalyzing || certLookupAnalyzing;
+
+  useEffect(() => {
+    if (showPsaAnalyzeOverlayRaw) {
+      setAnalyzeOverlayVisible(true);
+      return;
+    }
+    const t = window.setTimeout(() => {
+      setAnalyzeOverlayVisible(false);
+    }, 220);
+    return () => window.clearTimeout(t);
+  }, [showPsaAnalyzeOverlayRaw]);
+
+  const showPsaAnalyzeOverlay = showPsaAnalyzeOverlayRaw || analyzeOverlayVisible;
+
+  const friendlyMintError = useCallback((msg: string): MintFriendlyError | null => {
+    const m = msg.toLowerCase();
+    if (m.includes("psa 10 카드만 mint 가능합니다") || m.includes("psa 10")) {
+      return {
+        title: "PSA 10 only",
+        message: "Minting is allowed only for cards officially verified as PSA 10.",
+        hints: [
+          "Re-run OCR/Cert lookup and confirm Grade is exactly 10.",
+          "If the card grade is not 10, mint is intentionally blocked.",
+          "Use a different cert that resolves to PSA 10.",
+        ],
+      };
+    }
+    if (m.includes("psa 등급 카드만 mint 가능합니다") || m.includes("psa 등급")) {
+      return {
+        title: "PSA verification required",
+        message: "This flow accepts only PSA-graded cards.",
+        hints: [
+          "Switch to PSA cert lookup or slab OCR.",
+          "Confirm grading company is PSA in the analyzed metadata.",
+        ],
+      };
+    }
+    if (m.includes("psa 인증 메타데이터가 필요합니다")) {
+      return {
+        title: "PSA metadata missing",
+        message: "Minting requires official PSA metadata from OCR/Cert lookup.",
+        hints: [
+          "Run cert lookup first, then mint.",
+          "Do not skip analysis before pressing Mint.",
+        ],
+      };
+    }
+    return null;
+  }, []);
 
   /** Vault: show Mint only after slab photo is chosen, or after cert lookup completes. */
   const showMintReady =
@@ -700,9 +747,29 @@ export function MintForm() {
         )}
 
         {step === "error" && errorMsg && (
-          <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3">
-            <p className="text-xs break-all text-red-400">{errorMsg}</p>
-          </div>
+          (() => {
+            const friendly = friendlyMintError(errorMsg);
+            if (!friendly) {
+              return (
+                <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3">
+                  <p className="text-xs break-all text-red-400">{errorMsg}</p>
+                </div>
+              );
+            }
+            return (
+              <div className="rounded-xl border border-amber-400/35 bg-amber-500/[0.10] p-3.5 sm:p-4">
+                <p className="text-sm font-semibold text-amber-200">{friendly.title}</p>
+                <p className="mt-1.5 text-xs leading-relaxed text-amber-100/90">
+                  {friendly.message}
+                </p>
+                <ul className="mt-2.5 list-disc space-y-1 pl-4 text-[11px] leading-relaxed text-amber-100/80">
+                  {friendly.hints.map((h) => (
+                    <li key={h}>{h}</li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })()
         )}
 
               <details className="group rounded-xl border border-gray-700/50 bg-gray-800/20 overflow-hidden">
@@ -732,6 +799,31 @@ export function MintForm() {
                 </div>
               ) : (
                 <>
+              {lastAnalyze?.cardhedgerMint?.imageUrl &&
+                !lastAnalyze?.psaCertImages?.front && (
+                <div className="space-y-4 rounded-lg border border-gray-700/80 bg-gray-900/40 p-4 sm:p-5">
+                  <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:gap-8">
+                    <div className="mx-auto flex shrink-0 flex-col items-center lg:mx-0">
+                      <div className="rounded-xl border border-gray-700 bg-[#070a0f] p-3">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={lastAnalyze.cardhedgerMint.imageUrl}
+                          alt="Cardhedger card image — RWA display image"
+                          className="max-h-[min(52vh,280px)] w-auto max-w-[min(100%,280px)] object-contain rounded-lg"
+                          loading="lazy"
+                          referrerPolicy="no-referrer"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex min-w-0 flex-1 flex-col justify-center pt-0 lg:pt-2">
+                      <p className="text-xs text-gray-500">
+                        Cardhedger image is used because PSA cert image is unavailable.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {lastAnalyze?.psaCertImages?.front && (
                 <div className="space-y-4 rounded-lg border border-gray-700/80 bg-gray-900/40 p-4 sm:p-5">
                   <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:gap-8">
@@ -751,16 +843,20 @@ export function MintForm() {
                       <p className="text-xs text-gray-500">
                         PSA image is used for IPFS and marketplace art.
                       </p>
+                      <span className="mt-2 inline-flex w-fit rounded-full border border-emerald-600/50 bg-emerald-500/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-emerald-300">
+                        Source: PSA Cert Image
+                      </span>
                     </div>
                   </div>
                 </div>
               )}
 
               {!lastAnalyze?.psaCertImages?.front &&
+                !lastAnalyze?.cardhedgerMint?.imageUrl &&
                 form.image instanceof File &&
                 mintImageBlobUrl && (
                   <div className="space-y-2 rounded-lg border border-gray-700/80 bg-gray-900/35 p-4 sm:p-5">
-                    <p className="text-xs font-medium text-gray-300">Slab photo → mint image</p>
+                    <p className="text-xs font-medium text-gray-300">Slab photo to mint image</p>
                     <div className="inline-block rounded-lg border border-gray-700/80 bg-[#0a0e14] p-3">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
@@ -773,6 +869,7 @@ export function MintForm() {
                 )}
 
               {!lastAnalyze?.psaCertImages?.front &&
+                !lastAnalyze?.cardhedgerMint?.imageUrl &&
                 !(form.image instanceof File) &&
                 !showPsaAnalyzeOverlay && (
                   <div className="rounded-lg border border-dashed border-gray-700/60 bg-gray-900/20 px-4 py-5 text-center">
@@ -792,21 +889,9 @@ export function MintForm() {
                 </div>
               </details>
 
-              {(analyzeError ||
-                (lastAnalyze?.warnings && lastAnalyze.warnings.length > 0)) && (
+              {analyzeError && (
                 <div className="space-y-2 rounded-lg border border-gray-700/50 bg-gray-900/30 px-4 py-3">
-                  {analyzeError ? (
-                    <p className="text-xs text-red-400 break-words">{analyzeError}</p>
-                  ) : null}
-                  {lastAnalyze?.warnings && lastAnalyze.warnings.length > 0 ? (
-                    <ul className="list-disc space-y-1 pl-4 text-[11px] text-amber-200/85">
-                      {lastAnalyze.warnings.map((w, i) => (
-                        <li key={i} className="leading-snug">
-                          {w}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : null}
+                  <p className="text-xs text-red-400 break-words">{analyzeError}</p>
                 </div>
               )}
 
@@ -884,49 +969,49 @@ export function MintForm() {
       typeof document !== "undefined" &&
       createPortal(
         <div
-          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/55 p-4 backdrop-blur-[2px] pointer-events-auto"
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4 backdrop-blur-[1.5px] pointer-events-auto"
           role="dialog"
           aria-modal="true"
           aria-labelledby="psa-analyze-overlay-title"
         >
-          <div className="w-full max-w-md rounded-xl border border-gray-700/90 bg-gray-950/98 px-5 py-6 shadow-2xl shadow-black/60 sm:px-6 sm:py-7">
+          <div className="w-full max-w-md rounded-xl border border-gray-700/80 bg-gray-950/96 px-5 py-6 shadow-2xl shadow-black/55 sm:px-6 sm:py-7">
             <div className="flex flex-col items-center text-center">
-              <div className="relative h-14 w-14 shrink-0">
+              <div className="relative h-12 w-12 shrink-0">
                 <div
-                  className="absolute inset-0 rounded-full border-2 border-gray-600"
+                  className="absolute inset-0 rounded-full border-2 border-gray-700"
                   aria-hidden
                 />
                 <div
-                  className="absolute inset-0 rounded-full border-2 border-transparent border-t-gray-200 border-r-gray-600 animate-spin"
+                  className="absolute inset-0 rounded-full border-2 border-transparent border-t-gray-200 border-r-gray-500 animate-spin"
                   style={{ animationDuration: "0.9s" }}
                   aria-hidden
                 />
               </div>
               <p
                 id="psa-analyze-overlay-title"
-                className="mt-4 text-lg font-semibold tracking-tight text-white"
+                className="mt-4 text-base font-semibold tracking-tight text-white sm:text-lg"
               >
                 {psaInputMode === "cert" ? "Looking up PSA cert" : "Analyzing slab"}
               </p>
-              <p className="mt-2 text-sm text-gray-400">
+              <p className="mt-2 text-sm text-gray-400 max-w-[30ch]">
                 {psaInputMode === "cert"
-                  ? "PSA Public API and JustTCG are running (no OCR)."
-                  : "OCR, PSA lookup, and JustTCG are running in one request."}
+                  ? "Cardhedger and PSA official metadata lookup are running."
+                  : "Cardhedger cert OCR, slab OCR, and PSA lookup are running."}
               </p>
               <div
-                className="mt-4 h-2.5 w-full max-w-[280px] overflow-hidden rounded-full bg-gray-800"
+                className="mt-4 h-2 w-full max-w-[280px] overflow-hidden rounded-full bg-gray-800/90"
                 role="status"
                 aria-live="polite"
                 aria-label="Analysis in progress"
               >
-                <div className="h-full w-full animate-pulse rounded-full bg-gradient-to-r from-gray-600 via-gray-500 to-gray-600" />
+                <div className="h-full w-full animate-pulse rounded-full bg-gradient-to-r from-gray-600 via-gray-400 to-gray-600" />
               </div>
-              <p className="mt-3 text-sm leading-relaxed text-gray-400">
+              <p className="mt-3 text-xs leading-relaxed text-gray-500">
                 Typical time is about 30–90 seconds; slow networks can take longer. Please keep
                 this tab open until it finishes.
               </p>
-              <p className="mt-4 text-[11px] font-medium uppercase tracking-[0.2em] text-gray-600">
-                {psaInputMode === "cert" ? "PSA · JustTCG" : "OCR · PSA · JustTCG"}
+              <p className="mt-3 text-[10px] font-medium uppercase tracking-[0.16em] text-gray-600">
+                {psaInputMode === "cert" ? "CARDHEDGER · PSA" : "CARDHEDGER OCR · PSA"}
               </p>
             </div>
           </div>

@@ -2,7 +2,8 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { CollectionMarketService } from './collection-market.service';
 import { CollectionService } from './collection.service';
 import { MarketplaceController } from './marketplace.controller';
-import { PoketraceService } from '../poketrace/poketrace.service';
+import { CardhedgerMarketDataService } from './cardhedger-market-data.service';
+import { HiddenAssetsService } from './hidden-assets.service';
 import { MarketplaceService } from './marketplace.service';
 import { OrderStatus } from './entities/order.entity';
 
@@ -33,11 +34,17 @@ describe('MarketplaceController', () => {
     getCollectionMarketStats: jest.fn(),
   };
 
-  const poketraceService = {
+  const cardMarketDataService = {
     getPreviewForCollection: jest.fn(),
     getNearMintHistoryForCollection: jest.fn(),
     getBatchMintPreviews: jest.fn(),
     getBatchMintPreviewsFromTokenIds: jest.fn(),
+    getAiInsightForCollection: jest.fn(),
+  };
+  const hiddenAssetsService = {
+    listHiddenTokenIds: jest.fn(),
+    hide: jest.fn(),
+    unhide: jest.fn(),
   };
 
   let controller: MarketplaceController;
@@ -50,7 +57,8 @@ describe('MarketplaceController', () => {
         { provide: MarketplaceService, useValue: service },
         { provide: CollectionService, useValue: collectionService },
         { provide: CollectionMarketService, useValue: collectionMarketService },
-        { provide: PoketraceService, useValue: poketraceService },
+        { provide: CardhedgerMarketDataService, useValue: cardMarketDataService },
+        { provide: HiddenAssetsService, useValue: hiddenAssetsService },
       ],
     }).compile();
     controller = module.get(MarketplaceController);
@@ -155,7 +163,7 @@ describe('MarketplaceController', () => {
       isReliable: true,
       dataQuality: { sampleSize: 5, trimmed: false, currency: 'USDC' as const },
       sources: { listings: true, trades: false },
-      reference: { poketraceCardId: null },
+      reference: { cardhedgerCardId: null },
     };
     collectionMarketService.getCollectionMarketStats.mockResolvedValue(stats);
     const out = await controller.getCollectionMarketStats('MY-key');

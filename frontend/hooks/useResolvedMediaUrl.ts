@@ -2,8 +2,8 @@
 
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { postResolveMediaUrls } from "@/lib/api";
-import { uriNeedsBackendResolve } from "@/lib/mediaUriResolve";
+import { postResolveMediaUrls } from "@/lib/core";
+import { uriNeedsBackendResolve } from "@/lib/marketplace";
 
 /**
  * Single cover / image: resolves `ipfs://` or `https://…/ipfs/…` through the API; otherwise returns the trimmed URI.

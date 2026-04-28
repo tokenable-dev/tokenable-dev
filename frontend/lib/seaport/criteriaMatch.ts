@@ -1,4 +1,4 @@
-import type { Order } from "@/lib/api";
+import type { Order } from "@/lib/core";
 import { SeaportSide } from "@/lib/seaport/constants";
 import type {
   AdvancedOrderArg,

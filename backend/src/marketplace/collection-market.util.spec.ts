@@ -1,8 +1,8 @@
 import {
-  candidateJustTcgGamesForCollection,
+  candidateGamesForCollection,
   formatGameIdLabel,
-  parseJustTcgCardsResponse,
-  parseJustTcgCardsResponseBest,
+  parseCardsResponse,
+  parseCardsResponseBest,
   percentChangeFromPoints,
 } from './collection-market.util';
 
@@ -22,7 +22,7 @@ describe('collection-market.util', () => {
     ).toBeCloseTo(15, 5);
   });
 
-  it('parseJustTcgCardsResponse reads history + grades', () => {
+  it('parseCardsResponse reads history + grades', () => {
     const now = 1_700_000_000;
     const body = {
       data: [
@@ -55,7 +55,7 @@ describe('collection-market.util', () => {
         },
       ],
     };
-    const out = parseJustTcgCardsResponse(body);
+    const out = parseCardsResponse(body);
     expect(out.gameLabel).toBe('Pokemon');
     expect(out.history.length).toBeGreaterThanOrEqual(2);
     expect(out.grades.psa10).toBe(68);
@@ -63,7 +63,7 @@ describe('collection-market.util', () => {
     expect(out.grades.raw).toBe(7);
   });
 
-  it('parseJustTcgCardsResponseBest picks the row with richer history', () => {
+  it('parseCardsResponseBest picks the row with richer history', () => {
     const t0 = 1_700_000_000;
     const body = {
       data: [
@@ -94,20 +94,20 @@ describe('collection-market.util', () => {
         },
       ],
     };
-    const out = parseJustTcgCardsResponseBest(body);
+    const out = parseCardsResponseBest(body);
     expect(out.history.length).toBe(2);
     expect(out.grades.psa10).toBe(20);
   });
 
-  it('candidateJustTcgGamesForCollection orders games from hints', () => {
-    const pokemonFirst = candidateJustTcgGamesForCollection({
+  it('candidateGamesForCollection orders games from hints', () => {
+    const pokemonFirst = candidateGamesForCollection({
       queryUsed: 'Charizard ex',
       displayLabel: 'Something',
       components: {},
     });
     expect(pokemonFirst[0]).toBe('pokemon');
 
-    const mtg = candidateJustTcgGamesForCollection({
+    const mtg = candidateGamesForCollection({
       queryUsed: 'Lightning Bolt mtg',
       displayLabel: 'Alpha',
       components: { cardName: 'Lightning Bolt' },

@@ -37,7 +37,6 @@ describe('PsaController', () => {
       ocr: { combinedText: '' },
       psa: {},
       psaApi: { lookup: { status: 'disabled', reason: 'no_token' } },
-      justtcg: { queryUsed: '', topMatch: null, rawResponse: {} },
     });
     const out = await controller.analyze(
       {
@@ -50,7 +49,7 @@ describe('PsaController', () => {
       undefined,
       undefined,
     );
-    expect(out.justtcg.queryUsed).toBe('');
+    expect(out.ocr.combinedText).toBe('');
   });
 
   it('passes certNumber hint to analyzeSlabImages', async () => {
@@ -59,7 +58,6 @@ describe('PsaController', () => {
       ocr: { combinedText: '' },
       psa: {},
       psaApi: { lookup: { status: 'disabled', reason: 'no_token' } },
-      justtcg: { queryUsed: '', topMatch: null, rawResponse: {} },
     });
     await controller.analyze(
       { slabFront: [{ buffer: buf }] } as never,
@@ -84,7 +82,6 @@ describe('PsaController', () => {
       ocr: { combinedText: '' },
       psa: { certNumber: '83179580' },
       psaApi: { lookup: { status: 'disabled', reason: 'no_token' } },
-      justtcg: { queryUsed: '', topMatch: null, rawResponse: {} },
     });
     const out = await controller.analyzeByCert({
       certNumber: '83179580',

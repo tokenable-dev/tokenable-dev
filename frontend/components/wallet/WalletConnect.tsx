@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useAccount, useConnect, useDisconnect, useBalance } from "wagmi";
 import { formatUnits } from "viem";
 import { sepolia } from "@/config/wagmi";
-import { ensureSepoliaNetwork } from "@/lib/ensureSepoliaNetwork";
+import { ensureSepoliaNetwork } from "@/lib/network";
 
 export interface WalletConnectProps {
   /** Overrides default Tailwind classes for the disconnected “Connect MetaMask” button */

@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { BlockchainService } from '../blockchain/blockchain.service';
 import { IpfsGatewayResolverService } from '../blockchain/ipfs-gateway-resolver.service';
+import { CardhedgerService } from '../cardhedger/cardhedger.service';
 import {
   computeMarketBucketKey,
   extractBucketComponentsFromMetadata,
@@ -12,23 +13,12 @@ import {
 } from './bucket-key.util';
 import {
   buildCollectionDisplayLabel,
-  extractJustTcgQueryUsed,
+  extractCollectionQueryUsed,
 } from './collection-label.util';
-import {
-  extractCollectionRepresentativeImage,
-  extractJustTcgProductIdentifiersFromMetadata,
-  type JustTcgProductIdentifiers,
-} from './collection-image.util';
+import { extractCollectionRepresentativeImage } from './collection-image.util';
 import { MarketplaceCollection } from './entities/marketplace-collection.entity';
 import { Order, OrderSide, OrderStatus } from './entities/order.entity';
-import {
-  buildPoketraceQueryFromRwaMetadata,
-  exactPoketraceCatalogMatch,
-} from '../poketrace/poketrace-mint-query.util';
-import {
-  extractPoketraceCardDataRow,
-  PoketraceService,
-} from '../poketrace/poketrace.service';
+import { exactCatalogMatch } from './card-match.util';
 
 export interface CollectionSummary {
   collectionKey: string;
@@ -37,7 +27,7 @@ export interface CollectionSummary {
   components: Record<string, unknown>;
   createdAt: Date;
   activeListingCount: number;
-  /** IPFS 메타의 JustTCG topMatch 등에서만 채움; 외부 가격 API 호출 없음 */
+  /** IPFS 메타에서 추출한 대표 커버 URL */
   coverImageUrl: string | null;
 }
 
@@ -65,9 +55,37 @@ export class CollectionService implements OnModuleInit {
     private readonly orderRepo: Repository<Order>,
     private readonly blockchain: BlockchainService,
     private readonly config: ConfigService,
-    private readonly poketrace: PoketraceService,
+    private readonly cardhedger: CardhedgerService,
     private readonly ipfsResolver: IpfsGatewayResolverService,
   ) {}
+
+  private cardhedgerFromRwaMetadata(meta: Record<string, unknown>): {
+    cardId: string | null;
+    searchQuery: string | null;
+    psaSpecId: string | null;
+  } {
+    const props = meta.properties as Record<string, unknown> | undefined;
+    const graded = (props?.graded ?? meta.graded) as Record<string, unknown> | undefined;
+    if (!graded || typeof graded !== 'object') {
+      return { cardId: null, searchQuery: null, psaSpecId: null };
+    }
+    const ch = graded.cardhedger as Record<string, unknown> | undefined;
+    const cardId =
+      typeof ch?.cardId === 'string' && ch.cardId.trim() ? ch.cardId.trim() : null;
+    const searchQuery =
+      typeof ch?.searchQuery === 'string' && ch.searchQuery.trim()
+        ? ch.searchQuery.trim()
+        : null;
+    const psa = graded.psa as Record<string, unknown> | undefined;
+    const specRaw = psa?.specId;
+    const psaSpecId =
+      typeof specRaw === 'number' && Number.isFinite(specRaw)
+        ? String(Math.floor(specRaw))
+        : typeof specRaw === 'string' && specRaw.trim()
+          ? specRaw.trim()
+          : null;
+    return { cardId, searchQuery, psaSpecId };
+  }
 
   async onModuleInit(): Promise<void> {
     const v = this.config.get<string>('MARKETPLACE_PIPELINE_DIAG');
@@ -79,12 +97,12 @@ export class CollectionService implements OnModuleInit {
       }
     }
 
-    const ptAudit = this.config.get<string>('POKETRACE_COLLECTION_AUDIT_ON_BOOT');
-    if (ptAudit === '1' || ptAudit === 'true') {
+    const chAudit = this.config.get<string>('CARDHEDGER_COLLECTION_AUDIT_ON_BOOT');
+    if (chAudit === '1' || chAudit === 'true') {
       try {
-        await this.auditStalePoketraceCardIdsOnBoot();
+        await this.auditStaleCardhedgerCardIdsOnBoot();
       } catch (e) {
-        this.logger.error(`POKETRACE_COLLECTION_AUDIT_ON_BOOT failed: ${String(e)}`);
+        this.logger.error(`CARDHEDGER_COLLECTION_AUDIT_ON_BOOT failed: ${String(e)}`);
       }
     }
   }
@@ -163,7 +181,7 @@ export class CollectionService implements OnModuleInit {
   }
 
   /**
-   * 매도(ask) 등록 시: 메타에서 버킷·JustTCG 문구를 읽어 컬렉션 행을 만들고 key 반환.
+   * 매도(ask) 등록 시: 메타에서 버킷·컬렉션 라벨 문구를 읽어 컬렉션 행을 만들고 key 반환.
    * graded 없으면 null (주문은 그대로 저장, 컬렉션 미부여).
    */
   async ensureCollectionForListing(tokenId: string): Promise<string | null> {
@@ -190,7 +208,7 @@ export class CollectionService implements OnModuleInit {
     }
     const components = extracted.components;
 
-    const queryUsed = extractJustTcgQueryUsed(meta);
+    const queryUsed = extractCollectionQueryUsed(meta);
     const displayLabel = buildCollectionDisplayLabel(components, queryUsed);
     const collectionKey = computeMarketBucketKey(components);
     const diagOn =
@@ -211,14 +229,16 @@ export class CollectionService implements OnModuleInit {
     }
     const coverImageUrl = extractCollectionRepresentativeImage(meta) ?? null;
 
-    const pq = buildPoketraceQueryFromRwaMetadata(meta);
+    const ch = this.cardhedgerFromRwaMetadata(meta);
     const compRecord: Record<string, unknown> = {
       ...(components as unknown as Record<string, unknown>),
     };
-    if (pq.poketraceCardId?.trim()) {
-      compRecord.poketraceCardId = pq.poketraceCardId.trim();
-    } else if (pq.approximatePoketraceCardId?.trim()) {
-      compRecord.approximatePoketraceCardId = pq.approximatePoketraceCardId.trim();
+    if (ch.cardId) {
+      compRecord.cardhedgerCardId = ch.cardId;
+      if (ch.searchQuery) compRecord.cardhedgerSearchQuery = ch.searchQuery;
+    }
+    if (ch.psaSpecId) {
+      compRecord.psaSpecId = ch.psaSpecId;
     }
 
     const row = this.collectionRepo.create({
@@ -238,7 +258,7 @@ export class CollectionService implements OnModuleInit {
       if (code === '23505') {
         await this.persistCoverFromMetaIfMissing(collectionKey, meta);
         await this.mergePsaPopulationFromMetaIfMissing(collectionKey, meta);
-        await this.mergePoketraceCardIdFromMetaIfMissing(collectionKey, meta);
+        await this.mergeCardhedgerCardIdFromMetaIfMissing(collectionKey, meta);
       } else {
         throw e;
       }
@@ -423,89 +443,81 @@ export class CollectionService implements OnModuleInit {
     }
   }
 
+  /** Legacy no-op: old external catalog ids are no longer used. */
+  async ensureLegacyReferenceIdsFromListings(collectionKey: string): Promise<void> {
+    // Legacy no-op: Cardhedger id is now canonical.
+    void collectionKey;
+  }
+
   /**
-   * `components.poketraceCardId` 보강: 활성 ask 메타에서 읽되, **서로 다른 id가 섞이면 저장하지 않음**
-   * (PokeTrace 가격은 카탈로그 id만 허용 — 잘못된 단일 id 고정 방지).
+   * `components.cardhedgerCardId` 보강: 활성 ask 메타에서 읽되, 서로 다른 id가 섞이면 저장하지 않음.
    */
-  async ensurePoketraceCardIdFromListings(collectionKey: string): Promise<void> {
+  async ensureCardhedgerCardIdFromListings(collectionKey: string): Promise<void> {
     const k = collectionKey.toLowerCase();
     const row = await this.collectionRepo.findOne({ where: { collectionKey: k } });
     if (!row) return;
     const comp = row.components as Record<string, unknown>;
     const existing =
-      typeof comp.poketraceCardId === 'string' ? comp.poketraceCardId.trim() : '';
+      typeof comp.cardhedgerCardId === 'string' ? comp.cardhedgerCardId.trim() : '';
+    const existingQ =
+      typeof comp.cardhedgerSearchQuery === 'string'
+        ? comp.cardhedgerSearchQuery.trim()
+        : '';
 
     const asks = await this.activeListingsForCollection(k);
     const ids = new Set<string>();
-    const approxIds = new Set<string>();
+    const queries = new Set<string>();
     for (const o of asks) {
       if (!o.tokenId || String(o.tokenId).trim() === '') continue;
       try {
         const uri = await this.blockchain.getRwaTokenURI(Number(o.tokenId));
         const meta = await this.ipfsResolver.fetchMetadataJson(uri);
-        const pq = buildPoketraceQueryFromRwaMetadata(meta);
-        const pid = pq.poketraceCardId?.trim();
-        if (pid) ids.add(pid);
-        const aid = pq.approximatePoketraceCardId?.trim();
-        if (aid) approxIds.add(aid);
+        const ch = this.cardhedgerFromRwaMetadata(meta);
+        if (ch.cardId) ids.add(ch.cardId);
+        if (ch.searchQuery) queries.add(ch.searchQuery);
       } catch {
         /* skip */
       }
     }
 
-    const nextComp: Record<string, unknown> = { ...comp };
-    let dirty = false;
-
     if (ids.size > 1) {
       this.logger.warn(
-        `Collection ${k}: conflicting poketraceCardId across active listings (${[...ids].join(', ')}); not updating`,
+        `Collection ${k}: conflicting cardhedgerCardId across active listings (${[...ids].join(', ')}); not updating`,
       );
-    } else if (ids.size === 1) {
-      const only = [...ids][0];
-      if (existing !== only) {
-        nextComp.poketraceCardId = only;
-        delete nextComp.approximatePoketraceCardId;
+      return;
+    }
+    if (ids.size === 0) return;
+
+    const only = [...ids][0];
+    const nextComp: Record<string, unknown> = { ...comp };
+    let dirty = false;
+    if (existing !== only) {
+      nextComp.cardhedgerCardId = only;
+      dirty = true;
+    }
+    if (queries.size === 1) {
+      const q = [...queries][0];
+      if (q && existingQ !== q) {
+        nextComp.cardhedgerSearchQuery = q;
         dirty = true;
       }
     }
-
-    const existingApprox =
-      typeof comp.approximatePoketraceCardId === 'string'
-        ? comp.approximatePoketraceCardId.trim()
-        : '';
-    const hasVerified =
-      typeof nextComp.poketraceCardId === 'string' &&
-      String(nextComp.poketraceCardId).trim() !== '';
-    if (!hasVerified) {
-      if (approxIds.size > 1) {
-        this.logger.warn(
-          `Collection ${k}: conflicting approximatePoketraceCardId across active listings (${[...approxIds].join(', ')}); not updating approximate`,
-        );
-      } else if (approxIds.size === 1) {
-        const onlyA = [...approxIds][0];
-        if (existingApprox !== onlyA) {
-          nextComp.approximatePoketraceCardId = onlyA;
-          dirty = true;
-        }
-      }
-    }
-
     if (!dirty) return;
-
     await this.collectionRepo.update(
       { collectionKey: k },
-      {
-        components: nextComp as QueryDeepPartialEntity<Record<string, unknown>>,
-      },
+      { components: nextComp as QueryDeepPartialEntity<Record<string, unknown>> },
     );
-    this.poketrace.invalidateCollectionPoketraceCaches(k);
   }
 
-  /**
-   * `components.poketraceCardId` + GET /cards/:id vs bucket `cardName` / `cardSet` / `cardNumber`
-   * — **exact normalized triple** only. Mismatch → optional DB strip + cache bust.
-   */
-  async auditPoketraceCardIdExact(
+  private extractCardhedgerCardDataRow(raw: unknown): Record<string, unknown> | null {
+    if (typeof raw !== 'object' || raw == null) return null;
+    const cards = (raw as { cards?: unknown[] }).cards;
+    if (!Array.isArray(cards) || cards.length === 0) return null;
+    const row = cards[0];
+    return typeof row === 'object' && row != null ? (row as Record<string, unknown>) : null;
+  }
+
+  async auditCardhedgerCardIdExact(
     collectionKey: string,
     options?: { clearOnMismatch?: boolean },
   ): Promise<{
@@ -517,119 +529,62 @@ export class CollectionService implements OnModuleInit {
     const k = collectionKey.toLowerCase();
     const dbRow = await this.collectionRepo.findOne({ where: { collectionKey: k } });
     if (!dbRow) {
-      return {
-        checked: false,
-        ok: false,
-        cleared: false,
-        failCodes: ['collection_not_found'],
-      };
+      return { checked: false, ok: false, cleared: false, failCodes: ['collection_not_found'] };
     }
     const comp = dbRow.components as Record<string, unknown>;
-    const pid =
-      typeof comp.poketraceCardId === 'string' ? comp.poketraceCardId.trim() : '';
-    if (!pid) {
-      return { checked: false, ok: true, cleared: false, failCodes: [] };
-    }
+    const cardId =
+      typeof comp.cardhedgerCardId === 'string' ? comp.cardhedgerCardId.trim() : '';
+    if (!cardId) return { checked: false, ok: true, cleared: false, failCodes: [] };
 
     const wantName = String(comp.cardName ?? '').trim();
     const wantSet = String(comp.cardSet ?? '').trim();
     const wantNum = String(comp.cardNumber ?? '').trim();
     if (!wantName || !wantSet || !wantNum) {
-      this.logger.warn(
-        JSON.stringify({
-          msg: 'poketrace_collection_audit_skipped',
-          collectionKey: k,
-          reason: 'incomplete_components_cannot_verify_exact',
-        }),
-      );
-      return {
-        checked: true,
-        ok: false,
-        cleared: false,
-        failCodes: ['incomplete_components'],
-      };
+      return { checked: true, ok: false, cleared: false, failCodes: ['incomplete_components'] };
     }
 
     let raw: unknown;
     try {
-      raw = await this.poketrace.getCardById(pid);
+      raw = await this.cardhedger.forwardJson('POST', '/v1/cards/card-details', {
+        body: { card_id: cardId },
+      });
     } catch (e) {
-      this.logger.warn(
-        JSON.stringify({
-          msg: 'poketrace_collection_audit_fetch_failed',
-          collectionKey: k,
-          poketraceCardId: pid,
-          error: e instanceof Error ? e.message : String(e),
-        }),
-      );
-      return {
-        checked: true,
-        ok: false,
-        cleared: false,
-        failCodes: ['upstream_fetch_failed'],
-      };
+      return { checked: true, ok: false, cleared: false, failCodes: ['upstream_fetch_failed'] };
     }
-
-    const ptRow = extractPoketraceCardDataRow(raw);
-    if (!ptRow) {
-      return {
-        checked: true,
-        ok: false,
-        cleared: false,
-        failCodes: ['empty_card_payload'],
-      };
-    }
-
-    const ex = exactPoketraceCatalogMatch(
+    const row = this.extractCardhedgerCardDataRow(raw);
+    if (!row) return { checked: true, ok: false, cleared: false, failCodes: ['empty_card_payload'] };
+    const ex = exactCatalogMatch(
       { cardName: wantName, cardSet: wantSet, cardNumber: wantNum },
-      ptRow,
+      {
+        name: String(row.description ?? row.name ?? ''),
+        cardNumber: String(row.number ?? ''),
+        set: { name: String(row.set ?? '') },
+      },
     );
-    if (ex.ok) {
-      return { checked: true, ok: true, cleared: false, failCodes: [] };
-    }
-
-    this.logger.warn(
-      JSON.stringify({
-        msg: 'poketrace_collection_id_mismatch',
-        collectionKey: k,
-        poketraceCardId: pid,
-        failCodes: ex.failCodes,
-        normalized: ex.normalized,
-      }),
-    );
+    if (ex.ok) return { checked: true, ok: true, cleared: false, failCodes: [] };
 
     if (options?.clearOnMismatch) {
       const nextComponents: Record<string, unknown> = { ...comp };
-      delete nextComponents.poketraceCardId;
+      delete nextComponents.cardhedgerCardId;
+      delete nextComponents.cardhedgerSearchQuery;
       await this.collectionRepo.update(
         { collectionKey: k },
-        {
-          components: nextComponents as QueryDeepPartialEntity<
-            Record<string, unknown>
-          >,
-        },
+        { components: nextComponents as QueryDeepPartialEntity<Record<string, unknown>> },
       );
-      this.poketrace.invalidateCollectionPoketraceCaches(k);
       return { checked: true, ok: false, cleared: true, failCodes: ex.failCodes };
     }
-
     return { checked: true, ok: false, cleared: false, failCodes: ex.failCodes };
   }
 
-  /** `POKETRACE_COLLECTION_AUDIT_ON_BOOT=1`: clear stale catalog ids that fail the exact triple. */
-  private async auditStalePoketraceCardIdsOnBoot(): Promise<void> {
+  private async auditStaleCardhedgerCardIdsOnBoot(): Promise<void> {
     const rows = await this.collectionRepo.find({ select: ['collectionKey', 'components'] });
     let cleared = 0;
     let mismatchNotCleared = 0;
     let incomplete = 0;
     for (const c of rows) {
       const comp = c.components as Record<string, unknown>;
-      if (typeof comp.poketraceCardId !== 'string' || !comp.poketraceCardId.trim()) {
-        continue;
-      }
-      const r = await this.auditPoketraceCardIdExact(c.collectionKey, {
-        clearOnMismatch: true,
-      });
+      if (typeof comp.cardhedgerCardId !== 'string' || !comp.cardhedgerCardId.trim()) continue;
+      const r = await this.auditCardhedgerCardIdExact(c.collectionKey, { clearOnMismatch: true });
       if (!r.checked) continue;
       if (r.ok) continue;
       if (r.failCodes.includes('incomplete_components')) {
@@ -641,17 +596,45 @@ export class CollectionService implements OnModuleInit {
     }
     this.logger.warn(
       JSON.stringify({
-        msg: 'poketrace_collection_boot_audit_summary',
+        msg: 'cardhedger_collection_boot_audit_summary',
         collectionsTableRows: rows.length,
-        stalePoketraceIdsCleared: cleared,
+        staleCardhedgerIdsCleared: cleared,
         mismatchesNotCleared: mismatchNotCleared,
         incompleteComponents: incomplete,
       }),
     );
   }
 
-  /** 중복 컬렉션 키 충돌 시 메타에만 있고 DB에 없는 poketrace / approximate id 병합 */
-  private async mergePoketraceCardIdFromMetaIfMissing(
+  /** Backward-compatible alias now backed by Cardhedger exact verification. */
+  async auditCollectionCardIdExact(
+    collectionKey: string,
+    options?: { clearOnMismatch?: boolean },
+  ): Promise<{
+    checked: boolean;
+    ok: boolean;
+    cleared: boolean;
+    failCodes: string[];
+  }> {
+    return this.auditCardhedgerCardIdExact(collectionKey, options);
+  }
+
+  /** Clear stale external card ids that fail exact triple verification. */
+  private async auditStaleCollectionCardIdsOnBoot(): Promise<void> {
+    await this.auditStaleCardhedgerCardIdsOnBoot();
+  }
+
+  /** Legacy no-op: metadata now stores canonical Cardhedger ids only. */
+  private async mergeLegacyReferenceIdFromMetaIfMissing(
+    collectionKey: string,
+    meta: Record<string, unknown>,
+  ): Promise<void> {
+    // Legacy no-op: Cardhedger id is now canonical.
+    void collectionKey;
+    void meta;
+  }
+
+  /** duplicate key race 시 메타에만 있고 DB에 없는 cardhedger id/searchQuery 병합 */
+  private async mergeCardhedgerCardIdFromMetaIfMissing(
     collectionKey: string,
     meta: Record<string, unknown>,
   ): Promise<void> {
@@ -659,41 +642,22 @@ export class CollectionService implements OnModuleInit {
     const dbRow = await this.collectionRepo.findOne({ where: { collectionKey: key } });
     if (!dbRow) return;
     const comp = dbRow.components as Record<string, unknown>;
-    const pq = buildPoketraceQueryFromRwaMetadata(meta);
-    if (typeof comp.poketraceCardId === 'string' && comp.poketraceCardId.trim()) {
+    if (typeof comp.cardhedgerCardId === 'string' && comp.cardhedgerCardId.trim()) {
       return;
     }
-    const pid = pq.poketraceCardId?.trim();
-    if (pid) {
-      await this.collectionRepo.update(
-        { collectionKey: key },
-        {
-          components: { ...comp, poketraceCardId: pid } as QueryDeepPartialEntity<
-            Record<string, unknown>
-          >,
-        },
-      );
-      this.poketrace.invalidateCollectionPoketraceCaches(key);
-      return;
-    }
-    if (
-      typeof comp.approximatePoketraceCardId === 'string' &&
-      comp.approximatePoketraceCardId.trim()
-    ) {
-      return;
-    }
-    const apid = pq.approximatePoketraceCardId?.trim();
-    if (!apid) return;
+    const ch = this.cardhedgerFromRwaMetadata(meta);
+    if (!ch.cardId) return;
     await this.collectionRepo.update(
       { collectionKey: key },
       {
         components: {
           ...comp,
-          approximatePoketraceCardId: apid,
+          cardhedgerCardId: ch.cardId,
+          ...(ch.psaSpecId ? { psaSpecId: ch.psaSpecId } : {}),
+          ...(ch.searchQuery ? { cardhedgerSearchQuery: ch.searchQuery } : {}),
         } as QueryDeepPartialEntity<Record<string, unknown>>,
       },
     );
-    this.poketrace.invalidateCollectionPoketraceCaches(key);
   }
 
   async activeListingsForCollection(collectionKey: string): Promise<Order[]> {
@@ -720,81 +684,7 @@ export class CollectionService implements OnModuleInit {
   }
 
   /**
-   * IPFS metadata → JustTCG identifiers (slug / tcgplayerId / variantId).
-   * Order: optional `hintTokenId` (e.g. portfolio holder) → active asks → recent fulfilled asks.
-   * Without fulfilled/hint, holders who never listed have no active ask row → JustTCG strip was always empty.
-   */
-  async resolveJustTcgProductIdentifiersForCollection(
-    collectionKey: string,
-    hintTokenId?: string | null,
-  ): Promise<JustTcgProductIdentifiers> {
-    const empty: JustTcgProductIdentifiers = {
-      cardId: null,
-      tcgplayerId: null,
-      variantId: null,
-    };
-    const k = collectionKey.toLowerCase();
-
-    const tryToken = async (tokenIdStr: string): Promise<JustTcgProductIdentifiers | null> => {
-      if (!tokenIdStr || String(tokenIdStr).trim() === '') return null;
-      try {
-        const uri = await this.blockchain.getRwaTokenURI(Number(tokenIdStr));
-        const meta = await this.ipfsResolver.fetchMetadataJson(uri);
-        return extractJustTcgProductIdentifiersFromMetadata(meta);
-      } catch {
-        return null;
-      }
-    };
-
-    const merge = (ids: JustTcgProductIdentifiers | null): JustTcgProductIdentifiers | null => {
-      if (!ids) return null;
-      if (ids.cardId || ids.tcgplayerId || ids.variantId) return ids;
-      return null;
-    };
-
-    const hint = hintTokenId?.trim();
-    if (hint) {
-      const ids = merge(await tryToken(hint));
-      if (ids) return ids;
-    }
-
-    const asks = await this.activeListingsForCollection(k);
-    for (const o of asks) {
-      const ids = merge(await tryToken(String(o.tokenId)));
-      if (ids) return ids;
-    }
-
-    const fulfilled = await this.orderRepo.find({
-      where: {
-        collectionKey: k,
-        status: OrderStatus.FULFILLED,
-        side: OrderSide.ASK,
-      },
-      order: { updatedAt: 'DESC' },
-      take: 40,
-    });
-    const seen = new Set<string>();
-    for (const o of fulfilled) {
-      const tid = String(o.tokenId ?? '');
-      if (!tid || seen.has(tid)) continue;
-      seen.add(tid);
-      const ids = merge(await tryToken(tid));
-      if (ids) return ids;
-    }
-
-    return empty;
-  }
-
-  /**
-   * 활성 매도 주문의 IPFS 메타에서 JustTCG 카드 slug (`topMatch.id` / `cardId`).
-   */
-  async resolveJustTcgCardIdForCollection(collectionKey: string): Promise<string | null> {
-    const ids = await this.resolveJustTcgProductIdentifiersForCollection(collectionKey, null);
-    return ids.cardId;
-  }
-
-  /**
-   * Representative image: DB value; else first active listing IPFS metadata (no JustTCG HTTP).
+   * Representative image: DB value; else first active listing IPFS metadata.
    */
   async resolveRepresentativeImageForCollection(
     collectionKey: string,

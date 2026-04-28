@@ -7,17 +7,17 @@ import {
   postRwaMetadataBatch,
   postOrdersBatchByToken,
   getActiveOrders,
-  postBatchMintPoketracePreviews,
-  type CollectionPoketracePreview,
+  postBatchMintMarketPreviews,
+  type CollectionMarketPreview,
   type OrderListItem,
   type RwaMetadata,
-} from "@/lib/api";
-import { rq, marketplaceRqPolicy } from "@/lib/queryKeys";
+} from "@/lib/core";
+import { rq, marketplaceRqPolicy } from "@/lib/core";
 import {
   primeRwaMetadataCache,
   getCachedRwaMetadata,
   getCachedRwaImageUrl,
-} from "@/lib/rwaMetadataCache";
+} from "@/lib/marketplace";
 
 /** Stable fallbacks so `data ?? []` does not allocate new refs every render (avoids effect loops in consumers). */
 const EMPTY_TOKEN_IDS: number[] = [];
@@ -28,7 +28,7 @@ const EMPTY_METADATA_ROWS: {
   metadata: RwaMetadata | null;
   imageUrl: string | null;
 }[] = [];
-const EMPTY_POKETRACE: Record<number, CollectionPoketracePreview> = {};
+const EMPTY_MARKET_PREVIEW: Record<number, CollectionMarketPreview> = {};
 
 export interface UserOwnedAsset {
   tokenId: number;
@@ -42,14 +42,14 @@ export function useUserAssets(
   opts?: {
     enabled?: boolean;
     includeOrderHistory?: boolean;
-    includePoketrace?: boolean;
+    includeMarketPreview?: boolean;
     /** When false, skip `GET /marketplace/orders` (default true). */
     loadMarketOrders?: boolean;
   },
 ) {
   const enabled = (opts?.enabled ?? true) && Boolean(address?.trim());
   const includeOrderHistory = opts?.includeOrderHistory ?? true;
-  const includePoketrace = opts?.includePoketrace ?? true;
+  const includeMarketPreview = opts?.includeMarketPreview ?? true;
 
   const tokenIdsQuery = useQuery({
     queryKey: rq.rwaTokens(address!),
@@ -95,10 +95,10 @@ export function useUserAssets(
     staleTime: 30_000,
   });
 
-  const poketraceQuery = useQuery({
-    queryKey: rq.poketraceMintPreviews(address, tokenIds),
-    queryFn: () => postBatchMintPoketracePreviews(tokenIds),
-    enabled: enabled && includePoketrace && tokenIds.length > 0,
+  const marketPreviewQuery = useQuery({
+    queryKey: rq.marketMintPreviews(address, tokenIds),
+    queryFn: () => postBatchMintMarketPreviews(tokenIds),
+    enabled: enabled && includeMarketPreview && tokenIds.length > 0,
   });
 
   const assets: UserOwnedAsset[] = useMemo(() => {
@@ -134,9 +134,9 @@ export function useUserAssets(
     () => historyQuery.data ?? EMPTY_ORDER_HISTORY,
     [historyQuery.data],
   );
-  const poketraceByToken = useMemo(
-    () => poketraceQuery.data ?? EMPTY_POKETRACE,
-    [poketraceQuery.data],
+  const marketPreviewByToken = useMemo(
+    () => marketPreviewQuery.data ?? EMPTY_MARKET_PREVIEW,
+    [marketPreviewQuery.data],
   );
 
   return {
@@ -146,18 +146,18 @@ export function useUserAssets(
     activeOrders,
     orderHistoryByToken,
     historiesFlat,
-    poketraceByToken,
+    marketPreviewByToken,
     isLoadingIds: tokenIdsQuery.isLoading,
     isLoadingMetadata: metadataQuery.isLoading,
     isLoading: tokenIdsQuery.isLoading || metadataQuery.isLoading,
-    poketraceLoading: poketraceQuery.isLoading,
-    poketraceError: poketraceQuery.isError,
+    marketPreviewLoading: marketPreviewQuery.isLoading,
+    marketPreviewError: marketPreviewQuery.isError,
     refetchAll: () => {
       void tokenIdsQuery.refetch();
       void metadataQuery.refetch();
       void ordersQuery.refetch();
       void historyQuery.refetch();
-      void poketraceQuery.refetch();
+      void marketPreviewQuery.refetch();
     },
   };
 }

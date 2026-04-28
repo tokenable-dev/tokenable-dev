@@ -663,8 +663,8 @@ flowchart TD
         R_MKT["/api/marketplace<br/>orders · collections · snapshots<br/>· poketrace helpers · poketrace/* proxy"]:::route
         R_RWA["/api/rwa<br/>IPFS metadata upload · mint helpers"]:::route
         R_BC["/api/blockchain<br/>token lists · contract reads"]:::route
-        R_PRICE["/api/price<br/>JustTCG proxy (games/cards)"]:::route
-        R_PSA["/api/psa<br/>slab OCR · PSA API · JustTCG search"]:::route
+        R_CH["/api/cardhedger<br/>Cardhedger proxy (catalog/pricing/search)"]:::route
+        R_PSA["/api/psa<br/>slab OCR · PSA API"]:::route
     end
 
     subgraph PERSIST ["Persistence"]
@@ -674,7 +674,7 @@ flowchart TD
     subgraph OUT ["External systems"]
         ETH["Ethereum RPC<br/>ethers.js"]:::ext
         PIN["Pinata IPFS"]:::ext
-        JT["JustTCG API"]:::ext
+        CH["Cardhedger API"]:::ext
         PSAHTTP["PSA Public API"]:::ext
         PTR["PokeTrace API<br/>(HTTP upstream)"]:::ext
     end
@@ -761,7 +761,7 @@ flowchart TB
 
     subgraph M_PRICE ["price/ — PriceModule"]
         PCTRL["PriceController"]:::ctrl
-        PSV["PriceService<br/>JustTCG · TCG_API_KEY required"]:::svc
+        CHS["CardhedgerService<br/>CARDHEDGER_API_KEY required"]:::svc
         PCTRL --> PSV
     end
 
@@ -825,7 +825,7 @@ flowchart LR
     subgraph L3 ["External I/O"]
         ETH["ethers<br/>Sepolia reads"]:::io
         PIN["Pinata<br/>JSON & image pins"]:::io
-        JT["fetch → JustTCG"]:::io
+        CH["fetch → Cardhedger"]:::io
         MAIL["SMTP<br/>verification email"]:::io
     end
 
@@ -888,12 +888,12 @@ backend/
 │   │   └── providers/          # ethers · USDC · RWA factories
 │   │
 │   ├── price/
-│   │   ├── price.controller.ts # /price — JustTCG proxy
-│   │   └── price.service.ts    # TCG_API_KEY required (no mock file)
+│   │   ├── cardhedger-*.controller.ts # /cardhedger/v1/* upstream proxy
+│   │   └── cardhedger.service.ts       # CARDHEDGER_API_KEY required
 │   │
 │   ├── psa/
 │   │   ├── psa.controller.ts   # /psa/analyze
-│   │   ├── psa.service.ts      # OCR · merge · JustTCG search
+│   │   ├── psa.service.ts      # OCR · merge · PSA/Cardhedger integration
 │   │   ├── psa-public-api.service.ts
 │   │   └── psa-*.util.ts
 │   │

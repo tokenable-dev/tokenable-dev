@@ -1,7 +1,7 @@
 import type { PublicClient, Address } from "viem";
 import { formatUnits } from "viem";
-import type { Order } from "@/lib/api";
-import { getMarketplaceCollectionDetail } from "@/lib/api";
+import type { Order } from "@/lib/core";
+import { getMarketplaceCollectionDetail } from "@/lib/core";
 import { bidUsdcAmount } from "@/lib/seaport/bidUsdc";
 import {
   bidMerkleRootMatchesCollection,
@@ -13,7 +13,7 @@ import {
   mapMatchError,
   type MatchWriteContractAsync,
 } from "@/lib/seaport/runCriteriaMatch";
-import { normalizeDecimalTokenId } from "@/lib/normalizeTokenId";
+import { normalizeDecimalTokenId } from "@/lib/marketplace";
 import {
   getChainTimestampSec,
   isSeaportOrderActiveAt,

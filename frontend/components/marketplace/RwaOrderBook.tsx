@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { Order } from "@/lib/api";
+import type { Order } from "@/lib/core";
 
 const USDC_DECIMALS = 6;
 

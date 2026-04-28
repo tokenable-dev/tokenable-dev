@@ -1,18 +1,18 @@
 import type { MarketBucketComponents } from './bucket-key.util';
 
 /**
- * Mint / PSA 분석 후 `properties.graded.justtcg.queryUsed`에 들어가는 JustTCG 검색문.
+ * Mint / PSA 분석 후 `properties.graded.cardhedger.searchQuery`에 들어가는 검색문.
  * 있으면 컬렉션 표시명으로 우선 사용한다.
  */
-export function extractJustTcgQueryUsed(
+export function extractCollectionQueryUsed(
   meta: Record<string, unknown>,
 ): string | null {
   const props = meta.properties as Record<string, unknown> | undefined;
   const graded = (props?.graded ?? meta.graded) as Record<string, unknown> | undefined;
   if (!graded || typeof graded !== 'object') return null;
-  const jt = graded.justtcg as Record<string, unknown> | undefined;
-  if (!jt || typeof jt !== 'object') return null;
-  const q = jt.queryUsed;
+  const ch = graded.cardhedger as Record<string, unknown> | undefined;
+  if (!ch || typeof ch !== 'object') return null;
+  const q = ch.searchQuery;
   if (typeof q !== 'string' || !q.trim()) return null;
   return q.trim().replace(/\s+/g, ' ');
 }

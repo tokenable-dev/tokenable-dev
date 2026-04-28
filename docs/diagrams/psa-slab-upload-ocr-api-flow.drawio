@@ -75,14 +75,14 @@
           <mxGeometry x="992" y="96" width="796" height="88" as="geometry" />
         </mxCell>
 
-        <!-- Swimlane: JustTCG -->
-        <mxCell id="lane_jt" value="⑤ 외부 API — JustTCG (포케몬 카드 검색)" style="swimlane;horizontal=1;startSize=32;fillColor=#f8cecc;strokeColor=#b85450;fontStyle=1;fontSize=13;align=left;spacingLeft=8;" vertex="1" parent="1">
+        <!-- Swimlane: Cardhedger -->
+        <mxCell id="lane_jt" value="⑤ 외부 API — Cardhedger (카드 검색/가격)" style="swimlane;horizontal=1;startSize=32;fillColor=#f8cecc;strokeColor=#b85450;fontStyle=1;fontSize=13;align=left;spacingLeft=8;" vertex="1" parent="1">
           <mxGeometry x="40" y="928" width="1840" height="120" as="geometry" />
         </mxCell>
         <mxCell id="jt1" value="`buildJustTcgSearchQueryAfterMerge` 로 검색어 문자열 생성 (PSA 병합 결과·OCR 텍스트 기반)" style="rounded=1;whiteSpace=wrap;html=1;align=left;spacingLeft=8;fontSize=11;fillColor=#ffffff;" vertex="1" parent="lane_jt">
           <mxGeometry x="48" y="48" width="560" height="56" as="geometry" />
         </mxCell>
-        <mxCell id="jt2" value="`PriceService.getCards` → GET&#xa;`https://api.justtcg.com/v1/cards?q={query}&amp;game=pokemon&amp;limit=5&amp;offset=0`&#xa;인증: `TCG_API_KEY` (백엔드 환경변수, 앱 기동 시 필수)" style="rounded=1;whiteSpace=wrap;html=1;align=left;spacingLeft=8;fontSize=11;fillColor=#ffffff;fontStyle=1;" vertex="1" parent="lane_jt">
+        <mxCell id="jt2" value="`CardhedgerService` → POST&#xa;`https://api.cardhedger.com/v1/cards/card-match` (or search/pricing APIs)&#xa;인증: `CARDHEDGER_API_KEY`" style="rounded=1;whiteSpace=wrap;html=1;align=left;spacingLeft=8;fontSize=11;fillColor=#ffffff;fontStyle=1;" vertex="1" parent="lane_jt">
           <mxGeometry x="640" y="40" width="640" height="72" as="geometry" />
         </mxCell>
         <mxCell id="e_jt" style="endArrow=classic;html=1;strokeWidth=2;" edge="1" parent="lane_jt" source="jt1" target="jt2">
@@ -93,7 +93,7 @@
         <mxCell id="lane_res" value="⑥ 응답 JSON (`PsaAnalyzeResult`) — 프론트가 필드 자동 채움·민팅 이미지 후보로 사용" style="swimlane;horizontal=1;startSize=32;fillColor=#e6d0de;strokeColor=#996185;fontStyle=1;fontSize=13;align=left;spacingLeft=8;" vertex="1" parent="1">
           <mxGeometry x="40" y="1068" width="1840" height="100" as="geometry" />
         </mxCell>
-        <mxCell id="res1" value="`ocr`: combinedText, frontText, backText, labelStripText, certDigitsText&#xa;`psa`: 파싱·API 병합 필드, certVerifyUrl, enrichedFromOfficialApi&#xa;`psaApi.lookup`, `justtcg` (queryUsed, topMatch, rawResponse), `psaCertImages` { front, back }?, `warnings`?" style="rounded=0;whiteSpace=wrap;html=1;align=left;spacingLeft=10;fontSize=11;fillColor=#ffffff;" vertex="1" parent="lane_res">
+        <mxCell id="res1" value="`ocr`: combinedText, frontText, backText, labelStripText, certDigitsText&#xa;`psa`: 파싱·API 병합 필드, certVerifyUrl, enrichedFromOfficialApi&#xa;`psaApi.lookup`, `cardhedger` (cardId, searchQuery, imageUrl), `psaCertImages` { front, back }?" style="rounded=0;whiteSpace=wrap;html=1;align=left;spacingLeft=10;fontSize=11;fillColor=#ffffff;" vertex="1" parent="lane_res">
           <mxGeometry x="48" y="48" width="1740" height="44" as="geometry" />
         </mxCell>
 
@@ -132,7 +132,7 @@
         </mxCell>
 
         <!-- Legend -->
-        <mxCell id="leg" value="범례 · 환경변수&#xa;• PSA_PUBLIC_API_TOKEN — PSA Public API (없으면 PSA HTTP 호출 생략, OCR/JustTCG는 동작)&#xa;• TCG_API_KEY — JustTCG 실호출 시 필수 (mock 분기 제거됨)&#xa;• OCR은 서버 로컬 tesseract.js; 별도 Google Vision 등 외부 OCR API 없음&#xa;• 배포 이슈: sharp/tesseract 메모리, HTTPS 아웃바운드, 업로드 본문 크기 — `docs/DEVELOPMENT.md` §6 참고" style="rounded=0;whiteSpace=wrap;html=1;align=left;spacingLeft=12;fontSize=10;fillColor=#ffffcc;strokeColor=#d6b656;" vertex="1" parent="1">
+        <mxCell id="leg" value="범례 · 환경변수&#xa;• PSA_PUBLIC_API_TOKEN — PSA Public API&#xa;• CARDHEDGER_API_KEY — Cardhedger 실호출 시 필수&#xa;• OCR은 서버 로컬 tesseract.js; 별도 Google Vision 등 외부 OCR API 없음&#xa;• 배포 이슈: sharp/tesseract 메모리, HTTPS 아웃바운드, 업로드 본문 크기 — `docs/DEVELOPMENT.md` §6 참고" style="rounded=0;whiteSpace=wrap;html=1;align=left;spacingLeft=12;fontSize=10;fillColor=#ffffcc;strokeColor=#d6b656;" vertex="1" parent="1">
           <mxGeometry x="40" y="1340" width="1840" height="100" as="geometry" />
         </mxCell>
       </root>

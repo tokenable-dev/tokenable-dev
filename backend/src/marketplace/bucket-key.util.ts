@@ -13,7 +13,7 @@ export interface MarketBucketComponents {
    */
   psaTotalPopulation?: number;
   /**
-   * Optional card # (e.g. 086) — **not** part of {@link computeMarketBucketKey}; used for PokeTrace/JustTCG search only.
+   * Optional card # (e.g. 086) — **not** part of {@link computeMarketBucketKey}; used for search matching only.
    */
   cardNumber?: string;
 }

@@ -9,9 +9,9 @@ import {
   SEAPORT_ABI,
   SEAPORT_ORDER_TYPES,
 } from "@/constants/contracts";
-import { createOrder, replaceListingApi, type CreateOrderPayload, type Order } from "@/lib/api";
-import { GAS_FALLBACK, gasWithCapFast } from "@/lib/chainGas";
-import { normalizeDecimalTokenId } from "@/lib/normalizeTokenId";
+import { createOrder, replaceListingApi, type CreateOrderPayload, type Order } from "@/lib/core";
+import { GAS_FALLBACK, gasWithCapFast } from "@/lib/network";
+import { normalizeDecimalTokenId } from "@/lib/marketplace";
 import {
   buildAskConsideration,
   buildAskConsiderationPayload,

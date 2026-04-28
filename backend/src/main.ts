@@ -47,8 +47,8 @@ async function bootstrap() {
         '',
         '**인증**: 대부분의 `auth` 엔드포인트는 **HttpOnly 쿠키 `access_token`**(Google OAuth 후 발급) 또는 **`Authorization: Bearer`** 로 동작합니다. Swagger에서 보호된 라우트는 🔓 버튼으로 JWT를 넣을 수 있습니다.',
         '',
-        '**가격 API (`price`)**: JustTCG 프록시 — `TCG_API_KEY` 필수.',
-        '**PokéTrace**: `GET /api/marketplace/poketrace/*` — `PoketraceProxyController` (Pro 토큰 `POKETRACE_PUBLIC_API_TOKEN`).',
+        '**Card Hedge**: `GET /api/cardhedger/catalog` — 연산 목록; `GET /api/cardhedger/indexes` 대시보드 인덱스 집계; 세부 엔드포인트는 Swagger 태그 **Card Hedge · …** (`CARDHEDGER_API_KEY`).',
+        '**Cardhedger only**: marketplace external pricing routes are unified to Cardhedger endpoints.',
         '**전체 경로 표**: 레포 `docs/API-REFERENCE.md` (Swagger `/api/docs`와 병행).',
       ].join('\n'),
     )
@@ -65,10 +65,10 @@ async function bootstrap() {
       'Seaport 오프체인 오더북 + 컬렉션 — 주문 등록·조회·체결 동기화; 규칙 매칭(bids/trade/match) 병행',
     )
     .addTag(
-      'price',
-      'JustTCG 프록시 — games / sets / cards / batch',
+      'cardhedger',
+      'Card Hedge — catalog (`GET /cardhedger/catalog`)',
     )
-    .addTag('psa', '슬랩 이미지 OCR · PSA Public API · JustTCG 검색')
+    .addTag('psa', '슬랩 이미지 OCR · PSA Public API')
     .build();
 
   const document = SwaggerModule.createDocument(app, swaggerConfig);

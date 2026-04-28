@@ -1,18 +1,18 @@
 # Tokenable RWA Marketplace
 
-A decentralized marketplace for graded-card RWAs on EVM chains (Sepolia-first). Users mint via IPFS, list, and trade with USDC. Settlement is primarily **OpenSea Seaport 1.5** (signed off-chain orders synced to Postgres). Market data combines **JustTCG** pricing with **PokéTrace** proxies on the Nest API; an optional **relational rule-based matching API** exists alongside Seaport (`docs/marketplace-trading.md`). Monorepo: Next.js frontend + Nest backend + Hardhat contracts.
+A decentralized marketplace for graded-card RWAs on EVM chains (Sepolia-first). Users mint via IPFS, list, and trade with USDC. Settlement is primarily **OpenSea Seaport 1.5** (signed off-chain orders synced to Postgres). Market data uses **Cardhedger** and **PokéTrace** proxies on the Nest API; an optional **relational rule-based matching API** exists alongside Seaport (`docs/marketplace-trading.md`). Monorepo: Next.js frontend + Nest backend + Hardhat contracts.
 
 ---
 
 ## Project Description
 
-Full-stack marketplace for graded-card RWAs on EVM testnets (Sepolia): mint, discover collections, trade with USDC via **Seaport 1.5** off-chain orders. External references combine **JustTCG** catalog/value signals with **PokéTrace** (proxied through the Nest API for catalog and tier price history).
+Full-stack marketplace for graded-card RWAs on EVM testnets (Sepolia): mint, discover collections, trade with USDC via **Seaport 1.5** off-chain orders. External references combine **Cardhedger** catalog/value signals with **PokéTrace** (proxied through the Nest API for catalog and tier price history).
 
 ### What users see today
 
 | Area | Notes |
 |------|--------|
-| **Landing (`/`)** | Hero + **Market Indexes** (JustTCG game-level aggregates / sparklines; MLB/NFL/NBA demo slots alongside Pokémon where configured). |
+| **Landing (`/`)** | Hero + **Market Indexes** (Cardhedger aggregates / sparklines; MLB/NFL/NBA demo slots alongside Pokémon where configured). |
 | **Exchange (`/exchange`)** | All collections (including zero listings), sorted by pool pricing; category chips; optional grid/list view; **Trending** strip. |
 | **Collection detail (`/marketplace/collections/[key]`)** | Unified order book, dual **Tokenable vs PokéTrace** price chart (aligned time axis), criteria bids / listings, **Individual listings** strip (seller, cert #, USDC). |
 | **Portfolio (`/portfolio`)** | Holdings with listing vs unlisted distinction and reference vs on-platform pricing. |
@@ -36,7 +36,7 @@ Trading remains non-custodial until settlement; criteria bids cover Merkle-eligi
 
 - **Node.js** / **TypeScript**
 - **NestJS** — REST API, Swagger under `/api/docs`
-- **JustTCG** — Live card/game pricing (`TCG_API_KEY` required; see [docs/price-api.md](docs/price-api.md))
+- **Cardhedger** — Live card/game pricing (`CARDHEDGER_API_KEY` required)
 - **PokéTrace** — Server-side proxy + tiered history for collection/token charts (`/api/marketplace/poketrace/*`)
 - **Pinata** — IPFS pinning for RWA metadata/images
 - **PostgreSQL + TypeORM** — Orders, collections, optional relational trading layer ([docs/marketplace-trading.md](docs/marketplace-trading.md))
@@ -80,7 +80,6 @@ tokenable-dev/
 | **[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)** | Product surfaces, DB, API summary + link to API-REFERENCE, Seaport + relational trading, CI/CD → EC2, PSA troubleshooting, diagram index |
 | **[docs/marketplace-trading.md](docs/marketplace-trading.md)** | Rule-based `bids`/`asks`/match API vs Seaport `orders` |
 | **[docs/DEPLOY_EC2_DOMAIN.md](docs/DEPLOY_EC2_DOMAIN.md)** | EC2 Docker, domain, same-origin `/api`, CORS, OAuth, TLS checklist |
-| **[docs/price-api.md](docs/price-api.md)** | JustTCG HTTP API (detailed reference) |
 | **[backend/sql/README.md](backend/sql/README.md)** | Why there are no SQL migrations |
 
 CI/CD: a push to **`develop`** runs GitHub Actions (see `docs/DEVELOPMENT.md` §5 and `.github/workflows/deploy.yml`).

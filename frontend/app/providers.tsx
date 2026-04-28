@@ -4,7 +4,7 @@ import { useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { WagmiProvider } from "wagmi";
 import { wagmiConfig } from "@/config/wagmi";
-import { configurePoketraceQueryDefaults } from "@/lib/queryKeys";
+import { configureMarketQueryDefaults } from "@/lib/core";
 import { WalletDataProvider } from "@/providers/WalletDataProvider";
 import { AuthProvider } from "@/providers/AuthProvider";
 import { MarketplaceQueryPersistence } from "@/components/providers/MarketplaceQueryPersistence";
@@ -19,7 +19,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
         },
       },
     });
-    configurePoketraceQueryDefaults(c);
+    configureMarketQueryDefaults(c);
     return c;
   });
 

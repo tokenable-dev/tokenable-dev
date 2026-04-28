@@ -24,6 +24,46 @@ function isPsaGraded(graded: Record<string, unknown> | undefined): boolean {
   return typeof gc === 'string' && gc.toUpperCase() === 'PSA';
 }
 
+function parsePositiveNumber(raw: unknown): number | null {
+  if (typeof raw === 'number' && Number.isFinite(raw) && raw > 0) return raw;
+  if (typeof raw === 'string') {
+    const n = Number(raw.trim());
+    if (Number.isFinite(n) && n > 0) return n;
+  }
+  return null;
+}
+
+function extractFirstNumeric(text: unknown): number | null {
+  if (typeof text !== 'string') return null;
+  const m = text.match(/\d+(?:\.\d+)?/);
+  if (!m) return null;
+  const n = Number(m[0]);
+  return Number.isFinite(n) ? n : null;
+}
+
+function resolvePsaGradeScore(graded: Record<string, unknown>): number | null {
+  const psa =
+    typeof graded.psa === 'object' && graded.psa != null
+      ? (graded.psa as Record<string, unknown>)
+      : null;
+  const grade =
+    typeof graded.grade === 'object' && graded.grade != null
+      ? (graded.grade as Record<string, unknown>)
+      : null;
+
+  const direct =
+    parsePositiveNumber(psa?.gradeScore) ??
+    parsePositiveNumber(grade?.score) ??
+    parsePositiveNumber(graded.gradeScore);
+  if (direct != null) return direct;
+
+  const fromLabel =
+    extractFirstNumeric(psa?.gradeLabel) ??
+    extractFirstNumeric(psa?.gradeDescription) ??
+    extractFirstNumeric(grade?.label);
+  return fromLabel;
+}
+
 @Injectable()
 export class NftService {
   private readonly logger = new Logger(NftService.name);
@@ -111,6 +151,22 @@ export class NftService {
       gradedObj && typeof gradedObj === 'object'
         ? isPsaGraded(gradedObj as Record<string, unknown>)
         : false;
+    if (!gradedObj || typeof gradedObj !== 'object') {
+      throw new BadRequestException(
+        'PSA 인증 메타데이터가 필요합니다. OCR/Cert 조회로 PSA 10 확인 후 mint 해주세요.',
+      );
+    }
+    if (!psaGraded) {
+      throw new BadRequestException(
+        'PSA 등급 카드만 mint 가능합니다. OCR/Cert 조회 결과가 PSA인지 확인해주세요.',
+      );
+    }
+    const psaScore = resolvePsaGradeScore(gradedObj as Record<string, unknown>);
+    if (psaScore == null || Math.floor(psaScore) !== 10) {
+      throw new BadRequestException(
+        `PSA 10 카드만 mint 가능합니다. 현재 등급: ${psaScore ?? 'unknown'}`,
+      );
+    }
 
     let imageCID: string;
     let collectionCoverIpfsCid: string | undefined;

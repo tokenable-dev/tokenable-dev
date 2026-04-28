@@ -8,7 +8,7 @@ import {
   useWalletClient,
 } from "wagmi";
 import { formatUnits, parseUnits, type Address } from "viem";
-import { cancelOrder, type Order } from "@/lib/api";
+import { cancelOrder, type Order } from "@/lib/core";
 import { sepolia } from "@/config/wagmi";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -16,10 +16,8 @@ import {
   SEAPORT_ADDRESS,
   TOKENABLE_RWA_APPROVE_ABI,
 } from "@/constants/contracts";
-import { getMarketplaceCollectionDetail, getOrderByHash } from "@/lib/api";
-import { rq } from "@/lib/queryKeys";
-import { GAS_FALLBACK, gasWithCapFast } from "@/lib/chainGas";
-import { mapWalletError } from "@/lib/walletError";
+import { getMarketplaceCollectionDetail, getOrderByHash, rq } from "@/lib/core";
+import { GAS_FALLBACK, gasWithCapFast, mapWalletError } from "@/lib/network";
 import { askGrossUsdcMicros, bidUsdcAmount } from "@/lib/seaport/bidUsdc";
 import { isCriteriaCollectionBid } from "@/lib/seaport/criteriaMatch";
 import {
@@ -33,7 +31,7 @@ import {
   bidMerkleRootMatchesCollection,
   fetchMerkleSnapshotForMatch,
 } from "@/lib/seaport/collectionCriteriaRoot";
-import { normalizeDecimalTokenId } from "@/lib/normalizeTokenId";
+import { normalizeDecimalTokenId } from "@/lib/marketplace";
 import {
   getChainTimestampSec,
   isSeaportOrderActiveAt,
@@ -665,7 +663,7 @@ export function ListRwaModal({
   async function invalidateListingQueries(created: Order) {
     await queryClient.invalidateQueries({ queryKey: ["orders"] });
     await queryClient.invalidateQueries({ queryKey: ["rwa-metadata-batch"] });
-    await queryClient.invalidateQueries({ queryKey: ["poketrace-mint-previews"] });
+    await queryClient.invalidateQueries({ queryKey: ["cardhedger-mint-previews"] });
     await queryClient.invalidateQueries({ queryKey: rq.collectionsMarketplace() });
     await queryClient.invalidateQueries({ queryKey: ["collection-snapshots"] });
     await queryClient.invalidateQueries({ queryKey: ["marketplace-collection"] });

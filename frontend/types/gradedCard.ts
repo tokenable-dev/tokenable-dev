@@ -30,20 +30,10 @@ export interface GradedCardMetadata {
     slabFront?: string;
     slabBack?: string;
   };
-  /** JustTCG search snapshot at mint time */
-  justtcg?: {
-    queryUsed: string;
-    topMatch?: unknown;
-  };
-  /**
-   * PokeTrace catalog card id resolved at PSA analyze — enables GET /cards/:id for NM pricing
-   * without relying on fuzzy search alone.
-   */
-  poketrace?: {
+  /** Cardhedger card id resolved at mint-time search */
+  cardhedger?: {
     cardId?: string;
     searchQuery?: string;
-    approximateCardId?: string;
-    approximateSearchQuery?: string;
   };
   /** Collection cover on IPFS after server trims slab top (mint response) */
   collectionCoverImage?: string;

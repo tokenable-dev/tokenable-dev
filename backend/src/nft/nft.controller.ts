@@ -40,7 +40,7 @@ export class NftController {
         gradedMetadata: {
           type: 'string',
           description:
-            'JSON 문자열 — { graded, attributes?, external_url? } 형태 (PSA/JustTCG 병합)',
+            'JSON 문자열 — { graded, attributes?, external_url? } 형태 (PSA/Cardhedger 병합)',
         },
       },
     },

@@ -10,8 +10,8 @@ import {
   type CollectionUsdPoint,
   type MarketplaceCollectionSummary,
   type OrderListItem,
-} from "@/lib/api";
-import { rq, marketplaceRqPolicy } from "@/lib/queryKeys";
+} from "@/lib/core";
+import { rq, marketplaceRqPolicy } from "@/lib/core";
 import { useMarketplaceCollectionsInfinite } from "@/hooks/useMarketplaceCollectionsInfinite";
 import { CollectionCoverFrame } from "@/components/marketplace/CollectionCoverFrame";
 import { CollectionCategoryFilterBar } from "@/components/marketplace/CollectionCategoryFilterBar";
@@ -20,9 +20,8 @@ import {
   collectionMatchesCategoryFilter,
   inferCollectionSportBucket,
   type CollectionCategoryFilterId,
-} from "@/lib/collectionCategoryFilter";
-import { parseGradeScoreNumber } from "@/lib/gradedCardMarketCap";
-import { justtcgRepresentativeUsd } from "@/lib/externalMarketPrice";
+} from "@/lib/market";
+import { parseGradeScoreNumber, representativeGradeUsd } from "@/lib/market";
 
 const USDC_DECIMALS = 1_000_000;
 
@@ -172,9 +171,11 @@ function CollectionRow({
     gradingCompany?: string;
     cardSet?: string;
     cardNumber?: string;
+    cardhedgerCardId?: string;
+    psaSpecId?: string;
   };
 
-  const jtSpot = justtcgRepresentativeUsd(
+  const jtSpot = representativeGradeUsd(
     snapshot?.gradePrices ?? null,
     parseGradeScoreNumber(comp.gradeScore),
   );
@@ -236,6 +237,13 @@ function CollectionRow({
         </h3>
         {subtitle ? (
           <p className="mt-1 truncate text-sm text-zinc-400 sm:text-base">{subtitle}</p>
+        ) : null}
+        {(comp.cardhedgerCardId || comp.psaSpecId) ? (
+          <p className="mt-1 truncate text-[11px] text-zinc-500">
+            {comp.cardhedgerCardId ? `Cardhedger ${comp.cardhedgerCardId}` : null}
+            {comp.cardhedgerCardId && comp.psaSpecId ? " · " : null}
+            {comp.psaSpecId ? `PSA Spec ${comp.psaSpecId}` : null}
+          </p>
         ) : null}
         {(tokenableVsRefPct != null || upTo1yChangePct != null) ? (
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px] sm:text-xs">
@@ -322,11 +330,13 @@ function CollectionGridCard({
     gradingCompany?: string;
     cardSet?: string;
     cardNumber?: string;
+    cardhedgerCardId?: string;
+    psaSpecId?: string;
   };
   const subtitle = [comp.gradingCompany, comp.cardSet, comp.cardNumber ? `#${comp.cardNumber}` : null]
     .filter(Boolean)
     .join(" · ");
-  const jtSpot = justtcgRepresentativeUsd(
+  const jtSpot = representativeGradeUsd(
     snapshot?.gradePrices ?? null,
     parseGradeScoreNumber(comp.gradeScore),
   );
@@ -366,6 +376,13 @@ function CollectionGridCard({
       <div className="space-y-2 p-3">
         <h3 className="truncate text-lg font-semibold text-white">{collection.displayLabel}</h3>
         {subtitle ? <p className="truncate text-xs text-zinc-500">{subtitle}</p> : null}
+        {(comp.cardhedgerCardId || comp.psaSpecId) ? (
+          <p className="truncate text-[10px] text-zinc-600">
+            {comp.cardhedgerCardId ? `Cardhedger ${comp.cardhedgerCardId}` : null}
+            {comp.cardhedgerCardId && comp.psaSpecId ? " · " : null}
+            {comp.psaSpecId ? `PSA Spec ${comp.psaSpecId}` : null}
+          </p>
+        ) : null}
         <div className="rounded-xl border border-zinc-800/70 bg-black/30 px-1.5 py-1">
           <CollectionListSparkline
             points={
@@ -447,7 +464,7 @@ export default function ExchangePage() {
     staleTime: marketplaceRqPolicy.snapshotsStaleMs,
   });
 
-  /** Snapshots (pool stats + PokéTrace bundle + sparkline) — show bar while this request runs */
+  /** Snapshots (pool stats + external market bundle + sparkline) — show bar while this request runs */
   const showMarketSnapshotLoadingBar =
     snapshotKeysSorted.length > 0 && !isLoading && snapshotsPending;
 
@@ -512,7 +529,7 @@ export default function ExchangePage() {
         {/* Title */}
         <div className="mb-10 sm:mb-12">
           <h1 className="mb-1 text-3xl font-extrabold tracking-tight sm:text-4xl">
-            Exchange
+            Markets
           </h1>
         </div>
 
@@ -584,7 +601,7 @@ export default function ExchangePage() {
                       ? s.lastTokenableTradeUsdc
                       : null;
                 const comp = c.components as { gradeScore?: string };
-                const eBayPrice = justtcgRepresentativeUsd(
+                const eBayPrice = representativeGradeUsd(
                   s?.gradePrices ?? null,
                   parseGradeScoreNumber(comp.gradeScore),
                 );

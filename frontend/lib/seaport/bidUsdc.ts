@@ -1,4 +1,4 @@
-import type { Order } from "@/lib/api";
+import type { Order } from "@/lib/core";
 
 /** USDC amount in offer[0] for collection bids (6 decimals). */
 export function bidUsdcAmount(o: Order): bigint {

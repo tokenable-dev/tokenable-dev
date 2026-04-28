@@ -7,7 +7,7 @@ import {
   cancelOrder,
   type RwaMetadata,
   type OrderListItem,
-} from "@/lib/api";
+} from "@/lib/core";
 import {
   computeMarketBucketKey,
   extractBucketComponentsFromMetadata,
@@ -17,7 +17,7 @@ import { useAppStore, selectWallet, selectRefresh } from "@/store";
 import { ListRwaModal } from "@/components/marketplace/ListRwaModal";
 import { TOKENABLE_RWA_DISPLAY_NAME } from "@/constants/contracts";
 import { useUserAssets } from "@/hooks/useUserAssets";
-import { rq } from "@/lib/queryKeys";
+import { rq } from "@/lib/core";
 
 interface OwnedRwa {
   tokenId: number;
@@ -133,7 +133,7 @@ export function MyAssets() {
   } = useUserAssets(isConnected ? address : undefined, {
     enabled: Boolean(address && isConnected),
     includeOrderHistory: false,
-    includePoketrace: false,
+    includeMarketPreview: false,
   });
 
   const assets: OwnedRwa[] = useMemo(

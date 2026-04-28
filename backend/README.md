@@ -12,4 +12,4 @@ pnpm start:dev
 
 **Marketplace:** Seaport off-chain orders (`MarketplaceService`, `marketplace.controller.ts`), **PokéTrace proxy** (`poketrace-proxy.controller.ts`, `src/poketrace/*`), collection **batch snapshots** (`POST …/collections/market-snapshots`), plus optional **relational trading** (`src/marketplace/trading/*`). Overview: **[../docs/marketplace-trading.md](../docs/marketplace-trading.md)** · 통합 가이드: **[../docs/DEVELOPMENT.md](../docs/DEVELOPMENT.md)**.
 
-**Price:** JustTCG integration — **`TCG_API_KEY` required** in `backend/.env` (`PriceService`).
+**Card Hedge:** optional **`CARDHEDGER_API_KEY`** — each upstream operation is a **named route** under **`/api/cardhedger/v1/...`** (see Swagger tags **Card Hedge · …**). Catalog: **`GET /api/cardhedger/catalog`**. Override base URL with **`CARDHEDGER_BASE_URL`** if needed.

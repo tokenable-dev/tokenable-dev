@@ -5,7 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   hydrateMarketplaceQueries,
   subscribeMarketplacePersistence,
-} from "@/lib/marketplaceQueryPersistence";
+} from "@/lib/marketplace";
 
 /**
  * Hydrates React Query from localStorage for marketplace list + price snapshots,

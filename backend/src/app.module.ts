@@ -4,8 +4,8 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from './auth/auth.module';
 import { BlockchainModule } from './blockchain/blockchain.module';
 import { MarketplaceModule } from './marketplace/marketplace.module';
+import { CardhedgerModule } from './cardhedger/cardhedger.module';
 import { NftModule } from './nft/nft.module';
-import { PriceModule } from './price/price.module';
 import { PsaModule } from './psa/psa.module';
 import { UtilModule } from './util/util.module';
 import { Ask } from './marketplace/entities/ask.entity';
@@ -57,7 +57,7 @@ import { User } from './user/entities/user.entity';
     NftModule,
     UtilModule,
     BlockchainModule,
-    PriceModule,
+    CardhedgerModule,
     PsaModule,
     MarketplaceModule,
   ],

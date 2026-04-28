@@ -1,6 +1,6 @@
-import { getMerkleEligibleTokenIds, type Order } from "@/lib/api";
+import { getMerkleEligibleTokenIds, type Order } from "@/lib/core";
 import { SeaportMerkleTree } from "@/lib/seaport/merkle";
-import { normalizeDecimalTokenId } from "@/lib/normalizeTokenId";
+import { normalizeDecimalTokenId } from "@/lib/marketplace";
 import type { Hex } from "viem";
 
 /**

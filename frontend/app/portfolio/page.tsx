@@ -8,7 +8,7 @@ import { useAccount } from "wagmi";
 import {
   type RwaMetadata,
   type OrderListItem,
-  type CollectionPoketracePreview,
+  type CollectionMarketPreview,
   getCollectionMarketSeries,
   getCollectionMarketStats,
   getMyHiddenAssetTokenIds,
@@ -16,33 +16,29 @@ import {
   type CollectionMarketSeries,
   type CollectionMarketStats,
   unhideMyAssetToken,
-} from "@/lib/api";
+} from "@/lib/core";
 import { extractBucketComponentsFromMetadata, computeMarketBucketKey } from "@/lib/marketplace/bucketKey";
 import { useUserAssets } from "@/hooks/useUserAssets";
 import { useAppStore, selectUsdcBalance } from "@/store";
 import { useShallow } from "zustand/react/shallow";
 import type { GradedCardMetadata } from "@/types/gradedCard";
+import { loadNmBaselineMap, saveNmBaselineMap, type NmBaselineEntry } from "@/lib/portfolio";
+import { formatLiquidityDepthLabel, NO_EXTERNAL_PRICE } from "@/lib/market";
+import { representativeGradeUsd } from "@/lib/market";
 import {
-  loadNmBaselineMap,
-  saveNmBaselineMap,
-  type NmBaselineEntry,
-} from "@/lib/portfolioNmBaseline";
-import { formatLiquidityDepthLabel, NO_EXTERNAL_PRICE } from "@/lib/collectionMarketPricing";
-import { justtcgRepresentativeUsd } from "@/lib/externalMarketPrice";
-import {
-  catalogSpotUsdFromPoketracePreview,
+  catalogSpotUsdFromMarketPreview,
   parseGradeScoreNumber,
-} from "@/lib/gradedCardMarketCap";
-import { poketraceHistoryTierFromRwaMetadata } from "@/lib/poketraceHistoryTier";
+} from "@/lib/market";
+import { marketHistoryTierFromRwaMetadata } from "@/lib/market";
 import {
   appendPortfolioValueSnapshot,
-} from "@/lib/portfolioValueHistory";
-import { inferSportBucketFromRwaMetadata } from "@/lib/collectionCategoryFilter";
+} from "@/lib/portfolio";
+import { inferSportBucketFromRwaMetadata } from "@/lib/market";
 import {
   mockDemoSpotUsd,
   MOCK_SPORTS_LIQUIDITY_CAPTION,
   MOCK_SPORTS_PRICE_CAPTION,
-} from "@/lib/portfolioMockSports";
+} from "@/lib/portfolio";
 
 const USDC_DECIMALS = 1_000_000;
 
@@ -58,9 +54,9 @@ interface PricedAssetRow {
   imageUrl: string | null;
   category: string | null;
   amount: number;
-  /** External NM spot: PokeTrace mint preview, else bundle NM strip for the bucket. */
+  /** External NM spot: Cardhedger-backed preview, else bundle NM strip for the bucket. */
   currentPrice: number | null;
-  priceSource: "poketrace" | "none" | "mock";
+  priceSource: "cardhedger" | "none" | "mock";
   /** On-platform listing depth (optional subtitle). */
   liquidityLabel: string | null;
   /** Your active ask (execution intent), not the pool estimate */
@@ -69,7 +65,7 @@ interface PricedAssetRow {
   subtitle: string;
   gradeLabel: string | null;
   /** Raw PokéTrace preview payload for this token. */
-  poketraceRaw: CollectionPoketracePreview | null;
+  marketPreviewRaw: CollectionMarketPreview | null;
 }
 
 interface AssetRow extends PricedAssetRow {
@@ -566,12 +562,12 @@ export default function PortfolioPage() {
     historiesFlat,
     isLoadingIds: idsLoading,
     isLoadingMetadata: assetsLoading,
-    poketraceByToken,
-    poketraceLoading,
+    marketPreviewByToken,
+    marketPreviewLoading,
   } = useUserAssets(isConnected ? address : undefined, {
     enabled: Boolean(address && isConnected),
     includeOrderHistory: true,
-    includePoketrace: true,
+    includeMarketPreview: true,
   });
 
   const hiddenAssetsQuery = useQuery({
@@ -712,16 +708,16 @@ export default function PortfolioPage() {
       assets.some((a) => {
         const b = inferSportBucketFromRwaMetadata(a.metadata);
         if (b === "mlb" || b === "nba" || b === "nfl") return false;
-        const tier = poketraceHistoryTierFromRwaMetadata(a.metadata);
-        const poke = catalogSpotUsdFromPoketracePreview(
-          poketraceByToken[a.tokenId],
+        const tier = marketHistoryTierFromRwaMetadata(a.metadata);
+        const poke = catalogSpotUsdFromMarketPreview(
+          marketPreviewByToken[a.tokenId],
           tier,
         );
         if (poke != null) return false;
         const ck = tokenToCollectionKey[a.tokenId]?.trim();
         return Boolean(ck);
       }),
-    [assets, tokenToCollectionKey, poketraceByToken],
+    [assets, tokenToCollectionKey, marketPreviewByToken],
   );
 
   const anyAssetUsesLivePoolStats = useMemo(
@@ -795,7 +791,7 @@ export default function PortfolioPage() {
     Boolean(address) &&
     isConnected &&
     assets.length > 0 &&
-    (poketraceLoading ||
+    (marketPreviewLoading ||
       (anyAssetUsesLivePoolStats && statsLoadingAny) ||
       (anyAssetNeedsSeriesForPricing && seriesLoadingAny));
 
@@ -853,14 +849,17 @@ export default function PortfolioPage() {
 
       const poke = isMockSport
         ? null
-        : catalogSpotUsdFromPoketracePreview(
-            poketraceByToken[a.tokenId],
-            poketraceHistoryTierFromRwaMetadata(a.metadata),
+        : catalogSpotUsdFromMarketPreview(
+            marketPreviewByToken[a.tokenId],
+            marketHistoryTierFromRwaMetadata(a.metadata),
           );
       const jt =
         isMockSport || poke != null
           ? null
-          : justtcgRepresentativeUsd(series?.gradePrices ?? null, gradeScoreForJustTcg(a.metadata));
+          : representativeGradeUsd(
+              series?.gradePrices ?? null,
+              gradeScoreForJustTcg(a.metadata),
+            );
 
       let currentPrice: number | null = null;
       let priceSource: PricedAssetRow["priceSource"] = "none";
@@ -869,10 +868,10 @@ export default function PortfolioPage() {
         priceSource = "mock";
       } else if (poke != null) {
         currentPrice = poke;
-        priceSource = "poketrace";
+        priceSource = "cardhedger";
       } else if (jt != null) {
         currentPrice = jt;
-        priceSource = "poketrace";
+        priceSource = "cardhedger";
       }
 
       const liquidityLabel = isMockSport
@@ -894,7 +893,7 @@ export default function PortfolioPage() {
         listPriceUsd: listingPrice,
         subtitle: buildAssetSubtitle(a.metadata, displayName),
         gradeLabel: formatGradeDisplay(a.metadata),
-        poketraceRaw: poketraceByToken[a.tokenId] ?? null,
+        marketPreviewRaw: marketPreviewByToken[a.tokenId] ?? null,
       };
     });
   }, [
@@ -905,7 +904,7 @@ export default function PortfolioPage() {
     tokenToCollectionKey,
     statsByCollectionKey,
     seriesByCollectionKey,
-    poketraceByToken,
+    marketPreviewByToken,
   ]);
 
   useEffect(() => {
@@ -914,7 +913,7 @@ export default function PortfolioPage() {
       let next = prev;
       let changed = false;
       for (const r of pricedRows) {
-        if (r.priceSource !== "poketrace") continue;
+        if (r.priceSource !== "cardhedger") continue;
         if (r.currentPrice == null) continue;
         if (next[r.tokenId] !== undefined) continue;
         if (next === prev) next = { ...prev };
@@ -947,7 +946,7 @@ export default function PortfolioPage() {
       }
 
       if (
-        r.priceSource === "poketrace" &&
+        r.priceSource === "cardhedger" &&
         r.currentPrice != null &&
         costBasisUsd != null
       ) {
@@ -1065,7 +1064,7 @@ export default function PortfolioPage() {
     return addrs.size;
   }, [historiesFlat]);
 
-  const isLoading = idsLoading || assetsLoading || poketraceLoading;
+  const isLoading = idsLoading || assetsLoading || marketPreviewLoading;
   const chartValuesPending =
     isLoading || (anyAssetNeedsSeriesForPricing && seriesLoadingAny);
 
@@ -1405,10 +1404,10 @@ export default function PortfolioPage() {
                   role="button"
                   tabIndex={0}
                   onClick={() => {
-                    if (r.poketraceRaw) {
+                    if (r.marketPreviewRaw) {
                       queryClient.setQueryData(
-                        ["poketrace-mint-previews", "detail", r.tokenId],
-                        { [r.tokenId]: r.poketraceRaw },
+                        ["cardhedger-mint-previews", "detail", r.tokenId],
+                        { [r.tokenId]: r.marketPreviewRaw },
                       );
                     }
                     router.push(`/marketplace/${r.tokenId}`);
@@ -1416,10 +1415,10 @@ export default function PortfolioPage() {
                   onKeyDown={(e) => {
                     if (e.key === "Enter" || e.key === " ") {
                       e.preventDefault();
-                      if (r.poketraceRaw) {
+                      if (r.marketPreviewRaw) {
                         queryClient.setQueryData(
-                          ["poketrace-mint-previews", "detail", r.tokenId],
-                          { [r.tokenId]: r.poketraceRaw },
+                          ["cardhedger-mint-previews", "detail", r.tokenId],
+                          { [r.tokenId]: r.marketPreviewRaw },
                         );
                       }
                       router.push(`/marketplace/${r.tokenId}`);
@@ -1524,6 +1523,17 @@ export default function PortfolioPage() {
                       {r.subtitle ? (
                         <p className="truncate text-[11px] leading-tight text-gray-500">
                           {r.subtitle}
+                        </p>
+                      ) : null}
+                      {r.marketPreviewRaw?.matched && r.marketPreviewRaw.card ? (
+                        <p className="truncate text-[10px] leading-tight text-zinc-600">
+                          Cardhedger {r.marketPreviewRaw.card.id}
+                          {r.marketPreviewRaw.matchConfidence
+                            ? ` · ${r.marketPreviewRaw.matchConfidence}`
+                            : ""}
+                          {r.marketPreviewRaw.card.sales30d != null
+                            ? ` · 30D ${r.marketPreviewRaw.card.sales30d}`
+                            : ""}
                         </p>
                       ) : null}
                     </div>

@@ -102,11 +102,11 @@ export function extractCardNumber(text: string): string | undefined {
   return undefined;
 }
 
-/** Build JustTCG search query from OCR (Pokemon-focused) */
+/** Build search query from OCR (Pokemon-focused) */
 /**
- * After OCR + optional PSA API merge, prefer structured fields for JustTCG `q`.
+ * After OCR + optional PSA API merge, prefer structured fields for external `q`.
  */
-export function buildJustTcgSearchQueryFromParsed(parsed: ParsedPsaLabel): string {
+export function buildSearchQueryFromParsed(parsed: ParsedPsaLabel): string {
   const parts = [
     parsed.cardNameHint,
     parsed.setHint,
@@ -122,22 +122,22 @@ export function buildJustTcgSearchQueryFromParsed(parsed: ParsedPsaLabel): strin
   return 'pokemon';
 }
 
-export function buildJustTcgSearchQueryAfterMerge(
+export function buildSearchQueryAfterMerge(
   parsed: ParsedPsaLabel,
   ocrFallbackText: string,
 ): string {
   try {
-    const fromParsed = buildJustTcgSearchQueryFromParsed(parsed);
+    const fromParsed = buildSearchQueryFromParsed(parsed);
     if (fromParsed !== 'pokemon') {
       return fromParsed;
     }
-    return buildJustTcgSearchQuery(ocrFallbackText);
+    return buildSearchQuery(ocrFallbackText);
   } catch {
     return 'pokemon';
   }
 }
 
-export function buildJustTcgSearchQuery(fullText: string): string {
+export function buildSearchQuery(fullText: string): string {
   const lines = fullText
     .split(/\r?\n/)
     .map((l) => l.replace(/\s+/g, ' ').trim())

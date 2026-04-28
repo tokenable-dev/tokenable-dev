@@ -25,9 +25,8 @@ import {
   getMerkleEligibleTokenIds,
   postRwaMetadataBatch,
   type Order,
-} from "@/lib/api";
-import { GAS_FALLBACK, gasWithCapFast } from "@/lib/chainGas";
-import { mapWalletError } from "@/lib/walletError";
+} from "@/lib/core";
+import { GAS_FALLBACK, gasWithCapFast, mapWalletError } from "@/lib/network";
 import { assertMerkleRootBytes32 } from "@/lib/seaport/eip712Uint";
 import { SeaportMerkleTree } from "@/lib/seaport/merkle";
 import { feePercent } from "@/lib/seaport/platformFee";

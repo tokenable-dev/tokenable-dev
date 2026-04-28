@@ -673,8 +673,8 @@ flowchart TD
         R_MKT["/api/marketplace<br/>orders · collections · market-snapshots<br/>· poketrace 헬퍼 · poketrace/* 프록시"]:::route
         R_RWA["/api/rwa<br/>IPFS 메타 업로드 · 민팅 보조"]:::route
         R_BC["/api/blockchain<br/>토큰 목록 · 컨트랙트 읽기"]:::route
-        R_PRICE["/api/price<br/>JustTCG 프록시 (games/cards)"]:::route
-        R_PSA["/api/psa<br/>슬랩 OCR · PSA API · JustTCG 검색"]:::route
+        R_CH["/api/cardhedger<br/>Cardhedger 프록시 (catalog/pricing/search)"]:::route
+        R_PSA["/api/psa<br/>슬랩 OCR · PSA API"]:::route
     end
 
     subgraph PERSIST ["영속 계층"]
@@ -684,7 +684,7 @@ flowchart TD
     subgraph OUT ["외부 연동"]
         ETH["Ethereum RPC<br/>ethers.js"]:::ext
         PIN["Pinata IPFS"]:::ext
-        JT["JustTCG API"]:::ext
+        CH["Cardhedger API"]:::ext
         PSAHTTP["PSA Public API"]:::ext
         PTR["PokeTrace API<br/>(HTTP upstream)"]:::ext
     end
@@ -771,7 +771,7 @@ flowchart TB
 
     subgraph M_PRICE ["price/ — PriceModule"]
         PCTRL["PriceController"]:::ctrl
-        PSV["PriceService<br/>JustTCG · TCG_API_KEY 필수"]:::svc
+        CHS["CardhedgerService<br/>CARDHEDGER_API_KEY 필수"]:::svc
         PCTRL --> PSV
     end
 
@@ -835,7 +835,7 @@ flowchart LR
     subgraph L3 ["외부 I/O"]
         ETH["ethers<br/>Sepolia 읽기"]:::io
         PIN["Pinata<br/>JSON·이미지 핀"]:::io
-        JT["fetch → JustTCG"]:::io
+        CH["fetch → Cardhedger"]:::io
         MAIL["SMTP<br/>인증 메일"]:::io
     end
 
@@ -898,12 +898,12 @@ backend/
 │   │   └── providers/          # ethers · USDC · RWA 팩토리
 │   │
 │   ├── price/
-│   │   ├── price.controller.ts # /price — JustTCG 프록시
-│   │   └── price.service.ts    # TCG_API_KEY 필수 (mock 파일 없음)
+│   │   ├── cardhedger-*.controller.ts # /cardhedger/v1/* 업스트림 프록시
+│   │   └── cardhedger.service.ts       # CARDHEDGER_API_KEY 필수
 │   │
 │   ├── psa/
 │   │   ├── psa.controller.ts   # /psa/analyze
-│   │   ├── psa.service.ts      # OCR · 병합 · JustTCG 검색
+│   │   ├── psa.service.ts      # OCR · 병합 · PSA/Cardhedger 연동
 │   │   ├── psa-public-api.service.ts
 │   │   └── psa-*.util.ts
 │   │

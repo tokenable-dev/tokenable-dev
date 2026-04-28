@@ -1,5 +1,5 @@
 /**
- * Parse JustTCG `GET /price/cards` bodies for collection charts / list snapshots.
+ * Parse legacy card-price search bodies for collection charts / list snapshots.
  */
 
 export interface UsdPoint {
@@ -60,7 +60,7 @@ function historyFromVariant(v: Record<string, unknown>): UsdPoint[] {
 
 /**
  * Best-effort PSA 10 / 9 / Raw strip from variant prices.
- * JustTCG variants are often condition/printing — we map high→mid→low by price when labels are absent.
+ * Variants are often condition/printing — we map high→mid→low by price when labels are absent.
  */
 export function gradeStripFromVariants(variants: unknown[]): GradePriceStrip {
   const priced: { price: number; label: string }[] = [];
@@ -125,19 +125,19 @@ export function gradeStripFromVariants(variants: unknown[]): GradePriceStrip {
   };
 }
 
-export type ParsedJustTcgMarket = {
+export type ParsedMarketRow = {
   history: UsdPoint[];
   grades: GradePriceStrip;
   gameLabel: string | null;
 };
 
-const EMPTY_PARSED: ParsedJustTcgMarket = {
+const EMPTY_PARSED: ParsedMarketRow = {
   history: [],
   grades: { psa10: null, psa9: null, raw: null },
   gameLabel: null,
 };
 
-export function parseJustTcgSingleCardRow(row: Record<string, unknown>): ParsedJustTcgMarket {
+export function parseMarketSingleCardRow(row: Record<string, unknown>): ParsedMarketRow {
   const gameName = typeof row.game_name === 'string' ? row.game_name.trim() : '';
   const gameId = typeof row.game === 'string' ? row.game.trim() : '';
   const gameLabel = gameName || (gameId ? formatGameIdLabel(gameId) : null);
@@ -155,7 +155,7 @@ export function parseJustTcgSingleCardRow(row: Record<string, unknown>): ParsedJ
   return { history, grades, gameLabel };
 }
 
-export function scoreMarketPriceParsed(p: ParsedJustTcgMarket): number {
+export function scoreMarketPriceParsed(p: ParsedMarketRow): number {
   let s = p.history.length * 10;
   if (p.grades.psa10 != null) s += 5;
   if (p.grades.psa9 != null) s += 3;
@@ -163,7 +163,7 @@ export function scoreMarketPriceParsed(p: ParsedJustTcgMarket): number {
   return s;
 }
 
-export function hasUsefulJustTcgMarketData(p: ParsedJustTcgMarket): boolean {
+export function hasUsefulMarketData(p: ParsedMarketRow): boolean {
   return (
     p.history.length >= 2 ||
     p.grades.psa10 != null ||
@@ -173,7 +173,7 @@ export function hasUsefulJustTcgMarketData(p: ParsedJustTcgMarket): boolean {
 }
 
 /** When search returns multiple cards, pick the row with the richest price history / variant prices. */
-export function parseJustTcgCardsResponseBest(body: unknown): ParsedJustTcgMarket {
+export function parseCardsResponseBest(body: unknown): ParsedMarketRow {
   if (!isRecord(body)) {
     return { ...EMPTY_PARSED };
   }
@@ -181,11 +181,11 @@ export function parseJustTcgCardsResponseBest(body: unknown): ParsedJustTcgMarke
   if (!Array.isArray(data) || data.length === 0) {
     return { ...EMPTY_PARSED };
   }
-  let best: ParsedJustTcgMarket = { ...EMPTY_PARSED };
+  let best: ParsedMarketRow = { ...EMPTY_PARSED };
   let bestScore = -1;
   for (const raw of data) {
     if (!isRecord(raw)) continue;
-    const parsed = parseJustTcgSingleCardRow(raw);
+    const parsed = parseMarketSingleCardRow(raw);
     const sc = scoreMarketPriceParsed(parsed);
     if (sc > bestScore) {
       bestScore = sc;
@@ -195,7 +195,7 @@ export function parseJustTcgCardsResponseBest(body: unknown): ParsedJustTcgMarke
   return best;
 }
 
-export function parseJustTcgCardsResponse(body: unknown): ParsedJustTcgMarket {
+export function parseCardsResponse(body: unknown): ParsedMarketRow {
   if (!isRecord(body)) {
     return { ...EMPTY_PARSED };
   }
@@ -207,13 +207,13 @@ export function parseJustTcgCardsResponse(body: unknown): ParsedJustTcgMarket {
   if (!isRecord(row)) {
     return { ...EMPTY_PARSED };
   }
-  return parseJustTcgSingleCardRow(row);
+  return parseMarketSingleCardRow(row);
 }
 
 /**
- * Ordered JustTCG `game` query params to try for `q=` search fallback (PSA mint path defaults to pokemon).
+ * Ordered `game` query params to try for `q=` search fallback (PSA mint path defaults to pokemon).
  */
-export function candidateJustTcgGamesForCollection(row: {
+export function candidateGamesForCollection(row: {
   queryUsed: string | null;
   displayLabel: string;
   components: Record<string, unknown>;

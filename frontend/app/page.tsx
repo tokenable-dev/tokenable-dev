@@ -139,7 +139,7 @@ export default function LandingPage() {
         </div>
 
         <h1 className="mb-5 max-w-4xl text-center text-[1.65rem] font-bold leading-tight tracking-tight text-white sm:text-4xl md:text-5xl lg:text-[3.25rem] lg:leading-[1.12]">
-          Tokenized Collectibles Exchange
+          Tokenized Collectibles Markets
         </h1>
 
         <p className="mb-11 max-w-xl text-center text-sm leading-relaxed text-gray-400 sm:text-base sm:leading-relaxed">
@@ -150,10 +150,10 @@ export default function LandingPage() {
 
         <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-center sm:gap-4">
           <Link
-            href="/exchange"
+            href="/markets"
             className="inline-flex min-w-[200px] items-center justify-center rounded-full bg-mint px-8 py-3.5 text-center text-base font-bold text-[#030712] shadow-lg shadow-mint/15 transition hover:brightness-110 hover:shadow-mint/25 active:scale-[0.98] sm:min-w-[220px]"
           >
-            Exchange
+            Markets
           </Link>
           <Link
             href="/vault"

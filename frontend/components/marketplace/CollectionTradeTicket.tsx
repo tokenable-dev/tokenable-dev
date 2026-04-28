@@ -7,9 +7,9 @@ import { usePublicClient, useReadContract, useWriteContract } from "wagmi";
 import type { Address } from "viem";
 import { sepolia } from "@/config/wagmi";
 import { USDC_ADDRESS, USDC_ABI } from "@/constants/contracts";
-import type { Order } from "@/lib/api";
+import type { Order } from "@/lib/core";
 import { fulfillAskListingOrder } from "@/lib/seaport/fulfillAskListing";
-import { mapWalletError } from "@/lib/walletError";
+import { mapWalletError } from "@/lib/network";
 
 function formatUsdcPrice(n: number): string {
   return n.toLocaleString("en-US", {

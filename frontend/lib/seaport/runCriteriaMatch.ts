@@ -7,14 +7,13 @@ import {
   USDC_ADDRESS,
   USDC_ABI,
 } from "@/constants/contracts";
-import { fulfillMatchedPairApi, getMerkleEligibleTokenIds, type Order } from "@/lib/api";
+import { fulfillMatchedPairApi, getMerkleEligibleTokenIds, type Order } from "@/lib/core";
 import { canonicalBytes32Hex } from "@/lib/seaport/collectionCriteriaRoot";
 import { buildCriteriaMatchExecution, isCriteriaCollectionBid } from "@/lib/seaport/criteriaMatch";
 import { matchAdvancedOrdersArgs } from "@/lib/seaport/matchAdvancedOrdersArgs";
 import { SeaportMerkleTree } from "@/lib/seaport/merkle";
-import { GAS_FALLBACK, gasWithCapFast } from "@/lib/chainGas";
-import { normalizeDecimalTokenId } from "@/lib/normalizeTokenId";
-import { mapWalletError } from "@/lib/walletError";
+import { GAS_FALLBACK, gasWithCapFast, mapWalletError } from "@/lib/network";
+import { normalizeDecimalTokenId } from "@/lib/marketplace";
 import {
   explainSeaportOrderInactive,
   getChainTimestampSec,

@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, type ReactNode } from "react";
 import ReactECharts from "echarts-for-react";
 import type { EChartsOption, LineSeriesOption } from "echarts";
-import type { CollectionUsdPoint } from "@/lib/api";
+import type { CollectionUsdPoint } from "@/lib/core";
 
 const EXTERNAL_REF_STROKE = "#2EE6D0";
 const PLATFORM_STROKE = "#D946EF";
@@ -54,6 +54,53 @@ function formatTickMonth(tSec: number): string {
     month: "short",
     year: "2-digit",
   });
+}
+
+function roughTickConfigByWindowDays(windowDays: number | null): {
+  minIntervalMs: number;
+  splitNumber: number;
+  formatter: (tSec: number) => string;
+} {
+  if (windowDays == null || !Number.isFinite(windowDays) || windowDays <= 0) {
+    return {
+      minIntervalMs: 30 * DAY * 1000,
+      splitNumber: 6,
+      formatter: formatTickMonth,
+    };
+  }
+  if (windowDays <= 7) {
+    return {
+      minIntervalMs: DAY * 1000,
+      splitNumber: 7,
+      formatter: formatTickDate,
+    };
+  }
+  if (windowDays <= 30) {
+    return {
+      minIntervalMs: 3 * DAY * 1000,
+      splitNumber: 8,
+      formatter: formatTickDate,
+    };
+  }
+  if (windowDays <= 90) {
+    return {
+      minIntervalMs: 14 * DAY * 1000,
+      splitNumber: 7,
+      formatter: formatTickDate,
+    };
+  }
+  if (windowDays <= 180) {
+    return {
+      minIntervalMs: 30 * DAY * 1000,
+      splitNumber: 6,
+      formatter: formatTickMonth,
+    };
+  }
+  return {
+    minIntervalMs: 60 * DAY * 1000,
+    splitNumber: 6,
+    formatter: formatTickMonth,
+  };
 }
 
 function formatHoverWhen(tSec: number): string {
@@ -115,6 +162,7 @@ export function CollectionDualPriceChart({
   externalSeriesShortLabel = "External NM",
   externalRefLineTag = "External NM",
   chartTitle = "External market vs on-platform trades",
+  controls = null,
   emptyStateMessage,
   isLoading,
   errorMessage,
@@ -129,6 +177,7 @@ export function CollectionDualPriceChart({
   externalSeriesShortLabel?: string;
   externalRefLineTag?: string;
   chartTitle?: string;
+  controls?: ReactNode;
   emptyStateMessage?: string;
   isLoading?: boolean;
   errorMessage?: string | null;
@@ -272,7 +321,7 @@ export function CollectionDualPriceChart({
       emphasis: { focus: "series" },
     });
 
-    const monthMs = 30 * DAY * 1000;
+    const roughTick = roughTickConfigByWindowDays(externalWindowDays ?? null);
 
     return {
       backgroundColor: "#060708",
@@ -287,7 +336,12 @@ export function CollectionDualPriceChart({
         type: "time",
         min: merged.tMin * 1000,
         max: merged.tMax * 1000,
-        ...(exchange ? { minInterval: monthMs } : {}),
+        ...(exchange
+          ? {
+              minInterval: roughTick.minIntervalMs,
+              splitNumber: roughTick.splitNumber,
+            }
+          : {}),
         axisLine: { lineStyle: { color: AXIS_LINE } },
         axisTick: { show: false },
         splitLine: { show: false },
@@ -296,7 +350,7 @@ export function CollectionDualPriceChart({
           fontSize: 11,
           formatter: (value: number) =>
             exchange
-              ? formatTickMonth(Math.floor(value / 1000))
+              ? roughTick.formatter(Math.floor(value / 1000))
               : formatTickDate(Math.floor(value / 1000)),
         },
       },
@@ -357,7 +411,15 @@ export function CollectionDualPriceChart({
       },
       series,
     };
-  }, [merged, externalMarketUsd, externalSeriesShortLabel, externalRefLineTag, externalRollingKind]);
+  }, [
+    merged,
+    externalMarketUsd,
+    externalSeriesShortLabel,
+    externalRefLineTag,
+    externalRollingKind,
+    exchange,
+    externalWindowDays,
+  ]);
 
   if (isLoading) {
     return (
@@ -418,8 +480,9 @@ export function CollectionDualPriceChart({
       }
     >
       <div className="flex shrink-0 flex-wrap items-start justify-between gap-4 px-4 pt-4 pb-2 sm:px-5 sm:pt-5">
-        <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <div className="flex min-w-0 flex-1 flex-col gap-2">
           <h3 className="text-[15px] font-semibold tracking-tight text-white">{chartTitle}</h3>
+          {controls}
         </div>
         <div className="grid shrink-0 grid-cols-[14px_auto] items-center gap-x-2 gap-y-2.5 text-[11px] font-medium leading-tight text-white/90">
           <span className="inline-block h-[10px] w-[10px] rounded-full" style={{ background: EXTERNAL_REF_STROKE }} aria-hidden />

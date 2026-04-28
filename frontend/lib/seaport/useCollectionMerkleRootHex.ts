@@ -1,8 +1,8 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { getMerkleEligibleTokenIds } from "@/lib/api";
-import { normalizeDecimalTokenId } from "@/lib/normalizeTokenId";
+import { getMerkleEligibleTokenIds } from "@/lib/core";
+import { normalizeDecimalTokenId } from "@/lib/marketplace";
 import { SeaportMerkleTree } from "@/lib/seaport/merkle";
 
 /**

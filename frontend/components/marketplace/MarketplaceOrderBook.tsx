@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import Link from "next/link";
-import type { Order, OrderListItem } from "@/lib/api";
+import type { Order, OrderListItem } from "@/lib/core";
 
 export type OrderBookRow = Order | OrderListItem;
 

@@ -2,8 +2,7 @@
 
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { getActiveOrders } from "@/lib/api";
-import { rq, marketplaceRqPolicy } from "@/lib/queryKeys";
+import { getActiveOrders, rq, marketplaceRqPolicy } from "@/lib/core";
 import { MarketplaceOrderBook } from "@/components/marketplace/MarketplaceOrderBook";
 
 export default function MarketplaceOtherListingsPage() {
@@ -29,10 +28,10 @@ export default function MarketplaceOtherListingsPage() {
     <div className="min-h-screen bg-gray-950 text-white">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 pb-20">
         <Link
-          href="/exchange"
+          href="/markets"
           className="inline-flex text-sm text-mint/90 hover:text-mint mb-6"
         >
-          ← Back to Exchange
+          ← Back to Markets
         </Link>
 
         <header className="mb-8 border-b border-gray-800 pb-6">
@@ -41,7 +40,7 @@ export default function MarketplaceOtherListingsPage() {
           </p>
           <h1 className="text-2xl font-extrabold text-white">Other listings</h1>
           <p className="mt-2 text-sm text-gray-500">
-            Active listings without collection metadata (graded / JustTCG).
+            Active listings without complete collection metadata.
           </p>
         </header>
 

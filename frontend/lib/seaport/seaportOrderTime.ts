@@ -1,5 +1,5 @@
 import type { PublicClient } from "viem";
-import type { Order } from "@/lib/api";
+import type { Order } from "@/lib/core";
 
 /**
  * Seaport `_verifyTime`: active iff `startTime <= now && now < endTime` (strict end).
