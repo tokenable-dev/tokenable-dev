@@ -755,6 +755,9 @@ export default function MarketplaceCollectionPage() {
             "Momentum is compressing inside consolidation and re-expanding in short bursts.",
           visualInterpretation:
             "Chart appears as a broad staircase with consolidation clusters between continuation legs.",
+          miniSeries: [20, 21, 22, 23, 23, 24, 23, 24, 25, 25, 26, 27],
+          pathRepresentation:
+            "Low -> Base -> Expansion ↑↑ -> Consolidation -> Breakout pressure ↑",
         },
         outlook: "Base case remains constructive consolidation before the next directional expansion.",
         outlookScenarios: {
