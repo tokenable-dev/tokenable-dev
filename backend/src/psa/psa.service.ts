@@ -10,12 +10,12 @@ import {
   normalizeForExactCardNumberKey,
   normalizeForExactCatalogMatch,
   primaryCardNumber,
-} from '../marketplace/card-match.util';
+} from '../marketplace/utils/card-match.util';
 import {
   psaCertVerifyUrl,
   resolveCertHintForLookup,
   type ParsedPsaLabel,
-} from './psa-ocr.util';
+} from './utils/psa-ocr.util';
 import {
   mergePsaApiIntoParsed,
   PsaPublicApiService,
@@ -25,7 +25,7 @@ import {
 import {
   extractPsaCertImageUrlsFromApiBody,
   extractPsaCertImagesFromGetImagesBody,
-} from './psa-cert-images.util';
+} from './utils/psa-cert-images.util';
 
 export interface CardhedgerOcrNormalized {
   raw_text: string;
@@ -803,15 +803,17 @@ export class PsaService {
       const front = fromGetImages.front ?? fromCertBody.front;
       const back = fromGetImages.back ?? fromCertBody.back;
 
-      if (front) {
-        const ok = await probeCertImageUrlReachable(front);
-        if (!ok) {
-          this.logger.warn(
-            `PSA cert front probe failed (${digitsForImages.slice(0, 8)}…), using URL anyway`,
-          );
+      if (front || back) {
+        if (front) {
+          const ok = await probeCertImageUrlReachable(front);
+          if (!ok) {
+            this.logger.warn(
+              `PSA cert front probe failed (${digitsForImages.slice(0, 8)}…), using URL anyway`,
+            );
+          }
         }
         psaCertImages = {
-          front,
+          ...(front ? { front } : {}),
           ...(back ? { back } : {}),
         };
       }

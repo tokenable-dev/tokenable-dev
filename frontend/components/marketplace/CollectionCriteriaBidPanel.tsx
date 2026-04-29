@@ -29,11 +29,11 @@ import {
 import { GAS_FALLBACK, gasWithCapFast, mapWalletError } from "@/lib/network";
 import { assertMerkleRootBytes32 } from "@/lib/seaport/eip712Uint";
 import { SeaportMerkleTree } from "@/lib/seaport/merkle";
-import { feePercent } from "@/lib/seaport/platformFee";
-import { fulfillAskListingOrder } from "@/lib/seaport/fulfillAskListing";
-import type { MatchWriteContractAsync } from "@/lib/seaport/runCriteriaMatch";
-import { getChainTimestampSec } from "@/lib/seaport/seaportOrderTime";
-import { tryMatchCriteriaBidAgainstBook } from "@/lib/seaport/tryMatchCriteriaBidAgainstBook";
+import { feePercent } from "@/lib/seaport/orders/platformFee";
+import { fulfillAskListingOrder } from "@/lib/seaport/orders/fulfillAskListing";
+import type { MatchWriteContractAsync } from "@/lib/seaport/fulfillment/runCriteriaMatch";
+import { getChainTimestampSec } from "@/lib/seaport/orders/seaportOrderTime";
+import { tryMatchCriteriaBidAgainstBook } from "@/lib/seaport/criteria/tryMatchCriteriaBidAgainstBook";
 
 const ZERO_BYTES32 =
   "0x0000000000000000000000000000000000000000000000000000000000000000" as const;

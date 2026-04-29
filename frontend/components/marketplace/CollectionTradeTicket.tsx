@@ -8,7 +8,7 @@ import type { Address } from "viem";
 import { sepolia } from "@/config/wagmi";
 import { USDC_ADDRESS, USDC_ABI } from "@/constants/contracts";
 import type { Order } from "@/lib/core";
-import { fulfillAskListingOrder } from "@/lib/seaport/fulfillAskListing";
+import { fulfillAskListingOrder } from "@/lib/seaport/orders/fulfillAskListing";
 import { mapWalletError } from "@/lib/network";
 
 function formatUsdcPrice(n: number): string {

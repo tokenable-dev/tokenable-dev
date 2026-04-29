@@ -54,6 +54,11 @@ export class PsaController {
             '선택. OCR보다 우선 — Cert 숫자만 또는 https://www.psacard.com/cert/83179580 형태',
         },
       },
+      example: {
+        slabFront: '(binary)',
+        slabBack: '(binary, optional)',
+        certNumber: '83179580',
+      },
     },
   })
   @Post('analyze')
@@ -116,6 +121,10 @@ export class PsaController {
             'PSA Cert 숫자만 또는 psacard.com/cert/… URL (본문 JSON)',
         },
       },
+      examples: [
+        { certNumber: '83179580' },
+        { certNumber: 'https://www.psacard.com/cert/83179580' },
+      ],
     },
   })
   @Post('analyze-by-cert')

@@ -1,14 +1,14 @@
 import { Module } from '@nestjs/common';
-import { CardhedgerCatalogController } from './cardhedger-catalog.controller';
-import { CardhedgerDetailsController } from './cardhedger-details.controller';
-import { CardhedgerDownloadController } from './cardhedger-download.controller';
-import { CardhedgerImageController } from './cardhedger-image.controller';
-import { CardhedgerIndexesController } from './cardhedger-indexes.controller';
-import { CardhedgerIndexesService } from './cardhedger-indexes.service';
-import { CardhedgerIssuesController } from './cardhedger-issues.controller';
-import { CardhedgerMarketController } from './cardhedger-market.controller';
-import { CardhedgerPricingController } from './cardhedger-pricing.controller';
-import { CardhedgerSearchController } from './cardhedger-search.controller';
+import { CardhedgerCatalogController } from './controllers/catalog.controller';
+import { CardhedgerDetailsController } from './controllers/details.controller';
+import { CardhedgerDownloadController } from './controllers/download.controller';
+import { CardhedgerImageController } from './controllers/image.controller';
+import { CardhedgerIndexesController } from './controllers/indexes.controller';
+import { CardhedgerIssuesController } from './controllers/issues.controller';
+import { CardhedgerMarketController } from './controllers/market.controller';
+import { CardhedgerPricingController } from './controllers/pricing.controller';
+import { CardhedgerSearchController } from './controllers/search.controller';
+import { CardhedgerIndexesService } from './indexes.service';
 import { CardhedgerService } from './cardhedger.service';
 
 @Module({

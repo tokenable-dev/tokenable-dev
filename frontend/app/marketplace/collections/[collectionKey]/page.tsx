@@ -41,7 +41,7 @@ import {
 import { CollectionDualPriceChart } from "@/components/marketplace/CollectionDualPriceChart";
 import { CollectionRwaCard } from "@/components/marketplace/CollectionRwaCard";
 import { useAppStore, selectWallet } from "@/store";
-import { isCriteriaCollectionBid } from "@/lib/seaport/criteriaMatch";
+import { isCriteriaCollectionBid } from "@/lib/seaport/criteria/criteriaMatch";
 import {
   computeCollectionMarketCapUsd,
   formatMarketCapUsd,

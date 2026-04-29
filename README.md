@@ -1,20 +1,20 @@
 # Tokenable RWA Marketplace
 
-A decentralized marketplace for graded-card RWAs on EVM chains (Sepolia-first). Users mint via IPFS, list, and trade with USDC. Settlement is primarily **OpenSea Seaport 1.5** (signed off-chain orders synced to Postgres). Market data uses **Cardhedger** and **PokéTrace** proxies on the Nest API; an optional **relational rule-based matching API** exists alongside Seaport (`docs/marketplace-trading.md`). Monorepo: Next.js frontend + Nest backend + Hardhat contracts.
+A decentralized marketplace for graded-card RWAs on EVM chains (Sepolia-first). Users mint via IPFS, list, and trade with USDC. Settlement is primarily **OpenSea Seaport 1.5** (signed off-chain orders synced to Postgres). Market data is sourced from the **Cardhedger** proxy on the Nest API; an optional **relational rule-based matching API** exists alongside Seaport (`docs/marketplace-trading.md`). Monorepo: Next.js frontend + Nest backend + Hardhat contracts.
 
 ---
 
 ## Project Description
 
-Full-stack marketplace for graded-card RWAs on EVM testnets (Sepolia): mint, discover collections, trade with USDC via **Seaport 1.5** off-chain orders. External references combine **Cardhedger** catalog/value signals with **PokéTrace** (proxied through the Nest API for catalog and tier price history).
+Full-stack marketplace for graded-card RWAs on EVM testnets (Sepolia): mint, discover collections, trade with USDC via **Seaport 1.5** off-chain orders. External market references come from the **Cardhedger** API (catalog, mint previews, PSA-10 price history, AI insights) — proxied through the Nest backend.
 
 ### What users see today
 
 | Area | Notes |
 |------|--------|
-| **Landing (`/`)** | Hero + **Market Indexes** (Cardhedger aggregates / sparklines; MLB/NFL/NBA demo slots alongside Pokémon where configured). |
+| **Landing (`/`)** | Hero + **Market Indexes** (Cardhedger aggregates / sparklines per category). |
 | **Exchange (`/exchange`)** | All collections (including zero listings), sorted by pool pricing; category chips; optional grid/list view; **Trending** strip. |
-| **Collection detail (`/marketplace/collections/[key]`)** | Unified order book, dual **Tokenable vs PokéTrace** price chart (aligned time axis), criteria bids / listings, **Individual listings** strip (seller, cert #, USDC). |
+| **Collection detail (`/marketplace/collections/[key]`)** | Unified order book, dual **Tokenable vs Cardhedger** price chart (aligned time axis), criteria bids / listings, **Individual listings** strip (seller, cert #, USDC). |
 | **Portfolio (`/portfolio`)** | Holdings with listing vs unlisted distinction and reference vs on-platform pricing. |
 | **Vault / mint** | PSA-oriented graded metadata → IPFS; same assets list on the marketplace. |
 
@@ -36,8 +36,8 @@ Trading remains non-custodial until settlement; criteria bids cover Merkle-eligi
 
 - **Node.js** / **TypeScript**
 - **NestJS** — REST API, Swagger under `/api/docs`
-- **Cardhedger** — Live card/game pricing (`CARDHEDGER_API_KEY` required)
-- **PokéTrace** — Server-side proxy + tiered history for collection/token charts (`/api/marketplace/poketrace/*`)
+- **Cardhedger** — Live card/game pricing, mint previews, PSA-10 history, AI insights (`CARDHEDGER_API_KEY` required)
+- **PSA Public API** — Cert lookup + slab images (`PSA_PUBLIC_API_TOKEN`)
 - **Pinata** — IPFS pinning for RWA metadata/images
 - **PostgreSQL + TypeORM** — Orders, collections, optional relational trading layer ([docs/marketplace-trading.md](docs/marketplace-trading.md))
 
@@ -76,7 +76,7 @@ tokenable-dev/
 
 | Document | Contents |
 |----------|----------|
-| **[docs/API-REFERENCE.md](docs/API-REFERENCE.md)** | Full **`/api/*`** route tables (auth, blockchain, price, psa, marketplace, PokéTrace proxy, bids/trade) + App Router pages |
+| **[docs/API-REFERENCE.md](docs/API-REFERENCE.md)** | Full **`/api/*`** route tables (auth, blockchain, psa, marketplace, cardhedger proxy, bids/trade) + App Router pages |
 | **[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)** | Product surfaces, DB, API summary + link to API-REFERENCE, Seaport + relational trading, CI/CD → EC2, PSA troubleshooting, diagram index |
 | **[docs/marketplace-trading.md](docs/marketplace-trading.md)** | Rule-based `bids`/`asks`/match API vs Seaport `orders` |
 | **[docs/DEPLOY_EC2_DOMAIN.md](docs/DEPLOY_EC2_DOMAIN.md)** | EC2 Docker, domain, same-origin `/api`, CORS, OAuth, TLS checklist |
@@ -129,11 +129,9 @@ cd ../contracts && pnpm install
 
 Create env files yourself (not committed):
 
-- `backend/.env` — RPC, Postgres, Pinata, JWT/Google 등 (`RWA_CONTRACT_ADDRESS` 권장; 레거시 `NFT_CONTRACT_ADDRESS` 호환)
-- `frontend/.env` — `NEXT_PUBLIC_*` (로컬에서만; `NEXT_PUBLIC_RWA_CONTRACT_ADDRESS` 권장)
-- `contracts/.env` — 배포용 private key / RPC 등
-
-필수 항목은 RPC URL, 컨트랙트 주소, IPFS(Pinata) 자격 증명 등이다.
+- `backend/.env` — RPC, Postgres, Pinata, JWT/Google, CardHedger, PSA 키 등 (`RWA_CONTRACT_ADDRESS` 필수)
+- `frontend/.env` — `NEXT_PUBLIC_*` 만 (로컬용; `NEXT_PUBLIC_RWA_CONTRACT_ADDRESS` · `NEXT_PUBLIC_USDC_CONTRACT_ADDRESS` · `NEXT_PUBLIC_ALCHEMY_RPC_URL` 필수)
+- `contracts/.env` — 배포용 `DEPLOYER_PRIVATE_KEY`, `SEPOLIA_RPC_URL`
 
 ### 4. Deploy smart contracts
 
@@ -141,7 +139,7 @@ Create env files yourself (not committed):
 cd contracts
 # Requires contracts/.env: DEPLOYER_PRIVATE_KEY, SEPOLIA_RPC_URL
 pnpm run deploy:usdc      # MockUSDC → Sepolia
-pnpm run deploy:rwa       # TokenableRWA → Sepolia (same as deploy:rwa-sepolia)
+pnpm run deploy:rwa       # TokenableRWA → Sepolia
 ```
 
 Update `backend/.env` and `frontend/.env` with the deployed contract addresses.

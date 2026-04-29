@@ -660,15 +660,15 @@ flowchart TD
     subgraph REST ["REST namespaces"]
         direction TB
         R_AUTH["/api/auth<br/>Google OAuth · JWT cookies · wallet link"]:::route
-        R_MKT["/api/marketplace<br/>orders · collections · snapshots<br/>· poketrace helpers · poketrace/* proxy"]:::route
+        R_MKT["/api/marketplace<br/>orders · collections · snapshots<br/>· cardhedger helpers · trading (relational)"]:::route
         R_RWA["/api/rwa<br/>IPFS metadata upload · mint helpers"]:::route
         R_BC["/api/blockchain<br/>token lists · contract reads"]:::route
-        R_CH["/api/cardhedger<br/>Cardhedger proxy (catalog/pricing/search)"]:::route
-        R_PSA["/api/psa<br/>slab OCR · PSA API"]:::route
+        R_CH["/api/cardhedger<br/>Cardhedger proxy (catalog/pricing/search/indexes)"]:::route
+        R_PSA["/api/psa<br/>slab OCR · PSA Public API"]:::route
     end
 
     subgraph PERSIST ["Persistence"]
-        PG[("PostgreSQL<br/>orders · marketplace_collections · users")]:::data
+        PG[("PostgreSQL<br/>orders · marketplace_collections · users · bids · asks · trade_executions")]:::data
     end
 
     subgraph OUT ["External systems"]
@@ -676,19 +676,18 @@ flowchart TD
         PIN["Pinata IPFS"]:::ext
         CH["Cardhedger API"]:::ext
         PSAHTTP["PSA Public API"]:::ext
-        PTR["PokeTrace API<br/>(HTTP upstream)"]:::ext
     end
 
     CLIENT --> GATE
     GATE --> REST
     R_MKT --> PG
-    R_MKT --> PTR
+    R_MKT --> CH
     R_AUTH --> PG
     R_RWA --> PIN
     R_BC --> ETH
-    R_PRICE --> JT
+    R_CH --> CH
     R_PSA --> PIN
-    R_PSA --> JT
+    R_PSA --> CH
     R_PSA --> PSAHTTP
 
     style GATE fill:#0f0d00,stroke:#fbbf24,stroke-width:2px,color:#fde68a
@@ -862,43 +861,45 @@ backend/
 │   │   └── mail.service.ts     # SMTP (used by Auth)
 │   │
 │   ├── marketplace/
-│   │   ├── marketplace.controller.ts   # orders · collections · snapshots …
-│   │   ├── poketrace-proxy.controller.ts  # GET /marketplace/poketrace/*
-│   │   ├── trading/bids.controller.ts # GET /marketplace/bids
-│   │   ├── trading/trade.controller.ts # POST /marketplace/trade/match …
-│   │   ├── marketplace.service.ts
-│   │   ├── collection.service.ts
-│   │   ├── collection-market.service.ts
-│   │   ├── entities/           # order · marketplace-collection · bids/asks/…
-│   │   └── trading/*.service.ts
+│   │   ├── marketplace.module.ts
+│   │   ├── orders/             # orders.controller · orders.service · dto/
+│   │   ├── collections/        # collections.controller · collection.service ·
+│   │   │                       #   collection-market.service · cardhedger-market-data.service ·
+│   │   │                       #   cardhedger-ai-insight.service · dto/
+│   │   ├── assets/             # assets.controller · hidden-assets.service
+│   │   ├── trading/            # bids.controller · trade.controller · trade-orchestrator
+│   │   │                       #   · settlement-processor · outbox-publisher · rule-engine
+│   │   ├── entities/           # order · marketplace-collection · bid · ask · match-intent ·
+│   │   │                       #   trade-execution · idempotency-key · outbox-event · hidden-asset
+│   │   ├── utils/              # bucket-key · card-match · collection-image · …
+│   │   └── dto/                # match-accepted.response · trade-match.dto
 │   │
-│   ├── poketrace/
-│   │   ├── poketrace.service.ts
-│   │   ├── poketrace-api.registry.ts · poketrace-period.util.ts · poketrace-upstream.urls.ts
-│   │
-│   ├── nft/
-│   │   ├── nft.controller.ts   # /rwa — IPFS upload
-│   │   ├── nft.service.ts
+│   ├── rwa/
+│   │   ├── rwa.controller.ts   # /rwa — IPFS upload
+│   │   ├── rwa.service.ts
+│   │   ├── pinata/pinata.service.ts
+│   │   ├── interfaces/rwa-metadata.interface.ts
 │   │   └── dto/
 │   │
 │   ├── blockchain/
 │   │   ├── blockchain.controller.ts
 │   │   ├── blockchain.service.ts
+│   │   ├── ipfs-gateway-resolver.service.ts
 │   │   ├── abis/
 │   │   └── providers/          # ethers · USDC · RWA factories
 │   │
-│   ├── price/
-│   │   ├── cardhedger-*.controller.ts # /cardhedger/v1/* upstream proxy
-│   │   └── cardhedger.service.ts       # CARDHEDGER_API_KEY required
+│   ├── cardhedger/
+│   │   ├── controllers/*.controller.ts # catalog · details · download · image · indexes ·
+│   │   │                                #   issues · market · pricing · search
+│   │   ├── cardhedger.service.ts       # CARDHEDGER_API_KEY required
+│   │   ├── cardhedger.registry.ts
+│   │   └── indexes.service.ts          # 24h scheduled refresh + disk cache
 │   │
-│   ├── psa/
-│   │   ├── psa.controller.ts   # /psa/analyze
-│   │   ├── psa.service.ts      # OCR · merge · PSA/Cardhedger integration
-│   │   ├── psa-public-api.service.ts
-│   │   └── psa-*.util.ts
-│   │
-│   └── util/
-│       └── pinata/pinata.service.ts
+│   └── psa/
+│       ├── psa.controller.ts   # /psa/analyze
+│       ├── psa.service.ts      # PSA/Cardhedger blend, image fallback
+│       ├── psa-public-api.service.ts
+│       └── utils/              # psa-cert-images · psa-ocr · psa-slab-crop
 │
 ├── sql/
 │   └── bootstrap-empty-prod-db.sql

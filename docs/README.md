@@ -1,22 +1,37 @@
-# Docs
+# Tokenable RWA Marketplace — Documentation
 
-| File | Purpose |
-|------|---------|
-| [API-REFERENCE.md](./API-REFERENCE.md) | **전체 HTTP API** (`/api/*`) — 컨트롤러별 경로 표 · 프론트 라우트 · Swagger와 병행 유지 |
-| [DEVELOPMENT.md](./DEVELOPMENT.md) | **통합 가이드** — 제품 화면·외부 연동 · 로컬 DB · API 요약 · Seaport · relational 매칭 · **develop → CI/CD·EC2** · PSA 트러블슈팅 · 다이어그램 인덱스 |
-| [marketplace-trading.md](./marketplace-trading.md) | Seaport `orders`와 병행하는 규칙 기반 입찰·매칭 API |
-| [DEPLOY_EC2_DOMAIN.md](./DEPLOY_EC2_DOMAIN.md) | EC2·도메인·CORS·TLS |
-| [diagrams/](./diagrams/) | Marketplace pipeline, Seaport + relational trading draw.io, PSA upload/OCR |
+A non-custodial marketplace for **graded trading-card RWAs** on Ethereum Sepolia.  
+Users mint cards via IPFS (PSA slab OCR → Pinata), list them, and trade with USDC via **Seaport 1.5** off-chain orders. Market pricing is sourced from the **Cardhedger** API.
 
-### Diagrams Index
+---
 
-| File | Description |
-|------|-------------|
-| [marketplace-lifecycle.md](./diagrams/marketplace-lifecycle.md) | 전체 파이프라인 — 흐름도 · 시퀀스 · DB · 프론트(Part 4) · **백엔드(Part 5)** |
-| [marketplace-lifecycle.en.md](./diagrams/marketplace-lifecycle.en.md) | Full pipeline — Flow · Sequence · DB · Frontend (Part 4) · **Backend (Part 5)** |
-| [marketplace-seaport-criteria-architecture.drawio](./diagrams/marketplace-seaport-criteria-architecture.drawio) | Seaport criteria bid architecture |
-| [marketplace-trading-relational-layer.drawio](./diagrams/marketplace-trading-relational-layer.drawio) | Relational matching API + workers |
-| [tokenable-mint-rwa-exchange-full-architecture.drawio](./diagrams/tokenable-mint-rwa-exchange-full-architecture.drawio) | Mint → RWA exchange full architecture |
-| [psa-slab-upload-ocr-api-flow.drawio](./diagrams/psa-slab-upload-ocr-api-flow.drawio) | PSA slab upload & OCR API flow |
+## Repository
 
-Root [README.md](../README.md) — clone, install, run.
+```
+tokenable-dev/
+├── backend/    # NestJS REST API (port 4000)
+├── frontend/   # Next.js 16 App Router (port 3000)
+├── contracts/  # Hardhat — TokenableRWA (ERC-721) + MockUSDC (ERC-20)
+└── docs/       # This documentation
+```
+
+## Quick Links
+
+| What | Where |
+|------|-------|
+| Local setup | [guides/local-setup.md](guides/local-setup.md) |
+| All API routes | [api/README.md](api/README.md) |
+| Frontend routes | [frontend/routes.md](frontend/routes.md) |
+| EC2 deployment | [guides/deployment.md](guides/deployment.md) |
+| Live Swagger UI | `http://localhost:4000/api/docs` (when running) |
+
+## Core Technologies
+
+| Layer | Stack |
+|-------|-------|
+| Frontend | Next.js 16, React 19, wagmi, viem, TanStack Query, Zustand, Tailwind CSS |
+| Backend | NestJS 11, TypeORM, PostgreSQL, Ethers.js 6 |
+| Blockchain | Ethereum Sepolia — Seaport 1.5, ERC-721 (TokenableRWA), ERC-20 (MockUSDC) |
+| Storage | Pinata (IPFS) |
+| Market data | Cardhedger API, PSA Public API |
+| Infrastructure | Docker Compose, Nginx, AWS ECR + EC2 |

@@ -1,4 +1,4 @@
-# Debian bookworm-slim — Alpine(musl) 대비 sharp / tesseract.js 런타임 호환성이 좋습니다.
+# Debian bookworm-slim — Alpine(musl) 대비 sharp 런타임 호환성이 좋습니다.
 # ── Stage 1: 의존성 설치 ─────────────────────────────────────────
 FROM node:22-bookworm-slim AS deps
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates \

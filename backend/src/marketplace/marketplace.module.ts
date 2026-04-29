@@ -2,9 +2,11 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BlockchainModule } from '../blockchain/blockchain.module';
 import { CardhedgerModule } from '../cardhedger/cardhedger.module';
-import { CardhedgerMarketDataService } from './cardhedger-market-data.service';
-import { CollectionMarketService } from './collection-market.service';
-import { CollectionService } from './collection.service';
+import { CardhedgerAiInsightService } from './collections/cardhedger-ai-insight.service';
+import { CardhedgerMarketDataService } from './collections/cardhedger-market-data.service';
+import { CollectionMarketService } from './collections/collection-market.service';
+import { CollectionService } from './collections/collection.service';
+import { CollectionsController } from './collections/collections.controller';
 import { Ask } from './entities/ask.entity';
 import { Bid } from './entities/bid.entity';
 import { IdempotencyKey } from './entities/idempotency-key.entity';
@@ -14,8 +16,10 @@ import { MarketplaceCollection } from './entities/marketplace-collection.entity'
 import { Order } from './entities/order.entity';
 import { OutboxEvent } from './entities/outbox-event.entity';
 import { TradeExecution } from './entities/trade-execution.entity';
-import { MarketplaceController } from './marketplace.controller';
-import { MarketplaceService } from './marketplace.service';
+import { OrdersController } from './orders/orders.controller';
+import { OrdersService } from './orders/orders.service';
+import { AssetsController } from './assets/assets.controller';
+import { HiddenAssetsService } from './assets/hidden-assets.service';
 import { BidsController } from './trading/bids.controller';
 import { BidsQueryService } from './trading/bids-query.service';
 import { OutboxPublisherService } from './trading/outbox-publisher.service';
@@ -25,7 +29,6 @@ import { TokenResolutionService } from './trading/token-resolution.service';
 import { TradeController } from './trading/trade.controller';
 import { TradeExecutionQueryService } from './trading/trade-execution-query.service';
 import { TradeOrchestratorService } from './trading/trade-orchestrator.service';
-import { HiddenAssetsService } from './hidden-assets.service';
 
 @Module({
   imports: [
@@ -44,14 +47,17 @@ import { HiddenAssetsService } from './hidden-assets.service';
     CardhedgerModule,
   ],
   controllers: [
-    MarketplaceController,
+    OrdersController,
+    CollectionsController,
+    AssetsController,
     BidsController,
     TradeController,
   ],
   providers: [
-    MarketplaceService,
+    OrdersService,
     CollectionService,
     CardhedgerMarketDataService,
+    CardhedgerAiInsightService,
     CollectionMarketService,
     RuleEngineService,
     TokenResolutionService,
@@ -63,7 +69,7 @@ import { HiddenAssetsService } from './hidden-assets.service';
     HiddenAssetsService,
   ],
   exports: [
-    MarketplaceService,
+    OrdersService,
     CollectionService,
     CollectionMarketService,
   ],

@@ -738,6 +738,8 @@ export interface CollectionMarketPreview {
     sales30d?: number | null;
     gainPct7d?: number | null;
     gainPct30d?: number | null;
+    priceReliability?: "high" | "low";
+    pricingSuppressedReason?: string | null;
     ebayNearMint: MarketPriceBand | null;
     tcgplayerNearMint: MarketPriceBand | null;
     ebayPsa10?: MarketPriceBand | null;

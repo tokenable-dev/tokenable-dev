@@ -7,7 +7,7 @@ import { wagmiConfig } from "@/config/wagmi";
 import { configureMarketQueryDefaults } from "@/lib/core";
 import { WalletDataProvider } from "@/providers/WalletDataProvider";
 import { AuthProvider } from "@/providers/AuthProvider";
-import { MarketplaceQueryPersistence } from "@/components/providers/MarketplaceQueryPersistence";
+import { MarketplaceQueryPersistence } from "@/providers/MarketplaceQueryPersistence";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => {

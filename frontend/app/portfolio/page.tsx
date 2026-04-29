@@ -41,6 +41,7 @@ import {
 } from "@/lib/portfolio";
 
 const USDC_DECIMALS = 1_000_000;
+const MIN_RELIABLE_SALES_30D = 2;
 
 interface OwnedAsset {
   tokenId: number;
@@ -847,10 +848,21 @@ export default function PortfolioPage() {
       const isMockSport =
         sportBucket === "mlb" || sportBucket === "nba" || sportBucket === "nfl";
 
+      const preview = marketPreviewByToken[a.tokenId] ?? null;
+      const previewHasReliableSales =
+        (preview?.card?.sales30d ?? 0) >= MIN_RELIABLE_SALES_30D;
+      // Trust policy mirrors backend rowToPreview guardrail:
+      //   - `verified` (curator-linked cardhedgerCardId or strong match) ⇒ trust.
+      //   - `approximate` ⇒ require recent sales + backend-side `priceReliability=high`.
+      const previewIsVerified = preview?.matchConfidence === "verified";
+      const previewTrusted =
+        previewIsVerified ||
+        (preview?.card?.priceReliability === "high" && previewHasReliableSales);
+
       const poke = isMockSport
         ? null
         : catalogSpotUsdFromMarketPreview(
-            marketPreviewByToken[a.tokenId],
+            previewTrusted ? preview : null,
             marketHistoryTierFromRwaMetadata(a.metadata),
           );
       const jt =
@@ -893,7 +905,7 @@ export default function PortfolioPage() {
         listPriceUsd: listingPrice,
         subtitle: buildAssetSubtitle(a.metadata, displayName),
         gradeLabel: formatGradeDisplay(a.metadata),
-        marketPreviewRaw: marketPreviewByToken[a.tokenId] ?? null,
+        marketPreviewRaw: preview,
       };
     });
   }, [

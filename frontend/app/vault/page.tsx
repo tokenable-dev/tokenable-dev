@@ -2,7 +2,7 @@
 
 import { Suspense, useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { MintForm } from "@/components/mint";
+import { MintForm } from "@/components/vault";
 import { useAuthStore } from "@/store/authStore";
 
 const STEPS = [

@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import type { ParsedPsaLabel } from './psa-ocr.util';
+import type { ParsedPsaLabel } from './utils/psa-ocr.util';
 
 /** Aligns with Swagger `PublicPSACert` (api.psacard.com/publicapi/swagger.json). */
 export interface PsaCertRecord {
