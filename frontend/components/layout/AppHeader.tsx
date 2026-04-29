@@ -122,9 +122,9 @@ function SearchBar() {
   });
 
   return (
-    <div ref={wrapperRef} className="relative">
+    <div ref={wrapperRef} className="relative w-[124px] sm:w-auto">
       <div
-        className={`flex items-center rounded-xl border bg-gray-800/50 px-3 py-1.5 min-w-[180px] sm:min-w-[260px] transition-colors ${
+        className={`flex h-10 items-center rounded-xl border bg-gray-800/50 px-3 min-w-[124px] sm:min-w-[260px] transition-colors ${
           open ? "border-mint/40" : "border-gray-700/60 hover:border-gray-600"
         }`}
         onClick={() => { if (!open) setOpen(true); }}
@@ -139,7 +139,7 @@ function SearchBar() {
           onFocus={() => setOpen(true)}
           onKeyDown={handleKeyDown}
           placeholder="Search..."
-          className="ml-2 flex-1 bg-transparent text-xs text-white placeholder-gray-500 outline-none cursor-text min-w-0"
+          className="ml-2 flex-1 bg-transparent text-sm text-white placeholder-gray-500 outline-none cursor-text min-w-0"
         />
         {!open && (
           <kbd className="hidden sm:inline-flex ml-auto text-[10px] text-gray-600 border border-gray-700 rounded px-1 py-0.5 font-mono shrink-0">
@@ -282,7 +282,7 @@ function WalletDropdown() {
       <button
         onClick={() => metaMaskConnector && connect({ connector: metaMaskConnector })}
         disabled={isPending || !metaMaskConnector}
-        className="flex items-center gap-2 rounded-xl bg-mint px-4 py-2 text-sm font-semibold text-[#030712] transition-all hover:brightness-110 hover:shadow-lg hover:shadow-mint/25 active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed"
+        className="flex h-10 w-[164px] items-center justify-center gap-2 rounded-xl bg-mint px-4 text-sm font-semibold text-[#030712] transition-all hover:brightness-110 hover:shadow-lg hover:shadow-mint/25 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50"
       >
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a2.25 2.25 0 00-2.25-2.25H15a3 3 0 110-6h3.75A2.25 2.25 0 0121 6v6zm0 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18V6a2.25 2.25 0 012.25-2.25h13.5" />
@@ -304,7 +304,7 @@ function WalletDropdown() {
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen((p) => !p)}
-        className={`flex items-center gap-2.5 rounded-xl border px-3 py-2 text-sm transition-colors ${
+        className={`flex h-10 w-[164px] items-center gap-2.5 rounded-xl border px-3 text-sm transition-colors ${
           open
             ? "border-mint/40 bg-gray-800/90"
             : "border-gray-700/60 bg-gray-800/50 hover:border-gray-600"
@@ -313,7 +313,7 @@ function WalletDropdown() {
         <div
           className={`w-2 h-2 rounded-full shrink-0 ${isWrongNetwork ? "bg-red-400" : "bg-mint"}`}
         />
-        <span className="font-mono text-gray-300">
+        <span className="min-w-0 truncate font-mono text-gray-300">
           {address.slice(0, 6)}...{address.slice(-4)}
         </span>
         <svg
@@ -432,16 +432,14 @@ function WalletDropdown() {
 export function AppHeader() {
   return (
     <header className="border-b border-gray-800/60 backdrop-blur-sm sticky top-0 z-50 bg-gray-950/90">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3 sm:gap-4">
         {/* Left: logo + nav */}
         <div className="flex items-center gap-5 min-w-0">
-          <Link href="/" className="flex items-center gap-3 shrink-0">
+          <Link href="/" className="mr-1 flex items-center gap-3 shrink-0 sm:mr-1.5">
             <img
               src={ASSETS.icons.tokenable}
               alt="Tokenable"
-              width={32}
-              height={32}
-              className="h-8 w-8 object-contain"
+              className="h-8 w-auto object-contain"
             />
           </Link>
           <div className="hidden sm:flex items-center gap-4">
@@ -467,7 +465,7 @@ export function AppHeader() {
         </div>
 
         {/* Right: search + wallet */}
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           <SearchBar />
           <WalletDropdown />
         </div>
