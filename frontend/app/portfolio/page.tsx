@@ -24,7 +24,7 @@ import { useShallow } from "zustand/react/shallow";
 import type { GradedCardMetadata } from "@/types/gradedCard";
 import { loadNmBaselineMap, saveNmBaselineMap, type NmBaselineEntry } from "@/lib/portfolio";
 import { formatLiquidityDepthLabel, NO_EXTERNAL_PRICE } from "@/lib/market";
-import { representativeGradeUsd } from "@/lib/market";
+import { representativeGradeUsd, isPreviewPriceReliable, EXTERNAL_PRICE_MIN_SALES_30D } from "@/lib/market";
 import {
   catalogSpotUsdFromMarketPreview,
   parseGradeScoreNumber,
@@ -41,7 +41,7 @@ import {
 } from "@/lib/portfolio";
 
 const USDC_DECIMALS = 1_000_000;
-const MIN_RELIABLE_SALES_30D = 2;
+const MIN_RELIABLE_SALES_30D = EXTERNAL_PRICE_MIN_SALES_30D;
 
 interface OwnedAsset {
   tokenId: number;
@@ -849,15 +849,9 @@ export default function PortfolioPage() {
         sportBucket === "mlb" || sportBucket === "nba" || sportBucket === "nfl";
 
       const preview = marketPreviewByToken[a.tokenId] ?? null;
-      const previewHasReliableSales =
-        (preview?.card?.sales30d ?? 0) >= MIN_RELIABLE_SALES_30D;
-      // Trust policy mirrors backend rowToPreview guardrail:
-      //   - `verified` (curator-linked cardhedgerCardId or strong match) ⇒ trust.
-      //   - `approximate` ⇒ require recent sales + backend-side `priceReliability=high`.
-      const previewIsVerified = preview?.matchConfidence === "verified";
-      const previewTrusted =
-        previewIsVerified ||
-        (preview?.card?.priceReliability === "high" && previewHasReliableSales);
+      // Use the shared isPreviewPriceReliable gate (same logic as resolveExternalMarketUsd)
+      // so portfolio, token detail, and collection detail all apply the same threshold.
+      const previewTrusted = isPreviewPriceReliable(preview);
 
       const poke = isMockSport
         ? null
@@ -865,11 +859,14 @@ export default function PortfolioPage() {
             previewTrusted ? preview : null,
             marketHistoryTierFromRwaMetadata(a.metadata),
           );
+      // gradePrices from market snapshots originates from the same Cardhedger data as the preview.
+      // Only use it when the preview is trusted, preventing stale fallback prices.
+      const gradePricesForJt = previewTrusted ? (series?.gradePrices ?? null) : null;
       const jt =
         isMockSport || poke != null
           ? null
           : representativeGradeUsd(
-              series?.gradePrices ?? null,
+              gradePricesForJt,
               gradeScoreForJustTcg(a.metadata),
             );
 
@@ -1486,7 +1483,7 @@ export default function PortfolioPage() {
                         <div className="pointer-events-none absolute right-0 top-full mt-1.5 w-56 rounded-lg border border-zinc-700/90 bg-[#0a0f16]/95 px-3 py-2 text-[11px] leading-snug text-zinc-200 opacity-0 shadow-xl transition-opacity duration-150 group-hover:opacity-100">
                           <p className="font-semibold text-zinc-100">Market Gap formula</p>
                           <p className="mt-1">
-                            Tokenable Listing ({r.listPriceUsd != null ? `$${r.listPriceUsd.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : "—"}) vs eBay Price ({r.currentPrice != null ? `$${r.currentPrice.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : "—"})
+                            Tokenable Listing ({r.listPriceUsd != null ? `$${r.listPriceUsd.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : "—"}) vs Market Price ({r.currentPrice != null ? `$${r.currentPrice.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : "—"})
                           </p>
                           <p className="mt-1 text-zinc-400">(Tokenable − eBay) / eBay</p>
                         </div>
@@ -1551,7 +1548,7 @@ export default function PortfolioPage() {
                     </div>
                     <dl className="space-y-2 border-t border-gray-800/80 pt-3 text-[12px]">
                       <div className="flex justify-between gap-2">
-                        <dt className="text-gray-500">eBay Price</dt>
+                        <dt className="text-gray-500">Market Price</dt>
                         <dd className="font-semibold tabular-nums text-cyan-300">
                           {valuesPending && r.currentPrice == null ? (
                             <span className="inline-block h-4 w-16 animate-pulse rounded bg-gray-800/80 align-middle" />

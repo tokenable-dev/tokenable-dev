@@ -281,7 +281,7 @@ function CollectionRow({
             <dd className="tabular-nums text-base font-bold text-white sm:text-lg">{listingCount}</dd>
           </div>
           <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <dt className="min-w-[7.25rem] shrink-0 text-zinc-400 sm:min-w-[9.5rem]">eBay Price</dt>
+            <dt className="min-w-[7.25rem] shrink-0 text-zinc-400 sm:min-w-[9.5rem]">Market Price</dt>
             <dd
               className="tabular-nums text-base font-bold text-cyan-300 sm:text-lg"
               title="External eBay reference price."
@@ -406,7 +406,7 @@ function CollectionGridCard({
             <span className="font-semibold tabular-nums text-zinc-100">{listingCount}</span>
           </p>
           <p className="flex items-center justify-between gap-2">
-            <span className="text-zinc-500">eBay Price</span>
+                            <span className="text-zinc-500">Market Price</span>
             <span className="font-semibold tabular-nums text-cyan-300">
               {eBayUsd != null ? formatUsd(eBayUsd) : "—"}
             </span>

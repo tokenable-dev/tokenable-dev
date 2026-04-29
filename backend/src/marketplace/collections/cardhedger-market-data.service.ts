@@ -32,6 +32,13 @@ export class CardhedgerMarketDataService {
   private readonly PRICES_CACHE_TTL_MS = 5 * 60 * 1000; // 5 min
   private readonly RESOLVE_CACHE_TTL_MS = 5 * 60 * 1000; // 5 min
   private readonly MIN_RELIABLE_SALES_30D: number;
+  /**
+   * Minimum 30-day sales required even for `verified` confidence matches.
+   * Prevents stale catalog prices (e.g. low-population rare cards) from surfacing
+   * as market price when no recent trades have occurred.
+   * Defaults to 1; set CARDHEDGER_MIN_VERIFIED_SALES_30D=0 to restore old behaviour.
+   */
+  private readonly MIN_VERIFIED_SALES_30D: number;
   private readonly allPricesByCardCache = new Map<string, { rows: CardhedgerCardRow[]; ts: number }>();
   private readonly resolveCardCache = new Map<string, { result: ResolvedCard; ts: number }>();
 
@@ -43,7 +50,11 @@ export class CardhedgerMarketDataService {
     this.psaSpecIdMap = this.readPsaSpecIdMapFromEnv();
     this.MIN_RELIABLE_SALES_30D = Math.max(
       0,
-      Number(this.config.get<string>('CARDHEDGER_MIN_RELIABLE_SALES_30D') ?? 2) || 2,
+      Number(this.config.get<string>('CARDHEDGER_MIN_RELIABLE_SALES_30D') ?? 5) || 5,
+    );
+    this.MIN_VERIFIED_SALES_30D = Math.max(
+      0,
+      Number(this.config.get<string>('CARDHEDGER_MIN_VERIFIED_SALES_30D') ?? 5) || 5,
     );
   }
 
@@ -378,20 +389,27 @@ export class CardhedgerMarketDataService {
     const sales7d = this.parseCount(merged['7 Day Sales']);
     const sales30d = this.parseCount(merged['30 Day Sales']);
     const hasReliableSales30 = sales30d != null && sales30d >= this.MIN_RELIABLE_SALES_30D;
+    const hasMinVerifiedSales =
+      this.MIN_VERIFIED_SALES_30D === 0 ||
+      (sales30d != null && sales30d >= this.MIN_VERIFIED_SALES_30D);
     // Pricing guardrail policy:
-    //   - `verified` (including curated cardhedgerCardId) ⇒ always publish the source price.
-    //     Curators have explicitly bound the collection to a specific Cardhedger card, so
-    //     suppressing here would hide legitimate prices for thinly-traded-but-real cards.
-    //   - `approximate` (fuzzy search hit) ⇒ require recent sales so a single stale listing
-    //     doesn't drive a misleading headline price.
-    const allowPsa10Pricing = confidence === 'verified' || hasReliableSales30;
+    //   - `verified` ⇒ publish price only when recent sales meet MIN_VERIFIED_SALES_30D (default 1).
+    //     This prevents stale catalog prices on thinly-traded rare cards (e.g. PSA pop 2) from
+    //     surfacing as a headline market price with no recent transaction backing.
+    //     Set CARDHEDGER_MIN_VERIFIED_SALES_30D=0 to restore unconditional verified pricing.
+    //   - `approximate` (fuzzy search hit) ⇒ require MIN_RELIABLE_SALES_30D (default 2) so a
+    //     single stale listing doesn't drive a misleading headline price.
+    const allowPsa10Pricing =
+      (confidence === 'verified' && hasMinVerifiedSales) || hasReliableSales30;
     const psa10 = allowPsa10Pricing ? psa10Raw : null;
     const pricingSuppressedReason =
       psa10Raw == null
         ? 'no_psa10_price_in_source'
         : allowPsa10Pricing
           ? null
-          : `approximate_match_low_sales(30d<${this.MIN_RELIABLE_SALES_30D})`;
+          : confidence === 'verified'
+            ? `verified_match_low_sales(30d<${this.MIN_VERIFIED_SALES_30D})`
+            : `approximate_match_low_sales(30d<${this.MIN_RELIABLE_SALES_30D})`;
     this.logger.debug(
       `cardhedger_preview card_id=${cardId || 'n/a'} confidence=${confidence} psa10Raw=${psa10Raw ?? 'null'} sales30d=${sales30d ?? 'null'} published=${psa10 ?? 'null'} reason=${pricingSuppressedReason ?? 'ok'}`,
     );
