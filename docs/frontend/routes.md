@@ -1,0 +1,60 @@
+# Frontend Routes Reference
+
+**Framework:** Next.js 16, App Router  
+**Source:** `frontend/app/`
+
+All routes are file-system based. Dynamic segments use `[param]` notation.
+
+---
+
+## Route Table
+
+| Route | Source File | Purpose |
+|-------|------------|---------|
+| `/` | `app/page.tsx` | Landing page — Market Indexes (Pokemon/MLB/NFL/NBA dashboard) |
+| `/exchange` | `app/exchange/page.tsx` | Collection hub — list, category filter, trending, list/grid toggle |
+| `/markets` | `app/markets/page.tsx` | Market indexes view — alternative entry point |
+| `/vault` | `app/vault/page.tsx` | Mint / RWA registration — slab scan, Cardhedger/PSA lookup, IPFS upload, on-chain mint |
+| `/portfolio` | `app/portfolio/page.tsx` | Owned assets — token list, listing status, reference price vs platform price |
+| `/profile` | `app/profile/page.tsx` | User profile — wallet link/unlink, email verification status |
+| `/login` | `app/login/page.tsx` | Authentication entry (Google OAuth link) |
+| `/signup` | `app/signup/page.tsx` | Registration page |
+| `/auth/callback` | `app/auth/callback/page.tsx` | Google OAuth callback redirect handler (`?ok=1`) |
+| `/marketplace/[tokenId]` | `app/marketplace/[tokenId]/page.tsx` | Token detail — metadata, active ask, portfolio link |
+| `/marketplace/collections/[collectionKey]` | `app/marketplace/collections/[collectionKey]/page.tsx` | Collection order book + dual chart (platform + Cardhedger) + criteria bid/ask trading |
+| `/marketplace/other-listings` | `app/marketplace/other-listings/page.tsx` | Listings not matched to a known collection |
+
+---
+
+## Layout Files
+
+| File | Scope | Purpose |
+|------|-------|---------|
+| `app/layout.tsx` | Global | HTML shell, fonts, global providers wrapper |
+| `app/providers.tsx` | Global | QueryClient + Wagmi + AuthProvider + WalletDataProvider + MarketplaceQueryPersistence |
+| `app/portfolio/layout.tsx` | `/portfolio` | Portfolio-scoped layout |
+| `app/marketplace/[tokenId]/layout.tsx` | `/marketplace/[tokenId]` | Token-detail layout |
+| `app/marketplace/collections/[collectionKey]/layout.tsx` | `/marketplace/collections/[collectionKey]` | Collection-detail layout |
+
+---
+
+## Key API Dependencies per Route
+
+| Route | Primary API calls |
+|-------|------------------|
+| `/` | `GET /api/cardhedger/indexes` |
+| `/exchange` | `GET /api/marketplace/collections`, `POST /api/marketplace/collections/market-snapshots` |
+| `/vault` | `POST /api/psa/analyze`, `POST /api/psa/analyze-by-cert`, `POST /api/rwa/upload` |
+| `/portfolio` | `GET /api/blockchain/rwa/tokens/:address`, `POST /api/blockchain/rwa/metadata/batch`, `POST /api/marketplace/cardhedger/mint-previews`, `GET /api/marketplace/orders/token/:tokenId`, `GET /api/marketplace/my-assets/hidden` |
+| `/marketplace/[tokenId]` | `GET /api/blockchain/rwa/asset/:tokenId`, `GET /api/marketplace/orders/token/:tokenId` |
+| `/marketplace/collections/[collectionKey]` | `GET /api/marketplace/collections/:key`, `GET /api/marketplace/collections/:key/cardhedger`, `GET /api/marketplace/collections/:key/market-series`, `GET /api/marketplace/collections/:key/stats`, `GET /api/marketplace/bids` |
+
+---
+
+## Collection Key
+
+Collection keys are deterministic SHA-256 hashes derived from normalized card attributes (name, set, number, grading company, grade score). They are generated server-side in `backend/src/marketplace/utils/bucket-key.util.ts` and client-side in `frontend/lib/marketplace/bucketKey.ts`.
+
+```
+collectionKey = SHA256(normalize(cardName + cardSet + cardNumber + gradingCompany + gradeScore))
+```

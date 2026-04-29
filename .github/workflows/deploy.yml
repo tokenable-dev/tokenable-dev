@@ -1,13 +1,15 @@
 # develop 푸시 → ECR 빌드 후 EC2에서 docker-compose pull
 #
-# Repository secrets
-#   NEXT_PUBLIC_API_URL — leave unset / remove secret for Nginx same-origin /api (works for IP, domain, https).
-#                         Set only if the browser must call a different API host (e.g. https://api.other.com/api).
-#   NEXT_PUBLIC_ALCHEMY_RPC_URL=https://eth-sepolia.g.alchemy.com/v2/<KEY>
-#   NEXT_PUBLIC_RWA_CONTRACT_ADDRESS (필수) — **Repository secrets** 에 넣어야 함 (Variables 만 있으면 빌드에 안 넘어감 → 아래에서 vars 폴백)
-#   레거시 NEXT_PUBLIC_NFT_CONTRACT_ADDRESS (선택)
-#   NEXT_PUBLIC_USDC/MARKETPLACE, NEXT_PUBLIC_SHOW_AUTH_LINKS(optional)
-#   ECR_REGISTRY, AWS_*, DEV_EC2_*
+# Required Repository secrets / variables (Secrets 우선, Variables 폴백)
+#   NEXT_PUBLIC_RWA_CONTRACT_ADDRESS    (필수)
+#   NEXT_PUBLIC_USDC_CONTRACT_ADDRESS   (필수)
+#   NEXT_PUBLIC_ALCHEMY_RPC_URL         (필수, Alchemy Sepolia)
+#   NEXT_PUBLIC_PLATFORM_FEE_RECIPIENT  (선택, 빈 값이면 수수료 미적용)
+#   NEXT_PUBLIC_PLATFORM_FEE_BPS        (선택, 기본 0)
+#   NEXT_PUBLIC_API_URL                 (선택; 비우면 브라우저는 same-origin /api 사용)
+#   ECR_REGISTRY, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
+#   DEV_EC2_HOST, DEV_EC2_SSH_KEY (develop 배포)
+#   PROD_EC2_HOST, PROD_EC2_SSH_KEY (main 배포)
 #
 name: Deploy
 
@@ -46,22 +48,19 @@ jobs:
       - name: Build & push frontend image
         run: |
           set -euo pipefail
-          # Secrets 우선; 없으면 Repository **Variables** (이름 동일) — Variables만 넣은 경우 대비
+          # Secrets 우선; 없으면 동일 이름의 Repository Variables 폴백
           RWA="${{ secrets.NEXT_PUBLIC_RWA_CONTRACT_ADDRESS }}"
-          NFT="${{ secrets.NEXT_PUBLIC_NFT_CONTRACT_ADDRESS }}"
           USDC="${{ secrets.NEXT_PUBLIC_USDC_CONTRACT_ADDRESS }}"
-          if [ -z "$RWA" ]; then RWA="${{ vars.NEXT_PUBLIC_RWA_CONTRACT_ADDRESS }}"; fi
-          if [ -z "$NFT" ]; then NFT="${{ vars.NEXT_PUBLIC_NFT_CONTRACT_ADDRESS }}"; fi
+          RPC="${{ secrets.NEXT_PUBLIC_ALCHEMY_RPC_URL }}"
+          if [ -z "$RWA" ];  then RWA="${{ vars.NEXT_PUBLIC_RWA_CONTRACT_ADDRESS }}"; fi
           if [ -z "$USDC" ]; then USDC="${{ vars.NEXT_PUBLIC_USDC_CONTRACT_ADDRESS }}"; fi
-          if [ -z "$RWA" ] && [ -z "$NFT" ]; then
-            echo "::error::NEXT_PUBLIC_RWA_CONTRACT_ADDRESS (또는 레거시 NFT_) 가 비어 있습니다. Repository **Secrets** 또는 **Variables** 에 동일 이름으로 추가하세요."
-            exit 1
-          fi
-          if [ -z "$USDC" ]; then
-            echo "::error::NEXT_PUBLIC_USDC_CONTRACT_ADDRESS 가 비어 있습니다. Secrets 또는 Variables 에 추가하세요."
-            exit 1
-          fi
-          # Platform fee — secrets 우선, 없으면 variables 폴백
+          if [ -z "$RPC" ];  then RPC="${{ vars.NEXT_PUBLIC_ALCHEMY_RPC_URL }}"; fi
+
+          if [ -z "$RWA" ];  then echo "::error::NEXT_PUBLIC_RWA_CONTRACT_ADDRESS 가 비어 있습니다."; exit 1; fi
+          if [ -z "$USDC" ]; then echo "::error::NEXT_PUBLIC_USDC_CONTRACT_ADDRESS 가 비어 있습니다."; exit 1; fi
+          if [ -z "$RPC" ];  then echo "::error::NEXT_PUBLIC_ALCHEMY_RPC_URL 가 비어 있습니다."; exit 1; fi
+
+          # Platform fee — 선택값 (없으면 빈값 그대로 build-arg 로 넘어가 런타임에 fee=0)
           FEE_RCPT="${{ secrets.NEXT_PUBLIC_PLATFORM_FEE_RECIPIENT }}"
           FEE_BPS="${{ secrets.NEXT_PUBLIC_PLATFORM_FEE_BPS }}"
           if [ -z "$FEE_RCPT" ]; then FEE_RCPT="${{ vars.NEXT_PUBLIC_PLATFORM_FEE_RECIPIENT }}"; fi
@@ -76,11 +75,8 @@ jobs:
           docker build \
             "${EXTRA_BUILD_ARGS[@]}" \
             --build-arg NEXT_PUBLIC_RWA_CONTRACT_ADDRESS="$RWA" \
-            --build-arg NEXT_PUBLIC_NFT_CONTRACT_ADDRESS="$NFT" \
             --build-arg NEXT_PUBLIC_USDC_CONTRACT_ADDRESS="$USDC" \
-            --build-arg NEXT_PUBLIC_MARKETPLACE_ADDRESS=${{ secrets.NEXT_PUBLIC_MARKETPLACE_ADDRESS }} \
-            --build-arg NEXT_PUBLIC_ALCHEMY_RPC_URL=${{ secrets.NEXT_PUBLIC_ALCHEMY_RPC_URL }} \
-            --build-arg NEXT_PUBLIC_SHOW_AUTH_LINKS=${{ secrets.NEXT_PUBLIC_SHOW_AUTH_LINKS }} \
+            --build-arg NEXT_PUBLIC_ALCHEMY_RPC_URL="$RPC" \
             --build-arg NEXT_PUBLIC_PLATFORM_FEE_RECIPIENT="$FEE_RCPT" \
             --build-arg NEXT_PUBLIC_PLATFORM_FEE_BPS="$FEE_BPS" \
             -t ${{ env.ECR_REGISTRY }}/tokenable-frontend:${{ env.IMAGE_TAG }} \

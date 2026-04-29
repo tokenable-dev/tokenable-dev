@@ -45,7 +45,3 @@ export function marketTierDisplayLabel(tier: string): string {
   return "PSA 10";
 }
 
-export const historyTierFromComponents = marketHistoryTierFromComponents;
-export const historyTierFromRwaMetadata = marketHistoryTierFromRwaMetadata;
-export const tierDisplayLabel = marketTierDisplayLabel;
-

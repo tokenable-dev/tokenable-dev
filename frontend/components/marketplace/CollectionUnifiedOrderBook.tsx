@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { formatUnits } from "viem";
 import { type CollectionPlatformTapeFill, type Order } from "@/lib/core";
-import { isCriteriaCollectionBid } from "@/lib/seaport/criteriaMatch";
+import { isCriteriaCollectionBid } from "@/lib/seaport/criteria/criteriaMatch";
 
 function priceUsdcFromOrder(o: Order): number {
   return Number(o.considerationAmount) / 1_000_000;

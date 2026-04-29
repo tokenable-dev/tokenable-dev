@@ -20,8 +20,6 @@ export const rq = {
   ) => ["collection-snapshots", [...sortedKeys], priceHistoryDuration] as const,
   rwaMetadataBatch: (address: string | undefined, tokenIds: readonly number[]) =>
     ["rwa-metadata-batch", address ?? "", [...tokenIds].slice().sort((a, b) => a - b)] as const,
-  cardhedgerMintPreviews: (address: string | undefined, tokenIds: readonly number[]) =>
-    ["cardhedger-mint-previews", address ?? "", [...tokenIds].slice().sort((a, b) => a - b)] as const,
   marketMintPreviews: (address: string | undefined, tokenIds: readonly number[]) =>
     ["cardhedger-mint-previews", address ?? "", [...tokenIds].slice().sort((a, b) => a - b)] as const,
 } as const;

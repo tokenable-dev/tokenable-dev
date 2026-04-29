@@ -3,7 +3,7 @@
 import { type ReactNode, useMemo, useState } from "react";
 import type { Address } from "viem";
 import type { Order } from "@/lib/core";
-import { isCriteriaCollectionBid } from "@/lib/seaport/criteriaMatch";
+import { isCriteriaCollectionBid } from "@/lib/seaport/criteria/criteriaMatch";
 import { CollectionCriteriaBidPanel } from "@/components/marketplace/CollectionCriteriaBidPanel";
 import { CollectionMyOrdersPanel } from "@/components/marketplace/CollectionMyOrdersPanel";
 import {
