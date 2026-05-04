@@ -5,12 +5,8 @@
   "main": "index.js",
   "scripts": {
     "compile": "hardhat compile",
-    "test": "hardhat test",
     "deploy:usdc": "hardhat run scripts/deploy-mock-usdc.ts --network sepolia",
     "deploy:rwa": "hardhat run scripts/deploy-tokenable-rwa-sepolia.ts --network sepolia",
-    "deploy:rwa-sepolia": "pnpm run deploy:rwa",
-    "deploy:nft": "pnpm run deploy:rwa",
-    "deploy:nft-sepolia": "pnpm run deploy:rwa-sepolia",
     "clean": "hardhat clean"
   },
   "keywords": [],

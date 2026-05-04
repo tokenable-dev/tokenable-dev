@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  HttpException,
   InternalServerErrorException,
   Logger,
   Post,
@@ -35,9 +36,9 @@ export class PsaController {
 
   @ApiOperation({
     summary:
-      'PSA 슬랩 OCR → (선택) PSA Public API Cert 조회 → JustTCG 검색',
+      'PSA 슬랩 OCR + Cardhedger cert OCR 후보 → PSA Public API 조회',
     description:
-      '슬랩 앞면 필수, 뒷면 선택. 서버에 PSA_PUBLIC_API_TOKEN이 있으면 Cert 번호로 PSA 공식 API를 호출해 메타를 보강합니다. OCR이 Cert를 못 읽으면 multipart 필드 `certNumber`(숫자 또는 psacard.com/cert/ URL)를 넣으면 해당 번호로 조회합니다. 인식·API 결과는 민팅 전 반드시 확인하세요.',
+      '슬랩 앞면 필수, 뒷면 선택. Cardhedger OCR과 슬랩 OCR로 Cert 후보를 찾은 뒤 PSA 공식 API로 검증·메타 보강합니다. OCR이 Cert를 못 읽으면 multipart 필드 `certNumber`(숫자 또는 psacard.com/cert/ URL)를 넣으면 해당 번호를 우선 조회합니다.',
   })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -52,6 +53,11 @@ export class PsaController {
           description:
             '선택. OCR보다 우선 — Cert 숫자만 또는 https://www.psacard.com/cert/83179580 형태',
         },
+      },
+      example: {
+        slabFront: '(binary)',
+        slabBack: '(binary, optional)',
+        certNumber: '83179580',
       },
     },
   })
@@ -89,6 +95,7 @@ export class PsaController {
         hint,
       );
     } catch (err: unknown) {
+      if (err instanceof HttpException) throw err;
       const msg = err instanceof Error ? err.message : String(err);
       const stack = err instanceof Error ? err.stack : undefined;
       this.logger.error(`PSA analyze failed: ${msg}`, stack);
@@ -99,7 +106,7 @@ export class PsaController {
   }
 
   @ApiOperation({
-    summary: 'Cert 번호만으로 PSA Public API + JustTCG 조회 (OCR 없음)',
+    summary: 'Cert 번호만으로 PSA Public API 조회 (OCR 없음)',
     description:
       '슬랩 사진 없이 `certNumber`만 보냅니다. 값은 7~10자리 숫자이거나 `https://www.psacard.com/cert/12345678` 형태일 수 있습니다. `PSA_PUBLIC_API_TOKEN`이 있으면 공식 API로 메타·이미지 URL을 보강합니다.',
   })
@@ -114,6 +121,10 @@ export class PsaController {
             'PSA Cert 숫자만 또는 psacard.com/cert/… URL (본문 JSON)',
         },
       },
+      examples: [
+        { certNumber: '83179580' },
+        { certNumber: 'https://www.psacard.com/cert/83179580' },
+      ],
     },
   })
   @Post('analyze-by-cert')
@@ -127,6 +138,7 @@ export class PsaController {
     try {
       return await this.psaService.analyzeByCertNumber(raw);
     } catch (err: unknown) {
+      if (err instanceof HttpException) throw err;
       const msg = err instanceof Error ? err.message : String(err);
       const stack = err instanceof Error ? err.stack : undefined;
       this.logger.error(`PSA analyze-by-cert failed: ${msg}`, stack);

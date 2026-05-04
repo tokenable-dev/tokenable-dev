@@ -2,8 +2,8 @@
 
 import { type ReactNode, useMemo, useState } from "react";
 import type { Address } from "viem";
-import type { Order } from "@/lib/api";
-import { isCriteriaCollectionBid } from "@/lib/seaport/criteriaMatch";
+import type { Order } from "@/lib/core";
+import { isCriteriaCollectionBid } from "@/lib/seaport/criteria/criteriaMatch";
 import { CollectionCriteriaBidPanel } from "@/components/marketplace/CollectionCriteriaBidPanel";
 import { CollectionMyOrdersPanel } from "@/components/marketplace/CollectionMyOrdersPanel";
 import {
@@ -169,7 +169,7 @@ export function CollectionTradingTabs({
       <div
         className={
           flush
-            ? "flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-auto overscroll-contain scrollbar-platform"
+            ? "flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-auto overscroll-y-auto scrollbar-platform"
             : "contents"
         }
       >

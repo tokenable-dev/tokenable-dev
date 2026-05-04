@@ -78,7 +78,15 @@ export class BlockchainController {
     summary:
       'Batch tokenURI + metadata + resolved imageUrl (server IPFS gateways + CID cache; no client IPFS)',
   })
-  @ApiBody({ type: RwaMetadataBatchDto })
+  @ApiBody({
+    type: RwaMetadataBatchDto,
+    examples: {
+      metadataBatch: {
+        summary: 'Resolve metadata for many token ids',
+        value: { tokenIds: [1, 2, 3, 1001] },
+      },
+    },
+  })
   @Post('rwa/metadata/batch')
   batchRwaMetadata(@Body() body: RwaMetadataBatchDto) {
     return this.blockchainService.batchRwaMetadata(body.tokenIds ?? []);
@@ -87,7 +95,20 @@ export class BlockchainController {
   @ApiOperation({
     summary: 'Resolve ipfs:// or https /ipfs/… URIs to a browser-loadable https URL (server fallbacks + cache)',
   })
-  @ApiBody({ type: MediaResolveDto })
+  @ApiBody({
+    type: MediaResolveDto,
+    examples: {
+      mediaResolve: {
+        summary: 'Resolve ipfs:// URIs to https URLs',
+        value: {
+          uris: [
+            'ipfs://bafybeibxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/image.png',
+            'https://gateway.pinata.cloud/ipfs/bafybeibyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy',
+          ],
+        },
+      },
+    },
+  })
   @Post('media/resolve')
   async resolveMediaUrls(@Body() body: MediaResolveDto) {
     const uris = body.uris ?? [];

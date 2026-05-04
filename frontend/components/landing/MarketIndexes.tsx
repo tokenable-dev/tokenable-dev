@@ -2,18 +2,17 @@
 
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { getPriceGames, type JustTcgPriceHistoryPoint } from "@/lib/api";
+import { getCardhedgerIndexes, type MarketPriceHistoryPoint } from "@/lib/core";
 import {
   buildGameIndexComparisonSeries,
   buildGameIndexSparklinePoints,
-} from "@/lib/justtcgGameValueTrend";
-import { buildMarketIndexCards, type MarketIndexCard } from "@/lib/justtcgMarketIndexes";
-import { ASSETS } from "@/constants/assets";
-import {
+  buildMarketIndexCards,
   MARKET_RASTER_ICON_FRAME,
   MARKET_RASTER_ICON_IMG,
   MARKET_RASTER_ICON_IMG_NBA,
-} from "@/lib/marketRasterIconFrame";
+  type MarketIndexCard,
+} from "@/lib/market";
+import { ASSETS } from "@/constants/assets";
 
 function marketIndexCardIconSrc(card: MarketIndexCard): string | undefined {
   const id = card.gameId.toLowerCase();
@@ -50,7 +49,7 @@ type SparklineScale = {
 };
 
 function buildSparklinePath(
-  points: JustTcgPriceHistoryPoint[],
+  points: MarketPriceHistoryPoint[],
   w: number,
   h: number,
 ): {
@@ -104,7 +103,7 @@ function PriceHistorySparkline({
   points,
   showSpanAxis,
 }: {
-  points: JustTcgPriceHistoryPoint[] | null;
+  points: MarketPriceHistoryPoint[] | null;
   /** When true, draw start/end dots and a ~1yr→now caption under the chart. */
   showSpanAxis?: boolean;
 }) {
@@ -135,7 +134,7 @@ function PriceHistorySparkline({
       className="w-full"
       title={
         showSpanAxis
-          ? "Time left → right (~1 year to now). Path uses 365d (or compounded shorter-window) anchor plus ~90d / ~30d / ~7d implied levels from JustTCG returns (not tick history)."
+          ? "Time left → right (~1 year to now). Path uses 365d (or compounded shorter-window) anchor plus ~90d / ~30d / ~7d implied levels from Cardhedger index returns (not tick history)."
           : undefined
       }
     >
@@ -182,13 +181,19 @@ function PriceHistorySparkline({
   );
 }
 
-function IndexCard({ card }: { card: MarketIndexCard }) {
+function IndexCard({
+  card,
+  loading,
+}: {
+  card: MarketIndexCard;
+  loading: boolean;
+}) {
   const showChart = card.demoMock || !card.synthetic;
 
   const series = useMemo(
     () =>
       !showChart
-        ? { points: [] as JustTcgPriceHistoryPoint[], changePct: NaN, comparisonAnchorLabel: "" }
+        ? { points: [] as MarketPriceHistoryPoint[], changePct: NaN, comparisonAnchorLabel: "" }
         : buildGameIndexComparisonSeries({
             valueUsd: card.valueUsd,
             change7dPct: card.change7dPct,
@@ -227,8 +232,10 @@ function IndexCard({ card }: { card: MarketIndexCard }) {
       })}%`
     : "—";
 
-  const pctAria = !showChart
-    ? "Index not available from JustTCG catalog for this slot"
+  const pctAria = loading
+    ? "Loading market index data"
+    : !showChart
+    ? "Index not available from Cardhedger catalog for this slot"
     : pctFinite
       ? `${up ? "Up" : "Down"} ${Math.abs(pct).toFixed(1)} percent vs about one year ago`
       : "Change unavailable";
@@ -262,14 +269,23 @@ function IndexCard({ card }: { card: MarketIndexCard }) {
       </h3>
 
       <div className="mt-3 rounded-xl border border-white/[0.06] bg-black/35 px-3 pb-3 pt-2.5 sm:px-4 sm:pb-4 sm:pt-3">
-        {!showChart ? (
+        {loading ? (
+          <div
+            className="flex min-h-[92px] flex-col items-center justify-center gap-2 rounded-lg border border-white/[0.05] bg-[#030304]/80 px-2 py-3"
+            role="status"
+            aria-live="polite"
+            aria-busy="true"
+          >
+            <div
+              className="h-7 w-7 animate-spin rounded-full border-2 border-solid border-t-transparent"
+              style={{ borderColor: "rgba(45, 232, 210, 0.35)", borderTopColor: "transparent" }}
+            />
+            <p className="text-[11px] text-zinc-500">Loading chart…</p>
+          </div>
+        ) : !showChart ? (
           <p className="min-h-[72px] px-0.5 py-2 text-left text-[11px] leading-relaxed text-zinc-500 sm:text-xs">
-            No matching game row in JustTCG’s catalog for this slot yet (supported lineup is
-            TCG-first). Numbers fill in automatically when{" "}
-            <code className="rounded bg-white/[0.06] px-1 font-mono text-[10px] text-zinc-400">
-              /price/games
-            </code>{" "}
-            includes one.
+            No matching game row in Cardhedger’s catalog for this slot yet (supported lineup is
+            card-first). Numbers fill in automatically when the index feed includes one.
           </p>
         ) : (
           <PriceHistorySparkline
@@ -281,14 +297,18 @@ function IndexCard({ card }: { card: MarketIndexCard }) {
           className="mt-3 flex items-baseline justify-center gap-2 border-t border-white/[0.06] pt-3 sm:justify-start"
           aria-label={pctAria}
         >
-          <p
-            className={`text-2xl font-extrabold tabular-nums sm:text-3xl ${
-              !pctFinite ? "text-zinc-500" : up ? "text-[#00c853]" : "text-red-400"
-            }`}
-          >
-            {pctSigned}
-          </p>
-          {showChart ? (
+          {loading ? (
+            <span className="inline-block h-8 w-24 animate-pulse rounded bg-zinc-700/60" />
+          ) : (
+            <p
+              className={`text-2xl font-extrabold tabular-nums sm:text-3xl ${
+                !pctFinite ? "text-zinc-500" : up ? "text-[#00c853]" : "text-red-400"
+              }`}
+            >
+              {pctSigned}
+            </p>
+          )}
+          {showChart && !loading ? (
             <span
               className="rounded bg-white/[0.06] px-1.5 py-0.5 text-[10px] font-bold tabular-nums uppercase tracking-wide text-zinc-400"
               title={series.comparisonAnchorLabel}
@@ -303,9 +323,9 @@ function IndexCard({ card }: { card: MarketIndexCard }) {
 }
 
 export function MarketIndexes() {
-  const { data, isLoading, isError, error } = useQuery({
-    queryKey: ["price-games"],
-    queryFn: getPriceGames,
+  const { data, isLoading, isFetching, isError, error } = useQuery({
+    queryKey: ["cardhedger-indexes"],
+    queryFn: getCardhedgerIndexes,
     staleTime: 60_000,
     refetchInterval: 120_000,
   });
@@ -323,25 +343,56 @@ export function MarketIndexes() {
         </h2>
       </div>
 
-      {isLoading ? (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-4">
-          {[1, 2, 3, 4].map((i) => (
-            <div
-              key={i}
-              className="h-[280px] animate-pulse rounded-2xl border border-white/[0.06] bg-[#121212]/80"
-            />
-          ))}
-        </div>
-      ) : isError ? (
+      {isError ? (
         <div className="rounded-xl border border-amber-500/20 bg-amber-500/[0.06] px-4 py-3 text-sm text-amber-200/90">
           {error instanceof Error ? error.message : "Could not load market indexes."}
         </div>
-      ) : cards.length === 0 ? (
+      ) : cards.length === 0 && !isLoading ? (
         <p className="text-sm text-gray-500">No market data available.</p>
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-4">
-          {cards.map((card) => (
-            <IndexCard key={card.gameId} card={card} />
+          {(cards.length
+            ? cards
+            : [
+                {
+                  title: "Pokemon Index",
+                  valueUsd: 0,
+                  change7dPct: 0,
+                  change30dPct: 0,
+                  change90dPct: 0,
+                  gameId: "pokemon-loading",
+                  synthetic: false,
+                },
+                {
+                  title: "MLB Index",
+                  valueUsd: 0,
+                  change7dPct: 0,
+                  change30dPct: 0,
+                  change90dPct: 0,
+                  gameId: "mlb-loading",
+                  synthetic: false,
+                },
+                {
+                  title: "NFL Index",
+                  valueUsd: 0,
+                  change7dPct: 0,
+                  change30dPct: 0,
+                  change90dPct: 0,
+                  gameId: "nfl-loading",
+                  synthetic: false,
+                },
+                {
+                  title: "NBA Index",
+                  valueUsd: 0,
+                  change7dPct: 0,
+                  change30dPct: 0,
+                  change90dPct: 0,
+                  gameId: "nba-loading",
+                  synthetic: false,
+                },
+              ]
+          ).map((card) => (
+            <IndexCard key={card.gameId} card={card} loading={isLoading || isFetching} />
           ))}
         </div>
       )}

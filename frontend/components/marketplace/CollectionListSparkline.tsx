@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import type { CollectionUsdPoint } from "@/lib/api";
+import type { CollectionUsdPoint } from "@/lib/core";
 
 function buildPath(points: CollectionUsdPoint[], w: number, h: number): string {
   const pad = 2;

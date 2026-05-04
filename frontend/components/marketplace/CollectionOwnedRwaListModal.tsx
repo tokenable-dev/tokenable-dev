@@ -11,11 +11,11 @@ import {
   type Order,
   type OrderListItem,
   type RwaMetadata,
-} from "@/lib/api";
+} from "@/lib/core";
 import { metadataMatchesCollectionKey } from "@/lib/marketplace/bucketKey";
 import { ListRwaModal } from "@/components/marketplace/ListRwaModal";
 import { TOKENABLE_RWA_DISPLAY_NAME } from "@/constants/contracts";
-import { rq, marketplaceRqPolicy } from "@/lib/queryKeys";
+import { rq, marketplaceRqPolicy } from "@/lib/core";
 
 interface OwnedInCollection {
   tokenId: number;
@@ -183,7 +183,7 @@ export function CollectionOwnedRwaListModal({
                 No owned RWAs match this collection&apos;s card bucket.
               </p>
               <p className="text-xs text-gray-600 max-w-sm mx-auto leading-relaxed">
-                Collections are derived from graded metadata (PSA / JustTCG fields). If you expected a
+                Collections are derived from graded metadata (PSA / Cardhedger fields). If you expected a
                 match, check that this asset was minted with the same card + grade signature.
               </p>
             </div>

@@ -1,8 +1,7 @@
 "use client";
 
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { getMarketplaceCollectionsPage } from "@/lib/api";
-import { rq, marketplaceRqPolicy } from "@/lib/queryKeys";
+import { getMarketplaceCollectionsPage, rq, marketplaceRqPolicy } from "@/lib/core";
 
 export function useMarketplaceCollectionsInfinite() {
   return useInfiniteQuery({

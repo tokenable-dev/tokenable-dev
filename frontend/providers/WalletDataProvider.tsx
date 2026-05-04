@@ -14,8 +14,8 @@ import { sepolia } from "@/config/wagmi";
 import { useQueryClient } from "@tanstack/react-query";
 import { USDC_ADDRESS, USDC_ABI } from "@/constants/contracts";
 import { useAppStore } from "@/store";
-import { ensureSepoliaNetwork } from "@/lib/ensureSepoliaNetwork";
-import { rq } from "@/lib/queryKeys";
+import { rq } from "@/lib/core";
+import { ensureSepoliaNetwork } from "@/lib/network";
 
 const POLL_INTERVAL_MS = 8_000;
 

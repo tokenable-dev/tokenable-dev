@@ -46,7 +46,7 @@ export interface CollectionOverviewBoardProps {
   heroCoverLoupe?: boolean;
   /** Extra collection fields + expand — omit for plain metadata grid only */
   metadataExpand?: Omit<CollectionMetadataExpandableProps, "metadataRows">;
-  /** e.g. PokeTrace external market strip — rendered under metadata on the left */
+  /** e.g. external market strip — rendered under metadata on the left */
   leftColumnFooter?: ReactNode;
 }
 

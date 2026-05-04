@@ -8,7 +8,7 @@ import {
   useWalletClient,
 } from "wagmi";
 import { formatUnits, parseUnits, type Address } from "viem";
-import { cancelOrder, type Order } from "@/lib/api";
+import { cancelOrder, type Order } from "@/lib/core";
 import { sepolia } from "@/config/wagmi";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -16,30 +16,28 @@ import {
   SEAPORT_ADDRESS,
   TOKENABLE_RWA_APPROVE_ABI,
 } from "@/constants/contracts";
-import { getMarketplaceCollectionDetail, getOrderByHash } from "@/lib/api";
-import { rq } from "@/lib/queryKeys";
-import { GAS_FALLBACK, gasWithCapFast } from "@/lib/chainGas";
-import { mapWalletError } from "@/lib/walletError";
-import { askGrossUsdcMicros, bidUsdcAmount } from "@/lib/seaport/bidUsdc";
-import { isCriteriaCollectionBid } from "@/lib/seaport/criteriaMatch";
+import { getMarketplaceCollectionDetail, getOrderByHash, rq } from "@/lib/core";
+import { GAS_FALLBACK, gasWithCapFast, mapWalletError } from "@/lib/network";
+import { askGrossUsdcMicros, bidUsdcAmount } from "@/lib/seaport/orders/bidUsdc";
+import { isCriteriaCollectionBid } from "@/lib/seaport/criteria/criteriaMatch";
 import {
   runCriteriaMatch,
   classifyMatchFailureCode,
   mapMatchError,
   type MatchFailureCode,
   type MatchWriteContractAsync,
-} from "@/lib/seaport/runCriteriaMatch";
+} from "@/lib/seaport/fulfillment/runCriteriaMatch";
 import {
   bidMerkleRootMatchesCollection,
   fetchMerkleSnapshotForMatch,
-} from "@/lib/seaport/collectionCriteriaRoot";
-import { normalizeDecimalTokenId } from "@/lib/normalizeTokenId";
+} from "@/lib/seaport/criteria/collectionCriteriaRoot";
+import { normalizeDecimalTokenId } from "@/lib/marketplace";
 import {
   getChainTimestampSec,
   isSeaportOrderActiveAt,
-} from "@/lib/seaport/seaportOrderTime";
-import { submitAskListingOrder } from "@/lib/seaport/submitAskListing";
-import { feePercent } from "@/lib/seaport/platformFee";
+} from "@/lib/seaport/orders/seaportOrderTime";
+import { submitAskListingOrder } from "@/lib/seaport/orders/submitAskListing";
+import { feePercent } from "@/lib/seaport/orders/platformFee";
 
 const ZERO_BYTES32 =
   "0x0000000000000000000000000000000000000000000000000000000000000000" as const;
@@ -116,6 +114,12 @@ interface ListSuccessMeta {
   hint?: string;
   reasonCode?: MatchFailureCode;
   instantOnlyCancelled?: boolean;
+}
+
+interface InstantMatchDecision {
+  shouldRun: boolean;
+  /** True when we have concrete crossing evidence and expect immediate fill-or-cancel behavior. */
+  enforceImmediateFill: boolean;
 }
 
 interface ListRwaModalProps {
@@ -409,12 +413,17 @@ export function ListRwaModal({
   }
 
   /**
-   * When false, there is no collection bid ≥ list price (after one fresh API read) — skip step 4 and
-   * Merkle polling; listing is already on the order book.
+   * Decides whether to run instant match and whether to enforce immediate fill-or-cancel.
+   * - enforceImmediateFill=true: crossing bid is confirmed (props/API)
+   * - enforceImmediateFill=false: uncertain due transient API timeout; try match but keep listing when no fill
    */
-  async function shouldRunInstantMatchAfterList(created: Order): Promise<boolean> {
+  async function shouldRunInstantMatchAfterList(
+    created: Order,
+  ): Promise<InstantMatchDecision> {
     const key = await resolveCollectionKeyForMatch(created);
-    if (!key || !address || !publicClient) return false;
+    if (!key || !address || !publicClient) {
+      return { shouldRun: false, enforceImmediateFill: false };
+    }
     const askAm = askGrossUsdcMicros(created);
     const propBids = collectionBids ?? [];
     const crosses = (rows: Order[]) =>
@@ -426,18 +435,32 @@ export function ListRwaModal({
       });
     const uiSaysCross =
       topCollectionBid != null && topCollectionBid.micros >= askAm;
-    if (uiSaysCross || crosses(propBids)) return true;
+    if (uiSaysCross || crosses(propBids)) {
+      return { shouldRun: true, enforceImmediateFill: true };
+    }
     let detail: Awaited<ReturnType<typeof getMarketplaceCollectionDetail>> | null = null;
+    let timedOut = false;
     try {
       detail = await getMarketplaceCollectionDetail(key, {
         bypassCache: true,
         signal: matchFlowHttpSignal(),
       });
     } catch (e) {
-      if (!isAbortLikeError(e)) throw e;
+      if (isAbortLikeError(e)) {
+        timedOut = true;
+      } else {
+        throw e;
+      }
     }
     const merged = mergeBidsByOrderHash(detail?.collectionBids ?? [], propBids);
-    return crosses(merged);
+    if (crosses(merged)) {
+      return { shouldRun: true, enforceImmediateFill: true };
+    }
+    if (timedOut) {
+      // Transient timeout: still attempt instant match once, but do not force-cancel on miss.
+      return { shouldRun: true, enforceImmediateFill: false };
+    }
+    return { shouldRun: false, enforceImmediateFill: false };
   }
 
   async function tryMatchAfterListing(created: Order): Promise<ListSuccessMeta> {
@@ -662,10 +685,35 @@ export function ListRwaModal({
     return next;
   }
 
+  async function cancelListingWithRetryAndVerify(orderHash: string): Promise<boolean> {
+    const maxAttempts = 3;
+    for (let i = 0; i < maxAttempts; i++) {
+      try {
+        await cancelOrder(orderHash, address as string);
+      } catch {
+        // keep going; verify below and retry with backoff
+      }
+      try {
+        const refreshed = await getOrderByHash(orderHash, {
+          signal: matchFlowHttpSignal(),
+        });
+        if (String(refreshed.status).toLowerCase() !== "active") {
+          return true;
+        }
+      } catch {
+        // verification failure: retry
+      }
+      if (i < maxAttempts - 1) {
+        await new Promise((r) => setTimeout(r, 250 * (i + 1)));
+      }
+    }
+    return false;
+  }
+
   async function invalidateListingQueries(created: Order) {
     await queryClient.invalidateQueries({ queryKey: ["orders"] });
     await queryClient.invalidateQueries({ queryKey: ["rwa-metadata-batch"] });
-    await queryClient.invalidateQueries({ queryKey: ["poketrace-mint-previews"] });
+    await queryClient.invalidateQueries({ queryKey: ["cardhedger-mint-previews"] });
     await queryClient.invalidateQueries({ queryKey: rq.collectionsMarketplace() });
     await queryClient.invalidateQueries({ queryKey: ["collection-snapshots"] });
     await queryClient.invalidateQueries({ queryKey: ["marketplace-collection"] });
@@ -721,8 +769,8 @@ export function ListRwaModal({
         }
 
         let meta: ListSuccessMeta;
-        const runInstantMatch = await shouldRunInstantMatchAfterList(created);
-        if (runInstantMatch) {
+        const instantDecision = await shouldRunInstantMatchAfterList(created);
+        if (instantDecision.shouldRun) {
           setStep("matching");
           {
             const ck = collectionKey?.trim();
@@ -733,23 +781,16 @@ export function ListRwaModal({
             }
           }
           meta = await tryMatchAfterListingWithTimeout(created);
-          if (!meta.matched) {
-            try {
-              await cancelOrder(created.orderHash, address);
-              meta = applyInstantOnlyProtection({
-                ...meta,
-                hint:
-                  "Instant-only protection cancelled this listing because immediate match failed. " +
+          if (!meta.matched && instantDecision.enforceImmediateFill) {
+            const cancelled = await cancelListingWithRetryAndVerify(created.orderHash);
+            meta = applyInstantOnlyProtection({
+              ...meta,
+              hint: cancelled
+                ? "Instant-only protection cancelled this listing because immediate match failed. " +
+                  (meta.hint ?? "")
+                : "Immediate match failed and auto-cancel could not be completed after retries. Listing may remain on order book. " +
                   (meta.hint ?? ""),
-              });
-            } catch {
-              meta = applyInstantOnlyProtection({
-                ...meta,
-                hint:
-                  "Immediate match failed and auto-cancel could not be completed. Listing may remain on order book. " +
-                  (meta.hint ?? ""),
-              });
-            }
+            });
           }
         } else {
           meta = { matched: false };
@@ -827,8 +868,8 @@ export function ListRwaModal({
       }
 
       let meta: ListSuccessMeta;
-      const runInstantMatch = await shouldRunInstantMatchAfterList(createdFinal);
-      if (runInstantMatch) {
+      const instantDecision = await shouldRunInstantMatchAfterList(createdFinal);
+      if (instantDecision.shouldRun) {
         setStep("matching");
         {
           const ck = collectionKey?.trim();
@@ -839,23 +880,16 @@ export function ListRwaModal({
           }
         }
         meta = await tryMatchAfterListingWithTimeout(createdFinal);
-        if (!meta.matched) {
-          try {
-            await cancelOrder(createdFinal.orderHash, address);
-            meta = applyInstantOnlyProtection({
-              ...meta,
-              hint:
-                "Instant-only protection cancelled this listing because immediate match failed. " +
+        if (!meta.matched && instantDecision.enforceImmediateFill) {
+          const cancelled = await cancelListingWithRetryAndVerify(createdFinal.orderHash);
+          meta = applyInstantOnlyProtection({
+            ...meta,
+            hint: cancelled
+              ? "Instant-only protection cancelled this listing because immediate match failed. " +
+                (meta.hint ?? "")
+              : "Immediate match failed and auto-cancel could not be completed after retries. Listing may remain on order book. " +
                 (meta.hint ?? ""),
-            });
-          } catch {
-            meta = applyInstantOnlyProtection({
-              ...meta,
-              hint:
-                "Immediate match failed and auto-cancel could not be completed. Listing may remain on order book. " +
-                (meta.hint ?? ""),
-            });
-          }
+          });
         }
       } else {
         meta = { matched: false };

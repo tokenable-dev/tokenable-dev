@@ -1,5 +1,5 @@
 /**
- * Collection detail (and aligned views): PokeTrace NM history + chart x-axis use the same window.
+ * Collection detail (and aligned views): external market NM history + chart x-axis use the same window.
  * Many cards only have a few months of eBay NM history — a **90d** window avoids a year-wide axis
  * with an empty left side when upstream points are recent-only.
  */

@@ -670,35 +670,34 @@ flowchart TD
     subgraph REST ["REST 네임스페이스"]
         direction TB
         R_AUTH["/api/auth<br/>Google OAuth · JWT 쿠키 · 지갑 연결"]:::route
-        R_MKT["/api/marketplace<br/>orders · collections · market-snapshots<br/>· poketrace 헬퍼 · poketrace/* 프록시"]:::route
+        R_MKT["/api/marketplace<br/>orders · collections · market-snapshots<br/>· cardhedger 헬퍼 · 트레이딩 (relational)"]:::route
         R_RWA["/api/rwa<br/>IPFS 메타 업로드 · 민팅 보조"]:::route
         R_BC["/api/blockchain<br/>토큰 목록 · 컨트랙트 읽기"]:::route
-        R_PRICE["/api/price<br/>JustTCG 프록시 (games/cards)"]:::route
-        R_PSA["/api/psa<br/>슬랩 OCR · PSA API · JustTCG 검색"]:::route
+        R_CH["/api/cardhedger<br/>Cardhedger 프록시 (catalog/pricing/search/indexes)"]:::route
+        R_PSA["/api/psa<br/>슬랩 OCR · PSA Public API"]:::route
     end
 
     subgraph PERSIST ["영속 계층"]
-        PG[("PostgreSQL<br/>orders · marketplace_collections · users")]:::data
+        PG[("PostgreSQL<br/>orders · marketplace_collections · users · bids · asks · trade_executions")]:::data
     end
 
     subgraph OUT ["외부 연동"]
         ETH["Ethereum RPC<br/>ethers.js"]:::ext
         PIN["Pinata IPFS"]:::ext
-        JT["JustTCG API"]:::ext
+        CH["Cardhedger API"]:::ext
         PSAHTTP["PSA Public API"]:::ext
-        PTR["PokeTrace API<br/>(HTTP upstream)"]:::ext
     end
 
     CLIENT --> GATE
     GATE --> REST
     R_MKT --> PG
-    R_MKT --> PTR
+    R_MKT --> CH
     R_AUTH --> PG
     R_RWA --> PIN
     R_BC --> ETH
-    R_PRICE --> JT
+    R_CH --> CH
     R_PSA --> PIN
-    R_PSA --> JT
+    R_PSA --> CH
     R_PSA --> PSAHTTP
 
     style GATE fill:#0f0d00,stroke:#fbbf24,stroke-width:2px,color:#fde68a
@@ -771,7 +770,7 @@ flowchart TB
 
     subgraph M_PRICE ["price/ — PriceModule"]
         PCTRL["PriceController"]:::ctrl
-        PSV["PriceService<br/>JustTCG · TCG_API_KEY 필수"]:::svc
+        CHS["CardhedgerService<br/>CARDHEDGER_API_KEY 필수"]:::svc
         PCTRL --> PSV
     end
 
@@ -835,7 +834,7 @@ flowchart LR
     subgraph L3 ["외부 I/O"]
         ETH["ethers<br/>Sepolia 읽기"]:::io
         PIN["Pinata<br/>JSON·이미지 핀"]:::io
-        JT["fetch → JustTCG"]:::io
+        CH["fetch → Cardhedger"]:::io
         MAIL["SMTP<br/>인증 메일"]:::io
     end
 
@@ -872,43 +871,45 @@ backend/
 │   │   └── mail.service.ts     # SMTP (Auth에서 사용)
 │   │
 │   ├── marketplace/
-│   │   ├── marketplace.controller.ts   # orders · collections · snapshots…
-│   │   ├── poketrace-proxy.controller.ts  # GET /marketplace/poketrace/*
-│   │   ├── trading/bids.controller.ts # GET /marketplace/bids
-│   │   ├── trading/trade.controller.ts # POST /marketplace/trade/match …
-│   │   ├── marketplace.service.ts
-│   │   ├── collection.service.ts
-│   │   ├── collection-market.service.ts
-│   │   ├── entities/           # order · marketplace-collection · bids/asks/…
-│   │   └── trading/*.service.ts
+│   │   ├── marketplace.module.ts
+│   │   ├── orders/             # orders.controller · orders.service · dto/
+│   │   ├── collections/        # collections.controller · collection.service ·
+│   │   │                       #   collection-market.service · cardhedger-market-data.service ·
+│   │   │                       #   cardhedger-ai-insight.service · dto/
+│   │   ├── assets/             # assets.controller · hidden-assets.service
+│   │   ├── trading/            # bids.controller · trade.controller · trade-orchestrator
+│   │   │                       #   · settlement-processor · outbox-publisher · rule-engine
+│   │   ├── entities/           # order · marketplace-collection · bid · ask · match-intent ·
+│   │   │                       #   trade-execution · idempotency-key · outbox-event · hidden-asset
+│   │   ├── utils/              # bucket-key · card-match · collection-image · …
+│   │   └── dto/                # match-accepted.response · trade-match.dto
 │   │
-│   ├── poketrace/
-│   │   ├── poketrace.service.ts
-│   │   ├── poketrace-api.registry.ts · poketrace-period.util.ts · poketrace-upstream.urls.ts
-│   │
-│   ├── nft/
-│   │   ├── nft.controller.ts   # /rwa — IPFS 업로드
-│   │   ├── nft.service.ts
+│   ├── rwa/
+│   │   ├── rwa.controller.ts   # /rwa — IPFS 업로드
+│   │   ├── rwa.service.ts
+│   │   ├── pinata/pinata.service.ts
+│   │   ├── interfaces/rwa-metadata.interface.ts
 │   │   └── dto/
 │   │
 │   ├── blockchain/
 │   │   ├── blockchain.controller.ts
 │   │   ├── blockchain.service.ts
+│   │   ├── ipfs-gateway-resolver.service.ts
 │   │   ├── abis/
 │   │   └── providers/          # ethers · USDC · RWA 팩토리
 │   │
-│   ├── price/
-│   │   ├── price.controller.ts # /price — JustTCG 프록시
-│   │   └── price.service.ts    # TCG_API_KEY 필수 (mock 파일 없음)
+│   ├── cardhedger/
+│   │   ├── controllers/*.controller.ts # catalog · details · download · image · indexes ·
+│   │   │                                #   issues · market · pricing · search
+│   │   ├── cardhedger.service.ts       # CARDHEDGER_API_KEY 필수
+│   │   ├── cardhedger.registry.ts
+│   │   └── indexes.service.ts          # 24h 스케줄 + 디스크 캐시
 │   │
-│   ├── psa/
-│   │   ├── psa.controller.ts   # /psa/analyze
-│   │   ├── psa.service.ts      # OCR · 병합 · JustTCG 검색
-│   │   ├── psa-public-api.service.ts
-│   │   └── psa-*.util.ts
-│   │
-│   └── util/
-│       └── pinata/pinata.service.ts
+│   └── psa/
+│       ├── psa.controller.ts   # /psa/analyze
+│       ├── psa.service.ts      # PSA/Cardhedger 결합, 이미지 폴백
+│       ├── psa-public-api.service.ts
+│       └── utils/              # psa-cert-images · psa-ocr · psa-slab-crop
 │
 ├── sql/
 │   └── bootstrap-empty-prod-db.sql

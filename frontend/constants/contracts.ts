@@ -14,29 +14,25 @@ const ADDR = /^0x[a-fA-F0-9]{40}$/;
  * `process.env[name]` 같은 동적 접근은 클라이언트에서 항상 비어 있어 런타임 에러가 납니다.
  */
 function requireHexAddr(
-  primary: string | undefined,
-  legacy: string | undefined,
+  raw: string | undefined,
   label: string,
 ): `0x${string}` {
-  const raw = primary?.trim() || legacy?.trim() || "";
-  if (!raw || !ADDR.test(raw)) {
+  const value = raw?.trim() ?? "";
+  if (!value || !ADDR.test(value)) {
     throw new Error(
-      `[contracts] Set ${label} in the environment (e.g. frontend/.env). See frontend/.env.example.`,
+      `[contracts] Set ${label} in frontend/.env (or as a docker build-arg).`,
     );
   }
-  return raw as `0x${string}`;
+  return value as `0x${string}`;
 }
 
-/** Prefer `NEXT_PUBLIC_RWA_CONTRACT_ADDRESS`; `NEXT_PUBLIC_NFT_CONTRACT_ADDRESS` is a legacy alias. */
 export const TOKENABLE_RWA_ADDRESS = requireHexAddr(
   process.env.NEXT_PUBLIC_RWA_CONTRACT_ADDRESS,
-  process.env.NEXT_PUBLIC_NFT_CONTRACT_ADDRESS,
-  "NEXT_PUBLIC_RWA_CONTRACT_ADDRESS or NEXT_PUBLIC_NFT_CONTRACT_ADDRESS",
+  "NEXT_PUBLIC_RWA_CONTRACT_ADDRESS",
 );
 
 export const USDC_ADDRESS = requireHexAddr(
   process.env.NEXT_PUBLIC_USDC_CONTRACT_ADDRESS,
-  undefined,
   "NEXT_PUBLIC_USDC_CONTRACT_ADDRESS",
 );
 

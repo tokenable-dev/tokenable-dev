@@ -12,23 +12,23 @@ import {
   getActiveOrderForToken,
   getCollectionMarketSeries,
   getCollectionMarketStats,
-  getCollectionPoketracePriceHistory,
+  getCollectionMarketPriceHistory,
   getOrderHistoryByTokenId,
   getResolvedRwaAsset,
   getMarketplaceCollectionDetailOrNull,
-  postBatchMintPoketracePreviews,
+  postBatchMintMarketPreviews,
   type Order,
-} from "@/lib/api";
+} from "@/lib/core";
 import {
   coefficientOfVariationPctFromUsdSeries,
   percentChangeFromUsdPoints,
   resolveExternalMarketUsd,
-} from "@/lib/externalMarketPrice";
-import { parseGradeScoreNumber } from "@/lib/gradedCardMarketCap";
+} from "@/lib/market";
+import { parseGradeScoreNumber } from "@/lib/market";
 import {
-  poketraceHistoryTierFromComponents,
-  poketraceTierDisplayLabel,
-} from "@/lib/poketraceHistoryTier";
+  marketHistoryTierFromComponents,
+  marketTierDisplayLabel,
+} from "@/lib/market";
 import {
   CHART_EXTERNAL_HISTORY,
   CHART_EXTERNAL_HISTORY_DAYS,
@@ -58,7 +58,7 @@ const ListRwaModal = dynamic(
     })),
   { ssr: false },
 );
-import { CollectionPoketracePanel } from "@/components/marketplace/CollectionPoketracePanel";
+import { CollectionMarketPanel } from "@/components/marketplace/CollectionMarketPanel";
 import { ASSETS } from "@/constants/assets";
 import {
   computeMarketBucketKey,
@@ -242,7 +242,7 @@ export default function RwaDetailPage() {
     const score = g?.psa?.gradeScore ?? g?.grade?.score;
     const gradingCompany =
       g?.gradingCompany ?? (g?.psa != null ? "PSA" : undefined);
-    return poketraceHistoryTierFromComponents({
+    return marketHistoryTierFromComponents({
       gradingCompany,
       gradeScore: score != null ? String(score) : undefined,
     });
@@ -303,7 +303,7 @@ export default function RwaDetailPage() {
 
   const { data: tokenNmHistory, isLoading: tokenNmHistLoading } = useQuery({
     queryKey: [
-      "collection-poketrace-price-history",
+      "collection-market-price-history",
       "rwa-detail",
       collectionKeyForMatch,
       pokeTierForToken,
@@ -311,7 +311,7 @@ export default function RwaDetailPage() {
       CHART_EXTERNAL_HISTORY_DAYS,
     ],
     queryFn: () =>
-      getCollectionPoketracePriceHistory(collectionKeyForMatch!, {
+      getCollectionMarketPriceHistory(collectionKeyForMatch!, {
         tier: pokeTierForToken,
         period: CHART_EXTERNAL_HISTORY,
         maxDays: CHART_EXTERNAL_HISTORY_DAYS,
@@ -321,7 +321,7 @@ export default function RwaDetailPage() {
 
   const { data: tokenYearHistory, isLoading: tokenYearHistLoading } = useQuery({
     queryKey: [
-      "collection-poketrace-price-history",
+      "collection-market-price-history",
       "rwa-detail",
       collectionKeyForMatch,
       pokeTierForToken,
@@ -329,7 +329,7 @@ export default function RwaDetailPage() {
       365,
     ],
     queryFn: () =>
-      getCollectionPoketracePriceHistory(collectionKeyForMatch!, {
+      getCollectionMarketPriceHistory(collectionKeyForMatch!, {
         tier: pokeTierForToken,
         period: "1y",
         maxDays: 365,
@@ -378,21 +378,21 @@ export default function RwaDetailPage() {
   } = useActivityHistory(tokenId, tokenIdOk);
 
   const {
-    data: poketraceMintMap,
-    isLoading: poketraceLoading,
-    isError: poketraceIsError,
-    error: poketraceErr,
+    data: marketMintMap,
+    isLoading: marketPreviewLoading,
+    isError: marketPreviewIsError,
+    error: marketPreviewErr,
   } = useQuery({
-    queryKey: ["poketrace-mint-previews", "detail", tokenId],
-    queryFn: () => postBatchMintPoketracePreviews([tokenId]),
+    queryKey: ["cardhedger-mint-previews", "detail", tokenId],
+    queryFn: () => postBatchMintMarketPreviews([tokenId]),
     enabled: tokenIdOk,
   });
 
-  const poketracePreview = poketraceMintMap?.[tokenId];
-  const poketraceError =
-    poketraceErr instanceof Error
-      ? poketraceErr
-      : poketraceIsError
+  const marketPreview = marketMintMap?.[tokenId];
+  const marketPreviewError =
+    marketPreviewErr instanceof Error
+      ? marketPreviewErr
+      : marketPreviewIsError
         ? new Error("Could not load prices")
         : null;
 
@@ -406,7 +406,7 @@ export default function RwaDetailPage() {
   const tokenResolvedExternal = useMemo(
     () =>
       resolveExternalMarketUsd({
-        poketracePreview,
+        marketPreview,
         gradePrices: tokenMarketSeries?.gradePrices ?? null,
         gradeScore: parseGradeScoreNumber(tokenGradeScoreStr),
         components: {
@@ -420,7 +420,7 @@ export default function RwaDetailPage() {
         },
       }),
     [
-      poketracePreview,
+      marketPreview,
       tokenMarketSeries?.gradePrices,
       tokenGradeScoreStr,
       metadata,
@@ -444,13 +444,13 @@ export default function RwaDetailPage() {
     [tokenYearPts],
   );
 
-  const tokenTierLabel = poketraceTierDisplayLabel(pokeTierForToken);
+  const tokenTierLabel = marketTierDisplayLabel(pokeTierForToken);
 
   const tokenVolatilityFootnote = useMemo(() => {
     const yPos = tokenYearPts.filter((p) => p.v > 0).length;
-    if (yPos >= 3) return "~1y PokéTrace tier daily closes";
+    if (yPos >= 3) return "~1y Cardhedger tier daily closes";
     const sPos = tokenNmPts.filter((p) => p.v > 0).length;
-    if (sPos >= 3) return "PokéTrace chart-window tier daily closes";
+    if (sPos >= 3) return "Cardhedger chart-window tier daily closes";
     return null;
   }, [tokenYearPts, tokenNmPts]);
 
@@ -544,7 +544,7 @@ export default function RwaDetailPage() {
             ←
           </button>
           <span className="text-gray-700">/</span>
-          <span className="text-gray-500">Exchange</span>
+          <span className="text-gray-500">Markets</span>
           <span className="text-gray-700">/</span>
           <span className="text-white font-medium">Asset #{tokenId}</span>
         </div>
@@ -602,7 +602,7 @@ export default function RwaDetailPage() {
               onClick={() => router.back()}
               className="px-5 py-2.5 bg-gray-800 hover:bg-gray-700 text-white text-sm font-medium rounded-xl transition-colors"
             >
-              ← Back to Exchange
+              ← Back to Markets
             </button>
           </div>
         )}
@@ -631,12 +631,12 @@ export default function RwaDetailPage() {
                     <CollectionPriceMetricsStrip
                       externalMarketUsd={tokenResolvedExternal.usd}
                       externalPriceSource={tokenResolvedExternal.source}
-                      poketraceTierDisplay={tokenTierLabel}
-                      externalPoketraceMatchConfidence={
-                        tokenResolvedExternal.poketraceMatchConfidence
+                      marketTierDisplay={tokenTierLabel}
+                      externalMarketMatchConfidence={
+                        tokenResolvedExternal.marketMatchConfidence
                       }
                       externalPriceLoading={
-                        poketraceLoading || tokenSeriesLoading || tokenNmHistLoading
+                        marketPreviewLoading || tokenSeriesLoading || tokenNmHistLoading
                       }
                       externalVolatilityCvPct={tokenExternalVol}
                       volatilityFootnote={tokenVolatilityFootnote}
@@ -658,14 +658,34 @@ export default function RwaDetailPage() {
                 )}
 
                 <div className="space-y-1">
-                  <CollectionPoketracePanel
-                    data={poketracePreview}
+                  <CollectionMarketPanel
+                    data={marketPreview}
                     historyTier={pokeTierForToken}
                     tierLabel={tokenTierLabel}
-                    isLoading={poketraceLoading}
-                    error={poketraceError}
+                    preferredImageUrl={imageUrl}
+                    isLoading={marketPreviewLoading}
+                    error={marketPreviewError}
                   />
                 </div>
+                {marketPreview?.matched && marketPreview.card ? (
+                  <div className="rounded-xl border border-gray-800/90 bg-[#0a0d11]/80 px-3 py-2">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+                      Cardhedger Link
+                    </p>
+                    <p className="mt-1 break-all font-mono text-[11px] text-zinc-300">
+                      {marketPreview.card.id}
+                    </p>
+                    <p className="mt-1 text-[11px] text-zinc-500">
+                      Match {marketPreview.matchConfidence ?? "unknown"}
+                      {marketPreview.card.sales30d != null
+                        ? ` · 30D sales ${marketPreview.card.sales30d}`
+                        : ""}
+                      {marketPreview.card.gainPct7d != null
+                        ? ` · 7D ${marketPreview.card.gainPct7d >= 0 ? "+" : ""}${marketPreview.card.gainPct7d.toFixed(1)}%`
+                        : ""}
+                    </p>
+                  </div>
+                ) : null}
 
                 <div className="rounded-2xl border border-gray-800/90 bg-[#0a0d11]/90 p-3 space-y-3">
                     <button

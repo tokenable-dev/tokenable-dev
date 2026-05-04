@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { useReadContract } from "wagmi";
 import { sepolia } from "@/config/wagmi";
-import { getResolvedRwaAsset, type Order, type RwaMetadata } from "@/lib/api";
+import { getResolvedRwaAsset, type Order, type RwaMetadata } from "@/lib/core";
 import type { GradedCardMetadata } from "@/types/gradedCard";
 import {
   TOKENABLE_RWA_ADDRESS,

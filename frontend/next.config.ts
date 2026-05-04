@@ -17,6 +17,15 @@ const nextConfig: NextConfig = {
     const target = process.env.API_PROXY_TARGET ?? "http://127.0.0.1:4000";
     return [{ source: "/api/:path*", destination: `${target}/api/:path*` }];
   },
+  async redirects() {
+    return [
+      {
+        source: "/exchange",
+        destination: "/markets",
+        permanent: true,
+      },
+    ];
+  },
   images: {
     remotePatterns: [
       {
@@ -36,6 +45,25 @@ const nextConfig: NextConfig = {
         hostname: "tcgplayer-cdn.tcgplayer.com",
       },
     ],
+  },
+  /**
+   * Wagmi connectors package re-exports optional wallet connectors.
+   * In this app we only use MetaMask, so silence unresolved optional peers.
+   */
+  webpack(config) {
+    config.resolve = config.resolve ?? {};
+    config.resolve.alias = {
+      ...(config.resolve.alias ?? {}),
+      "@react-native-async-storage/async-storage": false,
+      "@base-org/account": false,
+      "@coinbase/wallet-sdk": false,
+      porto: false,
+      "porto/internal": false,
+      "@safe-global/safe-apps-sdk": false,
+      "@safe-global/safe-apps-provider": false,
+      "@walletconnect/ethereum-provider": false,
+    };
+    return config;
   },
 };
 

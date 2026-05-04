@@ -1,11 +1,11 @@
 "use client";
 
-import type { CollectionMarketStats } from "@/lib/api";
+import type { CollectionMarketStats } from "@/lib/core";
 import {
   formatLiquidityDepthLabel,
   formatUsdCompact,
   NO_EXTERNAL_PRICE,
-} from "@/lib/collectionMarketPricing";
+} from "@/lib/market";
 
 function metricVolatilityFromPrices(usdValues: number[]): number | null {
   const vals = usdValues.filter((v) => Number.isFinite(v) && v > 0);
@@ -19,27 +19,29 @@ function metricVolatilityFromPrices(usdValues: number[]): number | null {
 }
 
 export interface CollectionPriceMetricsStripProps {
-  /** Primary spot from PokéTrace (slab tier band or NM when ungraded path). */
+  /** Primary spot from external market source (Cardhedger-backed). */
   externalMarketUsd?: number | null;
   externalPriceSource?: string | null;
   /** e.g. "PSA 9" for chart / strip alignment */
-  poketraceTierDisplay?: string | null;
-  /** When external price is from PokéTrace, mirrors preview `matchConfidence`. */
-  externalPoketraceMatchConfidence?: "verified" | "approximate" | null;
+  marketTierDisplay?: string | null;
+  /** When external price is catalog-matched, mirrors preview `matchConfidence`. */
+  externalMarketMatchConfidence?: "verified" | "approximate" | null;
   externalPriceLoading?: boolean;
-  /** CV% from PokéTrace tier daily history. */
+  /** CV% from external tier daily history. */
   externalVolatilityCvPct?: number | null;
-  /** e.g. "~1y PokéTrace tier daily closes" */
+  /** e.g. "~1y Cardhedger tier daily closes" */
   volatilityFootnote?: string | null;
-  /** Fallback when PokeTrace series is too short */
+  /** Fallback when external series is too short */
   platformPriceSamples?: number[];
   bookSpreadPct?: number | null;
   /** Listing pool — liquidity hint only */
   marketStats?: CollectionMarketStats | null;
   marketStatsLoading?: boolean;
-  /** % change: oldest → newest point in ~1y PokéTrace tier series vs current strip spot */
+  /** % change: oldest → newest point in ~1y external tier series vs current strip spot */
   externalPriceChange1yPct?: number | null;
   externalPriceChange1yLoading?: boolean;
+  /** Human-readable comparison basis shown under the Price change label. */
+  externalPriceChangeBasisText?: string | null;
   marketCapUsd?: number | null;
   /** How market cap was derived (PSA pop × tier spot, etc.) */
   marketCapMethodHint?: string | null;
@@ -60,6 +62,7 @@ export function CollectionPriceMetricsStrip({
   marketStatsLoading = false,
   externalPriceChange1yPct = null,
   externalPriceChange1yLoading = false,
+  externalPriceChangeBasisText = "From First Data",
   marketCapUsd = null,
   showPriceChange = true,
   showVolatility = true,
@@ -120,7 +123,10 @@ export function CollectionPriceMetricsStrip({
 
       {showPriceChange ? (
         <div className="min-w-0 overflow-hidden rounded-2xl border border-zinc-700/80 bg-zinc-950/80 px-4 py-4 min-h-[118px] flex flex-col justify-center shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-          <p className={labelClass}>Price change</p>
+          <p className={labelClass}>Historical Change</p>
+          <p className="mb-1.5 text-[10px] leading-tight text-zinc-500">
+            {externalPriceChangeBasisText ?? "—"}
+          </p>
           {externalPriceChange1yLoading && change == null ? (
             <div className="h-9 w-24 animate-pulse rounded-md bg-zinc-800/70" />
           ) : (

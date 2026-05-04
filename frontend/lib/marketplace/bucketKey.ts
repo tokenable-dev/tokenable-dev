@@ -8,6 +8,8 @@ export interface MarketBucketComponents {
   cardName: string;
   cardSet: string;
   gradeScore: string;
+  /** Optional split for PSA/DNA autograph slabs. */
+  variantType?: "psa_dna";
   /** PSA TotalPopulation — not part of bucket hash */
   psaTotalPopulation?: number;
 }
@@ -19,6 +21,28 @@ function normalizePart(s: string): string {
     .trim()
     .toLowerCase()
     .replace(/\s+/g, " ");
+}
+
+function detectVariantType(graded: Record<string, unknown>): "psa_dna" | null {
+  const identity = graded.identity as Record<string, unknown> | undefined;
+  const variant = identity?.variant as Record<string, unknown> | undefined;
+  const fromIdentity = String(variant?.variant_type ?? "")
+    .trim()
+    .toUpperCase();
+  if (fromIdentity === "PSA_DNA") return "psa_dna";
+
+  const psa = graded.psa as Record<string, unknown> | undefined;
+  const labelType = String(psa?.labelType ?? "").trim();
+  const category = String(psa?.category ?? "").trim();
+  const autographGrade = String(psa?.autographGrade ?? "").trim();
+  if (
+    /PSA\s*\/\s*DNA|PSA\/DNA|\bDNA\b/i.test(labelType) ||
+    /PSA\s*\/\s*DNA|PSA\/DNA|\bDNA\b/i.test(category) ||
+    autographGrade.length > 0
+  ) {
+    return "psa_dna";
+  }
+  return null;
 }
 
 /** Parse `properties.graded` from Tokenable mint JSON (IPFS). */
@@ -51,6 +75,8 @@ export function extractBucketComponentsFromMetadata(
     cardSet,
     gradeScore,
   };
+  const variantType = detectVariantType(graded);
+  if (variantType) out.variantType = variantType;
 
   const pop = psa?.totalPopulation;
   if (typeof pop === "number" && Number.isFinite(pop) && pop >= 0) {
@@ -84,6 +110,7 @@ export async function computeMarketBucketKey(
     cardName: components.cardName,
     cardSet: components.cardSet,
     gradeScore: components.gradeScore,
+    ...(components.variantType ? { variantType: components.variantType } : {}),
   });
   const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(payload));
   return Array.from(new Uint8Array(buf))

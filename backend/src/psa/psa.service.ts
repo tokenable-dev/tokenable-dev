@@ -1,19 +1,21 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { createWorker, PSM } from 'tesseract.js';
+import {
+  BadRequestException,
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+} from '@nestjs/common';
 import sharp from 'sharp';
-import { PriceService } from '../price/price.service';
-import { PoketraceService } from '../poketrace/poketrace.service';
+import { CardhedgerService } from '../cardhedger/cardhedger.service';
 import {
-  normalizePsaCardNameForPoketrace,
-  primaryCardNumberForPoketrace,
-} from '../poketrace/poketrace-mint-query.util';
+  normalizeForExactCardNumberKey,
+  normalizeForExactCatalogMatch,
+  primaryCardNumber,
+} from '../marketplace/utils/card-match.util';
 import {
-  buildJustTcgSearchQueryAfterMerge,
-  parsePsaLabelFromOcr,
   psaCertVerifyUrl,
   resolveCertHintForLookup,
   type ParsedPsaLabel,
-} from './psa-ocr.util';
+} from './utils/psa-ocr.util';
 import {
   mergePsaApiIntoParsed,
   PsaPublicApiService,
@@ -23,48 +25,82 @@ import {
 import {
   extractPsaCertImageUrlsFromApiBody,
   extractPsaCertImagesFromGetImagesBody,
-} from './psa-cert-images.util';
+} from './utils/psa-cert-images.util';
+
+export interface CardhedgerOcrNormalized {
+  raw_text: string;
+  parsed_entities: {
+    card_name: string;
+    set: string;
+    year: string;
+    card_number: string;
+    cert_number: string;
+    grade: string;
+    autograph_detected: boolean;
+    signer_guess: string | null;
+  };
+  confidence: number; // 0..1
+}
 
 export interface PsaAnalyzeResult {
   ocr: {
+    /** CardHedger OCR output only (no local OCR engines). */
+    cardhedger: {
+      front: CardhedgerOcrNormalized;
+      back?: CardhedgerOcrNormalized;
+      combined: CardhedgerOcrNormalized;
+    };
+    /** Back-compat: derived from CardHedger OCR (no Tesseract). */
     combinedText: string;
+    /** Back-compat: derived from CardHedger OCR (no Tesseract). */
     frontText?: string;
+    /** Back-compat: derived from CardHedger OCR (no Tesseract). */
     backText?: string;
-    /** 상단 라벨 크롭 보조 OCR */
-    labelStripText?: string;
-    /** Cert 우하단 영역 숫자 전용 OCR */
-    certDigitsText?: string;
   };
   psa: ParsedPsaLabel & {
     certVerifyUrl?: string;
     /** True when PSA Public API returned PSACert and fields were merged */
     enrichedFromOfficialApi?: boolean;
   };
+  /**
+   * Two-layer identity to prevent PSA vs PSA/DNA market collapse.
+   * - `base_card` is used for Cardhedger matching (no autograph terms).
+   * - `variant` classifies the collectible market (graded vs autograph).
+   */
+  identity?: {
+    base_card: {
+      year?: string;
+      set?: string;
+      card_number?: string;
+      card_name?: string;
+      base_identity: string;
+    };
+    variant: {
+      variant_type: 'PSA' | 'PSA_DNA';
+      has_autograph: boolean;
+      signer?: string;
+      auto_grade?: string;
+    };
+    market_type: 'graded' | 'autograph';
+    pricing_source: 'CardHedger';
+    confidence_split: {
+      base_match: number; // 0..1
+      variant_match: number; // 0..1
+    };
+  };
   /** PSA Public API (optional; needs PSA_PUBLIC_API_TOKEN). `lookup` includes full body on success. */
   psaApi: {
     lookup: PsaPublicApiLookupResult;
   };
-  justtcg: {
-    queryUsed: string;
-    /** First search hit, if any */
-    topMatch: unknown | null;
-    rawResponse: unknown;
-  };
-  /**
-   * PokeTrace catalog id resolved after PSA+JustTCG — persist on mint as `graded.poketrace`
-   * (`cardId` = strict verified, `approximateCardId` = relaxed chart reference only).
-   */
-  poketraceMint?: {
+  /** Cardhedger card id resolved after PSA metadata merge */
+  cardhedgerMint?: {
     matchConfidence: 'verified' | 'approximate';
     cardId?: string;
     searchQuery?: string;
-    approximateCardId?: string;
-    approximateSearchQuery?: string;
+    imageUrl?: string;
   };
   /** PSA GetImages / GetByCertNumber에서 가져온 슬랩 사진 URL (앞면은 민팅 imageUrl 후보) */
   psaCertImages?: { front?: string; back?: string };
-  /** 일부 단계 실패 시 복구·부분 결과 안내 (항상 200으로 내려갈 때 사용) */
-  warnings?: string[];
 }
 
 async function probeCertImageUrlReachable(url: string): Promise<boolean> {
@@ -92,9 +128,8 @@ export class PsaService {
   private readonly logger = new Logger(PsaService.name);
 
   constructor(
-    private readonly priceService: PriceService,
     private readonly psaPublicApi: PsaPublicApiService,
-    private readonly poketraceService: PoketraceService,
+    private readonly cardhedgerService: CardhedgerService,
   ) {}
 
   private static readonly MAX_COMBINED_OCR_CHARS = 150_000;
@@ -113,194 +148,451 @@ export class PsaService {
       .toBuffer();
   }
 
-  private async runOcrOnBuffer(buffer: Buffer): Promise<string> {
-    let processed: Buffer;
-    try {
-      processed = await this.preprocess(buffer);
-    } catch (e) {
-      this.logger.warn(`Image preprocess (sharp) failed: ${String(e)}`);
-      return '';
-    }
-    let worker: Awaited<ReturnType<typeof createWorker>>;
-    try {
-      worker = await createWorker('eng');
-    } catch (e) {
-      this.logger.warn(`Tesseract worker create failed: ${String(e)}`);
-      return '';
-    }
-    try {
-      await worker.setParameters({
-        tessedit_pageseg_mode: PSM.AUTO,
-      });
-      const {
-        data: { text },
-      } = await worker.recognize(processed);
-      return text ?? '';
-    } catch (e) {
-      this.logger.warn(`Tesseract recognize failed: ${String(e)}`);
-      return '';
-    } finally {
-      try {
-        await worker.terminate();
-      } catch {
-        /* ignore */
-      }
-    }
+  private static clamp01(n: number): number {
+    if (!Number.isFinite(n)) return 0;
+    if (n < 0) return 0;
+    if (n > 1) return 1;
+    return n;
   }
 
-  /**
-   * 슬랩 상단 PSA 라벨(가로 전체) — 전체 이미지에서 카드·아트가 OCR을 방해할 때 보강.
-   */
-  private async buildPsaLabelStrip(buffer: Buffer): Promise<Buffer | null> {
-    const meta = await sharp(buffer).metadata();
-    const W = meta.width ?? 0;
-    const H = meta.height ?? 0;
-    if (W < 80 || H < 80) return null;
-    const topH = Math.max(120, Math.floor(H * 0.42));
-    return sharp(buffer)
-      .extract({ left: 0, top: 0, width: W, height: Math.min(topH, H) })
-      .resize({ width: 2800, fit: 'inside', withoutEnlargement: false })
-      .greyscale()
-      .normalize()
-      .sharpen({ sigma: 0.8, m1: 1, m2: 0.5 })
-      .png()
-      .toBuffer();
+  private static normalizeOcrEntitiesFromCardhedger(raw: unknown): CardhedgerOcrNormalized {
+    const obj = (typeof raw === 'object' && raw != null ? raw : {}) as Record<string, unknown>;
+    const certInfo =
+      (typeof obj.cert_info === 'object' && obj.cert_info != null
+        ? (obj.cert_info as Record<string, unknown>)
+        : {}) ?? {};
+    const card =
+      (typeof obj.card === 'object' && obj.card != null ? (obj.card as Record<string, unknown>) : {}) ??
+      {};
+
+    const cert_number =
+      typeof certInfo.cert === 'string'
+        ? certInfo.cert
+        : typeof certInfo.cert === 'number'
+          ? String(certInfo.cert)
+          : '';
+
+    const card_name =
+      typeof card.name === 'string'
+        ? card.name
+        : typeof card.description === 'string'
+          ? card.description
+          : '';
+
+    const set =
+      typeof card.set === 'string'
+        ? card.set
+        : typeof (card.set as { name?: unknown } | undefined)?.name === 'string'
+          ? String((card.set as { name?: unknown }).name)
+          : '';
+
+    const year =
+      typeof card.year === 'string'
+        ? card.year
+        : typeof card.year === 'number'
+          ? String(card.year)
+          : '';
+
+    const card_number =
+      typeof card.number === 'string'
+        ? card.number
+        : typeof card.cardNumber === 'string'
+          ? card.cardNumber
+          : '';
+
+    const grade =
+      typeof certInfo.grade === 'string'
+        ? certInfo.grade
+        : typeof certInfo.grade_label === 'string'
+          ? certInfo.grade_label
+          : typeof certInfo.gradeScore === 'string'
+            ? certInfo.gradeScore
+            : typeof certInfo.gradeScore === 'number'
+              ? String(certInfo.gradeScore)
+              : '';
+
+    const autograph_detected =
+      Boolean(
+        (typeof certInfo.psa_type === 'string' && /DNA/i.test(certInfo.psa_type)) ||
+          (typeof certInfo.label_type === 'string' && /DNA/i.test(certInfo.label_type)) ||
+          (typeof certInfo.autograph === 'boolean' && certInfo.autograph === true) ||
+          (typeof certInfo.autograph_grade === 'string' && certInfo.autograph_grade.trim().length > 0),
+      ) || false;
+
+    const signer_guess =
+      typeof certInfo.signer === 'string' && certInfo.signer.trim()
+        ? certInfo.signer.trim()
+        : null;
+
+    const raw_text_parts = [
+      cert_number ? `CERT ${cert_number}` : '',
+      grade ? `GRADE ${grade}` : '',
+      card_name,
+      set,
+      year,
+      card_number ? `#${card_number}` : '',
+      autograph_detected ? 'AUTO' : '',
+      signer_guess ? `SIGNER ${signer_guess}` : '',
+    ].filter(Boolean);
+    const raw_text = raw_text_parts.join(' ').trim();
+
+    // CardHedger endpoint doesn't currently return explicit confidence; keep deterministic.
+    const confidence = PsaService.clamp01(
+      autograph_detected || cert_number ? 0.9 : card_name ? 0.75 : 0.3,
+    );
+
+    return {
+      raw_text,
+      parsed_entities: {
+        card_name: String(card_name ?? '').trim(),
+        set: String(set ?? '').trim(),
+        year: String(year ?? '').trim(),
+        card_number: String(card_number ?? '').replace(/^#/, '').trim(),
+        cert_number: String(cert_number ?? '').replace(/\D/g, '').trim(),
+        grade: String(grade ?? '').trim(),
+        autograph_detected,
+        signer_guess,
+      },
+      confidence,
+    };
   }
 
-  /**
-   * 라벨 이미지에서 Cert 번호가 가려는 오른쪽·하단 영역(대략 바코드·Cert 근처).
-   */
-  private async buildCertDigitZone(labelStrip: Buffer): Promise<Buffer | null> {
-    const meta = await sharp(labelStrip).metadata();
-    const lw = meta.width ?? 0;
-    const lh = meta.height ?? 0;
-    if (lw < 60 || lh < 40) return null;
-    const cw = Math.max(100, Math.floor(lw * 0.68));
-    const ch = Math.max(50, Math.floor(lh * 0.55));
-    const cx = Math.max(0, lw - cw);
-    const cy = Math.max(0, lh - ch);
-    return sharp(labelStrip)
-      .extract({ left: cx, top: cy, width: cw, height: ch })
-      .resize({ width: 2200, fit: 'inside', withoutEnlargement: false })
-      .greyscale()
-      .normalize()
-      .linear(1.15, -(128 * 0.08))
-      .png()
-      .toBuffer();
+  private static combineNormalizedOcr(
+    front: CardhedgerOcrNormalized,
+    back?: CardhedgerOcrNormalized,
+  ): CardhedgerOcrNormalized {
+    const pick = (a: string, b: string): string => (a && a.trim() ? a : b);
+    return {
+      raw_text: [front.raw_text, back?.raw_text].filter(Boolean).join('\n---\n').trim(),
+      parsed_entities: {
+        card_name: pick(front.parsed_entities.card_name, back?.parsed_entities.card_name ?? ''),
+        set: pick(front.parsed_entities.set, back?.parsed_entities.set ?? ''),
+        year: pick(front.parsed_entities.year, back?.parsed_entities.year ?? ''),
+        card_number: pick(
+          front.parsed_entities.card_number,
+          back?.parsed_entities.card_number ?? '',
+        ),
+        cert_number: pick(front.parsed_entities.cert_number, back?.parsed_entities.cert_number ?? ''),
+        grade: pick(front.parsed_entities.grade, back?.parsed_entities.grade ?? ''),
+        autograph_detected:
+          Boolean(front.parsed_entities.autograph_detected) ||
+          Boolean(back?.parsed_entities.autograph_detected),
+        signer_guess:
+          front.parsed_entities.signer_guess ?? back?.parsed_entities.signer_guess ?? null,
+      },
+      confidence: PsaService.clamp01(
+        Math.max(front.confidence, back?.confidence ?? 0),
+      ),
+    };
   }
 
-  private async tesseractRecognize(
-    image: Buffer,
-    mode: (typeof PSM)[keyof typeof PSM],
-    whitelist?: string,
-  ): Promise<string> {
-    let worker: Awaited<ReturnType<typeof createWorker>>;
-    try {
-      worker = await createWorker('eng');
-    } catch (e) {
-      this.logger.warn(`Tesseract worker (supplemental) failed: ${String(e)}`);
-      return '';
+  private static psaParsedFromNormalizedOcr(n: CardhedgerOcrNormalized): ParsedPsaLabel {
+    const e = n.parsed_entities;
+    const gradeLabel = e.grade || undefined;
+    const digits = e.cert_number ? resolveCertHintForLookup(e.cert_number) : undefined;
+    const year = e.year ? e.year.replace(/\D/g, '').slice(0, 4) : undefined;
+    const cardNumberHint = e.card_number ? e.card_number.replace(/^#/, '').trim() : undefined;
+    const cardNameHint = e.card_name || undefined;
+    const setHint = e.set || undefined;
+
+    // gradeScore is optional and should not be inferred beyond explicit numeric text.
+    let gradeScore: number | undefined;
+    const m = e.grade.match(/(\d+(?:\.\d+)?)/);
+    if (m) {
+      const num = parseFloat(m[1]);
+      if (!Number.isNaN(num)) gradeScore = num;
     }
-    try {
-      const params: {
-        tessedit_pageseg_mode: (typeof PSM)[keyof typeof PSM];
-        tessedit_char_whitelist?: string;
-      } = { tessedit_pageseg_mode: mode };
-      if (whitelist) params.tessedit_char_whitelist = whitelist;
-      await worker.setParameters(params);
-      const {
-        data: { text },
-      } = await worker.recognize(image);
-      return text ?? '';
-    } catch (e) {
-      this.logger.warn(`Tesseract recognize (supplemental) failed: ${String(e)}`);
-      return '';
-    } finally {
-      try {
-        await worker.terminate();
-      } catch {
-        /* ignore */
-      }
-    }
+
+    return {
+      ...(digits ? { certNumber: digits } : {}),
+      ...(gradeLabel ? { gradeLabel } : {}),
+      ...(gradeScore != null ? { gradeScore } : {}),
+      ...(year ? { year } : {}),
+      ...(cardNameHint ? { cardNameHint } : {}),
+      ...(cardNumberHint ? { cardNumberHint } : {}),
+      ...(setHint ? { setHint } : {}),
+    };
   }
 
-  /** 라벨 스트립 + Cert 구역 숫자 전용 OCR → parsePsaLabelFromOcr 에 합류 */
-  private async supplementalFrontOcr(buffer: Buffer): Promise<{
-    labelStripText: string;
-    certDigitsText: string;
+
+  private async tryResolveByCardhedgerCertOcr(image: Buffer): Promise<{
+    certCandidates: string[];
+    normalized: CardhedgerOcrNormalized;
+    cardId?: string;
+    searchQuery?: string;
+    imageUrl?: string;
   }> {
-    let labelStripText = '';
-    let certDigitsText = '';
+    // HARD ENFORCEMENT: all OCR must be CardHedger OCR API.
+    this.cardhedgerService.assertConfigured();
     try {
-      const strip = await this.buildPsaLabelStrip(buffer);
-      if (!strip) return { labelStripText, certDigitsText };
+      const jpg = await sharp(image)
+        .resize({ width: 1800, fit: 'inside', withoutEnlargement: true })
+        .jpeg({ quality: 85 })
+        .toBuffer();
+      const b64 = jpg.toString('base64');
 
-      try {
-        labelStripText = await this.tesseractRecognize(strip, PSM.SINGLE_BLOCK);
-      } catch (e) {
-        this.logger.warn(`OCR label strip (text) failed: ${String(e)}`);
+      const tryBodies: Array<Record<string, unknown>> = [
+        { image_base64: b64 },
+        { image_base64: `data:image/jpeg;base64,${b64}` },
+      ];
+      for (const body of tryBodies) {
+        const raw = await this.cardhedgerService.forwardJson(
+          'POST',
+          '/v1/cards/details-by-cert-ocr',
+          { body },
+        );
+        if (typeof raw !== 'object' || raw == null) continue;
+        const normalized = PsaService.normalizeOcrEntitiesFromCardhedger(raw);
+        const cert = resolveCertHintForLookup(normalized.parsed_entities.cert_number);
+        const card = (raw as { card?: unknown }).card as
+          | Record<string, unknown>
+          | undefined;
+        const cardId =
+          typeof card?.card_id === 'string' && card.card_id.trim()
+            ? card.card_id.trim()
+            : undefined;
+        const searchQuery =
+          typeof card?.description === 'string' && card.description.trim()
+            ? card.description.trim()
+            : undefined;
+        const imageUrl =
+          typeof card?.image === 'string' && card.image.trim() ? card.image.trim() : undefined;
+        return {
+          certCandidates: cert ? [cert] : [],
+          normalized,
+          ...(cardId ? { cardId } : {}),
+          ...(searchQuery ? { searchQuery } : {}),
+          ...(imageUrl ? { imageUrl } : {}),
+        };
       }
-
-      try {
-        const zone = await this.buildCertDigitZone(strip);
-        if (zone) {
-          certDigitsText = await this.tesseractRecognize(
-            zone,
-            PSM.SINGLE_BLOCK,
-            '0123456789',
-          );
-        }
-      } catch (e) {
-        this.logger.warn(`OCR cert digit zone failed: ${String(e)}`);
-      }
+      return {
+        certCandidates: [],
+        normalized: {
+          raw_text: '',
+          parsed_entities: {
+            card_name: '',
+            set: '',
+            year: '',
+            card_number: '',
+            cert_number: '',
+            grade: '',
+            autograph_detected: false,
+            signer_guess: null,
+          },
+          confidence: 0,
+        },
+      };
     } catch (e) {
-      this.logger.warn(`supplementalFrontOcr failed: ${String(e)}`);
+      const msg = e instanceof Error ? e.message : String(e);
+      this.logger.warn(`Cardhedger OCR failed: ${msg}`);
+      throw new InternalServerErrorException(
+        'CardHedger OCR 처리에 실패했습니다. CARDHEDGER_API_KEY 설정 및 업스트림 상태를 확인하세요.',
+      );
     }
-    return { labelStripText, certDigitsText };
   }
 
-  /**
-   * OCR both slab images, parse PSA label, search JustTCG (Pokemon).
-   * @param certHint OCR이 Cert를 못 읽을 때 폼에서 넣은 번호 또는 cert URL (PSA 조회 우선)
-   */
+  private async tryResolveCardhedgerMint(
+    searchQueryRaw: string,
+    hints: { cardName: string; cardNumber: string; cardSet?: string },
+  ): Promise<PsaAnalyzeResult['cardhedgerMint'] | undefined> {
+    try {
+      this.cardhedgerService.assertConfigured();
+    } catch {
+      return undefined;
+    }
+
+    const searchQuery = searchQueryRaw.trim();
+    if (!searchQuery) return undefined;
+
+    const cardNameWant = normalizeForExactCatalogMatch(hints.cardName);
+    const cardSetWant = normalizeForExactCatalogMatch(hints.cardSet ?? '');
+    const cardNumWant = normalizeForExactCardNumberKey(
+      primaryCardNumber(hints.cardNumber),
+    );
+    if (!cardNameWant && !cardNumWant && !cardSetWant) return undefined;
+
+    const body = await this.cardhedgerService.forwardJson('POST', '/v1/cards/card-search', {
+      body: { search: searchQuery, page: 1, page_size: 25 },
+    });
+    const cards = Array.isArray((body as { cards?: unknown[] })?.cards)
+      ? ((body as { cards: unknown[] }).cards ?? [])
+      : [];
+    if (cards.length === 0) return undefined;
+
+    const scored = cards
+      .filter((x): x is Record<string, unknown> => typeof x === 'object' && x != null)
+      .map((row) => {
+        const idRaw = row.card_id;
+        const id = typeof idRaw === 'string' ? idRaw.trim() : '';
+        const desc = normalizeForExactCatalogMatch(String(row.description ?? row.name ?? ''));
+        const set = normalizeForExactCatalogMatch(String(row.set ?? ''));
+        const num = normalizeForExactCardNumberKey(
+          primaryCardNumber(String(row.number ?? '')),
+        );
+
+        let score = 0;
+        if (cardNumWant && num && cardNumWant === num) score += 100;
+        if (cardSetWant && set && (set.includes(cardSetWant) || cardSetWant.includes(set))) {
+          score += 60;
+        }
+        if (cardNameWant && desc && (desc.includes(cardNameWant) || cardNameWant.includes(desc))) {
+          score += 50;
+        }
+        const verified =
+          Boolean(cardNumWant && num && cardNumWant === num) &&
+          Boolean(cardSetWant && set && (set.includes(cardSetWant) || cardSetWant.includes(set))) &&
+          Boolean(cardNameWant && desc && (desc.includes(cardNameWant) || cardNameWant.includes(desc)));
+
+        return { id, score, verified };
+      })
+      .filter((r) => r.id.length > 0 && r.score > 0)
+      .sort((a, b) => b.score - a.score || a.id.localeCompare(b.id));
+
+    const pick = scored[0];
+    if (!pick) return undefined;
+    // Accuracy-first: persist Cardhedger id only for strict verified matches.
+    if (!pick.verified) return undefined;
+    return {
+      matchConfidence: 'verified',
+      cardId: pick.id,
+      searchQuery,
+    };
+  }
+
+  private buildCardhedgerSearchQuery(psa: ParsedPsaLabel): string {
+    const parts = [
+      String(psa.cardNameHint ?? '').trim(),
+      String(psa.cardNumberHint ?? '').replace(/^#/, '').trim(),
+      String(psa.setHint ?? '').trim(),
+      String(psa.year ?? '').trim(),
+    ].filter(Boolean);
+    return parts.join(' ').trim();
+  }
+
+  private static cleanBaseCardName(raw: string): string {
+    return String(raw ?? '')
+      .replace(/\bPSA\/?DNA\b/gi, ' ')
+      .replace(/\bDNA\b/gi, ' ')
+      .replace(/\bAUTOGRAPH(?:ED)?\b/gi, ' ')
+      .replace(/\bSIGNED\b/gi, ' ')
+      .replace(/\bAUTO\b/gi, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  private static detectSignerFromText(text: string): string | undefined {
+    const t = String(text ?? '');
+    // Keep this intentionally conservative: only output signer when explicitly found.
+    if (/MUTSUHIRO\s+ARITA/i.test(t)) return 'Mutsuhiro Arita';
+    if (/\bARITA\b/i.test(t) && /\bMUTSUHIRO\b/i.test(t)) return 'Mutsuhiro Arita';
+    return undefined;
+  }
+
+  private static detectPsaVariant(psa: ParsedPsaLabel, ocrText: string): {
+    variant_type: 'PSA' | 'PSA_DNA';
+    has_autograph: boolean;
+    signer?: string;
+    auto_grade?: string;
+    variant_match_confidence: number;
+  } {
+    const labelType = String(psa.labelType ?? '');
+    const category = String(psa.category ?? '');
+    const autoGrade = String(psa.autographGrade ?? '').trim();
+    const ocr = String(ocrText ?? '');
+
+    const strongDna =
+      /DNA/i.test(labelType) ||
+      /PSA\s*\/\s*DNA/i.test(labelType) ||
+      /DNA/i.test(category) ||
+      /AUTOGRAPH/i.test(category) ||
+      (autoGrade.length > 0 && autoGrade !== '0');
+
+    const weakDna = !strongDna && /PSA\s*\/\s*DNA|PSA\/DNA|\bDNA\b/i.test(ocr);
+    const weakAuto = !strongDna && !weakDna && /\bAUTO\b|\bAUTOGRAPH\b|\bSIGNED\b/i.test(ocr);
+
+    const isDna = strongDna || weakDna || weakAuto;
+    const signer = isDna ? PsaService.detectSignerFromText(ocr) : undefined;
+
+    let variantMatch = 0.2;
+    if (strongDna) variantMatch = 0.95;
+    else if (weakDna) variantMatch = 0.7;
+    else if (weakAuto) variantMatch = 0.55;
+
+    return {
+      variant_type: isDna ? 'PSA_DNA' : 'PSA',
+      has_autograph: isDna,
+      ...(signer ? { signer } : {}),
+      ...(autoGrade ? { auto_grade: autoGrade } : {}),
+      variant_match_confidence: PsaService.clamp01(variantMatch),
+    };
+  }
+
+  private buildTwoLayerIdentity(
+    psa: ParsedPsaLabel,
+    combinedText: string,
+    cardhedgerMint?: PsaAnalyzeResult['cardhedgerMint'],
+  ): NonNullable<PsaAnalyzeResult['identity']> {
+    const year = typeof psa.year === 'string' && psa.year.trim() ? psa.year.trim() : undefined;
+    const setRaw =
+      typeof psa.setHint === 'string' && psa.setHint.trim() ? psa.setHint.trim() : undefined;
+    const cardNumberRaw =
+      typeof psa.cardNumberHint === 'string' && psa.cardNumberHint.trim()
+        ? psa.cardNumberHint.replace(/^#/, '').trim()
+        : undefined;
+    const cardNameRaw =
+      typeof psa.cardNameHint === 'string' && psa.cardNameHint.trim()
+        ? psa.cardNameHint.trim()
+        : undefined;
+
+    const card_name = cardNameRaw ? PsaService.cleanBaseCardName(cardNameRaw) : undefined;
+    const set = setRaw ? PsaService.cleanBaseCardName(setRaw) : undefined;
+    const card_number = cardNumberRaw ? cardNumberRaw : undefined;
+
+    const baseParts = [
+      card_name,
+      year,
+      set,
+      card_number ? `#${card_number}` : undefined,
+    ].filter(Boolean);
+    const base_identity = baseParts.join(' ').trim() || 'pokemon';
+
+    const variant = PsaService.detectPsaVariant(psa, combinedText);
+    const market_type: 'graded' | 'autograph' = variant.has_autograph ? 'autograph' : 'graded';
+
+    let baseMatch = 0.55; // default: heuristic match possible but not verified
+    if (cardhedgerMint?.matchConfidence === 'verified') baseMatch = 0.98;
+    else if (cardhedgerMint?.matchConfidence === 'approximate') baseMatch = 0.75;
+
+    return {
+      base_card: {
+        ...(year ? { year } : {}),
+        ...(set ? { set } : {}),
+        ...(card_number ? { card_number } : {}),
+        ...(card_name ? { card_name } : {}),
+        base_identity,
+      },
+      variant: {
+        variant_type: variant.variant_type,
+        has_autograph: variant.has_autograph,
+        ...(variant.signer ? { signer: variant.signer } : {}),
+        ...(variant.auto_grade ? { auto_grade: variant.auto_grade } : {}),
+      },
+      market_type,
+      pricing_source: 'CardHedger',
+      confidence_split: {
+        base_match: PsaService.clamp01(baseMatch),
+        variant_match: PsaService.clamp01(variant.variant_match_confidence),
+      },
+    };
+  }
+
+  /** OCR(앞/뒤) + Cardhedger cert OCR 후보로 PSA 공식 메타 조회. */
   async analyzeSlabImages(
     slabFront: Buffer,
     slabBack?: Buffer,
     certHint?: string,
   ): Promise<PsaAnalyzeResult> {
-    try {
-      return await this.analyzeSlabImagesPipeline(
-        slabFront,
-        slabBack,
-        certHint,
-      );
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      this.logger.error(
-        `analyzeSlabImages fatal: ${msg}`,
-        e instanceof Error ? e.stack : undefined,
-      );
-      return {
-        ocr: { combinedText: '' },
-        psa: {},
-        psaApi: {
-          lookup: {
-            status: 'error',
-            certNumber: '',
-            message: `분석 파이프라인 오류: ${msg}`,
-          },
-        },
-        justtcg: {
-          queryUsed: 'pokemon',
-          topMatch: null,
-          rawResponse: null,
-        },
-        warnings: [
-          '슬랩 분석 중 예상치 못한 오류가 발생했습니다. 다른 사진으로 다시 시도하거나 Cert 번호를 직접 입력해 보세요.',
-          msg,
-        ],
-      };
-    }
+    return this.analyzeSlabImagesPipeline(slabFront, slabBack, certHint);
   }
 
   private async analyzeSlabImagesPipeline(
@@ -308,178 +600,179 @@ export class PsaService {
     slabBack: Buffer | undefined,
     certHint: string | undefined,
   ): Promise<PsaAnalyzeResult> {
-    const warnings: string[] = [];
+    const frontOcr = await this.tryResolveByCardhedgerCertOcr(slabFront);
+    const backOcr =
+      slabBack && slabBack.length > 0 ? await this.tryResolveByCardhedgerCertOcr(slabBack) : undefined;
 
-    let frontText = '';
-    let backText = '';
-    try {
-      frontText = await this.runOcrOnBuffer(slabFront);
-    } catch (e) {
-      this.logger.warn(`OCR slab front failed: ${String(e)}`);
-    }
-    if (slabBack && slabBack.length > 0) {
-      try {
-        backText = await this.runOcrOnBuffer(slabBack);
-      } catch (e) {
-        this.logger.warn(`OCR slab back failed: ${String(e)}`);
-      }
-    }
+    const combinedNorm = PsaService.combineNormalizedOcr(frontOcr.normalized, backOcr?.normalized);
+    let psaParsed: ParsedPsaLabel = PsaService.psaParsedFromNormalizedOcr(combinedNorm);
 
-    const { labelStripText, certDigitsText } =
-      await this.supplementalFrontOcr(slabFront);
-
-    let combinedText = [frontText, backText, labelStripText, certDigitsText]
-      .filter(Boolean)
-      .join('\n---\n');
-    if (combinedText.length > PsaService.MAX_COMBINED_OCR_CHARS) {
-      warnings.push(
-        `OCR 합본이 길어 앞 ${PsaService.MAX_COMBINED_OCR_CHARS.toLocaleString()}자만 사용합니다.`,
-      );
-      combinedText = combinedText.slice(0, PsaService.MAX_COMBINED_OCR_CHARS);
-    }
-
-    let psaParsed: ParsedPsaLabel;
-    try {
-      psaParsed = parsePsaLabelFromOcr(combinedText);
-    } catch (e) {
-      this.logger.warn(`parsePsaLabelFromOcr failed: ${String(e)}`);
-      warnings.push('라벨 파싱 중 오류가 있어 빈 필드로 진행합니다.');
-      psaParsed = {};
-    }
-
+    // HARD RULE: do not overwrite OCR-extracted cert; only use manual cert when OCR has none.
     const hintDigits = resolveCertHintForLookup(certHint);
-    if (hintDigits) {
+    if (!resolveCertHintForLookup(psaParsed.certNumber) && hintDigits) {
       psaParsed = { ...psaParsed, certNumber: hintDigits };
     }
 
+    let combinedText = combinedNorm.raw_text || '';
+    if (combinedText.length > PsaService.MAX_COMBINED_OCR_CHARS) {
+      combinedText = combinedText.slice(0, PsaService.MAX_COMBINED_OCR_CHARS);
+    }
+
+    const finalCert = resolveCertHintForLookup(psaParsed.certNumber);
+    const certCandidates = [
+      ...frontOcr.certCandidates,
+      ...(backOcr?.certCandidates ?? []),
+      ...(finalCert ? [finalCert] : []),
+    ].filter((v, i, a) => a.indexOf(v) === i);
+    if (certCandidates.length === 0) {
+      throw new BadRequestException(
+        'CertNumber OCR에 실패했습니다. Cert Number를 직접 입력한 뒤 다시 시도해 주세요.',
+      );
+    }
+    psaParsed = { ...psaParsed, certNumber: certCandidates[0] };
+
     const ocr: PsaAnalyzeResult['ocr'] = {
+      cardhedger: {
+        front: frontOcr.normalized,
+        ...(backOcr?.normalized ? { back: backOcr.normalized } : {}),
+        combined: combinedNorm,
+      },
       combinedText,
-      frontText: frontText || undefined,
-      backText: backText || undefined,
-      labelStripText: labelStripText || undefined,
-      certDigitsText: certDigitsText || undefined,
+      frontText: frontOcr.normalized.raw_text || undefined,
+      backText: backOcr?.normalized.raw_text || undefined,
     };
 
     return this.buildAnalyzeResultFromPsaParsedAndOcr(
       psaParsed,
       combinedText,
-      warnings,
       ocr,
+      certCandidates,
+      {
+        ...(frontOcr.cardId ? { cardId: frontOcr.cardId } : {}),
+        ...(frontOcr.searchQuery ? { searchQuery: frontOcr.searchQuery } : {}),
+        ...(frontOcr.imageUrl ? { imageUrl: frontOcr.imageUrl } : {}),
+      },
     );
   }
 
   /**
-   * OCR 없이 Cert 번호(또는 psacard.com/cert/ URL)만으로 PSA Public API + JustTCG 조회.
+   * OCR 없이 Cert 번호(또는 psacard.com/cert/ URL)만으로 PSA Public API 조회.
    */
   async analyzeByCertNumber(certHint: string): Promise<PsaAnalyzeResult> {
-    try {
-      const hintDigits = resolveCertHintForLookup(certHint);
-      if (!hintDigits) {
-        return {
-          ocr: { combinedText: '' },
-          psa: {},
-          psaApi: {
-            lookup: {
-              status: 'error',
-              certNumber: '',
-              message:
-                '유효한 Cert 번호(7~10자리 숫자) 또는 psacard.com/cert/… 형태의 URL이 필요합니다.',
-            },
-          },
-          justtcg: {
-            queryUsed: 'pokemon',
-            topMatch: null,
-            rawResponse: null,
-          },
-          warnings: [
-            'Cert 조회에는 7~10자리 숫자 또는 PSA 인증 페이지 URL을 입력하세요.',
-          ],
-        };
-      }
-      const warnings: string[] = [];
-      return await this.buildAnalyzeResultFromPsaParsedAndOcr(
-        { certNumber: hintDigits },
-        '',
-        warnings,
-        { combinedText: '' },
+    const hintDigits = resolveCertHintForLookup(certHint);
+    if (!hintDigits) {
+      throw new BadRequestException(
+        '유효한 Cert 번호(7~10자리 숫자) 또는 psacard.com/cert/… 형태의 URL이 필요합니다.',
       );
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      this.logger.error(
-        `analyzeByCertNumber fatal: ${msg}`,
-        e instanceof Error ? e.stack : undefined,
-      );
-      return {
-        ocr: { combinedText: '' },
-        psa: {},
-        psaApi: {
-          lookup: {
-            status: 'error',
-            certNumber: '',
-            message: `Cert 조회 파이프라인 오류: ${msg}`,
-          },
-        },
-        justtcg: {
-          queryUsed: 'pokemon',
-          topMatch: null,
-          rawResponse: null,
-        },
-        warnings: [
-          'Cert 조회 중 예상치 못한 오류가 발생했습니다. 번호를 확인한 뒤 다시 시도하세요.',
-          msg,
-        ],
-      };
     }
+    const empty: CardhedgerOcrNormalized = {
+      raw_text: '',
+      parsed_entities: {
+        card_name: '',
+        set: '',
+        year: '',
+        card_number: '',
+        cert_number: '',
+        grade: '',
+        autograph_detected: false,
+        signer_guess: null,
+      },
+      confidence: 0,
+    };
+    return this.buildAnalyzeResultFromPsaParsedAndOcr(
+      { certNumber: hintDigits },
+      '',
+      { cardhedger: { front: empty, combined: empty }, combinedText: '' },
+      [hintDigits],
+      undefined,
+    );
   }
 
   private async buildAnalyzeResultFromPsaParsedAndOcr(
     psaParsedIn: ParsedPsaLabel,
     combinedText: string,
-    warnings: string[],
     ocr: PsaAnalyzeResult['ocr'],
+    certCandidates?: string[],
+    cardhedgerOcr?: { cardId?: string; searchQuery?: string; imageUrl?: string },
   ): Promise<PsaAnalyzeResult> {
     let psaParsed = psaParsedIn;
 
-    const digitsForImages = psaParsed.certNumber?.replace(/\D/g, '') ?? '';
-    const certDigitsForError =
-      digitsForImages.length >= 7 ? digitsForImages : '0000000';
+    const candidateList = [
+      ...((certCandidates ?? [])
+        .map((x) => resolveCertHintForLookup(x) ?? '')
+        .filter(Boolean) as string[]),
+      ...(resolveCertHintForLookup(psaParsed.certNumber)
+        ? [resolveCertHintForLookup(psaParsed.certNumber)!]
+        : []),
+    ]
+      .filter((v, i, a) => a.indexOf(v) === i)
+      .slice(0, 80); // prevent pathological OCR blobs from creating unbounded attempts
+    if (candidateList.length === 0) {
+      throw new BadRequestException(
+        'CertNumber OCR에 실패했습니다. Cert Number를 직접 입력한 뒤 다시 시도해 주세요.',
+      );
+    }
 
-    let apiLookup: PsaPublicApiLookupResult;
-    let imagesLookup: PsaGetImagesLookupResult;
-    try {
-      [apiLookup, imagesLookup] = await Promise.all([
-        this.psaPublicApi.getByCertNumber(psaParsed.certNumber),
-        this.psaPublicApi.getImagesByCertNumber(psaParsed.certNumber),
-      ]);
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      this.logger.warn(`PSA Public API parallel call failed: ${msg}`);
-      warnings.push(`PSA 공개 API 호출 실패: ${msg}`);
-      apiLookup = {
-        status: 'error',
-        certNumber: certDigitsForError,
-        message: msg,
-      };
-      imagesLookup = {
-        status: 'error',
-        certNumber: certDigitsForError,
-        message: msg,
-      };
+    let apiLookupSuccess: Extract<PsaPublicApiLookupResult, { status: 'success' }> | null =
+      null;
+    let imagesLookup: PsaGetImagesLookupResult = {
+      status: 'skipped',
+      reason: 'no_cert',
+    };
+    let selectedCert: string | null = null;
+    let lastErrMessage = '';
+    for (const cert of candidateList) {
+      try {
+        const [apiTry, imgTry] = await Promise.all([
+          this.psaPublicApi.getByCertNumber(cert),
+          this.psaPublicApi.getImagesByCertNumber(cert),
+        ]);
+        if (apiTry.status === 'success') {
+          selectedCert = cert;
+          apiLookupSuccess = apiTry;
+          imagesLookup = imgTry;
+          psaParsed = { ...psaParsed, certNumber: cert };
+          break;
+        }
+        const m =
+          'message' in apiTry && typeof apiTry.message === 'string'
+            ? apiTry.message
+            : `status=${apiTry.status}`;
+        lastErrMessage = m;
+      } catch (e) {
+        const m = e instanceof Error ? e.message : String(e);
+        lastErrMessage = m;
+      }
+    }
+    if (!selectedCert) {
+      throw new InternalServerErrorException(
+        `PSA 공식 메타 조회에 실패했습니다 (시도 cert=${candidateList.join(',')}): ${lastErrMessage || 'unknown error'}`,
+      );
+    }
+    const digitsForImages = selectedCert;
+    if (!apiLookupSuccess) {
+      throw new InternalServerErrorException(
+        `PSA 공식 메타 조회에 실패했습니다 (cert=${digitsForImages}): unknown error`,
+      );
     }
 
     let enrichedFromOfficialApi = false;
-
-    if (apiLookup.status === 'success') {
-      try {
-        const hasCert = !!(apiLookup.raw as { PSACert?: unknown })?.PSACert;
-        psaParsed = mergePsaApiIntoParsed(psaParsed, apiLookup.raw);
-        enrichedFromOfficialApi = hasCert;
-      } catch (e) {
-        this.logger.warn(`mergePsaApiIntoParsed failed: ${String(e)}`);
-        warnings.push(
-          'PSA API 응답 병합에 실패했습니다. OCR·직접 입력 Cert만 사용합니다.',
-        );
+    try {
+      const hasCert = !!(apiLookupSuccess.raw as { PSACert?: unknown })?.PSACert;
+      if (!hasCert) {
+        throw new Error('PSACert payload is missing');
       }
+      psaParsed = mergePsaApiIntoParsed(psaParsed, apiLookupSuccess.raw);
+      enrichedFromOfficialApi = true;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      throw new InternalServerErrorException(`PSA 공식 메타 병합 실패: ${msg}`);
+    }
+
+    if (imagesLookup.status === 'error') {
+      throw new InternalServerErrorException(
+        `PSA 이미지 조회 실패: ${imagesLookup.message}`,
+      );
     }
 
     let psaCertImages: { front?: string; back?: string } | undefined;
@@ -492,102 +785,69 @@ export class PsaService {
           fromGetImages = extractPsaCertImagesFromGetImagesBody(imagesLookup.raw);
         }
       } catch (e) {
-        this.logger.warn(`extract GetImages body failed: ${String(e)}`);
-        warnings.push('PSA GetImages 응답에서 슬랩 URL 파싱에 실패했습니다.');
+        throw new InternalServerErrorException(
+          `PSA GetImages 응답 파싱 실패: ${e instanceof Error ? e.message : String(e)}`,
+        );
       }
       try {
-        if (apiLookup.status === 'success') {
-          fromCertBody = extractPsaCertImageUrlsFromApiBody(
-            apiLookup.raw,
-            digitsForImages,
-          );
-        }
+        fromCertBody = extractPsaCertImageUrlsFromApiBody(
+          apiLookupSuccess.raw,
+          digitsForImages,
+        );
       } catch (e) {
-        this.logger.warn(`extract cert image URLs failed: ${String(e)}`);
-        warnings.push('PSA Cert 응답에서 이미지 URL 추출에 실패했습니다.');
+        throw new InternalServerErrorException(
+          `PSA Cert 이미지 URL 추출 실패: ${e instanceof Error ? e.message : String(e)}`,
+        );
       }
 
       const front = fromGetImages.front ?? fromCertBody.front;
       const back = fromGetImages.back ?? fromCertBody.back;
 
-      if (front) {
-        const ok = await probeCertImageUrlReachable(front);
-        if (!ok) {
-          this.logger.warn(
-            `PSA cert front probe failed (${digitsForImages.slice(0, 8)}…), using URL anyway`,
-          );
+      if (front || back) {
+        if (front) {
+          const ok = await probeCertImageUrlReachable(front);
+          if (!ok) {
+            this.logger.warn(
+              `PSA cert front probe failed (${digitsForImages.slice(0, 8)}…), using URL anyway`,
+            );
+          }
         }
         psaCertImages = {
-          front,
+          ...(front ? { front } : {}),
           ...(back ? { back } : {}),
         };
       }
     }
 
-    let queryUsed = 'pokemon';
-    try {
-      queryUsed = buildJustTcgSearchQueryAfterMerge(psaParsed, combinedText);
-    } catch (e) {
-      this.logger.warn(`buildJustTcgSearchQueryAfterMerge failed: ${String(e)}`);
-      warnings.push(
-        'JustTCG 검색어 생성에 실패해 기본값(pokemon)을 사용합니다.',
-      );
-    }
+    const cardhedgerQuery = this.buildCardhedgerSearchQuery(psaParsed);
 
-    let rawResponse: unknown = null;
-    let topMatch: unknown = null;
-    try {
-      rawResponse = await this.priceService.getCards({
-        q: queryUsed,
-        game: 'pokemon',
-        limit: 5,
-        offset: 0,
-      });
-      const data = rawResponse as { data?: unknown[] };
-      topMatch = data?.data?.[0] ?? null;
-    } catch (e) {
-      this.logger.warn(`JustTCG search failed: ${String(e)}`);
-      warnings.push('JustTCG 카드 검색이 실패했습니다.');
-    }
-
-    let poketraceMint: PsaAnalyzeResult['poketraceMint'] = undefined;
-    try {
-      const nameForPt = normalizePsaCardNameForPoketrace(
-        String(psaParsed.cardNameHint ?? ''),
-      );
-      const numRaw = String(psaParsed.cardNumberHint ?? '');
-      const numForPt =
-        primaryCardNumberForPoketrace(numRaw) ||
-        numRaw.replace(/^#/, '').trim();
-      const setForPt =
-        typeof psaParsed.setHint === 'string' && psaParsed.setHint.trim()
-          ? psaParsed.setHint.trim()
-          : undefined;
-      const pt = await this.poketraceService.tryResolveCardIdForMintMetadata(
-        queryUsed,
-        {
-          cardName: nameForPt || String(psaParsed.cardNameHint ?? ''),
-          cardNumber: numForPt,
-          cardSet: setForPt,
-        },
-      );
-      if (pt?.verified) {
-        poketraceMint = {
-          matchConfidence: 'verified',
-          cardId: pt.verified.cardId,
-          searchQuery: pt.verified.searchQuery,
-        };
-      } else if (pt?.approximate) {
-        poketraceMint = {
-          matchConfidence: 'approximate',
-          approximateCardId: pt.approximate.cardId,
-          approximateSearchQuery: pt.approximate.searchQuery,
-        };
+    let cardhedgerMint: PsaAnalyzeResult['cardhedgerMint'] = undefined;
+    if (cardhedgerOcr?.cardId) {
+      cardhedgerMint = {
+        matchConfidence: 'verified',
+        cardId: cardhedgerOcr.cardId,
+        ...(cardhedgerOcr.searchQuery
+          ? { searchQuery: cardhedgerOcr.searchQuery }
+          : {}),
+        ...(cardhedgerOcr.imageUrl ? { imageUrl: cardhedgerOcr.imageUrl } : {}),
+      };
+    } else {
+      try {
+        cardhedgerMint = await this.tryResolveCardhedgerMint(cardhedgerQuery, {
+          cardName: String(psaParsed.cardNameHint ?? ''),
+          cardNumber:
+            primaryCardNumber(String(psaParsed.cardNumberHint ?? '')) ||
+            String(psaParsed.cardNumberHint ?? '').replace(/^#/, '').trim(),
+          cardSet:
+            typeof psaParsed.setHint === 'string' && psaParsed.setHint.trim()
+              ? psaParsed.setHint.trim()
+              : undefined,
+        });
+      } catch (e) {
+        this.logger.warn(
+          `Cardhedger mint id resolve skipped: ${e instanceof Error ? e.message : String(e)}`,
+        );
       }
-    } catch (e) {
-      this.logger.warn(
-        `PokeTrace mint id resolve skipped: ${e instanceof Error ? e.message : String(e)}`,
-      );
     }
 
     let certVerifyUrl: string | undefined;
@@ -606,17 +866,12 @@ export class PsaService {
         certVerifyUrl,
         enrichedFromOfficialApi,
       },
+      identity: this.buildTwoLayerIdentity(psaParsed, combinedText, cardhedgerMint),
       psaApi: {
-        lookup: apiLookup,
+        lookup: apiLookupSuccess,
       },
-      justtcg: {
-        queryUsed,
-        topMatch,
-        rawResponse,
-      },
-      ...(poketraceMint != null ? { poketraceMint } : {}),
+      ...(cardhedgerMint != null ? { cardhedgerMint } : {}),
       ...(psaCertImages ? { psaCertImages } : {}),
-      ...(warnings.length > 0 ? { warnings } : {}),
     };
 
     return result;

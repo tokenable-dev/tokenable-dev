@@ -36,10 +36,6 @@ function filterDuplicateScalars(
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(obj)) {
     if (v === undefined || v === null || v === "") continue;
-    if (k === "justtcg") {
-      out[k] = v;
-      continue;
-    }
     if (isPlainObject(v)) {
       const nested = filterDuplicateScalars(v, skipSet);
       if (nested && Object.keys(nested).length) out[k] = nested;
@@ -50,25 +46,6 @@ function filterDuplicateScalars(
     }
   }
   return Object.keys(out).length ? out : null;
-}
-
-/** justtcg: queryUsed만 상단에, 나머지는 접이식 */
-function trimJusttcg(j: unknown): {
-  summary: Record<string, unknown> | null;
-  raw: unknown;
-} {
-  if (!isPlainObject(j)) return { summary: null, raw: null };
-  const { queryUsed, topMatch, rawResponse, ...rest } = j;
-  const summary: Record<string, unknown> = {};
-  if (typeof queryUsed === "string" && queryUsed.trim()) {
-    summary.queryUsed = queryUsed;
-  }
-  const rawPayload = { ...rest, ...(topMatch !== undefined ? { topMatch } : {}), ...(rawResponse !== undefined ? { rawResponse } : {}) };
-  const hasRaw = Object.keys(rawPayload).some((key) => rawPayload[key as keyof typeof rawPayload] !== undefined);
-  return {
-    summary: Object.keys(summary).length ? summary : null,
-    raw: hasRaw ? rawPayload : null,
-  };
 }
 
 function formatKey(key: string): string {
@@ -102,31 +79,6 @@ function CompactRow({
   depth: number;
 }) {
   const label = formatKey(k);
-
-  if (k === "justtcg" && isPlainObject(value)) {
-    const { summary, raw } = trimJusttcg(value);
-    const hasRaw =
-      raw != null &&
-      typeof raw === "object" &&
-      Object.keys(raw as object).length > 0;
-    return (
-      <div className="space-y-2">
-        <p className="text-[11px] font-medium text-gray-500">JustTCG</p>
-        {summary ? <CompactRows data={summary} depth={depth} /> : null}
-        {hasRaw ? (
-          <details className="group rounded-lg border border-gray-800/80 bg-gray-950/40">
-            <summary className="cursor-pointer list-none px-3 py-2 text-xs text-gray-500 hover:text-gray-400 [&::-webkit-details-marker]:hidden flex items-center justify-between gap-2">
-              <span>JustTCG raw</span>
-              <span className="text-gray-600 group-open:rotate-180 transition-transform">▼</span>
-            </summary>
-            <pre className="scrollbar-hide px-3 pb-3 text-[10px] leading-relaxed text-gray-500 overflow-x-auto max-h-36 overflow-y-auto border-t border-gray-800/60">
-              {JSON.stringify(raw, null, 2)}
-            </pre>
-          </details>
-        ) : null}
-      </div>
-    );
-  }
 
   if (depth >= 5) {
     return (

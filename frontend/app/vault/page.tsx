@@ -2,7 +2,7 @@
 
 import { Suspense, useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { MintForm } from "@/components/mint";
+import { MintForm } from "@/components/vault";
 import { useAuthStore } from "@/store/authStore";
 
 const STEPS = [
@@ -60,15 +60,15 @@ function EmailVerifyToastSync() {
 
 function Stepper({ active }: { active: number }) {
   return (
-    <div className="flex items-center justify-center gap-0 mb-10">
-      {STEPS.map((s, i) => {
-        const isActive = s.num === active;
-        const isDone = s.num < active;
-        return (
-          <div key={s.num} className="flex items-center">
-            <div className="flex items-center gap-2">
+    <div className="mb-10">
+      <div className="flex items-center justify-center sm:hidden">
+        {STEPS.map((s, i) => {
+          const isActive = s.num === active;
+          const isDone = s.num < active;
+          return (
+            <div key={s.num} className="flex items-center">
               <div
-                className={`flex items-center justify-center w-9 h-9 rounded-full border-2 text-sm font-bold transition-colors ${
+                className={`flex h-8 w-8 items-center justify-center rounded-full border-2 text-xs font-bold transition-colors ${
                   isActive
                     ? "border-mint bg-mint/15 text-mint"
                     : isDone
@@ -78,28 +78,59 @@ function Stepper({ active }: { active: number }) {
               >
                 {isDone ? "✓" : s.num}
               </div>
-              <span
-                className={`text-sm font-medium ${
-                  isActive
-                    ? "text-mint"
-                    : isDone
-                      ? "text-mint-dim"
-                      : "text-gray-600"
-                }`}
-              >
-                {s.label}
-              </span>
+              {i < STEPS.length - 1 && (
+                <div
+                  className={`mx-2 h-px w-7 ${
+                    s.num < active ? "bg-mint-deep/50" : "bg-gray-800"
+                  }`}
+                />
+              )}
             </div>
-            {i < STEPS.length - 1 && (
-              <div
-                className={`w-12 sm:w-20 h-px mx-3 ${
-                  s.num < active ? "bg-mint-deep/50" : "bg-gray-800"
-                }`}
-              />
-            )}
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
+
+      <div className="hidden items-center justify-center gap-0 sm:flex">
+        {STEPS.map((s, i) => {
+          const isActive = s.num === active;
+          const isDone = s.num < active;
+          return (
+            <div key={s.num} className="flex items-center">
+              <div className="flex items-center gap-2">
+                <div
+                  className={`flex h-9 w-9 items-center justify-center rounded-full border-2 text-sm font-bold transition-colors ${
+                    isActive
+                      ? "border-mint bg-mint/15 text-mint"
+                      : isDone
+                        ? "border-mint-deep bg-mint-deep/20 text-mint-dim"
+                        : "border-gray-700 bg-transparent text-gray-600"
+                  }`}
+                >
+                  {isDone ? "✓" : s.num}
+                </div>
+                <span
+                  className={`text-sm font-medium ${
+                    isActive
+                      ? "text-mint"
+                      : isDone
+                        ? "text-mint-dim"
+                        : "text-gray-600"
+                  }`}
+                >
+                  {s.label}
+                </span>
+              </div>
+              {i < STEPS.length - 1 && (
+                <div
+                  className={`mx-3 h-px w-20 ${
+                    s.num < active ? "bg-mint-deep/50" : "bg-gray-800"
+                  }`}
+                />
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

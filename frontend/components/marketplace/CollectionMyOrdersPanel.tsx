@@ -2,10 +2,10 @@
 
 import { useState } from "react";
 import { formatUnits } from "viem";
-import { cancelOrder, type Order } from "@/lib/api";
-import { isCriteriaCollectionBid } from "@/lib/seaport/criteriaMatch";
-import { isCollectionBidMerkleStale } from "@/lib/seaport/collectionCriteriaRoot";
-import { useCollectionMerkleRootHex } from "@/lib/seaport/useCollectionMerkleRootHex";
+import { cancelOrder, type Order } from "@/lib/core";
+import { isCriteriaCollectionBid } from "@/lib/seaport/criteria/criteriaMatch";
+import { isCollectionBidMerkleStale } from "@/lib/seaport/criteria/collectionCriteriaRoot";
+import { useCollectionMerkleRootHex } from "@/lib/seaport/criteria/useCollectionMerkleRootHex";
 
 function formatUsdc6(amountStr: string): string {
   try {

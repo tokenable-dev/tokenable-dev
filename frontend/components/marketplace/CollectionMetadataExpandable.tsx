@@ -40,8 +40,8 @@ export interface CollectionMetadataExpandableProps {
   marketSeriesMeta?: {
     categoryLabel: string | null;
   } | null;
-  /** PokeTrace catalog id when server matched a card */
-  poketraceCardId?: string | null;
+  /** Cardhedger catalog id when server matched a card */
+  cardhedgerCardId?: string | null;
 }
 
 /**
@@ -56,7 +56,7 @@ export function CollectionMetadataExpandable({
   representativeImageUrl,
   components,
   marketSeriesMeta,
-  poketraceCardId,
+  cardhedgerCardId,
 }: CollectionMetadataExpandableProps) {
   const [expanded, setExpanded] = useState(false);
 
@@ -159,13 +159,13 @@ export function CollectionMetadataExpandable({
                       </dd>
                     </div>
                   ) : null}
-                  {poketraceCardId?.trim() ? (
+                  {cardhedgerCardId?.trim() ? (
                     <div className="rounded-lg border border-gray-800/70 bg-black/20 px-2.5 py-2 sm:col-span-2">
                       <dt className="text-[10px] font-medium uppercase tracking-wide text-gray-500">
-                        PokeTrace card ID
+                        Cardhedger card ID
                       </dt>
                       <dd className="mt-0.5 font-mono text-[11px] text-zinc-200 break-all">
-                        {poketraceCardId}
+                        {cardhedgerCardId}
                       </dd>
                     </div>
                   ) : null}
