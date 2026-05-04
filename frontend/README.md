@@ -10,4 +10,4 @@ pnpm dev
 
 Main routes: `/` (landing + market indexes), `/markets`, `/portfolio`, `/vault`, `/marketplace/collections/[key]`, `/marketplace/[tokenId]`.
 
-Project docs: **[../docs/DEVELOPMENT.md](../docs/DEVELOPMENT.md)** · Marketplace relational API: **[../docs/marketplace-trading.md](../docs/marketplace-trading.md)**
+Project docs: **[../docs/README.md](../docs/README.md)** · Deploy: **[../docs/guides/deployment.md](../docs/guides/deployment.md)** · Relational bidding API summary: **[../docs/api/marketplace.md](../docs/api/marketplace.md)**

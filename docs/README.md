@@ -3,6 +3,13 @@
 A non-custodial marketplace for **graded trading-card RWAs** on Ethereum Sepolia.  
 Users mint cards via IPFS (PSA slab OCR → Pinata), list them, and trade with USDC via **Seaport 1.5** off-chain orders. Market pricing is sourced from the **Cardhedger** API.
 
+### Branches & deploy
+
+- **`develop`** — Default integration branch. Pushing here runs GitHub Actions (build both images → ECR → dev EC2). Treat **local `develop` matching `origin/develop`** as the current app revision for day-to-day deploys.
+- **`main`** — When `PROD_EC2_*` is configured, pushes here deploy the **prod** host with `:main` images.
+
+Details and secrets checklist: **[guides/deployment.md](guides/deployment.md)** · Same-origin Nginx/TLS/OAuth: **[guides/networking.md](guides/networking.md)**.
+
 ---
 
 ## Repository
@@ -22,7 +29,8 @@ tokenable-dev/
 | Local setup | [guides/local-setup.md](guides/local-setup.md) |
 | All API routes | [api/README.md](api/README.md) |
 | Frontend routes | [frontend/routes.md](frontend/routes.md) |
-| EC2 deployment | [guides/deployment.md](guides/deployment.md) |
+| Deploy & CI/CD (EC2 / Actions) | [guides/deployment.md](guides/deployment.md) |
+| CORS · TLS · same-origin `/api` | [guides/networking.md](guides/networking.md) |
 | Live Swagger UI | `http://localhost:4000/api/docs` (when running) |
 
 ## Core Technologies

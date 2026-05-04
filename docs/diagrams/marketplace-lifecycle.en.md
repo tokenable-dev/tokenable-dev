@@ -2,9 +2,9 @@
 
 > Seaport v1.5 · Off-chain order book (backend) · On-chain `fulfillOrder` / `matchAdvancedOrders`
 
-> **Addendum (2026-04):** The backend also exposes a **relational rule-based matching layer** (`bids`, `asks`, `match_intents`, `trade_executions`, idempotency, outbox, settlement worker). The **default UI path remains Seaport** `orders`. See **[marketplace-trading.md](../marketplace-trading.md)** and **[marketplace-trading-relational-layer.drawio](./marketplace-trading-relational-layer.drawio)**.
+> **Addendum (2026-04):** The backend also exposes a **relational rule-based matching layer** (`bids`, `asks`, `match_intents`, `trade_executions`, idempotency, outbox, settlement worker). The **default UI path remains Seaport** `orders`. See **[api/marketplace.md](../api/marketplace.md)** and **[marketplace-trading-relational-layer.drawio](./marketplace-trading-relational-layer.drawio)**.
 >
-> **Paths:** Sequence diagram labels like `POST /api/…` include the Nest global prefix **`api`**. Full route list: **[API-REFERENCE.md](../API-REFERENCE.md)**.
+> **Paths:** Sequence diagram labels like `POST /api/…` include the Nest global prefix **`api`**. Full HTTP overview: **[api/README.md](../api/README.md)**.
 
 ---
 

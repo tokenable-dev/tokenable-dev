@@ -43,6 +43,17 @@
 
 ---
 
+## Deploy finished but UI still looks like an older revision
+
+GitHub Actions deploys frontend and backend from the **same commit** when you push `develop` (or `main`). If the site differs from local:
+
+1. Confirm the Actions run is for the commit you expect (SHA on the workflow run).
+2. Try a private window or cache-bypass refresh.
+3. Confirm you are opening the **dev** URL that maps to the EC2 stack from this repo (not a separate preview host).
+4. See **[deployment.md](deployment.md)** for image tags (`develop` / `main`) and verification steps.
+
+---
+
 ## Database: "relation does not exist"
 
 TypeORM `synchronize: true` is enabled in development. In production, apply the bootstrap schema once:
