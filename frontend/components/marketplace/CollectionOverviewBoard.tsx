@@ -12,6 +12,11 @@ import {
   type CollectionMetadataExpandableProps,
 } from "@/components/marketplace/CollectionMetadataExpandable";
 import { CollectionPriceHistoryPlaceholder } from "@/components/marketplace/CollectionPriceHistoryPlaceholder";
+import {
+  COLLECTION_MARKET_CLUSTER_BEZEL,
+  COLLECTION_MARKET_CLUSTER_MAT,
+  COLLECTION_MARKET_SPLIT_CHROME,
+} from "@/components/marketplace/collectionOverviewChrome";
 
 export interface CollectionOverviewStat {
   label: string;
@@ -24,6 +29,20 @@ export interface CollectionOverviewStat {
 export interface CollectionOverviewBoardProps {
   title: string;
   subtitle?: string | null;
+  /** Asset-style headline (card name); use with headlineTitleLayout for badges + meta strip */
+  headlineTitle?: string | null;
+  /** Set / product line under the card name (shown at top — not duplicated under cover). */
+  headlineSetLine?: string | null;
+  /** Supplementary line under set: e.g. `#85 · variant` — optional when {@link headlineInfoTags} covers it. */
+  headlineMetaStrip?: string | null;
+  /** Identifier chips under title / set (card #, variant, pop, grade without mint badge). */
+  headlineInfoTags?: { id: string; text: string; title?: string }[] | null;
+  /** Amber capsule (e.g. category) */
+  categoryBadge?: string | null;
+  /** Mint capsule (e.g. PSA tier) */
+  gradeBadge?: string | null;
+  /** When true with {@link headlineTitle}, renders reference header layout instead of subtitle-under-title classic block */
+  headlineTitleLayout?: boolean;
   badgeLabel?: string;
   imageUrl: string | null;
   metadataRows: { label: string; value: string }[];
@@ -36,6 +55,8 @@ export interface CollectionOverviewBoardProps {
   /** Buy / sell ticket — optional; pairs with orderBook when used in overview */
   tradeTicket?: ReactNode;
   listingCount: number;
+  /** When false, hides the "N listings" line in the header (e.g. collection details). */
+  showListingSummary?: boolean;
   /** When set, replaces the decorative price placeholder */
   priceChart?: ReactNode;
   /** Desktop: sits beside the chart (narrow order book), middle column. */
@@ -80,6 +101,13 @@ function HeaderInlineStat({ stat }: { stat: CollectionOverviewStat }) {
 export function CollectionOverviewBoard({
   title,
   subtitle,
+  headlineTitle,
+  headlineSetLine,
+  headlineMetaStrip,
+  headlineInfoTags,
+  categoryBadge,
+  gradeBadge,
+  headlineTitleLayout = false,
   badgeLabel = "Collection",
   imageUrl,
   metadataRows,
@@ -88,6 +116,7 @@ export function CollectionOverviewBoard({
   orderBook,
   tradeTicket,
   listingCount,
+  showListingSummary = true,
   priceChart,
   orderBookNextToChart,
   tradePanel,
@@ -113,22 +142,84 @@ export function CollectionOverviewBoard({
 
       <div className="relative border-b border-gray-800/70 px-4 sm:px-6 lg:px-8 py-3.5 sm:py-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-stretch lg:gap-0">
-          <div className="flex min-w-0 flex-1 items-start justify-between gap-3 lg:shrink-0 lg:basis-[min(100%,280px)] lg:flex-col lg:justify-center xl:basis-[min(100%,320px)]">
-            <div className="min-w-0 space-y-1">
-              <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                <span className="inline-flex items-center rounded-md border border-amber-500/25 bg-amber-500/[0.08] px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-amber-200/90">
-                  {badgeLabel}
-                </span>
-                <span className="text-[10px] text-zinc-500 tabular-nums">
-                  {listingCount} listing{listingCount === 1 ? "" : "s"}
-                </span>
-              </div>
-              <h1 className="text-lg sm:text-xl font-semibold tracking-[-0.02em] text-white text-balance leading-snug">
-                {title}
-              </h1>
-              {subtitle ? (
-                <p className="text-[11px] text-zinc-500 leading-snug">{subtitle}</p>
-              ) : null}
+          <div className="flex min-w-0 flex-1 items-start justify-between gap-3 lg:shrink-0 lg:basis-[min(100%,min(560px,52vw))] lg:flex-col lg:justify-center xl:basis-[min(100%,min(620px,48vw))]">
+            <div className="min-w-0 space-y-2">
+              {headlineTitleLayout && headlineTitle ? (
+                <>
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+                      {categoryBadge ? (
+                        <span className="inline-flex shrink-0 items-center rounded-md border border-amber-400/40 bg-amber-500/[0.22] px-2.5 py-1 text-[11px] font-semibold capitalize tracking-wide text-amber-50">
+                          {categoryBadge}
+                        </span>
+                      ) : (
+                        <span className="inline-flex shrink-0 items-center rounded-md border border-amber-500/25 bg-amber-500/[0.08] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-200/90">
+                          {badgeLabel}
+                        </span>
+                      )}
+                      {gradeBadge ? (
+                        <span className="inline-flex shrink-0 items-center rounded-md border border-mint-deep/45 bg-mint/15 px-2.5 py-1 text-[11px] font-semibold tracking-wide text-mint ring-1 ring-mint-deep/25">
+                          {gradeBadge}
+                        </span>
+                      ) : null}
+                    </div>
+                    {showListingSummary ? (
+                      <span className="ml-auto shrink-0 text-[10px] font-medium uppercase tracking-wide text-zinc-500 tabular-nums">
+                        {listingCount} listing{listingCount === 1 ? "" : "s"}
+                      </span>
+                    ) : null}
+                  </div>
+                  <h1 className="mt-2 text-xl font-bold tracking-tight text-white text-balance leading-snug sm:text-2xl lg:text-[1.85rem]">
+                    {headlineTitle}
+                  </h1>
+                  {headlineSetLine?.trim() ? (
+                    <p className="mt-2 text-[14px] sm:text-[15px] leading-snug text-zinc-200/95 text-pretty font-medium">
+                      {headlineSetLine.trim()}
+                    </p>
+                  ) : null}
+                  {headlineMetaStrip?.trim() ? (
+                    <p className="mt-1 text-[13px] leading-snug text-zinc-400 text-pretty">
+                      {headlineMetaStrip.trim()}
+                    </p>
+                  ) : null}
+                  {headlineInfoTags && headlineInfoTags.length > 0 ? (
+                    <div
+                      className="mt-2 flex flex-wrap gap-2"
+                      aria-label="Card identifiers"
+                    >
+                      {headlineInfoTags.map((tag) => (
+                        <span
+                          key={tag.id}
+                          title={tag.title}
+                          className="inline-flex max-w-[min(100%,18rem)] truncate rounded-full border border-zinc-600/70 bg-zinc-950/90 px-2.5 py-1 text-[11px] font-medium leading-tight text-zinc-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
+                        >
+                          {tag.text}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
+                  <span className="sr-only">{title}</span>
+                </>
+              ) : (
+                <>
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <span className="inline-flex items-center rounded-md border border-amber-500/25 bg-amber-500/[0.08] px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-amber-200/90">
+                      {badgeLabel}
+                    </span>
+                    {showListingSummary ? (
+                      <span className="text-[10px] text-zinc-500 tabular-nums">
+                        {listingCount} listing{listingCount === 1 ? "" : "s"}
+                      </span>
+                    ) : null}
+                  </div>
+                  <h1 className="text-lg sm:text-xl font-semibold tracking-[-0.02em] text-white text-balance leading-snug">
+                    {title}
+                  </h1>
+                  {subtitle ? (
+                    <p className="text-[11px] text-zinc-500 leading-snug">{subtitle}</p>
+                  ) : null}
+                </>
+              )}
             </div>
             <button
               type="button"
@@ -191,10 +282,10 @@ export function CollectionOverviewBoard({
       <div
         className={`relative grid gap-6 lg:gap-8 p-4 sm:p-6 lg:px-8 lg:pt-8 lg:pb-6 lg:items-start ${
           exchangeTriple
-            ? "lg:grid-cols-[minmax(180px,240px)_minmax(0,1fr)]"
+            ? "lg:grid-cols-[minmax(240px,min(400px,36vw))_minmax(0,1fr)]"
             : hasBookColumn
-              ? "lg:grid-cols-[minmax(180px,240px)_minmax(0,1fr)_minmax(220px,300px)]"
-              : "lg:grid-cols-[minmax(180px,240px)_minmax(0,1fr)]"
+              ? "lg:grid-cols-[minmax(260px,min(460px,40vw))_minmax(0,1fr)_minmax(220px,300px)]"
+              : "lg:grid-cols-[minmax(260px,min(460px,40vw))_minmax(0,1fr)]"
         }`}
       >
         {/* Left: preview + meta */}
@@ -209,16 +300,13 @@ export function CollectionOverviewBoard({
                 className="relative z-[1] shrink-0"
               />
             ) : (
-              <div className="flex aspect-[3/4] w-full max-w-[min(100%,260px)] items-center justify-center rounded-2xl border border-gray-800/90 bg-gradient-to-br from-gray-900/90 to-gray-950 p-6 text-center text-[12px] text-gray-500">
+              <div className="flex aspect-[3/4] w-full max-w-[min(100%,340px)] sm:max-w-[min(100%,376px)] lg:max-w-[min(400px,36vw)] xl:max-w-[min(420px,32vw)] items-center justify-center rounded-2xl border border-gray-800/90 bg-gradient-to-br from-gray-900/90 to-gray-950 p-6 text-center text-[12px] text-gray-500">
                 No preview
               </div>
             )}
           </div>
           {metadataExpand ? (
-            <CollectionMetadataExpandable
-              metadataRows={metadataRows}
-              {...metadataExpand}
-            />
+            <CollectionMetadataExpandable metadataRows={metadataRows} {...metadataExpand} />
           ) : metadataRows.length > 0 ? (
             <dl className="w-full grid grid-cols-2 gap-2 text-[13px]">
               {metadataRows.map((row) => (
@@ -240,31 +328,39 @@ export function CollectionOverviewBoard({
         {/* Middle: chart (+ order book in exchange layout). Metrics sit above the chart only, not the book/trade column. */}
         <div className="min-w-0 flex flex-col gap-2.5 items-stretch w-full sm:gap-3">
           {exchangeTriple ? (
-            <div
-              className="flex w-full min-w-0 flex-col gap-3 max-xl:gap-3 xl:h-[min(600px,66svh)] xl:max-h-[min(600px,66svh)] xl:min-h-[min(600px,66svh)] xl:flex-row xl:items-stretch xl:gap-4"
-            >
-              {/* Chart first on narrow screens (readable size); xl+ shares fixed row with book+trade */}
-              <div className="order-1 flex min-w-0 flex-1 flex-col gap-2 xl:order-1 xl:h-full xl:min-h-0">
+            <div className={COLLECTION_MARKET_CLUSTER_BEZEL}>
+              <div className={COLLECTION_MARKET_CLUSTER_MAT}>
                 {chartMetricsRow != null ? (
-                  <div className="w-full min-w-0 shrink-0">{chartMetricsRow}</div>
-                ) : null}
-                <div className="flex w-full min-w-0 min-h-0 flex-1 flex-col xl:h-full xl:min-h-0">
-                  {priceChart ?? (
-                    <CollectionPriceHistoryPlaceholder className="w-full min-h-[288px] max-xl:min-h-[min(320px,42svh)] xl:h-full xl:min-h-0" />
-                  )}
-                </div>
-              </div>
-              {/*
-                Book + trade: fixed max width so the chart can use the rest of the row.
-                Two equal columns so the book matches the order (trade) pane width — no extra book-wide bias.
-              */}
-              <div className="order-2 flex w-full min-w-0 max-w-full flex-col xl:order-2 xl:h-full xl:min-h-0 xl:w-[min(100%,min(440px,max(360px,28vw)))] xl:shrink-0 xl:self-stretch xl:basis-[min(100%,min(440px,max(360px,28vw)))]">
-                <div className="grid h-full min-h-0 w-full min-w-0 grid-cols-2 grid-rows-1 overflow-hidden rounded-xl border border-zinc-800/90 bg-zinc-950 shadow-[0_14px_44px_-22px_rgba(0,0,0,0.65)] divide-x divide-zinc-800/80 max-xl:min-h-[min(420px,52dvh)] xl:h-full xl:max-h-full">
-                  <div className="flex min-h-[min(220px,32dvh)] min-w-0 flex-col overflow-hidden xl:h-full xl:max-h-full xl:min-h-0">
-                    {withFlushProp(orderBookNextToChart)}
+                  <div className="mb-3 w-full min-w-0 shrink-0 max-xl:mb-2 sm:mb-3.5">
+                    {chartMetricsRow}
                   </div>
-                  <div className="flex min-h-0 min-w-0 flex-col overflow-hidden xl:h-full xl:max-h-full xl:min-h-0">
-                    {withFlushProp(tradePanel)}
+                ) : null}
+                <div
+                  className="flex w-full min-w-0 flex-col gap-3 max-xl:gap-3 xl:flex-row xl:items-stretch xl:gap-3 xl:h-[min(calc(min(420px,_32vw)*4/3*0.86+1.25rem),min(478px,_48svh))] xl:max-h-[min(478px,_48svh)] xl:min-h-0"
+                >
+                  {/* Chart first on narrow screens; xl+ shares one row with book+trade — height tracks hero frame (3:4 max width). */}
+                  <div className="order-1 flex min-w-0 flex-1 flex-col xl:order-1 xl:h-full xl:min-h-0">
+                    <div className="flex w-full min-w-0 min-h-0 flex-1 flex-col xl:h-full xl:min-h-0">
+                      {priceChart ?? (
+                        <CollectionPriceHistoryPlaceholder className="w-full min-h-[128px] max-xl:min-h-[min(152px,_20svh)] xl:h-full xl:min-h-0" />
+                      )}
+                    </div>
+                  </div>
+                  {/*
+                Book + trade: fixed max width so the chart can use the rest of the row.
+                Two equal columns — same height as chart via parent xl:h + items-stretch.
+              */}
+                  <div className="order-2 flex w-full min-w-0 max-w-full flex-col xl:order-2 xl:h-full xl:min-h-0 xl:w-[min(100%,min(440px,max(360px,28vw)))] xl:shrink-0 xl:self-stretch xl:basis-[min(100%,min(440px,max(360px,28vw)))]">
+                    <div
+                      className={`grid h-full min-h-[min(140px,_22dvh)] w-full min-w-0 grid-cols-2 grid-rows-1 overflow-hidden max-xl:min-h-[min(176px,_25dvh)] xl:min-h-0 xl:h-full xl:max-h-full ${COLLECTION_MARKET_SPLIT_CHROME}`}
+                    >
+                      <div className="flex min-h-0 min-w-0 flex-col overflow-hidden max-xl:min-h-[min(128px,_18dvh)] xl:h-full xl:max-h-full">
+                        {withFlushProp(orderBookNextToChart)}
+                      </div>
+                      <div className="flex min-h-0 min-w-0 flex-col overflow-hidden xl:h-full xl:max-h-full">
+                        {withFlushProp(tradePanel)}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -276,7 +372,7 @@ export function CollectionOverviewBoard({
                   <div className="w-full min-w-0 shrink-0">{chartMetricsRow}</div>
                 ) : null}
                 {priceChart ?? (
-                  <CollectionPriceHistoryPlaceholder className="min-h-[240px] sm:min-h-[300px] w-full" />
+                  <CollectionPriceHistoryPlaceholder className="min-h-[180px] sm:min-h-[225px] w-full" />
                 )}
               </div>
               <div className="min-w-0 w-full xl:justify-self-stretch xl:sticky xl:top-4">
@@ -289,7 +385,7 @@ export function CollectionOverviewBoard({
                 <div className="w-full min-w-0 shrink-0">{chartMetricsRow}</div>
               ) : null}
               {priceChart ?? (
-                <CollectionPriceHistoryPlaceholder className="min-h-[240px] sm:min-h-[280px] w-full" />
+                <CollectionPriceHistoryPlaceholder className="min-h-[180px] sm:min-h-[210px] w-full" />
               )}
             </div>
           )}

@@ -150,7 +150,6 @@ export class CardhedgerAiInsightService {
     };
     generatedAt: string;
     confidence?: number | null;
-    cardId?: string | null;
     marketTone?: 'Bullish' | 'Cooling' | 'Consolidating' | 'Overextended' | 'Accumulating' | 'Volatile' | null;
     riskScore?: number | null;
     riskLabel?: 'Low' | 'Medium' | 'High' | null;
@@ -223,7 +222,6 @@ export class CardhedgerAiInsightService {
         },
         generatedAt: now,
         confidence: null,
-        cardId: null,
       };
     }
     if (!this.marketData.isConfigured()) {
@@ -277,7 +275,6 @@ export class CardhedgerAiInsightService {
         },
         generatedAt: now,
         confidence: null,
-        cardId: null,
       };
     }
 
@@ -335,7 +332,6 @@ export class CardhedgerAiInsightService {
         },
         generatedAt: now,
         confidence: null,
-        cardId: null,
       };
     }
 
@@ -398,7 +394,6 @@ export class CardhedgerAiInsightService {
           },
           generatedAt: now,
           confidence: null,
-          cardId: null,
         };
       }
       const confidenceRaw = match.confidence;
@@ -410,32 +405,16 @@ export class CardhedgerAiInsightService {
         typeof match.card_id === 'string' && match.card_id.trim()
           ? match.card_id.trim()
           : null;
-      const desc =
-        typeof match.description === 'string' && match.description.trim()
-          ? match.description.trim()
-          : col.displayLabel;
       const reasoning =
         typeof match.reasoning === 'string' && match.reasoning.trim()
           ? match.reasoning.trim()
-          : 'Matched by Cardhedger AI based on the provided collection query.';
+          : 'Cardhedger returned a directional read for this collection match.';
       let summary = reasoning;
-      const prices = Array.isArray(match.prices)
-        ? (match.prices as Array<Record<string, unknown>>)
-        : [];
-      const psa10 = prices.find((p) => String(p.grade ?? '').toUpperCase() === 'PSA 10');
-      const raw = prices.find((p) => String(p.grade ?? '').toUpperCase() === 'RAW');
-
       const bullets = [
-        `Matched card: ${desc}`,
+        `${col.displayLabel}: brief uses Cardhedger’s closest catalog match for this marketplace collection.`,
         confidence != null
-          ? `AI confidence: ${(confidence * 100).toFixed(1)}%`
-          : 'AI confidence is moderate because matching context is partial.',
-        typeof psa10?.price === 'string' || typeof psa10?.price === 'number'
-          ? `PSA 10 spot: $${String(psa10.price)}`
-          : 'PSA 10 spot is not yet fully populated in the current feed.',
-        typeof raw?.price === 'string' || typeof raw?.price === 'number'
-          ? `Raw spot: $${String(raw.price)}`
-          : 'Raw spot is limited, so premium interpretation is provisional.',
+          ? `Estimated catalog match confidence about ${(confidence * 100).toFixed(0)}%; read as directional context, not advice.`
+          : 'Treat the narrative as directional context while catalog match confidence is partial.',
       ];
 
       let stats:
@@ -555,7 +534,7 @@ export class CardhedgerAiInsightService {
                   : 'Risk is contained, which favors orderly continuation over disorderly swings.'
               : 'Risk regime is unresolved.';
           summary = [
-            `Market is in a ${marketTone === 'Bullish' ? 'constructive expansion phase' : marketTone === 'Cooling' ? 'cooling phase after expansion' : marketTone === 'Consolidating' ? 'consolidation phase with structure intact' : marketTone === 'Overextended' ? 'high-beta expansion phase with stretched momentum' : marketTone === 'Volatile' ? 'high-volatility transition phase' : 'gradual accumulation phase'} with directional bias still leaning ${marketTone === 'Cooling' ? 'neutral-to-down' : 'neutral-to-up'}.`,
+            `${col.displayLabel}: market is in a ${marketTone === 'Bullish' ? 'constructive expansion phase' : marketTone === 'Cooling' ? 'cooling phase after expansion' : marketTone === 'Consolidating' ? 'consolidation phase with structure intact' : marketTone === 'Overextended' ? 'high-beta expansion phase with stretched momentum' : marketTone === 'Volatile' ? 'high-volatility transition phase' : 'gradual accumulation phase'} with directional bias still leaning ${marketTone === 'Cooling' ? 'neutral-to-down' : 'neutral-to-up'}.`,
             `Current action reflects ${shortTerm} while preserving ${longTerm}, which points to structured rotation rather than random price drift.`,
             `At the same time, PSA 10 pricing versus raw points to ${premiumContext}, giving a clearer read on how committed higher-conviction buyers are.`,
             `${liquidityContext} ${riskContext} This keeps the near-term path biased toward controlled continuation or orderly consolidation unless demand absorption weakens.`,
@@ -674,7 +653,6 @@ export class CardhedgerAiInsightService {
             },
             generatedAt: now,
             confidence,
-            cardId,
             marketTone,
             riskScore,
             riskLabel,
@@ -687,7 +665,10 @@ export class CardhedgerAiInsightService {
 
       return {
         title: `${col.displayLabel} — AI Market Brief`,
-        summary: reasoning,
+        summary:
+          reasoning.toLowerCase().startsWith(col.displayLabel.toLowerCase())
+            ? reasoning
+            : `${col.displayLabel}: ${reasoning}`,
         bullets,
         dynamics,
         syntheticChart: 'early-stage trend channel with low-frequency expansion pulses',
@@ -731,59 +712,25 @@ export class CardhedgerAiInsightService {
         },
         generatedAt: now,
         confidence,
-        cardId,
         marketTone,
         riskScore,
         riskLabel,
         stats,
       };
     } catch (e) {
+      void e;
       return {
         title: `${col.displayLabel} — AI Market Brief`,
-        summary: 'Cardhedger AI insight request failed.',
-        bullets: [e instanceof Error ? e.message : String(e), `Query used: ${query}`],
+        summary: `${col.displayLabel}: AI brief could not be refreshed just now. Try again in a moment.`,
+        bullets: [
+          'On-platform prices and listings on this page stay available.',
+        ],
         dynamics: [],
-        syntheticChart: 'active consolidation with directional bias waiting for the next expansion leg',
-        outlook: 'Continuation remains favored once momentum re-expands through the current consolidation zone.',
-        chartSpec: {
-          chartStyle: 'Expanded Macro View (Wide X-Axis)',
-          trendStructure: [
-            'Phase 1: Consolidation floor',
-            'Phase 2: Probe expansion',
-            'Phase 3: Cooling band',
-            'Phase 4: Bias retention',
-          ],
-          momentumBehavior: 'Momentum is compressing with directional bias intact.',
-          visualInterpretation:
-            'Price appears to coil in a broad consolidation arc ahead of the next expansion attempt.',
-          miniSeries: [22, 22, 23, 22, 23, 23, 22, 23, 24, 23, 24, 25],
-          pathRepresentation:
-            'Compression -> Oscillation -> Breakout pressure build -> Expansion setup',
-        },
-        outlookScenarios: {
-          bullCase: 'Expansion resumes once consolidation overhead is absorbed.',
-          baseCase: 'Market continues to consolidate in a controlled band.',
-          bearCase: 'Cooling extends into a deeper but structured pullback.',
-        },
-        uiInstructions: {
-          loading: {
-            style: 'premium-gradient-shimmer',
-            scanningEffect: 'crypto-data-scan',
-            minDurationMs: 800,
-            maxDurationMs: 1500,
-          },
-          progressiveRenderOrder: [
-            'AI Insight',
-            'Market Structure',
-            'Key Signals',
-            'Synthetic Trend Chart',
-            'Forward Outlook',
-            'Market Tone',
-          ],
-        },
         generatedAt: now,
         confidence: null,
-        cardId: null,
+        marketTone: null,
+        riskScore: null,
+        riskLabel: null,
       };
     }
   }

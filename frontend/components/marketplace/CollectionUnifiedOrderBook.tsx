@@ -89,7 +89,7 @@ function OrderBookCenterStrip({ model }: { model: BookCenterModel }) {
 
   return (
     <div
-      className={`relative flex shrink-0 flex-col items-center justify-center gap-1 border-y border-gray-800/90 bg-[#080a0e] px-2 py-2 sm:py-2.5 ${
+      className={`relative flex shrink-0 flex-col items-center justify-center gap-1 border-y border-white/[0.07] bg-[#06080d] px-2 py-2 sm:py-2.5 ${
         hasCaption ? "min-h-[5.5rem]" : "min-h-[4rem]"
       }`}
       title={model.title}
@@ -306,7 +306,7 @@ export function CollectionUnifiedOrderBook({
     : `overflow-y-auto scrollbar-platform ${depthMax}`;
 
   const shell = flush
-    ? "relative flex h-full max-h-full min-h-0 max-w-full max-xl:min-h-[min(200px,28dvh)] flex-col overflow-hidden rounded-none border-0 bg-[#0c0e12] shadow-none xl:min-h-0"
+    ? "relative flex h-full max-h-full min-h-0 max-w-full max-xl:min-h-[min(200px,28dvh)] flex-col overflow-hidden rounded-none border-0 bg-[#05070c] shadow-none xl:min-h-0"
     : `relative overflow-hidden border border-zinc-800/90 bg-[#0c0e12] ${
         compact
           ? "rounded-xl shadow-none"
@@ -322,7 +322,9 @@ export function CollectionUnifiedOrderBook({
         />
       )}
       <div
-        className={`relative shrink-0 border-b border-gray-800/80 px-2.5 pt-2 pb-1 sm:px-3 flex items-center justify-end gap-2`}
+        className={`relative shrink-0 border-b px-2.5 pt-2 pb-1 sm:px-3 flex items-center justify-end gap-2 ${
+          flush ? "border-white/[0.065]" : "border-gray-800/80"
+        }`}
       >
         <div className="flex rounded-lg bg-black/30 p-0.5 ring-1 ring-white/[0.06]">
           <button
@@ -353,7 +355,7 @@ export function CollectionUnifiedOrderBook({
       {tab === "book" &&
         (flush ? (
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-            <div className="relative grid shrink-0 grid-cols-[1fr_44px] gap-1.5 border-b border-gray-800/80 px-2.5 py-1.5 text-[9px] font-medium text-gray-500 sm:px-3">
+            <div className="relative grid shrink-0 grid-cols-[1fr_44px] gap-1.5 border-b border-white/[0.065] px-2.5 py-1.5 text-[9px] font-medium text-gray-500 sm:px-3">
               <span>Price (USDC)</span>
               <span className="text-right tabular-nums">Count</span>
             </div>
@@ -440,7 +442,7 @@ export function CollectionUnifiedOrderBook({
               </div>
             </div>
 
-            <div className="shrink-0 space-y-1 border-t border-gray-800/80 px-2.5 py-1.5">
+            <div className="shrink-0 space-y-1 border-t border-white/[0.065] px-2.5 py-1.5">
               <div className="flex justify-between gap-2 font-mono text-[9px] tabular-nums text-gray-600">
                 <span>
                   Bids <span className="text-emerald-500/80">{bidRows.length}</span>

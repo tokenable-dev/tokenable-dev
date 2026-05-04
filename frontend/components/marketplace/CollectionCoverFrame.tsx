@@ -126,7 +126,7 @@ export function CollectionCoverFrame({
   /** featured: 목록→상세 중간 / hero: 컬렉션 페이지 중앙 대형 */
   const featuredOuter = "w-full max-w-[165px] sm:max-w-[180px] aspect-[3/4]";
   const heroOuter =
-    "w-full max-w-[min(100%,260px)] sm:max-w-[280px] lg:max-w-[300px] aspect-[3/4]";
+    "w-full max-w-[min(100%,340px)] sm:max-w-[min(100%,376px)] lg:max-w-[min(400px,36vw)] xl:max-w-[min(420px,32vw)] aspect-[3/4]";
 
   const heroGlow =
     variant === "hero"

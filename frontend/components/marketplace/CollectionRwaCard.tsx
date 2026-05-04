@@ -137,7 +137,11 @@ export function CollectionRwaCard({
           <p className="text-xs text-gray-500">Not listed</p>
         )}
 
-        <dl className="grid gap-1.5 text-[10px] leading-snug text-zinc-400 sm:text-[11px]">
+        <dl className="grid gap-1.5 rounded-xl border border-gray-800/85 bg-black/30 px-2.5 py-2 text-[10px] leading-snug text-zinc-400 sm:text-[11px]">
+          <div className="flex items-baseline justify-between gap-2">
+            <dt className="shrink-0 font-medium text-zinc-500">Token</dt>
+            <dd className="min-w-0 truncate font-mono text-zinc-200">{formatTokenIdShort(tokenId)}</dd>
+          </div>
           <div className="flex items-baseline justify-between gap-2">
             <dt className="shrink-0 font-medium text-zinc-500">Seller</dt>
             <dd className="min-w-0 truncate font-mono text-zinc-200" title={sellerAddr}>
@@ -146,7 +150,10 @@ export function CollectionRwaCard({
           </div>
           <div className="flex items-baseline justify-between gap-2">
             <dt className="shrink-0 font-medium text-zinc-500">Cert number</dt>
-            <dd className="min-w-0 truncate text-right tabular-nums text-zinc-200" title={certLabel ?? ""}>
+            <dd
+              className="min-w-0 truncate text-right tabular-nums text-zinc-200"
+              title={certLabel ?? ""}
+            >
               {certLabel ?? "—"}
             </dd>
           </div>

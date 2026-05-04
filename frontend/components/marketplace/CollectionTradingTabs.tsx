@@ -50,6 +50,7 @@ export function CollectionTradingTabs({
   onPurchaseFilled,
   presetPriceFromBook,
   listingCount,
+  showSellListingCount = true,
   /** Fused with order book: shared outer chrome, full height, scroll inside. */
   flush = false,
 }: {
@@ -70,6 +71,7 @@ export function CollectionTradingTabs({
   onPurchaseFilled?: () => void;
   presetPriceFromBook?: string | null;
   listingCount: number;
+  showSellListingCount?: boolean;
   flush?: boolean;
 }) {
   const [flow, setFlow] = useState<FlowTab>("buy");
@@ -83,13 +85,13 @@ export function CollectionTradingTabs({
     <section
       className={
         flush
-          ? "box-border flex h-full max-h-full min-h-0 w-full min-w-0 max-w-full flex-1 flex-col overflow-hidden rounded-none border-0 bg-[#09090b] shadow-none ring-0"
+          ? "box-border flex h-full max-h-full min-h-0 w-full min-w-0 max-w-full flex-1 flex-col overflow-hidden rounded-none border-0 bg-[#05070c] shadow-none ring-0"
           : "min-w-0 w-full max-w-full overflow-hidden rounded-xl border border-zinc-800/90 bg-[#09090b] shadow-[0_20px_50px_-28px_rgba(0,0,0,0.85)] ring-1 ring-white/[0.04]"
       }
       id="collection-trading"
       aria-label="Trade"
     >
-      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-zinc-800/90 bg-[#09090b] px-2.5 py-1.5 sm:px-3">
+      <div className={`flex shrink-0 flex-wrap items-center justify-between gap-2 px-2.5 py-1.5 sm:px-3 border-b ${flush ? "border-white/[0.065] bg-[#05070c]" : "border-zinc-800/90 bg-[#09090b]"}`}>
         <div className="flex min-w-0 items-center gap-1.5">
           <span
             className="truncate text-[10px] font-medium text-zinc-300"
@@ -123,9 +125,13 @@ export function CollectionTradingTabs({
         </button>
       </div>
 
-      <div className="shrink-0 border-b border-zinc-800/90 bg-[#09090b] px-2.5 pb-2 pt-1 sm:px-3">
+      <div className={`shrink-0 px-2.5 pb-2 pt-1 sm:px-3 border-b ${flush ? "border-white/[0.065] bg-[#05070c]" : "border-zinc-800/90 bg-[#09090b]"}`}>
         <div
-          className="relative flex gap-1 rounded-xl border border-zinc-800/70 bg-zinc-950/80 p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
+          className={`relative flex gap-1 rounded-xl border p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] ${
+            flush
+              ? "border-white/[0.085] bg-[#06090f]"
+              : "border-zinc-800/70 bg-zinc-950/80"
+          }`}
           role="tablist"
           aria-label="Buy or sell"
         >
@@ -222,6 +228,7 @@ export function CollectionTradingTabs({
                   onOpenSellModal={onOpenSellModal}
                   collectionLabel={collectionLabel}
                   listingCount={listingCount}
+                  showSellListingCount={showSellListingCount}
                 />
               )}
             </div>

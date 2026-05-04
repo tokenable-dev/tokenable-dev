@@ -149,7 +149,12 @@ function buildAssetSubtitle(meta: RwaMetadata | null, displayName: string): stri
     return [attrYear?.value, attrSet?.value].filter(Boolean).join(" · ");
   }
   const desc = meta?.description?.trim();
-  if (desc && desc.length <= 200 && !desc.startsWith("http")) {
+  if (
+    desc &&
+    !/^no\s+description\.?$/i.test(desc) &&
+    desc.length <= 200 &&
+    !desc.startsWith("http")
+  ) {
     const line = desc.split("\n")[0].trim();
     return line.length > 120 ? `${line.slice(0, 117)}…` : line;
   }

@@ -4,6 +4,7 @@ import { useMemo, type ReactNode } from "react";
 import ReactECharts from "echarts-for-react";
 import type { EChartsOption, LineSeriesOption } from "echarts";
 import type { CollectionUsdPoint } from "@/lib/core";
+import { COLLECTION_CHART_SURFACE } from "@/components/marketplace/collectionOverviewChrome";
 
 const EXTERNAL_REF_STROKE = "#2EE6D0";
 const PLATFORM_STROKE = "#D946EF";
@@ -56,6 +57,14 @@ function formatTickMonth(tSec: number): string {
   });
 }
 
+/** Long spans — readable month + full year */
+function formatTickMonthYearNumeric(tSec: number): string {
+  return new Date(tSec * 1000).toLocaleDateString("en-US", {
+    month: "short",
+    year: "numeric",
+  });
+}
+
 function roughTickConfigByWindowDays(windowDays: number | null): {
   minIntervalMs: number;
   splitNumber: number;
@@ -63,57 +72,57 @@ function roughTickConfigByWindowDays(windowDays: number | null): {
 } {
   if (windowDays == null || !Number.isFinite(windowDays) || windowDays <= 0) {
     return {
-      minIntervalMs: 30 * DAY * 1000,
-      splitNumber: 6,
-      formatter: formatTickMonth,
+      minIntervalMs: 120 * DAY * 1000,
+      splitNumber: 5,
+      formatter: formatTickMonthYearNumeric,
     };
   }
   if (windowDays <= 7) {
     return {
-      minIntervalMs: DAY * 1000,
-      splitNumber: 7,
+      minIntervalMs: 2 * DAY * 1000,
+      splitNumber: 4,
       formatter: formatTickDate,
     };
   }
   if (windowDays <= 30) {
     return {
-      minIntervalMs: 3 * DAY * 1000,
-      splitNumber: 8,
+      minIntervalMs: 7 * DAY * 1000,
+      splitNumber: 5,
       formatter: formatTickDate,
     };
   }
   if (windowDays <= 90) {
     return {
-      minIntervalMs: 14 * DAY * 1000,
-      splitNumber: 7,
+      minIntervalMs: 21 * DAY * 1000,
+      splitNumber: 5,
       formatter: formatTickDate,
     };
   }
   if (windowDays <= 180) {
     return {
-      minIntervalMs: 30 * DAY * 1000,
-      splitNumber: 6,
+      minIntervalMs: 45 * DAY * 1000,
+      splitNumber: 5,
       formatter: formatTickMonth,
     };
   }
-  if (windowDays <= 540) {
+  if (windowDays <= 365) {
     return {
-      minIntervalMs: 60 * DAY * 1000,
-      splitNumber: 8,
+      minIntervalMs: 75 * DAY * 1000,
+      splitNumber: 5,
       formatter: formatTickMonth,
     };
   }
-  if (windowDays <= 1200) {
+  if (windowDays <= 730) {
     return {
       minIntervalMs: 120 * DAY * 1000,
-      splitNumber: 10,
-      formatter: formatTickMonth,
+      splitNumber: 5,
+      formatter: formatTickMonthYearNumeric,
     };
   }
   return {
     minIntervalMs: 180 * DAY * 1000,
-    splitNumber: 12,
-    formatter: formatTickMonth,
+    splitNumber: 5,
+    formatter: formatTickMonthYearNumeric,
   };
 }
 
@@ -182,6 +191,7 @@ export function CollectionDualPriceChart({
   isLoading,
   errorMessage,
   variant = "default",
+  collectionOverviewMat = false,
 }: {
   platformUsd: CollectionUsdPoint[];
   externalMarketUsd?: number | null;
@@ -199,8 +209,14 @@ export function CollectionDualPriceChart({
   isLoading?: boolean;
   errorMessage?: string | null;
   variant?: "default" | "exchange";
+  /** When `variant` is exchange and true, shell matches collection cover mat tones. */
+  collectionOverviewMat?: boolean;
 }) {
   const exchange = variant === "exchange";
+  const exchangeChrome =
+    exchange && collectionOverviewMat
+      ? COLLECTION_CHART_SURFACE
+      : "rounded-2xl border border-white/[0.07] bg-[#030304] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]";
   const nowSec = Math.floor(Date.now() / 1000);
 
   const merged = useMemo(() => {
@@ -390,17 +406,16 @@ export function CollectionDualPriceChart({
         : externalWindowDays ?? extentDaysCeil;
     const roughTick = roughTickConfigByWindowDays(roughTickDays ?? null);
 
-    /** Long spans (e.g. Max): ECharts time axis can drop series when forced minInterval/splitNumber fight the domain. */
+    /** Coarse ticks for any meaningful span — keeps x-axis readable (fewer labels, wider spacing). */
     const axisSpanDays =
       merged.tMax > merged.tMin ? (merged.tMax - merged.tMin) / DAY : 0;
-    const useExchangeRoughTicks =
-      exchange && axisSpanDays > 1 && axisSpanDays <= 540;
+    const useCoarseTimeTicks = axisSpanDays > 1;
 
     return {
       backgroundColor: "#060708",
       animationDuration: 250,
       textStyle: { color: AXIS_LABEL, fontFamily: "ui-sans-serif, system-ui, sans-serif" },
-      grid: { left: 52, right: 14, top: 10, bottom: 32, containLabel: false },
+      grid: { left: 52, right: 14, top: 10, bottom: 34, containLabel: false },
       dataZoom: [
         { type: "inside", xAxisIndex: 0, filterMode: "none" },
         { type: "slider", xAxisIndex: 0, height: 16, bottom: 0, show: false },
@@ -409,7 +424,7 @@ export function CollectionDualPriceChart({
         type: "time",
         min: merged.tMin * 1000,
         max: merged.tMax * 1000,
-        ...(useExchangeRoughTicks
+        ...(useCoarseTimeTicks
           ? {
               minInterval: roughTick.minIntervalMs,
               splitNumber: roughTick.splitNumber,
@@ -420,11 +435,12 @@ export function CollectionDualPriceChart({
         splitLine: { show: false },
         axisLabel: {
           color: AXIS_LABEL,
-          fontSize: 11,
+          fontSize: 13,
+          hideOverlap: true,
           formatter: (value: number) => {
             const tSec = Math.floor(value / 1000);
-            if (!exchange) return formatTickDate(tSec);
-            return useExchangeRoughTicks ? roughTick.formatter(tSec) : formatTickMonth(tSec);
+            if (!useCoarseTimeTicks) return formatTickDate(tSec);
+            return roughTick.formatter(tSec);
           },
         },
       },
@@ -500,7 +516,7 @@ export function CollectionDualPriceChart({
       <div
         className={
           exchange
-            ? "flex min-h-[240px] flex-col items-center justify-center gap-3 rounded-2xl border border-white/[0.07] bg-[#030304] px-4 max-xl:min-h-[min(280px,40svh)] xl:h-full xl:min-h-0"
+            ? `${exchangeChrome} flex min-h-[120px] flex-col items-center justify-center gap-3 px-4 max-xl:min-h-[min(140px,20svh)] xl:h-full xl:min-h-0`
             : "flex min-h-[260px] flex-col items-center justify-center gap-3 rounded-2xl border border-white/[0.07] bg-[#030304] px-4"
         }
         role="status"
@@ -521,7 +537,7 @@ export function CollectionDualPriceChart({
       <div
         className={
           exchange
-            ? "flex min-h-[220px] flex-col items-center justify-center rounded-2xl border border-white/[0.07] bg-[#030304] px-4 py-6 text-center text-sm text-rose-200/90 max-xl:min-h-[min(260px,36svh)] xl:h-full xl:min-h-0"
+            ? `${exchangeChrome} flex min-h-[110px] flex-col items-center justify-center px-4 py-6 text-center text-sm text-rose-200/90 max-xl:min-h-[min(128px,18svh)] xl:h-full xl:min-h-0`
             : "rounded-2xl border border-rose-500/20 bg-[#030304] px-4 py-6 text-center text-sm text-rose-200/90"
         }
       >
@@ -535,7 +551,7 @@ export function CollectionDualPriceChart({
       <div
         className={
           exchange
-            ? "flex min-h-[220px] flex-col items-center justify-center rounded-2xl border border-white/[0.07] bg-[#030304] px-4 py-8 text-center text-sm text-zinc-600 max-xl:min-h-[min(260px,36svh)] xl:h-full xl:min-h-0"
+            ? `${exchangeChrome} flex min-h-[110px] flex-col items-center justify-center px-4 py-8 text-center text-sm text-zinc-600 max-xl:min-h-[min(128px,18svh)] xl:h-full xl:min-h-0`
             : "rounded-2xl border border-white/[0.07] bg-[#030304] px-4 py-8 text-center text-sm text-zinc-600"
         }
       >
@@ -549,7 +565,7 @@ export function CollectionDualPriceChart({
     <div
       className={
         exchange
-          ? "flex min-h-[268px] flex-col overflow-hidden rounded-2xl border border-white/[0.07] bg-[#030304] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] max-xl:min-h-[min(312px,42svh)] xl:h-full xl:min-h-0"
+          ? `${exchangeChrome} flex min-h-[134px] flex-col overflow-hidden text-white max-xl:min-h-[min(154px,21svh)] xl:h-full xl:min-h-0`
           : "rounded-2xl border border-white/[0.07] bg-[#030304] text-white"
       }
     >
@@ -585,9 +601,9 @@ export function CollectionDualPriceChart({
           style={{
             width: "100%",
             height: exchange ? "100%" : "300px",
-            minHeight: exchange ? 218 : 200,
+            minHeight: exchange ? 110 : 200,
           }}
-          className={exchange ? "min-h-[218px] xl:min-h-[272px]" : "min-h-[200px]"}
+          className={exchange ? "min-h-[110px] xl:min-h-[136px]" : "min-h-[200px]"}
         />
       </div>
     </div>

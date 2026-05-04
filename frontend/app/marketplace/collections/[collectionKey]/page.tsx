@@ -32,12 +32,12 @@ import { CollectionPriceMetricsStrip } from "@/components/marketplace/Collection
 import type { BookRowSelection } from "@/components/marketplace/CollectionTradeTicket";
 import { CollectionUnifiedOrderBook } from "@/components/marketplace/CollectionUnifiedOrderBook";
 import { CollectionTradingTabs } from "@/components/marketplace/CollectionTradingTabs";
-import { CollectionTradeGuide } from "@/components/marketplace/CollectionTradeGuide";
 import { CollectionOwnedRwaListModal } from "@/components/marketplace/CollectionOwnedRwaListModal";
 import {
   TradeCelebrationModal,
   type TradeCelebrationKind,
 } from "@/components/marketplace/TradeCelebrationModal";
+import { AiInsightTypewriter } from "@/components/marketplace/AiInsightTypewriter";
 import { CollectionDualPriceChart } from "@/components/marketplace/CollectionDualPriceChart";
 import { CollectionRwaCard } from "@/components/marketplace/CollectionRwaCard";
 import { useAppStore, selectWallet } from "@/store";
@@ -50,6 +50,34 @@ import {
 
 /** Same fill can appear from session overlay + DB poll with timestamps minutes apart */
 const SESSION_FILL_DEDUP_SEC = 300;
+
+/** Normalize chips for duplicate detection (against set/title lines). */
+function normTagDedupeKey(s: string): string {
+  return s.trim().toLowerCase().replace(/\s+/g, " ").replace(/^#/, "");
+}
+
+function leadingYearFromSetLine(setLineRaw: string): number | null {
+  const m = /^\s*(\d{4})\b/.exec(setLineRaw);
+  if (!m) return null;
+  const y = Number(m[1]);
+  return y >= 1880 && y <= 2100 ? y : null;
+}
+
+/** True when this chip repeats the hero set line / year-stripped variant (upstream often mirrors set into “variant”). */
+function tagEchoesSetLine(fragment: string, setLineRaw: string): boolean {
+  const f = normTagDedupeKey(fragment);
+  if (!f) return true;
+  const lineRaw = setLineRaw.trim();
+  if (!lineRaw) return false;
+  const line = normTagDedupeKey(lineRaw);
+  const noYear = normTagDedupeKey(lineRaw.replace(/^\s*\d{4}\s+/, ""));
+  if (line && (f === line || f === noYear)) return true;
+  /** Only treat long overlaps as echoes — keep short tokens like `Base`. */
+  const minLong = 12;
+  if (noYear.length >= minLong && (f.includes(noYear) || noYear.includes(f))) return true;
+  if (line.length >= minLong && (f.includes(line) || line.includes(f))) return true;
+  return false;
+}
 
 type ChartRangeId = "7d" | "30d" | "90d" | "180d" | "1y";
 type ChartRangeConfig = {
@@ -121,20 +149,6 @@ function bidDisplayUsdc(b: Order): number {
   return display;
 }
 
-function buildMiniChartPath(points: number[], w: number, h: number): string {
-  if (!Array.isArray(points) || points.length < 2) return "";
-  const min = Math.min(...points);
-  const max = Math.max(...points);
-  const range = Math.max(max - min, 1);
-  return points
-    .map((v, i) => {
-      const x = (i / Math.max(1, points.length - 1)) * w;
-      const y = h - ((v - min) / range) * h;
-      return `${i === 0 ? "M" : "L"} ${x.toFixed(1)} ${y.toFixed(1)}`;
-    })
-    .join(" ");
-}
-
 export default function MarketplaceCollectionPage() {
   const params = useParams();
   const queryClient = useQueryClient();
@@ -142,46 +156,25 @@ export default function MarketplaceCollectionPage() {
   const raw = params.collectionKey;
   const collectionKey = Array.isArray(raw) ? raw[0] : raw;
   const key = typeof collectionKey === "string" ? decodeURIComponent(collectionKey) : "";
-  const [showAdvanced, setShowAdvanced] = useState(false);
   const [sellModalOpen, setSellModalOpen] = useState(false);
   const [tradeCelebration, setTradeCelebration] = useState<TradeCelebrationKind | null>(null);
   const [bookSelection, setBookSelection] = useState<BookRowSelection | null>(null);
   const [chartRange, setChartRange] = useState<ChartRangeId>("90d");
   const [showAiInsights, setShowAiInsights] = useState(false);
   const [aiInsightStatus, setAiInsightStatus] = useState<"idle" | "loading" | "ready">("idle");
-  const [aiRevealStep, setAiRevealStep] = useState(0);
   const [aiInsightResult, setAiInsightResult] = useState<{
     title: string;
     summary: string;
     bullets: string[];
     dynamics?: string[];
-    syntheticChart?: string;
-    chartSpec?: {
-      chartStyle: string;
-      trendStructure: string[];
-      momentumBehavior: string;
-      visualInterpretation: string;
-      miniSeries: number[];
-      pathRepresentation: string;
-    };
     outlook?: string;
     outlookScenarios?: {
       bullCase: string;
       baseCase: string;
       bearCase: string;
     };
-    uiInstructions?: {
-      loading: {
-        style: string;
-        scanningEffect: string;
-        minDurationMs: number;
-        maxDurationMs: number;
-      };
-      progressiveRenderOrder: string[];
-    };
     generatedAt: string;
     confidence?: number | null;
-    cardId?: string | null;
     marketTone?:
       | "Bullish"
       | "Cooling"
@@ -231,7 +224,6 @@ export default function MarketplaceCollectionPage() {
     aiInsightAutoStartedRef.current = false;
     setShowAiInsights(false);
     setAiInsightStatus("idle");
-    setAiRevealStep(0);
     setAiInsightResult(null);
   }, [key]);
 
@@ -556,29 +548,8 @@ export default function MarketplaceCollectionPage() {
     ],
   );
 
-  const metadataRows = useMemo(() => {
-    const rows: { label: string; value: string }[] = [];
-    const cn = bucketCardNameForDisplay(comp as Record<string, unknown>);
-    const cs = bucketCardSetForDisplay(comp as Record<string, unknown>);
-    if (cn) rows.push({ label: "Card", value: cn });
-    if (cs) rows.push({ label: "Set", value: cs });
-    if (comp.cardNumber) rows.push({ label: "Card #", value: comp.cardNumber });
-    if (comp.variant) rows.push({ label: "Variant", value: comp.variant });
-    const grader = bucketGradingCompanyForDisplay(comp as Record<string, unknown>);
-    if (grader) rows.push({ label: "Grader", value: grader });
-    if (comp.gradeScore) rows.push({ label: "Grade", value: comp.gradeScore });
-    if (
-      comp.psaTotalPopulation != null &&
-      Number.isFinite(comp.psaTotalPopulation) &&
-      comp.psaTotalPopulation > 0
-    ) {
-      rows.push({
-        label: "PSA Population",
-        value: Number(comp.psaTotalPopulation).toLocaleString("en-US"),
-      });
-    }
-    return rows;
-  }, [comp, data?.collection?.components]);
+  /** Primary card facts: hero title, set line, badges, and `headlineInfoTags` chips. */
+  const metadataRows = useMemo(() => [] as { label: string; value: string }[], [key]);
 
   const subtitle = useMemo(() => {
     const setShown = bucketCardSetForDisplay(comp as Record<string, unknown>);
@@ -587,6 +558,154 @@ export default function MarketplaceCollectionPage() {
     );
     return parts.length ? parts.join(" · ") : null;
   }, [comp, data?.collection?.components]);
+
+  const headlineSetLine = useMemo(() => {
+    const setMerged =
+      marketPreview?.card?.setName?.trim() ||
+      bucketCardSetForDisplay(comp as Record<string, unknown>).trim();
+    return setMerged.length > 0 ? setMerged : null;
+  }, [marketPreview?.card?.setName, comp]);
+
+  const collectionCategoryBadge = useMemo(() => {
+    const name = bucketCardNameForDisplay(comp as Record<string, unknown>);
+    const setN = bucketCardSetForDisplay(comp as Record<string, unknown>);
+    const corpus = `${name} ${setN} ${marketPreview?.card?.setName ?? ""}`;
+    if (/\bpokemon\b/i.test(corpus)) return "Pokemon";
+    const cat = marketPreview?.card?.category?.trim();
+    if (cat) {
+      const t = cat.replace(/\s+/g, " ");
+      return t.charAt(0).toUpperCase() + (t.length > 1 ? t.slice(1) : "");
+    }
+    return "Trading cards";
+  }, [
+    marketPreview?.card?.category,
+    marketPreview?.card?.setName,
+    comp.cardNameDisplay,
+    comp.cardName,
+    comp.cardSet,
+    comp.cardSetDisplay,
+  ]);
+
+  const collectionHeadlineCardName = useMemo(() => {
+    const nm = bucketCardNameForDisplay(comp as Record<string, unknown>).trim();
+    const dl =
+      typeof data?.collection?.displayLabel === "string"
+        ? data.collection.displayLabel.trim()
+        : "";
+    if (nm.length > 0) return nm;
+    if (dl.length > 0) return dl;
+    return key.length > 0 ? key.slice(0, 18) + (key.length > 18 ? "…" : "") : "Collection";
+  }, [
+    comp.cardNameDisplay,
+    comp.cardName,
+    data?.collection?.displayLabel,
+    key,
+  ]);
+
+  const headlineGradeBadge = useMemo(
+    () => pokeTierLabel || null,
+    [pokeTierLabel],
+  );
+
+  /** Chips under headline — de-duped vs set/title; no low-signal market codes. */
+  const headlineInfoTags = useMemo(() => {
+    const setLine = headlineSetLine?.trim() ?? "";
+    const setFromComp = bucketCardSetForDisplay(comp as Record<string, unknown>).trim();
+    const anchorLines = [setLine, setFromComp].filter((s) => s.length > 0);
+    const titleKey = normTagDedupeKey(collectionHeadlineCardName);
+    const setYear = setLine ? leadingYearFromSetLine(setLine) : null;
+
+    const seen = new Set<string>();
+    const tags: { id: string; text: string; title?: string }[] = [];
+
+    const pushUnique = (id: string, display: string, title?: string) => {
+      const d = display.trim();
+      if (!d) return;
+      if (anchorLines.some((a) => tagEchoesSetLine(d, a))) return;
+      const k = normTagDedupeKey(d);
+      if (!k || seen.has(k)) return;
+      if (titleKey.length >= 3 && k === titleKey) return;
+      seen.add(k);
+      tags.push({
+        id,
+        text: d.length > 44 ? `${d.slice(0, 41)}…` : d,
+        title: title ?? (d.length > 44 ? d : undefined),
+      });
+    };
+
+    const numRaw =
+      marketPreview?.card?.cardNumber?.trim() || String(comp.cardNumber ?? "").trim();
+    const numTok = numRaw ? (numRaw.startsWith("#") ? numRaw : `#${numRaw}`) : "";
+    if (numTok) pushUnique("cardno", numTok, "Card number");
+
+    const varFull =
+      (typeof comp.variant === "string" && comp.variant.trim().length > 0 && comp.variant.trim()) ||
+      (marketPreview?.card?.variant?.trim() ?? "");
+    if (varFull) pushUnique("variant", varFull, varFull);
+
+    const grader = bucketGradingCompanyForDisplay(comp as Record<string, unknown>).trim();
+    const gradeStr = typeof comp.gradeScore === "string" ? comp.gradeScore.trim() : "";
+    const tier = pokeTierLabel?.trim();
+    if (!tier) {
+      if (grader && gradeStr) pushUnique("gradecombo", `${grader} ${gradeStr}`, "Grade");
+      else if (gradeStr) pushUnique("grade", gradeStr, "Grade");
+      else if (grader) pushUnique("grader", grader, "Grader");
+    }
+
+    const setType = marketPreview?.card?.setType?.trim();
+    if (setType) pushUnique("settype", setType, "Set type");
+
+    const popRaw = comp.psaTotalPopulation;
+    if (popRaw != null && Number.isFinite(popRaw) && popRaw > 0) {
+      const n = Number(popRaw);
+      const fmt = n.toLocaleString("en-US");
+      pushUnique("pop", `Pop · ${fmt}`, `PSA Total Population · ${fmt}`);
+    }
+
+    const rarityRaw = (comp as Record<string, unknown>).rarity;
+    const rarity = typeof rarityRaw === "string" ? rarityRaw.trim() : "";
+    if (rarity) pushUnique("rarity", rarity, "Rarity");
+
+    const yearRaw = (comp as Record<string, unknown>).year ?? null;
+    const yearNum =
+      typeof yearRaw === "number" && Number.isFinite(yearRaw)
+        ? yearRaw
+        : typeof yearRaw === "string" && /^\d{4}$/.test(yearRaw.trim())
+          ? Number(yearRaw.trim())
+          : null;
+    if (
+      yearNum != null &&
+      yearNum >= 1880 &&
+      yearNum <= 2100 &&
+      setYear !== yearNum
+    ) {
+      pushUnique("year", String(yearNum), "Release year");
+    }
+
+    const mkt = marketPreview?.card?.market?.trim();
+    if (
+      mkt &&
+      !/^(US|USA|EN|ENG|ENGLISH)$/i.test(mkt) &&
+      !tagEchoesSetLine(mkt, setLine || setFromComp || "")
+    ) {
+      pushUnique("market", mkt, "Market / region");
+    }
+
+    return tags.length > 0 ? tags : null;
+  }, [
+    headlineSetLine,
+    collectionHeadlineCardName,
+    marketPreview?.card?.cardNumber,
+    marketPreview?.card?.variant,
+    marketPreview?.card?.setType,
+    marketPreview?.card?.market,
+    comp.cardNumber,
+    comp.variant,
+    comp.gradeScore,
+    comp.psaTotalPopulation,
+    pokeTierLabel,
+    comp,
+  ]);
 
   const collectionInsightLabel =
     typeof data?.collection?.displayLabel === "string"
@@ -599,7 +718,6 @@ export default function MarketplaceCollectionPage() {
     aiInsightInFlightRef.current = true;
     setShowAiInsights(true);
     setAiInsightStatus("loading");
-    setAiRevealStep(0);
     try {
       const minLoadingMs = 800 + Math.floor(Math.random() * 700);
       const [insight] = await Promise.all([
@@ -611,13 +729,9 @@ export default function MarketplaceCollectionPage() {
         summary: insight.summary,
         bullets: insight.bullets,
         dynamics: insight.dynamics,
-        syntheticChart: insight.syntheticChart,
-        chartSpec: insight.chartSpec,
         outlook: insight.outlook,
         outlookScenarios: insight.outlookScenarios,
-        uiInstructions: insight.uiInstructions,
         confidence: insight.confidence,
-        cardId: insight.cardId,
         marketTone: insight.marketTone,
         riskScore: insight.riskScore,
         riskLabel: insight.riskLabel,
@@ -646,47 +760,13 @@ export default function MarketplaceCollectionPage() {
           "Longer-horizon trajectory still resembles staged trend continuation.",
           "PSA premium behavior suggests demand is skewed toward higher-grade conviction.",
         ],
-        syntheticChart: "gradual upward continuation with intermittent consolidation zones",
-        chartSpec: {
-          chartStyle: "Expanded Macro View (Wide X-Axis)",
-          trendStructure: [
-            "Phase 1: Accumulation / base formation",
-            "Phase 2: Expansion / breakout move",
-            "Phase 3: Consolidation / cooling zone",
-            "Phase 4: Current positioning",
-          ],
-          momentumBehavior:
-            "Momentum is compressing inside consolidation and re-expanding in short bursts.",
-          visualInterpretation:
-            "Chart appears as a broad staircase with consolidation clusters between continuation legs.",
-          miniSeries: [20, 21, 22, 23, 23, 24, 23, 24, 25, 25, 26, 27],
-          pathRepresentation:
-            "Low -> Base -> Expansion ↑↑ -> Consolidation -> Breakout pressure ↑",
-        },
         outlook: "Base case remains constructive consolidation before the next directional expansion.",
         outlookScenarios: {
           bullCase: "Continuation strengthens if demand absorption persists through consolidation.",
           baseCase: "Market rotates sideways with constructive structure retention.",
           bearCase: "Cooling pressure extends into a controlled pullback before re-accumulation.",
         },
-        uiInstructions: {
-          loading: {
-            style: "premium-gradient-shimmer",
-            scanningEffect: "crypto-data-scan",
-            minDurationMs: 800,
-            maxDurationMs: 1500,
-          },
-          progressiveRenderOrder: [
-            "AI Insight",
-            "Market Structure",
-            "Key Signals",
-            "Synthetic Trend Chart",
-            "Forward Outlook",
-            "Market Tone",
-          ],
-        },
         confidence: null,
-        cardId: null,
         marketTone: null,
         riskScore: null,
         riskLabel: null,
@@ -745,17 +825,6 @@ export default function MarketplaceCollectionPage() {
     isError,
     runMockAiInsights,
   ]);
-
-  useEffect(() => {
-    if (!showAiInsights || aiInsightStatus !== "ready") return;
-    setAiRevealStep(0);
-    const timers = [120, 320, 520, 740, 940, 1140].map((ms, idx) =>
-      setTimeout(() => setAiRevealStep(idx + 1), ms),
-    );
-    return () => {
-      for (const t of timers) clearTimeout(t);
-    };
-  }, [showAiInsights, aiInsightStatus, aiInsightResult?.generatedAt]);
 
   /** Latest on-platform sale (DB poll or initial bundle). */
   const lastPlatformSaleUsdc = useMemo(() => {
@@ -844,14 +913,14 @@ export default function MarketplaceCollectionPage() {
             <div className="border-b border-gray-800/80 px-4 py-4 sm:px-6">
               <div className="h-10 w-48 rounded-md bg-gray-800/50" />
             </div>
-            <div className="grid gap-6 p-6 lg:grid-cols-[minmax(180px,240px)_minmax(0,1fr)_minmax(300px,420px)]">
+            <div className="grid gap-6 p-6 lg:grid-cols-[minmax(260px,min(460px,40vw))_minmax(0,1fr)_minmax(300px,420px)]">
               <div className="flex justify-center">
-                <div className="aspect-[3/4] w-full max-w-[240px] rounded-2xl bg-gray-800/60" />
+                <div className="aspect-[3/4] w-full max-w-[380px] sm:max-w-[420px] lg:max-w-[460px] rounded-2xl bg-gray-800/60" />
               </div>
               <div className="space-y-4 min-w-0">
                 <div className="grid grid-cols-1 lg:grid-cols-[1fr_minmax(260px,304px)] gap-3">
-                  <div className="h-72 min-h-[280px] lg:h-96 lg:min-h-[320px] rounded-xl bg-gray-800/40" />
-                  <div className="h-72 min-h-[280px] lg:h-96 lg:min-h-[320px] rounded-xl bg-gray-800/35 border border-gray-800/80" />
+                  <div className="h-52 min-h-[186px] lg:h-[17rem] lg:min-h-[210px] rounded-xl bg-gray-800/40" />
+                  <div className="h-52 min-h-[186px] lg:h-[17rem] lg:min-h-[210px] rounded-xl bg-gray-800/35 border border-gray-800/80" />
                 </div>
               </div>
               <div className="rounded-xl border border-gray-800 bg-gray-900/40 min-h-[260px]" />
@@ -861,7 +930,7 @@ export default function MarketplaceCollectionPage() {
             {[...Array(4)].map((_, i) => (
               <div
                 key={i}
-                className="h-72 w-[200px] shrink-0 rounded-2xl bg-gray-800/40 border border-gray-800/80"
+                className="h-52 w-[200px] shrink-0 rounded-2xl bg-gray-800/40 border border-gray-800/80"
               />
             ))}
           </div>
@@ -902,12 +971,20 @@ export default function MarketplaceCollectionPage() {
         <CollectionOverviewBoard
           title={collection.displayLabel}
           subtitle={subtitle}
+          headlineTitle={collectionHeadlineCardName}
+          headlineSetLine={headlineSetLine}
+          headlineInfoTags={headlineInfoTags ?? undefined}
+          categoryBadge={collectionCategoryBadge}
+          gradeBadge={headlineGradeBadge ?? undefined}
+          headlineTitleLayout
           badgeLabel="Collection"
           imageUrl={collectionCoverUrl}
           metadataRows={metadataRows}
           stats={[]}
           chartMetricsRow={
             <CollectionPriceMetricsStrip
+              showFootnotes={false}
+              compact
               externalMarketUsd={resolvedExternal.usd}
               externalPriceSource={resolvedExternal.source}
               marketTierDisplay={pokeTierLabel}
@@ -937,11 +1014,14 @@ export default function MarketplaceCollectionPage() {
             components: collection.components,
             marketSeriesMeta: null,
             cardhedgerCardId: marketPreview?.card?.id ?? null,
+            compactHero: true,
           }}
           listingCount={asks.length}
+          showListingSummary={false}
           priceChart={
             <CollectionDualPriceChart
               variant="exchange"
+              collectionOverviewMat
               chartTitle=""
               platformUsd={displayPlatformUsd}
               externalMarketUsd={
@@ -1022,16 +1102,10 @@ export default function MarketplaceCollectionPage() {
               }}
               presetPriceFromBook={presetPriceFromBook}
               listingCount={asks.length}
+              showSellListingCount={false}
             />
           }
         />
-
-        <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px]">
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-rose-500/20 bg-rose-500/[0.06] px-3 py-1 font-medium text-rose-200/90 tabular-nums">
-            <span className="h-1.5 w-1.5 rounded-full bg-rose-400/90" aria-hidden />
-            {asks.length} listing{asks.length === 1 ? "" : "s"}
-          </span>
-        </div>
 
         <section
           ref={aiInsightSectionRef}
@@ -1069,6 +1143,19 @@ export default function MarketplaceCollectionPage() {
               </p>
               {aiInsightStatus === "ready" && aiInsightResult ? (
                 <>
+                  <p className="mb-3 text-[13px] leading-snug text-zinc-300">
+                    Perspective for{" "}
+                    <span className="font-semibold text-zinc-100">
+                      {collectionHeadlineCardName}
+                    </span>
+                    {collectionInsightLabel &&
+                    collectionInsightLabel.trim() !== collectionHeadlineCardName.trim() ? (
+                      <>
+                        {" "}
+                        <span className="text-zinc-500">({collectionInsightLabel})</span>
+                      </>
+                    ) : null}
+                  </p>
                   <div className="mb-3 flex flex-wrap items-center gap-2">
                     {aiInsightResult.marketTone ? (
                       <span
@@ -1142,146 +1229,19 @@ export default function MarketplaceCollectionPage() {
                       </p>
                     </div>
                   </div>
-                  {aiRevealStep >= 1 ? (
-                    <>
-                      <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
-                        AI Insight
-                      </p>
-                      <p className="mb-3 text-zinc-100">{aiInsightResult.summary}</p>
-                    </>
-                  ) : null}
-                  {aiRevealStep >= 2 ? (
-                    <>
-                      <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
-                        Market Structure
-                      </p>
-                      <ul className="mb-3 list-disc space-y-1.5 pl-5 text-zinc-200/95">
-                        {(aiInsightResult.dynamics ?? []).map((line) => (
-                          <li key={line}>{line}</li>
-                        ))}
-                      </ul>
-                    </>
-                  ) : null}
-                  {aiRevealStep >= 3 ? (
-                    <>
-                      <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
-                        Key Signals
-                      </p>
-                      <ul className="list-disc space-y-1.5 pl-5 text-zinc-200/95">
-                        {aiInsightResult.bullets.map((line) => (
-                          <li key={line}>{line}</li>
-                        ))}
-                      </ul>
-                    </>
-                  ) : null}
-                  {aiRevealStep >= 4 ? (
-                    <>
-                      <p className="mt-3 mb-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
-                        Synthetic Forecast Chart
-                      </p>
-                      <div className="mt-2 rounded-2xl border border-zinc-700/60 bg-[#070b10]/90 p-4">
-                        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                          <p className="text-xs font-semibold tracking-wide text-zinc-200/95">
-                            {aiInsightResult.chartSpec?.chartStyle ?? "Expanded Macro View (Wide X-Axis)"}
-                          </p>
-                          <span className="inline-flex items-center rounded-full border border-amber-300/25 bg-amber-500/[0.08] px-2.5 py-1 text-[10px] text-amber-200/90">
-                            Scenario guidance, not deterministic forecast
-                          </span>
-                        </div>
-
-                        {aiInsightResult.chartSpec?.miniSeries &&
-                        aiInsightResult.chartSpec.miniSeries.length >= 2 ? (
-                          <div className="rounded-xl border border-cyan-400/20 bg-black/35 px-3 py-2">
-                            <svg
-                              viewBox="0 0 220 70"
-                              className="h-16 w-full"
-                              preserveAspectRatio="none"
-                            >
-                              {[0, 1, 2, 3, 4].map((i) => (
-                                <line
-                                  key={`h-${i}`}
-                                  x1="0"
-                                  y1={String(i * 17.5)}
-                                  x2="220"
-                                  y2={String(i * 17.5)}
-                                  stroke="rgba(148,163,184,0.13)"
-                                  strokeWidth="0.8"
-                                />
-                              ))}
-                              <path
-                                d={buildMiniChartPath(aiInsightResult.chartSpec.miniSeries, 220, 70)}
-                                fill="none"
-                                stroke="rgba(46, 230, 208, 0.95)"
-                                strokeWidth="2.1"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              />
-                            </svg>
-                            <p className="mt-2 text-[10px] uppercase tracking-wide text-zinc-400">
-                              Forecast Path
-                            </p>
-                            <div className="mt-1 inline-flex max-w-full items-center overflow-x-auto rounded-md border border-cyan-300/25 bg-cyan-500/[0.08] px-2.5 py-1.5">
-                              <span className="whitespace-nowrap font-mono text-[11px] font-semibold tracking-tight text-cyan-100">
-                                {aiInsightResult.chartSpec.pathRepresentation}
-                              </span>
-                            </div>
-                          </div>
-                        ) : null}
-
-                        <div className="mt-3 grid gap-3 lg:grid-cols-2">
-                          <div>
-                            <p className="mb-1 text-[10px] uppercase tracking-wide text-zinc-400">
-                              Momentum Behavior
-                            </p>
-                            <p className="text-zinc-200/95">
-                              {aiInsightResult.chartSpec?.momentumBehavior ?? aiInsightResult.syntheticChart}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="mb-1 text-[10px] uppercase tracking-wide text-zinc-400">
-                              Visual Interpretation
-                            </p>
-                            <p className="text-zinc-300/95">
-                              {aiInsightResult.chartSpec?.visualInterpretation ?? aiInsightResult.syntheticChart}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    </>
-                  ) : null}
-                  {aiRevealStep >= 5 ? (
-                    <>
-                      <p className="mt-3 mb-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
-                        Forward Outlook
-                      </p>
-                      {aiInsightResult.outlook ? (
-                        <p className="text-zinc-200/95">{aiInsightResult.outlook}</p>
-                      ) : null}
-                      {aiInsightResult.outlookScenarios ? (
-                        <ul className="mt-2 list-disc space-y-1.5 pl-5 text-zinc-200/95">
-                          <li> Bull case: {aiInsightResult.outlookScenarios.bullCase}</li>
-                          <li> Base case: {aiInsightResult.outlookScenarios.baseCase}</li>
-                          <li> Bear case: {aiInsightResult.outlookScenarios.bearCase}</li>
-                        </ul>
-                      ) : null}
-                    </>
-                  ) : null}
-                  {aiRevealStep >= 6 ? (
-                    <p className="mt-2 text-[11px] text-zinc-400">
-                      Market Tone:{" "}
-                      <span className="font-semibold text-zinc-200">
-                        {aiInsightResult.marketTone ?? "Accumulating"}
-                      </span>
-                    </p>
-                  ) : null}
-                  {aiInsightResult.cardId ? (
-                    <p className="mt-2 break-all text-[11px] text-zinc-400">
-                      Card ID: {aiInsightResult.cardId}
-                    </p>
-                  ) : null}
-                  <p className="mt-3 text-[11px] text-zinc-500">
-                    Updated {aiInsightResult.generatedAt}
-                  </p>
+                  <AiInsightTypewriter
+                    insight={{
+                      summary: aiInsightResult.summary,
+                      bullets: aiInsightResult.bullets,
+                      dynamics: aiInsightResult.dynamics,
+                      outlook: aiInsightResult.outlook,
+                      outlookScenarios: aiInsightResult.outlookScenarios,
+                    }}
+                    resetKey={aiInsightResult.generatedAt}
+                    durationMs={5000}
+                    toneDisplay={aiInsightResult.marketTone}
+                    generatedAtLine={aiInsightResult.generatedAt}
+                  />
                 </>
               ) : null}
             </div>
@@ -1327,23 +1287,6 @@ export default function MarketplaceCollectionPage() {
             </div>
           )}
         </section>
-
-        <div className="mt-10 border-t border-gray-800/80 pt-8">
-          <button
-            type="button"
-            onClick={() => setShowAdvanced((v) => !v)}
-            className="flex w-full items-center justify-between gap-3 text-left text-sm font-semibold text-gray-300 hover:text-white py-2"
-          >
-            <span>Advanced: trading guide</span>
-            <span className="text-gray-500 tabular-nums">{showAdvanced ? "−" : "+"}</span>
-          </button>
-
-          {showAdvanced && (
-            <div className="mt-4">
-              <CollectionTradeGuide />
-            </div>
-          )}
-        </div>
       </div>
 
       <TradeCelebrationModal

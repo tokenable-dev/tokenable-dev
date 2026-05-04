@@ -452,7 +452,6 @@ flowchart TB
             ORDERBOOK["RwaOrderBook<br/>토큰별 오더북"]:::comp
             MATCHPANEL["TokenCriteriaMatchPanel<br/>입찰 수락"]:::comp
             MKTBOOK["MarketplaceOrderBook<br/>기타 리스팅"]:::comp
-            TRADEGUIDE["CollectionTradeGuide"]:::comp
             COVERFRAME["CollectionCoverFrame"]:::comp
         end
 

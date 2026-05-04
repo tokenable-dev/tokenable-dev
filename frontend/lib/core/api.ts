@@ -772,33 +772,14 @@ export interface CollectionAiInsight {
   summary: string;
   bullets: string[];
   dynamics?: string[];
-  syntheticChart?: string;
-  chartSpec?: {
-    chartStyle: string;
-    trendStructure: string[];
-    momentumBehavior: string;
-    visualInterpretation: string;
-    miniSeries: number[];
-    pathRepresentation: string;
-  };
   outlook?: string;
   outlookScenarios?: {
     bullCase: string;
     baseCase: string;
     bearCase: string;
   };
-  uiInstructions?: {
-    loading: {
-      style: string;
-      scanningEffect: string;
-      minDurationMs: number;
-      maxDurationMs: number;
-    };
-    progressiveRenderOrder: string[];
-  };
   generatedAt: string;
   confidence?: number | null;
-  cardId?: string | null;
   marketTone?:
     | "Bullish"
     | "Cooling"

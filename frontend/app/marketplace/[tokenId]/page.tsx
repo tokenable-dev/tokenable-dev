@@ -3,7 +3,9 @@
 import dynamic from "next/dynamic";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { useReadContract } from "wagmi";
+import Link from "next/link";
+import { useReadContract, usePublicClient, useWriteContract } from "wagmi";
+import type { Address } from "viem";
 import { sepolia } from "@/config/wagmi";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useShallow } from "zustand/react/shallow";
@@ -19,7 +21,6 @@ import {
   type Order,
 } from "@/lib/core";
 import {
-  coefficientOfVariationPctFromUsdSeries,
   percentChangeFromUsdPoints,
   resolveExternalMarketUsd,
 } from "@/lib/market";
@@ -36,6 +37,7 @@ import { CollectionPriceMetricsStrip } from "@/components/marketplace/Collection
 import { GradedMetadataPanel } from "@/components/common";
 import {
   RwaDetailAssetPanel,
+  buildRwaDetailStatRows,
   type RwaDetailMetadata,
 } from "@/components/marketplace/RwaDetailAssetPanel";
 import {
@@ -64,6 +66,8 @@ import {
 } from "@/lib/marketplace/bucketKey";
 import { useAppStore, selectWallet } from "@/store";
 import type { GradedCardMetadata } from "@/types/gradedCard";
+import { fulfillAskListingOrder } from "@/lib/seaport/orders/fulfillAskListing";
+import { mapWalletError } from "@/lib/network";
 
 // ─── Activity history (DB 기반) ───────────────────────────────────────────────
 
@@ -192,6 +196,86 @@ function IconTag({ className }: { className?: string }) {
   );
 }
 
+type BuyerTradingPanelProps = {
+  isConnected: boolean;
+  buyBusy: boolean;
+  buyButtonLabel: string;
+  collectionPageHref: string | null;
+  collectionLinkTitle: string | null;
+  buyErr: string | null;
+  onFulfill: () => void | Promise<void>;
+};
+
+function BuyerTradingPanel({
+  isConnected,
+  buyBusy,
+  buyButtonLabel,
+  collectionPageHref,
+  collectionLinkTitle,
+  buyErr,
+  onFulfill,
+}: BuyerTradingPanelProps) {
+  return (
+    <div className="rounded-2xl border border-gray-800/90 bg-[#0a0d11]/90 p-3 space-y-3">
+      <button
+        type="button"
+        onClick={() => void onFulfill()}
+        disabled={!isConnected || buyBusy}
+        className="w-full inline-flex min-w-0 justify-center items-center rounded-xl bg-mint px-3 py-3.5 text-sm font-semibold text-[#07090c] border border-mint-deep/50 hover:bg-mint-dim disabled:opacity-35 disabled:cursor-not-allowed transition-colors shadow-[0_8px_28px_-14px_rgba(45,212,191,0.35)]"
+      >
+        {buyBusy ? "Buying…" : buyButtonLabel}
+      </button>
+      {collectionPageHref ? (
+        <Link
+          href={collectionPageHref}
+          title={
+            collectionLinkTitle
+              ? `${collectionLinkTitle} — marketplace`
+              : "Open marketplace collection"
+          }
+          className="group flex w-full items-center gap-3 rounded-xl border border-gray-700/85 bg-gradient-to-r from-[#0d1218] to-[#080b0f] px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition-all hover:border-mint/45 hover:from-mint/[0.07] hover:to-[#07090c] hover:shadow-[0_8px_28px_-14px_rgba(45,212,191,0.2)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mint/50"
+        >
+          <span
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-mint-deep/25 bg-mint/10 text-mint/95 transition-colors group-hover:border-mint/40 group-hover:bg-mint/18"
+            aria-hidden
+          >
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+              <polyline points="9 22 9 12 15 12 15 22" />
+            </svg>
+          </span>
+          <span className="min-w-0 flex-1 text-left">
+            <span className="block text-[13px] font-semibold tracking-tight text-white truncate">
+              {collectionLinkTitle ?? "This collection"}
+            </span>
+            <span className="mt-0.5 block text-[11px] font-medium uppercase tracking-wide text-gray-500 group-hover:text-mint/85">
+              Open order book
+            </span>
+          </span>
+          <span
+            className="shrink-0 text-xs font-semibold text-mint/80 transition-transform group-hover:translate-x-0.5 group-hover:text-mint"
+            aria-hidden
+          >
+            →
+          </span>
+        </Link>
+      ) : null}
+      {buyErr ? (
+        <p className="text-xs text-red-400 leading-snug">{buyErr}</p>
+      ) : null}
+    </div>
+  );
+}
+
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function RwaDetailPage() {
@@ -201,13 +285,17 @@ export default function RwaDetailPage() {
   const tokenId = Number(params.tokenId);
 
   const { address, isConnected } = useAppStore(useShallow(selectWallet));
+  const publicClient = usePublicClient({ chainId: sepolia.id });
+  const { writeContractAsync } = useWriteContract();
 
   const queryClient = useQueryClient();
 
-  const [detailsExtraOpen, setDetailsExtraOpen] = useState(false);
+  const [assetMoreDetailsOpen, setAssetMoreDetailsOpen] = useState(false);
   const [listModalOpen, setListModalOpen] = useState(false);
   const [listModalInitialPrice, setListModalInitialPrice] = useState<string | null>(null);
   const [tradeCelebration, setTradeCelebration] = useState<TradeCelebrationKind | null>(null);
+  const [buyBusy, setBuyBusy] = useState(false);
+  const [buyErr, setBuyErr] = useState<string | null>(null);
 
   const tokenIdOk = Number.isFinite(tokenId) && tokenId >= 0;
 
@@ -425,16 +513,7 @@ export default function RwaDetailPage() {
     ],
   );
 
-  const tokenNmPts = tokenNmHistory?.points ?? [];
   const tokenYearPts = tokenYearHistory?.points ?? [];
-
-  const tokenExternalVol = useMemo(() => {
-    const y = coefficientOfVariationPctFromUsdSeries(tokenYearPts);
-    if (y != null) return y;
-    return tokenNmPts.length >= 3
-      ? coefficientOfVariationPctFromUsdSeries(tokenNmPts)
-      : null;
-  }, [tokenNmPts, tokenYearPts]);
 
   const tokenPriceChange1yPct = useMemo(
     () =>
@@ -444,28 +523,48 @@ export default function RwaDetailPage() {
 
   const tokenTierLabel = marketTierDisplayLabel(pokeTierForToken);
 
-  const tokenVolatilityFootnote = useMemo(() => {
-    const yPos = tokenYearPts.filter((p) => p.v > 0).length;
-    if (yPos >= 3) return "~1y Cardhedger tier daily closes";
-    const sPos = tokenNmPts.filter((p) => p.v > 0).length;
-    if (sPos >= 3) return "Cardhedger chart-window tier daily closes";
-    return null;
-  }, [tokenYearPts, tokenNmPts]);
-
   const showTokenPriceChange =
     tokenYearHistLoading ||
     (tokenPriceChange1yPct != null && Number.isFinite(tokenPriceChange1yPct));
-  const showTokenVolatility =
-    tokenNmHistLoading ||
-    tokenYearHistLoading ||
-    (tokenExternalVol != null && Number.isFinite(tokenExternalVol));
   const showTokenMarketCap = false;
+
+  const rwaDetailStatRows = useMemo(
+    () => buildRwaDetailStatRows(metadata as RwaDetailMetadata | null),
+    [metadata],
+  );
+
+  const certificationUrl = useMemo(() => {
+    const u = metadata?.external_url;
+    if (typeof u !== "string") return null;
+    const t = u.trim();
+    return t ? t : null;
+  }, [metadata?.external_url]);
 
   // ── Buy (ask listing) ─────────────────────────────────────────────────────
 
   const isListingSeller =
     address?.toLowerCase() === listing?.offerer.toLowerCase();
   const collectionBids = collectionDetail?.collectionBids ?? [];
+
+  const activeAskListing = useMemo(() => {
+    if (!listing || listing.side === "bid") return null;
+    return listing;
+  }, [listing]);
+
+  const listingBuyPriceUsdc = useMemo(() => {
+    const raw = activeAskListing?.considerationAmount;
+    if (raw == null || String(raw).trim() === "") return null;
+    const n = Number(raw) / 1_000_000;
+    return Number.isFinite(n) ? n : null;
+  }, [activeAskListing?.considerationAmount]);
+
+  const buyButtonLabel =
+    listingBuyPriceUsdc != null
+      ? `Buy · ${listingBuyPriceUsdc.toLocaleString("en-US", {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })} USDC`
+      : "Buy";
 
   const ownerAddr =
     typeof ownerOnChain === "string" ? ownerOnChain.toLowerCase() : "";
@@ -514,7 +613,41 @@ export default function RwaDetailPage() {
     await queryClient.invalidateQueries({ queryKey: ["collection-market-stats"] });
   }
 
+  async function handleFulfillAsk() {
+    if (!activeAskListing || !address || !publicClient) return;
+    setBuyErr(null);
+    setBuyBusy(true);
+    try {
+      await fulfillAskListingOrder({
+        ask: activeAskListing,
+        address: address as Address,
+        publicClient,
+        writeContractAsync: writeContractAsync as Parameters<
+          typeof fulfillAskListingOrder
+        >[0]["writeContractAsync"],
+        chainId: sepolia.id,
+      });
+      setTradeCelebration("purchase");
+      await invalidateMarketplaceQueries();
+      navigateToCollectionAfterTrade();
+    } catch (e: unknown) {
+      setBuyErr(mapWalletError(e).message);
+    } finally {
+      setBuyBusy(false);
+    }
+  }
+
+  useEffect(() => {
+    setBuyErr(null);
+  }, [activeAskListing?.orderHash, address]);
+
   // ── Derived ────────────────────────────────────────────────────────────────
+
+  const collectionPageHref = collectionKeyForRedirect
+    ? `/marketplace/collections/${encodeURIComponent(collectionKeyForRedirect)}`
+    : null;
+  const collectionLinkTitle =
+    collectionDetail?.collection?.displayLabel?.trim() ?? null;
 
   const imageUrl = metaBundle?.imageUrl ?? null;
   const isPageLoading = ownerLoading;
@@ -598,36 +731,236 @@ export default function RwaDetailPage() {
         {/* Main content */}
         {showMain && (
           <>
-            <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_min(420px,100%)] gap-8 xl:gap-10 items-start">
-              {/* Left — 슬랩 이미지 · 제목 · 배지 · 카드 메타 그리드 */}
-              <RwaDetailAssetPanel
-                metadata={metadata as RwaDetailMetadata | null}
-                imageUrl={imageUrl}
-                tokenId={tokenId}
-                collectionLabel={TOKENABLE_RWA_DISPLAY_NAME}
-                metaLoading={metaLoading}
-              />
+            <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_min(420px,100%)] gap-y-8 gap-x-0 xl:gap-x-10 xl:gap-y-10 items-start">
+              {/* Left — slab · title · badges · metrics (narrow) */}
+              <div className="min-w-0 xl:col-start-1 xl:row-start-1">
+                <RwaDetailAssetPanel
+                  metadata={metadata as RwaDetailMetadata | null}
+                  imageUrl={imageUrl}
+                  tokenId={tokenId}
+                  collectionLabel={TOKENABLE_RWA_DISPLAY_NAME}
+                  metaLoading={metaLoading}
+                  priceMetricsSlot={
+                    collectionKeyForMatch ? (
+                      <div className="xl:hidden min-w-0 px-0.5">
+                        <CollectionPriceMetricsStrip
+                          externalMarketUsd={tokenResolvedExternal.usd}
+                          externalPriceLoading={
+                            marketPreviewLoading ||
+                            tokenSeriesLoading ||
+                            tokenNmHistLoading
+                          }
+                          marketStats={tokenPagePoolStats ?? null}
+                          marketStatsLoading={tokenPagePoolStatsLoading}
+                          platformPriceSamples={[]}
+                          bookSpreadPct={null}
+                          externalPriceChange1yPct={tokenPriceChange1yPct}
+                          externalPriceChange1yLoading={tokenYearHistLoading}
+                          marketCapUsd={null}
+                          marketCapMethodHint={null}
+                          showPriceChange={showTokenPriceChange}
+                          showVolatility={false}
+                          showMarketCap={showTokenMarketCap}
+                          compact
+                          formatMarketCap={() => "—"}
+                        />
+                      </div>
+                    ) : null
+                  }
+                />
+              </div>
 
-              {/* Right column */}
-              <div className="space-y-4 xl:sticky xl:top-20 xl:self-start min-w-0">
+              {activeAskListing && !isOwner && (
+                <div className="min-w-0 xl:hidden">
+                  <BuyerTradingPanel
+                    isConnected={isConnected}
+                    buyBusy={buyBusy}
+                    buyButtonLabel={buyButtonLabel}
+                    collectionPageHref={collectionPageHref}
+                    collectionLinkTitle={collectionLinkTitle}
+                    buyErr={buyErr}
+                    onFulfill={handleFulfillAsk}
+                  />
+                </div>
+              )}
+
+              <div className="min-w-0 xl:col-span-2 xl:col-start-1 xl:row-start-2">
+                <div className="rounded-2xl border border-gray-800/90 bg-[#0a0d11]/90 overflow-hidden shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
+                  <div className="border-b border-gray-800/60 px-4 py-3.5">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                  {certificationUrl ? (
+                    <a
+                      href={certificationUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title={certificationUrl}
+                      className="inline-flex min-w-0 max-w-full items-center gap-1.5 text-sm font-medium text-mint/85 transition-colors hover:text-mint sm:flex-1"
+                    >
+                      <span className="truncate">View certification link</span>
+                      <span className="shrink-0" aria-hidden>
+                        ↗
+                      </span>
+                    </a>
+                  ) : null}
+                  <button
+                    type="button"
+                    aria-expanded={assetMoreDetailsOpen}
+                    onClick={() => setAssetMoreDetailsOpen((v) => !v)}
+                    className={`flex items-center justify-between gap-3 rounded-lg text-left text-sm font-semibold text-white transition-colors hover:bg-white/[0.04] ${
+                      certificationUrl
+                        ? "w-full py-1 sm:w-auto sm:justify-end sm:px-3 sm:py-2"
+                        : "w-full py-1"
+                    }`}
+                  >
+                    <span>More details</span>
+                    <span
+                      className={`text-xs text-gray-500 transition-transform duration-200 ${assetMoreDetailsOpen ? "rotate-180" : ""}`}
+                      aria-hidden
+                    >
+                      ▼
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              {assetMoreDetailsOpen && (
+                <div className="space-y-6 px-4 pb-5 pt-5">
+                  {rwaDetailStatRows.length > 0 ? (
+                    <dl className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
+                      {rwaDetailStatRows.map((row) => (
+                        <div key={row.label} className="min-w-0">
+                          <dt className="mb-1 text-[11px] font-medium uppercase tracking-wider text-gray-500">
+                            {row.label}
+                          </dt>
+                          <dd
+                            className={`text-sm font-medium leading-snug break-words ${
+                              row.label === "Player"
+                                ? "text-mint"
+                                : "text-gray-100"
+                            }`}
+                          >
+                            {row.value}
+                          </dd>
+                        </div>
+                      ))}
+                    </dl>
+                  ) : null}
+
+                  <GradedMetadataPanel
+                    embedded
+                    properties={metadata?.properties as Record<string, unknown> | undefined}
+                    attributes={metadata?.attributes}
+                  />
+
+                  <div className="space-y-3 border-t border-gray-800/60 pt-6">
+                    <h3 className="text-[11px] font-medium uppercase tracking-wider text-gray-500">
+                      On-chain
+                    </h3>
+                    <dl className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
+                      <div>
+                        <dt className="text-xs text-gray-500">Standard</dt>
+                        <dd className="mt-0.5 text-sm text-gray-200">ERC-721</dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs text-gray-500">Chain</dt>
+                        <dd className="mt-0.5 text-sm text-gray-200">Ethereum Sepolia</dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs text-gray-500">Token ID</dt>
+                        <dd
+                          className="mt-0.5 font-mono text-sm text-gray-200"
+                          title={String(tokenId)}
+                        >
+                          {formatTokenIdDisplay(tokenId)}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs text-gray-500">Contract address</dt>
+                        <dd className="mt-0.5">
+                          <a
+                            href={`https://sepolia.etherscan.io/address/${TOKENABLE_RWA_ADDRESS}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm font-mono text-mint hover:text-mint-dim"
+                            title={TOKENABLE_RWA_ADDRESS}
+                          >
+                            {shortAddr(TOKENABLE_RWA_ADDRESS)} ↗
+                          </a>
+                        </dd>
+                      </div>
+                      <div className="sm:col-span-2">
+                        <dt className="text-xs text-gray-500">Owner address</dt>
+                        <dd className="mt-0.5">
+                          {(() => {
+                            const o =
+                              typeof ownerOnChain === "string" ? ownerOnChain : undefined;
+                            if (!o) {
+                              return <span className="text-sm text-gray-500">—</span>;
+                            }
+                            return (
+                              <a
+                                href={`https://sepolia.etherscan.io/address/${o}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-sm font-mono text-mint hover:text-mint-dim"
+                                title={o}
+                              >
+                                {shortAddr(o)} ↗
+                              </a>
+                            );
+                          })()}
+                        </dd>
+                      </div>
+                    </dl>
+
+                    {tokenURIOnChain ? (
+                      <div className="border-t border-gray-800/60 pt-4">
+                        <p className="text-xs text-gray-500">Metadata link</p>
+                        <p
+                          className="mt-1 break-all font-mono text-[11px] text-gray-400"
+                          title={tokenURIOnChain}
+                        >
+                          {tokenURIOnChain.length > 96
+                            ? `${tokenURIOnChain.slice(0, 44)}…${tokenURIOnChain.slice(-36)}`
+                            : tokenURIOnChain}
+                        </p>
+                      </div>
+                    ) : null}
+
+                    <div
+                      className={
+                        tokenURIOnChain
+                          ? "pt-4"
+                          : "border-t border-gray-800/60 pt-4"
+                      }
+                    >
+                      <a
+                        href={`https://sepolia.etherscan.io/address/${SEAPORT_ADDRESS}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm text-mint hover:text-mint-dim"
+                      >
+                        Seaport (trading) ↗
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              )}
+                </div>
+              </div>
+
+              <div className="space-y-4 xl:sticky xl:top-20 xl:self-start min-w-0 xl:col-start-2 xl:row-start-1">
                 {listingError && (
                   <p className="text-xs text-orange-400 px-1">Could not load listing.</p>
                 )}
 
-                {collectionKeyForMatch && (
-                  <div className="rounded-2xl border border-gray-800/90 bg-[#0a0d11]/90 p-3 space-y-2">
+                {collectionKeyForMatch ? (
+                  <div className="hidden xl:block min-w-0">
                     <CollectionPriceMetricsStrip
                       externalMarketUsd={tokenResolvedExternal.usd}
-                      externalPriceSource={tokenResolvedExternal.source}
-                      marketTierDisplay={tokenTierLabel}
-                      externalMarketMatchConfidence={
-                        tokenResolvedExternal.marketMatchConfidence
-                      }
                       externalPriceLoading={
                         marketPreviewLoading || tokenSeriesLoading || tokenNmHistLoading
                       }
-                      externalVolatilityCvPct={tokenExternalVol}
-                      volatilityFootnote={tokenVolatilityFootnote}
                       marketStats={tokenPagePoolStats ?? null}
                       marketStatsLoading={tokenPagePoolStatsLoading}
                       platformPriceSamples={[]}
@@ -637,13 +970,13 @@ export default function RwaDetailPage() {
                       marketCapUsd={null}
                       marketCapMethodHint={null}
                       showPriceChange={showTokenPriceChange}
-                      showVolatility={showTokenVolatility}
+                      showVolatility={false}
                       showMarketCap={showTokenMarketCap}
                       compact
                       formatMarketCap={() => "—"}
                     />
                   </div>
-                )}
+                ) : null}
 
                 <div className="space-y-1">
                   <CollectionMarketPanel
@@ -655,146 +988,37 @@ export default function RwaDetailPage() {
                     error={marketPreviewError}
                   />
                 </div>
-                {marketPreview?.matched && marketPreview.card ? (
-                  <div className="rounded-xl border border-gray-800/90 bg-[#0a0d11]/80 px-3 py-2">
-                    <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
-                      Cardhedger Link
-                    </p>
-                    <p className="mt-1 break-all font-mono text-[11px] text-zinc-300">
-                      {marketPreview.card.id}
-                    </p>
-                    <p className="mt-1 text-[11px] text-zinc-500">
-                      Match {marketPreview.matchConfidence ?? "unknown"}
-                      {marketPreview.card.sales30d != null
-                        ? ` · 30D sales ${marketPreview.card.sales30d}`
-                        : ""}
-                      {marketPreview.card.gainPct7d != null
-                        ? ` · 7D ${marketPreview.card.gainPct7d >= 0 ? "+" : ""}${marketPreview.card.gainPct7d.toFixed(1)}%`
-                        : ""}
-                    </p>
-                  </div>
-                ) : null}
 
-                <div className="rounded-2xl border border-gray-800/90 bg-[#0a0d11]/90 p-3 space-y-3">
+                {isOwner && (
+                  <div className="rounded-2xl border border-gray-800/90 bg-[#0a0d11]/90 p-3 space-y-3">
                     <button
                       type="button"
                       onClick={() => {
                         setListModalInitialPrice(null);
                         setListModalOpen(true);
                       }}
-                      disabled={!isOwner || !isConnected}
+                      disabled={!isConnected}
                       className="w-full inline-flex min-w-0 justify-center items-center rounded-xl bg-mint/15 px-3 py-3.5 text-sm font-semibold text-mint border border-mint-deep/35 hover:bg-mint/25 disabled:opacity-35 disabled:cursor-not-allowed transition-colors shadow-[0_8px_28px_-14px_rgba(45,212,191,0.35)]"
                     >
                       {listing ? "Manage listing" : "List for sale"}
                     </button>
                   </div>
-
-                <div className="bg-[#0a0d11]/90 border border-mint-deep/20 rounded-2xl p-4">
-                  <h3 className="text-sm font-semibold text-white mb-4">Details</h3>
-                  <dl className="space-y-4">
-                    <div>
-                      <dt className="text-xs text-gray-500">Standard</dt>
-                      <dd className="text-sm text-gray-200 mt-0.5">ERC-721</dd>
-                    </div>
-                    <div>
-                      <dt className="text-xs text-gray-500">Chain</dt>
-                      <dd className="text-sm text-gray-200 mt-0.5">Ethereum Sepolia</dd>
-                    </div>
-                    <div>
-                      <dt className="text-xs text-gray-500">Token ID</dt>
-                      <dd
-                        className="text-sm text-gray-200 mt-0.5 font-mono"
-                        title={String(tokenId)}
-                      >
-                        {formatTokenIdDisplay(tokenId)}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-xs text-gray-500">Contract address</dt>
-                      <dd className="mt-0.5">
-                        <a
-                          href={`https://sepolia.etherscan.io/address/${TOKENABLE_RWA_ADDRESS}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-sm font-mono text-mint hover:text-mint-dim"
-                          title={TOKENABLE_RWA_ADDRESS}
-                        >
-                          {shortAddr(TOKENABLE_RWA_ADDRESS)} ↗
-                        </a>
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-xs text-gray-500">Owner address</dt>
-                      <dd className="mt-0.5">
-                        {(() => {
-                          const o =
-                            typeof ownerOnChain === "string" ? ownerOnChain : undefined;
-                          if (!o) {
-                            return (
-                              <span className="text-sm text-gray-500">—</span>
-                            );
-                          }
-                          return (
-                            <a
-                              href={`https://sepolia.etherscan.io/address/${o}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-sm font-mono text-mint hover:text-mint-dim"
-                              title={o}
-                            >
-                              {shortAddr(o)} ↗
-                            </a>
-                          );
-                        })()}
-                      </dd>
-                    </div>
-                  </dl>
-
-                  {detailsExtraOpen && (
-                    <div className="mt-4 pt-4 border-t border-gray-800 space-y-3 text-sm">
-                      {tokenURIOnChain && (
-                        <div>
-                          <p className="text-xs text-gray-500">Metadata link</p>
-                          <p
-                            className="mt-1 font-mono text-[11px] text-gray-400 break-all"
-                            title={tokenURIOnChain}
-                          >
-                            {tokenURIOnChain.length > 96
-                              ? `${tokenURIOnChain.slice(0, 44)}…${tokenURIOnChain.slice(-36)}`
-                              : tokenURIOnChain}
-                          </p>
-                        </div>
-                      )}
-                      <div>
-                        <a
-                          href={`https://sepolia.etherscan.io/address/${SEAPORT_ADDRESS}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-mint hover:text-mint-dim text-sm"
-                        >
-                          Seaport (trading) ↗
-                        </a>
-                      </div>
-                    </div>
-                  )}
-
-                  <button
-                    type="button"
-                    onClick={() => setDetailsExtraOpen((v) => !v)}
-                    className="mt-4 w-full text-left text-xs text-gray-500 hover:text-gray-300 transition-colors py-1"
-                  >
-                    {detailsExtraOpen ? "Less" : "More"}
-                  </button>
-                </div>
+                )}
+                {activeAskListing && !isOwner && (
+                  <div className="hidden xl:block">
+                    <BuyerTradingPanel
+                      isConnected={isConnected}
+                      buyBusy={buyBusy}
+                      buyButtonLabel={buyButtonLabel}
+                      collectionPageHref={collectionPageHref}
+                      collectionLinkTitle={collectionLinkTitle}
+                      buyErr={buyErr}
+                      onFulfill={handleFulfillAsk}
+                    />
+                  </div>
+                )}
               </div>
             </div>
-
-            {metadata?.properties && (
-              <GradedMetadataPanel
-                properties={metadata.properties as Record<string, unknown>}
-                attributes={metadata.attributes}
-              />
-            )}
 
             <div className="rounded-2xl border border-mint-deep/20 bg-[#0a0d11]/90 overflow-hidden shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
               <div className="flex items-center justify-between px-4 py-3.5 border-b border-gray-800/80">

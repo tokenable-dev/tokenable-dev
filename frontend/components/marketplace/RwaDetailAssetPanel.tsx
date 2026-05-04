@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { RwaImageZoom } from "@/components/common";
 import { postResolveMediaUrls } from "@/lib/core";
@@ -106,11 +106,113 @@ export function buildRwaDetailStatRows(meta: RwaDetailMetadata | null): {
   return rows;
 }
 
-const BADGE_TONES = [
-  "bg-violet-500/20 text-violet-200 border-violet-400/30",
-  "bg-amber-500/15 text-amber-200 border-amber-400/25",
-  "bg-mint/15 text-mint border-mint-deep/35",
-] as const;
+/** 카드 헤더용: 연도 · 세트 · | · 카드번호 (참조 UI 형태). */
+export function formatRwaSetHeadline(meta: RwaDetailMetadata | null): string | null {
+  if (!meta) return null;
+  const graded = meta.properties?.graded as Record<string, unknown> | undefined;
+  const psa = graded?.psa as Record<string, unknown> | undefined;
+  const card = graded?.card as Record<string, unknown> | undefined;
+  const numRaw = pickString(card?.number, psa?.cardNumberHint);
+  const set = pickString(card?.set, psa?.setHint);
+  const year = pickString(psa?.year, card?.year);
+  let left = "";
+  if (year && set) left = `${year} ${set}`;
+  else left = pickString(year, set) ?? "";
+  left = left.trim();
+
+  let numFormatted: string | null = null;
+  if (numRaw) {
+    const s = String(numRaw).trim();
+    numFormatted = s.startsWith("#") ? s : `#${s}`;
+  }
+
+  if (left && numFormatted) return `${left} | ${numFormatted}`;
+  if (left) return left;
+  if (numFormatted) return numFormatted;
+
+  if (meta.attributes?.length) {
+    let setAttr: string | undefined;
+    let numAttr: string | undefined;
+    for (const a of meta.attributes) {
+      const tt = (a.trait_type ?? "").trim().toLowerCase();
+      const v = String(a.value ?? "").trim();
+      if (!v) continue;
+      if (tt === "set") setAttr = v;
+      const numish =
+        tt === "card number" ||
+        tt === "card #" ||
+        tt === "card no" ||
+        tt === "#" ||
+        tt === "number";
+      if (numish)
+        numAttr = v.startsWith("#") ? v : `#${v}`;
+    }
+    if (setAttr && numAttr) return `${setAttr} | ${numAttr}`;
+    return pickString(setAttr, numAttr) ?? null;
+  }
+  return null;
+}
+
+/** 카테고리(예: Pokemon) · 등급(예: PSA 10) 우선 헤더 배지. */
+function pickHeaderCategoryGrade(
+  meta: RwaDetailMetadata | null,
+): {
+  category: string | null;
+  gradeLine: string | null;
+} {
+  if (!meta) return { category: null, gradeLine: null };
+  const graded = meta.properties?.graded as Record<string, unknown> | undefined;
+  const psa = graded?.psa as Record<string, unknown> | undefined;
+  const grade = graded?.grade as Record<string, unknown> | undefined;
+
+  let category =
+    pickString(psa?.category) ??
+    (typeof graded?.sport === "string" ? graded.sport.trim() : undefined);
+
+  const company = pickString(
+    typeof psa?.company === "string" ? psa.company.trim() : undefined,
+  );
+  let gradeLabel = pickString(
+    psa?.gradeLabel,
+    typeof grade?.label === "string" ? String(grade.label).trim() : undefined,
+  );
+
+  let gradeLine: string | null = null;
+  if (gradeLabel) {
+    const g = gradeLabel.trim();
+    if (/^psa\s/i.test(g)) gradeLine = g.toUpperCase();
+    else if (company) gradeLine = `${company} ${g}`.trim();
+    else gradeLine = g;
+  }
+
+  let catOut = category?.trim() ?? null;
+  let gradeOut = gradeLine?.trim() ?? null;
+
+  for (const a of meta.attributes ?? []) {
+    const trait = (a.trait_type ?? "").trim();
+    const tl = trait.toLowerCase();
+    const v = String(a.value ?? "").trim();
+    if (!v) continue;
+    if (!catOut && /^(category|game|type)$/i.test(tl)) catOut = v;
+    if (
+      !gradeOut &&
+      (/^grade$/i.test(tl) || /^psa(\s|$)/i.test(trait))
+    )
+      gradeOut = v;
+  }
+
+  return {
+    category: catOut?.length ? catOut : null,
+    gradeLine: gradeOut?.length ? gradeOut : null,
+  };
+}
+
+function sanitizedDescription(metadata: RwaDetailMetadata | null): string | null {
+  const t = metadata?.description?.trim();
+  if (!t) return null;
+  if (/^no\s+description\.?$/i.test(t)) return null;
+  return t;
+}
 
 /** Filled triangle — resume auto slab rotation. */
 function SlabPlayGlyph({ className }: { className?: string }) {
@@ -131,38 +233,18 @@ function SlabPauseGlyph({ className }: { className?: string }) {
   );
 }
 
-function selectBadges(meta: RwaDetailMetadata | null): { text: string; toneIdx: number }[] {
-  if (!meta?.attributes?.length) return [];
-  const out: { text: string; toneIdx: number }[] = [];
-  for (const a of meta.attributes) {
-    if (out.length >= 3) break;
-    const trait = (a.trait_type ?? "").trim();
-    const val = String(a.value ?? "").trim();
-    if (!val) continue;
-    if (/grading\s*company/i.test(trait)) continue;
-    const preferValue =
-      /^(set|game|category|year|player)$/i.test(trait) ||
-      val.length <= 48;
-    const text = preferValue
-      ? val.length > 44
-        ? `${val.slice(0, 42)}…`
-        : val
-      : `${trait}: ${val.length > 32 ? `${val.slice(0, 30)}…` : val}`;
-    out.push({ text, toneIdx: out.length % BADGE_TONES.length });
-  }
-  return out;
-}
-
 export interface RwaDetailAssetPanelProps {
   metadata: RwaDetailMetadata | null;
   imageUrl: string | null;
   tokenId: number;
   collectionLabel: string;
   metaLoading?: boolean;
+  /** Below title · above slab · pass `xl:hidden` from parent when only for narrow viewports */
+  priceMetricsSlot?: ReactNode;
 }
 
 /**
- * 마켓플레이스 RWA 상세 — 왼쪽: 슬랩 이미지, 제목, 배지, 스탯 그리드 (참고 UI)
+ * 마켓플레이스 RWA 상세 — 카드 메타·슬랩·스탯
  */
 export function RwaDetailAssetPanel({
   metadata,
@@ -170,14 +252,22 @@ export function RwaDetailAssetPanel({
   tokenId,
   collectionLabel,
   metaLoading,
+  priceMetricsSlot,
 }: RwaDetailAssetPanelProps) {
   const title =
     metadata?.name ?? `${collectionLabel} #${tokenId}`;
   const slabAltCaption = typeof metadata?.name === "string" && metadata.name.trim()
     ? metadata.name.trim()
     : `${collectionLabel} #${tokenId}`;
-  const statRows = buildRwaDetailStatRows(metadata);
-  const badges = selectBadges(metadata);
+  const setHeadline = useMemo(() => formatRwaSetHeadline(metadata), [metadata]);
+  const { category: headerCategory, gradeLine: headerGradeLine } = useMemo(
+    () => pickHeaderCategoryGrade(metadata),
+    [metadata],
+  );
+  const readableDescription = useMemo(
+    () => sanitizedDescription(metadata),
+    [metadata],
+  );
 
   const backCandidate = useMemo(() => extractGradedSlabBackCandidate(metadata), [metadata]);
 
@@ -233,8 +323,54 @@ export function RwaDetailAssetPanel({
   const slabHeroSizing =
     "relative mx-auto aspect-[3/4] w-full overflow-visible rounded-2xl max-h-[min(84vh,800px)] sm:max-h-[min(86vh,880px)]";
 
+  const headerRowPulse =
+    Boolean(metaLoading) && !headerCategory && !headerGradeLine && !setHeadline;
+  const titlePulse = Boolean(metaLoading) && !metadata?.name?.trim();
+
   return (
-    <div className="min-w-0 space-y-5">
+    <div className="flex min-w-0 flex-col gap-5 lg:gap-6">
+      <div className="space-y-2.5 px-0.5 lg:space-y-3 lg:px-0">
+        <div className="flex flex-wrap items-start gap-x-3 gap-y-2">
+          {headerRowPulse ? (
+            <>
+              <span className="h-6 w-[4.75rem] shrink-0 animate-pulse rounded-md bg-gray-800/90" aria-hidden />
+              <span className="h-6 w-14 shrink-0 animate-pulse rounded-md bg-gray-800/90" aria-hidden />
+              <span className="block h-4 min-w-[8rem] flex-1 animate-pulse rounded-md bg-gray-800/70" aria-hidden />
+            </>
+          ) : (
+            <>
+              {headerCategory ? (
+                <span className="inline-flex shrink-0 items-center rounded-md border border-amber-400/40 bg-amber-500/[0.22] px-2.5 py-1 text-[11px] font-semibold capitalize tracking-wide text-amber-50">
+                  {headerCategory}
+                </span>
+              ) : null}
+              {headerGradeLine ? (
+                <span className="inline-flex shrink-0 items-center rounded-md border border-mint-deep/45 bg-mint/15 px-2.5 py-1 text-[11px] font-semibold text-mint ring-1 ring-mint-deep/25">
+                  {headerGradeLine}
+                </span>
+              ) : null}
+              {metaLoading && !setHeadline ? (
+                <span className="h-4 min-w-[10rem] flex-1 animate-pulse rounded-md bg-gray-800/70" aria-hidden />
+              ) : setHeadline ? (
+                  <p className="min-w-[min(100%,14rem)] flex-1 basis-[65%] text-left text-[13px] font-medium leading-snug text-gray-100 sm:basis-auto sm:text-sm">
+                    {setHeadline}
+                  </p>
+              ) : null}
+            </>
+          )}
+        </div>
+
+        {titlePulse ? (
+          <div className="h-8 w-[min(100%,20rem)] max-w-full animate-pulse rounded-lg bg-gray-800/85" aria-hidden />
+        ) : (
+          <h1 className="text-2xl font-bold leading-snug tracking-tight text-white sm:text-[1.65rem]">
+            {title}
+          </h1>
+        )}
+      </div>
+
+      {priceMetricsSlot ?? null}
+
       <div className="min-w-0 space-y-3">
         {/* overflow-visible preserves 3D flip (rotateY edges) */}
         <div className={`${slabHeroSizing} bg-transparent`}>
@@ -242,7 +378,7 @@ export function RwaDetailAssetPanel({
             <>
               <div className={`${slabHeroSizing} bg-[#030508]`}>
                 {frontHeroLoading ? (
-              <div className="absolute inset-0 animate-pulse rounded-2xl bg-gray-800/80" />
+                  <div className="absolute inset-0 animate-pulse rounded-2xl bg-gray-800/80" />
                 ) : imageUrl ? (
                   <SlabCardFlip
                     frontSrc={imageUrl}
@@ -297,12 +433,12 @@ export function RwaDetailAssetPanel({
 
         {useFlipSlab ? (
           <>
-            <div className="mt-0 flex flex-wrap items-end justify-center gap-2 sm:gap-3">
+            <div className="mt-0 flex flex-wrap items-end justify-center gap-3 sm:gap-4">
               {hasBackFace && !backHeroLoading && imageUrl && !frontHeroLoading ? (
                 <button
                   type="button"
                   aria-pressed={slabAutoRotateOn}
-                  className={`group relative aspect-[3/4] w-12 shrink-0 overflow-hidden rounded-lg border-2 bg-black/35 shadow-[0_6px_20px_-10px_rgba(0,0,0,0.75)] transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mint/70 ${
+                  className={`group relative aspect-[3/4] w-14 shrink-0 overflow-hidden rounded-lg border-2 bg-black/35 shadow-[0_6px_20px_-10px_rgba(0,0,0,0.75)] transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mint/70 ${
                     slabAutoRotateOn
                       ? "border-mint/40 ring-1 ring-mint/15 hover:border-mint/55 hover:ring-mint/25"
                       : "border-mint/55 ring-1 ring-mint/20 hover:border-mint/80 hover:ring-mint/35"
@@ -330,17 +466,17 @@ export function RwaDetailAssetPanel({
                         : "bg-black/40 group-hover:bg-black/32"
                     }`}
                   >
-                    <span className="flex h-[1.625rem] w-[1.625rem] shrink-0 items-center justify-center rounded-full bg-white/95 shadow-md ring-1 ring-black/45">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/95 shadow-md ring-1 ring-black/45">
                       {slabAutoRotateOn ? (
-                        <SlabPauseGlyph className="h-3 w-3 text-[#0a1210]" />
+                        <SlabPauseGlyph className="h-3.5 w-3.5 text-[#0a1210]" />
                       ) : (
-                        <SlabPlayGlyph className="h-3 w-3 translate-x-[1px] text-[#0a1210]" />
+                        <SlabPlayGlyph className="h-3.5 w-3.5 translate-x-[1px] text-[#0a1210]" />
                       )}
                     </span>
                   </span>
                 </button>
               ) : null}
-              <div className="flex gap-2" role="tablist" aria-label="Slab photo side">
+              <div className="flex gap-2.5" role="tablist" aria-label="Slab photo side">
                 <button
                   type="button"
                   role="tab"
@@ -351,7 +487,7 @@ export function RwaDetailAssetPanel({
                     setSlabAutoRotateOn(false);
                     setFlipAngle(0);
                   }}
-                  className={`relative aspect-[3/4] w-12 shrink-0 overflow-hidden rounded-lg border-2 transition-colors ${
+                  className={`relative aspect-[3/4] w-14 shrink-0 overflow-hidden rounded-lg border-2 transition-colors ${
                     showFrontFlipTab
                       ? "border-mint/65 bg-mint/10 ring-2 ring-mint/25"
                       : "border-gray-700/90 bg-black/40 opacity-85 hover:border-gray-500 hover:opacity-100"
@@ -359,7 +495,7 @@ export function RwaDetailAssetPanel({
                 >
                   {frontHeroLoading ? (
                     <span
-                      className="block h-full min-h-[4rem] w-full animate-pulse bg-gray-800"
+                      className="block h-full min-h-[4.5rem] w-full animate-pulse bg-gray-800"
                       aria-hidden
                     />
                   ) : imageUrl ? (
@@ -372,7 +508,7 @@ export function RwaDetailAssetPanel({
                       referrerPolicy="no-referrer"
                     />
                   ) : (
-                    <span className="flex min-h-[4rem] w-full items-center justify-center bg-[#0a0f16] text-[10px] text-zinc-600">
+                    <span className="flex min-h-[4.5rem] w-full items-center justify-center bg-[#0a0f16] text-[10px] text-zinc-600">
                       —
                     </span>
                   )}
@@ -387,7 +523,7 @@ export function RwaDetailAssetPanel({
                     setSlabAutoRotateOn(false);
                     setFlipAngle(180);
                   }}
-                  className={`relative aspect-[3/4] w-12 shrink-0 overflow-hidden rounded-lg border-2 transition-colors ${
+                  className={`relative aspect-[3/4] w-14 shrink-0 overflow-hidden rounded-lg border-2 transition-colors ${
                     !showFrontFlipTab
                       ? "border-mint/65 bg-mint/10 ring-2 ring-mint/25"
                       : "border-gray-700/90 bg-black/40 opacity-85 hover:border-gray-500 hover:opacity-100"
@@ -395,7 +531,7 @@ export function RwaDetailAssetPanel({
                 >
                   {backHeroLoading ? (
                     <span
-                      className="block h-full min-h-[4rem] w-full animate-pulse bg-gray-800"
+                      className="block h-full min-h-[4.5rem] w-full animate-pulse bg-gray-800"
                       aria-hidden
                     />
                   ) : effectiveBackUrl ? (
@@ -409,7 +545,7 @@ export function RwaDetailAssetPanel({
                       referrerPolicy="no-referrer"
                     />
                   ) : (
-                    <span className="flex min-h-[4rem] w-full flex-col items-center justify-center gap-0.5 bg-[#0a0f16] px-1 text-center">
+                    <span className="flex min-h-[4.5rem] w-full flex-col items-center justify-center gap-0.5 bg-[#0a0f16] px-1 text-center">
                       <span className="text-[9px] leading-tight text-zinc-500">No rear</span>
                     </span>
                   )}
@@ -420,64 +556,12 @@ export function RwaDetailAssetPanel({
         ) : null}
       </div>
 
-      <div className="space-y-3 px-0.5">
-        <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight leading-snug">
-          {title}
-        </h1>
-
-        {badges.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            {badges.map((b, idx) => (
-              <span
-                key={`${b.text}-${idx}`}
-                className={`inline-flex items-center rounded-lg border px-2.5 py-1 text-[11px] font-semibold ${BADGE_TONES[b.toneIdx]}`}
-              >
-                {b.text}
-              </span>
-            ))}
-          </div>
-        )}
-
-        {metadata?.description && (
+      <div className="space-y-3 px-0.5 lg:px-0">
+        {readableDescription ? (
           <p className="text-sm text-gray-400 leading-relaxed line-clamp-4">
-            {metadata.description}
+            {readableDescription}
           </p>
-        )}
-
-        {statRows.length > 0 && (
-          <div className="rounded-2xl border border-gray-800/90 bg-[#0a0d11]/90 p-4">
-            <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
-              {statRows.map((row) => (
-                <div key={row.label} className="min-w-0">
-                  <dt className="text-[11px] font-medium uppercase tracking-wider text-gray-500 mb-1">
-                    {row.label}
-                  </dt>
-                  <dd
-                    className={`text-sm font-medium leading-snug break-words ${
-                      row.label === "Player"
-                        ? "text-mint"
-                        : "text-gray-100"
-                    }`}
-                  >
-                    {row.value}
-                  </dd>
-                </div>
-              ))}
-            </dl>
-          </div>
-        )}
-
-        {metadata?.external_url && (
-          <a
-            href={metadata.external_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 text-sm text-mint/90 hover:text-mint transition-colors"
-          >
-            View certification link
-            <span aria-hidden>↗</span>
-          </a>
-        )}
+        ) : null}
       </div>
     </div>
   );

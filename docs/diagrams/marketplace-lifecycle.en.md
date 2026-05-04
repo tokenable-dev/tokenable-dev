@@ -442,7 +442,6 @@ flowchart TB
             ORDERBOOK["RwaOrderBook<br/>Per-token Order Book"]:::comp
             MATCHPANEL["TokenCriteriaMatchPanel<br/>Accept Bids"]:::comp
             MKTBOOK["MarketplaceOrderBook<br/>Other Listings"]:::comp
-            TRADEGUIDE["CollectionTradeGuide"]:::comp
             COVERFRAME["CollectionCoverFrame"]:::comp
         end
 

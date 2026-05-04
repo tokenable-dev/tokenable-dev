@@ -45,6 +45,8 @@ interface CollectionTradeTicketProps {
   flow: "buy" | "sell";
   collectionLabel?: string;
   listingCount?: number;
+  /** When false, omits the market listing count link under Sell (collection details). */
+  showSellListingCount?: boolean;
 }
 
 /**
@@ -58,6 +60,7 @@ export function CollectionTradeTicket({
   flow,
   collectionLabel,
   listingCount = 0,
+  showSellListingCount = true,
 }: CollectionTradeTicketProps) {
   const publicClient = usePublicClient({ chainId: sepolia.id });
   const { writeContractAsync } = useWriteContract();
@@ -167,17 +170,19 @@ export function CollectionTradeTicket({
             <Link href="/portfolio" className="hover:text-zinc-400" title="Manage RWAs in your wallet">
               My Assets
             </Link>
-            {listingCount > 0 ? (
-              <Link
-                href="#collection-listings"
-                className="tabular-nums hover:text-zinc-400"
-                title="Scroll to listings in this collection"
-              >
-                {listingCount} listing{listingCount === 1 ? "" : "s"}
-              </Link>
-            ) : (
-              <span title="No other listings in this collection yet">0 listings</span>
-            )}
+            {showSellListingCount ? (
+              listingCount > 0 ? (
+                <Link
+                  href="#collection-listings"
+                  className="tabular-nums hover:text-zinc-400"
+                  title="Scroll to listings in this collection"
+                >
+                  {listingCount} listing{listingCount === 1 ? "" : "s"}
+                </Link>
+              ) : (
+                <span title="No other listings in this collection yet">0 listings</span>
+              )
+            ) : null}
           </div>
         </div>
       </div>

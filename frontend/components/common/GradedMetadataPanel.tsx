@@ -133,9 +133,12 @@ function CompactRow({
 export function GradedMetadataPanel({
   properties,
   attributes,
+  /** Parent controls visibility; skips inner `<details>` (use with an outer disclosure). */
+  embedded = false,
 }: {
   properties?: Record<string, unknown>;
   attributes?: Array<{ trait_type: string; value: string }>;
+  embedded?: boolean;
 }) {
   const graded = properties?.graded;
   const skipSet = useMemo(() => buildSkipValueSet(attributes), [attributes]);
@@ -147,6 +150,23 @@ export function GradedMetadataPanel({
 
   if (!filtered || Object.keys(filtered).length === 0) return null;
 
+  const body = (
+    <div className="scrollbar-hide max-h-[min(50vh,22rem)] space-y-1 overflow-y-auto">
+      <CompactRows data={filtered} depth={0} />
+    </div>
+  );
+
+  if (embedded) {
+    return (
+      <div className="space-y-2">
+        <p className="text-[11px] font-medium uppercase tracking-wider text-gray-500">
+          More metadata
+        </p>
+        {body}
+      </div>
+    );
+  }
+
   return (
     <details className="group bg-[#0a0d11]/90 border border-mint-deep/20 rounded-2xl open:pb-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
       <summary className="cursor-pointer list-none px-4 py-3 flex items-center justify-between gap-3 text-sm text-gray-300 hover:bg-gray-800/40 rounded-2xl transition-colors [&::-webkit-details-marker]:hidden">
@@ -155,11 +175,7 @@ export function GradedMetadataPanel({
           ▼
         </span>
       </summary>
-      <div className="px-4 pb-4 pt-2 border-t border-gray-800/60">
-        <div className="scrollbar-hide space-y-1 max-h-[min(50vh,22rem)] overflow-y-auto">
-          <CompactRows data={filtered} depth={0} />
-        </div>
-      </div>
+      <div className="border-t border-gray-800/60 px-4 pb-4 pt-2">{body}</div>
     </details>
   );
 }

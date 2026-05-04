@@ -42,10 +42,17 @@ export interface CollectionMetadataExpandableProps {
   } | null;
   /** Cardhedger catalog id when server matched a card */
   cardhedgerCardId?: string | null;
+  /**
+   * When true (collection overview): hero area shows ≤3 condensed lines +
+   * a single \"More details\" disclosure for the full metadata + technical block.
+   */
+  compactHero?: boolean;
+  /** Row `label`s to exclude from the compact preview (e.g. Card / Set lifted to header). */
+  compactHeroOmitLabels?: string[];
 }
 
 /**
- * Primary card fields + expandable block for IDs, timestamps, query, and extra component keys.
+ * Primary card fields — optional Above-the-fold compact mode + expandable pool details.
  */
 export function CollectionMetadataExpandable({
   metadataRows,
@@ -57,7 +64,10 @@ export function CollectionMetadataExpandable({
   components,
   marketSeriesMeta,
   cardhedgerCardId,
+  compactHero = false,
+  compactHeroOmitLabels,
 }: CollectionMetadataExpandableProps) {
+  const [moreOpen, setMoreOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
 
   const extraComponentRows = useMemo(() => {
@@ -73,7 +83,6 @@ export function CollectionMetadataExpandable({
     return out.sort((a, b) => a.k.localeCompare(b.k));
   }, [components]);
 
-  /** Always show block when we have a collection id — at minimum key + JSON */
   const hasExpandable = collectionKey.trim().length > 0;
 
   const componentsJson = useMemo(() => {
@@ -84,6 +93,175 @@ export function CollectionMetadataExpandable({
     }
   }, [components]);
 
+  const condensedLines = useMemo(() => {
+    if (!metadataRows.length) return [];
+    const omit = new Set(compactHeroOmitLabels ?? []);
+    const out: string[] = [];
+    for (const row of metadataRows) {
+      if (omit.has(row.label)) continue;
+      const v = row.value?.trim();
+      if (!v) continue;
+      out.push(`${row.label}: ${v}`);
+      if (out.length >= 3) break;
+    }
+    return out;
+  }, [metadataRows, compactHeroOmitLabels]);
+
+  const technicalInner = (
+    <div className="space-y-3 border-t border-zinc-800/80 px-3 pb-3 pt-3 text-[12px] leading-snug">
+      <dl className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <div className="rounded-lg border border-gray-800/70 bg-black/20 px-2.5 py-2 sm:col-span-2">
+          <dt className="text-[10px] font-medium uppercase tracking-wide text-gray-500">
+            Collection key
+          </dt>
+          <dd className="mt-0.5 font-mono text-[11px] text-zinc-200 break-all">{collectionKey}</dd>
+        </div>
+        {displayLabel ? (
+          <div className="rounded-lg border border-gray-800/70 bg-black/20 px-2.5 py-2 sm:col-span-2">
+            <dt className="text-[10px] font-medium uppercase tracking-wide text-gray-500">
+              Label
+            </dt>
+            <dd className="mt-0.5 text-zinc-100 break-words">{displayLabel}</dd>
+          </div>
+        ) : null}
+        {createdAt ? (
+          <div className="rounded-lg border border-gray-800/70 bg-black/20 px-2.5 py-2 sm:col-span-2">
+            <dt className="text-[10px] font-medium uppercase tracking-wide text-gray-500">
+              Registered
+            </dt>
+            <dd className="mt-0.5 text-zinc-200 tabular-nums">{formatMaybeDate(createdAt)}</dd>
+          </div>
+        ) : null}
+        {queryUsed?.trim() ? (
+          <div className="rounded-lg border border-gray-800/70 bg-black/20 px-2.5 py-2 sm:col-span-2">
+            <dt className="text-[10px] font-medium uppercase tracking-wide text-gray-500">
+              Match query
+            </dt>
+            <dd className="mt-0.5 font-mono text-[11px] text-zinc-200 break-all">{queryUsed}</dd>
+          </div>
+        ) : null}
+        {cardhedgerCardId?.trim() ? (
+          <div className="rounded-lg border border-gray-800/70 bg-black/20 px-2.5 py-2 sm:col-span-2">
+            <dt className="text-[10px] font-medium uppercase tracking-wide text-gray-500">
+              Cardhedger card ID
+            </dt>
+            <dd className="mt-0.5 font-mono text-[11px] text-zinc-200 break-all">
+              {cardhedgerCardId}
+            </dd>
+          </div>
+        ) : null}
+        {marketSeriesMeta?.categoryLabel ? (
+          <div className="rounded-lg border border-gray-800/70 bg-black/20 px-2.5 py-2 sm:col-span-2">
+            <dt className="text-[10px] font-medium uppercase tracking-wide text-gray-500">
+              Category
+            </dt>
+            <dd className="mt-0.5 text-zinc-100 break-words">{marketSeriesMeta.categoryLabel}</dd>
+          </div>
+        ) : null}
+        {representativeImageUrl?.trim() ? (
+          <div className="rounded-lg border border-gray-800/70 bg-black/20 px-2.5 py-2 sm:col-span-2">
+            <dt className="text-[10px] font-medium uppercase tracking-wide text-gray-500">
+              Cover URL
+            </dt>
+            <dd className="mt-0.5 font-mono text-[11px] text-zinc-300 break-all" title={representativeImageUrl}>
+              {truncateUrl(representativeImageUrl, 56)}
+            </dd>
+          </div>
+        ) : null}
+        {extraComponentRows.map(({ k, v }) => (
+          <div
+            key={k}
+            className="rounded-lg border border-gray-800/70 bg-black/20 px-2.5 py-2 sm:col-span-1"
+          >
+            <dt className="text-[10px] font-medium uppercase tracking-wide text-gray-500">{k}</dt>
+            <dd className="mt-0.5 text-zinc-100 break-words">{v}</dd>
+          </div>
+        ))}
+      </dl>
+
+      <details className="rounded-lg border border-zinc-800/80 bg-black/30 px-2 py-2">
+        <summary className="cursor-pointer text-[11px] font-medium text-zinc-400 select-none">
+          Raw components (JSON)
+        </summary>
+        <pre className="mt-2 max-h-40 overflow-auto rounded-md bg-black/40 p-2 text-[10px] leading-relaxed text-zinc-400 scrollbar-platform">
+          {componentsJson}
+        </pre>
+      </details>
+    </div>
+  );
+
+  const fullMetadataGrid = (
+    <dl className="w-full grid grid-cols-2 gap-2 px-3 pt-1 text-[13px]">
+      {metadataRows.map((row) => (
+        <div
+          key={row.label}
+          className="rounded-lg border border-gray-800/80 bg-black/25 px-2.5 py-2 col-span-2 sm:col-span-1"
+        >
+          <dt className="text-[10px] font-medium uppercase tracking-wide text-gray-500">{row.label}</dt>
+          <dd className="mt-0.5 text-gray-100 leading-snug break-words">{row.value}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+
+  if (compactHero) {
+    return (
+      <div className="w-full space-y-2">
+        {condensedLines.length > 0 ? (
+          <p className="text-[13px] leading-snug text-zinc-300 line-clamp-3 text-balance">
+            {condensedLines.join(" · ")}
+          </p>
+        ) : null}
+
+        <div className="rounded-xl border border-gray-800/85 bg-black/35 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setMoreOpen((o) => !o)}
+            className="flex w-full items-center justify-between gap-3 px-3 py-3 text-left text-sm font-semibold text-white transition-colors hover:bg-white/[0.04]"
+            aria-expanded={moreOpen}
+          >
+            <span>{metadataRows.length === 0 ? "Schema & identifiers" : "More details"}</span>
+            <span
+              className={`text-xs text-zinc-500 transition-transform duration-200 ${moreOpen ? "rotate-180" : ""}`}
+              aria-hidden
+            >
+              ▼
+            </span>
+          </button>
+
+          {moreOpen ? (
+            <div className="border-t border-gray-800/80 pb-3">
+              {metadataRows.length > 0 ? fullMetadataGrid : null}
+
+              {hasExpandable ? (
+                <div className="mx-3 mt-2 rounded-xl border border-zinc-800/90 bg-zinc-950/50">
+                  <button
+                    type="button"
+                    onClick={() => setExpanded((e) => !e)}
+                    className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left text-[12px] font-medium text-zinc-300 hover:bg-white/[0.03] transition-colors rounded-xl"
+                    aria-expanded={expanded}
+                  >
+                    <span>Technical & identifiers</span>
+                    <span className="text-[11px] text-zinc-500 tabular-nums">
+                      {expanded ? "Collapse" : "Expand"}
+                    </span>
+                  </button>
+                  <div
+                    className={`grid transition-[grid-template-rows] duration-200 ease-out ${
+                      expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+                    }`}
+                  >
+                    <div className="min-h-0 overflow-hidden">{technicalInner}</div>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full space-y-3">
       {metadataRows.length > 0 ? (
@@ -93,9 +271,7 @@ export function CollectionMetadataExpandable({
               key={row.label}
               className="rounded-lg border border-gray-800/80 bg-black/25 px-2.5 py-2 col-span-2 sm:col-span-1"
             >
-              <dt className="text-[10px] font-medium uppercase tracking-wide text-gray-500">
-                {row.label}
-              </dt>
+              <dt className="text-[10px] font-medium uppercase tracking-wide text-gray-500">{row.label}</dt>
               <dd className="mt-0.5 text-gray-100 leading-snug break-words">{row.value}</dd>
             </div>
           ))}
@@ -121,101 +297,7 @@ export function CollectionMetadataExpandable({
               expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
             }`}
           >
-            <div className="min-h-0 overflow-hidden">
-              <div className="space-y-3 border-t border-zinc-800/80 px-3 pb-3 pt-2 text-[12px] leading-snug">
-                <dl className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  <div className="rounded-lg border border-gray-800/70 bg-black/20 px-2.5 py-2 sm:col-span-2">
-                    <dt className="text-[10px] font-medium uppercase tracking-wide text-gray-500">
-                      Collection key
-                    </dt>
-                    <dd className="mt-0.5 font-mono text-[11px] text-zinc-200 break-all">
-                      {collectionKey}
-                    </dd>
-                  </div>
-                  {displayLabel ? (
-                    <div className="rounded-lg border border-gray-800/70 bg-black/20 px-2.5 py-2 sm:col-span-2">
-                      <dt className="text-[10px] font-medium uppercase tracking-wide text-gray-500">
-                        Label
-                      </dt>
-                      <dd className="mt-0.5 text-zinc-100 break-words">{displayLabel}</dd>
-                    </div>
-                  ) : null}
-                  {createdAt ? (
-                    <div className="rounded-lg border border-gray-800/70 bg-black/20 px-2.5 py-2 sm:col-span-2">
-                      <dt className="text-[10px] font-medium uppercase tracking-wide text-gray-500">
-                        Registered
-                      </dt>
-                      <dd className="mt-0.5 text-zinc-200 tabular-nums">
-                        {formatMaybeDate(createdAt)}
-                      </dd>
-                    </div>
-                  ) : null}
-                  {queryUsed?.trim() ? (
-                    <div className="rounded-lg border border-gray-800/70 bg-black/20 px-2.5 py-2 sm:col-span-2">
-                      <dt className="text-[10px] font-medium uppercase tracking-wide text-gray-500">
-                        Match query
-                      </dt>
-                      <dd className="mt-0.5 font-mono text-[11px] text-zinc-200 break-all">
-                        {queryUsed}
-                      </dd>
-                    </div>
-                  ) : null}
-                  {cardhedgerCardId?.trim() ? (
-                    <div className="rounded-lg border border-gray-800/70 bg-black/20 px-2.5 py-2 sm:col-span-2">
-                      <dt className="text-[10px] font-medium uppercase tracking-wide text-gray-500">
-                        Cardhedger card ID
-                      </dt>
-                      <dd className="mt-0.5 font-mono text-[11px] text-zinc-200 break-all">
-                        {cardhedgerCardId}
-                      </dd>
-                    </div>
-                  ) : null}
-                  {marketSeriesMeta?.categoryLabel ? (
-                    <div className="rounded-lg border border-gray-800/70 bg-black/20 px-2.5 py-2 sm:col-span-2">
-                      <dt className="text-[10px] font-medium uppercase tracking-wide text-gray-500">
-                        Category
-                      </dt>
-                      <dd className="mt-0.5 text-zinc-100 break-words">
-                        {marketSeriesMeta.categoryLabel}
-                      </dd>
-                    </div>
-                  ) : null}
-                  {representativeImageUrl?.trim() ? (
-                    <div className="rounded-lg border border-gray-800/70 bg-black/20 px-2.5 py-2 sm:col-span-2">
-                      <dt className="text-[10px] font-medium uppercase tracking-wide text-gray-500">
-                        Cover URL
-                      </dt>
-                      <dd
-                        className="mt-0.5 font-mono text-[11px] text-zinc-300 break-all"
-                        title={representativeImageUrl}
-                      >
-                        {truncateUrl(representativeImageUrl, 56)}
-                      </dd>
-                    </div>
-                  ) : null}
-                  {extraComponentRows.map(({ k, v }) => (
-                    <div
-                      key={k}
-                      className="rounded-lg border border-gray-800/70 bg-black/20 px-2.5 py-2 sm:col-span-1"
-                    >
-                      <dt className="text-[10px] font-medium uppercase tracking-wide text-gray-500">
-                        {k}
-                      </dt>
-                      <dd className="mt-0.5 text-zinc-100 break-words">{v}</dd>
-                    </div>
-                  ))}
-                </dl>
-
-                <details className="rounded-lg border border-zinc-800/80 bg-black/30 px-2 py-2">
-                  <summary className="cursor-pointer text-[11px] font-medium text-zinc-400 select-none">
-                    Raw components (JSON)
-                  </summary>
-                  <pre className="mt-2 max-h-40 overflow-auto rounded-md bg-black/40 p-2 text-[10px] leading-relaxed text-zinc-400 scrollbar-platform">
-                    {componentsJson}
-                  </pre>
-                </details>
-              </div>
-            </div>
+            <div className="min-h-0 overflow-hidden">{technicalInner}</div>
           </div>
         </div>
       ) : null}
