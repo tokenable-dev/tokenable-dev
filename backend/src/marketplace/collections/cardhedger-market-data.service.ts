@@ -8,6 +8,7 @@ import {
   normalizeForExactCatalogMatch,
   primaryCardNumber,
 } from '../utils/card-match.util';
+import { extractBucketComponentsFromMetadata } from '../utils/bucket-key.util';
 import type {
   MarketCollectionPreview,
   MarketPriceHistoryResult,
@@ -15,6 +16,11 @@ import type {
 import type { MarketHistoryPeriod } from '../utils/price-history-period.util';
 
 type CardhedgerCardRow = Record<string, unknown>;
+
+/**
+ * Card Hedge `POST /v1/cards/prices-by-card` documents rolling `days` in [1, **365**] only.
+ */
+const CARDHEDGER_PRICES_BY_CARD_MAX_DAYS = 365;
 
 /** Return type of resolveCardForCollection — used for the shared resolve cache and getBundledCardData. */
 type ResolvedCard = {
@@ -323,7 +329,8 @@ export class CardhedgerMarketDataService {
     return [...dedup.entries()].map(([t, v]) => ({ t, v }));
   }
 
-  async fetchTierHistoryByCard(
+  /** Single upstream fetch (no backoff). Prefer {@link fetchTierHistoryByCardAdaptive} for charts. */
+  private async fetchTierHistoryByCardOnce(
     cardId: string,
     tier: string,
     days: number,
@@ -332,14 +339,48 @@ export class CardhedgerMarketDataService {
     if (!id) return [];
     const tierUpper = String(tier ?? '').trim().toUpperCase();
     const grade = tierUpper === 'PSA_10' ? 'PSA 10' : tierUpper;
+    const d = Math.min(CARDHEDGER_PRICES_BY_CARD_MAX_DAYS, Math.max(1, Math.floor(days)));
     try {
       const body = await this.cardhedger.forwardJson('POST', '/v1/cards/prices-by-card', {
-        body: { card_id: id, grade, days },
+        body: { card_id: id, grade, days: d },
       });
       return this.parseHistoricalPoints(body);
     } catch {
       return [];
     }
+  }
+
+  /**
+   * Request the widest upstream-legal window first (`days` capped at 365), then backoff when sparse.
+   */
+  private async fetchTierHistoryByCardAdaptive(
+    cardId: string,
+    tier: string,
+    desiredDays: number,
+  ): Promise<{ pts: Array<{ t: number; v: number }>; upstreamRequests: number }> {
+    const capRequested = Math.min(4000, Math.max(1, Math.floor(desiredDays)));
+    const widest = Math.min(CARDHEDGER_PRICES_BY_CARD_MAX_DAYS, capRequested);
+
+    const tiersDesc = [...new Set([widest, 180, 90, 30, 14, 7].filter((x) => x <= widest))].sort(
+      (a, b) => b - a,
+    );
+
+    let upstreamRequests = 0;
+    for (const d of tiersDesc) {
+      upstreamRequests += 1;
+      const pts = await this.fetchTierHistoryByCardOnce(cardId, tier, d);
+      if (pts.length >= 2) return { pts, upstreamRequests };
+    }
+
+    return { pts: [], upstreamRequests };
+  }
+
+  async fetchTierHistoryByCard(
+    cardId: string,
+    tier: string,
+    days: number,
+  ): Promise<Array<{ t: number; v: number }>> {
+    return this.fetchTierHistoryByCardOnce(cardId, tier, days);
   }
 
   pctFromPoints(points: Array<{ t: number; v: number }>): number | null {
@@ -703,7 +744,7 @@ export class CardhedgerMarketDataService {
     },
   ): Promise<MarketPriceHistoryResult> {
     const days = Math.min(4000, Math.max(1, Math.floor(options.maxCalendarDays)));
-    const tier = 'PSA_10';
+    const tier = String(options.tier ?? 'PSA_10').trim() || 'PSA_10';
     if (!col) {
       return {
         enabled: this.isConfigured(),
@@ -747,7 +788,7 @@ export class CardhedgerMarketDataService {
     },
   ): Promise<MarketPriceHistoryResult> {
     const days = Math.min(4000, Math.max(1, Math.floor(options.maxCalendarDays)));
-    const tier = 'PSA_10';
+    const tier = String(options.tier ?? 'PSA_10').trim() || 'PSA_10';
 
     if (!resolved.row || !resolved.confidence) {
       return {
@@ -766,9 +807,16 @@ export class CardhedgerMarketDataService {
     }
 
     const resolvedCardId = String(resolved.row.card_id ?? '').trim();
-    const history = resolvedCardId
-      ? await this.fetchTierHistoryByCard(resolvedCardId, tier, days)
-      : [];
+
+    let history: Array<{ t: number; v: number }> = [];
+    let historyUpstreamHits = 0;
+
+    if (resolvedCardId) {
+      const adaptive = await this.fetchTierHistoryByCardAdaptive(resolvedCardId, tier, days);
+      history = adaptive.pts;
+      historyUpstreamHits = adaptive.upstreamRequests;
+    }
+
     if (history.length >= 2) {
       return {
         enabled: true,
@@ -780,7 +828,7 @@ export class CardhedgerMarketDataService {
         period: options.period,
         points: history,
         source: `cardhedger:${tier}:history`,
-        upstreamRequests: 2,
+        upstreamRequests: historyUpstreamHits,
       };
     }
     const allPrices = resolvedCardId ? await this.fetchAllPricesByCard(resolvedCardId) : [];
@@ -802,11 +850,6 @@ export class CardhedgerMarketDataService {
         upstreamRequests: 1,
       };
     }
-    const now = Math.floor(Date.now() / 1000);
-    const prev =
-      spot.gainPct != null && Number.isFinite(spot.gainPct)
-        ? spot.usd / (1 + spot.gainPct / 100)
-        : spot.usd;
     return {
       enabled: true,
       searchQuery: resolved.query,
@@ -815,12 +858,9 @@ export class CardhedgerMarketDataService {
       days,
       tier,
       period: options.period,
-      points: [
-        { t: now - days * 86400, v: Math.max(0.01, Number(prev.toFixed(4))) },
-        { t: now, v: Number(spot.usd.toFixed(4)) },
-      ],
-      source: `cardhedger:${tier}:synthetic`,
-      upstreamRequests: 2,
+      points: [],
+      source: `cardhedger:${tier}`,
+      upstreamRequests: 1,
     };
   }
 
@@ -947,15 +987,9 @@ export class CardhedgerMarketDataService {
             .join(' ')
             .trim();
 
-        const syntheticCol = {
-          collectionKey: `mint_${item.tokenId}`,
-          displayLabel: String(meta.name ?? query ?? ''),
-          queryUsed: query,
-          components: {
-            cardName: String(card?.name ?? ''),
-            cardSet: String(card?.set ?? ''),
-            cardNumber: String(card?.number ?? ''),
-            ...(() => {
+        const extracted = extractBucketComponentsFromMetadata(meta);
+
+        const psaSpecExtras = (): Record<string, unknown> => {
               const psaObj =
                 typeof (graded as Record<string, unknown> | undefined)?.psa === 'object' &&
                 (graded as Record<string, unknown> | undefined)?.psa != null
@@ -969,9 +1003,27 @@ export class CardhedgerMarketDataService {
                     ? specRaw.trim()
                     : '';
               return spec ? { psaSpecId: spec } : {};
-            })(),
-            ...(cardId ? { cardhedgerCardId: cardId } : {}),
-          },
+        };
+
+        const componentsPayload: Record<string, unknown> = extracted
+          ? {
+              ...(extracted as unknown as Record<string, unknown>),
+              ...psaSpecExtras(),
+              ...(cardId ? { cardhedgerCardId: cardId } : {}),
+            }
+          : {
+              cardName: String(card?.name ?? ''),
+              cardSet: String(card?.set ?? ''),
+              cardNumber: String(card?.number ?? ''),
+              ...psaSpecExtras(),
+              ...(cardId ? { cardhedgerCardId: cardId } : {}),
+            };
+
+        const syntheticCol = {
+          collectionKey: `mint_${item.tokenId}`,
+          displayLabel: String(meta.name ?? query ?? ''),
+          queryUsed: query,
+          components: componentsPayload,
           coverImageUrl: null,
           createdAt: new Date(),
         } as MarketplaceCollection;

@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import type { Address } from "viem";
 import { formatUnits } from "viem";
@@ -19,13 +19,13 @@ import {
 } from "@/lib/core";
 import {
   coefficientOfVariationPctFromUsdSeries,
-  percentChangeFromUsdPoints,
-  resolveExternalMarketUsd,
-} from "@/lib/market";
-import { inferSportBucketFromHaystack } from "@/lib/market";
-import {
+  computeCollectionMarketCapUsd,
+  formatMarketCapUsd,
   marketHistoryTierFromComponents,
   marketTierDisplayLabel,
+  parseGradeScoreNumber,
+  percentChangeFromUsdPoints,
+  resolveExternalMarketUsd,
 } from "@/lib/market";
 import { CollectionOverviewBoard } from "@/components/marketplace/CollectionOverviewBoard";
 import { CollectionPriceMetricsStrip } from "@/components/marketplace/CollectionPriceMetricsStrip";
@@ -43,13 +43,14 @@ import { CollectionRwaCard } from "@/components/marketplace/CollectionRwaCard";
 import { useAppStore, selectWallet } from "@/store";
 import { isCriteriaCollectionBid } from "@/lib/seaport/criteria/criteriaMatch";
 import {
-  computeCollectionMarketCapUsd,
-  formatMarketCapUsd,
-  parseGradeScoreNumber,
-} from "@/lib/market";
+  bucketCardNameForDisplay,
+  bucketCardSetForDisplay,
+  bucketGradingCompanyForDisplay,
+} from "@/lib/marketplace/bucketKey";
 
 /** Same fill can appear from session overlay + DB poll with timestamps minutes apart */
 const SESSION_FILL_DEDUP_SEC = 300;
+
 type ChartRangeId = "7d" | "30d" | "90d" | "180d" | "1y";
 type ChartRangeConfig = {
   id: ChartRangeId;
@@ -65,42 +66,6 @@ const CHART_RANGE_OPTIONS: readonly ChartRangeConfig[] = [
   { id: "180d", label: "180D", historyPeriod: "1y", maxDays: 180, bundleDuration: "180d" },
   { id: "1y", label: "1Y", historyPeriod: "1y", maxDays: 365, bundleDuration: "365d" },
 ] as const;
-
-function seeded01FromKey(key: string): number {
-  if (!key) return 0.5;
-  let h = 2166136261 >>> 0;
-  for (let i = 0; i < key.length; i++) {
-    h ^= key.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return (h >>> 0) / 0xffffffff;
-}
-
-function buildSyntheticSportsHistory(
-  _spotUsd: number,
-  collectionKey: string,
-  _days: number,
-): { t: number; v: number }[] {
-  const out: { t: number; v: number }[] = [];
-  const now = Math.floor(Date.now() / 1000);
-  const n = 365; // demo: fixed 1Y history
-  const seed = seeded01FromKey(collectionKey);
-  const waveAmp = 0.008 + seed * 0.014; // subtle daily wiggle
-  const startUsd = 900;
-  const endUsd = 1500;
-  const spanUsd = endUsd - startUsd;
-  for (let i = 0; i < n; i++) {
-    const age = n - 1 - i;
-    const t = now - age * 86400;
-    const progress = i / Math.max(1, n - 1);
-    const phase = progress * Math.PI * 6;
-    const cyc = Math.sin(phase + seed * Math.PI * 2) * waveAmp;
-    const base = startUsd + spanUsd * progress;
-    const v = Math.max(1, base * (1 + cyc));
-    out.push({ t, v: Math.round(v * 100) / 100 });
-  }
-  return out;
-}
 
 function bestAskByToken(asks: Order[]): Map<number, Order> {
   const m = new Map<number, Order>();
@@ -241,6 +206,14 @@ export default function MarketplaceCollectionPage() {
       points365d: number;
     };
   } | null>(null);
+  /** Matches Tailwind `md` (769px+) — viewport ≤767px treats as mobile for AI auto-trigger. */
+  const [narrowViewport, setNarrowViewport] = useState(() =>
+    typeof window !== "undefined" ? window.matchMedia("(max-width: 767px)").matches : false,
+  );
+  const aiInsightSectionRef = useRef<HTMLElement>(null);
+  const aiInsightAutoStartedRef = useRef(false);
+  const aiInsightInFlightRef = useRef(false);
+
   /** Last fill this session (fixed timestamp) — merged into chart until series refetch includes it. */
   const [sessionFillPoint, setSessionFillPoint] = useState<{
     t: number;
@@ -254,13 +227,34 @@ export default function MarketplaceCollectionPage() {
     retry: false,
   });
 
+  useEffect(() => {
+    aiInsightAutoStartedRef.current = false;
+    setShowAiInsights(false);
+    setAiInsightStatus("idle");
+    setAiRevealStep(0);
+    setAiInsightResult(null);
+  }, [key]);
+
+  useEffect(() => {
+    const mq =
+      typeof window !== "undefined" ? window.matchMedia("(max-width: 767px)") : null;
+    if (!mq) return;
+    const sync = () => setNarrowViewport(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+
   const comp = useMemo(() => {
     const raw = data?.collection?.components as
       | {
           cardName?: string;
+          cardNameDisplay?: string;
           gradingCompany?: string;
+          gradingCompanyDisplay?: string;
           gradeScore?: string;
           cardSet?: string;
+          cardSetDisplay?: string;
           cardNumber?: string;
           variant?: string;
           psaTotalPopulation?: number;
@@ -307,6 +301,7 @@ export default function MarketplaceCollectionPage() {
         maxDays: selectedChartRange.maxDays,
       }),
     enabled: key.length > 0 && !isLoading && !isError && !!data,
+    placeholderData: keepPreviousData,
   });
 
   const { data: pokeYearHistory, isLoading: pokeYearHistoryLoading } = useQuery({
@@ -348,22 +343,20 @@ export default function MarketplaceCollectionPage() {
     return [];
   }, [pokeHistOk, pokeHistPts, jtHistOk, jtHistPts]);
 
-  const collectionSportBucket = useMemo(() => {
-    const hay = [
-      data?.collection?.displayLabel,
-      data?.collection?.queryUsed,
-      comp.cardName,
-      comp.cardSet,
-      comp.cardNumber,
-    ]
-      .filter((x): x is string => typeof x === "string" && x.trim().length > 0)
-      .join(" ")
-      .toLowerCase();
-    return inferSportBucketFromHaystack(hay);
-  }, [data?.collection?.displayLabel, data?.collection?.queryUsed, comp.cardName, comp.cardSet, comp.cardNumber]);
+  const pokeHistorySpanDays = useMemo(() => {
+    if (!pokeHistOk || pokeHistPts.length < 2) return null;
+    const ts = pokeHistPts.map((p) => p.t).filter((t) => Number.isFinite(t));
+    if (ts.length < 2) return null;
+    return Math.ceil((Math.max(...ts) - Math.min(...ts)) / 86400) + 2;
+  }, [pokeHistOk, pokeHistPts]);
 
   const chartExternalWindowDays = useMemo(() => {
-    if (pokeHistOk) return nmHistory?.days ?? selectedChartRange.maxDays;
+    if (pokeHistOk) {
+      const nominal = nmHistory?.days ?? selectedChartRange.maxDays;
+      const span = pokeHistorySpanDays;
+      const merged = Math.max(span ?? nominal, nominal, 7);
+      return Math.min(4200, merged);
+    }
     /** Bundle `externalUsd` is fetched for up to `marketChangeWindow`; fixed x-axis avoids clipping vs platform-only smart domain. */
     if (jtHistOk) {
       const w = marketSeriesHeader?.marketChangeWindow;
@@ -374,23 +367,13 @@ export default function MarketplaceCollectionPage() {
       if (w === "365d") return 365;
       return selectedChartRange.maxDays;
     }
-    if (
-      (collectionSportBucket === "nba" ||
-        collectionSportBucket === "mlb" ||
-        collectionSportBucket === "nfl") &&
-      !pokeHistOk &&
-      !jtHistOk
-    ) {
-      // Sports fallback still respects user-selected chart range.
-      return selectedChartRange.maxDays;
-    }
     return null;
   }, [
     pokeHistOk,
     nmHistory?.days,
+    pokeHistorySpanDays,
     jtHistOk,
     marketSeriesHeader?.marketChangeWindow,
-    collectionSportBucket,
     selectedChartRange.maxDays,
   ]);
 
@@ -449,83 +432,26 @@ export default function MarketplaceCollectionPage() {
     return deduped;
   }, [platformPtsBase, sessionFillPoint]);
 
-  const sportsFallbackSpotUsd = useMemo(() => {
-    if (
-      !(
-        collectionSportBucket === "nba" ||
-        collectionSportBucket === "mlb" ||
-        collectionSportBucket === "nfl"
-      )
-    ) {
-      return null;
-    }
-    const floor = marketStats?.floor;
-    const median = marketStats?.median;
-    if (floor != null && Number.isFinite(floor) && floor > 0) return floor;
-    if (median != null && Number.isFinite(median) && median > 0) return median;
-    const lastTrade =
-      platformPtsBase.length > 0 ? platformPtsBase[platformPtsBase.length - 1]?.v : null;
-    if (lastTrade != null && Number.isFinite(lastTrade) && lastTrade > 0) return lastTrade;
-    const seed = seeded01FromKey(key);
-    const base =
-      collectionSportBucket === "nba" ? 220 : collectionSportBucket === "nfl" ? 190 : 170;
-    const span =
-      collectionSportBucket === "nba" ? 520 : collectionSportBucket === "nfl" ? 470 : 420;
-    return Math.round(base + span * seed);
-  }, [collectionSportBucket, marketStats?.floor, marketStats?.median, platformPtsBase, key]);
-
-  const sportsFallbackSeries = useMemo(() => {
-    if (sportsFallbackSpotUsd == null) return [];
-    return buildSyntheticSportsHistory(
-      sportsFallbackSpotUsd,
-      key,
-      selectedChartRange.maxDays,
-    );
-  }, [sportsFallbackSpotUsd, key, selectedChartRange.maxDays]);
-
-  const useSportsFallback = useMemo(
-    () =>
-      (collectionSportBucket === "nba" ||
-        collectionSportBucket === "mlb" ||
-        collectionSportBucket === "nfl") &&
-      !pokeHistOk &&
-      !jtHistOk &&
-      sportsFallbackSeries.length >= 2,
-    [collectionSportBucket, pokeHistOk, jtHistOk, sportsFallbackSeries.length],
-  );
-
-  const effectiveExternalRollingUsd = useMemo(
-    () =>
-      chartExternalRollingUsd.length > 0
-        ? chartExternalRollingUsd
-        : useSportsFallback
-          ? sportsFallbackSeries
-          : [],
-    [chartExternalRollingUsd, useSportsFallback, sportsFallbackSeries],
-  );
+  const liveMarketLegend = "Live market price";
+  const liveMarketLegendApprox = "Live market price (approximate match)";
 
   const chartExternalLegend = pokeHistOk
     ? nmHistApprox
-      ? `Cardhedger ${pokeTierLabel} (daily · approximate match)`
-      : `Cardhedger ${pokeTierLabel} (daily)`
+      ? liveMarketLegendApprox
+      : liveMarketLegend
     : jtHistOk
-      ? `Cardhedger ${pokeTierLabel} (bundle series)`
-      : useSportsFallback
-        ? "Sports estimate (demo synthetic series)"
+      ? liveMarketLegend
       : `External market (${pokeTierLabel})`;
 
   const chartExternalShort = pokeHistOk
     ? nmHistApprox
-      ? `Cardhedger ${pokeTierLabel} ~`
-      : `Cardhedger ${pokeTierLabel}`
+      ? liveMarketLegendApprox
+      : liveMarketLegend
     : jtHistOk
-      ? `Cardhedger ${pokeTierLabel}`
-      : useSportsFallback
-        ? "Sports estimate"
-      : `Cardhedger ${pokeTierLabel}`;
+      ? liveMarketLegend
+      : liveMarketLegend;
 
-  const chartExternalRollingKind =
-    pokeHistOk || jtHistOk || useSportsFallback ? "history" : "snapshot";
+  const chartExternalRollingKind = pokeHistOk || jtHistOk ? "history" : "snapshot";
 
   const platformPriceSamples = useMemo(
     () => displayPlatformUsd.map((p) => p.v),
@@ -603,45 +529,12 @@ export default function MarketplaceCollectionPage() {
     ],
   );
 
-  const resolvedExternalForDisplay = useMemo(() => {
-    if (resolvedExternal.usd != null) return resolvedExternal;
-    if (useSportsFallback && sportsFallbackSpotUsd != null) {
-      return {
-        usd: sportsFallbackSpotUsd,
-        source: null,
-        marketMatchConfidence: undefined,
-      };
-    }
-    return resolvedExternal;
-  }, [resolvedExternal, useSportsFallback, sportsFallbackSpotUsd]);
-
   const chartExternalRefTag =
-    resolvedExternalForDisplay.source === "cardhedger"
+    resolvedExternal.source === "cardhedger"
       ? resolvedExternal.marketMatchConfidence === "approximate"
-        ? `Cardhedger ${pokeTierLabel} ~`
-        : `Cardhedger ${pokeTierLabel}`
-      : useSportsFallback
-        ? "Sports estimate"
+        ? liveMarketLegendApprox
+        : liveMarketLegend
       : `External ${pokeTierLabel}`;
-
-  const effectiveExternalPriceChange1yPct = useMemo(() => {
-    if (externalPriceChange1yPct != null && Number.isFinite(externalPriceChange1yPct)) {
-      return externalPriceChange1yPct;
-    }
-    return useSportsFallback ? percentChangeFromUsdPoints(sportsFallbackSeries) : null;
-  }, [externalPriceChange1yPct, useSportsFallback, sportsFallbackSeries]);
-
-  const effectiveExternalVolatilityCvPct = useMemo(() => {
-    if (externalVolatilityCvPct != null && Number.isFinite(externalVolatilityCvPct)) {
-      return externalVolatilityCvPct;
-    }
-    return useSportsFallback ? coefficientOfVariationPctFromUsdSeries(sportsFallbackSeries) : null;
-  }, [externalVolatilityCvPct, useSportsFallback, sportsFallbackSeries]);
-
-  const effectiveVolatilityFootnote = useMemo(() => {
-    if (volatilityFootnote) return volatilityFootnote;
-    return useSportsFallback ? "Demo synthetic sports series (prototype fallback)" : null;
-  }, [volatilityFootnote, useSportsFallback]);
 
   const marketCapComputation = useMemo(
     () =>
@@ -665,11 +558,14 @@ export default function MarketplaceCollectionPage() {
 
   const metadataRows = useMemo(() => {
     const rows: { label: string; value: string }[] = [];
-    if (comp.cardName) rows.push({ label: "Card", value: comp.cardName });
-    if (comp.cardSet) rows.push({ label: "Set", value: comp.cardSet });
+    const cn = bucketCardNameForDisplay(comp as Record<string, unknown>);
+    const cs = bucketCardSetForDisplay(comp as Record<string, unknown>);
+    if (cn) rows.push({ label: "Card", value: cn });
+    if (cs) rows.push({ label: "Set", value: cs });
     if (comp.cardNumber) rows.push({ label: "Card #", value: comp.cardNumber });
     if (comp.variant) rows.push({ label: "Variant", value: comp.variant });
-    if (comp.gradingCompany) rows.push({ label: "Grader", value: comp.gradingCompany });
+    const grader = bucketGradingCompanyForDisplay(comp as Record<string, unknown>);
+    if (grader) rows.push({ label: "Grader", value: grader });
     if (comp.gradeScore) rows.push({ label: "Grade", value: comp.gradeScore });
     if (
       comp.psaTotalPopulation != null &&
@@ -682,17 +578,25 @@ export default function MarketplaceCollectionPage() {
       });
     }
     return rows;
-  }, [comp]);
+  }, [comp, data?.collection?.components]);
 
   const subtitle = useMemo(() => {
-    const parts = [comp.cardSet, comp.cardNumber].filter(
+    const setShown = bucketCardSetForDisplay(comp as Record<string, unknown>);
+    const parts = [setShown, comp.cardNumber].filter(
       (x): x is string => typeof x === "string" && x.trim().length > 0
     );
     return parts.length ? parts.join(" · ") : null;
-  }, [comp.cardSet, comp.cardNumber]);
+  }, [comp, data?.collection?.components]);
 
-  const runMockAiInsights = async () => {
+  const collectionInsightLabel =
+    typeof data?.collection?.displayLabel === "string"
+      ? data.collection.displayLabel
+      : undefined;
+
+  const runMockAiInsights = useCallback(async () => {
     if (!key) return;
+    if (aiInsightInFlightRef.current) return;
+    aiInsightInFlightRef.current = true;
     setShowAiInsights(true);
     setAiInsightStatus("loading");
     setAiRevealStep(0);
@@ -726,9 +630,9 @@ export default function MarketplaceCollectionPage() {
         }),
       });
       setAiInsightStatus("ready");
-    } catch (e) {
+    } catch (_e) {
       setAiInsightResult({
-        title: `${data?.collection?.displayLabel ?? "Collection"} — AI Market Brief`,
+        title: `${collectionInsightLabel ?? "Collection"} — AI Market Brief`,
         summary:
           "Market structure is in an active interpretation phase, with momentum and liquidity context refreshing in real time.",
         bullets: [
@@ -794,8 +698,53 @@ export default function MarketplaceCollectionPage() {
         }),
       });
       setAiInsightStatus("ready");
+    } finally {
+      aiInsightInFlightRef.current = false;
     }
-  };
+  }, [key, collectionInsightLabel]);
+
+  /** Mobile — start AI insight soon after collection detail is usable. */
+  useEffect(() => {
+    if (!key.length || !narrowViewport) return;
+    if (!data?.collection || isLoading || isError) return;
+    if (aiInsightAutoStartedRef.current) return;
+    aiInsightAutoStartedRef.current = true;
+    void runMockAiInsights();
+  }, [key, narrowViewport, data?.collection, isLoading, isError, runMockAiInsights]);
+
+  /** Desktop / tablet — lazy-start when AI section scrolls into view. */
+  useEffect(() => {
+    if (!key.length || narrowViewport) return;
+    if (!data?.collection || isLoading || isError) return;
+    const root = aiInsightSectionRef.current;
+    if (!root) return;
+
+    const obs = new IntersectionObserver(
+      (entries) => {
+        const visible = entries.some(
+          (e) => e.isIntersecting && (e.intersectionRatio >= 0.12 || e.intersectionRect.height > 0),
+        );
+        if (!visible) return;
+        if (aiInsightAutoStartedRef.current) return;
+        aiInsightAutoStartedRef.current = true;
+        obs.disconnect();
+        void runMockAiInsights();
+      },
+      {
+        threshold: [0, 0.12, 0.25],
+        rootMargin: "0px 0px -12% 0px",
+      },
+    );
+    obs.observe(root);
+    return () => obs.disconnect();
+  }, [
+    key,
+    narrowViewport,
+    data?.collection,
+    isLoading,
+    isError,
+    runMockAiInsights,
+  ]);
 
   useEffect(() => {
     if (!showAiInsights || aiInsightStatus !== "ready") return;
@@ -937,6 +886,8 @@ export default function MarketplaceCollectionPage() {
   }
 
   const { collection, representativeImageUrl } = data;
+  const collectionCoverUrl =
+    collection.coverImageUrl?.trim() || representativeImageUrl;
 
   return (
     <div className="min-h-screen bg-gray-950 text-white">
@@ -952,38 +903,37 @@ export default function MarketplaceCollectionPage() {
           title={collection.displayLabel}
           subtitle={subtitle}
           badgeLabel="Collection"
-          imageUrl={representativeImageUrl}
+          imageUrl={collectionCoverUrl}
           metadataRows={metadataRows}
           stats={[]}
           chartMetricsRow={
             <CollectionPriceMetricsStrip
-              externalMarketUsd={resolvedExternalForDisplay.usd}
-              externalPriceSource={resolvedExternalForDisplay.source}
+              externalMarketUsd={resolvedExternal.usd}
+              externalPriceSource={resolvedExternal.source}
               marketTierDisplay={pokeTierLabel}
               externalMarketMatchConfidence={resolvedExternal.marketMatchConfidence}
               externalPriceLoading={
                 marketPreviewLoading || nmHistoryLoading || marketSeriesLoading
               }
-              externalVolatilityCvPct={effectiveExternalVolatilityCvPct}
-              volatilityFootnote={effectiveVolatilityFootnote}
+              externalVolatilityCvPct={externalVolatilityCvPct}
+              volatilityFootnote={volatilityFootnote}
               marketStats={marketStats ?? null}
               marketStatsLoading={marketStatsLoading}
               platformPriceSamples={platformPriceSamples}
               bookSpreadPct={marketMetrics.spreadPct}
-              externalPriceChange1yPct={effectiveExternalPriceChange1yPct}
-              externalPriceChange1yLoading={useSportsFallback ? false : pokeYearHistoryLoading}
+              externalPriceChange1yPct={externalPriceChange1yPct}
+              externalPriceChange1yLoading={pokeYearHistoryLoading}
               marketCapUsd={marketCapComputation?.usd ?? null}
               marketCapMethodHint={marketCapComputation?.methodLabel ?? null}
               formatMarketCap={formatMarketCapUsd}
             />
           }
-          heroCoverLoupe
           metadataExpand={{
             collectionKey: collection.collectionKey,
             displayLabel: collection.displayLabel,
             queryUsed: collection.queryUsed ?? marketPreview?.searchQuery ?? null,
             createdAt: collection.createdAt,
-            representativeImageUrl,
+            representativeImageUrl: collectionCoverUrl,
             components: collection.components,
             marketSeriesMeta: null,
             cardhedgerCardId: marketPreview?.card?.id ?? null,
@@ -995,11 +945,11 @@ export default function MarketplaceCollectionPage() {
               chartTitle=""
               platformUsd={displayPlatformUsd}
               externalMarketUsd={
-                effectiveExternalRollingUsd.length >= 2 ? null : resolvedExternalForDisplay.usd
+                chartExternalRollingUsd.length >= 2 ? null : resolvedExternal.usd
               }
               externalWindowDays={chartExternalWindowDays}
               externalRollingUsd={
-                effectiveExternalRollingUsd.length > 0 ? effectiveExternalRollingUsd : null
+                chartExternalRollingUsd.length > 0 ? chartExternalRollingUsd : null
               }
               externalRollingKind={chartExternalRollingKind}
               externalLegendLabel={chartExternalLegend}
@@ -1083,10 +1033,14 @@ export default function MarketplaceCollectionPage() {
           </span>
         </div>
 
-        <section className="mt-6 w-full" aria-label="AI insights">
+        <section
+          ref={aiInsightSectionRef}
+          className="mt-6 w-full scroll-mt-28"
+          aria-label="AI insights"
+        >
           <button
             type="button"
-            onClick={runMockAiInsights}
+            onClick={() => runMockAiInsights()}
             className="inline-flex min-w-[190px] items-center justify-center rounded-lg border border-[#0fd4bd]/70 bg-[#0a302b]/45 px-4 py-2 text-sm font-semibold text-[#2de8d2] transition-colors hover:bg-[#0b3e37]/70"
           >
             {aiInsightStatus === "loading" ? "Generating insight..." : "AI Insights"}

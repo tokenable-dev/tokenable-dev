@@ -563,6 +563,7 @@ export default function PortfolioPage() {
     historiesFlat,
     isLoadingIds: idsLoading,
     isLoadingMetadata: assetsLoading,
+    isLoadingHistoryBatch: historyBatchLoading,
     marketPreviewByToken,
     marketPreviewLoading,
   } = useUserAssets(isConnected ? address : undefined, {
@@ -1073,17 +1074,24 @@ export default function PortfolioPage() {
     return addrs.size;
   }, [historiesFlat]);
 
-  const isLoading = idsLoading || assetsLoading || marketPreviewLoading;
-  const chartValuesPending =
-    isLoading || (anyAssetNeedsSeriesForPricing && seriesLoadingAny);
+  /** Skeleton only inside My Assets; chart/stats ignore metadata & preview reloads when prior data remains (see useUserAssets keepPreviousData). */
+  const assetsSectionLoading =
+    idsLoading || assetsLoading || marketPreviewLoading;
+
+  /** Only block totals/chart curve while holdings list is unresolved or series for pricing paths are unavailable. */
+  const chartTotalsPending =
+    idsLoading ||
+    (anyAssetNeedsSeriesForPricing &&
+      assetRows.length > 0 &&
+      seriesLoadingAny);
 
   useEffect(() => {
-    if (!address || isLoading) return;
+    if (!address || idsLoading) return;
     void appendPortfolioValueSnapshot(address, totalValue);
-  }, [address, isLoading, totalValue]);
+  }, [address, idsLoading, totalValue]);
 
   const chartPoints = useMemo(() => {
-    if (isLoading) return [];
+    if (idsLoading) return [];
 
     const now = Date.now();
     const byToken = new Map<number, AssetRow>();
@@ -1158,7 +1166,7 @@ export default function PortfolioPage() {
     }
     return out;
   }, [
-    isLoading,
+    idsLoading,
     assetRows,
     assets,
     tokenToCollectionKey,
@@ -1221,7 +1229,7 @@ export default function PortfolioPage() {
                 stored in this browser for this wallet.
               </p>
               <div className="flex items-center gap-2.5">
-                {chartValuesPending ? (
+                {chartTotalsPending ? (
                   <span className="inline-block h-9 w-28 animate-pulse rounded-lg bg-gray-800/80" />
                 ) : (
                   <>
@@ -1261,7 +1269,7 @@ export default function PortfolioPage() {
             </div>
           </div>
           <div className="h-[240px] sm:h-[280px]">
-            {chartValuesPending ? (
+            {chartTotalsPending ? (
               <div className="w-full h-full bg-gray-800/40 rounded-lg animate-pulse" />
             ) : (
               <PortfolioChart
@@ -1288,18 +1296,18 @@ export default function PortfolioPage() {
           <StatCard
             label="P&amp;L"
             value={
-              chartValuesPending
+              chartTotalsPending
                 ? "…"
                 : `${totalPnl >= 0 ? "+" : ""}${fmtUsd(totalPnl)}`
             }
             sub={
-              chartValuesPending
+              chartTotalsPending
                 ? undefined
                 : totalPnlPct !== 0
                   ? `${totalPnlPct >= 0 ? "+" : ""}${totalPnlPct.toFixed(1)}%`
                   : undefined
             }
-            accent={!chartValuesPending && totalPnl !== 0}
+            accent={!chartTotalsPending && totalPnl !== 0}
           />
         </div>
 
@@ -1360,7 +1368,7 @@ export default function PortfolioPage() {
               ) : null}
             </button>
           </div>
-          {isLoading ? (
+          {assetsSectionLoading ? (
             <div className="-mx-1 grid grid-cols-1 gap-4 pb-2 pt-0.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {[...Array(5)].map((_, i) => (
                 <div
@@ -1591,7 +1599,7 @@ export default function PortfolioPage() {
         {/* Transaction History */}
         <div className="rounded-2xl border border-gray-800 bg-[#0b1118] p-5 sm:p-6">
           <h2 className="text-sm font-bold mb-4">Transaction History</h2>
-          {isLoading ? (
+          {(idsLoading || historyBatchLoading) ? (
             <div className="space-y-3">
               {[...Array(3)].map((_, i) => (
                 <div key={i} className="h-11 bg-gray-800/40 rounded-lg animate-pulse" />

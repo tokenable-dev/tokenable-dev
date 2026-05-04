@@ -60,6 +60,8 @@ export interface GradedCardMetadata {
     enrichedFromOfficialApi?: boolean;
     /** Source URL for PSA cert image before IPFS upload (mint RWA image) */
     certImageSourceUrl?: string;
+    /** PSA slab back image URL when available from cert/GetImages (card detail toggle) */
+    certImageBackUrl?: string;
   };
   /** PSA public API lookup summary (disabled without token) */
   psaApi?: {

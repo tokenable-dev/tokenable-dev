@@ -176,7 +176,7 @@ export class CollectionService implements OnModuleInit {
     if (!img) return;
     const key = collectionKey.toLowerCase();
     const row = await this.collectionRepo.findOne({ where: { collectionKey: key } });
-    if (!row || row.coverImageUrl) return;
+    if (!row || row.coverImageUrl?.trim()) return;
     await this.collectionRepo.update({ collectionKey: key }, { coverImageUrl: img });
   }
 
@@ -684,38 +684,52 @@ export class CollectionService implements OnModuleInit {
   }
 
   /**
-   * Representative image: DB value; else first active listing IPFS metadata.
+   * Representative image: persisted `cover_image_url` only.
+   * When still empty, pick art from the **lowest active token id** in the pool (stable as listings churn),
+   * and persist **only if the column is still null** so we never replace the first saved cover.
    */
   async resolveRepresentativeImageForCollection(
     collectionKey: string,
   ): Promise<string | null> {
     const k = collectionKey.toLowerCase();
     const col = await this.findOne(k);
-    if (col?.coverImageUrl) {
-      return col.coverImageUrl;
-    }
+    const stored = col?.coverImageUrl?.trim();
+    if (stored) return stored;
 
     const asks = await this.activeListingsForCollection(k);
     const bids = await this.activeBidsForCollection(k);
-    /** Asks: include real token #0. Bids: criteria bids store tokenId sentinel "0" — skip for URI fetch. */
     const askIds = asks
       .map((o) => o.tokenId)
       .filter((id) => id != null && String(id).trim() !== '');
     const bidIds = bids
       .map((o) => o.tokenId)
       .filter((id) => id && id !== '0');
-    const tokenIds = [...new Set([...askIds, ...bidIds])];
+    const tokenIds = [...new Set([...askIds, ...bidIds])].sort((a, b) => {
+      const na = Number(a);
+      const nb = Number(b);
+      if (Number.isFinite(na) && Number.isFinite(nb) && na !== nb) return na - nb;
+      return String(a).localeCompare(String(b), undefined, { numeric: true });
+    });
+
     for (const tokenId of tokenIds) {
       try {
         const uri = await this.blockchain.getRwaTokenURI(Number(tokenId));
         const meta = await this.ipfsResolver.fetchMetadataJson(uri);
-        const img = extractCollectionRepresentativeImage(meta);
-        if (img) {
-          await this.collectionRepo.update({ collectionKey: k }, { coverImageUrl: img });
-          return img;
-        }
+        const img = extractCollectionRepresentativeImage(meta)?.trim();
+        if (!img) continue;
+
+        await this.collectionRepo
+          .createQueryBuilder()
+          .update(MarketplaceCollection)
+          .set({ coverImageUrl: img })
+          .where('collection_key = :k', { k })
+          .andWhere('(cover_image_url IS NULL OR TRIM(cover_image_url) = :empty)', { empty: '' })
+          .execute();
+
+        const refreshed = await this.findOne(k);
+        return refreshed?.coverImageUrl?.trim() ?? img;
       } catch {
-        /* next */
+        /* next token */
       }
     }
 

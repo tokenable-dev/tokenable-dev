@@ -256,6 +256,9 @@ export function MintForm() {
         ...(lastAnalyze?.psaCertImages?.front
           ? { certImageSourceUrl: lastAnalyze.psaCertImages.front }
           : {}),
+        ...(lastAnalyze?.psaCertImages?.back
+          ? { certImageBackUrl: lastAnalyze.psaCertImages.back }
+          : {}),
       };
       if (lastAnalyze) {
         if (

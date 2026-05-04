@@ -2,7 +2,7 @@ import type { MarketBucketComponents } from './bucket-key.util';
 
 /**
  * Mint / PSA 분석 후 `properties.graded.cardhedger.searchQuery`에 들어가는 검색문.
- * 있으면 컬렉션 표시명으로 우선 사용한다.
+ * 있으면 컬렉션 표시명 후보로 쓰며, {@link buildCollectionDisplayLabel}에서 등급 구문은 제거한다.
  */
 export function extractCollectionQueryUsed(
   meta: Record<string, unknown>,
@@ -17,19 +17,51 @@ export function extractCollectionQueryUsed(
   return q.trim().replace(/\s+/g, ' ');
 }
 
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/** `card.set` → `card.name` 순; 등급/회사 문자열 없음 — 버킷 키는 그대로 `components`. */
+function gradeFreeLabelPartsFromComponents(components: MarketBucketComponents): string {
+  const set = (components.cardSetDisplay ?? components.cardSet).trim();
+  const name = (components.cardNameDisplay ?? components.cardName).trim();
+  return [set, name].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
+}
+
 /**
- * queryUsed 없을 때: "이름 + 업체 + 등급" (사용자 예: PIKACHU/GREY FELT HAT PSA 9)
- * components.cardName 은 bucket 정규화(lower) 상태이므로 표시용은 단어 경계만 살린 타이틀 느낌으로.
+ * 본문에서 `gradingCompany gradeScore`(단어 단위·대소문자 무관) 및 `CMP-10` 형 변형만 제거.
+ */
+function stripGradingCompanyAndScoreFromText(
+  text: string,
+  components: MarketBucketComponents,
+): string {
+  const company = components.gradingCompany.trim();
+  const grade = components.gradeScore.trim();
+  if (!company || !grade || !text.trim()) return text.trim();
+
+  const co = escapeRegExp(company);
+  const gr = escapeRegExp(grade);
+  const patterns = [
+    new RegExp(`\\b${co}\\s+${gr}\\b`, 'gi'),
+    new RegExp(`\\b${co}\\s*[-–]\\s*${gr}\\b`, 'gi'),
+  ];
+  let s = text;
+  for (const re of patterns) s = s.replace(re, ' ');
+  return s.replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * 컬렉션 표시용: 카드 라인만 쓴다(등급사·점수 라벨 제외).
+ * `queryUsed`(Cardhedger 검색문)가 있으면 그중 본 버킷 등급 구문만 제거한 뒤 남는 문구를 쓰고,
+ * 비면 `cardSet` + `cardName` 조합으로 만든다.
  */
 export function buildCollectionDisplayLabel(
   components: MarketBucketComponents,
   queryUsed: string | null,
 ): string {
-  if (queryUsed && queryUsed.trim()) return queryUsed.trim();
+  const base = gradeFreeLabelPartsFromComponents(components);
+  if (!queryUsed || !queryUsed.trim()) return base;
 
-  const name = components.cardName.trim();
-  const company = components.gradingCompany.trim().toUpperCase();
-  const g = components.gradeScore.trim();
-  const parts = [name, company, g].filter(Boolean);
-  return parts.join(' ');
+  const stripped = stripGradingCompanyAndScoreFromText(queryUsed.trim(), components);
+  return stripped.length > 0 ? stripped : base;
 }

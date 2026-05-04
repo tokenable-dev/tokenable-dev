@@ -2,10 +2,18 @@ import { createHash } from 'crypto';
 
 /** Canonical fields that define a "same card" pool (many tokenIds, one book). */
 export interface MarketBucketComponents {
+  /** Lowercase-normalized grader key for hashing; presentation uses {@link gradingCompanyDisplay}. */
   gradingCompany: string;
+  /** As in metadata (whitespace collapsed) — UI only; not in bucket hash. */
+  gradingCompanyDisplay?: string;
+  /** Lowercase-normalized card title for hashing / matching — UI uses {@link cardNameDisplay}. */
   cardName: string;
-  /** Normalized set name (may be empty). */
+  /** As in metadata (whitespace collapsed) — UI only. */
+  cardNameDisplay?: string;
+  /** Lowercase-normalized set name — UI uses {@link cardSetDisplay}. */
   cardSet: string;
+  /** As in metadata when non-empty — UI only. */
+  cardSetDisplay?: string;
   /** Numeric grade as stable string, e.g. "10", "9.5". */
   gradeScore: string;
   /**
@@ -30,6 +38,11 @@ function normalizePart(s: string): string {
     .trim()
     .toLowerCase()
     .replace(/\s+/g, ' ');
+}
+
+/** Trim + collapse internal whitespace — preserves casing for display fields only. */
+function collapseWhitespaceOnly(s: string): string {
+  return s.trim().replace(/\s+/g, ' ');
 }
 
 function detectVariantType(graded: Record<string, unknown>): 'psa_dna' | null {
@@ -125,7 +138,9 @@ export function extractOrDiagnoseBucketComponents(
     };
   }
 
-  const gradingCompany = normalizePart(String(graded.gradingCompany ?? ''));
+  const rawGradingCo = String(graded.gradingCompany ?? '').trim();
+  const gradingCompany = normalizePart(rawGradingCo);
+  const gradingCompanyDisplay = collapseWhitespaceOnly(rawGradingCo);
   const card = graded.card as Record<string, unknown> | undefined;
   const grade = graded.grade as Record<string, unknown> | undefined;
   const psa = graded.psa as Record<string, unknown> | undefined;
@@ -134,8 +149,12 @@ export function extractOrDiagnoseBucketComponents(
   const rawSet = String(card?.set ?? '').trim();
   const rawNum =
     String(card?.number ?? '').trim() || String(psa?.cardNumberHint ?? '').trim();
-  const cardName = normalizePart(rawName || String(psa?.cardNameHint ?? ''));
-  const cardSet = normalizePart(rawSet || String(psa?.setHint ?? ''));
+  const rawNameMerged = rawName || String(psa?.cardNameHint ?? '');
+  const rawSetMerged = rawSet || String(psa?.setHint ?? '');
+  const cardName = normalizePart(rawNameMerged);
+  const cardSet = normalizePart(rawSetMerged);
+  const cardNameDisplay = collapseWhitespaceOnly(rawNameMerged);
+  const cardSetDisplayCollapse = collapseWhitespaceOnly(rawSetMerged);
   const cardNumber = rawNum ? normalizePart(rawNum) : '';
 
   let scoreVal: unknown = grade?.score;
@@ -184,6 +203,9 @@ export function extractOrDiagnoseBucketComponents(
     cardName,
     cardSet,
     gradeScore,
+    gradingCompanyDisplay,
+    ...(cardNameDisplay ? { cardNameDisplay } : {}),
+    ...(cardSetDisplayCollapse ? { cardSetDisplay: cardSetDisplayCollapse } : {}),
   };
   const variantType = detectVariantType(graded);
   if (variantType) out.variantType = variantType;

@@ -3,7 +3,6 @@
 import dynamic from "next/dynamic";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
 import { useReadContract } from "wagmi";
 import { sepolia } from "@/config/wagmi";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -59,7 +58,6 @@ const ListRwaModal = dynamic(
   { ssr: false },
 );
 import { CollectionMarketPanel } from "@/components/marketplace/CollectionMarketPanel";
-import { ASSETS } from "@/constants/assets";
 import {
   computeMarketBucketKey,
   extractBucketComponentsFromMetadata,
@@ -527,16 +525,6 @@ export default function RwaDetailPage() {
       {/* ── Header ── */}
       <header className="border-b border-mint-deep/15 bg-[#07090c]/95 backdrop-blur-md sticky top-0 z-20">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center gap-4 text-sm">
-          <Link href="/" className="shrink-0">
-            <img
-              src={ASSETS.logo.tokenable}
-              alt="Tokenable"
-              width={32}
-              height={32}
-              className="h-8 w-8 object-contain"
-            />
-          </Link>
-          <span className="text-gray-700">/</span>
           <button
             onClick={() => router.back()}
             className="text-gray-500 hover:text-white transition-colors"
@@ -555,7 +543,7 @@ export default function RwaDetailPage() {
         {tokenIdOk && isPageLoading && (
           <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_min(420px,100%)] gap-8 items-start">
             <div className="space-y-4">
-              <div className="aspect-[3/4] max-h-[520px] bg-gray-800/90 rounded-2xl animate-pulse" />
+              <div className="aspect-[3/4] max-h-[min(84vh,800px)] sm:max-h-[min(86vh,880px)] w-full bg-gray-800/90 rounded-2xl animate-pulse" />
               <div className="h-8 w-3/4 bg-gray-800 rounded animate-pulse" />
               <div className="grid grid-cols-2 gap-3">
                 {[...Array(4)].map((_, i) => (

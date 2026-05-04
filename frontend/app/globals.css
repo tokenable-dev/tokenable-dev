@@ -220,3 +220,117 @@ html.collection-details-scroll::-webkit-scrollbar-corner {
   );
   animation: ai-insight-shimmer 1.2s linear infinite;
 }
+
+/* ── Landing (/) — subtle motion; respects prefers-reduced-motion ───────── */
+@keyframes landing-enter {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes landing-orb-soft {
+  from {
+    opacity: 0.72;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 0.94;
+    transform: scale(1.04);
+  }
+}
+
+@keyframes landing-grid-drift {
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: 48px 48px;
+  }
+}
+
+/** One-shot headline / copy / blocks */
+.landing-enter {
+  opacity: 0;
+  animation: landing-enter 0.78s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation-delay: var(--landing-enter-delay, 0s);
+}
+
+/** Feature grid: light stagger */
+.landing-stats-stagger > * {
+  opacity: 0;
+  animation: landing-enter 0.68s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+.landing-stats-stagger > *:nth-child(1) {
+  animation-delay: 0.06s;
+}
+.landing-stats-stagger > *:nth-child(2) {
+  animation-delay: 0.12s;
+}
+.landing-stats-stagger > *:nth-child(3) {
+  animation-delay: 0.18s;
+}
+.landing-stats-stagger > *:nth-child(4) {
+  animation-delay: 0.24s;
+}
+.landing-stats-stagger > *:nth-child(n + 5) {
+  animation-delay: 0.28s;
+}
+
+/** Aurora blobs — very slow alternate pulse */
+.landing-orb-host {
+  transform: translate(-50%, -50%);
+}
+.landing-orb-inner {
+  border-radius: 9999px;
+  animation-name: landing-orb-soft;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+  will-change: transform, opacity;
+}
+
+/** Dot grid overlay — ultra-slow crawl */
+.landing-grid-drift {
+  animation: landing-grid-drift 72s linear infinite;
+}
+
+/* Trending carousel — subtle refresh when sliding to next slice */
+@keyframes trending-deck-shift-in {
+  from {
+    opacity: 0.88;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.trending-deck-shift-in {
+  animation: trending-deck-shift-in 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-enter,
+  .landing-stats-stagger > * {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+  .landing-orb-inner {
+    animation: none !important;
+    opacity: 0.95 !important;
+    transform: none !important;
+  }
+  .landing-grid-drift {
+    animation: none !important;
+  }
+  .trending-deck-shift-in {
+    animation: none !important;
+  }
+}

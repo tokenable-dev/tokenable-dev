@@ -1,4 +1,4 @@
-export type MarketHistoryPeriod = '7d' | '30d' | '90d' | '1y' | 'all';
+export type MarketHistoryPeriod = '7d' | '30d' | '90d' | '1y';
 
 export type PriceBand = {
   avg: number | null;

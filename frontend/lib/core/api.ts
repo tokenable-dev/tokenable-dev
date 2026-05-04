@@ -559,6 +559,8 @@ export interface MarketplaceCollectionDetail {
     queryUsed: string | null;
     components: Record<string, unknown>;
     createdAt: string;
+    /** Persisted cover; stable once set. Prefer this over recomputed fallback in UI when present. */
+    coverImageUrl?: string | null;
   } | null;
   listings: Order[];
   /** ERC721_WITH_CRITERIA collection bids */
@@ -862,7 +864,7 @@ export async function postBatchMintMarketPreviews(
   return out;
 }
 
-export type MarketHistoryPeriod = "7d" | "30d" | "90d" | "1y" | "all";
+export type MarketHistoryPeriod = "7d" | "30d" | "90d" | "1y";
 
 export interface CollectionMarketPriceHistory {
   enabled: boolean;
@@ -885,8 +887,7 @@ function calendarDaysToMarketPeriod(days: number): MarketHistoryPeriod {
   if (d <= 7) return "7d";
   if (d <= 30) return "30d";
   if (d <= 90) return "90d";
-  if (d <= 366) return "1y";
-  return "all";
+  return "1y";
 }
 
 /** Unified collection price history (same endpoint for list/detail/portfolio). */

@@ -42,8 +42,6 @@ export interface CollectionOverviewBoardProps {
   orderBookNextToChart?: ReactNode;
   /** Right column: buy / sell / orders only (no book). */
   tradePanel?: ReactNode;
-  /** Hero cover: hover magnifier lens */
-  heroCoverLoupe?: boolean;
   /** Extra collection fields + expand — omit for plain metadata grid only */
   metadataExpand?: Omit<CollectionMetadataExpandableProps, "metadataRows">;
   /** e.g. external market strip — rendered under metadata on the left */
@@ -93,7 +91,6 @@ export function CollectionOverviewBoard({
   priceChart,
   orderBookNextToChart,
   tradePanel,
-  heroCoverLoupe = false,
   metadataExpand,
   leftColumnFooter,
 }: CollectionOverviewBoardProps) {
@@ -201,14 +198,14 @@ export function CollectionOverviewBoard({
         }`}
       >
         {/* Left: preview + meta */}
-        <div className="flex flex-col items-center lg:items-stretch gap-4">
-          <div className="flex justify-center lg:justify-start">
+        {/* `items-center` would shrink-track cross-axis width on mobile unless inner rows are `w-full` — otherwise hero `w-full`/aspect-ratio collapses. */}
+        <div className="flex w-full min-w-0 flex-col items-center lg:items-stretch gap-4">
+          <div className="flex w-full min-w-0 justify-center lg:justify-start">
             {imageUrl ? (
               <CollectionCoverFrame
                 imageUrl={imageUrl}
                 alt=""
                 variant="hero"
-                heroLoupe={heroCoverLoupe}
                 className="relative z-[1] shrink-0"
               />
             ) : (
@@ -241,19 +238,19 @@ export function CollectionOverviewBoard({
         </div>
 
         {/* Middle: chart (+ order book in exchange layout). Metrics sit above the chart only, not the book/trade column. */}
-        <div className="min-w-0 flex flex-col gap-4 items-stretch w-full">
+        <div className="min-w-0 flex flex-col gap-2.5 items-stretch w-full sm:gap-3">
           {exchangeTriple ? (
             <div
-              className="flex w-full min-w-0 flex-col gap-4 max-xl:gap-4 xl:h-[min(720px,74svh)] xl:max-h-[min(720px,74svh)] xl:min-h-[min(720px,74svh)] xl:flex-row xl:items-stretch xl:gap-4"
+              className="flex w-full min-w-0 flex-col gap-3 max-xl:gap-3 xl:h-[min(600px,66svh)] xl:max-h-[min(600px,66svh)] xl:min-h-[min(600px,66svh)] xl:flex-row xl:items-stretch xl:gap-4"
             >
               {/* Chart first on narrow screens (readable size); xl+ shares fixed row with book+trade */}
-              <div className="order-1 flex min-w-0 flex-1 flex-col gap-3 xl:order-1 xl:h-full xl:min-h-0">
+              <div className="order-1 flex min-w-0 flex-1 flex-col gap-2 xl:order-1 xl:h-full xl:min-h-0">
                 {chartMetricsRow != null ? (
                   <div className="w-full min-w-0 shrink-0">{chartMetricsRow}</div>
                 ) : null}
                 <div className="flex w-full min-w-0 min-h-0 flex-1 flex-col xl:h-full xl:min-h-0">
                   {priceChart ?? (
-                    <CollectionPriceHistoryPlaceholder className="w-full min-h-[360px] max-xl:min-h-[min(400px,50svh)] xl:h-full xl:min-h-0" />
+                    <CollectionPriceHistoryPlaceholder className="w-full min-h-[288px] max-xl:min-h-[min(320px,42svh)] xl:h-full xl:min-h-0" />
                   )}
                 </div>
               </div>
@@ -262,7 +259,7 @@ export function CollectionOverviewBoard({
                 Two equal columns so the book matches the order (trade) pane width — no extra book-wide bias.
               */}
               <div className="order-2 flex w-full min-w-0 max-w-full flex-col xl:order-2 xl:h-full xl:min-h-0 xl:w-[min(100%,min(440px,max(360px,28vw)))] xl:shrink-0 xl:self-stretch xl:basis-[min(100%,min(440px,max(360px,28vw)))]">
-                <div className="grid h-full min-h-0 w-full min-w-0 grid-cols-2 grid-rows-1 overflow-hidden rounded-xl border border-zinc-800/90 bg-zinc-950 shadow-[0_14px_44px_-22px_rgba(0,0,0,0.65)] divide-x divide-zinc-800/80 max-xl:min-h-[min(480px,58dvh)] xl:h-full xl:max-h-full">
+                <div className="grid h-full min-h-0 w-full min-w-0 grid-cols-2 grid-rows-1 overflow-hidden rounded-xl border border-zinc-800/90 bg-zinc-950 shadow-[0_14px_44px_-22px_rgba(0,0,0,0.65)] divide-x divide-zinc-800/80 max-xl:min-h-[min(420px,52dvh)] xl:h-full xl:max-h-full">
                   <div className="flex min-h-[min(220px,32dvh)] min-w-0 flex-col overflow-hidden xl:h-full xl:max-h-full xl:min-h-0">
                     {withFlushProp(orderBookNextToChart)}
                   </div>

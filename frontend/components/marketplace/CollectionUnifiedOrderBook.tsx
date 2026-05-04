@@ -314,7 +314,7 @@ export function CollectionUnifiedOrderBook({
       }`;
 
   return (
-    <div className={shell} aria-label={`Order book ${collectionKey}`}>
+    <div className={shell} aria-label={`OrderBook ${collectionKey}`}>
       {!compact && !flush && (
         <div
           className="pointer-events-none absolute -right-8 -top-12 h-40 w-52 rounded-full bg-emerald-500/[0.12] blur-3xl"
@@ -322,20 +322,19 @@ export function CollectionUnifiedOrderBook({
         />
       )}
       <div
-        className={`relative shrink-0 border-b border-gray-800/80 px-2.5 pt-2.5 pb-1.5 sm:px-3 flex items-end justify-between gap-2`}
+        className={`relative shrink-0 border-b border-gray-800/80 px-2.5 pt-2 pb-1 sm:px-3 flex items-center justify-end gap-2`}
       >
-        <h2 className="text-sm font-bold text-white tracking-tight">Order Book</h2>
         <div className="flex rounded-lg bg-black/30 p-0.5 ring-1 ring-white/[0.06]">
           <button
             type="button"
             onClick={() => setTab("book")}
-            className={`rounded-md px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide transition-colors ${
+            className={`rounded-md px-2.5 py-1 text-[10px] font-semibold tracking-wide transition-colors ${
               tab === "book"
                 ? "bg-white/[0.08] text-white shadow-sm"
                 : "text-gray-500 hover:text-gray-300"
             }`}
           >
-            Book
+            OrderBook
           </button>
           <button
             type="button"
@@ -346,7 +345,7 @@ export function CollectionUnifiedOrderBook({
                 : "text-gray-500 hover:text-gray-300"
             }`}
           >
-            Trades
+            TRADES
           </button>
         </div>
       </div>

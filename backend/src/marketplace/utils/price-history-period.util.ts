@@ -5,10 +5,10 @@ export type TokenablePriceHistoryDuration =
   | '180d'
   | '365d';
 
-export type MarketHistoryPeriod = '7d' | '30d' | '90d' | '1y' | 'all';
+export type MarketHistoryPeriod = '7d' | '30d' | '90d' | '1y';
 
 export function isMarketHistoryPeriod(s: string): s is MarketHistoryPeriod {
-  return s === '7d' || s === '30d' || s === '90d' || s === '1y' || s === 'all';
+  return s === '7d' || s === '30d' || s === '90d' || s === '1y';
 }
 
 export function tokenablePriceHistoryDurationToPeriod(
@@ -38,9 +38,7 @@ export function marketPeriodToMaxCalendarDays(p: MarketHistoryPeriod): number {
     case '90d':
       return 90;
     case '1y':
-      return 366;
-    case 'all':
-      return 365 * 5;
+      return 365;
     default:
       return 90;
   }

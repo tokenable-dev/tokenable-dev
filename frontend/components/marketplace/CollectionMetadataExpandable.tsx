@@ -64,6 +64,7 @@ export function CollectionMetadataExpandable({
     const out: { k: string; v: string }[] = [];
     for (const [k, v] of Object.entries(components)) {
       if (PRIMARY_KEYS.has(k)) continue;
+      if (k.endsWith("Display")) continue;
       if (v === undefined || v === null) continue;
       const s = typeof v === "string" ? v : JSON.stringify(v);
       if (!s.trim()) continue;

@@ -1,6 +1,28 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { RwaImageZoom } from "@/components/common";
+import { postResolveMediaUrls } from "@/lib/core";
+import { SlabCardFlip } from "./SlabCardFlip";
+
+function extractGradedSlabBackCandidate(meta: RwaDetailMetadata | null): string | null {
+  if (!meta?.properties?.graded || typeof meta.properties.graded !== "object") return null;
+  const graded = meta.properties.graded as Record<string, unknown>;
+  const psa =
+    graded.psa && typeof graded.psa === "object"
+      ? (graded.psa as Record<string, unknown>)
+      : null;
+  const fromPsa = typeof psa?.certImageBackUrl === "string" ? psa.certImageBackUrl.trim() : "";
+  if (fromPsa) return fromPsa;
+  const verification =
+    graded.verification && typeof graded.verification === "object"
+      ? (graded.verification as Record<string, unknown>)
+      : null;
+  const slabBack =
+    typeof verification?.slabBack === "string" ? verification.slabBack.trim() : "";
+  return slabBack || null;
+}
 
 function pickString(...vals: unknown[]): string | undefined {
   for (const v of vals) {
@@ -90,6 +112,25 @@ const BADGE_TONES = [
   "bg-mint/15 text-mint border-mint-deep/35",
 ] as const;
 
+/** Filled triangle — resume auto slab rotation. */
+function SlabPlayGlyph({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden>
+      <path d="M8 5v14l11-7-11-7z" />
+    </svg>
+  );
+}
+
+/** Pause bars — pause auto slab rotation while running. */
+function SlabPauseGlyph({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden>
+      <rect x="6" y="5" width="4" height="14" rx="1" />
+      <rect x="14" y="5" width="4" height="14" rx="1" />
+    </svg>
+  );
+}
+
 function selectBadges(meta: RwaDetailMetadata | null): { text: string; toneIdx: number }[] {
   if (!meta?.attributes?.length) return [];
   const out: { text: string; toneIdx: number }[] = [];
@@ -132,33 +173,251 @@ export function RwaDetailAssetPanel({
 }: RwaDetailAssetPanelProps) {
   const title =
     metadata?.name ?? `${collectionLabel} #${tokenId}`;
+  const slabAltCaption = typeof metadata?.name === "string" && metadata.name.trim()
+    ? metadata.name.trim()
+    : `${collectionLabel} #${tokenId}`;
   const statRows = buildRwaDetailStatRows(metadata);
   const badges = selectBadges(metadata);
 
+  const backCandidate = useMemo(() => extractGradedSlabBackCandidate(metadata), [metadata]);
+
+  const backNeedsGateway = Boolean(
+    backCandidate?.startsWith("ipfs://") || backCandidate?.startsWith("ipfs:/"),
+  );
+
+  const { data: backResolved, isFetching: backResolving } = useQuery({
+    queryKey: ["rwa-detail-slab-back", backCandidate],
+    queryFn: () => postResolveMediaUrls([backCandidate!]),
+    enabled: Boolean(backCandidate && backNeedsGateway),
+    staleTime: 86400_000,
+  });
+
+  const effectiveBackUrl = useMemo(() => {
+    if (!backCandidate) return null;
+    if (/^https?:\/\//i.test(backCandidate)) return backCandidate;
+    if (!backNeedsGateway) return null;
+    return backResolved?.items?.[0]?.httpsUrl ?? null;
+  }, [backCandidate, backNeedsGateway, backResolved?.items]);
+
+  const hasBackFace = Boolean(effectiveBackUrl);
+  const [flipAngle, setFlipAngle] = useState(0);
+  const [slabAutoRotateOn, setSlabAutoRotateOn] = useState(true);
+  /** Slab flip when PSA back URL exists as candidate (tabs resolve / gateway). */
+  const useFlipSlab = Boolean(backCandidate);
+
+  useEffect(() => {
+    setFlipAngle(0);
+    setSlabAutoRotateOn(true);
+  }, [tokenId, backCandidate]);
+
+  useEffect(() => {
+    if (flipAngle >= 90 && !hasBackFace && !backResolving) {
+      setFlipAngle(0);
+    }
+  }, [flipAngle, hasBackFace, backResolving]);
+
+  const showFrontFlipTab = flipAngle < 90;
+  const flipBackPlaceholder = (
+    <>
+      <span>No slab back image available for this listing.</span>
+      <span className="mt-2 block max-w-[18rem] text-xs leading-relaxed text-gray-500">
+        Tokens minted after this update include a PSA rear photo URL when PSA provides one (stored in
+        graded metadata).
+      </span>
+    </>
+  );
+
+  const frontHeroLoading = Boolean(metaLoading && !imageUrl);
+  const backHeroLoading = Boolean(backNeedsGateway) && backResolving;
+
+  const slabHeroSizing =
+    "relative mx-auto aspect-[3/4] w-full overflow-visible rounded-2xl max-h-[min(84vh,800px)] sm:max-h-[min(86vh,880px)]";
+
   return (
     <div className="min-w-0 space-y-5">
-      <div className="rounded-2xl border border-mint-deep/20 bg-gradient-to-b from-[#0c1018] to-[#06080d] p-3 sm:p-4 shadow-[0_0_0_1px_rgba(167,243,208,0.06),inset_0_1px_0_rgba(255,255,255,0.04)]">
-        <div className="relative aspect-[3/4] max-h-[min(72vh,640px)] mx-auto w-full rounded-xl overflow-hidden bg-[#030508] ring-1 ring-white/[0.07]">
-          {metaLoading && !imageUrl ? (
-            <div className="absolute inset-0 bg-gray-800/80 animate-pulse" />
+      <div className="min-w-0 space-y-3">
+        {/* overflow-visible preserves 3D flip (rotateY edges) */}
+        <div className={`${slabHeroSizing} bg-transparent`}>
+          {useFlipSlab ? (
+            <>
+              <div className={`${slabHeroSizing} bg-[#030508]`}>
+                {frontHeroLoading ? (
+              <div className="absolute inset-0 animate-pulse rounded-2xl bg-gray-800/80" />
+                ) : imageUrl ? (
+                  <SlabCardFlip
+                    frontSrc={imageUrl}
+                    backSrc={effectiveBackUrl}
+                    backLoading={backHeroLoading}
+                    altFront={`${slabAltCaption} — slab front`}
+                    altBack={`${slabAltCaption} — slab back`}
+                    backPlaceholder={flipBackPlaceholder}
+                    angleDeg={flipAngle}
+                    onAngleChange={setFlipAngle}
+                    autoSweepEnabled={Boolean(
+                      hasBackFace && !backHeroLoading && slabAutoRotateOn,
+                    )}
+                    onAutoSweepUserGesture={() => setSlabAutoRotateOn(false)}
+                  />
+                ) : (
+                  <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-[#030508] text-sm text-gray-600">
+                    No image
+                  </div>
+                )}
+              </div>
+              <div
+                className="pointer-events-none absolute inset-x-0 top-0 z-[1] h-2/5 rounded-t-2xl bg-gradient-to-b from-white/[0.04] to-transparent"
+                aria-hidden
+              />
+            </>
+          ) : frontHeroLoading ? (
+            <div className="absolute inset-0 rounded-2xl bg-gray-800/80 animate-pulse" />
           ) : imageUrl ? (
-            <RwaImageZoom
-              src={imageUrl}
-              alt={title}
-              className="w-full h-full min-h-0"
-              zoomFactor={3}
-              lensSize={230}
-            />
+            <>
+              <div className={`${slabHeroSizing} min-h-0 overflow-hidden bg-[#030508]`}>
+                <RwaImageZoom
+                  key={`${tokenId}-${imageUrl.slice(0, 48)}`}
+                  src={imageUrl}
+                  alt={`${title} — slab front`}
+                  className="w-full h-full min-h-0"
+                  zoomFactor={3}
+                  lensSize={230}
+                />
+              </div>
+              <div
+                className="pointer-events-none absolute inset-x-0 top-0 z-[1] h-2/5 rounded-t-2xl bg-gradient-to-b from-white/[0.04] to-transparent"
+                aria-hidden
+              />
+            </>
           ) : (
-            <div className="absolute inset-0 flex items-center justify-center text-gray-600 text-sm">
+            <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-[#030508] text-sm text-gray-600">
               No image
             </div>
           )}
-          <div
-            className="pointer-events-none absolute inset-x-0 top-0 h-2/5 bg-gradient-to-b from-white/[0.04] to-transparent"
-            aria-hidden
-          />
         </div>
+
+        {useFlipSlab ? (
+          <>
+            <div className="mt-0 flex flex-wrap items-end justify-center gap-2 sm:gap-3">
+              {hasBackFace && !backHeroLoading && imageUrl && !frontHeroLoading ? (
+                <button
+                  type="button"
+                  aria-pressed={slabAutoRotateOn}
+                  className={`group relative aspect-[3/4] w-12 shrink-0 overflow-hidden rounded-lg border-2 bg-black/35 shadow-[0_6px_20px_-10px_rgba(0,0,0,0.75)] transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mint/70 ${
+                    slabAutoRotateOn
+                      ? "border-mint/40 ring-1 ring-mint/15 hover:border-mint/55 hover:ring-mint/25"
+                      : "border-mint/55 ring-1 ring-mint/20 hover:border-mint/80 hover:ring-mint/35"
+                  }`}
+                  onClick={() => setSlabAutoRotateOn((on) => !on)}
+                  aria-label={
+                    slabAutoRotateOn
+                      ? `${slabAltCaption} — pause auto slab rotation`
+                      : `${slabAltCaption} — resume auto slab rotation`
+                  }
+                  title={slabAutoRotateOn ? "Pause auto rotate" : "Resume auto rotate"}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element -- rotate control preview */}
+                  <img
+                    src={imageUrl}
+                    alt=""
+                    className="h-full w-full object-cover"
+                    draggable={false}
+                    referrerPolicy="no-referrer"
+                  />
+                  <span
+                    className={`absolute inset-0 flex items-center justify-center transition ${
+                      slabAutoRotateOn
+                        ? "bg-black/26 group-hover:bg-black/18"
+                        : "bg-black/40 group-hover:bg-black/32"
+                    }`}
+                  >
+                    <span className="flex h-[1.625rem] w-[1.625rem] shrink-0 items-center justify-center rounded-full bg-white/95 shadow-md ring-1 ring-black/45">
+                      {slabAutoRotateOn ? (
+                        <SlabPauseGlyph className="h-3 w-3 text-[#0a1210]" />
+                      ) : (
+                        <SlabPlayGlyph className="h-3 w-3 translate-x-[1px] text-[#0a1210]" />
+                      )}
+                    </span>
+                  </span>
+                </button>
+              ) : null}
+              <div className="flex gap-2" role="tablist" aria-label="Slab photo side">
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={showFrontFlipTab}
+                  aria-label={`${slabAltCaption} — show slab front`}
+                  title="Slab front"
+                  onClick={() => {
+                    setSlabAutoRotateOn(false);
+                    setFlipAngle(0);
+                  }}
+                  className={`relative aspect-[3/4] w-12 shrink-0 overflow-hidden rounded-lg border-2 transition-colors ${
+                    showFrontFlipTab
+                      ? "border-mint/65 bg-mint/10 ring-2 ring-mint/25"
+                      : "border-gray-700/90 bg-black/40 opacity-85 hover:border-gray-500 hover:opacity-100"
+                  }`}
+                >
+                  {frontHeroLoading ? (
+                    <span
+                      className="block h-full min-h-[4rem] w-full animate-pulse bg-gray-800"
+                      aria-hidden
+                    />
+                  ) : imageUrl ? (
+                    /* eslint-disable-next-line @next/next/no-img-element -- tab preview */
+                    <img
+                      src={imageUrl}
+                      alt=""
+                      className="h-full w-full object-cover"
+                      draggable={false}
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <span className="flex min-h-[4rem] w-full items-center justify-center bg-[#0a0f16] text-[10px] text-zinc-600">
+                      —
+                    </span>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={!showFrontFlipTab}
+                  aria-label={`${slabAltCaption} — show slab back`}
+                  title="Slab back"
+                  onClick={() => {
+                    setSlabAutoRotateOn(false);
+                    setFlipAngle(180);
+                  }}
+                  className={`relative aspect-[3/4] w-12 shrink-0 overflow-hidden rounded-lg border-2 transition-colors ${
+                    !showFrontFlipTab
+                      ? "border-mint/65 bg-mint/10 ring-2 ring-mint/25"
+                      : "border-gray-700/90 bg-black/40 opacity-85 hover:border-gray-500 hover:opacity-100"
+                  }`}
+                >
+                  {backHeroLoading ? (
+                    <span
+                      className="block h-full min-h-[4rem] w-full animate-pulse bg-gray-800"
+                      aria-hidden
+                    />
+                  ) : effectiveBackUrl ? (
+                    /* eslint-disable-next-line @next/next/no-img-element -- tab preview */
+                    <img
+                      src={effectiveBackUrl}
+                      alt=""
+                      className="h-full w-full object-cover"
+                      draggable={false}
+                      loading="lazy"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <span className="flex min-h-[4rem] w-full flex-col items-center justify-center gap-0.5 bg-[#0a0f16] px-1 text-center">
+                      <span className="text-[9px] leading-tight text-zinc-500">No rear</span>
+                    </span>
+                  )}
+                </button>
+              </div>
+            </div>
+          </>
+        ) : null}
       </div>
 
       <div className="space-y-3 px-0.5">
