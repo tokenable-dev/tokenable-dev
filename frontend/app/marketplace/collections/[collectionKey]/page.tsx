@@ -875,6 +875,27 @@ export default function MarketplaceCollectionPage() {
   const collectionCoverUrl =
     collection.coverImageUrl?.trim() || representativeImageUrl;
 
+  const exchangePriceStripProps = {
+    showFootnotes: false as const,
+    compact: true,
+    externalMarketUsd: resolvedExternal.usd,
+    externalPriceSource: resolvedExternal.source,
+    marketTierDisplay: pokeTierLabel,
+    externalMarketMatchConfidence: resolvedExternal.marketMatchConfidence,
+    externalPriceLoading: marketPreviewLoading || nmHistoryLoading || marketSeriesLoading,
+    externalVolatilityCvPct,
+    volatilityFootnote,
+    marketStats: marketStats ?? null,
+    marketStatsLoading,
+    platformPriceSamples,
+    bookSpreadPct: marketMetrics.spreadPct,
+    externalPriceChange1yPct,
+    externalPriceChange1yLoading: pokeYearHistoryLoading,
+    marketCapUsd: marketCapComputation?.usd ?? null,
+    marketCapMethodHint: marketCapComputation?.methodLabel ?? null,
+    formatMarketCap: formatMarketCapUsd,
+  };
+
   return (
     <div className="min-h-screen bg-gray-950 text-white">
       <div className="w-full max-w-[1680px] mx-auto px-4 sm:px-5 lg:px-8 xl:px-10 py-8 pb-20">
@@ -899,28 +920,10 @@ export default function MarketplaceCollectionPage() {
           metadataRows={metadataRows}
           stats={[]}
           chartMetricsRow={
-            <CollectionPriceMetricsStrip
-              showFootnotes={false}
-              compact
-              externalMarketUsd={resolvedExternal.usd}
-              externalPriceSource={resolvedExternal.source}
-              marketTierDisplay={pokeTierLabel}
-              externalMarketMatchConfidence={resolvedExternal.marketMatchConfidence}
-              externalPriceLoading={
-                marketPreviewLoading || nmHistoryLoading || marketSeriesLoading
-              }
-              externalVolatilityCvPct={externalVolatilityCvPct}
-              volatilityFootnote={volatilityFootnote}
-              marketStats={marketStats ?? null}
-              marketStatsLoading={marketStatsLoading}
-              platformPriceSamples={platformPriceSamples}
-              bookSpreadPct={marketMetrics.spreadPct}
-              externalPriceChange1yPct={externalPriceChange1yPct}
-              externalPriceChange1yLoading={pokeYearHistoryLoading}
-              marketCapUsd={marketCapComputation?.usd ?? null}
-              marketCapMethodHint={marketCapComputation?.methodLabel ?? null}
-              formatMarketCap={formatMarketCapUsd}
-            />
+            <CollectionPriceMetricsStrip {...exchangePriceStripProps} exchangeColumn="chart" />
+          }
+          bookColumnMetricsRow={
+            <CollectionPriceMetricsStrip {...exchangePriceStripProps} exchangeColumn="trade" />
           }
           metadataExpand={{
             collectionKey: collection.collectionKey,

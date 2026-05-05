@@ -39,6 +39,11 @@ export interface CollectionPriceMetricsStripProps {
   showFootnotes?: boolean;
   compact?: boolean;
   formatMarketCap: (usd: number | null) => string;
+  /**
+   * When set, renders only tiles for that column — pair with CollectionOverviewBoard
+   * `bookColumnMetricsRow` so price/change sit above the chart and vol/cap above the book.
+   */
+  exchangeColumn?: "chart" | "trade";
 }
 
 function isNonemptyFooter(node: ReactNode): boolean {
@@ -126,7 +131,16 @@ export function CollectionPriceMetricsStrip({
   showFootnotes = true,
   compact = false,
   formatMarketCap,
+  exchangeColumn,
 }: CollectionPriceMetricsStripProps) {
+  const showChartColumn =
+    exchangeColumn === undefined
+      ? true
+      : exchangeColumn === "chart";
+  const showTradeColumn =
+    exchangeColumn === undefined
+      ? true
+      : exchangeColumn === "trade";
 
   const volFromTrades = metricVolatilityFromPrices(platformPriceSamples);
   const volatilityPct =
@@ -143,8 +157,18 @@ export function CollectionPriceMetricsStrip({
     Number.isFinite(externalMarketUsd) &&
     externalMarketUsd > 0;
 
+  const chartSlotCount =
+    (showChartColumn ? 1 : 0) + (showChartColumn && showPriceChange ? 1 : 0);
+  const tradeSlotCount =
+    (showVolatility && showTradeColumn ? 1 : 0) +
+    (showMarketCap && showTradeColumn ? 1 : 0);
+
   const visibleMetricCount =
-    1 + (showPriceChange ? 1 : 0) + (showVolatility ? 1 : 0) + (showMarketCap ? 1 : 0);
+    exchangeColumn === undefined
+      ? chartSlotCount + tradeSlotCount
+      : exchangeColumn === "chart"
+        ? chartSlotCount
+        : tradeSlotCount;
 
   const gridClass =
     visibleMetricCount <= 1
@@ -188,42 +212,53 @@ export function CollectionPriceMetricsStrip({
     <div
       className={`grid ${gridClass} w-full min-w-0 items-stretch gap-2 sm:gap-3 ${compact ? "mb-0 sm:mb-0.5" : "mb-2 sm:mb-2.5"}`}
     >
-      <MetricTile label="Market price" accent="market" compact={compact} footer={priceFooter} value={
-        <>
-          {externalPriceLoading && !showExternalPrimary ? (
-            <span className="inline-block h-[1.2rem] w-[6rem] max-w-full animate-pulse rounded bg-zinc-800/75" aria-hidden />
-          ) : showExternalPrimary ? (
-            <span className="min-w-0 text-white">{formatUsdCompact(externalMarketUsd)}</span>
-          ) : (
-            <span className="min-w-0 truncate text-white">{NO_EXTERNAL_PRICE}</span>
-          )}
-        </>
-      }
-      />
-
-      {showPriceChange ? (
-        <MetricTile label="% Change (1 yr)" compact={compact} footer={changeBasis} value={
-          <>
-            {externalPriceChange1yLoading && change == null ? (
-              <span className="inline-block h-[1.2rem] w-[4rem] animate-pulse rounded bg-zinc-800/75" aria-hidden />
-            ) : change != null && Number.isFinite(change) ? (
-              <span
-                className={
-                  changeUp ? "text-emerald-400" : changeDown ? "text-red-400" : "text-zinc-100"
-                }
-              >
-                {change > 0 ? "+" : ""}
-                {change.toFixed(1)}%
-              </span>
-            ) : (
-              <span className="text-zinc-100">—</span>
-            )}
-          </>
-        }
+      {showChartColumn ? (
+        <MetricTile
+          label="Market price"
+          accent="market"
+          compact={compact}
+          footer={priceFooter}
+          value={
+            <>
+              {externalPriceLoading && !showExternalPrimary ? (
+                <span className="inline-block h-[1.2rem] w-[6rem] max-w-full animate-pulse rounded bg-zinc-800/75" aria-hidden />
+              ) : showExternalPrimary ? (
+                <span className="min-w-0 text-white">{formatUsdCompact(externalMarketUsd)}</span>
+              ) : (
+                <span className="min-w-0 truncate text-white">{NO_EXTERNAL_PRICE}</span>
+              )}
+            </>
+          }
         />
       ) : null}
 
-      {showVolatility ? (
+      {showChartColumn && showPriceChange ? (
+        <MetricTile
+          label="% Change (1 yr)"
+          compact={compact}
+          footer={changeBasis}
+          value={
+            <>
+              {externalPriceChange1yLoading && change == null ? (
+                <span className="inline-block h-[1.2rem] w-[4rem] animate-pulse rounded bg-zinc-800/75" aria-hidden />
+              ) : change != null && Number.isFinite(change) ? (
+                <span
+                  className={
+                    changeUp ? "text-emerald-400" : changeDown ? "text-red-400" : "text-zinc-100"
+                  }
+                >
+                  {change > 0 ? "+" : ""}
+                  {change.toFixed(1)}%
+                </span>
+              ) : (
+                <span className="text-zinc-100">—</span>
+              )}
+            </>
+          }
+        />
+      ) : null}
+
+      {showTradeColumn && showVolatility ? (
         <MetricTile label="Volatility" compact={compact} footer={volFooter} value={
           <span className="text-zinc-100">
             {volatilityPct != null && Number.isFinite(volatilityPct)
@@ -234,7 +269,7 @@ export function CollectionPriceMetricsStrip({
         />
       ) : null}
 
-      {showMarketCap ? (
+      {showTradeColumn && showMarketCap ? (
         <MetricTile label="Market cap" compact={compact} footer={capFooter} value={
           <span className="min-w-0 truncate text-zinc-100">{formatMarketCap(marketCapUsd)}</span>
         }

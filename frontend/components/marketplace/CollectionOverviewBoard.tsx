@@ -48,8 +48,10 @@ export interface CollectionOverviewBoardProps {
   metadataRows: { label: string; value: string }[];
   /** 비우면 헤더 오른쪽 인라인 스탯 숨김 */
   stats: CollectionOverviewStat[];
-  /** 차트 바로 위 (Current Price / Change / Volatility / MCap 등) */
+  /** 차트 바로 위 (Current Price / Change 등) — exchange 트리플에서는 차트 열 전용 타일만 넣음 */
   chartMetricsRow?: ReactNode;
+  /** Volatility / MCap — exchange 트리플일 때 오더북·트레이드 열 위; xl 이상만 표시(모바일·좁은 뷰포트에서는 숨김). */
+  bookColumnMetricsRow?: ReactNode;
   /** Depth book (optional — e.g. rendered in a unified trade section below) */
   orderBook?: ReactNode;
   /** Buy / sell ticket — optional; pairs with orderBook when used in overview */
@@ -113,6 +115,7 @@ export function CollectionOverviewBoard({
   metadataRows,
   stats,
   chartMetricsRow,
+  bookColumnMetricsRow,
   orderBook,
   tradeTicket,
   listingCount,
@@ -325,32 +328,46 @@ export function CollectionOverviewBoard({
           {leftColumnFooter}
         </div>
 
-        {/* Middle: chart (+ order book in exchange layout). Metrics sit above the chart only, not the book/trade column. */}
+        {/* Middle: chart (+ book in exchange layout). Triple: price tiles over chart column; Vol/Cap over book+trade column. */}
         <div className="min-w-0 flex flex-col gap-2.5 items-stretch w-full sm:gap-3">
           {exchangeTriple ? (
             <div className={COLLECTION_MARKET_CLUSTER_BEZEL}>
               <div className={COLLECTION_MARKET_CLUSTER_MAT}>
-                {chartMetricsRow != null ? (
-                  <div className="mb-3 w-full min-w-0 shrink-0 max-xl:mb-2 sm:mb-3.5">
-                    {chartMetricsRow}
-                  </div>
-                ) : null}
                 <div
-                  className="flex w-full min-w-0 flex-col gap-3 max-xl:gap-3 xl:flex-row xl:items-stretch xl:gap-3 xl:h-[min(calc(min(420px,_32vw)*4/3*0.86+1.25rem),min(478px,_48svh))] xl:max-h-[min(478px,_48svh)] xl:min-h-0"
+                  className={[
+                    "flex min-w-0 w-full flex-col gap-3 max-xl:gap-3",
+                    "xl:grid xl:min-h-0 xl:gap-x-3 xl:gap-y-3",
+                    "xl:grid-cols-[minmax(0,1fr)_min(100%,min(440px,max(360px,28vw)))]",
+                  ].join(" ")}
                 >
-                  {/* Chart first on narrow screens; xl+ shares one row with book+trade — height tracks hero frame (3:4 max width). */}
-                  <div className="order-1 flex min-w-0 flex-1 flex-col xl:order-1 xl:h-full xl:min-h-0">
-                    <div className="flex w-full min-w-0 min-h-0 flex-1 flex-col xl:h-full xl:min-h-0">
+                  {chartMetricsRow != null || bookColumnMetricsRow != null ? (
+                    bookColumnMetricsRow != null ? (
+                      <>
+                        <div className="order-1 min-w-0 shrink-0 xl:col-start-1 xl:row-start-1">
+                          {chartMetricsRow != null ? (
+                            <div className="w-full min-w-0">{chartMetricsRow}</div>
+                          ) : null}
+                        </div>
+                        <div className="order-3 hidden min-w-0 shrink-0 xl:col-start-2 xl:row-start-1 xl:block">
+                          <div className="w-full min-w-0">{bookColumnMetricsRow}</div>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="order-1 min-w-0 xl:col-span-2 xl:row-start-1">
+                        {chartMetricsRow}
+                      </div>
+                    )
+                  ) : null}
+
+                  <div className="order-2 flex min-h-0 min-w-0 flex-col xl:col-start-1 xl:row-start-2 xl:h-[min(calc(min(420px,_32vw)*4/3*0.86+1.25rem),min(478px,_48svh))] xl:max-h-[min(478px,_48svh)]">
+                    <div className="flex h-full min-h-0 w-full flex-1 flex-col xl:h-full">
                       {priceChart ?? (
                         <CollectionPriceHistoryPlaceholder className="w-full min-h-[128px] max-xl:min-h-[min(152px,_20svh)] xl:h-full xl:min-h-0" />
                       )}
                     </div>
                   </div>
-                  {/*
-                Book + trade: fixed max width so the chart can use the rest of the row.
-                Two equal columns — same height as chart via parent xl:h + items-stretch.
-              */}
-                  <div className="order-2 flex w-full min-w-0 max-w-full flex-col xl:order-2 xl:h-full xl:min-h-0 xl:w-[min(100%,min(440px,max(360px,28vw)))] xl:shrink-0 xl:self-stretch xl:basis-[min(100%,min(440px,max(360px,28vw)))]">
+
+                  <div className="order-4 flex min-h-0 w-full min-w-0 max-w-full flex-col self-stretch xl:col-start-2 xl:row-start-2 xl:h-[min(calc(min(420px,_32vw)*4/3*0.86+1.25rem),min(478px,_48svh))] xl:max-h-[min(478px,_48svh)] xl:w-auto xl:max-w-none xl:shrink-0">
                     <div
                       className={`grid h-full min-h-[min(140px,_22dvh)] w-full min-w-0 grid-cols-2 grid-rows-1 overflow-hidden max-xl:min-h-[min(176px,_25dvh)] xl:min-h-0 xl:h-full xl:max-h-full ${COLLECTION_MARKET_SPLIT_CHROME}`}
                     >
