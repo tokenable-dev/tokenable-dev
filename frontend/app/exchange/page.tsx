@@ -325,11 +325,9 @@ function CollectionRow({
 
 function CollectionGridCard({
   collection,
-  listingCount,
   snapshot,
 }: {
   collection: MarketplaceCollectionSummary;
-  listingCount: number;
   snapshot: CollectionListMarketSnapshot | undefined;
 }) {
   const comp = collection.components as { gradeScore?: string };
@@ -387,10 +385,6 @@ function CollectionGridCard({
         <h3 className="truncate text-lg font-semibold text-white">{collection.displayLabel}</h3>
         <div className="flex min-w-0 items-stretch gap-2 rounded-xl border border-zinc-800/70 bg-black/30 px-2 py-1.5">
           <dl className="min-w-0 flex-1 space-y-1.5 text-[10px] leading-tight tabular-nums sm:text-[11px]">
-            <div className="min-w-0">
-              <dt className="text-zinc-500">Listings</dt>
-              <dd className="text-sm font-semibold text-zinc-100">{listingCount}</dd>
-            </div>
             <div className="min-w-0">
               <dt className="text-zinc-500">Market price</dt>
               <dd
@@ -633,7 +627,6 @@ export default function ExchangePage() {
               <CollectionGridCard
                 key={c.collectionKey}
                 collection={c}
-                listingCount={c.activeListingCount}
                 snapshot={snapshotByKey.get(c.collectionKey.toLowerCase())}
               />
             ))}

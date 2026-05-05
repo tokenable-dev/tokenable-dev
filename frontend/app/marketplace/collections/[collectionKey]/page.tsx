@@ -199,12 +199,6 @@ export default function MarketplaceCollectionPage() {
       points365d: number;
     };
   } | null>(null);
-  /** Matches Tailwind `md` (769px+) — viewport ≤767px treats as mobile for AI auto-trigger. */
-  const [narrowViewport, setNarrowViewport] = useState(() =>
-    typeof window !== "undefined" ? window.matchMedia("(max-width: 767px)").matches : false,
-  );
-  const aiInsightSectionRef = useRef<HTMLElement>(null);
-  const aiInsightAutoStartedRef = useRef(false);
   const aiInsightInFlightRef = useRef(false);
 
   /** Last fill this session (fixed timestamp) — merged into chart until series refetch includes it. */
@@ -221,21 +215,10 @@ export default function MarketplaceCollectionPage() {
   });
 
   useEffect(() => {
-    aiInsightAutoStartedRef.current = false;
     setShowAiInsights(false);
     setAiInsightStatus("idle");
     setAiInsightResult(null);
   }, [key]);
-
-  useEffect(() => {
-    const mq =
-      typeof window !== "undefined" ? window.matchMedia("(max-width: 767px)") : null;
-    if (!mq) return;
-    const sync = () => setNarrowViewport(mq.matches);
-    sync();
-    mq.addEventListener("change", sync);
-    return () => mq.removeEventListener("change", sync);
-  }, []);
 
   const comp = useMemo(() => {
     const raw = data?.collection?.components as
@@ -375,7 +358,6 @@ export default function MarketplaceCollectionPage() {
     return pokeHistOk ? coefficientOfVariationPctFromUsdSeries(pokeHistPts) : null;
   }, [pokeHistOk, pokeHistPts, pokeYearPts]);
 
-  const nmHistApprox = nmHistory?.matchConfidence === "approximate";
   const pokeTierLabel = marketTierDisplayLabel(pokeHistoryTier);
 
   const externalPriceChange1yPct = useMemo(
@@ -425,23 +407,14 @@ export default function MarketplaceCollectionPage() {
   }, [platformPtsBase, sessionFillPoint]);
 
   const liveMarketLegend = "Live market price";
-  const liveMarketLegendApprox = "Live market price (approximate match)";
 
   const chartExternalLegend = pokeHistOk
-    ? nmHistApprox
-      ? liveMarketLegendApprox
-      : liveMarketLegend
+    ? liveMarketLegend
     : jtHistOk
       ? liveMarketLegend
       : `External market (${pokeTierLabel})`;
 
-  const chartExternalShort = pokeHistOk
-    ? nmHistApprox
-      ? liveMarketLegendApprox
-      : liveMarketLegend
-    : jtHistOk
-      ? liveMarketLegend
-      : liveMarketLegend;
+  const chartExternalShort = liveMarketLegend;
 
   const chartExternalRollingKind = pokeHistOk || jtHistOk ? "history" : "snapshot";
 
@@ -523,9 +496,7 @@ export default function MarketplaceCollectionPage() {
 
   const chartExternalRefTag =
     resolvedExternal.source === "cardhedger"
-      ? resolvedExternal.marketMatchConfidence === "approximate"
-        ? liveMarketLegendApprox
-        : liveMarketLegend
+      ? liveMarketLegend
       : `External ${pokeTierLabel}`;
 
   const marketCapComputation = useMemo(
@@ -748,24 +719,13 @@ export default function MarketplaceCollectionPage() {
       setAiInsightResult({
         title: `${collectionInsightLabel ?? "Collection"} — AI Market Brief`,
         summary:
-          "Market structure is in an active interpretation phase, with momentum and liquidity context refreshing in real time.",
+          "Snapshot unavailable — below stats still update live.",
         bullets: [
-          "Momentum is rotating through consolidation rather than breaking structure.",
-          "Liquidity behavior remains the key confirmation signal for continuation.",
-          "Premium dynamics continue to reflect quality-focused demand.",
+          "Re-open insight after a refresh.",
+          "Use price tiles for spot context.",
+          "Order book stays live.",
         ],
-        dynamics: [
-          "Short-term behavior sits in a thin liquidity window with intermittent expansion attempts.",
-          "Medium-term structure remains constructive as consolidation absorbs recent volatility.",
-          "Longer-horizon trajectory still resembles staged trend continuation.",
-          "PSA premium behavior suggests demand is skewed toward higher-grade conviction.",
-        ],
-        outlook: "Base case remains constructive consolidation before the next directional expansion.",
-        outlookScenarios: {
-          bullCase: "Continuation strengthens if demand absorption persists through consolidation.",
-          baseCase: "Market rotates sideways with constructive structure retention.",
-          bearCase: "Cooling pressure extends into a controlled pullback before re-accumulation.",
-        },
+        dynamics: [],
         confidence: null,
         marketTone: null,
         riskScore: null,
@@ -782,49 +742,6 @@ export default function MarketplaceCollectionPage() {
       aiInsightInFlightRef.current = false;
     }
   }, [key, collectionInsightLabel]);
-
-  /** Mobile — start AI insight soon after collection detail is usable. */
-  useEffect(() => {
-    if (!key.length || !narrowViewport) return;
-    if (!data?.collection || isLoading || isError) return;
-    if (aiInsightAutoStartedRef.current) return;
-    aiInsightAutoStartedRef.current = true;
-    void runMockAiInsights();
-  }, [key, narrowViewport, data?.collection, isLoading, isError, runMockAiInsights]);
-
-  /** Desktop / tablet — lazy-start when AI section scrolls into view. */
-  useEffect(() => {
-    if (!key.length || narrowViewport) return;
-    if (!data?.collection || isLoading || isError) return;
-    const root = aiInsightSectionRef.current;
-    if (!root) return;
-
-    const obs = new IntersectionObserver(
-      (entries) => {
-        const visible = entries.some(
-          (e) => e.isIntersecting && (e.intersectionRatio >= 0.12 || e.intersectionRect.height > 0),
-        );
-        if (!visible) return;
-        if (aiInsightAutoStartedRef.current) return;
-        aiInsightAutoStartedRef.current = true;
-        obs.disconnect();
-        void runMockAiInsights();
-      },
-      {
-        threshold: [0, 0.12, 0.25],
-        rootMargin: "0px 0px -12% 0px",
-      },
-    );
-    obs.observe(root);
-    return () => obs.disconnect();
-  }, [
-    key,
-    narrowViewport,
-    data?.collection,
-    isLoading,
-    isError,
-    runMockAiInsights,
-  ]);
 
   /** Latest on-platform sale (DB poll or initial bundle). */
   const lastPlatformSaleUsdc = useMemo(() => {
@@ -1108,7 +1025,6 @@ export default function MarketplaceCollectionPage() {
         />
 
         <section
-          ref={aiInsightSectionRef}
           className="mt-6 w-full scroll-mt-28"
           aria-label="AI insights"
         >
@@ -1124,9 +1040,7 @@ export default function MarketplaceCollectionPage() {
               <p className="mb-2 text-[13px] font-semibold tracking-wide text-[#45f2dc]">
                 AI Insights
               </p>
-              <p className="text-zinc-300">
-                Scanning liquidity regimes, premium structure, and momentum clusters...
-              </p>
+              <p className="text-zinc-300">Pulling liquidity + PSA context…</p>
               <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-zinc-800/80">
                 <div className="ai-insight-loading-track h-full w-[28%] rounded-full bg-[#20e4cf]" />
               </div>
@@ -1238,7 +1152,7 @@ export default function MarketplaceCollectionPage() {
                       outlookScenarios: aiInsightResult.outlookScenarios,
                     }}
                     resetKey={aiInsightResult.generatedAt}
-                    durationMs={5000}
+                    durationMs={2600}
                     toneDisplay={aiInsightResult.marketTone}
                     generatedAtLine={aiInsightResult.generatedAt}
                   />

@@ -43,8 +43,8 @@ export interface CollectionMetadataExpandableProps {
   /** Cardhedger catalog id when server matched a card */
   cardhedgerCardId?: string | null;
   /**
-   * When true (collection overview): hero area shows ≤3 condensed lines +
-   * a single \"More details\" disclosure for the full metadata + technical block.
+   * When true (collection overview): hero shows ≤3 condensed lines + one \"More details\"
+   * toggle that expands full metadata rows and technical fields together.
    */
   compactHero?: boolean;
   /** Row `label`s to exclude from the compact preview (e.g. Card / Set lifted to header). */
@@ -107,8 +107,10 @@ export function CollectionMetadataExpandable({
     return out;
   }, [metadataRows, compactHeroOmitLabels]);
 
-  const technicalInner = (
-    <div className="space-y-3 border-t border-zinc-800/80 px-3 pb-3 pt-3 text-[12px] leading-snug">
+  const technicalInner = (omitTopDivider = false) => (
+    <div
+      className={`space-y-3 px-3 pb-3 pt-3 text-[12px] leading-snug ${omitTopDivider ? "" : "border-t border-zinc-800/80"}`}
+    >
       <dl className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         <div className="rounded-lg border border-gray-800/70 bg-black/20 px-2.5 py-2 sm:col-span-2">
           <dt className="text-[10px] font-medium uppercase tracking-wide text-gray-500">
@@ -220,7 +222,7 @@ export function CollectionMetadataExpandable({
             className="flex w-full items-center justify-between gap-3 px-3 py-3 text-left text-sm font-semibold text-white transition-colors hover:bg-white/[0.04]"
             aria-expanded={moreOpen}
           >
-            <span>{metadataRows.length === 0 ? "Schema & identifiers" : "More details"}</span>
+            <span>More details</span>
             <span
               className={`text-xs text-zinc-500 transition-transform duration-200 ${moreOpen ? "rotate-180" : ""}`}
               aria-hidden
@@ -232,29 +234,7 @@ export function CollectionMetadataExpandable({
           {moreOpen ? (
             <div className="border-t border-gray-800/80 pb-3">
               {metadataRows.length > 0 ? fullMetadataGrid : null}
-
-              {hasExpandable ? (
-                <div className="mx-3 mt-2 rounded-xl border border-zinc-800/90 bg-zinc-950/50">
-                  <button
-                    type="button"
-                    onClick={() => setExpanded((e) => !e)}
-                    className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left text-[12px] font-medium text-zinc-300 hover:bg-white/[0.03] transition-colors rounded-xl"
-                    aria-expanded={expanded}
-                  >
-                    <span>Technical & identifiers</span>
-                    <span className="text-[11px] text-zinc-500 tabular-nums">
-                      {expanded ? "Collapse" : "Expand"}
-                    </span>
-                  </button>
-                  <div
-                    className={`grid transition-[grid-template-rows] duration-200 ease-out ${
-                      expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
-                    }`}
-                  >
-                    <div className="min-h-0 overflow-hidden">{technicalInner}</div>
-                  </div>
-                </div>
-              ) : null}
+              {hasExpandable ? technicalInner(metadataRows.length === 0) : null}
             </div>
           ) : null}
         </div>
@@ -297,7 +277,7 @@ export function CollectionMetadataExpandable({
               expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
             }`}
           >
-            <div className="min-h-0 overflow-hidden">{technicalInner}</div>
+            <div className="min-h-0 overflow-hidden">{technicalInner(false)}</div>
           </div>
         </div>
       ) : null}

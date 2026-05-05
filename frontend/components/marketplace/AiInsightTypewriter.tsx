@@ -20,44 +20,35 @@ type NarrativeBlock = {
   text: string;
 };
 
+const MAX_SUMMARY_CHARS = 320;
+const MAX_BULLET_CHARS = 110;
+
+function clampLine(s: string, maxChars: number): string {
+  const t = String(s).replace(/\s+/g, " ").trim();
+  if (!t.length) return "";
+  if (t.length <= maxChars) return t;
+  const cut = t.slice(0, maxChars - 1).trimEnd();
+  const i = Math.max(cut.lastIndexOf(" "), cut.lastIndexOf(","));
+  const base = i > Math.min(32, Math.floor(maxChars * 0.35)) ? cut.slice(0, i).trimEnd() : cut;
+  return `${base}…`;
+}
+
+/** Skim-first: summary + up to three short bullets — no duplicate long sections */
 function buildNarrativeBlocks(r: AiInsightStreamable): NarrativeBlock[] {
   const out: NarrativeBlock[] = [];
-  out.push({ id: "h-ai", role: "heading", text: "AI Insight" });
-  out.push({ id: "summary", role: "body", text: (r.summary?.trim() ?? "") + "\n\n" });
-
-  if (r.dynamics && r.dynamics.length > 0) {
-    out.push({ id: "h-struct", role: "heading", text: "Market Structure" });
-    out.push({
-      id: "dynamics",
-      role: "body",
-      text: r.dynamics.map((d) => `• ${d}`).join("\n") + "\n\n",
-    });
+  const summary = clampLine(r.summary?.trim() ?? "", MAX_SUMMARY_CHARS);
+  if (summary) {
+    out.push({ id: "h-sum", role: "heading", text: "Brief" });
+    out.push({ id: "summary", role: "body", text: summary });
   }
-
-  if (r.bullets?.length > 0) {
-    out.push({ id: "h-signals", role: "heading", text: "Key Signals" });
-    out.push({
-      id: "bullets",
-      role: "body",
-      text: r.bullets.map((b) => `• ${b}`).join("\n") + "\n\n",
-    });
+  const bl = (r.bullets ?? [])
+    .map((b) => clampLine(String(b).replace(/^[\s•\-\u2022]+/u, ""), MAX_BULLET_CHARS))
+    .filter(Boolean)
+    .slice(0, 3);
+  if (bl.length) {
+    out.push({ id: "h-bullets", role: "heading", text: "Takeaways" });
+    out.push({ id: "bullets", role: "body", text: bl.map((b) => `• ${b}`).join("\n") });
   }
-
-  if (r.outlook?.trim()) {
-    out.push({ id: "h-out", role: "heading", text: "Forward Outlook" });
-    out.push({ id: "outlook", role: "body", text: r.outlook.trim() + "\n\n" });
-  }
-
-  if (r.outlookScenarios) {
-    const { bullCase, baseCase, bearCase } = r.outlookScenarios;
-    const lines = [
-      `Bull case: ${bullCase}`,
-      `Base case: ${baseCase}`,
-      `Bear case: ${bearCase}`,
-    ];
-    out.push({ id: "scenarios", role: "body", text: lines.join("\n") + "\n\n" });
-  }
-
   return out;
 }
 
@@ -81,7 +72,7 @@ function countChars(blocks: NarrativeBlock[]): number {
 export function AiInsightTypewriter({
   insight,
   resetKey,
-  durationMs = 5000,
+  durationMs = 3200,
   toneLabelFallback = "Accumulating",
   toneDisplay,
   generatedAtLine,
@@ -91,7 +82,7 @@ export function AiInsightTypewriter({
   resetKey: string;
   durationMs?: number;
   toneLabelFallback?: string;
-  /** Shown after stream completes (prefer API market tone badge text). */
+  /** Used for footer line after stream completes. */
   toneDisplay?: string | null | undefined;
   generatedAtLine: string;
 }) {
@@ -136,19 +127,19 @@ export function AiInsightTypewriter({
 
   return (
     <div className="relative">
-      <div className="space-y-3">
+      <div className="space-y-2.5">
         {visible.map((b) =>
           b.role === "heading" ? (
             <p
               key={b.id}
-              className={`mb-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-400 ${b.text.length === 0 ? "min-h-[1rem]" : ""}`}
+              className={`mb-0 text-[11px] font-semibold uppercase tracking-wide text-zinc-500 ${b.text.length === 0 ? "min-h-[1rem]" : ""}`}
             >
               {b.text}
             </p>
           ) : (
             <p
               key={b.id}
-              className="whitespace-pre-wrap text-zinc-100 leading-relaxed [overflow-wrap:anywhere]"
+              className="whitespace-pre-wrap text-[13px] leading-snug text-zinc-100 [overflow-wrap:anywhere]"
             >
               {b.text}
             </p>
@@ -156,20 +147,16 @@ export function AiInsightTypewriter({
         )}
         {!done && total > 0 ? (
           <span
-            className="inline-block h-4 w-px translate-y-1 align-middle bg-[#45f2dc] animate-pulse"
+            className="inline-block h-4 w-px translate-y-0.5 align-middle bg-[#45f2dc] animate-pulse"
             aria-hidden
           />
         ) : null}
       </div>
 
-      {done ? (
-        <>
-          <p className="mt-4 text-[11px] text-zinc-400">
-            Market Tone:{" "}
-            <span className="font-semibold text-zinc-200">{tonePhrase}</span>
-          </p>
-          <p className="mt-3 text-[11px] text-zinc-500">Updated {generatedAtLine}</p>
-        </>
+      {done && total > 0 ? (
+        <p className="mt-3 text-[11px] text-zinc-500">
+          {tonePhrase} · {generatedAtLine}
+        </p>
       ) : null}
     </div>
   );

@@ -14,6 +14,7 @@ import {
   getCollectionMarketSeries,
   getCollectionMarketStats,
   getCollectionMarketPriceHistory,
+  getCollectionMarketPreview,
   getOrderHistoryByTokenId,
   getResolvedRwaAsset,
   getMarketplaceCollectionDetailOrNull,
@@ -22,7 +23,9 @@ import {
 } from "@/lib/core";
 import {
   percentChangeFromUsdPoints,
-  resolveExternalMarketUsd,
+  catalogSpotUsdFromMarketPreview,
+  representativeGradeUsd,
+  isPreviewPriceReliable,
 } from "@/lib/market";
 import { parseGradeScoreNumber } from "@/lib/market";
 import {
@@ -474,6 +477,17 @@ export default function RwaDetailPage() {
     enabled: tokenIdOk,
   });
 
+  /** Same Cardhedger bundle as collection page — mint-only preview is often weaker for IPFS metadata. */
+  const {
+    data: collectionMarketPreview,
+    isLoading: collectionMarketPreviewLoading,
+  } = useQuery({
+    queryKey: ["collection-market", collectionKeyForMatch ?? ""],
+    queryFn: () => getCollectionMarketPreview(collectionKeyForMatch!),
+    enabled: Boolean(tokenIdOk && collectionKeyForMatch?.trim()),
+    staleTime: 60_000,
+  });
+
   const marketPreview = marketMintMap?.[tokenId];
   const marketPreviewError =
     marketPreviewErr instanceof Error
@@ -489,29 +503,51 @@ export default function RwaDetailPage() {
     return null;
   }, [metadata]);
 
-  const tokenResolvedExternal = useMemo(
-    () =>
-      resolveExternalMarketUsd({
-        marketPreview,
-        gradePrices: tokenMarketSeries?.gradePrices ?? null,
-        gradeScore: parseGradeScoreNumber(tokenGradeScoreStr),
-        components: {
-          gradingCompany:
-            (metadata?.properties?.graded as GradedCardMetadata | undefined)
-              ?.gradingCompany ??
-            ((metadata?.properties?.graded as GradedCardMetadata | undefined)?.psa
-              ? "PSA"
-              : undefined),
-          gradeScore: tokenGradeScoreStr ?? undefined,
-        },
-      }),
-    [
-      marketPreview,
-      tokenMarketSeries?.gradePrices,
-      tokenGradeScoreStr,
-      metadata,
-    ],
-  );
+  const tokenResolvedExternal = useMemo(() => {
+    const tier = marketHistoryTierFromComponents({
+      gradingCompany:
+        (metadata?.properties?.graded as GradedCardMetadata | undefined)?.gradingCompany ??
+        ((metadata?.properties?.graded as GradedCardMetadata | undefined)?.psa != null
+          ? "PSA"
+          : undefined),
+      gradeScore: tokenGradeScoreStr ?? undefined,
+    });
+    const mintTrusted = isPreviewPriceReliable(marketPreview);
+    const collectionTrusted = isPreviewPriceReliable(collectionMarketPreview);
+    const previewForSpot = mintTrusted
+      ? marketPreview
+      : collectionTrusted
+        ? collectionMarketPreview
+        : undefined;
+    const poke = catalogSpotUsdFromMarketPreview(previewForSpot ?? null, tier);
+    const score = parseGradeScoreNumber(tokenGradeScoreStr);
+    const strip = representativeGradeUsd(
+      tokenMarketSeries?.gradePrices ?? null,
+      score,
+    );
+
+    if (poke != null && Number.isFinite(poke) && poke > 0) {
+      return {
+        usd: poke,
+        source: "cardhedger" as const,
+        marketMatchConfidence: previewForSpot?.matchConfidence,
+      };
+    }
+    if (strip != null && Number.isFinite(strip) && strip > 0) {
+      return {
+        usd: strip,
+        source: "cardhedger" as const,
+        marketMatchConfidence: undefined,
+      };
+    }
+    return { usd: null, source: null };
+  }, [
+    metadata,
+    marketPreview,
+    collectionMarketPreview,
+    tokenMarketSeries?.gradePrices,
+    tokenGradeScoreStr,
+  ]);
 
   const tokenYearPts = tokenYearHistory?.points ?? [];
 
@@ -611,6 +647,7 @@ export default function RwaDetailPage() {
       });
     }
     await queryClient.invalidateQueries({ queryKey: ["collection-market-stats"] });
+    await queryClient.invalidateQueries({ queryKey: ["collection-market"] });
   }
 
   async function handleFulfillAsk() {
@@ -747,6 +784,7 @@ export default function RwaDetailPage() {
                           externalMarketUsd={tokenResolvedExternal.usd}
                           externalPriceLoading={
                             marketPreviewLoading ||
+                            collectionMarketPreviewLoading ||
                             tokenSeriesLoading ||
                             tokenNmHistLoading
                           }
@@ -959,7 +997,10 @@ export default function RwaDetailPage() {
                     <CollectionPriceMetricsStrip
                       externalMarketUsd={tokenResolvedExternal.usd}
                       externalPriceLoading={
-                        marketPreviewLoading || tokenSeriesLoading || tokenNmHistLoading
+                        marketPreviewLoading ||
+                        collectionMarketPreviewLoading ||
+                        tokenSeriesLoading ||
+                        tokenNmHistLoading
                       }
                       marketStats={tokenPagePoolStats ?? null}
                       marketStatsLoading={tokenPagePoolStatsLoading}

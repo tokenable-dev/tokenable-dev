@@ -18,6 +18,7 @@ import {
   unhideMyAssetToken,
 } from "@/lib/core";
 import { extractBucketComponentsFromMetadata, computeMarketBucketKey } from "@/lib/marketplace/bucketKey";
+import { displayAssetNameFromMetadata } from "@/lib/marketplace/rwaDisplayTitle";
 import { useUserAssets } from "@/hooks/useUserAssets";
 import { useAppStore, selectUsdcBalance } from "@/store";
 import { useShallow } from "zustand/react/shallow";
@@ -630,47 +631,49 @@ export default function PortfolioPage() {
     return m;
   }, [allOrders, address]);
 
-  const [metaCollectionKeyByToken, setMetaCollectionKeyByToken] = useState<
-    Record<number, string>
-  >({});
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const out: Record<number, string> = {};
-      for (const a of assets) {
-        if (listingCollectionKeyByToken.has(a.tokenId)) continue;
-        const comp = extractBucketComponentsFromMetadata(
-          (a.metadata ?? {}) as Record<string, unknown>,
-        );
-        if (!comp) continue;
-        try {
-          out[a.tokenId] = await computeMarketBucketKey(comp);
-        } catch {
-          /* skip */
-        }
-      }
-      if (!cancelled) setMetaCollectionKeyByToken(out);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [assets, listingCollectionKeyByToken]);
+  const portfolioBucketKeyQueries = useQueries({
+    queries: assets.map((a) => {
+      const listingKey = listingCollectionKeyByToken.get(a.tokenId);
+      const comp =
+        listingKey == null
+          ? extractBucketComponentsFromMetadata(
+              (a.metadata ?? {}) as Record<string, unknown>,
+            )
+          : null;
+      return {
+        queryKey: ["portfolio-bucket-key", a.tokenId] as const,
+        queryFn: async () => computeMarketBucketKey(comp!),
+        enabled:
+          Boolean(address && isConnected) && listingKey == null && comp != null,
+        staleTime: 60_000,
+      };
+    }),
+  });
 
   const tokenToCollectionKey = useMemo(() => {
-    const o: Record<number, string> = { ...metaCollectionKeyByToken };
-    for (const [tid, k] of listingCollectionKeyByToken.entries()) {
-      o[tid] = k;
-    }
+    const o: Record<number, string> = {};
+    assets.forEach((a, i) => {
+      const listingKey = listingCollectionKeyByToken.get(a.tokenId);
+      if (listingKey) {
+        o[a.tokenId] = listingKey;
+        return;
+      }
+      const raw = portfolioBucketKeyQueries[i]?.data;
+      if (typeof raw === "string" && raw.trim().length > 0) {
+        o[a.tokenId] = raw.trim().toLowerCase();
+      }
+    });
     return o;
-  }, [listingCollectionKeyByToken, metaCollectionKeyByToken]);
+  }, [assets, address, isConnected, listingCollectionKeyByToken, portfolioBucketKeyQueries]);
 
   /** Set NEXT_PUBLIC_MARKETPLACE_PIPELINE_DIAG=1 to compare active-listing DB key vs client meta-hash (backend logs use MARKETPLACE_PIPELINE_DIAG). */
   useEffect(() => {
     if (process.env.NEXT_PUBLIC_MARKETPLACE_PIPELINE_DIAG !== "1") return;
-    for (const a of assets) {
+    assets.forEach((a, i) => {
       const fromOrder = listingCollectionKeyByToken.get(a.tokenId);
-      const fromMeta = metaCollectionKeyByToken[a.tokenId];
+      const fromQuery = portfolioBucketKeyQueries[i]?.data;
+      const fromMeta =
+        typeof fromQuery === "string" && fromQuery.trim() ? fromQuery.trim().toLowerCase() : undefined;
       if (fromOrder && fromMeta && fromOrder !== fromMeta) {
         console.warn("[collection_key_pipeline] listing vs meta hash mismatch", {
           tokenId: a.tokenId,
@@ -685,8 +688,8 @@ export default function PortfolioPage() {
           collectionKey: fromOrder,
         });
       }
-    }
-  }, [assets, listingCollectionKeyByToken, metaCollectionKeyByToken]);
+    });
+  }, [assets, listingCollectionKeyByToken, portfolioBucketKeyQueries]);
 
   const uniqueCollectionKeys = useMemo(() => {
     const s = new Set<string>();
@@ -855,8 +858,7 @@ export default function PortfolioPage() {
         sportBucket === "mlb" || sportBucket === "nba" || sportBucket === "nfl";
 
       const preview = marketPreviewByToken[a.tokenId] ?? null;
-      // Use the shared isPreviewPriceReliable gate (same logic as resolveExternalMarketUsd)
-      // so portfolio, token detail, and collection detail all apply the same threshold.
+      // Tier-aware catalog NM spot — keep preview reliability gate (matches resolveExternalMarketUsd).
       const previewTrusted = isPreviewPriceReliable(preview);
 
       const poke = isMockSport
@@ -865,14 +867,17 @@ export default function PortfolioPage() {
             previewTrusted ? preview : null,
             marketHistoryTierFromRwaMetadata(a.metadata),
           );
-      // gradePrices from market snapshots originates from the same Cardhedger data as the preview.
-      // Only use it when the preview is trusted, preventing stale fallback prices.
-      const gradePricesForJt = previewTrusted ? (series?.gradePrices ?? null) : null;
-      const jt =
-        isMockSport || poke != null
+      /**
+       * PSA strip from bundled `gradePrices` (same curve as Trending Now / Exchange list snapshots).
+       * Snapshots call `representativeGradeUsd(snapshot.gradePrices, …)` with no mint-preview gate;
+       * My Assets loaded the strip only when mint preview was "reliable", so owned cards showed "—"
+       * while Trending showed a price for the same bucket. Series + snapshots share this bundle.
+       */
+      const stripFromGradePrices =
+        poke != null || isMockSport
           ? null
           : representativeGradeUsd(
-              gradePricesForJt,
+              series?.gradePrices ?? null,
               gradeScoreForJustTcg(a.metadata),
             );
 
@@ -884,8 +889,8 @@ export default function PortfolioPage() {
       } else if (poke != null) {
         currentPrice = poke;
         priceSource = "cardhedger";
-      } else if (jt != null) {
-        currentPrice = jt;
+      } else if (stripFromGradePrices != null) {
+        currentPrice = stripFromGradePrices;
         priceSource = "cardhedger";
       }
 
@@ -895,7 +900,7 @@ export default function PortfolioPage() {
           ? formatLiquidityDepthLabel(stats ?? undefined)
           : null;
 
-      const displayName = a.metadata?.name ?? `RWA #${a.tokenId}`;
+      const displayName = displayAssetNameFromMetadata(a.metadata, `RWA #${a.tokenId}`);
       return {
         tokenId: a.tokenId,
         name: displayName,

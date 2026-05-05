@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { RwaImageZoom } from "@/components/common";
 import { postResolveMediaUrls } from "@/lib/core";
+import { displayAssetNameFromMetadata } from "@/lib/marketplace/rwaDisplayTitle";
 import { SlabCardFlip } from "./SlabCardFlip";
 
 function extractGradedSlabBackCandidate(meta: RwaDetailMetadata | null): string | null {
@@ -255,10 +256,17 @@ export function RwaDetailAssetPanel({
   priceMetricsSlot,
 }: RwaDetailAssetPanelProps) {
   const title =
-    metadata?.name ?? `${collectionLabel} #${tokenId}`;
-  const slabAltCaption = typeof metadata?.name === "string" && metadata.name.trim()
-    ? metadata.name.trim()
-    : `${collectionLabel} #${tokenId}`;
+    displayAssetNameFromMetadata(
+      metadata,
+      `${collectionLabel} #${tokenId}`,
+    );
+  const slabAltCaption =
+    typeof metadata?.name === "string" && metadata.name.trim()
+      ? displayAssetNameFromMetadata(
+          metadata,
+          `${collectionLabel} #${tokenId}`,
+        )
+      : `${collectionLabel} #${tokenId}`;
   const setHeadline = useMemo(() => formatRwaSetHeadline(metadata), [metadata]);
   const { category: headerCategory, gradeLine: headerGradeLine } = useMemo(
     () => pickHeaderCategoryGrade(metadata),

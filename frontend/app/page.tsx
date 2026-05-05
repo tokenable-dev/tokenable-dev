@@ -131,47 +131,49 @@ export default function LandingPage() {
         }}
       />
 
-      {/* Hero */}
-      <section className="relative z-10 flex flex-col items-center px-6 pt-24 pb-16 sm:pt-28 sm:pb-20">
-        <h1
-          className="landing-enter mb-5 max-w-4xl text-center text-[1.65rem] font-bold leading-tight tracking-tight text-white sm:text-4xl md:text-5xl lg:text-[3.25rem] lg:leading-[1.12]"
-          style={{ "--landing-enter-delay": "0s" } as CSSProperties}
-        >
-          Tokenized Collectibles Markets
-        </h1>
+      {/* Hero — mobile: fill space under header so Markets + Start Selling stay in first viewport */}
+      <section className="relative z-10 flex flex-col max-sm:min-h-[calc(100svh-3.75rem)] max-sm:px-4 max-sm:pt-6 max-sm:pb-5 sm:items-center sm:px-6 sm:pt-28 sm:pb-20">
+        <div className="flex w-full flex-col items-center max-sm:flex-1 max-sm:justify-center max-sm:gap-2 max-sm:[min-height:0]">
+          <h1
+            className="landing-enter mb-2 max-w-4xl text-center text-[1.48rem] font-bold leading-[1.18] tracking-tight text-white max-sm:px-1 sm:mb-5 sm:text-4xl sm:leading-tight md:text-5xl lg:text-[3.25rem] lg:leading-[1.12]"
+            style={{ "--landing-enter-delay": "0s" } as CSSProperties}
+          >
+            Tokenized Collectibles Markets
+          </h1>
 
-        <p
-          className="landing-enter mb-7 max-w-xl text-center text-sm leading-relaxed text-gray-400 sm:mb-8 sm:text-base sm:leading-relaxed"
-          style={{ "--landing-enter-delay": "70ms" } as CSSProperties}
-        >
-          Trade collectibles with instant settlement and low fees.
-          <br />
-          All cards are vaulted and authenticated PSA, TAG, BGS gems.
-        </p>
+          <p
+            className="landing-enter mb-3 max-w-xl text-center text-[12px] leading-snug text-gray-400 sm:mb-8 sm:text-base sm:leading-relaxed"
+            style={{ "--landing-enter-delay": "70ms" } as CSSProperties}
+          >
+            Instant settlement and low fees.
+            <br />
+            Vaulted and Authenticated PSA, TAG, and BGS Gems.
+          </p>
 
-        <TrendingCollectionsCarousel
-          variant="landing"
-          className="landing-enter"
-          outerStyle={
-            {
-              "--landing-enter-delay": "130ms",
-            } as CSSProperties
-          }
-        />
+          <TrendingCollectionsCarousel
+            variant="landing"
+            className="landing-enter max-sm:!my-1 max-sm:w-full max-sm:flex-1 max-sm:[min-height:0] sm:mx-auto sm:mt-0"
+            outerStyle={
+              {
+                "--landing-enter-delay": "130ms",
+              } as CSSProperties
+            }
+          />
+        </div>
 
         <div
-          className="landing-enter mt-10 flex flex-col items-stretch gap-3 sm:mt-12 sm:flex-row sm:items-center sm:justify-center sm:gap-4"
+          className="landing-enter mt-auto flex w-full max-w-xl shrink-0 flex-col items-stretch gap-2 pt-3 max-sm:pt-4 sm:mt-12 sm:flex-row sm:items-center sm:justify-center sm:gap-4 sm:pt-0"
           style={{ "--landing-enter-delay": "190ms" } as CSSProperties}
         >
           <Link
             href="/markets"
-            className="inline-flex min-w-[200px] items-center justify-center rounded-full bg-mint px-8 py-3.5 text-center text-base font-bold text-[#030712] shadow-lg shadow-mint/15 transition hover:brightness-110 hover:shadow-mint/25 active:scale-[0.98] sm:min-w-[220px]"
+            className="inline-flex min-w-[200px] items-center justify-center rounded-full bg-mint px-7 py-2.5 text-center text-base font-bold text-[#030712] shadow-lg shadow-mint/15 transition hover:brightness-110 hover:shadow-mint/25 active:scale-[0.98] max-sm:w-full max-sm:min-h-[44px] sm:min-w-[220px] sm:py-3.5"
           >
             Markets
           </Link>
           <Link
             href="/vault"
-            className="inline-flex min-w-[200px] items-center justify-center rounded-full border-2 border-mint/70 bg-transparent px-8 py-3.5 text-center text-base font-semibold text-white transition hover:border-mint hover:bg-mint/10 active:scale-[0.98] sm:min-w-[220px]"
+            className="inline-flex min-w-[200px] items-center justify-center rounded-full border-2 border-mint/70 bg-transparent px-7 py-2.5 text-center text-base font-semibold text-white transition hover:border-mint hover:bg-mint/10 active:scale-[0.98] max-sm:w-full max-sm:min-h-[44px] sm:min-w-[220px] sm:py-3.5"
           >
             Start Selling
           </Link>

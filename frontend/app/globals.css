@@ -299,20 +299,20 @@ html.collection-details-scroll::-webkit-scrollbar-corner {
   animation: landing-grid-drift 72s linear infinite;
 }
 
-/* Trending carousel — subtle refresh when sliding to next slice */
+/* Trending carousel — desktop grid refresh: slight horizontal ease-in */
 @keyframes trending-deck-shift-in {
   from {
-    opacity: 0.88;
-    transform: translateY(6px);
+    opacity: 0.9;
+    transform: translateX(12px);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateX(0);
   }
 }
 
 .trending-deck-shift-in {
-  animation: trending-deck-shift-in 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: trending-deck-shift-in 0.52s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -5,6 +5,14 @@ import { CardhedgerMarketDataService } from './cardhedger-market-data.service';
 
 type CardhedgerCardRow = Record<string, unknown>;
 
+/** Single-line-ish copy cap for skim-friendly UI */
+function tight(s: string, maxLen: number): string {
+  const t = String(s).replace(/\s+/g, ' ').trim();
+  if (!t.length) return t;
+  if (t.length <= maxLen) return t;
+  return `${t.slice(0, maxLen - 1).trimEnd()}…`;
+}
+
 @Injectable()
 export class CardhedgerAiInsightService {
   constructor(
@@ -171,16 +179,18 @@ export class CardhedgerAiInsightService {
     if (!col) {
       return {
         title: 'Collection AI Insight',
-        summary:
-          'The market profile is still in early-stage price formation, with directional cues emerging as liquidity builds.',
+        summary: tight(
+          'Early price discovery — clearer trend once liquidity picks up.',
+          140,
+        ),
         bullets: [
-          'Structure is forming from the first active pricing regime.',
-          'Momentum signals should be read through liquidity depth.',
-          'Premium behavior will sharpen as more two-sided flow develops.',
+          tight('Structure forming from first active prints.', 90),
+          tight('Momentum: read it with book depth.', 85),
+          tight('Premium signal sharpens as flow grows.', 90),
         ],
         dynamics: [],
         syntheticChart: 'early base-building with shallow swings and gradual range definition',
-        outlook: 'A clearer directional trend should emerge as demand and price discovery broaden.',
+        outlook: tight('Trend firms as buys/sells widen.', 100),
         chartSpec: {
           chartStyle: 'Expanded Macro View (Wide X-Axis)',
           trendStructure: [
@@ -197,12 +207,9 @@ export class CardhedgerAiInsightService {
             'Base -> Early accumulation -> Controlled expansion -> Constructive positioning',
         },
         outlookScenarios: {
-          bullCase:
-            'Continuation strengthens as demand absorption persists through higher consolidation levels.',
-          baseCase:
-            'Market remains in a constructive consolidation channel while liquidity gradually deepens.',
-          bearCase:
-            'A short pullback unfolds if expansion attempts fail to hold above recent support zones.',
+          bullCase: tight('Demand sticks → breakout follow-through.', 70),
+          baseCase: tight('Sideways churn while bids build.', 70),
+          bearCase: tight('Failed breakout → pullback to base.', 70),
         },
         uiInstructions: {
           loading: {
@@ -227,16 +234,18 @@ export class CardhedgerAiInsightService {
     if (!this.marketData.isConfigured()) {
       return {
         title: `${col.displayLabel} — AI Market Brief`,
-        summary:
-          'The card is trading in a developing intelligence regime where trend context is building from live market flow.',
+        summary: tight(
+          `${col.displayLabel}: live-flow context loading — feeds not wired.`,
+          120,
+        ),
         bullets: [
-          'Momentum is driven by active price discovery.',
-          'Premium structure reflects quality demand as trading depth expands.',
-          'Liquidity evolution is the key confirmation variable.',
+          tight('Momentum follows active discovery.', 80),
+          tight('Premium grows with traded depth.', 80),
+          tight('Liquidity trend is the real tell.', 80),
         ],
         dynamics: [],
         syntheticChart: 'forming trend channel with intermittent consolidation pockets',
-        outlook: 'Continuation probability rises as liquidity sustains through the next consolidation band.',
+        outlook: tight('Follow-through rises if depth holds.', 100),
         chartSpec: {
           chartStyle: 'Expanded Macro View (Wide X-Axis)',
           trendStructure: [
@@ -253,9 +262,9 @@ export class CardhedgerAiInsightService {
             'Accumulation -> Expansion ↑ -> Consolidation shelf -> Continuation bias',
         },
         outlookScenarios: {
-          bullCase: 'Breakout pressure converts into continuation once consolidation supply is absorbed.',
-          baseCase: 'Sideways consolidation persists before the next directional leg.',
-          bearCase: 'Momentum fades into a temporary retracement if demand rotation weakens.',
+          bullCase: tight('Supply melts → upside leg.', 60),
+          baseCase: tight('Range → then next move.', 50),
+          bearCase: tight('Demand rotates off → fade.', 55),
         },
         uiInstructions: {
           loading: {
@@ -284,16 +293,18 @@ export class CardhedgerAiInsightService {
     if (!query) {
       return {
         title: `${col.displayLabel} — AI Market Brief`,
-        summary:
-          'Current action reflects a narrow price-discovery window where structure is beginning to organize.',
+        summary: tight(
+          'Narrow discovery window — structure still sorting itself out.',
+          120,
+        ),
         bullets: [
-          'Market behavior is transitionary, not random.',
-          'Demand quality matters more than headline prints in this phase.',
-          'Trend confirmation should come from sustained follow-through.',
+          tight('Not noise: transition regime.', 80),
+          tight('Quality bids matter more than one print.', 90),
+          tight('Need sustained follow-through to confirm.', 90),
         ],
         dynamics: [],
         syntheticChart: 'compressed range with emerging directional bias',
-        outlook: 'The setup favors a cleaner directional move once consolidation pressure resolves.',
+        outlook: tight('Cleaner move once range breaks.', 100),
         chartSpec: {
           chartStyle: 'Expanded Macro View (Wide X-Axis)',
           trendStructure: [
@@ -310,9 +321,9 @@ export class CardhedgerAiInsightService {
             'Range base -> Compression -> Directional pressure build -> Pending expansion',
         },
         outlookScenarios: {
-          bullCase: 'Breakout pressure resolves upward with steady demand follow-through.',
-          baseCase: 'Price oscillates in consolidation while accumulation continues.',
-          bearCase: 'A failed breakout rotates into a controlled pullback before re-basing.',
+          bullCase: tight('Break + hold bids → up.', 50),
+          baseCase: tight('Chop inside range.', 45),
+          bearCase: tight('Fake breakout → dip.', 45),
         },
         uiInstructions: {
           loading: {
@@ -346,16 +357,18 @@ export class CardhedgerAiInsightService {
       if (!match) {
         return {
           title: `${col.displayLabel} — AI Market Brief`,
-          summary:
-            'Price behavior is still interpretable as an early market cycle with momentum developing around a thin liquidity window.',
+          summary: tight(
+            'Early-cycle tape; momentum forming on thin liquidity.',
+            110,
+          ),
           bullets: [
-            'Directional pressure is building despite uneven flow.',
-            'Premium behavior suggests quality-focused demand is the key driver.',
-            'Continuation depends on whether liquidity keeps expanding after pullbacks.',
+            tight('Direction building despite uneven flow.', 85),
+            tight('Premium points to conviction buyers.', 80),
+            tight('Upside needs liquidity post-pullback.', 85),
           ],
           dynamics: [],
           syntheticChart: 'rounded consolidation with periodic expansion spikes',
-          outlook: 'The path of least resistance remains constructive if demand absorption continues.',
+          outlook: tight('Constructive if dips keep clearing.', 100),
           chartSpec: {
             chartStyle: 'Expanded Macro View (Wide X-Axis)',
             trendStructure: [
@@ -372,9 +385,9 @@ export class CardhedgerAiInsightService {
               'Accumulation -> Expansion ↑ -> Consolidation -> Re-expansion bias',
           },
           outlookScenarios: {
-            bullCase: 'Fresh expansion emerges as demand continues to absorb pullbacks.',
-            baseCase: 'Consolidation extends with gradual upward drift.',
-            bearCase: 'Cooling pressure triggers a deeper reset before trend recovery.',
+            bullCase: tight('Dips absorbed → leg up.', 55),
+            baseCase: tight('Grinding range, mild bid.', 55),
+            bearCase: tight('Cooling → deeper reset.', 50),
           },
           uiInstructions: {
             loading: {
@@ -409,12 +422,12 @@ export class CardhedgerAiInsightService {
         typeof match.reasoning === 'string' && match.reasoning.trim()
           ? match.reasoning.trim()
           : 'Cardhedger returned a directional read for this collection match.';
-      let summary = reasoning;
+      let summary = tight(reasoning, 220);
       const bullets = [
-        `${col.displayLabel}: brief uses Cardhedger’s closest catalog match for this marketplace collection.`,
+        tight(`${col.displayLabel}: Cardhedger match — directional hint only.`, 82),
         confidence != null
-          ? `Estimated catalog match confidence about ${(confidence * 100).toFixed(0)}%; read as directional context, not advice.`
-          : 'Treat the narrative as directional context while catalog match confidence is partial.',
+          ? tight(`~${Math.round(confidence * 100)}% match confidence.`, 72)
+          : tight('Weak catalog match.', 48),
       ];
 
       let stats:
@@ -501,68 +514,46 @@ export class CardhedgerAiInsightService {
                   ? 'clear short-term cooling'
                   : 'range-bound short-term action'
               : 'limited short-term visibility';
-          const longTerm =
+          const longTermShort =
             stats.change90dPct != null
               ? stats.change90dPct >= 15
-                ? 'a constructive medium-term uptrend'
+                ? '90d uptrend intact'
                 : stats.change90dPct <= -10
-                  ? 'a pressured medium-term structure'
-                  : 'a consolidation-oriented medium-term structure'
-              : 'an incomplete medium-term structure';
-          const premiumContext =
+                  ? '90d pressured'
+                  : '90d rangey'
+              : '90d data thin';
+          const premShort =
             stats.premiumVsRawPct != null
               ? stats.premiumVsRawPct >= 80
-                ? 'an elevated graded premium, pointing to quality-focused collector demand'
+                ? 'Extreme PSA vs raw.'
                 : stats.premiumVsRawPct >= 25
-                  ? 'a healthy graded premium that supports steady collector bid'
-                  : 'a compressed graded premium, suggesting less urgency to pay up for grade'
-              : 'a premium curve that is still forming';
-          const liquidityContext =
+                  ? 'Solid PSA uplift.'
+                  : 'Tight PSA vs raw.'
+              : '';
+          const liqShort =
             stats.sales30d != null
               ? stats.sales30d >= 50
-                ? 'Liquidity is deep enough to validate trend continuation if demand persists.'
+                ? 'Strong 30d sales.'
                 : stats.sales30d >= 20
-                  ? 'Liquidity is adequate, but follow-through still depends on sustained demand.'
-                  : 'Liquidity is thin, which raises the probability of sharp air pockets and failed breakouts.'
-              : 'Recent liquidity is fragmented, so trend reliability is lower.';
-          const riskContext =
-            riskScore != null
-              ? riskScore >= 67
-                ? 'The market is in a higher-risk regime with elevated pullback sensitivity.'
-                : riskScore >= 34
-                  ? 'Risk is balanced: momentum is tradable, but not yet low-volatility.'
-                  : 'Risk is contained, which favors orderly continuation over disorderly swings.'
-              : 'Risk regime is unresolved.';
-          summary = [
-            `${col.displayLabel}: market is in a ${marketTone === 'Bullish' ? 'constructive expansion phase' : marketTone === 'Cooling' ? 'cooling phase after expansion' : marketTone === 'Consolidating' ? 'consolidation phase with structure intact' : marketTone === 'Overextended' ? 'high-beta expansion phase with stretched momentum' : marketTone === 'Volatile' ? 'high-volatility transition phase' : 'gradual accumulation phase'} with directional bias still leaning ${marketTone === 'Cooling' ? 'neutral-to-down' : 'neutral-to-up'}.`,
-            `Current action reflects ${shortTerm} while preserving ${longTerm}, which points to structured rotation rather than random price drift.`,
-            `At the same time, PSA 10 pricing versus raw points to ${premiumContext}, giving a clearer read on how committed higher-conviction buyers are.`,
-            `${liquidityContext} ${riskContext} This keeps the near-term path biased toward controlled continuation or orderly consolidation unless demand absorption weakens.`,
-          ].join(' ');
-          dynamics = [
-            `Short-term structure remains ${shortTerm}, with activity rotating between expansion bursts and consolidation resets.`,
-            `Long-term structure points to ${longTerm}, so the broader move still looks like a trend process rather than isolated price spikes.`,
-            `Momentum state is ${marketTone === 'Bullish' || marketTone === 'Overextended' ? 'expanding with intermittent compression' : marketTone === 'Cooling' ? 'slowing after an earlier expansion' : marketTone === 'Consolidating' ? 'compressing inside a consolidation zone' : 'transitioning between expansion and consolidation'}.`,
-            stats.premiumVsRawPct != null
-              ? `PSA 10 vs Raw sits at a visible premium, implying ${stats.premiumVsRawPct >= 50 ? 'strong willingness to pay for quality and scarcity.' : 'more selective demand with tighter pricing discipline on grading uplift.'}`
-              : 'PSA 10 versus Raw spread is still incomplete, so premium conviction should be treated as early-stage.',
-          ];
+                  ? 'OK 30d sales.'
+                  : 'Thin 30d sales.'
+              : '';
+
+          summary = tight(
+            `${col.displayLabel}: ${marketTone}. ${shortTerm}; ${longTermShort}.${premShort ? ` ${premShort}` : ''} ${liqShort} Risk: ${riskLabel ?? '?'}.`.replace(/\s+/g, ' ').trim(),
+            260,
+          );
+          dynamics = [];
           bullets.splice(0, bullets.length);
-          bullets.push('Momentum remains trend-supportive with periodic cooling rather than structural failure.');
+          bullets.push(tight(`${shortTerm} · ${longTermShort}`, 105));
+          bullets.push(tight(liqShort || '30d liquidity unknown.', 85));
           bullets.push(
-            stats.sales30d != null
-              ? `Liquidity is ${stats.sales30d >= 50 ? 'strong' : stats.sales30d >= 20 ? 'workable' : 'thin'}, shaping how durable the current move can be.`
-              : 'Recent activity is limited, so liquidity support behind the move is less certain.',
-          );
-          bullets.push(
-            stats.premiumVsRawPct != null
-              ? `The graded premium is ${stats.premiumVsRawPct >= 50 ? 'elevated' : 'moderate'}, signaling ${stats.premiumVsRawPct >= 50 ? 'quality-first demand' : 'more price-sensitive demand'}.`
-              : 'Premium structure is still forming because raw-side reference is sparse.',
-          );
-          bullets.push(
-            riskScore != null && riskLabel != null
-              ? `Risk profile is ${riskLabel.toLowerCase()}, with pullback sensitivity currently ${riskLabel === 'High' ? 'elevated.' : riskLabel === 'Medium' ? 'manageable but active.' : 'relatively contained.'}`
-              : 'Risk profile is still evolving as liquidity and momentum settle.',
+            tight(
+              premShort
+                ? `${premShort} Risk ${riskLabel} (${riskScore ?? '–'}/100).`
+                : `Risk ${riskLabel} (${riskScore ?? '–'}/100).`,
+              115,
+            ),
           );
           syntheticChart =
             marketTone === 'Bullish'
@@ -578,12 +569,16 @@ export class CardhedgerAiInsightService {
                   : 'stair-step advance with alternating compression and expansion pockets';
           outlook =
             marketTone === 'Bullish'
-              ? 'Bullish continuation is favored if demand stays firm and liquidity remains supportive.'
+              ? tight('Upside if dips clear on volume.', 55)
               : marketTone === 'Cooling'
-                ? 'Further downside or choppy cooling is likely unless demand re-accelerates and premium support rebuilds.'
+                ? tight('Weak until buyers reload.', 50)
                 : marketTone === 'Consolidating'
-                  ? 'A consolidation phase is the base case, with breakout odds improving only if momentum re-expands.'
-                  : 'A neutral-to-constructive path is likely, but confirmation still depends on stronger momentum follow-through.';
+                  ? tight('Range — wait breakout.', 45)
+                  : marketTone === 'Overextended'
+                    ? tight('Stretched tape — pullback risk.', 50)
+                    : marketTone === 'Volatile'
+                      ? tight('Volatile — smaller size.', 45)
+                      : tight('Neutral — need confirmation.', 50);
           const mini = this.miniSeriesByTone(marketTone);
           return {
             title: `${col.displayLabel} — AI Market Brief`,
@@ -628,12 +623,9 @@ export class CardhedgerAiInsightService {
             },
             outlook,
             outlookScenarios: {
-              bullCase:
-                'If liquidity stays firm and pullbacks continue to be absorbed near consolidation support, breakout pressure can convert into upward continuation.',
-              baseCase:
-                'If momentum keeps compressing without structural breakdown, price is likely to remain range-bound in consolidation before the next directional move.',
-              bearCase:
-                'If demand weakens and premium support compresses through key support shelves, a cooling pullback can extend into a deeper correction phase.',
+              bullCase: tight('Bids hold → upside leg.', 50),
+              baseCase: tight('Grind sideways.', 35),
+              bearCase: tight('Demand fades → slip.', 40),
             },
             uiInstructions: {
               loading: {
@@ -665,15 +657,19 @@ export class CardhedgerAiInsightService {
 
       return {
         title: `${col.displayLabel} — AI Market Brief`,
-        summary:
+        summary: tight(
           reasoning.toLowerCase().startsWith(col.displayLabel.toLowerCase())
             ? reasoning
             : `${col.displayLabel}: ${reasoning}`,
+          240,
+        ),
         bullets,
         dynamics,
         syntheticChart: 'early-stage trend channel with low-frequency expansion pulses',
-        outlook:
-          'The setup favors progressive continuation as demand absorption and liquidity depth keep broadening.',
+        outlook: tight(
+          'Direction needs volume — watch absorption vs fade.',
+          90,
+        ),
         chartSpec: {
           chartStyle: 'Expanded Macro View (Wide X-Axis)',
           trendStructure: [
@@ -682,17 +678,20 @@ export class CardhedgerAiInsightService {
             'Phase 3: Cooling consolidation',
             'Phase 4: Positioning for next leg',
           ],
-          momentumBehavior: 'Momentum is stabilizing with expansion attempts.',
-          visualInterpretation:
-            'Chart profile suggests a shallow upward channel with occasional consolidation shelves.',
+          momentumBehavior:
+            tight('Momentum: expansion attempts, not sustained yet.', 80),
+          visualInterpretation: tight(
+            'Shallow up-channel with consolidation shelves.',
+            85,
+          ),
           miniSeries: [20, 20, 21, 21, 22, 22, 23, 23, 24, 24, 25, 25],
           pathRepresentation:
             'Base -> Expansion probes -> Consolidation shelf -> Constructive drift',
         },
         outlookScenarios: {
-          bullCase: 'Continuation accelerates if liquidity and demand remain aligned.',
-          baseCase: 'Consolidation dominates while structure matures.',
-          bearCase: 'A cooling pullback unfolds before the next accumulation phase.',
+          bullCase: tight('Flows align → grind up.', 50),
+          baseCase: tight('Sideways chop.', 40),
+          bearCase: tight('Cooling pullback first.', 50),
         },
         uiInstructions: {
           loading: {
@@ -721,10 +720,11 @@ export class CardhedgerAiInsightService {
       void e;
       return {
         title: `${col.displayLabel} — AI Market Brief`,
-        summary: `${col.displayLabel}: AI brief could not be refreshed just now. Try again in a moment.`,
-        bullets: [
-          'On-platform prices and listings on this page stay available.',
-        ],
+        summary: tight(
+          `${col.displayLabel}: Brief unavailable — retry shortly.`,
+          100,
+        ),
+        bullets: [tight('This page’s prices and listings stay live.', 80)],
         dynamics: [],
         generatedAt: now,
         confidence: null,
