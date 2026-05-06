@@ -359,11 +359,9 @@ export function TrendingCollectionsCarousel({
     swipeStartXRef.current = null;
   };
 
-  /** Landing/root: black circular control, mint chevrons only. Markets: mint gel capsule. */
+  /** Black circular control, mint chevrons — same on landing and Markets. */
   const carouselArrowMintEnabled =
-    variant === "landing"
-      ? "border border-zinc-700/90 bg-black text-mint shadow-[inset_0_1px_0_rgba(255,255,255,0.07),0_4px_16px_rgba(0,0,0,0.55)] ring-1 ring-black/80 hover:border-mint/45 hover:bg-zinc-950 hover:text-mint active:scale-[0.97] motion-reduce:hover:border-zinc-700/90 motion-reduce:hover:bg-black"
-      : "border-mint/48 bg-gradient-to-b from-mint/58 via-mint-dim/45 to-mint-deep text-[color:var(--mint-ink)] shadow-[inset_0_1px_0_rgba(148,255,212,0.55),inset_0_-1px_0_rgba(74,157,130,0.42),0_8px_24px_-8px_rgba(148,255,212,0.32),0_16px_44px_-12px_rgba(148,255,212,0.24)] ring-1 ring-mint/30 backdrop-blur-[6px] hover:border-mint/62 hover:from-mint/70 hover:via-mint-dim/52 hover:to-mint-deep hover:shadow-[inset_0_1px_0_rgba(148,255,212,0.65),inset_0_-1px_0_rgba(74,157,130,0.5),0_12px_32px_-10px_rgba(148,255,212,0.42),0_20px_52px_-14px_rgba(148,255,212,0.32)] hover:ring-mint/42 active:scale-[0.97] motion-reduce:backdrop-blur-none motion-reduce:hover:border-mint/48 motion-reduce:hover:from-mint/58 motion-reduce:hover:via-mint-dim/45 motion-reduce:hover:to-mint-deep motion-reduce:hover:ring-mint/30";
+    "border border-zinc-700/90 bg-black text-mint shadow-[inset_0_1px_0_rgba(255,255,255,0.07),0_4px_16px_rgba(0,0,0,0.55)] ring-1 ring-black/80 hover:border-mint/45 hover:bg-zinc-950 hover:text-mint active:scale-[0.97] motion-reduce:hover:border-zinc-700/90 motion-reduce:hover:bg-black";
 
   const carouselArrowOverlayClasses = (enabled: boolean) =>
     `absolute top-1/2 z-30 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border text-2xl font-semibold leading-none transition-[transform,colors,box-shadow,opacity,border-color,background-color] motion-reduce:transition-none ${
