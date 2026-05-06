@@ -780,13 +780,23 @@ export interface CollectionAiInsight {
   };
   generatedAt: string;
   confidence?: number | null;
+  /** Shown under AI confidence when the model tapers certainty for thin tape. */
+  confidenceNote?: string | null;
+  /** Tape caveat when liquidity is too low to justify a “quiet = safe” read. */
+  riskTapeNote?: string | null;
   marketTone?:
-    | "Bullish"
-    | "Cooling"
+    | "Uptrend"
+    | "Accumulation"
+    | "Distribution"
+    | "Dead cat bounce"
+    | "Illiquid / niche"
     | "Consolidating"
-    | "Overextended"
-    | "Accumulating"
     | "Volatile"
+    | "Overextended"
+    | "Cooling"
+    /** @deprecated Older briefs only — retained for tolerant parsing. */
+    | "Bullish"
+    | "Accumulating"
     | null;
   riskScore?: number | null;
   riskLabel?: "Low" | "Medium" | "High" | null;
@@ -802,6 +812,12 @@ export interface CollectionAiInsight {
     change365dPct: number | null;
     points90d: number;
     points365d: number;
+    psaTotalPopulation?: number | null;
+    psa10PriceConfidence?: "high" | "medium" | "low" | null;
+    psa10PricingNote?: string | null;
+    psa10SpotLowUsd?: number | null;
+    psa10SpotHighUsd?: number | null;
+    psa10CatalogUsd?: number | null;
   };
 }
 

@@ -15,6 +15,7 @@ import {
   getCollectionPlatformTrades,
   getCollectionAiInsight,
   getMarketplaceCollectionDetail,
+  type CollectionAiInsight,
   type Order,
 } from "@/lib/core";
 import {
@@ -47,6 +48,34 @@ import {
   bucketCardSetForDisplay,
   bucketGradingCompanyForDisplay,
 } from "@/lib/marketplace/bucketKey";
+
+function aiMarketPerspectiveBadgeClass(
+  tone: NonNullable<CollectionAiInsight["marketTone"]>,
+): string {
+  switch (tone) {
+    case "Uptrend":
+    case "Bullish":
+      return "border-emerald-300/40 bg-emerald-500/15 text-emerald-200";
+    case "Accumulation":
+    case "Accumulating":
+      return "border-cyan-300/45 bg-cyan-500/12 text-cyan-200";
+    case "Distribution":
+    case "Cooling":
+      return "border-rose-300/40 bg-rose-500/15 text-rose-200";
+    case "Dead cat bounce":
+      return "border-orange-300/45 bg-orange-500/14 text-orange-200";
+    case "Illiquid / niche":
+      return "border-zinc-500/50 bg-zinc-600/20 text-zinc-200";
+    case "Consolidating":
+      return "border-amber-300/40 bg-amber-500/15 text-amber-200";
+    case "Volatile":
+      return "border-fuchsia-300/45 bg-fuchsia-500/15 text-fuchsia-200";
+    case "Overextended":
+      return "border-orange-300/50 bg-orange-500/14 text-orange-100";
+    default:
+      return "border-zinc-400/40 bg-zinc-500/10 text-zinc-200";
+  }
+}
 
 /** Same fill can appear from session overlay + DB poll with timestamps minutes apart */
 const SESSION_FILL_DEDUP_SEC = 300;
@@ -175,14 +204,9 @@ export default function MarketplaceCollectionPage() {
     };
     generatedAt: string;
     confidence?: number | null;
-    marketTone?:
-      | "Bullish"
-      | "Cooling"
-      | "Consolidating"
-      | "Overextended"
-      | "Accumulating"
-      | "Volatile"
-      | null;
+    confidenceNote?: string | null;
+    riskTapeNote?: string | null;
+    marketTone?: CollectionAiInsight["marketTone"];
     riskScore?: number | null;
     riskLabel?: "Low" | "Medium" | "High" | null;
     stats?: {
@@ -197,6 +221,12 @@ export default function MarketplaceCollectionPage() {
       change365dPct: number | null;
       points90d: number;
       points365d: number;
+      psaTotalPopulation?: number | null;
+      psa10PriceConfidence?: "high" | "medium" | "low" | null;
+      psa10PricingNote?: string | null;
+      psa10SpotLowUsd?: number | null;
+      psa10SpotHighUsd?: number | null;
+      psa10CatalogUsd?: number | null;
     };
   } | null>(null);
   const aiInsightInFlightRef = useRef(false);
@@ -703,6 +733,8 @@ export default function MarketplaceCollectionPage() {
         outlook: insight.outlook,
         outlookScenarios: insight.outlookScenarios,
         confidence: insight.confidence,
+        confidenceNote: insight.confidenceNote ?? null,
+        riskTapeNote: insight.riskTapeNote ?? null,
         marketTone: insight.marketTone,
         riskScore: insight.riskScore,
         riskLabel: insight.riskLabel,
@@ -727,6 +759,8 @@ export default function MarketplaceCollectionPage() {
         ],
         dynamics: [],
         confidence: null,
+        confidenceNote: null,
+        riskTapeNote: null,
         marketTone: null,
         riskScore: null,
         riskLabel: null,
@@ -1076,27 +1110,22 @@ export default function MarketplaceCollectionPage() {
                   <div className="mb-3 flex flex-wrap items-center gap-2">
                     {aiInsightResult.marketTone ? (
                       <span
-                        className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${
-                          aiInsightResult.marketTone === "Bullish"
-                            ? "border-emerald-300/40 bg-emerald-500/15 text-emerald-200"
-                            : aiInsightResult.marketTone === "Cooling"
-                              ? "border-rose-300/40 bg-rose-500/15 text-rose-200"
-                              : aiInsightResult.marketTone === "Consolidating"
-                                ? "border-amber-300/40 bg-amber-500/15 text-amber-200"
-                                : aiInsightResult.marketTone === "Overextended"
-                                  ? "border-orange-300/45 bg-orange-500/15 text-orange-200"
-                                  : aiInsightResult.marketTone === "Volatile"
-                                    ? "border-fuchsia-300/45 bg-fuchsia-500/15 text-fuchsia-200"
-                                    : "border-zinc-400/40 bg-zinc-500/10 text-zinc-200"
-                        }`}
+                        className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${aiMarketPerspectiveBadgeClass(aiInsightResult.marketTone)}`}
                       >
                         {aiInsightResult.marketTone}
                       </span>
                     ) : null}
                     {aiInsightResult.riskScore != null ? (
-                      <span className="inline-flex items-center rounded-full border border-sky-300/35 bg-sky-500/10 px-2.5 py-0.5 text-[11px] font-semibold text-sky-200">
-                        Risk {aiInsightResult.riskScore}/100
-                        {aiInsightResult.riskLabel ? ` · ${aiInsightResult.riskLabel}` : ""}
+                      <span className="inline-flex flex-col rounded-full border border-sky-300/35 bg-sky-500/10 px-2.5 py-0.5 text-[11px] font-semibold text-sky-200">
+                        <span>
+                          Risk {aiInsightResult.riskScore}/100
+                          {aiInsightResult.riskLabel ? ` · ${aiInsightResult.riskLabel}` : ""}
+                        </span>
+                        {aiInsightResult.riskTapeNote ? (
+                          <span className="mt-0.5 text-[10px] font-normal leading-snug text-sky-100/90">
+                            {aiInsightResult.riskTapeNote}
+                          </span>
+                        ) : null}
                       </span>
                     ) : null}
                   </div>
@@ -1108,15 +1137,44 @@ export default function MarketplaceCollectionPage() {
                           ? `${(aiInsightResult.confidence * 100).toFixed(1)}%`
                           : "context-limited"}
                       </p>
+                      {aiInsightResult.confidenceNote ? (
+                        <p className="mt-1 text-[10px] leading-snug text-amber-200/95">
+                          {aiInsightResult.confidenceNote}
+                        </p>
+                      ) : null}
                     </div>
                     <div className="rounded-xl border border-emerald-400/20 bg-emerald-500/[0.05] px-3 py-3 min-h-[78px]">
                       <p className="text-[10px] uppercase tracking-wide text-emerald-200/80">PSA 10 Spot</p>
                       <p className="mt-1 text-base font-semibold text-emerald-100">
                         {aiInsightResult.stats?.psa10SpotUsd != null &&
                         Number.isFinite(aiInsightResult.stats.psa10SpotUsd)
-                          ? `$${aiInsightResult.stats.psa10SpotUsd.toFixed(2)}`
+                          ? `$${aiInsightResult.stats.psa10SpotUsd.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
                           : "thin feed"}
                       </p>
+                      {aiInsightResult.stats?.psa10PriceConfidence &&
+                      aiInsightResult.stats.psa10PriceConfidence !== "high" ? (
+                        <p className="mt-1 text-[10px] leading-snug text-zinc-500">
+                          {aiInsightResult.stats.psa10PriceConfidence === "medium"
+                            ? "Medium confidence · PSA_10 comps"
+                            : "Low confidence · verify sales depth"}
+                          {aiInsightResult.stats.psa10SpotLowUsd != null &&
+                          aiInsightResult.stats.psa10SpotHighUsd != null &&
+                          Number.isFinite(aiInsightResult.stats.psa10SpotLowUsd) &&
+                          Number.isFinite(aiInsightResult.stats.psa10SpotHighUsd) &&
+                          aiInsightResult.stats.psa10SpotHighUsd >=
+                            aiInsightResult.stats.psa10SpotLowUsd
+                            ? ` · ${new Intl.NumberFormat(undefined, {
+                                style: "currency",
+                                currency: "USD",
+                                maximumFractionDigits: 0,
+                              }).format(aiInsightResult.stats.psa10SpotLowUsd)}–${new Intl.NumberFormat(undefined, {
+                                style: "currency",
+                                currency: "USD",
+                                maximumFractionDigits: 0,
+                              }).format(aiInsightResult.stats.psa10SpotHighUsd)} (90d range)`
+                            : ""}
+                        </p>
+                      ) : null}
                     </div>
                     <div className="rounded-xl border border-fuchsia-400/20 bg-fuchsia-500/[0.05] px-3 py-3 min-h-[78px]">
                       <p className="text-[10px] uppercase tracking-wide text-fuchsia-200/80">Premium vs Raw</p>

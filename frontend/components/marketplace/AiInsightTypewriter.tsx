@@ -73,7 +73,7 @@ export function AiInsightTypewriter({
   insight,
   resetKey,
   durationMs = 3200,
-  toneLabelFallback = "Accumulating",
+  toneLabelFallback = "Consolidating",
   toneDisplay,
   generatedAtLine,
 }: {

@@ -15,12 +15,40 @@ import type {
 } from '../utils/market-reference.types';
 import type { MarketHistoryPeriod } from '../utils/price-history-period.util';
 
+export type AiInsightPsa10PriceConfidence = 'high' | 'medium' | 'low';
+
+export interface CollectionAiInsightPricingStats {
+  psa10SpotUsd: number | null;
+  rawSpotUsd: number | null;
+  premiumVsRawPct: number | null;
+  sales7d: number | null;
+  sales30d: number | null;
+  change7dPct: number | null;
+  change30dPct: number | null;
+  change90dPct: number | null;
+  change365dPct: number | null;
+  points90d: number;
+  points365d: number;
+  psa10PriceConfidence: AiInsightPsa10PriceConfidence | null;
+  psa10PricingNote: string | null;
+  psa10SpotLowUsd: number | null;
+  psa10SpotHighUsd: number | null;
+  psa10CatalogUsd: number | null;
+  /** PSA line population from collection components when persisted (premium context). */
+  psaTotalPopulation: number | null;
+}
+
 type CardhedgerCardRow = Record<string, unknown>;
 
 /**
  * Card Hedge `POST /v1/cards/prices-by-card` documents rolling `days` in [1, **365**] only.
  */
 const CARDHEDGER_PRICES_BY_CARD_MAX_DAYS = 365;
+
+/** Catalog PSA 10 vs PSA_10 tier rolling history — beyond this ratio we distrust catalog. */
+const DEFAULT_AI_INSIGHT_HIST_ANOMALY_RATIO = 5;
+const AI_INSIGHT_MEDIAN_MIN_POINTS = 3;
+const AI_INSIGHT_MEDIAN_FALLBACK_MIN_POINTS = 5;
 
 /** Return type of resolveCardForCollection — used for the shared resolve cache and getBundledCardData. */
 type ResolvedCard = {
@@ -45,6 +73,8 @@ export class CardhedgerMarketDataService {
    * Defaults to 1; set CARDHEDGER_MIN_VERIFIED_SALES_30D=0 to restore old behaviour.
    */
   private readonly MIN_VERIFIED_SALES_30D: number;
+  /** Max ratio between catalog PSA 10 slot and PSA_10 history median before anomaly handling. */
+  private readonly AI_INSIGHT_HIST_ANOMALY_RATIO: number;
   private readonly allPricesByCardCache = new Map<string, { rows: CardhedgerCardRow[]; ts: number }>();
   private readonly resolveCardCache = new Map<string, { result: ResolvedCard; ts: number }>();
 
@@ -61,6 +91,11 @@ export class CardhedgerMarketDataService {
     this.MIN_VERIFIED_SALES_30D = Math.max(
       0,
       Number(this.config.get<string>('CARDHEDGER_MIN_VERIFIED_SALES_30D') ?? 5) || 5,
+    );
+    this.AI_INSIGHT_HIST_ANOMALY_RATIO = Math.max(
+      2,
+      Number(this.config.get<string>('CARDHEDGER_AI_PSA_HISTORY_ANOMALY_RATIO')) ||
+        DEFAULT_AI_INSIGHT_HIST_ANOMALY_RATIO,
     );
   }
 
@@ -416,6 +451,283 @@ export class CardhedgerMarketDataService {
       return null;
     }
     return ((psa10 - raw) / raw) * 100;
+  }
+
+  private emptyInsightStats(): CollectionAiInsightPricingStats {
+    return {
+      psa10SpotUsd: null,
+      rawSpotUsd: null,
+      premiumVsRawPct: null,
+      sales7d: null,
+      sales30d: null,
+      change7dPct: null,
+      change30dPct: null,
+      change90dPct: null,
+      change365dPct: null,
+      points90d: 0,
+      points365d: 0,
+      psa10PriceConfidence: null,
+      psa10PricingNote: null,
+      psa10SpotLowUsd: null,
+      psa10SpotHighUsd: null,
+      psa10CatalogUsd: null,
+      psaTotalPopulation: null,
+    };
+  }
+
+  /** Same catalog PSA 10 gate as preview (`rowToPreview`). */
+  private allowsPublishedCatalogPsa10(
+    merged: CardhedgerCardRow,
+    confidence: 'verified' | 'approximate',
+  ): boolean {
+    const sales30d = this.parseCount(merged['30 Day Sales']);
+    const hasReliableSales30 =
+      sales30d != null && sales30d >= this.MIN_RELIABLE_SALES_30D;
+    const hasMinVerifiedSales =
+      this.MIN_VERIFIED_SALES_30D === 0 ||
+      (sales30d != null && sales30d >= this.MIN_VERIFIED_SALES_30D);
+    return (
+      (confidence === 'verified' && hasMinVerifiedSales) || hasReliableSales30
+    );
+  }
+
+  private trimmedMedianUsdFromHistory(
+    pts: Array<{ t: number; v: number }>,
+  ): number | null {
+    const raw = pts
+      .map((p) => p.v)
+      .filter((v) => typeof v === 'number' && Number.isFinite(v) && v > 0)
+      .sort((a, b) => a - b);
+    if (raw.length === 0) return null;
+    if (raw.length === 1) return raw[0]!;
+    if (raw.length === 2) return (raw[0]! + raw[1]!) / 2;
+    let vals = raw;
+    if (raw.length >= 8) {
+      const qi = Math.floor((raw.length - 1) * 0.25);
+      const qj = Math.floor((raw.length - 1) * 0.75);
+      const q1 = raw[qi]!;
+      const q3 = raw[qj]!;
+      const iqr = Math.max(q3 - q1, 1e-6);
+      const lo = q1 - 1.5 * iqr;
+      const hi = q3 + 1.5 * iqr;
+      const t = raw.filter((x) => x >= lo && x <= hi);
+      if (t.length >= AI_INSIGHT_MEDIAN_MIN_POINTS) vals = t;
+    }
+    const m = Math.floor(vals.length / 2);
+    return vals.length % 2 === 1
+      ? vals[m]!
+      : (vals[m - 1]! + vals[m]!) / 2;
+  }
+
+  private catalogHistoryMedianAnomaly(
+    catalogUsd: number,
+    histMedian: number | null | undefined,
+  ): boolean {
+    if (histMedian == null || !(histMedian > 0) || !(catalogUsd > 0))
+      return false;
+    const r = this.AI_INSIGHT_HIST_ANOMALY_RATIO;
+    return catalogUsd / histMedian > r || histMedian / catalogUsd > r;
+  }
+
+  private computeInsightStatsFromMerged(
+    merged: CardhedgerCardRow,
+    matchConfidence: 'verified' | 'approximate',
+    h90: Array<{ t: number; v: number }>,
+    h365: Array<{ t: number; v: number }>,
+    cardId: string,
+  ): CollectionAiInsightPricingStats {
+    const psa10Catalog = this.readGradePrice(merged, 'PSA 10');
+    const rawSpot = this.readGradePrice(merged, 'Raw');
+    const sales7d = this.parseCount(merged['7 Day Sales']);
+    const sales30d = this.parseCount(merged['30 Day Sales']);
+    const change7 =
+      typeof merged.gain === 'number' && Number.isFinite(merged.gain)
+        ? Number(merged.gain)
+        : null;
+    const change30 =
+      typeof merged.gain_30day === 'number' &&
+      Number.isFinite(merged.gain_30day)
+        ? Number(merged.gain_30day)
+        : null;
+    const change90 = this.pctFromPoints(h90);
+    const change365 = this.pctFromPoints(h365);
+
+    const histMed = this.trimmedMedianUsdFromHistory(h90);
+    const allowCatalog = this.allowsPublishedCatalogPsa10(merged, matchConfidence);
+    const catalogCandidate =
+      allowCatalog && psa10Catalog != null && psa10Catalog > 0
+        ? psa10Catalog
+        : null;
+
+    const histVals = h90
+      .map((p) => p.v)
+      .filter((v) => typeof v === 'number' && Number.isFinite(v) && v > 0);
+    const psa10SpotLowUsd =
+      histVals.length > 0 ? Math.min(...histVals) : null;
+    const psa10SpotHighUsd =
+      histVals.length > 0 ? Math.max(...histVals) : null;
+
+    let psa10SpotUsd: number | null = null;
+    let psa10PriceConfidence: AiInsightPsa10PriceConfidence | null = null;
+    let psa10PricingNote: string | null = null;
+
+    const ratioBad =
+      catalogCandidate != null &&
+      histMed != null &&
+      this.catalogHistoryMedianAnomaly(catalogCandidate, histMed);
+
+    if (
+      ratioBad &&
+      histMed != null &&
+      h90.length >= AI_INSIGHT_MEDIAN_MIN_POINTS
+    ) {
+      psa10SpotUsd = histMed;
+      psa10PriceConfidence = 'medium';
+      psa10PricingNote = 'history_median_replaces_catalog_anomaly';
+      this.logger.warn(
+        `[ai-insight-psa] anomaly_substitution card_id=${cardId} catalog=${catalogCandidate} histMedian90d=${histMed} points90=${h90.length} sales30d=${sales30d ?? 'n/a'}`,
+      );
+    } else if (
+      ratioBad &&
+      (histMed == null || h90.length < AI_INSIGHT_MEDIAN_MIN_POINTS)
+    ) {
+      psa10SpotUsd = null;
+      psa10PriceConfidence = 'low';
+      psa10PricingNote = 'suppressed_catalog_history_conflict';
+      this.logger.warn(
+        `[ai-insight-psa] suppressed_conflict card_id=${cardId} catalog=${catalogCandidate} histMedian90d=${histMed ?? 'n/a'} points90=${h90.length}`,
+      );
+    } else if (catalogCandidate != null) {
+      psa10SpotUsd = catalogCandidate;
+      psa10PricingNote = 'catalog_psa10_grade_slot';
+      const highSales =
+        sales30d != null && sales30d >= this.MIN_RELIABLE_SALES_30D;
+      psa10PriceConfidence =
+        matchConfidence === 'verified' && allowCatalog && highSales
+          ? 'high'
+          : 'medium';
+    } else if (
+      histMed != null &&
+      h90.length >= AI_INSIGHT_MEDIAN_FALLBACK_MIN_POINTS
+    ) {
+      psa10SpotUsd = histMed;
+      psa10PriceConfidence = 'low';
+      psa10PricingNote = 'history_median_thin_catalog_confidence';
+    } else {
+      psa10SpotUsd = null;
+      psa10PriceConfidence = 'low';
+      psa10PricingNote =
+        psa10Catalog != null && !allowCatalog
+          ? 'suppressed_low_sales_or_match'
+          : 'insufficient_psa10_series';
+    }
+
+    return {
+      psa10SpotUsd,
+      rawSpotUsd: rawSpot,
+      premiumVsRawPct: this.premiumPct(psa10SpotUsd, rawSpot),
+      sales7d,
+      sales30d,
+      change7dPct: change7,
+      change30dPct: change30,
+      change90dPct: change90,
+      change365dPct: change365,
+      points90d: h90.length,
+      points365d: h365.length,
+      psa10PriceConfidence,
+      psa10PricingNote,
+      psa10SpotLowUsd,
+      psa10SpotHighUsd,
+      psa10CatalogUsd: psa10Catalog,
+      psaTotalPopulation: null,
+    };
+  }
+
+  private parsePsaTotalPopulationInsight(components: unknown): number | null {
+    if (!components || typeof components !== 'object') return null;
+    const c = components as Record<string, unknown>;
+    const raw = c.psaTotalPopulation;
+    if (typeof raw === 'number' && Number.isFinite(raw) && raw > 0)
+      return Math.floor(raw);
+    if (typeof raw === 'string' && raw.trim()) {
+      const n = Number(raw.trim());
+      if (Number.isFinite(n) && n > 0) return Math.floor(n);
+    }
+    return null;
+  }
+
+  async getAiInsightPricingBundle(col: MarketplaceCollection | null): Promise<{
+    matched: boolean;
+    matchConfidence: 'verified' | 'approximate' | null;
+    catalogLabel: string;
+    uiConfidence: number | null;
+    stats: CollectionAiInsightPricingStats;
+  }> {
+    if (!col) {
+      return {
+        matched: false,
+        matchConfidence: null,
+        catalogLabel: '',
+        uiConfidence: null,
+        stats: this.emptyInsightStats(),
+      };
+    }
+    if (!this.isConfigured()) {
+      return {
+        matched: false,
+        matchConfidence: null,
+        catalogLabel: String(col.displayLabel ?? ''),
+        uiConfidence: null,
+        stats: this.emptyInsightStats(),
+      };
+    }
+    const resolved = await this.resolveCardForCollection(col);
+    if (!resolved.row || !resolved.confidence) {
+      return {
+        matched: false,
+        matchConfidence: null,
+        catalogLabel: String(col.displayLabel ?? ''),
+        uiConfidence: null,
+        stats: this.emptyInsightStats(),
+      };
+    }
+    const cardId = String(resolved.row.card_id ?? '').trim();
+    const allPrices = cardId ? await this.fetchAllPricesByCard(cardId) : [];
+    const merged =
+      allPrices.length > 0
+        ? ({ ...resolved.row, prices: allPrices } as CardhedgerCardRow)
+        : resolved.row;
+    const [h90, h365] = await Promise.all([
+      cardId
+        ? this.fetchTierHistoryByCard(cardId, 'PSA_10', 90)
+        : Promise.resolve([]),
+      cardId
+        ? this.fetchTierHistoryByCard(cardId, 'PSA_10', 365)
+        : Promise.resolve([]),
+    ]);
+    const statsBase = this.computeInsightStatsFromMerged(
+      merged,
+      resolved.confidence,
+      h90,
+      h365,
+      cardId,
+    );
+    const psaPop = this.parsePsaTotalPopulationInsight(col.components);
+    const stats: CollectionAiInsightPricingStats = {
+      ...statsBase,
+      psaTotalPopulation: psaPop,
+    };
+    const catalogLabel = String(
+      merged.description ?? merged.name ?? col.displayLabel ?? '',
+    ).trim();
+    const uiConfidence = resolved.confidence === 'verified' ? 0.93 : 0.78;
+    return {
+      matched: true,
+      matchConfidence: resolved.confidence,
+      catalogLabel,
+      uiConfidence,
+      stats,
+    };
   }
 
   private async rowToPreview(
