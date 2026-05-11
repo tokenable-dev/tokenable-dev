@@ -28,10 +28,8 @@ function finitePositive(n: number | null | undefined): number | null {
 }
 
 /**
- * Returns true only when the backend has marked the preview price as reliable.
- * - `priceReliability === 'high'` means backend sales threshold was met.
- * - `sales30d >= EXTERNAL_PRICE_MIN_SALES_30D` is a frontend double-check to
- *   catch cases where the cached backend response pre-dates a threshold change.
+ * Strict liquidity gate: high reliability + minimum 30d sales (portfolio risk / badges).
+ * For displaying spot USD we often still show {@link resolveExternalMarketUsd} even when this is false.
  */
 export function isPreviewPriceReliable(
   preview: CollectionMarketPreview | null | undefined,
@@ -57,12 +55,8 @@ export function representativeGradeUsd(
 /**
  * Cardhedger catalog spot (tier-aware), then bundle `gradePrices`.
  *
- * Applies a unified reliability gate so all callers (portfolio, token detail,
- * collection detail) show "—" for the same cards.  The gate requires:
- *   - backend `priceReliability === 'high'` (sales threshold met server-side)
- *   - `sales30d >= EXTERNAL_PRICE_MIN_SALES_30D` (frontend double-check)
- * `gradePrices` is only used when the preview itself is trusted, because both
- * originate from the same Cardhedger data pipeline.
+ * Uses the best reference from `marketPreview` whenever matched (including thin-market / low
+ * `priceReliability`), then falls back to `gradePrices` for the slab tier.
  */
 export function resolveExternalMarketUsd(params: {
   marketPreview: CollectionMarketPreview | null | undefined;
@@ -71,12 +65,12 @@ export function resolveExternalMarketUsd(params: {
   /** When set, picks PSA_10 history tier for spot (same as chart). */
   components?: Record<string, unknown> | null;
 }): ResolvedExternalMarketUsd {
-  const trusted = isPreviewPriceReliable(params.marketPreview);
   const tier = marketHistoryTierFromComponents(params.components ?? null);
-  const poke = catalogSpotUsdFromMarketPreview(
-    trusted ? params.marketPreview : null,
-    tier,
-  );
+  const preview =
+    params.marketPreview?.matched && params.marketPreview.card
+      ? params.marketPreview
+      : null;
+  const poke = catalogSpotUsdFromMarketPreview(preview, tier);
   if (poke != null) {
     return {
       usd: poke,
@@ -84,11 +78,10 @@ export function resolveExternalMarketUsd(params: {
       marketMatchConfidence: params.marketPreview?.matchConfidence,
     };
   }
-  const strip = representativeGradeUsd(
-    trusted ? params.gradePrices : null,
-    params.gradeScore,
-  );
-  if (strip != null) return { usd: strip, source: "cardhedger" };
+  const strip = representativeGradeUsd(params.gradePrices, params.gradeScore);
+  if (strip != null) {
+    return { usd: strip, source: "cardhedger" };
+  }
   return { usd: null, source: null };
 }
 

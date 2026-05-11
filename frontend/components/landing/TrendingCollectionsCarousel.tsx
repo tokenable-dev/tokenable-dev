@@ -18,6 +18,21 @@ const MAX_TRENDING_VISIBLE = 4;
 const MAX_TRENDING_VISIBLE_MOBILE = 1;
 const TRENDING_POOL = 10;
 const CAROUSEL_AUTO_INTERVAL_MS = 5000;
+
+function marketplaceSummaryHasPsaCertNumber(components: Record<string, unknown> | undefined): boolean {
+  const n = components?.psaCertNumber;
+  return typeof n === "string" && n.trim().length > 0;
+}
+
+function trendingCarouselImageUrl(c: MarketplaceCollectionSummary): string | null {
+  const comp = c.components as Record<string, unknown> | undefined;
+  const slab =
+    typeof comp?.trendingSlabImageUrl === "string" ? comp.trendingSlabImageUrl.trim() : "";
+  if (slab) return slab;
+  const cover = c.coverImageUrl?.trim();
+  return cover && cover.length > 0 ? cover : null;
+}
+
 const CAROUSEL_SLIDE_TRANSITION_MS = 520;
 const SWIPE_THRESHOLD_PX = 48;
 const SWIPE_SUPPRESS_NAV_MS = 450;
@@ -54,14 +69,22 @@ export function TrendingCollectionsCarousel({
   );
 
   const trendingNow = useMemo(() => {
-    return [...collectionSummaries]
-      .sort((a, b) => {
-        const ta = new Date(a.createdAt).getTime();
-        const tb = new Date(b.createdAt).getTime();
-        if (ta !== tb) return tb - ta;
-        return a.displayLabel.localeCompare(b.displayLabel);
-      })
-      .slice(0, TRENDING_POOL);
+    const sorted = [...collectionSummaries].sort((a, b) => {
+      const ta = new Date(a.createdAt).getTime();
+      const tb = new Date(b.createdAt).getTime();
+      if (ta !== tb) return tb - ta;
+      return a.displayLabel.localeCompare(b.displayLabel);
+    });
+    const withCert: MarketplaceCollectionSummary[] = [];
+    for (const c of sorted) {
+      if (marketplaceSummaryHasPsaCertNumber(c.components as Record<string, unknown>)) {
+        withCert.push(c);
+      }
+    }
+    if (withCert.length > 0) {
+      return withCert.slice(0, TRENDING_POOL);
+    }
+    return sorted.slice(0, TRENDING_POOL);
   }, [collectionSummaries]);
 
   const trendingSnapshotKeysSorted = useMemo(() => {
@@ -256,6 +279,7 @@ export function TrendingCollectionsCarousel({
       s?.gradePrices ?? null,
       parseGradeScoreNumber(comp.gradeScore),
     );
+    const displayImageUrl = trendingCarouselImageUrl(c);
     return (
       <Link
         key={`${c.collectionKey}${slideKeySuffix}`}
@@ -276,9 +300,9 @@ export function TrendingCollectionsCarousel({
       >
         <div className="overflow-hidden rounded-2xl bg-[#0d1118] transition-colors">
           <div className="aspect-[3/4] bg-[#0a0e14]">
-            {c.coverImageUrl ? (
+            {displayImageUrl ? (
               <CollectionCoverFrame
-                imageUrl={c.coverImageUrl}
+                imageUrl={displayImageUrl}
                 variant="compact"
                 className="h-full w-full"
               />

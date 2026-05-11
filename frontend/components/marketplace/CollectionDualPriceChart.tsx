@@ -252,10 +252,9 @@ export function CollectionDualPriceChart({
       }
 
       /**
-       * Envelope all points, but if the nominal window (`now − N days`) is far wider than the
-       * fetched series (e.g. Cardhedger often returns ~1y while Max asks for thousands of days),
-       * `min(windowTMin, dataMin)` pins `tMin` to `windowTMin` and squeezes real data onto a
-       * narrow strip — looks like “only 1Y compressed”. Cap empty lead-in instead.
+       * Keep the x-axis within the user-selected window (`externalWindowDays`). Points older than
+       * `windowTMin` are intentionally clipped by `extInWindow` / `platForChart`; expanding
+       * `tMin` to `dataMin` made 7D/30D/90D show the same full-year Cardhedger curve.
        */
       if (relevantTimes.length > 0) {
         const dataMin = Math.min(...relevantTimes);
@@ -264,10 +263,7 @@ export function CollectionDualPriceChart({
         const leftPad = Math.min(14 * DAY, Math.max(2 * DAY, Math.floor(dataSpan * 0.04)));
         const maxTrailingVoid = Math.min(120 * DAY, Math.max(10 * DAY, Math.floor(dataSpan * 0.12)));
 
-        const baseLeft =
-          dataMin < windowTMin
-            ? dataMin
-            : Math.max(windowTMin, dataMin - maxTrailingVoid);
+        const baseLeft = Math.max(windowTMin, dataMin - maxTrailingVoid);
         tMin = baseLeft - leftPad;
         tMax = Math.max(windowTMax, dataMax + leftPad);
       } else {

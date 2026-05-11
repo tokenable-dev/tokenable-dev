@@ -4,6 +4,7 @@ import {
   InternalServerErrorException,
   Logger,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import sharp from 'sharp';
 import { CardhedgerService } from '../cardhedger/cardhedger.service';
 import {
@@ -11,6 +12,7 @@ import {
   normalizeForExactCatalogMatch,
   primaryCardNumber,
 } from '../marketplace/utils/card-match.util';
+import { readPsaSpecIdCardhedgerMapFromConfig } from '../marketplace/utils/psa-spec-cardhedger-map.util';
 import {
   psaCertVerifyUrl,
   resolveCertHintForLookup,
@@ -130,6 +132,7 @@ export class PsaService {
   constructor(
     private readonly psaPublicApi: PsaPublicApiService,
     private readonly cardhedgerService: CardhedgerService,
+    private readonly config: ConfigService,
   ) {}
 
   private static readonly MAX_COMBINED_OCR_CHARS = 150_000;
@@ -457,6 +460,59 @@ export class PsaService {
       cardId: pick.id,
       searchQuery,
     };
+  }
+
+  /**
+   * Curated {@link readPsaSpecIdCardhedgerMapFromConfig}: when PSA Public API returns `specId`
+   * and it is mapped to a Cardhedger catalog id, mint metadata can persist a stable `cardId`.
+   */
+  private async tryResolveCardhedgerMintFromPsaSpecMap(
+    psaParsed: ParsedPsaLabel,
+    fallbackSearchQuery: string,
+  ): Promise<PsaAnalyzeResult['cardhedgerMint'] | undefined> {
+    const rawSpec = psaParsed.specId;
+    if (rawSpec == null || !Number.isFinite(Number(rawSpec))) return undefined;
+    try {
+      this.cardhedgerService.assertConfigured();
+    } catch {
+      return undefined;
+    }
+    const specKey = String(Math.floor(Number(rawSpec)));
+    const cardIdMapped = readPsaSpecIdCardhedgerMapFromConfig(this.config).get(
+      specKey,
+    );
+    if (!cardIdMapped) return undefined;
+    try {
+      const body = await this.cardhedgerService.forwardJson(
+        'POST',
+        '/v1/cards/card-details',
+        { body: { card_id: cardIdMapped } },
+      );
+      const cards = (body as { cards?: unknown[] }).cards;
+      if (!Array.isArray(cards) || cards.length === 0) return undefined;
+      const row = cards[0] as Record<string, unknown>;
+      const id =
+        typeof row.card_id === 'string' && row.card_id.trim()
+          ? row.card_id.trim()
+          : '';
+      if (!id) return undefined;
+      const searchFromRow =
+        typeof row.description === 'string' && row.description.trim()
+          ? row.description.trim()
+          : typeof row.name === 'string' && row.name.trim()
+            ? row.name.trim()
+            : fallbackSearchQuery.trim();
+      return {
+        matchConfidence: 'verified',
+        cardId: id,
+        searchQuery: searchFromRow || fallbackSearchQuery,
+      };
+    } catch (e) {
+      this.logger.warn(
+        `Cardhedger mint resolve via PSA spec map failed: ${e instanceof Error ? e.message : String(e)}`,
+      );
+      return undefined;
+    }
   }
 
   private buildCardhedgerSearchQuery(psa: ParsedPsaLabel): string {
@@ -848,6 +904,12 @@ export class PsaService {
           `Cardhedger mint id resolve skipped: ${e instanceof Error ? e.message : String(e)}`,
         );
       }
+    }
+    if (cardhedgerMint == null) {
+      cardhedgerMint = await this.tryResolveCardhedgerMintFromPsaSpecMap(
+        psaParsed,
+        cardhedgerQuery,
+      );
     }
 
     let certVerifyUrl: string | undefined;

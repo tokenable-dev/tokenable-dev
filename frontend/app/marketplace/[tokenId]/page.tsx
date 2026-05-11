@@ -25,7 +25,6 @@ import {
   percentChangeFromUsdPoints,
   catalogSpotUsdFromMarketPreview,
   representativeGradeUsd,
-  isPreviewPriceReliable,
 } from "@/lib/market";
 import { parseGradeScoreNumber } from "@/lib/market";
 import {
@@ -512,14 +511,16 @@ export default function RwaDetailPage() {
           : undefined),
       gradeScore: tokenGradeScoreStr ?? undefined,
     });
-    const mintTrusted = isPreviewPriceReliable(marketPreview);
-    const collectionTrusted = isPreviewPriceReliable(collectionMarketPreview);
-    const previewForSpot = mintTrusted
-      ? marketPreview
-      : collectionTrusted
+    const mintP =
+      marketPreview?.matched && marketPreview.card ? marketPreview : null;
+    const collP =
+      collectionMarketPreview?.matched && collectionMarketPreview.card
         ? collectionMarketPreview
-        : undefined;
-    const poke = catalogSpotUsdFromMarketPreview(previewForSpot ?? null, tier);
+        : null;
+    let poke = catalogSpotUsdFromMarketPreview(mintP, tier);
+    if (poke == null || !Number.isFinite(poke) || poke <= 0) {
+      poke = catalogSpotUsdFromMarketPreview(collP, tier);
+    }
     const score = parseGradeScoreNumber(tokenGradeScoreStr);
     const strip = representativeGradeUsd(
       tokenMarketSeries?.gradePrices ?? null,
@@ -530,7 +531,7 @@ export default function RwaDetailPage() {
       return {
         usd: poke,
         source: "cardhedger" as const,
-        marketMatchConfidence: previewForSpot?.matchConfidence,
+        marketMatchConfidence: mintP?.matchConfidence ?? collP?.matchConfidence,
       };
     }
     if (strip != null && Number.isFinite(strip) && strip > 0) {

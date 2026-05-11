@@ -149,13 +149,13 @@ export interface MarketIndexSummaryRow {
   cards_count?: number;
   /** Aggregate catalog value for the game in USD. */
   game_value_usd: number;
-  game_value_change_7d_pct: number;
-  game_value_change_30d_pct?: number;
-  game_value_change_90d_pct?: number;
-  /** Optional 180d aggregate index change. */
-  game_value_change_180d_pct?: number;
-  /** If present on `GET /games`, used for 1y index comparison (preferred over compounding shorter windows). */
-  game_value_change_365d_pct?: number;
+  /** Missing when the backend cannot derive a defensible window aggregate from Cardhedger data. */
+  game_value_change_7d_pct?: number | null;
+  game_value_change_30d_pct?: number | null;
+  game_value_change_90d_pct?: number | null;
+  game_value_change_180d_pct?: number | null;
+  /** Required for landing “1Y” index cards; missing rows are omitted from the dashboard grid. */
+  game_value_change_365d_pct?: number | null;
 }
 
 /** Cardhedger-backed dashboard indexes. */
@@ -742,6 +742,10 @@ export interface CollectionMarketPreview {
     gainPct30d?: number | null;
     priceReliability?: "high" | "low";
     pricingSuppressedReason?: string | null;
+    /** Backend: comps vs history point vs catalog PSA 10 slot. */
+    spotPriceBasis?: "comps" | "latest_sale" | "sparse_sale_avg" | "catalog" | null;
+    /** Unix seconds — comps newest sale or history observation when applicable. */
+    latestSaleAt?: number | null;
     ebayNearMint: MarketPriceBand | null;
     tcgplayerNearMint: MarketPriceBand | null;
     ebayPsa10?: MarketPriceBand | null;

@@ -15,7 +15,11 @@ import {
   buildCollectionDisplayLabel,
   extractCollectionQueryUsed,
 } from '../utils/collection-label.util';
-import { extractCollectionRepresentativeImage } from '../utils/collection-image.util';
+import {
+  extractCollectionRepresentativeImage,
+  pickTrendingSlabImageRef,
+  psaCertNumberFromGradedMeta,
+} from '../utils/collection-image.util';
 import { MarketplaceCollection } from '../entities/marketplace-collection.entity';
 import { Order, OrderSide, OrderStatus } from '../entities/order.entity';
 import { exactCatalogMatch } from '../utils/card-match.util';
@@ -180,6 +184,40 @@ export class CollectionService implements OnModuleInit {
     await this.collectionRepo.update({ collectionKey: key }, { coverImageUrl: img });
   }
 
+  private async mergeTrendingSlabMetaFromMetaIfMissing(
+    collectionKey: string,
+    meta: Record<string, unknown>,
+  ): Promise<void> {
+    const key = collectionKey.toLowerCase();
+    const row = await this.collectionRepo.findOne({ where: { collectionKey: key } });
+    if (!row) return;
+    const comp = row.components as Record<string, unknown>;
+    const next = { ...comp };
+    let dirty = false;
+    const slab = pickTrendingSlabImageRef(meta);
+    if (
+      slab &&
+      !(typeof comp.trendingSlabImageUrl === 'string' && comp.trendingSlabImageUrl.trim())
+    ) {
+      next.trendingSlabImageUrl = slab;
+      dirty = true;
+    }
+    const cert = psaCertNumberFromGradedMeta(meta);
+    if (
+      cert &&
+      !(typeof comp.psaCertNumber === 'string' && String(comp.psaCertNumber).trim())
+    ) {
+      next.psaCertNumber = cert;
+      dirty = true;
+    }
+    if (dirty) {
+      await this.collectionRepo.update(
+        { collectionKey: key },
+        { components: next as QueryDeepPartialEntity<Record<string, unknown>> },
+      );
+    }
+  }
+
   /**
    * 매도(ask) 등록 시: 메타에서 버킷·컬렉션 라벨 문구를 읽어 컬렉션 행을 만들고 key 반환.
    * graded 없으면 null (주문은 그대로 저장, 컬렉션 미부여).
@@ -241,6 +279,15 @@ export class CollectionService implements OnModuleInit {
       compRecord.psaSpecId = ch.psaSpecId;
     }
 
+    const trendingSlab = pickTrendingSlabImageRef(meta);
+    if (trendingSlab) {
+      compRecord.trendingSlabImageUrl = trendingSlab;
+    }
+    const psaCert = psaCertNumberFromGradedMeta(meta);
+    if (psaCert) {
+      compRecord.psaCertNumber = psaCert;
+    }
+
     const row = this.collectionRepo.create({
       collectionKey,
       displayLabel,
@@ -259,6 +306,7 @@ export class CollectionService implements OnModuleInit {
         await this.persistCoverFromMetaIfMissing(collectionKey, meta);
         await this.mergePsaPopulationFromMetaIfMissing(collectionKey, meta);
         await this.mergeCardhedgerCardIdFromMetaIfMissing(collectionKey, meta);
+        await this.mergeTrendingSlabMetaFromMetaIfMissing(collectionKey, meta);
       } else {
         throw e;
       }

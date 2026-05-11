@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-base-to-string -- Cardhedger API payloads are loosely typed; string coercion is intentional for keys and logging. */
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { BlockchainService } from '../../blockchain/blockchain.service';
@@ -14,6 +15,7 @@ import type {
   MarketPriceHistoryResult,
 } from '../utils/market-reference.types';
 import type { MarketHistoryPeriod } from '../utils/price-history-period.util';
+import { readPsaSpecIdCardhedgerMapFromConfig } from '../utils/psa-spec-cardhedger-map.util';
 
 export type AiInsightPsa10PriceConfidence = 'high' | 'medium' | 'low';
 
@@ -40,10 +42,31 @@ export interface CollectionAiInsightPricingStats {
 
 type CardhedgerCardRow = Record<string, unknown>;
 
+type CardhedgerCompsHeadline = {
+  usd: number;
+  latestSaleAtSec: number | null;
+  countUsed: number;
+};
+
+/** Cached `POST /v1/cards/comps` payload slice — headline + optional raw sale points for charts. */
+type CardhedgerCompsCached = {
+  headline: CardhedgerCompsHeadline | null;
+  rawPoints: Array<{ t: number; v: number }>;
+};
+
 /**
  * Card Hedge `POST /v1/cards/prices-by-card` documents rolling `days` in [1, **365**] only.
  */
 const CARDHEDGER_PRICES_BY_CARD_MAX_DAYS = 365;
+
+/** PSA 10 headline via `POST /v1/cards/comps` — upstream allows count in [1, 100]. */
+const CARDHEDGER_COMPS_HEADLINE_COUNT = 15;
+
+/**
+ * When Cardhedger returns this many or fewer positive sale/sample points, use arithmetic mean
+ * instead of a single last observation (comps raw → then PSA 10 history).
+ */
+const SPARSE_SALE_POINTS_MAX = 5;
 
 /** Catalog PSA 10 vs PSA_10 tier rolling history — beyond this ratio we distrust catalog. */
 const DEFAULT_AI_INSIGHT_HIST_ANOMALY_RATIO = 5;
@@ -75,46 +98,48 @@ export class CardhedgerMarketDataService {
   private readonly MIN_VERIFIED_SALES_30D: number;
   /** Max ratio between catalog PSA 10 slot and PSA_10 history median before anomaly handling. */
   private readonly AI_INSIGHT_HIST_ANOMALY_RATIO: number;
-  private readonly allPricesByCardCache = new Map<string, { rows: CardhedgerCardRow[]; ts: number }>();
-  private readonly resolveCardCache = new Map<string, { result: ResolvedCard; ts: number }>();
+  private readonly allPricesByCardCache = new Map<
+    string,
+    { rows: CardhedgerCardRow[]; ts: number }
+  >();
+  private readonly tierHistoryOnceCache = new Map<
+    string,
+    { pts: Array<{ t: number; v: number }>; ts: number }
+  >();
+  /** Cached PSA 10 time-weighted comps headline (`POST /v1/cards/comps`). */
+  private readonly compsHeadlineCache = new Map<
+    string,
+    { value: CardhedgerCompsCached | null; ts: number }
+  >();
+  private readonly resolveCardCache = new Map<
+    string,
+    { result: ResolvedCard; ts: number }
+  >();
 
   constructor(
     private readonly cardhedger: CardhedgerService,
     private readonly blockchain: BlockchainService,
     private readonly config: ConfigService,
   ) {
-    this.psaSpecIdMap = this.readPsaSpecIdMapFromEnv();
+    this.psaSpecIdMap = readPsaSpecIdCardhedgerMapFromConfig(this.config);
     this.MIN_RELIABLE_SALES_30D = Math.max(
       0,
-      Number(this.config.get<string>('CARDHEDGER_MIN_RELIABLE_SALES_30D') ?? 5) || 5,
+      Number(
+        this.config.get<string>('CARDHEDGER_MIN_RELIABLE_SALES_30D') ?? 5,
+      ) || 5,
     );
     this.MIN_VERIFIED_SALES_30D = Math.max(
       0,
-      Number(this.config.get<string>('CARDHEDGER_MIN_VERIFIED_SALES_30D') ?? 5) || 5,
+      Number(
+        this.config.get<string>('CARDHEDGER_MIN_VERIFIED_SALES_30D') ?? 5,
+      ) || 5,
     );
     this.AI_INSIGHT_HIST_ANOMALY_RATIO = Math.max(
       2,
-      Number(this.config.get<string>('CARDHEDGER_AI_PSA_HISTORY_ANOMALY_RATIO')) ||
-        DEFAULT_AI_INSIGHT_HIST_ANOMALY_RATIO,
+      Number(
+        this.config.get<string>('CARDHEDGER_AI_PSA_HISTORY_ANOMALY_RATIO'),
+      ) || DEFAULT_AI_INSIGHT_HIST_ANOMALY_RATIO,
     );
-  }
-
-  private readPsaSpecIdMapFromEnv(): Map<string, string> {
-    const out = new Map<string, string>();
-    const raw = this.config.get<string>('CARDHEDGER_PSA_SPECID_MAP');
-    if (!raw?.trim()) return out;
-    try {
-      const parsed = JSON.parse(raw) as Record<string, unknown>;
-      for (const [k, v] of Object.entries(parsed)) {
-        const kk = String(k).trim();
-        const vv = typeof v === 'string' ? v.trim() : '';
-        if (!kk || !vv) continue;
-        out.set(kk, vv);
-      }
-    } catch {
-      // ignore invalid env JSON; runtime search path still works.
-    }
-    return out;
   }
 
   isConfigured(): boolean {
@@ -135,17 +160,21 @@ export class CardhedgerMarketDataService {
     cardhedgerSearchQuery: string | null;
     psaSpecId: string | null;
   } {
-    const comp = (col?.components ?? {}) as Record<string, unknown>;
+    const comp = col?.components ?? {};
     const cardName = String(comp.cardName ?? '').trim();
     const cardSet = String(comp.cardSet ?? '').trim();
     const cardNumber = String(comp.cardNumber ?? '').trim();
-    const query = [cardName, cardNumber, cardSet].filter(Boolean).join(' ').trim();
+    const query = [cardName, cardNumber, cardSet]
+      .filter(Boolean)
+      .join(' ')
+      .trim();
     const cardhedgerCardId =
       typeof comp.cardhedgerCardId === 'string' && comp.cardhedgerCardId.trim()
         ? comp.cardhedgerCardId.trim()
         : null;
     const cardhedgerSearchQuery =
-      typeof comp.cardhedgerSearchQuery === 'string' && comp.cardhedgerSearchQuery.trim()
+      typeof comp.cardhedgerSearchQuery === 'string' &&
+      comp.cardhedgerSearchQuery.trim()
         ? comp.cardhedgerSearchQuery.trim()
         : null;
     const psaSpecId =
@@ -169,7 +198,9 @@ export class CardhedgerMarketDataService {
     if (typeof body !== 'object' || body == null) return [];
     const cards = (body as { cards?: unknown[] }).cards;
     if (!Array.isArray(cards)) return [];
-    return cards.filter((x): x is CardhedgerCardRow => typeof x === 'object' && x != null);
+    return cards.filter(
+      (x): x is CardhedgerCardRow => typeof x === 'object' && x != null,
+    );
   }
 
   /**
@@ -235,10 +266,14 @@ export class CardhedgerMarketDataService {
 
     // Substring path (tight, keeps legacy exact-match wins)
     const nameSubstring = Boolean(
-      wantName && gotName && (gotName.includes(wantName) || wantName.includes(gotName)),
+      wantName &&
+      gotName &&
+      (gotName.includes(wantName) || wantName.includes(gotName)),
     );
     const setSubstring = Boolean(
-      wantSet && gotSet && (gotSet.includes(wantSet) || wantSet.includes(gotSet)),
+      wantSet &&
+      gotSet &&
+      (gotSet.includes(wantSet) || wantSet.includes(gotSet)),
     );
 
     // Token coverage path — used to tolerate inserted words and abbreviated set codes.
@@ -323,14 +358,22 @@ export class CardhedgerMarketDataService {
       return cached.rows;
     }
     try {
-      const body = await this.cardhedger.forwardJson('POST', '/v1/cards/all-prices-by-card', {
-        body: { card_id: id },
-      });
+      const body = await this.cardhedger.forwardJson(
+        'POST',
+        '/v1/cards/all-prices-by-card',
+        {
+          body: { card_id: id },
+        },
+      );
       const prices =
-        typeof body === 'object' && body != null && Array.isArray((body as { prices?: unknown }).prices)
-          ? ((body as { prices: unknown[] }).prices as unknown[])
+        typeof body === 'object' &&
+        body != null &&
+        Array.isArray((body as { prices?: unknown }).prices)
+          ? (body as { prices: unknown[] }).prices
           : [];
-      const out = prices.filter((x): x is CardhedgerCardRow => typeof x === 'object' && x != null);
+      const out = prices.filter(
+        (x): x is CardhedgerCardRow => typeof x === 'object' && x != null,
+      );
       this.allPricesByCardCache.set(id, { rows: out, ts: Date.now() });
       return out;
     } catch {
@@ -339,7 +382,9 @@ export class CardhedgerMarketDataService {
     }
   }
 
-  private parseHistoricalPoints(body: unknown): Array<{ t: number; v: number }> {
+  private parseHistoricalPoints(
+    body: unknown,
+  ): Array<{ t: number; v: number }> {
     if (typeof body !== 'object' || body == null) return [];
     const rows = Array.isArray((body as { prices?: unknown[] }).prices)
       ? ((body as { prices: unknown[] }).prices ?? [])
@@ -372,17 +417,220 @@ export class CardhedgerMarketDataService {
   ): Promise<Array<{ t: number; v: number }>> {
     const id = String(cardId ?? '').trim();
     if (!id) return [];
-    const tierUpper = String(tier ?? '').trim().toUpperCase();
+    const tierUpper = String(tier ?? '')
+      .trim()
+      .toUpperCase();
     const grade = tierUpper === 'PSA_10' ? 'PSA 10' : tierUpper;
-    const d = Math.min(CARDHEDGER_PRICES_BY_CARD_MAX_DAYS, Math.max(1, Math.floor(days)));
+    const d = Math.min(
+      CARDHEDGER_PRICES_BY_CARD_MAX_DAYS,
+      Math.max(1, Math.floor(days)),
+    );
+    const cacheKey = `${id}:${grade}:${d}`;
+    const cached = this.tierHistoryOnceCache.get(cacheKey);
+    if (cached && Date.now() - cached.ts < this.PRICES_CACHE_TTL_MS) {
+      return cached.pts;
+    }
     try {
-      const body = await this.cardhedger.forwardJson('POST', '/v1/cards/prices-by-card', {
-        body: { card_id: id, grade, days: d },
-      });
-      return this.parseHistoricalPoints(body);
+      const body = await this.cardhedger.forwardJson(
+        'POST',
+        '/v1/cards/prices-by-card',
+        {
+          body: { card_id: id, grade, days: d },
+        },
+      );
+      const pts = this.parseHistoricalPoints(body);
+      this.tierHistoryOnceCache.set(cacheKey, { pts, ts: Date.now() });
+      return pts;
     } catch {
+      this.tierHistoryOnceCache.set(cacheKey, { pts: [], ts: Date.now() });
       return [];
     }
+  }
+
+  /** Rightmost point after upstream sorts by time (latest observation in the series). */
+  private latestHistoryPoint(
+    pts: Array<{ t: number; v: number }>,
+  ): { t: number; v: number } | null {
+    if (!Array.isArray(pts) || pts.length === 0) return null;
+    const last = pts[pts.length - 1];
+    if (
+      last.v == null ||
+      typeof last.v !== 'number' ||
+      !Number.isFinite(last.v) ||
+      last.v <= 0 ||
+      last.t == null ||
+      !Number.isFinite(last.t)
+    ) {
+      return null;
+    }
+    return last;
+  }
+
+  /**
+   * Mean of 1..`maxN` positive USD points (comps raw sales or sparse `prices-by-card` samples).
+   * Returns null when empty or when count exceeds `maxN` (caller keeps last-point / headline path).
+   */
+  private sparseSalePriceAverage(
+    points: Array<{ t: number; v: number }>,
+    maxN: number,
+  ): { avg: number; latestT: number; n: number } | null {
+    const valid = points.filter(
+      (p) =>
+        Number.isFinite(p.t) &&
+        typeof p.v === 'number' &&
+        Number.isFinite(p.v) &&
+        p.v > 0,
+    );
+    const n = valid.length;
+    if (n === 0 || n > maxN) return null;
+    const sum = valid.reduce((s, p) => s + p.v, 0);
+    const latestT = Math.max(...valid.map((p) => p.t));
+    return { avg: sum / n, latestT, n };
+  }
+
+  private parseCompsPsa10CachedBody(
+    body: unknown,
+  ): CardhedgerCompsCached | null {
+    if (typeof body !== 'object' || body == null) return null;
+    const o = body as Record<string, unknown>;
+    const rawPoints: Array<{ t: number; v: number }> = [];
+    const raw = o.raw_prices;
+    if (Array.isArray(raw)) {
+      for (const item of raw) {
+        if (typeof item !== 'object' || item == null) continue;
+        const sd = (item as { sale_date?: unknown }).sale_date;
+        if (typeof sd !== 'string' || !sd.trim()) continue;
+        const ms = Date.parse(sd.trim());
+        if (!Number.isFinite(ms)) continue;
+        const price = this.parsePrice((item as { price?: unknown }).price);
+        if (price == null || price <= 0) continue;
+        rawPoints.push({ t: Math.floor(ms / 1000), v: price });
+      }
+    }
+    rawPoints.sort((a, b) => a.t - b.t);
+
+    const usd = this.parsePrice(o.comp_price);
+    const cnt = this.parseCount(o.count_used);
+    let headline: CardhedgerCompsHeadline | null = null;
+    if (usd != null && cnt != null && cnt >= 1) {
+      let latestSaleAtSec: number | null = null;
+      for (const p of rawPoints) {
+        if (latestSaleAtSec == null || p.t > latestSaleAtSec)
+          latestSaleAtSec = p.t;
+      }
+      headline = { usd, latestSaleAtSec, countUsed: cnt };
+    }
+
+    if (rawPoints.length === 0 && headline == null) return null;
+    return { headline, rawPoints };
+  }
+
+  private async fetchCompsPsa10Cached(
+    cardId: string,
+  ): Promise<CardhedgerCompsCached | null> {
+    const id = String(cardId ?? '').trim();
+    if (!id) return null;
+    const cacheKey = `${id}:psa10:comps`;
+    const hit = this.compsHeadlineCache.get(cacheKey);
+    if (hit && Date.now() - hit.ts < this.PRICES_CACHE_TTL_MS) {
+      return hit.value;
+    }
+    try {
+      const body = await this.cardhedger.forwardJson(
+        'POST',
+        '/v1/cards/comps',
+        {
+          body: {
+            card_id: id,
+            count: CARDHEDGER_COMPS_HEADLINE_COUNT,
+            grade: 'PSA 10',
+            time_weighted: true,
+            include_raw_prices: true,
+          },
+        },
+      );
+      const parsed = this.parseCompsPsa10CachedBody(body);
+      this.compsHeadlineCache.set(cacheKey, { value: parsed, ts: Date.now() });
+      return parsed;
+    } catch {
+      this.compsHeadlineCache.set(cacheKey, { value: null, ts: Date.now() });
+      return null;
+    }
+  }
+
+  private mergeTierHistoryWithCompPoints(
+    base: Array<{ t: number; v: number }>,
+    extra: Array<{ t: number; v: number }>,
+  ): Array<{ t: number; v: number }> {
+    const m = new Map<number, number>();
+    const put = (t: number, v: number) => {
+      if (
+        !Number.isFinite(t) ||
+        typeof v !== 'number' ||
+        !Number.isFinite(v) ||
+        !(v > 0)
+      )
+        return;
+      m.set(Math.floor(t), v);
+    };
+    for (const p of base) put(p.t, p.v);
+    for (const p of extra) put(p.t, p.v);
+    return [...m.entries()]
+      .sort((a, b) => a[0] - b[0])
+      .map(([t, v]) => ({ t, v }));
+  }
+
+  /** PSA_10 tier: merge Cardhedger daily history with comps raw sales + weighted headline point. */
+  private async augmentPsa10HistoryWithComps(
+    cardId: string,
+    tier: string,
+    points: Array<{ t: number; v: number }>,
+  ): Promise<Array<{ t: number; v: number }>> {
+    const id = String(cardId ?? '').trim();
+    if (
+      !id ||
+      String(tier ?? '')
+        .trim()
+        .toUpperCase() !== 'PSA_10'
+    ) {
+      return points;
+    }
+    const cached = await this.fetchCompsPsa10Cached(id);
+    if (!cached) return points;
+
+    const extra: Array<{ t: number; v: number }> = [...cached.rawPoints];
+
+    const h = cached.headline;
+    if (h != null && Number.isFinite(h.usd) && h.usd > 0) {
+      let tHead = h.latestSaleAtSec;
+      if (tHead == null || !Number.isFinite(tHead)) {
+        if (cached.rawPoints.length > 0) {
+          tHead = cached.rawPoints[cached.rawPoints.length - 1].t;
+        } else if (points.length > 0) {
+          tHead = Math.max(...points.map((p) => p.t)) + 60;
+        } else {
+          tHead = Math.floor(Date.now() / 1000);
+        }
+      }
+      extra.push({ t: Math.floor(tHead), v: h.usd });
+    }
+
+    if (extra.length === 0) return points;
+    let merged = this.mergeTierHistoryWithCompPoints(points, extra);
+    /**
+     * Use the same comps headline USD as {@link rowToPreview} for the **last** chronological
+     * observation. A newer Cardhedger daily close can sit after the last raw comp timestamp with a
+     * different price — that made the line end below the header “market price” and, with an extra
+     * terminal snap, two samples on the same calendar day.
+     */
+    if (h != null && Number.isFinite(h.usd) && h.usd > 0 && merged.length > 0) {
+      const last = merged[merged.length - 1];
+      const eps = Math.max(1e-6, Math.abs(h.usd) * 1e-9);
+      if (Math.abs(last.v - h.usd) > eps) {
+        merged = [...merged.slice(0, -1), { t: last.t, v: h.usd }];
+      }
+    }
+    return merged;
   }
 
   /**
@@ -392,13 +640,16 @@ export class CardhedgerMarketDataService {
     cardId: string,
     tier: string,
     desiredDays: number,
-  ): Promise<{ pts: Array<{ t: number; v: number }>; upstreamRequests: number }> {
+  ): Promise<{
+    pts: Array<{ t: number; v: number }>;
+    upstreamRequests: number;
+  }> {
     const capRequested = Math.min(4000, Math.max(1, Math.floor(desiredDays)));
     const widest = Math.min(CARDHEDGER_PRICES_BY_CARD_MAX_DAYS, capRequested);
 
-    const tiersDesc = [...new Set([widest, 180, 90, 30, 14, 7].filter((x) => x <= widest))].sort(
-      (a, b) => b - a,
-    );
+    const tiersDesc = [
+      ...new Set([widest, 180, 90, 30, 14, 7].filter((x) => x <= widest)),
+    ].sort((a, b) => b - a);
 
     let upstreamRequests = 0;
     for (const d of tiersDesc) {
@@ -499,14 +750,14 @@ export class CardhedgerMarketDataService {
       .filter((v) => typeof v === 'number' && Number.isFinite(v) && v > 0)
       .sort((a, b) => a - b);
     if (raw.length === 0) return null;
-    if (raw.length === 1) return raw[0]!;
-    if (raw.length === 2) return (raw[0]! + raw[1]!) / 2;
+    if (raw.length === 1) return raw[0];
+    if (raw.length === 2) return (raw[0] + raw[1]) / 2;
     let vals = raw;
     if (raw.length >= 8) {
       const qi = Math.floor((raw.length - 1) * 0.25);
       const qj = Math.floor((raw.length - 1) * 0.75);
-      const q1 = raw[qi]!;
-      const q3 = raw[qj]!;
+      const q1 = raw[qi];
+      const q3 = raw[qj];
       const iqr = Math.max(q3 - q1, 1e-6);
       const lo = q1 - 1.5 * iqr;
       const hi = q3 + 1.5 * iqr;
@@ -514,9 +765,7 @@ export class CardhedgerMarketDataService {
       if (t.length >= AI_INSIGHT_MEDIAN_MIN_POINTS) vals = t;
     }
     const m = Math.floor(vals.length / 2);
-    return vals.length % 2 === 1
-      ? vals[m]!
-      : (vals[m - 1]! + vals[m]!) / 2;
+    return vals.length % 2 === 1 ? vals[m] : (vals[m - 1] + vals[m]) / 2;
   }
 
   private catalogHistoryMedianAnomaly(
@@ -553,7 +802,10 @@ export class CardhedgerMarketDataService {
     const change365 = this.pctFromPoints(h365);
 
     const histMed = this.trimmedMedianUsdFromHistory(h90);
-    const allowCatalog = this.allowsPublishedCatalogPsa10(merged, matchConfidence);
+    const allowCatalog = this.allowsPublishedCatalogPsa10(
+      merged,
+      matchConfidence,
+    );
     const catalogCandidate =
       allowCatalog && psa10Catalog != null && psa10Catalog > 0
         ? psa10Catalog
@@ -562,10 +814,8 @@ export class CardhedgerMarketDataService {
     const histVals = h90
       .map((p) => p.v)
       .filter((v) => typeof v === 'number' && Number.isFinite(v) && v > 0);
-    const psa10SpotLowUsd =
-      histVals.length > 0 ? Math.min(...histVals) : null;
-    const psa10SpotHighUsd =
-      histVals.length > 0 ? Math.max(...histVals) : null;
+    const psa10SpotLowUsd = histVals.length > 0 ? Math.min(...histVals) : null;
+    const psa10SpotHighUsd = histVals.length > 0 ? Math.max(...histVals) : null;
 
     let psa10SpotUsd: number | null = null;
     let psa10PriceConfidence: AiInsightPsa10PriceConfidence | null = null;
@@ -736,12 +986,25 @@ export class CardhedgerMarketDataService {
     confidence: 'verified' | 'approximate',
   ): Promise<MarketCollectionPreview> {
     const cardId = String(row.card_id ?? '').trim();
-    const allPrices = cardId ? await this.fetchAllPricesByCard(cardId) : [];
+    const [allPrices, psa10History, compsCached] = await Promise.all([
+      cardId ? this.fetchAllPricesByCard(cardId) : Promise.resolve([]),
+      cardId
+        ? this.fetchTierHistoryByCardOnce(
+            cardId,
+            'PSA_10',
+            CARDHEDGER_PRICES_BY_CARD_MAX_DAYS,
+          )
+        : Promise.resolve([]),
+      cardId ? this.fetchCompsPsa10Cached(cardId) : Promise.resolve(null),
+    ]);
+    const compsHeadline = compsCached?.headline ?? null;
     const merged = allPrices.length > 0 ? { ...row, prices: allPrices } : row;
     const psa10Raw = this.readGradePrice(merged, 'PSA 10');
+    const latestPt = this.latestHistoryPoint(psa10History);
     const sales7d = this.parseCount(merged['7 Day Sales']);
     const sales30d = this.parseCount(merged['30 Day Sales']);
-    const hasReliableSales30 = sales30d != null && sales30d >= this.MIN_RELIABLE_SALES_30D;
+    const hasReliableSales30 =
+      sales30d != null && sales30d >= this.MIN_RELIABLE_SALES_30D;
     const hasMinVerifiedSales =
       this.MIN_VERIFIED_SALES_30D === 0 ||
       (sales30d != null && sales30d >= this.MIN_VERIFIED_SALES_30D);
@@ -754,17 +1017,89 @@ export class CardhedgerMarketDataService {
     //     single stale listing doesn't drive a misleading headline price.
     const allowPsa10Pricing =
       (confidence === 'verified' && hasMinVerifiedSales) || hasReliableSales30;
-    const psa10 = allowPsa10Pricing ? psa10Raw : null;
-    const pricingSuppressedReason =
-      psa10Raw == null
-        ? 'no_psa10_price_in_source'
-        : allowPsa10Pricing
-          ? null
-          : confidence === 'verified'
-            ? `verified_match_low_sales(30d<${this.MIN_VERIFIED_SALES_30D})`
-            : `approximate_match_low_sales(30d<${this.MIN_RELIABLE_SALES_30D})`;
+    const anyPsa10Signal =
+      psa10Raw != null || latestPt != null || compsCached != null;
+    let psa10: number | null = null;
+    let spotPriceBasis:
+      | 'comps'
+      | 'latest_sale'
+      | 'sparse_sale_avg'
+      | 'catalog'
+      | null = null;
+    let latestSaleAt: number | null = null;
+    let headlineCompCount: number | null = null;
+
+    /**
+     * Sparse comps raw (≤ {@link SPARSE_SALE_POINTS_MAX} sales): arithmetic mean of all.
+     * Else comps headline → sparse history mean → last history point → last raw comp → catalog.
+     */
+    const pickBestPsa10Reference = (): void => {
+      const rawPts = compsCached?.rawPoints;
+      const rawSparse = rawPts?.length
+        ? this.sparseSalePriceAverage(rawPts, SPARSE_SALE_POINTS_MAX)
+        : null;
+      if (rawSparse) {
+        psa10 = rawSparse.avg;
+        spotPriceBasis = 'sparse_sale_avg';
+        latestSaleAt = rawSparse.latestT;
+        headlineCompCount = rawSparse.n;
+        return;
+      }
+      if (compsHeadline) {
+        psa10 = compsHeadline.usd;
+        spotPriceBasis = 'comps';
+        latestSaleAt = compsHeadline.latestSaleAtSec;
+        headlineCompCount = compsHeadline.countUsed;
+        return;
+      }
+      const histSparse = psa10History.length
+        ? this.sparseSalePriceAverage(psa10History, SPARSE_SALE_POINTS_MAX)
+        : null;
+      if (histSparse) {
+        psa10 = histSparse.avg;
+        spotPriceBasis = 'sparse_sale_avg';
+        latestSaleAt = histSparse.latestT;
+        headlineCompCount = histSparse.n;
+        return;
+      }
+      if (latestPt) {
+        psa10 = latestPt.v;
+        spotPriceBasis = 'latest_sale';
+        latestSaleAt = latestPt.t;
+        return;
+      }
+      if (rawPts && rawPts.length > 0) {
+        const last = rawPts[rawPts.length - 1];
+        if (
+          typeof last.v === 'number' &&
+          Number.isFinite(last.v) &&
+          last.v > 0
+        ) {
+          psa10 = last.v;
+          spotPriceBasis = 'latest_sale';
+          latestSaleAt = last.t;
+          return;
+        }
+      }
+      if (psa10Raw != null) {
+        psa10 = psa10Raw;
+        spotPriceBasis = 'catalog';
+      }
+    };
+
+    if (anyPsa10Signal) {
+      pickBestPsa10Reference();
+    }
+
+    const pricingSuppressedReason = !anyPsa10Signal
+      ? 'no_psa10_price_in_source'
+      : psa10 == null
+        ? 'no_publishable_psa10_slot'
+        : null;
+    const headlineIso =
+      latestSaleAt != null ? new Date(latestSaleAt * 1000).toISOString() : null;
     this.logger.debug(
-      `cardhedger_preview card_id=${cardId || 'n/a'} confidence=${confidence} psa10Raw=${psa10Raw ?? 'null'} sales30d=${sales30d ?? 'null'} published=${psa10 ?? 'null'} reason=${pricingSuppressedReason ?? 'ok'}`,
+      `cardhedger_preview card_id=${cardId || 'n/a'} confidence=${confidence} comps=${compsHeadline?.usd ?? 'n/a'} comp_n=${compsHeadline?.countUsed ?? 'n/a'} psa10Raw=${psa10Raw ?? 'null'} latestHist=${latestPt?.v ?? 'null'}@${latestPt?.t ?? 'n/a'} sales30d=${sales30d ?? 'null'} published=${psa10 ?? 'null'} basis=${spotPriceBasis ?? 'n/a'} salesGate=${allowPsa10Pricing ? 'high' : 'low'} reason=${pricingSuppressedReason ?? 'ok'}`,
     );
     const pricesByGrade: Record<string, number> = {};
     const upsertGrade = (gradeRaw: unknown, priceRaw: unknown) => {
@@ -787,15 +1122,34 @@ export class CardhedgerMarketDataService {
         upsertGrade(pp.grade ?? pp.Grade, pp.price);
       }
     }
+    if (
+      psa10 != null &&
+      (spotPriceBasis === 'comps' ||
+        spotPriceBasis === 'latest_sale' ||
+        spotPriceBasis === 'sparse_sale_avg' ||
+        spotPriceBasis === 'catalog')
+    ) {
+      pricesByGrade['PSA 10'] = psa10;
+    }
     const mkBand = (v: number | null) =>
       v != null
         ? ({
             avg: v,
             low: v,
             high: v,
-            lastUpdated: null,
-            saleCount: null,
-            approxSaleCount: null,
+            lastUpdated: headlineIso,
+            saleCount:
+              spotPriceBasis === 'comps' && headlineCompCount != null
+                ? headlineCompCount
+                : spotPriceBasis === 'sparse_sale_avg' && headlineCompCount != null
+                  ? headlineCompCount
+                  : null,
+            approxSaleCount:
+              spotPriceBasis === 'comps'
+                ? false
+                : spotPriceBasis === 'sparse_sale_avg'
+                  ? true
+                  : null,
             avg1d: null,
             avg7d: null,
             avg30d: null,
@@ -815,11 +1169,17 @@ export class CardhedgerMarketDataService {
         cardNumber: String(row.number ?? ''),
         setName: String(row.set ?? ''),
         variant:
-          typeof row.variant === 'string' && row.variant.trim() ? row.variant.trim() : null,
+          typeof row.variant === 'string' && row.variant.trim()
+            ? row.variant.trim()
+            : null,
         setType:
-          typeof row.set_type === 'string' && row.set_type.trim() ? row.set_type.trim() : null,
+          typeof row.set_type === 'string' && row.set_type.trim()
+            ? row.set_type.trim()
+            : null,
         category:
-          typeof row.category === 'string' && row.category.trim() ? row.category.trim() : null,
+          typeof row.category === 'string' && row.category.trim()
+            ? row.category.trim()
+            : null,
         categoryGroup:
           typeof row.category_group === 'string' && row.category_group.trim()
             ? row.category_group.trim()
@@ -832,11 +1192,13 @@ export class CardhedgerMarketDataService {
         tcgplayerId: null,
         currency: 'USD',
         market: 'US',
-        lastUpdated: null,
+        lastUpdated: headlineIso,
         topPrice: psa10,
         totalSaleCount:
-          typeof merged['30 Day Sales'] === 'number' ? Number(merged['30 Day Sales']) : sales30d,
-        hasGraded: psa10Raw != null,
+          typeof merged['30 Day Sales'] === 'number'
+            ? Number(merged['30 Day Sales'])
+            : sales30d,
+        hasGraded: anyPsa10Signal,
         gradedTiersAvailable: [psa10 != null ? 'PSA_10' : null].filter(
           (x): x is string => Boolean(x),
         ),
@@ -845,9 +1207,13 @@ export class CardhedgerMarketDataService {
         sales30d,
         gainPct7d: typeof merged.gain === 'number' ? Number(merged.gain) : null,
         gainPct30d:
-          typeof merged.gain_30day === 'number' ? Number(merged.gain_30day) : null,
+          typeof merged.gain_30day === 'number'
+            ? Number(merged.gain_30day)
+            : null,
         priceReliability: allowPsa10Pricing ? 'high' : 'low',
         pricingSuppressedReason,
+        spotPriceBasis,
+        latestSaleAt,
         ebayNearMint: null,
         tcgplayerNearMint: null,
         ebayPsa10: mkBand(psa10),
@@ -875,6 +1241,38 @@ export class CardhedgerMarketDataService {
     return result;
   }
 
+  private pickBestResolvedCardFromSearchResults(
+    rows: CardhedgerCardRow[],
+    q: {
+      query: string;
+      cardName: string;
+      cardSet: string;
+      cardNumber: string;
+      cardhedgerCardId: string | null;
+      cardhedgerSearchQuery: string | null;
+      psaSpecId: string | null;
+    },
+  ): { row: CardhedgerCardRow; confidence: 'verified' | 'approximate' } | null {
+    const scored = rows
+      .map((r) => ({ r, ...this.scoreCard(r, q) }))
+      .filter((x) => x.score > 0)
+      .sort((a, b) => b.score - a.score);
+    if (scored[0]?.verified) {
+      return { row: scored[0].r, confidence: 'verified' };
+    }
+    const preciseFallback = scored.find(
+      (x) => x.numberMatched && x.score >= 150,
+    );
+    if (preciseFallback) {
+      return { row: preciseFallback.r, confidence: 'approximate' };
+    }
+    const numberOnly = scored.filter((x) => x.numberMatched);
+    if (numberOnly.length === 1) {
+      return { row: numberOnly[0].r, confidence: 'approximate' };
+    }
+    return null;
+  }
+
   private async resolveCardForCollectionUncached(
     col: MarketplaceCollection | null,
   ): Promise<ResolvedCard> {
@@ -885,9 +1283,13 @@ export class CardhedgerMarketDataService {
 
     if (q.cardhedgerCardId) {
       try {
-        const body = await this.cardhedger.forwardJson('POST', '/v1/cards/card-details', {
-          body: { card_id: q.cardhedgerCardId },
-        });
+        const body = await this.cardhedger.forwardJson(
+          'POST',
+          '/v1/cards/card-details',
+          {
+            body: { card_id: q.cardhedgerCardId },
+          },
+        );
         const rows = this.parseCardRows(body);
         if (rows[0]) {
           const strict = this.scoreCard(rows[0], q);
@@ -910,13 +1312,17 @@ export class CardhedgerMarketDataService {
 
     const mappedFromSpec =
       q.psaSpecId && this.psaSpecIdMap.has(q.psaSpecId)
-        ? this.psaSpecIdMap.get(q.psaSpecId) ?? null
+        ? (this.psaSpecIdMap.get(q.psaSpecId) ?? null)
         : null;
     if (mappedFromSpec) {
       try {
-        const body = await this.cardhedger.forwardJson('POST', '/v1/cards/card-details', {
-          body: { card_id: mappedFromSpec },
-        });
+        const body = await this.cardhedger.forwardJson(
+          'POST',
+          '/v1/cards/card-details',
+          {
+            body: { card_id: mappedFromSpec },
+          },
+        );
         const rows = this.parseCardRows(body);
         if (rows[0]) {
           const strict = this.scoreCard(rows[0], q);
@@ -933,65 +1339,48 @@ export class CardhedgerMarketDataService {
       }
     }
 
-    const searchCandidates = [
+    const searchCandidatesBase = [
       q.cardhedgerSearchQuery,
       displayLabel,
       q.query,
       [q.cardNumber, q.cardSet].filter(Boolean).join(' ').trim(),
       q.cardNumber,
-    ]
+    ];
+    const searchCandidatesOrdered = q.cardNumber
+      ? [
+          q.cardhedgerSearchQuery,
+          q.query,
+          [q.cardNumber, q.cardSet].filter(Boolean).join(' ').trim(),
+          q.cardNumber,
+          displayLabel,
+        ]
+      : searchCandidatesBase;
+    const searchCandidates = searchCandidatesOrdered
       .map((x) => String(x ?? '').trim())
       .filter((x, i, arr) => x.length > 0 && arr.indexOf(x) === i);
 
-    let rows: CardhedgerCardRow[] = [];
     for (const sq of searchCandidates) {
       try {
-        const body = await this.cardhedger.forwardJson('POST', '/v1/cards/card-search', {
-          body: { search: sq, page: 1, page_size: 25 },
-        });
+        const body = await this.cardhedger.forwardJson(
+          'POST',
+          '/v1/cards/card-search',
+          {
+            body: { search: sq, page: 1, page_size: 25 },
+          },
+        );
         const r = this.parseCardRows(body);
-        if (r.length > 0) {
-          rows = r;
-          break;
+        if (r.length === 0) continue;
+        const picked = this.pickBestResolvedCardFromSearchResults(r, q);
+        if (picked) {
+          return {
+            query,
+            row: picked.row,
+            confidence: picked.confidence,
+          };
         }
       } catch {
         // try next candidate
       }
-    }
-    if (rows.length === 0) return { query, row: null };
-
-    const scored = rows
-      .map((r) => ({ r, ...this.scoreCard(r, q) }))
-      .filter((x) => x.score > 0)
-      .sort((a, b) => b.score - a.score);
-    if (scored[0]?.verified) {
-      return {
-        query,
-        row: scored[0].r,
-        confidence: 'verified',
-      };
-    }
-
-    // Precision-first fallback:
-    // when exact triple is unavailable, still require card-number match + high text similarity.
-    const preciseFallback = scored.find((x) => x.numberMatched && x.score >= 150);
-    if (preciseFallback) {
-      return {
-        query,
-        row: preciseFallback.r,
-        confidence: 'approximate',
-      };
-    }
-
-    // If exactly one candidate matches card number, accept it as approximate.
-    // This handles abbreviated names/sets (e.g. SM promo aliases) without per-card rules.
-    const numberOnly = scored.filter((x) => x.numberMatched);
-    if (numberOnly.length === 1) {
-      return {
-        query,
-        row: numberOnly[0]!.r,
-        confidence: 'approximate',
-      };
     }
     return { query, row: null };
   }
@@ -1033,7 +1422,9 @@ export class CardhedgerMarketDataService {
     }
   }
 
-  private async buildPreviewFromResolved(r: ResolvedCard): Promise<MarketCollectionPreview> {
+  private async buildPreviewFromResolved(
+    r: ResolvedCard,
+  ): Promise<MarketCollectionPreview> {
     if (!r.row || !r.confidence) {
       return {
         enabled: true,
@@ -1055,7 +1446,10 @@ export class CardhedgerMarketDataService {
       maxRequests?: number;
     },
   ): Promise<MarketPriceHistoryResult> {
-    const days = Math.min(4000, Math.max(1, Math.floor(options.maxCalendarDays)));
+    const days = Math.min(
+      4000,
+      Math.max(1, Math.floor(options.maxCalendarDays)),
+    );
     const tier = String(options.tier ?? 'PSA_10').trim() || 'PSA_10';
     if (!col) {
       return {
@@ -1099,7 +1493,10 @@ export class CardhedgerMarketDataService {
       maxRequests?: number;
     },
   ): Promise<MarketPriceHistoryResult> {
-    const days = Math.min(4000, Math.max(1, Math.floor(options.maxCalendarDays)));
+    const days = Math.min(
+      4000,
+      Math.max(1, Math.floor(options.maxCalendarDays)),
+    );
     const tier = String(options.tier ?? 'PSA_10').trim() || 'PSA_10';
 
     if (!resolved.row || !resolved.confidence) {
@@ -1124,12 +1521,37 @@ export class CardhedgerMarketDataService {
     let historyUpstreamHits = 0;
 
     if (resolvedCardId) {
-      const adaptive = await this.fetchTierHistoryByCardAdaptive(resolvedCardId, tier, days);
+      /**
+       * Match {@link rowToPreview}: headline PSA 10 uses `prices-by-card` up to
+       * {@link CARDHEDGER_PRICES_BY_CARD_MAX_DAYS}. If we only fetch the UI window (e.g. 90d),
+       * sparse/recent series can end on an older daily close while the preview shows the true
+       * latest observation from a full-year fetch — chart vs market price diverge.
+       */
+      const historyFetchDays = Math.max(
+        days,
+        CARDHEDGER_PRICES_BY_CARD_MAX_DAYS,
+      );
+      const adaptive = await this.fetchTierHistoryByCardAdaptive(
+        resolvedCardId,
+        tier,
+        historyFetchDays,
+      );
       history = adaptive.pts;
       historyUpstreamHits = adaptive.upstreamRequests;
     }
 
-    if (history.length >= 2) {
+    const historyMerged = await this.augmentPsa10HistoryWithComps(
+      resolvedCardId,
+      tier,
+      history,
+    );
+
+    if (historyMerged.length >= 2) {
+      const tierU = tier.trim().toUpperCase();
+      const compsAugmented =
+        tierU === 'PSA_10' &&
+        (historyMerged.length !== history.length ||
+          JSON.stringify(historyMerged) !== JSON.stringify(history));
       return {
         enabled: true,
         searchQuery: resolved.query,
@@ -1138,14 +1560,21 @@ export class CardhedgerMarketDataService {
         days,
         tier,
         period: options.period,
-        points: history,
-        source: `cardhedger:${tier}:history`,
+        points: historyMerged,
+        source: compsAugmented
+          ? `cardhedger:${tier}:history:comps_sales`
+          : `cardhedger:${tier}:history`,
         upstreamRequests: historyUpstreamHits,
       };
     }
-    const allPrices = resolvedCardId ? await this.fetchAllPricesByCard(resolvedCardId) : [];
+
+    const allPrices = resolvedCardId
+      ? await this.fetchAllPricesByCard(resolvedCardId)
+      : [];
     const mergedRow =
-      allPrices.length > 0 ? ({ ...resolved.row, prices: allPrices } as CardhedgerCardRow) : resolved.row;
+      allPrices.length > 0
+        ? ({ ...resolved.row, prices: allPrices } as CardhedgerCardRow)
+        : resolved.row;
     const spot = this.readTierSpot(mergedRow, tier);
     if (spot.usd == null) {
       return {
@@ -1189,7 +1618,10 @@ export class CardhedgerMarketDataService {
       maxCalendarDays: number;
       maxRequests?: number;
     },
-  ): Promise<{ preview: MarketCollectionPreview; history: MarketPriceHistoryResult }> {
+  ): Promise<{
+    preview: MarketCollectionPreview;
+    history: MarketPriceHistoryResult;
+  }> {
     if (!col) {
       const [preview, history] = await Promise.all([
         this.getPreviewForCollection(null),
@@ -1206,7 +1638,10 @@ export class CardhedgerMarketDataService {
         message: 'Cardhedger is not configured (CARDHEDGER_API_KEY)',
         card: null,
       };
-      const days = Math.min(4000, Math.max(1, Math.floor(options.maxCalendarDays)));
+      const days = Math.min(
+        4000,
+        Math.max(1, Math.floor(options.maxCalendarDays)),
+      );
       const tier = 'PSA_10';
       const notConfiguredHist: MarketPriceHistoryResult = {
         enabled: false,
@@ -1226,13 +1661,16 @@ export class CardhedgerMarketDataService {
     // Resolve once; use result for both preview and history in parallel.
     const resolved = await this.resolveCardForCollection(col);
     const [preview, history] = await Promise.all([
-      this.buildPreviewFromResolved(resolved).catch((e) => ({
-        enabled: true,
-        searchQuery: resolved.query,
-        matched: false,
-        message: e instanceof Error ? e.message : String(e),
-        card: null,
-      } satisfies MarketCollectionPreview)),
+      this.buildPreviewFromResolved(resolved).catch(
+        (e) =>
+          ({
+            enabled: true,
+            searchQuery: resolved.query,
+            matched: false,
+            message: e instanceof Error ? e.message : String(e),
+            card: null,
+          }) satisfies MarketCollectionPreview,
+      ),
       this.buildHistoryFromResolved(resolved, options),
     ]);
     return { preview, history };
@@ -1255,15 +1693,15 @@ export class CardhedgerMarketDataService {
     tokenIds: number[],
   ): Promise<Record<number, MarketCollectionPreview>> {
     const out: Record<number, MarketCollectionPreview> = {};
-    const ids = [...new Set((tokenIds ?? []).map((n) => Math.floor(Number(n))))].filter(
-      (n) => Number.isFinite(n) && n >= 0,
-    );
+    const ids = [
+      ...new Set((tokenIds ?? []).map((n) => Math.floor(Number(n)))),
+    ].filter((n) => Number.isFinite(n) && n >= 0);
     if (ids.length === 0) return out;
 
     const pack = await this.blockchain.batchRwaMetadata(ids);
     await Promise.all(
       pack.items.map(async (item) => {
-        const meta = item.metadata as Record<string, unknown> | null;
+        const meta = item.metadata;
         if (!meta) {
           out[item.tokenId] = {
             enabled: this.isConfigured(),
@@ -1277,11 +1715,12 @@ export class CardhedgerMarketDataService {
         const graded =
           (meta.properties as Record<string, unknown> | undefined)?.graded ??
           (meta.graded as Record<string, unknown> | undefined);
-        const ch = (graded as Record<string, unknown> | undefined)?.cardhedger as
-          | Record<string, unknown>
-          | undefined;
+        const ch = (graded as Record<string, unknown> | undefined)
+          ?.cardhedger as Record<string, unknown> | undefined;
         const cardId =
-          typeof ch?.cardId === 'string' && ch.cardId.trim() ? ch.cardId.trim() : '';
+          typeof ch?.cardId === 'string' && ch.cardId.trim()
+            ? ch.cardId.trim()
+            : '';
         const card = (graded as Record<string, unknown> | undefined)?.card as
           | Record<string, unknown>
           | undefined;
@@ -1302,19 +1741,23 @@ export class CardhedgerMarketDataService {
         const extracted = extractBucketComponentsFromMetadata(meta);
 
         const psaSpecExtras = (): Record<string, unknown> => {
-              const psaObj =
-                typeof (graded as Record<string, unknown> | undefined)?.psa === 'object' &&
-                (graded as Record<string, unknown> | undefined)?.psa != null
-                  ? (((graded as Record<string, unknown>).psa as Record<string, unknown>) ?? null)
-                  : null;
-              const specRaw = psaObj?.specId;
-              const spec =
-                typeof specRaw === 'number' && Number.isFinite(specRaw)
-                  ? String(Math.floor(specRaw))
-                  : typeof specRaw === 'string' && specRaw.trim()
-                    ? specRaw.trim()
-                    : '';
-              return spec ? { psaSpecId: spec } : {};
+          const psaObj =
+            typeof (graded as Record<string, unknown> | undefined)?.psa ===
+              'object' &&
+            (graded as Record<string, unknown> | undefined)?.psa != null
+              ? (((graded as Record<string, unknown>).psa as Record<
+                  string,
+                  unknown
+                >) ?? null)
+              : null;
+          const specRaw = psaObj?.specId;
+          const spec =
+            typeof specRaw === 'number' && Number.isFinite(specRaw)
+              ? String(Math.floor(specRaw))
+              : typeof specRaw === 'string' && specRaw.trim()
+                ? specRaw.trim()
+                : '';
+          return spec ? { psaSpecId: spec } : {};
         };
 
         const componentsPayload: Record<string, unknown> = extracted
@@ -1344,6 +1787,4 @@ export class CardhedgerMarketDataService {
     );
     return out;
   }
-
 }
-

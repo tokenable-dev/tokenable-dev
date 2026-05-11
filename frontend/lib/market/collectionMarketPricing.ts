@@ -1,9 +1,10 @@
 import type { CollectionMarketStats, CollectionUsdPoint } from "@/lib/core";
 
-/** Legacy copy — prefer {@link NO_EXTERNAL_PRICE} for catalog/spot paths. */
+/** Legacy copy — prefer {@link NO_EXTERNAL_PRICE} when catalog spot is missing. */
 export const INSUFFICIENT_MARKET_DATA = "Insufficient market data";
 
-export const NO_EXTERNAL_PRICE = "No external price available";
+/** Shown when catalog / reference USD cannot be resolved (not a prose explanation). */
+export const NO_EXTERNAL_PRICE = "N/A";
 
 export function formatUsdCompact(n: number | null | undefined): string {
   if (n == null || !Number.isFinite(n)) return "—";
