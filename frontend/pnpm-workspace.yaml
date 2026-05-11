@@ -1,3 +1,12 @@
+packages:
+  - "."
+
+# Speed: optional dep scripts (keep out of onlyBuiltDependencies allowlist noise)
 ignoredBuiltDependencies:
-  - sharp
   - unrs-resolver
+
+# pnpm 10+ — Docker/CI에서 sharp·ws 옵션 네이티브 모듈 빌드 허용 (그렇지 않으면 install 실패)
+onlyBuiltDependencies:
+  - sharp
+  - bufferutil
+  - utf-8-validate
