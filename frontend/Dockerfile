@@ -1,6 +1,7 @@
 # ── Stage 1: 의존성 설치 ─────────────────────────────────────────
 FROM node:22-alpine AS deps
-RUN corepack enable && corepack prepare pnpm@latest --activate
+# Pin pnpm 11.x — allowBuilds in pnpm-workspace.yaml; @latest can break when pnpm bumps major.
+RUN corepack enable && corepack prepare pnpm@11.0.9 --activate
 
 WORKDIR /app
 
@@ -11,7 +12,7 @@ RUN pnpm install --frozen-lockfile
 
 # ── Stage 2: 빌드 ────────────────────────────────────────────────
 FROM node:22-alpine AS builder
-RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN corepack enable && corepack prepare pnpm@11.0.9 --activate
 
 WORKDIR /app
 
