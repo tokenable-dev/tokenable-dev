@@ -6,7 +6,7 @@ import type {
 } from "@/lib/core";
 
 function formatUsd(b: MarketPriceBand | null): string {
-  if (!b) return "—";
+  if (!b) return "N/A";
   const a = b.avg;
   if (a != null && Number.isFinite(a)) {
     return `$${a.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -14,7 +14,7 @@ function formatUsd(b: MarketPriceBand | null): string {
   if (b.low != null && b.high != null) {
     return `$${b.low.toFixed(2)} – $${b.high.toFixed(2)}`;
   }
-  return "—";
+  return "N/A";
 }
 
 function slabTierEbayBand(
@@ -60,6 +60,15 @@ function BandRow({
   );
 }
 
+function NaPriceRow({ label }: { label: string }) {
+  return (
+    <div className="rounded-lg border border-zinc-800/80 bg-black/30 px-2.5 py-2">
+      <dt className="text-[11px] font-medium text-zinc-500">{label}</dt>
+      <dd className="mt-1 text-[15px] font-semibold tabular-nums text-zinc-400">N/A</dd>
+    </div>
+  );
+}
+
 export function CollectionMarketPanel({
   data,
   isLoading,
@@ -84,30 +93,35 @@ export function CollectionMarketPanel({
     );
   }
   if (error) {
+    const tierHumanErr = (tierLabel ?? "PSA 10").trim() || "PSA 10";
     return (
-      <div className="w-full rounded-xl border border-amber-500/25 bg-amber-500/[0.06] px-3 py-2.5 text-[13px] text-amber-100/90">
-        {error.message}
+      <div className="w-full rounded-xl border border-zinc-800/80 bg-zinc-950/50 px-3 py-3">
+        <dl className="space-y-2">
+          <NaPriceRow label={`Market (${tierHumanErr})`} />
+        </dl>
       </div>
     );
   }
   if (!data) return null;
+  const tierHuman = (tierLabel ?? "PSA 10").trim() || "PSA 10";
+  const tier = String(historyTier ?? "PSA_10").trim();
+  const slabBandLabelFallback = `Market (${tierHuman})`;
+
   if (!data.enabled) {
     return (
-      <div className="w-full rounded-xl border border-zinc-800/80 bg-zinc-950/50 px-3 py-3 text-[13px] text-zinc-500">
-        Price data unavailable.
+      <div className="w-full rounded-xl border border-zinc-800/80 bg-zinc-950/50 px-3 py-3">
+        <dl className="space-y-2">
+          <NaPriceRow label={slabBandLabelFallback} />
+        </dl>
       </div>
     );
   }
   if (!data.matched || !data.card) {
     return (
       <div className="w-full rounded-xl border border-zinc-800/80 bg-zinc-950/50 px-3 py-3">
-        <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500 mb-1.5">
-          Market reference
-        </p>
-        <p className="text-[13px] text-zinc-400 leading-snug">
-          {data.message?.replace(/Cardhedger/gi, "External").trim() ||
-            "Comparable market price isn’t available for this card yet. Pool listings still show liquidity on the marketplace."}
-        </p>
+        <dl className="space-y-2">
+          <NaPriceRow label={slabBandLabelFallback} />
+        </dl>
       </div>
     );
   }
@@ -116,9 +130,15 @@ export function CollectionMarketPanel({
     typeof preferredImageUrl === "string" && preferredImageUrl.trim()
       ? preferredImageUrl.trim()
       : c.image;
-  const tier = String(historyTier ?? "PSA_10").trim();
   const slabBand = tier.startsWith("PSA_") ? slabTierEbayBand(c, tier) : null;
-  const tierHuman = (tierLabel ?? "PSA 10").trim() || "PSA 10";
+  const slabBandLabel =
+    c.spotPriceBasis === "comps"
+      ? `Weighted comps (${tierHuman})`
+      : c.spotPriceBasis === "sparse_sale_avg"
+        ? `Avg of ${c.ebayPsa10?.saleCount ?? "?"} recent sales (${tierHuman})`
+        : c.spotPriceBasis === "latest_sale"
+          ? `Latest sale (${tierHuman})`
+          : `eBay (${tierHuman})`;
   return (
     <div className="w-full rounded-xl border border-emerald-500/25 bg-gradient-to-b from-emerald-500/[0.06] to-black/20 px-3 py-3 shadow-[0_8px_32px_-16px_rgba(16,185,129,0.35)]">
       <div className="flex items-start gap-3">
@@ -142,7 +162,11 @@ export function CollectionMarketPanel({
         </div>
       </div>
       <dl className="mt-3 space-y-2">
-        {slabBand ? <BandRow label={`eBay (${tierHuman})`} band={slabBand} /> : null}
+        {slabBand ? (
+          <BandRow label={slabBandLabel} band={slabBand} />
+        ) : tier.startsWith("PSA_") ? (
+          <NaPriceRow label={slabBandLabel} />
+        ) : null}
       </dl>
     </div>
   );

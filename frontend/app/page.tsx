@@ -3,7 +3,6 @@
 import type { CSSProperties, ReactNode } from "react";
 import Link from "next/link";
 import { TrendingCollectionsCarousel } from "@/components/landing/TrendingCollectionsCarousel";
-import { MarketIndexes } from "@/components/landing/MarketIndexes";
 import { ASSETS } from "@/constants/assets";
 
 /**
@@ -202,13 +201,6 @@ export default function LandingPage() {
           </FeatureStat>
         </div>
       </section>
-
-      <div
-        className="landing-enter relative z-10"
-        style={{ "--landing-enter-delay": "280ms" } as CSSProperties}
-      >
-        <MarketIndexes />
-      </div>
 
       <footer
         className="landing-enter relative z-10 border-t border-gray-800/60 py-8 text-center text-xs text-gray-600"

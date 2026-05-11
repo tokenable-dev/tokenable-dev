@@ -8,11 +8,9 @@ export type MarketIndexCard = {
   change90dPct: number;
   gameId: string;
   change180dPct?: number;
-  change365dPct?: number;
+  change365dPct: number;
   rawChange90dPct?: number;
   rawChange30dPct?: number;
-  synthetic?: boolean;
-  demoMock?: boolean;
 };
 
 type SlotDef = {
@@ -25,6 +23,12 @@ function optNum(n: unknown): number | undefined {
   if (n === undefined || n === null) return undefined;
   const x = Number(n);
   return Number.isFinite(x) ? x : undefined;
+}
+
+function isRenderableSlotCard(g: MarketIndexSummaryRow): boolean {
+  const v = Number(g.game_value_usd);
+  const y = optNum(g.game_value_change_365d_pct);
+  return Number.isFinite(v) && v > 0 && y !== undefined;
 }
 
 const NON_SPORT_ID = new RegExp(
@@ -118,11 +122,15 @@ const SLOTS: SlotDef[] = [
 ];
 
 function toCard(g: MarketIndexSummaryRow, title: string): MarketIndexCard {
-  const r7 = Number(g.game_value_change_7d_pct) || 0;
-  const r30 = Number(g.game_value_change_30d_pct);
-  const r90 = Number(g.game_value_change_90d_pct);
-  const r30f = Number.isFinite(r30) ? r30 : r7;
-  const r90f = Number.isFinite(r90) ? r90 : Number.isFinite(r30) ? r30 : r7;
+  const y = optNum(g.game_value_change_365d_pct);
+  if (y === undefined) {
+    throw new Error("toCard: expected game_value_change_365d_pct (call only after isRenderableSlotCard)");
+  }
+  const r7 = optNum(g.game_value_change_7d_pct) ?? 0;
+  const r30 = optNum(g.game_value_change_30d_pct);
+  const r90 = optNum(g.game_value_change_90d_pct);
+  const r30f = r30 ?? r7;
+  const r90f = r90 ?? r30 ?? r7;
   return {
     title,
     valueUsd: Number(g.game_value_usd) || 0,
@@ -131,52 +139,21 @@ function toCard(g: MarketIndexSummaryRow, title: string): MarketIndexCard {
     change90dPct: r90f,
     gameId: g.id,
     change180dPct: optNum(g.game_value_change_180d_pct),
-    change365dPct: optNum(g.game_value_change_365d_pct),
+    change365dPct: y,
     rawChange90dPct: optNum(g.game_value_change_90d_pct),
     rawChange30dPct: optNum(g.game_value_change_30d_pct),
-    synthetic: false,
-    demoMock: false,
   };
 }
 
-function syntheticPokemonCard(slot: SlotDef): MarketIndexCard {
-  return {
-    title: slot.title,
-    valueUsd: 0,
-    change7dPct: 0,
-    change30dPct: 0,
-    change90dPct: 0,
-    gameId: "pokemon-unavailable",
-    synthetic: true,
-    demoMock: false,
-  };
-}
-
-const MOCK_SPORT_INDEX: Record<
-  "mlb" | "nfl" | "nba",
-  Pick<
-    MarketIndexCard,
-    | "valueUsd"
-    | "change7dPct"
-    | "change30dPct"
-    | "change90dPct"
-    | "change180dPct"
-    | "change365dPct"
-    | "rawChange90dPct"
-    | "rawChange30dPct"
-  >
-> = {
-  mlb: { valueUsd: 1_950_000_000, change7dPct: 0.42, change30dPct: 1.05, change90dPct: 2.35, change180dPct: 3.9, change365dPct: 6.15, rawChange90dPct: 2.35, rawChange30dPct: 1.05 },
-  nfl: { valueUsd: 2_180_000_000, change7dPct: -0.18, change30dPct: 0.72, change90dPct: 1.88, change180dPct: 3.1, change365dPct: 5.4, rawChange90dPct: 1.88, rawChange30dPct: 0.72 },
-  nba: { valueUsd: 1_720_000_000, change7dPct: 0.61, change30dPct: 1.42, change90dPct: 2.95, change180dPct: 4.25, change365dPct: 7.05, rawChange90dPct: 2.95, rawChange30dPct: 1.42 },
-};
-
-function demoSportIndexCard(slotKey: "mlb" | "nfl" | "nba", title: string): MarketIndexCard {
-  const m = MOCK_SPORT_INDEX[slotKey];
-  return { title, gameId: `${slotKey}-demo`, ...m, synthetic: false, demoMock: true };
-}
-
+/** Dashboard slots that have a positive basket value and a real 365d % from the API. */
 export function buildMarketIndexCards(games: MarketIndexSummaryRow[]): MarketIndexCard[] {
+  if (!games.length) return [];
+
+  const out: MarketIndexCard[] = [];
+  const pushSlot = (row: MarketIndexSummaryRow | undefined, title: string) => {
+    if (row && isRenderableSlotCard(row)) out.push(toCard(row, title));
+  };
+
   const pokemonSlot = SLOTS[0]!;
   const candidates = games.filter((x) => pokemonSlot.test(x));
   candidates.sort((a, b) => {
@@ -184,18 +161,18 @@ export function buildMarketIndexCards(games: MarketIndexSummaryRow[]): MarketInd
     const pb = b.id.toLowerCase() === "pokemon" ? 0 : 1;
     return pa - pb;
   });
-  const g = candidates[0];
-  const pokemonCard: MarketIndexCard = g ? toCard(g, pokemonSlot.title) : syntheticPokemonCard(pokemonSlot);
+  pushSlot(candidates.find(isRenderableSlotCard), pokemonSlot.title);
 
-  const mlb = games.find((x) => x.id.toLowerCase() === "mlb") ?? games.find((x) => SLOTS[1]!.test(x));
-  const nfl = games.find((x) => x.id.toLowerCase() === "nfl") ?? games.find((x) => SLOTS[2]!.test(x));
-  const nba = games.find((x) => x.id.toLowerCase() === "nba") ?? games.find((x) => SLOTS[3]!.test(x));
+  const mlb =
+    games.find((x) => x.id.toLowerCase() === "mlb") ?? games.find((x) => SLOTS[1]!.test(x));
+  const nfl =
+    games.find((x) => x.id.toLowerCase() === "nfl") ?? games.find((x) => SLOTS[2]!.test(x));
+  const nba =
+    games.find((x) => x.id.toLowerCase() === "nba") ?? games.find((x) => SLOTS[3]!.test(x));
 
-  const sportCards: MarketIndexCard[] = [
-    mlb ? toCard(mlb, SLOTS[1]!.title) : demoSportIndexCard("mlb", SLOTS[1]!.title),
-    nfl ? toCard(nfl, SLOTS[2]!.title) : demoSportIndexCard("nfl", SLOTS[2]!.title),
-    nba ? toCard(nba, SLOTS[3]!.title) : demoSportIndexCard("nba", SLOTS[3]!.title),
-  ];
-  return [pokemonCard, ...sportCards];
+  pushSlot(mlb, SLOTS[1]!.title);
+  pushSlot(nfl, SLOTS[2]!.title);
+  pushSlot(nba, SLOTS[3]!.title);
+
+  return out;
 }
-

@@ -124,6 +124,9 @@ const CHART_RANGE_OPTIONS: readonly ChartRangeConfig[] = [
   { id: "1y", label: "1Y", historyPeriod: "1y", maxDays: 365, bundleDuration: "365d" },
 ] as const;
 
+/** Clip Cardhedger curve to the selected range on the client (API still returns up to ~1y for parity with preview). */
+const CHART_RANGE_CLIP_SEC = 86_400;
+
 function bestAskByToken(asks: Order[]): Map<number, Order> {
   const m = new Map<number, Order>();
   for (const o of asks) {
@@ -343,24 +346,24 @@ export default function MarketplaceCollectionPage() {
   const jtHistOk = jtHistPts.length >= 2;
 
   const chartExternalRollingUsd = useMemo(() => {
-    if (pokeHistOk) return pokeHistPts;
+    const nowS = Math.floor(Date.now() / 1000);
+    const cutoff = nowS - selectedChartRange.maxDays * CHART_RANGE_CLIP_SEC;
+    if (pokeHistOk) {
+      return pokeHistPts.filter((p) => p.t >= cutoff);
+    }
     if (jtHistOk) return jtHistPts;
     return [];
-  }, [pokeHistOk, pokeHistPts, jtHistOk, jtHistPts]);
-
-  const pokeHistorySpanDays = useMemo(() => {
-    if (!pokeHistOk || pokeHistPts.length < 2) return null;
-    const ts = pokeHistPts.map((p) => p.t).filter((t) => Number.isFinite(t));
-    if (ts.length < 2) return null;
-    return Math.ceil((Math.max(...ts) - Math.min(...ts)) / 86400) + 2;
-  }, [pokeHistOk, pokeHistPts]);
+  }, [
+    pokeHistOk,
+    pokeHistPts,
+    jtHistOk,
+    jtHistPts,
+    selectedChartRange.maxDays,
+  ]);
 
   const chartExternalWindowDays = useMemo(() => {
     if (pokeHistOk) {
-      const nominal = nmHistory?.days ?? selectedChartRange.maxDays;
-      const span = pokeHistorySpanDays;
-      const merged = Math.max(span ?? nominal, nominal, 7);
-      return Math.min(4200, merged);
+      return selectedChartRange.maxDays;
     }
     /** Bundle `externalUsd` is fetched for up to `marketChangeWindow`; fixed x-axis avoids clipping vs platform-only smart domain. */
     if (jtHistOk) {
@@ -375,8 +378,6 @@ export default function MarketplaceCollectionPage() {
     return null;
   }, [
     pokeHistOk,
-    nmHistory?.days,
-    pokeHistorySpanDays,
     jtHistOk,
     marketSeriesHeader?.marketChangeWindow,
     selectedChartRange.maxDays,

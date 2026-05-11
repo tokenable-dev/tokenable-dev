@@ -24,8 +24,8 @@ import { useAppStore, selectUsdcBalance } from "@/store";
 import { useShallow } from "zustand/react/shallow";
 import type { GradedCardMetadata } from "@/types/gradedCard";
 import { loadNmBaselineMap, saveNmBaselineMap, type NmBaselineEntry } from "@/lib/portfolio";
-import { formatLiquidityDepthLabel, NO_EXTERNAL_PRICE } from "@/lib/market";
-import { representativeGradeUsd, isPreviewPriceReliable, EXTERNAL_PRICE_MIN_SALES_30D } from "@/lib/market";
+import { formatLiquidityDepthLabel } from "@/lib/market";
+import { representativeGradeUsd } from "@/lib/market";
 import {
   catalogSpotUsdFromMarketPreview,
   parseGradeScoreNumber,
@@ -42,7 +42,6 @@ import {
 } from "@/lib/portfolio";
 
 const USDC_DECIMALS = 1_000_000;
-const MIN_RELIABLE_SALES_30D = EXTERNAL_PRICE_MIN_SALES_30D;
 
 interface OwnedAsset {
   tokenId: number;
@@ -858,13 +857,10 @@ export default function PortfolioPage() {
         sportBucket === "mlb" || sportBucket === "nba" || sportBucket === "nfl";
 
       const preview = marketPreviewByToken[a.tokenId] ?? null;
-      // Tier-aware catalog NM spot — keep preview reliability gate (matches resolveExternalMarketUsd).
-      const previewTrusted = isPreviewPriceReliable(preview);
-
       const poke = isMockSport
         ? null
         : catalogSpotUsdFromMarketPreview(
-            previewTrusted ? preview : null,
+            preview?.matched && preview.card ? preview : null,
             marketHistoryTierFromRwaMetadata(a.metadata),
           );
       /**
