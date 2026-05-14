@@ -309,7 +309,7 @@ export default function MarketplaceCollectionPage() {
     v: number;
   } | null>(null);
   const [heroDetailsOpen, setHeroDetailsOpen] = useState(false);
-  const [showOrderBook, setShowOrderBook] = useState(true);
+  const [showOrderBook, setShowOrderBook] = useState(false);
   const [tradeFlow, setTradeFlow] = useState<CollectionTradeTab>("buy");
   const [tradeDockOpen, setTradeDockOpen] = useState(false);
 
@@ -1346,10 +1346,6 @@ export default function MarketplaceCollectionPage() {
         >
           <div className="mb-5">
             <h2 className="text-lg font-semibold text-white tracking-tight">Individual listings</h2>
-            <p className="text-xs text-gray-500 mt-1">
-              Each listed token ({tokenIds.length}) — trade from the chart / book / right panel, or
-              open a card for details.
-            </p>
           </div>
 
           {tokenIds.length === 0 ? (
@@ -1361,20 +1357,18 @@ export default function MarketplaceCollectionPage() {
               .
             </div>
           ) : (
-            <div className="flex gap-4 overflow-x-auto pb-2 pt-1 snap-x scrollbar-platform">
-              {tokenIds.map((tid) => (
-                <div
-                  key={tid}
-                  className="w-[min(100%,240px)] shrink-0 snap-start sm:w-[220px]"
-                >
+            <div className="max-h-[560px] overflow-y-auto scrollbar-platform pr-1">
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4 pt-1 pb-2">
+                {tokenIds.map((tid) => (
                   <CollectionRwaCard
+                    key={tid}
                     tokenId={tid}
                     collectionKey={key}
                     listing={askMap.get(tid) ?? null}
                     address={address}
                   />
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           )}
         </section>

@@ -267,14 +267,14 @@ export function CollectionPriceMetricsStrip({
                 ) : change24h != null && Number.isFinite(change24h) ? (
                   <span
                     className={
-                      change24hUp ? "text-emerald-400" : change24hDown ? "text-red-400" : "text-zinc-100"
+                      "text-white"
                     }
                   >
                     {change24h > 0 ? "+" : ""}
                     {change24h.toFixed(1)}%
                   </span>
                 ) : (
-                  <span className="text-zinc-100">—</span>
+                  <span className="text-white">—</span>
                 )}
               </>
             }
@@ -291,7 +291,7 @@ export function CollectionPriceMetricsStrip({
                     aria-hidden
                   />
                 ) : (
-                  <span className="min-w-0 text-zinc-100">{formatUsdCompact(volume24hUsdc)}</span>
+                  <span className="min-w-0 text-white">{formatUsdCompact(volume24hUsdc)}</span>
                 )}
               </>
             }
@@ -302,7 +302,7 @@ export function CollectionPriceMetricsStrip({
             compact={compact}
             footer={capFooter}
             value={
-              <span className="min-w-0 truncate text-zinc-100">{formatMarketCap(marketCapUsd)}</span>
+              <span className="min-w-0 truncate text-white">{formatMarketCap(marketCapUsd)}</span>
             }
           />
           <MetricTile
@@ -310,7 +310,7 @@ export function CollectionPriceMetricsStrip({
             label="Total Pop"
             compact={compact}
             value={
-              <span className="min-w-0 tabular-nums text-zinc-100">
+              <span className="min-w-0 tabular-nums text-white">
                 {totalPopulation != null && Number.isFinite(totalPopulation) && totalPopulation > 0
                   ? totalPopulation.toLocaleString("en-US")
                   : "—"}
@@ -427,14 +427,14 @@ export function CollectionPriceMetricsStrip({
               ) : change != null && Number.isFinite(change) ? (
                 <span
                   className={
-                    changeUp ? "text-emerald-400" : changeDown ? "text-red-400" : "text-zinc-100"
+                    "text-white"
                   }
                 >
                   {change > 0 ? "+" : ""}
                   {change.toFixed(1)}%
                 </span>
               ) : (
-                <span className="text-zinc-100">—</span>
+                <span className="text-white">—</span>
               )}
             </>
           }
@@ -443,7 +443,7 @@ export function CollectionPriceMetricsStrip({
 
       {showTradeColumn && showVolatility ? (
         <MetricTile label="Volatility" compact={compact} footer={volFooter} value={
-          <span className="text-zinc-100">
+          <span className="text-white">
             {volatilityPct != null && Number.isFinite(volatilityPct)
               ? `${volatilityPct.toFixed(0)}%`
               : "—"}
@@ -454,7 +454,7 @@ export function CollectionPriceMetricsStrip({
 
       {showTradeColumn && showMarketCap ? (
         <MetricTile label="Market cap" compact={compact} footer={capFooter} value={
-          <span className="min-w-0 truncate text-zinc-100">{formatMarketCap(marketCapUsd)}</span>
+          <span className="min-w-0 truncate text-white">{formatMarketCap(marketCapUsd)}</span>
         }
         />
       ) : null}

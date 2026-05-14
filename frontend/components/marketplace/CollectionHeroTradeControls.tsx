@@ -56,7 +56,7 @@ export function CollectionHeroTradeControls({
         className="flex h-12 w-full shrink-0 items-center rounded-lg border border-[rgba(52,52,52,1)] bg-[rgba(17,17,17,1)] px-3"
         aria-label="Selected price"
       >
-        <span className={`${ibmPlexSans.className} shrink-0 text-[20px] font-medium leading-[150%] tracking-[0px] text-zinc-400`}>
+        <span className={`${ibmPlexSans.className} shrink-0 text-[20px] font-medium leading-[150%] tracking-[0px] text-white`}>
           Price :&nbsp;
         </span>
         <span
