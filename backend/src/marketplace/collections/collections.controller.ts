@@ -215,6 +215,7 @@ export class CollectionsController {
     if (col) {
       await this.collectionService.ensurePsaTotalPopulationFromListings(k);
       await this.collectionService.ensureCardhedgerCardIdFromListings(k);
+      await this.collectionService.ensureListingDisplayTitleFromListings(k);
       col = await this.collectionService.findOne(k);
     }
     const [listings, collectionBids, representativeImageUrl] = await Promise.all([

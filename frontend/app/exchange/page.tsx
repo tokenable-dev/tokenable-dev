@@ -23,6 +23,7 @@ import {
   type CollectionCategoryFilterId,
 } from "@/lib/market";
 import { parseGradeScoreNumber, representativeGradeUsd } from "@/lib/market";
+import { toCardDisplayUppercase } from "@/lib/marketplace/collectionFullDetailsTitle";
 
 const USDC_DECIMALS = 1_000_000;
 
@@ -249,8 +250,8 @@ function CollectionRow({
       </div>
 
       <div className="min-w-0 flex-1">
-        <h3 className="truncate text-xl font-extrabold tracking-tight text-white transition-colors group-hover:text-mint sm:text-2xl">
-          {collection.displayLabel}
+        <h3 className="truncate text-xl font-extrabold uppercase tracking-tight text-white transition-colors group-hover:text-mint sm:text-2xl">
+          {toCardDisplayUppercase(collection.displayLabel)}
         </h3>
         {(tokenableVsRefPct != null || upTo1yChangePct != null) ? (
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px] sm:text-xs">
@@ -261,7 +262,7 @@ function CollectionRow({
                     ? "border-amber-300/35 bg-amber-500/20 text-amber-200"
                     : "border-emerald-300/35 bg-emerald-500/20 text-emerald-200"
                 }`}
-                title={`Tokenable (${tokenablePrice != null ? formatUsd(tokenablePrice) : "—"}) vs eBay (${effectiveRefUsd != null ? formatUsd(effectiveRefUsd) : "—"})`}
+                title={`Tokenable Price (${tokenablePrice != null ? formatUsd(tokenablePrice) : "—"}) vs eBay (${effectiveRefUsd != null ? formatUsd(effectiveRefUsd) : "—"})`}
               >
                 Market Gap {tokenableVsRefPct >= 0 ? "+" : ""}
                 {tokenableVsRefPct.toFixed(1)}%
@@ -382,7 +383,7 @@ function CollectionGridCard({
         )}
       </div>
       <div className="space-y-2 p-3">
-        <h3 className="truncate text-lg font-semibold text-white">{collection.displayLabel}</h3>
+        <h3 className="truncate text-lg font-semibold uppercase text-white">{toCardDisplayUppercase(collection.displayLabel)}</h3>
         <div className="flex min-w-0 items-stretch gap-2 rounded-xl border border-zinc-800/70 bg-black/30 px-2 py-1.5">
           <dl className="min-w-0 flex-1 space-y-1.5 text-[10px] leading-tight tabular-nums sm:text-[11px]">
             <div className="min-w-0">
@@ -395,7 +396,7 @@ function CollectionGridCard({
               </dd>
             </div>
             <div className="min-w-0">
-              <dt className="text-zinc-500">Tokenable</dt>
+              <dt className="text-zinc-500">Tokenable Price</dt>
               <dd
                 className="truncate text-xs font-semibold text-emerald-300 sm:text-sm"
                 title={tokenablePrice != null ? formatUsd(tokenablePrice) : undefined}

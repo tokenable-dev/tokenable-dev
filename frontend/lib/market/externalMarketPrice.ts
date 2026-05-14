@@ -97,6 +97,32 @@ export function percentChangeFromUsdPoints(
   return ((b - a) / a) * 100;
 }
 
+/**
+ * % change from the last sample at or before `cutoffSec` to the latest sample in `points`
+ * (reference external / chart USD series). Returns null if there is no baseline older than the latest point.
+ */
+export function percentChangeUsdSinceCutoff(
+  points: CollectionUsdPoint[] | null | undefined,
+  cutoffSec: number,
+): number | null {
+  const sorted = [...(points ?? [])]
+    .filter((p) => Number.isFinite(p.t) && Number.isFinite(p.v) && p.v > 0)
+    .sort((a, b) => a.t - b.t);
+  if (sorted.length < 2) return null;
+  const last = sorted[sorted.length - 1];
+  let baseIdx = -1;
+  for (let i = 0; i < sorted.length; i++) {
+    if (sorted[i].t <= cutoffSec) baseIdx = i;
+    else break;
+  }
+  if (baseIdx < 0) return null;
+  if (baseIdx >= sorted.length - 1) return null;
+  const a = sorted[baseIdx].v;
+  const b = last.v;
+  if (!(a > 0) || !Number.isFinite(b)) return null;
+  return ((b - a) / a) * 100;
+}
+
 /** Population CV% on a USD time series (e.g. PokeTrace NM daily closes). */
 export function coefficientOfVariationPctFromUsdSeries(
   points: CollectionUsdPoint[] | null | undefined,

@@ -95,6 +95,41 @@ body {
   background: rgba(9, 11, 15, 0.92);
 }
 
+/** Order book / depth lists — neutral grey thumb (no mint accent). */
+.scrollbar-book {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(82, 82, 91, 0.75) rgba(9, 11, 15, 0.92);
+}
+.scrollbar-book::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.scrollbar-book::-webkit-scrollbar-track {
+  background: rgba(9, 11, 15, 0.92);
+  border-radius: 9999px;
+  box-shadow: inset 0 0 0 1px rgba(39, 39, 42, 0.45);
+}
+.scrollbar-book::-webkit-scrollbar-thumb {
+  border-radius: 9999px;
+  border: 2px solid rgba(9, 11, 15, 0.92);
+  background: linear-gradient(
+    180deg,
+    rgba(82, 82, 91, 0.55) 0%,
+    rgba(63, 63, 70, 0.5) 50%,
+    rgba(52, 52, 58, 0.45) 100%
+  );
+}
+.scrollbar-book::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(
+    180deg,
+    rgba(113, 113, 122, 0.65) 0%,
+    rgba(82, 82, 91, 0.55) 100%
+  );
+}
+.scrollbar-book::-webkit-scrollbar-corner {
+  background: rgba(9, 11, 15, 0.92);
+}
+
 /* Collection detail pages — main window scrollbar matches platform chrome */
 html.collection-details-scroll {
   scrollbar-gutter: stable;
@@ -299,22 +334,6 @@ html.collection-details-scroll::-webkit-scrollbar-corner {
   animation: landing-grid-drift 72s linear infinite;
 }
 
-/* Trending carousel — desktop grid refresh: slight horizontal ease-in */
-@keyframes trending-deck-shift-in {
-  from {
-    opacity: 0.9;
-    transform: translateX(12px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-.trending-deck-shift-in {
-  animation: trending-deck-shift-in 0.52s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
 @media (prefers-reduced-motion: reduce) {
   .landing-enter,
   .landing-stats-stagger > * {
@@ -328,9 +347,6 @@ html.collection-details-scroll::-webkit-scrollbar-corner {
     transform: none !important;
   }
   .landing-grid-drift {
-    animation: none !important;
-  }
-  .trending-deck-shift-in {
     animation: none !important;
   }
 }

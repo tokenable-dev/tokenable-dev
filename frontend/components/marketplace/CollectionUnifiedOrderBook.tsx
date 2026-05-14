@@ -4,6 +4,13 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { formatUnits } from "viem";
 import { type CollectionPlatformTapeFill, type Order } from "@/lib/core";
+import {
+  COLLECTION_DETAILS_BG_CLASS,
+  COLLECTION_DETAILS_BORDER_ALL,
+  COLLECTION_DETAILS_BORDER_B,
+  COLLECTION_DETAILS_BORDER_T,
+  COLLECTION_DETAILS_BORDER_Y,
+} from "@/components/marketplace/collectionOverviewChrome";
 import { isCriteriaCollectionBid } from "@/lib/seaport/criteria/criteriaMatch";
 
 function priceUsdcFromOrder(o: Order): number {
@@ -15,6 +22,26 @@ function formatPriceUsdc(n: number) {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
+}
+
+/** Bid–ask spread for center strip when there is no last print yet. */
+function formatSpreadPrimary(bestAsk: number | null, bestBid: number | null): string | null {
+  if (
+    bestAsk == null ||
+    bestBid == null ||
+    !Number.isFinite(bestAsk) ||
+    !Number.isFinite(bestBid) ||
+    bestAsk <= 0 ||
+    bestBid <= 0
+  ) {
+    return null;
+  }
+  const spread = Math.abs(bestAsk - bestBid);
+  const mid = (bestAsk + bestBid) / 2;
+  if (!(mid > 0)) return null;
+  const pct = (spread / mid) * 100;
+  const pctStr = pct < 0.1 ? pct.toFixed(3) : pct.toFixed(2);
+  return `Spread value: ${formatPriceUsdc(spread)} (${pctStr}%)`;
 }
 
 function cmpAskByPriceThenToken(a: Order, b: Order) {
@@ -69,8 +96,10 @@ type BookCenterModel = {
 };
 
 function OrderBookCenterStrip({ model }: { model: BookCenterModel }) {
-  const primaryClass =
-    model.tone === "none"
+  const isSpreadPrimary = model.primary.includes("Spread value:");
+  const primaryClass = isSpreadPrimary
+    ? "text-zinc-200"
+    : model.tone === "none"
       ? "text-gray-500"
       : model.tone === "ask"
         ? "text-red-400"
@@ -81,16 +110,18 @@ function OrderBookCenterStrip({ model }: { model: BookCenterModel }) {
             : "text-emerald-400";
 
   const showUp =
-    model.tone === "bid" || (model.tone === "last" && model.lastSide === "buy");
+    !isSpreadPrimary &&
+    (model.tone === "bid" || (model.tone === "last" && model.lastSide === "buy"));
   const showDown =
-    model.tone === "ask" || (model.tone === "last" && model.lastSide === "sell");
+    !isSpreadPrimary &&
+    (model.tone === "ask" || (model.tone === "last" && model.lastSide === "sell"));
 
   const hasCaption = model.caption.trim().length > 0;
 
   return (
     <div
-      className={`relative flex shrink-0 flex-col items-center justify-center gap-1 border-y border-white/[0.07] bg-[#06080d] px-2 py-2 sm:py-2.5 ${
-        hasCaption ? "min-h-[5.5rem]" : "min-h-[4rem]"
+      className={`relative flex shrink-0 flex-col items-center justify-center gap-0.5 ${COLLECTION_DETAILS_BORDER_Y} ${COLLECTION_DETAILS_BG_CLASS} px-2 py-1 ${
+        hasCaption ? "min-h-[1.875rem]" : isSpreadPrimary ? "min-h-[1.5rem]" : "min-h-[1.75rem]"
       }`}
       title={model.title}
     >
@@ -107,7 +138,11 @@ function OrderBookCenterStrip({ model }: { model: BookCenterModel }) {
             </span>
           ) : null}
           <span
-            className={`text-xl font-bold tabular-nums tracking-tight sm:text-2xl ${primaryClass}`}
+            className={`tabular-nums tracking-tight ${
+              isSpreadPrimary
+                ? "max-w-[min(100%,17rem)] px-0.5 text-center text-[11px] font-semibold leading-snug sm:text-xs"
+                : `text-xl font-bold sm:text-2xl ${primaryClass}`
+            }`}
           >
             {model.primary}
           </span>
@@ -279,14 +314,16 @@ export function CollectionUnifiedOrderBook({
     }
 
     if (bestAskPrice != null || bestBidPrice != null) {
+      const spreadLine = formatSpreadPrimary(bestAskPrice, bestBidPrice);
       return {
-        primary: "N/A",
+        primary: spreadLine ?? "N/A",
         tone: "none",
         lastSide: null,
         secondary: null,
         caption: "",
-        title:
-          "Last traded price appears here after a sale is recorded. The number is not an average of bid and ask.",
+        title: spreadLine
+          ? "Bid–ask spread (absolute USDC and percent of mid). Last traded price appears here after a sale is recorded."
+          : "Last traded price appears here after a sale is recorded. Spread needs both a bid and an ask.",
       };
     }
 
@@ -303,11 +340,11 @@ export function CollectionUnifiedOrderBook({
   const depthMax = compact ? "max-h-[72px]" : "max-h-[100px]";
   const depthClass = flush
     ? "min-h-[40px] max-h-none overflow-visible"
-    : `overflow-y-auto scrollbar-platform ${depthMax}`;
+    : `overflow-y-auto scrollbar-book ${depthMax}`;
 
   const shell = flush
-    ? "relative flex h-full max-h-full min-h-0 max-w-full max-xl:min-h-[min(200px,28dvh)] flex-col overflow-hidden rounded-none border-0 bg-[#05070c] shadow-none xl:min-h-0"
-    : `relative overflow-hidden border border-zinc-800/90 bg-[#0c0e12] ${
+    ? `relative flex h-full max-h-full min-h-0 max-w-full max-xl:min-h-[min(200px,28dvh)] flex-col overflow-hidden rounded-none border-0 bg-transparent shadow-none xl:min-h-0`
+    : `relative overflow-hidden ${COLLECTION_DETAILS_BORDER_ALL} ${COLLECTION_DETAILS_BG_CLASS} ${
         compact
           ? "rounded-xl shadow-none"
           : "rounded-2xl shadow-[0_16px_48px_-20px_rgba(0,0,0,0.75)]"
@@ -317,16 +354,16 @@ export function CollectionUnifiedOrderBook({
     <div className={shell} aria-label={`OrderBook ${collectionKey}`}>
       {!compact && !flush && (
         <div
-          className="pointer-events-none absolute -right-8 -top-12 h-40 w-52 rounded-full bg-emerald-500/[0.12] blur-3xl"
+          className="pointer-events-none absolute -right-8 -top-12 h-40 w-52 rounded-full bg-zinc-600/[0.14] blur-3xl"
           aria-hidden
         />
       )}
       <div
-        className={`relative shrink-0 border-b px-2.5 pt-2 pb-1 sm:px-3 flex items-center justify-end gap-2 ${
-          flush ? "border-white/[0.065]" : "border-gray-800/80"
+        className={`relative shrink-0 px-2.5 pt-2 pb-1 sm:px-3 flex items-center justify-end gap-2 ${
+          flush ? "border-b border-[rgba(38,39,45,1)]" : COLLECTION_DETAILS_BORDER_B
         }`}
       >
-        <div className="flex rounded-lg bg-black/30 p-0.5 ring-1 ring-white/[0.06]">
+        <div className="flex rounded-lg bg-black/30 p-0.5 ring-1 ring-[rgba(11,13,16,1)]">
           <button
             type="button"
             onClick={() => setTab("book")}
@@ -355,12 +392,12 @@ export function CollectionUnifiedOrderBook({
       {tab === "book" &&
         (flush ? (
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-            <div className="relative grid shrink-0 grid-cols-[1fr_44px] gap-1.5 border-b border-white/[0.065] px-2.5 py-1.5 text-[9px] font-medium text-gray-500 sm:px-3">
+            <div className={`relative grid shrink-0 grid-cols-[1fr_44px] gap-1.5 px-2.5 py-1.5 text-[9px] font-medium text-gray-500 sm:px-3 ${COLLECTION_DETAILS_BORDER_B}`}>
               <span>Price (USDC)</span>
               <span className="text-right tabular-nums">Count</span>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-auto scrollbar-platform">
+            <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-auto scrollbar-book">
               <div className="flex min-h-full flex-col justify-end gap-px px-1 pt-0.5 pb-0.5">
                 {askLevels.length === 0 ? (
                   <div className="py-3 text-center text-[10px] text-gray-600">No sell orders</div>
@@ -403,7 +440,7 @@ export function CollectionUnifiedOrderBook({
               <OrderBookCenterStrip model={bookCenterModel} />
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-auto scrollbar-platform">
+            <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-auto scrollbar-book">
               <div className="flex flex-col gap-px px-1 py-0.5 pb-1.5">
                 {bidLevels.length === 0 ? (
                   <div className="py-3 text-center text-[10px] text-gray-600">No buy orders</div>
@@ -420,18 +457,18 @@ export function CollectionUnifiedOrderBook({
                           orders: level.orders,
                         })
                       }
-                      className={`relative flex min-h-[24px] w-full cursor-pointer items-center overflow-hidden rounded-[2px] text-left transition-colors hover:bg-white/[0.04] focus:outline-none focus-visible:ring-1 focus-visible:ring-emerald-500/40 ${
+                      className={`relative flex min-h-[24px] w-full cursor-pointer items-center overflow-hidden rounded-[2px] text-left transition-colors hover:bg-white/[0.04] focus:outline-none focus-visible:ring-1 focus-visible:ring-zinc-500/40 ${
                         selectedLevelKey === level.key
-                          ? "bg-white/[0.06] ring-1 ring-emerald-500/50"
+                          ? "bg-white/[0.06] ring-1 ring-zinc-500/50"
                           : ""
                       }`}
                     >
                       <div
-                        className="absolute inset-y-0 left-0 bg-gradient-to-r from-emerald-600/35 to-emerald-600/[0.07] transition-[width]"
+                        className="absolute inset-y-0 left-0 bg-gradient-to-r from-zinc-600/40 to-zinc-700/[0.08] transition-[width]"
                         style={{ width: `${Math.min(100, level.depth * 100)}%` }}
                       />
                       <div className="pointer-events-none relative z-10 grid w-full grid-cols-[1fr_44px] items-center gap-1.5 px-2 py-1 font-mono text-[11px] tabular-nums leading-none">
-                        <span className="font-medium text-emerald-300/95">
+                        <span className="font-medium text-zinc-200/95">
                           {formatPriceUsdc(level.price)}
                         </span>
                         <span className="text-right text-gray-200/90">{level.count}</span>
@@ -442,10 +479,10 @@ export function CollectionUnifiedOrderBook({
               </div>
             </div>
 
-            <div className="shrink-0 space-y-1 border-t border-white/[0.065] px-2.5 py-1.5">
+            <div className={`shrink-0 space-y-1 px-2.5 py-1.5 ${COLLECTION_DETAILS_BORDER_T}`}>
               <div className="flex justify-between gap-2 font-mono text-[9px] tabular-nums text-gray-600">
                 <span>
-                  Bids <span className="text-emerald-500/80">{bidRows.length}</span>
+                  Bids <span className="text-zinc-400/90">{bidRows.length}</span>
                 </span>
                 <span>
                   Asks <span className="text-rose-400/80">{askRows.length}</span>
@@ -455,13 +492,13 @@ export function CollectionUnifiedOrderBook({
           </div>
         ) : (
           <>
-            <div className="relative grid grid-cols-[1fr_44px] gap-1.5 px-2.5 sm:px-3 py-1.5 text-[9px] font-medium text-gray-500 border-b border-gray-800/80">
+            <div className={`relative grid grid-cols-[1fr_44px] gap-1.5 px-2.5 sm:px-3 py-1.5 text-[9px] font-medium text-gray-500 ${COLLECTION_DETAILS_BORDER_B}`}>
               <span>Price (USDC)</span>
               <span className="text-right tabular-nums">Count</span>
             </div>
 
             <div
-              className={`min-h-[36px] flex flex-col justify-end gap-px px-1 pt-0.5 overflow-y-auto scrollbar-platform ${depthMax}`}
+              className={`min-h-[36px] flex flex-col justify-end gap-px px-1 pt-0.5 overflow-y-auto scrollbar-book ${depthMax}`}
             >
               {askLevels.length === 0 ? (
                 <div className="py-3 text-center text-[10px] text-gray-600">No sell orders</div>
@@ -499,7 +536,7 @@ export function CollectionUnifiedOrderBook({
               <OrderBookCenterStrip model={bookCenterModel} />
             </div>
 
-            <div className={`${depthMax} overflow-y-auto scrollbar-platform flex flex-col gap-px px-1 pb-1.5`}>
+            <div className={`${depthMax} overflow-y-auto scrollbar-book flex flex-col gap-px px-1 pb-1.5`}>
               {bidLevels.length === 0 ? (
                 <div className="py-3 text-center text-[10px] text-gray-600">No buy orders</div>
               ) : (
@@ -515,16 +552,16 @@ export function CollectionUnifiedOrderBook({
                         orders: level.orders,
                       })
                     }
-                    className={`relative min-h-[24px] w-full text-left flex items-center rounded-[2px] overflow-hidden transition-colors cursor-pointer hover:bg-white/[0.04] focus:outline-none focus-visible:ring-1 focus-visible:ring-emerald-500/40 ${
-                      selectedLevelKey === level.key ? "ring-1 ring-emerald-500/50 bg-white/[0.06]" : ""
+                    className={`relative min-h-[24px] w-full text-left flex items-center rounded-[2px] overflow-hidden transition-colors cursor-pointer hover:bg-white/[0.04] focus:outline-none focus-visible:ring-1 focus-visible:ring-zinc-500/40 ${
+                      selectedLevelKey === level.key ? "ring-1 ring-zinc-500/50 bg-white/[0.06]" : ""
                     }`}
                   >
                     <div
-                      className="absolute inset-y-0 left-0 bg-gradient-to-r from-emerald-600/35 to-emerald-600/[0.07] transition-[width]"
+                      className="absolute inset-y-0 left-0 bg-gradient-to-r from-zinc-600/40 to-zinc-700/[0.08] transition-[width]"
                       style={{ width: `${Math.min(100, level.depth * 100)}%` }}
                     />
                     <div className="relative z-10 grid grid-cols-[1fr_44px] gap-1.5 w-full px-2 py-1 text-[11px] font-mono tabular-nums items-center leading-none pointer-events-none">
-                      <span className="text-emerald-300/95 font-medium">
+                      <span className="text-zinc-200/95 font-medium">
                         {formatPriceUsdc(level.price)}
                       </span>
                       <span className="text-right text-gray-200/90">{level.count}</span>
@@ -534,10 +571,10 @@ export function CollectionUnifiedOrderBook({
               )}
             </div>
 
-            <div className="border-t border-gray-800/80 px-2.5 py-1.5 space-y-1">
+            <div className={`${COLLECTION_DETAILS_BORDER_T} px-2.5 py-1.5 space-y-1`}>
               <div className="flex justify-between gap-2 text-[9px] font-mono text-gray-600 tabular-nums">
                 <span>
-                  Bids <span className="text-emerald-500/80">{bidRows.length}</span>
+                  Bids <span className="text-zinc-400/90">{bidRows.length}</span>
                 </span>
                 <span>
                   Asks <span className="text-rose-400/80">{askRows.length}</span>
@@ -569,13 +606,13 @@ export function CollectionUnifiedOrderBook({
             </div>
           ) : (
             <>
-              <div className="grid shrink-0 grid-cols-[minmax(0,1fr)_44px_minmax(0,52px)_minmax(0,1fr)] gap-1 border-b border-gray-800/80 px-2.5 py-1.5 text-[9px] font-medium uppercase tracking-wide text-gray-500 sm:px-3 sm:text-[10px]">
+              <div className={`grid shrink-0 grid-cols-[minmax(0,1fr)_44px_minmax(0,52px)_minmax(0,1fr)] gap-1 px-2.5 py-1.5 text-[9px] font-medium uppercase tracking-wide text-gray-500 sm:px-3 sm:text-[10px] ${COLLECTION_DETAILS_BORDER_B}`}>
                 <span>Price</span>
                 <span className="text-center">Side</span>
                 <span className="text-right">Token</span>
                 <span className="text-right">Time</span>
               </div>
-              <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-auto scrollbar-platform px-1 py-0.5">
+              <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-auto scrollbar-book px-1 py-0.5">
                 {tapeFills.slice(0, MAX_TAPE_ROWS).map((row) => (
                   <div
                     key={row.orderHash}
@@ -615,7 +652,7 @@ export function CollectionUnifiedOrderBook({
                 ))}
               </div>
               {tapeFills.length > MAX_TAPE_ROWS ? (
-                <p className="shrink-0 border-t border-gray-800/70 px-2.5 py-1 text-center text-[9px] text-gray-600">
+                <p className={`shrink-0 px-2.5 py-1 text-center text-[9px] text-gray-600 ${COLLECTION_DETAILS_BORDER_T}`}>
                   Showing last {MAX_TAPE_ROWS} of {tapeFills.length} fills
                 </p>
               ) : null}

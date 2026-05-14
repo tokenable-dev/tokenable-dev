@@ -13,6 +13,7 @@ import {
 import { useMarketplaceCollectionsInfinite } from "@/hooks/useMarketplaceCollectionsInfinite";
 import { CollectionCoverFrame } from "@/components/marketplace/CollectionCoverFrame";
 import { parseGradeScoreNumber, representativeGradeUsd } from "@/lib/market";
+import { toCardDisplayUppercase } from "@/lib/marketplace/collectionFullDetailsTitle";
 
 const MAX_TRENDING_VISIBLE = 4;
 const MAX_TRENDING_VISIBLE_MOBILE = 1;
@@ -311,7 +312,7 @@ export function TrendingCollectionsCarousel({
             )}
           </div>
           <div className="space-y-1.5 p-3">
-            <p className="truncate text-lg font-semibold text-white">{c.displayLabel}</p>
+            <p className="truncate text-lg font-semibold uppercase text-white">{toCardDisplayUppercase(c.displayLabel)}</p>
             <div className="space-y-1 text-sm">
               <p className="flex items-center justify-between gap-2">
                 <span className="text-zinc-500">Market Price</span>
@@ -322,7 +323,7 @@ export function TrendingCollectionsCarousel({
                 </span>
               </p>
               <p className="flex items-center justify-between gap-2">
-                <span className="text-zinc-500">Tokenable</span>
+                <span className="text-zinc-500">Tokenable Price</span>
                 <span className="font-semibold tabular-nums text-emerald-300">
                   {tokenablePrice != null ? formatUsd(tokenablePrice) : "—"}
                 </span>
@@ -337,13 +338,6 @@ export function TrendingCollectionsCarousel({
   if (trendingNow.length === 0) return null;
 
   const showHeading = variant === "markets";
-
-  const deckMotionKey =
-    trendingLoops && !trendingPauseMotion && !narrowCarousel
-      ? `${deckWindowStart}-${maxVisible}`
-      : "deck";
-  const deckMotionClass =
-    trendingLoops && !trendingPauseMotion && !narrowCarousel ? "trending-deck-shift-in" : "";
 
   const landingNarrowW =
     variant === "landing" && narrowCarousel
@@ -525,9 +519,7 @@ export function TrendingCollectionsCarousel({
             </button>
           </div>
         ) : (
-          <div key={deckMotionKey} className={`${deckGridClass} ${deckMotionClass}`.trim()}>
-            {trendingVisible.map((c) => renderTrendingCard(c))}
-          </div>
+          <div className={deckGridClass}>{trendingVisible.map((c) => renderTrendingCard(c))}</div>
         )}
       </div>
     </section>

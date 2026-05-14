@@ -9,30 +9,32 @@ import type { Address } from "viem";
 import { formatUnits } from "viem";
 import {
   getCollectionMarketSeries,
-  getCollectionMarketStats,
   getCollectionMarketPriceHistory,
   getCollectionMarketPreview,
   getCollectionPlatformTrades,
-  getCollectionAiInsight,
   getMarketplaceCollectionDetail,
   type CollectionAiInsight,
   type Order,
 } from "@/lib/core";
 import {
-  coefficientOfVariationPctFromUsdSeries,
   computeCollectionMarketCapUsd,
   formatMarketCapUsd,
   marketHistoryTierFromComponents,
   marketTierDisplayLabel,
   parseGradeScoreNumber,
-  percentChangeFromUsdPoints,
+  percentChangeUsdSinceCutoff,
   resolveExternalMarketUsd,
 } from "@/lib/market";
 import { CollectionOverviewBoard } from "@/components/marketplace/CollectionOverviewBoard";
+import type { CollectionDetailCard } from "@/components/marketplace/CollectionMetadataExpandable";
 import { CollectionPriceMetricsStrip } from "@/components/marketplace/CollectionPriceMetricsStrip";
 import type { BookRowSelection } from "@/components/marketplace/CollectionTradeTicket";
 import { CollectionUnifiedOrderBook } from "@/components/marketplace/CollectionUnifiedOrderBook";
-import { CollectionTradingTabs } from "@/components/marketplace/CollectionTradingTabs";
+import { CollectionHeroTradeControls } from "@/components/marketplace/CollectionHeroTradeControls";
+import {
+  CollectionTradingTabs,
+  type CollectionTradeTab,
+} from "@/components/marketplace/CollectionTradingTabs";
 import { CollectionOwnedRwaListModal } from "@/components/marketplace/CollectionOwnedRwaListModal";
 import {
   TradeCelebrationModal,
@@ -48,6 +50,15 @@ import {
   bucketCardSetForDisplay,
   bucketGradingCompanyForDisplay,
 } from "@/lib/marketplace/bucketKey";
+import {
+  buildCollectionHeadlineMetaStrip,
+  computeCollectionWovenTitle,
+  formatCollectionHeroCardTitle,
+  leadingYearFromSetLine,
+  toCardDisplayUppercase,
+  yearFromComponents,
+} from "@/lib/marketplace/collectionFullDetailsTitle";
+import { buildCollectionHeadlineInfoTags, mergeHeadlineCardNumberIntoTitle, resolveHeadlineFormattedCardNumber } from "@/lib/marketplace/collectionHeadlineTags";
 
 function aiMarketPerspectiveBadgeClass(
   tone: NonNullable<CollectionAiInsight["marketTone"]>,
@@ -80,32 +91,10 @@ function aiMarketPerspectiveBadgeClass(
 /** Same fill can appear from session overlay + DB poll with timestamps minutes apart */
 const SESSION_FILL_DEDUP_SEC = 300;
 
-/** Normalize chips for duplicate detection (against set/title lines). */
-function normTagDedupeKey(s: string): string {
-  return s.trim().toLowerCase().replace(/\s+/g, " ").replace(/^#/, "");
-}
-
-function leadingYearFromSetLine(setLineRaw: string): number | null {
-  const m = /^\s*(\d{4})\b/.exec(setLineRaw);
-  if (!m) return null;
-  const y = Number(m[1]);
-  return y >= 1880 && y <= 2100 ? y : null;
-}
-
-/** True when this chip repeats the hero set line / year-stripped variant (upstream often mirrors set into “variant”). */
-function tagEchoesSetLine(fragment: string, setLineRaw: string): boolean {
-  const f = normTagDedupeKey(fragment);
-  if (!f) return true;
-  const lineRaw = setLineRaw.trim();
-  if (!lineRaw) return false;
-  const line = normTagDedupeKey(lineRaw);
-  const noYear = normTagDedupeKey(lineRaw.replace(/^\s*\d{4}\s+/, ""));
-  if (line && (f === line || f === noYear)) return true;
-  /** Only treat long overlaps as echoes — keep short tokens like `Base`. */
-  const minLong = 12;
-  if (noYear.length >= minLong && (f.includes(noYear) || noYear.includes(f))) return true;
-  if (line.length >= minLong && (f.includes(line) || line.includes(f))) return true;
-  return false;
+/** IPFS `metadata.name` persisted on `collection.components` at listing — matches in-grid RWA titles. */
+function listingDisplayTitleFromComp(comp: Record<string, unknown>): string {
+  const v = comp["listingDisplayTitle"];
+  return typeof v === "string" ? v.trim().replace(/\s+/g, " ") : "";
 }
 
 type ChartRangeId = "7d" | "30d" | "90d" | "180d" | "1y";
@@ -170,6 +159,88 @@ function sortedTokenIdsByOldestListing(asks: Order[]): number[] {
   return out;
 }
 
+/** Normalize bucket / Cardhedger raw tokens to a short language label (English UI). */
+function displayEditionLanguage(raw: string | null | undefined): string | null {
+  const t = raw?.trim();
+  if (!t) return null;
+  if (/^(us|usa|north\s*america|english|eng|en)$/i.test(t)) return "English";
+  if (/^(jp|japan|japanese|ja)$/i.test(t) || /日本|日本語|にほん/.test(t)) {
+    return "Japanese";
+  }
+  if (/^(kr|korea|korean|ko)$/i.test(t) || /한국|한국어/.test(t)) {
+    return "Korean";
+  }
+  if (/^(cn|china|chinese|zh)$/i.test(t) || /中文|简体|繁体/.test(t)) {
+    return "Chinese";
+  }
+  return t;
+}
+
+/**
+ * Guess print language from catalog copy only when we see actual JP/KR/CN script
+ * or unambiguous CJK keywords — not Latin-only regional words alone.
+ */
+function inferLanguageFromCorpus(corpus: string): string | null {
+  const c = corpus.trim();
+  if (!c) return null;
+  if (/日本|日本語|にほん/.test(c)) return "Japanese";
+  if (/[\u3040-\u30ff]/.test(c)) return "Japanese";
+  if (/한국|한국어/.test(c)) return "Korean";
+  if (/[\uac00-\ud7af]/.test(c)) return "Korean";
+  if (/中文|简体|繁体|简体中文版|繁體中文/.test(c)) return "Chinese";
+  return null;
+}
+
+/**
+ * Latin-only Pokémon catalog lines often spell region in English ("POKEMON CHINESE 25TH …",
+ * "POKEMON JAPANESE SV2A …"). Only fire when the haystack looks like graded/TCG metadata.
+ * `Pokemon Japanese` is skipped when copy names another regional SKU (e.g. Indonesian listings
+ * that still carry global "Japanese" block catalog text).
+ */
+function inferLanguageFromLatinPokemonRegion(corpus: string): string | null {
+  const c = corpus.trim();
+  if (!c) return null;
+  const h = c.toLowerCase().replace(/\s+/g, " ");
+
+  const looksGradedOrTcg =
+    /\bpokemon\b/i.test(c) ||
+    /\btcgs?\b/i.test(c) ||
+    /\bpsa\b/i.test(c) ||
+    /\b(black\s*star|holo|promo|booster)\b/i.test(h);
+
+  if (!looksGradedOrTcg) return null;
+
+  if (/\bpokemon\s+chinese\b/i.test(c) || /\btcgs?\s+chinese\b/i.test(c)) return "Chinese";
+  if (
+    /\bchinese\s+(25th|24th|26th|27th|28th|29th|30th|\d{1,2}(?:st|nd|rd|th))\s+anniversary\b/i.test(
+      h,
+    ) ||
+    /\bchinese\s+(classic|celebration)\s+collection\b/i.test(h) ||
+    /\bchinese\s+(scarlet|violet|sun|moon|sword|shield|legends)\b/i.test(h) ||
+    /\bchinese\s+(promo|collection|booster\s*box)\b/i.test(h)
+  ) {
+    return "Chinese";
+  }
+
+  if (/\bpokemon\s+korean\b/i.test(c) || /\btcgs?\s+korean\b/i.test(c)) return "Korean";
+
+  const latinNamesNonJpRetail =
+    /\bindonesia(?:n)?\b/i.test(c) ||
+    /\bsingapore\b/i.test(h) ||
+    /\bphilippines?\b/i.test(h) ||
+    /\bthailand\b/i.test(h) ||
+    /\bvietnam\b/i.test(h) ||
+    /\bmalaysia\b/i.test(h);
+  if (
+    !latinNamesNonJpRetail &&
+    (/\bpokemon\s+japanese\b/i.test(c) || /\btcgs?\s+japanese\b/i.test(c))
+  ) {
+    return "Japanese";
+  }
+
+  return null;
+}
+
 function bidDisplayUsdc(b: Order): number {
   let display = Number(b.considerationAmount) / 1_000_000;
   try {
@@ -232,13 +303,15 @@ export default function MarketplaceCollectionPage() {
       psa10CatalogUsd?: number | null;
     };
   } | null>(null);
-  const aiInsightInFlightRef = useRef(false);
-
   /** Last fill this session (fixed timestamp) — merged into chart until series refetch includes it. */
   const [sessionFillPoint, setSessionFillPoint] = useState<{
     t: number;
     v: number;
   } | null>(null);
+  const [heroDetailsOpen, setHeroDetailsOpen] = useState(false);
+  const [showOrderBook, setShowOrderBook] = useState(true);
+  const [tradeFlow, setTradeFlow] = useState<CollectionTradeTab>("buy");
+  const [tradeDockOpen, setTradeDockOpen] = useState(false);
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["marketplace-collection", key],
@@ -312,36 +385,8 @@ export default function MarketplaceCollectionPage() {
     placeholderData: keepPreviousData,
   });
 
-  const { data: pokeYearHistory, isLoading: pokeYearHistoryLoading } = useQuery({
-    queryKey: [
-      "collection-market-price-history",
-      key,
-      pokeHistoryTier,
-      "1y",
-      365,
-    ],
-    queryFn: () =>
-      getCollectionMarketPriceHistory(key, {
-        tier: pokeHistoryTier,
-        period: "1y",
-        maxDays: 365,
-      }),
-    enabled: key.length > 0 && !isLoading && !isError && !!data,
-  });
-
-  const { data: marketStats, isLoading: marketStatsLoading } = useQuery({
-    queryKey: ["collection-market-stats", key],
-    queryFn: () => getCollectionMarketStats(key),
-    enabled: key.length > 0 && !isLoading && !isError && !!data,
-    staleTime: 60_000,
-    refetchInterval: 45_000,
-    refetchIntervalInBackground: false,
-  });
-
   const pokeHistPts = nmHistory?.points ?? [];
   const pokeHistOk = pokeHistPts.length >= 2;
-  const pokeYearPts = pokeYearHistory?.points ?? [];
-  const pokeYearOk = pokeYearPts.length >= 2;
   const jtHistPts = marketSeriesHeader?.externalUsd ?? [];
   const jtHistOk = jtHistPts.length >= 2;
 
@@ -383,18 +428,7 @@ export default function MarketplaceCollectionPage() {
     selectedChartRange.maxDays,
   ]);
 
-  const externalVolatilityCvPct = useMemo(() => {
-    const y = coefficientOfVariationPctFromUsdSeries(pokeYearPts);
-    if (y != null) return y;
-    return pokeHistOk ? coefficientOfVariationPctFromUsdSeries(pokeHistPts) : null;
-  }, [pokeHistOk, pokeHistPts, pokeYearPts]);
-
   const pokeTierLabel = marketTierDisplayLabel(pokeHistoryTier);
-
-  const externalPriceChange1yPct = useMemo(
-    () => (pokeYearOk ? percentChangeFromUsdPoints(pokeYearPts) : null),
-    [pokeYearOk, pokeYearPts],
-  );
 
   /** DB-only — chart points + Trades tab tape. */
   const { data: platformTradesData, isLoading: platformTradesLoading } = useQuery({
@@ -449,10 +483,40 @@ export default function MarketplaceCollectionPage() {
 
   const chartExternalRollingKind = pokeHistOk || jtHistOk ? "history" : "snapshot";
 
-  const platformPriceSamples = useMemo(
-    () => displayPlatformUsd.map((p) => p.v),
-    [displayPlatformUsd]
+  const externalReferencePtsFor24h = useMemo(() => {
+    if (pokeHistOk) return pokeHistPts;
+    if (jtHistOk) return jtHistPts;
+    return [];
+  }, [pokeHistOk, pokeHistPts, jtHistOk, jtHistPts]);
+
+  const externalPriceChange24hPct = useMemo(
+    () =>
+      percentChangeUsdSinceCutoff(
+        externalReferencePtsFor24h,
+        Math.floor(Date.now() / 1000) - 86400,
+      ),
+    [externalReferencePtsFor24h],
   );
+
+  const volume24hUsdc = useMemo(() => {
+    const raw = platformTradesData?.trades;
+    if (raw == null) return null;
+    const now = Math.floor(Date.now() / 1000);
+    const cutoff = now - 86400;
+    let sum = 0;
+    for (const row of raw) {
+      if (row.t >= cutoff && Number.isFinite(row.priceUsdc) && row.priceUsdc > 0) {
+        sum += row.priceUsdc;
+      }
+    }
+    return sum;
+  }, [platformTradesData?.trades]);
+
+  const totalPopulation = useMemo(() => {
+    const n = comp.psaTotalPopulation;
+    if (n == null || !Number.isFinite(Number(n)) || Number(n) <= 0) return null;
+    return Math.round(Number(n));
+  }, [comp.psaTotalPopulation]);
 
   const orderBookTapeFills = useMemo(() => {
     const raw = platformTradesData?.trades ?? [];
@@ -470,21 +534,12 @@ export default function MarketplaceCollectionPage() {
       }));
   }, [platformTradesData?.trades, displayPlatformUsd]);
 
-  const volatilityFootnote = useMemo(() => {
-    const yPos = pokeYearPts.filter((p) => p.v > 0).length;
-    if (yPos >= 3) return "~1y Cardhedger tier daily closes";
-    const sPos = pokeHistPts.filter((p) => p.v > 0).length;
-    if (sPos >= 3) return "Cardhedger chart-window tier daily closes";
-    return null;
-  }, [pokeYearPts, pokeHistPts]);
-
   function invalidateCollection() {
     void queryClient.invalidateQueries({ queryKey: ["marketplace-collection", key] });
     void queryClient.invalidateQueries({ queryKey: ["collection-platform-trades", key] });
     void queryClient.invalidateQueries({
       queryKey: ["collection-market-series", key, selectedChartRange.bundleDuration],
     });
-    void queryClient.invalidateQueries({ queryKey: ["collection-market-stats", key] });
     void queryClient.invalidateQueries({ queryKey: ["collection-market", key] });
     void queryClient.invalidateQueries({
       queryKey: ["collection-market-price-history", key],
@@ -558,27 +613,40 @@ export default function MarketplaceCollectionPage() {
     const parts = [setShown, comp.cardNumber].filter(
       (x): x is string => typeof x === "string" && x.trim().length > 0
     );
-    return parts.length ? parts.join(" · ") : null;
+    if (!parts.length) return null;
+    return toCardDisplayUppercase(parts.join(" · "));
   }, [comp, data?.collection?.components]);
 
   const headlineSetLine = useMemo(() => {
+    const bucketSet = bucketCardSetForDisplay(comp as Record<string, unknown>).trim();
+    const listingTitle = listingDisplayTitleFromComp(comp as Record<string, unknown>);
     const setMerged =
-      marketPreview?.card?.setName?.trim() ||
-      bucketCardSetForDisplay(comp as Record<string, unknown>).trim();
-    return setMerged.length > 0 ? setMerged : null;
+      listingTitle.length > 0
+        ? bucketSet ||
+          marketPreview?.card?.setName?.trim() ||
+          ""
+        : marketPreview?.card?.setName?.trim() || bucketSet;
+    if (!setMerged.length) return null;
+    const yFromSet = leadingYearFromSetLine(setMerged);
+    const yComp = yearFromComponents(comp as Record<string, unknown>);
+    const y = yFromSet ?? yComp;
+    const line =
+      y != null && !/^\s*\d{4}\b/.test(setMerged) ? `${y} ${setMerged}` : setMerged;
+    return toCardDisplayUppercase(line);
   }, [marketPreview?.card?.setName, comp]);
 
   const collectionCategoryBadge = useMemo(() => {
     const name = bucketCardNameForDisplay(comp as Record<string, unknown>);
     const setN = bucketCardSetForDisplay(comp as Record<string, unknown>);
-    const corpus = `${name} ${setN} ${marketPreview?.card?.setName ?? ""}`;
-    if (/\bpokemon\b/i.test(corpus)) return "Pokemon";
+    const listingTitle = listingDisplayTitleFromComp(comp as Record<string, unknown>);
+    const corpus = `${listingTitle} ${name} ${setN} ${marketPreview?.card?.setName ?? ""}`;
+    if (/\bpokemon\b/i.test(corpus)) return toCardDisplayUppercase("Pokemon");
     const cat = marketPreview?.card?.category?.trim();
     if (cat) {
       const t = cat.replace(/\s+/g, " ");
-      return t.charAt(0).toUpperCase() + (t.length > 1 ? t.slice(1) : "");
+      return toCardDisplayUppercase(t);
     }
-    return "Trading cards";
+    return toCardDisplayUppercase("Trading cards");
   }, [
     marketPreview?.card?.category,
     marketPreview?.card?.setName,
@@ -589,194 +657,115 @@ export default function MarketplaceCollectionPage() {
   ]);
 
   const collectionHeadlineCardName = useMemo(() => {
+    const listingTitle = listingDisplayTitleFromComp(comp as Record<string, unknown>);
+    if (listingTitle.length > 0) return toCardDisplayUppercase(listingTitle);
     const nm = bucketCardNameForDisplay(comp as Record<string, unknown>).trim();
     const dl =
       typeof data?.collection?.displayLabel === "string"
         ? data.collection.displayLabel.trim()
         : "";
-    if (nm.length > 0) return nm;
-    if (dl.length > 0) return dl;
-    return key.length > 0 ? key.slice(0, 18) + (key.length > 18 ? "…" : "") : "Collection";
+    if (nm.length > 0)
+      return toCardDisplayUppercase(formatCollectionHeroCardTitle(comp as Record<string, unknown>));
+    if (dl.length > 0) return toCardDisplayUppercase(dl);
+    return toCardDisplayUppercase(
+      key.length > 0 ? key.slice(0, 18) + (key.length > 18 ? "…" : "") : "Collection",
+    );
   }, [
+    comp,
     comp.cardNameDisplay,
     comp.cardName,
     data?.collection?.displayLabel,
     key,
   ]);
 
+  const headlineCardNumberToken = useMemo(
+    () =>
+      resolveHeadlineFormattedCardNumber(
+        marketPreview ?? null,
+        comp as Record<string, unknown>,
+      ),
+    [marketPreview, comp],
+  );
+
+  const collectionHeadlineDisplayTitle = useMemo(
+    () =>
+      toCardDisplayUppercase(
+        mergeHeadlineCardNumberIntoTitle(collectionHeadlineCardName, headlineCardNumberToken),
+      ),
+    [collectionHeadlineCardName, headlineCardNumberToken],
+  );
+
+  const collectionHeadlineMetaStrip = useMemo(() => {
+    const raw = buildCollectionHeadlineMetaStrip({
+      setLine: headlineSetLine,
+      comp: comp as Record<string, unknown>,
+      marketPreview: marketPreview ?? null,
+      displayLabel:
+        typeof data?.collection?.displayLabel === "string"
+          ? data.collection.displayLabel.trim()
+          : null,
+    });
+    if (raw == null || !String(raw).trim()) return null;
+    return toCardDisplayUppercase(raw);
+  }, [headlineSetLine, comp, marketPreview, data?.collection?.displayLabel]);
+
   const headlineGradeBadge = useMemo(
-    () => pokeTierLabel || null,
+    () => (pokeTierLabel ? toCardDisplayUppercase(pokeTierLabel) : null),
     [pokeTierLabel],
   );
 
-  /** Chips under headline — de-duped vs set/title; no low-signal market codes. */
-  const headlineInfoTags = useMemo(() => {
-    const setLine = headlineSetLine?.trim() ?? "";
-    const setFromComp = bucketCardSetForDisplay(comp as Record<string, unknown>).trim();
-    const anchorLines = [setLine, setFromComp].filter((s) => s.length > 0);
-    const titleKey = normTagDedupeKey(collectionHeadlineCardName);
-    const setYear = setLine ? leadingYearFromSetLine(setLine) : null;
-
-    const seen = new Set<string>();
-    const tags: { id: string; text: string; title?: string }[] = [];
-
-    const pushUnique = (id: string, display: string, title?: string) => {
-      const d = display.trim();
-      if (!d) return;
-      if (anchorLines.some((a) => tagEchoesSetLine(d, a))) return;
-      const k = normTagDedupeKey(d);
-      if (!k || seen.has(k)) return;
-      if (titleKey.length >= 3 && k === titleKey) return;
-      seen.add(k);
-      tags.push({
-        id,
-        text: d.length > 44 ? `${d.slice(0, 41)}…` : d,
-        title: title ?? (d.length > 44 ? d : undefined),
-      });
-    };
-
-    const numRaw =
-      marketPreview?.card?.cardNumber?.trim() || String(comp.cardNumber ?? "").trim();
-    const numTok = numRaw ? (numRaw.startsWith("#") ? numRaw : `#${numRaw}`) : "";
-    if (numTok) pushUnique("cardno", numTok, "Card number");
-
-    const varFull =
-      (typeof comp.variant === "string" && comp.variant.trim().length > 0 && comp.variant.trim()) ||
-      (marketPreview?.card?.variant?.trim() ?? "");
-    if (varFull) pushUnique("variant", varFull, varFull);
-
-    const grader = bucketGradingCompanyForDisplay(comp as Record<string, unknown>).trim();
-    const gradeStr = typeof comp.gradeScore === "string" ? comp.gradeScore.trim() : "";
-    const tier = pokeTierLabel?.trim();
-    if (!tier) {
-      if (grader && gradeStr) pushUnique("gradecombo", `${grader} ${gradeStr}`, "Grade");
-      else if (gradeStr) pushUnique("grade", gradeStr, "Grade");
-      else if (grader) pushUnique("grader", grader, "Grader");
-    }
-
-    const setType = marketPreview?.card?.setType?.trim();
-    if (setType) pushUnique("settype", setType, "Set type");
-
+  const collectionPopulationBadge = useMemo(() => {
     const popRaw = comp.psaTotalPopulation;
-    if (popRaw != null && Number.isFinite(popRaw) && popRaw > 0) {
-      const n = Number(popRaw);
-      const fmt = n.toLocaleString("en-US");
-      pushUnique("pop", `Pop · ${fmt}`, `PSA Total Population · ${fmt}`);
-    }
+    if (popRaw == null || !Number.isFinite(popRaw) || popRaw <= 0) return null;
+    const n = Number(popRaw);
+    return toCardDisplayUppercase(`Pop · ${n.toLocaleString("en-US")}`);
+  }, [comp.psaTotalPopulation]);
 
-    const rarityRaw = (comp as Record<string, unknown>).rarity;
-    const rarity = typeof rarityRaw === "string" ? rarityRaw.trim() : "";
-    if (rarity) pushUnique("rarity", rarity, "Rarity");
+  const collectionWovenTitle = useMemo(() => {
+    return toCardDisplayUppercase(
+      computeCollectionWovenTitle(
+        collectionHeadlineDisplayTitle,
+        headlineSetLine,
+        collectionHeadlineMetaStrip,
+        headlineCardNumberToken,
+        null,
+      ),
+    );
+  }, [
+    collectionHeadlineDisplayTitle,
+    headlineSetLine,
+    collectionHeadlineMetaStrip,
+    headlineCardNumberToken,
+  ]);
 
-    const yearRaw = (comp as Record<string, unknown>).year ?? null;
-    const yearNum =
-      typeof yearRaw === "number" && Number.isFinite(yearRaw)
-        ? yearRaw
-        : typeof yearRaw === "string" && /^\d{4}$/.test(yearRaw.trim())
-          ? Number(yearRaw.trim())
-          : null;
-    if (
-      yearNum != null &&
-      yearNum >= 1880 &&
-      yearNum <= 2100 &&
-      setYear !== yearNum
-    ) {
-      pushUnique("year", String(yearNum), "Release year");
-    }
-
-    const mkt = marketPreview?.card?.market?.trim();
-    if (
-      mkt &&
-      !/^(US|USA|EN|ENG|ENGLISH)$/i.test(mkt) &&
-      !tagEchoesSetLine(mkt, setLine || setFromComp || "")
-    ) {
-      pushUnique("market", mkt, "Market / region");
-    }
-
-    return tags.length > 0 ? tags : null;
+  const headlineInfoTags = useMemo(() => {
+    const raw = buildCollectionHeadlineInfoTags({
+      headlineSetLine,
+      comp: comp as Record<string, unknown>,
+      marketPreview: marketPreview ?? null,
+      collectionHeadlineTitle: collectionHeadlineDisplayTitle,
+      collectionHeadlineMetaStrip,
+      pokeTierLabel,
+    });
+    if (!raw) return null;
+    return raw.map((t) => ({
+      ...t,
+      text: toCardDisplayUppercase(t.text),
+      title: t.title ? toCardDisplayUppercase(t.title) : undefined,
+    }));
   }, [
     headlineSetLine,
-    collectionHeadlineCardName,
-    marketPreview?.card?.cardNumber,
-    marketPreview?.card?.variant,
-    marketPreview?.card?.setType,
-    marketPreview?.card?.market,
-    comp.cardNumber,
-    comp.variant,
-    comp.gradeScore,
-    comp.psaTotalPopulation,
+    collectionHeadlineDisplayTitle,
+    collectionHeadlineMetaStrip,
+    marketPreview,
     pokeTierLabel,
     comp,
   ]);
 
   const collectionInsightLabel =
     typeof data?.collection?.displayLabel === "string"
-      ? data.collection.displayLabel
+      ? toCardDisplayUppercase(data.collection.displayLabel.trim())
       : undefined;
-
-  const runMockAiInsights = useCallback(async () => {
-    if (!key) return;
-    if (aiInsightInFlightRef.current) return;
-    aiInsightInFlightRef.current = true;
-    setShowAiInsights(true);
-    setAiInsightStatus("loading");
-    try {
-      const minLoadingMs = 800 + Math.floor(Math.random() * 700);
-      const [insight] = await Promise.all([
-        getCollectionAiInsight(key),
-        new Promise((resolve) => setTimeout(resolve, minLoadingMs)),
-      ]);
-      setAiInsightResult({
-        title: insight.title,
-        summary: insight.summary,
-        bullets: insight.bullets,
-        dynamics: insight.dynamics,
-        outlook: insight.outlook,
-        outlookScenarios: insight.outlookScenarios,
-        confidence: insight.confidence,
-        confidenceNote: insight.confidenceNote ?? null,
-        riskTapeNote: insight.riskTapeNote ?? null,
-        marketTone: insight.marketTone,
-        riskScore: insight.riskScore,
-        riskLabel: insight.riskLabel,
-        stats: insight.stats,
-        generatedAt: new Date(insight.generatedAt).toLocaleString("en-US", {
-          month: "short",
-          day: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-      });
-      setAiInsightStatus("ready");
-    } catch (_e) {
-      setAiInsightResult({
-        title: `${collectionInsightLabel ?? "Collection"} — AI Market Brief`,
-        summary:
-          "Snapshot unavailable — below stats still update live.",
-        bullets: [
-          "Re-open insight after a refresh.",
-          "Use price tiles for spot context.",
-          "Order book stays live.",
-        ],
-        dynamics: [],
-        confidence: null,
-        confidenceNote: null,
-        riskTapeNote: null,
-        marketTone: null,
-        riskScore: null,
-        riskLabel: null,
-        generatedAt: new Date().toLocaleString("en-US", {
-          month: "short",
-          day: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-      });
-      setAiInsightStatus("ready");
-    } finally {
-      aiInsightInFlightRef.current = false;
-    }
-  }, [key, collectionInsightLabel]);
 
   /** Latest on-platform sale (DB poll or initial bundle). */
   const lastPlatformSaleUsdc = useMemo(() => {
@@ -803,31 +792,145 @@ export default function MarketplaceCollectionPage() {
     if (found) setSessionFillPoint(null);
   }, [platformPtsBase, sessionFillPoint]);
 
-  const marketMetrics = useMemo(() => {
-    const askPrices = asks
-      .filter((o) => String(o.side ?? "ask").toLowerCase() !== "bid")
-      .map((o) => Number(o.considerationAmount) / 1_000_000)
-      .filter((n) => Number.isFinite(n));
-    const floor = askPrices.length ? Math.min(...askPrices) : null;
-    const listingsNotional = askPrices.reduce((a, b) => a + b, 0);
+  /** Details tiles under the hero (label + value only). */
+  const collectionMarketDetailCards = useMemo((): CollectionDetailCard[] => {
+    if (!key.trim() || !data?.collection) return [];
+    const ch = marketPreview?.card ?? null;
 
-    let bestBid: number | null = null;
-    for (const b of collectionBids) {
-      if (!isCriteriaCollectionBid(b) || b.status !== "active") continue;
-      const d = bidDisplayUsdc(b);
-      if (bestBid == null || d > bestBid) bestBid = d;
+    const rows: CollectionDetailCard[] = [];
+
+    const cardNumRaw =
+      headlineCardNumberToken?.trim() ||
+      (typeof comp.cardNumber === "string" && comp.cardNumber.trim()
+        ? comp.cardNumber.trim()
+        : "");
+    if (cardNumRaw) {
+      rows.push({
+        id: "card-number",
+        label: "Card number",
+        value: headlineCardNumberToken?.trim() || cardNumRaw,
+      });
     }
 
-    let spreadPct: number | null = null;
-    if (floor != null && bestBid != null && floor > 0 && bestBid > 0) {
-      const mid = (floor + bestBid) / 2;
-      if (mid > 0) spreadPct = (Math.abs(floor - bestBid) / mid) * 100;
+    const cat = collectionCategoryBadge?.trim();
+    if (cat) {
+      rows.push({
+        id: "category",
+        label: "Category",
+        value: cat,
+      });
     }
 
-    return { floor, listingsNotional, spreadPct };
-  }, [asks, collectionBids]);
+    const gradeStr = typeof comp.gradeScore === "string" ? comp.gradeScore.trim() : "";
+    if (gradeStr) {
+      rows.push({
+        id: "grade",
+        label: "Grade",
+        value: gradeStr,
+      });
+    }
 
-  /** Sync buy/bid price field when user clicks a row in the order book (ask or bid). */
+    const grader = bucketGradingCompanyForDisplay(comp as Record<string, unknown>).trim();
+    if (grader) {
+      rows.push({
+        id: "grader",
+        label: "Grader",
+        value: grader,
+      });
+    }
+
+    const setName =
+      headlineSetLine?.trim() || bucketCardSetForDisplay(comp as Record<string, unknown>).trim();
+    if (setName) {
+      rows.push({
+        id: "set",
+        label: "Set",
+        value: setName,
+      });
+    }
+
+    const yrFromComp = yearFromComponents(comp as Record<string, unknown>);
+    let yr: number | null = yrFromComp;
+    if (yr == null) {
+      const listingLineEarly = listingDisplayTitleFromComp(comp as Record<string, unknown>);
+      const setCandidates = [
+        listingLineEarly,
+        headlineSetLine?.trim(),
+        ch?.setName?.trim(),
+        bucketCardSetForDisplay(comp as Record<string, unknown>).trim(),
+      ];
+      for (const s of setCandidates) {
+        if (!s) continue;
+        const y = leadingYearFromSetLine(s);
+        if (y != null) {
+          yr = y;
+          break;
+        }
+      }
+    }
+    if (yr != null) {
+      rows.push({
+        id: "year",
+        label: "Year",
+        value: String(yr),
+      });
+    }
+
+    const compRec = comp as Record<string, unknown>;
+    const listingLine = listingDisplayTitleFromComp(compRec);
+    const fromComp =
+      typeof compRec.language === "string" && compRec.language.trim()
+        ? compRec.language.trim()
+        : null;
+    const fromMarket = ch?.market?.trim() ?? null;
+
+    const corpus = [
+      listingLine,
+      headlineSetLine,
+      ch?.setName,
+      ch?.name,
+      bucketCardSetForDisplay(comp as Record<string, unknown>),
+    ]
+      .filter((x): x is string => typeof x === "string" && Boolean(x.trim()))
+      .join(" ");
+
+    let lang: string | null = null;
+    if (fromComp) lang = displayEditionLanguage(fromComp) ?? fromComp;
+    if (!lang && fromMarket) lang = displayEditionLanguage(fromMarket) ?? fromMarket;
+    if (!lang) lang = inferLanguageFromCorpus(corpus);
+    if (!lang) lang = inferLanguageFromLatinPokemonRegion(corpus);
+    /** English edition: Cardhedger match but no region field and no JP/KR/CN signals in copy. */
+    if (!lang && ch != null && !/[\u3000-\u9fff\uac00-\ud7af]/.test(corpus)) {
+      lang = "English";
+    }
+    if (
+      lang === "English" &&
+      /\bindonesia(?:n)?\b/i.test(corpus)
+    ) {
+      lang = "English · Indonesian (card)";
+    }
+    if (lang) {
+      rows.push({
+        id: "language",
+        label: "Language",
+        value: lang,
+      });
+    }
+
+    return rows.map((row) => ({
+      ...row,
+      value: toCardDisplayUppercase(row.value),
+    }));
+  }, [
+    key,
+    data?.collection,
+    marketPreview?.card,
+    comp,
+    headlineCardNumberToken,
+    headlineSetLine,
+    collectionCategoryBadge,
+  ]);
+
   const presetPriceFromBook = useMemo(() => {
     if (bookSelection == null) return null;
     return bookSelection.price.toLocaleString("en-US", {
@@ -836,7 +939,6 @@ export default function MarketplaceCollectionPage() {
     });
   }, [bookSelection]);
 
-  /** Sell flow: prefill list price only when a bid (green) row is selected — match that bid by listing at the same USDC. */
   const listPricePresetUsdc = useMemo(() => {
     if (bookSelection?.side !== "bid") return null;
     return presetPriceFromBook;
@@ -858,7 +960,7 @@ export default function MarketplaceCollectionPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-950 text-white">
+      <div className="min-h-screen bg-[rgba(11,13,16,1)] text-white">
         <div className="w-full max-w-[1680px] mx-auto px-4 sm:px-5 lg:px-8 xl:px-10 py-8 pb-20">
           <div className="h-4 w-40 bg-gray-800/80 rounded animate-pulse mb-6" />
           <div className="rounded-2xl border border-gray-800/90 bg-[#0b0e11] overflow-hidden animate-pulse mb-10">
@@ -913,26 +1015,24 @@ export default function MarketplaceCollectionPage() {
   const exchangePriceStripProps = {
     showFootnotes: false as const,
     compact: true,
+    exchangeUnifiedRow: true as const,
     externalMarketUsd: resolvedExternal.usd,
     externalPriceSource: resolvedExternal.source,
     marketTierDisplay: pokeTierLabel,
     externalMarketMatchConfidence: resolvedExternal.marketMatchConfidence,
     externalPriceLoading: marketPreviewLoading || nmHistoryLoading || marketSeriesLoading,
-    externalVolatilityCvPct,
-    volatilityFootnote,
-    marketStats: marketStats ?? null,
-    marketStatsLoading,
-    platformPriceSamples,
-    bookSpreadPct: marketMetrics.spreadPct,
-    externalPriceChange1yPct,
-    externalPriceChange1yLoading: pokeYearHistoryLoading,
+    externalPriceChange24hPct,
+    externalPriceChange24hLoading: nmHistoryLoading || marketSeriesLoading,
+    volume24hUsdc,
+    volume24hLoading: platformTradesLoading,
+    totalPopulation,
     marketCapUsd: marketCapComputation?.usd ?? null,
     marketCapMethodHint: marketCapComputation?.methodLabel ?? null,
     formatMarketCap: formatMarketCapUsd,
   };
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white">
+    <div className="min-h-screen bg-[rgba(11,13,16,1)] text-white">
       <div className="w-full max-w-[1680px] mx-auto px-4 sm:px-5 lg:px-8 xl:px-10 py-8 pb-20">
         <Link
           href="/markets"
@@ -942,37 +1042,49 @@ export default function MarketplaceCollectionPage() {
         </Link>
 
         <CollectionOverviewBoard
-          title={collection.displayLabel}
+          title={collectionWovenTitle}
           subtitle={subtitle}
-          headlineTitle={collectionHeadlineCardName}
+          headlineTitle={collectionHeadlineDisplayTitle}
           headlineSetLine={headlineSetLine}
+          headlineMetaStrip={collectionHeadlineMetaStrip ?? undefined}
           headlineInfoTags={headlineInfoTags ?? undefined}
           categoryBadge={collectionCategoryBadge}
           gradeBadge={headlineGradeBadge ?? undefined}
+          populationBadge={collectionPopulationBadge ?? undefined}
           headlineTitleLayout
           badgeLabel="Collection"
           imageUrl={collectionCoverUrl}
           metadataRows={metadataRows}
           stats={[]}
           chartMetricsRow={
-            <CollectionPriceMetricsStrip {...exchangePriceStripProps} exchangeColumn="chart" />
+            <CollectionPriceMetricsStrip {...exchangePriceStripProps} />
           }
-          bookColumnMetricsRow={
-            <CollectionPriceMetricsStrip {...exchangePriceStripProps} exchangeColumn="trade" />
+          bookColumnMetricsRow={null}
+          showOrderBook={showOrderBook}
+          onShowOrderBookChange={setShowOrderBook}
+          exchangeDockTradePanel
+          metadataExpand={
+            collectionMarketDetailCards.length > 0
+              ? {
+                  collectionKey: collection.collectionKey,
+                  components: collection.components,
+                  compactHero: true,
+                  detailCards: collectionMarketDetailCards,
+                  detailsOpen: heroDetailsOpen,
+                }
+              : undefined
           }
-          metadataExpand={{
-            collectionKey: collection.collectionKey,
-            displayLabel: collection.displayLabel,
-            queryUsed: collection.queryUsed ?? marketPreview?.searchQuery ?? null,
-            createdAt: collection.createdAt,
-            representativeImageUrl: collectionCoverUrl,
-            components: collection.components,
-            marketSeriesMeta: null,
-            cardhedgerCardId: marketPreview?.card?.id ?? null,
-            compactHero: true,
-          }}
           listingCount={asks.length}
           showListingSummary={false}
+          exchangeChartFooter={
+            <CollectionHeroTradeControls
+              bookSelection={bookSelection}
+              presetPriceFromBook={presetPriceFromBook}
+              tradeFlow={tradeFlow}
+              onRequestTradeDock={() => setTradeDockOpen(true)}
+              onTradeFlowChange={(tab) => setTradeFlow(tab)}
+            />
+          }
           priceChart={
             <CollectionDualPriceChart
               variant="exchange"
@@ -995,7 +1107,7 @@ export default function MarketplaceCollectionPage() {
               }
               errorMessage={null}
               controls={
-                <div className="inline-flex w-fit items-center gap-1 rounded-lg border border-gray-800/80 bg-black/30 p-1">
+                <div className="inline-flex w-fit items-center gap-0.5">
                   {CHART_RANGE_OPTIONS.map((opt) => {
                     const active = opt.id === chartRange;
                     return (
@@ -1006,7 +1118,7 @@ export default function MarketplaceCollectionPage() {
                         className={`rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors ${
                           active
                             ? "bg-mint text-black"
-                            : "text-zinc-400 hover:bg-zinc-800/80 hover:text-zinc-100"
+                            : "text-zinc-400 hover:text-zinc-100"
                         }`}
                         aria-pressed={active}
                       >
@@ -1023,7 +1135,11 @@ export default function MarketplaceCollectionPage() {
               collectionKey={collection.collectionKey}
               asks={asks}
               collectionBids={collectionBids}
-              onSelectLevel={(sel) => setBookSelection(sel)}
+              onSelectLevel={(sel) => {
+                setBookSelection(sel);
+                setTradeFlow("buy");
+                setTradeDockOpen(true);
+              }}
               selectedLevelKey={bookSelection?.levelKey ?? null}
               compact
               lastTradePriceUsdc={orderBookLastSaleUsdc}
@@ -1043,7 +1159,7 @@ export default function MarketplaceCollectionPage() {
               }}
               onOpenSellModal={() => setSellModalOpen(true)}
               collectionKey={collection.collectionKey}
-              collectionLabel={collection.displayLabel}
+              collectionLabel={toCardDisplayUppercase(collection.displayLabel)}
               asks={asks}
               collectionBids={collectionBids}
               connectedAddress={address ?? undefined}
@@ -1058,21 +1174,20 @@ export default function MarketplaceCollectionPage() {
               presetPriceFromBook={presetPriceFromBook}
               listingCount={asks.length}
               showSellListingCount={false}
+              tradeFlow={tradeFlow}
+              onTradeFlowChange={setTradeFlow}
+              exchangeDock
+              dockOpen={tradeDockOpen}
+              onDockOpenChange={setTradeDockOpen}
             />
           }
         />
 
         <section
+          id="collection-ai-insights"
           className="mt-6 w-full scroll-mt-28"
           aria-label="AI insights"
         >
-          <button
-            type="button"
-            onClick={() => runMockAiInsights()}
-            className="inline-flex min-w-[190px] items-center justify-center rounded-lg border border-[#0fd4bd]/70 bg-[#0a302b]/45 px-4 py-2 text-sm font-semibold text-[#2de8d2] transition-colors hover:bg-[#0b3e37]/70"
-          >
-            {aiInsightStatus === "loading" ? "Generating insight..." : "AI Insights"}
-          </button>
           {showAiInsights && aiInsightStatus === "loading" ? (
             <div className="ai-insight-loading-shell mt-4 rounded-2xl border border-[#0fd4bd]/45 bg-[#060f12]/95 px-6 py-5 text-sm text-zinc-100 shadow-[0_0_0_1px_rgba(16,185,129,0.08),0_0_26px_rgba(20,184,166,0.16)]">
               <p className="mb-2 text-[13px] font-semibold tracking-wide text-[#45f2dc]">
@@ -1098,10 +1213,10 @@ export default function MarketplaceCollectionPage() {
                   <p className="mb-3 text-[13px] leading-snug text-zinc-300">
                     Perspective for{" "}
                     <span className="font-semibold text-zinc-100">
-                      {collectionHeadlineCardName}
+                      {collectionHeadlineDisplayTitle}
                     </span>
                     {collectionInsightLabel &&
-                    collectionInsightLabel.trim() !== collectionHeadlineCardName.trim() ? (
+                    collectionInsightLabel.trim() !== collectionHeadlineDisplayTitle.trim() ? (
                       <>
                         {" "}
                         <span className="text-zinc-500">({collectionInsightLabel})</span>
@@ -1275,7 +1390,7 @@ export default function MarketplaceCollectionPage() {
         open={sellModalOpen}
         onClose={() => setSellModalOpen(false)}
         collectionKey={collection.collectionKey}
-        collectionLabel={collection.displayLabel}
+        collectionLabel={toCardDisplayUppercase(collection.displayLabel)}
         collectionBids={collectionBids}
         listPricePresetUsdc={listPricePresetUsdc}
         preferredBidOrderHash={preferredBidOrderHash}

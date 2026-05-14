@@ -16,6 +16,7 @@ export class MarketplaceCollection {
   queryUsed: string | null;
 
   @Column({ type: 'jsonb' })
+  /** Bucket fields + optional enrichments (`listingDisplayTitle` = IPFS `metadata.name` at listing). */
   components: Record<string, unknown>;
 
   /**

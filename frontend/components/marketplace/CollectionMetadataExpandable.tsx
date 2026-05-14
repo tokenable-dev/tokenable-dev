@@ -1,6 +1,18 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import {
+  COLLECTION_DETAILS_BG_CLASS,
+  COLLECTION_DETAILS_BORDER_ALL,
+  COLLECTION_DETAILS_BORDER_T,
+} from "@/components/marketplace/collectionOverviewChrome";
+import { toCardDisplayUppercase } from "@/lib/marketplace/collectionFullDetailsTitle";
+
+export interface CollectionDetailCard {
+  id: string;
+  label: string;
+  value: string;
+}
 
 const PRIMARY_KEYS = new Set([
   "cardName",
@@ -29,6 +41,26 @@ function truncateUrl(s: string, max = 48): string {
   return `${s.slice(0, max - 1)}…`;
 }
 
+function DetailCardsGrid({ cards }: { cards: CollectionDetailCard[] }) {
+  return (
+    <div className="grid grid-cols-1 gap-3 p-3 sm:grid-cols-2 sm:gap-3 sm:p-3">
+      {cards.map((card) => (
+        <article
+          key={card.id}
+          className="flex min-h-[92px] flex-col rounded-lg border border-zinc-800/70 bg-[#13151a] px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
+        >
+          <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-zinc-500">
+            {card.label}
+          </p>
+          <p className="mt-2 min-h-0 flex-1 text-[15px] font-bold uppercase leading-snug tracking-tight text-white [overflow-wrap:anywhere]">
+            {card.value}
+          </p>
+        </article>
+      ))}
+    </div>
+  );
+}
+
 export interface CollectionMetadataExpandableProps {
   metadataRows: { label: string; value: string }[];
   collectionKey: string;
@@ -40,19 +72,19 @@ export interface CollectionMetadataExpandableProps {
   marketSeriesMeta?: {
     categoryLabel: string | null;
   } | null;
-  /** Cardhedger catalog id when server matched a card */
   cardhedgerCardId?: string | null;
   /**
-   * When true (collection overview): hero shows ≤3 condensed lines + one \"More details\"
-   * toggle that expands full metadata rows and technical fields together.
+   * Slender hero rail: optional extra catalog cards only (no toggle).
+   * Omit redundant fields already shown in the page header.
    */
   compactHero?: boolean;
-  /** Row `label`s to exclude from the compact preview (e.g. Card / Set lifted to header). */
-  compactHeroOmitLabels?: string[];
+  detailCards?: CollectionDetailCard[];
+  /** When `compactHero`, whether the detail card grid is visible (hero Details button). */
+  detailsOpen?: boolean;
 }
 
 /**
- * Primary card fields — optional Above-the-fold compact mode + expandable pool details.
+ * Primary card fields — optional compact rail / full metadata + technical JSON expand.
  */
 export function CollectionMetadataExpandable({
   metadataRows,
@@ -65,10 +97,11 @@ export function CollectionMetadataExpandable({
   marketSeriesMeta,
   cardhedgerCardId,
   compactHero = false,
-  compactHeroOmitLabels,
+  detailCards,
+  detailsOpen: detailsOpenControlled,
 }: CollectionMetadataExpandableProps) {
-  const [moreOpen, setMoreOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const detailsOpen = Boolean(detailsOpenControlled);
 
   const extraComponentRows = useMemo(() => {
     const out: { k: string; v: string }[] = [];
@@ -93,41 +126,25 @@ export function CollectionMetadataExpandable({
     }
   }, [components]);
 
-  const condensedLines = useMemo(() => {
-    if (!metadataRows.length) return [];
-    const omit = new Set(compactHeroOmitLabels ?? []);
-    const out: string[] = [];
-    for (const row of metadataRows) {
-      if (omit.has(row.label)) continue;
-      const v = row.value?.trim();
-      if (!v) continue;
-      out.push(`${row.label}: ${v}`);
-      if (out.length >= 3) break;
-    }
-    return out;
-  }, [metadataRows, compactHeroOmitLabels]);
-
   const technicalInner = (omitTopDivider = false) => (
     <div
-      className={`space-y-3 px-3 pb-3 pt-3 text-[12px] leading-snug ${omitTopDivider ? "" : "border-t border-zinc-800/80"}`}
+      className={`space-y-3 px-3 pb-3 pt-3 text-[12px] leading-snug ${omitTopDivider ? "" : COLLECTION_DETAILS_BORDER_T}`}
     >
       <dl className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-        <div className="rounded-lg border border-gray-800/70 bg-black/20 px-2.5 py-2 sm:col-span-2">
+        <div className={`rounded-lg ${COLLECTION_DETAILS_BORDER_ALL} bg-black/20 px-2.5 py-2 sm:col-span-2`}>
           <dt className="text-[10px] font-medium uppercase tracking-wide text-gray-500">
             Collection key
           </dt>
           <dd className="mt-0.5 font-mono text-[11px] text-zinc-200 break-all">{collectionKey}</dd>
         </div>
         {displayLabel ? (
-          <div className="rounded-lg border border-gray-800/70 bg-black/20 px-2.5 py-2 sm:col-span-2">
-            <dt className="text-[10px] font-medium uppercase tracking-wide text-gray-500">
-              Label
-            </dt>
-            <dd className="mt-0.5 text-zinc-100 break-words">{displayLabel}</dd>
+          <div className={`rounded-lg ${COLLECTION_DETAILS_BORDER_ALL} bg-black/20 px-2.5 py-2 sm:col-span-2`}>
+            <dt className="text-[10px] font-medium uppercase tracking-wide text-gray-500">Label</dt>
+            <dd className="mt-0.5 text-zinc-100 break-words">{toCardDisplayUppercase(displayLabel)}</dd>
           </div>
         ) : null}
         {createdAt ? (
-          <div className="rounded-lg border border-gray-800/70 bg-black/20 px-2.5 py-2 sm:col-span-2">
+          <div className={`rounded-lg ${COLLECTION_DETAILS_BORDER_ALL} bg-black/20 px-2.5 py-2 sm:col-span-2`}>
             <dt className="text-[10px] font-medium uppercase tracking-wide text-gray-500">
               Registered
             </dt>
@@ -135,15 +152,17 @@ export function CollectionMetadataExpandable({
           </div>
         ) : null}
         {queryUsed?.trim() ? (
-          <div className="rounded-lg border border-gray-800/70 bg-black/20 px-2.5 py-2 sm:col-span-2">
+          <div className={`rounded-lg ${COLLECTION_DETAILS_BORDER_ALL} bg-black/20 px-2.5 py-2 sm:col-span-2`}>
             <dt className="text-[10px] font-medium uppercase tracking-wide text-gray-500">
               Match query
             </dt>
-            <dd className="mt-0.5 font-mono text-[11px] text-zinc-200 break-all">{queryUsed}</dd>
+            <dd className="mt-0.5 font-mono text-[11px] text-zinc-200 break-all">
+              {toCardDisplayUppercase(queryUsed)}
+            </dd>
           </div>
         ) : null}
         {cardhedgerCardId?.trim() ? (
-          <div className="rounded-lg border border-gray-800/70 bg-black/20 px-2.5 py-2 sm:col-span-2">
+          <div className={`rounded-lg ${COLLECTION_DETAILS_BORDER_ALL} bg-black/20 px-2.5 py-2 sm:col-span-2`}>
             <dt className="text-[10px] font-medium uppercase tracking-wide text-gray-500">
               Cardhedger card ID
             </dt>
@@ -153,7 +172,7 @@ export function CollectionMetadataExpandable({
           </div>
         ) : null}
         {marketSeriesMeta?.categoryLabel ? (
-          <div className="rounded-lg border border-gray-800/70 bg-black/20 px-2.5 py-2 sm:col-span-2">
+          <div className={`rounded-lg ${COLLECTION_DETAILS_BORDER_ALL} bg-black/20 px-2.5 py-2 sm:col-span-2`}>
             <dt className="text-[10px] font-medium uppercase tracking-wide text-gray-500">
               Category
             </dt>
@@ -161,7 +180,7 @@ export function CollectionMetadataExpandable({
           </div>
         ) : null}
         {representativeImageUrl?.trim() ? (
-          <div className="rounded-lg border border-gray-800/70 bg-black/20 px-2.5 py-2 sm:col-span-2">
+          <div className={`rounded-lg ${COLLECTION_DETAILS_BORDER_ALL} bg-black/20 px-2.5 py-2 sm:col-span-2`}>
             <dt className="text-[10px] font-medium uppercase tracking-wide text-gray-500">
               Cover URL
             </dt>
@@ -173,7 +192,7 @@ export function CollectionMetadataExpandable({
         {extraComponentRows.map(({ k, v }) => (
           <div
             key={k}
-            className="rounded-lg border border-gray-800/70 bg-black/20 px-2.5 py-2 sm:col-span-1"
+            className={`rounded-lg ${COLLECTION_DETAILS_BORDER_ALL} bg-black/20 px-2.5 py-2 sm:col-span-1`}
           >
             <dt className="text-[10px] font-medium uppercase tracking-wide text-gray-500">{k}</dt>
             <dd className="mt-0.5 text-zinc-100 break-words">{v}</dd>
@@ -181,7 +200,7 @@ export function CollectionMetadataExpandable({
         ))}
       </dl>
 
-      <details className="rounded-lg border border-zinc-800/80 bg-black/30 px-2 py-2">
+      <details className={`rounded-lg ${COLLECTION_DETAILS_BORDER_ALL} bg-black/30 px-2 py-2`}>
         <summary className="cursor-pointer text-[11px] font-medium text-zinc-400 select-none">
           Raw components (JSON)
         </summary>
@@ -192,52 +211,19 @@ export function CollectionMetadataExpandable({
     </div>
   );
 
-  const fullMetadataGrid = (
-    <dl className="w-full grid grid-cols-2 gap-2 px-3 pt-1 text-[13px]">
-      {metadataRows.map((row) => (
-        <div
-          key={row.label}
-          className="rounded-lg border border-gray-800/80 bg-black/25 px-2.5 py-2 col-span-2 sm:col-span-1"
-        >
-          <dt className="text-[10px] font-medium uppercase tracking-wide text-gray-500">{row.label}</dt>
-          <dd className="mt-0.5 text-gray-100 leading-snug break-words">{row.value}</dd>
-        </div>
-      ))}
-    </dl>
-  );
-
   if (compactHero) {
+    if (!detailCards?.length) return null;
     return (
-      <div className="w-full space-y-2">
-        {condensedLines.length > 0 ? (
-          <p className="text-[13px] leading-snug text-zinc-300 line-clamp-3 text-balance">
-            {condensedLines.join(" · ")}
-          </p>
-        ) : null}
-
-        <div className="rounded-xl border border-gray-800/85 bg-black/35 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] overflow-hidden">
-          <button
-            type="button"
-            onClick={() => setMoreOpen((o) => !o)}
-            className="flex w-full items-center justify-between gap-3 px-3 py-3 text-left text-sm font-semibold text-white transition-colors hover:bg-white/[0.04]"
-            aria-expanded={moreOpen}
-          >
-            <span>More details</span>
-            <span
-              className={`text-xs text-zinc-500 transition-transform duration-200 ${moreOpen ? "rotate-180" : ""}`}
-              aria-hidden
-            >
-              ▼
-            </span>
-          </button>
-
-          {moreOpen ? (
-            <div className="border-t border-gray-800/80 pb-3">
-              {metadataRows.length > 0 ? fullMetadataGrid : null}
-              {hasExpandable ? technicalInner(metadataRows.length === 0) : null}
-            </div>
-          ) : null}
-        </div>
+      <div
+        id="collection-hero-details-panel"
+        className={`scroll-mt-28 w-full min-w-0 transition-[opacity,transform] duration-200 ease-out ${
+          detailsOpen
+            ? `overflow-hidden rounded-xl ${COLLECTION_DETAILS_BORDER_ALL} bg-black shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]`
+            : "h-0 overflow-hidden border-0 p-0 opacity-0"
+        }`}
+        aria-hidden={!detailsOpen}
+      >
+        {detailsOpen ? <DetailCardsGrid cards={detailCards} /> : null}
       </div>
     );
   }
@@ -249,7 +235,7 @@ export function CollectionMetadataExpandable({
           {metadataRows.map((row) => (
             <div
               key={row.label}
-              className="rounded-lg border border-gray-800/80 bg-black/25 px-2.5 py-2 col-span-2 sm:col-span-1"
+              className={`rounded-lg ${COLLECTION_DETAILS_BORDER_ALL} bg-black/25 px-2.5 py-2 col-span-2 sm:col-span-1`}
             >
               <dt className="text-[10px] font-medium uppercase tracking-wide text-gray-500">{row.label}</dt>
               <dd className="mt-0.5 text-gray-100 leading-snug break-words">{row.value}</dd>
@@ -259,7 +245,7 @@ export function CollectionMetadataExpandable({
       ) : null}
 
       {hasExpandable ? (
-        <div className="rounded-xl border border-zinc-800/90 bg-zinc-950/60">
+        <div className={`rounded-xl ${COLLECTION_DETAILS_BORDER_ALL} bg-zinc-950/60`}>
           <button
             type="button"
             onClick={() => setExpanded((e) => !e)}

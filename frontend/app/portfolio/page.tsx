@@ -1497,7 +1497,7 @@ export default function PortfolioPage() {
                         <div className="pointer-events-none absolute right-0 top-full mt-1.5 w-56 rounded-lg border border-zinc-700/90 bg-[#0a0f16]/95 px-3 py-2 text-[11px] leading-snug text-zinc-200 opacity-0 shadow-xl transition-opacity duration-150 group-hover:opacity-100">
                           <p className="font-semibold text-zinc-100">Market Gap formula</p>
                           <p className="mt-1">
-                            Tokenable Listing ({r.listPriceUsd != null ? `$${r.listPriceUsd.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : "—"}) vs Market Price ({r.currentPrice != null ? `$${r.currentPrice.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : "—"})
+                            Tokenable Price ({r.listPriceUsd != null ? `$${r.listPriceUsd.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : "—"}) vs Market Price ({r.currentPrice != null ? `$${r.currentPrice.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : "—"})
                           </p>
                           <p className="mt-1 text-zinc-400">(Tokenable − eBay) / eBay</p>
                         </div>
@@ -1576,7 +1576,7 @@ export default function PortfolioPage() {
                         </dd>
                       </div>
                       <div className="flex justify-between gap-2">
-                        <dt className="text-gray-500">Tokenable Listing</dt>
+                        <dt className="text-gray-500">Tokenable Price</dt>
                         <dd className="text-right tabular-nums font-semibold text-emerald-300">
                           {r.listPriceUsd != null
                             ? `$${r.listPriceUsd.toLocaleString(undefined, {

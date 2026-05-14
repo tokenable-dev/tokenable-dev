@@ -496,7 +496,10 @@ export class CardhedgerAiInsightService {
 
     const q = this.marketData.buildCollectionQuery(col);
     const query =
-      q.cardhedgerSearchQuery || q.query || String(col.displayLabel ?? '').trim();
+      q.cardhedgerSearchQuery ||
+      q.listingDisplayTitle ||
+      q.query ||
+      String(col.displayLabel ?? '').trim();
     if (!query) {
       return {
         title: `${col.displayLabel} — AI Market Brief`,

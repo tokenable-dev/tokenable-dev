@@ -151,12 +151,7 @@ export default function LandingPage() {
 
           <TrendingCollectionsCarousel
             variant="landing"
-            className="landing-enter max-sm:!my-1 max-sm:w-full max-sm:flex-1 max-sm:[min-height:0] sm:mx-auto sm:mt-0"
-            outerStyle={
-              {
-                "--landing-enter-delay": "130ms",
-              } as CSSProperties
-            }
+            className="max-sm:!my-1 max-sm:w-full max-sm:flex-1 max-sm:[min-height:0] sm:mx-auto sm:mt-0"
           />
         </div>
 

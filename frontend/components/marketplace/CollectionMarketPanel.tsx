@@ -4,6 +4,7 @@ import type {
   CollectionMarketPreview,
   MarketPriceBand,
 } from "@/lib/core";
+import { COLLECTION_DETAILS_BORDER_ALL } from "@/components/marketplace/collectionOverviewChrome";
 
 function formatUsd(b: MarketPriceBand | null): string {
   if (!b) return "N/A";
@@ -48,7 +49,7 @@ function BandRow({
     meta.push(new Date(band.lastUpdated).toLocaleDateString("en-US"));
   }
   return (
-    <div className="rounded-lg border border-zinc-800/80 bg-black/30 px-2.5 py-2">
+    <div className={`rounded-lg ${COLLECTION_DETAILS_BORDER_ALL} bg-black/30 px-2.5 py-2`}>
       <dt className="text-[11px] font-medium text-zinc-500">{label}</dt>
       <dd className="mt-1 text-[15px] font-semibold tabular-nums text-zinc-100">
         {formatUsd(band)}
@@ -62,7 +63,7 @@ function BandRow({
 
 function NaPriceRow({ label }: { label: string }) {
   return (
-    <div className="rounded-lg border border-zinc-800/80 bg-black/30 px-2.5 py-2">
+    <div className={`rounded-lg ${COLLECTION_DETAILS_BORDER_ALL} bg-black/30 px-2.5 py-2`}>
       <dt className="text-[11px] font-medium text-zinc-500">{label}</dt>
       <dd className="mt-1 text-[15px] font-semibold tabular-nums text-zinc-400">N/A</dd>
     </div>
@@ -95,7 +96,7 @@ export function CollectionMarketPanel({
   if (error) {
     const tierHumanErr = (tierLabel ?? "PSA 10").trim() || "PSA 10";
     return (
-      <div className="w-full rounded-xl border border-zinc-800/80 bg-zinc-950/50 px-3 py-3">
+      <div className={`w-full rounded-xl ${COLLECTION_DETAILS_BORDER_ALL} bg-zinc-950/50 px-3 py-3`}>
         <dl className="space-y-2">
           <NaPriceRow label={`Market (${tierHumanErr})`} />
         </dl>
@@ -109,7 +110,7 @@ export function CollectionMarketPanel({
 
   if (!data.enabled) {
     return (
-      <div className="w-full rounded-xl border border-zinc-800/80 bg-zinc-950/50 px-3 py-3">
+      <div className={`w-full rounded-xl ${COLLECTION_DETAILS_BORDER_ALL} bg-zinc-950/50 px-3 py-3`}>
         <dl className="space-y-2">
           <NaPriceRow label={slabBandLabelFallback} />
         </dl>
@@ -118,7 +119,7 @@ export function CollectionMarketPanel({
   }
   if (!data.matched || !data.card) {
     return (
-      <div className="w-full rounded-xl border border-zinc-800/80 bg-zinc-950/50 px-3 py-3">
+      <div className={`w-full rounded-xl ${COLLECTION_DETAILS_BORDER_ALL} bg-zinc-950/50 px-3 py-3`}>
         <dl className="space-y-2">
           <NaPriceRow label={slabBandLabelFallback} />
         </dl>
@@ -147,10 +148,10 @@ export function CollectionMarketPanel({
           <img
             src={displayImageUrl}
             alt=""
-            className="h-16 w-[46px] shrink-0 rounded-md border border-zinc-700/80 object-cover"
+            className={`h-16 w-[46px] shrink-0 rounded-md ${COLLECTION_DETAILS_BORDER_ALL} object-cover`}
           />
         ) : (
-          <div className="h-16 w-[46px] shrink-0 rounded-md border border-zinc-800 bg-zinc-900/80" />
+          <div className={`h-16 w-[46px] shrink-0 rounded-md ${COLLECTION_DETAILS_BORDER_ALL} bg-zinc-900/80`} />
         )}
         <div className="min-w-0 flex-1">
           <p className="mt-0.5 text-[14px] font-semibold text-white leading-snug line-clamp-2">{c.name}</p>

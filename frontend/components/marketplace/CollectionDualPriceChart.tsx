@@ -4,16 +4,44 @@ import { useMemo, type ReactNode } from "react";
 import ReactECharts from "echarts-for-react";
 import type { EChartsOption, LineSeriesOption } from "echarts";
 import type { CollectionUsdPoint } from "@/lib/core";
-import { COLLECTION_CHART_SURFACE } from "@/components/marketplace/collectionOverviewChrome";
+import {
+  COLLECTION_CHART_SURFACE,
+  COLLECTION_DETAILS_BG_CLASS,
+  COLLECTION_DETAILS_BORDER_ALL,
+} from "@/components/marketplace/collectionOverviewChrome";
 
-const EXTERNAL_REF_STROKE = "#2EE6D0";
-const PLATFORM_STROKE = "#D946EF";
+const EXTERNAL_REF_STROKE = "rgba(138,33,170,1)";
+const PLATFORM_STROKE = "rgba(135,255,72,1)";
 const AXIS_LABEL = "rgba(255,255,255,0.72)";
 const AXIS_LINE = "rgba(255,255,255,0.16)";
 const SPLIT_LINE = "rgba(255,255,255,0.06)";
 
 const DAY = 86400;
 const HOUR = 3600;
+
+function niceScale(
+  rawMin: number,
+  rawMax: number,
+  targetTicks = 5,
+): { min: number; max: number; interval: number } {
+  const range = rawMax - rawMin;
+  if (range === 0 || !Number.isFinite(range)) return { min: 0, max: 1, interval: 0.25 };
+
+  const roughStep = range / Math.max(targetTicks - 1, 1);
+  const mag = Math.pow(10, Math.floor(Math.log10(roughStep)));
+  const norm = roughStep / mag;
+
+  let step: number;
+  if (norm <= 1) step = mag;
+  else if (norm <= 2) step = 2 * mag;
+  else if (norm <= 2.5) step = 2.5 * mag;
+  else if (norm <= 5) step = 5 * mag;
+  else step = 10 * mag;
+
+  const min = Math.max(0, Math.floor(rawMin / step) * step);
+  const max = Math.ceil(rawMax / step) * step;
+  return { min, max, interval: step };
+}
 
 function utcDayKey(tSec: number): string {
   const d = new Date(tSec * 1000);
@@ -213,10 +241,11 @@ export function CollectionDualPriceChart({
   collectionOverviewMat?: boolean;
 }) {
   const exchange = variant === "exchange";
+  const chartShellDefault = `rounded-2xl ${COLLECTION_DETAILS_BORDER_ALL} ${COLLECTION_DETAILS_BG_CLASS} shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]`;
   const exchangeChrome =
     exchange && collectionOverviewMat
       ? COLLECTION_CHART_SURFACE
-      : "rounded-2xl border border-white/[0.07] bg-[#030304] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]";
+      : chartShellDefault;
   const nowSec = Math.floor(Date.now() / 1000);
 
   const merged = useMemo(() => {
@@ -378,7 +407,7 @@ export function CollectionDualPriceChart({
       });
     }
     series.push({
-      name: "Tokenable price",
+      name: "Tokenable Price",
       type: "line",
       data: merged.platformSeries,
       showSymbol: merged.platformSeries.length <= 2,
@@ -440,24 +469,28 @@ export function CollectionDualPriceChart({
           },
         },
       },
-      yAxis: {
-        type: "value",
-        min: merged.vMin,
-        max: merged.vMax,
-        axisLine: { show: true, lineStyle: { color: AXIS_LINE } },
-        axisTick: { show: false },
-        splitLine: { show: true, lineStyle: { color: SPLIT_LINE } },
-        axisLabel: {
-          color: AXIS_LABEL,
-          fontSize: 11,
-          formatter: (value: number) =>
-            Math.abs(value) >= 1000
-              ? `$${Math.round(value).toLocaleString("en-US")}`
-              : value >= 10
-                ? `$${value.toFixed(0)}`
-                : `$${value.toFixed(2)}`,
-        },
-      },
+      yAxis: (() => {
+        const { min, max, interval } = niceScale(merged.vMin, merged.vMax, 5);
+        return {
+          type: "value",
+          min,
+          max,
+          interval,
+          axisLine: { show: true, lineStyle: { color: AXIS_LINE } },
+          axisTick: { show: false },
+          splitLine: { show: true, lineStyle: { color: SPLIT_LINE } },
+          axisLabel: {
+            color: AXIS_LABEL,
+            fontSize: 11,
+            formatter: (value: number) => {
+              if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`;
+              if (value >= 1_000) return `$${(value / 1_000).toFixed(value % 1_000 === 0 ? 0 : 1)}K`;
+              if (value >= 10) return `$${Math.round(value)}`;
+              return `$${value.toFixed(value === 0 ? 0 : 2)}`;
+            },
+          },
+        };
+      })(),
       tooltip: {
         trigger: "axis",
         axisPointer: {
@@ -477,7 +510,7 @@ export function CollectionDualPriceChart({
               | { value?: [number, number] }
               | undefined;
 
-          const p = pick("Tokenable price")?.value?.[1] ?? null;
+          const p = pick("Tokenable Price")?.value?.[1] ?? null;
           const e =
             pick(externalSeriesShortLabel)?.value?.[1] ??
             pick(externalRefLineTag)?.value?.[1] ??
@@ -486,7 +519,7 @@ export function CollectionDualPriceChart({
           const when = t != null ? formatHoverWhen(t) : "";
           return [
             `<div style="color:#a1a1aa;font-size:10px;margin-bottom:6px">${when}</div>`,
-            `<div style="display:flex;justify-content:space-between;gap:16px"><span style="color:#e4e4e7">Tokenable price</span><span style="color:${PLATFORM_STROKE};font-weight:600">${formatTooltipUsd(
+            `<div style="display:flex;justify-content:space-between;gap:16px"><span style="color:#e4e4e7">Tokenable Price</span><span style="color:${PLATFORM_STROKE};font-weight:600">${formatTooltipUsd(
               p as number | null,
             )}</span></div>`,
             `<div style="display:flex;justify-content:space-between;gap:16px"><span style="color:#71717a">${externalSeriesShortLabel}</span><span style="color:${EXTERNAL_REF_STROKE};font-weight:600">${formatTooltipUsd(
@@ -513,7 +546,7 @@ export function CollectionDualPriceChart({
         className={
           exchange
             ? `${exchangeChrome} flex min-h-[120px] flex-col items-center justify-center gap-3 px-4 max-xl:min-h-[min(140px,20svh)] xl:h-full xl:min-h-0`
-            : "flex min-h-[260px] flex-col items-center justify-center gap-3 rounded-2xl border border-white/[0.07] bg-[#030304] px-4"
+            : `${chartShellDefault} flex min-h-[260px] flex-col items-center justify-center gap-3 px-4`
         }
         role="status"
         aria-live="polite"
@@ -534,7 +567,7 @@ export function CollectionDualPriceChart({
         className={
           exchange
             ? `${exchangeChrome} flex min-h-[110px] flex-col items-center justify-center px-4 py-6 text-center text-sm text-rose-200/90 max-xl:min-h-[min(128px,18svh)] xl:h-full xl:min-h-0`
-            : "rounded-2xl border border-rose-500/20 bg-[#030304] px-4 py-6 text-center text-sm text-rose-200/90"
+            : "rounded-2xl border border-rose-500/20 bg-[rgba(11,13,16,1)] px-4 py-6 text-center text-sm text-rose-200/90"
         }
       >
         {errorMessage}
@@ -548,7 +581,7 @@ export function CollectionDualPriceChart({
         className={
           exchange
             ? `${exchangeChrome} flex min-h-[110px] flex-col items-center justify-center px-4 py-8 text-center text-sm text-zinc-600 max-xl:min-h-[min(128px,18svh)] xl:h-full xl:min-h-0`
-            : "rounded-2xl border border-white/[0.07] bg-[#030304] px-4 py-8 text-center text-sm text-zinc-600"
+            : `${chartShellDefault} flex min-h-[110px] flex-col items-center justify-center px-4 py-8 text-center text-sm text-zinc-600`
         }
       >
         {emptyStateMessage ??
@@ -562,34 +595,32 @@ export function CollectionDualPriceChart({
       className={
         exchange
           ? `${exchangeChrome} flex min-h-[134px] flex-col overflow-hidden text-white max-xl:min-h-[min(154px,21svh)] xl:h-full xl:min-h-0`
-          : "rounded-2xl border border-white/[0.07] bg-[#030304] text-white"
+          : `${chartShellDefault} text-white`
       }
     >
-      <div className="flex shrink-0 flex-col gap-2 px-3 pt-3 pb-1 sm:px-4 sm:pt-3.5 lg:flex-row lg:items-start lg:justify-between lg:gap-3">
-        <div className="flex min-w-0 flex-1 flex-col gap-2">
-          <h3 className="text-[15px] font-semibold tracking-tight text-white">{chartTitle}</h3>
-          {controls}
-          {footnote}
-        </div>
-        <div className="grid w-full max-w-full grid-cols-[12px_minmax(0,1fr)] items-center gap-x-2 gap-y-2 text-[10px] font-medium leading-tight text-white/90 sm:w-auto sm:grid-cols-[14px_auto] sm:gap-y-2.5 sm:text-[11px] lg:shrink-0">
-          <span className="inline-block h-[10px] w-[10px] rounded-full" style={{ background: EXTERNAL_REF_STROKE }} aria-hidden />
-          <span
-            className={
-              merged.hasExtSignal
-                ? "min-w-0 truncate"
-                : "min-w-0 truncate text-white/35"
-            }
-          >
-            {externalLegendLabel}
-          </span>
-          <span className="inline-block h-[10px] w-[10px] rounded-full" style={{ background: PLATFORM_STROKE }} aria-hidden />
-          <span className="min-w-0 truncate text-white/90">
-            Tokenable price
-          </span>
+      {/* Top bar: range controls (left) + legend (right) — single row */}
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-1.5 px-3 pt-2.5 pb-1.5 sm:px-4">
+        {/* Range buttons */}
+        {controls ? <div className="flex items-center">{controls}</div> : null}
+
+        {/* Legend */}
+        <div className="flex items-center gap-3 text-[10px] font-medium sm:text-[11px]">
+          <div className="flex items-center gap-1.5">
+            <span className="inline-block h-[9px] w-[9px] shrink-0 rounded-full" style={{ background: EXTERNAL_REF_STROKE }} aria-hidden />
+            <span className={merged.hasExtSignal ? "text-white/90" : "text-white/35"}>
+              Live Market Price
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="inline-block h-[9px] w-[9px] shrink-0 rounded-full" style={{ background: PLATFORM_STROKE }} aria-hidden />
+            <span className="text-white/90">Tokenable Price</span>
+          </div>
+          {footnote ? <div className="text-zinc-500">{footnote}</div> : null}
         </div>
       </div>
 
-      <div className={exchange ? "flex min-h-0 flex-1 flex-col px-2 pb-1.5 pt-0 sm:px-3 sm:pb-2.5" : "px-2 pb-3 pt-0 sm:px-4"}>
+      {/* Chart */}
+      <div className={exchange ? "flex min-h-0 flex-1 flex-col px-2 pb-1.5 pt-0 sm:px-3 sm:pb-2" : "px-2 pb-3 pt-0 sm:px-4"}>
         <ReactECharts
           option={chartOption}
           notMerge

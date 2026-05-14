@@ -2,6 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import {
+  COLLECTION_DETAILS_BG_CLASS,
+  COLLECTION_DETAILS_BORDER_ALL,
+} from "@/components/marketplace/collectionOverviewChrome";
 import { useResolvedMediaUrl } from "@/hooks/useResolvedMediaUrl";
 
 function CollectionCoverLightbox({
@@ -49,7 +53,7 @@ function CollectionCoverLightbox({
         onClick={onClose}
       />
       <div className="relative z-10 flex max-h-[min(92vh,900px)] w-full max-w-[min(96vw,560px)] flex-col gap-3">
-        <div className="relative overflow-hidden rounded-2xl border border-white/[0.12] bg-[#0a0d12] shadow-[0_28px_80px_-24px_rgba(0,0,0,0.85)] ring-1 ring-white/[0.06]">
+        <div className={`relative overflow-hidden rounded-2xl ${COLLECTION_DETAILS_BORDER_ALL} bg-[rgba(11,13,16,1)] shadow-[0_28px_80px_-24px_rgba(0,0,0,0.85)] ring-1 ring-[rgba(11,13,16,1)]`}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={resolvedUrl}
@@ -62,7 +66,7 @@ function CollectionCoverLightbox({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-zinc-600/90 bg-zinc-900/90 px-4 py-2 text-sm font-medium text-zinc-200 transition-colors hover:border-zinc-500 hover:bg-zinc-800 hover:text-white"
+            className={`rounded-lg ${COLLECTION_DETAILS_BORDER_ALL} bg-zinc-900/90 px-4 py-2 text-sm font-medium text-zinc-200 transition-colors hover:border-zinc-500 hover:bg-zinc-800 hover:text-white`}
           >
             Close
           </button>
@@ -126,7 +130,7 @@ export function CollectionCoverFrame({
   /** featured: 목록→상세 중간 / hero: 컬렉션 페이지 중앙 대형 */
   const featuredOuter = "w-full max-w-[165px] sm:max-w-[180px] aspect-[3/4]";
   const heroOuter =
-    "w-full max-w-[min(100%,340px)] sm:max-w-[min(100%,376px)] lg:max-w-[min(400px,36vw)] xl:max-w-[min(420px,32vw)] aspect-[3/4]";
+    "w-[460px] max-w-full h-[640px] max-h-[min(640px,90svh)]";
 
   const heroGlow =
     variant === "hero"
@@ -135,19 +139,36 @@ export function CollectionCoverFrame({
 
   const heroInteractive = variant === "hero";
 
-  return (
-    <div
-      className={`relative ${radiusOuter} ${outerPad} bg-gradient-to-br from-white/[0.08] via-gray-800/40 to-gray-950 ${heroGlow} ${
-        variant === "hero" ? heroOuter : variant === "featured" ? featuredOuter : ""
-      } ${className}`}
-    >
-      <div
-        className={`${radiusInner} bg-gradient-to-b from-gray-800/90 via-[#0c1018] to-[#06080d] ${innerPad} shadow-[inset_0_1px_0_rgba(255,255,255,0.07),inset_0_-1px_0_rgba(0,0,0,0.4)] flex flex-col ${
+  const heroFlat =
+    variant === "hero"
+      ? {
+          outer: `${outerPad} ${radiusOuter} ${COLLECTION_DETAILS_BG_CLASS} shadow-[0_0_0_1px_rgba(11,13,16,1)]`,
+          inner: `${radiusInner} ${COLLECTION_DETAILS_BG_CLASS} ${innerPad} flex flex-col`,
+        }
+      : null;
+
+  const outerClass =
+    variant === "hero" && heroFlat
+      ? `relative ${heroFlat.outer} ${heroOuter} ${className}`
+      : `relative ${radiusOuter} ${outerPad} bg-gradient-to-br from-white/[0.08] via-gray-800/40 to-gray-950 ${heroGlow} ${
+          variant === "hero" ? heroOuter : variant === "featured" ? featuredOuter : ""
+        } ${className}`;
+
+  const innerClass =
+    variant === "hero" && heroFlat
+      ? `${heroFlat.inner} ${isLarge ? "h-full min-h-0" : ""}`
+      : `${radiusInner} bg-gradient-to-b from-gray-800/90 via-[#0c1018] to-[#06080d] ${innerPad} shadow-[inset_0_1px_0_rgba(255,255,255,0.07),inset_0_-1px_0_rgba(0,0,0,0.4)] flex flex-col ${
           isLarge ? "h-full min-h-0" : ""
-        }`}
-      >
+        }`;
+
+  const imgShellBg =
+    variant === "hero" ? COLLECTION_DETAILS_BG_CLASS : "bg-[#030508]";
+
+  return (
+    <div className={outerClass}>
+      <div className={innerClass}>
         <div
-          className={`relative overflow-hidden bg-[#030508] ring-1 ring-white/[0.07] ${radiusImg} ${
+          className={`relative overflow-hidden ${imgShellBg} ring-1 ring-[rgba(11,13,16,1)] ${radiusImg} ${
             variant === "compact"
               ? "aspect-[3/4] w-full"
               : "min-h-0 w-full flex-1"
@@ -172,17 +193,17 @@ export function CollectionCoverFrame({
                     title="Click to view larger"
                   />
                   <span
-                    className="pointer-events-none absolute bottom-2 left-1/2 z-[3] hidden max-w-[90%] -translate-x-1/2 truncate rounded-md bg-black/58 px-2.5 py-1 text-center text-[10px] font-medium text-zinc-100 shadow-md ring-1 ring-white/10 transition-opacity duration-150 sm:inline sm:opacity-0 sm:group-hover/img:opacity-100"
+                    className="pointer-events-none absolute bottom-2 left-1/2 z-[3] hidden max-w-[90%] -translate-x-1/2 truncate rounded-md bg-black/58 px-2.5 py-1 text-center text-[10px] font-medium text-zinc-100 shadow-md ring-1 ring-[rgba(11,13,16,1)] transition-opacity duration-150 sm:inline sm:opacity-0 sm:group-hover/img:opacity-100"
                   >
                     Click to enlarge
                   </span>
                   <span
-                    className="pointer-events-none absolute bottom-2 left-1/2 z-[3] inline max-w-[90%] -translate-x-1/2 truncate rounded-md bg-black/58 px-2 py-0.5 text-center text-[9px] font-medium text-zinc-100/95 shadow-sm ring-1 ring-white/10 sm:hidden"
+                    className="pointer-events-none absolute bottom-2 left-1/2 z-[3] inline max-w-[90%] -translate-x-1/2 truncate rounded-md bg-black/58 px-2 py-0.5 text-center text-[9px] font-medium text-zinc-100/95 shadow-sm ring-1 ring-[rgba(11,13,16,1)] sm:hidden"
                   >
                     Tap to enlarge
                   </span>
                   <div
-                    className="pointer-events-none absolute bottom-1.5 right-1.5 z-[6] flex h-7 w-7 items-center justify-center rounded-md border border-white/10 bg-black/45 text-white/70 shadow-sm backdrop-blur-sm"
+                    className={`pointer-events-none absolute bottom-1.5 right-1.5 z-[6] flex h-7 w-7 items-center justify-center rounded-md ${COLLECTION_DETAILS_BORDER_ALL} bg-black/45 text-white/70 shadow-sm backdrop-blur-sm`}
                     aria-hidden
                     title="Click or tap for larger view"
                   >
@@ -206,10 +227,12 @@ export function CollectionCoverFrame({
           ) : (
             <div className="absolute inset-0 bg-gray-900/80 animate-pulse" aria-hidden />
           )}
-          <div
-            className="pointer-events-none absolute inset-x-0 top-0 h-2/5 bg-gradient-to-b from-white/[0.045] to-transparent"
-            aria-hidden
-          />
+          {variant !== "hero" ? (
+            <div
+              className="pointer-events-none absolute inset-x-0 top-0 h-2/5 bg-gradient-to-b from-white/[0.045] to-transparent"
+              aria-hidden
+            />
+          ) : null}
         </div>
       </div>
       <CollectionCoverLightbox

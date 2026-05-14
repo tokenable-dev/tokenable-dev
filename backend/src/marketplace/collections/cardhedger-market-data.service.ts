@@ -159,6 +159,8 @@ export class CardhedgerMarketDataService {
     cardhedgerCardId: string | null;
     cardhedgerSearchQuery: string | null;
     psaSpecId: string | null;
+    /** IPFS `metadata.name` from first listing — aligns Cardhedger discovery with in-app RWA titles. */
+    listingDisplayTitle: string | null;
   } {
     const comp = col?.components ?? {};
     const cardName = String(comp.cardName ?? '').trim();
@@ -183,6 +185,11 @@ export class CardhedgerMarketDataService {
         : typeof comp.psaSpecId === 'number' && Number.isFinite(comp.psaSpecId)
           ? String(Math.floor(comp.psaSpecId))
           : null;
+    const listingRaw = comp['listingDisplayTitle'];
+    const listingDisplayTitle =
+      typeof listingRaw === 'string' && listingRaw.trim()
+        ? listingRaw.trim().replace(/\s+/g, ' ')
+        : null;
     return {
       query,
       cardName,
@@ -191,6 +198,7 @@ export class CardhedgerMarketDataService {
       cardhedgerCardId,
       cardhedgerSearchQuery,
       psaSpecId,
+      listingDisplayTitle,
     };
   }
 
@@ -201,6 +209,22 @@ export class CardhedgerMarketDataService {
     return cards.filter(
       (x): x is CardhedgerCardRow => typeof x === 'object' && x != null,
     );
+  }
+
+  /** Region / print language from Cardhedger row (avoid hardcoding `US` for every card). */
+  private pickCardhedgerMarketField(row: CardhedgerCardRow): string | null {
+    for (const key of [
+      'market',
+      'language',
+      'print_language',
+      'country',
+      'region',
+      'locale',
+    ] as const) {
+      const v = row[key];
+      if (typeof v === 'string' && v.trim()) return v.trim();
+    }
+    return null;
   }
 
   /**
@@ -1191,7 +1215,7 @@ export class CardhedgerMarketDataService {
             : null,
         tcgplayerId: null,
         currency: 'USD',
-        market: 'US',
+        market: this.pickCardhedgerMarketField(merged),
         lastUpdated: headlineIso,
         topPrice: psa10,
         totalSaleCount:
@@ -1278,7 +1302,12 @@ export class CardhedgerMarketDataService {
   ): Promise<ResolvedCard> {
     const q = this.buildCollectionQuery(col);
     const displayLabel = String(col?.displayLabel ?? '').trim();
-    const query = q.cardhedgerSearchQuery || displayLabel || q.query;
+    const query = [
+      q.cardhedgerSearchQuery?.trim(),
+      q.listingDisplayTitle?.trim(),
+      displayLabel,
+      q.query?.trim(),
+    ].find((s) => typeof s === 'string' && s.length > 0) ?? '';
     if (!query) return { query: '', row: null };
 
     if (q.cardhedgerCardId) {
@@ -1341,6 +1370,7 @@ export class CardhedgerMarketDataService {
 
     const searchCandidatesBase = [
       q.cardhedgerSearchQuery,
+      q.listingDisplayTitle,
       displayLabel,
       q.query,
       [q.cardNumber, q.cardSet].filter(Boolean).join(' ').trim(),
@@ -1349,6 +1379,7 @@ export class CardhedgerMarketDataService {
     const searchCandidatesOrdered = q.cardNumber
       ? [
           q.cardhedgerSearchQuery,
+          q.listingDisplayTitle,
           q.query,
           [q.cardNumber, q.cardSet].filter(Boolean).join(' ').trim(),
           q.cardNumber,

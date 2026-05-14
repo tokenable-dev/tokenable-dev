@@ -91,6 +91,19 @@ export class CollectionService implements OnModuleInit {
     return { cardId, searchQuery, psaSpecId };
   }
 
+  /**
+   * NFT `name` at listing time — matches the per-RWA title in the collection grid
+   * (`metadata.name`). Stored on `components.listingDisplayTitle` for hero copy + Cardhedger search.
+   */
+  private extractListingDisplayTitleFromMeta(
+    meta: Record<string, unknown>,
+  ): string | null {
+    const n = meta.name;
+    if (typeof n !== 'string') return null;
+    const t = n.trim().replace(/\s+/g, ' ');
+    return t.length > 0 ? t : null;
+  }
+
   async onModuleInit(): Promise<void> {
     const v = this.config.get<string>('MARKETPLACE_PIPELINE_DIAG');
     if (v === '1' || v === 'true') {
@@ -271,6 +284,10 @@ export class CollectionService implements OnModuleInit {
     const compRecord: Record<string, unknown> = {
       ...(components as unknown as Record<string, unknown>),
     };
+    const listingTitle = this.extractListingDisplayTitleFromMeta(meta);
+    if (listingTitle) {
+      compRecord.listingDisplayTitle = listingTitle;
+    }
     if (ch.cardId) {
       compRecord.cardhedgerCardId = ch.cardId;
       if (ch.searchQuery) compRecord.cardhedgerSearchQuery = ch.searchQuery;
@@ -306,6 +323,7 @@ export class CollectionService implements OnModuleInit {
         await this.persistCoverFromMetaIfMissing(collectionKey, meta);
         await this.mergePsaPopulationFromMetaIfMissing(collectionKey, meta);
         await this.mergeCardhedgerCardIdFromMetaIfMissing(collectionKey, meta);
+        await this.mergeListingDisplayTitleFromMetaIfMissing(collectionKey, meta);
         await this.mergeTrendingSlabMetaFromMetaIfMissing(collectionKey, meta);
       } else {
         throw e;
@@ -706,6 +724,68 @@ export class CollectionService implements OnModuleInit {
         } as QueryDeepPartialEntity<Record<string, unknown>>,
       },
     );
+  }
+
+  /** Duplicate-key race: fill `listingDisplayTitle` when the row was created by another listing first. */
+  private async mergeListingDisplayTitleFromMetaIfMissing(
+    collectionKey: string,
+    meta: Record<string, unknown>,
+  ): Promise<void> {
+    const key = collectionKey.toLowerCase();
+    const dbRow = await this.collectionRepo.findOne({ where: { collectionKey: key } });
+    if (!dbRow) return;
+    const comp = dbRow.components as Record<string, unknown>;
+    const existing =
+      typeof comp.listingDisplayTitle === 'string' ? comp.listingDisplayTitle.trim() : '';
+    if (existing.length > 0) return;
+    const t = this.extractListingDisplayTitleFromMeta(meta);
+    if (!t) return;
+    await this.collectionRepo.update(
+      { collectionKey: key },
+      {
+        components: {
+          ...comp,
+          listingDisplayTitle: t,
+        } as QueryDeepPartialEntity<Record<string, unknown>>,
+      },
+    );
+  }
+
+  /**
+   * Legacy rows: backfill `components.listingDisplayTitle` from the first active ask's IPFS `name`
+   * when missing (aligns collection detail hero with the in-grid RWA title).
+   */
+  async ensureListingDisplayTitleFromListings(collectionKey: string): Promise<void> {
+    const k = collectionKey.toLowerCase();
+    const row = await this.collectionRepo.findOne({ where: { collectionKey: k } });
+    if (!row) return;
+    const comp = row.components as Record<string, unknown>;
+    const existing =
+      typeof comp.listingDisplayTitle === 'string' ? comp.listingDisplayTitle.trim() : '';
+    if (existing.length > 0) return;
+
+    const asks = await this.activeListingsForCollection(k);
+    for (const o of asks) {
+      if (!o.tokenId || String(o.tokenId).trim() === '') continue;
+      try {
+        const uri = await this.blockchain.getRwaTokenURI(Number(o.tokenId));
+        const meta = await this.ipfsResolver.fetchMetadataJson(uri);
+        const t = this.extractListingDisplayTitleFromMeta(meta);
+        if (!t) continue;
+        await this.collectionRepo.update(
+          { collectionKey: k },
+          {
+            components: {
+              ...comp,
+              listingDisplayTitle: t,
+            } as QueryDeepPartialEntity<Record<string, unknown>>,
+          },
+        );
+        return;
+      } catch {
+        /* try next listing */
+      }
+    }
   }
 
   async activeListingsForCollection(collectionKey: string): Promise<Order[]> {

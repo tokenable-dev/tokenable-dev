@@ -10,6 +10,7 @@ import {
   TOKENABLE_RWA_ADDRESS,
   TOKENABLE_RWA_READ_ABI,
 } from "@/constants/contracts";
+import { toCardDisplayUppercase } from "@/lib/marketplace/collectionFullDetailsTitle";
 
 function formatTokenIdShort(id: number): string {
   if (!Number.isFinite(id)) return "—";
@@ -87,7 +88,8 @@ export function CollectionRwaCard({
 
   const imageUrl = metaBundle?.imageUrl ?? null;
   const meta = metaBundle?.metadata ?? null;
-  const name = meta?.name ?? `Asset #${tokenId}`;
+  const rawName = meta?.name ?? `Asset #${tokenId}`;
+  const name = toCardDisplayUppercase(rawName);
   const certLabel = certNumberFromMetadata(meta);
   const sellerAddr = listing
     ? (listing.offerer || listing.parameters?.offerer)
@@ -121,7 +123,9 @@ export function CollectionRwaCard({
         )}
         <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent pt-10 pb-2 px-3">
           <p className="text-[10px] font-mono text-gray-400">{formatTokenIdShort(tokenId)}</p>
-          <p className="text-sm font-semibold text-white line-clamp-2 leading-snug">{name}</p>
+          <p className="text-sm font-semibold uppercase text-white line-clamp-2 leading-snug" title={name}>
+            {name}
+          </p>
         </div>
       </Link>
 
@@ -154,7 +158,7 @@ export function CollectionRwaCard({
               className="min-w-0 truncate text-right tabular-nums text-zinc-200"
               title={certLabel ?? ""}
             >
-              {certLabel ?? "—"}
+              {certLabel ? toCardDisplayUppercase(certLabel) : "—"}
             </dd>
           </div>
         </dl>

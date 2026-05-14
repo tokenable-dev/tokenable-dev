@@ -21,6 +21,12 @@ import {
   USDC_ABI,
 } from "@/constants/contracts";
 import {
+  COLLECTION_DETAILS_BG_CLASS,
+  COLLECTION_DETAILS_BORDER_ALL,
+  COLLECTION_DETAILS_BORDER_B,
+  COLLECTION_DETAILS_BORDER_T,
+} from "@/components/marketplace/collectionOverviewChrome";
+import {
   createOrder,
   getMerkleEligibleTokenIds,
   postRwaMetadataBatch,
@@ -648,21 +654,21 @@ export function CollectionCriteriaBidPanel({
       className={
         embedded
           ? "min-w-0 overflow-x-hidden overflow-y-visible"
-          : "rounded-2xl border border-gray-800/90 bg-[#0b0e11] overflow-hidden shadow-[0_12px_32px_-16px_rgba(0,0,0,0.55)]"
+          : `rounded-2xl ${COLLECTION_DETAILS_BORDER_ALL} ${COLLECTION_DETAILS_BG_CLASS} overflow-hidden shadow-[0_12px_32px_-16px_rgba(0,0,0,0.55)]`
       }
     >
       {embedded ? (
-        <div className="flex items-center justify-between gap-2 border-b border-zinc-800/80 pb-2 pt-0.5">
+        <div className={`flex items-center justify-between gap-2 pb-2 pt-0.5 ${COLLECTION_DETAILS_BORDER_B}`}>
           <h2 className="text-xs font-semibold tracking-tight text-white">Buy</h2>
           <span
-            className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded border border-zinc-800/80 text-[9px] font-semibold leading-none text-zinc-500"
+            className={`inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded ${COLLECTION_DETAILS_BORDER_ALL} text-[9px] font-semibold leading-none text-zinc-500`}
             title={buyHelpTitle}
           >
             i
           </span>
         </div>
       ) : (
-        <div className="border-b border-gray-800/80 px-4 pb-3 pt-4">
+        <div className={`px-4 pb-3 pt-4 ${COLLECTION_DETAILS_BORDER_B}`}>
           <h2 className="text-lg font-bold tracking-tight text-white">Buy in this collection</h2>
           <p className="mt-0.5 text-[11px] leading-snug text-gray-500">
             One price, one button: at or above the <span className="text-gray-400">best ask</span> you
@@ -728,8 +734,8 @@ export function CollectionCriteriaBidPanel({
           <div
             className={
               embedded
-                ? "flex overflow-hidden rounded-md border border-zinc-700/90 bg-zinc-900/80 focus-within:border-zinc-500"
-                : "flex rounded-md border border-gray-800 bg-black/50 overflow-hidden focus-within:border-gray-700"
+                ? `flex overflow-hidden rounded-md ${COLLECTION_DETAILS_BORDER_ALL} bg-zinc-900/80 focus-within:border-zinc-500`
+                : `flex rounded-md ${COLLECTION_DETAILS_BORDER_ALL} bg-black/50 overflow-hidden focus-within:border-gray-700`
             }
           >
             <input
@@ -747,10 +753,10 @@ export function CollectionCriteriaBidPanel({
               }`}
             />
             <span
-              className={`shrink-0 font-semibold border-l font-mono tabular-nums ${
+              className={`shrink-0 font-semibold border-l border-[rgba(11,13,16,1)] font-mono tabular-nums ${
                 embedded
-                  ? "border-zinc-700/90 bg-zinc-900/60 px-2 py-1.5 text-[10px] text-zinc-500"
-                  : "text-gray-500 border-gray-800/90 bg-black/30 px-3 py-2.5 text-[11px]"
+                  ? "bg-zinc-900/60 px-2 py-1.5 text-[10px] text-zinc-500"
+                  : "text-gray-500 bg-black/30 px-3 py-2.5 text-[11px]"
               }`}
             >
               USDC
@@ -874,7 +880,7 @@ export function CollectionCriteriaBidPanel({
         )}
 
         {!embedded && (
-          <div className="pt-2 border-t border-gray-800/80">
+          <div className={`pt-2 ${COLLECTION_DETAILS_BORDER_T}`}>
             <p className="text-[11px] text-gray-500 mb-2">
               Selling is per token: list a specific RWA from your wallet.
             </p>
@@ -908,7 +914,7 @@ export function CollectionCriteriaBidPanel({
             className="absolute inset-0 bg-black/75 backdrop-blur-sm"
             onClick={() => setShowAskChooserModal(false)}
           />
-          <div className="relative z-[131] w-full max-w-3xl rounded-2xl border border-zinc-700/90 bg-zinc-950 p-4 sm:p-5">
+          <div className={`relative z-[131] w-full max-w-3xl rounded-2xl ${COLLECTION_DETAILS_BORDER_ALL} bg-zinc-950 p-4 sm:p-5`}>
             <div className="mb-3 flex items-start justify-between gap-3">
               <div>
                 <h3 className="text-base font-bold text-white sm:text-lg">Choose card to buy</h3>
@@ -935,13 +941,13 @@ export function CollectionCriteriaBidPanel({
                     key={o.orderHash}
                     type="button"
                     onClick={() => setSelectedFloorAskHash(o.orderHash)}
-                    className={`rounded-xl border p-2 text-left transition-colors ${
+                    className={`rounded-xl p-2 text-left transition-colors ${
                       selected
-                        ? "border-mint/45 bg-mint/[0.10]"
-                        : "border-zinc-700/70 bg-zinc-900/60 hover:border-zinc-500/80"
+                        ? "border border-mint/45 bg-mint/[0.10]"
+                        : `${COLLECTION_DETAILS_BORDER_ALL} bg-zinc-900/60 hover:border-zinc-500/80`
                     }`}
                   >
-                    <div className="aspect-square overflow-hidden rounded-lg border border-zinc-800/80 bg-zinc-900">
+                    <div className={`aspect-square overflow-hidden rounded-lg ${COLLECTION_DETAILS_BORDER_ALL} bg-zinc-900`}>
                       {meta?.imageUrl ? (
                         <img
                           src={meta.imageUrl}
@@ -970,7 +976,7 @@ export function CollectionCriteriaBidPanel({
               <button
                 type="button"
                 onClick={() => setShowAskChooserModal(false)}
-                className="rounded-md border border-zinc-700/90 bg-zinc-900/70 px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-zinc-800"
+                className={`rounded-md ${COLLECTION_DETAILS_BORDER_ALL} bg-zinc-900/70 px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-zinc-800`}
               >
                 Cancel
               </button>
