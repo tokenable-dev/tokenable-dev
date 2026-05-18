@@ -7,6 +7,7 @@ import { MarketplaceModule } from './marketplace/marketplace.module';
 import { CardhedgerModule } from './cardhedger/cardhedger.module';
 import { RwaModule } from './rwa/rwa.module';
 import { PsaModule } from './psa/psa.module';
+import { HealthModule } from './health/health.module';
 import { Order } from './marketplace/entities/order.entity';
 import { MarketplaceCollection } from './marketplace/entities/marketplace-collection.entity';
 import { User } from './user/entities/user.entity';
@@ -14,6 +15,8 @@ import { User } from './user/entities/user.entity';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+
+    HealthModule,
 
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],

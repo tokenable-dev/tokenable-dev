@@ -6,7 +6,8 @@
 #   NEXT_PUBLIC_ALCHEMY_RPC_URL         (필수, Alchemy Sepolia)
 #   NEXT_PUBLIC_PLATFORM_FEE_RECIPIENT  (선택, 빈 값이면 수수료 미적용)
 #   NEXT_PUBLIC_PLATFORM_FEE_BPS        (선택, 기본 0)
-#   NEXT_PUBLIC_API_URL                 (선택; 비우면 브라우저는 same-origin /api 사용)
+#   NEXT_PUBLIC_API_URL - 비우면 브라우저는 same-origin /api (Nginx→Nest 권장)
+#   CI에서 프론트 이미지 빌드 시 API_PROXY_TARGET=http://backend:4000 고정 (레포 deploy.yml)
 #   ECR_REGISTRY, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
 #   DEV_EC2_HOST, DEV_EC2_SSH_KEY (develop 배포)
 #   PROD_EC2_HOST, PROD_EC2_SSH_KEY (main 배포)
@@ -79,6 +80,7 @@ jobs:
             --build-arg NEXT_PUBLIC_ALCHEMY_RPC_URL="$RPC" \
             --build-arg NEXT_PUBLIC_PLATFORM_FEE_RECIPIENT="$FEE_RCPT" \
             --build-arg NEXT_PUBLIC_PLATFORM_FEE_BPS="$FEE_BPS" \
+            --build-arg API_PROXY_TARGET=http://backend:4000 \
             -t ${{ env.ECR_REGISTRY }}/tokenable-frontend:${{ env.IMAGE_TAG }} \
             -t ${{ env.ECR_REGISTRY }}/tokenable-frontend:${{ github.ref_name }} \
             ./frontend
