@@ -1,5 +1,10 @@
 "use client";
 
+import {
+  COLLECTION_DETAILS_BG_CLASS,
+  COLLECTION_DETAILS_BORDER_ALL,
+} from "@/components/marketplace/collectionOverviewChrome";
+
 /**
  * Price history placeholder — decorative area chart until real time-series data exists.
  */
@@ -10,7 +15,7 @@ export function CollectionPriceHistoryPlaceholder({
 }) {
   return (
     <div
-      className={`relative overflow-hidden rounded-xl border border-gray-800/80 bg-[#06080c] ${className}`}
+      className={`relative overflow-hidden rounded-xl ${COLLECTION_DETAILS_BORDER_ALL} ${COLLECTION_DETAILS_BG_CLASS} ${className}`}
     >
       <div
         className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_70%_80%_at_50%_100%,rgba(52,211,153,0.12),transparent_60%)]"

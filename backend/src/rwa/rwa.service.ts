@@ -6,13 +6,13 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PinataService } from './pinata/pinata.service';
+import { cropPsaSlabForCollectionCover } from '../psa/utils/psa-slab-crop.util';
 import { UploadRwaDto } from './dto/upload-rwa.dto';
 import {
   RwaAttribute,
   RwaMetadata,
   UploadRwaResult,
 } from './interfaces/rwa-metadata.interface';
-import { cropPsaSlabForCollectionCover } from '../psa/utils/psa-slab-crop.util';
 
 function safeCollectionCoverFilename(name: string): string {
   return name.replace(/[^a-zA-Z0-9-_]+/g, '-').slice(0, 48) || 'rwa';

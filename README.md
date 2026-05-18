@@ -1,6 +1,6 @@
 # Tokenable RWA Marketplace
 
-A decentralized marketplace for graded-card RWAs on EVM chains (Sepolia-first). Users mint via IPFS, list, and trade with USDC. Settlement is primarily **OpenSea Seaport 1.5** (signed off-chain orders synced to Postgres). Market data is sourced from the **Cardhedger** proxy on the Nest API; an optional **relational rule-based matching API** exists alongside Seaport (`docs/marketplace-trading.md`). Monorepo: Next.js frontend + Nest backend + Hardhat contracts.
+A decentralized marketplace for graded-card RWAs on EVM chains (Sepolia-first). Users mint via IPFS, list, and trade with USDC. Settlement is primarily **OpenSea Seaport 1.5** (signed off-chain orders synced to Postgres). Market data is sourced from the **Cardhedger** proxy on the Nest API; an optional **relational rule-based matching API** exists alongside Seaport ([docs/api/marketplace.md](docs/api/marketplace.md)). Monorepo: Next.js frontend + Nest backend + Hardhat contracts.
 
 ---
 
@@ -14,7 +14,7 @@ Full-stack marketplace for graded-card RWAs on EVM testnets (Sepolia): mint, dis
 |------|--------|
 | **Landing (`/`)** | Hero + **Market Indexes** (Cardhedger aggregates / sparklines per category). |
 | **Exchange (`/exchange`)** | All collections (including zero listings), sorted by pool pricing; category chips; optional grid/list view; **Trending** strip. |
-| **Collection detail (`/marketplace/collections/[key]`)** | Unified order book, dual **Tokenable vs Cardhedger** price chart (aligned time axis), criteria bids / listings, **Individual listings** strip (seller, cert #, USDC). |
+| **Collection detail (`/marketplace/collections/[key]`)** | Order book, dual price chart, listing strip, Cardhedger-backed AI insight, schema/identifiers; UI is aligned with collection cover chrome. |
 | **Portfolio (`/portfolio`)** | Holdings with listing vs unlisted distinction and reference vs on-platform pricing. |
 | **Vault / mint** | PSA-oriented graded metadata → IPFS; same assets list on the marketplace. |
 
@@ -39,7 +39,7 @@ Trading remains non-custodial until settlement; criteria bids cover Merkle-eligi
 - **Cardhedger** — Live card/game pricing, mint previews, PSA-10 history, AI insights (`CARDHEDGER_API_KEY` required)
 - **PSA Public API** — Cert lookup + slab images (`PSA_PUBLIC_API_TOKEN`)
 - **Pinata** — IPFS pinning for RWA metadata/images
-- **PostgreSQL + TypeORM** — Orders, collections, optional relational trading layer ([docs/marketplace-trading.md](docs/marketplace-trading.md))
+- **PostgreSQL + TypeORM** — Orders, collections, optional relational trading layer ([docs/api/marketplace.md](docs/api/marketplace.md))
 
 ### Smart Contracts
 
@@ -68,7 +68,7 @@ tokenable-dev/
 | ------------ | --------------------------------------------------------------------------- |
 | **frontend** | Next.js application for wallet connection, RWA minting, browsing, and trading |
 | **backend**  | NestJS API server handling IPFS uploads, blockchain reads, and marketplace data |
-| **contracts** | Solidity: TokenableRWA (ERC-721), MockUSDC (ERC-20) — primary trading: Seaport; optional relational match layer in Nest (`docs/marketplace-trading.md`) |
+| **contracts** | Solidity: TokenableRWA (ERC-721), MockUSDC (ERC-20) — primary trading: Seaport; optional relational match layer in Nest (`docs/api/marketplace.md`) |
 
 ---
 
@@ -76,13 +76,14 @@ tokenable-dev/
 
 | Document | Contents |
 |----------|----------|
-| **[docs/API-REFERENCE.md](docs/API-REFERENCE.md)** | Full **`/api/*`** route tables (auth, blockchain, psa, marketplace, cardhedger proxy, bids/trade) + App Router pages |
-| **[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)** | Product surfaces, DB, API summary + link to API-REFERENCE, Seaport + relational trading, CI/CD → EC2, PSA troubleshooting, diagram index |
-| **[docs/marketplace-trading.md](docs/marketplace-trading.md)** | Rule-based `bids`/`asks`/match API vs Seaport `orders` |
-| **[docs/DEPLOY_EC2_DOMAIN.md](docs/DEPLOY_EC2_DOMAIN.md)** | EC2 Docker, domain, same-origin `/api`, CORS, OAuth, TLS checklist |
+| **[docs/api/README.md](docs/api/README.md)** | **`/api/*`** overview · links to scoped API docs |
+| **[docs/README.md](docs/README.md)** | Documentation index · branches/deploy · quick links |
+| **[docs/guides/deployment.md](docs/guides/deployment.md)** | GitHub Actions · ECR · EC2 · secrets |
+| **[docs/guides/networking.md](docs/guides/networking.md)** | Nginx · same-origin `/api` · CORS · OAuth · TLS checklist |
+| **[docs/architecture/overview.md](docs/architecture/overview.md)** | High-level system layout |
 | **[backend/sql/README.md](backend/sql/README.md)** | Why there are no SQL migrations |
 
-CI/CD: a push to **`develop`** runs GitHub Actions (see `docs/DEVELOPMENT.md` §5 and `.github/workflows/deploy.yml`).
+CI/CD: every push to **`develop`** (or **`main`** for prod, when configured) runs [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) — see **[docs/guides/deployment.md](docs/guides/deployment.md)**.
 
 ### Architecture & Pipeline Diagrams
 

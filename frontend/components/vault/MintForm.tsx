@@ -256,6 +256,9 @@ export function MintForm() {
         ...(lastAnalyze?.psaCertImages?.front
           ? { certImageSourceUrl: lastAnalyze.psaCertImages.front }
           : {}),
+        ...(lastAnalyze?.psaCertImages?.back
+          ? { certImageBackUrl: lastAnalyze.psaCertImages.back }
+          : {}),
       };
       if (lastAnalyze) {
         if (
@@ -326,7 +329,6 @@ export function MintForm() {
         r.psa.gradeScore != null
           ? String(r.psa.gradeScore)
           : (r.psa.gradeLabel?.replace(/[^\d.]/g, "") ?? "");
-      const gLabel = r.psa.gradeScore ?? r.psa.gradeLabel ?? "";
       const fmt = (n: number) => n.toLocaleString("en-US");
       setForm((prev) => ({
         ...prev,
@@ -362,7 +364,7 @@ export function MintForm() {
         },
         name:
           !prev.name.trim() && r.psa.cardNameHint
-            ? `${r.psa.cardNameHint} PSA ${gLabel}`.trim()
+            ? String(r.psa.cardNameHint).trim()
             : prev.name,
         ...(slabFrontForMint instanceof File
           ? { image: prev.image ?? slabFrontForMint }

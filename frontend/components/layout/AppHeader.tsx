@@ -13,6 +13,7 @@ import { useMarketplaceCollectionsInfinite } from "@/hooks/useMarketplaceCollect
 import { useResolvedMediaUrlMap } from "@/hooks/useResolvedMediaUrl";
 import { useAppStore, selectUsdcBalance } from "@/store";
 import { useShallow } from "zustand/react/shallow";
+import { toCardDisplayUppercase } from "@/lib/marketplace/collectionFullDetailsTitle";
 
 function SearchBar() {
   const [open, setOpen] = useState(false);
@@ -189,12 +190,12 @@ function SearchBar() {
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs font-medium text-white truncate">
-                      {c.displayLabel}
+                    <p className="text-xs font-medium uppercase text-white truncate">
+                      {toCardDisplayUppercase(c.displayLabel)}
                     </p>
                     <p className="text-[10px] text-gray-500 truncate">
                       {c.activeListingCount} listing{c.activeListingCount !== 1 ? "s" : ""}
-                      {c.queryUsed ? ` · ${c.queryUsed}` : ""}
+                      {c.queryUsed ? ` · ${toCardDisplayUppercase(c.queryUsed)}` : ""}
                     </p>
                   </div>
                   <svg className="w-3 h-3 text-gray-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>

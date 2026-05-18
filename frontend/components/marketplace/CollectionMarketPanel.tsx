@@ -4,9 +4,10 @@ import type {
   CollectionMarketPreview,
   MarketPriceBand,
 } from "@/lib/core";
+import { COLLECTION_DETAILS_BORDER_ALL } from "@/components/marketplace/collectionOverviewChrome";
 
 function formatUsd(b: MarketPriceBand | null): string {
-  if (!b) return "—";
+  if (!b) return "N/A";
   const a = b.avg;
   if (a != null && Number.isFinite(a)) {
     return `$${a.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -14,13 +15,7 @@ function formatUsd(b: MarketPriceBand | null): string {
   if (b.low != null && b.high != null) {
     return `$${b.low.toFixed(2)} – $${b.high.toFixed(2)}`;
   }
-  return "—";
-}
-
-function formatPct(v: number | null | undefined): string | null {
-  if (v == null || !Number.isFinite(v)) return null;
-  const sign = v >= 0 ? "+" : "";
-  return `${sign}${v.toFixed(1)}%`;
+  return "N/A";
 }
 
 function slabTierEbayBand(
@@ -54,7 +49,7 @@ function BandRow({
     meta.push(new Date(band.lastUpdated).toLocaleDateString("en-US"));
   }
   return (
-    <div className="rounded-lg border border-zinc-800/80 bg-black/30 px-2.5 py-2">
+    <div className={`rounded-lg ${COLLECTION_DETAILS_BORDER_ALL} bg-black/30 px-2.5 py-2`}>
       <dt className="text-[11px] font-medium text-zinc-500">{label}</dt>
       <dd className="mt-1 text-[15px] font-semibold tabular-nums text-zinc-100">
         {formatUsd(band)}
@@ -62,6 +57,15 @@ function BandRow({
       {meta.length > 0 ? (
         <p className="mt-1 text-[10px] text-zinc-600 tabular-nums">{meta.join(" · ")}</p>
       ) : null}
+    </div>
+  );
+}
+
+function NaPriceRow({ label }: { label: string }) {
+  return (
+    <div className={`rounded-lg ${COLLECTION_DETAILS_BORDER_ALL} bg-black/30 px-2.5 py-2`}>
+      <dt className="text-[11px] font-medium text-zinc-500">{label}</dt>
+      <dd className="mt-1 text-[15px] font-semibold tabular-nums text-zinc-400">N/A</dd>
     </div>
   );
 }
@@ -90,30 +94,35 @@ export function CollectionMarketPanel({
     );
   }
   if (error) {
+    const tierHumanErr = (tierLabel ?? "PSA 10").trim() || "PSA 10";
     return (
-      <div className="w-full rounded-xl border border-amber-500/25 bg-amber-500/[0.06] px-3 py-2.5 text-[13px] text-amber-100/90">
-        {error.message}
+      <div className={`w-full rounded-xl ${COLLECTION_DETAILS_BORDER_ALL} bg-zinc-950/50 px-3 py-3`}>
+        <dl className="space-y-2">
+          <NaPriceRow label={`Market (${tierHumanErr})`} />
+        </dl>
       </div>
     );
   }
   if (!data) return null;
+  const tierHuman = (tierLabel ?? "PSA 10").trim() || "PSA 10";
+  const tier = String(historyTier ?? "PSA_10").trim();
+  const slabBandLabelFallback = `Market (${tierHuman})`;
+
   if (!data.enabled) {
     return (
-      <div className="w-full rounded-xl border border-zinc-800/80 bg-zinc-950/50 px-3 py-3 text-[13px] text-zinc-500">
-        Price data unavailable.
+      <div className={`w-full rounded-xl ${COLLECTION_DETAILS_BORDER_ALL} bg-zinc-950/50 px-3 py-3`}>
+        <dl className="space-y-2">
+          <NaPriceRow label={slabBandLabelFallback} />
+        </dl>
       </div>
     );
   }
   if (!data.matched || !data.card) {
     return (
-      <div className="w-full rounded-xl border border-zinc-800/80 bg-zinc-950/50 px-3 py-3">
-        <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500 mb-1.5">
-          Cardhedger catalog
-        </p>
-        <p className="text-[13px] text-zinc-400 leading-snug">
-          {data.message ??
-            "Reference unavailable — catalog match not loaded. External market price uses Cardhedger when matched; listing-pool stats are liquidity only."}
-        </p>
+      <div className={`w-full rounded-xl ${COLLECTION_DETAILS_BORDER_ALL} bg-zinc-950/50 px-3 py-3`}>
+        <dl className="space-y-2">
+          <NaPriceRow label={slabBandLabelFallback} />
+        </dl>
       </div>
     );
   }
@@ -122,19 +131,15 @@ export function CollectionMarketPanel({
     typeof preferredImageUrl === "string" && preferredImageUrl.trim()
       ? preferredImageUrl.trim()
       : c.image;
-  const tier = String(historyTier ?? "PSA_10").trim();
   const slabBand = tier.startsWith("PSA_") ? slabTierEbayBand(c, tier) : null;
-  const tierHuman = (tierLabel ?? "PSA 10").trim() || "PSA 10";
-  const topGradeEntries = Object.entries(c.pricesByGrade ?? {})
-    .filter(([, v]) => Number.isFinite(v) && v > 0)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 4);
-  const salesMeta = [c.sales7d != null ? `7D ${c.sales7d} sales` : null, c.sales30d != null ? `30D ${c.sales30d} sales` : null]
-    .filter(Boolean)
-    .join(" · ");
-  const gainMeta = [formatPct(c.gainPct7d), formatPct(c.gainPct30d)]
-    .filter(Boolean)
-    .join(" / ");
+  const slabBandLabel =
+    c.spotPriceBasis === "comps"
+      ? `Weighted comps (${tierHuman})`
+      : c.spotPriceBasis === "sparse_sale_avg"
+        ? `Avg of ${c.ebayPsa10?.saleCount ?? "?"} recent sales (${tierHuman})`
+        : c.spotPriceBasis === "latest_sale"
+          ? `Latest sale (${tierHuman})`
+          : `eBay (${tierHuman})`;
   return (
     <div className="w-full rounded-xl border border-emerald-500/25 bg-gradient-to-b from-emerald-500/[0.06] to-black/20 px-3 py-3 shadow-[0_8px_32px_-16px_rgba(16,185,129,0.35)]">
       <div className="flex items-start gap-3">
@@ -143,44 +148,27 @@ export function CollectionMarketPanel({
           <img
             src={displayImageUrl}
             alt=""
-            className="h-16 w-[46px] shrink-0 rounded-md border border-zinc-700/80 object-cover"
+            className={`h-16 w-[46px] shrink-0 rounded-md ${COLLECTION_DETAILS_BORDER_ALL} object-cover`}
           />
         ) : (
-          <div className="h-16 w-[46px] shrink-0 rounded-md border border-zinc-800 bg-zinc-900/80" />
+          <div className={`h-16 w-[46px] shrink-0 rounded-md ${COLLECTION_DETAILS_BORDER_ALL} bg-zinc-900/80`} />
         )}
         <div className="min-w-0 flex-1">
           <p className="mt-0.5 text-[14px] font-semibold text-white leading-snug line-clamp-2">{c.name}</p>
           <p className="text-[12px] text-zinc-500 mt-0.5">
             {c.setName}
             {c.cardNumber ? ` · ${c.cardNumber}` : ""}
-            {c.tcgplayerId ? <span className="text-zinc-600"> · #{c.tcgplayerId}</span> : null}
-          </p>
-          <p className="mt-1 text-[10px] text-zinc-500">
-            Cardhedger ID {c.id}
-            {data.matchConfidence ? ` · ${data.matchConfidence}` : ""}
-            {c.setType ? ` · ${c.setType}` : ""}
+            {c.setType ? ` · ${c.setType}` : null}
           </p>
         </div>
       </div>
       <dl className="mt-3 space-y-2">
-        {slabBand ? <BandRow label={`eBay (${tierHuman})`} band={slabBand} /> : null}
+        {slabBand ? (
+          <BandRow label={slabBandLabel} band={slabBand} />
+        ) : tier.startsWith("PSA_") ? (
+          <NaPriceRow label={slabBandLabel} />
+        ) : null}
       </dl>
-      {c.topPrice != null && Number.isFinite(c.topPrice) ? (
-        <p className="mt-3 text-[11px] text-zinc-500 tabular-nums">
-          Top reference <span className="text-zinc-300">${c.topPrice.toFixed(2)}</span>
-          {c.totalSaleCount != null ? <span> · {c.totalSaleCount} sales</span> : null}
-        </p>
-      ) : null}
-      {salesMeta ? <p className="mt-1 text-[10px] text-zinc-600">{salesMeta}</p> : null}
-      {gainMeta ? <p className="mt-1 text-[10px] text-zinc-600">Momentum {gainMeta}</p> : null}
-      {topGradeEntries.length > 0 ? (
-        <p className="mt-2 text-[10px] text-zinc-600">
-          Grades{" "}
-          {topGradeEntries
-            .map(([g, v]) => `${g}: $${v.toLocaleString("en-US", { maximumFractionDigits: 2 })}`)
-            .join(" · ")}
-        </p>
-      ) : null}
     </div>
   );
 }

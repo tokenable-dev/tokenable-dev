@@ -8,6 +8,11 @@ import type { Address } from "viem";
 import { sepolia } from "@/config/wagmi";
 import { USDC_ADDRESS, USDC_ABI } from "@/constants/contracts";
 import type { Order } from "@/lib/core";
+import {
+  COLLECTION_DETAILS_BG_CLASS,
+  COLLECTION_DETAILS_BORDER_ALL,
+  COLLECTION_DETAILS_BORDER_B,
+} from "@/components/marketplace/collectionOverviewChrome";
 import { fulfillAskListingOrder } from "@/lib/seaport/orders/fulfillAskListing";
 import { mapWalletError } from "@/lib/network";
 
@@ -45,6 +50,8 @@ interface CollectionTradeTicketProps {
   flow: "buy" | "sell";
   collectionLabel?: string;
   listingCount?: number;
+  /** When false, omits the market listing count link under Sell (collection details). */
+  showSellListingCount?: boolean;
 }
 
 /**
@@ -58,6 +65,7 @@ export function CollectionTradeTicket({
   flow,
   collectionLabel,
   listingCount = 0,
+  showSellListingCount = true,
 }: CollectionTradeTicketProps) {
   const publicClient = usePublicClient({ chainId: sepolia.id });
   const { writeContractAsync } = useWriteContract();
@@ -142,10 +150,10 @@ export function CollectionTradeTicket({
           : null;
     return (
       <div className="w-full space-y-2" aria-label="Sell">
-        <div className="flex items-center justify-between gap-2 border-b border-zinc-800/80 pb-2 pt-0.5">
+        <div className={`flex items-center justify-between gap-2 pb-2 pt-0.5 ${COLLECTION_DETAILS_BORDER_B}`}>
           <h2 className="text-xs font-semibold tracking-tight text-white">Sell</h2>
           <span
-            className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded border border-zinc-800/80 text-[9px] font-semibold leading-none text-zinc-500"
+            className={`inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded ${COLLECTION_DETAILS_BORDER_ALL} text-[9px] font-semibold leading-none text-zinc-500`}
             title={listTitle}
           >
             i
@@ -167,17 +175,19 @@ export function CollectionTradeTicket({
             <Link href="/portfolio" className="hover:text-zinc-400" title="Manage RWAs in your wallet">
               My Assets
             </Link>
-            {listingCount > 0 ? (
-              <Link
-                href="#collection-listings"
-                className="tabular-nums hover:text-zinc-400"
-                title="Scroll to listings in this collection"
-              >
-                {listingCount} listing{listingCount === 1 ? "" : "s"}
-              </Link>
-            ) : (
-              <span title="No other listings in this collection yet">0 listings</span>
-            )}
+            {showSellListingCount ? (
+              listingCount > 0 ? (
+                <Link
+                  href="#collection-listings"
+                  className="tabular-nums hover:text-zinc-400"
+                  title="Scroll to listings in this collection"
+                >
+                  {listingCount} listing{listingCount === 1 ? "" : "s"}
+                </Link>
+              ) : (
+                <span title="No other listings in this collection yet">0 listings</span>
+              )
+            ) : null}
           </div>
         </div>
       </div>
@@ -191,8 +201,7 @@ export function CollectionTradeTicket({
         ? "Ask row — buy at listed USDC."
         : "Tap the book to set price (asks = buy now).";
 
-  const inputShell =
-    "rounded-md border border-zinc-700/90 bg-zinc-900/80 overflow-hidden focus-within:border-zinc-500";
+  const inputShell = `rounded-md ${COLLECTION_DETAILS_BORDER_ALL} ${COLLECTION_DETAILS_BG_CLASS} overflow-hidden focus-within:border-zinc-500`;
 
   return (
     <div className="w-full" aria-label="Buy">
@@ -209,7 +218,7 @@ export function CollectionTradeTicket({
           </span>
         </span>
         <span
-          className="inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded border border-zinc-800/80 text-[9px] font-semibold leading-none text-zinc-500"
+          className={`inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded ${COLLECTION_DETAILS_BORDER_ALL} text-[9px] font-semibold leading-none text-zinc-500`}
           title={hint}
         >
           i
@@ -243,7 +252,7 @@ export function CollectionTradeTicket({
               value={amountInput}
               onChange={(e) => setAmountInput(e.target.value)}
               title="NFTs per transaction"
-              className="w-full rounded-md border border-zinc-700/90 bg-zinc-900/80 px-2 py-1.5 text-xs text-white font-mono tabular-nums read-only:opacity-90"
+              className={`w-full rounded-md ${COLLECTION_DETAILS_BORDER_ALL} ${COLLECTION_DETAILS_BG_CLASS} px-2 py-1.5 text-xs text-white font-mono tabular-nums read-only:opacity-90`}
               placeholder="1"
             />
           </div>
@@ -254,7 +263,7 @@ export function CollectionTradeTicket({
               <select
                 value={askPickIdx}
                 onChange={(e) => setAskPickIdx(Number(e.target.value))}
-                className="w-full rounded-md border border-zinc-700/90 bg-zinc-900/80 py-1.5 px-2 text-xs font-mono text-white"
+                className={`w-full rounded-md ${COLLECTION_DETAILS_BORDER_ALL} ${COLLECTION_DETAILS_BG_CLASS} py-1.5 px-2 text-xs font-mono text-white`}
               >
                 {askOrders.map((o, i) => (
                   <option key={o.orderHash} value={i}>
@@ -268,7 +277,7 @@ export function CollectionTradeTicket({
           {selection?.side === "ask" && askOrders.length <= 1 && (
             <div className="min-w-0">
               <label className="mb-1 block text-[10px] font-medium text-zinc-300">Token</label>
-              <div className="rounded-md border border-zinc-700/90 bg-zinc-900/80 px-2 py-1.5 text-xs font-mono text-zinc-300 tabular-nums">
+              <div className={`rounded-md ${COLLECTION_DETAILS_BORDER_ALL} ${COLLECTION_DETAILS_BG_CLASS} px-2 py-1.5 text-xs font-mono text-zinc-300 tabular-nums`}>
                 {selectedAsk ? `#${selectedAsk.tokenId}` : "—"}
               </div>
             </div>
@@ -277,7 +286,7 @@ export function CollectionTradeTicket({
           {selection?.side === "bid" && (
             <div className="min-w-0">
               <label className="mb-1 block text-[10px] font-medium text-zinc-300">Token</label>
-              <div className="rounded-md border border-zinc-700/90 bg-zinc-900/80 px-2 py-1.5 text-xs font-mono text-zinc-600">
+              <div className={`rounded-md ${COLLECTION_DETAILS_BORDER_ALL} ${COLLECTION_DETAILS_BG_CLASS} px-2 py-1.5 text-xs font-mono text-zinc-600`}>
                 Any (criteria)
               </div>
             </div>

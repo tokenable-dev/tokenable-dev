@@ -21,7 +21,7 @@ All routes are file-system based. Dynamic segments use `[param]` notation.
 | `/signup` | `app/signup/page.tsx` | Registration page |
 | `/auth/callback` | `app/auth/callback/page.tsx` | Google OAuth callback redirect handler (`?ok=1`) |
 | `/marketplace/[tokenId]` | `app/marketplace/[tokenId]/page.tsx` | Token detail — metadata, active ask, portfolio link |
-| `/marketplace/collections/[collectionKey]` | `app/marketplace/collections/[collectionKey]/page.tsx` | Collection order book + dual chart (platform + Cardhedger) + criteria bid/ask trading |
+| `/marketplace/collections/[collectionKey]` | `app/marketplace/collections/[collectionKey]/page.tsx` | Collection chrome: unified order book, dual Tokenable vs Cardhedger chart, headline info tags / metrics strip, schema & identifiers, individual listings strip (seller / cert), optional Cardhedger **AI insight** (typewriter UI) |
 | `/marketplace/other-listings` | `app/marketplace/other-listings/page.tsx` | Listings not matched to a known collection |
 
 ---
@@ -47,7 +47,7 @@ All routes are file-system based. Dynamic segments use `[param]` notation.
 | `/vault` | `POST /api/psa/analyze`, `POST /api/psa/analyze-by-cert`, `POST /api/rwa/upload` |
 | `/portfolio` | `GET /api/blockchain/rwa/tokens/:address`, `POST /api/blockchain/rwa/metadata/batch`, `POST /api/marketplace/cardhedger/mint-previews`, `GET /api/marketplace/orders/token/:tokenId`, `GET /api/marketplace/my-assets/hidden` |
 | `/marketplace/[tokenId]` | `GET /api/blockchain/rwa/asset/:tokenId`, `GET /api/marketplace/orders/token/:tokenId` |
-| `/marketplace/collections/[collectionKey]` | `GET /api/marketplace/collections/:key`, `GET /api/marketplace/collections/:key/cardhedger`, `GET /api/marketplace/collections/:key/market-series`, `GET /api/marketplace/collections/:key/stats`, `GET /api/marketplace/bids` |
+| `/marketplace/collections/[collectionKey]` | `GET /api/marketplace/collections/:key`, `GET …/cardhedger`, `GET …/market-series`, `GET …/stats`, `GET …/ai-insight`, `GET /api/marketplace/bids` |
 
 ---
 

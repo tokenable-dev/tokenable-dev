@@ -31,8 +31,11 @@ function buildHaystack(
     snapshot?.categoryLabel,
     collection.queryUsed,
     collection.displayLabel,
+    comp?.cardSetDisplay,
     comp?.cardSet,
+    comp?.cardNameDisplay,
     comp?.cardName,
+    comp?.gradingCompanyDisplay,
     comp?.gradingCompany,
   ];
   return parts

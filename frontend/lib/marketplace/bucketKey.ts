@@ -5,8 +5,12 @@
 
 export interface MarketBucketComponents {
   gradingCompany: string;
+  /** Whitespace-collapsed grader label from metadata — UI only. */
+  gradingCompanyDisplay?: string;
   cardName: string;
+  cardNameDisplay?: string;
   cardSet: string;
+  cardSetDisplay?: string;
   gradeScore: string;
   /** Optional split for PSA/DNA autograph slabs. */
   variantType?: "psa_dna";
@@ -21,6 +25,10 @@ function normalizePart(s: string): string {
     .trim()
     .toLowerCase()
     .replace(/\s+/g, " ");
+}
+
+function collapseWhitespaceOnly(s: string): string {
+  return s.trim().replace(/\s+/g, " ");
 }
 
 function detectVariantType(graded: Record<string, unknown>): "psa_dna" | null {
@@ -53,15 +61,21 @@ export function extractBucketComponentsFromMetadata(
   const graded = (props?.graded ?? meta.graded) as Record<string, unknown> | undefined;
   if (!graded || typeof graded !== "object") return null;
 
-  const gradingCompany = normalizePart(String(graded.gradingCompany ?? ""));
+  const rawGradingCo = String(graded.gradingCompany ?? "").trim();
+  const gradingCompany = normalizePart(rawGradingCo);
+  const gradingCompanyDisplay = collapseWhitespaceOnly(rawGradingCo);
   const card = graded.card as Record<string, unknown> | undefined;
   const grade = graded.grade as Record<string, unknown> | undefined;
   const psa = graded.psa as Record<string, unknown> | undefined;
 
   const rawName = String(card?.name ?? "").trim();
   const rawSet = String(card?.set ?? "").trim();
-  const cardName = normalizePart(rawName || String(psa?.cardNameHint ?? ""));
-  const cardSet = normalizePart(rawSet || String(psa?.setHint ?? ""));
+  const rawNameMerged = rawName || String(psa?.cardNameHint ?? "");
+  const rawSetMerged = rawSet || String(psa?.setHint ?? "");
+  const cardName = normalizePart(rawNameMerged);
+  const cardSet = normalizePart(rawSetMerged);
+  const cardNameDisplay = collapseWhitespaceOnly(rawNameMerged);
+  const cardSetDisplayCollapse = collapseWhitespaceOnly(rawSetMerged);
 
   let scoreVal: unknown = grade?.score;
   if (scoreVal == null || scoreVal === "") scoreVal = psa?.gradeScore;
@@ -74,6 +88,9 @@ export function extractBucketComponentsFromMetadata(
     cardName,
     cardSet,
     gradeScore,
+    gradingCompanyDisplay,
+    ...(cardNameDisplay ? { cardNameDisplay } : {}),
+    ...(cardSetDisplayCollapse ? { cardSetDisplay: cardSetDisplayCollapse } : {}),
   };
   const variantType = detectVariantType(graded);
   if (variantType) out.variantType = variantType;
@@ -127,4 +144,24 @@ export async function metadataMatchesCollectionKey(
   if (!c) return false;
   const k = await computeMarketBucketKey(c);
   return k.toLowerCase() === collectionKey.trim().toLowerCase();
+}
+
+/** Prefer IPFS/original casing from `*Display`; legacy rows fall back to normalized bucket fields. */
+export function bucketTextForDisplay(primary: unknown, fallback: unknown): string {
+  const p =
+    typeof primary === "string" ? primary.trim().replace(/\s+/g, " ") : "";
+  if (p) return p;
+  return typeof fallback === "string" ? fallback.trim() : "";
+}
+
+export function bucketCardNameForDisplay(comp: Record<string, unknown>): string {
+  return bucketTextForDisplay(comp.cardNameDisplay, comp.cardName);
+}
+
+export function bucketCardSetForDisplay(comp: Record<string, unknown>): string {
+  return bucketTextForDisplay(comp.cardSetDisplay, comp.cardSet);
+}
+
+export function bucketGradingCompanyForDisplay(comp: Record<string, unknown>): string {
+  return bucketTextForDisplay(comp.gradingCompanyDisplay, comp.gradingCompany);
 }

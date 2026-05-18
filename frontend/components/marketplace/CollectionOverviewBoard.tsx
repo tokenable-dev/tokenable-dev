@@ -6,12 +6,41 @@ import {
   type ReactElement,
   type ReactNode,
 } from "react";
+import { IBM_Plex_Sans } from "next/font/google";
 import { CollectionCoverFrame } from "@/components/marketplace/CollectionCoverFrame";
 import {
   CollectionMetadataExpandable,
   type CollectionMetadataExpandableProps,
 } from "@/components/marketplace/CollectionMetadataExpandable";
 import { CollectionPriceHistoryPlaceholder } from "@/components/marketplace/CollectionPriceHistoryPlaceholder";
+import {
+  COLLECTION_DETAILS_BG_CLASS,
+  COLLECTION_DETAILS_BORDER_ALL,
+  COLLECTION_DETAILS_BORDER_B,
+  COLLECTION_DETAILS_BORDER_T,
+  COLLECTION_MARKET_CLUSTER_BEZEL,
+  COLLECTION_MARKET_CLUSTER_MAT,
+  COLLECTION_MARKET_SPLIT_CHROME,
+  COLLECTION_EXCHANGE_ORDER_BOOK_FRAME,
+} from "@/components/marketplace/collectionOverviewChrome";
+import { CollectionOrderBookVisibilityToggle } from "@/components/marketplace/CollectionOrderBookVisibilityToggle";
+
+const collectionHeroFont = IBM_Plex_Sans({
+  subsets: ["latin"],
+  weight: ["400", "700"],
+  display: "swap",
+});
+
+/** Outline tags (Pokemon / PSA / POP) — neutral border, no fill. */
+const HEADLINE_OUTLINE_TAG =
+  "inline-flex h-[26px] min-h-[26px] shrink-0 items-center justify-center rounded border border-[#a2a2a2] bg-transparent px-[10px] py-1 text-sm font-normal leading-none text-white";
+
+/** Secondary lines under the hero title (set, meta, badges, chips). */
+const HEADLINE_NAME_TEXT = "text-[15px] leading-snug tracking-normal";
+
+/** Collection name: one line with ellipsis when needed; larger than secondary copy. */
+const HEADLINE_TITLE_ONE_LINE =
+  "w-full min-w-0 truncate whitespace-nowrap text-2xl font-bold tracking-tight text-white sm:text-3xl lg:text-[1.85rem] xl:text-[2.125rem] leading-[1.15]";
 
 export interface CollectionOverviewStat {
   label: string;
@@ -24,35 +53,96 @@ export interface CollectionOverviewStat {
 export interface CollectionOverviewBoardProps {
   title: string;
   subtitle?: string | null;
+  /** Asset-style headline (card name); use with headlineTitleLayout for badges + meta strip */
+  headlineTitle?: string | null;
+  /** Set / product line under the card name (shown at top — not duplicated under cover). */
+  headlineSetLine?: string | null;
+  /** Supplementary line under set: e.g. `#85 · variant` — optional when {@link headlineInfoTags} covers it. */
+  headlineMetaStrip?: string | null;
+  /** Identifier chips under title / set (card #, variant, etc. — not grade; Pop uses {@link populationBadge}). */
+  headlineInfoTags?: { id: string; text: string; title?: string }[] | null;
+  /** Amber capsule (e.g. category) */
+  categoryBadge?: string | null;
+  /** Mint capsule (e.g. PSA tier) */
+  gradeBadge?: string | null;
+  /** Zinc capsule — PSA population (e.g. `Pop · 47,911`), same row as category + grade */
+  populationBadge?: string | null;
+  /** When true with {@link headlineTitle}, renders reference header layout instead of subtitle-under-title classic block */
+  headlineTitleLayout?: boolean;
   badgeLabel?: string;
   imageUrl: string | null;
   metadataRows: { label: string; value: string }[];
   /** 비우면 헤더 오른쪽 인라인 스탯 숨김 */
   stats: CollectionOverviewStat[];
-  /** 차트 바로 위 (Current Price / Change / Volatility / MCap 등) */
+  /** 차트 바로 위 (Current Price / Change 등) — exchange 트리플에서는 차트 열 전용 타일만 넣음 */
   chartMetricsRow?: ReactNode;
+  /** Volatility / MCap — exchange 트리플일 때 오더북·트레이드 열 위; xl 이상만 표시(모바일·좁은 뷰포트에서는 숨김). */
+  bookColumnMetricsRow?: ReactNode;
   /** Depth book (optional — e.g. rendered in a unified trade section below) */
   orderBook?: ReactNode;
   /** Buy / sell ticket — optional; pairs with orderBook when used in overview */
   tradeTicket?: ReactNode;
   listingCount: number;
+  /** When false, hides the "N listings" line in the header (e.g. collection details). */
+  showListingSummary?: boolean;
   /** When set, replaces the decorative price placeholder */
   priceChart?: ReactNode;
+  /**
+   * Exchange layout only: row directly under the chart (e.g. price strip + Buy/Sell),
+   * still in the chart column before the order book track.
+   */
+  exchangeChartFooter?: ReactNode;
   /** Desktop: sits beside the chart (narrow order book), middle column. */
   orderBookNextToChart?: ReactNode;
   /** Right column: buy / sell / orders only (no book). */
   tradePanel?: ReactNode;
-  /** Hero cover: hover magnifier lens */
-  heroCoverLoupe?: boolean;
+  /**
+   * Exchange triple layout only: show the order book column in-grid; mount {@link tradePanel}
+   * after the split (host should use fixed / dock UI — e.g. {@link CollectionTradingTabs} `exchangeDock`).
+   */
+  exchangeDockTradePanel?: boolean;
   /** Extra collection fields + expand — omit for plain metadata grid only */
   metadataExpand?: Omit<CollectionMetadataExpandableProps, "metadataRows">;
+  /** Exchange layout: rendered above the order book + trade split (right track). */
+  exchangeRightStackTop?: ReactNode;
+  /**
+   * With {@link onShowOrderBookChange}: toggle above exchange metrics; when false the order book +
+   * trade column is hidden and the chart spans that width (xl+).
+   */
+  showOrderBook?: boolean;
+  onShowOrderBookChange?: (next: boolean) => void;
   /** e.g. external market strip — rendered under metadata on the left */
   leftColumnFooter?: ReactNode;
+  /** Placed directly under the representative card (before details / metadata). */
+  heroActions?: ReactNode;
 }
 
 function withFlushProp(node: ReactNode): ReactNode {
   if (!isValidElement(node)) return node;
   return cloneElement(node as ReactElement<{ flush?: boolean }>, { flush: true });
+}
+
+function formatPopulationHeadlineTag(raw: string): string {
+  const t = raw.trim();
+  const m = /^Pop\s*[·.:]\s*/i.exec(t);
+  const num = m ? t.slice(m[0].length).trim() : t.replace(/^pop\s*/i, "").trim();
+  return num ? `POP ${num}` : t;
+}
+
+/** One subtitle under the title: set · meta · card # (matches reference pipe layout). */
+function buildHeadlineSubtitleLine(
+  setLine: string | null | undefined,
+  metaStrip: string | null | undefined,
+  infoTags: { id: string; text: string }[] | null | undefined,
+): string | null {
+  const parts: string[] = [];
+  const s = setLine?.trim();
+  if (s) parts.push(s);
+  const m = metaStrip?.trim();
+  if (m) parts.push(m);
+  const cardNo = infoTags?.find((t) => t.id === "cardno")?.text?.trim();
+  if (cardNo) parts.push(cardNo);
+  return parts.length > 0 ? parts.join(" | ") : null;
 }
 
 function HeaderInlineStat({ stat }: { stat: CollectionOverviewStat }) {
@@ -82,60 +172,123 @@ function HeaderInlineStat({ stat }: { stat: CollectionOverviewStat }) {
 export function CollectionOverviewBoard({
   title,
   subtitle,
+  headlineTitle,
+  headlineSetLine,
+  headlineMetaStrip,
+  headlineInfoTags,
+  categoryBadge,
+  gradeBadge,
+  populationBadge,
+  headlineTitleLayout = false,
   badgeLabel = "Collection",
   imageUrl,
   metadataRows,
   stats,
   chartMetricsRow,
+  bookColumnMetricsRow,
   orderBook,
   tradeTicket,
   listingCount,
+  showListingSummary = true,
   priceChart,
+  exchangeChartFooter,
   orderBookNextToChart,
   tradePanel,
-  heroCoverLoupe = false,
+  exchangeDockTradePanel = false,
   metadataExpand,
+  exchangeRightStackTop,
+  showOrderBook = true,
+  onShowOrderBookChange,
   leftColumnFooter,
+  heroActions,
 }: CollectionOverviewBoardProps) {
   const hasBookColumn = orderBook != null || tradeTicket != null;
   const exchangeTriple = tradePanel != null && orderBookNextToChart != null;
+  const orderBookToggleEnabled = onShowOrderBookChange != null;
+  const orderBookColumnVisible = !orderBookToggleEnabled || showOrderBook;
+
+  const headlineSubtitleLine =
+    headlineTitleLayout && headlineTitle
+      ? buildHeadlineSubtitleLine(headlineSetLine, headlineMetaStrip, headlineInfoTags ?? null)
+      : null;
 
   return (
     <section
-      className="relative overflow-hidden rounded-2xl border border-gray-800/80 bg-gradient-to-b from-[#0a0d12] via-[#07090c] to-[#050607] shadow-[0_28px_64px_-32px_rgba(0,0,0,0.9)]"
+      className={`relative overflow-hidden rounded-2xl ${COLLECTION_DETAILS_BORDER_ALL} ${COLLECTION_DETAILS_BG_CLASS} shadow-[0_28px_64px_-32px_rgba(0,0,0,0.9)]`}
       aria-label="Collection overview"
     >
-      <div
-        className="pointer-events-none absolute -left-24 top-0 h-64 w-64 rounded-full bg-emerald-500/[0.07] blur-3xl"
-        aria-hidden
-      />
-      <div
-        className="pointer-events-none absolute -right-20 bottom-0 h-56 w-56 rounded-full bg-teal-500/[0.06] blur-3xl"
-        aria-hidden
-      />
-
-      <div className="relative border-b border-gray-800/70 px-4 sm:px-6 lg:px-8 py-3.5 sm:py-4">
+      <div className={`relative px-4 sm:px-6 lg:px-8 py-3.5 sm:py-4 ${COLLECTION_DETAILS_BORDER_B}`}>
         <div className="flex flex-col gap-3 lg:flex-row lg:items-stretch lg:gap-0">
-          <div className="flex min-w-0 flex-1 items-start justify-between gap-3 lg:shrink-0 lg:basis-[min(100%,280px)] lg:flex-col lg:justify-center xl:basis-[min(100%,320px)]">
-            <div className="min-w-0 space-y-1">
-              <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                <span className="inline-flex items-center rounded-md border border-amber-500/25 bg-amber-500/[0.08] px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-amber-200/90">
-                  {badgeLabel}
-                </span>
-                <span className="text-[10px] text-zinc-500 tabular-nums">
-                  {listingCount} listing{listingCount === 1 ? "" : "s"}
-                </span>
-              </div>
-              <h1 className="text-lg sm:text-xl font-semibold tracking-[-0.02em] text-white text-balance leading-snug">
-                {title}
-              </h1>
-              {subtitle ? (
-                <p className="text-[11px] text-zinc-500 leading-snug">{subtitle}</p>
-              ) : null}
+          <div className="flex min-w-0 flex-1 items-start justify-between gap-3 lg:shrink-0 lg:basis-[min(100%,min(560px,52vw))] lg:flex-col lg:justify-center xl:basis-[min(100%,min(620px,48vw))]">
+            <div className="min-w-0 space-y-2">
+              {headlineTitleLayout && headlineTitle ? (
+                <>
+                  <div
+                    className={`${collectionHeroFont.className} flex min-w-0 flex-col items-stretch gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-x-4`}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <h1
+                        className="break-words text-[35px] font-bold leading-[1.4] tracking-normal text-white"
+                        title={headlineTitle}
+                      >
+                        {headlineTitle}
+                      </h1>
+                      {headlineSubtitleLine ? (
+                        <p className="mt-1 max-w-full text-[16px] font-normal leading-[1.4] tracking-normal text-zinc-400 sm:mt-1.5">
+                          {headlineSubtitleLine}
+                        </p>
+                      ) : null}
+                    </div>
+                    <div
+                      className="flex w-full shrink-0 flex-wrap items-center justify-center gap-2.5 sm:w-auto sm:justify-end sm:pt-[0.45rem]"
+                      aria-label="Collection tags"
+                    >
+                      {categoryBadge ? (
+                        <span className={HEADLINE_OUTLINE_TAG}>{categoryBadge}</span>
+                      ) : (
+                        <span className={HEADLINE_OUTLINE_TAG}>{badgeLabel}</span>
+                      )}
+                      {gradeBadge ? <span className={HEADLINE_OUTLINE_TAG}>{gradeBadge}</span> : null}
+                      {populationBadge?.trim() ? (
+                        <span
+                          className={HEADLINE_OUTLINE_TAG}
+                          title="PSA population for this grade (reported)"
+                        >
+                          {formatPopulationHeadlineTag(populationBadge)}
+                        </span>
+                      ) : null}
+                    </div>
+                  </div>
+                  <span className="sr-only">{title}</span>
+                </>
+              ) : (
+                <>
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <span
+                      className={`inline-flex items-center rounded-md border border-amber-500/25 bg-amber-500/[0.08] px-1.5 py-0.5 ${HEADLINE_NAME_TEXT} font-semibold uppercase text-amber-200/90`}
+                    >
+                      {badgeLabel}
+                    </span>
+                    {showListingSummary ? (
+                      <span
+                        className={`${HEADLINE_NAME_TEXT} text-zinc-500 tabular-nums`}
+                      >
+                        {listingCount} listing{listingCount === 1 ? "" : "s"}
+                      </span>
+                    ) : null}
+                  </div>
+                  <h1 className={HEADLINE_TITLE_ONE_LINE} title={title}>
+                    {title}
+                  </h1>
+                  {subtitle ? (
+                    <p className={`${HEADLINE_NAME_TEXT} text-zinc-500`}>{subtitle}</p>
+                  ) : null}
+                </>
+              )}
             </div>
             <button
               type="button"
-              className="shrink-0 rounded-lg border border-zinc-700/90 bg-white/[0.03] p-1.5 text-zinc-500 hover:text-amber-200/90 hover:border-amber-500/30 transition-colors lg:hidden"
+              className={`shrink-0 rounded-lg ${COLLECTION_DETAILS_BORDER_ALL} bg-white/[0.03] p-1.5 text-zinc-500 hover:text-amber-200/90 hover:border-amber-500/30 transition-colors lg:hidden`}
               aria-label="Favorite (coming soon)"
               title="Favorite — coming soon"
             >
@@ -156,11 +309,11 @@ export function CollectionOverviewBoard({
           {stats.length > 0 ? (
             <>
               <div
-                className="hidden lg:block w-px shrink-0 self-stretch bg-zinc-800/90 mx-5 xl:mx-6"
+                className="hidden lg:block w-px shrink-0 self-stretch bg-[rgba(11,13,16,1)] mx-5 xl:mx-6"
                 aria-hidden
               />
 
-              <div className="min-w-0 flex-1 border-t border-zinc-800/80 pt-3 lg:flex lg:min-w-0 lg:items-center lg:border-t-0 lg:pt-0">
+              <div className={`min-w-0 flex-1 pt-3 lg:flex lg:min-w-0 lg:items-center lg:pt-0 ${COLLECTION_DETAILS_BORDER_T} lg:border-t-0`}>
                 <div className="-mx-1 flex gap-4 overflow-x-auto px-1 pb-0.5 scrollbar-platform sm:gap-6 lg:mx-0 lg:flex-wrap lg:gap-x-7 lg:gap-y-2 lg:overflow-visible lg:px-0 lg:pb-0">
                   {stats.map((s) => (
                     <HeaderInlineStat key={s.label} stat={s} />
@@ -172,7 +325,7 @@ export function CollectionOverviewBoard({
 
           <button
             type="button"
-            className="hidden lg:flex shrink-0 self-center rounded-lg border border-zinc-700/90 bg-white/[0.03] p-2 text-zinc-500 hover:text-amber-200/90 hover:border-amber-500/30 transition-colors"
+            className={`hidden lg:flex shrink-0 self-center rounded-lg ${COLLECTION_DETAILS_BORDER_ALL} bg-white/[0.03] p-2 text-zinc-500 hover:text-amber-200/90 hover:border-amber-500/30 transition-colors`}
             aria-label="Favorite (coming soon)"
             title="Favorite — coming soon"
           >
@@ -192,42 +345,46 @@ export function CollectionOverviewBoard({
       </div>
 
       <div
-        className={`relative grid gap-6 lg:gap-8 p-4 sm:p-6 lg:px-8 lg:pt-8 lg:pb-6 lg:items-start ${
+        className={`relative grid p-4 sm:p-6 lg:px-8 lg:pt-8 lg:pb-6 ${
           exchangeTriple
-            ? "lg:grid-cols-[minmax(180px,240px)_minmax(0,1fr)]"
-            : hasBookColumn
-              ? "lg:grid-cols-[minmax(180px,240px)_minmax(0,1fr)_minmax(220px,300px)]"
-              : "lg:grid-cols-[minmax(180px,240px)_minmax(0,1fr)]"
+            ? "lg:items-center gap-4 lg:gap-5 lg:grid-cols-[460px_minmax(0,1fr)]"
+              : hasBookColumn
+                ? "lg:items-start gap-6 lg:gap-8 lg:grid-cols-[minmax(260px,min(460px,40vw))_minmax(0,1fr)_minmax(220px,300px)]"
+                : "lg:items-start gap-6 lg:gap-8 lg:grid-cols-[minmax(260px,min(460px,40vw))_minmax(0,1fr)]"
         }`}
       >
         {/* Left: preview + meta */}
-        <div className="flex flex-col items-center lg:items-stretch gap-4">
-          <div className="flex justify-center lg:justify-start">
-            {imageUrl ? (
-              <CollectionCoverFrame
-                imageUrl={imageUrl}
-                alt=""
-                variant="hero"
-                heroLoupe={heroCoverLoupe}
-                className="relative z-[1] shrink-0"
-              />
-            ) : (
-              <div className="flex aspect-[3/4] w-full max-w-[min(100%,260px)] items-center justify-center rounded-2xl border border-gray-800/90 bg-gradient-to-br from-gray-900/90 to-gray-950 p-6 text-center text-[12px] text-gray-500">
-                No preview
+        {/* `items-center` would shrink-track cross-axis width on mobile unless inner rows are `w-full` — otherwise hero `w-full`/aspect-ratio collapses. */}
+        <div className={`flex min-w-0 flex-col items-center gap-4 ${exchangeTriple ? "w-[420px] max-w-full lg:w-full lg:items-stretch" : "w-full lg:items-stretch"}`}>
+          <div className="flex w-full min-w-0 flex-col items-center gap-3 lg:items-stretch">
+            <div className="flex w-full min-w-0 justify-center lg:justify-start">
+              {imageUrl ? (
+                <CollectionCoverFrame
+                  imageUrl={imageUrl}
+                  alt=""
+                  variant="hero"
+                  className="relative z-[1] shrink-0"
+                />
+              ) : (
+                <div className={`flex w-[420px] max-w-full h-[585px] max-h-[min(585px,90svh)] items-center justify-center rounded-2xl ${COLLECTION_DETAILS_BORDER_ALL} ${COLLECTION_DETAILS_BG_CLASS} p-6 text-center text-[12px] text-gray-500`}>
+                  No preview
+                </div>
+              )}
+            </div>
+            {heroActions != null ? (
+              <div className="flex w-full max-w-[420px] shrink-0 flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-stretch sm:gap-x-2 sm:gap-y-2">
+                {heroActions}
               </div>
-            )}
+            ) : null}
           </div>
           {metadataExpand ? (
-            <CollectionMetadataExpandable
-              metadataRows={metadataRows}
-              {...metadataExpand}
-            />
-          ) : metadataRows.length > 0 ? (
+            <CollectionMetadataExpandable metadataRows={metadataRows} {...metadataExpand} />
+          ) : metadataRows.length > 0 && !exchangeTriple ? (
             <dl className="w-full grid grid-cols-2 gap-2 text-[13px]">
               {metadataRows.map((row) => (
                 <div
                   key={row.label}
-                  className="rounded-lg border border-gray-800/80 bg-black/25 px-2.5 py-2 col-span-2 sm:col-span-1"
+                  className={`rounded-lg ${COLLECTION_DETAILS_BORDER_ALL} bg-black/25 px-2.5 py-2 col-span-2 sm:col-span-1`}
                 >
                   <dt className="text-[10px] font-medium uppercase tracking-wide text-gray-500">
                     {row.label}
@@ -240,35 +397,70 @@ export function CollectionOverviewBoard({
           {leftColumnFooter}
         </div>
 
-        {/* Middle: chart (+ order book in exchange layout). Metrics sit above the chart only, not the book/trade column. */}
-        <div className="min-w-0 flex flex-col gap-4 items-stretch w-full">
+        {/* Middle: chart (+ book in exchange layout). */}
+        <div className="min-w-0 flex flex-col gap-2.5 items-stretch w-full sm:gap-3">
           {exchangeTriple ? (
-            <div
-              className="flex w-full min-w-0 flex-col gap-4 max-xl:gap-4 xl:h-[min(720px,74svh)] xl:max-h-[min(720px,74svh)] xl:min-h-[min(720px,74svh)] xl:flex-row xl:items-stretch xl:gap-4"
-            >
-              {/* Chart first on narrow screens (readable size); xl+ shares fixed row with book+trade */}
-              <div className="order-1 flex min-w-0 flex-1 flex-col gap-3 xl:order-1 xl:h-full xl:min-h-0">
-                {chartMetricsRow != null ? (
-                  <div className="w-full min-w-0 shrink-0">{chartMetricsRow}</div>
+            <div className={COLLECTION_MARKET_CLUSTER_BEZEL}>
+              <div className={COLLECTION_MARKET_CLUSTER_MAT}>
+                {orderBookToggleEnabled ? (
+                  <div className="mb-2 w-full min-w-0 sm:mb-3">
+                    <CollectionOrderBookVisibilityToggle
+                      checked={showOrderBook}
+                      onChange={onShowOrderBookChange}
+                    />
+                  </div>
                 ) : null}
-                <div className="flex w-full min-w-0 min-h-0 flex-1 flex-col xl:h-full xl:min-h-0">
-                  {priceChart ?? (
-                    <CollectionPriceHistoryPlaceholder className="w-full min-h-[360px] max-xl:min-h-[min(400px,50svh)] xl:h-full xl:min-h-0" />
-                  )}
-                </div>
-              </div>
-              {/*
-                Book + trade: fixed max width so the chart can use the rest of the row.
-                Two equal columns so the book matches the order (trade) pane width — no extra book-wide bias.
-              */}
-              <div className="order-2 flex w-full min-w-0 max-w-full flex-col xl:order-2 xl:h-full xl:min-h-0 xl:w-[min(100%,min(440px,max(360px,28vw)))] xl:shrink-0 xl:self-stretch xl:basis-[min(100%,min(440px,max(360px,28vw)))]">
-                <div className="grid h-full min-h-0 w-full min-w-0 grid-cols-2 grid-rows-1 overflow-hidden rounded-xl border border-zinc-800/90 bg-zinc-950 shadow-[0_14px_44px_-22px_rgba(0,0,0,0.65)] divide-x divide-zinc-800/80 max-xl:min-h-[min(480px,58dvh)] xl:h-full xl:max-h-full">
-                  <div className="flex min-h-[min(220px,32dvh)] min-w-0 flex-col overflow-hidden xl:h-full xl:max-h-full xl:min-h-0">
-                    {withFlushProp(orderBookNextToChart)}
+                <div
+                  className={[
+                    "flex min-w-0 w-full flex-col gap-3 max-xl:gap-3",
+                    "xl:grid xl:min-h-0 xl:gap-x-3 xl:gap-y-3",
+                    orderBookColumnVisible
+                      ? "xl:grid-cols-[minmax(0,1fr)_221px]"
+                      : "xl:grid-cols-[minmax(0,1fr)]",
+                  ].join(" ")}
+                >
+                  {chartMetricsRow != null ? (
+                    <div className={`order-1 min-w-0 shrink-0 ${orderBookColumnVisible ? "xl:col-span-2" : ""}`}>
+                      <div className="w-full min-w-0">{chartMetricsRow}</div>
+                    </div>
+                  ) : null}
+
+                  {/* Row 2 col 1: chart — fixed 409px to match order book */}
+                  <div className="order-2 flex min-h-0 min-w-0 flex-col xl:col-start-1 xl:row-start-2 xl:h-[409px] xl:max-h-[409px]">
+                    <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col xl:h-full">
+                      {priceChart ?? (
+                        <CollectionPriceHistoryPlaceholder className="w-full min-h-[128px] max-xl:min-h-[min(152px,_20svh)] xl:h-full xl:min-h-0" />
+                      )}
+                    </div>
                   </div>
-                  <div className="flex min-h-0 min-w-0 flex-col overflow-hidden xl:h-full xl:max-h-full xl:min-h-0">
-                    {withFlushProp(tradePanel)}
-                  </div>
+
+                  {/* Row 2 col 2: order book — fixed 409px */}
+                  {orderBookColumnVisible ? (
+                    <div className="order-4 flex min-h-0 w-full min-w-0 max-w-full flex-col gap-2 self-start xl:col-start-2 xl:row-start-2 xl:w-[221px] xl:shrink-0">
+                      {exchangeRightStackTop ? (
+                        <div className="min-h-0 w-full min-w-0 shrink-0 overflow-y-auto scrollbar-platform">
+                          {exchangeRightStackTop}
+                        </div>
+                      ) : null}
+                      <div className={`overflow-hidden ${COLLECTION_EXCHANGE_ORDER_BOOK_FRAME} max-xl:max-w-full`}>
+                        <div className="flex h-full min-h-0 w-full flex-col overflow-hidden">
+                          {withFlushProp(orderBookNextToChart)}
+                        </div>
+                      </div>
+                      {exchangeDockTradePanel ? withFlushProp(tradePanel) : null}
+                    </div>
+                  ) : null}
+
+                  {/* Row 3: price + buy/sell — spans full width under chart+orderbook */}
+                  {exchangeChartFooter != null ? (
+                    <div
+                      className={`order-5 min-w-0 shrink-0 pt-2.5 sm:pt-3 ${
+                        orderBookColumnVisible ? "xl:col-span-2" : ""
+                      }`}
+                    >
+                      {exchangeChartFooter}
+                    </div>
+                  ) : null}
                 </div>
               </div>
             </div>
@@ -279,7 +471,7 @@ export function CollectionOverviewBoard({
                   <div className="w-full min-w-0 shrink-0">{chartMetricsRow}</div>
                 ) : null}
                 {priceChart ?? (
-                  <CollectionPriceHistoryPlaceholder className="min-h-[240px] sm:min-h-[300px] w-full" />
+                  <CollectionPriceHistoryPlaceholder className="min-h-[180px] sm:min-h-[225px] w-full" />
                 )}
               </div>
               <div className="min-w-0 w-full xl:justify-self-stretch xl:sticky xl:top-4">
@@ -292,7 +484,7 @@ export function CollectionOverviewBoard({
                 <div className="w-full min-w-0 shrink-0">{chartMetricsRow}</div>
               ) : null}
               {priceChart ?? (
-                <CollectionPriceHistoryPlaceholder className="min-h-[240px] sm:min-h-[280px] w-full" />
+                <CollectionPriceHistoryPlaceholder className="min-h-[180px] sm:min-h-[210px] w-full" />
               )}
             </div>
           )}
@@ -302,7 +494,7 @@ export function CollectionOverviewBoard({
           <div className="min-w-0 w-full max-w-[300px] lg:justify-self-end flex flex-col gap-0 lg:sticky lg:top-4">
             {orderBook != null && <div className="min-w-0 min-h-0">{orderBook}</div>}
             {tradeTicket != null && (
-              <div className="mt-4 rounded-xl border border-gray-800/80 bg-[#14171f] px-3 py-3 sm:px-4 sm:py-4">
+              <div className={`mt-4 rounded-xl ${COLLECTION_DETAILS_BORDER_ALL} ${COLLECTION_DETAILS_BG_CLASS} px-3 py-3 sm:px-4 sm:py-4`}>
                 {tradeTicket}
               </div>
             )}

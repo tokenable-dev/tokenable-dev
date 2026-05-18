@@ -14,6 +14,7 @@ import {
 import { rq, marketplaceRqPolicy } from "@/lib/core";
 import { useMarketplaceCollectionsInfinite } from "@/hooks/useMarketplaceCollectionsInfinite";
 import { CollectionCoverFrame } from "@/components/marketplace/CollectionCoverFrame";
+import { TrendingCollectionsCarousel } from "@/components/landing/TrendingCollectionsCarousel";
 import { CollectionCategoryFilterBar } from "@/components/marketplace/CollectionCategoryFilterBar";
 import { CollectionListSparkline } from "@/components/marketplace/CollectionListSparkline";
 import {
@@ -22,6 +23,7 @@ import {
   type CollectionCategoryFilterId,
 } from "@/lib/market";
 import { parseGradeScoreNumber, representativeGradeUsd } from "@/lib/market";
+import { toCardDisplayUppercase } from "@/lib/marketplace/collectionFullDetailsTitle";
 
 const USDC_DECIMALS = 1_000_000;
 
@@ -103,6 +105,37 @@ function StatCard({ label, value }: { label: string; value: string }) {
   );
 }
 
+/** Mobile-only: three headline stats in one horizontal row inside a single card. */
+function MarketsStatsMobileStrip(props: {
+  marketCapDisplay: string;
+  listingsDisplay: string;
+  collectionsDisplay: string;
+}) {
+  const cell = (
+    label: string,
+    value: string,
+  ) => (
+    <div className="flex min-h-[3.75rem] min-w-0 flex-col items-center justify-center gap-0.5 px-1.5 text-center">
+      <p className="line-clamp-2 text-[0.6875rem] font-medium leading-tight text-gray-400">
+        {label}
+      </p>
+      <p className="truncate text-base font-extrabold tabular-nums tracking-tight text-white">
+        {value}
+      </p>
+    </div>
+  );
+
+  return (
+    <div className="rounded-2xl border border-gray-800 bg-gray-900/50 px-2 py-3 sm:hidden">
+      <div className="grid min-w-0 grid-cols-3 divide-x divide-gray-700/70">
+        {cell("Market CAP", props.marketCapDisplay)}
+        {cell("Active listings", props.listingsDisplay)}
+        {cell("Collections", props.collectionsDisplay)}
+      </div>
+    </div>
+  );
+}
+
 function formatUsd(n: number | null | undefined): string {
   if (n == null || !Number.isFinite(n)) return "—";
   const abs = Math.abs(n);
@@ -166,27 +199,12 @@ function CollectionRow({
   listingCount: number;
   snapshot: CollectionListMarketSnapshot | undefined;
 }) {
-  const comp = collection.components as {
-    gradeScore?: string;
-    gradingCompany?: string;
-    cardSet?: string;
-    cardNumber?: string;
-    cardhedgerCardId?: string;
-    psaSpecId?: string;
-  };
+  const comp = collection.components as { gradeScore?: string };
 
   const jtSpot = representativeGradeUsd(
     snapshot?.gradePrices ?? null,
     parseGradeScoreNumber(comp.gradeScore),
   );
-
-  const subtitle = [
-    comp.gradingCompany,
-    comp.cardSet,
-    comp.cardNumber ? `#${comp.cardNumber}` : null,
-  ]
-    .filter(Boolean)
-    .join(" · ");
 
   const pct = snapshot?.marketChangePct;
   const ms = snapshot?.marketStats ?? null;
@@ -232,19 +250,9 @@ function CollectionRow({
       </div>
 
       <div className="min-w-0 flex-1">
-        <h3 className="truncate text-xl font-extrabold tracking-tight text-white transition-colors group-hover:text-mint sm:text-2xl">
-          {collection.displayLabel}
+        <h3 className="truncate text-xl font-extrabold uppercase tracking-tight text-white transition-colors group-hover:text-mint sm:text-2xl">
+          {toCardDisplayUppercase(collection.displayLabel)}
         </h3>
-        {subtitle ? (
-          <p className="mt-1 truncate text-sm text-zinc-400 sm:text-base">{subtitle}</p>
-        ) : null}
-        {(comp.cardhedgerCardId || comp.psaSpecId) ? (
-          <p className="mt-1 truncate text-[11px] text-zinc-500">
-            {comp.cardhedgerCardId ? `Cardhedger ${comp.cardhedgerCardId}` : null}
-            {comp.cardhedgerCardId && comp.psaSpecId ? " · " : null}
-            {comp.psaSpecId ? `PSA Spec ${comp.psaSpecId}` : null}
-          </p>
-        ) : null}
         {(tokenableVsRefPct != null || upTo1yChangePct != null) ? (
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px] sm:text-xs">
             {tokenableVsRefPct != null ? (
@@ -254,7 +262,7 @@ function CollectionRow({
                     ? "border-amber-300/35 bg-amber-500/20 text-amber-200"
                     : "border-emerald-300/35 bg-emerald-500/20 text-emerald-200"
                 }`}
-                title={`Tokenable (${tokenablePrice != null ? formatUsd(tokenablePrice) : "—"}) vs eBay (${effectiveRefUsd != null ? formatUsd(effectiveRefUsd) : "—"})`}
+                title={`Tokenable Price (${tokenablePrice != null ? formatUsd(tokenablePrice) : "—"}) vs eBay (${effectiveRefUsd != null ? formatUsd(effectiveRefUsd) : "—"})`}
               >
                 Market Gap {tokenableVsRefPct >= 0 ? "+" : ""}
                 {tokenableVsRefPct.toFixed(1)}%
@@ -318,24 +326,13 @@ function CollectionRow({
 
 function CollectionGridCard({
   collection,
-  listingCount,
   snapshot,
 }: {
   collection: MarketplaceCollectionSummary;
-  listingCount: number;
   snapshot: CollectionListMarketSnapshot | undefined;
 }) {
-  const comp = collection.components as {
-    gradeScore?: string;
-    gradingCompany?: string;
-    cardSet?: string;
-    cardNumber?: string;
-    cardhedgerCardId?: string;
-    psaSpecId?: string;
-  };
-  const subtitle = [comp.gradingCompany, comp.cardSet, comp.cardNumber ? `#${comp.cardNumber}` : null]
-    .filter(Boolean)
-    .join(" · ");
+  const comp = collection.components as { gradeScore?: string };
+
   const jtSpot = representativeGradeUsd(
     snapshot?.gradePrices ?? null,
     parseGradeScoreNumber(comp.gradeScore),
@@ -357,6 +354,18 @@ function CollectionGridCard({
   const eBayUsd =
     jtSpot != null && Number.isFinite(jtSpot) && jtSpot > 0 ? jtSpot : fallbackRefUsd;
 
+  const sparkPoints =
+    snapshot?.sparklineUsd != null && snapshot.sparklineUsd.length >= 2
+      ? snapshot.sparklineUsd
+      : mockSparkline;
+  const gridSparkPctChange = percentChangeFromPoints(mockSparkline);
+  const pctPositive =
+    snapshot?.marketChangePct != null
+      ? snapshot.marketChangePct >= 0
+      : gridSparkPctChange != null
+        ? gridSparkPctChange >= 0
+        : undefined;
+
   return (
     <Link
       href={`/marketplace/collections/${encodeURIComponent(collection.collectionKey)}`}
@@ -374,49 +383,35 @@ function CollectionGridCard({
         )}
       </div>
       <div className="space-y-2 p-3">
-        <h3 className="truncate text-lg font-semibold text-white">{collection.displayLabel}</h3>
-        {subtitle ? <p className="truncate text-xs text-zinc-500">{subtitle}</p> : null}
-        {(comp.cardhedgerCardId || comp.psaSpecId) ? (
-          <p className="truncate text-[10px] text-zinc-600">
-            {comp.cardhedgerCardId ? `Cardhedger ${comp.cardhedgerCardId}` : null}
-            {comp.cardhedgerCardId && comp.psaSpecId ? " · " : null}
-            {comp.psaSpecId ? `PSA Spec ${comp.psaSpecId}` : null}
-          </p>
-        ) : null}
-        <div className="rounded-xl border border-zinc-800/70 bg-black/30 px-1.5 py-1">
-          <CollectionListSparkline
-            points={
-              snapshot?.sparklineUsd != null && snapshot.sparklineUsd.length >= 2
-                ? snapshot.sparklineUsd
-                : mockSparkline
-            }
-            positive={
-              snapshot?.marketChangePct != null
-                ? snapshot.marketChangePct >= 0
-                : percentChangeFromPoints(mockSparkline) != null
-                  ? Number(percentChangeFromPoints(mockSparkline)) >= 0
-                  : undefined
-            }
-            className="h-14 w-full"
-          />
-        </div>
-        <div className="space-y-1.5 border-t border-zinc-800/80 pt-2 text-sm">
-          <p className="flex items-center justify-between gap-2">
-            <span className="text-zinc-500">Active Listings</span>
-            <span className="font-semibold tabular-nums text-zinc-100">{listingCount}</span>
-          </p>
-          <p className="flex items-center justify-between gap-2">
-                            <span className="text-zinc-500">Market Price</span>
-            <span className="font-semibold tabular-nums text-cyan-300">
-              {eBayUsd != null ? formatUsd(eBayUsd) : "—"}
-            </span>
-          </p>
-          <p className="flex items-center justify-between gap-2">
-            <span className="text-zinc-500">Tokenable Price</span>
-            <span className="font-semibold tabular-nums text-emerald-300">
-              {tokenablePrice != null ? formatUsd(tokenablePrice) : "—"}
-            </span>
-          </p>
+        <h3 className="truncate text-lg font-semibold uppercase text-white">{toCardDisplayUppercase(collection.displayLabel)}</h3>
+        <div className="flex min-w-0 items-stretch gap-2 rounded-xl border border-zinc-800/70 bg-black/30 px-2 py-1.5">
+          <dl className="min-w-0 flex-1 space-y-1.5 text-[10px] leading-tight tabular-nums sm:text-[11px]">
+            <div className="min-w-0">
+              <dt className="text-zinc-500">Market price</dt>
+              <dd
+                className="truncate text-xs font-semibold text-cyan-300 sm:text-sm"
+                title={eBayUsd != null ? formatUsd(eBayUsd) : undefined}
+              >
+                {eBayUsd != null ? formatUsd(eBayUsd) : "—"}
+              </dd>
+            </div>
+            <div className="min-w-0">
+              <dt className="text-zinc-500">Tokenable Price</dt>
+              <dd
+                className="truncate text-xs font-semibold text-emerald-300 sm:text-sm"
+                title={tokenablePrice != null ? formatUsd(tokenablePrice) : undefined}
+              >
+                {tokenablePrice != null ? formatUsd(tokenablePrice) : "—"}
+              </dd>
+            </div>
+          </dl>
+          <div className="flex w-[38%] max-w-[5.75rem] min-w-[4.25rem] shrink-0 flex-col justify-center border-l border-zinc-800/60 pl-2">
+            <CollectionListSparkline
+              points={sparkPoints}
+              positive={pctPositive}
+              className="h-10 min-h-[2.5rem] w-full min-w-0"
+            />
+          </div>
         </div>
       </div>
     </Link>
@@ -425,7 +420,7 @@ function CollectionGridCard({
 
 export default function ExchangePage() {
   const [categoryFilter, setCategoryFilter] = useState<CollectionCategoryFilterId>("all");
-  const [viewMode, setViewMode] = useState<"list" | "grid">("list");
+  const [viewMode, setViewMode] = useState<"list" | "grid">("grid");
 
   const { data: orders = [], isLoading: ordersLoading } = useQuery({
     queryKey: rq.ordersActive(),
@@ -488,6 +483,11 @@ export default function ExchangePage() {
     (o) => o.side !== "bid" && (!o.collectionKey || !String(o.collectionKey).trim()),
   );
 
+  const marketCapDisplay =
+    stats.totalValue > 0
+      ? `$${stats.totalValue >= 1000 ? `${(stats.totalValue / 1000).toFixed(1)}K` : stats.totalValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}`
+      : "$0";
+
   const filteredSorted = useMemo(() => {
     return sortedForRank.filter((c) =>
       collectionMatchesCategoryFilter(
@@ -497,31 +497,6 @@ export default function ExchangePage() {
       ),
     );
   }, [sortedForRank, snapshotByKey, categoryFilter]);
-
-  const trendingNow = useMemo(() => {
-    return [...collectionSummaries]
-      .sort((a, b) => {
-        const ta = new Date(a.createdAt).getTime();
-        const tb = new Date(b.createdAt).getTime();
-        if (ta !== tb) return tb - ta;
-        return a.displayLabel.localeCompare(b.displayLabel);
-      })
-      .slice(0, 10);
-  }, [collectionSummaries]);
-
-  const MAX_TRENDING_VISIBLE = 4;
-  const [trendingStart, setTrendingStart] = useState(0);
-  const maxTrendingStart = Math.max(0, trendingNow.length - MAX_TRENDING_VISIBLE);
-  const trendingVisible = useMemo(
-    () => trendingNow.slice(trendingStart, trendingStart + MAX_TRENDING_VISIBLE),
-    [trendingNow, trendingStart],
-  );
-  const scrollTrending = (dir: "left" | "right") => {
-    setTrendingStart((prev) => {
-      if (dir === "left") return Math.max(0, prev - 1);
-      return Math.min(maxTrendingStart, prev + 1);
-    });
-  };
 
   return (
     <div className="min-h-screen bg-black text-white">
@@ -533,127 +508,21 @@ export default function ExchangePage() {
           </h1>
         </div>
 
-        {/* Stats */}
-        <div className="mb-14 sm:mb-16 grid grid-cols-1 gap-4 sm:grid-cols-3 sm:gap-5">
-          <StatCard
-            label="Total Market CAP"
-            value={
-              stats.totalValue > 0
-                ? `$${stats.totalValue >= 1000 ? `${(stats.totalValue / 1000).toFixed(1)}K` : stats.totalValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}`
-                : "$0"
-            }
+        {/* Stats: one compact row on mobile; three cards from sm */}
+        <div className="mb-10 space-y-0 sm:mb-16">
+          <MarketsStatsMobileStrip
+            marketCapDisplay={marketCapDisplay}
+            listingsDisplay={stats.totalListings.toString()}
+            collectionsDisplay={stats.totalCollections.toString()}
           />
-          <StatCard
-            label="Active Listings"
-            value={stats.totalListings.toString()}
-          />
-          <StatCard
-            label="Collections"
-            value={stats.totalCollections.toString()}
-          />
+          <div className="hidden grid-cols-3 gap-5 sm:grid">
+            <StatCard label="Total Market CAP" value={marketCapDisplay} />
+            <StatCard label="Active Listings" value={stats.totalListings.toString()} />
+            <StatCard label="Collections" value={stats.totalCollections.toString()} />
+          </div>
         </div>
 
-        {/* Trending slider */}
-        {trendingNow.length > 0 ? (
-          <section className="mb-16 mt-2 sm:mb-20 sm:mt-4" aria-label="Trending now collections">
-            <div className="mb-6 sm:mb-7">
-              <h2 className="text-3xl font-extrabold tracking-tight text-white">Trending Now</h2>
-            </div>
-
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => scrollTrending("left")}
-                aria-label="Scroll trending left"
-                disabled={trendingStart <= 0}
-                className={`absolute left-0 top-1/2 z-20 -translate-y-1/2 rounded-full border bg-zinc-950/85 p-2 transition-colors ${
-                  trendingStart > 0
-                    ? "border-zinc-700/80 text-zinc-300 hover:border-mint/40 hover:text-mint"
-                    : "cursor-not-allowed border-zinc-800/70 text-zinc-700"
-                }`}
-              >
-                ‹
-              </button>
-              <button
-                type="button"
-                onClick={() => scrollTrending("right")}
-                aria-label="Scroll trending right"
-                disabled={trendingStart >= maxTrendingStart}
-                className={`absolute right-0 top-1/2 z-20 -translate-y-1/2 rounded-full border bg-zinc-950/85 p-2 transition-colors ${
-                  trendingStart < maxTrendingStart
-                    ? "border-zinc-700/80 text-zinc-300 hover:border-mint/40 hover:text-mint"
-                    : "cursor-not-allowed border-zinc-800/70 text-zinc-700"
-                }`}
-              >
-                ›
-              </button>
-
-              <div className="grid grid-cols-1 gap-5 px-12 pb-2 pt-1 sm:grid-cols-2 xl:grid-cols-4">
-              {trendingVisible.map((c) => {
-                const s = snapshotByKey.get(c.collectionKey.toLowerCase());
-                const ms = s?.marketStats ?? null;
-                const tokenablePrice =
-                  ms?.floor != null && Number.isFinite(ms.floor) && ms.floor > 0
-                    ? ms.floor
-                    : s?.lastTokenableTradeUsdc != null &&
-                        Number.isFinite(s.lastTokenableTradeUsdc) &&
-                        s.lastTokenableTradeUsdc > 0
-                      ? s.lastTokenableTradeUsdc
-                      : null;
-                const comp = c.components as { gradeScore?: string };
-                const eBayPrice = representativeGradeUsd(
-                  s?.gradePrices ?? null,
-                  parseGradeScoreNumber(comp.gradeScore),
-                );
-                return (
-                  <Link
-                    key={c.collectionKey}
-                    href={`/marketplace/collections/${encodeURIComponent(c.collectionKey)}`}
-                    className="group w-full"
-                  >
-                    <div className="overflow-hidden rounded-2xl border border-zinc-800/80 bg-[#0d1118] transition-colors group-hover:border-mint/35">
-                      <div className="aspect-[3/4] bg-[#0a0e14]">
-                        {c.coverImageUrl ? (
-                          <CollectionCoverFrame
-                            imageUrl={c.coverImageUrl}
-                            variant="compact"
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
-                          <div className="h-full w-full bg-zinc-900" />
-                        )}
-                      </div>
-                      <div className="space-y-1.5 p-3">
-                        <p className="truncate text-lg font-semibold text-white">{c.displayLabel}</p>
-                        <div className="space-y-1 text-sm">
-                          <p className="flex items-center justify-between gap-2">
-                            <span className="text-zinc-500">Market Price</span>
-                            <span className="font-semibold tabular-nums text-cyan-300">
-                              {eBayPrice != null && Number.isFinite(eBayPrice) && eBayPrice > 0
-                                ? formatUsd(eBayPrice)
-                                : "—"}
-                            </span>
-                          </p>
-                          <p className="flex items-center justify-between gap-2">
-                            <span className="text-zinc-500">Tokenable</span>
-                            <span className="font-semibold tabular-nums text-emerald-300">
-                              {tokenablePrice != null ? formatUsd(tokenablePrice) : "—"}
-                            </span>
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </Link>
-                );
-              })}
-              </div>
-              <div className="mt-3 flex items-center justify-center text-xs text-zinc-500">
-                Showing {trendingStart + 1}-{Math.min(trendingStart + MAX_TRENDING_VISIBLE, trendingNow.length)} of{" "}
-                {trendingNow.length}
-              </div>
-            </div>
-          </section>
-        ) : null}
+        <TrendingCollectionsCarousel snapshotByKey={snapshotByKey} />
 
         {/* Collection list */}
         <div className="mb-8 sm:mb-10">
@@ -677,14 +546,20 @@ export default function ExchangePage() {
             </div>
           ) : null}
           {!isLoading && sortedForRank.length > 0 ? (
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-              <CollectionCategoryFilterBar value={categoryFilter} onChange={setCategoryFilter} />
-              <div className="inline-flex items-center gap-1 rounded-lg border border-zinc-700/80 bg-zinc-900/80 p-1">
+            <div className="mb-4 flex flex-col gap-3 sm:mb-4 sm:flex-row sm:flex-nowrap sm:items-center sm:justify-between sm:gap-4">
+              <div className="min-w-0 w-full sm:flex-1">
+                <CollectionCategoryFilterBar value={categoryFilter} onChange={setCategoryFilter} />
+              </div>
+              <div
+                className="inline-flex shrink-0 items-center gap-1 self-end rounded-xl border border-zinc-700/80 bg-zinc-900/80 p-1 sm:self-auto"
+                role="group"
+                aria-label="List layout"
+              >
                 <button
                   type="button"
                   onClick={() => setViewMode("grid")}
                   aria-label="Grid view"
-                  className={`inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors ${
+                  className={`inline-flex h-11 w-11 touch-manipulation items-center justify-center rounded-lg transition-colors sm:h-10 sm:w-10 ${
                     viewMode === "grid"
                       ? "bg-mint text-[#061018]"
                       : "text-zinc-300 hover:bg-zinc-800 hover:text-white"
@@ -701,7 +576,7 @@ export default function ExchangePage() {
                   type="button"
                   onClick={() => setViewMode("list")}
                   aria-label="List view"
-                  className={`inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors ${
+                  className={`inline-flex h-11 w-11 touch-manipulation items-center justify-center rounded-lg transition-colors sm:h-10 sm:w-10 ${
                     viewMode === "list"
                       ? "bg-mint text-[#061018]"
                       : "text-zinc-300 hover:bg-zinc-800 hover:text-white"
@@ -753,7 +628,6 @@ export default function ExchangePage() {
               <CollectionGridCard
                 key={c.collectionKey}
                 collection={c}
-                listingCount={c.activeListingCount}
                 snapshot={snapshotByKey.get(c.collectionKey.toLowerCase())}
               />
             ))}

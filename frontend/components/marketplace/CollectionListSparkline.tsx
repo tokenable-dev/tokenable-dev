@@ -51,10 +51,13 @@ export function CollectionListSparkline({
         ? "rgba(52, 211, 153, 0.95)"
         : "rgba(248, 113, 113, 0.9)";
 
+  const trimmed = className.trim();
+  const sizeClass = trimmed || "h-20 w-40 shrink-0";
+
   if (!d) {
     return (
       <div
-        className={`flex h-20 w-40 shrink-0 items-center justify-center rounded-xl border border-gray-800/60 bg-black/40 ${className}`}
+        className={`flex items-center justify-center rounded-xl border border-gray-800/60 bg-black/40 ${sizeClass}`}
         aria-hidden
       />
     );
@@ -62,7 +65,7 @@ export function CollectionListSparkline({
 
   return (
     <svg
-      className={`h-20 w-40 shrink-0 ${className}`}
+      className={`block ${sizeClass}`}
       viewBox={`0 0 ${w} ${h}`}
       preserveAspectRatio="none"
       aria-hidden

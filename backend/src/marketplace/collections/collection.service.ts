@@ -15,7 +15,11 @@ import {
   buildCollectionDisplayLabel,
   extractCollectionQueryUsed,
 } from '../utils/collection-label.util';
-import { extractCollectionRepresentativeImage } from '../utils/collection-image.util';
+import {
+  extractCollectionRepresentativeImage,
+  pickTrendingSlabImageRef,
+  psaCertNumberFromGradedMeta,
+} from '../utils/collection-image.util';
 import { MarketplaceCollection } from '../entities/marketplace-collection.entity';
 import { Order, OrderSide, OrderStatus } from '../entities/order.entity';
 import { exactCatalogMatch } from '../utils/card-match.util';
@@ -85,6 +89,19 @@ export class CollectionService implements OnModuleInit {
           ? specRaw.trim()
           : null;
     return { cardId, searchQuery, psaSpecId };
+  }
+
+  /**
+   * NFT `name` at listing time — matches the per-RWA title in the collection grid
+   * (`metadata.name`). Stored on `components.listingDisplayTitle` for hero copy + Cardhedger search.
+   */
+  private extractListingDisplayTitleFromMeta(
+    meta: Record<string, unknown>,
+  ): string | null {
+    const n = meta.name;
+    if (typeof n !== 'string') return null;
+    const t = n.trim().replace(/\s+/g, ' ');
+    return t.length > 0 ? t : null;
   }
 
   async onModuleInit(): Promise<void> {
@@ -176,8 +193,42 @@ export class CollectionService implements OnModuleInit {
     if (!img) return;
     const key = collectionKey.toLowerCase();
     const row = await this.collectionRepo.findOne({ where: { collectionKey: key } });
-    if (!row || row.coverImageUrl) return;
+    if (!row || row.coverImageUrl?.trim()) return;
     await this.collectionRepo.update({ collectionKey: key }, { coverImageUrl: img });
+  }
+
+  private async mergeTrendingSlabMetaFromMetaIfMissing(
+    collectionKey: string,
+    meta: Record<string, unknown>,
+  ): Promise<void> {
+    const key = collectionKey.toLowerCase();
+    const row = await this.collectionRepo.findOne({ where: { collectionKey: key } });
+    if (!row) return;
+    const comp = row.components as Record<string, unknown>;
+    const next = { ...comp };
+    let dirty = false;
+    const slab = pickTrendingSlabImageRef(meta);
+    if (
+      slab &&
+      !(typeof comp.trendingSlabImageUrl === 'string' && comp.trendingSlabImageUrl.trim())
+    ) {
+      next.trendingSlabImageUrl = slab;
+      dirty = true;
+    }
+    const cert = psaCertNumberFromGradedMeta(meta);
+    if (
+      cert &&
+      !(typeof comp.psaCertNumber === 'string' && String(comp.psaCertNumber).trim())
+    ) {
+      next.psaCertNumber = cert;
+      dirty = true;
+    }
+    if (dirty) {
+      await this.collectionRepo.update(
+        { collectionKey: key },
+        { components: next as QueryDeepPartialEntity<Record<string, unknown>> },
+      );
+    }
   }
 
   /**
@@ -233,12 +284,25 @@ export class CollectionService implements OnModuleInit {
     const compRecord: Record<string, unknown> = {
       ...(components as unknown as Record<string, unknown>),
     };
+    const listingTitle = this.extractListingDisplayTitleFromMeta(meta);
+    if (listingTitle) {
+      compRecord.listingDisplayTitle = listingTitle;
+    }
     if (ch.cardId) {
       compRecord.cardhedgerCardId = ch.cardId;
       if (ch.searchQuery) compRecord.cardhedgerSearchQuery = ch.searchQuery;
     }
     if (ch.psaSpecId) {
       compRecord.psaSpecId = ch.psaSpecId;
+    }
+
+    const trendingSlab = pickTrendingSlabImageRef(meta);
+    if (trendingSlab) {
+      compRecord.trendingSlabImageUrl = trendingSlab;
+    }
+    const psaCert = psaCertNumberFromGradedMeta(meta);
+    if (psaCert) {
+      compRecord.psaCertNumber = psaCert;
     }
 
     const row = this.collectionRepo.create({
@@ -259,6 +323,8 @@ export class CollectionService implements OnModuleInit {
         await this.persistCoverFromMetaIfMissing(collectionKey, meta);
         await this.mergePsaPopulationFromMetaIfMissing(collectionKey, meta);
         await this.mergeCardhedgerCardIdFromMetaIfMissing(collectionKey, meta);
+        await this.mergeListingDisplayTitleFromMetaIfMissing(collectionKey, meta);
+        await this.mergeTrendingSlabMetaFromMetaIfMissing(collectionKey, meta);
       } else {
         throw e;
       }
@@ -660,6 +726,68 @@ export class CollectionService implements OnModuleInit {
     );
   }
 
+  /** Duplicate-key race: fill `listingDisplayTitle` when the row was created by another listing first. */
+  private async mergeListingDisplayTitleFromMetaIfMissing(
+    collectionKey: string,
+    meta: Record<string, unknown>,
+  ): Promise<void> {
+    const key = collectionKey.toLowerCase();
+    const dbRow = await this.collectionRepo.findOne({ where: { collectionKey: key } });
+    if (!dbRow) return;
+    const comp = dbRow.components as Record<string, unknown>;
+    const existing =
+      typeof comp.listingDisplayTitle === 'string' ? comp.listingDisplayTitle.trim() : '';
+    if (existing.length > 0) return;
+    const t = this.extractListingDisplayTitleFromMeta(meta);
+    if (!t) return;
+    await this.collectionRepo.update(
+      { collectionKey: key },
+      {
+        components: {
+          ...comp,
+          listingDisplayTitle: t,
+        } as QueryDeepPartialEntity<Record<string, unknown>>,
+      },
+    );
+  }
+
+  /**
+   * Legacy rows: backfill `components.listingDisplayTitle` from the first active ask's IPFS `name`
+   * when missing (aligns collection detail hero with the in-grid RWA title).
+   */
+  async ensureListingDisplayTitleFromListings(collectionKey: string): Promise<void> {
+    const k = collectionKey.toLowerCase();
+    const row = await this.collectionRepo.findOne({ where: { collectionKey: k } });
+    if (!row) return;
+    const comp = row.components as Record<string, unknown>;
+    const existing =
+      typeof comp.listingDisplayTitle === 'string' ? comp.listingDisplayTitle.trim() : '';
+    if (existing.length > 0) return;
+
+    const asks = await this.activeListingsForCollection(k);
+    for (const o of asks) {
+      if (!o.tokenId || String(o.tokenId).trim() === '') continue;
+      try {
+        const uri = await this.blockchain.getRwaTokenURI(Number(o.tokenId));
+        const meta = await this.ipfsResolver.fetchMetadataJson(uri);
+        const t = this.extractListingDisplayTitleFromMeta(meta);
+        if (!t) continue;
+        await this.collectionRepo.update(
+          { collectionKey: k },
+          {
+            components: {
+              ...comp,
+              listingDisplayTitle: t,
+            } as QueryDeepPartialEntity<Record<string, unknown>>,
+          },
+        );
+        return;
+      } catch {
+        /* try next listing */
+      }
+    }
+  }
+
   async activeListingsForCollection(collectionKey: string): Promise<Order[]> {
     return this.orderRepo.find({
       where: {
@@ -684,38 +812,52 @@ export class CollectionService implements OnModuleInit {
   }
 
   /**
-   * Representative image: DB value; else first active listing IPFS metadata.
+   * Representative image: persisted `cover_image_url` only.
+   * When still empty, pick art from the **lowest active token id** in the pool (stable as listings churn),
+   * and persist **only if the column is still null** so we never replace the first saved cover.
    */
   async resolveRepresentativeImageForCollection(
     collectionKey: string,
   ): Promise<string | null> {
     const k = collectionKey.toLowerCase();
     const col = await this.findOne(k);
-    if (col?.coverImageUrl) {
-      return col.coverImageUrl;
-    }
+    const stored = col?.coverImageUrl?.trim();
+    if (stored) return stored;
 
     const asks = await this.activeListingsForCollection(k);
     const bids = await this.activeBidsForCollection(k);
-    /** Asks: include real token #0. Bids: criteria bids store tokenId sentinel "0" — skip for URI fetch. */
     const askIds = asks
       .map((o) => o.tokenId)
       .filter((id) => id != null && String(id).trim() !== '');
     const bidIds = bids
       .map((o) => o.tokenId)
       .filter((id) => id && id !== '0');
-    const tokenIds = [...new Set([...askIds, ...bidIds])];
+    const tokenIds = [...new Set([...askIds, ...bidIds])].sort((a, b) => {
+      const na = Number(a);
+      const nb = Number(b);
+      if (Number.isFinite(na) && Number.isFinite(nb) && na !== nb) return na - nb;
+      return String(a).localeCompare(String(b), undefined, { numeric: true });
+    });
+
     for (const tokenId of tokenIds) {
       try {
         const uri = await this.blockchain.getRwaTokenURI(Number(tokenId));
         const meta = await this.ipfsResolver.fetchMetadataJson(uri);
-        const img = extractCollectionRepresentativeImage(meta);
-        if (img) {
-          await this.collectionRepo.update({ collectionKey: k }, { coverImageUrl: img });
-          return img;
-        }
+        const img = extractCollectionRepresentativeImage(meta)?.trim();
+        if (!img) continue;
+
+        await this.collectionRepo
+          .createQueryBuilder()
+          .update(MarketplaceCollection)
+          .set({ coverImageUrl: img })
+          .where('collection_key = :k', { k })
+          .andWhere('(cover_image_url IS NULL OR TRIM(cover_image_url) = :empty)', { empty: '' })
+          .execute();
+
+        const refreshed = await this.findOne(k);
+        return refreshed?.coverImageUrl?.trim() ?? img;
       } catch {
-        /* next */
+        /* next token */
       }
     }
 

@@ -2,6 +2,7 @@ import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { Contract, formatUnits } from 'ethers';
 import { TOKENABLE_RWA_CONTRACT, USDC_CONTRACT } from './constants/injection-tokens';
 import { IpfsGatewayResolverService } from './ipfs-gateway-resolver.service';
+import { pickRwaAssetDisplayImageRef } from '../marketplace/utils/collection-image.util';
 
 /** OpenZeppelin ERC721 — tokenId 미민팅 시 revert */
 function isErc721InvalidTokenError(e: unknown): boolean {
@@ -92,11 +93,6 @@ export class BlockchainService {
     return tokenIds.map(Number);
   }
 
-  private extractImageRef(metadata: Record<string, unknown>): string | undefined {
-    const img = metadata.image;
-    return typeof img === 'string' ? img : undefined;
-  }
-
   /**
    * tokenURI → metadata JSON → browser-safe image URL (all server-side, gateway fallbacks + CID cache).
    */
@@ -112,7 +108,7 @@ export class BlockchainService {
     }
     try {
       const metadata = await this.ipfs.fetchMetadataJson(tokenURI);
-      const ref = this.extractImageRef(metadata);
+      const ref = pickRwaAssetDisplayImageRef(metadata);
       const imageUrl = ref ? await this.ipfs.resolveImageToHttps(ref) : null;
       return { tokenId, tokenURI, metadata, imageUrl };
     } catch {
@@ -157,7 +153,7 @@ export class BlockchainService {
               return { tokenId, tokenURI: null, metadata: null, imageUrl: null };
             }
             const metadata = await this.ipfs.fetchMetadataJson(tokenURI);
-            const ref = this.extractImageRef(metadata);
+            const ref = pickRwaAssetDisplayImageRef(metadata);
             const imageUrl = ref ? await this.ipfs.resolveImageToHttps(ref) : null;
             return { tokenId, tokenURI, metadata, imageUrl };
           } catch {

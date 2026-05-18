@@ -134,7 +134,7 @@ function PriceHistorySparkline({
       className="w-full"
       title={
         showSpanAxis
-          ? "Time left → right (~1 year to now). Path uses 365d (or compounded shorter-window) anchor plus ~90d / ~30d / ~7d implied levels from Cardhedger index returns (not tick history)."
+          ? "Time left → right (~1 year to now). Endpoints follow the aggregate 365d % from Cardhedger-backed index math and today’s basket value (not tick-level trade history)."
           : undefined
       }
     >
@@ -188,7 +188,10 @@ function IndexCard({
   card: MarketIndexCard;
   loading: boolean;
 }) {
-  const showChart = card.demoMock || !card.synthetic;
+  const showChart =
+    card.valueUsd > 0 &&
+    card.change365dPct != null &&
+    Number.isFinite(card.change365dPct);
 
   const series = useMemo(
     () =>
@@ -196,11 +199,7 @@ function IndexCard({
         ? { points: [] as MarketPriceHistoryPoint[], changePct: NaN, comparisonAnchorLabel: "" }
         : buildGameIndexComparisonSeries({
             valueUsd: card.valueUsd,
-            change7dPct: card.change7dPct,
             change365dPct: card.change365dPct,
-            change180dPct: card.change180dPct,
-            rawChange90dPct: card.rawChange90dPct,
-            rawChange30dPct: card.rawChange30dPct,
           }),
     [card, showChart],
   );
@@ -211,13 +210,7 @@ function IndexCard({
         ? []
         : buildGameIndexSparklinePoints({
             valueUsd: card.valueUsd,
-            change7dPct: card.change7dPct,
-            change30dPct: card.change30dPct,
-            change90dPct: card.change90dPct,
             change365dPct: card.change365dPct,
-            change180dPct: card.change180dPct,
-            rawChange90dPct: card.rawChange90dPct,
-            rawChange30dPct: card.rawChange30dPct,
           }),
     [card, showChart],
   );
@@ -235,7 +228,7 @@ function IndexCard({
   const pctAria = loading
     ? "Loading market index data"
     : !showChart
-    ? "Index not available from Cardhedger catalog for this slot"
+      ? "365-day index change not available for this slot (Cardhedger aggregate missing)"
     : pctFinite
       ? `${up ? "Up" : "Down"} ${Math.abs(pct).toFixed(1)} percent vs about one year ago`
       : "Change unavailable";
@@ -322,6 +315,24 @@ function IndexCard({
   );
 }
 
+function MarketIndexCardSkeleton({ title }: { title: string }) {
+  return (
+    <div className="flex flex-col rounded-2xl border border-white/[0.08] bg-[#121212] px-5 py-5 sm:px-6 sm:py-6">
+      <h3 className="flex min-h-[2.75rem] items-center gap-2.5 text-[15px] font-bold leading-snug text-white/80 sm:text-base">
+        {title}
+      </h3>
+      <div className="mt-3 rounded-xl border border-white/[0.06] bg-black/35 px-3 pb-3 pt-2.5 sm:px-4 sm:pb-4 sm:pt-3">
+        <div className="flex min-h-[92px] flex-col items-center justify-center gap-2 rounded-lg border border-white/[0.05] bg-[#030304]/80 px-2 py-6">
+          <div className="h-7 w-7 animate-spin rounded-full border-2 border-solid border-t-transparent" />
+        </div>
+        <div className="mt-3 flex items-baseline justify-center gap-2 border-t border-white/[0.06] pt-3 sm:justify-start">
+          <span className="inline-block h-8 w-24 animate-pulse rounded bg-zinc-700/60" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function MarketIndexes() {
   const { data, isLoading, isFetching, isError, error } = useQuery({
     queryKey: ["cardhedger-indexes"],
@@ -334,6 +345,8 @@ export function MarketIndexes() {
     const games = data?.data ?? [];
     return buildMarketIndexCards(games);
   }, [data]);
+
+  const showSkeletonGrid = isLoading && cards.length === 0;
 
   return (
     <section className="relative z-10 mx-auto max-w-6xl px-6 pb-16">
@@ -351,49 +364,13 @@ export function MarketIndexes() {
         <p className="text-sm text-gray-500">No market data available.</p>
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-4">
-          {(cards.length
-            ? cards
-            : [
-                {
-                  title: "Pokemon Index",
-                  valueUsd: 0,
-                  change7dPct: 0,
-                  change30dPct: 0,
-                  change90dPct: 0,
-                  gameId: "pokemon-loading",
-                  synthetic: false,
-                },
-                {
-                  title: "MLB Index",
-                  valueUsd: 0,
-                  change7dPct: 0,
-                  change30dPct: 0,
-                  change90dPct: 0,
-                  gameId: "mlb-loading",
-                  synthetic: false,
-                },
-                {
-                  title: "NFL Index",
-                  valueUsd: 0,
-                  change7dPct: 0,
-                  change30dPct: 0,
-                  change90dPct: 0,
-                  gameId: "nfl-loading",
-                  synthetic: false,
-                },
-                {
-                  title: "NBA Index",
-                  valueUsd: 0,
-                  change7dPct: 0,
-                  change30dPct: 0,
-                  change90dPct: 0,
-                  gameId: "nba-loading",
-                  synthetic: false,
-                },
-              ]
-          ).map((card) => (
-            <IndexCard key={card.gameId} card={card} loading={isLoading || isFetching} />
-          ))}
+          {showSkeletonGrid
+            ? ["Pokemon Index", "MLB Index", "NFL Index", "NBA Index"].map((t) => (
+                <MarketIndexCardSkeleton key={t} title={t} />
+              ))
+            : cards.map((card) => (
+                <IndexCard key={card.gameId} card={card} loading={isLoading || isFetching} />
+              ))}
         </div>
       )}
     </section>

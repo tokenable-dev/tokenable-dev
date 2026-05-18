@@ -149,13 +149,13 @@ export interface MarketIndexSummaryRow {
   cards_count?: number;
   /** Aggregate catalog value for the game in USD. */
   game_value_usd: number;
-  game_value_change_7d_pct: number;
-  game_value_change_30d_pct?: number;
-  game_value_change_90d_pct?: number;
-  /** Optional 180d aggregate index change. */
-  game_value_change_180d_pct?: number;
-  /** If present on `GET /games`, used for 1y index comparison (preferred over compounding shorter windows). */
-  game_value_change_365d_pct?: number;
+  /** Missing when the backend cannot derive a defensible window aggregate from Cardhedger data. */
+  game_value_change_7d_pct?: number | null;
+  game_value_change_30d_pct?: number | null;
+  game_value_change_90d_pct?: number | null;
+  game_value_change_180d_pct?: number | null;
+  /** Required for landing “1Y” index cards; missing rows are omitted from the dashboard grid. */
+  game_value_change_365d_pct?: number | null;
 }
 
 /** Cardhedger-backed dashboard indexes. */
@@ -559,6 +559,8 @@ export interface MarketplaceCollectionDetail {
     queryUsed: string | null;
     components: Record<string, unknown>;
     createdAt: string;
+    /** Persisted cover; stable once set. Prefer this over recomputed fallback in UI when present. */
+    coverImageUrl?: string | null;
   } | null;
   listings: Order[];
   /** ERC721_WITH_CRITERIA collection bids */
@@ -740,6 +742,10 @@ export interface CollectionMarketPreview {
     gainPct30d?: number | null;
     priceReliability?: "high" | "low";
     pricingSuppressedReason?: string | null;
+    /** Backend: comps vs history point vs catalog PSA 10 slot. */
+    spotPriceBasis?: "comps" | "latest_sale" | "sparse_sale_avg" | "catalog" | null;
+    /** Unix seconds — comps newest sale or history observation when applicable. */
+    latestSaleAt?: number | null;
     ebayNearMint: MarketPriceBand | null;
     tcgplayerNearMint: MarketPriceBand | null;
     ebayPsa10?: MarketPriceBand | null;
@@ -770,40 +776,31 @@ export interface CollectionAiInsight {
   summary: string;
   bullets: string[];
   dynamics?: string[];
-  syntheticChart?: string;
-  chartSpec?: {
-    chartStyle: string;
-    trendStructure: string[];
-    momentumBehavior: string;
-    visualInterpretation: string;
-    miniSeries: number[];
-    pathRepresentation: string;
-  };
   outlook?: string;
   outlookScenarios?: {
     bullCase: string;
     baseCase: string;
     bearCase: string;
   };
-  uiInstructions?: {
-    loading: {
-      style: string;
-      scanningEffect: string;
-      minDurationMs: number;
-      maxDurationMs: number;
-    };
-    progressiveRenderOrder: string[];
-  };
   generatedAt: string;
   confidence?: number | null;
-  cardId?: string | null;
+  /** Shown under AI confidence when the model tapers certainty for thin tape. */
+  confidenceNote?: string | null;
+  /** Tape caveat when liquidity is too low to justify a “quiet = safe” read. */
+  riskTapeNote?: string | null;
   marketTone?:
-    | "Bullish"
-    | "Cooling"
+    | "Uptrend"
+    | "Accumulation"
+    | "Distribution"
+    | "Dead cat bounce"
+    | "Illiquid / niche"
     | "Consolidating"
-    | "Overextended"
-    | "Accumulating"
     | "Volatile"
+    | "Overextended"
+    | "Cooling"
+    /** @deprecated Older briefs only — retained for tolerant parsing. */
+    | "Bullish"
+    | "Accumulating"
     | null;
   riskScore?: number | null;
   riskLabel?: "Low" | "Medium" | "High" | null;
@@ -819,6 +816,12 @@ export interface CollectionAiInsight {
     change365dPct: number | null;
     points90d: number;
     points365d: number;
+    psaTotalPopulation?: number | null;
+    psa10PriceConfidence?: "high" | "medium" | "low" | null;
+    psa10PricingNote?: string | null;
+    psa10SpotLowUsd?: number | null;
+    psa10SpotHighUsd?: number | null;
+    psa10CatalogUsd?: number | null;
   };
 }
 
@@ -862,7 +865,7 @@ export async function postBatchMintMarketPreviews(
   return out;
 }
 
-export type MarketHistoryPeriod = "7d" | "30d" | "90d" | "1y" | "all";
+export type MarketHistoryPeriod = "7d" | "30d" | "90d" | "1y";
 
 export interface CollectionMarketPriceHistory {
   enabled: boolean;
@@ -885,8 +888,7 @@ function calendarDaysToMarketPeriod(days: number): MarketHistoryPeriod {
   if (d <= 7) return "7d";
   if (d <= 30) return "30d";
   if (d <= 90) return "90d";
-  if (d <= 366) return "1y";
-  return "all";
+  return "1y";
 }
 
 /** Unified collection price history (same endpoint for list/detail/portfolio). */

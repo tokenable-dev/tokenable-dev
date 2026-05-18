@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import {
   getRwaTokensByOwner,
   postRwaMetadataBatch,
@@ -78,6 +78,7 @@ export function useUserAssets(
     },
     enabled: enabled && tokenIds.length > 0,
     staleTime: marketplaceRqPolicy.metadataBatchStaleMs,
+    placeholderData: keepPreviousData,
   });
 
   const ordersQuery = useQuery({
@@ -93,12 +94,14 @@ export function useUserAssets(
     queryFn: () => postOrdersBatchByToken(tokenIds),
     enabled: enabled && includeOrderHistory && tokenIds.length > 0,
     staleTime: 30_000,
+    placeholderData: keepPreviousData,
   });
 
   const marketPreviewQuery = useQuery({
     queryKey: rq.marketMintPreviews(address, tokenIds),
     queryFn: () => postBatchMintMarketPreviews(tokenIds),
     enabled: enabled && includeMarketPreview && tokenIds.length > 0,
+    placeholderData: keepPreviousData,
   });
 
   const assets: UserOwnedAsset[] = useMemo(() => {
@@ -149,6 +152,7 @@ export function useUserAssets(
     marketPreviewByToken,
     isLoadingIds: tokenIdsQuery.isLoading,
     isLoadingMetadata: metadataQuery.isLoading,
+    isLoadingHistoryBatch: historyQuery.isLoading,
     isLoading: tokenIdsQuery.isLoading || metadataQuery.isLoading,
     marketPreviewLoading: marketPreviewQuery.isLoading,
     marketPreviewError: marketPreviewQuery.isError,

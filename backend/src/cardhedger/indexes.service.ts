@@ -23,18 +23,19 @@ export type CardhedgerGameIndexRow = {
   id: string;
   name: string;
   game_value_usd: number;
-  game_value_change_7d_pct: number;
-  game_value_change_30d_pct: number;
-  game_value_change_90d_pct: number;
-  game_value_change_180d_pct: number;
-  game_value_change_365d_pct: number;
+  /** Null when Cardhedger streams do not support a defensible estimate (never coerced to 0). */
+  game_value_change_7d_pct: number | null;
+  game_value_change_30d_pct: number | null;
+  game_value_change_90d_pct: number | null;
+  game_value_change_180d_pct: number | null;
+  game_value_change_365d_pct: number | null;
 };
 
 const HISTORY_SAMPLE_SIZE = 5;
 const HISTORY_CONCURRENCY = 8;
 const WINDOWS_DAYS = [7, 30, 90, 180, 365] as const;
 type WindowDays = (typeof WINDOWS_DAYS)[number];
-const DISK_CACHE_SCHEMA_VERSION = 1;
+const DISK_CACHE_SCHEMA_VERSION = 2;
 
 @Injectable()
 export class CardhedgerIndexesService
@@ -568,12 +569,12 @@ export class CardhedgerIndexesService
     // Cardhedger occasionally returns a flat 365d delta when the stream only has
     // recent updates — treat that as effectively missing for the 365d bucket.
     const hasSuspiciousFlat365 = updates[365] != null && Math.abs(updates[365]!) < 0.01;
-    const gains: Record<WindowDays, number> = {
-      7: updates[7] ?? 0,
-      30: updates[30] ?? 0,
-      90: updates[90] ?? 0,
-      180: updates[180] ?? 0,
-      365: updates[365] ?? 0,
+    const gains: Record<WindowDays, number | null> = {
+      7: updates[7],
+      30: updates[30],
+      90: updates[90],
+      180: updates[180],
+      365: updates[365],
     };
 
     // History fallback is expensive (N sample cards × /v1/cards/prices-by-card).
@@ -599,18 +600,26 @@ export class CardhedgerIndexesService
         const h = hist[d];
         const u = updates[d];
         gains[d] =
-          h != null && u != null ? h * 0.75 + u * 0.25 : h != null ? h : u != null ? u : 0;
+          h != null && u != null
+            ? Number((h * 0.75 + u * 0.25).toFixed(4))
+            : h != null
+              ? h
+              : u ?? null;
       }
     }
+    const round2 = (v: number | null): number | null => {
+      if (v == null || !Number.isFinite(v)) return null;
+      return Number(v.toFixed(2));
+    };
     return {
       id: params.id,
       name: params.name,
       game_value_usd: Number(total.toFixed(2)),
-      game_value_change_7d_pct: Number(gains[7].toFixed(2)),
-      game_value_change_30d_pct: Number(gains[30].toFixed(2)),
-      game_value_change_90d_pct: Number(gains[90].toFixed(2)),
-      game_value_change_180d_pct: Number(gains[180].toFixed(2)),
-      game_value_change_365d_pct: Number(gains[365].toFixed(2)),
+      game_value_change_7d_pct: round2(gains[7]),
+      game_value_change_30d_pct: round2(gains[30]),
+      game_value_change_90d_pct: round2(gains[90]),
+      game_value_change_180d_pct: round2(gains[180]),
+      game_value_change_365d_pct: round2(gains[365]),
     };
   }
 

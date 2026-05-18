@@ -4,15 +4,44 @@ import { useMemo, type ReactNode } from "react";
 import ReactECharts from "echarts-for-react";
 import type { EChartsOption, LineSeriesOption } from "echarts";
 import type { CollectionUsdPoint } from "@/lib/core";
+import {
+  COLLECTION_CHART_SURFACE,
+  COLLECTION_DETAILS_BG_CLASS,
+  COLLECTION_DETAILS_BORDER_ALL,
+} from "@/components/marketplace/collectionOverviewChrome";
 
-const EXTERNAL_REF_STROKE = "#2EE6D0";
-const PLATFORM_STROKE = "#D946EF";
+const EXTERNAL_REF_STROKE = "rgba(138,33,170,1)";
+const PLATFORM_STROKE = "rgba(135,255,72,1)";
 const AXIS_LABEL = "rgba(255,255,255,0.72)";
 const AXIS_LINE = "rgba(255,255,255,0.16)";
 const SPLIT_LINE = "rgba(255,255,255,0.06)";
 
 const DAY = 86400;
 const HOUR = 3600;
+
+function niceScale(
+  rawMin: number,
+  rawMax: number,
+  targetTicks = 5,
+): { min: number; max: number; interval: number } {
+  const range = rawMax - rawMin;
+  if (range === 0 || !Number.isFinite(range)) return { min: 0, max: 1, interval: 0.25 };
+
+  const roughStep = range / Math.max(targetTicks - 1, 1);
+  const mag = Math.pow(10, Math.floor(Math.log10(roughStep)));
+  const norm = roughStep / mag;
+
+  let step: number;
+  if (norm <= 1) step = mag;
+  else if (norm <= 2) step = 2 * mag;
+  else if (norm <= 2.5) step = 2.5 * mag;
+  else if (norm <= 5) step = 5 * mag;
+  else step = 10 * mag;
+
+  const min = Math.max(0, Math.floor(rawMin / step) * step);
+  const max = Math.ceil(rawMax / step) * step;
+  return { min, max, interval: step };
+}
 
 function utcDayKey(tSec: number): string {
   const d = new Date(tSec * 1000);
@@ -56,6 +85,14 @@ function formatTickMonth(tSec: number): string {
   });
 }
 
+/** Long spans — readable month + full year */
+function formatTickMonthYearNumeric(tSec: number): string {
+  return new Date(tSec * 1000).toLocaleDateString("en-US", {
+    month: "short",
+    year: "numeric",
+  });
+}
+
 function roughTickConfigByWindowDays(windowDays: number | null): {
   minIntervalMs: number;
   splitNumber: number;
@@ -63,43 +100,57 @@ function roughTickConfigByWindowDays(windowDays: number | null): {
 } {
   if (windowDays == null || !Number.isFinite(windowDays) || windowDays <= 0) {
     return {
-      minIntervalMs: 30 * DAY * 1000,
-      splitNumber: 6,
-      formatter: formatTickMonth,
+      minIntervalMs: 120 * DAY * 1000,
+      splitNumber: 5,
+      formatter: formatTickMonthYearNumeric,
     };
   }
   if (windowDays <= 7) {
     return {
-      minIntervalMs: DAY * 1000,
-      splitNumber: 7,
+      minIntervalMs: 2 * DAY * 1000,
+      splitNumber: 4,
       formatter: formatTickDate,
     };
   }
   if (windowDays <= 30) {
     return {
-      minIntervalMs: 3 * DAY * 1000,
-      splitNumber: 8,
+      minIntervalMs: 7 * DAY * 1000,
+      splitNumber: 5,
       formatter: formatTickDate,
     };
   }
   if (windowDays <= 90) {
     return {
-      minIntervalMs: 14 * DAY * 1000,
-      splitNumber: 7,
+      minIntervalMs: 21 * DAY * 1000,
+      splitNumber: 5,
       formatter: formatTickDate,
     };
   }
   if (windowDays <= 180) {
     return {
-      minIntervalMs: 30 * DAY * 1000,
-      splitNumber: 6,
+      minIntervalMs: 45 * DAY * 1000,
+      splitNumber: 5,
       formatter: formatTickMonth,
     };
   }
+  if (windowDays <= 365) {
+    return {
+      minIntervalMs: 75 * DAY * 1000,
+      splitNumber: 5,
+      formatter: formatTickMonth,
+    };
+  }
+  if (windowDays <= 730) {
+    return {
+      minIntervalMs: 120 * DAY * 1000,
+      splitNumber: 5,
+      formatter: formatTickMonthYearNumeric,
+    };
+  }
   return {
-    minIntervalMs: 60 * DAY * 1000,
-    splitNumber: 6,
-    formatter: formatTickMonth,
+    minIntervalMs: 180 * DAY * 1000,
+    splitNumber: 5,
+    formatter: formatTickMonthYearNumeric,
   };
 }
 
@@ -163,10 +214,12 @@ export function CollectionDualPriceChart({
   externalRefLineTag = "External NM",
   chartTitle = "External market vs on-platform trades",
   controls = null,
+  footnote = null,
   emptyStateMessage,
   isLoading,
   errorMessage,
   variant = "default",
+  collectionOverviewMat = false,
 }: {
   platformUsd: CollectionUsdPoint[];
   externalMarketUsd?: number | null;
@@ -178,12 +231,21 @@ export function CollectionDualPriceChart({
   externalRefLineTag?: string;
   chartTitle?: string;
   controls?: ReactNode;
+  /** Optional muted note rendered under chart range controls */
+  footnote?: ReactNode;
   emptyStateMessage?: string;
   isLoading?: boolean;
   errorMessage?: string | null;
   variant?: "default" | "exchange";
+  /** When `variant` is exchange and true, shell matches collection cover mat tones. */
+  collectionOverviewMat?: boolean;
 }) {
   const exchange = variant === "exchange";
+  const chartShellDefault = `rounded-2xl ${COLLECTION_DETAILS_BORDER_ALL} ${COLLECTION_DETAILS_BG_CLASS} shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]`;
+  const exchangeChrome =
+    exchange && collectionOverviewMat
+      ? COLLECTION_CHART_SURFACE
+      : chartShellDefault;
   const nowSec = Math.floor(Date.now() / 1000);
 
   const merged = useMemo(() => {
@@ -207,8 +269,37 @@ export function CollectionDualPriceChart({
     let platForChart: CollectionUsdPoint[];
 
     if (useFixedWindow) {
-      tMax = nowSec + 6 * HOUR;
-      tMin = nowSec - externalWindowDays! * DAY;
+      const windowTMin = nowSec - externalWindowDays! * DAY;
+      let windowTMax = nowSec + 6 * HOUR;
+
+      const relevantTimes: number[] = [];
+      for (const p of extRolling) {
+        if (Number.isFinite(p.t)) relevantTimes.push(p.t);
+      }
+      for (const p of platRaw) {
+        if (Number.isFinite(p.t)) relevantTimes.push(p.t);
+      }
+
+      /**
+       * Keep the x-axis within the user-selected window (`externalWindowDays`). Points older than
+       * `windowTMin` are intentionally clipped by `extInWindow` / `platForChart`; expanding
+       * `tMin` to `dataMin` made 7D/30D/90D show the same full-year Cardhedger curve.
+       */
+      if (relevantTimes.length > 0) {
+        const dataMin = Math.min(...relevantTimes);
+        const dataMax = Math.max(...relevantTimes);
+        const dataSpan = Math.max(dataMax - dataMin, DAY);
+        const leftPad = Math.min(14 * DAY, Math.max(2 * DAY, Math.floor(dataSpan * 0.04)));
+        const maxTrailingVoid = Math.min(120 * DAY, Math.max(10 * DAY, Math.floor(dataSpan * 0.12)));
+
+        const baseLeft = Math.max(windowTMin, dataMin - maxTrailingVoid);
+        tMin = baseLeft - leftPad;
+        tMax = Math.max(windowTMax, dataMax + leftPad);
+      } else {
+        tMin = windowTMin;
+        tMax = windowTMax;
+      }
+
       platForChart = platRaw.filter((p) => p.t >= tMin && p.t <= tMax);
     } else {
       const smart = computeSmartTimeDomain(platRaw, nowSec, 180 * DAY);
@@ -222,10 +313,23 @@ export function CollectionDualPriceChart({
       t: Math.min(Math.max(p.t, tMin), tMax),
     }));
 
-    const extForChart = buildPlatformUtcDayStaticPoints(
-      extRolling.filter((p) => p.t >= tMin && p.t <= tMax),
-      nowSec,
-    ).map((p) => ({ ...p, t: Math.min(Math.max(p.t, tMin), tMax) }));
+    const extInWindow = extRolling.filter((p) => p.t >= tMin && p.t <= tMax);
+    let extForChart = buildPlatformUtcDayStaticPoints(extInWindow, nowSec).map((p) => ({
+      ...p,
+      t: Math.min(Math.max(p.t, tMin), tMax),
+    }));
+
+    /** If UTC-day bucketing collapses a multi-point window to <2 samples, plot raw timestamps. */
+    if (extForChart.length < 2) {
+      const rawFit = extInWindow.filter(
+        (p) => Number.isFinite(p.t) && typeof p.v === "number" && Number.isFinite(p.v) && p.v > 0,
+      );
+      if (rawFit.length >= 2) {
+        extForChart = [...rawFit]
+          .sort((a, b) => a.t - b.t)
+          .map((p) => ({ ...p, t: Math.min(Math.max(p.t, tMin), tMax) }));
+      }
+    }
 
     const extIsPolyline = extForChart.length >= 2;
 
@@ -244,7 +348,6 @@ export function CollectionDualPriceChart({
         extIsPolyline: false,
         hasPlatform: platRaw.length > 0,
         hasExtSignal,
-        hasPlatformInView: false,
         platformSeries: [] as Array<[number, number]>,
         externalSeries: [] as Array<[number, number]>,
       };
@@ -254,10 +357,6 @@ export function CollectionDualPriceChart({
     const vMaxD = Math.max(...allV);
     const vPad = Math.max((vMaxD - vMinD) * 0.08, vMaxD * 0.04, 0.5);
 
-    const hasPlatformInView = useFixedWindow
-      ? platRaw.some((p) => p.t >= tMin && p.t <= tMax)
-      : platRaw.length > 0;
-
     return {
       tMin,
       tMax,
@@ -266,7 +365,6 @@ export function CollectionDualPriceChart({
       extIsPolyline,
       hasPlatform: platRaw.length > 0,
       hasExtSignal,
-      hasPlatformInView,
       platformSeries: platStatic.map((p) => [p.t * 1000, p.v] as [number, number]),
       externalSeries: extForChart.map((p) => [p.t * 1000, p.v] as [number, number]),
     };
@@ -309,7 +407,7 @@ export function CollectionDualPriceChart({
       });
     }
     series.push({
-      name: "Tokenable price",
+      name: "Tokenable Price",
       type: "line",
       data: merged.platformSeries,
       showSymbol: merged.platformSeries.length <= 2,
@@ -321,13 +419,28 @@ export function CollectionDualPriceChart({
       emphasis: { focus: "series" },
     });
 
-    const roughTick = roughTickConfigByWindowDays(externalWindowDays ?? null);
+    const extentDaysCeil =
+      merged.tMax > merged.tMin
+        ? Math.ceil((merged.tMax - merged.tMin) / DAY)
+        : null;
+    const roughTickDays =
+      externalWindowDays != null &&
+      extentDaysCeil != null &&
+      extentDaysCeil > 0
+        ? Math.max(externalWindowDays, extentDaysCeil)
+        : externalWindowDays ?? extentDaysCeil;
+    const roughTick = roughTickConfigByWindowDays(roughTickDays ?? null);
+
+    /** Coarse ticks for any meaningful span — keeps x-axis readable (fewer labels, wider spacing). */
+    const axisSpanDays =
+      merged.tMax > merged.tMin ? (merged.tMax - merged.tMin) / DAY : 0;
+    const useCoarseTimeTicks = axisSpanDays > 1;
 
     return {
       backgroundColor: "#060708",
       animationDuration: 250,
       textStyle: { color: AXIS_LABEL, fontFamily: "ui-sans-serif, system-ui, sans-serif" },
-      grid: { left: 52, right: 14, top: 14, bottom: 38, containLabel: false },
+      grid: { left: 52, right: 14, top: 10, bottom: 34, containLabel: false },
       dataZoom: [
         { type: "inside", xAxisIndex: 0, filterMode: "none" },
         { type: "slider", xAxisIndex: 0, height: 16, bottom: 0, show: false },
@@ -336,7 +449,7 @@ export function CollectionDualPriceChart({
         type: "time",
         min: merged.tMin * 1000,
         max: merged.tMax * 1000,
-        ...(exchange
+        ...(useCoarseTimeTicks
           ? {
               minInterval: roughTick.minIntervalMs,
               splitNumber: roughTick.splitNumber,
@@ -347,31 +460,37 @@ export function CollectionDualPriceChart({
         splitLine: { show: false },
         axisLabel: {
           color: AXIS_LABEL,
-          fontSize: 11,
-          formatter: (value: number) =>
-            exchange
-              ? roughTick.formatter(Math.floor(value / 1000))
-              : formatTickDate(Math.floor(value / 1000)),
+          fontSize: 13,
+          hideOverlap: true,
+          formatter: (value: number) => {
+            const tSec = Math.floor(value / 1000);
+            if (!useCoarseTimeTicks) return formatTickDate(tSec);
+            return roughTick.formatter(tSec);
+          },
         },
       },
-      yAxis: {
-        type: "value",
-        min: merged.vMin,
-        max: merged.vMax,
-        axisLine: { show: true, lineStyle: { color: AXIS_LINE } },
-        axisTick: { show: false },
-        splitLine: { show: true, lineStyle: { color: SPLIT_LINE } },
-        axisLabel: {
-          color: AXIS_LABEL,
-          fontSize: 11,
-          formatter: (value: number) =>
-            Math.abs(value) >= 1000
-              ? `$${Math.round(value).toLocaleString("en-US")}`
-              : value >= 10
-                ? `$${value.toFixed(0)}`
-                : `$${value.toFixed(2)}`,
-        },
-      },
+      yAxis: (() => {
+        const { min, max, interval } = niceScale(merged.vMin, merged.vMax, 5);
+        return {
+          type: "value",
+          min,
+          max,
+          interval,
+          axisLine: { show: true, lineStyle: { color: AXIS_LINE } },
+          axisTick: { show: false },
+          splitLine: { show: true, lineStyle: { color: SPLIT_LINE } },
+          axisLabel: {
+            color: AXIS_LABEL,
+            fontSize: 11,
+            formatter: (value: number) => {
+              if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`;
+              if (value >= 1_000) return `$${(value / 1_000).toFixed(value % 1_000 === 0 ? 0 : 1)}K`;
+              if (value >= 10) return `$${Math.round(value)}`;
+              return `$${value.toFixed(value === 0 ? 0 : 2)}`;
+            },
+          },
+        };
+      })(),
       tooltip: {
         trigger: "axis",
         axisPointer: {
@@ -391,7 +510,7 @@ export function CollectionDualPriceChart({
               | { value?: [number, number] }
               | undefined;
 
-          const p = pick("Tokenable price")?.value?.[1] ?? null;
+          const p = pick("Tokenable Price")?.value?.[1] ?? null;
           const e =
             pick(externalSeriesShortLabel)?.value?.[1] ??
             pick(externalRefLineTag)?.value?.[1] ??
@@ -400,7 +519,7 @@ export function CollectionDualPriceChart({
           const when = t != null ? formatHoverWhen(t) : "";
           return [
             `<div style="color:#a1a1aa;font-size:10px;margin-bottom:6px">${when}</div>`,
-            `<div style="display:flex;justify-content:space-between;gap:16px"><span style="color:#71717a">Tokenable price</span><span style="color:${PLATFORM_STROKE};font-weight:600">${formatTooltipUsd(
+            `<div style="display:flex;justify-content:space-between;gap:16px"><span style="color:#e4e4e7">Tokenable Price</span><span style="color:${PLATFORM_STROKE};font-weight:600">${formatTooltipUsd(
               p as number | null,
             )}</span></div>`,
             `<div style="display:flex;justify-content:space-between;gap:16px"><span style="color:#71717a">${externalSeriesShortLabel}</span><span style="color:${EXTERNAL_REF_STROKE};font-weight:600">${formatTooltipUsd(
@@ -426,8 +545,8 @@ export function CollectionDualPriceChart({
       <div
         className={
           exchange
-            ? "flex min-h-[300px] flex-col items-center justify-center gap-3 rounded-2xl border border-white/[0.07] bg-[#030304] px-4 max-xl:min-h-[min(360px,44svh)] xl:h-full xl:min-h-0"
-            : "flex min-h-[260px] flex-col items-center justify-center gap-3 rounded-2xl border border-white/[0.07] bg-[#030304] px-4"
+            ? `${exchangeChrome} flex min-h-[120px] flex-col items-center justify-center gap-3 px-4 max-xl:min-h-[min(140px,20svh)] xl:h-full xl:min-h-0`
+            : `${chartShellDefault} flex min-h-[260px] flex-col items-center justify-center gap-3 px-4`
         }
         role="status"
         aria-live="polite"
@@ -447,8 +566,8 @@ export function CollectionDualPriceChart({
       <div
         className={
           exchange
-            ? "flex min-h-[260px] flex-col items-center justify-center rounded-2xl border border-white/[0.07] bg-[#030304] px-4 py-6 text-center text-sm text-rose-200/90 max-xl:min-h-[min(320px,40svh)] xl:h-full xl:min-h-0"
-            : "rounded-2xl border border-rose-500/20 bg-[#030304] px-4 py-6 text-center text-sm text-rose-200/90"
+            ? `${exchangeChrome} flex min-h-[110px] flex-col items-center justify-center px-4 py-6 text-center text-sm text-rose-200/90 max-xl:min-h-[min(128px,18svh)] xl:h-full xl:min-h-0`
+            : "rounded-2xl border border-rose-500/20 bg-[rgba(11,13,16,1)] px-4 py-6 text-center text-sm text-rose-200/90"
         }
       >
         {errorMessage}
@@ -461,8 +580,8 @@ export function CollectionDualPriceChart({
       <div
         className={
           exchange
-            ? "flex min-h-[260px] flex-col items-center justify-center rounded-2xl border border-white/[0.07] bg-[#030304] px-4 py-8 text-center text-sm text-zinc-600 max-xl:min-h-[min(320px,40svh)] xl:h-full xl:min-h-0"
-            : "rounded-2xl border border-white/[0.07] bg-[#030304] px-4 py-8 text-center text-sm text-zinc-600"
+            ? `${exchangeChrome} flex min-h-[110px] flex-col items-center justify-center px-4 py-8 text-center text-sm text-zinc-600 max-xl:min-h-[min(128px,18svh)] xl:h-full xl:min-h-0`
+            : `${chartShellDefault} flex min-h-[110px] flex-col items-center justify-center px-4 py-8 text-center text-sm text-zinc-600`
         }
       >
         {emptyStateMessage ??
@@ -475,50 +594,43 @@ export function CollectionDualPriceChart({
     <div
       className={
         exchange
-          ? "flex min-h-[320px] flex-col overflow-hidden rounded-2xl border border-white/[0.07] bg-[#030304] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] max-xl:min-h-[min(380px,48svh)] xl:h-full xl:min-h-0"
-          : "rounded-2xl border border-white/[0.07] bg-[#030304] text-white"
+          ? `${exchangeChrome} flex min-h-[134px] flex-col overflow-hidden text-white max-xl:min-h-[min(154px,21svh)] xl:h-full xl:min-h-0`
+          : `${chartShellDefault} text-white`
       }
     >
-      <div className="flex shrink-0 flex-col gap-3 px-4 pt-4 pb-2 sm:px-5 sm:pt-5 lg:flex-row lg:items-start lg:justify-between lg:gap-4">
-        <div className="flex min-w-0 flex-1 flex-col gap-2">
-          <h3 className="text-[15px] font-semibold tracking-tight text-white">{chartTitle}</h3>
-          {controls}
-        </div>
-        <div className="grid w-full max-w-full grid-cols-[12px_minmax(0,1fr)] items-center gap-x-2 gap-y-2 text-[10px] font-medium leading-tight text-white/90 sm:w-auto sm:grid-cols-[14px_auto] sm:gap-y-2.5 sm:text-[11px] lg:shrink-0">
-          <span className="inline-block h-[10px] w-[10px] rounded-full" style={{ background: EXTERNAL_REF_STROKE }} aria-hidden />
-          <span
-            className={
-              merged.hasExtSignal
-                ? "min-w-0 truncate"
-                : "min-w-0 truncate text-white/35"
-            }
-          >
-            {externalLegendLabel}
-          </span>
-          <span className="inline-block h-[10px] w-[10px] rounded-full" style={{ background: PLATFORM_STROKE }} aria-hidden />
-          <span
-            className={
-              merged.hasPlatformInView
-                ? "min-w-0 truncate"
-                : "min-w-0 truncate text-white/35"
-            }
-          >
-            Tokenable price
-          </span>
+      {/* Top bar: range controls (left) + legend (right) — single row */}
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-1.5 px-3 pt-2.5 pb-1.5 sm:px-4">
+        {/* Range buttons */}
+        {controls ? <div className="flex items-center">{controls}</div> : null}
+
+        {/* Legend */}
+        <div className="flex items-center gap-3 text-[10px] font-medium sm:text-[11px]">
+          <div className="flex items-center gap-1.5">
+            <span className="inline-block h-[9px] w-[9px] shrink-0 rounded-full" style={{ background: EXTERNAL_REF_STROKE }} aria-hidden />
+            <span className={merged.hasExtSignal ? "text-white/90" : "text-white/35"}>
+              Live Market Price
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="inline-block h-[9px] w-[9px] shrink-0 rounded-full" style={{ background: PLATFORM_STROKE }} aria-hidden />
+            <span className="text-white/90">Tokenable Price</span>
+          </div>
+          {footnote ? <div className="text-zinc-500">{footnote}</div> : null}
         </div>
       </div>
 
-      <div className={exchange ? "flex min-h-0 flex-1 flex-col px-2 pb-2 pt-0 sm:px-4 sm:pb-3" : "px-2 pb-3 pt-0 sm:px-4"}>
+      {/* Chart */}
+      <div className={exchange ? "flex min-h-0 flex-1 flex-col px-2 pb-1.5 pt-0 sm:px-3 sm:pb-2" : "px-2 pb-3 pt-0 sm:px-4"}>
         <ReactECharts
           option={chartOption}
           notMerge
           lazyUpdate
           style={{
             width: "100%",
-            height: exchange ? "100%" : "340px",
-            minHeight: exchange ? 260 : 220,
+            height: exchange ? "100%" : "300px",
+            minHeight: exchange ? 110 : 200,
           }}
-          className={exchange ? "min-h-[260px] xl:min-h-[320px]" : "min-h-[220px]"}
+          className={exchange ? "min-h-[110px] xl:min-h-[136px]" : "min-h-[200px]"}
         />
       </div>
     </div>

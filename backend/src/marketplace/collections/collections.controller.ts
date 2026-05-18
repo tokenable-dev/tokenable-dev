@@ -125,14 +125,14 @@ export class CollectionsController {
   @ApiQuery({
     name: 'period',
     required: false,
-    enum: ['7d', '30d', '90d', '1y', 'all'],
+    enum: ['7d', '30d', '90d', '1y'],
     description: 'History window (default 90d)',
   })
   @ApiQuery({
     name: 'maxDays',
     required: false,
     description:
-      'Optional post-fetch UTC-day trim (1–4000). Defaults to span implied by `period`.',
+      'Nominal calendar window length passed through to history (default 365). Values above Card Hedge’s documented cap (365) are clamped for upstream calls.',
   })
   @Get('collections/:key/cardhedger/price-history')
   async getCollectionCardhedgerPriceHistory(
@@ -215,6 +215,7 @@ export class CollectionsController {
     if (col) {
       await this.collectionService.ensurePsaTotalPopulationFromListings(k);
       await this.collectionService.ensureCardhedgerCardIdFromListings(k);
+      await this.collectionService.ensureListingDisplayTitleFromListings(k);
       col = await this.collectionService.findOne(k);
     }
     const [listings, collectionBids, representativeImageUrl] = await Promise.all([

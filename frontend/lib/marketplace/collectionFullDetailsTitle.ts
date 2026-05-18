@@ -1,0 +1,169 @@
+import {
+  bucketCardNameForDisplay,
+  bucketCardSetForDisplay,
+} from "@/lib/marketplace/bucketKey";
+
+export function leadingYearFromSetLine(setLineRaw: string): number | null {
+  const m = /^\s*(\d{4})\b/.exec(setLineRaw);
+  if (!m) return null;
+  const y = Number(m[1]);
+  return y >= 1880 && y <= 2100 ? y : null;
+}
+
+/** Title-style card name for the hero (e.g. `PIKACHU/GREY FELT HAT` → `Pikachu Grey Felt Hat`). */
+export function formatCardNameForHeadline(raw: string): string {
+  return raw
+    .replace(/\/+/g, " ")
+    .replace(/[_]+/g, " ")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((w) => {
+      const lower = w.toLowerCase();
+      if (lower === "psa" || lower === "dna") return lower.toUpperCase();
+      return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+    })
+    .join(" ");
+}
+
+/**
+ * Collapse whitespace and uppercase — unified card copy on collection list + collection hero/details.
+ */
+export function toCardDisplayUppercase(value: string | null | undefined): string {
+  if (value == null) return "";
+  const t = String(value).trim().replace(/\s+/g, " ");
+  return t.length === 0 ? "" : t.toLocaleUpperCase("en-US");
+}
+
+/** Padded `#085` when numeric; otherwise `#` + trimmed token. */
+export function formatHeadlineCardNumber(raw: string | undefined | null): string | null {
+  const n = String(raw ?? "")
+    .trim()
+    .replace(/^#/, "");
+  if (!n) return null;
+  if (/^\d+$/.test(n)) {
+    const v = parseInt(n, 10);
+    if (Number.isFinite(v) && v >= 0) return `#${String(v).padStart(3, "0")}`;
+  }
+  return `#${n}`;
+}
+
+export function yearFromComponents(components: Record<string, unknown>): number | null {
+  const yearRaw = components.year;
+  if (typeof yearRaw === "number" && Number.isFinite(yearRaw)) {
+    const y = yearRaw;
+    return y >= 1880 && y <= 2100 ? y : null;
+  }
+  if (typeof yearRaw === "string" && /^\d{4}$/.test(yearRaw.trim())) {
+    const y = Number(yearRaw.trim());
+    return y >= 1880 && y <= 2100 ? y : null;
+  }
+  return null;
+}
+
+/**
+ * Optional second line under the set name — catalog shorthand (BSP, collab, etc.).
+ * Keeps the main layout (badges + title + set + chips); adds readable context only.
+ */
+export function buildCollectionHeadlineMetaStrip(params: {
+  setLine: string | null;
+  comp: Record<string, unknown>;
+  marketPreview?: {
+    card?: {
+      setName?: string | null;
+      variant?: string | null;
+      setType?: string | null;
+    } | null;
+  } | null;
+  displayLabel?: string | null;
+}): string | null {
+  const set =
+    params.setLine?.trim() ||
+    params.marketPreview?.card?.setName?.trim() ||
+    bucketCardSetForDisplay(params.comp).trim();
+  const variant =
+    (typeof params.comp.variant === "string" ? params.comp.variant.trim() : "") ||
+    (params.marketPreview?.card?.variant?.trim() ?? "");
+  const setType = params.marketPreview?.card?.setType?.trim() ?? "";
+  const listingTitle =
+    typeof params.comp["listingDisplayTitle"] === "string"
+      ? String(params.comp["listingDisplayTitle"]).trim()
+      : "";
+  /** NFT `name` is canonical for this bucket — skip Cardhedger `setType` (often a second full set name). */
+  const skipCatalogSetTypeEcho = listingTitle.length > 0;
+  const corpus = `${set} ${variant} ${params.displayLabel ?? ""}`;
+
+  const parts: string[] = [];
+  const setOrVariantNamesBlackStar =
+    /\bblack\s*star\s*promo/i.test(set) || /\bblack\s*star\s*promo/i.test(variant);
+  if (!setOrVariantNamesBlackStar && /\bblack\s*star\s*promo/i.test(corpus)) {
+    parts.push("BSP");
+  }
+
+  if (/\bvan\s*gogh\b/i.test(corpus)) {
+    const inSet = /\bvan\s*gogh\b/i.test(set);
+    if (!inSet) {
+      parts.push(/\bpokemon\b/i.test(corpus) ? "Pokemon × Van Gogh" : "Van Gogh");
+    }
+  }
+  if (
+    !skipCatalogSetTypeEcho &&
+    setType &&
+    !tagFragmentContainedInLine(setType, set) &&
+    !tagFragmentContainedInLine(setType, variant)
+  ) {
+    parts.push(setType);
+  }
+
+  return parts.length > 0 ? parts.join(" · ") : null;
+}
+
+function tagFragmentContainedInLine(fragment: string, lineRaw: string): boolean {
+  const f = fragment.trim().toLowerCase().replace(/\s+/g, " ");
+  const line = lineRaw.trim().toLowerCase().replace(/\s+/g, " ");
+  if (!f || !line) return false;
+  if (line.includes(f)) return true;
+  return f.length >= 10 && line.length >= 10 && (line.includes(f.slice(0, 12)) || f.includes(line));
+}
+
+/** Prefer IPFS display name, formatted for reading when it looks like a bucket slug. */
+export function formatCollectionHeroCardTitle(comp: Record<string, unknown>): string {
+  const raw = bucketCardNameForDisplay(comp).trim();
+  if (!raw) return "";
+  const looksSlug =
+    raw === raw.toUpperCase() ||
+    /[/_]/.test(raw) ||
+    (raw.split(/\s+/).length <= 4 && raw.length >= 8 && raw === raw.toUpperCase());
+  return looksSlug ? formatCardNameForHeadline(raw) : raw;
+}
+
+/**
+ * One-line collection name for `title` / sr-only: card · set · meta · # · Pop — avoids repeating BSP / Van Gogh when already in set or meta.
+ */
+export function computeCollectionWovenTitle(
+  cardTitle: string,
+  setLine: string | null,
+  metaStrip: string | null,
+  cardNumber: string | null,
+  populationBadge: string | null,
+): string {
+  const chunks: string[] = [];
+  const t = cardTitle.trim();
+  const s = (setLine ?? "").trim();
+  if (t) chunks.push(t);
+  if (s) chunks.push(s);
+  const m = (metaStrip ?? "").trim();
+  if (m) {
+    const hay = `${t} ${s}`.toLowerCase();
+    if (!hay.includes(m.toLowerCase())) chunks.push(m);
+  }
+  const num = (cardNumber ?? "").trim();
+  if (num) {
+    const digits = num.replace(/^#/, "");
+    const joined = chunks.join(" ").toLowerCase();
+    if (!joined.includes(digits)) chunks.push(num);
+  }
+  const pop = (populationBadge ?? "").trim();
+  if (pop && !chunks.join(" ").toLowerCase().includes("pop ·")) chunks.push(pop);
+  return chunks.join(" · ");
+}

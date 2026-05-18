@@ -1,4 +1,4 @@
-export type MarketHistoryPeriod = '7d' | '30d' | '90d' | '1y' | 'all';
+export type MarketHistoryPeriod = '7d' | '30d' | '90d' | '1y';
 
 export type PriceBand = {
   avg: number | null;
@@ -61,6 +61,16 @@ export type MarketCollectionPreview = {
     gainPct30d?: number | null;
     priceReliability?: 'high' | 'low';
     pricingSuppressedReason?: string | null;
+    /**
+     * How {@link topPrice} / PSA 10 band were chosen.
+     * `comps` = Cardhedger `POST /v1/cards/comps` (time-weighted PSA 10).
+     * `sparse_sale_avg` = mean of 1–5 recent comps raw sales, or 1–5 `prices-by-card` points when comps raw is not sparse.
+     * `latest_sale` = last chronological point from `prices-by-card` when comps unavailable.
+     * `catalog` = PSA 10 grade slot from `all-prices-by-card` when comps/history missing.
+     */
+    spotPriceBasis?: 'comps' | 'latest_sale' | 'sparse_sale_avg' | 'catalog' | null;
+    /** Unix seconds — newest `sale_date` in comps raw payload, or history point time when basis is `latest_sale`. */
+    latestSaleAt?: number | null;
     ebayNearMint: PriceBand | null;
     tcgplayerNearMint: PriceBand | null;
     ebayPsa10?: PriceBand | null;

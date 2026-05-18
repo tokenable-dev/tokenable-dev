@@ -1,120 +1,321 @@
 import { Injectable } from '@nestjs/common';
-import { CardhedgerService } from '../../cardhedger/cardhedger.service';
 import type { MarketplaceCollection } from '../entities/marketplace-collection.entity';
+import type { CollectionAiInsightPricingStats } from './cardhedger-market-data.service';
 import { CardhedgerMarketDataService } from './cardhedger-market-data.service';
 
-type CardhedgerCardRow = Record<string, unknown>;
+/** Single-line-ish copy cap for skim-friendly UI */
+function tight(s: string, maxLen: number): string {
+  const t = String(s).replace(/\s+/g, ' ').trim();
+  if (!t.length) return t;
+  if (t.length <= maxLen) return t;
+  return `${t.slice(0, maxLen - 1).trimEnd()}…`;
+}
+
+export type CollectionAiMarketPerspective =
+  | 'Uptrend'
+  | 'Accumulation'
+  | 'Distribution'
+  | 'Dead cat bounce'
+  | 'Illiquid / niche'
+  | 'Consolidating'
+  | 'Volatile'
+  | 'Overextended'
+  | 'Cooling';
 
 @Injectable()
 export class CardhedgerAiInsightService {
-  constructor(
-    private readonly cardhedger: CardhedgerService,
-    private readonly marketData: CardhedgerMarketDataService,
-  ) {}
+  constructor(private readonly marketData: CardhedgerMarketDataService) {}
 
   private clamp01to100(v: number): number {
     if (!Number.isFinite(v)) return 0;
     return Math.min(100, Math.max(0, v));
   }
 
-  private classifyMarketTone(input: {
+  private n(v: number | null | undefined): number | null {
+    if (v == null || !Number.isFinite(v)) return null;
+    return v;
+  }
+
+  /** 0–100: higher = deeper, more reliable tape. */
+  private liquidityScore(sales30d: number | null): number {
+    if (sales30d == null || !Number.isFinite(sales30d) || sales30d < 0)
+      return 18;
+    return this.clamp01to100(Math.log10(sales30d + 1) * 38);
+  }
+
+  /** 0–100: activity / participation proxy from recent sales frequency. */
+  private activityScore(sales7d: number | null, sales30d: number | null): number {
+    const s7 = sales7d != null && Number.isFinite(sales7d) && sales7d >= 0 ? sales7d : 0;
+    const s30 =
+      sales30d != null && Number.isFinite(sales30d) && sales30d >= 0 ? sales30d : 0;
+    return this.clamp01to100(
+      Math.log10(s7 + 1) * 32 + Math.log10(s30 + 1) * 24,
+    );
+  }
+
+  private riskFromTape(input: {
+    sales7d: number | null;
+    sales30d: number | null;
     change7dPct: number | null;
     change30dPct: number | null;
     change90dPct: number | null;
-  }): 'Bullish' | 'Neutral' | 'Bearish' | 'Consolidation' {
-    const c7 = input.change7dPct ?? 0;
-    const c30 = input.change30dPct ?? 0;
-    const c90 = input.change90dPct ?? 0;
-    if (c30 >= 10 && c90 >= 18) return 'Bullish';
-    if (c30 <= -8 && c7 <= -3) return 'Bearish';
-    if (Math.abs(c30) <= 4 && Math.abs(c90) <= 8) return 'Consolidation';
-    return 'Neutral';
-  }
-
-  private riskScoreFromLiquidityVolatility(input: {
-    sales30d: number | null;
-    change30dPct: number | null;
-    change90dPct: number | null;
-  }): { score: number | null; label: 'Low' | 'Medium' | 'High' | null } {
-    const sales30 = input.sales30d;
-    const c30 = Math.abs(input.change30dPct ?? 0);
-    const c90 = Math.abs(input.change90dPct ?? 0);
-    const volatilityScore = this.clamp01to100(c30 * 2.4 + c90 * 1.6);
-    const liquidityScore =
-      sales30 != null && Number.isFinite(sales30) && sales30 >= 0
-        ? this.clamp01to100(Math.log10(sales30 + 1) * 40)
-        : 35;
-    const risk = this.clamp01to100(volatilityScore * 0.55 + (100 - liquidityScore) * 0.45);
+    change365dPct: number | null;
+  }): {
+    score: number;
+    label: 'Low' | 'Medium' | 'High';
+    hiddenTape: boolean;
+  } {
+    const c7 = Math.abs(this.n(input.change7dPct) ?? 0);
+    const c30 = Math.abs(this.n(input.change30dPct) ?? 0);
+    const c90 = Math.abs(this.n(input.change90dPct) ?? 0);
+    const c365 = Math.abs(this.n(input.change365dPct) ?? 0);
+    const volatilityScore = this.clamp01to100(
+      c30 * 2.1 + c90 * 1.55 + c365 * 0.65 + c7 * 0.75,
+    );
+    const liq = this.liquidityScore(input.sales30d);
+    const act = this.activityScore(input.sales7d, input.sales30d);
+    let risk = this.clamp01to100(
+      volatilityScore * 0.42 + (100 - liq) * 0.3 + (100 - act) * 0.28,
+    );
+    const s30 = input.sales30d ?? 0;
+    const s7 = input.sales7d ?? 0;
+    const hiddenTape = s30 < 6 && s7 < 3;
+    if (hiddenTape && risk < 44) risk = 44;
     const score = Math.round(risk);
-    const label = score >= 67 ? 'High' : score >= 34 ? 'Medium' : 'Low';
-    return { score, label };
+    const label = score >= 67 ? 'High' : score >= 40 ? 'Medium' : 'Low';
+    return { score, label, hiddenTape };
   }
 
-  private miniSeriesByTone(
-    tone:
-      | 'Bullish'
-      | 'Neutral'
-      | 'Bearish'
-      | 'Consolidation'
-      | 'Cooling'
-      | 'Consolidating'
-      | 'Overextended'
-      | 'Accumulating'
-      | 'Volatile'
-      | null,
+  private describePremium(stats: CollectionAiInsightPricingStats): string {
+    const p = this.n(stats.premiumVsRawPct);
+    const pop = stats.psaTotalPopulation;
+    const s30 = stats.sales30d ?? 0;
+    if (p == null) return '';
+    if (p > 500) {
+      const lowPop = pop != null && pop < 1200;
+      const flow = s30 >= 15;
+      if (lowPop && !flow) {
+        return tight(
+          'PSA premium is extreme vs raw — reads scarcity-driven (low pop, thin flow), not broad demand.',
+          118,
+        );
+      }
+      if (flow && !lowPop) {
+        return tight(
+          'PSA premium is extreme vs raw — flow is active; demand can explain part of the lift.',
+          108,
+        );
+      }
+      if (lowPop && flow) {
+        return tight(
+          'PSA premium is extreme — both low pop and some sales; treat as mixed until depth confirms.',
+          112,
+        );
+      }
+      return tight(
+        'PSA premium is extreme — confirm with pop data and consistent sales before calling it demand.',
+        110,
+      );
+    }
+    if (p >= 120) {
+      const lowPop = pop != null && pop < 800;
+      if (lowPop && s30 < 12) {
+        return tight('Wide PSA lift — likely partly supply-scarcity, not just momentum.', 95);
+      }
+      return tight('Wide PSA vs raw — grading scarcity premium is material.', 88);
+    }
+    if (p >= 40) return tight('Solid PSA uplift vs raw.', 72);
+    if (p >= 15) return tight('Moderate PSA premium.', 64);
+    return tight('Tight PSA vs raw.', 58);
+  }
+
+  private derivePerspective(input: {
+    stats: CollectionAiInsightPricingStats;
+    riskScore: number;
+  }): CollectionAiMarketPerspective {
+    const s = input.stats;
+    const c365 = this.n(s.change365dPct);
+    const c90 = this.n(s.change90dPct);
+    const c30 = this.n(s.change30dPct);
+    const c7 = this.n(s.change7dPct);
+    const s30 = s.sales30d ?? 0;
+    const s7 = s.sales7d ?? 0;
+
+    const deadCatBounce =
+      c365 != null &&
+      c90 != null &&
+      c365 <= -5 &&
+      c90 >= 4 &&
+      !(c365 >= 0 && c90 >= 0);
+
+    const baseAfterDecline =
+      c365 != null &&
+      c90 != null &&
+      c30 != null &&
+      c365 <= -10 &&
+      Math.abs(c90) <= 7 &&
+      Math.abs(c30) <= 6;
+
+    const distribution =
+      c365 != null && c90 != null && c365 >= 6 && c90 <= -4;
+
+    const illiquidTape = s30 < 5 && s7 < 3;
+    const ambiguous =
+      (c90 == null || Math.abs(c90) <= 11) &&
+      (c30 == null || Math.abs(c30) <= 7);
+
+    const volatile =
+      input.riskScore >= 72 ||
+      (c30 != null && c7 != null && Math.abs(c30) >= 14 && Math.abs(c7) >= 9);
+
+    const overextended =
+      !deadCatBounce &&
+      c90 != null &&
+      c30 != null &&
+      c90 >= 22 &&
+      c30 >= 10 &&
+      input.riskScore >= 52;
+
+    if (volatile) return 'Volatile';
+    if (overextended) return 'Overextended';
+    if (deadCatBounce) return 'Dead cat bounce';
+    if (distribution) return 'Distribution';
+
+    const cooling =
+      (c90 != null && c90 <= -9) || (c30 != null && c30 <= -9 && (c90 ?? 0) < 0);
+    if (cooling && !baseAfterDecline) return 'Cooling';
+
+    if (illiquidTape && ambiguous && !baseAfterDecline) return 'Illiquid / niche';
+
+    const consolidating =
+      (c90 != null && Math.abs(c90) <= 7 && c30 != null && Math.abs(c30) <= 5) ||
+      (c90 != null && Math.abs(c90) <= 5);
+    if (consolidating && !baseAfterDecline && (c365 == null || Math.abs(c365) <= 15)) {
+      return 'Consolidating';
+    }
+
+    if (baseAfterDecline) return 'Accumulation';
+
+    const bothNonNeg = c365 != null && c90 != null && c365 >= 0 && c90 >= 0;
+    if (bothNonNeg) {
+      if (c90 >= 12 || (c30 != null && c30 >= 8)) return 'Uptrend';
+      return 'Accumulation';
+    }
+
+    if (c90 != null && c90 >= 8 && (c365 == null || c365 > -15)) return 'Uptrend';
+
+    return 'Consolidating';
+  }
+
+  private trendContextSentence(
+    perspective: CollectionAiMarketPerspective,
+    stats: CollectionAiInsightPricingStats,
+  ): string {
+    const c365 = this.n(stats.change365dPct);
+    const c90 = this.n(stats.change90dPct);
+    if (perspective === 'Dead cat bounce') {
+      const lt = c365 != null ? `${c365 >= 0 ? '+' : ''}${c365.toFixed(1)}% over 365d` : 'a weak 365d tape';
+      const st = c90 != null ? `+${c90.toFixed(1)}% on 90d` : 'a near-term bounce';
+      return tight(`Short-term rebound (${st}) inside a longer decline (${lt}) — treat as corrective, not base-building.`, 155);
+    }
+    if (perspective === 'Uptrend') {
+      return tight('Trend structure is constructive on 90–365d when participation is sufficient.', 98);
+    }
+    if (perspective === 'Accumulation') {
+      return tight('Positioning skews sideways-to-up with non-negative broader returns or a tight post-drawdown base.', 118);
+    }
+    if (perspective === 'Distribution') {
+      return tight('Late-cycle risk: macro window still positive on 365d while 90d weakens — supply may be outweighing bids.', 128);
+    }
+    if (perspective === 'Cooling') {
+      return tight('Momentum is fading on recent windows — buyers need to prove absorption.', 92);
+    }
+    if (perspective === 'Illiquid / niche') {
+      return tight('Sparse prints — directional labels are unreliable without more turnover.', 95);
+    }
+    if (perspective === 'Volatile' || perspective === 'Overextended') {
+      return tight('Tape is swinging hard — prioritize risk management over narrative.', 88);
+    }
+    return tight('Two-way trade: range-working environment until range breaks.', 88);
+  }
+
+  private miniSeriesByPerspective(
+    perspective: CollectionAiMarketPerspective,
   ): { miniSeries: number[]; pathRepresentation: string } {
-    if (tone === 'Bullish') {
+    if (perspective === 'Uptrend') {
       return {
         miniSeries: [18, 19, 20, 21, 22, 24, 25, 26, 27, 28, 29, 30],
         pathRepresentation:
-          'Low -> Accumulation -> Expansion ↑↑ -> Consolidation -> Breakout pressure ↑',
+          'Low → Accumulation → Expansion ↑↑ → Consolidation → Breakout pressure ↑',
       };
     }
-    if (tone === 'Bearish' || tone === 'Cooling') {
+    if (perspective === 'Cooling' || perspective === 'Distribution') {
       return {
         miniSeries: [31, 30, 29, 28, 27, 26, 25, 25, 24, 23, 22, 21],
         pathRepresentation:
-          'Peak -> Distribution -> Breakdown ↓ -> Lower range -> Continued weakness',
+          'Peak → Distribution → Breakdown ↓ → Lower range → Continued weakness',
       };
     }
-    if (tone === 'Consolidation' || tone === 'Consolidating') {
+    if (perspective === 'Consolidating' || perspective === 'Accumulation') {
       return {
         miniSeries: [24, 24, 25, 24, 25, 24, 25, 25, 24, 25, 26, 26],
         pathRepresentation:
-          'Range -> Compression -> Oscillation -> Range-bound structure',
+          'Range → Compression → Oscillation → Range-bound structure',
       };
     }
-    if (tone === 'Overextended') {
+    if (perspective === 'Overextended') {
       return {
         miniSeries: [18, 19, 21, 24, 27, 29, 28, 30, 27, 28, 27, 26],
         pathRepresentation:
-          'Low -> Expansion spike ↑↑ -> Volatile retest -> Re-balance zone',
+          'Low → Expansion spike ↑↑ → Volatile retest → Re-balance zone',
       };
     }
-    if (tone === 'Volatile') {
+    if (perspective === 'Volatile') {
       return {
         miniSeries: [24, 27, 23, 28, 22, 27, 23, 26, 24, 27, 23, 25],
         pathRepresentation:
           'Wide range -> Expansion/Compression swings -> Directional bias pending',
       };
     }
+    if (perspective === 'Dead cat bounce') {
+      return {
+        miniSeries: [30, 28, 26, 25, 26, 27, 26, 25, 24, 23, 22, 21],
+        pathRepresentation:
+          'Down leg ↓ → Counter-trend spike ↑ → Fade risk → Lower-high retest zone',
+      };
+    }
+    if (perspective === 'Illiquid / niche') {
+      return {
+        miniSeries: [22, 23, 22, 22, 23, 22, 23, 22, 23, 22, 23, 22],
+        pathRepresentation:
+          'Thin tape → jitter prints → directional noise → waits for liquidity',
+      };
+    }
     return {
       miniSeries: [22, 22, 23, 23, 24, 24, 24, 25, 25, 25, 26, 26],
       pathRepresentation:
-        'Base -> Gradual expansion -> Mild consolidation -> Upward bias',
-    };
+        'Base → Gradual expansion → Mild consolidation → Two-way chop',
+      };
   }
 
-  private toneLabelForUi(input: {
-    marketTone: 'Bullish' | 'Neutral' | 'Bearish' | 'Consolidation' | null;
-    riskLabel: 'Low' | 'Medium' | 'High' | null;
-  }): 'Bullish' | 'Cooling' | 'Consolidating' | 'Overextended' | 'Accumulating' | 'Volatile' {
-    if (input.riskLabel === 'High' && input.marketTone === 'Bullish') return 'Overextended';
-    if (input.riskLabel === 'High') return 'Volatile';
-    if (input.marketTone === 'Bullish') return 'Bullish';
-    if (input.marketTone === 'Bearish') return 'Cooling';
-    if (input.marketTone === 'Consolidation') return 'Consolidating';
-    return 'Accumulating';
+  private adjustConfidence(params: {
+    base: number | null;
+    stats: CollectionAiInsightPricingStats;
+    lowParticipation: boolean;
+    dataSparse: boolean;
+  }): { confidence: number | null; note: string | null } {
+    if (params.base == null || !Number.isFinite(params.base)) {
+      return { confidence: null, note: null };
+    }
+    let c = params.base;
+    if (params.dataSparse) c *= 0.88;
+    if (params.lowParticipation) c *= 0.82;
+    c = Math.min(0.97, Math.max(0.35, c));
+    const note =
+      params.lowParticipation || params.dataSparse
+        ? tight('Low market participation / sparse comps — downgrade conviction.', 78)
+        : null;
+    return { confidence: Math.round(c * 1000) / 1000, note };
   }
 
   async getAiInsightForCollection(
@@ -150,8 +351,11 @@ export class CardhedgerAiInsightService {
     };
     generatedAt: string;
     confidence?: number | null;
-    cardId?: string | null;
-    marketTone?: 'Bullish' | 'Cooling' | 'Consolidating' | 'Overextended' | 'Accumulating' | 'Volatile' | null;
+    /** Shown when confidence is tapered for thin tape / sparse windows. */
+    confidenceNote?: string | null;
+    /** Extra risk caveat when reads are distorted by inactive markets. */
+    riskTapeNote?: string | null;
+    marketTone?: CollectionAiMarketPerspective | null;
     riskScore?: number | null;
     riskLabel?: 'Low' | 'Medium' | 'High' | null;
     stats?: {
@@ -166,22 +370,30 @@ export class CardhedgerAiInsightService {
       change365dPct: number | null;
       points90d: number;
       points365d: number;
+      psaTotalPopulation?: number | null;
+      psa10PriceConfidence?: 'high' | 'medium' | 'low' | null;
+      psa10PricingNote?: string | null;
+      psa10SpotLowUsd?: number | null;
+      psa10SpotHighUsd?: number | null;
+      psa10CatalogUsd?: number | null;
     };
   }> {
     const now = new Date().toISOString();
     if (!col) {
       return {
         title: 'Collection AI Insight',
-        summary:
-          'The market profile is still in early-stage price formation, with directional cues emerging as liquidity builds.',
+        summary: tight(
+          'Early price discovery — clearer trend once liquidity picks up.',
+          140,
+        ),
         bullets: [
-          'Structure is forming from the first active pricing regime.',
-          'Momentum signals should be read through liquidity depth.',
-          'Premium behavior will sharpen as more two-sided flow develops.',
+          tight('Structure forming from first active prints.', 90),
+          tight('Momentum: read it with book depth.', 85),
+          tight('Premium signal sharpens as flow grows.', 90),
         ],
         dynamics: [],
         syntheticChart: 'early base-building with shallow swings and gradual range definition',
-        outlook: 'A clearer directional trend should emerge as demand and price discovery broaden.',
+        outlook: tight('Trend firms as buys/sells widen.', 100),
         chartSpec: {
           chartStyle: 'Expanded Macro View (Wide X-Axis)',
           trendStructure: [
@@ -198,12 +410,9 @@ export class CardhedgerAiInsightService {
             'Base -> Early accumulation -> Controlled expansion -> Constructive positioning',
         },
         outlookScenarios: {
-          bullCase:
-            'Continuation strengthens as demand absorption persists through higher consolidation levels.',
-          baseCase:
-            'Market remains in a constructive consolidation channel while liquidity gradually deepens.',
-          bearCase:
-            'A short pullback unfolds if expansion attempts fail to hold above recent support zones.',
+          bullCase: tight('Demand sticks → breakout follow-through.', 70),
+          baseCase: tight('Sideways churn while bids build.', 70),
+          bearCase: tight('Failed breakout → pullback to base.', 70),
         },
         uiInstructions: {
           loading: {
@@ -223,22 +432,25 @@ export class CardhedgerAiInsightService {
         },
         generatedAt: now,
         confidence: null,
-        cardId: null,
+        confidenceNote: null,
+        riskTapeNote: null,
       };
     }
     if (!this.marketData.isConfigured()) {
       return {
         title: `${col.displayLabel} — AI Market Brief`,
-        summary:
-          'The card is trading in a developing intelligence regime where trend context is building from live market flow.',
+        summary: tight(
+          `${col.displayLabel}: live-flow context loading — feeds not wired.`,
+          120,
+        ),
         bullets: [
-          'Momentum is driven by active price discovery.',
-          'Premium structure reflects quality demand as trading depth expands.',
-          'Liquidity evolution is the key confirmation variable.',
+          tight('Momentum follows active discovery.', 80),
+          tight('Premium grows with traded depth.', 80),
+          tight('Liquidity trend is the real tell.', 80),
         ],
         dynamics: [],
         syntheticChart: 'forming trend channel with intermittent consolidation pockets',
-        outlook: 'Continuation probability rises as liquidity sustains through the next consolidation band.',
+        outlook: tight('Follow-through rises if depth holds.', 100),
         chartSpec: {
           chartStyle: 'Expanded Macro View (Wide X-Axis)',
           trendStructure: [
@@ -255,9 +467,9 @@ export class CardhedgerAiInsightService {
             'Accumulation -> Expansion ↑ -> Consolidation shelf -> Continuation bias',
         },
         outlookScenarios: {
-          bullCase: 'Breakout pressure converts into continuation once consolidation supply is absorbed.',
-          baseCase: 'Sideways consolidation persists before the next directional leg.',
-          bearCase: 'Momentum fades into a temporary retracement if demand rotation weakens.',
+          bullCase: tight('Supply melts → upside leg.', 60),
+          baseCase: tight('Range → then next move.', 50),
+          bearCase: tight('Demand rotates off → fade.', 55),
         },
         uiInstructions: {
           loading: {
@@ -277,26 +489,32 @@ export class CardhedgerAiInsightService {
         },
         generatedAt: now,
         confidence: null,
-        cardId: null,
+        confidenceNote: null,
+        riskTapeNote: null,
       };
     }
 
     const q = this.marketData.buildCollectionQuery(col);
     const query =
-      q.cardhedgerSearchQuery || q.query || String(col.displayLabel ?? '').trim();
+      q.cardhedgerSearchQuery ||
+      q.listingDisplayTitle ||
+      q.query ||
+      String(col.displayLabel ?? '').trim();
     if (!query) {
       return {
         title: `${col.displayLabel} — AI Market Brief`,
-        summary:
-          'Current action reflects a narrow price-discovery window where structure is beginning to organize.',
+        summary: tight(
+          'Narrow discovery window — structure still sorting itself out.',
+          120,
+        ),
         bullets: [
-          'Market behavior is transitionary, not random.',
-          'Demand quality matters more than headline prints in this phase.',
-          'Trend confirmation should come from sustained follow-through.',
+          tight('Not noise: transition regime.', 80),
+          tight('Quality bids matter more than one print.', 90),
+          tight('Need sustained follow-through to confirm.', 90),
         ],
         dynamics: [],
         syntheticChart: 'compressed range with emerging directional bias',
-        outlook: 'The setup favors a cleaner directional move once consolidation pressure resolves.',
+        outlook: tight('Cleaner move once range breaks.', 100),
         chartSpec: {
           chartStyle: 'Expanded Macro View (Wide X-Axis)',
           trendStructure: [
@@ -313,9 +531,9 @@ export class CardhedgerAiInsightService {
             'Range base -> Compression -> Directional pressure build -> Pending expansion',
         },
         outlookScenarios: {
-          bullCase: 'Breakout pressure resolves upward with steady demand follow-through.',
-          baseCase: 'Price oscillates in consolidation while accumulation continues.',
-          bearCase: 'A failed breakout rotates into a controlled pullback before re-basing.',
+          bullCase: tight('Break + hold bids → up.', 50),
+          baseCase: tight('Chop inside range.', 45),
+          bearCase: tight('Fake breakout → dip.', 45),
         },
         uiInstructions: {
           loading: {
@@ -335,31 +553,28 @@ export class CardhedgerAiInsightService {
         },
         generatedAt: now,
         confidence: null,
-        cardId: null,
+        confidenceNote: null,
+        riskTapeNote: null,
       };
     }
 
     try {
-      const body = await this.cardhedger.forwardJson('POST', '/v1/cards/card-match', {
-        body: { query },
-      });
-      const match =
-        typeof body === 'object' && body != null
-          ? ((body as { match?: unknown }).match as Record<string, unknown> | undefined)
-          : undefined;
-      if (!match) {
+      const pack = await this.marketData.getAiInsightPricingBundle(col);
+      if (!pack.matched) {
         return {
           title: `${col.displayLabel} — AI Market Brief`,
-          summary:
-            'Price behavior is still interpretable as an early market cycle with momentum developing around a thin liquidity window.',
+          summary: tight(
+            'Early-cycle tape; momentum forming on thin liquidity.',
+            110,
+          ),
           bullets: [
-            'Directional pressure is building despite uneven flow.',
-            'Premium behavior suggests quality-focused demand is the key driver.',
-            'Continuation depends on whether liquidity keeps expanding after pullbacks.',
+            tight('Direction building despite uneven flow.', 85),
+            tight('Wait for repeatable sales windows before leaning on premiums.', 95),
+            tight('Upsize risk only after depth improves.', 78),
           ],
           dynamics: [],
           syntheticChart: 'rounded consolidation with periodic expansion spikes',
-          outlook: 'The path of least resistance remains constructive if demand absorption continues.',
+          outlook: tight('Constructive if dips keep clearing.', 100),
           chartSpec: {
             chartStyle: 'Expanded Macro View (Wide X-Axis)',
             trendStructure: [
@@ -376,9 +591,9 @@ export class CardhedgerAiInsightService {
               'Accumulation -> Expansion ↑ -> Consolidation -> Re-expansion bias',
           },
           outlookScenarios: {
-            bullCase: 'Fresh expansion emerges as demand continues to absorb pullbacks.',
-            baseCase: 'Consolidation extends with gradual upward drift.',
-            bearCase: 'Cooling pressure triggers a deeper reset before trend recovery.',
+            bullCase: tight('Dips absorbed → leg up.', 55),
+            baseCase: tight('Grinding range, mild bid.', 55),
+            bearCase: tight('Cooling → deeper reset.', 50),
           },
           uiInstructions: {
             loading: {
@@ -398,320 +613,197 @@ export class CardhedgerAiInsightService {
           },
           generatedAt: now,
           confidence: null,
-          cardId: null,
+          confidenceNote: tight('Low market participation — card match or sales feed thin.', 72),
+          riskTapeNote: null,
+          marketTone: 'Illiquid / niche',
+          riskScore: null,
+          riskLabel: null,
         };
       }
-      const confidenceRaw = match.confidence;
-      const confidence =
-        typeof confidenceRaw === 'number' && Number.isFinite(confidenceRaw)
-          ? confidenceRaw
-          : null;
-      const cardId =
-        typeof match.card_id === 'string' && match.card_id.trim()
-          ? match.card_id.trim()
-          : null;
-      const desc =
-        typeof match.description === 'string' && match.description.trim()
-          ? match.description.trim()
-          : col.displayLabel;
-      const reasoning =
-        typeof match.reasoning === 'string' && match.reasoning.trim()
-          ? match.reasoning.trim()
-          : 'Matched by Cardhedger AI based on the provided collection query.';
-      let summary = reasoning;
-      const prices = Array.isArray(match.prices)
-        ? (match.prices as Array<Record<string, unknown>>)
-        : [];
-      const psa10 = prices.find((p) => String(p.grade ?? '').toUpperCase() === 'PSA 10');
-      const raw = prices.find((p) => String(p.grade ?? '').toUpperCase() === 'RAW');
 
-      const bullets = [
-        `Matched card: ${desc}`,
-        confidence != null
-          ? `AI confidence: ${(confidence * 100).toFixed(1)}%`
-          : 'AI confidence is moderate because matching context is partial.',
-        typeof psa10?.price === 'string' || typeof psa10?.price === 'number'
-          ? `PSA 10 spot: $${String(psa10.price)}`
-          : 'PSA 10 spot is not yet fully populated in the current feed.',
-        typeof raw?.price === 'string' || typeof raw?.price === 'number'
-          ? `Raw spot: $${String(raw.price)}`
-          : 'Raw spot is limited, so premium interpretation is provisional.',
+      const stats = pack.stats;
+      const participationWeak =
+        (stats.sales30d != null && stats.sales30d < 10) ||
+        (stats.sales30d != null &&
+          stats.sales30d < 8 &&
+          (stats.sales7d ?? 0) < 4);
+      const dataSparse =
+        stats.points90d < 5 ||
+        stats.points365d < 8 ||
+        (stats.sales30d != null && stats.sales30d < 3);
+
+      const riskPack = this.riskFromTape({
+        sales7d: stats.sales7d,
+        sales30d: stats.sales30d,
+        change7dPct: stats.change7dPct,
+        change30dPct: stats.change30dPct,
+        change90dPct: stats.change90dPct,
+        change365dPct: stats.change365dPct,
+      });
+      const riskScore = riskPack.score;
+      const riskLabel = riskPack.label;
+      const riskTapeNote = riskPack.hiddenTape
+        ? tight('Hidden tape risk: few recent sales — “low volatility” can be illiquidity, not safety.', 102)
+        : null;
+
+      const marketTone = this.derivePerspective({ stats, riskScore });
+
+      const liqLine =
+        stats.sales30d != null
+          ? stats.sales30d >= 40
+            ? 'Liquidity: healthy 30d sales.'
+            : stats.sales30d >= 15
+              ? 'Liquidity: moderate 30d sales.'
+              : stats.sales30d >= 5
+                ? 'Liquidity: thin 30d sales.'
+                : 'Liquidity: very thin — prints can mislead.'
+          : 'Liquidity: unknown — treat ranges carefully.';
+
+      const premLine = this.describePremium(stats);
+      const trendLine = this.trendContextSentence(marketTone, stats);
+
+      const riskLine = riskTapeNote
+        ? tight(
+            `Tape risk ${riskLabel} (${riskScore}/100) — illiquidity can hide gaps, not safety.`,
+            118,
+          )
+        : tight(`Tape risk ${riskLabel} (${riskScore}/100).`, 88);
+
+      const summary = tight(
+        `${col.displayLabel}: ${marketTone}. ${trendLine} ${premLine} ${liqLine} ${riskLine}`.replace(/\s+/g, ' '),
+        320,
+      );
+
+      const flowAndPremium = tight(
+        `${premLine ? `${premLine} ` : ''}${liqLine}`.trim(),
+        125,
+      );
+      const bullets: string[] = [
+        tight(trendLine, 118),
+        flowAndPremium,
+        riskLine,
       ];
 
-      let stats:
-        | {
-            psa10SpotUsd: number | null;
-            rawSpotUsd: number | null;
-            premiumVsRawPct: number | null;
-            sales7d: number | null;
-            sales30d: number | null;
-            change7dPct: number | null;
-            change30dPct: number | null;
-            change90dPct: number | null;
-            change365dPct: number | null;
-            points90d: number;
-            points365d: number;
-          }
-        | undefined;
-      let marketTone: 'Bullish' | 'Cooling' | 'Consolidating' | 'Overextended' | 'Accumulating' | 'Volatile' | null = null;
-      let riskScore: number | null = null;
-      let riskLabel: 'Low' | 'Medium' | 'High' | null = null;
-      let dynamics: string[] = [];
+      const pricingCallout =
+        stats.psa10PricingNote === 'history_median_replaces_catalog_anomaly'
+          ? tight(
+              'PSA 10 uses 90d median — upstream catalog PSA 10 diverged from PSA_10 history.',
+              102,
+            )
+          : stats.psa10PricingNote === 'suppressed_catalog_history_conflict'
+            ? tight(
+                'PSA 10 withheld: catalog conflicts with PSA_10 tier series — verify card id.',
+                98,
+              )
+            : stats.psa10PriceConfidence === 'low' &&
+                stats.psa10SpotUsd != null &&
+                stats.psa10PricingNote === 'history_median_thin_catalog_confidence'
+              ? tight('PSA 10 from history median — thin verified sales.', 85)
+              : null;
+      if (pricingCallout)
+        bullets[1] = tight(`${pricingCallout} ${bullets[1]}`, 118);
+
+      const confAdj = this.adjustConfidence({
+        base: pack.uiConfidence,
+        stats,
+        lowParticipation: participationWeak,
+        dataSparse,
+      });
+
       let syntheticChart: string | undefined;
-      let outlook: string | undefined;
-      if (cardId) {
-        try {
-          const allPrices = await this.marketData.fetchAllPricesByCard(cardId);
-          const merged =
-            allPrices.length > 0
-              ? ({ ...(match as Record<string, unknown>), prices: allPrices } as CardhedgerCardRow)
-              : (match as CardhedgerCardRow);
-          const psa10Spot = this.marketData.readGradePrice(merged, 'PSA 10');
-          const rawSpot = this.marketData.readGradePrice(merged, 'Raw');
-          const h90 = await this.marketData.fetchTierHistoryByCard(cardId, 'PSA_10', 90);
-          const h365 = await this.marketData.fetchTierHistoryByCard(cardId, 'PSA_10', 365);
-          const change90 = this.marketData.pctFromPoints(h90);
-          const change365 = this.marketData.pctFromPoints(h365);
-          const change7 =
-            typeof merged.gain === 'number' && Number.isFinite(merged.gain)
-              ? Number(merged.gain)
-              : null;
-          const change30 =
-            typeof merged.gain_30day === 'number' && Number.isFinite(merged.gain_30day)
-              ? Number(merged.gain_30day)
-              : null;
-          const sales30 =
-            typeof merged['30 Day Sales'] === 'number' ? Number(merged['30 Day Sales']) : null;
-          stats = {
-            psa10SpotUsd: psa10Spot,
-            rawSpotUsd: rawSpot,
-            premiumVsRawPct: this.marketData.premiumPct(psa10Spot, rawSpot),
-            sales7d:
-              typeof merged['7 Day Sales'] === 'number'
-                ? Number(merged['7 Day Sales'])
-                : null,
-            sales30d: sales30,
-            change7dPct: change7,
-            change30dPct: change30,
-            change90dPct: change90,
-            change365dPct: change365,
-            points90d: h90.length,
-            points365d: h365.length,
-          };
-          const structuralTone = this.classifyMarketTone({
-            change7dPct: stats.change7dPct,
-            change30dPct: stats.change30dPct,
-            change90dPct: stats.change90dPct,
-          });
-          const risk = this.riskScoreFromLiquidityVolatility({
-            sales30d: stats.sales30d,
-            change30dPct: stats.change30dPct,
-            change90dPct: stats.change90dPct,
-          });
-          riskScore = risk.score;
-          riskLabel = risk.label;
-          marketTone = this.toneLabelForUi({
-            marketTone: structuralTone,
-            riskLabel,
-          });
-          const shortTerm =
-            stats.change7dPct != null
-              ? stats.change7dPct >= 6
-                ? 'strong upside momentum'
-                : stats.change7dPct <= -4
-                  ? 'clear short-term cooling'
-                  : 'range-bound short-term action'
-              : 'limited short-term visibility';
-          const longTerm =
-            stats.change90dPct != null
-              ? stats.change90dPct >= 15
-                ? 'a constructive medium-term uptrend'
-                : stats.change90dPct <= -10
-                  ? 'a pressured medium-term structure'
-                  : 'a consolidation-oriented medium-term structure'
-              : 'an incomplete medium-term structure';
-          const premiumContext =
-            stats.premiumVsRawPct != null
-              ? stats.premiumVsRawPct >= 80
-                ? 'an elevated graded premium, pointing to quality-focused collector demand'
-                : stats.premiumVsRawPct >= 25
-                  ? 'a healthy graded premium that supports steady collector bid'
-                  : 'a compressed graded premium, suggesting less urgency to pay up for grade'
-              : 'a premium curve that is still forming';
-          const liquidityContext =
-            stats.sales30d != null
-              ? stats.sales30d >= 50
-                ? 'Liquidity is deep enough to validate trend continuation if demand persists.'
-                : stats.sales30d >= 20
-                  ? 'Liquidity is adequate, but follow-through still depends on sustained demand.'
-                  : 'Liquidity is thin, which raises the probability of sharp air pockets and failed breakouts.'
-              : 'Recent liquidity is fragmented, so trend reliability is lower.';
-          const riskContext =
-            riskScore != null
-              ? riskScore >= 67
-                ? 'The market is in a higher-risk regime with elevated pullback sensitivity.'
-                : riskScore >= 34
-                  ? 'Risk is balanced: momentum is tradable, but not yet low-volatility.'
-                  : 'Risk is contained, which favors orderly continuation over disorderly swings.'
-              : 'Risk regime is unresolved.';
-          summary = [
-            `Market is in a ${marketTone === 'Bullish' ? 'constructive expansion phase' : marketTone === 'Cooling' ? 'cooling phase after expansion' : marketTone === 'Consolidating' ? 'consolidation phase with structure intact' : marketTone === 'Overextended' ? 'high-beta expansion phase with stretched momentum' : marketTone === 'Volatile' ? 'high-volatility transition phase' : 'gradual accumulation phase'} with directional bias still leaning ${marketTone === 'Cooling' ? 'neutral-to-down' : 'neutral-to-up'}.`,
-            `Current action reflects ${shortTerm} while preserving ${longTerm}, which points to structured rotation rather than random price drift.`,
-            `At the same time, PSA 10 pricing versus raw points to ${premiumContext}, giving a clearer read on how committed higher-conviction buyers are.`,
-            `${liquidityContext} ${riskContext} This keeps the near-term path biased toward controlled continuation or orderly consolidation unless demand absorption weakens.`,
-          ].join(' ');
-          dynamics = [
-            `Short-term structure remains ${shortTerm}, with activity rotating between expansion bursts and consolidation resets.`,
-            `Long-term structure points to ${longTerm}, so the broader move still looks like a trend process rather than isolated price spikes.`,
-            `Momentum state is ${marketTone === 'Bullish' || marketTone === 'Overextended' ? 'expanding with intermittent compression' : marketTone === 'Cooling' ? 'slowing after an earlier expansion' : marketTone === 'Consolidating' ? 'compressing inside a consolidation zone' : 'transitioning between expansion and consolidation'}.`,
-            stats.premiumVsRawPct != null
-              ? `PSA 10 vs Raw sits at a visible premium, implying ${stats.premiumVsRawPct >= 50 ? 'strong willingness to pay for quality and scarcity.' : 'more selective demand with tighter pricing discipline on grading uplift.'}`
-              : 'PSA 10 versus Raw spread is still incomplete, so premium conviction should be treated as early-stage.',
-          ];
-          bullets.splice(0, bullets.length);
-          bullets.push('Momentum remains trend-supportive with periodic cooling rather than structural failure.');
-          bullets.push(
-            stats.sales30d != null
-              ? `Liquidity is ${stats.sales30d >= 50 ? 'strong' : stats.sales30d >= 20 ? 'workable' : 'thin'}, shaping how durable the current move can be.`
-              : 'Recent activity is limited, so liquidity support behind the move is less certain.',
-          );
-          bullets.push(
-            stats.premiumVsRawPct != null
-              ? `The graded premium is ${stats.premiumVsRawPct >= 50 ? 'elevated' : 'moderate'}, signaling ${stats.premiumVsRawPct >= 50 ? 'quality-first demand' : 'more price-sensitive demand'}.`
-              : 'Premium structure is still forming because raw-side reference is sparse.',
-          );
-          bullets.push(
-            riskScore != null && riskLabel != null
-              ? `Risk profile is ${riskLabel.toLowerCase()}, with pullback sensitivity currently ${riskLabel === 'High' ? 'elevated.' : riskLabel === 'Medium' ? 'manageable but active.' : 'relatively contained.'}`
-              : 'Risk profile is still evolving as liquidity and momentum settle.',
-          );
-          syntheticChart =
-            marketTone === 'Bullish'
-              ? 'gradual upward continuation with intermittent consolidation zones'
-              : marketTone === 'Cooling'
-                ? 'cooling downtrend with reactive rebounds into lower-volatility bands'
-                : marketTone === 'Consolidating'
-                  ? 'rounded consolidation after prior expansion, with breakout pressure building'
-                  : marketTone === 'Overextended'
-                    ? 'steep expansion followed by choppy pullback-retest behavior'
-                    : marketTone === 'Volatile'
-                      ? 'wide oscillation channel with momentum expansion/compression swings'
-                  : 'stair-step advance with alternating compression and expansion pockets';
-          outlook =
-            marketTone === 'Bullish'
-              ? 'Bullish continuation is favored if demand stays firm and liquidity remains supportive.'
-              : marketTone === 'Cooling'
-                ? 'Further downside or choppy cooling is likely unless demand re-accelerates and premium support rebuilds.'
-                : marketTone === 'Consolidating'
-                  ? 'A consolidation phase is the base case, with breakout odds improving only if momentum re-expands.'
-                  : 'A neutral-to-constructive path is likely, but confirmation still depends on stronger momentum follow-through.';
-          const mini = this.miniSeriesByTone(marketTone);
-          return {
-            title: `${col.displayLabel} — AI Market Brief`,
-            summary,
-            bullets,
-            dynamics,
-            syntheticChart,
-            chartSpec: {
-              chartStyle: 'Expanded Macro View (Wide X-Axis)',
-              trendStructure: [
-                'Phase 1: Accumulation / base formation',
-                'Phase 2: Expansion / breakout move',
-                'Phase 3: Consolidation / cooling zone',
-                'Phase 4: Current positioning',
-              ],
-              momentumBehavior:
-                marketTone === 'Bullish'
-                  ? 'Momentum is expanding with brief compression between continuation legs.'
-                  : marketTone === 'Cooling'
-                    ? 'Momentum is contracting, with rebounds absorbed into lower-volatility bands.'
-                    : marketTone === 'Consolidating'
-                      ? 'Momentum is compressing inside consolidation, with breakout pressure gradually building.'
-                      : marketTone === 'Overextended'
-                        ? 'Momentum remains elevated but increasingly unstable, with stronger pullback sensitivity.'
-                        : marketTone === 'Volatile'
-                          ? 'Momentum alternates between sharp expansion and fast compression inside a wide channel.'
-                      : 'Momentum alternates between expansion bursts and stabilization pockets.',
-              visualInterpretation:
-                marketTone === 'Bullish'
-                  ? 'Price action forms a wide staircase structure with intermittent consolidation zones, indicating controlled expansion.'
-                  : marketTone === 'Cooling'
-                    ? 'Structure leans into cooling drift with reactive rebounds that fail to establish sustained expansion.'
-                    : marketTone === 'Consolidating'
-                      ? 'A rounded consolidation band is visible after expansion, with directional energy coiling near the upper range.'
-                      : marketTone === 'Overextended'
-                        ? 'A steep breakout leg appears followed by volatile retests, resembling an overextended channel seeking re-balance.'
-                        : marketTone === 'Volatile'
-                          ? 'Chart resembles a broad oscillation channel with frequent regime shifts between expansion and compression.'
-                      : 'A broad trend channel is forming with alternating compression and expansion regimes.',
-              miniSeries: mini.miniSeries,
-              pathRepresentation: mini.pathRepresentation,
-            },
-            outlook,
-            outlookScenarios: {
-              bullCase:
-                'If liquidity stays firm and pullbacks continue to be absorbed near consolidation support, breakout pressure can convert into upward continuation.',
-              baseCase:
-                'If momentum keeps compressing without structural breakdown, price is likely to remain range-bound in consolidation before the next directional move.',
-              bearCase:
-                'If demand weakens and premium support compresses through key support shelves, a cooling pullback can extend into a deeper correction phase.',
-            },
-            uiInstructions: {
-              loading: {
-                style: 'premium-gradient-shimmer',
-                scanningEffect: 'crypto-data-scan',
-                minDurationMs: 800,
-                maxDurationMs: 1500,
-              },
-              progressiveRenderOrder: [
-                'AI Insight',
-                'Market Structure',
-                'Key Signals',
-                'Synthetic Trend Chart',
-                'Forward Outlook',
-                'Market Tone',
-              ],
-            },
-            generatedAt: now,
-            confidence,
-            cardId,
-            marketTone,
-            riskScore,
-            riskLabel,
-            stats,
-          };
-        } catch {
-          // Keep AI result available even when metric enrichment fails.
-        }
+      if (marketTone === 'Dead cat bounce') {
+        syntheticChart =
+          'counter-trend bounce inside a larger downtrend — fade risk dominates without fresh momentum';
+      } else if (marketTone === 'Uptrend') {
+        syntheticChart =
+          'controlled stair-step climb with orderly pullbacks and higher lows';
+      } else if (marketTone === 'Distribution') {
+        syntheticChart =
+          'topping process: rallies sold into — lower highs forming on intermediates';
+      } else if (marketTone === 'Illiquid / niche') {
+        syntheticChart = 'micro-range noise on minimal volume awaiting real flow';
+      } else if (marketTone === 'Cooling') {
+        syntheticChart = 'bearish glide with intermittent short-covering pops';
+      } else if (marketTone === 'Consolidating' || marketTone === 'Accumulation') {
+        syntheticChart =
+          'balanced two-way auctions compressing volatility before next impulse';
+      } else if (marketTone === 'Overextended') {
+        syntheticChart = 'extended markup seeking mean reversion or volatile pause';
+      } else if (marketTone === 'Volatile') {
+        syntheticChart =
+          'expanding ranges — directional conviction resets frequently';
+      } else {
+        syntheticChart =
+          'two-sided trade with rotational flows between equilibrium bands';
       }
 
+      const outlook =
+        marketTone === 'Dead cat bounce'
+          ? tight('Fade risk until 365d trend repairs or volume confirms reversal.', 88)
+          : marketTone === 'Uptrend'
+            ? tight('Upside if pullbacks stay shallow on volume.', 56)
+            : marketTone === 'Distribution'
+              ? tight('Suspect rallies — protect until 90d stabilizes.', 56)
+              : marketTone === 'Illiquid / niche'
+                ? tight('Wait for repeatable prints before leaning on deltas.', 60)
+                : marketTone === 'Cooling'
+                  ? tight('Defensive until buyers reclaim shorter averages.', 58)
+                  : marketTone === 'Volatile'
+                    ? tight('Size down; trade levels, not stories.', 48)
+                    : marketTone === 'Overextended'
+                      ? tight('Mean reversion risk — trail risk tightly.', 52)
+                      : tight('Balance risk around range edges.', 48);
+
+      const mini = this.miniSeriesByPerspective(marketTone);
       return {
         title: `${col.displayLabel} — AI Market Brief`,
-        summary: reasoning,
+        summary,
         bullets,
-        dynamics,
-        syntheticChart: 'early-stage trend channel with low-frequency expansion pulses',
-        outlook:
-          'The setup favors progressive continuation as demand absorption and liquidity depth keep broadening.',
+        dynamics: [],
+        syntheticChart,
         chartSpec: {
           chartStyle: 'Expanded Macro View (Wide X-Axis)',
           trendStructure: [
-            'Phase 1: Early accumulation',
-            'Phase 2: Initial expansion',
-            'Phase 3: Cooling consolidation',
-            'Phase 4: Positioning for next leg',
+            'Phase 1: Macro 365d regime',
+            'Phase 2: Intermediate 90d rhythm',
+            'Phase 3: Recent 7–30d pressure / relief',
+            'Phase 4: Liquidity-adjusted read',
           ],
-          momentumBehavior: 'Momentum is stabilizing with expansion attempts.',
+          momentumBehavior:
+            marketTone === 'Dead cat bounce'
+              ? 'Momentum flips positive on 90d while 365d remains damaged — classic relief bounce dynamics.'
+              : marketTone === 'Uptrend'
+                ? 'Momentum stacks positively across 30–90d with supportive 365d context.'
+                : marketTone === 'Distribution'
+                  ? 'Momentum is rolling over on 90d despite a still-positive 365d memory.'
+                  : marketTone === 'Illiquid / niche'
+                    ? 'Momentum signals are mostly noise — participation is too low to trust slopes.'
+                    : marketTone === 'Volatile'
+                      ? 'Momentum mean-reverts quickly — expansion cycles dominate.'
+                      : marketTone === 'Overextended'
+                        ? 'Momentum persists but reacts violently to any supply.'
+                        : 'Momentum balances between contraction pockets and bursts.',
           visualInterpretation:
-            'Chart profile suggests a shallow upward channel with occasional consolidation shelves.',
-          miniSeries: [20, 20, 21, 21, 22, 22, 23, 23, 24, 24, 25, 25],
-          pathRepresentation:
-            'Base -> Expansion probes -> Consolidation shelf -> Constructive drift',
+            mini.pathRepresentation.length > 0
+              ? tight(mini.pathRepresentation.replace(/ -> /g, ' → '), 200)
+              : 'Synthetic path mirrors liquidity-aware interpretation.',
+          miniSeries: mini.miniSeries,
+          pathRepresentation: mini.pathRepresentation,
         },
+        outlook,
         outlookScenarios: {
-          bullCase: 'Continuation accelerates if liquidity and demand remain aligned.',
-          baseCase: 'Consolidation dominates while structure matures.',
-          bearCase: 'A cooling pullback unfolds before the next accumulation phase.',
+          bullCase:
+            marketTone === 'Dead cat bounce'
+              ? tight('Reversal validates only if highs expand with volume.', 62)
+              : tight('Flows broaden → continuation.', 42),
+          baseCase:
+            marketTone === 'Dead cat bounce'
+              ? tight('Choppy relief before retest of range lows.', 58)
+              : tight('Balanced auctions near fair value.', 40),
+          bearCase:
+            marketTone === 'Dead cat bounce'
+              ? tight('Bounce fails → prior downtrend resumes.', 58)
+              : tight('Liquidity fades → sharper reset.', 45),
         },
         uiInstructions: {
           loading: {
@@ -730,60 +822,31 @@ export class CardhedgerAiInsightService {
           ],
         },
         generatedAt: now,
-        confidence,
-        cardId,
+        confidence: confAdj.confidence,
+        confidenceNote: confAdj.note,
+        riskTapeNote,
         marketTone,
         riskScore,
         riskLabel,
         stats,
       };
     } catch (e) {
+      void e;
       return {
         title: `${col.displayLabel} — AI Market Brief`,
-        summary: 'Cardhedger AI insight request failed.',
-        bullets: [e instanceof Error ? e.message : String(e), `Query used: ${query}`],
+        summary: tight(
+          `${col.displayLabel}: Brief unavailable — retry shortly.`,
+          100,
+        ),
+        bullets: [tight('This page’s prices and listings stay live.', 80)],
         dynamics: [],
-        syntheticChart: 'active consolidation with directional bias waiting for the next expansion leg',
-        outlook: 'Continuation remains favored once momentum re-expands through the current consolidation zone.',
-        chartSpec: {
-          chartStyle: 'Expanded Macro View (Wide X-Axis)',
-          trendStructure: [
-            'Phase 1: Consolidation floor',
-            'Phase 2: Probe expansion',
-            'Phase 3: Cooling band',
-            'Phase 4: Bias retention',
-          ],
-          momentumBehavior: 'Momentum is compressing with directional bias intact.',
-          visualInterpretation:
-            'Price appears to coil in a broad consolidation arc ahead of the next expansion attempt.',
-          miniSeries: [22, 22, 23, 22, 23, 23, 22, 23, 24, 23, 24, 25],
-          pathRepresentation:
-            'Compression -> Oscillation -> Breakout pressure build -> Expansion setup',
-        },
-        outlookScenarios: {
-          bullCase: 'Expansion resumes once consolidation overhead is absorbed.',
-          baseCase: 'Market continues to consolidate in a controlled band.',
-          bearCase: 'Cooling extends into a deeper but structured pullback.',
-        },
-        uiInstructions: {
-          loading: {
-            style: 'premium-gradient-shimmer',
-            scanningEffect: 'crypto-data-scan',
-            minDurationMs: 800,
-            maxDurationMs: 1500,
-          },
-          progressiveRenderOrder: [
-            'AI Insight',
-            'Market Structure',
-            'Key Signals',
-            'Synthetic Trend Chart',
-            'Forward Outlook',
-            'Market Tone',
-          ],
-        },
         generatedAt: now,
         confidence: null,
-        cardId: null,
+        confidenceNote: null,
+        riskTapeNote: null,
+        marketTone: null,
+        riskScore: null,
+        riskLabel: null,
       };
     }
   }

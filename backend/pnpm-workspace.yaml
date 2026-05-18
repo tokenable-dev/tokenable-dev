@@ -1,0 +1,9 @@
+packages:
+  - "."
+
+allowBuilds:
+  sharp: true
+  bufferutil: true
+  utf-8-validate: true
+  "@nestjs/core": true
+  "@scarf/scarf": true

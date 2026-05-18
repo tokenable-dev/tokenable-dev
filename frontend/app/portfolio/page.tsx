@@ -18,13 +18,14 @@ import {
   unhideMyAssetToken,
 } from "@/lib/core";
 import { extractBucketComponentsFromMetadata, computeMarketBucketKey } from "@/lib/marketplace/bucketKey";
+import { displayAssetNameFromMetadata } from "@/lib/marketplace/rwaDisplayTitle";
 import { useUserAssets } from "@/hooks/useUserAssets";
 import { useAppStore, selectUsdcBalance } from "@/store";
 import { useShallow } from "zustand/react/shallow";
 import type { GradedCardMetadata } from "@/types/gradedCard";
 import { loadNmBaselineMap, saveNmBaselineMap, type NmBaselineEntry } from "@/lib/portfolio";
-import { formatLiquidityDepthLabel, NO_EXTERNAL_PRICE } from "@/lib/market";
-import { representativeGradeUsd, isPreviewPriceReliable, EXTERNAL_PRICE_MIN_SALES_30D } from "@/lib/market";
+import { formatLiquidityDepthLabel } from "@/lib/market";
+import { representativeGradeUsd } from "@/lib/market";
 import {
   catalogSpotUsdFromMarketPreview,
   parseGradeScoreNumber,
@@ -41,7 +42,6 @@ import {
 } from "@/lib/portfolio";
 
 const USDC_DECIMALS = 1_000_000;
-const MIN_RELIABLE_SALES_30D = EXTERNAL_PRICE_MIN_SALES_30D;
 
 interface OwnedAsset {
   tokenId: number;
@@ -149,7 +149,12 @@ function buildAssetSubtitle(meta: RwaMetadata | null, displayName: string): stri
     return [attrYear?.value, attrSet?.value].filter(Boolean).join(" · ");
   }
   const desc = meta?.description?.trim();
-  if (desc && desc.length <= 200 && !desc.startsWith("http")) {
+  if (
+    desc &&
+    !/^no\s+description\.?$/i.test(desc) &&
+    desc.length <= 200 &&
+    !desc.startsWith("http")
+  ) {
     const line = desc.split("\n")[0].trim();
     return line.length > 120 ? `${line.slice(0, 117)}…` : line;
   }
@@ -563,6 +568,7 @@ export default function PortfolioPage() {
     historiesFlat,
     isLoadingIds: idsLoading,
     isLoadingMetadata: assetsLoading,
+    isLoadingHistoryBatch: historyBatchLoading,
     marketPreviewByToken,
     marketPreviewLoading,
   } = useUserAssets(isConnected ? address : undefined, {
@@ -624,47 +630,49 @@ export default function PortfolioPage() {
     return m;
   }, [allOrders, address]);
 
-  const [metaCollectionKeyByToken, setMetaCollectionKeyByToken] = useState<
-    Record<number, string>
-  >({});
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const out: Record<number, string> = {};
-      for (const a of assets) {
-        if (listingCollectionKeyByToken.has(a.tokenId)) continue;
-        const comp = extractBucketComponentsFromMetadata(
-          (a.metadata ?? {}) as Record<string, unknown>,
-        );
-        if (!comp) continue;
-        try {
-          out[a.tokenId] = await computeMarketBucketKey(comp);
-        } catch {
-          /* skip */
-        }
-      }
-      if (!cancelled) setMetaCollectionKeyByToken(out);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [assets, listingCollectionKeyByToken]);
+  const portfolioBucketKeyQueries = useQueries({
+    queries: assets.map((a) => {
+      const listingKey = listingCollectionKeyByToken.get(a.tokenId);
+      const comp =
+        listingKey == null
+          ? extractBucketComponentsFromMetadata(
+              (a.metadata ?? {}) as Record<string, unknown>,
+            )
+          : null;
+      return {
+        queryKey: ["portfolio-bucket-key", a.tokenId] as const,
+        queryFn: async () => computeMarketBucketKey(comp!),
+        enabled:
+          Boolean(address && isConnected) && listingKey == null && comp != null,
+        staleTime: 60_000,
+      };
+    }),
+  });
 
   const tokenToCollectionKey = useMemo(() => {
-    const o: Record<number, string> = { ...metaCollectionKeyByToken };
-    for (const [tid, k] of listingCollectionKeyByToken.entries()) {
-      o[tid] = k;
-    }
+    const o: Record<number, string> = {};
+    assets.forEach((a, i) => {
+      const listingKey = listingCollectionKeyByToken.get(a.tokenId);
+      if (listingKey) {
+        o[a.tokenId] = listingKey;
+        return;
+      }
+      const raw = portfolioBucketKeyQueries[i]?.data;
+      if (typeof raw === "string" && raw.trim().length > 0) {
+        o[a.tokenId] = raw.trim().toLowerCase();
+      }
+    });
     return o;
-  }, [listingCollectionKeyByToken, metaCollectionKeyByToken]);
+  }, [assets, address, isConnected, listingCollectionKeyByToken, portfolioBucketKeyQueries]);
 
   /** Set NEXT_PUBLIC_MARKETPLACE_PIPELINE_DIAG=1 to compare active-listing DB key vs client meta-hash (backend logs use MARKETPLACE_PIPELINE_DIAG). */
   useEffect(() => {
     if (process.env.NEXT_PUBLIC_MARKETPLACE_PIPELINE_DIAG !== "1") return;
-    for (const a of assets) {
+    assets.forEach((a, i) => {
       const fromOrder = listingCollectionKeyByToken.get(a.tokenId);
-      const fromMeta = metaCollectionKeyByToken[a.tokenId];
+      const fromQuery = portfolioBucketKeyQueries[i]?.data;
+      const fromMeta =
+        typeof fromQuery === "string" && fromQuery.trim() ? fromQuery.trim().toLowerCase() : undefined;
       if (fromOrder && fromMeta && fromOrder !== fromMeta) {
         console.warn("[collection_key_pipeline] listing vs meta hash mismatch", {
           tokenId: a.tokenId,
@@ -679,8 +687,8 @@ export default function PortfolioPage() {
           collectionKey: fromOrder,
         });
       }
-    }
-  }, [assets, listingCollectionKeyByToken, metaCollectionKeyByToken]);
+    });
+  }, [assets, listingCollectionKeyByToken, portfolioBucketKeyQueries]);
 
   const uniqueCollectionKeys = useMemo(() => {
     const s = new Set<string>();
@@ -849,24 +857,23 @@ export default function PortfolioPage() {
         sportBucket === "mlb" || sportBucket === "nba" || sportBucket === "nfl";
 
       const preview = marketPreviewByToken[a.tokenId] ?? null;
-      // Use the shared isPreviewPriceReliable gate (same logic as resolveExternalMarketUsd)
-      // so portfolio, token detail, and collection detail all apply the same threshold.
-      const previewTrusted = isPreviewPriceReliable(preview);
-
       const poke = isMockSport
         ? null
         : catalogSpotUsdFromMarketPreview(
-            previewTrusted ? preview : null,
+            preview?.matched && preview.card ? preview : null,
             marketHistoryTierFromRwaMetadata(a.metadata),
           );
-      // gradePrices from market snapshots originates from the same Cardhedger data as the preview.
-      // Only use it when the preview is trusted, preventing stale fallback prices.
-      const gradePricesForJt = previewTrusted ? (series?.gradePrices ?? null) : null;
-      const jt =
-        isMockSport || poke != null
+      /**
+       * PSA strip from bundled `gradePrices` (same curve as Trending Now / Exchange list snapshots).
+       * Snapshots call `representativeGradeUsd(snapshot.gradePrices, …)` with no mint-preview gate;
+       * My Assets loaded the strip only when mint preview was "reliable", so owned cards showed "—"
+       * while Trending showed a price for the same bucket. Series + snapshots share this bundle.
+       */
+      const stripFromGradePrices =
+        poke != null || isMockSport
           ? null
           : representativeGradeUsd(
-              gradePricesForJt,
+              series?.gradePrices ?? null,
               gradeScoreForJustTcg(a.metadata),
             );
 
@@ -878,8 +885,8 @@ export default function PortfolioPage() {
       } else if (poke != null) {
         currentPrice = poke;
         priceSource = "cardhedger";
-      } else if (jt != null) {
-        currentPrice = jt;
+      } else if (stripFromGradePrices != null) {
+        currentPrice = stripFromGradePrices;
         priceSource = "cardhedger";
       }
 
@@ -889,7 +896,7 @@ export default function PortfolioPage() {
           ? formatLiquidityDepthLabel(stats ?? undefined)
           : null;
 
-      const displayName = a.metadata?.name ?? `RWA #${a.tokenId}`;
+      const displayName = displayAssetNameFromMetadata(a.metadata, `RWA #${a.tokenId}`);
       return {
         tokenId: a.tokenId,
         name: displayName,
@@ -1073,17 +1080,24 @@ export default function PortfolioPage() {
     return addrs.size;
   }, [historiesFlat]);
 
-  const isLoading = idsLoading || assetsLoading || marketPreviewLoading;
-  const chartValuesPending =
-    isLoading || (anyAssetNeedsSeriesForPricing && seriesLoadingAny);
+  /** Skeleton only inside My Assets; chart/stats ignore metadata & preview reloads when prior data remains (see useUserAssets keepPreviousData). */
+  const assetsSectionLoading =
+    idsLoading || assetsLoading || marketPreviewLoading;
+
+  /** Only block totals/chart curve while holdings list is unresolved or series for pricing paths are unavailable. */
+  const chartTotalsPending =
+    idsLoading ||
+    (anyAssetNeedsSeriesForPricing &&
+      assetRows.length > 0 &&
+      seriesLoadingAny);
 
   useEffect(() => {
-    if (!address || isLoading) return;
+    if (!address || idsLoading) return;
     void appendPortfolioValueSnapshot(address, totalValue);
-  }, [address, isLoading, totalValue]);
+  }, [address, idsLoading, totalValue]);
 
   const chartPoints = useMemo(() => {
-    if (isLoading) return [];
+    if (idsLoading) return [];
 
     const now = Date.now();
     const byToken = new Map<number, AssetRow>();
@@ -1158,7 +1172,7 @@ export default function PortfolioPage() {
     }
     return out;
   }, [
-    isLoading,
+    idsLoading,
     assetRows,
     assets,
     tokenToCollectionKey,
@@ -1221,7 +1235,7 @@ export default function PortfolioPage() {
                 stored in this browser for this wallet.
               </p>
               <div className="flex items-center gap-2.5">
-                {chartValuesPending ? (
+                {chartTotalsPending ? (
                   <span className="inline-block h-9 w-28 animate-pulse rounded-lg bg-gray-800/80" />
                 ) : (
                   <>
@@ -1261,7 +1275,7 @@ export default function PortfolioPage() {
             </div>
           </div>
           <div className="h-[240px] sm:h-[280px]">
-            {chartValuesPending ? (
+            {chartTotalsPending ? (
               <div className="w-full h-full bg-gray-800/40 rounded-lg animate-pulse" />
             ) : (
               <PortfolioChart
@@ -1288,18 +1302,18 @@ export default function PortfolioPage() {
           <StatCard
             label="P&amp;L"
             value={
-              chartValuesPending
+              chartTotalsPending
                 ? "…"
                 : `${totalPnl >= 0 ? "+" : ""}${fmtUsd(totalPnl)}`
             }
             sub={
-              chartValuesPending
+              chartTotalsPending
                 ? undefined
                 : totalPnlPct !== 0
                   ? `${totalPnlPct >= 0 ? "+" : ""}${totalPnlPct.toFixed(1)}%`
                   : undefined
             }
-            accent={!chartValuesPending && totalPnl !== 0}
+            accent={!chartTotalsPending && totalPnl !== 0}
           />
         </div>
 
@@ -1360,7 +1374,7 @@ export default function PortfolioPage() {
               ) : null}
             </button>
           </div>
-          {isLoading ? (
+          {assetsSectionLoading ? (
             <div className="-mx-1 grid grid-cols-1 gap-4 pb-2 pt-0.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {[...Array(5)].map((_, i) => (
                 <div
@@ -1483,7 +1497,7 @@ export default function PortfolioPage() {
                         <div className="pointer-events-none absolute right-0 top-full mt-1.5 w-56 rounded-lg border border-zinc-700/90 bg-[#0a0f16]/95 px-3 py-2 text-[11px] leading-snug text-zinc-200 opacity-0 shadow-xl transition-opacity duration-150 group-hover:opacity-100">
                           <p className="font-semibold text-zinc-100">Market Gap formula</p>
                           <p className="mt-1">
-                            Tokenable Listing ({r.listPriceUsd != null ? `$${r.listPriceUsd.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : "—"}) vs Market Price ({r.currentPrice != null ? `$${r.currentPrice.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : "—"})
+                            Tokenable Price ({r.listPriceUsd != null ? `$${r.listPriceUsd.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : "—"}) vs Market Price ({r.currentPrice != null ? `$${r.currentPrice.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : "—"})
                           </p>
                           <p className="mt-1 text-zinc-400">(Tokenable − eBay) / eBay</p>
                         </div>
@@ -1562,7 +1576,7 @@ export default function PortfolioPage() {
                         </dd>
                       </div>
                       <div className="flex justify-between gap-2">
-                        <dt className="text-gray-500">Tokenable Listing</dt>
+                        <dt className="text-gray-500">Tokenable Price</dt>
                         <dd className="text-right tabular-nums font-semibold text-emerald-300">
                           {r.listPriceUsd != null
                             ? `$${r.listPriceUsd.toLocaleString(undefined, {
@@ -1591,7 +1605,7 @@ export default function PortfolioPage() {
         {/* Transaction History */}
         <div className="rounded-2xl border border-gray-800 bg-[#0b1118] p-5 sm:p-6">
           <h2 className="text-sm font-bold mb-4">Transaction History</h2>
-          {isLoading ? (
+          {(idsLoading || historyBatchLoading) ? (
             <div className="space-y-3">
               {[...Array(3)].map((_, i) => (
                 <div key={i} className="h-11 bg-gray-800/40 rounded-lg animate-pulse" />
