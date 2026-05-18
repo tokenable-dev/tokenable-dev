@@ -63,9 +63,11 @@ export class OrdersController {
             orderType: 0,
             startTime: '1711000000',
             endTime: '1713592000',
-            zoneHash: '0x0000000000000000000000000000000000000000000000000000000000000000',
+            zoneHash:
+              '0x0000000000000000000000000000000000000000000000000000000000000000',
             salt: '1234567890123',
-            conduitKey: '0x0000000000000000000000000000000000000000000000000000000000000000',
+            conduitKey:
+              '0x0000000000000000000000000000000000000000000000000000000000000000',
             totalOriginalConsiderationItems: 1,
             counter: '0',
           },
@@ -76,7 +78,8 @@ export class OrdersController {
         summary: 'Collection criteria bid (tokenId must be "0")',
         value: {
           side: 'bid',
-          collectionKey: 'ab5f1f362c9a16151b10159d3d5ca465fe8e23b7ff20169d20bf92188e292bfa',
+          collectionKey:
+            'ab5f1f362c9a16151b10159d3d5ca465fe8e23b7ff20169d20bf92188e292bfa',
           tokenContract: '0x1234567890abcdef1234567890abcdef12345678',
           tokenId: '0',
           considerationToken: '0x1c7d4b196cb0c7b01d743fbc6116a902379c7238',
@@ -107,9 +110,11 @@ export class OrdersController {
             orderType: 2,
             startTime: '1711000000',
             endTime: '1713592000',
-            zoneHash: '0x0000000000000000000000000000000000000000000000000000000000000000',
+            zoneHash:
+              '0x0000000000000000000000000000000000000000000000000000000000000000',
             salt: '2234567890123',
-            conduitKey: '0x0000000000000000000000000000000000000000000000000000000000000000',
+            conduitKey:
+              '0x0000000000000000000000000000000000000000000000000000000000000000',
             totalOriginalConsiderationItems: 1,
             counter: '0',
           },
@@ -173,7 +178,8 @@ export class OrdersController {
   }
 
   @ApiOperation({
-    summary: 'Order history for many token ids in one DB round-trip (payload: list rows only)',
+    summary:
+      'Order history for many token ids in one DB round-trip (payload: list rows only)',
   })
   @ApiBody({
     type: OrdersBatchByTokenDto,
@@ -190,7 +196,8 @@ export class OrdersController {
   }
 
   @ApiOperation({
-    summary: 'Active listings (asks) — lightweight rows (no Seaport parameters / signature)',
+    summary:
+      'Active listings (asks) — lightweight rows (no Seaport parameters / signature)',
   })
   @Get('orders')
   findActiveOrders() {
@@ -198,13 +205,15 @@ export class OrdersController {
   }
 
   @ApiOperation({
-    summary: 'Orders for a token: full rows (incl. Seaport parameters). Use activeOnly=true for a single active ask.',
+    summary:
+      'Orders for a token: full rows (incl. Seaport parameters). Use activeOnly=true for a single active ask.',
   })
   @ApiParam({ name: 'tokenId' })
   @ApiQuery({
     name: 'activeOnly',
     required: false,
-    description: 'When true, returns one active ask or null (still includes parameters for fulfill UI)',
+    description:
+      'When true, returns one active ask or null (still includes parameters for fulfill UI)',
   })
   @Get('orders/token/:tokenId')
   findByTokenId(
@@ -262,6 +271,9 @@ export class OrdersController {
   })
   @Post('orders/fulfill-matched-pair')
   fulfillMatchedPair(@Body() body: FulfillMatchedPairDto) {
-    return this.ordersService.fulfillMatchedPair(body.askOrderHash, body.bidOrderHash);
+    return this.ordersService.fulfillMatchedPair(
+      body.askOrderHash,
+      body.bidOrderHash,
+    );
   }
 }

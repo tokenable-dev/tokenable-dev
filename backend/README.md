@@ -10,6 +10,19 @@ pnpm start:dev
 
 **Database:** schema comes from TypeORM entities; no `sql/migrations` folder. See **[sql/README.md](./sql/README.md)** and **[../docs/README.md](../docs/README.md)**.
 
-**Marketplace:** Seaport off-chain orders (`MarketplaceService`, `marketplace.controller.ts`), **PokéTrace proxy** (`poketrace-proxy.controller.ts`, `src/poketrace/*`), collection **batch snapshots** (`POST …/collections/market-snapshots`), plus optional **relational trading** (`src/marketplace/trading/*`). Overview: **[../docs/api/marketplace.md](../docs/api/marketplace.md)** · Docs index: **[../docs/README.md](../docs/README.md)**.
+**Marketplace:** Seaport off-chain order book (`marketplace/orders/*`), collections & Cardhedger bundle routes (`marketplace/collections/*`), portfolio hidden assets (`marketplace/assets/*`). Matching is **wallet-signed Seaport only** (no separate relational trading API). Overview: **[../docs/api/marketplace.md](../docs/api/marketplace.md)** · Docs index: **[../docs/README.md](../docs/README.md)**.
 
-**Card Hedge:** optional **`CARDHEDGER_API_KEY`** — each upstream operation is a **named route** under **`/api/cardhedger/v1/...`** (see Swagger tags **Card Hedge · …**). Catalog: **`GET /api/cardhedger/catalog`**. Override base URL with **`CARDHEDGER_BASE_URL`** if needed.
+**Card Hedge:** optional **`CARDHEDGER_API_KEY`**. Public HTTP: **`GET /api/cardhedger/indexes`** (dashboard indexes). All other Cardhedger calls go **server-to-server** via `CardhedgerService.forwardJson` (PSA mint, collection pricing, etc.) — not exposed as `/api/cardhedger/v1/*` HTTP proxies. Override base URL with **`CARDHEDGER_BASE_URL`** if needed.
+
+**PSA spec scraper (clean collection covers):** headless Chromium pulls the **card-only** image (`https://d1htnxwo4o0jhw.cloudfront.net/spec/{specId}/*.jpg`) off Cloudflare-protected `psacard.com/spec/psa/{specId}` pages. When metadata includes a PSA **`specId`**, that path **only** uses this scraper (no `.env` flags; fixed 45s / 30s timeouts in code). If there is no `specId`, covers fall back to Cardhedger / Pokemon TCG as before. Results are cached per `specId` (24h positive / 1h negative) and persisted via the normal cover pipeline.
+
+```bash
+# one-time per machine (~100MB) — MUST run from backend/ after cloning or upgrading playwright-core
+pnpm run install:browsers
+# equivalent: pnpm exec playwright-core install chromium
+# Do NOT use `pnpm exec playwright install` unless you add the full `playwright` package.
+```
+
+Quick manual check: `pnpm exec ts-node scripts/test-psa-spec-scraper.ts 9656727`.
+
+> **Docker:** the default `node:22-bookworm-slim` runner lacks Chromium's shared libs. For production, either (a) extend the runner stage with `RUN pnpm exec playwright-core install --with-deps chromium`, or (b) switch the runner base to `mcr.microsoft.com/playwright:v1.60.0-noble`.

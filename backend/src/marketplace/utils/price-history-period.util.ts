@@ -43,4 +43,3 @@ export function marketPeriodToMaxCalendarDays(p: MarketHistoryPeriod): number {
       return 90;
   }
 }
-

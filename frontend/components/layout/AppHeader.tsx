@@ -9,6 +9,7 @@ import { ASSETS } from "@/constants/assets";
 import { sepolia } from "@/config/wagmi";
 import type { MarketplaceCollectionSummary } from "@/lib/core";
 import { ensureSepoliaNetwork } from "@/lib/network";
+import { formatConnectedWalletLabel } from "@/lib/wallet/formatConnectedWalletLabel";
 import { useMarketplaceCollectionsInfinite } from "@/hooks/useMarketplaceCollectionsInfinite";
 import { useResolvedMediaUrlMap } from "@/hooks/useResolvedMediaUrl";
 import { useAppStore, selectUsdcBalance } from "@/store";
@@ -315,7 +316,7 @@ function WalletDropdown() {
           className={`w-2 h-2 rounded-full shrink-0 ${isWrongNetwork ? "bg-red-400" : "bg-mint"}`}
         />
         <span className="min-w-0 truncate font-mono text-gray-300">
-          {address.slice(0, 6)}...{address.slice(-4)}
+          {formatConnectedWalletLabel(address)}
         </span>
         <svg
           className={`w-3.5 h-3.5 text-gray-500 transition-transform ${open ? "rotate-180" : ""}`}
@@ -339,7 +340,7 @@ function WalletDropdown() {
               </div>
               <div className="min-w-0">
                 <p className="text-sm font-medium text-white truncate">
-                  {address.slice(0, 6)}...{address.slice(-4)}
+                  {formatConnectedWalletLabel(address)}
                 </p>
                 <p className="text-[11px] text-gray-500">Ethereum Sepolia</p>
               </div>

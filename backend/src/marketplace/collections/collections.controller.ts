@@ -1,12 +1,4 @@
-import {
-  BadRequestException,
-  Body,
-  Controller,
-  Get,
-  Param,
-  Post,
-  Query,
-} from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import {
   ApiBody,
   ApiOperation,
@@ -36,11 +28,27 @@ export class CollectionsController {
     private readonly aiInsight: CardhedgerAiInsightService,
   ) {}
 
+  /** Decode URL-encoded path segments (some keys may be percent-encoded) and lowercase for DB lookup. */
+  private normalizeKey(raw: string): string {
+    return decodeURIComponent(raw).toLowerCase();
+  }
+
   @ApiOperation({ summary: 'Collection list (cursor pagination)' })
-  @ApiQuery({ name: 'limit', required: false, description: 'Page size (default 30, max 60)' })
-  @ApiQuery({ name: 'cursor', required: false, description: 'Opaque cursor from prior page' })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    description: 'Page size (default 30, max 60)',
+  })
+  @ApiQuery({
+    name: 'cursor',
+    required: false,
+    description: 'Opaque cursor from prior page',
+  })
   @Get('collections')
-  listCollections(@Query('limit') limitRaw?: string, @Query('cursor') cursor?: string) {
+  listCollections(
+    @Query('limit') limitRaw?: string,
+    @Query('cursor') cursor?: string,
+  ) {
     const parsed =
       limitRaw != null && String(limitRaw).trim() !== ''
         ? parseInt(String(limitRaw), 10)
@@ -80,7 +88,8 @@ export class CollectionsController {
   }
 
   @ApiOperation({
-    summary: 'My Assets: batch resolve Cardhedger PSA10 references from token ids (max 32).',
+    summary:
+      'My Assets: batch resolve Cardhedger PSA10 references from token ids (max 32).',
   })
   @ApiBody({
     type: MintPreviewsByTokenIdsDto,
@@ -93,27 +102,31 @@ export class CollectionsController {
   })
   @Post('cardhedger/mint-previews')
   postMintCardhedgerPreviews(@Body() body: MintPreviewsByTokenIdsDto) {
-    return this.cardMarketData.getBatchMintPreviewsFromTokenIds(body.tokenIds ?? []);
+    return this.cardMarketData.getBatchMintPreviewsFromTokenIds(
+      body.tokenIds ?? [],
+    );
   }
 
   @ApiOperation({
-    summary: 'Cardhedger-backed preview: matched catalog card + PSA10 spot bands.',
+    summary:
+      'Cardhedger-backed preview: matched catalog card + PSA10 spot bands.',
   })
   @ApiParam({ name: 'key', description: 'collection_key' })
   @Get('collections/:key/cardhedger')
   async getCollectionCardhedger(@Param('key') key: string) {
-    const k = decodeURIComponent(key).toLowerCase();
+    const k = this.normalizeKey(key);
     const col = await this.collectionService.findOne(k);
     return this.cardMarketData.getPreviewForCollection(col);
   }
 
   @ApiOperation({
-    summary: 'Cardhedger AI market brief for this collection (card-match powered).',
+    summary:
+      'Cardhedger AI market brief for this collection (card-match powered).',
   })
   @ApiParam({ name: 'key', description: 'collection_key' })
   @Get('collections/:key/ai-insight')
   async getCollectionAiInsight(@Param('key') key: string) {
-    const k = decodeURIComponent(key).toLowerCase();
+    const k = this.normalizeKey(key);
     const col = await this.collectionService.findOne(k);
     return this.aiInsight.getAiInsightForCollection(col);
   }
@@ -140,7 +153,7 @@ export class CollectionsController {
     @Query('period') periodRaw?: string,
     @Query('maxDays') maxDaysRaw?: string,
   ) {
-    const k = decodeURIComponent(key).toLowerCase();
+    const k = this.normalizeKey(key);
     const col = await this.collectionService.findOne(k);
     const periodStr = String(periodRaw ?? '90d');
     const period: MarketHistoryPeriod = isMarketHistoryPeriod(periodStr)
@@ -172,7 +185,9 @@ export class CollectionsController {
     @Query('priceHistoryDuration') priceHistoryDuration?: string,
     @Query('hintTokenId') hintTokenId?: string,
   ) {
-    const d = ['7d', '30d', '90d', '180d', '365d'].includes(String(priceHistoryDuration))
+    const d = ['7d', '30d', '90d', '180d', '365d'].includes(
+      String(priceHistoryDuration),
+    )
       ? (priceHistoryDuration as '7d' | '30d' | '90d' | '180d' | '365d')
       : '365d';
     const hint =
@@ -199,8 +214,9 @@ export class CollectionsController {
   @ApiParam({ name: 'key', description: 'collection_key' })
   @Get('collections/:key/stats')
   getCollectionMarketStats(@Param('key') key: string) {
-    const k = decodeURIComponent(key).toLowerCase();
-    return this.collectionMarketService.getCollectionMarketStats(k);
+    return this.collectionMarketService.getCollectionMarketStats(
+      this.normalizeKey(key),
+    );
   }
 
   @ApiOperation({
@@ -210,7 +226,7 @@ export class CollectionsController {
   @ApiParam({ name: 'key', description: 'collection_key' })
   @Get('collections/:key')
   async getCollection(@Param('key') key: string) {
-    const k = decodeURIComponent(key).toLowerCase();
+    const k = this.normalizeKey(key);
     let col = await this.collectionService.findOne(k);
     if (col) {
       await this.collectionService.ensurePsaTotalPopulationFromListings(k);
@@ -218,11 +234,29 @@ export class CollectionsController {
       await this.collectionService.ensureListingDisplayTitleFromListings(k);
       col = await this.collectionService.findOne(k);
     }
-    const [listings, collectionBids, representativeImageUrl] = await Promise.all([
+
+    const storedCover = col?.coverImageUrl?.trim() ?? null;
+    const needsCoverUpgrade =
+      col != null && this.collectionService.coverImageNeedsUpgrade(storedCover);
+
+    const [listings, collectionBids] = await Promise.all([
       this.collectionService.activeListingsForCollection(k),
       this.collectionService.activeBidsForCollection(k),
-      this.collectionService.resolveRepresentativeImageForCollection(k),
+      needsCoverUpgrade
+        ? Promise.race([
+            this.collectionService.resolveRepresentativeImageForCollection(k),
+            new Promise<null>((r) => setTimeout(() => r(null), 15_000)),
+          ])
+        : Promise.resolve(null),
     ]);
+
+    if (needsCoverUpgrade) {
+      const refreshed = await this.collectionService.findOne(k);
+      if (refreshed) col = refreshed;
+    }
+
+    const representativeImageUrl = col?.coverImageUrl?.trim() ?? null;
+
     return {
       collection: col ?? null,
       listings,
@@ -245,5 +279,4 @@ export class CollectionsController {
       bypassCache: bypassCache === '1' || bypassCache === 'true',
     });
   }
-
 }

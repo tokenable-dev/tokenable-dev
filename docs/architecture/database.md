@@ -44,74 +44,20 @@ Seaport off-chain order book. Managed by `order.entity.ts`.
 | `updated_at` | timestamptz | |
 
 ### `marketplace_collections`
-Collection metadata derived from minted RWAs. Managed by `marketplace-collection.entity.ts`.
+Collection buckets derived from graded RWA metadata. Managed by `marketplace-collection.entity.ts`.
 
 | Column | Type | Notes |
 |--------|------|-------|
-| `collection_key` | varchar PK | SHA-256 of normalized card attributes |
-| `card_name` | varchar | |
-| `card_set` | varchar | |
-| `card_number` | varchar | nullable |
-| `grading_company` | varchar | e.g. `psa` |
-| `grade_score` | varchar | e.g. `10` |
-| `psa_spec_id` | varchar | nullable |
-| `psa_total_population` | int | nullable |
-| `cardhedger_card_id` | varchar | nullable |
-| `cardhedger_search_query` | varchar | nullable |
-| `created_at` / `updated_at` | timestamptz | |
+| `collection_key` | varchar PK | `computeMarketBucketKey(components)` |
+| `display_label` | varchar | Human-readable title |
+| `query_used` | text | Cardhedger search text (nullable) |
+| `components` | jsonb | Bucket fields + enrichments (`psaSpecId`, `cardhedgerCardId`, …) |
+| `cover_image_url` | text | nullable — catalog / PSA spec / gateway URL |
+| `created_at` | timestamptz | |
 
-### `bids` (Relational layer)
-Conditional buy-side orders. Rule evaluated at match time.
+### ~~Relational layer tables (removed)~~
 
-| Column | Type | Notes |
-|--------|------|-------|
-| `id` | uuid PK | |
-| `collection_key` | varchar | |
-| `token_id` | varchar | nullable |
-| `bidder_address` | varchar | |
-| `price_usdc` | numeric | |
-| `status` | enum | `active/cancelled/expired/matched` |
-| `rule` | jsonb | AST — `AND/OR`, `GRADE_MIN`, `TRAIT_INCLUDE_ALL`, `EXTERNAL_MATCH` |
-| `snapshot_id` | varchar | nullable |
-| `expires_at` | timestamptz | nullable |
-
-### `asks` (Relational layer)
-
-| Column | Type | Notes |
-|--------|------|-------|
-| `id` | uuid PK | |
-| `collection_key` | varchar | |
-| `token_id` | varchar | |
-| `seller_address` | varchar | |
-| `price_usdc` | numeric | |
-| `status` | enum | `active/locked/cancelled/matched` |
-| `grade` | varchar | nullable |
-| `traits` | jsonb | nullable |
-| `external_ref` | jsonb | nullable — rule evaluation meta |
-
-### `match_intents`
-
-| Column | Notes |
-|--------|-------|
-| `id` uuid PK | |
-| `bid_id`, `ask_id`, `token_id` | Logical match triple |
-| `rule_result` | jsonb |
-
-### `trade_executions`
-
-| Column | Notes |
-|--------|-------|
-| `id` uuid PK | |
-| `execution_state` | `pending → locked → executed / failed` |
-| `bid_id`, `ask_id` | Denormalized |
-| `token_id` | |
-| `in_flight_partial` | unique constraint — prevents double settlement |
-
-### `idempotency_keys`
-Deduplication for `POST /marketplace/trade/match`.
-
-### `outbox_events`
-Transactional outbox. `OutboxPublisherService` processes items and marks `published`.
+Older revisions documented `bids`, `asks`, `match_intents`, `trade_executions`, `idempotency_keys`, and `outbox_events`. Those TypeORM entities and HTTP routes are **no longer in this repository**. If an old database still contains these tables, they are unused; dev DBs with `synchronize` may drop them when entities are removed.
 
 ### `hidden_assets`
 Per-wallet portfolio visibility. Managed by `hidden-assets.service.ts`.
@@ -122,33 +68,10 @@ Per-wallet portfolio visibility. Managed by `hidden-assets.service.ts`.
 | `wallet_address` | |
 | `token_id` | int |
 
-## Settlement Worker State Machine
+## Historical note
 
-```
-POST /trade/match
-        │
-   TradeOrchestratorService
-        │
-        ▼
-  trade_executions.state = pending
-  asks.status = locked
-        │
-   SettlementProcessorService (worker)
-        │
-        ├── CAS: pending → locked
-        ├── On-chain / stub settlement
-        ├── Success → executed, ask = matched
-        └── Failure → failed, ask = active (retry eligible)
-```
+Settlement-worker documentation (`SETTLEMENT_WORKER_ENABLED`, `OutboxPublisherService`, etc.) applied to the **removed** relational trading layer and is no longer accurate for this codebase.
 
-Worker is controlled by env vars:
+---
 
-| Variable | Default | Notes |
-|----------|---------|-------|
-| `SETTLEMENT_WORKER_ENABLED` | `true` | Set `false` to disable |
-| `SETTLEMENT_POLL_MS` | `2000` | Polling interval (ms) |
-| `SETTLEMENT_STUB_FAIL` | — | `true` forces all settlements to fail |
-| `SETTLEMENT_STUB_FAIL_RATE` | `0` | 0–1 probabilistic failure rate |
-| `OUTBOX_PUBLISHER_ENABLED` | `true` | |
-| `OUTBOX_PUBLISHER_POLL_MS` | `1500` | |
-| `OUTBOX_PUBLISHER_BATCH` | `50` | Items per poll cycle |
+_End of current schema overview._

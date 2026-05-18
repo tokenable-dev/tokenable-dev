@@ -56,7 +56,7 @@ export interface CollectionPriceMetricsStripProps {
    */
   exchangeColumn?: "chart" | "trade";
   /**
-   * Single row: Current Price, % Change 24h, Volume 24h, Market Cap, Total Pop.
+   * Single row: Current Price, % Change 24h, Volume 24h, Total Pop, Market Cap.
    * Ignores {@link exchangeColumn}.
    */
   exchangeUnifiedRow?: boolean;
@@ -99,9 +99,9 @@ function MetricTile({
   const hasFooter = isNonemptyFooter(footer);
 
   if (variant === "panelCell") {
-    const inset = "px-3 py-2 sm:px-3.5 sm:py-2.5";
-    const panelLabelCls = `${ibmPlexSans.className} text-[14px] font-normal leading-[150%] tracking-[0px] text-zinc-400`;
-    const panelValueCls = `${ibmPlexSans.className} text-[20px] font-semibold leading-[150%] tracking-[0px] tabular-nums`;
+    const inset = "px-3 py-2.5 sm:px-3.5 sm:py-2.5";
+    const panelLabelCls = `${ibmPlexSans.className} text-[13px] font-normal leading-[140%] tracking-normal text-zinc-400 sm:text-[15px] sm:leading-[150%]`;
+    const panelValueCls = `${ibmPlexSans.className} text-[18px] font-semibold leading-[140%] tracking-normal tabular-nums sm:text-[20px] sm:leading-[150%] md:text-[22px]`;
     if (!hasFooter) {
       return (
         <div
@@ -109,7 +109,7 @@ function MetricTile({
         >
           <span className={`${panelLabelCls} text-pretty`}>{label}</span>
           <div
-            className={`mt-3 flex min-h-[1.5rem] w-full flex-wrap items-baseline gap-x-1 ${panelValueCls}`}
+            className={`mt-2.5 flex min-h-[1.5rem] w-full flex-wrap items-baseline gap-x-1 ${panelValueCls}`}
           >
             {value}
           </div>
@@ -122,7 +122,7 @@ function MetricTile({
       >
         <span className={`${panelLabelCls} text-pretty`}>{label}</span>
         <div
-          className={`mt-3 flex min-h-[1.5rem] w-full flex-wrap items-baseline gap-x-1 ${panelValueCls}`}
+          className={`mt-2.5 flex min-h-[1.5rem] w-full flex-wrap items-baseline gap-x-1 ${panelValueCls}`}
         >
           {value}
         </div>
@@ -205,7 +205,7 @@ export function CollectionPriceMetricsStrip({
     const change24hUp = change24h != null && change24h > 0;
     const change24hDown = change24h != null && change24h < 0;
     const gridClass =
-      "grid-cols-2 min-[520px]:grid-cols-3 xl:grid-cols-5";
+      "grid-cols-1 min-[400px]:grid-cols-2 min-[640px]:grid-cols-3 xl:grid-cols-5 max-[399px]:divide-y max-[399px]:divide-[rgba(38,39,45,1)]";
 
     let priceFooter: ReactNode = undefined;
     if (showFootnotes) {
@@ -228,7 +228,7 @@ export function CollectionPriceMetricsStrip({
 
     return (
       <div
-        className={`w-full min-w-0 min-h-[108px] overflow-hidden rounded-lg border border-[rgba(38,39,45,1)] bg-[rgb(20,20,21)] px-2.5 py-2 ${compact ? "mb-0 sm:mb-0.5" : "mb-2 sm:mb-2.5"}`}
+        className={`w-full min-w-0 min-h-0 overflow-hidden rounded-lg border border-[rgba(38,39,45,1)] bg-[rgb(20,20,21)] px-2 py-2.5 sm:min-h-[108px] sm:px-2.5 sm:py-2 ${compact ? "mb-0 sm:mb-0.5" : "mb-2 sm:mb-2.5"}`}
       >
         <div
           className={`grid ${gridClass} h-full min-h-0 min-w-0 items-stretch justify-items-stretch gap-0`}
@@ -267,14 +267,18 @@ export function CollectionPriceMetricsStrip({
                 ) : change24h != null && Number.isFinite(change24h) ? (
                   <span
                     className={
-                      "text-white"
+                      change24hUp
+                        ? "text-emerald-400"
+                        : change24hDown
+                          ? "text-rose-400"
+                          : "text-zinc-300"
                     }
                   >
                     {change24h > 0 ? "+" : ""}
                     {change24h.toFixed(1)}%
                   </span>
                 ) : (
-                  <span className="text-white">—</span>
+                  <span className="text-zinc-400">—</span>
                 )}
               </>
             }
@@ -298,15 +302,6 @@ export function CollectionPriceMetricsStrip({
           />
           <MetricTile
             variant="panelCell"
-            label="Market Cap"
-            compact={compact}
-            footer={capFooter}
-            value={
-              <span className="min-w-0 truncate text-white">{formatMarketCap(marketCapUsd)}</span>
-            }
-          />
-          <MetricTile
-            variant="panelCell"
             label="Total Pop"
             compact={compact}
             value={
@@ -315,6 +310,15 @@ export function CollectionPriceMetricsStrip({
                   ? totalPopulation.toLocaleString("en-US")
                   : "—"}
               </span>
+            }
+          />
+          <MetricTile
+            variant="panelCell"
+            label="Market Cap"
+            compact={compact}
+            footer={capFooter}
+            value={
+              <span className="min-w-0 truncate text-white">{formatMarketCap(marketCapUsd)}</span>
             }
           />
         </div>

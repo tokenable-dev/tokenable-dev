@@ -57,7 +57,12 @@ export class Order {
    * 논리 컬렉션 키 (ask: 리스팅 메타; bid: ERC721_WITH_CRITERIA 컬렉션 입찰)
    */
   @Index()
-  @Column({ name: 'collection_key', type: 'varchar', length: 64, nullable: true })
+  @Column({
+    name: 'collection_key',
+    type: 'varchar',
+    length: 64,
+    nullable: true,
+  })
   collectionKey: string | null;
 
   /** 결제 토큰 주소 (Sepolia USDC: 0x1c7D4B...) */

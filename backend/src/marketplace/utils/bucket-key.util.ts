@@ -34,10 +34,7 @@ export interface MarketBucketComponents {
 const KEY_VERSION = 1;
 
 function normalizePart(s: string): string {
-  return s
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, ' ');
+  return s.trim().toLowerCase().replace(/\s+/g, ' ');
 }
 
 /** Trim + collapse internal whitespace — preserves casing for display fields only. */
@@ -88,9 +85,13 @@ export type BucketExtractDiagnosis =
     };
 
 /** Shallow shape for logs (no full IPFS payload). */
-export function metaShapeSampleForBucketLog(meta: Record<string, unknown>): Record<string, unknown> {
+export function metaShapeSampleForBucketLog(
+  meta: Record<string, unknown>,
+): Record<string, unknown> {
   const props = meta.properties as Record<string, unknown> | undefined;
-  const graded = (props?.graded ?? meta.graded) as Record<string, unknown> | undefined;
+  const graded = (props?.graded ?? meta.graded) as
+    | Record<string, unknown>
+    | undefined;
   const sample: Record<string, unknown> = {
     metaTopKeys: Object.keys(meta).slice(0, 32),
     hasPropertiesObject: Boolean(props && typeof props === 'object'),
@@ -98,13 +99,24 @@ export function metaShapeSampleForBucketLog(meta: Record<string, unknown>): Reco
       props && typeof props === 'object' ? Object.keys(props).slice(0, 32) : [],
     hasPropertiesGradedKey: props != null && 'graded' in props,
     hasRootGradedKey: 'graded' in meta,
-    gradedJsType: graded === undefined ? 'undefined' : graded === null ? 'null' : typeof graded,
+    gradedJsType:
+      graded === undefined
+        ? 'undefined'
+        : graded === null
+          ? 'null'
+          : typeof graded,
   };
   if (graded && typeof graded === 'object') {
     sample.gradedChildKeys = Object.keys(graded).slice(0, 32);
-    sample.gradedHasCardObject = Boolean(graded.card && typeof graded.card === 'object');
-    sample.gradedHasGradeObject = Boolean(graded.grade && typeof graded.grade === 'object');
-    sample.gradedHasPsaObject = Boolean(graded.psa && typeof graded.psa === 'object');
+    sample.gradedHasCardObject = Boolean(
+      graded.card && typeof graded.card === 'object',
+    );
+    sample.gradedHasGradeObject = Boolean(
+      graded.grade && typeof graded.grade === 'object',
+    );
+    sample.gradedHasPsaObject = Boolean(
+      graded.psa && typeof graded.psa === 'object',
+    );
   }
   return sample;
 }
@@ -148,7 +160,8 @@ export function extractOrDiagnoseBucketComponents(
   const rawName = String(card?.name ?? '').trim();
   const rawSet = String(card?.set ?? '').trim();
   const rawNum =
-    String(card?.number ?? '').trim() || String(psa?.cardNumberHint ?? '').trim();
+    String(card?.number ?? '').trim() ||
+    String(psa?.cardNumberHint ?? '').trim();
   const rawNameMerged = rawName || String(psa?.cardNameHint ?? '');
   const rawSetMerged = rawSet || String(psa?.setHint ?? '');
   const cardName = normalizePart(rawNameMerged);
@@ -205,7 +218,9 @@ export function extractOrDiagnoseBucketComponents(
     gradeScore,
     gradingCompanyDisplay,
     ...(cardNameDisplay ? { cardNameDisplay } : {}),
-    ...(cardSetDisplayCollapse ? { cardSetDisplay: cardSetDisplayCollapse } : {}),
+    ...(cardSetDisplayCollapse
+      ? { cardSetDisplay: cardSetDisplayCollapse }
+      : {}),
   };
   const variantType = detectVariantType(graded);
   if (variantType) out.variantType = variantType;
@@ -246,7 +261,9 @@ function trimFloatString(n: number): string {
 }
 
 /** Deterministic 64-char hex key shared by backend and frontend. */
-export function computeMarketBucketKey(components: MarketBucketComponents): string {
+export function computeMarketBucketKey(
+  components: MarketBucketComponents,
+): string {
   const payload = JSON.stringify({
     v: KEY_VERSION,
     gradingCompany: components.gradingCompany,

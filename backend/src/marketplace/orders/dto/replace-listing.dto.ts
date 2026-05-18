@@ -9,7 +9,10 @@ import {
 import { CreateOrderDto } from './create-order.dto';
 
 export class ReplaceListingDto {
-  @ApiProperty({ description: 'Wallet that signed the new listing (must own the old listing)' })
+  @ApiProperty({
+    description:
+      'Wallet that signed the new listing (must own the old listing)',
+  })
   @IsEthereumAddress()
   callerAddress: string;
 
@@ -18,7 +21,10 @@ export class ReplaceListingDto {
   @IsNotEmpty()
   oldOrderHash: string;
 
-  @ApiProperty({ type: CreateOrderDto, description: 'New signed ask (same tokenId, new price/signature)' })
+  @ApiProperty({
+    type: CreateOrderDto,
+    description: 'New signed ask (same tokenId, new price/signature)',
+  })
   @ValidateNested()
   @Type(() => CreateOrderDto)
   order: CreateOrderDto;

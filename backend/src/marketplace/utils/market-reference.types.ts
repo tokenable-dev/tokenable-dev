@@ -68,7 +68,12 @@ export type MarketCollectionPreview = {
      * `latest_sale` = last chronological point from `prices-by-card` when comps unavailable.
      * `catalog` = PSA 10 grade slot from `all-prices-by-card` when comps/history missing.
      */
-    spotPriceBasis?: 'comps' | 'latest_sale' | 'sparse_sale_avg' | 'catalog' | null;
+    spotPriceBasis?:
+      | 'comps'
+      | 'latest_sale'
+      | 'sparse_sale_avg'
+      | 'catalog'
+      | null;
     /** Unix seconds — newest `sale_date` in comps raw payload, or history point time when basis is `latest_sale`. */
     latestSaleAt?: number | null;
     ebayNearMint: PriceBand | null;
@@ -78,4 +83,3 @@ export type MarketCollectionPreview = {
     ebayPsaTiers?: Record<string, PriceBand | null>;
   };
 };
-

@@ -5,7 +5,7 @@ import { IsNull, Repository } from 'typeorm';
 import { CardhedgerMarketDataService } from './cardhedger-market-data.service';
 import { CollectionService } from './collection.service';
 import {
-  percentChangeFromPoints,
+  percentChangeReferenceOver24h,
   type GradePriceStrip,
   type UsdPoint,
 } from '../utils/collection-market.util';
@@ -20,6 +20,9 @@ import { Order, OrderSide, OrderStatus } from '../entities/order.entity';
 import { computeRobustMarketStatsFromUsdPrices } from '../utils/collection-market-stats.util';
 
 export type PriceHistoryDuration = '7d' | '30d' | '90d' | '180d' | '365d';
+
+/** Labels {@link CollectionMarketBundle.marketChangePct}; list bundle uses `24h` rolling window. */
+export type MarketChangeWindowLabel = PriceHistoryDuration | '24h';
 
 /**
  * Collection catalog reference prices: Cardhedger PSA10 history + bands.
@@ -54,10 +57,10 @@ export interface CollectionMarketStatsResponse {
 export interface CollectionMarketBundle {
   collectionKey: string;
   categoryLabel: string | null;
-  /** Percent change over {@link marketChangeWindow} from Cardhedger history when available. */
+  /** Rolling **24h** % change vs latest Cardhedger history tick (see {@link marketChangeWindow}). */
   marketChangePct: number | null;
-  /** Calendar window aligned with NM history (chart uses max days upstream). */
-  marketChangeWindow: PriceHistoryDuration;
+  /** When set to `24h`, {@link marketChangePct} is previous 24h vs latest observation. */
+  marketChangeWindow: MarketChangeWindowLabel;
   /** Market change source label. */
   marketChangeSource: MarketChangePriceSource | null;
   /** Legacy — always false. */
@@ -83,7 +86,9 @@ export interface PlatformTapeFillRow {
   tapeAggressor: 'buy' | 'sell';
 }
 
-function tapeAggressorFromOrderParameters(parameters: Record<string, unknown>): 'buy' | 'sell' {
+function tapeAggressorFromOrderParameters(
+  parameters: Record<string, unknown>,
+): 'buy' | 'sell' {
   const s = parameters['_tapeFillSide'];
   if (s === 'sell') return 'sell';
   return 'buy';
@@ -121,7 +126,9 @@ export class CollectionMarketService {
 
   private isUsdcConsiderationToken(token: string | null | undefined): boolean {
     if (!token || !String(token).trim()) return false;
-    return String(token).trim().toLowerCase() === this.usdcContractAddressLower();
+    return (
+      String(token).trim().toLowerCase() === this.usdcContractAddressLower()
+    );
   }
 
   private usdcMicrosToNumber(amount: string): number | null {
@@ -197,15 +204,13 @@ export class CollectionMarketService {
       v: this.usdcMicrosToNumber(o.considerationAmount)!,
     }));
     const recent = valid.slice(-80);
-    const trades: PlatformTapeFillRow[] = [...recent]
-      .reverse()
-      .map((o) => ({
-        t: Math.floor(o.updatedAt.getTime() / 1000),
-        priceUsdc: this.usdcMicrosToNumber(o.considerationAmount)!,
-        tokenId: String(o.tokenId),
-        orderHash: o.orderHash,
-        tapeAggressor: tapeAggressorFromOrderParameters(o.parameters),
-      }));
+    const trades: PlatformTapeFillRow[] = [...recent].reverse().map((o) => ({
+      t: Math.floor(o.updatedAt.getTime() / 1000),
+      priceUsdc: this.usdcMicrosToNumber(o.considerationAmount)!,
+      tokenId: String(o.tokenId),
+      orderHash: o.orderHash,
+      tapeAggressor: tapeAggressorFromOrderParameters(o.parameters),
+    }));
     return { platformUsd, trades };
   }
 
@@ -284,7 +289,7 @@ export class CollectionMarketService {
     const tradesUsed = poolFromFulfilledAsks > 0;
 
     const stats = computeRobustMarketStatsFromUsdPrices(prices);
-    const comp = (col?.components ?? {}) as Record<string, unknown>;
+    const comp = col?.components ?? {};
     const chid =
       typeof comp.cardhedgerCardId === 'string' && comp.cardhedgerCardId.trim()
         ? comp.cardhedgerCardId.trim()
@@ -307,7 +312,11 @@ export class CollectionMarketService {
     let globalActiveAskTotal: number | undefined;
     if (diagOn && rawPoolN === 0) {
       globalActiveAskNullKeyCount = await this.orderRepo.count({
-        where: { side: OrderSide.ASK, status: OrderStatus.ACTIVE, collectionKey: IsNull() },
+        where: {
+          side: OrderSide.ASK,
+          status: OrderStatus.ACTIVE,
+          collectionKey: IsNull(),
+        },
       });
       globalActiveAskTotal = await this.orderRepo.count({
         where: { side: OrderSide.ASK, status: OrderStatus.ACTIVE },
@@ -337,13 +346,13 @@ export class CollectionMarketService {
       ...(diagOn && rawPoolN === 0
         ? {
             globalActiveAskTotal,
-            globalActiveAskRowsWithNullCollectionKey: globalActiveAskNullKeyCount,
+            globalActiveAskRowsWithNullCollectionKey:
+              globalActiveAskNullKeyCount,
             pipelineHint:
               'If globalActiveAskRowsWithNullCollectionKey > 0 but activeAskRowsDb is 0, orders likely have NULL collection_key while UI stats use a meta-derived 64-char key.',
           }
         : {}),
-      note:
-        'Active listing query: orders.collection_key = key AND status = active AND side = ask. Stats path lowercases key; sha256 digest is lowercase hex.',
+      note: 'Active listing query: orders.collection_key = key AND status = active AND side = ask. Stats path lowercases key; sha256 digest is lowercase hex.',
     });
     // Normal states for thin markets (new collection / few bids/asks) should not spam INFO logs.
     // Keep detailed stats in DEBUG unless diagnostics are explicitly enabled.
@@ -387,23 +396,26 @@ export class CollectionMarketService {
     const col = await this.collectionService.findOne(key);
     const { platformUsd } = await this.platformTradesForApi(key);
 
-    const window: PriceHistoryDuration = ['7d', '30d', '90d', '180d', '365d'].includes(
-      priceHistoryDuration,
-    )
+    const window: PriceHistoryDuration = [
+      '7d',
+      '30d',
+      '90d',
+      '180d',
+      '365d',
+    ].includes(priceHistoryDuration)
       ? priceHistoryDuration
       : '365d';
     const chartHistoryDays = nmHistoryDaysForBundleWindow(window);
-    const historyTier = marketHistoryTierFromComponents(
-      col?.components as Record<string, unknown> | undefined,
-    );
+    const historyTier = marketHistoryTierFromComponents(col?.components);
     const historyPeriod = tokenablePriceHistoryDurationToPeriod(window);
 
-    const { preview, history: tierHist } = await this.cardMarketData.getBundledCardData(col, {
-      tier: historyTier,
-      period: historyPeriod,
-      maxCalendarDays: chartHistoryDays,
-      maxRequests: 5,
-    });
+    const { preview, history: tierHist } =
+      await this.cardMarketData.getBundledCardData(col, {
+        tier: historyTier,
+        period: historyPeriod,
+        maxCalendarDays: chartHistoryDays,
+        maxRequests: 5,
+      });
 
     const catalogSpot = blendCatalogSpotUsdFromPreview(preview, historyTier);
     const grades = gradeStripFromHistoryTier(historyTier, catalogSpot);
@@ -413,7 +425,7 @@ export class CollectionMarketService {
       v: p.v,
     }));
 
-    const marketChangePct = percentChangeFromPoints(externalUsd);
+    const marketChangePct = percentChangeReferenceOver24h(externalUsd);
     const marketChangeSource: MarketChangePriceSource | null =
       marketChangePct != null && externalUsd.length >= 2
         ? historyTier === 'NEAR_MINT'
@@ -427,13 +439,14 @@ export class CollectionMarketService {
             .map((s) => String(s).trim())
             .filter((s) => s.length > 0)
         : [];
-    const categoryLabel = categoryParts.length > 0 ? categoryParts.join(' · ') : null;
+    const categoryLabel =
+      categoryParts.length > 0 ? categoryParts.join(' · ') : null;
 
     return {
       collectionKey: key,
       categoryLabel,
       marketChangePct,
-      marketChangeWindow: window,
+      marketChangeWindow: '24h',
       marketChangeSource,
       isMockExternalPrices: false,
       gradePrices: grades,
@@ -446,7 +459,10 @@ export class CollectionMarketService {
     collectionKeys: string[],
     priceHistoryDuration: PriceHistoryDuration = '365d',
   ): Promise<{ items: CollectionListSnapshot[] }> {
-    const keys = [...new Set(collectionKeys.map((k) => k.toLowerCase()))].slice(0, 60);
+    const keys = [...new Set(collectionKeys.map((k) => k.toLowerCase()))].slice(
+      0,
+      60,
+    );
     // Process in batches of 8 to avoid overwhelming the Cardhedger API with fully parallel
     // requests (each key triggers 2–4 upstream calls; 60×4 = 240 concurrent is too many).
     const SNAPSHOT_CONCURRENCY = 8;
@@ -457,7 +473,9 @@ export class CollectionMarketService {
         chunk.map(async (key) => {
           try {
             const [bundle, stats] = await Promise.all([
-              this.retryOnce(() => this.getCollectionMarketBundle(key, priceHistoryDuration)),
+              this.retryOnce(() =>
+                this.getCollectionMarketBundle(key, priceHistoryDuration),
+              ),
               this.getCollectionMarketStats(key).catch(() => null),
             ]);
             return bundleToListSnapshot(bundle, stats);
@@ -467,7 +485,7 @@ export class CollectionMarketService {
               collectionKey: key,
               categoryLabel: null,
               marketChangePct: null,
-              marketChangeWindow: priceHistoryDuration,
+              marketChangeWindow: '24h',
               marketChangeSource: null,
               isMockExternalPrices: false,
               gradePrices: { psa10: null, psa9: null, raw: null },
@@ -489,7 +507,7 @@ export interface CollectionListSnapshot {
   collectionKey: string;
   categoryLabel: string | null;
   marketChangePct: number | null;
-  marketChangeWindow: PriceHistoryDuration;
+  marketChangeWindow: MarketChangeWindowLabel;
   marketChangeSource: MarketChangePriceSource | null;
   isMockExternalPrices: boolean;
   gradePrices: GradePriceStrip;
@@ -509,7 +527,9 @@ function bundleToListSnapshot(
 ): CollectionListSnapshot {
   const spark = downsampleSpark(bundle.externalUsd, 48);
   const lastPt =
-    bundle.platformUsd.length > 0 ? bundle.platformUsd[bundle.platformUsd.length - 1]! : null;
+    bundle.platformUsd.length > 0
+      ? bundle.platformUsd[bundle.platformUsd.length - 1]
+      : null;
   return {
     collectionKey: bundle.collectionKey,
     categoryLabel: bundle.categoryLabel,
@@ -521,9 +541,13 @@ function bundleToListSnapshot(
     sparklineUsd: spark,
     marketStats,
     lastTokenableTradeUsdc:
-      lastPt != null && Number.isFinite(lastPt.v) && lastPt.v > 0 ? lastPt.v : null,
+      lastPt != null && Number.isFinite(lastPt.v) && lastPt.v > 0
+        ? lastPt.v
+        : null,
     lastTokenableTradeAtSec:
-      lastPt != null && Number.isFinite(lastPt.t) && lastPt.t > 0 ? lastPt.t : null,
+      lastPt != null && Number.isFinite(lastPt.t) && lastPt.t > 0
+        ? lastPt.t
+        : null,
   };
 }
 

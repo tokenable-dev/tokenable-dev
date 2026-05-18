@@ -11,18 +11,25 @@ type CacheEntry<T> = { value: T; expiresAtMs: number };
 export class IpfsGatewayResolverService {
   private readonly logger = new Logger(IpfsGatewayResolverService.name);
 
-  private readonly metadataByKey = new Map<string, CacheEntry<Record<string, unknown>>>();
+  private readonly metadataByKey = new Map<
+    string,
+    CacheEntry<Record<string, unknown>>
+  >();
   private readonly httpsByImageKey = new Map<string, CacheEntry<string>>();
 
   constructor(private readonly config: ConfigService) {}
 
   private cacheTtlMs(): number {
-    const sec = Number(this.config.get<string>('IPFS_RESOLVE_CACHE_TTL_SEC') ?? '3600');
+    const sec = Number(
+      this.config.get<string>('IPFS_RESOLVE_CACHE_TTL_SEC') ?? '3600',
+    );
     return (Number.isFinite(sec) && sec > 0 ? sec : 3600) * 1000;
   }
 
   private maxCacheEntries(): number {
-    const n = Number(this.config.get<string>('IPFS_RESOLVE_CACHE_MAX') ?? '5000');
+    const n = Number(
+      this.config.get<string>('IPFS_RESOLVE_CACHE_MAX') ?? '5000',
+    );
     return Number.isFinite(n) && n > 100 ? Math.floor(n) : 5000;
   }
 
@@ -56,7 +63,10 @@ export class IpfsGatewayResolverService {
     const t = rawUri.trim();
     if (!t) return null;
     if (/^ipfs:\/\//i.test(t)) {
-      return t.replace(/^ipfs:\/\//i, '').replace(/^ipfs\//i, '').replace(/^\/+/, '');
+      return t
+        .replace(/^ipfs:\/\//i, '')
+        .replace(/^ipfs\//i, '')
+        .replace(/^\/+/, '');
     }
     if (/^https?:\/\//i.test(t)) {
       try {
@@ -109,7 +119,9 @@ export class IpfsGatewayResolverService {
     return { ...json };
   }
 
-  private async fetchJsonFromIpfsSubpath(subpath: string): Promise<Record<string, unknown>> {
+  private async fetchJsonFromIpfsSubpath(
+    subpath: string,
+  ): Promise<Record<string, unknown>> {
     const hosts = this.getGatewayHosts();
     let lastErr: Error | null = null;
     for (const host of hosts) {
@@ -128,12 +140,17 @@ export class IpfsGatewayResolverService {
   /**
    * HEAD/GET first byte check is heavy; use GET and status for image URL probing.
    */
-  async resolveImageToHttps(imageRef: string | undefined): Promise<string | null> {
+  async resolveImageToHttps(
+    imageRef: string | undefined,
+  ): Promise<string | null> {
     if (imageRef == null || String(imageRef).trim() === '') return null;
     const raw = String(imageRef).trim();
     if (/^https?:\/\//i.test(raw) && raw.toLowerCase().includes('/ipfs/')) {
       /* fall through to subpath gateways */
-    } else if (/^https?:\/\//i.test(raw) && !/^https?:\/\/[^/]+\/ipfs\//i.test(raw)) {
+    } else if (
+      /^https?:\/\//i.test(raw) &&
+      !/^https?:\/\/[^/]+\/ipfs\//i.test(raw)
+    ) {
       return raw;
     }
 
@@ -196,7 +213,10 @@ export class IpfsGatewayResolverService {
     return this.resolveImageToHttps(t);
   }
 
-  private async fetchWithRetries(url: string, isJson: boolean): Promise<string> {
+  private async fetchWithRetries(
+    url: string,
+    isJson: boolean,
+  ): Promise<string> {
     const maxAttempts = 6;
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       const res = await fetch(url, {
@@ -215,10 +235,14 @@ export class IpfsGatewayResolverService {
       if (!retriable || attempt === maxAttempts - 1) {
         throw new Error(`HTTP ${res.status} for ${url}`);
       }
-      let delayMs = 900 * Math.pow(2, attempt) + Math.floor(Math.random() * 350);
+      let delayMs =
+        900 * Math.pow(2, attempt) + Math.floor(Math.random() * 350);
       const ra = res.headers.get('retry-after');
       if (ra && /^\d+$/.test(ra.trim())) {
-        delayMs = Math.max(delayMs, Math.min(60_000, parseInt(ra.trim(), 10) * 1000));
+        delayMs = Math.max(
+          delayMs,
+          Math.min(60_000, parseInt(ra.trim(), 10) * 1000),
+        );
       }
       await new Promise((r) => setTimeout(r, delayMs));
     }

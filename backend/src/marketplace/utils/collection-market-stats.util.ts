@@ -35,7 +35,7 @@ function mean(xs: number[]): number {
 }
 
 /** Sample standard deviation (ddof=1); null if n < 2 */
-export function sampleStdDevUsd(prices: number[]): number | null {
+function sampleStdDevUsd(prices: number[]): number | null {
   const n = prices.length;
   if (n < 2) return null;
   const m = mean(prices);
@@ -48,7 +48,7 @@ export function sampleStdDevUsd(prices: number[]): number | null {
 }
 
 /** Inclusive linear interpolation percentile on sorted array, p in [0, 1] */
-export function percentileLinear(sorted: number[], p: number): number | null {
+function percentileLinear(sorted: number[], p: number): number | null {
   if (sorted.length === 0) return null;
   if (sorted.length === 1) return sorted[0];
   const clamped = Math.min(1, Math.max(0, p));
@@ -60,7 +60,7 @@ export function percentileLinear(sorted: number[], p: number): number | null {
   return sorted[lo] * (1 - w) + sorted[hi] * w;
 }
 
-export function medianSorted(sorted: number[]): number | null {
+function medianSorted(sorted: number[]): number | null {
   if (sorted.length === 0) return null;
   const mid = Math.floor((sorted.length - 1) / 2);
   if (sorted.length % 2 === 1) return sorted[mid];
@@ -71,7 +71,10 @@ export function medianSorted(sorted: number[]): number | null {
  * Tukey fences on sorted data; keeps [] only if all values violate fences (then caller should fall back).
  * For n < 4, returns a copy with trimmed=false (not enough points for a stable IQR gate).
  */
-export function tukeyIqrInclusiveTrim(sorted: number[]): { values: number[]; trimmed: boolean } {
+function tukeyIqrInclusiveTrim(sorted: number[]): {
+  values: number[];
+  trimmed: boolean;
+} {
   const n = sorted.length;
   if (n === 0) return { values: [], trimmed: false };
   if (n < 4) {
@@ -124,7 +127,8 @@ export function computeRobustMarketStatsFromUsdPrices(
 
   if (n === 0) return empty();
 
-  const { values: trimmed, trimmed: didTrim } = tukeyIqrInclusiveTrim(sortedRaw);
+  const { values: trimmed, trimmed: didTrim } =
+    tukeyIqrInclusiveTrim(sortedRaw);
   const sorted = [...trimmed].sort((a, b) => a - b);
 
   const floor = percentileLinear(sorted, 0.1);

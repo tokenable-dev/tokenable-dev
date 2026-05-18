@@ -26,12 +26,14 @@ function marketplaceSummaryHasPsaCertNumber(components: Record<string, unknown> 
 }
 
 function trendingCarouselImageUrl(c: MarketplaceCollectionSummary): string | null {
+  // Representative cover image (no cert label) takes priority
+  const cover = c.coverImageUrl?.trim();
+  if (cover && cover.length > 0) return cover;
+  // Fall back to PSA slab image if no cover is available
   const comp = c.components as Record<string, unknown> | undefined;
   const slab =
     typeof comp?.trendingSlabImageUrl === "string" ? comp.trendingSlabImageUrl.trim() : "";
-  if (slab) return slab;
-  const cover = c.coverImageUrl?.trim();
-  return cover && cover.length > 0 ? cover : null;
+  return slab || null;
 }
 
 const CAROUSEL_SLIDE_TRANSITION_MS = 520;
@@ -266,15 +268,6 @@ export function TrendingCollectionsCarousel({
     narrowTrainSlideCount?: number,
   ) => {
     const s = snapshotByKey.get(c.collectionKey.toLowerCase());
-    const ms = s?.marketStats ?? null;
-    const tokenablePrice =
-      ms?.floor != null && Number.isFinite(ms.floor) && ms.floor > 0
-        ? ms.floor
-        : s?.lastTokenableTradeUsdc != null &&
-            Number.isFinite(s.lastTokenableTradeUsdc) &&
-            s.lastTokenableTradeUsdc > 0
-          ? s.lastTokenableTradeUsdc
-          : null;
     const comp = c.components as { gradeScore?: string };
     const eBayPrice = representativeGradeUsd(
       s?.gradePrices ?? null,
@@ -311,24 +304,15 @@ export function TrendingCollectionsCarousel({
               <div className="h-full w-full bg-zinc-900" />
             )}
           </div>
-          <div className="space-y-1.5 p-3">
-            <p className="truncate text-lg font-semibold uppercase text-white">{toCardDisplayUppercase(c.displayLabel)}</p>
-            <div className="space-y-1 text-sm">
-              <p className="flex items-center justify-between gap-2">
-                <span className="text-zinc-500">Market Price</span>
-                <span className="font-semibold tabular-nums text-cyan-300">
-                  {eBayPrice != null && Number.isFinite(eBayPrice) && eBayPrice > 0
-                    ? formatUsd(eBayPrice)
-                    : "—"}
-                </span>
-              </p>
-              <p className="flex items-center justify-between gap-2">
-                <span className="text-zinc-500">Tokenable Price</span>
-                <span className="font-semibold tabular-nums text-emerald-300">
-                  {tokenablePrice != null ? formatUsd(tokenablePrice) : "—"}
-                </span>
-              </p>
-            </div>
+          <div className="space-y-1 p-2.5 sm:p-3">
+            <p className="line-clamp-2 break-words text-base font-semibold uppercase leading-snug text-white sm:truncate sm:text-lg">
+              {toCardDisplayUppercase(c.displayLabel)}
+            </p>
+            <p className="tabular-nums text-base font-bold leading-[140%] tracking-normal text-[rgba(0,255,194,1)] [font-family:var(--font-ibm-plex-sans),sans-serif] sm:text-[18px]">
+              {eBayPrice != null && Number.isFinite(eBayPrice) && eBayPrice > 0
+                ? formatUsd(eBayPrice)
+                : "—"}
+            </p>
           </div>
         </div>
       </Link>
@@ -343,14 +327,14 @@ export function TrendingCollectionsCarousel({
     variant === "landing" && narrowCarousel
       ? "max-w-[min(100%,29rem)]"
       : narrowCarousel
-        ? "max-w-[min(100%,280px)]"
+        ? "max-w-[min(100%,min(280px,100%))]"
         : "";
 
   const deckGridClass =
     variant === "landing" && narrowCarousel
       ? "grid grid-cols-1 max-w-[min(100%,29rem)] mx-auto gap-2 px-3 pb-0.5 pt-0"
       : narrowCarousel
-        ? "grid grid-cols-1 max-w-[min(100%,280px)] mx-auto gap-4 px-10 pb-2 pt-1"
+        ? "grid grid-cols-1 max-w-[min(100%,min(280px,100%))] mx-auto gap-3 px-3 pb-2 pt-1 sm:px-10"
         : "grid grid-cols-1 gap-5 px-12 pb-2 pt-1 sm:grid-cols-2 xl:grid-cols-4";
 
   const narrowTrackSlide =
@@ -402,13 +386,15 @@ export function TrendingCollectionsCarousel({
 
   return (
     <section
-      className={`${showHeading ? "mb-16 mt-2 sm:mb-20 sm:mt-4" : "mx-auto mb-10 max-sm:mb-0 w-full max-w-6xl sm:mb-11"} ${!showHeading ? "max-sm:min-h-0 max-sm:flex-1 max-sm:flex max-sm:flex-col" : ""} ${className}`.trim()}
+      className={`${showHeading ? "mb-10 mt-2 sm:mb-20 sm:mt-4" : "mx-auto mb-10 max-sm:mb-0 w-full max-w-6xl sm:mb-11"} ${!showHeading ? "max-sm:min-h-0 max-sm:flex-1 max-sm:flex max-sm:flex-col" : ""} ${className}`.trim()}
       style={outerStyle}
       aria-label={showHeading ? "Trending now collections" : "Featured collections"}
     >
       {showHeading ? (
-        <div className="mb-6 sm:mb-7">
-          <h2 className="text-3xl font-extrabold tracking-tight text-white">Trending Now</h2>
+        <div className="mb-4 sm:mb-7">
+          <h2 className="text-2xl font-extrabold tracking-tight text-white sm:text-3xl">
+            Trending Now
+          </h2>
         </div>
       ) : null}
 

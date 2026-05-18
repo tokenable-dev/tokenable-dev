@@ -10,12 +10,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
-import {
-  ApiBody,
-  ApiConsumes,
-  ApiOperation,
-  ApiTags,
-} from '@nestjs/swagger';
+import { ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { PsaService, type PsaAnalyzeResult } from './psa.service';
 
 const imageFilter = (
@@ -35,8 +30,7 @@ export class PsaController {
   constructor(private readonly psaService: PsaService) {}
 
   @ApiOperation({
-    summary:
-      'PSA 슬랩 OCR + Cardhedger cert OCR 후보 → PSA Public API 조회',
+    summary: 'PSA 슬랩 OCR + Cardhedger cert OCR 후보 → PSA Public API 조회',
     description:
       '슬랩 앞면 필수, 뒷면 선택. Cardhedger OCR과 슬랩 OCR로 Cert 후보를 찾은 뒤 PSA 공식 API로 검증·메타 보강합니다. OCR이 Cert를 못 읽으면 multipart 필드 `certNumber`(숫자 또는 psacard.com/cert/ URL)를 넣으면 해당 번호를 우선 조회합니다.',
   })
@@ -46,8 +40,16 @@ export class PsaController {
       type: 'object',
       required: ['slabFront'],
       properties: {
-        slabFront: { type: 'string', format: 'binary', description: '슬랩 앞면' },
-        slabBack: { type: 'string', format: 'binary', description: '슬랩 뒷면 (선택)' },
+        slabFront: {
+          type: 'string',
+          format: 'binary',
+          description: '슬랩 앞면',
+        },
+        slabBack: {
+          type: 'string',
+          format: 'binary',
+          description: '슬랩 뒷면 (선택)',
+        },
         certNumber: {
           type: 'string',
           description:

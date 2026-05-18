@@ -22,9 +22,9 @@ Browser / Wallet (MetaMask)
 
 1. **Browser** calls same-origin `/api/*` through Nginx (no hard-coded API host in production).
 2. **NestJS** validates the request via `ValidationPipe`, applies JWT auth where required, and routes to the appropriate module.
-3. **PostgreSQL** (TypeORM) persists orders, collections, users, and the relational trading layer.
+3. **PostgreSQL** (TypeORM) persists orders, collections, users, and hidden-asset preferences.
 4. **Ethereum RPC** (Alchemy Sepolia) provides read-only contract data. On-chain settlement uses **Seaport 1.5** via wallet-signed transactions in the browser.
-5. **Cardhedger API** supplies catalog search, PSA-10 price data, and market indexes.
+5. **Cardhedger API** supplies PSA-10 price data and market indexes (server-side integration plus `GET /api/cardhedger/indexes`).
 6. **PSA Public API** verifies cert numbers and provides slab metadata.
 7. **Pinata** stores IPFS metadata and images.
 
@@ -39,14 +39,13 @@ Browser / Wallet (MetaMask)
 
 Local development omits Nginx; the frontend dev server proxies `/api` to `localhost:4000`.
 
-## Two Trading Axes
+## Trading & Orders
 
-| Axis | Storage | Settlement | Entry Point |
+| Layer | Storage | Settlement | Entry Point |
 |------|---------|-----------|-------------|
 | **Seaport** | `orders`, `marketplace_collections` | Wallet-signed on-chain `fulfillOrder` / `matchAdvancedOrders` | `marketplace/orders/*` API + `frontend/lib/seaport/*` |
-| **Relational** | `bids`, `asks`, `match_intents`, `trade_executions`, `idempotency_keys`, `outbox_events` | Settlement worker: `pending → locked → executed/failed` | `marketplace/bids` + `marketplace/trade/*` API |
 
-The two axes share the same PostgreSQL instance and can coexist. The primary product UI uses Seaport.
+Older documentation described a second “relational” axis (`bids`, `asks`, settlement workers). That stack has been **removed from this repository**; use Seaport only.
 
 ## Key Environment Variables
 

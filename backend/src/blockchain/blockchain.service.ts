@@ -1,6 +1,6 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { Contract, formatUnits } from 'ethers';
-import { TOKENABLE_RWA_CONTRACT, USDC_CONTRACT } from './constants/injection-tokens';
+import { Contract } from 'ethers';
+import { TOKENABLE_RWA_CONTRACT } from './constants/injection-tokens';
 import { IpfsGatewayResolverService } from './ipfs-gateway-resolver.service';
 import { pickRwaAssetDisplayImageRef } from '../marketplace/utils/collection-image.util';
 
@@ -8,7 +8,8 @@ import { pickRwaAssetDisplayImageRef } from '../marketplace/utils/collection-ima
 function isErc721InvalidTokenError(e: unknown): boolean {
   if (!e || typeof e !== 'object') return false;
   const err = e as { code?: string; reason?: string; shortMessage?: string };
-  const blob = `${err.code ?? ''} ${err.reason ?? ''} ${err.shortMessage ?? ''}`.toLowerCase();
+  const blob =
+    `${err.code ?? ''} ${err.reason ?? ''} ${err.shortMessage ?? ''}`.toLowerCase();
   return (
     err.code === 'CALL_EXCEPTION' &&
     (blob.includes('invalid token') ||
@@ -20,54 +21,23 @@ function isErc721InvalidTokenError(e: unknown): boolean {
 @Injectable()
 export class BlockchainService {
   constructor(
-    @Inject(USDC_CONTRACT)
-    private readonly usdc: Contract,
     @Inject(TOKENABLE_RWA_CONTRACT)
     private readonly tokenableRwa: Contract,
     private readonly ipfs: IpfsGatewayResolverService,
   ) {}
 
-  // ── USDC (Circle Sepolia USDC) ───────────────────────────────────
-  async getTokenInfo(): Promise<{ name: string; symbol: string; decimals: number }> {
-    const [name, symbol, decimals] = await Promise.all([
-      this.usdc.name(),
-      this.usdc.symbol(),
-      this.usdc.decimals(),
-    ]);
-    return { name, symbol, decimals: Number(decimals) };
-  }
-
-  async getTotalSupply(): Promise<string> {
-    const supply = await this.usdc.totalSupply();
-    return formatUnits(supply, 6);
-  }
-
-  async getTokenBalance(address: string): Promise<string> {
-    const balance = await this.usdc.balanceOf(address);
-    return formatUnits(balance, 6);
-  }
-
-  // ── Tokenable_RWA (ERC-721) ─────────────────────────────────────
-  async getRwaInfo(): Promise<{ name: string; symbol: string; totalMinted: number }> {
+  /** Used internally by `CollectionService` to enumerate minted token ids. */
+  async getRwaInfo(): Promise<{
+    name: string;
+    symbol: string;
+    totalMinted: number;
+  }> {
     const [name, symbol, totalMinted] = await Promise.all([
       this.tokenableRwa.name(),
       this.tokenableRwa.symbol(),
       this.tokenableRwa.totalMinted(),
     ]);
     return { name, symbol, totalMinted: Number(totalMinted) };
-  }
-
-  async getRwaOwner(tokenId: number): Promise<string> {
-    try {
-      return await this.tokenableRwa.ownerOf(tokenId);
-    } catch (e: unknown) {
-      if (isErc721InvalidTokenError(e)) {
-        throw new NotFoundException(
-          `RWA #${tokenId} does not exist on the configured contract (redeploy / contract address changed?)`,
-        );
-      }
-      throw e;
-    }
   }
 
   async getRwaTokenURI(tokenId: number): Promise<string> {
@@ -81,11 +51,6 @@ export class BlockchainService {
       }
       throw e;
     }
-  }
-
-  async getRwaBalance(address: string): Promise<number> {
-    const balance = await this.tokenableRwa.balanceOf(address);
-    return Number(balance);
   }
 
   async getRwaTokensByOwner(address: string): Promise<number[]> {
@@ -123,9 +88,7 @@ export class BlockchainService {
   /**
    * tokenURI + IPFS JSON + resolved image URL (bounded fan-out per token).
    */
-  async batchRwaMetadata(
-    tokenIds: number[],
-  ): Promise<{
+  async batchRwaMetadata(tokenIds: number[]): Promise<{
     items: Array<{
       tokenId: number;
       tokenURI: string | null;
@@ -133,7 +96,9 @@ export class BlockchainService {
       imageUrl: string | null;
     }>;
   }> {
-    const unique = [...new Set(tokenIds.map((n) => Math.floor(Number(n))))].filter((n) => n >= 0);
+    const unique = [
+      ...new Set(tokenIds.map((n) => Math.floor(Number(n)))),
+    ].filter((n) => n >= 0);
     const concurrency = 8;
     const items: Array<{
       tokenId: number;
@@ -150,11 +115,18 @@ export class BlockchainService {
           try {
             tokenURI = await this.getRwaTokenURI(tokenId);
             if (!tokenURI?.trim()) {
-              return { tokenId, tokenURI: null, metadata: null, imageUrl: null };
+              return {
+                tokenId,
+                tokenURI: null,
+                metadata: null,
+                imageUrl: null,
+              };
             }
             const metadata = await this.ipfs.fetchMetadataJson(tokenURI);
             const ref = pickRwaAssetDisplayImageRef(metadata);
-            const imageUrl = ref ? await this.ipfs.resolveImageToHttps(ref) : null;
+            const imageUrl = ref
+              ? await this.ipfs.resolveImageToHttps(ref)
+              : null;
             return { tokenId, tokenURI, metadata, imageUrl };
           } catch {
             return { tokenId, tokenURI, metadata: null, imageUrl: null };

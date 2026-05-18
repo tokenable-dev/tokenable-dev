@@ -113,7 +113,10 @@ export class RwaService {
     dtoName: string,
   ): Promise<string | undefined> {
     try {
-      const cropped = await cropPsaSlabForCollectionCover(buffer, this.psaSlabCropOptions());
+      const cropped = await cropPsaSlabForCollectionCover(
+        buffer,
+        this.psaSlabCropOptions(),
+      );
       const fn = `collection-cover-${safeCollectionCoverFilename(dtoName)}.png`;
       return await this.pinataService.uploadBuffer(cropped, fn, 'image/png');
     } catch (e: unknown) {
@@ -123,9 +126,14 @@ export class RwaService {
     }
   }
 
-  async uploadToIpfs(dto: UploadRwaDto, file?: Express.Multer.File): Promise<UploadRwaResult> {
+  async uploadToIpfs(
+    dto: UploadRwaDto,
+    file?: Express.Multer.File,
+  ): Promise<UploadRwaResult> {
     if (!file && !dto.imageUrl) {
-      throw new BadRequestException('이미지 파일 또는 imageUrl 중 하나는 필수입니다.');
+      throw new BadRequestException(
+        '이미지 파일 또는 imageUrl 중 하나는 필수입니다.',
+      );
     }
 
     let parsedGraded: {
@@ -151,7 +159,7 @@ export class RwaService {
     const gradedObj = parsedGraded?.graded;
     const psaGraded =
       gradedObj && typeof gradedObj === 'object'
-        ? isPsaGraded(gradedObj as Record<string, unknown>)
+        ? isPsaGraded(gradedObj)
         : false;
     if (!gradedObj || typeof gradedObj !== 'object') {
       throw new BadRequestException(
@@ -163,7 +171,7 @@ export class RwaService {
         'PSA 등급 카드만 mint 가능합니다. OCR/Cert 조회 결과가 PSA인지 확인해주세요.',
       );
     }
-    const psaScore = resolvePsaGradeScore(gradedObj as Record<string, unknown>);
+    const psaScore = resolvePsaGradeScore(gradedObj);
     if (psaScore == null || Math.floor(psaScore) !== 10) {
       throw new BadRequestException(
         `PSA 10 카드만 mint 가능합니다. 현재 등급: ${psaScore ?? 'unknown'}`,
@@ -187,17 +195,31 @@ export class RwaService {
           const { buffer, mimeType, extension } =
             await this.pinataService.fetchImageBufferFromUrl(dto.imageUrl);
           const baseFn = `${safeCollectionCoverFilename(dto.name)}.${extension}`;
-          imageCID = await this.pinataService.uploadBuffer(buffer, baseFn, mimeType);
-          collectionCoverIpfsCid = await this.tryUploadPsaCollectionCover(buffer, dto.name);
+          imageCID = await this.pinataService.uploadBuffer(
+            buffer,
+            baseFn,
+            mimeType,
+          );
+          collectionCoverIpfsCid = await this.tryUploadPsaCollectionCover(
+            buffer,
+            dto.name,
+          );
         } catch (e: unknown) {
           this.logger.error('Failed to fetch or upload PSA image from URL', e);
-          throw new InternalServerErrorException('URL 이미지 IPFS 업로드에 실패했습니다.');
+          throw new InternalServerErrorException(
+            'URL 이미지 IPFS 업로드에 실패했습니다.',
+          );
         }
       } else {
-        imageCID = await this.pinataService.uploadFromUrl(dto.imageUrl, dto.name);
+        imageCID = await this.pinataService.uploadFromUrl(
+          dto.imageUrl,
+          dto.name,
+        );
       }
     } else {
-      throw new BadRequestException('이미지 파일 또는 imageUrl 중 하나는 필수입니다.');
+      throw new BadRequestException(
+        '이미지 파일 또는 imageUrl 중 하나는 필수입니다.',
+      );
     }
 
     const metadata: RwaMetadata = {

@@ -60,7 +60,10 @@ export function extractGrade(text: string): {
   const gem = upper.match(/GEM\s*MT\s*(\d+(?:\.\d+)?)/);
   if (gem) {
     const n = parseFloat(gem[1]);
-    return { label: `GEM MT ${gem[1]}`, score: Number.isNaN(n) ? undefined : n };
+    return {
+      label: `GEM MT ${gem[1]}`,
+      score: Number.isNaN(n) ? undefined : n,
+    };
   }
   const mint = upper.match(/MINT\s*(\d+(?:\.\d+)?)/);
   if (mint) {
@@ -71,7 +74,10 @@ export function extractGrade(text: string): {
   const mintNl = upper.match(/MINT\s*[\r\n]+\s*(\d{1,2}(?:\.\d+)?)\b/);
   if (mintNl) {
     const n = parseFloat(mintNl[1]);
-    return { label: `MINT ${mintNl[1]}`, score: Number.isNaN(n) ? undefined : n };
+    return {
+      label: `MINT ${mintNl[1]}`,
+      score: Number.isNaN(n) ? undefined : n,
+    };
   }
   const nm = upper.match(/NM\s*-?\s*MT\s*(\d+)/);
   if (nm) {
@@ -81,7 +87,10 @@ export function extractGrade(text: string): {
   const psaNum = upper.match(/PSA\s*(\d{1,2}(?:\.\d)?)/);
   if (psaNum) {
     const n = parseFloat(psaNum[1]);
-    return { label: `PSA ${psaNum[1]}`, score: Number.isNaN(n) ? undefined : n };
+    return {
+      label: `PSA ${psaNum[1]}`,
+      score: Number.isNaN(n) ? undefined : n,
+    };
   }
   return {};
 }
@@ -143,8 +152,7 @@ export function buildSearchQuery(fullText: string): string {
     .map((l) => l.replace(/\s+/g, ' ').trim())
     .filter((l) => l.length > 2);
 
-  const junk =
-    /^(PSA|CERT|GRADE|GEM|MINT|WWW\.|HTTP|©|PO BOX|BECKETT)/i;
+  const junk = /^(PSA|CERT|GRADE|GEM|MINT|WWW\.|HTTP|©|PO BOX|BECKETT)/i;
   const scored = lines.map((line) => {
     let s = 0;
     if (junk.test(line)) s -= 20;
@@ -225,7 +233,9 @@ export function psaCertVerifyUrl(cert: string): string {
  * 폼에 직접 넣은 Cert 또는 `psacard.com/cert/123` URL → PSA GetByCertNumber용 (7~10자리).
  * OCR보다 우선해 조회할 때 사용.
  */
-export function resolveCertHintForLookup(raw?: string | null): string | undefined {
+export function resolveCertHintForLookup(
+  raw?: string | null,
+): string | undefined {
   if (raw == null || !String(raw).trim()) return undefined;
   const t = String(raw).trim();
   const fromUrl = t.match(/psacard\.com\/cert\/(\d{7,10})\b/i);

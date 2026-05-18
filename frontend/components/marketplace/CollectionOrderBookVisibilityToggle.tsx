@@ -15,12 +15,22 @@ const orderBookToggleLabelFont = IBM_Plex_Sans({
 export function CollectionOrderBookVisibilityToggle({
   checked,
   onChange,
+  rowJustify = "end",
+  contentWidth = false,
 }: {
   checked: boolean;
   onChange: (next: boolean) => void;
+  /** `start`: pack to the left. `end`: pack to the right (used with {@link contentWidth} on exchange bezel overlay). */
+  rowJustify?: "start" | "end";
+  /** When true, only as wide as label + switch (e.g. overlay on cluster bezel). */
+  contentWidth?: boolean;
 }) {
   return (
-    <div className="flex w-full min-w-0 items-center justify-end gap-[10px]">
+    <div
+      className={`flex items-center gap-[10px] ${
+        contentWidth ? "w-auto max-w-full min-w-0" : "w-full min-w-0"
+      } ${rowJustify === "start" ? "justify-start" : "justify-end"}`}
+    >
       <span
         id="orderbook-visibility-label"
         className={`${orderBookToggleLabelFont.className} text-[15px] font-medium leading-[150%] tracking-normal text-white`}

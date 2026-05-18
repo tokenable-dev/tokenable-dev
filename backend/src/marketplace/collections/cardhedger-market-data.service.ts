@@ -1165,7 +1165,8 @@ export class CardhedgerMarketDataService {
             saleCount:
               spotPriceBasis === 'comps' && headlineCompCount != null
                 ? headlineCompCount
-                : spotPriceBasis === 'sparse_sale_avg' && headlineCompCount != null
+                : spotPriceBasis === 'sparse_sale_avg' &&
+                    headlineCompCount != null
                   ? headlineCompCount
                   : null,
             approxSaleCount:
@@ -1302,12 +1303,13 @@ export class CardhedgerMarketDataService {
   ): Promise<ResolvedCard> {
     const q = this.buildCollectionQuery(col);
     const displayLabel = String(col?.displayLabel ?? '').trim();
-    const query = [
-      q.cardhedgerSearchQuery?.trim(),
-      q.listingDisplayTitle?.trim(),
-      displayLabel,
-      q.query?.trim(),
-    ].find((s) => typeof s === 'string' && s.length > 0) ?? '';
+    const query =
+      [
+        q.cardhedgerSearchQuery?.trim(),
+        q.listingDisplayTitle?.trim(),
+        displayLabel,
+        q.query?.trim(),
+      ].find((s) => typeof s === 'string' && s.length > 0) ?? '';
     if (!query) return { query: '', row: null };
 
     if (q.cardhedgerCardId) {

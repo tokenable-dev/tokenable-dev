@@ -1,10 +1,20 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
-import { IsNull, QueryDeepPartialEntity, QueryFailedError, Repository } from 'typeorm';
+import {
+  IsNull,
+  QueryDeepPartialEntity,
+  QueryFailedError,
+  Repository,
+} from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { BlockchainService } from '../../blockchain/blockchain.service';
 import { IpfsGatewayResolverService } from '../../blockchain/ipfs-gateway-resolver.service';
 import { CardhedgerService } from '../../cardhedger/cardhedger.service';
+import {
+  PsaPublicApiService,
+  specIdStringFromPsaCertBody,
+} from '../../psa/psa-public-api.service';
+import { PsaSpecScraperService } from '../../psa/psa-spec-scraper.service';
 import {
   computeMarketBucketKey,
   extractBucketComponentsFromMetadata,
@@ -17,6 +27,7 @@ import {
 } from '../utils/collection-label.util';
 import {
   extractCollectionRepresentativeImage,
+  normalizeImageUrl,
   pickTrendingSlabImageRef,
   psaCertNumberFromGradedMeta,
 } from '../utils/collection-image.util';
@@ -52,6 +63,12 @@ export class CollectionService implements OnModuleInit {
   private static readonly MERKLE_SCAN_CONCURRENCY = 4;
   private static readonly MERKLE_TOKEN_LOOKUP_ATTEMPTS = 3;
 
+  /** One in-flight resolve per collection — avoids duplicate Playwright runs on parallel requests. */
+  private readonly representativeImageResolveInflight = new Map<
+    string,
+    Promise<string | null>
+  >();
+
   constructor(
     @InjectRepository(MarketplaceCollection)
     private readonly collectionRepo: Repository<MarketplaceCollection>,
@@ -61,6 +78,8 @@ export class CollectionService implements OnModuleInit {
     private readonly config: ConfigService,
     private readonly cardhedger: CardhedgerService,
     private readonly ipfsResolver: IpfsGatewayResolverService,
+    private readonly psaPublicApi: PsaPublicApiService,
+    private readonly psaSpecScraper: PsaSpecScraperService,
   ) {}
 
   private cardhedgerFromRwaMetadata(meta: Record<string, unknown>): {
@@ -69,19 +88,23 @@ export class CollectionService implements OnModuleInit {
     psaSpecId: string | null;
   } {
     const props = meta.properties as Record<string, unknown> | undefined;
-    const graded = (props?.graded ?? meta.graded) as Record<string, unknown> | undefined;
+    const graded = (props?.graded ?? meta.graded) as
+      | Record<string, unknown>
+      | undefined;
     if (!graded || typeof graded !== 'object') {
       return { cardId: null, searchQuery: null, psaSpecId: null };
     }
     const ch = graded.cardhedger as Record<string, unknown> | undefined;
     const cardId =
-      typeof ch?.cardId === 'string' && ch.cardId.trim() ? ch.cardId.trim() : null;
+      typeof ch?.cardId === 'string' && ch.cardId.trim()
+        ? ch.cardId.trim()
+        : null;
     const searchQuery =
       typeof ch?.searchQuery === 'string' && ch.searchQuery.trim()
         ? ch.searchQuery.trim()
         : null;
     const psa = graded.psa as Record<string, unknown> | undefined;
-    const specRaw = psa?.specId;
+    const specRaw = psa?.specId ?? psa?.SpecID ?? psa?.spec_id;
     const psaSpecId =
       typeof specRaw === 'number' && Number.isFinite(specRaw)
         ? String(Math.floor(specRaw))
@@ -89,6 +112,16 @@ export class CollectionService implements OnModuleInit {
           ? specRaw.trim()
           : null;
     return { cardId, searchQuery, psaSpecId };
+  }
+
+  private psaSpecIdFromComponentsRow(comp: unknown): string | null {
+    if (!comp || typeof comp !== 'object') return null;
+    const o = comp as Record<string, unknown>;
+    const raw = o.psaSpecId;
+    if (typeof raw === 'number' && Number.isFinite(raw))
+      return String(Math.floor(raw));
+    if (typeof raw === 'string' && raw.trim()) return raw.trim();
+    return null;
   }
 
   /**
@@ -110,16 +143,22 @@ export class CollectionService implements OnModuleInit {
       try {
         await this.logNullCollectionKeyActiveAskSummary();
       } catch (e) {
-        this.logger.error(`MARKETPLACE_PIPELINE_DIAG boot audit failed: ${String(e)}`);
+        this.logger.error(
+          `MARKETPLACE_PIPELINE_DIAG boot audit failed: ${String(e)}`,
+        );
       }
     }
 
-    const chAudit = this.config.get<string>('CARDHEDGER_COLLECTION_AUDIT_ON_BOOT');
+    const chAudit = this.config.get<string>(
+      'CARDHEDGER_COLLECTION_AUDIT_ON_BOOT',
+    );
     if (chAudit === '1' || chAudit === 'true') {
       try {
         await this.auditStaleCardhedgerCardIdsOnBoot();
       } catch (e) {
-        this.logger.error(`CARDHEDGER_COLLECTION_AUDIT_ON_BOOT failed: ${String(e)}`);
+        this.logger.error(
+          `CARDHEDGER_COLLECTION_AUDIT_ON_BOOT failed: ${String(e)}`,
+        );
       }
     }
   }
@@ -141,7 +180,11 @@ export class CollectionService implements OnModuleInit {
       .getRawMany<{ tokenId: string; cnt: number }>();
 
     const totalNullKeyActiveAsks = await this.orderRepo.count({
-      where: { side: OrderSide.ASK, status: OrderStatus.ACTIVE, collectionKey: IsNull() },
+      where: {
+        side: OrderSide.ASK,
+        status: OrderStatus.ACTIVE,
+        collectionKey: IsNull(),
+      },
     });
     const totalActiveAsks = await this.orderRepo.count({
       where: { side: OrderSide.ASK, status: OrderStatus.ACTIVE },
@@ -172,9 +215,11 @@ export class CollectionService implements OnModuleInit {
     const fresh = extractBucketComponentsFromMetadata(meta);
     if (fresh?.psaTotalPopulation == null) return;
     const key = collectionKey.toLowerCase();
-    const row = await this.collectionRepo.findOne({ where: { collectionKey: key } });
+    const row = await this.collectionRepo.findOne({
+      where: { collectionKey: key },
+    });
     if (!row) return;
-    const comp = row.components as Record<string, unknown>;
+    const comp = row.components;
     if (comp.psaTotalPopulation != null) return;
     await this.collectionRepo.update(
       { collectionKey: key },
@@ -184,17 +229,424 @@ export class CollectionService implements OnModuleInit {
     );
   }
 
-  /** IPFS 메타에서만 커버 URL 추출 후 DB에 없을 때만 저장 */
+  /**
+   * Fetch a clean catalog image for a card using metadata fields (no image buffer / OCR needed).
+   *
+   * Actual IPFS metadata field names (from GradedCardMetadata / MintForm):
+   *   graded.card.name, graded.card.set, graded.card.number, graded.card.year
+   *   graded.psa.certImageSourceUrl, graded.psa.category, graded.psa.specId
+   *   graded.cardhedger.cardId
+   *
+   * Tried in order:
+   *   1. PSA spec page scrape — when `specId` is known (메타·fallback·또는 Cert로
+   *      `GetByCertNumber`에서 보강). 스크래퍼 실패 시 아래 단계로 계속.
+   *   2. Cardhedger card-details (cardId known) — only when step 1 did not apply
+   *   3. Cardhedger card-search  (name + number + set text query)
+   *   4. Cardhedger image-search (certImageSourceUrl → visual matching)
+   *   5. Pokemon TCG API         (Pokemon cards)
+   */
+  private async fetchCatalogImageFromMeta(
+    meta: Record<string, unknown>,
+    psaSpecIdFallback?: string | null,
+  ): Promise<string | null> {
+    const props = meta.properties as Record<string, unknown> | undefined;
+    const graded = (props?.graded ?? meta.graded) as
+      | Record<string, unknown>
+      | undefined;
+    const ch = graded?.cardhedger as Record<string, unknown> | undefined;
+    const cardMeta = graded?.card as Record<string, unknown> | undefined;
+    const psaMeta = graded?.psa as Record<string, unknown> | undefined;
+
+    // ── 0. PSA spec page scrape (clean card-only image, no slab) ────────────
+    const specIdRaw = psaMeta?.specId ?? psaMeta?.SpecID ?? psaMeta?.spec_id;
+    const specIdFromMeta =
+      typeof specIdRaw === 'number' && Number.isFinite(specIdRaw)
+        ? String(Math.floor(specIdRaw))
+        : typeof specIdRaw === 'string' && specIdRaw.trim()
+          ? specIdRaw.trim()
+          : '';
+    let specId =
+      specIdFromMeta ||
+      (typeof psaSpecIdFallback === 'string' && psaSpecIdFallback.trim()
+        ? psaSpecIdFallback.trim()
+        : '');
+
+    if (!specId) {
+      const certRaw = psaCertNumberFromGradedMeta(meta);
+      if (certRaw) {
+        const lookup = await this.psaPublicApi.getByCertNumber(certRaw);
+        if (lookup.status === 'success') {
+          const fromApi = specIdStringFromPsaCertBody(lookup.raw);
+          if (fromApi) {
+            specId = fromApi;
+            this.logger.log(
+              `[CoverImg] PSA API hydrated SpecID cert=${lookup.certNumber} specId=${specId}`,
+            );
+          }
+        } else if (lookup.status === 'error') {
+          this.logger.debug(
+            `[CoverImg] PSA API getByCertNumber failed cert=${certRaw}: ${lookup.message}`,
+          );
+        }
+      }
+    }
+
+    if (specId) {
+      try {
+        const psaSpecImg =
+          await this.psaSpecScraper.scrapeSpecImageUrl(specId);
+        if (psaSpecImg) {
+          const img = normalizeImageUrl(psaSpecImg);
+          this.logger.log(`[CoverImg] PSA spec page → ${img.slice(0, 100)}`);
+          return img;
+        }
+        this.logger.warn(
+          `[CoverImg] PSA spec scrape returned null for specId=${specId} — falling back`,
+        );
+      } catch (e) {
+        this.logger.warn(
+          `[CoverImg] PSA spec scrape failed specId=${specId}: ${e instanceof Error ? e.message : String(e)} — falling back`,
+        );
+      }
+      // fall through — Cardhedger / TCG may still resolve a catalog image
+    }
+
+    // Correct field names: card.name / card.set / card.number (not cardName/setName/cardNumber)
+    const cardId = typeof ch?.cardId === 'string' ? ch.cardId.trim() : '';
+    const cardName = (
+      typeof cardMeta?.name === 'string'
+        ? cardMeta.name
+        : typeof psaMeta?.cardNameHint === 'string'
+          ? psaMeta.cardNameHint
+          : ''
+    ).trim();
+    const cardNumber = String(cardMeta?.number ?? psaMeta?.cardNumberHint ?? '')
+      .replace(/^#/, '')
+      .trim();
+    const setName = (
+      typeof cardMeta?.set === 'string'
+        ? cardMeta.set
+        : typeof psaMeta?.setHint === 'string'
+          ? psaMeta.setHint
+          : ''
+    ).trim();
+    const year = String(cardMeta?.year ?? psaMeta?.year ?? '').trim();
+    const category = String(
+      psaMeta?.category ?? cardMeta?.category ?? '',
+    ).trim();
+    const certImageUrl =
+      typeof psaMeta?.certImageSourceUrl === 'string'
+        ? psaMeta.certImageSourceUrl.trim()
+        : '';
+
+    // ── 1. Cardhedger card-details by stored cardId ──────────────────────────
+    if (cardId) {
+      try {
+        this.cardhedger.assertConfigured();
+        const body = await this.cardhedger.forwardJson(
+          'POST',
+          '/v1/cards/card-details',
+          {
+            body: { card_id: cardId },
+          },
+        );
+        const cards = (body as { cards?: unknown[] }).cards;
+        if (Array.isArray(cards) && cards.length > 0) {
+          const row = cards[0] as Record<string, unknown>;
+          const rawImg =
+            typeof row.image === 'string' && row.image.trim()
+              ? row.image.trim()
+              : null;
+          const img = rawImg ? normalizeImageUrl(rawImg) : null;
+          if (img) {
+            this.logger.log(
+              `[CoverImg] Cardhedger card-details(id) → ${img.slice(0, 80)}`,
+            );
+            return img;
+          }
+        }
+      } catch {
+        /* fall through */
+      }
+    }
+
+    // ── 2. Cardhedger card-search (text query) ───────────────────────────────
+    if (cardName) {
+      try {
+        this.cardhedger.assertConfigured();
+        const parts = [cardName, cardNumber, setName, year].filter(Boolean);
+        const search = parts.join(' ');
+        const body = await this.cardhedger.forwardJson(
+          'POST',
+          '/v1/cards/card-search',
+          {
+            body: { search, page: 1, page_size: 10 },
+          },
+        );
+        const cards = Array.isArray((body as { cards?: unknown[] })?.cards)
+          ? ((body as { cards: unknown[] }).cards ?? [])
+          : [];
+
+        // Normalise helpers (same as card-match.util)
+        const normNum = (s: string) =>
+          s
+            .replace(/^#/, '')
+            .trim()
+            .toLowerCase()
+            .replace(/\s+/g, '')
+            .replace(/[^a-z0-9]/g, '');
+        const normStr = (s: string) =>
+          s
+            .trim()
+            .toLowerCase()
+            .replace(/\s+/g, '')
+            .replace(/[^a-z0-9]/g, '');
+
+        const wantNum = normNum(cardNumber);
+        const wantNameWords = normStr(cardName).match(/[a-z0-9]+/g) ?? [];
+        const wantSet = normStr(setName);
+
+        for (const row of cards as Record<string, unknown>[]) {
+          const rawImg =
+            typeof row.image === 'string' && row.image.trim()
+              ? row.image.trim()
+              : null;
+          if (!rawImg) continue;
+          const img = normalizeImageUrl(rawImg);
+
+          const rowNum = normNum(String(row.number ?? ''));
+          const rowDesc = normStr(String(row.description ?? row.name ?? ''));
+          const rowSet = normStr(String(row.set ?? ''));
+
+          // Must match card number when we have one, to avoid completely wrong cards
+          const numOk = !wantNum || rowNum === wantNum;
+          // Name fuzzy: all key words appear in description
+          const nameOk =
+            wantNameWords.length === 0 ||
+            wantNameWords.every((w) => rowDesc.includes(w));
+          // Set substring match (handles year prefix differences)
+          const setOk =
+            !wantSet || rowSet.includes(wantSet) || wantSet.includes(rowSet);
+
+          if (numOk && (nameOk || setOk)) {
+            this.logger.log(
+              `[CoverImg] Cardhedger card-search → ${img.slice(0, 80)}`,
+            );
+            return img;
+          }
+        }
+      } catch {
+        /* fall through */
+      }
+    }
+
+    // ── 3. Cardhedger image-search via PSA cert image URL ───────────────────
+    if (certImageUrl) {
+      try {
+        this.cardhedger.assertConfigured();
+        // Fetch the PSA slab image and pass as base64 to image-search
+        const imgRes = await fetch(certImageUrl, {
+          signal: AbortSignal.timeout(10_000),
+          headers: { 'User-Agent': 'TokenableBackend/1.0' },
+        });
+        if (imgRes.ok) {
+          const buf = Buffer.from(await imgRes.arrayBuffer());
+          const jpg = (await import('sharp'))
+            .default(buf)
+            .resize({ width: 1200, fit: 'inside', withoutEnlargement: true })
+            .jpeg({ quality: 80 });
+          const b64 = `data:image/jpeg;base64,${(await jpg.toBuffer()).toString('base64')}`;
+          const raw = await this.cardhedger.forwardJson(
+            'POST',
+            '/v1/cards/image-search',
+            {
+              body: { image_base64: b64 },
+            },
+          );
+          const searchCards = Array.isArray(
+            (raw as { cards?: unknown[] })?.cards,
+          )
+            ? ((raw as { cards: unknown[] }).cards ?? [])
+            : [];
+          const first = searchCards[0] as Record<string, unknown> | undefined;
+          const rawFirst =
+            typeof first?.image === 'string' && first.image.trim()
+              ? first.image.trim()
+              : null;
+          const img = rawFirst ? normalizeImageUrl(rawFirst) : null;
+          if (img) {
+            this.logger.log(
+              `[CoverImg] Cardhedger image-search → ${img.slice(0, 80)}`,
+            );
+            return img;
+          }
+        }
+      } catch {
+        /* fall through */
+      }
+    }
+
+    // ── 4. Pokemon TCG API (free, official images) ───────────────────────────
+    const isPokemon =
+      /pokemon/i.test(setName) ||
+      /pokemon/i.test(cardName) ||
+      /tcg/i.test(category);
+
+    if (isPokemon && cardName) {
+      try {
+        const name = cardName.replace(/"/g, '').trim();
+        const num = cardNumber.replace(/"/g, '').trim();
+        const parts = [`name:"${name}"`];
+        if (num) parts.push(`number:${num}`);
+        const q = encodeURIComponent(parts.join(' '));
+        const url = `https://api.pokemontcg.io/v2/cards?q=${q}&pageSize=20&select=id,name,number,set,images`;
+        const res = await fetch(url, {
+          headers: { 'User-Agent': 'TokenableBackend/1.0' },
+          signal: AbortSignal.timeout(8_000),
+        });
+        if (res.ok) {
+          const data = (await res.json()) as { data?: unknown[] };
+          const cards = (data.data ?? []) as Record<string, unknown>[];
+          const sorted = cards.sort((a, b) => {
+            const yearOf = (c: Record<string, unknown>) =>
+              (
+                (c.set as Record<string, unknown>)?.releaseDate as
+                  | string
+                  | undefined
+              )?.slice(0, 4) ?? '';
+            return yearOf(a) === year ? -1 : yearOf(b) === year ? 1 : 0;
+          });
+          const best = sorted[0];
+          const images = best?.images as Record<string, string> | undefined;
+          const img = images?.large ?? images?.small ?? null;
+          if (img) {
+            this.logger.log(`[CoverImg] Pokemon TCG API → ${img.slice(0, 80)}`);
+            return img;
+          }
+        }
+      } catch {
+        /* fall through */
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Pick the best collection cover URL from metadata — cert number must NOT be visible.
+   * Priority:
+   *   1. Cardhedger catalog image / Pokemon TCG API (clean card, no slab)
+   *   2. `graded.cardhedger.imageUrl` already stored in metadata
+   *   3. `collectionCoverImage` (IPFS, Sharp-cropped slab)
+   *   4. PSA `certImageSourceUrl` only as last resort (full slab, cert number visible)
+   */
+  private async resolveBestCoverUrl(
+    meta: Record<string, unknown>,
+    psaSpecIdFallback?: string | null,
+  ): Promise<string | null> {
+    // Try to fetch a clean catalog image at registration time
+    const catalogImg = await this.fetchCatalogImageFromMeta(
+      meta,
+      psaSpecIdFallback,
+    );
+    if (catalogImg) return catalogImg;
+
+    // Fall back to what's stored in metadata
+    const ref = extractCollectionRepresentativeImage(meta);
+    if (!ref) return null;
+    if (/^https?:\/\//i.test(ref) && !ref.toLowerCase().includes('/ipfs/')) {
+      return ref;
+    }
+    // IPFS ref → resolve to gateway HTTPS
+    try {
+      const resolved = await Promise.race([
+        this.ipfsResolver.resolveImageToHttps(ref),
+        new Promise<null>((res) => setTimeout(() => res(null), 8_000)),
+      ]);
+      return resolved ?? ref;
+    } catch {
+      return ref;
+    }
+  }
+
+  /**
+   * Whether a URL is a "low-quality" cover that should be upgraded if a better source exists.
+   *
+   * PSA CloudFront has two kinds of images on the same host:
+   *   • `/cert/{certNumber}/...` → full slab photo with cert label → UPGRADEABLE
+   *   • `/spec/{specId}/...`     → card-only image (no slab)       → already high-quality
+   */
+  private isCoverUrlUpgradeable(url: string): boolean {
+    const t = url.trim();
+    if (!t) return true;
+    if (/^ipfs:\/\//i.test(t)) return true;
+    if (/^https?:\/\//i.test(t) && t.toLowerCase().includes('/ipfs/'))
+      return true;
+    if (t.includes('d1htnxwo4o0jhw.cloudfront.net/cert/')) return true;
+    return false;
+  }
+
+  /** Direct, high-quality HTTPS source: Cardhedger catalog, Pokemon TCG, or PSA spec page. */
+  private isHighQualityCoverUrl(url: string): boolean {
+    const t = url.trim();
+    if (!t) return false;
+    if (!/^https?:\/\//i.test(t)) return false;
+    if (t.toLowerCase().includes('/ipfs/')) return false;
+    if (t.includes('d1htnxwo4o0jhw.cloudfront.net/cert/')) return false;
+    return true;
+  }
+
+  /**
+   * Whether the stored cover should be replaced with a direct HTTPS catalog/spec URL if possible.
+   * Used by CollectionsController to optionally await resolution on first paint.
+   */
+  coverImageNeedsUpgrade(url: string | null | undefined): boolean {
+    const t = (url ?? '').trim();
+    if (!t) return true;
+    return this.isCoverUrlUpgradeable(t);
+  }
+
+  /**
+   * Persist (or upgrade) the collection cover URL.
+   * - If no cover is stored yet → save whatever we can resolve.
+   * - If the stored cover is IPFS / PSA slab and we now have a direct HTTPS catalog URL → upgrade.
+   */
   private async persistCoverFromMetaIfMissing(
     collectionKey: string,
     meta: Record<string, unknown>,
   ): Promise<void> {
-    const img = extractCollectionRepresentativeImage(meta);
-    if (!img) return;
     const key = collectionKey.toLowerCase();
-    const row = await this.collectionRepo.findOne({ where: { collectionKey: key } });
-    if (!row || row.coverImageUrl?.trim()) return;
-    await this.collectionRepo.update({ collectionKey: key }, { coverImageUrl: img });
+    const row = await this.collectionRepo.findOne({
+      where: { collectionKey: key },
+    });
+    if (!row) return;
+
+    const existing = row.coverImageUrl?.trim() ?? '';
+    const shouldUpdate = !existing || this.isCoverUrlUpgradeable(existing);
+    if (!shouldUpdate) return;
+
+    const specFb = this.psaSpecIdFromComponentsRow(row.components);
+    const img = await this.resolveBestCoverUrl(meta, specFb);
+    if (!img) return;
+    if (existing.trim() === img.trim()) return;
+
+    // Only downgrade if the new URL is actually better
+    if (existing && !this.isCoverUrlUpgradeable(existing)) return;
+    // If existing is already high-quality and new one is not, keep existing
+    if (
+      existing &&
+      this.isHighQualityCoverUrl(existing) &&
+      !this.isHighQualityCoverUrl(img)
+    )
+      return;
+
+    await this.collectionRepo.update(
+      { collectionKey: key },
+      { coverImageUrl: img },
+    );
+    this.logger.log(
+      `Updated coverImageUrl for ${key}: ${existing ? `"${existing.slice(0, 60)}…"` : '(empty)'} → "${img.slice(0, 60)}…"`,
+    );
   }
 
   private async mergeTrendingSlabMetaFromMetaIfMissing(
@@ -202,15 +654,20 @@ export class CollectionService implements OnModuleInit {
     meta: Record<string, unknown>,
   ): Promise<void> {
     const key = collectionKey.toLowerCase();
-    const row = await this.collectionRepo.findOne({ where: { collectionKey: key } });
+    const row = await this.collectionRepo.findOne({
+      where: { collectionKey: key },
+    });
     if (!row) return;
-    const comp = row.components as Record<string, unknown>;
+    const comp = row.components;
     const next = { ...comp };
     let dirty = false;
     const slab = pickTrendingSlabImageRef(meta);
     if (
       slab &&
-      !(typeof comp.trendingSlabImageUrl === 'string' && comp.trendingSlabImageUrl.trim())
+      !(
+        typeof comp.trendingSlabImageUrl === 'string' &&
+        comp.trendingSlabImageUrl.trim()
+      )
     ) {
       next.trendingSlabImageUrl = slab;
       dirty = true;
@@ -218,7 +675,10 @@ export class CollectionService implements OnModuleInit {
     const cert = psaCertNumberFromGradedMeta(meta);
     if (
       cert &&
-      !(typeof comp.psaCertNumber === 'string' && String(comp.psaCertNumber).trim())
+      !(
+        typeof comp.psaCertNumber === 'string' &&
+        String(comp.psaCertNumber).trim()
+      )
     ) {
       next.psaCertNumber = cert;
       dirty = true;
@@ -246,7 +706,10 @@ export class CollectionService implements OnModuleInit {
           step: 'ensureCollectionForListing',
           outcome: 'extract_bucket_failed',
           tokenId: String(tokenId),
-          tokenUriSample: typeof uri === 'string' ? uri.slice(0, 120) : String(uri).slice(0, 120),
+          tokenUriSample:
+            typeof uri === 'string'
+              ? uri.slice(0, 120)
+              : String(uri).slice(0, 120),
           diagnosis: {
             code: extracted.code,
             gradedSource: extracted.gradedSource,
@@ -274,13 +737,14 @@ export class CollectionService implements OnModuleInit {
           tokenId: String(tokenId),
           collectionKey,
           gradedSource: extracted.gradedSource,
-          keyFormatNote: 'sha256 hex is lowercase in Node crypto; DB stores this string.',
+          keyFormatNote:
+            'sha256 hex is lowercase in Node crypto; DB stores this string.',
         }),
       );
     }
-    const coverImageUrl = extractCollectionRepresentativeImage(meta) ?? null;
-
     const ch = this.cardhedgerFromRwaMetadata(meta);
+    const coverImageUrl = await this.resolveBestCoverUrl(meta, ch.psaSpecId);
+
     const compRecord: Record<string, unknown> = {
       ...(components as unknown as Record<string, unknown>),
     };
@@ -317,13 +781,17 @@ export class CollectionService implements OnModuleInit {
     } catch (e) {
       const code =
         e instanceof QueryFailedError
-          ? (e as unknown as { driverError?: { code?: string } }).driverError?.code
+          ? (e as unknown as { driverError?: { code?: string } }).driverError
+              ?.code
           : undefined;
       if (code === '23505') {
         await this.persistCoverFromMetaIfMissing(collectionKey, meta);
         await this.mergePsaPopulationFromMetaIfMissing(collectionKey, meta);
         await this.mergeCardhedgerCardIdFromMetaIfMissing(collectionKey, meta);
-        await this.mergeListingDisplayTitleFromMetaIfMissing(collectionKey, meta);
+        await this.mergeListingDisplayTitleFromMetaIfMissing(
+          collectionKey,
+          meta,
+        );
         await this.mergeTrendingSlabMetaFromMetaIfMissing(collectionKey, meta);
       } else {
         throw e;
@@ -364,7 +832,10 @@ export class CollectionService implements OnModuleInit {
     }));
   }
 
-  private encodeCollectionCursor(row: { createdAt: Date; collectionKey: string }): string {
+  private encodeCollectionCursor(row: {
+    createdAt: Date;
+    collectionKey: string;
+  }): string {
     const payload = {
       ca: row.createdAt.toISOString(),
       ck: row.collectionKey.toLowerCase(),
@@ -408,7 +879,9 @@ export class CollectionService implements OnModuleInit {
       }
     }
 
-    qb.orderBy('c.created_at', 'DESC').addOrderBy('c.collection_key', 'ASC').take(limit + 1);
+    qb.orderBy('c.created_at', 'DESC')
+      .addOrderBy('c.collection_key', 'ASC')
+      .take(limit + 1);
 
     const rows = await qb.getMany();
     const page = rows.slice(0, limit);
@@ -465,12 +938,19 @@ export class CollectionService implements OnModuleInit {
    * DB `components.psaTotalPopulation`이 비어 있을 때, 활성 ask의 IPFS 메타에서 PSA 인구를 읽어 저장.
    * (구버전 컬렉션 행 보강 — 시가총액 등 프론트 계산용)
    */
-  async ensurePsaTotalPopulationFromListings(collectionKey: string): Promise<void> {
+  async ensurePsaTotalPopulationFromListings(
+    collectionKey: string,
+  ): Promise<void> {
     const k = collectionKey.toLowerCase();
-    const row = await this.collectionRepo.findOne({ where: { collectionKey: k } });
+    const row = await this.collectionRepo.findOne({
+      where: { collectionKey: k },
+    });
     if (!row) return;
-    const comp = row.components as Record<string, unknown>;
-    if (typeof comp.psaTotalPopulation === 'number' && comp.psaTotalPopulation > 0) {
+    const comp = row.components;
+    if (
+      typeof comp.psaTotalPopulation === 'number' &&
+      comp.psaTotalPopulation > 0
+    ) {
       return;
     }
 
@@ -483,7 +963,9 @@ export class CollectionService implements OnModuleInit {
         const extracted = extractBucketComponentsFromMetadata(meta);
         let pop: number | undefined = extracted?.psaTotalPopulation;
         if (pop == null || !Number.isFinite(pop) || pop <= 0) {
-          const graded = (meta.properties as Record<string, unknown> | undefined)?.graded ?? meta.graded;
+          const graded =
+            (meta.properties as Record<string, unknown> | undefined)?.graded ??
+            meta.graded;
           const psa =
             graded && typeof graded === 'object'
               ? (graded as Record<string, unknown>).psa
@@ -510,7 +992,9 @@ export class CollectionService implements OnModuleInit {
   }
 
   /** Legacy no-op: old external catalog ids are no longer used. */
-  async ensureLegacyReferenceIdsFromListings(collectionKey: string): Promise<void> {
+  async ensureLegacyReferenceIdsFromListings(
+    collectionKey: string,
+  ): Promise<void> {
     // Legacy no-op: Cardhedger id is now canonical.
     void collectionKey;
   }
@@ -518,13 +1002,19 @@ export class CollectionService implements OnModuleInit {
   /**
    * `components.cardhedgerCardId` 보강: 활성 ask 메타에서 읽되, 서로 다른 id가 섞이면 저장하지 않음.
    */
-  async ensureCardhedgerCardIdFromListings(collectionKey: string): Promise<void> {
+  async ensureCardhedgerCardIdFromListings(
+    collectionKey: string,
+  ): Promise<void> {
     const k = collectionKey.toLowerCase();
-    const row = await this.collectionRepo.findOne({ where: { collectionKey: k } });
+    const row = await this.collectionRepo.findOne({
+      where: { collectionKey: k },
+    });
     if (!row) return;
-    const comp = row.components as Record<string, unknown>;
+    const comp = row.components;
     const existing =
-      typeof comp.cardhedgerCardId === 'string' ? comp.cardhedgerCardId.trim() : '';
+      typeof comp.cardhedgerCardId === 'string'
+        ? comp.cardhedgerCardId.trim()
+        : '';
     const existingQ =
       typeof comp.cardhedgerSearchQuery === 'string'
         ? comp.cardhedgerSearchQuery.trim()
@@ -571,16 +1061,22 @@ export class CollectionService implements OnModuleInit {
     if (!dirty) return;
     await this.collectionRepo.update(
       { collectionKey: k },
-      { components: nextComp as QueryDeepPartialEntity<Record<string, unknown>> },
+      {
+        components: nextComp as QueryDeepPartialEntity<Record<string, unknown>>,
+      },
     );
   }
 
-  private extractCardhedgerCardDataRow(raw: unknown): Record<string, unknown> | null {
+  private extractCardhedgerCardDataRow(
+    raw: unknown,
+  ): Record<string, unknown> | null {
     if (typeof raw !== 'object' || raw == null) return null;
     const cards = (raw as { cards?: unknown[] }).cards;
     if (!Array.isArray(cards) || cards.length === 0) return null;
     const row = cards[0];
-    return typeof row === 'object' && row != null ? (row as Record<string, unknown>) : null;
+    return typeof row === 'object' && row != null
+      ? (row as Record<string, unknown>)
+      : null;
   }
 
   async auditCardhedgerCardIdExact(
@@ -593,32 +1089,62 @@ export class CollectionService implements OnModuleInit {
     failCodes: string[];
   }> {
     const k = collectionKey.toLowerCase();
-    const dbRow = await this.collectionRepo.findOne({ where: { collectionKey: k } });
+    const dbRow = await this.collectionRepo.findOne({
+      where: { collectionKey: k },
+    });
     if (!dbRow) {
-      return { checked: false, ok: false, cleared: false, failCodes: ['collection_not_found'] };
+      return {
+        checked: false,
+        ok: false,
+        cleared: false,
+        failCodes: ['collection_not_found'],
+      };
     }
-    const comp = dbRow.components as Record<string, unknown>;
+    const comp = dbRow.components;
     const cardId =
-      typeof comp.cardhedgerCardId === 'string' ? comp.cardhedgerCardId.trim() : '';
-    if (!cardId) return { checked: false, ok: true, cleared: false, failCodes: [] };
+      typeof comp.cardhedgerCardId === 'string'
+        ? comp.cardhedgerCardId.trim()
+        : '';
+    if (!cardId)
+      return { checked: false, ok: true, cleared: false, failCodes: [] };
 
     const wantName = String(comp.cardName ?? '').trim();
     const wantSet = String(comp.cardSet ?? '').trim();
     const wantNum = String(comp.cardNumber ?? '').trim();
     if (!wantName || !wantSet || !wantNum) {
-      return { checked: true, ok: false, cleared: false, failCodes: ['incomplete_components'] };
+      return {
+        checked: true,
+        ok: false,
+        cleared: false,
+        failCodes: ['incomplete_components'],
+      };
     }
 
     let raw: unknown;
     try {
-      raw = await this.cardhedger.forwardJson('POST', '/v1/cards/card-details', {
-        body: { card_id: cardId },
-      });
+      raw = await this.cardhedger.forwardJson(
+        'POST',
+        '/v1/cards/card-details',
+        {
+          body: { card_id: cardId },
+        },
+      );
     } catch (e) {
-      return { checked: true, ok: false, cleared: false, failCodes: ['upstream_fetch_failed'] };
+      return {
+        checked: true,
+        ok: false,
+        cleared: false,
+        failCodes: ['upstream_fetch_failed'],
+      };
     }
     const row = this.extractCardhedgerCardDataRow(raw);
-    if (!row) return { checked: true, ok: false, cleared: false, failCodes: ['empty_card_payload'] };
+    if (!row)
+      return {
+        checked: true,
+        ok: false,
+        cleared: false,
+        failCodes: ['empty_card_payload'],
+      };
     const ex = exactCatalogMatch(
       { cardName: wantName, cardSet: wantSet, cardNumber: wantNum },
       {
@@ -627,7 +1153,8 @@ export class CollectionService implements OnModuleInit {
         set: { name: String(row.set ?? '') },
       },
     );
-    if (ex.ok) return { checked: true, ok: true, cleared: false, failCodes: [] };
+    if (ex.ok)
+      return { checked: true, ok: true, cleared: false, failCodes: [] };
 
     if (options?.clearOnMismatch) {
       const nextComponents: Record<string, unknown> = { ...comp };
@@ -635,22 +1162,44 @@ export class CollectionService implements OnModuleInit {
       delete nextComponents.cardhedgerSearchQuery;
       await this.collectionRepo.update(
         { collectionKey: k },
-        { components: nextComponents as QueryDeepPartialEntity<Record<string, unknown>> },
+        {
+          components: nextComponents as QueryDeepPartialEntity<
+            Record<string, unknown>
+          >,
+        },
       );
-      return { checked: true, ok: false, cleared: true, failCodes: ex.failCodes };
+      return {
+        checked: true,
+        ok: false,
+        cleared: true,
+        failCodes: ex.failCodes,
+      };
     }
-    return { checked: true, ok: false, cleared: false, failCodes: ex.failCodes };
+    return {
+      checked: true,
+      ok: false,
+      cleared: false,
+      failCodes: ex.failCodes,
+    };
   }
 
   private async auditStaleCardhedgerCardIdsOnBoot(): Promise<void> {
-    const rows = await this.collectionRepo.find({ select: ['collectionKey', 'components'] });
+    const rows = await this.collectionRepo.find({
+      select: ['collectionKey', 'components'],
+    });
     let cleared = 0;
     let mismatchNotCleared = 0;
     let incomplete = 0;
     for (const c of rows) {
-      const comp = c.components as Record<string, unknown>;
-      if (typeof comp.cardhedgerCardId !== 'string' || !comp.cardhedgerCardId.trim()) continue;
-      const r = await this.auditCardhedgerCardIdExact(c.collectionKey, { clearOnMismatch: true });
+      const comp = c.components;
+      if (
+        typeof comp.cardhedgerCardId !== 'string' ||
+        !comp.cardhedgerCardId.trim()
+      )
+        continue;
+      const r = await this.auditCardhedgerCardIdExact(c.collectionKey, {
+        clearOnMismatch: true,
+      });
       if (!r.checked) continue;
       if (r.ok) continue;
       if (r.failCodes.includes('incomplete_components')) {
@@ -705,10 +1254,15 @@ export class CollectionService implements OnModuleInit {
     meta: Record<string, unknown>,
   ): Promise<void> {
     const key = collectionKey.toLowerCase();
-    const dbRow = await this.collectionRepo.findOne({ where: { collectionKey: key } });
+    const dbRow = await this.collectionRepo.findOne({
+      where: { collectionKey: key },
+    });
     if (!dbRow) return;
-    const comp = dbRow.components as Record<string, unknown>;
-    if (typeof comp.cardhedgerCardId === 'string' && comp.cardhedgerCardId.trim()) {
+    const comp = dbRow.components;
+    if (
+      typeof comp.cardhedgerCardId === 'string' &&
+      comp.cardhedgerCardId.trim()
+    ) {
       return;
     }
     const ch = this.cardhedgerFromRwaMetadata(meta);
@@ -732,11 +1286,15 @@ export class CollectionService implements OnModuleInit {
     meta: Record<string, unknown>,
   ): Promise<void> {
     const key = collectionKey.toLowerCase();
-    const dbRow = await this.collectionRepo.findOne({ where: { collectionKey: key } });
+    const dbRow = await this.collectionRepo.findOne({
+      where: { collectionKey: key },
+    });
     if (!dbRow) return;
-    const comp = dbRow.components as Record<string, unknown>;
+    const comp = dbRow.components;
     const existing =
-      typeof comp.listingDisplayTitle === 'string' ? comp.listingDisplayTitle.trim() : '';
+      typeof comp.listingDisplayTitle === 'string'
+        ? comp.listingDisplayTitle.trim()
+        : '';
     if (existing.length > 0) return;
     const t = this.extractListingDisplayTitleFromMeta(meta);
     if (!t) return;
@@ -755,13 +1313,19 @@ export class CollectionService implements OnModuleInit {
    * Legacy rows: backfill `components.listingDisplayTitle` from the first active ask's IPFS `name`
    * when missing (aligns collection detail hero with the in-grid RWA title).
    */
-  async ensureListingDisplayTitleFromListings(collectionKey: string): Promise<void> {
+  async ensureListingDisplayTitleFromListings(
+    collectionKey: string,
+  ): Promise<void> {
     const k = collectionKey.toLowerCase();
-    const row = await this.collectionRepo.findOne({ where: { collectionKey: k } });
+    const row = await this.collectionRepo.findOne({
+      where: { collectionKey: k },
+    });
     if (!row) return;
-    const comp = row.components as Record<string, unknown>;
+    const comp = row.components;
     const existing =
-      typeof comp.listingDisplayTitle === 'string' ? comp.listingDisplayTitle.trim() : '';
+      typeof comp.listingDisplayTitle === 'string'
+        ? comp.listingDisplayTitle.trim()
+        : '';
     if (existing.length > 0) return;
 
     const asks = await this.activeListingsForCollection(k);
@@ -815,27 +1379,45 @@ export class CollectionService implements OnModuleInit {
    * Representative image: persisted `cover_image_url` only.
    * When still empty, pick art from the **lowest active token id** in the pool (stable as listings churn),
    * and persist **only if the column is still null** so we never replace the first saved cover.
+   *
+   * Concurrency: at most one resolution per `collection_key` at a time (parallel page loads share one scrape).
    */
   async resolveRepresentativeImageForCollection(
     collectionKey: string,
   ): Promise<string | null> {
     const k = collectionKey.toLowerCase();
+    const inflight = this.representativeImageResolveInflight.get(k);
+    if (inflight) return inflight;
+
+    const job = this.runRepresentativeImageResolution(k).finally(() => {
+      this.representativeImageResolveInflight.delete(k);
+    });
+    this.representativeImageResolveInflight.set(k, job);
+    return job;
+  }
+
+  private async runRepresentativeImageResolution(
+    collectionKey: string,
+  ): Promise<string | null> {
+    const k = collectionKey.toLowerCase();
     const col = await this.findOne(k);
-    const stored = col?.coverImageUrl?.trim();
-    if (stored) return stored;
+    const stored = col?.coverImageUrl?.trim() ?? '';
+    const psaSpecFromComp = this.psaSpecIdFromComponentsRow(col?.components);
+
+    // If already a high-quality (non-IPFS, non-PSA-slab-cert) URL, return immediately
+    if (stored && this.isHighQualityCoverUrl(stored)) return stored;
 
     const asks = await this.activeListingsForCollection(k);
     const bids = await this.activeBidsForCollection(k);
     const askIds = asks
       .map((o) => o.tokenId)
       .filter((id) => id != null && String(id).trim() !== '');
-    const bidIds = bids
-      .map((o) => o.tokenId)
-      .filter((id) => id && id !== '0');
+    const bidIds = bids.map((o) => o.tokenId).filter((id) => id && id !== '0');
     const tokenIds = [...new Set([...askIds, ...bidIds])].sort((a, b) => {
       const na = Number(a);
       const nb = Number(b);
-      if (Number.isFinite(na) && Number.isFinite(nb) && na !== nb) return na - nb;
+      if (Number.isFinite(na) && Number.isFinite(nb) && na !== nb)
+        return na - nb;
       return String(a).localeCompare(String(b), undefined, { numeric: true });
     });
 
@@ -843,16 +1425,29 @@ export class CollectionService implements OnModuleInit {
       try {
         const uri = await this.blockchain.getRwaTokenURI(Number(tokenId));
         const meta = await this.ipfsResolver.fetchMetadataJson(uri);
-        const img = extractCollectionRepresentativeImage(meta)?.trim();
+        const img = await this.resolveBestCoverUrl(meta, psaSpecFromComp);
         if (!img) continue;
 
-        await this.collectionRepo
-          .createQueryBuilder()
-          .update(MarketplaceCollection)
-          .set({ coverImageUrl: img })
-          .where('collection_key = :k', { k })
-          .andWhere('(cover_image_url IS NULL OR TRIM(cover_image_url) = :empty)', { empty: '' })
-          .execute();
+        // Only upgrade to a better image (don't downgrade from IPFS to something worse)
+        const shouldWrite =
+          !stored ||
+          this.isCoverUrlUpgradeable(stored) ||
+          (this.isHighQualityCoverUrl(img) &&
+            !this.isHighQualityCoverUrl(stored));
+
+        const sameAsStored = img.trim() === stored.trim();
+
+        if (shouldWrite && !sameAsStored) {
+          await this.collectionRepo
+            .createQueryBuilder()
+            .update(MarketplaceCollection)
+            .set({ coverImageUrl: img })
+            .where('collection_key = :k', { k })
+            .execute();
+          this.logger.log(
+            `[CoverImg] resolveRepresentativeImage upgraded ${k}: "${stored.slice(0, 72)}" → "${img.slice(0, 72)}"`,
+          );
+        }
 
         const refreshed = await this.findOne(k);
         return refreshed?.coverImageUrl?.trim() ?? img;
@@ -861,7 +1456,7 @@ export class CollectionService implements OnModuleInit {
       }
     }
 
-    return null;
+    return stored || null;
   }
 
   /**
@@ -883,7 +1478,10 @@ export class CollectionService implements OnModuleInit {
       }
     }
 
-    const tokenIds = await this.scanMintedTokenIdsForCollectionKey(k, totalMinted);
+    const tokenIds = await this.scanMintedTokenIdsForCollectionKey(
+      k,
+      totalMinted,
+    );
     this.merkleSetCache.set(cacheKey, {
       tokenIds,
       expiresAtMs: now + CollectionService.MERKLE_SET_CACHE_TTL_MS,
@@ -909,7 +1507,9 @@ export class CollectionService implements OnModuleInit {
         chunk.push(tid);
       }
       const flags = await Promise.all(
-        chunk.map((tid) => this.mintedTokenBelongsToCollection(tid, targetKeyLower)),
+        chunk.map((tid) =>
+          this.mintedTokenBelongsToCollection(tid, targetKeyLower),
+        ),
       );
       for (let i = 0; i < chunk.length; i++) {
         if (flags[i]) ids.push(String(chunk[i]));

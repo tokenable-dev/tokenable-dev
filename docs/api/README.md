@@ -21,11 +21,9 @@ Base URL examples:
 | `marketplace` | `marketplace/orders/orders.controller.ts` | `/api/marketplace` |
 | `marketplace` | `marketplace/collections/collections.controller.ts` | `/api/marketplace` |
 | `marketplace` | `marketplace/assets/assets.controller.ts` | `/api/marketplace` |
-| `marketplace` | `marketplace/trading/bids.controller.ts` | `/api/marketplace/bids` |
-| `marketplace` | `marketplace/trading/trade.controller.ts` | `/api/marketplace/trade` |
-| `cardhedger` | `cardhedger/controllers/catalog.controller.ts` | `/api/cardhedger` |
 | `cardhedger` | `cardhedger/controllers/indexes.controller.ts` | `/api/cardhedger` |
-| `cardhedger` | `cardhedger/controllers/*.controller.ts` | `/api/cardhedger/v1/cards` |
+
+`CardhedgerService` also calls Cardhedger upstream from PSA, collections, and indexes code — those paths are **not** duplicated as `/api/cardhedger/v1/*` HTTP routes.
 
 ---
 
@@ -38,19 +36,12 @@ Base URL examples:
 | GET | `/api/auth/verify-email` | — | Email verification link (`?token=`) |
 | POST | `/api/auth/send-verification-email` | JWT | Resend verification email |
 | GET | `/api/auth/session` | — | Current session (200 + `user: null` for unauthenticated) |
-| GET | `/api/auth/me` | JWT | Current user (401 if unauthenticated) |
 | POST | `/api/auth/logout` | — | Clear cookie (204) |
 | POST | `/api/auth/wallet` | JWT | Link wallet address to account |
 | DELETE | `/api/auth/wallet` | JWT | Unlink wallet address |
 | POST | `/api/rwa/upload` | — | Multipart — upload image + metadata to IPFS (Pinata) |
-| GET | `/api/blockchain/token/info` | — | USDC name, symbol, decimals |
-| GET | `/api/blockchain/token/supply` | — | USDC totalSupply |
-| GET | `/api/blockchain/token/balance/:address` | — | USDC balance for address |
-| GET | `/api/blockchain/rwa/info` | — | TokenableRWA name, symbol, totalMinted |
-| GET | `/api/blockchain/rwa/owner/:tokenId` | — | ownerOf(tokenId) |
 | GET | `/api/blockchain/rwa/asset/:tokenId` | — | tokenURI → IPFS metadata + resolved imageUrl |
 | GET | `/api/blockchain/rwa/token-uri/:tokenId` | — | Raw tokenURI |
-| GET | `/api/blockchain/rwa/balance/:address` | — | RWA balance for address |
 | GET | `/api/blockchain/rwa/tokens/:address` | — | RWA tokenId list for address |
 | POST | `/api/blockchain/rwa/metadata/batch` | — | Batch tokenIds → metadata + imageUrl |
 | POST | `/api/blockchain/media/resolve` | — | Resolve ipfs:// URIs to https URLs |
@@ -79,41 +70,7 @@ Base URL examples:
 | GET | `/api/marketplace/my-assets/hidden` | — | Hidden tokenIds (`?walletAddress=` required) |
 | POST | `/api/marketplace/my-assets/hidden` | — | Hide token from portfolio |
 | PATCH | `/api/marketplace/my-assets/hidden` | — | Unhide token |
-| GET | `/api/marketplace/bids` | — | Active bids for collection (`?collectionKey=`, `?tokenId=`) |
-| GET | `/api/marketplace/bids/:id` | — | Bid detail (UUID) with rule JSON |
-| POST | `/api/marketplace/trade/match` | — | Reserve match → 202 (`Idempotency-Key` header) |
-| GET | `/api/marketplace/trade/executions/:id` | — | Poll settlement state |
-| GET | `/api/cardhedger/catalog` | — | Cardhedger operation list |
 | GET | `/api/cardhedger/indexes` | — | Dashboard market indexes (Pokemon/MLB/NFL/NBA) |
-| POST | `/api/cardhedger/v1/cards/card-search` | — | Card search |
-| POST | `/api/cardhedger/v1/cards/card-match` | — | AI card match |
-| POST | `/api/cardhedger/v1/cards/set-search` | — | Set search |
-| POST | `/api/cardhedger/v1/cards/search-cards-wsort` | — | Card search with sort |
-| POST | `/api/cardhedger/v1/cards/card-details` | — | Card details by ID |
-| POST | `/api/cardhedger/v1/cards/card-request` | — | Request card data (commercial) |
-| POST | `/api/cardhedger/v1/cards/price-estimate` | — | Single price estimate |
-| POST | `/api/cardhedger/v1/cards/batch-price-estimate` | — | Batch price estimate |
-| POST | `/api/cardhedger/v1/cards/prices-by-card` | — | Prices by card ID |
-| POST | `/api/cardhedger/v1/cards/prices-by-cert` | — | Prices by cert number |
-| POST | `/api/cardhedger/v1/cards/batch-prices-by-cert` | — | Batch prices by cert |
-| POST | `/api/cardhedger/v1/cards/details-by-certs` | — | Batch details by cert |
-| POST | `/api/cardhedger/v1/cards/all-prices-by-card` | — | All latest prices by card |
-| POST | `/api/cardhedger/v1/cards/comps` | — | Comparable sales (COMPS) |
-| GET | `/api/cardhedger/v1/cards/top-movers` | — | Top movers (`?count=`, `?category=`) |
-| POST | `/api/cardhedger/v1/cards/90day-prices-by-grade` | — | 90-day prices by grade |
-| POST | `/api/cardhedger/v1/cards/90day-prices-by-grade-search` | — | 90-day prices by grade + search |
-| POST | `/api/cardhedger/v1/cards/additions-summary` | — | Additions summary |
-| POST | `/api/cardhedger/v1/cards/price-updates` | — | Price delta poll |
-| POST | `/api/cardhedger/v1/cards/subscribe-price-updates` | — | Subscribe to price updates |
-| POST | `/api/cardhedger/v1/cards/sales-stats-by-player` | — | Sales stats by player |
-| POST | `/api/cardhedger/v1/cards/total-sales-by-player` | — | Total sales by player |
-| POST | `/api/cardhedger/v1/cards/image-search` | — | Image-based card search |
-| POST | `/api/cardhedger/v1/cards/details-by-cert-ocr` | — | Graded card image → details |
-| POST | `/api/cardhedger/v1/cards/prices-by-cert-ocr` | — | Graded card image → prices |
-| GET | `/api/cardhedger/v1/cards/issues` | — | Issues list (`?status=`) |
-| POST | `/api/cardhedger/v1/cards/issues` | — | Submit data issue |
-| GET | `/api/cardhedger/v1/cards/issues/:issue_id` | — | Single issue |
-| GET | `/api/cardhedger/v1/download/daily-price-export/:file_date` | — | Daily price export (`YYYY-MM-DD`) |
 
 ---
 

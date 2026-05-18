@@ -9,8 +9,15 @@ export interface PsaSlabCropOptions {
   bottomInsetRatio: number;
 }
 
-async function cropTopStrip(buffer: Buffer, topTrimRatio: number): Promise<Buffer> {
-  if (!Number.isFinite(topTrimRatio) || topTrimRatio < 0 || topTrimRatio >= 0.6) {
+async function cropTopStrip(
+  buffer: Buffer,
+  topTrimRatio: number,
+): Promise<Buffer> {
+  if (
+    !Number.isFinite(topTrimRatio) ||
+    topTrimRatio < 0 ||
+    topTrimRatio >= 0.6
+  ) {
     throw new Error('topTrimRatio must be in [0, 0.6)');
   }
   const meta = await sharp(buffer).metadata();
@@ -38,10 +45,18 @@ async function cropSlabFrameInsets(
   sideInsetRatio: number,
   bottomInsetRatio: number,
 ): Promise<Buffer> {
-  if (!Number.isFinite(sideInsetRatio) || sideInsetRatio < 0 || sideInsetRatio >= 0.35) {
+  if (
+    !Number.isFinite(sideInsetRatio) ||
+    sideInsetRatio < 0 ||
+    sideInsetRatio >= 0.35
+  ) {
     throw new Error('sideInsetRatio must be in [0, 0.35)');
   }
-  if (!Number.isFinite(bottomInsetRatio) || bottomInsetRatio < 0 || bottomInsetRatio >= 0.45) {
+  if (
+    !Number.isFinite(bottomInsetRatio) ||
+    bottomInsetRatio < 0 ||
+    bottomInsetRatio >= 0.45
+  ) {
     throw new Error('bottomInsetRatio must be in [0, 0.45)');
   }
   const meta = await sharp(buffer).metadata();
@@ -71,5 +86,9 @@ export async function cropPsaSlabForCollectionCover(
   opts: PsaSlabCropOptions,
 ): Promise<Buffer> {
   const afterTop = await cropTopStrip(buffer, opts.topTrimRatio);
-  return cropSlabFrameInsets(afterTop, opts.sideInsetRatio, opts.bottomInsetRatio);
+  return cropSlabFrameInsets(
+    afterTop,
+    opts.sideInsetRatio,
+    opts.bottomInsetRatio,
+  );
 }
