@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useEffect, useCallback, useRef } from "react";
-import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueries, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAccount } from "wagmi";
@@ -11,11 +11,10 @@ import {
   type CollectionMarketPreview,
   getCollectionMarketSeries,
   getCollectionMarketStats,
-  getMyHiddenAssetTokenIds,
-  hideMyAssetToken,
   type CollectionMarketSeries,
   type CollectionMarketStats,
-  unhideMyAssetToken,
+  cancelOrder,
+  rq,
 } from "@/lib/core";
 import { extractBucketComponentsFromMetadata, computeMarketBucketKey } from "@/lib/marketplace/bucketKey";
 import { displayAssetNameFromMetadata } from "@/lib/marketplace/rwaDisplayTitle";
@@ -62,6 +61,8 @@ interface PricedAssetRow {
   liquidityLabel: string | null;
   /** Your active ask (execution intent), not the pool estimate */
   listPriceUsd: number | null;
+  /** Active ask order hash — for cancel listing from My Assets */
+  activeListingOrderHash: string | null;
   /** Secondary line under title (set / year / card name) */
   subtitle: string;
   gradeLabel: string | null;
@@ -558,8 +559,7 @@ export default function PortfolioPage() {
   const { usdcBalanceFormatted } = useAppStore(useShallow(selectUsdcBalance));
   const [period, setPeriod] = useState<ChartPeriod>("1D");
   const [assetFilter, setAssetFilter] = useState<AssetListFilter>("all");
-  const [showHiddenAssets, setShowHiddenAssets] = useState(false);
-  const [mutatingHiddenTokenIds, setMutatingHiddenTokenIds] = useState<number[]>([]);
+  const [cancellingListingTokenId, setCancellingListingTokenId] = useState<number | null>(null);
 
   const {
     tokenIds,
@@ -571,41 +571,11 @@ export default function PortfolioPage() {
     isLoadingHistoryBatch: historyBatchLoading,
     marketPreviewByToken,
     marketPreviewLoading,
+    refetchActiveOrders,
   } = useUserAssets(isConnected ? address : undefined, {
     enabled: Boolean(address && isConnected),
     includeOrderHistory: true,
     includeMarketPreview: true,
-  });
-
-  const hiddenAssetsQuery = useQuery({
-    queryKey: ["my-hidden-assets", address?.toLowerCase() ?? ""],
-    queryFn: () => getMyHiddenAssetTokenIds(address!),
-    enabled: Boolean(address && isConnected),
-    staleTime: 30_000,
-  });
-  const hiddenTokenSet = useMemo(
-    () => new Set((hiddenAssetsQuery.data ?? []).map((n) => Number(n))),
-    [hiddenAssetsQuery.data],
-  );
-
-  const hideMutation = useMutation({
-    mutationFn: async (tokenId: number) => {
-      if (!address) return;
-      await hideMyAssetToken(address, tokenId);
-    },
-    onSuccess: async () => {
-      await hiddenAssetsQuery.refetch();
-    },
-  });
-
-  const unhideMutation = useMutation({
-    mutationFn: async (tokenId: number) => {
-      if (!address) return;
-      await unhideMyAssetToken(address, tokenId);
-    },
-    onSuccess: async () => {
-      await hiddenAssetsQuery.refetch();
-    },
   });
 
   const assets: OwnedAsset[] = useMemo(
@@ -815,10 +785,15 @@ export default function PortfolioPage() {
     [allOrders, address],
   );
 
-  const priceMap = useMemo(() => {
-    const m = new Map<number, number>();
+  const listingByTokenId = useMemo(() => {
+    const m = new Map<number, { priceUsd: number; orderHash: string }>();
     for (const o of myActiveListings) {
-      m.set(Number(o.tokenId), Number(o.price) / USDC_DECIMALS);
+      const tid = Number(o.tokenId);
+      if (!Number.isFinite(tid)) continue;
+      m.set(tid, {
+        priceUsd: Number(o.price) / USDC_DECIMALS,
+        orderHash: o.orderHash,
+      });
     }
     return m;
   }, [myActiveListings]);
@@ -847,7 +822,9 @@ export default function PortfolioPage() {
 
   const pricedRows: PricedAssetRow[] = useMemo(() => {
     return assets.map((a) => {
-      const listingPrice = priceMap.get(a.tokenId) ?? null;
+      const listing = listingByTokenId.get(a.tokenId);
+      const listingPrice = listing?.priceUsd ?? null;
+      const activeListingOrderHash = listing?.orderHash ?? null;
       const ck = tokenToCollectionKey[a.tokenId]?.toLowerCase() ?? null;
       const stats = ck ? statsByCollectionKey.get(ck) ?? null : null;
       const series = ck ? seriesByCollectionKey.get(ck) ?? null : null;
@@ -907,6 +884,7 @@ export default function PortfolioPage() {
         priceSource,
         liquidityLabel,
         listPriceUsd: listingPrice,
+        activeListingOrderHash,
         subtitle: buildAssetSubtitle(a.metadata, displayName),
         gradeLabel: formatGradeDisplay(a.metadata),
         marketPreviewRaw: preview,
@@ -914,9 +892,7 @@ export default function PortfolioPage() {
     });
   }, [
     assets,
-    priceMap,
-    fulfilledOrders,
-    address,
+    listingByTokenId,
     tokenToCollectionKey,
     statsByCollectionKey,
     seriesByCollectionKey,
@@ -985,24 +961,16 @@ export default function PortfolioPage() {
 
   const ASSET_PAGE = 10;
   const [visibleAssetCount, setVisibleAssetCount] = useState(ASSET_PAGE);
-  const visiblePoolAssetRows = useMemo(
-    () =>
-      showHiddenAssets
-        ? assetRows
-        : assetRows.filter((r) => !hiddenTokenSet.has(Number(r.tokenId))),
-    [assetRows, showHiddenAssets, hiddenTokenSet],
-  );
-  const hiddenAssetCount = assetRows.length - visiblePoolAssetRows.length;
   const listedAssetCount = useMemo(
-    () => visiblePoolAssetRows.filter((r) => r.listPriceUsd != null).length,
-    [visiblePoolAssetRows],
+    () => assetRows.filter((r) => r.listPriceUsd != null).length,
+    [assetRows],
   );
-  const unlistedAssetCount = visiblePoolAssetRows.length - listedAssetCount;
+  const unlistedAssetCount = assetRows.length - listedAssetCount;
   const filteredAssetRows = useMemo(() => {
-    if (assetFilter === "listed") return visiblePoolAssetRows.filter((r) => r.listPriceUsd != null);
-    if (assetFilter === "unlisted") return visiblePoolAssetRows.filter((r) => r.listPriceUsd == null);
-    return visiblePoolAssetRows;
-  }, [visiblePoolAssetRows, assetFilter]);
+    if (assetFilter === "listed") return assetRows.filter((r) => r.listPriceUsd != null);
+    if (assetFilter === "unlisted") return assetRows.filter((r) => r.listPriceUsd == null);
+    return assetRows;
+  }, [assetRows, assetFilter]);
 
   useEffect(() => {
     setVisibleAssetCount((n) =>
@@ -1334,7 +1302,7 @@ export default function PortfolioPage() {
                   assetFilter === "all" ? "bg-mint text-[#061018]" : "text-gray-400 hover:text-white"
                 }`}
               >
-                All <span className="tabular-nums">({visiblePoolAssetRows.length})</span>
+                All <span className="tabular-nums">({assetRows.length})</span>
               </button>
               <button
                 type="button"
@@ -1359,20 +1327,6 @@ export default function PortfolioPage() {
                 Not listed <span className="tabular-nums">({unlistedAssetCount})</span>
               </button>
             </div>
-            <button
-              type="button"
-              onClick={() => setShowHiddenAssets((v) => !v)}
-              className={`rounded-full border px-3 py-1 text-[11px] font-semibold transition-colors ${
-                showHiddenAssets
-                  ? "border-amber-400/50 bg-amber-500/15 text-amber-200"
-                  : "border-gray-700/80 bg-gray-900/70 text-gray-400 hover:text-white"
-              }`}
-            >
-              {showHiddenAssets ? "Hide Hidden" : "Show Hidden"}
-              {hiddenAssetCount > 0 ? (
-                <span className="ml-1 tabular-nums">({hiddenAssetCount})</span>
-              ) : null}
-            </button>
           </div>
           {assetsSectionLoading ? (
             <div className="-mx-1 grid grid-cols-1 gap-4 pb-2 pt-0.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -1450,38 +1404,6 @@ export default function PortfolioPage() {
                   className="group flex w-full flex-col overflow-hidden rounded-xl border border-gray-800/90 bg-gradient-to-b from-gray-900/80 to-[#0a1018] text-left shadow-lg shadow-black/20 transition-all hover:border-mint/25 hover:shadow-mint/5"
                 >
                   <div className="relative aspect-[3/4] w-full bg-[#070a0f]">
-                    <div className="absolute left-2 top-2 z-10">
-                      <button
-                        type="button"
-                        onClick={async (e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          const tokenId = Number(r.tokenId);
-                          if (mutatingHiddenTokenIds.includes(tokenId)) return;
-                          setMutatingHiddenTokenIds((prev) => [...prev, tokenId]);
-                          try {
-                            if (hiddenTokenSet.has(tokenId)) {
-                              await unhideMutation.mutateAsync(tokenId);
-                            } else {
-                              await hideMutation.mutateAsync(tokenId);
-                            }
-                          } finally {
-                            setMutatingHiddenTokenIds((prev) => prev.filter((n) => n !== tokenId));
-                          }
-                        }}
-                        className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-bold tracking-wide transition-colors ${
-                          hiddenTokenSet.has(Number(r.tokenId))
-                            ? "border-amber-300/45 bg-amber-500/25 text-amber-100 hover:bg-amber-500/35"
-                            : "border-zinc-400/45 bg-black/45 text-zinc-200 hover:bg-black/65"
-                        }`}
-                      >
-                        {mutatingHiddenTokenIds.includes(Number(r.tokenId))
-                          ? "Saving..."
-                          : hiddenTokenSet.has(Number(r.tokenId))
-                            ? "Unhide"
-                            : "Hide"}
-                      </button>
-                    </div>
                     {tokenableVsEbayPct != null ? (
                       <div className="group absolute right-2 top-2 z-10">
                         <span
@@ -1534,11 +1456,6 @@ export default function PortfolioPage() {
                         >
                           {r.listPriceUsd != null ? "Listed" : "Not listed"}
                         </span>
-                        {hiddenTokenSet.has(Number(r.tokenId)) ? (
-                          <span className="inline-flex items-center rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-200">
-                            Hidden
-                          </span>
-                        ) : null}
                         {r.category && (
                           <CategoryBadge label={r.category} />
                         )}
@@ -1592,6 +1509,49 @@ export default function PortfolioPage() {
                         </dd>
                       </div>
                     </dl>
+                    {r.listPriceUsd != null && r.activeListingOrderHash && address ? (
+                      <div className="border-t border-gray-800/80 pt-3">
+                        <button
+                          type="button"
+                          disabled={cancellingListingTokenId === r.tokenId}
+                          onClick={async (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            if (!address || !r.activeListingOrderHash) return;
+                            setCancellingListingTokenId(r.tokenId);
+                            const qk = rq.ordersActive();
+                            const prev = queryClient.getQueryData<OrderListItem[]>(qk);
+                            queryClient.setQueryData<OrderListItem[]>(qk, (old) =>
+                              (old ?? []).filter(
+                                (o) => o.orderHash !== r.activeListingOrderHash,
+                              ),
+                            );
+                            try {
+                              await cancelOrder(r.activeListingOrderHash, address);
+                              await refetchActiveOrders();
+                            } catch (err) {
+                              if (prev !== undefined) {
+                                queryClient.setQueryData(qk, prev);
+                              } else {
+                                void queryClient.invalidateQueries({ queryKey: qk });
+                              }
+                              window.alert(
+                                err instanceof Error
+                                  ? err.message
+                                  : "Failed to cancel listing",
+                              );
+                            } finally {
+                              setCancellingListingTokenId(null);
+                            }
+                          }}
+                          className="w-full rounded-lg border border-rose-500/35 bg-rose-500/10 px-3 py-2.5 text-center text-[12px] font-semibold text-rose-200 transition-colors hover:border-rose-400/45 hover:bg-rose-500/18 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {cancellingListingTokenId === r.tokenId
+                            ? "Cancelling…"
+                            : "Cancel listing"}
+                        </button>
+                      </div>
+                    ) : null}
                   </div>
                 </div>
                   );

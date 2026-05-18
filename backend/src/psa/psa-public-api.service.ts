@@ -70,7 +70,10 @@ export class PsaPublicApiService {
   /** 성공 응답만 캐시 (동일 Cert 반복 호출·429 완화) */
   private readonly successCache = new Map<
     string,
-    { expiresAt: number; result: Extract<PsaPublicApiLookupResult, { status: 'success' }> }
+    {
+      expiresAt: number;
+      result: Extract<PsaPublicApiLookupResult, { status: 'success' }>;
+    }
   >();
 
   constructor(private readonly config: ConfigService) {}
@@ -107,7 +110,9 @@ export class PsaPublicApiService {
    * GET /cert/GetByCertNumber/{cert}
    * Requires PSA account token from https://www.psacard.com/publicapi
    */
-  async getByCertNumber(certRaw: string | undefined): Promise<PsaPublicApiLookupResult> {
+  async getByCertNumber(
+    certRaw: string | undefined,
+  ): Promise<PsaPublicApiLookupResult> {
     const token = this.getToken();
     if (!token) {
       return { status: 'disabled', reason: 'no_token' };
@@ -236,11 +241,12 @@ export class PsaPublicApiService {
         };
       }
 
-      const success: Extract<PsaPublicApiLookupResult, { status: 'success' }> = {
-        status: 'success',
-        certNumber: digits,
-        raw: body,
-      };
+      const success: Extract<PsaPublicApiLookupResult, { status: 'success' }> =
+        {
+          status: 'success',
+          certNumber: digits,
+          raw: body,
+        };
 
       if (ttl > 0) {
         this.successCache.set(digits, {
@@ -403,6 +409,25 @@ export class PsaPublicApiService {
   }
 }
 
+/**
+ * `GetByCertNumber` 등 응답 JSON에서 `PSACert.SpecID`만 뽑는다 (커버 이미지용).
+ */
+export function specIdStringFromPsaCertBody(body: unknown): string | undefined {
+  const root = body as { PSACert?: Record<string, unknown> };
+  const c = root?.PSACert;
+  if (!c || typeof c !== 'object') return undefined;
+  const raw = c.SpecID ?? c.specId ?? c.spec_id;
+  if (typeof raw === 'number' && Number.isFinite(raw)) {
+    return String(Math.floor(raw));
+  }
+  if (typeof raw === 'string' && raw.trim()) {
+    const n = parseInt(raw.trim(), 10);
+    if (!Number.isNaN(n)) return String(Math.floor(n));
+    return raw.trim();
+  }
+  return undefined;
+}
+
 /** Map PSA PSACert object into our ParsedPsaLabel fields (API overrides noisy OCR). */
 export function mergePsaApiIntoParsed(
   ocr: ParsedPsaLabel,
@@ -426,7 +451,9 @@ function mergePsaApiIntoParsedImpl(
   }
 
   const certNumber =
-    c.CertNumber != null ? String(c.CertNumber).replace(/\D/g, '') : ocr.certNumber;
+    c.CertNumber != null
+      ? String(c.CertNumber).replace(/\D/g, '')
+      : ocr.certNumber;
 
   let gradeLabel = ocr.gradeLabel;
   let gradeScore = ocr.gradeScore;
@@ -488,7 +515,9 @@ function mergePsaApiIntoParsedImpl(
       : ocr.autographGrade;
 
   const totalPopulation =
-    typeof c.TotalPopulation === 'number' ? c.TotalPopulation : ocr.totalPopulation;
+    typeof c.TotalPopulation === 'number'
+      ? c.TotalPopulation
+      : ocr.totalPopulation;
 
   const populationHigher =
     typeof c.PopulationHigher === 'number'
@@ -501,7 +530,9 @@ function mergePsaApiIntoParsedImpl(
       : ocr.totalPopulationWithQualifier;
 
   const reverseBarcode =
-    typeof c.ReverseBarCode === 'boolean' ? c.ReverseBarCode : ocr.reverseBarcode;
+    typeof c.ReverseBarCode === 'boolean'
+      ? c.ReverseBarCode
+      : ocr.reverseBarcode;
 
   const specId = typeof c.SpecID === 'number' ? c.SpecID : ocr.specId;
 
@@ -525,4 +556,3 @@ function mergePsaApiIntoParsedImpl(
     specId,
   };
 }
-

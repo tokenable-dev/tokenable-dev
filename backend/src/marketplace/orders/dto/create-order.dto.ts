@@ -36,7 +36,10 @@ class SeaportOfferItemDto {
 }
 
 class SeaportConsiderationItemDto {
-  @ApiProperty({ description: 'ItemType (1 = ERC20, 2 = ERC721, 4 = ERC721_WITH_CRITERIA)', example: 1 })
+  @ApiProperty({
+    description: 'ItemType (1 = ERC20, 2 = ERC721, 4 = ERC721_WITH_CRITERIA)',
+    example: 1,
+  })
   @IsNumber()
   itemType: number;
 
@@ -117,7 +120,8 @@ class SeaportOrderParametersDto {
 
 export class CreateOrderDto {
   @ApiPropertyOptional({
-    description: 'ask = listing, bid = buy order (FULL ERC721 or ERC721_WITH_CRITERIA)',
+    description:
+      'ask = listing, bid = buy order (FULL ERC721 or ERC721_WITH_CRITERIA)',
     enum: ['ask', 'bid'],
     default: 'ask',
   })
@@ -141,7 +145,10 @@ export class CreateOrderDto {
   tokenContract: string;
 
   /** ask: real tokenId. bid FULL: real tokenId. bid criteria: use "0". */
-  @ApiProperty({ description: 'Token ID (0 for collection criteria bid)', example: '0' })
+  @ApiProperty({
+    description: 'Token ID (0 for collection criteria bid)',
+    example: '0',
+  })
   @IsNumberString()
   tokenId: string;
 
@@ -154,7 +161,8 @@ export class CreateOrderDto {
   considerationAmount: string;
 
   @ApiPropertyOptional({
-    description: 'Required when bid uses ERC721_WITH_CRITERIA (collection-wide bid)',
+    description:
+      'Required when bid uses ERC721_WITH_CRITERIA (collection-wide bid)',
   })
   @IsOptional()
   @IsString()

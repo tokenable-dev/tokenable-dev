@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import type { Address } from "viem";
 import { formatUnits } from "viem";
@@ -13,8 +13,9 @@ import {
   getCollectionMarketPreview,
   getCollectionPlatformTrades,
   getMarketplaceCollectionDetail,
-  type CollectionAiInsight,
+  postRwaMetadataBatch,
   type Order,
+  type RwaMetadata,
 } from "@/lib/core";
 import {
   computeCollectionMarketCapUsd,
@@ -26,11 +27,12 @@ import {
   resolveExternalMarketUsd,
 } from "@/lib/market";
 import { CollectionOverviewBoard } from "@/components/marketplace/CollectionOverviewBoard";
+import { CollectionDetailsKvCard } from "@/components/marketplace/CollectionDetailsKvCard";
+import { CollectionHeroDetailsTabs } from "@/components/marketplace/CollectionHeroDetailsTabs";
 import type { CollectionDetailCard } from "@/components/marketplace/CollectionMetadataExpandable";
 import { CollectionPriceMetricsStrip } from "@/components/marketplace/CollectionPriceMetricsStrip";
 import type { BookRowSelection } from "@/components/marketplace/CollectionTradeTicket";
 import { CollectionUnifiedOrderBook } from "@/components/marketplace/CollectionUnifiedOrderBook";
-import { CollectionHeroTradeControls } from "@/components/marketplace/CollectionHeroTradeControls";
 import {
   CollectionTradingTabs,
   type CollectionTradeTab,
@@ -40,7 +42,6 @@ import {
   TradeCelebrationModal,
   type TradeCelebrationKind,
 } from "@/components/marketplace/TradeCelebrationModal";
-import { AiInsightTypewriter } from "@/components/marketplace/AiInsightTypewriter";
 import { CollectionDualPriceChart } from "@/components/marketplace/CollectionDualPriceChart";
 import { CollectionRwaCard } from "@/components/marketplace/CollectionRwaCard";
 import { useAppStore, selectWallet } from "@/store";
@@ -59,34 +60,8 @@ import {
   yearFromComponents,
 } from "@/lib/marketplace/collectionFullDetailsTitle";
 import { buildCollectionHeadlineInfoTags, mergeHeadlineCardNumberIntoTitle, resolveHeadlineFormattedCardNumber } from "@/lib/marketplace/collectionHeadlineTags";
-
-function aiMarketPerspectiveBadgeClass(
-  tone: NonNullable<CollectionAiInsight["marketTone"]>,
-): string {
-  switch (tone) {
-    case "Uptrend":
-    case "Bullish":
-      return "border-emerald-300/40 bg-emerald-500/15 text-emerald-200";
-    case "Accumulation":
-    case "Accumulating":
-      return "border-cyan-300/45 bg-cyan-500/12 text-cyan-200";
-    case "Distribution":
-    case "Cooling":
-      return "border-rose-300/40 bg-rose-500/15 text-rose-200";
-    case "Dead cat bounce":
-      return "border-orange-300/45 bg-orange-500/14 text-orange-200";
-    case "Illiquid / niche":
-      return "border-zinc-500/50 bg-zinc-600/20 text-zinc-200";
-    case "Consolidating":
-      return "border-amber-300/40 bg-amber-500/15 text-amber-200";
-    case "Volatile":
-      return "border-fuchsia-300/45 bg-fuchsia-500/15 text-fuchsia-200";
-    case "Overextended":
-      return "border-orange-300/50 bg-orange-500/14 text-orange-100";
-    default:
-      return "border-zinc-400/40 bg-zinc-500/10 text-zinc-200";
-  }
-}
+import { primeRwaMetadataCache } from "@/lib/marketplace";
+import { COLLECTION_LISTING_CARD_CHROME } from "@/components/marketplace/collectionOverviewChrome";
 
 /** Same fill can appear from session overlay + DB poll with timestamps minutes apart */
 const SESSION_FILL_DEDUP_SEC = 300;
@@ -263,55 +238,29 @@ export default function MarketplaceCollectionPage() {
   const [tradeCelebration, setTradeCelebration] = useState<TradeCelebrationKind | null>(null);
   const [bookSelection, setBookSelection] = useState<BookRowSelection | null>(null);
   const [chartRange, setChartRange] = useState<ChartRangeId>("90d");
-  const [showAiInsights, setShowAiInsights] = useState(false);
-  const [aiInsightStatus, setAiInsightStatus] = useState<"idle" | "loading" | "ready">("idle");
-  const [aiInsightResult, setAiInsightResult] = useState<{
-    title: string;
-    summary: string;
-    bullets: string[];
-    dynamics?: string[];
-    outlook?: string;
-    outlookScenarios?: {
-      bullCase: string;
-      baseCase: string;
-      bearCase: string;
-    };
-    generatedAt: string;
-    confidence?: number | null;
-    confidenceNote?: string | null;
-    riskTapeNote?: string | null;
-    marketTone?: CollectionAiInsight["marketTone"];
-    riskScore?: number | null;
-    riskLabel?: "Low" | "Medium" | "High" | null;
-    stats?: {
-      psa10SpotUsd: number | null;
-      rawSpotUsd: number | null;
-      premiumVsRawPct: number | null;
-      sales7d: number | null;
-      sales30d: number | null;
-      change7dPct: number | null;
-      change30dPct: number | null;
-      change90dPct: number | null;
-      change365dPct: number | null;
-      points90d: number;
-      points365d: number;
-      psaTotalPopulation?: number | null;
-      psa10PriceConfidence?: "high" | "medium" | "low" | null;
-      psa10PricingNote?: string | null;
-      psa10SpotLowUsd?: number | null;
-      psa10SpotHighUsd?: number | null;
-      psa10CatalogUsd?: number | null;
-    };
-  } | null>(null);
+  const [aiInsightComingSoonOpen, setAiInsightComingSoonOpen] = useState(false);
   /** Last fill this session (fixed timestamp) — merged into chart until series refetch includes it. */
   const [sessionFillPoint, setSessionFillPoint] = useState<{
     t: number;
     v: number;
   } | null>(null);
-  const [heroDetailsOpen, setHeroDetailsOpen] = useState(false);
   const [showOrderBook, setShowOrderBook] = useState(false);
   const [tradeFlow, setTradeFlow] = useState<CollectionTradeTab>("buy");
   const [tradeDockOpen, setTradeDockOpen] = useState(false);
+
+  useEffect(() => {
+    if (!aiInsightComingSoonOpen) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setAiInsightComingSoonOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [aiInsightComingSoonOpen]);
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["marketplace-collection", key],
@@ -319,12 +268,6 @@ export default function MarketplaceCollectionPage() {
     enabled: key.length > 0,
     retry: false,
   });
-
-  useEffect(() => {
-    setShowAiInsights(false);
-    setAiInsightStatus("idle");
-    setAiInsightResult(null);
-  }, [key]);
 
   const comp = useMemo(() => {
     const raw = data?.collection?.components as
@@ -418,6 +361,7 @@ export default function MarketplaceCollectionPage() {
       if (w === "90d") return 90;
       if (w === "180d") return 180;
       if (w === "365d") return 365;
+      if (w === "24h") return selectedChartRange.maxDays;
       return selectedChartRange.maxDays;
     }
     return null;
@@ -563,6 +507,33 @@ export default function MarketplaceCollectionPage() {
     () => (data ? sortedTokenIdsByOldestListing(asks) : []),
     [data, asks],
   );
+
+  /** Under-chart showcase row — at most three listings, equal-width slots on desktop. */
+  const showcaseListingTokenIds = useMemo(() => tokenIds.slice(0, 3), [tokenIds]);
+
+  // Batch-fetch metadata + imageUrl for under-chart showcase cards (max 3)
+  const { data: batchMetadata } = useQuery({
+    queryKey: ["collection-listings-metadata", key, showcaseListingTokenIds],
+    queryFn: async () => {
+      const pack = await postRwaMetadataBatch({ tokenIds: showcaseListingTokenIds });
+      // Prime the shared cache so individual token pages skip re-fetching
+      primeRwaMetadataCache(
+        pack.items.map((it) => ({
+          tokenId: it.tokenId,
+          metadata: it.metadata,
+          imageUrl: it.imageUrl,
+        })),
+      );
+      return new Map(
+        pack.items.map((it) => [
+          it.tokenId,
+          { metadata: it.metadata as RwaMetadata | null, imageUrl: it.imageUrl },
+        ]),
+      );
+    },
+    enabled: showcaseListingTokenIds.length > 0,
+    staleTime: 60_000,
+  });
 
   const resolvedExternal = useMemo(
     () =>
@@ -762,11 +733,6 @@ export default function MarketplaceCollectionPage() {
     comp,
   ]);
 
-  const collectionInsightLabel =
-    typeof data?.collection?.displayLabel === "string"
-      ? toCardDisplayUppercase(data.collection.displayLabel.trim())
-      : undefined;
-
   /** Latest on-platform sale (DB poll or initial bundle). */
   const lastPlatformSaleUsdc = useMemo(() => {
     const pts = platformPtsBase;
@@ -807,8 +773,20 @@ export default function MarketplaceCollectionPage() {
     if (cardNumRaw) {
       rows.push({
         id: "card-number",
-        label: "Card number",
+        label: "Card Number",
         value: headlineCardNumberToken?.trim() || cardNumRaw,
+      });
+    }
+
+    const variantStr =
+      (typeof comp.variant === "string" && comp.variant.trim()
+        ? comp.variant.trim()
+        : "") || (marketPreview?.card?.variant?.trim() ?? "");
+    if (variantStr) {
+      rows.push({
+        id: "variant",
+        label: "Variant",
+        value: variantStr,
       });
     }
 
@@ -931,6 +909,47 @@ export default function MarketplaceCollectionPage() {
     collectionCategoryBadge,
   ]);
 
+  const detailsCatalogLine = useMemo(() => {
+    const fromTags = headlineInfoTags?.find((t) => t.id === "cardno")?.text?.trim();
+    if (fromTags) return fromTags;
+    const raw = headlineCardNumberToken?.trim();
+    if (!raw) return null;
+    return raw.startsWith("#") ? raw : `#${raw}`;
+  }, [headlineInfoTags, headlineCardNumberToken]);
+
+  const heroDetailsKvRows = useMemo((): CollectionDetailCard[] => {
+    const player = collectionHeadlineCardName?.trim();
+    const priority = [
+      "card-number",
+      "variant",
+      "set",
+      "category",
+      "grade",
+      "grader",
+      "year",
+      "language",
+    ] as const;
+    const byId = new Map(collectionMarketDetailCards.map((c) => [c.id, c]));
+    const out: CollectionDetailCard[] = [];
+    if (player) {
+      out.push({
+        id: "player",
+        label: "Player",
+        value: toCardDisplayUppercase(player),
+      });
+    }
+    for (const id of priority) {
+      const row = byId.get(id);
+      if (row) out.push(row);
+    }
+    for (const row of collectionMarketDetailCards) {
+      if (!out.some((r) => r.id === row.id)) {
+        out.push(row);
+      }
+    }
+    return out;
+  }, [collectionMarketDetailCards, collectionHeadlineCardName]);
+
   const presetPriceFromBook = useMemo(() => {
     if (bookSelection == null) return null;
     return bookSelection.price.toLocaleString("en-US", {
@@ -961,15 +980,15 @@ export default function MarketplaceCollectionPage() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-[rgba(11,13,16,1)] text-white">
-        <div className="w-full max-w-[1680px] mx-auto px-4 sm:px-5 lg:px-8 xl:px-10 py-8 pb-20">
+        <div className="mx-auto w-full max-w-[1680px] px-3 min-[375px]:px-4 sm:px-5 lg:px-8 xl:px-10 py-6 sm:py-8 pb-[max(5.5rem,env(safe-area-inset-bottom,0px)+4.5rem)] sm:pb-20">
           <div className="h-4 w-40 bg-gray-800/80 rounded animate-pulse mb-6" />
           <div className="rounded-2xl border border-gray-800/90 bg-[#0b0e11] overflow-hidden animate-pulse mb-10">
             <div className="border-b border-gray-800/80 px-4 py-4 sm:px-6">
               <div className="h-10 w-48 rounded-md bg-gray-800/50" />
             </div>
-            <div className="grid gap-6 p-6 lg:grid-cols-[minmax(260px,min(460px,40vw))_minmax(0,1fr)_minmax(300px,420px)]">
+            <div className="grid gap-6 p-6 lg:grid-cols-[minmax(260px,min(307px,40vw))_minmax(0,1fr)_minmax(300px,420px)]">
               <div className="flex justify-center">
-                <div className="aspect-[3/4] w-full max-w-[380px] sm:max-w-[420px] lg:max-w-[460px] rounded-2xl bg-gray-800/60" />
+                <div className="aspect-[3/4] w-full max-w-[253px] sm:max-w-[280px] lg:max-w-[307px] rounded-2xl bg-gray-800/60" />
               </div>
               <div className="space-y-4 min-w-0">
                 <div className="grid grid-cols-1 lg:grid-cols-[1fr_minmax(260px,304px)] gap-3">
@@ -1001,9 +1020,6 @@ export default function MarketplaceCollectionPage() {
             ? error.message
             : "Collection not found (no summary row for this bucket yet). List an NFT in this bucket or open it from the markets after the first listing."}
         </p>
-        <Link href="/markets" className="text-mint text-sm hover:underline">
-          ← Back to Markets
-        </Link>
       </div>
     );
   }
@@ -1033,14 +1049,7 @@ export default function MarketplaceCollectionPage() {
 
   return (
     <div className="min-h-screen bg-[rgba(11,13,16,1)] text-white">
-      <div className="w-full max-w-[1680px] mx-auto px-4 sm:px-5 lg:px-8 xl:px-10 py-8 pb-20">
-        <Link
-          href="/markets"
-          className="inline-flex text-sm text-mint/90 hover:text-mint mb-6"
-        >
-          ← Back to Markets
-        </Link>
-
+      <div className="mx-auto w-full max-w-[1680px] px-3 min-[375px]:px-4 sm:px-5 lg:px-8 xl:px-10 py-6 sm:py-8 pb-[max(5.5rem,env(safe-area-inset-bottom,0px)+4.5rem)] sm:pb-20">
         <CollectionOverviewBoard
           title={collectionWovenTitle}
           subtitle={subtitle}
@@ -1054,6 +1063,19 @@ export default function MarketplaceCollectionPage() {
           headlineTitleLayout
           badgeLabel="Collection"
           imageUrl={collectionCoverUrl}
+          belowCover={
+            <CollectionHeroDetailsTabs
+              onAiInsightsClick={() => setAiInsightComingSoonOpen(true)}
+              detailsPanel={
+                <CollectionDetailsKvCard
+                  title={collectionHeadlineCardName}
+                  subtitle={headlineSetLine}
+                  catalogLine={detailsCatalogLine}
+                  rows={heroDetailsKvRows}
+                />
+              }
+            />
+          }
           metadataRows={metadataRows}
           stats={[]}
           chartMetricsRow={
@@ -1063,28 +1085,8 @@ export default function MarketplaceCollectionPage() {
           showOrderBook={showOrderBook}
           onShowOrderBookChange={setShowOrderBook}
           exchangeDockTradePanel
-          metadataExpand={
-            collectionMarketDetailCards.length > 0
-              ? {
-                  collectionKey: collection.collectionKey,
-                  components: collection.components,
-                  compactHero: true,
-                  detailCards: collectionMarketDetailCards,
-                  detailsOpen: heroDetailsOpen,
-                }
-              : undefined
-          }
           listingCount={asks.length}
           showListingSummary={false}
-          exchangeChartFooter={
-            <CollectionHeroTradeControls
-              bookSelection={bookSelection}
-              presetPriceFromBook={presetPriceFromBook}
-              tradeFlow={tradeFlow}
-              onRequestTradeDock={() => setTradeDockOpen(true)}
-              onTradeFlowChange={(tab) => setTradeFlow(tab)}
-            />
-          }
           priceChart={
             <CollectionDualPriceChart
               variant="exchange"
@@ -1181,197 +1183,42 @@ export default function MarketplaceCollectionPage() {
               onDockOpenChange={setTradeDockOpen}
             />
           }
+          exchangeBelowChart={
+            tokenIds.length === 0 ? (
+              <div
+                className={`w-full max-w-full px-4 py-8 text-center text-[15px] leading-relaxed text-[#a0a0a0] ${COLLECTION_LISTING_CARD_CHROME}`}
+              >
+                No listings yet. List an asset from{" "}
+                <Link href="/portfolio" className="text-mint hover:underline">
+                  My Assets
+                </Link>
+                .
+              </div>
+            ) : (
+              <div className="flex w-full min-w-0 flex-row flex-wrap content-start items-stretch gap-x-[1.125rem] gap-y-[1.375rem] pb-2">
+                {showcaseListingTokenIds.map((tid) => {
+                  const prefetch = batchMetadata?.get(tid);
+                  return (
+                    <div
+                      key={tid}
+                      className="w-full min-w-0 shrink-0 sm:w-[296px] lg:w-[318px]"
+                    >
+                      <CollectionRwaCard
+                        tokenId={tid}
+                        collectionKey={key}
+                        listing={askMap.get(tid) ?? null}
+                        address={address}
+                        prefetchedImageUrl={prefetch?.imageUrl}
+                        prefetchedMetadata={prefetch?.metadata}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            )
+          }
         />
 
-        <section
-          id="collection-ai-insights"
-          className="mt-6 w-full scroll-mt-28"
-          aria-label="AI insights"
-        >
-          {showAiInsights && aiInsightStatus === "loading" ? (
-            <div className="ai-insight-loading-shell mt-4 rounded-2xl border border-[#0fd4bd]/45 bg-[#060f12]/95 px-6 py-5 text-sm text-zinc-100 shadow-[0_0_0_1px_rgba(16,185,129,0.08),0_0_26px_rgba(20,184,166,0.16)]">
-              <p className="mb-2 text-[13px] font-semibold tracking-wide text-[#45f2dc]">
-                AI Insights
-              </p>
-              <p className="text-zinc-300">Pulling liquidity + PSA context…</p>
-              <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-zinc-800/80">
-                <div className="ai-insight-loading-track h-full w-[28%] rounded-full bg-[#20e4cf]" />
-              </div>
-              <div className="mt-4 grid gap-2 sm:grid-cols-2">
-                <div className="h-10 rounded-lg bg-zinc-800/60 ai-insight-loading-block" />
-                <div className="h-10 rounded-lg bg-zinc-800/50 ai-insight-loading-block" />
-              </div>
-            </div>
-          ) : null}
-          {showAiInsights && aiInsightStatus !== "loading" ? (
-            <div className="mt-4 rounded-2xl border border-[#0fd4bd]/55 bg-[#060f12]/95 px-6 py-5 text-sm leading-relaxed text-zinc-100 shadow-[0_0_0_1px_rgba(16,185,129,0.08),0_0_26px_rgba(20,184,166,0.16)]">
-              <p className="mb-2 text-[13px] font-semibold tracking-wide text-[#45f2dc]">
-                AI Insights
-              </p>
-              {aiInsightStatus === "ready" && aiInsightResult ? (
-                <>
-                  <p className="mb-3 text-[13px] leading-snug text-zinc-300">
-                    Perspective for{" "}
-                    <span className="font-semibold text-zinc-100">
-                      {collectionHeadlineDisplayTitle}
-                    </span>
-                    {collectionInsightLabel &&
-                    collectionInsightLabel.trim() !== collectionHeadlineDisplayTitle.trim() ? (
-                      <>
-                        {" "}
-                        <span className="text-zinc-500">({collectionInsightLabel})</span>
-                      </>
-                    ) : null}
-                  </p>
-                  <div className="mb-3 flex flex-wrap items-center gap-2">
-                    {aiInsightResult.marketTone ? (
-                      <span
-                        className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${aiMarketPerspectiveBadgeClass(aiInsightResult.marketTone)}`}
-                      >
-                        {aiInsightResult.marketTone}
-                      </span>
-                    ) : null}
-                    {aiInsightResult.riskScore != null ? (
-                      <span className="inline-flex flex-col rounded-full border border-sky-300/35 bg-sky-500/10 px-2.5 py-0.5 text-[11px] font-semibold text-sky-200">
-                        <span>
-                          Risk {aiInsightResult.riskScore}/100
-                          {aiInsightResult.riskLabel ? ` · ${aiInsightResult.riskLabel}` : ""}
-                        </span>
-                        {aiInsightResult.riskTapeNote ? (
-                          <span className="mt-0.5 text-[10px] font-normal leading-snug text-sky-100/90">
-                            {aiInsightResult.riskTapeNote}
-                          </span>
-                        ) : null}
-                      </span>
-                    ) : null}
-                  </div>
-                  <div className="mb-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
-                    <div className="rounded-xl border border-cyan-400/20 bg-cyan-500/[0.05] px-3 py-3 min-h-[78px]">
-                      <p className="text-[10px] uppercase tracking-wide text-cyan-200/80">AI Confidence</p>
-                      <p className="mt-1 text-base font-semibold text-cyan-100">
-                        {aiInsightResult.confidence != null && Number.isFinite(aiInsightResult.confidence)
-                          ? `${(aiInsightResult.confidence * 100).toFixed(1)}%`
-                          : "context-limited"}
-                      </p>
-                      {aiInsightResult.confidenceNote ? (
-                        <p className="mt-1 text-[10px] leading-snug text-amber-200/95">
-                          {aiInsightResult.confidenceNote}
-                        </p>
-                      ) : null}
-                    </div>
-                    <div className="rounded-xl border border-emerald-400/20 bg-emerald-500/[0.05] px-3 py-3 min-h-[78px]">
-                      <p className="text-[10px] uppercase tracking-wide text-emerald-200/80">PSA 10 Spot</p>
-                      <p className="mt-1 text-base font-semibold text-emerald-100">
-                        {aiInsightResult.stats?.psa10SpotUsd != null &&
-                        Number.isFinite(aiInsightResult.stats.psa10SpotUsd)
-                          ? `$${aiInsightResult.stats.psa10SpotUsd.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
-                          : "thin feed"}
-                      </p>
-                      {aiInsightResult.stats?.psa10PriceConfidence &&
-                      aiInsightResult.stats.psa10PriceConfidence !== "high" ? (
-                        <p className="mt-1 text-[10px] leading-snug text-zinc-500">
-                          {aiInsightResult.stats.psa10PriceConfidence === "medium"
-                            ? "Medium confidence · PSA_10 comps"
-                            : "Low confidence · verify sales depth"}
-                          {aiInsightResult.stats.psa10SpotLowUsd != null &&
-                          aiInsightResult.stats.psa10SpotHighUsd != null &&
-                          Number.isFinite(aiInsightResult.stats.psa10SpotLowUsd) &&
-                          Number.isFinite(aiInsightResult.stats.psa10SpotHighUsd) &&
-                          aiInsightResult.stats.psa10SpotHighUsd >=
-                            aiInsightResult.stats.psa10SpotLowUsd
-                            ? ` · ${new Intl.NumberFormat(undefined, {
-                                style: "currency",
-                                currency: "USD",
-                                maximumFractionDigits: 0,
-                              }).format(aiInsightResult.stats.psa10SpotLowUsd)}–${new Intl.NumberFormat(undefined, {
-                                style: "currency",
-                                currency: "USD",
-                                maximumFractionDigits: 0,
-                              }).format(aiInsightResult.stats.psa10SpotHighUsd)} (90d range)`
-                            : ""}
-                        </p>
-                      ) : null}
-                    </div>
-                    <div className="rounded-xl border border-fuchsia-400/20 bg-fuchsia-500/[0.05] px-3 py-3 min-h-[78px]">
-                      <p className="text-[10px] uppercase tracking-wide text-fuchsia-200/80">Premium vs Raw</p>
-                      <p className="mt-1 text-base font-semibold text-fuchsia-100">
-                        {aiInsightResult.stats?.premiumVsRawPct != null &&
-                        Number.isFinite(aiInsightResult.stats.premiumVsRawPct)
-                          ? `${aiInsightResult.stats.premiumVsRawPct >= 0 ? "+" : ""}${aiInsightResult.stats.premiumVsRawPct.toFixed(1)}%`
-                          : "forming"}
-                      </p>
-                    </div>
-                    <div className="rounded-xl border border-violet-400/20 bg-violet-500/[0.05] px-3 py-3 min-h-[78px]">
-                      <p className="text-[10px] uppercase tracking-wide text-violet-200/80">90D Trend</p>
-                      <p className="mt-1 text-base font-semibold text-violet-100">
-                        {aiInsightResult.stats?.change90dPct != null &&
-                        Number.isFinite(aiInsightResult.stats.change90dPct)
-                          ? `${aiInsightResult.stats.change90dPct >= 0 ? "+" : ""}${aiInsightResult.stats.change90dPct.toFixed(1)}%`
-                          : "limited"}
-                      </p>
-                    </div>
-                    <div className="rounded-xl border border-amber-400/20 bg-amber-500/[0.05] px-3 py-3 min-h-[78px]">
-                      <p className="text-[10px] uppercase tracking-wide text-amber-200/80">365D Trend</p>
-                      <p className="mt-1 text-base font-semibold text-amber-100">
-                        {aiInsightResult.stats?.change365dPct != null &&
-                        Number.isFinite(aiInsightResult.stats.change365dPct)
-                          ? `${aiInsightResult.stats.change365dPct >= 0 ? "+" : ""}${aiInsightResult.stats.change365dPct.toFixed(1)}%`
-                          : "partial"}
-                      </p>
-                    </div>
-                  </div>
-                  <AiInsightTypewriter
-                    insight={{
-                      summary: aiInsightResult.summary,
-                      bullets: aiInsightResult.bullets,
-                      dynamics: aiInsightResult.dynamics,
-                      outlook: aiInsightResult.outlook,
-                      outlookScenarios: aiInsightResult.outlookScenarios,
-                    }}
-                    resetKey={aiInsightResult.generatedAt}
-                    durationMs={2600}
-                    toneDisplay={aiInsightResult.marketTone}
-                    generatedAtLine={aiInsightResult.generatedAt}
-                  />
-                </>
-              ) : null}
-            </div>
-          ) : null}
-        </section>
-
-        <section
-          className="mb-10 mt-12 border-t border-gray-800/80 pt-10"
-          id="collection-listings"
-          aria-label="Individual listings"
-        >
-          <div className="mb-5">
-            <h2 className="text-lg font-semibold text-white tracking-tight">Individual listings</h2>
-          </div>
-
-          {tokenIds.length === 0 ? (
-            <div className="rounded-2xl border border-gray-800 bg-gray-900/30 px-4 py-8 text-center text-sm text-gray-400">
-              No listings yet. List an asset from{" "}
-              <Link href="/portfolio" className="text-mint hover:underline">
-                My Assets
-              </Link>
-              .
-            </div>
-          ) : (
-            <div className="max-h-[560px] overflow-y-auto scrollbar-platform pr-1">
-              <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4 pt-1 pb-2">
-                {tokenIds.map((tid) => (
-                  <CollectionRwaCard
-                    key={tid}
-                    tokenId={tid}
-                    collectionKey={key}
-                    listing={askMap.get(tid) ?? null}
-                    address={address}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-        </section>
       </div>
 
       <TradeCelebrationModal
@@ -1379,6 +1226,39 @@ export default function MarketplaceCollectionPage() {
         kind={tradeCelebration ?? "purchase"}
         onClose={() => setTradeCelebration(null)}
       />
+
+      {aiInsightComingSoonOpen ? (
+        <div
+          className="fixed inset-0 z-[140] flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="ai-insight-coming-soon-title"
+        >
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/75 backdrop-blur-[1px]"
+            aria-label="Close"
+            onClick={() => setAiInsightComingSoonOpen(false)}
+          />
+          <div
+            className="relative z-10 w-full max-w-[min(100%,20rem)] rounded-2xl border border-zinc-600/70 bg-[#161616] px-5 py-6 shadow-[0_24px_64px_-16px_rgba(0,0,0,0.85)] ring-1 ring-white/[0.06]"
+          >
+            <h2 id="ai-insight-coming-soon-title" className="text-lg font-semibold tracking-tight text-white">
+              AI Insights
+            </h2>
+            <p className="mt-3 text-[15px] leading-relaxed text-zinc-400">
+              This feature isn&apos;t available yet. We&apos;re preparing it for a future release.
+            </p>
+            <button
+              type="button"
+              onClick={() => setAiInsightComingSoonOpen(false)}
+              className="mt-6 w-full rounded-xl bg-zinc-100 py-2.5 text-sm font-semibold text-zinc-900 transition-colors hover:bg-white"
+            >
+              Got it
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       <CollectionOwnedRwaListModal
         open={sellModalOpen}

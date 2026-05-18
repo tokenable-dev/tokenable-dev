@@ -4,20 +4,13 @@
 - `marketplace/orders/orders.controller.ts`
 - `marketplace/collections/collections.controller.ts`
 - `marketplace/assets/assets.controller.ts`
-- `marketplace/trading/bids.controller.ts`
-- `marketplace/trading/trade.controller.ts`
 
 **Base path:** `/api/marketplace`  
 **Swagger tag:** `marketplace`
 
-The marketplace is built on two parallel axes:
+Trading and order storage are **Seaport-centric**: off-chain signed orders in `orders`, fulfillment via wallet `fulfillOrder` / `matchAdvancedOrders`. A former experimental relational matching layer (`bids` / `asks` / settlement workers) has been **removed from this codebase**.
 
-| Axis | Description |
-|------|-------------|
-| **Seaport** | Off-chain signed orders, fulfilled on-chain via `fulfillOrder` / `matchAdvancedOrders` |
-| **Relational** | Rule-based conditional bids/asks, server-side settlement worker |
-
-See [architecture/database.md](../architecture/database.md) for DB schema details.
+See [architecture/database.md](../architecture/database.md) for current DB tables.
 
 ---
 
@@ -279,69 +272,10 @@ Unhides a token.
 
 ---
 
-## Relational Trading Layer (Bids / Trade)
+> **Note:** The following section documented a **removed** relational HTTP API. It is kept only for archive search; these routes **do not exist** in the current backend.
 
-The relational layer runs alongside Seaport. See [architecture/database.md](../architecture/database.md) for the settlement state machine.
+## ~~Relational Trading Layer (removed)~~
 
-### `GET /api/marketplace/bids`
-
-Returns active bids for a collection. If `tokenId` is provided, also evaluates rule applicability.
-
-| Query | Required |
-|-------|----------|
-| `collectionKey` | Yes |
-| `tokenId` | No |
+The former `GET /api/marketplace/bids`, `POST /api/marketplace/trade/match`, and related settlement-worker tables are **not** in the repository anymore. Use **Seaport** orders and on-chain fulfillment only.
 
 ---
-
-### `GET /api/marketplace/bids/:id`
-
-Returns bid detail including the full rule JSON.
-
-| Param | Type |
-|-------|------|
-| `id` | UUID |
-
----
-
-### `POST /api/marketplace/trade/match`
-
-Reserves a match. Creates a `pending` `trade_execution` and locks the ask. Settlement worker completes the execution asynchronously.
-
-**Returns:** `202 Accepted`
-
-**Header:** `Idempotency-Key` (recommended — prevents duplicate executions on retry)
-
-**Body:** `TradeMatchDto`
-
-```json
-{ "bidId": "uuid", "askId": "uuid", "tokenId": "123" }
-```
-
-**Response:** `MatchAcceptedResponseDto`
-
-```json
-{ "executionId": "uuid", "status": "pending" }
-```
-
----
-
-### `GET /api/marketplace/trade/executions/:id`
-
-Polls settlement state for a trade execution.
-
-| Param | Type |
-|-------|------|
-| `id` | UUID |
-
-**Response:**
-
-```json
-{
-  "id": "uuid",
-  "execution_state": "pending | locked | executed | failed",
-  "bid_id": "uuid",
-  "ask_id": "uuid",
-  "token_id": "123"
-}
-```

@@ -14,6 +14,7 @@ import {
 import { rq, marketplaceRqPolicy } from "@/lib/core";
 import { useMarketplaceCollectionsInfinite } from "@/hooks/useMarketplaceCollectionsInfinite";
 import { CollectionCoverFrame } from "@/components/marketplace/CollectionCoverFrame";
+import { useResolvedMediaUrlMap } from "@/hooks/useResolvedMediaUrl";
 import { TrendingCollectionsCarousel } from "@/components/landing/TrendingCollectionsCarousel";
 import { CollectionCategoryFilterBar } from "@/components/marketplace/CollectionCategoryFilterBar";
 import { CollectionListSparkline } from "@/components/marketplace/CollectionListSparkline";
@@ -21,11 +22,10 @@ import {
   collectionMatchesCategoryFilter,
   inferCollectionSportBucket,
   type CollectionCategoryFilterId,
+  type CollectionSportBucket,
 } from "@/lib/market";
 import { parseGradeScoreNumber, representativeGradeUsd } from "@/lib/market";
 import { toCardDisplayUppercase } from "@/lib/marketplace/collectionFullDetailsTitle";
-
-const USDC_DECIMALS = 1_000_000;
 
 function seeded01FromKey(key: string): number {
   if (!key) return 0.5;
@@ -60,80 +60,6 @@ function buildMockSportsSparkline(collectionKey: string, days = 365): Collection
     out.push({ t, v: Math.max(1, Math.round(base * (1 + cyc) * 100) / 100) });
   }
   return out;
-}
-
-function percentChangeFromPoints(points: CollectionUsdPoint[] | null | undefined): number | null {
-  const arr = points ?? [];
-  if (arr.length < 2) return null;
-  const first = arr[0]?.v;
-  const last = arr[arr.length - 1]?.v;
-  if (!Number.isFinite(first) || !Number.isFinite(last) || !first || first <= 0) return null;
-  return ((last - first) / first) * 100;
-}
-
-function useMarketStats(orders: OrderListItem[], collectionsCount: number) {
-  return useMemo(() => {
-    const askOrders = orders.filter((o) => String(o.side ?? "ask").toLowerCase() !== "bid");
-
-    let totalValueMicros = BigInt(0);
-    for (const o of askOrders) {
-      try {
-        totalValueMicros += BigInt(o.price ?? "0");
-      } catch {
-        /* skip */
-      }
-    }
-    const totalValue = Number(totalValueMicros) / USDC_DECIMALS;
-    const totalListings = askOrders.length;
-
-    return {
-      totalValue,
-      totalListings,
-      totalCollections: collectionsCount,
-    };
-  }, [orders, collectionsCount]);
-}
-
-function StatCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-gray-800 bg-gray-900/50 px-5 py-7 text-center sm:px-6 sm:py-8">
-      <p className="mb-3 text-sm font-medium text-gray-400 sm:text-base">{label}</p>
-      <p className="text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
-        {value}
-      </p>
-    </div>
-  );
-}
-
-/** Mobile-only: three headline stats in one horizontal row inside a single card. */
-function MarketsStatsMobileStrip(props: {
-  marketCapDisplay: string;
-  listingsDisplay: string;
-  collectionsDisplay: string;
-}) {
-  const cell = (
-    label: string,
-    value: string,
-  ) => (
-    <div className="flex min-h-[3.75rem] min-w-0 flex-col items-center justify-center gap-0.5 px-1.5 text-center">
-      <p className="line-clamp-2 text-[0.6875rem] font-medium leading-tight text-gray-400">
-        {label}
-      </p>
-      <p className="truncate text-base font-extrabold tabular-nums tracking-tight text-white">
-        {value}
-      </p>
-    </div>
-  );
-
-  return (
-    <div className="rounded-2xl border border-gray-800 bg-gray-900/50 px-2 py-3 sm:hidden">
-      <div className="grid min-w-0 grid-cols-3 divide-x divide-gray-700/70">
-        {cell("Market CAP", props.marketCapDisplay)}
-        {cell("Active listings", props.listingsDisplay)}
-        {cell("Collections", props.collectionsDisplay)}
-      </div>
-    </div>
-  );
 }
 
 function formatUsd(n: number | null | undefined): string {
@@ -194,10 +120,12 @@ function CollectionRow({
   collection,
   listingCount,
   snapshot,
+  resolvedCoverUrl,
 }: {
   collection: MarketplaceCollectionSummary;
   listingCount: number;
   snapshot: CollectionListMarketSnapshot | undefined;
+  resolvedCoverUrl?: string;
 }) {
   const comp = collection.components as { gradeScore?: string };
 
@@ -228,18 +156,19 @@ function CollectionRow({
   const effectiveRefUsd = refUsd ?? fallbackRefUsd;
   const tokenablePrice = floor ?? lastTrade;
   const tokenableVsRefPct = percentDiffVersusRef(tokenablePrice, effectiveRefUsd);
-  const upTo1yChangePct = pct != null && Number.isFinite(pct) ? pct : percentChangeFromPoints(sparklinePoints);
+  const changePct24h =
+    pct != null && Number.isFinite(pct) ? pct : null;
 
   return (
     <Link
       href={`/marketplace/collections/${encodeURIComponent(collection.collectionKey)}`}
-      className="group flex flex-col gap-4 rounded-3xl border border-zinc-700/70 bg-gradient-to-r from-[#0f1117] via-[#10131a] to-[#0e1218] px-4 py-4 transition-all hover:border-mint/35 hover:shadow-[0_0_26px_rgba(148,255,212,0.08)] sm:flex-row sm:items-center sm:gap-6 sm:px-6 sm:py-6"
+      className="group flex flex-col gap-3 rounded-2xl border border-zinc-700/70 bg-gradient-to-r from-[#0f1117] via-[#10131a] to-[#0e1218] px-3 py-3 transition-all hover:border-mint/35 hover:shadow-[0_0_26px_rgba(148,255,212,0.08)] sm:flex-row sm:items-center sm:gap-6 sm:rounded-3xl sm:px-6 sm:py-6"
     >
-      <div className="relative w-full max-w-[156px] shrink-0 self-center sm:w-[196px] sm:max-w-none sm:self-auto">
-        {collection.coverImageUrl ? (
+      <div className="relative w-full max-w-[min(156px,48vw)] shrink-0 self-center sm:w-[196px] sm:max-w-none sm:self-auto">
+        {(resolvedCoverUrl || collection.coverImageUrl) ? (
           <div className="aspect-[3/4] w-full overflow-hidden rounded-2xl border border-gray-800/80">
             <CollectionCoverFrame
-              imageUrl={collection.coverImageUrl}
+              imageUrl={resolvedCoverUrl || collection.coverImageUrl!}
               variant="compact"
               className="h-full w-full object-cover"
             />
@@ -250,11 +179,11 @@ function CollectionRow({
       </div>
 
       <div className="min-w-0 flex-1">
-        <h3 className="truncate text-xl font-extrabold uppercase tracking-tight text-white transition-colors group-hover:text-mint sm:text-2xl">
+        <h3 className="line-clamp-2 break-words text-lg font-extrabold uppercase tracking-tight text-white transition-colors group-hover:text-mint sm:line-clamp-1 sm:truncate sm:text-2xl">
           {toCardDisplayUppercase(collection.displayLabel)}
         </h3>
-        {(tokenableVsRefPct != null || upTo1yChangePct != null) ? (
-          <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px] sm:text-xs">
+        {(tokenableVsRefPct != null || changePct24h != null) ? (
+          <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[10px] leading-snug sm:text-xs">
             {tokenableVsRefPct != null ? (
               <span
                 className={`inline-flex rounded-full border px-2.5 py-0.5 font-bold tabular-nums ${
@@ -268,30 +197,32 @@ function CollectionRow({
                 {tokenableVsRefPct.toFixed(1)}%
               </span>
             ) : null}
-            {upTo1yChangePct != null ? (
+            {changePct24h != null ? (
               <span
                 className={`inline-flex rounded-full border px-2.5 py-0.5 font-bold tabular-nums ${
-                  upTo1yChangePct >= 0
+                  changePct24h >= 0
                     ? "border-emerald-300/30 bg-emerald-500/15 text-emerald-200"
                     : "border-rose-300/30 bg-rose-500/15 text-rose-200"
                 }`}
-                title="External history change: oldest visible point to latest point (up to 1 year)"
+                title="External reference: rolling ~24h vs latest Cardhedger history tick (no mock data)."
               >
-                1Y Trend {upTo1yChangePct >= 0 ? "+" : ""}
-                {upTo1yChangePct.toFixed(1)}%
+                24h {changePct24h >= 0 ? "+" : ""}
+                {changePct24h.toFixed(1)}%
               </span>
             ) : null}
           </div>
         ) : null}
-        <dl className="mt-3 grid gap-y-2 text-sm leading-tight text-zinc-300 sm:text-base">
-          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <dt className="min-w-[7.25rem] shrink-0 text-zinc-400 sm:min-w-[9.5rem]">Active Listings</dt>
-            <dd className="tabular-nums text-base font-bold text-white sm:text-lg">{listingCount}</dd>
+        <dl className="mt-3 space-y-2 text-xs leading-snug text-zinc-300 sm:text-sm sm:leading-tight">
+          <div className="flex items-baseline justify-between gap-2">
+            <dt className="max-w-[58%] shrink-0 text-zinc-400">Active Listings</dt>
+            <dd className="min-w-0 text-right tabular-nums text-sm font-bold text-white sm:text-base md:text-lg">
+              {listingCount}
+            </dd>
           </div>
-          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <dt className="min-w-[7.25rem] shrink-0 text-zinc-400 sm:min-w-[9.5rem]">Market Price</dt>
+          <div className="flex items-baseline justify-between gap-2">
+            <dt className="max-w-[58%] shrink-0 text-zinc-400">Market Price</dt>
             <dd
-              className="tabular-nums text-base font-bold text-cyan-300 sm:text-lg"
+              className="min-w-0 text-right tabular-nums text-sm font-bold text-cyan-300 sm:text-base md:text-lg"
               title="External eBay reference price."
             >
               {effectiveRefUsd != null ? (
@@ -301,10 +232,10 @@ function CollectionRow({
               )}
             </dd>
           </div>
-          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <dt className="min-w-[7.25rem] shrink-0 text-zinc-400 sm:min-w-[9.5rem]">Tokenable Price</dt>
+          <div className="flex items-baseline justify-between gap-2">
+            <dt className="max-w-[58%] shrink-0 text-zinc-400">Tokenable Price</dt>
             <dd
-              className="tabular-nums text-base font-bold text-emerald-300 sm:text-lg"
+              className="min-w-0 text-right tabular-nums text-sm font-bold text-emerald-300 sm:text-base md:text-lg"
               title={floor != null ? "Current Tokenable floor listing (active asks)." : "Most recent Tokenable trade (fallback when no active floor)."}
             >
               {tokenablePrice != null ? formatUsd(tokenablePrice) : "—"}
@@ -313,68 +244,103 @@ function CollectionRow({
         </dl>
       </div>
 
-      <div className="flex w-full shrink-0 flex-col items-stretch gap-1 sm:w-auto sm:items-end">
+      <div className="flex w-full min-w-0 shrink-0 flex-col items-stretch gap-1 sm:w-auto sm:items-end">
         <CollectionListSparkline
           points={sparklinePoints}
-          positive={upTo1yChangePct == null ? undefined : upTo1yChangePct >= 0}
-          className="h-16 w-full sm:h-20 sm:w-40"
+          positive={changePct24h == null ? undefined : changePct24h >= 0}
+          className="h-14 w-full max-w-full sm:h-20 sm:w-40"
         />
       </div>
     </Link>
   );
 }
 
+function formatSignedPct2(pct: number): string {
+  const sign = pct >= 0 ? "+" : "";
+  return `${sign}${pct.toFixed(2)}%`;
+}
+
+function exchangeGridCategoryPillLabel(
+  collection: MarketplaceCollectionSummary,
+  snapshot: CollectionListMarketSnapshot | undefined,
+): string {
+  const raw = snapshot?.categoryLabel?.trim();
+  if (raw) return raw;
+  const b = inferCollectionSportBucket(collection, snapshot);
+  const map: Record<string, string> = {
+    pokemon: "Pokemon",
+    mlb: "MLB",
+    nba: "NBA",
+    nfl: "NFL",
+    soccer: "Soccer",
+    other: "Trading card",
+  };
+  return map[b] ?? "Trading card";
+}
+
+function exchangeGridSportBadge(bucket: CollectionSportBucket): {
+  label: string;
+  className: string;
+} | null {
+  switch (bucket) {
+    case "pokemon":
+      return null;
+    case "mlb":
+      return { label: "MLB", className: "bg-[#5c4024] text-gray-100" };
+    case "nba":
+      return { label: "NBA", className: "bg-[#2e3a6b] text-gray-100" };
+    case "nfl":
+      return { label: "NFL", className: "bg-[#4a3520] text-gray-100" };
+    case "soccer":
+      return { label: "Soccer", className: "bg-[#264a3a] text-gray-100" };
+    default:
+      return null;
+  }
+}
+
 function CollectionGridCard({
   collection,
   snapshot,
+  resolvedCoverUrl,
+  listingCount,
 }: {
   collection: MarketplaceCollectionSummary;
   snapshot: CollectionListMarketSnapshot | undefined;
+  resolvedCoverUrl?: string;
+  listingCount: number;
 }) {
   const comp = collection.components as { gradeScore?: string };
-
   const jtSpot = representativeGradeUsd(
     snapshot?.gradePrices ?? null,
     parseGradeScoreNumber(comp.gradeScore),
   );
-  const ms = snapshot?.marketStats ?? null;
-  const tokenablePrice =
-    ms?.floor != null && Number.isFinite(ms.floor) && ms.floor > 0
-      ? ms.floor
-      : snapshot?.lastTokenableTradeUsdc != null &&
-          Number.isFinite(snapshot.lastTokenableTradeUsdc) &&
-          snapshot.lastTokenableTradeUsdc > 0
-        ? snapshot.lastTokenableTradeUsdc
-        : null;
   const bucket = inferCollectionSportBucket(collection, snapshot);
   const mockSparkline = isMockSportBucket(bucket)
     ? buildMockSportsSparkline(collection.collectionKey, 365)
     : null;
   const fallbackRefUsd = mockSparkline?.[mockSparkline.length - 1]?.v ?? null;
-  const eBayUsd =
+  const marketPriceUsd =
     jtSpot != null && Number.isFinite(jtSpot) && jtSpot > 0 ? jtSpot : fallbackRefUsd;
 
-  const sparkPoints =
-    snapshot?.sparklineUsd != null && snapshot.sparklineUsd.length >= 2
-      ? snapshot.sparklineUsd
-      : mockSparkline;
-  const gridSparkPctChange = percentChangeFromPoints(mockSparkline);
-  const pctPositive =
-    snapshot?.marketChangePct != null
-      ? snapshot.marketChangePct >= 0
-      : gridSparkPctChange != null
-        ? gridSparkPctChange >= 0
-        : undefined;
+  const trendPct =
+    snapshot?.marketChangePct != null && Number.isFinite(snapshot.marketChangePct)
+      ? snapshot.marketChangePct
+      : null;
+
+  const categoryFallback = exchangeGridCategoryPillLabel(collection, snapshot);
+  const sportBadge = exchangeGridSportBadge(bucket);
+  const categoryLabel =
+    bucket === "other" ? categoryFallback : (sportBadge?.label ?? categoryFallback);
 
   return (
     <Link
       href={`/marketplace/collections/${encodeURIComponent(collection.collectionKey)}`}
-      className="group overflow-hidden rounded-2xl border border-zinc-800/80 bg-[#0d1118] transition-colors hover:border-mint/35"
+      className="group flex h-full flex-col overflow-hidden rounded-2xl border border-zinc-800/90 bg-black transition-colors hover:border-zinc-600"
     >
-      <div className="aspect-[3/4] bg-[#0a0f16]">
-        {collection.coverImageUrl ? (
+      <div className="aspect-[3/4] shrink-0 bg-[#0a0a0a]">
+        {(resolvedCoverUrl || collection.coverImageUrl) ? (
           <CollectionCoverFrame
-            imageUrl={collection.coverImageUrl}
+            imageUrl={resolvedCoverUrl || collection.coverImageUrl!}
             variant="compact"
             className="h-full w-full object-cover"
           />
@@ -382,36 +348,72 @@ function CollectionGridCard({
           <div className="h-full w-full bg-zinc-900" />
         )}
       </div>
-      <div className="space-y-2 p-3">
-        <h3 className="truncate text-lg font-semibold uppercase text-white">{toCardDisplayUppercase(collection.displayLabel)}</h3>
-        <div className="flex min-w-0 items-stretch gap-2 rounded-xl border border-zinc-800/70 bg-black/30 px-2 py-1.5">
-          <dl className="min-w-0 flex-1 space-y-1.5 text-[10px] leading-tight tabular-nums sm:text-[11px]">
-            <div className="min-w-0">
-              <dt className="text-zinc-500">Market price</dt>
-              <dd
-                className="truncate text-xs font-semibold text-cyan-300 sm:text-sm"
-                title={eBayUsd != null ? formatUsd(eBayUsd) : undefined}
-              >
-                {eBayUsd != null ? formatUsd(eBayUsd) : "—"}
+      <div className="flex min-h-0 flex-1 flex-col gap-2 p-2.5 sm:gap-3 sm:p-4">
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5 sm:gap-[10px]">
+          {trendPct != null && Number.isFinite(trendPct) ? (
+            <span
+              className={`box-border inline-flex h-[24px] max-w-full min-w-0 shrink-0 items-center justify-center rounded-[4px] border px-1.5 text-[10px] font-bold leading-none tabular-nums sm:h-[26px] sm:min-w-[72px] sm:px-2 sm:text-xs ${
+                trendPct >= 0
+                  ? "border-[rgb(0,187,61)] bg-black/50 text-[rgb(0,187,61)]"
+                  : "border-[rgb(220,55,55)] bg-black/50 text-[rgb(220,55,55)]"
+              }`}
+              title={
+                snapshot?.marketChangeWindow
+                  ? `External reference (${snapshot.marketChangeWindow}): latest vs ~24h prior on Cardhedger history`
+                  : "External reference: rolling ~24h vs latest Cardhedger tick"
+              }
+            >
+              {formatSignedPct2(trendPct)}
+            </span>
+          ) : null}
+          {bucket === "pokemon" ? (
+            <span
+              className="box-border inline-flex h-[24px] max-w-full min-w-0 shrink-0 items-center justify-center overflow-hidden rounded-[4px] border border-[rgba(255,255,255,0.9)] px-1.5 py-0.5 text-[9px] font-semibold leading-none text-white sm:h-[26px] sm:w-[72px] sm:px-2 sm:text-[11px]"
+              title="Pokemon"
+            >
+              <span className="block max-w-full truncate">Pokemon</span>
+            </span>
+          ) : (
+            <span
+              className={`inline-flex min-w-0 max-w-full items-center truncate rounded-md px-2 py-1 text-[11px] font-semibold sm:text-xs ${
+                sportBadge
+                  ? sportBadge.className
+                  : "bg-zinc-900/90 text-zinc-200 ring-1 ring-zinc-700/80"
+              }`}
+              title={categoryLabel}
+            >
+              <span className="truncate">{categoryLabel}</span>
+            </span>
+          )}
+        </div>
+
+        <h3
+          className="line-clamp-2 min-h-[2.5rem] break-words text-[0.8125rem] font-bold leading-snug text-white sm:min-h-[3rem] sm:text-[1.05rem]"
+          title={collection.displayLabel}
+        >
+          {collection.displayLabel}
+        </h3>
+
+        <div className="mt-auto border-t border-zinc-700/80 pt-2 sm:pt-3">
+          <dl className="grid gap-2 text-[11px] text-white sm:gap-3 sm:text-sm">
+            <div className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-2 gap-y-0 sm:gap-x-3">
+              <dt className="min-w-0 truncate text-white/85">Active listing</dt>
+              <dd className="tabular-nums text-xs font-semibold text-white sm:text-base">
+                {listingCount}
               </dd>
             </div>
-            <div className="min-w-0">
-              <dt className="text-zinc-500">Tokenable Price</dt>
+            <div className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-2 gap-y-0 sm:gap-x-3">
+              <dt className="min-w-0 truncate text-white/85">Market Price</dt>
               <dd
-                className="truncate text-xs font-semibold text-emerald-300 sm:text-sm"
-                title={tokenablePrice != null ? formatUsd(tokenablePrice) : undefined}
+                className="max-w-[100%] text-right text-base font-bold tabular-nums leading-none text-cyan-300 sm:max-w-none sm:text-xl"
+                title={
+                  marketPriceUsd != null ? formatUsd(marketPriceUsd) : "External reference (eBay strip)"
+                }
               >
-                {tokenablePrice != null ? formatUsd(tokenablePrice) : "—"}
+                {marketPriceUsd != null ? formatUsd(marketPriceUsd) : "—"}
               </dd>
             </div>
           </dl>
-          <div className="flex w-[38%] max-w-[5.75rem] min-w-[4.25rem] shrink-0 flex-col justify-center border-l border-zinc-800/60 pl-2">
-            <CollectionListSparkline
-              points={sparkPoints}
-              positive={pctPositive}
-              className="h-10 min-h-[2.5rem] w-full min-w-0"
-            />
-          </div>
         </div>
       </div>
     </Link>
@@ -442,8 +444,16 @@ export default function ExchangePage() {
     [colPages],
   );
 
+  // Batch-resolve all cover image URLs (handles ipfs:// → HTTPS in a single request)
+  const coverRawUrls = useMemo(
+    () => collectionSummaries.map((c) => c.coverImageUrl),
+    [collectionSummaries],
+  );
+  const { map: resolvedCoverMap } = useResolvedMediaUrlMap(coverRawUrls, {
+    enabled: collectionSummaries.length > 0,
+  });
+
   const isLoading = ordersLoading || colLoading;
-  const stats = useMarketStats(orders, collectionSummaries.length);
 
   const snapshotKeysSorted = useMemo(() => {
     const u = new Set<string>();
@@ -483,11 +493,6 @@ export default function ExchangePage() {
     (o) => o.side !== "bid" && (!o.collectionKey || !String(o.collectionKey).trim()),
   );
 
-  const marketCapDisplay =
-    stats.totalValue > 0
-      ? `$${stats.totalValue >= 1000 ? `${(stats.totalValue / 1000).toFixed(1)}K` : stats.totalValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}`
-      : "$0";
-
   const filteredSorted = useMemo(() => {
     return sortedForRank.filter((c) =>
       collectionMatchesCategoryFilter(
@@ -500,33 +505,16 @@ export default function ExchangePage() {
 
   return (
     <div className="min-h-screen bg-black text-white">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10 pb-24">
-        {/* Title */}
-        <div className="mb-10 sm:mb-12">
-          <h1 className="mb-1 text-3xl font-extrabold tracking-tight sm:text-4xl">
-            Markets
-          </h1>
+      <div className="mx-auto max-w-6xl px-3 pb-20 pt-5 max-[380px]:px-2 sm:px-6 sm:py-10 sm:pb-24">
+        <div className="mb-8 sm:mb-14">
+          <TrendingCollectionsCarousel snapshotByKey={snapshotByKey} />
         </div>
-
-        {/* Stats: one compact row on mobile; three cards from sm */}
-        <div className="mb-10 space-y-0 sm:mb-16">
-          <MarketsStatsMobileStrip
-            marketCapDisplay={marketCapDisplay}
-            listingsDisplay={stats.totalListings.toString()}
-            collectionsDisplay={stats.totalCollections.toString()}
-          />
-          <div className="hidden grid-cols-3 gap-5 sm:grid">
-            <StatCard label="Total Market CAP" value={marketCapDisplay} />
-            <StatCard label="Active Listings" value={stats.totalListings.toString()} />
-            <StatCard label="Collections" value={stats.totalCollections.toString()} />
-          </div>
-        </div>
-
-        <TrendingCollectionsCarousel snapshotByKey={snapshotByKey} />
 
         {/* Collection list */}
-        <div className="mb-8 sm:mb-10">
-          <h2 className="mb-4 text-2xl font-bold sm:mb-5 sm:text-3xl">Card Trading List</h2>
+        <div className="mb-6 sm:mb-10">
+          <h2 className="mb-3 text-xl font-bold leading-tight tracking-tight sm:mb-5 sm:text-3xl">
+            Card Trading List
+          </h2>
           {showMarketSnapshotLoadingBar ? (
             <div
               className="mb-4 space-y-2"
@@ -551,7 +539,7 @@ export default function ExchangePage() {
                 <CollectionCategoryFilterBar value={categoryFilter} onChange={setCategoryFilter} />
               </div>
               <div
-                className="inline-flex shrink-0 items-center gap-1 self-end rounded-xl border border-zinc-700/80 bg-zinc-900/80 p-1 sm:self-auto"
+                className="-mx-0.5 inline-flex shrink-0 items-center gap-1 self-stretch rounded-xl border border-zinc-700/80 bg-zinc-900/80 p-1 sm:mx-0 sm:self-auto"
                 role="group"
                 aria-label="List layout"
               >
@@ -623,12 +611,14 @@ export default function ExchangePage() {
             </p>
           </div>
         ) : viewMode === "grid" ? (
-          <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 sm:gap-6 lg:grid-cols-4 pt-1">
+          <div className="grid grid-cols-2 gap-3 pt-1 min-[400px]:gap-4 sm:grid-cols-3 sm:gap-6 lg:grid-cols-4">
             {filteredSorted.map((c) => (
               <CollectionGridCard
                 key={c.collectionKey}
                 collection={c}
                 snapshot={snapshotByKey.get(c.collectionKey.toLowerCase())}
+                resolvedCoverUrl={c.coverImageUrl ? resolvedCoverMap.get(c.coverImageUrl) : undefined}
+                listingCount={c.activeListingCount}
               />
             ))}
             {hasNextPage ? (
@@ -652,6 +642,7 @@ export default function ExchangePage() {
                 collection={c}
                 listingCount={c.activeListingCount}
                 snapshot={snapshotByKey.get(c.collectionKey.toLowerCase())}
+                resolvedCoverUrl={c.coverImageUrl ? resolvedCoverMap.get(c.coverImageUrl) : undefined}
               />
             ))}
             {hasNextPage ? (
@@ -669,27 +660,38 @@ export default function ExchangePage() {
             {categoryFilter === "all" && orphanAsks.length > 0 && (
               <Link
                 href="/marketplace/other-listings"
-                className="group flex items-center gap-5 rounded-2xl border border-gray-800/50 bg-[#0d0d0d] px-5 py-5 transition-colors hover:border-gray-700/80 hover:bg-[#121212] sm:gap-6 sm:px-6 sm:py-6"
+                className="group flex flex-col gap-4 rounded-2xl border border-gray-800/50 bg-[#0d0d0d] px-4 py-4 transition-colors hover:border-gray-700/80 hover:bg-[#121212] sm:flex-row sm:items-center sm:gap-6 sm:px-6 sm:py-6"
               >
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center text-lg text-gray-600">
-                  ○
-                </div>
-                <div className="flex aspect-[3/4] w-[108px] shrink-0 items-center justify-center rounded-2xl border border-gray-700/50 bg-gray-800/60 text-xl text-gray-600 sm:w-[136px]">
-                  ?
+                <div className="flex items-center gap-4 sm:contents">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center text-lg text-gray-600 sm:order-none">
+                    ○
+                  </div>
+                  <div className="flex aspect-[3/4] w-[min(108px,28vw)] shrink-0 items-center justify-center rounded-2xl border border-gray-700/50 bg-gray-800/60 text-xl text-gray-600 sm:w-[136px]">
+                    ?
+                  </div>
                 </div>
                 <div className="min-w-0 flex-1">
-                  <h3 className="text-xl font-bold text-gray-300 transition-colors group-hover:text-mint sm:text-2xl">
+                  <h3 className="text-lg font-bold leading-snug text-gray-300 transition-colors group-hover:text-mint sm:text-2xl">
                     Other Listings
                   </h3>
-                  <p className="mt-1.5 text-base text-gray-500 sm:text-lg">
+                  <p className="mt-1 text-sm text-gray-500 sm:text-lg">
                     No collection metadata
+                  </p>
+                  <p className="mt-2 flex items-center justify-between text-sm text-zinc-500 sm:hidden">
+                    <span>
+                      <span className="text-zinc-500">Orders </span>
+                      <span className="font-bold text-white">{orphanAsks.length}</span>
+                    </span>
+                    <span className="text-zinc-500 transition-colors group-hover:text-mint" aria-hidden>
+                      →
+                    </span>
                   </p>
                 </div>
                 <div className="hidden text-base sm:block sm:text-lg">
                   <span className="text-gray-500">Orders </span>
                   <span className="font-bold text-white">{orphanAsks.length}</span>
                 </div>
-                <span className="shrink-0 text-xl text-gray-600 transition-colors group-hover:text-mint sm:text-2xl">
+                <span className="hidden shrink-0 text-xl text-gray-600 transition-colors group-hover:text-mint sm:inline sm:text-2xl">
                   →
                 </span>
               </Link>

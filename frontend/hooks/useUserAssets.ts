@@ -163,5 +163,7 @@ export function useUserAssets(
       void historyQuery.refetch();
       void marketPreviewQuery.refetch();
     },
+    /** Refetch only the global order book — use after listing/bid mutations to avoid refetching metadata/previews (reduces UI flicker). */
+    refetchActiveOrders: () => ordersQuery.refetch(),
   };
 }

@@ -106,11 +106,15 @@ export class OrdersService {
     dto: CreateOrderDto,
   ): Promise<Order> {
     if (dto.side === 'bid') {
-      throw new BadRequestException('replaceSellerListing only accepts ask listings');
+      throw new BadRequestException(
+        'replaceSellerListing only accepts ask listings',
+      );
     }
 
     return this.orderRepo.manager.transaction(async (em) => {
-      const old = await em.findOne(Order, { where: { orderHash: oldOrderHash } });
+      const old = await em.findOne(Order, {
+        where: { orderHash: oldOrderHash },
+      });
       if (!old) {
         throw new NotFoundException(`Order not found: ${oldOrderHash}`);
       }
@@ -122,13 +126,17 @@ export class OrdersService {
         throw new BadRequestException(`Order is already ${old.status}`);
       }
       if (old.offerer.toLowerCase() !== callerAddress.toLowerCase()) {
-        throw new BadRequestException('Only the offerer can replace this listing');
+        throw new BadRequestException(
+          'Only the offerer can replace this listing',
+        );
       }
       if (
         normalizeDecimalTokenId(String(old.tokenId)) !==
         normalizeDecimalTokenId(String(dto.tokenId))
       ) {
-        throw new BadRequestException('New order tokenId must match the listing being replaced');
+        throw new BadRequestException(
+          'New order tokenId must match the listing being replaced',
+        );
       }
       if (old.tokenContract.toLowerCase() !== dto.tokenContract.toLowerCase()) {
         throw new BadRequestException('tokenContract must match');
@@ -173,7 +181,9 @@ export class OrdersService {
     if (side === OrderSide.BID) {
       const key = dto.collectionKey?.trim().toLowerCase();
       if (!key) {
-        throw new BadRequestException('collectionKey is required for ERC721_WITH_CRITERIA bids');
+        throw new BadRequestException(
+          'collectionKey is required for ERC721_WITH_CRITERIA bids',
+        );
       }
       const col = await this.collectionService.findOne(key);
       if (!col) {
@@ -182,14 +192,18 @@ export class OrdersService {
       collectionKey = col.collectionKey;
     } else {
       try {
-        collectionKey = await this.collectionService.ensureCollectionForListing(dto.tokenId);
+        collectionKey = await this.collectionService.ensureCollectionForListing(
+          dto.tokenId,
+        );
       } catch (e) {
         this.logger.warn(
           `Collection not attached for token #${dto.tokenId}: ${String(e)}`,
         );
         const tidRaw = String(dto.tokenId);
         const tidNorm = normalizeDecimalTokenId(tidRaw);
-        const tidVariants = [...new Set([tidRaw, tidNorm].filter((s) => s.length > 0))];
+        const tidVariants = [
+          ...new Set([tidRaw, tidNorm].filter((s) => s.length > 0)),
+        ];
         const prior = await this.orderRepo.findOne({
           where: {
             tokenContract: dto.tokenContract,
@@ -246,7 +260,7 @@ export class OrdersService {
 
     return this.orderRepo.create({
       orderHash: this.deriveOrderHash(params, side),
-      offerer: parameters.offerer as string,
+      offerer: parameters.offerer,
       tokenContract: dto.tokenContract,
       tokenId: tokenIdForRow,
       considerationToken: dto.considerationToken,
@@ -263,12 +277,15 @@ export class OrdersService {
 
   private async persistOrder(order: Order, em: EntityManager): Promise<Order> {
     try {
-      return (await em.save(order)) as Order;
+      return await em.save(order);
     } catch (e: unknown) {
       if (e instanceof QueryFailedError) {
-        const pgCode = (e as QueryFailedError & { driverError?: { code?: string } })
-          .driverError?.code;
-        this.logger.error(`persistOrder failed [${pgCode ?? '?'}]: ${e.message}`);
+        const pgCode = (
+          e as QueryFailedError & { driverError?: { code?: string } }
+        ).driverError?.code;
+        this.logger.error(
+          `persistOrder failed [${pgCode ?? '?'}]: ${e.message}`,
+        );
         if (pgCode === '42P01') {
           throw new ServiceUnavailableException(
             'Database is missing the orders table. Apply migrations on PostgreSQL.',
@@ -290,23 +307,33 @@ export class OrdersService {
     const offer = p.offer?.[0];
     const cons = p.consideration?.[0];
     if (!offer || !cons) {
-      throw new BadRequestException('Bid order must include offer and consideration items');
+      throw new BadRequestException(
+        'Bid order must include offer and consideration items',
+      );
     }
     if (offer.itemType !== 1) {
       throw new BadRequestException('Bid offer[0] must be ERC20 (itemType 1)');
     }
     if (cons.itemType !== 4) {
-      throw new BadRequestException('Criteria bid consideration[0] must be ERC721_WITH_CRITERIA (itemType 4)');
+      throw new BadRequestException(
+        'Criteria bid consideration[0] must be ERC721_WITH_CRITERIA (itemType 4)',
+      );
     }
     const usdc = this.config.get<string>('USDC_CONTRACT_ADDRESS') ?? '';
     if (usdc && offer.token.toLowerCase() !== usdc.toLowerCase()) {
-      throw new BadRequestException('Bid offer token must match USDC_CONTRACT_ADDRESS');
+      throw new BadRequestException(
+        'Bid offer token must match USDC_CONTRACT_ADDRESS',
+      );
     }
     if (cons.token.toLowerCase() !== dto.tokenContract.toLowerCase()) {
-      throw new BadRequestException('Bid consideration token must match tokenContract');
+      throw new BadRequestException(
+        'Bid consideration token must match tokenContract',
+      );
     }
     if (!cons.identifierOrCriteria || cons.identifierOrCriteria === '0') {
-      throw new BadRequestException('Criteria bid must set identifierOrCriteria to Merkle root');
+      throw new BadRequestException(
+        'Criteria bid must set identifierOrCriteria to Merkle root',
+      );
     }
     if (dto.tokenId !== CRITERIA_TOKEN_SENTINEL) {
       throw new BadRequestException('Criteria bids must use tokenId "0"');
@@ -321,12 +348,15 @@ export class OrdersService {
     const p = dto.parameters;
     const cons = p.consideration;
     if (!cons || cons.length === 0) {
-      throw new BadRequestException('Ask listing must include at least one consideration item');
+      throw new BadRequestException(
+        'Ask listing must include at least one consideration item',
+      );
     }
 
     const usdc = this.config.get<string>('USDC_CONTRACT_ADDRESS') ?? '';
-    const feeRecipient =
-      (this.config.get<string>('PLATFORM_FEE_RECIPIENT') ?? '').toLowerCase();
+    const feeRecipient = (
+      this.config.get<string>('PLATFORM_FEE_RECIPIENT') ?? ''
+    ).toLowerCase();
 
     let sum = BigInt(0);
     for (let i = 0; i < cons.length; i++) {
@@ -380,7 +410,11 @@ export class OrdersService {
   async findActiveAskByTokenId(tokenIdRaw: string): Promise<Order | null> {
     await this.expireOrders();
     const tid = String(tokenIdRaw ?? '').trim();
-    const variants = [...new Set([tid, normalizeDecimalTokenId(tid)].filter((s) => s.length > 0))];
+    const variants = [
+      ...new Set(
+        [tid, normalizeDecimalTokenId(tid)].filter((s) => s.length > 0),
+      ),
+    ];
     if (variants.length === 0) return null;
     return this.orderRepo.findOne({
       where: {
@@ -395,10 +429,14 @@ export class OrdersService {
   /**
    * Order history keyed by requested token id string (one batch query; no N+1).
    */
-  async findOrdersBatchByTokenIds(tokenIds: number[]): Promise<Record<string, OrderListItem[]>> {
+  async findOrdersBatchByTokenIds(
+    tokenIds: number[],
+  ): Promise<Record<string, OrderListItem[]>> {
     await this.expireOrders();
     const out: Record<string, OrderListItem[]> = {};
-    const requested = [...new Set(tokenIds.map((n) => Math.floor(Number(n))))].filter((n) => n >= 0);
+    const requested = [
+      ...new Set(tokenIds.map((n) => Math.floor(Number(n)))),
+    ].filter((n) => n >= 0);
     for (const n of requested) {
       out[String(n)] = [];
     }
@@ -433,7 +471,11 @@ export class OrdersService {
   async findByTokenId(tokenId: string): Promise<Order[]> {
     await this.expireOrders();
     const tid = String(tokenId ?? '').trim();
-    const variants = [...new Set([tid, normalizeDecimalTokenId(tid)].filter((s) => s.length > 0))];
+    const variants = [
+      ...new Set(
+        [tid, normalizeDecimalTokenId(tid)].filter((s) => s.length > 0),
+      ),
+    ];
     return this.orderRepo.find({
       where: { tokenId: In(variants) },
       order: { updatedAt: 'DESC' },
@@ -481,11 +523,17 @@ export class OrdersService {
     }
     const saved = await this.orderRepo.save(order);
 
-    const cons0 = (saved.parameters as { consideration?: { itemType?: number }[] })?.consideration?.[0];
+    const cons0 = (
+      saved.parameters as { consideration?: { itemType?: number }[] }
+    )?.consideration?.[0];
     const isCriteriaBid =
       saved.side === OrderSide.BID && cons0 && Number(cons0.itemType) === 4;
 
-    if (!isCriteriaBid && saved.tokenId && saved.tokenId !== CRITERIA_TOKEN_SENTINEL) {
+    if (
+      !isCriteriaBid &&
+      saved.tokenId &&
+      saved.tokenId !== CRITERIA_TOKEN_SENTINEL
+    ) {
       const cleared = await this.orderRepo.update(
         {
           tokenContract: saved.tokenContract,
@@ -509,20 +557,30 @@ export class OrdersService {
   /**
    * After on-chain matchAdvancedOrders(ask + criteria bid), mark both fulfilled in DB.
    */
-  async fulfillMatchedPair(askHash: string, bidHash: string): Promise<{ ask: Order; bid: Order }> {
+  async fulfillMatchedPair(
+    askHash: string,
+    bidHash: string,
+  ): Promise<{ ask: Order; bid: Order }> {
     const ask = await this.findByHash(askHash);
     const bid = await this.findByHash(bidHash);
 
     if (ask.side !== OrderSide.ASK || bid.side !== OrderSide.BID) {
-      throw new BadRequestException('askHash must be a listing and bidHash a buy order');
+      throw new BadRequestException(
+        'askHash must be a listing and bidHash a buy order',
+      );
     }
-    if (ask.status !== OrderStatus.ACTIVE || bid.status !== OrderStatus.ACTIVE) {
+    if (
+      ask.status !== OrderStatus.ACTIVE ||
+      bid.status !== OrderStatus.ACTIVE
+    ) {
       throw new BadRequestException('Both orders must be active');
     }
 
     const consBid = bid.parameters.consideration?.[0];
     if (!consBid || Number(consBid.itemType) !== 4) {
-      throw new BadRequestException('bid must be an ERC721_WITH_CRITERIA collection bid');
+      throw new BadRequestException(
+        'bid must be an ERC721_WITH_CRITERIA collection bid',
+      );
     }
 
     if (
@@ -530,14 +588,18 @@ export class OrdersService {
       bid.collectionKey &&
       ask.collectionKey.toLowerCase() !== bid.collectionKey.toLowerCase()
     ) {
-      throw new BadRequestException('Listing and bid must belong to the same collection');
+      throw new BadRequestException(
+        'Listing and bid must belong to the same collection',
+      );
     }
 
     try {
       const askPrice = BigInt(ask.considerationAmount);
       const bidPrice = BigInt(bid.considerationAmount);
       if (bidPrice < askPrice) {
-        throw new BadRequestException('Bid USDC amount must be at least the listing price');
+        throw new BadRequestException(
+          'Bid USDC amount must be at least the listing price',
+        );
       }
     } catch (e) {
       if (e instanceof BadRequestException) throw e;
@@ -578,7 +640,10 @@ export class OrdersService {
     );
   }
 
-  private deriveOrderHash(parameters: Record<string, unknown>, side: OrderSide): string {
+  private deriveOrderHash(
+    parameters: Record<string, unknown>,
+    side: OrderSide,
+  ): string {
     const raw = JSON.stringify({
       side,
       offerer: parameters['offerer'],

@@ -515,42 +515,6 @@ export async function cancelOrder(
   return res.json() as Promise<Order>;
 }
 
-export async function getMyHiddenAssetTokenIds(
-  walletAddress: string,
-): Promise<number[]> {
-  const q = new URLSearchParams({ walletAddress }).toString();
-  const res = await backendFetch(`${getApiUrl()}/marketplace/my-assets/hidden?${q}`);
-  if (!res.ok) throw new Error("Failed to fetch hidden assets");
-  const j = (await res.json()) as { tokenIds?: number[] };
-  return Array.isArray(j.tokenIds) ? j.tokenIds : [];
-}
-
-export async function hideMyAssetToken(
-  walletAddress: string,
-  tokenId: number,
-): Promise<void> {
-  const res = await backendFetch(`${getApiUrl()}/marketplace/my-assets/hidden`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ walletAddress, tokenId }),
-  });
-  if (!res.ok) throw new Error("Failed to hide asset");
-}
-
-export async function unhideMyAssetToken(
-  walletAddress: string,
-  tokenId: number,
-): Promise<void> {
-  const q = new URLSearchParams({
-    walletAddress,
-    tokenId: String(tokenId),
-  }).toString();
-  const res = await backendFetch(`${getApiUrl()}/marketplace/my-assets/hidden?${q}`, {
-    method: "PATCH",
-  });
-  if (!res.ok) throw new Error("Failed to unhide asset");
-}
-
 export interface MarketplaceCollectionDetail {
   /** Null until first listing (or other flow) creates `marketplace_collections` for this key. */
   collection: {
@@ -617,7 +581,7 @@ export interface CollectionMarketSeries {
   categoryLabel: string | null;
   marketChangePct: number | null;
   /** Present when served by a recent backend (exchange list uses same bundle fields) */
-  marketChangeWindow?: "7d" | "30d" | "90d" | "180d" | "365d";
+  marketChangeWindow?: "7d" | "30d" | "90d" | "180d" | "365d" | "24h";
   marketChangeSource?:
     | "cardhedger_nm"
     | "cardhedger_graded"
@@ -993,7 +957,7 @@ export interface CollectionListMarketSnapshot {
   /** Legacy bundle field; prefer {@link CollectionMarketStats} via `marketStats` or GET …/stats */
   marketChangePct: number | null;
   /** Window label for bundle metadata */
-  marketChangeWindow?: "7d" | "30d" | "90d" | "180d" | "365d";
+  marketChangeWindow?: "7d" | "30d" | "90d" | "180d" | "365d" | "24h";
   marketChangeSource?:
     | "cardhedger_nm"
     | "cardhedger_graded"

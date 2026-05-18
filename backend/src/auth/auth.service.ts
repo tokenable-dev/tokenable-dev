@@ -1,9 +1,4 @@
-import {
-  HttpException,
-  HttpStatus,
-  Injectable,
-  Logger,
-} from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { createHash, randomBytes } from 'crypto';
@@ -102,7 +97,9 @@ export class AuthService {
       lastSent,
     );
 
-    const front = this.config.getOrThrow<string>('FRONTEND_URL').replace(/\/$/, '');
+    const front = this.config
+      .getOrThrow<string>('FRONTEND_URL')
+      .replace(/\/$/, '');
     const verifyLink = `${front}/api/auth/verify-email?token=${encodeURIComponent(token)}`;
 
     try {

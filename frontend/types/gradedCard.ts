@@ -34,6 +34,8 @@ export interface GradedCardMetadata {
   cardhedger?: {
     cardId?: string;
     searchQuery?: string;
+    /** Clean catalog image URL (no PSA cert label) — used as collection cover */
+    imageUrl?: string;
   };
   /** Collection cover on IPFS after server trims slab top (mint response) */
   collectionCoverImage?: string;

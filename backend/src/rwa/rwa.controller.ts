@@ -6,12 +6,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import {
-  ApiBody,
-  ApiConsumes,
-  ApiOperation,
-  ApiTags,
-} from '@nestjs/swagger';
+import { ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { UploadRwaDto } from './dto/upload-rwa.dto';
 import { UploadRwaResult } from './interfaces/rwa-metadata.interface';
 import { RwaService } from './rwa.service';
@@ -21,7 +16,9 @@ import { RwaService } from './rwa.service';
 export class RwaController {
   constructor(private readonly rwaService: RwaService) {}
 
-  @ApiOperation({ summary: 'RWA 이미지 및 메타데이터를 IPFS에 업로드하고 tokenURI 반환' })
+  @ApiOperation({
+    summary: 'RWA 이미지 및 메타데이터를 IPFS에 업로드하고 tokenURI 반환',
+  })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
     schema: {
@@ -36,7 +33,11 @@ export class RwaController {
           example: '[{"trait_type":"Background","value":"Blue"}]',
           description: 'JSON 문자열로 전달',
         },
-        image: { type: 'string', format: 'binary', description: '이미지 파일 (jpg, jpeg, png)' },
+        image: {
+          type: 'string',
+          format: 'binary',
+          description: '이미지 파일 (jpg, jpeg, png)',
+        },
         gradedMetadata: {
           type: 'string',
           description:

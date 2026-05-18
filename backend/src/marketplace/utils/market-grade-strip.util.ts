@@ -23,18 +23,6 @@ function pickBandAvg(b: NmBand): number | null {
   return null;
 }
 
-export function blendNearMintUnitUsdFromPreview(
-  preview: MarketCollectionPreview,
-): number | null {
-  void preview;
-  return null;
-}
-
-export function gradeStripFromMarketNm(nm: number | null): GradePriceStrip {
-  if (nm == null || !Number.isFinite(nm) || nm <= 0) return { psa10: null, psa9: null, raw: null };
-  return { psa10: nm, psa9: null, raw: null };
-}
-
 export function blendCatalogSpotUsdFromPreview(
   preview: MarketCollectionPreview,
   historyTier: string,
@@ -61,7 +49,8 @@ export function gradeStripFromHistoryTier(
   if (spotUsd == null || !Number.isFinite(spotUsd) || spotUsd <= 0) {
     return { psa10: null, psa9: null, raw: null };
   }
-  if (historyTier === 'PSA_10') return { psa10: spotUsd, psa9: null, raw: null };
+  if (historyTier === 'PSA_10')
+    return { psa10: spotUsd, psa9: null, raw: null };
   return { psa10: null, psa9: null, raw: null };
 }
 
@@ -85,4 +74,3 @@ export function nmHistoryDaysForBundleWindow(
       return 30;
   }
 }
-

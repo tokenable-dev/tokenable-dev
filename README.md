@@ -39,7 +39,7 @@ Trading remains non-custodial until settlement; criteria bids cover Merkle-eligi
 - **Cardhedger** — Live card/game pricing, mint previews, PSA-10 history, AI insights (`CARDHEDGER_API_KEY` required)
 - **PSA Public API** — Cert lookup + slab images (`PSA_PUBLIC_API_TOKEN`)
 - **Pinata** — IPFS pinning for RWA metadata/images
-- **PostgreSQL + TypeORM** — Orders, collections, optional relational trading layer ([docs/api/marketplace.md](docs/api/marketplace.md))
+- **PostgreSQL + TypeORM** — Orders, collections, users ([docs/api/marketplace.md](docs/api/marketplace.md))
 
 ### Smart Contracts
 
@@ -68,7 +68,7 @@ tokenable-dev/
 | ------------ | --------------------------------------------------------------------------- |
 | **frontend** | Next.js application for wallet connection, RWA minting, browsing, and trading |
 | **backend**  | NestJS API server handling IPFS uploads, blockchain reads, and marketplace data |
-| **contracts** | Solidity: TokenableRWA (ERC-721), MockUSDC (ERC-20) — primary trading: Seaport; optional relational match layer in Nest (`docs/api/marketplace.md`) |
+| **contracts** | Solidity: TokenableRWA (ERC-721), MockUSDC (ERC-20) — listing & matching via Seaport ([docs/api/marketplace.md](docs/api/marketplace.md)) |
 
 ---
 

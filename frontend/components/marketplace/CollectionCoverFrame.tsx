@@ -129,8 +129,9 @@ export function CollectionCoverFrame({
 
   /** featured: 목록→상세 중간 / hero: 컬렉션 페이지 중앙 대형 */
   const featuredOuter = "w-full max-w-[165px] sm:max-w-[180px] aspect-[3/4]";
+  /** Collection detail hero — ~⅔ of legacy 460×640 (≈ one-third smaller footprint). */
   const heroOuter =
-    "w-[460px] max-w-full h-[640px] max-h-[min(640px,90svh)]";
+    "w-[307px] max-w-full h-[427px] max-h-[min(427px,90svh)]";
 
   const heroGlow =
     variant === "hero"

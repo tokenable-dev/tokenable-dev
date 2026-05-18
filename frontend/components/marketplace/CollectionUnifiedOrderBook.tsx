@@ -332,7 +332,7 @@ export function CollectionUnifiedOrderBook({
       tone: "none",
       lastSide: null,
       secondary: null,
-      caption: "No orders",
+      caption: "",
       title: "No bid or ask in this book yet.",
     };
   }, [bestAskPrice, bestBidPrice, lastTradePriceUsdc, lastTradeSide]);

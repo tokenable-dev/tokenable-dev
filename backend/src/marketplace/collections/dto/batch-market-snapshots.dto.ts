@@ -1,8 +1,17 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { ArrayMaxSize, IsArray, IsIn, IsOptional, IsString } from 'class-validator';
+import {
+  ArrayMaxSize,
+  IsArray,
+  IsIn,
+  IsOptional,
+  IsString,
+} from 'class-validator';
 
 export class BatchMarketSnapshotsDto {
-  @ApiProperty({ type: [String], description: 'Marketplace collection_key values' })
+  @ApiProperty({
+    type: [String],
+    description: 'Marketplace collection_key values',
+  })
   @IsArray()
   @ArrayMaxSize(60)
   @IsString({ each: true })

@@ -8,7 +8,9 @@ export function extractCollectionQueryUsed(
   meta: Record<string, unknown>,
 ): string | null {
   const props = meta.properties as Record<string, unknown> | undefined;
-  const graded = (props?.graded ?? meta.graded) as Record<string, unknown> | undefined;
+  const graded = (props?.graded ?? meta.graded) as
+    | Record<string, unknown>
+    | undefined;
   if (!graded || typeof graded !== 'object') return null;
   const ch = graded.cardhedger as Record<string, unknown> | undefined;
   if (!ch || typeof ch !== 'object') return null;
@@ -22,7 +24,9 @@ function escapeRegExp(s: string): string {
 }
 
 /** `card.set` → `card.name` 순; 등급/회사 문자열 없음 — 버킷 키는 그대로 `components`. */
-function gradeFreeLabelPartsFromComponents(components: MarketBucketComponents): string {
+function gradeFreeLabelPartsFromComponents(
+  components: MarketBucketComponents,
+): string {
   const set = (components.cardSetDisplay ?? components.cardSet).trim();
   const name = (components.cardNameDisplay ?? components.cardName).trim();
   return [set, name].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
@@ -62,6 +66,9 @@ export function buildCollectionDisplayLabel(
   const base = gradeFreeLabelPartsFromComponents(components);
   if (!queryUsed || !queryUsed.trim()) return base;
 
-  const stripped = stripGradingCompanyAndScoreFromText(queryUsed.trim(), components);
+  const stripped = stripGradingCompanyAndScoreFromText(
+    queryUsed.trim(),
+    components,
+  );
   return stripped.length > 0 ? stripped : base;
 }
