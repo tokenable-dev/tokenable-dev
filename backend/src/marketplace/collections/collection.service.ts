@@ -239,8 +239,10 @@ export class CollectionService implements OnModuleInit {
    *
    * Tried in order:
    *   1. PSA spec page scrape — when `specId` is known (메타·fallback·또는 Cert로
-   *      `GetByCertNumber`에서 보강). 스크래퍼 실패 시 아래 단계로 계속.
-   *   2. Cardhedger card-details (cardId known) — only when step 1 did not apply
+   *      `GetByCertNumber`에서 보강). 성공 시 여기서 종료.
+   *      `PSA_SPEC_COVER_ALLOW_FALLBACK=1|true` 가 **아니면** specId가 있는데 스크랩이
+   *      실패하면 아래 단계로 내려가지 않고 `null` 반환.
+   *   2. Cardhedger card-details (cardId known) — specId 없거나 위 폴백 허용 시
    *   3. Cardhedger card-search  (name + number + set text query)
    *   4. Cardhedger image-search (certImageSourceUrl → visual matching)
    *   5. Pokemon TCG API         (Pokemon cards)
@@ -292,6 +294,9 @@ export class CollectionService implements OnModuleInit {
     }
 
     if (specId) {
+      const allowFallback =
+        process.env.PSA_SPEC_COVER_ALLOW_FALLBACK === '1' ||
+        process.env.PSA_SPEC_COVER_ALLOW_FALLBACK === 'true';
       try {
         const psaSpecImg =
           await this.psaSpecScraper.scrapeSpecImageUrl(specId);
@@ -301,13 +306,18 @@ export class CollectionService implements OnModuleInit {
           return img;
         }
         this.logger.warn(
-          `[CoverImg] PSA spec scrape returned null for specId=${specId} — falling back`,
+          `[CoverImg] PSA spec scrape returned null for specId=${specId}${
+            allowFallback ? ' — falling back' : ' — no fallback (set PSA_SPEC_COVER_ALLOW_FALLBACK=1 to allow Cardhedger/TCG)'
+          }`,
         );
       } catch (e) {
         this.logger.warn(
-          `[CoverImg] PSA spec scrape failed specId=${specId}: ${e instanceof Error ? e.message : String(e)} — falling back`,
+          `[CoverImg] PSA spec scrape failed specId=${specId}: ${e instanceof Error ? e.message : String(e)}${
+            allowFallback ? ' — falling back' : ' — no fallback (set PSA_SPEC_COVER_ALLOW_FALLBACK=1 to allow Cardhedger/TCG)'
+          }`,
         );
       }
+      if (!allowFallback) return null;
       // fall through — Cardhedger / TCG may still resolve a catalog image
     }
 

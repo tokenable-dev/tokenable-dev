@@ -50,9 +50,17 @@ export class PsaSpecScraperService implements OnModuleInit, OnModuleDestroy {
   private static readonly POSITIVE_TTL_MS = 24 * 60 * 60 * 1000;
   private static readonly NEGATIVE_TTL_MS = 60 * 60 * 1000;
   private static readonly CDN_HOST = 'd1htnxwo4o0jhw.cloudfront.net';
-  /** No env — fixed timeouts for Cloudflare + spec image load. */
-  private static readonly NAV_TIMEOUT_MS = 45_000;
-  private static readonly IMG_TIMEOUT_MS = 30_000;
+  /** Cloudflare + EC2/datacenter latency — override via env if needed. */
+  private static navTimeoutMs(): number {
+    const raw = process.env.PSA_SPEC_NAV_TIMEOUT_MS;
+    const n = raw ? parseInt(raw, 10) : NaN;
+    return Number.isFinite(n) && n > 0 ? n : 120_000;
+  }
+  private static imgTimeoutMs(): number {
+    const raw = process.env.PSA_SPEC_IMG_TIMEOUT_MS;
+    const n = raw ? parseInt(raw, 10) : NaN;
+    return Number.isFinite(n) && n > 0 ? n : 45_000;
+  }
 
   constructor() {}
 
@@ -97,7 +105,7 @@ export class PsaSpecScraperService implements OnModuleInit, OnModuleDestroy {
     const existing = this.inFlight.get(id);
     if (existing) return existing;
 
-    const job = this.doScrape(id)
+    const job = this.doScrapeWithRetry(id)
       .catch((err) => {
         const msg = err instanceof Error ? err.message : String(err);
         this.logger.warn(`PSA spec scrape errored for specId=${id}: ${msg}`);
@@ -127,12 +135,29 @@ export class PsaSpecScraperService implements OnModuleInit, OnModuleDestroy {
     return url;
   }
 
+  /** One navigation timeout retry (common on cold Chromium / congested DC egress). */
+  private async doScrapeWithRetry(specId: string): Promise<string | null> {
+    try {
+      return await this.doScrape(specId);
+    } catch (first) {
+      const msg = first instanceof Error ? first.message : String(first);
+      if (!/timeout|Timeout/i.test(msg)) throw first;
+      this.logger.warn(
+        `PSA spec scrape navigation timeout, retrying once specId=${specId}`,
+      );
+      await new Promise((r) => setTimeout(r, 2_000));
+      return this.doScrape(specId);
+    }
+  }
+
   private async doScrape(specId: string): Promise<string | null> {
     const context = await this.ensureContext();
     const page = await context.newPage();
 
-    const navTimeout = PsaSpecScraperService.NAV_TIMEOUT_MS;
-    const imgTimeout = PsaSpecScraperService.IMG_TIMEOUT_MS;
+    const navTimeout = PsaSpecScraperService.navTimeoutMs();
+    const imgTimeout = PsaSpecScraperService.imgTimeoutMs();
+    page.setDefaultNavigationTimeout(navTimeout);
+    page.setDefaultTimeout(Math.max(navTimeout, imgTimeout));
 
     try {
       const targetUrl = `https://www.psacard.com/spec/psa/${specId}?g=10&gt=SINGLE_GRADED`;
@@ -152,10 +177,19 @@ export class PsaSpecScraperService implements OnModuleInit, OnModuleDestroy {
       });
 
       this.logger.debug(`Scraping PSA spec page ${targetUrl}`);
+      // `commit` returns as soon as the response headers commit — avoids waiting
+      // for full DOM when Cloudflare is slow; we then wait for DOM explicitly.
       await page.goto(targetUrl, {
-        waitUntil: 'domcontentloaded',
+        waitUntil: 'commit',
         timeout: navTimeout,
       });
+      await page
+        .waitForLoadState('domcontentloaded', { timeout: navTimeout })
+        .catch(() => {
+          this.logger.debug(
+            `PSA spec specId=${specId}: domcontentloaded wait skipped or slow — continuing`,
+          );
+        });
 
       // If we landed on a Cloudflare interstitial, give the JS challenge a moment.
       const titleNow = await page.title().catch(() => '');
