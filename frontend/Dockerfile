@@ -26,6 +26,12 @@ ARG NEXT_PUBLIC_USDC_CONTRACT_ADDRESS
 ARG NEXT_PUBLIC_ALCHEMY_RPC_URL
 ARG NEXT_PUBLIC_PLATFORM_FEE_RECIPIENT
 ARG NEXT_PUBLIC_PLATFORM_FEE_BPS
+# `next.config.ts` rewrites: same-origin `/api` → Nest. Baked at **build** time (not runtime).
+# 예: Docker Compose 에서 서비스명이 `api` 이고 Nest 가 4000 이면
+#   --build-arg API_PROXY_TARGET=http://api:4000
+# 없이 빌드하면 기본 http://127.0.0.1:4000 → 프론트 단독 컨테이너에서 /api 전부 502.
+ARG API_PROXY_TARGET=http://127.0.0.1:4000
+ENV API_PROXY_TARGET=${API_PROXY_TARGET}
 
 # Empty NEXT_PUBLIC_API_URL ⇒ browser uses same-origin /api (works for IP, domain, https).
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}

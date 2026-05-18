@@ -12,7 +12,12 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: FRONTEND_ROOT,
   },
-  /** 브라우저를 동일 출처 `/api`로 두고 백엔드로 프록시 → httpOnly 쿠키(JWT) 전달 */
+  /**
+   * 브라우저는 동일 출처 `/api`로 호출 → 여기서 Nest 로 프록시(httpOnly 쿠키 전달).
+   * Standalone Docker 에서는 이 destination 이 **빌드 시점**에 고정되므로, API 컨테이너와 분리됐다면
+   * `docker build --build-arg API_PROXY_TARGET=http://<nest-서비스명>:4000` 필수.
+   * (기본 `127.0.0.1:4000` 이면 프론트 컨테이너 안에 백엔드가 없어 `/api` 가 전부 502 가 됨.)
+   */
   async rewrites() {
     const target = process.env.API_PROXY_TARGET ?? "http://127.0.0.1:4000";
     return [{ source: "/api/:path*", destination: `${target}/api/:path*` }];

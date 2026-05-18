@@ -97,6 +97,64 @@ export function percentChangeFromUsdPoints(
   return ((b - a) / a) * 100;
 }
 
+const SEC_24H = 86400;
+
+/**
+ * Latest observation vs linearly interpolated value at (latest.t − 24h) on the same series.
+ * Matches backend `percentChangeReferenceOver24h` in `collection-market.util.ts`
+ * (markets list / `market-series` bundle `marketChangePct`).
+ *
+ * Unlike {@link percentChangeUsdSinceCutoff} anchored to wall-clock “now”, this still works when the feed’s
+ * newest point is older than 24h (stale Cardhedger ticks).
+ */
+export function percentChangeReferenceOver24h(
+  points: CollectionUsdPoint[] | null | undefined,
+): number | null {
+  const cleaned = (points ?? []).filter(
+    (p) =>
+      Number.isFinite(p.t) &&
+      Number.isFinite(p.v) &&
+      p.v > 0,
+  );
+  if (cleaned.length < 2) return null;
+  const sorted = [...cleaned].sort((a, b) => a.t - b.t);
+  const end = sorted[sorted.length - 1]!;
+  const targetT = end.t - SEC_24H;
+  if (targetT < sorted[0]!.t) return null;
+
+  let i0 = -1;
+  for (let k = 0; k < sorted.length; k++) {
+    if (sorted[k]!.t <= targetT) i0 = k;
+    else break;
+  }
+  if (i0 < 0) return null;
+
+  let refV: number;
+  const a = sorted[i0]!;
+  if (a.t === targetT) {
+    refV = a.v;
+  } else if (i0 + 1 < sorted.length) {
+    const b = sorted[i0 + 1]!;
+    if (b.t <= targetT) return null;
+    const dt = b.t - a.t;
+    if (dt <= 0) return null;
+    const w = (targetT - a.t) / dt;
+    refV = a.v + (b.v - a.v) * w;
+  } else {
+    refV = a.v;
+  }
+
+  if (
+    !Number.isFinite(refV) ||
+    refV <= 0 ||
+    !Number.isFinite(end.v) ||
+    end.v <= 0
+  ) {
+    return null;
+  }
+  return ((end.v - refV) / refV) * 100;
+}
+
 /**
  * % change from the last sample at or before `cutoffSec` to the latest sample in `points`
  * (reference external / chart USD series). Returns null if there is no baseline older than the latest point.

@@ -23,7 +23,7 @@ import {
   marketHistoryTierFromComponents,
   marketTierDisplayLabel,
   parseGradeScoreNumber,
-  percentChangeUsdSinceCutoff,
+  percentChangeReferenceOver24h,
   resolveExternalMarketUsd,
 } from "@/lib/market";
 import { CollectionOverviewBoard } from "@/components/marketplace/CollectionOverviewBoard";
@@ -434,11 +434,7 @@ export default function MarketplaceCollectionPage() {
   }, [pokeHistOk, pokeHistPts, jtHistOk, jtHistPts]);
 
   const externalPriceChange24hPct = useMemo(
-    () =>
-      percentChangeUsdSinceCutoff(
-        externalReferencePtsFor24h,
-        Math.floor(Date.now() / 1000) - 86400,
-      ),
+    () => percentChangeReferenceOver24h(externalReferencePtsFor24h),
     [externalReferencePtsFor24h],
   );
 
