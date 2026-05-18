@@ -33,14 +33,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
 WORKDIR /app
 
 ENV NODE_ENV=production
-ENV CI=true
 
 RUN corepack enable && corepack prepare pnpm@11.0.9 --activate
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile --prod
 
-# PSA spec scraper (playwright-core): Chromium + Debian 라이브러리 (~ 추가 수백 MB)
-RUN pnpm exec playwright-core install --with-deps chromium
+# PSA spec scraper — Chromium must exist in the image at runtime.
+# 1) PLAYWRIGHT_BROWSERS_PATH: predictable path (not only ~/.cache)
+# 2) CI= empty for this RUN only — with CI=true some Playwright versions skip browser download during install
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+RUN CI= pnpm exec playwright-core install --with-deps chromium
+
+ENV CI=true
 
 COPY --from=builder /app/dist ./dist
 

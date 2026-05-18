@@ -25,4 +25,4 @@ pnpm run install:browsers
 
 Quick manual check: `pnpm exec ts-node scripts/test-psa-spec-scraper.ts 9656727`.
 
-> **Docker:** the production `Dockerfile` runner runs `pnpm exec playwright-core install --with-deps chromium` so PSA spec scraping works in containers. Local dev: still use `pnpm run install:browsers` once per machine.
+> **Docker:** the production `Dockerfile` installs browsers under `PLAYWRIGHT_BROWSERS_PATH=/ms-playwright` and runs `playwright-core install --with-deps chromium` with **`CI` unset for that step** so the download is not skipped when `CI=true` elsewhere. Local dev: `pnpm run install:browsers`.
