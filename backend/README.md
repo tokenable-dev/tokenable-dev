@@ -25,4 +25,4 @@ pnpm run install:browsers
 
 Quick manual check: `pnpm exec ts-node scripts/test-psa-spec-scraper.ts 9656727`.
 
-> **Docker:** the default `node:22-bookworm-slim` runner lacks Chromium's shared libs. For production, either (a) extend the runner stage with `RUN pnpm exec playwright-core install --with-deps chromium`, or (b) switch the runner base to `mcr.microsoft.com/playwright:v1.60.0-noble`.
+> **Docker:** the production `Dockerfile` runner runs `pnpm exec playwright-core install --with-deps chromium` so PSA spec scraping works in containers. Local dev: still use `pnpm run install:browsers` once per machine.

@@ -39,6 +39,9 @@ RUN corepack enable && corepack prepare pnpm@11.0.9 --activate
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile --prod
 
+# PSA spec scraper (playwright-core): Chromium + Debian 라이브러리 (~ 추가 수백 MB)
+RUN pnpm exec playwright-core install --with-deps chromium
+
 COPY --from=builder /app/dist ./dist
 
 EXPOSE 4000
