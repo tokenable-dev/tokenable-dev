@@ -656,6 +656,40 @@ export async function getCollectionMarketStats(
   return res.json() as Promise<CollectionMarketStats>;
 }
 
+/** Portfolio batch — same shapes as {@link getCollectionMarketStats} + {@link getCollectionMarketSeries}. */
+export interface PortfolioMarketBatchItem {
+  collectionKey: string;
+  stats: CollectionMarketStats | null;
+  series: CollectionMarketSeries | null;
+}
+
+export async function postPortfolioCollectionMarketBatch(body: {
+  collectionKeys: string[];
+  priceHistoryDuration?: "7d" | "30d" | "90d" | "180d" | "365d";
+  hints?: Array<{ collectionKey: string; hintTokenId: number }>;
+}): Promise<{ items: PortfolioMarketBatchItem[] }> {
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/collections/portfolio-market-batch`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        collectionKeys: body.collectionKeys,
+        priceHistoryDuration: body.priceHistoryDuration ?? "365d",
+        ...(body.hints && body.hints.length > 0 ? { hints: body.hints } : {}),
+      }),
+    },
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(
+      (err as { message?: string }).message ??
+        "Failed to load portfolio market batch",
+    );
+  }
+  return res.json() as Promise<{ items: PortfolioMarketBatchItem[] }>;
+}
+
 export interface MarketPriceBand {
   avg: number | null;
   low: number | null;

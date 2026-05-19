@@ -504,30 +504,35 @@ export default function MarketplaceCollectionPage() {
     [data, asks],
   );
 
-  /** Under-chart showcase row — at most three listings, equal-width slots on desktop. */
-  const showcaseListingTokenIds = useMemo(() => tokenIds.slice(0, 3), [tokenIds]);
-
-  // Batch-fetch metadata + imageUrl for under-chart showcase cards (max 3)
+  // Under-chart listing cards: all active asks. Metadata batch API allows max 80 ids per request.
   const { data: batchMetadata } = useQuery({
-    queryKey: ["collection-listings-metadata", key, showcaseListingTokenIds],
+    queryKey: ["collection-listings-metadata", key, tokenIds],
     queryFn: async () => {
-      const pack = await postRwaMetadataBatch({ tokenIds: showcaseListingTokenIds });
-      // Prime the shared cache so individual token pages skip re-fetching
+      const ids = tokenIds;
+      const BATCH_MAX = 80;
+      const chunks: number[][] = [];
+      for (let i = 0; i < ids.length; i += BATCH_MAX) {
+        chunks.push(ids.slice(i, i + BATCH_MAX));
+      }
+      const packs = await Promise.all(
+        chunks.map((chunk) => postRwaMetadataBatch({ tokenIds: chunk })),
+      );
+      const flat = packs.flatMap((p) => p.items);
       primeRwaMetadataCache(
-        pack.items.map((it) => ({
+        flat.map((it) => ({
           tokenId: it.tokenId,
           metadata: it.metadata,
           imageUrl: it.imageUrl,
         })),
       );
       return new Map(
-        pack.items.map((it) => [
+        flat.map((it) => [
           it.tokenId,
           { metadata: it.metadata as RwaMetadata | null, imageUrl: it.imageUrl },
         ]),
       );
     },
-    enabled: showcaseListingTokenIds.length > 0,
+    enabled: tokenIds.length > 0,
     staleTime: 60_000,
   });
 
@@ -1192,12 +1197,12 @@ export default function MarketplaceCollectionPage() {
               </div>
             ) : (
               <div className="flex w-full min-w-0 flex-row flex-wrap content-start items-stretch gap-x-3 gap-y-3 pb-2 sm:gap-x-[0.875rem] sm:gap-y-[0.9rem]">
-                {showcaseListingTokenIds.map((tid) => {
+                {tokenIds.map((tid) => {
                   const prefetch = batchMetadata?.get(tid);
                   return (
                     <div
                       key={tid}
-                      className="w-full min-w-0 shrink-0 sm:w-[228px] lg:w-[244px]"
+                      className="w-full min-w-0 shrink-0 sm:w-[218px] lg:w-[234px]"
                     >
                       <CollectionRwaCard
                         tokenId={tid}
