@@ -1391,15 +1391,18 @@ export class CollectionService implements OnModuleInit {
    * and persist **only if the column is still null** so we never replace the first saved cover.
    *
    * Concurrency: at most one resolution per `collection_key` at a time (parallel page loads share one scrape).
+   *
+   * @param preloaded — When set (e.g. from `GET /collections/:key`), skips a second DB read for active asks/bids.
    */
   async resolveRepresentativeImageForCollection(
     collectionKey: string,
+    preloaded?: { asks: Order[]; bids: Order[] },
   ): Promise<string | null> {
     const k = collectionKey.toLowerCase();
     const inflight = this.representativeImageResolveInflight.get(k);
     if (inflight) return inflight;
 
-    const job = this.runRepresentativeImageResolution(k).finally(() => {
+    const job = this.runRepresentativeImageResolution(k, preloaded).finally(() => {
       this.representativeImageResolveInflight.delete(k);
     });
     this.representativeImageResolveInflight.set(k, job);
@@ -1408,6 +1411,7 @@ export class CollectionService implements OnModuleInit {
 
   private async runRepresentativeImageResolution(
     collectionKey: string,
+    preloaded?: { asks: Order[]; bids: Order[] },
   ): Promise<string | null> {
     const k = collectionKey.toLowerCase();
     const col = await this.findOne(k);
@@ -1417,8 +1421,10 @@ export class CollectionService implements OnModuleInit {
     // If already a high-quality (non-IPFS, non-PSA-slab-cert) URL, return immediately
     if (stored && this.isHighQualityCoverUrl(stored)) return stored;
 
-    const asks = await this.activeListingsForCollection(k);
-    const bids = await this.activeBidsForCollection(k);
+    const asks =
+      preloaded?.asks ?? (await this.activeListingsForCollection(k));
+    const bids =
+      preloaded?.bids ?? (await this.activeBidsForCollection(k));
     const askIds = asks
       .map((o) => o.tokenId)
       .filter((id) => id != null && String(id).trim() !== '');

@@ -17,6 +17,7 @@ import {
   type Order,
   type RwaMetadata,
 } from "@/lib/core";
+import { pickCollectionHeroImageUrl } from "@/lib/marketplace";
 import {
   computeCollectionMarketCapUsd,
   formatMarketCapUsd,
@@ -1025,9 +1026,8 @@ export default function MarketplaceCollectionPage() {
     );
   }
 
-  const { collection, representativeImageUrl } = data;
-  const collectionCoverUrl =
-    collection.coverImageUrl?.trim() || representativeImageUrl;
+  const collection = data.collection;
+  const collectionCoverUrl = pickCollectionHeroImageUrl(data);
 
   const exchangePriceStripProps = {
     showFootnotes: false as const,

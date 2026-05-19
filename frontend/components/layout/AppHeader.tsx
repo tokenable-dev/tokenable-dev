@@ -1,7 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import {
+  useState,
+  useRef,
+  useEffect,
+  useCallback,
+  useMemo,
+  useDeferredValue,
+} from "react";
 import { useRouter } from "next/navigation";
 import { useAccount, useConnect, useDisconnect, useBalance } from "wagmi";
 import { formatUnits } from "viem";
@@ -16,9 +23,19 @@ import { useAppStore, selectUsdcBalance } from "@/store";
 import { useShallow } from "zustand/react/shallow";
 import { toCardDisplayUppercase } from "@/lib/marketplace/collectionFullDetailsTitle";
 
+/** Hex bucket keys are ~64 chars; short queries (esp. single digits 0–9) match almost every key and melt React. */
+const MIN_QUERY_LEN_FOR_KEY_MATCH = 4;
+const SEARCH_MAX_RESULTS = 64;
+/**
+ * Local dev: loopback API often loads the full catalog into memory; scanning 5k+ rows every keystroke freezes the tab.
+ * Prod: slower network yields fewer loaded pages, so typing stays responsive. Cap prefetch so dev matches prod-ish cost.
+ */
+const SEARCH_PREFETCH_MAX_PAGES = 8;
+
 function SearchBar() {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const deferredQuery = useDeferredValue(query);
   const [highlightIdx, setHighlightIdx] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -29,30 +46,37 @@ function SearchBar() {
     () => colInfinite.data?.pages.flatMap((p) => p.items) ?? [],
     [colInfinite.data],
   );
+  const pagesLoaded = colInfinite.data?.pages.length ?? 0;
 
+  /** Pull extra pages for search, but not the entire DB (unbounded fetch + full-array filter = local freeze). */
   useEffect(() => {
     if (!open) return;
-    let cancelled = false;
-    void (async () => {
-      while (!cancelled && colInfinite.hasNextPage) {
-        await colInfinite.fetchNextPage();
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [open, colInfinite.hasNextPage, colInfinite.fetchNextPage]);
+    if (pagesLoaded >= SEARCH_PREFETCH_MAX_PAGES) return;
+    if (!colInfinite.hasNextPage) return;
+    void colInfinite.fetchNextPage();
+  }, [open, pagesLoaded, colInfinite.hasNextPage, colInfinite.fetchNextPage]);
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return [];
-    return collections.filter((c) => {
+  const { filtered, searchTruncated } = useMemo(() => {
+    const q = deferredQuery.trim().toLowerCase();
+    if (!q) return { filtered: [] as MarketplaceCollectionSummary[], searchTruncated: false };
+    const matchKey = q.length >= MIN_QUERY_LEN_FOR_KEY_MATCH;
+    const matches: MarketplaceCollectionSummary[] = [];
+    for (const c of collections) {
       const label = c.displayLabel.toLowerCase();
       const key = c.collectionKey.toLowerCase();
       const qUsed = (c.queryUsed ?? "").toLowerCase();
-      return label.includes(q) || key.includes(q) || qUsed.includes(q);
-    });
-  }, [query, collections]);
+      const hit =
+        label.includes(q) ||
+        qUsed.includes(q) ||
+        (matchKey && key.includes(q));
+      if (hit) {
+        matches.push(c);
+        if (matches.length >= SEARCH_MAX_RESULTS) break;
+      }
+    }
+    const searchTruncated = matches.length >= SEARCH_MAX_RESULTS;
+    return { filtered: matches, searchTruncated };
+  }, [deferredQuery, collections]);
 
   useEffect(() => {
     setHighlightIdx(-1);
@@ -161,6 +185,11 @@ function SearchBar() {
               className="max-h-[156px] overflow-y-auto overscroll-contain scrollbar-thin py-1"
               role="listbox"
             >
+              {searchTruncated ? (
+                <li className="px-2.5 py-1.5 text-[10px] text-amber-200/90 border-b border-gray-800/80">
+                  Showing first {SEARCH_MAX_RESULTS} matches — type more to narrow.
+                </li>
+              ) : null}
               {filtered.map((c, i) => (
                 <li
                   key={c.collectionKey}

@@ -96,8 +96,14 @@ export function CollectionCoverFrame({
   variant = "compact",
   className = "",
 }: CollectionCoverFrameProps) {
-  const { url: resolved } = useResolvedMediaUrl(imageUrl);
+  const { url: resolved, isLoading } = useResolvedMediaUrl(imageUrl);
+  const [imgFailed, setImgFailed] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
+
+  useEffect(() => {
+    setImgFailed(false);
+    setLightboxOpen(false);
+  }, [imageUrl, resolved]);
   const isLarge =
     variant === "featured" || variant === "hero";
   const outerPad =
@@ -175,7 +181,7 @@ export function CollectionCoverFrame({
               : "min-h-0 w-full flex-1"
           } ${heroInteractive ? "group/img" : ""}`}
         >
-          {resolved ? (
+          {resolved && !imgFailed ? (
             <>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
@@ -183,6 +189,7 @@ export function CollectionCoverFrame({
                 alt={alt}
                 className="absolute inset-0 h-full w-full object-contain object-center"
                 style={{ filter: "saturate(1.04) contrast(1.02)" }}
+                onError={() => setImgFailed(true)}
               />
               {heroInteractive ? (
                 <>
@@ -225,8 +232,20 @@ export function CollectionCoverFrame({
                 </>
               ) : null}
             </>
-          ) : (
+          ) : imgFailed ? (
+            <div
+              className="absolute inset-0 flex items-center justify-center px-3 text-center text-[11px] leading-snug text-zinc-500"
+              role="img"
+              aria-label={alt ? `${alt} (failed to load)` : "Cover image failed to load"}
+            >
+              Couldn&apos;t load image
+            </div>
+          ) : isLoading ? (
             <div className="absolute inset-0 bg-gray-900/80 animate-pulse" aria-hidden />
+          ) : (
+            <div className="absolute inset-0 flex items-center justify-center px-3 text-center text-[11px] text-zinc-600">
+              No preview
+            </div>
           )}
           {variant !== "hero" ? (
             <div
@@ -237,7 +256,7 @@ export function CollectionCoverFrame({
         </div>
       </div>
       <CollectionCoverLightbox
-        open={lightboxOpen && heroInteractive && Boolean(resolved)}
+        open={lightboxOpen && heroInteractive && Boolean(resolved) && !imgFailed}
         resolvedUrl={resolved}
         alt={alt}
         onClose={() => setLightboxOpen(false)}

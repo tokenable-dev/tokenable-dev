@@ -1,3 +1,4 @@
+export * from './collectionHeroImage';
 export * from './marketplaceQueryPersistence';
 export * from './mediaUriResolve';
 export * from './normalizeTokenId';

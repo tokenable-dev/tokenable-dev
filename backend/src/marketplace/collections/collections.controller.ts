@@ -262,16 +262,27 @@ export class CollectionsController {
     const needsCoverUpgrade =
       col != null && this.collectionService.coverImageNeedsUpgrade(storedCover);
 
+    // Single fetch for asks/bids; share the same promises with cover resolution (no duplicate listing queries).
+    const listingsPromise = this.collectionService.activeListingsForCollection(k);
+    const bidsPromise = this.collectionService.activeBidsForCollection(k);
+
+    const coverFinishPromise = needsCoverUpgrade
+      ? Promise.all([listingsPromise, bidsPromise]).then(([listings, collectionBids]) =>
+          Promise.race([
+            this.collectionService.resolveRepresentativeImageForCollection(k, {
+              asks: listings,
+              bids: collectionBids,
+            }),
+            new Promise<null>((resolve) => setTimeout(() => resolve(null), 15_000)),
+          ]),
+        )
+      : Promise.resolve(null);
+
     const [listings, collectionBids] = await Promise.all([
-      this.collectionService.activeListingsForCollection(k),
-      this.collectionService.activeBidsForCollection(k),
-      needsCoverUpgrade
-        ? Promise.race([
-            this.collectionService.resolveRepresentativeImageForCollection(k),
-            new Promise<null>((r) => setTimeout(() => r(null), 15_000)),
-          ])
-        : Promise.resolve(null),
+      listingsPromise,
+      bidsPromise,
     ]);
+    await coverFinishPromise;
 
     if (needsCoverUpgrade) {
       const refreshed = await this.collectionService.findOne(k);
