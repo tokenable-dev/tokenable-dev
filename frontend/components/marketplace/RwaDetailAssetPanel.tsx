@@ -302,13 +302,13 @@ export function RwaDetailAssetPanel({
 
   const hasBackFace = Boolean(effectiveBackUrl);
   const [flipAngle, setFlipAngle] = useState(0);
-  const [slabAutoRotateOn, setSlabAutoRotateOn] = useState(true);
+  const [slabAutoRotateOn, setSlabAutoRotateOn] = useState(false);
   /** Slab flip when PSA back URL exists as candidate (tabs resolve / gateway). */
   const useFlipSlab = Boolean(backCandidate);
 
   useEffect(() => {
     setFlipAngle(0);
-    setSlabAutoRotateOn(true);
+    setSlabAutoRotateOn(false);
   }, [tokenId, backCandidate]);
 
   useEffect(() => {

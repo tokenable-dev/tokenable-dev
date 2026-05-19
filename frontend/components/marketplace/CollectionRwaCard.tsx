@@ -51,12 +51,12 @@ function ListingCtaPill({ label }: { label: string }) {
     "linear-gradient(99.67deg, #79D000 3.64%, #00FFC2 56.16%, #0015D6 112.88%)";
   return (
     <span
-      className="relative z-[2] box-border flex h-14 min-h-[56px] w-full min-w-0 max-w-none shrink-0 items-center justify-center rounded-[28px] p-[2px] text-center shadow-[0_10px_28px_-10px_rgba(0,0,0,0.8)] transition-[transform,box-shadow] duration-200 ease-out [-webkit-tap-highlight-color:transparent] group-hover:-translate-y-0.5 group-hover:scale-[1.02] group-hover:shadow-[0_14px_36px_-12px_rgba(0,0,0,0.88),0_0_28px_-2px_rgba(0,255,194,0.22),0_0_1px_1px_rgba(121,208,0,0.35)_inset] group-active:translate-y-0 group-active:scale-[0.99] motion-reduce:transition-none motion-reduce:group-hover:scale-100 motion-reduce:group-hover:translate-y-0 max-lg:opacity-100 lg:opacity-0 lg:group-hover:opacity-100 lg:group-focus-visible:opacity-100"
+      className="relative z-[2] box-border flex h-9 min-h-9 w-full min-w-0 max-w-none shrink-0 items-center justify-center rounded-[18px] p-[1.5px] text-center shadow-[0_7px_18px_-7px_rgba(0,0,0,0.8)] transition-[transform,box-shadow] duration-200 ease-out [-webkit-tap-highlight-color:transparent] group-hover:-translate-y-0.5 group-hover:scale-[1.02] group-hover:shadow-[0_9px_24px_-8px_rgba(0,0,0,0.88),0_0_18px_-2px_rgba(0,255,194,0.22),0_0_1px_1px_rgba(121,208,0,0.35)_inset] group-active:translate-y-0 group-active:scale-[0.99] motion-reduce:transition-none motion-reduce:group-hover:scale-100 motion-reduce:group-hover:translate-y-0 max-lg:opacity-100 lg:opacity-0 lg:group-hover:opacity-100 lg:group-focus-visible:opacity-100"
       style={{ background: rimGradient }}
       aria-hidden
     >
       <span
-        className={`${rwaCardFont.className} flex h-full min-h-0 w-full min-w-0 items-center justify-center gap-3 rounded-[26px] bg-[rgba(11,13,16,1)] px-8 py-2 text-[19px] font-bold leading-snug tracking-wide text-white transition-[background-color,box-shadow] duration-200 ease-out group-hover:bg-[rgba(16,18,22,1)] group-hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06)] group-active:bg-[rgba(11,13,16,1)] sm:px-10 sm:text-[20px]`}
+        className={`${rwaCardFont.className} flex h-full min-h-0 w-full min-w-0 items-center justify-center gap-2 rounded-[16px] bg-[rgba(11,13,16,1)] px-4 py-1 text-[13px] font-bold leading-snug tracking-wide text-white transition-[background-color,box-shadow] duration-200 ease-out group-hover:bg-[rgba(16,18,22,1)] group-hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06)] group-active:bg-[rgba(11,13,16,1)] sm:px-6 sm:text-[13px]`}
       >
         {label}
       </span>
@@ -151,8 +151,8 @@ export function CollectionRwaCard({
       className={`group block w-full min-w-0 cursor-pointer text-inherit no-underline outline-none ring-offset-2 ring-offset-black focus-visible:ring-2 focus-visible:ring-[#00FFC2]/50 ${COLLECTION_LISTING_CARD_CHROME}`}
       aria-label={`Listing ${formatTokenIdShort(tokenId)} — ${ctaLabel}`}
     >
-      <article className="flex min-h-[338px] w-full min-w-0 flex-col overflow-hidden sm:min-h-[368px]">
-        <div className="relative flex min-h-[228px] flex-1 flex-col items-center justify-center bg-black p-1.5 sm:min-h-[244px] sm:p-2">
+      <article className="flex min-h-[198px] w-full min-w-0 flex-col overflow-hidden sm:min-h-[212px]">
+        <div className="relative flex min-h-[118px] flex-1 flex-col items-center justify-center bg-black p-1 sm:min-h-[128px] sm:p-1.5">
           {imageUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -161,31 +161,31 @@ export function CollectionRwaCard({
               className="h-full w-full max-w-full flex-1 object-contain object-center min-h-0"
             />
           ) : (
-            <div className="px-4 text-center text-[12px] text-zinc-500">
+            <div className="px-3 text-center text-[11px] text-zinc-500">
               No image
             </div>
           )}
 
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[1] flex translate-y-[26%] justify-center px-2.5 sm:px-3">
-            <div className="mx-auto w-full min-w-0 max-w-[min(100%,282px)] sm:max-w-[min(100%,298px)]">
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[1] flex translate-y-[24%] justify-center px-1.5 sm:px-2">
+            <div className="mx-auto w-full min-w-0 max-w-[min(100%,216px)] sm:max-w-[min(100%,230px)]">
               <ListingCtaPill label={ctaLabel} />
             </div>
           </div>
         </div>
 
         <div
-          className={`${rwaCardFont.className} flex shrink-0 flex-col bg-[rgba(20,18,27,1)] px-3.5 pb-3 pt-5 leading-[140%] tracking-normal sm:px-4 sm:pt-6`}
+          className={`${rwaCardFont.className} flex shrink-0 flex-col bg-[rgba(20,18,27,1)] px-2.5 pb-1.5 pt-2 leading-[140%] tracking-normal sm:px-3 sm:pt-2.5`}
         >
           {listing && listingPrice !== "—" ? (
-            <p className="text-[22px] font-medium leading-[140%] tracking-normal text-white tabular-nums [overflow-wrap:anywhere] sm:text-[24px]">
+            <p className="text-[15px] font-medium leading-[140%] tracking-normal text-white tabular-nums [overflow-wrap:anywhere] sm:text-[16px]">
               ${listingPrice}
             </p>
           ) : (
-            <p className="text-[22px] font-medium leading-[140%] tracking-normal text-zinc-500 sm:text-[24px]">
+            <p className="text-[15px] font-medium leading-[140%] tracking-normal text-zinc-500 sm:text-[16px]">
               —
             </p>
           )}
-          <p className="mt-1.5 min-w-0 break-words text-[16px] font-normal leading-[140%] tracking-normal text-[#a0a0a0] [overflow-wrap:anywhere] sm:text-[17px]">
+          <p className="mt-1 min-w-0 break-words text-[11px] font-normal leading-[140%] tracking-normal text-[#a0a0a0] [overflow-wrap:anywhere] sm:text-[12px]">
             Seller:{" "}
             <span className="break-all" title={sellerAddr}>
               {listing ? sellerDisplay : "—"}

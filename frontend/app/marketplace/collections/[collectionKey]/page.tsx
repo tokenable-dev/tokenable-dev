@@ -1191,13 +1191,13 @@ export default function MarketplaceCollectionPage() {
                 .
               </div>
             ) : (
-              <div className="flex w-full min-w-0 flex-row flex-wrap content-start items-stretch gap-x-[1.125rem] gap-y-[1.375rem] pb-2">
+              <div className="flex w-full min-w-0 flex-row flex-wrap content-start items-stretch gap-x-3 gap-y-3 pb-2 sm:gap-x-[0.875rem] sm:gap-y-[0.9rem]">
                 {showcaseListingTokenIds.map((tid) => {
                   const prefetch = batchMetadata?.get(tid);
                   return (
                     <div
                       key={tid}
-                      className="w-full min-w-0 shrink-0 sm:w-[296px] lg:w-[318px]"
+                      className="w-full min-w-0 shrink-0 sm:w-[228px] lg:w-[244px]"
                     >
                       <CollectionRwaCard
                         tokenId={tid}
