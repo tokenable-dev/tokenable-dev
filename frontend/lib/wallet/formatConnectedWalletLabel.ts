@@ -1,8 +1,24 @@
 /**
- * Connected-wallet display: first 3 characters, "...", last 3 characters.
+ * Connected-wallet chip: first **5** chars + omission + **last 3** chars (e.g. `0x351...691`).
+ * Prefer `WalletAddressCompact` (`@/components/wallet/WalletAddressCompact`) in the UI
+ * so the omission is never clipped by CSS ellipsis.
  */
 export function formatConnectedWalletLabel(address: string): string {
-  const a = address.trim();
-  if (a.length <= 6) return a;
-  return `${a.slice(0, 3)}...${a.slice(-3)}`;
+  const raw = address.trim();
+  if (!raw.startsWith("0x")) return raw;
+  const a = raw.toLowerCase();
+  if (a.length < 8) return raw;
+  return `${a.slice(0, 5)}...${a.slice(-3)}`;
+}
+
+/** For layouts that render head / gap / tail separately (avoids `truncate` eating `...`). */
+export function getConnectedWalletLabelParts(address: string): {
+  head: string;
+  tail: string;
+  full: string;
+} | null {
+  const raw = address.trim();
+  if (!raw.startsWith("0x") || raw.length < 8) return null;
+  const a = raw.toLowerCase();
+  return { head: a.slice(0, 5), tail: a.slice(-3), full: raw };
 }

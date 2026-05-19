@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState, useEffect, useCallback, useRef } from "react";
-import { useQueries, useQueryClient } from "@tanstack/react-query";
+import { useMemo, useState, useEffect, useRef } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAccount } from "wagmi";
@@ -9,8 +9,7 @@ import {
   type RwaMetadata,
   type OrderListItem,
   type CollectionMarketPreview,
-  getCollectionMarketSeries,
-  getCollectionMarketStats,
+  postPortfolioCollectionMarketBatch,
   type CollectionMarketSeries,
   type CollectionMarketStats,
   cancelOrder,
@@ -600,49 +599,63 @@ export default function PortfolioPage() {
     return m;
   }, [allOrders, address]);
 
-  const portfolioBucketKeyQueries = useQueries({
-    queries: assets.map((a) => {
-      const listingKey = listingCollectionKeyByToken.get(a.tokenId);
-      const comp =
-        listingKey == null
-          ? extractBucketComponentsFromMetadata(
-              (a.metadata ?? {}) as Record<string, unknown>,
-            )
-          : null;
-      return {
-        queryKey: ["portfolio-bucket-key", a.tokenId] as const,
-        queryFn: async () => computeMarketBucketKey(comp!),
-        enabled:
-          Boolean(address && isConnected) && listingKey == null && comp != null,
-        staleTime: 60_000,
-      };
-    }),
-  });
-
-  const tokenToCollectionKey = useMemo(() => {
-    const o: Record<number, string> = {};
-    assets.forEach((a, i) => {
-      const listingKey = listingCollectionKeyByToken.get(a.tokenId);
-      if (listingKey) {
-        o[a.tokenId] = listingKey;
-        return;
-      }
-      const raw = portfolioBucketKeyQueries[i]?.data;
-      if (typeof raw === "string" && raw.trim().length > 0) {
-        o[a.tokenId] = raw.trim().toLowerCase();
-      }
+  /**
+   * Single batched query for collection keys (replaces N× useQueries).
+   * Signature must change when listing keys or metadata-derived bucket components change.
+   */
+  const portfolioBucketKeySourceSig = useMemo(() => {
+    const parts = assets.map((a) => {
+      const lk = listingCollectionKeyByToken.get(a.tokenId);
+      if (lk) return `${a.tokenId}:L:${lk.toLowerCase()}`;
+      const comp = extractBucketComponentsFromMetadata(
+        (a.metadata ?? {}) as Record<string, unknown>,
+      );
+      if (!comp) return `${a.tokenId}:0`;
+      return `${a.tokenId}:C:${comp.gradingCompany}|${comp.cardName}|${comp.cardSet}|${comp.gradeScore}|${comp.variantType ?? ""}`;
     });
-    return o;
-  }, [assets, address, isConnected, listingCollectionKeyByToken, portfolioBucketKeyQueries]);
+    parts.sort();
+    return parts.join("\u00a7");
+  }, [assets, listingCollectionKeyByToken]);
+
+  const { data: tokenToCollectionKey = {} } = useQuery({
+    queryKey: [
+      "portfolio-bucket-keys",
+      address ?? "",
+      portfolioBucketKeySourceSig,
+    ] as const,
+    queryFn: async () => {
+      const o: Record<number, string> = {};
+      for (const a of assets) {
+        const listingKey = listingCollectionKeyByToken.get(a.tokenId);
+        if (listingKey) {
+          o[a.tokenId] = listingKey.trim().toLowerCase();
+          continue;
+        }
+        const comp = extractBucketComponentsFromMetadata(
+          (a.metadata ?? {}) as Record<string, unknown>,
+        );
+        if (!comp) continue;
+        const raw = await computeMarketBucketKey(comp);
+        if (typeof raw === "string" && raw.trim().length > 0) {
+          o[a.tokenId] = raw.trim().toLowerCase();
+        }
+      }
+      return o;
+    },
+    enabled: Boolean(address && isConnected && assets.length > 0),
+    staleTime: 60_000,
+  });
 
   /** Set NEXT_PUBLIC_MARKETPLACE_PIPELINE_DIAG=1 to compare active-listing DB key vs client meta-hash (backend logs use MARKETPLACE_PIPELINE_DIAG). */
   useEffect(() => {
     if (process.env.NEXT_PUBLIC_MARKETPLACE_PIPELINE_DIAG !== "1") return;
-    assets.forEach((a, i) => {
+    assets.forEach((a) => {
       const fromOrder = listingCollectionKeyByToken.get(a.tokenId);
-      const fromQuery = portfolioBucketKeyQueries[i]?.data;
       const fromMeta =
-        typeof fromQuery === "string" && fromQuery.trim() ? fromQuery.trim().toLowerCase() : undefined;
+        typeof tokenToCollectionKey[a.tokenId] === "string" &&
+        tokenToCollectionKey[a.tokenId]!.trim()
+          ? tokenToCollectionKey[a.tokenId]!.trim().toLowerCase()
+          : undefined;
       if (fromOrder && fromMeta && fromOrder !== fromMeta) {
         console.warn("[collection_key_pipeline] listing vs meta hash mismatch", {
           tokenId: a.tokenId,
@@ -658,7 +671,7 @@ export default function PortfolioPage() {
         });
       }
     });
-  }, [assets, listingCollectionKeyByToken, portfolioBucketKeyQueries]);
+  }, [assets, listingCollectionKeyByToken, tokenToCollectionKey]);
 
   const uniqueCollectionKeys = useMemo(() => {
     const s = new Set<string>();
@@ -718,52 +731,69 @@ export default function PortfolioPage() {
     [assets],
   );
 
-  const statsQueries = useQueries({
-    queries: uniqueCollectionKeys.map((k) => ({
-      queryKey: ["collection-market-stats", k],
-      queryFn: () => getCollectionMarketStats(k),
-      staleTime: 60_000,
-      enabled: k.length > 0 && Boolean(address && isConnected),
-    })),
+  const portfolioMarketBatchSig = useMemo(() => {
+    const keys = [...uniqueCollectionKeys].map((k) => k.toLowerCase()).sort();
+    const hintPart = keys
+      .map((k) => {
+        const h = hintTokenIdByCollectionKey.get(k);
+        return `${k}:${h ?? ""}`;
+      })
+      .join("|");
+    return `${keys.join(",")}|${hintPart}`;
+  }, [uniqueCollectionKeys, hintTokenIdByCollectionKey]);
+
+  const {
+    data: portfolioMarketBatch,
+    isLoading: portfolioMarketBatchLoading,
+  } = useQuery({
+    queryKey: [
+      "portfolio-market-batch",
+      address ?? "",
+      portfolioMarketBatchSig,
+    ] as const,
+    queryFn: () =>
+      postPortfolioCollectionMarketBatch({
+        collectionKeys: uniqueCollectionKeys,
+        priceHistoryDuration: "365d",
+        hints: uniqueCollectionKeys
+          .map((k) => {
+            const hint = hintTokenIdByCollectionKey.get(k.toLowerCase());
+            return hint != null
+              ? { collectionKey: k, hintTokenId: hint }
+              : null;
+          })
+          .filter(
+            (x): x is { collectionKey: string; hintTokenId: number } =>
+              x != null,
+          ),
+      }),
+    enabled:
+      uniqueCollectionKeys.length > 0 && Boolean(address && isConnected),
+    staleTime: 120_000,
   });
 
   const statsByCollectionKey = useMemo(() => {
     const m = new Map<string, CollectionMarketStats>();
-    uniqueCollectionKeys.forEach((k, i) => {
-      const d = statsQueries[i]?.data;
-      if (d) m.set(k.toLowerCase(), d);
-    });
+    for (const it of portfolioMarketBatch?.items ?? []) {
+      const k = it.collectionKey.toLowerCase();
+      if (it.stats) m.set(k, it.stats);
+    }
     return m;
-  }, [uniqueCollectionKeys, statsQueries]);
-
-  const seriesQueries = useQueries({
-    queries: uniqueCollectionKeys.map((k) => {
-      const hint = hintTokenIdByCollectionKey.get(k.toLowerCase());
-      return {
-        queryKey: ["collection-market-series", "portfolio", "365d", k, hint ?? null],
-        queryFn: () =>
-          getCollectionMarketSeries(
-            k,
-            "365d",
-            hint != null ? { hintTokenId: hint } : undefined,
-          ),
-        staleTime: 120_000,
-        enabled: k.length > 0 && Boolean(address && isConnected),
-      };
-    }),
-  });
+  }, [portfolioMarketBatch]);
 
   const seriesByCollectionKey = useMemo(() => {
     const m = new Map<string, CollectionMarketSeries>();
-    uniqueCollectionKeys.forEach((k, i) => {
-      const d = seriesQueries[i]?.data;
-      if (d) m.set(k.toLowerCase(), d);
-    });
+    for (const it of portfolioMarketBatch?.items ?? []) {
+      const k = it.collectionKey.toLowerCase();
+      if (it.series) m.set(k, it.series);
+    }
     return m;
-  }, [uniqueCollectionKeys, seriesQueries]);
+  }, [portfolioMarketBatch]);
 
-  const statsLoadingAny = statsQueries.some((q) => q.isLoading);
-  const seriesLoadingAny = seriesQueries.some((q) => q.isLoading);
+  const statsLoadingAny =
+    portfolioMarketBatchLoading && anyAssetUsesLivePoolStats;
+  const seriesLoadingAny =
+    portfolioMarketBatchLoading && anyAssetNeedsSeriesForPricing;
 
   /** External + per-bucket series + pool stats still loading when needed */
   const valuesPending =
@@ -1048,9 +1078,11 @@ export default function PortfolioPage() {
     return addrs.size;
   }, [historiesFlat]);
 
-  /** Skeleton only inside My Assets; chart/stats ignore metadata & preview reloads when prior data remains (see useUserAssets keepPreviousData). */
-  const assetsSectionLoading =
-    idsLoading || assetsLoading || marketPreviewLoading;
+  /**
+   * My Assets grid: show cards as soon as token IDs + metadata batch return.
+   * Market preview + pool/series power row-level price skeletons via `valuesPending`.
+   */
+  const assetsSectionLoading = idsLoading || assetsLoading;
 
   /** Only block totals/chart curve while holdings list is unresolved or series for pricing paths are unavailable. */
   const chartTotalsPending =
@@ -1328,6 +1360,11 @@ export default function PortfolioPage() {
               </button>
             </div>
           </div>
+          {marketPreviewLoading && !assetsSectionLoading && assets.length > 0 ? (
+            <p className="mb-3 text-[11px] text-zinc-500">
+              Updating Cardhedger market estimates…
+            </p>
+          ) : null}
           {assetsSectionLoading ? (
             <div className="-mx-1 grid grid-cols-1 gap-4 pb-2 pt-0.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {[...Array(5)].map((_, i) => (

@@ -12,6 +12,7 @@ import { CollectionMarketService } from './collection-market.service';
 import { CollectionService } from './collection.service';
 import { BatchMarketSnapshotsDto } from './dto/batch-market-snapshots.dto';
 import { MintPreviewsByTokenIdsDto } from './dto/mint-previews-by-token-ids.dto';
+import { PortfolioMarketBatchDto } from './dto/portfolio-market-batch.dto';
 import {
   isMarketHistoryPeriod,
   marketPeriodToMaxCalendarDays,
@@ -85,6 +86,28 @@ export class CollectionsController {
       body.collectionKeys ?? [],
       body.priceHistoryDuration ?? '365d',
     );
+  }
+
+  @ApiOperation({
+    summary:
+      'Portfolio: batch pool stats + market-series bundle per key — same JSON as GET …/collections/:key/stats and GET …/collections/:key/market-series (max 60 keys, server-side concurrency cap).',
+  })
+  @ApiBody({ type: PortfolioMarketBatchDto })
+  @Post('collections/portfolio-market-batch')
+  batchPortfolioMarketData(@Body() body: PortfolioMarketBatchDto) {
+    const keys = (body.collectionKeys ?? []).map((k) => this.normalizeKey(k));
+    const duration = body.priceHistoryDuration ?? '365d';
+    const hintMap = new Map<string, number>();
+    for (const h of body.hints ?? []) {
+      const ck = this.normalizeKey(h.collectionKey);
+      if (Number.isFinite(h.hintTokenId) && h.hintTokenId >= 0) {
+        hintMap.set(ck, Math.floor(h.hintTokenId));
+      }
+    }
+    return this.collectionMarketService.batchPortfolioMarketData(keys, {
+      priceHistoryDuration: duration,
+      hintTokenIdByKey: hintMap,
+    });
   }
 
   @ApiOperation({

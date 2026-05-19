@@ -501,6 +501,83 @@ export class CollectionMarketService {
     }
     return { items: settled };
   }
+
+  /**
+   * One HTTP round-trip for portfolio: per-key pool stats + chart bundle (same payloads as
+   * GET …/stats and GET …/market-series). Concurrency-capped like {@link batchListSnapshots}.
+   */
+  async batchPortfolioMarketData(
+    collectionKeys: string[],
+    opts: {
+      priceHistoryDuration?: PriceHistoryDuration;
+      hintTokenIdByKey?: ReadonlyMap<string, number>;
+    } = {},
+  ): Promise<{
+    items: Array<{
+      collectionKey: string;
+      stats: CollectionMarketStatsResponse | null;
+      series: CollectionMarketBundle | null;
+    }>;
+  }> {
+    const windowRaw = opts.priceHistoryDuration ?? '365d';
+    const d: PriceHistoryDuration = [
+      '7d',
+      '30d',
+      '90d',
+      '180d',
+      '365d',
+    ].includes(windowRaw)
+      ? windowRaw
+      : '365d';
+    const hintMap = opts.hintTokenIdByKey ?? new Map<string, number>();
+    const keys = [
+      ...new Set(
+        collectionKeys
+          .map((k) => String(k ?? '').trim().toLowerCase())
+          .filter((k) => k.length > 0),
+      ),
+    ].slice(0, 60);
+
+    const PORTFOLIO_BATCH_CONCURRENCY = 8;
+    const items: Array<{
+      collectionKey: string;
+      stats: CollectionMarketStatsResponse | null;
+      series: CollectionMarketBundle | null;
+    }> = [];
+
+    for (let i = 0; i < keys.length; i += PORTFOLIO_BATCH_CONCURRENCY) {
+      const chunk = keys.slice(i, i + PORTFOLIO_BATCH_CONCURRENCY);
+      const chunkResults = await Promise.all(
+        chunk.map(async (key) => {
+          const hintNum = hintMap.get(key);
+          const hintStr =
+            hintNum != null &&
+            Number.isFinite(hintNum) &&
+            hintNum >= 0 &&
+            Number.isInteger(hintNum)
+              ? String(hintNum)
+              : undefined;
+          try {
+            const [stats, series] = await Promise.all([
+              this.getCollectionMarketStats(key).catch(() => null),
+              this.retryOnce(() =>
+                this.getCollectionMarketBundle(key, d, hintStr),
+              ).catch(() => null),
+            ]);
+            return {
+              collectionKey: key,
+              stats,
+              series,
+            };
+          } catch {
+            return { collectionKey: key, stats: null, series: null };
+          }
+        }),
+      );
+      items.push(...chunkResults);
+    }
+    return { items };
+  }
 }
 
 export interface CollectionListSnapshot {

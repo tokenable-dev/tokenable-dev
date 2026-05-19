@@ -151,8 +151,8 @@ export function CollectionRwaCard({
       className={`group block w-full min-w-0 cursor-pointer text-inherit no-underline outline-none ring-offset-2 ring-offset-black focus-visible:ring-2 focus-visible:ring-[#00FFC2]/50 ${COLLECTION_LISTING_CARD_CHROME}`}
       aria-label={`Listing ${formatTokenIdShort(tokenId)} — ${ctaLabel}`}
     >
-      <article className="flex min-h-[198px] w-full min-w-0 flex-col overflow-hidden sm:min-h-[212px]">
-        <div className="relative flex min-h-[118px] flex-1 flex-col items-center justify-center bg-black p-1 sm:min-h-[128px] sm:p-1.5">
+      <article className="flex min-h-[188px] w-full min-w-0 flex-col overflow-hidden sm:min-h-[202px]">
+        <div className="relative flex min-h-[110px] flex-1 flex-col items-center justify-center bg-black p-1 sm:min-h-[120px] sm:p-1.5">
           {imageUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -167,7 +167,7 @@ export function CollectionRwaCard({
           )}
 
           <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[1] flex translate-y-[24%] justify-center px-1.5 sm:px-2">
-            <div className="mx-auto w-full min-w-0 max-w-[min(100%,216px)] sm:max-w-[min(100%,230px)]">
+            <div className="mx-auto w-full min-w-0 max-w-[min(100%,206px)] sm:max-w-[min(100%,220px)]">
               <ListingCtaPill label={ctaLabel} />
             </div>
           </div>

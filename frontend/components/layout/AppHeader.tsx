@@ -9,7 +9,7 @@ import { ASSETS } from "@/constants/assets";
 import { sepolia } from "@/config/wagmi";
 import type { MarketplaceCollectionSummary } from "@/lib/core";
 import { ensureSepoliaNetwork } from "@/lib/network";
-import { formatConnectedWalletLabel } from "@/lib/wallet/formatConnectedWalletLabel";
+import { WalletAddressCompact } from "@/components/wallet/WalletAddressCompact";
 import { useMarketplaceCollectionsInfinite } from "@/hooks/useMarketplaceCollectionsInfinite";
 import { useResolvedMediaUrlMap } from "@/hooks/useResolvedMediaUrl";
 import { useAppStore, selectUsdcBalance } from "@/store";
@@ -305,24 +305,29 @@ function WalletDropdown() {
   return (
     <div ref={ref} className="relative">
       <button
+        type="button"
+        aria-expanded={open}
+        aria-haspopup="true"
         onClick={() => setOpen((p) => !p)}
-        className={`flex h-10 w-[164px] items-center gap-2.5 rounded-xl border px-3 text-sm transition-colors ${
+        className={`flex h-10 w-max max-w-[min(100vw-7rem,17rem)] items-center justify-between gap-2 rounded-xl border px-2.5 sm:min-w-[10.5rem] sm:px-3 text-sm transition-colors ${
           open
             ? "border-mint/40 bg-gray-800/90"
             : "border-gray-700/60 bg-gray-800/50 hover:border-gray-600"
         }`}
       >
-        <div
-          className={`w-2 h-2 rounded-full shrink-0 ${isWrongNetwork ? "bg-red-400" : "bg-mint"}`}
-        />
-        <span className="min-w-0 truncate font-mono text-gray-300">
-          {formatConnectedWalletLabel(address)}
+        <span className="flex min-w-0 flex-1 items-center gap-2">
+          <span
+            className={`h-2 w-2 shrink-0 rounded-full ${isWrongNetwork ? "bg-red-400" : "bg-mint"}`}
+            aria-hidden
+          />
+          <WalletAddressCompact address={address} />
         </span>
         <svg
-          className={`w-3.5 h-3.5 text-gray-500 transition-transform ${open ? "rotate-180" : ""}`}
+          className={`h-3.5 w-3.5 shrink-0 text-gray-500 transition-transform ${open ? "rotate-180" : ""}`}
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
+          aria-hidden
         >
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>
@@ -339,9 +344,9 @@ function WalletDropdown() {
                 </svg>
               </div>
               <div className="min-w-0">
-                <p className="text-sm font-medium text-white truncate">
-                  {formatConnectedWalletLabel(address)}
-                </p>
+                <div className="min-w-0 whitespace-nowrap">
+                  <WalletAddressCompact address={address} variant="panel" />
+                </div>
                 <p className="text-[11px] text-gray-500">Ethereum Sepolia</p>
               </div>
               {isWrongNetwork && (
