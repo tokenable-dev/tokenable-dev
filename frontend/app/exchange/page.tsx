@@ -71,15 +71,18 @@ function formatMarketChangeWindowShort(
   return map[w] ?? w;
 }
 
-/** Grid + list pills: same height, padding, radius, and font size */
+/** Grid + list pills — compact single-line stack (nowrap + horizontal scroll fallback on narrow widths) */
 const EXCHANGE_CARD_BADGE_BASE =
-  "box-border inline-flex h-[26px] max-w-full min-w-0 shrink-0 items-center justify-center rounded-[4px] border px-2 text-[11px] font-bold leading-none";
+  "box-border inline-flex h-[18px] max-w-none shrink-0 items-center justify-center rounded-[3px] border px-[4px] text-[9px] font-semibold leading-none tracking-tight sm:h-5 sm:px-[5px] sm:text-[10px]";
 
 /** Numeric / %-style badges — tabular figures */
-const EXCHANGE_CARD_BADGE_NUMERIC = `${EXCHANGE_CARD_BADGE_BASE} whitespace-nowrap tabular-nums gap-1`;
+const EXCHANGE_CARD_BADGE_NUMERIC = `${EXCHANGE_CARD_BADGE_BASE} whitespace-nowrap tabular-nums gap-0.5`;
 
 /** Pop / Listed neutral chrome */
-const EXCHANGE_CARD_BADGE_KV = `${EXCHANGE_CARD_BADGE_BASE} gap-1 whitespace-nowrap border-[rgba(255,255,255,0.22)] bg-black/50 text-white`;
+const EXCHANGE_CARD_BADGE_KV = `${EXCHANGE_CARD_BADGE_BASE} gap-0.5 whitespace-nowrap border-[rgba(255,255,255,0.22)] bg-black/50 text-white`;
+
+const EXCHANGE_CARD_INFO_BADGE_ROW =
+  "flex min-w-0 flex-nowrap items-center gap-1 overflow-x-auto pb-px [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
 
 /** On-platform listing pool: highest “price tier” first (floor → median → p75); rows without stats last. */
 function exchangePoolPriceSortKey(s: CollectionListMarketSnapshot | undefined): [number, number, number] {
@@ -171,7 +174,7 @@ function CollectionRow({
         <h3 className="line-clamp-2 break-words text-lg font-extrabold uppercase tracking-tight text-white transition-colors group-hover:text-mint sm:line-clamp-1 sm:truncate sm:text-2xl">
           {toCardDisplayUppercase(collection.displayLabel)}
         </h3>
-        <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-1.5 sm:gap-2">
+        <div className={`mt-1.5 ${EXCHANGE_CARD_INFO_BADGE_ROW}`}>
           {trendPct != null ? (
             <span
               className={`${EXCHANGE_CARD_BADGE_NUMERIC} ${
@@ -185,7 +188,7 @@ function CollectionRow({
                   : "External reference vs prior window"
               }
             >
-              {formatSignedPct2(trendPct)}
+              {formatSignedPct(trendPct)}
               {changeWinShort ? ` ${changeWinShort}` : ""}
             </span>
           ) : null}
@@ -202,42 +205,39 @@ function CollectionRow({
             <span>Listed</span>
             <span className="tabular-nums">{listingCount}</span>
           </span>
+          {tokenableVsRefPct != null ? (
+            <span
+              className={`${EXCHANGE_CARD_BADGE_NUMERIC} ${
+                tokenableVsRefPct >= 0
+                  ? "border border-[rgba(0,187,61,1)] bg-[rgba(0,0,0,0.5)] text-[rgba(0,187,61,1)]"
+                  : "border-mint/35 bg-mint/20 text-white/95"
+              }`}
+              title={`Tokenable Price (${tokenablePrice != null ? formatUsd(tokenablePrice) : "—"}) vs eBay (${effectiveRefUsd != null ? formatUsd(effectiveRefUsd) : "—"})`}
+            >
+              Gap{" "}
+              {tokenableVsRefPct >= 0 ? "+" : ""}
+              {tokenableVsRefPct.toFixed(1)}%
+            </span>
+          ) : null}
+          {changePctExternal != null ? (
+            <span
+              className={`${EXCHANGE_CARD_BADGE_NUMERIC} ${
+                changePctExternal >= 0
+                  ? "border border-[rgba(0,187,61,1)] bg-[rgba(0,0,0,0.5)] text-[rgba(0,187,61,1)]"
+                  : "border-rose-300/30 bg-rose-500/15 text-rose-200"
+              }`}
+              title={
+                snapshot?.marketChangeWindow != null && snapshot.marketChangeWindow.length > 0
+                  ? `External reference (${snapshot.marketChangeWindow}): interpolated change on Cardhedger history`
+                  : "External reference: interpolated change on Cardhedger history"
+              }
+            >
+              {changeWinShort ? `${changeWinShort} ` : ""}
+              {changePctExternal >= 0 ? "+" : ""}
+              {changePctExternal.toFixed(1)}%
+            </span>
+          ) : null}
         </div>
-        {(tokenableVsRefPct != null || changePctExternal != null) ? (
-          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-            {tokenableVsRefPct != null ? (
-              <span
-                className={`${EXCHANGE_CARD_BADGE_NUMERIC} ${
-                  tokenableVsRefPct >= 0
-                    ? "border border-[rgba(0,187,61,1)] bg-[rgba(0,0,0,0.5)] text-[rgba(0,187,61,1)]"
-                    : "border-mint/35 bg-mint/20 text-white/95"
-                }`}
-                title={`Tokenable Price (${tokenablePrice != null ? formatUsd(tokenablePrice) : "—"}) vs eBay (${effectiveRefUsd != null ? formatUsd(effectiveRefUsd) : "—"})`}
-              >
-                Market Gap {tokenableVsRefPct >= 0 ? "+" : ""}
-                {tokenableVsRefPct.toFixed(1)}%
-              </span>
-            ) : null}
-            {changePctExternal != null ? (
-              <span
-                className={`${EXCHANGE_CARD_BADGE_NUMERIC} ${
-                  changePctExternal >= 0
-                    ? "border border-[rgba(0,187,61,1)] bg-[rgba(0,0,0,0.5)] text-[rgba(0,187,61,1)]"
-                    : "border-rose-300/30 bg-rose-500/15 text-rose-200"
-                }`}
-                title={
-                  snapshot?.marketChangeWindow != null && snapshot.marketChangeWindow.length > 0
-                    ? `External reference (${snapshot.marketChangeWindow}): interpolated change on Cardhedger history`
-                    : "External reference: interpolated change on Cardhedger history"
-                }
-              >
-                {changeWinShort ? `${changeWinShort} ` : ""}
-                {changePctExternal >= 0 ? "+" : ""}
-                {changePctExternal.toFixed(1)}%
-              </span>
-            ) : null}
-          </div>
-        ) : null}
         <dl className="mt-3 space-y-2 text-xs leading-snug text-zinc-300 sm:text-sm sm:leading-tight">
           <div className="flex items-baseline justify-between gap-2">
             <dt className="max-w-[58%] shrink-0 text-white">Price</dt>
@@ -264,11 +264,6 @@ function CollectionRow({
       </div>
     </Link>
   );
-}
-
-function formatSignedPct2(pct: number): string {
-  const sign = pct >= 0 ? "+" : "";
-  return `${sign}${pct.toFixed(2)}%`;
 }
 
 function parsePsaPopulationFromComponents(components: Record<string, unknown>): number | null {
@@ -327,7 +322,7 @@ function CollectionGridCard({
         )}
       </div>
       <div className="flex min-h-0 flex-1 flex-col gap-1.5 p-2.5 sm:gap-2 sm:p-3">
-        <div className="flex min-w-0 flex-wrap items-center gap-1.5 sm:gap-2">
+        <div className={EXCHANGE_CARD_INFO_BADGE_ROW}>
           {trendPct != null ? (
             <span
               className={`${EXCHANGE_CARD_BADGE_NUMERIC} ${
@@ -341,7 +336,7 @@ function CollectionGridCard({
                   : "External reference vs prior window"
               }
             >
-              {formatSignedPct2(trendPct)}
+              {formatSignedPct(trendPct)}
               {windowShort ? ` ${windowShort}` : ""}
             </span>
           ) : null}
