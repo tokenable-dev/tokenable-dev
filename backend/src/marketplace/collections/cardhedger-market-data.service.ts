@@ -631,6 +631,7 @@ export class CardhedgerMarketDataService {
   private parallelRowFailsExpectation(
     psaVariety: string | null,
     row: CardhedgerCardRow,
+    opts?: { trustStoredCardhedgerCatalogId?: boolean },
   ): boolean {
     const pv = psaVariety?.trim() ?? '';
     if (!psaVarietyRequiresNonBaseCardhedgerRow(pv)) return false;
@@ -651,9 +652,15 @@ export class CardhedgerMarketDataService {
      * PSA `{SPORT} REFRACTOR` matches the flagship `variant: "Refractor"` row **and** many other
      * parallels (RayWave, RWB, …). The plain Refractor catalog slot is often far above the
      * comps band users see on eBay. Treat flagship Refractor as incompatible when PSA only gives
-     * the generic sport+refractor line so resolve picks a more specific parallel row.
+     * the generic sport+refractor line **for search picks** so resolve prefers a more specific row.
+     *
+     * Exception: **`cardhedgerCardId` from mint/OCR catalog** (`POST /cards/card-details` by that id).
+     * That id is authoritative for the slab — including flagship Refractor — so do not downgrade to search.
      */
-    if (psaVarietyIsGenericSportRefractorLine(pv)) {
+    if (
+      psaVarietyIsGenericSportRefractorLine(pv) &&
+      !opts?.trustStoredCardhedgerCatalogId
+    ) {
       const vr = String(row.variant ?? '').trim().toLowerCase();
       if (vr === 'refractor') return true;
     }
@@ -672,6 +679,7 @@ export class CardhedgerMarketDataService {
       psaSubject?: string | null;
       psaBrand?: string | null;
     },
+    parallelOpts?: { trustStoredCardhedgerCatalogId?: boolean },
   ): { score: number; verified: boolean; numberMatched: boolean } {
     const sameNumber = (a: string, b: string): boolean => {
       if (!a || !b) return false;
@@ -697,7 +705,7 @@ export class CardhedgerMarketDataService {
 
     const numberMatched = sameNumber(wantNum, gotNum);
 
-    if (this.parallelRowFailsExpectation(hints.psaVariety ?? null, row)) {
+    if (this.parallelRowFailsExpectation(hints.psaVariety ?? null, row, parallelOpts)) {
       return { score: 0, verified: false, numberMatched: false };
     }
 
@@ -1925,10 +1933,12 @@ export class CardhedgerMarketDataService {
         );
         const rows = this.parseCardRows(body);
         if (rows[0]) {
-          const strict = this.scoreCard(rows[0], q);
+          const storedIdOpts = { trustStoredCardhedgerCatalogId: true } as const;
+          const strict = this.scoreCard(rows[0], q, storedIdOpts);
           const parallelBad = this.parallelRowFailsExpectation(
             q.psaVariety,
             rows[0],
+            storedIdOpts,
           );
           /** Same trust as psaSpecId map: explicit catalog id + parallel check; allow number-strong rows. */
           const trustCardId =
