@@ -259,6 +259,10 @@ export function MintForm() {
         ...(lastAnalyze?.psaCertImages?.back
           ? { certImageBackUrl: lastAnalyze.psaCertImages.back }
           : {}),
+        /** PSA PSACert.Variety — Silver/Base 등 Cardhedger 병행 구분 (공식 API `varietyHint`) */
+        ...(lastAnalyze?.psa.varietyHint?.trim()
+          ? { Variety: lastAnalyze.psa.varietyHint.trim() }
+          : {}),
       };
       if (lastAnalyze) {
         if (
@@ -864,7 +868,7 @@ export function MintForm() {
                       <p className="text-xs text-gray-500">
                         PSA image is used for IPFS and marketplace art.
                       </p>
-                      <span className="mt-2 inline-flex w-fit rounded-full border border-emerald-600/50 bg-emerald-500/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-emerald-300">
+                      <span className="mt-2 inline-flex w-fit rounded-full border border-mint-deep/50 bg-mint/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-mint">
                         Source: PSA Cert Image
                       </span>
                     </div>

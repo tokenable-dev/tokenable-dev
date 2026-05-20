@@ -24,35 +24,37 @@ export function percentChangeFromPoints(points: UsdPoint[]): number | null {
 const SEC_24H = 86400;
 
 /**
- * Latest observation vs interpolated reference at (latest.t − 24h) on the same Cardhedger series.
- * No synthetic/mock points — returns null if history does not span ~24h before the latest tick.
+ * Latest observation vs linearly interpolated value at (latest.t − lagSec) on the same series.
+ * Returns null when history does not reach far enough behind the newest tick (`targetT` before first sample).
  */
-export function percentChangeReferenceOver24h(points: UsdPoint[]): number | null {
+export function percentChangeReferenceOverLagSec(
+  points: UsdPoint[],
+  lagSec: number,
+): number | null {
+  if (!Number.isFinite(lagSec) || lagSec <= 0) return null;
+
   const cleaned = points.filter(
-    (p) =>
-      Number.isFinite(p.t) &&
-      Number.isFinite(p.v) &&
-      p.v > 0,
+    (p) => Number.isFinite(p.t) && Number.isFinite(p.v) && p.v > 0,
   );
   if (cleaned.length < 2) return null;
   const sorted = [...cleaned].sort((a, b) => a.t - b.t);
-  const end = sorted[sorted.length - 1]!;
-  const targetT = end.t - SEC_24H;
-  if (targetT < sorted[0]!.t) return null;
+  const end = sorted[sorted.length - 1];
+  const targetT = end.t - lagSec;
+  if (targetT < sorted[0].t) return null;
 
   let i0 = -1;
   for (let k = 0; k < sorted.length; k++) {
-    if (sorted[k]!.t <= targetT) i0 = k;
+    if (sorted[k].t <= targetT) i0 = k;
     else break;
   }
   if (i0 < 0) return null;
 
   let refV: number;
-  const a = sorted[i0]!;
+  const a = sorted[i0];
   if (a.t === targetT) {
     refV = a.v;
   } else if (i0 + 1 < sorted.length) {
-    const b = sorted[i0 + 1]!;
+    const b = sorted[i0 + 1];
     if (b.t <= targetT) return null;
     const dt = b.t - a.t;
     if (dt <= 0) return null;
@@ -62,8 +64,23 @@ export function percentChangeReferenceOver24h(points: UsdPoint[]): number | null
     refV = a.v;
   }
 
-  if (!Number.isFinite(refV) || refV <= 0 || !Number.isFinite(end.v) || end.v <= 0) {
+  if (
+    !Number.isFinite(refV) ||
+    refV <= 0 ||
+    !Number.isFinite(end.v) ||
+    end.v <= 0
+  ) {
     return null;
   }
   return ((end.v - refV) / refV) * 100;
+}
+
+/**
+ * Latest observation vs interpolated reference at (latest.t − 24h) on the same Cardhedger series.
+ * No synthetic/mock points — returns null if history does not span ~24h before the latest tick.
+ */
+export function percentChangeReferenceOver24h(
+  points: UsdPoint[],
+): number | null {
+  return percentChangeReferenceOverLagSec(points, SEC_24H);
 }

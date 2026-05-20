@@ -67,7 +67,7 @@ type BuyerTradingPanelProps = {
 };
 
 const DETAIL_BUY_RIM =
-  "linear-gradient(99.67deg, #79D000 3.64%, #00FFC2 56.16%, #0015D6 112.88%)";
+  "linear-gradient(99.67deg, #529e22 3.64%, #87FF48 54%, #284214 112.88%)";
 
 function BuyerTradingPanel({
   isConnected,
@@ -104,7 +104,7 @@ function BuyerTradingPanel({
         onClick={() => void onFulfill()}
         disabled={!isConnected || buyBusy}
         style={{ background: DETAIL_BUY_RIM }}
-        className="group/cta relative z-[1] box-border flex h-[72px] w-full min-w-0 max-w-full items-center justify-center rounded-[44px] p-[2px] text-center shadow-[0_10px_28px_-10px_rgba(0,0,0,0.8)] transition-[transform,box-shadow,opacity] duration-200 ease-out [-webkit-tap-highlight-color:transparent] enabled:hover:-translate-y-0.5 enabled:hover:scale-[1.01] enabled:hover:shadow-[0_14px_36px_-12px_rgba(0,0,0,0.88),0_0_28px_-2px_rgba(0,255,194,0.2)] enabled:active:translate-y-0 enabled:active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-40 motion-reduce:transition-none motion-reduce:enabled:hover:scale-100 motion-reduce:enabled:hover:translate-y-0"
+        className="group/cta relative z-[1] box-border flex h-[72px] w-full min-w-0 max-w-full items-center justify-center rounded-[44px] p-[2px] text-center shadow-[0_10px_28px_-10px_rgba(0,0,0,0.8)] transition-[transform,box-shadow,opacity] duration-200 ease-out [-webkit-tap-highlight-color:transparent] enabled:hover:-translate-y-0.5 enabled:hover:scale-[1.01] enabled:hover:shadow-[0_14px_36px_-12px_rgba(0,0,0,0.88),0_0_28px_-2px_rgba(135,255,72,0.28)] enabled:active:translate-y-0 enabled:active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-40 motion-reduce:transition-none motion-reduce:enabled:hover:scale-100 motion-reduce:enabled:hover:translate-y-0"
       >
         <span
           className={`${rwaDetailRightFont.className} flex h-full min-h-0 w-full min-w-0 items-center justify-center gap-[10px] rounded-[42px] bg-[rgba(11,13,16,1)] px-12 py-4 text-[17px] font-bold leading-[140%] tracking-normal text-white transition-[background-color,box-shadow] duration-200 group-hover/cta:bg-[rgba(16,18,22,1)] group-hover/cta:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06)] group-active/cta:bg-[rgba(11,13,16,1)]`}

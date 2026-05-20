@@ -81,6 +81,8 @@ export interface PsaAnalyzeResult {
     totalPopulationWithQualifier?: number;
     reverseBarcode?: boolean;
     specId?: number;
+    /** PSA Public API — PSACert.Variety (parallel / insert line) */
+    varietyHint?: string;
     /** PSA Public API PSACert 병합 여부 */
     enrichedFromOfficialApi?: boolean;
   };
@@ -592,6 +594,11 @@ export interface CollectionMarketSeries {
   gradePrices: CollectionGradePrices;
   externalUsd: CollectionUsdPoint[];
   platformUsd: CollectionUsdPoint[];
+  /**
+   * Same Cardhedger preview as used for {@link gradePrices} / chart merge (avoid a second
+   * `GET …/cardhedger` for collection detail).
+   */
+  cardhedgerPreview?: CollectionMarketPreview;
 }
 
 /** PokeTrace NM chart bundle — `priceHistoryDuration` caps eBay NEAR_MINT history length for `externalUsd`. */
@@ -741,7 +748,7 @@ export interface CollectionMarketPreview {
     priceReliability?: "high" | "low";
     pricingSuppressedReason?: string | null;
     /** Backend: comps vs history point vs catalog PSA 10 slot. */
-    spotPriceBasis?: "comps" | "latest_sale" | "sparse_sale_avg" | "catalog" | null;
+    spotPriceBasis?: "comps" | "latest_sale" | "sparse_sale_avg" | "catalog" | "comps_median" | null;
     /** Unix seconds — comps newest sale or history observation when applicable. */
     latestSaleAt?: number | null;
     ebayNearMint: MarketPriceBand | null;

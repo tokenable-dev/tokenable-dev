@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { ParsedPsaLabel } from './utils/psa-ocr.util';
+import { psaVarietyIsCardNumberOnly } from './psa-variety-catalog.util';
 
 /** Aligns with Swagger `PublicPSACert` (api.psacard.com/publicapi/swagger.json). */
 export interface PsaCertRecord {
@@ -76,6 +77,18 @@ export class PsaPublicApiService {
     }
   >();
 
+  /**
+   * 동일 cert에 대한 동시 요청을 한 번으로 합침 (포트폴리오 민트 N개 → PSA N중복 호출 방지).
+   */
+  private readonly inFlightGetByCert = new Map<
+    string,
+    Promise<PsaPublicApiLookupResult>
+  >();
+  private readonly inFlightGetImages = new Map<
+    string,
+    Promise<PsaGetImagesLookupResult>
+  >();
+
   constructor(private readonly config: ConfigService) {}
 
   /**
@@ -106,6 +119,20 @@ export class PsaPublicApiService {
     return 2;
   }
 
+  /** RFC-style Retry-After (초); 비정상적으로 큰 값은 상한만 적용. */
+  private waitMsFrom429RetryAfter(
+    retryAfterHeader: string | null,
+    attempt: number,
+  ): number {
+    const raw = retryAfterHeader?.trim();
+    const sec = raw ? parseInt(raw, 10) : NaN;
+    if (Number.isFinite(sec) && sec > 0) {
+      const capped = Math.min(sec, 120);
+      return Math.max(capped, 1) * 1000;
+    }
+    return Math.min(1500 * 2 ** attempt, 30_000);
+  }
+
   /**
    * GET /cert/GetByCertNumber/{cert}
    * Requires PSA account token from https://www.psacard.com/publicapi
@@ -134,6 +161,23 @@ export class PsaPublicApiService {
       }
     }
 
+    const inflight = this.inFlightGetByCert.get(digits);
+    if (inflight) {
+      this.logger.debug(`PSA API coalesce in-flight GetByCert cert=${digits}`);
+      return inflight;
+    }
+
+    const run = this.runGetByCertNumber(digits, token).finally(() => {
+      this.inFlightGetByCert.delete(digits);
+    });
+    this.inFlightGetByCert.set(digits, run);
+    return run;
+  }
+
+  private async runGetByCertNumber(
+    digits: string,
+    token: string,
+  ): Promise<PsaPublicApiLookupResult> {
     const url = `${this.baseUrl}/cert/GetByCertNumber/${digits}`;
     const maxRetries = this.getMaxRetries();
 
@@ -157,10 +201,7 @@ export class PsaPublicApiService {
 
         if (res.status === 429 && attempt < maxRetries) {
           const retryAfter = res.headers.get('retry-after');
-          const waitSec = retryAfter ? parseInt(retryAfter, 10) : NaN;
-          const waitMs = Number.isFinite(waitSec)
-            ? Math.min(Math.max(waitSec, 1), 120) * 1000
-            : Math.min(1500 * 2 ** attempt, 30_000);
+          const waitMs = this.waitMsFrom429RetryAfter(retryAfter, attempt);
           this.logger.warn(
             `PSA API 429 cert=${digits} attempt=${attempt + 1}/${maxRetries + 1} waitMs=${waitMs} retry-after=${retryAfter ?? 'n/a'}`,
           );
@@ -248,6 +289,7 @@ export class PsaPublicApiService {
           raw: body,
         };
 
+      const ttl = this.getCacheTtlMs();
       if (ttl > 0) {
         this.successCache.set(digits, {
           expiresAt: Date.now() + ttl,
@@ -287,6 +329,25 @@ export class PsaPublicApiService {
       return { status: 'skipped', reason: 'invalid_cert' };
     }
 
+    const inflight = this.inFlightGetImages.get(digits);
+    if (inflight) {
+      this.logger.debug(
+        `PSA GetImages coalesce in-flight cert=${digits}`,
+      );
+      return inflight;
+    }
+
+    const run = this.runGetImagesByCertNumber(digits, token).finally(() => {
+      this.inFlightGetImages.delete(digits);
+    });
+    this.inFlightGetImages.set(digits, run);
+    return run;
+  }
+
+  private async runGetImagesByCertNumber(
+    digits: string,
+    token: string,
+  ): Promise<PsaGetImagesLookupResult> {
     const url = `${this.baseUrl}/cert/GetImagesByCertNumber/${digits}`;
     const maxRetries = this.getMaxRetries();
 
@@ -309,10 +370,7 @@ export class PsaPublicApiService {
 
         if (res.status === 429 && attempt < maxRetries) {
           const retryAfter = res.headers.get('retry-after');
-          const waitSec = retryAfter ? parseInt(retryAfter, 10) : NaN;
-          const waitMs = Number.isFinite(waitSec)
-            ? Math.min(Math.max(waitSec, 1), 120) * 1000
-            : Math.min(1500 * 2 ** attempt, 30_000);
+          const waitMs = this.waitMsFrom429RetryAfter(retryAfter, attempt);
           this.logger.warn(
             `PSA GetImages 429 cert=${digits} attempt=${attempt + 1}/${maxRetries + 1} waitMs=${waitMs} retry-after=${retryAfter ?? 'n/a'}`,
           );
@@ -484,15 +542,30 @@ function mergePsaApiIntoParsedImpl(
   );
   const setHint = brandRaw && !brandIsGeneric ? brandRaw : ocr.setHint;
 
-  const cardNumRaw =
-    (typeof c.CardNumber === 'string' && c.CardNumber.trim()
-      ? c.CardNumber
-      : typeof c.Variety === 'string' && c.Variety.trim()
-        ? c.Variety
-        : '') || '';
-  const cardNumberHint = cardNumRaw
-    ? cardNumRaw.replace(/^#/, '').trim()
-    : ocr.cardNumberHint;
+  const cardNumberFromCert =
+    typeof c.CardNumber === 'string' && c.CardNumber.trim()
+      ? c.CardNumber.replace(/^#/, '').trim()
+      : '';
+  const varietyFromCert =
+    typeof c.Variety === 'string' && c.Variety.trim()
+      ? c.Variety.trim()
+      : '';
+
+  /** When CardNumber is empty, PSA sometimes puts the # only in Variety. */
+  const varietyLooksLikeCardNumberOnly =
+    varietyFromCert.length > 0 &&
+    psaVarietyIsCardNumberOnly(varietyFromCert);
+
+  const cardNumberHint = cardNumberFromCert
+    ? cardNumberFromCert
+    : varietyLooksLikeCardNumberOnly
+      ? varietyFromCert.replace(/^#/, '').trim()
+      : ocr.cardNumberHint;
+
+  const varietyHint =
+    varietyFromCert && !varietyLooksLikeCardNumberOnly
+      ? varietyFromCert
+      : ocr.varietyHint;
 
   const gradeDescription =
     typeof c.GradeDescription === 'string' && c.GradeDescription.trim()
@@ -554,5 +627,6 @@ function mergePsaApiIntoParsedImpl(
     totalPopulationWithQualifier,
     reverseBarcode,
     specId,
+    varietyHint,
   };
 }

@@ -20,6 +20,14 @@
 
 ---
 
+## Cardhedger price looks wrong (Base vs parallel)
+
+- **Symptom:** Price is much lower than the market for the same card # (e.g. ~$400 vs ~$3k on a Silver slab).
+- **Cause:** PSA **Variety** was not stored in IPFS `graded.psa`, so resolution locked to Cardhedger **Base** `card_id`.
+- **Fix:** Ensure mint JSON includes `graded.psa.Variety`; keep `PSA_PUBLIC_API_TOKEN` so cert lookup can backfill Variety for older metadata. Details: **[cardhedger-psa-variety.md](cardhedger-psa-variety.md)**.
+
+---
+
 ## Frontend API calls return 401
 
 - Check that `access_token` cookie is present in the browser (DevTools → Application → Cookies).

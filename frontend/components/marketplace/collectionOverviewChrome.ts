@@ -32,9 +32,9 @@ export const COLLECTION_MARKET_SPLIT_CHROME =
 export const COLLECTION_EXCHANGE_ORDER_BOOK_FRAME =
   "h-[409px] w-[min(100%,221px)] shrink-0 rounded-lg border border-[rgba(38,39,45,1)] bg-[rgb(20,20,21)] sm:w-[221px]";
 
-/** Dual chart in collection exchange mat — panel chrome aligned with unified metrics strip (width fills layout). */
-export const COLLECTION_CHART_SURFACE = `w-full min-w-0 min-h-0 overflow-hidden rounded-lg border border-[rgba(38,39,45,1)] bg-[rgb(20,20,21)] text-white`;
+/** Dual chart in collection exchange mat — same fill as mat; no inset border/frame line. */
+export const COLLECTION_CHART_SURFACE =
+  `w-full min-w-0 min-h-0 overflow-hidden rounded-lg ${COLLECTION_DETAILS_BG_CLASS} text-white`;
 
-/** Individual listing cards in collection exchange (`CollectionRwaCard`): 8px radius, 1px zinc border, black fill. */
-export const COLLECTION_LISTING_CARD_CHROME =
-  "rounded-lg border border-solid border-[rgba(38,39,45,1)] bg-black";
+/** Individual listing cards in collection exchange (`CollectionRwaCard`): no stroke; fills only. */
+export const COLLECTION_LISTING_CARD_CHROME = "rounded-lg bg-black overflow-hidden";

@@ -13,6 +13,10 @@ import {
 import { useMarketplaceCollectionsInfinite } from "@/hooks/useMarketplaceCollectionsInfinite";
 import { CollectionCoverFrame } from "@/components/marketplace/CollectionCoverFrame";
 import { parseGradeScoreNumber, representativeGradeUsd } from "@/lib/market";
+import {
+  collectionMatchesCategoryFilter,
+  type CollectionCategoryFilterId,
+} from "@/lib/market";
 import { toCardDisplayUppercase } from "@/lib/marketplace/collectionFullDetailsTitle";
 
 const MAX_TRENDING_VISIBLE = 4;
@@ -57,19 +61,30 @@ export function TrendingCollectionsCarousel({
   snapshotByKey: snapshotByKeyProp,
   className = "",
   outerStyle,
+  hideTitle = false,
+  listingCategoryFilter,
 }: {
   variant?: TrendingCollectionsCarouselVariant;
   /** When set (Markets page), skips a separate snapshots request for these cards */
   snapshotByKey?: Map<string, CollectionListMarketSnapshot>;
   className?: string;
   outerStyle?: CSSProperties;
+  /** Markets only: carousel without "Trending Now" heading */
+  hideTitle?: boolean;
+  /**
+   * When set (Markets listing carousel): filter/sort slide pool before taking the first
+   * `TRENDING_POOL` collections. Separate from trading-list category on the exchange page.
+   */
+  listingCategoryFilter?: CollectionCategoryFilterId;
 }) {
-  const { data: colPages } = useMarketplaceCollectionsInfinite();
+  const { data: colPages, isPending: collectionsPending } = useMarketplaceCollectionsInfinite();
 
   const collectionSummaries = useMemo(
     () => colPages?.pages.flatMap((p) => p.items) ?? [],
     [colPages],
   );
+
+  const listingCategoryEffective = listingCategoryFilter ?? "all";
 
   const trendingNow = useMemo(() => {
     const sorted = [...collectionSummaries].sort((a, b) => {
@@ -78,6 +93,9 @@ export function TrendingCollectionsCarousel({
       if (ta !== tb) return tb - ta;
       return a.displayLabel.localeCompare(b.displayLabel);
     });
+
+    let pool = sorted;
+
     const withCert: MarketplaceCollectionSummary[] = [];
     for (const c of sorted) {
       if (marketplaceSummaryHasPsaCertNumber(c.components as Record<string, unknown>)) {
@@ -85,10 +103,23 @@ export function TrendingCollectionsCarousel({
       }
     }
     if (withCert.length > 0) {
-      return withCert.slice(0, TRENDING_POOL);
+      pool = withCert;
     }
-    return sorted.slice(0, TRENDING_POOL);
-  }, [collectionSummaries]);
+
+    pool = pool.filter((c) =>
+      collectionMatchesCategoryFilter(
+        listingCategoryEffective,
+        c,
+        snapshotByKeyProp?.get(c.collectionKey.toLowerCase()),
+      ),
+    );
+
+    return pool.slice(0, TRENDING_POOL);
+  }, [
+    collectionSummaries,
+    listingCategoryEffective,
+    snapshotByKeyProp,
+  ]);
 
   const trendingSnapshotKeysSorted = useMemo(() => {
     const u = [...new Set(trendingNow.map((c) => c.collectionKey.toLowerCase()))];
@@ -116,6 +147,11 @@ export function TrendingCollectionsCarousel({
 
   const trendingCount = trendingNow.length;
 
+  const trendingCarouselKeySig = useMemo(
+    () => trendingNow.map((c) => c.collectionKey.toLowerCase()).join("|"),
+    [trendingNow],
+  );
+
   /** < sm (640px) — stack one card per view and advance on an interval */
   const [narrowCarousel, setNarrowCarousel] = useState(false);
   useEffect(() => {
@@ -140,6 +176,12 @@ export function TrendingCollectionsCarousel({
    */
   const [narrowVisual, setNarrowVisual] = useState(0);
   const [narrowTransition, setNarrowTransition] = useState(true);
+
+  /** Listing category / carousel pool change — avoid stale slide indices */
+  useEffect(() => {
+    setDeckWindowStart(0);
+    setNarrowVisual(0);
+  }, [listingCategoryEffective, trendingCarouselKeySig]);
 
   const narrowExtended = useMemo(() => {
     if (!narrowCarousel || !trendingLoops || trendingCount === 0) return trendingNow;
@@ -292,14 +334,14 @@ export function TrendingCollectionsCarousel({
           if (Date.now() < suppressNavUntilRef.current) e.preventDefault();
         }}
       >
-        <div className="overflow-hidden rounded-2xl bg-[#0d1118] transition-colors">
+        <div className="overflow-hidden rounded-2xl transition-colors">
           <div className="aspect-[3/4] bg-[#0a0e14]">
             {displayImageUrl ? (
-              <CollectionCoverFrame
-                imageUrl={displayImageUrl}
-                variant="compact"
-                className="h-full w-full"
-              />
+            <CollectionCoverFrame
+              imageUrl={displayImageUrl}
+              variant="flat"
+              className="h-full w-full"
+            />
             ) : (
               <div className="h-full w-full bg-zinc-900" />
             )}
@@ -308,7 +350,7 @@ export function TrendingCollectionsCarousel({
             <p className="line-clamp-2 break-words text-base font-semibold uppercase leading-snug text-white sm:truncate sm:text-lg">
               {toCardDisplayUppercase(c.displayLabel)}
             </p>
-            <p className="tabular-nums text-base font-bold leading-[140%] tracking-normal text-[rgba(0,255,194,1)] [font-family:var(--font-ibm-plex-sans),sans-serif] sm:text-[18px]">
+            <p className="tabular-nums text-base font-bold leading-[140%] tracking-normal text-[#87FF48] [font-family:var(--font-ibm-plex-sans),sans-serif] sm:text-[18px]">
               {eBayPrice != null && Number.isFinite(eBayPrice) && eBayPrice > 0
                 ? formatUsd(eBayPrice)
                 : "—"}
@@ -319,9 +361,10 @@ export function TrendingCollectionsCarousel({
     );
   };
 
-  if (trendingNow.length === 0) return null;
-
-  const showHeading = variant === "markets";
+  const isMarkets = variant === "markets";
+  const showHeadingBlock = isMarkets && !hideTitle;
+  /** Preserve carousel footprint on Markets when the listing category pool is empty — avoids layout jump. */
+  const marketsCarouselReserveEmpty = isMarkets && trendingCount === 0;
 
   const landingNarrowW =
     variant === "landing" && narrowCarousel
@@ -386,11 +429,23 @@ export function TrendingCollectionsCarousel({
 
   return (
     <section
-      className={`${showHeading ? "mb-10 mt-2 sm:mb-20 sm:mt-4" : "mx-auto mb-10 max-sm:mb-0 w-full max-w-6xl sm:mb-11"} ${!showHeading ? "max-sm:min-h-0 max-sm:flex-1 max-sm:flex max-sm:flex-col" : ""} ${className}`.trim()}
+      className={`${
+        isMarkets
+          ? showHeadingBlock
+            ? "mb-10 mt-2 sm:mb-20 sm:mt-4"
+            : "mb-8 mt-1 sm:mb-14 sm:mt-2"
+          : "mx-auto mb-10 max-sm:mb-0 w-full max-w-6xl sm:mb-11"
+      } ${!isMarkets ? "max-sm:min-h-0 max-sm:flex-1 max-sm:flex max-sm:flex-col" : ""} ${className}`.trim()}
       style={outerStyle}
-      aria-label={showHeading ? "Trending now collections" : "Featured collections"}
+      aria-label={
+        isMarkets
+          ? showHeadingBlock
+            ? "Trending now collections"
+            : "Collection carousel"
+          : "Featured collections"
+      }
     >
-      {showHeading ? (
+      {showHeadingBlock ? (
         <div className="mb-4 sm:mb-7">
           <h2 className="text-2xl font-extrabold tracking-tight text-white sm:text-3xl">
             Trending Now
@@ -399,9 +454,9 @@ export function TrendingCollectionsCarousel({
       ) : null}
 
       <div
-        className={`relative ${!showHeading ? "max-sm:min-h-0 max-sm:flex-1 max-sm:flex max-sm:flex-col" : ""}`}
+        className={`relative ${!isMarkets ? "max-sm:min-h-0 max-sm:flex-1 max-sm:flex max-sm:flex-col" : ""}`}
       >
-        {!narrowTrackSlide ? (
+        {!marketsCarouselReserveEmpty && !narrowTrackSlide ? (
           <>
             <button
               type="button"
@@ -438,7 +493,34 @@ export function TrendingCollectionsCarousel({
           </>
         ) : null}
 
-        {narrowTrackSlide ? (
+        {marketsCarouselReserveEmpty ? (
+          <div className={deckGridClass}>
+            <div
+              className={`flex min-h-[20rem] flex-col items-center justify-center rounded-2xl border border-zinc-800/80 bg-[#0a0e14] px-4 py-10 text-center sm:min-h-[24rem] ${
+                narrowCarousel ? "w-full" : "sm:col-span-2 xl:col-span-4"
+              }`}
+              role="status"
+              aria-live="polite"
+            >
+              {collectionsPending ? (
+                <div className="h-44 w-full max-w-[15rem] animate-pulse rounded-xl bg-zinc-800/55 sm:h-52 sm:max-w-xs" />
+              ) : (
+                <>
+                  <p className="text-base font-semibold text-zinc-200 sm:text-lg">
+                    {listingCategoryEffective !== "all"
+                      ? "No listings in this category for the preview carousel."
+                      : "No preview listings right now."}
+                  </p>
+                  <p className="mt-2 max-w-md text-sm leading-relaxed text-zinc-500">
+                    {listingCategoryEffective !== "all"
+                      ? "Try ALL or another category — the trading list below may still have matches."
+                      : "Check back soon, or browse the card trading list below."}
+                  </p>
+                </>
+              )}
+            </div>
+          </div>
+        ) : narrowTrackSlide ? (
           <div className={`flex w-full items-center gap-1.5 sm:gap-2 ${landingNarrowBleedRail}`}>
             <button
               type="button"

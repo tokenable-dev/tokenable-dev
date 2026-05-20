@@ -3,11 +3,11 @@
 :root {
   --background: #030712;
   --foreground: #f9fafb;
-  /** 브랜드 포인트 — 민트 */
-  --mint: #94ffd4;
-  --mint-dim: #6fd4b8;
-  --mint-deep: #4a9d82;
-  --mint-ink: #0a1412;
+  /** 브랜드 포인트 — 라임 그린 rgb(135,255,72) */
+  --mint: #87ff48;
+  --mint-dim: #5fdc2e;
+  --mint-deep: #3f8f18;
+  --mint-ink: #081008;
 }
 
 @theme inline {
@@ -36,138 +36,9 @@ body {
   display: none;
 }
 
-/* 다크 민트 테마에 어울리는 얇은 스크롤바 */
-.scrollbar-thin {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(74, 157, 130, 0.35) transparent;
-}
-.scrollbar-thin::-webkit-scrollbar {
-  width: 5px;
-}
-.scrollbar-thin::-webkit-scrollbar-track {
-  background: transparent;
-}
-.scrollbar-thin::-webkit-scrollbar-thumb {
-  background: rgba(74, 157, 130, 0.3);
-  border-radius: 9999px;
-}
-.scrollbar-thin::-webkit-scrollbar-thumb:hover {
-  background: rgba(74, 157, 130, 0.5);
-}
-
-/**
- * Tokenable marketplace — mint-on-zinc scrollbars (vertical + horizontal).
- * Use on overflow containers; collection detail route also styles the viewport via html class.
- */
-.scrollbar-platform {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(148, 255, 212, 0.42) rgba(9, 11, 15, 0.92);
-}
-.scrollbar-platform::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-.scrollbar-platform::-webkit-scrollbar-track {
-  background: rgba(9, 11, 15, 0.92);
-  border-radius: 9999px;
-  box-shadow: inset 0 0 0 1px rgba(63, 63, 70, 0.35);
-}
-.scrollbar-platform::-webkit-scrollbar-thumb {
-  border-radius: 9999px;
-  border: 2px solid rgba(9, 11, 15, 0.92);
-  background: linear-gradient(
-    180deg,
-    rgba(148, 255, 212, 0.38) 0%,
-    rgba(74, 157, 130, 0.32) 55%,
-    rgba(52, 211, 153, 0.22) 100%
-  );
-  box-shadow: 0 0 12px -4px rgba(148, 255, 212, 0.25);
-}
-.scrollbar-platform::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(
-    180deg,
-    rgba(148, 255, 212, 0.52) 0%,
-    rgba(111, 212, 184, 0.42) 100%
-  );
-  box-shadow: 0 0 14px -2px rgba(148, 255, 212, 0.35);
-}
-.scrollbar-platform::-webkit-scrollbar-corner {
-  background: rgba(9, 11, 15, 0.92);
-}
-
-/** Order book / depth lists — neutral grey thumb (no mint accent). */
-.scrollbar-book {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(82, 82, 91, 0.75) rgba(9, 11, 15, 0.92);
-}
-.scrollbar-book::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-.scrollbar-book::-webkit-scrollbar-track {
-  background: rgba(9, 11, 15, 0.92);
-  border-radius: 9999px;
-  box-shadow: inset 0 0 0 1px rgba(39, 39, 42, 0.45);
-}
-.scrollbar-book::-webkit-scrollbar-thumb {
-  border-radius: 9999px;
-  border: 2px solid rgba(9, 11, 15, 0.92);
-  background: linear-gradient(
-    180deg,
-    rgba(82, 82, 91, 0.55) 0%,
-    rgba(63, 63, 70, 0.5) 50%,
-    rgba(52, 52, 58, 0.45) 100%
-  );
-}
-.scrollbar-book::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(
-    180deg,
-    rgba(113, 113, 122, 0.65) 0%,
-    rgba(82, 82, 91, 0.55) 100%
-  );
-}
-.scrollbar-book::-webkit-scrollbar-corner {
-  background: rgba(9, 11, 15, 0.92);
-}
-
-/* Collection detail pages — main window scrollbar matches platform chrome */
+/* 컬렉션 상세: 스크롤바 색상은 브라우저 기본, 레이아웃만 튐 완화 */
 html.collection-details-scroll {
   scrollbar-gutter: stable;
-  scrollbar-color: rgba(148, 255, 212, 0.42) rgba(9, 11, 15, 0.92);
-}
-html.collection-details-scroll::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
-}
-html.collection-details-scroll::-webkit-scrollbar-track {
-  background: linear-gradient(90deg, rgba(3, 7, 18, 0.98) 0%, rgba(12, 14, 20, 0.96) 100%);
-  border-left: 1px solid rgba(39, 39, 42, 0.45);
-}
-html.collection-details-scroll::-webkit-scrollbar-thumb {
-  border-radius: 9999px;
-  border: 2px solid rgba(3, 7, 12, 0.85);
-  background: linear-gradient(
-    180deg,
-    rgba(148, 255, 212, 0.4) 0%,
-    rgba(74, 157, 130, 0.34) 50%,
-    rgba(45, 90, 75, 0.45) 100%
-  );
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.12),
-    0 0 16px -6px rgba(148, 255, 212, 0.28);
-}
-html.collection-details-scroll::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(
-    180deg,
-    rgba(180, 255, 230, 0.5) 0%,
-    rgba(111, 212, 184, 0.42) 100%
-  );
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.16),
-    0 0 18px -4px rgba(148, 255, 212, 0.4);
-}
-html.collection-details-scroll::-webkit-scrollbar-corner {
-  background: rgba(3, 7, 18, 0.98);
 }
 
 /** RWA Exchange — indeterminate bar while PokeTrace / market snapshots load */
@@ -226,9 +97,9 @@ html.collection-details-scroll::-webkit-scrollbar-corner {
   inset: 0;
   background: linear-gradient(
     90deg,
-    rgba(32, 228, 207, 0.02) 0%,
-    rgba(32, 228, 207, 0.2) 50%,
-    rgba(32, 228, 207, 0.02) 100%
+    rgba(135, 255, 72, 0.03) 0%,
+    rgba(135, 255, 72, 0.2) 50%,
+    rgba(135, 255, 72, 0.03) 100%
   );
   animation: ai-insight-scan 1.15s ease-in-out infinite;
   pointer-events: none;
@@ -250,7 +121,7 @@ html.collection-details-scroll::-webkit-scrollbar-corner {
   background: linear-gradient(
     100deg,
     rgba(255, 255, 255, 0) 0%,
-    rgba(148, 255, 212, 0.22) 45%,
+    rgba(135, 255, 72, 0.24) 45%,
     rgba(255, 255, 255, 0) 100%
   );
   animation: ai-insight-shimmer 1.2s linear infinite;

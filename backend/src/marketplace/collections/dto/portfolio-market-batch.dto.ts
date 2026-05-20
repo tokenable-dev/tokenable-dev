@@ -16,7 +16,9 @@ export class PortfolioMarketBatchHintDto {
   @IsString()
   collectionKey!: string;
 
-  @ApiProperty({ description: 'Owned token id in that bucket (IPFS hint path)' })
+  @ApiProperty({
+    description: 'Owned token id in that bucket (IPFS hint path)',
+  })
   @IsInt()
   @Min(0)
   hintTokenId!: number;
@@ -39,7 +41,8 @@ export class PortfolioMarketBatchDto {
 
   @ApiPropertyOptional({
     type: [PortfolioMarketBatchHintDto],
-    description: 'Optional hint token per key (same as GET …/market-series?hintTokenId=)',
+    description:
+      'Optional hint token per key (same as GET …/market-series?hintTokenId=)',
   })
   @IsOptional()
   @IsArray()

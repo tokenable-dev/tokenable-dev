@@ -10,8 +10,9 @@ const detailsKvFont = IBM_Plex_Sans({
   display: "swap",
 });
 
-const ROW_LABEL_CLASS = `${detailsKvFont.className} min-w-0 flex-1 text-[14px] font-normal leading-[140%] tracking-normal text-[#a0a0a0] sm:text-[15px]`;
-const ROW_VALUE_CLASS = `${detailsKvFont.className} min-w-0 shrink-0 max-w-[62%] text-right text-[15px] font-medium leading-[140%] tracking-normal text-white [overflow-wrap:anywhere] sm:max-w-[58%] sm:text-[16px]`;
+/** Tighter leading on small screens keeps the Details block shorter. */
+const ROW_LABEL_CLASS = `${detailsKvFont.className} min-w-0 flex-1 text-[13px] font-normal leading-snug tracking-normal text-[#a0a0a0] sm:text-[14px] sm:leading-[140%]`;
+const ROW_VALUE_CLASS = `${detailsKvFont.className} min-w-0 shrink-0 max-w-[62%] text-right text-[14px] font-medium leading-snug tracking-normal text-white [overflow-wrap:anywhere] sm:max-w-[58%] sm:text-[15px] sm:leading-[140%]`;
 
 export function CollectionDetailsKvCard({
   title,
@@ -27,33 +28,33 @@ export function CollectionDetailsKvCard({
   footer?: ReactNode;
 }) {
   return (
-    <article className="rounded-2xl bg-[rgba(8,8,8,1)] px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:px-6 sm:py-6">
+    <article className="rounded-2xl bg-[rgba(8,8,8,1)] px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:px-5 sm:py-5 lg:px-6 lg:py-6">
       <h2
-        className={`${detailsKvFont.className} text-[17px] font-bold leading-[140%] tracking-normal text-white sm:text-[18px]`}
+        className={`${detailsKvFont.className} text-[16px] font-bold leading-[140%] tracking-normal text-white sm:text-[17px]`}
       >
         {title}
       </h2>
       {subtitle?.trim() ? (
         <p
-          className={`${detailsKvFont.className} mt-2.5 text-[12px] font-normal leading-[140%] tracking-normal text-[#a0a0a0]`}
+          className={`${detailsKvFont.className} mt-2 text-[11px] font-normal leading-snug tracking-normal text-[#a0a0a0] sm:text-[12px] sm:leading-[140%]`}
         >
           {subtitle}
         </p>
       ) : null}
       {catalogLine?.trim() ? (
         <p
-          className={`${detailsKvFont.className} mt-1.5 text-[12px] font-normal leading-[140%] tracking-normal text-[#a0a0a0]`}
+          className={`${detailsKvFont.className} mt-1 text-[11px] font-normal leading-snug tracking-normal text-[#a0a0a0] sm:text-[12px] sm:leading-[140%]`}
         >
           {catalogLine}
         </p>
       ) : null}
 
       {rows.length > 0 ? (
-        <dl className="mt-5 space-y-0">
-          {rows.map((row, i) => (
+        <dl className="mt-3 space-y-0 sm:mt-4">
+          {rows.map((row) => (
             <div
               key={row.id}
-              className={`flex gap-2.5 py-3 sm:gap-4 sm:py-4 ${i > 0 ? "border-t border-white/[0.06]" : ""}`}
+              className="flex gap-2 py-2 sm:gap-3 sm:py-2.5"
             >
               <dt className={ROW_LABEL_CLASS}>{row.label}</dt>
               <dd className={ROW_VALUE_CLASS}>{row.value}</dd>
@@ -62,7 +63,9 @@ export function CollectionDetailsKvCard({
         </dl>
       ) : null}
 
-      {footer ? <div className={`${rows.length > 0 ? "mt-5 border-t border-white/[0.06] pt-5" : "mt-1"}`}>{footer}</div> : null}
+      {footer ? (
+        <div className={`${rows.length > 0 ? "mt-3 pt-3 sm:mt-4 sm:pt-4" : "mt-1"}`}>{footer}</div>
+      ) : null}
     </article>
   );
 }

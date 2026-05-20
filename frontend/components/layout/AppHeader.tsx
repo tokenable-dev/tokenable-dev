@@ -9,10 +9,15 @@ import {
   useMemo,
   useDeferredValue,
 } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useAccount, useConnect, useDisconnect, useBalance } from "wagmi";
 import { formatUnits } from "viem";
 import { ASSETS } from "@/constants/assets";
+import {
+  APP_MAIN_SHELL_CLASS,
+  COLLECTION_DETAIL_SHELL_CLASS,
+  isMarketplaceCollectionDetailPath,
+} from "@/constants/layout";
 import { sepolia } from "@/config/wagmi";
 import type { MarketplaceCollectionSummary } from "@/lib/core";
 import { ensureSepoliaNetwork } from "@/lib/network";
@@ -31,6 +36,25 @@ const SEARCH_MAX_RESULTS = 64;
  * Prod: slower network yields fewer loaded pages, so typing stays responsive. Cap prefetch so dev matches prod-ish cost.
  */
 const SEARCH_PREFETCH_MAX_PAGES = 8;
+
+/** Exact path or nested routes (strip query/hash before compare). */
+function isPrimaryHeaderNavActive(pathname: string | null | undefined, href: string): boolean {
+  if (!pathname) return false;
+  let pathOnly = pathname;
+  const qIdx = pathOnly.indexOf("?");
+  if (qIdx >= 0) pathOnly = pathOnly.slice(0, qIdx);
+  const hIdx = pathOnly.indexOf("#");
+  if (hIdx >= 0) pathOnly = pathOnly.slice(0, hIdx);
+  if (pathOnly === href) return true;
+  const base = href.replace(/\/$/, "");
+  return pathOnly.startsWith(`${base}/`);
+}
+
+const MAIN_HEADER_NAV = [
+  { href: "/markets", label: "Markets" },
+  { href: "/portfolio", label: "My Assets" },
+  { href: "/vault", label: "Vault" },
+] as const satisfies readonly { readonly href: string; readonly label: string }[];
 
 function SearchBar() {
   const [open, setOpen] = useState(false);
@@ -148,16 +172,13 @@ function SearchBar() {
   });
 
   return (
-    <div ref={wrapperRef} className="relative w-[124px] sm:w-auto">
+    <div ref={wrapperRef} className="relative w-[124px] shrink-0 min-w-0 sm:w-[280px]">
       <div
-        className={`flex h-10 items-center rounded-xl border bg-gray-800/50 px-3 min-w-[124px] sm:min-w-[260px] transition-colors ${
+        className={`flex h-10 w-full items-center gap-2 rounded-lg border px-3 transition-colors bg-[rgb(14_27_14)] ${
           open ? "border-mint/40" : "border-gray-700/60 hover:border-gray-600"
         }`}
         onClick={() => { if (!open) setOpen(true); }}
       >
-        <svg className="w-3.5 h-3.5 shrink-0 text-mint" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-        </svg>
         <input
           ref={inputRef}
           value={query}
@@ -165,13 +186,16 @@ function SearchBar() {
           onFocus={() => setOpen(true)}
           onKeyDown={handleKeyDown}
           placeholder="Search..."
-          className="ml-2 flex-1 bg-transparent text-sm text-white placeholder-gray-500 outline-none cursor-text min-w-0"
+          className="min-w-0 flex-1 bg-transparent text-sm text-white placeholder-gray-500 outline-none cursor-text"
         />
         {!open && (
-          <kbd className="hidden sm:inline-flex ml-auto text-[10px] text-gray-600 border border-gray-700 rounded px-1 py-0.5 font-mono shrink-0">
+          <kbd className="hidden sm:inline-flex text-[10px] text-gray-600 border border-gray-700 rounded px-1 py-0.5 font-mono shrink-0">
             ⌘K
           </kbd>
         )}
+        <svg className="w-3.5 h-3.5 shrink-0 text-mint" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
       </div>
 
       {showDropdown && (
@@ -182,7 +206,7 @@ function SearchBar() {
             </div>
           ) : (
             <ul
-              className="max-h-[156px] overflow-y-auto overscroll-contain scrollbar-thin py-1"
+              className="max-h-[156px] overflow-y-auto overscroll-contain py-1"
               role="listbox"
             >
               {searchTruncated ? (
@@ -313,7 +337,7 @@ function WalletDropdown() {
       <button
         onClick={() => metaMaskConnector && connect({ connector: metaMaskConnector })}
         disabled={isPending || !metaMaskConnector}
-        className="flex h-10 w-[164px] items-center justify-center gap-2 rounded-xl bg-mint px-4 text-sm font-semibold text-[#030712] transition-all hover:brightness-110 hover:shadow-lg hover:shadow-mint/25 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50"
+        className="flex h-10 w-[164px] items-center justify-center gap-2 rounded-xl bg-transparent px-4 text-sm font-semibold text-mint transition-colors hover:text-mint-dim active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50"
       >
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a2.25 2.25 0 00-2.25-2.25H15a3 3 0 110-6h3.75A2.25 2.25 0 0121 6v6zm0 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18V6a2.25 2.25 0 012.25-2.25h13.5" />
@@ -466,42 +490,61 @@ function WalletDropdown() {
 }
 
 export function AppHeader() {
+  const pathname = usePathname();
+  const isCollectionDetailHeader = isMarketplaceCollectionDetailPath(pathname);
+  const headerShellClass = isCollectionDetailHeader
+    ? COLLECTION_DETAIL_SHELL_CLASS
+    : APP_MAIN_SHELL_CLASS;
+
   return (
     <header className="border-b border-gray-800/60 backdrop-blur-sm sticky top-0 z-50 bg-gray-950/90">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3 sm:gap-4">
+      <div
+        className={`${headerShellClass} h-16 flex items-center justify-between gap-3 sm:gap-4`}
+      >
         {/* Left: logo + nav */}
-        <div className="flex items-center gap-5 min-w-0">
-          <Link href="/" className="mr-1 flex items-center gap-3 shrink-0 sm:mr-1.5">
+        <div
+          className={`flex h-full min-h-0 items-center gap-5 min-w-0${
+            isCollectionDetailHeader ? " ml-6 sm:ml-7" : ""
+          }`}
+        >
+          <Link href="/" className="mr-1 flex h-full shrink-0 items-center gap-3 sm:mr-1.5">
             <img
-              src={ASSETS.icons.tokenable}
+              src={ASSETS.logo.tokenable}
               alt="Tokenable"
               className="h-8 w-auto object-contain"
             />
           </Link>
-          <div className="hidden sm:flex items-center gap-4">
-            <Link
-              href="/markets"
-              className="text-sm text-gray-400 hover:text-white transition-colors"
-            >
-              Markets
-            </Link>
-            <Link
-              href="/portfolio"
-              className="text-sm text-gray-400 hover:text-white transition-colors"
-            >
-              My Assets
-            </Link>
-            <Link
-              href="/vault"
-              className="text-sm text-gray-400 hover:text-white transition-colors"
-            >
-              Vault
-            </Link>
+          <div className="hidden sm:ml-1 sm:flex h-full items-center gap-8 md:ml-3">
+            {MAIN_HEADER_NAV.map(({ href, label }) => {
+              const active = isPrimaryHeaderNavActive(pathname, href);
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  aria-current={active ? "page" : undefined}
+                  className={`relative flex h-full items-center text-[15px] font-semibold leading-normal tracking-tight transition-colors sm:text-base ${
+                    active ? "text-mint" : "text-gray-400 hover:text-white"
+                  }`}
+                >
+                  {label}
+                  {active ? (
+                    <span
+                      aria-hidden
+                      className="pointer-events-none absolute bottom-[10px] left-1/2 h-[3px] w-[calc(100%+12px)] max-w-none -translate-x-1/2 rounded-t-[2px] bg-mint sm:bottom-3 sm:rounded-t-[1px]"
+                    />
+                  ) : null}
+                </Link>
+              );
+            })}
           </div>
         </div>
 
         {/* Right: search + wallet */}
-        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+        <div
+          className={`flex items-center gap-2 sm:gap-3 shrink-0${
+            isCollectionDetailHeader ? " mr-6 sm:mr-7" : ""
+          }`}
+        >
           <SearchBar />
           <WalletDropdown />
         </div>

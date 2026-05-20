@@ -159,7 +159,7 @@ function buildHeadlineSubtitleLine(
 function HeaderInlineStat({ stat }: { stat: CollectionOverviewStat }) {
   const toneClass =
     stat.tone === "up"
-      ? "text-emerald-400"
+      ? "text-mint"
       : stat.tone === "down"
         ? "text-rose-400"
         : "text-zinc-100";
@@ -358,7 +358,7 @@ export function CollectionOverviewBoard({
               />
 
               <div className={`min-w-0 flex-1 pt-3 lg:flex lg:min-w-0 lg:items-center lg:pt-0 ${COLLECTION_DETAILS_BORDER_T} lg:border-t-0`}>
-                <div className="-mx-1 flex gap-4 overflow-x-auto px-1 pb-0.5 scrollbar-platform sm:gap-6 lg:mx-0 lg:flex-wrap lg:gap-x-7 lg:gap-y-2 lg:overflow-visible lg:px-0 lg:pb-0">
+                <div className="-mx-1 flex gap-4 overflow-x-auto px-1 pb-0.5 sm:gap-6 lg:mx-0 lg:flex-wrap lg:gap-x-7 lg:gap-y-2 lg:overflow-visible lg:px-0 lg:pb-0">
                   {stats.map((s) => (
                     <HeaderInlineStat key={s.label} stat={s} />
                   ))}
@@ -510,7 +510,7 @@ export function CollectionOverviewBoard({
                   {orderBookColumnVisible ? (
                     <div className="flex min-h-0 w-full min-w-0 max-w-full flex-col gap-2 self-start xl:col-start-2 xl:row-start-1 xl:w-[221px] xl:shrink-0">
                       {exchangeRightStackTop ? (
-                        <div className="min-h-0 w-full min-w-0 shrink-0 overflow-y-auto scrollbar-platform">
+                        <div className="min-h-0 w-full min-w-0 shrink-0 overflow-y-auto">
                           {exchangeRightStackTop}
                         </div>
                       ) : null}

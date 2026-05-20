@@ -81,14 +81,15 @@ export interface CollectionCoverFrameProps {
   /** `ipfs://`, `https://…/ipfs/…`, 또는 일반 https — 브라우저는 API로만 해석 */
   imageUrl: string;
   alt?: string;
-  /** 목록 썸네일 · 상단 중간 크기 · 컬렉션 페이지 대형 히어로 */
-  variant?: "compact" | "featured" | "hero";
+  /** 목록 썸네일 · 상단 중간 크기 · 컬렉션 페이지 대형 히어로 · flat은 베젤/링 없이 이미지만 */
+  variant?: "compact" | "featured" | "hero" | "flat";
   className?: string;
 }
 
 /**
  * 컬렉션 대표 이미지용 프레임 — 그라데이션 베젤, 이너 매트, 은은한 하이라이트.
  * featured: 중간 크기. hero: 컬렉션 상세 좌측 히어로 — 클릭하면 큰 이미지(라이트박스).
+ * flat: 베젤·링 없이 이미지 영역만 (Trending 캐러셀 등).
  */
 export function CollectionCoverFrame({
   imageUrl,
@@ -104,6 +105,41 @@ export function CollectionCoverFrame({
     setImgFailed(false);
     setLightboxOpen(false);
   }, [imageUrl, resolved]);
+
+  /** Carousel 등 — 그라데이션 베젤·ring 없이 카드 안에 이미지만 채움 */
+  if (variant === "flat") {
+    return (
+      <div className={`relative h-full min-h-0 w-full bg-[#0a0e14] ${className}`}>
+        <div className="relative h-full min-h-0 w-full overflow-hidden bg-[#030508]">
+          {resolved && !imgFailed ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={resolved}
+              alt={alt}
+              className="absolute inset-0 h-full w-full object-contain object-center"
+              style={{ filter: "saturate(1.04) contrast(1.02)" }}
+              onError={() => setImgFailed(true)}
+            />
+          ) : imgFailed ? (
+            <div
+              className="absolute inset-0 flex items-center justify-center px-3 text-center text-[11px] leading-snug text-zinc-500"
+              role="img"
+              aria-label={alt ? `${alt} (failed to load)` : "Cover image failed to load"}
+            >
+              Couldn&apos;t load image
+            </div>
+          ) : isLoading ? (
+            <div className="absolute inset-0 animate-pulse bg-gray-900/80" aria-hidden />
+          ) : (
+            <div className="absolute inset-0 flex items-center justify-center px-3 text-center text-[11px] text-zinc-600">
+              No preview
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   const isLarge =
     variant === "featured" || variant === "hero";
   const outerPad =

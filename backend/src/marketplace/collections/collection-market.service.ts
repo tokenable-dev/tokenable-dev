@@ -5,7 +5,7 @@ import { IsNull, Repository } from 'typeorm';
 import { CardhedgerMarketDataService } from './cardhedger-market-data.service';
 import { CollectionService } from './collection.service';
 import {
-  percentChangeReferenceOver24h,
+  percentChangeReferenceOverLagSec,
   type GradePriceStrip,
   type UsdPoint,
 } from '../utils/collection-market.util';
@@ -15,14 +15,45 @@ import {
   nmHistoryDaysForBundleWindow,
 } from '../utils/market-grade-strip.util';
 import { marketHistoryTierFromComponents } from '../utils/market-history-tier.util';
+import type { MarketBundleCacheV1 } from '../utils/market-bundle-cache.types';
 import { tokenablePriceHistoryDurationToPeriod } from '../utils/price-history-period.util';
+import { MarketplaceCollection } from '../entities/marketplace-collection.entity';
 import { Order, OrderSide, OrderStatus } from '../entities/order.entity';
 import { computeRobustMarketStatsFromUsdPrices } from '../utils/collection-market-stats.util';
+import type { MarketCollectionPreview } from '../utils/market-reference.types';
 
 export type PriceHistoryDuration = '7d' | '30d' | '90d' | '180d' | '365d';
 
-/** Labels {@link CollectionMarketBundle.marketChangePct}; list bundle uses `24h` rolling window. */
+/** Labels effective lookback used for {@link CollectionMarketBundle.marketChangePct}. */
 export type MarketChangeWindowLabel = PriceHistoryDuration | '24h';
+
+const SEC_DAY = 86_400;
+/** Longest-first; when insufficient history we try shorter horizons (markets list often lacks full 365d ticks). */
+const MARKET_CHANGE_LAG_CHAIN: readonly {
+  lagSec: number;
+  window: MarketChangeWindowLabel;
+}[] = [
+  { lagSec: 365 * SEC_DAY, window: '365d' },
+  { lagSec: 180 * SEC_DAY, window: '180d' },
+  { lagSec: 90 * SEC_DAY, window: '90d' },
+  { lagSec: 30 * SEC_DAY, window: '30d' },
+  { lagSec: 7 * SEC_DAY, window: '7d' },
+  { lagSec: SEC_DAY, window: '24h' },
+];
+
+function marketChangePctWithFallback(
+  externalUsd: UsdPoint[],
+  preferred: PriceHistoryDuration,
+): { pct: number | null; window: MarketChangeWindowLabel } {
+  const startIdx = MARKET_CHANGE_LAG_CHAIN.findIndex((e) => e.window === preferred);
+  const from = startIdx >= 0 ? startIdx : 0;
+  for (let i = from; i < MARKET_CHANGE_LAG_CHAIN.length; i++) {
+    const { lagSec, window } = MARKET_CHANGE_LAG_CHAIN[i]!;
+    const pct = percentChangeReferenceOverLagSec(externalUsd, lagSec);
+    if (pct != null) return { pct, window };
+  }
+  return { pct: null, window: preferred };
+}
 
 /**
  * Collection catalog reference prices: Cardhedger PSA10 history + bands.
@@ -57,9 +88,9 @@ export interface CollectionMarketStatsResponse {
 export interface CollectionMarketBundle {
   collectionKey: string;
   categoryLabel: string | null;
-  /** Rolling **24h** % change vs latest Cardhedger history tick (see {@link marketChangeWindow}). */
+  /** % change vs interpolated price at (latest − bundle history window lag) on external reference series. */
   marketChangePct: number | null;
-  /** When set to `24h`, {@link marketChangePct} is previous 24h vs latest observation. */
+  /** Lookback label for {@link marketChangePct} — matches effective lag (`365d`…`24h`; may shorten if history is sparse). */
   marketChangeWindow: MarketChangeWindowLabel;
   /** Market change source label. */
   marketChangeSource: MarketChangePriceSource | null;
@@ -70,6 +101,12 @@ export interface CollectionMarketBundle {
   /** External USD reference series (downsampled for list snapshots). */
   externalUsd: UsdPoint[];
   platformUsd: UsdPoint[];
+  /**
+   * The exact Cardhedger preview used to derive {@link gradePrices} and (after tail sync)
+   * {@link externalUsd}. Clients should prefer this over a separate `GET …/cardhedger` call so
+   * headline spot and chart share one resolution.
+   */
+  cardhedgerPreview: MarketCollectionPreview;
 }
 
 /** Fulfilled listing (ask) — tape row for collection order book. */
@@ -97,6 +134,42 @@ function tapeAggressorFromOrderParameters(
 @Injectable()
 export class CollectionMarketService {
   private readonly logger = new Logger(CollectionMarketService.name);
+
+  /** 0 disables server-side Cardhedger bundle cache (see `MarketBundleCacheV1`). */
+  private marketBundleCacheTtlMs(): number {
+    const raw = this.config.get<string>('MARKET_BUNDLE_CACHE_SEC');
+    const sec = Number(raw);
+    if (!Number.isFinite(sec) || sec < 0) return 120;
+    if (sec === 0) return 0;
+    return Math.min(Math.floor(sec), 86_400) * 1000;
+  }
+
+  private isUsableMarketBundleCache(
+    col: MarketplaceCollection,
+    cached: unknown,
+    window: PriceHistoryDuration,
+    ttlMs: number,
+  ): cached is MarketBundleCacheV1 {
+    if (ttlMs <= 0) return false;
+    if (!col.marketBundleCachedAt) return false;
+    if (Date.now() - col.marketBundleCachedAt.getTime() >= ttlMs) return false;
+    if (!cached || typeof cached !== 'object') return false;
+    const c = cached as Partial<MarketBundleCacheV1>;
+    if (c.v !== 1) return false;
+    if (c.window !== window) return false;
+    const hint =
+      typeof col.components?.cardhedgerCardId === 'string'
+        ? col.components.cardhedgerCardId.trim()
+        : '';
+    const nh = hint.length > 0 ? hint : null;
+    if (c.cardhedgerCardIdHint !== nh) return false;
+    const hist = marketHistoryTierFromComponents(col.components);
+    if (c.historyTier !== hist) return false;
+    const rowR = col.cardhedgerResolvedCardId?.trim() || '';
+    const res = c.resolvedCardId?.trim() || '';
+    if (rowR.length > 0 && res.length > 0 && rowR !== res) return false;
+    return true;
+  }
 
   constructor(
     private readonly collectionService: CollectionService,
@@ -408,6 +481,50 @@ export class CollectionMarketService {
     const chartHistoryDays = nmHistoryDaysForBundleWindow(window);
     const historyTier = marketHistoryTierFromComponents(col?.components);
     const historyPeriod = tokenablePriceHistoryDurationToPeriod(window);
+    const cacheTtlMs = this.marketBundleCacheTtlMs();
+
+    const cachedRaw =
+      col?.marketBundleCacheJson as Record<string, unknown> | null | undefined;
+    if (
+      col &&
+      cacheTtlMs > 0 &&
+      this.isUsableMarketBundleCache(col, cachedRaw, window, cacheTtlMs)
+    ) {
+      const hit = cachedRaw as MarketBundleCacheV1;
+      const externalUsd = hit.externalUsd;
+      const { pct: marketChangePct, window: resolvedChangeWindow } =
+        marketChangePctWithFallback(externalUsd, window);
+      const marketChangeSource: MarketChangePriceSource | null =
+        marketChangePct != null && externalUsd.length >= 2
+          ? hit.historyTier === 'NEAR_MINT'
+            ? 'cardhedger_nm'
+            : 'cardhedger_graded'
+          : 'none';
+      const bundle: CollectionMarketBundle = {
+        collectionKey: key,
+        categoryLabel: hit.categoryLabel,
+        marketChangePct,
+        marketChangeWindow: resolvedChangeWindow,
+        marketChangeSource,
+        isMockExternalPrices: false,
+        gradePrices: hit.gradePrices,
+        externalUsd,
+        platformUsd,
+        cardhedgerPreview: hit.preview,
+      };
+      if (hit.preview.matched && hit.preview.card?.id) {
+        this.collectionService.mergeCardhedgerPricingSnapshot(key, {
+          cardId: hit.preview.card.id,
+          headlineUsd:
+            hit.preview.card.topPrice != null &&
+            Number.isFinite(hit.preview.card.topPrice)
+              ? hit.preview.card.topPrice
+              : null,
+          basis: hit.preview.card.spotPriceBasis ?? null,
+        });
+      }
+      return bundle;
+    }
 
     const { preview, history: tierHist } =
       await this.cardMarketData.getBundledCardData(col, {
@@ -420,12 +537,34 @@ export class CollectionMarketService {
     const catalogSpot = blendCatalogSpotUsdFromPreview(preview, historyTier);
     const grades = gradeStripFromHistoryTier(historyTier, catalogSpot);
 
-    const externalUsd: UsdPoint[] = tierHist.points.map((p) => ({
+    let externalUsd: UsdPoint[] = tierHist.points.map((p) => ({
       t: p.t,
       v: p.v,
     }));
 
-    const marketChangePct = percentChangeReferenceOver24h(externalUsd);
+    /**
+     * Match collection detail headline (`preview.card.topPrice`) with the chart terminal:
+     * the bundled history can end on a Cardhedger daily tick that differs from the published
+     * last-comp / spot basis used in the preview.
+     */
+    if (
+      preview.matched &&
+      preview.card &&
+      preview.card.topPrice != null &&
+      Number.isFinite(preview.card.topPrice) &&
+      preview.card.topPrice > 0 &&
+      externalUsd.length > 0
+    ) {
+      const tp = preview.card.topPrice;
+      const last = externalUsd[externalUsd.length - 1];
+      const eps = Math.max(1e-6, Math.abs(tp) * 1e-9);
+      if (Math.abs(last.v - tp) > eps) {
+        externalUsd = [...externalUsd.slice(0, -1), { t: last.t, v: tp }];
+      }
+    }
+
+    const { pct: marketChangePct, window: resolvedChangeWindow } =
+      marketChangePctWithFallback(externalUsd, window);
     const marketChangeSource: MarketChangePriceSource | null =
       marketChangePct != null && externalUsd.length >= 2
         ? historyTier === 'NEAR_MINT'
@@ -442,17 +581,52 @@ export class CollectionMarketService {
     const categoryLabel =
       categoryParts.length > 0 ? categoryParts.join(' · ') : null;
 
-    return {
+    const bundle: CollectionMarketBundle = {
       collectionKey: key,
       categoryLabel,
       marketChangePct,
-      marketChangeWindow: '24h',
+      marketChangeWindow: resolvedChangeWindow,
       marketChangeSource,
       isMockExternalPrices: false,
       gradePrices: grades,
       externalUsd,
       platformUsd,
+      cardhedgerPreview: preview,
     };
+
+    if (preview.matched && preview.card?.id) {
+      this.collectionService.mergeCardhedgerPricingSnapshot(key, {
+        cardId: preview.card.id,
+        headlineUsd:
+          preview.card.topPrice != null &&
+          Number.isFinite(preview.card.topPrice)
+            ? preview.card.topPrice
+            : null,
+        basis: preview.card.spotPriceBasis ?? null,
+      });
+    }
+
+    if (col && cacheTtlMs > 0) {
+      const hint =
+        typeof col.components?.cardhedgerCardId === 'string'
+          ? col.components.cardhedgerCardId.trim()
+          : '';
+      const cachePayload: MarketBundleCacheV1 = {
+        v: 1,
+        window,
+        historyTier,
+        cardhedgerCardIdHint: hint.length > 0 ? hint : null,
+        resolvedCardId:
+          preview.matched && preview.card?.id ? preview.card.id.trim() : null,
+        preview,
+        externalUsd,
+        gradePrices: grades,
+        categoryLabel,
+      };
+      this.collectionService.mergeMarketBundleCache(key, cachePayload);
+    }
+
+    return bundle;
   }
 
   async batchListSnapshots(
@@ -485,7 +659,7 @@ export class CollectionMarketService {
               collectionKey: key,
               categoryLabel: null,
               marketChangePct: null,
-              marketChangeWindow: '24h',
+              marketChangeWindow: priceHistoryDuration,
               marketChangeSource: null,
               isMockExternalPrices: false,
               gradePrices: { psa10: null, psa9: null, raw: null },
@@ -533,7 +707,11 @@ export class CollectionMarketService {
     const keys = [
       ...new Set(
         collectionKeys
-          .map((k) => String(k ?? '').trim().toLowerCase())
+          .map((k) =>
+            String(k ?? '')
+              .trim()
+              .toLowerCase(),
+          )
           .filter((k) => k.length > 0),
       ),
     ].slice(0, 60);

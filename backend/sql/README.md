@@ -1,10 +1,24 @@
 # Database schema
 
-There are **no hand-written SQL migrations** in this repo.
+Optional **manual SQL** files in this folder supplement TypeORM for production (`synchronize: false`) or one-off fixes. The canonical model remains entities under `backend/src/**/entities/*.ts`.
 
-- **Source of truth**: TypeORM entities under `backend/src/**/entities/*.ts`.
 - **Local / non-production**: `app.module.ts` uses `synchronize: true` when `NODE_ENV !== 'production'`, so the backend creates or updates tables on startup.
-- **Production**: set `NODE_ENV=production` and `synchronize: false`, then use your own tooling (e.g. TypeORM migrations generated from entities, or a managed migration pipeline).
+- **Production**: set `NODE_ENV=production` and `synchronize: false`, then apply entity-aligned DDL (see below) or your migration pipeline.
+
+### Collection enrichment (PSA cert, market bundle cache)
+
+Apply when upgrading an existing Postgres without TypeORM sync:
+
+```bash
+psql … -f backend/sql/marketplace_collections_enrichment_cache.sql
+```
+
+Optional env (defaults are safe):
+
+| Variable | Purpose |
+|----------|---------|
+| `MARKET_BUNDLE_CACHE_SEC` | Cardhedger-heavy `GET …/market-series` cache TTL; `0` disables. Default **120** seconds in code. |
+| `PSA_PUBLIC_SNAPSHOT_DB_TTL_SEC` | How long to keep `psa_public_snapshot_json` before refreshing from PSA API (min 60). Default **7 days** in code. |
 
 ---
 

@@ -45,7 +45,7 @@ export function CollectionOrderBookVisibilityToggle({
         onClick={() => onChange(!checked)}
         className={`relative box-border h-5 w-8 shrink-0 cursor-pointer rounded-[20px] pt-[2px] pr-[10px] pb-[2px] pl-[2px] transition-colors duration-300 ease-out ${
           checked
-            ? "bg-[#0fd4bd]/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]"
+            ? "bg-mint/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]"
             : "bg-[rgba(127,127,127,1)]"
         }`}
       >
@@ -57,7 +57,7 @@ export function CollectionOrderBookVisibilityToggle({
         >
           {checked ? (
             <svg
-              className="h-2.5 w-2.5 text-[#0a9e8a]"
+              className="h-2.5 w-2.5 text-mint-deep"
               viewBox="0 0 14 14"
               fill="none"
               aria-hidden

@@ -9,10 +9,10 @@
         <mxCell id="hdr-bg" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#0a1412;strokeColor=#4a9d82;strokeWidth=2;" vertex="1" parent="1">
           <mxGeometry x="40" y="32" width="2400" height="56" as="geometry" />
         </mxCell>
-        <mxCell id="hdr-title" value="Tokenable — 민팅 · RWA 메타데이터 · Exchange(Seaport) 판매·구매 구조" style="text;html=1;fontSize=20;fontStyle=1;align=left;fontColor=#94ffd4;" vertex="1" parent="1">
+        <mxCell id="hdr-title" value="Tokenable — 민팅 · RWA 메타데이터 · Exchange(Seaport) 판매·구매 구조" style="text;html=1;fontSize=20;fontStyle=1;align=left;fontColor=#87FF48;" vertex="1" parent="1">
           <mxGeometry x="56" y="40" width="1800" height="32" as="geometry" />
         </mxCell>
-        <mxCell id="hdr-sub" value="코드 기준 단일 뷰 · Sepolia · Seaport 1.5 · ERC-721 Tokenable RWA + USDC · 오프체인 주문은 NestJS + PostgreSQL에 동기화 · 병행: 규칙 매칭 테이블(bids/asks/…) — docs/marketplace-trading.md" style="text;html=1;fontSize=12;fontStyle=2;align=left;fontColor=#6fd4b8;" vertex="1" parent="1">
+        <mxCell id="hdr-sub" value="코드 기준 단일 뷰 · Sepolia · Seaport 1.5 · ERC-721 Tokenable RWA + USDC · 오프체인 주문은 NestJS + PostgreSQL에 동기화 · 병행: 규칙 매칭 테이블(bids/asks/…) — docs/marketplace-trading.md" style="text;html=1;fontSize=12;fontStyle=2;align=left;fontColor=#5fdc2e;" vertex="1" parent="1">
           <mxGeometry x="56" y="66" width="2200" height="22" as="geometry" />
         </mxCell>
 

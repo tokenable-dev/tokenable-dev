@@ -22,7 +22,7 @@ export function TradeCelebrationModal({
     ? "The RWA is yours — check your wallet. USDC moved on-chain as agreed."
     : "Your listing matched — USDC should appear in your wallet shortly.";
   const accent = purchase
-    ? "from-emerald-500/25 via-emerald-400/10 to-transparent"
+    ? "from-mint/25 via-mint/10 to-transparent"
     : "from-rose-500/25 via-amber-400/10 to-transparent";
 
   return (
@@ -59,7 +59,7 @@ export function TradeCelebrationModal({
           <button
             type="button"
             onClick={onClose}
-            className="mt-7 w-full rounded-xl bg-gradient-to-r from-mint to-mint-dim py-3 text-sm font-semibold text-mint-ink shadow-[0_12px_32px_-16px_rgba(45,212,191,0.45)] transition hover:brightness-105"
+            className="mt-7 w-full rounded-xl bg-gradient-to-r from-mint to-mint-dim py-3 text-sm font-semibold text-mint-ink shadow-[0_12px_32px_-16px_rgba(135,255,72,0.45)] transition hover:brightness-105"
           >
             Great
           </button>
