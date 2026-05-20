@@ -14,7 +14,6 @@ import {
 import { useMarketplaceCollectionsInfinite } from "@/hooks/useMarketplaceCollectionsInfinite";
 import { CollectionCoverFrame } from "@/components/marketplace/CollectionCoverFrame";
 import { useResolvedMediaUrlMap } from "@/hooks/useResolvedMediaUrl";
-import { TrendingCollectionsCarousel } from "@/components/landing/TrendingCollectionsCarousel";
 import { CollectionCategoryFilterBar } from "@/components/marketplace/CollectionCategoryFilterBar";
 import { CollectionListSparkline } from "@/components/marketplace/CollectionListSparkline";
 import {
@@ -390,8 +389,6 @@ function CollectionGridCard({
 }
 
 export default function ExchangePage() {
-  const [carouselCategoryFilter, setCarouselCategoryFilter] =
-    useState<CollectionCategoryFilterId>("all");
   const [categoryFilter, setCategoryFilter] = useState<CollectionCategoryFilterId>("all");
   const [viewMode, setViewMode] = useState<"list" | "grid">("grid");
 
@@ -477,23 +474,6 @@ export default function ExchangePage() {
   return (
     <div className="min-h-screen bg-black text-white">
       <div className="mx-auto max-w-6xl px-3 pb-20 pt-8 max-[380px]:px-2 sm:px-6 sm:pb-24 sm:pt-12">
-        {!isLoading && sortedForRank.length > 0 ? (
-          <div className="mb-4 border-b border-zinc-800/80 pb-4 sm:mb-6 sm:pb-5">
-            <CollectionCategoryFilterBar
-              value={carouselCategoryFilter}
-              onChange={setCarouselCategoryFilter}
-              toolbarAriaLabel="Filter listing carousel category"
-              mobileSectionHeading="Listing slide"
-            />
-          </div>
-        ) : null}
-        <div className="mb-6 sm:mb-10">
-          <TrendingCollectionsCarousel
-            snapshotByKey={snapshotByKey}
-            hideTitle
-            listingCategoryFilter={carouselCategoryFilter}
-          />
-        </div>
         {!isLoading && sortedForRank.length > 0 ? (
           <>
             <h2 className="mb-3 text-xl font-bold leading-tight tracking-tight text-white sm:mb-5 sm:text-3xl">
