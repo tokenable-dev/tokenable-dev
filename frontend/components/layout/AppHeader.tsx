@@ -50,6 +50,20 @@ function isPrimaryHeaderNavActive(pathname: string | null | undefined, href: str
   return pathOnly.startsWith(`${base}/`);
 }
 
+/** Listing catalog IA: Markets index plus collection detail (+ other pooled listings page). */
+function isMarketsPrimaryNavActive(pathname: string | null | undefined): boolean {
+  if (!pathname) return false;
+  if (isPrimaryHeaderNavActive(pathname, "/markets")) return true;
+  if (isMarketplaceCollectionDetailPath(pathname)) return true;
+  let pathOnly = pathname;
+  const qi = pathOnly.indexOf("?");
+  if (qi >= 0) pathOnly = pathOnly.slice(0, qi);
+  const hi = pathOnly.indexOf("#");
+  if (hi >= 0) pathOnly = pathOnly.slice(0, hi);
+  const hub = "/marketplace/other-listings";
+  return pathOnly === hub || pathOnly.startsWith(`${hub}/`);
+}
+
 const MAIN_HEADER_NAV = [
   { href: "/markets", label: "Markets" },
   { href: "/portfolio", label: "My Assets" },
@@ -516,7 +530,10 @@ export function AppHeader() {
           </Link>
           <div className="hidden sm:ml-1 sm:flex h-full items-center gap-8 md:ml-3">
             {MAIN_HEADER_NAV.map(({ href, label }) => {
-              const active = isPrimaryHeaderNavActive(pathname, href);
+              const active =
+                href === "/markets"
+                  ? isMarketsPrimaryNavActive(pathname)
+                  : isPrimaryHeaderNavActive(pathname, href);
               return (
                 <Link
                   key={href}
