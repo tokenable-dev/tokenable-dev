@@ -22,7 +22,7 @@ const ibmPlexSans = IBM_Plex_Sans({
   display: "swap",
 });
 
-/** favicon / apple: explicit `public` URL so browsers don’t use removed `app/favicon.ico` cache. Also `app/icon.png` for Next metadata routes. */
+/** Favicon / apple: `public/assets/icons/tokenable_icon.png` + Next `app/icon.png` (generated metadata). */
 export const metadata: Metadata = {
   title: "Tokenable",
   description:

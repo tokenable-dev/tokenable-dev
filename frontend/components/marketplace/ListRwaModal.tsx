@@ -1091,7 +1091,7 @@ export function ListRwaModal({
                   {crossingBidsForInstantSale.length} bids can fill now at this price. Pick which bid to
                   try first (if it fails, others are tried in price order).
                 </p>
-                <ul className="mt-2.5 max-h-[112px] space-y-1.5 overflow-y-auto pr-1 scrollbar-platform">
+                <ul className="mt-2.5 max-h-[112px] space-y-1.5 overflow-y-auto pr-1">
                   {crossingBidsForInstantSale.map((b) => {
                     const id = String(b.orderHash);
                     const selected = selectedBidHash === id;
@@ -1114,7 +1114,7 @@ export function ListRwaModal({
                             onChange={() => setSelectedBidHash(id)}
                           />
                           <span className="text-[12px] text-zinc-200">
-                            <span className="mr-2 font-mono tabular-nums text-emerald-300">
+                            <span className="mr-2 font-mono tabular-nums text-mint">
                               {usdc.toLocaleString("en-US", {
                                 minimumFractionDigits: 2,
                                 maximumFractionDigits: 2,

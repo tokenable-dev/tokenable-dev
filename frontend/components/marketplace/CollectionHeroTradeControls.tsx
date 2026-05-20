@@ -16,7 +16,7 @@ const ibmPlexSans = IBM_Plex_Sans({
 
 /** Buy — 2px gradient frame (avoids `border-image` + `border-radius` clipping). */
 const BUY_FRAME_GRADIENT =
-  "bg-[linear-gradient(90deg,#1D4A4D_9%,#1DFF67_53.81%,#1D4A4D_97.14%)]";
+  "bg-[linear-gradient(90deg,#2d5016_9%,#87FF48_53.81%,#2d5016_97.14%)]";
 
 /** Sell — same pattern as buy with red gradient stops. */
 const SELL_FRAME_GRADIENT =

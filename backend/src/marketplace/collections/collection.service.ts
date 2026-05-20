@@ -31,8 +31,10 @@ import {
   pickTrendingSlabImageRef,
   psaCertNumberFromGradedMeta,
 } from '../utils/collection-image.util';
-import { MarketplaceCollection } from '../entities/marketplace-collection.entity';
+import type { PsaCertRecord } from '../../psa/psa-public-api.service';
+import type { MarketBundleCacheV1 } from '../utils/market-bundle-cache.types';
 import { Order, OrderSide, OrderStatus } from '../entities/order.entity';
+import { MarketplaceCollection } from '../entities/marketplace-collection.entity';
 import { exactCatalogMatch } from '../utils/card-match.util';
 
 export interface CollectionSummary {
@@ -298,8 +300,7 @@ export class CollectionService implements OnModuleInit {
         process.env.PSA_SPEC_COVER_ALLOW_FALLBACK === '1' ||
         process.env.PSA_SPEC_COVER_ALLOW_FALLBACK === 'true';
       try {
-        const psaSpecImg =
-          await this.psaSpecScraper.scrapeSpecImageUrl(specId);
+        const psaSpecImg = await this.psaSpecScraper.scrapeSpecImageUrl(specId);
         if (psaSpecImg) {
           const img = normalizeImageUrl(psaSpecImg);
           this.logger.log(`[CoverImg] PSA spec page → ${img.slice(0, 100)}`);
@@ -307,13 +308,17 @@ export class CollectionService implements OnModuleInit {
         }
         this.logger.warn(
           `[CoverImg] PSA spec scrape returned null for specId=${specId}${
-            allowFallback ? ' — falling back' : ' — no fallback (set PSA_SPEC_COVER_ALLOW_FALLBACK=1 to allow Cardhedger/TCG)'
+            allowFallback
+              ? ' — falling back'
+              : ' — no fallback (set PSA_SPEC_COVER_ALLOW_FALLBACK=1 to allow Cardhedger/TCG)'
           }`,
         );
       } catch (e) {
         this.logger.warn(
           `[CoverImg] PSA spec scrape failed specId=${specId}: ${e instanceof Error ? e.message : String(e)}${
-            allowFallback ? ' — falling back' : ' — no fallback (set PSA_SPEC_COVER_ALLOW_FALLBACK=1 to allow Cardhedger/TCG)'
+            allowFallback
+              ? ' — falling back'
+              : ' — no fallback (set PSA_SPEC_COVER_ALLOW_FALLBACK=1 to allow Cardhedger/TCG)'
           }`,
         );
       }
@@ -779,6 +784,47 @@ export class CollectionService implements OnModuleInit {
       compRecord.psaCertNumber = psaCert;
     }
 
+    const gradedSrc =
+      (meta.properties as Record<string, unknown> | undefined)?.graded ??
+      meta.graded;
+    if (gradedSrc && typeof gradedSrc === 'object') {
+      const g = gradedSrc as Record<string, unknown>;
+      const psa = g.psa as Record<string, unknown> | undefined;
+      const card = g.card as Record<string, unknown> | undefined;
+      if (psa && typeof psa === 'object') {
+        const p = psa as Record<string, unknown>;
+        const subject = String(p.subject ?? p.Subject ?? '').trim();
+        const brand = String(p.brand ?? p.Brand ?? '').trim();
+        const category = String(p.category ?? p.Category ?? '').trim();
+        const pvar = String(p.variety ?? p.Variety ?? '').trim();
+        const pnum = String(
+          p.cardNumber ?? p.CardNumber ?? p.card_number ?? '',
+        ).trim();
+        const yearRaw = p.year ?? p.Year ?? p.YearIssued;
+        const year =
+          yearRaw != null && yearRaw !== ''
+            ? String(yearRaw).replace(/\D/g, '').slice(0, 4)
+            : '';
+        const gradeDesc = String(
+          p.gradeDescription ?? p.GradeDescription ?? '',
+        ).trim();
+        const labelType = String(p.labelType ?? p.LabelType ?? '').trim();
+        if (subject) compRecord.psaSubject = subject;
+        if (brand) compRecord.psaBrand = brand;
+        if (category) compRecord.psaCategory = category;
+        if (pnum) compRecord.psaCardNumber = pnum;
+        if (year) compRecord.psaYear = year;
+        if (gradeDesc) compRecord.psaGradeDescription = gradeDesc;
+        if (labelType) compRecord.psaLabelType = labelType;
+        const cv = String(card?.variant ?? '').trim();
+        const mergedVariety = pvar || cv;
+        if (mergedVariety) compRecord.psaVariety = mergedVariety;
+      } else {
+        const cv = String(card?.variant ?? '').trim();
+        if (cv) compRecord.psaVariety = cv;
+      }
+    }
+
     const row = this.collectionRepo.create({
       collectionKey,
       displayLabel,
@@ -1074,6 +1120,171 @@ export class CollectionService implements OnModuleInit {
       {
         components: nextComp as QueryDeepPartialEntity<Record<string, unknown>>,
       },
+    );
+    await this.invalidateMarketBundleCache(k);
+  }
+
+  /**
+   * Persist `GET …/market-series` Cardhedger-heavy resolution for reuse within TTL.
+   */
+  mergeMarketBundleCache(
+    collectionKey: string,
+    cache: MarketBundleCacheV1,
+  ): void {
+    const key = collectionKey.toLowerCase();
+    void this.collectionRepo
+      .update(
+        { collectionKey: key },
+        {
+          marketBundleCacheJson: cache as unknown as Record<string, unknown>,
+          marketBundleCachedAt: new Date(),
+        } as QueryDeepPartialEntity<MarketplaceCollection>,
+      )
+      .catch((e: unknown) =>
+        this.logger.warn(`mergeMarketBundleCache failed for ${key}: ${e}`),
+      );
+  }
+
+  /** Clears server-side market bundle cache (e.g. after `cardhedgerCardId` correction). */
+  async invalidateMarketBundleCache(collectionKey: string): Promise<void> {
+    const key = collectionKey.toLowerCase();
+    await this.collectionRepo.update(
+      { collectionKey: key },
+      {
+        marketBundleCacheJson: null,
+        marketBundleCachedAt: null,
+      } as QueryDeepPartialEntity<MarketplaceCollection>,
+    );
+  }
+
+  /**
+   * `psa_cert_number` 컬럼 + `components.psaCertNumber`: 활성 ask 메타에서 단일 cert (충돌 시 미저장).
+   */
+  async ensurePsaCertNumberFromListings(collectionKey: string): Promise<void> {
+    const k = collectionKey.toLowerCase();
+    const row = await this.collectionRepo.findOne({
+      where: { collectionKey: k },
+    });
+    if (!row) return;
+
+    const colC = row.psaCertNumber?.trim() || '';
+    const compC =
+      typeof row.components.psaCertNumber === 'string'
+        ? row.components.psaCertNumber.trim()
+        : '';
+    if (colC && compC && colC === compC) return;
+
+    const asks = await this.activeListingsForCollection(k);
+    const certs = new Set<string>();
+    for (const o of asks) {
+      if (!o.tokenId || String(o.tokenId).trim() === '') continue;
+      try {
+        const uri = await this.blockchain.getRwaTokenURI(Number(o.tokenId));
+        const meta = await this.ipfsResolver.fetchMetadataJson(uri);
+        const c = psaCertNumberFromGradedMeta(meta);
+        if (c) certs.add(c);
+      } catch {
+        /* skip */
+      }
+    }
+
+    if (certs.size > 1) {
+      this.logger.warn(
+        `Collection ${k}: conflicting PSA cert numbers across active listings; not updating`,
+      );
+      return;
+    }
+    if (certs.size === 0) return;
+
+    const only = [...certs][0];
+    const nextComp: Record<string, unknown> = { ...row.components };
+    let dirty = false;
+    if (colC !== only) dirty = true;
+    if (compC !== only) {
+      nextComp.psaCertNumber = only;
+      dirty = true;
+    }
+    if (!dirty) return;
+
+    await this.collectionRepo.update(
+      { collectionKey: k },
+      {
+        psaCertNumber: only,
+        components: nextComp as QueryDeepPartialEntity<Record<string, unknown>>,
+      },
+    );
+  }
+
+  /**
+   * 비동기 — 요청 경로를 블로킹하지 않음. 다음 조회부터 `psaPublicSnapshotJson` 사용.
+   */
+  schedulePsaPublicSnapshotRefresh(collectionKey: string): void {
+    void this.tryRefreshPsaPublicSnapshot(collectionKey).catch(() => {});
+  }
+
+  private psaSnapshotDbTtlMs(): number {
+    const raw = this.config.get<string>('PSA_PUBLIC_SNAPSHOT_DB_TTL_SEC');
+    const sec = Number(raw);
+    if (!Number.isFinite(sec) || sec < 60) return 7 * 24 * 3600 * 1000;
+    return Math.min(Math.floor(sec), 90 * 24 * 3600) * 1000;
+  }
+
+  private compactPsaCertSnapshotFromApiRaw(
+    raw: unknown,
+  ): Record<string, unknown> | null {
+    if (!raw || typeof raw !== 'object') return null;
+    const o = raw as { PSACert?: PsaCertRecord };
+    const c = o.PSACert;
+    if (!c || typeof c !== 'object') return null;
+    return {
+      CertNumber: c.CertNumber,
+      SpecID: c.SpecID,
+      Subject: c.Subject,
+      Brand: c.Brand,
+      Year: c.Year ?? c.YearIssued,
+      Variety: c.Variety,
+      CardNumber: c.CardNumber,
+      CardGrade: c.CardGrade,
+      GradeDescription: c.GradeDescription,
+      Category: c.Category,
+      TotalPopulation: c.TotalPopulation,
+    };
+  }
+
+  private async tryRefreshPsaPublicSnapshot(
+    collectionKey: string,
+  ): Promise<void> {
+    const k = collectionKey.toLowerCase();
+    const row = await this.collectionRepo.findOne({
+      where: { collectionKey: k },
+    });
+    if (!row) return;
+
+    const cert =
+      row.psaCertNumber?.trim() ||
+      (typeof row.components.psaCertNumber === 'string'
+        ? row.components.psaCertNumber.trim()
+        : '');
+    if (!cert) return;
+
+    const ttl = this.psaSnapshotDbTtlMs();
+    const fetchedAt = row.psaPublicSnapshotAt?.getTime() ?? 0;
+    if (row.psaPublicSnapshotJson && Date.now() - fetchedAt < ttl) {
+      return;
+    }
+
+    const lookup = await this.psaPublicApi.getByCertNumber(cert);
+    if (lookup.status !== 'success' || !lookup.raw) return;
+
+    const snap = this.compactPsaCertSnapshotFromApiRaw(lookup.raw);
+    if (!snap || Object.keys(snap).length === 0) return;
+
+    await this.collectionRepo.update(
+      { collectionKey: k },
+      {
+        psaPublicSnapshotJson: snap,
+        psaPublicSnapshotAt: new Date(),
+      } as QueryDeepPartialEntity<MarketplaceCollection>,
     );
   }
 
@@ -1391,23 +1602,29 @@ export class CollectionService implements OnModuleInit {
    * and persist **only if the column is still null** so we never replace the first saved cover.
    *
    * Concurrency: at most one resolution per `collection_key` at a time (parallel page loads share one scrape).
+   *
+   * @param preloaded — When set (e.g. from `GET /collections/:key`), skips a second DB read for active asks/bids.
    */
   async resolveRepresentativeImageForCollection(
     collectionKey: string,
+    preloaded?: { asks: Order[]; bids: Order[] },
   ): Promise<string | null> {
     const k = collectionKey.toLowerCase();
     const inflight = this.representativeImageResolveInflight.get(k);
     if (inflight) return inflight;
 
-    const job = this.runRepresentativeImageResolution(k).finally(() => {
-      this.representativeImageResolveInflight.delete(k);
-    });
+    const job = this.runRepresentativeImageResolution(k, preloaded).finally(
+      () => {
+        this.representativeImageResolveInflight.delete(k);
+      },
+    );
     this.representativeImageResolveInflight.set(k, job);
     return job;
   }
 
   private async runRepresentativeImageResolution(
     collectionKey: string,
+    preloaded?: { asks: Order[]; bids: Order[] },
   ): Promise<string | null> {
     const k = collectionKey.toLowerCase();
     const col = await this.findOne(k);
@@ -1417,8 +1634,8 @@ export class CollectionService implements OnModuleInit {
     // If already a high-quality (non-IPFS, non-PSA-slab-cert) URL, return immediately
     if (stored && this.isHighQualityCoverUrl(stored)) return stored;
 
-    const asks = await this.activeListingsForCollection(k);
-    const bids = await this.activeBidsForCollection(k);
+    const asks = preloaded?.asks ?? (await this.activeListingsForCollection(k));
+    const bids = preloaded?.bids ?? (await this.activeBidsForCollection(k));
     const askIds = asks
       .map((o) => o.tokenId)
       .filter((id) => id != null && String(id).trim() !== '');
@@ -1533,6 +1750,36 @@ export class CollectionService implements OnModuleInit {
       return 0;
     });
     return ids;
+  }
+
+  /**
+   * Persist last Cardhedger pricing resolution when building the market bundle (fire-and-forget).
+   * Prod DB must include these columns (see `sql/marketplace_collections_cardhedger_pricing.sql`).
+   */
+  mergeCardhedgerPricingSnapshot(
+    collectionKey: string,
+    snapshot: {
+      cardId: string;
+      headlineUsd: number | null;
+      basis: string | null;
+    },
+  ): void {
+    const key = collectionKey.toLowerCase();
+    void this.collectionRepo
+      .update(
+        { collectionKey: key },
+        {
+          cardhedgerResolvedCardId: snapshot.cardId,
+          cardhedgerHeadlineUsd: snapshot.headlineUsd,
+          cardhedgerSpotBasis: snapshot.basis,
+          cardhedgerPricingSyncedAt: new Date(),
+        },
+      )
+      .catch((e: unknown) =>
+        this.logger.warn(
+          `mergeCardhedgerPricingSnapshot failed for ${key}: ${e}`,
+        ),
+      );
   }
 
   private async mintedTokenBelongsToCollection(

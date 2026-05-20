@@ -17,6 +17,7 @@ import { readPsaSpecIdCardhedgerMapFromConfig } from '../marketplace/utils/psa-s
 import {
   psaCertVerifyUrl,
   resolveCertHintForLookup,
+  varietyHintsForSearch,
   type ParsedPsaLabel,
 } from './utils/psa-ocr.util';
 import {
@@ -615,6 +616,7 @@ export class PsaService {
         .trim(),
       String(psa.setHint ?? '').trim(),
       String(psa.year ?? '').trim(),
+      ...varietyHintsForSearch(psa.varietyHint),
     ].filter(Boolean);
     return parts.join(' ').trim();
   }
@@ -716,7 +718,7 @@ export class PsaService {
       set,
       card_number ? `#${card_number}` : undefined,
     ].filter(Boolean);
-    const base_identity = baseParts.join(' ').trim() || 'pokemon';
+    const base_identity = baseParts.join(' ').trim() || 'Trading card';
 
     const variant = PsaService.detectPsaVariant(psa, combinedText);
     const market_type: 'graded' | 'autograph' = variant.has_autograph

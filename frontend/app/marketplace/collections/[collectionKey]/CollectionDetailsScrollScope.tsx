@@ -5,7 +5,7 @@ import { useEffect } from "react";
 const HTML_CLASS = "collection-details-scroll";
 
 /**
- * Scope custom scrollbar CSS to collection detail routes (viewport + nested utilities).
+ * 컬렉션 상세: html에 클래스를 붙여 scrollbar-gutter만 적용 (스타일링 없음).
  */
 export function CollectionDetailsScrollScope() {
   useEffect(() => {

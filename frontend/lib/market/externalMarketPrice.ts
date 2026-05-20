@@ -41,15 +41,16 @@ export function isPreviewPriceReliable(
   );
 }
 
-/** `gradePrices` strip from the collection market bundle (PSA slots carry the same reference feed). */
+/** `gradePrices` strip from the collection market bundle — tier-aware (PSA 10 / 9 / raw). */
 export function representativeGradeUsd(
   gradePrices: CollectionGradePrices | null | undefined,
   gradeScore: number | null | undefined,
 ): number | null {
   if (!gradePrices || gradeScore == null || !Number.isFinite(gradeScore)) return null;
   const r = Math.round(gradeScore);
-  if (r !== 10) return null;
-  return finitePositive(gradePrices.psa10);
+  if (r >= 10) return finitePositive(gradePrices.psa10);
+  if (r === 9) return finitePositive(gradePrices.psa9);
+  return finitePositive(gradePrices.raw);
 }
 
 /**
@@ -101,8 +102,9 @@ const SEC_24H = 86400;
 
 /**
  * Latest observation vs linearly interpolated value at (latest.t − 24h) on the same series.
- * Matches backend `percentChangeReferenceOver24h` in `collection-market.util.ts`
- * (markets list / `market-series` bundle `marketChangePct`).
+ * Matches backend {@link percentChangeReferenceOverLagSec}(..., `86400`) in `collection-market.util.ts`.
+ * List/market snapshots use lag aligned to the bundled history window ({@code 365d}, etc.) — see
+ * `marketChangeWindow` on each snapshot rather than assuming 24h.
  *
  * Unlike {@link percentChangeUsdSinceCutoff} anchored to wall-clock “now”, this still works when the feed’s
  * newest point is older than 24h (stale Cardhedger ticks).

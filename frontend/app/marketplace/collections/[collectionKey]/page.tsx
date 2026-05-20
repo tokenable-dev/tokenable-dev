@@ -2,21 +2,21 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import type { Address } from "viem";
 import { formatUnits } from "viem";
 import {
   getCollectionMarketSeries,
-  getCollectionMarketPriceHistory,
-  getCollectionMarketPreview,
   getCollectionPlatformTrades,
   getMarketplaceCollectionDetail,
   postRwaMetadataBatch,
   type Order,
   type RwaMetadata,
 } from "@/lib/core";
+import { pickCollectionHeroImageUrl } from "@/lib/marketplace";
+import { COLLECTION_DETAIL_SHELL_CLASS } from "@/constants/layout";
 import {
   computeCollectionMarketCapUsd,
   formatMarketCapUsd,
@@ -297,12 +297,6 @@ export default function MarketplaceCollectionPage() {
     [chartRange],
   );
 
-  const { data: marketPreview, isLoading: marketPreviewLoading } = useQuery({
-    queryKey: ["collection-market", key],
-    queryFn: () => getCollectionMarketPreview(key),
-    enabled: key.length > 0 && !isLoading && !isError && !!data,
-  });
-
   const { data: marketSeriesHeader, isLoading: marketSeriesLoading } = useQuery({
     queryKey: ["collection-market-series", key, selectedChartRange.bundleDuration],
     queryFn: () => getCollectionMarketSeries(key, selectedChartRange.bundleDuration),
@@ -310,67 +304,23 @@ export default function MarketplaceCollectionPage() {
     staleTime: 120_000,
   });
 
-  const { data: nmHistory, isLoading: nmHistoryLoading } = useQuery({
-    queryKey: [
-      "collection-market-price-history",
-      key,
-      pokeHistoryTier,
-      selectedChartRange.historyPeriod,
-      selectedChartRange.maxDays,
-    ],
-    queryFn: () =>
-      getCollectionMarketPriceHistory(key, {
-        tier: pokeHistoryTier,
-        period: selectedChartRange.historyPeriod,
-        maxDays: selectedChartRange.maxDays,
-      }),
-    enabled: key.length > 0 && !isLoading && !isError && !!data,
-    placeholderData: keepPreviousData,
-  });
+  /** Single Cardhedger resolution: same object backs chart `externalUsd` and headline spot. */
+  const marketPreview = marketSeriesHeader?.cardhedgerPreview ?? null;
 
-  const pokeHistPts = nmHistory?.points ?? [];
-  const pokeHistOk = pokeHistPts.length >= 2;
   const jtHistPts = marketSeriesHeader?.externalUsd ?? [];
   const jtHistOk = jtHistPts.length >= 2;
 
   const chartExternalRollingUsd = useMemo(() => {
     const nowS = Math.floor(Date.now() / 1000);
     const cutoff = nowS - selectedChartRange.maxDays * CHART_RANGE_CLIP_SEC;
-    if (pokeHistOk) {
-      return pokeHistPts.filter((p) => p.t >= cutoff);
-    }
-    if (jtHistOk) return jtHistPts;
-    return [];
-  }, [
-    pokeHistOk,
-    pokeHistPts,
-    jtHistOk,
-    jtHistPts,
-    selectedChartRange.maxDays,
-  ]);
+    if (!jtHistOk) return [];
+    return jtHistPts.filter((p) => p.t >= cutoff);
+  }, [jtHistOk, jtHistPts, selectedChartRange.maxDays]);
 
   const chartExternalWindowDays = useMemo(() => {
-    if (pokeHistOk) {
-      return selectedChartRange.maxDays;
-    }
-    /** Bundle `externalUsd` is fetched for up to `marketChangeWindow`; fixed x-axis avoids clipping vs platform-only smart domain. */
-    if (jtHistOk) {
-      const w = marketSeriesHeader?.marketChangeWindow;
-      if (w === "7d") return 7;
-      if (w === "30d") return 30;
-      if (w === "90d") return 90;
-      if (w === "180d") return 180;
-      if (w === "365d") return 365;
-      if (w === "24h") return selectedChartRange.maxDays;
-      return selectedChartRange.maxDays;
-    }
-    return null;
-  }, [
-    pokeHistOk,
-    jtHistOk,
-    marketSeriesHeader?.marketChangeWindow,
-    selectedChartRange.maxDays,
-  ]);
+    if (!jtHistOk) return null;
+    return selectedChartRange.maxDays;
+  }, [jtHistOk, selectedChartRange.maxDays]);
 
   const pokeTierLabel = marketTierDisplayLabel(pokeHistoryTier);
 
@@ -417,21 +367,18 @@ export default function MarketplaceCollectionPage() {
 
   const liveMarketLegend = "Live market price";
 
-  const chartExternalLegend = pokeHistOk
+  const chartExternalLegend = jtHistOk
     ? liveMarketLegend
-    : jtHistOk
-      ? liveMarketLegend
-      : `External market (${pokeTierLabel})`;
+    : `External market (${pokeTierLabel})`;
 
   const chartExternalShort = liveMarketLegend;
 
-  const chartExternalRollingKind = pokeHistOk || jtHistOk ? "history" : "snapshot";
+  const chartExternalRollingKind = jtHistOk ? "history" : "snapshot";
 
   const externalReferencePtsFor24h = useMemo(() => {
-    if (pokeHistOk) return pokeHistPts;
     if (jtHistOk) return jtHistPts;
     return [];
-  }, [pokeHistOk, pokeHistPts, jtHistOk, jtHistPts]);
+  }, [jtHistOk, jtHistPts]);
 
   const externalPriceChange24hPct = useMemo(
     () => percentChangeReferenceOver24h(externalReferencePtsFor24h),
@@ -477,13 +424,7 @@ export default function MarketplaceCollectionPage() {
   function invalidateCollection() {
     void queryClient.invalidateQueries({ queryKey: ["marketplace-collection", key] });
     void queryClient.invalidateQueries({ queryKey: ["collection-platform-trades", key] });
-    void queryClient.invalidateQueries({
-      queryKey: ["collection-market-series", key, selectedChartRange.bundleDuration],
-    });
-    void queryClient.invalidateQueries({ queryKey: ["collection-market", key] });
-    void queryClient.invalidateQueries({
-      queryKey: ["collection-market-price-history", key],
-    });
+    void queryClient.invalidateQueries({ queryKey: ["collection-market-series", key] });
     void queryClient.invalidateQueries({ queryKey: ["merkle-set", key] });
     void queryClient.invalidateQueries({ queryKey: ["merkle-set"] });
   }
@@ -981,7 +922,9 @@ export default function MarketplaceCollectionPage() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-[rgba(11,13,16,1)] text-white">
-        <div className="mx-auto w-full max-w-[1680px] px-3 min-[375px]:px-4 sm:px-5 lg:px-8 xl:px-10 py-6 sm:py-8 pb-[max(5.5rem,env(safe-area-inset-bottom,0px)+4.5rem)] sm:pb-20">
+        <div
+          className={`${COLLECTION_DETAIL_SHELL_CLASS} py-6 sm:py-8 pb-[max(5.5rem,env(safe-area-inset-bottom,0px)+4.5rem)] sm:pb-20`}
+        >
           <div className="h-4 w-40 bg-gray-800/80 rounded animate-pulse mb-6" />
           <div className="rounded-2xl border border-gray-800/90 bg-[#0b0e11] overflow-hidden animate-pulse mb-10">
             <div className="border-b border-gray-800/80 px-4 py-4 sm:px-6">
@@ -1025,9 +968,8 @@ export default function MarketplaceCollectionPage() {
     );
   }
 
-  const { collection, representativeImageUrl } = data;
-  const collectionCoverUrl =
-    collection.coverImageUrl?.trim() || representativeImageUrl;
+  const collection = data.collection;
+  const collectionCoverUrl = pickCollectionHeroImageUrl(data);
 
   const exchangePriceStripProps = {
     showFootnotes: false as const,
@@ -1037,9 +979,9 @@ export default function MarketplaceCollectionPage() {
     externalPriceSource: resolvedExternal.source,
     marketTierDisplay: pokeTierLabel,
     externalMarketMatchConfidence: resolvedExternal.marketMatchConfidence,
-    externalPriceLoading: marketPreviewLoading || nmHistoryLoading || marketSeriesLoading,
+    externalPriceLoading: marketSeriesLoading,
     externalPriceChange24hPct,
-    externalPriceChange24hLoading: nmHistoryLoading || marketSeriesLoading,
+    externalPriceChange24hLoading: marketSeriesLoading,
     volume24hUsdc,
     volume24hLoading: platformTradesLoading,
     totalPopulation,
@@ -1050,7 +992,9 @@ export default function MarketplaceCollectionPage() {
 
   return (
     <div className="min-h-screen bg-[rgba(11,13,16,1)] text-white">
-      <div className="mx-auto w-full max-w-[1680px] px-3 min-[375px]:px-4 sm:px-5 lg:px-8 xl:px-10 py-6 sm:py-8 pb-[max(5.5rem,env(safe-area-inset-bottom,0px)+4.5rem)] sm:pb-20">
+      <div
+        className={`${COLLECTION_DETAIL_SHELL_CLASS} py-6 sm:py-8 pb-[max(5.5rem,env(safe-area-inset-bottom,0px)+4.5rem)] sm:pb-20`}
+      >
         <CollectionOverviewBoard
           title={collectionWovenTitle}
           subtitle={subtitle}
@@ -1106,7 +1050,7 @@ export default function MarketplaceCollectionPage() {
               externalSeriesShortLabel={chartExternalShort}
               externalRefLineTag={chartExternalRefTag}
               isLoading={
-                platformTradesLoading || nmHistoryLoading || marketSeriesLoading
+                platformTradesLoading || marketSeriesLoading
               }
               errorMessage={null}
               controls={

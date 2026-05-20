@@ -268,7 +268,7 @@ export function CollectionPriceMetricsStrip({
                   <span
                     className={
                       change24hUp
-                        ? "text-emerald-400"
+                        ? "text-mint"
                         : change24hDown
                           ? "text-rose-400"
                           : "text-zinc-300"

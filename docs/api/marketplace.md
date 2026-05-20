@@ -3,6 +3,7 @@
 **Controllers:**
 - `marketplace/orders/orders.controller.ts`
 - `marketplace/collections/collections.controller.ts`
+- `marketplace/collections/cert-market-trace.controller.ts`
 - `marketplace/assets/assets.controller.ts`
 
 **Base path:** `/api/marketplace`  
@@ -11,6 +12,38 @@
 Trading and order storage are **Seaport-centric**: off-chain signed orders in `orders`, fulfillment via wallet `fulfillOrder` / `matchAdvancedOrders`. A former experimental relational matching layer (`bids` / `asks` / settlement workers) has been **removed from this codebase**.
 
 See [architecture/database.md](../architecture/database.md) for current DB tables.
+
+---
+
+## Cert → PSA → Cardhedger trace (debug)
+
+### `POST /api/marketplace/cert-market-trace`
+
+**Swagger tag:** `marketplace`
+
+Cert 번호만 넣어 **PSA 공식 조회(`analyze-by-cert`와 동일)** + **Cardhedger 프리뷰·가격 히스토리**를 한 번에 받습니다. 합성 컬렉션 `components`는 민트 메타와 맞춰 **PSA Variety → `psaVariety`** 등을 채워 Base vs Silver(병행) 구분에 쓰입니다.
+
+**Body:** `CertMarketTraceDto`
+
+| Field | Description |
+|-------|-------------|
+| `certNumber` | Cert 숫자 또는 `psacard.com/cert/…` URL (필수) |
+| `historyMaxCalendarDays` | 히스토리 윈도우 1–365 (기본 90) |
+| `scrapePsaSpecImage` | `specId`가 있을 때 Playwright로 spec 이미지 URL 스크랩 (기본 true) |
+
+**Env:** `CARDHEDGER_API_KEY` 필수, **`PSA_PUBLIC_API_TOKEN`** 권장 (PSACert Variety 등).
+
+**응답 요약:** `meta`(`elapsedMs`, `psaEnrichedFromOfficialApi`, `cardhedgerEnabled`, `syntheticHasPsaVariety`) · 전체 `psaAnalyze` · `syntheticCollection.components` · `collectionQuery` · `cardhedger.preview` / `cardhedger.history`.
+
+자세한 맥락: [cardhedger-psa-variety.md](../guides/cardhedger-psa-variety.md).
+
+```json
+{
+  "certNumber": "89531714",
+  "historyMaxCalendarDays": 90,
+  "scrapePsaSpecImage": true
+}
+```
 
 ---
 

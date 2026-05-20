@@ -15,10 +15,10 @@ const AURORA_ORBS: Array<{
   blur: number;
   fill: string;
 }> = [
-  { top: "10%", left: "82%", size: 300, blur: 110, fill: "rgba(45, 212, 191, 0.16)" },
+  { top: "10%", left: "82%", size: 300, blur: 110, fill: "rgba(135, 255, 72, 0.16)" },
   { top: "76%", left: "78%", size: 420, blur: 128, fill: "rgba(20, 184, 166, 0.12)" },
   { top: "38%", left: "6%", size: 220, blur: 96, fill: "rgba(0, 255, 170, 0.09)" },
-  { top: "52%", left: "48%", size: 160, blur: 88, fill: "rgba(148, 255, 212, 0.06)" },
+  { top: "52%", left: "48%", size: 160, blur: 88, fill: "rgba(135, 255, 72, 0.06)" },
 ];
 
 const LANDING_ORB_DURATIONS_S = [28, 32, 26, 34];
@@ -125,7 +125,7 @@ export default function LandingPage() {
         className="landing-grid-drift pointer-events-none absolute inset-0 z-[2] opacity-[0.035]"
         style={{
           backgroundImage:
-            "radial-gradient(circle, rgba(148,255,212,0.4) 1px, transparent 1px)",
+            "radial-gradient(circle, rgba(135,255,72,0.4) 1px, transparent 1px)",
           backgroundSize: "48px 48px",
         }}
       />
@@ -144,9 +144,7 @@ export default function LandingPage() {
             className="landing-enter mb-3 max-w-xl text-center text-[12px] leading-snug text-gray-400 sm:mb-8 sm:text-base sm:leading-relaxed"
             style={{ "--landing-enter-delay": "70ms" } as CSSProperties}
           >
-            Instant settlement and low fees.
-            <br />
-            Vaulted and Authenticated PSA, TAG, and BGS Gems.
+            Trade Authenticated and Vaulted Gems with Instant Settlement.
           </p>
 
           <TrendingCollectionsCarousel

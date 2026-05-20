@@ -10,10 +10,14 @@ export function marketHistoryTierFromComponents(
     typeof raw === "number"
       ? raw
       : typeof raw === "string"
-        ? parseFloat(raw)
+        ? parseFloat(String(raw).replace(",", "."))
         : NaN;
-  if (grader === "PSA" && Number.isFinite(score) && Math.round(score) === 10) {
-    return "PSA_10";
+  if (!Number.isFinite(score)) return "PSA_10";
+  const r = Math.round(score);
+  const psaLike = grader === "PSA" || grader === "";
+  if (psaLike) {
+    if (r >= 10) return "PSA_10";
+    if (r === 9) return "PSA_9";
   }
   return "PSA_10";
 }

@@ -14,7 +14,7 @@ pnpm start:dev
 
 **Card Hedge:** optional **`CARDHEDGER_API_KEY`**. Public HTTP: **`GET /api/cardhedger/indexes`** (dashboard indexes). All other Cardhedger calls go **server-to-server** via `CardhedgerService.forwardJson` (PSA mint, collection pricing, etc.) — not exposed as `/api/cardhedger/v1/*` HTTP proxies. Override base URL with **`CARDHEDGER_BASE_URL`** if needed.
 
-**PSA spec scraper (clean collection covers):** headless Chromium pulls the **card-only** image (`https://d1htnxwo4o0jhw.cloudfront.net/spec/{specId}/*.jpg`) off Cloudflare-protected `psacard.com/spec/psa/{specId}` pages. When metadata includes a PSA **`specId`**, that path **only** uses this scraper (no `.env` flags; fixed 45s / 30s timeouts in code). If there is no `specId`, covers fall back to Cardhedger / Pokemon TCG as before. Results are cached per `specId` (24h positive / 1h negative) and persisted via the normal cover pipeline.
+**PSA spec scraper (clean collection covers):** headless Chromium pulls the **card-only** image (`https://d1htnxwo4o0jhw.cloudfront.net/spec/{specId}/*.jpg`) off Cloudflare-protected PSA spec pages. See **[`docs/api/psa.md` — PSA spec scraper](../docs/api/psa.md#psa-spec-page-scraper-collection-covers)** for failure modes and env vars (`PSA_SPEC_NAV_TIMEOUT_MS`, `PSA_SPEC_SCRAPER_PROXY`, `PSA_SPEC_COVER_ALLOW_FALLBACK`, etc.). Defaults: 120s nav / 45s image wait. Cache: 24h success / 1h failure (override `PSA_SPEC_NEGATIVE_CACHE_MS`).
 
 ```bash
 # one-time per machine (~100MB) — MUST run from backend/ after cloning or upgrading playwright-core

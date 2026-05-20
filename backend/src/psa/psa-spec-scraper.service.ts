@@ -4,7 +4,7 @@ import {
   OnModuleDestroy,
   OnModuleInit,
 } from '@nestjs/common';
-import type { Browser, BrowserContext } from 'playwright-core';
+import type { Browser, BrowserContext, Page } from 'playwright-core';
 
 /**
  * Scrapes the PSA spec page (e.g. https://www.psacard.com/spec/psa/9656727)
@@ -21,12 +21,19 @@ import type { Browser, BrowserContext } from 'playwright-core';
  * Operational characteristics:
  *   • Singleton persistent Chromium context (cookies survive across calls
  *     so the Cloudflare clearance issued for the first scrape is reused).
- *   • Per-process spec-id cache (24h positive / 1h negative) so we only
- *     scrape each spec once.
+ *   • Per-process spec-id cache (24h positive / configurable negative TTL) so we only
+ *     scrape each spec once per outcome.
  *   • In-flight request dedupe — concurrent listings of the same card
  *     share a single scrape.
  *   • Always used for catalog covers when PSA `specId` is known; callers do
- *     not fall back to other image sources for that path.
+ *     not fall back to other image sources for that path (unless
+ *     `PSA_SPEC_COVER_ALLOW_FALLBACK` is set in CollectionService).
+ *
+ * Optional env (resilience):
+ *   • `PSA_SPEC_SCRAPER_PROXY` — Playwright `proxy.server` URL for egress (DC/residential).
+ *   • `PSA_SPEC_NAV_TIMEOUT_MS` / `PSA_SPEC_IMG_TIMEOUT_MS` — navigation / image wait (defaults 120s / 45s).
+ *   • `PSA_SPEC_NEGATIVE_CACHE_MS` — cache TTL after failure (default 1h).
+ *   • `PSA_SPEC_RETRY_EMPTY` — `1`/`true`: second full scrape if the first finds no image.
  *
  * Setup (once per environment):
  *   pnpm exec playwright install chromium
@@ -48,7 +55,6 @@ export class PsaSpecScraperService implements OnModuleInit, OnModuleDestroy {
   private readonly inFlight = new Map<string, Promise<string | null>>();
 
   private static readonly POSITIVE_TTL_MS = 24 * 60 * 60 * 1000;
-  private static readonly NEGATIVE_TTL_MS = 60 * 60 * 1000;
   private static readonly CDN_HOST = 'd1htnxwo4o0jhw.cloudfront.net';
   /** Cloudflare + EC2/datacenter latency — override via env if needed. */
   private static navTimeoutMs(): number {
@@ -61,12 +67,30 @@ export class PsaSpecScraperService implements OnModuleInit, OnModuleDestroy {
     const n = raw ? parseInt(raw, 10) : NaN;
     return Number.isFinite(n) && n > 0 ? n : 45_000;
   }
+  /**
+   * How long to cache a **failed** scrape (Cloudflare block, layout change, no asset on page).
+   * Lower in staging if you want faster retry after fixing infra. Default 1h.
+   */
+  private static negativeCacheTtlMs(): number {
+    const raw = process.env.PSA_SPEC_NEGATIVE_CACHE_MS;
+    const n = raw ? parseInt(raw, 10) : NaN;
+    return Number.isFinite(n) && n >= 0 ? n : 60 * 60 * 1000;
+  }
+
+  private static scraperProxy(): { proxy: { server: string } } | undefined {
+    const s = process.env.PSA_SPEC_SCRAPER_PROXY?.trim();
+    if (!s) return undefined;
+    return { proxy: { server: s } };
+  }
 
   constructor() {}
 
   onModuleInit(): void {
+    const proxy = PsaSpecScraperService.scraperProxy();
     this.logger.log(
-      'PSA spec scraper enabled — first scrape will launch Chromium (lazy).',
+      proxy
+        ? 'PSA spec scraper enabled — Chromium will use PSA_SPEC_SCRAPER_PROXY for egress; first scrape launches browser (lazy).'
+        : 'PSA spec scraper enabled — first scrape will launch Chromium (lazy).',
     );
   }
 
@@ -129,115 +153,186 @@ export class PsaSpecScraperService implements OnModuleInit, OnModuleDestroy {
         Date.now() +
         (url
           ? PsaSpecScraperService.POSITIVE_TTL_MS
-          : PsaSpecScraperService.NEGATIVE_TTL_MS),
+          : PsaSpecScraperService.negativeCacheTtlMs()),
     });
 
     return url;
   }
 
-  /** One navigation timeout retry (common on cold Chromium / congested DC egress). */
+  /** One navigation timeout retry; optional second full attempt if no image (PSA_SPEC_RETRY_EMPTY). */
   private async doScrapeWithRetry(specId: string): Promise<string | null> {
-    try {
-      return await this.doScrape(specId);
-    } catch (first) {
-      const msg = first instanceof Error ? first.message : String(first);
-      if (!/timeout|Timeout/i.test(msg)) throw first;
-      this.logger.warn(
-        `PSA spec scrape navigation timeout, retrying once specId=${specId}`,
+    const attempt = async (): Promise<string | null> => {
+      try {
+        return await this.doScrape(specId);
+      } catch (first) {
+        const msg = first instanceof Error ? first.message : String(first);
+        if (!/timeout|Timeout/i.test(msg)) throw first;
+        this.logger.warn(
+          `PSA spec scrape navigation timeout, retrying once specId=${specId}`,
+        );
+        await new Promise((r) => setTimeout(r, 2_000));
+        return this.doScrape(specId);
+      }
+    };
+
+    let url = await attempt();
+    if (url) return url;
+
+    const retryEmpty =
+      process.env.PSA_SPEC_RETRY_EMPTY === '1' ||
+      process.env.PSA_SPEC_RETRY_EMPTY === 'true';
+    if (retryEmpty) {
+      this.logger.debug(
+        `PSA spec scrape retry_empty specId=${specId} (second full attempt)`,
       );
-      await new Promise((r) => setTimeout(r, 2_000));
-      return this.doScrape(specId);
+      await new Promise((r) => setTimeout(r, 2_500));
+      url = await attempt();
     }
+    return url ?? null;
   }
 
   private async doScrape(specId: string): Promise<string | null> {
     const context = await this.ensureContext();
-    const page = await context.newPage();
-
     const navTimeout = PsaSpecScraperService.navTimeoutMs();
     const imgTimeout = PsaSpecScraperService.imgTimeoutMs();
-    page.setDefaultNavigationTimeout(navTimeout);
-    page.setDefaultTimeout(Math.max(navTimeout, imgTimeout));
 
-    try {
-      const targetUrl = `https://www.psacard.com/spec/psa/${specId}?g=10&gt=SINGLE_GRADED`;
+    const urls = [
+      `https://www.psacard.com/spec/psa/${specId}?g=10&gt=SINGLE_GRADED`,
+      `https://www.psacard.com/spec/psa/${specId}`,
+    ];
 
-      // Block heavy assets we don't need (CSS/fonts still ok so the page renders).
-      await page.route('**/*', (route) => {
-        const type = route.request().resourceType();
-        if (
-          type === 'media' ||
-          type === 'websocket' ||
-          type === 'eventsource' ||
-          type === 'manifest'
-        ) {
-          return route.abort();
-        }
-        return route.continue();
-      });
+    for (const targetUrl of urls) {
+      const page = await context.newPage();
+      page.setDefaultNavigationTimeout(navTimeout);
+      page.setDefaultTimeout(Math.max(navTimeout, imgTimeout));
 
-      this.logger.debug(`Scraping PSA spec page ${targetUrl}`);
-      // `commit` returns as soon as the response headers commit — avoids waiting
-      // for full DOM when Cloudflare is slow; we then wait for DOM explicitly.
-      await page.goto(targetUrl, {
-        waitUntil: 'commit',
-        timeout: navTimeout,
-      });
-      await page
-        .waitForLoadState('domcontentloaded', { timeout: navTimeout })
-        .catch(() => {
-          this.logger.debug(
-            `PSA spec specId=${specId}: domcontentloaded wait skipped or slow — continuing`,
-          );
+      try {
+        await page.route('**/*', (route) => {
+          const type = route.request().resourceType();
+          if (
+            type === 'media' ||
+            type === 'websocket' ||
+            type === 'eventsource' ||
+            type === 'manifest'
+          ) {
+            return route.abort();
+          }
+          return route.continue();
         });
 
-      // If we landed on a Cloudflare interstitial, give the JS challenge a moment.
-      const titleNow = await page.title().catch(() => '');
-      if (/just a moment/i.test(titleNow)) {
-        this.logger.debug('Cloudflare challenge detected — waiting…');
+        this.logger.debug(`Scraping PSA spec page ${targetUrl}`);
+        await page.goto(targetUrl, {
+          waitUntil: 'commit',
+          timeout: navTimeout,
+        });
         await page
-          .waitForFunction(() => !/just a moment/i.test(document.title), {
-            timeout: navTimeout,
-          })
-          .catch(() => {});
-      }
+          .waitForLoadState('domcontentloaded', { timeout: navTimeout })
+          .catch(() => {
+            this.logger.debug(
+              `PSA spec specId=${specId}: domcontentloaded wait skipped or slow — continuing`,
+            );
+          });
 
-      // Wait for the spec image to render. We accept either an <img> whose
-      // src points at `/spec/{specId}/...` or any anchor href to the same path.
-      const imgSelector = `img[src*="${PsaSpecScraperService.CDN_HOST}/spec/${specId}/"]`;
-      const url = await page
-        .waitForSelector(imgSelector, { timeout: imgTimeout })
+        const titleNow = await page.title().catch(() => '');
+        if (/just a moment/i.test(titleNow)) {
+          this.logger.debug('Cloudflare challenge detected — waiting…');
+          await page
+            .waitForFunction(() => !/just a moment/i.test(document.title), {
+              timeout: navTimeout,
+            })
+            .catch(() => {});
+        }
+
+        const extracted = await this.extractSpecImageFromPage(
+          page,
+          specId,
+          imgTimeout,
+        );
+        if (extracted) {
+          this.logger.log(
+            `PSA spec scrape OK specId=${specId} → ${extracted.slice(0, 100)}`,
+          );
+          return extracted;
+        }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        this.logger.debug(
+          `PSA spec specId=${specId} url=${targetUrl.slice(0, 72)}… err=${msg.slice(0, 120)}`,
+        );
+      } finally {
+        await page.close().catch(() => {});
+      }
+    }
+
+    this.logger.warn(
+      `PSA spec scrape: no_image specId=${specId} (tried default + plain spec URL; see docs for fallbacks)`,
+    );
+    return null;
+  }
+
+  private normalizeScrapedImageSrc(src: string): string {
+    const t = src.trim();
+    if (t.startsWith('//')) return `https:${t}`;
+    return t;
+  }
+
+  /**
+   * Spec images are sometimes below the fold or hydrate after first paint — scroll + DOM scan
+   * before giving up (still bounded by imgTimeout).
+   */
+  private async extractSpecImageFromPage(
+    page: Page,
+    specId: string,
+    imgTimeout: number,
+  ): Promise<string | null> {
+    const host = PsaSpecScraperService.CDN_HOST;
+    const imgSelector = `img[src*="${host}/spec/${specId}/"]`;
+    const waitImg = (timeout: number) =>
+      page
+        .waitForSelector(imgSelector, { state: 'attached', timeout })
         .then((el) => el?.getAttribute('src') ?? null)
         .catch(() => null);
 
-      if (url) {
-        this.logger.log(
-          `PSA spec scrape OK specId=${specId} → ${url.slice(0, 100)}`,
-        );
-        return url;
-      }
+    let raw = await waitImg(imgTimeout);
+    if (raw) return this.normalizeScrapedImageSrc(raw);
 
-      // Fallback: regex-scan the rendered HTML for the cloudfront URL.
-      const html = await page.content();
-      const re = new RegExp(
-        `https?://${PsaSpecScraperService.CDN_HOST.replace(/\./g, '\\.')}/spec/${specId}/[A-Za-z0-9_\\-]+\\.(?:jpg|jpeg|png|webp)`,
-        'i',
-      );
-      const m = html.match(re);
-      if (m && m[0]) {
-        this.logger.log(
-          `PSA spec scrape OK (regex) specId=${specId} → ${m[0].slice(0, 100)}`,
-        );
-        return m[0];
-      }
+    await page
+      .evaluate(() =>
+        window.scrollTo({
+          top: Math.min(1200, Math.max(400, document.body.scrollHeight * 0.35)),
+          behavior: 'instant',
+        }),
+      )
+      .catch(() => {});
+    await new Promise((r) => setTimeout(r, 700));
+    raw = await waitImg(Math.min(14_000, imgTimeout));
+    if (raw) return this.normalizeScrapedImageSrc(raw);
 
-      this.logger.warn(
-        `PSA spec scrape: no image found on page for specId=${specId}`,
-      );
-      return null;
-    } finally {
-      await page.close().catch(() => {});
+    const fromDom = await page
+      .evaluate((sid) => {
+        const needle = `/spec/${sid}/`;
+        for (const img of Array.from(document.querySelectorAll('img[src]'))) {
+          const s = img.getAttribute('src') ?? '';
+          if (!s.includes(needle)) continue;
+          if (s.startsWith('https://') || s.startsWith('http://')) return s;
+          if (s.startsWith('//')) return `https:${s}`;
+        }
+        return null;
+      }, specId)
+      .catch(() => null);
+    if (fromDom) return this.normalizeScrapedImageSrc(fromDom);
+
+    const html = await page.content();
+    const re = new RegExp(
+      `https?://${host.replace(/\./g, '\\.')}/spec/${specId}/[A-Za-z0-9_\\-]+\\.(?:jpg|jpeg|png|webp)`,
+      'i',
+    );
+    const m = html.match(re);
+    if (m?.[0]) {
+      this.logger.debug(`PSA spec scrape regex hit specId=${specId}`);
+      return m[0];
     }
+    return null;
   }
 
   /**
@@ -265,6 +360,7 @@ export class PsaSpecScraperService implements OnModuleInit, OnModuleDestroy {
         args: launchArgs,
       });
 
+      const proxyOpts = PsaSpecScraperService.scraperProxy();
       const context = await this.browser.newContext({
         userAgent:
           'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -274,6 +370,7 @@ export class PsaSpecScraperService implements OnModuleInit, OnModuleDestroy {
         extraHTTPHeaders: {
           'accept-language': 'en-US,en;q=0.9',
         },
+        ...(proxyOpts ?? {}),
       });
 
       // Mask `navigator.webdriver` so Cloudflare's headless heuristics

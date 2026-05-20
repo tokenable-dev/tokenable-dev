@@ -204,7 +204,7 @@ export function CollectionMetadataExpandable({
         <summary className="cursor-pointer text-[11px] font-medium text-zinc-400 select-none">
           Raw components (JSON)
         </summary>
-        <pre className="mt-2 max-h-40 overflow-auto rounded-md bg-black/40 p-2 text-[10px] leading-relaxed text-zinc-400 scrollbar-platform">
+        <pre className="mt-2 max-h-40 overflow-auto rounded-md bg-black/40 p-2 text-[10px] leading-relaxed text-zinc-400">
           {componentsJson}
         </pre>
       </details>

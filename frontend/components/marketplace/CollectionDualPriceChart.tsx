@@ -11,7 +11,7 @@ import {
 } from "@/components/marketplace/collectionOverviewChrome";
 
 const LIVE_MARKET_LINE = "rgba(135, 255, 72, 1)";
-/** ~179.8deg vertical: strong dark green at series top → transparent toward axis */
+/** Area under line — light mint wash; keep low alpha so panel reads as one surface. */
 const LIVE_MARKET_AREA_GRADIENT = {
   type: "linear" as const,
   x: 0,
@@ -19,14 +19,15 @@ const LIVE_MARKET_AREA_GRADIENT = {
   x2: 0,
   y2: 1,
   colorStops: [
-    { offset: 0, color: "rgba(25, 102, 22, 0.6)" },
-    { offset: 1, color: "rgba(25, 102, 22, 0)" },
+    { offset: 0, color: "rgba(135, 255, 72, 0.14)" },
+    { offset: 0.55, color: "rgba(135, 255, 72, 0.04)" },
+    { offset: 1, color: "rgba(135, 255, 72, 0)" },
   ],
 };
-const AXIS_LABEL = "rgba(255,255,255,0.72)";
-const AXIS_LINE = "rgba(255,255,255,0.16)";
-const SPLIT_LINE = "rgba(255,255,255,0.06)";
+/** X/Y tick labels — silver / light grey */
+const AXIS_LABEL = "rgba(190, 190, 195, 0.92)";
 
+const LIVE_LINE_WIDTH = 3;
 const DAY = 86400;
 const HOUR = 3600;
 
@@ -386,7 +387,7 @@ export function CollectionDualPriceChart({
         showSymbol: false,
         smooth: false,
         connectNulls: true,
-        lineStyle: { color: LIVE_MARKET_LINE, width: 1.75 },
+        lineStyle: { color: LIVE_MARKET_LINE, width: LIVE_LINE_WIDTH },
         itemStyle: { color: LIVE_MARKET_LINE },
         areaStyle: { color: LIVE_MARKET_AREA_GRADIENT },
         emphasis: { focus: "series" },
@@ -399,7 +400,7 @@ export function CollectionDualPriceChart({
         data: externalFlatSeries,
         showSymbol: false,
         smooth: false,
-        lineStyle: { color: LIVE_MARKET_LINE, width: 1.75, type: "solid" },
+        lineStyle: { color: LIVE_MARKET_LINE, width: LIVE_LINE_WIDTH, type: "solid" },
         itemStyle: { color: LIVE_MARKET_LINE },
         areaStyle: { color: LIVE_MARKET_AREA_GRADIENT },
         emphasis: { focus: "series" },
@@ -424,7 +425,7 @@ export function CollectionDualPriceChart({
     const useCoarseTimeTicks = axisSpanDays > 1;
 
     return {
-      backgroundColor: "#060708",
+      backgroundColor: "transparent",
       animationDuration: 250,
       textStyle: { color: AXIS_LABEL, fontFamily: "ui-sans-serif, system-ui, sans-serif" },
       grid: { left: 52, right: 14, top: 10, bottom: 34, containLabel: false },
@@ -442,7 +443,7 @@ export function CollectionDualPriceChart({
               splitNumber: roughTick.splitNumber,
             }
           : {}),
-        axisLine: { lineStyle: { color: AXIS_LINE } },
+        axisLine: { show: false },
         axisTick: { show: false },
         splitLine: { show: false },
         axisLabel: {
@@ -463,9 +464,9 @@ export function CollectionDualPriceChart({
           min,
           max,
           interval,
-          axisLine: { show: true, lineStyle: { color: AXIS_LINE } },
+          axisLine: { show: false },
           axisTick: { show: false },
-          splitLine: { show: true, lineStyle: { color: SPLIT_LINE } },
+          splitLine: { show: false },
           axisLabel: {
             color: AXIS_LABEL,
             fontSize: 11,

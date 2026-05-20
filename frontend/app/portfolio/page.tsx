@@ -23,20 +23,13 @@ import { useShallow } from "zustand/react/shallow";
 import type { GradedCardMetadata } from "@/types/gradedCard";
 import { loadNmBaselineMap, saveNmBaselineMap, type NmBaselineEntry } from "@/lib/portfolio";
 import { formatLiquidityDepthLabel } from "@/lib/market";
-import { representativeGradeUsd } from "@/lib/market";
+import { resolveExternalMarketUsd } from "@/lib/market";
 import {
-  catalogSpotUsdFromMarketPreview,
   parseGradeScoreNumber,
 } from "@/lib/market";
-import { marketHistoryTierFromRwaMetadata } from "@/lib/market";
+import { APP_MAIN_SHELL_CLASS } from "@/constants/layout";
 import {
   appendPortfolioValueSnapshot,
-} from "@/lib/portfolio";
-import { inferSportBucketFromRwaMetadata } from "@/lib/market";
-import {
-  mockDemoSpotUsd,
-  MOCK_SPORTS_LIQUIDITY_CAPTION,
-  MOCK_SPORTS_PRICE_CAPTION,
 } from "@/lib/portfolio";
 
 const USDC_DECIMALS = 1_000_000;
@@ -55,7 +48,7 @@ interface PricedAssetRow {
   amount: number;
   /** External NM spot: Cardhedger-backed preview, else bundle NM strip for the bucket. */
   currentPrice: number | null;
-  priceSource: "cardhedger" | "none" | "mock";
+  priceSource: "cardhedger" | "none";
   /** On-platform listing depth (optional subtitle). */
   liquidityLabel: string | null;
   /** Your active ask (execution intent), not the pool estimate */
@@ -100,6 +93,28 @@ function getGraded(meta: RwaMetadata | null): GradedCardMetadata | undefined {
   return g && typeof g === "object" ? (g as GradedCardMetadata) : undefined;
 }
 
+/**
+ * Bucket components shape for {@link resolveExternalMarketUsd} / chart tier — matches collection detail `comp`.
+ */
+function marketTierComponentsFromMetadata(
+  meta: RwaMetadata | null,
+): Record<string, unknown> | null {
+  const g = getGraded(meta);
+  if (!g) return null;
+  const score = g.psa?.gradeScore ?? g.grade?.score;
+  const gradingCompany =
+    typeof g.gradingCompany === "string" && g.gradingCompany.trim()
+      ? g.gradingCompany.trim()
+      : g.psa != null
+        ? "PSA"
+        : "";
+  return {
+    gradingCompany,
+    gradeScore:
+      score != null && Number.isFinite(Number(score)) ? String(score) : undefined,
+  };
+}
+
 function extractCategory(meta: RwaMetadata | null): string | null {
   const g = getGraded(meta);
   if (g?.psa?.category?.trim()) return g.psa.category.trim();
@@ -128,6 +143,25 @@ function gradeScoreForJustTcg(meta: RwaMetadata | null): number | null {
   if (g?.grade?.score != null && Number.isFinite(g.grade.score))
     return parseGradeScoreNumber(String(g.grade.score));
   return null;
+}
+
+/**
+ * Collection `market-series` may return `cardhedgerPreview` with `matched: false` when the DB
+ * bucket row exists but Cardhedger has not resolved yet — that object is still truthy, so
+ * `seriesPreview ?? mintPreview` would hide a good {@link postBatchMintMarketPreviews} result.
+ * Prefer whichever preview actually matched; when both match, keep series (chart-aligned).
+ */
+function pickPortfolioMarketPreview(
+  series: CollectionMarketSeries | null | undefined,
+  mintPv: CollectionMarketPreview | null | undefined,
+): CollectionMarketPreview | null {
+  const s = series?.cardhedgerPreview;
+  const sOk = Boolean(s?.matched && s?.card);
+  const mOk = Boolean(mintPv?.matched && mintPv?.card);
+  if (sOk && mOk) return s!;
+  if (sOk) return s!;
+  if (mOk) return mintPv!;
+  return s ?? mintPv ?? null;
 }
 
 function buildAssetSubtitle(meta: RwaMetadata | null, displayName: string): string {
@@ -233,15 +267,56 @@ function generateTimeLabels(period: ChartPeriod, count: number): string[] {
 }
 
 function niceYTicks(min: number, max: number, count = 5): number[] {
+  if (!Number.isFinite(min) || !Number.isFinite(max)) return [0, 1];
+  if (max < min) [min, max] = [max, min];
   if (max <= min) return [min];
   const range = max - min;
-  const rough = range / (count - 1);
-  const mag = Math.pow(10, Math.floor(Math.log10(rough)));
-  const nice = [1, 2, 5, 10].find((n) => n * mag >= rough)! * mag;
+  const parts = Math.max(2, Math.min(12, Math.floor(Number(count)) || 5));
+  let rough = range / (parts - 1);
+  if (!Number.isFinite(rough) || rough <= 0) return [min, max];
+
+  const log10 = Math.log10(rough);
+  if (!Number.isFinite(log10)) return [min, max];
+  const mag = Math.pow(10, Math.floor(log10));
+  if (!Number.isFinite(mag) || mag <= 0) return [min, max];
+
+  const mult = [1, 2, 5, 10].find((n) => n * mag >= rough);
+  if (mult == null) return [min, max];
+  let nice = mult * mag;
+  if (!Number.isFinite(nice) || nice <= 0) return [min, max];
+
+  /** When the chart span is tiny, avoid microscopic `nice` (millions of iterations / browser hang). */
+  const minStep = range / 80;
+  if (nice < minStep) nice = minStep;
+
   const lo = Math.floor(min / nice) * nice;
+  if (!Number.isFinite(lo)) return [min, max];
+  const hi = max + nice * 0.01;
   const ticks: number[] = [];
-  for (let v = lo; v <= max + nice * 0.01; v += nice) ticks.push(v);
-  return ticks;
+  const maxTicks = 64;
+  for (let i = 0; i < maxTicks; i++) {
+    const v = lo + i * nice;
+    if (v > hi) break;
+    ticks.push(v);
+  }
+  return ticks.length > 0 ? ticks : [min, max];
+}
+
+/** Collapse duplicate Y values (float noise / step overlap) so list keys and SVG lines stay unique. */
+function uniqChartTicks(ticks: number[]): number[] {
+  const out: number[] = [];
+  for (const t of ticks) {
+    if (!Number.isFinite(t)) continue;
+    const prev = out[out.length - 1];
+    if (
+      prev != null &&
+      Math.abs(t - prev) <= 1e-6 * Math.max(1, Math.abs(t), Math.abs(prev))
+    ) {
+      continue;
+    }
+    out.push(t);
+  }
+  return out;
 }
 
 function fmtAxisVal(v: number): string {
@@ -284,7 +359,7 @@ function PortfolioChart({
   const yMin = dataMin - pad;
   const yMax = dataMax + pad;
 
-  const ticks = niceYTicks(yMin, yMax, 5);
+  const ticks = uniqChartTicks(niceYTicks(yMin, yMax, 5));
   const timeLabels = generateTimeLabels(period, points.length);
 
   const xOf = (i: number) => LEFT + (i / (points.length - 1)) * chartW;
@@ -337,9 +412,9 @@ function PortfolioChart({
       >
         <defs>
           <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="rgba(148,255,212,0.15)" />
-            <stop offset="80%" stopColor="rgba(148,255,212,0.02)" />
-            <stop offset="100%" stopColor="rgba(148,255,212,0)" />
+            <stop offset="0%" stopColor="rgba(135,255,72,0.15)" />
+            <stop offset="80%" stopColor="rgba(135,255,72,0.02)" />
+            <stop offset="100%" stopColor="rgba(135,255,72,0)" />
           </linearGradient>
           <filter id="glow">
             <feGaussianBlur stdDeviation="3" result="blur" />
@@ -351,11 +426,11 @@ function PortfolioChart({
         </defs>
 
         {/* Grid lines */}
-        {ticks.map((t) => {
+        {ticks.map((t, i) => {
           const y = yOf(t);
           if (y < TOP - 2 || y > TOP + chartH + 2) return null;
           return (
-            <g key={t}>
+            <g key={`y-grid-${i}`}>
               <line
                 x1={LEFT}
                 x2={W - RIGHT}
@@ -407,8 +482,8 @@ function PortfolioChart({
             rx="1"
             fill={
               hover?.idx === i
-                ? "rgba(148,255,212,0.5)"
-                : "rgba(148,255,212,0.12)"
+                ? "rgba(135,255,72,0.5)"
+                : "rgba(135,255,72,0.12)"
             }
           />
         ))}
@@ -420,7 +495,7 @@ function PortfolioChart({
         <path
           d={linePath}
           fill="none"
-          stroke="#94ffd4"
+          stroke="#87FF48"
           strokeWidth="2"
           strokeLinejoin="round"
           strokeLinecap="round"
@@ -434,7 +509,7 @@ function PortfolioChart({
               x2={hover.x}
               y1={TOP}
               y2={TOP + chartH}
-              stroke="rgba(148,255,212,0.2)"
+              stroke="rgba(135,255,72,0.2)"
               strokeWidth="1"
               strokeDasharray="3 3"
             />
@@ -442,7 +517,7 @@ function PortfolioChart({
               cx={hover.x}
               cy={hover.y}
               r="4"
-              fill="#94ffd4"
+              fill="#87FF48"
               stroke="#030712"
               strokeWidth="2"
             />
@@ -455,7 +530,7 @@ function PortfolioChart({
                 height="20"
                 rx="6"
                 fill="#1a2332"
-                stroke="rgba(148,255,212,0.3)"
+                stroke="rgba(135,255,72,0.3)"
                 strokeWidth="1"
               />
               <text
@@ -479,7 +554,7 @@ function PortfolioChart({
               cx={lastX}
               cy={lastY}
               r="5"
-              fill="#94ffd4"
+              fill="#87FF48"
               stroke="#030712"
               strokeWidth="2.5"
               filter="url(#glow)"
@@ -489,7 +564,7 @@ function PortfolioChart({
               cy={lastY}
               r="9"
               fill="none"
-              stroke="rgba(148,255,212,0.25)"
+              stroke="rgba(135,255,72,0.25)"
               strokeWidth="1.5"
             />
             <g>
@@ -500,7 +575,7 @@ function PortfolioChart({
                 height="22"
                 rx="6"
                 fill="#1a2332"
-                stroke="rgba(148,255,212,0.3)"
+                stroke="rgba(135,255,72,0.3)"
                 strokeWidth="1"
               />
               <text
@@ -694,41 +769,17 @@ export default function PortfolioPage() {
     return m;
   }, [assets, tokenToCollectionKey]);
 
-  /** MLB/NFL/NBA use placeholder pricing — skip external NM fetch for those rows only. */
+  /** Cardhedger chart bundle loads whenever we have a bucket key (aligns spot with collection detail). */
   const anyAssetNeedsSeriesForPricing = useMemo(
     () =>
-      assets.some((a) => {
-        const b = inferSportBucketFromRwaMetadata(a.metadata);
-        if (b === "mlb" || b === "nba" || b === "nfl") return false;
-        const tier = marketHistoryTierFromRwaMetadata(a.metadata);
-        const poke = catalogSpotUsdFromMarketPreview(
-          marketPreviewByToken[a.tokenId],
-          tier,
-        );
-        if (poke != null) return false;
-        const ck = tokenToCollectionKey[a.tokenId]?.trim();
-        return Boolean(ck);
-      }),
-    [assets, tokenToCollectionKey, marketPreviewByToken],
+      assets.some((a) => Boolean(tokenToCollectionKey[a.tokenId]?.trim())),
+    [assets, tokenToCollectionKey],
   );
 
   const anyAssetUsesLivePoolStats = useMemo(
     () =>
-      assets.some((a) => {
-        const b = inferSportBucketFromRwaMetadata(a.metadata);
-        if (b === "mlb" || b === "nba" || b === "nfl") return false;
-        return Boolean(tokenToCollectionKey[a.tokenId]?.trim());
-      }),
+      assets.some((a) => Boolean(tokenToCollectionKey[a.tokenId]?.trim())),
     [assets, tokenToCollectionKey],
-  );
-
-  const hasMockSportHoldings = useMemo(
-    () =>
-      assets.some((a) => {
-        const b = inferSportBucketFromRwaMetadata(a.metadata);
-        return b === "mlb" || b === "nba" || b === "nfl";
-      }),
-    [assets],
   );
 
   const portfolioMarketBatchSig = useMemo(() => {
@@ -859,49 +910,32 @@ export default function PortfolioPage() {
       const stats = ck ? statsByCollectionKey.get(ck) ?? null : null;
       const series = ck ? seriesByCollectionKey.get(ck) ?? null : null;
 
-      const sportBucket = inferSportBucketFromRwaMetadata(a.metadata);
-      const isMockSport =
-        sportBucket === "mlb" || sportBucket === "nba" || sportBucket === "nfl";
+      const preview = pickPortfolioMarketPreview(
+        series,
+        marketPreviewByToken[a.tokenId] ?? null,
+      );
 
-      const preview = marketPreviewByToken[a.tokenId] ?? null;
-      const poke = isMockSport
-        ? null
-        : catalogSpotUsdFromMarketPreview(
-            preview?.matched && preview.card ? preview : null,
-            marketHistoryTierFromRwaMetadata(a.metadata),
-          );
-      /**
-       * PSA strip from bundled `gradePrices` (same curve as Trending Now / Exchange list snapshots).
-       * Snapshots call `representativeGradeUsd(snapshot.gradePrices, …)` with no mint-preview gate;
-       * My Assets loaded the strip only when mint preview was "reliable", so owned cards showed "—"
-       * while Trending showed a price for the same bucket. Series + snapshots share this bundle.
-       */
-      const stripFromGradePrices =
-        poke != null || isMockSport
-          ? null
-          : representativeGradeUsd(
-              series?.gradePrices ?? null,
-              gradeScoreForJustTcg(a.metadata),
-            );
+      const resolved = resolveExternalMarketUsd({
+        marketPreview: preview,
+        gradePrices: series?.gradePrices ?? null,
+        gradeScore: gradeScoreForJustTcg(a.metadata),
+        components: marketTierComponentsFromMetadata(a.metadata),
+      });
 
       let currentPrice: number | null = null;
       let priceSource: PricedAssetRow["priceSource"] = "none";
-      if (isMockSport) {
-        currentPrice = mockDemoSpotUsd(a.tokenId, sportBucket);
-        priceSource = "mock";
-      } else if (poke != null) {
-        currentPrice = poke;
-        priceSource = "cardhedger";
-      } else if (stripFromGradePrices != null) {
-        currentPrice = stripFromGradePrices;
+      if (
+        resolved.usd != null &&
+        Number.isFinite(resolved.usd) &&
+        resolved.usd > 0
+      ) {
+        currentPrice = resolved.usd;
         priceSource = "cardhedger";
       }
 
-      const liquidityLabel = isMockSport
-        ? MOCK_SPORTS_LIQUIDITY_CAPTION
-        : ck
-          ? formatLiquidityDepthLabel(stats ?? undefined)
-          : null;
+      const liquidityLabel = ck
+        ? formatLiquidityDepthLabel(stats ?? undefined)
+        : null;
 
       const displayName = displayAssetNameFromMetadata(a.metadata, `RWA #${a.tokenId}`);
       return {
@@ -1181,23 +1215,6 @@ export default function PortfolioPage() {
     totalValue,
   ]);
 
-  /** Slight path smoothing when the book includes MLB/NFL/NBA rows (end point stays the live total). */
-  const chartPointsDisplay = useMemo(() => {
-    const pts = chartPoints;
-    if (pts.length < 2 || !hasMockSportHoldings) return pts;
-    const out = [...pts];
-    const end = out[out.length - 1]!;
-    const seed = (address?.codePointAt(0) ?? 1) + (period === "1D" ? 3 : period === "1W" ? 5 : 7);
-    for (let i = 0; i < out.length - 1; i++) {
-      const frac = (i + 0.5) / Math.max(1, out.length - 1);
-      const wave =
-        Math.sin(frac * Math.PI * 2 + seed * 0.01) * 0.028 + (frac - 0.5) * 0.018;
-      out[i] = Math.max(0, end * (1 + wave));
-    }
-    out[out.length - 1] = end;
-    return out;
-  }, [chartPoints, hasMockSportHoldings, address, period]);
-
   if (!isConnected) {
     return (
       <div className="min-h-screen bg-[#030712] text-white flex items-center justify-center">
@@ -1216,7 +1233,7 @@ export default function PortfolioPage() {
 
   return (
     <div className="min-h-screen bg-[#030712] text-white">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 pb-20">
+      <div className={`${APP_MAIN_SHELL_CLASS} py-8 pb-20`}>
         {/* Title */}
         <div className="mb-8">
           <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight mb-1">
@@ -1279,7 +1296,7 @@ export default function PortfolioPage() {
               <div className="w-full h-full bg-gray-800/40 rounded-lg animate-pulse" />
             ) : (
               <PortfolioChart
-                points={chartPointsDisplay}
+                points={chartPoints}
                 period={period}
                 currentValue={totalValue}
               />
@@ -1341,7 +1358,7 @@ export default function PortfolioPage() {
                 onClick={() => setAssetFilter("listed")}
                 className={`rounded-full px-3 py-1 font-semibold transition-colors ${
                   assetFilter === "listed"
-                    ? "bg-emerald-500/90 text-[#061018]"
+                    ? "bg-mint text-mint-ink"
                     : "text-gray-400 hover:text-white"
                 }`}
               >
@@ -1397,7 +1414,7 @@ export default function PortfolioPage() {
             <div
               className={
                 filteredAssetRows.length > 4
-                  ? "max-h-[560px] overflow-y-auto pr-1 scrollbar-platform"
+                  ? "max-h-[560px] overflow-y-auto pr-1"
                   : "overflow-visible"
               }
             >
@@ -1446,8 +1463,8 @@ export default function PortfolioPage() {
                         <span
                           className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-extrabold tabular-nums shadow-[0_4px_14px_rgba(0,0,0,0.35)] ${
                             tokenableVsEbayPct >= 0
-                              ? "border-amber-300/35 bg-amber-500/35 text-amber-100"
-                              : "border-emerald-300/35 bg-emerald-500/35 text-emerald-100"
+                              ? "border border-[rgba(0,187,61,1)] bg-[rgba(0,0,0,0.5)] text-[rgba(0,187,61,1)]"
+                              : "border-mint/35 bg-mint/35 text-white"
                           }`}
                         >
                           Market Gap {tokenableVsEbayPct >= 0 ? "+" : ""}
@@ -1487,7 +1504,7 @@ export default function PortfolioPage() {
                         <span
                           className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
                             r.listPriceUsd != null
-                              ? "bg-emerald-500/15 text-emerald-300"
+                              ? "bg-mint/15 text-mint"
                               : "bg-zinc-700/40 text-zinc-300"
                           }`}
                         >
@@ -1531,7 +1548,7 @@ export default function PortfolioPage() {
                       </div>
                       <div className="flex justify-between gap-2">
                         <dt className="text-gray-500">Tokenable Price</dt>
-                        <dd className="text-right tabular-nums font-semibold text-emerald-300">
+                        <dd className="text-right tabular-nums font-semibold text-mint">
                           {r.listPriceUsd != null
                             ? `$${r.listPriceUsd.toLocaleString(undefined, {
                                 maximumFractionDigits: 0,
@@ -1613,7 +1630,7 @@ export default function PortfolioPage() {
               No transactions yet
             </p>
           ) : (
-            <div className="overflow-hidden rounded-xl border border-gray-800/60 max-h-[264px] overflow-y-auto scrollbar-thin">
+            <div className="overflow-hidden rounded-xl border border-gray-800/60 max-h-[264px] overflow-y-auto">
               <table className="w-full text-[13px] table-fixed">
                 <colgroup>
                   <col style={{ width: "10%" }} />
