@@ -341,6 +341,7 @@ export default function RwaDetailPage() {
     const usd = representativeGradeUsd(
       collectionSnapshot?.gradePrices ?? null,
       parseGradeScoreNumber(comp?.gradeScore),
+      comp?.gradeScore,
     );
     return usd != null && Number.isFinite(usd) && usd > 0 ? usd : null;
   }, [collectionDetail?.collection?.components, collectionSnapshot?.gradePrices]);

@@ -185,6 +185,7 @@ function CollectionRow({
   const jtSpot = representativeGradeUsd(
     snapshot?.gradePrices ?? null,
     parseGradeScoreNumber(comp.gradeScore),
+    comp.gradeScore,
   );
 
   const pct = snapshot?.marketChangePct;
@@ -342,6 +343,7 @@ function CollectionGridCard({
   const jtSpot = representativeGradeUsd(
     snapshot?.gradePrices ?? null,
     parseGradeScoreNumber(comp.gradeScore),
+    comp.gradeScore,
   );
   const marketPriceUsd =
     jtSpot != null && Number.isFinite(jtSpot) && jtSpot > 0 ? jtSpot : null;

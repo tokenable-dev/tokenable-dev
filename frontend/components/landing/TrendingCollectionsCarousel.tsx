@@ -314,6 +314,7 @@ export function TrendingCollectionsCarousel({
     const eBayPrice = representativeGradeUsd(
       s?.gradePrices ?? null,
       parseGradeScoreNumber(comp.gradeScore),
+      comp.gradeScore,
     );
     const displayImageUrl = trendingCarouselImageUrl(c);
     return (
