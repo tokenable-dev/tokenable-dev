@@ -2,7 +2,7 @@
 
 > Seaport v1.5 · 오프체인 오더북(백엔드) · 온체인 `fulfillOrder` / `matchAdvancedOrders` 기준
 
-> **부록 (2026-04):** 동일 백엔드에 **규칙 기반 입찰·매칭·정산 워커**가 추가되었습니다 (`bids` / `asks` / `match_intents` / `trade_executions` 등). 현재 제품 UI의 기본 경로는 여전히 Seaport `orders` 입니다. 상세는 **[api/marketplace.md](../api/marketplace.md)** 및 **[marketplace-trading-relational-layer.drawio](./marketplace-trading-relational-layer.drawio)**.
+> **업데이트 (2026-05):** 실험용 **relational 매칭 계층**은 백엔드에서 **제거**되었습니다. 매칭은 **Seaport + `orders`만** 사용합니다. **[api/marketplace.md](../api/marketplace.md)**, **[architecture/overview.md](../architecture/overview.md)** 참고. 과거 다이어그램: [marketplace-trading-relational-layer.drawio](./marketplace-trading-relational-layer.drawio).
 >
 > **HTTP 경로 표기:** 아래 시퀀스의 `POST /api/...` 는 Nest 글로벌 프리픽스 **`api`** 를 포함한 전체 경로입니다. 전체 API 개요는 **[api/README.md](../api/README.md)**.
 
@@ -669,15 +669,15 @@ flowchart TD
     subgraph REST ["REST 네임스페이스"]
         direction TB
         R_AUTH["/api/auth<br/>Google OAuth · JWT 쿠키 · 지갑 연결"]:::route
-        R_MKT["/api/marketplace<br/>orders · collections · market-snapshots<br/>· cardhedger 헬퍼 · 트레이딩 (relational)"]:::route
+        R_MKT["/api/marketplace<br/>orders · collections · market-snapshots<br/>· cardhedger 번들 API · Seaport 전용"]:::route
         R_RWA["/api/rwa<br/>IPFS 메타 업로드 · 민팅 보조"]:::route
-        R_BC["/api/blockchain<br/>토큰 목록 · 컨트랙트 읽기"]:::route
-        R_CH["/api/cardhedger<br/>Cardhedger 프록시 (catalog/pricing/search/indexes)"]:::route
+        R_BC["/api/blockchain<br/>RWA tokenURI · 메타/IPFS 해소"]:::route
+        R_CH["/api/cardhedger<br/>indexes (+ 서버 내부 CardhedgerService)"]:::route
         R_PSA["/api/psa<br/>슬랩 OCR · PSA Public API"]:::route
     end
 
     subgraph PERSIST ["영속 계층"]
-        PG[("PostgreSQL<br/>orders · marketplace_collections · users · bids · asks · trade_executions")]:::data
+        PG[("PostgreSQL<br/>orders · marketplace_collections · users · hidden_assets")]:::data
     end
 
     subgraph OUT ["외부 연동"]
@@ -876,12 +876,8 @@ backend/
 │   │   │                       #   collection-market.service · cardhedger-market-data.service ·
 │   │   │                       #   cardhedger-ai-insight.service · dto/
 │   │   ├── assets/             # assets.controller · hidden-assets.service
-│   │   ├── trading/            # bids.controller · trade.controller · trade-orchestrator
-│   │   │                       #   · settlement-processor · outbox-publisher · rule-engine
-│   │   ├── entities/           # order · marketplace-collection · bid · ask · match-intent ·
-│   │   │                       #   trade-execution · idempotency-key · outbox-event · hidden-asset
-│   │   ├── utils/              # bucket-key · card-match · collection-image · …
-│   │   └── dto/                # match-accepted.response · trade-match.dto
+│   │   ├── entities/           # order · marketplace-collection · hidden-asset
+│   │   ├── utils/              # bucket-key · card-match · collection-image · psa-spec-cardhedger-map · …
 │   │
 │   ├── rwa/
 │   │   ├── rwa.controller.ts   # /rwa — IPFS 업로드
@@ -895,19 +891,18 @@ backend/
 │   │   ├── blockchain.service.ts
 │   │   ├── ipfs-gateway-resolver.service.ts
 │   │   ├── abis/
-│   │   └── providers/          # ethers · USDC · RWA 팩토리
+│   │   └── providers/          # ethers · RWA 팩토리
 │   │
 │   ├── cardhedger/
-│   │   ├── controllers/*.controller.ts # catalog · details · download · image · indexes ·
-│   │   │                                #   issues · market · pricing · search
+│   │   ├── controllers/indexes.controller.ts
 │   │   ├── cardhedger.service.ts       # CARDHEDGER_API_KEY 필수
-│   │   ├── cardhedger.registry.ts
 │   │   └── indexes.service.ts          # 24h 스케줄 + 디스크 캐시
 │   │
 │   └── psa/
 │       ├── psa.controller.ts   # /psa/analyze
 │       ├── psa.service.ts      # PSA/Cardhedger 결합, 이미지 폴백
 │       ├── psa-public-api.service.ts
+│       ├── psa-spec-scraper.service.ts  # 선택: PSA spec 페이지 (playwright-core)
 │       └── utils/              # psa-cert-images · psa-ocr · psa-slab-crop
 │
 ├── sql/

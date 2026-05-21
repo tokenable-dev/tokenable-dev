@@ -242,6 +242,8 @@ export interface RwaDetailAssetPanelProps {
   metaLoading?: boolean;
   /** Below title · above slab · pass `xl:hidden` from parent when only for narrow viewports */
   priceMetricsSlot?: ReactNode;
+  /** When true, title + badge row are hidden from `xl` up (show in sticky column beside slab). */
+  hideHeaderOnXl?: boolean;
 }
 
 /**
@@ -254,6 +256,7 @@ export function RwaDetailAssetPanel({
   collectionLabel,
   metaLoading,
   priceMetricsSlot,
+  hideHeaderOnXl = false,
 }: RwaDetailAssetPanelProps) {
   const title =
     displayAssetNameFromMetadata(
@@ -299,13 +302,13 @@ export function RwaDetailAssetPanel({
 
   const hasBackFace = Boolean(effectiveBackUrl);
   const [flipAngle, setFlipAngle] = useState(0);
-  const [slabAutoRotateOn, setSlabAutoRotateOn] = useState(true);
+  const [slabAutoRotateOn, setSlabAutoRotateOn] = useState(false);
   /** Slab flip when PSA back URL exists as candidate (tabs resolve / gateway). */
   const useFlipSlab = Boolean(backCandidate);
 
   useEffect(() => {
     setFlipAngle(0);
-    setSlabAutoRotateOn(true);
+    setSlabAutoRotateOn(false);
   }, [tokenId, backCandidate]);
 
   useEffect(() => {
@@ -329,7 +332,7 @@ export function RwaDetailAssetPanel({
   const backHeroLoading = Boolean(backNeedsGateway) && backResolving;
 
   const slabHeroSizing =
-    "relative mx-auto aspect-[3/4] w-full overflow-visible rounded-2xl max-h-[min(84vh,800px)] sm:max-h-[min(86vh,880px)]";
+    "relative mx-auto aspect-[3/4] w-full overflow-visible rounded-2xl max-h-[min(76vh,700px)] sm:max-h-[min(78vh,760px)]";
 
   const headerRowPulse =
     Boolean(metaLoading) && !headerCategory && !headerGradeLine && !setHeadline;
@@ -337,7 +340,13 @@ export function RwaDetailAssetPanel({
 
   return (
     <div className="flex min-w-0 flex-col gap-5 lg:gap-6">
-      <div className="space-y-2.5 px-0.5 lg:space-y-3 lg:px-0">
+      <div
+        className={
+          hideHeaderOnXl
+            ? "space-y-2.5 px-0.5 lg:space-y-3 lg:px-0 xl:hidden"
+            : "space-y-2.5 px-0.5 lg:space-y-3 lg:px-0"
+        }
+      >
         <div className="flex flex-wrap items-start gap-x-3 gap-y-2">
           {headerRowPulse ? (
             <>
@@ -441,49 +450,7 @@ export function RwaDetailAssetPanel({
 
         {useFlipSlab ? (
           <>
-            <div className="mt-0 flex flex-wrap items-end justify-center gap-3 sm:gap-4">
-              {hasBackFace && !backHeroLoading && imageUrl && !frontHeroLoading ? (
-                <button
-                  type="button"
-                  aria-pressed={slabAutoRotateOn}
-                  className={`group relative aspect-[3/4] w-14 shrink-0 overflow-hidden rounded-lg border-2 bg-black/35 shadow-[0_6px_20px_-10px_rgba(0,0,0,0.75)] transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mint/70 ${
-                    slabAutoRotateOn
-                      ? "border-mint/40 ring-1 ring-mint/15 hover:border-mint/55 hover:ring-mint/25"
-                      : "border-mint/55 ring-1 ring-mint/20 hover:border-mint/80 hover:ring-mint/35"
-                  }`}
-                  onClick={() => setSlabAutoRotateOn((on) => !on)}
-                  aria-label={
-                    slabAutoRotateOn
-                      ? `${slabAltCaption} — pause auto slab rotation`
-                      : `${slabAltCaption} — resume auto slab rotation`
-                  }
-                  title={slabAutoRotateOn ? "Pause auto rotate" : "Resume auto rotate"}
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element -- rotate control preview */}
-                  <img
-                    src={imageUrl}
-                    alt=""
-                    className="h-full w-full object-cover"
-                    draggable={false}
-                    referrerPolicy="no-referrer"
-                  />
-                  <span
-                    className={`absolute inset-0 flex items-center justify-center transition ${
-                      slabAutoRotateOn
-                        ? "bg-black/26 group-hover:bg-black/18"
-                        : "bg-black/40 group-hover:bg-black/32"
-                    }`}
-                  >
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/95 shadow-md ring-1 ring-black/45">
-                      {slabAutoRotateOn ? (
-                        <SlabPauseGlyph className="h-3.5 w-3.5 text-[#0a1210]" />
-                      ) : (
-                        <SlabPlayGlyph className="h-3.5 w-3.5 translate-x-[1px] text-[#0a1210]" />
-                      )}
-                    </span>
-                  </span>
-                </button>
-              ) : null}
+            <div className="mt-0 flex w-full flex-wrap items-end justify-center gap-3 sm:gap-4">
               <div className="flex gap-2.5" role="tablist" aria-label="Slab photo side">
                 <button
                   type="button"
@@ -559,6 +526,48 @@ export function RwaDetailAssetPanel({
                   )}
                 </button>
               </div>
+              {hasBackFace && !backHeroLoading && imageUrl && !frontHeroLoading ? (
+                <button
+                  type="button"
+                  aria-pressed={slabAutoRotateOn}
+                  className={`group relative aspect-[3/4] w-14 shrink-0 overflow-hidden rounded-lg border-2 bg-black/35 shadow-[0_6px_20px_-10px_rgba(0,0,0,0.75)] transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mint/70 ${
+                    slabAutoRotateOn
+                      ? "border-mint/40 ring-1 ring-mint/15 hover:border-mint/55 hover:ring-mint/25"
+                      : "border-mint/55 ring-1 ring-mint/20 hover:border-mint/80 hover:ring-mint/35"
+                  }`}
+                  onClick={() => setSlabAutoRotateOn((on) => !on)}
+                  aria-label={
+                    slabAutoRotateOn
+                      ? `${slabAltCaption} — pause auto slab rotation`
+                      : `${slabAltCaption} — resume auto slab rotation`
+                  }
+                  title={slabAutoRotateOn ? "Pause auto rotate" : "Resume auto rotate"}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element -- rotate control preview */}
+                  <img
+                    src={imageUrl}
+                    alt=""
+                    className="h-full w-full object-cover"
+                    draggable={false}
+                    referrerPolicy="no-referrer"
+                  />
+                  <span
+                    className={`absolute inset-0 flex items-center justify-center transition ${
+                      slabAutoRotateOn
+                        ? "bg-black/26 group-hover:bg-black/18"
+                        : "bg-black/40 group-hover:bg-black/32"
+                    }`}
+                  >
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/95 shadow-md ring-1 ring-black/45">
+                      {slabAutoRotateOn ? (
+                        <SlabPauseGlyph className="h-3.5 w-3.5 text-[#0a1210]" />
+                      ) : (
+                        <SlabPlayGlyph className="h-3.5 w-3.5 translate-x-[1px] text-[#0a1210]" />
+                      )}
+                    </span>
+                  </span>
+                </button>
+              ) : null}
             </div>
           </>
         ) : null}

@@ -34,6 +34,8 @@ export interface GradedCardMetadata {
   cardhedger?: {
     cardId?: string;
     searchQuery?: string;
+    /** Clean catalog image URL (no PSA cert label) — used as collection cover */
+    imageUrl?: string;
   };
   /** Collection cover on IPFS after server trims slab top (mint response) */
   collectionCoverImage?: string;
@@ -56,7 +58,10 @@ export interface GradedCardMetadata {
     totalPopulationWithQualifier?: number;
     reverseBarcode?: boolean;
     specId?: number;
-    /** True when PSA_PUBLIC_API_TOKEN is set and cert lookup succeeded */
+    /** PSACert.Variety — 병행/인서트 (e.g. SILVER PRIZM). 민팅 시 `Variety` 필드로 저장됨 */
+    varietyHint?: string;
+    /** PSA API 필드명과 동일하게 저장할 때 사용 (민팅 JSON `graded.psa.Variety`) */
+    Variety?: string;
     enrichedFromOfficialApi?: boolean;
     /** Source URL for PSA cert image before IPFS upload (mint RWA image) */
     certImageSourceUrl?: string;

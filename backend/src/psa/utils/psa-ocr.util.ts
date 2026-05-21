@@ -16,6 +16,11 @@ export interface ParsedPsaLabel {
   cardNumberHint?: string;
   /** e.g. HIDDEN FATES */
   setHint?: string;
+  /**
+   * PSA Public API `PSACert.Variety` — parallel/insert (e.g. `BASKETBALL REFRACTOR`).
+   * Must feed Cardhedger search or Base vs Refractor collapse to the wrong card.
+   */
+  varietyHint?: string;
   /** PSA Public API `PublicPSACert` — cert lookup 시 병합 */
   gradeDescription?: string;
   labelType?: string;
@@ -60,7 +65,10 @@ export function extractGrade(text: string): {
   const gem = upper.match(/GEM\s*MT\s*(\d+(?:\.\d+)?)/);
   if (gem) {
     const n = parseFloat(gem[1]);
-    return { label: `GEM MT ${gem[1]}`, score: Number.isNaN(n) ? undefined : n };
+    return {
+      label: `GEM MT ${gem[1]}`,
+      score: Number.isNaN(n) ? undefined : n,
+    };
   }
   const mint = upper.match(/MINT\s*(\d+(?:\.\d+)?)/);
   if (mint) {
@@ -71,7 +79,10 @@ export function extractGrade(text: string): {
   const mintNl = upper.match(/MINT\s*[\r\n]+\s*(\d{1,2}(?:\.\d+)?)\b/);
   if (mintNl) {
     const n = parseFloat(mintNl[1]);
-    return { label: `MINT ${mintNl[1]}`, score: Number.isNaN(n) ? undefined : n };
+    return {
+      label: `MINT ${mintNl[1]}`,
+      score: Number.isNaN(n) ? undefined : n,
+    };
   }
   const nm = upper.match(/NM\s*-?\s*MT\s*(\d+)/);
   if (nm) {
@@ -81,7 +92,10 @@ export function extractGrade(text: string): {
   const psaNum = upper.match(/PSA\s*(\d{1,2}(?:\.\d)?)/);
   if (psaNum) {
     const n = parseFloat(psaNum[1]);
-    return { label: `PSA ${psaNum[1]}`, score: Number.isNaN(n) ? undefined : n };
+    return {
+      label: `PSA ${psaNum[1]}`,
+      score: Number.isNaN(n) ? undefined : n,
+    };
   }
   return {};
 }
@@ -102,7 +116,31 @@ export function extractCardNumber(text: string): string | undefined {
   return undefined;
 }
 
-/** Build search query from OCR (Pokemon-focused) */
+/**
+ * PSA often prefixes parallels with the sport (`BASKETBALL REFRACTOR`). Cardhedger listings
+ * usually key on the parallel name alone (e.g. `REFRACTOR`).
+ */
+export function varietyHintsForSearch(varietyHint?: string): string[] {
+  const v = String(varietyHint ?? '').trim();
+  if (!v) return [];
+  const cleaned = v
+    .replace(
+      /^(basketball|baseball|football|hockey|soccer)\s+/i,
+      '',
+    )
+    .trim();
+  const primary = cleaned.length > 0 ? cleaned : v;
+  return [primary];
+}
+
+/**
+ * When parsed PSA hints produce no usable `q`, avoid a Pokemon-only default —
+ * sports (e.g. BASKETBALL) and unknown-category slabs should not bias Cardhedger search.
+ */
+export function ocrCardhedgerSearchFallback(_parsed: ParsedPsaLabel): string {
+  return '';
+}
+
 /**
  * After OCR + optional PSA API merge, prefer structured fields for external `q`.
  */
@@ -112,14 +150,15 @@ export function buildSearchQueryFromParsed(parsed: ParsedPsaLabel): string {
     parsed.setHint,
     parsed.year,
     parsed.cardNumberHint ? `#${parsed.cardNumberHint}` : undefined,
+    ...varietyHintsForSearch(parsed.varietyHint),
   ]
     .filter((x): x is string => typeof x === 'string' && x.trim().length > 0)
     .map((s) => s.trim());
   const q = parts.join(' ').trim();
-  if (q.length >= 4) {
+  if (q.length > 0) {
     return q.slice(0, 120);
   }
-  return 'pokemon';
+  return ocrCardhedgerSearchFallback(parsed);
 }
 
 export function buildSearchQueryAfterMerge(
@@ -128,12 +167,12 @@ export function buildSearchQueryAfterMerge(
 ): string {
   try {
     const fromParsed = buildSearchQueryFromParsed(parsed);
-    if (fromParsed !== 'pokemon') {
+    if (fromParsed.trim().length > 0) {
       return fromParsed;
     }
     return buildSearchQuery(ocrFallbackText);
   } catch {
-    return 'pokemon';
+    return ocrCardhedgerSearchFallback(parsed);
   }
 }
 
@@ -143,8 +182,7 @@ export function buildSearchQuery(fullText: string): string {
     .map((l) => l.replace(/\s+/g, ' ').trim())
     .filter((l) => l.length > 2);
 
-  const junk =
-    /^(PSA|CERT|GRADE|GEM|MINT|WWW\.|HTTP|©|PO BOX|BECKETT)/i;
+  const junk = /^(PSA|CERT|GRADE|GEM|MINT|WWW\.|HTTP|©|PO BOX|BECKETT)/i;
   const scored = lines.map((line) => {
     let s = 0;
     if (junk.test(line)) s -= 20;
@@ -161,7 +199,7 @@ export function buildSearchQuery(fullText: string): string {
   if (best && best.length > 3) {
     return best.slice(0, 120);
   }
-  return 'pokemon';
+  return '';
 }
 
 /** OCR 합친 문자열이 비정상적으로 길면 정규식·메모리 이슈 방지 */
@@ -225,7 +263,9 @@ export function psaCertVerifyUrl(cert: string): string {
  * 폼에 직접 넣은 Cert 또는 `psacard.com/cert/123` URL → PSA GetByCertNumber용 (7~10자리).
  * OCR보다 우선해 조회할 때 사용.
  */
-export function resolveCertHintForLookup(raw?: string | null): string | undefined {
+export function resolveCertHintForLookup(
+  raw?: string | null,
+): string | undefined {
   if (raw == null || !String(raw).trim()) return undefined;
   const t = String(raw).trim();
   const fromUrl = t.match(/psacard\.com\/cert\/(\d{7,10})\b/i);

@@ -44,10 +44,16 @@ export class CardhedgerAiInsightService {
   }
 
   /** 0–100: activity / participation proxy from recent sales frequency. */
-  private activityScore(sales7d: number | null, sales30d: number | null): number {
-    const s7 = sales7d != null && Number.isFinite(sales7d) && sales7d >= 0 ? sales7d : 0;
+  private activityScore(
+    sales7d: number | null,
+    sales30d: number | null,
+  ): number {
+    const s7 =
+      sales7d != null && Number.isFinite(sales7d) && sales7d >= 0 ? sales7d : 0;
     const s30 =
-      sales30d != null && Number.isFinite(sales30d) && sales30d >= 0 ? sales30d : 0;
+      sales30d != null && Number.isFinite(sales30d) && sales30d >= 0
+        ? sales30d
+        : 0;
     return this.clamp01to100(
       Math.log10(s7 + 1) * 32 + Math.log10(s30 + 1) * 24,
     );
@@ -120,9 +126,15 @@ export class CardhedgerAiInsightService {
     if (p >= 120) {
       const lowPop = pop != null && pop < 800;
       if (lowPop && s30 < 12) {
-        return tight('Wide PSA lift — likely partly supply-scarcity, not just momentum.', 95);
+        return tight(
+          'Wide PSA lift — likely partly supply-scarcity, not just momentum.',
+          95,
+        );
       }
-      return tight('Wide PSA vs raw — grading scarcity premium is material.', 88);
+      return tight(
+        'Wide PSA vs raw — grading scarcity premium is material.',
+        88,
+      );
     }
     if (p >= 40) return tight('Solid PSA uplift vs raw.', 72);
     if (p >= 15) return tight('Moderate PSA premium.', 64);
@@ -156,8 +168,7 @@ export class CardhedgerAiInsightService {
       Math.abs(c90) <= 7 &&
       Math.abs(c30) <= 6;
 
-    const distribution =
-      c365 != null && c90 != null && c365 >= 6 && c90 <= -4;
+    const distribution = c365 != null && c90 != null && c365 >= 6 && c90 <= -4;
 
     const illiquidTape = s30 < 5 && s7 < 3;
     const ambiguous =
@@ -182,15 +193,24 @@ export class CardhedgerAiInsightService {
     if (distribution) return 'Distribution';
 
     const cooling =
-      (c90 != null && c90 <= -9) || (c30 != null && c30 <= -9 && (c90 ?? 0) < 0);
+      (c90 != null && c90 <= -9) ||
+      (c30 != null && c30 <= -9 && (c90 ?? 0) < 0);
     if (cooling && !baseAfterDecline) return 'Cooling';
 
-    if (illiquidTape && ambiguous && !baseAfterDecline) return 'Illiquid / niche';
+    if (illiquidTape && ambiguous && !baseAfterDecline)
+      return 'Illiquid / niche';
 
     const consolidating =
-      (c90 != null && Math.abs(c90) <= 7 && c30 != null && Math.abs(c30) <= 5) ||
+      (c90 != null &&
+        Math.abs(c90) <= 7 &&
+        c30 != null &&
+        Math.abs(c30) <= 5) ||
       (c90 != null && Math.abs(c90) <= 5);
-    if (consolidating && !baseAfterDecline && (c365 == null || Math.abs(c365) <= 15)) {
+    if (
+      consolidating &&
+      !baseAfterDecline &&
+      (c365 == null || Math.abs(c365) <= 15)
+    ) {
       return 'Consolidating';
     }
 
@@ -202,7 +222,8 @@ export class CardhedgerAiInsightService {
       return 'Accumulation';
     }
 
-    if (c90 != null && c90 >= 8 && (c365 == null || c365 > -15)) return 'Uptrend';
+    if (c90 != null && c90 >= 8 && (c365 == null || c365 > -15))
+      return 'Uptrend';
 
     return 'Consolidating';
   }
@@ -214,34 +235,63 @@ export class CardhedgerAiInsightService {
     const c365 = this.n(stats.change365dPct);
     const c90 = this.n(stats.change90dPct);
     if (perspective === 'Dead cat bounce') {
-      const lt = c365 != null ? `${c365 >= 0 ? '+' : ''}${c365.toFixed(1)}% over 365d` : 'a weak 365d tape';
-      const st = c90 != null ? `+${c90.toFixed(1)}% on 90d` : 'a near-term bounce';
-      return tight(`Short-term rebound (${st}) inside a longer decline (${lt}) — treat as corrective, not base-building.`, 155);
+      const lt =
+        c365 != null
+          ? `${c365 >= 0 ? '+' : ''}${c365.toFixed(1)}% over 365d`
+          : 'a weak 365d tape';
+      const st =
+        c90 != null ? `+${c90.toFixed(1)}% on 90d` : 'a near-term bounce';
+      return tight(
+        `Short-term rebound (${st}) inside a longer decline (${lt}) — treat as corrective, not base-building.`,
+        155,
+      );
     }
     if (perspective === 'Uptrend') {
-      return tight('Trend structure is constructive on 90–365d when participation is sufficient.', 98);
+      return tight(
+        'Trend structure is constructive on 90–365d when participation is sufficient.',
+        98,
+      );
     }
     if (perspective === 'Accumulation') {
-      return tight('Positioning skews sideways-to-up with non-negative broader returns or a tight post-drawdown base.', 118);
+      return tight(
+        'Positioning skews sideways-to-up with non-negative broader returns or a tight post-drawdown base.',
+        118,
+      );
     }
     if (perspective === 'Distribution') {
-      return tight('Late-cycle risk: macro window still positive on 365d while 90d weakens — supply may be outweighing bids.', 128);
+      return tight(
+        'Late-cycle risk: macro window still positive on 365d while 90d weakens — supply may be outweighing bids.',
+        128,
+      );
     }
     if (perspective === 'Cooling') {
-      return tight('Momentum is fading on recent windows — buyers need to prove absorption.', 92);
+      return tight(
+        'Momentum is fading on recent windows — buyers need to prove absorption.',
+        92,
+      );
     }
     if (perspective === 'Illiquid / niche') {
-      return tight('Sparse prints — directional labels are unreliable without more turnover.', 95);
+      return tight(
+        'Sparse prints — directional labels are unreliable without more turnover.',
+        95,
+      );
     }
     if (perspective === 'Volatile' || perspective === 'Overextended') {
-      return tight('Tape is swinging hard — prioritize risk management over narrative.', 88);
+      return tight(
+        'Tape is swinging hard — prioritize risk management over narrative.',
+        88,
+      );
     }
-    return tight('Two-way trade: range-working environment until range breaks.', 88);
+    return tight(
+      'Two-way trade: range-working environment until range breaks.',
+      88,
+    );
   }
 
-  private miniSeriesByPerspective(
-    perspective: CollectionAiMarketPerspective,
-  ): { miniSeries: number[]; pathRepresentation: string } {
+  private miniSeriesByPerspective(perspective: CollectionAiMarketPerspective): {
+    miniSeries: number[];
+    pathRepresentation: string;
+  } {
     if (perspective === 'Uptrend') {
       return {
         miniSeries: [18, 19, 20, 21, 22, 24, 25, 26, 27, 28, 29, 30],
@@ -295,7 +345,7 @@ export class CardhedgerAiInsightService {
       miniSeries: [22, 22, 23, 23, 24, 24, 24, 25, 25, 25, 26, 26],
       pathRepresentation:
         'Base → Gradual expansion → Mild consolidation → Two-way chop',
-      };
+    };
   }
 
   private adjustConfidence(params: {
@@ -313,14 +363,15 @@ export class CardhedgerAiInsightService {
     c = Math.min(0.97, Math.max(0.35, c));
     const note =
       params.lowParticipation || params.dataSparse
-        ? tight('Low market participation / sparse comps — downgrade conviction.', 78)
+        ? tight(
+            'Low market participation / sparse comps — downgrade conviction.',
+            78,
+          )
         : null;
     return { confidence: Math.round(c * 1000) / 1000, note };
   }
 
-  async getAiInsightForCollection(
-    col: MarketplaceCollection | null,
-  ): Promise<{
+  async getAiInsightForCollection(col: MarketplaceCollection | null): Promise<{
     title: string;
     summary: string;
     bullets: string[];
@@ -392,7 +443,8 @@ export class CardhedgerAiInsightService {
           tight('Premium signal sharpens as flow grows.', 90),
         ],
         dynamics: [],
-        syntheticChart: 'early base-building with shallow swings and gradual range definition',
+        syntheticChart:
+          'early base-building with shallow swings and gradual range definition',
         outlook: tight('Trend firms as buys/sells widen.', 100),
         chartSpec: {
           chartStyle: 'Expanded Macro View (Wide X-Axis)',
@@ -402,7 +454,8 @@ export class CardhedgerAiInsightService {
             'Phase 3: Controlled consolidation pocket',
             'Phase 4: Current positioning in price discovery',
           ],
-          momentumBehavior: 'Momentum is compressing, then re-expanding in short bursts.',
+          momentumBehavior:
+            'Momentum is compressing, then re-expanding in short bursts.',
           visualInterpretation:
             'Price action appears as a broad base with gentle upward bias and intermittent consolidation shelves.',
           miniSeries: [20, 20, 21, 21, 22, 22, 22, 23, 23, 24, 24, 25],
@@ -449,7 +502,8 @@ export class CardhedgerAiInsightService {
           tight('Liquidity trend is the real tell.', 80),
         ],
         dynamics: [],
-        syntheticChart: 'forming trend channel with intermittent consolidation pockets',
+        syntheticChart:
+          'forming trend channel with intermittent consolidation pockets',
         outlook: tight('Follow-through rises if depth holds.', 100),
         chartSpec: {
           chartStyle: 'Expanded Macro View (Wide X-Axis)',
@@ -523,7 +577,8 @@ export class CardhedgerAiInsightService {
             'Phase 3: Range consolidation',
             'Phase 4: Directional decision zone',
           ],
-          momentumBehavior: 'Momentum is compressing and preparing for directional release.',
+          momentumBehavior:
+            'Momentum is compressing and preparing for directional release.',
           visualInterpretation:
             'Visual profile resembles a rounded base with tightening swings near resistance.',
           miniSeries: [21, 21, 22, 22, 22, 23, 22, 23, 23, 24, 24, 24],
@@ -569,11 +624,15 @@ export class CardhedgerAiInsightService {
           ),
           bullets: [
             tight('Direction building despite uneven flow.', 85),
-            tight('Wait for repeatable sales windows before leaning on premiums.', 95),
+            tight(
+              'Wait for repeatable sales windows before leaning on premiums.',
+              95,
+            ),
             tight('Upsize risk only after depth improves.', 78),
           ],
           dynamics: [],
-          syntheticChart: 'rounded consolidation with periodic expansion spikes',
+          syntheticChart:
+            'rounded consolidation with periodic expansion spikes',
           outlook: tight('Constructive if dips keep clearing.', 100),
           chartSpec: {
             chartStyle: 'Expanded Macro View (Wide X-Axis)',
@@ -583,7 +642,8 @@ export class CardhedgerAiInsightService {
               'Phase 3: Cooling band',
               'Phase 4: Re-accumulation bias',
             ],
-            momentumBehavior: 'Momentum rotates between expansion and compression cycles.',
+            momentumBehavior:
+              'Momentum rotates between expansion and compression cycles.',
             visualInterpretation:
               'Chart forms a broad staircase with temporary consolidation clusters between legs.',
             miniSeries: [20, 21, 22, 23, 24, 23, 24, 25, 24, 25, 26, 27],
@@ -613,7 +673,10 @@ export class CardhedgerAiInsightService {
           },
           generatedAt: now,
           confidence: null,
-          confidenceNote: tight('Low market participation — card match or sales feed thin.', 72),
+          confidenceNote: tight(
+            'Low market participation — card match or sales feed thin.',
+            72,
+          ),
           riskTapeNote: null,
           marketTone: 'Illiquid / niche',
           riskScore: null,
@@ -643,7 +706,10 @@ export class CardhedgerAiInsightService {
       const riskScore = riskPack.score;
       const riskLabel = riskPack.label;
       const riskTapeNote = riskPack.hiddenTape
-        ? tight('Hidden tape risk: few recent sales — “low volatility” can be illiquidity, not safety.', 102)
+        ? tight(
+            'Hidden tape risk: few recent sales — “low volatility” can be illiquidity, not safety.',
+            102,
+          )
         : null;
 
       const marketTone = this.derivePerspective({ stats, riskScore });
@@ -670,7 +736,10 @@ export class CardhedgerAiInsightService {
         : tight(`Tape risk ${riskLabel} (${riskScore}/100).`, 88);
 
       const summary = tight(
-        `${col.displayLabel}: ${marketTone}. ${trendLine} ${premLine} ${liqLine} ${riskLine}`.replace(/\s+/g, ' '),
+        `${col.displayLabel}: ${marketTone}. ${trendLine} ${premLine} ${liqLine} ${riskLine}`.replace(
+          /\s+/g,
+          ' ',
+        ),
         320,
       );
 
@@ -697,7 +766,8 @@ export class CardhedgerAiInsightService {
               )
             : stats.psa10PriceConfidence === 'low' &&
                 stats.psa10SpotUsd != null &&
-                stats.psa10PricingNote === 'history_median_thin_catalog_confidence'
+                stats.psa10PricingNote ===
+                  'history_median_thin_catalog_confidence'
               ? tight('PSA 10 from history median — thin verified sales.', 85)
               : null;
       if (pricingCallout)
@@ -721,14 +791,19 @@ export class CardhedgerAiInsightService {
         syntheticChart =
           'topping process: rallies sold into — lower highs forming on intermediates';
       } else if (marketTone === 'Illiquid / niche') {
-        syntheticChart = 'micro-range noise on minimal volume awaiting real flow';
+        syntheticChart =
+          'micro-range noise on minimal volume awaiting real flow';
       } else if (marketTone === 'Cooling') {
         syntheticChart = 'bearish glide with intermittent short-covering pops';
-      } else if (marketTone === 'Consolidating' || marketTone === 'Accumulation') {
+      } else if (
+        marketTone === 'Consolidating' ||
+        marketTone === 'Accumulation'
+      ) {
         syntheticChart =
           'balanced two-way auctions compressing volatility before next impulse';
       } else if (marketTone === 'Overextended') {
-        syntheticChart = 'extended markup seeking mean reversion or volatile pause';
+        syntheticChart =
+          'extended markup seeking mean reversion or volatile pause';
       } else if (marketTone === 'Volatile') {
         syntheticChart =
           'expanding ranges — directional conviction resets frequently';
@@ -739,15 +814,24 @@ export class CardhedgerAiInsightService {
 
       const outlook =
         marketTone === 'Dead cat bounce'
-          ? tight('Fade risk until 365d trend repairs or volume confirms reversal.', 88)
+          ? tight(
+              'Fade risk until 365d trend repairs or volume confirms reversal.',
+              88,
+            )
           : marketTone === 'Uptrend'
             ? tight('Upside if pullbacks stay shallow on volume.', 56)
             : marketTone === 'Distribution'
               ? tight('Suspect rallies — protect until 90d stabilizes.', 56)
               : marketTone === 'Illiquid / niche'
-                ? tight('Wait for repeatable prints before leaning on deltas.', 60)
+                ? tight(
+                    'Wait for repeatable prints before leaning on deltas.',
+                    60,
+                  )
                 : marketTone === 'Cooling'
-                  ? tight('Defensive until buyers reclaim shorter averages.', 58)
+                  ? tight(
+                      'Defensive until buyers reclaim shorter averages.',
+                      58,
+                    )
                   : marketTone === 'Volatile'
                     ? tight('Size down; trade levels, not stories.', 48)
                     : marketTone === 'Overextended'
@@ -794,7 +878,10 @@ export class CardhedgerAiInsightService {
         outlookScenarios: {
           bullCase:
             marketTone === 'Dead cat bounce'
-              ? tight('Reversal validates only if highs expand with volume.', 62)
+              ? tight(
+                  'Reversal validates only if highs expand with volume.',
+                  62,
+                )
               : tight('Flows broaden → continuation.', 42),
           baseCase:
             marketTone === 'Dead cat bounce'

@@ -7,7 +7,9 @@ export class FulfillMatchedPairDto {
   @IsNotEmpty()
   bidOrderHash: string;
 
-  @ApiProperty({ description: 'Listing (ask) order hash for the RWA being sold' })
+  @ApiProperty({
+    description: 'Listing (ask) order hash for the RWA being sold',
+  })
   @IsString()
   @IsNotEmpty()
   askOrderHash: string;

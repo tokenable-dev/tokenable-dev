@@ -104,10 +104,10 @@ function OrderBookCenterStrip({ model }: { model: BookCenterModel }) {
       : model.tone === "ask"
         ? "text-red-400"
         : model.tone === "bid"
-          ? "text-emerald-400"
+          ? "text-mint"
           : model.tone === "last" && model.lastSide === "sell"
             ? "text-rose-400"
-            : "text-emerald-400";
+            : "text-mint";
 
   const showUp =
     !isSpreadPrimary &&
@@ -128,7 +128,7 @@ function OrderBookCenterStrip({ model }: { model: BookCenterModel }) {
       <div className="flex flex-wrap items-center justify-center gap-x-2.5 gap-y-1">
         <div className="flex items-center gap-1">
           {showUp ? (
-            <span className="text-base font-bold leading-none text-emerald-400/90" aria-hidden>
+            <span className="text-base font-bold leading-none text-mint/90" aria-hidden>
               ↑
             </span>
           ) : null}
@@ -332,7 +332,7 @@ export function CollectionUnifiedOrderBook({
       tone: "none",
       lastSide: null,
       secondary: null,
-      caption: "No orders",
+      caption: "",
       title: "No bid or ask in this book yet.",
     };
   }, [bestAskPrice, bestBidPrice, lastTradePriceUsdc, lastTradeSide]);
@@ -340,7 +340,7 @@ export function CollectionUnifiedOrderBook({
   const depthMax = compact ? "max-h-[72px]" : "max-h-[100px]";
   const depthClass = flush
     ? "min-h-[40px] max-h-none overflow-visible"
-    : `overflow-y-auto scrollbar-book ${depthMax}`;
+    : `overflow-y-auto ${depthMax}`;
 
   const shell = flush
     ? `relative flex h-full max-h-full min-h-0 max-w-full max-xl:min-h-[min(200px,28dvh)] flex-col overflow-hidden rounded-none border-0 bg-transparent shadow-none xl:min-h-0`
@@ -397,7 +397,7 @@ export function CollectionUnifiedOrderBook({
               <span className="text-right tabular-nums">Count</span>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-auto scrollbar-book">
+            <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-auto">
               <div className="flex min-h-full flex-col justify-end gap-px px-1 pt-0.5 pb-0.5">
                 {askLevels.length === 0 ? (
                   <div className="py-3 text-center text-[10px] text-gray-600">No sell orders</div>
@@ -440,7 +440,7 @@ export function CollectionUnifiedOrderBook({
               <OrderBookCenterStrip model={bookCenterModel} />
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-auto scrollbar-book">
+            <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-auto">
               <div className="flex flex-col gap-px px-1 py-0.5 pb-1.5">
                 {bidLevels.length === 0 ? (
                   <div className="py-3 text-center text-[10px] text-gray-600">No buy orders</div>
@@ -498,7 +498,7 @@ export function CollectionUnifiedOrderBook({
             </div>
 
             <div
-              className={`min-h-[36px] flex flex-col justify-end gap-px px-1 pt-0.5 overflow-y-auto scrollbar-book ${depthMax}`}
+              className={`min-h-[36px] flex flex-col justify-end gap-px px-1 pt-0.5 overflow-y-auto ${depthMax}`}
             >
               {askLevels.length === 0 ? (
                 <div className="py-3 text-center text-[10px] text-gray-600">No sell orders</div>
@@ -536,7 +536,7 @@ export function CollectionUnifiedOrderBook({
               <OrderBookCenterStrip model={bookCenterModel} />
             </div>
 
-            <div className={`${depthMax} overflow-y-auto scrollbar-book flex flex-col gap-px px-1 pb-1.5`}>
+            <div className={`${depthMax} overflow-y-auto flex flex-col gap-px px-1 pb-1.5`}>
               {bidLevels.length === 0 ? (
                 <div className="py-3 text-center text-[10px] text-gray-600">No buy orders</div>
               ) : (
@@ -612,13 +612,13 @@ export function CollectionUnifiedOrderBook({
                 <span className="text-right">Token</span>
                 <span className="text-right">Time</span>
               </div>
-              <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-auto scrollbar-book px-1 py-0.5">
+              <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-auto px-1 py-0.5">
                 {tapeFills.slice(0, MAX_TAPE_ROWS).map((row) => (
                   <div
                     key={row.orderHash}
                     className="grid grid-cols-[minmax(0,1fr)_44px_minmax(0,52px)_minmax(0,1fr)] items-center gap-1 rounded-[2px] px-1.5 py-1 font-mono text-[10px] tabular-nums text-gray-200 hover:bg-white/[0.03] sm:text-[11px]"
                   >
-                    <span className="min-w-0 truncate text-emerald-400/95">
+                    <span className="min-w-0 truncate text-mint/95">
                       {row.priceUsdc.toLocaleString("en-US", {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2,
@@ -628,7 +628,7 @@ export function CollectionUnifiedOrderBook({
                       className={`text-center text-[9px] font-sans font-medium uppercase tracking-wide sm:text-[10px] ${
                         row.tapeAggressor === "sell"
                           ? "text-rose-400/95"
-                          : "text-emerald-500/90"
+                          : "text-mint/90"
                       }`}
                     >
                       {row.tapeAggressor === "sell" ? "Sell" : "Buy"}

@@ -10,12 +10,24 @@ import {
   COLLECTION_DETAILS_BORDER_ALL,
 } from "@/components/marketplace/collectionOverviewChrome";
 
-const EXTERNAL_REF_STROKE = "rgba(138,33,170,1)";
-const PLATFORM_STROKE = "rgba(135,255,72,1)";
-const AXIS_LABEL = "rgba(255,255,255,0.72)";
-const AXIS_LINE = "rgba(255,255,255,0.16)";
-const SPLIT_LINE = "rgba(255,255,255,0.06)";
+const LIVE_MARKET_LINE = "rgba(135, 255, 72, 1)";
+/** Area under line — light mint wash; keep low alpha so panel reads as one surface. */
+const LIVE_MARKET_AREA_GRADIENT = {
+  type: "linear" as const,
+  x: 0,
+  y: 0,
+  x2: 0,
+  y2: 1,
+  colorStops: [
+    { offset: 0, color: "rgba(135, 255, 72, 0.14)" },
+    { offset: 0.55, color: "rgba(135, 255, 72, 0.04)" },
+    { offset: 1, color: "rgba(135, 255, 72, 0)" },
+  ],
+};
+/** X/Y tick labels — silver / light grey */
+const AXIS_LABEL = "rgba(190, 190, 195, 0.92)";
 
+const LIVE_LINE_WIDTH = 3;
 const DAY = 86400;
 const HOUR = 3600;
 
@@ -204,15 +216,15 @@ function computeSmartTimeDomain(
 }
 
 export function CollectionDualPriceChart({
-  platformUsd,
+  platformUsd: _platformUsd,
   externalMarketUsd = null,
   externalWindowDays = null,
   externalRollingUsd = null,
-  externalRollingKind = "snapshot",
-  externalLegendLabel = "External market (NM)",
+  externalRollingKind: _externalRollingKind = "snapshot",
+  externalLegendLabel: _externalLegendLabel = "External market (NM)",
   externalSeriesShortLabel = "External NM",
   externalRefLineTag = "External NM",
-  chartTitle = "External market vs on-platform trades",
+  chartTitle: _chartTitle = "External market vs on-platform trades",
   controls = null,
   footnote = null,
   emptyStateMessage,
@@ -221,6 +233,7 @@ export function CollectionDualPriceChart({
   variant = "default",
   collectionOverviewMat = false,
 }: {
+  /** On-platform trade points; not drawn in the chart (live market / external only). */
   platformUsd: CollectionUsdPoint[];
   externalMarketUsd?: number | null;
   externalWindowDays?: number | null;
@@ -249,7 +262,6 @@ export function CollectionDualPriceChart({
   const nowSec = Math.floor(Date.now() / 1000);
 
   const merged = useMemo(() => {
-    const platRaw = [...platformUsd].sort((a, b) => a.t - b.t);
     const extRolling = externalRollingUsd?.length
       ? [...externalRollingUsd].sort((a, b) => a.t - b.t)
       : [];
@@ -266,7 +278,6 @@ export function CollectionDualPriceChart({
 
     let tMin: number;
     let tMax: number;
-    let platForChart: CollectionUsdPoint[];
 
     if (useFixedWindow) {
       const windowTMin = nowSec - externalWindowDays! * DAY;
@@ -276,13 +287,10 @@ export function CollectionDualPriceChart({
       for (const p of extRolling) {
         if (Number.isFinite(p.t)) relevantTimes.push(p.t);
       }
-      for (const p of platRaw) {
-        if (Number.isFinite(p.t)) relevantTimes.push(p.t);
-      }
 
       /**
        * Keep the x-axis within the user-selected window (`externalWindowDays`). Points older than
-       * `windowTMin` are intentionally clipped by `extInWindow` / `platForChart`; expanding
+       * `windowTMin` are intentionally clipped by `extInWindow`; expanding
        * `tMin` to `dataMin` made 7D/30D/90D show the same full-year Cardhedger curve.
        */
       if (relevantTimes.length > 0) {
@@ -299,19 +307,12 @@ export function CollectionDualPriceChart({
         tMin = windowTMin;
         tMax = windowTMax;
       }
-
-      platForChart = platRaw.filter((p) => p.t >= tMin && p.t <= tMax);
     } else {
-      const smart = computeSmartTimeDomain(platRaw, nowSec, 180 * DAY);
+      const extForSmart = extRolling.length > 0 ? extRolling : [];
+      const smart = computeSmartTimeDomain(extForSmart, nowSec, 180 * DAY);
       tMin = smart.tMin;
       tMax = Math.max(smart.tMax, tMin + 60);
-      platForChart = platRaw;
     }
-
-    const platStatic = buildPlatformUtcDayStaticPoints(platForChart, nowSec).map((p) => ({
-      ...p,
-      t: Math.min(Math.max(p.t, tMin), tMax),
-    }));
 
     const extInWindow = extRolling.filter((p) => p.t >= tMin && p.t <= tMax);
     let extForChart = buildPlatformUtcDayStaticPoints(extInWindow, nowSec).map((p) => ({
@@ -334,7 +335,6 @@ export function CollectionDualPriceChart({
     const extIsPolyline = extForChart.length >= 2;
 
     const allV = [
-      ...platStatic.map((p) => p.v),
       ...extForChart.map((p) => p.v),
       ...(extIsPolyline || externalMarketUsd == null ? [] : [externalMarketUsd]),
     ];
@@ -346,9 +346,7 @@ export function CollectionDualPriceChart({
         vMin: 0,
         vMax: 1,
         extIsPolyline: false,
-        hasPlatform: platRaw.length > 0,
         hasExtSignal,
-        platformSeries: [] as Array<[number, number]>,
         externalSeries: [] as Array<[number, number]>,
       };
     }
@@ -363,12 +361,10 @@ export function CollectionDualPriceChart({
       vMin: Math.max(0, vMinD - vPad),
       vMax: vMaxD + vPad,
       extIsPolyline,
-      hasPlatform: platRaw.length > 0,
       hasExtSignal,
-      platformSeries: platStatic.map((p) => [p.t * 1000, p.v] as [number, number]),
       externalSeries: extForChart.map((p) => [p.t * 1000, p.v] as [number, number]),
     };
-  }, [platformUsd, externalRollingUsd, externalMarketUsd, externalWindowDays, nowSec]);
+  }, [externalRollingUsd, externalMarketUsd, externalWindowDays, nowSec]);
 
   const chartOption = useMemo<EChartsOption>(() => {
     const externalFlatSeries: Array<[number, number]> =
@@ -391,7 +387,9 @@ export function CollectionDualPriceChart({
         showSymbol: false,
         smooth: false,
         connectNulls: true,
-        lineStyle: { color: EXTERNAL_REF_STROKE, width: 1.75 },
+        lineStyle: { color: LIVE_MARKET_LINE, width: LIVE_LINE_WIDTH },
+        itemStyle: { color: LIVE_MARKET_LINE },
+        areaStyle: { color: LIVE_MARKET_AREA_GRADIENT },
         emphasis: { focus: "series" },
       });
     }
@@ -402,22 +400,12 @@ export function CollectionDualPriceChart({
         data: externalFlatSeries,
         showSymbol: false,
         smooth: false,
-        lineStyle: { color: EXTERNAL_REF_STROKE, width: 1.25, type: "solid", opacity: 0.85 },
+        lineStyle: { color: LIVE_MARKET_LINE, width: LIVE_LINE_WIDTH, type: "solid" },
+        itemStyle: { color: LIVE_MARKET_LINE },
+        areaStyle: { color: LIVE_MARKET_AREA_GRADIENT },
         emphasis: { focus: "series" },
       });
     }
-    series.push({
-      name: "Tokenable Price",
-      type: "line",
-      data: merged.platformSeries,
-      showSymbol: merged.platformSeries.length <= 2,
-      symbolSize: 6,
-      smooth: false,
-      connectNulls: true,
-      lineStyle: { color: PLATFORM_STROKE, width: 1.75 },
-      itemStyle: { color: PLATFORM_STROKE },
-      emphasis: { focus: "series" },
-    });
 
     const extentDaysCeil =
       merged.tMax > merged.tMin
@@ -437,7 +425,7 @@ export function CollectionDualPriceChart({
     const useCoarseTimeTicks = axisSpanDays > 1;
 
     return {
-      backgroundColor: "#060708",
+      backgroundColor: "transparent",
       animationDuration: 250,
       textStyle: { color: AXIS_LABEL, fontFamily: "ui-sans-serif, system-ui, sans-serif" },
       grid: { left: 52, right: 14, top: 10, bottom: 34, containLabel: false },
@@ -455,7 +443,7 @@ export function CollectionDualPriceChart({
               splitNumber: roughTick.splitNumber,
             }
           : {}),
-        axisLine: { lineStyle: { color: AXIS_LINE } },
+        axisLine: { show: false },
         axisTick: { show: false },
         splitLine: { show: false },
         axisLabel: {
@@ -476,9 +464,9 @@ export function CollectionDualPriceChart({
           min,
           max,
           interval,
-          axisLine: { show: true, lineStyle: { color: AXIS_LINE } },
+          axisLine: { show: false },
           axisTick: { show: false },
-          splitLine: { show: true, lineStyle: { color: SPLIT_LINE } },
+          splitLine: { show: false },
           axisLabel: {
             color: AXIS_LABEL,
             fontSize: 11,
@@ -510,7 +498,6 @@ export function CollectionDualPriceChart({
               | { value?: [number, number] }
               | undefined;
 
-          const p = pick("Tokenable Price")?.value?.[1] ?? null;
           const e =
             pick(externalSeriesShortLabel)?.value?.[1] ??
             pick(externalRefLineTag)?.value?.[1] ??
@@ -519,10 +506,7 @@ export function CollectionDualPriceChart({
           const when = t != null ? formatHoverWhen(t) : "";
           return [
             `<div style="color:#a1a1aa;font-size:10px;margin-bottom:6px">${when}</div>`,
-            `<div style="display:flex;justify-content:space-between;gap:16px"><span style="color:#e4e4e7">Tokenable Price</span><span style="color:${PLATFORM_STROKE};font-weight:600">${formatTooltipUsd(
-              p as number | null,
-            )}</span></div>`,
-            `<div style="display:flex;justify-content:space-between;gap:16px"><span style="color:#71717a">${externalSeriesShortLabel}</span><span style="color:${EXTERNAL_REF_STROKE};font-weight:600">${formatTooltipUsd(
+            `<div style="display:flex;justify-content:space-between;gap:16px"><span style="color:#e4e4e7">Live Market Price</span><span style="color:${LIVE_MARKET_LINE};font-weight:600">${formatTooltipUsd(
               e as number | null,
             )}</span></div>`,
           ].join("");
@@ -535,8 +519,6 @@ export function CollectionDualPriceChart({
     externalMarketUsd,
     externalSeriesShortLabel,
     externalRefLineTag,
-    externalRollingKind,
-    exchange,
     externalWindowDays,
   ]);
 
@@ -554,7 +536,7 @@ export function CollectionDualPriceChart({
       >
         <div
           className="h-8 w-8 animate-spin rounded-full border-2 border-solid border-t-transparent"
-          style={{ borderColor: `${EXTERNAL_REF_STROKE}40`, borderTopColor: "transparent" }}
+          style={{ borderColor: `${LIVE_MARKET_LINE}40`, borderTopColor: "transparent" }}
         />
         <p className="text-xs text-zinc-600 text-center">Loading chart…</p>
       </div>
@@ -575,7 +557,7 @@ export function CollectionDualPriceChart({
     );
   }
 
-  if (!merged.hasPlatform && !merged.hasExtSignal) {
+  if (!merged.hasExtSignal) {
     return (
       <div
         className={
@@ -585,7 +567,7 @@ export function CollectionDualPriceChart({
         }
       >
         {emptyStateMessage ??
-          "No chart data yet — on-platform trades and an external NM series will appear here."}
+          "No live market price series yet — external NM history will appear here when available."}
       </div>
     );
   }
@@ -606,14 +588,10 @@ export function CollectionDualPriceChart({
         {/* Legend */}
         <div className="flex items-center gap-3 text-[10px] font-medium sm:text-[11px]">
           <div className="flex items-center gap-1.5">
-            <span className="inline-block h-[9px] w-[9px] shrink-0 rounded-full" style={{ background: EXTERNAL_REF_STROKE }} aria-hidden />
+            <span className="inline-block h-[9px] w-[9px] shrink-0 rounded-full" style={{ background: LIVE_MARKET_LINE }} aria-hidden />
             <span className={merged.hasExtSignal ? "text-white/90" : "text-white/35"}>
               Live Market Price
             </span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="inline-block h-[9px] w-[9px] shrink-0 rounded-full" style={{ background: PLATFORM_STROKE }} aria-hidden />
-            <span className="text-white/90">Tokenable Price</span>
           </div>
           {footnote ? <div className="text-zinc-500">{footnote}</div> : null}
         </div>

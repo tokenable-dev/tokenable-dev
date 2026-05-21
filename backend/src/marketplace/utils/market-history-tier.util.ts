@@ -21,4 +21,3 @@ export function marketHistoryTierFromComponents(
   }
   return 'PSA_10';
 }
-

@@ -41,15 +41,16 @@ export function isPreviewPriceReliable(
   );
 }
 
-/** `gradePrices` strip from the collection market bundle (PSA slots carry the same reference feed). */
+/** `gradePrices` strip from the collection market bundle — tier-aware (PSA 10 / 9 / raw). */
 export function representativeGradeUsd(
   gradePrices: CollectionGradePrices | null | undefined,
   gradeScore: number | null | undefined,
 ): number | null {
   if (!gradePrices || gradeScore == null || !Number.isFinite(gradeScore)) return null;
   const r = Math.round(gradeScore);
-  if (r !== 10) return null;
-  return finitePositive(gradePrices.psa10);
+  if (r >= 10) return finitePositive(gradePrices.psa10);
+  if (r === 9) return finitePositive(gradePrices.psa9);
+  return finitePositive(gradePrices.raw);
 }
 
 /**
@@ -95,6 +96,65 @@ export function percentChangeFromUsdPoints(
   const b = arr[arr.length - 1].v;
   if (!Number.isFinite(a) || !Number.isFinite(b) || a === 0) return null;
   return ((b - a) / a) * 100;
+}
+
+const SEC_24H = 86400;
+
+/**
+ * Latest observation vs linearly interpolated value at (latest.t − 24h) on the same series.
+ * Matches backend {@link percentChangeReferenceOverLagSec}(..., `86400`) in `collection-market.util.ts`.
+ * List/market snapshots use lag aligned to the bundled history window ({@code 365d}, etc.) — see
+ * `marketChangeWindow` on each snapshot rather than assuming 24h.
+ *
+ * Unlike {@link percentChangeUsdSinceCutoff} anchored to wall-clock “now”, this still works when the feed’s
+ * newest point is older than 24h (stale Cardhedger ticks).
+ */
+export function percentChangeReferenceOver24h(
+  points: CollectionUsdPoint[] | null | undefined,
+): number | null {
+  const cleaned = (points ?? []).filter(
+    (p) =>
+      Number.isFinite(p.t) &&
+      Number.isFinite(p.v) &&
+      p.v > 0,
+  );
+  if (cleaned.length < 2) return null;
+  const sorted = [...cleaned].sort((a, b) => a.t - b.t);
+  const end = sorted[sorted.length - 1]!;
+  const targetT = end.t - SEC_24H;
+  if (targetT < sorted[0]!.t) return null;
+
+  let i0 = -1;
+  for (let k = 0; k < sorted.length; k++) {
+    if (sorted[k]!.t <= targetT) i0 = k;
+    else break;
+  }
+  if (i0 < 0) return null;
+
+  let refV: number;
+  const a = sorted[i0]!;
+  if (a.t === targetT) {
+    refV = a.v;
+  } else if (i0 + 1 < sorted.length) {
+    const b = sorted[i0 + 1]!;
+    if (b.t <= targetT) return null;
+    const dt = b.t - a.t;
+    if (dt <= 0) return null;
+    const w = (targetT - a.t) / dt;
+    refV = a.v + (b.v - a.v) * w;
+  } else {
+    refV = a.v;
+  }
+
+  if (
+    !Number.isFinite(refV) ||
+    refV <= 0 ||
+    !Number.isFinite(end.v) ||
+    end.v <= 0
+  ) {
+    return null;
+  }
+  return ((end.v - refV) / refV) * 100;
 }
 
 /**

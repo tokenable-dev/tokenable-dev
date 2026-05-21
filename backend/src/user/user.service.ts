@@ -51,7 +51,8 @@ export class UserService {
       }
       existingByEmail.googleId = params.googleId;
       existingByEmail.name = params.name ?? existingByEmail.name;
-      existingByEmail.pictureUrl = params.pictureUrl ?? existingByEmail.pictureUrl;
+      existingByEmail.pictureUrl =
+        params.pictureUrl ?? existingByEmail.pictureUrl;
       existingByEmail.emailVerified =
         params.emailVerified ?? existingByEmail.emailVerified;
       return this.users.save(existingByEmail);
@@ -100,7 +101,9 @@ export class UserService {
       where: { walletAddress: address },
     });
     if (other && other.id !== userId) {
-      throw new ConflictException('This wallet is already linked to another user');
+      throw new ConflictException(
+        'This wallet is already linked to another user',
+      );
     }
     user.walletAddress = address;
     user.walletLinkedAt = new Date();

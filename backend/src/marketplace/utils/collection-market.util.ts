@@ -1,5 +1,5 @@
 /**
- * Parse legacy card-price search bodies for collection charts / list snapshots.
+ * Shared market-history primitive types used by chart and preview layers.
  */
 
 export interface UsdPoint {
@@ -13,28 +13,6 @@ export interface GradePriceStrip {
   raw: number | null;
 }
 
-function isRecord(x: unknown): x is Record<string, unknown> {
-  return typeof x === 'object' && x !== null;
-}
-
-function numOrNull(x: unknown): number | null {
-  if (typeof x === 'number' && Number.isFinite(x)) return x;
-  if (typeof x === 'string' && x.trim() !== '') {
-    const n = parseFloat(x);
-    return Number.isFinite(n) ? n : null;
-  }
-  return null;
-}
-
-/** e.g. `pokemon` → `Pokemon`, `magic-the-gathering` → `Magic The Gathering` */
-export function formatGameIdLabel(gameId: string): string {
-  return gameId
-    .split('-')
-    .filter(Boolean)
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-    .join(' ');
-}
-
 export function percentChangeFromPoints(points: UsdPoint[]): number | null {
   if (points.length < 2) return null;
   const a = points[0].v;
@@ -43,218 +21,66 @@ export function percentChangeFromPoints(points: UsdPoint[]): number | null {
   return ((b - a) / a) * 100;
 }
 
-function historyFromVariant(v: Record<string, unknown>): UsdPoint[] {
-  const ph = v.priceHistory;
-  if (!Array.isArray(ph) || ph.length === 0) return [];
-  const out: UsdPoint[] = [];
-  for (const row of ph) {
-    if (!isRecord(row)) continue;
-    const t = numOrNull(row.t);
-    const p = numOrNull(row.p);
-    if (t == null || p == null) continue;
-    out.push({ t, v: p });
-  }
-  out.sort((x, y) => x.t - y.t);
-  return out;
-}
+const SEC_24H = 86400;
 
 /**
- * Best-effort PSA 10 / 9 / Raw strip from variant prices.
- * Variants are often condition/printing — we map high→mid→low by price when labels are absent.
+ * Latest observation vs linearly interpolated value at (latest.t − lagSec) on the same series.
+ * Returns null when history does not reach far enough behind the newest tick (`targetT` before first sample).
  */
-export function gradeStripFromVariants(variants: unknown[]): GradePriceStrip {
-  const priced: { price: number; label: string }[] = [];
-  for (const raw of variants) {
-    if (!isRecord(raw)) continue;
-    const price = numOrNull(raw.price);
-    if (price == null) continue;
-    const cond = String(raw.condition ?? '').toLowerCase();
-    const printing = String(raw.printing ?? '').toLowerCase();
-    const label = `${printing} ${cond}`.trim();
-    priced.push({ price, label });
-  }
-  if (priced.length === 0) {
-    return { psa10: null, psa9: null, raw: null };
-  }
+export function percentChangeReferenceOverLagSec(
+  points: UsdPoint[],
+  lagSec: number,
+): number | null {
+  if (!Number.isFinite(lagSec) || lagSec <= 0) return null;
 
-  const byPsaHint = () => {
-    let p10: number | null = null;
-    let p9: number | null = null;
-    let raw: number | null = null;
-    for (const row of priced) {
-      const t = row.label;
-      if (/\bpsa\s*10\b/i.test(t) || t.includes('gem mint')) p10 = row.price;
-      else if (/\bpsa\s*9\b/i.test(t)) p9 = row.price;
-      else if (/\braw\b/i.test(t) || t.includes('ungraded')) raw = row.price;
-    }
-    if (p10 != null || p9 != null || raw != null) {
-      return { psa10: p10, psa9: p9, raw };
-    }
-    return null;
-  };
-
-  const hinted = byPsaHint();
-  if (hinted) {
-    const sorted = [...priced].sort((a, b) => b.price - a.price);
-    return {
-      psa10: hinted.psa10 ?? sorted[0]?.price ?? null,
-      psa9: hinted.psa9 ?? sorted[1]?.price ?? null,
-      raw: hinted.raw ?? sorted[sorted.length - 1]?.price ?? null,
-    };
-  }
-
-  const sorted = [...priced].sort((a, b) => b.price - a.price);
-  if (sorted.length >= 3) {
-    return {
-      psa10: sorted[0].price,
-      psa9: sorted[1].price,
-      raw: sorted[sorted.length - 1].price,
-    };
-  }
-  if (sorted.length === 2) {
-    return {
-      psa10: sorted[0].price,
-      psa9: sorted[1].price,
-      raw: null,
-    };
-  }
-  return {
-    psa10: sorted[0].price,
-    psa9: null,
-    raw: null,
-  };
-}
-
-export type ParsedMarketRow = {
-  history: UsdPoint[];
-  grades: GradePriceStrip;
-  gameLabel: string | null;
-};
-
-const EMPTY_PARSED: ParsedMarketRow = {
-  history: [],
-  grades: { psa10: null, psa9: null, raw: null },
-  gameLabel: null,
-};
-
-export function parseMarketSingleCardRow(row: Record<string, unknown>): ParsedMarketRow {
-  const gameName = typeof row.game_name === 'string' ? row.game_name.trim() : '';
-  const gameId = typeof row.game === 'string' ? row.game.trim() : '';
-  const gameLabel = gameName || (gameId ? formatGameIdLabel(gameId) : null);
-
-  const variants = Array.isArray(row.variants) ? row.variants : [];
-  const grades = gradeStripFromVariants(variants);
-
-  let history: UsdPoint[] = [];
-  for (const v of variants) {
-    if (!isRecord(v)) continue;
-    const h = historyFromVariant(v);
-    if (h.length >= history.length) history = h;
-  }
-
-  return { history, grades, gameLabel };
-}
-
-export function scoreMarketPriceParsed(p: ParsedMarketRow): number {
-  let s = p.history.length * 10;
-  if (p.grades.psa10 != null) s += 5;
-  if (p.grades.psa9 != null) s += 3;
-  if (p.grades.raw != null) s += 2;
-  return s;
-}
-
-export function hasUsefulMarketData(p: ParsedMarketRow): boolean {
-  return (
-    p.history.length >= 2 ||
-    p.grades.psa10 != null ||
-    p.grades.psa9 != null ||
-    p.grades.raw != null
+  const cleaned = points.filter(
+    (p) => Number.isFinite(p.t) && Number.isFinite(p.v) && p.v > 0,
   );
-}
+  if (cleaned.length < 2) return null;
+  const sorted = [...cleaned].sort((a, b) => a.t - b.t);
+  const end = sorted[sorted.length - 1];
+  const targetT = end.t - lagSec;
+  if (targetT < sorted[0].t) return null;
 
-/** When search returns multiple cards, pick the row with the richest price history / variant prices. */
-export function parseCardsResponseBest(body: unknown): ParsedMarketRow {
-  if (!isRecord(body)) {
-    return { ...EMPTY_PARSED };
+  let i0 = -1;
+  for (let k = 0; k < sorted.length; k++) {
+    if (sorted[k].t <= targetT) i0 = k;
+    else break;
   }
-  const data = body.data;
-  if (!Array.isArray(data) || data.length === 0) {
-    return { ...EMPTY_PARSED };
-  }
-  let best: ParsedMarketRow = { ...EMPTY_PARSED };
-  let bestScore = -1;
-  for (const raw of data) {
-    if (!isRecord(raw)) continue;
-    const parsed = parseMarketSingleCardRow(raw);
-    const sc = scoreMarketPriceParsed(parsed);
-    if (sc > bestScore) {
-      bestScore = sc;
-      best = parsed;
-    }
-  }
-  return best;
-}
+  if (i0 < 0) return null;
 
-export function parseCardsResponse(body: unknown): ParsedMarketRow {
-  if (!isRecord(body)) {
-    return { ...EMPTY_PARSED };
+  let refV: number;
+  const a = sorted[i0];
+  if (a.t === targetT) {
+    refV = a.v;
+  } else if (i0 + 1 < sorted.length) {
+    const b = sorted[i0 + 1];
+    if (b.t <= targetT) return null;
+    const dt = b.t - a.t;
+    if (dt <= 0) return null;
+    const w = (targetT - a.t) / dt;
+    refV = a.v + (b.v - a.v) * w;
+  } else {
+    refV = a.v;
   }
-  const data = body.data;
-  if (!Array.isArray(data) || data.length === 0) {
-    return { ...EMPTY_PARSED };
+
+  if (
+    !Number.isFinite(refV) ||
+    refV <= 0 ||
+    !Number.isFinite(end.v) ||
+    end.v <= 0
+  ) {
+    return null;
   }
-  const row = data[0];
-  if (!isRecord(row)) {
-    return { ...EMPTY_PARSED };
-  }
-  return parseMarketSingleCardRow(row);
+  return ((end.v - refV) / refV) * 100;
 }
 
 /**
- * Ordered `game` query params to try for `q=` search fallback (PSA mint path defaults to pokemon).
+ * Latest observation vs interpolated reference at (latest.t − 24h) on the same Cardhedger series.
+ * No synthetic/mock points — returns null if history does not span ~24h before the latest tick.
  */
-export function candidateGamesForCollection(row: {
-  queryUsed: string | null;
-  displayLabel: string;
-  components: Record<string, unknown>;
-}): string[] {
-  const q = (row.queryUsed ?? '').toLowerCase();
-  const label = row.displayLabel.toLowerCase();
-  const cardName = String(row.components.cardName ?? '').toLowerCase();
-  const cardSet = String(row.components.cardSet ?? '').toLowerCase();
-  const hay = `${q} ${label} ${cardName} ${cardSet}`;
-  const out: string[] = [];
-  const add = (g: string) => {
-    if (!out.includes(g)) out.push(g);
-  };
-
-  if (/\bpokemon\b|pikachu|charizard|blastoise|venusaur|vmax|vstar|\bex\b|lugia|mewtwo/.test(hay)) {
-    add('pokemon');
-  }
-  if (/\bmtg\b|magic the gathering|mana|planeswalker|sorcery instant/.test(hay)) {
-    add('magic-the-gathering');
-  }
-  if (/\byu-gi-oh|yugioh|konami/.test(hay)) {
-    add('yugioh');
-  }
-  if (/\blorcana\b|disney/.test(hay)) {
-    add('disney-lorcana');
-  }
-  if (/\bone piece\b/.test(hay)) {
-    add('one-piece-card-game');
-  }
-  if (/\bnba\b|basketball|panini nba|\bhoops\b/.test(hay)) {
-    add('panini-nba');
-  }
-  if (/\bnfl\b|panini nfl|super bowl/.test(hay)) {
-    add('panini-nfl');
-  }
-  if (/\bmlb\b|topps baseball|bowman chrome.*baseball/.test(hay)) {
-    add('topps-baseball');
-  }
-
-  if (out.length === 0) {
-    add('pokemon');
-  }
-  return out;
+export function percentChangeReferenceOver24h(
+  points: UsdPoint[],
+): number | null {
+  return percentChangeReferenceOverLagSec(points, SEC_24H);
 }

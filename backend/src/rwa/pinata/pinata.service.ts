@@ -1,4 +1,8 @@
-import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PinataSDK } from 'pinata';
 import { RwaMetadata } from '../interfaces/rwa-metadata.interface';
@@ -6,7 +10,11 @@ import { RwaMetadata } from '../interfaces/rwa-metadata.interface';
 function pinataErrorDetail(error: unknown): string {
   if (error == null) return 'unknown';
   if (error instanceof Error) {
-    const any = error as Error & { status?: number; statusCode?: number; body?: unknown };
+    const any = error as Error & {
+      status?: number;
+      statusCode?: number;
+      body?: unknown;
+    };
     const st = any.status ?? any.statusCode;
     const body =
       typeof any.body === 'string'
@@ -14,7 +22,9 @@ function pinataErrorDetail(error: unknown): string {
         : any.body != null
           ? JSON.stringify(any.body).slice(0, 500)
           : '';
-    return [any.message, st != null ? `http=${st}` : '', body].filter(Boolean).join(' | ');
+    return [any.message, st != null ? `http=${st}` : '', body]
+      .filter(Boolean)
+      .join(' | ');
   }
   return String(error);
 }
@@ -31,7 +41,11 @@ export class PinataService {
     });
   }
 
-  async uploadBuffer(buffer: Buffer, filename: string, mimeType: string): Promise<string> {
+  async uploadBuffer(
+    buffer: Buffer,
+    filename: string,
+    mimeType: string,
+  ): Promise<string> {
     try {
       const blob = new Blob([new Uint8Array(buffer)], { type: mimeType });
       const pinataFile = new File([blob], filename, { type: mimeType });
@@ -39,15 +53,23 @@ export class PinataService {
       this.logger.log(`Buffer uploaded to IPFS: ${result.cid}`);
       return result.cid;
     } catch (error) {
-      this.logger.error(`Failed to upload buffer to Pinata (${filename}): ${pinataErrorDetail(error)}`);
-      throw new InternalServerErrorException('이미지 IPFS 업로드에 실패했습니다.');
+      this.logger.error(
+        `Failed to upload buffer to Pinata (${filename}): ${pinataErrorDetail(error)}`,
+      );
+      throw new InternalServerErrorException(
+        '이미지 IPFS 업로드에 실패했습니다.',
+      );
     }
   }
 
   async uploadFile(file: Express.Multer.File): Promise<string> {
     try {
-      const blob = new Blob([new Uint8Array(file.buffer)], { type: file.mimetype });
-      const pinataFile = new File([blob], file.originalname, { type: file.mimetype });
+      const blob = new Blob([new Uint8Array(file.buffer)], {
+        type: file.mimetype,
+      });
+      const pinataFile = new File([blob], file.originalname, {
+        type: file.mimetype,
+      });
 
       const result = await this.pinata.upload.public.file(pinataFile);
       this.logger.log(`Image uploaded to IPFS: ${result.cid}`);
@@ -56,7 +78,9 @@ export class PinataService {
       this.logger.error(
         `Failed to upload file to Pinata (${file.originalname}): ${pinataErrorDetail(error)}`,
       );
-      throw new InternalServerErrorException('이미지 IPFS 업로드에 실패했습니다.');
+      throw new InternalServerErrorException(
+        '이미지 IPFS 업로드에 실패했습니다.',
+      );
     }
   }
 
@@ -73,11 +97,15 @@ export class PinataService {
       },
     });
     if (!response.ok) {
-      throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
+      throw new Error(
+        `Failed to fetch image: ${response.status} ${response.statusText}`,
+      );
     }
     const arrayBuffer = await response.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
-    const mimeType = response.headers.get('content-type')?.split(';')[0]?.trim() ?? 'image/png';
+    const mimeType =
+      response.headers.get('content-type')?.split(';')[0]?.trim() ??
+      'image/png';
     const extPart = mimeType.split('/')[1] ?? 'png';
     const extension = /^[a-z0-9+.-]+$/i.test(extPart) ? extPart : 'png';
     return { buffer, mimeType, extension };
@@ -85,13 +113,16 @@ export class PinataService {
 
   async uploadFromUrl(imageUrl: string, name: string): Promise<string> {
     try {
-      const { buffer, mimeType, extension } = await this.fetchImageBufferFromUrl(imageUrl);
+      const { buffer, mimeType, extension } =
+        await this.fetchImageBufferFromUrl(imageUrl);
       return await this.uploadBuffer(buffer, `${name}.${extension}`, mimeType);
     } catch (error) {
       this.logger.error(
         `Failed to upload image from URL to Pinata (${imageUrl.slice(0, 120)}): ${pinataErrorDetail(error)}`,
       );
-      throw new InternalServerErrorException('URL 이미지 IPFS 업로드에 실패했습니다.');
+      throw new InternalServerErrorException(
+        'URL 이미지 IPFS 업로드에 실패했습니다.',
+      );
     }
   }
 
@@ -101,8 +132,12 @@ export class PinataService {
       this.logger.log(`Metadata uploaded to IPFS: ${result.cid}`);
       return result.cid;
     } catch (error) {
-      this.logger.error(`Failed to upload metadata to Pinata: ${pinataErrorDetail(error)}`);
-      throw new InternalServerErrorException('메타데이터 IPFS 업로드에 실패했습니다.');
+      this.logger.error(
+        `Failed to upload metadata to Pinata: ${pinataErrorDetail(error)}`,
+      );
+      throw new InternalServerErrorException(
+        '메타데이터 IPFS 업로드에 실패했습니다.',
+      );
     }
   }
 }

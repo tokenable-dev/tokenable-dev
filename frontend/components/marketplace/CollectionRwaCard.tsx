@@ -1,16 +1,23 @@
 "use client";
 
 import Link from "next/link";
+import { IBM_Plex_Sans } from "next/font/google";
 import { useQuery } from "@tanstack/react-query";
 import { useReadContract } from "wagmi";
 import { sepolia } from "@/config/wagmi";
 import { getResolvedRwaAsset, type Order, type RwaMetadata } from "@/lib/core";
-import type { GradedCardMetadata } from "@/types/gradedCard";
 import {
   TOKENABLE_RWA_ADDRESS,
   TOKENABLE_RWA_READ_ABI,
 } from "@/constants/contracts";
-import { toCardDisplayUppercase } from "@/lib/marketplace/collectionFullDetailsTitle";
+import { COLLECTION_LISTING_CARD_CHROME } from "@/components/marketplace/collectionOverviewChrome";
+import { getCachedRwaMetadata, getCachedRwaImageUrl } from "@/lib/marketplace";
+
+const rwaCardFont = IBM_Plex_Sans({
+  subsets: ["latin"],
+  weight: ["400", "500", "700"],
+  display: "swap",
+});
 
 function formatTokenIdShort(id: number): string {
   if (!Number.isFinite(id)) return "—";
@@ -25,28 +32,6 @@ function shortenAddr(addr: string | undefined): string {
   return `${s.slice(0, 6)}…${s.slice(-4)}`;
 }
 
-function certNumberFromMetadata(meta: RwaMetadata | null): string | null {
-  const raw = meta?.properties?.graded;
-  const g =
-    raw && typeof raw === "object" ? (raw as GradedCardMetadata) : undefined;
-  const fromGrade = g?.grade?.certNumber?.trim();
-  const fromPsa = g?.psa?.certNumber?.trim();
-  if (fromGrade) return fromGrade;
-  if (fromPsa) return fromPsa;
-  if (meta?.attributes) {
-    for (const a of meta.attributes) {
-      const tt = (a.trait_type ?? "").toLowerCase();
-      if (
-        (tt.includes("cert") || tt.includes("psa cert")) &&
-        String(a.value ?? "").trim() !== ""
-      ) {
-        return String(a.value).trim();
-      }
-    }
-  }
-  return null;
-}
-
 function formatUsdc(amount: string): string {
   try {
     const n = Number(amount) / 1_000_000;
@@ -57,6 +42,28 @@ function formatUsdc(amount: string): string {
   }
 }
 
+/**
+ * Gradient rim pill — decorative; the whole {@link CollectionRwaCard} is wrapped in a Link.
+ * `pointer-events-none` ancestors let presses go to the card link. Hover/focus uses parent `group`.
+ */
+function ListingCtaPill({ label }: { label: string }) {
+  const rimGradient =
+    "linear-gradient(99.67deg, #529e22 3.64%, #87FF48 54%, #284214 112.88%)";
+  return (
+    <span
+      className="relative z-[2] box-border flex h-9 min-h-9 w-full min-w-0 max-w-none shrink-0 items-center justify-center rounded-[18px] p-[1.5px] text-center shadow-[0_7px_18px_-7px_rgba(0,0,0,0.8)] transition-[transform,box-shadow] duration-200 ease-out [-webkit-tap-highlight-color:transparent] group-hover:-translate-y-0.5 group-hover:scale-[1.02] group-hover:shadow-[0_9px_24px_-8px_rgba(0,0,0,0.88),0_0_18px_-2px_rgba(135,255,72,0.28),0_0_1px_1px_rgba(135,255,72,0.35)_inset] group-active:translate-y-0 group-active:scale-[0.99] motion-reduce:transition-none motion-reduce:group-hover:scale-100 motion-reduce:group-hover:translate-y-0 max-lg:opacity-100 lg:opacity-0 lg:group-hover:opacity-100 lg:group-focus-visible:opacity-100"
+      style={{ background: rimGradient }}
+      aria-hidden
+    >
+      <span
+        className={`${rwaCardFont.className} flex h-full min-h-0 w-full min-w-0 items-center justify-center gap-2 rounded-[16px] bg-[rgba(11,13,16,1)] px-4 py-1 text-[13px] font-bold leading-snug tracking-wide text-white transition-[background-color,box-shadow] duration-200 ease-out group-hover:bg-[rgba(16,18,22,1)] group-hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06)] group-active:bg-[rgba(11,13,16,1)] sm:px-6 sm:text-[13px]`}
+      >
+        {label}
+      </span>
+    </span>
+  );
+}
+
 interface CollectionRwaCardProps {
   tokenId: number;
   /** 현재 컬렉션 키 — 상세에서 거래 후 되돌아가기용 쿼리 */
@@ -64,6 +71,10 @@ interface CollectionRwaCardProps {
   /** Best active ask for this token, if any */
   listing: Order | null;
   address: string | undefined;
+  /** Pre-fetched image URL from parent batch request — skips individual fetch when provided */
+  prefetchedImageUrl?: string | null;
+  /** Pre-fetched metadata from parent batch request — skips individual fetch when provided */
+  prefetchedMetadata?: RwaMetadata | null;
 }
 
 export function CollectionRwaCard({
@@ -71,11 +82,32 @@ export function CollectionRwaCard({
   collectionKey,
   listing,
   address,
+  prefetchedImageUrl,
+  prefetchedMetadata,
 }: CollectionRwaCardProps) {
+  const hasPrefetch =
+    prefetchedImageUrl !== undefined || prefetchedMetadata !== undefined;
+
   const { data: metaBundle } = useQuery({
     queryKey: ["marketplace-detail-metadata", tokenId],
     queryFn: () => getResolvedRwaAsset(tokenId),
     staleTime: 60_000,
+    enabled: !hasPrefetch,
+    initialData: hasPrefetch
+      ? undefined
+      : (() => {
+          const cachedMeta = getCachedRwaMetadata(tokenId) as RwaMetadata | null;
+          const cachedImg = getCachedRwaImageUrl(tokenId);
+          if (cachedMeta || cachedImg) {
+            return {
+              tokenId,
+              tokenURI: "",
+              metadata: cachedMeta,
+              imageUrl: cachedImg,
+            };
+          }
+          return undefined;
+        })(),
   });
 
   const { data: ownerOnChain } = useReadContract({
@@ -86,14 +118,15 @@ export function CollectionRwaCard({
     chainId: sepolia.id,
   });
 
-  const imageUrl = metaBundle?.imageUrl ?? null;
-  const meta = metaBundle?.metadata ?? null;
-  const rawName = meta?.name ?? `Asset #${tokenId}`;
-  const name = toCardDisplayUppercase(rawName);
-  const certLabel = certNumberFromMetadata(meta);
+  const imageUrl = hasPrefetch
+    ? (prefetchedImageUrl ?? null)
+    : (metaBundle?.imageUrl ?? null);
+  const listingPrice =
+    listing != null ? formatUsdc(listing.considerationAmount) : null;
   const sellerAddr = listing
     ? (listing.offerer || listing.parameters?.offerer)
     : undefined;
+  const sellerDisplay = shortenAddr(sellerAddr);
 
   const ownerAddr =
     typeof ownerOnChain === "string" ? ownerOnChain.toLowerCase() : "";
@@ -103,84 +136,63 @@ export function CollectionRwaCard({
   const detailHref = `/marketplace/${tokenId}?${fromQs}`;
   const sellHref = `${detailHref}&list=1`;
 
+  const ctaLabel = !listing
+    ? isOwner
+      ? "List for sale"
+      : "View asset"
+    : "Buy";
+
+  const ctaHref =
+    !listing && isOwner ? sellHref : detailHref;
+
   return (
-    <article className="group flex flex-col rounded-2xl border border-gray-800/90 bg-gray-900/35 overflow-hidden shadow-sm shadow-black/25 transition-colors hover:border-gray-700/80 hover:bg-gray-900/55">
-      <Link
-        href={detailHref}
-        className="relative block aspect-[3/4] bg-gradient-to-br from-gray-900 to-gray-950"
-      >
-        {imageUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={imageUrl}
-            alt=""
-            className="absolute inset-0 h-full w-full object-contain p-2"
-          />
-        ) : (
-          <div className="absolute inset-0 flex items-center justify-center p-4 text-center text-[11px] text-gray-500">
-            No image
-          </div>
-        )}
-        <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent pt-10 pb-2 px-3">
-          <p className="text-[10px] font-mono text-gray-400">{formatTokenIdShort(tokenId)}</p>
-          <p className="text-sm font-semibold uppercase text-white line-clamp-2 leading-snug" title={name}>
-            {name}
-          </p>
-        </div>
-      </Link>
-
-      <div className="flex flex-col gap-2 p-3 pt-2 border-t border-gray-800/80">
-        {listing ? (
-          <p className="text-xs text-gray-400">
-            <span className="text-rose-200/95 font-semibold tabular-nums">
-              ${formatUsdc(listing.considerationAmount)}
-            </span>
-            <span className="text-gray-600"> USDC</span>
-          </p>
-        ) : (
-          <p className="text-xs text-gray-500">Not listed</p>
-        )}
-
-        <dl className="grid gap-1.5 rounded-xl border border-gray-800/85 bg-black/30 px-2.5 py-2 text-[10px] leading-snug text-zinc-400 sm:text-[11px]">
-          <div className="flex items-baseline justify-between gap-2">
-            <dt className="shrink-0 font-medium text-zinc-500">Token</dt>
-            <dd className="min-w-0 truncate font-mono text-zinc-200">{formatTokenIdShort(tokenId)}</dd>
-          </div>
-          <div className="flex items-baseline justify-between gap-2">
-            <dt className="shrink-0 font-medium text-zinc-500">Seller</dt>
-            <dd className="min-w-0 truncate font-mono text-zinc-200" title={sellerAddr}>
-              {listing ? shortenAddr(sellerAddr) : "—"}
-            </dd>
-          </div>
-          <div className="flex items-baseline justify-between gap-2">
-            <dt className="shrink-0 font-medium text-zinc-500">Cert number</dt>
-            <dd
-              className="min-w-0 truncate text-right tabular-nums text-zinc-200"
-              title={certLabel ?? ""}
-            >
-              {certLabel ? toCardDisplayUppercase(certLabel) : "—"}
-            </dd>
-          </div>
-        </dl>
-
-        <div className="mt-1">
-          {isOwner ? (
-            <Link
-              href={listing ? detailHref : sellHref}
-              className="inline-flex w-full min-w-0 justify-center items-center rounded-lg bg-mint/15 px-2 py-2 text-xs font-semibold text-mint border border-mint-deep/35 hover:bg-mint/25 transition-colors"
-            >
-              {listing ? "Manage listing" : "List for sale"}
-            </Link>
+    <Link
+      href={ctaHref}
+      className={`group block w-full min-w-0 cursor-pointer text-inherit no-underline outline-none ring-offset-2 ring-offset-black focus-visible:ring-2 focus-visible:ring-mint/50 ${COLLECTION_LISTING_CARD_CHROME}`}
+      aria-label={`Listing ${formatTokenIdShort(tokenId)} — ${ctaLabel}`}
+    >
+      <article className="flex min-h-[188px] w-full min-w-0 flex-col overflow-hidden sm:min-h-[202px]">
+        <div className="relative flex min-h-[110px] flex-1 flex-col items-center justify-center bg-black p-1 sm:min-h-[120px] sm:p-1.5">
+          {imageUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={imageUrl}
+              alt=""
+              className="h-full w-full max-w-full flex-1 object-contain object-center min-h-0"
+            />
           ) : (
-            <Link
-              href={detailHref}
-              className="inline-flex w-full min-w-0 justify-center items-center rounded-lg bg-gray-800/80 px-2 py-2 text-xs font-semibold text-gray-100 border border-gray-700 hover:bg-gray-800 transition-colors"
-            >
-              {listing ? "View listing" : "View asset"}
-            </Link>
+            <div className="px-3 text-center text-[11px] text-zinc-500">
+              No image
+            </div>
           )}
+
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[1] flex translate-y-[24%] justify-center px-1.5 sm:px-2">
+            <div className="mx-auto w-full min-w-0 max-w-[min(100%,206px)] sm:max-w-[min(100%,220px)]">
+              <ListingCtaPill label={ctaLabel} />
+            </div>
+          </div>
         </div>
-      </div>
-    </article>
+
+        <div
+          className={`${rwaCardFont.className} flex shrink-0 flex-col bg-[rgba(20,18,27,1)] px-2.5 pb-1.5 pt-2 leading-[140%] tracking-normal sm:px-3 sm:pt-2.5`}
+        >
+          {listing && listingPrice !== "—" ? (
+            <p className="text-[15px] font-medium leading-[140%] tracking-normal text-white tabular-nums [overflow-wrap:anywhere] sm:text-[16px]">
+              ${listingPrice}
+            </p>
+          ) : (
+            <p className="text-[15px] font-medium leading-[140%] tracking-normal text-zinc-500 sm:text-[16px]">
+              —
+            </p>
+          )}
+          <p className="mt-1 min-w-0 break-words text-[11px] font-normal leading-[140%] tracking-normal text-[#a0a0a0] [overflow-wrap:anywhere] sm:text-[12px]">
+            Seller:{" "}
+            <span className="break-all" title={sellerAddr}>
+              {listing ? sellerDisplay : "—"}
+            </span>
+          </p>
+        </div>
+      </article>
+    </Link>
   );
 }

@@ -1,6 +1,13 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsArray, IsNotEmpty, IsOptional, IsString, IsUrl, ValidateNested } from 'class-validator';
+import {
+  IsArray,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  IsUrl,
+  ValidateNested,
+} from 'class-validator';
 
 class RwaAttributeDto {
   @ApiProperty({ example: 'Background' })
@@ -25,7 +32,10 @@ export class UploadRwaDto {
   @IsNotEmpty()
   description: string;
 
-  @ApiPropertyOptional({ example: 'https://example.com/image.png', description: '이미지 파일 대신 URL 사용 시' })
+  @ApiPropertyOptional({
+    example: 'https://example.com/image.png',
+    description: '이미지 파일 대신 URL 사용 시',
+  })
   @IsUrl()
   @IsOptional()
   imageUrl?: string;

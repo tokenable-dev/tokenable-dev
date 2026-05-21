@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, IBM_Plex_Sans } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 import { AppHeader } from "@/components/layout/AppHeader";
@@ -15,7 +15,14 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-/** favicon / apple: explicit `public` URL so browsers don’t use removed `app/favicon.ico` cache. Also `app/icon.png` for Next metadata routes. */
+const ibmPlexSans = IBM_Plex_Sans({
+  weight: "700",
+  subsets: ["latin"],
+  variable: "--font-ibm-plex-sans",
+  display: "swap",
+});
+
+/** Favicon / apple: `public/assets/icons/tokenable_icon.png` + Next `app/icon.png` (generated metadata). */
 export const metadata: Metadata = {
   title: "Tokenable",
   description:
@@ -34,7 +41,7 @@ export default function RootLayout({
   return (
     <html lang="ko">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} ${ibmPlexSans.variable} antialiased`}
       >
         <Providers>
           <AppHeader />

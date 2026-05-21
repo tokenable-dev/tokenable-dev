@@ -2,7 +2,7 @@
 
 > Seaport v1.5 · Off-chain order book (backend) · On-chain `fulfillOrder` / `matchAdvancedOrders`
 
-> **Addendum (2026-04):** The backend also exposes a **relational rule-based matching layer** (`bids`, `asks`, `match_intents`, `trade_executions`, idempotency, outbox, settlement worker). The **default UI path remains Seaport** `orders`. See **[api/marketplace.md](../api/marketplace.md)** and **[marketplace-trading-relational-layer.drawio](./marketplace-trading-relational-layer.drawio)**.
+> **Update (2026-05):** The experimental **relational matching layer** was **removed** from the backend; matching is **Seaport + `orders` only**. See **[api/marketplace.md](../api/marketplace.md)** and **[architecture/overview.md](../architecture/overview.md)**. Historical diagram: [marketplace-trading-relational-layer.drawio](./marketplace-trading-relational-layer.drawio).
 >
 > **Paths:** Sequence diagram labels like `POST /api/…` include the Nest global prefix **`api`**. Full HTTP overview: **[api/README.md](../api/README.md)**.
 
@@ -659,15 +659,15 @@ flowchart TD
     subgraph REST ["REST namespaces"]
         direction TB
         R_AUTH["/api/auth<br/>Google OAuth · JWT cookies · wallet link"]:::route
-        R_MKT["/api/marketplace<br/>orders · collections · snapshots<br/>· cardhedger helpers · trading (relational)"]:::route
+        R_MKT["/api/marketplace<br/>orders · collections · snapshots<br/>· cardhedger bundle routes · Seaport only"]:::route
         R_RWA["/api/rwa<br/>IPFS metadata upload · mint helpers"]:::route
-        R_BC["/api/blockchain<br/>token lists · contract reads"]:::route
-        R_CH["/api/cardhedger<br/>Cardhedger proxy (catalog/pricing/search/indexes)"]:::route
+        R_BC["/api/blockchain<br/>RWA tokenURI · metadata / IPFS resolve"]:::route
+        R_CH["/api/cardhedger<br/>indexes (+ server-side CardhedgerService)"]:::route
         R_PSA["/api/psa<br/>slab OCR · PSA Public API"]:::route
     end
 
     subgraph PERSIST ["Persistence"]
-        PG[("PostgreSQL<br/>orders · marketplace_collections · users · bids · asks · trade_executions")]:::data
+        PG[("PostgreSQL<br/>orders · marketplace_collections · users · hidden_assets")]:::data
     end
 
     subgraph OUT ["External systems"]
@@ -866,12 +866,8 @@ backend/
 │   │   │                       #   collection-market.service · cardhedger-market-data.service ·
 │   │   │                       #   cardhedger-ai-insight.service · dto/
 │   │   ├── assets/             # assets.controller · hidden-assets.service
-│   │   ├── trading/            # bids.controller · trade.controller · trade-orchestrator
-│   │   │                       #   · settlement-processor · outbox-publisher · rule-engine
-│   │   ├── entities/           # order · marketplace-collection · bid · ask · match-intent ·
-│   │   │                       #   trade-execution · idempotency-key · outbox-event · hidden-asset
-│   │   ├── utils/              # bucket-key · card-match · collection-image · …
-│   │   └── dto/                # match-accepted.response · trade-match.dto
+│   │   ├── entities/           # order · marketplace-collection · hidden-asset
+│   │   ├── utils/              # bucket-key · card-match · collection-image · psa-spec-cardhedger-map · …
 │   │
 │   ├── rwa/
 │   │   ├── rwa.controller.ts   # /rwa — IPFS upload
@@ -885,19 +881,18 @@ backend/
 │   │   ├── blockchain.service.ts
 │   │   ├── ipfs-gateway-resolver.service.ts
 │   │   ├── abis/
-│   │   └── providers/          # ethers · USDC · RWA factories
+│   │   └── providers/          # ethers · RWA factories
 │   │
 │   ├── cardhedger/
-│   │   ├── controllers/*.controller.ts # catalog · details · download · image · indexes ·
-│   │   │                                #   issues · market · pricing · search
+│   │   ├── controllers/indexes.controller.ts
 │   │   ├── cardhedger.service.ts       # CARDHEDGER_API_KEY required
-│   │   ├── cardhedger.registry.ts
 │   │   └── indexes.service.ts          # 24h scheduled refresh + disk cache
 │   │
 │   └── psa/
 │       ├── psa.controller.ts   # /psa/analyze
 │       ├── psa.service.ts      # PSA/Cardhedger blend, image fallback
 │       ├── psa-public-api.service.ts
+│       ├── psa-spec-scraper.service.ts  # optional PSA spec page (playwright-core)
 │       └── utils/              # psa-cert-images · psa-ocr · psa-slab-crop
 │
 ├── sql/

@@ -777,7 +777,7 @@ export function CollectionCriteriaBidPanel({
 
         {!embedded && priceOk && crossesBook && lowestAsk ? (
           <div className="space-y-1.5">
-            <p className="text-[10px] leading-relaxed text-emerald-400/85">
+            <p className="text-[10px] leading-relaxed text-mint/85">
               This price crosses the book — instant buy uses the{" "}
               <span className="font-semibold">cheapest listing</span>: token #{lowestAsk.tokenId} at{" "}
               {lowestAskUsdc} USDC (that&apos;s what you pay on-chain).
@@ -826,7 +826,7 @@ export function CollectionCriteriaBidPanel({
           className={`w-full min-h-[40px] font-bold text-white shadow-md shadow-black/20 transition hover:brightness-110 active:scale-[0.99] disabled:pointer-events-none disabled:opacity-40 ${
             embedded
               ? "rounded-md bg-[#16A34A] px-3 py-2 text-xs"
-              : "rounded-xl bg-emerald-600 py-3 text-sm hover:bg-emerald-500"
+              : "rounded-xl bg-mint-deep py-3 text-sm text-white hover:brightness-110"
           }`}
         >
           {!address
@@ -854,7 +854,7 @@ export function CollectionCriteriaBidPanel({
         {step === "success" && (
           <>
             <p
-              className={`text-emerald-400/90 ${embedded ? "text-[10px]" : "text-[11px]"}`}
+              className={`text-mint/90 ${embedded ? "text-[10px]" : "text-[11px]"}`}
               title={
                 lastOutcome === "instant"
                   ? "Purchase complete — check your wallet for the RWA."
@@ -931,7 +931,7 @@ export function CollectionCriteriaBidPanel({
               </button>
             </div>
 
-            <div className="grid max-h-[52vh] grid-cols-2 gap-3 overflow-y-auto overscroll-contain pr-1 scrollbar-platform sm:grid-cols-3">
+            <div className="grid max-h-[52vh] grid-cols-2 gap-3 overflow-y-auto overscroll-contain pr-1 sm:grid-cols-3">
               {lowestAskCandidates.map((o) => {
                 const tokenId = Number(o.tokenId);
                 const meta = floorMetaByTokenId.get(tokenId);
@@ -984,7 +984,7 @@ export function CollectionCriteriaBidPanel({
                 type="button"
                 onClick={() => void handleSubmit()}
                 disabled={busy || !lowestAsk}
-                className="flex-1 rounded-md bg-emerald-600 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-500 disabled:opacity-50"
+                className="flex-1 rounded-md bg-mint-deep px-3 py-2 text-xs font-bold text-white hover:brightness-110 disabled:opacity-50"
               >
                 {busy ? "Buying…" : `Buy selected · ${lowestAskUsdc ?? "USDC"}`}
               </button>

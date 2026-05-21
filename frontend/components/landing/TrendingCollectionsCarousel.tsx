@@ -13,6 +13,10 @@ import {
 import { useMarketplaceCollectionsInfinite } from "@/hooks/useMarketplaceCollectionsInfinite";
 import { CollectionCoverFrame } from "@/components/marketplace/CollectionCoverFrame";
 import { parseGradeScoreNumber, representativeGradeUsd } from "@/lib/market";
+import {
+  collectionMatchesCategoryFilter,
+  type CollectionCategoryFilterId,
+} from "@/lib/market";
 import { toCardDisplayUppercase } from "@/lib/marketplace/collectionFullDetailsTitle";
 
 const MAX_TRENDING_VISIBLE = 4;
@@ -26,12 +30,14 @@ function marketplaceSummaryHasPsaCertNumber(components: Record<string, unknown> 
 }
 
 function trendingCarouselImageUrl(c: MarketplaceCollectionSummary): string | null {
+  // Representative cover image (no cert label) takes priority
+  const cover = c.coverImageUrl?.trim();
+  if (cover && cover.length > 0) return cover;
+  // Fall back to PSA slab image if no cover is available
   const comp = c.components as Record<string, unknown> | undefined;
   const slab =
     typeof comp?.trendingSlabImageUrl === "string" ? comp.trendingSlabImageUrl.trim() : "";
-  if (slab) return slab;
-  const cover = c.coverImageUrl?.trim();
-  return cover && cover.length > 0 ? cover : null;
+  return slab || null;
 }
 
 const CAROUSEL_SLIDE_TRANSITION_MS = 520;
@@ -55,19 +61,30 @@ export function TrendingCollectionsCarousel({
   snapshotByKey: snapshotByKeyProp,
   className = "",
   outerStyle,
+  hideTitle = false,
+  listingCategoryFilter,
 }: {
   variant?: TrendingCollectionsCarouselVariant;
   /** When set (Markets page), skips a separate snapshots request for these cards */
   snapshotByKey?: Map<string, CollectionListMarketSnapshot>;
   className?: string;
   outerStyle?: CSSProperties;
+  /** Markets only: carousel without "Trending Now" heading */
+  hideTitle?: boolean;
+  /**
+   * When set (Markets listing carousel): filter/sort slide pool before taking the first
+   * `TRENDING_POOL` collections. Separate from trading-list category on the exchange page.
+   */
+  listingCategoryFilter?: CollectionCategoryFilterId;
 }) {
-  const { data: colPages } = useMarketplaceCollectionsInfinite();
+  const { data: colPages, isPending: collectionsPending } = useMarketplaceCollectionsInfinite();
 
   const collectionSummaries = useMemo(
     () => colPages?.pages.flatMap((p) => p.items) ?? [],
     [colPages],
   );
+
+  const listingCategoryEffective = listingCategoryFilter ?? "all";
 
   const trendingNow = useMemo(() => {
     const sorted = [...collectionSummaries].sort((a, b) => {
@@ -76,6 +93,9 @@ export function TrendingCollectionsCarousel({
       if (ta !== tb) return tb - ta;
       return a.displayLabel.localeCompare(b.displayLabel);
     });
+
+    let pool = sorted;
+
     const withCert: MarketplaceCollectionSummary[] = [];
     for (const c of sorted) {
       if (marketplaceSummaryHasPsaCertNumber(c.components as Record<string, unknown>)) {
@@ -83,10 +103,23 @@ export function TrendingCollectionsCarousel({
       }
     }
     if (withCert.length > 0) {
-      return withCert.slice(0, TRENDING_POOL);
+      pool = withCert;
     }
-    return sorted.slice(0, TRENDING_POOL);
-  }, [collectionSummaries]);
+
+    pool = pool.filter((c) =>
+      collectionMatchesCategoryFilter(
+        listingCategoryEffective,
+        c,
+        snapshotByKeyProp?.get(c.collectionKey.toLowerCase()),
+      ),
+    );
+
+    return pool.slice(0, TRENDING_POOL);
+  }, [
+    collectionSummaries,
+    listingCategoryEffective,
+    snapshotByKeyProp,
+  ]);
 
   const trendingSnapshotKeysSorted = useMemo(() => {
     const u = [...new Set(trendingNow.map((c) => c.collectionKey.toLowerCase()))];
@@ -114,6 +147,11 @@ export function TrendingCollectionsCarousel({
 
   const trendingCount = trendingNow.length;
 
+  const trendingCarouselKeySig = useMemo(
+    () => trendingNow.map((c) => c.collectionKey.toLowerCase()).join("|"),
+    [trendingNow],
+  );
+
   /** < sm (640px) — stack one card per view and advance on an interval */
   const [narrowCarousel, setNarrowCarousel] = useState(false);
   useEffect(() => {
@@ -138,6 +176,12 @@ export function TrendingCollectionsCarousel({
    */
   const [narrowVisual, setNarrowVisual] = useState(0);
   const [narrowTransition, setNarrowTransition] = useState(true);
+
+  /** Listing category / carousel pool change — avoid stale slide indices */
+  useEffect(() => {
+    setDeckWindowStart(0);
+    setNarrowVisual(0);
+  }, [listingCategoryEffective, trendingCarouselKeySig]);
 
   const narrowExtended = useMemo(() => {
     if (!narrowCarousel || !trendingLoops || trendingCount === 0) return trendingNow;
@@ -266,15 +310,6 @@ export function TrendingCollectionsCarousel({
     narrowTrainSlideCount?: number,
   ) => {
     const s = snapshotByKey.get(c.collectionKey.toLowerCase());
-    const ms = s?.marketStats ?? null;
-    const tokenablePrice =
-      ms?.floor != null && Number.isFinite(ms.floor) && ms.floor > 0
-        ? ms.floor
-        : s?.lastTokenableTradeUsdc != null &&
-            Number.isFinite(s.lastTokenableTradeUsdc) &&
-            s.lastTokenableTradeUsdc > 0
-          ? s.lastTokenableTradeUsdc
-          : null;
     const comp = c.components as { gradeScore?: string };
     const eBayPrice = representativeGradeUsd(
       s?.gradePrices ?? null,
@@ -299,58 +334,50 @@ export function TrendingCollectionsCarousel({
           if (Date.now() < suppressNavUntilRef.current) e.preventDefault();
         }}
       >
-        <div className="overflow-hidden rounded-2xl bg-[#0d1118] transition-colors">
+        <div className="overflow-hidden rounded-2xl transition-colors">
           <div className="aspect-[3/4] bg-[#0a0e14]">
             {displayImageUrl ? (
-              <CollectionCoverFrame
-                imageUrl={displayImageUrl}
-                variant="compact"
-                className="h-full w-full"
-              />
+            <CollectionCoverFrame
+              imageUrl={displayImageUrl}
+              variant="flat"
+              className="h-full w-full"
+            />
             ) : (
               <div className="h-full w-full bg-zinc-900" />
             )}
           </div>
-          <div className="space-y-1.5 p-3">
-            <p className="truncate text-lg font-semibold uppercase text-white">{toCardDisplayUppercase(c.displayLabel)}</p>
-            <div className="space-y-1 text-sm">
-              <p className="flex items-center justify-between gap-2">
-                <span className="text-zinc-500">Market Price</span>
-                <span className="font-semibold tabular-nums text-cyan-300">
-                  {eBayPrice != null && Number.isFinite(eBayPrice) && eBayPrice > 0
-                    ? formatUsd(eBayPrice)
-                    : "—"}
-                </span>
-              </p>
-              <p className="flex items-center justify-between gap-2">
-                <span className="text-zinc-500">Tokenable Price</span>
-                <span className="font-semibold tabular-nums text-emerald-300">
-                  {tokenablePrice != null ? formatUsd(tokenablePrice) : "—"}
-                </span>
-              </p>
-            </div>
+          <div className="space-y-1 p-2.5 sm:p-3">
+            <p className="line-clamp-2 break-words text-base font-semibold uppercase leading-snug text-white sm:truncate sm:text-lg">
+              {toCardDisplayUppercase(c.displayLabel)}
+            </p>
+            <p className="tabular-nums text-base font-bold leading-[140%] tracking-normal text-[#87FF48] [font-family:var(--font-ibm-plex-sans),sans-serif] sm:text-[18px]">
+              {eBayPrice != null && Number.isFinite(eBayPrice) && eBayPrice > 0
+                ? formatUsd(eBayPrice)
+                : "—"}
+            </p>
           </div>
         </div>
       </Link>
     );
   };
 
-  if (trendingNow.length === 0) return null;
-
-  const showHeading = variant === "markets";
+  const isMarkets = variant === "markets";
+  const showHeadingBlock = isMarkets && !hideTitle;
+  /** Preserve carousel footprint on Markets when the listing category pool is empty — avoids layout jump. */
+  const marketsCarouselReserveEmpty = isMarkets && trendingCount === 0;
 
   const landingNarrowW =
     variant === "landing" && narrowCarousel
       ? "max-w-[min(100%,29rem)]"
       : narrowCarousel
-        ? "max-w-[min(100%,280px)]"
+        ? "max-w-[min(100%,min(280px,100%))]"
         : "";
 
   const deckGridClass =
     variant === "landing" && narrowCarousel
       ? "grid grid-cols-1 max-w-[min(100%,29rem)] mx-auto gap-2 px-3 pb-0.5 pt-0"
       : narrowCarousel
-        ? "grid grid-cols-1 max-w-[min(100%,280px)] mx-auto gap-4 px-10 pb-2 pt-1"
+        ? "grid grid-cols-1 max-w-[min(100%,min(280px,100%))] mx-auto gap-3 px-3 pb-2 pt-1 sm:px-10"
         : "grid grid-cols-1 gap-5 px-12 pb-2 pt-1 sm:grid-cols-2 xl:grid-cols-4";
 
   const narrowTrackSlide =
@@ -402,20 +429,34 @@ export function TrendingCollectionsCarousel({
 
   return (
     <section
-      className={`${showHeading ? "mb-16 mt-2 sm:mb-20 sm:mt-4" : "mx-auto mb-10 max-sm:mb-0 w-full max-w-6xl sm:mb-11"} ${!showHeading ? "max-sm:min-h-0 max-sm:flex-1 max-sm:flex max-sm:flex-col" : ""} ${className}`.trim()}
+      className={`${
+        isMarkets
+          ? showHeadingBlock
+            ? "mb-10 mt-2 sm:mb-20 sm:mt-4"
+            : "mb-8 mt-1 sm:mb-14 sm:mt-2"
+          : "mx-auto mb-10 max-sm:mb-0 w-full max-w-6xl sm:mb-11"
+      } ${!isMarkets ? "max-sm:min-h-0 max-sm:flex-1 max-sm:flex max-sm:flex-col" : ""} ${className}`.trim()}
       style={outerStyle}
-      aria-label={showHeading ? "Trending now collections" : "Featured collections"}
+      aria-label={
+        isMarkets
+          ? showHeadingBlock
+            ? "Trending now collections"
+            : "Collection carousel"
+          : "Featured collections"
+      }
     >
-      {showHeading ? (
-        <div className="mb-6 sm:mb-7">
-          <h2 className="text-3xl font-extrabold tracking-tight text-white">Trending Now</h2>
+      {showHeadingBlock ? (
+        <div className="mb-4 sm:mb-7">
+          <h2 className="text-2xl font-extrabold tracking-tight text-white sm:text-3xl">
+            Trending Now
+          </h2>
         </div>
       ) : null}
 
       <div
-        className={`relative ${!showHeading ? "max-sm:min-h-0 max-sm:flex-1 max-sm:flex max-sm:flex-col" : ""}`}
+        className={`relative ${!isMarkets ? "max-sm:min-h-0 max-sm:flex-1 max-sm:flex max-sm:flex-col" : ""}`}
       >
-        {!narrowTrackSlide ? (
+        {!marketsCarouselReserveEmpty && !narrowTrackSlide ? (
           <>
             <button
               type="button"
@@ -452,7 +493,34 @@ export function TrendingCollectionsCarousel({
           </>
         ) : null}
 
-        {narrowTrackSlide ? (
+        {marketsCarouselReserveEmpty ? (
+          <div className={deckGridClass}>
+            <div
+              className={`flex min-h-[20rem] flex-col items-center justify-center rounded-2xl border border-zinc-800/80 bg-[#0a0e14] px-4 py-10 text-center sm:min-h-[24rem] ${
+                narrowCarousel ? "w-full" : "sm:col-span-2 xl:col-span-4"
+              }`}
+              role="status"
+              aria-live="polite"
+            >
+              {collectionsPending ? (
+                <div className="h-44 w-full max-w-[15rem] animate-pulse rounded-xl bg-zinc-800/55 sm:h-52 sm:max-w-xs" />
+              ) : (
+                <>
+                  <p className="text-base font-semibold text-zinc-200 sm:text-lg">
+                    {listingCategoryEffective !== "all"
+                      ? "No listings in this category for the preview carousel."
+                      : "No preview listings right now."}
+                  </p>
+                  <p className="mt-2 max-w-md text-sm leading-relaxed text-zinc-500">
+                    {listingCategoryEffective !== "all"
+                      ? "Try ALL or another category — the trading list below may still have matches."
+                      : "Check back soon, or browse the card trading list below."}
+                  </p>
+                </>
+              )}
+            </div>
+          </div>
+        ) : narrowTrackSlide ? (
           <div className={`flex w-full items-center gap-1.5 sm:gap-2 ${landingNarrowBleedRail}`}>
             <button
               type="button"

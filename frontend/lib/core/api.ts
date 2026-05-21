@@ -81,6 +81,8 @@ export interface PsaAnalyzeResult {
     totalPopulationWithQualifier?: number;
     reverseBarcode?: boolean;
     specId?: number;
+    /** PSA Public API — PSACert.Variety (parallel / insert line) */
+    varietyHint?: string;
     /** PSA Public API PSACert 병합 여부 */
     enrichedFromOfficialApi?: boolean;
   };
@@ -515,42 +517,6 @@ export async function cancelOrder(
   return res.json() as Promise<Order>;
 }
 
-export async function getMyHiddenAssetTokenIds(
-  walletAddress: string,
-): Promise<number[]> {
-  const q = new URLSearchParams({ walletAddress }).toString();
-  const res = await backendFetch(`${getApiUrl()}/marketplace/my-assets/hidden?${q}`);
-  if (!res.ok) throw new Error("Failed to fetch hidden assets");
-  const j = (await res.json()) as { tokenIds?: number[] };
-  return Array.isArray(j.tokenIds) ? j.tokenIds : [];
-}
-
-export async function hideMyAssetToken(
-  walletAddress: string,
-  tokenId: number,
-): Promise<void> {
-  const res = await backendFetch(`${getApiUrl()}/marketplace/my-assets/hidden`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ walletAddress, tokenId }),
-  });
-  if (!res.ok) throw new Error("Failed to hide asset");
-}
-
-export async function unhideMyAssetToken(
-  walletAddress: string,
-  tokenId: number,
-): Promise<void> {
-  const q = new URLSearchParams({
-    walletAddress,
-    tokenId: String(tokenId),
-  }).toString();
-  const res = await backendFetch(`${getApiUrl()}/marketplace/my-assets/hidden?${q}`, {
-    method: "PATCH",
-  });
-  if (!res.ok) throw new Error("Failed to unhide asset");
-}
-
 export interface MarketplaceCollectionDetail {
   /** Null until first listing (or other flow) creates `marketplace_collections` for this key. */
   collection: {
@@ -617,7 +583,7 @@ export interface CollectionMarketSeries {
   categoryLabel: string | null;
   marketChangePct: number | null;
   /** Present when served by a recent backend (exchange list uses same bundle fields) */
-  marketChangeWindow?: "7d" | "30d" | "90d" | "180d" | "365d";
+  marketChangeWindow?: "7d" | "30d" | "90d" | "180d" | "365d" | "24h";
   marketChangeSource?:
     | "cardhedger_nm"
     | "cardhedger_graded"
@@ -628,6 +594,11 @@ export interface CollectionMarketSeries {
   gradePrices: CollectionGradePrices;
   externalUsd: CollectionUsdPoint[];
   platformUsd: CollectionUsdPoint[];
+  /**
+   * Same Cardhedger preview as used for {@link gradePrices} / chart merge (avoid a second
+   * `GET …/cardhedger` for collection detail).
+   */
+  cardhedgerPreview?: CollectionMarketPreview;
 }
 
 /** PokeTrace NM chart bundle — `priceHistoryDuration` caps eBay NEAR_MINT history length for `externalUsd`. */
@@ -692,6 +663,40 @@ export async function getCollectionMarketStats(
   return res.json() as Promise<CollectionMarketStats>;
 }
 
+/** Portfolio batch — same shapes as {@link getCollectionMarketStats} + {@link getCollectionMarketSeries}. */
+export interface PortfolioMarketBatchItem {
+  collectionKey: string;
+  stats: CollectionMarketStats | null;
+  series: CollectionMarketSeries | null;
+}
+
+export async function postPortfolioCollectionMarketBatch(body: {
+  collectionKeys: string[];
+  priceHistoryDuration?: "7d" | "30d" | "90d" | "180d" | "365d";
+  hints?: Array<{ collectionKey: string; hintTokenId: number }>;
+}): Promise<{ items: PortfolioMarketBatchItem[] }> {
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/collections/portfolio-market-batch`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        collectionKeys: body.collectionKeys,
+        priceHistoryDuration: body.priceHistoryDuration ?? "365d",
+        ...(body.hints && body.hints.length > 0 ? { hints: body.hints } : {}),
+      }),
+    },
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(
+      (err as { message?: string }).message ??
+        "Failed to load portfolio market batch",
+    );
+  }
+  return res.json() as Promise<{ items: PortfolioMarketBatchItem[] }>;
+}
+
 export interface MarketPriceBand {
   avg: number | null;
   low: number | null;
@@ -743,7 +748,7 @@ export interface CollectionMarketPreview {
     priceReliability?: "high" | "low";
     pricingSuppressedReason?: string | null;
     /** Backend: comps vs history point vs catalog PSA 10 slot. */
-    spotPriceBasis?: "comps" | "latest_sale" | "sparse_sale_avg" | "catalog" | null;
+    spotPriceBasis?: "comps" | "latest_sale" | "sparse_sale_avg" | "catalog" | "comps_median" | null;
     /** Unix seconds — comps newest sale or history observation when applicable. */
     latestSaleAt?: number | null;
     ebayNearMint: MarketPriceBand | null;
@@ -841,27 +846,38 @@ export async function getCollectionAiInsight(
   return res.json() as Promise<CollectionAiInsight>;
 }
 
+/** Matches `MintPreviewsByTokenIdsDto` `@ArrayMaxSize(32)` in the Nest controller. */
+const MINT_MARKET_PREVIEW_MAX_BATCH = 32;
+
 /** Cardhedger batch — 서버가 tokenId별 메타데이터를 조회 (요청은 id 목록만) */
 export async function postBatchMintMarketPreviews(
   tokenIds: number[],
 ): Promise<Record<number, CollectionMarketPreview>> {
-  const res = await backendFetch(`${getApiUrl()}/marketplace/cardhedger/mint-previews`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ tokenIds }),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(
-      (err as { message?: string }).message ?? "Failed to load Cardhedger mint previews"
-    );
-  }
-  const raw = (await res.json()) as Record<string, CollectionMarketPreview>;
+  const unique = [...new Set(tokenIds.map((n) => Math.floor(Number(n))))].filter(
+    (n) => Number.isFinite(n) && n >= 0,
+  );
   const out: Record<number, CollectionMarketPreview> = {};
-  for (const [k, v] of Object.entries(raw)) {
-    const id = Number(k);
-    if (Number.isFinite(id)) out[id] = v;
+
+  for (let i = 0; i < unique.length; i += MINT_MARKET_PREVIEW_MAX_BATCH) {
+    const chunk = unique.slice(i, i + MINT_MARKET_PREVIEW_MAX_BATCH);
+    const res = await backendFetch(`${getApiUrl()}/marketplace/cardhedger/mint-previews`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tokenIds: chunk }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(
+        (err as { message?: string }).message ?? "Failed to load Cardhedger mint previews",
+      );
+    }
+    const raw = (await res.json()) as Record<string, CollectionMarketPreview>;
+    for (const [k, v] of Object.entries(raw)) {
+      const id = Number(k);
+      if (Number.isFinite(id)) out[id] = v;
+    }
   }
+
   return out;
 }
 
@@ -993,7 +1009,7 @@ export interface CollectionListMarketSnapshot {
   /** Legacy bundle field; prefer {@link CollectionMarketStats} via `marketStats` or GET …/stats */
   marketChangePct: number | null;
   /** Window label for bundle metadata */
-  marketChangeWindow?: "7d" | "30d" | "90d" | "180d" | "365d";
+  marketChangeWindow?: "7d" | "30d" | "90d" | "180d" | "365d" | "24h";
   marketChangeSource?:
     | "cardhedger_nm"
     | "cardhedger_graded"

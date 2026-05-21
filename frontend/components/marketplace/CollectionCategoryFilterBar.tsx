@@ -59,15 +59,22 @@ function AllCollectionsGlyph({ className }: { className?: string }) {
 function ChipIcon({
   src,
   nba,
+  muted,
 }: {
   src: string;
   nba: boolean;
+  muted?: boolean;
 }) {
   const imgCls = nba ? MARKET_RASTER_ICON_IMG_NBA : MARKET_RASTER_ICON_IMG;
   return (
-    <span className="flex h-5 w-5 shrink-0 items-center justify-center" aria-hidden>
+    <span
+      className={`flex h-5 w-5 shrink-0 items-center justify-center overflow-hidden [&_img]:shrink-0 ${
+        muted ? "opacity-[0.72] transition-opacity duration-200 group-hover:opacity-100" : ""
+      }`}
+      aria-hidden
+    >
       {/* eslint-disable-next-line @next/next/no-img-element -- small raster from /public */}
-      <img src={src} alt="" width={20} height={20} className={`${imgCls} !max-h-none !max-w-none h-full w-full`} />
+      <img src={src} alt="" width={20} height={20} className={`${imgCls} !max-h-none !max-w-none h-full w-full object-contain`} />
     </span>
   );
 }
@@ -77,7 +84,7 @@ function DropdownChevron({ expanded }: { expanded: boolean }) {
     <svg
       viewBox="0 0 24 24"
       fill="none"
-      className={`h-5 w-5 shrink-0 text-mint transition-transform duration-200 ${expanded ? "rotate-180" : ""}`}
+      className={`h-5 w-5 shrink-0 text-zinc-400 transition-transform duration-200 group-hover:text-zinc-200 ${expanded ? "rotate-180" : ""}`}
       aria-hidden
     >
       <path
@@ -95,9 +102,11 @@ function DropdownChevron({ expanded }: { expanded: boolean }) {
 function MobileCategoryDropdown({
   value,
   onChange,
+  mobileSectionHeading = "Category",
 }: {
   value: CollectionCategoryFilterId;
   onChange: (id: CollectionCategoryFilterId) => void;
+  mobileSectionHeading?: string;
 }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -135,7 +144,7 @@ function MobileCategoryDropdown({
     <div ref={rootRef} className="relative">
       <div className="mb-1.5 px-0.5">
         <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-zinc-500">
-          Category
+          {mobileSectionHeading}
         </span>
       </div>
       <button
@@ -144,16 +153,16 @@ function MobileCategoryDropdown({
         aria-haspopup="listbox"
         aria-controls={listId}
         onClick={() => setOpen((o) => !o)}
-        className="flex w-full min-h-[42px] touch-manipulation items-center justify-between gap-2 rounded-xl border border-zinc-500/55 bg-[#10141c] px-3 py-2 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_6px_20px_-5px_rgba(0,0,0,0.5)] outline-none transition-colors duration-200 hover:border-zinc-500/75 focus-visible:border-mint/45 focus-visible:ring-2 focus-visible:ring-mint/20 active:bg-[#0c1016]"
+        className="group flex w-full min-h-[42px] touch-manipulation items-center justify-between gap-2 rounded-xl border border-zinc-600/55 bg-black/35 px-3 py-2 text-left outline-none shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] transition-colors duration-200 hover:border-zinc-500/65 hover:bg-zinc-900/40 hover:shadow-none focus-visible:border-zinc-400/50 focus-visible:ring-2 focus-visible:ring-zinc-500/25 active:bg-zinc-950/70"
       >
         <span className="flex min-w-0 flex-1 items-center gap-2.5">
           {currentIconSrc ? (
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-zinc-600/65 bg-black/35 p-0.5 shadow-inner shadow-black/25">
-              <ChipIcon src={currentIconSrc} nba={current.id === "nba"} />
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-zinc-600/50 bg-black/40 p-0.5 shadow-inner shadow-black/20">
+              <ChipIcon src={currentIconSrc} nba={current.id === "nba"} muted />
             </span>
           ) : (
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-zinc-600/65 bg-black/35 text-zinc-400 shadow-inner shadow-black/25">
-              <AllCollectionsGlyph className="h-5 w-5" />
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-zinc-600/50 bg-black/40 p-0.5 shadow-inner shadow-black/20 [&_svg]:opacity-90">
+              <AllCollectionsGlyph className="h-5 w-5 text-zinc-400 transition-colors duration-150 group-hover:text-zinc-200" />
             </span>
           )}
           <span className="min-w-0">
@@ -187,45 +196,42 @@ function MobileCategoryDropdown({
                     role="option"
                     aria-selected={selected}
                     onClick={() => pick(f.id)}
-                    className={`flex w-full touch-manipulation items-center gap-2.5 px-3 py-2 text-left transition-colors duration-150 ${
+                    className={`group flex w-full touch-manipulation items-center gap-2.5 px-3 py-2 text-left transition-colors duration-150 hover:bg-white/[0.04] active:bg-white/[0.06] ${
                       selected
-                        ? "bg-[linear-gradient(90deg,rgba(148,255,212,0.12)_0%,rgba(148,255,212,0.04)_55%,transparent_100%)]"
-                        : "active:bg-white/[0.04]"
+                        ? "bg-white/[0.06] shadow-[inset_2px_0_0_rgba(255,255,255,0.35)]"
+                        : ""
                     }`}
                   >
                     {iconSrc ? (
                       <span
-                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border p-0.5 ${
+                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border p-0.5 transition-colors duration-150 ${
                           selected
-                            ? "border-mint/45 bg-black/45 shadow-[0_0_0_1px_rgba(148,255,212,0.1)]"
-                            : "border-zinc-600/60 bg-black/35"
+                            ? "border-zinc-400/60 bg-black/50"
+                            : "border-zinc-600/60 bg-black/30"
                         }`}
                       >
-                        <ChipIcon src={iconSrc} nba={f.id === "nba"} />
+                        <ChipIcon src={iconSrc} nba={f.id === "nba"} muted={!selected} />
                       </span>
                     ) : (
                       <span
-                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border text-zinc-400 ${
+                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition-colors duration-150 ${
                           selected
-                            ? "border-mint/45 bg-black/45 text-mint shadow-[0_0_0_1px_rgba(148,255,212,0.1)]"
-                            : "border-zinc-600/60 bg-black/35"
+                            ? "border-zinc-400/60 bg-black/50 text-zinc-200"
+                            : "border-zinc-600/60 bg-black/35 text-zinc-500"
                         }`}
                       >
-                        <AllCollectionsGlyph className="h-5 w-5" />
+                        <AllCollectionsGlyph className="h-5 w-5 transition-colors duration-150" />
                       </span>
                     )}
                     <span
                       className={`min-w-0 flex-1 truncate text-sm font-semibold tracking-tight ${
-                        selected ? "text-white" : "text-zinc-100"
+                        selected ? "text-white" : "text-zinc-300"
                       }`}
                     >
                       {mobileCategoryHeading(f.id)}
                     </span>
                     {selected ? (
-                      <span
-                        className="shrink-0 text-mint drop-shadow-[0_0_8px_rgba(148,255,212,0.3)]"
-                        aria-hidden
-                      >
+                      <span className="shrink-0 text-zinc-200" aria-hidden>
                         <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24">
                           <path
                             d="M6 12.5 L10.2 17 18 7"
@@ -253,20 +259,30 @@ function MobileCategoryDropdown({
 export function CollectionCategoryFilterBar({
   value,
   onChange,
+  toolbarAriaLabel = "Filter by card category",
+  mobileSectionHeading = "Category",
 }: {
   value: CollectionCategoryFilterId;
   onChange: (id: CollectionCategoryFilterId) => void;
+  /** `role="toolbar"` label (desktop strip) */
+  toolbarAriaLabel?: string;
+  /** Small label above the mobile dropdown trigger */
+  mobileSectionHeading?: string;
 }) {
   return (
     <>
       <div className="sm:hidden">
-        <MobileCategoryDropdown value={value} onChange={onChange} />
+        <MobileCategoryDropdown
+          value={value}
+          onChange={onChange}
+          mobileSectionHeading={mobileSectionHeading}
+        />
       </div>
 
       <div
         className="hidden w-full min-w-0 overflow-x-auto overscroll-x-contain scroll-smooth sm:block sm:overflow-x-visible sm:pb-0 sm:[scrollbar-width:auto]"
         role="toolbar"
-        aria-label="Filter by card category"
+        aria-label={toolbarAriaLabel}
       >
         <div className="flex w-full max-w-full flex-wrap items-stretch gap-2 sm:gap-2.5">
           {FILTERS.map((f) => {
@@ -278,17 +294,26 @@ export function CollectionCategoryFilterBar({
                 type="button"
                 onClick={() => onChange(f.id)}
                 aria-pressed={active}
-                className={`inline-flex min-h-[38px] shrink-0 touch-manipulation items-center justify-center rounded-lg border px-3 py-1.5 text-[13px] font-semibold tracking-tight transition-all duration-200 active:scale-[0.98] sm:min-h-[40px] sm:rounded-xl sm:px-3.5 sm:py-2 sm:text-sm ${
+                className={`group inline-flex min-h-[38px] shrink-0 touch-manipulation items-center justify-center rounded-lg border px-3 py-1.5 text-[13px] font-semibold tracking-tight transition-colors duration-200 ease-out hover:border-zinc-400/50 hover:bg-zinc-800/45 hover:text-white active:scale-[0.985] active:text-white sm:min-h-[40px] sm:rounded-xl sm:px-3.5 sm:py-2 sm:text-sm ${
                   active
-                    ? "border-mint/50 bg-mint text-mint-ink shadow-[0_0_0_1px_rgba(148,255,212,0.12)] shadow-mint/25"
-                    : "border-zinc-700/70 bg-zinc-950/80 text-zinc-100 hover:border-zinc-500/60 hover:bg-zinc-900/90 hover:text-white"
+                    ? "border-zinc-300/55 bg-white/[0.06] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] hover:border-zinc-200/65 hover:bg-white/[0.09]"
+                    : "border-zinc-700/65 bg-transparent text-zinc-400 [&_svg]:text-zinc-400"
                 }`}
               >
                 <span
                   className={`inline-flex items-center gap-2 ${iconSrc ? "" : "px-0.5"}`}
                 >
-                  {iconSrc ? <ChipIcon src={iconSrc} nba={f.id === "nba"} /> : null}
-                  <span className="whitespace-nowrap leading-none">{f.label}</span>
+                  {iconSrc ? (
+                    <ChipIcon src={iconSrc} nba={f.id === "nba"} muted={!active} />
+                  ) : (
+                    <span
+                      aria-hidden
+                      className={`px-0.5 transition-colors duration-200 ${active ? "text-white" : "text-zinc-500 group-hover:text-zinc-200"}`}
+                    >
+                      <AllCollectionsGlyph className="h-5 w-5" />
+                    </span>
+                  )}
+                  <span className={`whitespace-nowrap leading-none ${active ? "" : "group-hover:text-zinc-100"}`}>{f.label}</span>
                 </span>
               </button>
             );

@@ -14,8 +14,10 @@ export class CardhedgerIndexesController {
   })
   getIndexes(@Query('refresh') refresh?: string) {
     const forceRefresh =
-      refresh === '1' || refresh === 'true' || refresh === 'force' || refresh === 'yes';
+      refresh === '1' ||
+      refresh === 'true' ||
+      refresh === 'force' ||
+      refresh === 'yes';
     return this.indexes.getDashboardIndexes({ forceRefresh });
   }
 }
-

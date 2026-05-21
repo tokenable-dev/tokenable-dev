@@ -58,7 +58,9 @@ export class CardhedgerIndexesService
     private readonly cardhedger: CardhedgerService,
     private readonly config: ConfigService,
   ) {
-    const raw = this.config.get<string>('CARDHEDGER_INDEXES_ENABLE_HISTORY_BLEND');
+    const raw = this.config.get<string>(
+      'CARDHEDGER_INDEXES_ENABLE_HISTORY_BLEND',
+    );
     this.enableHistoryBlend = raw === '1' || raw === 'true';
     // Market-index aggregates (7d/30d/90d/180d/365d % change, USD total) are
     // daily-granularity metrics. A scheduled 24h refresh is sufficient and
@@ -66,19 +68,24 @@ export class CardhedgerIndexesService
     // 5+ min after the previous build" pattern.
     this.cacheTtlMs = Math.max(
       60_000, // 1 min minimum sanity floor
-      Number(this.config.get<string>('CARDHEDGER_INDEXES_CACHE_TTL_MS') ?? 86_400_000) ||
-        86_400_000,
+      Number(
+        this.config.get<string>('CARDHEDGER_INDEXES_CACHE_TTL_MS') ??
+          86_400_000,
+      ) || 86_400_000,
     );
     this.prewarmDelayMs = Math.max(
       0,
-      Number(this.config.get<string>('CARDHEDGER_INDEXES_PREWARM_DELAY_MS') ?? 3_000) || 3_000,
+      Number(
+        this.config.get<string>('CARDHEDGER_INDEXES_PREWARM_DELAY_MS') ?? 3_000,
+      ) || 3_000,
     );
     // Scheduled background refresh cadence. Defaults to 24h; override for faster
     // dev loops or staging verification.
     this.refreshIntervalMs = Math.max(
       60_000, // 1 min minimum — anything smaller is almost certainly a config mistake
       Number(
-        this.config.get<string>('CARDHEDGER_INDEXES_REFRESH_INTERVAL_MS') ?? 86_400_000,
+        this.config.get<string>('CARDHEDGER_INDEXES_REFRESH_INTERVAL_MS') ??
+          86_400_000,
       ) || 86_400_000,
     );
     this.diskCachePath = path.join(
@@ -166,14 +173,24 @@ export class CardhedgerIndexesService
     }
   }
 
-  private persistToDisk(value: { data: CardhedgerGameIndexRow[] }, updatedAtMs: number): void {
-    const payload = JSON.stringify({ updatedAt: updatedAtMs, data: value.data });
+  private persistToDisk(
+    value: { data: CardhedgerGameIndexRow[] },
+    updatedAtMs: number,
+  ): void {
+    const payload = JSON.stringify({
+      updatedAt: updatedAtMs,
+      data: value.data,
+    });
     // Fire-and-forget; silent best-effort. A tmpdir that's read-only or full should
     // not break the hot path.
-    void fs.promises.writeFile(this.diskCachePath, payload, 'utf8').catch(() => {});
+    void fs.promises
+      .writeFile(this.diskCachePath, payload, 'utf8')
+      .catch(() => {});
   }
 
-  private async buildDashboardIndexes(): Promise<{ data: CardhedgerGameIndexRow[] }> {
+  private async buildDashboardIndexes(): Promise<{
+    data: CardhedgerGameIndexRow[];
+  }> {
     const started = Date.now();
     // Fetch the 365-day price-update stream once and pre-index it by card_id so every
     // category's window derivation is O(cards-in-cat) instead of O(total-updates).
@@ -184,7 +201,9 @@ export class CardhedgerIndexesService
       return null;
     });
     const updatesFetchedAt = Date.now();
-    const preIndexed = sharedUpdatesBody ? this.indexUpdatesByCard(sharedUpdatesBody) : null;
+    const preIndexed = sharedUpdatesBody
+      ? this.indexUpdatesByCard(sharedUpdatesBody)
+      : null;
     const updatesIndexedAt = Date.now();
 
     const [pokemon, mlb, nfl, nba] = await Promise.all([
@@ -362,9 +381,9 @@ export class CardhedgerIndexesService
   ): number | null {
     if (points.length < 2) return null;
     const sorted = [...points].sort((a, b) => a.t - b.t);
-    const latest = sorted[sorted.length - 1]!;
+    const latest = sorted[sorted.length - 1];
     const target = latest.t - days * 86400;
-    let ref = sorted[0]!;
+    let ref = sorted[0];
     let bestGap = Math.abs(ref.t - target);
     for (const pt of sorted) {
       const gap = Math.abs(pt.t - target);
@@ -376,11 +395,17 @@ export class CardhedgerIndexesService
     return this.pct(ref.p, latest.p);
   }
 
-  private weightedMean(items: Array<{ value: number; weight: number }>): number | null {
+  private weightedMean(
+    items: Array<{ value: number; weight: number }>,
+  ): number | null {
     let sw = 0;
     let sx = 0;
     for (const it of items) {
-      if (!Number.isFinite(it.value) || !Number.isFinite(it.weight) || it.weight <= 0) {
+      if (
+        !Number.isFinite(it.value) ||
+        !Number.isFinite(it.weight) ||
+        it.weight <= 0
+      ) {
         continue;
       }
       sw += it.weight;
@@ -418,38 +443,48 @@ export class CardhedgerIndexesService
           weight: weight != null && weight > 0 ? weight : 1,
         };
       })
-      .filter(
-        (x): x is { cardId: string; grade: string; weight: number } =>
-          Boolean(x.cardId && x.grade),
+      .filter((x): x is { cardId: string; grade: string; weight: number } =>
+        Boolean(x.cardId && x.grade),
       )
       .sort((a, b) => b.weight - a.weight)
       .slice(0, HISTORY_SAMPLE_SIZE);
 
-    const perCard = await this.mapInBatches(candidates, HISTORY_CONCURRENCY, async (c) => {
-      try {
-        const gradeParam = this.toCardhedgerGradeParam(c.grade);
-        const body = await this.cardhedger.forwardJson('POST', '/v1/cards/prices-by-card', {
-          body: { card_id: c.cardId, grade: gradeParam, days: 365 },
-        });
-        const prices = Array.isArray((body as { prices?: unknown[] })?.prices)
-          ? ((body as { prices: unknown[] }).prices ?? [])
-          : [];
-        const series = prices
-          .map((p) => {
-            if (typeof p !== 'object' || p == null) return null;
-            const tRaw = (p as { closing_date?: unknown }).closing_date;
-            const pxRaw = (p as { price?: unknown }).price;
-            const t = typeof tRaw === 'string' ? Date.parse(tRaw) : NaN;
-            const px = this.toNumber(pxRaw);
-            if (!Number.isFinite(t) || px == null || px <= 0) return null;
-            return { t: Math.floor(t / 1000), p: px };
-          })
-          .filter((x): x is { t: number; p: number } => x != null);
-        return { weight: c.weight, series };
-      } catch {
-        return { weight: c.weight, series: [] as Array<{ t: number; p: number }> };
-      }
-    });
+    const perCard = await this.mapInBatches(
+      candidates,
+      HISTORY_CONCURRENCY,
+      async (c) => {
+        try {
+          const gradeParam = this.toCardhedgerGradeParam(c.grade);
+          const body = await this.cardhedger.forwardJson(
+            'POST',
+            '/v1/cards/prices-by-card',
+            {
+              body: { card_id: c.cardId, grade: gradeParam, days: 365 },
+            },
+          );
+          const prices = Array.isArray((body as { prices?: unknown[] })?.prices)
+            ? ((body as { prices: unknown[] }).prices ?? [])
+            : [];
+          const series = prices
+            .map((p) => {
+              if (typeof p !== 'object' || p == null) return null;
+              const tRaw = (p as { closing_date?: unknown }).closing_date;
+              const pxRaw = (p as { price?: unknown }).price;
+              const t = typeof tRaw === 'string' ? Date.parse(tRaw) : NaN;
+              const px = this.toNumber(pxRaw);
+              if (!Number.isFinite(t) || px == null || px <= 0) return null;
+              return { t: Math.floor(t / 1000), p: px };
+            })
+            .filter((x): x is { t: number; p: number } => x != null);
+          return { weight: c.weight, series };
+        } catch {
+          return {
+            weight: c.weight,
+            series: [] as Array<{ t: number; p: number }>,
+          };
+        }
+      },
+    );
 
     const out: Record<WindowDays, number | null> = {
       7: null,
@@ -509,15 +544,15 @@ export class CardhedgerIndexesService
         // in-window point with a linear scan from the left (tiny per-series).
         let firstIdx = -1;
         for (let i = 0; i < arr.length; i += 1) {
-          if (arr[i]!.t >= windowStart) {
+          if (arr[i].t >= windowStart) {
             firstIdx = i;
             break;
           }
         }
         if (firstIdx < 0) continue;
         if (arr.length - firstIdx < 2) continue;
-        const first = arr[firstIdx]!;
-        const last = arr[arr.length - 1]!;
+        const first = arr[firstIdx];
+        const last = arr[arr.length - 1];
         const p = this.pct(first.p, last.p);
         if (p != null) deltas.push({ value: p, weight: Math.max(1, last.p) });
       }
@@ -543,17 +578,23 @@ export class CardhedgerIndexesService
 
     let rows: CardRow[] = [];
     for (const category of categoryCandidates) {
-      const body = await this.cardhedger.forwardJson('POST', '/v1/cards/card-search', {
-        body: {
-          category,
-          page: 1,
-          page_size: 80,
+      const body = await this.cardhedger.forwardJson(
+        'POST',
+        '/v1/cards/card-search',
+        {
+          body: {
+            category,
+            page: 1,
+            page_size: 80,
+          },
         },
-      });
+      );
       const cards = Array.isArray((body as { cards?: unknown[] })?.cards)
         ? ((body as { cards: unknown[] }).cards ?? [])
         : [];
-      rows = cards.filter((x): x is CardRow => typeof x === 'object' && x != null);
+      rows = cards.filter(
+        (x): x is CardRow => typeof x === 'object' && x != null,
+      );
       if (rows.length > 0) break;
     }
 
@@ -564,11 +605,15 @@ export class CardhedgerIndexesService
     }
 
     // Synchronous in-memory derivation — no extra API calls here.
-    const updates = this.estimateWindowChangesFromIndexedUpdates(rows, params.preIndexed);
+    const updates = this.estimateWindowChangesFromIndexedUpdates(
+      rows,
+      params.preIndexed,
+    );
     const updatesAllMissing = WINDOWS_DAYS.every((d) => updates[d] == null);
     // Cardhedger occasionally returns a flat 365d delta when the stream only has
     // recent updates — treat that as effectively missing for the 365d bucket.
-    const hasSuspiciousFlat365 = updates[365] != null && Math.abs(updates[365]!) < 0.01;
+    const hasSuspiciousFlat365 =
+      updates[365] != null && Math.abs(updates[365]) < 0.01;
     const gains: Record<WindowDays, number | null> = {
       7: updates[7],
       30: updates[30],
@@ -604,7 +649,7 @@ export class CardhedgerIndexesService
             ? Number((h * 0.75 + u * 0.25).toFixed(4))
             : h != null
               ? h
-              : u ?? null;
+              : (u ?? null);
       }
     }
     const round2 = (v: number | null): number | null => {
@@ -665,4 +710,3 @@ export class CardhedgerIndexesService
     return this.rebuildCache();
   }
 }
-

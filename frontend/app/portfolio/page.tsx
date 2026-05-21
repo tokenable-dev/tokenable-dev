@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState, useEffect, useCallback, useRef } from "react";
-import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMemo, useState, useEffect, useRef } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAccount } from "wagmi";
@@ -9,13 +9,11 @@ import {
   type RwaMetadata,
   type OrderListItem,
   type CollectionMarketPreview,
-  getCollectionMarketSeries,
-  getCollectionMarketStats,
-  getMyHiddenAssetTokenIds,
-  hideMyAssetToken,
+  postPortfolioCollectionMarketBatch,
   type CollectionMarketSeries,
   type CollectionMarketStats,
-  unhideMyAssetToken,
+  cancelOrder,
+  rq,
 } from "@/lib/core";
 import { extractBucketComponentsFromMetadata, computeMarketBucketKey } from "@/lib/marketplace/bucketKey";
 import { displayAssetNameFromMetadata } from "@/lib/marketplace/rwaDisplayTitle";
@@ -25,20 +23,13 @@ import { useShallow } from "zustand/react/shallow";
 import type { GradedCardMetadata } from "@/types/gradedCard";
 import { loadNmBaselineMap, saveNmBaselineMap, type NmBaselineEntry } from "@/lib/portfolio";
 import { formatLiquidityDepthLabel } from "@/lib/market";
-import { representativeGradeUsd } from "@/lib/market";
+import { resolveExternalMarketUsd } from "@/lib/market";
 import {
-  catalogSpotUsdFromMarketPreview,
   parseGradeScoreNumber,
 } from "@/lib/market";
-import { marketHistoryTierFromRwaMetadata } from "@/lib/market";
+import { APP_MAIN_SHELL_CLASS } from "@/constants/layout";
 import {
   appendPortfolioValueSnapshot,
-} from "@/lib/portfolio";
-import { inferSportBucketFromRwaMetadata } from "@/lib/market";
-import {
-  mockDemoSpotUsd,
-  MOCK_SPORTS_LIQUIDITY_CAPTION,
-  MOCK_SPORTS_PRICE_CAPTION,
 } from "@/lib/portfolio";
 
 const USDC_DECIMALS = 1_000_000;
@@ -57,11 +48,13 @@ interface PricedAssetRow {
   amount: number;
   /** External NM spot: Cardhedger-backed preview, else bundle NM strip for the bucket. */
   currentPrice: number | null;
-  priceSource: "cardhedger" | "none" | "mock";
+  priceSource: "cardhedger" | "none";
   /** On-platform listing depth (optional subtitle). */
   liquidityLabel: string | null;
   /** Your active ask (execution intent), not the pool estimate */
   listPriceUsd: number | null;
+  /** Active ask order hash — for cancel listing from My Assets */
+  activeListingOrderHash: string | null;
   /** Secondary line under title (set / year / card name) */
   subtitle: string;
   gradeLabel: string | null;
@@ -100,6 +93,28 @@ function getGraded(meta: RwaMetadata | null): GradedCardMetadata | undefined {
   return g && typeof g === "object" ? (g as GradedCardMetadata) : undefined;
 }
 
+/**
+ * Bucket components shape for {@link resolveExternalMarketUsd} / chart tier — matches collection detail `comp`.
+ */
+function marketTierComponentsFromMetadata(
+  meta: RwaMetadata | null,
+): Record<string, unknown> | null {
+  const g = getGraded(meta);
+  if (!g) return null;
+  const score = g.psa?.gradeScore ?? g.grade?.score;
+  const gradingCompany =
+    typeof g.gradingCompany === "string" && g.gradingCompany.trim()
+      ? g.gradingCompany.trim()
+      : g.psa != null
+        ? "PSA"
+        : "";
+  return {
+    gradingCompany,
+    gradeScore:
+      score != null && Number.isFinite(Number(score)) ? String(score) : undefined,
+  };
+}
+
 function extractCategory(meta: RwaMetadata | null): string | null {
   const g = getGraded(meta);
   if (g?.psa?.category?.trim()) return g.psa.category.trim();
@@ -128,6 +143,25 @@ function gradeScoreForJustTcg(meta: RwaMetadata | null): number | null {
   if (g?.grade?.score != null && Number.isFinite(g.grade.score))
     return parseGradeScoreNumber(String(g.grade.score));
   return null;
+}
+
+/**
+ * Collection `market-series` may return `cardhedgerPreview` with `matched: false` when the DB
+ * bucket row exists but Cardhedger has not resolved yet — that object is still truthy, so
+ * `seriesPreview ?? mintPreview` would hide a good {@link postBatchMintMarketPreviews} result.
+ * Prefer whichever preview actually matched; when both match, keep series (chart-aligned).
+ */
+function pickPortfolioMarketPreview(
+  series: CollectionMarketSeries | null | undefined,
+  mintPv: CollectionMarketPreview | null | undefined,
+): CollectionMarketPreview | null {
+  const s = series?.cardhedgerPreview;
+  const sOk = Boolean(s?.matched && s?.card);
+  const mOk = Boolean(mintPv?.matched && mintPv?.card);
+  if (sOk && mOk) return s!;
+  if (sOk) return s!;
+  if (mOk) return mintPv!;
+  return s ?? mintPv ?? null;
 }
 
 function buildAssetSubtitle(meta: RwaMetadata | null, displayName: string): string {
@@ -233,15 +267,56 @@ function generateTimeLabels(period: ChartPeriod, count: number): string[] {
 }
 
 function niceYTicks(min: number, max: number, count = 5): number[] {
+  if (!Number.isFinite(min) || !Number.isFinite(max)) return [0, 1];
+  if (max < min) [min, max] = [max, min];
   if (max <= min) return [min];
   const range = max - min;
-  const rough = range / (count - 1);
-  const mag = Math.pow(10, Math.floor(Math.log10(rough)));
-  const nice = [1, 2, 5, 10].find((n) => n * mag >= rough)! * mag;
+  const parts = Math.max(2, Math.min(12, Math.floor(Number(count)) || 5));
+  let rough = range / (parts - 1);
+  if (!Number.isFinite(rough) || rough <= 0) return [min, max];
+
+  const log10 = Math.log10(rough);
+  if (!Number.isFinite(log10)) return [min, max];
+  const mag = Math.pow(10, Math.floor(log10));
+  if (!Number.isFinite(mag) || mag <= 0) return [min, max];
+
+  const mult = [1, 2, 5, 10].find((n) => n * mag >= rough);
+  if (mult == null) return [min, max];
+  let nice = mult * mag;
+  if (!Number.isFinite(nice) || nice <= 0) return [min, max];
+
+  /** When the chart span is tiny, avoid microscopic `nice` (millions of iterations / browser hang). */
+  const minStep = range / 80;
+  if (nice < minStep) nice = minStep;
+
   const lo = Math.floor(min / nice) * nice;
+  if (!Number.isFinite(lo)) return [min, max];
+  const hi = max + nice * 0.01;
   const ticks: number[] = [];
-  for (let v = lo; v <= max + nice * 0.01; v += nice) ticks.push(v);
-  return ticks;
+  const maxTicks = 64;
+  for (let i = 0; i < maxTicks; i++) {
+    const v = lo + i * nice;
+    if (v > hi) break;
+    ticks.push(v);
+  }
+  return ticks.length > 0 ? ticks : [min, max];
+}
+
+/** Collapse duplicate Y values (float noise / step overlap) so list keys and SVG lines stay unique. */
+function uniqChartTicks(ticks: number[]): number[] {
+  const out: number[] = [];
+  for (const t of ticks) {
+    if (!Number.isFinite(t)) continue;
+    const prev = out[out.length - 1];
+    if (
+      prev != null &&
+      Math.abs(t - prev) <= 1e-6 * Math.max(1, Math.abs(t), Math.abs(prev))
+    ) {
+      continue;
+    }
+    out.push(t);
+  }
+  return out;
 }
 
 function fmtAxisVal(v: number): string {
@@ -284,7 +359,7 @@ function PortfolioChart({
   const yMin = dataMin - pad;
   const yMax = dataMax + pad;
 
-  const ticks = niceYTicks(yMin, yMax, 5);
+  const ticks = uniqChartTicks(niceYTicks(yMin, yMax, 5));
   const timeLabels = generateTimeLabels(period, points.length);
 
   const xOf = (i: number) => LEFT + (i / (points.length - 1)) * chartW;
@@ -337,9 +412,9 @@ function PortfolioChart({
       >
         <defs>
           <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="rgba(148,255,212,0.15)" />
-            <stop offset="80%" stopColor="rgba(148,255,212,0.02)" />
-            <stop offset="100%" stopColor="rgba(148,255,212,0)" />
+            <stop offset="0%" stopColor="rgba(135,255,72,0.15)" />
+            <stop offset="80%" stopColor="rgba(135,255,72,0.02)" />
+            <stop offset="100%" stopColor="rgba(135,255,72,0)" />
           </linearGradient>
           <filter id="glow">
             <feGaussianBlur stdDeviation="3" result="blur" />
@@ -351,11 +426,11 @@ function PortfolioChart({
         </defs>
 
         {/* Grid lines */}
-        {ticks.map((t) => {
+        {ticks.map((t, i) => {
           const y = yOf(t);
           if (y < TOP - 2 || y > TOP + chartH + 2) return null;
           return (
-            <g key={t}>
+            <g key={`y-grid-${i}`}>
               <line
                 x1={LEFT}
                 x2={W - RIGHT}
@@ -407,8 +482,8 @@ function PortfolioChart({
             rx="1"
             fill={
               hover?.idx === i
-                ? "rgba(148,255,212,0.5)"
-                : "rgba(148,255,212,0.12)"
+                ? "rgba(135,255,72,0.5)"
+                : "rgba(135,255,72,0.12)"
             }
           />
         ))}
@@ -420,7 +495,7 @@ function PortfolioChart({
         <path
           d={linePath}
           fill="none"
-          stroke="#94ffd4"
+          stroke="#87FF48"
           strokeWidth="2"
           strokeLinejoin="round"
           strokeLinecap="round"
@@ -434,7 +509,7 @@ function PortfolioChart({
               x2={hover.x}
               y1={TOP}
               y2={TOP + chartH}
-              stroke="rgba(148,255,212,0.2)"
+              stroke="rgba(135,255,72,0.2)"
               strokeWidth="1"
               strokeDasharray="3 3"
             />
@@ -442,7 +517,7 @@ function PortfolioChart({
               cx={hover.x}
               cy={hover.y}
               r="4"
-              fill="#94ffd4"
+              fill="#87FF48"
               stroke="#030712"
               strokeWidth="2"
             />
@@ -455,7 +530,7 @@ function PortfolioChart({
                 height="20"
                 rx="6"
                 fill="#1a2332"
-                stroke="rgba(148,255,212,0.3)"
+                stroke="rgba(135,255,72,0.3)"
                 strokeWidth="1"
               />
               <text
@@ -479,7 +554,7 @@ function PortfolioChart({
               cx={lastX}
               cy={lastY}
               r="5"
-              fill="#94ffd4"
+              fill="#87FF48"
               stroke="#030712"
               strokeWidth="2.5"
               filter="url(#glow)"
@@ -489,7 +564,7 @@ function PortfolioChart({
               cy={lastY}
               r="9"
               fill="none"
-              stroke="rgba(148,255,212,0.25)"
+              stroke="rgba(135,255,72,0.25)"
               strokeWidth="1.5"
             />
             <g>
@@ -500,7 +575,7 @@ function PortfolioChart({
                 height="22"
                 rx="6"
                 fill="#1a2332"
-                stroke="rgba(148,255,212,0.3)"
+                stroke="rgba(135,255,72,0.3)"
                 strokeWidth="1"
               />
               <text
@@ -558,8 +633,7 @@ export default function PortfolioPage() {
   const { usdcBalanceFormatted } = useAppStore(useShallow(selectUsdcBalance));
   const [period, setPeriod] = useState<ChartPeriod>("1D");
   const [assetFilter, setAssetFilter] = useState<AssetListFilter>("all");
-  const [showHiddenAssets, setShowHiddenAssets] = useState(false);
-  const [mutatingHiddenTokenIds, setMutatingHiddenTokenIds] = useState<number[]>([]);
+  const [cancellingListingTokenId, setCancellingListingTokenId] = useState<number | null>(null);
 
   const {
     tokenIds,
@@ -571,41 +645,11 @@ export default function PortfolioPage() {
     isLoadingHistoryBatch: historyBatchLoading,
     marketPreviewByToken,
     marketPreviewLoading,
+    refetchActiveOrders,
   } = useUserAssets(isConnected ? address : undefined, {
     enabled: Boolean(address && isConnected),
     includeOrderHistory: true,
     includeMarketPreview: true,
-  });
-
-  const hiddenAssetsQuery = useQuery({
-    queryKey: ["my-hidden-assets", address?.toLowerCase() ?? ""],
-    queryFn: () => getMyHiddenAssetTokenIds(address!),
-    enabled: Boolean(address && isConnected),
-    staleTime: 30_000,
-  });
-  const hiddenTokenSet = useMemo(
-    () => new Set((hiddenAssetsQuery.data ?? []).map((n) => Number(n))),
-    [hiddenAssetsQuery.data],
-  );
-
-  const hideMutation = useMutation({
-    mutationFn: async (tokenId: number) => {
-      if (!address) return;
-      await hideMyAssetToken(address, tokenId);
-    },
-    onSuccess: async () => {
-      await hiddenAssetsQuery.refetch();
-    },
-  });
-
-  const unhideMutation = useMutation({
-    mutationFn: async (tokenId: number) => {
-      if (!address) return;
-      await unhideMyAssetToken(address, tokenId);
-    },
-    onSuccess: async () => {
-      await hiddenAssetsQuery.refetch();
-    },
   });
 
   const assets: OwnedAsset[] = useMemo(
@@ -630,49 +674,63 @@ export default function PortfolioPage() {
     return m;
   }, [allOrders, address]);
 
-  const portfolioBucketKeyQueries = useQueries({
-    queries: assets.map((a) => {
-      const listingKey = listingCollectionKeyByToken.get(a.tokenId);
-      const comp =
-        listingKey == null
-          ? extractBucketComponentsFromMetadata(
-              (a.metadata ?? {}) as Record<string, unknown>,
-            )
-          : null;
-      return {
-        queryKey: ["portfolio-bucket-key", a.tokenId] as const,
-        queryFn: async () => computeMarketBucketKey(comp!),
-        enabled:
-          Boolean(address && isConnected) && listingKey == null && comp != null,
-        staleTime: 60_000,
-      };
-    }),
-  });
-
-  const tokenToCollectionKey = useMemo(() => {
-    const o: Record<number, string> = {};
-    assets.forEach((a, i) => {
-      const listingKey = listingCollectionKeyByToken.get(a.tokenId);
-      if (listingKey) {
-        o[a.tokenId] = listingKey;
-        return;
-      }
-      const raw = portfolioBucketKeyQueries[i]?.data;
-      if (typeof raw === "string" && raw.trim().length > 0) {
-        o[a.tokenId] = raw.trim().toLowerCase();
-      }
+  /**
+   * Single batched query for collection keys (replaces N× useQueries).
+   * Signature must change when listing keys or metadata-derived bucket components change.
+   */
+  const portfolioBucketKeySourceSig = useMemo(() => {
+    const parts = assets.map((a) => {
+      const lk = listingCollectionKeyByToken.get(a.tokenId);
+      if (lk) return `${a.tokenId}:L:${lk.toLowerCase()}`;
+      const comp = extractBucketComponentsFromMetadata(
+        (a.metadata ?? {}) as Record<string, unknown>,
+      );
+      if (!comp) return `${a.tokenId}:0`;
+      return `${a.tokenId}:C:${comp.gradingCompany}|${comp.cardName}|${comp.cardSet}|${comp.gradeScore}|${comp.variantType ?? ""}`;
     });
-    return o;
-  }, [assets, address, isConnected, listingCollectionKeyByToken, portfolioBucketKeyQueries]);
+    parts.sort();
+    return parts.join("\u00a7");
+  }, [assets, listingCollectionKeyByToken]);
+
+  const { data: tokenToCollectionKey = {} } = useQuery({
+    queryKey: [
+      "portfolio-bucket-keys",
+      address ?? "",
+      portfolioBucketKeySourceSig,
+    ] as const,
+    queryFn: async () => {
+      const o: Record<number, string> = {};
+      for (const a of assets) {
+        const listingKey = listingCollectionKeyByToken.get(a.tokenId);
+        if (listingKey) {
+          o[a.tokenId] = listingKey.trim().toLowerCase();
+          continue;
+        }
+        const comp = extractBucketComponentsFromMetadata(
+          (a.metadata ?? {}) as Record<string, unknown>,
+        );
+        if (!comp) continue;
+        const raw = await computeMarketBucketKey(comp);
+        if (typeof raw === "string" && raw.trim().length > 0) {
+          o[a.tokenId] = raw.trim().toLowerCase();
+        }
+      }
+      return o;
+    },
+    enabled: Boolean(address && isConnected && assets.length > 0),
+    staleTime: 60_000,
+  });
 
   /** Set NEXT_PUBLIC_MARKETPLACE_PIPELINE_DIAG=1 to compare active-listing DB key vs client meta-hash (backend logs use MARKETPLACE_PIPELINE_DIAG). */
   useEffect(() => {
     if (process.env.NEXT_PUBLIC_MARKETPLACE_PIPELINE_DIAG !== "1") return;
-    assets.forEach((a, i) => {
+    assets.forEach((a) => {
       const fromOrder = listingCollectionKeyByToken.get(a.tokenId);
-      const fromQuery = portfolioBucketKeyQueries[i]?.data;
       const fromMeta =
-        typeof fromQuery === "string" && fromQuery.trim() ? fromQuery.trim().toLowerCase() : undefined;
+        typeof tokenToCollectionKey[a.tokenId] === "string" &&
+        tokenToCollectionKey[a.tokenId]!.trim()
+          ? tokenToCollectionKey[a.tokenId]!.trim().toLowerCase()
+          : undefined;
       if (fromOrder && fromMeta && fromOrder !== fromMeta) {
         console.warn("[collection_key_pipeline] listing vs meta hash mismatch", {
           tokenId: a.tokenId,
@@ -688,7 +746,7 @@ export default function PortfolioPage() {
         });
       }
     });
-  }, [assets, listingCollectionKeyByToken, portfolioBucketKeyQueries]);
+  }, [assets, listingCollectionKeyByToken, tokenToCollectionKey]);
 
   const uniqueCollectionKeys = useMemo(() => {
     const s = new Set<string>();
@@ -711,89 +769,82 @@ export default function PortfolioPage() {
     return m;
   }, [assets, tokenToCollectionKey]);
 
-  /** MLB/NFL/NBA use placeholder pricing — skip external NM fetch for those rows only. */
+  /** Cardhedger chart bundle loads whenever we have a bucket key (aligns spot with collection detail). */
   const anyAssetNeedsSeriesForPricing = useMemo(
     () =>
-      assets.some((a) => {
-        const b = inferSportBucketFromRwaMetadata(a.metadata);
-        if (b === "mlb" || b === "nba" || b === "nfl") return false;
-        const tier = marketHistoryTierFromRwaMetadata(a.metadata);
-        const poke = catalogSpotUsdFromMarketPreview(
-          marketPreviewByToken[a.tokenId],
-          tier,
-        );
-        if (poke != null) return false;
-        const ck = tokenToCollectionKey[a.tokenId]?.trim();
-        return Boolean(ck);
-      }),
-    [assets, tokenToCollectionKey, marketPreviewByToken],
+      assets.some((a) => Boolean(tokenToCollectionKey[a.tokenId]?.trim())),
+    [assets, tokenToCollectionKey],
   );
 
   const anyAssetUsesLivePoolStats = useMemo(
     () =>
-      assets.some((a) => {
-        const b = inferSportBucketFromRwaMetadata(a.metadata);
-        if (b === "mlb" || b === "nba" || b === "nfl") return false;
-        return Boolean(tokenToCollectionKey[a.tokenId]?.trim());
-      }),
+      assets.some((a) => Boolean(tokenToCollectionKey[a.tokenId]?.trim())),
     [assets, tokenToCollectionKey],
   );
 
-  const hasMockSportHoldings = useMemo(
-    () =>
-      assets.some((a) => {
-        const b = inferSportBucketFromRwaMetadata(a.metadata);
-        return b === "mlb" || b === "nba" || b === "nfl";
-      }),
-    [assets],
-  );
+  const portfolioMarketBatchSig = useMemo(() => {
+    const keys = [...uniqueCollectionKeys].map((k) => k.toLowerCase()).sort();
+    const hintPart = keys
+      .map((k) => {
+        const h = hintTokenIdByCollectionKey.get(k);
+        return `${k}:${h ?? ""}`;
+      })
+      .join("|");
+    return `${keys.join(",")}|${hintPart}`;
+  }, [uniqueCollectionKeys, hintTokenIdByCollectionKey]);
 
-  const statsQueries = useQueries({
-    queries: uniqueCollectionKeys.map((k) => ({
-      queryKey: ["collection-market-stats", k],
-      queryFn: () => getCollectionMarketStats(k),
-      staleTime: 60_000,
-      enabled: k.length > 0 && Boolean(address && isConnected),
-    })),
+  const {
+    data: portfolioMarketBatch,
+    isLoading: portfolioMarketBatchLoading,
+  } = useQuery({
+    queryKey: [
+      "portfolio-market-batch",
+      address ?? "",
+      portfolioMarketBatchSig,
+    ] as const,
+    queryFn: () =>
+      postPortfolioCollectionMarketBatch({
+        collectionKeys: uniqueCollectionKeys,
+        priceHistoryDuration: "365d",
+        hints: uniqueCollectionKeys
+          .map((k) => {
+            const hint = hintTokenIdByCollectionKey.get(k.toLowerCase());
+            return hint != null
+              ? { collectionKey: k, hintTokenId: hint }
+              : null;
+          })
+          .filter(
+            (x): x is { collectionKey: string; hintTokenId: number } =>
+              x != null,
+          ),
+      }),
+    enabled:
+      uniqueCollectionKeys.length > 0 && Boolean(address && isConnected),
+    staleTime: 120_000,
   });
 
   const statsByCollectionKey = useMemo(() => {
     const m = new Map<string, CollectionMarketStats>();
-    uniqueCollectionKeys.forEach((k, i) => {
-      const d = statsQueries[i]?.data;
-      if (d) m.set(k.toLowerCase(), d);
-    });
+    for (const it of portfolioMarketBatch?.items ?? []) {
+      const k = it.collectionKey.toLowerCase();
+      if (it.stats) m.set(k, it.stats);
+    }
     return m;
-  }, [uniqueCollectionKeys, statsQueries]);
-
-  const seriesQueries = useQueries({
-    queries: uniqueCollectionKeys.map((k) => {
-      const hint = hintTokenIdByCollectionKey.get(k.toLowerCase());
-      return {
-        queryKey: ["collection-market-series", "portfolio", "365d", k, hint ?? null],
-        queryFn: () =>
-          getCollectionMarketSeries(
-            k,
-            "365d",
-            hint != null ? { hintTokenId: hint } : undefined,
-          ),
-        staleTime: 120_000,
-        enabled: k.length > 0 && Boolean(address && isConnected),
-      };
-    }),
-  });
+  }, [portfolioMarketBatch]);
 
   const seriesByCollectionKey = useMemo(() => {
     const m = new Map<string, CollectionMarketSeries>();
-    uniqueCollectionKeys.forEach((k, i) => {
-      const d = seriesQueries[i]?.data;
-      if (d) m.set(k.toLowerCase(), d);
-    });
+    for (const it of portfolioMarketBatch?.items ?? []) {
+      const k = it.collectionKey.toLowerCase();
+      if (it.series) m.set(k, it.series);
+    }
     return m;
-  }, [uniqueCollectionKeys, seriesQueries]);
+  }, [portfolioMarketBatch]);
 
-  const statsLoadingAny = statsQueries.some((q) => q.isLoading);
-  const seriesLoadingAny = seriesQueries.some((q) => q.isLoading);
+  const statsLoadingAny =
+    portfolioMarketBatchLoading && anyAssetUsesLivePoolStats;
+  const seriesLoadingAny =
+    portfolioMarketBatchLoading && anyAssetNeedsSeriesForPricing;
 
   /** External + per-bucket series + pool stats still loading when needed */
   const valuesPending =
@@ -815,10 +866,15 @@ export default function PortfolioPage() {
     [allOrders, address],
   );
 
-  const priceMap = useMemo(() => {
-    const m = new Map<number, number>();
+  const listingByTokenId = useMemo(() => {
+    const m = new Map<number, { priceUsd: number; orderHash: string }>();
     for (const o of myActiveListings) {
-      m.set(Number(o.tokenId), Number(o.price) / USDC_DECIMALS);
+      const tid = Number(o.tokenId);
+      if (!Number.isFinite(tid)) continue;
+      m.set(tid, {
+        priceUsd: Number(o.price) / USDC_DECIMALS,
+        orderHash: o.orderHash,
+      });
     }
     return m;
   }, [myActiveListings]);
@@ -847,54 +903,39 @@ export default function PortfolioPage() {
 
   const pricedRows: PricedAssetRow[] = useMemo(() => {
     return assets.map((a) => {
-      const listingPrice = priceMap.get(a.tokenId) ?? null;
+      const listing = listingByTokenId.get(a.tokenId);
+      const listingPrice = listing?.priceUsd ?? null;
+      const activeListingOrderHash = listing?.orderHash ?? null;
       const ck = tokenToCollectionKey[a.tokenId]?.toLowerCase() ?? null;
       const stats = ck ? statsByCollectionKey.get(ck) ?? null : null;
       const series = ck ? seriesByCollectionKey.get(ck) ?? null : null;
 
-      const sportBucket = inferSportBucketFromRwaMetadata(a.metadata);
-      const isMockSport =
-        sportBucket === "mlb" || sportBucket === "nba" || sportBucket === "nfl";
+      const preview = pickPortfolioMarketPreview(
+        series,
+        marketPreviewByToken[a.tokenId] ?? null,
+      );
 
-      const preview = marketPreviewByToken[a.tokenId] ?? null;
-      const poke = isMockSport
-        ? null
-        : catalogSpotUsdFromMarketPreview(
-            preview?.matched && preview.card ? preview : null,
-            marketHistoryTierFromRwaMetadata(a.metadata),
-          );
-      /**
-       * PSA strip from bundled `gradePrices` (same curve as Trending Now / Exchange list snapshots).
-       * Snapshots call `representativeGradeUsd(snapshot.gradePrices, …)` with no mint-preview gate;
-       * My Assets loaded the strip only when mint preview was "reliable", so owned cards showed "—"
-       * while Trending showed a price for the same bucket. Series + snapshots share this bundle.
-       */
-      const stripFromGradePrices =
-        poke != null || isMockSport
-          ? null
-          : representativeGradeUsd(
-              series?.gradePrices ?? null,
-              gradeScoreForJustTcg(a.metadata),
-            );
+      const resolved = resolveExternalMarketUsd({
+        marketPreview: preview,
+        gradePrices: series?.gradePrices ?? null,
+        gradeScore: gradeScoreForJustTcg(a.metadata),
+        components: marketTierComponentsFromMetadata(a.metadata),
+      });
 
       let currentPrice: number | null = null;
       let priceSource: PricedAssetRow["priceSource"] = "none";
-      if (isMockSport) {
-        currentPrice = mockDemoSpotUsd(a.tokenId, sportBucket);
-        priceSource = "mock";
-      } else if (poke != null) {
-        currentPrice = poke;
-        priceSource = "cardhedger";
-      } else if (stripFromGradePrices != null) {
-        currentPrice = stripFromGradePrices;
+      if (
+        resolved.usd != null &&
+        Number.isFinite(resolved.usd) &&
+        resolved.usd > 0
+      ) {
+        currentPrice = resolved.usd;
         priceSource = "cardhedger";
       }
 
-      const liquidityLabel = isMockSport
-        ? MOCK_SPORTS_LIQUIDITY_CAPTION
-        : ck
-          ? formatLiquidityDepthLabel(stats ?? undefined)
-          : null;
+      const liquidityLabel = ck
+        ? formatLiquidityDepthLabel(stats ?? undefined)
+        : null;
 
       const displayName = displayAssetNameFromMetadata(a.metadata, `RWA #${a.tokenId}`);
       return {
@@ -907,6 +948,7 @@ export default function PortfolioPage() {
         priceSource,
         liquidityLabel,
         listPriceUsd: listingPrice,
+        activeListingOrderHash,
         subtitle: buildAssetSubtitle(a.metadata, displayName),
         gradeLabel: formatGradeDisplay(a.metadata),
         marketPreviewRaw: preview,
@@ -914,9 +956,7 @@ export default function PortfolioPage() {
     });
   }, [
     assets,
-    priceMap,
-    fulfilledOrders,
-    address,
+    listingByTokenId,
     tokenToCollectionKey,
     statsByCollectionKey,
     seriesByCollectionKey,
@@ -985,24 +1025,16 @@ export default function PortfolioPage() {
 
   const ASSET_PAGE = 10;
   const [visibleAssetCount, setVisibleAssetCount] = useState(ASSET_PAGE);
-  const visiblePoolAssetRows = useMemo(
-    () =>
-      showHiddenAssets
-        ? assetRows
-        : assetRows.filter((r) => !hiddenTokenSet.has(Number(r.tokenId))),
-    [assetRows, showHiddenAssets, hiddenTokenSet],
-  );
-  const hiddenAssetCount = assetRows.length - visiblePoolAssetRows.length;
   const listedAssetCount = useMemo(
-    () => visiblePoolAssetRows.filter((r) => r.listPriceUsd != null).length,
-    [visiblePoolAssetRows],
+    () => assetRows.filter((r) => r.listPriceUsd != null).length,
+    [assetRows],
   );
-  const unlistedAssetCount = visiblePoolAssetRows.length - listedAssetCount;
+  const unlistedAssetCount = assetRows.length - listedAssetCount;
   const filteredAssetRows = useMemo(() => {
-    if (assetFilter === "listed") return visiblePoolAssetRows.filter((r) => r.listPriceUsd != null);
-    if (assetFilter === "unlisted") return visiblePoolAssetRows.filter((r) => r.listPriceUsd == null);
-    return visiblePoolAssetRows;
-  }, [visiblePoolAssetRows, assetFilter]);
+    if (assetFilter === "listed") return assetRows.filter((r) => r.listPriceUsd != null);
+    if (assetFilter === "unlisted") return assetRows.filter((r) => r.listPriceUsd == null);
+    return assetRows;
+  }, [assetRows, assetFilter]);
 
   useEffect(() => {
     setVisibleAssetCount((n) =>
@@ -1080,9 +1112,11 @@ export default function PortfolioPage() {
     return addrs.size;
   }, [historiesFlat]);
 
-  /** Skeleton only inside My Assets; chart/stats ignore metadata & preview reloads when prior data remains (see useUserAssets keepPreviousData). */
-  const assetsSectionLoading =
-    idsLoading || assetsLoading || marketPreviewLoading;
+  /**
+   * My Assets grid: show cards as soon as token IDs + metadata batch return.
+   * Market preview + pool/series power row-level price skeletons via `valuesPending`.
+   */
+  const assetsSectionLoading = idsLoading || assetsLoading;
 
   /** Only block totals/chart curve while holdings list is unresolved or series for pricing paths are unavailable. */
   const chartTotalsPending =
@@ -1181,23 +1215,6 @@ export default function PortfolioPage() {
     totalValue,
   ]);
 
-  /** Slight path smoothing when the book includes MLB/NFL/NBA rows (end point stays the live total). */
-  const chartPointsDisplay = useMemo(() => {
-    const pts = chartPoints;
-    if (pts.length < 2 || !hasMockSportHoldings) return pts;
-    const out = [...pts];
-    const end = out[out.length - 1]!;
-    const seed = (address?.codePointAt(0) ?? 1) + (period === "1D" ? 3 : period === "1W" ? 5 : 7);
-    for (let i = 0; i < out.length - 1; i++) {
-      const frac = (i + 0.5) / Math.max(1, out.length - 1);
-      const wave =
-        Math.sin(frac * Math.PI * 2 + seed * 0.01) * 0.028 + (frac - 0.5) * 0.018;
-      out[i] = Math.max(0, end * (1 + wave));
-    }
-    out[out.length - 1] = end;
-    return out;
-  }, [chartPoints, hasMockSportHoldings, address, period]);
-
   if (!isConnected) {
     return (
       <div className="min-h-screen bg-[#030712] text-white flex items-center justify-center">
@@ -1216,7 +1233,7 @@ export default function PortfolioPage() {
 
   return (
     <div className="min-h-screen bg-[#030712] text-white">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 pb-20">
+      <div className={`${APP_MAIN_SHELL_CLASS} py-8 pb-20`}>
         {/* Title */}
         <div className="mb-8">
           <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight mb-1">
@@ -1279,7 +1296,7 @@ export default function PortfolioPage() {
               <div className="w-full h-full bg-gray-800/40 rounded-lg animate-pulse" />
             ) : (
               <PortfolioChart
-                points={chartPointsDisplay}
+                points={chartPoints}
                 period={period}
                 currentValue={totalValue}
               />
@@ -1334,14 +1351,14 @@ export default function PortfolioPage() {
                   assetFilter === "all" ? "bg-mint text-[#061018]" : "text-gray-400 hover:text-white"
                 }`}
               >
-                All <span className="tabular-nums">({visiblePoolAssetRows.length})</span>
+                All <span className="tabular-nums">({assetRows.length})</span>
               </button>
               <button
                 type="button"
                 onClick={() => setAssetFilter("listed")}
                 className={`rounded-full px-3 py-1 font-semibold transition-colors ${
                   assetFilter === "listed"
-                    ? "bg-emerald-500/90 text-[#061018]"
+                    ? "bg-mint text-mint-ink"
                     : "text-gray-400 hover:text-white"
                 }`}
               >
@@ -1359,21 +1376,12 @@ export default function PortfolioPage() {
                 Not listed <span className="tabular-nums">({unlistedAssetCount})</span>
               </button>
             </div>
-            <button
-              type="button"
-              onClick={() => setShowHiddenAssets((v) => !v)}
-              className={`rounded-full border px-3 py-1 text-[11px] font-semibold transition-colors ${
-                showHiddenAssets
-                  ? "border-amber-400/50 bg-amber-500/15 text-amber-200"
-                  : "border-gray-700/80 bg-gray-900/70 text-gray-400 hover:text-white"
-              }`}
-            >
-              {showHiddenAssets ? "Hide Hidden" : "Show Hidden"}
-              {hiddenAssetCount > 0 ? (
-                <span className="ml-1 tabular-nums">({hiddenAssetCount})</span>
-              ) : null}
-            </button>
           </div>
+          {marketPreviewLoading && !assetsSectionLoading && assets.length > 0 ? (
+            <p className="mb-3 text-[11px] text-zinc-500">
+              Updating Cardhedger market estimates…
+            </p>
+          ) : null}
           {assetsSectionLoading ? (
             <div className="-mx-1 grid grid-cols-1 gap-4 pb-2 pt-0.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {[...Array(5)].map((_, i) => (
@@ -1406,7 +1414,7 @@ export default function PortfolioPage() {
             <div
               className={
                 filteredAssetRows.length > 4
-                  ? "max-h-[560px] overflow-y-auto pr-1 scrollbar-platform"
+                  ? "max-h-[560px] overflow-y-auto pr-1"
                   : "overflow-visible"
               }
             >
@@ -1450,45 +1458,13 @@ export default function PortfolioPage() {
                   className="group flex w-full flex-col overflow-hidden rounded-xl border border-gray-800/90 bg-gradient-to-b from-gray-900/80 to-[#0a1018] text-left shadow-lg shadow-black/20 transition-all hover:border-mint/25 hover:shadow-mint/5"
                 >
                   <div className="relative aspect-[3/4] w-full bg-[#070a0f]">
-                    <div className="absolute left-2 top-2 z-10">
-                      <button
-                        type="button"
-                        onClick={async (e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          const tokenId = Number(r.tokenId);
-                          if (mutatingHiddenTokenIds.includes(tokenId)) return;
-                          setMutatingHiddenTokenIds((prev) => [...prev, tokenId]);
-                          try {
-                            if (hiddenTokenSet.has(tokenId)) {
-                              await unhideMutation.mutateAsync(tokenId);
-                            } else {
-                              await hideMutation.mutateAsync(tokenId);
-                            }
-                          } finally {
-                            setMutatingHiddenTokenIds((prev) => prev.filter((n) => n !== tokenId));
-                          }
-                        }}
-                        className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-bold tracking-wide transition-colors ${
-                          hiddenTokenSet.has(Number(r.tokenId))
-                            ? "border-amber-300/45 bg-amber-500/25 text-amber-100 hover:bg-amber-500/35"
-                            : "border-zinc-400/45 bg-black/45 text-zinc-200 hover:bg-black/65"
-                        }`}
-                      >
-                        {mutatingHiddenTokenIds.includes(Number(r.tokenId))
-                          ? "Saving..."
-                          : hiddenTokenSet.has(Number(r.tokenId))
-                            ? "Unhide"
-                            : "Hide"}
-                      </button>
-                    </div>
                     {tokenableVsEbayPct != null ? (
                       <div className="group absolute right-2 top-2 z-10">
                         <span
                           className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-extrabold tabular-nums shadow-[0_4px_14px_rgba(0,0,0,0.35)] ${
                             tokenableVsEbayPct >= 0
-                              ? "border-amber-300/35 bg-amber-500/35 text-amber-100"
-                              : "border-emerald-300/35 bg-emerald-500/35 text-emerald-100"
+                              ? "border border-[rgba(0,187,61,1)] bg-[rgba(0,0,0,0.5)] text-[rgba(0,187,61,1)]"
+                              : "border-mint/35 bg-mint/35 text-white"
                           }`}
                         >
                           Market Gap {tokenableVsEbayPct >= 0 ? "+" : ""}
@@ -1528,17 +1504,12 @@ export default function PortfolioPage() {
                         <span
                           className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
                             r.listPriceUsd != null
-                              ? "bg-emerald-500/15 text-emerald-300"
+                              ? "bg-mint/15 text-mint"
                               : "bg-zinc-700/40 text-zinc-300"
                           }`}
                         >
                           {r.listPriceUsd != null ? "Listed" : "Not listed"}
                         </span>
-                        {hiddenTokenSet.has(Number(r.tokenId)) ? (
-                          <span className="inline-flex items-center rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-200">
-                            Hidden
-                          </span>
-                        ) : null}
                         {r.category && (
                           <CategoryBadge label={r.category} />
                         )}
@@ -1577,7 +1548,7 @@ export default function PortfolioPage() {
                       </div>
                       <div className="flex justify-between gap-2">
                         <dt className="text-gray-500">Tokenable Price</dt>
-                        <dd className="text-right tabular-nums font-semibold text-emerald-300">
+                        <dd className="text-right tabular-nums font-semibold text-mint">
                           {r.listPriceUsd != null
                             ? `$${r.listPriceUsd.toLocaleString(undefined, {
                                 maximumFractionDigits: 0,
@@ -1592,6 +1563,49 @@ export default function PortfolioPage() {
                         </dd>
                       </div>
                     </dl>
+                    {r.listPriceUsd != null && r.activeListingOrderHash && address ? (
+                      <div className="border-t border-gray-800/80 pt-3">
+                        <button
+                          type="button"
+                          disabled={cancellingListingTokenId === r.tokenId}
+                          onClick={async (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            if (!address || !r.activeListingOrderHash) return;
+                            setCancellingListingTokenId(r.tokenId);
+                            const qk = rq.ordersActive();
+                            const prev = queryClient.getQueryData<OrderListItem[]>(qk);
+                            queryClient.setQueryData<OrderListItem[]>(qk, (old) =>
+                              (old ?? []).filter(
+                                (o) => o.orderHash !== r.activeListingOrderHash,
+                              ),
+                            );
+                            try {
+                              await cancelOrder(r.activeListingOrderHash, address);
+                              await refetchActiveOrders();
+                            } catch (err) {
+                              if (prev !== undefined) {
+                                queryClient.setQueryData(qk, prev);
+                              } else {
+                                void queryClient.invalidateQueries({ queryKey: qk });
+                              }
+                              window.alert(
+                                err instanceof Error
+                                  ? err.message
+                                  : "Failed to cancel listing",
+                              );
+                            } finally {
+                              setCancellingListingTokenId(null);
+                            }
+                          }}
+                          className="w-full rounded-lg border border-rose-500/35 bg-rose-500/10 px-3 py-2.5 text-center text-[12px] font-semibold text-rose-200 transition-colors hover:border-rose-400/45 hover:bg-rose-500/18 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {cancellingListingTokenId === r.tokenId
+                            ? "Cancelling…"
+                            : "Cancel listing"}
+                        </button>
+                      </div>
+                    ) : null}
                   </div>
                 </div>
                   );
@@ -1616,7 +1630,7 @@ export default function PortfolioPage() {
               No transactions yet
             </p>
           ) : (
-            <div className="overflow-hidden rounded-xl border border-gray-800/60 max-h-[264px] overflow-y-auto scrollbar-thin">
+            <div className="overflow-hidden rounded-xl border border-gray-800/60 max-h-[264px] overflow-y-auto">
               <table className="w-full text-[13px] table-fixed">
                 <colgroup>
                   <col style={{ width: "10%" }} />

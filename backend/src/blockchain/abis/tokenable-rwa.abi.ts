@@ -8,8 +8,18 @@ export const TOKENABLE_RWA_ABI = [
     anonymous: false,
     inputs: [
       { indexed: true, internalType: 'address', name: 'to', type: 'address' },
-      { indexed: true, internalType: 'uint256', name: 'tokenId', type: 'uint256' },
-      { indexed: false, internalType: 'string', name: 'tokenURI', type: 'string' },
+      {
+        indexed: true,
+        internalType: 'uint256',
+        name: 'tokenId',
+        type: 'uint256',
+      },
+      {
+        indexed: false,
+        internalType: 'string',
+        name: 'tokenURI',
+        type: 'string',
+      },
     ],
     name: 'Minted',
     type: 'event',
@@ -19,7 +29,12 @@ export const TOKENABLE_RWA_ABI = [
     inputs: [
       { indexed: true, internalType: 'address', name: 'from', type: 'address' },
       { indexed: true, internalType: 'address', name: 'to', type: 'address' },
-      { indexed: true, internalType: 'uint256', name: 'tokenId', type: 'uint256' },
+      {
+        indexed: true,
+        internalType: 'uint256',
+        name: 'tokenId',
+        type: 'uint256',
+      },
     ],
     name: 'Transfer',
     type: 'event',

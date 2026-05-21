@@ -6,135 +6,22 @@ import { useQuery } from "@tanstack/react-query";
 import {
   getActiveOrders,
   postMarketplaceCollectionSnapshotsBatched,
+  rq,
+  marketplaceRqPolicy,
   type CollectionListMarketSnapshot,
-  type CollectionUsdPoint,
   type MarketplaceCollectionSummary,
-  type OrderListItem,
 } from "@/lib/core";
-import { rq, marketplaceRqPolicy } from "@/lib/core";
 import { useMarketplaceCollectionsInfinite } from "@/hooks/useMarketplaceCollectionsInfinite";
 import { CollectionCoverFrame } from "@/components/marketplace/CollectionCoverFrame";
-import { TrendingCollectionsCarousel } from "@/components/landing/TrendingCollectionsCarousel";
+import { useResolvedMediaUrlMap } from "@/hooks/useResolvedMediaUrl";
 import { CollectionCategoryFilterBar } from "@/components/marketplace/CollectionCategoryFilterBar";
 import { CollectionListSparkline } from "@/components/marketplace/CollectionListSparkline";
 import {
   collectionMatchesCategoryFilter,
-  inferCollectionSportBucket,
   type CollectionCategoryFilterId,
 } from "@/lib/market";
 import { parseGradeScoreNumber, representativeGradeUsd } from "@/lib/market";
 import { toCardDisplayUppercase } from "@/lib/marketplace/collectionFullDetailsTitle";
-
-const USDC_DECIMALS = 1_000_000;
-
-function seeded01FromKey(key: string): number {
-  if (!key) return 0.5;
-  let h = 2166136261 >>> 0;
-  for (let i = 0; i < key.length; i++) {
-    h ^= key.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return (h >>> 0) / 0xffffffff;
-}
-
-function isMockSportBucket(bucket: string): bucket is "nba" | "mlb" | "nfl" {
-  return bucket === "nba" || bucket === "mlb" || bucket === "nfl";
-}
-
-function buildMockSportsSparkline(collectionKey: string, days = 365): CollectionUsdPoint[] {
-  const seed = seeded01FromKey(collectionKey);
-  const startUsd = 900;
-  const endUsd = 1500;
-  const spanUsd = endUsd - startUsd;
-  const waveAmp = 0.008 + seed * 0.014;
-  const n = Math.max(30, Math.min(365, Math.floor(days)));
-  const now = Math.floor(Date.now() / 1000);
-  const out: CollectionUsdPoint[] = [];
-  for (let i = 0; i < n; i++) {
-    const progress = i / Math.max(1, n - 1);
-    const age = n - 1 - i;
-    const t = now - age * 86400;
-    const phase = progress * Math.PI * 6;
-    const cyc = Math.sin(phase + seed * Math.PI * 2) * waveAmp;
-    const base = startUsd + spanUsd * progress;
-    out.push({ t, v: Math.max(1, Math.round(base * (1 + cyc) * 100) / 100) });
-  }
-  return out;
-}
-
-function percentChangeFromPoints(points: CollectionUsdPoint[] | null | undefined): number | null {
-  const arr = points ?? [];
-  if (arr.length < 2) return null;
-  const first = arr[0]?.v;
-  const last = arr[arr.length - 1]?.v;
-  if (!Number.isFinite(first) || !Number.isFinite(last) || !first || first <= 0) return null;
-  return ((last - first) / first) * 100;
-}
-
-function useMarketStats(orders: OrderListItem[], collectionsCount: number) {
-  return useMemo(() => {
-    const askOrders = orders.filter((o) => String(o.side ?? "ask").toLowerCase() !== "bid");
-
-    let totalValueMicros = BigInt(0);
-    for (const o of askOrders) {
-      try {
-        totalValueMicros += BigInt(o.price ?? "0");
-      } catch {
-        /* skip */
-      }
-    }
-    const totalValue = Number(totalValueMicros) / USDC_DECIMALS;
-    const totalListings = askOrders.length;
-
-    return {
-      totalValue,
-      totalListings,
-      totalCollections: collectionsCount,
-    };
-  }, [orders, collectionsCount]);
-}
-
-function StatCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-gray-800 bg-gray-900/50 px-5 py-7 text-center sm:px-6 sm:py-8">
-      <p className="mb-3 text-sm font-medium text-gray-400 sm:text-base">{label}</p>
-      <p className="text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
-        {value}
-      </p>
-    </div>
-  );
-}
-
-/** Mobile-only: three headline stats in one horizontal row inside a single card. */
-function MarketsStatsMobileStrip(props: {
-  marketCapDisplay: string;
-  listingsDisplay: string;
-  collectionsDisplay: string;
-}) {
-  const cell = (
-    label: string,
-    value: string,
-  ) => (
-    <div className="flex min-h-[3.75rem] min-w-0 flex-col items-center justify-center gap-0.5 px-1.5 text-center">
-      <p className="line-clamp-2 text-[0.6875rem] font-medium leading-tight text-gray-400">
-        {label}
-      </p>
-      <p className="truncate text-base font-extrabold tabular-nums tracking-tight text-white">
-        {value}
-      </p>
-    </div>
-  );
-
-  return (
-    <div className="rounded-2xl border border-gray-800 bg-gray-900/50 px-2 py-3 sm:hidden">
-      <div className="grid min-w-0 grid-cols-3 divide-x divide-gray-700/70">
-        {cell("Market CAP", props.marketCapDisplay)}
-        {cell("Active listings", props.listingsDisplay)}
-        {cell("Collections", props.collectionsDisplay)}
-      </div>
-    </div>
-  );
-}
 
 function formatUsd(n: number | null | undefined): string {
   if (n == null || !Number.isFinite(n)) return "—";
@@ -168,6 +55,35 @@ function formatSignedPct(pct: number): string {
   return `${sign}${pct.toFixed(1)}%`;
 }
 
+/** Markets copy — matches backend snapshot `marketChangeWindow` suffix (e.g. `1yr`). */
+function formatMarketChangeWindowShort(
+  w: CollectionListMarketSnapshot["marketChangeWindow"] | undefined | null,
+): string {
+  if (w == null) return "";
+  const map: Record<string, string> = {
+    "24h": "24h",
+    "7d": "7d",
+    "30d": "30d",
+    "90d": "90d",
+    "180d": "6mo",
+    "365d": "1yr",
+  };
+  return map[w] ?? w;
+}
+
+/** Grid + list pills — compact single-line stack (nowrap + horizontal scroll fallback on narrow widths) */
+const EXCHANGE_CARD_BADGE_BASE =
+  "box-border inline-flex h-[18px] max-w-none shrink-0 items-center justify-center rounded-[3px] border px-[4px] text-[9px] font-semibold leading-none tracking-tight sm:h-5 sm:px-[5px] sm:text-[10px]";
+
+/** Numeric / %-style badges — tabular figures */
+const EXCHANGE_CARD_BADGE_NUMERIC = `${EXCHANGE_CARD_BADGE_BASE} whitespace-nowrap tabular-nums gap-0.5`;
+
+/** Pop / Listed neutral chrome */
+const EXCHANGE_CARD_BADGE_KV = `${EXCHANGE_CARD_BADGE_BASE} gap-0.5 whitespace-nowrap border-[rgba(255,255,255,0.22)] bg-black/50 text-white`;
+
+const EXCHANGE_CARD_INFO_BADGE_ROW =
+  "flex min-w-0 flex-nowrap items-center gap-1 overflow-x-auto pb-px [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
+
 /** On-platform listing pool: highest “price tier” first (floor → median → p75); rows without stats last. */
 function exchangePoolPriceSortKey(s: CollectionListMarketSnapshot | undefined): [number, number, number] {
   const ms = s?.marketStats;
@@ -194,12 +110,14 @@ function CollectionRow({
   collection,
   listingCount,
   snapshot,
+  resolvedCoverUrl,
 }: {
   collection: MarketplaceCollectionSummary;
   listingCount: number;
   snapshot: CollectionListMarketSnapshot | undefined;
+  resolvedCoverUrl?: string;
 }) {
-  const comp = collection.components as { gradeScore?: string };
+  const comp = collection.components as Record<string, unknown> & { gradeScore?: string };
 
   const jtSpot = representativeGradeUsd(
     snapshot?.gradePrices ?? null,
@@ -216,30 +134,33 @@ function CollectionRow({
       ? snapshot.lastTokenableTradeUsdc
       : null;
   const refUsd = jtSpot != null && Number.isFinite(jtSpot) && jtSpot > 0 ? jtSpot : null;
-  const bucket = inferCollectionSportBucket(collection, snapshot);
-  const mockSparkline = isMockSportBucket(bucket)
-    ? buildMockSportsSparkline(collection.collectionKey, 365)
-    : null;
   const sparklinePoints =
     snapshot?.sparklineUsd != null && snapshot.sparklineUsd.length >= 2
       ? snapshot.sparklineUsd
-      : mockSparkline;
-  const fallbackRefUsd = mockSparkline?.[mockSparkline.length - 1]?.v ?? null;
-  const effectiveRefUsd = refUsd ?? fallbackRefUsd;
+      : null;
+  const effectiveRefUsd = refUsd;
   const tokenablePrice = floor ?? lastTrade;
   const tokenableVsRefPct = percentDiffVersusRef(tokenablePrice, effectiveRefUsd);
-  const upTo1yChangePct = pct != null && Number.isFinite(pct) ? pct : percentChangeFromPoints(sparklinePoints);
+  const changePctExternal =
+    pct != null && Number.isFinite(pct) ? pct : null;
+  const changeWinShort = formatMarketChangeWindowShort(snapshot?.marketChangeWindow);
+
+  const trendPct =
+    snapshot?.marketChangePct != null && Number.isFinite(snapshot.marketChangePct)
+      ? snapshot.marketChangePct
+      : null;
+  const pop = parsePsaPopulationFromComponents(comp);
 
   return (
     <Link
       href={`/marketplace/collections/${encodeURIComponent(collection.collectionKey)}`}
-      className="group flex flex-col gap-4 rounded-3xl border border-zinc-700/70 bg-gradient-to-r from-[#0f1117] via-[#10131a] to-[#0e1218] px-4 py-4 transition-all hover:border-mint/35 hover:shadow-[0_0_26px_rgba(148,255,212,0.08)] sm:flex-row sm:items-center sm:gap-6 sm:px-6 sm:py-6"
+      className="group flex flex-col gap-3 rounded-2xl border border-zinc-700/70 bg-gradient-to-r from-[#0f1117] via-[#10131a] to-[#0e1218] px-3 py-3 transition-all hover:border-mint/35 hover:shadow-[0_0_26px_rgba(135,255,72,0.12)] sm:flex-row sm:items-center sm:gap-6 sm:rounded-3xl sm:px-6 sm:py-6"
     >
-      <div className="relative w-full max-w-[156px] shrink-0 self-center sm:w-[196px] sm:max-w-none sm:self-auto">
-        {collection.coverImageUrl ? (
+      <div className="relative w-full max-w-[min(156px,48vw)] shrink-0 self-center sm:w-[196px] sm:max-w-none sm:self-auto">
+        {(resolvedCoverUrl || collection.coverImageUrl) ? (
           <div className="aspect-[3/4] w-full overflow-hidden rounded-2xl border border-gray-800/80">
             <CollectionCoverFrame
-              imageUrl={collection.coverImageUrl}
+              imageUrl={resolvedCoverUrl || collection.coverImageUrl!}
               variant="compact"
               className="h-full w-full object-cover"
             />
@@ -250,48 +171,78 @@ function CollectionRow({
       </div>
 
       <div className="min-w-0 flex-1">
-        <h3 className="truncate text-xl font-extrabold uppercase tracking-tight text-white transition-colors group-hover:text-mint sm:text-2xl">
+        <h3 className="line-clamp-2 break-words text-lg font-extrabold uppercase tracking-tight text-white transition-colors group-hover:text-mint sm:line-clamp-1 sm:truncate sm:text-2xl">
           {toCardDisplayUppercase(collection.displayLabel)}
         </h3>
-        {(tokenableVsRefPct != null || upTo1yChangePct != null) ? (
-          <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px] sm:text-xs">
-            {tokenableVsRefPct != null ? (
-              <span
-                className={`inline-flex rounded-full border px-2.5 py-0.5 font-bold tabular-nums ${
-                  tokenableVsRefPct >= 0
-                    ? "border-amber-300/35 bg-amber-500/20 text-amber-200"
-                    : "border-emerald-300/35 bg-emerald-500/20 text-emerald-200"
-                }`}
-                title={`Tokenable Price (${tokenablePrice != null ? formatUsd(tokenablePrice) : "—"}) vs eBay (${effectiveRefUsd != null ? formatUsd(effectiveRefUsd) : "—"})`}
-              >
-                Market Gap {tokenableVsRefPct >= 0 ? "+" : ""}
-                {tokenableVsRefPct.toFixed(1)}%
-              </span>
-            ) : null}
-            {upTo1yChangePct != null ? (
-              <span
-                className={`inline-flex rounded-full border px-2.5 py-0.5 font-bold tabular-nums ${
-                  upTo1yChangePct >= 0
-                    ? "border-emerald-300/30 bg-emerald-500/15 text-emerald-200"
-                    : "border-rose-300/30 bg-rose-500/15 text-rose-200"
-                }`}
-                title="External history change: oldest visible point to latest point (up to 1 year)"
-              >
-                1Y Trend {upTo1yChangePct >= 0 ? "+" : ""}
-                {upTo1yChangePct.toFixed(1)}%
-              </span>
-            ) : null}
-          </div>
-        ) : null}
-        <dl className="mt-3 grid gap-y-2 text-sm leading-tight text-zinc-300 sm:text-base">
-          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <dt className="min-w-[7.25rem] shrink-0 text-zinc-400 sm:min-w-[9.5rem]">Active Listings</dt>
-            <dd className="tabular-nums text-base font-bold text-white sm:text-lg">{listingCount}</dd>
-          </div>
-          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <dt className="min-w-[7.25rem] shrink-0 text-zinc-400 sm:min-w-[9.5rem]">Market Price</dt>
+        <div className={`mt-1.5 ${EXCHANGE_CARD_INFO_BADGE_ROW}`}>
+          {trendPct != null ? (
+            <span
+              className={`${EXCHANGE_CARD_BADGE_NUMERIC} ${
+                trendPct >= 0
+                  ? "border border-[rgba(0,187,61,1)] bg-[rgba(0,0,0,0.5)] text-[rgba(0,187,61,1)]"
+                  : "border-rose-400/45 bg-black/50 text-rose-300"
+              }`}
+              title={
+                snapshot?.marketChangeWindow
+                  ? `External reference (${snapshot.marketChangeWindow})`
+                  : "External reference vs prior window"
+              }
+            >
+              {formatSignedPct(trendPct)}
+              {changeWinShort ? ` ${changeWinShort}` : ""}
+            </span>
+          ) : null}
+          {pop != null ? (
+            <span className={EXCHANGE_CARD_BADGE_KV} title={`PSA population: ${pop.toLocaleString()}`}>
+              <span>Pop</span>
+              <span className="tabular-nums">{pop.toLocaleString()}</span>
+            </span>
+          ) : null}
+          <span
+            className={EXCHANGE_CARD_BADGE_KV}
+            title={`${listingCount} listing${listingCount !== 1 ? "s" : ""} on Tokenable`}
+          >
+            <span>Listed</span>
+            <span className="tabular-nums">{listingCount}</span>
+          </span>
+          {tokenableVsRefPct != null ? (
+            <span
+              className={`${EXCHANGE_CARD_BADGE_NUMERIC} ${
+                tokenableVsRefPct >= 0
+                  ? "border border-[rgba(0,187,61,1)] bg-[rgba(0,0,0,0.5)] text-[rgba(0,187,61,1)]"
+                  : "border-mint/35 bg-mint/20 text-white/95"
+              }`}
+              title={`Tokenable Price (${tokenablePrice != null ? formatUsd(tokenablePrice) : "—"}) vs eBay (${effectiveRefUsd != null ? formatUsd(effectiveRefUsd) : "—"})`}
+            >
+              Gap{" "}
+              {tokenableVsRefPct >= 0 ? "+" : ""}
+              {tokenableVsRefPct.toFixed(1)}%
+            </span>
+          ) : null}
+          {changePctExternal != null ? (
+            <span
+              className={`${EXCHANGE_CARD_BADGE_NUMERIC} ${
+                changePctExternal >= 0
+                  ? "border border-[rgba(0,187,61,1)] bg-[rgba(0,0,0,0.5)] text-[rgba(0,187,61,1)]"
+                  : "border-rose-300/30 bg-rose-500/15 text-rose-200"
+              }`}
+              title={
+                snapshot?.marketChangeWindow != null && snapshot.marketChangeWindow.length > 0
+                  ? `External reference (${snapshot.marketChangeWindow}): interpolated change on Cardhedger history`
+                  : "External reference: interpolated change on Cardhedger history"
+              }
+            >
+              {changeWinShort ? `${changeWinShort} ` : ""}
+              {changePctExternal >= 0 ? "+" : ""}
+              {changePctExternal.toFixed(1)}%
+            </span>
+          ) : null}
+        </div>
+        <dl className="mt-3 space-y-2 text-xs leading-snug text-zinc-300 sm:text-sm sm:leading-tight">
+          <div className="flex items-baseline justify-between gap-2">
+            <dt className="max-w-[58%] shrink-0 text-white">Price</dt>
             <dd
-              className="tabular-nums text-base font-bold text-cyan-300 sm:text-lg"
+              className="min-w-0 text-right tabular-nums text-sm font-bold text-[rgba(135,255,72,1)] sm:text-base md:text-lg"
               title="External eBay reference price."
             >
               {effectiveRefUsd != null ? (
@@ -301,80 +252,68 @@ function CollectionRow({
               )}
             </dd>
           </div>
-          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <dt className="min-w-[7.25rem] shrink-0 text-zinc-400 sm:min-w-[9.5rem]">Tokenable Price</dt>
-            <dd
-              className="tabular-nums text-base font-bold text-emerald-300 sm:text-lg"
-              title={floor != null ? "Current Tokenable floor listing (active asks)." : "Most recent Tokenable trade (fallback when no active floor)."}
-            >
-              {tokenablePrice != null ? formatUsd(tokenablePrice) : "—"}
-            </dd>
-          </div>
         </dl>
       </div>
 
-      <div className="flex w-full shrink-0 flex-col items-stretch gap-1 sm:w-auto sm:items-end">
+      <div className="flex w-full min-w-0 shrink-0 flex-col items-stretch gap-1 sm:w-auto sm:items-end">
         <CollectionListSparkline
           points={sparklinePoints}
-          positive={upTo1yChangePct == null ? undefined : upTo1yChangePct >= 0}
-          className="h-16 w-full sm:h-20 sm:w-40"
+          positive={changePctExternal == null ? undefined : changePctExternal >= 0}
+          className="h-14 w-full max-w-full sm:h-20 sm:w-40"
         />
       </div>
     </Link>
   );
 }
 
+function parsePsaPopulationFromComponents(components: Record<string, unknown>): number | null {
+  const raw = components.psaTotalPopulation;
+  if (typeof raw === "number" && Number.isFinite(raw) && raw >= 0) {
+    return Math.floor(raw);
+  }
+  if (typeof raw === "string" && raw.trim()) {
+    const n = Number(String(raw).replace(/,/g, ""));
+    if (Number.isFinite(n) && n >= 0) return Math.floor(n);
+  }
+  return null;
+}
+
 function CollectionGridCard({
   collection,
   snapshot,
+  resolvedCoverUrl,
+  listingCount,
 }: {
   collection: MarketplaceCollectionSummary;
   snapshot: CollectionListMarketSnapshot | undefined;
+  resolvedCoverUrl?: string;
+  listingCount: number;
 }) {
-  const comp = collection.components as { gradeScore?: string };
-
+  const comp = collection.components as Record<string, unknown> & { gradeScore?: string };
   const jtSpot = representativeGradeUsd(
     snapshot?.gradePrices ?? null,
     parseGradeScoreNumber(comp.gradeScore),
   );
-  const ms = snapshot?.marketStats ?? null;
-  const tokenablePrice =
-    ms?.floor != null && Number.isFinite(ms.floor) && ms.floor > 0
-      ? ms.floor
-      : snapshot?.lastTokenableTradeUsdc != null &&
-          Number.isFinite(snapshot.lastTokenableTradeUsdc) &&
-          snapshot.lastTokenableTradeUsdc > 0
-        ? snapshot.lastTokenableTradeUsdc
-        : null;
-  const bucket = inferCollectionSportBucket(collection, snapshot);
-  const mockSparkline = isMockSportBucket(bucket)
-    ? buildMockSportsSparkline(collection.collectionKey, 365)
-    : null;
-  const fallbackRefUsd = mockSparkline?.[mockSparkline.length - 1]?.v ?? null;
-  const eBayUsd =
-    jtSpot != null && Number.isFinite(jtSpot) && jtSpot > 0 ? jtSpot : fallbackRefUsd;
+  const marketPriceUsd =
+    jtSpot != null && Number.isFinite(jtSpot) && jtSpot > 0 ? jtSpot : null;
 
-  const sparkPoints =
-    snapshot?.sparklineUsd != null && snapshot.sparklineUsd.length >= 2
-      ? snapshot.sparklineUsd
-      : mockSparkline;
-  const gridSparkPctChange = percentChangeFromPoints(mockSparkline);
-  const pctPositive =
-    snapshot?.marketChangePct != null
-      ? snapshot.marketChangePct >= 0
-      : gridSparkPctChange != null
-        ? gridSparkPctChange >= 0
-        : undefined;
+  const trendPct =
+    snapshot?.marketChangePct != null && Number.isFinite(snapshot.marketChangePct)
+      ? snapshot.marketChangePct
+      : null;
+
+  const windowShort = formatMarketChangeWindowShort(snapshot?.marketChangeWindow);
+  const pop = parsePsaPopulationFromComponents(comp);
 
   return (
     <Link
       href={`/marketplace/collections/${encodeURIComponent(collection.collectionKey)}`}
-      className="group overflow-hidden rounded-2xl border border-zinc-800/80 bg-[#0d1118] transition-colors hover:border-mint/35"
+      className="group flex h-full flex-col overflow-hidden rounded-2xl border border-zinc-800/90 bg-black transition-colors hover:border-zinc-600"
     >
-      <div className="aspect-[3/4] bg-[#0a0f16]">
-        {collection.coverImageUrl ? (
+      <div className="aspect-[3/4] shrink-0 bg-[#0a0a0a]">
+        {(resolvedCoverUrl || collection.coverImageUrl) ? (
           <CollectionCoverFrame
-            imageUrl={collection.coverImageUrl}
+            imageUrl={resolvedCoverUrl || collection.coverImageUrl!}
             variant="compact"
             className="h-full w-full object-cover"
           />
@@ -382,36 +321,62 @@ function CollectionGridCard({
           <div className="h-full w-full bg-zinc-900" />
         )}
       </div>
-      <div className="space-y-2 p-3">
-        <h3 className="truncate text-lg font-semibold uppercase text-white">{toCardDisplayUppercase(collection.displayLabel)}</h3>
-        <div className="flex min-w-0 items-stretch gap-2 rounded-xl border border-zinc-800/70 bg-black/30 px-2 py-1.5">
-          <dl className="min-w-0 flex-1 space-y-1.5 text-[10px] leading-tight tabular-nums sm:text-[11px]">
-            <div className="min-w-0">
-              <dt className="text-zinc-500">Market price</dt>
-              <dd
-                className="truncate text-xs font-semibold text-cyan-300 sm:text-sm"
-                title={eBayUsd != null ? formatUsd(eBayUsd) : undefined}
-              >
-                {eBayUsd != null ? formatUsd(eBayUsd) : "—"}
-              </dd>
-            </div>
-            <div className="min-w-0">
-              <dt className="text-zinc-500">Tokenable Price</dt>
-              <dd
-                className="truncate text-xs font-semibold text-emerald-300 sm:text-sm"
-                title={tokenablePrice != null ? formatUsd(tokenablePrice) : undefined}
-              >
-                {tokenablePrice != null ? formatUsd(tokenablePrice) : "—"}
-              </dd>
-            </div>
-          </dl>
-          <div className="flex w-[38%] max-w-[5.75rem] min-w-[4.25rem] shrink-0 flex-col justify-center border-l border-zinc-800/60 pl-2">
-            <CollectionListSparkline
-              points={sparkPoints}
-              positive={pctPositive}
-              className="h-10 min-h-[2.5rem] w-full min-w-0"
-            />
-          </div>
+      <div className="flex min-h-0 flex-1 flex-col gap-1.5 p-2.5 sm:gap-2 sm:p-3">
+        <div className={EXCHANGE_CARD_INFO_BADGE_ROW}>
+          {trendPct != null ? (
+            <span
+              className={`${EXCHANGE_CARD_BADGE_NUMERIC} ${
+                trendPct >= 0
+                  ? "border border-[rgba(0,187,61,1)] bg-[rgba(0,0,0,0.5)] text-[rgba(0,187,61,1)]"
+                  : "border-rose-400/45 bg-black/50 text-rose-300"
+              }`}
+              title={
+                snapshot?.marketChangeWindow
+                  ? `External reference (${snapshot.marketChangeWindow})`
+                  : "External reference vs prior window"
+              }
+            >
+              {formatSignedPct(trendPct)}
+              {windowShort ? ` ${windowShort}` : ""}
+            </span>
+          ) : null}
+          {pop != null ? (
+            <span
+              className={EXCHANGE_CARD_BADGE_KV}
+              title={`PSA population: ${pop.toLocaleString()}`}
+            >
+              <span>Pop</span>
+              <span className="tabular-nums">{pop.toLocaleString()}</span>
+            </span>
+          ) : null}
+          <span
+            className={EXCHANGE_CARD_BADGE_KV}
+            title={`${listingCount} listing${listingCount !== 1 ? "s" : ""} on Tokenable`}
+          >
+            <span>Listed</span>
+            <span className="tabular-nums">{listingCount}</span>
+          </span>
+        </div>
+
+        <h3
+          className="line-clamp-2 break-words text-[0.8125rem] font-bold leading-snug text-white sm:text-[1.05rem]"
+          title={collection.displayLabel}
+        >
+          {collection.displayLabel}
+        </h3>
+
+        <div className="mt-auto flex items-baseline justify-between gap-2 pt-0.5">
+          <span className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-white sm:text-[11px]">
+            Price
+          </span>
+          <span
+            className="min-w-0 truncate text-right text-[0.9375rem] font-bold tabular-nums leading-none text-[rgba(135,255,72,1)] sm:text-lg"
+            title={
+              marketPriceUsd != null ? formatUsd(marketPriceUsd) : "External reference (eBay strip)"
+            }
+          >
+            {marketPriceUsd != null ? formatUsd(marketPriceUsd) : "—"}
+          </span>
         </div>
       </div>
     </Link>
@@ -442,8 +407,16 @@ export default function ExchangePage() {
     [colPages],
   );
 
+  // Batch-resolve all cover image URLs (handles ipfs:// → HTTPS in a single request)
+  const coverRawUrls = useMemo(
+    () => collectionSummaries.map((c) => c.coverImageUrl),
+    [collectionSummaries],
+  );
+  const { map: resolvedCoverMap } = useResolvedMediaUrlMap(coverRawUrls, {
+    enabled: collectionSummaries.length > 0,
+  });
+
   const isLoading = ordersLoading || colLoading;
-  const stats = useMarketStats(orders, collectionSummaries.length);
 
   const snapshotKeysSorted = useMemo(() => {
     const u = new Set<string>();
@@ -483,11 +456,6 @@ export default function ExchangePage() {
     (o) => o.side !== "bid" && (!o.collectionKey || !String(o.collectionKey).trim()),
   );
 
-  const marketCapDisplay =
-    stats.totalValue > 0
-      ? `$${stats.totalValue >= 1000 ? `${(stats.totalValue / 1000).toFixed(1)}K` : stats.totalValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}`
-      : "$0";
-
   const filteredSorted = useMemo(() => {
     return sortedForRank.filter((c) =>
       collectionMatchesCategoryFilter(
@@ -500,58 +468,23 @@ export default function ExchangePage() {
 
   return (
     <div className="min-h-screen bg-black text-white">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10 pb-24">
-        {/* Title */}
-        <div className="mb-10 sm:mb-12">
-          <h1 className="mb-1 text-3xl font-extrabold tracking-tight sm:text-4xl">
-            Markets
-          </h1>
-        </div>
-
-        {/* Stats: one compact row on mobile; three cards from sm */}
-        <div className="mb-10 space-y-0 sm:mb-16">
-          <MarketsStatsMobileStrip
-            marketCapDisplay={marketCapDisplay}
-            listingsDisplay={stats.totalListings.toString()}
-            collectionsDisplay={stats.totalCollections.toString()}
-          />
-          <div className="hidden grid-cols-3 gap-5 sm:grid">
-            <StatCard label="Total Market CAP" value={marketCapDisplay} />
-            <StatCard label="Active Listings" value={stats.totalListings.toString()} />
-            <StatCard label="Collections" value={stats.totalCollections.toString()} />
-          </div>
-        </div>
-
-        <TrendingCollectionsCarousel snapshotByKey={snapshotByKey} />
-
-        {/* Collection list */}
-        <div className="mb-8 sm:mb-10">
-          <h2 className="mb-4 text-2xl font-bold sm:mb-5 sm:text-3xl">Card Trading List</h2>
-          {showMarketSnapshotLoadingBar ? (
-            <div
-              className="mb-4 space-y-2"
-              role="status"
-              aria-live="polite"
-              aria-busy="true"
-            >
-              <p className="text-center text-xs text-zinc-500 sm:text-left">
-                Loading listing pool stats and charts…
-              </p>
-              <div
-                className="relative h-1.5 w-full overflow-hidden rounded-full bg-zinc-800/90"
-                aria-hidden
-              >
-                <div className="absolute left-0 top-0 h-full w-[32%] rounded-full bg-mint/90 shadow-[0_0_14px_rgba(148,255,212,0.35)] exchange-snapshot-loading-fill" />
-              </div>
-            </div>
-          ) : null}
-          {!isLoading && sortedForRank.length > 0 ? (
+      <div className="mx-auto max-w-6xl px-3 pb-20 pt-8 max-[380px]:px-2 sm:px-6 sm:pb-24 sm:pt-12">
+        {!isLoading && sortedForRank.length > 0 ? (
+          <>
+            <h2 className="mb-3 text-xl font-bold leading-tight tracking-tight text-white sm:mb-5 sm:text-3xl">
+              Card Trading List
+            </h2>
             <div className="mb-4 flex flex-col gap-3 sm:mb-4 sm:flex-row sm:flex-nowrap sm:items-center sm:justify-between sm:gap-4">
               <div className="min-w-0 w-full sm:flex-1">
-                <CollectionCategoryFilterBar value={categoryFilter} onChange={setCategoryFilter} />
+                <CollectionCategoryFilterBar
+                  value={categoryFilter}
+                  onChange={setCategoryFilter}
+                  toolbarAriaLabel="Filter card trading list category"
+                  mobileSectionHeading="Trading list"
+                />
               </div>
               <div
-                className="inline-flex shrink-0 items-center gap-1 self-end rounded-xl border border-zinc-700/80 bg-zinc-900/80 p-1 sm:self-auto"
+                className="-mx-0.5 inline-flex shrink-0 items-center gap-1 self-stretch rounded-xl border border-zinc-700/80 bg-zinc-900/80 p-1 sm:mx-0 sm:self-auto"
                 role="group"
                 aria-label="List layout"
               >
@@ -590,8 +523,27 @@ export default function ExchangePage() {
                 </button>
               </div>
             </div>
-          ) : null}
-        </div>
+          </>
+        ) : null}
+
+        {showMarketSnapshotLoadingBar ? (
+          <div
+            className="mb-6 space-y-2 sm:mb-8"
+            role="status"
+            aria-live="polite"
+            aria-busy="true"
+          >
+            <p className="text-center text-xs text-zinc-500 sm:text-left">
+              Loading listing pool stats and charts…
+            </p>
+            <div
+              className="relative h-1.5 w-full overflow-hidden rounded-full bg-zinc-800/90"
+              aria-hidden
+            >
+              <div className="absolute left-0 top-0 h-full w-[32%] rounded-full bg-mint/90 shadow-[0_0_14px_rgba(135,255,72,0.4)] exchange-snapshot-loading-fill" />
+            </div>
+          </div>
+        ) : null}
 
         {isLoading ? (
           <div className="space-y-5">
@@ -623,12 +575,14 @@ export default function ExchangePage() {
             </p>
           </div>
         ) : viewMode === "grid" ? (
-          <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 sm:gap-6 lg:grid-cols-4 pt-1">
+          <div className="grid grid-cols-2 gap-3 pt-1 min-[400px]:gap-4 sm:grid-cols-3 sm:gap-6 lg:grid-cols-4">
             {filteredSorted.map((c) => (
               <CollectionGridCard
                 key={c.collectionKey}
                 collection={c}
                 snapshot={snapshotByKey.get(c.collectionKey.toLowerCase())}
+                resolvedCoverUrl={c.coverImageUrl ? resolvedCoverMap.get(c.coverImageUrl) : undefined}
+                listingCount={c.activeListingCount}
               />
             ))}
             {hasNextPage ? (
@@ -652,6 +606,7 @@ export default function ExchangePage() {
                 collection={c}
                 listingCount={c.activeListingCount}
                 snapshot={snapshotByKey.get(c.collectionKey.toLowerCase())}
+                resolvedCoverUrl={c.coverImageUrl ? resolvedCoverMap.get(c.coverImageUrl) : undefined}
               />
             ))}
             {hasNextPage ? (
@@ -669,27 +624,38 @@ export default function ExchangePage() {
             {categoryFilter === "all" && orphanAsks.length > 0 && (
               <Link
                 href="/marketplace/other-listings"
-                className="group flex items-center gap-5 rounded-2xl border border-gray-800/50 bg-[#0d0d0d] px-5 py-5 transition-colors hover:border-gray-700/80 hover:bg-[#121212] sm:gap-6 sm:px-6 sm:py-6"
+                className="group flex flex-col gap-4 rounded-2xl border border-gray-800/50 bg-[#0d0d0d] px-4 py-4 transition-colors hover:border-gray-700/80 hover:bg-[#121212] sm:flex-row sm:items-center sm:gap-6 sm:px-6 sm:py-6"
               >
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center text-lg text-gray-600">
-                  ○
-                </div>
-                <div className="flex aspect-[3/4] w-[108px] shrink-0 items-center justify-center rounded-2xl border border-gray-700/50 bg-gray-800/60 text-xl text-gray-600 sm:w-[136px]">
-                  ?
+                <div className="flex items-center gap-4 sm:contents">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center text-lg text-gray-600 sm:order-none">
+                    ○
+                  </div>
+                  <div className="flex aspect-[3/4] w-[min(108px,28vw)] shrink-0 items-center justify-center rounded-2xl border border-gray-700/50 bg-gray-800/60 text-xl text-gray-600 sm:w-[136px]">
+                    ?
+                  </div>
                 </div>
                 <div className="min-w-0 flex-1">
-                  <h3 className="text-xl font-bold text-gray-300 transition-colors group-hover:text-mint sm:text-2xl">
+                  <h3 className="text-lg font-bold leading-snug text-gray-300 transition-colors group-hover:text-mint sm:text-2xl">
                     Other Listings
                   </h3>
-                  <p className="mt-1.5 text-base text-gray-500 sm:text-lg">
+                  <p className="mt-1 text-sm text-gray-500 sm:text-lg">
                     No collection metadata
+                  </p>
+                  <p className="mt-2 flex items-center justify-between text-sm text-zinc-500 sm:hidden">
+                    <span>
+                      <span className="text-zinc-500">Orders </span>
+                      <span className="font-bold text-white">{orphanAsks.length}</span>
+                    </span>
+                    <span className="text-zinc-500 transition-colors group-hover:text-mint" aria-hidden>
+                      →
+                    </span>
                   </p>
                 </div>
                 <div className="hidden text-base sm:block sm:text-lg">
                   <span className="text-gray-500">Orders </span>
                   <span className="font-bold text-white">{orphanAsks.length}</span>
                 </div>
-                <span className="shrink-0 text-xl text-gray-600 transition-colors group-hover:text-mint sm:text-2xl">
+                <span className="hidden shrink-0 text-xl text-gray-600 transition-colors group-hover:text-mint sm:inline sm:text-2xl">
                   →
                 </span>
               </Link>

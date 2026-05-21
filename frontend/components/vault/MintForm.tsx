@@ -259,6 +259,10 @@ export function MintForm() {
         ...(lastAnalyze?.psaCertImages?.back
           ? { certImageBackUrl: lastAnalyze.psaCertImages.back }
           : {}),
+        /** PSA PSACert.Variety — Silver/Base 등 Cardhedger 병행 구분 (공식 API `varietyHint`) */
+        ...(lastAnalyze?.psa.varietyHint?.trim()
+          ? { Variety: lastAnalyze.psa.varietyHint.trim() }
+          : {}),
       };
       if (lastAnalyze) {
         if (
@@ -270,6 +274,16 @@ export function MintForm() {
             ...(lastAnalyze.cardhedgerMint.searchQuery != null
               ? { searchQuery: lastAnalyze.cardhedgerMint.searchQuery }
               : {}),
+            // Clean catalog image (no PSA cert label) — used as collection cover when available
+            ...(lastAnalyze.cardhedgerMint.imageUrl?.trim()
+              ? { imageUrl: lastAnalyze.cardhedgerMint.imageUrl.trim() }
+              : {}),
+          };
+        } else if (lastAnalyze.cardhedgerMint?.imageUrl?.trim()) {
+          // imageUrl available even without a verified cardId match
+          metadata.cardhedger = {
+            ...(metadata.cardhedger ?? {}),
+            imageUrl: lastAnalyze.cardhedgerMint.imageUrl.trim(),
           };
         }
         const l = lastAnalyze.psaApi.lookup;
@@ -381,13 +395,21 @@ export function MintForm() {
     return url || undefined;
   }, [form.grade.certNumber, form.verification.certUrl]);
 
+  /**
+   * Stable ref so executePsaAnalyze doesn't recreate when certNumber/certUrl change.
+   * Without this, OCR populating certNumber would re-create executePsaAnalyze, causing
+   * the slab useEffect to re-fire → analyzeLoading=true → Mint button perpetually disabled.
+   */
+  const certHintForPsaRef = useRef(certHintForPsa);
+  certHintForPsaRef.current = certHintForPsa;
+
   const executePsaAnalyze = useCallback(
     async (front: File, back: File | null) => {
       const n = ++analyzeNonceRef.current;
       setAnalyzeError("");
       setAnalyzeLoading(true);
       try {
-        const r = await analyzePsaSlab(front, back, certHintForPsa());
+        const r = await analyzePsaSlab(front, back, certHintForPsaRef.current());
         if (n !== analyzeNonceRef.current) return;
         applyPsaAnalyzeResult(r, front);
       } catch (err: unknown) {
@@ -399,7 +421,7 @@ export function MintForm() {
         }
       }
     },
-    [applyPsaAnalyzeResult, certHintForPsa],
+    [applyPsaAnalyzeResult], // certHintForPsa accessed via ref — no re-create on certNumber change
   );
 
   /** After a cert lookup: clear result and locks so the user can change cert #, then press Look up. */
@@ -477,8 +499,8 @@ export function MintForm() {
     psaInputMode,
     form.verification.slabFront,
     form.verification.slabBack,
-    form.grade.certNumber,
-    form.verification.certUrl,
+    // certNumber / certUrl intentionally omitted: they're read via certHintForPsaRef inside
+    // executePsaAnalyze so the latest hint is always used without restarting the analyze loop.
     executePsaAnalyze,
   ]);
 
@@ -503,8 +525,9 @@ export function MintForm() {
       const data = new FormData();
       data.append("name", form.name);
       data.append("description", form.description.trim() || "No description");
+      // Prefer clean Cardhedger catalog image (no cert label) over PSA slab photo
       const selectedMintImageUrl =
-        lastAnalyze?.psaCertImages?.front || lastAnalyze?.cardhedgerMint?.imageUrl;
+        lastAnalyze?.cardhedgerMint?.imageUrl || lastAnalyze?.psaCertImages?.front;
       if (selectedMintImageUrl) {
         data.append("imageUrl", selectedMintImageUrl);
       } else if (form.image instanceof File) {
@@ -845,7 +868,7 @@ export function MintForm() {
                       <p className="text-xs text-gray-500">
                         PSA image is used for IPFS and marketplace art.
                       </p>
-                      <span className="mt-2 inline-flex w-fit rounded-full border border-emerald-600/50 bg-emerald-500/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-emerald-300">
+                      <span className="mt-2 inline-flex w-fit rounded-full border border-mint-deep/50 bg-mint/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-mint">
                         Source: PSA Cert Image
                       </span>
                     </div>

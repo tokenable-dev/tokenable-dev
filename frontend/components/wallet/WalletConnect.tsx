@@ -5,6 +5,7 @@ import { useAccount, useConnect, useDisconnect, useBalance } from "wagmi";
 import { formatUnits } from "viem";
 import { sepolia } from "@/config/wagmi";
 import { ensureSepoliaNetwork } from "@/lib/network";
+import { WalletAddressCompact } from "@/components/wallet/WalletAddressCompact";
 
 export interface WalletConnectProps {
   /** Overrides default Tailwind classes for the disconnected “Connect MetaMask” button */
@@ -47,8 +48,8 @@ export function WalletConnect({ connectButtonClassName }: WalletConnectProps = {
             </span>
           )}
           <div className="text-right">
-            <p className="text-sm font-mono text-gray-300">
-              {address.slice(0, 6)}...{address.slice(-4)}
+            <p className="text-sm">
+              <WalletAddressCompact address={address} />
             </p>
             {balance && (
               <p className="text-xs text-gray-500">

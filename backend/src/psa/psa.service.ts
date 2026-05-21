@@ -12,10 +12,12 @@ import {
   normalizeForExactCatalogMatch,
   primaryCardNumber,
 } from '../marketplace/utils/card-match.util';
+import { normalizeImageUrl } from '../marketplace/utils/collection-image.util';
 import { readPsaSpecIdCardhedgerMapFromConfig } from '../marketplace/utils/psa-spec-cardhedger-map.util';
 import {
   psaCertVerifyUrl,
   resolveCertHintForLookup,
+  varietyHintsForSearch,
   type ParsedPsaLabel,
 } from './utils/psa-ocr.util';
 import {
@@ -128,12 +130,21 @@ async function probeCertImageUrlReachable(url: string): Promise<boolean> {
 @Injectable()
 export class PsaService {
   private readonly logger = new Logger(PsaService.name);
+  /** Lazy-cached PSA `specId` → Cardhedger `card_id` map (env JSON parsed once). */
+  private psaSpecIdMap: Map<string, string> | null = null;
 
   constructor(
     private readonly psaPublicApi: PsaPublicApiService,
     private readonly cardhedgerService: CardhedgerService,
     private readonly config: ConfigService,
   ) {}
+
+  private getPsaSpecIdMap(): Map<string, string> {
+    if (!this.psaSpecIdMap) {
+      this.psaSpecIdMap = readPsaSpecIdCardhedgerMapFromConfig(this.config);
+    }
+    return this.psaSpecIdMap;
+  }
 
   private static readonly MAX_COMBINED_OCR_CHARS = 150_000;
 
@@ -158,15 +169,21 @@ export class PsaService {
     return n;
   }
 
-  private static normalizeOcrEntitiesFromCardhedger(raw: unknown): CardhedgerOcrNormalized {
-    const obj = (typeof raw === 'object' && raw != null ? raw : {}) as Record<string, unknown>;
+  private static normalizeOcrEntitiesFromCardhedger(
+    raw: unknown,
+  ): CardhedgerOcrNormalized {
+    const obj = (typeof raw === 'object' && raw != null ? raw : {}) as Record<
+      string,
+      unknown
+    >;
     const certInfo =
       (typeof obj.cert_info === 'object' && obj.cert_info != null
         ? (obj.cert_info as Record<string, unknown>)
         : {}) ?? {};
     const card =
-      (typeof obj.card === 'object' && obj.card != null ? (obj.card as Record<string, unknown>) : {}) ??
-      {};
+      (typeof obj.card === 'object' && obj.card != null
+        ? (obj.card as Record<string, unknown>)
+        : {}) ?? {};
 
     const cert_number =
       typeof certInfo.cert === 'string'
@@ -216,10 +233,14 @@ export class PsaService {
 
     const autograph_detected =
       Boolean(
-        (typeof certInfo.psa_type === 'string' && /DNA/i.test(certInfo.psa_type)) ||
-          (typeof certInfo.label_type === 'string' && /DNA/i.test(certInfo.label_type)) ||
-          (typeof certInfo.autograph === 'boolean' && certInfo.autograph === true) ||
-          (typeof certInfo.autograph_grade === 'string' && certInfo.autograph_grade.trim().length > 0),
+        (typeof certInfo.psa_type === 'string' &&
+          /DNA/i.test(certInfo.psa_type)) ||
+        (typeof certInfo.label_type === 'string' &&
+          /DNA/i.test(certInfo.label_type)) ||
+        (typeof certInfo.autograph === 'boolean' &&
+          certInfo.autograph === true) ||
+        (typeof certInfo.autograph_grade === 'string' &&
+          certInfo.autograph_grade.trim().length > 0),
       ) || false;
 
     const signer_guess =
@@ -250,8 +271,12 @@ export class PsaService {
         card_name: String(card_name ?? '').trim(),
         set: String(set ?? '').trim(),
         year: String(year ?? '').trim(),
-        card_number: String(card_number ?? '').replace(/^#/, '').trim(),
-        cert_number: String(cert_number ?? '').replace(/\D/g, '').trim(),
+        card_number: String(card_number ?? '')
+          .replace(/^#/, '')
+          .trim(),
+        cert_number: String(cert_number ?? '')
+          .replace(/\D/g, '')
+          .trim(),
         grade: String(grade ?? '').trim(),
         autograph_detected,
         signer_guess,
@@ -266,22 +291,39 @@ export class PsaService {
   ): CardhedgerOcrNormalized {
     const pick = (a: string, b: string): string => (a && a.trim() ? a : b);
     return {
-      raw_text: [front.raw_text, back?.raw_text].filter(Boolean).join('\n---\n').trim(),
+      raw_text: [front.raw_text, back?.raw_text]
+        .filter(Boolean)
+        .join('\n---\n')
+        .trim(),
       parsed_entities: {
-        card_name: pick(front.parsed_entities.card_name, back?.parsed_entities.card_name ?? ''),
+        card_name: pick(
+          front.parsed_entities.card_name,
+          back?.parsed_entities.card_name ?? '',
+        ),
         set: pick(front.parsed_entities.set, back?.parsed_entities.set ?? ''),
-        year: pick(front.parsed_entities.year, back?.parsed_entities.year ?? ''),
+        year: pick(
+          front.parsed_entities.year,
+          back?.parsed_entities.year ?? '',
+        ),
         card_number: pick(
           front.parsed_entities.card_number,
           back?.parsed_entities.card_number ?? '',
         ),
-        cert_number: pick(front.parsed_entities.cert_number, back?.parsed_entities.cert_number ?? ''),
-        grade: pick(front.parsed_entities.grade, back?.parsed_entities.grade ?? ''),
+        cert_number: pick(
+          front.parsed_entities.cert_number,
+          back?.parsed_entities.cert_number ?? '',
+        ),
+        grade: pick(
+          front.parsed_entities.grade,
+          back?.parsed_entities.grade ?? '',
+        ),
         autograph_detected:
           Boolean(front.parsed_entities.autograph_detected) ||
           Boolean(back?.parsed_entities.autograph_detected),
         signer_guess:
-          front.parsed_entities.signer_guess ?? back?.parsed_entities.signer_guess ?? null,
+          front.parsed_entities.signer_guess ??
+          back?.parsed_entities.signer_guess ??
+          null,
       },
       confidence: PsaService.clamp01(
         Math.max(front.confidence, back?.confidence ?? 0),
@@ -289,12 +331,18 @@ export class PsaService {
     };
   }
 
-  private static psaParsedFromNormalizedOcr(n: CardhedgerOcrNormalized): ParsedPsaLabel {
+  private static psaParsedFromNormalizedOcr(
+    n: CardhedgerOcrNormalized,
+  ): ParsedPsaLabel {
     const e = n.parsed_entities;
     const gradeLabel = e.grade || undefined;
-    const digits = e.cert_number ? resolveCertHintForLookup(e.cert_number) : undefined;
+    const digits = e.cert_number
+      ? resolveCertHintForLookup(e.cert_number)
+      : undefined;
     const year = e.year ? e.year.replace(/\D/g, '').slice(0, 4) : undefined;
-    const cardNumberHint = e.card_number ? e.card_number.replace(/^#/, '').trim() : undefined;
+    const cardNumberHint = e.card_number
+      ? e.card_number.replace(/^#/, '').trim()
+      : undefined;
     const cardNameHint = e.card_name || undefined;
     const setHint = e.set || undefined;
 
@@ -316,7 +364,6 @@ export class PsaService {
       ...(setHint ? { setHint } : {}),
     };
   }
-
 
   private async tryResolveByCardhedgerCertOcr(image: Buffer): Promise<{
     certCandidates: string[];
@@ -346,7 +393,9 @@ export class PsaService {
         );
         if (typeof raw !== 'object' || raw == null) continue;
         const normalized = PsaService.normalizeOcrEntitiesFromCardhedger(raw);
-        const cert = resolveCertHintForLookup(normalized.parsed_entities.cert_number);
+        const cert = resolveCertHintForLookup(
+          normalized.parsed_entities.cert_number,
+        );
         const card = (raw as { card?: unknown }).card as
           | Record<string, unknown>
           | undefined;
@@ -359,7 +408,9 @@ export class PsaService {
             ? card.description.trim()
             : undefined;
         const imageUrl =
-          typeof card?.image === 'string' && card.image.trim() ? card.image.trim() : undefined;
+          typeof card?.image === 'string' && card.image.trim()
+            ? card.image.trim()
+            : undefined;
         return {
           certCandidates: cert ? [cert] : [],
           normalized,
@@ -414,37 +465,61 @@ export class PsaService {
     );
     if (!cardNameWant && !cardNumWant && !cardSetWant) return undefined;
 
-    const body = await this.cardhedgerService.forwardJson('POST', '/v1/cards/card-search', {
-      body: { search: searchQuery, page: 1, page_size: 25 },
-    });
+    const body = await this.cardhedgerService.forwardJson(
+      'POST',
+      '/v1/cards/card-search',
+      {
+        body: { search: searchQuery, page: 1, page_size: 25 },
+      },
+    );
     const cards = Array.isArray((body as { cards?: unknown[] })?.cards)
       ? ((body as { cards: unknown[] }).cards ?? [])
       : [];
     if (cards.length === 0) return undefined;
 
     const scored = cards
-      .filter((x): x is Record<string, unknown> => typeof x === 'object' && x != null)
+      .filter(
+        (x): x is Record<string, unknown> => typeof x === 'object' && x != null,
+      )
       .map((row) => {
         const idRaw = row.card_id;
         const id = typeof idRaw === 'string' ? idRaw.trim() : '';
-        const desc = normalizeForExactCatalogMatch(String(row.description ?? row.name ?? ''));
+        const desc = normalizeForExactCatalogMatch(
+          String(row.description ?? row.name ?? ''),
+        );
         const set = normalizeForExactCatalogMatch(String(row.set ?? ''));
         const num = normalizeForExactCardNumberKey(
           primaryCardNumber(String(row.number ?? '')),
         );
 
         let score = 0;
-        if (cardNumWant && num && cardNumWant === num) score += 100;
-        if (cardSetWant && set && (set.includes(cardSetWant) || cardSetWant.includes(set))) {
-          score += 60;
-        }
-        if (cardNameWant && desc && (desc.includes(cardNameWant) || cardNameWant.includes(desc))) {
-          score += 50;
-        }
-        const verified =
-          Boolean(cardNumWant && num && cardNumWant === num) &&
-          Boolean(cardSetWant && set && (set.includes(cardSetWant) || cardSetWant.includes(set))) &&
-          Boolean(cardNameWant && desc && (desc.includes(cardNameWant) || cardNameWant.includes(desc)));
+        const numMatch = Boolean(cardNumWant && num && cardNumWant === num);
+        const setMatch = Boolean(
+          cardSetWant &&
+          set &&
+          (set.includes(cardSetWant) || cardSetWant.includes(set)),
+        );
+        // Fuzzy name match: all normalized words in cardNameWant appear in desc
+        const nameWords = cardNameWant
+          ? (cardNameWant.match(/[a-z0-9]+/g) ?? [])
+          : [];
+        const nameFuzzyMatch =
+          nameWords.length > 0 && nameWords.every((w) => desc.includes(w));
+        const nameExactMatch = Boolean(
+          cardNameWant &&
+          desc &&
+          (desc.includes(cardNameWant) || cardNameWant.includes(desc)),
+        );
+        const nameMatch = nameExactMatch || nameFuzzyMatch;
+
+        if (numMatch) score += 100;
+        if (setMatch) score += 60;
+        if (nameMatch) score += 50;
+
+        // verified = number must match AND at least one of (set OR name) must match
+        // This is more robust than requiring all three, because PSA and Cardhedger
+        // use different set name conventions (e.g. "POKEMON JAPANESE BASIC" vs "Pokemon Japanese Base Set")
+        const verified = numMatch && (setMatch || nameMatch);
 
         return { id, score, verified };
       })
@@ -455,10 +530,25 @@ export class PsaService {
     if (!pick) return undefined;
     // Accuracy-first: persist Cardhedger id only for strict verified matches.
     if (!pick.verified) return undefined;
+
+    // Extract image from the search result row if present
+    const matchedRow = cards
+      .filter(
+        (x): x is Record<string, unknown> => typeof x === 'object' && x != null,
+      )
+      .find(
+        (r) => typeof r.card_id === 'string' && r.card_id.trim() === pick.id,
+      );
+    const imageUrl =
+      typeof matchedRow?.image === 'string' && matchedRow.image.trim()
+        ? normalizeImageUrl(matchedRow.image)
+        : undefined;
+
     return {
       matchConfidence: 'verified',
       cardId: pick.id,
       searchQuery,
+      ...(imageUrl ? { imageUrl } : {}),
     };
   }
 
@@ -478,9 +568,7 @@ export class PsaService {
       return undefined;
     }
     const specKey = String(Math.floor(Number(rawSpec)));
-    const cardIdMapped = readPsaSpecIdCardhedgerMapFromConfig(this.config).get(
-      specKey,
-    );
+    const cardIdMapped = this.getPsaSpecIdMap().get(specKey);
     if (!cardIdMapped) return undefined;
     try {
       const body = await this.cardhedgerService.forwardJson(
@@ -502,10 +590,15 @@ export class PsaService {
           : typeof row.name === 'string' && row.name.trim()
             ? row.name.trim()
             : fallbackSearchQuery.trim();
+      const imageUrl =
+        typeof row.image === 'string' && row.image.trim()
+          ? normalizeImageUrl(row.image)
+          : undefined;
       return {
         matchConfidence: 'verified',
         cardId: id,
         searchQuery: searchFromRow || fallbackSearchQuery,
+        ...(imageUrl ? { imageUrl } : {}),
       };
     } catch (e) {
       this.logger.warn(
@@ -518,9 +611,12 @@ export class PsaService {
   private buildCardhedgerSearchQuery(psa: ParsedPsaLabel): string {
     const parts = [
       String(psa.cardNameHint ?? '').trim(),
-      String(psa.cardNumberHint ?? '').replace(/^#/, '').trim(),
+      String(psa.cardNumberHint ?? '')
+        .replace(/^#/, '')
+        .trim(),
       String(psa.setHint ?? '').trim(),
       String(psa.year ?? '').trim(),
+      ...varietyHintsForSearch(psa.varietyHint),
     ].filter(Boolean);
     return parts.join(' ').trim();
   }
@@ -540,11 +636,15 @@ export class PsaService {
     const t = String(text ?? '');
     // Keep this intentionally conservative: only output signer when explicitly found.
     if (/MUTSUHIRO\s+ARITA/i.test(t)) return 'Mutsuhiro Arita';
-    if (/\bARITA\b/i.test(t) && /\bMUTSUHIRO\b/i.test(t)) return 'Mutsuhiro Arita';
+    if (/\bARITA\b/i.test(t) && /\bMUTSUHIRO\b/i.test(t))
+      return 'Mutsuhiro Arita';
     return undefined;
   }
 
-  private static detectPsaVariant(psa: ParsedPsaLabel, ocrText: string): {
+  private static detectPsaVariant(
+    psa: ParsedPsaLabel,
+    ocrText: string,
+  ): {
     variant_type: 'PSA' | 'PSA_DNA';
     has_autograph: boolean;
     signer?: string;
@@ -564,7 +664,8 @@ export class PsaService {
       (autoGrade.length > 0 && autoGrade !== '0');
 
     const weakDna = !strongDna && /PSA\s*\/\s*DNA|PSA\/DNA|\bDNA\b/i.test(ocr);
-    const weakAuto = !strongDna && !weakDna && /\bAUTO\b|\bAUTOGRAPH\b|\bSIGNED\b/i.test(ocr);
+    const weakAuto =
+      !strongDna && !weakDna && /\bAUTO\b|\bAUTOGRAPH\b|\bSIGNED\b/i.test(ocr);
 
     const isDna = strongDna || weakDna || weakAuto;
     const signer = isDna ? PsaService.detectSignerFromText(ocr) : undefined;
@@ -588,9 +689,14 @@ export class PsaService {
     combinedText: string,
     cardhedgerMint?: PsaAnalyzeResult['cardhedgerMint'],
   ): NonNullable<PsaAnalyzeResult['identity']> {
-    const year = typeof psa.year === 'string' && psa.year.trim() ? psa.year.trim() : undefined;
+    const year =
+      typeof psa.year === 'string' && psa.year.trim()
+        ? psa.year.trim()
+        : undefined;
     const setRaw =
-      typeof psa.setHint === 'string' && psa.setHint.trim() ? psa.setHint.trim() : undefined;
+      typeof psa.setHint === 'string' && psa.setHint.trim()
+        ? psa.setHint.trim()
+        : undefined;
     const cardNumberRaw =
       typeof psa.cardNumberHint === 'string' && psa.cardNumberHint.trim()
         ? psa.cardNumberHint.replace(/^#/, '').trim()
@@ -600,7 +706,9 @@ export class PsaService {
         ? psa.cardNameHint.trim()
         : undefined;
 
-    const card_name = cardNameRaw ? PsaService.cleanBaseCardName(cardNameRaw) : undefined;
+    const card_name = cardNameRaw
+      ? PsaService.cleanBaseCardName(cardNameRaw)
+      : undefined;
     const set = setRaw ? PsaService.cleanBaseCardName(setRaw) : undefined;
     const card_number = cardNumberRaw ? cardNumberRaw : undefined;
 
@@ -610,14 +718,17 @@ export class PsaService {
       set,
       card_number ? `#${card_number}` : undefined,
     ].filter(Boolean);
-    const base_identity = baseParts.join(' ').trim() || 'pokemon';
+    const base_identity = baseParts.join(' ').trim() || 'Trading card';
 
     const variant = PsaService.detectPsaVariant(psa, combinedText);
-    const market_type: 'graded' | 'autograph' = variant.has_autograph ? 'autograph' : 'graded';
+    const market_type: 'graded' | 'autograph' = variant.has_autograph
+      ? 'autograph'
+      : 'graded';
 
     let baseMatch = 0.55; // default: heuristic match possible but not verified
     if (cardhedgerMint?.matchConfidence === 'verified') baseMatch = 0.98;
-    else if (cardhedgerMint?.matchConfidence === 'approximate') baseMatch = 0.75;
+    else if (cardhedgerMint?.matchConfidence === 'approximate')
+      baseMatch = 0.75;
 
     return {
       base_card: {
@@ -658,10 +769,16 @@ export class PsaService {
   ): Promise<PsaAnalyzeResult> {
     const frontOcr = await this.tryResolveByCardhedgerCertOcr(slabFront);
     const backOcr =
-      slabBack && slabBack.length > 0 ? await this.tryResolveByCardhedgerCertOcr(slabBack) : undefined;
+      slabBack && slabBack.length > 0
+        ? await this.tryResolveByCardhedgerCertOcr(slabBack)
+        : undefined;
 
-    const combinedNorm = PsaService.combineNormalizedOcr(frontOcr.normalized, backOcr?.normalized);
-    let psaParsed: ParsedPsaLabel = PsaService.psaParsedFromNormalizedOcr(combinedNorm);
+    const combinedNorm = PsaService.combineNormalizedOcr(
+      frontOcr.normalized,
+      backOcr?.normalized,
+    );
+    let psaParsed: ParsedPsaLabel =
+      PsaService.psaParsedFromNormalizedOcr(combinedNorm);
 
     // HARD RULE: do not overwrite OCR-extracted cert; only use manual cert when OCR has none.
     const hintDigits = resolveCertHintForLookup(certHint);
@@ -708,6 +825,7 @@ export class PsaService {
         ...(frontOcr.searchQuery ? { searchQuery: frontOcr.searchQuery } : {}),
         ...(frontOcr.imageUrl ? { imageUrl: frontOcr.imageUrl } : {}),
       },
+      slabFront,
     );
   }
 
@@ -749,14 +867,19 @@ export class PsaService {
     combinedText: string,
     ocr: PsaAnalyzeResult['ocr'],
     certCandidates?: string[],
-    cardhedgerOcr?: { cardId?: string; searchQuery?: string; imageUrl?: string },
+    cardhedgerOcr?: {
+      cardId?: string;
+      searchQuery?: string;
+      imageUrl?: string;
+    },
+    imageBuffer?: Buffer,
   ): Promise<PsaAnalyzeResult> {
     let psaParsed = psaParsedIn;
 
     const candidateList = [
-      ...((certCandidates ?? [])
+      ...(certCandidates ?? [])
         .map((x) => resolveCertHintForLookup(x) ?? '')
-        .filter(Boolean) as string[]),
+        .filter(Boolean),
       ...(resolveCertHintForLookup(psaParsed.certNumber)
         ? [resolveCertHintForLookup(psaParsed.certNumber)!]
         : []),
@@ -769,8 +892,10 @@ export class PsaService {
       );
     }
 
-    let apiLookupSuccess: Extract<PsaPublicApiLookupResult, { status: 'success' }> | null =
-      null;
+    let apiLookupSuccess: Extract<
+      PsaPublicApiLookupResult,
+      { status: 'success' }
+    > | null = null;
     let imagesLookup: PsaGetImagesLookupResult = {
       status: 'skipped',
       reason: 'no_cert',
@@ -814,7 +939,8 @@ export class PsaService {
 
     let enrichedFromOfficialApi = false;
     try {
-      const hasCert = !!(apiLookupSuccess.raw as { PSACert?: unknown })?.PSACert;
+      const hasCert = !!(apiLookupSuccess.raw as { PSACert?: unknown })
+        ?.PSACert;
       if (!hasCert) {
         throw new Error('PSACert payload is missing');
       }
@@ -838,7 +964,9 @@ export class PsaService {
       let fromCertBody: { front?: string; back?: string } = {};
       try {
         if (imagesLookup.status === 'success') {
-          fromGetImages = extractPsaCertImagesFromGetImagesBody(imagesLookup.raw);
+          fromGetImages = extractPsaCertImagesFromGetImagesBody(
+            imagesLookup.raw,
+          );
         }
       } catch (e) {
         throw new InternalServerErrorException(
@@ -893,7 +1021,9 @@ export class PsaService {
           cardName: String(psaParsed.cardNameHint ?? ''),
           cardNumber:
             primaryCardNumber(String(psaParsed.cardNumberHint ?? '')) ||
-            String(psaParsed.cardNumberHint ?? '').replace(/^#/, '').trim(),
+            String(psaParsed.cardNumberHint ?? '')
+              .replace(/^#/, '')
+              .trim(),
           cardSet:
             typeof psaParsed.setHint === 'string' && psaParsed.setHint.trim()
               ? psaParsed.setHint.trim()
@@ -912,6 +1042,67 @@ export class PsaService {
       );
     }
 
+    // If we have a cardId but still no imageUrl, fetch via card-details as a fallback
+    if (cardhedgerMint?.cardId && !cardhedgerMint.imageUrl) {
+      try {
+        const detailsBody = await this.cardhedgerService.forwardJson(
+          'POST',
+          '/v1/cards/card-details',
+          { body: { card_id: cardhedgerMint.cardId } },
+        );
+        const detailCards = (detailsBody as { cards?: unknown[] }).cards;
+        if (Array.isArray(detailCards) && detailCards.length > 0) {
+          const row = detailCards[0] as Record<string, unknown>;
+          const img =
+            typeof row.image === 'string' && row.image.trim()
+              ? normalizeImageUrl(row.image)
+              : undefined;
+          if (img) {
+            cardhedgerMint = { ...cardhedgerMint, imageUrl: img };
+          }
+        }
+      } catch (e) {
+        this.logger.warn(
+          `Cardhedger card-details image fetch skipped: ${e instanceof Error ? e.message : String(e)}`,
+        );
+      }
+    }
+
+    // If still no catalog image, try additional sources (image passed in via imageBuffer param)
+    // imageBuffer is available in the outer analyze scope via the passed-in image
+    if (!cardhedgerMint?.imageUrl && imageBuffer != null) {
+      // 1) Pokemon TCG API — works best for Pokemon cards (free, official images)
+      const isPokemon =
+        /pokemon/i.test(String(psaParsed.setHint ?? '')) ||
+        /pokemon/i.test(String(psaParsed.cardNameHint ?? ''));
+      if (isPokemon) {
+        const ptcgImg = await this.tryPokemonTcgCardImage(
+          String(psaParsed.cardNameHint ?? ''),
+          String(psaParsed.cardNumberHint ?? ''),
+          String(psaParsed.year ?? ''),
+        );
+        if (ptcgImg) {
+          cardhedgerMint = {
+            matchConfidence: 'approximate',
+            ...(cardhedgerMint ?? {}),
+            imageUrl: ptcgImg,
+          };
+        }
+      }
+
+      // 2) Cardhedger image-search — visual matching with the slab image
+      if (!cardhedgerMint?.imageUrl) {
+        const chImgSearchUrl = await this.tryCardhedgerImageSearch(imageBuffer);
+        if (chImgSearchUrl) {
+          cardhedgerMint = {
+            matchConfidence: 'approximate',
+            ...(cardhedgerMint ?? {}),
+            imageUrl: chImgSearchUrl,
+          };
+        }
+      }
+    }
+
     let certVerifyUrl: string | undefined;
     try {
       certVerifyUrl = psaParsed.certNumber
@@ -928,7 +1119,11 @@ export class PsaService {
         certVerifyUrl,
         enrichedFromOfficialApi,
       },
-      identity: this.buildTwoLayerIdentity(psaParsed, combinedText, cardhedgerMint),
+      identity: this.buildTwoLayerIdentity(
+        psaParsed,
+        combinedText,
+        cardhedgerMint,
+      ),
       psaApi: {
         lookup: apiLookupSuccess,
       },
@@ -938,5 +1133,112 @@ export class PsaService {
 
     return result;
   }
-}
 
+  /**
+   * Cardhedger visual image-search: pass PSA slab image buffer → get best-matching catalog image.
+   * Returns the matched card's `image` URL, or null if not found / not configured.
+   */
+  private async tryCardhedgerImageSearch(
+    imageBuffer: Buffer,
+  ): Promise<string | null> {
+    try {
+      this.cardhedgerService.assertConfigured();
+    } catch {
+      return null;
+    }
+    try {
+      const jpg = await sharp(imageBuffer)
+        .resize({ width: 1200, fit: 'inside', withoutEnlargement: true })
+        .jpeg({ quality: 80 })
+        .toBuffer();
+      const b64 = `data:image/jpeg;base64,${jpg.toString('base64')}`;
+      const raw = await this.cardhedgerService.forwardJson(
+        'POST',
+        '/v1/cards/image-search',
+        {
+          body: { image_base64: b64 },
+        },
+      );
+      const cards = Array.isArray((raw as { cards?: unknown[] })?.cards)
+        ? ((raw as { cards: unknown[] }).cards ?? [])
+        : [];
+      const first = cards[0] as Record<string, unknown> | undefined;
+      const imgRaw =
+        typeof first?.image === 'string' && first.image.trim()
+          ? first.image.trim()
+          : null;
+      const img = imgRaw ? normalizeImageUrl(imgRaw) : null;
+      if (img)
+        this.logger.log(
+          `Cardhedger image-search found catalog image: ${img.slice(0, 80)}`,
+        );
+      return img;
+    } catch (e) {
+      this.logger.warn(
+        `Cardhedger image-search failed: ${e instanceof Error ? e.message : String(e)}`,
+      );
+      return null;
+    }
+  }
+
+  /**
+   * Pokemon TCG API: search by card name + number (+ optional year) for high-quality official images.
+   * Returns `images.large` URL or null.
+   * Docs: https://pokemontcg.io/
+   */
+  private async tryPokemonTcgCardImage(
+    cardName: string,
+    cardNumber: string,
+    year?: string,
+  ): Promise<string | null> {
+    if (!cardName) return null;
+    try {
+      const name = cardName.replace(/"/g, '').trim();
+      const num = cardNumber.replace(/^#/, '').replace(/"/g, '').trim();
+      const parts: string[] = [`name:"${name}"`];
+      if (num) parts.push(`number:${num}`);
+      const q = encodeURIComponent(parts.join(' '));
+      const url = `https://api.pokemontcg.io/v2/cards?q=${q}&pageSize=20&select=id,name,number,set,images`;
+      const res = await fetch(url, {
+        headers: { 'User-Agent': 'TokenableBackend/1.0' },
+        signal: AbortSignal.timeout(8_000),
+      });
+      if (!res.ok) return null;
+      const body = (await res.json()) as { data?: unknown[] };
+      const cards = body.data ?? [];
+      if (cards.length === 0) return null;
+
+      // Filter by year if available (match card set release year)
+      const targetYear = year ? String(year).trim() : null;
+      const scored = cards
+        .filter(
+          (c): c is Record<string, unknown> =>
+            typeof c === 'object' && c != null,
+        )
+        .map((c) => {
+          const setObj = c.set as Record<string, unknown> | undefined;
+          const releaseDate =
+            typeof setObj?.releaseDate === 'string' ? setObj.releaseDate : '';
+          const cardYear = releaseDate.slice(0, 4);
+          const yearScore = targetYear && cardYear === targetYear ? 100 : 0;
+          const numMatch = num && String(c.number ?? '') === num ? 50 : 0;
+          return { c, score: yearScore + numMatch };
+        })
+        .sort((a, b) => b.score - a.score);
+
+      const best = scored[0]?.c;
+      const images = best?.images as Record<string, string> | undefined;
+      const img = images?.large ?? images?.small ?? null;
+      if (img)
+        this.logger.log(
+          `Pokemon TCG API found image for "${name} #${num}": ${img.slice(0, 80)}`,
+        );
+      return img ?? null;
+    } catch (e) {
+      this.logger.warn(
+        `Pokemon TCG API lookup failed: ${e instanceof Error ? e.message : String(e)}`,
+      );
+      return null;
+    }
+  }
+}

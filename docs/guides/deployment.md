@@ -61,7 +61,9 @@ All of the following must be set in **Repository Secrets** (recommended) or Vari
 | `NEXT_PUBLIC_PLATFORM_FEE_RECIPIENT` | No | Fee recipient address |
 | `NEXT_PUBLIC_PLATFORM_FEE_BPS` | No | Fee in basis points |
 
----
+`API_PROXY_TARGET` is **not** a GitHub secret: the workflow passes  
+`--build-arg API_PROXY_TARGET=http://backend:4000` so the Next.js `/api` rewrite matches the Docker Compose service name `backend`.  
+If you build the frontend image manually, pass the same arg or browser/SSR paths that hit Next instead of Nginx may return **502**.
 
 ## EC2 Setup (First Time)
 
@@ -134,9 +136,11 @@ docker compose -f docker-compose.yml -f docker-compose.ec2.yml ps
 # Logs
 docker logs tokenable-backend 2>&1 | tail -80
 
-# API smoke test
-curl -s http://localhost:4000/api/auth/session
-curl -s http://localhost:4000/api/marketplace/collections
+# API smoke test (from EC2 host; backend publishes :4000 only inside the compose network)
+docker exec tokenable-backend node -e "fetch('http://127.0.0.1:4000/api/health').then(r=>r.json()).then(console.log)"
+
+# Through Nginx (HTTPS) from your machine:
+# curl -sS https://tokenable-dev.com/api/health
 ```
 
 ### Deploy looks wrong but Actions is green?
@@ -144,6 +148,13 @@ curl -s http://localhost:4000/api/marketplace/collections
 - Confirm you are on the intended environment URL (dev vs prod vs Vercel preview if you use additional hosts outside this compose flow).
 - Hard refresh / private window rules out stuck JS chunks from a previous deployment.
 - `NEXT_PUBLIC_*` is baked into the frontend image at build time — env changes in GitHub require a **new** workflow run after updating secrets/variables.
+
+### `/api/...` returns 502 Bad Gateway
+
+1. **Nginx → Nest**: On the server, `docker compose ps` and `docker logs tokenable-backend --tail=100`. If the backend never reaches “Server running”, fix Postgres / `POSTGRES_*` / `.env.production.backend` (TypeORM must connect before the app listens).
+2. **Next.js image**: Images built **without** `API_PROXY_TARGET=http://backend:4000` bake `http://127.0.0.1:4000` into rewrites. Any request that reaches **Next** for `/api` (instead of Nginx) will 502. Redeploy after the workflow includes that build-arg (see `.github/workflows/deploy.yml`), or rebuild locally with  
+   `docker build --build-arg API_PROXY_TARGET=http://backend:4000 … ./frontend`.
+3. **Sanity check**: `curl -sS https://<your-domain>/api/health` should return JSON `{ "ok": true, ... }` when Nginx and Nest are healthy.
 
 ---
 
@@ -165,5 +176,5 @@ Browser checklist:
 | `frontend/Dockerfile` | `NEXT_PUBLIC_*` build args |
 | `backend/Dockerfile` | Multi-stage NestJS build |
 | `nginx/nginx.conf` | HTTP + ACME challenge + `/api` proxy |
-| `nginx/nginx.tls.conf` | HTTPS template (not git-tracked, applied post-certbot) |
+| `nginx/nginx.tls.conf` | HTTPS + `/api` proxy (`NGINX_CONF` on EC2 after certbot) |
 | `backend/sql/bootstrap-empty-prod-db.sql` | Initial schema for empty production DB |

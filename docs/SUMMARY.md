@@ -31,6 +31,7 @@
 - [Deployment (EC2)](guides/deployment.md)
 - [Networking, CORS & TLS](guides/networking.md)
 - [Troubleshooting](guides/troubleshooting.md)
+- [Cardhedger & PSA Variety (parallel pricing)](guides/cardhedger-psa-variety.md)
 
 ## Diagrams
 
