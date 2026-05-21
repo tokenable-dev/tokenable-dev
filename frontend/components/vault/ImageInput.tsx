@@ -118,7 +118,7 @@ export function ImageInput({
             <button
               type="button"
               onClick={() => inputRef.current?.click()}
-              className="group w-full rounded-2xl border-2 border-dashed border-mint/45 bg-gradient-to-b from-mint/[0.14] to-mint/[0.04] px-5 py-10 text-center shadow-[inset_0_1px_0_0_rgba(135,255,72,0.15)] transition-all hover:border-mint/80 hover:from-mint/[0.2] hover:to-mint/[0.08] focus:outline-none focus-visible:ring-2 focus-visible:ring-mint/50 sm:py-12"
+              className="group w-full rounded-2xl border-2 border-dashed border-mint/45 bg-gradient-to-b from-mint/[0.14] to-mint/[0.04] px-5 py-10 text-center shadow-[inset_0_1px_0_0_rgba(16,211,51,0.15)] transition-all hover:border-mint/80 hover:from-mint/[0.2] hover:to-mint/[0.08] focus:outline-none focus-visible:ring-2 focus-visible:ring-mint/50 sm:py-12"
             >
               <span className="flex flex-col items-center gap-3">
                 <span className="rounded-xl bg-mint px-10 py-3.5 text-base font-bold tracking-tight text-[#030712] shadow-lg shadow-mint/35 transition group-hover:brightness-110 sm:px-12 sm:py-4 sm:text-lg">

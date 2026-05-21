@@ -3,11 +3,11 @@
 :root {
   --background: #030712;
   --foreground: #f9fafb;
-  /** 브랜드 포인트 — 라임 그린 rgb(135,255,72) */
-  --mint: #87ff48;
-  --mint-dim: #5fdc2e;
-  --mint-deep: #3f8f18;
-  --mint-ink: #081008;
+  /** 브랜드 포인트 — rgb(16, 211, 51) */
+  --mint: #10d333;
+  --mint-dim: #0cb82e;
+  --mint-deep: #0a8f24;
+  --mint-ink: #041208;
 }
 
 @theme inline {
@@ -97,9 +97,9 @@ html.collection-details-scroll {
   inset: 0;
   background: linear-gradient(
     90deg,
-    rgba(135, 255, 72, 0.03) 0%,
-    rgba(135, 255, 72, 0.2) 50%,
-    rgba(135, 255, 72, 0.03) 100%
+    rgba(16, 211, 51, 0.03) 0%,
+    rgba(16, 211, 51, 0.2) 50%,
+    rgba(16, 211, 51, 0.03) 100%
   );
   animation: ai-insight-scan 1.15s ease-in-out infinite;
   pointer-events: none;
@@ -121,7 +121,7 @@ html.collection-details-scroll {
   background: linear-gradient(
     100deg,
     rgba(255, 255, 255, 0) 0%,
-    rgba(135, 255, 72, 0.24) 45%,
+    rgba(16, 211, 51, 0.24) 45%,
     rgba(255, 255, 255, 0) 100%
   );
   animation: ai-insight-shimmer 1.2s linear infinite;

@@ -13,16 +13,6 @@ export interface GradePriceStrip {
   raw: number | null;
 }
 
-export function percentChangeFromPoints(points: UsdPoint[]): number | null {
-  if (points.length < 2) return null;
-  const a = points[0].v;
-  const b = points[points.length - 1].v;
-  if (!Number.isFinite(a) || !Number.isFinite(b) || a === 0) return null;
-  return ((b - a) / a) * 100;
-}
-
-const SEC_24H = 86400;
-
 /**
  * Latest observation vs linearly interpolated value at (latest.t − lagSec) on the same series.
  * Returns null when history does not reach far enough behind the newest tick (`targetT` before first sample).
@@ -73,14 +63,4 @@ export function percentChangeReferenceOverLagSec(
     return null;
   }
   return ((end.v - refV) / refV) * 100;
-}
-
-/**
- * Latest observation vs interpolated reference at (latest.t − 24h) on the same Cardhedger series.
- * No synthetic/mock points — returns null if history does not span ~24h before the latest tick.
- */
-export function percentChangeReferenceOver24h(
-  points: UsdPoint[],
-): number | null {
-  return percentChangeReferenceOverLagSec(points, SEC_24H);
 }

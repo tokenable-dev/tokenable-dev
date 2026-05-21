@@ -32,12 +32,10 @@ export const marketplaceRqPolicy = {
   snapshotsStaleMs: 5 * 60_000,
   rwaTokensStaleMs: 60_000,
   metadataBatchStaleMs: 5 * 60_000,
-  /** Cardhedger-backed queries (preview, mint batch, price history) share this freshness window */
+  /** Cardhedger-backed queries (mint batch, portfolio batch, market-series) share this freshness window */
   cardhedgerStaleMs: 5 * 60_000,
   /** Keep resolved Cardhedger payloads in memory while navigating (matches marketplace bundle gc pattern) */
   cardhedgerGcMs: 24 * 60 * 60 * 1000,
-  marketStaleMs: 5 * 60_000,
-  marketGcMs: 24 * 60 * 60 * 1000,
 } as const;
 
 /**
@@ -53,10 +51,10 @@ export const marketQueryDefaults = {
   refetchOnReconnect: false as const,
 };
 
-/** Register defaults for partial keys: mint previews, collection preview, and price history. */
+/** Register defaults for Cardhedger-backed batch queries (mint previews, portfolio batch). */
 export function configureMarketQueryDefaults(queryClient: QueryClient): void {
   const d = marketQueryDefaults;
   queryClient.setQueryDefaults(["cardhedger-mint-previews"], d);
-  queryClient.setQueryDefaults(["collection-market"], d);
-  queryClient.setQueryDefaults(["collection-market-price-history"], d);
+  queryClient.setQueryDefaults(["portfolio-market-batch"], d);
+  queryClient.setQueryDefaults(["collection-market-series"], d);
 }

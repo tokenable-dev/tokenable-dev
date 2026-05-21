@@ -10,7 +10,7 @@ import {
   COLLECTION_DETAILS_BORDER_ALL,
 } from "@/components/marketplace/collectionOverviewChrome";
 
-const LIVE_MARKET_LINE = "rgba(135, 255, 72, 1)";
+const LIVE_MARKET_LINE = "rgba(16, 211, 51, 1)";
 /** Area under line — light mint wash; keep low alpha so panel reads as one surface. */
 const LIVE_MARKET_AREA_GRADIENT = {
   type: "linear" as const,
@@ -19,9 +19,9 @@ const LIVE_MARKET_AREA_GRADIENT = {
   x2: 0,
   y2: 1,
   colorStops: [
-    { offset: 0, color: "rgba(135, 255, 72, 0.14)" },
-    { offset: 0.55, color: "rgba(135, 255, 72, 0.04)" },
-    { offset: 1, color: "rgba(135, 255, 72, 0)" },
+    { offset: 0, color: "rgba(16, 211, 51, 0.14)" },
+    { offset: 0.55, color: "rgba(16, 211, 51, 0.04)" },
+    { offset: 1, color: "rgba(16, 211, 51, 0)" },
   ],
 };
 /** X/Y tick labels — silver / light grey */

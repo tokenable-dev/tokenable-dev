@@ -202,12 +202,12 @@ Returns the Cardhedger-matched catalog card and PSA10 spot price bands for this 
 
 ### `GET /api/marketplace/collections/:key/cardhedger/price-history`
 
-Returns Cardhedger PSA10 price history for the matched card.
+Returns PSA10 price history from the materialized snapshot (`external_usd_json`). No Cardhedger upstream on the hot path.
 
 | Query | Values | Default |
 |-------|--------|---------|
-| `period` | `7d`, `30d`, `90d`, `1y`, `all` | `90d` |
-| `maxDays` | `1`–`4000` | Derived from `period` |
+| `period` | `7d`, `30d`, `90d`, `1y` | `90d` |
+| `maxDays` | `1`–`365` | Derived from `period` |
 
 ---
 
@@ -224,7 +224,6 @@ Returns a chart bundle: platform fills (USDC) + Cardhedger reference prices + wi
 | Query | Values | Default |
 |-------|--------|---------|
 | `priceHistoryDuration` | `7d`, `30d`, `90d`, `180d`, `365d` | `365d` |
-| `hintTokenId` | tokenId string | — |
 
 ---
 

@@ -1,6 +1,10 @@
 /* eslint-disable @typescript-eslint/no-base-to-string -- Cardhedger API payloads are loosely typed; string coercion is intentional for keys and logging. */
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import {
+  TTL_CACHE_PROVIDER,
+  type TtlCacheProvider,
+} from '../../common/cache/ttl-cache.interface';
 import { BlockchainService } from '../../blockchain/blockchain.service';
 import { CardhedgerService } from '../../cardhedger/cardhedger.service';
 import {
@@ -138,29 +142,17 @@ export class CardhedgerMarketDataService {
    */
   private readonly LAST_COMP_LOW_VS_MEDIAN_FRAC: number;
   private readonly MEDIAN_RAW_COMPS_WINDOW: number;
-  private readonly allPricesByCardCache = new Map<
-    string,
-    { rows: CardhedgerCardRow[]; ts: number }
-  >();
-  private readonly tierHistoryOnceCache = new Map<
-    string,
-    { pts: Array<{ t: number; v: number }>; ts: number }
-  >();
-  /** Cached PSA 10 time-weighted comps headline (`POST /v1/cards/comps`). */
-  private readonly compsHeadlineCache = new Map<
-    string,
-    { value: CardhedgerCompsCached | null; ts: number }
-  >();
-  private readonly resolveCardCache = new Map<
-    string,
-    { result: ResolvedCard; ts: number }
-  >();
+  private static readonly NS_ALL_PRICES = 'cardhedger:allPrices';
+  private static readonly NS_TIER_HISTORY = 'cardhedger:tierHistory';
+  private static readonly NS_COMPS = 'cardhedger:comps';
+  private static readonly NS_RESOLVE = 'cardhedger:resolve';
 
   constructor(
     private readonly cardhedger: CardhedgerService,
     private readonly blockchain: BlockchainService,
     private readonly config: ConfigService,
     private readonly psaPublicApi: PsaPublicApiService,
+    @Inject(TTL_CACHE_PROVIDER) private readonly ttlCache: TtlCacheProvider,
   ) {
     this.psaSpecIdMap = readPsaSpecIdCardhedgerMapFromConfig(this.config);
     this.MIN_RELIABLE_SALES_30D = Math.max(
@@ -806,8 +798,11 @@ export class CardhedgerMarketDataService {
   async fetchAllPricesByCard(cardId: string): Promise<CardhedgerCardRow[]> {
     const id = String(cardId ?? '').trim();
     if (!id) return [];
-    const cached = this.allPricesByCardCache.get(id);
-    if (cached && Date.now() - cached.ts < this.PRICES_CACHE_TTL_MS) {
+    const cached = this.ttlCache.get<{ rows: CardhedgerCardRow[] }>(
+      CardhedgerMarketDataService.NS_ALL_PRICES,
+      id,
+    );
+    if (cached) {
       return cached.rows;
     }
     try {
@@ -827,10 +822,20 @@ export class CardhedgerMarketDataService {
       const out = prices.filter(
         (x): x is CardhedgerCardRow => typeof x === 'object' && x != null,
       );
-      this.allPricesByCardCache.set(id, { rows: out, ts: Date.now() });
+      this.ttlCache.set(
+        CardhedgerMarketDataService.NS_ALL_PRICES,
+        id,
+        { rows: out },
+        this.PRICES_CACHE_TTL_MS,
+      );
       return out;
     } catch {
-      this.allPricesByCardCache.set(id, { rows: [], ts: Date.now() });
+      this.ttlCache.set(
+        CardhedgerMarketDataService.NS_ALL_PRICES,
+        id,
+        { rows: [] },
+        this.PRICES_CACHE_TTL_MS,
+      );
       return [];
     }
   }
@@ -879,8 +884,11 @@ export class CardhedgerMarketDataService {
       Math.max(1, Math.floor(days)),
     );
     const cacheKey = `${id}:${grade}:${d}`;
-    const cached = this.tierHistoryOnceCache.get(cacheKey);
-    if (cached && Date.now() - cached.ts < this.PRICES_CACHE_TTL_MS) {
+    const cached = this.ttlCache.get<{ pts: Array<{ t: number; v: number }> }>(
+      CardhedgerMarketDataService.NS_TIER_HISTORY,
+      cacheKey,
+    );
+    if (cached) {
       return cached.pts;
     }
     try {
@@ -892,10 +900,20 @@ export class CardhedgerMarketDataService {
         },
       );
       const pts = this.parseHistoricalPoints(body);
-      this.tierHistoryOnceCache.set(cacheKey, { pts, ts: Date.now() });
+      this.ttlCache.set(
+        CardhedgerMarketDataService.NS_TIER_HISTORY,
+        cacheKey,
+        { pts },
+        this.PRICES_CACHE_TTL_MS,
+      );
       return pts;
     } catch {
-      this.tierHistoryOnceCache.set(cacheKey, { pts: [], ts: Date.now() });
+      this.ttlCache.set(
+        CardhedgerMarketDataService.NS_TIER_HISTORY,
+        cacheKey,
+        { pts: [] },
+        this.PRICES_CACHE_TTL_MS,
+      );
       return [];
     }
   }
@@ -1087,8 +1105,11 @@ export class CardhedgerMarketDataService {
     const id = String(cardId ?? '').trim();
     if (!id) return null;
     const cacheKey = `${id}:psa10:comps`;
-    const hit = this.compsHeadlineCache.get(cacheKey);
-    if (hit && Date.now() - hit.ts < this.PRICES_CACHE_TTL_MS) {
+    const hit = this.ttlCache.get<{ value: CardhedgerCompsCached | null }>(
+      CardhedgerMarketDataService.NS_COMPS,
+      cacheKey,
+    );
+    if (hit) {
       return hit.value;
     }
     try {
@@ -1106,10 +1127,20 @@ export class CardhedgerMarketDataService {
         },
       );
       const parsed = this.parseCompsPsa10CachedBody(body);
-      this.compsHeadlineCache.set(cacheKey, { value: parsed, ts: Date.now() });
+      this.ttlCache.set(
+        CardhedgerMarketDataService.NS_COMPS,
+        cacheKey,
+        { value: parsed },
+        this.PRICES_CACHE_TTL_MS,
+      );
       return parsed;
     } catch {
-      this.compsHeadlineCache.set(cacheKey, { value: null, ts: Date.now() });
+      this.ttlCache.set(
+        CardhedgerMarketDataService.NS_COMPS,
+        cacheKey,
+        { value: null },
+        this.PRICES_CACHE_TTL_MS,
+      );
       return null;
     }
   }
@@ -1847,8 +1878,11 @@ export class CardhedgerMarketDataService {
       ? `${col.collectionKey}\x1e${qForKey?.psaVariety ?? ''}\x1e${qForKey?.cardhedgerCardId ?? ''}`
       : '';
     if (cacheKey) {
-      const cached = this.resolveCardCache.get(cacheKey);
-      if (cached && Date.now() - cached.ts < this.RESOLVE_CACHE_TTL_MS) {
+      const cached = this.ttlCache.get<{ result: ResolvedCard }>(
+        CardhedgerMarketDataService.NS_RESOLVE,
+        cacheKey,
+      );
+      if (cached) {
         return cached.result;
       }
     }
@@ -1856,7 +1890,12 @@ export class CardhedgerMarketDataService {
     const result = await this.resolveCardForCollectionUncached(col);
 
     if (cacheKey) {
-      this.resolveCardCache.set(cacheKey, { result, ts: Date.now() });
+      this.ttlCache.set(
+        CardhedgerMarketDataService.NS_RESOLVE,
+        cacheKey,
+        { result },
+        this.RESOLVE_CACHE_TTL_MS,
+      );
     }
     return result;
   }

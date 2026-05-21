@@ -9,6 +9,9 @@ import {
 import { CardhedgerAiInsightService } from './cardhedger-ai-insight.service';
 import { CardhedgerMarketDataService } from './cardhedger-market-data.service';
 import { CollectionMarketService } from './collection-market.service';
+import { CollectionMarketSnapshotReadService } from './collection-market-snapshot-read.service';
+import { CollectionMarketSnapshotSchedulerService } from './collection-market-snapshot-scheduler.service';
+import { CollectionMarketSnapshotService } from './collection-market-snapshot.service';
 import { CollectionService } from './collection.service';
 import { BatchMarketSnapshotsDto } from './dto/batch-market-snapshots.dto';
 import { MintPreviewsByTokenIdsDto } from './dto/mint-previews-by-token-ids.dto';
@@ -27,6 +30,9 @@ export class CollectionsController {
     private readonly collectionMarketService: CollectionMarketService,
     private readonly cardMarketData: CardhedgerMarketDataService,
     private readonly aiInsight: CardhedgerAiInsightService,
+    private readonly snapshotService: CollectionMarketSnapshotService,
+    private readonly snapshotRead: CollectionMarketSnapshotReadService,
+    private readonly snapshotScheduler: CollectionMarketSnapshotSchedulerService,
   ) {}
 
   /** Decode URL-encoded path segments (some keys may be percent-encoded) and lowercase for DB lookup. */
@@ -97,16 +103,8 @@ export class CollectionsController {
   batchPortfolioMarketData(@Body() body: PortfolioMarketBatchDto) {
     const keys = (body.collectionKeys ?? []).map((k) => this.normalizeKey(k));
     const duration = body.priceHistoryDuration ?? '365d';
-    const hintMap = new Map<string, number>();
-    for (const h of body.hints ?? []) {
-      const ck = this.normalizeKey(h.collectionKey);
-      if (Number.isFinite(h.hintTokenId) && h.hintTokenId >= 0) {
-        hintMap.set(ck, Math.floor(h.hintTokenId));
-      }
-    }
     return this.collectionMarketService.batchPortfolioMarketData(keys, {
       priceHistoryDuration: duration,
-      hintTokenIdByKey: hintMap,
     });
   }
 
@@ -138,8 +136,31 @@ export class CollectionsController {
   @Get('collections/:key/cardhedger')
   async getCollectionCardhedger(@Param('key') key: string) {
     const k = this.normalizeKey(key);
-    const col = await this.collectionService.findOne(k);
-    return this.cardMarketData.getPreviewForCollection(col);
+    let row = await this.snapshotService.findByKey(k);
+    if (!(await this.snapshotService.isUsableForRead(row, k))) {
+      row = await this.snapshotService.ensureSnapshot(k, 'cold_start');
+    }
+    if (row?.previewJson) {
+      const stale = this.snapshotService.isRowStale(row);
+      this.snapshotService.touchLastViewed(k);
+      if (stale) this.snapshotScheduler.enqueue(k, 'stale_swr');
+      const preview = this.snapshotRead.previewFromRow(row);
+      const meta = this.snapshotRead.snapshotMeta(row);
+      return {
+        ...preview,
+        snapshotStale: meta.stale,
+        syncedAt: meta.syncedAt ?? undefined,
+        reliabilityScore: meta.reliabilityScore ?? undefined,
+      };
+    }
+    return {
+      enabled: true,
+      searchQuery: '',
+      matched: false,
+      message: 'Market snapshot unavailable',
+      card: null,
+      snapshotStale: true,
+    };
   }
 
   @ApiOperation({
@@ -155,20 +176,21 @@ export class CollectionsController {
   }
 
   @ApiOperation({
-    summary: 'Cardhedger-backed PSA10 price history for resolved card.',
+    summary:
+      'Cardhedger PSA10 price history from materialized snapshot (external_usd_json).',
   })
   @ApiParam({ name: 'key', description: 'collection_key' })
   @ApiQuery({
     name: 'period',
     required: false,
     enum: ['7d', '30d', '90d', '1y'],
-    description: 'History window (default 90d)',
+    description: 'History window label (default 90d)',
   })
   @ApiQuery({
     name: 'maxDays',
     required: false,
     description:
-      'Nominal calendar window length passed through to history (default 365). Values above Card Hedge’s documented cap (365) are clamped for upstream calls.',
+      'Calendar lookback in days (default from period, max 365 in snapshot).',
   })
   @Get('collections/:key/cardhedger/price-history')
   async getCollectionCardhedgerPriceHistory(
@@ -177,7 +199,6 @@ export class CollectionsController {
     @Query('maxDays') maxDaysRaw?: string,
   ) {
     const k = this.normalizeKey(key);
-    const col = await this.collectionService.findOne(k);
     const periodStr = String(periodRaw ?? '90d');
     const period: MarketHistoryPeriod = isMarketHistoryPeriod(periodStr)
       ? periodStr
@@ -187,13 +208,29 @@ export class CollectionsController {
         ? parseInt(String(maxDaysRaw), 10)
         : NaN;
     const maxCalendarDays = Number.isFinite(parsedMax)
-      ? Math.min(4000, Math.max(1, parsedMax))
+      ? Math.min(365, Math.max(1, parsedMax))
       : marketPeriodToMaxCalendarDays(period);
-    return this.cardMarketData.getTierPriceHistoryForCollection(col, {
+
+    let row = await this.snapshotService.findByKey(k);
+    if (!(await this.snapshotService.isUsableForRead(row, k))) {
+      row = await this.snapshotService.ensureSnapshot(k, 'cold_start');
+    }
+
+    if (row?.externalUsdJson != null) {
+      const stale = this.snapshotService.isRowStale(row);
+      this.snapshotService.touchLastViewed(k);
+      if (stale) this.snapshotScheduler.enqueue(k, 'stale_swr');
+      return this.snapshotRead.priceHistoryFromRow(row, {
+        tier: 'PSA_10',
+        period,
+        maxCalendarDays,
+      });
+    }
+
+    return this.snapshotRead.emptyPriceHistory({
       tier: 'PSA_10',
       period,
       maxCalendarDays,
-      maxRequests: 5,
     });
   }
 
@@ -206,18 +243,16 @@ export class CollectionsController {
   getCollectionMarketSeries(
     @Param('key') key: string,
     @Query('priceHistoryDuration') priceHistoryDuration?: string,
-    @Query('hintTokenId') hintTokenId?: string,
   ) {
     const d = ['7d', '30d', '90d', '180d', '365d'].includes(
       String(priceHistoryDuration),
     )
       ? (priceHistoryDuration as '7d' | '30d' | '90d' | '180d' | '365d')
       : '365d';
-    const hint =
-      hintTokenId != null && /^\d+$/.test(String(hintTokenId).trim())
-        ? String(hintTokenId).trim()
-        : undefined;
-    return this.collectionMarketService.getCollectionMarketBundle(key, d, hint);
+    return this.collectionMarketService.getCollectionMarketBundle(
+      this.normalizeKey(key),
+      d,
+    );
   }
 
   @ApiOperation({
@@ -254,7 +289,11 @@ export class CollectionsController {
     if (col) {
       await this.collectionService.ensurePsaTotalPopulationFromListings(k);
       await this.collectionService.ensurePsaCertNumberFromListings(k);
-      await this.collectionService.ensureCardhedgerCardIdFromListings(k);
+      const cardhedgerUpdated =
+        await this.collectionService.ensureCardhedgerCardIdFromListings(k);
+      if (cardhedgerUpdated) {
+        this.snapshotScheduler.enqueue(k, 'manual');
+      }
       await this.collectionService.ensureListingDisplayTitleFromListings(k);
       col = await this.collectionService.findOne(k);
       this.collectionService.schedulePsaPublicSnapshotRefresh(k);

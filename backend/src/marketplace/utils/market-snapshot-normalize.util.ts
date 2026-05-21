@@ -1,0 +1,189 @@
+import type { GradePriceStrip, UsdPoint } from './collection-market.util';
+import { percentChangeReferenceOverLagSec } from './collection-market.util';
+import type { CollectionMarketSnapshotState } from '../entities/collection-market-snapshot.entity';
+import type { MarketCollectionPreview } from './market-reference.types';
+import {
+  blendCatalogSpotUsdFromPreview,
+  gradeStripFromHistoryTier,
+} from './market-grade-strip.util';
+import type { MaterializedMarketSnapshotPayload } from './market-snapshot.types';
+import { MARKET_SNAPSHOT_SOURCE_VERSION } from './market-snapshot.types';
+
+const SEC_DAY = 86_400;
+
+function finitePositive(n: number | null | undefined): number | null {
+  if (n == null || !Number.isFinite(n) || n <= 0) return null;
+  return n;
+}
+
+function priceFromGradeMap(
+  map: Record<string, number> | undefined,
+  keys: string[],
+): number | null {
+  if (!map) return null;
+  for (const k of keys) {
+    const v = map[k];
+    const p = finitePositive(v);
+    if (p != null) return p;
+  }
+  return null;
+}
+
+/** Extract PSA10 / PSA9 / raw USD from Cardhedger preview bands and grade map. */
+export function extractGradePricesFromPreview(
+  preview: MarketCollectionPreview,
+  historyTier: string,
+): GradePriceStrip {
+  const catalogSpot = blendCatalogSpotUsdFromPreview(preview, historyTier);
+  const base = gradeStripFromHistoryTier(historyTier, catalogSpot);
+  if (!preview.matched || !preview.card) return base;
+
+  const c = preview.card;
+  const byGrade = c.pricesByGrade;
+  const psa10 =
+    finitePositive(c.topPrice) ??
+    priceFromGradeMap(byGrade, ['PSA_10', 'PSA10', 'psa10']) ??
+    base.psa10;
+  const psa9 =
+    priceFromGradeMap(byGrade, ['PSA_9', 'PSA9', 'psa9']) ??
+    finitePositive(c.ebayPsa9?.avg ?? null) ??
+    base.psa9;
+  const raw =
+    priceFromGradeMap(byGrade, ['NEAR_MINT', 'RAW', 'NM', 'Ungraded']) ??
+    finitePositive(c.ebayNearMint?.avg ?? null) ??
+    base.raw;
+
+  return {
+    psa10: psa10 ?? base.psa10,
+    psa9: psa9 ?? base.psa9,
+    raw: raw ?? base.raw,
+  };
+}
+
+/** 0–100 score from match confidence + liquidity signals. */
+export function computeSnapshotReliabilityScore(
+  preview: MarketCollectionPreview,
+): number | null {
+  if (!preview.matched || !preview.card) return null;
+  let score = preview.matchConfidence === 'verified' ? 72 : 48;
+  if (preview.card.priceReliability === 'high') score += 18;
+  else if (preview.card.priceReliability === 'low') score -= 12;
+  const s30 = preview.card.sales30d ?? 0;
+  if (s30 >= 20) score += 10;
+  else if (s30 >= 5) score += 5;
+  else if (s30 === 0) score -= 8;
+  return Math.max(0, Math.min(100, Math.round(score)));
+}
+
+export function downsampleSparkPoints(
+  points: UsdPoint[],
+  maxPoints: number,
+): UsdPoint[] {
+  if (points.length <= maxPoints) return points;
+  const step = (points.length - 1) / (maxPoints - 1);
+  const out: UsdPoint[] = [];
+  for (let i = 0; i < maxPoints; i++) {
+    const idx = Math.round(i * step);
+    out.push(points[Math.min(idx, points.length - 1)]);
+  }
+  return out;
+}
+
+export function filterExternalUsdByDays(
+  points: UsdPoint[],
+  maxDays: number,
+): UsdPoint[] {
+  if (points.length === 0) return [];
+  const cutoff = Math.floor(Date.now() / 1000) - maxDays * SEC_DAY;
+  return points.filter((p) => p.t >= cutoff);
+}
+
+export function computeChangePctLag(
+  externalUsd: UsdPoint[],
+  lagDays: number,
+): number | null {
+  return percentChangeReferenceOverLagSec(externalUsd, lagDays * SEC_DAY);
+}
+
+export function categoryLabelFromPreview(
+  preview: MarketCollectionPreview,
+): string | null {
+  if (!preview.matched || !preview.card) return null;
+  const parts = [preview.card.setName, preview.card.name]
+    .map((s) => String(s).trim())
+    .filter((s) => s.length > 0);
+  return parts.length > 0 ? parts.join(' · ') : null;
+}
+
+export function syncExternalTerminalWithHeadline(
+  externalUsd: UsdPoint[],
+  headlineUsd: number | null,
+): UsdPoint[] {
+  if (
+    headlineUsd == null ||
+    !Number.isFinite(headlineUsd) ||
+    headlineUsd <= 0 ||
+    externalUsd.length === 0
+  ) {
+    return externalUsd;
+  }
+  const last = externalUsd[externalUsd.length - 1]!;
+  const eps = Math.max(1e-6, Math.abs(headlineUsd) * 1e-9);
+  if (Math.abs(last.v - headlineUsd) <= eps) return externalUsd;
+  return [...externalUsd.slice(0, -1), { t: last.t, v: headlineUsd }];
+}
+
+export function buildMaterializedSnapshotPayload(input: {
+  collectionKey: string;
+  historyTier: string;
+  preview: MarketCollectionPreview;
+  historyPoints: UsdPoint[];
+}): MaterializedMarketSnapshotPayload {
+  const key = input.collectionKey.toLowerCase();
+  const headlineUsd = finitePositive(input.preview.card?.topPrice ?? null);
+  let externalUsd = input.historyPoints.map((p) => ({ t: p.t, v: p.v }));
+  externalUsd = syncExternalTerminalWithHeadline(externalUsd, headlineUsd);
+
+  const gradePrices = extractGradePricesFromPreview(
+    input.preview,
+    input.historyTier,
+  );
+  const spark90 = downsampleSparkPoints(
+    filterExternalUsdByDays(externalUsd, 90),
+    48,
+  );
+
+  const marketState: CollectionMarketSnapshotState = input.preview.matched
+    ? 'fresh'
+    : input.preview.enabled
+      ? 'empty'
+      : 'error';
+
+  return {
+    collectionKey: key,
+    cardhedgerCardId: input.preview.card?.id?.trim() || null,
+    psa10Usd: gradePrices.psa10,
+    psa9Usd: gradePrices.psa9,
+    rawUsd: gradePrices.raw,
+    headlineUsd,
+    change7dPct: computeChangePctLag(externalUsd, 7),
+    change30dPct: computeChangePctLag(externalUsd, 30),
+    sparkline90dJson: spark90,
+    previewJson: input.preview,
+    externalUsdJson: externalUsd,
+    gradePricesJson: gradePrices,
+    categoryLabel: categoryLabelFromPreview(input.preview),
+    historyTier: input.historyTier,
+    reliabilityScore: computeSnapshotReliabilityScore(input.preview),
+    marketState,
+    sourceVersion: MARKET_SNAPSHOT_SOURCE_VERSION,
+  };
+}
+
+export function isSnapshotRowStale(
+  staleAfter: Date | null,
+  nowMs = Date.now(),
+): boolean {
+  if (!staleAfter) return true;
+  return nowMs >= staleAfter.getTime();
+}

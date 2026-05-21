@@ -2,18 +2,17 @@
 
 import { IBM_Plex_Sans } from "next/font/google";
 import type { ReactNode } from "react";
+import {
+  COLLECTION_DETAILS_BG_CLASS,
+  COLLECTION_DETAILS_BORDER_ALL,
+} from "@/components/marketplace/collectionOverviewChrome";
+import { formatUsdCompact, NO_EXTERNAL_PRICE } from "@/lib/market";
 
 const ibmPlexSans = IBM_Plex_Sans({
   subsets: ["latin"],
   weight: ["400", "600"],
   display: "swap",
 });
-import type { CollectionMarketStats } from "@/lib/core";
-import {
-  COLLECTION_DETAILS_BG_CLASS,
-  COLLECTION_DETAILS_BORDER_ALL,
-} from "@/components/marketplace/collectionOverviewChrome";
-import { formatUsdCompact, NO_EXTERNAL_PRICE } from "@/lib/market";
 
 function metricVolatilityFromPrices(usdValues: number[]): number | null {
   const vals = usdValues.filter((v) => Number.isFinite(v) && v > 0);
@@ -36,8 +35,6 @@ export interface CollectionPriceMetricsStripProps {
   volatilityFootnote?: string | null;
   platformPriceSamples?: number[];
   bookSpreadPct?: number | null;
-  marketStats?: CollectionMarketStats | null;
-  marketStatsLoading?: boolean;
   externalPriceChange1yPct?: number | null;
   externalPriceChange1yLoading?: boolean;
   externalPriceChangeBasisText?: string | null;

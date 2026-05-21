@@ -26,7 +26,7 @@ export class MarketplaceCollection {
   @Column({ name: 'cover_image_url', type: 'text', nullable: true })
   coverImageUrl: string | null;
 
-  /** Last resolved Cardhedger card id from market bundle (audit / support). */
+  /** Last resolved Cardhedger card id from snapshot refresh (audit / support). */
   @Column({
     name: 'cardhedger_resolved_card_id',
     type: 'varchar',
@@ -35,7 +35,7 @@ export class MarketplaceCollection {
   })
   cardhedgerResolvedCardId: string | null;
 
-  /** Published PSA10 headline USD at last bundle resolution. */
+  /** Published PSA10 headline USD at last snapshot refresh. */
   @Column({
     name: 'cardhedger_headline_usd',
     type: 'double precision',
@@ -83,19 +83,6 @@ export class MarketplaceCollection {
     nullable: true,
   })
   psaPublicSnapshotAt: Date | null;
-
-  /**
-   * Cardhedger resolve + preview + chart tail for `GET …/market-series` (see `MarketBundleCacheV1`).
-   */
-  @Column({ name: 'market_bundle_cache_json', type: 'jsonb', nullable: true })
-  marketBundleCacheJson: Record<string, unknown> | null;
-
-  @Column({
-    name: 'market_bundle_cached_at',
-    type: 'timestamptz',
-    nullable: true,
-  })
-  marketBundleCachedAt: Date | null;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
