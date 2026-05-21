@@ -60,6 +60,20 @@ type MintFriendlyError = {
   hints: string[];
 };
 
+function normalizeCertDigits(v: string | undefined | null): string {
+  return String(v ?? "").replace(/\D/g, "");
+}
+
+function psaCertImageMatchesFormCert(
+  analyze: PsaAnalyzeResult | null | undefined,
+  formCert: string | undefined | null,
+): boolean {
+  if (!analyze?.psaCertImages?.front) return false;
+  const a = normalizeCertDigits(analyze.psa.certNumber);
+  const f = normalizeCertDigits(formCert);
+  return Boolean(a && f && a === f);
+}
+
 function computePsaLocksFromResult(
   r: PsaAnalyzeResult,
   prev: GradedCardFormState
@@ -153,8 +167,16 @@ export function MintForm() {
     const next: Record<string, string> = {};
     if (!form.name.trim()) next.name = "Asset name is required";
     let hasImage = false;
-    if (lastAnalyze?.psaCertImages?.front || lastAnalyze?.cardhedgerMint?.imageUrl) {
+    if (
+      psaCertImageMatchesFormCert(lastAnalyze, form.grade.certNumber) ||
+      lastAnalyze?.cardhedgerMint?.imageUrl
+    ) {
       hasImage = true;
+    } else if (lastAnalyze?.psaCertImages?.front) {
+      // Mismatched PSA slab preview — do not treat as mint-ready
+      hasImage =
+        form.image instanceof File ||
+        (typeof form.image === "string" && !!form.image.trim());
     } else {
       hasImage =
         form.image instanceof File ||
@@ -525,9 +547,15 @@ export function MintForm() {
       const data = new FormData();
       data.append("name", form.name);
       data.append("description", form.description.trim() || "No description");
-      // Prefer clean Cardhedger catalog image (no cert label) over PSA slab photo
+      // Prefer clean Cardhedger catalog image; PSA slab photo only when cert # matches form
+      const trustedPsaSlabUrl = psaCertImageMatchesFormCert(
+        lastAnalyze,
+        form.grade.certNumber,
+      )
+        ? lastAnalyze?.psaCertImages?.front
+        : undefined;
       const selectedMintImageUrl =
-        lastAnalyze?.cardhedgerMint?.imageUrl || lastAnalyze?.psaCertImages?.front;
+        lastAnalyze?.cardhedgerMint?.imageUrl || trustedPsaSlabUrl;
       if (selectedMintImageUrl) {
         data.append("imageUrl", selectedMintImageUrl);
       } else if (form.image instanceof File) {
@@ -618,14 +646,15 @@ export function MintForm() {
 
   const friendlyMintError = useCallback((msg: string): MintFriendlyError | null => {
     const m = msg.toLowerCase();
-    if (m.includes("psa 10 카드만 mint 가능합니다") || m.includes("psa 10")) {
+    if (m.includes("psa 10 또는 psa 인증") || m.includes("psa 10")) {
       return {
-        title: "PSA 10 only",
-        message: "Minting is allowed only for cards officially verified as PSA 10.",
+        title: "Grade not supported",
+        message:
+          "Minting is allowed only for PSA 10 slabs or PSA AUTH slabs without a numeric grade (e.g. Authentic / Authentic Altered).",
         hints: [
-          "Re-run OCR/Cert lookup and confirm Grade is exactly 10.",
-          "If the card grade is not 10, mint is intentionally blocked.",
-          "Use a different cert that resolves to PSA 10.",
+          "PSA 1–9 numeric grades are not supported.",
+          "Re-run cert lookup and confirm the slab grade.",
+          "Use a PSA 10 cert or a PSA AUTH qualifier cert.",
         ],
       };
     }
@@ -865,12 +894,28 @@ export function MintForm() {
                       </div>
                     </div>
                     <div className="flex min-w-0 flex-1 flex-col justify-center pt-0 lg:pt-2">
-                      <p className="text-xs text-gray-500">
-                        PSA image is used for IPFS and marketplace art.
-                      </p>
-                      <span className="mt-2 inline-flex w-fit rounded-full border border-mint-deep/50 bg-mint/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-mint">
-                        Source: PSA Cert Image
-                      </span>
+                      {psaCertImageMatchesFormCert(
+                        lastAnalyze,
+                        form.grade.certNumber,
+                      ) ? (
+                        <>
+                          <p className="text-xs text-gray-500">
+                            PSA image is used for IPFS and marketplace art.
+                          </p>
+                          <span className="mt-2 inline-flex w-fit rounded-full border border-mint-deep/50 bg-mint/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-mint">
+                            Source: PSA Cert Image
+                          </span>
+                        </>
+                      ) : (
+                        <div className="rounded-lg border border-amber-400/35 bg-amber-500/10 p-3 text-xs leading-relaxed text-amber-100/90">
+                          PSA returned a slab photo for cert{" "}
+                          <span className="font-mono">{lastAnalyze.psa.certNumber ?? "—"}</span>,
+                          which does not match the cert you entered (
+                          <span className="font-mono">{form.grade.certNumber || "—"}</span>).
+                          This PSA image will <strong>not</strong> be used for minting — use Cert #
+                          lookup or upload the correct slab.
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

@@ -208,13 +208,6 @@ function pickHeaderCategoryGrade(
   };
 }
 
-function sanitizedDescription(metadata: RwaDetailMetadata | null): string | null {
-  const t = metadata?.description?.trim();
-  if (!t) return null;
-  if (/^no\s+description\.?$/i.test(t)) return null;
-  return t;
-}
-
 /** Filled triangle — resume auto slab rotation. */
 function SlabPlayGlyph({ className }: { className?: string }) {
   return (
@@ -242,7 +235,7 @@ export interface RwaDetailAssetPanelProps {
   metaLoading?: boolean;
   /** Below title · above slab · pass `xl:hidden` from parent when only for narrow viewports */
   priceMetricsSlot?: ReactNode;
-  /** When true, title + badge row are hidden from `xl` up (show in sticky column beside slab). */
+  /** When true, title + badge row are hidden from `lg` up (show in sticky column beside slab). */
   hideHeaderOnXl?: boolean;
 }
 
@@ -273,10 +266,6 @@ export function RwaDetailAssetPanel({
   const setHeadline = useMemo(() => formatRwaSetHeadline(metadata), [metadata]);
   const { category: headerCategory, gradeLine: headerGradeLine } = useMemo(
     () => pickHeaderCategoryGrade(metadata),
-    [metadata],
-  );
-  const readableDescription = useMemo(
-    () => sanitizedDescription(metadata),
     [metadata],
   );
 
@@ -332,22 +321,22 @@ export function RwaDetailAssetPanel({
   const backHeroLoading = Boolean(backNeedsGateway) && backResolving;
 
   const slabHeroSizing =
-    "relative mx-auto aspect-[3/4] w-full overflow-visible rounded-2xl max-h-[min(76vh,700px)] sm:max-h-[min(78vh,760px)]";
+    "relative mx-auto aspect-[3/4] w-full max-w-[min(100%,340px)] overflow-visible rounded-xl max-h-[min(62vh,560px)] sm:max-w-[min(100%,380px)] sm:rounded-2xl sm:max-h-[min(68vh,620px)] lg:max-w-none lg:max-h-[min(72vh,680px)]";
 
   const headerRowPulse =
     Boolean(metaLoading) && !headerCategory && !headerGradeLine && !setHeadline;
   const titlePulse = Boolean(metaLoading) && !metadata?.name?.trim();
 
   return (
-    <div className="flex min-w-0 flex-col gap-5 lg:gap-6">
+    <div className="flex min-w-0 flex-col gap-4 lg:gap-5">
       <div
         className={
           hideHeaderOnXl
-            ? "space-y-2.5 px-0.5 lg:space-y-3 lg:px-0 xl:hidden"
-            : "space-y-2.5 px-0.5 lg:space-y-3 lg:px-0"
+            ? "space-y-2 px-0.5 lg:px-0 lg:hidden"
+            : "space-y-2 px-0.5 lg:px-0"
         }
       >
-        <div className="flex flex-wrap items-start gap-x-3 gap-y-2">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
           {headerRowPulse ? (
             <>
               <span className="h-6 w-[4.75rem] shrink-0 animate-pulse rounded-md bg-gray-800/90" aria-hidden />
@@ -357,19 +346,19 @@ export function RwaDetailAssetPanel({
           ) : (
             <>
               {headerCategory ? (
-                <span className="inline-flex shrink-0 items-center rounded-md border border-amber-400/40 bg-amber-500/[0.22] px-2.5 py-1 text-[11px] font-semibold capitalize tracking-wide text-amber-50">
+                <span className="inline-flex shrink-0 items-center rounded-md border border-amber-400/35 bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold capitalize tracking-wide text-amber-50 sm:text-[11px]">
                   {headerCategory}
                 </span>
               ) : null}
               {headerGradeLine ? (
-                <span className="inline-flex shrink-0 items-center rounded-md border border-mint-deep/45 bg-mint/15 px-2.5 py-1 text-[11px] font-semibold text-mint ring-1 ring-mint-deep/25">
+                <span className="inline-flex shrink-0 items-center rounded-md border border-mint/40 bg-mint/10 px-2 py-0.5 text-[10px] font-semibold text-mint sm:text-[11px]">
                   {headerGradeLine}
                 </span>
               ) : null}
               {metaLoading && !setHeadline ? (
-                <span className="h-4 min-w-[10rem] flex-1 animate-pulse rounded-md bg-gray-800/70" aria-hidden />
+                <span className="h-3.5 min-w-[8rem] flex-1 animate-pulse rounded bg-gray-800/70" aria-hidden />
               ) : setHeadline ? (
-                  <p className="min-w-[min(100%,14rem)] flex-1 basis-[65%] text-left text-[13px] font-medium leading-snug text-gray-100 sm:basis-auto sm:text-sm">
+                  <p className="min-w-0 flex-1 text-[12px] font-medium leading-snug text-zinc-400 sm:text-[13px]">
                     {setHeadline}
                   </p>
               ) : null}
@@ -378,9 +367,9 @@ export function RwaDetailAssetPanel({
         </div>
 
         {titlePulse ? (
-          <div className="h-8 w-[min(100%,20rem)] max-w-full animate-pulse rounded-lg bg-gray-800/85" aria-hidden />
+          <div className="h-7 w-[min(100%,18rem)] max-w-full animate-pulse rounded-lg bg-gray-800/85" aria-hidden />
         ) : (
-          <h1 className="text-2xl font-bold leading-snug tracking-tight text-white sm:text-[1.65rem]">
+          <h1 className="text-xl font-bold leading-snug tracking-tight text-white sm:text-[1.375rem]">
             {title}
           </h1>
         )}
@@ -570,14 +559,6 @@ export function RwaDetailAssetPanel({
               ) : null}
             </div>
           </>
-        ) : null}
-      </div>
-
-      <div className="space-y-3 px-0.5 lg:px-0">
-        {readableDescription ? (
-          <p className="text-sm text-gray-400 leading-relaxed line-clamp-4">
-            {readableDescription}
-          </p>
         ) : null}
       </div>
     </div>

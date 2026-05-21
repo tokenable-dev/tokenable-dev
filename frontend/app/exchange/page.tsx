@@ -71,18 +71,81 @@ function formatMarketChangeWindowShort(
   return map[w] ?? w;
 }
 
-/** Grid + list pills — compact single-line stack (nowrap + horizontal scroll fallback on narrow widths) */
+/** Grid + list pills — wrap on narrow widths; scale type for readability */
 const EXCHANGE_CARD_BADGE_BASE =
-  "box-border inline-flex h-[18px] max-w-none shrink-0 items-center justify-center rounded-[3px] border px-[4px] text-[9px] font-semibold leading-none tracking-tight sm:h-5 sm:px-[5px] sm:text-[10px]";
+  "box-border inline-flex min-h-[20px] max-w-full shrink-0 items-center justify-center rounded-[4px] border px-1.5 py-0.5 text-[10px] font-semibold leading-none tracking-tight sm:min-h-[22px] sm:rounded-[3px] sm:px-[5px] sm:py-0 sm:text-[10px] md:text-[11px]";
 
-/** Numeric / %-style badges — tabular figures */
-const EXCHANGE_CARD_BADGE_NUMERIC = `${EXCHANGE_CARD_BADGE_BASE} whitespace-nowrap tabular-nums gap-0.5`;
+/** Pop / Listed / window labels — neutral chrome; values styled per badge type */
+const EXCHANGE_CARD_BADGE_NEUTRAL = `${EXCHANGE_CARD_BADGE_BASE} gap-0.5 whitespace-nowrap border-[rgba(255,255,255,0.22)] bg-black/50 text-zinc-400`;
 
-/** Pop / Listed neutral chrome */
-const EXCHANGE_CARD_BADGE_KV = `${EXCHANGE_CARD_BADGE_BASE} gap-0.5 whitespace-nowrap border-[rgba(255,255,255,0.22)] bg-black/50 text-white`;
+const EXCHANGE_CARD_BADGE_KV_LABEL = "text-zinc-400";
+const EXCHANGE_CARD_BADGE_KV_VALUE = "tabular-nums text-white";
 
 const EXCHANGE_CARD_INFO_BADGE_ROW =
-  "flex min-w-0 flex-nowrap items-center gap-1 overflow-x-auto pb-px [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
+  "flex min-w-0 max-w-full flex-wrap items-center gap-1 max-[380px]:gap-0.5 sm:gap-1.5";
+
+/** Tighter badge row inside 2-col grid cards on very narrow viewports */
+const EXCHANGE_GRID_CARD_BADGE_ROW = `${EXCHANGE_CARD_INFO_BADGE_ROW} max-[380px]:gap-0.5`;
+
+function exchangePctValueClass(pct: number): string {
+  return pct >= 0 ? "text-[rgba(16,211,51,1)]" : "text-rose-300";
+}
+
+function ExchangePctBadge({
+  pct,
+  windowShort,
+  title,
+}: {
+  pct: number;
+  windowShort?: string;
+  title?: string;
+}) {
+  return (
+    <span className={EXCHANGE_CARD_BADGE_NEUTRAL} title={title}>
+      {windowShort ? <span>{windowShort} </span> : null}
+      <span className={`tabular-nums ${exchangePctValueClass(pct)}`}>
+        {pct >= 0 ? "+" : ""}
+        {pct.toFixed(1)}%
+      </span>
+    </span>
+  );
+}
+
+function ExchangeTrendPctBadge({
+  pct,
+  windowShort,
+  title,
+}: {
+  pct: number;
+  windowShort?: string;
+  title?: string;
+}) {
+  return (
+    <span className={EXCHANGE_CARD_BADGE_NEUTRAL} title={title}>
+      <span className={`tabular-nums ${exchangePctValueClass(pct)}`}>
+        {formatSignedPct(pct)}
+      </span>
+      {windowShort ? <span>{` ${windowShort}`}</span> : null}
+    </span>
+  );
+}
+
+function ExchangeKvBadge({
+  label,
+  value,
+  title,
+}: {
+  label: string;
+  value: string;
+  title?: string;
+}) {
+  return (
+    <span className={EXCHANGE_CARD_BADGE_NEUTRAL} title={title}>
+      <span className={EXCHANGE_CARD_BADGE_KV_LABEL}>{label}</span>
+      <span className={EXCHANGE_CARD_BADGE_KV_VALUE}>{value}</span>
+    </span>
+  );
+}
 
 /** On-platform listing pool: highest “price tier” first (floor → median → p75); rows without stats last. */
 function exchangePoolPriceSortKey(s: CollectionListMarketSnapshot | undefined): [number, number, number] {
@@ -156,91 +219,76 @@ function CollectionRow({
       href={`/marketplace/collections/${encodeURIComponent(collection.collectionKey)}`}
       className="group flex flex-col gap-3 rounded-2xl border border-zinc-700/70 bg-gradient-to-r from-[#0f1117] via-[#10131a] to-[#0e1218] px-3 py-3 transition-all hover:border-mint/35 hover:shadow-[0_0_26px_rgba(16,211,51,0.12)] sm:flex-row sm:items-center sm:gap-6 sm:rounded-3xl sm:px-6 sm:py-6"
     >
-      <div className="relative w-full max-w-[min(156px,48vw)] shrink-0 self-center sm:w-[196px] sm:max-w-none sm:self-auto">
-        {(resolvedCoverUrl || collection.coverImageUrl) ? (
-          <div className="aspect-[3/4] w-full overflow-hidden rounded-2xl border border-gray-800/80">
-            <CollectionCoverFrame
-              imageUrl={resolvedCoverUrl || collection.coverImageUrl!}
-              variant="compact"
-              className="h-full w-full object-cover"
-            />
-          </div>
-        ) : (
-          <div className="aspect-[3/4] w-full rounded-2xl border border-gray-800 bg-gray-900" />
-        )}
-      </div>
+      <div className="flex min-w-0 flex-row items-start gap-3 sm:contents">
+        <div className="relative w-[min(96px,26vw)] shrink-0 sm:w-[196px] sm:shrink-0">
+          {(resolvedCoverUrl || collection.coverImageUrl) ? (
+            <div className="aspect-[3/4] w-full overflow-hidden rounded-xl border border-gray-800/80 sm:rounded-2xl">
+              <CollectionCoverFrame
+                imageUrl={resolvedCoverUrl || collection.coverImageUrl!}
+                variant="compact"
+                className="h-full w-full object-cover"
+              />
+            </div>
+          ) : (
+            <div className="aspect-[3/4] w-full rounded-xl border border-gray-800 bg-gray-900 sm:rounded-2xl" />
+          )}
+        </div>
 
-      <div className="min-w-0 flex-1">
-        <h3 className="line-clamp-2 break-words text-lg font-extrabold uppercase tracking-tight text-white transition-colors group-hover:text-mint sm:line-clamp-1 sm:truncate sm:text-2xl">
-          {toCardDisplayUppercase(collection.displayLabel)}
-        </h3>
-        <div className={`mt-1.5 ${EXCHANGE_CARD_INFO_BADGE_ROW}`}>
+        <div className="min-w-0 flex-1">
+          <h3 className="line-clamp-2 break-words text-base font-extrabold uppercase leading-snug tracking-tight text-white transition-colors group-hover:text-mint sm:line-clamp-1 sm:truncate sm:text-2xl">
+            {toCardDisplayUppercase(collection.displayLabel)}
+          </h3>
+          <div className={`mt-1.5 ${EXCHANGE_CARD_INFO_BADGE_ROW}`}>
           {trendPct != null ? (
-            <span
-              className={`${EXCHANGE_CARD_BADGE_NUMERIC} ${
-                trendPct >= 0
-                  ? "border border-[rgba(16,211,51,1)] bg-[rgba(0,0,0,0.5)] text-[rgba(16,211,51,1)]"
-                  : "border-rose-400/45 bg-black/50 text-rose-300"
-              }`}
+            <ExchangeTrendPctBadge
+              pct={trendPct}
+              windowShort={changeWinShort || undefined}
               title={
                 snapshot?.marketChangeWindow
                   ? `External reference (${snapshot.marketChangeWindow})`
                   : "External reference vs prior window"
               }
-            >
-              {formatSignedPct(trendPct)}
-              {changeWinShort ? ` ${changeWinShort}` : ""}
-            </span>
+            />
           ) : null}
           {pop != null ? (
-            <span className={EXCHANGE_CARD_BADGE_KV} title={`PSA population: ${pop.toLocaleString()}`}>
-              <span>Pop</span>
-              <span className="tabular-nums">{pop.toLocaleString()}</span>
-            </span>
+            <ExchangeKvBadge
+              label="Pop"
+              value={pop.toLocaleString()}
+              title={`PSA population: ${pop.toLocaleString()}`}
+            />
           ) : null}
-          <span
-            className={EXCHANGE_CARD_BADGE_KV}
+          <ExchangeKvBadge
+            label="Listed"
+            value={String(listingCount)}
             title={`${listingCount} listing${listingCount !== 1 ? "s" : ""} on Tokenable`}
-          >
-            <span>Listed</span>
-            <span className="tabular-nums">{listingCount}</span>
-          </span>
+          />
           {tokenableVsRefPct != null ? (
             <span
-              className={`${EXCHANGE_CARD_BADGE_NUMERIC} ${
-                tokenableVsRefPct >= 0
-                  ? "border border-[rgba(16,211,51,1)] bg-[rgba(0,0,0,0.5)] text-[rgba(16,211,51,1)]"
-                  : "border-mint/35 bg-mint/20 text-white/95"
-              }`}
+              className={EXCHANGE_CARD_BADGE_NEUTRAL}
               title={`Tokenable Price (${tokenablePrice != null ? formatUsd(tokenablePrice) : "—"}) vs eBay (${effectiveRefUsd != null ? formatUsd(effectiveRefUsd) : "—"})`}
             >
-              Gap{" "}
-              {tokenableVsRefPct >= 0 ? "+" : ""}
-              {tokenableVsRefPct.toFixed(1)}%
+              <span>Gap </span>
+              <span className={`tabular-nums ${exchangePctValueClass(tokenableVsRefPct)}`}>
+                {tokenableVsRefPct >= 0 ? "+" : ""}
+                {tokenableVsRefPct.toFixed(1)}%
+              </span>
             </span>
           ) : null}
           {changePctExternal != null ? (
-            <span
-              className={`${EXCHANGE_CARD_BADGE_NUMERIC} ${
-                changePctExternal >= 0
-                  ? "border border-[rgba(16,211,51,1)] bg-[rgba(0,0,0,0.5)] text-[rgba(16,211,51,1)]"
-                  : "border-rose-300/30 bg-rose-500/15 text-rose-200"
-              }`}
+            <ExchangePctBadge
+              pct={changePctExternal}
+              windowShort={changeWinShort || undefined}
               title={
                 snapshot?.marketChangeWindow != null && snapshot.marketChangeWindow.length > 0
                   ? `External reference (${snapshot.marketChangeWindow}): interpolated change on Cardhedger history`
                   : "External reference: interpolated change on Cardhedger history"
               }
-            >
-              {changeWinShort ? `${changeWinShort} ` : ""}
-              {changePctExternal >= 0 ? "+" : ""}
-              {changePctExternal.toFixed(1)}%
-            </span>
+            />
           ) : null}
         </div>
-        <dl className="mt-3 space-y-2 text-xs leading-snug text-zinc-300 sm:text-sm sm:leading-tight">
+        <dl className="mt-2.5 space-y-2 text-xs leading-snug text-zinc-300 sm:mt-3 sm:text-sm sm:leading-tight">
           <div className="flex items-baseline justify-between gap-2">
-            <dt className="max-w-[58%] shrink-0 text-white">Price</dt>
+            <dt className="max-w-[45%] shrink-0 text-sm text-white sm:max-w-[58%]">Price</dt>
             <dd
               className="min-w-0 text-right tabular-nums text-sm font-bold text-[rgba(16,211,51,1)] sm:text-base md:text-lg"
               title="External eBay reference price."
@@ -253,13 +301,14 @@ function CollectionRow({
             </dd>
           </div>
         </dl>
+        </div>
       </div>
 
       <div className="flex w-full min-w-0 shrink-0 flex-col items-stretch gap-1 sm:w-auto sm:items-end">
         <CollectionListSparkline
           points={sparklinePoints}
           positive={changePctExternal == null ? undefined : changePctExternal >= 0}
-          className="h-14 w-full max-w-full sm:h-20 sm:w-40"
+          className="h-12 w-full max-w-full sm:h-20 sm:w-40"
         />
       </div>
     </Link>
@@ -321,56 +370,46 @@ function CollectionGridCard({
           <div className="h-full w-full bg-zinc-900" />
         )}
       </div>
-      <div className="flex min-h-0 flex-1 flex-col gap-1.5 p-2.5 sm:gap-2 sm:p-3">
-        <div className={EXCHANGE_CARD_INFO_BADGE_ROW}>
+      <div className="flex min-h-0 flex-1 flex-col gap-1.5 p-2 max-[380px]:p-1.5 sm:gap-2 sm:p-3">
+        <div className={EXCHANGE_GRID_CARD_BADGE_ROW}>
           {trendPct != null ? (
-            <span
-              className={`${EXCHANGE_CARD_BADGE_NUMERIC} ${
-                trendPct >= 0
-                  ? "border border-[rgba(16,211,51,1)] bg-[rgba(0,0,0,0.5)] text-[rgba(16,211,51,1)]"
-                  : "border-rose-400/45 bg-black/50 text-rose-300"
-              }`}
+            <ExchangeTrendPctBadge
+              pct={trendPct}
+              windowShort={windowShort || undefined}
               title={
                 snapshot?.marketChangeWindow
                   ? `External reference (${snapshot.marketChangeWindow})`
                   : "External reference vs prior window"
               }
-            >
-              {formatSignedPct(trendPct)}
-              {windowShort ? ` ${windowShort}` : ""}
-            </span>
+            />
           ) : null}
           {pop != null ? (
-            <span
-              className={EXCHANGE_CARD_BADGE_KV}
+            <ExchangeKvBadge
+              label="Pop"
+              value={pop.toLocaleString()}
               title={`PSA population: ${pop.toLocaleString()}`}
-            >
-              <span>Pop</span>
-              <span className="tabular-nums">{pop.toLocaleString()}</span>
-            </span>
+            />
           ) : null}
-          <span
-            className={EXCHANGE_CARD_BADGE_KV}
+          <ExchangeKvBadge
+            label="Listed"
+            value={String(listingCount)}
             title={`${listingCount} listing${listingCount !== 1 ? "s" : ""} on Tokenable`}
-          >
-            <span>Listed</span>
-            <span className="tabular-nums">{listingCount}</span>
-          </span>
+          />
         </div>
 
         <h3
-          className="line-clamp-2 break-words text-[0.8125rem] font-bold leading-snug text-white sm:text-[1.05rem]"
+          className="line-clamp-2 min-w-0 break-words text-[0.8125rem] font-bold leading-snug text-white max-[380px]:text-xs sm:text-[1.05rem]"
           title={collection.displayLabel}
         >
           {collection.displayLabel}
         </h3>
 
-        <div className="mt-auto flex items-baseline justify-between gap-2 pt-0.5">
-          <span className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-white sm:text-[11px]">
+        <div className="mt-auto flex min-w-0 items-baseline justify-between gap-1.5 pt-0.5 sm:gap-2">
+          <span className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-zinc-400 sm:text-[11px] sm:text-white">
             Price
           </span>
           <span
-            className="min-w-0 truncate text-right text-[0.9375rem] font-bold tabular-nums leading-none text-[rgba(16,211,51,1)] sm:text-lg"
+            className="min-w-0 truncate text-right text-[0.875rem] font-bold tabular-nums leading-none text-[rgba(16,211,51,1)] max-[380px]:text-[0.8125rem] sm:text-lg"
             title={
               marketPriceUsd != null ? formatUsd(marketPriceUsd) : "External reference (eBay strip)"
             }
@@ -575,7 +614,7 @@ export default function ExchangePage() {
             </p>
           </div>
         ) : viewMode === "grid" ? (
-          <div className="grid grid-cols-2 gap-3 pt-1 min-[400px]:gap-4 sm:grid-cols-3 sm:gap-6 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2.5 pt-1 min-[400px]:gap-3 sm:grid-cols-3 sm:gap-6 lg:grid-cols-4">
             {filteredSorted.map((c) => (
               <CollectionGridCard
                 key={c.collectionKey}

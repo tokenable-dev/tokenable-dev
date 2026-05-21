@@ -64,14 +64,48 @@ GitHub Actions deploys frontend and backend from the **same commit** when you pu
 
 ## Database: "relation does not exist"
 
-TypeORM `synchronize: true` is enabled in development. In production, apply the bootstrap schema once:
+Production expects four tables — see [architecture/database.md](../architecture/database.md). Apply bootstrap once:
 
 ```bash
-docker exec -i tokenable-postgres psql -U tokenable -d tokenable \
-  < /home/ubuntu/app/backend/sql/bootstrap-empty-prod-db.sql
+# From repo root (host has backend/sql/)
+docker exec -i tokenable-postgres env PGPASSWORD=tokenable \
+  bash -s < backend/sql/scripts/bootstrap-db.sh
+
+docker exec tokenable-postgres psql -U tokenable -d tokenable -c '\dt'
 ```
 
 Then set `TYPEORM_SYNC=false` in `.env.production.backend` and restart the backend.
+
+---
+
+## Markets list empty but orders exist
+
+Collections are created on **first ask listing**, not at mint. Check:
+
+```bash
+docker exec tokenable-postgres psql -U tokenable -d tokenable -c \
+  "SELECT COUNT(*) FROM marketplace_collections;"
+docker exec tokenable-postgres psql -U tokenable -d tokenable -c \
+  "SELECT token_id, collection_key FROM orders WHERE side='ask' AND status='active';"
+```
+
+- `collection_key` NULL → listing metadata missing graded bucket fields; see orphan route `/marketplace/other-listings`.
+- List API OK but UI empty → hard refresh; check `GET /api/marketplace/collections`.
+- Snapshot bar stuck → `POST /api/marketplace/collections/market-snapshots` errors in Network tab.
+
+---
+
+## Mint rejected: "PSA 10 only"
+
+Vault allows preview for any PSA grade; **mint** requires grade **10** in graded metadata. Non–PSA-10 certs (e.g. PSA 9 Jordan) will fail at `POST /api/rwa/upload`.
+
+---
+
+## PSA cert lookup shows wrong card or empty grade
+
+- **Cert-only mode** (`POST /api/psa/analyze-by-cert`): uses your cert exactly; PSA response must match (`PSACert.CertNumber` = request) or API returns 400.
+- **Slab photo mode**: Cardhedger cert OCR runs **before** manual cert hint — wrong OCR cert can drive PSA lookup. Prefer cert-only for a known cert number.
+- Empty **Grade** dropdown: ensure backend parses `CardGrade` / `GradeDescription` from PSA (recent builds); redeploy if needed.
 
 ---
 
@@ -104,7 +138,7 @@ docker logs tokenable-backend 2>&1 | tail -80
 # Check env vars in backend container
 docker exec tokenable-backend env | grep -E 'TYPEORM|POSTGRES|NODE_ENV|CARDHEDGER'
 
-# Verify DB tables
+# Verify DB tables (expect 4: users, marketplace_collections, collection_market_snapshots, orders)
 docker exec tokenable-postgres psql -U tokenable -d tokenable -c '\dt'
 
 # API smoke tests

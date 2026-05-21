@@ -23,6 +23,11 @@ function pickBandAvg(b: NmBand): number | null {
   return null;
 }
 
+function finitePositive(n: number | null | undefined): number | null {
+  if (n == null || !Number.isFinite(n) || n <= 0) return null;
+  return n;
+}
+
 export function blendCatalogSpotUsdFromPreview(
   preview: MarketCollectionPreview,
   historyTier: string,
@@ -39,6 +44,11 @@ export function blendCatalogSpotUsdFromPreview(
     const v = pickBandAvg(c.ebayPsa10 ?? null);
     return v;
   }
+  if (historyTier === 'PSA_AUTH') {
+    const v = pickBandAvg(c.ebayPsaTiers?.PSA_AUTH ?? null);
+    if (v != null) return v;
+    return finitePositive(c.topPrice);
+  }
   return null;
 }
 
@@ -50,6 +60,8 @@ export function gradeStripFromHistoryTier(
     return { psa10: null, psa9: null, raw: null };
   }
   if (historyTier === 'PSA_10')
+    return { psa10: spotUsd, psa9: null, raw: null };
+  if (historyTier === 'PSA_AUTH')
     return { psa10: spotUsd, psa9: null, raw: null };
   return { psa10: null, psa9: null, raw: null };
 }

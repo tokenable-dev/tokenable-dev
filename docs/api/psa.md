@@ -15,15 +15,15 @@ Analyzes graded card slabs using OCR and looks up the result against the **PSA P
 **Content-Type:** `multipart/form-data`
 
 Runs the full pipeline:
-1. Crop slab image (front required, back optional)
-2. Cardhedger OCR + slab OCR to extract cert number candidates
-3. Lookup against PSA Public API → return validated metadata + Cardhedger market data
+1. Cardhedger **details-by-cert-ocr** on slab image(s) → cert candidates
+2. PSA Public API lookup (first successful cert in candidate list)
+3. Cardhedger mint enrichment
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `slabFront` | file | Yes | Slab front image (JPEG/PNG/WebP, max 15 MB) |
 | `slabBack` | file | No | Slab back image |
-| `certNumber` | string | No | Manual cert override (digits only or `https://www.psacard.com/cert/…`) — takes priority over OCR |
+| `certNumber` | string | No | Manual cert hint — used **only when OCR finds no cert** (OCR wins if present) |
 
 **Response:** `PsaAnalyzeResult`
 
@@ -59,7 +59,13 @@ Performs PSA lookup by cert number only, without slab images.
 
 Accepts cert number digits or full PSA cert URL (`https://www.psacard.com/cert/83179580`).
 
+- Uses **only** the requested cert (no OCR).
+- Rejects PSA responses where `PSACert.CertNumber` ≠ requested cert (**400**).
+- Parses grade from `CardGrade` (string or number) and `GradeDescription`.
+
 **Response:** Same `PsaAnalyzeResult` shape as `/analyze`.
+
+**Mint:** Vault preview works for any PSA grade; `POST /api/rwa/upload` accepts **PSA 10 only**.
 
 ---
 

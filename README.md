@@ -1,6 +1,6 @@
 # Tokenable RWA Marketplace
 
-A decentralized marketplace for graded-card RWAs on EVM chains (Sepolia-first). Users mint via IPFS, list, and trade with USDC. Settlement is primarily **OpenSea Seaport 1.5** (signed off-chain orders synced to Postgres). Market data is sourced from the **Cardhedger** proxy on the Nest API; an optional **relational rule-based matching API** exists alongside Seaport ([docs/api/marketplace.md](docs/api/marketplace.md)). Monorepo: Next.js frontend + Nest backend + Hardhat contracts.
+A decentralized marketplace for graded-card RWAs on EVM chains (Sepolia-first). Users mint **PSA 10** cards via IPFS, list, and trade with USDC. Settlement is **OpenSea Seaport 1.5** (signed off-chain orders in Postgres). External pricing is **materialized** from Cardhedger into `collection_market_snapshots` ([docs/architecture/database.md](docs/architecture/database.md)). Monorepo: Next.js frontend + Nest backend + Hardhat contracts.
 
 ---
 
@@ -81,20 +81,17 @@ tokenable-dev/
 | **[docs/guides/deployment.md](docs/guides/deployment.md)** | GitHub Actions · ECR · EC2 · secrets |
 | **[docs/guides/networking.md](docs/guides/networking.md)** | Nginx · same-origin `/api` · CORS · OAuth · TLS checklist |
 | **[docs/architecture/overview.md](docs/architecture/overview.md)** | High-level system layout |
-| **[backend/sql/README.md](backend/sql/README.md)** | Why there are no SQL migrations |
+| **[docs/architecture/database.md](docs/architecture/database.md)** | PostgreSQL schema (4 tables) |
+| **[backend/sql/README.md](backend/sql/README.md)** | Production bootstrap DDL |
 
 CI/CD: every push to **`develop`** (or **`main`** for prod, when configured) runs [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) — see **[docs/guides/deployment.md](docs/guides/deployment.md)**.
 
-### Architecture & Pipeline Diagrams
+### Pipeline diagrams (Mermaid)
 
 | Diagram | Description |
 |---------|-------------|
 | **[Marketplace Pipeline (KR)](docs/diagrams/marketplace-lifecycle.md)** | 흐름도 · 시퀀스 · DB · 프론트(Part 4) · 백엔드(Part 5) |
 | **[Marketplace Pipeline (EN)](docs/diagrams/marketplace-lifecycle.en.md)** | Flow · sequence · DB · frontend (Part 4) · backend (Part 5) |
-| **[Seaport Criteria Architecture](docs/diagrams/marketplace-seaport-criteria-architecture.drawio)** | Seaport criteria bid architecture |
-| **[Relational trading layer](docs/diagrams/marketplace-trading-relational-layer.drawio)** | Rule engine, DB tables, settlement worker (draw.io) |
-| **[Mint → RWA Exchange](docs/diagrams/tokenable-mint-rwa-exchange-full-architecture.drawio)** | Full mint-to-exchange architecture |
-| **[PSA Upload & OCR Flow](docs/diagrams/psa-slab-upload-ocr-api-flow.drawio)** | PSA slab upload & OCR API flow |
 
 ---
 

@@ -1,4 +1,8 @@
 import { createHash } from 'crypto';
+import {
+  bucketGradeScoreFromPsaGradeInput,
+  psaGradePolicyInputFromGraded,
+} from './psa-grade-policy.util';
 
 /** Canonical fields that define a "same card" pool (many tokenIds, one book). */
 export interface MarketBucketComponents {
@@ -173,7 +177,13 @@ export function extractOrDiagnoseBucketComponents(
   let scoreVal: unknown = grade?.score;
   if (scoreVal == null || scoreVal === '') scoreVal = psa?.gradeScore;
 
-  const gradeScore = normalizeGradeScore(scoreVal);
+  let gradeScore = normalizeGradeScore(scoreVal);
+  if (!gradeScore) {
+    const bucketGrade = bucketGradeScoreFromPsaGradeInput(
+      psaGradePolicyInputFromGraded(graded),
+    );
+    if (bucketGrade) gradeScore = bucketGrade;
+  }
 
   if (!gradingCompany) {
     return {

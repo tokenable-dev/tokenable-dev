@@ -814,6 +814,8 @@ export class CollectionService implements OnModuleInit {
         if (pnum) compRecord.psaCardNumber = pnum;
         if (year) compRecord.psaYear = year;
         if (gradeDesc) compRecord.psaGradeDescription = gradeDesc;
+        const gradeLabel = String(p.gradeLabel ?? p.GradeLabel ?? '').trim();
+        if (gradeLabel) compRecord.psaGradeLabel = gradeLabel;
         if (labelType) compRecord.psaLabelType = labelType;
         const cv = String(card?.variant ?? '').trim();
         const mergedVariety = pvar || cv;

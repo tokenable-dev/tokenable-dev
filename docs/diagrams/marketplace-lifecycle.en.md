@@ -2,7 +2,7 @@
 
 > Seaport v1.5 · Off-chain order book (backend) · On-chain `fulfillOrder` / `matchAdvancedOrders`
 
-> **Update (2026-05):** The experimental **relational matching layer** was **removed** from the backend; matching is **Seaport + `orders` only**. See **[api/marketplace.md](../api/marketplace.md)** and **[architecture/overview.md](../architecture/overview.md)**. Historical diagram: [marketplace-trading-relational-layer.drawio](./marketplace-trading-relational-layer.drawio).
+> **Update (2026-05):** Relational matching removed; **four DB tables** including **`collection_market_snapshots`**. [database.md](../architecture/database.md) · [materialized-market-snapshots.md](../architecture/materialized-market-snapshots.md)
 >
 > **Paths:** Sequence diagram labels like `POST /api/…` include the Nest global prefix **`api`**. Full HTTP overview: **[api/README.md](../api/README.md)**.
 
@@ -667,7 +667,7 @@ flowchart TD
     end
 
     subgraph PERSIST ["Persistence"]
-        PG[("PostgreSQL<br/>orders · marketplace_collections · users · hidden_assets")]:::data
+        PG[("PostgreSQL<br/>users · marketplace_collections<br/>· collection_market_snapshots · orders")]:::data
     end
 
     subgraph OUT ["External systems"]

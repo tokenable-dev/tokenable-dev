@@ -12,8 +12,8 @@ All routes are file-system based. Dynamic segments use `[param]` notation.
 | Route | Source File | Purpose |
 |-------|------------|---------|
 | `/` | `app/page.tsx` | Landing page — Market Indexes (Pokemon/MLB/NFL/NBA dashboard) |
-| `/exchange` | `app/exchange/page.tsx` | Collection hub — list, category filter, trending, list/grid toggle |
-| `/markets` | `app/markets/page.tsx` | Market indexes view — alternative entry point |
+| `/exchange` | `app/exchange/page.tsx` | **Markets / Card Trading List** — collections + batch snapshots |
+| `/markets` | `app/markets/page.tsx` | Re-exports `/exchange` (same page) |
 | `/vault` | `app/vault/page.tsx` | Mint / RWA registration — slab scan, Cardhedger/PSA lookup, IPFS upload, on-chain mint |
 | `/portfolio` | `app/portfolio/page.tsx` | Owned assets — token list, listing status, reference price vs platform price |
 | `/profile` | `app/profile/page.tsx` | User profile — wallet link/unlink, email verification status |
@@ -45,16 +45,18 @@ All routes are file-system based. Dynamic segments use `[param]` notation.
 | `/` | `GET /api/cardhedger/indexes` |
 | `/exchange` | `GET /api/marketplace/collections`, `POST /api/marketplace/collections/market-snapshots` |
 | `/vault` | `POST /api/psa/analyze`, `POST /api/psa/analyze-by-cert`, `POST /api/rwa/upload` |
-| `/portfolio` | `GET /api/blockchain/rwa/tokens/:address`, `POST /api/blockchain/rwa/metadata/batch`, `POST /api/marketplace/cardhedger/mint-previews`, `GET /api/marketplace/orders/token/:tokenId`, `GET /api/marketplace/my-assets/hidden` |
+| `/portfolio` | `GET /api/blockchain/rwa/tokens/:address`, `POST /api/blockchain/rwa/metadata/batch`, `POST /api/marketplace/cardhedger/mint-previews`, `POST /api/marketplace/collections/portfolio-market-batch`, `GET /api/marketplace/orders/token/:tokenId` |
 | `/marketplace/[tokenId]` | `GET /api/blockchain/rwa/asset/:tokenId`, `GET /api/marketplace/orders/token/:tokenId` |
-| `/marketplace/collections/[collectionKey]` | `GET /api/marketplace/collections/:key`, `GET …/cardhedger`, `GET …/market-series`, `GET …/stats`, `GET …/ai-insight`, `GET /api/marketplace/bids` |
+| `/marketplace/collections/[collectionKey]` | `GET /api/marketplace/collections/:key`, `GET …/cardhedger`, `GET …/market-series`, `GET …/stats`, `GET …/ai-insight`, criteria bids via Seaport + `orders` |
 
 ---
 
 ## Collection Key
 
-Collection keys are deterministic SHA-256 hashes derived from normalized card attributes (name, set, number, grading company, grade score). They are generated server-side in `backend/src/marketplace/utils/bucket-key.util.ts` and client-side in `frontend/lib/marketplace/bucketKey.ts`.
+Collection keys are SHA-256 bucket hashes from normalized graded metadata. Generated server-side at **first ask listing** (`ensureCollectionForListing`), not at mint.
 
 ```
-collectionKey = SHA256(normalize(cardName + cardSet + cardNumber + gradingCompany + gradeScore))
+collectionKey = SHA256(normalize(cardName, cardSet, cardNumber, gradingCompany, gradeScore, …))
 ```
+
+See `backend/src/marketplace/utils/bucket-key.util.ts` and [database.md](../architecture/database.md).

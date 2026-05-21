@@ -3,6 +3,11 @@
  * which owned RWAs belong to a given marketplace collection.
  */
 
+import {
+  bucketGradeScoreFromPsaGradeInput,
+  psaGradePolicyInputFromGraded,
+} from "@/lib/market/psaGradePolicy";
+
 export interface MarketBucketComponents {
   gradingCompany: string;
   /** Whitespace-collapsed grader label from metadata — UI only. */
@@ -80,7 +85,13 @@ export function extractBucketComponentsFromMetadata(
   let scoreVal: unknown = grade?.score;
   if (scoreVal == null || scoreVal === "") scoreVal = psa?.gradeScore;
 
-  const gradeScore = normalizeGradeScore(scoreVal);
+  let gradeScore = normalizeGradeScore(scoreVal);
+  if (!gradeScore) {
+    const bucketGrade = bucketGradeScoreFromPsaGradeInput(
+      psaGradePolicyInputFromGraded(graded),
+    );
+    if (bucketGrade) gradeScore = bucketGrade;
+  }
   if (!gradingCompany || !cardName || !gradeScore) return null;
 
   const out: MarketBucketComponents = {

@@ -10,7 +10,7 @@ pnpm start:dev
 
 **Database:** schema comes from TypeORM entities; no `sql/migrations` folder. See **[sql/README.md](./sql/README.md)** and **[../docs/README.md](../docs/README.md)**.
 
-**Marketplace:** Seaport off-chain order book (`marketplace/orders/*`), collections & Cardhedger bundle routes (`marketplace/collections/*`), portfolio hidden assets (`marketplace/assets/*`). Matching is **wallet-signed Seaport only** (no separate relational trading API). Overview: **[../docs/api/marketplace.md](../docs/api/marketplace.md)** · Docs index: **[../docs/README.md](../docs/README.md)**.
+**Marketplace:** Seaport off-chain order book (`marketplace/orders/*`), collections + **materialized snapshots** (`marketplace/collections/*`, `collection_market_snapshots` table). Matching is **wallet-signed Seaport only**. Overview: **[../docs/api/marketplace.md](../docs/api/marketplace.md)** · DB: **[../docs/architecture/database.md](../docs/architecture/database.md)**.
 
 **Card Hedge:** optional **`CARDHEDGER_API_KEY`**. Public HTTP: **`GET /api/cardhedger/indexes`** (dashboard indexes). All other Cardhedger calls go **server-to-server** via `CardhedgerService.forwardJson` (PSA mint, collection pricing, etc.) — not exposed as `/api/cardhedger/v1/*` HTTP proxies. Override base URL with **`CARDHEDGER_BASE_URL`** if needed.
 

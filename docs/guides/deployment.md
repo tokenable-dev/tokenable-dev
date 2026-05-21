@@ -116,12 +116,14 @@ docker compose -f docker-compose.yml -f docker-compose.ec2.yml up -d --force-rec
 docker exec tokenable-postgres psql -U tokenable -d tokenable -c '\dt'
 ```
 
-If empty, apply the bootstrap schema:
+If empty, apply bootstrap (from repo root on EC2 after `git pull`):
 
 ```bash
-docker exec -i tokenable-postgres psql -U tokenable -d tokenable \
-  < /home/ubuntu/app/backend/sql/bootstrap-empty-prod-db.sql
+docker exec -i tokenable-postgres env PGPASSWORD=tokenable \
+  bash -s < /home/ubuntu/app/backend/sql/scripts/bootstrap-db.sh
 ```
+
+(`bootstrap-empty-prod-db.sql` uses psql `\ir` — must run from `backend/sql/`; the shell script above is preferred for piping.)
 
 Then set `TYPEORM_SYNC=false` in `.env.production.backend` and redeploy the backend.
 

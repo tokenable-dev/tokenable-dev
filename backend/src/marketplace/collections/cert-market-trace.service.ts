@@ -5,6 +5,10 @@ import { PsaSpecScraperService } from '../../psa/psa-spec-scraper.service';
 import { buildSearchQueryFromParsed } from '../../psa/utils/psa-ocr.util';
 import type { MarketplaceCollection } from '../entities/marketplace-collection.entity';
 import {
+  bucketGradeScoreFromPsaGradeInput,
+  psaGradePolicyInputFromGraded,
+} from '../utils/psa-grade-policy.util';
+import {
   computeMarketBucketKey,
   type MarketBucketComponents,
 } from '../utils/bucket-key.util';
@@ -19,13 +23,6 @@ import type { CertMarketTraceDto } from './dto/cert-market-trace.dto';
 
 function normalizeBucketPart(s: string): string {
   return s.trim().toLowerCase().replace(/\s+/g, ' ');
-}
-
-function gradeScoreToString(score: number): string {
-  if (!Number.isFinite(score)) return '';
-  if (Math.abs(score - Math.round(score)) < 1e-9)
-    return String(Math.round(score));
-  return String(score);
 }
 
 function historyPeriodFromMaxDays(maxDays: number): MarketHistoryPeriod {
@@ -109,7 +106,14 @@ export class CertMarketTraceService {
       return { computed: false, reason: 'missing_card_name' };
     }
     const score = psa.gradeScore;
-    if (score == null || !Number.isFinite(score)) {
+    const policyInput = {
+      gradingCompany: 'PSA',
+      gradeScore: score,
+      gradeLabel: psa.gradeLabel,
+      gradeDescription: psa.gradeDescription,
+    };
+    const bucketGrade = bucketGradeScoreFromPsaGradeInput(policyInput);
+    if (!bucketGrade) {
       return { computed: false, reason: 'missing_grade_score' };
     }
     const variantType =
@@ -125,7 +129,7 @@ export class CertMarketTraceService {
       gradingCompany: normalizeBucketPart('PSA'),
       cardName: normalizeBucketPart(cardNameRaw),
       cardSet: normalizeBucketPart(cardSetRaw),
-      gradeScore: gradeScoreToString(score),
+      gradeScore: bucketGrade,
       gradingCompanyDisplay: 'PSA',
       cardNameDisplay: cardNameRaw.replace(/\s+/g, ' ').trim(),
       ...(cardSetRaw
@@ -164,6 +168,13 @@ export class CertMarketTraceService {
       typeof psa.gradeScore === 'number' && Number.isFinite(psa.gradeScore)
         ? psa.gradeScore
         : undefined;
+    const policyInput = {
+      gradingCompany: 'psa',
+      gradeScore: gradeScore ?? psa.gradeScore,
+      gradeLabel: psa.gradeLabel,
+      gradeDescription: psa.gradeDescription,
+    };
+    const bucketGrade = bucketGradeScoreFromPsaGradeInput(policyInput);
 
     const certKey = String(psa.certNumber ?? '')
       .replace(/\D/g, '')
@@ -174,7 +185,13 @@ export class CertMarketTraceService {
       cardName,
       cardSet,
       ...(cardNumber ? { cardNumber } : {}),
-      ...(typeof gradeScore === 'number' ? { gradeScore } : {}),
+      ...(bucketGrade ? { gradeScore: bucketGrade } : {}),
+      ...(typeof psa.gradeLabel === 'string' && psa.gradeLabel.trim()
+        ? { psaGradeLabel: psa.gradeLabel.trim() }
+        : {}),
+      ...(typeof psa.gradeDescription === 'string' && psa.gradeDescription.trim()
+        ? { psaGradeDescription: psa.gradeDescription.trim() }
+        : {}),
       ...(mint?.cardId?.trim() ? { cardhedgerCardId: mint.cardId.trim() } : {}),
       ...(mint?.searchQuery?.trim()
         ? { cardhedgerSearchQuery: mint.searchQuery.trim() }

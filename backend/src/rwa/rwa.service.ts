@@ -9,6 +9,10 @@ import { PinataService } from './pinata/pinata.service';
 import { cropPsaSlabForCollectionCover } from '../psa/utils/psa-slab-crop.util';
 import { UploadRwaDto } from './dto/upload-rwa.dto';
 import {
+  mintRejectionMessage,
+  psaGradePolicyInputFromGraded,
+} from '../marketplace/utils/psa-grade-policy.util';
+import {
   RwaAttribute,
   RwaMetadata,
   UploadRwaResult,
@@ -24,46 +28,6 @@ function isPsaGraded(graded: Record<string, unknown> | undefined): boolean {
   if (typeof gc !== 'string') return false;
   const norm = gc.trim().toUpperCase().replace(/\s+/g, '');
   return norm === 'PSA' || norm === 'PSA/DNA' || norm === 'PSADNA';
-}
-
-function parsePositiveNumber(raw: unknown): number | null {
-  if (typeof raw === 'number' && Number.isFinite(raw) && raw > 0) return raw;
-  if (typeof raw === 'string') {
-    const n = Number(raw.trim());
-    if (Number.isFinite(n) && n > 0) return n;
-  }
-  return null;
-}
-
-function extractFirstNumeric(text: unknown): number | null {
-  if (typeof text !== 'string') return null;
-  const m = text.match(/\d+(?:\.\d+)?/);
-  if (!m) return null;
-  const n = Number(m[0]);
-  return Number.isFinite(n) ? n : null;
-}
-
-function resolvePsaGradeScore(graded: Record<string, unknown>): number | null {
-  const psa =
-    typeof graded.psa === 'object' && graded.psa != null
-      ? (graded.psa as Record<string, unknown>)
-      : null;
-  const grade =
-    typeof graded.grade === 'object' && graded.grade != null
-      ? (graded.grade as Record<string, unknown>)
-      : null;
-
-  const direct =
-    parsePositiveNumber(psa?.gradeScore) ??
-    parsePositiveNumber(grade?.score) ??
-    parsePositiveNumber(graded.gradeScore);
-  if (direct != null) return direct;
-
-  const fromLabel =
-    extractFirstNumeric(psa?.gradeLabel) ??
-    extractFirstNumeric(psa?.gradeDescription) ??
-    extractFirstNumeric(grade?.label);
-  return fromLabel;
 }
 
 @Injectable()
@@ -171,11 +135,11 @@ export class RwaService {
         'PSA 등급 카드만 mint 가능합니다. OCR/Cert 조회 결과가 PSA인지 확인해주세요.',
       );
     }
-    const psaScore = resolvePsaGradeScore(gradedObj);
-    if (psaScore == null || Math.floor(psaScore) !== 10) {
-      throw new BadRequestException(
-        `PSA 10 카드만 mint 가능합니다. 현재 등급: ${psaScore ?? 'unknown'}`,
-      );
+    const gradeReject = mintRejectionMessage(
+      psaGradePolicyInputFromGraded(gradedObj),
+    );
+    if (gradeReject) {
+      throw new BadRequestException(gradeReject);
     }
 
     let imageCID: string;

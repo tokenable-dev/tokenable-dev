@@ -1,23 +1,22 @@
 # Diagrams
 
-All diagrams are stored in `docs/diagrams/`.
+Pipeline and architecture diagrams live in **`docs/diagrams/`** as **Mermaid** markdown (GitHub-renderable).
 
 ---
 
-## Diagram Index
+## Index
 
-| File | Format | Description |
-|------|--------|-------------|
-| `marketplace-lifecycle.md` | Mermaid (Korean) | Full pipeline — minting → Seaport listing → criteria bid → on-chain fill. Includes DB schema, frontend routes (Part 4), backend module structure (Part 5) |
-| `marketplace-lifecycle.en.md` | Mermaid (English) | English translation of the full pipeline diagram |
-| `marketplace-seaport-criteria-architecture.drawio` | draw.io | Seaport criteria bid + Merkle tree architecture |
-| `marketplace-trading-relational-layer.drawio` | draw.io | Relational matching layer — API, DB entities, settlement worker |
-| `psa-slab-upload-ocr-api-flow.drawio` | draw.io | PSA slab upload → OCR → Cardhedger → PSA Public API flow |
-| `tokenable-mint-rwa-exchange-full-architecture.drawio` | draw.io | Full mint → RWA exchange architecture overview |
+| File | Language | Description |
+|------|----------|-------------|
+| [marketplace-lifecycle.md](./marketplace-lifecycle.md) | Korean | Full pipeline — mint → Seaport listing → criteria bid → on-chain fill; DB schema; frontend (Part 4); backend (Part 5) |
+| [marketplace-lifecycle.en.md](./marketplace-lifecycle.en.md) | English | Same content in English |
+
+**Canonical DB detail:** [architecture/database.md](../architecture/database.md)  
+**Snapshot workers:** [architecture/materialized-market-snapshots.md](../architecture/materialized-market-snapshots.md)  
+**PSA / OCR API:** [api/psa.md](../api/psa.md)
 
 ---
 
 ## Viewing
 
-- **Mermaid:** Render in GitHub, GitBook, or any Mermaid-compatible viewer.
-- **draw.io:** Open at [draw.io](https://draw.io) or use the VS Code extension `hediet.vscode-drawio`.
+Open the `.md` files on GitHub or in any Mermaid-compatible viewer (VS Code with a Mermaid extension, GitBook, etc.).

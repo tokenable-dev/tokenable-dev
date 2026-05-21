@@ -3,6 +3,7 @@ import {
   catalogSpotUsdFromMarketPreview,
 } from "@/lib/market";
 import { marketHistoryTierFromComponents } from "@/lib/market";
+import { isAuthQualifierGradeScore } from "@/lib/market/priceTier";
 
 /** Catalog reference for marketplace/portfolio (currently Cardhedger-backed). */
 export type ExternalMarketPriceSource = "cardhedger";
@@ -45,7 +46,11 @@ export function isPreviewPriceReliable(
 export function representativeGradeUsd(
   gradePrices: CollectionGradePrices | null | undefined,
   gradeScore: number | null | undefined,
+  gradeScoreStr?: string | null,
 ): number | null {
+  if (isAuthQualifierGradeScore(gradeScoreStr)) {
+    return finitePositive(gradePrices?.psa10);
+  }
   if (!gradePrices || gradeScore == null || !Number.isFinite(gradeScore)) return null;
   const r = Math.round(gradeScore);
   if (r >= 10) return finitePositive(gradePrices.psa10);
@@ -79,7 +84,13 @@ export function resolveExternalMarketUsd(params: {
       marketMatchConfidence: params.marketPreview?.matchConfidence,
     };
   }
-  const strip = representativeGradeUsd(params.gradePrices, params.gradeScore);
+  const strip = representativeGradeUsd(
+    params.gradePrices,
+    params.gradeScore,
+    typeof params.components?.gradeScore === "string"
+      ? params.components.gradeScore
+      : null,
+  );
   if (strip != null) {
     return { usd: strip, source: "cardhedger" };
   }

@@ -20,7 +20,7 @@ Base URL examples:
 | `psa` | `psa/psa.controller.ts` | `/api/psa` |
 | `marketplace` | `marketplace/orders/orders.controller.ts` | `/api/marketplace` |
 | `marketplace` | `marketplace/collections/collections.controller.ts` | `/api/marketplace` |
-| `marketplace` | `marketplace/assets/assets.controller.ts` | `/api/marketplace` |
+| `marketplace` | `marketplace/collections/cert-market-trace.controller.ts` | `/api/marketplace` |
 | `cardhedger` | `cardhedger/controllers/indexes.controller.ts` | `/api/cardhedger` |
 
 `CardhedgerService` also calls Cardhedger upstream from PSA, collections, and indexes code — those paths are **not** duplicated as `/api/cardhedger/v1/*` HTTP routes.
@@ -57,7 +57,9 @@ Base URL examples:
 | PATCH | `/api/marketplace/orders/:hash/fulfill` | — | Mark single order fulfilled |
 | POST | `/api/marketplace/orders/fulfill-matched-pair` | — | Mark matched ask + criteria bid fulfilled |
 | GET | `/api/marketplace/collections` | — | Collection list (cursor pagination) |
-| POST | `/api/marketplace/collections/market-snapshots` | — | Batch collection list snapshots |
+| POST | `/api/marketplace/collections/market-snapshots` | — | Batch list-row snapshots (DB-first) |
+| POST | `/api/marketplace/collections/portfolio-market-batch` | — | Portfolio batch stats + market-series |
+| POST | `/api/marketplace/cert-market-trace` | — | Debug: cert → PSA → Cardhedger trace |
 | GET | `/api/marketplace/collections/:key` | — | Collection detail + order book |
 | GET | `/api/marketplace/collections/:key/cardhedger` | — | Cardhedger matched card + PSA10 bands |
 | GET | `/api/marketplace/collections/:key/cardhedger/price-history` | — | PSA10 price history (`?period`, `?maxDays`) |
@@ -67,10 +69,8 @@ Base URL examples:
 | GET | `/api/marketplace/collections/:key/stats` | — | Pool stats (floor, median, volatility) |
 | GET | `/api/marketplace/collections/:key/merkle-set` | — | Merkle-eligible tokenIds for collection |
 | POST | `/api/marketplace/cardhedger/mint-previews` | — | Batch tokenIds → Cardhedger PSA10 band (max 32) |
-| GET | `/api/marketplace/my-assets/hidden` | — | Hidden tokenIds (`?walletAddress=` required) |
-| POST | `/api/marketplace/my-assets/hidden` | — | Hide token from portfolio |
-| PATCH | `/api/marketplace/my-assets/hidden` | — | Unhide token |
 | GET | `/api/cardhedger/indexes` | — | Dashboard market indexes (Pokemon/MLB/NFL/NBA) |
+| GET | `/api/health` | — | Liveness probe |
 
 ---
 
