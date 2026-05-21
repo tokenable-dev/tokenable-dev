@@ -154,7 +154,7 @@ function CollectionRow({
   return (
     <Link
       href={`/marketplace/collections/${encodeURIComponent(collection.collectionKey)}`}
-      className="group flex flex-col gap-3 rounded-2xl border border-zinc-700/70 bg-gradient-to-r from-[#0f1117] via-[#10131a] to-[#0e1218] px-3 py-3 transition-all hover:border-mint/35 hover:shadow-[0_0_26px_rgba(135,255,72,0.12)] sm:flex-row sm:items-center sm:gap-6 sm:rounded-3xl sm:px-6 sm:py-6"
+      className="group flex flex-col gap-3 rounded-2xl border border-zinc-700/70 bg-gradient-to-r from-[#0f1117] via-[#10131a] to-[#0e1218] px-3 py-3 transition-all hover:border-mint/35 hover:shadow-[0_0_26px_rgba(16,211,51,0.12)] sm:flex-row sm:items-center sm:gap-6 sm:rounded-3xl sm:px-6 sm:py-6"
     >
       <div className="relative w-full max-w-[min(156px,48vw)] shrink-0 self-center sm:w-[196px] sm:max-w-none sm:self-auto">
         {(resolvedCoverUrl || collection.coverImageUrl) ? (
@@ -179,7 +179,7 @@ function CollectionRow({
             <span
               className={`${EXCHANGE_CARD_BADGE_NUMERIC} ${
                 trendPct >= 0
-                  ? "border border-[rgba(0,187,61,1)] bg-[rgba(0,0,0,0.5)] text-[rgba(0,187,61,1)]"
+                  ? "border border-[rgba(16,211,51,1)] bg-[rgba(0,0,0,0.5)] text-[rgba(16,211,51,1)]"
                   : "border-rose-400/45 bg-black/50 text-rose-300"
               }`}
               title={
@@ -209,7 +209,7 @@ function CollectionRow({
             <span
               className={`${EXCHANGE_CARD_BADGE_NUMERIC} ${
                 tokenableVsRefPct >= 0
-                  ? "border border-[rgba(0,187,61,1)] bg-[rgba(0,0,0,0.5)] text-[rgba(0,187,61,1)]"
+                  ? "border border-[rgba(16,211,51,1)] bg-[rgba(0,0,0,0.5)] text-[rgba(16,211,51,1)]"
                   : "border-mint/35 bg-mint/20 text-white/95"
               }`}
               title={`Tokenable Price (${tokenablePrice != null ? formatUsd(tokenablePrice) : "—"}) vs eBay (${effectiveRefUsd != null ? formatUsd(effectiveRefUsd) : "—"})`}
@@ -223,7 +223,7 @@ function CollectionRow({
             <span
               className={`${EXCHANGE_CARD_BADGE_NUMERIC} ${
                 changePctExternal >= 0
-                  ? "border border-[rgba(0,187,61,1)] bg-[rgba(0,0,0,0.5)] text-[rgba(0,187,61,1)]"
+                  ? "border border-[rgba(16,211,51,1)] bg-[rgba(0,0,0,0.5)] text-[rgba(16,211,51,1)]"
                   : "border-rose-300/30 bg-rose-500/15 text-rose-200"
               }`}
               title={
@@ -242,7 +242,7 @@ function CollectionRow({
           <div className="flex items-baseline justify-between gap-2">
             <dt className="max-w-[58%] shrink-0 text-white">Price</dt>
             <dd
-              className="min-w-0 text-right tabular-nums text-sm font-bold text-[rgba(135,255,72,1)] sm:text-base md:text-lg"
+              className="min-w-0 text-right tabular-nums text-sm font-bold text-[rgba(16,211,51,1)] sm:text-base md:text-lg"
               title="External eBay reference price."
             >
               {effectiveRefUsd != null ? (
@@ -327,7 +327,7 @@ function CollectionGridCard({
             <span
               className={`${EXCHANGE_CARD_BADGE_NUMERIC} ${
                 trendPct >= 0
-                  ? "border border-[rgba(0,187,61,1)] bg-[rgba(0,0,0,0.5)] text-[rgba(0,187,61,1)]"
+                  ? "border border-[rgba(16,211,51,1)] bg-[rgba(0,0,0,0.5)] text-[rgba(16,211,51,1)]"
                   : "border-rose-400/45 bg-black/50 text-rose-300"
               }`}
               title={
@@ -370,7 +370,7 @@ function CollectionGridCard({
             Price
           </span>
           <span
-            className="min-w-0 truncate text-right text-[0.9375rem] font-bold tabular-nums leading-none text-[rgba(135,255,72,1)] sm:text-lg"
+            className="min-w-0 truncate text-right text-[0.9375rem] font-bold tabular-nums leading-none text-[rgba(16,211,51,1)] sm:text-lg"
             title={
               marketPriceUsd != null ? formatUsd(marketPriceUsd) : "External reference (eBay strip)"
             }
@@ -540,7 +540,7 @@ export default function ExchangePage() {
               className="relative h-1.5 w-full overflow-hidden rounded-full bg-zinc-800/90"
               aria-hidden
             >
-              <div className="absolute left-0 top-0 h-full w-[32%] rounded-full bg-mint/90 shadow-[0_0_14px_rgba(135,255,72,0.4)] exchange-snapshot-loading-fill" />
+              <div className="absolute left-0 top-0 h-full w-[32%] rounded-full bg-mint/90 shadow-[0_0_14px_rgba(16,211,51,0.4)] exchange-snapshot-loading-fill" />
             </div>
           </div>
         ) : null}

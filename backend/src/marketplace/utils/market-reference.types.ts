@@ -27,6 +27,9 @@ export type MarketPriceHistoryResult = {
   points: Array<{ t: number; v: number }>;
   source: string;
   upstreamRequests: number;
+  /** Present when served from materialized snapshot (always 0 upstream). */
+  snapshotStale?: boolean;
+  syncedAt?: string;
 };
 
 export type MarketCollectionPreview = {

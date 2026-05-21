@@ -3,13 +3,6 @@
  * Prefer `WalletAddressCompact` (`@/components/wallet/WalletAddressCompact`) in the UI
  * so the omission is never clipped by CSS ellipsis.
  */
-export function formatConnectedWalletLabel(address: string): string {
-  const raw = address.trim();
-  if (!raw.startsWith("0x")) return raw;
-  const a = raw.toLowerCase();
-  if (a.length < 8) return raw;
-  return `${a.slice(0, 5)}...${a.slice(-3)}`;
-}
 
 /** For layouts that render head / gap / tail separately (avoids `truncate` eating `...`). */
 export function getConnectedWalletLabelParts(address: string): {

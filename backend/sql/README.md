@@ -1,68 +1,100 @@
 # Database schema
 
-Optional **manual SQL** files in this folder supplement TypeORM for production (`synchronize: false`) or one-off fixes. The canonical model remains entities under `backend/src/**/entities/*.ts`.
+Canonical model: TypeORM entities under `backend/src/**/entities/*.ts`.
 
-- **Local / non-production**: `app.module.ts` uses `synchronize: true` when `NODE_ENV !== 'production'`, so the backend creates or updates tables on startup.
-- **Production**: set `NODE_ENV=production` and `synchronize: false`, then apply entity-aligned DDL (see below) or your migration pipeline.
+SQL in this folder is the **production-grade DDL** mirror — modular, commented, idempotent, with CHECK constraints and partial indexes where they matter.
 
-### Collection enrichment (PSA cert, market bundle cache)
+## Layout
 
-Apply when upgrading an existing Postgres without TypeORM sync:
-
-```bash
-psql … -f backend/sql/marketplace_collections_enrichment_cache.sql
+```
+sql/
+├── bootstrap-empty-prod-db.sql   # psql \ir orchestrator (run from this directory)
+├── schema/
+│   ├── 010_users.sql
+│   ├── 020_marketplace_collections.sql
+│   ├── 030_collection_market_snapshots.sql
+│   ├── 040_orders.sql
+│   └── 900_triggers.sql          # updated_at triggers
+├── scripts/
+│   └── bootstrap-db.sh           # cat schema/*.sql — works with stdin pipe / Docker
+└── seed-dev-platform-chart-fills.sql
 ```
 
-Optional env (defaults are safe):
+## When to use what
+
+| Environment | Approach |
+|-------------|----------|
+| **Local dev** | `NODE_ENV !== production` → TypeORM `synchronize: true` on backend boot. Easiest path. |
+| **Fresh prod / empty DB** | Run bootstrap once, then `TYPEORM_SYNC=false`. |
+| **Review / audit** | Read `schema/*.sql` — one file per table group. |
+
+### Bootstrap (recommended)
+
+From repo root, with Docker Postgres:
+
+```bash
+chmod +x backend/sql/scripts/bootstrap-db.sh
+docker exec -i tokenable-postgres env PGPASSWORD=tokenable \
+  backend/sql/scripts/bootstrap-db.sh
+```
+
+Or with `DATABASE_URL`:
+
+```bash
+DATABASE_URL=postgres://tokenable:tokenable@localhost:5432/tokenable \
+  backend/sql/scripts/bootstrap-db.sh
+```
+
+When the SQL tree is **on disk inside the container** (volume mount):
+
+```bash
+docker exec tokenable-postgres psql -U tokenable -d tokenable \
+  -v ON_ERROR_STOP=1 -f /path/to/backend/sql/bootstrap-empty-prod-db.sql
+```
+
+(`bootstrap-empty-prod-db.sql` uses `\ir schema/…` — must run from `backend/sql/`.)
+
+## Tables
+
+| Table | Purpose |
+|-------|---------|
+| `users` | Google OAuth accounts + optional wallet |
+| `marketplace_collections` | Bucket metadata, cover, PSA/Cardhedger enrichments |
+| `collection_market_snapshots` | Materialized Cardhedger pricing (API read path) |
+| `orders` | Seaport ask/bid listings + fulfilled tape |
+
+## Snapshot worker env
 
 | Variable | Purpose |
 |----------|---------|
-| `MARKET_BUNDLE_CACHE_SEC` | Cardhedger-heavy `GET …/market-series` cache TTL; `0` disables. Default **120** seconds in code. |
-| `PSA_PUBLIC_SNAPSHOT_DB_TTL_SEC` | How long to keep `psa_public_snapshot_json` before refreshing from PSA API (min 60). Default **7 days** in code. |
+| `MARKET_SNAPSHOT_ON_DEMAND` | Cold-start upstream refresh when no row (default **on**) |
+| `MARKET_SNAPSHOT_STALE_AFTER_SEC` | SWR freshness window (default **900**) |
+| `MARKET_SNAPSHOT_CRON_ENABLED` | Background `@Cron` refresh (default **on**) |
+| `MARKET_SNAPSHOT_REFRESH_CONCURRENCY` | Worker concurrency (default **4**) |
+| `MARKET_SNAPSHOT_CRON_MAX_KEYS` | Max keys per cron tick (default **120**) |
+| `MARKET_SNAPSHOT_RECENT_FILL_DAYS` | Include collections with recent fulfilled asks (default **30**) |
+| `MARKET_SNAPSHOT_VIEWED_LOOKBACK_DAYS` | Include recently viewed collections (default **7**) |
+| `MARKET_SNAPSHOT_PREWARM_DELAY_MS` | Boot prewarm delay (default **8000**) |
+| `PSA_PUBLIC_SNAPSHOT_DB_TTL_SEC` | PSA cert snapshot cache TTL (default **7 days**) |
 
 ---
 
 ## Reset PostgreSQL completely (local Docker)
 
-Schema is recreated when the backend starts with `synchronize` enabled.
-
-1. Stop containers: `docker compose down` (from repo root).
-2. Remove the named volume so Postgres starts empty (`postgres_data` in `docker-compose.yml`):
-
-   ```bash
-   docker volume rm tokenable-dev_postgres_data
-   ```
-
-   (Prefix `tokenable-dev_` may differ; use `docker volume ls` to find the exact name.)
-
-3. Start Postgres again: `docker compose up -d postgres`.
-4. Start the Nest app: `cd backend && pnpm start:dev` — tables are created from entities.
-
-If you use a **local Postgres** without Docker, drop and recreate the database or drop all tables in the target schema, then restart the backend.
+1. `docker compose down`
+2. `docker volume rm tokenable-dev_postgres_data` (prefix may differ — `docker volume ls`)
+3. `docker compose up -d postgres`
+4. `cd backend && pnpm start:dev` — TypeORM sync creates schema, **or** run bootstrap script above first and set `TYPEORM_SYNC=false`.
 
 ---
 
-## Empty production DB (`\dt` shows no relations)
+## Dev: platform chart seed data
 
-`TYPEORM_SYNC=true` 인데도 테이블이 없으면, 배포 중인 백엔드 이미지가 해당 분기를 포함하지 않았거나 동기화가 실패한 경우가 있습니다. **수동으로 한 번 스키마를 넣을 수 있습니다** (레포의 `bootstrap-empty-prod-db.sql`).
-
-서버에서 레포 `~/app` 기준:
+Fulfilled ask rows for collection chart testing:
 
 ```bash
-docker exec -i tokenable-postgres psql -U tokenable -d tokenable < /home/ubuntu/app/backend/sql/bootstrap-empty-prod-db.sql
+docker exec -i tokenable-postgres psql -U tokenable -d tokenable \
+  < backend/sql/seed-dev-platform-chart-fills.sql
 ```
 
-적용 후 `\dt` 로 `users`, `orders`, `marketplace_collections` 가 보이는지 확인하고, **`TYPEORM_SYNC`는 끄거나 제거**한 뒤 백엔드를 재시작하세요. (최신 엔티티가 포함된 이미지라면 `bids`, `asks`, `match_intents`, `trade_executions` 등도 나타날 수 있습니다 — [docs/api/marketplace.md](../../docs/api/marketplace.md).)
-
----
-
-## Dev: chart / platform trade history (about 2 months)
-
-컬렉션 상세·Exchange 차트의 **플랫폼(온체인 체결) 시계열**은 DB의 `orders` 중 `fulfilled` **ask**를 씁니다. 로컬에서 곡선만 빠르게 보고 싶으면 `seed-dev-platform-chart-fills.sql`로 과거 체결처럼 보이는 행을 넣을 수 있습니다(재실행 시 `_seedChart` 로 넣었던 행만 지우고 다시 삽입).
-
-```bash
-# repo root, Docker Postgres
-docker exec -i tokenable-postgres psql -U tokenable -d tokenable < backend/sql/seed-dev-platform-chart-fills.sql
-```
-
-파일 상단의 `rwa_contract` / `usdc_contract` 는 `backend/.env` 와 맞추세요. `marketplace_collections` 에 행이 하나 있어야 하며, 가능하면 해당 컬렉션에 맞는 `token_id` 를 기존 주문에서 재사용합니다.
+Match `rwa_contract` / `usdc_contract` at the top of the seed file to `backend/.env`.

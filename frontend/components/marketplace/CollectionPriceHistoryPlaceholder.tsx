@@ -18,7 +18,7 @@ export function CollectionPriceHistoryPlaceholder({
       className={`relative overflow-hidden rounded-xl ${COLLECTION_DETAILS_BORDER_ALL} ${COLLECTION_DETAILS_BG_CLASS} ${className}`}
     >
       <div
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_70%_80%_at_50%_100%,rgba(135,255,72,0.12),transparent_60%)]"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_70%_80%_at_50%_100%,rgba(16,211,51,0.12),transparent_60%)]"
         aria-hidden
       />
       <div className="text-center px-3 pt-3 pb-1">
@@ -36,12 +36,12 @@ export function CollectionPriceHistoryPlaceholder({
         >
           <defs>
             <linearGradient id="collection-chart-fill" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="rgb(135, 255, 72)" stopOpacity="0.35" />
-              <stop offset="100%" stopColor="rgb(135, 255, 72)" stopOpacity="0" />
+              <stop offset="0%" stopColor="rgb(16, 211, 51)" stopOpacity="0.35" />
+              <stop offset="100%" stopColor="rgb(16, 211, 51)" stopOpacity="0" />
             </linearGradient>
             <linearGradient id="collection-chart-line" x1="0" y1="0" x2="1" y2="0">
               <stop offset="0%" stopColor="rgb(63, 143, 24)" />
-              <stop offset="100%" stopColor="rgb(135, 255, 72)" />
+              <stop offset="100%" stopColor="rgb(16, 211, 51)" />
             </linearGradient>
           </defs>
           <path

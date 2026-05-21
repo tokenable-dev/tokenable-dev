@@ -10,10 +10,12 @@ import {
   type OrderListItem,
   type CollectionMarketPreview,
   postPortfolioCollectionMarketBatch,
+  postBatchMintMarketPreviews,
   type CollectionMarketSeries,
   type CollectionMarketStats,
   cancelOrder,
   rq,
+  marketplaceRqPolicy,
 } from "@/lib/core";
 import { extractBucketComponentsFromMetadata, computeMarketBucketKey } from "@/lib/marketplace/bucketKey";
 import { displayAssetNameFromMetadata } from "@/lib/marketplace/rwaDisplayTitle";
@@ -58,7 +60,7 @@ interface PricedAssetRow {
   /** Secondary line under title (set / year / card name) */
   subtitle: string;
   gradeLabel: string | null;
-  /** Raw PokéTrace preview payload for this token. */
+  /** Raw Cardhedger preview payload for this token. */
   marketPreviewRaw: CollectionMarketPreview | null;
 }
 
@@ -137,7 +139,7 @@ function extractCategory(meta: RwaMetadata | null): string | null {
   return null;
 }
 
-function gradeScoreForJustTcg(meta: RwaMetadata | null): number | null {
+function gradeScoreFromMetadata(meta: RwaMetadata | null): number | null {
   const g = getGraded(meta);
   if (g?.psa?.gradeScore != null) return parseGradeScoreNumber(String(g.psa.gradeScore));
   if (g?.grade?.score != null && Number.isFinite(g.grade.score))
@@ -412,9 +414,9 @@ function PortfolioChart({
       >
         <defs>
           <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="rgba(135,255,72,0.15)" />
-            <stop offset="80%" stopColor="rgba(135,255,72,0.02)" />
-            <stop offset="100%" stopColor="rgba(135,255,72,0)" />
+            <stop offset="0%" stopColor="rgba(16,211,51,0.15)" />
+            <stop offset="80%" stopColor="rgba(16,211,51,0.02)" />
+            <stop offset="100%" stopColor="rgba(16,211,51,0)" />
           </linearGradient>
           <filter id="glow">
             <feGaussianBlur stdDeviation="3" result="blur" />
@@ -482,8 +484,8 @@ function PortfolioChart({
             rx="1"
             fill={
               hover?.idx === i
-                ? "rgba(135,255,72,0.5)"
-                : "rgba(135,255,72,0.12)"
+                ? "rgba(16,211,51,0.5)"
+                : "rgba(16,211,51,0.12)"
             }
           />
         ))}
@@ -509,7 +511,7 @@ function PortfolioChart({
               x2={hover.x}
               y1={TOP}
               y2={TOP + chartH}
-              stroke="rgba(135,255,72,0.2)"
+              stroke="rgba(16,211,51,0.2)"
               strokeWidth="1"
               strokeDasharray="3 3"
             />
@@ -530,7 +532,7 @@ function PortfolioChart({
                 height="20"
                 rx="6"
                 fill="#1a2332"
-                stroke="rgba(135,255,72,0.3)"
+                stroke="rgba(16,211,51,0.3)"
                 strokeWidth="1"
               />
               <text
@@ -564,7 +566,7 @@ function PortfolioChart({
               cy={lastY}
               r="9"
               fill="none"
-              stroke="rgba(135,255,72,0.25)"
+              stroke="rgba(16,211,51,0.25)"
               strokeWidth="1.5"
             />
             <g>
@@ -575,7 +577,7 @@ function PortfolioChart({
                 height="22"
                 rx="6"
                 fill="#1a2332"
-                stroke="rgba(135,255,72,0.3)"
+                stroke="rgba(16,211,51,0.3)"
                 strokeWidth="1"
               />
               <text
@@ -643,13 +645,11 @@ export default function PortfolioPage() {
     isLoadingIds: idsLoading,
     isLoadingMetadata: assetsLoading,
     isLoadingHistoryBatch: historyBatchLoading,
-    marketPreviewByToken,
-    marketPreviewLoading,
     refetchActiveOrders,
   } = useUserAssets(isConnected ? address : undefined, {
     enabled: Boolean(address && isConnected),
     includeOrderHistory: true,
-    includeMarketPreview: true,
+    includeMarketPreview: false,
   });
 
   const assets: OwnedAsset[] = useMemo(
@@ -757,41 +757,11 @@ export default function PortfolioPage() {
     return [...s];
   }, [assets, tokenToCollectionKey]);
 
-  /** One owned token per bucket so market-series can resolve the bucket from IPFS when there is no active listing. */
-  const hintTokenIdByCollectionKey = useMemo(() => {
-    const m = new Map<string, number>();
-    for (const a of assets) {
-      const raw = tokenToCollectionKey[a.tokenId];
-      if (!raw) continue;
-      const k = raw.toLowerCase();
-      if (!m.has(k)) m.set(k, a.tokenId);
-    }
-    return m;
-  }, [assets, tokenToCollectionKey]);
-
-  /** Cardhedger chart bundle loads whenever we have a bucket key (aligns spot with collection detail). */
-  const anyAssetNeedsSeriesForPricing = useMemo(
-    () =>
-      assets.some((a) => Boolean(tokenToCollectionKey[a.tokenId]?.trim())),
-    [assets, tokenToCollectionKey],
-  );
-
-  const anyAssetUsesLivePoolStats = useMemo(
-    () =>
-      assets.some((a) => Boolean(tokenToCollectionKey[a.tokenId]?.trim())),
-    [assets, tokenToCollectionKey],
-  );
-
   const portfolioMarketBatchSig = useMemo(() => {
-    const keys = [...uniqueCollectionKeys].map((k) => k.toLowerCase()).sort();
-    const hintPart = keys
-      .map((k) => {
-        const h = hintTokenIdByCollectionKey.get(k);
-        return `${k}:${h ?? ""}`;
-      })
-      .join("|");
-    return `${keys.join(",")}|${hintPart}`;
-  }, [uniqueCollectionKeys, hintTokenIdByCollectionKey]);
+    return [...uniqueCollectionKeys].map((k) => k.toLowerCase()).sort().join(",");
+  }, [uniqueCollectionKeys]);
+
+  const hasCollectionBuckets = uniqueCollectionKeys.length > 0;
 
   const {
     data: portfolioMarketBatch,
@@ -806,17 +776,6 @@ export default function PortfolioPage() {
       postPortfolioCollectionMarketBatch({
         collectionKeys: uniqueCollectionKeys,
         priceHistoryDuration: "365d",
-        hints: uniqueCollectionKeys
-          .map((k) => {
-            const hint = hintTokenIdByCollectionKey.get(k.toLowerCase());
-            return hint != null
-              ? { collectionKey: k, hintTokenId: hint }
-              : null;
-          })
-          .filter(
-            (x): x is { collectionKey: string; hintTokenId: number } =>
-              x != null,
-          ),
       }),
     enabled:
       uniqueCollectionKeys.length > 0 && Boolean(address && isConnected),
@@ -841,19 +800,50 @@ export default function PortfolioPage() {
     return m;
   }, [portfolioMarketBatch]);
 
+  /** Lazy mint previews — only when batch series preview did not match. */
+  const tokenIdsNeedingMintPreview = useMemo(() => {
+    if (portfolioMarketBatchLoading) return [];
+    return assets
+      .filter((a) => {
+        const ck = tokenToCollectionKey[a.tokenId]?.toLowerCase();
+        if (!ck) return true;
+        const preview = seriesByCollectionKey.get(ck)?.cardhedgerPreview;
+        return !(preview?.matched && preview?.card);
+      })
+      .map((a) => a.tokenId);
+  }, [
+    assets,
+    tokenToCollectionKey,
+    seriesByCollectionKey,
+    portfolioMarketBatchLoading,
+  ]);
+
+  const {
+    data: mintPreviewByToken = {},
+    isLoading: mintFallbackLoading,
+  } = useQuery({
+    queryKey: rq.marketMintPreviews(address, tokenIdsNeedingMintPreview),
+    queryFn: () => postBatchMintMarketPreviews(tokenIdsNeedingMintPreview),
+    enabled:
+      Boolean(address && isConnected) &&
+      tokenIdsNeedingMintPreview.length > 0 &&
+      !portfolioMarketBatchLoading,
+    staleTime: marketplaceRqPolicy.cardhedgerStaleMs,
+  });
+
   const statsLoadingAny =
-    portfolioMarketBatchLoading && anyAssetUsesLivePoolStats;
+    portfolioMarketBatchLoading && hasCollectionBuckets;
   const seriesLoadingAny =
-    portfolioMarketBatchLoading && anyAssetNeedsSeriesForPricing;
+    portfolioMarketBatchLoading && hasCollectionBuckets;
 
   /** External + per-bucket series + pool stats still loading when needed */
   const valuesPending =
     Boolean(address) &&
     isConnected &&
     assets.length > 0 &&
-    (marketPreviewLoading ||
-      (anyAssetUsesLivePoolStats && statsLoadingAny) ||
-      (anyAssetNeedsSeriesForPricing && seriesLoadingAny));
+    (mintFallbackLoading ||
+      (hasCollectionBuckets && statsLoadingAny) ||
+      (hasCollectionBuckets && seriesLoadingAny));
 
   const myActiveListings = useMemo(
     () =>
@@ -912,13 +902,13 @@ export default function PortfolioPage() {
 
       const preview = pickPortfolioMarketPreview(
         series,
-        marketPreviewByToken[a.tokenId] ?? null,
+        mintPreviewByToken[a.tokenId] ?? null,
       );
 
       const resolved = resolveExternalMarketUsd({
         marketPreview: preview,
         gradePrices: series?.gradePrices ?? null,
-        gradeScore: gradeScoreForJustTcg(a.metadata),
+        gradeScore: gradeScoreFromMetadata(a.metadata),
         components: marketTierComponentsFromMetadata(a.metadata),
       });
 
@@ -960,7 +950,7 @@ export default function PortfolioPage() {
     tokenToCollectionKey,
     statsByCollectionKey,
     seriesByCollectionKey,
-    marketPreviewByToken,
+    mintPreviewByToken,
   ]);
 
   useEffect(() => {
@@ -1121,7 +1111,7 @@ export default function PortfolioPage() {
   /** Only block totals/chart curve while holdings list is unresolved or series for pricing paths are unavailable. */
   const chartTotalsPending =
     idsLoading ||
-    (anyAssetNeedsSeriesForPricing &&
+    (hasCollectionBuckets &&
       assetRows.length > 0 &&
       seriesLoadingAny);
 
@@ -1377,7 +1367,7 @@ export default function PortfolioPage() {
               </button>
             </div>
           </div>
-          {marketPreviewLoading && !assetsSectionLoading && assets.length > 0 ? (
+          {mintFallbackLoading && !assetsSectionLoading && assets.length > 0 ? (
             <p className="mb-3 text-[11px] text-zinc-500">
               Updating Cardhedger market estimates…
             </p>
@@ -1435,23 +1425,11 @@ export default function PortfolioPage() {
                   role="button"
                   tabIndex={0}
                   onClick={() => {
-                    if (r.marketPreviewRaw) {
-                      queryClient.setQueryData(
-                        ["cardhedger-mint-previews", "detail", r.tokenId],
-                        { [r.tokenId]: r.marketPreviewRaw },
-                      );
-                    }
                     router.push(`/marketplace/${r.tokenId}`);
                   }}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" || e.key === " ") {
                       e.preventDefault();
-                      if (r.marketPreviewRaw) {
-                        queryClient.setQueryData(
-                          ["cardhedger-mint-previews", "detail", r.tokenId],
-                          { [r.tokenId]: r.marketPreviewRaw },
-                        );
-                      }
                       router.push(`/marketplace/${r.tokenId}`);
                     }
                   }}
@@ -1463,7 +1441,7 @@ export default function PortfolioPage() {
                         <span
                           className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-extrabold tabular-nums shadow-[0_4px_14px_rgba(0,0,0,0.35)] ${
                             tokenableVsEbayPct >= 0
-                              ? "border border-[rgba(0,187,61,1)] bg-[rgba(0,0,0,0.5)] text-[rgba(0,187,61,1)]"
+                              ? "border border-[rgba(16,211,51,1)] bg-[rgba(0,0,0,0.5)] text-[rgba(16,211,51,1)]"
                               : "border-mint/35 bg-mint/35 text-white"
                           }`}
                         >

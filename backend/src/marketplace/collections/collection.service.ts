@@ -32,7 +32,6 @@ import {
   psaCertNumberFromGradedMeta,
 } from '../utils/collection-image.util';
 import type { PsaCertRecord } from '../../psa/psa-public-api.service';
-import type { MarketBundleCacheV1 } from '../utils/market-bundle-cache.types';
 import { Order, OrderSide, OrderStatus } from '../entities/order.entity';
 import { MarketplaceCollection } from '../entities/marketplace-collection.entity';
 import { exactCatalogMatch } from '../utils/card-match.util';
@@ -857,37 +856,6 @@ export class CollectionService implements OnModuleInit {
     return collectionKey;
   }
 
-  async listSummaries(): Promise<CollectionSummary[]> {
-    const collections = await this.collectionRepo.find({
-      order: { createdAt: 'ASC' },
-    });
-
-    const countRows = await this.orderRepo
-      .createQueryBuilder('o')
-      .select('o.collection_key', 'key')
-      .addSelect('COUNT(o.id)::int', 'cnt')
-      .where('o.collection_key IS NOT NULL')
-      .andWhere('o.status = :st', { st: OrderStatus.ACTIVE })
-      .andWhere('o.side = :side', { side: OrderSide.ASK })
-      .groupBy('o.collection_key')
-      .getRawMany<{ key: string; cnt: number }>();
-
-    const countMap = new Map<string, number>();
-    for (const r of countRows) {
-      countMap.set(r.key.toLowerCase(), Number(r.cnt));
-    }
-
-    return collections.map((c) => ({
-      collectionKey: c.collectionKey,
-      displayLabel: c.displayLabel,
-      queryUsed: c.queryUsed,
-      components: c.components,
-      createdAt: c.createdAt,
-      activeListingCount: countMap.get(c.collectionKey.toLowerCase()) ?? 0,
-      coverImageUrl: c.coverImageUrl ?? null,
-    }));
-  }
-
   private encodeCollectionCursor(row: {
     createdAt: Date;
     collectionKey: string;
@@ -1047,25 +1015,17 @@ export class CollectionService implements OnModuleInit {
     }
   }
 
-  /** Legacy no-op: old external catalog ids are no longer used. */
-  async ensureLegacyReferenceIdsFromListings(
-    collectionKey: string,
-  ): Promise<void> {
-    // Legacy no-op: Cardhedger id is now canonical.
-    void collectionKey;
-  }
-
   /**
    * `components.cardhedgerCardId` 보강: 활성 ask 메타에서 읽되, 서로 다른 id가 섞이면 저장하지 않음.
    */
   async ensureCardhedgerCardIdFromListings(
     collectionKey: string,
-  ): Promise<void> {
+  ): Promise<boolean> {
     const k = collectionKey.toLowerCase();
     const row = await this.collectionRepo.findOne({
       where: { collectionKey: k },
     });
-    if (!row) return;
+    if (!row) return false;
     const comp = row.components;
     const existing =
       typeof comp.cardhedgerCardId === 'string'
@@ -1096,9 +1056,9 @@ export class CollectionService implements OnModuleInit {
       this.logger.warn(
         `Collection ${k}: conflicting cardhedgerCardId across active listings (${[...ids].join(', ')}); not updating`,
       );
-      return;
+      return false;
     }
-    if (ids.size === 0) return;
+    if (ids.size === 0) return false;
 
     const only = [...ids][0];
     const nextComp: Record<string, unknown> = { ...comp };
@@ -1114,47 +1074,14 @@ export class CollectionService implements OnModuleInit {
         dirty = true;
       }
     }
-    if (!dirty) return;
+    if (!dirty) return false;
     await this.collectionRepo.update(
       { collectionKey: k },
       {
         components: nextComp as QueryDeepPartialEntity<Record<string, unknown>>,
       },
     );
-    await this.invalidateMarketBundleCache(k);
-  }
-
-  /**
-   * Persist `GET …/market-series` Cardhedger-heavy resolution for reuse within TTL.
-   */
-  mergeMarketBundleCache(
-    collectionKey: string,
-    cache: MarketBundleCacheV1,
-  ): void {
-    const key = collectionKey.toLowerCase();
-    void this.collectionRepo
-      .update(
-        { collectionKey: key },
-        {
-          marketBundleCacheJson: cache as unknown as Record<string, unknown>,
-          marketBundleCachedAt: new Date(),
-        } as QueryDeepPartialEntity<MarketplaceCollection>,
-      )
-      .catch((e: unknown) =>
-        this.logger.warn(`mergeMarketBundleCache failed for ${key}: ${e}`),
-      );
-  }
-
-  /** Clears server-side market bundle cache (e.g. after `cardhedgerCardId` correction). */
-  async invalidateMarketBundleCache(collectionKey: string): Promise<void> {
-    const key = collectionKey.toLowerCase();
-    await this.collectionRepo.update(
-      { collectionKey: key },
-      {
-        marketBundleCacheJson: null,
-        marketBundleCachedAt: null,
-      } as QueryDeepPartialEntity<MarketplaceCollection>,
-    );
+    return true;
   }
 
   /**
@@ -1454,21 +1381,6 @@ export class CollectionService implements OnModuleInit {
     return this.auditCardhedgerCardIdExact(collectionKey, options);
   }
 
-  /** Clear stale external card ids that fail exact triple verification. */
-  private async auditStaleCollectionCardIdsOnBoot(): Promise<void> {
-    await this.auditStaleCardhedgerCardIdsOnBoot();
-  }
-
-  /** Legacy no-op: metadata now stores canonical Cardhedger ids only. */
-  private async mergeLegacyReferenceIdFromMetaIfMissing(
-    collectionKey: string,
-    meta: Record<string, unknown>,
-  ): Promise<void> {
-    // Legacy no-op: Cardhedger id is now canonical.
-    void collectionKey;
-    void meta;
-  }
-
   /** duplicate key race 시 메타에만 있고 DB에 없는 cardhedger id/searchQuery 병합 */
   private async mergeCardhedgerCardIdFromMetaIfMissing(
     collectionKey: string,
@@ -1753,7 +1665,7 @@ export class CollectionService implements OnModuleInit {
   }
 
   /**
-   * Persist last Cardhedger pricing resolution when building the market bundle (fire-and-forget).
+   * Persist last Cardhedger pricing resolution when refreshing snapshots (fire-and-forget).
    * Prod DB must include these columns (see `sql/marketplace_collections_cardhedger_pricing.sql`).
    */
   mergeCardhedgerPricingSnapshot(
