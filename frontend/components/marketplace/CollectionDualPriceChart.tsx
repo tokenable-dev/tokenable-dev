@@ -302,33 +302,9 @@ export function CollectionDualPriceChart({
     let tMax: number;
 
     if (useFixedWindow) {
-      const windowTMin = nowSec - externalWindowDays! * DAY;
-      let windowTMax = nowSec + 6 * HOUR;
-
-      const relevantTimes: number[] = [];
-      for (const p of extRolling) {
-        if (Number.isFinite(p.t)) relevantTimes.push(p.t);
-      }
-
-      /**
-       * Keep the x-axis within the user-selected window (`externalWindowDays`). Points older than
-       * `windowTMin` are intentionally clipped by `extInWindow`; expanding
-       * `tMin` to `dataMin` made 7D/30D/90D show the same full-year Cardhedger curve.
-       */
-      if (relevantTimes.length > 0) {
-        const dataMin = Math.min(...relevantTimes);
-        const dataMax = Math.max(...relevantTimes);
-        const dataSpan = Math.max(dataMax - dataMin, DAY);
-        const leftPad = Math.min(14 * DAY, Math.max(2 * DAY, Math.floor(dataSpan * 0.04)));
-        const maxTrailingVoid = Math.min(120 * DAY, Math.max(10 * DAY, Math.floor(dataSpan * 0.12)));
-
-        const baseLeft = Math.max(windowTMin, dataMin - maxTrailingVoid);
-        tMin = baseLeft - leftPad;
-        tMax = Math.max(windowTMax, dataMax + leftPad);
-      } else {
-        tMin = windowTMin;
-        tMax = windowTMax;
-      }
+      /** Lock x-axis to the UI range (7D / 30D / …). Do not expand to dataMin/dataMax — that made every range look like ~1Y. */
+      tMin = nowSec - externalWindowDays! * DAY;
+      tMax = nowSec + 6 * HOUR;
     } else {
       const extForSmart = extRolling.length > 0 ? extRolling : [];
       const smart = computeSmartTimeDomain(extForSmart, nowSec, 180 * DAY);
@@ -369,6 +345,7 @@ export function CollectionDualPriceChart({
         vMax: 1,
         extIsPolyline: false,
         hasExtSignal,
+        fixedWindowDays: useFixedWindow ? externalWindowDays! : null,
         externalSeries: [] as Array<[number, number]>,
       };
     }
@@ -384,6 +361,7 @@ export function CollectionDualPriceChart({
       vMax: vMaxD + vPad,
       extIsPolyline,
       hasExtSignal,
+      fixedWindowDays: useFixedWindow ? externalWindowDays! : null,
       externalSeries: extForChart.map((p) => [p.t * 1000, p.v] as [number, number]),
     };
   }, [externalRollingUsd, externalMarketUsd, externalWindowDays, nowSec]);
@@ -433,12 +411,7 @@ export function CollectionDualPriceChart({
       merged.tMax > merged.tMin
         ? Math.ceil((merged.tMax - merged.tMin) / DAY)
         : null;
-    const roughTickDays =
-      externalWindowDays != null &&
-      extentDaysCeil != null &&
-      extentDaysCeil > 0
-        ? Math.max(externalWindowDays, extentDaysCeil)
-        : externalWindowDays ?? extentDaysCeil;
+    const roughTickDays = merged.fixedWindowDays ?? extentDaysCeil;
     const roughTick = roughTickConfigByWindowDays(roughTickDays ?? null);
 
     /** Coarse ticks for any meaningful span — keeps x-axis readable (fewer labels, wider spacing). */
@@ -654,6 +627,7 @@ export function CollectionDualPriceChart({
           </div>
         ) : null}
         <ReactECharts
+          key={merged.fixedWindowDays ?? "auto"}
           option={chartOption}
           notMerge
           lazyUpdate
