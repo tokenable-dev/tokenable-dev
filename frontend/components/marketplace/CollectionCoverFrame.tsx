@@ -171,9 +171,9 @@ export function CollectionCoverFrame({
 
   /** featured: 목록→상세 중간 / hero: 컬렉션 페이지 중앙 대형 */
   const featuredOuter = "w-full max-w-[165px] sm:max-w-[180px] aspect-[3/4]";
-  /** Collection detail hero — ~⅔ of legacy 460×640 (≈ one-third smaller footprint). */
+  /** Collection detail hero — full width on narrow viewports, fixed width from lg. */
   const heroOuter =
-    "w-[307px] max-w-full h-[427px] max-h-[min(427px,90svh)]";
+    "mx-auto w-full max-w-[min(100%,360px)] h-[min(460px,82vw)] max-h-[min(480px,88svh)] lg:mx-0 lg:h-[427px] lg:w-[307px] lg:max-h-[427px] lg:max-w-full";
 
   const heroGlow =
     variant === "hero"

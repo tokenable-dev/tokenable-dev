@@ -343,7 +343,7 @@ export function CollectionUnifiedOrderBook({
     : `overflow-y-auto ${depthMax}`;
 
   const shell = flush
-    ? `relative flex h-full max-h-full min-h-0 max-w-full max-xl:min-h-[min(200px,28dvh)] flex-col overflow-hidden rounded-none border-0 bg-transparent shadow-none xl:min-h-0`
+    ? `relative flex h-full max-h-full min-h-0 max-w-full flex-col overflow-hidden rounded-none border-0 bg-transparent shadow-none max-xl:min-h-[min(200px,28dvh)] xl:min-h-0`
     : `relative overflow-hidden ${COLLECTION_DETAILS_BORDER_ALL} ${COLLECTION_DETAILS_BG_CLASS} ${
         compact
           ? "rounded-xl shadow-none"
@@ -359,11 +359,16 @@ export function CollectionUnifiedOrderBook({
         />
       )}
       <div
-        className={`relative shrink-0 px-2.5 pt-2 pb-1 sm:px-3 flex items-center justify-end gap-2 ${
-          flush ? "border-b border-[rgba(38,39,45,1)]" : COLLECTION_DETAILS_BORDER_B
+        className={`relative shrink-0 flex items-center justify-end gap-2 max-xl:justify-between max-xl:px-2.5 max-xl:pt-1.5 max-xl:pb-1 px-2.5 pt-2 pb-1 sm:px-3 ${
+          flush ? "border-b border-[rgba(38,39,45,1)] max-xl:bg-[rgb(20,20,21)]" : COLLECTION_DETAILS_BORDER_B
         }`}
       >
-        <div className="flex rounded-lg bg-black/30 p-0.5 ring-1 ring-[rgba(11,13,16,1)]">
+        {flush ? (
+          <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-zinc-500 max-xl:inline xl:hidden">
+            Depth
+          </span>
+        ) : null}
+        <div className={`flex rounded-lg bg-black/30 p-0.5 ring-1 ring-[rgba(11,13,16,1)] ${flush ? "max-xl:ml-0 xl:ml-auto" : ""}`}>
           <button
             type="button"
             onClick={() => setTab("book")}

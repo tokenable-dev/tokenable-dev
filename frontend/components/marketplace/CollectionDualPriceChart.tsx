@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import ReactECharts from "echarts-for-react";
 import type { EChartsOption, LineSeriesOption } from "echarts";
 import type { CollectionUsdPoint } from "@/lib/core";
@@ -181,6 +181,27 @@ function formatTooltipUsd(v: number | null): string {
   return v >= 100 ? `$${v.toFixed(0)}` : `$${v.toFixed(2)}`;
 }
 
+/** Tailwind `max-xl` — chart layout/options differ below 1280px only. */
+function useMobileChartLayout(): boolean {
+  const [mobile, setMobile] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 1279px)");
+    const apply = () => setMobile(mq.matches);
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, []);
+  return mobile;
+}
+
+function formatYAxisLabelCompact(value: number): string {
+  if (value >= 1_000_000) return `$${Math.round(value / 1_000_000)}M`;
+  if (value >= 10_000) return `$${Math.round(value / 1_000)}k`;
+  if (value >= 1_000) return `$${(value / 1_000).toFixed(0)}k`;
+  if (value >= 10) return `$${Math.round(value)}`;
+  return `$${value.toFixed(value === 0 ? 0 : 1)}`;
+}
+
 function computeSmartTimeDomain(
   plat: CollectionUsdPoint[],
   nowSec: number,
@@ -254,6 +275,7 @@ export function CollectionDualPriceChart({
   collectionOverviewMat?: boolean;
 }) {
   const exchange = variant === "exchange";
+  const isMobileChart = useMobileChartLayout();
   const chartShellDefault = `rounded-2xl ${COLLECTION_DETAILS_BORDER_ALL} ${COLLECTION_DETAILS_BG_CLASS} shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]`;
   const exchangeChrome =
     exchange && collectionOverviewMat
@@ -424,11 +446,16 @@ export function CollectionDualPriceChart({
       merged.tMax > merged.tMin ? (merged.tMax - merged.tMin) / DAY : 0;
     const useCoarseTimeTicks = axisSpanDays > 1;
 
+    const yTickCount = isMobileChart ? 3 : 5;
+    const { min, max, interval } = niceScale(merged.vMin, merged.vMax, yTickCount);
+
     return {
       backgroundColor: "transparent",
       animationDuration: 250,
       textStyle: { color: AXIS_LABEL, fontFamily: "ui-sans-serif, system-ui, sans-serif" },
-      grid: { left: 52, right: 14, top: 10, bottom: 34, containLabel: false },
+      grid: isMobileChart
+        ? { left: 32, right: 6, top: 22, bottom: 26, containLabel: false }
+        : { left: 52, right: 14, top: 10, bottom: 34, containLabel: false },
       dataZoom: [
         { type: "inside", xAxisIndex: 0, filterMode: "none" },
         { type: "slider", xAxisIndex: 0, height: 16, bottom: 0, show: false },
@@ -448,8 +475,9 @@ export function CollectionDualPriceChart({
         splitLine: { show: false },
         axisLabel: {
           color: AXIS_LABEL,
-          fontSize: 13,
+          fontSize: isMobileChart ? 10 : 13,
           hideOverlap: true,
+          margin: isMobileChart ? 6 : 8,
           formatter: (value: number) => {
             const tSec = Math.floor(value / 1000);
             if (!useCoarseTimeTicks) return formatTickDate(tSec);
@@ -457,28 +485,28 @@ export function CollectionDualPriceChart({
           },
         },
       },
-      yAxis: (() => {
-        const { min, max, interval } = niceScale(merged.vMin, merged.vMax, 5);
-        return {
-          type: "value",
-          min,
-          max,
-          interval,
-          axisLine: { show: false },
-          axisTick: { show: false },
-          splitLine: { show: false },
-          axisLabel: {
-            color: AXIS_LABEL,
-            fontSize: 11,
-            formatter: (value: number) => {
+      yAxis: {
+        type: "value",
+        min,
+        max,
+        interval,
+        axisLine: { show: false },
+        axisTick: { show: false },
+        splitLine: { show: false },
+        axisLabel: {
+          color: AXIS_LABEL,
+          fontSize: isMobileChart ? 9 : 11,
+          width: isMobileChart ? 30 : 44,
+          overflow: "truncate",
+          formatter: (value: number) =>
+            isMobileChart ? formatYAxisLabelCompact(value) : (() => {
               if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`;
               if (value >= 1_000) return `$${(value / 1_000).toFixed(value % 1_000 === 0 ? 0 : 1)}K`;
               if (value >= 10) return `$${Math.round(value)}`;
               return `$${value.toFixed(value === 0 ? 0 : 2)}`;
-            },
-          },
-        };
-      })(),
+            })(),
+        },
+      },
       tooltip: {
         trigger: "axis",
         axisPointer: {
@@ -520,6 +548,7 @@ export function CollectionDualPriceChart({
     externalSeriesShortLabel,
     externalRefLineTag,
     externalWindowDays,
+    isMobileChart,
   ]);
 
   if (isLoading) {
@@ -527,7 +556,7 @@ export function CollectionDualPriceChart({
       <div
         className={
           exchange
-            ? `${exchangeChrome} flex min-h-[120px] flex-col items-center justify-center gap-3 px-4 max-xl:min-h-[min(140px,20svh)] xl:h-full xl:min-h-0`
+            ? `${exchangeChrome} flex min-h-[120px] flex-col items-center justify-center gap-3 px-4 max-xl:min-h-[min(140px,20svh)] max-xl:h-full max-xl:min-h-0 xl:h-full xl:min-h-0`
             : `${chartShellDefault} flex min-h-[260px] flex-col items-center justify-center gap-3 px-4`
         }
         role="status"
@@ -548,7 +577,7 @@ export function CollectionDualPriceChart({
       <div
         className={
           exchange
-            ? `${exchangeChrome} flex min-h-[110px] flex-col items-center justify-center px-4 py-6 text-center text-sm text-rose-200/90 max-xl:min-h-[min(128px,18svh)] xl:h-full xl:min-h-0`
+            ? `${exchangeChrome} flex min-h-[110px] flex-col items-center justify-center px-4 py-6 text-center text-sm text-rose-200/90 max-xl:min-h-[min(128px,18svh)] max-xl:h-full max-xl:min-h-0 xl:h-full xl:min-h-0`
             : "rounded-2xl border border-rose-500/20 bg-[rgba(11,13,16,1)] px-4 py-6 text-center text-sm text-rose-200/90"
         }
       >
@@ -562,7 +591,7 @@ export function CollectionDualPriceChart({
       <div
         className={
           exchange
-            ? `${exchangeChrome} flex min-h-[110px] flex-col items-center justify-center px-4 py-8 text-center text-sm text-zinc-600 max-xl:min-h-[min(128px,18svh)] xl:h-full xl:min-h-0`
+            ? `${exchangeChrome} flex min-h-[110px] flex-col items-center justify-center px-4 py-8 text-center text-sm text-zinc-600 max-xl:min-h-[min(128px,18svh)] max-xl:h-full max-xl:min-h-0 xl:h-full xl:min-h-0`
             : `${chartShellDefault} flex min-h-[110px] flex-col items-center justify-center px-4 py-8 text-center text-sm text-zinc-600`
         }
       >
@@ -576,16 +605,13 @@ export function CollectionDualPriceChart({
     <div
       className={
         exchange
-          ? `${exchangeChrome} flex min-h-[134px] flex-col overflow-hidden text-white max-xl:min-h-[min(154px,21svh)] xl:h-full xl:min-h-0`
+          ? `${exchangeChrome} flex flex-col overflow-hidden text-white max-xl:h-full max-xl:min-h-0 xl:min-h-[134px] xl:h-full xl:min-h-0`
           : `${chartShellDefault} text-white`
       }
     >
-      {/* Top bar: range controls (left) + legend (right) — single row */}
-      <div className="flex shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-1.5 px-3 pt-2.5 pb-1.5 sm:px-4">
-        {/* Range buttons */}
+      {/* Desktop: range (left) + legend (right) */}
+      <div className="hidden shrink-0 w-full min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1.5 px-3 pt-2.5 pb-1.5 sm:px-4 xl:flex">
         {controls ? <div className="flex items-center">{controls}</div> : null}
-
-        {/* Legend */}
         <div className="flex items-center gap-3 text-[10px] font-medium sm:text-[11px]">
           <div className="flex items-center gap-1.5">
             <span className="inline-block h-[9px] w-[9px] shrink-0 rounded-full" style={{ background: LIVE_MARKET_LINE }} aria-hidden />
@@ -598,7 +624,35 @@ export function CollectionDualPriceChart({
       </div>
 
       {/* Chart */}
-      <div className={exchange ? "flex min-h-0 flex-1 flex-col px-2 pb-1.5 pt-0 sm:px-3 sm:pb-2" : "px-2 pb-3 pt-0 sm:px-4"}>
+      <div
+        className={
+          exchange
+            ? "relative flex min-h-0 max-xl:flex-1 max-xl:flex-col max-xl:px-1 max-xl:pb-0 max-xl:pt-0 flex-1 flex-col px-2 pb-1.5 pt-0 sm:px-3 sm:pb-2"
+            : "relative px-2 pb-3 pt-0 sm:px-4"
+        }
+      >
+        {/* Mobile: in-chart legend (top-right pill — keeps plot area tall, clear of y-axis) */}
+        <div
+          className="pointer-events-none absolute right-2 top-1.5 z-10 flex max-w-[calc(100%-1rem)] items-center gap-1 rounded-md border border-white/[0.08] bg-[rgba(8,9,11,0.78)] px-2 py-1 shadow-[0_2px_8px_rgba(0,0,0,0.35)] backdrop-blur-[3px] xl:hidden"
+          aria-hidden={!merged.hasExtSignal}
+        >
+          <span
+            className="inline-block h-1.5 w-1.5 shrink-0 rounded-full"
+            style={{ background: LIVE_MARKET_LINE }}
+          />
+          <span
+            className={`truncate text-[9px] font-medium leading-none ${
+              merged.hasExtSignal ? "text-white/90" : "text-white/35"
+            }`}
+          >
+            Live market
+          </span>
+        </div>
+        {footnote ? (
+          <div className="pointer-events-none absolute left-2 top-1.5 z-10 max-w-[45%] truncate text-[8px] leading-none text-zinc-500 xl:hidden">
+            {footnote}
+          </div>
+        ) : null}
         <ReactECharts
           option={chartOption}
           notMerge
@@ -608,9 +662,24 @@ export function CollectionDualPriceChart({
             height: exchange ? "100%" : "300px",
             minHeight: exchange ? 110 : 200,
           }}
-          className={exchange ? "min-h-[110px] xl:min-h-[136px]" : "min-h-[200px]"}
+          className={
+            exchange
+              ? "max-xl:min-h-0 max-xl:flex-1 min-h-[110px] xl:min-h-[136px]"
+              : "min-h-[200px]"
+          }
         />
       </div>
+
+      {/* Mobile: segmented range under chart */}
+      {controls ? (
+        <div
+          className="shrink-0 border-t border-[rgba(38,39,45,0.9)] px-2 py-2 xl:hidden"
+          role="toolbar"
+          aria-label="Chart time range"
+        >
+          {controls}
+        </div>
+      ) : null}
     </div>
   );
 }

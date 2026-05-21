@@ -10,11 +10,43 @@ const detailsKvFont = IBM_Plex_Sans({
   display: "swap",
 });
 
-/** Tighter leading on small screens keeps the Details block shorter. */
 const ROW_LABEL_CLASS = `${detailsKvFont.className} min-w-0 flex-1 text-[13px] font-normal leading-snug tracking-normal text-[#a0a0a0] sm:text-[14px] sm:leading-[140%]`;
 const ROW_VALUE_CLASS = `${detailsKvFont.className} min-w-0 shrink-0 max-w-[62%] text-right text-[14px] font-medium leading-snug tracking-normal text-white [overflow-wrap:anywhere] sm:max-w-[58%] sm:text-[15px] sm:leading-[140%]`;
 
-export function CollectionDetailsKvCard({
+function CompactDetailsBody({
+  rows,
+  footer,
+  title,
+}: {
+  rows: CollectionDetailCard[];
+  footer?: ReactNode;
+  title: string;
+}) {
+  return (
+    <article className="w-full min-w-0 overflow-hidden rounded-lg bg-[rgba(8,8,8,1)] px-2 py-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:px-2.5 sm:py-1.5 xl:hidden">
+      <h2 className="sr-only">{title}</h2>
+      <dl className="flex flex-col gap-1">
+        {rows.map((row) => (
+          <div key={row.id} className="flex items-baseline justify-between gap-2 py-0.5 sm:py-1">
+            <dt
+              className={`${detailsKvFont.className} min-w-0 shrink-0 text-[10px] font-normal leading-none tracking-wide text-zinc-500`}
+            >
+              {row.label}
+            </dt>
+            <dd
+              className={`${detailsKvFont.className} min-w-0 max-w-[62%] text-right text-[10px] font-medium leading-snug text-zinc-200 [overflow-wrap:anywhere] sm:max-w-[58%] sm:text-[11px]`}
+            >
+              {row.value}
+            </dd>
+          </div>
+        ))}
+      </dl>
+      {footer ? <div className="mt-1.5 pt-0.5">{footer}</div> : null}
+    </article>
+  );
+}
+
+function FullDetailsBody({
   title,
   subtitle,
   catalogLine,
@@ -28,7 +60,7 @@ export function CollectionDetailsKvCard({
   footer?: ReactNode;
 }) {
   return (
-    <article className="rounded-2xl bg-[rgba(8,8,8,1)] px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:px-5 sm:py-5 lg:px-6 lg:py-6">
+    <article className="hidden rounded-2xl bg-[rgba(8,8,8,1)] px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:px-5 sm:py-5 lg:px-6 lg:py-6 xl:block">
       <h2
         className={`${detailsKvFont.className} text-[16px] font-bold leading-[140%] tracking-normal text-white sm:text-[17px]`}
       >
@@ -52,10 +84,7 @@ export function CollectionDetailsKvCard({
       {rows.length > 0 ? (
         <dl className="mt-3 space-y-0 sm:mt-4">
           {rows.map((row) => (
-            <div
-              key={row.id}
-              className="flex gap-2 py-2 sm:gap-3 sm:py-2.5"
-            >
+            <div key={row.id} className="flex gap-2 py-2 sm:gap-3 sm:py-2.5">
               <dt className={ROW_LABEL_CLASS}>{row.label}</dt>
               <dd className={ROW_VALUE_CLASS}>{row.value}</dd>
             </div>
@@ -67,5 +96,51 @@ export function CollectionDetailsKvCard({
         <div className={`${rows.length > 0 ? "mt-3 pt-3 sm:mt-4 sm:pt-4" : "mt-1"}`}>{footer}</div>
       ) : null}
     </article>
+  );
+}
+
+export function CollectionDetailsKvCard({
+  title,
+  subtitle,
+  catalogLine,
+  rows,
+  footer,
+  /** Mobile-only spec sheet under the hero Details tab; desktop keeps the full card. */
+  compact = false,
+  /** Rows shown in the mobile compact sheet (defaults to {@link rows}). */
+  compactRows,
+}: {
+  title: string;
+  subtitle?: string | null;
+  catalogLine?: string | null;
+  rows: CollectionDetailCard[];
+  footer?: ReactNode;
+  compact?: boolean;
+  compactRows?: CollectionDetailCard[];
+}) {
+  if (compact && rows.length > 0) {
+    const mobileRows = compactRows ?? rows;
+    return (
+      <>
+        <CompactDetailsBody rows={mobileRows} footer={footer} title={title} />
+        <FullDetailsBody
+          title={title}
+          subtitle={subtitle}
+          catalogLine={catalogLine}
+          rows={rows}
+          footer={footer}
+        />
+      </>
+    );
+  }
+
+  return (
+    <FullDetailsBody
+      title={title}
+      subtitle={subtitle}
+      catalogLine={catalogLine}
+      rows={rows}
+      footer={footer}
+    />
   );
 }

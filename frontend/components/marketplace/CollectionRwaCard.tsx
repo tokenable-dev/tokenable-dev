@@ -51,12 +51,12 @@ function ListingCtaPill({ label }: { label: string }) {
     "linear-gradient(99.67deg, #529e22 3.64%, #87FF48 54%, #284214 112.88%)";
   return (
     <span
-      className="relative z-[2] box-border flex h-9 min-h-9 w-full min-w-0 max-w-none shrink-0 items-center justify-center rounded-[18px] p-[1.5px] text-center shadow-[0_7px_18px_-7px_rgba(0,0,0,0.8)] transition-[transform,box-shadow] duration-200 ease-out [-webkit-tap-highlight-color:transparent] group-hover:-translate-y-0.5 group-hover:scale-[1.02] group-hover:shadow-[0_9px_24px_-8px_rgba(0,0,0,0.88),0_0_18px_-2px_rgba(16,211,51,0.28),0_0_1px_1px_rgba(16,211,51,0.35)_inset] group-active:translate-y-0 group-active:scale-[0.99] motion-reduce:transition-none motion-reduce:group-hover:scale-100 motion-reduce:group-hover:translate-y-0 max-lg:opacity-100 lg:opacity-0 lg:group-hover:opacity-100 lg:group-focus-visible:opacity-100"
+      className="relative z-[2] box-border flex h-7 min-h-7 w-full min-w-0 max-w-none shrink-0 items-center justify-center rounded-[14px] p-[1.5px] text-center shadow-[0_7px_18px_-7px_rgba(0,0,0,0.8)] transition-[transform,box-shadow] duration-200 ease-out [-webkit-tap-highlight-color:transparent] group-hover:-translate-y-0.5 group-hover:scale-[1.02] group-hover:shadow-[0_9px_24px_-8px_rgba(0,0,0,0.88),0_0_18px_-2px_rgba(16,211,51,0.28),0_0_1px_1px_rgba(16,211,51,0.35)_inset] group-active:translate-y-0 group-active:scale-[0.99] motion-reduce:transition-none motion-reduce:group-hover:scale-100 motion-reduce:group-hover:translate-y-0 max-lg:opacity-100 lg:opacity-0 lg:group-hover:opacity-100 lg:group-focus-visible:opacity-100 sm:h-9 sm:min-h-9 sm:rounded-[18px]"
       style={{ background: rimGradient }}
       aria-hidden
     >
       <span
-        className={`${rwaCardFont.className} flex h-full min-h-0 w-full min-w-0 items-center justify-center gap-2 rounded-[16px] bg-[rgba(11,13,16,1)] px-4 py-1 text-[13px] font-bold leading-snug tracking-wide text-white transition-[background-color,box-shadow] duration-200 ease-out group-hover:bg-[rgba(16,18,22,1)] group-hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06)] group-active:bg-[rgba(11,13,16,1)] sm:px-6 sm:text-[13px]`}
+        className={`${rwaCardFont.className} flex h-full min-h-0 w-full min-w-0 items-center justify-center gap-2 rounded-[12px] bg-[rgba(11,13,16,1)] px-3 py-0.5 text-[11px] font-bold leading-snug tracking-wide text-white transition-[background-color,box-shadow] duration-200 ease-out group-hover:bg-[rgba(16,18,22,1)] group-hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06)] group-active:bg-[rgba(11,13,16,1)] sm:rounded-[16px] sm:px-6 sm:py-1 sm:text-[13px]`}
       >
         {label}
       </span>
@@ -148,11 +148,11 @@ export function CollectionRwaCard({
   return (
     <Link
       href={ctaHref}
-      className={`group block w-full min-w-0 cursor-pointer text-inherit no-underline outline-none ring-offset-2 ring-offset-black focus-visible:ring-2 focus-visible:ring-mint/50 ${COLLECTION_LISTING_CARD_CHROME}`}
+      className={`group flex h-full w-full min-w-0 cursor-pointer text-inherit no-underline outline-none ring-offset-2 ring-offset-black focus-visible:ring-2 focus-visible:ring-mint/50 ${COLLECTION_LISTING_CARD_CHROME}`}
       aria-label={`Listing ${formatTokenIdShort(tokenId)} — ${ctaLabel}`}
     >
-      <article className="flex min-h-[188px] w-full min-w-0 flex-col overflow-hidden sm:min-h-[202px]">
-        <div className="relative flex min-h-[110px] flex-1 flex-col items-center justify-center bg-black p-1 sm:min-h-[120px] sm:p-1.5">
+      <article className="flex h-full min-h-[148px] w-full min-w-0 flex-col overflow-hidden sm:min-h-[202px]">
+        <div className="relative flex min-h-[88px] flex-1 flex-col items-center justify-center bg-black p-1 sm:min-h-[120px] sm:p-1.5">
           {imageUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -166,26 +166,26 @@ export function CollectionRwaCard({
             </div>
           )}
 
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[1] flex translate-y-[24%] justify-center px-1.5 sm:px-2">
-            <div className="mx-auto w-full min-w-0 max-w-[min(100%,206px)] sm:max-w-[min(100%,220px)]">
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[1] flex translate-y-[20%] justify-center px-1 sm:translate-y-[24%] sm:px-2">
+            <div className="mx-auto w-full min-w-0 max-w-[min(100%,170px)] sm:max-w-[min(100%,220px)]">
               <ListingCtaPill label={ctaLabel} />
             </div>
           </div>
         </div>
 
         <div
-          className={`${rwaCardFont.className} flex shrink-0 flex-col bg-[rgba(20,18,27,1)] px-2.5 pb-1.5 pt-2 leading-[140%] tracking-normal sm:px-3 sm:pt-2.5`}
+          className={`${rwaCardFont.className} flex shrink-0 flex-col bg-[rgba(20,18,27,1)] px-2 pb-1 pt-1.5 leading-[140%] tracking-normal sm:px-3 sm:pb-1.5 sm:pt-2.5`}
         >
           {listing && listingPrice !== "—" ? (
-            <p className="text-[15px] font-medium leading-[140%] tracking-normal text-white tabular-nums [overflow-wrap:anywhere] sm:text-[16px]">
+            <p className="text-[13px] font-medium leading-[140%] tracking-normal text-white tabular-nums [overflow-wrap:anywhere] sm:text-[16px]">
               ${listingPrice}
             </p>
           ) : (
-            <p className="text-[15px] font-medium leading-[140%] tracking-normal text-zinc-500 sm:text-[16px]">
+            <p className="text-[13px] font-medium leading-[140%] tracking-normal text-zinc-500 sm:text-[16px]">
               —
             </p>
           )}
-          <p className="mt-1 min-w-0 break-words text-[11px] font-normal leading-[140%] tracking-normal text-[#a0a0a0] [overflow-wrap:anywhere] sm:text-[12px]">
+          <p className="mt-0.5 min-w-0 break-words text-[10px] font-normal leading-[140%] tracking-normal text-[#a0a0a0] [overflow-wrap:anywhere] sm:mt-1 sm:text-[12px]">
             Seller:{" "}
             <span className="break-all" title={sellerAddr}>
               {listing ? sellerDisplay : "—"}

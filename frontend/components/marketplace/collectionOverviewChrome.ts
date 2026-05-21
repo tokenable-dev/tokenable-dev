@@ -15,7 +15,7 @@ export const COLLECTION_DETAILS_DIVIDE_X = "divide-x divide-[rgba(11,13,16,1)]";
 
 /** Inner mat — slightly tighter top padding so metrics align with hero cover band (exchange row). */
 export const COLLECTION_MARKET_CLUSTER_MAT =
-  `rounded-[1.15rem] sm:rounded-[1.2rem] ${COLLECTION_DETAILS_BG_CLASS} px-2.5 pt-2 pb-2.5 sm:px-3.5 sm:pt-2.5 sm:pb-3.5 lg:px-4 lg:pt-2 lg:pb-4`;
+  `rounded-[1.15rem] sm:rounded-[1.2rem] ${COLLECTION_DETAILS_BG_CLASS} px-2.5 pt-2 max-xl:pb-1.5 pb-2.5 sm:px-3.5 sm:pt-2.5 sm:pb-3.5 lg:px-4 lg:pt-2 lg:pb-4`;
 
 /** Outer rim — tight ring matching {@link CollectionCoverFrame} hero bezel thickness. */
 export const COLLECTION_MARKET_CLUSTER_BEZEL =
@@ -30,7 +30,7 @@ export const COLLECTION_MARKET_SPLIT_CHROME =
  * (`top` / `left` from design are artboard-relative — layout uses grid flow, not fixed coordinates.)
  */
 export const COLLECTION_EXCHANGE_ORDER_BOOK_FRAME =
-  "h-[409px] w-[min(100%,221px)] shrink-0 rounded-lg border border-[rgba(38,39,45,1)] bg-[rgb(20,20,21)] sm:w-[221px]";
+  "h-[409px] w-[min(100%,221px)] shrink-0 rounded-lg border border-[rgba(38,39,45,1)] bg-[rgb(20,20,21)] sm:w-[221px] max-xl:h-[min(300px,44svh)] max-xl:w-full max-xl:shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]";
 
 /** Dual chart in collection exchange mat — same fill as mat; no inset border/frame line. */
 export const COLLECTION_CHART_SURFACE =

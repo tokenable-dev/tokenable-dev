@@ -91,6 +91,32 @@ const CHART_RANGE_OPTIONS: readonly ChartRangeConfig[] = [
 /** Clip Cardhedger curve to the selected range on the client (API still returns up to ~1y for parity with preview). */
 const CHART_RANGE_CLIP_SEC = 86_400;
 
+function CollectionDetailMobileNav() {
+  return (
+    <nav
+      className="mb-3 flex min-h-[36px] items-center xl:hidden"
+      aria-label="Back to markets"
+    >
+      <Link
+        href="/markets"
+        className="inline-flex items-center gap-1 rounded-md py-1 pr-2 text-[13px] font-medium text-zinc-400 transition-colors hover:text-white active:bg-white/[0.04]"
+      >
+        <svg
+          className="h-4 w-4 shrink-0"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={2}
+          aria-hidden
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+        </svg>
+        Markets
+      </Link>
+    </nav>
+  );
+}
+
 function bestAskByToken(asks: Order[]): Map<number, Order> {
   const m = new Map<number, Order>();
   for (const o of asks) {
@@ -923,8 +949,9 @@ export default function MarketplaceCollectionPage() {
     return (
       <div className="min-h-screen bg-[rgba(11,13,16,1)] text-white">
         <div
-          className={`${COLLECTION_DETAIL_SHELL_CLASS} py-6 sm:py-8 pb-[max(5.5rem,env(safe-area-inset-bottom,0px)+4.5rem)] sm:pb-20`}
+          className={`${COLLECTION_DETAIL_SHELL_CLASS} py-4 sm:py-8 pb-[max(5.5rem,env(safe-area-inset-bottom,0px)+4.5rem)] sm:pb-20`}
         >
+          <CollectionDetailMobileNav />
           <div className="h-4 w-40 bg-gray-800/80 rounded animate-pulse mb-6" />
           <div className="rounded-2xl border border-gray-800/90 bg-[#0b0e11] overflow-hidden animate-pulse mb-10">
             <div className="border-b border-gray-800/80 px-4 py-4 sm:px-6">
@@ -993,8 +1020,9 @@ export default function MarketplaceCollectionPage() {
   return (
     <div className="min-h-screen bg-[rgba(11,13,16,1)] text-white">
       <div
-        className={`${COLLECTION_DETAIL_SHELL_CLASS} py-6 sm:py-8 pb-[max(5.5rem,env(safe-area-inset-bottom,0px)+4.5rem)] sm:pb-20`}
+        className={`${COLLECTION_DETAIL_SHELL_CLASS} py-4 sm:py-8 pb-[max(5.5rem,env(safe-area-inset-bottom,0px)+4.5rem)] sm:pb-20`}
       >
+        <CollectionDetailMobileNav />
         <CollectionOverviewBoard
           title={collectionWovenTitle}
           subtitle={subtitle}
@@ -1017,6 +1045,8 @@ export default function MarketplaceCollectionPage() {
                   subtitle={headlineSetLine}
                   catalogLine={detailsCatalogLine}
                   rows={heroDetailsKvRows}
+                  compactRows={heroDetailsKvRows.filter((r) => r.id !== "player")}
+                  compact
                 />
               }
             />
@@ -1054,7 +1084,7 @@ export default function MarketplaceCollectionPage() {
               }
               errorMessage={null}
               controls={
-                <div className="inline-flex w-fit items-center gap-0.5">
+                <div className="flex w-full min-w-0 max-xl:gap-0.5 max-xl:rounded-lg max-xl:border max-xl:border-[rgba(38,39,45,1)] max-xl:bg-black/30 max-xl:p-0.5 xl:flex-wrap xl:items-center xl:justify-between xl:gap-1">
                   {CHART_RANGE_OPTIONS.map((opt) => {
                     const active = opt.id === chartRange;
                     return (
@@ -1062,7 +1092,7 @@ export default function MarketplaceCollectionPage() {
                         key={opt.id}
                         type="button"
                         onClick={() => setChartRange(opt.id)}
-                        className={`rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+                        className={`font-semibold transition-colors max-xl:flex-1 max-xl:rounded-md max-xl:px-1 max-xl:py-2 max-xl:text-center max-xl:text-[11px] xl:rounded-md xl:px-2.5 xl:py-1 xl:text-[11px] ${
                           active
                             ? "bg-mint text-black"
                             : "text-zinc-400 hover:text-zinc-100"
@@ -1140,13 +1170,13 @@ export default function MarketplaceCollectionPage() {
                 .
               </div>
             ) : (
-              <div className="flex w-full min-w-0 flex-row flex-wrap content-start items-stretch gap-x-3 gap-y-3 pb-2 sm:gap-x-[0.875rem] sm:gap-y-[0.9rem]">
+              <div className="grid w-full min-w-0 max-w-full grid-cols-2 content-start items-stretch justify-items-stretch gap-2 max-xl:gap-2.5 max-xl:pb-2 xl:flex xl:flex-row xl:flex-wrap xl:gap-x-[0.875rem] xl:gap-y-[0.9rem] xl:pb-2">
                 {tokenIds.map((tid) => {
                   const prefetch = batchMetadata?.get(tid);
                   return (
                     <div
                       key={tid}
-                      className="w-full min-w-0 shrink-0 sm:w-[218px] lg:w-[234px]"
+                      className="flex min-h-0 min-w-0 w-full xl:w-[218px] xl:shrink-0 lg:w-[234px]"
                     >
                       <CollectionRwaCard
                         tokenId={tid}
