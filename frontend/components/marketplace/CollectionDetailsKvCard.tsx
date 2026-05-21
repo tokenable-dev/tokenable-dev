@@ -23,25 +23,27 @@ function CompactDetailsBody({
   title: string;
 }) {
   return (
-    <article className="w-full min-w-0 overflow-hidden rounded-lg bg-[rgba(8,8,8,1)] px-2 py-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:px-2.5 sm:py-1.5 xl:hidden">
+    <article className="mx-auto w-full min-w-0 max-w-[min(100%,20rem)] bg-transparent px-3 py-2 xl:hidden">
       <h2 className="sr-only">{title}</h2>
-      <dl className="flex flex-col gap-1">
+      <dl className="flex w-full min-w-0 flex-col gap-y-2.5">
         {rows.map((row) => (
-          <div key={row.id} className="flex items-baseline justify-between gap-2 py-0.5 sm:py-1">
+          <div key={row.id} className="flex items-start justify-between gap-4">
             <dt
-              className={`${detailsKvFont.className} min-w-0 shrink-0 text-[10px] font-normal leading-none tracking-wide text-zinc-500`}
+              className={`${detailsKvFont.className} min-w-0 max-w-[40%] shrink-0 text-[10px] font-normal leading-snug text-zinc-500`}
             >
               {row.label}
             </dt>
             <dd
-              className={`${detailsKvFont.className} min-w-0 max-w-[62%] text-right text-[10px] font-medium leading-snug text-zinc-200 [overflow-wrap:anywhere] sm:max-w-[58%] sm:text-[11px]`}
+              className={`${detailsKvFont.className} min-w-0 flex-1 text-right text-[11px] font-medium leading-snug text-zinc-300 [overflow-wrap:anywhere]`}
             >
               {row.value}
             </dd>
           </div>
         ))}
       </dl>
-      {footer ? <div className="mt-1.5 pt-0.5">{footer}</div> : null}
+      {footer ? (
+        <div className="mt-3 text-[10px] leading-snug text-zinc-600">{footer}</div>
+      ) : null}
     </article>
   );
 }

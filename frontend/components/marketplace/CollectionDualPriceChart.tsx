@@ -670,7 +670,7 @@ export function CollectionDualPriceChart({
         />
       </div>
 
-      {/* Mobile: segmented range under chart */}
+      {/* Mobile: range bar below chart (does not cover x-axis dates) */}
       {controls ? (
         <div
           className="shrink-0 border-t border-[rgba(38,39,45,0.9)] px-2 py-2 xl:hidden"

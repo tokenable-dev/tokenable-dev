@@ -102,11 +102,11 @@ function MetricTile({
   if (variant === "panelCell") {
     const inset =
       tone === "primary"
-        ? "max-xl:col-span-2 max-xl:rounded-md max-xl:px-3 max-xl:py-2.5 max-xl:bg-mint/[0.06] xl:col-span-auto xl:rounded-none xl:px-3 xl:py-2 xl:sm:px-3.5 xl:sm:py-2.5 xl:bg-transparent"
-        : "max-xl:px-3 max-xl:py-2 xl:px-3 xl:py-2 xl:sm:px-3.5 xl:sm:py-2.5";
-    const panelLabelCls = `${ibmPlexSans.className} max-xl:text-[10px] max-xl:font-semibold max-xl:uppercase max-xl:leading-none max-xl:tracking-[0.08em] max-xl:text-zinc-500 xl:text-[16px] xl:font-normal xl:normal-case xl:leading-[150%] xl:tracking-[0px] xl:text-zinc-400`;
-    const panelValueWrapCls = "mt-1 flex w-full min-w-0 flex-wrap items-baseline gap-x-1 xl:mt-3 xl:min-h-[1.75rem]";
-    const panelValueTextCls = `${ibmPlexSans.className} max-xl:text-[15px] max-xl:font-bold max-xl:leading-none max-xl:tracking-tight max-xl:tabular-nums xl:text-[24px] xl:font-semibold xl:leading-[150%] xl:tracking-[0px] xl:tabular-nums xl:text-white`;
+        ? "max-xl:col-span-2 max-xl:rounded-sm max-xl:px-2 max-xl:py-1.5 max-xl:bg-mint/[0.05] xl:col-span-auto xl:rounded-none xl:px-3 xl:py-2 xl:sm:px-3.5 xl:sm:py-2.5 xl:bg-transparent"
+        : "max-xl:px-2 max-xl:py-1.5 xl:px-3 xl:py-2 xl:sm:px-3.5 xl:sm:py-2.5";
+    const panelLabelCls = `${ibmPlexSans.className} max-xl:text-[9px] max-xl:font-semibold max-xl:uppercase max-xl:leading-none max-xl:tracking-[0.07em] max-xl:text-zinc-500 xl:text-[16px] xl:font-normal xl:normal-case xl:leading-[150%] xl:tracking-[0px] xl:text-zinc-400`;
+    const panelValueWrapCls = "mt-0.5 flex w-full min-w-0 flex-wrap items-baseline gap-x-1 xl:mt-3 xl:min-h-[1.75rem]";
+    const panelValueTextCls = `${ibmPlexSans.className} max-xl:text-[13px] max-xl:font-bold max-xl:leading-none max-xl:tracking-tight max-xl:tabular-nums xl:text-[24px] xl:font-semibold xl:leading-[150%] xl:tracking-[0px] xl:tabular-nums xl:text-white`;
     const valueNode = (
       <div className={panelValueWrapCls}>
         <div className={`min-w-0 ${panelValueTextCls}`}>{value}</div>
@@ -207,7 +207,7 @@ export function CollectionPriceMetricsStrip({
     const change24hUp = change24h != null && change24h > 0;
     const change24hDown = change24h != null && change24h < 0;
     const gridClass =
-      "grid w-full max-xl:grid-cols-2 max-xl:gap-x-3 max-xl:gap-y-2 xl:grid-cols-5 xl:gap-0";
+      "grid w-full max-xl:grid-cols-2 max-xl:gap-x-2 max-xl:gap-y-1 xl:grid-cols-5 xl:gap-0";
 
     let priceFooter: ReactNode = undefined;
     if (showFootnotes) {
@@ -230,7 +230,7 @@ export function CollectionPriceMetricsStrip({
 
     return (
       <div
-        className={`w-full min-w-0 overflow-hidden rounded-lg border border-[rgba(38,39,45,1)] bg-[rgb(20,20,21)] max-xl:px-2 max-xl:py-2.5 max-xl:shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] xl:min-h-[116px] xl:px-2.5 xl:py-2 ${compact ? "mb-0 sm:mb-0.5" : "mb-2 sm:mb-2.5"}`}
+        className={`w-full min-w-0 overflow-hidden rounded-lg border border-[rgba(38,39,45,1)] bg-[rgb(20,20,21)] max-xl:px-1.5 max-xl:py-1.5 max-xl:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] xl:min-h-[116px] xl:px-2.5 xl:py-2 ${compact ? "mb-0 sm:mb-0.5" : "mb-2 sm:mb-2.5"}`}
       >
         <div
           className={`grid ${gridClass} h-full min-h-0 min-w-0 items-stretch justify-items-stretch gap-0`}
@@ -245,7 +245,7 @@ export function CollectionPriceMetricsStrip({
               <>
                 {externalPriceLoading && !showExternalPrimary ? (
                   <span
-                    className="inline-block h-[1rem] w-[5.5rem] max-w-full animate-pulse rounded bg-zinc-800/75 xl:h-[1.5rem] xl:w-[7rem]"
+                    className="inline-block h-[0.8rem] w-[4.5rem] max-w-full animate-pulse rounded bg-zinc-800/75 xl:h-[1.5rem] xl:w-[7rem]"
                     aria-hidden
                   />
                 ) : showExternalPrimary ? (
@@ -268,7 +268,7 @@ export function CollectionPriceMetricsStrip({
               <>
                 {externalPriceChange24hLoading && change24h == null ? (
                   <span
-                    className="inline-block h-[1rem] w-[4rem] animate-pulse rounded bg-zinc-800/75 xl:h-[1.5rem] xl:w-[4.5rem]"
+                    className="inline-block h-[0.8rem] w-[3.25rem] animate-pulse rounded bg-zinc-800/75 xl:h-[1.5rem] xl:w-[4.5rem]"
                     aria-hidden
                   />
                 ) : change24h != null && Number.isFinite(change24h) ? (
@@ -298,7 +298,7 @@ export function CollectionPriceMetricsStrip({
               <>
                 {volume24hLoading && volume24hUsdc == null ? (
                   <span
-                    className="inline-block h-[1rem] w-[4.5rem] max-w-full animate-pulse rounded bg-zinc-800/75 xl:h-[1.5rem] xl:w-[5.5rem]"
+                    className="inline-block h-[0.8rem] w-[3.75rem] max-w-full animate-pulse rounded bg-zinc-800/75 xl:h-[1.5rem] xl:w-[5.5rem]"
                     aria-hidden
                   />
                 ) : (

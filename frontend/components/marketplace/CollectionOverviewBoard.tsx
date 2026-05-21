@@ -451,12 +451,12 @@ export function CollectionOverviewBoard({
       >
         {/* Left: preview + meta — full-width stack below lg; fixed hero column from lg */}
         <div
-          className={`flex min-w-0 w-full max-w-full flex-col gap-3 sm:gap-4 ${
+          className={`flex min-w-0 w-full max-w-full flex-col gap-3 max-xl:gap-2 sm:gap-4 ${
             exchangeTriple ? "lg:w-full lg:items-start" : "w-full lg:items-stretch"
           }`}
         >
           <div
-            className={`flex w-full min-w-0 flex-col gap-3 ${
+            className={`flex w-full min-w-0 flex-col gap-3 max-xl:gap-1.5 ${
               exchangeTriple ? "max-lg:items-stretch lg:items-start" : "items-stretch"
             }`}
           >
