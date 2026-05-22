@@ -12,6 +12,7 @@ import {
   isFlatReferencePercentChange,
   MARKET_PRICE_CHANGE_PERIOD_LABEL,
   NO_EXTERNAL_PRICE,
+  REFERENCE_CHANGE_UNAVAILABLE_LABEL,
   referenceChangeTone,
 } from "@/lib/market";
 
@@ -306,7 +307,9 @@ export function CollectionPriceMetricsStrip({
                     {formatReferencePercentChange(change1Mo)}
                   </span>
                 ) : (
-                  <span className="max-xl:text-zinc-400 xl:text-white">—</span>
+                  <span className="max-xl:text-zinc-400 xl:text-white">
+                    {REFERENCE_CHANGE_UNAVAILABLE_LABEL}
+                  </span>
                 )}
               </>
             }
@@ -474,7 +477,7 @@ export function CollectionPriceMetricsStrip({
                   {change.toFixed(1)}%
                 </span>
               ) : (
-                <span className="text-white">—</span>
+                <span className="text-zinc-400">{REFERENCE_CHANGE_UNAVAILABLE_LABEL}</span>
               )}
             </>
           }

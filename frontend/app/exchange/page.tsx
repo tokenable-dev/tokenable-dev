@@ -20,6 +20,9 @@ import {
   collectionMatchesCategoryFilter,
   MARKET_PRICE_CHANGE_PERIOD_SHORT,
   MARKET_PRICE_CHANGE_SNAPSHOT_DURATION,
+  REFERENCE_CHANGE_UNAVAILABLE_HINT,
+  MARKETS_CATEGORY_FILTERS,
+  MARKETS_DEFAULT_CATEGORY_FILTER,
   type CollectionCategoryFilterId,
 } from "@/lib/market";
 import { parseGradeScoreNumber, representativeGradeUsd } from "@/lib/market";
@@ -89,9 +92,57 @@ function ExchangeLayoutToggleButton({
   );
 }
 
-/** Grid + list pills — wrap on narrow widths; scale type for readability */
+/** No `display` here — callers set `inline-flex` / `hidden` so Tailwind does not conflict. */
+const EXCHANGE_LAYOUT_TOGGLE_SHELL =
+  "shrink-0 items-center gap-1 rounded-xl border border-zinc-700/80 bg-zinc-900/80 p-1";
+
+function ExchangeLayoutToggleGroup({
+  viewMode,
+  onGrid,
+  onList,
+  className = "",
+}: {
+  viewMode: "list" | "grid";
+  onGrid: () => void;
+  onList: () => void;
+  className?: string;
+}) {
+  return (
+    <div
+      className={[className, EXCHANGE_LAYOUT_TOGGLE_SHELL].filter(Boolean).join(" ")}
+      role="group"
+      aria-label="List layout"
+    >
+      <ExchangeLayoutToggleButton
+        active={viewMode === "grid"}
+        onClick={onGrid}
+        ariaLabel="Grid view"
+      >
+        <svg viewBox="0 0 16 16" className="h-4 w-4" fill="currentColor" aria-hidden>
+          <rect x="1" y="1" width="6" height="6" rx="1" />
+          <rect x="9" y="1" width="6" height="6" rx="1" />
+          <rect x="1" y="9" width="6" height="6" rx="1" />
+          <rect x="9" y="9" width="6" height="6" rx="1" />
+        </svg>
+      </ExchangeLayoutToggleButton>
+      <ExchangeLayoutToggleButton
+        active={false}
+        onClick={onList}
+        ariaLabel="List view"
+      >
+        <svg viewBox="0 0 16 16" className="h-4 w-4" fill="currentColor" aria-hidden>
+          <rect x="1" y="2" width="14" height="2" rx="1" />
+          <rect x="1" y="7" width="14" height="2" rx="1" />
+          <rect x="1" y="12" width="14" height="2" rx="1" />
+        </svg>
+      </ExchangeLayoutToggleButton>
+    </div>
+  );
+}
+
+/** Grid + list pills — never wrap; row scrolls horizontally when overflow. */
 const EXCHANGE_CARD_BADGE_BASE =
-  "box-border inline-flex min-h-[20px] max-w-full shrink-0 items-center justify-center rounded-[4px] border px-1.5 py-0.5 text-[10px] font-semibold leading-none tracking-tight sm:min-h-[22px] sm:rounded-[3px] sm:px-[5px] sm:py-0 sm:text-[10px] md:text-[11px]";
+  "box-border inline-flex min-h-[20px] shrink-0 items-center justify-center rounded-[4px] border px-1.5 py-0.5 text-[10px] font-semibold leading-none tracking-tight sm:min-h-[22px] sm:rounded-[3px] sm:px-[5px] sm:py-0 sm:text-[10px] md:text-[11px]";
 
 /** Pop / Listed / window labels — neutral chrome; values styled per badge type */
 const EXCHANGE_CARD_BADGE_NEUTRAL = `${EXCHANGE_CARD_BADGE_BASE} gap-0.5 whitespace-nowrap border-[rgba(255,255,255,0.22)] bg-black/50 text-zinc-400`;
@@ -99,34 +150,15 @@ const EXCHANGE_CARD_BADGE_NEUTRAL = `${EXCHANGE_CARD_BADGE_BASE} gap-0.5 whitesp
 const EXCHANGE_CARD_BADGE_KV_LABEL = "text-zinc-400";
 const EXCHANGE_CARD_BADGE_KV_VALUE = "tabular-nums text-white";
 
+/** Single-line badge strip — swipe/scroll on overflow instead of wrapping. */
 const EXCHANGE_CARD_INFO_BADGE_ROW =
-  "flex min-w-0 max-w-full flex-wrap items-center gap-1 max-[380px]:gap-0.5 sm:gap-1.5";
+  "flex min-w-0 max-w-full flex-nowrap items-center gap-1 overflow-x-auto overscroll-x-contain scroll-smooth touch-pan-x [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden max-[380px]:gap-0.5 sm:gap-1.5";
 
-/** Tighter badge row inside 2-col grid cards on very narrow viewports */
-const EXCHANGE_GRID_CARD_BADGE_ROW = `${EXCHANGE_CARD_INFO_BADGE_ROW} max-[380px]:gap-0.5`;
+/** Grid cards use the same single-line scroll row (tighter gap on very narrow widths). */
+const EXCHANGE_GRID_CARD_BADGE_ROW = EXCHANGE_CARD_INFO_BADGE_ROW;
 
 function exchangePctValueClass(pct: number): string {
   return pct >= 0 ? "text-[rgba(16,211,51,1)]" : "text-rose-300";
-}
-
-function ExchangePctBadge({
-  pct,
-  windowShort,
-  title,
-}: {
-  pct: number;
-  windowShort?: string;
-  title?: string;
-}) {
-  return (
-    <span className={EXCHANGE_CARD_BADGE_NEUTRAL} title={title}>
-      {windowShort ? <span>{windowShort} </span> : null}
-      <span className={`tabular-nums ${exchangePctValueClass(pct)}`}>
-        {pct >= 0 ? "+" : ""}
-        {pct.toFixed(1)}%
-      </span>
-    </span>
-  );
 }
 
 function ExchangeTrendPctBadge({
@@ -148,19 +180,72 @@ function ExchangeTrendPctBadge({
   );
 }
 
+/** Always show 1mo change on list/grid cards — 0% when history is insufficient (see title). */
+function ExchangeMarketChangeBadge({
+  pct,
+  loading = false,
+  windowShort = MARKET_PRICE_CHANGE_PERIOD_SHORT,
+}: {
+  pct: number | null;
+  loading?: boolean;
+  windowShort?: string;
+}) {
+  const win = windowShort;
+  if (loading && pct == null) {
+    return (
+      <ExchangeKvBadge
+        label={win}
+        value="…"
+        title="Loading external reference change"
+      />
+    );
+  }
+  if (pct != null && Number.isFinite(pct)) {
+    return (
+      <ExchangeTrendPctBadge
+        pct={pct}
+        windowShort={win}
+        title={`External reference (${MARKET_PRICE_CHANGE_PERIOD_SHORT} change)`}
+      />
+    );
+  }
+  return (
+    <span className={EXCHANGE_CARD_BADGE_NEUTRAL} title={REFERENCE_CHANGE_UNAVAILABLE_HINT}>
+      <span className="tabular-nums text-white">0%</span>
+      {win ? <span>{` ${win}`}</span> : null}
+    </span>
+  );
+}
+
+/** Compact counts in pills (full value stays in `title`). */
+function formatExchangeBadgeCount(n: number): string {
+  const abs = Math.abs(n);
+  if (abs >= 1_000_000) {
+    const m = n / 1_000_000;
+    return `${m >= 10 ? Math.round(m) : m.toFixed(1)}M`;
+  }
+  if (abs >= 10_000) {
+    const k = n / 1_000;
+    return `${k >= 100 ? Math.round(k) : k.toFixed(1)}k`;
+  }
+  return n.toLocaleString("en-US");
+}
+
 function ExchangeKvBadge({
   label,
   value,
   title,
+  valueClassName,
 }: {
   label: string;
   value: string;
   title?: string;
+  valueClassName?: string;
 }) {
   return (
-    <span className={EXCHANGE_CARD_BADGE_NEUTRAL} title={title}>
+    <span className={EXCHANGE_CARD_BADGE_NEUTRAL} title={title ?? `${label} ${value}`}>
       <span className={EXCHANGE_CARD_BADGE_KV_LABEL}>{label}</span>
-      <span className={EXCHANGE_CARD_BADGE_KV_VALUE}>{value}</span>
+      <span className={valueClassName ?? EXCHANGE_CARD_BADGE_KV_VALUE}>{value}</span>
     </span>
   );
 }
@@ -192,11 +277,13 @@ function CollectionRow({
   listingCount,
   snapshot,
   resolvedCoverUrl,
+  marketChangeLoading = false,
 }: {
   collection: MarketplaceCollectionSummary;
   listingCount: number;
   snapshot: CollectionListMarketSnapshot | undefined;
   resolvedCoverUrl?: string;
+  marketChangeLoading?: boolean;
 }) {
   const comp = collection.components as Record<string, unknown> & { gradeScore?: string };
 
@@ -206,7 +293,6 @@ function CollectionRow({
     comp.gradeScore,
   );
 
-  const pct = snapshot?.marketChangePct;
   const ms = snapshot?.marketStats ?? null;
   const floor =
     ms?.floor != null && Number.isFinite(ms.floor) && ms.floor > 0 ? ms.floor : null;
@@ -224,10 +310,6 @@ function CollectionRow({
   const tokenablePrice = floor ?? lastTrade;
   const tokenableVsRefPct = percentDiffVersusRef(tokenablePrice, effectiveRefUsd);
   const changePctExternal =
-    pct != null && Number.isFinite(pct) ? pct : null;
-  const changeWinShort = MARKET_PRICE_CHANGE_PERIOD_SHORT;
-
-  const trendPct =
     snapshot?.marketChangePct != null && Number.isFinite(snapshot.marketChangePct)
       ? snapshot.marketChangePct
       : null;
@@ -258,23 +340,20 @@ function CollectionRow({
             {toCardDisplayUppercase(collection.displayLabel)}
           </h3>
           <div className={`mt-1.5 ${EXCHANGE_CARD_INFO_BADGE_ROW}`}>
-          {trendPct != null ? (
-            <ExchangeTrendPctBadge
-              pct={trendPct}
-              windowShort={changeWinShort || undefined}
-              title={`External reference (${MARKET_PRICE_CHANGE_PERIOD_SHORT} change)`}
-            />
-          ) : null}
+          <ExchangeMarketChangeBadge
+            pct={changePctExternal}
+            loading={marketChangeLoading}
+          />
           {pop != null ? (
             <ExchangeKvBadge
               label="Pop"
-              value={pop.toLocaleString()}
+              value={formatExchangeBadgeCount(pop)}
               title={`PSA population: ${pop.toLocaleString()}`}
             />
           ) : null}
           <ExchangeKvBadge
             label="Listed"
-            value={String(listingCount)}
+            value={formatExchangeBadgeCount(listingCount)}
             title={`${listingCount} listing${listingCount !== 1 ? "s" : ""} on Tokenable`}
           />
           {tokenableVsRefPct != null ? (
@@ -288,13 +367,6 @@ function CollectionRow({
                 {tokenableVsRefPct.toFixed(1)}%
               </span>
             </span>
-          ) : null}
-          {changePctExternal != null ? (
-            <ExchangePctBadge
-              pct={changePctExternal}
-              windowShort={changeWinShort || undefined}
-              title={`External reference (${MARKET_PRICE_CHANGE_PERIOD_SHORT}): interpolated change on Cardhedger history`}
-            />
           ) : null}
         </div>
         <dl className="mt-2.5 space-y-2 text-xs leading-snug text-zinc-300 sm:mt-3 sm:text-sm sm:leading-tight">
@@ -343,11 +415,13 @@ function CollectionGridCard({
   snapshot,
   resolvedCoverUrl,
   listingCount,
+  marketChangeLoading = false,
 }: {
   collection: MarketplaceCollectionSummary;
   snapshot: CollectionListMarketSnapshot | undefined;
   resolvedCoverUrl?: string;
   listingCount: number;
+  marketChangeLoading?: boolean;
 }) {
   const comp = collection.components as Record<string, unknown> & { gradeScore?: string };
   const jtSpot = representativeGradeUsd(
@@ -358,12 +432,10 @@ function CollectionGridCard({
   const marketPriceUsd =
     jtSpot != null && Number.isFinite(jtSpot) && jtSpot > 0 ? jtSpot : null;
 
-  const trendPct =
+  const changePctExternal =
     snapshot?.marketChangePct != null && Number.isFinite(snapshot.marketChangePct)
       ? snapshot.marketChangePct
       : null;
-
-  const windowShort = MARKET_PRICE_CHANGE_PERIOD_SHORT;
   const pop = parsePsaPopulationFromComponents(comp);
 
   return (
@@ -384,23 +456,20 @@ function CollectionGridCard({
       </div>
       <div className="flex min-h-0 flex-1 flex-col gap-1.5 p-2 max-[380px]:p-1.5 sm:gap-2 sm:p-3">
         <div className={EXCHANGE_GRID_CARD_BADGE_ROW}>
-          {trendPct != null ? (
-            <ExchangeTrendPctBadge
-              pct={trendPct}
-              windowShort={windowShort || undefined}
-              title={`External reference (${MARKET_PRICE_CHANGE_PERIOD_SHORT} change)`}
-            />
-          ) : null}
+          <ExchangeMarketChangeBadge
+            pct={changePctExternal}
+            loading={marketChangeLoading}
+          />
           {pop != null ? (
             <ExchangeKvBadge
               label="Pop"
-              value={pop.toLocaleString()}
+              value={formatExchangeBadgeCount(pop)}
               title={`PSA population: ${pop.toLocaleString()}`}
             />
           ) : null}
           <ExchangeKvBadge
             label="Listed"
-            value={String(listingCount)}
+            value={formatExchangeBadgeCount(listingCount)}
             title={`${listingCount} listing${listingCount !== 1 ? "s" : ""} on Tokenable`}
           />
         </div>
@@ -431,7 +500,9 @@ function CollectionGridCard({
 }
 
 export default function ExchangePage() {
-  const [categoryFilter, setCategoryFilter] = useState<CollectionCategoryFilterId>("all");
+  const [categoryFilter, setCategoryFilter] = useState<CollectionCategoryFilterId>(
+    MARKETS_DEFAULT_CATEGORY_FILTER,
+  );
   const [viewMode, setViewMode] = useState<"list" | "grid">("grid");
   const [listLayoutComingSoonOpen, setListLayoutComingSoonOpen] = useState(false);
 
@@ -531,47 +602,32 @@ export default function ExchangePage() {
       <div className="mx-auto max-w-6xl px-3 pb-20 pt-8 max-[380px]:px-2 sm:px-6 sm:pb-24 sm:pt-12">
         {!isLoading && sortedForRank.length > 0 ? (
           <>
-            <h2 className="mb-3 text-xl font-bold leading-tight tracking-tight text-white sm:mb-5 sm:text-3xl">
-              Card Trading List
-            </h2>
-            <div className="mb-4 flex flex-col gap-3 sm:mb-4 sm:flex-row sm:flex-nowrap sm:items-center sm:justify-between sm:gap-4">
+            <div className="mb-3 flex items-center justify-between gap-3 sm:mb-5">
+              <h2 className="min-w-0 text-xl font-bold leading-tight tracking-tight text-white sm:text-3xl">
+                All Collections
+              </h2>
+              <ExchangeLayoutToggleGroup
+                className="inline-flex sm:hidden"
+                viewMode={viewMode}
+                onGrid={() => setViewMode("grid")}
+                onList={() => setListLayoutComingSoonOpen(true)}
+              />
+            </div>
+            <div className="mb-4 sm:mb-4 sm:flex sm:flex-nowrap sm:items-center sm:justify-between sm:gap-4">
               <div className="min-w-0 w-full sm:flex-1">
                 <CollectionCategoryFilterBar
+                  filters={MARKETS_CATEGORY_FILTERS}
                   value={categoryFilter}
                   onChange={setCategoryFilter}
-                  toolbarAriaLabel="Filter card trading list category"
-                  mobileSectionHeading="Trading list"
+                  toolbarAriaLabel="Filter all collections by category"
                 />
               </div>
-              <div
-                className="-mx-0.5 inline-flex shrink-0 items-center gap-1 self-stretch rounded-xl border border-zinc-700/80 bg-zinc-900/80 p-1 sm:mx-0 sm:self-auto"
-                role="group"
-                aria-label="List layout"
-              >
-                <ExchangeLayoutToggleButton
-                  active={viewMode === "grid"}
-                  onClick={() => setViewMode("grid")}
-                  ariaLabel="Grid view"
-                >
-                  <svg viewBox="0 0 16 16" className="h-4 w-4" fill="currentColor" aria-hidden>
-                    <rect x="1" y="1" width="6" height="6" rx="1" />
-                    <rect x="9" y="1" width="6" height="6" rx="1" />
-                    <rect x="1" y="9" width="6" height="6" rx="1" />
-                    <rect x="9" y="9" width="6" height="6" rx="1" />
-                  </svg>
-                </ExchangeLayoutToggleButton>
-                <ExchangeLayoutToggleButton
-                  active={false}
-                  onClick={() => setListLayoutComingSoonOpen(true)}
-                  ariaLabel="List view"
-                >
-                  <svg viewBox="0 0 16 16" className="h-4 w-4" fill="currentColor" aria-hidden>
-                    <rect x="1" y="2" width="14" height="2" rx="1" />
-                    <rect x="1" y="7" width="14" height="2" rx="1" />
-                    <rect x="1" y="12" width="14" height="2" rx="1" />
-                  </svg>
-                </ExchangeLayoutToggleButton>
-              </div>
+              <ExchangeLayoutToggleGroup
+                className="hidden sm:inline-flex"
+                viewMode={viewMode}
+                onGrid={() => setViewMode("grid")}
+                onList={() => setListLayoutComingSoonOpen(true)}
+              />
             </div>
           </>
         ) : null}
@@ -621,7 +677,7 @@ export default function ExchangePage() {
               No collections match this category yet.
             </p>
             <p className="mt-2 text-sm text-gray-600 sm:text-base">
-              Categories use listing text and snapshot metadata — try ALL or Others.
+              Categories use listing text and snapshot metadata — try ALL or another category.
             </p>
           </div>
         ) : viewMode === "grid" ? (
@@ -633,6 +689,7 @@ export default function ExchangePage() {
                 snapshot={snapshotByKey.get(c.collectionKey.toLowerCase())}
                 resolvedCoverUrl={c.coverImageUrl ? resolvedCoverMap.get(c.coverImageUrl) : undefined}
                 listingCount={c.activeListingCount}
+                marketChangeLoading={showMarketSnapshotLoadingBar}
               />
             ))}
             {hasNextPage ? (
@@ -657,6 +714,7 @@ export default function ExchangePage() {
                 listingCount={c.activeListingCount}
                 snapshot={snapshotByKey.get(c.collectionKey.toLowerCase())}
                 resolvedCoverUrl={c.coverImageUrl ? resolvedCoverMap.get(c.coverImageUrl) : undefined}
+                marketChangeLoading={showMarketSnapshotLoadingBar}
               />
             ))}
             {hasNextPage ? (
@@ -735,12 +793,7 @@ export default function ExchangePage() {
               List view — coming soon
             </h2>
             <p className="mt-3 text-[15px] leading-relaxed text-zinc-400">
-              We&apos;re building a row layout so you can scan collections faster—cover art,
-              price, and key stats on one line.
-            </p>
-            <p className="mt-2.5 text-[14px] leading-relaxed text-zinc-500">
-              Grid view has everything available today. We&apos;ll enable list view as soon as the
-              design is ready.
+              Not available yet. Use grid view for now.
             </p>
             <button
               type="button"

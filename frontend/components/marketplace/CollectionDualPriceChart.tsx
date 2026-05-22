@@ -62,6 +62,99 @@ function utcDayKey(tSec: number): string {
   ).padStart(2, "0")}`;
 }
 
+function validUsdPoints(points: CollectionUsdPoint[]): CollectionUsdPoint[] {
+  return points.filter(
+    (p) =>
+      Number.isFinite(p.t) &&
+      typeof p.v === "number" &&
+      Number.isFinite(p.v) &&
+      p.v > 0,
+  );
+}
+
+/** Latest in-window price, else headline spot fallback. */
+function resolveExternalReferencePrice(
+  points: CollectionUsdPoint[],
+  fallbackUsd: number | null | undefined,
+): number | null {
+  const valid = validUsdPoints(points);
+  if (valid.length > 0) return valid[valid.length - 1]!.v;
+  if (fallbackUsd != null && Number.isFinite(fallbackUsd) && fallbackUsd > 0) {
+    return fallbackUsd;
+  }
+  return null;
+}
+
+function isUniformPrice(points: CollectionUsdPoint[]): boolean {
+  const valid = validUsdPoints(points);
+  if (valid.length <= 1) return valid.length === 1;
+  const v0 = valid[0]!.v;
+  const tol = Math.max(v0 * 1e-4, 0.01);
+  return valid.every((p) => Math.abs(p.v - v0) <= tol);
+}
+
+function buildFullWindowFlatSeries(
+  tMin: number,
+  tMax: number,
+  price: number,
+): CollectionUsdPoint[] {
+  return [
+    { t: tMin, v: price },
+    { t: tMax, v: price },
+  ];
+}
+
+/** Carry first/last known prices to the UI window edges (sparse Cardhedger history). */
+function extendSeriesToWindowEdges(
+  points: CollectionUsdPoint[],
+  tMin: number,
+  tMax: number,
+): CollectionUsdPoint[] {
+  const valid = validUsdPoints(points).sort((a, b) => a.t - b.t);
+  if (valid.length === 0) return [];
+  if (valid.length === 1) {
+    return buildFullWindowFlatSeries(tMin, tMax, valid[0]!.v);
+  }
+
+  const first = valid[0]!;
+  const last = valid[valid.length - 1]!;
+  const merged: CollectionUsdPoint[] = [];
+
+  if (first.t > tMin + 60) merged.push({ t: tMin, v: first.v });
+  for (const p of valid) {
+    merged.push({ t: Math.min(Math.max(p.t, tMin), tMax), v: p.v });
+  }
+  if (last.t < tMax - 60) merged.push({ t: tMax, v: last.v });
+
+  const deduped: CollectionUsdPoint[] = [];
+  for (const p of merged) {
+    if (deduped.length && deduped[deduped.length - 1]!.t === p.t) {
+      deduped[deduped.length - 1] = p;
+    } else {
+      deduped.push(p);
+    }
+  }
+  return deduped.length >= 2 ? deduped : buildFullWindowFlatSeries(tMin, tMax, last.v);
+}
+
+/** Few samples or short span vs 90D+ window — extend edges instead of a tight cluster. */
+function shouldAnchorSparseWindow(
+  points: CollectionUsdPoint[],
+  tMin: number,
+  tMax: number,
+  windowDays: number,
+): boolean {
+  const valid = validUsdPoints(points);
+  if (valid.length <= 1) return true;
+  const windowSpan = Math.max(tMax - tMin, 1);
+  const dataSpan = Math.max(valid[valid.length - 1]!.t - valid[0]!.t, 0);
+  if (dataSpan / windowSpan < 0.55) return true;
+  if (windowDays >= 90 && valid.length < Math.max(4, Math.ceil(windowDays / 14))) {
+    return true;
+  }
+  return false;
+}
+
 function buildPlatformUtcDayStaticPoints(
   points: CollectionUsdPoint[],
   nowSec: number,
@@ -320,13 +413,44 @@ export function CollectionDualPriceChart({
 
     /** If UTC-day bucketing collapses a multi-point window to <2 samples, plot raw timestamps. */
     if (extForChart.length < 2) {
-      const rawFit = extInWindow.filter(
-        (p) => Number.isFinite(p.t) && typeof p.v === "number" && Number.isFinite(p.v) && p.v > 0,
-      );
+      const rawFit = validUsdPoints(extInWindow);
       if (rawFit.length >= 2) {
         extForChart = [...rawFit]
           .sort((a, b) => a.t - b.t)
           .map((p) => ({ ...p, t: Math.min(Math.max(p.t, tMin), tMax) }));
+      }
+    }
+
+    /**
+     * Sparse / flat external history (common on rare slabs): fill the selected 90D–1Y window using
+     * first & last known prices so the line spans the chart instead of a dot or short cluster.
+     */
+    if (useFixedWindow) {
+      const refPrice = resolveExternalReferencePrice(extInWindow, externalMarketUsd);
+      const seriesProbe =
+        validUsdPoints(extForChart).length > 0
+          ? extForChart
+          : validUsdPoints(extInWindow).length > 0
+            ? extInWindow
+            : extRolling;
+      const windowDays = externalWindowDays!;
+
+      if (seriesProbe.length === 0) {
+        if (refPrice != null) {
+          extForChart = buildFullWindowFlatSeries(tMin, tMax, refPrice);
+        }
+      } else if (isUniformPrice(seriesProbe)) {
+        const flatV = refPrice ?? seriesProbe[seriesProbe.length - 1]!.v;
+        extForChart = buildFullWindowFlatSeries(tMin, tMax, flatV);
+      } else if (
+        shouldAnchorSparseWindow(seriesProbe, tMin, tMax, windowDays) ||
+        windowDays >= 180
+      ) {
+        extForChart = extendSeriesToWindowEdges(
+          validUsdPoints(extForChart).length > 0 ? extForChart : seriesProbe,
+          tMin,
+          tMax,
+        );
       }
     }
 

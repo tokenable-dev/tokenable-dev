@@ -6,10 +6,10 @@ import {
   isFlatReferencePercentChange,
   MARKET_PRICE_CHANGE_PERIOD_LABEL,
   NO_EXTERNAL_PRICE,
+  REFERENCE_CHANGE_UNAVAILABLE_LABEL,
   referenceChangeTone,
 } from "@/lib/market";
 
-const STAT_EM_DASH = "—";
 
 function hasComputedChangePct(
   changePct: number | null | undefined,
@@ -134,7 +134,7 @@ export function CollectionMobileInformationPanel({
               ? "…"
               : changeShowsPct
                 ? formatReferencePercentChange(changePct, 0)
-                : STAT_EM_DASH
+                : REFERENCE_CHANGE_UNAVAILABLE_LABEL
           }
           valueClassName={
             changeTone ? changeToneClass(changeTone) : "text-zinc-400"

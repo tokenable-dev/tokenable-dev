@@ -44,18 +44,28 @@ function formatUsdc(amount: string): string {
 }
 
 /**
- * Gradient rim pill — decorative; the whole {@link CollectionRwaCard} is wrapped in a Link.
- * `pointer-events-none` ancestors let presses go to the card link. Hover/focus uses parent `group`.
+ * Gradient rim pill on listing cards — always visible; Buy gets stronger chrome.
+ * The whole {@link CollectionRwaCard} is a Link; this layer is decorative (`aria-hidden`).
  */
 function ListingCtaPill({ label }: { label: string }) {
+  const isBuy = label === "Buy";
+
   return (
     <span
-      className="relative z-[2] box-border flex h-7 min-h-7 w-full min-w-0 max-w-none shrink-0 items-center justify-center rounded-[14px] p-[1.5px] text-center shadow-[0_7px_18px_-7px_rgba(0,0,0,0.8)] transition-[transform,box-shadow] duration-200 ease-out [-webkit-tap-highlight-color:transparent] group-hover:-translate-y-0.5 group-hover:scale-[1.02] group-hover:shadow-[0_9px_24px_-8px_rgba(0,0,0,0.88),0_0_18px_-2px_rgba(16,211,51,0.28),0_0_1px_1px_rgba(16,211,51,0.35)_inset] group-active:translate-y-0 group-active:scale-[0.99] motion-reduce:transition-none motion-reduce:group-hover:scale-100 motion-reduce:group-hover:translate-y-0 max-lg:opacity-100 lg:opacity-0 lg:group-hover:opacity-100 lg:group-focus-visible:opacity-100 sm:h-9 sm:min-h-9 sm:rounded-[18px]"
+      className={`relative z-[2] box-border flex w-full min-w-0 max-w-none shrink-0 items-center justify-center rounded-2xl text-center transition-[transform,box-shadow,filter] duration-200 ease-out [-webkit-tap-highlight-color:transparent] group-hover:scale-[1.03] group-active:scale-[0.99] motion-reduce:transition-none motion-reduce:group-hover:scale-100 ${
+        isBuy
+          ? "h-8 min-h-8 p-[2px] shadow-[0_8px_22px_-6px_rgba(0,0,0,0.9),0_0_22px_-2px_rgba(16,211,51,0.55)] group-hover:shadow-[0_10px_28px_-6px_rgba(0,0,0,0.92),0_0_32px_-2px_rgba(16,211,51,0.72)] sm:h-10 sm:min-h-10 sm:rounded-[20px] sm:p-[2.5px]"
+          : "h-7 min-h-7 p-[1.5px] shadow-[0_6px_16px_-8px_rgba(0,0,0,0.85),0_0_12px_-4px_rgba(16,211,51,0.25)] group-hover:shadow-[0_8px_20px_-8px_rgba(0,0,0,0.9),0_0_18px_-4px_rgba(16,211,51,0.4)] sm:h-9 sm:min-h-9 sm:rounded-[18px]"
+      }`}
       style={{ background: PRODUCT_OUTLINE_GRADIENT }}
       aria-hidden
     >
       <span
-        className={`${rwaCardFont.className} flex h-full min-h-0 w-full min-w-0 items-center justify-center gap-2 rounded-[12px] bg-[rgba(11,13,16,1)] px-3 py-0.5 text-[11px] font-bold leading-snug tracking-wide text-white transition-[background-color,box-shadow] duration-200 ease-out group-hover:bg-[rgba(16,18,22,1)] group-hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06)] group-active:bg-[rgba(11,13,16,1)] sm:rounded-[16px] sm:px-6 sm:py-1 sm:text-[13px]`}
+        className={`${rwaCardFont.className} flex h-full min-h-0 w-full min-w-0 items-center justify-center rounded-[14px] border border-black/80 px-3 py-0.5 leading-snug tracking-wide transition-[background-color,box-shadow,color] duration-200 ease-out sm:rounded-[17px] sm:px-5 sm:py-1 ${
+          isBuy
+            ? "bg-black text-[12px] font-bold text-mint shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] group-hover:bg-zinc-950 group-hover:brightness-110 sm:text-[14px]"
+            : "bg-[rgba(11,13,16,1)] text-[11px] font-bold text-white group-hover:bg-[rgba(16,18,22,1)] sm:text-[13px]"
+        }`}
       >
         {label}
       </span>
@@ -165,8 +175,11 @@ export function CollectionRwaCard({
             </div>
           )}
 
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[1] flex translate-y-[20%] justify-center px-1 sm:translate-y-[24%] sm:px-2">
-            <div className="mx-auto w-full min-w-0 max-w-[min(100%,170px)] sm:max-w-[min(100%,220px)]">
+          <div
+            className="pointer-events-none absolute inset-x-0 bottom-0 z-[1] flex justify-center bg-gradient-to-t from-black via-black/75 to-transparent px-1.5 pb-1.5 pt-10 sm:px-2 sm:pb-2 sm:pt-12"
+            aria-hidden
+          >
+            <div className="mx-auto w-full min-w-0 max-w-[min(100%,180px)] sm:max-w-[min(100%,240px)]">
               <ListingCtaPill label={ctaLabel} />
             </div>
           </div>

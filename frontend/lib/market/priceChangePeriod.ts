@@ -4,6 +4,12 @@ export const MARKET_PRICE_CHANGE_PERIOD_LABEL = "1 mo";
 /** Compact suffix for badges (exchange cards, pills). */
 export const MARKET_PRICE_CHANGE_PERIOD_SHORT = "1mo";
 
+/** When 1 mo reference % cannot be computed (insufficient Cardhedger history). */
+export const REFERENCE_CHANGE_UNAVAILABLE_LABEL = "No history";
+
+export const REFERENCE_CHANGE_UNAVAILABLE_HINT =
+  "Not enough eBay reference price history to calculate a 1 mo change.";
+
 /** ~30 calendar days — aligned with backend `30d` snapshot window. */
 export const MARKET_PRICE_CHANGE_LAG_SEC = 30 * 86_400;
 
