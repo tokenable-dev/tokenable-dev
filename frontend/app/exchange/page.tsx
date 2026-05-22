@@ -56,15 +56,18 @@ function percentDiffVersusRef(
 }
 
 function formatSignedPct(pct: number): string {
-  const sign = pct >= 0 ? "+" : "";
+  if (Number.isFinite(pct) && Math.abs(pct) < 0.05) {
+    return "0.0%";
+  }
+  const sign = pct > 0 ? "+" : "";
   return `${sign}${pct.toFixed(1)}%`;
 }
 
-/** Grid / list layout toggle — active: translucent mint (no solid fill, no gradient rim). */
+/** Grid / list layout toggle — selected: white; unselected: dark grey (no mint). */
 const EXCHANGE_VIEW_TOGGLE_ACTIVE =
-  "rounded-lg border border-mint/30 bg-mint/12 text-mint";
+  "rounded-lg border border-white/75 bg-white/[0.06] text-white hover:border-white/90";
 const EXCHANGE_VIEW_TOGGLE_INACTIVE =
-  "rounded-lg text-zinc-400 hover:bg-zinc-800/90 hover:text-zinc-200";
+  "rounded-lg border border-zinc-700/80 bg-zinc-900/50 text-zinc-500 hover:border-zinc-600/80 hover:text-zinc-400";
 
 function ExchangeLayoutToggleButton({
   active,
@@ -211,7 +214,7 @@ function ExchangeMarketChangeBadge({
   }
   return (
     <span className={EXCHANGE_CARD_BADGE_NEUTRAL} title={REFERENCE_CHANGE_UNAVAILABLE_HINT}>
-      <span className="tabular-nums text-white">0%</span>
+      <span className="tabular-nums text-white">{formatSignedPct(0)}</span>
       {win ? <span>{` ${win}`}</span> : null}
     </span>
   );
