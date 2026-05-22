@@ -26,6 +26,11 @@ import {
   type PsaFieldLocks,
 } from "@/types/gradedCard";
 import { GradedCardSection, type PsaInputMode } from "./GradedCardSection";
+import {
+  GradientOutlineFrame,
+  gradientOutlineInnerButtonClass,
+  VAULT_OUTLINE_PAD_CLASS,
+} from "@/components/ui/GradientOutlineFrame";
 import { WalletConnect } from "@/components/wallet/WalletConnect";
 
 type Step = "idle" | "uploading" | "minting" | "success" | "error";
@@ -730,16 +735,23 @@ export function MintForm() {
           )}
         </div>
         <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:gap-3">
-          <Link
-            href="/portfolio"
-            className="flex w-full flex-1 items-center justify-center rounded-xl bg-gradient-to-r from-mint to-mint-dim py-3 text-center text-sm font-bold text-mint-ink shadow-lg shadow-mint/25 transition-all hover:brightness-110"
+          <GradientOutlineFrame
+            className="w-full flex-1"
+            padClass={VAULT_OUTLINE_PAD_CLASS}
           >
-            My Assets
-          </Link>
+            <Link
+              href="/portfolio"
+              className="flex w-full items-center justify-center rounded-[11px] border-0 !bg-black py-3 text-center text-sm font-bold text-mint no-underline transition hover:bg-zinc-950"
+              style={{ backgroundColor: "#000000" }}
+            >
+              My Assets
+            </Link>
+          </GradientOutlineFrame>
           <button
             type="button"
             onClick={resetForm}
-            className="w-full flex-1 rounded-xl border border-gray-600/60 bg-gray-800/80 py-3 text-sm font-medium text-white transition-colors hover:bg-gray-700/80 sm:min-w-[10rem]"
+            className="w-full flex-1 rounded-xl border border-zinc-600/80 bg-black py-3 text-sm font-medium text-zinc-300 transition hover:border-zinc-500 hover:text-white sm:min-w-[10rem]"
+            style={{ backgroundColor: "#000000" }}
           >
             Tokenize Another
           </button>
@@ -770,23 +782,32 @@ export function MintForm() {
               slotAfterHero={
                 <div className="space-y-4">
         {!isConnected ? (
-          <WalletConnect
-            connectButtonClassName="w-full py-3.5 bg-gradient-to-r from-mint to-mint-dim hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed text-mint-ink text-sm font-bold rounded-xl transition-all duration-200 shadow-lg shadow-mint/25"
-          />
-        ) : showMintReady ? (
-          <button
-            type="submit"
-            disabled={isProcessing || showPsaAnalyzeOverlay}
-            className="w-full py-3.5 bg-gradient-to-r from-mint to-mint-dim hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed text-mint-ink text-sm font-bold rounded-xl transition-all duration-200 shadow-lg shadow-mint/25"
+          <GradientOutlineFrame
+            className="w-full"
+            padClass={VAULT_OUTLINE_PAD_CLASS}
           >
-            {isProcessing
-              ? "Minting…"
-              : showPsaAnalyzeOverlay
-                ? psaInputMode === "cert"
-                  ? "Looking up cert…"
-                  : "Analyzing slab…"
-                : "Mint"}
-          </button>
+            <WalletConnect
+              connectButtonClassName={`${gradientOutlineInnerButtonClass} !rounded-[11px] py-3.5 text-sm`}
+              connectButtonStyle={{ backgroundColor: "#000000" }}
+            />
+          </GradientOutlineFrame>
+        ) : showMintReady ? (
+          <GradientOutlineFrame className="w-full" padClass={VAULT_OUTLINE_PAD_CLASS}>
+            <button
+              type="submit"
+              disabled={isProcessing || showPsaAnalyzeOverlay}
+              className="w-full rounded-[11px] border-0 !bg-black py-3.5 text-sm font-bold text-mint transition disabled:cursor-not-allowed disabled:!bg-black disabled:text-mint/35"
+              style={{ backgroundColor: "#000000" }}
+            >
+              {isProcessing
+                ? "Minting…"
+                : showPsaAnalyzeOverlay
+                  ? psaInputMode === "cert"
+                    ? "Looking up cert…"
+                    : "Analyzing slab…"
+                  : "Mint"}
+            </button>
+          </GradientOutlineFrame>
         ) : null}
 
         {isProcessing && (

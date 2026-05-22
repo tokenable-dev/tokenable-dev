@@ -11,6 +11,7 @@ import {
   TOKENABLE_RWA_READ_ABI,
 } from "@/constants/contracts";
 import { COLLECTION_LISTING_CARD_CHROME } from "@/components/marketplace/collectionOverviewChrome";
+import { PRODUCT_OUTLINE_GRADIENT } from "@/components/ui/GradientOutlineFrame";
 import { getCachedRwaMetadata, getCachedRwaImageUrl } from "@/lib/marketplace";
 
 const rwaCardFont = IBM_Plex_Sans({
@@ -47,12 +48,10 @@ function formatUsdc(amount: string): string {
  * `pointer-events-none` ancestors let presses go to the card link. Hover/focus uses parent `group`.
  */
 function ListingCtaPill({ label }: { label: string }) {
-  const rimGradient =
-    "linear-gradient(99.67deg, #529e22 3.64%, #87FF48 54%, #284214 112.88%)";
   return (
     <span
       className="relative z-[2] box-border flex h-7 min-h-7 w-full min-w-0 max-w-none shrink-0 items-center justify-center rounded-[14px] p-[1.5px] text-center shadow-[0_7px_18px_-7px_rgba(0,0,0,0.8)] transition-[transform,box-shadow] duration-200 ease-out [-webkit-tap-highlight-color:transparent] group-hover:-translate-y-0.5 group-hover:scale-[1.02] group-hover:shadow-[0_9px_24px_-8px_rgba(0,0,0,0.88),0_0_18px_-2px_rgba(16,211,51,0.28),0_0_1px_1px_rgba(16,211,51,0.35)_inset] group-active:translate-y-0 group-active:scale-[0.99] motion-reduce:transition-none motion-reduce:group-hover:scale-100 motion-reduce:group-hover:translate-y-0 max-lg:opacity-100 lg:opacity-0 lg:group-hover:opacity-100 lg:group-focus-visible:opacity-100 sm:h-9 sm:min-h-9 sm:rounded-[18px]"
-      style={{ background: rimGradient }}
+      style={{ background: PRODUCT_OUTLINE_GRADIENT }}
       aria-hidden
     >
       <span

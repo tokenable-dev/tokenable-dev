@@ -4,7 +4,9 @@ import { useEffect, useId, useRef, useState } from "react";
 import { ASSETS } from "@/constants/assets";
 import {
   MARKET_RASTER_ICON_IMG,
+  MARKET_RASTER_ICON_IMG_ACTIVE,
   MARKET_RASTER_ICON_IMG_NBA,
+  MARKET_RASTER_ICON_IMG_NBA_ACTIVE,
 } from "@/lib/market";
 import type { CollectionCategoryFilterId } from "@/lib/market";
 
@@ -59,22 +61,35 @@ function AllCollectionsGlyph({ className }: { className?: string }) {
 function ChipIcon({
   src,
   nba,
-  muted,
+  active = false,
 }: {
   src: string;
   nba: boolean;
-  muted?: boolean;
+  /** When false, icon is grayscale; active or group-hover shows color. */
+  active?: boolean;
 }) {
-  const imgCls = nba ? MARKET_RASTER_ICON_IMG_NBA : MARKET_RASTER_ICON_IMG;
+  const imgCls = nba
+    ? active
+      ? MARKET_RASTER_ICON_IMG_NBA_ACTIVE
+      : MARKET_RASTER_ICON_IMG_NBA
+    : active
+      ? MARKET_RASTER_ICON_IMG_ACTIVE
+      : MARKET_RASTER_ICON_IMG;
   return (
     <span
-      className={`flex h-5 w-5 shrink-0 items-center justify-center overflow-hidden [&_img]:shrink-0 ${
-        muted ? "opacity-[0.72] transition-opacity duration-200 group-hover:opacity-100" : ""
-      }`}
+      className="flex h-5 w-5 shrink-0 items-center justify-center overflow-hidden [&_img]:shrink-0"
       aria-hidden
     >
       {/* eslint-disable-next-line @next/next/no-img-element -- small raster from /public */}
-      <img src={src} alt="" width={20} height={20} className={`${imgCls} !max-h-none !max-w-none h-full w-full object-contain`} />
+      <img
+        src={src}
+        alt=""
+        width={20}
+        height={20}
+        className={`${imgCls} !max-h-none !max-w-none h-full w-full object-contain transition-[filter,opacity] duration-200 ${
+          active ? "opacity-100" : "opacity-[0.78] group-hover:opacity-100 group-hover:grayscale-0 group-hover:saturate-100"
+        }`}
+      />
     </span>
   );
 }
@@ -158,7 +173,7 @@ function MobileCategoryDropdown({
         <span className="flex min-w-0 flex-1 items-center gap-2.5">
           {currentIconSrc ? (
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-zinc-600/50 bg-black/40 p-0.5 shadow-inner shadow-black/20">
-              <ChipIcon src={currentIconSrc} nba={current.id === "nba"} muted />
+              <ChipIcon src={currentIconSrc} nba={current.id === "nba"} active />
             </span>
           ) : (
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-zinc-600/50 bg-black/40 p-0.5 shadow-inner shadow-black/20 [&_svg]:opacity-90">
@@ -210,7 +225,7 @@ function MobileCategoryDropdown({
                             : "border-zinc-600/60 bg-black/30"
                         }`}
                       >
-                        <ChipIcon src={iconSrc} nba={f.id === "nba"} muted={!selected} />
+                        <ChipIcon src={iconSrc} nba={f.id === "nba"} active={selected} />
                       </span>
                     ) : (
                       <span
@@ -304,7 +319,7 @@ export function CollectionCategoryFilterBar({
                   className={`inline-flex items-center gap-2 ${iconSrc ? "" : "px-0.5"}`}
                 >
                   {iconSrc ? (
-                    <ChipIcon src={iconSrc} nba={f.id === "nba"} muted={!active} />
+                    <ChipIcon src={iconSrc} nba={f.id === "nba"} active={active} />
                   ) : (
                     <span
                       aria-hidden

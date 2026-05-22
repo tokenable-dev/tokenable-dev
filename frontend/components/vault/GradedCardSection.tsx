@@ -1,6 +1,14 @@
 "use client";
 
 import type { ReactNode } from "react";
+import {
+  GradientOutlineFrame,
+  VAULT_OUTLINE_PAD_CLASS,
+} from "@/components/ui/GradientOutlineFrame";
+
+/** Active Photo / Cert # tab — plain black fill inside gradient rim (matches inactive tab height). */
+const vaultTabActiveInnerClass =
+  "block w-full rounded-[7px] border-0 bg-black px-3 py-2.5 text-xs font-semibold leading-none text-mint transition-colors sm:text-sm";
 import type { GradingCompany, PsaFieldLocks } from "@/types/gradedCard";
 import { ImageInput } from "./ImageInput";
 
@@ -159,31 +167,29 @@ function PsaCertLookupHero({
             className={`${inputClass} disabled:cursor-not-allowed disabled:opacity-60`}
           />
         </div>
-        <button
-          type="button"
-          onClick={() =>
-            subduedLookup ? onCertLookupReset?.() : onCertLookup()
-          }
-          disabled={
-            certLookupBusy || (subduedLookup ? false : !hasHint)
-          }
-          title={
-            subduedLookup
-              ? "Clear PSA result so you can change the cert # or URL, then press Look up."
-              : undefined
-          }
-          className={
-            subduedLookup
-              ? "w-full rounded-lg border border-white/[0.08] bg-white/[0.04] py-2 px-3 text-xs font-medium text-zinc-500 transition hover:border-white/[0.12] hover:bg-white/[0.07] hover:text-zinc-300 disabled:opacity-40"
-              : "w-full rounded-xl bg-mint py-3 text-sm font-bold text-[#030712] shadow-md shadow-mint/20 transition hover:brightness-110 disabled:opacity-50"
-          }
-        >
-          {certLookupBusy
-            ? "Looking up…"
-            : subduedLookup
-              ? "Clear & edit cert"
-              : "Look up"}
-        </button>
+        {subduedLookup ? (
+          <button
+            type="button"
+            onClick={() => onCertLookupReset?.()}
+            disabled={certLookupBusy}
+            title="Clear PSA result so you can change the cert # or URL, then press Look up."
+            className="w-full rounded-lg border border-white/[0.08] bg-white/[0.04] py-2 px-3 text-xs font-medium text-zinc-500 transition hover:border-white/[0.12] hover:bg-white/[0.07] hover:text-zinc-300 disabled:opacity-40"
+          >
+            Clear & edit cert
+          </button>
+        ) : (
+          <GradientOutlineFrame className="w-full" padClass={VAULT_OUTLINE_PAD_CLASS}>
+            <button
+              type="button"
+              onClick={() => onCertLookup()}
+              disabled={certLookupBusy || !hasHint}
+              className="w-full rounded-[11px] border-0 !bg-black py-3 text-sm font-bold text-mint transition disabled:cursor-not-allowed disabled:!bg-black disabled:text-mint/35"
+              style={{ backgroundColor: "#000000" }}
+            >
+              {certLookupBusy ? "Looking up…" : "Look up"}
+            </button>
+          </GradientOutlineFrame>
+        )}
       </div>
     </section>
   );
@@ -216,36 +222,64 @@ export function GradedCardSection({
     <div className="space-y-6 transition-opacity duration-200">
       {setMode && (
         <div
-          className="flex rounded-xl bg-gray-900/60 p-1 ring-1 ring-white/[0.06]"
+          className="flex items-center gap-1 rounded-xl bg-gray-900/60 p-1 ring-1 ring-white/[0.06]"
           role="tablist"
           aria-label="PSA data source"
         >
-          <button
-            type="button"
-            role="tab"
-            aria-selected={mode === "slab"}
-            onClick={() => setMode("slab")}
-            className={`flex-1 rounded-lg px-3 py-2.5 text-xs font-semibold transition-colors sm:text-sm ${
-              mode === "slab"
-                ? "bg-mint text-[#030712] shadow-sm"
-                : "text-gray-400 hover:text-white"
-            }`}
-          >
-            Photo
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={mode === "cert"}
-            onClick={() => setMode("cert")}
-            className={`flex-1 rounded-lg px-3 py-2.5 text-xs font-semibold transition-colors sm:text-sm ${
-              mode === "cert"
-                ? "bg-mint text-[#030712] shadow-sm"
-                : "text-gray-400 hover:text-white"
-            }`}
-          >
-            Cert #
-          </button>
+          {mode === "slab" ? (
+            <GradientOutlineFrame
+              className="min-w-0 flex-1 overflow-hidden"
+              roundedClass="rounded-lg"
+              padClass={VAULT_OUTLINE_PAD_CLASS}
+            >
+              <button
+                type="button"
+                role="tab"
+                aria-selected
+                onClick={() => setMode("slab")}
+                className={vaultTabActiveInnerClass}
+              >
+                Photo
+              </button>
+            </GradientOutlineFrame>
+          ) : (
+            <button
+              type="button"
+              role="tab"
+              aria-selected={false}
+              onClick={() => setMode("slab")}
+              className="min-w-0 flex-1 rounded-lg border border-transparent px-3 py-2.5 text-xs font-semibold text-gray-400 transition-colors hover:text-white sm:text-sm"
+            >
+              Photo
+            </button>
+          )}
+          {mode === "cert" ? (
+            <GradientOutlineFrame
+              className="min-w-0 flex-1 overflow-hidden"
+              roundedClass="rounded-lg"
+              padClass={VAULT_OUTLINE_PAD_CLASS}
+            >
+              <button
+                type="button"
+                role="tab"
+                aria-selected
+                onClick={() => setMode("cert")}
+                className={vaultTabActiveInnerClass}
+              >
+                Cert #
+              </button>
+            </GradientOutlineFrame>
+          ) : (
+            <button
+              type="button"
+              role="tab"
+              aria-selected={false}
+              onClick={() => setMode("cert")}
+              className="min-w-0 flex-1 rounded-lg border border-transparent px-3 py-2.5 text-xs font-semibold text-gray-400 transition-colors hover:text-white sm:text-sm"
+            >
+              Cert #
+            </button>
+          )}
         </div>
       )}
 

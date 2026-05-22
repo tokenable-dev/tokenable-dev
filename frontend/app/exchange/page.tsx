@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -55,6 +55,38 @@ function percentDiffVersusRef(
 function formatSignedPct(pct: number): string {
   const sign = pct >= 0 ? "+" : "";
   return `${sign}${pct.toFixed(1)}%`;
+}
+
+/** Grid / list layout toggle — active: translucent mint (no solid fill, no gradient rim). */
+const EXCHANGE_VIEW_TOGGLE_ACTIVE =
+  "rounded-lg border border-mint/30 bg-mint/12 text-mint";
+const EXCHANGE_VIEW_TOGGLE_INACTIVE =
+  "rounded-lg text-zinc-400 hover:bg-zinc-800/90 hover:text-zinc-200";
+
+function ExchangeLayoutToggleButton({
+  active,
+  onClick,
+  ariaLabel,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  ariaLabel: string;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={ariaLabel}
+      aria-pressed={active}
+      className={`inline-flex h-11 w-11 touch-manipulation items-center justify-center transition-colors sm:h-10 sm:w-10 ${
+        active ? EXCHANGE_VIEW_TOGGLE_ACTIVE : EXCHANGE_VIEW_TOGGLE_INACTIVE
+      }`}
+    >
+      {children}
+    </button>
+  );
 }
 
 /** Grid + list pills — wrap on narrow widths; scale type for readability */
@@ -401,6 +433,16 @@ function CollectionGridCard({
 export default function ExchangePage() {
   const [categoryFilter, setCategoryFilter] = useState<CollectionCategoryFilterId>("all");
   const [viewMode, setViewMode] = useState<"list" | "grid">("grid");
+  const [listLayoutComingSoonOpen, setListLayoutComingSoonOpen] = useState(false);
+
+  useEffect(() => {
+    if (!listLayoutComingSoonOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setListLayoutComingSoonOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [listLayoutComingSoonOpen]);
 
   const { data: orders = [], isLoading: ordersLoading } = useQuery({
     queryKey: rq.ordersActive(),
@@ -506,15 +548,10 @@ export default function ExchangePage() {
                 role="group"
                 aria-label="List layout"
               >
-                <button
-                  type="button"
+                <ExchangeLayoutToggleButton
+                  active={viewMode === "grid"}
                   onClick={() => setViewMode("grid")}
-                  aria-label="Grid view"
-                  className={`inline-flex h-11 w-11 touch-manipulation items-center justify-center rounded-lg transition-colors sm:h-10 sm:w-10 ${
-                    viewMode === "grid"
-                      ? "bg-mint text-[#061018]"
-                      : "text-zinc-300 hover:bg-zinc-800 hover:text-white"
-                  }`}
+                  ariaLabel="Grid view"
                 >
                   <svg viewBox="0 0 16 16" className="h-4 w-4" fill="currentColor" aria-hidden>
                     <rect x="1" y="1" width="6" height="6" rx="1" />
@@ -522,23 +559,18 @@ export default function ExchangePage() {
                     <rect x="1" y="9" width="6" height="6" rx="1" />
                     <rect x="9" y="9" width="6" height="6" rx="1" />
                   </svg>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setViewMode("list")}
-                  aria-label="List view"
-                  className={`inline-flex h-11 w-11 touch-manipulation items-center justify-center rounded-lg transition-colors sm:h-10 sm:w-10 ${
-                    viewMode === "list"
-                      ? "bg-mint text-[#061018]"
-                      : "text-zinc-300 hover:bg-zinc-800 hover:text-white"
-                  }`}
+                </ExchangeLayoutToggleButton>
+                <ExchangeLayoutToggleButton
+                  active={false}
+                  onClick={() => setListLayoutComingSoonOpen(true)}
+                  ariaLabel="List view"
                 >
                   <svg viewBox="0 0 16 16" className="h-4 w-4" fill="currentColor" aria-hidden>
                     <rect x="1" y="2" width="14" height="2" rx="1" />
                     <rect x="1" y="7" width="14" height="2" rx="1" />
                     <rect x="1" y="12" width="14" height="2" rx="1" />
                   </svg>
-                </button>
+                </ExchangeLayoutToggleButton>
               </div>
             </div>
           </>
@@ -681,6 +713,45 @@ export default function ExchangePage() {
           </div>
         )}
       </div>
+
+      {listLayoutComingSoonOpen ? (
+        <div
+          className="fixed inset-0 z-[140] flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="list-layout-coming-soon-title"
+        >
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/75 backdrop-blur-[1px]"
+            aria-label="Close"
+            onClick={() => setListLayoutComingSoonOpen(false)}
+          />
+          <div className="relative z-10 w-full max-w-[min(100%,22rem)] rounded-2xl border border-zinc-600/70 bg-[#161616] px-5 py-6 shadow-[0_24px_64px_-16px_rgba(0,0,0,0.85)] ring-1 ring-white/[0.06]">
+            <h2
+              id="list-layout-coming-soon-title"
+              className="text-lg font-semibold tracking-tight text-white"
+            >
+              List view — coming soon
+            </h2>
+            <p className="mt-3 text-[15px] leading-relaxed text-zinc-400">
+              We&apos;re building a row layout so you can scan collections faster—cover art,
+              price, and key stats on one line.
+            </p>
+            <p className="mt-2.5 text-[14px] leading-relaxed text-zinc-500">
+              Grid view has everything available today. We&apos;ll enable list view as soon as the
+              design is ready.
+            </p>
+            <button
+              type="button"
+              onClick={() => setListLayoutComingSoonOpen(false)}
+              className="mt-6 w-full rounded-xl bg-zinc-100 py-2.5 text-sm font-semibold text-zinc-900 transition-colors hover:bg-white"
+            >
+              Got it
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

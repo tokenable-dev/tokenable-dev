@@ -1,6 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  GradientOutlineFrame,
+  PRODUCT_OUTLINE_GRADIENT,
+  PRODUCT_OUTLINE_PAD_CLASS,
+  gradientOutlineInnerButtonClass,
+} from "@/components/ui/GradientOutlineFrame";
 
 const BUY_BAR_SCROLL_DELTA_PX = 10;
 const BUY_BAR_TOP_SHOW_PX = 32;
@@ -11,7 +17,7 @@ function useScrollRevealBuyBar() {
   const lastY = useRef(0);
 
   useEffect(() => {
-    const mq = window.matchMedia("(max-width: 1279px)");
+    const mq = window.matchMedia("(max-width: 1023px)");
     if (!mq.matches) return;
 
     lastY.current = window.scrollY;
@@ -35,9 +41,8 @@ function useScrollRevealBuyBar() {
   return visible;
 }
 
-/** Mobile sticky Buy rim — 2px gradient border (matches product spec). */
-export const RWA_STICKY_BUY_BORDER_GRADIENT =
-  "linear-gradient(90deg, #49C15E 9%, #10D333 53.81%, #004307 97.14%)";
+/** @deprecated Use {@link PRODUCT_OUTLINE_GRADIENT} */
+export const RWA_STICKY_BUY_BORDER_GRADIENT = PRODUCT_OUTLINE_GRADIENT;
 
 export function RwaDetailMobileCardHeader({
   title,
@@ -53,7 +58,7 @@ export function RwaDetailMobileCardHeader({
   price: ReactNode;
 }) {
   return (
-    <header className="w-full min-w-0 px-4 pt-5 pb-1 text-left xl:hidden">
+    <header className="w-full min-w-0 px-4 pt-5 pb-1 text-left lg:hidden">
       {titleLoading ? (
         <div
           className="h-8 w-[min(100%,16rem)] max-w-full animate-pulse rounded-lg bg-zinc-800/85"
@@ -93,7 +98,7 @@ export function RwaDetailMobileDetailSection({
   if (rows.length === 0) return null;
 
   return (
-    <section className="w-full min-w-0 px-4 pt-4 pb-2 xl:hidden" aria-label={title}>
+    <section className="w-full min-w-0 px-4 pt-4 pb-2 lg:hidden" aria-label={title}>
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -163,7 +168,7 @@ export function RwaDetailStickyBuyFooter({
 
   return (
     <div
-      className={`fixed bottom-0 left-0 right-0 z-[90] bg-black/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] shadow-[0_-16px_48px_-8px_rgba(0,0,0,0.92)] backdrop-blur-md transition-transform duration-300 ease-out will-change-transform motion-reduce:transition-none xl:hidden ${
+      className={`fixed bottom-0 left-0 right-0 z-[90] bg-gradient-to-t from-black via-black/97 to-black/90 px-4 pt-4 pb-[max(0.875rem,env(safe-area-inset-bottom,0px))] shadow-[0_-20px_56px_-10px_rgba(0,0,0,0.95)] backdrop-blur-md transition-transform duration-300 ease-out will-change-transform motion-reduce:transition-none lg:hidden ${
         barVisible
           ? "translate-y-0"
           : "pointer-events-none translate-y-full"
@@ -180,29 +185,44 @@ export function RwaDetailStickyBuyFooter({
   );
 }
 
-/** Reference mobile CTA — black fill, 2px gradient rim, white label. */
+/** Mobile sticky CTA — product gradient rim + black fill; `primary` = Buy emphasis. */
 export function RwaDetailStickyBuyButton({
   children,
   onClick,
   disabled,
+  emphasis = "default",
 }: {
   children: ReactNode;
   onClick?: () => void;
   disabled?: boolean;
+  /** Stronger visual weight for Buy / Connect on purchasable listings. */
+  emphasis?: "primary" | "default";
 }) {
+  const isPrimary = emphasis === "primary";
+
+  const frameShadow = isPrimary
+    ? "shadow-[0_0_32px_-2px_rgba(16,211,51,0.55),0_0_48px_-12px_rgba(16,211,51,0.28)] has-[:enabled]:hover:shadow-[0_0_40px_-2px_rgba(16,211,51,0.72),0_0_56px_-10px_rgba(16,211,51,0.42)] has-[:enabled]:focus-within:shadow-[0_0_40px_-2px_rgba(16,211,51,0.72),0_0_56px_-10px_rgba(16,211,51,0.42)]"
+    : "shadow-[0_0_18px_-8px_rgba(16,211,51,0.35)] has-[:enabled]:hover:shadow-[0_0_28px_-6px_rgba(16,211,51,0.48)] has-[:enabled]:focus-within:shadow-[0_0_28px_-6px_rgba(16,211,51,0.48)]";
+
   return (
-    <div
-      className="w-full min-w-0 rounded-xl p-[2px]"
-      style={{ background: RWA_STICKY_BUY_BORDER_GRADIENT }}
+    <GradientOutlineFrame
+      className={`group/cta w-full min-w-0 transition-shadow duration-200 ease-out ${frameShadow}`}
+      roundedClass="rounded-xl"
+      padClass={PRODUCT_OUTLINE_PAD_CLASS}
     >
       <button
         type="button"
         onClick={onClick}
         disabled={disabled}
-        className="flex h-[52px] w-full min-w-0 items-center justify-center rounded-[10px] bg-black text-[17px] font-semibold leading-none text-white transition hover:bg-zinc-950 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
+        className={`${gradientOutlineInnerButtonClass} flex w-full min-w-0 items-center justify-center rounded-[7px] border-0 leading-none tracking-wide outline-none transition-[background-color,box-shadow,filter] duration-200 ease-out enabled:hover:bg-zinc-950 enabled:hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.12),inset_0_-1px_0_rgba(16,211,51,0.1)] enabled:hover:brightness-110 enabled:focus-visible:ring-2 enabled:focus-visible:ring-mint/50 enabled:focus-visible:ring-offset-2 enabled:focus-visible:ring-offset-black motion-reduce:transition-none motion-reduce:enabled:hover:brightness-100 ${
+          isPrimary
+            ? "h-[56px] !text-[18px] enabled:hover:saturate-125"
+            : "h-[52px] !text-[17px] !font-semibold !text-white enabled:hover:!text-white enabled:hover:brightness-105"
+        }`}
+        style={{ backgroundColor: "#000000" }}
       >
         {children}
       </button>
-    </div>
+    </GradientOutlineFrame>
   );
 }

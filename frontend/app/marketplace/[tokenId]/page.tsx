@@ -65,6 +65,11 @@ import { useAppStore, selectWallet } from "@/store";
 import { IBM_Plex_Sans } from "next/font/google";
 import { fulfillAskListingOrder } from "@/lib/seaport/orders/fulfillAskListing";
 import { mapWalletError } from "@/lib/network";
+import {
+  GradientOutlineFrame,
+  PRODUCT_OUTLINE_PAD_CLASS,
+  gradientOutlineInnerButtonClass,
+} from "@/components/ui/GradientOutlineFrame";
 
 const rwaDetailRightFont = IBM_Plex_Sans({
   subsets: ["latin"],
@@ -72,48 +77,47 @@ const rwaDetailRightFont = IBM_Plex_Sans({
   display: "swap",
 });
 
-const DETAIL_CTA_RIM =
-  "linear-gradient(99.67deg, #7AE838 2%, #B4FF72 42%, #87FF48 68%, #5BC420 100%)";
-
-const DETAIL_CTA_RIM_BRIGHT =
-  "linear-gradient(99.67deg, #9AFF5C 0%, #D4FF8A 38%, #87FF48 68%, #6FE832 100%)";
-
+/** Desktop / compact hero CTAs — product gradient rim, black fill, mint label. */
 function DetailGradientButton({
   children,
   onClick,
   disabled,
   className = "",
   bright = false,
+  compact = false,
 }: {
   children: ReactNode;
   onClick?: () => void;
   disabled?: boolean;
   className?: string;
-  /** Brighter rim + glow — used for Connect wallet CTA */
+  /** Stronger glow — Connect wallet */
   bright?: boolean;
+  compact?: boolean;
 }) {
+  const frameShadow = bright
+    ? "shadow-[0_10px_28px_-10px_rgba(0,0,0,0.75),0_0_40px_-4px_rgba(16,211,51,0.48)] has-[:enabled]:hover:shadow-[0_12px_32px_-10px_rgba(0,0,0,0.82),0_0_52px_-2px_rgba(16,211,51,0.62)] has-[:enabled]:focus-within:shadow-[0_12px_32px_-10px_rgba(0,0,0,0.82),0_0_52px_-2px_rgba(16,211,51,0.62)]"
+    : "shadow-[0_8px_24px_-10px_rgba(0,0,0,0.75),0_0_24px_-8px_rgba(16,211,51,0.32)] has-[:enabled]:hover:shadow-[0_10px_28px_-10px_rgba(0,0,0,0.8),0_0_36px_-6px_rgba(16,211,51,0.5)] has-[:enabled]:focus-within:shadow-[0_10px_28px_-10px_rgba(0,0,0,0.8),0_0_36px_-6px_rgba(16,211,51,0.5)]";
+
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      style={{ background: bright ? DETAIL_CTA_RIM_BRIGHT : DETAIL_CTA_RIM }}
-      className={`group/cta relative z-[1] box-border flex h-[60px] w-full min-w-0 max-w-full items-center justify-center rounded-full p-[3px] text-center transition-[transform,box-shadow,opacity] duration-200 ease-out [-webkit-tap-highlight-color:transparent] enabled:hover:-translate-y-px enabled:active:translate-y-0 enabled:active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-55 motion-reduce:transition-none sm:h-[68px] sm:p-1 ${
-        bright
-          ? "shadow-[0_10px_28px_-10px_rgba(0,0,0,0.75),0_0_40px_-4px_rgba(135,255,72,0.58)] enabled:hover:shadow-[0_12px_32px_-10px_rgba(0,0,0,0.82),0_0_48px_-2px_rgba(167,255,96,0.65)]"
-          : "shadow-[0_8px_24px_-10px_rgba(0,0,0,0.75),0_0_24px_-8px_rgba(135,255,72,0.35)] enabled:hover:shadow-[0_10px_28px_-10px_rgba(0,0,0,0.8),0_0_28px_-6px_rgba(135,255,72,0.45)]"
-      } ${className}`}
+    <GradientOutlineFrame
+      className={`group/cta w-full min-w-0 max-w-full transition-shadow duration-200 ease-out ${frameShadow} ${className}`}
+      roundedClass="rounded-full"
+      padClass={PRODUCT_OUTLINE_PAD_CLASS}
     >
-      <span
-        className={`${rwaDetailRightFont.className} flex h-full min-h-0 w-full min-w-0 items-center justify-center rounded-full px-6 text-[18px] font-bold leading-none tracking-normal text-white transition-[background-color] duration-200 sm:px-10 sm:text-[20px] ${
-          bright
-            ? "bg-[#0d100c] group-hover/cta:bg-[#111612]"
-            : "bg-[#0b0d10] group-hover/cta:bg-[#101318]"
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={disabled}
+        className={`${rwaDetailRightFont.className} ${gradientOutlineInnerButtonClass} flex w-full items-center justify-center !rounded-full border-0 leading-none tracking-normal outline-none transition-[background-color,box-shadow,filter] duration-200 ease-out enabled:hover:bg-zinc-950 enabled:hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.12),inset_0_-1px_0_rgba(16,211,51,0.08)] enabled:hover:brightness-110 enabled:hover:saturate-110 enabled:focus-visible:ring-2 enabled:focus-visible:ring-mint/50 enabled:focus-visible:ring-offset-2 enabled:focus-visible:ring-offset-black disabled:cursor-not-allowed disabled:!bg-black disabled:text-mint/35 motion-reduce:enabled:hover:brightness-100 ${
+          compact
+            ? "min-h-[48px] px-4 text-[15px] sm:min-h-[52px] sm:text-base"
+            : "min-h-[50px] px-6 text-[18px] sm:min-h-[58px] sm:px-10 sm:text-[20px]"
         }`}
+        style={{ backgroundColor: "#000000" }}
       >
         {children}
-      </span>
-    </button>
+      </button>
+    </GradientOutlineFrame>
   );
 }
 
@@ -239,6 +243,7 @@ function BuyerTradingPanel({
 
       <DetailGradientButton
         bright={!isConnected}
+        compact={compact}
         onClick={() => {
           if (!isConnected) {
             connectMetaMaskWallet(connect, connectors);
@@ -247,11 +252,6 @@ function BuyerTradingPanel({
           void onFulfill();
         }}
         disabled={connectPending || buyBusy}
-        className={
-          compact
-            ? "!h-[48px] !p-[2px] sm:!h-[52px] [&>span]:!px-4 [&>span]:!text-[15px] sm:[&>span]:!text-base"
-            : ""
-        }
       >
         {cta}
       </DetailGradientButton>
@@ -599,7 +599,7 @@ export default function RwaDetailPage() {
 
   return (
     <div className="min-h-screen bg-[#07090c] text-white max-xl:bg-black">
-      <main className="mx-auto max-w-6xl px-3 py-6 max-[380px]:px-2.5 sm:px-5 sm:py-8 max-xl:pb-[max(5.5rem,env(safe-area-inset-bottom,0px)+4.5rem)] lg:px-6 lg:pb-8">
+      <main className="mx-auto max-w-6xl px-3 py-6 max-[380px]:px-2.5 sm:px-5 sm:py-8 max-lg:pb-[max(5.5rem,env(safe-area-inset-bottom,0px)+4.5rem)] lg:px-6 lg:pb-8">
         {/* Loading */}
         {tokenIdOk && isPageLoading && (
           <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_minmax(280px,0.62fr)] lg:gap-x-10 items-start">
@@ -722,7 +722,7 @@ export default function RwaDetailPage() {
                 ) : null}
 
                 {isOwner ? (
-                  <div className="w-full max-w-full space-y-5 sm:space-y-6">
+                  <div className="hidden w-full max-w-full space-y-5 sm:space-y-6 lg:block">
                     {listing && listingBuyPriceUsdc != null ? (
                       <ListPriceDisplay priceUsd={listingBuyPriceUsdc} />
                     ) : null}
@@ -756,7 +756,7 @@ export default function RwaDetailPage() {
                 ) : null}
 
                 {!activeAskListing && !isOwner ? (
-                  <div className="space-y-5 sm:space-y-6">
+                  <div className="hidden space-y-5 sm:space-y-6 lg:block">
                     <p className={`${rwaDetailRightFont.className} text-xl font-semibold text-zinc-400`}>
                       Not for sale
                     </p>
@@ -798,6 +798,7 @@ export default function RwaDetailPage() {
             <RwaDetailStickyBuyFooter footerNote={mobileStickyFooterNote}>
               {activeAskListing && !isOwner ? (
                 <RwaDetailStickyBuyButton
+                  emphasis="primary"
                   disabled={buyBusy || connectPending}
                   onClick={() => {
                     if (!isConnected) {

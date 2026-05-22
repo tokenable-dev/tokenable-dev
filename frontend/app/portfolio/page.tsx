@@ -32,6 +32,12 @@ import {
 } from "@/lib/market";
 import { APP_MAIN_SHELL_CLASS } from "@/constants/layout";
 import {
+  GradientOutlineFrame,
+  gradientOutlineInnerButtonClass,
+  VAULT_OUTLINE_PAD_CLASS,
+} from "@/components/ui/GradientOutlineFrame";
+import { WalletConnect } from "@/components/wallet/WalletConnect";
+import {
   appendPortfolioValueSnapshot,
 } from "@/lib/portfolio";
 
@@ -1213,15 +1219,30 @@ export default function PortfolioPage() {
 
   if (!isConnected) {
     return (
-      <div className="min-h-screen bg-[#030712] text-white flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-gray-400 mb-3">Connect your wallet to access My Assets</p>
-          <Link
-            href="/vault"
-            className="text-sm text-mint hover:underline"
-          >
-            Go to Vault
-          </Link>
+      <div className="min-h-screen bg-[#030712] text-white">
+        <div className={`${APP_MAIN_SHELL_CLASS} flex min-h-[calc(100vh-4rem)] flex-col justify-center py-8 pb-20`}>
+          <div className="mx-auto flex w-full max-w-md flex-col items-center justify-center">
+            <div className="w-full rounded-2xl border border-gray-800/90 bg-gray-900/40 px-6 py-9 text-center sm:px-8 sm:py-10">
+              <h2 className="text-lg font-semibold tracking-tight text-white">
+                Connect your wallet
+              </h2>
+              <p className="mt-2 text-sm leading-relaxed text-gray-400">
+                Connect MetaMask on Sepolia to view your holdings, estimated
+                value, and activity in My Assets.
+              </p>
+              <div className="mt-7">
+                <GradientOutlineFrame
+                  className="w-full"
+                  padClass={VAULT_OUTLINE_PAD_CLASS}
+                >
+                  <WalletConnect
+                    connectButtonClassName={`${gradientOutlineInnerButtonClass} !rounded-[11px] py-3.5 text-sm`}
+                    connectButtonStyle={{ backgroundColor: "#000000" }}
+                  />
+                </GradientOutlineFrame>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -1439,7 +1460,7 @@ export default function PortfolioPage() {
                       router.push(`/marketplace/${r.tokenId}`);
                     }
                   }}
-                  className="group flex w-full flex-col overflow-hidden rounded-xl border border-gray-800/90 bg-gradient-to-b from-gray-900/80 to-[#0a1018] text-left shadow-lg shadow-black/20 transition-all hover:border-mint/25 hover:shadow-mint/5"
+                  className="group flex w-full cursor-pointer flex-col overflow-hidden rounded-xl bg-gradient-to-b from-gray-900/80 to-[#0a1018] text-left shadow-lg shadow-black/20 outline-none transition-[box-shadow,background-color] duration-200 hover:bg-gray-900/90 hover:shadow-[0_14px_44px_-14px_rgba(0,0,0,0.75)] focus-visible:ring-2 focus-visible:ring-zinc-400/45 focus-visible:ring-offset-2 focus-visible:ring-offset-[#030712]"
                 >
                   <div className="relative aspect-[3/4] w-full bg-[#070a0f]">
                     {tokenableVsEbayPct != null ? (
