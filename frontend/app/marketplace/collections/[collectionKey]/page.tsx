@@ -410,7 +410,9 @@ export default function MarketplaceCollectionPage() {
 
   const chartExternalShort = liveMarketLegend;
 
-  const chartExternalRollingKind = jtHistOk ? "history" : "snapshot";
+  const chartExternalRollingKind: "history" | "snapshot" = jtHistOk
+    ? "history"
+    : "snapshot";
 
   const externalReferencePtsFor1Mo = useMemo(() => {
     if (jtHistOk) return jtHistPts;
@@ -1047,7 +1049,9 @@ export default function MarketplaceCollectionPage() {
     errorMessage: null as string | null,
     rangeOptions: isCollectionDetailMobile ? undefined : CHART_RANGE_OPTIONS,
     chartRange: isCollectionDetailMobile ? undefined : chartRange,
-    onChartRangeChange: isCollectionDetailMobile ? undefined : setChartRange,
+    onChartRangeChange: isCollectionDetailMobile
+      ? undefined
+      : (id: string) => setChartRange(id as ChartRangeId),
   };
 
   const collectionDualPriceChart = (
