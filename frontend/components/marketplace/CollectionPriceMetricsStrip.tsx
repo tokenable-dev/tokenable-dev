@@ -9,7 +9,6 @@ import {
 import {
   formatReferencePercentChange,
   formatUsdCompact,
-  isFlatReferencePercentChange,
   MARKET_PRICE_CHANGE_PERIOD_LABEL,
   NO_EXTERNAL_PRICE,
   REFERENCE_CHANGE_UNAVAILABLE_LABEL,
@@ -292,9 +291,7 @@ export function CollectionPriceMetricsStrip({
                     className="inline-block h-[0.8rem] w-[3.25rem] animate-pulse rounded bg-zinc-800/75 lg:h-[1.5rem] lg:w-[4.5rem]"
                     aria-hidden
                   />
-                ) : change1Mo != null &&
-                  Number.isFinite(change1Mo) &&
-                  !isFlatReferencePercentChange(change1Mo) ? (
+                ) : change1Mo != null && Number.isFinite(change1Mo) ? (
                   <span
                     className={
                       referenceChangeTone(change1Mo) === "up"
@@ -470,11 +467,14 @@ export function CollectionPriceMetricsStrip({
               ) : change != null && Number.isFinite(change) ? (
                 <span
                   className={
-                    "text-white"
+                    referenceChangeTone(change) === "up"
+                      ? "text-mint"
+                      : referenceChangeTone(change) === "down"
+                        ? "text-rose-400"
+                        : "text-zinc-400"
                   }
                 >
-                  {change > 0 ? "+" : ""}
-                  {change.toFixed(1)}%
+                  {formatReferencePercentChange(change)}
                 </span>
               ) : (
                 <span className="text-zinc-400">{REFERENCE_CHANGE_UNAVAILABLE_LABEL}</span>

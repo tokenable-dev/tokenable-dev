@@ -17,11 +17,8 @@ export const MARKET_PRICE_CHANGE_LAG_SEC = 30 * 86_400;
 export const MARKET_PRICE_CHANGE_SNAPSHOT_DURATION =
   "30d" as const;
 
-/**
- * Flat reference move — equity terminals often use "Unch" instead of "0%".
- * Crypto apps more often show "+0.00%" in neutral gray; we use Unch for compact pills.
- */
-export const REFERENCE_CHANGE_FLAT_LABEL = "Unch";
+/** Flat reference move (~0% over the window) — show explicit zero, not "no data". */
+export const REFERENCE_CHANGE_FLAT_LABEL = "0.0%";
 
 const FLAT_CHANGE_EPSILON_PCT = 0.05;
 
