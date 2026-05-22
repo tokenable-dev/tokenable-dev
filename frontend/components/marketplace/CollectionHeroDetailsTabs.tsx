@@ -20,11 +20,11 @@ export function CollectionHeroDetailsTabs({
         <div
           role="tab"
           aria-selected
-          className="relative flex min-h-[40px] min-w-0 flex-1 items-center justify-center px-2 pb-2 pt-1.5 text-center text-[13px] font-semibold tracking-tight text-white max-xl:min-h-[28px] max-xl:px-1 max-xl:pb-1 max-xl:pt-0.5 max-xl:text-[10px] sm:min-h-0 sm:px-1 sm:pb-3 sm:pt-1 sm:text-[14px]"
+          className="relative flex min-h-[40px] min-w-0 flex-1 items-center justify-center px-2 pb-2 pt-1.5 text-center text-[13px] font-semibold tracking-tight text-white max-lg:min-h-[28px] max-lg:px-1 max-lg:pb-1 max-lg:pt-0.5 max-lg:text-[10px] sm:min-h-0 sm:px-1 sm:pb-3 sm:pt-1 sm:text-[14px]"
         >
           Details
           <span
-            className="absolute bottom-0 left-2 right-2 h-[3px] rounded-t-[1px] bg-white max-xl:left-1.5 max-xl:right-1.5 max-xl:h-[2px] min-[375px]:left-0 min-[375px]:right-0"
+            className="absolute bottom-0 left-2 right-2 h-[3px] rounded-t-[1px] bg-white max-lg:left-1.5 max-lg:right-1.5 max-lg:h-[2px] min-[375px]:left-0 min-[375px]:right-0"
             aria-hidden
           />
         </div>
@@ -33,12 +33,12 @@ export function CollectionHeroDetailsTabs({
           role="tab"
           aria-selected={false}
           onClick={() => onAiInsightsClick?.()}
-          className="relative flex min-h-[40px] min-w-0 flex-1 items-center justify-center px-2 pb-2 pt-1.5 text-center text-[13px] font-semibold tracking-tight text-[#a0a0a0] transition-colors hover:text-zinc-200 max-xl:min-h-[28px] max-xl:px-1 max-xl:pb-1 max-xl:pt-0.5 max-xl:text-[10px] sm:min-h-0 sm:px-1 sm:pb-3 sm:pt-1 sm:text-[14px] active:bg-white/[0.04]"
+          className="relative flex min-h-[40px] min-w-0 flex-1 items-center justify-center px-2 pb-2 pt-1.5 text-center text-[13px] font-semibold tracking-tight text-[#a0a0a0] transition-colors hover:text-zinc-200 max-lg:min-h-[28px] max-lg:px-1 max-lg:pb-1 max-lg:pt-0.5 max-lg:text-[10px] sm:min-h-0 sm:px-1 sm:pb-3 sm:pt-1 sm:text-[14px] active:bg-white/[0.04]"
         >
           AI Insights
         </button>
       </div>
-      <div className="mt-2 w-full min-w-0 max-xl:mt-2 sm:mt-3" role="tabpanel" aria-label="Details">
+      <div className="mt-2 w-full min-w-0 max-lg:mt-2 sm:mt-3" role="tabpanel" aria-label="Details">
         {detailsPanel}
       </div>
     </div>

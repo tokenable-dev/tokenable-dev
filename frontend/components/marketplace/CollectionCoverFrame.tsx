@@ -131,13 +131,13 @@ export function CollectionCoverFrame({
     variant === "featured" || variant === "hero";
   const outerPad =
     variant === "hero"
-      ? "p-[4px] sm:p-[5px]"
+      ? "max-lg:p-[2px] p-[3px] lg:p-[4px]"
       : variant === "featured"
         ? "p-[3px] sm:p-[4px]"
         : "p-[2px]";
   const innerPad =
     variant === "hero"
-      ? "p-2.5 sm:p-3"
+      ? "max-lg:p-1 p-1.5 lg:p-2.5"
       : variant === "featured"
         ? "p-2 sm:p-2.5"
         : "p-1";
@@ -158,13 +158,17 @@ export function CollectionCoverFrame({
 
   /** featured: 목록→상세 중간 / hero: 컬렉션 페이지 중앙 대형 */
   const featuredOuter = "w-full max-w-[165px] sm:max-w-[180px] aspect-[3/4]";
-  /** Collection detail hero — full width on narrow viewports, fixed width from lg. */
+  /**
+   * Collection detail hero — thumbnail on mobile (beside title), full column from lg.
+   */
   const heroOuter =
-    "mx-auto w-full max-w-[min(100%,360px)] h-[min(460px,82vw)] max-h-[min(480px,88svh)] lg:mx-0 lg:h-[427px] lg:w-[307px] lg:max-h-[427px] lg:max-w-full";
+    variant === "hero"
+      ? "mx-auto w-full max-w-[min(100%,360px)] max-lg:h-[118px] max-lg:max-h-[122px] max-lg:w-[88px] max-lg:max-w-[88px] max-lg:shrink-0 lg:mx-0 lg:h-[427px] lg:w-[307px] lg:max-h-[427px] lg:max-w-full"
+      : "mx-auto w-full max-w-[min(100%,360px)] h-[min(460px,82vw)] max-h-[min(480px,88svh)] lg:mx-0 lg:h-[427px] lg:w-[307px] lg:max-h-[427px] lg:max-w-full";
 
   const heroGlow =
     variant === "hero"
-      ? "shadow-[0_20px_56px_-12px_rgba(0,0,0,0.75),0_0_0_1px_rgba(255,255,255,0.06),0_0_40px_-24px_rgba(0,0,0,0.55)]"
+      ? "max-lg:shadow-none lg:shadow-[0_20px_56px_-12px_rgba(0,0,0,0.75),0_0_0_1px_rgba(255,255,255,0.06),0_0_40px_-24px_rgba(0,0,0,0.55)]"
       : "shadow-[0_12px_40px_-8px_rgba(0,0,0,0.65),0_0_0_1px_rgba(255,255,255,0.06)]";
 
   const heroInteractive = variant === "hero";
@@ -172,7 +176,7 @@ export function CollectionCoverFrame({
   const heroFlat =
     variant === "hero"
       ? {
-          outer: `${outerPad} ${radiusOuter} ${COLLECTION_DETAILS_BG_CLASS} shadow-[0_0_0_1px_rgba(11,13,16,1)]`,
+          outer: `${outerPad} ${radiusOuter} ${COLLECTION_DETAILS_BG_CLASS} max-lg:shadow-none lg:shadow-[0_0_0_1px_rgba(11,13,16,1)]`,
           inner: `${radiusInner} ${COLLECTION_DETAILS_BG_CLASS} ${innerPad} flex flex-col`,
         }
       : null;
@@ -224,23 +228,17 @@ export function CollectionCoverFrame({
                     title="Click to view larger"
                   />
                   <span
-                    className="pointer-events-none absolute bottom-2 left-1/2 z-[3] hidden max-w-[90%] -translate-x-1/2 truncate rounded-md bg-black/58 px-2.5 py-1 text-center text-[10px] font-medium text-zinc-100 shadow-md ring-1 ring-[rgba(11,13,16,1)] transition-opacity duration-150 sm:inline sm:opacity-0 sm:group-hover/img:opacity-100"
+                    className="pointer-events-none absolute bottom-2 left-1/2 z-[3] hidden max-w-[90%] -translate-x-1/2 truncate rounded-md bg-black/58 px-2.5 py-1 text-center text-[10px] font-medium text-zinc-100 shadow-md ring-1 ring-[rgba(11,13,16,1)] transition-opacity duration-150 max-lg:hidden sm:inline sm:opacity-0 sm:group-hover/img:opacity-100"
                   >
                     Click to enlarge
                   </span>
-                  <span
-                    className="pointer-events-none absolute bottom-2 left-1/2 z-[3] inline max-w-[90%] -translate-x-1/2 truncate rounded-md bg-black/58 px-2 py-0.5 text-center text-[9px] font-medium text-zinc-100/95 shadow-sm ring-1 ring-[rgba(11,13,16,1)] sm:hidden"
-                  >
-                    Tap to enlarge
-                  </span>
                   <div
-                    className={`pointer-events-none absolute bottom-1.5 right-1.5 z-[6] flex h-7 w-7 items-center justify-center rounded-md ${COLLECTION_DETAILS_BORDER_ALL} bg-black/45 text-white/70 shadow-sm backdrop-blur-sm`}
+                    className={`pointer-events-none absolute bottom-1 right-1 z-[6] flex h-5 w-5 items-center justify-center rounded-[5px] ${COLLECTION_DETAILS_BORDER_ALL} bg-black/45 text-white/70 backdrop-blur-sm max-lg:bottom-1 max-lg:right-1 lg:bottom-1.5 lg:right-1.5 lg:h-7 lg:w-7 lg:rounded-md lg:shadow-sm`}
                     aria-hidden
                     title="Click or tap for larger view"
                   >
                     <svg
-                      width="15"
-                      height="15"
+                      className="h-[11px] w-[11px] lg:h-[15px] lg:w-[15px]"
                       viewBox="0 0 24 24"
                       fill="none"
                       stroke="currentColor"

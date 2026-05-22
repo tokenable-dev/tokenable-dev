@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-
 export type CollectionMobileMarketTabId = "information" | "chart" | "orderbook";
 
 const TABS: { id: CollectionMobileMarketTabId; label: string }[] = [
@@ -28,38 +27,32 @@ export function CollectionMobileMarketTabs({
   if (tab === "orderbook") panel = orderBookPanel;
 
   return (
-    <div className="w-full min-w-0 xl:hidden">
-      <div
-        className="flex w-full min-w-0 border-b border-zinc-800/90"
-        role="tablist"
-        aria-label="Collection market views"
-      >
-        {TABS.map((t) => {
-          const active = tab === t.id;
-          return (
-            <button
-              key={t.id}
-              type="button"
-              role="tab"
-              aria-selected={active}
-              onClick={() => setTab(t.id)}
-              className={`relative min-h-[44px] min-w-0 flex-1 touch-manipulation px-2 pb-2.5 pt-2 text-center text-[13px] font-semibold tracking-tight transition-colors ${
-                active ? "text-mint" : "text-zinc-500 hover:text-zinc-300"
-              }`}
-            >
-              {t.label}
-              {active ? (
-                <span
-                  className="absolute bottom-0 left-3 right-3 h-[2px] rounded-t-sm bg-mint"
-                  aria-hidden
-                />
-              ) : null}
-            </button>
-          );
-        })}
+    <div className="flex w-full min-w-0 shrink-0 flex-col lg:hidden">
+      <div className="shrink-0" role="tablist" aria-label="Collection market views">
+        <div className="flex min-w-0 gap-1.5">
+          {TABS.map((t) => {
+            const active = tab === t.id;
+            return (
+              <button
+                key={t.id}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => setTab(t.id)}
+                className={`relative min-h-[34px] min-w-0 flex-1 touch-manipulation rounded-[8px] border px-1 py-1.5 text-center text-[11px] font-semibold tracking-tight transition-[color,background-color,border-color] duration-150 ${
+                  active
+                    ? "border-zinc-600/80 bg-black text-mint"
+                    : "border-transparent bg-transparent text-zinc-500 hover:text-zinc-300"
+                }`}
+              >
+                {t.label}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
-      <div className="min-w-0 pt-3" role="tabpanel">
+      <div className="shrink-0 pt-2.5" role="tabpanel">
         {panel}
       </div>
     </div>

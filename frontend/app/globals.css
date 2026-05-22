@@ -41,6 +41,18 @@ html.collection-details-scroll {
   scrollbar-gutter: stable;
 }
 
+/* Collection detail mobile: single-screen shell (no page scroll). */
+@media (max-width: 1023px) {
+  html.collection-details-mobile-lock {
+    overflow: hidden;
+    height: 100%;
+  }
+  html.collection-details-mobile-lock body {
+    overflow: hidden;
+    height: 100%;
+  }
+}
+
 /** RWA Exchange — indeterminate bar while PokeTrace / market snapshots load */
 @keyframes exchange-market-snapshot-sweep {
   0% {

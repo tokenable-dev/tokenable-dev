@@ -24,6 +24,7 @@ import {
   COLLECTION_EXCHANGE_ORDER_BOOK_FRAME,
 } from "@/components/marketplace/collectionOverviewChrome";
 import { CollectionOrderBookVisibilityToggle } from "@/components/marketplace/CollectionOrderBookVisibilityToggle";
+import { CollectionMobileListingsSection } from "@/components/marketplace/CollectionMobileListingsSection";
 
 const collectionHeroFont = IBM_Plex_Sans({
   subsets: ["latin"],
@@ -31,13 +32,13 @@ const collectionHeroFont = IBM_Plex_Sans({
   display: "swap",
 });
 
-/** Outline tags (Pokemon / PSA / POP) — neutral border, no fill. */
+/** Outline tags (Pokemon / PSA / POP) — neutral border, no fill (desktop hero). */
 const HEADLINE_OUTLINE_TAG =
   "inline-flex h-[26px] min-h-[26px] shrink-0 items-center justify-center rounded border border-[#a2a2a2] bg-transparent px-[10px] py-1 text-sm font-normal leading-none text-white";
 
-/** Mobile collection hero — filled pills per reference mockup. */
-const MOBILE_HEADLINE_TAG =
-  "inline-flex h-[28px] min-h-[28px] shrink-0 items-center justify-center rounded-md border border-zinc-700/80 bg-zinc-800/90 px-2.5 py-1 text-[12px] font-semibold leading-none text-white";
+/** Same outline look as {@link HEADLINE_OUTLINE_TAG}, scaled for mobile hero. */
+const HEADLINE_OUTLINE_TAG_MOBILE =
+  "inline-flex h-[20px] min-h-[20px] shrink-0 items-center justify-center rounded border border-[#a2a2a2] bg-transparent px-2 py-0.5 text-[10px] font-normal leading-none text-white";
 
 /** Secondary lines under the hero title (set, meta, badges, chips). */
 const HEADLINE_NAME_TEXT = "text-[15px] leading-snug tracking-normal";
@@ -120,16 +121,14 @@ export interface CollectionOverviewBoardProps {
   leftColumnFooter?: ReactNode;
   /** Placed directly under the representative card image (before hero actions + metadata). */
   belowCover?: ReactNode;
-  /** Mobile only (`max-xl`): price / market tiles directly under the cover image. */
+  /** Mobile only (below `lg` / 1024px): price / market tiles directly under the cover image. */
   mobileCoverBelowMetrics?: ReactNode;
   /** Mobile: current price row under hero identity (replaces {@link mobileCoverBelowMetrics} when set). */
   mobileCurrentPriceRow?: ReactNode;
   /** Mobile: Information / Chart / Order book tabs. */
   mobileMarketTabs?: ReactNode;
-  /** Mobile: Detail KV block below tabs. */
-  mobileDetailSection?: ReactNode;
   /**
-   * When true with {@link mobileMarketTabs}: inline chart/order book hidden on `max-xl`;
+   * When true with {@link mobileMarketTabs}: inline chart/order book hidden on `max-lg`;
    * market data is shown only inside the mobile tab panels.
    */
   mobileTabbedMarketUi?: boolean;
@@ -220,13 +219,13 @@ function CollectionMobileHeadline({
 
   return (
     <header
-      className={`${collectionHeroFont.className} w-full min-w-0 space-y-2 text-left xl:hidden`}
+      className={`${collectionHeroFont.className} w-full min-w-0 space-y-1 text-left lg:hidden`}
     >
       {suppressTitle ? (
         <h1 className="sr-only">{headlineTitle}</h1>
       ) : (
         <h1
-          className="text-[1.375rem] font-bold leading-[1.2] tracking-tight text-white [overflow-wrap:anywhere] sm:text-[1.5rem]"
+          className="line-clamp-2 text-[1.0625rem] font-bold leading-[1.15] tracking-tight text-white"
           title={headlineTitle}
         >
           {headlineTitle}
@@ -234,29 +233,31 @@ function CollectionMobileHeadline({
       )}
 
       {headlineSubtitleLine ? (
-        <p className="text-[13px] font-normal leading-snug text-zinc-500 [overflow-wrap:anywhere]">
+        <p className="line-clamp-1 text-[11px] font-normal leading-snug text-zinc-500">
           {headlineSubtitleLine}
         </p>
       ) : null}
 
       {cardNo ? (
-        <p className="text-[13px] font-medium tabular-nums text-zinc-500">{cardNo}</p>
+        <p className="text-[11px] font-medium tabular-nums text-zinc-500">{cardNo}</p>
       ) : null}
 
       {hasBadges ? (
         <div
-          className="flex flex-wrap items-center gap-2 pt-0.5"
+          className="flex flex-wrap items-center gap-1.5 pt-0.5"
           aria-label="Collection tags"
         >
           {categoryBadge ? (
-            <span className={MOBILE_HEADLINE_TAG}>{categoryBadge}</span>
+            <span className={HEADLINE_OUTLINE_TAG_MOBILE}>{categoryBadge}</span>
           ) : (
-            <span className={MOBILE_HEADLINE_TAG}>{badgeLabel}</span>
+            <span className={HEADLINE_OUTLINE_TAG_MOBILE}>{badgeLabel}</span>
           )}
-          {gradeBadge ? <span className={MOBILE_HEADLINE_TAG}>{gradeBadge}</span> : null}
+          {gradeBadge ? (
+            <span className={HEADLINE_OUTLINE_TAG_MOBILE}>{gradeBadge}</span>
+          ) : null}
           {populationBadge?.trim() ? (
             <span
-              className={MOBILE_HEADLINE_TAG}
+              className={HEADLINE_OUTLINE_TAG_MOBILE}
               title="PSA population for this grade (reported)"
             >
               {formatPopulationHeadlineTag(populationBadge)}
@@ -328,7 +329,6 @@ export function CollectionOverviewBoard({
   mobileCoverBelowMetrics,
   mobileCurrentPriceRow,
   mobileMarketTabs,
-  mobileDetailSection,
   mobileTabbedMarketUi = false,
   exchangeBelowChart,
   suppressHeadlineBanner = false,
@@ -368,18 +368,18 @@ export function CollectionOverviewBoard({
 
   return (
     <section
-      className={`relative w-full min-w-0 overflow-hidden rounded-2xl ${COLLECTION_DETAILS_BORDER_ALL} ${COLLECTION_DETAILS_BG_CLASS} shadow-[0_28px_64px_-32px_rgba(0,0,0,0.9)]`}
+      className={`relative w-full min-w-0 overflow-hidden rounded-2xl ${COLLECTION_DETAILS_BORDER_ALL} ${COLLECTION_DETAILS_BG_CLASS} max-lg:overflow-visible max-lg:shadow-none lg:flex lg:min-h-0 lg:flex-1 lg:flex-col lg:shadow-[0_28px_64px_-32px_rgba(0,0,0,0.9)]`}
       aria-label="Collection overview"
     >
       <div
         className={`relative px-3.5 pt-3 pb-3.5 sm:px-6 sm:py-4 lg:px-8 ${COLLECTION_DETAILS_BORDER_B} ${
-          hideTopHeadlineBarOnMobile ? "max-xl:hidden" : ""
+          hideTopHeadlineBarOnMobile ? "max-lg:hidden" : ""
         }`}
       >
         <div className="flex flex-col gap-3 sm:gap-3 lg:flex-row lg:items-stretch lg:gap-0">
-          <div className="flex min-w-0 flex-1 flex-col gap-3 lg:shrink-0 lg:basis-[min(100%,min(560px,52vw))] lg:justify-center xl:basis-[min(100%,min(620px,48vw))]">
+          <div className="flex min-w-0 flex-1 flex-col gap-3 lg:shrink-0 lg:basis-[min(100%,min(560px,52vw))] lg:justify-center lg:basis-[min(100%,min(620px,48vw))]">
             <div
-              className={`min-w-0 space-y-2 ${showMobileHeroIdentity ? "hidden xl:block" : ""}`}
+              className={`min-w-0 space-y-2 ${showMobileHeroIdentity ? "hidden lg:block" : ""}`}
             >
               {headlineTitleLayout && headlineTitle ? (
                 suppressHeadlineBanner ? (
@@ -477,7 +477,7 @@ export function CollectionOverviewBoard({
           {stats.length > 0 ? (
             <>
               <div
-                className="hidden lg:block w-px shrink-0 self-stretch bg-[rgba(11,13,16,1)] mx-5 xl:mx-6"
+                className="hidden lg:block w-px shrink-0 self-stretch bg-[rgba(11,13,16,1)] mx-5 lg:mx-6"
                 aria-hidden
               />
 
@@ -494,49 +494,107 @@ export function CollectionOverviewBoard({
       </div>
 
       <div
-        className={`relative grid w-full min-w-0 max-lg:grid-cols-1 max-lg:justify-items-stretch ${
+        className={`relative grid w-full min-w-0 max-lg:grid-cols-1 max-lg:justify-items-stretch max-lg:overflow-visible lg:min-h-0 lg:flex-1 lg:overflow-hidden ${
           exchangeTriple
             ? "gap-3 sm:gap-4 lg:gap-x-5 lg:gap-y-0 lg:items-start lg:grid-cols-[307px_minmax(0,1fr)]"
               : hasBookColumn
                 ? "lg:items-start gap-6 lg:gap-8 lg:grid-cols-[minmax(260px,min(307px,40vw))_minmax(0,1fr)_minmax(220px,300px)]"
                 : "lg:items-start gap-6 lg:gap-8 lg:grid-cols-[minmax(260px,min(307px,40vw))_minmax(0,1fr)]"
-        } max-xl:px-0 max-xl:pt-3 max-xl:pb-4 px-3.5 pt-3.5 pb-4 sm:p-6 lg:px-8 lg:pt-6 lg:pb-6`}
+        } max-lg:gap-0 max-lg:px-0 max-lg:pt-1.5 max-lg:pb-2 px-3.5 pt-3.5 pb-4 sm:p-6 lg:px-8 lg:pt-6 lg:pb-6`}
       >
         {/* Left: preview + meta — full-width stack below lg; fixed hero column from lg */}
         <div
-          className={`flex min-w-0 w-full max-w-full flex-col gap-3 max-xl:gap-2 sm:gap-4 ${
-            exchangeTriple ? "lg:w-full lg:items-start" : "w-full lg:items-stretch"
-          }`}
+          className={`flex min-w-0 w-full max-w-full flex-col gap-3 sm:gap-4 ${
+            useMobileTabbedMarket
+              ? "max-lg:gap-0 max-lg:overflow-visible"
+              : "max-lg:min-h-0 max-lg:flex-1 max-lg:gap-1 max-lg:overflow-hidden"
+          } ${exchangeTriple ? "lg:w-full lg:items-start lg:min-h-0 lg:flex-1" : "w-full lg:items-stretch lg:min-h-0 lg:flex-1"}`}
         >
           <div
-            className={`flex w-full min-w-0 flex-col gap-3 max-xl:gap-1.5 ${
-              exchangeTriple ? "max-lg:items-stretch lg:items-start" : "items-stretch"
-            }`}
+            className={`flex w-full min-w-0 flex-col gap-3 ${
+              useMobileTabbedMarket
+                ? "max-lg:gap-0 max-lg:overflow-visible"
+                : "max-lg:min-h-0 max-lg:flex-1 max-lg:gap-1 max-lg:overflow-hidden"
+            } ${exchangeTriple ? "max-lg:items-stretch lg:items-start lg:min-h-0 lg:flex-1" : "items-stretch lg:min-h-0 lg:flex-1"}`}
           >
-            <div className="mx-auto flex w-full min-w-0 max-w-[min(100%,360px)] flex-col gap-2 max-xl:w-full lg:mx-0 lg:max-w-[307px]">
-              {imageUrl ? (
-                <CollectionCoverFrame
-                  imageUrl={imageUrl}
-                  alt=""
-                  variant="hero"
-                  className="relative z-[1] w-full shrink-0"
-                />
+            <div
+              className={`mx-auto flex w-full min-w-0 max-w-[min(100%,360px)] flex-col gap-2 max-lg:mx-0 max-lg:max-w-none lg:mx-0 lg:max-w-[307px] ${
+                useMobileTabbedMarket
+                  ? "max-lg:gap-0 max-lg:overflow-visible"
+                  : "max-lg:w-full max-lg:gap-1 max-lg:min-h-0 max-lg:flex-1 max-lg:overflow-hidden"
+              }`}
+            >
+              {useMobileTabbedMarket &&
+              (imageUrl || mobileHeadlineBlock || mobileCurrentPriceRow) ? (
+                <div className="max-lg:shrink-0 max-lg:border-b max-lg:border-zinc-800/35 max-lg:px-3.5 max-lg:pb-4 max-lg:pt-2">
+                  <div className="flex w-full min-w-0 items-stretch gap-2.5">
+                    <div className="flex min-h-[118px] min-w-0 flex-1 flex-col justify-between gap-1.5">
+                      {mobileHeadlineBlock ? (
+                        <div className="min-w-0">{mobileHeadlineBlock}</div>
+                      ) : (
+                        <div className="min-h-0 flex-1" aria-hidden />
+                      )}
+                      {mobileCurrentPriceRow ? (
+                        <div className="mt-auto min-w-0">{mobileCurrentPriceRow}</div>
+                      ) : null}
+                    </div>
+                    {imageUrl ? (
+                      <CollectionCoverFrame
+                        imageUrl={imageUrl}
+                        alt=""
+                        variant="hero"
+                        className="relative z-[1] shrink-0 self-start"
+                      />
+                    ) : (
+                      <div
+                        className={`flex h-[118px] w-[88px] shrink-0 items-center justify-center self-start rounded-xl ${COLLECTION_DETAILS_BORDER_ALL} ${COLLECTION_DETAILS_BG_CLASS} text-center text-[9px] text-gray-500`}
+                      >
+                        No preview
+                      </div>
+                    )}
+                  </div>
+                </div>
               ) : (
-                <div className={`flex h-[min(460px,82vw)] max-h-[min(480px,88svh)] w-full items-center justify-center rounded-2xl ${COLLECTION_DETAILS_BORDER_ALL} ${COLLECTION_DETAILS_BG_CLASS} p-6 text-center text-[12px] text-gray-500 lg:h-[427px] lg:max-h-[427px] lg:w-[307px]`}>
-                  No preview
+                <div className="flex w-full min-w-0 flex-col gap-2 max-lg:flex-row max-lg:items-start max-lg:gap-2.5">
+                  {mobileHeadlineBlock ? (
+                    <div className="min-w-0 flex-1 max-lg:pt-0.5">{mobileHeadlineBlock}</div>
+                  ) : null}
+                  {imageUrl ? (
+                    <CollectionCoverFrame
+                      imageUrl={imageUrl}
+                      alt=""
+                      variant="hero"
+                      className="relative z-[1] w-full shrink-0 max-lg:ms-auto max-lg:shrink-0 lg:w-full"
+                    />
+                  ) : (
+                    <div
+                      className={`flex h-[min(460px,82vw)] max-h-[min(480px,88svh)] w-full items-center justify-center rounded-2xl ${COLLECTION_DETAILS_BORDER_ALL} ${COLLECTION_DETAILS_BG_CLASS} p-6 text-center text-[12px] text-gray-500 max-lg:ms-auto max-lg:h-[118px] max-lg:max-h-[122px] max-lg:w-[88px] max-lg:max-w-[88px] max-lg:shrink-0 max-lg:p-2 max-lg:text-[9px] lg:h-[427px] lg:max-h-[427px] lg:w-[307px]`}
+                    >
+                      No preview
+                    </div>
+                  )}
                 </div>
               )}
-              {mobileHeadlineBlock}
               {useMobileTabbedMarket ? (
                 <>
-                  {mobileCurrentPriceRow}
-                  {mobileMarketTabs}
-                  {mobileDetailSection}
+                  <div className="max-lg:shrink-0 max-lg:px-3 max-lg:pb-0 max-lg:pt-3.5">
+                    {mobileMarketTabs}
+                  </div>
+                  {exchangeBelowChart != null ? (
+                    <div
+                      className="max-lg:mt-1 max-lg:shrink-0 max-lg:px-3 max-lg:pb-4 lg:hidden"
+                      id="collection-listings"
+                    >
+                      <CollectionMobileListingsSection count={listingCount}>
+                        {exchangeBelowChart}
+                      </CollectionMobileListingsSection>
+                    </div>
+                  ) : null}
                 </>
               ) : (
                 <>
                   {mobileCoverBelowMetrics != null ? (
-                    <div className="w-full min-w-0 max-xl:block xl:hidden">
+                    <div className="w-full min-w-0 max-lg:block lg:hidden">
                       {mobileCoverBelowMetrics}
                     </div>
                   ) : null}
@@ -544,7 +602,7 @@ export function CollectionOverviewBoard({
               )}
             </div>
             {belowCover != null ? (
-              <div className="hidden w-full min-w-0 xl:block">{belowCover}</div>
+              <div className="hidden w-full min-w-0 lg:block">{belowCover}</div>
             ) : null}
             {heroActions != null ? (
               <div className="flex w-full max-w-[307px] shrink-0 flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-stretch sm:gap-x-2 sm:gap-y-2">
@@ -573,12 +631,16 @@ export function CollectionOverviewBoard({
         </div>
 
         {/* Middle: chart (+ book in exchange layout). */}
-        <div className="flex min-w-0 w-full max-w-full flex-col items-stretch gap-2 overflow-x-clip sm:gap-2.5 lg:min-w-0 lg:self-start">
+        <div
+          className={`flex min-w-0 w-full max-w-full flex-col items-stretch gap-2 overflow-x-clip sm:gap-2.5 lg:min-w-0 lg:self-start ${
+            useMobileTabbedMarket ? "max-lg:hidden" : ""
+          }`}
+        >
           {exchangeTriple ? (
             <>
               <div className="relative w-full min-w-0 max-w-full">
                 {orderBookToggleEnabled ? (
-                  <div className="pointer-events-none absolute right-[calc(0.75rem+1px)] top-[-1px] z-[8] max-xl:hidden sm:right-[calc(1rem+1px)]">
+                  <div className="pointer-events-none absolute right-[calc(0.75rem+1px)] top-[-1px] z-[8] max-lg:hidden sm:right-[calc(1rem+1px)]">
                     <div className="pointer-events-auto">
                       <CollectionOrderBookVisibilityToggle
                         checked={showOrderBook}
@@ -594,9 +656,9 @@ export function CollectionOverviewBoard({
                 <div className={`${COLLECTION_MARKET_CLUSTER_MAT} w-full min-w-0`}>
                   {chartMetricsRow != null ? (
                     <div
-                      className={`hidden w-full min-w-0 xl:block ${
+                      className={`hidden w-full min-w-0 lg:block ${
                         orderBookToggleEnabled
-                          ? "max-xl:pt-0 pt-[calc(1.25rem-5px)] sm:pt-[calc(1.5rem-5px)] lg:pt-[calc(1.25rem-5px)]"
+                          ? "max-lg:pt-0 pt-[calc(1.25rem-5px)] sm:pt-[calc(1.5rem-5px)] lg:pt-[calc(1.25rem-5px)]"
                           : ""
                       }`}
                     >
@@ -606,33 +668,33 @@ export function CollectionOverviewBoard({
 
                   <div
                     className={[
-                      chartMetricsRow != null ? "max-xl:mt-2 mt-3" : "",
-                      "flex min-w-0 w-full max-w-full flex-col gap-3 max-xl:gap-2 max-xl:items-stretch",
-                      "xl:grid xl:min-h-0 xl:gap-x-3 xl:gap-y-3",
+                      chartMetricsRow != null ? "max-lg:mt-2 mt-3" : "",
+                      "flex min-w-0 w-full max-w-full flex-col gap-3 max-lg:gap-2 max-lg:items-stretch",
+                      "lg:grid lg:min-h-0 lg:gap-x-3 lg:gap-y-3",
                       orderBookColumnVisible
-                        ? "xl:grid-cols-[minmax(0,1fr)_221px]"
-                        : "xl:grid-cols-[minmax(0,1fr)]",
+                        ? "lg:grid-cols-[minmax(0,1fr)_221px]"
+                        : "lg:grid-cols-[minmax(0,1fr)]",
                     ]
                       .filter(Boolean)
                       .join(" ")}
                   >
                   {/* Row 1: chart — fixed 409px on xl; explicit height on mobile */}
                   <div
-                    className={`flex min-h-0 min-w-0 flex-col xl:col-start-1 xl:row-start-1 xl:h-[409px] xl:max-h-[409px] ${
+                    className={`flex min-h-0 min-w-0 flex-col lg:col-start-1 lg:row-start-1 lg:h-[409px] lg:max-h-[409px] ${
                       useMobileTabbedMarket
-                        ? "max-xl:hidden"
-                        : "max-xl:h-[min(340px,44svh)] max-xl:shrink-0"
+                        ? "max-lg:hidden"
+                        : "max-lg:h-[min(340px,44svh)] max-lg:shrink-0"
                     }`}
                   >
-                    <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col xl:h-full">
+                    <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col lg:h-full">
                       {priceChart ?? (
-                        <CollectionPriceHistoryPlaceholder className="h-full w-full min-h-0 max-xl:min-h-0 xl:h-full xl:min-h-0" />
+                        <CollectionPriceHistoryPlaceholder className="h-full w-full min-h-0 max-lg:min-h-0 lg:h-full lg:min-h-0" />
                       )}
                     </div>
                   </div>
 
                   {orderBookToggleEnabled && !useMobileTabbedMarket ? (
-                    <div className="w-full min-w-0 shrink-0 xl:hidden">
+                    <div className="w-full min-w-0 shrink-0 lg:hidden">
                       <CollectionOrderBookVisibilityToggle
                         checked={showOrderBook}
                         onChange={onShowOrderBookChange}
@@ -644,8 +706,8 @@ export function CollectionOverviewBoard({
                   {/* Row 1 col 2: order book — fixed 409px on xl */}
                   {orderBookColumnVisible ? (
                     <div
-                      className={`flex min-h-0 w-full min-w-0 max-w-full flex-col items-stretch gap-2 self-stretch xl:col-start-2 xl:row-start-1 xl:w-[221px] xl:shrink-0 ${
-                        useMobileTabbedMarket ? "max-xl:hidden" : ""
+                      className={`flex min-h-0 w-full min-w-0 max-w-full flex-col items-stretch gap-2 self-stretch lg:col-start-2 lg:row-start-1 lg:w-[221px] lg:shrink-0 ${
+                        useMobileTabbedMarket ? "max-lg:hidden" : ""
                       }`}
                     >
                       {exchangeRightStackTop ? (
@@ -654,7 +716,7 @@ export function CollectionOverviewBoard({
                         </div>
                       ) : null}
                       <div
-                        className={`mx-auto w-full min-w-0 overflow-hidden ${COLLECTION_EXCHANGE_ORDER_BOOK_FRAME} max-xl:max-w-full xl:mx-0`}
+                        className={`mx-auto w-full min-w-0 overflow-hidden ${COLLECTION_EXCHANGE_ORDER_BOOK_FRAME} max-lg:max-w-full lg:mx-0`}
                       >
                         <div className="flex h-full min-h-0 w-full flex-col overflow-hidden">
                           {withFlushProp(orderBookNextToChart)}
@@ -666,8 +728,8 @@ export function CollectionOverviewBoard({
 
                   {exchangeChartFooter != null ? (
                     <div
-                      className={`min-w-0 shrink-0 max-xl:pt-1.5 pt-2.5 sm:pt-3 xl:row-start-2 ${
-                        orderBookColumnVisible ? "xl:col-span-2" : ""
+                      className={`min-w-0 shrink-0 max-lg:pt-1.5 pt-2.5 sm:pt-3 lg:row-start-2 ${
+                        orderBookColumnVisible ? "lg:col-span-2" : ""
                       }`}
                     >
                       {exchangeChartFooter}
@@ -677,10 +739,11 @@ export function CollectionOverviewBoard({
                     <div
                       className={[
                         "min-w-0 w-full max-w-full",
-                        orderBookColumnVisible ? "max-xl:mt-2 mt-1" : "max-xl:mt-1 mt-1",
-                        "xl:col-start-1",
-                        orderBookColumnVisible ? "xl:col-span-2" : "xl:col-span-1",
-                        exchangeChartFooter != null ? "xl:row-start-3" : "xl:row-start-2",
+                        useMobileTabbedMarket ? "max-lg:hidden" : "",
+                        orderBookColumnVisible ? "max-lg:mt-2 mt-1" : "max-lg:mt-1 mt-1",
+                        "lg:col-start-1",
+                        orderBookColumnVisible ? "lg:col-span-2" : "lg:col-span-1",
+                        exchangeChartFooter != null ? "lg:row-start-3" : "lg:row-start-2",
                       ].join(" ")}
                       id="collection-listings"
                       aria-label="Individual listings"
@@ -691,11 +754,11 @@ export function CollectionOverviewBoard({
                   {belowCover != null && !useMobileTabbedMarket ? (
                     <div
                       className={[
-                        "min-w-0 w-full max-w-full max-xl:mt-4 max-xl:block xl:hidden",
-                        orderBookColumnVisible ? "xl:col-span-2" : "xl:col-span-1",
+                        "min-w-0 w-full max-w-full max-lg:mt-4 max-lg:block lg:hidden",
+                        orderBookColumnVisible ? "lg:col-span-2" : "lg:col-span-1",
                         exchangeChartFooter != null
-                          ? "max-xl:row-start-auto"
-                          : "max-xl:row-start-auto",
+                          ? "max-lg:row-start-auto"
+                          : "max-lg:row-start-auto",
                       ].join(" ")}
                       aria-label="Collection details"
                     >
@@ -708,7 +771,7 @@ export function CollectionOverviewBoard({
               </div>
             </>
           ) : tradePanel != null ? (
-            <div className="w-full max-w-6xl mx-auto grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(320px,min(440px,36vw))] gap-4 min-w-0 items-start">
+            <div className="w-full max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(320px,min(440px,36vw))] gap-4 min-w-0 items-start">
               <div className="flex min-w-0 w-full flex-col gap-3">
                 {chartMetricsRow != null ? (
                   <div className="w-full min-w-0 shrink-0">{chartMetricsRow}</div>
@@ -717,7 +780,7 @@ export function CollectionOverviewBoard({
                   <CollectionPriceHistoryPlaceholder className="min-h-[180px] sm:min-h-[225px] w-full" />
                 )}
               </div>
-              <div className="min-w-0 w-full xl:justify-self-stretch xl:sticky xl:top-4">
+              <div className="min-w-0 w-full lg:justify-self-stretch lg:sticky lg:top-4">
                 {tradePanel}
               </div>
             </div>

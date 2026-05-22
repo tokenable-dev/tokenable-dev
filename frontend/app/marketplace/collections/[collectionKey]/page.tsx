@@ -31,7 +31,6 @@ import { CollectionOverviewBoard } from "@/components/marketplace/CollectionOver
 import { CollectionDetailsKvCard } from "@/components/marketplace/CollectionDetailsKvCard";
 import { CollectionHeroDetailsTabs } from "@/components/marketplace/CollectionHeroDetailsTabs";
 import { CollectionMobileCurrentPriceRow } from "@/components/marketplace/CollectionMobileCurrentPriceRow";
-import { CollectionMobileDetailSection } from "@/components/marketplace/CollectionMobileDetailSection";
 import { CollectionMobileInformationPanel } from "@/components/marketplace/CollectionMobileInformationPanel";
 import { CollectionMobileMarketTabs } from "@/components/marketplace/CollectionMobileMarketTabs";
 import type { CollectionDetailCard } from "@/components/marketplace/CollectionMetadataExpandable";
@@ -48,6 +47,7 @@ import {
   type TradeCelebrationKind,
 } from "@/components/marketplace/TradeCelebrationModal";
 import { CollectionDualPriceChart } from "@/components/marketplace/CollectionDualPriceChart";
+import { useCollectionDetailMobile } from "@/components/marketplace/useCollectionDetailMobile";
 import { CollectionRwaCard } from "@/components/marketplace/CollectionRwaCard";
 import { useAppStore, selectWallet } from "@/store";
 import { isCriteriaCollectionBid } from "@/lib/seaport/criteria/criteriaMatch";
@@ -66,7 +66,6 @@ import {
 } from "@/lib/marketplace/collectionFullDetailsTitle";
 import { buildCollectionHeadlineInfoTags, mergeHeadlineCardNumberIntoTitle, resolveHeadlineFormattedCardNumber } from "@/lib/marketplace/collectionHeadlineTags";
 import { primeRwaMetadataCache } from "@/lib/marketplace";
-import { COLLECTION_LISTING_CARD_CHROME } from "@/components/marketplace/collectionOverviewChrome";
 
 /** Same fill can appear from session overlay + DB poll with timestamps minutes apart */
 const SESSION_FILL_DEDUP_SEC = 300;
@@ -93,18 +92,22 @@ const CHART_RANGE_OPTIONS: readonly ChartRangeConfig[] = [
   { id: "1y", label: "1Y", historyPeriod: "1y", maxDays: 365, bundleDuration: "365d" },
 ] as const;
 
+/** Mobile collection detail chart — fixed 90D window, no range picker. */
+const MOBILE_CHART_RANGE =
+  CHART_RANGE_OPTIONS.find((x) => x.id === "90d") ?? CHART_RANGE_OPTIONS[2];
+
 /** Clip Cardhedger curve to the selected range on the client (API still returns up to ~1y for parity with preview). */
 const CHART_RANGE_CLIP_SEC = 86_400;
 
 function CollectionDetailMobileNav() {
   return (
     <nav
-      className="mb-3 flex min-h-[36px] items-center xl:hidden"
+      className="mb-1.5 flex min-h-[28px] shrink-0 items-center lg:hidden"
       aria-label="Back to markets"
     >
       <Link
         href="/markets"
-        className="inline-flex items-center gap-1 rounded-md py-1 pr-2 text-[13px] font-medium text-zinc-400 transition-colors hover:text-white active:bg-white/[0.04]"
+        className="inline-flex items-center gap-1 rounded-md py-0.5 pr-2 text-[12px] font-medium text-zinc-400 transition-colors hover:text-white active:bg-white/[0.04]"
       >
         <svg
           className="h-4 w-4 shrink-0"
@@ -269,6 +272,7 @@ export default function MarketplaceCollectionPage() {
   const [tradeCelebration, setTradeCelebration] = useState<TradeCelebrationKind | null>(null);
   const [bookSelection, setBookSelection] = useState<BookRowSelection | null>(null);
   const [chartRange, setChartRange] = useState<ChartRangeId>("90d");
+  const isCollectionDetailMobile = useCollectionDetailMobile();
   const [aiInsightComingSoonOpen, setAiInsightComingSoonOpen] = useState(false);
   /** Last fill this session (fixed timestamp) — merged into chart until series refetch includes it. */
   const [sessionFillPoint, setSessionFillPoint] = useState<{
@@ -328,9 +332,11 @@ export default function MarketplaceCollectionPage() {
     [chartRange],
   );
 
+  const chartDisplayRange = isCollectionDetailMobile ? MOBILE_CHART_RANGE : selectedChartRange;
+
   const { data: marketSeriesHeader, isLoading: marketSeriesLoading } = useQuery({
-    queryKey: ["collection-market-series", key, selectedChartRange.bundleDuration],
-    queryFn: () => getCollectionMarketSeries(key, selectedChartRange.bundleDuration),
+    queryKey: ["collection-market-series", key, chartDisplayRange.bundleDuration],
+    queryFn: () => getCollectionMarketSeries(key, chartDisplayRange.bundleDuration),
     enabled: key.length > 0 && !isLoading && !isError && !!data,
     staleTime: 120_000,
   });
@@ -343,15 +349,15 @@ export default function MarketplaceCollectionPage() {
 
   const chartExternalRollingUsd = useMemo(() => {
     const nowS = Math.floor(Date.now() / 1000);
-    const cutoff = nowS - selectedChartRange.maxDays * CHART_RANGE_CLIP_SEC;
+    const cutoff = nowS - chartDisplayRange.maxDays * CHART_RANGE_CLIP_SEC;
     if (!jtHistOk) return [];
     return jtHistPts.filter((p) => p.t >= cutoff);
-  }, [jtHistOk, jtHistPts, selectedChartRange.maxDays]);
+  }, [jtHistOk, jtHistPts, chartDisplayRange.maxDays]);
 
   const chartExternalWindowDays = useMemo(() => {
     if (!jtHistOk) return null;
-    return selectedChartRange.maxDays;
-  }, [jtHistOk, selectedChartRange.maxDays]);
+    return chartDisplayRange.maxDays;
+  }, [jtHistOk, chartDisplayRange.maxDays]);
 
   const pokeTierLabel = marketTierDisplayLabel(pokeHistoryTier);
 
@@ -1023,76 +1029,68 @@ export default function MarketplaceCollectionPage() {
     />
   );
 
-  const chartRangeControls = (
-    <div className="flex w-full min-w-0 max-xl:gap-0.5 max-xl:rounded-lg max-xl:border max-xl:border-[rgba(38,39,45,1)] max-xl:bg-black/30 max-xl:p-0.5 xl:flex-wrap xl:items-center xl:justify-between xl:gap-1">
-      {CHART_RANGE_OPTIONS.map((opt) => {
-        const active = opt.id === chartRange;
-        return (
-          <button
-            key={opt.id}
-            type="button"
-            onClick={() => setChartRange(opt.id)}
-            className={`font-semibold transition-colors max-xl:flex-1 max-xl:rounded-md max-xl:px-1 max-xl:py-2 max-xl:text-center max-xl:text-[11px] xl:rounded-md xl:px-2.5 xl:py-1 xl:text-[11px] ${
-              active ? "bg-mint text-black" : "text-zinc-400 hover:text-zinc-100"
-            }`}
-            aria-pressed={active}
-          >
-            {opt.label}
-          </button>
-        );
-      })}
-    </div>
-  );
+  const collectionChartProps = {
+    variant: "exchange" as const,
+    collectionOverviewMat: true,
+    chartTitle: "",
+    platformUsd: displayPlatformUsd,
+    externalMarketUsd:
+      chartExternalRollingUsd.length >= 2 ? null : resolvedExternal.usd,
+    externalWindowDays: chartExternalWindowDays,
+    externalRollingUsd:
+      chartExternalRollingUsd.length > 0 ? chartExternalRollingUsd : null,
+    externalRollingKind: chartExternalRollingKind,
+    externalLegendLabel: chartExternalLegend,
+    externalSeriesShortLabel: chartExternalShort,
+    externalRefLineTag: chartExternalRefTag,
+    isLoading: platformTradesLoading || marketSeriesLoading,
+    errorMessage: null as string | null,
+    rangeOptions: isCollectionDetailMobile ? undefined : CHART_RANGE_OPTIONS,
+    chartRange: isCollectionDetailMobile ? undefined : chartRange,
+    onChartRangeChange: isCollectionDetailMobile ? undefined : setChartRange,
+  };
 
   const collectionDualPriceChart = (
-    <CollectionDualPriceChart
-      variant="exchange"
-      collectionOverviewMat
-      chartTitle=""
-      platformUsd={displayPlatformUsd}
-      externalMarketUsd={
-        chartExternalRollingUsd.length >= 2 ? null : resolvedExternal.usd
-      }
-      externalWindowDays={chartExternalWindowDays}
-      externalRollingUsd={
-        chartExternalRollingUsd.length > 0 ? chartExternalRollingUsd : null
-      }
-      externalRollingKind={chartExternalRollingKind}
-      externalLegendLabel={chartExternalLegend}
-      externalSeriesShortLabel={chartExternalShort}
-      externalRefLineTag={chartExternalRefTag}
-      isLoading={platformTradesLoading || marketSeriesLoading}
-      errorMessage={null}
-      controls={chartRangeControls}
-    />
+    <CollectionDualPriceChart {...collectionChartProps} />
   );
+
+  const collectionDualPriceChartMobile = (
+    <CollectionDualPriceChart {...collectionChartProps} embedInMobileTab />
+  );
+
+  const collectionOrderBookProps = {
+    collectionKey: collection.collectionKey,
+    asks,
+    collectionBids,
+    onSelectLevel: (sel: {
+      side: "ask" | "bid";
+      levelKey: string;
+      price: number;
+      orders: typeof asks;
+    }) => {
+      setBookSelection(sel);
+      setTradeFlow("buy");
+      setTradeDockOpen(true);
+    },
+    selectedLevelKey: bookSelection?.levelKey ?? null,
+    compact: true as const,
+    flush: true as const,
+    lastTradePriceUsdc: orderBookLastSaleUsdc,
+    lastTradeSide: "buy" as const,
+    tapeFills: orderBookTapeFills,
+    tapeLoading: platformTradesLoading,
+  };
 
   const collectionOrderBook = (
-    <CollectionUnifiedOrderBook
-      collectionKey={collection.collectionKey}
-      asks={asks}
-      collectionBids={collectionBids}
-      onSelectLevel={(sel) => {
-        setBookSelection(sel);
-        setTradeFlow("buy");
-        setTradeDockOpen(true);
-      }}
-      selectedLevelKey={bookSelection?.levelKey ?? null}
-      compact
-      flush
-      lastTradePriceUsdc={orderBookLastSaleUsdc}
-      lastTradeSide="buy"
-      tapeFills={orderBookTapeFills}
-      tapeLoading={platformTradesLoading}
-    />
+    <CollectionUnifiedOrderBook {...collectionOrderBookProps} />
   );
 
-  const mobileHeroDetailRows = heroDetailsKvRows.filter((r) => r.id !== "player");
+  const collectionOrderBookMobile = (
+    <CollectionUnifiedOrderBook {...collectionOrderBookProps} embedInMobileTab />
+  );
 
   const mobileInformationPanel = (
     <CollectionMobileInformationPanel
-      referenceMarketUsd={resolvedExternal.usd}
-      referenceMarketLoading={marketSeriesLoading}
       changePct={externalPriceChange1MoPct}
       changeLoading={marketSeriesLoading}
       volume24hUsdc={volume24hUsdc}
@@ -1104,9 +1102,9 @@ export default function MarketplaceCollectionPage() {
   );
 
   return (
-    <div className="min-h-screen bg-[rgba(11,13,16,1)] text-white">
+    <div className="min-h-screen bg-[rgba(11,13,16,1)] text-white max-lg:min-h-0">
       <div
-        className={`${COLLECTION_DETAIL_SHELL_CLASS} py-4 sm:py-8 pb-[max(5.5rem,env(safe-area-inset-bottom,0px)+4.5rem)] sm:pb-20`}
+        className={`${COLLECTION_DETAIL_SHELL_CLASS} flex min-h-0 flex-1 flex-col py-4 max-lg:overflow-visible max-lg:py-1.5 max-lg:pb-[max(4.25rem,env(safe-area-inset-bottom,0px)+3.5rem)] sm:overflow-hidden sm:py-8 sm:pb-20`}
       >
         <CollectionDetailMobileNav />
         <CollectionOverviewBoard
@@ -1151,15 +1149,16 @@ export default function MarketplaceCollectionPage() {
             <CollectionMobileMarketTabs
               informationPanel={mobileInformationPanel}
               chartPanel={
-                <div className="flex h-[min(360px,50svh)] min-h-[280px] w-full min-w-0 flex-col">
-                  {collectionDualPriceChart}
+                <div className="h-[168px] w-full min-w-0 shrink-0 overflow-hidden">
+                  {collectionDualPriceChartMobile}
                 </div>
               }
-              orderBookPanel={collectionOrderBook}
+              orderBookPanel={
+                <div className="max-h-[200px] w-full min-w-0 shrink-0 overflow-y-auto overscroll-y-contain">
+                  {collectionOrderBookMobile}
+                </div>
+              }
             />
-          }
-          mobileDetailSection={
-            <CollectionMobileDetailSection rows={mobileHeroDetailRows} />
           }
           bookColumnMetricsRow={null}
           showOrderBook={showOrderBook}
@@ -1204,9 +1203,7 @@ export default function MarketplaceCollectionPage() {
           }
           exchangeBelowChart={
             tokenIds.length === 0 ? (
-              <div
-                className={`w-full max-w-full px-4 py-8 text-center text-[15px] leading-relaxed text-[#a0a0a0] ${COLLECTION_LISTING_CARD_CHROME}`}
-              >
+              <div className="w-full px-1 py-6 text-center text-[13px] leading-relaxed text-zinc-500 max-lg:py-5 lg:px-4 lg:py-8 lg:text-[15px] lg:text-[#a0a0a0]">
                 No listings yet. List an asset from{" "}
                 <Link href="/portfolio" className="text-mint hover:underline">
                   My Assets
@@ -1214,13 +1211,13 @@ export default function MarketplaceCollectionPage() {
                 .
               </div>
             ) : (
-              <div className="grid w-full min-w-0 max-w-full grid-cols-2 content-start items-stretch justify-items-stretch gap-2 max-xl:gap-2.5 max-xl:pb-2 xl:flex xl:flex-row xl:flex-wrap xl:gap-x-[0.875rem] xl:gap-y-[0.9rem] xl:pb-2">
+              <div className="grid w-full min-w-0 max-w-full grid-cols-2 content-start items-stretch justify-items-stretch gap-2 max-lg:gap-2 lg:flex lg:flex-row lg:flex-wrap lg:gap-x-[0.875rem] lg:gap-y-[0.9rem] lg:pb-2">
                 {tokenIds.map((tid) => {
                   const prefetch = batchMetadata?.get(tid);
                   return (
                     <div
                       key={tid}
-                      className="flex min-h-0 min-w-0 w-full xl:w-[218px] xl:shrink-0 lg:w-[234px]"
+                      className="flex min-h-0 min-w-0 w-full lg:w-[218px] lg:shrink-0 lg:w-[234px]"
                     >
                       <CollectionRwaCard
                         tokenId={tid}
@@ -1229,6 +1226,7 @@ export default function MarketplaceCollectionPage() {
                         address={address}
                         prefetchedImageUrl={prefetch?.imageUrl}
                         prefetchedMetadata={prefetch?.metadata}
+                        compact
                       />
                     </div>
                   );

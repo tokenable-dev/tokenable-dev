@@ -48,7 +48,7 @@ export type RwaDetailMetadata = {
 };
 
 /**
- * `properties.graded` + attributes에서 카드 상세 그리드용 필드 추출
+ * `properties.graded` + attributes에서 카드 상세 그리드용 필드 추출 (desktop Details).
  */
 export function buildRwaDetailStatRows(meta: RwaDetailMetadata | null): {
   label: string;
@@ -113,6 +113,61 @@ export function buildRwaDetailStatRows(meta: RwaDetailMetadata | null): {
   }
 
   return rows;
+}
+
+export type RwaDetailMobileTrustView = {
+  gradeLine: string | null;
+  population: number | null;
+  populationHigher: number | null;
+  certNumber: string | null;
+  certVerifyUrl: string | null;
+};
+
+/** Mobile card detail — Grade / Pop / Cert trust strip fields. */
+export function buildRwaDetailMobileTrustView(
+  meta: RwaDetailMetadata | null,
+): RwaDetailMobileTrustView {
+  const empty: RwaDetailMobileTrustView = {
+    gradeLine: null,
+    population: null,
+    populationHigher: null,
+    certNumber: null,
+    certVerifyUrl: null,
+  };
+  if (!meta) return empty;
+
+  const graded = meta.properties?.graded as Record<string, unknown> | undefined;
+  const psa = graded?.psa as Record<string, unknown> | undefined;
+  const grade = graded?.grade as Record<string, unknown> | undefined;
+  const verification =
+    graded?.verification && typeof graded.verification === "object"
+      ? (graded.verification as Record<string, unknown>)
+      : undefined;
+
+  const { gradeLine } = pickHeaderCategoryGrade(meta);
+
+  const popRaw = psa?.totalPopulation;
+  const population =
+    typeof popRaw === "number" && Number.isFinite(popRaw) && popRaw > 0
+      ? popRaw
+      : null;
+
+  const higherRaw = psa?.populationHigher;
+  const populationHigher =
+    typeof higherRaw === "number" && Number.isFinite(higherRaw) && higherRaw >= 0
+      ? higherRaw
+      : null;
+
+  const certNumber = pickString(psa?.certNumber, grade?.certNumber);
+  const certVerifyUrl = pickString(psa?.certVerifyUrl, verification?.certUrl);
+
+  return {
+    gradeLine: gradeLine?.trim() ? gradeLine : null,
+    population,
+    populationHigher,
+    certNumber: certNumber ?? null,
+    certVerifyUrl: certVerifyUrl ?? null,
+  };
 }
 
 /** 카드 헤더용: 연도 · 세트 · | · 카드번호 (참조 UI 형태). */
@@ -371,7 +426,7 @@ export function RwaDetailAssetPanel({
   const backHeroLoading = Boolean(backNeedsGateway) && backResolving;
 
   const slabHeroSizing = openSeaMobile
-    ? "relative mx-auto aspect-square w-full max-w-none overflow-visible rounded-none bg-[#1c1c1e] max-h-[min(100vw,480px)] max-xl:rounded-none sm:max-h-[min(100vw,520px)] lg:aspect-[3/4] lg:max-h-[min(72vh,680px)] lg:max-w-none lg:rounded-2xl lg:bg-[#030508]"
+    ? "relative mx-auto aspect-square w-full max-w-none shrink-0 overflow-visible rounded-none bg-transparent max-lg:max-h-[min(72vw,340px)] lg:aspect-[3/4] lg:max-h-[min(72vh,680px)] lg:max-w-none lg:rounded-2xl lg:bg-[#030508]"
     : "relative mx-auto aspect-[3/4] w-full max-w-[min(100%,340px)] overflow-visible rounded-xl max-h-[min(62vh,560px)] sm:max-w-[min(100%,380px)] sm:rounded-2xl sm:max-h-[min(68vh,620px)] lg:max-w-none lg:max-h-[min(72vh,680px)]";
 
   const slabThumbSize = openSeaMobile
@@ -383,7 +438,7 @@ export function RwaDetailAssetPanel({
     : "min-h-[4.5rem]";
 
   const slabControlsGap = openSeaMobile
-    ? "mt-0 flex w-full flex-wrap items-end justify-center gap-2 max-xl:gap-2 sm:max-xl:gap-2 lg:gap-3 lg:mt-0"
+    ? "mt-0 flex w-full flex-wrap items-end justify-center gap-2.5 max-lg:mt-5 max-lg:px-5 max-lg:pb-2 max-xl:gap-2 max-xl:pb-1.5 sm:max-xl:px-5 lg:gap-3 lg:mt-0 lg:px-0 lg:pb-0"
     : "mt-0 flex w-full flex-wrap items-end justify-center gap-3 sm:gap-4";
 
   const slabRotateGlyphWrap = openSeaMobile
@@ -455,7 +510,9 @@ export function RwaDetailAssetPanel({
   return (
     <div
       className={`flex min-w-0 flex-col gap-4 max-xl:gap-3 lg:gap-5 ${
-        openSeaMobile ? "max-xl:-mx-3 max-xl:gap-0 sm:max-xl:-mx-5" : ""
+        openSeaMobile
+          ? "max-lg:items-center max-lg:gap-0 max-lg:px-0 max-lg:pt-3 max-lg:text-center"
+          : ""
       }`}
     >
       {headerBlock}
@@ -466,7 +523,9 @@ export function RwaDetailAssetPanel({
 
       <div
         className={`min-w-0 space-y-3 ${
-          openSeaMobile ? "max-xl:order-none lg:order-none" : "max-xl:order-1 lg:order-none"
+          openSeaMobile
+            ? "max-lg:order-none max-lg:w-full max-lg:items-center max-lg:space-y-0 lg:order-none"
+            : "max-xl:order-1 lg:order-none"
         }`}
       >
         <div
@@ -480,7 +539,11 @@ export function RwaDetailAssetPanel({
         <div className={`${slabHeroSizing} bg-transparent`}>
           {useFlipSlab ? (
             <>
-              <div className={`${slabHeroSizing} bg-[#030508]`}>
+              <div
+                className={`${slabHeroSizing} ${
+                  openSeaMobile ? "max-lg:bg-transparent" : "bg-[#030508]"
+                }`}
+              >
                 {frontHeroLoading ? (
                   <div className="absolute inset-0 animate-pulse rounded-2xl bg-gray-800/80" />
                 ) : imageUrl ? (
@@ -504,16 +567,22 @@ export function RwaDetailAssetPanel({
                   </div>
                 )}
               </div>
-              <div
-                className="pointer-events-none absolute inset-x-0 top-0 z-[1] h-2/5 rounded-t-2xl bg-gradient-to-b from-white/[0.04] to-transparent"
-                aria-hidden
-              />
+              {!openSeaMobile ? (
+                <div
+                  className="pointer-events-none absolute inset-x-0 top-0 z-[1] h-2/5 rounded-t-2xl bg-gradient-to-b from-white/[0.04] to-transparent"
+                  aria-hidden
+                />
+              ) : null}
             </>
           ) : frontHeroLoading ? (
             <div className="absolute inset-0 rounded-2xl bg-gray-800/80 animate-pulse" />
           ) : imageUrl ? (
             <>
-              <div className={`${slabHeroSizing} group/img relative min-h-0 overflow-hidden bg-[#030508]`}>
+              <div
+                className={`${slabHeroSizing} group/img relative min-h-0 overflow-hidden ${
+                  openSeaMobile ? "max-lg:bg-transparent" : "bg-[#030508]"
+                }`}
+              >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={imageUrl}
@@ -529,14 +598,16 @@ export function RwaDetailAssetPanel({
                   aria-label="View enlarged card image"
                   title="Tap to enlarge"
                 />
-                <span className="pointer-events-none absolute bottom-2 left-1/2 z-[3] max-w-[90%] -translate-x-1/2 truncate rounded-md bg-black/58 px-2 py-0.5 text-center text-[9px] font-medium text-zinc-100/95 shadow-sm ring-1 ring-black/40 sm:text-[10px]">
+                <span className="pointer-events-none absolute bottom-2 left-1/2 z-[3] max-w-[90%] -translate-x-1/2 truncate rounded-md bg-black/58 px-2 py-0.5 text-center text-[9px] font-medium text-zinc-100/95 sm:text-[10px]">
                   Tap to enlarge
                 </span>
               </div>
-              <div
-                className="pointer-events-none absolute inset-x-0 top-0 z-[1] h-2/5 rounded-t-2xl bg-gradient-to-b from-white/[0.04] to-transparent"
-                aria-hidden
-              />
+              {!openSeaMobile ? (
+                <div
+                  className="pointer-events-none absolute inset-x-0 top-0 z-[1] h-2/5 rounded-t-2xl bg-gradient-to-b from-white/[0.04] to-transparent"
+                  aria-hidden
+                />
+              ) : null}
               <RwaImageLightbox
                 open={lightboxOpen}
                 src={imageUrl}

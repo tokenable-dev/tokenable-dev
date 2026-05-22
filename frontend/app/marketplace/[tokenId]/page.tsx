@@ -33,11 +33,12 @@ import {
   type RwaDetailMetadata,
 } from "@/components/marketplace/RwaDetailAssetPanel";
 import {
+  RWA_MOBILE_CONTENT_SCROLL_CLASS,
   RwaDetailMobileCardHeader,
-  RwaDetailMobileDetailSection,
   RwaDetailStickyBuyButton,
   RwaDetailStickyBuyFooter,
 } from "@/components/marketplace/RwaDetailMobileCardLayout";
+import { RwaDetailMobileSpecsPanel } from "@/components/marketplace/RwaDetailMobileSpecsPanel";
 import { displayAssetNameFromMetadata } from "@/lib/marketplace/rwaDisplayTitle";
 import {
   TOKENABLE_RWA_ADDRESS,
@@ -557,39 +558,6 @@ export default function RwaDetailPage() {
     collectionDetail?.collection?.displayLabel?.trim() ||
     TOKENABLE_RWA_DISPLAY_NAME;
 
-  const formatDetailUsd = (n: number) =>
-    n.toLocaleString("en-US", {
-      style: "currency",
-      currency: "USD",
-      minimumFractionDigits: n >= 100 ? 0 : 2,
-      maximumFractionDigits: 2,
-    });
-
-  const mobileHeroPrice =
-    activeAskListing && !isOwner && listingBuyPriceUsdc != null ? (
-      <span
-        className={`${rwaDetailRightFont.className} text-[1.75rem] font-bold leading-none tabular-nums text-white`}
-      >
-        {formatDetailUsd(listingBuyPriceUsdc)}
-      </span>
-    ) : isOwner && listing && listingBuyPriceUsdc != null ? (
-      <span
-        className={`${rwaDetailRightFont.className} text-[1.75rem] font-bold leading-none tabular-nums text-white`}
-      >
-        {formatDetailUsd(listingBuyPriceUsdc)}
-      </span>
-    ) : externalRefUsd != null ? (
-      <span
-        className={`${rwaDetailRightFont.className} text-[1.75rem] font-bold leading-none tabular-nums text-white`}
-      >
-        {formatDetailUsd(externalRefUsd)}
-      </span>
-    ) : (
-      <span className={`${rwaDetailRightFont.className} text-xl font-semibold text-zinc-500`}>
-        Not listed
-      </span>
-    );
-
   const mobileStickyFooterNote =
     buyErr != null ? (
       <p className="text-xs text-red-400 leading-snug">{buyErr}</p>
@@ -597,9 +565,26 @@ export default function RwaDetailPage() {
       <p className="text-xs text-orange-400">Could not load listing.</p>
     ) : null;
 
+  const showMobileMarketContext =
+    !activeAskListing &&
+    !isOwner &&
+    (externalRefUsd != null || marketChangePct != null);
+
   return (
-    <div className="min-h-screen bg-[#07090c] text-white max-xl:bg-black">
-      <main className="mx-auto max-w-6xl px-3 py-6 max-[380px]:px-2.5 sm:px-5 sm:py-8 max-lg:pb-[max(5.5rem,env(safe-area-inset-bottom,0px)+4.5rem)] lg:px-6 lg:pb-8">
+    <div
+      className={`bg-[#07090c] text-white max-xl:bg-black ${
+        showMain
+          ? "max-lg:h-[calc(100svh-4rem)] max-lg:max-h-[calc(100svh-4rem)] max-lg:overflow-hidden"
+          : "min-h-screen"
+      }`}
+    >
+      <main
+        className={`mx-auto w-full max-w-6xl px-3 py-6 max-[380px]:px-2.5 sm:px-5 sm:py-8 lg:min-h-screen lg:px-6 lg:pb-8 ${
+          showMain
+            ? "max-lg:flex max-lg:h-full max-lg:min-h-0 max-lg:flex-col max-lg:overflow-hidden max-lg:py-2 max-lg:pb-0"
+            : "max-lg:pb-6"
+        }`}
+      >
         {/* Loading */}
         {tokenIdOk && isPageLoading && (
           <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_minmax(280px,0.62fr)] lg:gap-x-10 items-start">
@@ -659,27 +644,94 @@ export default function RwaDetailPage() {
         {/* Main content */}
         {showMain && (
           <>
-            <div className="grid grid-cols-1 gap-y-8 lg:grid-cols-[minmax(0,1.05fr)_minmax(280px,0.62fr)] lg:gap-x-10 lg:gap-y-10 xl:gap-x-12 items-start">
-              <div className="min-w-0 flex flex-col gap-0 lg:col-start-1 lg:gap-0">
-                <RwaDetailAssetPanel
-                  metadata={metadata as RwaDetailMetadata | null}
-                  imageUrl={imageUrl}
-                  tokenId={tokenId}
-                  collectionLabel={collectionDisplayName}
-                  metaLoading={metaLoading}
-                  hideHeaderOnXl
-                  openSeaMobile
-                />
+            <div className="grid grid-cols-1 items-start gap-y-8 max-lg:items-center max-lg:gap-y-0 lg:grid-cols-[minmax(0,1.05fr)_minmax(280px,0.62fr)] lg:gap-x-10 lg:gap-y-10 xl:gap-x-12">
+              <div className="relative flex w-full min-w-0 flex-col gap-0 max-lg:items-center lg:col-start-1">
+                <div className={`w-full ${RWA_MOBILE_CONTENT_SCROLL_CLASS}`}>
+                  <RwaDetailAssetPanel
+                    metadata={metadata as RwaDetailMetadata | null}
+                    imageUrl={imageUrl}
+                    tokenId={tokenId}
+                    collectionLabel={collectionDisplayName}
+                    metaLoading={metaLoading}
+                    hideHeaderOnXl
+                    openSeaMobile
+                  />
 
-                <RwaDetailMobileCardHeader
-                  title={detailTitle}
-                  titleLoading={detailTitlePulse}
-                  setDescription={detailSetDescription ?? detailSetHeadline}
-                  cardIdLine={detailCardIdLine}
-                  price={mobileHeroPrice}
-                />
+                  <RwaDetailMobileCardHeader
+                    title={detailTitle}
+                    titleLoading={detailTitlePulse}
+                    setDescription={detailSetDescription ?? detailSetHeadline}
+                    cardIdLine={detailCardIdLine}
+                  />
 
-                <RwaDetailMobileDetailSection rows={rwaDetailStatRows} />
+                  <RwaDetailMobileSpecsPanel
+                    metadata={metadata as RwaDetailMetadata | null}
+                    loading={metaLoading}
+                    externalRefUsd={externalRefUsd}
+                    marketChangePct={marketChangePct}
+                    showMarketContext={showMobileMarketContext}
+                  />
+                </div>
+
+                <RwaDetailStickyBuyFooter footerNote={mobileStickyFooterNote}>
+                  {activeAskListing && !isOwner ? (
+                    <RwaDetailStickyBuyButton
+                      emphasis="primary"
+                      priceUsd={listingBuyPriceUsdc}
+                      disabled={buyBusy || connectPending}
+                      onClick={() => {
+                        if (!isConnected) {
+                          connectMetaMaskWallet(connect, connectors);
+                          return;
+                        }
+                        void handleFulfillAsk();
+                      }}
+                    >
+                      {!isConnected
+                        ? connectPending
+                          ? "Connecting…"
+                          : "Connect wallet"
+                        : buyBusy
+                          ? "Buying…"
+                          : "Buy now"}
+                    </RwaDetailStickyBuyButton>
+                  ) : isOwner ? (
+                    <RwaDetailStickyBuyButton
+                      priceUsd={
+                        listing && listingBuyPriceUsdc != null
+                          ? listingBuyPriceUsdc
+                          : null
+                      }
+                      priceCaption="Listed at"
+                      disabled={connectPending}
+                      onClick={() => {
+                        if (!isConnected) {
+                          connectMetaMaskWallet(connect, connectors);
+                          return;
+                        }
+                        setListModalInitialPrice(null);
+                        setListModalOpen(true);
+                      }}
+                    >
+                      {!isConnected
+                        ? connectPending
+                          ? "Connecting…"
+                          : "Connect wallet"
+                        : listing
+                          ? "Manage listing"
+                          : "List for sale"}
+                    </RwaDetailStickyBuyButton>
+                  ) : (
+                    <RwaDetailStickyBuyButton
+                      disabled={!collectionHref}
+                      onClick={() => {
+                        if (collectionHref) router.push(collectionHref);
+                      }}
+                    >
+                      View market
+                    </RwaDetailStickyBuyButton>
+                  )}
+                </RwaDetailStickyBuyFooter>
               </div>
 
               <div className="hidden w-full min-w-0 flex-col gap-6 sm:gap-7 lg:sticky lg:top-6 lg:col-start-2 lg:flex lg:max-w-[400px] lg:justify-self-end lg:self-start">
@@ -769,7 +821,7 @@ export default function RwaDetailPage() {
 
                 {rwaDetailStatRows.length > 0 ? (
                   <div
-                    className={`mt-10 border-t border-[rgba(38,39,45,1)] pt-8 ${rwaDetailRightFont.className}`}
+                    className={`hidden lg:block mt-10 border-t border-[rgba(38,39,45,1)] pt-8 ${rwaDetailRightFont.className}`}
                   >
                     <h2 className="text-[18px] font-bold leading-[140%] tracking-normal text-white">
                       Details
@@ -791,62 +843,10 @@ export default function RwaDetailPage() {
                     </dl>
                   </div>
                 ) : null}
+
               </div>
 
             </div>
-
-            <RwaDetailStickyBuyFooter footerNote={mobileStickyFooterNote}>
-              {activeAskListing && !isOwner ? (
-                <RwaDetailStickyBuyButton
-                  emphasis="primary"
-                  disabled={buyBusy || connectPending}
-                  onClick={() => {
-                    if (!isConnected) {
-                      connectMetaMaskWallet(connect, connectors);
-                      return;
-                    }
-                    void handleFulfillAsk();
-                  }}
-                >
-                  {!isConnected
-                    ? connectPending
-                      ? "Connecting…"
-                      : "Connect wallet"
-                    : buyBusy
-                      ? "Buying…"
-                      : "Buy"}
-                </RwaDetailStickyBuyButton>
-              ) : isOwner ? (
-                <RwaDetailStickyBuyButton
-                  disabled={connectPending}
-                  onClick={() => {
-                    if (!isConnected) {
-                      connectMetaMaskWallet(connect, connectors);
-                      return;
-                    }
-                    setListModalInitialPrice(null);
-                    setListModalOpen(true);
-                  }}
-                >
-                  {!isConnected
-                    ? connectPending
-                      ? "Connecting…"
-                      : "Connect wallet"
-                    : listing
-                      ? "Manage listing"
-                      : "List for sale"}
-                </RwaDetailStickyBuyButton>
-              ) : (
-                <RwaDetailStickyBuyButton
-                  disabled={!collectionHref}
-                  onClick={() => {
-                    if (collectionHref) router.push(collectionHref);
-                  }}
-                >
-                  View market
-                </RwaDetailStickyBuyButton>
-              )}
-            </RwaDetailStickyBuyFooter>
 
             <TradeCelebrationModal
               open={tradeCelebration != null}

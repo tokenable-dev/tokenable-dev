@@ -72,6 +72,11 @@ const MAIN_HEADER_NAV = [
   { href: "/vault", label: "Vault" },
 ] as const satisfies readonly { readonly href: string; readonly label: string }[];
 
+/** Matches `<header className="… bg-gray-950/90">` — search + wallet controls sit flush on the bar. */
+const HEADER_BAR_BG = "bg-gray-950/90";
+const HEADER_BAR_BORDER = "border-gray-800/60";
+const HEADER_BAR_BORDER_HOVER = "hover:border-gray-700/70";
+
 /** Below `sm`: full-screen search overlay instead of a cramped header dropdown. */
 function useNarrowViewport(): boolean {
   const [narrow, setNarrow] = useState(false);
@@ -362,7 +367,9 @@ function SearchBar({ compact = false }: { compact?: boolean }) {
               >
                 Cancel
               </button>
-              <div className="flex min-h-10 min-w-0 flex-1 items-center gap-2 rounded-lg border border-mint/35 bg-[rgb(14_27_14)] px-3">
+              <div
+                className={`flex min-h-10 min-w-0 flex-1 items-center gap-2 rounded-lg border px-3 ${HEADER_BAR_BORDER} ${HEADER_BAR_BG}`}
+              >
                 <svg className="h-4 w-4 shrink-0 text-mint" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
@@ -427,7 +434,7 @@ function SearchBar({ compact = false }: { compact?: boolean }) {
         <button
           type="button"
           onClick={openMobileSheet}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-gray-700/60 bg-[rgb(14_27_14)] text-mint transition-colors hover:border-gray-600 active:bg-white/[0.04]"
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border text-mint transition-colors active:bg-white/[0.04] ${HEADER_BAR_BORDER} ${HEADER_BAR_BORDER_HOVER} ${HEADER_BAR_BG}`}
           aria-label="Search collections"
         >
           <svg className="h-[18px] w-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
@@ -443,8 +450,10 @@ function SearchBar({ compact = false }: { compact?: boolean }) {
         } ${compact ? "w-[108px] sm:w-[200px]" : "w-[124px] sm:w-[280px]"}`}
       >
         <div
-          className={`flex h-10 w-full items-center gap-2 rounded-lg border px-3 transition-colors bg-[rgb(14_27_14)] ${
-            desktopOpen ? "border-mint/40" : "border-gray-700/60 hover:border-gray-600"
+          className={`flex h-10 w-full items-center gap-2 rounded-lg border px-3 transition-colors ${HEADER_BAR_BG} ${
+            desktopOpen
+              ? "border-gray-700/70"
+              : `${HEADER_BAR_BORDER} ${HEADER_BAR_BORDER_HOVER}`
           }`}
           onClick={() => {
             if (!desktopOpen) setDesktopOpen(true);
@@ -566,7 +575,7 @@ function WalletDropdown() {
       <button
         onClick={() => metaMaskConnector && connect({ connector: metaMaskConnector })}
         disabled={isPending || !metaMaskConnector}
-        className="flex h-10 w-[164px] items-center justify-center gap-2 rounded-xl bg-transparent px-4 text-sm font-semibold text-mint transition-colors hover:text-mint-dim active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50"
+        className={`flex h-10 w-[164px] items-center justify-center gap-2 rounded-xl border px-4 text-sm font-semibold text-mint transition-colors hover:text-mint-dim active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 ${HEADER_BAR_BORDER} ${HEADER_BAR_BORDER_HOVER} ${HEADER_BAR_BG}`}
       >
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a2.25 2.25 0 00-2.25-2.25H15a3 3 0 110-6h3.75A2.25 2.25 0 0121 6v6zm0 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18V6a2.25 2.25 0 012.25-2.25h13.5" />
@@ -591,10 +600,10 @@ function WalletDropdown() {
         aria-expanded={open}
         aria-haspopup="true"
         onClick={() => setOpen((p) => !p)}
-        className={`flex h-10 w-max max-w-[min(100vw-7rem,17rem)] items-center justify-between gap-2 rounded-xl border px-2.5 sm:min-w-[10.5rem] sm:px-3 text-sm transition-colors ${
+        className={`flex h-10 w-max max-w-[min(100vw-7rem,17rem)] items-center justify-between gap-2 rounded-xl border px-2.5 sm:min-w-[10.5rem] sm:px-3 text-sm transition-colors ${HEADER_BAR_BG} ${
           open
-            ? "border-mint/40 bg-gray-800/90"
-            : "border-gray-700/60 bg-gray-800/50 hover:border-gray-600"
+            ? "border-gray-700/70"
+            : `${HEADER_BAR_BORDER} ${HEADER_BAR_BORDER_HOVER}`
         }`}
       >
         <span className="flex min-w-0 flex-1 items-center gap-2">

@@ -23,7 +23,7 @@ function CompactDetailsBody({
   title: string;
 }) {
   return (
-    <article className="mx-auto w-full min-w-0 max-w-[min(100%,20rem)] bg-transparent px-3 py-2 xl:hidden">
+    <article className="mx-auto w-full min-w-0 max-w-[min(100%,20rem)] bg-transparent px-3 py-2 lg:hidden">
       <h2 className="sr-only">{title}</h2>
       <dl className="flex w-full min-w-0 flex-col gap-y-2.5">
         {rows.map((row) => (
@@ -62,7 +62,7 @@ function FullDetailsBody({
   footer?: ReactNode;
 }) {
   return (
-    <article className="hidden rounded-2xl bg-[rgba(8,8,8,1)] px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:px-5 sm:py-5 lg:px-6 lg:py-6 xl:block">
+    <article className="hidden rounded-2xl bg-[rgba(8,8,8,1)] px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:px-5 sm:py-5 lg:px-6 lg:py-6 lg:block">
       <h2
         className={`${detailsKvFont.className} text-[16px] font-bold leading-[140%] tracking-normal text-white sm:text-[17px]`}
       >
