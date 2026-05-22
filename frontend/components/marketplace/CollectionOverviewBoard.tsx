@@ -35,6 +35,10 @@ const collectionHeroFont = IBM_Plex_Sans({
 const HEADLINE_OUTLINE_TAG =
   "inline-flex h-[26px] min-h-[26px] shrink-0 items-center justify-center rounded border border-[#a2a2a2] bg-transparent px-[10px] py-1 text-sm font-normal leading-none text-white";
 
+/** Mobile collection hero — filled pills per reference mockup. */
+const MOBILE_HEADLINE_TAG =
+  "inline-flex h-[28px] min-h-[28px] shrink-0 items-center justify-center rounded-md border border-zinc-700/80 bg-zinc-800/90 px-2.5 py-1 text-[12px] font-semibold leading-none text-white";
+
 /** Secondary lines under the hero title (set, meta, badges, chips). */
 const HEADLINE_NAME_TEXT = "text-[15px] leading-snug tracking-normal";
 
@@ -116,6 +120,19 @@ export interface CollectionOverviewBoardProps {
   leftColumnFooter?: ReactNode;
   /** Placed directly under the representative card image (before hero actions + metadata). */
   belowCover?: ReactNode;
+  /** Mobile only (`max-xl`): price / market tiles directly under the cover image. */
+  mobileCoverBelowMetrics?: ReactNode;
+  /** Mobile: current price row under hero identity (replaces {@link mobileCoverBelowMetrics} when set). */
+  mobileCurrentPriceRow?: ReactNode;
+  /** Mobile: Information / Chart / Order book tabs. */
+  mobileMarketTabs?: ReactNode;
+  /** Mobile: Detail KV block below tabs. */
+  mobileDetailSection?: ReactNode;
+  /**
+   * When true with {@link mobileMarketTabs}: inline chart/order book hidden on `max-xl`;
+   * market data is shown only inside the mobile tab panels.
+   */
+  mobileTabbedMarketUi?: boolean;
   /**
    * Exchange triple only: block directly under the chart/order-book cluster (e.g. individual listings grid).
    */
@@ -156,9 +173,28 @@ function buildHeadlineSubtitleLine(
   return parts.length > 0 ? parts.join(" | ") : null;
 }
 
+/** Mobile hero: set · meta on one line; card # on its own line below. */
+function buildMobileHeadlineCopy(
+  setLine: string | null | undefined,
+  metaStrip: string | null | undefined,
+  infoTags: { id: string; text: string }[] | null | undefined,
+): { subtitleLine: string | null; cardNumber: string | null } {
+  const parts: string[] = [];
+  const s = setLine?.trim();
+  if (s) parts.push(s);
+  const m = metaStrip?.trim();
+  if (m) parts.push(m);
+  const cardNo = infoTags?.find((t) => t.id === "cardno")?.text?.trim() ?? null;
+  return {
+    subtitleLine: parts.length > 0 ? parts.join(" | ") : null,
+    cardNumber: cardNo,
+  };
+}
+
 function CollectionMobileHeadline({
   headlineTitle,
   headlineSubtitleLine,
+  headlineCardNumber,
   categoryBadge,
   gradeBadge,
   populationBadge,
@@ -167,6 +203,7 @@ function CollectionMobileHeadline({
 }: {
   headlineTitle: string;
   headlineSubtitleLine: string | null;
+  headlineCardNumber?: string | null;
   categoryBadge?: string | null;
   gradeBadge?: string | null;
   populationBadge?: string | null;
@@ -179,39 +216,17 @@ function CollectionMobileHeadline({
     Boolean(populationBadge?.trim()) ||
     Boolean(badgeLabel);
 
+  const cardNo = headlineCardNumber?.trim() || null;
+
   return (
     <header
-      className={`${collectionHeroFont.className} w-full min-w-0 space-y-1.5 text-center xl:hidden`}
+      className={`${collectionHeroFont.className} w-full min-w-0 space-y-2 text-left xl:hidden`}
     >
-      {hasBadges ? (
-        <div
-          className="flex flex-wrap items-center justify-center gap-2"
-          aria-label="Collection tags"
-        >
-          {categoryBadge ? (
-            <span className={HEADLINE_OUTLINE_TAG}>{categoryBadge}</span>
-          ) : (
-            <span className={HEADLINE_OUTLINE_TAG}>{badgeLabel}</span>
-          )}
-          {gradeBadge ? <span className={HEADLINE_OUTLINE_TAG}>{gradeBadge}</span> : null}
-          {populationBadge?.trim() ? (
-            <span
-              className={HEADLINE_OUTLINE_TAG}
-              title="PSA population for this grade (reported)"
-            >
-              {formatPopulationHeadlineTag(populationBadge)}
-            </span>
-          ) : null}
-        </div>
-      ) : null}
-
       {suppressTitle ? (
         <h1 className="sr-only">{headlineTitle}</h1>
       ) : (
         <h1
-          className={`text-[1.2rem] font-bold leading-[1.25] tracking-normal text-white [overflow-wrap:anywhere] ${
-            hasBadges ? "pt-0.5" : ""
-          }`}
+          className="text-[1.375rem] font-bold leading-[1.2] tracking-tight text-white [overflow-wrap:anywhere] sm:text-[1.5rem]"
           title={headlineTitle}
         >
           {headlineTitle}
@@ -219,9 +234,35 @@ function CollectionMobileHeadline({
       )}
 
       {headlineSubtitleLine ? (
-        <p className="text-[12px] font-normal leading-snug text-zinc-500 [overflow-wrap:anywhere]">
+        <p className="text-[13px] font-normal leading-snug text-zinc-500 [overflow-wrap:anywhere]">
           {headlineSubtitleLine}
         </p>
+      ) : null}
+
+      {cardNo ? (
+        <p className="text-[13px] font-medium tabular-nums text-zinc-500">{cardNo}</p>
+      ) : null}
+
+      {hasBadges ? (
+        <div
+          className="flex flex-wrap items-center gap-2 pt-0.5"
+          aria-label="Collection tags"
+        >
+          {categoryBadge ? (
+            <span className={MOBILE_HEADLINE_TAG}>{categoryBadge}</span>
+          ) : (
+            <span className={MOBILE_HEADLINE_TAG}>{badgeLabel}</span>
+          )}
+          {gradeBadge ? <span className={MOBILE_HEADLINE_TAG}>{gradeBadge}</span> : null}
+          {populationBadge?.trim() ? (
+            <span
+              className={MOBILE_HEADLINE_TAG}
+              title="PSA population for this grade (reported)"
+            >
+              {formatPopulationHeadlineTag(populationBadge)}
+            </span>
+          ) : null}
+        </div>
       ) : null}
     </header>
   );
@@ -284,6 +325,11 @@ export function CollectionOverviewBoard({
   leftColumnFooter,
   heroActions,
   belowCover,
+  mobileCoverBelowMetrics,
+  mobileCurrentPriceRow,
+  mobileMarketTabs,
+  mobileDetailSection,
+  mobileTabbedMarketUi = false,
   exchangeBelowChart,
   suppressHeadlineBanner = false,
 }: CollectionOverviewBoardProps) {
@@ -297,14 +343,21 @@ export function CollectionOverviewBoard({
       ? buildHeadlineSubtitleLine(headlineSetLine, headlineMetaStrip, headlineInfoTags ?? null)
       : null;
 
+  const mobileHeadlineCopy =
+    headlineTitleLayout && headlineTitle
+      ? buildMobileHeadlineCopy(headlineSetLine, headlineMetaStrip, headlineInfoTags ?? null)
+      : null;
+
   const showMobileHeroIdentity = Boolean(headlineTitleLayout && headlineTitle);
   const hideTopHeadlineBarOnMobile = showMobileHeroIdentity && stats.length === 0;
+  const useMobileTabbedMarket = mobileTabbedMarketUi && mobileMarketTabs != null;
 
   const mobileHeadlineBlock =
     showMobileHeroIdentity && headlineTitle ? (
       <CollectionMobileHeadline
         headlineTitle={headlineTitle}
-        headlineSubtitleLine={headlineSubtitleLine}
+        headlineSubtitleLine={mobileHeadlineCopy?.subtitleLine ?? headlineSubtitleLine}
+        headlineCardNumber={mobileHeadlineCopy?.cardNumber}
         categoryBadge={categoryBadge}
         gradeBadge={gradeBadge}
         populationBadge={populationBadge}
@@ -460,8 +513,7 @@ export function CollectionOverviewBoard({
               exchangeTriple ? "max-lg:items-stretch lg:items-start" : "items-stretch"
             }`}
           >
-            <div className="mx-auto flex w-full min-w-0 max-w-[min(100%,360px)] flex-col gap-1.5 max-xl:w-full lg:mx-0 lg:max-w-[307px]">
-              {mobileHeadlineBlock}
+            <div className="mx-auto flex w-full min-w-0 max-w-[min(100%,360px)] flex-col gap-2 max-xl:w-full lg:mx-0 lg:max-w-[307px]">
               {imageUrl ? (
                 <CollectionCoverFrame
                   imageUrl={imageUrl}
@@ -474,9 +526,25 @@ export function CollectionOverviewBoard({
                   No preview
                 </div>
               )}
+              {mobileHeadlineBlock}
+              {useMobileTabbedMarket ? (
+                <>
+                  {mobileCurrentPriceRow}
+                  {mobileMarketTabs}
+                  {mobileDetailSection}
+                </>
+              ) : (
+                <>
+                  {mobileCoverBelowMetrics != null ? (
+                    <div className="w-full min-w-0 max-xl:block xl:hidden">
+                      {mobileCoverBelowMetrics}
+                    </div>
+                  ) : null}
+                </>
+              )}
             </div>
             {belowCover != null ? (
-              <div className="w-full min-w-0">{belowCover}</div>
+              <div className="hidden w-full min-w-0 xl:block">{belowCover}</div>
             ) : null}
             {heroActions != null ? (
               <div className="flex w-full max-w-[307px] shrink-0 flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-stretch sm:gap-x-2 sm:gap-y-2">
@@ -526,7 +594,7 @@ export function CollectionOverviewBoard({
                 <div className={`${COLLECTION_MARKET_CLUSTER_MAT} w-full min-w-0`}>
                   {chartMetricsRow != null ? (
                     <div
-                      className={`w-full min-w-0 ${
+                      className={`hidden w-full min-w-0 xl:block ${
                         orderBookToggleEnabled
                           ? "max-xl:pt-0 pt-[calc(1.25rem-5px)] sm:pt-[calc(1.5rem-5px)] lg:pt-[calc(1.25rem-5px)]"
                           : ""
@@ -549,7 +617,13 @@ export function CollectionOverviewBoard({
                       .join(" ")}
                   >
                   {/* Row 1: chart — fixed 409px on xl; explicit height on mobile */}
-                  <div className="flex min-h-0 min-w-0 flex-col max-xl:h-[min(340px,44svh)] max-xl:shrink-0 xl:col-start-1 xl:row-start-1 xl:h-[409px] xl:max-h-[409px]">
+                  <div
+                    className={`flex min-h-0 min-w-0 flex-col xl:col-start-1 xl:row-start-1 xl:h-[409px] xl:max-h-[409px] ${
+                      useMobileTabbedMarket
+                        ? "max-xl:hidden"
+                        : "max-xl:h-[min(340px,44svh)] max-xl:shrink-0"
+                    }`}
+                  >
                     <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col xl:h-full">
                       {priceChart ?? (
                         <CollectionPriceHistoryPlaceholder className="h-full w-full min-h-0 max-xl:min-h-0 xl:h-full xl:min-h-0" />
@@ -557,7 +631,7 @@ export function CollectionOverviewBoard({
                     </div>
                   </div>
 
-                  {orderBookToggleEnabled ? (
+                  {orderBookToggleEnabled && !useMobileTabbedMarket ? (
                     <div className="w-full min-w-0 shrink-0 xl:hidden">
                       <CollectionOrderBookVisibilityToggle
                         checked={showOrderBook}
@@ -569,7 +643,11 @@ export function CollectionOverviewBoard({
 
                   {/* Row 1 col 2: order book — fixed 409px on xl */}
                   {orderBookColumnVisible ? (
-                    <div className="flex min-h-0 w-full min-w-0 max-w-full flex-col items-stretch gap-2 self-stretch xl:col-start-2 xl:row-start-1 xl:w-[221px] xl:shrink-0">
+                    <div
+                      className={`flex min-h-0 w-full min-w-0 max-w-full flex-col items-stretch gap-2 self-stretch xl:col-start-2 xl:row-start-1 xl:w-[221px] xl:shrink-0 ${
+                        useMobileTabbedMarket ? "max-xl:hidden" : ""
+                      }`}
+                    >
                       {exchangeRightStackTop ? (
                         <div className="min-h-0 w-full min-w-0 shrink-0 overflow-y-auto">
                           {exchangeRightStackTop}
@@ -608,6 +686,20 @@ export function CollectionOverviewBoard({
                       aria-label="Individual listings"
                     >
                       {exchangeBelowChart}
+                    </div>
+                  ) : null}
+                  {belowCover != null && !useMobileTabbedMarket ? (
+                    <div
+                      className={[
+                        "min-w-0 w-full max-w-full max-xl:mt-4 max-xl:block xl:hidden",
+                        orderBookColumnVisible ? "xl:col-span-2" : "xl:col-span-1",
+                        exchangeChartFooter != null
+                          ? "max-xl:row-start-auto"
+                          : "max-xl:row-start-auto",
+                      ].join(" ")}
+                      aria-label="Collection details"
+                    >
+                      {belowCover}
                     </div>
                   ) : null}
                 </div>

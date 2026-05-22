@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { RwaImageZoom } from "@/components/common";
+import { RwaImageLightbox } from "@/components/common";
 import { postResolveMediaUrls } from "@/lib/core";
+import { formatSportCategoryDisplayLabel } from "@/lib/market";
 import { displayAssetNameFromMetadata } from "@/lib/marketplace/rwaDisplayTitle";
 import { SlabCardFlip } from "./SlabCardFlip";
 
@@ -74,15 +75,22 @@ export function buildRwaDetailStatRows(meta: RwaDetailMetadata | null): {
   const category = pickString(psa?.category);
 
   if (player) rows.push({ label: "Player", value: player });
+  if (num) {
+    rows.push({
+      label: "Card Number",
+      value: String(num).startsWith("#") ? String(num) : `#${num}`,
+    });
+  }
   if (set) rows.push({ label: "Set", value: set });
-  if (num) rows.push({
-    label: "Card Number",
-    value: String(num).startsWith("#") ? String(num) : `#${num}`,
-  });
   if (variant && variant !== gradeLabel) rows.push({ label: "Variant", value: variant });
   if (gradeLabel) rows.push({ label: "Grade", value: gradeLabel });
   if (year) rows.push({ label: "Year", value: year });
-  if (category) rows.push({ label: "Category", value: category });
+  if (category) {
+    rows.push({
+      label: "Category",
+      value: formatSportCategoryDisplayLabel(category),
+    });
+  }
   if (cert) rows.push({ label: "Cert #", value: cert });
 
   if (rows.length >= 2) return rows.slice(0, 8);
@@ -154,6 +162,38 @@ export function formatRwaSetHeadline(meta: RwaDetailMetadata | null): string | n
   return null;
 }
 
+/** Mobile card header — full set line (year + set), without card number. */
+export function formatRwaDetailSetDescription(
+  meta: RwaDetailMetadata | null,
+): string | null {
+  if (!meta) return null;
+  const graded = meta.properties?.graded as Record<string, unknown> | undefined;
+  const psa = graded?.psa as Record<string, unknown> | undefined;
+  const card = graded?.card as Record<string, unknown> | undefined;
+  const year = pickString(psa?.year, card?.year);
+  const set = pickString(card?.set, psa?.setHint);
+  if (year && set) return `${year} ${set}`;
+  const one = pickString(set, year);
+  if (one) return one;
+  const desc = typeof meta.description === "string" ? meta.description.trim() : "";
+  return desc.length > 0 ? desc : null;
+}
+
+/** Mobile card header — catalog id line (e.g. #SV P85). */
+export function formatRwaDetailCardIdLine(
+  meta: RwaDetailMetadata | null,
+): string | null {
+  if (!meta) return null;
+  const graded = meta.properties?.graded as Record<string, unknown> | undefined;
+  const psa = graded?.psa as Record<string, unknown> | undefined;
+  const card = graded?.card as Record<string, unknown> | undefined;
+  const numRaw = pickString(card?.number, psa?.cardNumberHint);
+  if (!numRaw) return null;
+  const raw = numRaw;
+  const s = String(raw).trim();
+  return s.startsWith("#") ? s : `#${s}`;
+}
+
 /** 카테고리(예: Pokemon) · 등급(예: PSA 10) 우선 헤더 배지. */
 function pickHeaderCategoryGrade(
   meta: RwaDetailMetadata | null,
@@ -203,7 +243,9 @@ function pickHeaderCategoryGrade(
   }
 
   return {
-    category: catOut?.length ? catOut : null,
+    category: catOut?.length
+      ? formatSportCategoryDisplayLabel(catOut)
+      : null,
     gradeLine: gradeOut?.length ? gradeOut : null,
   };
 }
@@ -233,10 +275,14 @@ export interface RwaDetailAssetPanelProps {
   tokenId: number;
   collectionLabel: string;
   metaLoading?: boolean;
-  /** Below title · above slab · pass `xl:hidden` from parent when only for narrow viewports */
+  /** Below slab on mobile; above slab on lg+ when set. */
   priceMetricsSlot?: ReactNode;
+  /** Price + buy CTA beside slab on mobile (`max-xl` only). */
+  mobileHeroTradingSlot?: ReactNode;
   /** When true, title + badge row are hidden from `lg` up (show in sticky column beside slab). */
   hideHeaderOnXl?: boolean;
+  /** Mobile: full-bleed hero + identity/purchase rendered by parent (OpenSea-style). */
+  openSeaMobile?: boolean;
 }
 
 /**
@@ -249,8 +295,11 @@ export function RwaDetailAssetPanel({
   collectionLabel,
   metaLoading,
   priceMetricsSlot,
+  mobileHeroTradingSlot,
   hideHeaderOnXl = false,
+  openSeaMobile = false,
 }: RwaDetailAssetPanelProps) {
+  const [lightboxOpen, setLightboxOpen] = useState(false);
   const title =
     displayAssetNameFromMetadata(
       metadata,
@@ -298,7 +347,8 @@ export function RwaDetailAssetPanel({
   useEffect(() => {
     setFlipAngle(0);
     setSlabAutoRotateOn(false);
-  }, [tokenId, backCandidate]);
+    setLightboxOpen(false);
+  }, [tokenId, backCandidate, imageUrl]);
 
   useEffect(() => {
     if (flipAngle >= 90 && !hasBackFace && !backResolving) {
@@ -320,22 +370,44 @@ export function RwaDetailAssetPanel({
   const frontHeroLoading = Boolean(metaLoading && !imageUrl);
   const backHeroLoading = Boolean(backNeedsGateway) && backResolving;
 
-  const slabHeroSizing =
-    "relative mx-auto aspect-[3/4] w-full max-w-[min(100%,340px)] overflow-visible rounded-xl max-h-[min(62vh,560px)] sm:max-w-[min(100%,380px)] sm:rounded-2xl sm:max-h-[min(68vh,620px)] lg:max-w-none lg:max-h-[min(72vh,680px)]";
+  const slabHeroSizing = openSeaMobile
+    ? "relative mx-auto aspect-square w-full max-w-none overflow-visible rounded-none bg-[#1c1c1e] max-h-[min(100vw,480px)] max-xl:rounded-none sm:max-h-[min(100vw,520px)] lg:aspect-[3/4] lg:max-h-[min(72vh,680px)] lg:max-w-none lg:rounded-2xl lg:bg-[#030508]"
+    : "relative mx-auto aspect-[3/4] w-full max-w-[min(100%,340px)] overflow-visible rounded-xl max-h-[min(62vh,560px)] sm:max-w-[min(100%,380px)] sm:rounded-2xl sm:max-h-[min(68vh,620px)] lg:max-w-none lg:max-h-[min(72vh,680px)]";
+
+  const slabThumbSize = openSeaMobile
+    ? "relative aspect-[3/4] w-10 shrink-0 overflow-hidden rounded-md border-2 max-xl:rounded-md lg:w-14 lg:rounded-lg"
+    : "relative aspect-[3/4] w-14 shrink-0 overflow-hidden rounded-lg border-2";
+
+  const slabThumbMinH = openSeaMobile
+    ? "min-h-[2.75rem] max-xl:min-h-[2.75rem] lg:min-h-[4.5rem]"
+    : "min-h-[4.5rem]";
+
+  const slabControlsGap = openSeaMobile
+    ? "mt-0 flex w-full flex-wrap items-end justify-center gap-2 max-xl:gap-2 sm:max-xl:gap-2 lg:gap-3 lg:mt-0"
+    : "mt-0 flex w-full flex-wrap items-end justify-center gap-3 sm:gap-4";
+
+  const slabRotateGlyphWrap = openSeaMobile
+    ? "flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/95 shadow-md ring-1 ring-black/45 max-xl:h-6 max-xl:w-6 lg:h-8 lg:w-8"
+    : "flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/95 shadow-md ring-1 ring-black/45";
+
+  const slabRotateGlyph = openSeaMobile
+    ? "h-3 w-3 text-[#0a1210] max-xl:h-3 max-xl:w-3 lg:h-3.5 lg:w-3.5"
+    : "h-3.5 w-3.5 text-[#0a1210]";
 
   const headerRowPulse =
     Boolean(metaLoading) && !headerCategory && !headerGradeLine && !setHeadline;
   const titlePulse = Boolean(metaLoading) && !metadata?.name?.trim();
 
-  return (
-    <div className="flex min-w-0 flex-col gap-4 lg:gap-5">
-      <div
-        className={
-          hideHeaderOnXl
-            ? "space-y-2 px-0.5 lg:px-0 lg:hidden"
-            : "space-y-2 px-0.5 lg:px-0"
-        }
-      >
+  const headerBlock = (
+    <div
+      className={
+        openSeaMobile
+          ? "hidden space-y-2 px-0.5 lg:block lg:px-0"
+          : hideHeaderOnXl
+            ? "space-y-2 px-0.5 max-xl:order-3 lg:order-none lg:px-0 lg:hidden"
+            : "space-y-2 px-0.5 max-xl:order-3 lg:order-none lg:px-0"
+      }
+    >
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
           {headerRowPulse ? (
             <>
@@ -346,7 +418,11 @@ export function RwaDetailAssetPanel({
           ) : (
             <>
               {headerCategory ? (
-                <span className="inline-flex shrink-0 items-center rounded-md border border-amber-400/35 bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold capitalize tracking-wide text-amber-50 sm:text-[11px]">
+                <span
+                  className={`inline-flex shrink-0 items-center rounded-md border border-amber-400/35 bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-amber-50 sm:text-[11px] ${
+                    headerCategory === "NBA" ? "uppercase" : "capitalize"
+                  }`}
+                >
                   {headerCategory}
                 </span>
               ) : null}
@@ -373,11 +449,33 @@ export function RwaDetailAssetPanel({
             {title}
           </h1>
         )}
-      </div>
+    </div>
+  );
 
-      {priceMetricsSlot ?? null}
+  return (
+    <div
+      className={`flex min-w-0 flex-col gap-4 max-xl:gap-3 lg:gap-5 ${
+        openSeaMobile ? "max-xl:-mx-3 max-xl:gap-0 sm:max-xl:-mx-5" : ""
+      }`}
+    >
+      {headerBlock}
 
-      <div className="min-w-0 space-y-3">
+      {priceMetricsSlot && !openSeaMobile ? (
+        <div className="max-xl:order-2 lg:order-none">{priceMetricsSlot}</div>
+      ) : null}
+
+      <div
+        className={`min-w-0 space-y-3 ${
+          openSeaMobile ? "max-xl:order-none lg:order-none" : "max-xl:order-1 lg:order-none"
+        }`}
+      >
+        <div
+          className={
+            mobileHeroTradingSlot && !openSeaMobile
+              ? "max-xl:grid max-xl:grid-cols-[minmax(0,1fr)_minmax(112px,34%)] max-xl:items-start max-xl:gap-3 sm:max-xl:gap-3.5"
+              : ""
+          }
+        >
         {/* overflow-visible preserves 3D flip (rotateY edges) */}
         <div className={`${slabHeroSizing} bg-transparent`}>
           {useFlipSlab ? (
@@ -415,19 +513,35 @@ export function RwaDetailAssetPanel({
             <div className="absolute inset-0 rounded-2xl bg-gray-800/80 animate-pulse" />
           ) : imageUrl ? (
             <>
-              <div className={`${slabHeroSizing} min-h-0 overflow-hidden bg-[#030508]`}>
-                <RwaImageZoom
-                  key={`${tokenId}-${imageUrl.slice(0, 48)}`}
+              <div className={`${slabHeroSizing} group/img relative min-h-0 overflow-hidden bg-[#030508]`}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
                   src={imageUrl}
                   alt={`${title} — slab front`}
-                  className="w-full h-full min-h-0"
-                  zoomFactor={3}
-                  lensSize={230}
+                  className="h-full w-full min-h-0 object-contain object-center"
+                  draggable={false}
+                  referrerPolicy="no-referrer"
                 />
+                <button
+                  type="button"
+                  onClick={() => setLightboxOpen(true)}
+                  className="absolute inset-0 z-[2] cursor-pointer bg-transparent outline-none transition-colors hover:bg-black/[0.12] active:bg-black/[0.18] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-mint/55"
+                  aria-label="View enlarged card image"
+                  title="Tap to enlarge"
+                />
+                <span className="pointer-events-none absolute bottom-2 left-1/2 z-[3] max-w-[90%] -translate-x-1/2 truncate rounded-md bg-black/58 px-2 py-0.5 text-center text-[9px] font-medium text-zinc-100/95 shadow-sm ring-1 ring-black/40 sm:text-[10px]">
+                  Tap to enlarge
+                </span>
               </div>
               <div
                 className="pointer-events-none absolute inset-x-0 top-0 z-[1] h-2/5 rounded-t-2xl bg-gradient-to-b from-white/[0.04] to-transparent"
                 aria-hidden
+              />
+              <RwaImageLightbox
+                open={lightboxOpen}
+                src={imageUrl}
+                alt={`${title} — slab front`}
+                onClose={() => setLightboxOpen(false)}
               />
             </>
           ) : (
@@ -437,10 +551,25 @@ export function RwaDetailAssetPanel({
           )}
         </div>
 
+        {mobileHeroTradingSlot && !openSeaMobile ? (
+          <div className="flex min-w-0 flex-col justify-end gap-3 max-xl:pt-1 lg:hidden">
+            {mobileHeroTradingSlot}
+          </div>
+        ) : null}
+        </div>
+
         {useFlipSlab ? (
           <>
-            <div className="mt-0 flex w-full flex-wrap items-end justify-center gap-3 sm:gap-4">
-              <div className="flex gap-2.5" role="tablist" aria-label="Slab photo side">
+            <div
+              className={`${slabControlsGap} ${
+                openSeaMobile ? "max-xl:px-3 max-xl:pb-1.5 sm:max-xl:px-5" : ""
+              }`}
+            >
+              <div
+                className={`flex ${openSeaMobile ? "gap-2 max-xl:gap-2 lg:gap-2.5" : "gap-2.5"}`}
+                role="tablist"
+                aria-label="Slab photo side"
+              >
                 <button
                   type="button"
                   role="tab"
@@ -451,15 +580,15 @@ export function RwaDetailAssetPanel({
                     setSlabAutoRotateOn(false);
                     setFlipAngle(0);
                   }}
-                  className={`relative aspect-[3/4] w-14 shrink-0 overflow-hidden rounded-lg border-2 transition-colors ${
+                  className={`${slabThumbSize} transition-colors ${
                     showFrontFlipTab
-                      ? "border-mint/65 bg-mint/10 ring-2 ring-mint/25"
+                      ? "border-mint/65 bg-mint/10 ring-1 ring-mint/25 max-xl:ring-1 lg:ring-2"
                       : "border-gray-700/90 bg-black/40 opacity-85 hover:border-gray-500 hover:opacity-100"
                   }`}
                 >
                   {frontHeroLoading ? (
                     <span
-                      className="block h-full min-h-[4.5rem] w-full animate-pulse bg-gray-800"
+                      className={`block h-full ${slabThumbMinH} w-full animate-pulse bg-gray-800`}
                       aria-hidden
                     />
                   ) : imageUrl ? (
@@ -472,7 +601,9 @@ export function RwaDetailAssetPanel({
                       referrerPolicy="no-referrer"
                     />
                   ) : (
-                    <span className="flex min-h-[4.5rem] w-full items-center justify-center bg-[#0a0f16] text-[10px] text-zinc-600">
+                    <span
+                      className={`flex ${slabThumbMinH} w-full items-center justify-center bg-[#0a0f16] text-[9px] text-zinc-600 max-xl:text-[9px]`}
+                    >
                       —
                     </span>
                   )}
@@ -487,15 +618,15 @@ export function RwaDetailAssetPanel({
                     setSlabAutoRotateOn(false);
                     setFlipAngle(180);
                   }}
-                  className={`relative aspect-[3/4] w-14 shrink-0 overflow-hidden rounded-lg border-2 transition-colors ${
+                  className={`${slabThumbSize} transition-colors ${
                     !showFrontFlipTab
-                      ? "border-mint/65 bg-mint/10 ring-2 ring-mint/25"
+                      ? "border-mint/65 bg-mint/10 ring-1 ring-mint/25 max-xl:ring-1 lg:ring-2"
                       : "border-gray-700/90 bg-black/40 opacity-85 hover:border-gray-500 hover:opacity-100"
                   }`}
                 >
                   {backHeroLoading ? (
                     <span
-                      className="block h-full min-h-[4.5rem] w-full animate-pulse bg-gray-800"
+                      className={`block h-full ${slabThumbMinH} w-full animate-pulse bg-gray-800`}
                       aria-hidden
                     />
                   ) : effectiveBackUrl ? (
@@ -509,8 +640,12 @@ export function RwaDetailAssetPanel({
                       referrerPolicy="no-referrer"
                     />
                   ) : (
-                    <span className="flex min-h-[4.5rem] w-full flex-col items-center justify-center gap-0.5 bg-[#0a0f16] px-1 text-center">
-                      <span className="text-[9px] leading-tight text-zinc-500">No rear</span>
+                    <span
+                      className={`flex ${slabThumbMinH} w-full flex-col items-center justify-center gap-0.5 bg-[#0a0f16] px-0.5 text-center`}
+                    >
+                      <span className="text-[8px] leading-tight text-zinc-500 max-xl:text-[8px] lg:text-[9px]">
+                        No rear
+                      </span>
                     </span>
                   )}
                 </button>
@@ -519,7 +654,7 @@ export function RwaDetailAssetPanel({
                 <button
                   type="button"
                   aria-pressed={slabAutoRotateOn}
-                  className={`group relative aspect-[3/4] w-14 shrink-0 overflow-hidden rounded-lg border-2 bg-black/35 shadow-[0_6px_20px_-10px_rgba(0,0,0,0.75)] transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mint/70 ${
+                  className={`group ${slabThumbSize} bg-black/35 shadow-[0_4px_14px_-8px_rgba(0,0,0,0.75)] transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mint/70 max-xl:shadow-[0_4px_12px_-8px_rgba(0,0,0,0.7)] lg:shadow-[0_6px_20px_-10px_rgba(0,0,0,0.75)] ${
                     slabAutoRotateOn
                       ? "border-mint/40 ring-1 ring-mint/15 hover:border-mint/55 hover:ring-mint/25"
                       : "border-mint/55 ring-1 ring-mint/20 hover:border-mint/80 hover:ring-mint/35"
@@ -547,11 +682,11 @@ export function RwaDetailAssetPanel({
                         : "bg-black/40 group-hover:bg-black/32"
                     }`}
                   >
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/95 shadow-md ring-1 ring-black/45">
+                    <span className={slabRotateGlyphWrap}>
                       {slabAutoRotateOn ? (
-                        <SlabPauseGlyph className="h-3.5 w-3.5 text-[#0a1210]" />
+                        <SlabPauseGlyph className={slabRotateGlyph} />
                       ) : (
-                        <SlabPlayGlyph className="h-3.5 w-3.5 translate-x-[1px] text-[#0a1210]" />
+                        <SlabPlayGlyph className={`${slabRotateGlyph} translate-x-[1px]`} />
                       )}
                     </span>
                   </span>

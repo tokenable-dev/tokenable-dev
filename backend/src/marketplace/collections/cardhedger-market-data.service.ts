@@ -727,6 +727,28 @@ export class CardhedgerMarketDataService {
     if (setMatched) score += 60;
     if (nameMatched) score += 50;
 
+    const pv = hints.psaVariety?.trim() ?? '';
+    if (pv && psaVarietyRequiresNonBaseCardhedgerRow(pv)) {
+      if (cardhedgerRowMatchesPsaVariety(row as Record<string, unknown>, pv)) {
+        score += 40;
+      }
+    }
+    const hintBlob = [
+      hints.cardSet,
+      hints.cardName,
+      hints.listingDisplayTitle,
+      hints.cardhedgerSearchQuery,
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+    if (
+      /\b(precious\s*metal|pmg)\b/.test(hintBlob) &&
+      this.rowLooksLikePreciousMetalGemsRow(row)
+    ) {
+      score += 35;
+    }
+
     const verified = numberMatched && setMatched && nameMatched;
     return { score, verified, numberMatched };
   }
@@ -1899,6 +1921,39 @@ export class CardhedgerMarketDataService {
     return result;
   }
 
+  private rowLooksLikePreciousMetalGemsRow(row: CardhedgerCardRow): boolean {
+    const blob = this.rowParallelBlob(row).toLowerCase();
+    return (
+      blob.includes('precious metal gems') ||
+      blob.includes('precious metal') ||
+      /\bpmg\b/.test(blob)
+    );
+  }
+
+  /** PMG / insert line when PSA Variety or listing copy names a parallel beyond Base. */
+  private collectionHintsWantPreciousMetalGems(q: {
+    psaVariety: string | null;
+    listingDisplayTitle: string | null;
+    cardSet: string;
+    cardName: string;
+    query: string;
+    cardhedgerSearchQuery: string | null;
+  }): boolean {
+    const pv = q.psaVariety?.trim() ?? '';
+    if (pv && psaVarietyRequiresNonBaseCardhedgerRow(pv)) return true;
+    const blob = [
+      q.listingDisplayTitle,
+      q.cardSet,
+      q.cardName,
+      q.query,
+      q.cardhedgerSearchQuery,
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+    return /\b(precious\s*metal|pmg)\b/.test(blob);
+  }
+
   private pickBestResolvedCardFromSearchResults(
     rows: CardhedgerCardRow[],
     q: {
@@ -1942,6 +1997,37 @@ export class CardhedgerMarketDataService {
     const numberOnly = scored.filter((x) => x.numberMatched);
     if (numberOnly.length === 1) {
       return { row: numberOnly[0].r, confidence: 'approximate' };
+    }
+    if (numberOnly.length > 1) {
+      /**
+       * Metal Universe #23 (and similar) returns multiple Cardhedger rows (Base vs PMG).
+       * Returning null left the UI at N/A even when a strong parallel row exists.
+       */
+      if (this.collectionHintsWantPreciousMetalGems(q)) {
+        const pmg = numberOnly.find((x) =>
+          this.rowLooksLikePreciousMetalGemsRow(x.r),
+        );
+        if (pmg) {
+          return {
+            row: pmg.r,
+            confidence: pmg.verified ? 'verified' : 'approximate',
+          };
+        }
+        const nonBase = numberOnly.find(
+          (x) => String(x.r.variant ?? '').trim().toLowerCase() !== 'base',
+        );
+        if (nonBase) {
+          return {
+            row: nonBase.r,
+            confidence: nonBase.verified ? 'verified' : 'approximate',
+          };
+        }
+      }
+      const best = numberOnly[0]!;
+      return {
+        row: best.r,
+        confidence: best.verified ? 'verified' : 'approximate',
+      };
     }
     return null;
   }

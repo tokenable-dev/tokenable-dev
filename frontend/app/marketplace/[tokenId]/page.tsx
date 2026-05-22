@@ -21,13 +21,23 @@ import {
   parseGradeScoreNumber,
   representativeGradeUsd,
   formatUsdCompact,
+  MARKET_PRICE_CHANGE_PERIOD_LABEL,
+  MARKET_PRICE_CHANGE_SNAPSHOT_DURATION,
 } from "@/lib/market";
 import {
   RwaDetailAssetPanel,
   buildRwaDetailStatRows,
+  formatRwaDetailCardIdLine,
+  formatRwaDetailSetDescription,
   formatRwaSetHeadline,
   type RwaDetailMetadata,
 } from "@/components/marketplace/RwaDetailAssetPanel";
+import {
+  RwaDetailMobileCardHeader,
+  RwaDetailMobileDetailSection,
+  RwaDetailStickyBuyButton,
+  RwaDetailStickyBuyFooter,
+} from "@/components/marketplace/RwaDetailMobileCardLayout";
 import { displayAssetNameFromMetadata } from "@/lib/marketplace/rwaDisplayTitle";
 import {
   TOKENABLE_RWA_ADDRESS,
@@ -152,7 +162,7 @@ function MarketContextStrip({
           className={`min-w-0 ${showRef ? "border-l border-zinc-700/60 pl-3 sm:pl-4" : ""}`}
         >
           <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-500 sm:text-[11px]">
-            1yr change
+            {MARKET_PRICE_CHANGE_PERIOD_LABEL} change
           </p>
           <p
             className={`${rwaDetailRightFont.className} mt-2 text-[1.35rem] font-bold leading-none tabular-nums sm:mt-2.5 sm:text-2xl ${
@@ -197,7 +207,8 @@ function BuyerTradingPanel({
   listingPriceUsd,
   buyErr,
   onFulfill,
-}: BuyerTradingPanelProps) {
+  compact = false,
+}: BuyerTradingPanelProps & { compact?: boolean }) {
   const { connect, connectors, isPending: connectPending } = useConnect();
 
   const cta = !isConnected
@@ -209,9 +220,21 @@ function BuyerTradingPanel({
       : "Buy";
 
   return (
-    <div className="space-y-5 sm:space-y-6">
+    <div className={compact ? "flex min-w-0 flex-col gap-2.5" : "space-y-5 sm:space-y-6"}>
       {listingPriceUsd != null && Number.isFinite(listingPriceUsd) ? (
-        <ListPriceDisplay priceUsd={listingPriceUsd} />
+        compact ? (
+          <p
+            className={`${rwaDetailRightFont.className} text-[clamp(1.35rem,6vw,1.75rem)] font-bold leading-none tracking-tight text-white tabular-nums`}
+          >
+            $
+            {listingPriceUsd.toLocaleString("en-US", {
+              minimumFractionDigits: 0,
+              maximumFractionDigits: 2,
+            })}
+          </p>
+        ) : (
+          <ListPriceDisplay priceUsd={listingPriceUsd} />
+        )
       ) : null}
 
       <DetailGradientButton
@@ -224,6 +247,11 @@ function BuyerTradingPanel({
           void onFulfill();
         }}
         disabled={connectPending || buyBusy}
+        className={
+          compact
+            ? "!h-[48px] !p-[2px] sm:!h-[52px] [&>span]:!px-4 [&>span]:!text-[15px] sm:[&>span]:!text-base"
+            : ""
+        }
       >
         {cta}
       </DetailGradientButton>
@@ -319,10 +347,13 @@ export default function RwaDetailPage() {
   const { data: detailSnapshotPack } = useQuery({
     queryKey: rq.collectionSnapshots(
       collectionSnapshotKey ? [collectionSnapshotKey] : [],
-      "365d",
+      MARKET_PRICE_CHANGE_SNAPSHOT_DURATION,
     ),
     queryFn: () =>
-      postMarketplaceCollectionSnapshotsBatched([collectionSnapshotKey!], "365d"),
+      postMarketplaceCollectionSnapshotsBatched(
+        [collectionSnapshotKey!],
+        MARKET_PRICE_CHANGE_SNAPSHOT_DURATION,
+      ),
     enabled: Boolean(collectionSnapshotKey && tokenIdOk),
     staleTime: marketplaceRqPolicy.snapshotsStaleMs,
   });
@@ -393,6 +424,14 @@ export default function RwaDetailPage() {
   );
   const detailSetHeadline = useMemo(
     () => formatRwaSetHeadline(metadata as RwaDetailMetadata | null),
+    [metadata],
+  );
+  const detailSetDescription = useMemo(
+    () => formatRwaDetailSetDescription(metadata as RwaDetailMetadata | null),
+    [metadata],
+  );
+  const detailCardIdLine = useMemo(
+    () => formatRwaDetailCardIdLine(metadata as RwaDetailMetadata | null),
     [metadata],
   );
   const detailTitlePulse =
@@ -510,9 +549,57 @@ export default function RwaDetailPage() {
   const isPageLoading = ownerLoading;
   const showMain = tokenIdOk && !ownerLoading && !ownerError && ownerOnChain != null;
 
+  const collectionHref = collectionKeyForRedirect
+    ? `/marketplace/collections/${encodeURIComponent(collectionKeyForRedirect)}`
+    : null;
+
+  const collectionDisplayName =
+    collectionDetail?.collection?.displayLabel?.trim() ||
+    TOKENABLE_RWA_DISPLAY_NAME;
+
+  const formatDetailUsd = (n: number) =>
+    n.toLocaleString("en-US", {
+      style: "currency",
+      currency: "USD",
+      minimumFractionDigits: n >= 100 ? 0 : 2,
+      maximumFractionDigits: 2,
+    });
+
+  const mobileHeroPrice =
+    activeAskListing && !isOwner && listingBuyPriceUsdc != null ? (
+      <span
+        className={`${rwaDetailRightFont.className} text-[1.75rem] font-bold leading-none tabular-nums text-white`}
+      >
+        {formatDetailUsd(listingBuyPriceUsdc)}
+      </span>
+    ) : isOwner && listing && listingBuyPriceUsdc != null ? (
+      <span
+        className={`${rwaDetailRightFont.className} text-[1.75rem] font-bold leading-none tabular-nums text-white`}
+      >
+        {formatDetailUsd(listingBuyPriceUsdc)}
+      </span>
+    ) : externalRefUsd != null ? (
+      <span
+        className={`${rwaDetailRightFont.className} text-[1.75rem] font-bold leading-none tabular-nums text-white`}
+      >
+        {formatDetailUsd(externalRefUsd)}
+      </span>
+    ) : (
+      <span className={`${rwaDetailRightFont.className} text-xl font-semibold text-zinc-500`}>
+        Not listed
+      </span>
+    );
+
+  const mobileStickyFooterNote =
+    buyErr != null ? (
+      <p className="text-xs text-red-400 leading-snug">{buyErr}</p>
+    ) : listingError ? (
+      <p className="text-xs text-orange-400">Could not load listing.</p>
+    ) : null;
+
   return (
-    <div className="min-h-screen bg-[#07090c] text-white">
-      <main className="mx-auto max-w-6xl px-3 py-6 max-[380px]:px-2.5 sm:px-5 sm:py-8 lg:px-6">
+    <div className="min-h-screen bg-[#07090c] text-white max-xl:bg-black">
+      <main className="mx-auto max-w-6xl px-3 py-6 max-[380px]:px-2.5 sm:px-5 sm:py-8 max-xl:pb-[max(5.5rem,env(safe-area-inset-bottom,0px)+4.5rem)] lg:px-6 lg:pb-8">
         {/* Loading */}
         {tokenIdOk && isPageLoading && (
           <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_minmax(280px,0.62fr)] lg:gap-x-10 items-start">
@@ -573,30 +660,29 @@ export default function RwaDetailPage() {
         {showMain && (
           <>
             <div className="grid grid-cols-1 gap-y-8 lg:grid-cols-[minmax(0,1.05fr)_minmax(280px,0.62fr)] lg:gap-x-10 lg:gap-y-10 xl:gap-x-12 items-start">
-              <div className="min-w-0 lg:col-start-1">
+              <div className="min-w-0 flex flex-col gap-0 lg:col-start-1 lg:gap-0">
                 <RwaDetailAssetPanel
                   metadata={metadata as RwaDetailMetadata | null}
                   imageUrl={imageUrl}
                   tokenId={tokenId}
-                  collectionLabel={TOKENABLE_RWA_DISPLAY_NAME}
+                  collectionLabel={collectionDisplayName}
                   metaLoading={metaLoading}
                   hideHeaderOnXl
+                  openSeaMobile
                 />
+
+                <RwaDetailMobileCardHeader
+                  title={detailTitle}
+                  titleLoading={detailTitlePulse}
+                  setDescription={detailSetDescription ?? detailSetHeadline}
+                  cardIdLine={detailCardIdLine}
+                  price={mobileHeroPrice}
+                />
+
+                <RwaDetailMobileDetailSection rows={rwaDetailStatRows} />
               </div>
 
-              {activeAskListing && !isOwner ? (
-                <div className="min-w-0 lg:hidden">
-                  <BuyerTradingPanel
-                    isConnected={isConnected}
-                    buyBusy={buyBusy}
-                    listingPriceUsd={listingBuyPriceUsdc}
-                    buyErr={buyErr}
-                    onFulfill={handleFulfillAsk}
-                  />
-                </div>
-              ) : null}
-
-              <div className="flex w-full min-w-0 flex-col gap-6 sm:gap-7 lg:sticky lg:top-6 lg:col-start-2 lg:max-w-[400px] lg:justify-self-end lg:self-start">
+              <div className="hidden w-full min-w-0 flex-col gap-6 sm:gap-7 lg:sticky lg:top-6 lg:col-start-2 lg:flex lg:max-w-[400px] lg:justify-self-end lg:self-start">
                 <div className="hidden lg:block space-y-2.5 min-w-0">
                   {detailTitlePulse ? (
                     <div
@@ -683,7 +769,7 @@ export default function RwaDetailPage() {
 
                 {rwaDetailStatRows.length > 0 ? (
                   <div
-                    className={`hidden lg:block mt-10 border-t border-[rgba(38,39,45,1)] pt-8 ${rwaDetailRightFont.className}`}
+                    className={`mt-10 border-t border-[rgba(38,39,45,1)] pt-8 ${rwaDetailRightFont.className}`}
                   >
                     <h2 className="text-[18px] font-bold leading-[140%] tracking-normal text-white">
                       Details
@@ -706,7 +792,60 @@ export default function RwaDetailPage() {
                   </div>
                 ) : null}
               </div>
+
             </div>
+
+            <RwaDetailStickyBuyFooter footerNote={mobileStickyFooterNote}>
+              {activeAskListing && !isOwner ? (
+                <RwaDetailStickyBuyButton
+                  disabled={buyBusy || connectPending}
+                  onClick={() => {
+                    if (!isConnected) {
+                      connectMetaMaskWallet(connect, connectors);
+                      return;
+                    }
+                    void handleFulfillAsk();
+                  }}
+                >
+                  {!isConnected
+                    ? connectPending
+                      ? "Connecting…"
+                      : "Connect wallet"
+                    : buyBusy
+                      ? "Buying…"
+                      : "Buy"}
+                </RwaDetailStickyBuyButton>
+              ) : isOwner ? (
+                <RwaDetailStickyBuyButton
+                  disabled={connectPending}
+                  onClick={() => {
+                    if (!isConnected) {
+                      connectMetaMaskWallet(connect, connectors);
+                      return;
+                    }
+                    setListModalInitialPrice(null);
+                    setListModalOpen(true);
+                  }}
+                >
+                  {!isConnected
+                    ? connectPending
+                      ? "Connecting…"
+                      : "Connect wallet"
+                    : listing
+                      ? "Manage listing"
+                      : "List for sale"}
+                </RwaDetailStickyBuyButton>
+              ) : (
+                <RwaDetailStickyBuyButton
+                  disabled={!collectionHref}
+                  onClick={() => {
+                    if (collectionHref) router.push(collectionHref);
+                  }}
+                >
+                  View market
+                </RwaDetailStickyBuyButton>
+              )}
+            </RwaDetailStickyBuyFooter>
 
             <TradeCelebrationModal
               open={tradeCelebration != null}

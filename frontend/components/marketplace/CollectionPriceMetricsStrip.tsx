@@ -6,7 +6,14 @@ import {
   COLLECTION_DETAILS_BG_CLASS,
   COLLECTION_DETAILS_BORDER_ALL,
 } from "@/components/marketplace/collectionOverviewChrome";
-import { formatUsdCompact, NO_EXTERNAL_PRICE } from "@/lib/market";
+import {
+  formatReferencePercentChange,
+  formatUsdCompact,
+  isFlatReferencePercentChange,
+  MARKET_PRICE_CHANGE_PERIOD_LABEL,
+  NO_EXTERNAL_PRICE,
+  referenceChangeTone,
+} from "@/lib/market";
 
 const ibmPlexSans = IBM_Plex_Sans({
   subsets: ["latin"],
@@ -35,8 +42,12 @@ export interface CollectionPriceMetricsStripProps {
   volatilityFootnote?: string | null;
   platformPriceSamples?: number[];
   bookSpreadPct?: number | null;
+  /** @deprecated Prefer {@link externalPriceChange1MoPct}. */
   externalPriceChange1yPct?: number | null;
+  /** @deprecated Prefer {@link externalPriceChange1MoLoading}. */
   externalPriceChange1yLoading?: boolean;
+  externalPriceChange1MoPct?: number | null;
+  externalPriceChange1MoLoading?: boolean;
   externalPriceChangeBasisText?: string | null;
   marketCapUsd?: number | null;
   marketCapMethodHint?: string | null;
@@ -53,11 +64,13 @@ export interface CollectionPriceMetricsStripProps {
    */
   exchangeColumn?: "chart" | "trade";
   /**
-   * Single row: Current Price, % Change 24h, Volume 24h, Total Pop, Market Cap.
+   * Single row: Current Price, % Change 1 mo, Volume 24h, Total Pop, Market Cap.
    * Ignores {@link exchangeColumn}.
    */
   exchangeUnifiedRow?: boolean;
+  /** @deprecated Prefer {@link externalPriceChange1MoPct}. */
   externalPriceChange24hPct?: number | null;
+  /** @deprecated Prefer {@link externalPriceChange1MoLoading}. */
   externalPriceChange24hLoading?: boolean;
   /** Sum of on-platform fill prices (USDC) in the last 24h; null while trades are loading. */
   volume24hUsdc?: number | null;
@@ -191,21 +204,28 @@ export function CollectionPriceMetricsStrip({
   formatMarketCap,
   exchangeColumn,
   exchangeUnifiedRow = false,
+  externalPriceChange1MoPct: externalPriceChange1MoPctProp = null,
+  externalPriceChange1MoLoading: externalPriceChange1MoLoadingProp = false,
   externalPriceChange24hPct = null,
   externalPriceChange24hLoading = false,
   volume24hUsdc = null,
   volume24hLoading = false,
   totalPopulation = null,
 }: CollectionPriceMetricsStripProps) {
+  const externalPriceChange1MoPct =
+    externalPriceChange1MoPctProp ?? externalPriceChange24hPct ?? externalPriceChange1yPct ?? null;
+  const externalPriceChange1MoLoading =
+    externalPriceChange1MoLoadingProp ||
+    externalPriceChange24hLoading ||
+    externalPriceChange1yLoading;
+
   const showExternalPrimary =
     externalMarketUsd != null &&
     Number.isFinite(externalMarketUsd) &&
     externalMarketUsd > 0;
 
   if (exchangeUnifiedRow) {
-    const change24h = externalPriceChange24hPct;
-    const change24hUp = change24h != null && change24h > 0;
-    const change24hDown = change24h != null && change24h < 0;
+    const change1Mo = externalPriceChange1MoPct;
     const gridClass =
       "grid w-full max-xl:grid-cols-2 max-xl:gap-x-2 max-xl:gap-y-1 xl:grid-cols-5 xl:gap-0";
 
@@ -262,27 +282,28 @@ export function CollectionPriceMetricsStrip({
           />
           <MetricTile
             variant="panelCell"
-            label="% Change 24h"
+            label={`% Change ${MARKET_PRICE_CHANGE_PERIOD_LABEL}`}
             compact={compact}
             value={
               <>
-                {externalPriceChange24hLoading && change24h == null ? (
+                {externalPriceChange1MoLoading && change1Mo == null ? (
                   <span
                     className="inline-block h-[0.8rem] w-[3.25rem] animate-pulse rounded bg-zinc-800/75 xl:h-[1.5rem] xl:w-[4.5rem]"
                     aria-hidden
                   />
-                ) : change24h != null && Number.isFinite(change24h) ? (
+                ) : change1Mo != null &&
+                  Number.isFinite(change1Mo) &&
+                  !isFlatReferencePercentChange(change1Mo) ? (
                   <span
                     className={
-                      change24hUp
+                      referenceChangeTone(change1Mo) === "up"
                         ? "text-mint"
-                        : change24hDown
+                        : referenceChangeTone(change1Mo) === "down"
                           ? "text-rose-400"
-                          : "text-zinc-300"
+                          : "text-zinc-400"
                     }
                   >
-                    {change24h > 0 ? "+" : ""}
-                    {change24h.toFixed(1)}%
+                    {formatReferencePercentChange(change1Mo)}
                   </span>
                 ) : (
                   <span className="max-xl:text-zinc-400 xl:text-white">—</span>
@@ -303,7 +324,11 @@ export function CollectionPriceMetricsStrip({
                   />
                 ) : (
                   <span className="min-w-0 max-xl:text-zinc-100 xl:text-white">
-                    {formatUsdCompact(volume24hUsdc)}
+                    {formatUsdCompact(
+                      volume24hUsdc != null && Number.isFinite(volume24hUsdc)
+                        ? volume24hUsdc
+                        : 0,
+                    )}
                   </span>
                 )}
               </>
@@ -352,7 +377,7 @@ export function CollectionPriceMetricsStrip({
       ? externalVolatilityCvPct
       : volFromTrades ?? bookSpreadPct;
 
-  const change = externalPriceChange1yPct;
+  const change = externalPriceChange1MoPct;
   const changeUp = change != null && change > 0;
   const changeDown = change != null && change < 0;
 
@@ -432,12 +457,12 @@ export function CollectionPriceMetricsStrip({
 
       {showChartColumn && showPriceChange ? (
         <MetricTile
-          label="% Change (1 yr)"
+          label={`% Change (${MARKET_PRICE_CHANGE_PERIOD_LABEL})`}
           compact={compact}
           footer={changeBasis}
           value={
             <>
-              {externalPriceChange1yLoading && change == null ? (
+              {externalPriceChange1MoLoading && change == null ? (
                 <span className="inline-block h-[0.875rem] w-[3.5rem] animate-pulse rounded bg-zinc-800/75" aria-hidden />
               ) : change != null && Number.isFinite(change) ? (
                 <span

@@ -129,9 +129,9 @@ export function TrendingCollectionsCarousel({
   const fetchSnapshotsLocally = snapshotByKeyProp == null && trendingSnapshotKeysSorted.length > 0;
 
   const { data: snapshotPack } = useQuery({
-    queryKey: rq.collectionSnapshots(trendingSnapshotKeysSorted, "365d"),
+    queryKey: rq.collectionSnapshots(trendingSnapshotKeysSorted, "30d" as const),
     queryFn: () =>
-      postMarketplaceCollectionSnapshotsBatched(trendingSnapshotKeysSorted, "365d"),
+      postMarketplaceCollectionSnapshotsBatched(trendingSnapshotKeysSorted, "30d"),
     enabled: fetchSnapshotsLocally,
     staleTime: marketplaceRqPolicy.snapshotsStaleMs,
   });

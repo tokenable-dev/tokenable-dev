@@ -40,39 +40,26 @@ function CollectionCoverLightbox({
   if (!mounted || !open || !resolvedUrl) return null;
 
   return createPortal(
-    <div
+    <button
+      type="button"
       role="dialog"
       aria-modal
-      aria-label="Collection cover enlarged"
-      className="fixed inset-0 z-[100] flex flex-col items-center justify-center p-4 sm:p-8"
+      aria-label="Collection cover enlarged — tap anywhere to close"
+      onClick={onClose}
+      className="fixed inset-0 z-[100] flex cursor-default items-center justify-center bg-black/88 p-4 backdrop-blur-[2px] sm:p-8"
     >
-      <button
-        type="button"
-        className="absolute inset-0 bg-black/88 backdrop-blur-[2px]"
-        aria-label="Close enlarged image"
-        onClick={onClose}
-      />
-      <div className="relative z-10 flex max-h-[min(92vh,900px)] w-full max-w-[min(96vw,560px)] flex-col gap-3">
-        <div className={`relative overflow-hidden rounded-2xl ${COLLECTION_DETAILS_BORDER_ALL} bg-[rgba(11,13,16,1)] shadow-[0_28px_80px_-24px_rgba(0,0,0,0.85)] ring-1 ring-[rgba(11,13,16,1)]`}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={resolvedUrl}
-            alt={alt || "Collection cover"}
-            className="max-h-[min(82vh,820px)] w-full object-contain object-center"
-            style={{ filter: "saturate(1.04) contrast(1.02)" }}
-          />
-        </div>
-        <div className="flex justify-center">
-          <button
-            type="button"
-            onClick={onClose}
-            className={`rounded-lg ${COLLECTION_DETAILS_BORDER_ALL} bg-zinc-900/90 px-4 py-2 text-sm font-medium text-zinc-200 transition-colors hover:border-zinc-500 hover:bg-zinc-800 hover:text-white`}
-          >
-            Close
-          </button>
-        </div>
+      <div
+        className={`max-h-[min(92vh,900px)] w-full max-w-[min(96vw,560px)] overflow-hidden rounded-2xl ${COLLECTION_DETAILS_BORDER_ALL} bg-[rgba(11,13,16,1)] shadow-[0_28px_80px_-24px_rgba(0,0,0,0.85)] ring-1 ring-[rgba(11,13,16,1)]`}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={resolvedUrl}
+          alt={alt || "Collection cover"}
+          className="max-h-[min(82vh,820px)] w-full object-contain object-center"
+          style={{ filter: "saturate(1.04) contrast(1.02)" }}
+        />
       </div>
-    </div>,
+    </button>,
     document.body,
   );
 }

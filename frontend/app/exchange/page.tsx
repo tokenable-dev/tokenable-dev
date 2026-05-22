@@ -18,6 +18,8 @@ import { CollectionCategoryFilterBar } from "@/components/marketplace/Collection
 import { CollectionListSparkline } from "@/components/marketplace/CollectionListSparkline";
 import {
   collectionMatchesCategoryFilter,
+  MARKET_PRICE_CHANGE_PERIOD_SHORT,
+  MARKET_PRICE_CHANGE_SNAPSHOT_DURATION,
   type CollectionCategoryFilterId,
 } from "@/lib/market";
 import { parseGradeScoreNumber, representativeGradeUsd } from "@/lib/market";
@@ -53,22 +55,6 @@ function percentDiffVersusRef(
 function formatSignedPct(pct: number): string {
   const sign = pct >= 0 ? "+" : "";
   return `${sign}${pct.toFixed(1)}%`;
-}
-
-/** Markets copy — matches backend snapshot `marketChangeWindow` suffix (e.g. `1yr`). */
-function formatMarketChangeWindowShort(
-  w: CollectionListMarketSnapshot["marketChangeWindow"] | undefined | null,
-): string {
-  if (w == null) return "";
-  const map: Record<string, string> = {
-    "24h": "24h",
-    "7d": "7d",
-    "30d": "30d",
-    "90d": "90d",
-    "180d": "6mo",
-    "365d": "1yr",
-  };
-  return map[w] ?? w;
 }
 
 /** Grid + list pills — wrap on narrow widths; scale type for readability */
@@ -207,7 +193,7 @@ function CollectionRow({
   const tokenableVsRefPct = percentDiffVersusRef(tokenablePrice, effectiveRefUsd);
   const changePctExternal =
     pct != null && Number.isFinite(pct) ? pct : null;
-  const changeWinShort = formatMarketChangeWindowShort(snapshot?.marketChangeWindow);
+  const changeWinShort = MARKET_PRICE_CHANGE_PERIOD_SHORT;
 
   const trendPct =
     snapshot?.marketChangePct != null && Number.isFinite(snapshot.marketChangePct)
@@ -244,11 +230,7 @@ function CollectionRow({
             <ExchangeTrendPctBadge
               pct={trendPct}
               windowShort={changeWinShort || undefined}
-              title={
-                snapshot?.marketChangeWindow
-                  ? `External reference (${snapshot.marketChangeWindow})`
-                  : "External reference vs prior window"
-              }
+              title={`External reference (${MARKET_PRICE_CHANGE_PERIOD_SHORT} change)`}
             />
           ) : null}
           {pop != null ? (
@@ -279,11 +261,7 @@ function CollectionRow({
             <ExchangePctBadge
               pct={changePctExternal}
               windowShort={changeWinShort || undefined}
-              title={
-                snapshot?.marketChangeWindow != null && snapshot.marketChangeWindow.length > 0
-                  ? `External reference (${snapshot.marketChangeWindow}): interpolated change on Cardhedger history`
-                  : "External reference: interpolated change on Cardhedger history"
-              }
+              title={`External reference (${MARKET_PRICE_CHANGE_PERIOD_SHORT}): interpolated change on Cardhedger history`}
             />
           ) : null}
         </div>
@@ -353,7 +331,7 @@ function CollectionGridCard({
       ? snapshot.marketChangePct
       : null;
 
-  const windowShort = formatMarketChangeWindowShort(snapshot?.marketChangeWindow);
+  const windowShort = MARKET_PRICE_CHANGE_PERIOD_SHORT;
   const pop = parsePsaPopulationFromComponents(comp);
 
   return (
@@ -378,11 +356,7 @@ function CollectionGridCard({
             <ExchangeTrendPctBadge
               pct={trendPct}
               windowShort={windowShort || undefined}
-              title={
-                snapshot?.marketChangeWindow
-                  ? `External reference (${snapshot.marketChangeWindow})`
-                  : "External reference vs prior window"
-              }
+              title={`External reference (${MARKET_PRICE_CHANGE_PERIOD_SHORT} change)`}
             />
           ) : null}
           {pop != null ? (
@@ -466,9 +440,12 @@ export default function ExchangePage() {
   }, [collectionSummaries]);
 
   const { data: snapshotPack, isPending: snapshotsPending } = useQuery({
-    queryKey: rq.collectionSnapshots(snapshotKeysSorted, "365d"),
+    queryKey: rq.collectionSnapshots(snapshotKeysSorted, MARKET_PRICE_CHANGE_SNAPSHOT_DURATION),
     queryFn: () =>
-      postMarketplaceCollectionSnapshotsBatched(snapshotKeysSorted, "365d"),
+      postMarketplaceCollectionSnapshotsBatched(
+        snapshotKeysSorted,
+        MARKET_PRICE_CHANGE_SNAPSHOT_DURATION,
+      ),
     enabled: snapshotKeysSorted.length > 0 && !isLoading,
     staleTime: marketplaceRqPolicy.snapshotsStaleMs,
   });

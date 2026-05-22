@@ -4,6 +4,7 @@ import {
 } from "@/lib/market";
 import { marketHistoryTierFromComponents } from "@/lib/market";
 import { isAuthQualifierGradeScore } from "@/lib/market/priceTier";
+import { MARKET_PRICE_CHANGE_LAG_SEC } from "@/lib/market/priceChangePeriod";
 
 /** Catalog reference for marketplace/portfolio (currently Cardhedger-backed). */
 export type ExternalMarketPriceSource = "cardhedger";
@@ -109,19 +110,13 @@ export function percentChangeFromUsdPoints(
   return ((b - a) / a) * 100;
 }
 
-const SEC_24H = 86400;
-
 /**
- * Latest observation vs linearly interpolated value at (latest.t − 24h) on the same series.
- * Matches backend {@link percentChangeReferenceOverLagSec}(..., `86400`) in `collection-market.util.ts`.
- * List/market snapshots use lag aligned to the bundled history window ({@code 365d}, etc.) — see
- * `marketChangeWindow` on each snapshot rather than assuming 24h.
- *
- * Unlike {@link percentChangeUsdSinceCutoff} anchored to wall-clock “now”, this still works when the feed’s
- * newest point is older than 24h (stale Cardhedger ticks).
+ * Latest observation vs linearly interpolated value at (latest.t − lagSec) on the same series.
+ * Matches backend {@link percentChangeReferenceOverLagSec} in `collection-market.util.ts`.
  */
-export function percentChangeReferenceOver24h(
+export function percentChangeReferenceOverLag(
   points: CollectionUsdPoint[] | null | undefined,
+  lagSec: number,
 ): number | null {
   const cleaned = (points ?? []).filter(
     (p) =>
@@ -129,10 +124,10 @@ export function percentChangeReferenceOver24h(
       Number.isFinite(p.v) &&
       p.v > 0,
   );
-  if (cleaned.length < 2) return null;
+  if (cleaned.length < 2 || !Number.isFinite(lagSec) || lagSec <= 0) return null;
   const sorted = [...cleaned].sort((a, b) => a.t - b.t);
   const end = sorted[sorted.length - 1]!;
-  const targetT = end.t - SEC_24H;
+  const targetT = end.t - lagSec;
   if (targetT < sorted[0]!.t) return null;
 
   let i0 = -1;
@@ -166,6 +161,20 @@ export function percentChangeReferenceOver24h(
     return null;
   }
   return ((end.v - refV) / refV) * 100;
+}
+
+/** ~1 month % change on the reference USD series (product default). */
+export function percentChangeReferenceOver1Mo(
+  points: CollectionUsdPoint[] | null | undefined,
+): number | null {
+  return percentChangeReferenceOverLag(points, MARKET_PRICE_CHANGE_LAG_SEC);
+}
+
+/** @deprecated Use {@link percentChangeReferenceOver1Mo}. */
+export function percentChangeReferenceOver24h(
+  points: CollectionUsdPoint[] | null | undefined,
+): number | null {
+  return percentChangeReferenceOver1Mo(points);
 }
 
 /**

@@ -19,32 +19,12 @@ import { CollectionMarketSnapshotService } from './collection-market-snapshot.se
 
 const SEC_DAY = 86_400;
 
-const MARKET_CHANGE_LAG_CHAIN: readonly {
-  lagSec: number;
-  window: MarketChangeWindowLabel;
-}[] = [
-  { lagSec: 365 * SEC_DAY, window: '365d' },
-  { lagSec: 180 * SEC_DAY, window: '180d' },
-  { lagSec: 90 * SEC_DAY, window: '90d' },
-  { lagSec: 30 * SEC_DAY, window: '30d' },
-  { lagSec: 7 * SEC_DAY, window: '7d' },
-  { lagSec: SEC_DAY, window: '24h' },
-];
-
-function marketChangePctWithFallback(
+/** Product default: ~1 month % change on external reference (always labeled 1 mo in UI). */
+function marketChangePct1Mo(
   externalUsd: UsdPoint[],
-  preferred: PriceHistoryDuration,
 ): { pct: number | null; window: MarketChangeWindowLabel } {
-  const startIdx = MARKET_CHANGE_LAG_CHAIN.findIndex(
-    (e) => e.window === preferred,
-  );
-  const from = startIdx >= 0 ? startIdx : 0;
-  for (let i = from; i < MARKET_CHANGE_LAG_CHAIN.length; i++) {
-    const { lagSec, window } = MARKET_CHANGE_LAG_CHAIN[i]!;
-    const pct = percentChangeReferenceOverLagSec(externalUsd, lagSec);
-    if (pct != null) return { pct, window };
-  }
-  return { pct: null, window: preferred };
+  const pct = percentChangeReferenceOverLagSec(externalUsd, 30 * SEC_DAY);
+  return { pct, window: '30d' };
 }
 
 export type SnapshotBundleResult = {
@@ -183,7 +163,7 @@ export class CollectionMarketSnapshotReadService {
     const preview = this.previewFromRow(row);
 
     const { pct: marketChangePct, window: resolvedChangeWindow } =
-      marketChangePctWithFallback(externalUsd, window);
+      marketChangePct1Mo(externalUsd);
     const marketChangeSource: MarketChangePriceSource | null =
       marketChangePct != null && externalUsd.length >= 2
         ? historyTier === 'NEAR_MINT'

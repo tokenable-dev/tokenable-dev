@@ -24,10 +24,11 @@ import { useAppStore, selectUsdcBalance } from "@/store";
 import { useShallow } from "zustand/react/shallow";
 import type { GradedCardMetadata } from "@/types/gradedCard";
 import { loadNmBaselineMap, saveNmBaselineMap, type NmBaselineEntry } from "@/lib/portfolio";
-import { formatLiquidityDepthLabel } from "@/lib/market";
-import { resolveExternalMarketUsd } from "@/lib/market";
 import {
+  formatLiquidityDepthLabel,
+  formatSportCategoryDisplayLabel,
   parseGradeScoreNumber,
+  resolveExternalMarketUsd,
 } from "@/lib/market";
 import { APP_MAIN_SHELL_CLASS } from "@/constants/layout";
 import {
@@ -119,7 +120,9 @@ function marketTierComponentsFromMetadata(
 
 function extractCategory(meta: RwaMetadata | null): string | null {
   const g = getGraded(meta);
-  if (g?.psa?.category?.trim()) return g.psa.category.trim();
+  if (g?.psa?.category?.trim()) {
+    return formatSportCategoryDisplayLabel(g.psa.category.trim());
+  }
 
   if (!meta?.attributes) return null;
   const traitTypes = [
@@ -134,7 +137,7 @@ function extractCategory(meta: RwaMetadata | null): string | null {
   for (const tt of traitTypes) {
     const cat = meta.attributes.find((a) => a.trait_type === tt);
     if (cat?.value != null && String(cat.value).trim() !== "")
-      return String(cat.value).trim();
+      return formatSportCategoryDisplayLabel(String(cat.value).trim());
   }
   return null;
 }
@@ -171,7 +174,9 @@ function buildAssetSubtitle(meta: RwaMetadata | null, displayName: string): stri
   if (g?.card) {
     const parts: string[] = [];
     if (g.card.year != null) parts.push(String(g.card.year));
-    if (g.psa?.category?.trim()) parts.push(g.psa.category.trim());
+    if (g.psa?.category?.trim()) {
+      parts.push(formatSportCategoryDisplayLabel(g.psa.category.trim()));
+    }
     else if (g.card.set?.trim()) parts.push(g.card.set.trim());
     const cn = g.card.name?.trim();
     if (cn && cn !== displayName) parts.push(cn);
@@ -218,6 +223,7 @@ const BADGE_COLORS: Record<string, string> = {
   pokemon: "#6b3a2a",
   "pokémon": "#6b3a2a",
   nba: "#2e3a6b",
+  basketball: "#2e3a6b",
   baseball: "#5c4024",
   football: "#4a3520",
   soccer: "#264a3a",

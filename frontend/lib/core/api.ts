@@ -500,7 +500,7 @@ export interface CollectionMarketSeries {
 /** Cardhedger-backed market series — `priceHistoryDuration` caps external reference history in `externalUsd`. */
 export async function getCollectionMarketSeries(
   collectionKey: string,
-  priceHistoryDuration: "7d" | "30d" | "90d" | "180d" | "365d" = "365d",
+  priceHistoryDuration: "7d" | "30d" | "90d" | "180d" | "365d" = "30d",
 ): Promise<CollectionMarketSeries> {
   const enc = encodeURIComponent(collectionKey);
   const sp = new URLSearchParams();
@@ -751,7 +751,7 @@ export async function postMarketplaceCollectionSnapshots(body: {
  */
 export async function postMarketplaceCollectionSnapshotsBatched(
   collectionKeys: string[],
-  priceHistoryDuration: "7d" | "30d" | "90d" | "180d" | "365d" = "365d",
+  priceHistoryDuration: "7d" | "30d" | "90d" | "180d" | "365d" = "30d",
 ): Promise<{ items: CollectionListMarketSnapshot[] }> {
   const max = MARKETPLACE_COLLECTION_SNAPSHOTS_MAX_KEYS;
   if (collectionKeys.length === 0) return { items: [] };

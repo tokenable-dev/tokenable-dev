@@ -16,7 +16,7 @@ import type { MarketCollectionPreview } from '../utils/market-reference.types';
 
 export type PriceHistoryDuration = '7d' | '30d' | '90d' | '180d' | '365d';
 
-/** Labels effective lookback used for {@link CollectionMarketBundle.marketChangePct}. */
+/** Effective lookback for {@link CollectionMarketBundle.marketChangePct} (product UI: 1 mo / 30d). */
 export type MarketChangeWindowLabel = PriceHistoryDuration | '24h';
 
 /**

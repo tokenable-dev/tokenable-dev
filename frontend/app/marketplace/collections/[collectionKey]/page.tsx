@@ -20,15 +20,20 @@ import { COLLECTION_DETAIL_SHELL_CLASS } from "@/constants/layout";
 import {
   computeCollectionMarketCapUsd,
   formatMarketCapUsd,
+  formatSportCategoryDisplayLabel,
   marketHistoryTierFromComponents,
   marketTierDisplayLabel,
   parseGradeScoreNumber,
-  percentChangeReferenceOver24h,
+  percentChangeReferenceOver1Mo,
   resolveExternalMarketUsd,
 } from "@/lib/market";
 import { CollectionOverviewBoard } from "@/components/marketplace/CollectionOverviewBoard";
 import { CollectionDetailsKvCard } from "@/components/marketplace/CollectionDetailsKvCard";
 import { CollectionHeroDetailsTabs } from "@/components/marketplace/CollectionHeroDetailsTabs";
+import { CollectionMobileCurrentPriceRow } from "@/components/marketplace/CollectionMobileCurrentPriceRow";
+import { CollectionMobileDetailSection } from "@/components/marketplace/CollectionMobileDetailSection";
+import { CollectionMobileInformationPanel } from "@/components/marketplace/CollectionMobileInformationPanel";
+import { CollectionMobileMarketTabs } from "@/components/marketplace/CollectionMobileMarketTabs";
 import type { CollectionDetailCard } from "@/components/marketplace/CollectionMetadataExpandable";
 import { CollectionPriceMetricsStrip } from "@/components/marketplace/CollectionPriceMetricsStrip";
 import type { BookRowSelection } from "@/components/marketplace/CollectionTradeTicket";
@@ -401,14 +406,14 @@ export default function MarketplaceCollectionPage() {
 
   const chartExternalRollingKind = jtHistOk ? "history" : "snapshot";
 
-  const externalReferencePtsFor24h = useMemo(() => {
+  const externalReferencePtsFor1Mo = useMemo(() => {
     if (jtHistOk) return jtHistPts;
     return [];
   }, [jtHistOk, jtHistPts]);
 
-  const externalPriceChange24hPct = useMemo(
-    () => percentChangeReferenceOver24h(externalReferencePtsFor24h),
-    [externalReferencePtsFor24h],
+  const externalPriceChange1MoPct = useMemo(
+    () => percentChangeReferenceOver1Mo(externalReferencePtsFor1Mo),
+    [externalReferencePtsFor1Mo],
   );
 
   const volume24hUsdc = useMemo(() => {
@@ -582,8 +587,7 @@ export default function MarketplaceCollectionPage() {
     if (/\bpokemon\b/i.test(corpus)) return toCardDisplayUppercase("Pokemon");
     const cat = marketPreview?.card?.category?.trim();
     if (cat) {
-      const t = cat.replace(/\s+/g, " ");
-      return toCardDisplayUppercase(t);
+      return toCardDisplayUppercase(formatSportCategoryDisplayLabel(cat));
     }
     return toCardDisplayUppercase("Trading cards");
   }, [
@@ -998,24 +1002,106 @@ export default function MarketplaceCollectionPage() {
   const collection = data.collection;
   const collectionCoverUrl = pickCollectionHeroImageUrl(data);
 
-  const exchangePriceStripProps = {
-    showFootnotes: false as const,
-    compact: true,
-    exchangeUnifiedRow: true as const,
-    externalMarketUsd: resolvedExternal.usd,
-    externalPriceSource: resolvedExternal.source,
-    marketTierDisplay: pokeTierLabel,
-    externalMarketMatchConfidence: resolvedExternal.marketMatchConfidence,
-    externalPriceLoading: marketSeriesLoading,
-    externalPriceChange24hPct,
-    externalPriceChange24hLoading: marketSeriesLoading,
-    volume24hUsdc,
-    volume24hLoading: platformTradesLoading,
-    totalPopulation,
-    marketCapUsd: marketCapComputation?.usd ?? null,
-    marketCapMethodHint: marketCapComputation?.methodLabel ?? null,
-    formatMarketCap: formatMarketCapUsd,
-  };
+  const exchangePriceMetricsStrip = (
+    <CollectionPriceMetricsStrip
+      showFootnotes={false}
+      compact
+      exchangeUnifiedRow
+      externalMarketUsd={resolvedExternal.usd}
+      externalPriceSource={resolvedExternal.source}
+      marketTierDisplay={pokeTierLabel}
+      externalMarketMatchConfidence={resolvedExternal.marketMatchConfidence}
+      externalPriceLoading={marketSeriesLoading}
+      externalPriceChange1MoPct={externalPriceChange1MoPct}
+      externalPriceChange1MoLoading={marketSeriesLoading}
+      volume24hUsdc={volume24hUsdc}
+      volume24hLoading={platformTradesLoading}
+      totalPopulation={totalPopulation}
+      marketCapUsd={marketCapComputation?.usd ?? null}
+      marketCapMethodHint={marketCapComputation?.methodLabel ?? null}
+      formatMarketCap={formatMarketCapUsd}
+    />
+  );
+
+  const chartRangeControls = (
+    <div className="flex w-full min-w-0 max-xl:gap-0.5 max-xl:rounded-lg max-xl:border max-xl:border-[rgba(38,39,45,1)] max-xl:bg-black/30 max-xl:p-0.5 xl:flex-wrap xl:items-center xl:justify-between xl:gap-1">
+      {CHART_RANGE_OPTIONS.map((opt) => {
+        const active = opt.id === chartRange;
+        return (
+          <button
+            key={opt.id}
+            type="button"
+            onClick={() => setChartRange(opt.id)}
+            className={`font-semibold transition-colors max-xl:flex-1 max-xl:rounded-md max-xl:px-1 max-xl:py-2 max-xl:text-center max-xl:text-[11px] xl:rounded-md xl:px-2.5 xl:py-1 xl:text-[11px] ${
+              active ? "bg-mint text-black" : "text-zinc-400 hover:text-zinc-100"
+            }`}
+            aria-pressed={active}
+          >
+            {opt.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+
+  const collectionDualPriceChart = (
+    <CollectionDualPriceChart
+      variant="exchange"
+      collectionOverviewMat
+      chartTitle=""
+      platformUsd={displayPlatformUsd}
+      externalMarketUsd={
+        chartExternalRollingUsd.length >= 2 ? null : resolvedExternal.usd
+      }
+      externalWindowDays={chartExternalWindowDays}
+      externalRollingUsd={
+        chartExternalRollingUsd.length > 0 ? chartExternalRollingUsd : null
+      }
+      externalRollingKind={chartExternalRollingKind}
+      externalLegendLabel={chartExternalLegend}
+      externalSeriesShortLabel={chartExternalShort}
+      externalRefLineTag={chartExternalRefTag}
+      isLoading={platformTradesLoading || marketSeriesLoading}
+      errorMessage={null}
+      controls={chartRangeControls}
+    />
+  );
+
+  const collectionOrderBook = (
+    <CollectionUnifiedOrderBook
+      collectionKey={collection.collectionKey}
+      asks={asks}
+      collectionBids={collectionBids}
+      onSelectLevel={(sel) => {
+        setBookSelection(sel);
+        setTradeFlow("buy");
+        setTradeDockOpen(true);
+      }}
+      selectedLevelKey={bookSelection?.levelKey ?? null}
+      compact
+      flush
+      lastTradePriceUsdc={orderBookLastSaleUsdc}
+      lastTradeSide="buy"
+      tapeFills={orderBookTapeFills}
+      tapeLoading={platformTradesLoading}
+    />
+  );
+
+  const mobileHeroDetailRows = heroDetailsKvRows.filter((r) => r.id !== "player");
+
+  const mobileInformationPanel = (
+    <CollectionMobileInformationPanel
+      referenceMarketUsd={resolvedExternal.usd}
+      referenceMarketLoading={marketSeriesLoading}
+      changePct={externalPriceChange1MoPct}
+      changeLoading={marketSeriesLoading}
+      volume24hUsdc={volume24hUsdc}
+      volume24hLoading={platformTradesLoading}
+      marketCapUsd={marketCapComputation?.usd ?? null}
+      totalPopulation={totalPopulation}
+      formatMarketCap={formatMarketCapUsd}
+    />
+  );
 
   return (
     <div className="min-h-screen bg-[rgba(11,13,16,1)] text-white">
@@ -1053,8 +1139,27 @@ export default function MarketplaceCollectionPage() {
           }
           metadataRows={metadataRows}
           stats={[]}
-          chartMetricsRow={
-            <CollectionPriceMetricsStrip {...exchangePriceStripProps} />
+          chartMetricsRow={exchangePriceMetricsStrip}
+          mobileTabbedMarketUi
+          mobileCurrentPriceRow={
+            <CollectionMobileCurrentPriceRow
+              priceUsd={resolvedExternal.usd}
+              loading={marketSeriesLoading}
+            />
+          }
+          mobileMarketTabs={
+            <CollectionMobileMarketTabs
+              informationPanel={mobileInformationPanel}
+              chartPanel={
+                <div className="flex h-[min(360px,50svh)] min-h-[280px] w-full min-w-0 flex-col">
+                  {collectionDualPriceChart}
+                </div>
+              }
+              orderBookPanel={collectionOrderBook}
+            />
+          }
+          mobileDetailSection={
+            <CollectionMobileDetailSection rows={mobileHeroDetailRows} />
           }
           bookColumnMetricsRow={null}
           showOrderBook={showOrderBook}
@@ -1062,69 +1167,8 @@ export default function MarketplaceCollectionPage() {
           exchangeDockTradePanel
           listingCount={asks.length}
           showListingSummary={false}
-          priceChart={
-            <CollectionDualPriceChart
-              variant="exchange"
-              collectionOverviewMat
-              chartTitle=""
-              platformUsd={displayPlatformUsd}
-              externalMarketUsd={
-                chartExternalRollingUsd.length >= 2 ? null : resolvedExternal.usd
-              }
-              externalWindowDays={chartExternalWindowDays}
-              externalRollingUsd={
-                chartExternalRollingUsd.length > 0 ? chartExternalRollingUsd : null
-              }
-              externalRollingKind={chartExternalRollingKind}
-              externalLegendLabel={chartExternalLegend}
-              externalSeriesShortLabel={chartExternalShort}
-              externalRefLineTag={chartExternalRefTag}
-              isLoading={
-                platformTradesLoading || marketSeriesLoading
-              }
-              errorMessage={null}
-              controls={
-                <div className="flex w-full min-w-0 max-xl:gap-0.5 max-xl:rounded-lg max-xl:border max-xl:border-[rgba(38,39,45,1)] max-xl:bg-black/30 max-xl:p-0.5 xl:flex-wrap xl:items-center xl:justify-between xl:gap-1">
-                  {CHART_RANGE_OPTIONS.map((opt) => {
-                    const active = opt.id === chartRange;
-                    return (
-                      <button
-                        key={opt.id}
-                        type="button"
-                        onClick={() => setChartRange(opt.id)}
-                        className={`font-semibold transition-colors max-xl:flex-1 max-xl:rounded-md max-xl:px-1 max-xl:py-2 max-xl:text-center max-xl:text-[11px] xl:rounded-md xl:px-2.5 xl:py-1 xl:text-[11px] ${
-                          active
-                            ? "bg-mint text-black"
-                            : "text-zinc-400 hover:text-zinc-100"
-                        }`}
-                        aria-pressed={active}
-                      >
-                        {opt.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              }
-            />
-          }
-          orderBookNextToChart={
-            <CollectionUnifiedOrderBook
-              collectionKey={collection.collectionKey}
-              asks={asks}
-              collectionBids={collectionBids}
-              onSelectLevel={(sel) => {
-                setBookSelection(sel);
-                setTradeFlow("buy");
-                setTradeDockOpen(true);
-              }}
-              selectedLevelKey={bookSelection?.levelKey ?? null}
-              compact
-              lastTradePriceUsdc={orderBookLastSaleUsdc}
-              lastTradeSide="buy"
-              tapeFills={orderBookTapeFills}
-              tapeLoading={platformTradesLoading}
-            />
-          }
+          priceChart={collectionDualPriceChart}
+          orderBookNextToChart={collectionOrderBook}
           tradePanel={
             <CollectionTradingTabs
               bookSelection={bookSelection}
