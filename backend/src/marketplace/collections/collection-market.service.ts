@@ -80,6 +80,28 @@ function tapeAggressorFromOrderParameters(
   return 'buy';
 }
 
+const CRITERIA_TOKEN_SENTINEL = '0';
+
+/**
+ * Fulfilled ask tape + 24h volume. `token_id` "0" is the criteria-bid sentinel;
+ * some fulfilled asks were persisted with that sentinel — recover ERC-721 id from Seaport offer.
+ */
+function resolveFulfilledAskTokenId(order: Order): string | null {
+  const raw = order.tokenId?.trim();
+  if (raw && raw !== CRITERIA_TOKEN_SENTINEL) return raw;
+
+  const offer = (
+    order.parameters as {
+      offer?: Array<{ itemType?: number; identifierOrCriteria?: string }>;
+    }
+  )?.offer;
+  const item = offer?.[0];
+  if (!item || Number(item.itemType) !== 2) return null;
+  const fromOffer = String(item.identifierOrCriteria ?? '').trim();
+  if (!fromOffer || fromOffer === CRITERIA_TOKEN_SENTINEL) return null;
+  return fromOffer;
+}
+
 function emptyMarketBundle(
   collectionKey: string,
   platformUsd: UsdPoint[],
@@ -228,25 +250,28 @@ export class CollectionMarketService {
       },
       order: { updatedAt: 'ASC' },
     });
-    const valid: Order[] = [];
+    const valid: { order: Order; tokenId: string }[] = [];
     for (const o of rows) {
-      if (!o.tokenId || o.tokenId === '0') continue;
+      const tokenId = resolveFulfilledAskTokenId(o);
+      if (!tokenId) continue;
       const v = this.usdcPriceFromOrder(o, 'platform-trades');
       if (v == null) continue;
-      valid.push(o);
+      valid.push({ order: o, tokenId });
     }
-    const platformUsd: UsdPoint[] = valid.map((o) => ({
+    const platformUsd: UsdPoint[] = valid.map(({ order: o }) => ({
       t: Math.floor(o.updatedAt.getTime() / 1000),
       v: this.usdcMicrosToNumber(o.considerationAmount)!,
     }));
     const recent = valid.slice(-80);
-    const trades: PlatformTapeFillRow[] = [...recent].reverse().map((o) => ({
-      t: Math.floor(o.updatedAt.getTime() / 1000),
-      priceUsdc: this.usdcMicrosToNumber(o.considerationAmount)!,
-      tokenId: String(o.tokenId),
-      orderHash: o.orderHash,
-      tapeAggressor: tapeAggressorFromOrderParameters(o.parameters),
-    }));
+    const trades: PlatformTapeFillRow[] = [...recent].reverse().map(
+      ({ order: o, tokenId }) => ({
+        t: Math.floor(o.updatedAt.getTime() / 1000),
+        priceUsdc: this.usdcMicrosToNumber(o.considerationAmount)!,
+        tokenId,
+        orderHash: o.orderHash,
+        tapeAggressor: tapeAggressorFromOrderParameters(o.parameters),
+      }),
+    );
     return { platformUsd, trades };
   }
 
@@ -289,7 +314,7 @@ export class CollectionMarketService {
     let fulfilledNonUsdc = 0;
     let fulfilledInvalidAmount = 0;
     for (const o of fulfilled) {
-      if (!o.tokenId || o.tokenId === '0') {
+      if (!resolveFulfilledAskTokenId(o)) {
         fulfilledSkippedToken++;
         continue;
       }
