@@ -11,6 +11,7 @@ import {
   formatUsdCompact,
   MARKET_PRICE_CHANGE_PERIOD_LABEL,
   NO_EXTERNAL_PRICE,
+  REFERENCE_CHANGE_UNAVAILABLE_HINT,
   REFERENCE_CHANGE_UNAVAILABLE_LABEL,
   referenceChangeTone,
 } from "@/lib/market";
@@ -304,7 +305,10 @@ export function CollectionPriceMetricsStrip({
                     {formatReferencePercentChange(change1Mo)}
                   </span>
                 ) : (
-                  <span className="max-lg:text-zinc-400 lg:text-white">
+                  <span
+                    className="max-lg:text-zinc-400 lg:text-white"
+                    title={REFERENCE_CHANGE_UNAVAILABLE_HINT}
+                  >
                     {REFERENCE_CHANGE_UNAVAILABLE_LABEL}
                   </span>
                 )}
@@ -477,7 +481,9 @@ export function CollectionPriceMetricsStrip({
                   {formatReferencePercentChange(change)}
                 </span>
               ) : (
-                <span className="text-zinc-400">{REFERENCE_CHANGE_UNAVAILABLE_LABEL}</span>
+                <span className="text-zinc-400" title={REFERENCE_CHANGE_UNAVAILABLE_HINT}>
+                  {REFERENCE_CHANGE_UNAVAILABLE_LABEL}
+                </span>
               )}
             </>
           }

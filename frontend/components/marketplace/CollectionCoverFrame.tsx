@@ -70,6 +70,8 @@ export interface CollectionCoverFrameProps {
   alt?: string;
   /** 목록 썸네일 · 상단 중간 크기 · 컬렉션 페이지 대형 히어로 · flat은 베젤/링 없이 이미지만 */
   variant?: "compact" | "featured" | "hero" | "flat";
+  /** Carousel slides: static placeholder while resolving (no pulse — avoids vertical “shake”). */
+  quietLoading?: boolean;
   className?: string;
 }
 
@@ -82,6 +84,7 @@ export function CollectionCoverFrame({
   imageUrl,
   alt = "",
   variant = "compact",
+  quietLoading = false,
   className = "",
 }: CollectionCoverFrameProps) {
   const { url: resolved, isLoading } = useResolvedMediaUrl(imageUrl);
@@ -116,7 +119,10 @@ export function CollectionCoverFrame({
               Couldn&apos;t load image
             </div>
           ) : isLoading ? (
-            <div className="absolute inset-0 animate-pulse bg-gray-900/80" aria-hidden />
+            <div
+              className={`absolute inset-0 bg-gray-900/80 ${quietLoading ? "" : "animate-pulse"}`}
+              aria-hidden
+            />
           ) : (
             <div className="absolute inset-0 flex items-center justify-center px-3 text-center text-[11px] text-zinc-600">
               No preview

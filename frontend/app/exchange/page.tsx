@@ -155,7 +155,7 @@ const EXCHANGE_CARD_BADGE_KV_VALUE = "tabular-nums text-white";
 
 /** Single-line badge strip — swipe/scroll on overflow instead of wrapping. */
 const EXCHANGE_CARD_INFO_BADGE_ROW =
-  "flex min-w-0 max-w-full flex-nowrap items-center gap-1 overflow-x-auto overscroll-x-contain scroll-smooth touch-pan-x [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden max-[380px]:gap-0.5 sm:gap-1.5";
+  "mobile-scroll-x-contain flex min-w-0 max-w-full flex-nowrap items-center gap-1 scroll-smooth touch-pan-x [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden max-[380px]:gap-0.5 sm:gap-1.5";
 
 /** Grid cards use the same single-line scroll row (tighter gap on very narrow widths). */
 const EXCHANGE_GRID_CARD_BADGE_ROW = EXCHANGE_CARD_INFO_BADGE_ROW;
@@ -601,8 +601,8 @@ export default function ExchangePage() {
   }, [sortedForRank, snapshotByKey, categoryFilter]);
 
   return (
-    <div className="min-h-screen bg-black text-white">
-      <div className="mx-auto max-w-6xl px-3 pb-20 pt-8 max-[380px]:px-2 sm:px-6 sm:pb-24 sm:pt-12">
+    <div className="min-h-screen min-w-0 overflow-x-clip bg-black text-white">
+      <div className="mx-auto w-full max-w-6xl min-w-0 px-3 pb-20 pt-8 max-[380px]:px-2 sm:px-6 sm:pb-24 sm:pt-12">
         {!isLoading && sortedForRank.length > 0 ? (
           <>
             <div className="mb-3 flex items-center justify-between gap-3 sm:mb-5">

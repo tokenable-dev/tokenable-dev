@@ -610,7 +610,8 @@ export function CollectionDualPriceChart({
 
     return {
       backgroundColor: "transparent",
-      animationDuration: 250,
+      animation: !compactTab,
+      animationDuration: compactTab ? 0 : 250,
       textStyle: { color: AXIS_LABEL, fontFamily: "ui-sans-serif, system-ui, sans-serif" },
       grid: isMobileChart
         ? { left: 32, right: 6, top: 14, bottom: 28, containLabel: false }
@@ -708,6 +709,7 @@ export function CollectionDualPriceChart({
     externalRefLineTag,
     externalWindowDays,
     isMobileChart,
+    compactTab,
   ]);
 
   if (isLoading) {

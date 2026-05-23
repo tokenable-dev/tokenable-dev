@@ -186,7 +186,7 @@ export function RwaDetailMobileSpecsPanel({
       aria-label="Card details"
     >
       {hasTrust ? (
-        <div className="flex w-full min-w-0 shrink-0 divide-x divide-zinc-800/80 overflow-x-auto overscroll-x-contain px-3 py-1 [scrollbar-width:none] sm:px-4 [&::-webkit-scrollbar]:hidden">
+        <div className="mobile-scroll-x-contain flex w-full min-w-0 shrink-0 divide-x divide-zinc-800/80 px-3 py-1 [scrollbar-width:none] sm:px-4 [&::-webkit-scrollbar]:hidden">
           <TrustStat
             label="Grade"
             value={view.gradeLine ?? "—"}

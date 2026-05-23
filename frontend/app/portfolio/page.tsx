@@ -1219,7 +1219,7 @@ export default function PortfolioPage() {
 
   if (!isConnected) {
     return (
-      <div className="min-h-screen bg-[#030712] text-white">
+      <div className="min-h-screen min-w-0 overflow-x-clip bg-[#030712] text-white">
         <div className={`${APP_MAIN_SHELL_CLASS} flex min-h-[calc(100vh-4rem)] flex-col justify-center py-8 pb-20`}>
           <div className="mx-auto flex w-full max-w-md flex-col items-center justify-center">
             <div className="w-full rounded-2xl border border-gray-800/90 bg-gray-900/40 px-6 py-9 text-center sm:px-8 sm:py-10">
@@ -1249,7 +1249,7 @@ export default function PortfolioPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#030712] text-white">
+    <div className="min-h-screen min-w-0 overflow-x-clip bg-[#030712] text-white">
       <div className={`${APP_MAIN_SHELL_CLASS} py-8 pb-20`}>
         {/* Title */}
         <div className="mb-8">

@@ -321,7 +321,7 @@ export function TrendingCollectionsCarousel({
       <Link
         key={`${c.collectionKey}${slideKeySuffix}`}
         href={`/marketplace/collections/${encodeURIComponent(c.collectionKey)}`}
-        className={`group block w-full snap-start ${
+        className={`group block h-full w-full snap-start ${
           narrowTrainSlideCount
             ? "min-w-0 shrink-0"
             : "min-w-full shrink-0 basis-full"
@@ -335,23 +335,24 @@ export function TrendingCollectionsCarousel({
           if (Date.now() < suppressNavUntilRef.current) e.preventDefault();
         }}
       >
-        <div className="overflow-hidden rounded-2xl transition-colors">
-          <div className="aspect-[3/4] bg-[#0a0e14]">
+        <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl">
+          <div className="aspect-[3/4] shrink-0 bg-[#0a0e14]">
             {displayImageUrl ? (
             <CollectionCoverFrame
               imageUrl={displayImageUrl}
               variant="flat"
+              quietLoading
               className="h-full w-full"
             />
             ) : (
               <div className="h-full w-full bg-zinc-900" />
             )}
           </div>
-          <div className="space-y-1 p-2.5 sm:p-3">
-            <p className="line-clamp-2 break-words text-base font-semibold uppercase leading-snug text-white sm:truncate sm:text-lg">
+          <div className="shrink-0 space-y-1 p-2.5 sm:p-3 min-h-[4.25rem] sm:min-h-[4rem]">
+            <p className="line-clamp-2 min-h-[2.75rem] break-words text-base font-semibold uppercase leading-snug text-white sm:min-h-[1.75rem] sm:truncate sm:text-lg">
               {toCardDisplayUppercase(c.displayLabel)}
             </p>
-            <p className="tabular-nums text-base font-bold leading-[140%] tracking-normal text-[#87FF48] [font-family:var(--font-ibm-plex-sans),sans-serif] sm:text-[18px]">
+            <p className="min-h-[1.35rem] tabular-nums text-base font-bold leading-[140%] tracking-normal text-[#87FF48] [font-family:var(--font-ibm-plex-sans),sans-serif] sm:min-h-[1.5rem] sm:text-[18px]">
               {eBayPrice != null && Number.isFinite(eBayPrice) && eBayPrice > 0
                 ? formatUsd(eBayPrice)
                 : "—"}
@@ -407,7 +408,7 @@ export function TrendingCollectionsCarousel({
 
   /** Black circular control, mint chevrons — same on landing and Markets. */
   const carouselArrowMintEnabled =
-    "border border-zinc-700/90 bg-black text-mint shadow-[inset_0_1px_0_rgba(255,255,255,0.07),0_4px_16px_rgba(0,0,0,0.55)] ring-1 ring-black/80 hover:border-mint/45 hover:bg-zinc-950 hover:text-mint active:scale-[0.97] motion-reduce:hover:border-zinc-700/90 motion-reduce:hover:bg-black";
+    "border border-zinc-700/90 bg-black text-mint shadow-[inset_0_1px_0_rgba(255,255,255,0.07),0_4px_16px_rgba(0,0,0,0.55)] ring-1 ring-black/80 hover:border-mint/45 hover:bg-zinc-950 hover:text-mint active:opacity-85 motion-reduce:hover:border-zinc-700/90 motion-reduce:hover:bg-black";
 
   const carouselArrowOverlayClasses = (enabled: boolean) =>
     `absolute top-1/2 z-30 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border text-2xl font-semibold leading-none transition-[transform,colors,box-shadow,opacity,border-color,background-color] motion-reduce:transition-none ${
@@ -540,7 +541,7 @@ export function TrendingCollectionsCarousel({
             </button>
             <div
               role="presentation"
-              className={`touch-pan-y isolate min-w-0 flex-1 overflow-x-clip pb-0.5 pt-0 ${
+              className={`touch-pan-x isolate min-w-0 flex-1 overflow-x-clip pb-0.5 pt-0 ${
                 variant === "landing" && narrowCarousel
                   ? "w-full max-w-none max-sm:ring-2 max-sm:ring-inset max-sm:ring-[#060708]"
                   : landingNarrowW
@@ -550,14 +551,14 @@ export function TrendingCollectionsCarousel({
               onPointerCancel={onSwipePointerCancel}
             >
               <div
-                className={`flex flex-row flex-nowrap ${
+                className={`flex flex-row flex-nowrap items-stretch will-change-transform ${
                   narrowTransition && !trendingPauseMotion
-                    ? "transition-transform duration-500 ease-out motion-reduce:transition-none motion-reduce:duration-0"
+                    ? "transition-transform duration-500 motion-reduce:transition-none motion-reduce:duration-0 [transition-timing-function:linear]"
                     : "!transition-none"
                 }`}
                 style={{
                   width: `calc(100% * ${narrowExtended.length})`,
-                  transform: `translateX(calc(-${narrowVisual} * 100% / ${narrowExtended.length}))`,
+                  transform: `translate3d(calc(-${narrowVisual} * 100% / ${narrowExtended.length}), 0, 0)`,
                 }}
               >
                 {narrowExtended.map((c, idx) =>

@@ -161,7 +161,7 @@ function Stepper({ active }: { active: number }) {
 
 export default function VaultPage() {
   return (
-    <div className="min-h-screen bg-[#030712] text-white">
+    <div className="min-h-screen min-w-0 overflow-x-clip bg-[#030712] text-white">
       <Suspense fallback={null}>
         <LegacyVaultTabRedirect />
       </Suspense>

@@ -67,7 +67,7 @@ function ChipIcon({
 }
 
 const CATEGORY_CHIP_ROW =
-  "flex w-full min-w-0 flex-nowrap items-stretch gap-2 overflow-x-auto overscroll-x-contain scroll-smooth touch-pan-x snap-x snap-mandatory scroll-px-3 pr-3 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden max-sm:gap-1.5 sm:gap-2.5 sm:scroll-px-4 sm:pr-4";
+  "mobile-scroll-x-contain flex w-full min-w-0 flex-nowrap items-stretch gap-2 scroll-smooth touch-pan-x snap-x snap-mandatory scroll-px-3 pr-3 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden max-sm:gap-1.5 sm:gap-2.5 sm:scroll-px-4 sm:pr-4";
 
 const CATEGORY_CHIP_BUTTON =
   "group inline-flex min-h-[34px] shrink-0 snap-start touch-manipulation items-center justify-center rounded-lg border px-2.5 py-1.5 text-[12px] font-semibold tracking-tight transition-colors duration-200 ease-out hover:border-zinc-400/50 hover:bg-zinc-800/45 hover:text-white active:scale-[0.985] active:text-white sm:min-h-[40px] sm:rounded-xl sm:px-3.5 sm:py-2 sm:text-sm";

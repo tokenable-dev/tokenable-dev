@@ -5,7 +5,7 @@ export const MARKET_PRICE_CHANGE_PERIOD_LABEL = "1 mo";
 export const MARKET_PRICE_CHANGE_PERIOD_SHORT = "1mo";
 
 /** When 1 mo reference % cannot be computed (insufficient Cardhedger history). */
-export const REFERENCE_CHANGE_UNAVAILABLE_LABEL = "No history";
+export const REFERENCE_CHANGE_UNAVAILABLE_LABEL = "—";
 
 export const REFERENCE_CHANGE_UNAVAILABLE_HINT =
   "Not enough eBay reference price history to calculate a 1 mo change.";
@@ -16,6 +16,12 @@ export const MARKET_PRICE_CHANGE_LAG_SEC = 30 * 86_400;
 /** Batched collection snapshots used for {@link MARKET_PRICE_CHANGE_LAG_SEC} % change. */
 export const MARKET_PRICE_CHANGE_SNAPSHOT_DURATION =
   "30d" as const;
+
+/**
+ * `getCollectionMarketSeries` duration for headline metrics (spot, % 1 mo).
+ * Must span ≥ {@link MARKET_PRICE_CHANGE_LAG_SEC}; independent of chart range (7D/90D…).
+ */
+export const MARKET_METRICS_SERIES_DURATION = "90d" as const;
 
 /** Flat reference move (~0% over the window) — show explicit zero, not "no data". */
 export const REFERENCE_CHANGE_FLAT_LABEL = "0.0%";

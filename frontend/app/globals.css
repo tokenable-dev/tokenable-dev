@@ -36,9 +36,11 @@ body {
   display: none;
 }
 
-/* 컬렉션 상세: 스크롤바 색상은 브라우저 기본, 레이아웃만 튐 완화 */
-html.collection-details-scroll {
-  scrollbar-gutter: stable;
+/* 컬렉션 상세: 데스크톱만 gutter (모바일에서 가로 여백·점프 방지) */
+@media (min-width: 1024px) {
+  html.collection-details-scroll {
+    scrollbar-gutter: stable;
+  }
 }
 
 /* Collection detail mobile: single-screen shell (no page scroll). */
@@ -232,4 +234,44 @@ html.collection-details-scroll {
   .landing-grid-drift {
     animation: none !important;
   }
+}
+
+/* ── Mobile stability (≤1023px): less “page moves around” ───────────────── */
+@media (max-width: 1023px) {
+  html {
+    overflow-x: clip;
+    max-width: 100%;
+  }
+
+  body {
+    overflow-x: clip;
+    max-width: 100%;
+    overscroll-behavior-x: none;
+  }
+
+  .mobile-page-root {
+    isolation: isolate;
+  }
+
+  /*
+   * Landing ambient loops read as the whole page shifting on a phone.
+   * Keep one-shot enter fades; drop infinite orb/grid motion (also in reduced-motion).
+   */
+  .landing-orb-inner,
+  .landing-grid-drift {
+    animation: none !important;
+    will-change: auto;
+  }
+
+  .landing-orb-inner {
+    opacity: 0.88 !important;
+    transform: none !important;
+  }
+}
+
+/* Horizontal carousels / badge strips: contain swipe overscroll inside the strip */
+.mobile-scroll-x-contain {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
 }

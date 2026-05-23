@@ -5,6 +5,8 @@ import {
   formatReferencePercentChange,
   isFlatReferencePercentChange,
   MARKET_PRICE_CHANGE_PERIOD_SHORT,
+  REFERENCE_CHANGE_UNAVAILABLE_HINT,
+  REFERENCE_CHANGE_UNAVAILABLE_LABEL,
   referenceChangeTone,
 } from "@/lib/market";
 
@@ -103,7 +105,7 @@ export function CollectionMobileInformationPanel({
       ? "…"
       : changeOk
         ? formatReferencePercentChange(changePct, 0)
-        : "0.0%";
+        : REFERENCE_CHANGE_UNAVAILABLE_LABEL;
 
   const capLabel = formatMarketCap(marketCapUsd ?? null);
   const popLabel =
@@ -116,14 +118,18 @@ export function CollectionMobileInformationPanel({
   return (
     <div className="w-full min-w-0 shrink-0 py-1">
       <div className={`overflow-hidden rounded-xl ${COLLECTION_DETAILS_BG_CLASS}`}>
-        <div className="flex min-w-0 divide-x divide-zinc-800/80 overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="mobile-scroll-x-contain flex min-w-0 divide-x divide-zinc-800/80 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <InfoStatBox
             label={MARKET_PRICE_CHANGE_PERIOD_SHORT}
             value={changeValue}
             valueClassName={
               changeTone ? changeToneClass(changeTone) : "text-zinc-300"
             }
-            title={`% change (${MARKET_PRICE_CHANGE_PERIOD_SHORT})`}
+            title={
+              changeOk
+                ? `% change (${MARKET_PRICE_CHANGE_PERIOD_SHORT})`
+                : REFERENCE_CHANGE_UNAVAILABLE_HINT
+            }
           />
           <InfoStatBox
             label="Vol 24h"

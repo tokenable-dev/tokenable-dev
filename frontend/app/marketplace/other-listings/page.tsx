@@ -25,7 +25,7 @@ export default function MarketplaceOtherListingsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white">
+    <div className="min-h-screen min-w-0 overflow-x-clip bg-gray-950 text-white">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 pb-20">
         <Link
           href="/markets"

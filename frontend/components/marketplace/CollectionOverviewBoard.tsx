@@ -25,6 +25,7 @@ import {
 } from "@/components/marketplace/collectionOverviewChrome";
 import { CollectionOrderBookVisibilityToggle } from "@/components/marketplace/CollectionOrderBookVisibilityToggle";
 import { CollectionMobileListingsSection } from "@/components/marketplace/CollectionMobileListingsSection";
+import { useCollectionDetailMobile } from "@/components/marketplace/useCollectionDetailMobile";
 
 const collectionHeroFont = IBM_Plex_Sans({
   subsets: ["latin"],
@@ -351,6 +352,9 @@ export function CollectionOverviewBoard({
   const showMobileHeroIdentity = Boolean(headlineTitleLayout && headlineTitle);
   const hideTopHeadlineBarOnMobile = showMobileHeroIdentity && stats.length === 0;
   const useMobileTabbedMarket = mobileTabbedMarketUi && mobileMarketTabs != null;
+  const isMobileDetail = useCollectionDetailMobile();
+  /** Tabbed mobile UI owns chart/book — do not mount hidden desktop instances (avoids double ECharts init). */
+  const showInlineMarketCluster = !useMobileTabbedMarket || !isMobileDetail;
 
   const mobileHeadlineBlock =
     showMobileHeroIdentity && headlineTitle ? (
@@ -482,7 +486,7 @@ export function CollectionOverviewBoard({
               />
 
               <div className={`min-w-0 flex-1 pt-3 lg:flex lg:min-w-0 lg:items-center lg:pt-0 ${COLLECTION_DETAILS_BORDER_T} lg:border-t-0`}>
-                <div className="-mx-1 flex gap-4 overflow-x-auto px-1 pb-0.5 sm:gap-6 lg:mx-0 lg:flex-wrap lg:gap-x-7 lg:gap-y-2 lg:overflow-visible lg:px-0 lg:pb-0">
+                <div className="mobile-scroll-x-contain -mx-1 flex gap-4 px-1 pb-0.5 sm:gap-6 lg:mx-0 lg:flex-wrap lg:gap-x-7 lg:gap-y-2 lg:overflow-visible lg:px-0 lg:pb-0">
                   {stats.map((s) => (
                     <HeaderInlineStat key={s.label} stat={s} />
                   ))}
@@ -648,12 +652,9 @@ export function CollectionOverviewBoard({
           {leftColumnFooter}
         </div>
 
-        {/* Middle: chart (+ book in exchange layout). */}
-        <div
-          className={`flex min-w-0 w-full max-w-full flex-col items-stretch gap-2 overflow-x-clip sm:gap-2.5 lg:min-w-0 lg:self-start ${
-            useMobileTabbedMarket ? "max-lg:hidden" : ""
-          }`}
-        >
+        {/* Middle: chart (+ book in exchange layout). Omitted on mobile when tabs own market UI. */}
+        {showInlineMarketCluster ? (
+        <div className="flex min-w-0 w-full max-w-full flex-col items-stretch gap-2 overflow-x-clip sm:gap-2.5 lg:min-w-0 lg:self-start">
           {exchangeTriple ? (
             <>
               <div className="relative w-full min-w-0 max-w-full">
@@ -813,6 +814,7 @@ export function CollectionOverviewBoard({
             </div>
           )}
         </div>
+        ) : null}
 
         {hasBookColumn && (
           <div className="min-w-0 w-full max-w-[300px] lg:justify-self-end flex flex-col gap-0 lg:sticky lg:top-4">
