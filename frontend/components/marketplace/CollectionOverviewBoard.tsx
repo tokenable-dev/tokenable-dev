@@ -526,34 +526,52 @@ export function CollectionOverviewBoard({
             >
               {useMobileTabbedMarket &&
               (imageUrl || mobileHeadlineBlock || mobileCurrentPriceRow) ? (
-                <div className="max-lg:shrink-0 max-lg:border-b max-lg:border-zinc-800/35 max-lg:px-3.5 max-lg:pb-4 max-lg:pt-2">
-                  <div className="flex w-full min-w-0 items-stretch gap-2.5">
-                    <div className="flex min-h-[118px] min-w-0 flex-1 flex-col justify-between gap-1.5">
-                      {mobileHeadlineBlock ? (
-                        <div className="min-w-0">{mobileHeadlineBlock}</div>
+                <>
+                  <div className="max-lg:shrink-0 max-lg:border-b max-lg:border-zinc-800/35 max-lg:px-3.5 max-lg:pb-4 max-lg:pt-2 lg:hidden">
+                    <div className="flex w-full min-w-0 items-stretch gap-2.5">
+                      <div className="flex min-h-[118px] min-w-0 flex-1 flex-col justify-between gap-1.5">
+                        {mobileHeadlineBlock ? (
+                          <div className="min-w-0">{mobileHeadlineBlock}</div>
+                        ) : (
+                          <div className="min-h-0 flex-1" aria-hidden />
+                        )}
+                        {mobileCurrentPriceRow ? (
+                          <div className="mt-auto min-w-0">{mobileCurrentPriceRow}</div>
+                        ) : null}
+                      </div>
+                      {imageUrl ? (
+                        <CollectionCoverFrame
+                          imageUrl={imageUrl}
+                          alt=""
+                          variant="hero"
+                          className="relative z-[1] shrink-0 self-start"
+                        />
                       ) : (
-                        <div className="min-h-0 flex-1" aria-hidden />
+                        <div
+                          className={`flex h-[118px] w-[88px] shrink-0 items-center justify-center self-start rounded-xl ${COLLECTION_DETAILS_BORDER_ALL} ${COLLECTION_DETAILS_BG_CLASS} text-center text-[9px] text-gray-500`}
+                        >
+                          No preview
+                        </div>
                       )}
-                      {mobileCurrentPriceRow ? (
-                        <div className="mt-auto min-w-0">{mobileCurrentPriceRow}</div>
-                      ) : null}
                     </div>
+                  </div>
+                  <div className="hidden w-full min-w-0 lg:block">
                     {imageUrl ? (
                       <CollectionCoverFrame
                         imageUrl={imageUrl}
                         alt=""
                         variant="hero"
-                        className="relative z-[1] shrink-0 self-start"
+                        className="relative z-[1] w-full lg:w-full"
                       />
                     ) : (
                       <div
-                        className={`flex h-[118px] w-[88px] shrink-0 items-center justify-center self-start rounded-xl ${COLLECTION_DETAILS_BORDER_ALL} ${COLLECTION_DETAILS_BG_CLASS} text-center text-[9px] text-gray-500`}
+                        className={`flex h-[427px] w-full max-h-[427px] items-center justify-center rounded-2xl ${COLLECTION_DETAILS_BORDER_ALL} ${COLLECTION_DETAILS_BG_CLASS} p-6 text-center text-[12px] text-gray-500 lg:w-[307px]`}
                       >
                         No preview
                       </div>
                     )}
                   </div>
-                </div>
+                </>
               ) : (
                 <div className="flex w-full min-w-0 flex-col gap-2 max-lg:flex-row max-lg:items-start max-lg:gap-2.5">
                   {mobileHeadlineBlock ? (
