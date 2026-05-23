@@ -22,8 +22,10 @@ import { CollectionService } from '../collections/collection.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { Order, OrderSide, OrderStatus } from '../entities/order.entity';
 import { orderToListItem, type OrderListItem } from '../utils/order-list.util';
-
-const CRITERIA_TOKEN_SENTINEL = '0';
+import {
+  backfillAskTokenIdFromParameters,
+  CRITERIA_TOKEN_SENTINEL,
+} from '../utils/platform-tape.util';
 
 /** DB/API tokenId 표기(앞자리 0 등) 차이로 replace-listing이 실패하지 않도록 비교용 정규화 */
 function normalizeDecimalTokenId(raw: string): string {
@@ -389,6 +391,13 @@ export class OrdersService {
         `Sum of consideration amounts (${sum}) does not equal considerationAmount (${declared})`,
       );
     }
+
+    const tid = String(dto.tokenId ?? '').trim();
+    if (!tid || tid === CRITERIA_TOKEN_SENTINEL) {
+      throw new BadRequestException(
+        'Ask listings must use a non-zero ERC-721 tokenId',
+      );
+    }
   }
 
   async findActiveOrders(): Promise<Order[]> {
@@ -520,6 +529,7 @@ export class OrdersService {
         ...(order.parameters ?? {}),
         _tapeFillSide: 'buy',
       };
+      backfillAskTokenIdFromParameters(order);
     }
     const saved = await this.orderRepo.save(order);
 
@@ -612,6 +622,7 @@ export class OrdersService {
       ...(ask.parameters ?? {}),
       _tapeFillSide: 'sell',
     };
+    backfillAskTokenIdFromParameters(ask);
     await this.orderRepo.save([ask, bid]);
 
     const cleared = await this.orderRepo.update(

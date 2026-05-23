@@ -13,6 +13,10 @@ import {
 import { Order, OrderSide, OrderStatus } from '../entities/order.entity';
 import { computeRobustMarketStatsFromUsdPrices } from '../utils/collection-market-stats.util';
 import type { MarketCollectionPreview } from '../utils/market-reference.types';
+import {
+  resolveFulfilledAskTokenId,
+  resolvePlatformTapeFill,
+} from '../utils/platform-tape.util';
 
 export type PriceHistoryDuration = '7d' | '30d' | '90d' | '180d' | '365d';
 
@@ -78,28 +82,6 @@ function tapeAggressorFromOrderParameters(
   const s = parameters['_tapeFillSide'];
   if (s === 'sell') return 'sell';
   return 'buy';
-}
-
-const CRITERIA_TOKEN_SENTINEL = '0';
-
-/**
- * Fulfilled ask tape + 24h volume. `token_id` "0" is the criteria-bid sentinel;
- * some fulfilled asks were persisted with that sentinel — recover ERC-721 id from Seaport offer.
- */
-function resolveFulfilledAskTokenId(order: Order): string | null {
-  const raw = order.tokenId?.trim();
-  if (raw && raw !== CRITERIA_TOKEN_SENTINEL) return raw;
-
-  const offer = (
-    order.parameters as {
-      offer?: Array<{ itemType?: number; identifierOrCriteria?: string }>;
-    }
-  )?.offer;
-  const item = offer?.[0];
-  if (!item || Number(item.itemType) !== 2) return null;
-  const fromOffer = String(item.identifierOrCriteria ?? '').trim();
-  if (!fromOffer || fromOffer === CRITERIA_TOKEN_SENTINEL) return null;
-  return fromOffer;
 }
 
 function emptyMarketBundle(
@@ -242,31 +224,30 @@ export class CollectionMarketService {
     trades: PlatformTapeFillRow[];
   }> {
     const k = collectionKey.toLowerCase();
+  /** Fulfilled asks + collection bids (criteria match / buy flow). */
     const rows = await this.orderRepo.find({
       where: {
         collectionKey: k,
         status: OrderStatus.FULFILLED,
-        side: OrderSide.ASK,
       },
       order: { updatedAt: 'ASC' },
     });
-    const valid: { order: Order; tokenId: string }[] = [];
+    const valid: { order: Order; tokenId: string; priceUsdc: number }[] = [];
     for (const o of rows) {
-      const tokenId = resolveFulfilledAskTokenId(o);
-      if (!tokenId) continue;
-      const v = this.usdcPriceFromOrder(o, 'platform-trades');
-      if (v == null) continue;
-      valid.push({ order: o, tokenId });
+      const priceUsdc = this.usdcPriceFromOrder(o, 'platform-trades');
+      const fill = resolvePlatformTapeFill(o, priceUsdc);
+      if (!fill) continue;
+      valid.push({ order: o, tokenId: fill.tokenId, priceUsdc: fill.priceUsdc });
     }
-    const platformUsd: UsdPoint[] = valid.map(({ order: o }) => ({
+    const platformUsd: UsdPoint[] = valid.map(({ order: o, priceUsdc }) => ({
       t: Math.floor(o.updatedAt.getTime() / 1000),
-      v: this.usdcMicrosToNumber(o.considerationAmount)!,
+      v: priceUsdc,
     }));
     const recent = valid.slice(-80);
     const trades: PlatformTapeFillRow[] = [...recent].reverse().map(
-      ({ order: o, tokenId }) => ({
+      ({ order: o, tokenId, priceUsdc }) => ({
         t: Math.floor(o.updatedAt.getTime() / 1000),
-        priceUsdc: this.usdcMicrosToNumber(o.considerationAmount)!,
+        priceUsdc,
         tokenId,
         orderHash: o.orderHash,
         tapeAggressor: tapeAggressorFromOrderParameters(o.parameters),
@@ -314,10 +295,6 @@ export class CollectionMarketService {
     let fulfilledNonUsdc = 0;
     let fulfilledInvalidAmount = 0;
     for (const o of fulfilled) {
-      if (!resolveFulfilledAskTokenId(o)) {
-        fulfilledSkippedToken++;
-        continue;
-      }
       const { usd, skip } = this.classifyUsdcConsideration(o);
       if (skip === 'non_usdc') {
         fulfilledNonUsdc++;
