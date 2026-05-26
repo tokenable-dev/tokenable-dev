@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import type { QueryDeepPartialEntity } from 'typeorm/query-builder/QueryPartialEntity';
 import {
   PsaPublicApiService,
   type PsaCertRecord,
@@ -102,13 +103,11 @@ export class PsaCertSnapshotService {
     if (lookup.status !== 'success' || !lookup.raw) return;
     const snap = this.compactFromApiRaw(lookup.raw);
     if (!snap || Object.keys(snap).length === 0) return;
-    await this.repo.upsert(
-      {
-        certNumber: cert,
-        snapshotJson: snap,
-        fetchedAt: new Date(),
-      },
-      ['certNumber'],
-    );
+    const row: QueryDeepPartialEntity<PsaCertSnapshot> = {
+      certNumber: cert,
+      snapshotJson: snap as object,
+      fetchedAt: new Date(),
+    };
+    await this.repo.upsert(row, ['certNumber']);
   }
 }
