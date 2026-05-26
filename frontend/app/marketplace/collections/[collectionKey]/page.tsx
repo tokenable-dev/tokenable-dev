@@ -19,13 +19,15 @@ import { pickCollectionHeroImageUrl } from "@/lib/marketplace";
 import { COLLECTION_DETAIL_SHELL_CLASS } from "@/constants/layout";
 import {
   computeCollectionMarketCapUsd,
+  formatReferenceChangeCoverageHint,
   formatMarketCapUsd,
   formatSportCategoryDisplayLabel,
   marketHistoryTierFromComponents,
   marketTierDisplayLabel,
   parseGradeScoreNumber,
   MARKET_METRICS_SERIES_DURATION,
-  percentChangeReferenceOver1Mo,
+  filterMergedChartPointsForWindow,
+  percentChangeReferenceBestWindow,
   resolveExternalMarketUsd,
 } from "@/lib/market";
 import { CollectionOverviewBoard } from "@/components/marketplace/CollectionOverviewBoard";
@@ -58,14 +60,18 @@ import {
   bucketGradingCompanyForDisplay,
 } from "@/lib/marketplace/bucketKey";
 import {
+  buildAssetDetailHeadlineParts,
+  computeAssetDetailWovenTitle,
+  formatAssetDetailHeadlineText,
+} from "@/lib/marketplace/assetDetailHeadline";
+import {
   buildCollectionHeadlineMetaStrip,
-  computeCollectionWovenTitle,
   formatCollectionHeroCardTitle,
   leadingYearFromSetLine,
   toCardDisplayUppercase,
   yearFromComponents,
 } from "@/lib/marketplace/collectionFullDetailsTitle";
-import { buildCollectionHeadlineInfoTags, mergeHeadlineCardNumberIntoTitle, resolveHeadlineFormattedCardNumber } from "@/lib/marketplace/collectionHeadlineTags";
+import { buildCollectionHeadlineInfoTags, resolveHeadlineFormattedCardNumber } from "@/lib/marketplace/collectionHeadlineTags";
 import { primeRwaMetadataCache } from "@/lib/marketplace";
 
 /** Same fill can appear from session overlay + DB poll with timestamps minutes apart */
@@ -77,13 +83,13 @@ function listingDisplayTitleFromComp(comp: Record<string, unknown>): string {
   return typeof v === "string" ? v.trim().replace(/\s+/g, " ") : "";
 }
 
-type ChartRangeId = "7d" | "30d" | "90d" | "180d" | "1y";
+type ChartRangeId = "7d" | "30d" | "90d" | "180d" | "1y" | "max";
 type ChartRangeConfig = {
   id: ChartRangeId;
   label: string;
   historyPeriod: "7d" | "30d" | "90d" | "1y";
   maxDays: number;
-  bundleDuration: "7d" | "30d" | "90d" | "180d" | "365d";
+  bundleDuration: "7d" | "30d" | "90d" | "180d" | "365d" | "max";
 };
 const CHART_RANGE_OPTIONS: readonly ChartRangeConfig[] = [
   { id: "7d", label: "7D", historyPeriod: "7d", maxDays: 7, bundleDuration: "7d" },
@@ -91,13 +97,14 @@ const CHART_RANGE_OPTIONS: readonly ChartRangeConfig[] = [
   { id: "90d", label: "90D", historyPeriod: "90d", maxDays: 90, bundleDuration: "90d" },
   { id: "180d", label: "180D", historyPeriod: "1y", maxDays: 180, bundleDuration: "180d" },
   { id: "1y", label: "1Y", historyPeriod: "1y", maxDays: 365, bundleDuration: "365d" },
+  { id: "max", label: "MAX", historyPeriod: "1y", maxDays: 4000, bundleDuration: "max" },
 ] as const;
 
 /** Mobile collection detail chart — fixed 90D window, no range picker. */
 const MOBILE_CHART_RANGE =
   CHART_RANGE_OPTIONS.find((x) => x.id === "90d") ?? CHART_RANGE_OPTIONS[2];
 
-/** Clip Cardhedger curve to the selected range on the client (API still returns up to ~1y for parity with preview). */
+/** Seconds per day — chart window metadata and comps-archive span checks. */
 const CHART_RANGE_CLIP_SEC = 86_400;
 
 function CollectionDetailMobileNav() {
@@ -338,15 +345,19 @@ export default function MarketplaceCollectionPage() {
   const marketSeriesEnabled =
     key.length > 0 && !isLoading && !isError && !!data;
 
-  /** Chart — window follows 7D / 30D / 90D toolbar (desktop) or mobile fixed range. */
-  const { data: marketSeriesChart, isLoading: marketSeriesChartLoading } = useQuery({
-    queryKey: ["collection-market-series", key, chartDisplayRange.bundleDuration],
-    queryFn: () => getCollectionMarketSeries(key, chartDisplayRange.bundleDuration),
-    enabled: marketSeriesEnabled,
-    staleTime: 120_000,
-  });
+  /**
+   * Chart — `max` fetch returns full comps-merged `externalUsd`; 7D–1Y clip that archive
+   * client-side (`filterMergedChartPointsForWindow`), not a separate daily-only API call.
+   */
+  const { data: marketSeriesChartArchive, isLoading: marketSeriesChartLoading } =
+    useQuery({
+      queryKey: ["collection-market-series", key, "chart-archive", "max"],
+      queryFn: () => getCollectionMarketSeries(key, "max"),
+      enabled: marketSeriesEnabled,
+      staleTime: 120_000,
+    });
 
-  /** Headline metrics (Current Price, % 1 mo) — fixed history window, not chart range. */
+  /** Headline metrics (Current Price, % change) — fixed history window, not chart range. */
   const { data: marketSeriesMetrics, isLoading: marketSeriesMetricsLoading } =
     useQuery({
       queryKey: [
@@ -363,21 +374,32 @@ export default function MarketplaceCollectionPage() {
 
   const marketPreview = marketSeriesMetrics?.cardhedgerPreview ?? null;
 
-  const jtHistPts = marketSeriesChart?.externalUsd ?? [];
+  const chartArchivePts = marketSeriesChartArchive?.externalUsd ?? [];
   const metricsReferencePts = marketSeriesMetrics?.externalUsd ?? [];
-  const jtHistOk = jtHistPts.length >= 2;
+  const chartArchiveOk = chartArchivePts.length >= 2;
 
   const chartExternalRollingUsd = useMemo(() => {
-    const nowS = Math.floor(Date.now() / 1000);
-    const cutoff = nowS - chartDisplayRange.maxDays * CHART_RANGE_CLIP_SEC;
-    if (!jtHistOk) return [];
-    return jtHistPts.filter((p) => p.t >= cutoff);
-  }, [jtHistOk, jtHistPts, chartDisplayRange.maxDays]);
+    if (!chartArchiveOk) return [];
+    return filterMergedChartPointsForWindow(
+      chartArchivePts,
+      chartDisplayRange.bundleDuration,
+    );
+  }, [
+    chartArchiveOk,
+    chartArchivePts,
+    chartDisplayRange.bundleDuration,
+  ]);
 
+  const jtHistOk = chartExternalRollingUsd.length >= 2;
+
+  /**
+   * MAX: null → chart x-axis follows actual comps span (not now−4000d, which drew fake 2015 anchors).
+   * 7D–1Y: fixed toolbar window from latest sale (via filtered points + days here).
+   */
   const chartExternalWindowDays = useMemo(() => {
-    if (!jtHistOk) return null;
+    if (chartDisplayRange.bundleDuration === "max") return null;
     return chartDisplayRange.maxDays;
-  }, [jtHistOk, chartDisplayRange.maxDays]);
+  }, [chartDisplayRange.bundleDuration, chartDisplayRange.maxDays]);
 
   const pokeTierLabel = marketTierDisplayLabel(pokeHistoryTier);
 
@@ -436,15 +458,35 @@ export default function MarketplaceCollectionPage() {
 
   const metricsHistOk = metricsReferencePts.length >= 2;
 
-  const externalReferencePtsFor1Mo = useMemo(() => {
+  const externalReferencePtsForChange = useMemo(() => {
     if (metricsHistOk) return metricsReferencePts;
     return [];
   }, [metricsHistOk, metricsReferencePts]);
 
-  const externalPriceChange1MoPct = useMemo(
-    () => percentChangeReferenceOver1Mo(externalReferencePtsFor1Mo),
-    [externalReferencePtsFor1Mo],
+  const externalPriceChangeResult = useMemo(() => {
+    const m = marketSeriesMetrics;
+    if (
+      m?.marketChangePct != null &&
+      Number.isFinite(m.marketChangePct) &&
+      m.marketChangeSpanSec != null &&
+      m.marketChangeSpanSec > 0
+    ) {
+      return {
+        pct: m.marketChangePct,
+        isFullYear: Boolean(m.marketChangeIsFullYear),
+        windowSec: m.marketChangeSpanSec,
+        refUsd: m.marketChangeRefUsd ?? null,
+        refAtSec: m.marketChangeRefAtSec ?? null,
+      };
+    }
+    return percentChangeReferenceBestWindow(externalReferencePtsForChange);
+  }, [marketSeriesMetrics, externalReferencePtsForChange]);
+  const externalPriceChangeCoverageHint = useMemo(
+    () => formatReferenceChangeCoverageHint(externalPriceChangeResult),
+    [externalPriceChangeResult],
   );
+
+  const externalPriceChange1MoPct = externalPriceChangeResult.pct;
 
   const volume24hUsdc = useMemo(() => {
     const raw = platformTradesData?.trades;
@@ -673,12 +715,42 @@ export default function MarketplaceCollectionPage() {
     [marketPreview, comp],
   );
 
+  const collectionHeadlineParts = useMemo(() => {
+    const explicitYear = yearFromComponents(comp as Record<string, unknown>);
+    let year: number | string | null = explicitYear;
+
+    if (year == null) {
+      const dlRaw =
+        typeof data?.collection?.displayLabel === "string"
+          ? data.collection.displayLabel
+          : "";
+      const m = /(\d{4})/.exec(dlRaw ?? "");
+      if (m) {
+        const yNum = Number(m[1]);
+        if (Number.isFinite(yNum) && yNum >= 1880 && yNum <= 2100) {
+          year = yNum;
+        }
+      }
+    }
+
+    return buildAssetDetailHeadlineParts({
+      setLine: headlineSetLine,
+      year,
+      cardName: collectionHeadlineCardName,
+      cardNumber: headlineCardNumberToken,
+      uppercase: true,
+    });
+  }, [
+    headlineSetLine,
+    comp,
+    collectionHeadlineCardName,
+    headlineCardNumberToken,
+    data?.collection?.displayLabel,
+  ]);
+
   const collectionHeadlineDisplayTitle = useMemo(
-    () =>
-      toCardDisplayUppercase(
-        mergeHeadlineCardNumberIntoTitle(collectionHeadlineCardName, headlineCardNumberToken),
-      ),
-    [collectionHeadlineCardName, headlineCardNumberToken],
+    () => formatAssetDetailHeadlineText(collectionHeadlineParts),
+    [collectionHeadlineParts],
   );
 
   const collectionHeadlineMetaStrip = useMemo(() => {
@@ -709,20 +781,13 @@ export default function MarketplaceCollectionPage() {
 
   const collectionWovenTitle = useMemo(() => {
     return toCardDisplayUppercase(
-      computeCollectionWovenTitle(
-        collectionHeadlineDisplayTitle,
-        headlineSetLine,
+      computeAssetDetailWovenTitle(
+        collectionHeadlineParts,
         collectionHeadlineMetaStrip,
-        headlineCardNumberToken,
         null,
       ),
     );
-  }, [
-    collectionHeadlineDisplayTitle,
-    headlineSetLine,
-    collectionHeadlineMetaStrip,
-    headlineCardNumberToken,
-  ]);
+  }, [collectionHeadlineParts, collectionHeadlineMetaStrip]);
 
   const headlineInfoTags = useMemo(() => {
     const raw = buildCollectionHeadlineInfoTags({
@@ -926,11 +991,20 @@ export default function MarketplaceCollectionPage() {
 
   const detailsCatalogLine = useMemo(() => {
     const fromTags = headlineInfoTags?.find((t) => t.id === "cardno")?.text?.trim();
-    if (fromTags) return fromTags;
+    if (fromTags) {
+      const titleHasCardNo = collectionHeadlineDisplayTitle
+        .toLowerCase()
+        .includes(fromTags.toLowerCase());
+      return titleHasCardNo ? null : fromTags;
+    }
     const raw = headlineCardNumberToken?.trim();
     if (!raw) return null;
-    return raw.startsWith("#") ? raw : `#${raw}`;
-  }, [headlineInfoTags, headlineCardNumberToken]);
+    const normalized = raw.startsWith("#") ? raw : `#${raw}`;
+    const titleHasCardNo = collectionHeadlineDisplayTitle
+      .toLowerCase()
+      .includes(normalized.toLowerCase());
+    return titleHasCardNo ? null : normalized;
+  }, [headlineInfoTags, headlineCardNumberToken, collectionHeadlineDisplayTitle]);
 
   const heroDetailsKvRows = useMemo((): CollectionDetailCard[] => {
     const player = collectionHeadlineCardName?.trim();
@@ -1056,6 +1130,8 @@ export default function MarketplaceCollectionPage() {
       externalMarketMatchConfidence={resolvedExternal.marketMatchConfidence}
       externalPriceLoading={marketSeriesMetricsLoading}
       externalPriceChange1MoPct={externalPriceChange1MoPct}
+      externalPriceChangePeriod={externalPriceChangeResult}
+      externalPriceChangeBasisText={externalPriceChangeCoverageHint}
       externalPriceChange1MoLoading={marketSeriesMetricsLoading}
       volume24hUsdc={volume24hUsdc}
       volume24hLoading={platformTradesLoading}
@@ -1131,11 +1207,13 @@ export default function MarketplaceCollectionPage() {
   const mobileInformationPanel = (
     <CollectionMobileInformationPanel
       changePct={externalPriceChange1MoPct}
+      changePeriod={externalPriceChangeResult}
       changeLoading={marketSeriesMetricsLoading}
       volume24hUsdc={volume24hUsdc}
       volume24hLoading={platformTradesLoading}
       marketCapUsd={marketCapComputation?.usd ?? null}
       totalPopulation={totalPopulation}
+      listingCount={asks.length}
       formatMarketCap={formatMarketCapUsd}
     />
   );
@@ -1150,6 +1228,7 @@ export default function MarketplaceCollectionPage() {
           title={collectionWovenTitle}
           subtitle={subtitle}
           headlineTitle={collectionHeadlineDisplayTitle}
+          headlineStructuredTitle={collectionHeadlineParts}
           headlineSetLine={headlineSetLine}
           headlineMetaStrip={collectionHeadlineMetaStrip ?? undefined}
           headlineInfoTags={headlineInfoTags ?? undefined}
@@ -1164,8 +1243,8 @@ export default function MarketplaceCollectionPage() {
               onAiInsightsClick={() => setAiInsightComingSoonOpen(true)}
               detailsPanel={
                 <CollectionDetailsKvCard
-                  title={collectionHeadlineCardName}
-                  subtitle={headlineSetLine}
+                  title={collectionHeadlineDisplayTitle}
+                  subtitle={null}
                   catalogLine={detailsCatalogLine}
                   rows={heroDetailsKvRows}
                   compactRows={heroDetailsKvRows.filter((r) => r.id !== "player")}
@@ -1186,14 +1265,18 @@ export default function MarketplaceCollectionPage() {
           }
           mobileMarketTabs={
             <CollectionMobileMarketTabs
-              informationPanel={mobileInformationPanel}
+              informationPanel={
+                <div className="h-[168px] w-full min-w-0 shrink-0 overflow-hidden">
+                  {mobileInformationPanel}
+                </div>
+              }
               chartPanel={
                 <div className="h-[168px] w-full min-w-0 shrink-0 overflow-hidden">
                   {collectionDualPriceChartTab}
                 </div>
               }
               orderBookPanel={
-                <div className="max-h-[200px] w-full min-w-0 shrink-0 overflow-y-auto overscroll-y-contain">
+                <div className="h-[168px] w-full min-w-0 shrink-0 overflow-y-auto overscroll-y-contain">
                   {collectionOrderBookMobile}
                 </div>
               }

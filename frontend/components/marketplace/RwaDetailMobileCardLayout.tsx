@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { AssetDetailHeadlineTitle } from "@/components/marketplace/AssetDetailHeadlineTitle";
 import {
   GradientOutlineFrame,
   PRODUCT_OUTLINE_GRADIENT,
@@ -8,14 +9,16 @@ import {
   gradientOutlineInnerButtonClass,
 } from "@/components/ui/GradientOutlineFrame";
 import {
-  formatApproxKrwFromUsd,
-  formatUsdcPricePrimary,
-} from "@/lib/market/usdcKrwDisplay";
+  assetDetailHeadlineHasContent,
+  formatAssetDetailHeadlineText,
+  type AssetDetailHeadlineParts,
+} from "@/lib/marketplace/assetDetailHeadline";
+import { formatUsdcPricePrimary } from "@/lib/market/usdcKrwDisplay";
 
 /** @deprecated Use {@link PRODUCT_OUTLINE_GRADIENT} */
 export const RWA_STICKY_BUY_BORDER_GRADIENT = PRODUCT_OUTLINE_GRADIENT;
 
-/** Two-line mobile price — USDC primary + approximate KRW (reference: marketplace listing). */
+/** Mobile price — USDC only (KRW hint removed per product). */
 export function RwaDetailMobilePriceStack({
   usd,
   unavailableLabel = "Not listed",
@@ -34,28 +37,23 @@ export function RwaDetailMobilePriceStack({
   }
 
   return (
-    <div className={`flex flex-col items-start gap-1 ${className}`.trim()}>
-      <span className="text-[1.625rem] font-bold leading-none tracking-tight tabular-nums text-white">
-        {formatUsdcPricePrimary(usd)}
-      </span>
-      <span className="text-[13px] font-normal leading-snug tabular-nums text-zinc-500">
-        {formatApproxKrwFromUsd(usd)}
-      </span>
-    </div>
+    <span
+      className={`text-[1.625rem] font-bold leading-none tracking-tight tabular-nums text-white ${className}`.trim()}
+    >
+      {formatUsdcPricePrimary(usd)}
+    </span>
   );
 }
 
 export function RwaDetailMobileCardHeader({
-  title,
+  headlineParts,
   titleLoading = false,
-  setDescription,
-  cardIdLine,
 }: {
-  title: ReactNode;
+  headlineParts: AssetDetailHeadlineParts | null;
   titleLoading?: boolean;
-  setDescription?: string | null;
-  cardIdLine?: string | null;
 }) {
+  const hasHeadline = headlineParts != null && assetDetailHeadlineHasContent(headlineParts);
+
   return (
     <header className="mx-auto w-full max-w-[32rem] min-w-0 px-5 pb-2 pt-7 text-center lg:hidden">
       {titleLoading ? (
@@ -63,23 +61,17 @@ export function RwaDetailMobileCardHeader({
           className="mx-auto h-9 w-[min(100%,17rem)] max-w-full animate-pulse rounded-lg bg-zinc-800/85"
           aria-hidden
         />
+      ) : hasHeadline && headlineParts ? (
+        <AssetDetailHeadlineTitle
+          as="h1"
+          parts={headlineParts}
+          className="text-[1.4rem] font-bold leading-[1.2] tracking-tight text-white [overflow-wrap:anywhere] sm:text-[1.45rem]"
+        />
       ) : (
-        <h1 className="text-[1.4rem] font-bold leading-[1.2] tracking-tight text-white [overflow-wrap:anywhere] sm:text-[1.45rem]">
-          <span>{title}</span>
-          {cardIdLine ? (
-            <span className="whitespace-nowrap font-semibold text-zinc-400/95">
-              {" "}
-              {cardIdLine}
-            </span>
-          ) : null}
+        <h1 className="text-[1.4rem] font-bold leading-[1.2] tracking-tight text-white sm:text-[1.45rem]">
+          {formatAssetDetailHeadlineText(headlineParts ?? { year: null, setName: null, cardName: null })}
         </h1>
       )}
-
-      {setDescription ? (
-        <p className="mx-auto mt-3 max-w-[26rem] text-[13px] font-normal leading-relaxed text-zinc-500/95">
-          {setDescription}
-        </p>
-      ) : null}
     </header>
   );
 }
@@ -125,7 +117,7 @@ export function RwaDetailStickyBuyButton({
   disabled?: boolean;
   /** Stronger visual weight for Buy / Connect on purchasable listings. */
   emphasis?: "primary" | "default";
-  /** When set, price + KRW approx render inside the button above the action label. */
+  /** When set, USDC price renders inside the button above the action label. */
   priceUsd?: number | null;
   priceCaption?: string;
 }) {
@@ -154,7 +146,7 @@ export function RwaDetailStickyBuyButton({
         disabled={disabled}
         className={`${gradientOutlineInnerButtonClass} flex w-full min-w-0 flex-col items-center justify-center rounded-[7px] border-0 leading-none tracking-wide outline-none transition-[background-color,box-shadow,filter] duration-200 ease-out enabled:hover:bg-zinc-950 enabled:hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.12),inset_0_-1px_0_rgba(16,211,51,0.1)] enabled:hover:brightness-110 enabled:focus-visible:ring-2 enabled:focus-visible:ring-mint/50 enabled:focus-visible:ring-offset-2 enabled:focus-visible:ring-offset-black motion-reduce:transition-none motion-reduce:enabled:hover:brightness-100 ${
           hasPrice
-            ? "min-h-[5.25rem] gap-2 px-3.5 py-2.5 text-center enabled:hover:saturate-110"
+            ? "min-h-[4.75rem] gap-1.5 px-3.5 py-2.5 text-center enabled:hover:saturate-110"
             : `h-[52px] px-4 !text-[17px] !font-semibold !text-white enabled:hover:!text-white enabled:hover:brightness-105 ${
                 isPrimary ? "h-[56px] !text-[18px] enabled:hover:saturate-125" : ""
               }`
@@ -168,14 +160,9 @@ export function RwaDetailStickyBuyButton({
                 {priceCaption}
               </span>
             ) : null}
-            <div className="flex min-w-0 flex-wrap items-center justify-center gap-x-2 gap-y-0.5">
-              <span className="text-[1.2rem] font-bold leading-none tabular-nums text-white">
-                {formatUsdcPricePrimary(priceUsd)}
-              </span>
-              <span className="text-[13px] font-normal leading-none tabular-nums text-zinc-500">
-                {formatApproxKrwFromUsd(priceUsd)}
-              </span>
-            </div>
+            <span className="text-[1.2rem] font-bold leading-none tabular-nums text-white">
+              {formatUsdcPricePrimary(priceUsd)}
+            </span>
             <span className={`w-full text-center tabular-nums ${actionClass}`}>
               {children}
             </span>

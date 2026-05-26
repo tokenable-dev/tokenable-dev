@@ -478,6 +478,10 @@ export interface CollectionMarketSeries {
   marketChangePct: number | null;
   /** Present when served by a recent backend (exchange list uses same bundle fields) */
   marketChangeWindow?: "7d" | "30d" | "90d" | "180d" | "365d" | "24h";
+  marketChangeIsFullYear?: boolean;
+  marketChangeSpanSec?: number;
+  marketChangeRefUsd?: number | null;
+  marketChangeRefAtSec?: number | null;
   marketChangeSource?:
     | "cardhedger_nm"
     | "cardhedger_graded"
@@ -500,7 +504,13 @@ export interface CollectionMarketSeries {
 /** Cardhedger-backed market series — `priceHistoryDuration` caps external reference history in `externalUsd`. */
 export async function getCollectionMarketSeries(
   collectionKey: string,
-  priceHistoryDuration: "7d" | "30d" | "90d" | "180d" | "365d" = "30d",
+  priceHistoryDuration:
+    | "7d"
+    | "30d"
+    | "90d"
+    | "180d"
+    | "365d"
+    | "max" = "30d",
 ): Promise<CollectionMarketSeries> {
   const enc = encodeURIComponent(collectionKey);
   const sp = new URLSearchParams();
@@ -705,6 +715,10 @@ export interface CollectionListMarketSnapshot {
   marketChangePct: number | null;
   /** Window label for bundle metadata */
   marketChangeWindow?: "7d" | "30d" | "90d" | "180d" | "365d" | "24h";
+  marketChangeIsFullYear?: boolean;
+  marketChangeSpanSec?: number;
+  marketChangeRefUsd?: number | null;
+  marketChangeRefAtSec?: number | null;
   marketChangeSource?:
     | "cardhedger_nm"
     | "cardhedger_graded"
@@ -751,7 +765,7 @@ export async function postMarketplaceCollectionSnapshots(body: {
  */
 export async function postMarketplaceCollectionSnapshotsBatched(
   collectionKeys: string[],
-  priceHistoryDuration: "7d" | "30d" | "90d" | "180d" | "365d" = "30d",
+  priceHistoryDuration: "7d" | "30d" | "90d" | "180d" | "365d" = "365d",
 ): Promise<{ items: CollectionListMarketSnapshot[] }> {
   const max = MARKETPLACE_COLLECTION_SNAPSHOTS_MAX_KEYS;
   if (collectionKeys.length === 0) return { items: [] };

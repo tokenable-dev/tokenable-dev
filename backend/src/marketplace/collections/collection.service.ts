@@ -1180,6 +1180,45 @@ export class CollectionService implements OnModuleInit {
     };
   }
 
+  /**
+   * Overlay PSA Public API fields onto `components` for Cardhedger resolve
+   * (PSA Brand/Subject/Variety are authoritative vs abbreviated mint set lines).
+   */
+  mergePsaSnapshotIntoComponents(
+    col: MarketplaceCollection,
+  ): MarketplaceCollection {
+    const snap = col.psaPublicSnapshotJson;
+    if (!snap || typeof snap !== 'object') return col;
+    const comp: Record<string, unknown> = { ...col.components };
+    let dirty = false;
+    const apply = (key: string, raw: unknown) => {
+      const v = String(raw ?? '').trim();
+      if (!v) return;
+      if (String(comp[key] ?? '').trim() !== v) {
+        comp[key] = v;
+        dirty = true;
+      }
+    };
+    apply('psaSubject', snap.Subject);
+    apply('psaBrand', snap.Brand);
+    apply('psaYear', snap.Year);
+    apply('psaVariety', snap.Variety);
+    const cn = String(snap.CardNumber ?? '').trim();
+    if (cn && !String(comp.cardNumber ?? '').trim()) {
+      comp.cardNumber = cn.replace(/^#/, '');
+      dirty = true;
+    }
+    if (!dirty) return col;
+    return { ...col, components: comp };
+  }
+
+  /** Refresh PSA cert snapshot JSON when TTL expired (best-effort). */
+  async refreshPsaPublicSnapshotForCollection(
+    collectionKey: string,
+  ): Promise<void> {
+    await this.tryRefreshPsaPublicSnapshot(collectionKey);
+  }
+
   private async tryRefreshPsaPublicSnapshot(
     collectionKey: string,
   ): Promise<void> {

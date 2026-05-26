@@ -140,7 +140,17 @@ export class CollectionMarketSnapshotService {
   ): Promise<CollectionMarketSnapshot | null> {
     const started = Date.now();
     try {
-      const col = await this.collectionService.findOne(key);
+      await this.collectionService.refreshPsaPublicSnapshotForCollection(key);
+      let col = await this.collectionService.findOne(key);
+      if (col) {
+        await this.collectionService.auditCardhedgerCardIdExact(key, {
+          clearOnMismatch: true,
+        });
+        col = await this.collectionService.findOne(key);
+      }
+      if (col) {
+        col = this.collectionService.mergePsaSnapshotIntoComponents(col);
+      }
       const historyTier = marketHistoryTierFromComponents(col?.components);
       const { preview, history } = await this.cardMarketData.getBundledCardData(
         col,

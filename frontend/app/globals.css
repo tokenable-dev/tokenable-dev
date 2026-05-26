@@ -275,3 +275,11 @@ body {
   overscroll-behavior-x: contain;
   -webkit-overflow-scrolling: touch;
 }
+
+/*
+ * Hero collection carousel (landing / markets mobile): allow vertical page scroll
+ * on the large card image; horizontal swipe is handled in JS when intent is clear.
+ */
+.touch-pan-y {
+  touch-action: pan-y pinch-zoom;
+}

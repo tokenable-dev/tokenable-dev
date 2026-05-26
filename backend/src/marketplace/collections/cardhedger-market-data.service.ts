@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-base-to-string -- Cardhedger API payloads are loosely typed; string coercion is intentional for keys and logging. */
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { HttpException, Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   TTL_CACHE_PROVIDER,
@@ -21,8 +21,15 @@ import {
 import { extractBucketComponentsFromMetadata } from '../utils/bucket-key.util';
 import { marketHistoryTierFromComponents } from '../utils/market-history-tier.util';
 import { cardhedgerGradeFromHistoryTier } from '../utils/psa-grade-policy.util';
+import {
+  cardhedgerExtraSearchQueries,
+  cardhedgerSetAliasTokens,
+  hintsLookLikeMegaEvolutionPromo,
+  hintsLookLikeSvBlackStarPromo,
+} from '../utils/cardhedger-search-alias.util';
 import type {
   MarketCollectionPreview,
+  MarketCompsSnapshot,
   MarketPriceHistoryResult,
 } from '../utils/market-reference.types';
 import type { MarketHistoryPeriod } from '../utils/price-history-period.util';
@@ -71,6 +78,8 @@ type CardhedgerCompsHeadline = {
 type CardhedgerCompsCached = {
   headline: CardhedgerCompsHeadline | null;
   rawPoints: Array<{ t: number; v: number }>;
+  /** Upstream 404: catalog match but no indexed sales for requested grade. */
+  noSalesForGrade?: boolean;
 };
 
 /**
@@ -80,6 +89,9 @@ const CARDHEDGER_PRICES_BY_CARD_MAX_DAYS = 365;
 
 /** PSA 10 headline via `POST /v1/cards/comps` — upstream allows count in [1, 100]. */
 const CARDHEDGER_COMPS_HEADLINE_COUNT = 15;
+
+/** Wider comps pull when merging raw sales into price history (sparse parallels). */
+const CARDHEDGER_COMPS_HISTORY_RAW_COUNT = 100;
 
 /**
  * `POST /v1/cards/card-search` — slightly larger page so niche Brand/Subject lines still surface
@@ -423,6 +435,20 @@ export class CardhedgerMarketDataService {
     push([q.psaBrand, q.psaYear].filter(Boolean).join(' ').trim());
     push([q.psaSubject, q.psaYear].filter(Boolean).join(' ').trim());
 
+    const promoBlob = [q.cardSet, q.psaBrand, q.cardName, q.query]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+    for (const sq of cardhedgerExtraSearchQueries({
+      cardName: q.cardName,
+      cardNumber: q.cardNumber,
+      cardSet: q.cardSet,
+      psaBrand: q.psaBrand,
+      psaSubject: q.psaSubject,
+    })) {
+      push(sq);
+    }
+
     if (q.cardName && q.cardSet) {
       push(
         [q.cardName, q.cardNumber, q.cardSet].filter(Boolean).join(' ').trim(),
@@ -711,13 +737,14 @@ export class CardhedgerMarketDataService {
       hints.cardSet,
       hints.psaBrand ?? '',
       hints.cardhedgerSearchQuery ?? '',
+      ...cardhedgerSetAliasTokens(hints.cardSet, hints.psaBrand ?? null),
     ]
       .filter(Boolean)
       .join(' ');
     const nameCoverage = this.coverageRatio(wantNamePool, rowName);
     const setCoverage = this.coverageRatio(wantSetPool, rowSet);
     const nameTokenMatch = nameCoverage >= 0.6;
-    const setTokenMatch = setCoverage >= 0.5;
+    const setTokenMatch = setCoverage >= 0.38;
 
     const nameMatched = nameSubstring || nameTokenMatch;
     const setMatched = setSubstring || setTokenMatch;
@@ -1106,11 +1133,16 @@ export class CardhedgerMarketDataService {
   private async fetchCompsCached(
     cardId: string,
     grade: string,
+    count = CARDHEDGER_COMPS_HEADLINE_COUNT,
   ): Promise<CardhedgerCompsCached | null> {
     const id = String(cardId ?? '').trim();
     const gradeKey = String(grade ?? '').trim();
     if (!id || !gradeKey) return null;
-    const cacheKey = `${id}:${gradeKey.toLowerCase()}:comps`;
+    const compsCount = Math.min(
+      100,
+      Math.max(1, Math.floor(count)),
+    );
+    const cacheKey = `${id}:${gradeKey.toLowerCase()}:comps:${compsCount}`;
     const hit = this.ttlCache.get<{ value: CardhedgerCompsCached | null }>(
       CardhedgerMarketDataService.NS_COMPS,
       cacheKey,
@@ -1125,7 +1157,7 @@ export class CardhedgerMarketDataService {
         {
           body: {
             card_id: id,
-            count: CARDHEDGER_COMPS_HEADLINE_COUNT,
+            count: compsCount,
             grade: gradeKey,
             time_weighted: true,
             include_raw_prices: true,
@@ -1140,14 +1172,19 @@ export class CardhedgerMarketDataService {
         this.PRICES_CACHE_TTL_MS,
       );
       return parsed;
-    } catch {
+    } catch (e) {
+      const noSales =
+        e instanceof HttpException && e.getStatus() === 404;
+      const value: CardhedgerCompsCached | null = noSales
+        ? { headline: null, rawPoints: [], noSalesForGrade: true }
+        : null;
       this.ttlCache.set(
         CardhedgerMarketDataService.NS_COMPS,
         cacheKey,
-        { value: null },
+        { value },
         this.PRICES_CACHE_TTL_MS,
       );
-      return null;
+      return value;
     }
   }
 
@@ -1155,6 +1192,174 @@ export class CardhedgerMarketDataService {
     cardId: string,
   ): Promise<CardhedgerCompsCached | null> {
     return this.fetchCompsCached(cardId, 'PSA 10');
+  }
+
+  private emptyMarketCompsSnapshot(
+    partial: Pick<
+      MarketCompsSnapshot,
+      'enabled' | 'searchQuery' | 'matched' | 'message' | 'matchConfidence'
+    >,
+  ): MarketCompsSnapshot {
+    return {
+      ...partial,
+      cardId: null,
+      grade: null,
+      requestCount: 0,
+      timeWeighted: true,
+      headline: null,
+      rawSales: [],
+      earliestSaleAtSec: null,
+      latestSaleAtSec: null,
+      upstreamSource: 'cardhedger:comps',
+    };
+  }
+
+  private marketCompsSnapshotFromCached(
+    resolved: ResolvedCard,
+    cached: CardhedgerCompsCached | null,
+    grade: string,
+    requestCount: number,
+  ): MarketCompsSnapshot {
+    const rawSales = [...(cached?.rawPoints ?? [])].sort((a, b) => a.t - b.t);
+    const earliestSaleAtSec =
+      rawSales.length > 0 ? rawSales[0]!.t : null;
+    const latestSaleAtSec =
+      rawSales.length > 0 ? rawSales[rawSales.length - 1]!.t : null;
+    const h = cached?.headline;
+    const headline =
+      h != null && Number.isFinite(h.usd) && h.usd > 0
+        ? {
+            compPriceUsd: h.usd,
+            countUsed: h.countUsed,
+            latestSaleAtSec: h.latestSaleAtSec,
+          }
+        : null;
+
+    const cardId =
+      String((resolved.row as { card_id?: unknown })?.card_id ?? '').trim() ||
+      null;
+
+    if (
+      !cached ||
+      (rawSales.length === 0 && headline == null && !cached.noSalesForGrade)
+    ) {
+      return {
+        ...this.emptyMarketCompsSnapshot({
+          enabled: true,
+          searchQuery: resolved.query,
+          matched: Boolean(resolved.row && resolved.confidence),
+          matchConfidence: resolved.confidence,
+          message: 'No comps payload from Cardhedger',
+        }),
+        cardId,
+        grade,
+        requestCount,
+      };
+    }
+
+    if (cached.noSalesForGrade) {
+      return {
+        enabled: true,
+        searchQuery: resolved.query,
+        matched: true,
+        matchConfidence: resolved.confidence,
+        cardId,
+        grade,
+        requestCount,
+        timeWeighted: true,
+        headline: null,
+        rawSales: [],
+        earliestSaleAtSec: null,
+        latestSaleAtSec: null,
+        upstreamSource: 'cardhedger:comps',
+        noSalesForGrade: true,
+        message:
+          `Cardhedger has no indexed ${grade} sales for this catalog card_id (comps 404). ` +
+          'Match is correct; price requires upstream sales data.',
+      };
+    }
+
+    return {
+      enabled: true,
+      searchQuery: resolved.query,
+      matched: true,
+      matchConfidence: resolved.confidence,
+      cardId,
+      grade,
+      requestCount,
+      timeWeighted: true,
+      headline,
+      rawSales,
+      earliestSaleAtSec,
+      latestSaleAtSec,
+      upstreamSource: 'cardhedger:comps',
+    };
+  }
+
+  /** Cardhedger `POST /v1/cards/comps` for a collection row (resolve + up to 100 raw sales). */
+  async getCompsSnapshotForCollection(
+    col: MarketplaceCollection | null,
+    options?: { tier?: string; rawCount?: number },
+  ): Promise<MarketCompsSnapshot> {
+    const requestCount = Math.min(
+      100,
+      Math.max(
+        1,
+        Math.floor(options?.rawCount ?? CARDHEDGER_COMPS_HISTORY_RAW_COUNT),
+      ),
+    );
+    const tier =
+      String(options?.tier ?? 'PSA_10').trim().toUpperCase() || 'PSA_10';
+    const grade = cardhedgerGradeFromHistoryTier(tier);
+
+    if (!col) {
+      return this.emptyMarketCompsSnapshot({
+        enabled: this.isConfigured(),
+        searchQuery: '',
+        matched: false,
+        message: 'Collection not found',
+      });
+    }
+    const query = this.buildCollectionQuery(col).query;
+    if (!this.isConfigured()) {
+      return this.emptyMarketCompsSnapshot({
+        enabled: false,
+        searchQuery: query,
+        matched: false,
+        message: 'Cardhedger is not configured (CARDHEDGER_API_KEY)',
+      });
+    }
+
+    const resolved = await this.resolveCardForCollection(col);
+    if (!resolved.row || !resolved.confidence) {
+      return this.emptyMarketCompsSnapshot({
+        enabled: true,
+        searchQuery: resolved.query,
+        matched: false,
+        message: 'No matching Cardhedger card found',
+      });
+    }
+
+    const cardId = String(
+      (resolved.row as { card_id?: unknown }).card_id ?? '',
+    ).trim();
+    if (!cardId) {
+      return this.emptyMarketCompsSnapshot({
+        enabled: true,
+        searchQuery: resolved.query,
+        matched: true,
+        matchConfidence: resolved.confidence,
+        message: 'Resolved card missing card_id',
+      });
+    }
+
+    const cached = await this.fetchCompsCached(cardId, grade, requestCount);
+    return this.marketCompsSnapshotFromCached(
+      resolved,
+      cached,
+      grade,
+      requestCount,
+    );
   }
 
   private mergeTierHistoryWithCompPoints(
@@ -1195,6 +1400,7 @@ export class CardhedgerMarketDataService {
     const cached = await this.fetchCompsCached(
       id,
       cardhedgerGradeFromHistoryTier(tierU),
+      CARDHEDGER_COMPS_HISTORY_RAW_COUNT,
     );
     if (!cached) return points;
 
@@ -1642,12 +1848,19 @@ export class CardhedgerMarketDataService {
     const hasMinVerifiedSales =
       this.MIN_VERIFIED_SALES_30D === 0 ||
       (sales30d != null && sales30d >= this.MIN_VERIFIED_SALES_30D);
+    const hasCompsEvidence =
+      (compsCached?.rawPoints?.length ?? 0) > 0 ||
+      (compsHeadline != null &&
+        Number.isFinite(compsHeadline.usd) &&
+        compsHeadline.usd > 0);
     const allowTierPricing = isQualifierTier
       ? tierCatalogRaw != null ||
         latestPt != null ||
         compsCached != null ||
         confidence === 'verified'
-      : (confidence === 'verified' && hasMinVerifiedSales) || hasReliableSales30;
+      : (confidence === 'verified' && hasMinVerifiedSales) ||
+        hasReliableSales30 ||
+        hasCompsEvidence;
     const anyTierSignal =
       tierCatalogRaw != null || latestPt != null || compsCached != null;
     let spotUsd: number | null = null;
@@ -1755,11 +1968,14 @@ export class CardhedgerMarketDataService {
       }
     }
 
-    const pricingSuppressedReason = !anyTierSignal
-      ? 'no_tier_price_in_source'
-      : spotUsd == null
-        ? 'no_publishable_tier_slot'
-        : null;
+    const compsNoSales = compsCached?.noSalesForGrade === true;
+    const pricingSuppressedReason = compsNoSales
+      ? 'cardhedger_no_sales_for_grade'
+      : !anyTierSignal
+        ? 'no_tier_price_in_source'
+        : spotUsd == null
+          ? 'no_publishable_tier_slot'
+          : null;
     const headlineIso =
       latestSaleAt != null ? new Date(latestSaleAt * 1000).toISOString() : null;
     this.logger.debug(
@@ -1824,11 +2040,17 @@ export class CardhedgerMarketDataService {
             median30d: null,
           } as const)
         : null;
+    const previewMessage =
+      compsNoSales && spotUsd == null
+        ? `Catalog matched (card_id=${cardId}) but Cardhedger has no PSA 10 sales indexed yet`
+        : undefined;
+
     return {
       enabled: true,
       searchQuery: query,
       matched: true,
       matchConfidence: confidence,
+      message: previewMessage,
       card: {
         id: cardId,
         name: String(row.description ?? row.name ?? ''),
@@ -1859,7 +2081,16 @@ export class CardhedgerMarketDataService {
         currency: 'USD',
         market: this.pickCardhedgerMarketField(merged),
         lastUpdated: headlineIso,
-        topPrice: allowTierPricing ? spotUsd : null,
+        topPrice:
+          spotUsd != null &&
+          (allowTierPricing ||
+            hasCompsEvidence ||
+            spotPriceBasis === 'comps' ||
+            spotPriceBasis === 'comps_median' ||
+            spotPriceBasis === 'latest_sale' ||
+            spotPriceBasis === 'sparse_sale_avg')
+            ? spotUsd
+            : null,
         totalSaleCount:
           typeof merged['30 Day Sales'] === 'number'
             ? Number(merged['30 Day Sales'])
@@ -1954,6 +2185,89 @@ export class CardhedgerMarketDataService {
     return /\b(precious\s*metal|pmg)\b/.test(blob);
   }
 
+  /** MEP / EN-ME → Cardhedger `2025 Pokemon Mega Evolution Promo` (#023 Charizard, etc.). */
+  private pickMegaEvolutionPromoRow(
+    numberMatched: Array<{
+      r: CardhedgerCardRow;
+      score: number;
+      verified: boolean;
+      numberMatched: boolean;
+    }>,
+    q: {
+      cardSet: string;
+      psaBrand: string | null;
+      cardName: string;
+    },
+  ): CardhedgerCardRow | null {
+    if (!hintsLookLikeMegaEvolutionPromo(q)) return null;
+    const inSet = numberMatched.filter((x) =>
+      String(x.r.set ?? '')
+        .toLowerCase()
+        .includes('mega evolution promo'),
+    );
+    if (inSet.length === 0) return null;
+    const nameTokens = String(q.cardName ?? '')
+      .toLowerCase()
+      .split(/[^a-z0-9]+/)
+      .filter((t) => t.length >= 2 && !['mega', 'ex'].includes(t));
+    const primaryName = nameTokens[0] ?? '';
+    const byName = primaryName
+      ? inSet.filter((x) =>
+          String(x.r.name ?? x.r.description ?? '')
+            .toLowerCase()
+            .includes(primaryName),
+        )
+      : inSet;
+    const pool = byName.length > 0 ? byName : inSet;
+    const base = pool.find(
+      (x) => String(x.r.variant ?? '').trim().toLowerCase() === 'base',
+    );
+    return (base ?? pool[0])!.r;
+  }
+
+  /** SVP / EN-SV Black Star promos — multiple `#44` rows (ETB vs PC ETB vs poster). */
+  private pickPokemonBlackStarPromoRow(
+    numberMatched: Array<{
+      r: CardhedgerCardRow;
+      score: number;
+      verified: boolean;
+      numberMatched: boolean;
+    }>,
+    q: {
+      cardSet: string;
+      psaBrand: string | null;
+      psaVariety: string | null;
+      cardName: string;
+    },
+  ): CardhedgerCardRow | null {
+    if (!hintsLookLikeSvBlackStarPromo(q)) {
+      return null;
+    }
+    const inSet = numberMatched.filter((x) =>
+      String(x.r.set ?? '')
+        .toLowerCase()
+        .includes('black star promo'),
+    );
+    if (inSet.length === 0) return null;
+    const pv = String(q.psaVariety ?? '').toLowerCase();
+    if (/\bpokemon\s*center\b/.test(pv)) {
+      const pc = inSet.find(
+        (x) => String(x.r.variant ?? '').toLowerCase() === 'pokemon center',
+      );
+      if (pc) return pc.r;
+    }
+    if (/\b(elite\s+trainer|etb)\b/.test(pv)) {
+      const etb = inSet.find((x) =>
+        /elite\s+trainer|etb/i.test(String(x.r.name ?? x.r.description ?? '')),
+      );
+      if (etb) return etb.r;
+    }
+    const base = inSet.find(
+      (x) => String(x.r.variant ?? '').trim().toLowerCase() === 'base',
+    );
+    return (base ?? inSet[0])!.r;
+  }
+
   private pickBestResolvedCardFromSearchResults(
     rows: CardhedgerCardRow[],
     q: {
@@ -1999,6 +2313,22 @@ export class CardhedgerMarketDataService {
       return { row: numberOnly[0].r, confidence: 'approximate' };
     }
     if (numberOnly.length > 1) {
+      const mep = this.pickMegaEvolutionPromoRow(numberOnly, q);
+      if (mep) {
+        const hit = numberOnly.find((x) => x.r === mep);
+        return {
+          row: mep,
+          confidence: hit?.verified ? 'verified' : 'approximate',
+        };
+      }
+      const bsp = this.pickPokemonBlackStarPromoRow(numberOnly, q);
+      if (bsp) {
+        const hit = numberOnly.find((x) => x.r === bsp);
+        return {
+          row: bsp,
+          confidence: hit?.verified ? 'verified' : 'approximate',
+        };
+      }
       /**
        * Metal Universe #23 (and similar) returns multiple Cardhedger rows (Base vs PMG).
        * Returning null left the UI at N/A even when a strong parallel row exists.
@@ -2029,6 +2359,16 @@ export class CardhedgerMarketDataService {
         confidence: best.verified ? 'verified' : 'approximate',
       };
     }
+
+    /** Mint bucket sometimes omits card # — still match on name + set tokens. */
+    const wantNum = String(q.cardNumber ?? '').trim();
+    if (!wantNum && scored[0] && scored[0].score >= 110) {
+      return {
+        row: scored[0].r,
+        confidence: scored[0].verified ? 'verified' : 'approximate',
+      };
+    }
+
     return null;
   }
 
@@ -2350,7 +2690,7 @@ export class CardhedgerMarketDataService {
         searchQuery: resolved.query,
         matched: true,
         matchConfidence: resolved.confidence,
-        message: `No ${tier} spot price from Cardhedger`,
+        message: `No ${tier} spot price from Cardhedger (empty prices-by-card / comps for card_id=${resolvedCardId})`,
         days,
         tier,
         period: options.period,
@@ -2389,17 +2729,36 @@ export class CardhedgerMarketDataService {
       period: MarketHistoryPeriod;
       maxCalendarDays: number;
       maxRequests?: number;
+      /** Include `POST /v1/cards/comps` headline + raw sales (default true). */
+      includeComps?: boolean;
+      compsRawCount?: number;
     },
   ): Promise<{
     preview: MarketCollectionPreview;
     history: MarketPriceHistoryResult;
+    comps: MarketCompsSnapshot;
   }> {
+    const includeComps = options.includeComps !== false;
+    const compsRawCount =
+      options.compsRawCount ?? CARDHEDGER_COMPS_HISTORY_RAW_COUNT;
+
     if (!col) {
       const [preview, history] = await Promise.all([
         this.getPreviewForCollection(null),
         this.getTierPriceHistoryForCollection(null, options),
       ]);
-      return { preview, history };
+      const comps = includeComps
+        ? await this.getCompsSnapshotForCollection(null, {
+            tier: options.tier,
+            rawCount: compsRawCount,
+          })
+        : this.emptyMarketCompsSnapshot({
+            enabled: this.isConfigured(),
+            searchQuery: '',
+            matched: false,
+            message: 'Collection not found',
+          });
+      return { preview, history, comps };
     }
     if (!this.isConfigured()) {
       const q = this.buildCollectionQuery(col);
@@ -2427,12 +2786,59 @@ export class CardhedgerMarketDataService {
         source: `cardhedger:${tier}`,
         upstreamRequests: 0,
       };
-      return { preview: notConfigured, history: notConfiguredHist };
+      const comps = this.emptyMarketCompsSnapshot({
+        enabled: false,
+        searchQuery: q.query,
+        matched: false,
+        message: 'Cardhedger is not configured (CARDHEDGER_API_KEY)',
+      });
+      return { preview: notConfigured, history: notConfiguredHist, comps };
     }
 
-    // Resolve once; use result for both preview and history in parallel.
+    // Resolve once; preview, history, and comps share the same card_id.
     const resolved = await this.resolveCardForCollection(col);
-    const [preview, history] = await Promise.all([
+    const tierU = String(options.tier ?? 'PSA_10').trim().toUpperCase() || 'PSA_10';
+    const grade = cardhedgerGradeFromHistoryTier(tierU);
+    const cardId = String(
+      (resolved.row as { card_id?: unknown } | null)?.card_id ?? '',
+    ).trim();
+
+    const compsPromise: Promise<MarketCompsSnapshot> =
+      !includeComps
+        ? Promise.resolve(
+            this.emptyMarketCompsSnapshot({
+              enabled: true,
+              searchQuery: resolved.query,
+              matched: Boolean(resolved.row && resolved.confidence),
+              message: 'Comps omitted (includeComps=false)',
+            }),
+          )
+        : !resolved.row || !resolved.confidence || !cardId
+          ? Promise.resolve(
+              this.emptyMarketCompsSnapshot({
+                enabled: true,
+                searchQuery: resolved.query,
+                matched: false,
+                message: resolved.row
+                  ? 'Resolved card missing card_id'
+                  : 'No matching Cardhedger card found',
+                matchConfidence: resolved.confidence,
+              }),
+            )
+          : this.fetchCompsCached(
+              cardId,
+              grade,
+              Math.min(100, Math.max(1, Math.floor(compsRawCount))),
+            ).then((cached) =>
+              this.marketCompsSnapshotFromCached(
+                resolved,
+                cached,
+                grade,
+                Math.min(100, Math.max(1, Math.floor(compsRawCount))),
+              ),
+            );
+
+    const [preview, history, comps] = await Promise.all([
       this.buildPreviewFromResolved(resolved, col).catch(
         (e) =>
           ({
@@ -2444,8 +2850,9 @@ export class CardhedgerMarketDataService {
           }) satisfies MarketCollectionPreview,
       ),
       this.buildHistoryFromResolved(resolved, options),
+      compsPromise,
     ]);
-    return { preview, history };
+    return { preview, history, comps };
   }
 
   async getNearMintHistoryForCollection(

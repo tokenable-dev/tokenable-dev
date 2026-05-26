@@ -18,18 +18,19 @@ import {
   type CollectionListMarketSnapshot,
 } from "@/lib/core";
 import {
+  formatReferenceChangeCoverageHint,
   parseGradeScoreNumber,
   representativeGradeUsd,
   formatUsdCompact,
-  MARKET_PRICE_CHANGE_PERIOD_LABEL,
+  formatReferenceChangePeriodLabel,
+  formatReferenceChangePeriodShort,
   MARKET_PRICE_CHANGE_SNAPSHOT_DURATION,
+  referenceChangePeriodFromSnapshotMeta,
 } from "@/lib/market";
+import { AssetDetailHeadlineTitle } from "@/components/marketplace/AssetDetailHeadlineTitle";
 import {
   RwaDetailAssetPanel,
   buildRwaDetailStatRows,
-  formatRwaDetailCardIdLine,
-  formatRwaDetailSetDescription,
-  formatRwaSetHeadline,
   type RwaDetailMetadata,
 } from "@/components/marketplace/RwaDetailAssetPanel";
 import {
@@ -39,7 +40,11 @@ import {
   RwaDetailStickyBuyFooter,
 } from "@/components/marketplace/RwaDetailMobileCardLayout";
 import { RwaDetailMobileSpecsPanel } from "@/components/marketplace/RwaDetailMobileSpecsPanel";
-import { displayAssetNameFromMetadata } from "@/lib/marketplace/rwaDisplayTitle";
+import {
+  assetDetailHeadlineHasContent,
+  buildRwaAssetDetailHeadlineParts,
+  formatAssetDetailHeadlineText,
+} from "@/lib/marketplace/assetDetailHeadline";
 import {
   TOKENABLE_RWA_ADDRESS,
   TOKENABLE_RWA_DISPLAY_NAME,
@@ -134,9 +139,13 @@ function connectMetaMaskWallet(
 function MarketContextStrip({
   externalRefUsd,
   marketChangePct,
+  changePeriodLabel,
+  changeCoverageHint,
 }: {
   externalRefUsd: number | null;
   marketChangePct: number | null;
+  changePeriodLabel: string;
+  changeCoverageHint?: string;
 }) {
   if (externalRefUsd == null && marketChangePct == null) return null;
   const changeUp = marketChangePct != null && marketChangePct > 0;
@@ -167,9 +176,10 @@ function MarketContextStrip({
           className={`min-w-0 ${showRef ? "border-l border-zinc-700/60 pl-3 sm:pl-4" : ""}`}
         >
           <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-500 sm:text-[11px]">
-            {MARKET_PRICE_CHANGE_PERIOD_LABEL} change
+            {changePeriodLabel} change
           </p>
           <p
+            title={changeCoverageHint}
             className={`${rwaDetailRightFont.className} mt-2 text-[1.35rem] font-bold leading-none tabular-nums sm:mt-2.5 sm:text-2xl ${
               changeUp ? "text-mint" : changeDown ? "text-rose-400" : "text-zinc-200"
             }`}
@@ -383,6 +393,36 @@ export default function RwaDetailPage() {
     return pct != null && Number.isFinite(pct) ? pct : null;
   }, [collectionSnapshot?.marketChangePct]);
 
+  const marketChangePeriodMeta = useMemo(() => {
+    const s = collectionSnapshot;
+    if (
+      s?.marketChangeSpanSec != null &&
+      s.marketChangeSpanSec > 0
+    ) {
+      return {
+        isFullYear: Boolean(s.marketChangeIsFullYear),
+        windowSec: s.marketChangeSpanSec,
+        refUsd: s.marketChangeRefUsd ?? null,
+        refAtSec: s.marketChangeRefAtSec ?? null,
+      };
+    }
+    return referenceChangePeriodFromSnapshotMeta(s);
+  }, [collectionSnapshot]);
+
+  const marketChangePeriodLabel = useMemo(
+    () => formatReferenceChangePeriodLabel(marketChangePeriodMeta),
+    [marketChangePeriodMeta],
+  );
+  const marketChangeCoverageHint = useMemo(
+    () => formatReferenceChangeCoverageHint(marketChangePeriodMeta),
+    [marketChangePeriodMeta],
+  );
+
+  const marketChangePeriodShort = useMemo(
+    () => formatReferenceChangePeriodShort(marketChangePeriodMeta),
+    [marketChangePeriodMeta],
+  );
+
   const navigateToCollectionAfterTrade = useCallback(() => {
     if (collectionKeyForRedirect) {
       router.replace(
@@ -415,28 +455,23 @@ export default function RwaDetailPage() {
 
   const metadata = metadataEarly;
 
-  const detailTitle = useMemo(
+  const detailHeadlineFallback = `${TOKENABLE_RWA_DISPLAY_NAME} #${tokenId}`;
+  const detailHeadlineParts = useMemo(
     () =>
-      displayAssetNameFromMetadata(
+      buildRwaAssetDetailHeadlineParts(
         metadata as RwaDetailMetadata | null,
-        `${TOKENABLE_RWA_DISPLAY_NAME} #${tokenId}`,
+        detailHeadlineFallback,
       ),
-    [metadata, tokenId],
+    [metadata, detailHeadlineFallback],
   );
-  const detailSetHeadline = useMemo(
-    () => formatRwaSetHeadline(metadata as RwaDetailMetadata | null),
-    [metadata],
-  );
-  const detailSetDescription = useMemo(
-    () => formatRwaDetailSetDescription(metadata as RwaDetailMetadata | null),
-    [metadata],
-  );
-  const detailCardIdLine = useMemo(
-    () => formatRwaDetailCardIdLine(metadata as RwaDetailMetadata | null),
-    [metadata],
+  const detailTitle = useMemo(
+    () => formatAssetDetailHeadlineText(detailHeadlineParts),
+    [detailHeadlineParts],
   );
   const detailTitlePulse =
-    Boolean(metaLoading) && !metadata?.name?.trim();
+    Boolean(metaLoading) &&
+    !metadata?.name?.trim() &&
+    !assetDetailHeadlineHasContent(detailHeadlineParts);
 
   const rwaDetailStatRows = useMemo(
     () => buildRwaDetailStatRows(metadata as RwaDetailMetadata | null),
@@ -658,10 +693,8 @@ export default function RwaDetailPage() {
                   />
 
                   <RwaDetailMobileCardHeader
-                    title={detailTitle}
+                    headlineParts={detailHeadlineParts}
                     titleLoading={detailTitlePulse}
-                    setDescription={detailSetDescription ?? detailSetHeadline}
-                    cardIdLine={detailCardIdLine}
                   />
 
                   <RwaDetailMobileSpecsPanel
@@ -669,6 +702,9 @@ export default function RwaDetailPage() {
                     loading={metaLoading}
                     externalRefUsd={externalRefUsd}
                     marketChangePct={marketChangePct}
+                    marketChangePeriodShort={marketChangePeriodShort}
+                    marketChangePeriodLabel={marketChangePeriodLabel}
+                    marketChangeCoverageHint={marketChangeCoverageHint}
                     showMarketContext={showMobileMarketContext}
                   />
                 </div>
@@ -741,20 +777,19 @@ export default function RwaDetailPage() {
                       className="h-9 w-[min(100%,20rem)] max-w-full animate-pulse rounded-lg bg-gray-800/85"
                       aria-hidden
                     />
+                  ) : assetDetailHeadlineHasContent(detailHeadlineParts) ? (
+                    <AssetDetailHeadlineTitle
+                      as="h1"
+                      parts={detailHeadlineParts}
+                      className={`${rwaDetailRightFont.className} min-w-0 break-words text-[clamp(1.375rem,2.8vw,1.75rem)] font-bold leading-snug tracking-tight text-white [overflow-wrap:anywhere]`}
+                    />
                   ) : (
                     <h1
-                      className={`${rwaDetailRightFont.className} min-w-0 break-words text-[clamp(1.375rem,2.8vw,1.75rem)] font-bold leading-snug tracking-tight text-white [overflow-wrap:anywhere]`}
+                      className={`${rwaDetailRightFont.className} min-w-0 break-words text-[clamp(1.375rem,2.8vw,1.75rem)] font-bold leading-snug tracking-tight text-white`}
                     >
                       {detailTitle}
                     </h1>
                   )}
-                  {detailSetHeadline ? (
-                    <p
-                      className={`${rwaDetailRightFont.className} text-[14px] font-normal leading-snug text-zinc-500`}
-                    >
-                      {detailSetHeadline}
-                    </p>
-                  ) : null}
                 </div>
 
                 {listingError ? (
@@ -802,6 +837,8 @@ export default function RwaDetailPage() {
                       <MarketContextStrip
                         externalRefUsd={externalRefUsd}
                         marketChangePct={marketChangePct}
+                        changePeriodLabel={marketChangePeriodLabel}
+                        changeCoverageHint={marketChangeCoverageHint}
                       />
                     ) : null}
                   </div>
@@ -815,6 +852,8 @@ export default function RwaDetailPage() {
                     <MarketContextStrip
                       externalRefUsd={externalRefUsd}
                       marketChangePct={marketChangePct}
+                      changePeriodLabel={marketChangePeriodLabel}
+                      changeCoverageHint={marketChangeCoverageHint}
                     />
                   </div>
                 ) : null}

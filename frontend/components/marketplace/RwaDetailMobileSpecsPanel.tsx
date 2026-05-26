@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo } from "react";
-import { COLLECTION_DETAILS_BG_CLASS } from "@/components/marketplace/collectionOverviewChrome";
 import {
   buildRwaDetailMobileTrustView,
   type RwaDetailMetadata,
@@ -44,14 +43,14 @@ function TrustStat({
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      className={`max-w-full truncate text-[14px] font-bold tabular-nums leading-none underline decoration-zinc-600 underline-offset-2 transition-colors hover:text-mint hover:decoration-mint/50 ${valueClassName}`}
+      className={`max-w-full truncate text-[13px] font-bold tabular-nums leading-tight underline decoration-zinc-600 underline-offset-2 transition-colors hover:text-mint hover:decoration-mint/50 ${valueClassName}`}
       title={title ?? "Verify on PSA"}
     >
       {value}
     </a>
   ) : (
     <span
-      className={`max-w-full truncate text-[14px] font-bold tabular-nums leading-none ${valueClassName}`}
+      className={`max-w-full truncate text-[13px] font-bold tabular-nums leading-tight ${valueClassName}`}
       title={title}
     >
       {value}
@@ -59,8 +58,8 @@ function TrustStat({
   );
 
   return (
-    <div className="flex min-w-[4.5rem] flex-1 flex-col items-center justify-center gap-1.5 px-1 py-2 text-center sm:min-w-0 sm:px-2">
-      <span className="text-[11px] font-medium uppercase leading-none tracking-wide text-zinc-500">
+    <div className="flex min-w-[3.25rem] flex-1 flex-col items-center justify-center gap-0.5 px-0.5 py-1 text-center sm:min-w-0">
+      <span className="text-[10px] font-medium leading-tight text-zinc-500">
         {label}
       </span>
       {valueNode}
@@ -71,9 +70,15 @@ function TrustStat({
 function MobileMarketContext({
   externalRefUsd,
   marketChangePct,
+  marketChangePeriodShort = MARKET_PRICE_CHANGE_PERIOD_SHORT,
+  marketChangePeriodLabel,
+  marketChangeCoverageHint,
 }: {
   externalRefUsd: number | null;
   marketChangePct: number | null;
+  marketChangePeriodShort?: string;
+  marketChangePeriodLabel?: string;
+  marketChangeCoverageHint?: string;
 }) {
   if (externalRefUsd == null && marketChangePct == null) return null;
   const showRef = externalRefUsd != null;
@@ -88,8 +93,8 @@ function MobileMarketContext({
       <p className="mb-2 text-center text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500">
         Market context
       </p>
-      <div className={`overflow-hidden rounded-xl ${COLLECTION_DETAILS_BG_CLASS}`}>
-        <div className="flex min-w-0 divide-x divide-zinc-800/80">
+      <div className="w-full min-w-0">
+        <div className="mobile-scroll-x-contain flex min-w-0 justify-between gap-1 px-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {showRef ? (
             <TrustStat
               label="eBay ref"
@@ -100,7 +105,7 @@ function MobileMarketContext({
           ) : null}
           {showChange ? (
             <TrustStat
-              label={MARKET_PRICE_CHANGE_PERIOD_SHORT}
+              label={marketChangePeriodShort}
               value={
                 changeShowsPct
                   ? formatReferencePercentChange(marketChangePct, 0)
@@ -113,7 +118,9 @@ function MobileMarketContext({
                     ? "text-rose-400"
                     : "text-zinc-300"
               }
-              title={`Collection ${MARKET_PRICE_CHANGE_PERIOD_SHORT} change`}
+              title={`Collection ${marketChangePeriodLabel ?? marketChangePeriodShort} change${
+                marketChangeCoverageHint ? ` — ${marketChangeCoverageHint}` : ""
+              }`}
             />
           ) : null}
         </div>
@@ -124,9 +131,9 @@ function MobileMarketContext({
 
 function TrustStripSkeleton() {
   return (
-    <div className="flex w-full min-w-0 shrink-0 divide-x divide-zinc-800/80 px-3 py-1 sm:px-4 lg:hidden">
+    <div className="mobile-scroll-x-contain flex w-full min-w-0 shrink-0 justify-between gap-1 px-3 py-1 sm:px-4 lg:hidden">
       {[0, 1, 2].map((i) => (
-        <div key={i} className="flex flex-1 flex-col items-center gap-1.5 px-1 py-2">
+        <div key={i} className="flex flex-1 flex-col items-center gap-0.5 px-0.5 py-1">
           <span className="h-2.5 w-10 animate-pulse rounded bg-zinc-800/90" aria-hidden />
           <span className="h-4 w-14 animate-pulse rounded bg-zinc-800/80" aria-hidden />
         </div>
@@ -140,12 +147,18 @@ export function RwaDetailMobileSpecsPanel({
   loading = false,
   externalRefUsd = null,
   marketChangePct = null,
+  marketChangePeriodShort,
+  marketChangePeriodLabel,
+  marketChangeCoverageHint,
   showMarketContext = false,
 }: {
   metadata: RwaDetailMetadata | null;
   loading?: boolean;
   externalRefUsd?: number | null;
   marketChangePct?: number | null;
+  marketChangePeriodShort?: string;
+  marketChangePeriodLabel?: string;
+  marketChangeCoverageHint?: string;
   showMarketContext?: boolean;
 }) {
   const view = useMemo(
@@ -186,7 +199,7 @@ export function RwaDetailMobileSpecsPanel({
       aria-label="Card details"
     >
       {hasTrust ? (
-        <div className="mobile-scroll-x-contain flex w-full min-w-0 shrink-0 divide-x divide-zinc-800/80 px-3 py-1 [scrollbar-width:none] sm:px-4 [&::-webkit-scrollbar]:hidden">
+        <div className="mobile-scroll-x-contain flex w-full min-w-0 shrink-0 justify-between gap-1 px-3 py-1 [scrollbar-width:none] sm:px-4 [&::-webkit-scrollbar]:hidden">
           <TrustStat
             label="Grade"
             value={view.gradeLine ?? "—"}
@@ -223,6 +236,9 @@ export function RwaDetailMobileSpecsPanel({
         <MobileMarketContext
           externalRefUsd={externalRefUsd ?? null}
           marketChangePct={marketChangePct ?? null}
+          marketChangePeriodShort={marketChangePeriodShort}
+          marketChangePeriodLabel={marketChangePeriodLabel}
+          marketChangeCoverageHint={marketChangeCoverageHint}
         />
       ) : null}
     </section>

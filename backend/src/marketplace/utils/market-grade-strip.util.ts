@@ -68,9 +68,30 @@ export function gradeStripFromHistoryTier(
 
 export const MARKET_NM_HISTORY_MAX_DAYS = 365;
 
-export function nmHistoryDaysForBundleWindow(
-  w: '7d' | '30d' | '90d' | '180d' | '365d',
-): number {
+/** Chart MAX range — full comps-merged archive in snapshot (Cardhedger comps cap). */
+export const CHART_FULL_COMPS_ARCHIVE_MAX_DAYS = 4000;
+
+export type ChartHistoryWindow =
+  | '7d'
+  | '30d'
+  | '90d'
+  | '180d'
+  | '365d'
+  | 'max';
+
+export function chartHistoryWindowFromCalendarDays(
+  maxCalendarDays: number,
+): ChartHistoryWindow {
+  const d = Math.max(1, Math.floor(maxCalendarDays));
+  if (d >= CHART_FULL_COMPS_ARCHIVE_MAX_DAYS) return 'max';
+  if (d >= MARKET_NM_HISTORY_MAX_DAYS) return '365d';
+  if (d >= 180) return '180d';
+  if (d >= 90) return '90d';
+  if (d >= 30) return '30d';
+  return '7d';
+}
+
+export function nmHistoryDaysForBundleWindow(w: ChartHistoryWindow): number {
   switch (w) {
     case '7d':
       return 7;
@@ -82,6 +103,8 @@ export function nmHistoryDaysForBundleWindow(
       return 180;
     case '365d':
       return MARKET_NM_HISTORY_MAX_DAYS;
+    case 'max':
+      return CHART_FULL_COMPS_ARCHIVE_MAX_DAYS;
     default:
       return 30;
   }

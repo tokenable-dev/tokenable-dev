@@ -1,13 +1,15 @@
 "use client";
 
-import { COLLECTION_DETAILS_BG_CLASS } from "@/components/marketplace/collectionOverviewChrome";
 import {
+  formatReferenceChangeCoverageHint,
+  formatReferenceChangePeriodLabel,
+  formatReferenceChangeStatLabel,
   formatReferencePercentChange,
   isFlatReferencePercentChange,
-  MARKET_PRICE_CHANGE_PERIOD_SHORT,
   REFERENCE_CHANGE_UNAVAILABLE_HINT,
   REFERENCE_CHANGE_UNAVAILABLE_LABEL,
   referenceChangeTone,
+  type ReferencePercentChangeResult,
 } from "@/lib/market";
 
 function hasComputedChangePct(
@@ -46,7 +48,7 @@ function formatPopCompact(n: number): string {
   return n.toLocaleString("en-US");
 }
 
-function InfoStatBox({
+function InfoStatCell({
   label,
   value,
   valueClassName = "text-white",
@@ -59,14 +61,14 @@ function InfoStatBox({
 }) {
   return (
     <div
-      className="flex min-w-[4.5rem] flex-1 flex-col items-center justify-center gap-1.5 px-1 py-2 text-center sm:min-w-0 sm:px-2"
+      className="flex min-w-[3.25rem] flex-1 flex-col items-center justify-center gap-1 px-0.5 py-1 text-center"
       title={title}
     >
-      <span className="text-[11px] font-medium uppercase leading-none tracking-wide text-zinc-500">
+      <span className="text-[11px] font-medium leading-tight text-zinc-500">
         {label}
       </span>
       <span
-        className={`max-w-full truncate text-[14px] font-bold tabular-nums leading-none ${valueClassName}`}
+        className={`max-w-full truncate text-[15px] font-bold tabular-nums leading-tight ${valueClassName}`}
       >
         {value}
       </span>
@@ -74,22 +76,26 @@ function InfoStatBox({
   );
 }
 
-/** Compact single-row stat strip — spot price is in {@link CollectionMobileCurrentPriceRow}. */
+/** Compact stat strip — spot price is in {@link CollectionMobileCurrentPriceRow}. */
 export function CollectionMobileInformationPanel({
   changePct,
+  changePeriod = null,
   changeLoading = false,
   volume24hUsdc,
   volume24hLoading = false,
   marketCapUsd,
   totalPopulation,
+  listingCount,
   formatMarketCap,
 }: {
   changePct?: number | null;
+  changePeriod?: Pick<ReferencePercentChangeResult, "isFullYear" | "windowSec"> | null;
   changeLoading?: boolean;
   volume24hUsdc?: number | null;
   volume24hLoading?: boolean;
   marketCapUsd?: number | null;
   totalPopulation?: number | null;
+  listingCount?: number;
   formatMarketCap: (usd: number | null) => string;
 }) {
   const changeOk = hasComputedChangePct(changePct);
@@ -107,6 +113,10 @@ export function CollectionMobileInformationPanel({
         ? formatReferencePercentChange(changePct, 0)
         : REFERENCE_CHANGE_UNAVAILABLE_LABEL;
 
+  const changeStatLabel = formatReferenceChangeStatLabel(changePeriod);
+  const changePeriodLong = formatReferenceChangePeriodLabel(changePeriod);
+  const changeCoverageHint = formatReferenceChangeCoverageHint(changePeriod);
+
   const capLabel = formatMarketCap(marketCapUsd ?? null);
   const popLabel =
     totalPopulation != null &&
@@ -115,33 +125,37 @@ export function CollectionMobileInformationPanel({
       ? formatPopCompact(totalPopulation)
       : "—";
 
+  const listingLabel =
+    listingCount != null && listingCount >= 0
+      ? String(listingCount)
+      : "—";
+
   return (
-    <div className="w-full min-w-0 shrink-0 py-1">
-      <div className={`overflow-hidden rounded-xl ${COLLECTION_DETAILS_BG_CLASS}`}>
-        <div className="mobile-scroll-x-contain flex min-w-0 divide-x divide-zinc-800/80 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          <InfoStatBox
-            label={MARKET_PRICE_CHANGE_PERIOD_SHORT}
-            value={changeValue}
-            valueClassName={
-              changeTone ? changeToneClass(changeTone) : "text-zinc-300"
-            }
-            title={
-              changeOk
-                ? `% change (${MARKET_PRICE_CHANGE_PERIOD_SHORT})`
-                : REFERENCE_CHANGE_UNAVAILABLE_HINT
-            }
-          />
-          <InfoStatBox
-            label="Vol 24h"
-            value={
-              volume24hLoading && !volReady
-                ? "…"
-                : formatVolume24h(volReady ? volume24hUsdc : 0)
-            }
-          />
-          <InfoStatBox label="Mkt cap" value={capLabel} title="Market cap" />
-          <InfoStatBox label="Pop" value={popLabel} title="PSA population" />
-        </div>
+    <div className="w-full min-w-0 shrink-0 py-0.5">
+      <div className="mobile-scroll-x-contain flex min-w-0 items-stretch justify-between gap-1 px-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <InfoStatCell label="Listing." value={listingLabel} title="Active listings" />
+        <InfoStatCell
+          label={changeStatLabel}
+          value={changeValue}
+          valueClassName={
+            changeTone ? changeToneClass(changeTone) : "text-zinc-300"
+          }
+          title={
+            changeOk
+              ? `% change (${changePeriodLong}) — ${changeCoverageHint}`
+              : REFERENCE_CHANGE_UNAVAILABLE_HINT
+          }
+        />
+        <InfoStatCell
+          label="Vol. 24h."
+          value={
+            volume24hLoading && !volReady
+              ? "…"
+              : formatVolume24h(volReady ? volume24hUsdc : 0)
+          }
+        />
+        <InfoStatCell label="Mkt cap." value={capLabel} title="Market cap" />
+        <InfoStatCell label="Pop." value={popLabel} title="PSA population" />
       </div>
     </div>
   );

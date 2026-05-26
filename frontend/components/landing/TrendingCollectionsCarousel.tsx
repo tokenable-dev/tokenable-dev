@@ -43,6 +43,8 @@ function trendingCarouselImageUrl(c: MarketplaceCollectionSummary): string | nul
 const CAROUSEL_SLIDE_TRANSITION_MS = 520;
 const SWIPE_THRESHOLD_PX = 48;
 const SWIPE_SUPPRESS_NAV_MS = 450;
+/** Before locking horizontal carousel swipe, require clear axis intent (px). */
+const SWIPE_AXIS_LOCK_PX = 10;
 
 function formatUsd(n: number | null | undefined): string {
   if (n == null || !Number.isFinite(n)) return "—";
@@ -129,9 +131,9 @@ export function TrendingCollectionsCarousel({
   const fetchSnapshotsLocally = snapshotByKeyProp == null && trendingSnapshotKeysSorted.length > 0;
 
   const { data: snapshotPack } = useQuery({
-    queryKey: rq.collectionSnapshots(trendingSnapshotKeysSorted, "30d" as const),
+    queryKey: rq.collectionSnapshots(trendingSnapshotKeysSorted, "365d" as const),
     queryFn: () =>
-      postMarketplaceCollectionSnapshotsBatched(trendingSnapshotKeysSorted, "30d"),
+      postMarketplaceCollectionSnapshotsBatched(trendingSnapshotKeysSorted, "365d"),
     enabled: fetchSnapshotsLocally,
     staleTime: marketplaceRqPolicy.snapshotsStaleMs,
   });
@@ -197,6 +199,8 @@ export function TrendingCollectionsCarousel({
 
   const suppressNavUntilRef = useRef(0);
   const swipeStartXRef = useRef<number | null>(null);
+  const swipeStartYRef = useRef<number | null>(null);
+  const swipeAxisRef = useRef<"none" | "horizontal" | "vertical">("none");
 
   const prevNarrowRef = useRef<boolean | undefined>(undefined);
   useEffect(() => {
@@ -321,7 +325,7 @@ export function TrendingCollectionsCarousel({
       <Link
         key={`${c.collectionKey}${slideKeySuffix}`}
         href={`/marketplace/collections/${encodeURIComponent(c.collectionKey)}`}
-        className={`group block h-full w-full snap-start ${
+        className={`group block h-full w-full snap-start touch-pan-y ${
           narrowTrainSlideCount
             ? "min-w-0 shrink-0"
             : "min-w-full shrink-0 basis-full"
@@ -385,25 +389,57 @@ export function TrendingCollectionsCarousel({
   const narrowTrackSlide =
     narrowCarousel && trendingLoops && narrowExtended.length > 0;
 
+  const resetSwipeGesture = () => {
+    swipeStartXRef.current = null;
+    swipeStartYRef.current = null;
+    swipeAxisRef.current = "none";
+  };
+
   const onSwipePointerDown = (e: React.PointerEvent) => {
     if (!narrowTrackSlide || trendingPauseMotion) return;
+    if (e.pointerType === "mouse" && e.button !== 0) return;
     swipeStartXRef.current = e.clientX;
+    swipeStartYRef.current = e.clientY;
+    swipeAxisRef.current = "none";
+  };
+
+  const onSwipePointerMove = (e: React.PointerEvent) => {
+    if (!narrowTrackSlide || trendingPauseMotion) return;
+    const startX = swipeStartXRef.current;
+    const startY = swipeStartYRef.current;
+    if (startX == null || startY == null || swipeAxisRef.current !== "none") return;
+
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+    if (Math.hypot(dx, dy) < SWIPE_AXIS_LOCK_PX) return;
+
+    if (Math.abs(dx) > Math.abs(dy) * 1.2) {
+      swipeAxisRef.current = "horizontal";
+    } else if (Math.abs(dy) > Math.abs(dx) * 1.2) {
+      swipeAxisRef.current = "vertical";
+    }
   };
 
   const onSwipePointerUp = (e: React.PointerEvent) => {
     if (!narrowTrackSlide || trendingPauseMotion) return;
-    const start = swipeStartXRef.current;
-    swipeStartXRef.current = null;
-    if (start == null) return;
-    const dx = e.clientX - start;
+    const startX = swipeStartXRef.current;
+    const startY = swipeStartYRef.current;
+    const axis = swipeAxisRef.current;
+    resetSwipeGesture();
+    if (startX == null || startY == null) return;
+
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+    if (axis === "vertical" || Math.abs(dy) > Math.abs(dx) * 1.2) return;
     if (Math.abs(dx) < SWIPE_THRESHOLD_PX) return;
+
     suppressNavUntilRef.current = Date.now() + SWIPE_SUPPRESS_NAV_MS;
     if (dx < 0) scrollTrendingRef.current("right");
     else scrollTrendingRef.current("left");
   };
 
   const onSwipePointerCancel = () => {
-    swipeStartXRef.current = null;
+    resetSwipeGesture();
   };
 
   /** Black circular control, mint chevrons — same on landing and Markets. */
@@ -541,12 +577,13 @@ export function TrendingCollectionsCarousel({
             </button>
             <div
               role="presentation"
-              className={`touch-pan-x isolate min-w-0 flex-1 overflow-x-clip pb-0.5 pt-0 ${
+              className={`touch-pan-y isolate min-w-0 flex-1 overflow-x-clip pb-0.5 pt-0 ${
                 variant === "landing" && narrowCarousel
                   ? "w-full max-w-none max-sm:ring-2 max-sm:ring-inset max-sm:ring-[#060708]"
                   : landingNarrowW
               }`}
               onPointerDown={onSwipePointerDown}
+              onPointerMove={onSwipePointerMove}
               onPointerUp={onSwipePointerUp}
               onPointerCancel={onSwipePointerCancel}
             >

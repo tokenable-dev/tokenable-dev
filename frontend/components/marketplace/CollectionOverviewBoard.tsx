@@ -24,8 +24,14 @@ import {
   COLLECTION_EXCHANGE_ORDER_BOOK_FRAME,
 } from "@/components/marketplace/collectionOverviewChrome";
 import { CollectionOrderBookVisibilityToggle } from "@/components/marketplace/CollectionOrderBookVisibilityToggle";
+import { AssetDetailHeadlineTitle } from "@/components/marketplace/AssetDetailHeadlineTitle";
 import { CollectionMobileListingsSection } from "@/components/marketplace/CollectionMobileListingsSection";
 import { useCollectionDetailMobile } from "@/components/marketplace/useCollectionDetailMobile";
+import {
+  assetDetailHeadlineHasContent,
+  formatAssetDetailHeadlineText,
+  type AssetDetailHeadlineParts,
+} from "@/lib/marketplace/assetDetailHeadline";
 
 const collectionHeroFont = IBM_Plex_Sans({
   subsets: ["latin"],
@@ -48,6 +54,13 @@ const HEADLINE_NAME_TEXT = "text-[15px] leading-snug tracking-normal";
 const HEADLINE_TITLE_ONE_LINE =
   "w-full min-w-0 truncate whitespace-nowrap text-2xl font-bold tracking-tight text-white sm:text-3xl lg:text-[1.85rem] xl:text-[2.125rem] leading-[1.15]";
 
+/** Asset-style hero title + set/subtitle line — shared weight, color, and scale. */
+const COLLECTION_HEADLINE_TITLE_CLASS =
+  "min-w-0 break-words text-2xl font-bold leading-snug tracking-normal text-white sm:text-3xl sm:leading-[1.35] lg:text-[35px] lg:leading-[1.4]";
+
+const COLLECTION_HEADLINE_TITLE_MOBILE_CLASS =
+  "text-[1.0625rem] font-bold leading-[1.15] tracking-tight text-white";
+
 export interface CollectionOverviewStat {
   label: string;
   value: string;
@@ -61,6 +74,8 @@ export interface CollectionOverviewBoardProps {
   subtitle?: string | null;
   /** Asset-style headline (card name); use with headlineTitleLayout for badges + meta strip */
   headlineTitle?: string | null;
+  /** Year → set → card name (same typography as {@link headlineTitle}). */
+  headlineStructuredTitle?: AssetDetailHeadlineParts | null;
   /** Set / product line under the card name (shown at top — not duplicated under cover). */
   headlineSetLine?: string | null;
   /** Supplementary line under set: e.g. `#85 · variant` — optional when {@link headlineInfoTags} covers it. */
@@ -193,6 +208,7 @@ function buildMobileHeadlineCopy(
 
 function CollectionMobileHeadline({
   headlineTitle,
+  headlineStructuredTitle,
   headlineSubtitleLine,
   headlineCardNumber,
   categoryBadge,
@@ -202,6 +218,7 @@ function CollectionMobileHeadline({
   suppressTitle,
 }: {
   headlineTitle: string;
+  headlineStructuredTitle?: AssetDetailHeadlineParts | null;
   headlineSubtitleLine: string | null;
   headlineCardNumber?: string | null;
   categoryBadge?: string | null;
@@ -217,6 +234,11 @@ function CollectionMobileHeadline({
     Boolean(badgeLabel);
 
   const cardNo = headlineCardNumber?.trim() || null;
+  const structuredHasCardNo = Boolean(
+    headlineStructuredTitle &&
+      assetDetailHeadlineHasContent(headlineStructuredTitle) &&
+      /#\s*\S+/.test(formatAssetDetailHeadlineText(headlineStructuredTitle)),
+  );
 
   return (
     <header
@@ -224,22 +246,29 @@ function CollectionMobileHeadline({
     >
       {suppressTitle ? (
         <h1 className="sr-only">{headlineTitle}</h1>
+      ) : headlineStructuredTitle &&
+        assetDetailHeadlineHasContent(headlineStructuredTitle) ? (
+        <AssetDetailHeadlineTitle
+          as="h1"
+          parts={headlineStructuredTitle}
+          className={`line-clamp-3 ${COLLECTION_HEADLINE_TITLE_MOBILE_CLASS}`}
+        />
       ) : (
         <h1
-          className="line-clamp-2 text-[1.0625rem] font-bold leading-[1.15] tracking-tight text-white"
+          className={`line-clamp-2 ${COLLECTION_HEADLINE_TITLE_MOBILE_CLASS}`}
           title={headlineTitle}
         >
           {headlineTitle}
         </h1>
       )}
 
-      {headlineSubtitleLine ? (
-        <p className="line-clamp-1 text-[11px] font-normal leading-snug text-zinc-500">
+      {!headlineStructuredTitle && headlineSubtitleLine ? (
+        <p className={`line-clamp-2 ${COLLECTION_HEADLINE_TITLE_MOBILE_CLASS}`}>
           {headlineSubtitleLine}
         </p>
       ) : null}
 
-      {cardNo ? (
+      {cardNo && !structuredHasCardNo ? (
         <p className="text-[11px] font-medium tabular-nums text-zinc-500">{cardNo}</p>
       ) : null}
 
@@ -298,6 +327,7 @@ export function CollectionOverviewBoard({
   title,
   subtitle,
   headlineTitle,
+  headlineStructuredTitle,
   headlineSetLine,
   headlineMetaStrip,
   headlineInfoTags,
@@ -339,13 +369,17 @@ export function CollectionOverviewBoard({
   const orderBookToggleEnabled = onShowOrderBookChange != null;
   const orderBookColumnVisible = !orderBookToggleEnabled || showOrderBook;
 
+  const useStructuredHeadline =
+    headlineStructuredTitle != null &&
+    assetDetailHeadlineHasContent(headlineStructuredTitle);
+
   const headlineSubtitleLine =
-    headlineTitleLayout && headlineTitle
+    headlineTitleLayout && headlineTitle && !useStructuredHeadline
       ? buildHeadlineSubtitleLine(headlineSetLine, headlineMetaStrip, headlineInfoTags ?? null)
       : null;
 
   const mobileHeadlineCopy =
-    headlineTitleLayout && headlineTitle
+    headlineTitleLayout && headlineTitle && !useStructuredHeadline
       ? buildMobileHeadlineCopy(headlineSetLine, headlineMetaStrip, headlineInfoTags ?? null)
       : null;
 
@@ -360,6 +394,7 @@ export function CollectionOverviewBoard({
     showMobileHeroIdentity && headlineTitle ? (
       <CollectionMobileHeadline
         headlineTitle={headlineTitle}
+        headlineStructuredTitle={headlineStructuredTitle}
         headlineSubtitleLine={mobileHeadlineCopy?.subtitleLine ?? headlineSubtitleLine}
         headlineCardNumber={mobileHeadlineCopy?.cardNumber}
         categoryBadge={categoryBadge}
@@ -416,12 +451,20 @@ export function CollectionOverviewBoard({
                 <>
                   <div className={`${collectionHeroFont.className} min-w-0`}>
                     <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2 max-lg:justify-center lg:justify-start">
-                      <h1
-                        className="min-w-0 break-words text-2xl font-bold leading-snug tracking-normal text-white sm:text-3xl sm:leading-[1.35] lg:text-[35px] lg:leading-[1.4]"
-                        title={headlineTitle}
-                      >
-                        {headlineTitle}
-                      </h1>
+                      {useStructuredHeadline && headlineStructuredTitle ? (
+                        <AssetDetailHeadlineTitle
+                          as="h1"
+                          parts={headlineStructuredTitle}
+                          className={COLLECTION_HEADLINE_TITLE_CLASS}
+                        />
+                      ) : (
+                        <h1
+                          className={COLLECTION_HEADLINE_TITLE_CLASS}
+                          title={headlineTitle}
+                        >
+                          {headlineTitle}
+                        </h1>
+                      )}
                       <div
                         className="flex shrink-0 flex-wrap items-center gap-2.5"
                         aria-label="Collection tags"
@@ -442,8 +485,10 @@ export function CollectionOverviewBoard({
                         ) : null}
                       </div>
                     </div>
-                    {headlineSubtitleLine ? (
-                      <p className="mt-1 max-w-full text-[16px] font-normal leading-[1.4] tracking-normal text-zinc-400 sm:mt-1.5 max-lg:text-center lg:text-left">
+                    {!useStructuredHeadline && headlineSubtitleLine ? (
+                      <p
+                        className={`mt-1 max-w-full sm:mt-1.5 max-lg:text-center lg:text-left ${COLLECTION_HEADLINE_TITLE_CLASS}`}
+                      >
                         {headlineSubtitleLine}
                       </p>
                     ) : null}
@@ -471,7 +516,7 @@ export function CollectionOverviewBoard({
                     {title}
                   </h1>
                   {subtitle ? (
-                    <p className={`${HEADLINE_NAME_TEXT} text-zinc-500`}>{subtitle}</p>
+                    <p className={HEADLINE_TITLE_ONE_LINE}>{subtitle}</p>
                   ) : null}
                 </>
               )}

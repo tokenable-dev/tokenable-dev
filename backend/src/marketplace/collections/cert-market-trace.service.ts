@@ -15,6 +15,7 @@ import {
 import { marketHistoryTierFromComponents } from '../utils/market-history-tier.util';
 import type {
   MarketCollectionPreview,
+  MarketCompsSnapshot,
   MarketPriceHistoryResult,
 } from '../utils/market-reference.types';
 import type { MarketHistoryPeriod } from '../utils/price-history-period.util';
@@ -82,6 +83,13 @@ export interface CertMarketTraceResult {
   cardhedger: {
     preview: MarketCollectionPreview;
     history: MarketPriceHistoryResult;
+    /** `POST /v1/cards/comps` — time-weighted headline + up to 100 raw auction rows. */
+    comps: MarketCompsSnapshot;
+    /**
+     * Daily `prices-by-card` merged with comps raw sales (same pipeline as collection chart snapshots).
+     * Calendar-clipped to {@link CertMarketTraceDto.historyMaxCalendarDays}.
+     */
+    mergedChartPoints: Array<{ t: number; v: number }>;
   };
 }
 
@@ -268,19 +276,25 @@ export class CertMarketTraceService {
 
     const scrapeAttempted = Boolean(scrapeRequested && specIdStr);
 
-    const [cardhedger, psaSpecPageImageUrl, inferredBucket] = await Promise.all(
-      [
-        this.cardMarket.getBundledCardData(synthetic, {
-          tier,
-          period,
-          maxCalendarDays: maxDays,
-        }),
-        scrapeAttempted && specIdStr
-          ? this.psaSpecScraper.scrapeSpecImageUrl(specIdStr)
-          : Promise.resolve(null),
-        Promise.resolve(this.inferBucketFromAnalyze(psaAnalyze)),
-      ],
-    );
+    const [bundled, psaSpecPageImageUrl, inferredBucket] = await Promise.all([
+      this.cardMarket.getBundledCardData(synthetic, {
+        tier,
+        period,
+        maxCalendarDays: maxDays,
+        includeComps: true,
+      }),
+      scrapeAttempted && specIdStr
+        ? this.psaSpecScraper.scrapeSpecImageUrl(specIdStr)
+        : Promise.resolve(null),
+      Promise.resolve(this.inferBucketFromAnalyze(psaAnalyze)),
+    ]);
+
+    const cardhedger = {
+      preview: bundled.preview,
+      history: bundled.history,
+      comps: bundled.comps,
+      mergedChartPoints: bundled.history.points ?? [],
+    };
 
     const certNorm = String(psaAnalyze.psa.certNumber ?? '').trim();
     const synComp = synthetic.components as Record<string, unknown>;

@@ -4,7 +4,16 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { RwaImageLightbox } from "@/components/common";
 import { postResolveMediaUrls } from "@/lib/core";
-import { formatSportCategoryDisplayLabel } from "@/lib/market";
+import { AssetDetailHeadlineTitle } from "@/components/marketplace/AssetDetailHeadlineTitle";
+import {
+  formatSportCategoryDisplayLabel,
+  isSportCategoryLeagueDisplayLabel,
+} from "@/lib/market";
+import {
+  assetDetailHeadlineHasContent,
+  buildRwaAssetDetailHeadlineParts,
+  formatAssetDetailHeadlineText,
+} from "@/lib/marketplace/assetDetailHeadline";
 import { displayAssetNameFromMetadata } from "@/lib/marketplace/rwaDisplayTitle";
 import { SlabCardFlip } from "./SlabCardFlip";
 
@@ -355,11 +364,11 @@ export function RwaDetailAssetPanel({
   openSeaMobile = false,
 }: RwaDetailAssetPanelProps) {
   const [lightboxOpen, setLightboxOpen] = useState(false);
-  const title =
-    displayAssetNameFromMetadata(
-      metadata,
-      `${collectionLabel} #${tokenId}`,
-    );
+  const headlineFallback = `${collectionLabel} #${tokenId}`;
+  const headlineParts = useMemo(
+    () => buildRwaAssetDetailHeadlineParts(metadata, headlineFallback),
+    [metadata, headlineFallback],
+  );
   const slabAltCaption =
     typeof metadata?.name === "string" && metadata.name.trim()
       ? displayAssetNameFromMetadata(
@@ -367,7 +376,8 @@ export function RwaDetailAssetPanel({
           `${collectionLabel} #${tokenId}`,
         )
       : `${collectionLabel} #${tokenId}`;
-  const setHeadline = useMemo(() => formatRwaSetHeadline(metadata), [metadata]);
+  const slabImageTitle =
+    formatAssetDetailHeadlineText(headlineParts) || slabAltCaption;
   const { category: headerCategory, gradeLine: headerGradeLine } = useMemo(
     () => pickHeaderCategoryGrade(metadata),
     [metadata],
@@ -450,8 +460,11 @@ export function RwaDetailAssetPanel({
     : "h-3.5 w-3.5 text-[#0a1210]";
 
   const headerRowPulse =
-    Boolean(metaLoading) && !headerCategory && !headerGradeLine && !setHeadline;
-  const titlePulse = Boolean(metaLoading) && !metadata?.name?.trim();
+    Boolean(metaLoading) && !headerCategory && !headerGradeLine;
+  const titlePulse =
+    Boolean(metaLoading) &&
+    !metadata?.name?.trim() &&
+    !assetDetailHeadlineHasContent(headlineParts);
 
   const headerBlock = (
     <div
@@ -475,7 +488,9 @@ export function RwaDetailAssetPanel({
               {headerCategory ? (
                 <span
                   className={`inline-flex shrink-0 items-center rounded-md border border-amber-400/35 bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-amber-50 sm:text-[11px] ${
-                    headerCategory === "NBA" ? "uppercase" : "capitalize"
+                    isSportCategoryLeagueDisplayLabel(headerCategory)
+                      ? "uppercase"
+                      : "capitalize"
                   }`}
                 >
                   {headerCategory}
@@ -486,24 +501,19 @@ export function RwaDetailAssetPanel({
                   {headerGradeLine}
                 </span>
               ) : null}
-              {metaLoading && !setHeadline ? (
-                <span className="h-3.5 min-w-[8rem] flex-1 animate-pulse rounded bg-gray-800/70" aria-hidden />
-              ) : setHeadline ? (
-                  <p className="min-w-0 flex-1 text-[12px] font-medium leading-snug text-zinc-400 sm:text-[13px]">
-                    {setHeadline}
-                  </p>
-              ) : null}
             </>
           )}
         </div>
 
         {titlePulse ? (
           <div className="h-7 w-[min(100%,18rem)] max-w-full animate-pulse rounded-lg bg-gray-800/85" aria-hidden />
-        ) : (
-          <h1 className="text-xl font-bold leading-snug tracking-tight text-white sm:text-[1.375rem]">
-            {title}
-          </h1>
-        )}
+        ) : assetDetailHeadlineHasContent(headlineParts) ? (
+          <AssetDetailHeadlineTitle
+            as="h1"
+            parts={headlineParts}
+            className="text-xl font-bold leading-snug tracking-tight text-white sm:text-[1.375rem]"
+          />
+        ) : null}
     </div>
   );
 
@@ -586,7 +596,7 @@ export function RwaDetailAssetPanel({
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={imageUrl}
-                  alt={`${title} — slab front`}
+                  alt={`${slabImageTitle} — slab front`}
                   className="h-full w-full min-h-0 object-contain object-center"
                   draggable={false}
                   referrerPolicy="no-referrer"
@@ -611,7 +621,7 @@ export function RwaDetailAssetPanel({
               <RwaImageLightbox
                 open={lightboxOpen}
                 src={imageUrl}
-                alt={`${title} — slab front`}
+                alt={`${slabImageTitle} — slab front`}
                 onClose={() => setLightboxOpen(false)}
               />
             </>

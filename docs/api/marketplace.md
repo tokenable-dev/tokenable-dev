@@ -34,7 +34,7 @@ Cert 번호만 넣어 **PSA 공식 조회(`analyze-by-cert`와 동일)** + **Car
 
 **Env:** `CARDHEDGER_API_KEY` 필수, **`PSA_PUBLIC_API_TOKEN`** 권장 (PSACert Variety 등).
 
-**응답 요약:** `meta`(`elapsedMs`, `psaEnrichedFromOfficialApi`, `cardhedgerEnabled`, `syntheticHasPsaVariety`) · 전체 `psaAnalyze` · `syntheticCollection.components` · `collectionQuery` · `cardhedger.preview` / `cardhedger.history`.
+**응답 요약:** `meta` · `psaAnalyze` · `syntheticCollection` · `collectionQuery` · `cardhedger.preview` / `cardhedger.history` / `cardhedger.comps`(경매 raw+headline) / `cardhedger.mergedChartPoints`(일별+comps 병합, `historyMaxCalendarDays` 클립).
 
 자세한 맥락: [cardhedger-psa-variety.md](../guides/cardhedger-psa-variety.md).
 

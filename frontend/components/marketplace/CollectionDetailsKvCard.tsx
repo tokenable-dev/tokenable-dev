@@ -70,7 +70,7 @@ function FullDetailsBody({
       </h2>
       {subtitle?.trim() ? (
         <p
-          className={`${detailsKvFont.className} mt-2 text-[11px] font-normal leading-snug tracking-normal text-[#a0a0a0] sm:text-[12px] sm:leading-[140%]`}
+          className={`${detailsKvFont.className} mt-2 text-[16px] font-bold leading-[140%] tracking-normal text-white sm:text-[17px]`}
         >
           {subtitle}
         </p>

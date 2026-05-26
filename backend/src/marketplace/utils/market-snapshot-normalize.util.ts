@@ -8,6 +8,11 @@ import {
 } from './market-grade-strip.util';
 import type { MaterializedMarketSnapshotPayload } from './market-snapshot.types';
 import { MARKET_SNAPSHOT_SOURCE_VERSION } from './market-snapshot.types';
+import {
+  CHART_FULL_COMPS_ARCHIVE_MAX_DAYS,
+  type ChartHistoryWindow,
+  nmHistoryDaysForBundleWindow,
+} from './market-grade-strip.util';
 
 const SEC_DAY = 86_400;
 
@@ -98,6 +103,32 @@ export function filterExternalUsdByDays(
   return points.filter((p) => p.t >= cutoff);
 }
 
+/**
+ * Chart window: anchored to latest sale. `max` returns full comps-merged archive.
+ */
+export function filterExternalUsdForChartWindow(
+  points: UsdPoint[],
+  window: ChartHistoryWindow,
+): UsdPoint[] {
+  const cleaned = points.filter(
+    (p) => Number.isFinite(p.t) && Number.isFinite(p.v) && p.v > 0,
+  );
+  if (cleaned.length === 0) return [];
+
+  const sorted = [...cleaned].sort((a, b) => a.t - b.t);
+  const lastT = sorted[sorted.length - 1]!.t;
+
+  if (window === 'max') {
+    const archiveCutoff =
+      lastT - CHART_FULL_COMPS_ARCHIVE_MAX_DAYS * SEC_DAY;
+    return sorted.filter((p) => p.t >= archiveCutoff);
+  }
+
+  const maxDays = nmHistoryDaysForBundleWindow(window);
+  const cutoff = lastT - maxDays * SEC_DAY;
+  return sorted.filter((p) => p.t >= cutoff);
+}
+
 export function computeChangePctLag(
   externalUsd: UsdPoint[],
   lagDays: number,
@@ -140,7 +171,11 @@ export function buildMaterializedSnapshotPayload(input: {
   historyPoints: UsdPoint[];
 }): MaterializedMarketSnapshotPayload {
   const key = input.collectionKey.toLowerCase();
-  const headlineUsd = finitePositive(input.preview.card?.topPrice ?? null);
+  const headlineUsd =
+    finitePositive(input.preview.card?.topPrice ?? null) ??
+    finitePositive(
+      blendCatalogSpotUsdFromPreview(input.preview, input.historyTier),
+    );
   let externalUsd = input.historyPoints.map((p) => ({ t: p.t, v: p.v }));
   externalUsd = syncExternalTerminalWithHeadline(externalUsd, headlineUsd);
 

@@ -4,7 +4,7 @@ import { useState, type ReactNode } from "react";
 export type CollectionMobileMarketTabId = "information" | "chart" | "orderbook";
 
 const TABS: { id: CollectionMobileMarketTabId; label: string }[] = [
-  { id: "information", label: "Information" },
+  { id: "information", label: "Info" },
   { id: "chart", label: "Chart" },
   { id: "orderbook", label: "Order book" },
 ];
@@ -59,7 +59,7 @@ export function CollectionMobileMarketTabs({
       </div>
 
       <div
-        className="shrink-0 pt-2.5 min-h-[200px] max-lg:overflow-x-clip"
+        className="shrink-0 max-lg:overflow-x-clip pt-2 min-h-[168px] overflow-hidden"
         role="tabpanel"
       >
         {panel}

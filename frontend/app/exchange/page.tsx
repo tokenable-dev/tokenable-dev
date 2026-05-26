@@ -18,8 +18,11 @@ import { CollectionCategoryFilterBar } from "@/components/marketplace/Collection
 import { CollectionListSparkline } from "@/components/marketplace/CollectionListSparkline";
 import {
   collectionMatchesCategoryFilter,
+  formatReferenceChangeCoverageHint,
+  formatReferenceChangePeriodFromSnapshotMeta,
   MARKET_PRICE_CHANGE_PERIOD_SHORT,
   MARKET_PRICE_CHANGE_SNAPSHOT_DURATION,
+  referenceChangePeriodFromSnapshotMeta,
   REFERENCE_CHANGE_UNAVAILABLE_HINT,
   MARKETS_CATEGORY_FILTERS,
   MARKETS_DEFAULT_CATEGORY_FILTER,
@@ -27,6 +30,83 @@ import {
 } from "@/lib/market";
 import { parseGradeScoreNumber, representativeGradeUsd } from "@/lib/market";
 import { toCardDisplayUppercase } from "@/lib/marketplace/collectionFullDetailsTitle";
+import {
+  bucketCardNameForDisplay,
+  bucketCardSetForDisplay,
+} from "@/lib/marketplace/bucketKey";
+
+function buildMarketsCollectionTitle(params: {
+  collection: MarketplaceCollectionSummary;
+  comp: Record<string, unknown>;
+}): string {
+  const { collection, comp } = params;
+
+  const extractYear = (s: string): number | null => {
+    const m = /\b(18\d{2}|19\d{2}|20\d{2}|2100)\b/.exec(s);
+    if (!m) return null;
+    const y = Number(m[1]);
+    return Number.isFinite(y) && y >= 1880 && y <= 2100 ? y : null;
+  };
+
+  const stripYearToken = (s: string, y: number | null): string => {
+    const t = s.trim();
+    if (!t || y == null) return t;
+    return t.replace(new RegExp(`\\b${String(y)}\\b`), "").replace(/\s+/g, " ").trim();
+  };
+
+  let setName = bucketCardSetForDisplay(comp).trim();
+  let cardName = bucketCardNameForDisplay(comp).trim();
+
+  const dl =
+    typeof collection.displayLabel === "string" ? collection.displayLabel.trim() : "";
+
+  // Prefer structured year when present.
+  const yearFromCompRaw = (comp as Record<string, unknown>).year;
+  const yearFromComp =
+    typeof yearFromCompRaw === "number" && Number.isFinite(yearFromCompRaw)
+      ? yearFromCompRaw
+      : typeof yearFromCompRaw === "string"
+        ? extractYear(yearFromCompRaw)
+        : null;
+
+  // Legacy fallback: displayLabel encodes "CardName <year> SetName" (no delimiter).
+  // Example: "Pikachu with Grey Felt Hat 2023 Pokemon Scarlet & ..."
+  if (!setName && dl) {
+    const m = /^(.*?)\b(18\d{2}|19\d{2}|20\d{2}|2100)\b\s+(.+)$/.exec(dl);
+    if (m) {
+      const left = (m[1] ?? "").trim();
+      const year = (m[2] ?? "").trim();
+      const right = (m[3] ?? "").trim();
+      if (!cardName && left) cardName = left;
+      if (right) setName = year ? `${year} ${right}` : right;
+    }
+  }
+
+  // Legacy fallback: "CARD · SET" / "CARD | SET" / "CARD - SET"
+  if (!setName && dl) {
+    const parts = dl.split(/[-–·|]/).map((s) => s.trim()).filter(Boolean);
+    if (parts.length === 2) {
+      const [left, right] = parts;
+      if (!cardName && left) cardName = left;
+      if (right) setName = right;
+    }
+  }
+
+  const year =
+    yearFromComp ??
+    extractYear(setName) ??
+    extractYear(dl) ??
+    null;
+
+  const setNoYear = stripYearToken(setName, year);
+  const titleParts = [
+    year != null ? String(year) : "",
+    setNoYear,
+    cardName,
+  ].filter((s) => s && s.trim().length > 0);
+  const out = titleParts.length > 0 ? titleParts.join(" ") : dl;
+  return toCardDisplayUppercase(out);
+}
 
 function formatUsd(n: number | null | undefined): string {
   if (n == null || !Number.isFinite(n)) return "—";
@@ -183,17 +263,22 @@ function ExchangeTrendPctBadge({
   );
 }
 
-/** Always show 1mo change on list/grid cards — 0% when history is insufficient (see title). */
+/** Always show reference % on list/grid cards — 0% when history is insufficient (see title). */
 function ExchangeMarketChangeBadge({
   pct,
   loading = false,
   windowShort = MARKET_PRICE_CHANGE_PERIOD_SHORT,
+  titleDetail,
 }: {
   pct: number | null;
   loading?: boolean;
   windowShort?: string;
+  titleDetail?: string;
 }) {
   const win = windowShort;
+  const title = titleDetail?.trim()
+    ? `External reference (${win} change) — ${titleDetail.trim()}`
+    : `External reference (${win} change)`;
   if (loading && pct == null) {
     return (
       <ExchangeKvBadge
@@ -208,7 +293,7 @@ function ExchangeMarketChangeBadge({
       <ExchangeTrendPctBadge
         pct={pct}
         windowShort={win}
-        title={`External reference (${MARKET_PRICE_CHANGE_PERIOD_SHORT} change)`}
+        title={title}
       />
     );
   }
@@ -316,7 +401,11 @@ function CollectionRow({
     snapshot?.marketChangePct != null && Number.isFinite(snapshot.marketChangePct)
       ? snapshot.marketChangePct
       : null;
+  const changePeriodMeta = referenceChangePeriodFromSnapshotMeta(snapshot);
+  const changeWindowShort = formatReferenceChangePeriodFromSnapshotMeta(snapshot);
+  const changeCoverageHint = formatReferenceChangeCoverageHint(changePeriodMeta);
   const pop = parsePsaPopulationFromComponents(comp);
+  const marketsTitle = buildMarketsCollectionTitle({ collection, comp });
 
   return (
     <Link
@@ -340,12 +429,14 @@ function CollectionRow({
 
         <div className="min-w-0 flex-1">
           <h3 className="line-clamp-2 break-words text-base font-extrabold uppercase leading-snug tracking-tight text-white transition-colors group-hover:text-mint sm:line-clamp-1 sm:truncate sm:text-2xl">
-            {toCardDisplayUppercase(collection.displayLabel)}
+            {marketsTitle}
           </h3>
           <div className={`mt-1.5 ${EXCHANGE_CARD_INFO_BADGE_ROW}`}>
           <ExchangeMarketChangeBadge
             pct={changePctExternal}
             loading={marketChangeLoading}
+            windowShort={changeWindowShort}
+            titleDetail={changeCoverageHint}
           />
           {pop != null ? (
             <ExchangeKvBadge
@@ -439,7 +530,11 @@ function CollectionGridCard({
     snapshot?.marketChangePct != null && Number.isFinite(snapshot.marketChangePct)
       ? snapshot.marketChangePct
       : null;
+  const changePeriodMeta = referenceChangePeriodFromSnapshotMeta(snapshot);
+  const changeWindowShort = formatReferenceChangePeriodFromSnapshotMeta(snapshot);
+  const changeCoverageHint = formatReferenceChangeCoverageHint(changePeriodMeta);
   const pop = parsePsaPopulationFromComponents(comp);
+  const marketsTitle = buildMarketsCollectionTitle({ collection, comp });
 
   return (
     <Link
@@ -462,6 +557,8 @@ function CollectionGridCard({
           <ExchangeMarketChangeBadge
             pct={changePctExternal}
             loading={marketChangeLoading}
+            windowShort={changeWindowShort}
+            titleDetail={changeCoverageHint}
           />
           {pop != null ? (
             <ExchangeKvBadge
@@ -479,9 +576,9 @@ function CollectionGridCard({
 
         <h3
           className="line-clamp-2 min-w-0 break-words text-[0.8125rem] font-bold leading-snug text-white max-[380px]:text-xs sm:text-[1.05rem]"
-          title={collection.displayLabel}
+          title={marketsTitle}
         >
-          {collection.displayLabel}
+          {marketsTitle}
         </h3>
 
         <div className="mt-auto flex min-w-0 items-baseline justify-between gap-1.5 pt-0.5 sm:gap-2">

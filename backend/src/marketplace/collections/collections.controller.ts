@@ -244,10 +244,16 @@ export class CollectionsController {
     @Param('key') key: string,
     @Query('priceHistoryDuration') priceHistoryDuration?: string,
   ) {
-    const d = ['7d', '30d', '90d', '180d', '365d'].includes(
+    const d = ['7d', '30d', '90d', '180d', '365d', 'max'].includes(
       String(priceHistoryDuration),
     )
-      ? (priceHistoryDuration as '7d' | '30d' | '90d' | '180d' | '365d')
+      ? (priceHistoryDuration as
+          | '7d'
+          | '30d'
+          | '90d'
+          | '180d'
+          | '365d'
+          | 'max')
       : '365d';
     return this.collectionMarketService.getCollectionMarketBundle(
       this.normalizeKey(key),

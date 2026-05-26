@@ -33,6 +33,10 @@ export interface MarketBucketComponents {
    * Optional card # (e.g. 086) — **not** part of {@link computeMarketBucketKey}; used for search matching only.
    */
   cardNumber?: string;
+  /**
+   * Optional release year (e.g. 2025) — display-only; not part of {@link computeMarketBucketKey}.
+   */
+  year?: number;
 }
 
 const KEY_VERSION = 1;
@@ -66,6 +70,18 @@ function detectVariantType(graded: Record<string, unknown>): 'psa_dna' | null {
     return 'psa_dna';
   }
   return null;
+}
+
+function normalizeYearLike(v: unknown): number | null {
+  if (typeof v === 'number' && Number.isFinite(v)) {
+    const y = Math.trunc(v);
+    return y >= 1880 && y <= 2100 ? y : null;
+  }
+  const s = String(v ?? '').trim();
+  const m = /\b(\d{4})\b/.exec(s);
+  if (!m) return null;
+  const y = Number(m[1]);
+  return Number.isFinite(y) && y >= 1880 && y <= 2100 ? y : null;
 }
 
 /** Where the coalesced `graded` payload came from (`properties.graded ?? meta.graded`). */
@@ -235,6 +251,10 @@ export function extractOrDiagnoseBucketComponents(
   const variantType = detectVariantType(graded);
   if (variantType) out.variantType = variantType;
   if (cardNumber) out.cardNumber = cardNumber;
+
+  const year = normalizeYearLike((card as Record<string, unknown> | undefined)?.year) ??
+    normalizeYearLike((psa as Record<string, unknown> | undefined)?.year);
+  if (year != null) out.year = year;
 
   const pop = psa?.totalPopulation;
   if (typeof pop === 'number' && Number.isFinite(pop) && pop >= 0) {

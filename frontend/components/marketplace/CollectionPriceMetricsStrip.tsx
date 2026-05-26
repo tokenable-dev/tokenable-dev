@@ -7,6 +7,7 @@ import {
   COLLECTION_DETAILS_BORDER_ALL,
 } from "@/components/marketplace/collectionOverviewChrome";
 import {
+  formatReferenceChangePeriodLabel,
   formatReferencePercentChange,
   formatUsdCompact,
   MARKET_PRICE_CHANGE_PERIOD_LABEL,
@@ -14,6 +15,7 @@ import {
   REFERENCE_CHANGE_UNAVAILABLE_HINT,
   REFERENCE_CHANGE_UNAVAILABLE_LABEL,
   referenceChangeTone,
+  type ReferencePercentChangeResult,
 } from "@/lib/market";
 
 const ibmPlexSans = IBM_Plex_Sans({
@@ -49,6 +51,11 @@ export interface CollectionPriceMetricsStripProps {
   externalPriceChange1yLoading?: boolean;
   externalPriceChange1MoPct?: number | null;
   externalPriceChange1MoLoading?: boolean;
+  /** When set, drives % change column labels (`1 yr`, `180d`, `90d`, …). */
+  externalPriceChangePeriod?: Pick<
+    ReferencePercentChangeResult,
+    "isFullYear" | "windowSec"
+  > | null;
   externalPriceChangeBasisText?: string | null;
   marketCapUsd?: number | null;
   marketCapMethodHint?: string | null;
@@ -106,10 +113,10 @@ function MetricTile({
 }) {
   const border = `${COLLECTION_DETAILS_BORDER_ALL} shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]`;
   const labelCls =
-    "text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.06em] text-zinc-400";
+    "text-[11px] sm:text-[12px] font-semibold uppercase tracking-[0.06em] text-zinc-400";
   const valueCls = compact
-    ? "text-[1.2rem] sm:text-[1.36rem] font-bold tabular-nums tracking-tight leading-none"
-    : "text-[1.14rem] sm:text-[1.3rem] font-bold tabular-nums tracking-tight leading-none";
+    ? "text-[1.28rem] sm:text-[1.5rem] font-bold tabular-nums tracking-tight leading-none"
+    : "text-[1.18rem] sm:text-[1.38rem] font-bold tabular-nums tracking-tight leading-none";
 
   const hasFooter = isNonemptyFooter(footer);
 
@@ -207,6 +214,7 @@ export function CollectionPriceMetricsStrip({
   exchangeUnifiedRow = false,
   externalPriceChange1MoPct: externalPriceChange1MoPctProp = null,
   externalPriceChange1MoLoading: externalPriceChange1MoLoadingProp = false,
+  externalPriceChangePeriod = null,
   externalPriceChange24hPct = null,
   externalPriceChange24hLoading = false,
   volume24hUsdc = null,
@@ -219,6 +227,10 @@ export function CollectionPriceMetricsStrip({
     externalPriceChange1MoLoadingProp ||
     externalPriceChange24hLoading ||
     externalPriceChange1yLoading;
+
+  const changePeriodLabel =
+    formatReferenceChangePeriodLabel(externalPriceChangePeriod) ||
+    MARKET_PRICE_CHANGE_PERIOD_LABEL;
 
   const showExternalPrimary =
     externalMarketUsd != null &&
@@ -283,7 +295,7 @@ export function CollectionPriceMetricsStrip({
           />
           <MetricTile
             variant="panelCell"
-            label={`% Change ${MARKET_PRICE_CHANGE_PERIOD_LABEL}`}
+            label={`% Change ${changePeriodLabel}`}
             compact={compact}
             value={
               <>
@@ -461,7 +473,7 @@ export function CollectionPriceMetricsStrip({
 
       {showChartColumn && showPriceChange ? (
         <MetricTile
-          label={`% Change (${MARKET_PRICE_CHANGE_PERIOD_LABEL})`}
+          label={`% Change (${changePeriodLabel})`}
           compact={compact}
           footer={changeBasis}
           value={

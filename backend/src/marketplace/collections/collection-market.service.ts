@@ -18,9 +18,15 @@ import {
   resolvePlatformTapeFill,
 } from '../utils/platform-tape.util';
 
-export type PriceHistoryDuration = '7d' | '30d' | '90d' | '180d' | '365d';
+export type PriceHistoryDuration =
+  | '7d'
+  | '30d'
+  | '90d'
+  | '180d'
+  | '365d'
+  | 'max';
 
-/** Effective lookback for {@link CollectionMarketBundle.marketChangePct} (product UI: 1 mo / 30d). */
+/** Effective lookback for {@link CollectionMarketBundle.marketChangePct} (product UI: 1 yr). */
 export type MarketChangeWindowLabel = PriceHistoryDuration | '24h';
 
 /**
@@ -57,6 +63,11 @@ export interface CollectionMarketBundle {
   categoryLabel: string | null;
   marketChangePct: number | null;
   marketChangeWindow: MarketChangeWindowLabel;
+  marketChangeIsFullYear?: boolean;
+  marketChangeSpanSec?: number;
+  /** LOCF anchor sale used for {@link marketChangePct}. */
+  marketChangeRefUsd?: number | null;
+  marketChangeRefAtSec?: number | null;
   marketChangeSource: MarketChangePriceSource | null;
   gradePrices: GradePriceStrip;
   externalUsd: UsdPoint[];
@@ -146,6 +157,7 @@ export class CollectionMarketService {
       '90d',
       '180d',
       '365d',
+      'max',
     ].includes(priceHistoryDuration)
       ? priceHistoryDuration
       : '365d';
@@ -526,6 +538,8 @@ export interface CollectionListSnapshot {
   categoryLabel: string | null;
   marketChangePct: number | null;
   marketChangeWindow: MarketChangeWindowLabel;
+  marketChangeIsFullYear?: boolean;
+  marketChangeSpanSec?: number;
   marketChangeSource: MarketChangePriceSource | null;
   gradePrices: GradePriceStrip;
   sparklineUsd: UsdPoint[];
@@ -569,6 +583,8 @@ function bundleToListSnapshot(
     categoryLabel: bundle.categoryLabel,
     marketChangePct: bundle.marketChangePct,
     marketChangeWindow: bundle.marketChangeWindow,
+    marketChangeIsFullYear: bundle.marketChangeIsFullYear,
+    marketChangeSpanSec: bundle.marketChangeSpanSec,
     marketChangeSource: bundle.marketChangeSource,
     gradePrices: bundle.gradePrices,
     sparklineUsd: spark,

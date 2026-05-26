@@ -200,6 +200,18 @@ function shouldAnchorSparseWindow(
   if (valid.length <= 1) return true;
   const windowSpan = Math.max(tMax - tMin, 1);
   const dataSpan = Math.max(valid[valid.length - 1]!.t - valid[0]!.t, 0);
+  const dataSpanDays = dataSpan / DAY;
+  /**
+   * Archive-scale windows only (MAX leak at 4000d): skip synthetic edge flats.
+   * Standard 7D–1Y toolbars may be wider than auction span — still anchor sparse comps.
+   */
+  const ARCHIVE_WINDOW_DAYS = 500;
+  if (
+    windowDays >= ARCHIVE_WINDOW_DAYS &&
+    windowDays > dataSpanDays * 1.5 + 14
+  ) {
+    return false;
+  }
   if (dataSpan / windowSpan < 0.55) return true;
   if (windowDays >= 90 && valid.length < Math.max(4, Math.ceil(windowDays / 14))) {
     return true;
@@ -383,7 +395,6 @@ export function CollectionDualPriceChart({
   rangeOptions,
   chartRange,
   onChartRangeChange,
-  footnote = null,
   emptyStateMessage,
   isLoading,
   errorMessage,
@@ -405,7 +416,6 @@ export function CollectionDualPriceChart({
   rangeOptions?: readonly ChartRangeOption[];
   chartRange?: string;
   onChartRangeChange?: (id: string) => void;
-  footnote?: ReactNode;
   emptyStateMessage?: string;
   isLoading?: boolean;
   errorMessage?: string | null;
@@ -457,9 +467,14 @@ export function CollectionDualPriceChart({
     let tMax: number;
 
     if (useFixedWindow) {
-      /** Lock x-axis to the UI range (7D / 30D / …). Do not expand to dataMin/dataMax — that made every range look like ~1Y. */
-      tMin = nowSec - externalWindowDays! * DAY;
-      tMax = nowSec + 6 * HOUR;
+      /**
+       * Anchor to latest merged sale (matches client `filterMergedChartPointsForWindow`),
+       * not wall-clock now — stale last-sale cards were clustering on the right of 1Y.
+       */
+      const anchorSec =
+        extRolling.length > 0 ? extRolling[extRolling.length - 1]!.t : nowSec;
+      tMin = anchorSec - externalWindowDays! * DAY;
+      tMax = Math.max(anchorSec, nowSec) + 6 * HOUR;
     } else {
       const extForSmart = extRolling.length > 0 ? extRolling : [];
       const smart = computeSmartTimeDomain(extForSmart, nowSec, 180 * DAY);
@@ -504,10 +519,7 @@ export function CollectionDualPriceChart({
       } else if (isUniformPrice(seriesProbe)) {
         const flatV = refPrice ?? seriesProbe[seriesProbe.length - 1]!.v;
         extForChart = buildFullWindowFlatSeries(tMin, tMax, flatV);
-      } else if (
-        shouldAnchorSparseWindow(seriesProbe, tMin, tMax, windowDays) ||
-        windowDays >= 180
-      ) {
+      } else if (shouldAnchorSparseWindow(seriesProbe, tMin, tMax, windowDays)) {
         extForChart = extendSeriesToWindowEdges(
           validUsdPoints(extForChart).length > 0 ? extForChart : seriesProbe,
           tMin,
@@ -799,11 +811,6 @@ export function CollectionDualPriceChart({
             : "relative min-h-[200px] px-2 pb-3 pt-0 sm:px-4"
         }
       >
-        {footnote ? (
-          <div className="pointer-events-none absolute left-2 top-1 z-10 max-w-[45%] truncate text-[8px] leading-none text-zinc-500">
-            {footnote}
-          </div>
-        ) : null}
         <ReactECharts
           key={merged.fixedWindowDays ?? "auto"}
           option={chartOption}

@@ -16,6 +16,33 @@ export function psaVarietyIsCardNumberOnly(variety: string): boolean {
  * Unknown multi-token varieties default to **not** generic base so we prefer differentiated rows
  * when PSA names an insert.
  */
+/** PSA `Variety` line is print language only — not a Cardhedger parallel (do not reject `variant: Base`). */
+export function psaVarietyIsLanguageOnlyLabel(
+  psaVariety: string | null | undefined,
+): boolean {
+  const v = String(psaVariety ?? '').trim();
+  if (!v) return false;
+  return /^(english|japanese|korean|chinese|french|german|italian|spanish|portuguese)$/i.test(
+    v,
+  );
+}
+
+/**
+ * PSA names the product/sku (ETB, poster tin, …) in Variety while Cardhedger keeps `variant: Base`.
+ */
+export function psaVarietyIsPackagingDescriptor(
+  psaVariety: string | null | undefined,
+): boolean {
+  const t = String(psaVariety ?? '').trim().toLowerCase();
+  if (!t) return false;
+  if (t === 'etb' || /\belite\s+trainer\s+box\b/.test(t)) return true;
+  if (/\bblister\b/.test(t)) return true;
+  if (/\bposter\s+collection\b/.test(t)) return true;
+  if (/\bultra[\s-]*premium\s+collection\b/.test(t)) return true;
+  if (/\btin\b/.test(t) && /\bpromo/.test(t)) return true;
+  return false;
+}
+
 export function psaVarietyIndicatesGenericBaseLine(
   psaVariety: string | null | undefined,
 ): boolean {
@@ -23,6 +50,8 @@ export function psaVarietyIndicatesGenericBaseLine(
   const v = psaVariety.trim();
   if (!v) return true;
   if (psaVarietyIsCardNumberOnly(v)) return true;
+  if (psaVarietyIsLanguageOnlyLabel(v)) return true;
+  if (psaVarietyIsPackagingDescriptor(v)) return true;
   const t = v.toLowerCase();
   if (/\bbase\b/.test(t)) return true;
   if (

@@ -1,3 +1,4 @@
+export * from './collectionChartHistory';
 export * from './collectionCategoryFilter';
 export * from './sportCategoryDisplay';
 export * from './collectionMarketPricing';

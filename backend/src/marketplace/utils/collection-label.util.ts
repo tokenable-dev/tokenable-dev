@@ -29,7 +29,14 @@ function gradeFreeLabelPartsFromComponents(
 ): string {
   const set = (components.cardSetDisplay ?? components.cardSet).trim();
   const name = (components.cardNameDisplay ?? components.cardName).trim();
-  return [set, name].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
+  const year =
+    typeof components.year === 'number' &&
+    Number.isFinite(components.year) &&
+    components.year >= 1880 &&
+    components.year <= 2100
+      ? String(Math.trunc(components.year))
+      : '';
+  return [year, set, name].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
 }
 
 /**

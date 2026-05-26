@@ -7,24 +7,25 @@ import type {
   PriceHistoryDuration,
 } from './collection-market.service';
 import type { GradePriceStrip, UsdPoint } from '../utils/collection-market.util';
-import { percentChangeReferenceOverLagSec } from '../utils/collection-market.util';
-import {
-  nmHistoryDaysForBundleWindow,
-} from '../utils/market-grade-strip.util';
-import { filterExternalUsdByDays } from '../utils/market-snapshot-normalize.util';
+import { referenceChangeWithBestWindow } from '../utils/collection-market.util';
+import { chartHistoryWindowFromCalendarDays } from '../utils/market-grade-strip.util';
+import { filterExternalUsdForChartWindow } from '../utils/market-snapshot-normalize.util';
 import type { MarketCollectionPreview, MarketPriceHistoryResult } from '../utils/market-reference.types';
 import type { MarketHistoryPeriod } from '../utils/price-history-period.util';
 import type { MarketSnapshotMeta } from '../utils/market-snapshot.types';
 import { CollectionMarketSnapshotService } from './collection-market-snapshot.service';
 
-const SEC_DAY = 86_400;
-
-/** Product default: ~1 month % change on external reference (always labeled 1 mo in UI). */
-function marketChangePct1Mo(
-  externalUsd: UsdPoint[],
-): { pct: number | null; window: MarketChangeWindowLabel } {
-  const pct = percentChangeReferenceOverLagSec(externalUsd, 30 * SEC_DAY);
-  return { pct, window: '30d' };
+/** Product default: 1y reference % (fallback to full available history). */
+function marketChangePctBestWindow(externalUsd: UsdPoint[]) {
+  const r = referenceChangeWithBestWindow(externalUsd);
+  return {
+    pct: r.pct,
+    window: r.window as MarketChangeWindowLabel,
+    isFullYear: r.isFullYear,
+    spanSec: r.spanSec,
+    refUsd: r.refUsd ?? null,
+    refAtSec: r.refAtSec ?? null,
+  };
 }
 
 export type SnapshotBundleResult = {
@@ -81,7 +82,8 @@ export class CollectionMarketSnapshotReadService {
       String(options.tier ?? row.historyTier ?? 'PSA_10').trim() || 'PSA_10';
     const preview = this.previewFromRow(row);
     const fullExternal = row.externalUsdJson ?? [];
-    const points = filterExternalUsdByDays(fullExternal, days);
+    const chartWindow = chartHistoryWindowFromCalendarDays(days);
+    const points = filterExternalUsdForChartWindow(fullExternal, chartWindow);
 
     if (!preview.matched || points.length === 0) {
       return {
@@ -156,14 +158,21 @@ export class CollectionMarketSnapshotReadService {
   ): SnapshotBundleResult {
     const key = row.collectionKey;
     const window = priceHistoryDuration;
-    const maxDays = nmHistoryDaysForBundleWindow(window);
     const fullExternal = row.externalUsdJson ?? [];
-    const externalUsd = filterExternalUsdByDays(fullExternal, maxDays);
+    const externalUsd = filterExternalUsdForChartWindow(fullExternal, window);
     const historyTier = row.historyTier ?? 'PSA_10';
     const preview = this.previewFromRow(row);
 
-    const { pct: marketChangePct, window: resolvedChangeWindow } =
-      marketChangePct1Mo(externalUsd);
+    // % change uses the full materialized series (comps sales back years), not the
+    // calendar-trimmed chart window — sparse parallels need older sale anchors.
+    const {
+      pct: marketChangePct,
+      window: resolvedChangeWindow,
+      isFullYear: marketChangeIsFullYear,
+      spanSec: marketChangeSpanSec,
+      refUsd: marketChangeRefUsd,
+      refAtSec: marketChangeRefAtSec,
+    } = marketChangePctBestWindow(fullExternal);
     const marketChangeSource: MarketChangePriceSource | null =
       marketChangePct != null && externalUsd.length >= 2
         ? historyTier === 'NEAR_MINT'
@@ -185,6 +194,10 @@ export class CollectionMarketSnapshotReadService {
         categoryLabel: row.categoryLabel,
         marketChangePct,
         marketChangeWindow: resolvedChangeWindow,
+        marketChangeIsFullYear,
+        marketChangeSpanSec,
+        marketChangeRefUsd: marketChangeRefUsd ?? undefined,
+        marketChangeRefAtSec: marketChangeRefAtSec ?? undefined,
         marketChangeSource,
         gradePrices,
         externalUsd,
