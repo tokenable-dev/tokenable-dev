@@ -102,10 +102,13 @@ export class PsaCertSnapshotService {
     if (lookup.status !== 'success' || !lookup.raw) return;
     const snap = this.compactFromApiRaw(lookup.raw);
     if (!snap || Object.keys(snap).length === 0) return;
-    await this.repo.save({
-      certNumber: cert,
-      snapshotJson: snap,
-      fetchedAt: new Date(),
-    });
+    await this.repo.upsert(
+      {
+        certNumber: cert,
+        snapshotJson: snap,
+        fetchedAt: new Date(),
+      },
+      ['certNumber'],
+    );
   }
 }

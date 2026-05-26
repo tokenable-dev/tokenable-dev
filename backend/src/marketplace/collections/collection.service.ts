@@ -252,7 +252,17 @@ export class CollectionService implements OnModuleInit {
     return t.length > 0 ? t : null;
   }
 
-  async onModuleInit(): Promise<void> {
+  /**
+   * Boot maintenance (bucket migrate, RWA registry sync, Cardhedger audit) must not block
+   * `app.listen()` — otherwise Compose healthchecks and all `/api/*` return 502 for minutes.
+   */
+  onModuleInit(): void {
+    setImmediate(() => {
+      void this.runDeferredBootTasks();
+    });
+  }
+
+  private async runDeferredBootTasks(): Promise<void> {
     const v = this.config.get<string>('MARKETPLACE_PIPELINE_DIAG');
     if (v === '1' || v === 'true') {
       try {
