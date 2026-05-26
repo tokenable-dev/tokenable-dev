@@ -18,6 +18,12 @@ import {
 import { TOKENABLE_RWA_ADDRESS, TOKENABLE_RWA_MINT_ABI } from "@/constants/contracts";
 import { sepolia } from "@/config/wagmi";
 import { GAS_FALLBACK, gasWithCapFast } from "@/lib/network";
+import {
+  formatPsaAnalyzeError,
+  isPsaRateLimitError,
+  PSA_RATE_LIMIT_ALERT_MESSAGE,
+  PSA_RATE_LIMIT_OVERLAY_TITLE,
+} from "@/lib/psa/psaApiErrors";
 import { useAppStore, selectRefresh } from "@/store";
 import {
   EMPTY_PSA_FIELD_LOCKS,
@@ -121,6 +127,7 @@ export function MintForm() {
   const [lastAnalyze, setLastAnalyze] = useState<PsaAnalyzeResult | null>(null);
   const [analyzeLoading, setAnalyzeLoading] = useState(false);
   const [analyzeError, setAnalyzeError] = useState("");
+  const [psaRateLimitAlert, setPsaRateLimitAlert] = useState(false);
   /** Invalidate in-flight PSA analyze when deps change or slab cleared */
   const analyzeNonceRef = useRef(0);
   /** PSA path: blob URL preview for slab capture used as mint fallback */
@@ -354,6 +361,7 @@ export function MintForm() {
     setResult(null);
     setLastAnalyze(null);
     setAnalyzeError("");
+    setPsaRateLimitAlert(false);
     analyzeNonceRef.current += 1;
     setForm(INITIAL_STATE);
     setErrors({});
@@ -365,6 +373,7 @@ export function MintForm() {
     (r: PsaAnalyzeResult, slabFrontForMint?: File | null) => {
       const prev = formRef.current;
       setPsaFieldLocks(computePsaLocksFromResult(r, prev));
+      setPsaRateLimitAlert(false);
       setLastAnalyze(r);
       const scoreStr =
         r.psa.gradeScore != null
@@ -430,10 +439,28 @@ export function MintForm() {
   const certHintForPsaRef = useRef(certHintForPsa);
   certHintForPsaRef.current = certHintForPsa;
 
+  const handlePsaAnalyzeFailure = useCallback((err: unknown) => {
+    if (isPsaRateLimitError(err)) {
+      setAnalyzeLoading(false);
+      setDebounceWaiting(false);
+      setPsaRateLimitAlert(true);
+      setAnalyzeError("");
+      return;
+    }
+    setPsaRateLimitAlert(false);
+    setAnalyzeError(formatPsaAnalyzeError(err));
+  }, []);
+
+  const dismissPsaRateLimitOverlay = useCallback(() => {
+    setPsaRateLimitAlert(false);
+    setAnalyzeOverlayVisible(false);
+  }, []);
+
   const executePsaAnalyze = useCallback(
     async (front: File, back: File | null) => {
       const n = ++analyzeNonceRef.current;
       setAnalyzeError("");
+      setPsaRateLimitAlert(false);
       setAnalyzeLoading(true);
       try {
         const r = await analyzePsaSlab(front, back, certHintForPsaRef.current());
@@ -441,14 +468,14 @@ export function MintForm() {
         applyPsaAnalyzeResult(r, front);
       } catch (err: unknown) {
         if (n !== analyzeNonceRef.current) return;
-        setAnalyzeError(err instanceof Error ? err.message : "Analyze failed");
+        handlePsaAnalyzeFailure(err);
       } finally {
         if (n === analyzeNonceRef.current) {
           setAnalyzeLoading(false);
         }
       }
     },
-    [applyPsaAnalyzeResult], // certHintForPsa accessed via ref — no re-create on certNumber change
+    [applyPsaAnalyzeResult, handlePsaAnalyzeFailure], // certHintForPsa accessed via ref
   );
 
   /** After a cert lookup: clear result and locks so the user can change cert #, then press Look up. */
@@ -456,6 +483,7 @@ export function MintForm() {
     analyzeNonceRef.current += 1;
     setAnalyzeLoading(false);
     setAnalyzeError("");
+    setPsaRateLimitAlert(false);
     setLastAnalyze(null);
     setPsaFieldLocks(EMPTY_PSA_FIELD_LOCKS);
   }, []);
@@ -470,6 +498,7 @@ export function MintForm() {
     }
     const n = ++analyzeNonceRef.current;
     setAnalyzeError("");
+    setPsaRateLimitAlert(false);
     setAnalyzeLoading(true);
     try {
       const r = await analyzePsaByCertNumber(hint);
@@ -477,19 +506,20 @@ export function MintForm() {
       applyPsaAnalyzeResult(r);
     } catch (err: unknown) {
       if (n !== analyzeNonceRef.current) return;
-      setAnalyzeError(err instanceof Error ? err.message : "Cert lookup failed");
+      handlePsaAnalyzeFailure(err);
     } finally {
       if (n === analyzeNonceRef.current) {
         setAnalyzeLoading(false);
       }
     }
-  }, [applyPsaAnalyzeResult, certHintForPsa]);
+  }, [applyPsaAnalyzeResult, certHintForPsa, handlePsaAnalyzeFailure]);
 
   const handlePsaInputModeChange = useCallback((mode: PsaInputMode) => {
     analyzeNonceRef.current += 1;
     setPsaInputMode(mode);
     setLastAnalyze(null);
     setAnalyzeError("");
+    setPsaRateLimitAlert(false);
     setAnalyzeLoading(false);
     setDebounceWaiting(false);
     setPsaFieldLocks(EMPTY_PSA_FIELD_LOCKS);
@@ -631,10 +661,13 @@ export function MintForm() {
   /** debounceWaiting covers the gap after one request finishes before the next debounced call runs */
   const slabAnalyzing =
     psaInputMode === "slab" &&
+    !psaRateLimitAlert &&
     (analyzeLoading || debounceWaiting) &&
     form.verification.slabFront instanceof File;
-  const certLookupAnalyzing = psaInputMode === "cert" && analyzeLoading;
-  const showPsaAnalyzeOverlayRaw = slabAnalyzing || certLookupAnalyzing;
+  const certLookupAnalyzing =
+    psaInputMode === "cert" && analyzeLoading && !psaRateLimitAlert;
+  const showPsaAnalyzeOverlayRaw =
+    psaRateLimitAlert || slabAnalyzing || certLookupAnalyzing;
 
   useEffect(() => {
     if (showPsaAnalyzeOverlayRaw) {
@@ -980,7 +1013,21 @@ export function MintForm() {
                 </div>
               </details>
 
-              {analyzeError && (
+              {psaRateLimitAlert && (
+                <div
+                  role="alert"
+                  className="rounded-lg border border-amber-500/45 bg-amber-500/10 px-4 py-3"
+                >
+                  <p className="text-xs font-semibold text-amber-200">
+                    PSA free lookup limit reached
+                  </p>
+                  <p className="mt-1.5 text-xs leading-relaxed text-amber-100/90 break-words">
+                    {PSA_RATE_LIMIT_ALERT_MESSAGE}
+                  </p>
+                </div>
+              )}
+
+              {analyzeError && !psaRateLimitAlert && (
                 <div className="space-y-2 rounded-lg border border-gray-700/50 bg-gray-900/30 px-4 py-3">
                   <p className="text-xs text-red-400 break-words">{analyzeError}</p>
                 </div>
@@ -1065,45 +1112,99 @@ export function MintForm() {
           aria-modal="true"
           aria-labelledby="psa-analyze-overlay-title"
         >
-          <div className="w-full max-w-md rounded-xl border border-gray-700/80 bg-gray-950/96 px-5 py-6 shadow-2xl shadow-black/55 sm:px-6 sm:py-7">
+          <div
+            className={`w-full max-w-md rounded-xl border bg-gray-950/96 px-5 py-6 shadow-2xl shadow-black/55 sm:px-6 sm:py-7 ${
+              psaRateLimitAlert
+                ? "border-amber-500/50"
+                : "border-gray-700/80"
+            }`}
+          >
             <div className="flex flex-col items-center text-center">
-              <div className="relative h-12 w-12 shrink-0">
-                <div
-                  className="absolute inset-0 rounded-full border-2 border-gray-700"
-                  aria-hidden
-                />
-                <div
-                  className="absolute inset-0 rounded-full border-2 border-transparent border-t-gray-200 border-r-gray-500 animate-spin"
-                  style={{ animationDuration: "0.9s" }}
-                  aria-hidden
-                />
-              </div>
-              <p
-                id="psa-analyze-overlay-title"
-                className="mt-4 text-base font-semibold tracking-tight text-white sm:text-lg"
-              >
-                {psaInputMode === "cert" ? "Looking up PSA cert" : "Analyzing slab"}
-              </p>
-              <p className="mt-2 text-sm text-gray-400 max-w-[30ch]">
-                {psaInputMode === "cert"
-                  ? "Cardhedger and PSA official metadata lookup are running."
-                  : "Cardhedger cert OCR, slab OCR, and PSA lookup are running."}
-              </p>
-              <div
-                className="mt-4 h-2 w-full max-w-[280px] overflow-hidden rounded-full bg-gray-800/90"
-                role="status"
-                aria-live="polite"
-                aria-label="Analysis in progress"
-              >
-                <div className="h-full w-full animate-pulse rounded-full bg-gradient-to-r from-gray-600 via-gray-400 to-gray-600" />
-              </div>
-              <p className="mt-3 text-xs leading-relaxed text-gray-500">
-                Typical time is about 30–90 seconds; slow networks can take longer. Please keep
-                this tab open until it finishes.
-              </p>
-              <p className="mt-3 text-[10px] font-medium uppercase tracking-[0.16em] text-gray-600">
-                {psaInputMode === "cert" ? "CARDHEDGER · PSA" : "CARDHEDGER OCR · PSA"}
-              </p>
+              {psaRateLimitAlert ? (
+                <>
+                  <div
+                    className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-amber-500/40 bg-amber-500/15"
+                    aria-hidden
+                  >
+                    <svg
+                      className="h-6 w-6 text-amber-300"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"
+                      />
+                    </svg>
+                  </div>
+                  <p
+                    id="psa-analyze-overlay-title"
+                    className="mt-4 text-base font-semibold tracking-tight text-amber-100 sm:text-lg"
+                  >
+                    {PSA_RATE_LIMIT_OVERLAY_TITLE}
+                  </p>
+                  <p
+                    className="mt-2 text-sm leading-relaxed text-amber-50/95 max-w-[36ch]"
+                    role="alert"
+                  >
+                    {PSA_RATE_LIMIT_ALERT_MESSAGE}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={dismissPsaRateLimitOverlay}
+                    className="mt-5 rounded-lg border border-amber-500/40 bg-amber-500/15 px-5 py-2.5 text-sm font-medium text-amber-100 transition-colors hover:bg-amber-500/25"
+                  >
+                    Close
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div className="relative h-12 w-12 shrink-0">
+                    <div
+                      className="absolute inset-0 rounded-full border-2 border-gray-700"
+                      aria-hidden
+                    />
+                    <div
+                      className="absolute inset-0 rounded-full border-2 border-transparent border-t-gray-200 border-r-gray-500 animate-spin"
+                      style={{ animationDuration: "0.9s" }}
+                      aria-hidden
+                    />
+                  </div>
+                  <p
+                    id="psa-analyze-overlay-title"
+                    className="mt-4 text-base font-semibold tracking-tight text-white sm:text-lg"
+                  >
+                    {psaInputMode === "cert"
+                      ? "Looking up PSA cert"
+                      : "Analyzing slab"}
+                  </p>
+                  <p className="mt-2 text-sm text-gray-400 max-w-[30ch]">
+                    {psaInputMode === "cert"
+                      ? "Cardhedger and PSA official metadata lookup are running."
+                      : "Cardhedger cert OCR, slab OCR, and PSA lookup are running."}
+                  </p>
+                  <div
+                    className="mt-4 h-2 w-full max-w-[280px] overflow-hidden rounded-full bg-gray-800/90"
+                    role="status"
+                    aria-live="polite"
+                    aria-label="Analysis in progress"
+                  >
+                    <div className="h-full w-full animate-pulse rounded-full bg-gradient-to-r from-gray-600 via-gray-400 to-gray-600" />
+                  </div>
+                  <p className="mt-3 text-xs leading-relaxed text-gray-500">
+                    This usually takes under a minute. Please keep this tab open until it
+                    finishes.
+                  </p>
+                  <p className="mt-3 text-[10px] font-medium uppercase tracking-[0.16em] text-gray-600">
+                    {psaInputMode === "cert"
+                      ? "CARDHEDGER · PSA"
+                      : "CARDHEDGER OCR · PSA"}
+                  </p>
+                </>
+              )}
             </div>
           </div>
         </div>,

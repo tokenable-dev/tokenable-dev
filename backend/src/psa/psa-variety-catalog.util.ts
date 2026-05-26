@@ -3,6 +3,65 @@
  * only. Do not infer parallels from marketplace titles or mint `cardhedger.searchQuery`.
  */
 
+const CHROME_PARALLEL_COLOR_TOKENS = [
+  'orange',
+  'gold',
+  'green',
+  'purple',
+  'blue',
+  'red',
+  'pink',
+  'black',
+  'superfractor',
+  'sepia',
+  'aqua',
+  'yellow',
+] as const;
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/** Color words in Topps Chrome-style parallel names (mint `card.variant` often has these when PSA does not). */
+export function chromeColorTokensIn(text: string | null | undefined): string[] {
+  const t = String(text ?? '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!t) return [];
+  const found: string[] = [];
+  for (const c of CHROME_PARALLEL_COLOR_TOKENS) {
+    if (new RegExp(`\\b${escapeRegExp(c)}\\b`).test(t)) found.push(c);
+  }
+  return found;
+}
+
+/**
+ * PSA Variety is authoritative for the parallel family; mint `card.variant` often adds color
+ * (e.g. ORANGE) when PSA only prints `{SPORT} REFRACTOR`.
+ */
+export function mergePsaVarietyWithMintVariant(
+  psaVariety: string | null | undefined,
+  mintVariant: string | null | undefined,
+): string {
+  const p = String(psaVariety ?? '')
+    .trim()
+    .replace(/\s+/g, ' ');
+  const m = String(mintVariant ?? '')
+    .trim()
+    .replace(/\s+/g, ' ');
+  if (!p) return m;
+  if (!m) return p;
+  const pLow = p.toLowerCase();
+  const mLow = m.toLowerCase();
+  if (mLow.includes(pLow)) return m;
+  if (pLow.includes(mLow)) return p.length >= m.length ? p : m;
+  const mintColors = chromeColorTokensIn(m);
+  const psaColors = chromeColorTokensIn(p);
+  if (mintColors.some((c) => !psaColors.includes(c))) return m;
+  return p.length >= m.length ? p : m;
+}
+
 /** PSA sometimes duplicates the card # in Variety when CardNumber is empty. */
 export function psaVarietyIsCardNumberOnly(variety: string): boolean {
   const v = variety.trim();

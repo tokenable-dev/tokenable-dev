@@ -28,6 +28,9 @@ CREATE TABLE IF NOT EXISTS orders (
 
 CREATE INDEX IF NOT EXISTS idx_orders_offerer ON orders (offerer);
 CREATE INDEX IF NOT EXISTS idx_orders_token_id ON orders (token_id);
+
+CREATE INDEX IF NOT EXISTS idx_orders_token_contract_id
+  ON orders (token_contract, token_id);
 CREATE INDEX IF NOT EXISTS idx_orders_collection_key ON orders (collection_key);
 CREATE INDEX IF NOT EXISTS idx_orders_end_time ON orders (end_time);
 

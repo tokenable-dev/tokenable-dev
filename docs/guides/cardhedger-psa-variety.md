@@ -53,14 +53,28 @@ PSA **Variety**가 **ILLUSTRATION RARE**일 때(일러스트 레어, SIR과 구�
 
 시세 resolver는 `components`의 PSA 거울 필드(`psaSubject`, `psaBrand`, `psaVariety`, `psaYear`)로 **여러 검색어를 순서대로 시도**한다 (풀 PSA 라인 → Variety 제외 → Subject+Brand → 긴 Brand/Subject 단독 등). 틈새·NON-SPORT·PSA/DNA처럼 카탈로그 표기가 긴 품목은 **한 번의 짧은 쿼리**보다 이 **팬아웃**이 유리할 수 있다. 그래도 Cardhedger에 품목이 없으면 `matched: false`이다.
 
+### PSA `BLUE REFRACTOR` vs Cardhedger `Blue Wave` (Topps Chrome #150 등)
+
+PSA **Variety**가 **`BLUE REFRACTOR`**인데 Cardhedger **`Pitching Blue Wave Refractor`** 행을 쓰면 시세가 **한 자릿수 배** 어긋날 수 있다 (예: Ohtani 2018 Topps Chrome #150 — Blue Refractor /150 vs Blue Wave).
+
+과거에는 `blue`·`refractor` 토큰만 맞으면 **Wave**가 있는 행도 통과했다. 현재는 Cardhedger `variant`에 **PSA에 없는 병행 토큰**(예: `wave`, `raywave`)이 있으면 **불일치**로 거른다. 컬렉션 bucket hash(v2)에도 **`marketParallelKey`**(`blue_refractor` 등)가 들어가 Base·다른 병행과 풀을 나눈다.
+
 ### PSA `BASKETBALL REFRACTOR` (Topps Chrome 등)
 
 PSA는 종종 **`{스포츠} REFRACTOR`** 한 줄만 주고, Cardhedger는 **플래그십 `Refractor`**, **RayWave Refractor**, **RWB Refractor** 등으로 **행이 나뉜다**. 토큰만 보면 여러 행이 동시에 맞아 보일 수 있다.
 
 백엔드에서는 (1) 그런 **일반 스포츠 + REFRACTOR** 문구일 때 검색 점수가 같으면 **`variant` 문자열이 더 긴(더 구체적인 병행)** 행을 우선하고, (2) **카탈로그 PSA 10**이 **comps 타임가중** 대비 약 **2배 이상** 높으면 **comps 기반**을 써서 카탈로그 슬롯이 오래된 경우를 완화한다, (3) PSA가 **`{SPORT} REFRACTOR`만** 줄 때는 Cardhedger **`variant: "Refractor"`** (플래그심 한 장) 행을 **쓰지 않는다** — 같은 토큰으로 RayWave·RWB 등 **더 구체적인 병행** 행을 고른다.
 
+### PSA `BASKETBALL REFRACTOR` + mint `ORANGE BASKETBALL REFRACTOR` (예: Cooper Flagg #251)
+
+PSA Public API **Variety**는 **`BASKETBALL REFRACTOR`** 만 올 수 있지만, 슬랩/민트 JSON **`graded.card.variant`** 는 **`ORANGE BASKETBALL REFRACTOR`** 처럼 **색이 포함**된 경우가 많다. 예전에는 `psaVariety = psa.Variety || card.variant` 로 **PSA 한 줄이 mint 색상을 덮어써** Cardhedger가 Orange 행을 못 찾거나 `matched: false` 가 났다.
+
+**수정:** `mergePsaVarietyWithMintVariant` 로 mint에만 있는 **색(orange, gold, …)** 을 보존하고, 스냅샷 refresh 시 `ensureMintParallelVarietyFromListings` 가 활성 ask 메타에서 `mintCardVariant` 를 다시 병합한다. Cardhedger 타깃 행 예: **`Orange Basketball Refractor`** (`card-search` 상위 후보).
+
 ### 관련 코드 (참고)
 
 - `frontend/components/vault/MintForm.tsx` — 민팅 시 `graded.psa.Variety` 저장.
 - `backend/src/marketplace/collections/cardhedger-market-data.service.ts` — `psaMirrorFromGradedBlock`, `enrichPsaMirrorFromCertLookup`, parallel/검색, 일반 **스포츠+REFRACTOR** 검색 동점 시 `variant` 구체성, 카탈로그 대 comps 완화.
 - `backend/src/psa/psa-variety-catalog.util.ts` — 베이스 vs non-base 판별.
+- `backend/src/marketplace/utils/cardhedger-psa-variety.util.ts` — PSA Variety ↔ Cardhedger `variant` (병행 토큰 충돌, 예: Wave).
+- `backend/src/marketplace/utils/market-parallel-key.util.ts` — `marketParallelKey` / bucket v2 병행 facet.

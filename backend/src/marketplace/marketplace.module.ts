@@ -12,16 +12,26 @@ import { CollectionMarketSnapshotSchedulerService } from './collections/collecti
 import { CollectionMarketSnapshotService } from './collections/collection-market-snapshot.service';
 import { CollectionMarketService } from './collections/collection-market.service';
 import { CollectionService } from './collections/collection.service';
+import { PsaCertSnapshotService } from './collections/psa-cert-snapshot.service';
+import { RwaTokenRegistryService } from './collections/rwa-token-registry.service';
 import { CollectionsController } from './collections/collections.controller';
 import { CollectionMarketSnapshot } from './entities/collection-market-snapshot.entity';
 import { MarketplaceCollection } from './entities/marketplace-collection.entity';
+import { PsaCertSnapshot } from './entities/psa-cert-snapshot.entity';
+import { RwaToken } from './entities/rwa-token.entity';
 import { Order } from './entities/order.entity';
 import { OrdersController } from './orders/orders.controller';
 import { OrdersService } from './orders/orders.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Order, MarketplaceCollection, CollectionMarketSnapshot]),
+    TypeOrmModule.forFeature([
+      Order,
+      MarketplaceCollection,
+      CollectionMarketSnapshot,
+      PsaCertSnapshot,
+      RwaToken,
+    ]),
     BlockchainModule,
     CardhedgerModule,
     PsaModule,
@@ -34,6 +44,8 @@ import { OrdersService } from './orders/orders.service';
   providers: [
     OrdersService,
     CollectionService,
+    PsaCertSnapshotService,
+    RwaTokenRegistryService,
     CardhedgerMarketDataService,
     CertMarketTraceService,
     CardhedgerAiInsightService,
@@ -45,6 +57,8 @@ import { OrdersService } from './orders/orders.service';
   exports: [
     OrdersService,
     CollectionService,
+    PsaCertSnapshotService,
+    RwaTokenRegistryService,
     CollectionMarketService,
     CollectionMarketSnapshotService,
   ],

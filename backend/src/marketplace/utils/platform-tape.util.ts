@@ -1,36 +1,62 @@
 import { Order, OrderSide } from '../entities/order.entity';
 
+/**
+ * Stored on criteria collection bids (`side=bid`, consideration itemType 4).
+ * Not the same as ERC-721 tokenId `0` on ask listings.
+ */
 export const CRITERIA_TOKEN_SENTINEL = '0';
 
-type SeaportItem = { itemType?: number; identifierOrCriteria?: string; startAmount?: string };
+type SeaportItem = {
+  itemType?: number;
+  identifierOrCriteria?: string;
+  startAmount?: string;
+};
+
+export function isValidDecimalTokenId(
+  raw: string | null | undefined,
+): boolean {
+  const s = String(raw ?? '').trim();
+  return /^\d+$/.test(s);
+}
 
 /** Collection criteria bid — USDC offer + ERC721_WITH_CRITERIA consideration. */
 export function isBidShapedSeaportParameters(
   parameters: Record<string, unknown>,
 ): boolean {
   const offer = (parameters as { offer?: SeaportItem[] })?.offer?.[0];
-  const cons = (parameters as { consideration?: SeaportItem[] })?.consideration?.[0];
+  const cons = (parameters as { consideration?: SeaportItem[] })
+    ?.consideration?.[0];
   return Number(offer?.itemType) === 1 && Number(cons?.itemType) === 4;
 }
 
-/** Recover ERC-721 id for fulfilled asks when `token_id` was persisted as "0". */
+export function isCriteriaCollectionBidOrder(
+  order: Pick<Order, 'side' | 'parameters'>,
+): boolean {
+  if (order.side !== OrderSide.BID) return false;
+  return isBidShapedSeaportParameters(order.parameters ?? {});
+}
+
+/** ERC-721 tokenId for fulfilled asks (including mint id `0`). */
 export function resolveFulfilledAskTokenId(
   order: Pick<Order, 'tokenId' | 'parameters' | 'side'>,
 ): string | null {
+  if (order.side !== OrderSide.ASK) return null;
+
   const raw = order.tokenId?.trim();
-  if (raw && raw !== CRITERIA_TOKEN_SENTINEL) return raw;
+  if (isValidDecimalTokenId(raw)) return raw!;
 
   const offer = (order.parameters as { offer?: SeaportItem[] })?.offer;
   const item = offer?.[0];
   if (!item || Number(item.itemType) !== 2) return null;
   const fromOffer = String(item.identifierOrCriteria ?? '').trim();
-  if (!fromOffer || fromOffer === CRITERIA_TOKEN_SENTINEL) return null;
-  return fromOffer;
+  if (isValidDecimalTokenId(fromOffer)) return fromOffer;
+  return null;
 }
 
+/** Fix legacy asks that persisted `token_id` as criteria sentinel instead of real id. */
 export function backfillAskTokenIdFromParameters(order: Order): boolean {
   if (order.side !== OrderSide.ASK) return false;
-  if (order.tokenId && order.tokenId !== CRITERIA_TOKEN_SENTINEL) return false;
+  if (isValidDecimalTokenId(order.tokenId?.trim())) return false;
   const tid = resolveFulfilledAskTokenId(order);
   if (!tid) return false;
   order.tokenId = tid;

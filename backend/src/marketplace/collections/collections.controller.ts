@@ -302,7 +302,6 @@ export class CollectionsController {
       }
       await this.collectionService.ensureListingDisplayTitleFromListings(k);
       col = await this.collectionService.findOne(k);
-      this.collectionService.schedulePsaPublicSnapshotRefresh(k);
     }
 
     const storedCover = col?.coverImageUrl?.trim() ?? null;

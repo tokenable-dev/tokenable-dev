@@ -4,7 +4,6 @@ import type { ReactNode } from "react";
 import { AssetDetailHeadlineTitle } from "@/components/marketplace/AssetDetailHeadlineTitle";
 import {
   GradientOutlineFrame,
-  PRODUCT_OUTLINE_GRADIENT,
   PRODUCT_OUTLINE_PAD_CLASS,
   gradientOutlineInnerButtonClass,
 } from "@/components/ui/GradientOutlineFrame";
@@ -14,9 +13,6 @@ import {
   type AssetDetailHeadlineParts,
 } from "@/lib/marketplace/assetDetailHeadline";
 import { formatUsdcPricePrimary } from "@/lib/market/usdcKrwDisplay";
-
-/** @deprecated Use {@link PRODUCT_OUTLINE_GRADIENT} */
-export const RWA_STICKY_BUY_BORDER_GRADIENT = PRODUCT_OUTLINE_GRADIENT;
 
 /** Mobile price — USDC only (KRW hint removed per product). */
 export function RwaDetailMobilePriceStack({

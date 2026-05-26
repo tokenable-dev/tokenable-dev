@@ -44,6 +44,15 @@ export class CollectionMarketSnapshot {
   @Column({ name: 'headline_usd', type: 'double precision', nullable: true })
   headlineUsd: number | null;
 
+  /** comps | latest_sale | catalog | sparse_sale_avg — mirrors preview `spotPriceBasis`. */
+  @Column({
+    name: 'spot_price_basis',
+    type: 'varchar',
+    length: 32,
+    nullable: true,
+  })
+  spotPriceBasis: string | null;
+
   @Column({ name: 'change_7d_pct', type: 'double precision', nullable: true })
   change7dPct: number | null;
 

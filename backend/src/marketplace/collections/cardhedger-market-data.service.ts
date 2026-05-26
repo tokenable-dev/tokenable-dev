@@ -7,11 +7,11 @@ import {
 } from '../../common/cache/ttl-cache.interface';
 import { BlockchainService } from '../../blockchain/blockchain.service';
 import { CardhedgerService } from '../../cardhedger/cardhedger.service';
+import { PsaCertSnapshotService } from './psa-cert-snapshot.service';
 import {
-  mergePsaApiIntoParsed,
-  PsaPublicApiService,
-} from '../../psa/psa-public-api.service';
-import type { ParsedPsaLabel } from '../../psa/utils/psa-ocr.util';
+  componentsPsaMirrorSufficientForCardhedger,
+  mergePsaCertSnapshotIntoMirror,
+} from '../utils/psa-components-mirror.util';
 import type { MarketplaceCollection } from '../entities/marketplace-collection.entity';
 import {
   normalizeForExactCardNumberKey,
@@ -36,12 +36,18 @@ import type { MarketHistoryPeriod } from '../utils/price-history-period.util';
 import { readPsaSpecIdCardhedgerMapFromConfig } from '../utils/psa-spec-cardhedger-map.util';
 import { cardhedgerRowMatchesPsaVariety } from '../utils/cardhedger-psa-variety.util';
 import {
+  chromeColorTokensIn,
+  mergePsaVarietyWithMintVariant,
   psaVarietyIsGenericSportRefractorLine,
   psaVarietyIsIllustrationRareLabel,
   psaVarietyIsSpecialIllustrationRareLabel,
   psaVarietyRequiresNonBaseCardhedgerRow,
 } from '../../psa/psa-variety-catalog.util';
 import { varietyHintsForSearch } from '../../psa/utils/psa-ocr.util';
+import {
+  cardhedgerRowMatchesMarketParallelKey,
+  marketParallelKeyFromPsaVariety,
+} from '../utils/market-parallel-key.util';
 
 export type AiInsightPsa10PriceConfidence = 'high' | 'medium' | 'low';
 
@@ -166,7 +172,7 @@ export class CardhedgerMarketDataService {
     private readonly cardhedger: CardhedgerService,
     private readonly blockchain: BlockchainService,
     private readonly config: ConfigService,
-    private readonly psaPublicApi: PsaPublicApiService,
+    private readonly psaCertSnapshots: PsaCertSnapshotService,
     @Inject(TTL_CACHE_PROVIDER) private readonly ttlCache: TtlCacheProvider,
   ) {
     this.psaSpecIdMap = readPsaSpecIdCardhedgerMapFromConfig(this.config);
@@ -255,6 +261,8 @@ export class CardhedgerMarketDataService {
     psaBrand: string | null;
     /** PSA `Year` / `YearIssued` when persisted. */
     psaYear: string | null;
+    /** Bucket parallel facet (`base` or PSA Variety slug) — Cardhedger row must match. */
+    marketParallelKey: string;
   } {
     const comp = col?.components ?? {};
     const cardName = String(comp.cardName ?? '').trim();
@@ -281,10 +289,16 @@ export class CardhedgerMarketDataService {
         ? listingRaw.trim().replace(/\s+/g, ' ')
         : null;
     const psaVarietyRaw = comp['psaVariety'];
-    const psaVariety =
-      typeof psaVarietyRaw === 'string' && psaVarietyRaw.trim()
-        ? psaVarietyRaw.trim()
-        : null;
+    const mintVariantRaw = comp['mintCardVariant'];
+    const psaVariety = mergePsaVarietyWithMintVariant(
+      typeof psaVarietyRaw === 'string' ? psaVarietyRaw : null,
+      typeof mintVariantRaw === 'string' ? mintVariantRaw : null,
+    ) || null;
+    const parallelRaw = comp['marketParallelKey'];
+    const marketParallelKey =
+      typeof parallelRaw === 'string' && parallelRaw.trim()
+        ? parallelRaw.trim().toLowerCase()
+        : marketParallelKeyFromPsaVariety(psaVariety);
     const psaSubjectRaw = comp['psaSubject'];
     const psaSubject =
       typeof psaSubjectRaw === 'string' && psaSubjectRaw.trim()
@@ -334,6 +348,7 @@ export class CardhedgerMarketDataService {
       psaSubject,
       psaBrand,
       psaYear,
+      marketParallelKey,
     };
   }
 
@@ -537,9 +552,15 @@ export class CardhedgerMarketDataService {
     const varietyRaw = [psa.Variety, psa.variety, psa.varietyHint]
       .find((x): x is string => typeof x === 'string' && Boolean(x.trim()))
       ?.trim();
-    if (varietyRaw) {
-      out.psaVariety = varietyRaw.replace(/\s+/g, ' ');
-    }
+    const card = graded.card as Record<string, unknown> | undefined;
+    const mintVariant =
+      typeof card?.variant === 'string' ? card.variant.trim() : '';
+    if (mintVariant) out.mintCardVariant = mintVariant;
+    const merged = mergePsaVarietyWithMintVariant(
+      varietyRaw?.replace(/\s+/g, ' '),
+      mintVariant,
+    );
+    if (merged) out.psaVariety = merged;
     const subject = psa.Subject ?? psa.subject;
     if (typeof subject === 'string' && subject.trim()) {
       out.psaSubject = subject.trim();
@@ -575,49 +596,22 @@ export class CardhedgerMarketDataService {
       '';
     if (!certRaw || certRaw.length < 7) return baseMirror;
 
-    const psaMirrorComplete =
-      typeof baseMirror.psaVariety === 'string' &&
-      Boolean(baseMirror.psaVariety.trim()) &&
-      typeof baseMirror.psaSubject === 'string' &&
-      Boolean(baseMirror.psaSubject.trim()) &&
-      typeof baseMirror.psaBrand === 'string' &&
-      Boolean(baseMirror.psaBrand.trim());
-    if (psaMirrorComplete) return baseMirror;
-
-    const lookup = await this.psaPublicApi.getByCertNumber(certRaw);
-    if (lookup.status !== 'success' || !lookup.raw) return baseMirror;
-
-    const merged = mergePsaApiIntoParsed({} as ParsedPsaLabel, lookup.raw);
-    const extra: Record<string, unknown> = { ...baseMirror };
-
-    const hadVariety =
-      typeof baseMirror.psaVariety === 'string' &&
-      Boolean(baseMirror.psaVariety.trim());
-
-    if (merged.varietyHint?.trim() && !hadVariety) {
-      extra.psaVariety = merged.varietyHint.trim().replace(/\s+/g, ' ');
+    if (componentsPsaMirrorSufficientForCardhedger(baseMirror)) {
+      return baseMirror;
     }
-    if (merged.cardNameHint?.trim()) {
-      const existing =
-        typeof baseMirror.psaSubject === 'string' &&
-        Boolean(baseMirror.psaSubject.trim());
-      if (!existing) extra.psaSubject = merged.cardNameHint.trim();
-    }
-    if (merged.setHint?.trim()) {
-      const existing =
-        typeof baseMirror.psaBrand === 'string' &&
-        Boolean(baseMirror.psaBrand.trim());
-      if (!existing) extra.psaBrand = merged.setHint.trim();
-    }
-    if (merged.year?.trim()) {
-      const existing =
-        typeof baseMirror.psaYear === 'string' &&
-        Boolean(baseMirror.psaYear.trim());
-      if (!existing) extra.psaYear = merged.year.trim();
-    }
-    if (!hadVariety && typeof extra.psaVariety === 'string' && extra.psaVariety.trim()) {
+
+    const snap = await this.psaCertSnapshots.fetchCertSnapshotJson(certRaw);
+    if (!snap) return baseMirror;
+
+    const hadVariety = Boolean(String(baseMirror.psaVariety ?? '').trim());
+    const extra = mergePsaCertSnapshotIntoMirror(baseMirror, snap);
+    if (
+      !hadVariety &&
+      typeof extra.psaVariety === 'string' &&
+      String(extra.psaVariety).trim()
+    ) {
       this.logger.log(
-        'Cardhedger mint preview: psaVariety filled via PSA Public API cert lookup (IPFS metadata had no PSA Variety)',
+        'Cardhedger mint preview: psaVariety filled via PSA cert snapshot (IPFS metadata had no PSA Variety)',
       );
     }
     return extra;
@@ -649,7 +643,14 @@ export class CardhedgerMarketDataService {
       const vr = String(row.variant ?? '').trim().toLowerCase();
       if (vr === 'base') return false;
     }
-    if (!cardhedgerRowMatchesPsaVariety(row as Record<string, unknown>, pv)) return true;
+    if (!cardhedgerRowMatchesPsaVariety(row as Record<string, unknown>, pv)) {
+      return true;
+    }
+    const colorTokens = chromeColorTokensIn(pv);
+    if (colorTokens.length > 0) {
+      const blob = this.rowParallelBlob(row).toLowerCase();
+      if (!colorTokens.every((c) => blob.includes(c))) return true;
+    }
     /**
      * PSA `{SPORT} REFRACTOR` matches the flagship `variant: "Refractor"` row **and** many other
      * parallels (RayWave, RWB, …). The plain Refractor catalog slot is often far above the
@@ -680,9 +681,21 @@ export class CardhedgerMarketDataService {
       psaVariety?: string | null;
       psaSubject?: string | null;
       psaBrand?: string | null;
+      marketParallelKey?: string;
     },
     parallelOpts?: { trustStoredCardhedgerCatalogId?: boolean },
   ): { score: number; verified: boolean; numberMatched: boolean } {
+    const parallelKey = (hints.marketParallelKey ?? 'base').trim().toLowerCase();
+    if (
+      !cardhedgerRowMatchesMarketParallelKey(
+        row as Record<string, unknown>,
+        parallelKey,
+        hints.psaVariety,
+      )
+    ) {
+      return { score: 0, verified: false, numberMatched: false };
+    }
+
     const sameNumber = (a: string, b: string): boolean => {
       if (!a || !b) return false;
       if (a === b) return true;
@@ -758,6 +771,9 @@ export class CardhedgerMarketDataService {
     if (pv && psaVarietyRequiresNonBaseCardhedgerRow(pv)) {
       if (cardhedgerRowMatchesPsaVariety(row as Record<string, unknown>, pv)) {
         score += 40;
+        const pvLower = pv.toLowerCase();
+        const parallelBlob = this.rowParallelBlob(row).toLowerCase();
+        if (parallelBlob.includes(pvLower)) score += 30;
       }
     }
     const hintBlob = [
@@ -2268,6 +2284,31 @@ export class CardhedgerMarketDataService {
     return (base ?? inSet[0])!.r;
   }
 
+  /**
+   * PSA slab with no parallel/insert line (e.g. plain 2018 Topps Chrome #150) — Cardhedger
+   * returns many same-number parallels. Prefer `variant: Base` for headline comps.
+   */
+  private pickBaseWhenPsaOmitsParallel(
+    numberOnly: Array<{
+      r: CardhedgerCardRow;
+      score: number;
+      verified: boolean;
+    }>,
+    psaVariety: string | null,
+  ): { row: CardhedgerCardRow; confidence: 'verified' | 'approximate' } | null {
+    const pv = psaVariety?.trim() ?? '';
+    if (pv && psaVarietyRequiresNonBaseCardhedgerRow(pv)) return null;
+    const bases = numberOnly.filter(
+      (x) => String(x.r.variant ?? '').trim().toLowerCase() === 'base',
+    );
+    if (bases.length === 0) return null;
+    const best = [...bases].sort((a, b) => b.score - a.score)[0]!;
+    return {
+      row: best.r,
+      confidence: best.verified ? 'verified' : 'approximate',
+    };
+  }
+
   private pickBestResolvedCardFromSearchResults(
     rows: CardhedgerCardRow[],
     q: {
@@ -2283,9 +2324,28 @@ export class CardhedgerMarketDataService {
       psaSubject: string | null;
       psaBrand: string | null;
       psaYear: string | null;
+      marketParallelKey: string;
     },
   ): { row: CardhedgerCardRow; confidence: 'verified' | 'approximate' } | null {
     const genericRef = psaVarietyIsGenericSportRefractorLine(q.psaVariety);
+    const pvLower = String(q.psaVariety ?? '')
+      .trim()
+      .toLowerCase();
+    const colorHints = chromeColorTokensIn(
+      [q.psaVariety, q.listingDisplayTitle, q.cardhedgerSearchQuery]
+        .filter(Boolean)
+        .join(' '),
+    );
+    const varietyInRowBlob = (row: CardhedgerCardRow): boolean =>
+      Boolean(
+        pvLower &&
+          this.rowParallelBlob(row).toLowerCase().includes(pvLower),
+      );
+    const colorHitsInRow = (row: CardhedgerCardRow): number => {
+      if (colorHints.length === 0) return 0;
+      const blob = this.rowParallelBlob(row).toLowerCase();
+      return colorHints.filter((c) => blob.includes(c)).length;
+    };
     const specificity = (row: CardhedgerCardRow) =>
       String(row.variant ?? '').trim().length;
     const scored = rows
@@ -2293,6 +2353,15 @@ export class CardhedgerMarketDataService {
       .filter((x) => x.score > 0)
       .sort((a, b) => {
         if (b.score !== a.score) return b.score - a.score;
+        if (colorHints.length > 0) {
+          const dc = colorHitsInRow(b.r) - colorHitsInRow(a.r);
+          if (dc !== 0) return dc;
+        }
+        if (pvLower && psaVarietyRequiresNonBaseCardhedgerRow(pvLower)) {
+          const d =
+            Number(varietyInRowBlob(b.r)) - Number(varietyInRowBlob(a.r));
+          if (d !== 0) return d;
+        }
         if (genericRef) {
           const d = specificity(b.r) - specificity(a.r);
           if (d !== 0) return d;
@@ -2352,6 +2421,13 @@ export class CardhedgerMarketDataService {
             confidence: nonBase.verified ? 'verified' : 'approximate',
           };
         }
+      }
+      if (q.marketParallelKey === 'base') {
+        const baseWhenNoParallel = this.pickBaseWhenPsaOmitsParallel(
+          numberOnly,
+          q.psaVariety,
+        );
+        if (baseWhenNoParallel) return baseWhenNoParallel;
       }
       const best = numberOnly[0]!;
       return {

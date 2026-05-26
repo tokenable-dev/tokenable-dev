@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS collection_market_snapshots (
   psa9_usd double precision,
   raw_usd double precision,
   headline_usd double precision,
+  spot_price_basis varchar(32),
   change_7d_pct double precision,
   change_30d_pct double precision,
   sparkline_90d_json jsonb,

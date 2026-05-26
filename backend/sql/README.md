@@ -11,9 +11,12 @@ sql/
 ├── bootstrap-empty-prod-db.sql   # psql \ir orchestrator (run from this directory)
 ├── schema/
 │   ├── 010_users.sql
+│   ├── 015_psa_cert_snapshots.sql
 │   ├── 020_marketplace_collections.sql
+│   ├── 025_rwa_tokens.sql
 │   ├── 030_collection_market_snapshots.sql
 │   ├── 040_orders.sql
+│   ├── 050_refactor_legacy_columns.sql  # migrate older DBs; safe on fresh bootstrap
 │   └── 900_triggers.sql          # updated_at triggers
 ├── scripts/
 │   └── bootstrap-db.sh           # cat schema/*.sql — works with stdin pipe / Docker
@@ -59,7 +62,9 @@ docker exec tokenable-postgres psql -U tokenable -d tokenable \
 | Table | Purpose |
 |-------|---------|
 | `users` | Google OAuth accounts + optional wallet |
-| `marketplace_collections` | Bucket metadata, cover, PSA/Cardhedger enrichments |
+| `psa_cert_snapshots` | PSA Public API cache by cert number |
+| `marketplace_collections` | Bucket metadata + indexed parallel/cert facets |
+| `rwa_tokens` | On-chain mint registry (tokenId → cert, IPFS) |
 | `collection_market_snapshots` | Materialized Cardhedger pricing (API read path) |
 | `orders` | Seaport ask/bid listings + fulfilled tape |
 
@@ -76,6 +81,21 @@ docker exec tokenable-postgres psql -U tokenable -d tokenable \
 | `MARKET_SNAPSHOT_VIEWED_LOOKBACK_DAYS` | Include recently viewed collections (default **7**) |
 | `MARKET_SNAPSHOT_PREWARM_DELAY_MS` | Boot prewarm delay (default **8000**) |
 | `PSA_PUBLIC_SNAPSHOT_DB_TTL_SEC` | PSA cert snapshot cache TTL (default **7 days**) |
+| `PSA_PUBLIC_API_REFRESH_ON_SNAPSHOT` | `manual` (default): PSA API only on `cold_start` / `manual` snapshot refresh — not cron/stale_swr/prewarm. `always` / `never` |
+| `PSA_PUBLIC_API_MAX_RETRIES` | Extra attempts after HTTP 429 (default **0** — fail fast) |
+
+## Collection bucket key (v2)
+
+`collection_key` = SHA-256 of graded identity including **card number** + **market parallel** (`base` or PSA `Variety` slug). Base and Refractor lines no longer share one bucket.
+
+| Variable | Purpose |
+|----------|---------|
+| `MARKETPLACE_BUCKET_KEY_MIGRATE_ON_BOOT` | When `1`/`true`, recompute keys for all **active asks** from IPFS metadata and update `orders.collection_key` (run once after deploy) |
+| `RWA_TOKEN_REGISTRY_SYNC_ON_BOOT` | When `1`/`true`, scan all minted RWA tokenIds and upsert `rwa_tokens` from chain/IPFS |
+
+After bucket migration, delete stale snapshots for affected keys or wait for `MARKET_SNAPSHOT_SOURCE_VERSION` refresh.
+
+**Schema refactor:** Cardhedger pricing audit columns and per-collection PSA JSON were removed from `marketplace_collections`; use `collection_market_snapshots` and `psa_cert_snapshots` instead. Existing DBs: run `schema/050_refactor_legacy_columns.sql` (included in bootstrap).
 
 ---
 

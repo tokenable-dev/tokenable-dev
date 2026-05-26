@@ -1,3 +1,5 @@
+import { throwIfPsaResponseNotOk } from "@/lib/psa/psaApiErrors";
+
 /**
  * EC2+Nginx: leave NEXT_PUBLIC_API_URL unset so the browser uses
  * `window.location.origin + '/api'` (IP, http/https domain; avoids mixed content).
@@ -112,12 +114,7 @@ export async function analyzePsaSlab(
     method: "POST",
     body: fd,
   });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ message: "PSA analyze failed" }));
-    throw new Error(
-      (err as { message?: string }).message ?? "PSA analyze failed"
-    );
-  }
+  await throwIfPsaResponseNotOk(res);
   return res.json() as Promise<PsaAnalyzeResult>;
 }
 
@@ -130,12 +127,7 @@ export async function analyzePsaByCertNumber(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ certNumber: certNumberOrUrl.trim() }),
   });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ message: "PSA cert lookup failed" }));
-    throw new Error(
-      (err as { message?: string }).message ?? "PSA cert lookup failed"
-    );
-  }
+  await throwIfPsaResponseNotOk(res);
   return res.json() as Promise<PsaAnalyzeResult>;
 }
 

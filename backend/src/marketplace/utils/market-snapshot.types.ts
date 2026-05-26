@@ -3,7 +3,7 @@ import type { GradePriceStrip, UsdPoint } from './collection-market.util';
 import type { MarketCollectionPreview } from './market-reference.types';
 
 /** Current persisted snapshot schema version. */
-export const MARKET_SNAPSHOT_SOURCE_VERSION = 5;
+export const MARKET_SNAPSHOT_SOURCE_VERSION = 7;
 
 export type SnapshotRefreshReason =
   | 'cron'
@@ -28,6 +28,7 @@ export interface MaterializedMarketSnapshotPayload {
   psa9Usd: number | null;
   rawUsd: number | null;
   headlineUsd: number | null;
+  spotPriceBasis: string | null;
   change7dPct: number | null;
   change30dPct: number | null;
   sparkline90dJson: UsdPoint[];

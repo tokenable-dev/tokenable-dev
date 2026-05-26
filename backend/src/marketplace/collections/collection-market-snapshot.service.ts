@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, forwardRef } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -16,6 +16,7 @@ import type {
   SnapshotRefreshReason,
 } from '../utils/market-snapshot.types';
 import { MARKET_SNAPSHOT_SOURCE_VERSION } from '../utils/market-snapshot.types';
+import { psaPublicApiAllowedForSnapshotReason } from '../utils/psa-components-mirror.util';
 
 /**
  * Builds and persists materialized Cardhedger snapshots.
@@ -32,6 +33,7 @@ export class CollectionMarketSnapshotService {
   constructor(
     @InjectRepository(CollectionMarketSnapshot)
     private readonly snapshotRepo: Repository<CollectionMarketSnapshot>,
+    @Inject(forwardRef(() => CollectionService))
     private readonly collectionService: CollectionService,
     private readonly cardMarketData: CardhedgerMarketDataService,
     private readonly config: ConfigService,
@@ -93,18 +95,26 @@ export class CollectionMarketSnapshotService {
 
     const extLen = row.externalUsdJson?.length ?? 0;
     if (extLen >= 2) return true;
-    if (row.previewJson.matched && row.previewJson.card) return true;
 
-    const col = await this.collectionService.findOne(collectionKey);
-    const chId =
-      col && typeof col.components?.cardhedgerCardId === 'string'
-        ? col.components.cardhedgerCardId.trim()
-        : '';
-    if (col && chId && !row.previewJson.matched && extLen < 2) {
-      return false;
+    const card = row.previewJson.card;
+    const matched = Boolean(row.previewJson.matched && card);
+    if (matched) {
+      const top = card?.topPrice;
+      if (typeof top === 'number' && Number.isFinite(top) && top > 0) {
+        return true;
+      }
+      const headline = row.headlineUsd;
+      if (
+        typeof headline === 'number' &&
+        Number.isFinite(headline) &&
+        headline > 0
+      ) {
+        return true;
+      }
     }
 
-    return true;
+    /** Do not serve empty matched:false rows — triggers cold_start refresh on GET market-series. */
+    return false;
   }
 
   /** Fire-and-forget viewed-at bump for refresh prioritization. */
@@ -140,16 +150,26 @@ export class CollectionMarketSnapshotService {
   ): Promise<CollectionMarketSnapshot | null> {
     const started = Date.now();
     try {
-      await this.collectionService.refreshPsaPublicSnapshotForCollection(key);
+      const allowPsaUpstream = psaPublicApiAllowedForSnapshotReason(
+        reason,
+        this.config.get<string>('PSA_PUBLIC_API_REFRESH_ON_SNAPSHOT'),
+      );
+      await this.collectionService.refreshPsaPublicSnapshotForCollection(key, {
+        allowUpstream: allowPsaUpstream,
+      });
       let col = await this.collectionService.findOne(key);
       if (col) {
         await this.collectionService.auditCardhedgerCardIdExact(key, {
           clearOnMismatch: true,
         });
+        await this.collectionService.ensureMintParallelVarietyFromListings(key);
         col = await this.collectionService.findOne(key);
       }
       if (col) {
-        col = this.collectionService.mergePsaSnapshotIntoComponents(col);
+        col =
+          await this.collectionService.mergePsaSnapshotIntoComponentsFromDb(
+            col,
+          );
       }
       const historyTier = marketHistoryTierFromComponents(col?.components);
       const { preview, history } = await this.cardMarketData.getBundledCardData(
@@ -203,6 +223,7 @@ export class CollectionMarketSnapshotService {
       psa9Usd: payload.psa9Usd,
       rawUsd: payload.rawUsd,
       headlineUsd: payload.headlineUsd,
+      spotPriceBasis: payload.spotPriceBasis,
       change7dPct: payload.change7dPct,
       change30dPct: payload.change30dPct,
       sparkline90dJson: payload.sparkline90dJson,
@@ -225,14 +246,6 @@ export class CollectionMarketSnapshotService {
       throw new Error(
         `upsert succeeded but row missing for ${payload.collectionKey}`,
       );
-    }
-
-    if (payload.cardhedgerCardId) {
-      this.collectionService.mergeCardhedgerPricingSnapshot(payload.collectionKey, {
-        cardId: payload.cardhedgerCardId,
-        headlineUsd: payload.headlineUsd,
-        basis: payload.previewJson.card?.spotPriceBasis ?? null,
-      });
     }
 
     return saved;

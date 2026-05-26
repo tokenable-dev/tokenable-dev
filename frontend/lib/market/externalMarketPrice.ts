@@ -173,14 +173,6 @@ export function referenceLagAnchorFromPoints(
   };
 }
 
-/** @deprecated Prefer {@link referenceLagAnchorFromPoints}. */
-export function percentChangeReferenceOverLag(
-  points: CollectionUsdPoint[] | null | undefined,
-  lagSec: number,
-): number | null {
-  return referenceLagAnchorFromPoints(points, lagSec)?.pct ?? null;
-}
-
 /**
  * Reference % change: prefer 1y lookback; if history is shorter, use the full available span.
  */
@@ -236,20 +228,6 @@ export function percentChangeReferenceOver1Yr(
   points: CollectionUsdPoint[] | null | undefined,
 ): number | null {
   return percentChangeReferenceBestWindow(points).pct;
-}
-
-/** @deprecated Use {@link percentChangeReferenceOver1Yr} or {@link percentChangeReferenceBestWindow}. */
-export function percentChangeReferenceOver1Mo(
-  points: CollectionUsdPoint[] | null | undefined,
-): number | null {
-  return percentChangeReferenceOver1Yr(points);
-}
-
-/** @deprecated Use {@link percentChangeReferenceOver1Yr}. */
-export function percentChangeReferenceOver24h(
-  points: CollectionUsdPoint[] | null | undefined,
-): number | null {
-  return percentChangeReferenceOver1Yr(points);
 }
 
 /**

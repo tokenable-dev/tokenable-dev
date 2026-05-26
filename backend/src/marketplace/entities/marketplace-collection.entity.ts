@@ -1,8 +1,11 @@
-import { Column, CreateDateColumn, Entity, PrimaryColumn } from 'typeorm';
+import { Column, CreateDateColumn, Entity, Index, PrimaryColumn } from 'typeorm';
 
 /**
  * graded 메타 기준 논리 컬렉션 — 첫 매도(ask) 등록 시 생성된다.
  * collection_key === `computeMarketBucketKey(components)` (풀 입찰 버킷과 동일 경계)
+ *
+ * Pricing / Cardhedger state: {@link CollectionMarketSnapshot} only.
+ * PSA Public API cache: {@link PsaCertSnapshot} by cert digits.
  */
 @Entity('marketplace_collections')
 export class MarketplaceCollection {
@@ -16,53 +19,17 @@ export class MarketplaceCollection {
   queryUsed: string | null;
 
   @Column({ type: 'jsonb' })
-  /** Bucket fields + optional enrichments (`listingDisplayTitle` = IPFS `metadata.name` at listing). */
+  /** Bucket fields + mint enrichments (`cardhedgerCardId`, `psaVariety`, …). */
   components: Record<string, unknown>;
 
-  /**
-   * 컬렉션 고정 커버 — 카탈로그 카드 아트/PSA 이미지 URL (슬랩 촬영본과는 별도).
-   * 첫 매도 등록 시 또는 나중에 resolve 시 한 번 채움.
-   */
   @Column({ name: 'cover_image_url', type: 'text', nullable: true })
   coverImageUrl: string | null;
 
-  /** Last resolved Cardhedger card id from snapshot refresh (audit / support). */
-  @Column({
-    name: 'cardhedger_resolved_card_id',
-    type: 'varchar',
-    length: 64,
-    nullable: true,
-  })
-  cardhedgerResolvedCardId: string | null;
-
-  /** Published PSA10 headline USD at last snapshot refresh. */
-  @Column({
-    name: 'cardhedger_headline_usd',
-    type: 'double precision',
-    nullable: true,
-  })
-  cardhedgerHeadlineUsd: number | null;
-
-  /** e.g. comps, latest_sale, sparse_sale_avg, catalog — mirrors API `spotPriceBasis`. */
-  @Column({
-    name: 'cardhedger_spot_basis',
-    type: 'varchar',
-    length: 32,
-    nullable: true,
-  })
-  cardhedgerSpotBasis: string | null;
-
-  @Column({
-    name: 'cardhedger_pricing_synced_at',
-    type: 'timestamptz',
-    nullable: true,
-  })
-  cardhedgerPricingSyncedAt: Date | null;
-
   /**
-   * Canonical PSA cert digits from active listing metadata (single value; conflicting asks skipped).
-   * Mirrors `components.psaCertNumber` when backfilled.
+   * Canonical PSA cert from active listing metadata (single value; conflicts skipped).
+   * Not duplicated in `components` on new writes.
    */
+  @Index()
   @Column({
     name: 'psa_cert_number',
     type: 'varchar',
@@ -71,18 +38,19 @@ export class MarketplaceCollection {
   })
   psaCertNumber: string | null;
 
-  /**
-   * Compact PSA Public API cert fields — reduces repeat upstream calls; refreshed on a TTL.
-   */
-  @Column({ name: 'psa_public_snapshot_json', type: 'jsonb', nullable: true })
-  psaPublicSnapshotJson: Record<string, unknown> | null;
-
+  /** Indexed facet from bucket v2 — parallel slug or `base`. */
+  @Index()
   @Column({
-    name: 'psa_public_snapshot_at',
-    type: 'timestamptz',
-    nullable: true,
+    name: 'market_parallel_key',
+    type: 'varchar',
+    length: 96,
+    default: 'base',
   })
-  psaPublicSnapshotAt: Date | null;
+  marketParallelKey: string;
+
+  /** `BUCKET_KEY_VERSION` used when this row was created / last migrated. */
+  @Column({ name: 'bucket_key_version', type: 'smallint', default: 2 })
+  bucketKeyVersion: number;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

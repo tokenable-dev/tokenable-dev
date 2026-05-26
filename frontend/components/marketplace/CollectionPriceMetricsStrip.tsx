@@ -45,10 +45,6 @@ export interface CollectionPriceMetricsStripProps {
   volatilityFootnote?: string | null;
   platformPriceSamples?: number[];
   bookSpreadPct?: number | null;
-  /** @deprecated Prefer {@link externalPriceChange1MoPct}. */
-  externalPriceChange1yPct?: number | null;
-  /** @deprecated Prefer {@link externalPriceChange1MoLoading}. */
-  externalPriceChange1yLoading?: boolean;
   externalPriceChange1MoPct?: number | null;
   externalPriceChange1MoLoading?: boolean;
   /** When set, drives % change column labels (`1 yr`, `180d`, `90d`, …). */
@@ -76,10 +72,6 @@ export interface CollectionPriceMetricsStripProps {
    * Ignores {@link exchangeColumn}.
    */
   exchangeUnifiedRow?: boolean;
-  /** @deprecated Prefer {@link externalPriceChange1MoPct}. */
-  externalPriceChange24hPct?: number | null;
-  /** @deprecated Prefer {@link externalPriceChange1MoLoading}. */
-  externalPriceChange24hLoading?: boolean;
   /** Sum of on-platform fill prices (USDC) in the last 24h; null while trades are loading. */
   volume24hUsdc?: number | null;
   volume24hLoading?: boolean;
@@ -199,8 +191,6 @@ export function CollectionPriceMetricsStrip({
   volatilityFootnote = null,
   platformPriceSamples = [],
   bookSpreadPct = null,
-  externalPriceChange1yPct = null,
-  externalPriceChange1yLoading = false,
   externalPriceChangeBasisText = null,
   marketCapUsd = null,
   marketCapMethodHint = null,
@@ -212,22 +202,13 @@ export function CollectionPriceMetricsStrip({
   formatMarketCap,
   exchangeColumn,
   exchangeUnifiedRow = false,
-  externalPriceChange1MoPct: externalPriceChange1MoPctProp = null,
-  externalPriceChange1MoLoading: externalPriceChange1MoLoadingProp = false,
+  externalPriceChange1MoPct = null,
+  externalPriceChange1MoLoading = false,
   externalPriceChangePeriod = null,
-  externalPriceChange24hPct = null,
-  externalPriceChange24hLoading = false,
   volume24hUsdc = null,
   volume24hLoading = false,
   totalPopulation = null,
 }: CollectionPriceMetricsStripProps) {
-  const externalPriceChange1MoPct =
-    externalPriceChange1MoPctProp ?? externalPriceChange24hPct ?? externalPriceChange1yPct ?? null;
-  const externalPriceChange1MoLoading =
-    externalPriceChange1MoLoadingProp ||
-    externalPriceChange24hLoading ||
-    externalPriceChange1yLoading;
-
   const changePeriodLabel =
     formatReferenceChangePeriodLabel(externalPriceChangePeriod) ||
     MARKET_PRICE_CHANGE_PERIOD_LABEL;

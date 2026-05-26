@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  HttpException,
   Injectable,
   InternalServerErrorException,
   Logger,
@@ -31,7 +32,11 @@ import {
   extractPsaCertImageUrlsFromApiBody,
   extractPsaCertImagesFromGetImagesBody,
 } from './utils/psa-cert-images.util';
-import { cardhedgerRowMatchesPsaVariety } from './utils/cardhedger-psa-variety.util';
+import { cardhedgerRowMatchesPsaVariety } from '../marketplace/utils/cardhedger-psa-variety.util';
+import {
+  isPsaRateLimitHttpStatus,
+  throwPsaRateLimitHttpException,
+} from './psa-rate-limit.exception';
 
 export interface CardhedgerOcrNormalized {
   raw_text: string;
@@ -930,33 +935,48 @@ export class PsaService {
     let selectedCert: string | null = null;
     let sawCertMismatch = false;
     let lastErrMessage = '';
+    let lastHttpStatus: number | undefined;
     for (const cert of candidateList) {
       try {
-        const [apiTry, imgTry] = await Promise.all([
-          this.psaPublicApi.getByCertNumber(cert),
-          this.psaPublicApi.getImagesByCertNumber(cert),
-        ]);
+        const apiTry = await this.psaPublicApi.getByCertNumber(cert);
+        if (apiTry.status === 'error') {
+          if (isPsaRateLimitHttpStatus(apiTry.httpStatus)) {
+            throwPsaRateLimitHttpException(apiTry.message);
+          }
+          if (apiTry.reason === 'cert_mismatch') {
+            sawCertMismatch = true;
+          }
+          lastHttpStatus = apiTry.httpStatus;
+        }
         if (apiTry.status === 'success') {
+          const imgTry = await this.psaPublicApi.getImagesByCertNumber(cert);
+          if (
+            imgTry.status === 'error' &&
+            isPsaRateLimitHttpStatus(imgTry.httpStatus)
+          ) {
+            throwPsaRateLimitHttpException(imgTry.message);
+          }
           selectedCert = cert;
           apiLookupSuccess = apiTry;
           imagesLookup = imgTry;
           psaParsed = { ...psaParsed, certNumber: cert };
           break;
         }
-        if (apiTry.status === 'error' && apiTry.reason === 'cert_mismatch') {
-          sawCertMismatch = true;
-        }
         const m =
-          'message' in apiTry && typeof apiTry.message === 'string'
+          apiTry.status === 'error' && typeof apiTry.message === 'string'
             ? apiTry.message
             : `status=${apiTry.status}`;
         lastErrMessage = m;
       } catch (e) {
+        if (e instanceof HttpException) throw e;
         const m = e instanceof Error ? e.message : String(e);
         lastErrMessage = m;
       }
     }
     if (!selectedCert) {
+      if (isPsaRateLimitHttpStatus(lastHttpStatus)) {
+        throwPsaRateLimitHttpException(lastErrMessage);
+      }
       if (sawCertMismatch && candidateList.length === 1) {
         throw new BadRequestException(
           `PSA Cert ${candidateList[0]} 조회 결과가 다른 cert의 카드 정보입니다. cert 번호를 확인하거나 psacard.com/cert/${candidateList[0]} 에서 직접 확인해 주세요.`,
@@ -1000,6 +1020,9 @@ export class PsaService {
     }
 
     if (imagesLookup.status === 'error') {
+      if (isPsaRateLimitHttpStatus(imagesLookup.httpStatus)) {
+        throwPsaRateLimitHttpException(imagesLookup.message);
+      }
       throw new InternalServerErrorException(
         `PSA 이미지 조회 실패: ${imagesLookup.message}`,
       );

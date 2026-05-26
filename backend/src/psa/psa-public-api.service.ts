@@ -113,15 +113,18 @@ export class PsaPublicApiService {
     return 10 * 60 * 1000; // 10분
   }
 
-  /** 429일 때 추가 시도 횟수 (총 호출 = 1 + 이 값). 기본 2 → 최대 3회. */
+  /**
+   * Extra attempts after HTTP 429 (total calls = 1 + this value).
+   * Default **0** — fail fast so Vault UI is not left waiting on doomed retries.
+   */
   private getMaxRetries(): number {
     const n = this.config.get<string>('PSA_PUBLIC_API_MAX_RETRIES');
     const parsed = n ? parseInt(n, 10) : NaN;
-    if (!Number.isNaN(parsed) && parsed >= 0) return Math.min(parsed, 8);
-    return 2;
+    if (!Number.isNaN(parsed) && parsed >= 0) return Math.min(parsed, 3);
+    return 0;
   }
 
-  /** RFC-style Retry-After (초); 비정상적으로 큰 값은 상한만 적용. */
+  /** Minimal backoff when `PSA_PUBLIC_API_MAX_RETRIES` > 0. */
   private waitMsFrom429RetryAfter(
     retryAfterHeader: string | null,
     attempt: number,
@@ -129,10 +132,10 @@ export class PsaPublicApiService {
     const raw = retryAfterHeader?.trim();
     const sec = raw ? parseInt(raw, 10) : NaN;
     if (Number.isFinite(sec) && sec > 0) {
-      const capped = Math.min(sec, 120);
+      const capped = Math.min(sec, 5);
       return Math.max(capped, 1) * 1000;
     }
-    return Math.min(1500 * 2 ** attempt, 30_000);
+    return Math.min(400 * (attempt + 1), 1_500);
   }
 
   /**

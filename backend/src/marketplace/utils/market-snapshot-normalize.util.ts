@@ -201,6 +201,9 @@ export function buildMaterializedSnapshotPayload(input: {
     psa9Usd: gradePrices.psa9,
     rawUsd: gradePrices.raw,
     headlineUsd,
+    spotPriceBasis:
+      input.preview.card?.spotPriceBasis?.trim() ||
+      null,
     change7dPct: computeChangePctLag(externalUsd, 7),
     change30dPct: computeChangePctLag(externalUsd, 30),
     sparkline90dJson: spark90,

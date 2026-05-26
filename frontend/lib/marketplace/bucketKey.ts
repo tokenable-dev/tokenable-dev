@@ -19,11 +19,17 @@ export interface MarketBucketComponents {
   gradeScore: string;
   /** Optional split for PSA/DNA autograph slabs. */
   variantType?: "psa_dna";
+  /** Normalized card # — part of bucket hash since v2. */
+  cardNumber?: string;
+  /** `base` or PSA Variety slug — separates parallels in v2 buckets. */
+  marketParallelKey?: string;
   /** PSA TotalPopulation — not part of bucket hash */
   psaTotalPopulation?: number;
 }
 
-const KEY_VERSION = 1;
+/** Must match backend `BUCKET_KEY_VERSION`. */
+export const BUCKET_KEY_VERSION = 2;
+const KEY_VERSION = BUCKET_KEY_VERSION;
 
 function normalizePart(s: string): string {
   return s
@@ -34,6 +40,29 @@ function normalizePart(s: string): string {
 
 function collapseWhitespaceOnly(s: string): string {
   return s.trim().replace(/\s+/g, " ");
+}
+
+function primaryCardNumber(num: string): string {
+  const t = num.replace(/^#/, "").trim();
+  if (!t) return "";
+  return t.split("/")[0].trim();
+}
+
+/** Mirrors backend `marketParallelKeyFromPsaVariety` (language-only → base). */
+function marketParallelKeyFromPsaVariety(psaVariety: string | null | undefined): string {
+  const raw = String(psaVariety ?? "")
+    .trim()
+    .replace(/\s+/g, " ");
+  if (!raw) return "base";
+  if (/^english$/i.test(raw) || /^japanese$/i.test(raw)) return "base";
+  if (/^base(\s+cards?)?$/i.test(raw)) return "base";
+  return (
+    raw
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "")
+      .slice(0, 96) || "base"
+  );
 }
 
 function detectVariantType(graded: Record<string, unknown>): "psa_dna" | null {
@@ -75,12 +104,16 @@ export function extractBucketComponentsFromMetadata(
 
   const rawName = String(card?.name ?? "").trim();
   const rawSet = String(card?.set ?? "").trim();
+  const rawNum =
+    String(card?.number ?? "").trim() ||
+    String(psa?.cardNumberHint ?? "").trim();
   const rawNameMerged = rawName || String(psa?.cardNameHint ?? "");
   const rawSetMerged = rawSet || String(psa?.setHint ?? "");
   const cardName = normalizePart(rawNameMerged);
   const cardSet = normalizePart(rawSetMerged);
   const cardNameDisplay = collapseWhitespaceOnly(rawNameMerged);
   const cardSetDisplayCollapse = collapseWhitespaceOnly(rawSetMerged);
+  const cardNumber = rawNum ? normalizePart(primaryCardNumber(rawNum)) : "";
 
   let scoreVal: unknown = grade?.score;
   if (scoreVal == null || scoreVal === "") scoreVal = psa?.gradeScore;
@@ -94,14 +127,19 @@ export function extractBucketComponentsFromMetadata(
   }
   if (!gradingCompany || !cardName || !gradeScore) return null;
 
+  const psaVarietyRaw = String(psa?.variety ?? psa?.Variety ?? "").trim();
+  const marketParallelKey = marketParallelKeyFromPsaVariety(psaVarietyRaw);
+
   const out: MarketBucketComponents = {
     gradingCompany,
     cardName,
     cardSet,
     gradeScore,
+    marketParallelKey,
     gradingCompanyDisplay,
     ...(cardNameDisplay ? { cardNameDisplay } : {}),
     ...(cardSetDisplayCollapse ? { cardSetDisplay: cardSetDisplayCollapse } : {}),
+    ...(cardNumber ? { cardNumber } : {}),
   };
   const variantType = detectVariantType(graded);
   if (variantType) out.variantType = variantType;
@@ -128,6 +166,14 @@ function trimFloatString(n: number): string {
   return String(n);
 }
 
+function normalizeCardNumberForBucketKey(num: string | undefined): string {
+  const t = String(num ?? "")
+    .replace(/^#/, "")
+    .trim();
+  if (!t) return "";
+  return t.split("/")[0].trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
 /** Deterministic 64-char hex key — must match backend `computeMarketBucketKey`. */
 export async function computeMarketBucketKey(
   components: MarketBucketComponents
@@ -138,6 +184,9 @@ export async function computeMarketBucketKey(
     cardName: components.cardName,
     cardSet: components.cardSet,
     gradeScore: components.gradeScore,
+    cardNumber: normalizeCardNumberForBucketKey(components.cardNumber),
+    marketParallelKey:
+      components.marketParallelKey?.trim().toLowerCase() || "base",
     ...(components.variantType ? { variantType: components.variantType } : {}),
   });
   const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(payload));

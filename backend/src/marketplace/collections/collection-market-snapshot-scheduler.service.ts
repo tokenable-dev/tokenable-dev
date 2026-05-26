@@ -1,8 +1,10 @@
 import {
+  Inject,
   Injectable,
   Logger,
   OnModuleDestroy,
   OnModuleInit,
+  forwardRef,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Cron } from '@nestjs/schedule';
@@ -34,6 +36,7 @@ export class CollectionMarketSnapshotSchedulerService
 
   constructor(
     private readonly config: ConfigService,
+    @Inject(forwardRef(() => CollectionMarketSnapshotService))
     private readonly snapshotService: CollectionMarketSnapshotService,
     @InjectRepository(Order)
     private readonly orderRepo: Repository<Order>,

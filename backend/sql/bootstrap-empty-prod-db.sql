@@ -15,9 +15,12 @@
 BEGIN;
 
 \ir schema/010_users.sql
+\ir schema/015_psa_cert_snapshots.sql
 \ir schema/020_marketplace_collections.sql
+\ir schema/025_rwa_tokens.sql
 \ir schema/030_collection_market_snapshots.sql
 \ir schema/040_orders.sql
+\ir schema/050_refactor_legacy_columns.sql
 \ir schema/900_triggers.sql
 
 COMMIT;
@@ -26,7 +29,9 @@ COMMIT;
 DO $$
 BEGIN
   IF to_regclass('public.users') IS NULL
+     OR to_regclass('public.psa_cert_snapshots') IS NULL
      OR to_regclass('public.marketplace_collections') IS NULL
+     OR to_regclass('public.rwa_tokens') IS NULL
      OR to_regclass('public.collection_market_snapshots') IS NULL
      OR to_regclass('public.orders') IS NULL THEN
     RAISE EXCEPTION 'bootstrap incomplete — expected core tables missing';

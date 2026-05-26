@@ -166,7 +166,15 @@ export class CollectionMarketService {
     let row = await this.snapshotService.findByKey(key);
 
     if (!(await this.snapshotService.isUsableForRead(row, key))) {
-      row = await this.snapshotService.ensureSnapshot(key, 'cold_start');
+      row =
+        (await this.snapshotService.ensureSnapshot(key, 'cold_start')) ?? row;
+    }
+
+    if (
+      row?.previewJson &&
+      !(await this.snapshotService.isUsableForRead(row, key))
+    ) {
+      row = await this.snapshotService.refreshSnapshot(key, 'manual');
     }
 
     if (!row?.previewJson) {

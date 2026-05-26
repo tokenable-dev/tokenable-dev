@@ -12,6 +12,7 @@ import {
   computeMarketBucketKey,
   type MarketBucketComponents,
 } from '../utils/bucket-key.util';
+import { marketParallelKeyFromPsaVariety } from '../utils/market-parallel-key.util';
 import { marketHistoryTierFromComponents } from '../utils/market-history-tier.util';
 import type {
   MarketCollectionPreview,
@@ -132,6 +133,8 @@ export class CertMarketTraceService {
       base?.card_number ?? psa.cardNumberHint ?? '',
     ).trim();
     const cardNumber = cardNumRaw ? normalizeBucketPart(cardNumRaw) : undefined;
+    const psaVariety = String(psa.varietyHint ?? '').trim();
+    const marketParallelKey = marketParallelKeyFromPsaVariety(psaVariety);
     const pop = psa.totalPopulation;
     const components: MarketBucketComponents = {
       gradingCompany: normalizeBucketPart('PSA'),
@@ -145,6 +148,7 @@ export class CertMarketTraceService {
         : {}),
       ...(variantType ? { variantType } : {}),
       ...(cardNumber ? { cardNumber } : {}),
+      marketParallelKey,
       ...(typeof pop === 'number' &&
       Number.isFinite(pop) &&
       pop >= 0 &&
@@ -213,6 +217,9 @@ export class CertMarketTraceService {
     if (typeof psa.varietyHint === 'string' && psa.varietyHint.trim()) {
       components.psaVariety = psa.varietyHint.trim().replace(/\s+/g, ' ');
     }
+    components.marketParallelKey = marketParallelKeyFromPsaVariety(
+      String(components.psaVariety ?? ''),
+    );
     if (typeof psa.cardNameHint === 'string' && psa.cardNameHint.trim()) {
       components.psaSubject = psa.cardNameHint.trim();
     }
