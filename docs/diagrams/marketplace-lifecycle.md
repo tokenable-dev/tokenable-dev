@@ -2,7 +2,7 @@
 
 > Seaport v1.5 · 오프체인 오더북(백엔드) · 온체인 `fulfillOrder` / `matchAdvancedOrders` 기준
 
-> **업데이트 (2026-05):** 실험용 **relational 매칭 계층**은 백엔드에서 **제거**되었습니다. 매칭은 **Seaport + `orders`만** 사용합니다. **[api/marketplace.md](../api/marketplace.md)**, **[architecture/overview.md](../architecture/overview.md)** 참고. 과거 다이어그램: [marketplace-trading-relational-layer.drawio](./marketplace-trading-relational-layer.drawio).
+> **업데이트 (2026-05):** 실험용 **relational 매칭 계층**은 백엔드에서 **제거**되었습니다. 매칭은 **Seaport + `orders`만** 사용합니다. **DB는 4테이블:** `users`, `marketplace_collections`, **`collection_market_snapshots`** (Cardhedger materialized), `orders`. [database.md](../architecture/database.md) · [materialized-market-snapshots.md](../architecture/materialized-market-snapshots.md) · [api/marketplace.md](../api/marketplace.md)
 >
 > **HTTP 경로 표기:** 아래 시퀀스의 `POST /api/...` 는 Nest 글로벌 프리픽스 **`api`** 를 포함한 전체 경로입니다. 전체 API 개요는 **[api/README.md](../api/README.md)**.
 
@@ -669,7 +669,7 @@ flowchart TD
     subgraph REST ["REST 네임스페이스"]
         direction TB
         R_AUTH["/api/auth<br/>Google OAuth · JWT 쿠키 · 지갑 연결"]:::route
-        R_MKT["/api/marketplace<br/>orders · collections · market-snapshots<br/>· cardhedger 번들 API · Seaport 전용"]:::route
+        R_MKT["/api/marketplace<br/>orders · collections · market-snapshots<br/>· portfolio-market-batch · Seaport 전용"]:::route
         R_RWA["/api/rwa<br/>IPFS 메타 업로드 · 민팅 보조"]:::route
         R_BC["/api/blockchain<br/>RWA tokenURI · 메타/IPFS 해소"]:::route
         R_CH["/api/cardhedger<br/>indexes (+ 서버 내부 CardhedgerService)"]:::route
@@ -677,7 +677,7 @@ flowchart TD
     end
 
     subgraph PERSIST ["영속 계층"]
-        PG[("PostgreSQL<br/>orders · marketplace_collections · users · hidden_assets")]:::data
+        PG[("PostgreSQL<br/>users · marketplace_collections<br/>· collection_market_snapshots · orders")]:::data
     end
 
     subgraph OUT ["외부 연동"]
@@ -707,6 +707,8 @@ flowchart TD
 
 ### 5-2. Nest 모듈·서비스 구조
 
+> **Note:** The diagram below still names removed controllers (`BidsController`, `PoketraceProxyController`, …). Current code: `OrdersController`, `CollectionsController`, `CertMarketTraceController` + snapshot services — see [backend.md](../architecture/backend.md).
+
 ```mermaid
 %%{init: {'flowchart': {'rankSpacing': 36, 'nodeSpacing': 22, 'padding': 14}}}%%
 flowchart TB
@@ -719,7 +721,7 @@ flowchart TB
     subgraph APP ["AppModule"]
         direction TB
         CFG["ConfigModule global"]:::mod
-        ORM["TypeORM<br/>Order · Collection · User · Bid · Ask · TradeExecution …"]:::ent
+        ORM["TypeORM<br/>User · Order · MarketplaceCollection<br/>· CollectionMarketSnapshot"]:::ent
     end
 
     subgraph M_AUTH ["auth/ — AuthModule"]

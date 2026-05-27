@@ -1,7 +1,7 @@
 # Tokenable RWA Marketplace — Documentation
 
 A non-custodial marketplace for **graded trading-card RWAs** on Ethereum Sepolia.  
-Users mint cards via IPFS (PSA slab OCR → Pinata), list them, and trade with USDC via **Seaport 1.5** off-chain orders. Market pricing is sourced from the **Cardhedger** API.
+Users mint **PSA 10** graded cards via IPFS (PSA cert lookup / slab OCR → Pinata), list them, and trade with USDC via **Seaport 1.5** off-chain orders. External market pricing is **materialized** in PostgreSQL (`collection_market_snapshots`) and refreshed by Cardhedger snapshot workers — not pulled on every page view.
 
 ### Branches & deploy
 
@@ -27,6 +27,7 @@ tokenable-dev/
 | What | Where |
 |------|-------|
 | Local setup | [guides/local-setup.md](guides/local-setup.md) |
+| Database & snapshots | [architecture/database.md](architecture/database.md) |
 | All API routes | [api/README.md](api/README.md) |
 | Frontend routes | [frontend/routes.md](frontend/routes.md) |
 | Deploy & CI/CD (EC2 / Actions) | [guides/deployment.md](guides/deployment.md) |

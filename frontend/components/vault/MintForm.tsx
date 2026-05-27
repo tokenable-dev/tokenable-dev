@@ -18,6 +18,12 @@ import {
 import { TOKENABLE_RWA_ADDRESS, TOKENABLE_RWA_MINT_ABI } from "@/constants/contracts";
 import { sepolia } from "@/config/wagmi";
 import { GAS_FALLBACK, gasWithCapFast } from "@/lib/network";
+import {
+  formatPsaAnalyzeError,
+  isPsaRateLimitError,
+  PSA_RATE_LIMIT_ALERT_MESSAGE,
+  PSA_RATE_LIMIT_OVERLAY_TITLE,
+} from "@/lib/psa/psaApiErrors";
 import { useAppStore, selectRefresh } from "@/store";
 import {
   EMPTY_PSA_FIELD_LOCKS,
@@ -26,9 +32,17 @@ import {
   type PsaFieldLocks,
 } from "@/types/gradedCard";
 import { GradedCardSection, type PsaInputMode } from "./GradedCardSection";
+import {
+  GradientOutlineFrame,
+  gradientOutlineInnerButtonClass,
+  VAULT_OUTLINE_PAD_CLASS,
+} from "@/components/ui/GradientOutlineFrame";
 import { WalletConnect } from "@/components/wallet/WalletConnect";
 
 type Step = "idle" | "uploading" | "minting" | "success" | "error";
+
+/** Sell page: hide Mint image / Asset listing / Card & PSA accordions. */
+const SHOW_VAULT_COLLAPSIBLE_SECTIONS = false;
 
 const INITIAL_STATE: GradedCardFormState = {
   name: "",
@@ -59,6 +73,20 @@ type MintFriendlyError = {
   message: string;
   hints: string[];
 };
+
+function normalizeCertDigits(v: string | undefined | null): string {
+  return String(v ?? "").replace(/\D/g, "");
+}
+
+function psaCertImageMatchesFormCert(
+  analyze: PsaAnalyzeResult | null | undefined,
+  formCert: string | undefined | null,
+): boolean {
+  if (!analyze?.psaCertImages?.front) return false;
+  const a = normalizeCertDigits(analyze.psa.certNumber);
+  const f = normalizeCertDigits(formCert);
+  return Boolean(a && f && a === f);
+}
 
 function computePsaLocksFromResult(
   r: PsaAnalyzeResult,
@@ -102,6 +130,7 @@ export function MintForm() {
   const [lastAnalyze, setLastAnalyze] = useState<PsaAnalyzeResult | null>(null);
   const [analyzeLoading, setAnalyzeLoading] = useState(false);
   const [analyzeError, setAnalyzeError] = useState("");
+  const [psaRateLimitAlert, setPsaRateLimitAlert] = useState(false);
   /** Invalidate in-flight PSA analyze when deps change or slab cleared */
   const analyzeNonceRef = useRef(0);
   /** PSA path: blob URL preview for slab capture used as mint fallback */
@@ -153,8 +182,16 @@ export function MintForm() {
     const next: Record<string, string> = {};
     if (!form.name.trim()) next.name = "Asset name is required";
     let hasImage = false;
-    if (lastAnalyze?.psaCertImages?.front || lastAnalyze?.cardhedgerMint?.imageUrl) {
+    if (
+      psaCertImageMatchesFormCert(lastAnalyze, form.grade.certNumber) ||
+      lastAnalyze?.cardhedgerMint?.imageUrl
+    ) {
       hasImage = true;
+    } else if (lastAnalyze?.psaCertImages?.front) {
+      // Mismatched PSA slab preview — do not treat as mint-ready
+      hasImage =
+        form.image instanceof File ||
+        (typeof form.image === "string" && !!form.image.trim());
     } else {
       hasImage =
         form.image instanceof File ||
@@ -327,6 +364,7 @@ export function MintForm() {
     setResult(null);
     setLastAnalyze(null);
     setAnalyzeError("");
+    setPsaRateLimitAlert(false);
     analyzeNonceRef.current += 1;
     setForm(INITIAL_STATE);
     setErrors({});
@@ -338,6 +376,7 @@ export function MintForm() {
     (r: PsaAnalyzeResult, slabFrontForMint?: File | null) => {
       const prev = formRef.current;
       setPsaFieldLocks(computePsaLocksFromResult(r, prev));
+      setPsaRateLimitAlert(false);
       setLastAnalyze(r);
       const scoreStr =
         r.psa.gradeScore != null
@@ -403,10 +442,28 @@ export function MintForm() {
   const certHintForPsaRef = useRef(certHintForPsa);
   certHintForPsaRef.current = certHintForPsa;
 
+  const handlePsaAnalyzeFailure = useCallback((err: unknown) => {
+    if (isPsaRateLimitError(err)) {
+      setAnalyzeLoading(false);
+      setDebounceWaiting(false);
+      setPsaRateLimitAlert(true);
+      setAnalyzeError("");
+      return;
+    }
+    setPsaRateLimitAlert(false);
+    setAnalyzeError(formatPsaAnalyzeError(err));
+  }, []);
+
+  const dismissPsaRateLimitOverlay = useCallback(() => {
+    setPsaRateLimitAlert(false);
+    setAnalyzeOverlayVisible(false);
+  }, []);
+
   const executePsaAnalyze = useCallback(
     async (front: File, back: File | null) => {
       const n = ++analyzeNonceRef.current;
       setAnalyzeError("");
+      setPsaRateLimitAlert(false);
       setAnalyzeLoading(true);
       try {
         const r = await analyzePsaSlab(front, back, certHintForPsaRef.current());
@@ -414,14 +471,14 @@ export function MintForm() {
         applyPsaAnalyzeResult(r, front);
       } catch (err: unknown) {
         if (n !== analyzeNonceRef.current) return;
-        setAnalyzeError(err instanceof Error ? err.message : "Analyze failed");
+        handlePsaAnalyzeFailure(err);
       } finally {
         if (n === analyzeNonceRef.current) {
           setAnalyzeLoading(false);
         }
       }
     },
-    [applyPsaAnalyzeResult], // certHintForPsa accessed via ref — no re-create on certNumber change
+    [applyPsaAnalyzeResult, handlePsaAnalyzeFailure], // certHintForPsa accessed via ref
   );
 
   /** After a cert lookup: clear result and locks so the user can change cert #, then press Look up. */
@@ -429,6 +486,7 @@ export function MintForm() {
     analyzeNonceRef.current += 1;
     setAnalyzeLoading(false);
     setAnalyzeError("");
+    setPsaRateLimitAlert(false);
     setLastAnalyze(null);
     setPsaFieldLocks(EMPTY_PSA_FIELD_LOCKS);
   }, []);
@@ -443,6 +501,7 @@ export function MintForm() {
     }
     const n = ++analyzeNonceRef.current;
     setAnalyzeError("");
+    setPsaRateLimitAlert(false);
     setAnalyzeLoading(true);
     try {
       const r = await analyzePsaByCertNumber(hint);
@@ -450,19 +509,20 @@ export function MintForm() {
       applyPsaAnalyzeResult(r);
     } catch (err: unknown) {
       if (n !== analyzeNonceRef.current) return;
-      setAnalyzeError(err instanceof Error ? err.message : "Cert lookup failed");
+      handlePsaAnalyzeFailure(err);
     } finally {
       if (n === analyzeNonceRef.current) {
         setAnalyzeLoading(false);
       }
     }
-  }, [applyPsaAnalyzeResult, certHintForPsa]);
+  }, [applyPsaAnalyzeResult, certHintForPsa, handlePsaAnalyzeFailure]);
 
   const handlePsaInputModeChange = useCallback((mode: PsaInputMode) => {
     analyzeNonceRef.current += 1;
     setPsaInputMode(mode);
     setLastAnalyze(null);
     setAnalyzeError("");
+    setPsaRateLimitAlert(false);
     setAnalyzeLoading(false);
     setDebounceWaiting(false);
     setPsaFieldLocks(EMPTY_PSA_FIELD_LOCKS);
@@ -525,9 +585,15 @@ export function MintForm() {
       const data = new FormData();
       data.append("name", form.name);
       data.append("description", form.description.trim() || "No description");
-      // Prefer clean Cardhedger catalog image (no cert label) over PSA slab photo
+      // Prefer clean Cardhedger catalog image; PSA slab photo only when cert # matches form
+      const trustedPsaSlabUrl = psaCertImageMatchesFormCert(
+        lastAnalyze,
+        form.grade.certNumber,
+      )
+        ? lastAnalyze?.psaCertImages?.front
+        : undefined;
       const selectedMintImageUrl =
-        lastAnalyze?.cardhedgerMint?.imageUrl || lastAnalyze?.psaCertImages?.front;
+        lastAnalyze?.cardhedgerMint?.imageUrl || trustedPsaSlabUrl;
       if (selectedMintImageUrl) {
         data.append("imageUrl", selectedMintImageUrl);
       } else if (form.image instanceof File) {
@@ -598,10 +664,13 @@ export function MintForm() {
   /** debounceWaiting covers the gap after one request finishes before the next debounced call runs */
   const slabAnalyzing =
     psaInputMode === "slab" &&
+    !psaRateLimitAlert &&
     (analyzeLoading || debounceWaiting) &&
     form.verification.slabFront instanceof File;
-  const certLookupAnalyzing = psaInputMode === "cert" && analyzeLoading;
-  const showPsaAnalyzeOverlayRaw = slabAnalyzing || certLookupAnalyzing;
+  const certLookupAnalyzing =
+    psaInputMode === "cert" && analyzeLoading && !psaRateLimitAlert;
+  const showPsaAnalyzeOverlayRaw =
+    psaRateLimitAlert || slabAnalyzing || certLookupAnalyzing;
 
   useEffect(() => {
     if (showPsaAnalyzeOverlayRaw) {
@@ -618,14 +687,15 @@ export function MintForm() {
 
   const friendlyMintError = useCallback((msg: string): MintFriendlyError | null => {
     const m = msg.toLowerCase();
-    if (m.includes("psa 10 카드만 mint 가능합니다") || m.includes("psa 10")) {
+    if (m.includes("psa 10 또는 psa 인증") || m.includes("psa 10")) {
       return {
-        title: "PSA 10 only",
-        message: "Minting is allowed only for cards officially verified as PSA 10.",
+        title: "Grade not supported",
+        message:
+          "Minting is allowed only for PSA 10 slabs or PSA AUTH slabs without a numeric grade (e.g. Authentic / Authentic Altered).",
         hints: [
-          "Re-run OCR/Cert lookup and confirm Grade is exactly 10.",
-          "If the card grade is not 10, mint is intentionally blocked.",
-          "Use a different cert that resolves to PSA 10.",
+          "PSA 1–9 numeric grades are not supported.",
+          "Re-run cert lookup and confirm the slab grade.",
+          "Use a PSA 10 cert or a PSA AUTH qualifier cert.",
         ],
       };
     }
@@ -678,12 +748,6 @@ export function MintForm() {
         </div>
         <div className="space-y-3">
           <div className="bg-gray-800/50 rounded-xl p-4">
-            <p className="text-xs text-gray-500 mb-1">Token URI</p>
-            <p className="text-xs font-mono text-mint break-all">
-              {result.tokenURI}
-            </p>
-          </div>
-          <div className="bg-gray-800/50 rounded-xl p-4">
             <p className="text-xs text-gray-500 mb-1">Transaction Hash</p>
             <p className="text-xs font-mono text-blue-400 break-all">
               {result.txHash}
@@ -701,16 +765,23 @@ export function MintForm() {
           )}
         </div>
         <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:gap-3">
-          <Link
-            href="/portfolio"
-            className="flex w-full flex-1 items-center justify-center rounded-xl bg-gradient-to-r from-mint to-mint-dim py-3 text-center text-sm font-bold text-mint-ink shadow-lg shadow-mint/25 transition-all hover:brightness-110"
+          <GradientOutlineFrame
+            className="w-full flex-1"
+            padClass={VAULT_OUTLINE_PAD_CLASS}
           >
-            My Assets
-          </Link>
+            <Link
+              href="/portfolio"
+              className="flex w-full items-center justify-center rounded-[11px] border-0 !bg-black py-3 text-center text-sm font-bold text-mint no-underline transition hover:bg-zinc-950"
+              style={{ backgroundColor: "#000000" }}
+            >
+              My Assets
+            </Link>
+          </GradientOutlineFrame>
           <button
             type="button"
             onClick={resetForm}
-            className="w-full flex-1 rounded-xl border border-gray-600/60 bg-gray-800/80 py-3 text-sm font-medium text-white transition-colors hover:bg-gray-700/80 sm:min-w-[10rem]"
+            className="w-full flex-1 rounded-xl border border-zinc-600/80 bg-black py-3 text-sm font-medium text-zinc-300 transition hover:border-zinc-500 hover:text-white sm:min-w-[10rem]"
+            style={{ backgroundColor: "#000000" }}
           >
             Tokenize Another
           </button>
@@ -738,26 +809,36 @@ export function MintForm() {
               onCertLookupReset={resetCertLookupToEdit}
               certLookupBusy={analyzeLoading}
               certLookupHasResult={psaInputMode === "cert" && lastAnalyze !== null}
+              showCardPsaDetailsPanel={SHOW_VAULT_COLLAPSIBLE_SECTIONS}
               slotAfterHero={
                 <div className="space-y-4">
         {!isConnected ? (
-          <WalletConnect
-            connectButtonClassName="w-full py-3.5 bg-gradient-to-r from-mint to-mint-dim hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed text-mint-ink text-sm font-bold rounded-xl transition-all duration-200 shadow-lg shadow-mint/25"
-          />
-        ) : showMintReady ? (
-          <button
-            type="submit"
-            disabled={isProcessing || showPsaAnalyzeOverlay}
-            className="w-full py-3.5 bg-gradient-to-r from-mint to-mint-dim hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed text-mint-ink text-sm font-bold rounded-xl transition-all duration-200 shadow-lg shadow-mint/25"
+          <GradientOutlineFrame
+            className="w-full"
+            padClass={VAULT_OUTLINE_PAD_CLASS}
           >
-            {isProcessing
-              ? "Minting…"
-              : showPsaAnalyzeOverlay
-                ? psaInputMode === "cert"
-                  ? "Looking up cert…"
-                  : "Analyzing slab…"
-                : "Mint"}
-          </button>
+            <WalletConnect
+              connectButtonClassName={`${gradientOutlineInnerButtonClass} !rounded-[11px] py-3.5 text-sm`}
+              connectButtonStyle={{ backgroundColor: "#000000" }}
+            />
+          </GradientOutlineFrame>
+        ) : showMintReady ? (
+          <GradientOutlineFrame className="w-full" padClass={VAULT_OUTLINE_PAD_CLASS}>
+            <button
+              type="submit"
+              disabled={isProcessing || showPsaAnalyzeOverlay}
+              className="w-full rounded-[11px] border-0 !bg-black py-3.5 text-sm font-bold text-mint transition disabled:cursor-not-allowed disabled:!bg-black disabled:text-mint/35"
+              style={{ backgroundColor: "#000000" }}
+            >
+              {isProcessing
+                ? "Minting…"
+                : showPsaAnalyzeOverlay
+                  ? psaInputMode === "cert"
+                    ? "Looking up cert…"
+                    : "Analyzing slab…"
+                  : "Mint"}
+            </button>
+          </GradientOutlineFrame>
         ) : null}
 
         {isProcessing && (
@@ -797,6 +878,7 @@ export function MintForm() {
           })()
         )}
 
+              {SHOW_VAULT_COLLAPSIBLE_SECTIONS ? (
               <details className="group rounded-xl border border-gray-700/50 bg-gray-800/20 overflow-hidden">
                 <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3.5 text-sm font-medium text-gray-200 transition-colors hover:bg-gray-800/35 [&::-webkit-details-marker]:hidden">
                   <span>Mint image</span>
@@ -865,12 +947,28 @@ export function MintForm() {
                       </div>
                     </div>
                     <div className="flex min-w-0 flex-1 flex-col justify-center pt-0 lg:pt-2">
-                      <p className="text-xs text-gray-500">
-                        PSA image is used for IPFS and marketplace art.
-                      </p>
-                      <span className="mt-2 inline-flex w-fit rounded-full border border-mint-deep/50 bg-mint/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-mint">
-                        Source: PSA Cert Image
-                      </span>
+                      {psaCertImageMatchesFormCert(
+                        lastAnalyze,
+                        form.grade.certNumber,
+                      ) ? (
+                        <>
+                          <p className="text-xs text-gray-500">
+                            PSA image is used for IPFS and marketplace art.
+                          </p>
+                          <span className="mt-2 inline-flex w-fit rounded-full border border-mint-deep/50 bg-mint/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-mint">
+                            Source: PSA Cert Image
+                          </span>
+                        </>
+                      ) : (
+                        <div className="rounded-lg border border-amber-400/35 bg-amber-500/10 p-3 text-xs leading-relaxed text-amber-100/90">
+                          PSA returned a slab photo for cert{" "}
+                          <span className="font-mono">{lastAnalyze.psa.certNumber ?? "—"}</span>,
+                          which does not match the cert you entered (
+                          <span className="font-mono">{form.grade.certNumber || "—"}</span>).
+                          This PSA image will <strong>not</strong> be used for minting — use Cert #
+                          lookup or upload the correct slab.
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -913,13 +1011,33 @@ export function MintForm() {
               )}
                 </div>
               </details>
+              ) : null}
 
-              {analyzeError && (
+              {!SHOW_VAULT_COLLAPSIBLE_SECTIONS && errors.image && (
+                <p className="text-xs text-red-400">{errors.image}</p>
+              )}
+              {!SHOW_VAULT_COLLAPSIBLE_SECTIONS && errors.name && (
+                <p className="text-xs text-red-400">{errors.name}</p>
+              )}
+
+              {psaRateLimitAlert && (
+                <div
+                  role="alert"
+                  className="rounded-lg border border-zinc-700/55 bg-zinc-900/45 px-4 py-3"
+                >
+                  <p className="text-xs leading-relaxed text-zinc-400">
+                    {PSA_RATE_LIMIT_ALERT_MESSAGE}
+                  </p>
+                </div>
+              )}
+
+              {analyzeError && !psaRateLimitAlert && (
                 <div className="space-y-2 rounded-lg border border-gray-700/50 bg-gray-900/30 px-4 py-3">
                   <p className="text-xs text-red-400 break-words">{analyzeError}</p>
                 </div>
               )}
 
+              {SHOW_VAULT_COLLAPSIBLE_SECTIONS ? (
               <details className="group rounded-xl border border-gray-700/50 bg-gray-800/20 overflow-hidden">
                 <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3.5 text-sm font-medium text-gray-200 transition-colors hover:bg-gray-800/35 [&::-webkit-details-marker]:hidden">
                   <span>Asset listing</span>
@@ -984,6 +1102,7 @@ export function MintForm() {
             </div>
                 </div>
               </details>
+              ) : null}
                 </div>
               }
             />
@@ -997,47 +1116,66 @@ export function MintForm() {
           className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4 backdrop-blur-[1.5px] pointer-events-auto"
           role="dialog"
           aria-modal="true"
-          aria-labelledby="psa-analyze-overlay-title"
+          aria-busy={!psaRateLimitAlert}
+          aria-label={
+            psaRateLimitAlert
+              ? PSA_RATE_LIMIT_OVERLAY_TITLE
+              : psaInputMode === "cert"
+                ? "Looking up PSA cert"
+                : "Analyzing slab"
+          }
         >
-          <div className="w-full max-w-md rounded-xl border border-gray-700/80 bg-gray-950/96 px-5 py-6 shadow-2xl shadow-black/55 sm:px-6 sm:py-7">
-            <div className="flex flex-col items-center text-center">
-              <div className="relative h-12 w-12 shrink-0">
-                <div
-                  className="absolute inset-0 rounded-full border-2 border-gray-700"
-                  aria-hidden
-                />
-                <div
-                  className="absolute inset-0 rounded-full border-2 border-transparent border-t-gray-200 border-r-gray-500 animate-spin"
-                  style={{ animationDuration: "0.9s" }}
-                  aria-hidden
-                />
-              </div>
-              <p
-                id="psa-analyze-overlay-title"
-                className="mt-4 text-base font-semibold tracking-tight text-white sm:text-lg"
-              >
-                {psaInputMode === "cert" ? "Looking up PSA cert" : "Analyzing slab"}
-              </p>
-              <p className="mt-2 text-sm text-gray-400 max-w-[30ch]">
-                {psaInputMode === "cert"
-                  ? "Cardhedger and PSA official metadata lookup are running."
-                  : "Cardhedger cert OCR, slab OCR, and PSA lookup are running."}
-              </p>
-              <div
-                className="mt-4 h-2 w-full max-w-[280px] overflow-hidden rounded-full bg-gray-800/90"
-                role="status"
-                aria-live="polite"
-                aria-label="Analysis in progress"
-              >
-                <div className="h-full w-full animate-pulse rounded-full bg-gradient-to-r from-gray-600 via-gray-400 to-gray-600" />
-              </div>
-              <p className="mt-3 text-xs leading-relaxed text-gray-500">
-                Typical time is about 30–90 seconds; slow networks can take longer. Please keep
-                this tab open until it finishes.
-              </p>
-              <p className="mt-3 text-[10px] font-medium uppercase tracking-[0.16em] text-gray-600">
-                {psaInputMode === "cert" ? "CARDHEDGER · PSA" : "CARDHEDGER OCR · PSA"}
-              </p>
+          <div
+            className={`rounded-xl border bg-gray-950/96 shadow-2xl shadow-black/55 ${
+              psaRateLimitAlert
+                ? "max-w-sm border-zinc-700/60 px-5 py-5 sm:px-6"
+                : "border-gray-700/80 p-6 sm:p-7"
+            }`}
+          >
+            <div className="flex flex-col items-center">
+              {psaRateLimitAlert ? (
+                <>
+                  <p
+                    className="max-w-[26ch] text-center text-xs leading-relaxed text-zinc-400"
+                    role="alert"
+                  >
+                    {PSA_RATE_LIMIT_ALERT_MESSAGE}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={dismissPsaRateLimitOverlay}
+                    className="mt-4 flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-700/60 bg-zinc-900/60 text-zinc-400 transition-colors hover:border-zinc-600 hover:text-zinc-200"
+                    aria-label="Close"
+                  >
+                    <svg
+                      className="h-4 w-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      aria-hidden
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                  </button>
+                </>
+              ) : (
+                <div className="relative h-12 w-12 shrink-0" role="status" aria-live="polite">
+                  <div
+                    className="absolute inset-0 rounded-full border-2 border-gray-700"
+                    aria-hidden
+                  />
+                  <div
+                    className="absolute inset-0 rounded-full border-2 border-transparent border-t-gray-200 border-r-gray-500 animate-spin"
+                    style={{ animationDuration: "0.9s" }}
+                    aria-hidden
+                  />
+                </div>
+              )}
             </div>
           </div>
         </div>,

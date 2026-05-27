@@ -45,10 +45,10 @@ export function CollectionListSparkline({
   const stroke =
     positive !== undefined
       ? positive
-        ? "rgba(135, 255, 72, 0.95)"
+        ? "rgba(16, 211, 51, 0.95)"
         : "rgba(248, 113, 113, 0.9)"
       : up
-        ? "rgba(135, 255, 72, 0.95)"
+        ? "rgba(16, 211, 51, 0.95)"
         : "rgba(248, 113, 113, 0.9)";
 
   const trimmed = className.trim();

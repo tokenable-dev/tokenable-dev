@@ -10,6 +10,7 @@
 - [Backend Structure](architecture/backend.md)
 - [Frontend Structure](architecture/frontend.md)
 - [Database](architecture/database.md)
+- [Materialized Market Snapshots](architecture/materialized-market-snapshots.md)
 
 ## Backend API Reference
 

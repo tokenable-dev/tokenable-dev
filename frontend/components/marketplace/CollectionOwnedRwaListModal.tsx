@@ -13,6 +13,10 @@ import {
   type RwaMetadata,
 } from "@/lib/core";
 import { metadataMatchesCollectionKey } from "@/lib/marketplace/bucketKey";
+import {
+  buildRwaAssetDetailHeadlineParts,
+  formatAssetDetailHeadlineText,
+} from "@/lib/marketplace/assetDetailHeadline";
 import { ListRwaModal } from "@/components/marketplace/ListRwaModal";
 import { TOKENABLE_RWA_DISPLAY_NAME } from "@/constants/contracts";
 import { rq, marketplaceRqPolicy } from "@/lib/core";
@@ -118,6 +122,16 @@ export function CollectionOwnedRwaListModal({
     }
     return m;
   }, [orders]);
+
+  const listingAssetTitle = useMemo(() => {
+    if (listingTokenId == null) return null;
+    const fallback = `${TOKENABLE_RWA_DISPLAY_NAME} #${listingTokenId}`;
+    const asset = rows?.find((a) => a.tokenId === listingTokenId);
+    if (!asset?.metadata) return fallback;
+    return formatAssetDetailHeadlineText(
+      buildRwaAssetDetailHeadlineParts(asset.metadata, fallback),
+    );
+  }, [listingTokenId, rows]);
 
   async function handleCancel(order: OrderListItem) {
     if (!effectiveAddr) return;
@@ -268,6 +282,7 @@ export function CollectionOwnedRwaListModal({
       {listingTokenId != null && (
         <ListRwaModal
           tokenId={listingTokenId}
+          assetTitle={listingAssetTitle}
           collectionKey={collectionKey}
           collectionBids={collectionBids}
           preferredBidOrderHash={preferredBidOrderHash ?? undefined}

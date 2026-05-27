@@ -1,5 +1,4 @@
-import type { PublicClient } from "viem";
-import { TOKENABLE_RWA_ADDRESS, TOKENABLE_RWA_READ_ABI } from "@/constants/contracts";
+import { throwIfPsaResponseNotOk } from "@/lib/psa/psaApiErrors";
 
 /**
  * EC2+Nginx: leave NEXT_PUBLIC_API_URL unset so the browser uses
@@ -19,9 +18,43 @@ export function getApiUrl(): string {
     process.env.INTERNAL_API_URL?.replace(/\/$/, "") ?? "http://localhost:4000/api"
   );
 }
- 
+
+const DEFAULT_API_FETCH_TIMEOUT_MS = 25_000;
+
+function mergeAbortSignals(a: AbortSignal, b: AbortSignal): AbortSignal {
+  if (a.aborted) return a;
+  if (b.aborted) return b;
+  const merged = new AbortController();
+  const onAbort = () => merged.abort();
+  a.addEventListener("abort", onAbort);
+  b.addEventListener("abort", onAbort);
+  return merged.signal;
+}
+
 function backendFetch(url: string, init?: RequestInit): Promise<Response> {
-  return fetch(url, { ...init, credentials: "include" });
+  const timeoutMs = DEFAULT_API_FETCH_TIMEOUT_MS;
+  const timeoutSignal =
+    typeof AbortSignal !== "undefined" && "timeout" in AbortSignal
+      ? AbortSignal.timeout(timeoutMs)
+      : null;
+  const signal =
+    init?.signal && timeoutSignal
+      ? mergeAbortSignals(init.signal, timeoutSignal)
+      : init?.signal ?? timeoutSignal ?? undefined;
+
+  return fetch(url, { ...init, credentials: "include", signal }).catch((err) => {
+    if (err instanceof DOMException && err.name === "AbortError") {
+      throw new Error(
+        `API request timed out after ${Math.round(timeoutMs / 1000)}s (${url}). Is the backend running on ${getApiUrl()}?`,
+      );
+    }
+    if (err instanceof TypeError) {
+      throw new Error(
+        `Cannot reach API at ${url}. Start the Nest backend (pnpm start:dev in backend/) and Postgres.`,
+      );
+    }
+    throw err;
+  });
 }
 
 // ─── RWA metadata upload (IPFS) ────────────────────────────────────────────────
@@ -115,12 +148,7 @@ export async function analyzePsaSlab(
     method: "POST",
     body: fd,
   });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ message: "PSA analyze failed" }));
-    throw new Error(
-      (err as { message?: string }).message ?? "PSA analyze failed"
-    );
-  }
+  await throwIfPsaResponseNotOk(res);
   return res.json() as Promise<PsaAnalyzeResult>;
 }
 
@@ -133,56 +161,8 @@ export async function analyzePsaByCertNumber(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ certNumber: certNumberOrUrl.trim() }),
   });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ message: "PSA cert lookup failed" }));
-    throw new Error(
-      (err as { message?: string }).message ?? "PSA cert lookup failed"
-    );
-  }
+  await throwIfPsaResponseNotOk(res);
   return res.json() as Promise<PsaAnalyzeResult>;
-}
-
-// ─── Cardhedger-backed market index shapes ──────────────────────────────────────
-
-/** One row from Cardhedger market index feed. */
-export interface MarketIndexSummaryRow {
-  id: string;
-  name: string;
-  cards_count?: number;
-  /** Aggregate catalog value for the game in USD. */
-  game_value_usd: number;
-  /** Missing when the backend cannot derive a defensible window aggregate from Cardhedger data. */
-  game_value_change_7d_pct?: number | null;
-  game_value_change_30d_pct?: number | null;
-  game_value_change_90d_pct?: number | null;
-  game_value_change_180d_pct?: number | null;
-  /** Required for landing “1Y” index cards; missing rows are omitted from the dashboard grid. */
-  game_value_change_365d_pct?: number | null;
-}
-
-/** Cardhedger-backed dashboard indexes. */
-export interface CardhedgerIndexesResponse {
-  data: MarketIndexSummaryRow[];
-}
-
-/** Dashboard indexes (Pokemon/MLB/NFL/NBA) via backend Cardhedger aggregation. */
-export async function getCardhedgerIndexes(): Promise<CardhedgerIndexesResponse> {
-  const res = await backendFetch(`${getApiUrl()}/cardhedger/indexes`);
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    const msg =
-      typeof (err as { error?: unknown }).error === "string"
-        ? (err as { error: string }).error
-        : (err as { message?: string }).message;
-    throw new Error(msg ?? "Failed to load market indexes");
-  }
-  return res.json() as Promise<CardhedgerIndexesResponse>;
-}
-
-/** Index sparkline point */
-export interface MarketPriceHistoryPoint {
-  p: number;
-  t: number;
 }
 
 // ─── Blockchain — RWA (ERC-721) ───────────────────────────────────────────────
@@ -248,44 +228,6 @@ export async function postResolveMediaUrls(uris: string[]): Promise<{
   });
   if (!res.ok) throw new Error("Failed to resolve media URLs");
   return res.json() as Promise<{ items: Array<{ uri: string; httpsUrl: string | null }> }>;
-}
-
-export async function getRwaTokenURI(tokenId: number): Promise<string> {
-  const res = await backendFetch(`${getApiUrl()}/blockchain/rwa/token-uri/${tokenId}`);
-  /** 404 = tokenId not minted on current contract (e.g. after redeploy / address change) */
-  if (res.status === 404) return "";
-  if (!res.ok) throw new Error("Failed to fetch token URI");
-  const text = await res.text();
-  try {
-    const parsed = JSON.parse(text);
-    return typeof parsed === "string" ? parsed : parsed?.tokenURI ?? String(parsed);
-  } catch {
-    return text.trim();
-  }
-}
-
-/**
- * 메타데이터용 tokenURI: API 우선, 404/빈 값이면 지갑과 동일한 프론트 컨트랙트에서 `tokenURI` 읽기
- * (백엔드 RWA 주소·RPC가 프론트와 다를 때 카드 이미지 복구).
- */
-export async function resolveRwaTokenUri(
-  tokenId: number,
-  publicClient?: PublicClient | null,
-): Promise<string> {
-  const fromApi = await getRwaTokenURI(tokenId).catch(() => "");
-  if (fromApi) return fromApi;
-  if (!publicClient) return "";
-  try {
-    const uri = await publicClient.readContract({
-      address: TOKENABLE_RWA_ADDRESS,
-      abi: TOKENABLE_RWA_READ_ABI,
-      functionName: "tokenURI",
-      args: [BigInt(tokenId)],
-    });
-    return typeof uri === "string" ? uri : "";
-  } catch {
-    return "";
-  }
 }
 
 // ─── Marketplace Orders (오프체인 Seaport 주문) ───────────────────────────────
@@ -453,28 +395,6 @@ export async function getMarketplaceCollectionsPage(opts?: {
   }>;
 }
 
-/** 검색/레거시 호환: 모든 페이지를 순차 로드 (캡 30페이지) */
-export async function fetchAllMarketplaceCollectionSummaries(): Promise<
-  MarketplaceCollectionSummary[]
-> {
-  const out: MarketplaceCollectionSummary[] = [];
-  let cursor: string | null = null;
-  for (let i = 0; i < 30; i++) {
-    const page = await getMarketplaceCollectionsPage({ cursor, limit: 60 });
-    out.push(...page.items);
-    if (!page.nextCursor) break;
-    cursor = page.nextCursor;
-  }
-  return out;
-}
-
-/** tokenId로 전체 주문 이력 조회 (active/fulfilled/cancelled/expired 모두) */
-export async function getOrderHistoryByTokenId(tokenId: number): Promise<Order[]> {
-  const res = await backendFetch(`${getApiUrl()}/marketplace/orders/token/${tokenId}`);
-  if (!res.ok) throw new Error("Failed to fetch order history");
-  return res.json() as Promise<Order[]>;
-}
-
 /** orderHash로 단건 조회 */
 export async function getOrderByHash(
   orderHash: string,
@@ -584,13 +504,15 @@ export interface CollectionMarketSeries {
   marketChangePct: number | null;
   /** Present when served by a recent backend (exchange list uses same bundle fields) */
   marketChangeWindow?: "7d" | "30d" | "90d" | "180d" | "365d" | "24h";
+  marketChangeIsFullYear?: boolean;
+  marketChangeSpanSec?: number;
+  marketChangeRefUsd?: number | null;
+  marketChangeRefAtSec?: number | null;
   marketChangeSource?:
     | "cardhedger_nm"
     | "cardhedger_graded"
     | "none"
     | null;
-  /** Legacy (backend currently always false) */
-  isMockExternalPrices?: boolean;
   gradePrices: CollectionGradePrices;
   externalUsd: CollectionUsdPoint[];
   platformUsd: CollectionUsdPoint[];
@@ -599,24 +521,26 @@ export interface CollectionMarketSeries {
    * `GET …/cardhedger` for collection detail).
    */
   cardhedgerPreview?: CollectionMarketPreview;
+  /** Additive — materialized snapshot freshness (when served from DB). */
+  snapshotStale?: boolean;
+  syncedAt?: string;
+  reliabilityScore?: number;
 }
 
-/** PokeTrace NM chart bundle — `priceHistoryDuration` caps eBay NEAR_MINT history length for `externalUsd`. */
+/** Cardhedger-backed market series — `priceHistoryDuration` caps external reference history in `externalUsd`. */
 export async function getCollectionMarketSeries(
   collectionKey: string,
-  priceHistoryDuration: "7d" | "30d" | "90d" | "180d" | "365d" = "365d",
-  opts?: { hintTokenId?: number },
+  priceHistoryDuration:
+    | "7d"
+    | "30d"
+    | "90d"
+    | "180d"
+    | "365d"
+    | "max" = "30d",
 ): Promise<CollectionMarketSeries> {
   const enc = encodeURIComponent(collectionKey);
   const sp = new URLSearchParams();
   sp.set("priceHistoryDuration", priceHistoryDuration);
-  if (
-    opts?.hintTokenId != null &&
-    Number.isFinite(opts.hintTokenId) &&
-    opts.hintTokenId >= 0
-  ) {
-    sp.set("hintTokenId", String(Math.floor(opts.hintTokenId)));
-  }
   const res = await backendFetch(
     `${getApiUrl()}/marketplace/collections/${enc}/market-series?${sp.toString()}`
   );
@@ -649,21 +573,7 @@ export interface CollectionMarketStats {
   reference?: { cardhedgerCardId: string | null };
 }
 
-export async function getCollectionMarketStats(
-  collectionKey: string,
-): Promise<CollectionMarketStats> {
-  const enc = encodeURIComponent(collectionKey);
-  const res = await backendFetch(`${getApiUrl()}/marketplace/collections/${enc}/stats`);
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(
-      (err as { message?: string }).message ?? "Failed to load collection market stats",
-    );
-  }
-  return res.json() as Promise<CollectionMarketStats>;
-}
-
-/** Portfolio batch — same shapes as {@link getCollectionMarketStats} + {@link getCollectionMarketSeries}. */
+/** Portfolio batch — same shapes as {@link CollectionMarketStats} + {@link getCollectionMarketSeries}. */
 export interface PortfolioMarketBatchItem {
   collectionKey: string;
   stats: CollectionMarketStats | null;
@@ -673,7 +583,6 @@ export interface PortfolioMarketBatchItem {
 export async function postPortfolioCollectionMarketBatch(body: {
   collectionKeys: string[];
   priceHistoryDuration?: "7d" | "30d" | "90d" | "180d" | "365d";
-  hints?: Array<{ collectionKey: string; hintTokenId: number }>;
 }): Promise<{ items: PortfolioMarketBatchItem[] }> {
   const res = await backendFetch(
     `${getApiUrl()}/marketplace/collections/portfolio-market-batch`,
@@ -683,7 +592,6 @@ export async function postPortfolioCollectionMarketBatch(body: {
       body: JSON.stringify({
         collectionKeys: body.collectionKeys,
         priceHistoryDuration: body.priceHistoryDuration ?? "365d",
-        ...(body.hints && body.hints.length > 0 ? { hints: body.hints } : {}),
       }),
     },
   );
@@ -719,8 +627,6 @@ export interface CollectionMarketPreview {
   message?: string;
   /** Strict verified catalog id vs relaxed approximate reference (charts / NM). */
   matchConfidence?: "verified" | "approximate";
-  /** Legacy; backend no longer sets mock PokeTrace payloads */
-  isMockData?: boolean;
   card: null | {
     id: string;
     name: string;
@@ -758,92 +664,10 @@ export interface CollectionMarketPreview {
     /** eBay PSA tier bands keyed as `PSA_1` … `PSA_10` when upstream sends them */
     ebayPsaTiers?: Record<string, MarketPriceBand | null>;
   };
-}
-
-export async function getCollectionMarketPreview(
-  collectionKey: string
-): Promise<CollectionMarketPreview> {
-  const enc = encodeURIComponent(collectionKey);
-  const res = await backendFetch(
-    `${getApiUrl()}/marketplace/collections/${enc}/cardhedger`
-  );
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(
-      (err as { message?: string }).message ?? "Failed to load Cardhedger preview"
-    );
-  }
-  return res.json() as Promise<CollectionMarketPreview>;
-}
-
-export interface CollectionAiInsight {
-  title: string;
-  summary: string;
-  bullets: string[];
-  dynamics?: string[];
-  outlook?: string;
-  outlookScenarios?: {
-    bullCase: string;
-    baseCase: string;
-    bearCase: string;
-  };
-  generatedAt: string;
-  confidence?: number | null;
-  /** Shown under AI confidence when the model tapers certainty for thin tape. */
-  confidenceNote?: string | null;
-  /** Tape caveat when liquidity is too low to justify a “quiet = safe” read. */
-  riskTapeNote?: string | null;
-  marketTone?:
-    | "Uptrend"
-    | "Accumulation"
-    | "Distribution"
-    | "Dead cat bounce"
-    | "Illiquid / niche"
-    | "Consolidating"
-    | "Volatile"
-    | "Overextended"
-    | "Cooling"
-    /** @deprecated Older briefs only — retained for tolerant parsing. */
-    | "Bullish"
-    | "Accumulating"
-    | null;
-  riskScore?: number | null;
-  riskLabel?: "Low" | "Medium" | "High" | null;
-  stats?: {
-    psa10SpotUsd: number | null;
-    rawSpotUsd: number | null;
-    premiumVsRawPct: number | null;
-    sales7d: number | null;
-    sales30d: number | null;
-    change7dPct: number | null;
-    change30dPct: number | null;
-    change90dPct: number | null;
-    change365dPct: number | null;
-    points90d: number;
-    points365d: number;
-    psaTotalPopulation?: number | null;
-    psa10PriceConfidence?: "high" | "medium" | "low" | null;
-    psa10PricingNote?: string | null;
-    psa10SpotLowUsd?: number | null;
-    psa10SpotHighUsd?: number | null;
-    psa10CatalogUsd?: number | null;
-  };
-}
-
-export async function getCollectionAiInsight(
-  collectionKey: string,
-): Promise<CollectionAiInsight> {
-  const enc = encodeURIComponent(collectionKey);
-  const res = await backendFetch(
-    `${getApiUrl()}/marketplace/collections/${enc}/ai-insight`,
-  );
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(
-      (err as { message?: string }).message ?? "Failed to load AI insight",
-    );
-  }
-  return res.json() as Promise<CollectionAiInsight>;
+  /** Additive — snapshot served from materialized store */
+  snapshotStale?: boolean;
+  syncedAt?: string;
+  reliabilityScore?: number;
 }
 
 /** Matches `MintPreviewsByTokenIdsDto` `@ArrayMaxSize(32)` in the Nest controller. */
@@ -881,98 +705,6 @@ export async function postBatchMintMarketPreviews(
   return out;
 }
 
-export type MarketHistoryPeriod = "7d" | "30d" | "90d" | "1y";
-
-export interface CollectionMarketPriceHistory {
-  enabled: boolean;
-  searchQuery: string;
-  matched: boolean;
-  message?: string;
-  matchConfidence?: "verified" | "approximate";
-  /** Legacy; backend no longer sets synthetic NM history */
-  isMockData?: boolean;
-  days: number;
-  tier?: string;
-  period?: MarketHistoryPeriod;
-  points: CollectionUsdPoint[];
-  source: string;
-  upstreamRequests: number;
-}
-
-function calendarDaysToMarketPeriod(days: number): MarketHistoryPeriod {
-  const d = Math.min(4000, Math.max(1, Math.floor(days)));
-  if (d <= 7) return "7d";
-  if (d <= 30) return "30d";
-  if (d <= 90) return "90d";
-  return "1y";
-}
-
-/** Unified collection price history (same endpoint for list/detail/portfolio). */
-export async function getCollectionMarketPriceHistory(
-  collectionKey: string,
-  opts: {
-    tier?: string;
-    period?: MarketHistoryPeriod;
-    maxDays?: number;
-  } = {},
-): Promise<CollectionMarketPriceHistory> {
-  const enc = encodeURIComponent(collectionKey);
-  const tier = (opts.tier ?? "PSA_10").trim() || "PSA_10";
-  const period = opts.period ?? "90d";
-  const sp = new URLSearchParams();
-  sp.set("tier", tier);
-  sp.set("period", period);
-  if (
-    opts.maxDays != null &&
-    Number.isFinite(opts.maxDays) &&
-    opts.maxDays > 0
-  ) {
-    sp.set("maxDays", String(Math.min(4000, Math.floor(opts.maxDays))));
-  }
-  const res = await backendFetch(
-    `${getApiUrl()}/marketplace/collections/${enc}/cardhedger/price-history?${sp.toString()}`
-  );
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(
-      (err as { message?: string }).message ??
-        "Failed to load Cardhedger price history"
-    );
-  }
-  return res.json() as Promise<CollectionMarketPriceHistory>;
-}
-
-/** @deprecated Prefer {@link getCollectionMarketPriceHistory} with `period` + optional `maxDays`. */
-export async function getCollectionMarketNmHistory(
-  collectionKey: string,
-  days = 90
-): Promise<CollectionMarketPriceHistory> {
-  const d = Math.min(365, Math.max(1, Math.floor(days)));
-  return getCollectionMarketPriceHistory(collectionKey, {
-    tier: "PSA_10",
-    period: calendarDaysToMarketPeriod(d),
-    maxDays: d,
-  });
-}
-
-/** Upstream operation list (no secrets). */
-export async function getCardhedgerUpstreamCatalog(): Promise<{
-  upstreamBase: string;
-  operations: readonly unknown[];
-}> {
-  const res = await backendFetch(`${getApiUrl()}/cardhedger/catalog`);
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(
-      (err as { message?: string }).message ?? "Failed to load Cardhedger catalog"
-    );
-  }
-  return res.json() as Promise<{
-    upstreamBase: string;
-    operations: readonly unknown[];
-  }>;
-}
-
 /** Fulfilled listing fill for collection tape (same source as chart platform series). */
 export interface CollectionPlatformTapeFill {
   t: number;
@@ -1006,17 +738,18 @@ export async function getCollectionPlatformTrades(
 export interface CollectionListMarketSnapshot {
   collectionKey: string;
   categoryLabel: string | null;
-  /** Legacy bundle field; prefer {@link CollectionMarketStats} via `marketStats` or GET …/stats */
   marketChangePct: number | null;
   /** Window label for bundle metadata */
   marketChangeWindow?: "7d" | "30d" | "90d" | "180d" | "365d" | "24h";
+  marketChangeIsFullYear?: boolean;
+  marketChangeSpanSec?: number;
+  marketChangeRefUsd?: number | null;
+  marketChangeRefAtSec?: number | null;
   marketChangeSource?:
     | "cardhedger_nm"
     | "cardhedger_graded"
     | "none"
     | null;
-  /** Legacy bundle field (backend currently always false) */
-  isMockExternalPrices?: boolean;
   gradePrices: CollectionGradePrices;
   sparklineUsd: CollectionUsdPoint[];
   /** Pool stats (listing-derived); same contract as {@link getCollectionMarketStats} */
@@ -1025,6 +758,10 @@ export interface CollectionListMarketSnapshot {
   lastTokenableTradeUsdc?: number | null;
   /** Unix seconds for {@link lastTokenableTradeUsdc} */
   lastTokenableTradeAtSec?: number | null;
+  /** Additive — materialized snapshot metadata */
+  snapshotStale?: boolean;
+  syncedAt?: string;
+  reliabilityScore?: number;
 }
 
 /** Must match backend `BatchMarketSnapshotsDto` @ArrayMaxSize */

@@ -1,10 +1,9 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, type ReactNode } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
-import { useReadContract, usePublicClient, useWriteContract } from "wagmi";
+import { useReadContract, usePublicClient, useWriteContract, useConnect } from "wagmi";
 import type { Address } from "viem";
 import { sepolia } from "@/config/wagmi";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -13,14 +12,39 @@ import {
   getActiveOrderForToken,
   getResolvedRwaAsset,
   getMarketplaceCollectionDetailOrNull,
+  postMarketplaceCollectionSnapshotsBatched,
+  rq,
+  marketplaceRqPolicy,
+  type CollectionListMarketSnapshot,
 } from "@/lib/core";
+import {
+  formatReferenceChangeCoverageHint,
+  parseGradeScoreNumber,
+  representativeGradeUsd,
+  formatUsdCompact,
+  formatReferenceChangePeriodLabel,
+  formatReferenceChangePeriodShort,
+  MARKET_PRICE_CHANGE_SNAPSHOT_DURATION,
+  referenceChangePeriodFromSnapshotMeta,
+} from "@/lib/market";
+import { AssetDetailHeadlineTitle } from "@/components/marketplace/AssetDetailHeadlineTitle";
 import {
   RwaDetailAssetPanel,
   buildRwaDetailStatRows,
-  formatRwaSetHeadline,
   type RwaDetailMetadata,
 } from "@/components/marketplace/RwaDetailAssetPanel";
-import { displayAssetNameFromMetadata } from "@/lib/marketplace/rwaDisplayTitle";
+import {
+  RWA_MOBILE_CONTENT_SCROLL_CLASS,
+  RwaDetailMobileCardHeader,
+  RwaDetailStickyBuyButton,
+  RwaDetailStickyBuyFooter,
+} from "@/components/marketplace/RwaDetailMobileCardLayout";
+import { RwaDetailMobileSpecsPanel } from "@/components/marketplace/RwaDetailMobileSpecsPanel";
+import {
+  assetDetailHeadlineHasContent,
+  buildRwaAssetDetailHeadlineParts,
+  formatAssetDetailHeadlineText,
+} from "@/lib/marketplace/assetDetailHeadline";
 import {
   TOKENABLE_RWA_ADDRESS,
   TOKENABLE_RWA_DISPLAY_NAME,
@@ -47,6 +71,11 @@ import { useAppStore, selectWallet } from "@/store";
 import { IBM_Plex_Sans } from "next/font/google";
 import { fulfillAskListingOrder } from "@/lib/seaport/orders/fulfillAskListing";
 import { mapWalletError } from "@/lib/network";
+import {
+  GradientOutlineFrame,
+  PRODUCT_OUTLINE_PAD_CLASS,
+  gradientOutlineInnerButtonClass,
+} from "@/components/ui/GradientOutlineFrame";
 
 const rwaDetailRightFont = IBM_Plex_Sans({
   subsets: ["latin"],
@@ -54,108 +83,190 @@ const rwaDetailRightFont = IBM_Plex_Sans({
   display: "swap",
 });
 
+/** Desktop / compact hero CTAs — product gradient rim, black fill, mint label. */
+function DetailGradientButton({
+  children,
+  onClick,
+  disabled,
+  className = "",
+  bright = false,
+  compact = false,
+}: {
+  children: ReactNode;
+  onClick?: () => void;
+  disabled?: boolean;
+  className?: string;
+  /** Stronger glow — Connect wallet */
+  bright?: boolean;
+  compact?: boolean;
+}) {
+  const frameShadow = bright
+    ? "shadow-[0_10px_28px_-10px_rgba(0,0,0,0.75),0_0_40px_-4px_rgba(16,211,51,0.48)] has-[:enabled]:hover:shadow-[0_12px_32px_-10px_rgba(0,0,0,0.82),0_0_52px_-2px_rgba(16,211,51,0.62)] has-[:enabled]:focus-within:shadow-[0_12px_32px_-10px_rgba(0,0,0,0.82),0_0_52px_-2px_rgba(16,211,51,0.62)]"
+    : "shadow-[0_8px_24px_-10px_rgba(0,0,0,0.75),0_0_24px_-8px_rgba(16,211,51,0.32)] has-[:enabled]:hover:shadow-[0_10px_28px_-10px_rgba(0,0,0,0.8),0_0_36px_-6px_rgba(16,211,51,0.5)] has-[:enabled]:focus-within:shadow-[0_10px_28px_-10px_rgba(0,0,0,0.8),0_0_36px_-6px_rgba(16,211,51,0.5)]";
+
+  return (
+    <GradientOutlineFrame
+      className={`group/cta w-full min-w-0 max-w-full transition-shadow duration-200 ease-out ${frameShadow} ${className}`}
+      roundedClass="rounded-full"
+      padClass={PRODUCT_OUTLINE_PAD_CLASS}
+    >
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={disabled}
+        className={`${rwaDetailRightFont.className} ${gradientOutlineInnerButtonClass} flex w-full items-center justify-center !rounded-full border-0 leading-none tracking-normal outline-none transition-[background-color,box-shadow,filter] duration-200 ease-out enabled:hover:bg-zinc-950 enabled:hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.12),inset_0_-1px_0_rgba(16,211,51,0.08)] enabled:hover:brightness-110 enabled:hover:saturate-110 enabled:focus-visible:ring-2 enabled:focus-visible:ring-mint/50 enabled:focus-visible:ring-offset-2 enabled:focus-visible:ring-offset-black disabled:cursor-not-allowed disabled:!bg-black disabled:text-mint/35 motion-reduce:enabled:hover:brightness-100 ${
+          compact
+            ? "min-h-[48px] px-4 text-[15px] sm:min-h-[52px] sm:text-base"
+            : "min-h-[50px] px-6 text-[18px] sm:min-h-[58px] sm:px-10 sm:text-[20px]"
+        }`}
+        style={{ backgroundColor: "#000000" }}
+      >
+        {children}
+      </button>
+    </GradientOutlineFrame>
+  );
+}
+
+function connectMetaMaskWallet(
+  connect: ReturnType<typeof useConnect>["connect"],
+  connectors: ReturnType<typeof useConnect>["connectors"],
+) {
+  const metaMaskConnector = connectors.find((c) => c.name === "MetaMask");
+  if (metaMaskConnector) connect({ connector: metaMaskConnector });
+}
+
+/** Full-width market context when there is no Tokenable list price to anchor the page. */
+function MarketContextStrip({
+  externalRefUsd,
+  marketChangePct,
+  changePeriodLabel,
+  changeCoverageHint,
+}: {
+  externalRefUsd: number | null;
+  marketChangePct: number | null;
+  changePeriodLabel: string;
+  changeCoverageHint?: string;
+}) {
+  if (externalRefUsd == null && marketChangePct == null) return null;
+  const changeUp = marketChangePct != null && marketChangePct > 0;
+  const changeDown = marketChangePct != null && marketChangePct < 0;
+  const showRef = externalRefUsd != null;
+  const showChange = marketChangePct != null && Number.isFinite(marketChangePct);
+
+  return (
+    <div
+      className={`grid gap-3 rounded-xl border border-zinc-700/55 bg-gradient-to-br from-zinc-900/80 to-[#0a0c0f] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_8px_24px_-16px_rgba(0,0,0,0.65)] sm:gap-4 sm:p-4 ${
+        showRef && showChange ? "grid-cols-2" : "grid-cols-1"
+      }`}
+    >
+      {showRef ? (
+        <div className="min-w-0">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-500 sm:text-[11px]">
+            eBay reference
+          </p>
+          <p
+            className={`${rwaDetailRightFont.className} mt-2 text-[1.35rem] font-bold leading-none tabular-nums text-[#87FF48] sm:mt-2.5 sm:text-2xl`}
+          >
+            {formatUsdCompact(externalRefUsd)}
+          </p>
+        </div>
+      ) : null}
+      {showChange ? (
+        <div
+          className={`min-w-0 ${showRef ? "border-l border-zinc-700/60 pl-3 sm:pl-4" : ""}`}
+        >
+          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-500 sm:text-[11px]">
+            {changePeriodLabel} change
+          </p>
+          <p
+            title={changeCoverageHint}
+            className={`${rwaDetailRightFont.className} mt-2 text-[1.35rem] font-bold leading-none tabular-nums sm:mt-2.5 sm:text-2xl ${
+              changeUp ? "text-mint" : changeDown ? "text-rose-400" : "text-zinc-200"
+            }`}
+          >
+            {marketChangePct! > 0 ? "+" : ""}
+            {marketChangePct!.toFixed(1)}%
+          </p>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function ListPriceDisplay({ priceUsd }: { priceUsd: number }) {
+  const priceStr = priceUsd.toLocaleString("en-US", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  });
+
+  return (
+    <p
+      className={`${rwaDetailRightFont.className} text-[clamp(2.25rem,8vw,3.25rem)] font-bold leading-none tracking-tight text-white tabular-nums sm:text-[3.25rem]`}
+    >
+      ${priceStr}
+    </p>
+  );
+}
+
 type BuyerTradingPanelProps = {
   isConnected: boolean;
   buyBusy: boolean;
   listingPriceUsd: number | null;
-  collectionPageHref: string | null;
-  collectionLinkTitle: string | null;
   buyErr: string | null;
   onFulfill: () => void | Promise<void>;
-  /** When false, omits collection / order-book row (desktop hero match). */
-  showCollectionLink?: boolean;
 };
-
-const DETAIL_BUY_RIM =
-  "linear-gradient(99.67deg, #529e22 3.64%, #87FF48 54%, #284214 112.88%)";
 
 function BuyerTradingPanel({
   isConnected,
   buyBusy,
   listingPriceUsd,
-  collectionPageHref,
-  collectionLinkTitle,
   buyErr,
   onFulfill,
-  showCollectionLink = true,
-}: BuyerTradingPanelProps) {
-  const priceStr =
-    listingPriceUsd != null && Number.isFinite(listingPriceUsd)
-      ? listingPriceUsd.toLocaleString("en-US", {
-          minimumFractionDigits: 0,
-          maximumFractionDigits: 2,
-        })
-      : null;
-  const cta =
-    !isConnected ? "Connect wallet" : buyBusy ? "Buying…" : "Buy";
+  compact = false,
+}: BuyerTradingPanelProps & { compact?: boolean }) {
+  const { connect, connectors, isPending: connectPending } = useConnect();
+
+  const cta = !isConnected
+    ? connectPending
+      ? "Connecting…"
+      : "Connect wallet"
+    : buyBusy
+      ? "Buying…"
+      : "Buy";
 
   return (
-    <div className="space-y-4">
-      {priceStr != null ? (
-        <p
-          className={`${rwaDetailRightFont.className} mt-2 text-[clamp(2rem,11vw,54px)] font-semibold leading-[150%] tracking-normal text-white tabular-nums [overflow-wrap:anywhere] xl:mt-3 xl:text-[54px]`}
-        >
-          ${priceStr}
-        </p>
+    <div className={compact ? "flex min-w-0 flex-col gap-2.5" : "space-y-5 sm:space-y-6"}>
+      {listingPriceUsd != null && Number.isFinite(listingPriceUsd) ? (
+        compact ? (
+          <p
+            className={`${rwaDetailRightFont.className} text-[clamp(1.35rem,6vw,1.75rem)] font-bold leading-none tracking-tight text-white tabular-nums`}
+          >
+            $
+            {listingPriceUsd.toLocaleString("en-US", {
+              minimumFractionDigits: 0,
+              maximumFractionDigits: 2,
+            })}
+          </p>
+        ) : (
+          <ListPriceDisplay priceUsd={listingPriceUsd} />
+        )
       ) : null}
 
-      <button
-        type="button"
-        onClick={() => void onFulfill()}
-        disabled={!isConnected || buyBusy}
-        style={{ background: DETAIL_BUY_RIM }}
-        className="group/cta relative z-[1] box-border flex h-[72px] w-full min-w-0 max-w-full items-center justify-center rounded-[44px] p-[2px] text-center shadow-[0_10px_28px_-10px_rgba(0,0,0,0.8)] transition-[transform,box-shadow,opacity] duration-200 ease-out [-webkit-tap-highlight-color:transparent] enabled:hover:-translate-y-0.5 enabled:hover:scale-[1.01] enabled:hover:shadow-[0_14px_36px_-12px_rgba(0,0,0,0.88),0_0_28px_-2px_rgba(135,255,72,0.28)] enabled:active:translate-y-0 enabled:active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-40 motion-reduce:transition-none motion-reduce:enabled:hover:scale-100 motion-reduce:enabled:hover:translate-y-0"
-      >
-        <span
-          className={`${rwaDetailRightFont.className} flex h-full min-h-0 w-full min-w-0 items-center justify-center gap-[10px] rounded-[42px] bg-[rgba(11,13,16,1)] px-12 py-4 text-[17px] font-bold leading-[140%] tracking-normal text-white transition-[background-color,box-shadow] duration-200 group-hover/cta:bg-[rgba(16,18,22,1)] group-hover/cta:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06)] group-active/cta:bg-[rgba(11,13,16,1)]`}
-        >
-          {cta}
-        </span>
-      </button>
-      {collectionPageHref && showCollectionLink ? (
-        <Link
-          href={collectionPageHref}
-          title={
-            collectionLinkTitle
-              ? `${collectionLinkTitle} — marketplace`
-              : "Open marketplace collection"
+      <DetailGradientButton
+        bright={!isConnected}
+        compact={compact}
+        onClick={() => {
+          if (!isConnected) {
+            connectMetaMaskWallet(connect, connectors);
+            return;
           }
-          className="group flex w-full max-w-full items-center gap-3 rounded-xl border border-[rgba(38,39,45,1)] bg-[rgba(20,20,21,0.65)] px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition-all hover:border-white/20 hover:bg-white/[0.04] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/25"
-        >
-          <span
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-white/[0.08] bg-white/[0.05] text-zinc-300 transition-colors group-hover:border-white/15 group-hover:bg-white/[0.08]"
-            aria-hidden
-          >
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-              <polyline points="9 22 9 12 15 12 15 22" />
-            </svg>
-          </span>
-          <span className="min-w-0 flex-1 text-left">
-            <span className="block text-[13px] font-semibold tracking-tight text-white truncate">
-              {collectionLinkTitle ?? "This collection"}
-            </span>
-            <span className="mt-0.5 block text-[11px] font-medium uppercase tracking-wide text-[#a0a0a0] group-hover:text-zinc-300">
-              Open order book
-            </span>
-          </span>
-          <span
-            className="shrink-0 text-xs font-semibold text-zinc-400 transition-transform group-hover:translate-x-0.5 group-hover:text-white"
-            aria-hidden
-          >
-            →
-          </span>
-        </Link>
-      ) : null}
+          void onFulfill();
+        }}
+        disabled={connectPending || buyBusy}
+      >
+        {cta}
+      </DetailGradientButton>
+
       {buyErr ? (
         <p className="text-xs text-red-400 leading-snug">{buyErr}</p>
       ) : null}
@@ -172,6 +283,7 @@ export default function RwaDetailPage() {
   const tokenId = Number(params.tokenId);
 
   const { address, isConnected } = useAppStore(useShallow(selectWallet));
+  const { connect, connectors, isPending: connectPending } = useConnect();
   const publicClient = usePublicClient({ chainId: sepolia.id });
   const { writeContractAsync } = useWriteContract();
 
@@ -242,6 +354,75 @@ export default function RwaDetailPage() {
     staleTime: 15_000,
   });
 
+  const collectionSnapshotKey = collectionKeyForMatch?.toLowerCase() ?? null;
+  const { data: detailSnapshotPack } = useQuery({
+    queryKey: rq.collectionSnapshots(
+      collectionSnapshotKey ? [collectionSnapshotKey] : [],
+      MARKET_PRICE_CHANGE_SNAPSHOT_DURATION,
+    ),
+    queryFn: () =>
+      postMarketplaceCollectionSnapshotsBatched(
+        [collectionSnapshotKey!],
+        MARKET_PRICE_CHANGE_SNAPSHOT_DURATION,
+      ),
+    enabled: Boolean(collectionSnapshotKey && tokenIdOk),
+    staleTime: marketplaceRqPolicy.snapshotsStaleMs,
+  });
+
+  const collectionSnapshot: CollectionListMarketSnapshot | undefined = useMemo(() => {
+    if (!collectionSnapshotKey) return undefined;
+    return detailSnapshotPack?.items?.find(
+      (it) => it.collectionKey.toLowerCase() === collectionSnapshotKey,
+    );
+  }, [detailSnapshotPack?.items, collectionSnapshotKey]);
+
+  const externalRefUsd = useMemo(() => {
+    const comp = collectionDetail?.collection?.components as
+      | { gradeScore?: string }
+      | undefined;
+    const usd = representativeGradeUsd(
+      collectionSnapshot?.gradePrices ?? null,
+      parseGradeScoreNumber(comp?.gradeScore),
+      comp?.gradeScore,
+    );
+    return usd != null && Number.isFinite(usd) && usd > 0 ? usd : null;
+  }, [collectionDetail?.collection?.components, collectionSnapshot?.gradePrices]);
+
+  const marketChangePct = useMemo(() => {
+    const pct = collectionSnapshot?.marketChangePct;
+    return pct != null && Number.isFinite(pct) ? pct : null;
+  }, [collectionSnapshot?.marketChangePct]);
+
+  const marketChangePeriodMeta = useMemo(() => {
+    const s = collectionSnapshot;
+    if (
+      s?.marketChangeSpanSec != null &&
+      s.marketChangeSpanSec > 0
+    ) {
+      return {
+        isFullYear: Boolean(s.marketChangeIsFullYear),
+        windowSec: s.marketChangeSpanSec,
+        refUsd: s.marketChangeRefUsd ?? null,
+        refAtSec: s.marketChangeRefAtSec ?? null,
+      };
+    }
+    return referenceChangePeriodFromSnapshotMeta(s);
+  }, [collectionSnapshot]);
+
+  const marketChangePeriodLabel = useMemo(
+    () => formatReferenceChangePeriodLabel(marketChangePeriodMeta),
+    [marketChangePeriodMeta],
+  );
+  const marketChangeCoverageHint = useMemo(
+    () => formatReferenceChangeCoverageHint(marketChangePeriodMeta),
+    [marketChangePeriodMeta],
+  );
+
+  const marketChangePeriodShort = useMemo(
+    () => formatReferenceChangePeriodShort(marketChangePeriodMeta),
+    [marketChangePeriodMeta],
+  );
+
   const navigateToCollectionAfterTrade = useCallback(() => {
     if (collectionKeyForRedirect) {
       router.replace(
@@ -274,25 +455,28 @@ export default function RwaDetailPage() {
 
   const metadata = metadataEarly;
 
+  const detailHeadlineFallback = `${TOKENABLE_RWA_DISPLAY_NAME} #${tokenId}`;
+  const detailHeadlineParts = useMemo(
+    () =>
+      buildRwaAssetDetailHeadlineParts(
+        metadata as RwaDetailMetadata | null,
+        detailHeadlineFallback,
+      ),
+    [metadata, detailHeadlineFallback],
+  );
+  const detailTitle = useMemo(
+    () => formatAssetDetailHeadlineText(detailHeadlineParts),
+    [detailHeadlineParts],
+  );
+  const detailTitlePulse =
+    Boolean(metaLoading) &&
+    !metadata?.name?.trim() &&
+    !assetDetailHeadlineHasContent(detailHeadlineParts);
+
   const rwaDetailStatRows = useMemo(
     () => buildRwaDetailStatRows(metadata as RwaDetailMetadata | null),
     [metadata],
   );
-
-  const detailTitle = useMemo(
-    () =>
-      displayAssetNameFromMetadata(
-        metadata as RwaDetailMetadata | null,
-        `${TOKENABLE_RWA_DISPLAY_NAME} #${tokenId}`,
-      ),
-    [metadata, tokenId],
-  );
-  const detailSetHeadline = useMemo(
-    () => formatRwaSetHeadline(metadata as RwaDetailMetadata | null),
-    [metadata],
-  );
-  const detailTitlePulse =
-    Boolean(metaLoading) && !metadata?.name?.trim();
 
   // ── Buy (ask listing) ─────────────────────────────────────────────────────
 
@@ -355,9 +539,16 @@ export default function RwaDetailPage() {
       await queryClient.invalidateQueries({
         queryKey: ["marketplace-collection", collectionKeyForMatch],
       });
+      await queryClient.invalidateQueries({
+        queryKey: ["collection-market-series", collectionKeyForMatch],
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ["collection-snapshots"],
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ["portfolio-market-batch"],
+      });
     }
-    await queryClient.invalidateQueries({ queryKey: ["collection-market-stats"] });
-    await queryClient.invalidateQueries({ queryKey: ["collection-market"] });
   }
 
   async function handleFulfillAsk() {
@@ -390,22 +581,48 @@ export default function RwaDetailPage() {
 
   // ── Derived ────────────────────────────────────────────────────────────────
 
-  const collectionPageHref = collectionKeyForRedirect
-    ? `/marketplace/collections/${encodeURIComponent(collectionKeyForRedirect)}`
-    : null;
-  const collectionLinkTitle =
-    collectionDetail?.collection?.displayLabel?.trim() ?? null;
-
   const imageUrl = metaBundle?.imageUrl ?? null;
   const isPageLoading = ownerLoading;
   const showMain = tokenIdOk && !ownerLoading && !ownerError && ownerOnChain != null;
 
+  const collectionHref = collectionKeyForRedirect
+    ? `/marketplace/collections/${encodeURIComponent(collectionKeyForRedirect)}`
+    : null;
+
+  const collectionDisplayName =
+    collectionDetail?.collection?.displayLabel?.trim() ||
+    TOKENABLE_RWA_DISPLAY_NAME;
+
+  const mobileStickyFooterNote =
+    buyErr != null ? (
+      <p className="text-xs text-red-400 leading-snug">{buyErr}</p>
+    ) : listingError ? (
+      <p className="text-xs text-orange-400">Could not load listing.</p>
+    ) : null;
+
+  const showMobileMarketContext =
+    !activeAskListing &&
+    !isOwner &&
+    (externalRefUsd != null || marketChangePct != null);
+
   return (
-    <div className="min-h-screen bg-[#07090c] text-white">
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-10 space-y-10">
+    <div
+      className={`bg-[#07090c] text-white max-xl:bg-black ${
+        showMain
+          ? "max-lg:h-[calc(100svh-4rem)] max-lg:max-h-[calc(100svh-4rem)] max-lg:overflow-hidden"
+          : "min-h-screen"
+      }`}
+    >
+      <main
+        className={`mx-auto w-full max-w-6xl px-3 py-6 max-[380px]:px-2.5 sm:px-5 sm:py-8 lg:min-h-screen lg:px-6 lg:pb-8 ${
+          showMain
+            ? "max-lg:flex max-lg:h-full max-lg:min-h-0 max-lg:flex-col max-lg:overflow-hidden max-lg:py-2 max-lg:pb-0"
+            : "max-lg:pb-6"
+        }`}
+      >
         {/* Loading */}
         {tokenIdOk && isPageLoading && (
-          <div className="grid grid-cols-1 xl:grid-cols-[minmax(260px,16fr)_minmax(240px,10fr)] gap-8 xl:gap-x-9 items-start">
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_minmax(280px,0.62fr)] lg:gap-x-10 items-start">
             <div className="space-y-4">
               <div className="aspect-[3/4] max-h-[min(76vh,700px)] sm:max-h-[min(78vh,760px)] w-full bg-gray-800/90 rounded-2xl animate-pulse" />
               <div className="h-8 w-3/4 bg-gray-800 rounded animate-pulse" />
@@ -462,94 +679,188 @@ export default function RwaDetailPage() {
         {/* Main content */}
         {showMain && (
           <>
-            <div className="grid grid-cols-1 xl:grid-cols-[minmax(260px,16fr)_minmax(240px,10fr)] gap-y-8 gap-x-0 xl:gap-x-9 xl:gap-y-10 items-start">
-              {/* Left — slab · title · badges · metrics (narrow) */}
-              <div className="min-w-0 xl:col-start-1 xl:row-start-1">
-                <RwaDetailAssetPanel
-                  metadata={metadata as RwaDetailMetadata | null}
-                  imageUrl={imageUrl}
-                  tokenId={tokenId}
-                  collectionLabel={TOKENABLE_RWA_DISPLAY_NAME}
-                  metaLoading={metaLoading}
-                  hideHeaderOnXl
-                />
-              </div>
+            <div className="grid grid-cols-1 items-start gap-y-8 max-lg:items-center max-lg:gap-y-0 lg:grid-cols-[minmax(0,1.05fr)_minmax(280px,0.62fr)] lg:gap-x-10 lg:gap-y-10 xl:gap-x-12">
+              <div className="relative flex w-full min-w-0 flex-col gap-0 max-lg:items-center lg:col-start-1">
+                <div className={`w-full ${RWA_MOBILE_CONTENT_SCROLL_CLASS}`}>
+                  <RwaDetailAssetPanel
+                    metadata={metadata as RwaDetailMetadata | null}
+                    imageUrl={imageUrl}
+                    tokenId={tokenId}
+                    collectionLabel={collectionDisplayName}
+                    metaLoading={metaLoading}
+                    hideHeaderOnXl
+                    openSeaMobile
+                  />
 
-              {activeAskListing && !isOwner && (
-                <div className="min-w-0 xl:hidden">
-                  <BuyerTradingPanel
-                    isConnected={isConnected}
-                    buyBusy={buyBusy}
-                    listingPriceUsd={listingBuyPriceUsdc}
-                    collectionPageHref={collectionPageHref}
-                    collectionLinkTitle={collectionLinkTitle}
-                    buyErr={buyErr}
-                    onFulfill={handleFulfillAsk}
+                  <RwaDetailMobileCardHeader
+                    headlineParts={detailHeadlineParts}
+                    titleLoading={detailTitlePulse}
+                  />
+
+                  <RwaDetailMobileSpecsPanel
+                    metadata={metadata as RwaDetailMetadata | null}
+                    loading={metaLoading}
+                    externalRefUsd={externalRefUsd}
+                    marketChangePct={marketChangePct}
+                    marketChangePeriodShort={marketChangePeriodShort}
+                    marketChangePeriodLabel={marketChangePeriodLabel}
+                    marketChangeCoverageHint={marketChangeCoverageHint}
+                    showMarketContext={showMobileMarketContext}
                   />
                 </div>
-              )}
 
-              <div className="flex w-full min-w-0 flex-col gap-0 xl:sticky xl:top-6 xl:col-start-2 xl:row-start-1 xl:max-w-[428px] xl:justify-self-start xl:self-start">
-                <div className="hidden xl:block space-y-2 min-w-0">
+                <RwaDetailStickyBuyFooter footerNote={mobileStickyFooterNote}>
+                  {activeAskListing && !isOwner ? (
+                    <RwaDetailStickyBuyButton
+                      emphasis="primary"
+                      priceUsd={listingBuyPriceUsdc}
+                      disabled={buyBusy || connectPending}
+                      onClick={() => {
+                        if (!isConnected) {
+                          connectMetaMaskWallet(connect, connectors);
+                          return;
+                        }
+                        void handleFulfillAsk();
+                      }}
+                    >
+                      {!isConnected
+                        ? connectPending
+                          ? "Connecting…"
+                          : "Connect wallet"
+                        : buyBusy
+                          ? "Buying…"
+                          : "Buy now"}
+                    </RwaDetailStickyBuyButton>
+                  ) : isOwner ? (
+                    <RwaDetailStickyBuyButton
+                      priceUsd={
+                        listing && listingBuyPriceUsdc != null
+                          ? listingBuyPriceUsdc
+                          : null
+                      }
+                      priceCaption="Listed at"
+                      disabled={connectPending}
+                      onClick={() => {
+                        if (!isConnected) {
+                          connectMetaMaskWallet(connect, connectors);
+                          return;
+                        }
+                        setListModalInitialPrice(null);
+                        setListModalOpen(true);
+                      }}
+                    >
+                      {!isConnected
+                        ? connectPending
+                          ? "Connecting…"
+                          : "Connect wallet"
+                        : listing
+                          ? "Manage listing"
+                          : "List for sale"}
+                    </RwaDetailStickyBuyButton>
+                  ) : (
+                    <RwaDetailStickyBuyButton
+                      disabled={!collectionHref}
+                      onClick={() => {
+                        if (collectionHref) router.push(collectionHref);
+                      }}
+                    >
+                      View market
+                    </RwaDetailStickyBuyButton>
+                  )}
+                </RwaDetailStickyBuyFooter>
+              </div>
+
+              <div className="hidden w-full min-w-0 flex-col gap-6 sm:gap-7 lg:sticky lg:top-6 lg:col-start-2 lg:flex lg:max-w-[400px] lg:justify-self-end lg:self-start">
+                <div className="hidden lg:block space-y-2.5 min-w-0">
                   {detailTitlePulse ? (
                     <div
-                      className="h-12 w-[min(100%,24rem)] max-w-full animate-pulse rounded-lg bg-gray-800/85"
+                      className="h-9 w-[min(100%,20rem)] max-w-full animate-pulse rounded-lg bg-gray-800/85"
                       aria-hidden
+                    />
+                  ) : assetDetailHeadlineHasContent(detailHeadlineParts) ? (
+                    <AssetDetailHeadlineTitle
+                      as="h1"
+                      parts={detailHeadlineParts}
+                      className={`${rwaDetailRightFont.className} min-w-0 break-words text-[clamp(1.375rem,2.8vw,1.75rem)] font-bold leading-snug tracking-tight text-white [overflow-wrap:anywhere]`}
                     />
                   ) : (
                     <h1
-                      className={`${rwaDetailRightFont.className} min-w-0 break-words text-[34px] font-bold leading-[140%] tracking-normal text-white [overflow-wrap:anywhere]`}
+                      className={`${rwaDetailRightFont.className} min-w-0 break-words text-[clamp(1.375rem,2.8vw,1.75rem)] font-bold leading-snug tracking-tight text-white`}
                     >
                       {detailTitle}
                     </h1>
                   )}
-                  {detailSetHeadline ? (
-                    <p
-                      className={`${rwaDetailRightFont.className} text-[16px] font-normal leading-[140%] tracking-normal text-[#a0a0a0]`}
-                    >
-                      {detailSetHeadline}
-                    </p>
-                  ) : null}
                 </div>
 
-                {listingError && (
-                  <p className="text-xs text-orange-400 px-1 xl:mt-6">Could not load listing.</p>
-                )}
+                {listingError ? (
+                  <p className="text-xs text-orange-400">Could not load listing.</p>
+                ) : null}
 
                 {activeAskListing && !isOwner ? (
-                  <div className="hidden xl:block xl:mt-10">
+                  <div className="hidden lg:block">
                     <BuyerTradingPanel
                       isConnected={isConnected}
                       buyBusy={buyBusy}
                       listingPriceUsd={listingBuyPriceUsdc}
-                      collectionPageHref={collectionPageHref}
-                      collectionLinkTitle={collectionLinkTitle}
                       buyErr={buyErr}
                       onFulfill={handleFulfillAsk}
-                      showCollectionLink={false}
                     />
                   </div>
                 ) : null}
 
                 {isOwner ? (
-                  <div className="w-full max-w-full rounded-2xl border border-[rgba(38,39,45,1)] bg-[rgba(20,20,21,0.72)] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] xl:mt-10">
-                    <button
-                      type="button"
+                  <div className="hidden w-full max-w-full space-y-5 sm:space-y-6 lg:block">
+                    {listing && listingBuyPriceUsdc != null ? (
+                      <ListPriceDisplay priceUsd={listingBuyPriceUsdc} />
+                    ) : null}
+                    <DetailGradientButton
+                      bright={!isConnected}
+                      disabled={connectPending}
                       onClick={() => {
+                        if (!isConnected) {
+                          connectMetaMaskWallet(connect, connectors);
+                          return;
+                        }
                         setListModalInitialPrice(null);
                         setListModalOpen(true);
                       }}
-                      disabled={!isConnected}
-                      className="w-full inline-flex min-w-0 justify-center items-center rounded-[22px] border border-white/[0.12] bg-white/[0.05] px-4 py-3.5 text-[17px] font-semibold text-white transition-colors hover:border-white/20 hover:bg-white/[0.08] disabled:opacity-40 disabled:cursor-not-allowed"
                     >
-                      {listing ? "Manage listing" : "List for sale"}
-                    </button>
+                      {!isConnected
+                        ? connectPending
+                          ? "Connecting…"
+                          : "Connect wallet"
+                        : listing
+                          ? "Manage listing"
+                          : "List for sale"}
+                    </DetailGradientButton>
+                    {!listing ? (
+                      <MarketContextStrip
+                        externalRefUsd={externalRefUsd}
+                        marketChangePct={marketChangePct}
+                        changePeriodLabel={marketChangePeriodLabel}
+                        changeCoverageHint={marketChangeCoverageHint}
+                      />
+                    ) : null}
+                  </div>
+                ) : null}
+
+                {!activeAskListing && !isOwner ? (
+                  <div className="hidden space-y-5 sm:space-y-6 lg:block">
+                    <p className={`${rwaDetailRightFont.className} text-xl font-semibold text-zinc-400`}>
+                      Not for sale
+                    </p>
+                    <MarketContextStrip
+                      externalRefUsd={externalRefUsd}
+                      marketChangePct={marketChangePct}
+                      changePeriodLabel={marketChangePeriodLabel}
+                      changeCoverageHint={marketChangeCoverageHint}
+                    />
                   </div>
                 ) : null}
 
                 {rwaDetailStatRows.length > 0 ? (
                   <div
-                    className={`hidden xl:block mt-10 border-t border-[rgba(38,39,45,1)] pt-8 ${rwaDetailRightFont.className}`}
+                    className={`hidden lg:block mt-10 border-t border-[rgba(38,39,45,1)] pt-8 ${rwaDetailRightFont.className}`}
                   >
                     <h2 className="text-[18px] font-bold leading-[140%] tracking-normal text-white">
                       Details
@@ -571,7 +882,9 @@ export default function RwaDetailPage() {
                     </dl>
                   </div>
                 ) : null}
+
               </div>
+
             </div>
 
             <TradeCelebrationModal
@@ -583,6 +896,7 @@ export default function RwaDetailPage() {
             {listModalOpen && (
               <ListRwaModal
                 tokenId={tokenId}
+                assetTitle={detailTitle}
                 collectionKey={collectionKeyForMatch ?? undefined}
                 collectionBids={collectionBids}
                 existingAskOrder={

@@ -7,6 +7,13 @@
 /** 헤더·포트폴리오 등 일반 본문 (초기 `max-w-6xl` + 동일 패딩) */
 export const APP_MAIN_SHELL_CLASS = "max-w-6xl mx-auto px-4 sm:px-6";
 
+/**
+ * Wraps routed page content — clips horizontal overflow on mobile so carousels
+ * and wide grids do not shift the whole document (“page moves around”).
+ */
+export const MOBILE_PAGE_SHELL_CLASS =
+  "mobile-page-root relative min-w-0 w-full max-w-full overflow-x-clip";
+
 /** `/marketplace/collections/[collectionKey]` 전용 */
 export const COLLECTION_DETAIL_SHELL_CLASS =
   "mx-auto w-full max-w-[1680px] px-3 min-[375px]:px-4 sm:px-5 lg:px-8 xl:px-10";

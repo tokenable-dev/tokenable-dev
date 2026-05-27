@@ -130,7 +130,20 @@ export function varietyHintsForSearch(varietyHint?: string): string[] {
     )
     .trim();
   const primary = cleaned.length > 0 ? cleaned : v;
-  return [primary];
+  const out: string[] = [primary];
+  const t = primary.toLowerCase();
+  if (
+    /\bprecious\s*metal\s*gems?\b/.test(t) ||
+    /\bprecious\s*metal\b/.test(t) ||
+    t === 'pmg'
+  ) {
+    for (const alias of ['Precious Metal Gems', 'PMG']) {
+      if (!out.some((x) => x.toLowerCase() === alias.toLowerCase())) {
+        out.push(alias);
+      }
+    }
+  }
+  return out;
 }
 
 /**

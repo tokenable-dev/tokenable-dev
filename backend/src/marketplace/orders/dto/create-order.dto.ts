@@ -144,10 +144,11 @@ export class CreateOrderDto {
   @IsEthereumAddress()
   tokenContract: string;
 
-  /** ask: real tokenId. bid FULL: real tokenId. bid criteria: use "0". */
+  /** ask: minted ERC-721 id (includes `0`). criteria bid: sentinel `"0"`. */
   @ApiProperty({
-    description: 'Token ID (0 for collection criteria bid)',
-    example: '0',
+    description:
+      'Ask: decimal token id (`0` is valid for first mint). Criteria bid: use `"0"`.',
+    example: '1',
   })
   @IsNumberString()
   tokenId: string;

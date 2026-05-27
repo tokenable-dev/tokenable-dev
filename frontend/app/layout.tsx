@@ -4,6 +4,7 @@ import "./globals.css";
 import { Providers } from "./providers";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { ASSETS } from "@/constants/assets";
+import { MOBILE_PAGE_SHELL_CLASS } from "@/constants/layout";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -33,6 +34,12 @@ export const metadata: Metadata = {
   },
 };
 
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -45,7 +52,7 @@ export default function RootLayout({
       >
         <Providers>
           <AppHeader />
-          {children}
+          <div className={MOBILE_PAGE_SHELL_CLASS}>{children}</div>
         </Providers>
       </body>
     </html>

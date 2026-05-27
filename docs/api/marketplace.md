@@ -4,12 +4,13 @@
 - `marketplace/orders/orders.controller.ts`
 - `marketplace/collections/collections.controller.ts`
 - `marketplace/collections/cert-market-trace.controller.ts`
-- `marketplace/assets/assets.controller.ts`
 
 **Base path:** `/api/marketplace`  
 **Swagger tag:** `marketplace`
 
-Trading and order storage are **Seaport-centric**: off-chain signed orders in `orders`, fulfillment via wallet `fulfillOrder` / `matchAdvancedOrders`. A former experimental relational matching layer (`bids` / `asks` / settlement workers) has been **removed from this codebase**.
+Trading is **Seaport-centric**: off-chain signed orders in `orders`, fulfillment via wallet. Collection **pricing reads** come from `collection_market_snapshots` (materialized Cardhedger) — see [materialized-market-snapshots.md](../architecture/materialized-market-snapshots.md).
+
+Legacy relational matching (`bids`/`asks` tables, settlement workers) and **hidden-asset** routes are **removed**.
 
 See [architecture/database.md](../architecture/database.md) for current DB tables.
 
@@ -33,7 +34,7 @@ Cert 번호만 넣어 **PSA 공식 조회(`analyze-by-cert`와 동일)** + **Car
 
 **Env:** `CARDHEDGER_API_KEY` 필수, **`PSA_PUBLIC_API_TOKEN`** 권장 (PSACert Variety 등).
 
-**응답 요약:** `meta`(`elapsedMs`, `psaEnrichedFromOfficialApi`, `cardhedgerEnabled`, `syntheticHasPsaVariety`) · 전체 `psaAnalyze` · `syntheticCollection.components` · `collectionQuery` · `cardhedger.preview` / `cardhedger.history`.
+**응답 요약:** `meta` · `psaAnalyze` · `syntheticCollection` · `collectionQuery` · `cardhedger.preview` / `cardhedger.history` / `cardhedger.comps`(경매 raw+headline) / `cardhedger.mergedChartPoints`(일별+comps 병합, `historyMaxCalendarDays` 클립).
 
 자세한 맥락: [cardhedger-psa-variety.md](../guides/cardhedger-psa-variety.md).
 
@@ -164,7 +165,7 @@ Returns a cursor-paginated list of collection summaries.
 
 ### `POST /api/marketplace/collections/market-snapshots`
 
-Batch fetches list-row snapshots for multiple collections: Cardhedger PSA10 grade strip, category, external sparkline, optional market stats.
+Batch fetches list-row snapshots from **materialized** `collection_market_snapshots` (stale-while-revalidate). Does not call Cardhedger on every request.
 
 **Body:** `BatchMarketSnapshotsDto`
 
@@ -202,12 +203,12 @@ Returns the Cardhedger-matched catalog card and PSA10 spot price bands for this 
 
 ### `GET /api/marketplace/collections/:key/cardhedger/price-history`
 
-Returns Cardhedger PSA10 price history for the matched card.
+Returns PSA10 price history from the materialized snapshot (`external_usd_json`). No Cardhedger upstream on the hot path.
 
 | Query | Values | Default |
 |-------|--------|---------|
-| `period` | `7d`, `30d`, `90d`, `1y`, `all` | `90d` |
-| `maxDays` | `1`–`4000` | Derived from `period` |
+| `period` | `7d`, `30d`, `90d`, `1y` | `90d` |
+| `maxDays` | `1`–`365` | Derived from `period` |
 
 ---
 
@@ -224,7 +225,6 @@ Returns a chart bundle: platform fills (USDC) + Cardhedger reference prices + wi
 | Query | Values | Default |
 |-------|--------|---------|
 | `priceHistoryDuration` | `7d`, `30d`, `90d`, `180d`, `365d` | `365d` |
-| `hintTokenId` | tokenId string | — |
 
 ---
 
@@ -268,40 +268,24 @@ Max 32 token IDs per request.
 
 ---
 
-## My Assets (Hidden Tokens)
+### `POST /api/marketplace/collections/portfolio-market-batch`
 
-### `GET /api/marketplace/my-assets/hidden`
+Batch pool stats + `market-series` bundle per collection key (max 60 keys). Used by Portfolio for owned tokens mapped to buckets.
 
-Returns hidden tokenIds for a wallet.
-
-| Query | Required |
-|-------|----------|
-| `walletAddress` | Yes |
+**Body:** `PortfolioMarketBatchDto`
 
 ```json
-{ "tokenIds": [5, 12] }
+{
+  "collectionKeys": ["22028c12…"],
+  "priceHistoryDuration": "365d"
+}
 ```
 
 ---
 
-### `POST /api/marketplace/my-assets/hidden`
+## ~~My Assets (Hidden Tokens) — removed~~
 
-Hides a token from the portfolio view.
-
-```json
-{ "walletAddress": "0x...", "tokenId": 5 }
-```
-
----
-
-### `PATCH /api/marketplace/my-assets/hidden`
-
-Unhides a token.
-
-| Query | Required |
-|-------|----------|
-| `walletAddress` | Yes |
-| `tokenId` | Yes |
+`GET/POST/PATCH /api/marketplace/my-assets/hidden` and the `hidden_assets` table are **no longer in this repository**. Portfolio lists on-chain RWA balances only.
 
 ---
 

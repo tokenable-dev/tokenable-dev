@@ -5,12 +5,18 @@ import { PsaSpecScraperService } from '../../psa/psa-spec-scraper.service';
 import { buildSearchQueryFromParsed } from '../../psa/utils/psa-ocr.util';
 import type { MarketplaceCollection } from '../entities/marketplace-collection.entity';
 import {
+  bucketGradeScoreFromPsaGradeInput,
+  psaGradePolicyInputFromGraded,
+} from '../utils/psa-grade-policy.util';
+import {
   computeMarketBucketKey,
   type MarketBucketComponents,
 } from '../utils/bucket-key.util';
+import { marketParallelKeyFromPsaVariety } from '../utils/market-parallel-key.util';
 import { marketHistoryTierFromComponents } from '../utils/market-history-tier.util';
 import type {
   MarketCollectionPreview,
+  MarketCompsSnapshot,
   MarketPriceHistoryResult,
 } from '../utils/market-reference.types';
 import type { MarketHistoryPeriod } from '../utils/price-history-period.util';
@@ -19,13 +25,6 @@ import type { CertMarketTraceDto } from './dto/cert-market-trace.dto';
 
 function normalizeBucketPart(s: string): string {
   return s.trim().toLowerCase().replace(/\s+/g, ' ');
-}
-
-function gradeScoreToString(score: number): string {
-  if (!Number.isFinite(score)) return '';
-  if (Math.abs(score - Math.round(score)) < 1e-9)
-    return String(Math.round(score));
-  return String(score);
 }
 
 function historyPeriodFromMaxDays(maxDays: number): MarketHistoryPeriod {
@@ -85,6 +84,13 @@ export interface CertMarketTraceResult {
   cardhedger: {
     preview: MarketCollectionPreview;
     history: MarketPriceHistoryResult;
+    /** `POST /v1/cards/comps` — time-weighted headline + up to 100 raw auction rows. */
+    comps: MarketCompsSnapshot;
+    /**
+     * Daily `prices-by-card` merged with comps raw sales (same pipeline as collection chart snapshots).
+     * Calendar-clipped to {@link CertMarketTraceDto.historyMaxCalendarDays}.
+     */
+    mergedChartPoints: Array<{ t: number; v: number }>;
   };
 }
 
@@ -109,7 +115,14 @@ export class CertMarketTraceService {
       return { computed: false, reason: 'missing_card_name' };
     }
     const score = psa.gradeScore;
-    if (score == null || !Number.isFinite(score)) {
+    const policyInput = {
+      gradingCompany: 'PSA',
+      gradeScore: score,
+      gradeLabel: psa.gradeLabel,
+      gradeDescription: psa.gradeDescription,
+    };
+    const bucketGrade = bucketGradeScoreFromPsaGradeInput(policyInput);
+    if (!bucketGrade) {
       return { computed: false, reason: 'missing_grade_score' };
     }
     const variantType =
@@ -120,12 +133,14 @@ export class CertMarketTraceService {
       base?.card_number ?? psa.cardNumberHint ?? '',
     ).trim();
     const cardNumber = cardNumRaw ? normalizeBucketPart(cardNumRaw) : undefined;
+    const psaVariety = String(psa.varietyHint ?? '').trim();
+    const marketParallelKey = marketParallelKeyFromPsaVariety(psaVariety);
     const pop = psa.totalPopulation;
     const components: MarketBucketComponents = {
       gradingCompany: normalizeBucketPart('PSA'),
       cardName: normalizeBucketPart(cardNameRaw),
       cardSet: normalizeBucketPart(cardSetRaw),
-      gradeScore: gradeScoreToString(score),
+      gradeScore: bucketGrade,
       gradingCompanyDisplay: 'PSA',
       cardNameDisplay: cardNameRaw.replace(/\s+/g, ' ').trim(),
       ...(cardSetRaw
@@ -133,6 +148,7 @@ export class CertMarketTraceService {
         : {}),
       ...(variantType ? { variantType } : {}),
       ...(cardNumber ? { cardNumber } : {}),
+      marketParallelKey,
       ...(typeof pop === 'number' &&
       Number.isFinite(pop) &&
       pop >= 0 &&
@@ -164,6 +180,13 @@ export class CertMarketTraceService {
       typeof psa.gradeScore === 'number' && Number.isFinite(psa.gradeScore)
         ? psa.gradeScore
         : undefined;
+    const policyInput = {
+      gradingCompany: 'psa',
+      gradeScore: gradeScore ?? psa.gradeScore,
+      gradeLabel: psa.gradeLabel,
+      gradeDescription: psa.gradeDescription,
+    };
+    const bucketGrade = bucketGradeScoreFromPsaGradeInput(policyInput);
 
     const certKey = String(psa.certNumber ?? '')
       .replace(/\D/g, '')
@@ -174,7 +197,13 @@ export class CertMarketTraceService {
       cardName,
       cardSet,
       ...(cardNumber ? { cardNumber } : {}),
-      ...(typeof gradeScore === 'number' ? { gradeScore } : {}),
+      ...(bucketGrade ? { gradeScore: bucketGrade } : {}),
+      ...(typeof psa.gradeLabel === 'string' && psa.gradeLabel.trim()
+        ? { psaGradeLabel: psa.gradeLabel.trim() }
+        : {}),
+      ...(typeof psa.gradeDescription === 'string' && psa.gradeDescription.trim()
+        ? { psaGradeDescription: psa.gradeDescription.trim() }
+        : {}),
       ...(mint?.cardId?.trim() ? { cardhedgerCardId: mint.cardId.trim() } : {}),
       ...(mint?.searchQuery?.trim()
         ? { cardhedgerSearchQuery: mint.searchQuery.trim() }
@@ -188,6 +217,9 @@ export class CertMarketTraceService {
     if (typeof psa.varietyHint === 'string' && psa.varietyHint.trim()) {
       components.psaVariety = psa.varietyHint.trim().replace(/\s+/g, ' ');
     }
+    components.marketParallelKey = marketParallelKeyFromPsaVariety(
+      String(components.psaVariety ?? ''),
+    );
     if (typeof psa.cardNameHint === 'string' && psa.cardNameHint.trim()) {
       components.psaSubject = psa.cardNameHint.trim();
     }
@@ -251,19 +283,25 @@ export class CertMarketTraceService {
 
     const scrapeAttempted = Boolean(scrapeRequested && specIdStr);
 
-    const [cardhedger, psaSpecPageImageUrl, inferredBucket] = await Promise.all(
-      [
-        this.cardMarket.getBundledCardData(synthetic, {
-          tier,
-          period,
-          maxCalendarDays: maxDays,
-        }),
-        scrapeAttempted && specIdStr
-          ? this.psaSpecScraper.scrapeSpecImageUrl(specIdStr)
-          : Promise.resolve(null),
-        Promise.resolve(this.inferBucketFromAnalyze(psaAnalyze)),
-      ],
-    );
+    const [bundled, psaSpecPageImageUrl, inferredBucket] = await Promise.all([
+      this.cardMarket.getBundledCardData(synthetic, {
+        tier,
+        period,
+        maxCalendarDays: maxDays,
+        includeComps: true,
+      }),
+      scrapeAttempted && specIdStr
+        ? this.psaSpecScraper.scrapeSpecImageUrl(specIdStr)
+        : Promise.resolve(null),
+      Promise.resolve(this.inferBucketFromAnalyze(psaAnalyze)),
+    ]);
+
+    const cardhedger = {
+      preview: bundled.preview,
+      history: bundled.history,
+      comps: bundled.comps,
+      mergedChartPoints: bundled.history.points ?? [],
+    };
 
     const certNorm = String(psaAnalyze.psa.certNumber ?? '').trim();
     const synComp = synthetic.components as Record<string, unknown>;

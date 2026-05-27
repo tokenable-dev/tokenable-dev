@@ -1,2 +1,2 @@
 export { RwaImageZoom } from "./RwaImageZoom";
-export { GradedMetadataPanel } from "./GradedMetadataPanel";
+export { RwaImageLightbox } from "./RwaImageLightbox";

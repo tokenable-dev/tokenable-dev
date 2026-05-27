@@ -9,8 +9,60 @@ import {
   COLLECTION_DETAILS_BG_CLASS,
   COLLECTION_DETAILS_BORDER_ALL,
 } from "@/components/marketplace/collectionOverviewChrome";
+import { useCollectionDetailMobile } from "@/components/marketplace/useCollectionDetailMobile";
 
-const LIVE_MARKET_LINE = "rgba(135, 255, 72, 1)";
+const LIVE_MARKET_LINE = "rgba(16, 211, 51, 1)";
+
+export type ChartRangeOption = {
+  id: string;
+  label: string;
+};
+
+/** In-chart segmented range control — floats over plot area. */
+export function CollectionChartRangeToolbar({
+  options,
+  value,
+  onChange,
+  className = "",
+}: {
+  options: readonly ChartRangeOption[];
+  value: string;
+  onChange: (id: string) => void;
+  className?: string;
+}) {
+  return (
+    <div
+      role="toolbar"
+      aria-label="Chart time range"
+      className={[
+        "inline-flex max-w-full items-center gap-0.5 rounded-md bg-white/[0.04] p-0.5",
+        className,
+      ]
+        .filter(Boolean)
+        .join(" ")}
+    >
+      {options.map((opt) => {
+        const active = opt.id === value;
+        return (
+          <button
+            key={opt.id}
+            type="button"
+            onClick={() => onChange(opt.id)}
+            aria-pressed={active}
+            className={`touch-manipulation rounded-md px-2 py-1 text-[10px] font-semibold tracking-wide transition-colors sm:px-2.5 sm:text-[11px] ${
+              active
+                ? "bg-mint/15 text-mint shadow-[inset_0_0_0_1px_rgba(16,211,51,0.35)]"
+                : "text-zinc-500 hover:bg-white/[0.04] hover:text-zinc-200"
+            }`}
+          >
+            {opt.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 /** Area under line — light mint wash; keep low alpha so panel reads as one surface. */
 const LIVE_MARKET_AREA_GRADIENT = {
   type: "linear" as const,
@@ -19,9 +71,9 @@ const LIVE_MARKET_AREA_GRADIENT = {
   x2: 0,
   y2: 1,
   colorStops: [
-    { offset: 0, color: "rgba(135, 255, 72, 0.14)" },
-    { offset: 0.55, color: "rgba(135, 255, 72, 0.04)" },
-    { offset: 1, color: "rgba(135, 255, 72, 0)" },
+    { offset: 0, color: "rgba(16, 211, 51, 0.14)" },
+    { offset: 0.55, color: "rgba(16, 211, 51, 0.04)" },
+    { offset: 1, color: "rgba(16, 211, 51, 0)" },
   ],
 };
 /** X/Y tick labels — silver / light grey */
@@ -60,6 +112,111 @@ function utcDayKey(tSec: number): string {
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(
     d.getUTCDate(),
   ).padStart(2, "0")}`;
+}
+
+function validUsdPoints(points: CollectionUsdPoint[]): CollectionUsdPoint[] {
+  return points.filter(
+    (p) =>
+      Number.isFinite(p.t) &&
+      typeof p.v === "number" &&
+      Number.isFinite(p.v) &&
+      p.v > 0,
+  );
+}
+
+/** Latest in-window price, else headline spot fallback. */
+function resolveExternalReferencePrice(
+  points: CollectionUsdPoint[],
+  fallbackUsd: number | null | undefined,
+): number | null {
+  const valid = validUsdPoints(points);
+  if (valid.length > 0) return valid[valid.length - 1]!.v;
+  if (fallbackUsd != null && Number.isFinite(fallbackUsd) && fallbackUsd > 0) {
+    return fallbackUsd;
+  }
+  return null;
+}
+
+function isUniformPrice(points: CollectionUsdPoint[]): boolean {
+  const valid = validUsdPoints(points);
+  if (valid.length <= 1) return valid.length === 1;
+  const v0 = valid[0]!.v;
+  const tol = Math.max(v0 * 1e-4, 0.01);
+  return valid.every((p) => Math.abs(p.v - v0) <= tol);
+}
+
+function buildFullWindowFlatSeries(
+  tMin: number,
+  tMax: number,
+  price: number,
+): CollectionUsdPoint[] {
+  return [
+    { t: tMin, v: price },
+    { t: tMax, v: price },
+  ];
+}
+
+/** Carry first/last known prices to the UI window edges (sparse Cardhedger history). */
+function extendSeriesToWindowEdges(
+  points: CollectionUsdPoint[],
+  tMin: number,
+  tMax: number,
+): CollectionUsdPoint[] {
+  const valid = validUsdPoints(points).sort((a, b) => a.t - b.t);
+  if (valid.length === 0) return [];
+  if (valid.length === 1) {
+    return buildFullWindowFlatSeries(tMin, tMax, valid[0]!.v);
+  }
+
+  const first = valid[0]!;
+  const last = valid[valid.length - 1]!;
+  const merged: CollectionUsdPoint[] = [];
+
+  if (first.t > tMin + 60) merged.push({ t: tMin, v: first.v });
+  for (const p of valid) {
+    merged.push({ t: Math.min(Math.max(p.t, tMin), tMax), v: p.v });
+  }
+  if (last.t < tMax - 60) merged.push({ t: tMax, v: last.v });
+
+  const deduped: CollectionUsdPoint[] = [];
+  for (const p of merged) {
+    if (deduped.length && deduped[deduped.length - 1]!.t === p.t) {
+      deduped[deduped.length - 1] = p;
+    } else {
+      deduped.push(p);
+    }
+  }
+  return deduped.length >= 2 ? deduped : buildFullWindowFlatSeries(tMin, tMax, last.v);
+}
+
+/** Few samples or short span vs 90D+ window — extend edges instead of a tight cluster. */
+function shouldAnchorSparseWindow(
+  points: CollectionUsdPoint[],
+  tMin: number,
+  tMax: number,
+  windowDays: number,
+): boolean {
+  const valid = validUsdPoints(points);
+  if (valid.length <= 1) return true;
+  const windowSpan = Math.max(tMax - tMin, 1);
+  const dataSpan = Math.max(valid[valid.length - 1]!.t - valid[0]!.t, 0);
+  const dataSpanDays = dataSpan / DAY;
+  /**
+   * Archive-scale windows only (MAX leak at 4000d): skip synthetic edge flats.
+   * Standard 7D–1Y toolbars may be wider than auction span — still anchor sparse comps.
+   */
+  const ARCHIVE_WINDOW_DAYS = 500;
+  if (
+    windowDays >= ARCHIVE_WINDOW_DAYS &&
+    windowDays > dataSpanDays * 1.5 + 14
+  ) {
+    return false;
+  }
+  if (dataSpan / windowSpan < 0.55) return true;
+  if (windowDays >= 90 && valid.length < Math.max(4, Math.ceil(windowDays / 14))) {
+    return true;
+  }
+  return false;
 }
 
 function buildPlatformUtcDayStaticPoints(
@@ -181,6 +338,14 @@ function formatTooltipUsd(v: number | null): string {
   return v >= 100 ? `$${v.toFixed(0)}` : `$${v.toFixed(2)}`;
 }
 
+function formatYAxisLabelCompact(value: number): string {
+  if (value >= 1_000_000) return `$${Math.round(value / 1_000_000)}M`;
+  if (value >= 10_000) return `$${Math.round(value / 1_000)}k`;
+  if (value >= 1_000) return `$${(value / 1_000).toFixed(0)}k`;
+  if (value >= 10) return `$${Math.round(value)}`;
+  return `$${value.toFixed(value === 0 ? 0 : 1)}`;
+}
+
 function computeSmartTimeDomain(
   plat: CollectionUsdPoint[],
   nowSec: number,
@@ -225,13 +390,17 @@ export function CollectionDualPriceChart({
   externalSeriesShortLabel = "External NM",
   externalRefLineTag = "External NM",
   chartTitle: _chartTitle = "External market vs on-platform trades",
+  /** @deprecated Prefer rangeOptions + chartRange + onChartRangeChange (in-chart toolbar). */
   controls = null,
-  footnote = null,
+  rangeOptions,
+  chartRange,
+  onChartRangeChange,
   emptyStateMessage,
   isLoading,
   errorMessage,
   variant = "default",
   collectionOverviewMat = false,
+  embedInMobileTab = false,
 }: {
   /** On-platform trade points; not drawn in the chart (live market / external only). */
   platformUsd: CollectionUsdPoint[];
@@ -244,16 +413,34 @@ export function CollectionDualPriceChart({
   externalRefLineTag?: string;
   chartTitle?: string;
   controls?: ReactNode;
-  /** Optional muted note rendered under chart range controls */
-  footnote?: ReactNode;
+  rangeOptions?: readonly ChartRangeOption[];
+  chartRange?: string;
+  onChartRangeChange?: (id: string) => void;
   emptyStateMessage?: string;
   isLoading?: boolean;
   errorMessage?: string | null;
   variant?: "default" | "exchange";
   /** When `variant` is exchange and true, shell matches collection cover mat tones. */
   collectionOverviewMat?: boolean;
+  /** Fixed-height mobile tab panel — do not stretch to fill viewport. */
+  embedInMobileTab?: boolean;
 }) {
   const exchange = variant === "exchange";
+  const isMobileChart = useCollectionDetailMobile();
+  const compactTab = embedInMobileTab && exchange;
+  const useIntegratedRange =
+    !isMobileChart &&
+    rangeOptions != null &&
+    rangeOptions.length > 0 &&
+    chartRange != null &&
+    onChartRangeChange != null;
+  const rangeToolbar = useIntegratedRange ? (
+    <CollectionChartRangeToolbar
+      options={rangeOptions}
+      value={chartRange}
+      onChange={onChartRangeChange}
+    />
+  ) : null;
   const chartShellDefault = `rounded-2xl ${COLLECTION_DETAILS_BORDER_ALL} ${COLLECTION_DETAILS_BG_CLASS} shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]`;
   const exchangeChrome =
     exchange && collectionOverviewMat
@@ -280,33 +467,14 @@ export function CollectionDualPriceChart({
     let tMax: number;
 
     if (useFixedWindow) {
-      const windowTMin = nowSec - externalWindowDays! * DAY;
-      let windowTMax = nowSec + 6 * HOUR;
-
-      const relevantTimes: number[] = [];
-      for (const p of extRolling) {
-        if (Number.isFinite(p.t)) relevantTimes.push(p.t);
-      }
-
       /**
-       * Keep the x-axis within the user-selected window (`externalWindowDays`). Points older than
-       * `windowTMin` are intentionally clipped by `extInWindow`; expanding
-       * `tMin` to `dataMin` made 7D/30D/90D show the same full-year Cardhedger curve.
+       * Anchor to latest merged sale (matches client `filterMergedChartPointsForWindow`),
+       * not wall-clock now — stale last-sale cards were clustering on the right of 1Y.
        */
-      if (relevantTimes.length > 0) {
-        const dataMin = Math.min(...relevantTimes);
-        const dataMax = Math.max(...relevantTimes);
-        const dataSpan = Math.max(dataMax - dataMin, DAY);
-        const leftPad = Math.min(14 * DAY, Math.max(2 * DAY, Math.floor(dataSpan * 0.04)));
-        const maxTrailingVoid = Math.min(120 * DAY, Math.max(10 * DAY, Math.floor(dataSpan * 0.12)));
-
-        const baseLeft = Math.max(windowTMin, dataMin - maxTrailingVoid);
-        tMin = baseLeft - leftPad;
-        tMax = Math.max(windowTMax, dataMax + leftPad);
-      } else {
-        tMin = windowTMin;
-        tMax = windowTMax;
-      }
+      const anchorSec =
+        extRolling.length > 0 ? extRolling[extRolling.length - 1]!.t : nowSec;
+      tMin = anchorSec - externalWindowDays! * DAY;
+      tMax = Math.max(anchorSec, nowSec) + 6 * HOUR;
     } else {
       const extForSmart = extRolling.length > 0 ? extRolling : [];
       const smart = computeSmartTimeDomain(extForSmart, nowSec, 180 * DAY);
@@ -322,13 +490,41 @@ export function CollectionDualPriceChart({
 
     /** If UTC-day bucketing collapses a multi-point window to <2 samples, plot raw timestamps. */
     if (extForChart.length < 2) {
-      const rawFit = extInWindow.filter(
-        (p) => Number.isFinite(p.t) && typeof p.v === "number" && Number.isFinite(p.v) && p.v > 0,
-      );
+      const rawFit = validUsdPoints(extInWindow);
       if (rawFit.length >= 2) {
         extForChart = [...rawFit]
           .sort((a, b) => a.t - b.t)
           .map((p) => ({ ...p, t: Math.min(Math.max(p.t, tMin), tMax) }));
+      }
+    }
+
+    /**
+     * Sparse / flat external history (common on rare slabs): fill the selected 90D–1Y window using
+     * first & last known prices so the line spans the chart instead of a dot or short cluster.
+     */
+    if (useFixedWindow) {
+      const refPrice = resolveExternalReferencePrice(extInWindow, externalMarketUsd);
+      const seriesProbe =
+        validUsdPoints(extForChart).length > 0
+          ? extForChart
+          : validUsdPoints(extInWindow).length > 0
+            ? extInWindow
+            : extRolling;
+      const windowDays = externalWindowDays!;
+
+      if (seriesProbe.length === 0) {
+        if (refPrice != null) {
+          extForChart = buildFullWindowFlatSeries(tMin, tMax, refPrice);
+        }
+      } else if (isUniformPrice(seriesProbe)) {
+        const flatV = refPrice ?? seriesProbe[seriesProbe.length - 1]!.v;
+        extForChart = buildFullWindowFlatSeries(tMin, tMax, flatV);
+      } else if (shouldAnchorSparseWindow(seriesProbe, tMin, tMax, windowDays)) {
+        extForChart = extendSeriesToWindowEdges(
+          validUsdPoints(extForChart).length > 0 ? extForChart : seriesProbe,
+          tMin,
+          tMax,
+        );
       }
     }
 
@@ -347,6 +543,7 @@ export function CollectionDualPriceChart({
         vMax: 1,
         extIsPolyline: false,
         hasExtSignal,
+        fixedWindowDays: useFixedWindow ? externalWindowDays! : null,
         externalSeries: [] as Array<[number, number]>,
       };
     }
@@ -362,6 +559,7 @@ export function CollectionDualPriceChart({
       vMax: vMaxD + vPad,
       extIsPolyline,
       hasExtSignal,
+      fixedWindowDays: useFixedWindow ? externalWindowDays! : null,
       externalSeries: extForChart.map((p) => [p.t * 1000, p.v] as [number, number]),
     };
   }, [externalRollingUsd, externalMarketUsd, externalWindowDays, nowSec]);
@@ -411,12 +609,7 @@ export function CollectionDualPriceChart({
       merged.tMax > merged.tMin
         ? Math.ceil((merged.tMax - merged.tMin) / DAY)
         : null;
-    const roughTickDays =
-      externalWindowDays != null &&
-      extentDaysCeil != null &&
-      extentDaysCeil > 0
-        ? Math.max(externalWindowDays, extentDaysCeil)
-        : externalWindowDays ?? extentDaysCeil;
+    const roughTickDays = merged.fixedWindowDays ?? extentDaysCeil;
     const roughTick = roughTickConfigByWindowDays(roughTickDays ?? null);
 
     /** Coarse ticks for any meaningful span — keeps x-axis readable (fewer labels, wider spacing). */
@@ -424,11 +617,17 @@ export function CollectionDualPriceChart({
       merged.tMax > merged.tMin ? (merged.tMax - merged.tMin) / DAY : 0;
     const useCoarseTimeTicks = axisSpanDays > 1;
 
+    const yTickCount = isMobileChart ? 3 : 5;
+    const { min, max, interval } = niceScale(merged.vMin, merged.vMax, yTickCount);
+
     return {
       backgroundColor: "transparent",
-      animationDuration: 250,
+      animation: !compactTab,
+      animationDuration: compactTab ? 0 : 250,
       textStyle: { color: AXIS_LABEL, fontFamily: "ui-sans-serif, system-ui, sans-serif" },
-      grid: { left: 52, right: 14, top: 10, bottom: 34, containLabel: false },
+      grid: isMobileChart
+        ? { left: 32, right: 6, top: 14, bottom: 28, containLabel: false }
+        : { left: 52, right: 14, top: 8, bottom: 32, containLabel: false },
       dataZoom: [
         { type: "inside", xAxisIndex: 0, filterMode: "none" },
         { type: "slider", xAxisIndex: 0, height: 16, bottom: 0, show: false },
@@ -448,8 +647,9 @@ export function CollectionDualPriceChart({
         splitLine: { show: false },
         axisLabel: {
           color: AXIS_LABEL,
-          fontSize: 13,
+          fontSize: isMobileChart ? 10 : 13,
           hideOverlap: true,
+          margin: isMobileChart ? 6 : 8,
           formatter: (value: number) => {
             const tSec = Math.floor(value / 1000);
             if (!useCoarseTimeTicks) return formatTickDate(tSec);
@@ -457,28 +657,28 @@ export function CollectionDualPriceChart({
           },
         },
       },
-      yAxis: (() => {
-        const { min, max, interval } = niceScale(merged.vMin, merged.vMax, 5);
-        return {
-          type: "value",
-          min,
-          max,
-          interval,
-          axisLine: { show: false },
-          axisTick: { show: false },
-          splitLine: { show: false },
-          axisLabel: {
-            color: AXIS_LABEL,
-            fontSize: 11,
-            formatter: (value: number) => {
+      yAxis: {
+        type: "value",
+        min,
+        max,
+        interval,
+        axisLine: { show: false },
+        axisTick: { show: false },
+        splitLine: { show: false },
+        axisLabel: {
+          color: AXIS_LABEL,
+          fontSize: isMobileChart ? 9 : 11,
+          width: isMobileChart ? 30 : 44,
+          overflow: "truncate",
+          formatter: (value: number) =>
+            isMobileChart ? formatYAxisLabelCompact(value) : (() => {
               if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`;
               if (value >= 1_000) return `$${(value / 1_000).toFixed(value % 1_000 === 0 ? 0 : 1)}K`;
               if (value >= 10) return `$${Math.round(value)}`;
               return `$${value.toFixed(value === 0 ? 0 : 2)}`;
-            },
-          },
-        };
-      })(),
+            })(),
+        },
+      },
       tooltip: {
         trigger: "axis",
         axisPointer: {
@@ -520,6 +720,8 @@ export function CollectionDualPriceChart({
     externalSeriesShortLabel,
     externalRefLineTag,
     externalWindowDays,
+    isMobileChart,
+    compactTab,
   ]);
 
   if (isLoading) {
@@ -527,7 +729,11 @@ export function CollectionDualPriceChart({
       <div
         className={
           exchange
-            ? `${exchangeChrome} flex min-h-[120px] flex-col items-center justify-center gap-3 px-4 max-xl:min-h-[min(140px,20svh)] xl:h-full xl:min-h-0`
+            ? `${exchangeChrome} flex min-h-[120px] flex-col items-center justify-center gap-3 px-4 ${
+                compactTab
+                  ? "h-full min-h-0"
+                  : "max-lg:min-h-[min(140px,20svh)] max-lg:h-full max-lg:min-h-0 lg:h-full lg:min-h-0"
+              }`
             : `${chartShellDefault} flex min-h-[260px] flex-col items-center justify-center gap-3 px-4`
         }
         role="status"
@@ -548,7 +754,11 @@ export function CollectionDualPriceChart({
       <div
         className={
           exchange
-            ? `${exchangeChrome} flex min-h-[110px] flex-col items-center justify-center px-4 py-6 text-center text-sm text-rose-200/90 max-xl:min-h-[min(128px,18svh)] xl:h-full xl:min-h-0`
+            ? `${exchangeChrome} flex min-h-[110px] flex-col items-center justify-center px-4 py-6 text-center text-sm text-rose-200/90 ${
+                compactTab
+                  ? "h-full min-h-0"
+                  : "max-lg:min-h-[min(128px,18svh)] max-lg:h-full max-lg:min-h-0 lg:h-full lg:min-h-0"
+              }`
             : "rounded-2xl border border-rose-500/20 bg-[rgba(11,13,16,1)] px-4 py-6 text-center text-sm text-rose-200/90"
         }
       >
@@ -562,7 +772,11 @@ export function CollectionDualPriceChart({
       <div
         className={
           exchange
-            ? `${exchangeChrome} flex min-h-[110px] flex-col items-center justify-center px-4 py-8 text-center text-sm text-zinc-600 max-xl:min-h-[min(128px,18svh)] xl:h-full xl:min-h-0`
+            ? `${exchangeChrome} flex min-h-[110px] flex-col items-center justify-center px-4 py-8 text-center text-sm text-zinc-600 ${
+                compactTab
+                  ? "h-full min-h-0"
+                  : "max-lg:min-h-[min(128px,18svh)] max-lg:h-full max-lg:min-h-0 lg:h-full lg:min-h-0"
+              }`
             : `${chartShellDefault} flex min-h-[110px] flex-col items-center justify-center px-4 py-8 text-center text-sm text-zinc-600`
         }
       >
@@ -576,39 +790,44 @@ export function CollectionDualPriceChart({
     <div
       className={
         exchange
-          ? `${exchangeChrome} flex min-h-[134px] flex-col overflow-hidden text-white max-xl:min-h-[min(154px,21svh)] xl:h-full xl:min-h-0`
+          ? `${exchangeChrome} flex h-full min-h-0 flex-col overflow-hidden text-white ${
+              compactTab ? "min-h-0" : "max-lg:min-h-0 lg:min-h-[134px] lg:h-full"
+            }`
           : `${chartShellDefault} text-white`
       }
     >
-      {/* Top bar: range controls (left) + legend (right) — single row */}
-      <div className="flex shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-1.5 px-3 pt-2.5 pb-1.5 sm:px-4">
-        {/* Range buttons */}
-        {controls ? <div className="flex items-center">{controls}</div> : null}
-
-        {/* Legend */}
-        <div className="flex items-center gap-3 text-[10px] font-medium sm:text-[11px]">
-          <div className="flex items-center gap-1.5">
-            <span className="inline-block h-[9px] w-[9px] shrink-0 rounded-full" style={{ background: LIVE_MARKET_LINE }} aria-hidden />
-            <span className={merged.hasExtSignal ? "text-white/90" : "text-white/35"}>
-              Live Market Price
-            </span>
+      {rangeToolbar || (controls && !useIntegratedRange) ? (
+        <div className="flex shrink-0 items-center border-b border-[rgba(38,39,45,0.5)] px-2 py-1.5 sm:px-3 sm:py-2">
+          <div className="flex min-w-0 flex-1 items-center justify-center overflow-x-auto sm:justify-start">
+            {rangeToolbar ?? controls}
           </div>
-          {footnote ? <div className="text-zinc-500">{footnote}</div> : null}
         </div>
-      </div>
+      ) : null}
 
-      {/* Chart */}
-      <div className={exchange ? "flex min-h-0 flex-1 flex-col px-2 pb-1.5 pt-0 sm:px-3 sm:pb-2" : "px-2 pb-3 pt-0 sm:px-4"}>
+      <div
+        className={
+          exchange
+            ? "relative flex min-h-0 flex-1 flex-col px-1 pb-1 pt-0 max-lg:min-h-0 sm:px-2 sm:pb-1.5"
+            : "relative min-h-[200px] px-2 pb-3 pt-0 sm:px-4"
+        }
+      >
         <ReactECharts
+          key={merged.fixedWindowDays ?? "auto"}
           option={chartOption}
           notMerge
           lazyUpdate
           style={{
             width: "100%",
             height: exchange ? "100%" : "300px",
-            minHeight: exchange ? 110 : 200,
+            minHeight: compactTab ? 100 : exchange ? 110 : 200,
           }}
-          className={exchange ? "min-h-[110px] xl:min-h-[136px]" : "min-h-[200px]"}
+          className={
+            exchange
+              ? compactTab
+                ? "h-full min-h-0 w-full"
+                : "h-full min-h-[110px] w-full max-lg:min-h-0 lg:min-h-[136px]"
+              : "min-h-[200px] w-full"
+          }
         />
       </div>
     </div>

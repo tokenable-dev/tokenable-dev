@@ -11,13 +11,19 @@ import {
   TOKENABLE_RWA_READ_ABI,
 } from "@/constants/contracts";
 import { COLLECTION_LISTING_CARD_CHROME } from "@/components/marketplace/collectionOverviewChrome";
+import { PRODUCT_OUTLINE_GRADIENT } from "@/components/ui/GradientOutlineFrame";
 import { getCachedRwaMetadata, getCachedRwaImageUrl } from "@/lib/marketplace";
+import { displayAssetNameFromMetadata } from "@/lib/marketplace/rwaDisplayTitle";
+import { useCollectionDetailMobile } from "@/components/marketplace/useCollectionDetailMobile";
 
 const rwaCardFont = IBM_Plex_Sans({
   subsets: ["latin"],
   weight: ["400", "500", "700"],
   display: "swap",
 });
+
+const LISTING_IMAGE_STAGE =
+  "bg-[radial-gradient(ellipse_85%_72%_at_50%_100%,rgba(58,62,74,0.5)_0%,rgba(22,24,30,0.92)_52%,#0a0b0e_100%)]";
 
 function formatTokenIdShort(id: number): string {
   if (!Number.isFinite(id)) return "—";
@@ -43,24 +49,66 @@ function formatUsdc(amount: string): string {
 }
 
 /**
- * Gradient rim pill — decorative; the whole {@link CollectionRwaCard} is wrapped in a Link.
- * `pointer-events-none` ancestors let presses go to the card link. Hover/focus uses parent `group`.
+ * Gradient rim pill on listing cards — always visible; Buy gets stronger chrome.
+ * The whole {@link CollectionRwaCard} is a Link; this layer is decorative (`aria-hidden`).
  */
-function ListingCtaPill({ label }: { label: string }) {
-  const rimGradient =
-    "linear-gradient(99.67deg, #529e22 3.64%, #87FF48 54%, #284214 112.88%)";
+function ListingCtaPill({ label, compact = false }: { label: string; compact?: boolean }) {
+  const isBuy = label === "Buy";
+
+  if (compact) {
+    return (
+      <span
+        className={`relative z-[2] box-border flex w-full min-w-0 max-w-none shrink-0 items-center justify-center rounded-lg p-[1.5px] text-center ${
+          isBuy ? "h-6 min-h-6" : "h-5 min-h-5"
+        }`}
+        style={{ background: PRODUCT_OUTLINE_GRADIENT }}
+        aria-hidden
+      >
+        <span
+          className={`${rwaCardFont.className} flex h-full w-full items-center justify-center rounded-[6px] border border-black/80 bg-black px-2 text-[10px] font-bold leading-none ${
+            isBuy ? "text-mint" : "text-white"
+          }`}
+        >
+          {label}
+        </span>
+      </span>
+    );
+  }
+
   return (
     <span
-      className="relative z-[2] box-border flex h-9 min-h-9 w-full min-w-0 max-w-none shrink-0 items-center justify-center rounded-[18px] p-[1.5px] text-center shadow-[0_7px_18px_-7px_rgba(0,0,0,0.8)] transition-[transform,box-shadow] duration-200 ease-out [-webkit-tap-highlight-color:transparent] group-hover:-translate-y-0.5 group-hover:scale-[1.02] group-hover:shadow-[0_9px_24px_-8px_rgba(0,0,0,0.88),0_0_18px_-2px_rgba(135,255,72,0.28),0_0_1px_1px_rgba(135,255,72,0.35)_inset] group-active:translate-y-0 group-active:scale-[0.99] motion-reduce:transition-none motion-reduce:group-hover:scale-100 motion-reduce:group-hover:translate-y-0 max-lg:opacity-100 lg:opacity-0 lg:group-hover:opacity-100 lg:group-focus-visible:opacity-100"
-      style={{ background: rimGradient }}
+      className={`relative z-[2] box-border flex w-full min-w-0 max-w-none shrink-0 items-center justify-center rounded-2xl text-center transition-[transform,box-shadow,filter] duration-200 ease-out [-webkit-tap-highlight-color:transparent] group-hover:scale-[1.03] group-active:scale-[0.99] motion-reduce:transition-none motion-reduce:group-hover:scale-100 ${
+        isBuy
+          ? "h-8 min-h-8 p-[2px] shadow-[0_8px_22px_-6px_rgba(0,0,0,0.9),0_0_22px_-2px_rgba(16,211,51,0.55)] group-hover:shadow-[0_10px_28px_-6px_rgba(0,0,0,0.92),0_0_32px_-2px_rgba(16,211,51,0.72)] sm:h-10 sm:min-h-10 sm:rounded-[20px] sm:p-[2.5px]"
+          : "h-7 min-h-7 p-[1.5px] shadow-[0_6px_16px_-8px_rgba(0,0,0,0.85),0_0_12px_-4px_rgba(16,211,51,0.25)] group-hover:shadow-[0_8px_20px_-8px_rgba(0,0,0,0.9),0_0_18px_-4px_rgba(16,211,51,0.4)] sm:h-9 sm:min-h-9 sm:rounded-[18px]"
+      }`}
+      style={{ background: PRODUCT_OUTLINE_GRADIENT }}
       aria-hidden
     >
       <span
-        className={`${rwaCardFont.className} flex h-full min-h-0 w-full min-w-0 items-center justify-center gap-2 rounded-[16px] bg-[rgba(11,13,16,1)] px-4 py-1 text-[13px] font-bold leading-snug tracking-wide text-white transition-[background-color,box-shadow] duration-200 ease-out group-hover:bg-[rgba(16,18,22,1)] group-hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06)] group-active:bg-[rgba(11,13,16,1)] sm:px-6 sm:text-[13px]`}
+        className={`${rwaCardFont.className} flex h-full min-h-0 w-full min-w-0 items-center justify-center rounded-[14px] border border-black/80 px-3 py-0.5 leading-snug tracking-wide transition-[background-color,box-shadow,color] duration-200 ease-out sm:rounded-[17px] sm:px-5 sm:py-1 ${
+          isBuy
+            ? "bg-black text-[12px] font-bold text-mint shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] group-hover:bg-zinc-950 group-hover:brightness-110 sm:text-[14px]"
+            : "bg-[rgba(11,13,16,1)] text-[11px] font-bold text-white group-hover:bg-[rgba(16,18,22,1)] sm:text-[13px]"
+        }`}
       >
         {label}
       </span>
     </span>
+  );
+}
+
+function ListedStatusBadge() {
+  return (
+    <div
+      className="pointer-events-none absolute left-2 top-2 z-[3] flex items-center gap-1.5 rounded-full border border-emerald-900/60 bg-[#0f1a14]/90 px-2 py-[3px] backdrop-blur-[2px]"
+      aria-hidden
+    >
+      <span className="h-[5px] w-[5px] shrink-0 rounded-full bg-mint shadow-[0_0_6px_rgba(16,211,51,0.65)]" />
+      <span className={`${rwaCardFont.className} text-[10px] font-medium leading-none text-white`}>
+        Listed
+      </span>
+    </div>
   );
 }
 
@@ -75,6 +123,8 @@ interface CollectionRwaCardProps {
   prefetchedImageUrl?: string | null;
   /** Pre-fetched metadata from parent batch request — skips individual fetch when provided */
   prefetchedMetadata?: RwaMetadata | null;
+  /** Tighter 2-col grid on collection detail mobile. */
+  compact?: boolean;
 }
 
 export function CollectionRwaCard({
@@ -84,7 +134,9 @@ export function CollectionRwaCard({
   address,
   prefetchedImageUrl,
   prefetchedMetadata,
+  compact = false,
 }: CollectionRwaCardProps) {
+  const useCompact = compact && useCollectionDetailMobile();
   const hasPrefetch =
     prefetchedImageUrl !== undefined || prefetchedMetadata !== undefined;
 
@@ -118,6 +170,9 @@ export function CollectionRwaCard({
     chainId: sepolia.id,
   });
 
+  const metadata = hasPrefetch
+    ? (prefetchedMetadata ?? null)
+    : (metaBundle?.metadata ?? null);
   const imageUrl = hasPrefetch
     ? (prefetchedImageUrl ?? null)
     : (metaBundle?.imageUrl ?? null);
@@ -127,6 +182,11 @@ export function CollectionRwaCard({
     ? (listing.offerer || listing.parameters?.offerer)
     : undefined;
   const sellerDisplay = shortenAddr(sellerAddr);
+
+  const displayTitle = displayAssetNameFromMetadata(
+    metadata,
+    formatTokenIdShort(tokenId),
+  );
 
   const ownerAddr =
     typeof ownerOnChain === "string" ? ownerOnChain.toLowerCase() : "";
@@ -145,14 +205,68 @@ export function CollectionRwaCard({
   const ctaHref =
     !listing && isOwner ? sellHref : detailHref;
 
+  if (useCompact) {
+    return (
+      <Link
+        href={ctaHref}
+        className={`${rwaCardFont.className} group flex h-full w-full min-w-0 cursor-pointer overflow-hidden rounded-[14px] border border-zinc-800/75 bg-[#0c0d10] text-inherit no-underline outline-none ring-offset-2 ring-offset-black transition-colors hover:border-zinc-700/80 focus-visible:ring-2 focus-visible:ring-mint/50`}
+        aria-label={`${displayTitle} — ${ctaLabel}`}
+      >
+        <article className="flex w-full min-w-0 flex-col">
+          <div
+            className={`relative flex aspect-[4/5] w-full min-h-0 items-center justify-center overflow-hidden ${LISTING_IMAGE_STAGE}`}
+          >
+            {listing ? <ListedStatusBadge /> : null}
+            {imageUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={imageUrl}
+                alt=""
+                className="relative z-[1] h-[88%] w-[88%] max-w-full object-contain object-center"
+              />
+            ) : (
+              <div className="relative z-[1] px-2 text-center text-[9px] text-zinc-500">
+                No image
+              </div>
+            )}
+          </div>
+
+          <div className="flex min-w-0 flex-col gap-2 px-2.5 pb-2.5 pt-2">
+            <p
+              className="min-h-[14px] min-w-0 truncate text-[12px] font-medium leading-[14px] text-white"
+              title={displayTitle}
+            >
+              {displayTitle}
+            </p>
+            <div className="flex min-h-[15px] min-w-0 items-baseline leading-none">
+              {listing && listingPrice !== "—" ? (
+                <>
+                  <span className="text-[13px] font-semibold tabular-nums text-white">
+                    <span className="font-normal text-zinc-500">$ </span>
+                    {listingPrice}
+                  </span>
+                  <span className="ms-1 shrink-0 text-[6px] font-medium uppercase tracking-[0.04em] text-zinc-600">
+                    USDC
+                  </span>
+                </>
+              ) : (
+                <span className="text-[12px] font-medium text-zinc-500">—</span>
+              )}
+            </div>
+          </div>
+        </article>
+      </Link>
+    );
+  }
+
   return (
     <Link
       href={ctaHref}
-      className={`group block w-full min-w-0 cursor-pointer text-inherit no-underline outline-none ring-offset-2 ring-offset-black focus-visible:ring-2 focus-visible:ring-mint/50 ${COLLECTION_LISTING_CARD_CHROME}`}
+      className={`group flex h-full w-full min-w-0 cursor-pointer text-inherit no-underline outline-none ring-offset-2 ring-offset-black focus-visible:ring-2 focus-visible:ring-mint/50 ${COLLECTION_LISTING_CARD_CHROME}`}
       aria-label={`Listing ${formatTokenIdShort(tokenId)} — ${ctaLabel}`}
     >
-      <article className="flex min-h-[188px] w-full min-w-0 flex-col overflow-hidden sm:min-h-[202px]">
-        <div className="relative flex min-h-[110px] flex-1 flex-col items-center justify-center bg-black p-1 sm:min-h-[120px] sm:p-1.5">
+      <article className="flex h-full min-h-[148px] w-full min-w-0 flex-col overflow-hidden sm:min-h-[202px]">
+        <div className="relative flex min-h-[88px] flex-1 flex-col items-center justify-center bg-black p-1 sm:min-h-[120px] sm:p-1.5">
           {imageUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -161,31 +275,37 @@ export function CollectionRwaCard({
               className="h-full w-full max-w-full flex-1 object-contain object-center min-h-0"
             />
           ) : (
-            <div className="px-3 text-center text-[11px] text-zinc-500">
+            <div className="px-2 text-center text-[9px] text-zinc-500">
               No image
             </div>
           )}
 
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[1] flex translate-y-[24%] justify-center px-1.5 sm:px-2">
-            <div className="mx-auto w-full min-w-0 max-w-[min(100%,206px)] sm:max-w-[min(100%,220px)]">
-              <ListingCtaPill label={ctaLabel} />
+          <div
+            className="pointer-events-none absolute inset-x-0 bottom-0 z-[1] flex justify-center bg-gradient-to-t from-black via-black/75 to-transparent px-1.5 pb-1.5 pt-10 sm:px-2 sm:pb-2 sm:pt-12"
+            aria-hidden
+          >
+            <div className="mx-auto w-full min-w-0 max-w-[min(100%,180px)] sm:max-w-[min(100%,240px)]">
+              <ListingCtaPill label={ctaLabel} compact={false} />
             </div>
           </div>
         </div>
 
         <div
-          className={`${rwaCardFont.className} flex shrink-0 flex-col bg-[rgba(20,18,27,1)] px-2.5 pb-1.5 pt-2 leading-[140%] tracking-normal sm:px-3 sm:pt-2.5`}
+          className={`${rwaCardFont.className} flex shrink-0 flex-col bg-[rgba(20,18,27,1)] px-2 pb-1 pt-1.5 leading-[140%] tracking-normal sm:px-3 sm:pb-1.5 sm:pt-2.5`}
         >
           {listing && listingPrice !== "—" ? (
-            <p className="text-[15px] font-medium leading-[140%] tracking-normal text-white tabular-nums [overflow-wrap:anywhere] sm:text-[16px]">
+            <p className="text-[13px] font-medium font-semibold tabular-nums text-white [overflow-wrap:anywhere] sm:text-[16px]">
               ${listingPrice}
             </p>
           ) : (
-            <p className="text-[15px] font-medium leading-[140%] tracking-normal text-zinc-500 sm:text-[16px]">
+            <p className="text-[13px] font-medium text-zinc-500 sm:text-[16px]">
               —
             </p>
           )}
-          <p className="mt-1 min-w-0 break-words text-[11px] font-normal leading-[140%] tracking-normal text-[#a0a0a0] [overflow-wrap:anywhere] sm:text-[12px]">
+          <p
+            className="mt-0.5 min-w-0 break-words text-[10px] font-normal text-[#a0a0a0] [overflow-wrap:anywhere] sm:mt-1 sm:text-[12px]"
+            title={listing ? sellerAddr : undefined}
+          >
             Seller:{" "}
             <span className="break-all" title={sellerAddr}>
               {listing ? sellerDisplay : "—"}

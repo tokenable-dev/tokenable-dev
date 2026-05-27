@@ -3,6 +3,11 @@ import {
   catalogSpotUsdFromMarketPreview,
 } from "@/lib/market";
 import { marketHistoryTierFromComponents } from "@/lib/market";
+import { isAuthQualifierGradeScore } from "@/lib/market/priceTier";
+import {
+  MARKET_PRICE_CHANGE_LAG_SEC,
+  type ReferencePercentChangeResult,
+} from "@/lib/market/priceChangePeriod";
 
 /** Catalog reference for marketplace/portfolio (currently Cardhedger-backed). */
 export type ExternalMarketPriceSource = "cardhedger";
@@ -45,7 +50,11 @@ export function isPreviewPriceReliable(
 export function representativeGradeUsd(
   gradePrices: CollectionGradePrices | null | undefined,
   gradeScore: number | null | undefined,
+  gradeScoreStr?: string | null,
 ): number | null {
+  if (isAuthQualifierGradeScore(gradeScoreStr)) {
+    return finitePositive(gradePrices?.psa10);
+  }
   if (!gradePrices || gradeScore == null || !Number.isFinite(gradeScore)) return null;
   const r = Math.round(gradeScore);
   if (r >= 10) return finitePositive(gradePrices.psa10);
@@ -79,7 +88,13 @@ export function resolveExternalMarketUsd(params: {
       marketMatchConfidence: params.marketPreview?.matchConfidence,
     };
   }
-  const strip = representativeGradeUsd(params.gradePrices, params.gradeScore);
+  const strip = representativeGradeUsd(
+    params.gradePrices,
+    params.gradeScore,
+    typeof params.components?.gradeScore === "string"
+      ? params.components.gradeScore
+      : null,
+  );
   if (strip != null) {
     return { usd: strip, source: "cardhedger" };
   }
@@ -98,30 +113,36 @@ export function percentChangeFromUsdPoints(
   return ((b - a) / a) * 100;
 }
 
-const SEC_24H = 86400;
+/** Max gap between anchor sale and (latest.t − lag) for a trustworthy 1y label — aligned with backend. */
+export const REFERENCE_LAG_MAX_ANCHOR_GAP_SEC = 90 * 86_400;
+
+export type ReferenceLagAnchor = {
+  pct: number;
+  refUsd: number;
+  refAtSec: number;
+  endUsd: number;
+  endAtSec: number;
+  anchorGapSec: number;
+};
 
 /**
- * Latest observation vs linearly interpolated value at (latest.t − 24h) on the same series.
- * Matches backend {@link percentChangeReferenceOverLagSec}(..., `86400`) in `collection-market.util.ts`.
- * List/market snapshots use lag aligned to the bundled history window ({@code 365d}, etc.) — see
- * `marketChangeWindow` on each snapshot rather than assuming 24h.
- *
- * Unlike {@link percentChangeUsdSinceCutoff} anchored to wall-clock “now”, this still works when the feed’s
- * newest point is older than 24h (stale Cardhedger ticks).
+ * Latest observation vs last actual sale on or before (latest.t − lagSec) — LOCF.
+ * Matches backend {@link referenceLagAnchorFromPoints} in `collection-market.util.ts`.
  */
-export function percentChangeReferenceOver24h(
+export function referenceLagAnchorFromPoints(
   points: CollectionUsdPoint[] | null | undefined,
-): number | null {
+  lagSec: number,
+): ReferenceLagAnchor | null {
   const cleaned = (points ?? []).filter(
     (p) =>
       Number.isFinite(p.t) &&
       Number.isFinite(p.v) &&
       p.v > 0,
   );
-  if (cleaned.length < 2) return null;
+  if (cleaned.length < 2 || !Number.isFinite(lagSec) || lagSec <= 0) return null;
   const sorted = [...cleaned].sort((a, b) => a.t - b.t);
   const end = sorted[sorted.length - 1]!;
-  const targetT = end.t - SEC_24H;
+  const targetT = end.t - lagSec;
   if (targetT < sorted[0]!.t) return null;
 
   let i0 = -1;
@@ -131,20 +152,8 @@ export function percentChangeReferenceOver24h(
   }
   if (i0 < 0) return null;
 
-  let refV: number;
-  const a = sorted[i0]!;
-  if (a.t === targetT) {
-    refV = a.v;
-  } else if (i0 + 1 < sorted.length) {
-    const b = sorted[i0 + 1]!;
-    if (b.t <= targetT) return null;
-    const dt = b.t - a.t;
-    if (dt <= 0) return null;
-    const w = (targetT - a.t) / dt;
-    refV = a.v + (b.v - a.v) * w;
-  } else {
-    refV = a.v;
-  }
+  const anchor = sorted[i0]!;
+  const refV = anchor.v;
 
   if (
     !Number.isFinite(refV) ||
@@ -154,7 +163,71 @@ export function percentChangeReferenceOver24h(
   ) {
     return null;
   }
-  return ((end.v - refV) / refV) * 100;
+  return {
+    pct: ((end.v - refV) / refV) * 100,
+    refUsd: refV,
+    refAtSec: anchor.t,
+    endUsd: end.v,
+    endAtSec: end.t,
+    anchorGapSec: Math.max(0, targetT - anchor.t),
+  };
+}
+
+/**
+ * Reference % change: prefer 1y lookback; if history is shorter, use the full available span.
+ */
+export function percentChangeReferenceBestWindow(
+  points: CollectionUsdPoint[] | null | undefined,
+): ReferencePercentChangeResult {
+  const empty: ReferencePercentChangeResult = {
+    pct: null,
+    isFullYear: false,
+    windowSec: 0,
+  };
+  const cleaned = (points ?? []).filter(
+    (p) => Number.isFinite(p.t) && Number.isFinite(p.v) && p.v > 0,
+  );
+  if (cleaned.length < 2) return empty;
+
+  const sorted = [...cleaned].sort((a, b) => a.t - b.t);
+  const spanSec = sorted[sorted.length - 1]!.t - sorted[0]!.t;
+  if (!(spanSec > 0)) return empty;
+
+  const lag1y = referenceLagAnchorFromPoints(
+    points,
+    MARKET_PRICE_CHANGE_LAG_SEC,
+  );
+  if (
+    lag1y != null &&
+    lag1y.anchorGapSec <= REFERENCE_LAG_MAX_ANCHOR_GAP_SEC
+  ) {
+    return {
+      pct: lag1y.pct,
+      isFullYear: true,
+      windowSec: MARKET_PRICE_CHANGE_LAG_SEC,
+      refUsd: lag1y.refUsd,
+      refAtSec: lag1y.refAtSec,
+    };
+  }
+
+  const lagSpan = referenceLagAnchorFromPoints(points, spanSec);
+  const pct =
+    lagSpan?.pct ?? percentChangeFromUsdPoints(points);
+
+  return {
+    pct,
+    isFullYear: false,
+    windowSec: spanSec,
+    refUsd: lagSpan?.refUsd ?? null,
+    refAtSec: lagSpan?.refAtSec ?? null,
+  };
+}
+
+/** Latest % from {@link percentChangeReferenceBestWindow}. */
+export function percentChangeReferenceOver1Yr(
+  points: CollectionUsdPoint[] | null | undefined,
+): number | null {
+  return percentChangeReferenceBestWindow(points).pct;
 }
 
 /**

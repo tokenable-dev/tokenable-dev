@@ -323,6 +323,10 @@ export function CollectionCriteriaBidPanel({
 
   async function invalidateAfterTrade() {
     await queryClient.invalidateQueries({ queryKey: ["marketplace-collection", collectionKey] });
+    await queryClient.invalidateQueries({
+      queryKey: ["collection-platform-trades", collectionKey],
+    });
+    await queryClient.invalidateQueries({ queryKey: ["collection-market-series"] });
     await queryClient.invalidateQueries({ queryKey: ["orders"] });
     await queryClient.invalidateQueries({ queryKey: ["merkle-set"] });
     await queryClient.invalidateQueries({ queryKey: ["merkle-set", collectionKey] });

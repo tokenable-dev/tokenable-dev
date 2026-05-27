@@ -229,7 +229,7 @@ export function CollectionMyOrdersPanel({
           {myBids.length > 0 && (
             <div className="min-w-0">
               <div className="mb-3 flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-mint/90 shadow-[0_0_10px_rgba(135,255,72,0.35)]" />
+                <span className="h-2 w-2 rounded-full bg-mint/90 shadow-[0_0_10px_rgba(16,211,51,0.35)]" />
                 <h3 className="text-[11px] font-semibold uppercase tracking-widest text-gray-500">
                   Buying (collection bid)
                 </h3>

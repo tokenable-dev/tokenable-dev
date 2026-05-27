@@ -43,6 +43,8 @@ function trendingCarouselImageUrl(c: MarketplaceCollectionSummary): string | nul
 const CAROUSEL_SLIDE_TRANSITION_MS = 520;
 const SWIPE_THRESHOLD_PX = 48;
 const SWIPE_SUPPRESS_NAV_MS = 450;
+/** Before locking horizontal carousel swipe, require clear axis intent (px). */
+const SWIPE_AXIS_LOCK_PX = 10;
 
 function formatUsd(n: number | null | undefined): string {
   if (n == null || !Number.isFinite(n)) return "—";
@@ -91,7 +93,7 @@ export function TrendingCollectionsCarousel({
       const ta = new Date(a.createdAt).getTime();
       const tb = new Date(b.createdAt).getTime();
       if (ta !== tb) return tb - ta;
-      return a.displayLabel.localeCompare(b.displayLabel);
+      return (a.displayLabel ?? "").localeCompare(b.displayLabel ?? "");
     });
 
     let pool = sorted;
@@ -129,7 +131,7 @@ export function TrendingCollectionsCarousel({
   const fetchSnapshotsLocally = snapshotByKeyProp == null && trendingSnapshotKeysSorted.length > 0;
 
   const { data: snapshotPack } = useQuery({
-    queryKey: rq.collectionSnapshots(trendingSnapshotKeysSorted, "365d"),
+    queryKey: rq.collectionSnapshots(trendingSnapshotKeysSorted, "365d" as const),
     queryFn: () =>
       postMarketplaceCollectionSnapshotsBatched(trendingSnapshotKeysSorted, "365d"),
     enabled: fetchSnapshotsLocally,
@@ -197,6 +199,8 @@ export function TrendingCollectionsCarousel({
 
   const suppressNavUntilRef = useRef(0);
   const swipeStartXRef = useRef<number | null>(null);
+  const swipeStartYRef = useRef<number | null>(null);
+  const swipeAxisRef = useRef<"none" | "horizontal" | "vertical">("none");
 
   const prevNarrowRef = useRef<boolean | undefined>(undefined);
   useEffect(() => {
@@ -314,13 +318,14 @@ export function TrendingCollectionsCarousel({
     const eBayPrice = representativeGradeUsd(
       s?.gradePrices ?? null,
       parseGradeScoreNumber(comp.gradeScore),
+      comp.gradeScore,
     );
     const displayImageUrl = trendingCarouselImageUrl(c);
     return (
       <Link
         key={`${c.collectionKey}${slideKeySuffix}`}
         href={`/marketplace/collections/${encodeURIComponent(c.collectionKey)}`}
-        className={`group block w-full snap-start ${
+        className={`group block h-full w-full snap-start touch-pan-y ${
           narrowTrainSlideCount
             ? "min-w-0 shrink-0"
             : "min-w-full shrink-0 basis-full"
@@ -334,23 +339,24 @@ export function TrendingCollectionsCarousel({
           if (Date.now() < suppressNavUntilRef.current) e.preventDefault();
         }}
       >
-        <div className="overflow-hidden rounded-2xl transition-colors">
-          <div className="aspect-[3/4] bg-[#0a0e14]">
+        <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl">
+          <div className="aspect-[3/4] shrink-0 bg-[#0a0e14]">
             {displayImageUrl ? (
             <CollectionCoverFrame
               imageUrl={displayImageUrl}
               variant="flat"
+              quietLoading
               className="h-full w-full"
             />
             ) : (
               <div className="h-full w-full bg-zinc-900" />
             )}
           </div>
-          <div className="space-y-1 p-2.5 sm:p-3">
-            <p className="line-clamp-2 break-words text-base font-semibold uppercase leading-snug text-white sm:truncate sm:text-lg">
+          <div className="shrink-0 space-y-1 p-2.5 sm:p-3 min-h-[4.25rem] sm:min-h-[4rem]">
+            <p className="line-clamp-2 min-h-[2.75rem] break-words text-base font-semibold uppercase leading-snug text-white sm:min-h-[1.75rem] sm:truncate sm:text-lg">
               {toCardDisplayUppercase(c.displayLabel)}
             </p>
-            <p className="tabular-nums text-base font-bold leading-[140%] tracking-normal text-[#87FF48] [font-family:var(--font-ibm-plex-sans),sans-serif] sm:text-[18px]">
+            <p className="min-h-[1.35rem] tabular-nums text-base font-bold leading-[140%] tracking-normal text-[#87FF48] [font-family:var(--font-ibm-plex-sans),sans-serif] sm:min-h-[1.5rem] sm:text-[18px]">
               {eBayPrice != null && Number.isFinite(eBayPrice) && eBayPrice > 0
                 ? formatUsd(eBayPrice)
                 : "—"}
@@ -383,30 +389,62 @@ export function TrendingCollectionsCarousel({
   const narrowTrackSlide =
     narrowCarousel && trendingLoops && narrowExtended.length > 0;
 
+  const resetSwipeGesture = () => {
+    swipeStartXRef.current = null;
+    swipeStartYRef.current = null;
+    swipeAxisRef.current = "none";
+  };
+
   const onSwipePointerDown = (e: React.PointerEvent) => {
     if (!narrowTrackSlide || trendingPauseMotion) return;
+    if (e.pointerType === "mouse" && e.button !== 0) return;
     swipeStartXRef.current = e.clientX;
+    swipeStartYRef.current = e.clientY;
+    swipeAxisRef.current = "none";
+  };
+
+  const onSwipePointerMove = (e: React.PointerEvent) => {
+    if (!narrowTrackSlide || trendingPauseMotion) return;
+    const startX = swipeStartXRef.current;
+    const startY = swipeStartYRef.current;
+    if (startX == null || startY == null || swipeAxisRef.current !== "none") return;
+
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+    if (Math.hypot(dx, dy) < SWIPE_AXIS_LOCK_PX) return;
+
+    if (Math.abs(dx) > Math.abs(dy) * 1.2) {
+      swipeAxisRef.current = "horizontal";
+    } else if (Math.abs(dy) > Math.abs(dx) * 1.2) {
+      swipeAxisRef.current = "vertical";
+    }
   };
 
   const onSwipePointerUp = (e: React.PointerEvent) => {
     if (!narrowTrackSlide || trendingPauseMotion) return;
-    const start = swipeStartXRef.current;
-    swipeStartXRef.current = null;
-    if (start == null) return;
-    const dx = e.clientX - start;
+    const startX = swipeStartXRef.current;
+    const startY = swipeStartYRef.current;
+    const axis = swipeAxisRef.current;
+    resetSwipeGesture();
+    if (startX == null || startY == null) return;
+
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+    if (axis === "vertical" || Math.abs(dy) > Math.abs(dx) * 1.2) return;
     if (Math.abs(dx) < SWIPE_THRESHOLD_PX) return;
+
     suppressNavUntilRef.current = Date.now() + SWIPE_SUPPRESS_NAV_MS;
     if (dx < 0) scrollTrendingRef.current("right");
     else scrollTrendingRef.current("left");
   };
 
   const onSwipePointerCancel = () => {
-    swipeStartXRef.current = null;
+    resetSwipeGesture();
   };
 
   /** Black circular control, mint chevrons — same on landing and Markets. */
   const carouselArrowMintEnabled =
-    "border border-zinc-700/90 bg-black text-mint shadow-[inset_0_1px_0_rgba(255,255,255,0.07),0_4px_16px_rgba(0,0,0,0.55)] ring-1 ring-black/80 hover:border-mint/45 hover:bg-zinc-950 hover:text-mint active:scale-[0.97] motion-reduce:hover:border-zinc-700/90 motion-reduce:hover:bg-black";
+    "border border-zinc-700/90 bg-black text-mint shadow-[inset_0_1px_0_rgba(255,255,255,0.07),0_4px_16px_rgba(0,0,0,0.55)] ring-1 ring-black/80 hover:border-mint/45 hover:bg-zinc-950 hover:text-mint active:opacity-85 motion-reduce:hover:border-zinc-700/90 motion-reduce:hover:bg-black";
 
   const carouselArrowOverlayClasses = (enabled: boolean) =>
     `absolute top-1/2 z-30 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border text-2xl font-semibold leading-none transition-[transform,colors,box-shadow,opacity,border-color,background-color] motion-reduce:transition-none ${
@@ -545,18 +583,19 @@ export function TrendingCollectionsCarousel({
                   : landingNarrowW
               }`}
               onPointerDown={onSwipePointerDown}
+              onPointerMove={onSwipePointerMove}
               onPointerUp={onSwipePointerUp}
               onPointerCancel={onSwipePointerCancel}
             >
               <div
-                className={`flex flex-row flex-nowrap ${
+                className={`flex flex-row flex-nowrap items-stretch will-change-transform ${
                   narrowTransition && !trendingPauseMotion
-                    ? "transition-transform duration-500 ease-out motion-reduce:transition-none motion-reduce:duration-0"
+                    ? "transition-transform duration-500 motion-reduce:transition-none motion-reduce:duration-0 [transition-timing-function:linear]"
                     : "!transition-none"
                 }`}
                 style={{
                   width: `calc(100% * ${narrowExtended.length})`,
-                  transform: `translateX(calc(-${narrowVisual} * 100% / ${narrowExtended.length}))`,
+                  transform: `translate3d(calc(-${narrowVisual} * 100% / ${narrowExtended.length}), 0, 0)`,
                 }}
               >
                 {narrowExtended.map((c, idx) =>

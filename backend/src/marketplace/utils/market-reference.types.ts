@@ -27,6 +27,34 @@ export type MarketPriceHistoryResult = {
   points: Array<{ t: number; v: number }>;
   source: string;
   upstreamRequests: number;
+  /** Present when served from materialized snapshot (always 0 upstream). */
+  snapshotStale?: boolean;
+  syncedAt?: string;
+};
+
+/** `POST /v1/cards/comps` snapshot (headline + raw auction rows). */
+export type MarketCompsSnapshot = {
+  enabled: boolean;
+  searchQuery: string;
+  matched: boolean;
+  message?: string;
+  matchConfidence?: 'verified' | 'approximate';
+  cardId: string | null;
+  /** Cardhedger comps `grade` param (e.g. `PSA 10`). */
+  grade: string | null;
+  requestCount: number;
+  timeWeighted: boolean;
+  headline: {
+    compPriceUsd: number;
+    countUsed: number;
+    latestSaleAtSec: number | null;
+  } | null;
+  rawSales: Array<{ t: number; v: number }>;
+  earliestSaleAtSec: number | null;
+  latestSaleAtSec: number | null;
+  upstreamSource: 'cardhedger:comps';
+  /** Cardhedger `comps` returned 404 — catalog row exists but no sales for {@link grade}. */
+  noSalesForGrade?: boolean;
 };
 
 export type MarketCollectionPreview = {

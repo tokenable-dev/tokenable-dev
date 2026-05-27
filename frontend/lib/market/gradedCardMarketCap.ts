@@ -93,6 +93,13 @@ export function catalogSpotUsdFromMarketPreview(
     const v = pickAvgFromBand(c.ebayPsa10 ?? null);
     if (v != null) return v;
   }
+  if (historyTier === "PSA_AUTH") {
+    const v = pickAvgFromBand(c.ebayPsaTiers?.PSA_AUTH ?? null);
+    if (v != null) return v;
+    if (c.topPrice != null && Number.isFinite(c.topPrice) && c.topPrice > 0) {
+      return c.topPrice;
+    }
+  }
   if (historyTier === "PSA_9") {
     const v = pickAvgFromBand(c.ebayPsa9 ?? null);
     if (v != null) return v;

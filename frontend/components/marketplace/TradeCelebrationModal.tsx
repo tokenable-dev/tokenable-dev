@@ -59,7 +59,7 @@ export function TradeCelebrationModal({
           <button
             type="button"
             onClick={onClose}
-            className="mt-7 w-full rounded-xl bg-gradient-to-r from-mint to-mint-dim py-3 text-sm font-semibold text-mint-ink shadow-[0_12px_32px_-16px_rgba(135,255,72,0.45)] transition hover:brightness-105"
+            className="mt-7 w-full rounded-xl bg-gradient-to-r from-mint to-mint-dim py-3 text-sm font-semibold text-mint-ink shadow-[0_12px_32px_-16px_rgba(16,211,51,0.45)] transition hover:brightness-105"
           >
             Great
           </button>

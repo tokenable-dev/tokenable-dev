@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import type { ParsedPsaLabel } from './utils/psa-ocr.util';
+import { extractGrade, resolveCertHintForLookup, type ParsedPsaLabel } from './utils/psa-ocr.util';
 import { psaVarietyIsCardNumberOnly } from './psa-variety-catalog.util';
 
 /** Aligns with Swagger `PublicPSACert` (api.psacard.com/publicapi/swagger.json). */
@@ -14,7 +14,7 @@ export interface PsaCertRecord {
   Brand?: string;
   Variety?: string;
   CardNumber?: string;
-  CardGrade?: string;
+  CardGrade?: string | number;
   GradeDescription?: string;
   LabelType?: string;
   Category?: string;
@@ -41,6 +41,7 @@ export type PsaPublicApiLookupResult =
       certNumber: string;
       message: string;
       httpStatus?: number;
+      reason?: 'cert_mismatch';
     };
 
 /** GET /cert/GetImagesByCertNumber/{cert} — 슬랩 사진 URL(ImageURL, IsFrontImage 배열). */
@@ -58,6 +59,7 @@ export type PsaGetImagesLookupResult =
       certNumber: string;
       message: string;
       httpStatus?: number;
+      reason?: 'cert_mismatch';
     };
 
 function sleep(ms: number): Promise<void> {
@@ -111,15 +113,18 @@ export class PsaPublicApiService {
     return 10 * 60 * 1000; // 10분
   }
 
-  /** 429일 때 추가 시도 횟수 (총 호출 = 1 + 이 값). 기본 2 → 최대 3회. */
+  /**
+   * Extra attempts after HTTP 429 (total calls = 1 + this value).
+   * Default **0** — fail fast so Vault UI is not left waiting on doomed retries.
+   */
   private getMaxRetries(): number {
     const n = this.config.get<string>('PSA_PUBLIC_API_MAX_RETRIES');
     const parsed = n ? parseInt(n, 10) : NaN;
-    if (!Number.isNaN(parsed) && parsed >= 0) return Math.min(parsed, 8);
-    return 2;
+    if (!Number.isNaN(parsed) && parsed >= 0) return Math.min(parsed, 3);
+    return 0;
   }
 
-  /** RFC-style Retry-After (초); 비정상적으로 큰 값은 상한만 적용. */
+  /** Minimal backoff when `PSA_PUBLIC_API_MAX_RETRIES` > 0. */
   private waitMsFrom429RetryAfter(
     retryAfterHeader: string | null,
     attempt: number,
@@ -127,10 +132,10 @@ export class PsaPublicApiService {
     const raw = retryAfterHeader?.trim();
     const sec = raw ? parseInt(raw, 10) : NaN;
     if (Number.isFinite(sec) && sec > 0) {
-      const capped = Math.min(sec, 120);
+      const capped = Math.min(sec, 5);
       return Math.max(capped, 1) * 1000;
     }
-    return Math.min(1500 * 2 ** attempt, 30_000);
+    return Math.min(400 * (attempt + 1), 1_500);
   }
 
   /**
@@ -279,6 +284,20 @@ export class PsaPublicApiService {
           certNumber: digits,
           message: 'No data found for cert',
           httpStatus: res.status,
+        };
+      }
+
+      const returnedCert = certNumberFromPsaCertBody(body);
+      if (returnedCert && returnedCert !== digits) {
+        this.logger.warn(
+          `PSA GetByCertNumber cert mismatch requested=${digits} PSACert.CertNumber=${returnedCert}`,
+        );
+        return {
+          status: 'error',
+          certNumber: digits,
+          message: `PSA API returned cert ${returnedCert} for lookup ${digits} — cert numbers do not match`,
+          httpStatus: res.status,
+          reason: 'cert_mismatch',
         };
       }
 
@@ -467,6 +486,16 @@ export class PsaPublicApiService {
   }
 }
 
+/** Normalized digits from `PSACert.CertNumber` when present. */
+export function certNumberFromPsaCertBody(body: unknown): string | undefined {
+  const root = body as { PSACert?: PsaCertRecord };
+  const c = root?.PSACert;
+  if (!c || typeof c !== 'object') return undefined;
+  if (c.CertNumber == null) return undefined;
+  const digits = String(c.CertNumber).replace(/\D/g, '');
+  return digits.length > 0 ? digits : undefined;
+}
+
 /**
  * `GetByCertNumber` 등 응답 JSON에서 `PSACert.SpecID`만 뽑는다 (커버 이미지용).
  */
@@ -484,6 +513,37 @@ export function specIdStringFromPsaCertBody(body: unknown): string | undefined {
     return raw.trim();
   }
   return undefined;
+}
+
+/** PSA `PSACert.CardGrade` / `GradeDescription` → numeric grade for mint form. */
+export function parseGradeFromPsaCertRecord(
+  c: PsaCertRecord,
+): { label?: string; score?: number } {
+  const rawGrade =
+    typeof c.CardGrade === 'string'
+      ? c.CardGrade.trim()
+      : typeof c.CardGrade === 'number' && Number.isFinite(c.CardGrade)
+        ? String(c.CardGrade)
+        : '';
+  if (rawGrade) {
+    const fromNumeric = rawGrade.match(/^(\d+(?:\.\d+)?)$/);
+    if (fromNumeric) {
+      const n = parseFloat(fromNumeric[1]);
+      if (!Number.isNaN(n)) {
+        return { label: rawGrade, score: n };
+      }
+    }
+    const parsed = extractGrade(rawGrade);
+    if (parsed.score != null || parsed.label) {
+      return parsed;
+    }
+  }
+  const desc =
+    typeof c.GradeDescription === 'string' ? c.GradeDescription.trim() : '';
+  if (desc) {
+    return extractGrade(desc);
+  }
+  return {};
 }
 
 /** Map PSA PSACert object into our ParsedPsaLabel fields (API overrides noisy OCR). */
@@ -508,21 +568,18 @@ function mergePsaApiIntoParsedImpl(
     return ocr;
   }
 
+  const fromApi = certNumberFromPsaCertBody(apiBody);
+  const requestedCert = resolveCertHintForLookup(ocr.certNumber);
   const certNumber =
-    c.CertNumber != null
-      ? String(c.CertNumber).replace(/\D/g, '')
-      : ocr.certNumber;
+    requestedCert && fromApi && fromApi !== requestedCert
+      ? requestedCert
+      : fromApi ?? requestedCert ?? ocr.certNumber;
 
   let gradeLabel = ocr.gradeLabel;
   let gradeScore = ocr.gradeScore;
-  if (typeof c.CardGrade === 'string' && c.CardGrade.trim()) {
-    gradeLabel = c.CardGrade.trim();
-    const m = c.CardGrade.match(/(\d+(?:\.\d+)?)/);
-    if (m) {
-      const n = parseFloat(m[1]);
-      if (!Number.isNaN(n)) gradeScore = n;
-    }
-  }
+  const parsedGrade = parseGradeFromPsaCertRecord(c);
+  if (parsedGrade.label) gradeLabel = parsedGrade.label;
+  if (parsedGrade.score != null) gradeScore = parsedGrade.score;
 
   const yearRaw = c.Year ?? c.YearIssued;
   const year =

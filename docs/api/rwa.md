@@ -21,9 +21,11 @@ Uploads card image and metadata to **Pinata (IPFS)** and returns a `tokenURI` th
 | `image` | file | No* | JPEG/PNG image file (max 10 MB) |
 | `imageUrl` | string | No* | External image URL (alternative to `image` file) |
 | `attributes` | string | No | JSON string — `[{"trait_type": "...", "value": "..."}]` |
-| `gradedMetadata` | string | No | JSON string — `{ graded, attributes?, external_url? }` — merged PSA/Cardhedger data |
+| `gradedMetadata` | string | No | JSON — `{ graded, … }` from Vault PSA analyze (**PSA 10 required** for upload to succeed) |
 
 \* Either `image` file or `imageUrl` must be provided.
+
+**Mint gate:** Graded metadata must be PSA with numeric grade **10** (`400` otherwise).
 
 **Response:**
 

@@ -22,8 +22,13 @@ import { CollectionService } from '../collections/collection.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { Order, OrderSide, OrderStatus } from '../entities/order.entity';
 import { orderToListItem, type OrderListItem } from '../utils/order-list.util';
-
-const CRITERIA_TOKEN_SENTINEL = '0';
+import {
+  backfillAskTokenIdFromParameters,
+  CRITERIA_TOKEN_SENTINEL,
+  isCriteriaCollectionBidOrder,
+  isValidDecimalTokenId,
+  resolveFulfilledAskTokenId,
+} from '../utils/platform-tape.util';
 
 /** DB/API tokenId 표기(앞자리 0 등) 차이로 replace-listing이 실패하지 않도록 비교용 정규화 */
 function normalizeDecimalTokenId(raw: string): string {
@@ -389,6 +394,24 @@ export class OrdersService {
         `Sum of consideration amounts (${sum}) does not equal considerationAmount (${declared})`,
       );
     }
+
+    const tid = String(dto.tokenId ?? '').trim();
+    if (!isValidDecimalTokenId(tid)) {
+      throw new BadRequestException(
+        'Ask listings must include a valid ERC-721 tokenId (non-negative integer, including 0)',
+      );
+    }
+    const offerId = String(
+      p.offer?.[0]?.identifierOrCriteria ?? '',
+    ).trim();
+    if (
+      isValidDecimalTokenId(offerId) &&
+      normalizeDecimalTokenId(offerId) !== normalizeDecimalTokenId(tid)
+    ) {
+      throw new BadRequestException(
+        'Ask offer identifierOrCriteria must match tokenId',
+      );
+    }
   }
 
   async findActiveOrders(): Promise<Order[]> {
@@ -404,9 +427,7 @@ export class OrdersService {
     return rows.map((o) => orderToListItem(o));
   }
 
-  /**
-   * Active ask listing for an ERC-721 token (not criteria bid tokenId "0").
-   */
+  /** Active ask listing for an ERC-721 token (including mint id `0`). */
   async findActiveAskByTokenId(tokenIdRaw: string): Promise<Order | null> {
     await this.expireOrders();
     const tid = String(tokenIdRaw ?? '').trim();
@@ -520,34 +541,28 @@ export class OrdersService {
         ...(order.parameters ?? {}),
         _tapeFillSide: 'buy',
       };
+      backfillAskTokenIdFromParameters(order);
     }
     const saved = await this.orderRepo.save(order);
 
-    const cons0 = (
-      saved.parameters as { consideration?: { itemType?: number }[] }
-    )?.consideration?.[0];
-    const isCriteriaBid =
-      saved.side === OrderSide.BID && cons0 && Number(cons0.itemType) === 4;
-
-    if (
-      !isCriteriaBid &&
-      saved.tokenId &&
-      saved.tokenId !== CRITERIA_TOKEN_SENTINEL
-    ) {
-      const cleared = await this.orderRepo.update(
-        {
-          tokenContract: saved.tokenContract,
-          tokenId: saved.tokenId,
-          status: OrderStatus.ACTIVE,
-          id: Not(saved.id),
-        },
-        { status: OrderStatus.CANCELLED },
-      );
-      const n = cleared.affected ?? 0;
-      if (n > 0) {
-        this.logger.log(
-          `fulfillOrder ${orderHash.slice(0, 10)}…: cancelled ${n} other active order(s) for token #${saved.tokenId}`,
+    if (!isCriteriaCollectionBidOrder(saved) && saved.side === OrderSide.ASK) {
+      const tid = resolveFulfilledAskTokenId(saved);
+      if (tid != null) {
+        const cleared = await this.orderRepo.update(
+          {
+            tokenContract: saved.tokenContract,
+            tokenId: tid,
+            status: OrderStatus.ACTIVE,
+            id: Not(saved.id),
+          },
+          { status: OrderStatus.CANCELLED },
         );
+        const n = cleared.affected ?? 0;
+        if (n > 0) {
+          this.logger.log(
+            `fulfillOrder ${orderHash.slice(0, 10)}…: cancelled ${n} other active order(s) for token #${tid}`,
+          );
+        }
       }
     }
 
@@ -612,6 +627,7 @@ export class OrdersService {
       ...(ask.parameters ?? {}),
       _tapeFillSide: 'sell',
     };
+    backfillAskTokenIdFromParameters(ask);
     await this.orderRepo.save([ask, bid]);
 
     const cleared = await this.orderRepo.update(

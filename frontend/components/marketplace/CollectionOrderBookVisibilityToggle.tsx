@@ -4,27 +4,84 @@ import { IBM_Plex_Sans } from "next/font/google";
 
 const orderBookToggleLabelFont = IBM_Plex_Sans({
   subsets: ["latin"],
-  weight: ["500"],
+  weight: ["500", "600"],
   display: "swap",
 });
 
 /**
- * Order book visibility: off = grey 32×20 track (spec) + × knob; on = mint + ✓.
- * Knob motion: 300ms ease-out.
+ * Order book visibility: off = grey track + × knob; on = mint + ✓.
+ * `bar` — full-width mobile control below the chart; `inline` — compact label + switch (desktop overlay).
  */
 export function CollectionOrderBookVisibilityToggle({
   checked,
   onChange,
   rowJustify = "end",
   contentWidth = false,
+  variant = "inline",
 }: {
   checked: boolean;
   onChange: (next: boolean) => void;
-  /** `start`: pack to the left. `end`: pack to the right (used with {@link contentWidth} on exchange bezel overlay). */
   rowJustify?: "start" | "end";
-  /** When true, only as wide as label + switch (e.g. overlay on cluster bezel). */
   contentWidth?: boolean;
+  variant?: "inline" | "bar";
 }) {
+  if (variant === "bar") {
+    return (
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        onClick={() => onChange(!checked)}
+        className={`flex w-full items-center justify-between gap-3 rounded-lg border px-3 py-2.5 text-left transition-all duration-200 ${
+          checked
+            ? "border-mint/40 bg-mint/[0.07] shadow-[inset_0_1px_0_rgba(16,211,51,0.14),0_0_20px_-12px_rgba(16,211,51,0.45)]"
+            : "border-[rgba(38,39,45,1)] bg-[rgb(20,20,21)] hover:border-zinc-600/90 active:bg-[rgb(24,24,25)]"
+        }`}
+      >
+        <span className="flex min-w-0 items-center gap-2.5">
+          <span
+            className={`h-2 w-2 shrink-0 rounded-full transition-colors ${
+              checked ? "bg-mint shadow-[0_0_8px_rgba(16,211,51,0.65)]" : "bg-zinc-600"
+            }`}
+            aria-hidden
+          />
+          <span className="min-w-0">
+            <span
+              className={`${orderBookToggleLabelFont.className} block text-[12px] font-semibold leading-tight tracking-tight text-white`}
+            >
+              Order book
+            </span>
+            <span className="mt-0.5 block text-[10px] leading-snug text-zinc-500">
+              {checked ? "Bids & asks — tap a level to trade" : "Show live depth beside the chart"}
+            </span>
+          </span>
+        </span>
+        <span
+          className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border transition-all duration-200 ${
+            checked
+              ? "border-mint/35 bg-mint/15 text-mint"
+              : "border-zinc-700 bg-black/40 text-zinc-500"
+          }`}
+          aria-hidden
+        >
+          <svg
+            className={`h-3.5 w-3.5 transition-transform duration-200 ${checked ? "rotate-180" : ""}`}
+            viewBox="0 0 16 16"
+            fill="none"
+          >
+            <path
+              d="M4 6 L8 10 L12 6"
+              stroke="currentColor"
+              strokeWidth="1.75"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </span>
+      </button>
+    );
+  }
+
   return (
     <div
       className={`flex items-center gap-[10px] ${

@@ -3,98 +3,66 @@
 **Source:** `backend/src/`  
 **Framework:** NestJS 11 + TypeORM + Ethers.js 6
 
-## Module Map
+## Module map
 
 ```
 backend/src/
 ├── main.ts                  # Bootstrap: global prefix /api, CORS, ValidationPipe, Swagger
-├── app.module.ts            # Root module — imports all domain modules
+├── app.module.ts            # Root — TypeORM (4 entities), ScheduleModule
 │
-├── auth/                    # Google OAuth, JWT cookies, session, wallet link
-│   ├── auth.controller.ts
-│   ├── auth.service.ts
-│   ├── auth.module.ts
-│   ├── dto/link-wallet.dto.ts
-│   ├── guards/jwt-auth.guard.ts
-│   └── strategies/google.strategy.ts + jwt.strategy.ts
+├── auth/                    # Google OAuth, JWT cookies, wallet link
+├── user/                    # users table
+├── mail/                    # SMTP (auth verification emails)
+├── health/                  # GET /api/health
 │
-├── user/
-│   ├── user.service.ts
-│   ├── user.module.ts
-│   └── entities/user.entity.ts
-│
-├── mail/
-│   ├── mail.service.ts      # SMTP via Nodemailer (used by auth for verification emails)
-│   └── mail.module.ts
-│
-├── rwa/                     # IPFS RWA upload (Pinata)
-│   ├── rwa.controller.ts
-│   ├── rwa.service.ts
-│   ├── rwa.module.ts
-│   ├── pinata/pinata.service.ts
-│   ├── dto/upload-rwa.dto.ts
-│   └── interfaces/rwa-metadata.interface.ts
-│
-├── blockchain/              # Sepolia read-only: TokenableRWA + IPFS resolver
-│   ├── blockchain.controller.ts
-│   ├── blockchain.service.ts
-│   ├── blockchain.module.ts
-│   ├── ipfs-gateway-resolver.service.ts
-│   ├── abis/tokenable-rwa.abi.ts
-│   ├── constants/injection-tokens.ts
-│   ├── dto/media-resolve.dto.ts + rwa-metadata-batch.dto.ts
-│   └── providers/           # ethers-provider.factory + tokenable-rwa.factory
-│
-├── psa/                     # PSA slab OCR + Public API + optional spec-page scraper
-│   ├── psa.controller.ts
-│   ├── psa.service.ts
-│   ├── psa.module.ts
-│   ├── psa-public-api.service.ts
-│   ├── psa-spec-scraper.service.ts
-│   └── utils/               # psa-cert-images.util + psa-ocr.util + psa-slab-crop.util
-│
-├── cardhedger/              # Cardhedger upstream client + dashboard indexes HTTP
-│   ├── cardhedger.module.ts
-│   ├── cardhedger.service.ts
-│   ├── indexes.service.ts
-│   └── controllers/indexes.controller.ts   # GET /api/cardhedger/indexes
+├── rwa/                     # IPFS upload (Pinata) — PSA 10 gate on mint metadata
+├── blockchain/              # Sepolia read-only RWA + IPFS gateway resolver
+├── psa/                     # Slab OCR, analyze-by-cert, Public API, spec-page scraper
+├── cardhedger/              # Upstream client + GET /api/cardhedger/indexes
 │
 └── marketplace/
-    ├── marketplace.module.ts
-    │
-    ├── orders/              # Seaport off-chain order book
-    │   ├── orders.controller.ts
-    │   ├── orders.service.ts
-    │   └── dto/
-    │
-    ├── collections/         # Collections, charts, snapshots, Cardhedger helpers, AI insight
-    │   ├── collections.controller.ts
-    │   ├── collection.service.ts
-    │   ├── collection-market.service.ts
-    │   ├── cardhedger-market-data.service.ts
-    │   ├── cardhedger-ai-insight.service.ts
-    │   └── dto/
-    │
-    ├── assets/              # Portfolio hidden-asset management
-    │   ├── assets.controller.ts
-    │   └── hidden-assets.service.ts
-    │
-    ├── entities/            # TypeORM: order, marketplace_collection, hidden_asset
-    │   ├── order.entity.ts
-    │   ├── marketplace-collection.entity.ts
-    │   └── hidden-asset.entity.ts
-    │
-    ├── utils/               # bucket-key, collection-image, card-match, psa-spec-cardhedger-map, …
-    │
-    └── (no dto/ at module root)
+    ├── orders/              # Seaport order book (orders table)
+    └── collections/
+        ├── collections.controller.ts      # List, detail, stats, market-series, …
+        ├── cert-market-trace.controller.ts # POST cert-market-trace (debug)
+        ├── collection.service.ts          # Buckets, covers, listing enrichment
+        ├── collection-market.service.ts   # Pool stats, batch list snapshots
+        ├── collection-market-snapshot.service.ts       # Worker refresh / upsert
+        ├── collection-market-snapshot-read.service.ts  # DB-first API reads
+        ├── collection-market-snapshot-scheduler.service.ts # Cron + SWR queue
+        ├── cardhedger-market-data.service.ts
+        └── cardhedger-ai-insight.service.ts
+```
 
-## Global Bootstrap (`main.ts`)
+**Entities (TypeORM):** `User`, `Order`, `MarketplaceCollection`, `CollectionMarketSnapshot` — see [database.md](./database.md).
+
+There is **no** `marketplace/assets` module, relational `BidsController` / `TradeController`, or PokéTrace proxy in the current tree.
+
+## Marketplace data path
+
+```
+Ask POST → OrdersService.ensureCollectionForListing → marketplace_collections row
+         → snapshot scheduler enqueue → collection_market_snapshots upsert (async/on-demand)
+
+GET …/collections, …/market-snapshots, …/cardhedger, …/price-history
+         → CollectionMarketSnapshotReadService (PostgreSQL only on hot path)
+```
+
+## Global bootstrap (`main.ts`)
 
 | Setting | Value |
 |---------|-------|
 | Global prefix | `/api` |
 | Swagger UI | `GET /api/docs` |
 | ValidationPipe | `whitelist: true`, `forbidNonWhitelisted: true`, `transform: true` |
-| CORS | Origins from `CORS_ORIGIN` env (comma-separated); `credentials: true` |
-| Cookie parser | `cookie-parser` middleware |
-| Default port | `4000` (override with `PORT` env) |
+| CORS | `CORS_ORIGIN` (comma-separated); `credentials: true` |
+| Cookie parser | `cookie-parser` |
+| Default port | `4000` (`PORT` env) |
+
+## Production TypeORM
+
+```typescript
+synchronize: NODE_ENV !== 'production' || TYPEORM_SYNC === 'true'
+```
+
+Use bootstrap SQL for prod; keep `TYPEORM_SYNC=false` after first schema apply.

@@ -13,6 +13,33 @@ export type CollectionCategoryFilterId =
   | "soccer"
   | "others";
 
+export type CategoryFilterOption = {
+  id: CollectionCategoryFilterId;
+  label: string;
+};
+
+/** Full set (e.g. landing carousel). */
+export const DEFAULT_CATEGORY_FILTERS: CategoryFilterOption[] = [
+  { id: "all", label: "ALL" },
+  { id: "pokemon", label: "Pokemon" },
+  { id: "mlb", label: "MLB" },
+  { id: "nba", label: "NBA" },
+  { id: "nfl", label: "NFL" },
+  { id: "soccer", label: "Soccer" },
+  { id: "others", label: "Others" },
+];
+
+/** Markets / All Collections — All default; plus Pokemon, NBA, MLB, Others. */
+export const MARKETS_CATEGORY_FILTERS: CategoryFilterOption[] = [
+  { id: "all", label: "ALL" },
+  { id: "pokemon", label: "Pokemon" },
+  { id: "nba", label: "NBA" },
+  { id: "mlb", label: "MLB" },
+  { id: "others", label: "Others" },
+];
+
+export const MARKETS_DEFAULT_CATEGORY_FILTER: CollectionCategoryFilterId = "all";
+
 /** Rough bucket from listing metadata text (best-effort). */
 export type CollectionSportBucket =
   | "pokemon"
@@ -35,6 +62,7 @@ function buildHaystack(
     comp?.cardSet,
     comp?.cardNameDisplay,
     comp?.cardName,
+    comp?.psaCategory,
     comp?.gradingCompanyDisplay,
     comp?.gradingCompany,
   ];
@@ -77,6 +105,10 @@ export function inferSportBucketFromHaystack(hay: string): CollectionSportBucket
   if (!hay.trim()) return "other";
 
   if (/\bpokemon\b|ポケ|pikachu|charizard/i.test(hay)) {
+    return "pokemon";
+  }
+
+  if (/\b(tcg\s*cards?|tcgcard|pok[eé]mon\s*cards?)\b/i.test(hay)) {
     return "pokemon";
   }
 
@@ -135,6 +167,8 @@ export function collectionMatchesCategoryFilter(
 ): boolean {
   if (filter === "all") return true;
   const bucket = inferCollectionSportBucket(collection, snapshot);
-  if (filter === "others") return bucket === "other";
+  if (filter === "others") {
+    return bucket === "other" || bucket === "nfl" || bucket === "soccer";
+  }
   return bucket === filter;
 }

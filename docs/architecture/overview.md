@@ -22,9 +22,9 @@ Browser / Wallet (MetaMask)
 
 1. **Browser** calls same-origin `/api/*` through Nginx (no hard-coded API host in production).
 2. **NestJS** validates the request via `ValidationPipe`, applies JWT auth where required, and routes to the appropriate module.
-3. **PostgreSQL** (TypeORM) persists orders, collections, users, and hidden-asset preferences.
+3. **PostgreSQL** (TypeORM) persists users, Seaport **orders**, **marketplace_collections** (bucket metadata), and **collection_market_snapshots** (materialized Cardhedger pricing).
 4. **Ethereum RPC** (Alchemy Sepolia) provides read-only contract data. On-chain settlement uses **Seaport 1.5** via wallet-signed transactions in the browser.
-5. **Cardhedger API** supplies PSA-10 price data and market indexes (server-side integration plus `GET /api/cardhedger/indexes`).
+5. **Cardhedger API** is called from **background snapshot workers** and cold-start refresh — not on every marketplace chart/list request. Dashboard indexes: `GET /api/cardhedger/indexes`.
 6. **PSA Public API** verifies cert numbers and provides slab metadata.
 7. **Pinata** stores IPFS metadata and images.
 
@@ -44,8 +44,9 @@ Local development omits Nginx; the frontend dev server proxies `/api` to `localh
 | Layer | Storage | Settlement | Entry Point |
 |------|---------|-----------|-------------|
 | **Seaport** | `orders`, `marketplace_collections` | Wallet-signed on-chain `fulfillOrder` / `matchAdvancedOrders` | `marketplace/orders/*` API + `frontend/lib/seaport/*` |
+| **Market pricing (read)** | `collection_market_snapshots` | N/A — materialized + stale-while-revalidate | `marketplace/collections/*` + `POST …/market-snapshots` |
 
-Older documentation described a second “relational” axis (`bids`, `asks`, settlement workers). That stack has been **removed from this repository**; use Seaport only.
+Relational matching (`bids`/`asks` tables, settlement workers) has been **removed**. See [database.md](./database.md) and [materialized-market-snapshots.md](./materialized-market-snapshots.md).
 
 ## Key Environment Variables
 
@@ -54,8 +55,10 @@ Older documentation described a second “relational” axis (`bids`, `asks`, se
 | `RWA_CONTRACT_ADDRESS` | backend | TokenableRWA on Sepolia |
 | `USDC_CONTRACT_ADDRESS` | backend | MockUSDC on Sepolia |
 | `SEPOLIA_RPC_URL` | backend | Alchemy RPC |
-| `CARDHEDGER_API_KEY` | backend | Cardhedger market data |
+| `CARDHEDGER_API_KEY` | backend | Cardhedger upstream (snapshot workers) |
+| `MARKET_SNAPSHOT_*` | backend | Snapshot worker tuning (optional — defaults in code) |
 | `PSA_PUBLIC_API_TOKEN` | backend | PSA cert lookup |
+| `TYPEORM_SYNC` | backend | Prod: `true` only for empty DB bootstrap, then `false` |
 | `PINATA_JWT` + `PINATA_GATEWAY` | backend | IPFS upload & read |
 | `JWT_SECRET` | backend | JWT signing |
 | `GOOGLE_CLIENT_ID/SECRET` | backend | Google OAuth |

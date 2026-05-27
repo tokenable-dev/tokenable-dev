@@ -106,16 +106,25 @@ export class CardhedgerIndexesService
    * Scheduled rebuilds are decoupled from user traffic, so dashboards never trigger
    * an implicit rebuild — the cache is simply read.
    */
+  private prewarmEnabled(): boolean {
+    const raw = this.config.get<string>('CARDHEDGER_INDEXES_PREWARM_ENABLED');
+    if (raw === '1' || raw === 'true') return true;
+    if (raw === '0' || raw === 'false') return false;
+    return this.config.get<string>('NODE_ENV') === 'production';
+  }
+
   onApplicationBootstrap(): void {
-    this.prewarmTimer = setTimeout(() => {
-      void this.rebuildCache().catch((err) =>
-        this.logger.warn(
-          `index prewarm failed: ${err instanceof Error ? err.message : String(err)}`,
-        ),
-      );
-    }, this.prewarmDelayMs);
-    // Don't keep the Node process alive just for the timers.
-    this.prewarmTimer.unref?.();
+    if (this.prewarmEnabled()) {
+      this.prewarmTimer = setTimeout(() => {
+        void this.rebuildCache().catch((err) =>
+          this.logger.warn(
+            `index prewarm failed: ${err instanceof Error ? err.message : String(err)}`,
+          ),
+        );
+      }, this.prewarmDelayMs);
+      // Don't keep the Node process alive just for the timers.
+      this.prewarmTimer.unref?.();
+    }
 
     this.refreshTimer = setInterval(() => {
       this.scheduledRebuildCount += 1;
@@ -133,8 +142,11 @@ export class CardhedgerIndexesService
     }, this.refreshIntervalMs);
     this.refreshTimer.unref?.();
 
+    const prewarmNote = this.prewarmEnabled()
+      ? `prewarm in ${this.prewarmDelayMs}ms`
+      : 'prewarm disabled';
     this.logger.log(
-      `indexes service ready — prewarm in ${this.prewarmDelayMs}ms, ` +
+      `indexes service ready — ${prewarmNote}, ` +
         `scheduled refresh every ${Math.round(this.refreshIntervalMs / 1000)}s ` +
         `(${(this.refreshIntervalMs / 3_600_000).toFixed(1)}h)`,
     );

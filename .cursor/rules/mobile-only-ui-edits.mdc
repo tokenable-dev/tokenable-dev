@@ -1,0 +1,14 @@
+---
+description: Collection/marketplace UI — mobile-only change scope
+globs:
+  - frontend/components/marketplace/**
+  - frontend/app/marketplace/**
+---
+
+# Mobile-only UI edits (collection / marketplace)
+
+When the user asks for collection detail, exchange, or marketplace UX tweaks **without** saying otherwise:
+
+- **Change mobile only** — use `max-xl:` (or `max-lg:` if the task is explicitly narrow-mobile) for new layout, spacing, typography, and behavior.
+- **Preserve desktop (`xl:` and up)** — match deployed / `origin/main` styles unless the user explicitly requests a web change.
+- Do not remove or restyle desktop breakpoints when refactoring shared components; split with `max-xl:` vs `xl:` class pairs or conditional options (e.g. chart `grid` via `matchMedia`).

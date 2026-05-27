@@ -3,11 +3,11 @@
 :root {
   --background: #030712;
   --foreground: #f9fafb;
-  /** 브랜드 포인트 — 라임 그린 rgb(135,255,72) */
-  --mint: #87ff48;
-  --mint-dim: #5fdc2e;
-  --mint-deep: #3f8f18;
-  --mint-ink: #081008;
+  /** 브랜드 포인트 — rgb(16, 211, 51) */
+  --mint: #10d333;
+  --mint-dim: #0cb82e;
+  --mint-deep: #0a8f24;
+  --mint-ink: #041208;
 }
 
 @theme inline {
@@ -36,9 +36,23 @@ body {
   display: none;
 }
 
-/* 컬렉션 상세: 스크롤바 색상은 브라우저 기본, 레이아웃만 튐 완화 */
-html.collection-details-scroll {
-  scrollbar-gutter: stable;
+/* 컬렉션 상세: 데스크톱만 gutter (모바일에서 가로 여백·점프 방지) */
+@media (min-width: 1024px) {
+  html.collection-details-scroll {
+    scrollbar-gutter: stable;
+  }
+}
+
+/* Collection detail mobile: single-screen shell (no page scroll). */
+@media (max-width: 1023px) {
+  html.collection-details-mobile-lock {
+    overflow: hidden;
+    height: 100%;
+  }
+  html.collection-details-mobile-lock body {
+    overflow: hidden;
+    height: 100%;
+  }
 }
 
 /** RWA Exchange — indeterminate bar while PokeTrace / market snapshots load */
@@ -97,9 +111,9 @@ html.collection-details-scroll {
   inset: 0;
   background: linear-gradient(
     90deg,
-    rgba(135, 255, 72, 0.03) 0%,
-    rgba(135, 255, 72, 0.2) 50%,
-    rgba(135, 255, 72, 0.03) 100%
+    rgba(16, 211, 51, 0.03) 0%,
+    rgba(16, 211, 51, 0.2) 50%,
+    rgba(16, 211, 51, 0.03) 100%
   );
   animation: ai-insight-scan 1.15s ease-in-out infinite;
   pointer-events: none;
@@ -121,7 +135,7 @@ html.collection-details-scroll {
   background: linear-gradient(
     100deg,
     rgba(255, 255, 255, 0) 0%,
-    rgba(135, 255, 72, 0.24) 45%,
+    rgba(16, 211, 51, 0.24) 45%,
     rgba(255, 255, 255, 0) 100%
   );
   animation: ai-insight-shimmer 1.2s linear infinite;
@@ -220,4 +234,52 @@ html.collection-details-scroll {
   .landing-grid-drift {
     animation: none !important;
   }
+}
+
+/* ── Mobile stability (≤1023px): less “page moves around” ───────────────── */
+@media (max-width: 1023px) {
+  html {
+    overflow-x: clip;
+    max-width: 100%;
+  }
+
+  body {
+    overflow-x: clip;
+    max-width: 100%;
+    overscroll-behavior-x: none;
+  }
+
+  .mobile-page-root {
+    isolation: isolate;
+  }
+
+  /*
+   * Landing ambient loops read as the whole page shifting on a phone.
+   * Keep one-shot enter fades; drop infinite orb/grid motion (also in reduced-motion).
+   */
+  .landing-orb-inner,
+  .landing-grid-drift {
+    animation: none !important;
+    will-change: auto;
+  }
+
+  .landing-orb-inner {
+    opacity: 0.88 !important;
+    transform: none !important;
+  }
+}
+
+/* Horizontal carousels / badge strips: contain swipe overscroll inside the strip */
+.mobile-scroll-x-contain {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/*
+ * Hero collection carousel (landing / markets mobile): allow vertical page scroll
+ * on the large card image; horizontal swipe is handled in JS when intent is clear.
+ */
+.touch-pan-y {
+  touch-action: pan-y pinch-zoom;
 }

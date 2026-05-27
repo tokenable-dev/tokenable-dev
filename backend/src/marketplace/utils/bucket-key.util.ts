@@ -1,4 +1,9 @@
 import { createHash } from 'crypto';
+import {
+  bucketGradeScoreFromPsaGradeInput,
+  psaGradePolicyInputFromGraded,
+} from './psa-grade-policy.util';
+import { marketParallelKeyFromPsaVariety } from './market-parallel-key.util';
 
 /** Canonical fields that define a "same card" pool (many tokenIds, one book). */
 export interface MarketBucketComponents {
@@ -26,12 +31,23 @@ export interface MarketBucketComponents {
    */
   psaTotalPopulation?: number;
   /**
-   * Optional card # (e.g. 086) — **not** part of {@link computeMarketBucketKey}; used for search matching only.
+   * Normalized card # (e.g. `150`) — part of bucket hash since v2.
    */
   cardNumber?: string;
+  /**
+   * Parallel facet for collection boundary (`base` or slug from PSA Variety).
+   * @see marketParallelKeyFromPsaVariety
+   */
+  marketParallelKey?: string;
+  /**
+   * Optional release year (e.g. 2025) — display-only; not part of {@link computeMarketBucketKey}.
+   */
+  year?: number;
 }
 
-const KEY_VERSION = 1;
+/** Bump when bucket hash inputs change — triggers optional order-key migration. */
+export const BUCKET_KEY_VERSION = 2;
+const KEY_VERSION = BUCKET_KEY_VERSION;
 
 function normalizePart(s: string): string {
   return s.trim().toLowerCase().replace(/\s+/g, ' ');
@@ -62,6 +78,18 @@ function detectVariantType(graded: Record<string, unknown>): 'psa_dna' | null {
     return 'psa_dna';
   }
   return null;
+}
+
+function normalizeYearLike(v: unknown): number | null {
+  if (typeof v === 'number' && Number.isFinite(v)) {
+    const y = Math.trunc(v);
+    return y >= 1880 && y <= 2100 ? y : null;
+  }
+  const s = String(v ?? '').trim();
+  const m = /\b(\d{4})\b/.exec(s);
+  if (!m) return null;
+  const y = Number(m[1]);
+  return Number.isFinite(y) && y >= 1880 && y <= 2100 ? y : null;
 }
 
 /** Where the coalesced `graded` payload came from (`properties.graded ?? meta.graded`). */
@@ -173,7 +201,13 @@ export function extractOrDiagnoseBucketComponents(
   let scoreVal: unknown = grade?.score;
   if (scoreVal == null || scoreVal === '') scoreVal = psa?.gradeScore;
 
-  const gradeScore = normalizeGradeScore(scoreVal);
+  let gradeScore = normalizeGradeScore(scoreVal);
+  if (!gradeScore) {
+    const bucketGrade = bucketGradeScoreFromPsaGradeInput(
+      psaGradePolicyInputFromGraded(graded),
+    );
+    if (bucketGrade) gradeScore = bucketGrade;
+  }
 
   if (!gradingCompany) {
     return {
@@ -226,6 +260,15 @@ export function extractOrDiagnoseBucketComponents(
   if (variantType) out.variantType = variantType;
   if (cardNumber) out.cardNumber = cardNumber;
 
+  const psaVarietyRaw = String(
+    psa?.variety ?? psa?.Variety ?? '',
+  ).trim();
+  out.marketParallelKey = marketParallelKeyFromPsaVariety(psaVarietyRaw);
+
+  const year = normalizeYearLike((card as Record<string, unknown> | undefined)?.year) ??
+    normalizeYearLike((psa as Record<string, unknown> | undefined)?.year);
+  if (year != null) out.year = year;
+
   const pop = psa?.totalPopulation;
   if (typeof pop === 'number' && Number.isFinite(pop) && pop >= 0) {
     out.psaTotalPopulation = Math.floor(pop);
@@ -261,6 +304,14 @@ function trimFloatString(n: number): string {
 }
 
 /** Deterministic 64-char hex key shared by backend and frontend. */
+function normalizeCardNumberForBucketKey(num: string | undefined): string {
+  const t = String(num ?? '')
+    .replace(/^#/, '')
+    .trim();
+  if (!t) return '';
+  return t.split('/')[0].trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
 export function computeMarketBucketKey(
   components: MarketBucketComponents,
 ): string {
@@ -270,6 +321,9 @@ export function computeMarketBucketKey(
     cardName: components.cardName,
     cardSet: components.cardSet,
     gradeScore: components.gradeScore,
+    cardNumber: normalizeCardNumberForBucketKey(components.cardNumber),
+    marketParallelKey:
+      components.marketParallelKey?.trim().toLowerCase() || 'base',
     ...(components.variantType ? { variantType: components.variantType } : {}),
   });
   return createHash('sha256').update(payload, 'utf8').digest('hex');

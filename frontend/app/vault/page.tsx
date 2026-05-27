@@ -3,11 +3,15 @@
 import { Suspense, useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { MintForm } from "@/components/vault";
+import {
+  GradientOutlineFrame,
+  VAULT_OUTLINE_PAD_CLASS,
+} from "@/components/ui/GradientOutlineFrame";
 import { useAuthStore } from "@/store/authStore";
 
 const STEPS = [
-  { num: 1, label: "Request" },
-  { num: 2, label: "Shipping" },
+  { num: 1, label: "Ship to Vault" },
+  { num: 2, label: "Confirm + Verify" },
   { num: 3, label: "Verify" },
   { num: 4, label: "Mint" },
 ] as const;
@@ -67,21 +71,31 @@ function Stepper({ active }: { active: number }) {
           const isDone = s.num < active;
           return (
             <div key={s.num} className="flex items-center">
-              <div
-                className={`flex h-8 w-8 items-center justify-center rounded-full border-2 text-xs font-bold transition-colors ${
-                  isActive
-                    ? "border-mint bg-mint/15 text-mint"
-                    : isDone
-                      ? "border-mint-deep bg-mint-deep/20 text-mint-dim"
+              {isActive ? (
+                <GradientOutlineFrame
+                  roundedClass="rounded-full"
+                  className="shrink-0"
+                  padClass={VAULT_OUTLINE_PAD_CLASS}
+                >
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#030712] text-xs font-bold text-mint">
+                    {isDone ? "✓" : s.num}
+                  </div>
+                </GradientOutlineFrame>
+              ) : (
+                <div
+                  className={`flex h-8 w-8 items-center justify-center rounded-full border-2 text-xs font-bold transition-colors ${
+                    isDone
+                      ? "border-gray-500 bg-transparent text-gray-400"
                       : "border-gray-700 bg-transparent text-gray-600"
-                }`}
-              >
-                {isDone ? "✓" : s.num}
-              </div>
+                  }`}
+                >
+                  {isDone ? "✓" : s.num}
+                </div>
+              )}
               {i < STEPS.length - 1 && (
                 <div
                   className={`mx-2 h-px w-7 ${
-                    s.num < active ? "bg-mint-deep/50" : "bg-gray-800"
+                    s.num < active ? "bg-gray-600" : "bg-gray-800"
                   }`}
                 />
               )}
@@ -97,23 +111,33 @@ function Stepper({ active }: { active: number }) {
           return (
             <div key={s.num} className="flex items-center">
               <div className="flex items-center gap-2">
-                <div
-                  className={`flex h-9 w-9 items-center justify-center rounded-full border-2 text-sm font-bold transition-colors ${
-                    isActive
-                      ? "border-mint bg-mint/15 text-mint"
-                      : isDone
-                        ? "border-mint-deep bg-mint-deep/20 text-mint-dim"
+                {isActive ? (
+                  <GradientOutlineFrame
+                    roundedClass="rounded-full"
+                    className="shrink-0"
+                    padClass={VAULT_OUTLINE_PAD_CLASS}
+                  >
+                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#030712] text-sm font-bold text-mint">
+                      {isDone ? "✓" : s.num}
+                    </div>
+                  </GradientOutlineFrame>
+                ) : (
+                  <div
+                    className={`flex h-9 w-9 items-center justify-center rounded-full border-2 text-sm font-bold transition-colors ${
+                      isDone
+                        ? "border-gray-500 bg-transparent text-gray-400"
                         : "border-gray-700 bg-transparent text-gray-600"
-                  }`}
-                >
-                  {isDone ? "✓" : s.num}
-                </div>
+                    }`}
+                  >
+                    {isDone ? "✓" : s.num}
+                  </div>
+                )}
                 <span
-                  className={`text-sm font-medium ${
+                  className={`whitespace-nowrap text-xs font-medium sm:text-sm ${
                     isActive
                       ? "text-mint"
                       : isDone
-                        ? "text-mint-dim"
+                        ? "text-gray-400"
                         : "text-gray-600"
                   }`}
                 >
@@ -122,8 +146,8 @@ function Stepper({ active }: { active: number }) {
               </div>
               {i < STEPS.length - 1 && (
                 <div
-                  className={`mx-3 h-px w-20 ${
-                    s.num < active ? "bg-mint-deep/50" : "bg-gray-800"
+                  className={`mx-2 h-px w-10 shrink-0 sm:mx-3 sm:w-14 ${
+                    s.num < active ? "bg-gray-600" : "bg-gray-800"
                   }`}
                 />
               )}
@@ -137,7 +161,7 @@ function Stepper({ active }: { active: number }) {
 
 export default function VaultPage() {
   return (
-    <div className="min-h-screen bg-[#030712] text-white">
+    <div className="min-h-screen min-w-0 overflow-x-clip bg-[#030712] text-white">
       <Suspense fallback={null}>
         <LegacyVaultTabRedirect />
       </Suspense>
@@ -150,11 +174,8 @@ export default function VaultPage() {
 
         <header className="mb-8 text-center">
           <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
-            Vault
+            Sell your collectibles
           </h1>
-          <p className="mx-auto mt-2 max-w-md text-sm text-gray-400">
-            Deposit your slab, verify, mint your RWA on-chain.
-          </p>
         </header>
 
         <MintForm />
