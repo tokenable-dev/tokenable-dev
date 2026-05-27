@@ -325,6 +325,8 @@ export default function MarketplaceCollectionPage() {
           cardSetDisplay?: string;
           cardNumber?: string;
           variant?: string;
+          psaCategory?: string;
+          listingDisplayTitle?: string;
           psaTotalPopulation?: number;
         }
       | undefined;
