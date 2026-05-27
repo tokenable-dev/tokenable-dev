@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect, useRef } from "react";
+import { useMemo, useState, useEffect, useRef, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -82,7 +82,6 @@ interface TxRow {
   orderHash: string;
 }
 
-type ChartPeriod = "1D";
 type AssetListFilter = "all" | "listed" | "unlisted";
 
 function getGraded(meta: RwaMetadata | null): GradedCardMetadata | undefined {
@@ -193,6 +192,26 @@ const BADGE_COLORS: Record<string, string> = {
   magic: "#5c2a3a",
 };
 
+function CollectiblePriceLine({
+  label,
+  children,
+  title,
+}: {
+  label: string;
+  children: ReactNode;
+  title?: string;
+}) {
+  return (
+    <p
+      className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[9px] leading-tight text-gray-400 sm:text-[12px]"
+      title={title}
+    >
+      <span className="text-gray-400">{label} : </span>
+      <span className="font-semibold tabular-nums text-white">{children}</span>
+    </p>
+  );
+}
+
 function CategoryBadge({ label }: { label: string }) {
   const key = label.toLowerCase().trim();
   const bg = Object.entries(BADGE_COLORS).find(([k]) =>
@@ -226,28 +245,6 @@ function formatSnapshotAxisLabel(snapshotDateKst: string): string {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(snapshotDateKst.trim());
   if (m) return `${Number(m[2])}/${Number(m[3])}`;
   return snapshotDateKst;
-}
-
-function generateTimeLabels(period: ChartPeriod, count: number): string[] {
-  const now = new Date();
-  const labels: string[] = [];
-  if (period === "1D") {
-    for (let i = 0; i < count; i++) {
-      const t = new Date(now.getTime() - (count - 1 - i) * 3600_000);
-      labels.push(
-        `${String(t.getHours()).padStart(2, "0")}:${String(t.getMinutes()).padStart(2, "0")}`,
-      );
-    }
-  } else {
-    // Daily snapshot chart (MVP). Fallback to 1D time labels.
-    for (let i = 0; i < count; i++) {
-      const t = new Date(now.getTime() - (count - 1 - i) * 3600_000);
-      labels.push(
-        `${String(t.getHours()).padStart(2, "0")}:${String(t.getMinutes()).padStart(2, "0")}`,
-      );
-    }
-  }
-  return labels;
 }
 
 function niceYTicks(min: number, max: number, count = 5): number[] {
@@ -310,15 +307,13 @@ function fmtAxisVal(v: number): string {
 
 function PortfolioChart({
   points,
-  period,
   xLabels,
   compact = false,
 }: {
   points: number[];
-  period: ChartPeriod;
   /** Daily snapshot dates (same length as `points` when provided). */
   xLabels?: string[];
-  /** Tighter layout for mobile — larger dots, slightly smaller viewBox height. */
+  /** Mobile: fill container, hide volume bars, larger stroke/dots. */
   compact?: boolean;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -346,12 +341,13 @@ function PortfolioChart({
       </div>
     );
 
-  const W = 800;
+  const W = compact ? 400 : 800;
   const H = compact ? 200 : 260;
-  const LEFT = compact ? 48 : 54;
-  const RIGHT = 16;
-  const TOP = compact ? 12 : 20;
-  const BOT = compact ? 36 : 48;
+  const LEFT = compact ? 40 : 54;
+  const RIGHT = compact ? 8 : 16;
+  const TOP = compact ? 10 : 20;
+  const BOT = compact ? 28 : 48;
+  const showVolumeBars = !compact;
   const chartW = W - LEFT - RIGHT;
   const chartH = H - TOP - BOT;
 
@@ -365,7 +361,7 @@ function PortfolioChart({
   const timeLabels =
     xLabels && xLabels.length === points.length
       ? xLabels
-      : generateTimeLabels(period, points.length);
+      : points.map((_, i) => String(i + 1));
 
   const xOf = (i: number) => {
     if (points.length <= 1) return LEFT + chartW / 2;
@@ -384,7 +380,7 @@ function PortfolioChart({
       ? `${linePath} L${xOf(points.length - 1).toFixed(2)},${(TOP + chartH).toFixed(2)} L${xOf(0).toFixed(2)},${(TOP + chartH).toFixed(2)} Z`
       : "";
 
-  const barH = 24;
+  const barH = 20;
   const barY = TOP + chartH + 2;
   const barW = Math.max(2, chartW / Math.max(points.length, 1) - 1);
 
@@ -414,8 +410,8 @@ function PortfolioChart({
     <div ref={containerRef} className="w-full h-full">
       <svg
         viewBox={`0 0 ${W} ${H}`}
-        className="w-full h-full"
-        preserveAspectRatio="xMidYMid meet"
+        className="block h-full w-full"
+        preserveAspectRatio={compact ? "none" : "xMidYMid meet"}
         onMouseMove={handleMouseMove}
         onMouseLeave={() => setHover(null)}
       >
@@ -480,22 +476,23 @@ function PortfolioChart({
           );
         })}
 
-        {/* Volume bars */}
-        {volumeBars.map((v, i) => (
-          <rect
-            key={i}
-            x={xOf(i) - barW / 2}
-            y={barY + barH * (1 - v)}
-            width={barW}
-            height={barH * v}
-            rx="1"
-            fill={
-              hover?.idx === i
-                ? "rgba(16,211,51,0.5)"
-                : "rgba(16,211,51,0.12)"
-            }
-          />
-        ))}
+        {/* Volume bars (desktop only — frees vertical space on mobile) */}
+        {showVolumeBars &&
+          volumeBars.map((v, i) => (
+            <rect
+              key={i}
+              x={xOf(i) - barW / 2}
+              y={barY + barH * (1 - v)}
+              width={barW}
+              height={barH * v}
+              rx="1"
+              fill={
+                hover?.idx === i
+                  ? "rgba(16,211,51,0.5)"
+                  : "rgba(16,211,51,0.12)"
+              }
+            />
+          ))}
 
         {/* Area fill + line (2+ daily snapshots) */}
         {points.length >= 2 && (
@@ -638,7 +635,6 @@ export default function PortfolioPage() {
   const queryClient = useQueryClient();
   const { address, isConnected } = useAccount();
   const { usdcBalanceFormatted } = useAppStore(useShallow(selectUsdcBalance));
-  const period: ChartPeriod = "1D";
   const isMobileViewport = useIsMobileViewport();
   const [assetFilter, setAssetFilter] = useState<AssetListFilter>("all");
   const [cancellingListingTokenId, setCancellingListingTokenId] = useState<number | null>(null);
@@ -1153,44 +1149,48 @@ export default function PortfolioPage() {
         </div>
 
         {/* Chart */}
-        <div className="mb-6 rounded-2xl border border-gray-800 bg-gray-900/40 p-4 sm:p-6">
-          <div className="mb-2 flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="mb-0.5 text-sm font-semibold text-white">Chart</p>
-              <div className="flex flex-wrap items-center gap-2">
-                {chartTotalsPending ? (
-                  <span className="inline-block h-8 w-24 animate-pulse rounded-lg bg-gray-800/80 sm:h-9 sm:w-28" />
-                ) : (
-                  <>
-                    <span className="text-xl font-extrabold tracking-tight text-white sm:text-3xl">
-                      {formatUsdCompact(totalValue)}
+        <div className="mb-6 rounded-2xl border border-gray-800 bg-gray-900/40 p-3 sm:p-6">
+          <div className="mb-2 sm:mb-3">
+            <p className="mb-1 text-xs font-medium text-gray-500 sm:text-sm sm:text-gray-400">
+              Portfolio value
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              {chartTotalsPending ? (
+                <span className="inline-block h-8 w-24 animate-pulse rounded-lg bg-gray-800/80 sm:h-9 sm:w-28" />
+              ) : (
+                <>
+                  <span className="text-2xl font-extrabold tracking-tight text-white sm:text-3xl">
+                    {formatUsdCompact(totalValue)}
+                  </span>
+                  {dailyPnlPct != null && dailyPnlPct !== 0 && (
+                    <span
+                      className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${
+                        dailyPnlPct >= 0
+                          ? "bg-mint/15 text-mint"
+                          : "bg-red-500/15 text-red-400"
+                      }`}
+                    >
+                      {dailyPnlPct >= 0 ? "+" : ""}
+                      {dailyPnlPct.toFixed(1)}%
                     </span>
-                    {dailyPnlPct != null && dailyPnlPct !== 0 && (
-                      <span
-                        className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${
-                          dailyPnlPct >= 0
-                            ? "bg-mint/15 text-mint"
-                            : "bg-red-500/15 text-red-400"
-                        }`}
-                      >
-                        {dailyPnlPct >= 0 ? "+" : ""}
-                        {dailyPnlPct.toFixed(1)}%
-                      </span>
-                    )}
-                  </>
-                )}
-              </div>
+                  )}
+                </>
+              )}
             </div>
-            <div className="rounded-full bg-mint px-3 py-1.5 text-xs font-semibold text-[#030712]">1D</div>
           </div>
-          <div className="h-[168px] sm:h-[240px] lg:h-[280px]">
+          <div
+            className={
+              isMobileViewport
+                ? "h-[min(52vw,220px)] min-h-[200px] w-full"
+                : "h-[240px] lg:h-[280px]"
+            }
+          >
             {chartTotalsPending ? (
               <div className="h-full w-full animate-pulse rounded-lg bg-gray-800/40" />
             ) : (
               <PortfolioChart
                 points={dailyChartPoints}
                 xLabels={dailyChartLabels}
-                period={period}
                 compact={isMobileViewport}
               />
             )}
@@ -1300,7 +1300,7 @@ export default function PortfolioPage() {
                       router.push(`/marketplace/${r.tokenId}`);
                     }
                   }}
-                  className="group flex w-full cursor-pointer flex-col overflow-hidden rounded-lg bg-gradient-to-b from-gray-900/80 to-[#0a1018] text-left shadow-md shadow-black/20 outline-none transition-[box-shadow,background-color] duration-200 hover:bg-gray-900/90 hover:shadow-[0_14px_44px_-14px_rgba(0,0,0,0.75)] focus-visible:ring-2 focus-visible:ring-zinc-400/45 focus-visible:ring-offset-2 focus-visible:ring-offset-[#030712] sm:rounded-xl sm:shadow-lg"
+                  className="group flex min-w-0 w-full cursor-pointer flex-col overflow-hidden rounded-lg bg-gradient-to-b from-gray-900/80 to-[#0a1018] text-left shadow-md shadow-black/20 outline-none transition-[box-shadow,background-color] duration-200 hover:bg-gray-900/90 hover:shadow-[0_14px_44px_-14px_rgba(0,0,0,0.75)] focus-visible:ring-2 focus-visible:ring-zinc-400/45 focus-visible:ring-offset-2 focus-visible:ring-offset-[#030712] sm:rounded-xl sm:shadow-lg"
                 >
                   <div className="relative aspect-[5/6] w-full bg-[#070a0f] sm:aspect-[3/4]">
                     {r.imageUrl ? (
@@ -1319,7 +1319,7 @@ export default function PortfolioPage() {
                       </div>
                     )}
                   </div>
-                  <div className="flex flex-1 flex-col gap-2 p-2.5 pt-2 sm:gap-3 sm:p-4 sm:pt-3">
+                  <div className="flex min-w-0 flex-1 flex-col gap-2 p-2.5 pt-2 sm:gap-3 sm:p-4 sm:pt-3">
                     <div className="min-w-0 space-y-1">
                       <div className="flex min-w-0 flex-wrap items-center gap-1">
                         {r.listPriceUsd != null ? (
@@ -1336,27 +1336,33 @@ export default function PortfolioPage() {
                         {titleLine}
                       </p>
                     </div>
-                    <div className="space-y-0.5 border-t border-gray-800/80 pt-2 text-[10px] leading-snug sm:space-y-1 sm:pt-3 sm:text-[12px]">
-                      <p className="min-w-0 truncate text-gray-400">
-                        <span className="sm:hidden">Ask: </span>
-                        <span className="hidden sm:inline">Your Ask Price : </span>
-                        <span className="font-semibold tabular-nums text-white">
-                          {r.listPriceUsd != null ? formatUsdCompact(r.listPriceUsd) : "—"}
-                        </span>
-                      </p>
-                      <p className="min-w-0 truncate text-gray-400">
-                        <span className="sm:hidden">Mkt: </span>
-                        <span className="hidden sm:inline">Market Price : </span>
-                        <span className="font-semibold tabular-nums text-white">
-                          {valuesPending && r.currentPrice == null ? (
-                            <span className="inline-block h-3 w-12 animate-pulse rounded bg-gray-800/80 align-middle sm:h-3.5 sm:w-14" />
-                          ) : r.currentPrice != null ? (
-                            formatUsdCompact(r.currentPrice)
-                          ) : (
-                            "—"
-                          )}
-                        </span>
-                      </p>
+                    <div className="min-w-0 space-y-0.5 border-t border-gray-800/80 pt-2 sm:space-y-1 sm:pt-3">
+                      <CollectiblePriceLine
+                        label="Your Ask Price"
+                        title={
+                          r.listPriceUsd != null
+                            ? `Your Ask Price : ${formatUsdCompact(r.listPriceUsd)}`
+                            : "Your Ask Price : —"
+                        }
+                      >
+                        {r.listPriceUsd != null ? formatUsdCompact(r.listPriceUsd) : "—"}
+                      </CollectiblePriceLine>
+                      <CollectiblePriceLine
+                        label="Market Price"
+                        title={
+                          r.currentPrice != null
+                            ? `Market Price : ${formatUsdCompact(r.currentPrice)}`
+                            : "Market Price : —"
+                        }
+                      >
+                        {valuesPending && r.currentPrice == null ? (
+                          <span className="inline-block h-3 w-12 animate-pulse rounded bg-gray-800/80 align-middle sm:h-3.5 sm:w-14" />
+                        ) : r.currentPrice != null ? (
+                          formatUsdCompact(r.currentPrice)
+                        ) : (
+                          "—"
+                        )}
+                      </CollectiblePriceLine>
                     </div>
                     {r.listPriceUsd != null && r.activeListingOrderHash && address ? (
                       <div className="border-t border-gray-800/80 pt-2 sm:pt-3">
