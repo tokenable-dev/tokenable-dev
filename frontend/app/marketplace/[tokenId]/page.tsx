@@ -896,6 +896,7 @@ export default function RwaDetailPage() {
             {listModalOpen && (
               <ListRwaModal
                 tokenId={tokenId}
+                assetTitle={detailTitle}
                 collectionKey={collectionKeyForMatch ?? undefined}
                 collectionBids={collectionBids}
                 existingAskOrder={

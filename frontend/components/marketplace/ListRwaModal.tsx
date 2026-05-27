@@ -78,6 +78,145 @@ function shortBidder(addr: string) {
   return `${a.slice(0, 6)}…${a.slice(-4)}`;
 }
 
+type Step =
+  | "idle"
+  | "approving"
+  | "signing"
+  | "submitting"
+  | "matching"
+  | "success"
+  | "error";
+
+const LIST_FLOW_STEPS = ["Approve", "Sign", "Submit"] as const;
+
+/** 0 = Approve, 1 = Sign, 2 = Submit (+ hidden instant match). -1 = not started. */
+function listFlowActiveIndex(step: Step): number {
+  if (step === "approving") return 0;
+  if (step === "signing") return 1;
+  if (step === "submitting" || step === "matching") return 2;
+  return -1;
+}
+
+type ListFlowStepStatus = "upcoming" | "current" | "complete";
+
+function listFlowStepStatus(step: Step, index: number): ListFlowStepStatus {
+  const active = listFlowActiveIndex(step);
+  if (active < 0) return "upcoming";
+  if (index < active) return "complete";
+  if (index === active) return "current";
+  return "upcoming";
+}
+
+function ListFlowStepNode({
+  title,
+  status,
+}: {
+  title: string;
+  status: ListFlowStepStatus;
+}) {
+  return (
+    <div className="flex min-w-[3.25rem] shrink-0 flex-col items-center gap-1 sm:min-w-[3.5rem]">
+      <div className="flex h-2.5 items-center justify-center" aria-hidden>
+        {status === "complete" ? (
+          <span className="h-1.5 w-1.5 rounded-full bg-mint/70 transition-colors duration-500" />
+        ) : status === "current" ? (
+          <span className="relative flex h-2 w-2 items-center justify-center">
+            <span className="absolute inset-0 rounded-full border border-mint/45" />
+            <span className="h-1 w-1 rounded-full bg-mint/80 animate-pulse" />
+          </span>
+        ) : (
+          <span className="h-1.5 w-1.5 rounded-full bg-zinc-600/70" />
+        )}
+      </div>
+      <span
+        className={`text-center text-[10px] leading-none tracking-wide transition-colors duration-500 ${
+          status === "complete"
+            ? "text-zinc-400"
+            : status === "current"
+              ? "font-medium text-mint/85"
+              : "text-zinc-600"
+        }`}
+      >
+        {status === "complete" ? (
+          <span className="text-mint/55" aria-hidden>
+            ✓{" "}
+          </span>
+        ) : null}
+        {title}
+      </span>
+    </div>
+  );
+}
+
+function ListFlowConnector({
+  fill,
+  inProgress,
+}: {
+  fill: "none" | "partial" | "full";
+  inProgress: boolean;
+}) {
+  return (
+    <div
+      className="relative mx-0.5 h-px min-w-[0.5rem] flex-1 overflow-hidden rounded-full bg-zinc-800"
+      aria-hidden
+    >
+      <div
+        className={`absolute inset-y-0 left-0 rounded-full bg-mint/45 transition-[width] duration-700 ease-out ${
+          fill === "full" ? "w-full" : fill === "partial" ? "w-[36%]" : "w-0"
+        } ${inProgress && fill === "partial" ? "opacity-90" : ""}`}
+      />
+    </div>
+  );
+}
+
+/** Approve → Sign → Submit with animated connectors (instant match not shown). */
+function ListingFlowProgress({ step }: { step: Step }) {
+  const activeIdx = listFlowActiveIndex(step);
+  const busy =
+    step === "approving" ||
+    step === "signing" ||
+    step === "submitting" ||
+    step === "matching";
+
+  return (
+    <div
+      className="w-full"
+      role="group"
+      aria-label="Listing progress"
+      aria-busy={busy}
+    >
+      <div className="flex w-full items-center px-0.5 py-1">
+        {LIST_FLOW_STEPS.flatMap((title, i) => {
+          const nodes = [];
+          if (i > 0) {
+            nodes.push(
+              <ListFlowConnector
+                key={`flow-connector-${i}`}
+                fill={
+                  activeIdx >= i
+                    ? "full"
+                    : activeIdx === i - 1
+                      ? "partial"
+                      : "none"
+                }
+                inProgress={busy && activeIdx === i - 1}
+              />,
+            );
+          }
+          nodes.push(
+            <ListFlowStepNode
+              key={`flow-step-${title}`}
+              title={title}
+              status={listFlowStepStatus(step, i)}
+            />,
+          );
+          return nodes;
+        })}
+      </div>
+    </div>
+  );
+}
+
 function resolveMatchCollectionKey(
   created: Order,
   propKey: string | null | undefined,
@@ -100,15 +239,6 @@ function resolveMatchCollectionKey(
   return a || b || c || fromBid || undefined;
 }
 
-type Step =
-  | "idle"
-  | "approving"
-  | "signing"
-  | "submitting"
-  | "matching"
-  | "success"
-  | "error";
-
 interface ListSuccessMeta {
   matched: boolean;
   hint?: string;
@@ -122,8 +252,15 @@ interface InstantMatchDecision {
   enforceImmediateFill: boolean;
 }
 
+function listModalAssetLabel(tokenId: number, assetTitle?: string | null): string {
+  const t = assetTitle?.trim();
+  return t && t.length > 0 ? t : `Asset #${tokenId}`;
+}
+
 interface ListRwaModalProps {
   tokenId: number;
+  /** Card detail hero title (year · set · card). Falls back to `Asset #${tokenId}`. */
+  assetTitle?: string | null;
   onClose: () => void;
   /** Listing immediately matched a collection bid (`matchAdvancedOrders` succeeded). */
   onMatchedSale?: () => void;
@@ -143,6 +280,7 @@ interface ListRwaModalProps {
 
 export function ListRwaModal({
   tokenId,
+  assetTitle,
   onClose,
   onMatchedSale,
   onListed,
@@ -915,20 +1053,6 @@ export function ListRwaModal({
     step === "submitting" ||
     step === "matching";
 
-  const showMatchStep = Boolean(
-    collectionKey?.trim() ||
-      orderCollectionKey(resolvedExistingAsk) ||
-      topCollectionBid != null,
-  );
-  const stepLabels: { label: string; active: boolean }[] = [
-    { label: "1. Approve marketplace", active: step === "approving" },
-    { label: "2. Sign Order", active: step === "signing" },
-    { label: "3. Submitting", active: step === "submitting" },
-    ...(showMatchStep
-      ? [{ label: "4. Instant match (if bid)", active: step === "matching" }]
-      : []),
-  ];
-
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center px-4 py-5 sm:px-6 sm:py-8">
       <div
@@ -1018,14 +1142,12 @@ export function ListRwaModal({
                 <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-mint/90">
                   {isReplaceListing ? "Update listing" : "New listing"}
                 </p>
-                <h2 className="text-lg font-semibold tracking-tight text-white sm:text-[1.125rem]">
-                  Asset #{tokenId}
+                <h2
+                  className="text-base font-semibold leading-snug tracking-tight text-white break-words [overflow-wrap:anywhere] sm:text-[1.125rem]"
+                  title={listModalAssetLabel(tokenId, assetTitle)}
+                >
+                  {listModalAssetLabel(tokenId, assetTitle)}
                 </h2>
-                <p className="text-[13px] leading-relaxed text-zinc-500">
-                  {isReplaceListing
-                    ? "Set a new USDC price. Your existing ask will be replaced on the order book."
-                    : "Choose a USDC price. The listing is published through Seaport."}
-                </p>
               </div>
               {/* Reserve same width as close control so title lines align with body below */}
               <div className="w-7 shrink-0 sm:w-8" aria-hidden />
@@ -1044,13 +1166,18 @@ export function ListRwaModal({
               </div>
             ) : null}
 
-            <div className="space-y-2">
-              <label className="block text-xs font-medium text-zinc-400">
-                {isReplaceListing ? "New price" : "Your price"}
-                <span className="ml-1 font-normal text-zinc-600">(USDC)</span>
+            <div className="space-y-2.5">
+              <label
+                htmlFor="list-rwa-price-usdc"
+                className="block text-sm leading-relaxed text-zinc-300"
+              >
+                {isReplaceListing
+                  ? "Enter your new sale price in USDC below."
+                  : "Enter your sale price in USDC below."}
               </label>
-              <div className="relative">
+              <div className="relative rounded-xl border border-mint/40 bg-mint/[0.04] shadow-[inset_0_0_0_1px_rgba(45,212,191,0.06)] transition-[border-color,box-shadow] focus-within:border-mint/65 focus-within:shadow-[0_0_0_2px_rgba(45,212,191,0.12)]">
                 <input
+                  id="list-rwa-price-usdc"
                   type="number"
                   min="0.000001"
                   step="any"
@@ -1058,9 +1185,9 @@ export function ListRwaModal({
                   value={price}
                   onChange={(e) => setPrice(e.target.value)}
                   disabled={isProcessing}
-                  className="w-full rounded-xl border border-zinc-600/80 bg-zinc-900/80 px-4 py-2.5 pr-16 text-[15px] tabular-nums text-white outline-none ring-mint/0 transition-[border,box-shadow] placeholder:text-zinc-600 focus:border-mint/70 focus:ring-2 focus:ring-mint/20 disabled:opacity-60"
+                  className="w-full rounded-[10px] border-0 bg-transparent px-4 py-2.5 pr-16 text-[15px] tabular-nums text-white outline-none placeholder:text-zinc-500 disabled:opacity-60"
                 />
-                <span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-[11px] font-medium uppercase tracking-wide text-zinc-500">
+                <span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-[11px] font-medium uppercase tracking-wide text-mint/70">
                   USDC
                 </span>
               </div>
@@ -1134,26 +1261,7 @@ export function ListRwaModal({
               </div>
             ) : null}
 
-            <div
-              className={
-                stepLabels.length === 3
-                  ? "grid grid-cols-3 gap-1.5"
-                  : "grid grid-cols-2 gap-1.5"
-              }
-            >
-              {stepLabels.map(({ label, active }) => (
-                <div
-                  key={label}
-                  className={`rounded-lg px-1.5 py-2 text-center text-[9px] font-medium leading-tight sm:text-[10px] sm:leading-snug ${
-                    active
-                      ? "bg-mint-dim text-mint-ink shadow-sm shadow-mint/10 animate-pulse"
-                      : "border border-zinc-700/80 bg-zinc-900/50 text-zinc-500"
-                  }`}
-                >
-                  {label}
-                </div>
-              ))}
-            </div>
+            <ListingFlowProgress step={step} />
 
             {step === "error" && errorMsg && (
               <div className="rounded-xl border border-red-500/35 bg-red-950/40 p-3">
