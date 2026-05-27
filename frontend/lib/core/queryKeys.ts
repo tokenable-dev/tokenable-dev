@@ -16,7 +16,7 @@ export const rq = {
    */
   collectionSnapshots: (
     sortedKeys: readonly string[],
-    priceHistoryDuration: "7d" | "30d" | "90d" | "180d" | "365d" = "365d",
+    priceHistoryDuration: "7d" | "30d" | "90d" | "180d" | "365d" | "max" = "max",
   ) => ["collection-snapshots", [...sortedKeys], priceHistoryDuration] as const,
   rwaMetadataBatch: (address: string | undefined, tokenIds: readonly number[]) =>
     ["rwa-metadata-batch", address ?? "", [...tokenIds].slice().sort((a, b) => a - b)] as const,

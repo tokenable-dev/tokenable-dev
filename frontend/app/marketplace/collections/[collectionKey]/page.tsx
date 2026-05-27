@@ -27,7 +27,6 @@ import {
   marketTierDisplayLabel,
   parseGradeScoreNumber,
   MARKET_METRICS_SERIES_DURATION,
-  filterMergedChartPointsForWindow,
   percentChangeReferenceBestWindow,
   resolveExternalMarketUsd,
 } from "@/lib/market";
@@ -83,30 +82,6 @@ function listingDisplayTitleFromComp(comp: Record<string, unknown>): string {
   const v = comp["listingDisplayTitle"];
   return typeof v === "string" ? v.trim().replace(/\s+/g, " ") : "";
 }
-
-type ChartRangeId = "7d" | "30d" | "90d" | "180d" | "1y" | "max";
-type ChartRangeConfig = {
-  id: ChartRangeId;
-  label: string;
-  historyPeriod: "7d" | "30d" | "90d" | "1y";
-  maxDays: number;
-  bundleDuration: "7d" | "30d" | "90d" | "180d" | "365d" | "max";
-};
-const CHART_RANGE_OPTIONS: readonly ChartRangeConfig[] = [
-  { id: "7d", label: "7D", historyPeriod: "7d", maxDays: 7, bundleDuration: "7d" },
-  { id: "30d", label: "30D", historyPeriod: "30d", maxDays: 30, bundleDuration: "30d" },
-  { id: "90d", label: "90D", historyPeriod: "90d", maxDays: 90, bundleDuration: "90d" },
-  { id: "180d", label: "180D", historyPeriod: "1y", maxDays: 180, bundleDuration: "180d" },
-  { id: "1y", label: "1Y", historyPeriod: "1y", maxDays: 365, bundleDuration: "365d" },
-  { id: "max", label: "MAX", historyPeriod: "1y", maxDays: 4000, bundleDuration: "max" },
-] as const;
-
-/** Mobile collection detail chart — fixed 90D window, no range picker. */
-const MOBILE_CHART_RANGE =
-  CHART_RANGE_OPTIONS.find((x) => x.id === "90d") ?? CHART_RANGE_OPTIONS[2];
-
-/** Seconds per day — chart window metadata and comps-archive span checks. */
-const CHART_RANGE_CLIP_SEC = 86_400;
 
 function CollectionDetailMobileNav() {
   return (
@@ -280,7 +255,6 @@ export default function MarketplaceCollectionPage() {
   const [sellModalOpen, setSellModalOpen] = useState(false);
   const [tradeCelebration, setTradeCelebration] = useState<TradeCelebrationKind | null>(null);
   const [bookSelection, setBookSelection] = useState<BookRowSelection | null>(null);
-  const [chartRange, setChartRange] = useState<ChartRangeId>("90d");
   const isCollectionDetailMobile = useCollectionDetailMobile();
   const [aiInsightComingSoonOpen, setAiInsightComingSoonOpen] = useState(false);
   /** Last fill this session (fixed timestamp) — merged into chart until series refetch includes it. */
@@ -338,71 +312,25 @@ export default function MarketplaceCollectionPage() {
     [comp],
   );
 
-  const selectedChartRange = useMemo(
-    () => CHART_RANGE_OPTIONS.find((x) => x.id === chartRange) ?? CHART_RANGE_OPTIONS[2],
-    [chartRange],
-  );
-
-  const chartDisplayRange = isCollectionDetailMobile ? MOBILE_CHART_RANGE : selectedChartRange;
-
   const marketSeriesEnabled =
     key.length > 0 && !isLoading && !isError && !!data;
 
-  /**
-   * Chart — `max` fetch returns full comps-merged `externalUsd`; 7D–1Y clip that archive
-   * client-side (`filterMergedChartPointsForWindow`), not a separate daily-only API call.
-   */
-  const { data: marketSeriesChartArchive, isLoading: marketSeriesChartLoading } =
-    useQuery({
-      queryKey: ["collection-market-series", key, "chart-archive", "max"],
-      queryFn: () => getCollectionMarketSeries(key, "max"),
-      enabled: marketSeriesEnabled,
-      staleTime: 120_000,
-    });
+  /** Full comps-merged archive for chart + headline metrics (% change uses full series server-side). */
+  const { data: marketSeries, isLoading: marketSeriesLoading } = useQuery({
+    queryKey: ["collection-market-series", key, MARKET_METRICS_SERIES_DURATION],
+    queryFn: () => getCollectionMarketSeries(key, MARKET_METRICS_SERIES_DURATION),
+    enabled: marketSeriesEnabled,
+    staleTime: 120_000,
+  });
 
-  /** Headline metrics (Current Price, % change) — fixed history window, not chart range. */
-  const { data: marketSeriesMetrics, isLoading: marketSeriesMetricsLoading } =
-    useQuery({
-      queryKey: [
-        "collection-market-series",
-        key,
-        "metrics",
-        MARKET_METRICS_SERIES_DURATION,
-      ],
-      queryFn: () =>
-        getCollectionMarketSeries(key, MARKET_METRICS_SERIES_DURATION),
-      enabled: marketSeriesEnabled,
-      staleTime: 120_000,
-    });
+  const marketPreview = marketSeries?.cardhedgerPreview ?? null;
 
-  const marketPreview = marketSeriesMetrics?.cardhedgerPreview ?? null;
-
-  const chartArchivePts = marketSeriesChartArchive?.externalUsd ?? [];
-  const metricsReferencePts = marketSeriesMetrics?.externalUsd ?? [];
-  const chartArchiveOk = chartArchivePts.length >= 2;
-
-  const chartExternalRollingUsd = useMemo(() => {
-    if (!chartArchiveOk) return [];
-    return filterMergedChartPointsForWindow(
-      chartArchivePts,
-      chartDisplayRange.bundleDuration,
-    );
-  }, [
-    chartArchiveOk,
-    chartArchivePts,
-    chartDisplayRange.bundleDuration,
-  ]);
-
+  const chartExternalRollingUsd = marketSeries?.externalUsd ?? [];
+  const metricsReferencePts = marketSeries?.externalUsd ?? [];
   const jtHistOk = chartExternalRollingUsd.length >= 2;
 
-  /**
-   * MAX: null → chart x-axis follows actual comps span (not now−4000d, which drew fake 2015 anchors).
-   * 7D–1Y: fixed toolbar window from latest sale (via filtered points + days here).
-   */
-  const chartExternalWindowDays = useMemo(() => {
-    if (chartDisplayRange.bundleDuration === "max") return null;
-    return chartDisplayRange.maxDays;
-  }, [chartDisplayRange.bundleDuration, chartDisplayRange.maxDays]);
+  /** MAX chart — x-axis follows actual comps span. */
+  const chartExternalWindowDays = null;
 
   const pokeTierLabel = marketTierDisplayLabel(pokeHistoryTier);
 
@@ -467,7 +395,7 @@ export default function MarketplaceCollectionPage() {
   }, [metricsHistOk, metricsReferencePts]);
 
   const externalPriceChangeResult = useMemo(() => {
-    const m = marketSeriesMetrics;
+    const m = marketSeries;
     if (
       m?.marketChangePct != null &&
       Number.isFinite(m.marketChangePct) &&
@@ -483,7 +411,7 @@ export default function MarketplaceCollectionPage() {
       };
     }
     return percentChangeReferenceBestWindow(externalReferencePtsForChange);
-  }, [marketSeriesMetrics, externalReferencePtsForChange]);
+  }, [marketSeries, externalReferencePtsForChange]);
   const externalPriceChangeCoverageHint = useMemo(
     () => formatReferenceChangeCoverageHint(externalPriceChangeResult),
     [externalPriceChangeResult],
@@ -600,13 +528,13 @@ export default function MarketplaceCollectionPage() {
     () =>
       resolveExternalMarketUsd({
         marketPreview,
-        gradePrices: marketSeriesMetrics?.gradePrices ?? null,
+        gradePrices: marketSeries?.gradePrices ?? null,
         gradeScore: parseGradeScoreNumber(comp.gradeScore),
         components: comp as Record<string, unknown>,
       }),
     [
       marketPreview,
-      marketSeriesMetrics?.gradePrices,
+      marketSeries?.gradePrices,
       comp.gradeScore,
       comp,
     ],
@@ -625,7 +553,7 @@ export default function MarketplaceCollectionPage() {
             gradeScoreStr: comp.gradeScore,
             marketCard: marketPreview?.card ?? null,
             marketMatchConfidence: marketPreview?.matchConfidence,
-            gradePrices: marketSeriesMetrics?.gradePrices ?? null,
+            gradePrices: marketSeries?.gradePrices ?? null,
             marketPreview: marketPreview ?? null,
           })
         : null,
@@ -633,7 +561,7 @@ export default function MarketplaceCollectionPage() {
       data?.collection,
       comp.gradeScore,
       marketPreview,
-      marketSeriesMetrics?.gradePrices,
+      marketSeries?.gradePrices,
     ],
   );
 
@@ -1143,11 +1071,11 @@ export default function MarketplaceCollectionPage() {
       externalPriceSource={resolvedExternal.source}
       marketTierDisplay={pokeTierLabel}
       externalMarketMatchConfidence={resolvedExternal.marketMatchConfidence}
-      externalPriceLoading={marketSeriesMetricsLoading}
+      externalPriceLoading={marketSeriesLoading}
       externalPriceChange1MoPct={externalPriceChange1MoPct}
       externalPriceChangePeriod={externalPriceChangeResult}
       externalPriceChangeBasisText={externalPriceChangeCoverageHint}
-      externalPriceChange1MoLoading={marketSeriesMetricsLoading}
+      externalPriceChange1MoLoading={marketSeriesLoading}
       volume24hUsdc={volume24hUsdc}
       volume24hLoading={platformTradesLoading}
       totalPopulation={totalPopulation}
@@ -1171,13 +1099,8 @@ export default function MarketplaceCollectionPage() {
     externalLegendLabel: chartExternalLegend,
     externalSeriesShortLabel: chartExternalShort,
     externalRefLineTag: chartExternalRefTag,
-    isLoading: platformTradesLoading || marketSeriesChartLoading,
+    isLoading: platformTradesLoading || marketSeriesLoading,
     errorMessage: null as string | null,
-    rangeOptions: isCollectionDetailMobile ? undefined : CHART_RANGE_OPTIONS,
-    chartRange: isCollectionDetailMobile ? undefined : chartRange,
-    onChartRangeChange: isCollectionDetailMobile
-      ? undefined
-      : (id: string) => setChartRange(id as ChartRangeId),
   };
 
   const collectionDualPriceChart = (
@@ -1223,7 +1146,7 @@ export default function MarketplaceCollectionPage() {
     <CollectionMobileInformationPanel
       changePct={externalPriceChange1MoPct}
       changePeriod={externalPriceChangeResult}
-      changeLoading={marketSeriesMetricsLoading}
+      changeLoading={marketSeriesLoading}
       volume24hUsdc={volume24hUsdc}
       volume24hLoading={platformTradesLoading}
       marketCapUsd={marketCapComputation?.usd ?? null}
@@ -1275,7 +1198,7 @@ export default function MarketplaceCollectionPage() {
           mobileCurrentPriceRow={
             <CollectionMobileCurrentPriceRow
               priceUsd={resolvedExternal.usd}
-              loading={marketSeriesMetricsLoading}
+              loading={marketSeriesLoading}
             />
           }
           mobileMarketTabs={
@@ -1344,7 +1267,7 @@ export default function MarketplaceCollectionPage() {
               <div className="w-full px-1 py-6 text-center text-[13px] leading-relaxed text-zinc-500 max-lg:py-5 lg:px-4 lg:py-8 lg:text-[15px] lg:text-[#a0a0a0]">
                 No listings yet. List an asset from{" "}
                 <Link href="/portfolio" className="text-mint hover:underline">
-                  My Assets
+                  Portfolio
                 </Link>
                 .
               </div>

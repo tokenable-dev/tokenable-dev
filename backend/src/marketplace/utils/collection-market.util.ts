@@ -90,10 +90,9 @@ export function referenceChangeWithBestWindow(
     points,
     REFERENCE_CHANGE_LAG_1Y_SEC,
   );
-  if (
-    lag1y != null &&
-    lag1y.anchorGapSec <= REFERENCE_LAG_MAX_ANCHOR_GAP_SEC
-  ) {
+  /** Comps-merged archives often gap >90d before the 1y anchor — still compare latest vs LOCF ~1y ago. */
+  const historyCovers1y = spanSec >= REFERENCE_CHANGE_LAG_1Y_SEC;
+  if (lag1y != null && historyCovers1y) {
     return {
       pct: lag1y.pct,
       isFullYear: true,

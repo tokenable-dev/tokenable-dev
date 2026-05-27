@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 :root {
-  --background: #030712;
+  --background: #000000;
   --foreground: #f9fafb;
   /** 브랜드 포인트 — rgb(16, 211, 51) */
   --mint: #10d333;

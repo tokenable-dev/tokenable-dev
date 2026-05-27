@@ -21,6 +21,7 @@ BEGIN;
 \ir schema/030_collection_market_snapshots.sql
 \ir schema/040_orders.sql
 \ir schema/050_refactor_legacy_columns.sql
+\ir schema/060_portfolio_daily_snapshots.sql
 \ir schema/900_triggers.sql
 
 COMMIT;
@@ -33,7 +34,8 @@ BEGIN
      OR to_regclass('public.marketplace_collections') IS NULL
      OR to_regclass('public.rwa_tokens') IS NULL
      OR to_regclass('public.collection_market_snapshots') IS NULL
-     OR to_regclass('public.orders') IS NULL THEN
+     OR to_regclass('public.orders') IS NULL
+     OR to_regclass('public.portfolio_daily_snapshots') IS NULL THEN
     RAISE EXCEPTION 'bootstrap incomplete — expected core tables missing';
   END IF;
 END $$;

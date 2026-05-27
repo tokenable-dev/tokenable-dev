@@ -903,7 +903,7 @@ export function CollectionCriteriaBidPanel({
                 title="Manage assets and create listings"
                 className="block w-full min-h-[40px] text-center rounded-md py-2 text-xs font-bold text-mint border border-mint/25 bg-mint/[0.06] hover:bg-mint/[0.1]"
               >
-                My Assets
+                Portfolio
               </Link>
             )}
           </div>

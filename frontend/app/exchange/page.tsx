@@ -17,14 +17,13 @@ import { CollectionCoverFrame } from "@/components/marketplace/CollectionCoverFr
 import { useResolvedMediaUrlMap } from "@/hooks/useResolvedMediaUrl";
 import { CollectionCategoryFilterBar } from "@/components/marketplace/CollectionCategoryFilterBar";
 import { CollectionListSparkline } from "@/components/marketplace/CollectionListSparkline";
+import { ExchangeListingPriceWithChange } from "@/components/marketplace/ExchangeListingPrice";
 import {
   collectionMatchesCategoryFilter,
   formatReferenceChangeCoverageHint,
   formatReferenceChangePeriodFromSnapshotMeta,
-  MARKET_PRICE_CHANGE_PERIOD_SHORT,
   MARKET_PRICE_CHANGE_SNAPSHOT_DURATION,
   referenceChangePeriodFromSnapshotMeta,
-  REFERENCE_CHANGE_UNAVAILABLE_HINT,
   MARKETS_CATEGORY_FILTERS,
   MARKETS_DEFAULT_CATEGORY_FILTER,
   type CollectionCategoryFilterId,
@@ -136,14 +135,6 @@ function percentDiffVersusRef(
   return ((compare - ref) / ref) * 100;
 }
 
-function formatSignedPct(pct: number): string {
-  if (Number.isFinite(pct) && Math.abs(pct) < 0.05) {
-    return "0.0%";
-  }
-  const sign = pct > 0 ? "+" : "";
-  return `${sign}${pct.toFixed(1)}%`;
-}
-
 /** Grid / list layout toggle — selected: white; unselected: dark grey (no mint). */
 const EXCHANGE_VIEW_TOGGLE_ACTIVE =
   "rounded-lg border border-white/75 bg-white/[0.06] text-white hover:border-white/90";
@@ -180,22 +171,34 @@ function ExchangeLayoutToggleButton({
 const EXCHANGE_LAYOUT_TOGGLE_SHELL =
   "shrink-0 items-center gap-1 rounded-xl border border-zinc-700/80 bg-zinc-900/80 p-1";
 
+const EXCHANGE_SORT_OPTIONS = [
+  { id: "recent_listed", label: "Recent listed" },
+  { id: "pct_change_high", label: "% Chg. (high)" },
+  { id: "high_price", label: "High price" },
+  { id: "low_price", label: "Low price" },
+  { id: "recent_sold", label: "Recent sold" },
+] as const;
+
+type ExchangeSortId = (typeof EXCHANGE_SORT_OPTIONS)[number]["id"];
+
 function ExchangeLayoutToggleGroup({
   viewMode,
   onGrid,
-  onList,
+  onSortMenu,
+  sortMenuOpen = false,
   className = "",
 }: {
   viewMode: "list" | "grid";
   onGrid: () => void;
-  onList: () => void;
+  onSortMenu: () => void;
+  sortMenuOpen?: boolean;
   className?: string;
 }) {
   return (
     <div
       className={[className, EXCHANGE_LAYOUT_TOGGLE_SHELL].filter(Boolean).join(" ")}
       role="group"
-      aria-label="List layout"
+      aria-label="Collection layout and sort"
     >
       <ExchangeLayoutToggleButton
         active={viewMode === "grid"}
@@ -210,9 +213,11 @@ function ExchangeLayoutToggleGroup({
         </svg>
       </ExchangeLayoutToggleButton>
       <ExchangeLayoutToggleButton
-        active={false}
-        onClick={onList}
-        ariaLabel="List view"
+        active={sortMenuOpen}
+        onClick={onSortMenu}
+        ariaLabel="Sort collections"
+        aria-haspopup="menu"
+        aria-expanded={sortMenuOpen}
       >
         <svg viewBox="0 0 16 16" className="h-4 w-4" fill="currentColor" aria-hidden>
           <rect x="1" y="2" width="14" height="2" rx="1" />
@@ -220,6 +225,112 @@ function ExchangeLayoutToggleGroup({
           <rect x="1" y="12" width="14" height="2" rx="1" />
         </svg>
       </ExchangeLayoutToggleButton>
+    </div>
+  );
+}
+
+function ExchangeSortMenu({
+  open,
+  sortId,
+  onSelect,
+  onClose,
+}: {
+  open: boolean;
+  sortId: ExchangeSortId;
+  onSelect: (id: ExchangeSortId) => void;
+  onClose: () => void;
+}) {
+  if (!open) return null;
+
+  return (
+    <>
+      <button
+        type="button"
+        className="fixed inset-0 z-[130] cursor-default bg-transparent"
+        aria-label="Close sort menu"
+        onClick={onClose}
+      />
+      <div
+        role="menu"
+        aria-label="Sort"
+        className="absolute right-0 top-[calc(100%+0.5rem)] z-[131] w-[min(100vw-1.5rem,15.5rem)] overflow-hidden rounded-xl border border-zinc-700/80 bg-zinc-900/95 py-1.5 shadow-[0_16px_48px_-12px_rgba(0,0,0,0.85)] ring-1 ring-white/[0.06] backdrop-blur-sm"
+      >
+        <p className="px-3.5 pb-1 pt-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-500">
+          Sort
+        </p>
+        {EXCHANGE_SORT_OPTIONS.map((opt) => {
+          const selected = sortId === opt.id;
+          return (
+            <button
+              key={opt.id}
+              type="button"
+              role="menuitemradio"
+              aria-checked={selected}
+              onClick={() => {
+                onSelect(opt.id);
+                onClose();
+              }}
+              className={`flex w-full items-center justify-between gap-3 px-3.5 py-2.5 text-left text-[13px] font-medium transition-colors ${
+                selected
+                  ? "bg-white/[0.08] text-white"
+                  : "text-zinc-300 hover:bg-white/[0.05] hover:text-white"
+              }`}
+            >
+              <span>{opt.label}</span>
+              {selected ? (
+                <span className="text-mint" aria-hidden>
+                  ✓
+                </span>
+              ) : null}
+            </button>
+          );
+        })}
+      </div>
+    </>
+  );
+}
+
+function ExchangeMarketsViewToolbar({
+  viewMode,
+  onGrid,
+  sortId,
+  onSortChange,
+  className = "",
+}: {
+  viewMode: "list" | "grid";
+  onGrid: () => void;
+  sortId: ExchangeSortId;
+  onSortChange: (id: ExchangeSortId) => void;
+  className?: string;
+}) {
+  const [sortMenuOpen, setSortMenuOpen] = useState(false);
+
+  useEffect(() => {
+    if (!sortMenuOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSortMenuOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [sortMenuOpen]);
+
+  return (
+    <div className={`relative ${className}`.trim()}>
+      <ExchangeLayoutToggleGroup
+        viewMode={viewMode}
+        onGrid={() => {
+          setSortMenuOpen(false);
+          onGrid();
+        }}
+        sortMenuOpen={sortMenuOpen}
+        onSortMenu={() => setSortMenuOpen((open) => !open)}
+      />
+      <ExchangeSortMenu
+        open={sortMenuOpen}
+        sortId={sortId}
+        onSelect={onSortChange}
+        onClose={() => setSortMenuOpen(false)}
+      />
     </div>
   );
 }
@@ -243,67 +354,6 @@ const EXCHANGE_GRID_CARD_BADGE_ROW = EXCHANGE_CARD_INFO_BADGE_ROW;
 
 function exchangePctValueClass(pct: number): string {
   return pct >= 0 ? "text-[rgba(16,211,51,1)]" : "text-rose-300";
-}
-
-function ExchangeTrendPctBadge({
-  pct,
-  windowShort,
-  title,
-}: {
-  pct: number;
-  windowShort?: string;
-  title?: string;
-}) {
-  return (
-    <span className={EXCHANGE_CARD_BADGE_NEUTRAL} title={title}>
-      <span className={`tabular-nums ${exchangePctValueClass(pct)}`}>
-        {formatSignedPct(pct)}
-      </span>
-      {windowShort ? <span>{` ${windowShort}`}</span> : null}
-    </span>
-  );
-}
-
-/** Always show reference % on list/grid cards — 0% when history is insufficient (see title). */
-function ExchangeMarketChangeBadge({
-  pct,
-  loading = false,
-  windowShort = MARKET_PRICE_CHANGE_PERIOD_SHORT,
-  titleDetail,
-}: {
-  pct: number | null;
-  loading?: boolean;
-  windowShort?: string;
-  titleDetail?: string;
-}) {
-  const win = windowShort;
-  const title = titleDetail?.trim()
-    ? `External reference (${win} change) — ${titleDetail.trim()}`
-    : `External reference (${win} change)`;
-  if (loading && pct == null) {
-    return (
-      <ExchangeKvBadge
-        label={win}
-        value="…"
-        title="Loading external reference change"
-      />
-    );
-  }
-  if (pct != null && Number.isFinite(pct)) {
-    return (
-      <ExchangeTrendPctBadge
-        pct={pct}
-        windowShort={win}
-        title={title}
-      />
-    );
-  }
-  return (
-    <span className={EXCHANGE_CARD_BADGE_NEUTRAL} title={REFERENCE_CHANGE_UNAVAILABLE_HINT}>
-      <span className="tabular-nums text-white">{formatSignedPct(0)}</span>
-      {win ? <span>{` ${win}`}</span> : null}
-    </span>
-  );
 }
 
 /** Compact counts in pills (full value stays in `title`). */
@@ -339,30 +389,133 @@ function ExchangeKvBadge({
   );
 }
 
-/** On-platform listing pool: highest “price tier” first (floor → median → p75); rows without stats last. */
-function exchangePoolPriceSortKey(s: CollectionListMarketSnapshot | undefined): [number, number, number] {
-  const ms = s?.marketStats;
-  if (!ms) return [Number.NEGATIVE_INFINITY, Number.NEGATIVE_INFINITY, Number.NEGATIVE_INFINITY];
-  const n = (x: number | null | undefined) =>
-    x != null && Number.isFinite(x) && x > 0 ? x : Number.NEGATIVE_INFINITY;
-  return [n(ms.floor), n(ms.median), n(ms.p75)];
-}
-
 function collectionKeyLower(c: MarketplaceCollectionSummary): string {
   return c.collectionKey?.trim().toLowerCase() ?? "";
 }
 
-function compareExchangeByPoolPrice(
+/** Collection list card “Price” — tier-aware Cardhedger / grade strip from batch snapshots. */
+function exchangeListMarketPriceUsd(
+  collection: MarketplaceCollectionSummary,
+  snapshot: CollectionListMarketSnapshot | undefined,
+): number {
+  const comp = collection.components as Record<string, unknown> & { gradeScore?: string };
+  const usd = representativeGradeUsd(
+    snapshot?.gradePrices ?? null,
+    parseGradeScoreNumber(comp.gradeScore),
+    comp.gradeScore,
+  );
+  if (usd != null && Number.isFinite(usd) && usd > 0) return usd;
+  return Number.NEGATIVE_INFINITY;
+}
+
+function exchangeHasListMarketPrice(
+  collection: MarketplaceCollectionSummary,
+  snapshot: CollectionListMarketSnapshot | undefined,
+): boolean {
+  return exchangeListMarketPriceUsd(collection, snapshot) !== Number.NEGATIVE_INFINITY;
+}
+
+function compareExchangeByLabel(
+  a: MarketplaceCollectionSummary,
+  b: MarketplaceCollectionSummary,
+): number {
+  return (a.displayLabel ?? "").localeCompare(b.displayLabel ?? "");
+}
+
+function compareExchangeByMarketPriceDesc(
   a: MarketplaceCollectionSummary,
   b: MarketplaceCollectionSummary,
   snapByKey: Map<string, CollectionListMarketSnapshot>,
 ): number {
-  const ka = exchangePoolPriceSortKey(snapByKey.get(collectionKeyLower(a)));
-  const kb = exchangePoolPriceSortKey(snapByKey.get(collectionKeyLower(b)));
-  for (let i = 0; i < 3; i++) {
-    if (ka[i] !== kb[i]) return kb[i] - ka[i];
+  const pa = exchangeListMarketPriceUsd(a, snapByKey.get(collectionKeyLower(a)));
+  const pb = exchangeListMarketPriceUsd(b, snapByKey.get(collectionKeyLower(b)));
+  if (pa !== pb) return pb - pa;
+  return compareExchangeByLabel(a, b);
+}
+
+function compareExchangeByMarketPriceAsc(
+  a: MarketplaceCollectionSummary,
+  b: MarketplaceCollectionSummary,
+  snapByKey: Map<string, CollectionListMarketSnapshot>,
+): number {
+  return compareExchangeByMarketPriceDesc(b, a, snapByKey);
+}
+
+function compareExchangeByMarketChangePct(
+  a: MarketplaceCollectionSummary,
+  b: MarketplaceCollectionSummary,
+  snapByKey: Map<string, CollectionListMarketSnapshot>,
+): number {
+  const pa = snapByKey.get(collectionKeyLower(a))?.marketChangePct;
+  const pb = snapByKey.get(collectionKeyLower(b))?.marketChangePct;
+  const na =
+    pa != null && Number.isFinite(pa) ? pa : Number.NEGATIVE_INFINITY;
+  const nb =
+    pb != null && Number.isFinite(pb) ? pb : Number.NEGATIVE_INFINITY;
+  if (na !== nb) return nb - na;
+  return compareExchangeByLabel(a, b);
+}
+
+function compareExchangeByRecentSold(
+  a: MarketplaceCollectionSummary,
+  b: MarketplaceCollectionSummary,
+  snapByKey: Map<string, CollectionListMarketSnapshot>,
+): number {
+  const ta = snapByKey.get(collectionKeyLower(a))?.lastTokenableTradeAtSec ?? 0;
+  const tb = snapByKey.get(collectionKeyLower(b))?.lastTokenableTradeAtSec ?? 0;
+  if (ta !== tb) return tb - ta;
+  return compareExchangeByLabel(a, b);
+}
+
+function exchangeListMarketRecencyMs(
+  collection: MarketplaceCollectionSummary,
+  snapshot: CollectionListMarketSnapshot | undefined,
+): number {
+  const synced = snapshot?.syncedAt ? Date.parse(snapshot.syncedAt) : Number.NaN;
+  if (Number.isFinite(synced)) return synced;
+  const created = Date.parse(collection.createdAt);
+  return Number.isFinite(created) ? created : 0;
+}
+
+/** Newest collection-list market rows first (snapshot sync / registration; not ask orders). */
+function compareExchangeByRecentListed(
+  a: MarketplaceCollectionSummary,
+  b: MarketplaceCollectionSummary,
+  snapByKey: Map<string, CollectionListMarketSnapshot>,
+): number {
+  const ta = exchangeListMarketRecencyMs(a, snapByKey.get(collectionKeyLower(a)));
+  const tb = exchangeListMarketRecencyMs(b, snapByKey.get(collectionKeyLower(b)));
+  if (ta !== tb) return tb - ta;
+  return compareExchangeByLabel(a, b);
+}
+
+function compareExchangeCollections(
+  a: MarketplaceCollectionSummary,
+  b: MarketplaceCollectionSummary,
+  sortId: ExchangeSortId,
+  snapByKey: Map<string, CollectionListMarketSnapshot>,
+): number {
+  const snapA = snapByKey.get(collectionKeyLower(a));
+  const snapB = snapByKey.get(collectionKeyLower(b));
+  const hasPriceA = exchangeHasListMarketPrice(a, snapA);
+  const hasPriceB = exchangeHasListMarketPrice(b, snapB);
+  if (hasPriceA !== hasPriceB) {
+    return hasPriceA ? -1 : 1;
   }
-  return (a.displayLabel ?? "").localeCompare(b.displayLabel ?? "");
+
+  switch (sortId) {
+    case "recent_listed":
+      return compareExchangeByRecentListed(a, b, snapByKey);
+    case "pct_change_high":
+      return compareExchangeByMarketChangePct(a, b, snapByKey);
+    case "low_price":
+      return compareExchangeByMarketPriceAsc(a, b, snapByKey);
+    case "recent_sold":
+      return compareExchangeByRecentSold(a, b, snapByKey);
+    case "high_price":
+    default:
+      return compareExchangeByMarketPriceDesc(a, b, snapByKey);
+  }
 }
 
 function CollectionRow({
@@ -437,12 +590,6 @@ function CollectionRow({
             {marketsTitle}
           </h3>
           <div className={`mt-1.5 ${EXCHANGE_CARD_INFO_BADGE_ROW}`}>
-          <ExchangeMarketChangeBadge
-            pct={changePctExternal}
-            loading={marketChangeLoading}
-            windowShort={changeWindowShort}
-            titleDetail={changeCoverageHint}
-          />
           {pop != null ? (
             <ExchangeKvBadge
               label="Pop"
@@ -468,21 +615,17 @@ function CollectionRow({
             </span>
           ) : null}
         </div>
-        <dl className="mt-2.5 space-y-2 text-xs leading-snug text-zinc-300 sm:mt-3 sm:text-sm sm:leading-tight">
-          <div className="flex items-baseline justify-between gap-2">
-            <dt className="max-w-[45%] shrink-0 text-sm text-white sm:max-w-[58%]">Price</dt>
-            <dd
-              className="min-w-0 text-right tabular-nums text-sm font-bold text-[rgba(16,211,51,1)] sm:text-base md:text-lg"
-              title="External eBay reference price."
-            >
-              {effectiveRefUsd != null ? (
-                formatUsd(effectiveRefUsd)
-              ) : (
-                <span className="font-medium text-zinc-600">—</span>
-              )}
-            </dd>
-          </div>
-        </dl>
+        <div className="mt-2.5 flex items-baseline justify-between gap-2 sm:mt-3">
+          <span className="shrink-0 text-sm text-white">Price</span>
+          <ExchangeListingPriceWithChange
+            priceUsd={effectiveRefUsd}
+            changePct={changePctExternal}
+            loading={marketChangeLoading}
+            windowShort={changeWindowShort}
+            titleDetail={changeCoverageHint}
+            priceTitle="External eBay reference price."
+          />
+        </div>
         </div>
       </div>
 
@@ -544,13 +687,13 @@ function CollectionGridCard({
   return (
     <Link
       href={`/marketplace/collections/${encodeURIComponent(collection.collectionKey)}`}
-      className="group flex h-full flex-col overflow-hidden rounded-2xl border border-zinc-800/90 bg-black transition-colors hover:border-zinc-600"
+      className="group flex h-full flex-col overflow-hidden rounded-2xl bg-black outline-none transition-[background-color,box-shadow] duration-200 ease-out hover:bg-zinc-950/90 hover:shadow-[0_10px_28px_-14px_rgba(0,0,0,0.75)] hover:ring-1 hover:ring-white/[0.08] focus-visible:ring-2 focus-visible:ring-mint/35"
     >
       <div className="aspect-[3/4] shrink-0 bg-[#0a0a0a]">
         {(resolvedCoverUrl || collection.coverImageUrl) ? (
           <CollectionCoverFrame
             imageUrl={resolvedCoverUrl || collection.coverImageUrl!}
-            variant="compact"
+            variant="flat"
             className="h-full w-full object-cover"
           />
         ) : (
@@ -559,12 +702,6 @@ function CollectionGridCard({
       </div>
       <div className="flex min-h-0 flex-1 flex-col gap-1.5 p-2 max-[380px]:p-1.5 sm:gap-2 sm:p-3">
         <div className={EXCHANGE_GRID_CARD_BADGE_ROW}>
-          <ExchangeMarketChangeBadge
-            pct={changePctExternal}
-            loading={marketChangeLoading}
-            windowShort={changeWindowShort}
-            titleDetail={changeCoverageHint}
-          />
           {pop != null ? (
             <ExchangeKvBadge
               label="Pop"
@@ -590,14 +727,15 @@ function CollectionGridCard({
           <span className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-zinc-400 sm:text-[11px] sm:text-white">
             Price
           </span>
-          <span
-            className="min-w-0 truncate text-right text-[0.875rem] font-bold tabular-nums leading-none text-[rgba(16,211,51,1)] max-[380px]:text-[0.8125rem] sm:text-lg"
-            title={
-              marketPriceUsd != null ? formatUsd(marketPriceUsd) : "External reference (eBay strip)"
-            }
-          >
-            {marketPriceUsd != null ? formatUsd(marketPriceUsd) : "—"}
-          </span>
+          <ExchangeListingPriceWithChange
+            priceUsd={marketPriceUsd}
+            changePct={changePctExternal}
+            loading={marketChangeLoading}
+            windowShort={changeWindowShort}
+            titleDetail={changeCoverageHint}
+            priceClassName="text-[0.875rem] font-bold leading-none max-[380px]:text-[0.8125rem] sm:text-lg"
+            priceTitle="External eBay reference price."
+          />
         </div>
       </div>
     </Link>
@@ -609,16 +747,7 @@ export default function ExchangePage() {
     MARKETS_DEFAULT_CATEGORY_FILTER,
   );
   const [viewMode, setViewMode] = useState<"list" | "grid">("grid");
-  const [listLayoutComingSoonOpen, setListLayoutComingSoonOpen] = useState(false);
-
-  useEffect(() => {
-    if (!listLayoutComingSoonOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setListLayoutComingSoonOpen(false);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [listLayoutComingSoonOpen]);
+  const [sortId, setSortId] = useState<ExchangeSortId>("high_price");
 
   const ordersQuery = useQuery({
     queryKey: rq.ordersActive(),
@@ -693,13 +822,11 @@ export default function ExchangePage() {
     return m;
   }, [snapshotPack]);
 
-  /**
-   * Highest on-platform listing prices first (`marketStats` from batch snapshots). Rows with no
-   * pool data stay at the bottom until stats load or if the collection has no priced listings.
-   */
   const sortedForRank = useMemo(() => {
-    return [...collectionSummaries].sort((a, b) => compareExchangeByPoolPrice(a, b, snapshotByKey));
-  }, [collectionSummaries, snapshotByKey]);
+    return [...collectionSummaries].sort((a, b) =>
+      compareExchangeCollections(a, b, sortId, snapshotByKey),
+    );
+  }, [collectionSummaries, snapshotByKey, sortId]);
 
   const orphanAsks = orders.filter(
     (o) => o.side !== "bid" && (!o.collectionKey || !String(o.collectionKey).trim()),
@@ -743,11 +870,12 @@ export default function ExchangePage() {
               <h2 className="min-w-0 text-xl font-bold leading-tight tracking-tight text-white sm:text-3xl">
                 All Collections
               </h2>
-              <ExchangeLayoutToggleGroup
+              <ExchangeMarketsViewToolbar
                 className="inline-flex sm:hidden"
                 viewMode={viewMode}
                 onGrid={() => setViewMode("grid")}
-                onList={() => setListLayoutComingSoonOpen(true)}
+                sortId={sortId}
+                onSortChange={setSortId}
               />
             </div>
             <div className="mb-4 sm:mb-4 sm:flex sm:flex-nowrap sm:items-center sm:justify-between sm:gap-4">
@@ -759,11 +887,12 @@ export default function ExchangePage() {
                   toolbarAriaLabel="Filter all collections by category"
                 />
               </div>
-              <ExchangeLayoutToggleGroup
+              <ExchangeMarketsViewToolbar
                 className="hidden sm:inline-flex"
                 viewMode={viewMode}
                 onGrid={() => setViewMode("grid")}
-                onList={() => setListLayoutComingSoonOpen(true)}
+                sortId={sortId}
+                onSortChange={setSortId}
               />
             </div>
           </>
@@ -915,39 +1044,6 @@ export default function ExchangePage() {
         )}
       </div>
 
-      {listLayoutComingSoonOpen ? (
-        <div
-          className="fixed inset-0 z-[140] flex items-center justify-center p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="list-layout-coming-soon-title"
-        >
-          <button
-            type="button"
-            className="absolute inset-0 bg-black/75 backdrop-blur-[1px]"
-            aria-label="Close"
-            onClick={() => setListLayoutComingSoonOpen(false)}
-          />
-          <div className="relative z-10 w-full max-w-[min(100%,22rem)] rounded-2xl border border-zinc-600/70 bg-[#161616] px-5 py-6 shadow-[0_24px_64px_-16px_rgba(0,0,0,0.85)] ring-1 ring-white/[0.06]">
-            <h2
-              id="list-layout-coming-soon-title"
-              className="text-lg font-semibold tracking-tight text-white"
-            >
-              List view — coming soon
-            </h2>
-            <p className="mt-3 text-[15px] leading-relaxed text-zinc-400">
-              Not available yet. Use grid view for now.
-            </p>
-            <button
-              type="button"
-              onClick={() => setListLayoutComingSoonOpen(false)}
-              className="mt-6 w-full rounded-xl bg-zinc-100 py-2.5 text-sm font-semibold text-zinc-900 transition-colors hover:bg-white"
-            >
-              Got it
-            </button>
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }

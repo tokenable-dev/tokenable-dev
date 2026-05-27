@@ -17,8 +17,14 @@ export class PortfolioMarketBatchDto {
   @IsString({ each: true })
   collectionKeys!: string[];
 
-  @ApiPropertyOptional({ enum: ['7d', '30d', '90d', '180d', '365d'] })
+  @ApiPropertyOptional({ enum: ['7d', '30d', '90d', '180d', '365d', 'max'] })
   @IsOptional()
-  @IsIn(['7d', '30d', '90d', '180d', '365d'])
-  priceHistoryDuration?: '7d' | '30d' | '90d' | '180d' | '365d';
+  @IsIn(['7d', '30d', '90d', '180d', '365d', 'max'])
+  priceHistoryDuration?:
+    | '7d'
+    | '30d'
+    | '90d'
+    | '180d'
+    | '365d'
+    | 'max';
 }

@@ -173,7 +173,7 @@ export function CollectionTradeTicket({
           </button>
           <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-[9px] text-zinc-500">
             <Link href="/portfolio" className="hover:text-zinc-400" title="Manage RWAs in your wallet">
-              My Assets
+              Portfolio
             </Link>
             {showSellListingCount ? (
               listingCount > 0 ? (

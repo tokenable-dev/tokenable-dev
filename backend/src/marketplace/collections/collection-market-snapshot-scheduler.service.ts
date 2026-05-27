@@ -13,6 +13,7 @@ import { Repository } from 'typeorm';
 import { CollectionMarketSnapshotService } from './collection-market-snapshot.service';
 import { Order, OrderSide, OrderStatus } from '../entities/order.entity';
 import { CollectionMarketSnapshot } from '../entities/collection-market-snapshot.entity';
+import { RwaToken } from '../entities/rwa-token.entity';
 import type {
   SnapshotRefreshJob,
   SnapshotRefreshReason,
@@ -42,6 +43,8 @@ export class CollectionMarketSnapshotSchedulerService
     private readonly orderRepo: Repository<Order>,
     @InjectRepository(CollectionMarketSnapshot)
     private readonly snapshotRepo: Repository<CollectionMarketSnapshot>,
+    @InjectRepository(RwaToken)
+    private readonly rwaTokenRepo: Repository<RwaToken>,
   ) {}
 
   prewarmEnabled(): boolean {
@@ -184,6 +187,31 @@ export class CollectionMarketSnapshotSchedulerService
   async handleCronTick(): Promise<void> {
     if (!this.cronEnabled()) return;
     await this.runScheduledRefresh('cron');
+  }
+
+  /** 09:00 KST daily full refresh for known portfolio collections. */
+  @Cron('0 0 0 * * *')
+  async handleDailyPortfolioPrewarm(): Promise<void> {
+    if (!this.cronEnabled()) return;
+    const rows = await this.rwaTokenRepo
+      .createQueryBuilder('t')
+      .select('DISTINCT t.collection_key', 'collectionKey')
+      .where('t.collection_key IS NOT NULL')
+      .getRawMany<{ collectionKey: string }>();
+    let count = 0;
+    for (const r of rows) {
+      const key = r.collectionKey?.trim().toLowerCase();
+      if (!key) continue;
+      this.enqueue(key, 'cron');
+      count++;
+    }
+    this.logger.log(
+      JSON.stringify({
+        msg: 'market_snapshot_daily_portfolio_prewarm',
+        timezone: 'KST',
+        enqueued: count,
+      }),
+    );
   }
 
   private async runScheduledRefresh(trigger: string): Promise<void> {

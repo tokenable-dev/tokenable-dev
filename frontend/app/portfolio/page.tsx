@@ -11,6 +11,8 @@ import {
   type CollectionMarketPreview,
   postPortfolioCollectionMarketBatch,
   postBatchMintMarketPreviews,
+  postTokenCollectionKeysByTokenIds,
+  getPortfolioDailySnapshots,
   type CollectionMarketSeries,
   type CollectionMarketStats,
   cancelOrder,
@@ -23,10 +25,11 @@ import { useUserAssets } from "@/hooks/useUserAssets";
 import { useAppStore, selectUsdcBalance } from "@/store";
 import { useShallow } from "zustand/react/shallow";
 import type { GradedCardMetadata } from "@/types/gradedCard";
-import { loadNmBaselineMap, saveNmBaselineMap, type NmBaselineEntry } from "@/lib/portfolio";
+import { isPortfolioSellFill } from "@/lib/portfolio/portfolioTrades.util";
 import {
   formatLiquidityDepthLabel,
   formatSportCategoryDisplayLabel,
+  formatUsdCompact,
   parseGradeScoreNumber,
   resolveExternalMarketUsd,
 } from "@/lib/market";
@@ -37,9 +40,6 @@ import {
   VAULT_OUTLINE_PAD_CLASS,
 } from "@/components/ui/GradientOutlineFrame";
 import { WalletConnect } from "@/components/wallet/WalletConnect";
-import {
-  appendPortfolioValueSnapshot,
-} from "@/lib/portfolio";
 
 const USDC_DECIMALS = 1_000_000;
 
@@ -64,19 +64,13 @@ interface PricedAssetRow {
   listPriceUsd: number | null;
   /** Active ask order hash — for cancel listing from My Assets */
   activeListingOrderHash: string | null;
-  /** Secondary line under title (set / year / card name) */
-  subtitle: string;
-  gradeLabel: string | null;
+  /** Set / category line shown with card name (second row). */
+  setName: string | null;
   /** Raw Cardhedger preview payload for this token. */
   marketPreviewRaw: CollectionMarketPreview | null;
 }
 
-interface AssetRow extends PricedAssetRow {
-  /** Latest inferred buy fill price while currently holding this token */
-  costBasisUsd: number | null;
-  pnl: number | null;
-  pnlPct: number | null;
-}
+type AssetRow = PricedAssetRow;
 
 interface TxRow {
   type: "BUY" | "SELL";
@@ -88,14 +82,8 @@ interface TxRow {
   orderHash: string;
 }
 
-type ChartPeriod = "1D" | "1W" | "1M";
+type ChartPeriod = "1D";
 type AssetListFilter = "all" | "listed" | "unlisted";
-
-function fmtUsd(v: number): string {
-  if (Math.abs(v) >= 1000)
-    return `$${(v / 1000).toFixed(1)}K`;
-  return `$${v.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
-}
 
 function getGraded(meta: RwaMetadata | null): GradedCardMetadata | undefined {
   const g = meta?.properties?.graded;
@@ -175,54 +163,17 @@ function pickPortfolioMarketPreview(
   return s ?? mintPv ?? null;
 }
 
-function buildAssetSubtitle(meta: RwaMetadata | null, displayName: string): string {
+function holdingsSetName(meta: RwaMetadata | null): string | null {
   const g = getGraded(meta);
-  if (g?.card) {
-    const parts: string[] = [];
-    if (g.card.year != null) parts.push(String(g.card.year));
-    if (g.psa?.category?.trim()) {
-      parts.push(formatSportCategoryDisplayLabel(g.psa.category.trim()));
-    }
-    else if (g.card.set?.trim()) parts.push(g.card.set.trim());
-    const cn = g.card.name?.trim();
-    if (cn && cn !== displayName) parts.push(cn);
-    if (parts.length > 0) return parts.join(" · ");
+  if (g?.card?.set?.trim()) return g.card.set.trim();
+  if (g?.psa?.category?.trim()) {
+    return formatSportCategoryDisplayLabel(g.psa.category.trim());
   }
-  const attrYear = meta?.attributes?.find((a) => a.trait_type === "Year");
   const attrSet = meta?.attributes?.find(
     (a) => a.trait_type === "Set" || a.trait_type === "PSA Category",
   );
-  if (attrYear?.value || attrSet?.value) {
-    return [attrYear?.value, attrSet?.value].filter(Boolean).join(" · ");
-  }
-  const desc = meta?.description?.trim();
-  if (
-    desc &&
-    !/^no\s+description\.?$/i.test(desc) &&
-    desc.length <= 200 &&
-    !desc.startsWith("http")
-  ) {
-    const line = desc.split("\n")[0].trim();
-    return line.length > 120 ? `${line.slice(0, 117)}…` : line;
-  }
-  return "";
-}
-
-function formatGradeDisplay(meta: RwaMetadata | null): string | null {
-  const g = getGraded(meta);
-  const company = (g?.gradingCompany ?? "PSA").trim();
-  const score = g?.grade?.score ?? g?.psa?.gradeScore;
-  if (score != null && String(score).trim() !== "" && !Number.isNaN(Number(score))) {
-    return `${company} ${score}`.trim();
-  }
-  const gl = g?.psa?.gradeLabel?.trim();
-  if (gl) return `${company} ${gl}`.replace(/\s+/g, " ").trim();
-  const attr = meta?.attributes?.find(
-    (a) =>
-      a.trait_type === "Grade" ||
-      (a.trait_type?.toLowerCase().includes("grade") ?? false),
-  );
-  return attr?.value?.trim() ?? null;
+  if (attrSet?.value?.trim()) return attrSet.value.trim();
+  return null;
 }
 
 const BADGE_COLORS: Record<string, string> = {
@@ -259,6 +210,24 @@ function CategoryBadge({ label }: { label: string }) {
   );
 }
 
+function useIsMobileViewport(maxWidthPx = 639): boolean {
+  const [mobile, setMobile] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia(`(max-width: ${maxWidthPx}px)`);
+    const onChange = () => setMobile(mq.matches);
+    onChange();
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, [maxWidthPx]);
+  return mobile;
+}
+
+function formatSnapshotAxisLabel(snapshotDateKst: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(snapshotDateKst.trim());
+  if (m) return `${Number(m[2])}/${Number(m[3])}`;
+  return snapshotDateKst;
+}
+
 function generateTimeLabels(period: ChartPeriod, count: number): string[] {
   const now = new Date();
   const labels: string[] = [];
@@ -269,16 +238,13 @@ function generateTimeLabels(period: ChartPeriod, count: number): string[] {
         `${String(t.getHours()).padStart(2, "0")}:${String(t.getMinutes()).padStart(2, "0")}`,
       );
     }
-  } else if (period === "1W") {
-    const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-    for (let i = 0; i < count; i++) {
-      const t = new Date(now.getTime() - (count - 1 - i) * 86400_000);
-      labels.push(days[t.getDay()]);
-    }
   } else {
+    // Daily snapshot chart (MVP). Fallback to 1D time labels.
     for (let i = 0; i < count; i++) {
-      const t = new Date(now.getTime() - (count - 1 - i) * 86400_000);
-      labels.push(`${t.getMonth() + 1}/${t.getDate()}`);
+      const t = new Date(now.getTime() - (count - 1 - i) * 3600_000);
+      labels.push(
+        `${String(t.getHours()).padStart(2, "0")}:${String(t.getMinutes()).padStart(2, "0")}`,
+      );
     }
   }
   return labels;
@@ -338,22 +304,29 @@ function uniqChartTicks(ticks: number[]): number[] {
 }
 
 function fmtAxisVal(v: number): string {
-  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`;
-  if (v >= 1_000) return `${(v / 1_000).toFixed(v >= 10_000 ? 0 : 1)}K`;
-  return v.toLocaleString(undefined, { maximumFractionDigits: 0 });
+  if (!Number.isFinite(v)) return "—";
+  return `$${v.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
 }
 
 function PortfolioChart({
   points,
   period,
-  currentValue,
+  xLabels,
+  compact = false,
 }: {
   points: number[];
   period: ChartPeriod;
-  currentValue: number;
+  /** Daily snapshot dates (same length as `points` when provided). */
+  xLabels?: string[];
+  /** Tighter layout for mobile — larger dots, slightly smaller viewBox height. */
+  compact?: boolean;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [hover, setHover] = useState<{ idx: number; x: number; y: number } | null>(null);
+  const dotR = compact ? 6 : 5;
+  const lastDotR = compact ? 7 : 5;
+  const lastDotRingR = compact ? 11 : 9;
+  const lineStroke = compact ? 2.75 : 2;
 
   const volumeBars = useMemo(() => {
     if (points.length < 2) return [] as number[];
@@ -366,7 +339,7 @@ function PortfolioChart({
     return bars.map((b) => b / bMax);
   }, [points]);
 
-  if (points.length < 2)
+  if (points.length < 1)
     return (
       <div className="flex items-center justify-center text-gray-600 text-sm h-full">
         Not enough data
@@ -374,34 +347,46 @@ function PortfolioChart({
     );
 
   const W = 800;
-  const H = 260;
-  const LEFT = 54;
+  const H = compact ? 200 : 260;
+  const LEFT = compact ? 48 : 54;
   const RIGHT = 16;
-  const TOP = 20;
-  const BOT = 48;
+  const TOP = compact ? 12 : 20;
+  const BOT = compact ? 36 : 48;
   const chartW = W - LEFT - RIGHT;
   const chartH = H - TOP - BOT;
 
   const dataMin = Math.min(...points);
   const dataMax = Math.max(...points);
-  const pad = (dataMax - dataMin) * 0.1 || 1;
+  const pad = (dataMax - dataMin) * 0.1 || Math.max(dataMax * 0.05, 1);
   const yMin = dataMin - pad;
   const yMax = dataMax + pad;
 
   const ticks = uniqChartTicks(niceYTicks(yMin, yMax, 5));
-  const timeLabels = generateTimeLabels(period, points.length);
+  const timeLabels =
+    xLabels && xLabels.length === points.length
+      ? xLabels
+      : generateTimeLabels(period, points.length);
 
-  const xOf = (i: number) => LEFT + (i / (points.length - 1)) * chartW;
+  const xOf = (i: number) => {
+    if (points.length <= 1) return LEFT + chartW / 2;
+    return LEFT + (i / (points.length - 1)) * chartW;
+  };
   const yOf = (v: number) => TOP + (1 - (v - yMin) / (yMax - yMin)) * chartH;
 
-  const linePath = points
-    .map((v, i) => `${i === 0 ? "M" : "L"}${xOf(i).toFixed(2)},${yOf(v).toFixed(2)}`)
-    .join(" ");
-  const areaPath = `${linePath} L${xOf(points.length - 1).toFixed(2)},${(TOP + chartH).toFixed(2)} L${xOf(0).toFixed(2)},${(TOP + chartH).toFixed(2)} Z`;
+  const linePath =
+    points.length >= 2
+      ? points
+          .map((v, i) => `${i === 0 ? "M" : "L"}${xOf(i).toFixed(2)},${yOf(v).toFixed(2)}`)
+          .join(" ")
+      : "";
+  const areaPath =
+    points.length >= 2
+      ? `${linePath} L${xOf(points.length - 1).toFixed(2)},${(TOP + chartH).toFixed(2)} L${xOf(0).toFixed(2)},${(TOP + chartH).toFixed(2)} Z`
+      : "";
 
   const barH = 24;
   const barY = TOP + chartH + 2;
-  const barW = Math.max(2, chartW / points.length - 1);
+  const barW = Math.max(2, chartW / Math.max(points.length, 1) - 1);
 
   const labelStep = Math.max(1, Math.floor(points.length / 6));
 
@@ -409,7 +394,10 @@ function PortfolioChart({
     const svg = e.currentTarget;
     const rect = svg.getBoundingClientRect();
     const mx = ((e.clientX - rect.left) / rect.width) * W;
-    const idx = Math.round(((mx - LEFT) / chartW) * (points.length - 1));
+    const idx =
+      points.length <= 1
+        ? 0
+        : Math.round(((mx - LEFT) / chartW) * (points.length - 1));
     if (idx < 0 || idx >= points.length) {
       setHover(null);
       return;
@@ -417,8 +405,10 @@ function PortfolioChart({
     setHover({ idx, x: xOf(idx), y: yOf(points[idx]) });
   }
 
-  const lastX = xOf(points.length - 1);
-  const lastY = yOf(points[points.length - 1]);
+  const lastIdx = points.length - 1;
+  const lastX = xOf(lastIdx);
+  const lastY = yOf(points[lastIdx]);
+  const displayValue = points[lastIdx];
 
   return (
     <div ref={containerRef} className="w-full h-full">
@@ -507,18 +497,20 @@ function PortfolioChart({
           />
         ))}
 
-        {/* Area fill */}
-        <path d={areaPath} fill="url(#areaGrad)" />
-
-        {/* Line */}
-        <path
-          d={linePath}
-          fill="none"
-          stroke="#87FF48"
-          strokeWidth="2"
-          strokeLinejoin="round"
-          strokeLinecap="round"
-        />
+        {/* Area fill + line (2+ daily snapshots) */}
+        {points.length >= 2 && (
+          <>
+            <path d={areaPath} fill="url(#areaGrad)" />
+            <path
+              d={linePath}
+              fill="none"
+              stroke="#87FF48"
+              strokeWidth={lineStroke}
+              strokeLinejoin="round"
+              strokeLinecap="round"
+            />
+          </>
+        )}
 
         {/* Hover crosshair */}
         {hover && (
@@ -535,7 +527,7 @@ function PortfolioChart({
             <circle
               cx={hover.x}
               cy={hover.y}
-              r="4"
+              r={dotR}
               fill="#87FF48"
               stroke="#030712"
               strokeWidth="2"
@@ -560,7 +552,7 @@ function PortfolioChart({
                 fontSize="10"
                 fontWeight="600"
               >
-                ${points[hover.idx].toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                {formatUsdCompact(points[hover.idx])}
               </text>
             </g>
           </>
@@ -572,7 +564,7 @@ function PortfolioChart({
             <circle
               cx={lastX}
               cy={lastY}
-              r="5"
+              r={lastDotR}
               fill="#87FF48"
               stroke="#030712"
               strokeWidth="2.5"
@@ -581,7 +573,7 @@ function PortfolioChart({
             <circle
               cx={lastX}
               cy={lastY}
-              r="9"
+              r={lastDotRingR}
               fill="none"
               stroke="rgba(16,211,51,0.25)"
               strokeWidth="1.5"
@@ -605,7 +597,7 @@ function PortfolioChart({
                 fontSize="11"
                 fontWeight="700"
               >
-                ${currentValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                {formatUsdCompact(displayValue)}
               </text>
             </g>
           </>
@@ -615,32 +607,28 @@ function PortfolioChart({
   );
 }
 
-function StatCard({
+function PortfolioHeaderStat({
   label,
   value,
-  sub,
-  accent,
+  tone = "neutral",
 }: {
   label: string;
   value: string;
-  sub?: string;
-  accent?: boolean;
+  tone?: "neutral" | "positive" | "negative";
 }) {
+  const valueClass =
+    tone === "positive"
+      ? "text-emerald-400/90"
+      : tone === "negative"
+        ? "text-red-400/90"
+        : "text-zinc-100";
+
   return (
-    <div className="rounded-2xl border border-gray-800 bg-gray-900/40 px-5 py-5">
-      <p className="text-xs text-gray-500 mb-2">{label}</p>
-      <p
-        className={`text-2xl font-extrabold tracking-tight ${accent ? "text-mint" : "text-white"}`}
-      >
+    <div className="flex flex-col gap-2 sm:items-end sm:text-right">
+      <p className="text-sm font-medium text-zinc-500">{label}</p>
+      <p className={`text-xl font-semibold tabular-nums tracking-tight sm:text-2xl ${valueClass}`}>
         {value}
       </p>
-      {sub && (
-        <p
-          className={`text-xs mt-1 ${accent ? "text-mint/70" : "text-gray-500"}`}
-        >
-          {sub}
-        </p>
-      )}
     </div>
   );
 }
@@ -650,7 +638,8 @@ export default function PortfolioPage() {
   const queryClient = useQueryClient();
   const { address, isConnected } = useAccount();
   const { usdcBalanceFormatted } = useAppStore(useShallow(selectUsdcBalance));
-  const [period, setPeriod] = useState<ChartPeriod>("1D");
+  const period: ChartPeriod = "1D";
+  const isMobileViewport = useIsMobileViewport();
   const [assetFilter, setAssetFilter] = useState<AssetListFilter>("all");
   const [cancellingListingTokenId, setCancellingListingTokenId] = useState<number | null>(null);
 
@@ -718,10 +707,18 @@ export default function PortfolioPage() {
     ] as const,
     queryFn: async () => {
       const o: Record<number, string> = {};
+      const backendResolved = await postTokenCollectionKeysByTokenIds(
+        assets.map((a) => a.tokenId),
+      ).catch(() => ({} as Record<number, string>));
       for (const a of assets) {
         const listingKey = listingCollectionKeyByToken.get(a.tokenId);
         if (listingKey) {
           o[a.tokenId] = listingKey.trim().toLowerCase();
+          continue;
+        }
+        const dbKey = backendResolved[a.tokenId];
+        if (typeof dbKey === "string" && dbKey.trim()) {
+          o[a.tokenId] = dbKey.trim().toLowerCase();
           continue;
         }
         const comp = extractBucketComponentsFromMetadata(
@@ -793,7 +790,7 @@ export default function PortfolioPage() {
     queryFn: () =>
       postPortfolioCollectionMarketBatch({
         collectionKeys: uniqueCollectionKeys,
-        priceHistoryDuration: "365d",
+        priceHistoryDuration: "max",
       }),
     enabled:
       uniqueCollectionKeys.length > 0 && Boolean(address && isConnected),
@@ -899,16 +896,6 @@ export default function PortfolioPage() {
     [historiesFlat],
   );
 
-  const [nmBaselineMap, setNmBaselineMap] = useState<Record<number, NmBaselineEntry>>({});
-
-  useEffect(() => {
-    if (!address) {
-      setNmBaselineMap({});
-      return;
-    }
-    setNmBaselineMap(loadNmBaselineMap(address));
-  }, [address]);
-
   const pricedRows: PricedAssetRow[] = useMemo(() => {
     return assets.map((a) => {
       const listing = listingByTokenId.get(a.tokenId);
@@ -957,8 +944,7 @@ export default function PortfolioPage() {
         liquidityLabel,
         listPriceUsd: listingPrice,
         activeListingOrderHash,
-        subtitle: buildAssetSubtitle(a.metadata, displayName),
-        gradeLabel: formatGradeDisplay(a.metadata),
+        setName: holdingsSetName(a.metadata),
         marketPreviewRaw: preview,
       };
     });
@@ -971,65 +957,12 @@ export default function PortfolioPage() {
     mintPreviewByToken,
   ]);
 
-  useEffect(() => {
-    if (!address || valuesPending) return;
-    setNmBaselineMap((prev) => {
-      let next = prev;
-      let changed = false;
-      for (const r of pricedRows) {
-        if (r.priceSource !== "cardhedger") continue;
-        if (r.currentPrice == null) continue;
-        if (next[r.tokenId] !== undefined) continue;
-        if (next === prev) next = { ...prev };
-        changed = true;
-        next[r.tokenId] = { v: r.currentPrice, t: Date.now() };
-      }
-      if (changed) saveNmBaselineMap(address, next);
-      return changed ? next : prev;
-    });
-  }, [address, valuesPending, pricedRows]);
-
   const assetRows: AssetRow[] = useMemo(() => {
-    const wallet = address?.toLowerCase() ?? "";
-    const rows = pricedRows.map((r) => {
-      const b = nmBaselineMap[r.tokenId];
-      let costBasisUsd: number | null = null;
-      let pnl: number | null = null;
-      let pnlPct: number | null = null;
-
-      const latestBuyLike = fulfilledOrders.find((o) => {
-        if (Number(o.tokenId) !== r.tokenId) return false;
-        return (o.offerer?.trim().toLowerCase() ?? "") !== wallet;
-      });
-      if (latestBuyLike) {
-        const px = Number(latestBuyLike.price) / USDC_DECIMALS;
-        if (Number.isFinite(px) && px > 0) costBasisUsd = px;
-      }
-      if (costBasisUsd == null && b != null) {
-        costBasisUsd = b.v;
-      }
-
-      if (
-        r.priceSource === "cardhedger" &&
-        r.currentPrice != null &&
-        costBasisUsd != null
-      ) {
-        pnl = r.currentPrice - costBasisUsd;
-        if (costBasisUsd > 0) pnlPct = (pnl / costBasisUsd) * 100;
-      }
-
-      return {
-        ...r,
-        costBasisUsd,
-        pnl,
-        pnlPct,
-      };
-    });
-
+    const rows = [...pricedRows];
     // Newest minted first (higher tokenId first).
     rows.sort((a, b) => Number(b.tokenId) - Number(a.tokenId));
     return rows;
-  }, [pricedRows, nmBaselineMap, fulfilledOrders, address]);
+  }, [pricedRows]);
 
   const ASSET_PAGE = 10;
   const [visibleAssetCount, setVisibleAssetCount] = useState(ASSET_PAGE);
@@ -1076,8 +1009,7 @@ export default function PortfolioPage() {
   const txRows: TxRow[] = useMemo(() => {
     if (!address) return [];
     return fulfilledOrders.map((o) => {
-      const isSeller =
-        (o.offerer?.trim().toLowerCase() ?? "") === address.toLowerCase();
+      const isSeller = isPortfolioSellFill(o, address);
       const asset = assets.find((a) => a.tokenId === Number(o.tokenId));
       return {
         type: isSeller ? "SELL" : "BUY",
@@ -1100,27 +1032,20 @@ export default function PortfolioPage() {
     [assetRows],
   );
 
-  const totalPnl = useMemo(
-    () => assetRows.reduce((s, r) => s + (r.pnl ?? 0), 0),
-    [assetRows],
-  );
+  const {
+    data: dailySnapshotsData,
+    isLoading: dailySnapshotsLoading,
+  } = useQuery({
+    queryKey: ["portfolio-daily-snapshots", address ?? ""] as const,
+    queryFn: () => getPortfolioDailySnapshots(address!, 32),
+    enabled: Boolean(address && isConnected),
+    staleTime: 120_000,
+  });
+  const dailyPnlUsd = dailySnapshotsData?.latest24h?.pnlUsd ?? null;
+  const dailyPnlPct = dailySnapshotsData?.latest24h?.pnlPct ?? null;
+  const hasDailyPnl = dailyPnlUsd != null;
 
-  const totalPnlPct = useMemo(() => {
-    const sumCost = assetRows.reduce((s, r) => s + (r.costBasisUsd ?? 0), 0);
-    return sumCost > 0 ? (totalPnl / sumCost) * 100 : 0;
-  }, [assetRows, totalPnl]);
-
-  const uniqueTraders = useMemo(() => {
-    const addrs = new Set<string>();
-    for (const o of historiesFlat) {
-      const offerer = o.offerer?.trim().toLowerCase();
-      if (offerer) addrs.add(offerer);
-      for (const r of o.considerationRecipients ?? []) {
-        if (r) addrs.add(r.toLowerCase());
-      }
-    }
-    return addrs.size;
-  }, [historiesFlat]);
+  const totalTrades = fulfilledOrders.length;
 
   /**
    * My Assets grid: show cards as soon as token IDs + metadata batch return.
@@ -1129,105 +1054,37 @@ export default function PortfolioPage() {
   const assetsSectionLoading = idsLoading || assetsLoading;
 
   /** Only block totals/chart curve while holdings list is unresolved or series for pricing paths are unavailable. */
-  const chartTotalsPending =
-    idsLoading ||
-    (hasCollectionBuckets &&
-      assetRows.length > 0 &&
-      seriesLoadingAny);
+  const chartTotalsPending = idsLoading || dailySnapshotsLoading;
 
-  useEffect(() => {
-    if (!address || idsLoading) return;
-    void appendPortfolioValueSnapshot(address, totalValue);
-  }, [address, idsLoading, totalValue]);
-
-  const chartPoints = useMemo(() => {
-    if (idsLoading) return [];
-
-    const now = Date.now();
-    const byToken = new Map<number, AssetRow>();
-    for (const r of assetRows) byToken.set(r.tokenId, r);
-
-    const tokenIdsInPortfolio = assets.map((a) => a.tokenId);
-    const tokenCountByCollection = new Map<string, number>();
-    const tokenConstantByCollection = new Map<string, number>();
-    let standaloneConstant = 0;
-
-    for (const tokenId of tokenIdsInPortfolio) {
-      const row = byToken.get(tokenId);
-      if (!row) continue;
-      const ck = tokenToCollectionKey[tokenId]?.toLowerCase();
-      const hasSeries =
-        ck != null &&
-        ck !== "" &&
-        (seriesByCollectionKey.get(ck)?.externalUsd?.length ?? 0) >= 2;
-      if (hasSeries && ck) {
-        tokenCountByCollection.set(ck, (tokenCountByCollection.get(ck) ?? 0) + 1);
-      } else if (row.currentPrice != null && Number.isFinite(row.currentPrice)) {
-        if (ck) {
-          tokenConstantByCollection.set(
-            ck,
-            (tokenConstantByCollection.get(ck) ?? 0) + row.currentPrice,
-          );
-        } else {
-          standaloneConstant += row.currentPrice;
-        }
-      }
-    }
-
-    const pointCount = period === "1D" ? 24 : period === "1W" ? 7 : 30;
-    const stepMs = period === "1D" ? 3600_000 : 86400_000;
-    const times = Array.from(
-      { length: pointCount },
-      (_, i) => now - (pointCount - 1 - i) * stepMs,
+  const dailyChartSeries = useMemo(() => {
+    const rows = dailySnapshotsData?.items ?? [];
+    const sorted = [...rows].sort(
+      (a, b) => new Date(a.snapshotAt).getTime() - new Date(b.snapshotAt).getTime(),
     );
-
-    const collectionSeries = new Map<string, Array<{ t: number; v: number }>>();
-    for (const [ck] of tokenCountByCollection) {
-      const ext = seriesByCollectionKey.get(ck)?.externalUsd ?? [];
-      if (ext.length >= 2) collectionSeries.set(ck, ext);
+    const series: { value: number; label: string }[] = [];
+    for (const r of sorted) {
+      const v = r.totalValueUsd;
+      if (!Number.isFinite(v) || v < 0) continue;
+      series.push({
+        value: v,
+        label: formatSnapshotAxisLabel(r.snapshotDateKst),
+      });
     }
+    return series;
+  }, [dailySnapshotsData?.items]);
 
-    const valueAt = (series: Array<{ t: number; v: number }>, tMs: number): number | null => {
-      const t = Math.floor(tMs / 1000);
-      let prev: number | null = null;
-      for (const p of series) {
-        if (p.t <= t) prev = p.v;
-        else break;
-      }
-      if (prev != null) return prev;
-      const first = series[0]?.v;
-      return first != null && Number.isFinite(first) ? first : null;
-    };
-
-    const out = times.map((tMs) => {
-      let total = standaloneConstant;
-      for (const [ck, count] of tokenCountByCollection) {
-        const s = collectionSeries.get(ck);
-        if (!s || count <= 0) continue;
-        const v = valueAt(s, tMs);
-        if (v != null && Number.isFinite(v) && v > 0) total += v * count;
-      }
-      for (const [, csum] of tokenConstantByCollection) total += csum;
-      return Math.max(0, total);
-    });
-
-    if (out.length > 0) {
-      out[out.length - 1] = totalValue;
-    }
-    return out;
-  }, [
-    idsLoading,
-    assetRows,
-    assets,
-    tokenToCollectionKey,
-    seriesByCollectionKey,
-    period,
-    totalValue,
-  ]);
+  const dailyChartPoints = useMemo(
+    () => dailyChartSeries.map((s) => s.value),
+    [dailyChartSeries],
+  );
+  const dailyChartLabels = useMemo(
+    () => dailyChartSeries.map((s) => s.label),
+    [dailyChartSeries],
+  );
 
   if (!isConnected) {
     return (
-      <div className="min-h-screen min-w-0 overflow-x-clip bg-[#030712] text-white">
+      <div className="min-h-screen min-w-0 overflow-x-clip bg-black text-white">
         <div className={`${APP_MAIN_SHELL_CLASS} flex min-h-[calc(100vh-4rem)] flex-col justify-center py-8 pb-20`}>
           <div className="mx-auto flex w-full max-w-md flex-col items-center justify-center">
             <div className="w-full rounded-2xl border border-gray-800/90 bg-gray-900/40 px-6 py-9 text-center sm:px-8 sm:py-10">
@@ -1236,7 +1093,7 @@ export default function PortfolioPage() {
               </h2>
               <p className="mt-2 text-sm leading-relaxed text-gray-400">
                 Connect MetaMask on Sepolia to view your holdings, estimated
-                value, and activity in My Assets.
+                value, and activity in your portfolio.
               </p>
               <div className="mt-7">
                 <GradientOutlineFrame
@@ -1257,115 +1114,96 @@ export default function PortfolioPage() {
   }
 
   return (
-    <div className="min-h-screen min-w-0 overflow-x-clip bg-[#030712] text-white">
+    <div className="min-h-screen min-w-0 overflow-x-clip bg-black text-white">
       <div className={`${APP_MAIN_SHELL_CLASS} py-8 pb-20`}>
-        {/* Title */}
-        <div className="mb-8">
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight mb-1">
-            Portfolio
-          </h1>
-          <p className="text-sm text-gray-400">Your tokenized assets</p>
+        {/* Title + summary stats */}
+        <div className="mb-6 flex flex-col gap-6 sm:mb-10 sm:flex-row sm:items-end sm:justify-between sm:gap-8">
+          <div>
+            <h1 className="text-xl font-extrabold tracking-tight sm:text-3xl">
+              Portfolio
+            </h1>
+          </div>
+          <div
+            className="flex flex-wrap items-end gap-x-14 gap-y-6 sm:ml-auto sm:gap-x-16 lg:gap-x-20"
+            role="group"
+            aria-label="Portfolio summary"
+          >
+            <PortfolioHeaderStat label="Amount" value={String(assets.length)} />
+            <PortfolioHeaderStat label="Total trades" value={String(totalTrades)} />
+            <PortfolioHeaderStat
+              label="P&L"
+              value={
+                chartTotalsPending
+                  ? "…"
+                  : !hasDailyPnl
+                    ? "—"
+                    : `${dailyPnlUsd! >= 0 ? "+" : ""}${formatUsdCompact(dailyPnlUsd!)}`
+              }
+              tone={
+                chartTotalsPending || !hasDailyPnl
+                  ? "neutral"
+                  : dailyPnlUsd! > 0
+                    ? "positive"
+                    : dailyPnlUsd! < 0
+                      ? "negative"
+                      : "neutral"
+              }
+            />
+          </div>
         </div>
 
         {/* Chart */}
-        <div className="rounded-2xl border border-gray-800 bg-gray-900/40 p-5 sm:p-6 mb-6">
-          <div className="flex items-start justify-between mb-2">
-            <div>
-              <p className="text-sm font-semibold text-white mb-0.5">Chart</p>
-              <p className="text-[11px] text-gray-500 mb-1">
-                Total value is the sum of per-card market estimates. History is built from snapshots
-                stored in this browser for this wallet.
-              </p>
-              <div className="flex items-center gap-2.5">
+        <div className="mb-6 rounded-2xl border border-gray-800 bg-gray-900/40 p-4 sm:p-6">
+          <div className="mb-2 flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="mb-0.5 text-sm font-semibold text-white">Chart</p>
+              <div className="flex flex-wrap items-center gap-2">
                 {chartTotalsPending ? (
-                  <span className="inline-block h-9 w-28 animate-pulse rounded-lg bg-gray-800/80" />
+                  <span className="inline-block h-8 w-24 animate-pulse rounded-lg bg-gray-800/80 sm:h-9 sm:w-28" />
                 ) : (
                   <>
-                    <span className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-                      {fmtUsd(totalValue)}
+                    <span className="text-xl font-extrabold tracking-tight text-white sm:text-3xl">
+                      {formatUsdCompact(totalValue)}
                     </span>
-                    {totalPnlPct !== 0 && (
+                    {dailyPnlPct != null && dailyPnlPct !== 0 && (
                       <span
                         className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${
-                          totalPnlPct >= 0
+                          dailyPnlPct >= 0
                             ? "bg-mint/15 text-mint"
                             : "bg-red-500/15 text-red-400"
                         }`}
                       >
-                        {totalPnlPct >= 0 ? "+" : ""}
-                        {totalPnlPct.toFixed(1)}%
+                        {dailyPnlPct >= 0 ? "+" : ""}
+                        {dailyPnlPct.toFixed(1)}%
                       </span>
                     )}
                   </>
                 )}
               </div>
             </div>
-            <div className="flex gap-1">
-              {(["1D", "1W", "1M"] as ChartPeriod[]).map((p) => (
-                <button
-                  key={p}
-                  onClick={() => setPeriod(p)}
-                  className={`px-3.5 py-1.5 text-xs font-semibold rounded-full transition-colors ${
-                    period === p
-                      ? "bg-mint text-[#030712]"
-                      : "border border-gray-700 text-gray-400 hover:text-white hover:border-gray-600"
-                  }`}
-                >
-                  {p}
-                </button>
-              ))}
-            </div>
+            <div className="rounded-full bg-mint px-3 py-1.5 text-xs font-semibold text-[#030712]">1D</div>
           </div>
-          <div className="h-[240px] sm:h-[280px]">
+          <div className="h-[168px] sm:h-[240px] lg:h-[280px]">
             {chartTotalsPending ? (
-              <div className="w-full h-full bg-gray-800/40 rounded-lg animate-pulse" />
+              <div className="h-full w-full animate-pulse rounded-lg bg-gray-800/40" />
             ) : (
               <PortfolioChart
-                points={chartPoints}
+                points={dailyChartPoints}
+                xLabels={dailyChartLabels}
                 period={period}
-                currentValue={totalValue}
+                compact={isMobileViewport}
               />
             )}
           </div>
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-          <StatCard
-            label="Amount"
-            value={String(assets.length)}
-            sub="Cards"
-          />
-          <StatCard
-            label="Total Traders"
-            value={String(uniqueTraders)}
-            sub="All time"
-          />
-          <StatCard
-            label="P&amp;L"
-            value={
-              chartTotalsPending
-                ? "…"
-                : `${totalPnl >= 0 ? "+" : ""}${fmtUsd(totalPnl)}`
-            }
-            sub={
-              chartTotalsPending
-                ? undefined
-                : totalPnlPct !== 0
-                  ? `${totalPnlPct >= 0 ? "+" : ""}${totalPnlPct.toFixed(1)}%`
-                  : undefined
-            }
-            accent={!chartTotalsPending && totalPnl !== 0}
-          />
-        </div>
-
-        {/* My Assets — card grid */}
-        <div className="rounded-2xl border border-gray-800 bg-[#0b1118] p-5 sm:p-6 mb-6">
+        {/* Holdings — card grid */}
+        <div className="mb-6 rounded-2xl border border-gray-800 bg-[#0b1118] p-4 sm:p-6">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h2 className="text-sm font-bold">My Assets</h2>
+              <h2 className="text-sm font-bold">My Collectibles</h2>
               <p className="mt-1 text-xs text-gray-500">
-                Track which cards are currently listed vs ready to list.
+                Your vaulted cards and active listings.
               </p>
             </div>
             <div className="inline-flex rounded-full border border-gray-700/80 bg-gray-900/70 p-1 text-[11px]">
@@ -1408,14 +1246,14 @@ export default function PortfolioPage() {
             </p>
           ) : null}
           {assetsSectionLoading ? (
-            <div className="-mx-1 grid grid-cols-1 gap-4 pb-2 pt-0.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {[...Array(5)].map((_, i) => (
+            <div className="-mx-0.5 grid grid-cols-2 gap-2.5 pb-2 pt-0.5 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
+              {[...Array(6)].map((_, i) => (
                 <div
                   key={i}
-                  className="w-full overflow-hidden rounded-xl border border-gray-800/80 bg-gray-900/40"
+                  className="w-full overflow-hidden rounded-lg border border-gray-800/80 bg-gray-900/40 sm:rounded-xl"
                 >
-                  <div className="aspect-[3/4] animate-pulse bg-gray-800/50" />
-                  <div className="space-y-2 p-4">
+                  <div className="aspect-[5/6] animate-pulse bg-gray-800/50 sm:aspect-[3/4]" />
+                  <div className="space-y-2 p-2.5 sm:p-4">
                     <div className="h-4 w-2/3 animate-pulse rounded bg-gray-800/60" />
                     <div className="h-3 w-full animate-pulse rounded bg-gray-800/40" />
                   </div>
@@ -1439,22 +1277,16 @@ export default function PortfolioPage() {
             <div
               className={
                 filteredAssetRows.length > 4
-                  ? "max-h-[560px] overflow-y-auto pr-1"
+                  ? "max-h-[min(70vh,560px)] overflow-y-auto pr-0.5 sm:max-h-[560px]"
                   : "overflow-visible"
               }
             >
-              <div className="-mx-1 grid grid-cols-1 gap-4 pb-2 pt-0.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {filteredAssetRows.map((r) => (
-                (() => {
-                  const tokenableVsEbayPct =
-                    r.listPriceUsd != null &&
-                    r.currentPrice != null &&
-                    Number.isFinite(r.listPriceUsd) &&
-                    Number.isFinite(r.currentPrice) &&
-                    r.currentPrice > 0
-                      ? ((r.listPriceUsd - r.currentPrice) / r.currentPrice) * 100
-                      : null;
-                  return (
+              <div className="-mx-0.5 grid grid-cols-2 gap-2.5 pb-2 pt-0.5 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
+              {filteredAssetRows.map((r) => {
+                const titleLine = r.setName
+                  ? `${r.name} · ${r.setName}`
+                  : r.name;
+                return (
                 <div
                   key={r.tokenId}
                   role="button"
@@ -1468,36 +1300,15 @@ export default function PortfolioPage() {
                       router.push(`/marketplace/${r.tokenId}`);
                     }
                   }}
-                  className="group flex w-full cursor-pointer flex-col overflow-hidden rounded-xl bg-gradient-to-b from-gray-900/80 to-[#0a1018] text-left shadow-lg shadow-black/20 outline-none transition-[box-shadow,background-color] duration-200 hover:bg-gray-900/90 hover:shadow-[0_14px_44px_-14px_rgba(0,0,0,0.75)] focus-visible:ring-2 focus-visible:ring-zinc-400/45 focus-visible:ring-offset-2 focus-visible:ring-offset-[#030712]"
+                  className="group flex w-full cursor-pointer flex-col overflow-hidden rounded-lg bg-gradient-to-b from-gray-900/80 to-[#0a1018] text-left shadow-md shadow-black/20 outline-none transition-[box-shadow,background-color] duration-200 hover:bg-gray-900/90 hover:shadow-[0_14px_44px_-14px_rgba(0,0,0,0.75)] focus-visible:ring-2 focus-visible:ring-zinc-400/45 focus-visible:ring-offset-2 focus-visible:ring-offset-[#030712] sm:rounded-xl sm:shadow-lg"
                 >
-                  <div className="relative aspect-[3/4] w-full bg-[#070a0f]">
-                    {tokenableVsEbayPct != null ? (
-                      <div className="group absolute right-2 top-2 z-10">
-                        <span
-                          className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-extrabold tabular-nums shadow-[0_4px_14px_rgba(0,0,0,0.35)] ${
-                            tokenableVsEbayPct >= 0
-                              ? "border border-[rgba(16,211,51,1)] bg-[rgba(0,0,0,0.5)] text-[rgba(16,211,51,1)]"
-                              : "border-mint/35 bg-mint/35 text-white"
-                          }`}
-                        >
-                          Market Gap {tokenableVsEbayPct >= 0 ? "+" : ""}
-                          {tokenableVsEbayPct.toFixed(1)}%
-                        </span>
-                        <div className="pointer-events-none absolute right-0 top-full mt-1.5 w-56 rounded-lg border border-zinc-700/90 bg-[#0a0f16]/95 px-3 py-2 text-[11px] leading-snug text-zinc-200 opacity-0 shadow-xl transition-opacity duration-150 group-hover:opacity-100">
-                          <p className="font-semibold text-zinc-100">Market Gap formula</p>
-                          <p className="mt-1">
-                            Tokenable Price ({r.listPriceUsd != null ? `$${r.listPriceUsd.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : "—"}) vs Market Price ({r.currentPrice != null ? `$${r.currentPrice.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : "—"})
-                          </p>
-                          <p className="mt-1 text-zinc-400">(Tokenable − eBay) / eBay</p>
-                        </div>
-                      </div>
-                    ) : null}
+                  <div className="relative aspect-[5/6] w-full bg-[#070a0f] sm:aspect-[3/4]">
                     {r.imageUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={r.imageUrl}
                         alt=""
-                        className="h-full w-full object-contain object-center p-3 transition-transform duration-300 group-hover:scale-[1.02]"
+                        className="h-full w-full object-contain object-center p-1.5 transition-transform duration-300 group-hover:scale-[1.02] sm:p-3"
                         loading="lazy"
                         referrerPolicy="no-referrer"
                       />
@@ -1508,76 +1319,47 @@ export default function PortfolioPage() {
                       </div>
                     )}
                   </div>
-                  <div className="flex flex-1 flex-col gap-3 p-4 pt-3">
+                  <div className="flex flex-1 flex-col gap-2 p-2.5 pt-2 sm:gap-3 sm:p-4 sm:pt-3">
                     <div className="min-w-0 space-y-1">
-                      <div className="flex min-w-0 items-start gap-2">
-                        <h3 className="min-w-0 flex-1 truncate text-[15px] font-semibold leading-tight text-white">
-                          {r.name}
-                        </h3>
-                        <span
-                          className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
-                            r.listPriceUsd != null
-                              ? "bg-mint/15 text-mint"
-                              : "bg-zinc-700/40 text-zinc-300"
-                          }`}
-                        >
-                          {r.listPriceUsd != null ? "Listed" : "Not listed"}
-                        </span>
-                        {r.category && (
-                          <CategoryBadge label={r.category} />
-                        )}
+                      <div className="flex min-w-0 flex-wrap items-center gap-1">
+                        {r.listPriceUsd != null ? (
+                          <span className="inline-flex shrink-0 items-center rounded-full bg-mint/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-mint sm:px-2 sm:text-[10px]">
+                            Listed
+                          </span>
+                        ) : null}
+                        {r.category ? <CategoryBadge label={r.category} /> : null}
                       </div>
-                      {r.subtitle ? (
-                        <p className="truncate text-[11px] leading-tight text-gray-500">
-                          {r.subtitle}
-                        </p>
-                      ) : null}
-                      {r.marketPreviewRaw?.matched && r.marketPreviewRaw.card ? (
-                        <p className="truncate text-[10px] leading-tight text-zinc-600">
-                          Cardhedger {r.marketPreviewRaw.card.id}
-                          {r.marketPreviewRaw.matchConfidence
-                            ? ` · ${r.marketPreviewRaw.matchConfidence}`
-                            : ""}
-                          {r.marketPreviewRaw.card.sales30d != null
-                            ? ` · 30D ${r.marketPreviewRaw.card.sales30d}`
-                            : ""}
-                        </p>
-                      ) : null}
+                      <p
+                        className="truncate text-[11px] font-semibold leading-tight text-white sm:text-[13px]"
+                        title={titleLine}
+                      >
+                        {titleLine}
+                      </p>
                     </div>
-                    <dl className="space-y-2 border-t border-gray-800/80 pt-3 text-[12px]">
-                      <div className="flex justify-between gap-2">
-                        <dt className="text-gray-500">Market Price</dt>
-                        <dd className="font-semibold tabular-nums text-cyan-300">
+                    <div className="space-y-0.5 border-t border-gray-800/80 pt-2 text-[10px] leading-snug sm:space-y-1 sm:pt-3 sm:text-[12px]">
+                      <p className="min-w-0 truncate text-gray-400">
+                        <span className="sm:hidden">Ask: </span>
+                        <span className="hidden sm:inline">Your Ask Price : </span>
+                        <span className="font-semibold tabular-nums text-white">
+                          {r.listPriceUsd != null ? formatUsdCompact(r.listPriceUsd) : "—"}
+                        </span>
+                      </p>
+                      <p className="min-w-0 truncate text-gray-400">
+                        <span className="sm:hidden">Mkt: </span>
+                        <span className="hidden sm:inline">Market Price : </span>
+                        <span className="font-semibold tabular-nums text-white">
                           {valuesPending && r.currentPrice == null ? (
-                            <span className="inline-block h-4 w-16 animate-pulse rounded bg-gray-800/80 align-middle" />
+                            <span className="inline-block h-3 w-12 animate-pulse rounded bg-gray-800/80 align-middle sm:h-3.5 sm:w-14" />
                           ) : r.currentPrice != null ? (
-                            `$${r.currentPrice.toLocaleString(undefined, {
-                              maximumFractionDigits: 0,
-                            })}`
+                            formatUsdCompact(r.currentPrice)
                           ) : (
                             "—"
                           )}
-                        </dd>
-                      </div>
-                      <div className="flex justify-between gap-2">
-                        <dt className="text-gray-500">Tokenable Price</dt>
-                        <dd className="text-right tabular-nums font-semibold text-mint">
-                          {r.listPriceUsd != null
-                            ? `$${r.listPriceUsd.toLocaleString(undefined, {
-                                maximumFractionDigits: 0,
-                              })} ask`
-                            : "Not listed"}
-                        </dd>
-                      </div>
-                      <div className="flex justify-between gap-2">
-                        <dt className="text-gray-500">Grade</dt>
-                        <dd className="text-right text-gray-200">
-                          {r.gradeLabel ?? "—"}
-                        </dd>
-                      </div>
-                    </dl>
+                        </span>
+                      </p>
+                    </div>
                     {r.listPriceUsd != null && r.activeListingOrderHash && address ? (
-                      <div className="border-t border-gray-800/80 pt-3">
+                      <div className="border-t border-gray-800/80 pt-2 sm:pt-3">
                         <button
                           type="button"
                           disabled={cancellingListingTokenId === r.tokenId}
@@ -1611,7 +1393,7 @@ export default function PortfolioPage() {
                               setCancellingListingTokenId(null);
                             }
                           }}
-                          className="w-full rounded-lg border border-rose-500/35 bg-rose-500/10 px-3 py-2.5 text-center text-[12px] font-semibold text-rose-200 transition-colors hover:border-rose-400/45 hover:bg-rose-500/18 disabled:cursor-not-allowed disabled:opacity-50"
+                          className="w-full rounded-md border border-rose-500/35 bg-rose-500/10 px-2 py-1.5 text-center text-[10px] font-semibold text-rose-200 transition-colors hover:border-rose-400/45 hover:bg-rose-500/18 disabled:cursor-not-allowed disabled:opacity-50 sm:rounded-lg sm:px-3 sm:py-2.5 sm:text-[12px]"
                         >
                           {cancellingListingTokenId === r.tokenId
                             ? "Cancelling…"
@@ -1621,9 +1403,8 @@ export default function PortfolioPage() {
                     ) : null}
                   </div>
                 </div>
-                  );
-                })()
-              ))}
+                );
+              })}
               </div>
             </div>
           )}

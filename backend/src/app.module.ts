@@ -16,6 +16,7 @@ import { CollectionMarketSnapshot } from './marketplace/entities/collection-mark
 import { PsaCertSnapshot } from './marketplace/entities/psa-cert-snapshot.entity';
 import { RwaToken } from './marketplace/entities/rwa-token.entity';
 import { User } from './user/entities/user.entity';
+import { PortfolioDailySnapshot } from './marketplace/entities/portfolio-daily-snapshot.entity';
 
 @Module({
   imports: [
@@ -45,6 +46,7 @@ import { User } from './user/entities/user.entity';
           PsaCertSnapshot,
           RwaToken,
           User,
+          PortfolioDailySnapshot,
         ],
         // 프로덕션은 기본 false. 빈 DB 최초 부트스트랩 시에만 TYPEORM_SYNC=true (이후 반드시 끌 것)
         synchronize:

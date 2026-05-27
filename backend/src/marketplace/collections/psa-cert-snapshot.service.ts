@@ -12,6 +12,9 @@ import { PsaCertSnapshot } from '../entities/psa-cert-snapshot.entity';
 /**
  * Single gateway for PSA Public API cert lookups — all callers should use this
  * instead of {@link PsaPublicApiService.getByCertNumber} directly.
+ *
+ * PSA Estimate USD is taken only from the Public API payload when present.
+ * We do not scrape psacard.com (Cloudflare rate limits / ToS).
  */
 @Injectable()
 export class PsaCertSnapshotService {
@@ -31,10 +34,94 @@ export class PsaCertSnapshotService {
     return Math.min(Math.floor(sec), 90 * 24 * 3600) * 1000;
   }
 
+  private parseUsdEstimateFromUnknown(raw: unknown): number | null {
+    if (raw == null) return null;
+    if (typeof raw === 'number') {
+      return Number.isFinite(raw) && raw > 0 ? raw : null;
+    }
+    if (typeof raw !== 'string') return null;
+    const s = raw.replace(/,/g, '').replace(/\$/g, '').trim();
+    if (!s) return null;
+    const m = s.match(/(\d+(?:\.\d+)?)/);
+    if (!m) return null;
+    const n = Number(m[1]);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  }
+
+  /**
+   * Extract PSA estimate USD from PSA Public API raw payload when the field exists.
+   */
+  private estimateUsdFromAnyRaw(raw: unknown): number | null {
+    let found: number | null = null;
+
+    const visit = (node: unknown, keyHint?: string) => {
+      if (found != null) return;
+      if (node == null) return;
+
+      const hint = (keyHint ?? '').toLowerCase();
+
+      if (typeof node === 'number') {
+        if (hint.includes('estimate') && node > 0 && Number.isFinite(node))
+          found = node;
+        return;
+      }
+
+      if (typeof node === 'string') {
+        const parsed = this.parseUsdEstimateFromUnknown(node);
+        if (
+          parsed != null &&
+          (hint.includes('estimate') || /\$\s*\d/.test(node.replace(/\s/g, '')))
+        ) {
+          found = parsed;
+        }
+        return;
+      }
+
+      if (typeof node !== 'object') return;
+
+      const o = node as Record<string, unknown>;
+      for (const [k, v] of Object.entries(o)) {
+        if (found != null) return;
+        const kHint = keyHint ? `${keyHint}.${k}` : k;
+        if (k.toLowerCase().includes('estimate')) {
+          const n = this.parseUsdEstimateFromUnknown(v);
+          if (n != null) {
+            found = n;
+            return;
+          }
+        }
+        visit(v, kHint);
+      }
+    };
+
+    visit(raw);
+    return found;
+  }
+
+  /**
+   * Returns numeric USD estimate when present in compacted cert snapshot JSON.
+   */
+  static psaEstimateUsdFromSnapshotJson(
+    snap: Record<string, unknown> | null | undefined,
+  ): number | null {
+    if (!snap) return null;
+    const raw = (snap as Record<string, unknown>).EstimateUsd;
+    if (typeof raw === 'number' && Number.isFinite(raw) && raw > 0) return raw;
+    if (typeof raw === 'string') {
+      const s = raw.replace(/,/g, '').replace(/\$/g, '').trim();
+      const m = s.match(/(\d+(?:\.\d+)?)/);
+      if (!m) return null;
+      const n = Number(m[1]);
+      return Number.isFinite(n) && n > 0 ? n : null;
+    }
+    return null;
+  }
+
   compactFromApiRaw(raw: unknown): Record<string, unknown> | null {
     if (!raw || typeof raw !== 'object') return null;
     const c = (raw as { PSACert?: PsaCertRecord }).PSACert;
     if (!c || typeof c !== 'object') return null;
+    const estimateUsd = this.estimateUsdFromAnyRaw(raw);
     return {
       CertNumber: c.CertNumber,
       SpecID: c.SpecID,
@@ -47,6 +134,7 @@ export class PsaCertSnapshotService {
       GradeDescription: c.GradeDescription,
       Category: c.Category,
       TotalPopulation: c.TotalPopulation,
+      ...(estimateUsd != null ? { EstimateUsd: estimateUsd } : {}),
     };
   }
 
@@ -103,6 +191,33 @@ export class PsaCertSnapshotService {
     if (lookup.status !== 'success' || !lookup.raw) return;
     const snap = this.compactFromApiRaw(lookup.raw);
     if (!snap || Object.keys(snap).length === 0) return;
+
+    const row: QueryDeepPartialEntity<PsaCertSnapshot> = {
+      certNumber: cert,
+      snapshotJson: snap as object,
+      fetchedAt: new Date(),
+    };
+    await this.repo.upsert(row, ['certNumber']);
+  }
+
+  /**
+   * Re-fetch cert snapshot from PSA Public API even when DB TTL is still valid.
+   * Only useful when PSA adds/changes fields in the API response (not for website-only Estimate).
+   */
+  async refreshIfEstimateMissing(certNumber: string): Promise<void> {
+    const cert = certNumber.trim();
+    if (!cert) return;
+    const existing = await this.findByCert(cert);
+    const existingEstimate = PsaCertSnapshotService.psaEstimateUsdFromSnapshotJson(
+      existing?.snapshotJson ?? null,
+    );
+    if (existingEstimate != null) return;
+
+    const lookup = await this.psaPublicApi.getByCertNumber(cert);
+    if (lookup.status !== 'success' || !lookup.raw) return;
+    const snap = this.compactFromApiRaw(lookup.raw);
+    if (!snap || Object.keys(snap).length === 0) return;
+
     const row: QueryDeepPartialEntity<PsaCertSnapshot> = {
       certNumber: cert,
       snapshotJson: snap as object,
@@ -111,3 +226,6 @@ export class PsaCertSnapshotService {
     await this.repo.upsert(row, ['certNumber']);
   }
 }
+
+export const psaEstimateUsdFromSnapshotJson =
+  PsaCertSnapshotService.psaEstimateUsdFromSnapshotJson;

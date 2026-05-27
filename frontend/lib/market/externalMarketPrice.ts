@@ -197,10 +197,8 @@ export function percentChangeReferenceBestWindow(
     points,
     MARKET_PRICE_CHANGE_LAG_SEC,
   );
-  if (
-    lag1y != null &&
-    lag1y.anchorGapSec <= REFERENCE_LAG_MAX_ANCHOR_GAP_SEC
-  ) {
+  const historyCovers1y = spanSec >= MARKET_PRICE_CHANGE_LAG_SEC;
+  if (lag1y != null && historyCovers1y) {
     return {
       pct: lag1y.pct,
       isFullYear: true,

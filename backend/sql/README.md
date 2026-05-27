@@ -17,6 +17,7 @@ sql/
 │   ├── 030_collection_market_snapshots.sql
 │   ├── 040_orders.sql
 │   ├── 050_refactor_legacy_columns.sql  # migrate older DBs; safe on fresh bootstrap
+│   ├── 060_portfolio_daily_snapshots.sql
 │   └── 900_triggers.sql          # updated_at triggers
 ├── scripts/
 │   └── bootstrap-db.sh           # cat schema/*.sql — works with stdin pipe / Docker
@@ -67,6 +68,17 @@ docker exec tokenable-postgres psql -U tokenable -d tokenable \
 | `rwa_tokens` | On-chain mint registry (tokenId → cert, IPFS) |
 | `collection_market_snapshots` | Materialized Cardhedger pricing (API read path) |
 | `orders` | Seaport ask/bid listings + fulfilled tape |
+| `portfolio_daily_snapshots` | Daily 09:00 KST portfolio total USD per linked wallet |
+
+## Portfolio daily snapshot env
+
+| Variable | Purpose |
+|----------|---------|
+| `PORTFOLIO_SNAPSHOT_BOOTSTRAP_ENABLED` | On boot, capture all linked wallets into the active 09:00 KST slot (default **on** in `production`) |
+| `PORTFOLIO_SNAPSHOT_BOOTSTRAP_DELAY_MS` | Delay before bootstrap (default **10000**) |
+| `PORTFOLIO_SNAPSHOT_BOOTSTRAP_CONCURRENCY` | Parallel wallets per bootstrap tick (default **2**) |
+
+Rows upsert on `(wallet_address, snapshot_date_kst)`. `snapshot_at` is always the slot’s **09:00 Asia/Seoul** (latest completed checkpoint), so restarts the same KST day overwrite that day’s row with fresh totals.
 
 ## Snapshot worker env
 

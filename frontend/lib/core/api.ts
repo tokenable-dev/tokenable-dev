@@ -14,9 +14,10 @@ export function getApiUrl(): string {
   if (typeof window !== "undefined") {
     return `${window.location.origin}/api`;
   }
-  return (
-    process.env.INTERNAL_API_URL?.replace(/\/$/, "") ?? "http://localhost:4000/api"
-  );
+  // Server-only: `backendOrigin` uses `os` — must not be a static client import.
+  const { internalApiUrl } =
+    require("@/lib/core/backendOrigin") as typeof import("@/lib/core/backendOrigin");
+  return internalApiUrl();
 }
 
 const DEFAULT_API_FETCH_TIMEOUT_MS = 25_000;
@@ -582,7 +583,7 @@ export interface PortfolioMarketBatchItem {
 
 export async function postPortfolioCollectionMarketBatch(body: {
   collectionKeys: string[];
-  priceHistoryDuration?: "7d" | "30d" | "90d" | "180d" | "365d";
+  priceHistoryDuration?: "7d" | "30d" | "90d" | "180d" | "365d" | "max";
 }): Promise<{ items: PortfolioMarketBatchItem[] }> {
   const res = await backendFetch(
     `${getApiUrl()}/marketplace/collections/portfolio-market-batch`,
@@ -591,7 +592,7 @@ export async function postPortfolioCollectionMarketBatch(body: {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         collectionKeys: body.collectionKeys,
-        priceHistoryDuration: body.priceHistoryDuration ?? "365d",
+        priceHistoryDuration: body.priceHistoryDuration ?? "max",
       }),
     },
   );
@@ -603,6 +604,66 @@ export async function postPortfolioCollectionMarketBatch(body: {
     );
   }
   return res.json() as Promise<{ items: PortfolioMarketBatchItem[] }>;
+}
+
+export async function postTokenCollectionKeysByTokenIds(
+  tokenIds: number[],
+): Promise<Record<number, string>> {
+  const ids = [...new Set((tokenIds ?? []).map((n) => Math.floor(Number(n))))].filter(
+    (n) => Number.isFinite(n) && n >= 0,
+  );
+  if (ids.length === 0) return {};
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/collections/token-collection-keys`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tokenIds: ids }),
+    },
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(
+      (err as { message?: string }).message ??
+        "Failed to resolve collection keys by token IDs",
+    );
+  }
+  const j = (await res.json()) as { items?: Record<number, string> };
+  return j.items ?? {};
+}
+
+export interface PortfolioDailySnapshotItem {
+  walletAddress: string;
+  snapshotDateKst: string;
+  snapshotAt: string;
+  totalValueUsd: number;
+  cardCount: number;
+}
+
+export async function getPortfolioDailySnapshots(
+  walletAddress: string,
+  limit = 32,
+): Promise<{
+  items: PortfolioDailySnapshotItem[];
+  latest24h: { pnlUsd: number | null; pnlPct: number | null };
+}> {
+  const enc = encodeURIComponent(walletAddress);
+  const sp = new URLSearchParams();
+  sp.set('limit', String(Math.max(2, Math.min(120, Math.floor(limit)))));
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/portfolio/daily/${enc}?${sp.toString()}`,
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(
+      (err as { message?: string }).message ??
+        'Failed to load portfolio daily snapshots',
+    );
+  }
+  return res.json() as Promise<{
+    items: PortfolioDailySnapshotItem[];
+    latest24h: { pnlUsd: number | null; pnlPct: number | null };
+  }>;
 }
 
 export interface MarketPriceBand {
@@ -769,7 +830,7 @@ export const MARKETPLACE_COLLECTION_SNAPSHOTS_MAX_KEYS = 60;
 
 export async function postMarketplaceCollectionSnapshots(body: {
   collectionKeys: string[];
-  priceHistoryDuration?: "7d" | "30d" | "90d" | "180d" | "365d";
+  priceHistoryDuration?: "7d" | "30d" | "90d" | "180d" | "365d" | "max";
 }): Promise<{ items: CollectionListMarketSnapshot[] }> {
   const res = await backendFetch(`${getApiUrl()}/marketplace/collections/market-snapshots`, {
     method: "POST",
@@ -791,7 +852,7 @@ export async function postMarketplaceCollectionSnapshots(body: {
  */
 export async function postMarketplaceCollectionSnapshotsBatched(
   collectionKeys: string[],
-  priceHistoryDuration: "7d" | "30d" | "90d" | "180d" | "365d" = "365d",
+  priceHistoryDuration: "7d" | "30d" | "90d" | "180d" | "365d" | "max" = "max",
 ): Promise<{ items: CollectionListMarketSnapshot[] }> {
   const max = MARKETPLACE_COLLECTION_SNAPSHOTS_MAX_KEYS;
   if (collectionKeys.length === 0) return { items: [] };
