@@ -62,6 +62,7 @@ function buildHaystack(
     comp?.cardSet,
     comp?.cardNameDisplay,
     comp?.cardName,
+    comp?.psaCategory,
     comp?.gradingCompanyDisplay,
     comp?.gradingCompany,
   ];
@@ -104,6 +105,10 @@ export function inferSportBucketFromHaystack(hay: string): CollectionSportBucket
   if (!hay.trim()) return "other";
 
   if (/\bpokemon\b|ポケ|pikachu|charizard/i.test(hay)) {
+    return "pokemon";
+  }
+
+  if (/\b(tcg\s*cards?|tcgcard|pok[eé]mon\s*cards?)\b/i.test(hay)) {
     return "pokemon";
   }
 

@@ -1,11 +1,11 @@
 /** Mirrors backend `PSA_RATE_LIMIT_CODE`. */
 export const PSA_RATE_LIMIT_CODE = "PSA_RATE_LIMIT_EXCEEDED";
 
-/** Shown in Vault modal + inline alert when PSA Public API returns 429. */
+/** Shown in Sell flow when PSA Public API returns 429. */
 export const PSA_RATE_LIMIT_ALERT_MESSAGE =
-  "PSA lookup quota exceeded. Official PSA data is temporarily unavailable — please try again later or check limits at psacard.com/publicapi.";
+  "PSA lookup limit exceeded. Please try again later.";
 
-export const PSA_RATE_LIMIT_OVERLAY_TITLE = "PSA lookup unavailable";
+export const PSA_RATE_LIMIT_OVERLAY_TITLE = PSA_RATE_LIMIT_ALERT_MESSAGE;
 
 export class PsaApiError extends Error {
   readonly status: number;

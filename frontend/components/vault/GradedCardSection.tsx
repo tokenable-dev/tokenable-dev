@@ -47,6 +47,8 @@ interface GradedCardSectionProps {
   certLookupHasResult?: boolean;
   /** Render between slab/cert hero and the collapsible card & PSA fields (e.g. mint preview + Mint CTA) */
   slotAfterHero?: ReactNode;
+  /** When false, hides the Card & PSA details accordion (form state still updates from PSA). */
+  showCardPsaDetailsPanel?: boolean;
 }
 
 function PsaSlabUploadHero({
@@ -211,6 +213,7 @@ export function GradedCardSection({
   certLookupBusy = false,
   certLookupHasResult = false,
   slotAfterHero,
+  showCardPsaDetailsPanel = true,
 }: GradedCardSectionProps) {
   const hasCompany = !!gradingCompany;
   const L = psaFieldLocks;
@@ -305,6 +308,7 @@ export function GradedCardSection({
 
       {slotAfterHero}
 
+      {showCardPsaDetailsPanel ? (
       <details
         className="group rounded-xl border border-gray-700/50 bg-gray-800/20 overflow-hidden"
       >
@@ -470,6 +474,7 @@ export function GradedCardSection({
       )}
         </div>
       </details>
+      ) : null}
     </div>
   );
 }

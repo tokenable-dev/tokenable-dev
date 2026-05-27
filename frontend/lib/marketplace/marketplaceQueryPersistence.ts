@@ -1,5 +1,7 @@
+import type { InfiniteData } from "@tanstack/react-query";
 import type { QueryClient } from "@tanstack/react-query";
 import { rq, marketplaceRqPolicy } from "@/lib/core";
+import type { MarketplaceCollectionSummary } from "@/lib/core";
 
 /** Bump when persisted shape changes or to drop stale browser caches (e.g. after DB resets). */
 const SCHEMA = 4;
@@ -10,6 +12,23 @@ const LS_SNAPSHOTS_MAP = "tokenable.rq.collection-snapshots-map.v2";
 
 function isFresh(savedAt: number): boolean {
   return Date.now() - savedAt < TTL_MS;
+}
+
+function isValidCollectionsInfiniteCache(
+  data: unknown,
+): data is InfiniteData<{
+  items: MarketplaceCollectionSummary[];
+  nextCursor: string | null;
+}> {
+  if (!data || typeof data !== "object") return false;
+  const pages = (data as { pages?: unknown }).pages;
+  if (!Array.isArray(pages)) return false;
+  return pages.every(
+    (p) =>
+      p &&
+      typeof p === "object" &&
+      Array.isArray((p as { items?: unknown }).items),
+  );
 }
 
 function configureMarketplaceDefaults(queryClient: QueryClient): void {
@@ -49,9 +68,12 @@ export function hydrateMarketplaceQueries(queryClient: QueryClient): void {
         parsed.v === SCHEMA &&
         typeof parsed.savedAt === "number" &&
         isFresh(parsed.savedAt) &&
-        parsed.data != null
+        parsed.data != null &&
+        isValidCollectionsInfiniteCache(parsed.data)
       ) {
         queryClient.setQueryData(rq.collectionsMarketplace(), parsed.data);
+      } else if (parsed.data != null && !isValidCollectionsInfiniteCache(parsed.data)) {
+        localStorage.removeItem(LS_COLLECTIONS);
       }
     }
 

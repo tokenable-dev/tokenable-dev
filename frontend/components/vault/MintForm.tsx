@@ -41,6 +41,9 @@ import { WalletConnect } from "@/components/wallet/WalletConnect";
 
 type Step = "idle" | "uploading" | "minting" | "success" | "error";
 
+/** Sell page: hide Mint image / Asset listing / Card & PSA accordions. */
+const SHOW_VAULT_COLLAPSIBLE_SECTIONS = false;
+
 const INITIAL_STATE: GradedCardFormState = {
   name: "",
   description: "",
@@ -745,12 +748,6 @@ export function MintForm() {
         </div>
         <div className="space-y-3">
           <div className="bg-gray-800/50 rounded-xl p-4">
-            <p className="text-xs text-gray-500 mb-1">Token URI</p>
-            <p className="text-xs font-mono text-mint break-all">
-              {result.tokenURI}
-            </p>
-          </div>
-          <div className="bg-gray-800/50 rounded-xl p-4">
             <p className="text-xs text-gray-500 mb-1">Transaction Hash</p>
             <p className="text-xs font-mono text-blue-400 break-all">
               {result.txHash}
@@ -812,6 +809,7 @@ export function MintForm() {
               onCertLookupReset={resetCertLookupToEdit}
               certLookupBusy={analyzeLoading}
               certLookupHasResult={psaInputMode === "cert" && lastAnalyze !== null}
+              showCardPsaDetailsPanel={SHOW_VAULT_COLLAPSIBLE_SECTIONS}
               slotAfterHero={
                 <div className="space-y-4">
         {!isConnected ? (
@@ -880,6 +878,7 @@ export function MintForm() {
           })()
         )}
 
+              {SHOW_VAULT_COLLAPSIBLE_SECTIONS ? (
               <details className="group rounded-xl border border-gray-700/50 bg-gray-800/20 overflow-hidden">
                 <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3.5 text-sm font-medium text-gray-200 transition-colors hover:bg-gray-800/35 [&::-webkit-details-marker]:hidden">
                   <span>Mint image</span>
@@ -1012,16 +1011,21 @@ export function MintForm() {
               )}
                 </div>
               </details>
+              ) : null}
+
+              {!SHOW_VAULT_COLLAPSIBLE_SECTIONS && errors.image && (
+                <p className="text-xs text-red-400">{errors.image}</p>
+              )}
+              {!SHOW_VAULT_COLLAPSIBLE_SECTIONS && errors.name && (
+                <p className="text-xs text-red-400">{errors.name}</p>
+              )}
 
               {psaRateLimitAlert && (
                 <div
                   role="alert"
-                  className="rounded-lg border border-amber-500/45 bg-amber-500/10 px-4 py-3"
+                  className="rounded-lg border border-zinc-700/55 bg-zinc-900/45 px-4 py-3"
                 >
-                  <p className="text-xs font-semibold text-amber-200">
-                    PSA free lookup limit reached
-                  </p>
-                  <p className="mt-1.5 text-xs leading-relaxed text-amber-100/90 break-words">
+                  <p className="text-xs leading-relaxed text-zinc-400">
                     {PSA_RATE_LIMIT_ALERT_MESSAGE}
                   </p>
                 </div>
@@ -1033,6 +1037,7 @@ export function MintForm() {
                 </div>
               )}
 
+              {SHOW_VAULT_COLLAPSIBLE_SECTIONS ? (
               <details className="group rounded-xl border border-gray-700/50 bg-gray-800/20 overflow-hidden">
                 <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3.5 text-sm font-medium text-gray-200 transition-colors hover:bg-gray-800/35 [&::-webkit-details-marker]:hidden">
                   <span>Asset listing</span>
@@ -1097,6 +1102,7 @@ export function MintForm() {
             </div>
                 </div>
               </details>
+              ) : null}
                 </div>
               }
             />
@@ -1110,44 +1116,27 @@ export function MintForm() {
           className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4 backdrop-blur-[1.5px] pointer-events-auto"
           role="dialog"
           aria-modal="true"
-          aria-labelledby="psa-analyze-overlay-title"
+          aria-busy={!psaRateLimitAlert}
+          aria-label={
+            psaRateLimitAlert
+              ? PSA_RATE_LIMIT_OVERLAY_TITLE
+              : psaInputMode === "cert"
+                ? "Looking up PSA cert"
+                : "Analyzing slab"
+          }
         >
           <div
-            className={`w-full max-w-md rounded-xl border bg-gray-950/96 px-5 py-6 shadow-2xl shadow-black/55 sm:px-6 sm:py-7 ${
+            className={`rounded-xl border bg-gray-950/96 shadow-2xl shadow-black/55 ${
               psaRateLimitAlert
-                ? "border-amber-500/50"
-                : "border-gray-700/80"
+                ? "max-w-sm border-zinc-700/60 px-5 py-5 sm:px-6"
+                : "border-gray-700/80 p-6 sm:p-7"
             }`}
           >
-            <div className="flex flex-col items-center text-center">
+            <div className="flex flex-col items-center">
               {psaRateLimitAlert ? (
                 <>
-                  <div
-                    className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-amber-500/40 bg-amber-500/15"
-                    aria-hidden
-                  >
-                    <svg
-                      className="h-6 w-6 text-amber-300"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"
-                      />
-                    </svg>
-                  </div>
                   <p
-                    id="psa-analyze-overlay-title"
-                    className="mt-4 text-base font-semibold tracking-tight text-amber-100 sm:text-lg"
-                  >
-                    {PSA_RATE_LIMIT_OVERLAY_TITLE}
-                  </p>
-                  <p
-                    className="mt-2 text-sm leading-relaxed text-amber-50/95 max-w-[36ch]"
+                    className="max-w-[26ch] text-center text-xs leading-relaxed text-zinc-400"
                     role="alert"
                   >
                     {PSA_RATE_LIMIT_ALERT_MESSAGE}
@@ -1155,55 +1144,37 @@ export function MintForm() {
                   <button
                     type="button"
                     onClick={dismissPsaRateLimitOverlay}
-                    className="mt-5 rounded-lg border border-amber-500/40 bg-amber-500/15 px-5 py-2.5 text-sm font-medium text-amber-100 transition-colors hover:bg-amber-500/25"
+                    className="mt-4 flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-700/60 bg-zinc-900/60 text-zinc-400 transition-colors hover:border-zinc-600 hover:text-zinc-200"
+                    aria-label="Close"
                   >
-                    Close
+                    <svg
+                      className="h-4 w-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      aria-hidden
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
                   </button>
                 </>
               ) : (
-                <>
-                  <div className="relative h-12 w-12 shrink-0">
-                    <div
-                      className="absolute inset-0 rounded-full border-2 border-gray-700"
-                      aria-hidden
-                    />
-                    <div
-                      className="absolute inset-0 rounded-full border-2 border-transparent border-t-gray-200 border-r-gray-500 animate-spin"
-                      style={{ animationDuration: "0.9s" }}
-                      aria-hidden
-                    />
-                  </div>
-                  <p
-                    id="psa-analyze-overlay-title"
-                    className="mt-4 text-base font-semibold tracking-tight text-white sm:text-lg"
-                  >
-                    {psaInputMode === "cert"
-                      ? "Looking up PSA cert"
-                      : "Analyzing slab"}
-                  </p>
-                  <p className="mt-2 text-sm text-gray-400 max-w-[30ch]">
-                    {psaInputMode === "cert"
-                      ? "Cardhedger and PSA official metadata lookup are running."
-                      : "Cardhedger cert OCR, slab OCR, and PSA lookup are running."}
-                  </p>
+                <div className="relative h-12 w-12 shrink-0" role="status" aria-live="polite">
                   <div
-                    className="mt-4 h-2 w-full max-w-[280px] overflow-hidden rounded-full bg-gray-800/90"
-                    role="status"
-                    aria-live="polite"
-                    aria-label="Analysis in progress"
-                  >
-                    <div className="h-full w-full animate-pulse rounded-full bg-gradient-to-r from-gray-600 via-gray-400 to-gray-600" />
-                  </div>
-                  <p className="mt-3 text-xs leading-relaxed text-gray-500">
-                    This usually takes under a minute. Please keep this tab open until it
-                    finishes.
-                  </p>
-                  <p className="mt-3 text-[10px] font-medium uppercase tracking-[0.16em] text-gray-600">
-                    {psaInputMode === "cert"
-                      ? "CARDHEDGER · PSA"
-                      : "CARDHEDGER OCR · PSA"}
-                  </p>
-                </>
+                    className="absolute inset-0 rounded-full border-2 border-gray-700"
+                    aria-hidden
+                  />
+                  <div
+                    className="absolute inset-0 rounded-full border-2 border-transparent border-t-gray-200 border-r-gray-500 animate-spin"
+                    style={{ animationDuration: "0.9s" }}
+                    aria-hidden
+                  />
+                </div>
               )}
             </div>
           </div>

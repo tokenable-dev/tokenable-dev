@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import {
   getActiveOrders,
+  getApiUrl,
   postMarketplaceCollectionSnapshotsBatched,
   rq,
   marketplaceRqPolicy,
@@ -347,17 +348,21 @@ function exchangePoolPriceSortKey(s: CollectionListMarketSnapshot | undefined): 
   return [n(ms.floor), n(ms.median), n(ms.p75)];
 }
 
+function collectionKeyLower(c: MarketplaceCollectionSummary): string {
+  return c.collectionKey?.trim().toLowerCase() ?? "";
+}
+
 function compareExchangeByPoolPrice(
   a: MarketplaceCollectionSummary,
   b: MarketplaceCollectionSummary,
   snapByKey: Map<string, CollectionListMarketSnapshot>,
 ): number {
-  const ka = exchangePoolPriceSortKey(snapByKey.get(a.collectionKey.toLowerCase()));
-  const kb = exchangePoolPriceSortKey(snapByKey.get(b.collectionKey.toLowerCase()));
+  const ka = exchangePoolPriceSortKey(snapByKey.get(collectionKeyLower(a)));
+  const kb = exchangePoolPriceSortKey(snapByKey.get(collectionKeyLower(b)));
   for (let i = 0; i < 3; i++) {
     if (ka[i] !== kb[i]) return kb[i] - ka[i];
   }
-  return a.displayLabel.localeCompare(b.displayLabel);
+  return (a.displayLabel ?? "").localeCompare(b.displayLabel ?? "");
 }
 
 function CollectionRow({
@@ -615,20 +620,25 @@ export default function ExchangePage() {
     return () => window.removeEventListener("keydown", onKey);
   }, [listLayoutComingSoonOpen]);
 
-  const { data: orders = [], isLoading: ordersLoading } = useQuery({
+  const ordersQuery = useQuery({
     queryKey: rq.ordersActive(),
     queryFn: getActiveOrders,
     refetchInterval: marketplaceRqPolicy.ordersRefetchMs,
     staleTime: marketplaceRqPolicy.ordersStaleMs,
   });
+  const orders = ordersQuery.data ?? [];
 
+  const colInfinite = useMarketplaceCollectionsInfinite();
   const {
     data: colPages,
-    isLoading: colLoading,
+    isLoading: colInitialLoading,
+    isFetching: colFetching,
+    isError: colLoadError,
+    error: colError,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
-  } = useMarketplaceCollectionsInfinite();
+  } = colInfinite;
 
   const collectionSummaries = useMemo(
     () => colPages?.pages.flatMap((p) => p.items) ?? [],
@@ -644,11 +654,18 @@ export default function ExchangePage() {
     enabled: collectionSummaries.length > 0,
   });
 
-  const isLoading = ordersLoading || colLoading;
+  const ordersInitialLoading = ordersQuery.isLoading;
+  const isInitialLoading = ordersInitialLoading || colInitialLoading;
+  const loadFailed = ordersQuery.isError || colLoadError;
+  const loadError = ordersQuery.error ?? colError;
+  const showLoadingShell = isInitialLoading && !loadFailed;
 
   const snapshotKeysSorted = useMemo(() => {
     const u = new Set<string>();
-    for (const c of collectionSummaries) u.add(c.collectionKey.toLowerCase());
+    for (const c of collectionSummaries) {
+      const k = c.collectionKey?.trim().toLowerCase();
+      if (k) u.add(k);
+    }
     return [...u].sort();
   }, [collectionSummaries]);
 
@@ -659,18 +676,19 @@ export default function ExchangePage() {
         snapshotKeysSorted,
         MARKET_PRICE_CHANGE_SNAPSHOT_DURATION,
       ),
-    enabled: snapshotKeysSorted.length > 0 && !isLoading,
+    enabled: snapshotKeysSorted.length > 0 && !isInitialLoading,
     staleTime: marketplaceRqPolicy.snapshotsStaleMs,
   });
 
   /** Snapshots (pool stats + external market bundle + sparkline) — show bar while this request runs */
   const showMarketSnapshotLoadingBar =
-    snapshotKeysSorted.length > 0 && !isLoading && snapshotsPending;
+    snapshotKeysSorted.length > 0 && !isInitialLoading && snapshotsPending;
 
   const snapshotByKey = useMemo(() => {
     const m = new Map<string, CollectionListMarketSnapshot>();
     for (const it of snapshotPack?.items ?? []) {
-      m.set(it.collectionKey.toLowerCase(), it);
+      const k = it.collectionKey?.trim().toLowerCase();
+      if (k) m.set(k, it);
     }
     return m;
   }, [snapshotPack]);
@@ -692,15 +710,34 @@ export default function ExchangePage() {
       collectionMatchesCategoryFilter(
         categoryFilter,
         c,
-        snapshotByKey.get(c.collectionKey.toLowerCase()),
+        snapshotByKey.get(collectionKeyLower(c)),
       ),
     );
   }, [sortedForRank, snapshotByKey, categoryFilter]);
 
+  if (loadFailed) {
+    const msg =
+      loadError instanceof Error ? loadError.message : String(loadError ?? "Unknown error");
+    return (
+      <div className="min-h-screen min-w-0 overflow-x-clip bg-black text-white">
+        <div className="mx-auto w-full max-w-6xl min-w-0 px-4 py-16 sm:px-6">
+          <h1 className="text-lg font-semibold text-red-400">Markets — API unavailable</h1>
+          <p className="mt-2 text-sm text-zinc-400">
+            Could not reach the backend at{" "}
+            <code className="rounded bg-zinc-900 px-1 text-mint">{getApiUrl()}</code>. Start the
+            Nest server (in <code className="text-zinc-300">backend/</code>, run{" "}
+            <code className="text-zinc-300">pnpm start:dev</code>) and confirm Postgres is up.
+          </p>
+          <p className="mt-4 text-xs text-zinc-500">{msg}</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen min-w-0 overflow-x-clip bg-black text-white">
       <div className="mx-auto w-full max-w-6xl min-w-0 px-3 pb-20 pt-8 max-[380px]:px-2 sm:px-6 sm:pb-24 sm:pt-12">
-        {!isLoading && sortedForRank.length > 0 ? (
+        {!showLoadingShell && sortedForRank.length > 0 ? (
           <>
             <div className="mb-3 flex items-center justify-between gap-3 sm:mb-5">
               <h2 className="min-w-0 text-xl font-bold leading-tight tracking-tight text-white sm:text-3xl">
@@ -751,8 +788,14 @@ export default function ExchangePage() {
           </div>
         ) : null}
 
-        {isLoading ? (
+        {showLoadingShell ? (
           <div className="space-y-5">
+            <p className="text-center text-sm text-zinc-500" role="status" aria-live="polite">
+              Loading collections and listings…
+              {colFetching || ordersQuery.isFetching
+                ? " (waiting for backend — check terminal for GET /api/marketplace/… logs)"
+                : ""}
+            </p>
             {[...Array(5)].map((_, i) => (
               <div
                 key={i}
@@ -786,7 +829,7 @@ export default function ExchangePage() {
               <CollectionGridCard
                 key={c.collectionKey}
                 collection={c}
-                snapshot={snapshotByKey.get(c.collectionKey.toLowerCase())}
+                snapshot={snapshotByKey.get(collectionKeyLower(c))}
                 resolvedCoverUrl={c.coverImageUrl ? resolvedCoverMap.get(c.coverImageUrl) : undefined}
                 listingCount={c.activeListingCount}
                 marketChangeLoading={showMarketSnapshotLoadingBar}
@@ -812,7 +855,7 @@ export default function ExchangePage() {
                 key={c.collectionKey}
                 collection={c}
                 listingCount={c.activeListingCount}
-                snapshot={snapshotByKey.get(c.collectionKey.toLowerCase())}
+                snapshot={snapshotByKey.get(collectionKeyLower(c))}
                 resolvedCoverUrl={c.coverImageUrl ? resolvedCoverMap.get(c.coverImageUrl) : undefined}
                 marketChangeLoading={showMarketSnapshotLoadingBar}
               />

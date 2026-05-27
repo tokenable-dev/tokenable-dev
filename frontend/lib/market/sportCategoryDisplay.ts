@@ -1,7 +1,18 @@
 /**
  * User-facing sport category labels. PSA / Cardhedger often use sport names
  * ("Basketball", "Baseball") while product badges use league names (NBA, MLB, …).
+ *
+ * Pokémon slabs often arrive as PSA **TCG Cards** or Cardhedger **TCG** — product
+ * badges should read **Pokemon**, not a second TCG label beside Pokémon copy.
  */
+
+/** PSA / Cardhedger / mint metadata → unified Pokémon badge label. */
+const POKEMON_TCG_CATEGORY_PATTERNS: ReadonlyArray<RegExp> = [
+  /^pok[eé]mon(\s+cards?)?$/i,
+  /^tcg(\s+cards?)?$/i,
+  /^tcgcard(s)?$/i,
+  /^trading\s+card(\s+game)?(\s+cards?)?$/i,
+];
 
 /** Labels that should render as league acronyms (uppercase), not title case. */
 const LEAGUE_ABBREVS = new Set([
@@ -39,6 +50,15 @@ export function isSportCategoryLeagueDisplayLabel(label: string): boolean {
   return LEAGUE_ABBREVS.has(label.trim().toUpperCase());
 }
 
+/** True when upstream category is Pokémon / generic TCG (not sports). */
+export function isPokemonTcgCategoryLabel(raw: string | null | undefined): boolean {
+  const t = String(raw ?? "")
+    .trim()
+    .replace(/\s+/g, " ");
+  if (!t) return false;
+  return POKEMON_TCG_CATEGORY_PATTERNS.some((re) => re.test(t));
+}
+
 export function formatSportCategoryDisplayLabel(
   raw: string | null | undefined,
 ): string {
@@ -46,6 +66,8 @@ export function formatSportCategoryDisplayLabel(
     .trim()
     .replace(/\s+/g, " ");
   if (!t) return "";
+
+  if (isPokemonTcgCategoryLabel(t)) return "Pokemon";
 
   const upper = t.toUpperCase();
   if (LEAGUE_ABBREVS.has(upper)) return upper;

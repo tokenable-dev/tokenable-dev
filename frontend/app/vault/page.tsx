@@ -10,8 +10,8 @@ import {
 import { useAuthStore } from "@/store/authStore";
 
 const STEPS = [
-  { num: 1, label: "Request" },
-  { num: 2, label: "Shipping" },
+  { num: 1, label: "Ship to Vault" },
+  { num: 2, label: "Confirm + Verify" },
   { num: 3, label: "Verify" },
   { num: 4, label: "Mint" },
 ] as const;
@@ -133,7 +133,7 @@ function Stepper({ active }: { active: number }) {
                   </div>
                 )}
                 <span
-                  className={`text-sm font-medium ${
+                  className={`whitespace-nowrap text-xs font-medium sm:text-sm ${
                     isActive
                       ? "text-mint"
                       : isDone
@@ -146,7 +146,7 @@ function Stepper({ active }: { active: number }) {
               </div>
               {i < STEPS.length - 1 && (
                 <div
-                  className={`mx-3 h-px w-20 ${
+                  className={`mx-2 h-px w-10 shrink-0 sm:mx-3 sm:w-14 ${
                     s.num < active ? "bg-gray-600" : "bg-gray-800"
                   }`}
                 />
@@ -174,11 +174,8 @@ export default function VaultPage() {
 
         <header className="mb-8 text-center">
           <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
-            Vault
+            Sell your collectibles
           </h1>
-          <p className="mx-auto mt-2 max-w-md text-sm text-gray-400">
-            Deposit your slab, verify, mint your RWA on-chain.
-          </p>
         </header>
 
         <MintForm />

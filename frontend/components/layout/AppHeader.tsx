@@ -69,7 +69,7 @@ function isMarketsPrimaryNavActive(pathname: string | null | undefined): boolean
 const MAIN_HEADER_NAV = [
   { href: "/markets", label: "Markets" },
   { href: "/portfolio", label: "My Assets" },
-  { href: "/vault", label: "Vault" },
+  { href: "/vault", label: "Sell" },
 ] as const satisfies readonly { readonly href: string; readonly label: string }[];
 
 /** Matches `<header className="… bg-gray-950/90">` — search + wallet controls sit flush on the bar. */

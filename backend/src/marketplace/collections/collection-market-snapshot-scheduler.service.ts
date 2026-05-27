@@ -44,7 +44,17 @@ export class CollectionMarketSnapshotSchedulerService
     private readonly snapshotRepo: Repository<CollectionMarketSnapshot>,
   ) {}
 
+  prewarmEnabled(): boolean {
+    const raw = this.config.get<string>('MARKET_SNAPSHOT_PREWARM_ENABLED');
+    if (raw === '1' || raw === 'true') return true;
+    if (raw === '0' || raw === 'false') return false;
+    /** Cron off → skip boot snapshot flood (Cardhedger/PSA can starve the HTTP event loop locally). */
+    if (!this.cronEnabled()) return false;
+    return this.config.get<string>('NODE_ENV') === 'production';
+  }
+
   onModuleInit(): void {
+    if (!this.prewarmEnabled()) return;
     const delay = this.prewarmDelayMs();
     if (delay <= 0) return;
     setTimeout(() => {

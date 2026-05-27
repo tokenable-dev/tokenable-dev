@@ -22,6 +22,7 @@ import {
   formatReferenceChangeCoverageHint,
   formatMarketCapUsd,
   formatSportCategoryDisplayLabel,
+  isPokemonTcgCategoryLabel,
   marketHistoryTierFromComponents,
   marketTierDisplayLabel,
   parseGradeScoreNumber,
@@ -668,11 +669,22 @@ export default function MarketplaceCollectionPage() {
     const name = bucketCardNameForDisplay(comp as Record<string, unknown>);
     const setN = bucketCardSetForDisplay(comp as Record<string, unknown>);
     const listingTitle = listingDisplayTitleFromComp(comp as Record<string, unknown>);
-    const corpus = `${listingTitle} ${name} ${setN} ${marketPreview?.card?.setName ?? ""}`;
-    if (/\bpokemon\b/i.test(corpus)) return toCardDisplayUppercase("Pokemon");
-    const cat = marketPreview?.card?.category?.trim();
-    if (cat) {
-      return toCardDisplayUppercase(formatSportCategoryDisplayLabel(cat));
+    const psaCat =
+      typeof comp.psaCategory === "string" ? comp.psaCategory.trim() : "";
+    const corpus = `${listingTitle} ${name} ${setN} ${psaCat} ${marketPreview?.card?.setName ?? ""}`;
+    const previewCat = marketPreview?.card?.category?.trim() ?? "";
+    if (
+      /\bpokemon\b/i.test(corpus) ||
+      isPokemonTcgCategoryLabel(previewCat) ||
+      isPokemonTcgCategoryLabel(psaCat)
+    ) {
+      return toCardDisplayUppercase("Pokemon");
+    }
+    if (previewCat) {
+      return toCardDisplayUppercase(formatSportCategoryDisplayLabel(previewCat));
+    }
+    if (psaCat) {
+      return toCardDisplayUppercase(formatSportCategoryDisplayLabel(psaCat));
     }
     return toCardDisplayUppercase("Trading cards");
   }, [
@@ -682,6 +694,7 @@ export default function MarketplaceCollectionPage() {
     comp.cardName,
     comp.cardSet,
     comp.cardSetDisplay,
+    comp.psaCategory,
   ]);
 
   const collectionHeadlineCardName = useMemo(() => {

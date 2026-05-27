@@ -355,6 +355,17 @@ function PortfolioChart({
   const containerRef = useRef<HTMLDivElement>(null);
   const [hover, setHover] = useState<{ idx: number; x: number; y: number } | null>(null);
 
+  const volumeBars = useMemo(() => {
+    if (points.length < 2) return [] as number[];
+    const bars: number[] = [];
+    for (let i = 0; i < points.length; i++) {
+      const diff = i > 0 ? Math.abs(points[i] - points[i - 1]) : 0;
+      bars.push(diff);
+    }
+    const bMax = Math.max(...bars) || 1;
+    return bars.map((b) => b / bMax);
+  }, [points]);
+
   if (points.length < 2)
     return (
       <div className="flex items-center justify-center text-gray-600 text-sm h-full">
@@ -387,16 +398,6 @@ function PortfolioChart({
     .map((v, i) => `${i === 0 ? "M" : "L"}${xOf(i).toFixed(2)},${yOf(v).toFixed(2)}`)
     .join(" ");
   const areaPath = `${linePath} L${xOf(points.length - 1).toFixed(2)},${(TOP + chartH).toFixed(2)} L${xOf(0).toFixed(2)},${(TOP + chartH).toFixed(2)} Z`;
-
-  const volumeBars = useMemo(() => {
-    const bars: number[] = [];
-    for (let i = 0; i < points.length; i++) {
-      const diff = i > 0 ? Math.abs(points[i] - points[i - 1]) : 0;
-      bars.push(diff);
-    }
-    const bMax = Math.max(...bars) || 1;
-    return bars.map((b) => b / bMax);
-  }, [points]);
 
   const barH = 24;
   const barY = TOP + chartH + 2;
@@ -683,7 +684,8 @@ export default function PortfolioPage() {
     const viewer = address?.trim().toLowerCase() ?? "";
     for (const o of allOrders) {
       if (o.status !== "active" || o.side !== "ask") continue;
-      if (o.offerer.toLowerCase() !== viewer) continue;
+      const offerer = o.offerer?.trim().toLowerCase() ?? "";
+      if (!offerer || offerer !== viewer) continue;
       const ck = o.collectionKey?.trim();
       if (ck) m.set(Number(o.tokenId), ck.toLowerCase());
     }
@@ -867,7 +869,7 @@ export default function PortfolioPage() {
         (o) =>
           o.status === "active" &&
           o.side === "ask" &&
-          o.offerer.toLowerCase() === address?.toLowerCase(),
+          (o.offerer?.trim().toLowerCase() ?? "") === address?.toLowerCase(),
       ),
     [allOrders, address],
   );
@@ -997,7 +999,7 @@ export default function PortfolioPage() {
 
       const latestBuyLike = fulfilledOrders.find((o) => {
         if (Number(o.tokenId) !== r.tokenId) return false;
-        return o.offerer.toLowerCase() !== wallet;
+        return (o.offerer?.trim().toLowerCase() ?? "") !== wallet;
       });
       if (latestBuyLike) {
         const px = Number(latestBuyLike.price) / USDC_DECIMALS;
@@ -1074,7 +1076,8 @@ export default function PortfolioPage() {
   const txRows: TxRow[] = useMemo(() => {
     if (!address) return [];
     return fulfilledOrders.map((o) => {
-      const isSeller = o.offerer.toLowerCase() === address.toLowerCase();
+      const isSeller =
+        (o.offerer?.trim().toLowerCase() ?? "") === address.toLowerCase();
       const asset = assets.find((a) => a.tokenId === Number(o.tokenId));
       return {
         type: isSeller ? "SELL" : "BUY",
@@ -1110,7 +1113,8 @@ export default function PortfolioPage() {
   const uniqueTraders = useMemo(() => {
     const addrs = new Set<string>();
     for (const o of historiesFlat) {
-      addrs.add(o.offerer.toLowerCase());
+      const offerer = o.offerer?.trim().toLowerCase();
+      if (offerer) addrs.add(offerer);
       for (const r of o.considerationRecipients ?? []) {
         if (r) addrs.add(r.toLowerCase());
       }

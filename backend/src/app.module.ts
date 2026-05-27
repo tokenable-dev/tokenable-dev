@@ -34,6 +34,10 @@ import { User } from './user/entities/user.entity';
         username: config.getOrThrow<string>('POSTGRES_USER'),
         password: config.getOrThrow<string>('POSTGRES_PASSWORD'),
         database: config.getOrThrow<string>('POSTGRES_DB'),
+        extra: {
+          /** Fail fast when Postgres is down instead of hanging API requests. */
+          connectionTimeoutMillis: 8_000,
+        },
         entities: [
           Order,
           MarketplaceCollection,

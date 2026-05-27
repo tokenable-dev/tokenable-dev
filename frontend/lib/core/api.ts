@@ -18,9 +18,43 @@ export function getApiUrl(): string {
     process.env.INTERNAL_API_URL?.replace(/\/$/, "") ?? "http://localhost:4000/api"
   );
 }
- 
+
+const DEFAULT_API_FETCH_TIMEOUT_MS = 25_000;
+
+function mergeAbortSignals(a: AbortSignal, b: AbortSignal): AbortSignal {
+  if (a.aborted) return a;
+  if (b.aborted) return b;
+  const merged = new AbortController();
+  const onAbort = () => merged.abort();
+  a.addEventListener("abort", onAbort);
+  b.addEventListener("abort", onAbort);
+  return merged.signal;
+}
+
 function backendFetch(url: string, init?: RequestInit): Promise<Response> {
-  return fetch(url, { ...init, credentials: "include" });
+  const timeoutMs = DEFAULT_API_FETCH_TIMEOUT_MS;
+  const timeoutSignal =
+    typeof AbortSignal !== "undefined" && "timeout" in AbortSignal
+      ? AbortSignal.timeout(timeoutMs)
+      : null;
+  const signal =
+    init?.signal && timeoutSignal
+      ? mergeAbortSignals(init.signal, timeoutSignal)
+      : init?.signal ?? timeoutSignal ?? undefined;
+
+  return fetch(url, { ...init, credentials: "include", signal }).catch((err) => {
+    if (err instanceof DOMException && err.name === "AbortError") {
+      throw new Error(
+        `API request timed out after ${Math.round(timeoutMs / 1000)}s (${url}). Is the backend running on ${getApiUrl()}?`,
+      );
+    }
+    if (err instanceof TypeError) {
+      throw new Error(
+        `Cannot reach API at ${url}. Start the Nest backend (pnpm start:dev in backend/) and Postgres.`,
+      );
+    }
+    throw err;
+  });
 }
 
 // ─── RWA metadata upload (IPFS) ────────────────────────────────────────────────

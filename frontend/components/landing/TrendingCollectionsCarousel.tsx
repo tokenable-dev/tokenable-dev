@@ -93,7 +93,7 @@ export function TrendingCollectionsCarousel({
       const ta = new Date(a.createdAt).getTime();
       const tb = new Date(b.createdAt).getTime();
       if (ta !== tb) return tb - ta;
-      return a.displayLabel.localeCompare(b.displayLabel);
+      return (a.displayLabel ?? "").localeCompare(b.displayLabel ?? "");
     });
 
     let pool = sorted;
