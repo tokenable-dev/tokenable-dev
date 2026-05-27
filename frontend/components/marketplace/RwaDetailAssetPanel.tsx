@@ -17,6 +17,15 @@ import {
 import { displayAssetNameFromMetadata } from "@/lib/marketplace/rwaDisplayTitle";
 import { SlabCardFlip } from "./SlabCardFlip";
 
+/** Slab flip / front-back tabs / auto-rotate — code kept; hidden until product launch. */
+const SLAB_3D_UI_ENABLED = false;
+
+const RWA_DETAIL_OUTLINE_TAG_DESKTOP =
+  "inline-flex h-[26px] min-h-[26px] shrink-0 items-center justify-center rounded border border-[#a2a2a2] bg-transparent px-[10px] py-1 text-sm font-normal leading-none text-white";
+
+const RWA_DETAIL_OUTLINE_TAG_MOBILE =
+  "inline-flex h-[20px] min-h-[20px] shrink-0 items-center justify-center rounded border border-[#a2a2a2] bg-transparent px-2 py-0.5 text-[10px] font-normal leading-none text-white";
+
 function extractGradedSlabBackCandidate(meta: RwaDetailMetadata | null): string | null {
   if (!meta?.properties?.graded || typeof meta.properties.graded !== "object") return null;
   const graded = meta.properties.graded as Record<string, unknown>;
@@ -314,6 +323,58 @@ function pickHeaderCategoryGrade(
   };
 }
 
+/** Collection-style outline badges (e.g. MLB · PSA 10) for RWA buy/detail headers. */
+export function RwaDetailHeaderBadges({
+  metadata,
+  loading = false,
+  className = "",
+  variant = "desktop",
+}: {
+  metadata: RwaDetailMetadata | null;
+  loading?: boolean;
+  className?: string;
+  variant?: "desktop" | "mobile";
+}) {
+  const tagClass =
+    variant === "mobile" ? RWA_DETAIL_OUTLINE_TAG_MOBILE : RWA_DETAIL_OUTLINE_TAG_DESKTOP;
+  const { category, gradeLine } = useMemo(
+    () => pickHeaderCategoryGrade(metadata),
+    [metadata],
+  );
+
+  if (loading && !category && !gradeLine) {
+    return (
+      <div
+        className={`flex flex-wrap items-center gap-2 ${className}`.trim()}
+        aria-hidden
+      >
+        <span className="h-[26px] w-[4.5rem] animate-pulse rounded border border-zinc-800 bg-zinc-800/80" />
+        <span className="h-[26px] w-14 animate-pulse rounded border border-zinc-800 bg-zinc-800/80" />
+      </div>
+    );
+  }
+
+  if (!category && !gradeLine) return null;
+
+  return (
+    <div
+      className={`flex flex-wrap items-center gap-2.5 ${className}`.trim()}
+      aria-label="Card tags"
+    >
+      {category ? (
+        <span
+          className={`${tagClass} ${
+            isSportCategoryLeagueDisplayLabel(category) ? "uppercase" : "capitalize"
+          }`}
+        >
+          {category}
+        </span>
+      ) : null}
+      {gradeLine ? <span className={tagClass}>{gradeLine}</span> : null}
+    </div>
+  );
+}
+
 /** Filled triangle — resume auto slab rotation. */
 function SlabPlayGlyph({ className }: { className?: string }) {
   return (
@@ -378,7 +439,7 @@ export function RwaDetailAssetPanel({
       : `${collectionLabel} #${tokenId}`;
   const slabImageTitle =
     formatAssetDetailHeadlineText(headlineParts) || slabAltCaption;
-  const { category: headerCategory, gradeLine: headerGradeLine } = useMemo(
+  const headerBadgeFields = useMemo(
     () => pickHeaderCategoryGrade(metadata),
     [metadata],
   );
@@ -406,8 +467,8 @@ export function RwaDetailAssetPanel({
   const hasBackFace = Boolean(effectiveBackUrl);
   const [flipAngle, setFlipAngle] = useState(0);
   const [slabAutoRotateOn, setSlabAutoRotateOn] = useState(false);
-  /** Slab flip when PSA back URL exists as candidate (tabs resolve / gateway). */
-  const useFlipSlab = Boolean(backCandidate);
+  /** Slab flip when PSA back exists and {@link SLAB_3D_UI_ENABLED} is on. */
+  const useFlipSlab = SLAB_3D_UI_ENABLED && Boolean(backCandidate);
 
   useEffect(() => {
     setFlipAngle(0);
@@ -460,7 +521,7 @@ export function RwaDetailAssetPanel({
     : "h-3.5 w-3.5 text-[#0a1210]";
 
   const headerRowPulse =
-    Boolean(metaLoading) && !headerCategory && !headerGradeLine;
+    Boolean(metaLoading) && !headerBadgeFields.category && !headerBadgeFields.gradeLine;
   const titlePulse =
     Boolean(metaLoading) &&
     !metadata?.name?.trim() &&
@@ -476,34 +537,11 @@ export function RwaDetailAssetPanel({
             : "space-y-2 px-0.5 max-xl:order-3 lg:order-none lg:px-0"
       }
     >
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
-          {headerRowPulse ? (
-            <>
-              <span className="h-6 w-[4.75rem] shrink-0 animate-pulse rounded-md bg-gray-800/90" aria-hidden />
-              <span className="h-6 w-14 shrink-0 animate-pulse rounded-md bg-gray-800/90" aria-hidden />
-              <span className="block h-4 min-w-[8rem] flex-1 animate-pulse rounded-md bg-gray-800/70" aria-hidden />
-            </>
-          ) : (
-            <>
-              {headerCategory ? (
-                <span
-                  className={`inline-flex shrink-0 items-center rounded-md border border-amber-400/35 bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-amber-50 sm:text-[11px] ${
-                    isSportCategoryLeagueDisplayLabel(headerCategory)
-                      ? "uppercase"
-                      : "capitalize"
-                  }`}
-                >
-                  {headerCategory}
-                </span>
-              ) : null}
-              {headerGradeLine ? (
-                <span className="inline-flex shrink-0 items-center rounded-md border border-mint/40 bg-mint/10 px-2 py-0.5 text-[10px] font-semibold text-mint sm:text-[11px]">
-                  {headerGradeLine}
-                </span>
-              ) : null}
-            </>
-          )}
-        </div>
+        <RwaDetailHeaderBadges
+          metadata={metadata}
+          loading={headerRowPulse}
+          variant="mobile"
+        />
 
         {titlePulse ? (
           <div className="h-7 w-[min(100%,18rem)] max-w-full animate-pulse rounded-lg bg-gray-800/85" aria-hidden />

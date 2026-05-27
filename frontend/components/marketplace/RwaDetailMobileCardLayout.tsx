@@ -13,6 +13,10 @@ import {
   type AssetDetailHeadlineParts,
 } from "@/lib/marketplace/assetDetailHeadline";
 import { formatUsdcPricePrimary } from "@/lib/market/usdcKrwDisplay";
+import {
+  RwaDetailHeaderBadges,
+  type RwaDetailMetadata,
+} from "@/components/marketplace/RwaDetailAssetPanel";
 
 /** Mobile price — USDC only (KRW hint removed per product). */
 export function RwaDetailMobilePriceStack({
@@ -44,14 +48,16 @@ export function RwaDetailMobilePriceStack({
 export function RwaDetailMobileCardHeader({
   headlineParts,
   titleLoading = false,
+  metadata = null,
 }: {
   headlineParts: AssetDetailHeadlineParts | null;
   titleLoading?: boolean;
+  metadata?: RwaDetailMetadata | null;
 }) {
   const hasHeadline = headlineParts != null && assetDetailHeadlineHasContent(headlineParts);
 
   return (
-    <header className="mx-auto w-full max-w-[32rem] min-w-0 px-5 pb-2 pt-7 text-center lg:hidden">
+    <header className="mx-auto w-full max-w-[32rem] min-w-0 space-y-2.5 px-5 pb-2 pt-7 text-center lg:hidden">
       {titleLoading ? (
         <div
           className="mx-auto h-9 w-[min(100%,17rem)] max-w-full animate-pulse rounded-lg bg-zinc-800/85"
@@ -68,6 +74,12 @@ export function RwaDetailMobileCardHeader({
           {formatAssetDetailHeadlineText(headlineParts ?? { year: null, setName: null, cardName: null })}
         </h1>
       )}
+      <RwaDetailHeaderBadges
+        metadata={metadata}
+        loading={titleLoading}
+        variant="mobile"
+        className="justify-center"
+      />
     </header>
   );
 }

@@ -100,14 +100,21 @@ export function hydrateMarketplaceQueries(queryClient: QueryClient): void {
       ) {
         for (const k of Object.keys(parsed.map)) {
           let keys: string[];
-          let duration: "7d" | "30d" | "90d" | "180d" | "365d" = "365d";
+          let duration: "7d" | "30d" | "90d" | "180d" | "365d" | "max" = "max";
           try {
             const raw = JSON.parse(k) as unknown;
             if (Array.isArray(raw) && raw.length >= 1) {
               if (Array.isArray(raw[0])) {
                 keys = raw[0] as string[];
                 const d = raw[1];
-                if (d === "7d" || d === "30d" || d === "90d" || d === "180d" || d === "365d") {
+                if (
+                  d === "7d" ||
+                  d === "30d" ||
+                  d === "90d" ||
+                  d === "180d" ||
+                  d === "365d" ||
+                  d === "max"
+                ) {
                   duration = d;
                 }
               } else {
@@ -164,9 +171,10 @@ function flushMarketplaceToStorage(queryClient: QueryClient): void {
         durationRaw === "30d" ||
         durationRaw === "90d" ||
         durationRaw === "180d" ||
-        durationRaw === "365d"
+        durationRaw === "365d" ||
+        durationRaw === "max"
           ? durationRaw
-          : "365d";
+          : "max";
       if (Array.isArray(sub) && sub.length > 0 && data != null) {
         const sorted = [...(sub as string[])].slice().sort();
         map[JSON.stringify([sorted, duration])] = data;

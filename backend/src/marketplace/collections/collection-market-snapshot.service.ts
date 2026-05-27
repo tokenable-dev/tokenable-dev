@@ -171,6 +171,21 @@ export class CollectionMarketSnapshotService {
             col,
           );
       }
+      const comps = (col?.components ?? null) as Record<string, unknown> | null;
+      const psaEstimateRaw = comps?.psaEstimateUsd;
+      const psaEstimateUsd =
+        typeof psaEstimateRaw === 'number'
+          ? Number.isFinite(psaEstimateRaw) && psaEstimateRaw > 0
+            ? psaEstimateRaw
+            : null
+          : typeof psaEstimateRaw === 'string'
+            ? Number(
+                psaEstimateRaw
+                  .replace(/,/g, '')
+                  .replace(/\$/g, '')
+                  .match(/(\d+(?:\.\d+)?)/)?.[1] ?? NaN,
+              )
+            : null;
       const historyTier = marketHistoryTierFromComponents(col?.components);
       const { preview, history } = await this.cardMarketData.getBundledCardData(
         col,
@@ -187,6 +202,9 @@ export class CollectionMarketSnapshotService {
         historyTier,
         preview,
         historyPoints: history.points,
+        psaEstimateUsd: Number.isFinite(psaEstimateUsd as number)
+          ? (psaEstimateUsd as number)
+          : null,
       });
 
       const row = await this.upsertPayload(payload);

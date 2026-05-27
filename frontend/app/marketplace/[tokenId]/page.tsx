@@ -30,6 +30,7 @@ import {
 import { AssetDetailHeadlineTitle } from "@/components/marketplace/AssetDetailHeadlineTitle";
 import {
   RwaDetailAssetPanel,
+  RwaDetailHeaderBadges,
   buildRwaDetailStatRows,
   type RwaDetailMetadata,
 } from "@/components/marketplace/RwaDetailAssetPanel";
@@ -695,6 +696,7 @@ export default function RwaDetailPage() {
                   <RwaDetailMobileCardHeader
                     headlineParts={detailHeadlineParts}
                     titleLoading={detailTitlePulse}
+                    metadata={metadata as RwaDetailMetadata | null}
                   />
 
                   <RwaDetailMobileSpecsPanel
@@ -771,7 +773,7 @@ export default function RwaDetailPage() {
               </div>
 
               <div className="hidden w-full min-w-0 flex-col gap-6 sm:gap-7 lg:sticky lg:top-6 lg:col-start-2 lg:flex lg:max-w-[400px] lg:justify-self-end lg:self-start">
-                <div className="hidden lg:block space-y-2.5 min-w-0">
+                <div className="hidden min-w-0 space-y-2.5 lg:block">
                   {detailTitlePulse ? (
                     <div
                       className="h-9 w-[min(100%,20rem)] max-w-full animate-pulse rounded-lg bg-gray-800/85"
@@ -790,10 +792,14 @@ export default function RwaDetailPage() {
                       {detailTitle}
                     </h1>
                   )}
+                  <RwaDetailHeaderBadges
+                    metadata={metadata as RwaDetailMetadata | null}
+                    loading={detailTitlePulse}
+                  />
                 </div>
 
                 {listingError ? (
-                  <p className="text-xs text-orange-400">Could not load listing.</p>
+                  <p className="hidden text-xs text-orange-400 lg:block">Could not load listing.</p>
                 ) : null}
 
                 {activeAskListing && !isOwner ? (
@@ -860,7 +866,7 @@ export default function RwaDetailPage() {
 
                 {rwaDetailStatRows.length > 0 ? (
                   <div
-                    className={`hidden lg:block mt-10 border-t border-[rgba(38,39,45,1)] pt-8 ${rwaDetailRightFont.className}`}
+                    className={`hidden border-t border-[rgba(38,39,45,1)] pt-6 lg:block ${rwaDetailRightFont.className}`}
                   >
                     <h2 className="text-[18px] font-bold leading-[140%] tracking-normal text-white">
                       Details
@@ -869,7 +875,7 @@ export default function RwaDetailPage() {
                       {rwaDetailStatRows.map((row) => (
                         <div
                           key={row.label}
-                          className="flex gap-4 items-baseline justify-between min-w-0"
+                          className="flex min-w-0 items-baseline justify-between gap-4"
                         >
                           <dt className="shrink-0 text-[15px] font-normal leading-[140%] text-[#a0a0a0]">
                             {row.label}

@@ -19,9 +19,13 @@ import { CollectionMarketSnapshot } from './entities/collection-market-snapshot.
 import { MarketplaceCollection } from './entities/marketplace-collection.entity';
 import { PsaCertSnapshot } from './entities/psa-cert-snapshot.entity';
 import { RwaToken } from './entities/rwa-token.entity';
+import { PortfolioDailySnapshot } from './entities/portfolio-daily-snapshot.entity';
 import { Order } from './entities/order.entity';
 import { OrdersController } from './orders/orders.controller';
 import { OrdersService } from './orders/orders.service';
+import { User } from '../user/entities/user.entity';
+import { PortfolioDailySnapshotService } from './collections/portfolio-daily-snapshot.service';
+import { PortfolioDailySnapshotSchedulerService } from './collections/portfolio-daily-snapshot-scheduler.service';
 
 @Module({
   imports: [
@@ -31,6 +35,8 @@ import { OrdersService } from './orders/orders.service';
       CollectionMarketSnapshot,
       PsaCertSnapshot,
       RwaToken,
+      PortfolioDailySnapshot,
+      User,
     ]),
     BlockchainModule,
     CardhedgerModule,
@@ -53,6 +59,8 @@ import { OrdersService } from './orders/orders.service';
     CollectionMarketSnapshotService,
     CollectionMarketSnapshotReadService,
     CollectionMarketSnapshotSchedulerService,
+    PortfolioDailySnapshotService,
+    PortfolioDailySnapshotSchedulerService,
   ],
   exports: [
     OrdersService,

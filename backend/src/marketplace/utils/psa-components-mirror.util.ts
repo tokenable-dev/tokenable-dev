@@ -29,6 +29,24 @@ export function mergePsaCertSnapshotIntoMirror(
   if (cn && !String(extra.cardNumber ?? '').trim()) {
     extra.cardNumber = cn.replace(/^#/, '');
   }
+
+  // Optional: PSA Estimate USD (fallback market price when Cardhedger is missing comps).
+  const estimateRaw =
+    snap.EstimateUsd ?? snap.Estimate ?? snap.PsaEstimateUsd ?? snap.PsaEstimate;
+  const estimateN =
+    typeof estimateRaw === 'number' && Number.isFinite(estimateRaw)
+      ? estimateRaw
+      : typeof estimateRaw === 'string'
+        ? Number(
+            (estimateRaw ?? '')
+              .replace(/,/g, '')
+              .replace(/\$/g, '')
+              .match(/(\d+(?:\.\d+)?)/)?.[1] ?? NaN,
+          )
+        : NaN;
+  if (Number.isFinite(estimateN) && estimateN > 0 && extra.psaEstimateUsd == null) {
+    extra.psaEstimateUsd = estimateN;
+  }
   return extra;
 }
 

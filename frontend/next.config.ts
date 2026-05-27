@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 import path from "path";
 import { fileURLToPath } from "url";
+import { backendOrigin } from "./lib/core/backendOrigin";
 
 /** Absolute path to this config file — pins Turbopack project root (avoids scanning parent monorepo / pnpm cache dirs). */
 const FRONTEND_ROOT = path.dirname(fileURLToPath(import.meta.url));
@@ -19,7 +20,7 @@ const nextConfig: NextConfig = {
    * (기본 `127.0.0.1:4000` 이면 프론트 컨테이너 안에 백엔드가 없어 `/api` 가 전부 502 가 됨.)
    */
   async rewrites() {
-    const target = process.env.API_PROXY_TARGET ?? "http://127.0.0.1:4000";
+    const target = backendOrigin();
     return [{ source: "/api/:path*", destination: `${target}/api/:path*` }];
   },
   async redirects() {

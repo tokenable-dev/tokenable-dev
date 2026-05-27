@@ -13,9 +13,11 @@ import { CollectionMarketSnapshotReadService } from './collection-market-snapsho
 import { CollectionMarketSnapshotSchedulerService } from './collection-market-snapshot-scheduler.service';
 import { CollectionMarketSnapshotService } from './collection-market-snapshot.service';
 import { CollectionService } from './collection.service';
+import { PortfolioDailySnapshotService } from './portfolio-daily-snapshot.service';
 import { BatchMarketSnapshotsDto } from './dto/batch-market-snapshots.dto';
 import { MintPreviewsByTokenIdsDto } from './dto/mint-previews-by-token-ids.dto';
 import { PortfolioMarketBatchDto } from './dto/portfolio-market-batch.dto';
+import { TokenCollectionKeysDto } from './dto/token-collection-keys.dto';
 import {
   isMarketHistoryPeriod,
   marketPeriodToMaxCalendarDays,
@@ -33,6 +35,7 @@ export class CollectionsController {
     private readonly snapshotService: CollectionMarketSnapshotService,
     private readonly snapshotRead: CollectionMarketSnapshotReadService,
     private readonly snapshotScheduler: CollectionMarketSnapshotSchedulerService,
+    private readonly portfolioSnapshots: PortfolioDailySnapshotService,
   ) {}
 
   /** Decode URL-encoded path segments (some keys may be percent-encoded) and lowercase for DB lookup. */
@@ -106,6 +109,68 @@ export class CollectionsController {
     return this.collectionMarketService.batchPortfolioMarketData(keys, {
       priceHistoryDuration: duration,
     });
+  }
+
+  @ApiOperation({
+    summary:
+      'Resolve marketplace collection_key by token IDs for portfolio (uses cached rwa_tokens first; backfills from metadata when missing).',
+  })
+  @ApiBody({ type: TokenCollectionKeysDto })
+  @Post('collections/token-collection-keys')
+  async batchTokenCollectionKeys(@Body() body: TokenCollectionKeysDto) {
+    const tokenIds = [
+      ...new Set((body.tokenIds ?? []).map((n) => Math.floor(Number(n)))),
+    ].filter((n) => Number.isFinite(n) && n >= 0);
+    if (tokenIds.length === 0) return { items: {} as Record<number, string> };
+
+    const cached = await this.collectionService.collectionKeysByTokenIds(tokenIds);
+    const out: Record<number, string> = { ...cached };
+    const missing = tokenIds.filter((id) => !out[id]);
+    for (const tokenId of missing) {
+      try {
+        const k = await this.collectionService.ensureCollectionForListing(
+          String(tokenId),
+        );
+        if (k) out[tokenId] = k.toLowerCase();
+      } catch {
+        // Keep partial success; frontend can still fall back per-token preview.
+      }
+    }
+    return { items: out };
+  }
+
+  @ApiOperation({
+    summary:
+      'Portfolio daily snapshots (09:00 KST capture) + derived 24h P&L from latest two rows.',
+  })
+  @Get('portfolio/daily/:wallet')
+  async getPortfolioDailySnapshots(
+    @Param('wallet') wallet: string,
+    @Query('limit') limitRaw?: string,
+  ) {
+    const limit =
+      limitRaw != null && String(limitRaw).trim() !== ''
+        ? Math.max(2, Math.min(120, parseInt(String(limitRaw), 10)))
+        : 32;
+    let rows = await this.portfolioSnapshots.listWalletSnapshots(wallet, limit);
+    if (rows.length === 0) {
+      await this.portfolioSnapshots.ensureBaselineSnapshot(wallet);
+      rows = await this.portfolioSnapshots.listWalletSnapshots(wallet, limit);
+    }
+    const p = await this.portfolioSnapshots.latest24h(wallet);
+    return {
+      items: rows.map((r) => ({
+        walletAddress: r.walletAddress,
+        snapshotDateKst: r.snapshotDateKst,
+        snapshotAt: r.snapshotAt.toISOString(),
+        totalValueUsd: r.totalValueUsd,
+        cardCount: r.cardCount,
+      })),
+      latest24h: {
+        pnlUsd: p.pnl24hUsd,
+        pnlPct: p.pnl24hPct,
+      },
+    };
   }
 
   @ApiOperation({

@@ -12,11 +12,16 @@ import {
 } from "@/lib/core";
 import { useMarketplaceCollectionsInfinite } from "@/hooks/useMarketplaceCollectionsInfinite";
 import { CollectionCoverFrame } from "@/components/marketplace/CollectionCoverFrame";
-import { parseGradeScoreNumber, representativeGradeUsd } from "@/lib/market";
 import {
   collectionMatchesCategoryFilter,
+  formatReferenceChangeCoverageHint,
+  formatReferenceChangePeriodFromSnapshotMeta,
+  parseGradeScoreNumber,
+  referenceChangePeriodFromSnapshotMeta,
+  representativeGradeUsd,
   type CollectionCategoryFilterId,
 } from "@/lib/market";
+import { ExchangeListingPriceWithChange } from "@/components/marketplace/ExchangeListingPrice";
 import { toCardDisplayUppercase } from "@/lib/marketplace/collectionFullDetailsTitle";
 
 const MAX_TRENDING_VISIBLE = 4;
@@ -45,16 +50,6 @@ const SWIPE_THRESHOLD_PX = 48;
 const SWIPE_SUPPRESS_NAV_MS = 450;
 /** Before locking horizontal carousel swipe, require clear axis intent (px). */
 const SWIPE_AXIS_LOCK_PX = 10;
-
-function formatUsd(n: number | null | undefined): string {
-  if (n == null || !Number.isFinite(n)) return "—";
-  const abs = Math.abs(n);
-  const digits = abs >= 1000 ? 0 : 2;
-  return `$${n.toLocaleString(undefined, {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: digits,
-  })}`;
-}
 
 export type TrendingCollectionsCarouselVariant = "markets" | "landing";
 
@@ -131,9 +126,9 @@ export function TrendingCollectionsCarousel({
   const fetchSnapshotsLocally = snapshotByKeyProp == null && trendingSnapshotKeysSorted.length > 0;
 
   const { data: snapshotPack } = useQuery({
-    queryKey: rq.collectionSnapshots(trendingSnapshotKeysSorted, "365d" as const),
+    queryKey: rq.collectionSnapshots(trendingSnapshotKeysSorted, "max" as const),
     queryFn: () =>
-      postMarketplaceCollectionSnapshotsBatched(trendingSnapshotKeysSorted, "365d"),
+      postMarketplaceCollectionSnapshotsBatched(trendingSnapshotKeysSorted, "max"),
     enabled: fetchSnapshotsLocally,
     staleTime: marketplaceRqPolicy.snapshotsStaleMs,
   });
@@ -320,6 +315,13 @@ export function TrendingCollectionsCarousel({
       parseGradeScoreNumber(comp.gradeScore),
       comp.gradeScore,
     );
+    const changePctExternal =
+      s?.marketChangePct != null && Number.isFinite(s.marketChangePct)
+        ? s.marketChangePct
+        : null;
+    const changePeriodMeta = referenceChangePeriodFromSnapshotMeta(s);
+    const changeWindowShort = formatReferenceChangePeriodFromSnapshotMeta(s);
+    const changeCoverageHint = formatReferenceChangeCoverageHint(changePeriodMeta);
     const displayImageUrl = trendingCarouselImageUrl(c);
     return (
       <Link
@@ -356,11 +358,16 @@ export function TrendingCollectionsCarousel({
             <p className="line-clamp-2 min-h-[2.75rem] break-words text-base font-semibold uppercase leading-snug text-white sm:min-h-[1.75rem] sm:truncate sm:text-lg">
               {toCardDisplayUppercase(c.displayLabel)}
             </p>
-            <p className="min-h-[1.35rem] tabular-nums text-base font-bold leading-[140%] tracking-normal text-[#87FF48] [font-family:var(--font-ibm-plex-sans),sans-serif] sm:min-h-[1.5rem] sm:text-[18px]">
-              {eBayPrice != null && Number.isFinite(eBayPrice) && eBayPrice > 0
-                ? formatUsd(eBayPrice)
-                : "—"}
-            </p>
+            <div className="min-h-[1.35rem] sm:min-h-[1.5rem]">
+              <ExchangeListingPriceWithChange
+                priceUsd={eBayPrice}
+                changePct={changePctExternal}
+                windowShort={changeWindowShort}
+                titleDetail={changeCoverageHint}
+                priceClassName="text-base font-bold leading-[140%] tracking-normal [font-family:var(--font-ibm-plex-sans),sans-serif] sm:text-[18px]"
+                priceTitle="External eBay reference price."
+              />
+            </div>
           </div>
         </div>
       </Link>

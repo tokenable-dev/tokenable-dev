@@ -497,9 +497,10 @@ export class CollectionMarketService {
       '90d',
       '180d',
       '365d',
+      'max',
     ].includes(windowRaw)
       ? windowRaw
-      : '365d';
+      : 'max';
 
     const keys = [
       ...new Set(

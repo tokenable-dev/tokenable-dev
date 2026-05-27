@@ -94,6 +94,12 @@ export class CollectionService implements OnModuleInit {
     private readonly moduleRef: ModuleRef,
   ) {}
 
+  async collectionKeysByTokenIds(
+    tokenIds: Array<string | number>,
+  ): Promise<Record<number, string>> {
+    return this.rwaTokenRegistry.collectionKeysByTokenIds(tokenIds);
+  }
+
   /**
    * Lazy resolve scheduler — avoids ES module cycle:
    * collection.service → scheduler → snapshot.service → collection.service

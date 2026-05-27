@@ -774,7 +774,7 @@ export function MintForm() {
               className="flex w-full items-center justify-center rounded-[11px] border-0 !bg-black py-3 text-center text-sm font-bold text-mint no-underline transition hover:bg-zinc-950"
               style={{ backgroundColor: "#000000" }}
             >
-              My Assets
+              Portfolio
             </Link>
           </GradientOutlineFrame>
           <button

@@ -90,8 +90,12 @@ export function WalletDataProvider({ children }: { children: React.ReactNode }) 
     });
 
     if (address) {
-      void queryClient.invalidateQueries({ queryKey: ["token-balance", address] });
-      void queryClient.invalidateQueries({ queryKey: ["rwa-balance", address] });
+      void queryClient.invalidateQueries({
+        queryKey: ["token-balance", address],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ["rwa-balance", address],
+      });
       void queryClient.invalidateQueries({ queryKey: rq.rwaTokens(address) });
     }
   }, [refreshTick, refetchBalance, queryClient, address]);
