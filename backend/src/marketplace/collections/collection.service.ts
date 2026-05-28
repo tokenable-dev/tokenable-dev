@@ -3,7 +3,6 @@ import { ModuleRef } from '@nestjs/core';
 import {
   IsNull,
   QueryDeepPartialEntity,
-  QueryFailedError,
   Repository,
 } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
@@ -1025,36 +1024,39 @@ export class CollectionService implements OnModuleInit {
     );
     compRecord.marketParallelKey = parallelKey;
 
-    const row = this.collectionRepo.create({
-      collectionKey,
-      displayLabel,
-      queryUsed,
-      components: compRecord,
-      coverImageUrl,
-      psaCertNumber: psaCert ?? null,
-      marketParallelKey: parallelKey,
-      bucketKeyVersion: BUCKET_KEY_VERSION,
-    });
-    try {
-      await this.collectionRepo.save(row);
-    } catch (e) {
-      const code =
-        e instanceof QueryFailedError
-          ? (e as unknown as { driverError?: { code?: string } }).driverError
-              ?.code
-          : undefined;
-      if (code === '23505') {
-        await this.persistCoverFromMetaIfMissing(collectionKey, meta);
-        await this.mergePsaPopulationFromMetaIfMissing(collectionKey, meta);
-        await this.mergeCardhedgerCardIdFromMetaIfMissing(collectionKey, meta);
-        await this.mergeListingDisplayTitleFromMetaIfMissing(
-          collectionKey,
-          meta,
-        );
-        await this.mergeTrendingSlabMetaFromMetaIfMissing(collectionKey, meta);
-      } else {
-        throw e;
-      }
+    // IMPORTANT: never use `save()` here for upsert-like behavior.
+    // With an existing PK, TypeORM `save()` can issue UPDATE and overwrite
+    // admin-customized coverImageUrl. We insert once; on conflict we only merge
+    // missing enrichments (first cover wins unless admin overrides explicitly).
+    const insertResult = await this.collectionRepo
+      .createQueryBuilder()
+      .insert()
+      .into(MarketplaceCollection)
+      .values({
+        collectionKey,
+        displayLabel,
+        queryUsed,
+        components: compRecord as QueryDeepPartialEntity<
+          Record<string, unknown>
+        >,
+        coverImageUrl,
+        psaCertNumber: psaCert ?? null,
+        marketParallelKey: parallelKey,
+        bucketKeyVersion: BUCKET_KEY_VERSION,
+      })
+      .orIgnore()
+      .execute();
+
+    const inserted = (insertResult.identifiers?.length ?? 0) > 0;
+    if (!inserted) {
+      await this.persistCoverFromMetaIfMissing(collectionKey, meta);
+      await this.mergePsaPopulationFromMetaIfMissing(collectionKey, meta);
+      await this.mergeCardhedgerCardIdFromMetaIfMissing(collectionKey, meta);
+      await this.mergeListingDisplayTitleFromMetaIfMissing(
+        collectionKey,
+        meta,
+      );
+      await this.mergeTrendingSlabMetaFromMetaIfMissing(collectionKey, meta);
     }
 
     void this.rwaTokenRegistry.upsertFromMetadata(tokenId, meta, {
@@ -1068,6 +1070,20 @@ export class CollectionService implements OnModuleInit {
     this.enqueueMarketSnapshotRefresh(collectionKey);
 
     return collectionKey;
+  }
+
+  /**
+   * Read-only key resolver for portfolio/token lookups.
+   * Unlike {@link ensureCollectionForListing}, this NEVER creates/updates collection rows.
+   */
+  async resolveCollectionKeyFromTokenMetadata(
+    tokenId: string,
+  ): Promise<string | null> {
+    const uri = await this.blockchain.getRwaTokenURI(Number(tokenId));
+    const meta = await this.ipfsResolver.fetchMetadataJson(uri);
+    const extracted = extractOrDiagnoseBucketComponents(meta);
+    if (!extracted.ok) return null;
+    return computeMarketBucketKey(extracted.components).toLowerCase();
   }
 
   private encodeCollectionCursor(row: {

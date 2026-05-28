@@ -1202,9 +1202,6 @@ export default function PortfolioPage() {
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 className="text-sm font-bold">My Collectibles</h2>
-              <p className="mt-1 text-xs text-gray-500">
-                Your vaulted cards and active listings.
-              </p>
             </div>
             <div className="inline-flex rounded-full border border-gray-700/80 bg-gray-900/70 p-1 text-[11px]">
               <button
@@ -1240,11 +1237,6 @@ export default function PortfolioPage() {
               </button>
             </div>
           </div>
-          {mintFallbackLoading && !assetsSectionLoading && assets.length > 0 ? (
-            <p className="mb-3 text-[11px] text-zinc-500">
-              Updating Cardhedger market estimates…
-            </p>
-          ) : null}
           {assetsSectionLoading ? (
             <div className="-mx-0.5 grid grid-cols-2 gap-2.5 pb-2 pt-0.5 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
               {[...Array(6)].map((_, i) => (
