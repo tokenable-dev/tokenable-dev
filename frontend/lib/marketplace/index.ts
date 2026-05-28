@@ -1,4 +1,5 @@
 export * from './collectionHeroImage';
+export * from './marketplaceAdmin';
 export * from './marketplaceQueryPersistence';
 export * from './mediaUriResolve';
 export * from './normalizeTokenId';
