@@ -1,4 +1,14 @@
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  ForbiddenException,
+  Get,
+  NotFoundException,
+  BadRequestException,
+  Param,
+  Post,
+  Query,
+} from '@nestjs/common';
 import {
   ApiBody,
   ApiOperation,
@@ -23,6 +33,12 @@ import {
   marketPeriodToMaxCalendarDays,
   type MarketHistoryPeriod,
 } from '../utils/price-history-period.util';
+import { isMarketplaceAdminWallet } from '../utils/marketplace-admin.util';
+import {
+  AdminDeleteCollectionDto,
+  AdminPreviewCollectionCoverFromTokenDto,
+  AdminSetCollectionCoverDto,
+} from './dto/admin-collection-cover.dto';
 
 @ApiTags('marketplace')
 @Controller('marketplace')
@@ -41,6 +57,12 @@ export class CollectionsController {
   /** Decode URL-encoded path segments (some keys may be percent-encoded) and lowercase for DB lookup. */
   private normalizeKey(raw: string): string {
     return decodeURIComponent(raw).toLowerCase();
+  }
+
+  private assertAdminWallet(adminWallet: string): void {
+    if (!isMarketplaceAdminWallet(adminWallet)) {
+      throw new ForbiddenException('Admin wallet not authorized');
+    }
   }
 
   @ApiOperation({ summary: 'Collection list (cursor pagination)' })
@@ -369,16 +391,15 @@ export class CollectionsController {
       col = await this.collectionService.findOne(k);
     }
 
-    const storedCover = col?.coverImageUrl?.trim() ?? null;
-    const needsCoverUpgrade =
-      col != null && this.collectionService.coverImageNeedsUpgrade(storedCover);
+    const needsFirstCover =
+      col != null && !(col.coverImageUrl?.trim() ?? '');
 
     // Single fetch for asks/bids; share the same promises with cover resolution (no duplicate listing queries).
     const listingsPromise =
       this.collectionService.activeListingsForCollection(k);
     const bidsPromise = this.collectionService.activeBidsForCollection(k);
 
-    const coverFinishPromise = needsCoverUpgrade
+    const coverFinishPromise = needsFirstCover
       ? Promise.all([listingsPromise, bidsPromise]).then(
           ([listings, collectionBids]) =>
             Promise.race([
@@ -402,7 +423,7 @@ export class CollectionsController {
     ]);
     await coverFinishPromise;
 
-    if (needsCoverUpgrade) {
+    if (needsFirstCover) {
       const refreshed = await this.collectionService.findOne(k);
       if (refreshed) col = refreshed;
     }
@@ -415,6 +436,108 @@ export class CollectionsController {
       collectionBids,
       representativeImageUrl,
     };
+  }
+
+  @ApiOperation({
+    summary:
+      'Admin: set collection cover URL (requires MARKETPLACE_ADMIN_WALLETS wallet in body)',
+  })
+  @ApiParam({ name: 'key', description: 'collection_key' })
+  @Post('collections/:key/admin/cover')
+  async adminSetCollectionCover(
+    @Param('key') key: string,
+    @Body() body: AdminSetCollectionCoverDto,
+  ) {
+    this.assertAdminWallet(body.adminWallet);
+    const k = this.normalizeKey(key);
+    try {
+      const col = await this.collectionService.setCollectionCoverImageAdmin(
+        k,
+        body.coverImageUrl,
+      );
+      return {
+        collectionKey: col.collectionKey,
+        coverImageUrl: col.coverImageUrl,
+      };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg === 'COLLECTION_NOT_FOUND') {
+        throw new NotFoundException('Collection not found');
+      }
+      if (
+        msg === 'COLLECTION_COVER_URL_EMPTY' ||
+        msg === 'COLLECTION_COVER_URL_INVALID'
+      ) {
+        throw new BadRequestException('Invalid cover image URL');
+      }
+      throw e;
+    }
+  }
+
+  @ApiOperation({
+    summary:
+      'Admin: resolve cover from token metadata (Cardhedger / PSA / TCG). Optional save=true persists.',
+  })
+  @ApiParam({ name: 'key', description: 'collection_key' })
+  @Post('collections/:key/admin/cover/from-token')
+  async adminCollectionCoverFromToken(
+    @Param('key') key: string,
+    @Body() body: AdminPreviewCollectionCoverFromTokenDto,
+  ) {
+    this.assertAdminWallet(body.adminWallet);
+    const k = this.normalizeKey(key);
+    const col = await this.collectionService.findOne(k);
+    if (!col) {
+      throw new NotFoundException('Collection not found');
+    }
+    const coverImageUrl =
+      await this.collectionService.adminPreviewCoverFromToken(
+        body.tokenId.trim(),
+        k,
+      );
+    if (!coverImageUrl) {
+      return { coverImageUrl: null, saved: false };
+    }
+    if (body.save) {
+      const updated = await this.collectionService.setCollectionCoverImageAdmin(
+        k,
+        coverImageUrl,
+      );
+      return {
+        coverImageUrl: updated.coverImageUrl,
+        saved: true,
+      };
+    }
+    return { coverImageUrl, saved: false };
+  }
+
+  @ApiOperation({
+    summary:
+      'Admin: permanently delete collection bucket (snapshots, orders, rwa_tokens row, marketplace_collections)',
+  })
+  @ApiParam({ name: 'key', description: 'collection_key' })
+  @Post('collections/:key/admin/delete')
+  async adminDeleteCollection(
+    @Param('key') key: string,
+    @Body() body: AdminDeleteCollectionDto,
+  ) {
+    this.assertAdminWallet(body.adminWallet);
+    const k = this.normalizeKey(key);
+    const confirm = body.confirmCollectionKey.trim().toLowerCase();
+    if (confirm !== k) {
+      throw new BadRequestException(
+        'confirmCollectionKey must match the collection key in the URL',
+      );
+    }
+    try {
+      return await this.collectionService.adminDeleteCollectionCompletely(k);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg === 'COLLECTION_NOT_FOUND') {
+        throw new NotFoundException('Collection not found');
+      }
+      throw e;
+    }
   }
 
   @ApiOperation({

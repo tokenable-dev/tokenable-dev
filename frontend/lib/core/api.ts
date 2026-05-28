@@ -487,6 +487,88 @@ export async function getMarketplaceCollectionDetailOrNull(
   return d.collection ? d : null;
 }
 
+/** Admin: persist collection cover (requires admin wallet in body). */
+export async function postAdminSetCollectionCover(
+  collectionKey: string,
+  body: { adminWallet: string; coverImageUrl: string },
+): Promise<{ collectionKey: string; coverImageUrl: string | null }> {
+  const enc = encodeURIComponent(collectionKey);
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/collections/${enc}/admin/cover`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    },
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(
+      (err as { message?: string }).message ?? "Failed to set collection cover",
+    );
+  }
+  return res.json() as Promise<{ collectionKey: string; coverImageUrl: string | null }>;
+}
+
+/** Admin: resolve cover from token metadata; `save: true` persists. */
+export async function postAdminCollectionCoverFromToken(
+  collectionKey: string,
+  body: { adminWallet: string; tokenId: string; save?: boolean },
+): Promise<{ coverImageUrl: string | null; saved: boolean }> {
+  const enc = encodeURIComponent(collectionKey);
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/collections/${enc}/admin/cover/from-token`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    },
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(
+      (err as { message?: string }).message ??
+        "Failed to resolve cover from token",
+    );
+  }
+  return res.json() as Promise<{ coverImageUrl: string | null; saved: boolean }>;
+}
+
+/** Admin: delete collection bucket and related marketplace rows. */
+export async function postAdminDeleteCollection(
+  collectionKey: string,
+  body: { adminWallet: string; confirmCollectionKey: string },
+): Promise<{
+  collectionKey: string;
+  deletedSnapshots: number;
+  deletedOrders: number;
+  deletedRwaTokens: number;
+  deletedCollection: boolean;
+}> {
+  const enc = encodeURIComponent(collectionKey);
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/collections/${enc}/admin/delete`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    },
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(
+      (err as { message?: string }).message ?? "Failed to delete collection",
+    );
+  }
+  return res.json() as Promise<{
+    collectionKey: string;
+    deletedSnapshots: number;
+    deletedOrders: number;
+    deletedRwaTokens: number;
+    deletedCollection: boolean;
+  }>;
+}
+
 export interface CollectionUsdPoint {
   t: number;
   v: number;

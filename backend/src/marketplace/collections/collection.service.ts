@@ -40,8 +40,10 @@ import {
   componentsPsaMirrorSufficientForCardhedger,
   mergePsaCertSnapshotIntoMirror,
 } from '../utils/psa-components-mirror.util';
+import { CollectionMarketSnapshot } from '../entities/collection-market-snapshot.entity';
 import { Order, OrderSide, OrderStatus } from '../entities/order.entity';
 import { MarketplaceCollection } from '../entities/marketplace-collection.entity';
+import { RwaToken } from '../entities/rwa-token.entity';
 import { exactCatalogMatch } from '../utils/card-match.util';
 import { PsaCertSnapshotService } from './psa-cert-snapshot.service';
 import { RwaTokenRegistryService } from './rwa-token-registry.service';
@@ -821,9 +823,8 @@ export class CollectionService implements OnModuleInit {
   }
 
   /**
-   * Persist (or upgrade) the collection cover URL.
-   * - If no cover is stored yet → save whatever we can resolve.
-   * - If the stored cover is IPFS / PSA slab and we now have a direct HTTPS catalog URL → upgrade.
+   * Persist collection cover only while `cover_image_url` is still empty (first cover wins).
+   * Admin override: {@link setCollectionCoverImageAdmin}.
    */
   private async persistCoverFromMetaIfMissing(
     collectionKey: string,
@@ -836,30 +837,18 @@ export class CollectionService implements OnModuleInit {
     if (!row) return;
 
     const existing = row.coverImageUrl?.trim() ?? '';
-    const shouldUpdate = !existing || this.isCoverUrlUpgradeable(existing);
-    if (!shouldUpdate) return;
+    if (existing) return;
 
     const specFb = this.psaSpecIdFromComponentsRow(row.components);
     const img = await this.resolveBestCoverUrl(meta, specFb);
     if (!img) return;
-    if (existing.trim() === img.trim()) return;
-
-    // Only downgrade if the new URL is actually better
-    if (existing && !this.isCoverUrlUpgradeable(existing)) return;
-    // If existing is already high-quality and new one is not, keep existing
-    if (
-      existing &&
-      this.isHighQualityCoverUrl(existing) &&
-      !this.isHighQualityCoverUrl(img)
-    )
-      return;
 
     await this.collectionRepo.update(
       { collectionKey: key },
       { coverImageUrl: img },
     );
     this.logger.log(
-      `Updated coverImageUrl for ${key}: ${existing ? `"${existing.slice(0, 60)}…"` : '(empty)'} → "${img.slice(0, 60)}…"`,
+      `[CoverImg] first cover for ${key}: "${img.slice(0, 72)}"`,
     );
   }
 
@@ -1726,9 +1715,107 @@ export class CollectionService implements OnModuleInit {
   }
 
   /**
+   * Admin-only: replace collection cover (ignores first-cover freeze).
+   */
+  async setCollectionCoverImageAdmin(
+    collectionKey: string,
+    coverImageUrl: string,
+  ): Promise<MarketplaceCollection> {
+    const k = collectionKey.toLowerCase();
+    const url = coverImageUrl.trim();
+    if (!url) {
+      throw new Error('COLLECTION_COVER_URL_EMPTY');
+    }
+    if (!/^https?:\/\//i.test(url) && !/^ipfs:\/\//i.test(url)) {
+      throw new Error('COLLECTION_COVER_URL_INVALID');
+    }
+    const row = await this.findOne(k);
+    if (!row) {
+      throw new Error('COLLECTION_NOT_FOUND');
+    }
+    await this.collectionRepo.update(
+      { collectionKey: k },
+      { coverImageUrl: url },
+    );
+    const refreshed = await this.findOne(k);
+    if (!refreshed) {
+      throw new Error('COLLECTION_NOT_FOUND');
+    }
+    this.logger.log(
+      `[CoverImg] admin set ${k}: "${url.slice(0, 72)}"`,
+    );
+    return refreshed;
+  }
+
+  /**
+   * Admin: resolve best catalog/cover URL from a token's IPFS metadata (Cardhedger / PSA / TCG).
+   */
+  async adminPreviewCoverFromToken(
+    tokenId: string,
+    collectionKey?: string,
+  ): Promise<string | null> {
+    const uri = await this.blockchain.getRwaTokenURI(Number(tokenId));
+    const meta = await this.ipfsResolver.fetchMetadataJson(uri);
+    let psaSpecFb: string | null = null;
+    if (collectionKey?.trim()) {
+      const col = await this.findOne(collectionKey);
+      psaSpecFb = this.psaSpecIdFromComponentsRow(col?.components);
+    }
+    return this.resolveBestCoverUrl(meta, psaSpecFb);
+  }
+
+  /**
+   * Admin-only: remove collection bucket and all marketplace rows keyed by it
+   * (snapshots, orders, rwa_tokens registry rows, marketplace_collections).
+   */
+  async adminDeleteCollectionCompletely(collectionKey: string): Promise<{
+    collectionKey: string;
+    deletedSnapshots: number;
+    deletedOrders: number;
+    deletedRwaTokens: number;
+    deletedCollection: boolean;
+  }> {
+    const k = collectionKey.toLowerCase();
+    const row = await this.findOne(k);
+    if (!row) {
+      throw new Error('COLLECTION_NOT_FOUND');
+    }
+
+    const result = await this.collectionRepo.manager.transaction(async (em) => {
+      const snapRes = await em.delete(CollectionMarketSnapshot, {
+        collectionKey: k,
+      });
+      const orderRes = await em.delete(Order, { collectionKey: k });
+      const rwaRes = await em.delete(RwaToken, { collectionKey: k });
+      const colRes = await em.delete(MarketplaceCollection, {
+        collectionKey: k,
+      });
+      return {
+        deletedSnapshots: snapRes.affected ?? 0,
+        deletedOrders: orderRes.affected ?? 0,
+        deletedRwaTokens: rwaRes.affected ?? 0,
+        deletedCollection: (colRes.affected ?? 0) > 0,
+      };
+    });
+
+    for (const cacheKey of [...this.merkleSetCache.keys()]) {
+      if (cacheKey.startsWith(`${k}:`)) {
+        this.merkleSetCache.delete(cacheKey);
+      }
+    }
+    this.representativeImageResolveInflight.delete(k);
+
+    this.logger.warn(
+      `[Admin] deleted collection ${k}: snapshots=${result.deletedSnapshots} orders=${result.deletedOrders} rwa_tokens=${result.deletedRwaTokens}`,
+    );
+
+    return { collectionKey: k, ...result };
+  }
+
+  /**
    * Representative image: persisted `cover_image_url` only.
-   * When still empty, pick art from the **lowest active token id** in the pool (stable as listings churn),
-   * and persist **only if the column is still null** so we never replace the first saved cover.
+   * When still empty, pick art from active listings (lowest token id first) and persist once.
+   * Never overwrites an existing cover (use admin API to replace).
    *
    * Concurrency: at most one resolution per `collection_key` at a time (parallel page loads share one scrape).
    *
@@ -1760,8 +1847,7 @@ export class CollectionService implements OnModuleInit {
     const stored = col?.coverImageUrl?.trim() ?? '';
     const psaSpecFromComp = this.psaSpecIdFromComponentsRow(col?.components);
 
-    // If already a high-quality (non-IPFS, non-PSA-slab-cert) URL, return immediately
-    if (stored && this.isHighQualityCoverUrl(stored)) return stored;
+    if (stored) return stored;
 
     const asks = preloaded?.asks ?? (await this.activeListingsForCollection(k));
     const bids = preloaded?.bids ?? (await this.activeBidsForCollection(k));
@@ -1784,26 +1870,18 @@ export class CollectionService implements OnModuleInit {
         const img = await this.resolveBestCoverUrl(meta, psaSpecFromComp);
         if (!img) continue;
 
-        // Only upgrade to a better image (don't downgrade from IPFS to something worse)
-        const shouldWrite =
-          !stored ||
-          this.isCoverUrlUpgradeable(stored) ||
-          (this.isHighQualityCoverUrl(img) &&
-            !this.isHighQualityCoverUrl(stored));
-
-        const sameAsStored = img.trim() === stored.trim();
-
-        if (shouldWrite && !sameAsStored) {
-          await this.collectionRepo
-            .createQueryBuilder()
-            .update(MarketplaceCollection)
-            .set({ coverImageUrl: img })
-            .where('collection_key = :k', { k })
-            .execute();
-          this.logger.log(
-            `[CoverImg] resolveRepresentativeImage upgraded ${k}: "${stored.slice(0, 72)}" → "${img.slice(0, 72)}"`,
-          );
-        }
+        await this.collectionRepo
+          .createQueryBuilder()
+          .update(MarketplaceCollection)
+          .set({ coverImageUrl: img })
+          .where('collection_key = :k', { k })
+          .andWhere(
+            '(cover_image_url IS NULL OR TRIM(cover_image_url) = \'\')',
+          )
+          .execute();
+        this.logger.log(
+          `[CoverImg] resolveRepresentativeImage first cover ${k}: "${img.slice(0, 72)}"`,
+        );
 
         const refreshed = await this.findOne(k);
         return refreshed?.coverImageUrl?.trim() ?? img;

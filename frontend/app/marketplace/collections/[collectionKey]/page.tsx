@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
@@ -12,10 +12,12 @@ import {
   getCollectionPlatformTrades,
   getMarketplaceCollectionDetail,
   postRwaMetadataBatch,
+  rq,
   type Order,
   type RwaMetadata,
 } from "@/lib/core";
-import { pickCollectionHeroImageUrl } from "@/lib/marketplace";
+import { isMarketplaceAdminWallet, pickCollectionHeroImageUrl } from "@/lib/marketplace";
+import { CollectionAdminCoverPanel } from "@/components/marketplace/CollectionAdminCoverPanel";
 import { COLLECTION_DETAIL_SHELL_CLASS } from "@/constants/layout";
 import {
   computeCollectionMarketCapUsd,
@@ -247,6 +249,7 @@ function bidDisplayUsdc(b: Order): number {
 
 export default function MarketplaceCollectionPage() {
   const params = useParams();
+  const router = useRouter();
   const queryClient = useQueryClient();
   const { address } = useAppStore(useShallow(selectWallet));
   const raw = params.collectionKey;
@@ -474,12 +477,24 @@ export default function MarketplaceCollectionPage() {
     void queryClient.invalidateQueries({ queryKey: ["collection-market-series", key] });
     void queryClient.invalidateQueries({ queryKey: ["merkle-set", key] });
     void queryClient.invalidateQueries({ queryKey: ["merkle-set"] });
+    void queryClient.invalidateQueries({ queryKey: rq.collectionsMarketplace() });
   }
+
+  const isCoverAdmin = isMarketplaceAdminWallet(address);
 
   const asks = useMemo(
     () => (data ? data.listings.filter((o) => o.side !== "bid") : []),
     [data]
   );
+
+  const listingTokenIdsForAdmin = useMemo(() => {
+    const ids: number[] = [];
+    for (const o of asks) {
+      const id = Number(o.tokenId);
+      if (Number.isFinite(id)) ids.push(id);
+    }
+    return ids;
+  }, [asks]);
 
   const collectionBids = useMemo(() => {
     if (!data?.collectionBids) return [];
@@ -1162,6 +1177,21 @@ export default function MarketplaceCollectionPage() {
         className={`${COLLECTION_DETAIL_SHELL_CLASS} flex min-h-0 flex-1 flex-col py-4 max-lg:overflow-visible max-lg:py-1.5 max-lg:pb-[max(4.25rem,env(safe-area-inset-bottom,0px)+3.5rem)] sm:overflow-hidden sm:py-8 sm:pb-20`}
       >
         <CollectionDetailMobileNav />
+        {isCoverAdmin && address ? (
+          <CollectionAdminCoverPanel
+            collectionKey={collection.collectionKey}
+            adminWallet={address as Address}
+            currentCoverUrl={collectionCoverUrl}
+            listingTokenIds={listingTokenIdsForAdmin}
+            onSaved={() => {
+              invalidateCollection();
+            }}
+            onDeleted={() => {
+              invalidateCollection();
+              router.push("/markets");
+            }}
+          />
+        ) : null}
         <CollectionOverviewBoard
           title={collectionWovenTitle}
           subtitle={subtitle}
