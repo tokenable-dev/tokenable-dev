@@ -135,7 +135,7 @@ export class CollectionsController {
 
   @ApiOperation({
     summary:
-      'Resolve marketplace collection_key by token IDs for portfolio (uses cached rwa_tokens first; backfills from metadata when missing).',
+      'Resolve marketplace collection_key by token IDs for portfolio (uses cached rwa_tokens first; read-only metadata hash fallback when missing).',
   })
   @ApiBody({ type: TokenCollectionKeysDto })
   @Post('collections/token-collection-keys')
@@ -150,7 +150,7 @@ export class CollectionsController {
     const missing = tokenIds.filter((id) => !out[id]);
     for (const tokenId of missing) {
       try {
-        const k = await this.collectionService.ensureCollectionForListing(
+        const k = await this.collectionService.resolveCollectionKeyFromTokenMetadata(
           String(tokenId),
         );
         if (k) out[tokenId] = k.toLowerCase();
@@ -174,6 +174,8 @@ export class CollectionsController {
       limitRaw != null && String(limitRaw).trim() !== ''
         ? Math.max(2, Math.min(120, parseInt(String(limitRaw), 10)))
         : 32;
+    // Read path should self-heal missed 09:00 KST cron slots.
+    await this.portfolioSnapshots.ensureCurrentSlotSnapshot(wallet);
     let rows = await this.portfolioSnapshots.listWalletSnapshots(wallet, limit);
     if (rows.length === 0) {
       await this.portfolioSnapshots.ensureBaselineSnapshot(wallet);

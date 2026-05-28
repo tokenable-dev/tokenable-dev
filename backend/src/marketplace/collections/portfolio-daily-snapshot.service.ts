@@ -52,6 +52,10 @@ export function resolveKstDailySnapshotSlot(
 @Injectable()
 export class PortfolioDailySnapshotService {
   private readonly logger = new Logger(PortfolioDailySnapshotService.name);
+  /** Guard expensive recompute bursts per wallet during rapid polling. */
+  private readonly reconcileGuardMsByWallet = new Map<string, number>();
+  private static readonly RECONCILE_GUARD_MS = 60_000;
+  private static readonly VALUE_DRIFT_EPSILON_USD = 0.01;
 
   constructor(
     @InjectRepository(PortfolioDailySnapshot)
@@ -81,6 +85,45 @@ export class PortfolioDailySnapshotService {
     await this.captureDailySnapshot(wallet);
   }
 
+  /**
+   * Ensure the current KST 09:00 slot exists for this wallet.
+   * Backfills a missed daily run (e.g. service restart/downtime around cron time).
+   */
+  async ensureCurrentSlotSnapshot(
+    walletAddress: string,
+    reference = new Date(),
+  ): Promise<void> {
+    const wallet = walletAddress.trim().toLowerCase();
+    if (!wallet) return;
+    const nowMs = Date.now();
+    const last = this.reconcileGuardMsByWallet.get(wallet) ?? 0;
+    if (nowMs - last < PortfolioDailySnapshotService.RECONCILE_GUARD_MS) return;
+    this.reconcileGuardMsByWallet.set(wallet, nowMs);
+    const slot = resolveKstDailySnapshotSlot(reference);
+    const existing = await this.snapshotRepo.findOne({
+      where: {
+        walletAddress: wallet,
+        snapshotDateKst: slot.snapshotDateKst,
+      },
+      select: ['walletAddress', 'snapshotDateKst', 'totalValueUsd', 'cardCount'],
+    });
+    if (!existing) {
+      await this.captureDailySnapshot(wallet, reference);
+      return;
+    }
+
+    // Real-time reconciliation: if holdings changed after the slot row was written,
+    // overwrite the same KST slot with the latest totals so chart endpoint stays current.
+    const totals = await this.computeWalletTotals(wallet);
+    const valueDrift =
+      Math.abs(Number(existing.totalValueUsd ?? 0) - totals.totalValueUsd) >
+      PortfolioDailySnapshotService.VALUE_DRIFT_EPSILON_USD;
+    const cardCountDrift = Number(existing.cardCount ?? 0) !== totals.cardCount;
+    if (!valueDrift && !cardCountDrift) return;
+
+    await this.upsertSlotTotals(wallet, slot, totals);
+  }
+
   async latest24h(walletAddress: string): Promise<{
     latest: PortfolioDailySnapshot | null;
     prev: PortfolioDailySnapshot | null;
@@ -106,6 +149,17 @@ export class PortfolioDailySnapshotService {
     if (!wallet) return null;
     const totals = await this.computeWalletTotals(wallet);
     const slot = resolveKstDailySnapshotSlot(capturedAt);
+    await this.upsertSlotTotals(wallet, slot, totals);
+    return this.snapshotRepo.findOne({
+      where: { walletAddress: wallet, snapshotDateKst: slot.snapshotDateKst },
+    });
+  }
+
+  private async upsertSlotTotals(
+    wallet: string,
+    slot: KstDailySnapshotSlot,
+    totals: SnapshotTotals,
+  ): Promise<void> {
     await this.snapshotRepo.upsert(
       {
         walletAddress: wallet,
@@ -116,9 +170,6 @@ export class PortfolioDailySnapshotService {
       },
       ['walletAddress', 'snapshotDateKst'],
     );
-    return this.snapshotRepo.findOne({
-      where: { walletAddress: wallet, snapshotDateKst: slot.snapshotDateKst },
-    });
   }
 
   private async computeWalletTotals(walletAddress: string): Promise<SnapshotTotals> {
