@@ -22,6 +22,7 @@ BEGIN;
 \ir schema/040_orders.sql
 \ir schema/050_refactor_legacy_columns.sql
 \ir schema/060_portfolio_daily_snapshots.sql
+\ir schema/061_portfolio_hidden_holdings.sql
 \ir schema/900_triggers.sql
 
 COMMIT;

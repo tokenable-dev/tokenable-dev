@@ -5,6 +5,7 @@ import {
   Get,
   NotFoundException,
   BadRequestException,
+  Delete,
   Param,
   Post,
   Query,
@@ -24,6 +25,8 @@ import { CollectionMarketSnapshotSchedulerService } from './collection-market-sn
 import { CollectionMarketSnapshotService } from './collection-market-snapshot.service';
 import { CollectionService } from './collection.service';
 import { PortfolioDailySnapshotService } from './portfolio-daily-snapshot.service';
+import { PortfolioHiddenHoldingService } from './portfolio-hidden-holding.service';
+import { PortfolioHideHoldingDto } from './dto/portfolio-hide-holding.dto';
 import { BatchMarketSnapshotsDto } from './dto/batch-market-snapshots.dto';
 import { MintPreviewsByTokenIdsDto } from './dto/mint-previews-by-token-ids.dto';
 import { PortfolioMarketBatchDto } from './dto/portfolio-market-batch.dto';
@@ -52,6 +55,7 @@ export class CollectionsController {
     private readonly snapshotRead: CollectionMarketSnapshotReadService,
     private readonly snapshotScheduler: CollectionMarketSnapshotSchedulerService,
     private readonly portfolioSnapshots: PortfolioDailySnapshotService,
+    private readonly portfolioHidden: PortfolioHiddenHoldingService,
   ) {}
 
   /** Decode URL-encoded path segments (some keys may be percent-encoded) and lowercase for DB lookup. */
@@ -195,6 +199,32 @@ export class CollectionsController {
         pnlPct: p.pnl24hPct,
       },
     };
+  }
+
+  @ApiOperation({
+    summary:
+      'Portfolio hidden holdings — token IDs excluded from portfolio value (off-chain preference; NFT stays in wallet).',
+  })
+  @Get('portfolio/hidden/:wallet')
+  async listPortfolioHidden(@Param('wallet') wallet: string) {
+    const tokenIds = await this.portfolioHidden.listHiddenTokenIds(wallet);
+    return { tokenIds };
+  }
+
+  @ApiOperation({ summary: 'Hide a holding from portfolio totals and default holdings view.' })
+  @ApiBody({ type: PortfolioHideHoldingDto })
+  @Post('portfolio/hidden')
+  async hidePortfolioHolding(@Body() body: PortfolioHideHoldingDto) {
+    await this.portfolioHidden.hide(body.walletAddress, body.tokenId);
+    return { ok: true };
+  }
+
+  @ApiOperation({ summary: 'Restore a hidden holding to portfolio totals and holdings view.' })
+  @ApiBody({ type: PortfolioHideHoldingDto })
+  @Delete('portfolio/hidden')
+  async unhidePortfolioHolding(@Body() body: PortfolioHideHoldingDto) {
+    await this.portfolioHidden.unhide(body.walletAddress, body.tokenId);
+    return { ok: true };
   }
 
   @ApiOperation({

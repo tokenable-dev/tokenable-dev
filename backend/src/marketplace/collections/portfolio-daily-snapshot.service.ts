@@ -21,6 +21,7 @@ import type {
   PortfolioDailyCaptureRunResult,
   PortfolioPricingContext,
 } from './portfolio-daily-snapshot.types';
+import { PortfolioHiddenHoldingService } from './portfolio-hidden-holding.service';
 
 type SnapshotTotals = { totalValueUsd: number; cardCount: number };
 
@@ -84,6 +85,7 @@ export class PortfolioDailySnapshotService {
     private readonly collectionMarket: CollectionMarketService,
     private readonly cardhedger: CardhedgerMarketDataService,
     private readonly rwaTokenRegistry: RwaTokenRegistryService,
+    private readonly portfolioHidden: PortfolioHiddenHoldingService,
   ) {}
 
   ownerScanConcurrency(): number {
@@ -215,7 +217,10 @@ export class PortfolioDailySnapshotService {
       const chunk = allWallets.slice(i, i + concurrency);
       const results = await Promise.allSettled(
         chunk.map(async (wallet) => {
-          const tokenIds = holderIndex.get(wallet) ?? [];
+          const tokenIds = await this.portfolioHidden.filterVisibleTokenIds(
+            wallet,
+            holderIndex.get(wallet) ?? [],
+          );
           const totals =
             tokenIds.length === 0 || !pricing
               ? { totalValueUsd: 0, cardCount: 0 }
@@ -426,7 +431,11 @@ export class PortfolioDailySnapshotService {
 
   /** Single-wallet path (read fallback / legacy). */
   private async computeWalletTotals(walletAddress: string): Promise<SnapshotTotals> {
-    const tokenIds = await this.blockchain.getRwaTokensByOwner(walletAddress);
+    const owned = await this.blockchain.getRwaTokensByOwner(walletAddress);
+    const tokenIds = await this.portfolioHidden.filterVisibleTokenIds(
+      walletAddress,
+      owned,
+    );
     if (tokenIds.length === 0) return { totalValueUsd: 0, cardCount: 0 };
     const ctx = await this.buildPricingContext(tokenIds);
     return this.computeTotalsFromContext(tokenIds, ctx);

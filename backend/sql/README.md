@@ -18,6 +18,7 @@ sql/
 │   ├── 040_orders.sql
 │   ├── 050_refactor_legacy_columns.sql  # migrate older DBs; safe on fresh bootstrap
 │   ├── 060_portfolio_daily_snapshots.sql
+│   ├── 061_portfolio_hidden_holdings.sql
 │   └── 900_triggers.sql          # updated_at triggers
 ├── scripts/
 │   └── bootstrap-db.sh           # cat schema/*.sql — works with stdin pipe / Docker
@@ -69,6 +70,7 @@ docker exec tokenable-postgres psql -U tokenable -d tokenable \
 | `collection_market_snapshots` | Materialized Cardhedger pricing (API read path) |
 | `orders` | Seaport ask/bid listings + fulfilled tape |
 | `portfolio_daily_snapshots` | Daily 09:00 KST portfolio total USD per on-chain holder (+ zero-card tracked wallets) |
+| `portfolio_hidden_holdings` | Per-wallet UI hide list (off-chain; excluded from portfolio totals) |
 
 ## Portfolio daily snapshot env
 

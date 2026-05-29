@@ -14,6 +14,9 @@ import {
   postBatchMintMarketPreviews,
   postTokenCollectionKeysByTokenIds,
   getPortfolioDailySnapshots,
+  getPortfolioHiddenHoldings,
+  hidePortfolioHolding,
+  unhidePortfolioHolding,
   type CollectionMarketSeries,
   type CollectionMarketStats,
   cancelOrder,
@@ -89,7 +92,21 @@ interface TxRow {
   orderHash: string;
 }
 
-type AssetListFilter = "all" | "listed" | "unlisted";
+type AssetListFilter = "all" | "listed" | "unlisted" | "hidden";
+
+/** Header P&L — signed amount without a leading `$`. */
+function formatSignedPnlAmount(n: number): string {
+  const sign = n > 0 ? "+" : n < 0 ? "-" : "";
+  const abs = Math.abs(n);
+  const body =
+    abs >= 1000
+      ? abs.toLocaleString("en-US", { maximumFractionDigits: 0 })
+      : abs.toLocaleString("en-US", {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        });
+  return `${sign}${body}`;
+}
 
 function getGraded(meta: RwaMetadata | null): GradedCardMetadata | undefined {
   const g = meta?.properties?.graded;
@@ -312,6 +329,24 @@ function fmtAxisVal(v: number): string {
   return `$${v.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
 }
 
+/** Keep value callout inside chart viewBox (last point sits on the right edge). */
+function chartValueCalloutBox(
+  anchorX: number,
+  label: string,
+  fontSize: number,
+  bounds: { left: number; right: number },
+): { rectX: number; rectW: number; textX: number } {
+  const padX = 10;
+  const charW = fontSize * 0.62;
+  const rectW = Math.ceil(Math.max(56, label.length * charW + padX * 2));
+  const minX = bounds.left;
+  const maxX = bounds.right - rectW;
+  let rectX = anchorX - rectW / 2;
+  if (rectX < minX) rectX = minX;
+  if (rectX > maxX) rectX = maxX;
+  return { rectX, rectW, textX: rectX + rectW / 2 };
+}
+
 function PortfolioChart({
   points,
   xLabels,
@@ -349,11 +384,11 @@ function PortfolioChart({
     );
 
   const W = compact ? 400 : 800;
-  const H = compact ? 200 : 260;
-  const LEFT = compact ? 40 : 54;
-  const RIGHT = compact ? 8 : 16;
-  const TOP = compact ? 10 : 20;
-  const BOT = compact ? 28 : 48;
+  const H = compact ? 228 : 260;
+  const LEFT = compact ? 44 : 54;
+  const RIGHT = compact ? 12 : 16;
+  const TOP = compact ? 16 : 20;
+  const BOT = compact ? 32 : 48;
   const showVolumeBars = !compact;
   const chartW = W - LEFT - RIGHT;
   const chartH = H - TOP - BOT;
@@ -412,13 +447,20 @@ function PortfolioChart({
   const lastX = xOf(lastIdx);
   const lastY = yOf(points[lastIdx]);
   const displayValue = points[lastIdx];
+  const lastTooltipBelow = lastY < TOP + 38;
+  const lastTooltipRectY = lastTooltipBelow ? lastY + 8 : lastY - 30;
+  const lastTooltipTextY = lastTooltipBelow ? lastY + 22 : lastY - 16;
+  const chartBounds = { left: LEFT, right: W - RIGHT };
+  const lastValueLabel = formatUsdCompact(displayValue);
+  const lastCallout = chartValueCalloutBox(lastX, lastValueLabel, 11, chartBounds);
 
   return (
-    <div ref={containerRef} className="w-full h-full">
+    <div ref={containerRef} className="w-full h-full min-h-[200px]">
       <svg
         viewBox={`0 0 ${W} ${H}`}
         className="block h-full w-full"
-        preserveAspectRatio={compact ? "none" : "xMidYMid meet"}
+        overflow="visible"
+        preserveAspectRatio="xMidYMid meet"
         onMouseMove={handleMouseMove}
         onMouseLeave={() => setHover(null)}
       >
@@ -537,28 +579,35 @@ function PortfolioChart({
               strokeWidth="2"
             />
             {/* Tooltip */}
-            <g>
-              <rect
-                x={hover.x - 36}
-                y={hover.y - 28}
-                width="72"
-                height="20"
-                rx="6"
-                fill="#1a2332"
-                stroke="rgba(16,211,51,0.3)"
-                strokeWidth="1"
-              />
-              <text
-                x={hover.x}
-                y={hover.y - 15}
-                textAnchor="middle"
-                fill="white"
-                fontSize="10"
-                fontWeight="600"
-              >
-                {formatUsdCompact(points[hover.idx])}
-              </text>
-            </g>
+            {(() => {
+              const hoverLabel = formatUsdCompact(points[hover.idx]);
+              const hoverTip = chartValueCalloutBox(hover.x, hoverLabel, 10, chartBounds);
+              const hoverBelow = hover.y < TOP + 32;
+              return (
+                <g>
+                  <rect
+                    x={hoverTip.rectX}
+                    y={hoverBelow ? hover.y + 10 : hover.y - 28}
+                    width={hoverTip.rectW}
+                    height="20"
+                    rx="6"
+                    fill="#1a2332"
+                    stroke="rgba(16,211,51,0.3)"
+                    strokeWidth="1"
+                  />
+                  <text
+                    x={hoverTip.textX}
+                    y={hoverBelow ? hover.y + 24 : hover.y - 15}
+                    textAnchor="middle"
+                    fill="white"
+                    fontSize="10"
+                    fontWeight="600"
+                  >
+                    {hoverLabel}
+                  </text>
+                </g>
+              );
+            })()}
           </>
         )}
 
@@ -584,9 +633,9 @@ function PortfolioChart({
             />
             <g>
               <rect
-                x={lastX - 40}
-                y={lastY - 30}
-                width="80"
+                x={lastCallout.rectX}
+                y={lastTooltipRectY}
+                width={lastCallout.rectW}
                 height="22"
                 rx="6"
                 fill="#1a2332"
@@ -594,14 +643,14 @@ function PortfolioChart({
                 strokeWidth="1"
               />
               <text
-                x={lastX}
-                y={lastY - 16}
+                x={lastCallout.textX}
+                y={lastTooltipTextY}
                 textAnchor="middle"
                 fill="white"
                 fontSize="11"
                 fontWeight="700"
               >
-                {formatUsdCompact(displayValue)}
+                {lastValueLabel}
               </text>
             </g>
           </>
@@ -611,12 +660,60 @@ function PortfolioChart({
   );
 }
 
+function PortfolioChartToggle({
+  open,
+  disabled,
+  onToggle,
+}: {
+  open: boolean;
+  disabled?: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      disabled={disabled}
+      aria-expanded={open}
+      aria-pressed={open}
+      aria-controls="portfolio-value-chart"
+      aria-label={open ? "Hide value history" : "Show value history"}
+      className={`inline-flex h-10 w-10 shrink-0 touch-manipulation items-center justify-center rounded-xl border transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-40 sm:h-9 sm:w-9 ${
+        open
+          ? "border-mint/45 bg-mint/[0.12] text-mint shadow-[0_0_22px_-10px_rgba(16,211,51,0.65)]"
+          : "border-zinc-700/60 bg-zinc-900/60 text-zinc-500 hover:border-zinc-600 hover:bg-zinc-800/80 hover:text-zinc-300"
+      }`}
+    >
+      <svg
+        className="h-[18px] w-[18px] sm:h-4 sm:w-4"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        aria-hidden
+      >
+        <path d="M4 20V4" strokeWidth={1.5} strokeLinecap="round" />
+        <path d="M4 20H20" strokeWidth={1.5} strokeLinecap="round" />
+        <path
+          d="M7.5 14.5L11 11l3 2.5L18.5 8"
+          strokeWidth={2}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className={open ? "drop-shadow-[0_0_6px_rgba(16,211,51,0.55)]" : undefined}
+        />
+        {open ? (
+          <circle cx="18.5" cy="8" r="1.35" fill="currentColor" stroke="none" />
+        ) : null}
+      </svg>
+    </button>
+  );
+}
+
 function PortfolioHeaderStat({
   label,
   value,
   tone = "neutral",
 }: {
-  label: string;
+  label: ReactNode;
   value: string;
   tone?: "neutral" | "positive" | "negative";
 }) {
@@ -628,9 +725,11 @@ function PortfolioHeaderStat({
         : "text-zinc-100";
 
   return (
-    <div className="flex flex-col gap-2 sm:items-end sm:text-right">
-      <p className="text-sm font-medium text-zinc-500">{label}</p>
-      <p className={`text-xl font-semibold tabular-nums tracking-tight sm:text-2xl ${valueClass}`}>
+    <div className="flex flex-col items-end gap-1 text-right sm:gap-2">
+      <p className="text-xs font-medium leading-tight text-zinc-500 sm:text-sm">{label}</p>
+      <p
+        className={`text-base font-semibold tabular-nums tracking-tight sm:text-2xl ${valueClass}`}
+      >
         {value}
       </p>
     </div>
@@ -646,8 +745,11 @@ export default function PortfolioPage() {
   const { usdcBalanceFormatted } = useAppStore(useShallow(selectUsdcBalance));
   const isMobileViewport = useIsMobileViewport();
   const [assetFilter, setAssetFilter] = useState<AssetListFilter>("all");
+  const [portfolioChartOpen, setPortfolioChartOpen] = useState(false);
   const [cancellingListingTokenId, setCancellingListingTokenId] = useState<number | null>(null);
   const [burningTokenId, setBurningTokenId] = useState<number | null>(null);
+  const [hidingTokenId, setHidingTokenId] = useState<number | null>(null);
+  const [unhidingTokenId, setUnhidingTokenId] = useState<number | null>(null);
   const isBurnAdmin = isMarketplaceAdminWallet(address);
 
   const {
@@ -673,6 +775,18 @@ export default function PortfolioPage() {
         imageUrl: a.imageUrl,
       })),
     [hookAssets],
+  );
+
+  const { data: hiddenTokenIds = [] } = useQuery({
+    queryKey: rq.portfolioHidden(address ?? ""),
+    queryFn: () => getPortfolioHiddenHoldings(address!),
+    enabled: Boolean(address && isConnected),
+    staleTime: 30_000,
+  });
+
+  const hiddenSet = useMemo(
+    () => new Set(hiddenTokenIds),
+    [hiddenTokenIds],
   );
 
   const listingCollectionKeyByToken = useMemo(() => {
@@ -973,16 +1087,29 @@ export default function PortfolioPage() {
 
   const ASSET_PAGE = 10;
   const [visibleAssetCount, setVisibleAssetCount] = useState(ASSET_PAGE);
-  const listedAssetCount = useMemo(
-    () => assetRows.filter((r) => r.listPriceUsd != null).length,
-    [assetRows],
+  const holdingsAssetRows = useMemo(
+    () => assetRows.filter((r) => !hiddenSet.has(r.tokenId)),
+    [assetRows, hiddenSet],
   );
-  const unlistedAssetCount = assetRows.length - listedAssetCount;
+  const hiddenAssetRows = useMemo(
+    () => assetRows.filter((r) => hiddenSet.has(r.tokenId)),
+    [assetRows, hiddenSet],
+  );
+  const listedAssetCount = useMemo(
+    () => holdingsAssetRows.filter((r) => r.listPriceUsd != null).length,
+    [holdingsAssetRows],
+  );
+  const unlistedAssetCount = holdingsAssetRows.length - listedAssetCount;
   const filteredAssetRows = useMemo(() => {
-    if (assetFilter === "listed") return assetRows.filter((r) => r.listPriceUsd != null);
-    if (assetFilter === "unlisted") return assetRows.filter((r) => r.listPriceUsd == null);
-    return assetRows;
-  }, [assetRows, assetFilter]);
+    if (assetFilter === "hidden") return hiddenAssetRows;
+    if (assetFilter === "listed") {
+      return holdingsAssetRows.filter((r) => r.listPriceUsd != null);
+    }
+    if (assetFilter === "unlisted") {
+      return holdingsAssetRows.filter((r) => r.listPriceUsd == null);
+    }
+    return holdingsAssetRows;
+  }, [assetFilter, holdingsAssetRows, hiddenAssetRows]);
 
   useEffect(() => {
     setVisibleAssetCount((n) =>
@@ -992,7 +1119,7 @@ export default function PortfolioPage() {
     );
   }, [filteredAssetRows.length]);
 
-  const visibleAssetRows = useMemo(
+  const pagedAssetRows = useMemo(
     () => filteredAssetRows.slice(0, visibleAssetCount),
     [filteredAssetRows, visibleAssetCount],
   );
@@ -1035,8 +1162,8 @@ export default function PortfolioPage() {
   }, [fulfilledOrders, address, assets]);
 
   const totalValue = useMemo(
-    () => assetRows.reduce((s, r) => s + (r.currentPrice ?? 0), 0),
-    [assetRows],
+    () => holdingsAssetRows.reduce((s, r) => s + (r.currentPrice ?? 0), 0),
+    [holdingsAssetRows],
   );
 
   const {
@@ -1124,19 +1251,23 @@ export default function PortfolioPage() {
     <div className="min-h-screen min-w-0 overflow-x-clip bg-black text-white">
       <div className={`${APP_MAIN_SHELL_CLASS} py-8 pb-20`}>
         {/* Title + summary stats */}
-        <div className="mb-6 flex flex-col gap-6 sm:mb-10 sm:flex-row sm:items-end sm:justify-between sm:gap-8">
-          <div>
-            <h1 className="text-xl font-extrabold tracking-tight sm:text-3xl">
-              Portfolio
-            </h1>
-          </div>
+        <div className="mb-6 flex items-end justify-between gap-2 sm:mb-10 sm:gap-8">
+          <h1 className="shrink-0 text-xl font-extrabold tracking-tight sm:text-3xl">Portfolio</h1>
           <div
-            className="flex flex-wrap items-end gap-x-14 gap-y-6 sm:ml-auto sm:gap-x-16 lg:gap-x-20"
+            className="flex shrink-0 items-end gap-3 sm:gap-x-16 lg:gap-x-20"
             role="group"
             aria-label="Portfolio summary"
           >
-            <PortfolioHeaderStat label="Amount" value={String(assets.length)} />
-            <PortfolioHeaderStat label="Total trades" value={String(totalTrades)} />
+            <PortfolioHeaderStat label="Amount" value={String(holdingsAssetRows.length)} />
+            <PortfolioHeaderStat
+              label={
+                <>
+                  <span className="sm:hidden">Trades</span>
+                  <span className="hidden sm:inline">Total trades</span>
+                </>
+              }
+              value={String(totalTrades)}
+            />
             <PortfolioHeaderStat
               label="P&L"
               value={
@@ -1144,7 +1275,7 @@ export default function PortfolioPage() {
                   ? "…"
                   : !hasDailyPnl
                     ? "—"
-                    : `${dailyPnlUsd! >= 0 ? "+" : ""}${formatUsdCompact(dailyPnlUsd!)}`
+                    : formatSignedPnlAmount(dailyPnlUsd!)
               }
               tone={
                 chartTotalsPending || !hasDailyPnl
@@ -1159,13 +1290,13 @@ export default function PortfolioPage() {
           </div>
         </div>
 
-        {/* Chart */}
+        {/* Total value + optional chart */}
         <div className="mb-6 rounded-2xl border border-gray-800 bg-gray-900/40 p-3 sm:p-6">
-          <div className="mb-2 sm:mb-3">
-            <p className="mb-1 text-xs font-medium text-gray-500 sm:text-sm sm:text-gray-400">
-              Portfolio value
-            </p>
-            <div className="flex flex-wrap items-center gap-2">
+          <p className="mb-2 text-xs font-medium text-gray-500 sm:mb-3 sm:text-sm sm:text-gray-400">
+            Total Value
+          </p>
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2.5 sm:gap-3">
               {chartTotalsPending ? (
                 <span className="inline-block h-8 w-24 animate-pulse rounded-lg bg-gray-800/80 sm:h-9 sm:w-28" />
               ) : (
@@ -1175,10 +1306,8 @@ export default function PortfolioPage() {
                   </span>
                   {dailyPnlPct != null && dailyPnlPct !== 0 && (
                     <span
-                      className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${
-                        dailyPnlPct >= 0
-                          ? "bg-mint/15 text-mint"
-                          : "bg-red-500/15 text-red-400"
+                      className={`text-sm font-bold tabular-nums sm:text-base ${
+                        dailyPnlPct >= 0 ? "text-mint" : "text-red-400"
                       }`}
                     >
                       {dailyPnlPct >= 0 ? "+" : ""}
@@ -1188,23 +1317,42 @@ export default function PortfolioPage() {
                 </>
               )}
             </div>
+            <div className="shrink-0 border-l border-gray-800/80 pl-3 sm:pl-4">
+              <PortfolioChartToggle
+                open={portfolioChartOpen}
+                disabled={chartTotalsPending}
+                onToggle={() => setPortfolioChartOpen((open) => !open)}
+              />
+            </div>
           </div>
           <div
-            className={
-              isMobileViewport
-                ? "h-[min(52vw,220px)] min-h-[200px] w-full"
-                : "h-[240px] lg:h-[280px]"
-            }
+            id="portfolio-value-chart"
+            className={`grid w-full transition-[grid-template-rows,margin] duration-300 ease-out ${
+              portfolioChartOpen
+                ? "mt-4 grid-rows-[auto] sm:mt-5"
+                : "mt-0 grid-rows-[0fr]"
+            }`}
+            aria-hidden={!portfolioChartOpen}
           >
-            {chartTotalsPending ? (
-              <div className="h-full w-full animate-pulse rounded-lg bg-gray-800/40" />
-            ) : (
-              <PortfolioChart
-                points={dailyChartPoints}
-                xLabels={dailyChartLabels}
-                compact={isMobileViewport}
-              />
-            )}
+            <div className="min-h-0 overflow-hidden">
+              <div
+                className={
+                  isMobileViewport
+                    ? "h-[228px] w-full"
+                    : "h-[240px] w-full lg:h-[280px]"
+                }
+              >
+                {chartTotalsPending ? (
+                  <div className="h-full w-full animate-pulse rounded-lg bg-gray-800/40" />
+                ) : (
+                  <PortfolioChart
+                    points={dailyChartPoints}
+                    xLabels={dailyChartLabels}
+                    compact={isMobileViewport}
+                  />
+                )}
+              </div>
+            </div>
           </div>
         </div>
 
@@ -1222,7 +1370,7 @@ export default function PortfolioPage() {
                   assetFilter === "all" ? "bg-mint text-[#061018]" : "text-gray-400 hover:text-white"
                 }`}
               >
-                All <span className="tabular-nums">({assetRows.length})</span>
+                All <span className="tabular-nums">({holdingsAssetRows.length})</span>
               </button>
               <button
                 type="button"
@@ -1246,6 +1394,19 @@ export default function PortfolioPage() {
               >
                 Not listed <span className="tabular-nums">({unlistedAssetCount})</span>
               </button>
+              {hiddenAssetRows.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => setAssetFilter("hidden")}
+                  className={`rounded-full px-3 py-1 font-semibold transition-colors ${
+                    assetFilter === "hidden"
+                      ? "bg-zinc-600/90 text-white"
+                      : "text-gray-400 hover:text-white"
+                  }`}
+                >
+                  Hidden <span className="tabular-nums">({hiddenAssetRows.length})</span>
+                </button>
+              ) : null}
             </div>
           </div>
           {assetsSectionLoading ? (
@@ -1272,9 +1433,15 @@ export default function PortfolioPage() {
             </p>
           ) : filteredAssetRows.length === 0 ? (
             <p className="text-sm text-gray-500 py-8 text-center">
-              {assetFilter === "listed"
-                ? "No cards are currently listed for sale."
-                : "All cards are currently listed. Cancel a listing to move back to not listed."}
+              {assetFilter === "hidden"
+                ? "No hidden cards."
+                : assetFilter === "listed"
+                  ? "No cards are currently listed for sale."
+                  : assetFilter === "unlisted"
+                    ? "All visible cards are currently listed. Cancel a listing to move back to not listed."
+                    : assetRows.length > 0
+                      ? "All holdings are hidden. Open Hidden to manage or unhide."
+                      : "No visible holdings."}
             </p>
           ) : (
             <div
@@ -1285,7 +1452,7 @@ export default function PortfolioPage() {
               }
             >
               <div className="-mx-0.5 grid grid-cols-2 gap-2.5 pb-2 pt-0.5 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
-              {filteredAssetRows.map((r) => {
+              {pagedAssetRows.map((r) => {
                 const titleLine = r.setName
                   ? `${r.name} · ${r.setName}`
                   : r.name;
@@ -1410,7 +1577,46 @@ export default function PortfolioPage() {
                         </button>
                       </div>
                     ) : null}
-                    {isBurnAdmin && address ? (
+                    {assetFilter === "hidden" && address ? (
+                      <div className="border-t border-gray-800/80 pt-2 sm:pt-3">
+                        <button
+                          type="button"
+                          disabled={unhidingTokenId === r.tokenId}
+                          onClick={async (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            if (!address) return;
+                            setUnhidingTokenId(r.tokenId);
+                            const hiddenKey = rq.portfolioHidden(address);
+                            const prev = queryClient.getQueryData<number[]>(hiddenKey);
+                            queryClient.setQueryData<number[]>(hiddenKey, (old) =>
+                              (old ?? []).filter((id) => id !== r.tokenId),
+                            );
+                            try {
+                              await unhidePortfolioHolding(address, r.tokenId);
+                              void queryClient.invalidateQueries({
+                                queryKey: ["portfolio-daily-snapshots", address],
+                              });
+                            } catch (err) {
+                              if (prev !== undefined) {
+                                queryClient.setQueryData(hiddenKey, prev);
+                              } else {
+                                void queryClient.invalidateQueries({ queryKey: hiddenKey });
+                              }
+                              window.alert(
+                                err instanceof Error ? err.message : "Failed to unhide card",
+                              );
+                            } finally {
+                              setUnhidingTokenId(null);
+                            }
+                          }}
+                          className="w-full rounded-md border border-mint/35 bg-mint/10 px-2 py-1.5 text-center text-[10px] font-semibold text-mint transition-colors hover:border-mint/45 hover:bg-mint/18 disabled:cursor-not-allowed disabled:opacity-50 sm:rounded-lg sm:px-3 sm:py-2.5 sm:text-[12px]"
+                        >
+                          {unhidingTokenId === r.tokenId ? "Restoring…" : "Unhide"}
+                        </button>
+                      </div>
+                    ) : null}
+                    {isBurnAdmin && address && assetFilter !== "hidden" ? (
                       <div className="border-t border-gray-800/80 pt-2 sm:pt-3">
                         <button
                           type="button"
@@ -1458,10 +1664,72 @@ export default function PortfolioPage() {
                         </button>
                       </div>
                     ) : null}
+                    {!isBurnAdmin && address && assetFilter !== "hidden" ? (
+                      <div className="border-t border-gray-800/80 pt-2 sm:pt-3">
+                        <button
+                          type="button"
+                          disabled={
+                            hidingTokenId === r.tokenId ||
+                            cancellingListingTokenId === r.tokenId
+                          }
+                          onClick={async (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            if (!address) return;
+                            if (r.listPriceUsd != null) {
+                              window.alert("Cancel listing first, then hide.");
+                              return;
+                            }
+                            if (
+                              !window.confirm(
+                                `Hide RWA #${r.tokenId} from your portfolio? It stays in your wallet; you can restore it from Hidden.`,
+                              )
+                            ) {
+                              return;
+                            }
+                            setHidingTokenId(r.tokenId);
+                            const hiddenKey = rq.portfolioHidden(address);
+                            const prev = queryClient.getQueryData<number[]>(hiddenKey);
+                            queryClient.setQueryData<number[]>(hiddenKey, (old) => {
+                              const next = new Set(old ?? []);
+                              next.add(r.tokenId);
+                              return [...next];
+                            });
+                            try {
+                              await hidePortfolioHolding(address, r.tokenId);
+                              void queryClient.invalidateQueries({
+                                queryKey: ["portfolio-daily-snapshots", address],
+                              });
+                            } catch (err) {
+                              if (prev !== undefined) {
+                                queryClient.setQueryData(hiddenKey, prev);
+                              } else {
+                                void queryClient.invalidateQueries({ queryKey: hiddenKey });
+                              }
+                              window.alert(
+                                err instanceof Error ? err.message : "Failed to hide card",
+                              );
+                            } finally {
+                              setHidingTokenId(null);
+                            }
+                          }}
+                          className="w-full rounded-md border border-zinc-500/35 bg-zinc-500/10 px-2 py-1.5 text-center text-[10px] font-semibold text-zinc-200 transition-colors hover:border-zinc-400/45 hover:bg-zinc-500/18 disabled:cursor-not-allowed disabled:opacity-50 sm:rounded-lg sm:px-3 sm:py-2.5 sm:text-[12px]"
+                        >
+                          {hidingTokenId === r.tokenId ? "Hiding…" : "Hide"}
+                        </button>
+                      </div>
+                    ) : null}
                   </div>
                 </div>
                 );
               })}
+              {visibleAssetCount < filteredAssetRows.length ? (
+                <div
+                  ref={assetScrollSentinelRef}
+                  className="col-span-full h-px w-full"
+                  aria-hidden
+                />
+              ) : null}
               </div>
             </div>
           )}
