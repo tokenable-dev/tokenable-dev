@@ -3,6 +3,10 @@ import {
   REFERENCE_CHANGE_UNAVAILABLE_HINT,
 } from "@/lib/market";
 
+/** Shared typography for Markets listing rows: label, $ price, and % change. */
+export const EXCHANGE_LISTING_PRICE_TEXT_CLASS =
+  "text-sm tabular-nums leading-none sm:text-base";
+
 function formatListingUsd(n: number | null | undefined): string {
   if (n == null || !Number.isFinite(n)) return "—";
   const abs = Math.abs(n);
@@ -30,11 +34,13 @@ function ExchangeReferenceChangeInline({
   loading = false,
   windowShort = MARKET_PRICE_CHANGE_PERIOD_SHORT,
   titleDetail,
+  textClassName = EXCHANGE_LISTING_PRICE_TEXT_CLASS,
 }: {
   pct: number | null;
   loading?: boolean;
   windowShort?: string;
   titleDetail?: string;
+  textClassName?: string;
 }) {
   const win = windowShort;
   const title = titleDetail?.trim()
@@ -43,7 +49,7 @@ function ExchangeReferenceChangeInline({
 
   if (loading && pct == null) {
     return (
-      <span className="shrink-0 text-[10px] text-zinc-500 sm:text-xs" aria-hidden>
+      <span className={`shrink-0 text-zinc-500 ${textClassName}`} aria-hidden>
         … {win}
       </span>
     );
@@ -53,36 +59,55 @@ function ExchangeReferenceChangeInline({
   const hint = pct == null ? REFERENCE_CHANGE_UNAVAILABLE_HINT : title;
 
   return (
-    <span className="shrink-0 text-[10px] sm:text-xs" title={hint}>
-      <span className={`tabular-nums font-semibold ${referenceChangePctClass(displayPct)}`}>
+    <span className={`shrink-0 ${textClassName}`} title={hint}>
+      <span
+        className={`font-semibold ${referenceChangePctClass(displayPct)}`}
+      >
         {formatSignedPct(displayPct)}
       </span>
-      <span className="text-zinc-400">{` ${win}`}</span>
+      <span className="font-medium text-zinc-400">{` ${win}`}</span>
     </span>
   );
 }
 
-/** White listing price with colored % change to the right (Markets cards). */
+/** White listing price with colored % change inline (Markets cards default to end-aligned). */
 export function ExchangeListingPriceWithChange({
   priceUsd,
   changePct,
   loading = false,
   windowShort = MARKET_PRICE_CHANGE_PERIOD_SHORT,
   titleDetail,
-  priceClassName = "text-sm font-bold sm:text-base md:text-lg",
+  textClassName = EXCHANGE_LISTING_PRICE_TEXT_CLASS,
+  priceClassName,
+  changeTextClassName,
   priceTitle,
+  align = "end",
 }: {
   priceUsd: number | null;
   changePct: number | null;
   loading?: boolean;
   windowShort?: string;
   titleDetail?: string;
+  /** Base size for price + % (and Markets "Price" label when using the export). */
+  textClassName?: string;
+  /** Overrides price styling only; defaults from textClassName. */
   priceClassName?: string;
+  /** Overrides % change styling only; defaults from textClassName. */
+  changeTextClassName?: string;
   priceTitle?: string;
+  align?: "start" | "end";
 }) {
+  const resolvedPriceClass =
+    priceClassName ?? `${textClassName} font-bold text-white`;
+  const resolvedChangeClass = changeTextClassName ?? textClassName;
+
   return (
-    <div className="flex min-w-0 items-baseline justify-end gap-2 sm:gap-2.5">
-      <span className={`tabular-nums text-white ${priceClassName}`} title={priceTitle}>
+    <div
+      className={`flex min-w-0 items-baseline gap-2 sm:gap-2.5 ${
+        align === "start" ? "justify-start" : "justify-end"
+      }`}
+    >
+      <span className={resolvedPriceClass} title={priceTitle}>
         {formatListingUsd(priceUsd)}
       </span>
       <ExchangeReferenceChangeInline
@@ -90,6 +115,7 @@ export function ExchangeListingPriceWithChange({
         loading={loading}
         windowShort={windowShort}
         titleDetail={titleDetail}
+        textClassName={resolvedChangeClass}
       />
     </div>
   );

@@ -5,7 +5,124 @@
 
 ## Schema overview
 
-Six application tables. Legacy relational trading tables (`bids`, `asks`, `match_intents`, …) and `hidden_assets` are **not** in the current codebase.
+**Seven** application tables. Legacy relational trading tables (`bids`, `asks`, `match_intents`, …) and `hidden_assets` are **not** in the current codebase.
+
+PostgreSQL **does not declare FK constraints** between these tables — relationships below are **logical** (denormalized keys, app-enforced).
+
+```mermaid
+erDiagram
+    users {
+        uuid id PK
+        varchar email UK
+        varchar google_id UK "nullable"
+        varchar name
+        text picture_url
+        boolean email_verified
+        timestamptz platform_email_verified_at
+        varchar email_verification_token_hash
+        timestamptz email_verification_expires_at
+        timestamptz verification_email_last_sent_at
+        varchar wallet_address UK "nullable"
+        timestamptz wallet_linked_at
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    psa_cert_snapshots {
+        varchar cert_number PK
+        jsonb snapshot_json
+        timestamptz fetched_at
+    }
+
+    marketplace_collections {
+        varchar collection_key PK "SHA-256 bucket"
+        varchar display_label
+        text query_used
+        jsonb components
+        text cover_image_url
+        varchar psa_cert_number
+        varchar market_parallel_key
+        smallint bucket_key_version
+        timestamptz created_at
+    }
+
+    collection_market_snapshots {
+        varchar collection_key PK
+        varchar cardhedger_card_id
+        float psa10_usd
+        float psa9_usd
+        float raw_usd
+        float headline_usd
+        varchar spot_price_basis
+        float change_7d_pct
+        float change_30d_pct
+        jsonb sparkline_90d_json
+        jsonb preview_json
+        jsonb external_usd_json
+        jsonb grade_prices_json
+        varchar category_label
+        varchar history_tier
+        smallint reliability_score
+        varchar market_state "fresh|stale|error|empty"
+        timestamptz synced_at
+        timestamptz stale_after
+        smallint source_version
+        timestamptz last_viewed_at
+        text last_refresh_error
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    rwa_tokens {
+        varchar token_contract PK
+        varchar token_id PK
+        varchar cert_number
+        text token_uri
+        varchar metadata_cid
+        varchar display_name
+        varchar collection_key
+        timestamptz metadata_synced_at
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    orders {
+        serial id PK
+        varchar order_hash UK
+        varchar offerer
+        varchar side "ask|bid"
+        varchar token_contract
+        varchar token_id
+        varchar collection_key
+        varchar consideration_token
+        varchar consideration_amount
+        jsonb parameters
+        varchar signature
+        varchar status
+        timestamptz start_time
+        timestamptz end_time
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    portfolio_daily_snapshots {
+        serial id PK
+        varchar wallet_address
+        date snapshot_date_kst
+        timestamptz snapshot_at "09:00 Asia/Seoul slot"
+        float total_value_usd
+        int card_count
+        timestamptz created_at
+    }
+
+    marketplace_collections ||--o| collection_market_snapshots : "collection_key"
+    marketplace_collections ||--o{ orders : "collection_key"
+    marketplace_collections ||--o{ rwa_tokens : "collection_key"
+    marketplace_collections }o--o| psa_cert_snapshots : "psa_cert_number"
+    rwa_tokens ||--o{ orders : "token_contract + token_id"
+    users |o--o{ orders : "wallet_address ~ offerer"
+    users |o--o{ portfolio_daily_snapshots : "wallet_address optional"
+```
 
 ```
 users
@@ -14,6 +131,7 @@ marketplace_collections          ← bucket metadata (created on first ask)
 rwa_tokens                       ← on-chain mint registry (contract + tokenId)
 collection_market_snapshots      ← materialized Cardhedger pricing (worker upsert)
 orders                           ← Seaport signed asks/bids + fulfilled tape
+portfolio_daily_snapshots        ← daily 09:00 KST wallet mark-to-market (cron)
 ```
 
 ### How data flows
@@ -27,6 +145,8 @@ orders                           ← Seaport signed asks/bids + fulfilled tape
 | Snapshot worker / on-demand refresh | upsert `collection_market_snapshots` |
 | List / cancel / fulfill | `orders` only |
 | Markets UI read | `marketplace_collections` + `collection_market_snapshots` + `orders` |
+| Portfolio chart (09:00 KST cron) | upsert `portfolio_daily_snapshots` (on-chain holders + tracked zero-card wallets) |
+| Portfolio API read | `portfolio_daily_snapshots` (+ fallback capture if today’s row missing) |
 
 Cardhedger is **not** called on the hot read path for collection charts — see [materialized-market-snapshots.md](./materialized-market-snapshots.md).
 
@@ -179,6 +299,26 @@ Seaport off-chain order book. Entity: `order.entity.ts`.
 
 ---
 
+### `portfolio_daily_snapshots`
+
+Daily wallet mark-to-market for portfolio charts. Entity: `portfolio-daily-snapshot.entity.ts`. Captured by **09:00 KST cron** (`PortfolioDailySnapshotSchedulerService`).
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | serial PK | |
+| `wallet_address` | varchar(42) | Lowercase `0x…`; not FK to `users` |
+| `snapshot_date_kst` | date | KST calendar day for the slot |
+| `snapshot_at` | timestamptz | Always the slot’s **09:00 Asia/Seoul** instant |
+| `total_value_usd` | double precision | Sum of Cardhedger marks for on-chain holdings |
+| `card_count` | int | NFT count at capture |
+| `created_at` | timestamptz | Row insert time |
+
+**Unique:** `(wallet_address, snapshot_date_kst)`.
+
+**Cron targets:** all on-chain RWA holders + linked users with zero holdings + wallets with prior snapshot history (sold out).
+
+---
+
 ## Env (registry / migration)
 
 | Variable | Purpose |
@@ -187,4 +327,4 @@ Seaport off-chain order book. Entity: `order.entity.ts`.
 | `MARKETPLACE_BUCKET_KEY_MIGRATE_ON_BOOT` | Recompute active ask `collection_key` (v2) |
 | `PSA_PUBLIC_SNAPSHOT_DB_TTL_SEC` | `psa_cert_snapshots` TTL |
 
-See [backend/sql/README.md](../../backend/sql/README.md) for snapshot worker env vars.
+See [backend/sql/README.md](../../backend/sql/README.md) for snapshot worker and portfolio cron env vars (`PORTFOLIO_SNAPSHOT_*`).

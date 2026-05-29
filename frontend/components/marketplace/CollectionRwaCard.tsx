@@ -240,15 +240,10 @@ export function CollectionRwaCard({
             </p>
             <div className="flex min-h-[15px] min-w-0 items-baseline leading-none">
               {listing && listingPrice !== "—" ? (
-                <>
-                  <span className="text-[13px] font-semibold tabular-nums text-white">
-                    <span className="font-normal text-zinc-500">$ </span>
-                    {listingPrice}
-                  </span>
-                  <span className="ms-1 shrink-0 text-[6px] font-medium uppercase tracking-[0.04em] text-zinc-600">
-                    USDC
-                  </span>
-                </>
+                <span className="text-[13px] font-semibold tabular-nums text-white">
+                  <span className="font-normal text-zinc-500">$ </span>
+                  {listingPrice}
+                </span>
               ) : (
                 <span className="text-[12px] font-medium text-zinc-500">—</span>
               )}

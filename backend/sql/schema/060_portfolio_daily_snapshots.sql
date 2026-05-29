@@ -19,4 +19,4 @@ CREATE INDEX IF NOT EXISTS idx_portfolio_daily_snapshots_wallet_at
   ON portfolio_daily_snapshots (wallet_address, snapshot_at DESC);
 
 COMMENT ON TABLE portfolio_daily_snapshots IS
-  'Daily portfolio total USD per linked wallet (captured at 09:00 Asia/Seoul).';
+  'Daily portfolio total USD per wallet (on-chain holders + tracked zero-card wallets; 09:00 Asia/Seoul).';

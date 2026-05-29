@@ -8,7 +8,7 @@
 ```
 backend/src/
 ├── main.ts                  # Bootstrap: global prefix /api, CORS, ValidationPipe, Swagger
-├── app.module.ts            # Root — TypeORM (4 entities), ScheduleModule
+├── app.module.ts            # Root — TypeORM (7 entities), ScheduleModule
 │
 ├── auth/                    # Google OAuth, JWT cookies, wallet link
 ├── user/                    # users table
@@ -23,29 +23,37 @@ backend/src/
 └── marketplace/
     ├── orders/              # Seaport order book (orders table)
     └── collections/
-        ├── collections.controller.ts      # List, detail, stats, market-series, …
+        ├── collections.controller.ts      # List, detail, stats, market-series, portfolio, admin
         ├── cert-market-trace.controller.ts # POST cert-market-trace (debug)
-        ├── collection.service.ts          # Buckets, covers, listing enrichment
+        ├── collection.service.ts          # Buckets, covers, listing enrichment, admin ops
         ├── collection-market.service.ts   # Pool stats, batch list snapshots
         ├── collection-market-snapshot.service.ts       # Worker refresh / upsert
         ├── collection-market-snapshot-read.service.ts  # DB-first API reads
         ├── collection-market-snapshot-scheduler.service.ts # Cron + SWR queue
+        ├── portfolio-daily-snapshot.service.ts         # Holder discovery + batch capture
+        ├── portfolio-daily-snapshot-scheduler.service.ts # 09:00 KST cron + bootstrap
         ├── cardhedger-market-data.service.ts
         └── cardhedger-ai-insight.service.ts
 ```
 
-**Entities (TypeORM):** `User`, `Order`, `MarketplaceCollection`, `CollectionMarketSnapshot` — see [database.md](./database.md).
+**Entities (TypeORM):** `User`, `Order`, `MarketplaceCollection`, `CollectionMarketSnapshot`, `PsaCertSnapshot`, `RwaToken`, `PortfolioDailySnapshot` — see [database.md](./database.md).
 
 There is **no** `marketplace/assets` module, relational `BidsController` / `TradeController`, or PokéTrace proxy in the current tree.
 
 ## Marketplace data path
 
 ```
-Ask POST → OrdersService.ensureCollectionForListing → marketplace_collections row
+Ask POST → OrdersService.ensureCollectionForListing → marketplace_collections + rwa_tokens
          → snapshot scheduler enqueue → collection_market_snapshots upsert (async/on-demand)
 
 GET …/collections, …/market-snapshots, …/cardhedger, …/price-history
          → CollectionMarketSnapshotReadService (PostgreSQL only on hot path)
+
+09:00 KST cron → PortfolioDailySnapshotSchedulerService
+         → ownerOf scan + batch Cardhedger pricing → portfolio_daily_snapshots upsert
+
+GET …/portfolio/daily/:wallet
+         → list snapshots; fallback capture only if today's row missing (no overwrite)
 ```
 
 ## Global bootstrap (`main.ts`)

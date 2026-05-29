@@ -68,17 +68,19 @@ docker exec tokenable-postgres psql -U tokenable -d tokenable \
 | `rwa_tokens` | On-chain mint registry (tokenId → cert, IPFS) |
 | `collection_market_snapshots` | Materialized Cardhedger pricing (API read path) |
 | `orders` | Seaport ask/bid listings + fulfilled tape |
-| `portfolio_daily_snapshots` | Daily 09:00 KST portfolio total USD per linked wallet |
+| `portfolio_daily_snapshots` | Daily 09:00 KST portfolio total USD per on-chain holder (+ zero-card tracked wallets) |
 
 ## Portfolio daily snapshot env
 
 | Variable | Purpose |
 |----------|---------|
-| `PORTFOLIO_SNAPSHOT_BOOTSTRAP_ENABLED` | On boot, capture all linked wallets into the active 09:00 KST slot (default **on** in `production`) |
+| `PORTFOLIO_SNAPSHOT_CRON_ENABLED` | Daily 09:00 KST capture for all holders (default **on** in `production`) |
+| `PORTFOLIO_SNAPSHOT_BOOTSTRAP_ENABLED` | On boot, run the same holder capture into the active 09:00 KST slot (default **on** in `production`) |
 | `PORTFOLIO_SNAPSHOT_BOOTSTRAP_DELAY_MS` | Delay before bootstrap (default **10000**) |
-| `PORTFOLIO_SNAPSHOT_BOOTSTRAP_CONCURRENCY` | Parallel wallets per bootstrap tick (default **2**) |
+| `PORTFOLIO_SNAPSHOT_OWNER_SCAN_CONCURRENCY` | Parallel `ownerOf` RPC during holder discovery (default **24**) |
+| `PORTFOLIO_SNAPSHOT_CAPTURE_CONCURRENCY` | Parallel wallet upserts after batch pricing (default **8**) |
 
-Rows upsert on `(wallet_address, snapshot_date_kst)`. `snapshot_at` is always the slot’s **09:00 Asia/Seoul** (latest completed checkpoint), so restarts the same KST day overwrite that day’s row with fresh totals.
+Rows upsert on `(wallet_address, snapshot_date_kst)`. `snapshot_at` is always the slot’s **09:00 Asia/Seoul** (latest completed checkpoint). Cron uses a Postgres advisory lock so only one instance runs per tick. Portfolio API read path backfills a **missing** current-day row only; it does not overwrite existing cron rows.
 
 ## Snapshot worker env
 

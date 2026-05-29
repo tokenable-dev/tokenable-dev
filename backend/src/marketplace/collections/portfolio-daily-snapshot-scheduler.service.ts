@@ -1,24 +1,29 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Cron } from '@nestjs/schedule';
-import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Not, Repository } from 'typeorm';
-import { User } from '../../user/entities/user.entity';
-import {
-  PortfolioDailySnapshotService,
-  resolveKstDailySnapshotSlot,
-} from './portfolio-daily-snapshot.service';
+import { InjectDataSource } from '@nestjs/typeorm';
+import { DataSource } from 'typeorm';
+import { PortfolioDailySnapshotService } from './portfolio-daily-snapshot.service';
+import { PORTFOLIO_SNAPSHOT_ADVISORY_LOCK_KEY } from './portfolio-daily-snapshot.types';
 
 @Injectable()
 export class PortfolioDailySnapshotSchedulerService implements OnModuleInit {
   private readonly logger = new Logger(PortfolioDailySnapshotSchedulerService.name);
+  private captureInFlight = false;
 
   constructor(
-    @InjectRepository(User)
-    private readonly userRepo: Repository<User>,
     private readonly portfolioSnapshots: PortfolioDailySnapshotService,
     private readonly config: ConfigService,
+    @InjectDataSource()
+    private readonly dataSource: DataSource,
   ) {}
+
+  cronEnabled(): boolean {
+    const raw = this.config.get<string>('PORTFOLIO_SNAPSHOT_CRON_ENABLED');
+    if (raw === '1' || raw === 'true') return true;
+    if (raw === '0' || raw === 'false') return false;
+    return this.config.get<string>('NODE_ENV') === 'production';
+  }
 
   bootstrapEnabled(): boolean {
     const raw = this.config.get<string>('PORTFOLIO_SNAPSHOT_BOOTSTRAP_ENABLED');
@@ -35,74 +40,95 @@ export class PortfolioDailySnapshotSchedulerService implements OnModuleInit {
     return Math.min(Math.floor(raw), 120_000);
   }
 
-  bootstrapConcurrency(): number {
-    const raw = Number(
-      this.config.get<string>('PORTFOLIO_SNAPSHOT_BOOTSTRAP_CONCURRENCY') ?? '2',
-    );
-    if (!Number.isFinite(raw) || raw < 1) return 2;
-    return Math.min(Math.floor(raw), 8);
-  }
-
   onModuleInit(): void {
     if (!this.bootstrapEnabled()) return;
     const delay = this.bootstrapDelayMs();
     setTimeout(() => {
-      void this.captureAllLinkedWallets('bootstrap');
+      void this.runCapture('bootstrap');
     }, delay);
   }
 
-  /** Daily capture at 09:00 KST for all linked wallets. */
+  /** Daily capture at 09:00 KST for all on-chain holders + tracked zero-card wallets. */
   @Cron('0 0 9 * * *', { timeZone: 'Asia/Seoul' })
   async handleDailyCaptureKst(): Promise<void> {
-    await this.captureAllLinkedWallets('cron');
+    if (!this.cronEnabled()) return;
+    await this.runCapture('cron');
   }
 
-  private async linkedWallets(): Promise<string[]> {
-    const users = await this.userRepo.find({
-      where: { walletAddress: Not(IsNull()) },
-      select: ['walletAddress'],
-    });
-    return [
-      ...new Set(
-        users
-          .map((u) => String(u.walletAddress ?? '').trim().toLowerCase())
-          .filter(Boolean),
-      ),
-    ];
-  }
-
-  private async captureAllLinkedWallets(trigger: 'cron' | 'bootstrap'): Promise<void> {
-    const wallets = await this.linkedWallets();
-    const slot = resolveKstDailySnapshotSlot(new Date());
-    const concurrency =
-      trigger === 'bootstrap' ? this.bootstrapConcurrency() : 2;
-
-    let ok = 0;
-    let failed = 0;
-    for (let i = 0; i < wallets.length; i += concurrency) {
-      const chunk = wallets.slice(i, i + concurrency);
-      const results = await Promise.allSettled(
-        chunk.map((wallet) =>
-          this.portfolioSnapshots.captureDailySnapshot(wallet, new Date()),
-        ),
+  private async runCapture(trigger: 'cron' | 'bootstrap'): Promise<void> {
+    if (this.captureInFlight) {
+      this.logger.warn(
+        JSON.stringify({
+          msg: 'portfolio_daily_snapshot_skipped',
+          reason: 'capture_in_flight',
+          trigger,
+        }),
       );
-      for (const r of results) {
-        if (r.status === 'fulfilled' && r.value) ok++;
-        else failed++;
-      }
+      return;
     }
 
-    this.logger.log(
-      JSON.stringify({
-        msg: 'portfolio_daily_snapshot_captured',
-        trigger,
-        timezone: 'Asia/Seoul',
-        slotDateKst: slot.snapshotDateKst,
-        slotAt: slot.snapshotAt.toISOString(),
-        wallets: wallets.length,
-        ok,
-        failed,
-      }),
-    );
+    const acquired = await this.tryAdvisoryLock();
+    if (!acquired) {
+      this.logger.warn(
+        JSON.stringify({
+          msg: 'portfolio_daily_snapshot_skipped',
+          reason: 'advisory_lock_held',
+          trigger,
+        }),
+      );
+      return;
+    }
+
+    this.captureInFlight = true;
+    try {
+      const result = await this.portfolioSnapshots.captureAllHoldersDailySnapshots(
+        new Date(),
+      );
+      this.logger.log(
+        JSON.stringify({
+          msg: 'portfolio_daily_snapshot_run_complete',
+          trigger,
+          timezone: 'Asia/Seoul',
+          ...result,
+        }),
+      );
+    } catch (e) {
+      this.logger.error(
+        JSON.stringify({
+          msg: 'portfolio_daily_snapshot_run_failed',
+          trigger,
+          error: String(e),
+        }),
+      );
+    } finally {
+      this.captureInFlight = false;
+      await this.releaseAdvisoryLock();
+    }
+  }
+
+  private async tryAdvisoryLock(): Promise<boolean> {
+    try {
+      const rows = await this.dataSource.query(
+        'SELECT pg_try_advisory_lock($1) AS locked',
+        [PORTFOLIO_SNAPSHOT_ADVISORY_LOCK_KEY],
+      );
+      const locked = rows?.[0]?.locked;
+      return locked === true || locked === 't';
+    } catch (e) {
+      this.logger.warn(
+        `portfolio snapshot advisory lock unavailable: ${String(e)}`,
+      );
+      return true;
+    }
+  }
+
+  private async releaseAdvisoryLock(): Promise<void> {
+    try {
+      await this.dataSource.query('SELECT pg_advisory_unlock($1)', [
+        PORTFOLIO_SNAPSHOT_ADVISORY_LOCK_KEY,
+      ]);
+    } catch {
+      /* best-effort */
+    }
   }
 }

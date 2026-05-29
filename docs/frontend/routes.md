@@ -15,7 +15,7 @@ All routes are file-system based. Dynamic segments use `[param]` notation.
 | `/exchange` | `app/exchange/page.tsx` | **Markets / Card Trading List** — collections + batch snapshots |
 | `/markets` | `app/markets/page.tsx` | Re-exports `/exchange` (same page) |
 | `/vault` | `app/vault/page.tsx` | Mint / RWA registration — slab scan, Cardhedger/PSA lookup, IPFS upload, on-chain mint |
-| `/portfolio` | `app/portfolio/page.tsx` | Owned assets — token list, listing status, reference price vs platform price |
+| `/portfolio` | `app/portfolio/page.tsx` | Owned assets — daily value chart (09:00 KST snapshots), token list, listing status, reference vs platform price |
 | `/profile` | `app/profile/page.tsx` | User profile — wallet link/unlink, email verification status |
 | `/login` | `app/login/page.tsx` | Authentication entry (Google OAuth link) |
 | `/signup` | `app/signup/page.tsx` | Registration page |
@@ -45,7 +45,7 @@ All routes are file-system based. Dynamic segments use `[param]` notation.
 | `/` | `GET /api/cardhedger/indexes` |
 | `/exchange` | `GET /api/marketplace/collections`, `POST /api/marketplace/collections/market-snapshots` |
 | `/vault` | `POST /api/psa/analyze`, `POST /api/psa/analyze-by-cert`, `POST /api/rwa/upload` |
-| `/portfolio` | `GET /api/blockchain/rwa/tokens/:address`, `POST /api/blockchain/rwa/metadata/batch`, `POST /api/marketplace/cardhedger/mint-previews`, `POST /api/marketplace/collections/portfolio-market-batch`, `GET /api/marketplace/orders/token/:tokenId` |
+| `/portfolio` | `GET /api/blockchain/rwa/tokens/:address`, `POST /api/blockchain/rwa/metadata/batch`, `POST /api/marketplace/collections/token-collection-keys`, `POST /api/marketplace/cardhedger/mint-previews`, `POST /api/marketplace/collections/portfolio-market-batch`, `GET /api/marketplace/portfolio/daily/:wallet`, `GET /api/marketplace/orders/token/:tokenId` |
 | `/marketplace/[tokenId]` | `GET /api/blockchain/rwa/asset/:tokenId`, `GET /api/marketplace/orders/token/:tokenId` |
 | `/marketplace/collections/[collectionKey]` | `GET /api/marketplace/collections/:key`, `GET …/cardhedger`, `GET …/market-series`, `GET …/stats`, `GET …/ai-insight`, criteria bids via Seaport + `orders` |
 

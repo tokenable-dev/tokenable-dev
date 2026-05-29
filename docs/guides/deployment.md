@@ -72,7 +72,7 @@ If you build the frontend image manually, pass the same arg or browser/SSR paths
 git clone https://github.com/<org>/tokenable-dev.git /home/ubuntu/app
 ```
 
-Create `/home/ubuntu/.env.production.backend` with all backend secrets (same keys as `backend/.env`).
+Create `/home/ubuntu/.env.production.backend` with all backend secrets (same keys as `backend/.env`), including optional `PORTFOLIO_SNAPSHOT_*` for the daily 09:00 KST portfolio cron (defaults to on in production when unset — see [backend/sql/README.md](../../backend/sql/README.md)).
 
 ---
 
@@ -126,6 +126,8 @@ docker exec -i tokenable-postgres env PGPASSWORD=tokenable \
 (`bootstrap-empty-prod-db.sql` uses psql `\ir` — must run from `backend/sql/`; the shell script above is preferred for piping.)
 
 Then set `TYPEORM_SYNC=false` in `.env.production.backend` and redeploy the backend.
+
+Expect **seven** tables after bootstrap (`users`, `psa_cert_snapshots`, `marketplace_collections`, `rwa_tokens`, `collection_market_snapshots`, `orders`, `portfolio_daily_snapshots`). See [architecture/database.md](../architecture/database.md).
 
 ---
 

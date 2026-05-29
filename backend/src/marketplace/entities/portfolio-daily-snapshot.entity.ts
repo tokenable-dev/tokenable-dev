@@ -7,7 +7,7 @@ import {
   Unique,
 } from 'typeorm';
 
-/** One row per wallet per KST calendar day (09:00 Asia/Seoul capture). */
+/** One row per wallet per KST calendar day (09:00 Asia/Seoul cron; authoritative history). */
 @Entity('portfolio_daily_snapshots')
 @Unique('portfolio_daily_snapshots_wallet_date_unique', [
   'walletAddress',

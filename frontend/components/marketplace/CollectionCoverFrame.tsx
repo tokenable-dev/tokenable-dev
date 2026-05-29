@@ -137,13 +137,13 @@ export function CollectionCoverFrame({
     variant === "featured" || variant === "hero";
   const outerPad =
     variant === "hero"
-      ? "max-lg:p-[2px] p-[3px] lg:p-[4px]"
+      ? "p-0"
       : variant === "featured"
         ? "p-[3px] sm:p-[4px]"
         : "p-[2px]";
   const innerPad =
     variant === "hero"
-      ? "max-lg:p-1 p-1.5 lg:p-2.5"
+      ? "p-0"
       : variant === "featured"
         ? "p-2 sm:p-2.5"
         : "p-1";
@@ -160,7 +160,11 @@ export function CollectionCoverFrame({
         ? "rounded-[0.95rem]"
         : "rounded-[0.65rem]";
   const radiusImg =
-    variant === "hero" ? "rounded-xl" : variant === "featured" ? "rounded-lg" : "rounded-md";
+    variant === "hero"
+      ? "rounded-none"
+      : variant === "featured"
+        ? "rounded-lg"
+        : "rounded-md";
 
   /** featured: 목록→상세 중간 / hero: 컬렉션 페이지 중앙 대형 */
   const featuredOuter = "w-full max-w-[165px] sm:max-w-[180px] aspect-[3/4]";
@@ -182,8 +186,8 @@ export function CollectionCoverFrame({
   const heroFlat =
     variant === "hero"
       ? {
-          outer: `${outerPad} ${radiusOuter} ${COLLECTION_DETAILS_BG_CLASS} max-lg:shadow-none lg:shadow-[0_0_0_1px_rgba(11,13,16,1)]`,
-          inner: `${radiusInner} ${COLLECTION_DETAILS_BG_CLASS} ${innerPad} flex flex-col`,
+          outer: `${radiusOuter} ${COLLECTION_DETAILS_BG_CLASS} max-lg:shadow-none lg:shadow-[0_0_0_1px_rgba(11,13,16,1)]`,
+          inner: `${radiusInner} ${COLLECTION_DETAILS_BG_CLASS} flex min-h-0 flex-1 flex-col`,
         }
       : null;
 
@@ -208,10 +212,10 @@ export function CollectionCoverFrame({
     <div className={outerClass}>
       <div className={innerClass}>
         <div
-          className={`relative overflow-hidden ${imgShellBg} ring-1 ring-[rgba(11,13,16,1)] ${radiusImg} ${
-            variant === "compact"
-              ? "aspect-[3/4] w-full"
-              : "min-h-0 w-full flex-1"
+          className={`relative min-h-0 w-full flex-1 overflow-hidden ${imgShellBg} ${
+            variant === "hero" ? "" : "ring-1 ring-[rgba(11,13,16,1)]"
+          } ${radiusImg} ${
+            variant === "compact" ? "aspect-[3/4]" : ""
           } ${heroInteractive ? "group/img" : ""}`}
         >
           {resolved && !imgFailed ? (

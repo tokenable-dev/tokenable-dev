@@ -25,7 +25,6 @@ import {
 } from "@/components/marketplace/collectionOverviewChrome";
 import { CollectionOrderBookVisibilityToggle } from "@/components/marketplace/CollectionOrderBookVisibilityToggle";
 import { AssetDetailHeadlineTitle } from "@/components/marketplace/AssetDetailHeadlineTitle";
-import { CollectionMobileListingsSection } from "@/components/marketplace/CollectionMobileListingsSection";
 import { useCollectionDetailMobile } from "@/components/marketplace/useCollectionDetailMobile";
 import {
   assetDetailHeadlineHasContent,
@@ -593,7 +592,7 @@ export function CollectionOverviewBoard({
                           imageUrl={imageUrl}
                           alt=""
                           variant="hero"
-                          className="relative z-[1] shrink-0 self-start"
+                          className="relative z-[1] shrink-0 self-start max-lg:overflow-visible"
                         />
                       ) : (
                         <div
@@ -610,7 +609,7 @@ export function CollectionOverviewBoard({
                         imageUrl={imageUrl}
                         alt=""
                         variant="hero"
-                        className="relative z-[1] w-full lg:w-full"
+                        className="relative z-[1] w-full overflow-visible lg:w-full"
                       />
                     ) : (
                       <div
@@ -631,7 +630,7 @@ export function CollectionOverviewBoard({
                       imageUrl={imageUrl}
                       alt=""
                       variant="hero"
-                      className="relative z-[1] w-full shrink-0 max-lg:ms-auto max-lg:shrink-0 lg:w-full"
+                      className="relative z-[1] w-full shrink-0 overflow-visible max-lg:ms-auto max-lg:shrink-0 lg:w-full"
                     />
                   ) : (
                     <div
@@ -643,21 +642,12 @@ export function CollectionOverviewBoard({
                 </div>
               )}
               {useMobileTabbedMarket ? (
-                <>
-                  <div className="max-lg:shrink-0 max-lg:px-3 max-lg:pb-0 max-lg:pt-3.5">
-                    {mobileMarketTabs}
-                  </div>
-                  {exchangeBelowChart != null ? (
-                    <div
-                      className="max-lg:mt-1 max-lg:shrink-0 max-lg:px-3 max-lg:pb-4 lg:hidden"
-                      id="collection-listings"
-                    >
-                      <CollectionMobileListingsSection count={listingCount}>
-                        {exchangeBelowChart}
-                      </CollectionMobileListingsSection>
-                    </div>
-                  ) : null}
-                </>
+                <div
+                  className="max-lg:shrink-0 max-lg:px-3 max-lg:pb-0 max-lg:pt-3.5"
+                  id="collection-listings"
+                >
+                  {mobileMarketTabs}
+                </div>
               ) : (
                 <>
                   {mobileCoverBelowMetrics != null ? (

@@ -623,16 +623,8 @@ export default function RwaDetailPage() {
       >
         {/* Loading */}
         {tokenIdOk && isPageLoading && (
-          <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_minmax(280px,0.62fr)] lg:gap-x-10 items-start">
-            <div className="space-y-4">
-              <div className="aspect-[3/4] max-h-[min(76vh,700px)] sm:max-h-[min(78vh,760px)] w-full bg-gray-800/90 rounded-2xl animate-pulse" />
-              <div className="h-8 w-3/4 bg-gray-800 rounded animate-pulse" />
-              <div className="grid grid-cols-2 gap-3">
-                {[...Array(4)].map((_, i) => (
-                  <div key={i} className="h-14 bg-gray-800/80 rounded-xl animate-pulse" />
-                ))}
-              </div>
-            </div>
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1.05fr)_minmax(280px,0.62fr)] lg:gap-x-10 items-start">
+            <div className="aspect-[3/4] max-h-[min(76vh,700px)] w-full animate-pulse rounded-2xl bg-gray-800/90 sm:max-h-[min(78vh,760px)]" />
             <div className="space-y-4">
               {[...Array(6)].map((_, i) => (
                 <div
@@ -680,8 +672,8 @@ export default function RwaDetailPage() {
         {/* Main content */}
         {showMain && (
           <>
-            <div className="grid grid-cols-1 items-start gap-y-8 max-lg:items-center max-lg:gap-y-0 lg:grid-cols-[minmax(0,1.05fr)_minmax(280px,0.62fr)] lg:gap-x-10 lg:gap-y-10 xl:gap-x-12">
-              <div className="relative flex w-full min-w-0 flex-col gap-0 max-lg:items-center lg:col-start-1">
+            <div className="grid grid-cols-1 items-start gap-y-6 max-lg:items-center max-lg:gap-y-0 lg:grid-cols-[minmax(0,1.05fr)_minmax(280px,0.62fr)] lg:items-start lg:gap-x-10 xl:gap-x-12">
+              <div className="relative flex w-full min-w-0 flex-col gap-0 max-lg:items-center lg:col-start-1 lg:items-start lg:justify-start">
                 <div className={`w-full ${RWA_MOBILE_CONTENT_SCROLL_CLASS}`}>
                   <RwaDetailAssetPanel
                     metadata={metadata as RwaDetailMetadata | null}
@@ -689,7 +681,6 @@ export default function RwaDetailPage() {
                     tokenId={tokenId}
                     collectionLabel={collectionDisplayName}
                     metaLoading={metaLoading}
-                    hideHeaderOnXl
                     openSeaMobile
                   />
 
@@ -772,7 +763,7 @@ export default function RwaDetailPage() {
                 </RwaDetailStickyBuyFooter>
               </div>
 
-              <div className="hidden w-full min-w-0 flex-col gap-6 sm:gap-7 lg:sticky lg:top-6 lg:col-start-2 lg:flex lg:max-w-[400px] lg:justify-self-end lg:self-start">
+              <div className="hidden w-full min-w-0 flex-col gap-5 lg:sticky lg:top-6 lg:col-start-2 lg:flex lg:max-w-[400px] lg:justify-self-end lg:self-start">
                 <div className="hidden min-w-0 space-y-2.5 lg:block">
                   {detailTitlePulse ? (
                     <div

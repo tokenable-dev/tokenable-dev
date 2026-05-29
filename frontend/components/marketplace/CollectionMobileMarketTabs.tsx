@@ -13,14 +13,18 @@ export function CollectionMobileMarketTabs({
   informationPanel,
   chartPanel,
   orderBookPanel,
+  listingsPanel,
   defaultTab = "information",
 }: {
   informationPanel: ReactNode;
   chartPanel: ReactNode;
   orderBookPanel: ReactNode;
+  /** On Info tab: rendered directly under the information panel (no chart/book height reserve). */
+  listingsPanel?: ReactNode;
   defaultTab?: CollectionMobileMarketTabId;
 }) {
   const [tab, setTab] = useState<CollectionMobileMarketTabId>(defaultTab);
+  const isInfoTab = tab === "information";
 
   let panel: ReactNode = informationPanel;
   if (tab === "chart") panel = chartPanel;
@@ -59,11 +63,22 @@ export function CollectionMobileMarketTabs({
       </div>
 
       <div
-        className="shrink-0 max-lg:overflow-x-clip pt-2 min-h-[168px] overflow-hidden"
+        className={
+          isInfoTab
+            ? "shrink-0 pt-2 min-h-0 overflow-visible"
+            : "shrink-0 max-lg:overflow-x-clip pt-2 min-h-[168px] overflow-hidden"
+        }
         role="tabpanel"
       >
         {panel}
+        {isInfoTab && listingsPanel ? (
+          <div className="mt-2 min-w-0 shrink-0">{listingsPanel}</div>
+        ) : null}
       </div>
+
+      {!isInfoTab && listingsPanel ? (
+        <div className="mt-1 min-w-0 shrink-0 pb-4">{listingsPanel}</div>
+      ) : null}
     </div>
   );
 }

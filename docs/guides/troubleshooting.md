@@ -64,7 +64,7 @@ GitHub Actions deploys frontend and backend from the **same commit** when you pu
 
 ## Database: "relation does not exist"
 
-Production expects four tables — see [architecture/database.md](../architecture/database.md). Apply bootstrap once:
+Production expects **seven** application tables — see [architecture/database.md](../architecture/database.md). Apply bootstrap once:
 
 ```bash
 # From repo root (host has backend/sql/)
@@ -138,8 +138,11 @@ docker logs tokenable-backend 2>&1 | tail -80
 # Check env vars in backend container
 docker exec tokenable-backend env | grep -E 'TYPEORM|POSTGRES|NODE_ENV|CARDHEDGER'
 
-# Verify DB tables (expect 4: users, marketplace_collections, collection_market_snapshots, orders)
+# Verify DB tables (expect 7 application tables — see architecture/database.md)
 docker exec tokenable-postgres psql -U tokenable -d tokenable -c '\dt'
+
+# Portfolio cron log (after 09:00 KST or bootstrap)
+docker logs tokenable-backend 2>&1 | grep portfolio_daily_snapshot
 
 # API smoke tests
 curl -s http://localhost:4000/api/auth/session

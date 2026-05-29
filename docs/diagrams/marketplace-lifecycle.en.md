@@ -2,7 +2,7 @@
 
 > Seaport v1.5 · Off-chain order book (backend) · On-chain `fulfillOrder` / `matchAdvancedOrders`
 
-> **Update (2026-05):** Relational matching removed; **four DB tables** including **`collection_market_snapshots`**. [database.md](../architecture/database.md) · [materialized-market-snapshots.md](../architecture/materialized-market-snapshots.md)
+> **Update (2026-05):** Relational matching removed; **seven DB tables** including **`portfolio_daily_snapshots`** (09:00 KST cron). [database.md](../architecture/database.md) · [materialized-market-snapshots.md](../architecture/materialized-market-snapshots.md) · [api/marketplace.md](../api/marketplace.md)
 >
 > **Paths:** Sequence diagram labels like `POST /api/…` include the Nest global prefix **`api`**. Full HTTP overview: **[api/README.md](../api/README.md)**.
 
@@ -204,60 +204,53 @@ sequenceDiagram
 
 ## Part 3 — DB Schema & State Transitions
 
-> All marketplace order and trade data is stored in two main tables.
-> `orders` — order data and status management. `marketplace_collections` — collection group info.
+> The application DB has **seven tables**. There are no PostgreSQL FK constraints — keys are linked logically in app code.
+> **Full column-level ER (latest):** [architecture/database.md](../architecture/database.md#schema-overview)
 
-### 3-1. Table Schema
+### 3-1. Table structure (relationship summary)
 
 ```mermaid
 erDiagram
     users {
-        uuid id PK "Unique identifier"
-        string email UK "Email address"
-        string google_id UK "Google OAuth ID"
-        string name "Display name"
-        string picture_url "Profile image"
-        boolean email_verified "Email verified flag"
-        timestamp platform_email_verified_at "Platform email verification time"
-        string email_verification_token_hash "Verification token hash"
-        timestamp email_verification_expires_at "Token expiry time"
-        timestamp verification_email_last_sent_at "Last verification email sent"
-        string wallet_address UK "Connected wallet address"
-        timestamp wallet_linked_at "Wallet linked time"
-        timestamp created_at "Registration time"
-        timestamp updated_at "Last update time"
+        uuid id PK
+        varchar wallet_address UK
     }
-
-    orders {
-        int id PK "Auto-increment ID"
-        string order_hash UK "Order identifier hash"
-        string offerer "Order creator wallet address"
-        string side "Order type: ask or bid"
-        string token_contract "NFT contract address"
-        string token_id "NFT token number"
-        string collection_key FK "Parent collection identifier"
-        string consideration_token "Payment token address (USDC)"
-        string consideration_amount "Trade amount"
-        json parameters "Full Seaport order data"
-        string signature "Wallet signature"
-        string status "active fulfilled cancelled expired"
-        timestamp start_time "Order valid from"
-        timestamp end_time "Order expiry time"
-        timestamp created_at "Created at"
-        timestamp updated_at "Last status change"
+    psa_cert_snapshots {
+        varchar cert_number PK
     }
-
     marketplace_collections {
-        string collection_key PK "Collection unique identifier"
-        string display_label "Collection display name"
-        string query_used "Generation query"
-        json components "Card grade and attribute config"
-        string cover_image_url "Cover image URL"
-        timestamp created_at "Created at"
+        varchar collection_key PK
+        varchar psa_cert_number
+    }
+    collection_market_snapshots {
+        varchar collection_key PK
+    }
+    rwa_tokens {
+        varchar token_contract PK
+        varchar token_id PK
+        varchar collection_key
+    }
+    orders {
+        serial id PK
+        varchar order_hash UK
+        varchar offerer
+        varchar collection_key
+        varchar token_contract
+        varchar token_id
+    }
+    portfolio_daily_snapshots {
+        serial id PK
+        varchar wallet_address
+        date snapshot_date_kst UK
     }
 
-    users ||--o{ orders : "wallet_address = offerer"
-    orders }o--|| marketplace_collections : "collection_key"
+    marketplace_collections ||--o| collection_market_snapshots : "bucket pricing"
+    marketplace_collections ||--o{ orders : "collection_key"
+    marketplace_collections ||--o{ rwa_tokens : "collection_key"
+    marketplace_collections }o--o| psa_cert_snapshots : "psa_cert_number"
+    rwa_tokens ||--o{ orders : "token"
+    users |o--o{ orders : "offerer"
+    users |o--o{ portfolio_daily_snapshots : "wallet optional"
 ```
 
 ### 3-2. When and What Data Is Stored
@@ -659,7 +652,7 @@ flowchart TD
     subgraph REST ["REST namespaces"]
         direction TB
         R_AUTH["/api/auth<br/>Google OAuth · JWT cookies · wallet link"]:::route
-        R_MKT["/api/marketplace<br/>orders · collections · snapshots<br/>· cardhedger bundle routes · Seaport only"]:::route
+        R_MKT["/api/marketplace<br/>orders · collections · snapshots<br/>· portfolio/daily · cardhedger · Seaport only"]:::route
         R_RWA["/api/rwa<br/>IPFS metadata upload · mint helpers"]:::route
         R_BC["/api/blockchain<br/>RWA tokenURI · metadata / IPFS resolve"]:::route
         R_CH["/api/cardhedger<br/>indexes (+ server-side CardhedgerService)"]:::route
@@ -667,7 +660,7 @@ flowchart TD
     end
 
     subgraph PERSIST ["Persistence"]
-        PG[("PostgreSQL<br/>users · marketplace_collections<br/>· collection_market_snapshots · orders")]:::data
+        PG[("PostgreSQL<br/>users · psa_cert_snapshots · marketplace_collections<br/>· rwa_tokens · collection_market_snapshots<br/>· orders · portfolio_daily_snapshots")]:::data
     end
 
     subgraph OUT ["External systems"]
@@ -709,7 +702,7 @@ flowchart TB
     subgraph APP ["AppModule"]
         direction TB
         CFG["ConfigModule global"]:::mod
-        ORM["TypeORM<br/>Order · Collection · User · Bid · Ask · TradeExecution …"]:::ent
+        ORM["TypeORM<br/>User · Order · MarketplaceCollection<br/>· CollectionMarketSnapshot · PsaCertSnapshot<br/>· RwaToken · PortfolioDailySnapshot"]:::ent
     end
 
     subgraph M_AUTH ["auth/ — AuthModule"]

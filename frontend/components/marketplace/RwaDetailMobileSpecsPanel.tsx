@@ -31,26 +31,32 @@ function TrustStat({
   valueClassName = "text-white",
   title,
   href,
+  wrapValue = false,
 }: {
   label: string;
   value: string;
   valueClassName?: string;
   title?: string;
   href?: string;
+  /** When true, show the full value (wrap) instead of CSS ellipsis. */
+  wrapValue?: boolean;
 }) {
+  const valueLayoutClass = wrapValue
+    ? "break-all [overflow-wrap:anywhere]"
+    : "truncate";
   const valueNode = href ? (
     <a
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      className={`max-w-full truncate text-[13px] font-bold tabular-nums leading-tight underline decoration-zinc-600 underline-offset-2 transition-colors hover:text-mint hover:decoration-mint/50 ${valueClassName}`}
+      className={`max-w-full text-[16px] font-bold tabular-nums leading-tight underline decoration-zinc-600 underline-offset-2 transition-colors hover:text-mint hover:decoration-mint/50 sm:text-[17px] ${valueLayoutClass} ${valueClassName}`}
       title={title ?? "Verify on PSA"}
     >
       {value}
     </a>
   ) : (
     <span
-      className={`max-w-full truncate text-[13px] font-bold tabular-nums leading-tight ${valueClassName}`}
+      className={`max-w-full text-[16px] font-bold tabular-nums leading-tight sm:text-[17px] ${valueLayoutClass} ${valueClassName}`}
       title={title}
     >
       {value}
@@ -58,8 +64,8 @@ function TrustStat({
   );
 
   return (
-    <div className="flex min-w-[3.25rem] flex-1 flex-col items-center justify-center gap-0.5 px-0.5 py-1 text-center sm:min-w-0">
-      <span className="text-[10px] font-medium leading-tight text-zinc-500">
+    <div className="flex min-w-[3.5rem] flex-1 flex-col items-center justify-center gap-1 px-0.5 py-1.5 text-center sm:min-w-0">
+      <span className="text-xs font-medium leading-tight text-zinc-500 sm:text-[13px]">
         {label}
       </span>
       {valueNode}
@@ -133,9 +139,9 @@ function TrustStripSkeleton() {
   return (
     <div className="mobile-scroll-x-contain flex w-full min-w-0 shrink-0 justify-between gap-1 px-3 py-1 sm:px-4 lg:hidden">
       {[0, 1, 2].map((i) => (
-        <div key={i} className="flex flex-1 flex-col items-center gap-0.5 px-0.5 py-1">
-          <span className="h-2.5 w-10 animate-pulse rounded bg-zinc-800/90" aria-hidden />
-          <span className="h-4 w-14 animate-pulse rounded bg-zinc-800/80" aria-hidden />
+        <div key={i} className="flex flex-1 flex-col items-center gap-1 px-0.5 py-1.5">
+          <span className="h-3 w-11 animate-pulse rounded bg-zinc-800/90" aria-hidden />
+          <span className="h-5 w-16 animate-pulse rounded bg-zinc-800/80" aria-hidden />
         </div>
       ))}
     </div>
@@ -187,15 +193,9 @@ export function RwaDetailMobileSpecsPanel({
       ? `PSA population · ${view.populationHigher.toLocaleString("en-US")} graded higher`
       : "PSA population for this grade";
 
-  const certDisplay = view.certNumber
-    ? view.certNumber.length > 8
-      ? `···${view.certNumber.slice(-4)}`
-      : view.certNumber
-    : "—";
-
   return (
     <section
-      className="mx-auto w-full max-w-[32rem] min-w-0 pb-5 pt-4 lg:hidden"
+      className="mx-auto w-full max-w-[32rem] min-w-0 pb-5 pt-3 max-lg:pt-4 lg:hidden"
       aria-label="Card details"
     >
       {hasTrust ? (
@@ -214,7 +214,8 @@ export function RwaDetailMobileSpecsPanel({
           />
           <TrustStat
             label="Cert"
-            value={certDisplay}
+            value={view.certNumber ?? "—"}
+            wrapValue
             href={view.certVerifyUrl ?? undefined}
             valueClassName={
               view.certVerifyUrl && view.certNumber

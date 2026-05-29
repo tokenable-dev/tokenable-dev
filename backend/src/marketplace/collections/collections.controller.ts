@@ -174,7 +174,7 @@ export class CollectionsController {
       limitRaw != null && String(limitRaw).trim() !== ''
         ? Math.max(2, Math.min(120, parseInt(String(limitRaw), 10)))
         : 32;
-    // Read path should self-heal missed 09:00 KST cron slots.
+    // Fallback only when today's 09:00 KST cron row is missing (never overwrites cron history).
     await this.portfolioSnapshots.ensureCurrentSlotSnapshot(wallet);
     let rows = await this.portfolioSnapshots.listWalletSnapshots(wallet, limit);
     if (rows.length === 0) {

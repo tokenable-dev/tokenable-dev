@@ -73,10 +73,16 @@ CARDHEDGER_API_KEY=your_cardhedger_key
 PSA_PUBLIC_API_TOKEN=your_psa_token    # recommended for cert lookup & Variety
 # CARDHEDGER_PSA_SPECID_MAP={"9656727":"1745765714667x…"}  # optional PSA spec → Cardhedger id map
 
-# Snapshot worker (optional — code defaults apply if omitted)
+# Collection market snapshot worker (optional — code defaults apply if omitted)
 # MARKET_SNAPSHOT_ON_DEMAND=true
 # MARKET_SNAPSHOT_STALE_AFTER_SEC=900
 # MARKET_SNAPSHOT_CRON_ENABLED=true
+
+# Portfolio daily snapshots — 09:00 KST cron (recommended explicit in dev)
+PORTFOLIO_SNAPSHOT_CRON_ENABLED=true
+PORTFOLIO_SNAPSHOT_BOOTSTRAP_ENABLED=true
+# PORTFOLIO_SNAPSHOT_OWNER_SCAN_CONCURRENCY=24
+# PORTFOLIO_SNAPSHOT_CAPTURE_CONCURRENCY=8
 
 # Email (optional)
 SMTP_HOST=smtp.example.com

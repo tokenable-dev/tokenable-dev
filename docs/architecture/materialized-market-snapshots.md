@@ -55,7 +55,8 @@ See [backend/sql/README.md](../../backend/sql/README.md#snapshot-worker-env). Co
 | `MARKET_SNAPSHOT_STALE_AFTER_SEC` | 900 | Freshness window |
 | `MARKET_SNAPSHOT_CRON_ENABLED` | on | Background `@Cron` refresh |
 | `MARKET_SNAPSHOT_REFRESH_CONCURRENCY` | 4 | Parallel worker cap |
-| `PSA_PUBLIC_SNAPSHOT_DB_TTL_SEC` | 7 days | PSA cert JSON cache on collection row |
+| `PSA_PUBLIC_SNAPSHOT_DB_TTL_SEC` | 7 days | `psa_cert_snapshots` row TTL |
+| `PORTFOLIO_SNAPSHOT_*` | see sql README | Daily 09:00 KST wallet totals (`portfolio_daily_snapshots`) |
 
 ## Future: BullMQ + Redis
 

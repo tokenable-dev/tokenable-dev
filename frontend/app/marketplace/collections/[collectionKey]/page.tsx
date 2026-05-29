@@ -38,6 +38,7 @@ import { CollectionHeroDetailsTabs } from "@/components/marketplace/CollectionHe
 import { CollectionMobileCurrentPriceRow } from "@/components/marketplace/CollectionMobileCurrentPriceRow";
 import { CollectionMobileInformationPanel } from "@/components/marketplace/CollectionMobileInformationPanel";
 import { CollectionMobileMarketTabs } from "@/components/marketplace/CollectionMobileMarketTabs";
+import { CollectionMobileListingsSection } from "@/components/marketplace/CollectionMobileListingsSection";
 import type { CollectionDetailCard } from "@/components/marketplace/CollectionMetadataExpandable";
 import { CollectionPriceMetricsStrip } from "@/components/marketplace/CollectionPriceMetricsStrip";
 import type { BookRowSelection } from "@/components/marketplace/CollectionTradeTicket";
@@ -1171,6 +1172,45 @@ export default function MarketplaceCollectionPage() {
     />
   );
 
+  const collectionListingsBody =
+    tokenIds.length === 0 ? (
+      <div className="w-full px-1 py-6 text-center text-[13px] leading-relaxed text-zinc-500 max-lg:py-5 lg:px-4 lg:py-8 lg:text-[15px] lg:text-[#a0a0a0]">
+        No listings yet. List an asset from{" "}
+        <Link href="/portfolio" className="text-mint hover:underline">
+          Portfolio
+        </Link>
+        .
+      </div>
+    ) : (
+      <div className="grid w-full min-w-0 max-w-full grid-cols-2 content-start items-stretch justify-items-stretch gap-2 max-lg:gap-2 lg:flex lg:flex-row lg:flex-wrap lg:gap-x-[0.875rem] lg:gap-y-[0.9rem] lg:pb-2">
+        {tokenIds.map((tid) => {
+          const prefetch = batchMetadata?.get(tid);
+          return (
+            <div
+              key={tid}
+              className="flex min-h-0 min-w-0 w-full lg:w-[218px] lg:shrink-0 lg:w-[234px]"
+            >
+              <CollectionRwaCard
+                tokenId={tid}
+                collectionKey={key}
+                listing={askMap.get(tid) ?? null}
+                address={address}
+                prefetchedImageUrl={prefetch?.imageUrl}
+                prefetchedMetadata={prefetch?.metadata}
+                compact
+              />
+            </div>
+          );
+        })}
+      </div>
+    );
+
+  const mobileListingsPanel = (
+    <CollectionMobileListingsSection count={asks.length}>
+      {collectionListingsBody}
+    </CollectionMobileListingsSection>
+  );
+
   return (
     <div className="min-h-screen min-w-0 overflow-x-clip bg-[rgba(11,13,16,1)] text-white max-lg:min-h-0">
       <div
@@ -1233,11 +1273,7 @@ export default function MarketplaceCollectionPage() {
           }
           mobileMarketTabs={
             <CollectionMobileMarketTabs
-              informationPanel={
-                <div className="h-[168px] w-full min-w-0 shrink-0 overflow-hidden">
-                  {mobileInformationPanel}
-                </div>
-              }
+              informationPanel={mobileInformationPanel}
               chartPanel={
                 <div className="h-[168px] w-full min-w-0 shrink-0 overflow-hidden">
                   {collectionDualPriceChartTab}
@@ -1248,6 +1284,7 @@ export default function MarketplaceCollectionPage() {
                   {collectionOrderBookMobile}
                 </div>
               }
+              listingsPanel={mobileListingsPanel}
             />
           }
           bookColumnMetricsRow={null}
@@ -1292,39 +1329,7 @@ export default function MarketplaceCollectionPage() {
               onDockOpenChange={setTradeDockOpen}
             />
           }
-          exchangeBelowChart={
-            tokenIds.length === 0 ? (
-              <div className="w-full px-1 py-6 text-center text-[13px] leading-relaxed text-zinc-500 max-lg:py-5 lg:px-4 lg:py-8 lg:text-[15px] lg:text-[#a0a0a0]">
-                No listings yet. List an asset from{" "}
-                <Link href="/portfolio" className="text-mint hover:underline">
-                  Portfolio
-                </Link>
-                .
-              </div>
-            ) : (
-              <div className="grid w-full min-w-0 max-w-full grid-cols-2 content-start items-stretch justify-items-stretch gap-2 max-lg:gap-2 lg:flex lg:flex-row lg:flex-wrap lg:gap-x-[0.875rem] lg:gap-y-[0.9rem] lg:pb-2">
-                {tokenIds.map((tid) => {
-                  const prefetch = batchMetadata?.get(tid);
-                  return (
-                    <div
-                      key={tid}
-                      className="flex min-h-0 min-w-0 w-full lg:w-[218px] lg:shrink-0 lg:w-[234px]"
-                    >
-                      <CollectionRwaCard
-                        tokenId={tid}
-                        collectionKey={key}
-                        listing={askMap.get(tid) ?? null}
-                        address={address}
-                        prefetchedImageUrl={prefetch?.imageUrl}
-                        prefetchedMetadata={prefetch?.metadata}
-                        compact
-                      />
-                    </div>
-                  );
-                })}
-              </div>
-            )
-          }
+          exchangeBelowChart={collectionListingsBody}
         />
 
       </div>

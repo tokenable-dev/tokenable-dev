@@ -1,8 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Not, Repository } from 'typeorm';
 import { BlockchainService } from '../../blockchain/blockchain.service';
-import { CollectionMarketService } from './collection-market.service';
+import { User } from '../../user/entities/user.entity';
+import {
+  CollectionMarketBundle,
+  CollectionMarketService,
+} from './collection-market.service';
 import { CardhedgerMarketDataService } from './cardhedger-market-data.service';
 import { RwaTokenRegistryService } from './rwa-token-registry.service';
 import { PortfolioDailySnapshot } from '../entities/portfolio-daily-snapshot.entity';
@@ -11,6 +16,11 @@ import {
   resolveTokenMarkUsd,
 } from '../utils/portfolio-token-price.util';
 import { computeMarketBucketKey } from '../utils/bucket-key.util';
+import type {
+  HolderIndex,
+  PortfolioDailyCaptureRunResult,
+  PortfolioPricingContext,
+} from './portfolio-daily-snapshot.types';
 
 type SnapshotTotals = { totalValueUsd: number; cardCount: number };
 
@@ -19,6 +29,8 @@ export type KstDailySnapshotSlot = {
   snapshotDateKst: string;
   snapshotAt: Date;
 };
+
+const PORTFOLIO_MARKET_BATCH_KEY_CHUNK = 60;
 
 /**
  * Maps "now" to the latest completed 09:00 KST checkpoint.
@@ -49,22 +61,47 @@ export function resolveKstDailySnapshotSlot(
   };
 }
 
+function normalizeWalletAddress(raw: string | null | undefined): string | null {
+  const w = String(raw ?? '').trim().toLowerCase();
+  if (!w || !/^0x[a-f0-9]{40}$/.test(w)) return null;
+  return w;
+}
+
 @Injectable()
 export class PortfolioDailySnapshotService {
   private readonly logger = new Logger(PortfolioDailySnapshotService.name);
-  /** Guard expensive recompute bursts per wallet during rapid polling. */
-  private readonly reconcileGuardMsByWallet = new Map<string, number>();
-  private static readonly RECONCILE_GUARD_MS = 60_000;
-  private static readonly VALUE_DRIFT_EPSILON_USD = 0.01;
+  /** Guard duplicate fallback captures when cron row is missing (rapid API polling). */
+  private readonly fallbackGuardMsByWallet = new Map<string, number>();
+  private static readonly FALLBACK_GUARD_MS = 60_000;
 
   constructor(
     @InjectRepository(PortfolioDailySnapshot)
     private readonly snapshotRepo: Repository<PortfolioDailySnapshot>,
+    @InjectRepository(User)
+    private readonly userRepo: Repository<User>,
+    private readonly config: ConfigService,
     private readonly blockchain: BlockchainService,
     private readonly collectionMarket: CollectionMarketService,
     private readonly cardhedger: CardhedgerMarketDataService,
     private readonly rwaTokenRegistry: RwaTokenRegistryService,
   ) {}
+
+  ownerScanConcurrency(): number {
+    const raw = Number(
+      this.config.get<string>('PORTFOLIO_SNAPSHOT_OWNER_SCAN_CONCURRENCY') ??
+        '24',
+    );
+    if (!Number.isFinite(raw) || raw < 1) return 24;
+    return Math.min(Math.floor(raw), 64);
+  }
+
+  upsertConcurrency(): number {
+    const raw = Number(
+      this.config.get<string>('PORTFOLIO_SNAPSHOT_CAPTURE_CONCURRENCY') ?? '8',
+    );
+    if (!Number.isFinite(raw) || raw < 1) return 8;
+    return Math.min(Math.floor(raw), 32);
+  }
 
   async listWalletSnapshots(walletAddress: string, limit = 32) {
     const wallet = walletAddress.trim().toLowerCase();
@@ -86,8 +123,8 @@ export class PortfolioDailySnapshotService {
   }
 
   /**
-   * Ensure the current KST 09:00 slot exists for this wallet.
-   * Backfills a missed daily run (e.g. service restart/downtime around cron time).
+   * Read-path fallback only: backfill a missed cron slot for the current KST day.
+   * Does not overwrite an existing row (cron rows are authoritative history).
    */
   async ensureCurrentSlotSnapshot(
     walletAddress: string,
@@ -95,33 +132,23 @@ export class PortfolioDailySnapshotService {
   ): Promise<void> {
     const wallet = walletAddress.trim().toLowerCase();
     if (!wallet) return;
-    const nowMs = Date.now();
-    const last = this.reconcileGuardMsByWallet.get(wallet) ?? 0;
-    if (nowMs - last < PortfolioDailySnapshotService.RECONCILE_GUARD_MS) return;
-    this.reconcileGuardMsByWallet.set(wallet, nowMs);
+
     const slot = resolveKstDailySnapshotSlot(reference);
     const existing = await this.snapshotRepo.findOne({
       where: {
         walletAddress: wallet,
         snapshotDateKst: slot.snapshotDateKst,
       },
-      select: ['walletAddress', 'snapshotDateKst', 'totalValueUsd', 'cardCount'],
+      select: ['walletAddress', 'snapshotDateKst'],
     });
-    if (!existing) {
-      await this.captureDailySnapshot(wallet, reference);
-      return;
-    }
+    if (existing) return;
 
-    // Real-time reconciliation: if holdings changed after the slot row was written,
-    // overwrite the same KST slot with the latest totals so chart endpoint stays current.
-    const totals = await this.computeWalletTotals(wallet);
-    const valueDrift =
-      Math.abs(Number(existing.totalValueUsd ?? 0) - totals.totalValueUsd) >
-      PortfolioDailySnapshotService.VALUE_DRIFT_EPSILON_USD;
-    const cardCountDrift = Number(existing.cardCount ?? 0) !== totals.cardCount;
-    if (!valueDrift && !cardCountDrift) return;
+    const nowMs = Date.now();
+    const last = this.fallbackGuardMsByWallet.get(wallet) ?? 0;
+    if (nowMs - last < PortfolioDailySnapshotService.FALLBACK_GUARD_MS) return;
+    this.fallbackGuardMsByWallet.set(wallet, nowMs);
 
-    await this.upsertSlotTotals(wallet, slot, totals);
+    await this.captureDailySnapshot(wallet, reference);
   }
 
   async latest24h(walletAddress: string): Promise<{
@@ -155,6 +182,231 @@ export class PortfolioDailySnapshotService {
     });
   }
 
+  /**
+   * Production daily capture: on-chain holder index + batch pricing + all candidate wallets.
+   * Includes zero-card linked / historical wallets so charts stay continuous after full exit.
+   */
+  async captureAllHoldersDailySnapshots(
+    capturedAt = new Date(),
+  ): Promise<PortfolioDailyCaptureRunResult> {
+    const started = Date.now();
+    const slot = resolveKstDailySnapshotSlot(capturedAt);
+
+    const { totalMinted, holderIndex } = await this.discoverOnChainHolderIndex();
+    const additionalWallets = await this.discoverAdditionalWallets(holderIndex);
+    const allWallets = [
+      ...holderIndex.keys(),
+      ...additionalWallets,
+    ];
+
+    const allTokenIds = [
+      ...new Set([...holderIndex.values()].flat()),
+    ];
+    const pricing =
+      allTokenIds.length > 0
+        ? await this.buildPricingContext(allTokenIds)
+        : null;
+
+    let snapshotsWritten = 0;
+    let failed = 0;
+    const concurrency = this.upsertConcurrency();
+
+    for (let i = 0; i < allWallets.length; i += concurrency) {
+      const chunk = allWallets.slice(i, i + concurrency);
+      const results = await Promise.allSettled(
+        chunk.map(async (wallet) => {
+          const tokenIds = holderIndex.get(wallet) ?? [];
+          const totals =
+            tokenIds.length === 0 || !pricing
+              ? { totalValueUsd: 0, cardCount: 0 }
+              : this.computeTotalsFromContext(tokenIds, pricing);
+          await this.upsertSlotTotals(wallet, slot, totals);
+        }),
+      );
+      for (const r of results) {
+        if (r.status === 'fulfilled') snapshotsWritten++;
+        else failed++;
+      }
+    }
+
+    const durationMs = Date.now() - started;
+    const result: PortfolioDailyCaptureRunResult = {
+      slotDateKst: slot.snapshotDateKst,
+      slotAtIso: slot.snapshotAt.toISOString(),
+      totalMinted,
+      onChainHolders: holderIndex.size,
+      additionalZeroOrHistoricalWallets: additionalWallets.length,
+      walletsTargeted: allWallets.length,
+      snapshotsWritten,
+      failed,
+      durationMs,
+      pricingBatchKeys: pricing?.seriesByKey.size ?? 0,
+    };
+
+    this.logger.log(
+      JSON.stringify({
+        msg: 'portfolio_daily_snapshot_captured',
+        ...result,
+      }),
+    );
+
+    return result;
+  }
+
+  private async discoverOnChainHolderIndex(): Promise<{
+    totalMinted: number;
+    holderIndex: HolderIndex;
+  }> {
+    const { totalMinted: totalRaw } = await this.blockchain.getRwaInfo();
+    const totalMinted = Math.max(0, Math.floor(Number(totalRaw)));
+    const holderIndex: HolderIndex = new Map();
+    if (totalMinted <= 0) {
+      return { totalMinted: 0, holderIndex };
+    }
+
+    const tokenIds = Array.from({ length: totalMinted }, (_, i) => i);
+    const ownerByToken = await this.blockchain.batchOwnerOf(
+      tokenIds,
+      this.ownerScanConcurrency(),
+    );
+
+    for (const [tokenId, owner] of ownerByToken) {
+      const list = holderIndex.get(owner) ?? [];
+      list.push(tokenId);
+      holderIndex.set(owner, list);
+    }
+
+    for (const list of holderIndex.values()) {
+      list.sort((a, b) => a - b);
+    }
+
+    return { totalMinted, holderIndex };
+  }
+
+  /**
+   * Wallets that should keep daily rows even with zero on-chain holdings:
+   * profile-linked users + any wallet that already has snapshot history.
+   */
+  private async discoverAdditionalWallets(
+    holderIndex: HolderIndex,
+  ): Promise<string[]> {
+    const extra = new Set<string>();
+
+    const users = await this.userRepo.find({
+      where: { walletAddress: Not(IsNull()) },
+      select: ['walletAddress'],
+    });
+    for (const u of users) {
+      const w = normalizeWalletAddress(u.walletAddress);
+      if (w && !holderIndex.has(w)) extra.add(w);
+    }
+
+    const historical = await this.snapshotRepo
+      .createQueryBuilder('s')
+      .select('DISTINCT s.wallet_address', 'wallet')
+      .getRawMany<{ wallet: string }>();
+    for (const row of historical) {
+      const w = normalizeWalletAddress(row.wallet);
+      if (w && !holderIndex.has(w)) extra.add(w);
+    }
+
+    return [...extra].sort();
+  }
+
+  private async buildPricingContext(
+    tokenIds: number[],
+  ): Promise<PortfolioPricingContext> {
+    const uniqueTokenIds = [
+      ...new Set(
+        tokenIds
+          .map((n) => Math.floor(Number(n)))
+          .filter((n) => Number.isFinite(n) && n >= 0),
+      ),
+    ];
+
+    const metaByToken = new Map<number, Record<string, unknown>>();
+    const metadataPack = await this.blockchain.batchRwaMetadata(uniqueTokenIds);
+    for (const it of metadataPack.items) {
+      if (it.metadata && typeof it.metadata === 'object') {
+        metaByToken.set(it.tokenId, it.metadata);
+      }
+    }
+
+    const tokenToCollection = new Map<number, string>();
+    const registryKeys =
+      await this.rwaTokenRegistry.collectionKeysByTokenIds(uniqueTokenIds);
+    for (const tokenId of uniqueTokenIds) {
+      const fromRegistry = registryKeys[tokenId];
+      if (fromRegistry) {
+        tokenToCollection.set(tokenId, fromRegistry.toLowerCase());
+        continue;
+      }
+      const meta = metaByToken.get(tokenId);
+      if (!meta) continue;
+      const comp = componentsFromMetadata(meta);
+      if (!comp) continue;
+      tokenToCollection.set(tokenId, computeMarketBucketKey(comp).toLowerCase());
+    }
+
+    const uniqueKeys = [
+      ...new Set(
+        [...tokenToCollection.values()]
+          .map((k) => String(k ?? '').trim().toLowerCase())
+          .filter(Boolean),
+      ),
+    ];
+
+    const seriesByKey = new Map<string, CollectionMarketBundle | null>();
+    for (let i = 0; i < uniqueKeys.length; i += PORTFOLIO_MARKET_BATCH_KEY_CHUNK) {
+      const chunk = uniqueKeys.slice(i, i + PORTFOLIO_MARKET_BATCH_KEY_CHUNK);
+      const batch = await this.collectionMarket.batchPortfolioMarketData(chunk, {
+        priceHistoryDuration: '365d',
+      });
+      for (const it of batch.items) {
+        seriesByKey.set(it.collectionKey.toLowerCase(), it.series);
+      }
+    }
+
+    const missingPreviewTokenIds = uniqueTokenIds.filter((tokenId) => {
+      const key = tokenToCollection.get(tokenId);
+      if (!key) return true;
+      const pv = seriesByKey.get(key)?.cardhedgerPreview;
+      return !(pv?.matched && pv?.card);
+    });
+    const mintPreviews = await this.cardhedger.getBatchMintPreviewsFromTokenIds(
+      missingPreviewTokenIds,
+    );
+
+    return {
+      metaByToken,
+      tokenToCollection,
+      seriesByKey,
+      mintPreviews,
+    };
+  }
+
+  private computeTotalsFromContext(
+    tokenIds: number[],
+    ctx: PortfolioPricingContext,
+  ): SnapshotTotals {
+    let totalValueUsd = 0;
+    for (const tokenId of tokenIds) {
+      const meta = ctx.metaByToken.get(tokenId);
+      if (!meta) continue;
+      const key = ctx.tokenToCollection.get(tokenId);
+      const series = key ? ctx.seriesByKey.get(key) ?? null : null;
+      const usd = resolveTokenMarkUsd(
+        meta,
+        series,
+        ctx.mintPreviews[tokenId],
+      );
+      if (usd != null && Number.isFinite(usd) && usd > 0) {
+        totalValueUsd += usd;
+      }
+    }
+    return { totalValueUsd, cardCount: tokenIds.length };
+  }
+
   private async upsertSlotTotals(
     wallet: string,
     slot: KstDailySnapshotSlot,
@@ -172,71 +424,11 @@ export class PortfolioDailySnapshotService {
     );
   }
 
+  /** Single-wallet path (read fallback / legacy). */
   private async computeWalletTotals(walletAddress: string): Promise<SnapshotTotals> {
     const tokenIds = await this.blockchain.getRwaTokensByOwner(walletAddress);
     if (tokenIds.length === 0) return { totalValueUsd: 0, cardCount: 0 };
-
-    const metadataPack = await this.blockchain.batchRwaMetadata(tokenIds);
-    const metaByToken = new Map<number, Record<string, unknown>>();
-    for (const it of metadataPack.items) {
-      if (it.metadata && typeof it.metadata === 'object') {
-        metaByToken.set(it.tokenId, it.metadata);
-      }
-    }
-
-    const tokenToCollection: Record<number, string> =
-      await this.rwaTokenRegistry.collectionKeysByTokenIds(tokenIds);
-    for (const tokenId of tokenIds) {
-      if (tokenToCollection[tokenId]) continue;
-      const meta = metaByToken.get(tokenId);
-      if (!meta) continue;
-      const comp = componentsFromMetadata(meta);
-      if (!comp) continue;
-      tokenToCollection[tokenId] = computeMarketBucketKey(comp).toLowerCase();
-    }
-
-    const uniqueKeys = [
-      ...new Set(
-        Object.values(tokenToCollection)
-          .map((k) => String(k ?? '').trim().toLowerCase())
-          .filter(Boolean),
-      ),
-    ];
-    const batch = await this.collectionMarket.batchPortfolioMarketData(uniqueKeys, {
-      priceHistoryDuration: '365d',
-    });
-    const seriesByKey = new Map(
-      batch.items.map((it) => [it.collectionKey.toLowerCase(), it.series]),
-    );
-
-    const missingPreviewTokenIds = tokenIds.filter((tokenId) => {
-      const key = tokenToCollection[tokenId]?.toLowerCase();
-      if (!key) return true;
-      const pv = seriesByKey.get(key)?.cardhedgerPreview;
-      return !(pv?.matched && pv?.card);
-    });
-    const mintPreviews = await this.cardhedger.getBatchMintPreviewsFromTokenIds(
-      missingPreviewTokenIds,
-    );
-
-    let totalValueUsd = 0;
-    for (const tokenId of tokenIds) {
-      const meta = metaByToken.get(tokenId);
-      if (!meta) continue;
-      const key = tokenToCollection[tokenId]?.toLowerCase();
-      const series = key ? seriesByKey.get(key) ?? null : null;
-      const usd = resolveTokenMarkUsd(meta, series ?? null, mintPreviews[tokenId]);
-      if (usd != null && Number.isFinite(usd) && usd > 0) totalValueUsd += usd;
-    }
-
-    this.logger.debug(
-      JSON.stringify({
-        msg: 'portfolio_daily_snapshot_computed',
-        walletAddress,
-        cardCount: tokenIds.length,
-        totalValueUsd,
-      }),
-    );
-    return { totalValueUsd, cardCount: tokenIds.length };
+    const ctx = await this.buildPricingContext(tokenIds);
+    return this.computeTotalsFromContext(tokenIds, ctx);
   }
 }

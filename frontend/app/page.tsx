@@ -101,10 +101,11 @@ export default function LandingPage() {
           </h1>
 
           <p
-            className="landing-enter mb-3 max-w-xl text-center text-[12px] leading-snug text-gray-400 sm:mb-8 sm:text-base sm:leading-relaxed"
+            className="landing-enter mb-3 max-w-xl text-center text-lg leading-snug text-gray-400 sm:mb-8 sm:text-xl sm:leading-relaxed md:text-2xl"
             style={{ "--landing-enter-delay": "70ms" } as CSSProperties}
           >
-            Trade Authenticated and Vaulted Gems with Instant Settlement.
+            <span className="block">Trade Authenticated and Vaulted Gems</span>
+            <span className="block">with Instant Settlement.</span>
           </p>
 
           <TrendingCollectionsCarousel

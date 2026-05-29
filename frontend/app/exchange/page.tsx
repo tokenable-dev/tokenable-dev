@@ -16,8 +16,10 @@ import { useMarketplaceCollectionsInfinite } from "@/hooks/useMarketplaceCollect
 import { CollectionCoverFrame } from "@/components/marketplace/CollectionCoverFrame";
 import { useResolvedMediaUrlMap } from "@/hooks/useResolvedMediaUrl";
 import { CollectionCategoryFilterBar } from "@/components/marketplace/CollectionCategoryFilterBar";
-import { CollectionListSparkline } from "@/components/marketplace/CollectionListSparkline";
-import { ExchangeListingPriceWithChange } from "@/components/marketplace/ExchangeListingPrice";
+import {
+  EXCHANGE_LISTING_PRICE_TEXT_CLASS,
+  ExchangeListingPriceWithChange,
+} from "@/components/marketplace/ExchangeListingPrice";
 import {
   collectionMatchesCategoryFilter,
   formatReferenceChangeCoverageHint,
@@ -135,7 +137,7 @@ function percentDiffVersusRef(
   return ((compare - ref) / ref) * 100;
 }
 
-/** Grid / list layout toggle — selected: white; unselected: dark grey (no mint). */
+/** Sort menu toggle — selected: white; unselected: dark grey (no mint). */
 const EXCHANGE_VIEW_TOGGLE_ACTIVE =
   "rounded-lg border border-white/75 bg-white/[0.06] text-white hover:border-white/90";
 const EXCHANGE_VIEW_TOGGLE_INACTIVE =
@@ -181,37 +183,19 @@ const EXCHANGE_SORT_OPTIONS = [
 
 type ExchangeSortId = (typeof EXCHANGE_SORT_OPTIONS)[number]["id"];
 
-function ExchangeLayoutToggleGroup({
-  viewMode,
-  onGrid,
+function ExchangeSortToggleButton({
+  sortMenuOpen,
   onSortMenu,
-  sortMenuOpen = false,
   className = "",
 }: {
-  viewMode: "list" | "grid";
-  onGrid: () => void;
+  sortMenuOpen: boolean;
   onSortMenu: () => void;
-  sortMenuOpen?: boolean;
   className?: string;
 }) {
   return (
     <div
       className={[className, EXCHANGE_LAYOUT_TOGGLE_SHELL].filter(Boolean).join(" ")}
-      role="group"
-      aria-label="Collection layout and sort"
     >
-      <ExchangeLayoutToggleButton
-        active={viewMode === "grid"}
-        onClick={onGrid}
-        ariaLabel="Grid view"
-      >
-        <svg viewBox="0 0 16 16" className="h-4 w-4" fill="currentColor" aria-hidden>
-          <rect x="1" y="1" width="6" height="6" rx="1" />
-          <rect x="9" y="1" width="6" height="6" rx="1" />
-          <rect x="1" y="9" width="6" height="6" rx="1" />
-          <rect x="9" y="9" width="6" height="6" rx="1" />
-        </svg>
-      </ExchangeLayoutToggleButton>
       <ExchangeLayoutToggleButton
         active={sortMenuOpen}
         onClick={onSortMenu}
@@ -291,14 +275,10 @@ function ExchangeSortMenu({
 }
 
 function ExchangeMarketsViewToolbar({
-  viewMode,
-  onGrid,
   sortId,
   onSortChange,
   className = "",
 }: {
-  viewMode: "list" | "grid";
-  onGrid: () => void;
   sortId: ExchangeSortId;
   onSortChange: (id: ExchangeSortId) => void;
   className?: string;
@@ -316,12 +296,7 @@ function ExchangeMarketsViewToolbar({
 
   return (
     <div className={`relative ${className}`.trim()}>
-      <ExchangeLayoutToggleGroup
-        viewMode={viewMode}
-        onGrid={() => {
-          setSortMenuOpen(false);
-          onGrid();
-        }}
+      <ExchangeSortToggleButton
         sortMenuOpen={sortMenuOpen}
         onSortMenu={() => setSortMenuOpen((open) => !open)}
       />
@@ -518,128 +493,6 @@ function compareExchangeCollections(
   }
 }
 
-function CollectionRow({
-  collection,
-  listingCount,
-  snapshot,
-  resolvedCoverUrl,
-  marketChangeLoading = false,
-}: {
-  collection: MarketplaceCollectionSummary;
-  listingCount: number;
-  snapshot: CollectionListMarketSnapshot | undefined;
-  resolvedCoverUrl?: string;
-  marketChangeLoading?: boolean;
-}) {
-  const comp = collection.components as Record<string, unknown> & { gradeScore?: string };
-
-  const jtSpot = representativeGradeUsd(
-    snapshot?.gradePrices ?? null,
-    parseGradeScoreNumber(comp.gradeScore),
-    comp.gradeScore,
-  );
-
-  const ms = snapshot?.marketStats ?? null;
-  const floor =
-    ms?.floor != null && Number.isFinite(ms.floor) && ms.floor > 0 ? ms.floor : null;
-  const lastTrade =
-    snapshot?.lastTokenableTradeUsdc != null &&
-    Number.isFinite(snapshot.lastTokenableTradeUsdc)
-      ? snapshot.lastTokenableTradeUsdc
-      : null;
-  const refUsd = jtSpot != null && Number.isFinite(jtSpot) && jtSpot > 0 ? jtSpot : null;
-  const sparklinePoints =
-    snapshot?.sparklineUsd != null && snapshot.sparklineUsd.length >= 2
-      ? snapshot.sparklineUsd
-      : null;
-  const effectiveRefUsd = refUsd;
-  const tokenablePrice = floor ?? lastTrade;
-  const tokenableVsRefPct = percentDiffVersusRef(tokenablePrice, effectiveRefUsd);
-  const changePctExternal =
-    snapshot?.marketChangePct != null && Number.isFinite(snapshot.marketChangePct)
-      ? snapshot.marketChangePct
-      : null;
-  const changePeriodMeta = referenceChangePeriodFromSnapshotMeta(snapshot);
-  const changeWindowShort = formatReferenceChangePeriodFromSnapshotMeta(snapshot);
-  const changeCoverageHint = formatReferenceChangeCoverageHint(changePeriodMeta);
-  const pop = parsePsaPopulationFromComponents(comp);
-  const marketsTitle = buildMarketsCollectionTitle({ collection, comp });
-
-  return (
-    <Link
-      href={`/marketplace/collections/${encodeURIComponent(collection.collectionKey)}`}
-      className="group flex flex-col gap-3 rounded-2xl border border-zinc-700/70 bg-gradient-to-r from-[#0f1117] via-[#10131a] to-[#0e1218] px-3 py-3 transition-all hover:border-mint/35 hover:shadow-[0_0_26px_rgba(16,211,51,0.12)] sm:flex-row sm:items-center sm:gap-6 sm:rounded-3xl sm:px-6 sm:py-6"
-    >
-      <div className="flex min-w-0 flex-row items-start gap-3 sm:contents">
-        <div className="relative w-[min(96px,26vw)] shrink-0 sm:w-[196px] sm:shrink-0">
-          {(resolvedCoverUrl || collection.coverImageUrl) ? (
-            <div className="aspect-[3/4] w-full overflow-hidden rounded-xl border border-gray-800/80 sm:rounded-2xl">
-              <CollectionCoverFrame
-                imageUrl={resolvedCoverUrl || collection.coverImageUrl!}
-                variant="compact"
-                className="h-full w-full object-cover"
-              />
-            </div>
-          ) : (
-            <div className="aspect-[3/4] w-full rounded-xl border border-gray-800 bg-gray-900 sm:rounded-2xl" />
-          )}
-        </div>
-
-        <div className="min-w-0 flex-1">
-          <h3 className="line-clamp-2 break-words text-base font-extrabold uppercase leading-snug tracking-tight text-white transition-colors group-hover:text-mint sm:line-clamp-1 sm:truncate sm:text-2xl">
-            {marketsTitle}
-          </h3>
-          <div className={`mt-1.5 ${EXCHANGE_CARD_INFO_BADGE_ROW}`}>
-          {pop != null ? (
-            <ExchangeKvBadge
-              label="Pop"
-              value={formatExchangeBadgeCount(pop)}
-              title={`PSA population: ${pop.toLocaleString()}`}
-            />
-          ) : null}
-          <ExchangeKvBadge
-            label="Listed"
-            value={formatExchangeBadgeCount(listingCount)}
-            title={`${listingCount} listing${listingCount !== 1 ? "s" : ""} on Tokenable`}
-          />
-          {tokenableVsRefPct != null ? (
-            <span
-              className={EXCHANGE_CARD_BADGE_NEUTRAL}
-              title={`Tokenable Price (${tokenablePrice != null ? formatUsd(tokenablePrice) : "—"}) vs eBay (${effectiveRefUsd != null ? formatUsd(effectiveRefUsd) : "—"})`}
-            >
-              <span>Gap </span>
-              <span className={`tabular-nums ${exchangePctValueClass(tokenableVsRefPct)}`}>
-                {tokenableVsRefPct >= 0 ? "+" : ""}
-                {tokenableVsRefPct.toFixed(1)}%
-              </span>
-            </span>
-          ) : null}
-        </div>
-        <div className="mt-2.5 flex items-baseline justify-between gap-2 sm:mt-3">
-          <span className="shrink-0 text-sm text-white">Price</span>
-          <ExchangeListingPriceWithChange
-            priceUsd={effectiveRefUsd}
-            changePct={changePctExternal}
-            loading={marketChangeLoading}
-            windowShort={changeWindowShort}
-            titleDetail={changeCoverageHint}
-            priceTitle="External eBay reference price."
-          />
-        </div>
-        </div>
-      </div>
-
-      <div className="flex w-full min-w-0 shrink-0 flex-col items-stretch gap-1 sm:w-auto sm:items-end">
-        <CollectionListSparkline
-          points={sparklinePoints}
-          positive={changePctExternal == null ? undefined : changePctExternal >= 0}
-          className="h-12 w-full max-w-full sm:h-20 sm:w-40"
-        />
-      </div>
-    </Link>
-  );
-}
-
 function parsePsaPopulationFromComponents(components: Record<string, unknown>): number | null {
   const raw = components.psaTotalPopulation;
   if (typeof raw === "number" && Number.isFinite(raw) && raw >= 0) {
@@ -724,7 +577,9 @@ function CollectionGridCard({
         </h3>
 
         <div className="mt-auto flex min-w-0 items-baseline justify-between gap-1.5 pt-0.5 sm:gap-2">
-          <span className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-zinc-400 sm:text-[11px] sm:text-white">
+          <span
+            className={`shrink-0 font-medium uppercase tracking-wide text-zinc-400 sm:text-white ${EXCHANGE_LISTING_PRICE_TEXT_CLASS}`}
+          >
             Price
           </span>
           <ExchangeListingPriceWithChange
@@ -733,7 +588,6 @@ function CollectionGridCard({
             loading={marketChangeLoading}
             windowShort={changeWindowShort}
             titleDetail={changeCoverageHint}
-            priceClassName="text-[0.875rem] font-bold leading-none max-[380px]:text-[0.8125rem] sm:text-lg"
             priceTitle="External eBay reference price."
           />
         </div>
@@ -746,7 +600,6 @@ export default function ExchangePage() {
   const [categoryFilter, setCategoryFilter] = useState<CollectionCategoryFilterId>(
     MARKETS_DEFAULT_CATEGORY_FILTER,
   );
-  const [viewMode, setViewMode] = useState<"list" | "grid">("grid");
   const [sortId, setSortId] = useState<ExchangeSortId>("high_price");
 
   const ordersQuery = useQuery({
@@ -872,8 +725,6 @@ export default function ExchangePage() {
               </h2>
               <ExchangeMarketsViewToolbar
                 className="inline-flex sm:hidden"
-                viewMode={viewMode}
-                onGrid={() => setViewMode("grid")}
                 sortId={sortId}
                 onSortChange={setSortId}
               />
@@ -889,8 +740,6 @@ export default function ExchangePage() {
               </div>
               <ExchangeMarketsViewToolbar
                 className="hidden sm:inline-flex"
-                viewMode={viewMode}
-                onGrid={() => setViewMode("grid")}
                 sortId={sortId}
                 onSortChange={setSortId}
               />
@@ -952,7 +801,8 @@ export default function ExchangePage() {
               Categories use listing text and snapshot metadata — try ALL or another category.
             </p>
           </div>
-        ) : viewMode === "grid" ? (
+        ) : (
+          <>
           <div className="grid grid-cols-2 gap-2.5 pt-1 min-[400px]:gap-3 sm:grid-cols-3 sm:gap-6 lg:grid-cols-4">
             {filteredSorted.map((c) => (
               <CollectionGridCard
@@ -977,31 +827,8 @@ export default function ExchangePage() {
               </div>
             ) : null}
           </div>
-        ) : (
-          <div className="space-y-6 pt-1 sm:space-y-7">
-            {filteredSorted.map((c) => (
-              <CollectionRow
-                key={c.collectionKey}
-                collection={c}
-                listingCount={c.activeListingCount}
-                snapshot={snapshotByKey.get(collectionKeyLower(c))}
-                resolvedCoverUrl={c.coverImageUrl ? resolvedCoverMap.get(c.coverImageUrl) : undefined}
-                marketChangeLoading={showMarketSnapshotLoadingBar}
-              />
-            ))}
-            {hasNextPage ? (
-              <div className="flex justify-center pt-4">
-                <button
-                  type="button"
-                  onClick={() => void fetchNextPage()}
-                  disabled={isFetchingNextPage}
-                  className="rounded-xl border border-zinc-700 bg-zinc-900/80 px-5 py-2.5 text-sm font-semibold text-zinc-200 hover:bg-zinc-800 disabled:opacity-50"
-                >
-                  {isFetchingNextPage ? "Loading…" : "Load more collections"}
-                </button>
-              </div>
-            ) : null}
-            {categoryFilter === "all" && orphanAsks.length > 0 && (
+          {categoryFilter === "all" && orphanAsks.length > 0 ? (
+            <div className="mt-6 sm:mt-7">
               <Link
                 href="/marketplace/other-listings"
                 className="group flex flex-col gap-4 rounded-2xl border border-gray-800/50 bg-[#0d0d0d] px-4 py-4 transition-colors hover:border-gray-700/80 hover:bg-[#121212] sm:flex-row sm:items-center sm:gap-6 sm:px-6 sm:py-6"
@@ -1039,8 +866,9 @@ export default function ExchangePage() {
                   →
                 </span>
               </Link>
-            )}
-          </div>
+            </div>
+          ) : null}
+          </>
         )}
       </div>
 

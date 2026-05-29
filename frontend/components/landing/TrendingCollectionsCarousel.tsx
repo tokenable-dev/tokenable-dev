@@ -364,7 +364,9 @@ export function TrendingCollectionsCarousel({
                 changePct={changePctExternal}
                 windowShort={changeWindowShort}
                 titleDetail={changeCoverageHint}
-                priceClassName="text-base font-bold leading-[140%] tracking-normal [font-family:var(--font-ibm-plex-sans),sans-serif] sm:text-[18px]"
+                align={variant === "landing" ? "start" : "end"}
+                textClassName="text-base leading-none tabular-nums tracking-normal [font-family:var(--font-ibm-plex-sans),sans-serif] sm:text-[18px]"
+                priceClassName="text-base font-bold leading-none tabular-nums tracking-normal text-white [font-family:var(--font-ibm-plex-sans),sans-serif] sm:text-[18px]"
                 priceTitle="External eBay reference price."
               />
             </div>

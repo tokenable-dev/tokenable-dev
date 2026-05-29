@@ -17,7 +17,7 @@ import {
 import { displayAssetNameFromMetadata } from "@/lib/marketplace/rwaDisplayTitle";
 import { SlabCardFlip } from "./SlabCardFlip";
 
-/** Slab flip / front-back tabs / auto-rotate — code kept; hidden until product launch. */
+/** 3D rotateY slab flip — off; flat front/back tabs stay enabled when PSA rear URL exists. */
 const SLAB_3D_UI_ENABLED = false;
 
 const RWA_DETAIL_OUTLINE_TAG_DESKTOP =
@@ -465,24 +465,30 @@ export function RwaDetailAssetPanel({
   }, [backCandidate, backNeedsGateway, backResolved?.items]);
 
   const hasBackFace = Boolean(effectiveBackUrl);
+  const [slabSide, setSlabSide] = useState<"front" | "back">("front");
   const [flipAngle, setFlipAngle] = useState(0);
   const [slabAutoRotateOn, setSlabAutoRotateOn] = useState(false);
-  /** Slab flip when PSA back exists and {@link SLAB_3D_UI_ENABLED} is on. */
+  /** 3D rotateY slab — off in production; flat front/back tabs remain. */
   const useFlipSlab = SLAB_3D_UI_ENABLED && Boolean(backCandidate);
+  /** Front/back thumbnails when PSA rear metadata exists. */
+  const showSlabSidePicker = Boolean(backCandidate);
+  const showSlabFront = slabSide === "front";
 
   useEffect(() => {
+    setSlabSide("front");
     setFlipAngle(0);
     setSlabAutoRotateOn(false);
     setLightboxOpen(false);
   }, [tokenId, backCandidate, imageUrl]);
 
   useEffect(() => {
-    if (flipAngle >= 90 && !hasBackFace && !backResolving) {
+    if (slabSide === "back" && !hasBackFace && !backResolving) {
+      setSlabSide("front");
       setFlipAngle(0);
     }
-  }, [flipAngle, hasBackFace, backResolving]);
+  }, [slabSide, hasBackFace, backResolving]);
 
-  const showFrontFlipTab = flipAngle < 90;
+  const showFrontFlipTab = useFlipSlab ? flipAngle < 90 : showSlabFront;
   const flipBackPlaceholder = (
     <>
       <span>No slab back image available for this listing.</span>
@@ -497,7 +503,7 @@ export function RwaDetailAssetPanel({
   const backHeroLoading = Boolean(backNeedsGateway) && backResolving;
 
   const slabHeroSizing = openSeaMobile
-    ? "relative mx-auto aspect-square w-full max-w-none shrink-0 overflow-visible rounded-none bg-transparent max-lg:max-h-[min(72vw,340px)] lg:aspect-[3/4] lg:max-h-[min(72vh,680px)] lg:max-w-none lg:rounded-2xl lg:bg-[#030508]"
+    ? "relative mx-auto aspect-square w-full max-w-none shrink-0 overflow-hidden rounded-none bg-transparent max-lg:max-h-[min(72vw,340px)] lg:aspect-[3/4] lg:max-h-[min(72vh,680px)] lg:max-w-none lg:overflow-visible lg:rounded-2xl lg:bg-[#030508]"
     : "relative mx-auto aspect-[3/4] w-full max-w-[min(100%,340px)] overflow-visible rounded-xl max-h-[min(62vh,560px)] sm:max-w-[min(100%,380px)] sm:rounded-2xl sm:max-h-[min(68vh,620px)] lg:max-w-none lg:max-h-[min(72vh,680px)]";
 
   const slabThumbSize = openSeaMobile
@@ -509,7 +515,7 @@ export function RwaDetailAssetPanel({
     : "min-h-[4.5rem]";
 
   const slabControlsGap = openSeaMobile
-    ? "mt-0 flex w-full flex-wrap items-end justify-center gap-2.5 max-lg:mt-5 max-lg:px-5 max-lg:pb-2 max-xl:gap-2 max-xl:pb-1.5 sm:max-xl:px-5 lg:gap-3 lg:mt-0 lg:px-0 lg:pb-0"
+    ? "mt-0 flex w-full shrink-0 flex-wrap items-center justify-center gap-2.5 max-lg:min-h-[3rem] max-lg:px-5 max-lg:pb-2 max-lg:pt-2 lg:items-end lg:gap-3 lg:px-0 lg:pb-0 lg:pt-0"
     : "mt-0 flex w-full flex-wrap items-end justify-center gap-3 sm:gap-4";
 
   const slabRotateGlyphWrap = openSeaMobile
@@ -559,11 +565,11 @@ export function RwaDetailAssetPanel({
     <div
       className={`flex min-w-0 flex-col gap-4 max-xl:gap-3 lg:gap-5 ${
         openSeaMobile
-          ? "max-lg:items-center max-lg:gap-0 max-lg:px-0 max-lg:pt-3 max-lg:text-center"
+          ? "max-lg:items-center max-lg:gap-0 max-lg:px-0 max-lg:pt-0 max-lg:text-center lg:items-start lg:pt-0"
           : ""
       }`}
     >
-      {headerBlock}
+      {!openSeaMobile ? headerBlock : null}
 
       {priceMetricsSlot && !openSeaMobile ? (
         <div className="max-xl:order-2 lg:order-none">{priceMetricsSlot}</div>
@@ -572,19 +578,25 @@ export function RwaDetailAssetPanel({
       <div
         className={`min-w-0 space-y-3 ${
           openSeaMobile
-            ? "max-lg:order-none max-lg:w-full max-lg:items-center max-lg:space-y-0 lg:order-none"
+            ? "max-lg:order-none max-lg:w-full max-lg:items-center max-lg:space-y-3 lg:order-none lg:space-y-3"
             : "max-xl:order-1 lg:order-none"
         }`}
       >
         <div
           className={
-            mobileHeroTradingSlot && !openSeaMobile
-              ? "max-xl:grid max-xl:grid-cols-[minmax(0,1fr)_minmax(112px,34%)] max-xl:items-start max-xl:gap-3 sm:max-xl:gap-3.5"
-              : ""
+            openSeaMobile
+              ? "flex w-full min-w-0 flex-col items-center gap-3 max-lg:shrink-0 lg:contents"
+              : mobileHeroTradingSlot
+                ? "max-xl:grid max-xl:grid-cols-[minmax(0,1fr)_minmax(112px,34%)] max-xl:items-start max-xl:gap-3 sm:max-xl:gap-3.5"
+                : ""
           }
         >
-        {/* overflow-visible preserves 3D flip (rotateY edges) */}
-        <div className={`${slabHeroSizing} bg-transparent`}>
+        {/* overflow-visible on lg preserves 3D flip (rotateY edges) */}
+        <div
+          className={`${slabHeroSizing} bg-transparent ${
+            openSeaMobile ? "max-lg:shrink-0" : ""
+          }`}
+        >
           {useFlipSlab ? (
             <>
               <div
@@ -627,28 +639,62 @@ export function RwaDetailAssetPanel({
           ) : imageUrl ? (
             <>
               <div
-                className={`${slabHeroSizing} group/img relative min-h-0 overflow-hidden ${
-                  openSeaMobile ? "max-lg:bg-transparent" : "bg-[#030508]"
+                className={`group/img relative h-full min-h-0 w-full overflow-hidden ${
+                  openSeaMobile
+                    ? "max-lg:bg-transparent lg:aspect-[3/4] lg:rounded-2xl lg:bg-[#030508]"
+                    : `${slabHeroSizing} bg-[#030508]`
                 }`}
               >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={imageUrl}
-                  alt={`${slabImageTitle} — slab front`}
-                  className="h-full w-full min-h-0 object-contain object-center"
-                  draggable={false}
-                  referrerPolicy="no-referrer"
-                />
-                <button
-                  type="button"
-                  onClick={() => setLightboxOpen(true)}
-                  className="absolute inset-0 z-[2] cursor-pointer bg-transparent outline-none transition-colors hover:bg-black/[0.12] active:bg-black/[0.18] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-mint/55"
-                  aria-label="View enlarged card image"
-                  title="Tap to enlarge"
-                />
-                <span className="pointer-events-none absolute bottom-2 left-1/2 z-[3] max-w-[90%] -translate-x-1/2 truncate rounded-md bg-black/58 px-2 py-0.5 text-center text-[9px] font-medium text-zinc-100/95 sm:text-[10px]">
-                  Tap to enlarge
-                </span>
+                {showSlabFront ? (
+                  <>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={imageUrl}
+                      alt={`${slabImageTitle} — slab front`}
+                      className="h-full w-full min-h-0 object-contain object-center"
+                      draggable={false}
+                      referrerPolicy="no-referrer"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setLightboxOpen(true)}
+                      className="absolute inset-0 z-[2] cursor-pointer bg-transparent outline-none transition-colors hover:bg-black/[0.12] active:bg-black/[0.18] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-mint/55"
+                      aria-label="View enlarged slab front"
+                      title="Tap to enlarge"
+                    />
+                    <span className="pointer-events-none absolute bottom-2 left-1/2 z-[3] max-w-[90%] -translate-x-1/2 truncate rounded-md bg-black/58 px-2 py-0.5 text-center text-[9px] font-medium text-zinc-100/95 sm:text-[10px]">
+                      Tap to enlarge
+                    </span>
+                  </>
+                ) : backHeroLoading ? (
+                  <div className="absolute inset-0 animate-pulse rounded-2xl bg-gray-800/80" />
+                ) : effectiveBackUrl ? (
+                  <>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={effectiveBackUrl}
+                      alt={`${slabImageTitle} — slab back`}
+                      className="h-full w-full min-h-0 object-contain object-center"
+                      draggable={false}
+                      loading="lazy"
+                      referrerPolicy="no-referrer"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setLightboxOpen(true)}
+                      className="absolute inset-0 z-[2] cursor-pointer bg-transparent outline-none transition-colors hover:bg-black/[0.12] active:bg-black/[0.18] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-mint/55"
+                      aria-label="View enlarged slab back"
+                      title="Tap to enlarge"
+                    />
+                    <span className="pointer-events-none absolute bottom-2 left-1/2 z-[3] max-w-[90%] -translate-x-1/2 truncate rounded-md bg-black/58 px-2 py-0.5 text-center text-[9px] font-medium text-zinc-100/95 sm:text-[10px]">
+                      Tap to enlarge
+                    </span>
+                  </>
+                ) : (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center px-4 text-center text-sm text-gray-500">
+                    {flipBackPlaceholder}
+                  </div>
+                )}
               </div>
               {!openSeaMobile ? (
                 <div
@@ -658,8 +704,16 @@ export function RwaDetailAssetPanel({
               ) : null}
               <RwaImageLightbox
                 open={lightboxOpen}
-                src={imageUrl}
-                alt={`${slabImageTitle} — slab front`}
+                src={
+                  showSlabFront
+                    ? imageUrl
+                    : effectiveBackUrl ?? imageUrl
+                }
+                alt={
+                  showSlabFront
+                    ? `${slabImageTitle} — slab front`
+                    : `${slabImageTitle} — slab back`
+                }
                 onClose={() => setLightboxOpen(false)}
               />
             </>
@@ -675,14 +729,17 @@ export function RwaDetailAssetPanel({
             {mobileHeroTradingSlot}
           </div>
         ) : null}
-        </div>
 
-        {useFlipSlab ? (
+        {showSlabSidePicker ? (
           <>
             <div
               className={`${slabControlsGap} ${
-                openSeaMobile ? "max-xl:px-3 max-xl:pb-1.5 sm:max-xl:px-5" : ""
+                openSeaMobile
+                  ? "relative z-[1] max-lg:w-full max-lg:border-t max-lg:border-zinc-800/50"
+                  : ""
               }`}
+              role="group"
+              aria-label="Slab front and back"
             >
               <div
                 className={`flex ${openSeaMobile ? "gap-2 max-xl:gap-2 lg:gap-2.5" : "gap-2.5"}`}
@@ -697,6 +754,7 @@ export function RwaDetailAssetPanel({
                   title="Slab front"
                   onClick={() => {
                     setSlabAutoRotateOn(false);
+                    setSlabSide("front");
                     setFlipAngle(0);
                   }}
                   className={`${slabThumbSize} transition-colors ${
@@ -735,6 +793,7 @@ export function RwaDetailAssetPanel({
                   title="Slab back"
                   onClick={() => {
                     setSlabAutoRotateOn(false);
+                    setSlabSide("back");
                     setFlipAngle(180);
                   }}
                   className={`${slabThumbSize} transition-colors ${
@@ -769,7 +828,7 @@ export function RwaDetailAssetPanel({
                   )}
                 </button>
               </div>
-              {hasBackFace && !backHeroLoading && imageUrl && !frontHeroLoading ? (
+              {useFlipSlab && hasBackFace && !backHeroLoading && imageUrl && !frontHeroLoading ? (
                 <button
                   type="button"
                   aria-pressed={slabAutoRotateOn}
@@ -814,6 +873,7 @@ export function RwaDetailAssetPanel({
             </div>
           </>
         ) : null}
+        </div>
       </div>
     </div>
   );
