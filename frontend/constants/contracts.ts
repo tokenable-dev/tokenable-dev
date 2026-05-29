@@ -89,6 +89,21 @@ export const TOKENABLE_RWA_READ_ABI = [
   },
 ] as const;
 
+/** ERC-721 transfer (test burn-to-address flow). */
+export const TOKENABLE_RWA_TRANSFER_ABI = [
+  {
+    name: "transferFrom",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "from", type: "address" },
+      { name: "to", type: "address" },
+      { name: "tokenId", type: "uint256" },
+    ],
+    outputs: [],
+  },
+] as const;
+
 /** ERC-721 listing: OpenSea-style `setApprovalForAll(Seaport, true)` (not per-token `approve`). */
 export const TOKENABLE_RWA_APPROVE_ABI = [
   {
