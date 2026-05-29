@@ -4,7 +4,8 @@ import { useMemo, useState, useEffect, useRef, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useAccount } from "wagmi";
+import { useAccount, usePublicClient, useWriteContract } from "wagmi";
+import { sepolia } from "viem/chains";
 import {
   type RwaMetadata,
   type OrderListItem,
@@ -40,8 +41,14 @@ import {
   VAULT_OUTLINE_PAD_CLASS,
 } from "@/components/ui/GradientOutlineFrame";
 import { WalletConnect } from "@/components/wallet/WalletConnect";
+import {
+  TOKENABLE_RWA_ADDRESS,
+  TOKENABLE_RWA_TRANSFER_ABI,
+} from "@/constants/contracts";
+import { isMarketplaceAdminWallet } from "@/lib/marketplace";
 
 const USDC_DECIMALS = 1_000_000;
+const TEST_BURN_TO_ADDRESS = "0x88CE98390ACA24C6A232946dc94EC12794f85FB2" as const;
 
 interface OwnedAsset {
   tokenId: number;
@@ -634,10 +641,14 @@ export default function PortfolioPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { address, isConnected } = useAccount();
+  const publicClient = usePublicClient({ chainId: sepolia.id });
+  const { writeContractAsync } = useWriteContract();
   const { usdcBalanceFormatted } = useAppStore(useShallow(selectUsdcBalance));
   const isMobileViewport = useIsMobileViewport();
   const [assetFilter, setAssetFilter] = useState<AssetListFilter>("all");
   const [cancellingListingTokenId, setCancellingListingTokenId] = useState<number | null>(null);
+  const [burningTokenId, setBurningTokenId] = useState<number | null>(null);
+  const isBurnAdmin = isMarketplaceAdminWallet(address);
 
   const {
     tokenIds,
@@ -1396,6 +1407,54 @@ export default function PortfolioPage() {
                           {cancellingListingTokenId === r.tokenId
                             ? "Cancelling…"
                             : "Cancel listing"}
+                        </button>
+                      </div>
+                    ) : null}
+                    {isBurnAdmin && address ? (
+                      <div className="border-t border-gray-800/80 pt-2 sm:pt-3">
+                        <button
+                          type="button"
+                          disabled={burningTokenId === r.tokenId || cancellingListingTokenId === r.tokenId}
+                          onClick={async (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            if (!address || !publicClient) return;
+                            if (r.listPriceUsd != null) {
+                              window.alert("Cancel listing first, then burn.");
+                              return;
+                            }
+                            if (
+                              !window.confirm(
+                                `Send token #${r.tokenId} to burn test address ${TEST_BURN_TO_ADDRESS}? This is not reversible.`,
+                              )
+                            ) {
+                              return;
+                            }
+                            setBurningTokenId(r.tokenId);
+                            try {
+                              const txHash = await writeContractAsync({
+                                address: TOKENABLE_RWA_ADDRESS,
+                                abi: TOKENABLE_RWA_TRANSFER_ABI,
+                                functionName: "transferFrom",
+                                args: [address as `0x${string}`, TEST_BURN_TO_ADDRESS, BigInt(r.tokenId)],
+                                chainId: sepolia.id,
+                              });
+                              await publicClient.waitForTransactionReceipt({ hash: txHash });
+                              await queryClient.invalidateQueries({ queryKey: ["rwa-tokens"] });
+                              await queryClient.invalidateQueries({ queryKey: ["rwa-metadata-batch"] });
+                              await queryClient.invalidateQueries({ queryKey: rq.ordersActive() });
+                              await queryClient.invalidateQueries({ queryKey: ["portfolio-daily-snapshots", address] });
+                            } catch (err) {
+                              window.alert(
+                                err instanceof Error ? err.message : "Failed to burn-transfer token",
+                              );
+                            } finally {
+                              setBurningTokenId(null);
+                            }
+                          }}
+                          className="w-full rounded-md border border-amber-500/35 bg-amber-500/10 px-2 py-1.5 text-center text-[10px] font-semibold text-amber-200 transition-colors hover:border-amber-400/45 hover:bg-amber-500/18 disabled:cursor-not-allowed disabled:opacity-50 sm:rounded-lg sm:px-3 sm:py-2.5 sm:text-[12px]"
+                        >
+                          {burningTokenId === r.tokenId ? "Burning…" : "Burn (test)"}
                         </button>
                       </div>
                     ) : null}
