@@ -9,6 +9,7 @@ import {
 /** Active Photo / Cert # tab — plain black fill inside gradient rim (matches inactive tab height). */
 const vaultTabActiveInnerClass =
   "block w-full rounded-[7px] border-0 bg-black px-3 py-2.5 text-xs font-semibold leading-none text-mint transition-colors sm:text-sm";
+import type { PsaInputMode } from "@/lib/vault/mintFormConstants";
 import type { GradingCompany, PsaFieldLocks } from "@/types/gradedCard";
 import { ImageInput } from "./ImageInput";
 
@@ -20,7 +21,7 @@ function lockedHint(locked: boolean): string | undefined {
 }
 
 /** Vault mint: slab OCR path vs cert-only PSA API lookup */
-export type PsaInputMode = "slab" | "cert";
+export type { PsaInputMode } from "@/lib/vault/mintFormConstants";
 
 interface GradedCardSectionProps {
   /** Mint supports PSA only; prop kept for typing */

@@ -1,5 +1,3 @@
 "use client";
 
-import ExchangePage from "../exchange/page";
-
-export default ExchangePage;
+export { default } from "@/components/markets/MarketsPage";

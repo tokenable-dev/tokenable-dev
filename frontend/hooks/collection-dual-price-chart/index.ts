@@ -1,0 +1,1 @@
+export { useCollectionDualPriceChart } from "./useCollectionDualPriceChart";

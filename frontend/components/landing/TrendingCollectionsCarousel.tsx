@@ -10,8 +10,8 @@ import {
   type CollectionListMarketSnapshot,
   type MarketplaceCollectionSummary,
 } from "@/lib/core";
-import { useMarketplaceCollectionsInfinite } from "@/hooks/useMarketplaceCollectionsInfinite";
-import { CollectionCoverFrame } from "@/components/marketplace/CollectionCoverFrame";
+import { useMarketplaceCollectionsInfinite } from "@/hooks/marketplace";
+import { CollectionCoverFrame } from "@/components/marketplace/collection-cover";
 import {
   collectionMatchesCategoryFilter,
   formatReferenceChangeCoverageHint,
@@ -21,7 +21,7 @@ import {
   representativeGradeUsd,
   type CollectionCategoryFilterId,
 } from "@/lib/market";
-import { ExchangeListingPriceWithChange } from "@/components/marketplace/ExchangeListingPrice";
+import { MarketsListingPriceWithChange } from "@/components/marketplace/marketplace-shared";
 import { toCardDisplayUppercase } from "@/lib/marketplace/collectionFullDetailsTitle";
 
 const MAX_TRENDING_VISIBLE = 4;
@@ -358,15 +358,14 @@ export function TrendingCollectionsCarousel({
             <p className="line-clamp-2 min-h-[2.75rem] break-words text-base font-semibold uppercase leading-snug text-white sm:min-h-[1.75rem] sm:truncate sm:text-lg">
               {toCardDisplayUppercase(c.displayLabel)}
             </p>
-            <div className="min-h-[1.35rem] sm:min-h-[1.5rem]">
-              <ExchangeListingPriceWithChange
+            <div className="min-h-[1.35rem] w-full min-w-0 sm:min-h-[1.5rem]">
+              <MarketsListingPriceWithChange
                 priceUsd={eBayPrice}
                 changePct={changePctExternal}
                 windowShort={changeWindowShort}
                 titleDetail={changeCoverageHint}
-                align={variant === "landing" ? "start" : "end"}
-                textClassName="text-base leading-none tabular-nums tracking-normal [font-family:var(--font-ibm-plex-sans),sans-serif] sm:text-[18px]"
-                priceClassName="text-base font-bold leading-none tabular-nums tracking-normal text-white [font-family:var(--font-ibm-plex-sans),sans-serif] sm:text-[18px]"
+                spread={variant === "landing"}
+                textClassName="text-base font-bold leading-none tabular-nums tracking-normal [font-family:var(--font-ibm-plex-sans),sans-serif] sm:text-[18px]"
                 priceTitle="External eBay reference price."
               />
             </div>

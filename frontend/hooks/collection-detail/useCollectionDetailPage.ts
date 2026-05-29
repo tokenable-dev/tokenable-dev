@@ -1,0 +1,207 @@
+"use client";
+
+import { useParams, useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
+import { useShallow } from "zustand/react/shallow";
+import { getMarketplaceCollectionDetail } from "@/lib/core";
+import { isMarketplaceAdminWallet } from "@/lib/marketplace";
+import type { BookRowSelection } from "@/lib/marketplace/marketplaceTradingTypes";
+import type { CollectionTradeTab } from "@/lib/marketplace/collection-trading";
+import type { TradeCelebrationKind } from "@/lib/marketplace/marketplaceTradingTypes";
+import { useCollectionDetailHeadline } from "./useCollectionDetailHeadline";
+import { useCollectionDetailInvalidation } from "./useCollectionDetailInvalidation";
+import { useCollectionDetailListings } from "./useCollectionDetailListings";
+import { useCollectionDetailMarketData } from "./useCollectionDetailMarketData";
+import { useCollectionDetailMobile } from "./useCollectionDetailMobile";
+import { useAppStore, selectWallet } from "@/store";
+import { parseCollectionDetailComponents } from "@/lib/marketplace/collectionDetailComponents";
+import { buildCollectionDetailOrderBookProps } from "@/lib/marketplace/collectionDetailOrderBook";
+
+export type CollectionDetailPageStatus = "invalid" | "loading" | "error" | "ready";
+
+export type CollectionDetailPageModel = ReturnType<typeof useCollectionDetailPage>;
+
+export type CollectionDetailLoadedProps = CollectionDetailPageModel & {
+  status: "ready";
+  data: NonNullable<CollectionDetailPageModel["data"]>;
+  collectionOrderBookProps: NonNullable<
+    CollectionDetailPageModel["collectionOrderBookProps"]
+  >;
+};
+
+export function useCollectionDetailPage() {
+  const params = useParams();
+  const router = useRouter();
+  const { address } = useAppStore(useShallow(selectWallet));
+  const raw = params.collectionKey;
+  const rawCollectionKey = Array.isArray(raw) ? raw[0] : raw;
+  const collectionKey =
+    typeof rawCollectionKey === "string" ? decodeURIComponent(rawCollectionKey) : "";
+
+  const [sellModalOpen, setSellModalOpen] = useState(false);
+  const [tradeCelebration, setTradeCelebration] = useState<TradeCelebrationKind | null>(null);
+  const [bookSelection, setBookSelection] = useState<BookRowSelection | null>(null);
+  useCollectionDetailMobile();
+  const [aiInsightComingSoonOpen, setAiInsightComingSoonOpen] = useState(false);
+  const [sessionFillPoint, setSessionFillPoint] = useState<{
+    t: number;
+    v: number;
+  } | null>(null);
+  const [showOrderBook, setShowOrderBook] = useState(false);
+  const [tradeFlow, setTradeFlow] = useState<CollectionTradeTab>("buy");
+  const [tradeDockOpen, setTradeDockOpen] = useState(false);
+
+  const { data, isLoading, isError, error } = useQuery({
+    queryKey: ["marketplace-collection", collectionKey],
+    queryFn: () => getMarketplaceCollectionDetail(collectionKey),
+    enabled: collectionKey.length > 0,
+    retry: false,
+  });
+
+  const comp = useMemo(
+    () => parseCollectionDetailComponents(data?.collection?.components),
+    [data?.collection?.components],
+  );
+
+  const hasCollection = Boolean(data?.collection);
+
+  const market = useCollectionDetailMarketData({
+    key: collectionKey,
+    comp,
+    hasCollection,
+    collectionComponents: data?.collection?.components as
+      | Record<string, unknown>
+      | undefined,
+    detailLoading: isLoading,
+    detailError: isError,
+    hasDetailData: Boolean(data),
+    sessionFillPoint,
+    setSessionFillPoint,
+  });
+
+  const headline = useCollectionDetailHeadline({
+    key: collectionKey,
+    comp,
+    marketPreview: market.marketPreview,
+    pokeTierLabel: market.pokeTierLabel,
+    displayLabel: data?.collection?.displayLabel,
+    hasCollection,
+  });
+
+  const asks = useMemo(
+    () => (data ? data.listings.filter((o) => o.side !== "bid") : []),
+    [data],
+  );
+
+  const collectionBids = useMemo(() => {
+    if (!data?.collectionBids) return [];
+    return data.collectionBids.filter((b) => b.status === "active");
+  }, [data?.collectionBids]);
+
+  const listings = useCollectionDetailListings({
+    collectionKey,
+    asks,
+    enabled: hasCollection,
+  });
+
+  const invalidateCollection = useCollectionDetailInvalidation(collectionKey);
+
+  const listingTokenIdsForAdmin = useMemo(() => {
+    const ids: number[] = [];
+    for (const o of asks) {
+      const id = Number(o.tokenId);
+      if (Number.isFinite(id)) ids.push(id);
+    }
+    return ids;
+  }, [asks]);
+
+  const isCoverAdmin = isMarketplaceAdminWallet(address);
+
+  const presetPriceFromBook = useMemo(() => {
+    if (bookSelection == null) return null;
+    return bookSelection.price.toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  }, [bookSelection]);
+
+  const listPricePresetUsdc = useMemo(() => {
+    if (bookSelection?.side !== "bid") return null;
+    return presetPriceFromBook;
+  }, [bookSelection, presetPriceFromBook]);
+
+  const preferredBidOrderHash = useMemo(() => {
+    if (bookSelection?.side !== "bid" || !bookSelection.orders.length) return null;
+    return bookSelection.orders[0]?.orderHash ?? null;
+  }, [bookSelection]);
+
+  const status: CollectionDetailPageStatus = !collectionKey
+    ? "invalid"
+    : isLoading
+      ? "loading"
+      : isError || !data || !data.collection
+        ? "error"
+        : "ready";
+
+  const collectionOrderBookProps = useMemo(() => {
+    if (!data?.collection) return null;
+    return buildCollectionDetailOrderBookProps({
+      collectionKey: data.collection.collectionKey,
+      asks,
+      collectionBids,
+      selectedLevelKey: bookSelection?.levelKey ?? null,
+      onSelectLevel: (sel) => {
+        setBookSelection(sel);
+        setTradeFlow("buy");
+        setTradeDockOpen(true);
+      },
+      lastTradePriceUsdc: market.orderBookLastSaleUsdc,
+      tapeFills: market.orderBookTapeFills,
+      tapeLoading: market.platformTradesLoading,
+    });
+  }, [
+    data?.collection,
+    asks,
+    collectionBids,
+    bookSelection?.levelKey,
+    market.orderBookLastSaleUsdc,
+    market.orderBookTapeFills,
+    market.platformTradesLoading,
+  ]);
+
+  return {
+    status,
+    error,
+    collectionKey,
+    router,
+    address,
+    data: status === "ready" ? data : undefined,
+    headline,
+    market,
+    asks,
+    collectionBids,
+    listings,
+    invalidateCollection,
+    listingTokenIdsForAdmin,
+    isCoverAdmin,
+    presetPriceFromBook,
+    listPricePresetUsdc,
+    preferredBidOrderHash,
+    collectionOrderBookProps,
+    sellModalOpen,
+    setSellModalOpen,
+    tradeCelebration,
+    setTradeCelebration,
+    bookSelection,
+    aiInsightComingSoonOpen,
+    setAiInsightComingSoonOpen,
+    showOrderBook,
+    setShowOrderBook,
+    tradeFlow,
+    setTradeFlow,
+    tradeDockOpen,
+    setTradeDockOpen,
+    setSessionFillPoint,
+  };
+}

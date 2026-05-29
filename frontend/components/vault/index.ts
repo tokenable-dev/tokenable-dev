@@ -1,1 +1,1 @@
-export { MintForm } from "./MintForm";
+export { MintForm } from "./mint-form";
