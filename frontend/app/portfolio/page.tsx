@@ -1,6 +1,13 @@
 "use client";
 
-import { useMemo, useState, useEffect, useRef, type ReactNode } from "react";
+import {
+  useMemo,
+  useState,
+  useEffect,
+  useRef,
+  type MouseEvent,
+  type ReactNode,
+} from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -44,6 +51,7 @@ import {
   VAULT_OUTLINE_PAD_CLASS,
 } from "@/components/ui/GradientOutlineFrame";
 import { WalletConnect } from "@/components/wallet/WalletConnect";
+import { PortfolioHideConfirmModal } from "@/components/portfolio/PortfolioHideConfirmModal";
 import {
   TOKENABLE_RWA_ADDRESS,
   TOKENABLE_RWA_TRANSFER_ABI,
@@ -660,6 +668,35 @@ function PortfolioChart({
   );
 }
 
+function PortfolioCardIconButton({
+  ariaLabel,
+  title,
+  disabled,
+  onClick,
+  children,
+  className = "",
+}: {
+  ariaLabel: string;
+  title: string;
+  disabled?: boolean;
+  onClick: (e: MouseEvent<HTMLButtonElement>) => void;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={ariaLabel}
+      title={title}
+      disabled={disabled}
+      onClick={onClick}
+      className={`absolute right-1.5 top-1.5 z-10 flex h-7 w-7 items-center justify-center rounded-full border border-black/50 bg-black/65 text-mint backdrop-blur-sm transition-all hover:border-mint/45 hover:bg-black/80 hover:text-mint hover:shadow-[0_0_16px_-6px_rgba(16,211,51,0.55)] focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mint/50 disabled:cursor-not-allowed disabled:opacity-40 sm:right-2 sm:top-2 sm:h-8 sm:w-8 ${className}`}
+    >
+      {children}
+    </button>
+  );
+}
+
 function PortfolioChartToggle({
   open,
   disabled,
@@ -750,7 +787,38 @@ export default function PortfolioPage() {
   const [burningTokenId, setBurningTokenId] = useState<number | null>(null);
   const [hidingTokenId, setHidingTokenId] = useState<number | null>(null);
   const [unhidingTokenId, setUnhidingTokenId] = useState<number | null>(null);
+  const [hideConfirm, setHideConfirm] = useState<{ tokenId: number; name: string } | null>(
+    null,
+  );
   const isBurnAdmin = isMarketplaceAdminWallet(address);
+
+  const executeHideHolding = async (tokenId: number) => {
+    if (!address) return;
+    setHidingTokenId(tokenId);
+    const hiddenKey = rq.portfolioHidden(address);
+    const prev = queryClient.getQueryData<number[]>(hiddenKey);
+    queryClient.setQueryData<number[]>(hiddenKey, (old) => {
+      const next = new Set(old ?? []);
+      next.add(tokenId);
+      return [...next];
+    });
+    try {
+      await hidePortfolioHolding(address, tokenId);
+      void queryClient.invalidateQueries({
+        queryKey: ["portfolio-daily-snapshots", address],
+      });
+      setHideConfirm(null);
+    } catch (err) {
+      if (prev !== undefined) {
+        queryClient.setQueryData(hiddenKey, prev);
+      } else {
+        void queryClient.invalidateQueries({ queryKey: hiddenKey });
+      }
+      window.alert(err instanceof Error ? err.message : "Failed to hide card");
+    } finally {
+      setHidingTokenId(null);
+    }
+  };
 
   const {
     tokenIds,
@@ -1488,6 +1556,102 @@ export default function PortfolioPage() {
                         <span className="text-[10px] text-gray-600">No preview image</span>
                       </div>
                     )}
+                    {assetFilter === "hidden" && address ? (
+                      <PortfolioCardIconButton
+                        ariaLabel="Restore to portfolio"
+                        title="Unhide"
+                        disabled={unhidingTokenId === r.tokenId}
+                        className="opacity-100"
+                        onClick={async (e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          if (!address) return;
+                          setUnhidingTokenId(r.tokenId);
+                          const hiddenKey = rq.portfolioHidden(address);
+                          const prev = queryClient.getQueryData<number[]>(hiddenKey);
+                          queryClient.setQueryData<number[]>(hiddenKey, (old) =>
+                            (old ?? []).filter((id) => id !== r.tokenId),
+                          );
+                          try {
+                            await unhidePortfolioHolding(address, r.tokenId);
+                            void queryClient.invalidateQueries({
+                              queryKey: ["portfolio-daily-snapshots", address],
+                            });
+                          } catch (err) {
+                            if (prev !== undefined) {
+                              queryClient.setQueryData(hiddenKey, prev);
+                            } else {
+                              void queryClient.invalidateQueries({ queryKey: hiddenKey });
+                            }
+                            window.alert(
+                              err instanceof Error ? err.message : "Failed to unhide card",
+                            );
+                          } finally {
+                            setUnhidingTokenId(null);
+                          }
+                        }}
+                      >
+                        {unhidingTokenId === r.tokenId ? (
+                          <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-mint/30 border-t-mint" />
+                        ) : (
+                          <svg
+                            className="h-3.5 w-3.5 sm:h-4 sm:w-4"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth={2}
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            aria-hidden
+                          >
+                            <path d="M3 12c2.4-4 6-6 9-6s6.6 2 9 6c-2.4 4-6 6-9 6s-6.6-2-9-6z" />
+                            <circle cx="12" cy="12" r="2.5" />
+                          </svg>
+                        )}
+                      </PortfolioCardIconButton>
+                    ) : null}
+                    {!isBurnAdmin && address && assetFilter !== "hidden" ? (
+                      <PortfolioCardIconButton
+                        ariaLabel="Hide from portfolio"
+                        title="Hide"
+                        disabled={
+                          hidingTokenId === r.tokenId ||
+                          cancellingListingTokenId === r.tokenId
+                        }
+                        className="opacity-80 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          if (!address) return;
+                          if (r.listPriceUsd != null) {
+                            window.alert("Cancel listing first, then hide.");
+                            return;
+                          }
+                          setHideConfirm({
+                            tokenId: r.tokenId,
+                            name: titleLine,
+                          });
+                        }}
+                      >
+                        {hidingTokenId === r.tokenId ? (
+                          <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-mint/30 border-t-mint" />
+                        ) : (
+                          <svg
+                            className="h-3.5 w-3.5 sm:h-4 sm:w-4"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth={2}
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            aria-hidden
+                          >
+                            <path d="M3 12c2.4-4 6-6 9-6s6.6 2 9 6c-2.4 4-6 6-9 6s-6.6-2-9-6z" />
+                            <path d="M4 4l16 16" />
+                          </svg>
+                        )}
+                      </PortfolioCardIconButton>
+                    ) : null}
                   </div>
                   <div className="flex min-w-0 flex-1 flex-col gap-2 p-2.5 pt-2 sm:gap-3 sm:p-4 sm:pt-3">
                     <div className="min-w-0 space-y-1">
@@ -1577,45 +1741,6 @@ export default function PortfolioPage() {
                         </button>
                       </div>
                     ) : null}
-                    {assetFilter === "hidden" && address ? (
-                      <div className="border-t border-gray-800/80 pt-2 sm:pt-3">
-                        <button
-                          type="button"
-                          disabled={unhidingTokenId === r.tokenId}
-                          onClick={async (e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            if (!address) return;
-                            setUnhidingTokenId(r.tokenId);
-                            const hiddenKey = rq.portfolioHidden(address);
-                            const prev = queryClient.getQueryData<number[]>(hiddenKey);
-                            queryClient.setQueryData<number[]>(hiddenKey, (old) =>
-                              (old ?? []).filter((id) => id !== r.tokenId),
-                            );
-                            try {
-                              await unhidePortfolioHolding(address, r.tokenId);
-                              void queryClient.invalidateQueries({
-                                queryKey: ["portfolio-daily-snapshots", address],
-                              });
-                            } catch (err) {
-                              if (prev !== undefined) {
-                                queryClient.setQueryData(hiddenKey, prev);
-                              } else {
-                                void queryClient.invalidateQueries({ queryKey: hiddenKey });
-                              }
-                              window.alert(
-                                err instanceof Error ? err.message : "Failed to unhide card",
-                              );
-                            } finally {
-                              setUnhidingTokenId(null);
-                            }
-                          }}
-                          className="w-full rounded-md border border-mint/35 bg-mint/10 px-2 py-1.5 text-center text-[10px] font-semibold text-mint transition-colors hover:border-mint/45 hover:bg-mint/18 disabled:cursor-not-allowed disabled:opacity-50 sm:rounded-lg sm:px-3 sm:py-2.5 sm:text-[12px]"
-                        >
-                          {unhidingTokenId === r.tokenId ? "Restoring…" : "Unhide"}
-                        </button>
-                      </div>
-                    ) : null}
                     {isBurnAdmin && address && assetFilter !== "hidden" ? (
                       <div className="border-t border-gray-800/80 pt-2 sm:pt-3">
                         <button
@@ -1661,61 +1786,6 @@ export default function PortfolioPage() {
                           className="w-full rounded-md border border-amber-500/35 bg-amber-500/10 px-2 py-1.5 text-center text-[10px] font-semibold text-amber-200 transition-colors hover:border-amber-400/45 hover:bg-amber-500/18 disabled:cursor-not-allowed disabled:opacity-50 sm:rounded-lg sm:px-3 sm:py-2.5 sm:text-[12px]"
                         >
                           {burningTokenId === r.tokenId ? "Burning…" : "Burn (test)"}
-                        </button>
-                      </div>
-                    ) : null}
-                    {!isBurnAdmin && address && assetFilter !== "hidden" ? (
-                      <div className="border-t border-gray-800/80 pt-2 sm:pt-3">
-                        <button
-                          type="button"
-                          disabled={
-                            hidingTokenId === r.tokenId ||
-                            cancellingListingTokenId === r.tokenId
-                          }
-                          onClick={async (e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            if (!address) return;
-                            if (r.listPriceUsd != null) {
-                              window.alert("Cancel listing first, then hide.");
-                              return;
-                            }
-                            if (
-                              !window.confirm(
-                                `Hide RWA #${r.tokenId} from your portfolio? It stays in your wallet; you can restore it from Hidden.`,
-                              )
-                            ) {
-                              return;
-                            }
-                            setHidingTokenId(r.tokenId);
-                            const hiddenKey = rq.portfolioHidden(address);
-                            const prev = queryClient.getQueryData<number[]>(hiddenKey);
-                            queryClient.setQueryData<number[]>(hiddenKey, (old) => {
-                              const next = new Set(old ?? []);
-                              next.add(r.tokenId);
-                              return [...next];
-                            });
-                            try {
-                              await hidePortfolioHolding(address, r.tokenId);
-                              void queryClient.invalidateQueries({
-                                queryKey: ["portfolio-daily-snapshots", address],
-                              });
-                            } catch (err) {
-                              if (prev !== undefined) {
-                                queryClient.setQueryData(hiddenKey, prev);
-                              } else {
-                                void queryClient.invalidateQueries({ queryKey: hiddenKey });
-                              }
-                              window.alert(
-                                err instanceof Error ? err.message : "Failed to hide card",
-                              );
-                            } finally {
-                              setHidingTokenId(null);
-                            }
-                          }}
-                          className="w-full rounded-md border border-zinc-500/35 bg-zinc-500/10 px-2 py-1.5 text-center text-[10px] font-semibold text-zinc-200 transition-colors hover:border-zinc-400/45 hover:bg-zinc-500/18 disabled:cursor-not-allowed disabled:opacity-50 sm:rounded-lg sm:px-3 sm:py-2.5 sm:text-[12px]"
-                        >
-                          {hidingTokenId === r.tokenId ? "Hiding…" : "Hide"}
                         </button>
                       </div>
                     ) : null}
@@ -1805,6 +1875,19 @@ export default function PortfolioPage() {
           )}
         </div>
       </div>
+
+      <PortfolioHideConfirmModal
+        open={hideConfirm != null}
+        tokenId={hideConfirm?.tokenId ?? 0}
+        assetName={hideConfirm?.name ?? ""}
+        pending={hideConfirm != null && hidingTokenId === hideConfirm.tokenId}
+        onClose={() => {
+          if (hidingTokenId == null) setHideConfirm(null);
+        }}
+        onConfirm={() => {
+          if (hideConfirm) void executeHideHolding(hideConfirm.tokenId);
+        }}
+      />
     </div>
   );
 }
