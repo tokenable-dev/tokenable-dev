@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { MarketplaceCollection } from '../entities/marketplace-collection.entity';
-import type { CollectionAiInsightPricingStats } from './cardhedger-market-data.service';
+import type { CollectionAiInsightPricingStats } from './cardhedger-market-data.types';
 import { CardhedgerMarketDataService } from './cardhedger-market-data.service';
 
 /** Single-line-ish copy cap for skim-friendly UI */

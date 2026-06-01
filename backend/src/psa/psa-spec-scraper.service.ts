@@ -4,6 +4,7 @@ import {
   OnModuleDestroy,
   OnModuleInit,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import type { Browser, BrowserContext, Page } from 'playwright-core';
 
 /**
@@ -56,37 +57,29 @@ export class PsaSpecScraperService implements OnModuleInit, OnModuleDestroy {
 
   private static readonly POSITIVE_TTL_MS = 24 * 60 * 60 * 1000;
   private static readonly CDN_HOST = 'd1htnxwo4o0jhw.cloudfront.net';
-  /** Cloudflare + EC2/datacenter latency — override via env if needed. */
-  private static navTimeoutMs(): number {
-    const raw = process.env.PSA_SPEC_NAV_TIMEOUT_MS;
-    const n = raw ? parseInt(raw, 10) : NaN;
-    return Number.isFinite(n) && n > 0 ? n : 120_000;
-  }
-  private static imgTimeoutMs(): number {
-    const raw = process.env.PSA_SPEC_IMG_TIMEOUT_MS;
-    const n = raw ? parseInt(raw, 10) : NaN;
-    return Number.isFinite(n) && n > 0 ? n : 45_000;
-  }
-  /**
-   * How long to cache a **failed** scrape (Cloudflare block, layout change, no asset on page).
-   * Lower in staging if you want faster retry after fixing infra. Default 1h.
-   */
-  private static negativeCacheTtlMs(): number {
-    const raw = process.env.PSA_SPEC_NEGATIVE_CACHE_MS;
-    const n = raw ? parseInt(raw, 10) : NaN;
-    return Number.isFinite(n) && n >= 0 ? n : 60 * 60 * 1000;
+
+  constructor(private readonly config: ConfigService) {}
+
+  private navTimeoutMs(): number {
+    return this.config.get<number>('psa.specNavTimeoutMs') ?? 120_000;
   }
 
-  private static scraperProxy(): { proxy: { server: string } } | undefined {
-    const s = process.env.PSA_SPEC_SCRAPER_PROXY?.trim();
+  private imgTimeoutMs(): number {
+    return this.config.get<number>('psa.specImgTimeoutMs') ?? 45_000;
+  }
+
+  private negativeCacheTtlMs(): number {
+    return this.config.get<number>('psa.specNegativeCacheMs') ?? 3_600_000;
+  }
+
+  private scraperProxy(): { proxy: { server: string } } | undefined {
+    const s = this.config.get<string>('psa.specScraperProxy')?.trim();
     if (!s) return undefined;
     return { proxy: { server: s } };
   }
 
-  constructor() {}
-
   onModuleInit(): void {
-    const proxy = PsaSpecScraperService.scraperProxy();
+    const proxy = this.scraperProxy();
     this.logger.log(
       proxy
         ? 'PSA spec scraper enabled — Chromium will use PSA_SPEC_SCRAPER_PROXY for egress; first scrape launches browser (lazy).'
@@ -153,7 +146,7 @@ export class PsaSpecScraperService implements OnModuleInit, OnModuleDestroy {
         Date.now() +
         (url
           ? PsaSpecScraperService.POSITIVE_TTL_MS
-          : PsaSpecScraperService.negativeCacheTtlMs()),
+          : this.negativeCacheTtlMs()),
     });
 
     return url;
@@ -178,9 +171,7 @@ export class PsaSpecScraperService implements OnModuleInit, OnModuleDestroy {
     let url = await attempt();
     if (url) return url;
 
-    const retryEmpty =
-      process.env.PSA_SPEC_RETRY_EMPTY === '1' ||
-      process.env.PSA_SPEC_RETRY_EMPTY === 'true';
+    const retryEmpty = this.config.get<boolean>('psa.specRetryEmpty') === true;
     if (retryEmpty) {
       this.logger.debug(
         `PSA spec scrape retry_empty specId=${specId} (second full attempt)`,
@@ -193,8 +184,8 @@ export class PsaSpecScraperService implements OnModuleInit, OnModuleDestroy {
 
   private async doScrape(specId: string): Promise<string | null> {
     const context = await this.ensureContext();
-    const navTimeout = PsaSpecScraperService.navTimeoutMs();
-    const imgTimeout = PsaSpecScraperService.imgTimeoutMs();
+    const navTimeout = this.navTimeoutMs();
+    const imgTimeout = this.imgTimeoutMs();
 
     const urls = [
       `https://www.psacard.com/spec/psa/${specId}?g=10&gt=SINGLE_GRADED`,
@@ -360,7 +351,7 @@ export class PsaSpecScraperService implements OnModuleInit, OnModuleDestroy {
         args: launchArgs,
       });
 
-      const proxyOpts = PsaSpecScraperService.scraperProxy();
+      const proxyOpts = this.scraperProxy();
       const context = await this.browser.newContext({
         userAgent:
           'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',

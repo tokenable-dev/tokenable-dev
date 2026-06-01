@@ -1,4 +1,4 @@
-import type { CollectionMarketBundle } from './collection-market.service';
+import type { CollectionMarketBundle } from '../collections/collection-market.service';
 import type { MarketCollectionPreview } from '../utils/market-reference.types';
 
 /** On-chain owner → token ids held at scan time. */

@@ -1,5 +1,8 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import appConfig from './config/app.config';
+import marketplaceConfig from './config/marketplace.config';
+import psaConfig from './config/psa.config';
 import { ScheduleModule } from '@nestjs/schedule';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CacheModule } from './common/cache/cache.module';
@@ -21,7 +24,10 @@ import { PortfolioHiddenHolding } from './marketplace/entities/portfolio-hidden-
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      load: [appConfig, marketplaceConfig, psaConfig],
+    }),
     ScheduleModule.forRoot(),
     CacheModule,
 

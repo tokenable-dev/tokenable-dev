@@ -20,7 +20,7 @@ import type {
   MarketPriceHistoryResult,
 } from '../utils/market-reference.types';
 import type { MarketHistoryPeriod } from '../utils/price-history-period.util';
-import { CardhedgerMarketDataService } from './cardhedger-market-data.service';
+import { CardhedgerMarketDataService } from '../market-data/cardhedger-market-data.service';
 import type { CertMarketTraceDto } from './dto/cert-market-trace.dto';
 
 function normalizeBucketPart(s: string): string {

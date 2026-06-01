@@ -19,6 +19,7 @@ import { CreateOrderDto } from './dto/create-order.dto';
 import { FulfillMatchedPairDto } from './dto/fulfill-matched-pair.dto';
 import { ReplaceListingDto } from './dto/replace-listing.dto';
 import { Order } from '../entities/order.entity';
+import { ListActiveOrdersQueryDto } from './dto/list-active-orders-query.dto';
 import { OrdersService } from './orders.service';
 
 @ApiTags('marketplace')
@@ -199,9 +200,15 @@ export class OrdersController {
     summary:
       'Active listings (asks) — lightweight rows (no Seaport parameters / signature)',
   })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    description:
+      'Max rows returned (default server cap from MARKETPLACE_ACTIVE_ORDERS_MAX)',
+  })
   @Get('orders')
-  findActiveOrders() {
-    return this.ordersService.findActiveOrderListItems();
+  findActiveOrders(@Query() query: ListActiveOrdersQueryDto) {
+    return this.ordersService.findActiveOrderListItems(query.limit);
   }
 
   @ApiOperation({

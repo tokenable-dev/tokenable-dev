@@ -132,4 +132,32 @@ export class RwaTokenRegistryService {
     }
     return out;
   }
+
+  /** Minted token ids indexed for a marketplace collection bucket (fast merkle path). */
+  async tokenIdsForCollectionKey(collectionKey: string): Promise<string[]> {
+    const contract = this.rwaContractAddress();
+    const key = collectionKey.trim().toLowerCase();
+    if (!contract || !key) return [];
+
+    const rows = await this.repo.find({
+      where: {
+        tokenContract: contract,
+        collectionKey: key,
+      },
+      select: ['tokenId'],
+      order: { tokenId: 'ASC' },
+    });
+
+    const ids = rows
+      .map((r) => String(r.tokenId).trim())
+      .filter((id) => id.length > 0);
+    ids.sort((a, b) => {
+      const ba = BigInt(a);
+      const bb = BigInt(b);
+      if (ba < bb) return -1;
+      if (ba > bb) return 1;
+      return 0;
+    });
+    return ids;
+  }
 }

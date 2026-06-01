@@ -2,8 +2,9 @@ import { Inject, Injectable, Logger, forwardRef } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { CardhedgerMarketDataService } from './cardhedger-market-data.service';
-import { CollectionService } from './collection.service';
+import { CardhedgerMarketDataService } from '../market-data/cardhedger-market-data.service';
+import { CollectionService } from '../collections/collection.service';
+import { CollectionMarketSnapshotSchedulerService } from './collection-market-snapshot-scheduler.service';
 import { CollectionMarketSnapshot } from '../entities/collection-market-snapshot.entity';
 import { MARKET_NM_HISTORY_MAX_DAYS } from '../utils/market-grade-strip.util';
 import { marketHistoryTierFromComponents } from '../utils/market-history-tier.util';
@@ -37,6 +38,8 @@ export class CollectionMarketSnapshotService {
     private readonly collectionService: CollectionService,
     private readonly cardMarketData: CardhedgerMarketDataService,
     private readonly config: ConfigService,
+    @Inject(forwardRef(() => CollectionMarketSnapshotSchedulerService))
+    private readonly snapshotScheduler: CollectionMarketSnapshotSchedulerService,
   ) {}
 
   staleAfterSec(): number {
@@ -297,7 +300,30 @@ export class CollectionMarketSnapshotService {
   }
 
   /**
-   * Cold-start path: build snapshot once when no row exists.
+   * Read path: return the current row immediately; enqueue refresh when missing or unusable.
+   * Does not block on Cardhedger/PSA upstream (use {@link ensureSnapshot} when a row must exist).
+   */
+  async resolveSnapshotForRead(
+    collectionKey: string,
+    reason: SnapshotRefreshReason = 'cold_start',
+  ): Promise<CollectionMarketSnapshot | null> {
+    const key = collectionKey.toLowerCase();
+    const existing = await this.findByKey(key);
+    const usable = await this.isUsableForRead(existing, key);
+    if (usable && existing) {
+      if (this.isRowStale(existing)) {
+        this.snapshotScheduler.enqueue(key, 'stale_swr');
+      }
+      return existing;
+    }
+    if (this.onDemandEnabled()) {
+      this.snapshotScheduler.enqueue(key, reason);
+    }
+    return existing;
+  }
+
+  /**
+   * Cold-start path: build snapshot once when no row exists (blocking upstream).
    * Returns null when on-demand refresh is disabled and row is missing.
    */
   async ensureSnapshot(

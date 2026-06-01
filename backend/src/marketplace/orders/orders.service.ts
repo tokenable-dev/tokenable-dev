@@ -414,16 +414,25 @@ export class OrdersService {
     }
   }
 
-  async findActiveOrders(): Promise<Order[]> {
+  private activeOrdersCap(requested?: number): number {
+    const serverMax = this.config.get<number>('marketplace.activeOrdersMax') ?? 20_000;
+    if (requested == null || !Number.isFinite(requested)) {
+      return serverMax;
+    }
+    return Math.min(Math.max(1, Math.floor(requested)), serverMax);
+  }
+
+  async findActiveOrders(limit?: number): Promise<Order[]> {
     await this.expireOrders();
     return this.orderRepo.find({
       where: { status: OrderStatus.ACTIVE, side: OrderSide.ASK },
       order: { createdAt: 'DESC' },
+      take: this.activeOrdersCap(limit),
     });
   }
 
-  async findActiveOrderListItems(): Promise<OrderListItem[]> {
-    const rows = await this.findActiveOrders();
+  async findActiveOrderListItems(limit?: number): Promise<OrderListItem[]> {
+    const rows = await this.findActiveOrders(limit);
     return rows.map((o) => orderToListItem(o));
   }
 

@@ -1,7 +1,6 @@
 import {
   Body,
   Controller,
-  ForbiddenException,
   Get,
   NotFoundException,
   BadRequestException,
@@ -17,26 +16,26 @@ import {
   ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
-import { CardhedgerAiInsightService } from './cardhedger-ai-insight.service';
-import { CardhedgerMarketDataService } from './cardhedger-market-data.service';
+import { MarketplaceAdminService } from '../admin/marketplace-admin.service';
+import { CardhedgerAiInsightService } from '../market-data/cardhedger-ai-insight.service';
+import { CardhedgerMarketDataService } from '../market-data/cardhedger-market-data.service';
+import { PortfolioDailySnapshotService } from '../portfolio/portfolio-daily-snapshot.service';
+import { PortfolioHiddenHoldingService } from '../portfolio/portfolio-hidden-holding.service';
+import { PortfolioHideHoldingDto } from '../portfolio/dto/portfolio-hide-holding.dto';
+import { PortfolioMarketBatchDto } from '../portfolio/dto/portfolio-market-batch.dto';
+import { CollectionMarketSnapshotReadService } from '../snapshots/collection-market-snapshot-read.service';
+import { CollectionMarketSnapshotSchedulerService } from '../snapshots/collection-market-snapshot-scheduler.service';
+import { CollectionMarketSnapshotService } from '../snapshots/collection-market-snapshot.service';
 import { CollectionMarketService } from './collection-market.service';
-import { CollectionMarketSnapshotReadService } from './collection-market-snapshot-read.service';
-import { CollectionMarketSnapshotSchedulerService } from './collection-market-snapshot-scheduler.service';
-import { CollectionMarketSnapshotService } from './collection-market-snapshot.service';
 import { CollectionService } from './collection.service';
-import { PortfolioDailySnapshotService } from './portfolio-daily-snapshot.service';
-import { PortfolioHiddenHoldingService } from './portfolio-hidden-holding.service';
-import { PortfolioHideHoldingDto } from './dto/portfolio-hide-holding.dto';
 import { BatchMarketSnapshotsDto } from './dto/batch-market-snapshots.dto';
 import { MintPreviewsByTokenIdsDto } from './dto/mint-previews-by-token-ids.dto';
-import { PortfolioMarketBatchDto } from './dto/portfolio-market-batch.dto';
 import { TokenCollectionKeysDto } from './dto/token-collection-keys.dto';
 import {
   isMarketHistoryPeriod,
   marketPeriodToMaxCalendarDays,
   type MarketHistoryPeriod,
 } from '../utils/price-history-period.util';
-import { isMarketplaceAdminWallet } from '../utils/marketplace-admin.util';
 import {
   AdminDeleteCollectionDto,
   AdminPreviewCollectionCoverFromTokenDto,
@@ -56,6 +55,7 @@ export class CollectionsController {
     private readonly snapshotScheduler: CollectionMarketSnapshotSchedulerService,
     private readonly portfolioSnapshots: PortfolioDailySnapshotService,
     private readonly portfolioHidden: PortfolioHiddenHoldingService,
+    private readonly marketplaceAdmin: MarketplaceAdminService,
   ) {}
 
   /** Decode URL-encoded path segments (some keys may be percent-encoded) and lowercase for DB lookup. */
@@ -64,9 +64,7 @@ export class CollectionsController {
   }
 
   private assertAdminWallet(adminWallet: string): void {
-    if (!isMarketplaceAdminWallet(adminWallet)) {
-      throw new ForbiddenException('Admin wallet not authorized');
-    }
+    this.marketplaceAdmin.assertAdminWallet(adminWallet);
   }
 
   @ApiOperation({ summary: 'Collection list (cursor pagination)' })
@@ -152,15 +150,22 @@ export class CollectionsController {
     const cached = await this.collectionService.collectionKeysByTokenIds(tokenIds);
     const out: Record<number, string> = { ...cached };
     const missing = tokenIds.filter((id) => !out[id]);
-    for (const tokenId of missing) {
-      try {
-        const k = await this.collectionService.resolveCollectionKeyFromTokenMetadata(
-          String(tokenId),
-        );
-        if (k) out[tokenId] = k.toLowerCase();
-      } catch {
-        // Keep partial success; frontend can still fall back per-token preview.
-      }
+    const RESOLVE_CONCURRENCY = 4;
+    for (let i = 0; i < missing.length; i += RESOLVE_CONCURRENCY) {
+      const chunk = missing.slice(i, i + RESOLVE_CONCURRENCY);
+      await Promise.all(
+        chunk.map(async (tokenId) => {
+          try {
+            const k =
+              await this.collectionService.resolveCollectionKeyFromTokenMetadata(
+                String(tokenId),
+              );
+            if (k) out[tokenId] = k.toLowerCase();
+          } catch {
+            // Keep partial success; frontend can still fall back per-token preview.
+          }
+        }),
+      );
     }
     return { items: out };
   }
@@ -178,12 +183,11 @@ export class CollectionsController {
       limitRaw != null && String(limitRaw).trim() !== ''
         ? Math.max(2, Math.min(120, parseInt(String(limitRaw), 10)))
         : 32;
-    // Fallback only when today's 09:00 KST cron row is missing (never overwrites cron history).
-    await this.portfolioSnapshots.ensureCurrentSlotSnapshot(wallet);
+    // Fallback capture runs in background — never block GET on full wallet pricing.
+    this.portfolioSnapshots.scheduleCurrentSlotSnapshot(wallet);
     let rows = await this.portfolioSnapshots.listWalletSnapshots(wallet, limit);
     if (rows.length === 0) {
-      await this.portfolioSnapshots.ensureBaselineSnapshot(wallet);
-      rows = await this.portfolioSnapshots.listWalletSnapshots(wallet, limit);
+      this.portfolioSnapshots.scheduleBaselineSnapshot(wallet);
     }
     const p = await this.portfolioSnapshots.latest24h(wallet);
     return {
@@ -255,10 +259,7 @@ export class CollectionsController {
   @Get('collections/:key/cardhedger')
   async getCollectionCardhedger(@Param('key') key: string) {
     const k = this.normalizeKey(key);
-    let row = await this.snapshotService.findByKey(k);
-    if (!(await this.snapshotService.isUsableForRead(row, k))) {
-      row = await this.snapshotService.ensureSnapshot(k, 'cold_start');
-    }
+    let row = await this.snapshotService.resolveSnapshotForRead(k, 'cold_start');
     if (row?.previewJson) {
       const stale = this.snapshotService.isRowStale(row);
       this.snapshotService.touchLastViewed(k);
@@ -330,10 +331,7 @@ export class CollectionsController {
       ? Math.min(365, Math.max(1, parsedMax))
       : marketPeriodToMaxCalendarDays(period);
 
-    let row = await this.snapshotService.findByKey(k);
-    if (!(await this.snapshotService.isUsableForRead(row, k))) {
-      row = await this.snapshotService.ensureSnapshot(k, 'cold_start');
-    }
+    let row = await this.snapshotService.resolveSnapshotForRead(k, 'cold_start');
 
     if (row?.externalUsdJson != null) {
       const stale = this.snapshotService.isRowStale(row);

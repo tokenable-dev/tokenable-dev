@@ -7,9 +7,9 @@ import { User } from '../../user/entities/user.entity';
 import {
   CollectionMarketBundle,
   CollectionMarketService,
-} from './collection-market.service';
-import { CardhedgerMarketDataService } from './cardhedger-market-data.service';
-import { RwaTokenRegistryService } from './rwa-token-registry.service';
+} from '../collections/collection-market.service';
+import { CardhedgerMarketDataService } from '../market-data/cardhedger-market-data.service';
+import { RwaTokenRegistryService } from '../collections/rwa-token-registry.service';
 import { PortfolioDailySnapshot } from '../entities/portfolio-daily-snapshot.entity';
 import {
   componentsFromMetadata,
@@ -124,6 +124,15 @@ export class PortfolioDailySnapshotService {
     await this.captureDailySnapshot(wallet);
   }
 
+  /** Non-blocking read-path fallback (see {@link ensureBaselineSnapshot}). */
+  scheduleBaselineSnapshot(walletAddress: string): void {
+    void this.ensureBaselineSnapshot(walletAddress).catch((e) => {
+      this.logger.warn(
+        `scheduleBaselineSnapshot failed wallet=${walletAddress}: ${e instanceof Error ? e.message : String(e)}`,
+      );
+    });
+  }
+
   /**
    * Read-path fallback only: backfill a missed cron slot for the current KST day.
    * Does not overwrite an existing row (cron rows are authoritative history).
@@ -151,6 +160,18 @@ export class PortfolioDailySnapshotService {
     this.fallbackGuardMsByWallet.set(wallet, nowMs);
 
     await this.captureDailySnapshot(wallet, reference);
+  }
+
+  /** Non-blocking read-path fallback (see {@link ensureCurrentSlotSnapshot}). */
+  scheduleCurrentSlotSnapshot(
+    walletAddress: string,
+    reference = new Date(),
+  ): void {
+    void this.ensureCurrentSlotSnapshot(walletAddress, reference).catch((e) => {
+      this.logger.warn(
+        `scheduleCurrentSlotSnapshot failed wallet=${walletAddress}: ${e instanceof Error ? e.message : String(e)}`,
+      );
+    });
   }
 
   async latest24h(walletAddress: string): Promise<{

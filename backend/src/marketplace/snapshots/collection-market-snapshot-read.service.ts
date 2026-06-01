@@ -5,7 +5,7 @@ import type {
   MarketChangePriceSource,
   MarketChangeWindowLabel,
   PriceHistoryDuration,
-} from './collection-market.service';
+} from '../collections/collection-market.service';
 import type { GradePriceStrip, UsdPoint } from '../utils/collection-market.util';
 import { referenceChangeWithBestWindow } from '../utils/collection-market.util';
 import { chartHistoryWindowFromCalendarDays } from '../utils/market-grade-strip.util';

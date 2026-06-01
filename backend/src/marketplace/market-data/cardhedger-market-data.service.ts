@@ -7,7 +7,7 @@ import {
 } from '../../common/cache/ttl-cache.interface';
 import { BlockchainService } from '../../blockchain/blockchain.service';
 import { CardhedgerService } from '../../cardhedger/cardhedger.service';
-import { PsaCertSnapshotService } from './psa-cert-snapshot.service';
+import { PsaCertSnapshotService } from '../collections/psa-cert-snapshot.service';
 import {
   componentsPsaMirrorSufficientForCardhedger,
   mergePsaCertSnapshotIntoMirror,
@@ -18,6 +18,7 @@ import {
   normalizeForExactCatalogMatch,
   primaryCardNumber,
 } from '../utils/card-match.util';
+import { psaCertNumberFromGradedMeta } from '../utils/collection-image.util';
 import { extractBucketComponentsFromMetadata } from '../utils/bucket-key.util';
 import { marketHistoryTierFromComponents } from '../utils/market-history-tier.util';
 import { cardhedgerGradeFromHistoryTier } from '../utils/psa-grade-policy.util';
@@ -48,45 +49,19 @@ import {
   cardhedgerRowMatchesMarketParallelKey,
   marketParallelKeyFromPsaVariety,
 } from '../utils/market-parallel-key.util';
+import type {
+  AiInsightPsa10PriceConfidence,
+  CardhedgerCardRow,
+  CardhedgerCompsCached,
+  CardhedgerCompsHeadline,
+  CardhedgerPsa10SpotBasis,
+  CollectionAiInsightPricingStats,
+} from './cardhedger-market-data.types';
 
-export type AiInsightPsa10PriceConfidence = 'high' | 'medium' | 'low';
-
-export interface CollectionAiInsightPricingStats {
-  psa10SpotUsd: number | null;
-  rawSpotUsd: number | null;
-  premiumVsRawPct: number | null;
-  sales7d: number | null;
-  sales30d: number | null;
-  change7dPct: number | null;
-  change30dPct: number | null;
-  change90dPct: number | null;
-  change365dPct: number | null;
-  points90d: number;
-  points365d: number;
-  psa10PriceConfidence: AiInsightPsa10PriceConfidence | null;
-  psa10PricingNote: string | null;
-  psa10SpotLowUsd: number | null;
-  psa10SpotHighUsd: number | null;
-  psa10CatalogUsd: number | null;
-  /** PSA line population from collection components when persisted (premium context). */
-  psaTotalPopulation: number | null;
-}
-
-type CardhedgerCardRow = Record<string, unknown>;
-
-type CardhedgerCompsHeadline = {
-  usd: number;
-  latestSaleAtSec: number | null;
-  countUsed: number;
-};
-
-/** Cached `POST /v1/cards/comps` payload slice — headline + optional raw sale points for charts. */
-type CardhedgerCompsCached = {
-  headline: CardhedgerCompsHeadline | null;
-  rawPoints: Array<{ t: number; v: number }>;
-  /** Upstream 404: catalog match but no indexed sales for requested grade. */
-  noSalesForGrade?: boolean;
-};
+export type {
+  AiInsightPsa10PriceConfidence,
+  CollectionAiInsightPricingStats,
+} from './cardhedger-market-data.types';
 
 /**
  * Card Hedge `POST /v1/cards/prices-by-card` documents rolling `days` in [1, **365**] only.
@@ -113,8 +88,6 @@ const CARDHEDGER_CARD_SEARCH_PAGE_SIZE = 35;
  *
  * Override with env `CARDHEDGER_PSA10_SPOT_BASIS=time_weighted` to restore the old headline.
  */
-type CardhedgerPsa10SpotBasis = 'last_raw_comp' | 'time_weighted';
-
 /**
  * When Cardhedger returns this many or fewer positive sale/sample points, use arithmetic mean
  * instead of a single last observation (comps raw → then PSA 10 history).
@@ -167,6 +140,8 @@ export class CardhedgerMarketDataService {
   private static readonly NS_TIER_HISTORY = 'cardhedger:tierHistory';
   private static readonly NS_COMPS = 'cardhedger:comps';
   private static readonly NS_RESOLVE = 'cardhedger:resolve';
+  private static readonly NS_CERT_DETAILS_BATCH = 'cardhedger:certDetailsBatch';
+  private static readonly CERT_DETAILS_BATCH_MAX = 100;
 
   constructor(
     private readonly cardhedger: CardhedgerService,
@@ -492,6 +467,203 @@ export class CardhedgerMarketDataService {
     return cards.filter(
       (x): x is CardhedgerCardRow => typeof x === 'object' && x != null,
     );
+  }
+
+  private normalizeCertDigits(cert: string | undefined): string {
+    const d = String(cert ?? '').replace(/\D/g, '');
+    return d.length >= 7 ? d : '';
+  }
+
+  /**
+   * Cardhedger `POST /v1/cards/details-by-certs` — up to 100 certs per request.
+   * Returns cert digits → catalog row (skips entries with no `card`).
+   */
+  private async fetchCardRowsByCertsBatch(
+    certs: string[],
+  ): Promise<Map<string, CardhedgerCardRow>> {
+    const out = new Map<string, CardhedgerCardRow>();
+    if (!this.isConfigured()) return out;
+
+    const unique = [
+      ...new Set(
+        certs
+          .map((c) => this.normalizeCertDigits(c))
+          .filter((c) => c.length > 0),
+      ),
+    ];
+    if (unique.length === 0) return out;
+
+    for (let i = 0; i < unique.length; i += CardhedgerMarketDataService.CERT_DETAILS_BATCH_MAX) {
+      const chunk = unique.slice(
+        i,
+        i + CardhedgerMarketDataService.CERT_DETAILS_BATCH_MAX,
+      );
+      const cacheKey = chunk.join(',');
+      const cached = this.ttlCache.get<{ map: Map<string, CardhedgerCardRow> }>(
+        CardhedgerMarketDataService.NS_CERT_DETAILS_BATCH,
+        cacheKey,
+      );
+      if (cached) {
+        for (const [k, v] of cached.map) out.set(k, v);
+        continue;
+      }
+      const chunkMap = new Map<string, CardhedgerCardRow>();
+      try {
+        const body = await this.cardhedger.forwardJson(
+          'POST',
+          '/v1/cards/details-by-certs',
+          {
+            body: { certs: chunk, grader: 'PSA' },
+          },
+        );
+        const results = Array.isArray(
+          (body as { results?: unknown[] } | null)?.results,
+        )
+          ? ((body as { results: unknown[] }).results ?? [])
+          : [];
+        for (const raw of results) {
+          if (typeof raw !== 'object' || raw == null) continue;
+          const row = raw as {
+            cert_info?: { cert?: string | number };
+            card?: CardhedgerCardRow;
+          };
+          const certDigits = this.normalizeCertDigits(
+            String(row.cert_info?.cert ?? ''),
+          );
+          const card = row.card;
+          const cardId =
+            typeof card?.card_id === 'string' ? card.card_id.trim() : '';
+          if (certDigits && cardId && card) {
+            chunkMap.set(certDigits, card);
+          }
+        }
+      } catch (e) {
+        this.logger.warn(
+          `details-by-certs batch failed (${chunk.length} certs): ${
+            e instanceof Error ? e.message : String(e)
+          }`,
+        );
+      }
+      this.ttlCache.set(
+        CardhedgerMarketDataService.NS_CERT_DETAILS_BATCH,
+        cacheKey,
+        { map: chunkMap },
+        this.RESOLVE_CACHE_TTL_MS,
+      );
+      for (const [k, v] of chunkMap) out.set(k, v);
+    }
+    return out;
+  }
+
+  private async mapInBatches<T, R>(
+    input: readonly T[],
+    concurrency: number,
+    fn: (item: T, idx: number) => Promise<R>,
+  ): Promise<R[]> {
+    const cap = Math.max(1, Math.min(16, Math.floor(concurrency)));
+    const results: R[] = [];
+    for (let i = 0; i < input.length; i += cap) {
+      const chunk = input.slice(i, i + cap);
+      const settled = await Promise.all(
+        chunk.map((item, off) => fn(item, i + off)),
+      );
+      results.push(...settled);
+    }
+    return results;
+  }
+
+  private mintPreviewConcurrency(): number {
+    return (
+      this.config.get<number>('marketplace.cardhedgerMintPreviewConcurrency') ??
+      4
+    );
+  }
+
+  private mintPreviewUseCertBatch(): boolean {
+    const v = this.config.get<boolean>(
+      'marketplace.cardhedgerMintPreviewUseCertBatch',
+    );
+    return v !== false;
+  }
+
+  private buildMintSyntheticCollection(input: {
+    tokenId: number;
+    meta: Record<string, unknown>;
+    psaMirror: Record<string, unknown>;
+    cardhedgerCardIdOverride?: string | null;
+  }): MarketplaceCollection {
+    const { tokenId, meta, psaMirror, cardhedgerCardIdOverride } = input;
+    const graded =
+      (meta.properties as Record<string, unknown> | undefined)?.graded ??
+      (meta.graded as Record<string, unknown> | undefined);
+    const ch = (graded as Record<string, unknown> | undefined)?.cardhedger as
+      | Record<string, unknown>
+      | undefined;
+    const cardIdFromMeta =
+      typeof ch?.cardId === 'string' && ch.cardId.trim()
+        ? ch.cardId.trim()
+        : '';
+    const cardhedgerCardId =
+      (cardhedgerCardIdOverride?.trim() || '') || cardIdFromMeta;
+    const card = (graded as Record<string, unknown> | undefined)?.card as
+      | Record<string, unknown>
+      | undefined;
+    const qFromCardhedger =
+      typeof ch?.searchQuery === 'string' && ch.searchQuery.trim()
+        ? ch.searchQuery.trim()
+        : '';
+    const query =
+      qFromCardhedger ||
+      [
+        String(card?.name ?? ''),
+        String(card?.number ?? ''),
+        String(card?.set ?? ''),
+      ]
+        .join(' ')
+        .trim();
+
+    const extracted = extractBucketComponentsFromMetadata(meta);
+    const psaObj =
+      typeof (graded as Record<string, unknown> | undefined)?.psa === 'object' &&
+      (graded as Record<string, unknown> | undefined)?.psa != null
+        ? (((graded as Record<string, unknown>).psa as Record<
+            string,
+            unknown
+          >) ?? null)
+        : null;
+    const specRaw = psaObj?.specId;
+    const spec =
+      typeof specRaw === 'number' && Number.isFinite(specRaw)
+        ? String(Math.floor(specRaw))
+        : typeof specRaw === 'string' && specRaw.trim()
+          ? specRaw.trim()
+          : '';
+    const psaSpecExtras = spec ? { psaSpecId: spec } : {};
+
+    const componentsPayload: Record<string, unknown> = extracted
+      ? {
+          ...(extracted as unknown as Record<string, unknown>),
+          ...psaSpecExtras,
+          ...psaMirror,
+          ...(cardhedgerCardId ? { cardhedgerCardId } : {}),
+        }
+      : {
+          cardName: String(card?.name ?? ''),
+          cardSet: String(card?.set ?? ''),
+          cardNumber: String(card?.number ?? ''),
+          ...psaSpecExtras,
+          ...psaMirror,
+          ...(cardhedgerCardId ? { cardhedgerCardId } : {}),
+        };
+
+    return {
+      collectionKey: `mint_${tokenId}`,
+      displayLabel: String(meta.name ?? query ?? ''),
+      queryUsed: query,
+      components: componentsPayload,
+      coverImageUrl: null,
+      createdAt: new Date(),
+    } as MarketplaceCollection;
   }
 
   /** Region / print language from Cardhedger row (avoid hardcoding `US` for every card). */
@@ -2954,100 +3126,81 @@ export class CardhedgerMarketDataService {
     if (ids.length === 0) return out;
 
     const pack = await this.blockchain.batchRwaMetadata(ids);
-    // PSA Public API는 동시 다발 호출에 429가 잘 난다. in-flight 합류 외에도 배치 자체를 순차 처리.
-    for (const item of pack.items) {
-        const meta = item.metadata;
-        if (!meta) {
-          out[item.tokenId] = {
-            enabled: this.isConfigured(),
-            searchQuery: '',
-            matched: false,
-            message: 'Metadata unavailable',
-            card: null,
-          };
-          continue;
-        }
+    const work = pack.items.filter((item) => item.metadata != null);
+    const missingMeta = pack.items.filter((item) => !item.metadata);
+
+    for (const item of missingMeta) {
+      out[item.tokenId] = {
+        enabled: this.isConfigured(),
+        searchQuery: '',
+        matched: false,
+        message: 'Metadata unavailable',
+        card: null,
+      };
+    }
+
+    let certCardByDigits = new Map<string, CardhedgerCardRow>();
+    if (this.mintPreviewUseCertBatch() && work.length > 0) {
+      const certs = work
+        .map((item) => psaCertNumberFromGradedMeta(item.metadata!))
+        .filter((c): c is string => Boolean(c));
+      certCardByDigits = await this.fetchCardRowsByCertsBatch(certs);
+    }
+
+    const psaMirrorByCert = new Map<string, Record<string, unknown>>();
+
+    await this.mapInBatches(
+      work,
+      this.mintPreviewConcurrency(),
+      async (item) => {
+        const meta = item.metadata!;
         const graded =
           (meta.properties as Record<string, unknown> | undefined)?.graded ??
           (meta.graded as Record<string, unknown> | undefined);
-        const ch = (graded as Record<string, unknown> | undefined)
-          ?.cardhedger as Record<string, unknown> | undefined;
-        const cardId =
-          typeof ch?.cardId === 'string' && ch.cardId.trim()
-            ? ch.cardId.trim()
-            : '';
-        const card = (graded as Record<string, unknown> | undefined)?.card as
-          | Record<string, unknown>
-          | undefined;
-        const qFromCardhedger =
-          typeof ch?.searchQuery === 'string' && ch.searchQuery.trim()
-            ? ch.searchQuery.trim()
-            : '';
-        const query =
-          qFromCardhedger ||
-          [
-            String(card?.name ?? ''),
-            String(card?.number ?? ''),
-            String(card?.set ?? ''),
-          ]
-            .join(' ')
-            .trim();
-
-        const extracted = extractBucketComponentsFromMetadata(meta);
-
-        const psaSpecExtras = (): Record<string, unknown> => {
-          const psaObj =
-            typeof (graded as Record<string, unknown> | undefined)?.psa ===
-              'object' &&
-            (graded as Record<string, unknown> | undefined)?.psa != null
-              ? (((graded as Record<string, unknown>).psa as Record<
-                  string,
-                  unknown
-                >) ?? null)
-              : null;
-          const specRaw = psaObj?.specId;
-          const spec =
-            typeof specRaw === 'number' && Number.isFinite(specRaw)
-              ? String(Math.floor(specRaw))
-              : typeof specRaw === 'string' && specRaw.trim()
-                ? specRaw.trim()
-                : '';
-          return spec ? { psaSpecId: spec } : {};
-        };
-
-        const psaMirror = await this.enrichPsaMirrorFromCertLookup(
-          graded as Record<string, unknown> | undefined,
-          this.psaMirrorFromGradedBlock(
-            graded as Record<string, unknown> | undefined,
-          ),
+        const certDigits = this.normalizeCertDigits(
+          psaCertNumberFromGradedMeta(meta),
         );
+        const batchRow = certDigits
+          ? certCardByDigits.get(certDigits)
+          : undefined;
 
-        const componentsPayload: Record<string, unknown> = extracted
-          ? {
-              ...(extracted as unknown as Record<string, unknown>),
-              ...psaSpecExtras(),
-              ...psaMirror,
-              ...(cardId ? { cardhedgerCardId: cardId } : {}),
-            }
-          : {
-              cardName: String(card?.name ?? ''),
-              cardSet: String(card?.set ?? ''),
-              cardNumber: String(card?.number ?? ''),
-              ...psaSpecExtras(),
-              ...psaMirror,
-              ...(cardId ? { cardhedgerCardId: cardId } : {}),
-            };
+        let psaMirror = psaMirrorByCert.get(certDigits);
+        if (!psaMirror) {
+          psaMirror = await this.enrichPsaMirrorFromCertLookup(
+            graded as Record<string, unknown> | undefined,
+            this.psaMirrorFromGradedBlock(
+              graded as Record<string, unknown> | undefined,
+            ),
+          );
+          if (certDigits) psaMirrorByCert.set(certDigits, psaMirror);
+        }
 
-        const syntheticCol = {
-          collectionKey: `mint_${item.tokenId}`,
-          displayLabel: String(meta.name ?? query ?? ''),
-          queryUsed: query,
-          components: componentsPayload,
-          coverImageUrl: null,
-          createdAt: new Date(),
-        } as MarketplaceCollection;
-        out[item.tokenId] = await this.getPreviewForCollection(syntheticCol);
-    }
+        const syntheticCol = this.buildMintSyntheticCollection({
+          tokenId: item.tokenId,
+          meta,
+          psaMirror,
+          cardhedgerCardIdOverride:
+            typeof batchRow?.card_id === 'string'
+              ? batchRow.card_id.trim()
+              : null,
+        });
+
+        const q = this.buildCollectionQuery(syntheticCol).query;
+        if (batchRow) {
+          out[item.tokenId] = await this.buildPreviewFromResolved(
+            {
+              query: q,
+              row: batchRow,
+              confidence: 'verified',
+            },
+            syntheticCol,
+          );
+        } else {
+          out[item.tokenId] = await this.getPreviewForCollection(syntheticCol);
+        }
+      },
+    );
+
     return out;
   }
 }
