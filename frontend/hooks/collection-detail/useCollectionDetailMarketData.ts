@@ -19,6 +19,7 @@ import {
   percentChangeReferenceBestWindow,
   parseGradeScoreNumber,
   resolveExternalMarketUsd,
+  resolvePsaPopulationMetrics,
 } from "@/lib/market";
 import { COLLECTION_SESSION_FILL_DEDUP_SEC } from "@/lib/marketplace/collectionDetailConstants";
 import type { CollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
@@ -176,11 +177,18 @@ export function useCollectionDetailMarketData(params: {
     return sum;
   }, [platformTradesData?.trades, sessionFillPoint]);
 
+  const psaPopulationMetrics = useMemo(
+    () => resolvePsaPopulationMetrics(comp),
+    [comp],
+  );
+
   const totalPopulation = useMemo(() => {
+    const total = psaPopulationMetrics.totalPsaPop;
+    if (total != null) return total;
     const n = comp.psaTotalPopulation;
     if (n == null || !Number.isFinite(Number(n)) || Number(n) <= 0) return null;
     return Math.round(Number(n));
-  }, [comp.psaTotalPopulation]);
+  }, [comp.psaTotalPopulation, psaPopulationMetrics.totalPsaPop]);
 
   const orderBookTapeFills = useMemo((): CollectionPlatformTapeFill[] => {
     const raw = platformTradesData?.trades ?? [];
@@ -288,6 +296,7 @@ export function useCollectionDetailMarketData(params: {
     marketCapComputation,
     volume24hUsdc,
     totalPopulation,
+    psaPopulationMetrics,
     orderBookTapeFills,
     orderBookLastSaleUsdc,
     externalPriceChange1MoPct,

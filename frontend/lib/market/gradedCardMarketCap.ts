@@ -172,6 +172,48 @@ export function parsePsaTotalPopulation(components: CollectionComponents): numbe
   return null;
 }
 
+export interface PsaPopulationMetrics {
+  psa10Pop: number | null;
+  totalPsaPop: number | null;
+}
+
+function finitePositivePop(v: unknown): number | null {
+  if (typeof v !== "number" || !Number.isFinite(v) || v <= 0) return null;
+  return Math.floor(v);
+}
+
+/** PSA 10 pop + total PSA pop for collection detail metrics. */
+export function resolvePsaPopulationMetrics(
+  components: CollectionComponents,
+): PsaPopulationMetrics {
+  const grade10 =
+    finitePositivePop(components.psaGrade10Population) ??
+    (parseGradeScoreNumber(components.gradeScore) === 10
+      ? parsePsaTotalPopulation(components)
+      : null);
+  const totalPsaPop = finitePositivePop(components.psaSpecTotalPopulation);
+  return { psa10Pop: grade10, totalPsaPop };
+}
+
+export function formatPsaPopulationCount(n: number | null | undefined): string {
+  if (n == null || !Number.isFinite(n) || n <= 0) return "—";
+  return n.toLocaleString("en-US");
+}
+
+/** Compact pop for narrow mobile stat cells — full value via `title` when needed. */
+export function formatPsaPopulationCompact(n: number | null | undefined): string {
+  if (n == null || !Number.isFinite(n) || n <= 0) return "—";
+  if (n >= 1_000_000) {
+    const m = n / 1_000_000;
+    return `${m >= 10 ? Math.round(m) : m.toFixed(1)}M`;
+  }
+  if (n >= 10_000) {
+    const k = n / 1_000;
+    return `${k >= 100 ? Math.round(k) : k.toFixed(1)}k`;
+  }
+  return n.toLocaleString("en-US");
+}
+
 export function parseGradeScoreNumber(gradeScoreStr: string | undefined | null): number | null {
   if (gradeScoreStr == null || gradeScoreStr === "") return null;
   const n = parseFloat(String(gradeScoreStr).replace(",", "."));

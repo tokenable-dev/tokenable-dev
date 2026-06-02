@@ -2,22 +2,36 @@
 
 import { ListRwaModalFormView } from "@/components/marketplace/list-rwa/ListRwaModalFormView";
 import { ListRwaModalSuccessView } from "@/components/marketplace/list-rwa/ListRwaModalSuccessView";
+import { useListRwaModalAnchorPosition } from "@/components/marketplace/list-rwa/useListRwaModalAnchorPosition";
 import { useListRwaModal } from "@/hooks/list-rwa";
 import type { ListRwaModalProps } from "@/lib/seaport/listing/listRwaModalTypes";
 
 export type { ListRwaModalProps } from "@/lib/seaport/listing/listRwaModalTypes";
 
 export function ListRwaModal(props: ListRwaModalProps) {
-  const { tokenId, assetTitle, onClose } = props;
+  const { tokenId, assetTitle, onClose, anchorRect } = props;
   const modal = useListRwaModal(props);
+  const anchored = anchorRect != null;
+  const panelStyle = useListRwaModalAnchorPosition(anchorRect, [modal.step]);
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center px-4 py-5 sm:px-6 sm:py-8">
+    <div
+      className={
+        anchored
+          ? "fixed inset-0 z-[100]"
+          : "fixed inset-0 z-[100] flex items-center justify-center px-4 py-5 sm:px-6 sm:py-8"
+      }
+    >
       <div
         className="absolute inset-0 bg-black/70 backdrop-blur-sm"
         onClick={onClose}
       />
-      <div className="relative flex w-full max-w-[min(100%,22rem)] flex-col rounded-2xl border border-zinc-700/90 bg-zinc-950 px-6 py-6 shadow-xl shadow-black/40 sm:py-8">
+      <div
+        className={`flex w-[min(calc(100vw-2rem),22rem)] flex-col rounded-2xl border border-zinc-700/90 bg-zinc-950 px-6 py-6 shadow-xl shadow-black/40 sm:py-8 ${
+          anchored ? "" : "relative w-full max-w-[min(100%,22rem)]"
+        } ${anchored && !panelStyle ? "invisible pointer-events-none" : ""}`}
+        style={anchored ? panelStyle : undefined}
+      >
         <button
           type="button"
           aria-label="Close"
@@ -40,7 +54,6 @@ export function ListRwaModal(props: ListRwaModalProps) {
             tokenId={tokenId}
             assetTitle={assetTitle}
             isReplaceListing={modal.isReplaceListing}
-            currentAskDisplay={modal.currentAskDisplay}
             price={modal.price}
             onPriceChange={modal.setPrice}
             crossingBidsForInstantSale={modal.crossingBidsForInstantSale}

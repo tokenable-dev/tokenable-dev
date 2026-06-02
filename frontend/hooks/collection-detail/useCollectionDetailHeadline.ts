@@ -18,11 +18,15 @@ import {
 } from "@/lib/marketplace/bucketKey";
 import {
   buildCollectionHeadlineMetaStrip,
-  formatCollectionHeroCardTitle,
   leadingYearFromSetLine,
   toCardDisplayUppercase,
   yearFromComponents,
 } from "@/lib/marketplace/collectionFullDetailsTitle";
+import {
+  resolveCollectionSlabCardTitle,
+  resolveCollectionSlabSetLine,
+} from "@/lib/marketplace/slabDisplayTitle";
+import { resolveCollectionComponentVariant } from "@/lib/marketplace/resolveCardVariantLabel";
 import {
   buildCollectionHeadlineInfoTags,
   resolveHeadlineFormattedCardNumber,
@@ -55,6 +59,9 @@ export function useCollectionDetailHeadline(params: {
   }, [comp]);
 
   const headlineSetLine = useMemo(() => {
+    const slabSet = resolveCollectionSlabSetLine(comp);
+    if (slabSet) return slabSet;
+
     const bucketSet = bucketCardSetForDisplay(comp).trim();
     const listingTitle = listingDisplayTitleFromComp(comp);
     const setMerged =
@@ -101,21 +108,24 @@ export function useCollectionDetailHeadline(params: {
     comp.psaCategory,
   ]);
 
-  const collectionHeadlineCardName = useMemo(() => {
-    const listingTitle = listingDisplayTitleFromComp(comp);
-    if (listingTitle.length > 0) return toCardDisplayUppercase(listingTitle);
-    const nm = bucketCardNameForDisplay(comp).trim();
-    const dl = typeof displayLabel === "string" ? displayLabel.trim() : "";
-    if (nm.length > 0) return toCardDisplayUppercase(formatCollectionHeroCardTitle(comp));
-    if (dl.length > 0) return toCardDisplayUppercase(dl);
-    return toCardDisplayUppercase(
-      key.length > 0 ? key.slice(0, 18) + (key.length > 18 ? "…" : "") : "Collection",
-    );
-  }, [comp, displayLabel, key]);
+  const collectionHeadlineCardName = useMemo(
+    () =>
+      resolveCollectionSlabCardTitle(comp, {
+        displayLabel,
+        collectionKey: key,
+      }),
+    [comp, displayLabel, key],
+  );
 
   const headlineCardNumberToken = useMemo(
     () => resolveHeadlineFormattedCardNumber(marketPreview, comp),
     [marketPreview, comp],
+  );
+
+  const headlineVarietyLabel = useMemo(
+    () =>
+      resolveCollectionComponentVariant(comp, marketPreview?.card?.variant ?? null),
+    [comp, marketPreview?.card?.variant],
   );
 
   const collectionHeadlineParts = useMemo((): AssetDetailHeadlineParts => {
@@ -138,6 +148,7 @@ export function useCollectionDetailHeadline(params: {
       year,
       cardName: collectionHeadlineCardName,
       cardNumber: headlineCardNumberToken,
+      variety: headlineVarietyLabel,
       uppercase: true,
     });
   }, [
@@ -145,6 +156,7 @@ export function useCollectionDetailHeadline(params: {
     comp,
     collectionHeadlineCardName,
     headlineCardNumberToken,
+    headlineVarietyLabel,
     displayLabel,
   ]);
 

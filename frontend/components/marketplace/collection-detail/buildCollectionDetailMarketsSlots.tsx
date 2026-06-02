@@ -25,6 +25,7 @@ type MarketSlice = Pick<
   | "volume24hUsdc"
   | "platformTradesLoading"
   | "totalPopulation"
+  | "psaPopulationMetrics"
   | "marketCapComputation"
   | "chartProps"
 >;
@@ -59,6 +60,7 @@ export function buildCollectionDetailMarketsSlots(input: {
         externalPriceChange1MoLoading={market.marketSeriesLoading}
         volume24hUsdc={market.volume24hUsdc}
         volume24hLoading={market.platformTradesLoading}
+        psaPopulationMetrics={market.psaPopulationMetrics}
         totalPopulation={market.totalPopulation}
         marketCapUsd={market.marketCapComputation?.usd ?? null}
         marketCapMethodHint={market.marketCapComputation?.methodLabel ?? null}
@@ -94,6 +96,7 @@ export function buildCollectionDetailMobilePanels(input: {
         volume24hLoading={market.platformTradesLoading}
         marketCapUsd={market.marketCapComputation?.usd ?? null}
         totalPopulation={market.totalPopulation}
+        psaPopulationMetrics={market.psaPopulationMetrics}
         listingCount={asks.length}
         formatMarketCap={formatMarketCapUsd}
       />

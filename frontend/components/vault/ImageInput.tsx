@@ -122,7 +122,7 @@ export function ImageInput({
             <button
               type="button"
               onClick={() => inputRef.current?.click()}
-              className="group w-full rounded-2xl border-2 border-dashed border-gray-600 bg-gray-900/40 px-5 py-10 text-center transition-all hover:border-gray-500 hover:bg-gray-900/55 focus:outline-none focus-visible:ring-2 focus-visible:ring-mint/40 sm:py-12"
+              className="group w-full rounded-2xl border-2 border-dashed border-gray-600 bg-gray-900/40 px-5 py-10 text-center transition-all hover:border-gray-500 hover:bg-gray-900/55 sm:py-12"
             >
               <span className="flex flex-col items-center gap-3">
                 <GradientOutlineFrame

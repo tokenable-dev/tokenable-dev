@@ -247,6 +247,8 @@ export class CollectionsController {
     let col = await this.collectionService.findOne(k);
     if (col) {
       await this.collectionService.ensurePsaTotalPopulationFromListings(k);
+      // PSA spec pop report (Grade10 + Total) — persisted on components when missing.
+      await this.collectionService.ensurePsaSpecPopulationFromApi(k);
       await this.collectionService.ensurePsaCertNumberFromListings(k);
       const cardhedgerUpdated =
         await this.collectionService.ensureCardhedgerCardIdFromListings(k);

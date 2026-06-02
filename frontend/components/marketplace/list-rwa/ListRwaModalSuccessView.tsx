@@ -24,7 +24,7 @@ export function ListRwaModalSuccessView({
       <div className="mb-2 mt-2 text-3xl leading-none">
         {successMeta?.matched ? "✓" : "🎉"}
       </div>
-      <h3 className="text-base font-semibold tracking-tight text-white mb-1">
+      <h3 id="list-rwa-success-title" className="text-base font-semibold tracking-tight text-white mb-1">
         {successMeta?.matched
           ? "Matched a collection bid"
           : isReplaceListing

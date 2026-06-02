@@ -82,7 +82,7 @@ export function buildCollectionDualPriceChartOption(input: {
     merged.tMax > merged.tMin ? (merged.tMax - merged.tMin) / CHART_DAY_SEC : 0;
   const useCoarseTimeTicks = axisSpanDays > 1;
 
-  const yTickCount = isMobileChart ? 3 : 5;
+  const yTickCount = compactTab ? 2 : isMobileChart ? 3 : 4;
   const { min, max, interval } = niceScale(merged.vMin, merged.vMax, yTickCount);
 
   return {
@@ -90,9 +90,11 @@ export function buildCollectionDualPriceChartOption(input: {
     animation: !compactTab,
     animationDuration: compactTab ? 0 : 250,
     textStyle: { color: AXIS_LABEL, fontFamily: "ui-sans-serif, system-ui, sans-serif" },
-    grid: isMobileChart
-      ? { left: 32, right: 6, top: 14, bottom: 28, containLabel: false }
-      : { left: 52, right: 14, top: 8, bottom: 32, containLabel: false },
+    grid: compactTab
+      ? { left: 28, right: 4, top: 6, bottom: 20, containLabel: false }
+      : isMobileChart
+        ? { left: 32, right: 6, top: 10, bottom: 24, containLabel: false }
+        : { left: 48, right: 10, top: 4, bottom: 22, containLabel: false },
     dataZoom: [
       { type: "inside", xAxisIndex: 0, filterMode: "none" },
       { type: "slider", xAxisIndex: 0, height: 16, bottom: 0, show: false },

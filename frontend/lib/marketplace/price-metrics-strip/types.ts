@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { ReferencePercentChangeResult } from "@/lib/market";
+import type { PsaPopulationMetrics } from "@/lib/market/gradedCardMarketCap";
 
 export interface CollectionPriceMetricsStripProps {
   externalMarketUsd?: number | null;
@@ -30,7 +31,9 @@ export interface CollectionPriceMetricsStripProps {
   marketsUnifiedRow?: boolean;
   volume24hUsdc?: number | null;
   volume24hLoading?: boolean;
+  /** @deprecated Prefer psaPopulationMetrics */
   totalPopulation?: number | null;
+  psaPopulationMetrics?: PsaPopulationMetrics | null;
 }
 
 export type PriceMetricsTileSpec = {

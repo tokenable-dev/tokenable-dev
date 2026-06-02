@@ -28,12 +28,16 @@ export function RwaImageLightbox({
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") {
+        (document.activeElement as HTMLElement | null)?.blur?.();
+        onClose();
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => {
       document.body.style.overflow = prev;
       window.removeEventListener("keydown", onKey);
+      (document.activeElement as HTMLElement | null)?.blur?.();
     };
   }, [open, onClose]);
 

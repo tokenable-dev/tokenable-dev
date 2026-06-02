@@ -19,6 +19,7 @@ import {
   type CollectionCategoryFilterId,
 } from "@/lib/market";
 import { MarketsListingPriceWithChange } from "@/components/marketplace/marketplace-shared";
+import { buildMarketsCollectionTitle } from "@/lib/markets/marketsCollectionTitle";
 import { toCardDisplayUppercase } from "@/lib/marketplace/collectionFullDetailsTitle";
 
 const MAX_TRENDING_VISIBLE = 4;
@@ -344,7 +345,7 @@ export function TrendingCollectionsCarousel({
           </div>
           <div className="shrink-0 space-y-1 p-2.5 sm:p-3 min-h-[4.25rem] sm:min-h-[4rem]">
             <p className="line-clamp-2 min-h-[2.75rem] break-words text-base font-semibold uppercase leading-snug text-white sm:min-h-[1.75rem] sm:truncate sm:text-lg">
-              {toCardDisplayUppercase(c.displayLabel)}
+              {buildMarketsCollectionTitle({ collection: c, comp: c.components })}
             </p>
             <div className="min-h-[1.35rem] w-full min-w-0 sm:min-h-[1.5rem]">
               <MarketsListingPriceWithChange

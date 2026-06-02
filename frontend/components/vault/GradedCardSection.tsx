@@ -343,6 +343,9 @@ export function GradedCardSection({
           title={lockedHint(Boolean(L?.cardName))}
           className={`${inputClass} disabled:opacity-60 disabled:cursor-not-allowed`}
         />
+        <p className="mt-1.5 text-[11px] leading-relaxed text-gray-500">
+          Must match the card name printed on your PSA slab label (Subject line).
+        </p>
       </div>
 
       {/* Grading Company + Grade — side by side like the image */}
@@ -675,7 +678,7 @@ function CheckField({
         type="checkbox"
         checked={checked}
         onChange={(e) => onChange(e.target.checked)}
-        className="w-4 h-4 rounded border-gray-600 bg-gray-800 text-mint focus:ring-mint"
+        className="w-4 h-4 rounded border-gray-600 bg-gray-800 text-mint"
       />
       <span className="text-sm text-gray-300">{label}</span>
     </label>

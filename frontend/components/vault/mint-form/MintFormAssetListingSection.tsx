@@ -44,7 +44,7 @@ export function MintFormAssetListingSection({
             type="text"
             value={form.name}
             onChange={(e) => onNameChange(e.target.value)}
-            placeholder="e.g. 2023 Ohtani PSA 10"
+            placeholder="e.g. Pikachu With Grey Felt Hat"
             disabled={psaFieldLocks.assetName}
             title={
               psaFieldLocks.assetName
@@ -54,6 +54,9 @@ export function MintFormAssetListingSection({
             className="w-full bg-gray-800/80 border border-gray-700/60 focus:border-mint rounded-xl px-4 py-3 text-sm text-white placeholder-gray-600 outline-none transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             required
           />
+          <p className="mt-1.5 text-[11px] leading-relaxed text-gray-500">
+            Use the card name as printed on your PSA slab label — not the set name or grade.
+          </p>
           {psaFieldLocks.assetName && (
             <p className="mt-1 text-[11px] text-gray-500">Set by PSA analysis</p>
           )}

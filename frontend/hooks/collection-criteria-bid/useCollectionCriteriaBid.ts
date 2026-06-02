@@ -34,6 +34,8 @@ export function useCollectionCriteriaBid(input: {
   onPlaced?: (order: Order) => void;
   onInstantBuyFillUsdc?: (usdc: number) => void;
   onPurchaseFilled?: () => void;
+  /** When true, never instant-buy on submit — caller owns Buy Now (card detail). */
+  bidOnlySubmit?: boolean;
 }) {
   const {
     collectionKey,
@@ -43,6 +45,7 @@ export function useCollectionCriteriaBid(input: {
     onPlaced,
     onInstantBuyFillUsdc,
     onPurchaseFilled,
+    bidOnlySubmit = false,
   } = input;
 
   const { address: wagmiAddress, isConnected } = useAccount();
@@ -156,7 +159,10 @@ export function useCollectionCriteriaBid(input: {
     }
 
     const lowest = floor.lowestAsk ?? pickLowestActiveAsk(activeAsks);
-    const willFill = lowest != null && floor.priceInUnits >= askPriceMicros(lowest);
+    const willFill =
+      !bidOnlySubmit &&
+      lowest != null &&
+      floor.priceInUnits >= askPriceMicros(lowest);
 
     if (willFill && lowest) {
       if (floor.lowestAskCandidates.length >= 2 && !floor.showAskChooserModal) {

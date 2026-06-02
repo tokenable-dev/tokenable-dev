@@ -2,7 +2,7 @@
 
 > Seaport v1.5 · Off-chain order book (backend) · On-chain `fulfillOrder` / `matchAdvancedOrders`
 
-> **Update (2026-05):** Relational matching removed; **seven DB tables** including **`portfolio_daily_snapshots`** (09:00 KST cron). [database.md](../architecture/database.md) · [materialized-market-snapshots.md](../architecture/materialized-market-snapshots.md) · [api/marketplace.md](../api/marketplace.md)
+> **Update (2026-06):** Relational matching removed. **Eight DB tables** including `portfolio_hidden_holdings`. [database.md](../architecture/database.md) · [materialized-market-snapshots.md](../architecture/materialized-market-snapshots.md) · [api/marketplace.md](../api/marketplace.md)
 >
 > **Paths:** Sequence diagram labels like `POST /api/…` include the Nest global prefix **`api`**. Full HTTP overview: **[api/README.md](../api/README.md)**.
 
@@ -125,7 +125,7 @@ sequenceDiagram
         S -->> A  : tokenURI (IPFS CID)
         A  ->> C  : ERC721.mint(address, tokenURI)
         C -->> U  : 🎉 tokenId issued
-        Note over DB: Minting results are not stored in DB.<br/>tokenId and tokenURI reference on-chain data.
+        Note over DB: Optional UPSERT rwa_tokens<br/>(RWA_TOKEN_REGISTRY_SYNC_ON_BOOT or first ask)
     end
 
     rect rgba(134, 239, 172, 0.15)
@@ -139,8 +139,7 @@ sequenceDiagram
         A -->> U  : 🖊️ MetaMask signature request — EIP-712 sell order
         U  ->> A  : Approve signature
         A  ->> S  : POST /api/marketplace/orders [side: ask]
-        S  ->> DB : INSERT orders<br/>{order_hash, offerer, side:ask,<br/>token_contract, token_id,<br/>consideration_token, consideration_amount,<br/>parameters(jsonb), signature,<br/>status:active, start_time, end_time,<br/>collection_key}
-        S  ->> DB : UPSERT marketplace_collections<br/>{collection_key, display_label,<br/>components(jsonb), cover_image_url}
+        S  ->> DB : INSERT orders … + UPSERT marketplace_collections<br/>+ UPSERT rwa_tokens
         S -->> A  : ASK ACTIVE
     end
 

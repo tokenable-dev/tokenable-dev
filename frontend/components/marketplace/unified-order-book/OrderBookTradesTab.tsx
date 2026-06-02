@@ -4,6 +4,7 @@ import Link from "next/link";
 import {
   COLLECTION_DETAILS_BORDER_B,
   COLLECTION_DETAILS_BORDER_T,
+  COLLECTION_ORDER_BOOK_SCROLL_CLASS,
 } from "@/components/marketplace/collectionOverviewChrome";
 import type { CollectionPlatformTapeFill } from "@/lib/core";
 import {
@@ -44,7 +45,9 @@ export function OrderBookTradesTab({
             <span className="text-right">Token</span>
             <span className="text-right">Time</span>
           </div>
-          <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-auto px-1 py-0.5">
+          <div
+            className={`min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-auto px-1 py-0.5 ${COLLECTION_ORDER_BOOK_SCROLL_CLASS}`}
+          >
             {tapeFills.slice(0, MAX_ORDER_BOOK_TAPE_ROWS).map((row) => (
               <div
                 key={row.orderHash}

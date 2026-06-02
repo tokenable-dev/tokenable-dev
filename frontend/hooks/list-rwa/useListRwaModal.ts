@@ -152,33 +152,6 @@ export function useListRwaModal({
     return resolvedExistingAsk.offerer.toLowerCase() === address.toLowerCase();
   }, [resolvedExistingAsk, address, tokenId]);
 
-  const currentAskDisplay = useMemo(() => {
-    if (!isReplaceListing || !resolvedExistingAsk?.considerationAmount) return null;
-    try {
-      const micros = BigInt(resolvedExistingAsk.considerationAmount);
-      const n = Number(formatUnits(micros, 6));
-      if (!Number.isFinite(n)) return null;
-      const label = n.toLocaleString("en-US", {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      });
-      return { micros, label, inputValue: formatUnits(micros, 6) };
-    } catch {
-      return null;
-    }
-  }, [isReplaceListing, resolvedExistingAsk?.considerationAmount]);
-
-  useEffect(() => {
-    if (step !== "success") return;
-    const delayMs = successMeta?.matched
-      ? 1800
-      : successMeta?.hint
-        ? 4200
-        : 900;
-    const id = window.setTimeout(() => onClose(), delayMs);
-    return () => window.clearTimeout(id);
-  }, [step, successMeta?.matched, successMeta?.hint, onClose]);
-
   useEffect(() => {
     if (initialPriceUsdc != null && initialPriceUsdc.trim() !== "") {
       setPrice(initialPriceUsdc.trim());
@@ -369,6 +342,12 @@ export function useListRwaModal({
     step === "submitting" ||
     step === "matching";
 
+  function dismissSuccess() {
+    setStep("idle");
+    setSuccessMeta(null);
+    setErrorMsg("");
+  }
+
   return {
     price,
     setPrice,
@@ -376,11 +355,11 @@ export function useListRwaModal({
     errorMsg,
     successMeta,
     isReplaceListing,
-    currentAskDisplay,
     crossingBidsForInstantSale,
     selectedBidHash,
     setSelectedBidHash,
     isProcessing,
     handleList,
+    dismissSuccess,
   };
 }

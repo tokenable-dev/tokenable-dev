@@ -1,7 +1,6 @@
 "use client";
 
-import { useConnect } from "wagmi";
-import { connectMetaMaskWallet } from "@/lib/wallet/connectMetaMaskWallet";
+import type { ReactNode } from "react";
 import { AssetDetailHeadlineTitle } from "@/components/marketplace/marketplace-shared";
 import {
   RwaDetailHeaderBadges,
@@ -11,14 +10,13 @@ import {
   assetDetailHeadlineHasContent,
   type AssetDetailHeadlineParts,
 } from "@/lib/marketplace/assetDetailHeadline";
-import type { Order } from "@/lib/core";
+import type { CollectionPlatformTapeFill, Order } from "@/lib/core";
+import type { ListModalAnchorRect } from "@/lib/seaport/listing/listRwaModalTypes";
 import { rwaDetailRightFont } from "../theme";
-import { RwaDetailBuyerTradingPanel } from "../ui/RwaDetailBuyerTradingPanel";
-import { RwaDetailGradientButton } from "../ui/RwaDetailGradientButton";
-import { RwaDetailListPriceDisplay } from "../ui/RwaDetailListPriceDisplay";
+import { RwaDetailBuyerTradePanel } from "../ui/RwaDetailBuyerTradePanel";
 import { RwaDetailMarketContextStrip } from "../ui/RwaDetailMarketContextStrip";
-
-type StatRow = { label: string; value: string };
+import { RwaDetailOwnerListingPanel } from "../ui/RwaDetailOwnerListingPanel";
+import { RwaDetailTradesPanel } from "../ui/RwaDetailTradesPanel";
 
 export function RwaDetailDesktopSidebar({
   detailHeadlineParts,
@@ -29,7 +27,6 @@ export function RwaDetailDesktopSidebar({
   activeAskListing,
   isOwner,
   isConnected,
-  listing,
   listingBuyPriceUsdc,
   buyBusy,
   buyErr,
@@ -38,8 +35,13 @@ export function RwaDetailDesktopSidebar({
   marketChangePct,
   marketChangePeriodLabel,
   marketChangeCoverageHint,
-  rwaDetailStatRows,
+  tokenTrades,
+  tradesLoading,
+  tradesAvailable,
   onFulfillAsk,
+  onConnectWallet,
+  onOpenPlaceBid,
+  collectionKey,
   onOpenListModal,
 }: {
   detailHeadlineParts: AssetDetailHeadlineParts;
@@ -50,7 +52,6 @@ export function RwaDetailDesktopSidebar({
   activeAskListing: Order | null;
   isOwner: boolean;
   isConnected: boolean;
-  listing: Order | null | undefined;
   listingBuyPriceUsdc: number | null;
   buyBusy: boolean;
   buyErr: string | null;
@@ -59,11 +60,19 @@ export function RwaDetailDesktopSidebar({
   marketChangePct: number | null;
   marketChangePeriodLabel: string;
   marketChangeCoverageHint: string;
-  rwaDetailStatRows: StatRow[];
+  tokenTrades: CollectionPlatformTapeFill[];
+  tradesLoading: boolean;
+  tradesAvailable: boolean;
   onFulfillAsk: () => void;
-  onOpenListModal: () => void;
+  onConnectWallet: () => void;
+  onOpenPlaceBid?: () => void;
+  collectionKey: string | null;
+  onOpenListModal: (
+    initialPriceUsdc?: string | null,
+    anchorRect?: ListModalAnchorRect | null,
+  ) => void;
 }) {
-  const { connect, connectors } = useConnect();
+  const showBuyerActions = !isOwner && (collectionKey || activeAskListing);
 
   return (
     <div className="hidden w-full min-w-0 flex-col gap-5 lg:sticky lg:top-6 lg:col-start-2 lg:flex lg:max-w-[400px] lg:justify-self-end lg:self-start">
@@ -77,11 +86,11 @@ export function RwaDetailDesktopSidebar({
           <AssetDetailHeadlineTitle
             as="h1"
             parts={detailHeadlineParts}
-            className={`${rwaDetailRightFont.className} min-w-0 break-words text-[clamp(1.375rem,2.8vw,1.75rem)] font-bold leading-snug tracking-tight text-white [overflow-wrap:anywhere]`}
+            className={`${rwaDetailRightFont.className} min-w-0 whitespace-normal break-words text-[clamp(1.375rem,2.8vw,1.75rem)] font-bold leading-snug tracking-tight text-white [overflow-wrap:anywhere]`}
           />
         ) : (
           <h1
-            className={`${rwaDetailRightFont.className} min-w-0 break-words text-[clamp(1.375rem,2.8vw,1.75rem)] font-bold leading-snug tracking-tight text-white`}
+            className={`${rwaDetailRightFont.className} min-w-0 whitespace-normal break-words text-[clamp(1.375rem,2.8vw,1.75rem)] font-bold leading-snug tracking-tight text-white [overflow-wrap:anywhere]`}
           >
             {detailTitle}
           </h1>
@@ -93,54 +102,27 @@ export function RwaDetailDesktopSidebar({
         <p className="hidden text-xs text-orange-400 lg:block">Could not load listing.</p>
       ) : null}
 
-      {activeAskListing && !isOwner ? (
+      {showBuyerActions ? (
         <div className="hidden lg:block">
-          <RwaDetailBuyerTradingPanel
-            isConnected={isConnected}
-            buyBusy={buyBusy}
+          <RwaDetailBuyerTradePanel
+            collectionKey={collectionKey}
+            activeAskListing={activeAskListing}
             listingPriceUsd={listingBuyPriceUsdc}
+            marketPriceUsd={externalRefUsd}
+            buyBusy={buyBusy}
             buyErr={buyErr}
-            onFulfill={onFulfillAsk}
+            isConnected={isConnected}
+            connectPending={connectPending}
+            onConnectWallet={onConnectWallet}
+            onFulfillAsk={onFulfillAsk}
+            onOpenPlaceBid={onOpenPlaceBid}
+            marketChangePct={marketChangePct}
+            marketChangePeriodLabel={marketChangePeriodLabel}
+            marketChangeCoverageHint={marketChangeCoverageHint}
+            showMarketContextWhenUnlisted={!activeAskListing}
           />
         </div>
-      ) : null}
-
-      {isOwner ? (
-        <div className="hidden w-full max-w-full space-y-5 sm:space-y-6 lg:block">
-          {listing && listingBuyPriceUsdc != null ? (
-            <RwaDetailListPriceDisplay priceUsd={listingBuyPriceUsdc} />
-          ) : null}
-          <RwaDetailGradientButton
-            bright={!isConnected}
-            disabled={connectPending}
-            onClick={() => {
-              if (!isConnected) {
-                connectMetaMaskWallet(connect, connectors);
-                return;
-              }
-              onOpenListModal();
-            }}
-          >
-            {!isConnected
-              ? connectPending
-                ? "Connecting…"
-                : "Connect wallet"
-              : listing
-                ? "Manage listing"
-                : "List for sale"}
-          </RwaDetailGradientButton>
-          {!listing ? (
-            <RwaDetailMarketContextStrip
-              externalRefUsd={externalRefUsd}
-              marketChangePct={marketChangePct}
-              changePeriodLabel={marketChangePeriodLabel}
-              changeCoverageHint={marketChangeCoverageHint}
-            />
-          ) : null}
-        </div>
-      ) : null}
-
-      {!activeAskListing && !isOwner ? (
+      ) : !isOwner && !activeAskListing ? (
         <div className="hidden space-y-5 sm:space-y-6 lg:block">
           <p className={`${rwaDetailRightFont.className} text-xl font-semibold text-zinc-400`}>
             Not for sale
@@ -154,30 +136,28 @@ export function RwaDetailDesktopSidebar({
         </div>
       ) : null}
 
-      {rwaDetailStatRows.length > 0 ? (
-        <div
-          className={`hidden border-t border-[rgba(38,39,45,1)] pt-6 lg:block ${rwaDetailRightFont.className}`}
-        >
-          <h2 className="text-[18px] font-bold leading-[140%] tracking-normal text-white">
-            Details
-          </h2>
-          <dl className="mt-5 flex flex-col gap-4">
-            {rwaDetailStatRows.map((row) => (
-              <div
-                key={row.label}
-                className="flex min-w-0 items-baseline justify-between gap-4"
-              >
-                <dt className="shrink-0 text-[15px] font-normal leading-[140%] text-[#a0a0a0]">
-                  {row.label}
-                </dt>
-                <dd className="min-w-0 break-words text-right text-[15px] font-medium leading-[140%] text-white">
-                  {row.value}
-                </dd>
-              </div>
-            ))}
-          </dl>
+      {isOwner ? (
+        <div className="hidden w-full max-w-full lg:block">
+          <RwaDetailOwnerListingPanel
+            isConnected={isConnected}
+            connectPending={connectPending}
+            listingPriceUsd={listingBuyPriceUsdc}
+            marketPriceUsd={externalRefUsd}
+            marketChangePct={marketChangePct}
+            marketChangePeriodLabel={marketChangePeriodLabel}
+            marketChangeCoverageHint={marketChangeCoverageHint}
+            onOpenListModal={onOpenListModal}
+          />
         </div>
       ) : null}
+
+      <div className="hidden border-t border-[rgba(38,39,45,1)] pt-6 lg:block">
+        <RwaDetailTradesPanel
+          trades={tokenTrades}
+          loading={tradesLoading}
+          tradesAvailable={tradesAvailable}
+        />
+      </div>
     </div>
   );
 }

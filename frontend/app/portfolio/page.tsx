@@ -210,17 +210,18 @@ export default function PortfolioPage() {
         <PortfolioSummaryBar
           holdingsCount={holdingsAssetRows.length}
           totalTrades={totalTrades}
-          chartTotalsPending={chartTotalsPending}
-          hasDailyPnl={hasDailyPnl}
-          dailyPnlUsd={dailyPnlUsd}
-        />
-
-        <PortfolioValuePanel
           totalValue={totalValue}
           dailyPnlPct={dailyPnlPct}
           chartTotalsPending={chartTotalsPending}
+          hasDailyPnl={hasDailyPnl}
+          dailyPnlUsd={dailyPnlUsd}
           portfolioChartOpen={portfolioChartOpen}
           onToggleChart={() => setPortfolioChartOpen((open) => !open)}
+        />
+
+        <PortfolioValuePanel
+          chartTotalsPending={chartTotalsPending}
+          portfolioChartOpen={portfolioChartOpen}
           isMobileViewport={isMobileViewport}
           dailyChartPoints={dailyChartPoints}
           dailyChartLabels={dailyChartLabels}
@@ -248,8 +249,7 @@ export default function PortfolioPage() {
           unhidingTokenId={holdingActions.unhidingTokenId}
           onOpenToken={(tokenId) => router.push(`/marketplace/${tokenId}`)}
           onRequestHide={(r) => {
-            const titleLine = r.setName ? `${r.name} · ${r.setName}` : r.name;
-            holdingActions.requestHide(r.tokenId, titleLine, r.listPriceUsd != null);
+            holdingActions.requestHide(r.tokenId, r.name, r.listPriceUsd != null);
           }}
           onUnhide={(tokenId) => void holdingActions.unhideHolding(tokenId)}
           onCancelListing={(tokenId, orderHash) =>

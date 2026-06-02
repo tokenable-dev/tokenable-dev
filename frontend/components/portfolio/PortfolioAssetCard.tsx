@@ -40,7 +40,7 @@ export function PortfolioAssetCard({
   onCancelListing: () => void;
   onBurn: () => void;
 }) {
-  const titleLine = row.setName ? `${row.name} · ${row.setName}` : row.name;
+  const titleLine = row.name;
 
   return (
     <div
@@ -53,15 +53,15 @@ export function PortfolioAssetCard({
           onOpen();
         }
       }}
-      className="group flex min-w-0 w-full cursor-pointer flex-col overflow-hidden rounded-lg bg-gradient-to-b from-gray-900/80 to-[#0a1018] text-left shadow-md shadow-black/20 outline-none transition-[box-shadow,background-color] duration-200 hover:bg-gray-900/90 hover:shadow-[0_14px_44px_-14px_rgba(0,0,0,0.75)] focus-visible:ring-2 focus-visible:ring-zinc-400/45 focus-visible:ring-offset-2 focus-visible:ring-offset-[#030712] sm:rounded-xl sm:shadow-lg"
+      className="group flex min-w-0 w-full cursor-pointer flex-col rounded-lg bg-gradient-to-b from-gray-900/80 to-[#0a1018] text-left shadow-md shadow-black/20 outline-none transition-[box-shadow,background-color] duration-200 hover:bg-gray-900/90 hover:shadow-[0_14px_44px_-14px_rgba(0,0,0,0.75)] sm:rounded-xl sm:shadow-lg"
     >
-      <div className="relative aspect-[5/6] w-full bg-[#070a0f] sm:aspect-[3/4]">
+      <div className="relative aspect-[3/4] w-full shrink-0 overflow-hidden rounded-t-lg bg-[#070a0f] sm:rounded-t-xl">
         {row.imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={row.imageUrl}
             alt=""
-            className="h-full w-full object-contain object-center p-1.5 transition-transform duration-300 group-hover:scale-[1.02] sm:p-3"
+            className="h-full w-full object-contain object-center p-2 sm:p-3"
             loading="lazy"
             referrerPolicy="no-referrer"
           />
@@ -123,7 +123,7 @@ export function PortfolioAssetCard({
             {row.category ? <CategoryBadge label={row.category} /> : null}
           </div>
           <p
-            className="truncate text-[11px] font-semibold leading-tight text-white sm:text-[13px]"
+            className="line-clamp-2 text-[11px] font-semibold leading-tight text-white sm:text-[13px]"
             title={titleLine}
           >
             {titleLine}

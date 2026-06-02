@@ -23,11 +23,16 @@ import {
 import { sepolia } from "@/config/wagmi";
 import type { MarketplaceCollectionSummary } from "@/lib/core";
 import { ensureSepoliaNetwork } from "@/lib/network";
+import {
+  connectMetaMaskWallet,
+  findMetaMaskConnector,
+} from "@/lib/wallet/connectMetaMaskWallet";
 import { WalletAddressCompact } from "@/components/wallet/WalletAddressCompact";
 import { useMarketplaceCollectionsInfinite } from "@/hooks/marketplace";
 import { useResolvedMediaUrlMap } from "@/hooks/media";
 import { useAppStore, selectUsdcBalance } from "@/store";
 import { useShallow } from "zustand/react/shallow";
+import { buildMarketsCollectionTitle } from "@/lib/markets/marketsCollectionTitle";
 import { toCardDisplayUppercase } from "@/lib/marketplace/collectionFullDetailsTitle";
 
 /** Hex bucket keys are ~64 chars; short queries (esp. single digits 0–9) match almost every key and melt React. */
@@ -187,7 +192,7 @@ function SearchResultsList({
                 variant === "sheet" ? "text-sm" : "text-xs"
               }`}
             >
-              {toCardDisplayUppercase(c.displayLabel)}
+              {buildMarketsCollectionTitle({ collection: c, comp: c.components })}
             </p>
             <p className={`truncate text-gray-500 ${variant === "sheet" ? "text-xs mt-0.5" : "text-[10px]"}`}>
               {c.activeListingCount} listing{c.activeListingCount !== 1 ? "s" : ""}
@@ -570,17 +575,17 @@ function WalletDropdown() {
   }
 
   if (!isConnected || !address) {
-    const metaMaskConnector = connectors.find((c) => c.name === "MetaMask");
     return (
       <button
-        onClick={() => metaMaskConnector && connect({ connector: metaMaskConnector })}
-        disabled={isPending || !metaMaskConnector}
-        className={`flex h-10 w-[164px] items-center justify-center gap-2 rounded-xl border px-4 text-sm font-semibold text-mint transition-colors hover:text-mint-dim active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 ${HEADER_BAR_BORDER} ${HEADER_BAR_BORDER_HOVER} ${HEADER_BAR_BG}`}
+        type="button"
+        onClick={() => connectMetaMaskWallet(connect, connectors)}
+        disabled={isPending || !findMetaMaskConnector(connectors)}
+        className={`flex h-10 min-w-0 touch-manipulation items-center justify-center gap-1.5 rounded-xl border px-3 text-sm font-semibold text-mint transition-colors hover:text-mint-dim active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 sm:w-[164px] sm:gap-2 sm:px-4 ${HEADER_BAR_BORDER} ${HEADER_BAR_BORDER_HOVER} ${HEADER_BAR_BG}`}
       >
-        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg className="hidden h-4 w-4 sm:block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a2.25 2.25 0 00-2.25-2.25H15a3 3 0 110-6h3.75A2.25 2.25 0 0121 6v6zm0 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18V6a2.25 2.25 0 012.25-2.25h13.5" />
         </svg>
-        {isPending ? "Connecting..." : "Connect Wallet"}
+        {isPending ? "Connecting…" : "Connect"}
       </button>
     );
   }

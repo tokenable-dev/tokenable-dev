@@ -22,6 +22,13 @@ export interface InstantMatchDecision {
   enforceImmediateFill: boolean;
 }
 
+export interface ListModalAnchorRect {
+  top: number;
+  left: number;
+  width: number;
+  height: number;
+}
+
 export interface ListRwaModalProps {
   tokenId: number;
   assetTitle?: string | null;
@@ -34,4 +41,6 @@ export interface ListRwaModalProps {
   collectionKey?: string | null;
   collectionBids?: Order[];
   preferredBidOrderHash?: string | null;
+  /** Card detail CTA — panel sits flush above this viewport rect. */
+  anchorRect?: ListModalAnchorRect | null;
 }

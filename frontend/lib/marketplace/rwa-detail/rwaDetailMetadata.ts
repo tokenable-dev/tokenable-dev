@@ -1,4 +1,5 @@
 import { formatSportCategoryDisplayLabel } from "@/lib/market";
+import { resolveRwaMetadataVariant } from "@/lib/marketplace/resolveCardVariantLabel";
 
 export type RwaDetailMetadata = {
   name?: string;
@@ -55,7 +56,7 @@ export function buildRwaDetailStatRows(meta: RwaDetailMetadata | null): {
   const player = pickString(card?.player, card?.name, psa?.cardNameHint);
   const set = pickString(card?.set, psa?.setHint);
   const num = pickString(card?.number, psa?.cardNumberHint);
-  const variant = pickString(psa?.gradeDescription, psa?.labelType);
+  const variant = resolveRwaMetadataVariant(graded);
   const gradeLabel = pickString(
     psa?.gradeLabel,
     typeof grade?.label === "string" ? grade.label : undefined,
@@ -72,7 +73,7 @@ export function buildRwaDetailStatRows(meta: RwaDetailMetadata | null): {
     });
   }
   if (set) rows.push({ label: "Set", value: set });
-  if (variant && variant !== gradeLabel) rows.push({ label: "Variant", value: variant });
+  if (variant) rows.push({ label: "Variant", value: variant });
   if (gradeLabel) rows.push({ label: "Grade", value: gradeLabel });
   if (year) rows.push({ label: "Year", value: year });
   if (category) {
@@ -257,4 +258,28 @@ export function getRwaDetailHeaderBadgeLabels(meta: RwaDetailMetadata | null): {
     category: catOut?.length ? formatSportCategoryDisplayLabel(catOut) : null,
     gradeLine: gradeOut?.length ? gradeOut : null,
   };
+}
+
+/** PSA-graded slab metadata — reserved for future vault routing (PSA vs Tokenable). */
+export function isPsaGradedRwaMetadata(meta: RwaDetailMetadata | null): boolean {
+  if (!meta) return false;
+  const graded = meta.properties?.graded as Record<string, unknown> | undefined;
+  if (!graded || typeof graded !== "object") return false;
+  const psa = graded.psa as Record<string, unknown> | undefined;
+  const grade = graded.grade as Record<string, unknown> | undefined;
+  const cert = pickString(psa?.certNumber, grade?.certNumber);
+  if (cert) return true;
+  const company = pickString(typeof psa?.company === "string" ? psa.company.trim() : undefined);
+  if (company && /psa/i.test(company)) return true;
+  const gradeLabel = pickString(
+    psa?.gradeLabel,
+    typeof grade?.label === "string" ? String(grade.label).trim() : undefined,
+  );
+  if (gradeLabel && /psa/i.test(gradeLabel)) return true;
+  for (const a of meta.attributes ?? []) {
+    const trait = (a.trait_type ?? "").trim();
+    if (/^psa(\s|$)/i.test(trait)) return true;
+    if (/^grade$/i.test(trait.toLowerCase()) && /psa/i.test(String(a.value ?? ""))) return true;
+  }
+  return false;
 }

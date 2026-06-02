@@ -24,7 +24,7 @@ export function PortfolioCardIconButton({
       title={title}
       disabled={disabled}
       onClick={onClick}
-      className={`absolute right-1.5 top-1.5 z-20 flex h-7 w-7 items-center justify-center rounded-full border border-mint/35 bg-[#0a1018]/90 text-mint shadow-[0_2px_12px_rgba(0,0,0,0.55)] backdrop-blur-sm transition-all hover:border-mint/55 hover:bg-[#0a1018] hover:shadow-[0_0_16px_-6px_rgba(16,211,51,0.55)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mint/50 disabled:cursor-not-allowed disabled:opacity-40 sm:right-2 sm:top-2 sm:h-8 sm:w-8 ${className}`}
+      className={`absolute right-1.5 top-1.5 z-20 flex h-7 w-7 items-center justify-center rounded-full border border-mint/35 bg-[#0a1018]/90 text-mint shadow-[0_2px_12px_rgba(0,0,0,0.55)] backdrop-blur-sm transition-all hover:border-mint/55 hover:bg-[#0a1018] hover:shadow-[0_0_16px_-6px_rgba(16,211,51,0.55)] disabled:cursor-not-allowed disabled:opacity-40 sm:right-2 sm:top-2 sm:h-8 sm:w-8 ${className}`}
     >
       {children}
     </button>

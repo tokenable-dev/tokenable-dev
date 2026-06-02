@@ -131,7 +131,7 @@ export function PortfolioHoldingsSection({
               key={i}
               className="w-full overflow-hidden rounded-lg border border-gray-800/80 bg-gray-900/40 sm:rounded-xl"
             >
-              <div className="aspect-[5/6] animate-pulse bg-gray-800/50 sm:aspect-[3/4]" />
+              <div className="aspect-[3/4] animate-pulse bg-gray-800/50" />
               <div className="space-y-2 p-2.5 sm:p-4">
                 <div className="h-4 w-2/3 animate-pulse rounded bg-gray-800/60" />
                 <div className="h-3 w-full animate-pulse rounded bg-gray-800/40" />
@@ -151,45 +151,37 @@ export function PortfolioHoldingsSection({
           {filterEmptyMessage(assetFilter, assetRowsLength)}
         </p>
       ) : (
-        <div
-          className={
-            filteredAssetRows.length > 4
-              ? "max-h-[min(70vh,560px)] overflow-y-auto pr-0.5 sm:max-h-[560px]"
-              : "overflow-visible"
-          }
-        >
-          <div className="-mx-0.5 grid grid-cols-2 gap-2.5 pb-2 pt-0.5 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
-            {pagedAssetRows.map((r) => (
-              <PortfolioAssetCard
-                key={r.tokenId}
-                row={r}
-                assetFilter={assetFilter}
-                address={address}
-                valuesPending={valuesPending}
-                isBurnAdmin={isBurnAdmin}
-                cancellingListingTokenId={cancellingListingTokenId}
-                burningTokenId={burningTokenId}
-                hidingTokenId={hidingTokenId}
-                unhidingTokenId={unhidingTokenId}
-                onOpen={() => onOpenToken(r.tokenId)}
-                onRequestHide={() => onRequestHide(r)}
-                onUnhide={() => onUnhide(r.tokenId)}
-                onCancelListing={() => {
-                  if (r.activeListingOrderHash) {
-                    onCancelListing(r.tokenId, r.activeListingOrderHash);
-                  }
-                }}
-                onBurn={() => onBurn(r.tokenId, r.listPriceUsd != null)}
-              />
-            ))}
-            {visibleAssetCount < filteredAssetRows.length ? (
-              <div
-                ref={assetScrollSentinelRef}
-                className="col-span-full h-px w-full"
-                aria-hidden
-              />
-            ) : null}
-          </div>
+        <div className="-mx-0.5 grid grid-cols-2 gap-2.5 pb-2 pt-0.5 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
+          {pagedAssetRows.map((r) => (
+            <PortfolioAssetCard
+              key={r.tokenId}
+              row={r}
+              assetFilter={assetFilter}
+              address={address}
+              valuesPending={valuesPending}
+              isBurnAdmin={isBurnAdmin}
+              cancellingListingTokenId={cancellingListingTokenId}
+              burningTokenId={burningTokenId}
+              hidingTokenId={hidingTokenId}
+              unhidingTokenId={unhidingTokenId}
+              onOpen={() => onOpenToken(r.tokenId)}
+              onRequestHide={() => onRequestHide(r)}
+              onUnhide={() => onUnhide(r.tokenId)}
+              onCancelListing={() => {
+                if (r.activeListingOrderHash) {
+                  onCancelListing(r.tokenId, r.activeListingOrderHash);
+                }
+              }}
+              onBurn={() => onBurn(r.tokenId, r.listPriceUsd != null)}
+            />
+          ))}
+          {visibleAssetCount < filteredAssetRows.length ? (
+            <div
+              ref={assetScrollSentinelRef}
+              className="col-span-full h-px w-full"
+              aria-hidden
+            />
+          ) : null}
         </div>
       )}
     </div>

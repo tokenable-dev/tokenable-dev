@@ -27,6 +27,32 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/*
+ * Suppress persistent click-focus rings (mouse/touch). Avoids mint borders
+ * lingering after lightbox ESC or button blur across the app.
+ */
+@layer base {
+  :where(
+    button,
+    a,
+    input,
+    select,
+    textarea,
+    summary,
+    [role="button"],
+    [role="tab"],
+    [role="link"],
+    [tabindex]:not([tabindex="-1"])
+  ):is(:focus, :focus-visible) {
+    outline: none;
+    --tw-ring-offset-shadow: 0 0 #0000;
+    --tw-ring-shadow: 0 0 #0000;
+    --tw-ring-color: transparent;
+    --tw-ring-width: 0px;
+    --tw-ring-offset-width: 0px;
+  }
+}
+
 /* 스크롤은 유지하고 스크롤바만 숨김 (Firefox / Chromium / legacy IE) */
 .scrollbar-hide {
   -ms-overflow-style: none;
@@ -34,6 +60,26 @@ body {
 }
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
+}
+
+/** Embedded panels (order book depth, trades tape) — dark thumb/track on charcoal UI */
+.scrollbar-dark {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(75, 85, 99, 0.55) rgba(11, 13, 16, 0.9);
+}
+.scrollbar-dark::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.scrollbar-dark::-webkit-scrollbar-track {
+  background: rgba(11, 13, 16, 0.9);
+}
+.scrollbar-dark::-webkit-scrollbar-thumb {
+  background: rgba(75, 85, 99, 0.55);
+  border-radius: 9999px;
+}
+.scrollbar-dark::-webkit-scrollbar-thumb:hover {
+  background: rgba(107, 114, 128, 0.72);
 }
 
 /* 컬렉션 상세: 데스크톱만 gutter (모바일에서 가로 여백·점프 방지) */

@@ -3,39 +3,82 @@
 import {
   formatReferencePercentChange,
   formatUsdCompact,
+  formatPsaPopulationCount,
   NO_EXTERNAL_PRICE,
   REFERENCE_CHANGE_UNAVAILABLE_HINT,
   REFERENCE_CHANGE_UNAVAILABLE_LABEL,
   referenceChangeTone,
 } from "@/lib/market";
+import type { PsaPopulationMetrics } from "@/lib/market/gradedCardMarketCap";
 import type { CollectionPriceMetricsStripProps } from "@/lib/marketplace/price-metrics-strip";
 import type { usePriceMetricsStripModel } from "@/hooks/price-metrics-strip";
 import { MetricTile } from "./MetricTile";
 import { metricFooterFromText } from "./metricFootnotes";
+import {
+  metricPanelInsetCls,
+  metricPanelLabelCls,
+  metricPanelPopCellCls,
+  metricPanelValueCls,
+  metricPanelValueWrapCls,
+} from "./theme";
 
 type Model = ReturnType<typeof usePriceMetricsStripModel>;
+
+function PsaPopulationStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0 flex-1 basis-0">
+      <span className={metricPanelLabelCls}>{label}</span>
+      <div className={metricPanelValueWrapCls}>
+        <span
+          className={`max-lg:text-zinc-100 lg:text-white ${metricPanelValueCls}`}
+          title={value !== "—" ? value : undefined}
+        >
+          {value}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function PsaPopulationMetricCell({ metrics }: { metrics: PsaPopulationMetrics }) {
+  return (
+    <div
+      className={`flex min-w-0 flex-col items-start justify-center text-left ${metricPanelInsetCls} ${metricPanelPopCellCls}`}
+    >
+      <div className="grid w-full min-w-0 grid-cols-2 gap-x-3 lg:gap-x-5">
+        <PsaPopulationStat
+          label="PSA 10 Pop"
+          value={formatPsaPopulationCount(metrics.psa10Pop)}
+        />
+        <PsaPopulationStat
+          label="Total PSA Pop"
+          value={formatPsaPopulationCount(metrics.totalPsaPop)}
+        />
+      </div>
+    </div>
+  );
+}
 
 export function CollectionPriceMetricsStripUnifiedRow({
   compact = false,
   formatMarketCap,
   volume24hUsdc = null,
   volume24hLoading = false,
-  totalPopulation = null,
+  psaPopulationMetrics = null,
   model,
 }: Pick<
   CollectionPriceMetricsStripProps,
-  "compact" | "formatMarketCap" | "volume24hUsdc" | "volume24hLoading" | "totalPopulation"
+  "compact" | "formatMarketCap" | "volume24hUsdc" | "volume24hLoading" | "psaPopulationMetrics"
 > & { model: Model }) {
   const change1Mo = model.change;
+  const popMetrics = psaPopulationMetrics ?? { psa10Pop: null, totalPsaPop: null };
   const gridClass =
-    "grid w-full max-lg:grid-cols-2 max-lg:gap-x-2 max-lg:gap-y-1 lg:grid-cols-5 lg:gap-0";
+    "grid w-full max-lg:grid-cols-2 max-lg:gap-x-2 max-lg:gap-y-1 lg:grid-cols-6 lg:gap-x-0 lg:gap-y-0";
 
   return (
-    <div
-      className={`w-full min-w-0 overflow-hidden rounded-lg border border-[rgba(38,39,45,1)] bg-[rgb(20,20,21)] max-lg:px-1.5 max-lg:py-1.5 lg:min-h-[116px] lg:px-2.5 lg:py-2 lg:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] ${compact ? "mb-0 sm:mb-0.5" : "mb-2 sm:mb-2.5"}`}
-    >
+    <div className={`w-full min-w-0 lg:min-h-[116px] ${compact ? "mb-0 sm:mb-0.5" : "mb-0"}`}>
       <div
-        className={`grid ${gridClass} h-full min-h-0 min-w-0 items-stretch justify-items-stretch gap-0`}
+        className={`grid ${gridClass} h-full min-h-0 min-w-0 items-stretch justify-items-stretch`}
       >
         <MetricTile
           variant="panelCell"
@@ -128,18 +171,7 @@ export function CollectionPriceMetricsStripUnifiedRow({
             </span>
           }
         />
-        <MetricTile
-          variant="panelCell"
-          label="Total Pop"
-          compact={compact}
-          value={
-            <span className="min-w-0 tabular-nums max-lg:text-zinc-100 lg:text-white">
-              {totalPopulation != null && Number.isFinite(totalPopulation) && totalPopulation > 0
-                ? totalPopulation.toLocaleString("en-US")
-                : "—"}
-            </span>
-          }
-        />
+        <PsaPopulationMetricCell metrics={popMetrics} />
       </div>
     </div>
   );

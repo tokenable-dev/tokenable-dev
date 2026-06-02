@@ -77,6 +77,7 @@ export function CollectionOverviewBoard(props: CollectionOverviewBoardProps) {
     mobileTabbedMarketUi,
     mobileMarketTabs,
     suppressHeadlineBanner,
+    chartMetricsRow,
   });
 
   const mobileHeadlineBlock = (
@@ -93,6 +94,33 @@ export function CollectionOverviewBoard(props: CollectionOverviewBoardProps) {
       suppressHeadlineBanner={layout.suppressHeadlineBanner}
     />
   );
+
+  const marketsCluster = layout.showInlineMarketCluster ? (
+    layout.marketsTriple && orderBookNextToChart != null ? (
+      <CollectionOverviewMarketsCluster
+        orderBookToggleEnabled={layout.orderBookToggleEnabled}
+        showOrderBook={showOrderBook}
+        onShowOrderBookChange={onShowOrderBookChange}
+        orderBookColumnVisible={layout.orderBookColumnVisible}
+        useMobileTabbedMarket={layout.useMobileTabbedMarket}
+        priceChart={priceChart}
+        orderBookNextToChart={orderBookNextToChart}
+        marketsRightStackTop={marketsRightStackTop}
+        marketsDockTradePanel={marketsDockTradePanel}
+        tradePanel={tradePanel}
+        marketsChartFooter={marketsChartFooter}
+        marketsBelowChart={marketsBelowChart}
+        belowCover={belowCover}
+      />
+    ) : (
+      <CollectionOverviewChartPanel
+        mode={tradePanel != null ? "trade-sidebar" : "classic"}
+        chartMetricsRow={chartMetricsRow}
+        priceChart={priceChart}
+        tradePanel={tradePanel}
+      />
+    )
+  ) : null;
 
   return (
     <section
@@ -122,49 +150,34 @@ export function CollectionOverviewBoard(props: CollectionOverviewBoardProps) {
       <div
         className={`relative grid w-full min-w-0 max-lg:grid-cols-1 max-lg:justify-items-stretch max-lg:overflow-visible lg:min-h-0 lg:flex-1 lg:overflow-hidden ${layout.gridBodyClass} max-lg:gap-0 max-lg:px-0 max-lg:pt-1.5 max-lg:pb-2 px-3.5 pt-3.5 pb-4 sm:p-6 lg:px-8 lg:pt-6 lg:pb-6`}
       >
-        <CollectionOverviewLeftColumn
-          imageUrl={imageUrl}
-          marketsTriple={layout.marketsTriple}
-          useMobileTabbedMarket={layout.useMobileTabbedMarket}
-          mobileHeadlineBlock={mobileHeadlineBlock}
-          mobileCurrentPriceRow={mobileCurrentPriceRow}
-          mobileMarketTabs={mobileMarketTabs}
-          mobileCoverBelowMetrics={mobileCoverBelowMetrics}
-          belowCover={belowCover}
-          heroActions={heroActions}
-          metadataExpand={metadataExpand}
-          metadataRows={metadataRows}
-          leftColumnFooter={leftColumnFooter}
-        />
+        <div className="min-w-0">
+          <CollectionOverviewLeftColumn
+            imageUrl={imageUrl}
+            marketsTriple={layout.marketsTriple}
+            useMobileTabbedMarket={layout.useMobileTabbedMarket}
+            mobileHeadlineBlock={mobileHeadlineBlock}
+            mobileCurrentPriceRow={mobileCurrentPriceRow}
+            mobileMarketTabs={mobileMarketTabs}
+            mobileCoverBelowMetrics={mobileCoverBelowMetrics}
+            belowCover={belowCover}
+            heroActions={heroActions}
+            metadataExpand={metadataExpand}
+            metadataRows={metadataRows}
+            leftColumnFooter={leftColumnFooter}
+          />
+        </div>
 
-        {layout.showInlineMarketCluster ? (
-          <div className="flex min-w-0 w-full max-w-full flex-col items-stretch gap-2 overflow-x-clip sm:gap-2.5 lg:min-w-0 lg:self-start">
-            {layout.marketsTriple && orderBookNextToChart != null ? (
-              <CollectionOverviewMarketsCluster
-                orderBookToggleEnabled={layout.orderBookToggleEnabled}
-                showOrderBook={showOrderBook}
-                onShowOrderBookChange={onShowOrderBookChange}
-                chartMetricsRow={chartMetricsRow}
-                orderBookColumnVisible={layout.orderBookColumnVisible}
-                useMobileTabbedMarket={layout.useMobileTabbedMarket}
-                priceChart={priceChart}
-                orderBookNextToChart={orderBookNextToChart}
-                marketsRightStackTop={marketsRightStackTop}
-                marketsDockTradePanel={marketsDockTradePanel}
-                tradePanel={tradePanel}
-                marketsChartFooter={marketsChartFooter}
-                marketsBelowChart={marketsBelowChart}
-                belowCover={belowCover}
-              />
-            ) : (
-              <CollectionOverviewChartPanel
-                mode={tradePanel != null ? "trade-sidebar" : "classic"}
-                chartMetricsRow={chartMetricsRow}
-                priceChart={priceChart}
-                tradePanel={tradePanel}
-              />
-            )}
-          </div>
+        {marketsCluster != null ? (
+          layout.desktopMetricsAboveChart ? (
+            <div className="flex min-w-0 w-full max-w-full flex-col items-stretch gap-2 overflow-x-clip sm:gap-2.5 lg:col-start-2 lg:min-w-0 lg:gap-2 lg:self-start lg:pl-4 xl:pl-6">
+              <div className="hidden w-full min-w-0 shrink-0 lg:block">{chartMetricsRow}</div>
+              <div className="min-w-0 w-full">{marketsCluster}</div>
+            </div>
+          ) : (
+            <div className="flex min-w-0 w-full max-w-full flex-col items-stretch gap-2 overflow-x-clip sm:gap-2.5 lg:min-w-0 lg:self-start">
+              {marketsCluster}
+            </div>
+          )
         ) : null}
 
         {layout.hasBookColumn ? (

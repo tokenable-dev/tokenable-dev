@@ -23,6 +23,8 @@ export const ASSETS = {
     tokenable: `${ASSETS_BASE}/icons/tokenable_icon.png`,
     /** PSA wordmark PNG (landing / docs). */
     psaMark: `${ASSETS_BASE}/icons/psa-logo.png`,
+    /** Vault safe icon — shown before PSA wordmark on card detail. */
+    psaVaultLeading: `${ASSETS_BASE}/icons/psa-vault-leading.png`,
     /** Landing feature stat — Lowest Fees. */
     lowestFees: `${ASSETS_BASE}/icons/landing-lowest-fees.png`,
     /** Landing feature stat — PSA, TAG, BGS gems. */

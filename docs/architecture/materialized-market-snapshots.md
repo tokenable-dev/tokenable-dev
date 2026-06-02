@@ -6,20 +6,33 @@ Cardhedger market data is **materialized** in `collection_market_snapshots` and 
 
 Full table definitions: [database.md](./database.md).
 
-```
-Cron / stale-SWR enqueue / on-demand cold start
-  → CollectionMarketSnapshotSchedulerService (in-memory queue; BullMQ-ready)
-  → CollectionMarketSnapshotService.refreshSnapshot()
-  → Cardhedger upstream (worker only)
-  → normalize → upsert collection_market_snapshots
+```mermaid
+flowchart TD
+    subgraph workers [Background workers]
+        CRON["@Cron tick"]
+        SWR["stale_after exceeded"]
+        COLD["cold start / on-demand"]
+        CRON --> Q[(Scheduler queue)]
+        SWR --> Q
+        COLD --> Q
+        Q --> REF[CollectionMarketSnapshotService.refreshSnapshot]
+        REF --> CH[Cardhedger upstream]
+        CH --> NORM[normalize]
+        NORM --> UPSERT[("UPSERT collection_market_snapshots")]
+    end
 
-GET /marketplace/collections/market-snapshots   (POST batch)
-GET /marketplace/collections/:key/cardhedger
-GET /marketplace/collections/:key/cardhedger/price-history
-GET /marketplace/collections/:key/market-series
-  → CollectionMarketSnapshotReadService
-  → PostgreSQL (+ platform fills from orders for market-series)
-  → optional snapshotStale + async refresh enqueue
+    subgraph api [Hot read path]
+        GET1["POST …/market-snapshots"]
+        GET2["GET …/cardhedger"]
+        GET3["GET …/price-history"]
+        GET4["GET …/market-series"]
+        GET1 --> READ[CollectionMarketSnapshotReadService]
+        GET2 --> READ
+        GET3 --> READ
+        GET4 --> READ
+        READ --> PG[("PostgreSQL")]
+        READ -->|stale?| Q
+    end
 ```
 
 ## Separation of concerns

@@ -17,19 +17,13 @@ export function AssetDetailHeadlineTitle({
 }) {
   if (!assetDetailHeadlineHasContent(parts)) return null;
 
-  const segments = [parts.year, parts.setName, parts.cardName].filter(
-    (s): s is string => Boolean(s?.trim()),
-  );
   const fullTitle = formatAssetDetailHeadlineText(parts);
 
   return (
     <Tag className={className} title={fullTitle}>
-      {segments.map((segment, index) => (
-        <span key={`${index}-${segment}`}>
-          {index > 0 ? " " : null}
-          {segment}
-        </span>
-      ))}
+      <span className="block min-w-0 whitespace-normal [overflow-wrap:anywhere]">
+        {fullTitle}
+      </span>
     </Tag>
   );
 }

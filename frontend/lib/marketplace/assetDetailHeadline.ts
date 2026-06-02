@@ -3,13 +3,16 @@ import {
   leadingYearFromSetLine,
   toCardDisplayUppercase,
 } from "@/lib/marketplace/collectionFullDetailsTitle";
-import { mergeHeadlineCardNumberIntoTitle } from "@/lib/marketplace/collectionHeadlineTags";
 import { displayAssetNameFromMetadata } from "@/lib/marketplace/rwaDisplayTitle";
+import { resolveRwaMetadataVariant } from "@/lib/marketplace/resolveCardVariantLabel";
 
+/** PSA slab label order: Year · Brand · # · Subject · Variety */
 export type AssetDetailHeadlineParts = {
   year: string | null;
   setName: string | null;
+  cardNumber: string | null;
   cardName: string | null;
+  variety: string | null;
 };
 
 function pickString(...vals: unknown[]): string | undefined {
@@ -27,7 +30,6 @@ function normalizeYear(year: number | string | null | undefined): number | null 
     return y >= 1880 && y <= 2100 ? y : null;
   }
   const s = String(year).trim();
-  // Sometimes year comes as a larger string (e.g. "2024 - set", "Year: 2023").
   const m = /(\d{4})/.exec(s);
   if (!m) return null;
   const y = Number(m[1]);
@@ -50,13 +52,14 @@ function extractYearFromText(lineRaw: string | null | undefined): number | null 
 }
 
 /**
- * Collection / card detail hero: Year → set name → card name (optional `#` on card segment).
+ * Collection / card detail hero — PSA order: Year → Brand → # → Subject → Variety.
  */
 export function buildAssetDetailHeadlineParts(input: {
   setLine?: string | null;
   year?: number | string | null;
   cardName?: string | null;
   cardNumber?: string | null;
+  variety?: string | null;
   uppercase?: boolean;
 }): AssetDetailHeadlineParts {
   const uppercase = input.uppercase ?? false;
@@ -68,7 +71,6 @@ export function buildAssetDetailHeadlineParts(input: {
 
   if (setRaw) {
     const yFromSet =
-      // Prefer canonical "year at start" extraction, but fall back to "year anywhere".
       leadingYearFromSetLine(setRaw) ?? extractYearFromText(setRaw);
     const y = yFromSet ?? explicitYear;
     if (y != null) yearOut = String(y);
@@ -76,35 +78,43 @@ export function buildAssetDetailHeadlineParts(input: {
       y != null
         ? setRaw.replace(new RegExp(`\\b${String(y)}\\b`), "").trim()
         : setRaw;
-    setOut = withoutYear || (y != null ? setRaw : setRaw);
+    setOut = withoutYear || setRaw;
   } else if (explicitYear != null) {
     yearOut = String(explicitYear);
   }
 
-  let card = (input.cardName ?? "").trim();
+  const card = (input.cardName ?? "").trim();
   const num = formatHeadlineCardNumber(input.cardNumber);
-  if (num) card = mergeHeadlineCardNumberIntoTitle(card, num);
+  const variety = (input.variety ?? "").trim();
 
   return {
     year: yearOut ? applyHeadlineCasing(yearOut, uppercase) : null,
     setName: setOut ? applyHeadlineCasing(setOut, uppercase) : null,
+    cardNumber: num ? applyHeadlineCasing(num, uppercase) : null,
     cardName: card ? applyHeadlineCasing(card, uppercase) : null,
+    variety: variety ? applyHeadlineCasing(variety, uppercase) : null,
   };
 }
 
-/** Space-separated hero line (Year Set Card). */
+/** Space-separated PSA slab line (Year Brand # Subject Variety). */
 export function formatAssetDetailHeadlineText(parts: AssetDetailHeadlineParts): string {
-  return [parts.year, parts.setName, parts.cardName]
+  return [parts.year, parts.setName, parts.cardNumber, parts.cardName, parts.variety]
     .map((s) => s?.trim())
     .filter((s): s is string => Boolean(s))
     .join(" ");
 }
 
 export function assetDetailHeadlineHasContent(parts: AssetDetailHeadlineParts): boolean {
-  return Boolean(parts.year?.trim() || parts.setName?.trim() || parts.cardName?.trim());
+  return Boolean(
+    parts.year?.trim() ||
+      parts.setName?.trim() ||
+      parts.cardNumber?.trim() ||
+      parts.cardName?.trim() ||
+      parts.variety?.trim(),
+  );
 }
 
-/** Document title / woven string — Year · Set · Card, then optional meta / Pop. */
+/** Document title / woven string — PSA line, then optional meta / Pop. */
 export function computeAssetDetailWovenTitle(
   parts: AssetDetailHeadlineParts,
   metaStrip: string | null,
@@ -138,7 +148,13 @@ export function buildRwaAssetDetailHeadlineParts(
 ): AssetDetailHeadlineParts {
   const fallback = fallbackCardName.trim();
   if (!meta) {
-    return { year: null, setName: null, cardName: fallback || null };
+    return {
+      year: null,
+      setName: null,
+      cardNumber: null,
+      cardName: fallback || null,
+      variety: null,
+    };
   }
 
   const props = meta.properties as Record<string, unknown> | undefined;
@@ -147,8 +163,9 @@ export function buildRwaAssetDetailHeadlineParts(
   const psa = graded?.psa as Record<string, unknown> | undefined;
   const card = graded?.card as Record<string, unknown> | undefined;
 
-  const setRaw = pickString(card?.set, psa?.setHint) ?? "";
-  const yearRaw = pickString(psa?.year, card?.year);
+  const setRaw =
+    pickString(psa?.brand, card?.set, psa?.setHint) ?? "";
+  const yearRaw = pickString(psa?.Year, psa?.year, card?.year);
   const explicitYear = normalizeYear(yearRaw);
 
   let yearOut: string | null = explicitYear != null ? String(explicitYear) : null;
@@ -164,11 +181,11 @@ export function buildRwaAssetDetailHeadlineParts(
 
   const numRaw = pickString(card?.number, psa?.cardNumberHint);
   const cardNameRaw =
-    displayAssetNameFromMetadata(meta, fallback).trim() || fallback || null;
-
-  let cardName = cardNameRaw;
-  const num = formatHeadlineCardNumber(numRaw);
-  if (num && cardName) cardName = mergeHeadlineCardNumberIntoTitle(cardName, num);
+    pickString(psa?.subject, card?.name, psa?.cardNameHint) ??
+    displayAssetNameFromMetadata(meta, fallback).trim() ??
+    fallback ??
+    null;
+  const variety = resolveRwaMetadataVariant(graded);
 
   if (!setOut && meta.attributes?.length) {
     for (const a of meta.attributes) {
@@ -184,6 +201,8 @@ export function buildRwaAssetDetailHeadlineParts(
   return {
     year: yearOut,
     setName: setOut,
-    cardName,
+    cardNumber: formatHeadlineCardNumber(numRaw),
+    cardName: cardNameRaw,
+    variety,
   };
 }

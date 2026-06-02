@@ -111,7 +111,7 @@ Rows upsert on `(wallet_address, snapshot_date_kst)`. `snapshot_at` is always th
 
 After bucket migration, delete stale snapshots for affected keys or wait for `MARKET_SNAPSHOT_SOURCE_VERSION` refresh.
 
-**Schema refactor:** Cardhedger pricing audit columns and per-collection PSA JSON were removed from `marketplace_collections`; use `collection_market_snapshots` and `psa_cert_snapshots` instead. Existing DBs: run `schema/050_refactor_legacy_columns.sql` (included in bootstrap).
+**Legacy migration:** Cardhedger pricing audit columns and per-collection PSA JSON were removed from `marketplace_collections`; use `collection_market_snapshots` and `psa_cert_snapshots` instead. Existing DBs: `schema/050_refactor_legacy_columns.sql` (included in bootstrap).
 
 ---
 

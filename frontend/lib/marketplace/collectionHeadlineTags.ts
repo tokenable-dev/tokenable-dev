@@ -7,6 +7,7 @@ import {
   leadingYearFromSetLine,
 } from "@/lib/marketplace/collectionFullDetailsTitle";
 import type { CollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
+import { resolveCollectionComponentVariant } from "@/lib/marketplace/resolveCardVariantLabel";
 
 export type CollectionHeadlineInfoTag = { id: string; text: string; title?: string };
 
@@ -144,11 +145,14 @@ export function buildCollectionHeadlineInfoTags(
     pushUnique("cardno", numTokFmt, "Card number");
   }
 
-  const variantRaw = comp["variant"];
-  const varFromComp =
-    typeof variantRaw === "string" && variantRaw.trim().length > 0 ? variantRaw.trim() : "";
-  const varFull = varFromComp || (marketPreview?.card?.variant?.trim() ?? "");
-  if (varFull && !variantAlreadyRepresentedInMetaStrip(metaStripForDedupe, varFull)) {
+  const varFull =
+    resolveCollectionComponentVariant(comp, marketPreview?.card?.variant) ?? "";
+  const variantKey = normTagDedupeKey(varFull);
+  if (
+    varFull &&
+    !variantAlreadyRepresentedInMetaStrip(metaStripForDedupe, varFull) &&
+    !(variantKey.length >= 5 && titleKey.includes(variantKey))
+  ) {
     pushUnique("variant", varFull, varFull);
   }
 

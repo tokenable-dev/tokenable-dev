@@ -3,96 +3,91 @@
 **Source:** `frontend/`  
 **Framework:** Next.js 16, React 19, App Router
 
-## Directory Map
+## Feature layout
+
+Marketplace UI is organized into **feature folders** with matching `hooks/` and `lib/marketplace/` modules. Each feature exports via a barrel `index.ts`.
+
+| Area | Components | Hooks / lib |
+|------|------------|-------------|
+| Collection detail | `collection-detail/`, `collection-overview/`, `collection-hero/` | `hooks/collection-detail/`, `hooks/collection-overview/` |
+| Charts & metrics | `collection-dual-price-chart/`, `price-metrics-strip/` | `hooks/collection-dual-price-chart/`, `hooks/price-metrics-strip/` |
+| Order book | `unified-order-book/` | `hooks/unified-order-book/`, `lib/marketplace/unified-order-book/` |
+| Trading | `collection-trading/`, `collection-criteria-bid/` | `hooks/collection-criteria-bid/`, `lib/marketplace/collection-trading/` |
+| RWA detail | `rwa-detail/`, `rwa-detail-asset-panel/` | `hooks/rwa-detail/`, `lib/marketplace/rwa-detail/` |
+| Listing flow | `list-rwa/` | `hooks/list-rwa/`, `lib/seaport/listing/` |
+| Shared chrome | `markets-ui/`, `marketplace-shared/`, `collection-cover/` | `lib/marketplace/assetDetailHeadline.ts`, `lib/markets/` |
+
+Seaport signing / fulfillment remains in **`lib/seaport/`** (orders, criteria, fulfillment).
+
+---
+
+## Directory map (high level)
 
 ```
 frontend/
-├── app/                           # Next.js App Router
-│   ├── layout.tsx                 # Root layout — HTML shell, fonts, providers
-│   ├── providers.tsx              # QueryClient + Wagmi + Auth + Wallet providers
-│   ├── page.tsx                   # / — Landing page (Market Indexes)
-│   ├── exchange/page.tsx          # /exchange — Collection hub with category filter
-│   ├── markets/page.tsx           # /markets — Market indexes view (alias)
-│   ├── vault/page.tsx             # /vault — Mint / RWA registration entry
-│   ├── portfolio/                 # /portfolio — Owned assets + daily value chart (09:00 KST snapshots)
-│   │   ├── layout.tsx
-│   │   └── page.tsx
-│   ├── profile/page.tsx           # /profile — User profile & wallet settings
-│   ├── login/page.tsx             # /login — Auth entry
-│   ├── signup/page.tsx            # /signup — Registration
-│   ├── auth/callback/page.tsx     # /auth/callback — Google OAuth callback redirect
-│   └── marketplace/
-│       ├── [tokenId]/             # /marketplace/[tokenId] — Token detail
-│       │   ├── layout.tsx
-│       │   └── page.tsx
-│       ├── other-listings/        # /marketplace/other-listings — Unmatched listings
-│       │   └── page.tsx
-│       └── collections/
-│           └── [collectionKey]/   # /marketplace/collections/[collectionKey]
-│               ├── layout.tsx     #   Collection order book + chart UI
-│               └── page.tsx
+├── app/                           # Next.js App Router (see frontend/routes.md)
 │
 ├── components/
-│   ├── common/                    # GradedMetadataPanel, RwaImageZoom, …
-│   ├── landing/                   # MarketIndexes
 │   ├── layout/                    # AppHeader
-│   ├── marketplace/               # Order book, charts, trade modals, collection panels
-│   ├── vault/                     # MintForm, ImageInput, GradedCardSection
-│   └── wallet/                    # WalletConnect
+│   ├── landing/                   # MarketIndexes
+│   ├── portfolio/                 # Portfolio cards, chart, hide modal
+│   ├── vault/                     # MintForm
+│   └── marketplace/
+│       ├── collection-detail/     # Loaded view, markets slot builder
+│       ├── collection-overview/   # Board layout, markets cluster, book column
+│       ├── collection-hero/       # Cover, details tabs, KV cards
+│       ├── collection-dual-price-chart/
+│       ├── price-metrics-strip/
+│       ├── unified-order-book/    # Book tab, depth rows, trades tape
+│       ├── collection-trading/    # Buy/sell tabs, trade tickets, my orders
+│       ├── collection-criteria-bid/
+│       ├── collection-listings/   # RwaCard, owned asset cards
+│       ├── rwa-detail/            # Desktop/mobile layouts, buyer trade panel, modals
+│       ├── rwa-detail-asset-panel/
+│       ├── list-rwa/              # List modal + success modal
+│       └── markets-ui/            # Category filter, order book toggle, placeholders
 │
-├── providers/
-│   ├── AuthProvider.tsx           # Session fetch + global auth state
-│   ├── MarketplaceQueryPersistence.tsx
-│   └── WalletDataProvider.tsx
-│
-├── store/
-│   ├── index.ts                   # useAppStore — wallet address, USDC balance, refresh
-│   └── authStore.ts               # useAuthStore — user, login, logout
+├── hooks/                         # Feature-scoped hooks (mirrors components above)
 │
 ├── lib/
-│   ├── auth/                      # fetchAuthMe, logoutAuth
-│   ├── core/                      # api.ts (getApiUrl), queryKeys.ts (rq.*)
-│   ├── market/                    # Price tier utils, index helpers, chart utils (13 files)
-│   ├── marketplace/               # bucketKey, mediaUri, queryPersistence, …
-│   ├── network/                   # chainGas, ensureSepolia, walletError
-│   ├── portfolio/                 # History & reference-price utilities
-│   └── seaport/
-│       ├── constants.ts / merkle.ts / eip712Uint.ts
-│       ├── orders/                # bidUsdc, fulfillAskListing, platformFee, submitAskListing, …
-│       ├── criteria/              # criteriaMatch, collectionCriteriaRoot,
-│       │                          #   matchAdvancedOrdersArgs, tryMatchCriteriaBidAgainstBook,
-│       │                          #   useCollectionMerkleRootHex
-│       └── fulfillment/           # runCriteriaMatch
+│   ├── core/                      # api/* split modules, queryKeys.ts (rq.*)
+│   ├── market/                    # Pricing tiers, collection titles, chart utils
+│   ├── marketplace/               # bucketKey, headlines, order book math, …
+│   ├── seaport/                   # orders/, criteria/, fulfillment/, listing/
+│   ├── portfolio/
+│   └── vault/
 │
-├── config/wagmi.ts                # Wagmi chain & connector config
-├── constants/                     # ABI JSON + contract address helpers
-│   ├── abis/                      # tokenableRwa.abi.ts, usdc.abi.ts, seaport.abi.ts
-│   └── contracts.ts               # RWA_CONTRACT_ADDRESS, USDC_CONTRACT_ADDRESS, …
-├── hooks/                         # useMarketplaceCollectionsInfinite,
-│                                  # useResolvedMediaUrl, useUserAssets
-└── types/
-    └── gradedCard.ts
+├── providers/                     # AuthProvider, WalletDataProvider, …
+├── store/                         # authStore, useAppStore
+├── config/wagmi.ts
+└── constants/                     # ABIs + contract addresses
 ```
 
-## Global Providers Chain
+---
+
+## Global providers chain
 
 ```
 RootLayout
 └── Providers (providers.tsx)
-    ├── WagmiProvider (config/wagmi.ts)
+    ├── WagmiProvider
     ├── QueryClientProvider
-    ├── AuthProvider         ← fetches /api/auth/session on mount
-    ├── WalletDataProvider   ← syncs wallet address + USDC balance to Zustand
+    ├── AuthProvider
+    ├── WalletDataProvider
     └── MarketplaceQueryPersistence
 ```
 
-## API Client Pattern
+---
+
+## API client pattern
 
 ```ts
-// frontend/lib/core/api.ts
+// frontend/lib/core/api.ts + lib/core/api/* (split by domain)
 getApiUrl()
-// → browser: window.location.origin + "/api"  (when NEXT_PUBLIC_API_URL is unset)
-// → SSR:    process.env.INTERNAL_API_URL       (docker-compose sets this)
+// → browser: window.location.origin + "/api"
+// → SSR:    process.env.INTERNAL_API_URL
 ```
 
-All data-fetching functions accept the base URL as a parameter and use `fetch` + TanStack Query. Query keys are co-located in `frontend/lib/core/queryKeys.ts` as `rq.*` constants.
+Query keys: `frontend/lib/core/queryKeys.ts` (`rq.*`).
+
+PSA display titles (Year → Brand → # → Subject → Variety) are built client-side in `lib/marketplace/assetDetailHeadline.ts` and related helpers — not always stored verbatim in DB.

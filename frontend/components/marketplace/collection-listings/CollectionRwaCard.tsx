@@ -11,6 +11,10 @@ import {
 } from "@/constants/contracts";
 import { COLLECTION_LISTING_CARD_CHROME } from "@/components/marketplace/collectionOverviewChrome";
 import { PRODUCT_OUTLINE_GRADIENT } from "@/components/ui/GradientOutlineFrame";
+import {
+  buildRwaAssetDetailHeadlineParts,
+  formatAssetDetailHeadlineText,
+} from "@/lib/marketplace/assetDetailHeadline";
 import { displayAssetNameFromMetadata } from "@/lib/marketplace/rwaDisplayTitle";
 import { useCollectionDetailMobile } from "@/hooks/collection-detail";
 import { useCollectionRwaCardData } from "@/hooks/collection-listings/useCollectionRwaCardData";
@@ -158,10 +162,11 @@ export function CollectionRwaCard({
     : undefined;
   const sellerDisplay = shortenAddr(sellerAddr);
 
-  const displayTitle = displayAssetNameFromMetadata(
-    metadata,
-    formatTokenIdShort(tokenId),
-  );
+  const displayTitle =
+    formatAssetDetailHeadlineText(
+      buildRwaAssetDetailHeadlineParts(metadata, formatTokenIdShort(tokenId)),
+    ) ||
+    displayAssetNameFromMetadata(metadata, formatTokenIdShort(tokenId));
 
   const ownerAddr =
     typeof ownerOnChain === "string" ? ownerOnChain.toLowerCase() : "";
@@ -184,7 +189,7 @@ export function CollectionRwaCard({
     return (
       <Link
         href={ctaHref}
-        className={`${rwaCardFont.className} group flex h-full w-full min-w-0 cursor-pointer overflow-hidden rounded-[14px] border border-zinc-800/75 bg-[#0c0d10] text-inherit no-underline outline-none ring-offset-2 ring-offset-black transition-colors hover:border-zinc-700/80 focus-visible:ring-2 focus-visible:ring-mint/50`}
+        className={`${rwaCardFont.className} group flex h-full w-full min-w-0 cursor-pointer overflow-hidden rounded-[14px] border border-zinc-800/75 bg-[#0c0d10] text-inherit no-underline outline-none transition-colors hover:border-zinc-700/80`}
         aria-label={`${displayTitle} — ${ctaLabel}`}
       >
         <article className="flex w-full min-w-0 flex-col">
@@ -232,7 +237,7 @@ export function CollectionRwaCard({
   return (
     <Link
       href={ctaHref}
-      className={`group flex h-full w-full min-w-0 cursor-pointer text-inherit no-underline outline-none ring-offset-2 ring-offset-black focus-visible:ring-2 focus-visible:ring-mint/50 ${COLLECTION_LISTING_CARD_CHROME}`}
+      className={`group flex h-full w-full min-w-0 cursor-pointer text-inherit no-underline outline-none ${COLLECTION_LISTING_CARD_CHROME}`}
       aria-label={`Listing ${formatTokenIdShort(tokenId)} — ${ctaLabel}`}
     >
       <article className="flex h-full min-h-[148px] w-full min-w-0 flex-col overflow-hidden sm:min-h-[202px]">

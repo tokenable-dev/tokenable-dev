@@ -19,4 +19,5 @@ export {
   formatRwaDetailSetDescription,
   formatRwaSetHeadline,
   getRwaDetailHeaderBadgeLabels,
+  isPsaGradedRwaMetadata,
 } from "./rwaDetailMetadata";

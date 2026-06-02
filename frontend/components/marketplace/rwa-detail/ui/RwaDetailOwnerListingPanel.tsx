@@ -1,0 +1,80 @@
+"use client";
+
+import type { MouseEvent } from "react";
+import { useConnect } from "wagmi";
+import { connectMetaMaskWallet } from "@/lib/wallet/connectMetaMaskWallet";
+import type { ListModalAnchorRect } from "@/lib/seaport/listing/listRwaModalTypes";
+import { RwaDetailAskPriceDisplay } from "./RwaDetailAskPriceDisplay";
+import { RwaDetailGradientButton } from "./RwaDetailGradientButton";
+import { RwaDetailMarketContextStrip } from "./RwaDetailMarketContextStrip";
+
+export function RwaDetailOwnerListingPanel({
+  isConnected,
+  connectPending,
+  listingPriceUsd,
+  marketPriceUsd,
+  marketChangePct,
+  marketChangePeriodLabel,
+  marketChangeCoverageHint,
+  onOpenListModal,
+}: {
+  isConnected: boolean;
+  connectPending: boolean;
+  listingPriceUsd: number | null;
+  marketPriceUsd: number | null;
+  marketChangePct: number | null;
+  marketChangePeriodLabel: string;
+  marketChangeCoverageHint: string;
+  onOpenListModal: (
+    initialPriceUsdc?: string | null,
+    anchorRect?: ListModalAnchorRect | null,
+  ) => void;
+}) {
+  const { connect, connectors } = useConnect();
+
+  if (!isConnected) {
+    return (
+      <div className="space-y-4">
+        <RwaDetailGradientButton
+          bright
+          thickRim
+          disabled={connectPending}
+          onClick={() => connectMetaMaskWallet(connect, connectors)}
+        >
+          {connectPending ? "Connecting…" : "Connect wallet to list"}
+        </RwaDetailGradientButton>
+      </div>
+    );
+  }
+
+  const hasListing = listingPriceUsd != null;
+
+  const handleOpenListModal = (e: MouseEvent<HTMLButtonElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    onOpenListModal(hasListing ? String(listingPriceUsd) : null, {
+      top: rect.top,
+      left: rect.left,
+      width: rect.width,
+      height: rect.height,
+    });
+  };
+
+  return (
+    <div className="space-y-4">
+      {hasListing ? (
+        <RwaDetailAskPriceDisplay priceUsd={listingPriceUsd} />
+      ) : (
+        <RwaDetailMarketContextStrip
+          externalRefUsd={marketPriceUsd}
+          marketChangePct={marketChangePct}
+          changePeriodLabel={marketChangePeriodLabel}
+          changeCoverageHint={marketChangeCoverageHint}
+        />
+      )}
+
+      <RwaDetailGradientButton bright thickRim onClick={handleOpenListModal}>
+        {hasListing ? "Change price" : "List for sale"}
+      </RwaDetailGradientButton>
+    </div>
+  );
+}

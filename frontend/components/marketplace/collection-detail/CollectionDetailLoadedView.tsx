@@ -4,7 +4,7 @@ import type { Address } from "viem";
 import { pickCollectionHeroImageUrl } from "@/lib/marketplace";
 import { CollectionAdminCoverPanel } from "@/components/marketplace/collection-hero";
 import { COLLECTION_DETAIL_SHELL_CLASS } from "@/constants/layout";
-import { toCardDisplayUppercase } from "@/lib/marketplace/collectionFullDetailsTitle";
+import { COLLECTION_MARKETS_CHART_TAB_HEIGHT_CLASS } from "@/components/marketplace/collectionOverviewChrome";
 import { CollectionOverviewBoard } from "@/components/marketplace/collection-overview";
 import { CollectionDetailsKvCard, CollectionHeroDetailsTabs } from "@/components/marketplace/collection-hero";
 import {
@@ -148,12 +148,16 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
             <CollectionMobileMarketTabs
               informationPanel={mobileInformationPanel}
               chartPanel={
-                <div className="h-[168px] w-full min-w-0 shrink-0 overflow-hidden">
+                <div
+                  className={`${COLLECTION_MARKETS_CHART_TAB_HEIGHT_CLASS} w-full min-w-0 shrink-0 overflow-hidden`}
+                >
                   {collectionDualPriceChartTab}
                 </div>
               }
               orderBookPanel={
-                <div className="h-[168px] w-full min-w-0 shrink-0 overflow-y-auto overscroll-y-contain">
+                <div
+                  className={`${COLLECTION_MARKETS_CHART_TAB_HEIGHT_CLASS} w-full min-w-0 shrink-0 overflow-y-auto overscroll-y-contain`}
+                >
                   {collectionOrderBookMobile}
                 </div>
               }
@@ -179,7 +183,7 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
               }}
               onOpenSellModal={() => setSellModalOpen(true)}
               collectionKey={collection.collectionKey}
-              collectionLabel={toCardDisplayUppercase(collection.displayLabel)}
+              collectionLabel={headline.collectionHeadlineDisplayTitle}
               asks={asks}
               collectionBids={collectionBids}
               connectedAddress={address ?? undefined}
@@ -221,7 +225,7 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
         open={sellModalOpen}
         onClose={() => setSellModalOpen(false)}
         collectionKey={collection.collectionKey}
-        collectionLabel={toCardDisplayUppercase(collection.displayLabel)}
+        collectionLabel={headline.collectionHeadlineDisplayTitle}
         collectionBids={collectionBids}
         listPricePresetUsdc={listPricePresetUsdc}
         preferredBidOrderHash={preferredBidOrderHash}

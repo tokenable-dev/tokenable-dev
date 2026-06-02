@@ -19,18 +19,17 @@ export function OrderBookDepthLevelRow({
 }) {
   const isAsk = side === "ask";
   const selected = selectedLevelKey === level.key;
-  const ringClass = isAsk ? "focus-visible:ring-rose-500/40" : "focus-visible:ring-zinc-500/40";
-  const selectedRing = isAsk ? "ring-rose-500/50" : "ring-zinc-500/50";
+  const selectedRing = isAsk ? "ring-rose-500/50" : "ring-mint/50";
   const priceClass = isAsk ? "text-red-300/95" : "text-zinc-200/95";
   const depthGradient = isAsk
     ? "absolute inset-y-0 right-0 bg-gradient-to-l from-rose-600/35 to-rose-600/[0.07] transition-[width]"
-    : "absolute inset-y-0 left-0 bg-gradient-to-r from-zinc-600/40 to-zinc-700/[0.08] transition-[width]";
+    : "absolute inset-y-0 left-0 bg-gradient-to-r from-mint/35 to-mint/[0.07] transition-[width]";
 
   const buttonClass = flush
-    ? `relative flex min-h-[24px] w-full cursor-pointer items-center overflow-hidden rounded-[2px] text-left transition-colors hover:bg-white/[0.04] focus:outline-none focus-visible:ring-1 ${ringClass} ${
+    ? `relative flex min-h-[24px] w-full cursor-pointer items-center overflow-hidden rounded-[2px] text-left transition-colors hover:bg-white/[0.04] focus:outline-none ${
         selected ? "bg-white/[0.06] ring-1 " + selectedRing : ""
       }`
-    : `relative min-h-[24px] w-full text-left flex items-center rounded-[2px] overflow-hidden transition-colors cursor-pointer hover:bg-white/[0.04] focus:outline-none focus-visible:ring-1 ${ringClass} ${
+    : `relative min-h-[24px] w-full text-left flex items-center rounded-[2px] overflow-hidden transition-colors cursor-pointer hover:bg-white/[0.04] focus:outline-none ${
         selected ? `ring-1 ${selectedRing} bg-white/[0.06]` : ""
       }`;
 

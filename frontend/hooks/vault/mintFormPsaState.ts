@@ -78,10 +78,9 @@ export function useMintFormPsaState(
           ...prev.verification,
           certUrl: r.psa.certVerifyUrl || prev.verification.certUrl,
         },
-        name:
-          !prev.name.trim() && r.psa.cardNameHint
-            ? String(r.psa.cardNameHint).trim()
-            : prev.name,
+        name: r.psa.cardNameHint?.trim()
+          ? String(r.psa.cardNameHint).trim()
+          : prev.name,
         ...(slabFrontForMint instanceof File ? { image: prev.image ?? slabFrontForMint } : {}),
       }));
     },

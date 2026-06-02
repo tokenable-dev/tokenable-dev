@@ -44,6 +44,28 @@ export type PsaPublicApiLookupResult =
       reason?: 'cert_mismatch';
     };
 
+/** GET /pop/GetPSASpecPopulation/{specID} — per-grade pop report for a PSA spec. */
+export interface PsaSpecPopSummary {
+  total: number | null;
+  grade10: number | null;
+}
+
+export type PsaSpecPopulationLookupResult =
+  | { status: 'disabled'; reason: 'no_token' }
+  | { status: 'skipped'; reason: 'no_spec' | 'invalid_spec' }
+  | {
+      status: 'success';
+      specId: string;
+      pop: PsaSpecPopSummary;
+      raw: unknown;
+    }
+  | {
+      status: 'error';
+      specId: string;
+      message: string;
+      httpStatus?: number;
+    };
+
 /** GET /cert/GetImagesByCertNumber/{cert} — 슬랩 사진 URL(ImageURL, IsFrontImage 배열). */
 export type PsaGetImagesLookupResult =
   | { status: 'disabled'; reason: 'no_token' }
@@ -89,6 +111,17 @@ export class PsaPublicApiService {
   private readonly inFlightGetImages = new Map<
     string,
     Promise<PsaGetImagesLookupResult>
+  >();
+  private readonly specPopSuccessCache = new Map<
+    string,
+    {
+      expiresAt: number;
+      result: Extract<PsaSpecPopulationLookupResult, { status: 'success' }>;
+    }
+  >();
+  private readonly inFlightGetSpecPop = new Map<
+    string,
+    Promise<PsaSpecPopulationLookupResult>
   >();
 
   constructor(private readonly config: ConfigService) {}
@@ -323,6 +356,146 @@ export class PsaPublicApiService {
       return {
         status: 'error',
         certNumber: digits,
+        message: msg,
+      };
+    }
+  }
+
+  /**
+   * GET /pop/GetPSASpecPopulation/{specID}
+   * Returns PSA 10 count and total graded population for the card spec.
+   */
+  async getSpecPopulation(
+    specRaw: string | number | undefined,
+  ): Promise<PsaSpecPopulationLookupResult> {
+    const token = this.getToken();
+    if (!token) {
+      return { status: 'disabled', reason: 'no_token' };
+    }
+    const specId = normalizePsaSpecId(specRaw);
+    if (!specId) {
+      return { status: 'skipped', reason: 'no_spec' };
+    }
+
+    const ttl = this.getCacheTtlMs();
+    if (ttl > 0) {
+      const hit = this.specPopSuccessCache.get(specId);
+      if (hit && hit.expiresAt > Date.now()) {
+        this.logger.debug(`PSA spec pop cache hit specId=${specId}`);
+        return hit.result;
+      }
+    }
+
+    const inflight = this.inFlightGetSpecPop.get(specId);
+    if (inflight) {
+      this.logger.debug(`PSA spec pop coalesce in-flight specId=${specId}`);
+      return inflight;
+    }
+
+    const run = this.runGetSpecPopulation(specId, token).finally(() => {
+      this.inFlightGetSpecPop.delete(specId);
+    });
+    this.inFlightGetSpecPop.set(specId, run);
+    return run;
+  }
+
+  private async runGetSpecPopulation(
+    specId: string,
+    token: string,
+  ): Promise<PsaSpecPopulationLookupResult> {
+    const url = `${this.baseUrl}/pop/GetPSASpecPopulation/${specId}`;
+    const maxRetries = this.getMaxRetries();
+
+    try {
+      let lastRes: Response | null = null;
+      let lastText = '';
+
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        const res = await fetch(url, {
+          method: 'GET',
+          headers: {
+            authorization: `bearer ${token}`,
+            accept: 'application/json',
+            'user-agent': 'TokenableBackend/1.0 (PSA Public API)',
+          },
+        });
+
+        lastRes = res;
+        lastText = await res.text();
+
+        if (res.status === 429 && attempt < maxRetries) {
+          const retryAfter = res.headers.get('retry-after');
+          const waitMs = this.waitMsFrom429RetryAfter(retryAfter, attempt);
+          this.logger.warn(
+            `PSA spec pop 429 specId=${specId} attempt=${attempt + 1}/${maxRetries + 1} waitMs=${waitMs}`,
+          );
+          await sleep(waitMs);
+          continue;
+        }
+
+        break;
+      }
+
+      const res = lastRes;
+      if (!res) {
+        return {
+          status: 'error',
+          specId,
+          message: 'PSA API: no response',
+        };
+      }
+
+      let body: unknown;
+      try {
+        body = lastText ? JSON.parse(lastText) : null;
+      } catch {
+        body = { _parseError: true, rawText: lastText.slice(0, 500) };
+      }
+
+      if (!res.ok) {
+        const errBody = body as { ServerMessage?: string; message?: string };
+        let message =
+          errBody?.ServerMessage ||
+          errBody?.message ||
+          `PSA API HTTP ${res.status}`;
+        if (res.status === 401 || res.status === 403) {
+          message =
+            'PSA API 인증 실패(토큰 만료·무효). publicapi 에서 토큰을 재발급하세요.';
+        }
+        return {
+          status: 'error',
+          specId,
+          message,
+          httpStatus: res.status,
+        };
+      }
+
+      const pop = parsePsaSpecPopulationBody(body);
+      const success: Extract<
+        PsaSpecPopulationLookupResult,
+        { status: 'success' }
+      > = {
+        status: 'success',
+        specId,
+        pop,
+        raw: body,
+      };
+
+      const ttl = this.getCacheTtlMs();
+      if (ttl > 0) {
+        this.specPopSuccessCache.set(specId, {
+          expiresAt: Date.now() + ttl,
+          result: success,
+        });
+      }
+
+      return success;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      this.logger.warn(`PSA spec pop request failed specId=${specId}: ${msg}`);
+      return {
+        status: 'error',
+        specId,
         message: msg,
       };
     }
@@ -686,4 +859,34 @@ function mergePsaApiIntoParsedImpl(
     specId,
     varietyHint,
   };
+}
+
+/** Parse PSA Public API `PSASpecPopulationModel.PSAPop` grade breakdown. */
+export function parsePsaSpecPopulationBody(body: unknown): PsaSpecPopSummary {
+  if (!body || typeof body !== 'object') {
+    return { total: null, grade10: null };
+  }
+  const pop = (body as { PSAPop?: Record<string, unknown> }).PSAPop;
+  if (!pop || typeof pop !== 'object') {
+    return { total: null, grade10: null };
+  }
+  const floorPop = (v: unknown): number | null => {
+    if (typeof v !== 'number' || !Number.isFinite(v) || v < 0) return null;
+    return Math.floor(v);
+  };
+  return {
+    total: floorPop(pop.Total),
+    grade10: floorPop(pop.Grade10),
+  };
+}
+
+export function normalizePsaSpecId(raw: unknown): string | null {
+  if (typeof raw === 'number' && Number.isFinite(raw) && raw > 0) {
+    return String(Math.floor(raw));
+  }
+  if (typeof raw === 'string') {
+    const t = raw.trim();
+    if (/^\d+$/.test(t)) return t;
+  }
+  return null;
 }

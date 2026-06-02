@@ -3,6 +3,7 @@
 import {
   COLLECTION_DETAILS_BORDER_B,
   COLLECTION_DETAILS_BORDER_T,
+  COLLECTION_ORDER_BOOK_SCROLL_CLASS,
 } from "@/components/marketplace/collectionOverviewChrome";
 import type { BookCenterModel, OrderBookDepthLevel } from "@/lib/marketplace/unified-order-book";
 import type { BookRowSelection } from "@/lib/marketplace/marketplaceTradingTypes";
@@ -41,7 +42,7 @@ function OrderBookFooterCounts({
     >
       <div className="flex justify-between gap-2 font-mono text-[9px] tabular-nums text-gray-600">
         <span>
-          Bids <span className="text-zinc-400/90">{bidCount}</span>
+          Bids <span className="text-mint/80">{bidCount}</span>
         </span>
         <span>
           Asks <span className="text-rose-400/80">{askCount}</span>
@@ -64,6 +65,7 @@ function AskLevelsList({
   onSelectLevel,
   flush,
   wrapperClass,
+  emptyClassName,
 }: {
   levels: OrderBookDepthLevel[];
   emptyLabel: string;
@@ -71,11 +73,14 @@ function AskLevelsList({
   onSelectLevel?: (selection: BookRowSelection) => void;
   flush?: boolean;
   wrapperClass: string;
+  emptyClassName?: string;
 }) {
   return (
     <div className={wrapperClass}>
       {levels.length === 0 ? (
-        <div className="py-3 text-center text-[10px] text-gray-600">{emptyLabel}</div>
+        <div className={emptyClassName ?? emptyLevelsClass(flush)}>
+          {emptyLabel}
+        </div>
       ) : (
         levels.map((level) => (
           <OrderBookDepthLevelRow
@@ -99,6 +104,7 @@ function BidLevelsList({
   onSelectLevel,
   flush,
   wrapperClass,
+  emptyClassName,
 }: {
   levels: OrderBookDepthLevel[];
   emptyLabel: string;
@@ -106,11 +112,14 @@ function BidLevelsList({
   onSelectLevel?: (selection: BookRowSelection) => void;
   flush?: boolean;
   wrapperClass: string;
+  emptyClassName?: string;
 }) {
   return (
     <div className={wrapperClass}>
       {levels.length === 0 ? (
-        <div className="py-3 text-center text-[10px] text-gray-600">{emptyLabel}</div>
+        <div className={emptyClassName ?? emptyLevelsClass(flush)}>
+          {emptyLabel}
+        </div>
       ) : (
         levels.map((level) => (
           <OrderBookDepthLevelRow
@@ -125,6 +134,18 @@ function BidLevelsList({
       )}
     </div>
   );
+}
+
+function emptyLevelsClass(flush?: boolean) {
+  return flush
+    ? "py-1 text-center text-[10px] text-gray-600"
+    : "py-3 text-center text-[10px] text-gray-600";
+}
+
+function scrollPaneClass(scrollable: boolean) {
+  return scrollable
+    ? `min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-auto ${COLLECTION_ORDER_BOOK_SCROLL_CLASS}`
+    : "shrink-0 overflow-hidden";
 }
 
 export function OrderBookBookTab({
@@ -150,30 +171,39 @@ export function OrderBookBookTab({
   selectedLevelKey?: string | null;
   onSelectLevel?: (selection: BookRowSelection) => void;
 }) {
+  const askScrollable = askLevels.length > 0;
+  const bidScrollable = bidLevels.length > 0;
+
   if (flush) {
     return (
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <OrderBookColumnHeader />
-        <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-auto">
+        <div className={scrollPaneClass(askScrollable)}>
           <AskLevelsList
             levels={askLevels}
             emptyLabel="No sell orders"
             selectedLevelKey={selectedLevelKey}
             onSelectLevel={onSelectLevel}
             flush
-            wrapperClass="flex min-h-full flex-col justify-end gap-px px-1 pt-0.5 pb-0.5"
+            emptyClassName={emptyLevelsClass(true)}
+            wrapperClass={
+              askScrollable
+                ? "flex min-h-full flex-col justify-end gap-px px-1 pt-0.5 pb-0.5"
+                : "flex flex-col gap-px px-1 pt-0.5 pb-0.5"
+            }
           />
         </div>
         <div className="relative mx-0.5 shrink-0">
           <OrderBookCenterStrip model={bookCenterModel} />
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-auto">
+        <div className={scrollPaneClass(bidScrollable)}>
           <BidLevelsList
             levels={bidLevels}
             emptyLabel="No buy orders"
             selectedLevelKey={selectedLevelKey}
             onSelectLevel={onSelectLevel}
             flush
+            emptyClassName={emptyLevelsClass(true)}
             wrapperClass="flex flex-col gap-px px-1 py-0.5 pb-1.5"
           />
         </div>
@@ -190,7 +220,11 @@ export function OrderBookBookTab({
         emptyLabel="No sell orders"
         selectedLevelKey={selectedLevelKey}
         onSelectLevel={onSelectLevel}
-        wrapperClass={`min-h-[36px] flex flex-col justify-end gap-px px-1 pt-0.5 overflow-y-auto ${depthMax}`}
+        wrapperClass={`min-h-[36px] flex flex-col justify-end gap-px px-1 pt-0.5 ${
+          askScrollable
+            ? `overflow-y-auto ${COLLECTION_ORDER_BOOK_SCROLL_CLASS} ${depthMax}`
+            : ""
+        }`}
       />
       <div className="relative mx-0.5 my-0.5">
         <OrderBookCenterStrip model={bookCenterModel} />
@@ -200,7 +234,11 @@ export function OrderBookBookTab({
         emptyLabel="No buy orders"
         selectedLevelKey={selectedLevelKey}
         onSelectLevel={onSelectLevel}
-        wrapperClass={`${depthMax} overflow-y-auto flex flex-col gap-px px-1 pb-1.5`}
+        wrapperClass={`flex flex-col gap-px px-1 pb-1.5 ${
+          bidScrollable
+            ? `overflow-y-auto ${COLLECTION_ORDER_BOOK_SCROLL_CLASS} ${depthMax}`
+            : ""
+        }`}
       />
       <OrderBookFooterCounts
         bidCount={bidCount}

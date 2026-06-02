@@ -2,14 +2,14 @@
 
 import { useConnect } from "wagmi";
 import { connectMetaMaskWallet } from "@/lib/wallet/connectMetaMaskWallet";
+import { RwaDetailAskPriceDisplay } from "./RwaDetailAskPriceDisplay";
 import { RwaDetailGradientButton } from "./RwaDetailGradientButton";
-import { RwaDetailListPriceDisplay } from "./RwaDetailListPriceDisplay";
-import { rwaDetailRightFont } from "../theme";
 
 export function RwaDetailBuyerTradingPanel({
   isConnected,
   buyBusy,
   listingPriceUsd,
+  marketPriceUsd: _marketPriceUsd = null,
   buyErr,
   onFulfill,
   compact = false,
@@ -17,6 +17,7 @@ export function RwaDetailBuyerTradingPanel({
   isConnected: boolean;
   buyBusy: boolean;
   listingPriceUsd: number | null;
+  marketPriceUsd?: number | null;
   buyErr: string | null;
   onFulfill: () => void | Promise<void>;
   compact?: boolean;
@@ -33,20 +34,16 @@ export function RwaDetailBuyerTradingPanel({
 
   return (
     <div className={compact ? "flex min-w-0 flex-col gap-2.5" : "space-y-5 sm:space-y-6"}>
-      {listingPriceUsd != null && Number.isFinite(listingPriceUsd) ? (
-        compact ? (
-          <p
-            className={`${rwaDetailRightFont.className} text-[clamp(1.35rem,6vw,1.75rem)] font-bold leading-none tracking-tight text-white tabular-nums`}
-          >
-            $
-            {listingPriceUsd.toLocaleString("en-US", {
-              minimumFractionDigits: 0,
-              maximumFractionDigits: 2,
-            })}
-          </p>
-        ) : (
-          <RwaDetailListPriceDisplay priceUsd={listingPriceUsd} />
-        )
+      {!compact && listingPriceUsd != null && Number.isFinite(listingPriceUsd) ? (
+        <RwaDetailAskPriceDisplay priceUsd={listingPriceUsd} />
+      ) : listingPriceUsd != null && Number.isFinite(listingPriceUsd) && compact ? (
+        <p className="text-[clamp(1.65rem,7vw,2.1rem)] font-bold leading-none tracking-tight text-mint tabular-nums">
+          $
+          {listingPriceUsd.toLocaleString("en-US", {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 2,
+          })}
+        </p>
       ) : null}
 
       <RwaDetailGradientButton

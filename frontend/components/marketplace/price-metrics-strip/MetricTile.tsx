@@ -5,7 +5,12 @@ import {
   COLLECTION_DETAILS_BG_CLASS,
   COLLECTION_DETAILS_BORDER_ALL,
 } from "@/components/marketplace/collectionOverviewChrome";
-import { ibmPlexSans } from "./theme";
+import {
+  metricPanelInsetCls,
+  metricPanelLabelCls,
+  metricPanelValueCls,
+  metricPanelValueWrapCls,
+} from "./theme";
 
 function isNonemptyFooter(node: ReactNode): boolean {
   if (node === undefined || node === null || node === false) return false;
@@ -42,15 +47,11 @@ export function MetricTile({
   if (variant === "panelCell") {
     const inset =
       tone === "primary"
-        ? "max-lg:col-span-2 max-lg:rounded-sm max-lg:px-2 max-lg:py-1.5 max-lg:bg-mint/[0.05] lg:col-span-auto lg:rounded-none lg:px-3.5 lg:py-2.5 lg:bg-transparent"
-        : "max-lg:px-2 max-lg:py-1.5 lg:px-3.5 lg:py-2.5";
-    const panelLabelCls = `${ibmPlexSans.className} max-lg:text-[9px] max-lg:font-semibold max-lg:uppercase max-lg:leading-none max-lg:tracking-[0.07em] max-lg:text-zinc-500 lg:text-[16px] lg:font-normal lg:normal-case lg:leading-[150%] lg:tracking-[0px] lg:text-zinc-400`;
-    const panelValueWrapCls =
-      "mt-0.5 flex w-full min-w-0 flex-wrap items-baseline gap-x-1 lg:mt-3 lg:min-h-[1.75rem]";
-    const panelValueTextCls = `${ibmPlexSans.className} max-lg:text-[13px] max-lg:font-bold max-lg:leading-none max-lg:tracking-tight max-lg:tabular-nums lg:text-[24px] lg:font-semibold lg:leading-[150%] lg:tracking-[0px] lg:tabular-nums lg:text-white`;
+        ? `max-lg:col-span-2 max-lg:rounded-sm max-lg:px-2 max-lg:py-1.5 max-lg:bg-mint/[0.05] lg:col-span-auto lg:rounded-none lg:bg-transparent ${metricPanelInsetCls}`
+        : metricPanelInsetCls;
     const valueNode = (
-      <div className={panelValueWrapCls}>
-        <div className={`min-w-0 ${panelValueTextCls}`}>{value}</div>
+      <div className={metricPanelValueWrapCls}>
+        <div className={`min-w-0 max-w-full ${metricPanelValueCls}`}>{value}</div>
       </div>
     );
     if (!hasFooter) {
@@ -58,7 +59,7 @@ export function MetricTile({
         <div
           className={`flex min-w-0 flex-col items-start justify-center text-left ${inset} ${cellClassName ?? ""}`}
         >
-          <span className={`${panelLabelCls} text-pretty`}>{label}</span>
+          <span className={metricPanelLabelCls}>{label}</span>
           {valueNode}
         </div>
       );
@@ -67,7 +68,7 @@ export function MetricTile({
       <div
         className={`flex min-w-0 flex-col items-start justify-center text-left ${inset} ${cellClassName ?? ""}`}
       >
-        <span className={`${panelLabelCls} text-pretty`}>{label}</span>
+        <span className={metricPanelLabelCls}>{label}</span>
         {valueNode}
         <div className="mt-1 w-full text-left text-[9px] leading-snug text-zinc-500 lg:mt-1.5 lg:text-[10px] lg:sm:text-[11px]">
           {footer}

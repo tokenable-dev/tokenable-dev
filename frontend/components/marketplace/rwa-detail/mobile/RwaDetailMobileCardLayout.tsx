@@ -4,7 +4,6 @@ import type { ReactNode } from "react";
 import { AssetDetailHeadlineTitle } from "@/components/marketplace/marketplace-shared";
 import {
   GradientOutlineFrame,
-  PRODUCT_OUTLINE_PAD_CLASS,
   gradientOutlineInnerButtonClass,
 } from "@/components/ui/GradientOutlineFrame";
 import {
@@ -15,6 +14,11 @@ import {
 import { formatUsdcPricePrimary } from "@/lib/market/usdcKrwDisplay";
 import { RwaDetailHeaderBadges } from "@/components/marketplace/rwa-detail-asset-panel";
 import type { RwaDetailMetadata } from "@/lib/marketplace/rwa-detail";
+import {
+  RWA_DETAIL_BUTTON_FRAME_ROUNDED,
+  RWA_DETAIL_BUTTON_INNER_ROUNDED,
+  RWA_DETAIL_BUTTON_RIM_PAD_CLASS,
+} from "@/components/marketplace/rwa-detail/theme";
 
 export function RwaDetailMobileCardHeader({
   headlineParts,
@@ -38,11 +42,19 @@ export function RwaDetailMobileCardHeader({
         <AssetDetailHeadlineTitle
           as="h1"
           parts={headlineParts}
-          className="text-[1.4rem] font-bold leading-[1.2] tracking-tight text-white [overflow-wrap:anywhere] sm:text-[1.45rem]"
+          className="whitespace-normal text-[1.4rem] font-bold leading-[1.25] tracking-tight text-white [overflow-wrap:anywhere] sm:text-[1.45rem]"
         />
       ) : (
         <h1 className="text-[1.4rem] font-bold leading-[1.2] tracking-tight text-white sm:text-[1.45rem]">
-          {formatAssetDetailHeadlineText(headlineParts ?? { year: null, setName: null, cardName: null })}
+          {formatAssetDetailHeadlineText(
+            headlineParts ?? {
+              year: null,
+              setName: null,
+              cardNumber: null,
+              cardName: null,
+              variety: null,
+            },
+          )}
         </h1>
       )}
       <RwaDetailHeaderBadges
@@ -106,8 +118,8 @@ export function RwaDetailStickyBuyButton({
   const showCaption = Boolean(priceCaption?.trim());
 
   const frameShadow = isPrimary
-    ? "shadow-[0_0_32px_-2px_rgba(16,211,51,0.55),0_0_48px_-12px_rgba(16,211,51,0.28)] has-[:enabled]:hover:shadow-[0_0_40px_-2px_rgba(16,211,51,0.72),0_0_56px_-10px_rgba(16,211,51,0.42)] has-[:enabled]:focus-within:shadow-[0_0_40px_-2px_rgba(16,211,51,0.72),0_0_56px_-10px_rgba(16,211,51,0.42)]"
-    : "shadow-[0_0_18px_-8px_rgba(16,211,51,0.35)] has-[:enabled]:hover:shadow-[0_0_28px_-6px_rgba(16,211,51,0.48)] has-[:enabled]:focus-within:shadow-[0_0_28px_-6px_rgba(16,211,51,0.48)]";
+    ? "shadow-[0_0_32px_-2px_rgba(16,211,51,0.55),0_0_48px_-12px_rgba(16,211,51,0.28)] has-[:enabled]:hover:shadow-[0_0_40px_-2px_rgba(16,211,51,0.72),0_0_56px_-10px_rgba(16,211,51,0.42)]"
+    : "shadow-[0_0_18px_-8px_rgba(16,211,51,0.35)] has-[:enabled]:hover:shadow-[0_0_28px_-6px_rgba(16,211,51,0.48)]";
 
   const actionClass = isPrimary
     ? "text-[17px] font-semibold text-mint"
@@ -116,14 +128,14 @@ export function RwaDetailStickyBuyButton({
   return (
     <GradientOutlineFrame
       className={`group/cta w-full min-w-0 transition-shadow duration-200 ease-out ${frameShadow}`}
-      roundedClass="rounded-xl"
-      padClass={PRODUCT_OUTLINE_PAD_CLASS}
+      roundedClass={RWA_DETAIL_BUTTON_FRAME_ROUNDED}
+      padClass={RWA_DETAIL_BUTTON_RIM_PAD_CLASS}
     >
       <button
         type="button"
         onClick={onClick}
         disabled={disabled}
-        className={`${gradientOutlineInnerButtonClass} flex w-full min-w-0 flex-col items-center justify-center rounded-[7px] border-0 leading-none tracking-wide outline-none transition-[background-color,box-shadow,filter] duration-200 ease-out enabled:hover:bg-zinc-950 enabled:hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.12),inset_0_-1px_0_rgba(16,211,51,0.1)] enabled:hover:brightness-110 enabled:focus-visible:ring-2 enabled:focus-visible:ring-mint/50 enabled:focus-visible:ring-offset-2 enabled:focus-visible:ring-offset-black motion-reduce:transition-none motion-reduce:enabled:hover:brightness-100 ${
+        className={`${gradientOutlineInnerButtonClass} flex w-full min-w-0 flex-col items-center justify-center ${RWA_DETAIL_BUTTON_INNER_ROUNDED} border-0 leading-none tracking-wide outline-none transition-[background-color,box-shadow,filter] duration-200 ease-out enabled:hover:bg-zinc-950 enabled:hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.12),inset_0_-1px_0_rgba(16,211,51,0.1)] enabled:hover:brightness-110 motion-reduce:transition-none motion-reduce:enabled:hover:brightness-100 ${
           hasPrice
             ? "min-h-[4.75rem] gap-1.5 px-3.5 py-2.5 text-center enabled:hover:saturate-110"
             : `h-[52px] px-4 !text-[17px] !font-semibold !text-white enabled:hover:!text-white enabled:hover:brightness-105 ${

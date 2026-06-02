@@ -72,10 +72,10 @@ export function CollectionDualPriceChart({
       <div
         className={
           marketsLayout
-            ? `${marketsChrome} flex min-h-[120px] flex-col items-center justify-center gap-3 px-4 ${
+            ? `${marketsChrome} flex min-h-[72px] flex-col items-center justify-center gap-2 px-4 ${
                 compactTab
                   ? "h-full min-h-0"
-                  : "max-lg:min-h-[min(140px,20svh)] max-lg:h-full max-lg:min-h-0 lg:h-full lg:min-h-0"
+                  : "max-lg:min-h-[min(96px,16svh)] max-lg:h-full max-lg:min-h-0 lg:h-full lg:min-h-0"
               }`
             : `${chartShellDefault} flex min-h-[260px] flex-col items-center justify-center gap-3 px-4`
         }
@@ -97,10 +97,10 @@ export function CollectionDualPriceChart({
       <div
         className={
           marketsLayout
-            ? `${marketsChrome} flex min-h-[110px] flex-col items-center justify-center px-4 py-6 text-center text-sm text-rose-200/90 ${
+            ? `${marketsChrome} flex min-h-[72px] flex-col items-center justify-center px-4 py-4 text-center text-sm text-rose-200/90 ${
                 compactTab
                   ? "h-full min-h-0"
-                  : "max-lg:min-h-[min(128px,18svh)] max-lg:h-full max-lg:min-h-0 lg:h-full lg:min-h-0"
+                  : "max-lg:min-h-[min(96px,16svh)] max-lg:h-full max-lg:min-h-0 lg:h-full lg:min-h-0"
               }`
             : "rounded-2xl border border-rose-500/20 bg-[rgba(11,13,16,1)] px-4 py-6 text-center text-sm text-rose-200/90"
         }
@@ -115,10 +115,10 @@ export function CollectionDualPriceChart({
       <div
         className={
           marketsLayout
-            ? `${marketsChrome} flex min-h-[110px] flex-col items-center justify-center px-4 py-8 text-center text-sm text-zinc-600 ${
+            ? `${marketsChrome} flex min-h-[72px] flex-col items-center justify-center px-4 py-4 text-center text-sm text-zinc-600 ${
                 compactTab
                   ? "h-full min-h-0"
-                  : "max-lg:min-h-[min(128px,18svh)] max-lg:h-full max-lg:min-h-0 lg:h-full lg:min-h-0"
+                  : "max-lg:min-h-[min(96px,16svh)] max-lg:h-full max-lg:min-h-0 lg:h-full lg:min-h-0"
               }`
             : `${chartShellDefault} flex min-h-[110px] flex-col items-center justify-center px-4 py-8 text-center text-sm text-zinc-600`
         }
@@ -134,7 +134,7 @@ export function CollectionDualPriceChart({
       className={
         marketsLayout
           ? `${marketsChrome} flex h-full min-h-0 flex-col overflow-hidden text-white ${
-              compactTab ? "min-h-0" : "max-lg:min-h-0 lg:min-h-[134px] lg:h-full"
+              compactTab ? "min-h-0" : "max-lg:min-h-0 lg:h-full lg:min-h-0"
             }`
           : `${chartShellDefault} text-white`
       }
@@ -162,13 +162,13 @@ export function CollectionDualPriceChart({
           style={{
             width: "100%",
             height: marketsLayout ? "100%" : "300px",
-            minHeight: compactTab ? 100 : marketsLayout ? 110 : 200,
+            minHeight: compactTab ? 72 : marketsLayout ? 72 : 200,
           }}
           className={
             marketsLayout
               ? compactTab
                 ? "h-full min-h-0 w-full"
-                : "h-full min-h-[110px] w-full max-lg:min-h-0 lg:min-h-[136px]"
+                : "h-full min-h-0 w-full max-lg:min-h-0"
               : "min-h-[200px] w-full"
           }
         />

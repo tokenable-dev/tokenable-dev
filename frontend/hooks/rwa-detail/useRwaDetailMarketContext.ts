@@ -138,6 +138,11 @@ export function useRwaDetailMarketContext(input: {
 
   const collectionBids = collectionDetail?.collectionBids ?? [];
 
+  const collectionAsks = useMemo(() => {
+    const listings = collectionDetail?.listings ?? [];
+    return listings.filter((o) => String(o.side ?? "ask").toLowerCase() !== "bid");
+  }, [collectionDetail?.listings]);
+
   return {
     collectionKeyForMatch,
     collectionKeyForRedirect,
@@ -145,6 +150,7 @@ export function useRwaDetailMarketContext(input: {
     collectionHref,
     collectionDisplayName,
     collectionBids,
+    collectionAsks,
     externalRefUsd,
     marketChangePct,
     marketChangePeriodLabel,

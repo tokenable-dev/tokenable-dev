@@ -15,6 +15,7 @@ import { useRwaDetailListing } from "./useRwaDetailListing";
 import { useRwaDetailMarketContext } from "./useRwaDetailMarketContext";
 import { useRwaDetailMetadata } from "./useRwaDetailMetadata";
 import { useRwaDetailOwner } from "./useRwaDetailOwner";
+import { useRwaDetailPlatformTrades } from "./useRwaDetailPlatformTrades";
 
 export type RwaDetailPageStatus = "invalid" | "loading" | "not_found" | "ready";
 
@@ -62,6 +63,12 @@ export function useRwaDetailPage() {
     fromCollectionParam,
     listingCollectionKey: listing?.collectionKey,
     metadataDerivedCollectionKey,
+  });
+
+  const platformTrades = useRwaDetailPlatformTrades({
+    tokenId,
+    tokenIdOk,
+    collectionKey: market.collectionKeyForMatch,
   });
 
   const headline = useRwaDetailHeadline(
@@ -136,7 +143,9 @@ export function useRwaDetailPage() {
     isOwner,
     isConnected,
     connectPending,
+    address,
     market,
+    platformTrades,
     headline,
     listFlow,
     buyFlow,

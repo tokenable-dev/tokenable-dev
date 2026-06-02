@@ -2,7 +2,7 @@
 
 > Seaport v1.5 · 오프체인 오더북(백엔드) · 온체인 `fulfillOrder` / `matchAdvancedOrders` 기준
 
-> **업데이트 (2026-05):** 실험용 **relational 매칭 계층**은 제거되었습니다. 매칭은 **Seaport + `orders`만** 사용합니다. **DB 7테이블:** `users`, `psa_cert_snapshots`, `marketplace_collections`, `rwa_tokens`, `collection_market_snapshots`, `orders`, `portfolio_daily_snapshots`. [database.md](../architecture/database.md) · [materialized-market-snapshots.md](../architecture/materialized-market-snapshots.md) · [api/marketplace.md](../api/marketplace.md)
+> **Update (2026-06):** Relational matching removed. **Eight DB tables** including `portfolio_hidden_holdings`. [database.md](../architecture/database.md) · [materialized-market-snapshots.md](../architecture/materialized-market-snapshots.md) · [api/marketplace.md](../api/marketplace.md)
 >
 > **HTTP 경로 표기:** 아래 시퀀스의 `POST /api/...` 는 Nest 글로벌 프리픽스 **`api`** 를 포함한 전체 경로입니다. 전체 API 개요는 **[api/README.md](../api/README.md)**.
 
@@ -134,7 +134,7 @@ sequenceDiagram
         S -->> A  : tokenURI (IPFS CID)
         A  ->> C  : ERC721.mint(address, tokenURI)
         C -->> U  : 🎉 tokenId 발급
-        Note over DB: ※ 민팅 결과는 DB에 별도 저장 없음<br/>tokenId·tokenURI는 온체인 원본 기준
+        Note over DB: 선택적 UPSERT rwa_tokens<br/>(RWA_TOKEN_REGISTRY_SYNC_ON_BOOT 또는 첫 ask 시)
     end
 
     rect rgba(134, 239, 172, 0.15)
@@ -148,8 +148,7 @@ sequenceDiagram
         A -->> U  : 🖊️ MetaMask 서명 요청 — EIP-712 매도 주문
         U  ->> A  : 서명 승인
         A  ->> S  : POST /api/marketplace/orders [side: ask]
-        S  ->> DB : INSERT orders<br/>{order_hash, offerer, side:ask,<br/>token_contract, token_id,<br/>consideration_token, consideration_amount,<br/>parameters(jsonb), signature,<br/>status:active, start_time, end_time,<br/>collection_key}
-        S  ->> DB : UPSERT marketplace_collections<br/>{collection_key, display_label,<br/>components(jsonb), cover_image_url}
+        S  ->> DB : INSERT orders … + UPSERT marketplace_collections<br/>+ UPSERT rwa_tokens
         S -->> A  : ASK ACTIVE
     end
 

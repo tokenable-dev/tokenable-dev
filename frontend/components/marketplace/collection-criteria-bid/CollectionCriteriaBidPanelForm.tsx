@@ -9,6 +9,8 @@ import type { CollectionCriteriaBidStep } from "./types";
 
 export function CollectionCriteriaBidPanelForm({
   embedded,
+  isModal = false,
+  actionLayout = "combined",
   buyHelpTitle,
   balanceUsdc,
   lowestAsk,
@@ -35,8 +37,13 @@ export function CollectionCriteriaBidPanelForm({
   postBidMatchHint,
   onSubmit,
   onOpenSellModal,
+  hideSellFooter = false,
+  hideSubmitButton = false,
+  headerTitle,
 }: {
   embedded: boolean;
+  isModal?: boolean;
+  actionLayout?: import("./types").CollectionCriteriaBidActionLayout;
   buyHelpTitle: string;
   balanceUsdc: number | null;
   lowestAsk: Order | null;
@@ -63,13 +70,31 @@ export function CollectionCriteriaBidPanelForm({
   postBidMatchHint: string | null;
   onSubmit: () => void;
   onOpenSellModal?: () => void;
+  hideSellFooter?: boolean;
+  hideSubmitButton?: boolean;
+  headerTitle?: string;
 }) {
   return (
     <>
-      <CriteriaBidFormHeader embedded={embedded} buyHelpTitle={buyHelpTitle} />
-      <div className={`${embedded ? "space-y-2 pt-2" : "space-y-4 px-4 py-4"}`}>
+      {!isModal ? (
+        <CriteriaBidFormHeader
+          embedded={embedded}
+          buyHelpTitle={buyHelpTitle}
+          title={headerTitle}
+        />
+      ) : null}
+      <div
+        className={
+          isModal
+            ? "space-y-4"
+            : embedded
+              ? "space-y-2 pt-2"
+              : "space-y-4 px-4 py-4"
+        }
+      >
         <CriteriaBidFormPriceSection
           embedded={embedded}
+          minimal={isModal}
           balanceUsdc={balanceUsdc}
           lowestAsk={lowestAsk}
           lowestAskUsdc={lowestAskUsdc}
@@ -87,23 +112,48 @@ export function CollectionCriteriaBidPanelForm({
           merkleLeafTokenIds={merkleLeafTokenIds}
           merkleIsError={merkleIsError}
         />
-        <CriteriaBidFormActions
-          embedded={embedded}
-          address={address}
-          walletSignerMissing={walletSignerMissing}
-          submitDisabled={submitDisabled}
-          busy={busy}
-          busyLabel={busyLabel}
-          crossesBook={crossesBook}
-          lowestAsk={lowestAsk}
-          lowestAskUsdc={lowestAskUsdc}
-          errorMsg={errorMsg}
-          step={step}
-          lastOutcome={lastOutcome}
-          postBidMatchHint={postBidMatchHint}
-          onSubmit={onSubmit}
-          onOpenSellModal={onOpenSellModal}
-        />
+        {!hideSubmitButton ? (
+          <CriteriaBidFormActions
+            embedded={embedded}
+            minimal={isModal}
+            actionLayout={actionLayout}
+            address={address}
+            walletSignerMissing={walletSignerMissing}
+            submitDisabled={submitDisabled}
+            busy={busy}
+            busyLabel={busyLabel}
+            crossesBook={crossesBook}
+            lowestAsk={lowestAsk}
+            lowestAskUsdc={lowestAskUsdc}
+            errorMsg={errorMsg}
+            step={step}
+            lastOutcome={lastOutcome}
+            postBidMatchHint={postBidMatchHint}
+            onSubmit={onSubmit}
+            onOpenSellModal={onOpenSellModal}
+            hideSellFooter={hideSellFooter}
+          />
+        ) : (
+          <>
+            {errorMsg ? (
+              <p className={`text-rose-400/90 ${embedded ? "text-[10px]" : "text-[11px]"}`}>
+                {errorMsg}
+              </p>
+            ) : null}
+            {step === "success" ? (
+              <p className={`text-mint/90 ${embedded ? "text-[10px]" : "text-[11px]"}`}>
+                {lastOutcome === "instant" ? "Purchase complete." : "Bid placed."}
+              </p>
+            ) : null}
+            {step === "success" && lastOutcome === "bid" && postBidMatchHint ? (
+              <p
+                className={`text-amber-200/85 ${embedded ? "text-[10px] leading-snug" : "text-[11px] leading-snug"}`}
+              >
+                {postBidMatchHint}
+              </p>
+            ) : null}
+          </>
+        )}
       </div>
     </>
   );

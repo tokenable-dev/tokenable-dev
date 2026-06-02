@@ -5,6 +5,10 @@ import { QueryDeepPartialEntity, Repository } from 'typeorm';
 import { BlockchainService } from '../../blockchain/blockchain.service';
 import { IpfsGatewayResolverService } from '../../blockchain/ipfs-gateway-resolver.service';
 import { CardhedgerService } from '../../cardhedger/cardhedger.service';
+import {
+  normalizePsaSpecId,
+  PsaPublicApiService,
+} from '../../psa/psa-public-api.service';
 import { mergePsaVarietyWithMintVariant } from '../../psa/psa-variety-catalog.util';
 import { extractBucketComponentsFromMetadata } from '../utils/bucket-key.util';
 import { marketParallelKeyFromPsaVariety } from '../utils/market-parallel-key.util';
@@ -22,6 +26,7 @@ import {
   cardhedgerFromRwaMetadata,
   extractListingDisplayTitleFromMeta,
   mintVariantFromGradedMeta,
+  psaSpecIdFromComponentsRow,
 } from './collection-listing-meta.helpers';
 import { CollectionIdentityService } from './collection-identity.service';
 
@@ -40,6 +45,7 @@ export class CollectionComponentsService {
     private readonly cardhedger: CardhedgerService,
     private readonly ipfsResolver: IpfsGatewayResolverService,
     private readonly psaCertSnapshots: PsaCertSnapshotService,
+    private readonly psaPublicApi: PsaPublicApiService,
     private readonly identity: CollectionIdentityService,
   ) {}
 
@@ -188,6 +194,107 @@ export class CollectionComponentsService {
       );
     }
   }
+  /**
+   * Fetches PSA spec pop report (Grade10 + Total) when missing from components.
+   * Uses PSA Public API `/pop/GetPSASpecPopulation/{specID}`.
+   */
+  async ensurePsaSpecPopulationFromApi(
+    collectionKey: string,
+  ): Promise<void> {
+    const k = collectionKey.toLowerCase();
+    const row = await this.collectionRepo.findOne({
+      where: { collectionKey: k },
+    });
+    if (!row) return;
+    const comp = row.components;
+    const hasGrade10 =
+      typeof comp.psaGrade10Population === 'number' &&
+      comp.psaGrade10Population > 0;
+    const hasTotal =
+      typeof comp.psaSpecTotalPopulation === 'number' &&
+      comp.psaSpecTotalPopulation > 0;
+    if (hasGrade10 && hasTotal) return;
+
+    let specId = psaSpecIdFromComponentsRow(comp);
+    if (!specId) {
+      const cert = psaCertNumberFromCollectionRow(row);
+      if (cert) {
+        const snap = await this.psaCertSnapshots.fetchCertSnapshotJson(cert, {
+          allowUpstream: true,
+        });
+        specId = normalizePsaSpecId(snap?.SpecID);
+      }
+    }
+    if (!specId) {
+      const asks = await this.activeListingsForCollection(k);
+      for (const o of asks) {
+        if (!o.tokenId || String(o.tokenId).trim() === '') continue;
+        try {
+          const uri = await this.blockchain.getRwaTokenURI(Number(o.tokenId));
+          const meta = await this.ipfsResolver.fetchMetadataJson(uri);
+          const fromMeta = cardhedgerFromRwaMetadata(meta).psaSpecId;
+          if (fromMeta) {
+            specId = fromMeta;
+            break;
+          }
+        } catch {
+          /* try next listing */
+        }
+      }
+    }
+    if (!specId) return;
+
+    const lookup = await this.psaPublicApi.getSpecPopulation(specId);
+    if (lookup.status !== 'success') {
+      if (lookup.status === 'error') {
+        this.logger.debug(
+          `PSA spec pop lookup failed collection=${k} specId=${specId}: ${lookup.message}`,
+        );
+      }
+      return;
+    }
+
+    const { grade10, total } = lookup.pop;
+    const next: Record<string, unknown> = { ...comp };
+    let dirty = false;
+
+    if (
+      grade10 != null &&
+      grade10 > 0 &&
+      !hasGrade10
+    ) {
+      next.psaGrade10Population = grade10;
+      dirty = true;
+    }
+    if (
+      total != null &&
+      total > 0 &&
+      !hasTotal
+    ) {
+      next.psaSpecTotalPopulation = total;
+      dirty = true;
+    }
+    if (
+      grade10 != null &&
+      grade10 > 0 &&
+      (typeof comp.psaTotalPopulation !== 'number' ||
+        comp.psaTotalPopulation <= 0)
+    ) {
+      next.psaTotalPopulation = grade10;
+      dirty = true;
+    }
+    if (!comp.psaSpecId && lookup.specId) {
+      next.psaSpecId = lookup.specId;
+      dirty = true;
+    }
+
+    if (!dirty) return;
+    await this.collectionRepo.update(
+      { collectionKey: k },
+      { components: next as QueryDeepPartialEntity<Record<string, unknown>> },
+    );
+  }
+
   async ensurePsaTotalPopulationFromListings(
     collectionKey: string,
   ): Promise<void> {

@@ -4,11 +4,14 @@ import type {
   CollectionMarketStats,
 } from "@/lib/core";
 import { formatLiquidityDepthLabel, resolveExternalMarketUsd } from "@/lib/market";
+import {
+  buildRwaAssetDetailHeadlineParts,
+  formatAssetDetailHeadlineText,
+} from "@/lib/marketplace/assetDetailHeadline";
 import { displayAssetNameFromMetadata } from "@/lib/marketplace/rwaDisplayTitle";
 import {
   extractCategory,
   gradeScoreFromMetadata,
-  holdingsSetName,
   marketTierComponentsFromMetadata,
   pickPortfolioMarketPreview,
 } from "@/lib/portfolio/portfolioAssetMeta";
@@ -68,7 +71,12 @@ export function buildPortfolioPricedRows(input: {
       ? formatLiquidityDepthLabel(stats ?? undefined)
       : null;
 
-    const displayName = displayAssetNameFromMetadata(a.metadata, `RWA #${a.tokenId}`);
+    const fallbackName = `RWA #${a.tokenId}`;
+    const psaTitle = formatAssetDetailHeadlineText(
+      buildRwaAssetDetailHeadlineParts(a.metadata, fallbackName),
+    );
+    const displayName =
+      psaTitle || displayAssetNameFromMetadata(a.metadata, fallbackName);
     return {
       tokenId: a.tokenId,
       name: displayName,
@@ -80,7 +88,7 @@ export function buildPortfolioPricedRows(input: {
       liquidityLabel,
       listPriceUsd: listingPrice,
       activeListingOrderHash,
-      setName: holdingsSetName(a.metadata),
+      setName: null,
       marketPreviewRaw: preview,
     };
   });

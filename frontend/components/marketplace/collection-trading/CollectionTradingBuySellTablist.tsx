@@ -38,7 +38,7 @@ export function CollectionTradingBuySellTablist({
           role="tab"
           aria-selected={flow === "buy"}
           onClick={onSelectBuy}
-          className={`relative z-10 flex-1 rounded-lg py-1.5 text-center text-[10px] font-semibold uppercase tracking-wide transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mint/40 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 ${
+          className={`relative z-10 flex-1 rounded-lg py-1.5 text-center text-[10px] font-semibold uppercase tracking-wide transition-colors ${
             flow === "buy" ? "text-white" : "text-zinc-500 hover:text-zinc-300"
           }`}
         >
@@ -49,7 +49,7 @@ export function CollectionTradingBuySellTablist({
           role="tab"
           aria-selected={flow === "sell"}
           onClick={onSelectSell}
-          className={`relative z-10 flex-1 rounded-lg py-1.5 text-center text-[10px] font-semibold uppercase tracking-wide transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/40 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 ${
+          className={`relative z-10 flex-1 rounded-lg py-1.5 text-center text-[10px] font-semibold uppercase tracking-wide transition-colors ${
             flow === "sell" ? "text-rose-100" : "text-zinc-500 hover:text-zinc-300"
           }`}
         >

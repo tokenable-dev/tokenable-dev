@@ -183,8 +183,16 @@ export class CollectionService {
       const card = g.card as Record<string, unknown> | undefined;
       if (psa && typeof psa === 'object') {
         const p = psa as Record<string, unknown>;
-        const subject = String(p.subject ?? p.Subject ?? '').trim();
-        const brand = String(p.brand ?? p.Brand ?? '').trim();
+        const subject = String(
+          p.subject ??
+            p.Subject ??
+            p.cardNameHint ??
+            card?.name ??
+            '',
+        ).trim();
+        const brand = String(
+          p.brand ?? p.Brand ?? p.setHint ?? card?.set ?? '',
+        ).trim();
         const category = String(p.category ?? p.Category ?? '').trim();
         const pvar = String(p.variety ?? p.Variety ?? '').trim();
         const pnum = String(
@@ -417,6 +425,12 @@ export class CollectionService {
     collectionKey: string,
   ): Promise<void> {
     return this.components.ensurePsaTotalPopulationFromListings(collectionKey);
+  }
+
+  async ensurePsaSpecPopulationFromApi(
+    collectionKey: string,
+  ): Promise<void> {
+    return this.components.ensurePsaSpecPopulationFromApi(collectionKey);
   }
 
   async ensureCardhedgerCardIdFromListings(

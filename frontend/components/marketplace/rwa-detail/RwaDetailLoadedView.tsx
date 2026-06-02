@@ -1,9 +1,13 @@
 "use client";
 
+import { useState } from "react";
+import { useConnect } from "wagmi";
+import { connectMetaMaskWallet } from "@/lib/wallet/connectMetaMaskWallet";
 import type { RwaDetailLoadedProps } from "@/hooks/rwa-detail";
 import { RwaDetailDesktopSidebar } from "./layout/RwaDetailDesktopSidebar";
 import { RwaDetailMobileColumn } from "./layout/RwaDetailMobileColumn";
 import { RwaDetailListModalHost } from "./modals/RwaDetailListModalHost";
+import { RwaDetailPlaceBidModal } from "./modals/RwaDetailPlaceBidModal";
 import { TradeCelebrationModal } from "@/components/marketplace/trade";
 
 export function RwaDetailLoadedView({
@@ -23,16 +27,54 @@ export function RwaDetailLoadedView({
   headline,
   listFlow,
   buyFlow,
+  platformTrades,
   showMobileMarketContext,
   navigateToCollectionAfterTrade,
   router,
+  address,
 }: RwaDetailLoadedProps) {
+  const { connect, connectors } = useConnect();
+  const [bidModalOpen, setBidModalOpen] = useState(false);
+
+  const handleBidPurchaseFilled = () => {
+    setBidModalOpen(false);
+    listFlow.setTradeCelebration("purchase");
+    navigateToCollectionAfterTrade();
+  };
+
+  const handleBidPlaced = () => {
+    setBidModalOpen(false);
+    void buyFlow.invalidateMarketplaceQueries();
+    navigateToCollectionAfterTrade();
+  };
+
+  const handleConnectWallet = () => {
+    connectMetaMaskWallet(connect, connectors);
+  };
+
+  const handleOpenPlaceBid = () => {
+    if (!isConnected) {
+      handleConnectWallet();
+      return;
+    }
+    if (market.collectionKeyForMatch) {
+      setBidModalOpen(true);
+    }
+  };
+
   const mobileStickyFooterNote =
     buyFlow.buyErr != null ? (
       <p className="text-xs leading-snug text-red-400">{buyFlow.buyErr}</p>
     ) : listingError ? (
       <p className="text-xs text-orange-400">Could not load listing.</p>
     ) : null;
+
+  const collectionKey = market.collectionKeyForMatch;
+
+  const handleListed = () => {
+    listFlow.closeListModal();
+    void buyFlow.invalidateMarketplaceQueries();
+  };
 
   return (
     <>
@@ -55,16 +97,22 @@ export function RwaDetailLoadedView({
           activeAskListing={activeAskListing}
           isOwner={isOwner}
           isConnected={isConnected}
-          listing={listing}
           listingBuyPriceUsdc={listingBuyPriceUsdc}
           buyBusy={buyFlow.buyBusy}
+          buyErr={buyFlow.buyErr}
           connectPending={connectPending}
           collectionHref={market.collectionHref}
+          collectionKey={collectionKey}
           onFulfillAsk={() => void buyFlow.handleFulfillAsk()}
-          onOpenListModal={() => listFlow.openListModal(null)}
+          onConnectWallet={handleConnectWallet}
+          onOpenPlaceBid={collectionKey ? handleOpenPlaceBid : undefined}
+          onOpenListModal={listFlow.openListModal}
           onViewMarket={() => {
             if (market.collectionHref) router.push(market.collectionHref);
           }}
+          tokenTrades={platformTrades.trades}
+          tradesLoading={platformTrades.tradesLoading}
+          tradesAvailable={platformTrades.tradesAvailable}
         />
 
         <RwaDetailDesktopSidebar
@@ -76,7 +124,6 @@ export function RwaDetailLoadedView({
           activeAskListing={activeAskListing}
           isOwner={isOwner}
           isConnected={isConnected}
-          listing={listing}
           listingBuyPriceUsdc={listingBuyPriceUsdc}
           buyBusy={buyFlow.buyBusy}
           buyErr={buyFlow.buyErr}
@@ -85,9 +132,14 @@ export function RwaDetailLoadedView({
           marketChangePct={market.marketChangePct}
           marketChangePeriodLabel={market.marketChangePeriodLabel}
           marketChangeCoverageHint={market.marketChangeCoverageHint}
-          rwaDetailStatRows={headline.rwaDetailStatRows}
+          tokenTrades={platformTrades.trades}
+          tradesLoading={platformTrades.tradesLoading}
+          tradesAvailable={platformTrades.tradesAvailable}
           onFulfillAsk={() => void buyFlow.handleFulfillAsk()}
-          onOpenListModal={() => listFlow.openListModal(null)}
+          onConnectWallet={handleConnectWallet}
+          onOpenPlaceBid={collectionKey ? handleOpenPlaceBid : undefined}
+          collectionKey={collectionKey}
+          onOpenListModal={listFlow.openListModal}
         />
       </div>
 
@@ -105,14 +157,25 @@ export function RwaDetailLoadedView({
         collectionBids={market.collectionBids}
         existingAskOrder={listing && isListingSeller ? listing : undefined}
         initialPriceUsdc={listFlow.listModalInitialPrice}
+        anchorRect={listFlow.listModalAnchorRect}
         onMatchedSale={() => listFlow.setTradeCelebration("sale")}
         onClose={listFlow.closeListModal}
-        onListed={() => {
-          listFlow.closeListModal();
-          void buyFlow.invalidateMarketplaceQueries();
-          navigateToCollectionAfterTrade();
-        }}
+        onListed={handleListed}
       />
+
+      {collectionKey ? (
+        <RwaDetailPlaceBidModal
+          open={bidModalOpen}
+          assetTitle={headline.detailTitle}
+          collectionKey={collectionKey}
+          collectionAsks={market.collectionAsks}
+          connectedAddress={address}
+          hasActiveListing={activeAskListing != null}
+          onClose={() => setBidModalOpen(false)}
+          onPlaced={handleBidPlaced}
+          onPurchaseFilled={handleBidPurchaseFilled}
+        />
+      ) : null}
     </>
   );
 }

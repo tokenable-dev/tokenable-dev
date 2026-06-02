@@ -2,11 +2,25 @@
 
 **Public HTTP:** `GET /api/cardhedger/indexes` — dashboard market indexes (Pokemon, MLB, NFL, NBA), backed by `CardhedgerIndexesService` (scheduled refresh + disk cache).
 
+**Admin / ops HTTP** (requires `?adminWallet=` in `MARKETPLACE_ADMIN_WALLETS`):
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | `/api/admin/cardhedger/health` | Circuit + resolve metrics + scheduler state |
+| GET | `/api/admin/cardhedger/circuit` | Circuit breaker only |
+| GET | `/api/admin/cardhedger/metrics` | Resolve path + scheduler counters (JSON) |
+| GET | `/api/admin/cardhedger/prometheus` | Prometheus text scrape |
+
 **Server-to-server:** `CardhedgerService` (`backend/src/cardhedger/cardhedger.service.ts`) calls Cardhedger upstream (`CARDHEDGER_API_KEY`, optional `CARDHEDGER_BASE_URL`) from:
 
 - PSA analyze / mint enrichment (`psa/*`)
-- Collection cover resolution and **materialized market snapshots** (`collection_market_snapshots` via snapshot workers — not pull-on-read per request)
+- **`CardhedgerResolveService`** — card-search resolution (5-min TTL cache via `TTL_CACHE_PROVIDER`)
+- **`CardhedgerPricingService`** — preview, comps, tier history (snapshot workers)
+- **`CardhedgerMintService`** — portfolio mint-previews batch
+- **`CollectionIdentityService`** — cert lookup + search writes to `components.cardhedgerCardId`
 - Indexes aggregation (`cardhedger/indexes.service.ts`)
+
+Market-data logic was split from a single god service into **resolve / pricing / mint** under `marketplace/market-data/`. `CardhedgerMarketDataService` remains the facade used by collections and snapshots.
 
 Former **`/api/cardhedger/v1/*` HTTP proxy controllers** were removed; the frontend does not call those paths. Use **Swagger `/api/docs`** for the current route list.
 

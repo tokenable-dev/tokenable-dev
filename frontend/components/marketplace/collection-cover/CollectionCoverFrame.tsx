@@ -233,7 +233,7 @@ export function CollectionCoverFrame({
                   <button
                     type="button"
                     onClick={() => setLightboxOpen(true)}
-                    className="absolute inset-0 z-[2] cursor-pointer bg-transparent outline-none transition-colors hover:bg-black/[0.12] active:bg-black/[0.18] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-amber-500/65"
+                    className="absolute inset-0 z-[2] cursor-pointer bg-transparent outline-none transition-colors hover:bg-black/[0.12] active:bg-black/[0.18]"
                     aria-label="Open collection cover in large view"
                     title="Click to view larger"
                   />

@@ -60,6 +60,10 @@ export function buildGradedCardMetadata(
   }
 
   const scoreFromForm = parseFloat(form.grade.score);
+  const slabSubject =
+    form.card.name.trim() || lastAnalyze?.psa.cardNameHint?.trim() || "";
+  const slabBrand = form.card.set.trim() || lastAnalyze?.psa.setHint?.trim() || "";
+  const slabYear = form.card.year.trim() || lastAnalyze?.psa.year?.trim() || "";
   metadata.psa = {
     certNumber: form.grade.certNumber || lastAnalyze?.psa.certNumber,
     gradeLabel: lastAnalyze?.psa.gradeLabel,
@@ -74,6 +78,9 @@ export function buildGradedCardMetadata(
     year: lastAnalyze?.psa.year,
     labelType: lastAnalyze?.psa.labelType,
     category: lastAnalyze?.psa.category,
+    ...(slabSubject ? { subject: slabSubject } : {}),
+    ...(slabBrand ? { brand: slabBrand } : {}),
+    ...(slabYear ? { Year: slabYear } : {}),
     autographGrade:
       typeof form.grade.subgrades.autographGrade === "string"
         ? form.grade.subgrades.autographGrade

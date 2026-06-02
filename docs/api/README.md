@@ -20,8 +20,11 @@ Base URL examples:
 | `psa` | `psa/psa.controller.ts` | `/api/psa` |
 | `marketplace` | `marketplace/orders/orders.controller.ts` | `/api/marketplace` |
 | `marketplace` | `marketplace/collections/collections.controller.ts` | `/api/marketplace` |
+| `marketplace` | `marketplace/snapshots/collection-market-snapshot.controller.ts` | `/api/marketplace` |
+| `marketplace` | `marketplace/portfolio/portfolio.controller.ts` | `/api/marketplace` |
 | `marketplace` | `marketplace/collections/cert-market-trace.controller.ts` | `/api/marketplace` |
 | `cardhedger` | `cardhedger/controllers/indexes.controller.ts` | `/api/cardhedger` |
+| `admin` | `cardhedger/admin/cardhedger-admin.controller.ts` | `/api/admin/cardhedger` |
 
 `CardhedgerService` also calls Cardhedger upstream from PSA, collections, and indexes code — those paths are **not** duplicated as `/api/cardhedger/v1/*` HTTP routes.
 
@@ -61,6 +64,9 @@ Base URL examples:
 | POST | `/api/marketplace/collections/portfolio-market-batch` | — | Portfolio batch stats + market-series |
 | POST | `/api/marketplace/collections/token-collection-keys` | — | Batch tokenIds → collection_key (read-only; max 80) |
 | GET | `/api/marketplace/portfolio/daily/:wallet` | — | Daily portfolio snapshots + 24h P&L (`?limit=`) |
+| GET | `/api/marketplace/portfolio/hidden/:wallet` | — | Hidden token IDs for portfolio UI |
+| POST | `/api/marketplace/portfolio/hidden` | — | Hide holding from portfolio totals |
+| DELETE | `/api/marketplace/portfolio/hidden` | — | Restore hidden holding |
 | POST | `/api/marketplace/cert-market-trace` | — | Debug: cert → PSA → Cardhedger trace |
 | GET | `/api/marketplace/collections/:key` | — | Collection detail + order book |
 | GET | `/api/marketplace/collections/:key/cardhedger` | — | Cardhedger matched card + PSA10 bands |
@@ -75,6 +81,10 @@ Base URL examples:
 | POST | `/api/marketplace/collections/:key/admin/delete` | — | Admin: delete collection + related rows |
 | POST | `/api/marketplace/cardhedger/mint-previews` | — | Batch tokenIds → Cardhedger PSA10 band (max 32) |
 | GET | `/api/cardhedger/indexes` | — | Dashboard market indexes (Pokemon/MLB/NFL/NBA) |
+| GET | `/api/admin/cardhedger/health` | admin wallet | Full Cardhedger integration health |
+| GET | `/api/admin/cardhedger/circuit` | admin wallet | Circuit breaker state |
+| GET | `/api/admin/cardhedger/metrics` | admin wallet | Resolve + scheduler counters (JSON) |
+| GET | `/api/admin/cardhedger/prometheus` | admin wallet | Prometheus text exposition |
 | GET | `/api/health` | — | Liveness probe |
 
 ---

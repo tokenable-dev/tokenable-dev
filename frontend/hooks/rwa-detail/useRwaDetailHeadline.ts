@@ -4,8 +4,10 @@ import { useMemo } from "react";
 import { TOKENABLE_RWA_DISPLAY_NAME } from "@/constants/contracts";
 import {
   buildRwaDetailStatRows,
+  getRwaDetailHeaderBadgeLabels,
   type RwaDetailMetadata,
 } from "@/lib/marketplace/rwa-detail";
+import { filterRedundantRwaDetailStatRows } from "@/lib/marketplace/rwa-detail/rwaDetailStatRowsFilter";
 import {
   assetDetailHeadlineHasContent,
   buildRwaAssetDetailHeadlineParts,
@@ -34,10 +36,11 @@ export function useRwaDetailHeadline(
     !metadata?.name?.trim() &&
     !assetDetailHeadlineHasContent(detailHeadlineParts);
 
-  const rwaDetailStatRows = useMemo(
-    () => buildRwaDetailStatRows(metadata),
-    [metadata],
-  );
+  const rwaDetailStatRows = useMemo(() => {
+    const raw = buildRwaDetailStatRows(metadata);
+    const badges = getRwaDetailHeaderBadgeLabels(metadata);
+    return filterRedundantRwaDetailStatRows(raw, detailHeadlineParts, badges);
+  }, [metadata, detailHeadlineParts]);
 
   return {
     detailHeadlineParts,

@@ -8,6 +8,8 @@ import type { BookCenterModel } from "@/lib/marketplace/unified-order-book";
 
 export function OrderBookCenterStrip({ model }: { model: BookCenterModel }) {
   const isSpreadPrimary = model.primary.includes("Spread value:");
+  const isNaPlaceholder = model.primary === "N/A";
+  const isLastTrade = model.tone === "last";
   const primaryClass = isSpreadPrimary
     ? "text-zinc-200"
     : model.tone === "none"
@@ -22,37 +24,63 @@ export function OrderBookCenterStrip({ model }: { model: BookCenterModel }) {
 
   const showUp =
     !isSpreadPrimary &&
+    !isNaPlaceholder &&
     (model.tone === "bid" || (model.tone === "last" && model.lastSide === "buy"));
   const showDown =
     !isSpreadPrimary &&
+    !isNaPlaceholder &&
     (model.tone === "ask" || (model.tone === "last" && model.lastSide === "sell"));
 
   const hasCaption = model.caption.trim().length > 0;
 
   return (
     <div
-      className={`relative flex shrink-0 flex-col items-center justify-center gap-0.5 ${COLLECTION_DETAILS_BORDER_Y} ${COLLECTION_DETAILS_BG_CLASS} px-2 py-1 ${
-        hasCaption ? "min-h-[1.875rem]" : isSpreadPrimary ? "min-h-[1.5rem]" : "min-h-[1.75rem]"
+      className={`relative flex shrink-0 flex-col items-center justify-center ${
+        isNaPlaceholder ? "gap-0 px-2 py-0" : "gap-0.5 px-2 py-1"
+      } ${COLLECTION_DETAILS_BORDER_Y} ${COLLECTION_DETAILS_BG_CLASS} ${
+        hasCaption
+          ? "min-h-[1.875rem]"
+          : isNaPlaceholder
+            ? "min-h-0"
+            : isLastTrade
+              ? "min-h-[1.25rem]"
+              : isSpreadPrimary
+                ? "min-h-[1.5rem]"
+                : "min-h-[1.75rem]"
       }`}
       title={model.title}
     >
-      <div className="flex flex-wrap items-center justify-center gap-x-2.5 gap-y-1">
+      <div
+        className={`flex flex-wrap items-center justify-center ${
+          isNaPlaceholder ? "gap-x-1" : "gap-x-2.5 gap-y-1"
+        }`}
+      >
         <div className="flex items-center gap-1">
           {showUp ? (
-            <span className="text-base font-bold leading-none text-mint/90" aria-hidden>
+            <span
+              className={`font-bold leading-none text-mint/90 ${isLastTrade ? "text-xs" : "text-base"}`}
+              aria-hidden
+            >
               ↑
             </span>
           ) : null}
           {showDown ? (
-            <span className="text-base font-bold leading-none text-rose-400/90" aria-hidden>
+            <span
+              className={`font-bold leading-none text-rose-400/90 ${isLastTrade ? "text-xs" : "text-base"}`}
+              aria-hidden
+            >
               ↓
             </span>
           ) : null}
           <span
             className={`tabular-nums tracking-tight ${
-              isSpreadPrimary
-                ? "max-w-[min(100%,17rem)] px-0.5 text-center text-[11px] font-semibold leading-snug sm:text-xs"
-                : `text-xl font-bold sm:text-2xl ${primaryClass}`
+              isNaPlaceholder
+                ? "text-[10px] font-medium leading-none text-zinc-500"
+                : isSpreadPrimary
+                  ? "max-w-[min(100%,17rem)] px-0.5 text-center text-[11px] font-semibold leading-snug sm:text-xs"
+                  : isLastTrade
+                    ? `text-[13px] font-semibold leading-none sm:text-sm ${primaryClass}`
+                    : `text-xl font-bold sm:text-2xl ${primaryClass}`
             }`}
           >
             {model.primary}

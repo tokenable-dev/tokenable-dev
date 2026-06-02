@@ -37,6 +37,14 @@ export interface CollectionComponents {
   year?: number | string;
   /** Rarity label (e.g. "Holo Rare"). */
   rarity?: string;
+  /** PSA slab Subject line — canonical card name as graded (matches physical label). */
+  psaSubject?: string;
+  /** PSA slab Brand / set line. */
+  psaBrand?: string;
+  /** PSA slab Variety (parallel). */
+  psaVariety?: string;
+  /** PSA issue year from cert mirror. */
+  psaYear?: number | string;
   /** PSA grade category (e.g. "Pokemon"). */
   psaCategory?: string;
   /** PSA grade label text (e.g. "GEM MT"). */
@@ -45,8 +53,12 @@ export interface CollectionComponents {
   psaGradeDescription?: string;
   /** IPFS `metadata.name` persisted at listing time — used as in-grid display title. */
   listingDisplayTitle?: string;
-  /** PSA TotalPopulation — enriched from PSA public snapshot. */
+  /** PSA TotalPopulation — enriched from PSA public snapshot (grade-specific; PSA 10 for most listings). */
   psaTotalPopulation?: number;
+  /** PSA spec pop report — count graded PSA 10 for this card spec. */
+  psaGrade10Population?: number;
+  /** PSA spec pop report — total graded across all PSA grades for this spec. */
+  psaSpecTotalPopulation?: number;
 
   // ── Cardhedger enrichment ───────────────────────────────────────────────────
   /** Cardhedger card ID resolved at listing/boot time. */
@@ -125,6 +137,19 @@ export function parseCollectionComponents(raw: unknown): CollectionComponents {
   const rarity = str(r.rarity);
   if (rarity !== undefined) out.rarity = rarity;
 
+  const psaSubject = str(r.psaSubject);
+  if (psaSubject !== undefined) out.psaSubject = psaSubject;
+
+  const psaBrand = str(r.psaBrand);
+  if (psaBrand !== undefined) out.psaBrand = psaBrand;
+
+  const psaVariety = str(r.psaVariety);
+  if (psaVariety !== undefined) out.psaVariety = psaVariety;
+
+  if (typeof r.psaYear === "number" || typeof r.psaYear === "string") {
+    out.psaYear = r.psaYear as number | string;
+  }
+
   const psaCategory = str(r.psaCategory);
   if (psaCategory !== undefined) out.psaCategory = psaCategory;
 
@@ -139,6 +164,12 @@ export function parseCollectionComponents(raw: unknown): CollectionComponents {
 
   const psaTotalPopulation = num(r.psaTotalPopulation);
   if (psaTotalPopulation !== undefined) out.psaTotalPopulation = psaTotalPopulation;
+
+  const psaGrade10Population = num(r.psaGrade10Population);
+  if (psaGrade10Population !== undefined) out.psaGrade10Population = psaGrade10Population;
+
+  const psaSpecTotalPopulation = num(r.psaSpecTotalPopulation);
+  if (psaSpecTotalPopulation !== undefined) out.psaSpecTotalPopulation = psaSpecTotalPopulation;
 
   const cardhedgerCardId = strOrNull(r.cardhedgerCardId);
   if (cardhedgerCardId !== undefined) out.cardhedgerCardId = cardhedgerCardId;

@@ -167,6 +167,7 @@ export async function invalidateAfterRwaDetail(
     await qc.invalidateQueries({ queryKey: rq.collectionDetail(collectionKeyForMatch) });
     // Prefix — all durations for this collection
     await qc.invalidateQueries({ queryKey: ["collection-market-series", collectionKeyForMatch] });
+    await qc.invalidateQueries({ queryKey: rq.collectionPlatformTrades(collectionKeyForMatch) });
     await _invalidateCollectionSnapshots(qc);
     await _invalidatePortfolioMarketBatch(qc);
   }

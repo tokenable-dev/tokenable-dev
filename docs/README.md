@@ -1,7 +1,7 @@
 # Tokenable RWA Marketplace — Documentation
 
 A non-custodial marketplace for **graded trading-card RWAs** on Ethereum Sepolia.  
-Users mint **PSA 10** graded cards via IPFS (PSA cert lookup / slab OCR → Pinata), list them, and trade with USDC via **Seaport 1.5** off-chain orders. External market pricing is **materialized** in PostgreSQL (`collection_market_snapshots`) and refreshed by Cardhedger snapshot workers — not pulled on every page view. Portfolio value history is stored in **`portfolio_daily_snapshots`** (daily **09:00 KST** cron over on-chain holders).
+Users mint **PSA 10** graded cards via IPFS (PSA cert lookup / slab OCR → Pinata), list them, and trade with USDC via **Seaport 1.5** off-chain orders. External market pricing is **materialized** in PostgreSQL (`collection_market_snapshots`) and refreshed by Cardhedger snapshot workers — not pulled on every page view. Portfolio value history is stored in **`portfolio_daily_snapshots`** (daily **09:00 KST** cron over on-chain holders). Hide preferences use **`portfolio_hidden_holdings`**.
 
 ### Branches & deploy
 

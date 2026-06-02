@@ -13,6 +13,12 @@ import {
   referenceChangeTone,
 } from "@/lib/market";
 
+function formatMobileGradeDisplay(gradeLine: string | null): string {
+  if (!gradeLine?.trim()) return "—";
+  const stripped = gradeLine.trim().replace(/^PSA\s+/i, "").trim();
+  return stripped.length > 0 ? stripped : gradeLine.trim();
+}
+
 function formatPopCompact(n: number): string {
   if (n >= 1_000_000) {
     const m = n / 1_000_000;
@@ -173,9 +179,7 @@ export function RwaDetailMobileSpecsPanel({
   );
 
   const hasTrust =
-    view.gradeLine != null ||
-    view.population != null ||
-    view.certNumber != null;
+    view.gradeLine != null || view.population != null || view.certNumber != null;
   const hasMarket =
     showMarketContext &&
     (externalRefUsd != null || marketChangePct != null);
@@ -202,8 +206,9 @@ export function RwaDetailMobileSpecsPanel({
         <div className="mobile-scroll-x-contain flex w-full min-w-0 shrink-0 justify-between gap-1 px-3 py-1 [scrollbar-width:none] sm:px-4 [&::-webkit-scrollbar]:hidden">
           <TrustStat
             label="Grade"
-            value={view.gradeLine ?? "—"}
-            valueClassName={view.gradeLine ? "text-mint" : "text-zinc-500"}
+            value={formatMobileGradeDisplay(view.gradeLine)}
+            valueClassName="text-mint"
+            title={view.gradeLine ?? undefined}
           />
           <TrustStat
             label="Pop"

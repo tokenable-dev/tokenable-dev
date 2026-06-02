@@ -1,5 +1,6 @@
 "use client";
 
+import { forwardRef, useImperativeHandle } from "react";
 import {
   COLLECTION_DETAILS_BG_CLASS,
   COLLECTION_DETAILS_BORDER_ALL,
@@ -11,18 +12,35 @@ import type { CollectionCriteriaBidPanelProps } from "./types";
 
 export type { CollectionCriteriaBidPanelProps, CollectionCriteriaBidStep } from "./types";
 
-export function CollectionCriteriaBidPanel({
-  collectionKey,
-  activeAsks = [],
-  connectedAddress,
-  onPlaced,
-  onInstantBuyFillUsdc,
-  onOpenSellModal,
-  presetPriceFromBook,
-  variant = "card",
-  onPurchaseFilled,
-}: CollectionCriteriaBidPanelProps) {
-  const embedded = variant === "embedded";
+export type CollectionCriteriaBidPanelHandle = {
+  submitBid: () => void;
+  submitDisabled: boolean;
+  busy: boolean;
+};
+
+export const CollectionCriteriaBidPanel = forwardRef<
+  CollectionCriteriaBidPanelHandle,
+  CollectionCriteriaBidPanelProps
+>(function CollectionCriteriaBidPanel(
+  {
+    collectionKey,
+    activeAsks = [],
+    connectedAddress,
+    onPlaced,
+    onInstantBuyFillUsdc,
+    onOpenSellModal,
+    presetPriceFromBook,
+    variant = "card",
+    onPurchaseFilled,
+    bidOnlySubmit = false,
+    actionLayout = "combined",
+    hideSellFooter = false,
+    hideSubmitButton = false,
+  },
+  ref,
+) {
+  const isModal = variant === "modal";
+  const embedded = variant === "embedded" || isModal;
   const bid = useCollectionCriteriaBid({
     collectionKey,
     activeAsks,
@@ -31,10 +49,24 @@ export function CollectionCriteriaBidPanel({
     onPlaced,
     onInstantBuyFillUsdc,
     onPurchaseFilled,
+    bidOnlySubmit,
   });
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      submitBid: () => void bid.handleSubmit(),
+      submitDisabled: bid.submitDisabled,
+      busy: bid.busy,
+    }),
+    [bid.handleSubmit, bid.submitDisabled, bid.busy],
+  );
 
   const showFloorChooser =
     bid.showAskChooserModal && bid.crossesBook && bid.lowestAskCandidates.length >= 2;
+
+  const headerTitle =
+    actionLayout === "split" ? "Place bid" : undefined;
 
   return (
     <div
@@ -46,6 +78,9 @@ export function CollectionCriteriaBidPanel({
     >
       <CollectionCriteriaBidPanelForm
         embedded={embedded}
+        isModal={isModal}
+        actionLayout={actionLayout}
+        headerTitle={isModal ? undefined : headerTitle}
         buyHelpTitle={bid.buyHelpTitle}
         balanceUsdc={bid.balanceUsdc}
         lowestAsk={bid.lowestAsk}
@@ -72,6 +107,8 @@ export function CollectionCriteriaBidPanel({
         postBidMatchHint={bid.postBidMatchHint}
         onSubmit={() => void bid.handleSubmit()}
         onOpenSellModal={onOpenSellModal}
+        hideSellFooter={hideSellFooter}
+        hideSubmitButton={hideSubmitButton}
       />
 
       <CollectionCriteriaBidFloorChooserModal
@@ -87,4 +124,4 @@ export function CollectionCriteriaBidPanel({
       />
     </div>
   );
-}
+});

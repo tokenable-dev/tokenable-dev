@@ -3,6 +3,8 @@
 **Controllers:**
 - `marketplace/orders/orders.controller.ts`
 - `marketplace/collections/collections.controller.ts`
+- `marketplace/snapshots/collection-market-snapshot.controller.ts` — `GET …/cardhedger`, `GET …/cardhedger/price-history`
+- `marketplace/portfolio/portfolio.controller.ts` — daily snapshots + hidden holdings
 - `marketplace/collections/cert-market-trace.controller.ts`
 
 **Base path:** `/api/marketplace`  
@@ -10,7 +12,7 @@
 
 Trading is **Seaport-centric**: off-chain signed orders in `orders`, fulfillment via wallet. Collection **pricing reads** come from `collection_market_snapshots` (materialized Cardhedger) — see [materialized-market-snapshots.md](../architecture/materialized-market-snapshots.md).
 
-Legacy relational matching (`bids`/`asks` tables, settlement workers) and **hidden-asset** routes are **removed**.
+Legacy relational matching (`bids`/`asks` tables, settlement workers) is **removed**. The old `hidden_assets` table was replaced by **`portfolio_hidden_holdings`** (off-chain UI preference only).
 
 See [architecture/database.md](../architecture/database.md) for current DB tables.
 
@@ -199,11 +201,15 @@ When no `marketplace_collections` row exists yet, `collection: null` is returned
 
 Returns the Cardhedger-matched catalog card and PSA10 spot price bands for this collection.
 
+> **Controller:** `CollectionMarketSnapshotController`.
+
 ---
 
 ### `GET /api/marketplace/collections/:key/cardhedger/price-history`
 
 Returns PSA10 price history from the materialized snapshot (`external_usd_json`). No Cardhedger upstream on the hot path.
+
+> **Controller:** `CollectionMarketSnapshotController`.
 
 | Query | Values | Default |
 |-------|--------|---------|
@@ -305,9 +311,27 @@ Cron captures **all on-chain RWA holders** plus linked / historical wallets with
 
 ---
 
-## ~~My Assets (Hidden Tokens) — removed~~
+## Portfolio hidden holdings
 
-`GET/POST/PATCH /api/marketplace/my-assets/hidden` and the `hidden_assets` table are **no longer in this repository**. Portfolio lists on-chain RWA balances only.
+Off-chain preference — NFT remains in the wallet; excluded from portfolio totals and default list view.
+
+### `GET /api/marketplace/portfolio/hidden/:wallet`
+
+Returns `{ tokenIds: number[] }`.
+
+### `POST /api/marketplace/portfolio/hidden`
+
+**Body:** `{ walletAddress, tokenId }` — hide one holding.
+
+### `DELETE /api/marketplace/portfolio/hidden`
+
+**Body:** `{ walletAddress, tokenId }` — restore one holding.
+
+---
+
+## ~~My Assets (Hidden Tokens) — legacy~~
+
+The former `hidden_assets` table and `GET/POST/PATCH /api/marketplace/my-assets/hidden` routes are **gone**. Use **`portfolio/hidden`** above.
 
 ---
 

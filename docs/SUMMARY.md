@@ -9,7 +9,7 @@
 - [System Overview](architecture/overview.md)
 - [Backend Structure](architecture/backend.md)
 - [Frontend Structure](architecture/frontend.md)
-- [Database](architecture/database.md) — ER diagram, 7 tables, `portfolio_daily_snapshots`
+- [Database](architecture/database.md) — ER diagram, 8 tables, identity cache + snapshots
 - [Materialized Market Snapshots](architecture/materialized-market-snapshots.md)
 
 ## Backend API Reference

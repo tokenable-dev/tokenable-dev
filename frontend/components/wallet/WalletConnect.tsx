@@ -5,6 +5,10 @@ import { useAccount, useConnect, useDisconnect, useBalance } from "wagmi";
 import { formatUnits } from "viem";
 import { sepolia } from "@/config/wagmi";
 import { ensureSepoliaNetwork } from "@/lib/network";
+import {
+  connectMetaMaskWallet,
+  findMetaMaskConnector,
+} from "@/lib/wallet/connectMetaMaskWallet";
 import { WalletAddressCompact } from "@/components/wallet/WalletAddressCompact";
 
 export interface WalletConnectProps {
@@ -88,12 +92,12 @@ export function WalletConnect({
     );
   }
 
-  const metaMaskConnector = connectors.find((c) => c.name === "MetaMask");
+  const metaMaskConnector = findMetaMaskConnector(connectors);
 
   return (
     <button
       type="button"
-      onClick={() => metaMaskConnector && connect({ connector: metaMaskConnector })}
+      onClick={() => connectMetaMaskWallet(connect, connectors)}
       disabled={isPending || !metaMaskConnector}
       className={
         connectButtonClassName ??

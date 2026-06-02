@@ -6,3 +6,4 @@ export { RwaDetailAssetNotFoundState } from "./layout/RwaDetailAssetNotFoundStat
 export { RwaDetailMobileColumn } from "./layout/RwaDetailMobileColumn";
 export { RwaDetailDesktopSidebar } from "./layout/RwaDetailDesktopSidebar";
 export { RwaDetailListModalHost } from "./modals/RwaDetailListModalHost";
+export { RwaDetailPlaceBidModal } from "./modals/RwaDetailPlaceBidModal";

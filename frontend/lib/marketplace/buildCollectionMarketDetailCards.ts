@@ -11,6 +11,7 @@ import {
   inferLanguageFromLatinPokemonRegion,
 } from "@/lib/marketplace/collectionEditionLanguage";
 import { listingDisplayTitleFromComp } from "@/lib/marketplace/collectionListingUtils";
+import { resolveCollectionComponentVariant } from "@/lib/marketplace/resolveCardVariantLabel";
 import {
   leadingYearFromSetLine,
   toCardDisplayUppercase,
@@ -55,9 +56,7 @@ export function buildCollectionMarketDetailCards(params: {
   }
 
   const variantStr =
-    (typeof comp.variant === "string" && comp.variant.trim()
-      ? comp.variant.trim()
-      : "") || (marketPreview?.card?.variant?.trim() ?? "");
+    resolveCollectionComponentVariant(comp, marketPreview?.card?.variant) ?? "";
   if (variantStr) {
     rows.push({
       id: "variant",
