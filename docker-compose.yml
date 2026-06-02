@@ -25,6 +25,27 @@ services:
       timeout: 5s
       retries: 5
 
+  # ── Redis (identity cache L2) ───────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: tokenable-redis
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    # 호스트 Nest (`pnpm start:dev`) → localhost:6379
+    ports:
+      - "6379:6379"
+    expose:
+      - "6379"
+    restart: always
+    networks:
+      - tokenable-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   # ── Nginx (리버스 프록시) ───────────────────────────────────────────
   nginx:
     image: nginx:alpine
@@ -72,6 +93,11 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      # Host dev uses backend/.env → redis://127.0.0.1:6379; in-compose backend uses service DNS.
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
     healthcheck:
       test:
         [
@@ -89,6 +115,7 @@ services:
 
 volumes:
   postgres_data:
+  redis_data:
 
 networks:
   tokenable-net:

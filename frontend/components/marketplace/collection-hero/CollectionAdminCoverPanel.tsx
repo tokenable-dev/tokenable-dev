@@ -2,12 +2,8 @@
 
 import { useMemo, useState } from "react";
 import type { Address } from "viem";
-import {
-  postAdminCollectionCoverFromToken,
-  postAdminDeleteCollection,
-  postAdminSetCollectionCover,
-} from "@/lib/core";
 import { useResolvedMediaUrl } from "@/hooks/media";
+import { useCollectionAdminCover } from "@/hooks/marketplace/collection-hero/useCollectionAdminCover";
 
 export function CollectionAdminCoverPanel({
   collectionKey,
@@ -29,11 +25,19 @@ export function CollectionAdminCoverPanel({
     listingTokenIds.length > 0 ? String(listingTokenIds[0]) : "",
   );
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [busy, setBusy] = useState<"url" | "fetch" | "apply" | "delete" | null>(
-    null,
-  );
   const [deleteConfirm, setDeleteConfirm] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [validationError, setValidationError] = useState<string | null>(null);
+
+  const {
+    busy,
+    error: apiError,
+    setError: setApiError,
+    saveCoverUrl,
+    fetchCoverFromToken,
+    deleteCollection,
+  } = useCollectionAdminCover({ collectionKey, adminWallet, onSaved, onDeleted });
+
+  const error = validationError ?? apiError;
 
   const deleteKeyMatches =
     deleteConfirm.trim().toLowerCase() === collectionKey.trim().toLowerCase();
@@ -53,57 +57,35 @@ export function CollectionAdminCoverPanel({
   async function saveUrl(url: string) {
     const trimmed = url.trim();
     if (!trimmed) {
-      setError("Enter a cover URL");
+      setValidationError("Enter a cover URL");
       return;
     }
-    setBusy("url");
-    setError(null);
-    try {
-      await postAdminSetCollectionCover(collectionKey, {
-        adminWallet,
-        coverImageUrl: trimmed,
-      });
+    setValidationError(null);
+    setApiError(null);
+    const ok = await saveCoverUrl(trimmed);
+    if (ok) {
       setUrlInput(trimmed);
       setPreviewUrl(null);
-      onSaved();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Save failed");
-    } finally {
-      setBusy(null);
     }
   }
 
   async function fetchFromToken(save: boolean) {
     const tid = tokenIdInput.trim();
     if (!tid) {
-      setError("Enter a token ID");
+      setValidationError("Enter a token ID");
       return;
     }
-    setBusy(save ? "apply" : "fetch");
-    setError(null);
-    try {
-      const res = await postAdminCollectionCoverFromToken(collectionKey, {
-        adminWallet,
-        tokenId: tid,
-        save,
-      });
-      if (!res.coverImageUrl) {
-        setError("No catalog image resolved for this token");
-        setPreviewUrl(null);
-        return;
-      }
+    setValidationError(null);
+    setApiError(null);
+    const coverUrl = await fetchCoverFromToken(tid, save);
+    if (coverUrl) {
       if (save) {
-        setUrlInput(res.coverImageUrl);
+        setUrlInput(coverUrl);
         setPreviewUrl(null);
-        onSaved();
       } else {
-        setPreviewUrl(res.coverImageUrl);
-        setUrlInput(res.coverImageUrl);
+        setPreviewUrl(coverUrl);
+        setUrlInput(coverUrl);
       }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Fetch failed");
-    } finally {
-      setBusy(null);
     }
   }
 
@@ -245,21 +227,9 @@ export function CollectionAdminCoverPanel({
                 ) {
                   return;
                 }
-                void (async () => {
-                  setBusy("delete");
-                  setError(null);
-                  try {
-                    await postAdminDeleteCollection(collectionKey, {
-                      adminWallet,
-                      confirmCollectionKey: deleteConfirm.trim(),
-                    });
-                    onDeleted();
-                  } catch (e) {
-                    setError(e instanceof Error ? e.message : "Delete failed");
-                  } finally {
-                    setBusy(null);
-                  }
-                })();
+                setValidationError(null);
+                setApiError(null);
+                void deleteCollection(deleteConfirm.trim());
               }}
               className="rounded-lg border border-red-600/70 bg-red-950/40 px-3 py-1.5 text-[11px] font-bold text-red-300 hover:bg-red-900/50 disabled:opacity-40"
             >

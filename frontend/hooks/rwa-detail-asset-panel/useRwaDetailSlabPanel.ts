@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { postResolveMediaUrls } from "@/lib/core";
+import { postResolveMediaUrls, rq, marketplaceRqPolicy } from "@/lib/core";
 import {
   assetDetailHeadlineHasContent,
   buildRwaAssetDetailHeadlineParts,
@@ -49,10 +49,10 @@ export function useRwaDetailSlabPanel(input: {
   );
 
   const { data: backResolved, isFetching: backResolving } = useQuery({
-    queryKey: ["rwa-detail-slab-back", backCandidate],
+    queryKey: rq.rwaSlabBack(backCandidate ?? ""),
     queryFn: () => postResolveMediaUrls([backCandidate!]),
     enabled: Boolean(backCandidate && backNeedsGateway),
-    staleTime: 86400_000,
+    staleTime: marketplaceRqPolicy.mediaStaleMs,
   });
 
   const effectiveBackUrl = useMemo(() => {

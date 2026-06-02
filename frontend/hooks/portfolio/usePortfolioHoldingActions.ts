@@ -11,6 +11,7 @@ import {
   unhidePortfolioHolding,
   type OrderListItem,
 } from "@/lib/core";
+import { invalidateAfterBurn } from "@/lib/core/invalidation";
 import {
   TOKENABLE_RWA_ADDRESS,
   TOKENABLE_RWA_TRANSFER_ABI,
@@ -53,7 +54,7 @@ export function usePortfolioHoldingActions(input: {
       try {
         await hidePortfolioHolding(address, tokenId);
         void queryClient.invalidateQueries({
-          queryKey: ["portfolio-daily-snapshots", address],
+          queryKey: rq.portfolioDailySnapshots(address),
         });
         setHideConfirm(null);
       } catch (err) {
@@ -82,7 +83,7 @@ export function usePortfolioHoldingActions(input: {
       try {
         await unhidePortfolioHolding(address, tokenId);
         void queryClient.invalidateQueries({
-          queryKey: ["portfolio-daily-snapshots", address],
+          queryKey: rq.portfolioDailySnapshots(address),
         });
       } catch (err) {
         if (prev !== undefined) {
@@ -150,12 +151,7 @@ export function usePortfolioHoldingActions(input: {
           chainId: sepolia.id,
         });
         await publicClient.waitForTransactionReceipt({ hash: txHash });
-        await queryClient.invalidateQueries({ queryKey: ["rwa-tokens"] });
-        await queryClient.invalidateQueries({ queryKey: ["rwa-metadata-batch"] });
-        await queryClient.invalidateQueries({ queryKey: rq.ordersActive() });
-        await queryClient.invalidateQueries({
-          queryKey: ["portfolio-daily-snapshots", address],
-        });
+        await invalidateAfterBurn(queryClient, address);
       } catch (err) {
         window.alert(
           err instanceof Error ? err.message : "Failed to burn-transfer token",

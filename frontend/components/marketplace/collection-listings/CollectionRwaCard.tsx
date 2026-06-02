@@ -2,19 +2,18 @@
 
 import Link from "next/link";
 import { IBM_Plex_Sans } from "next/font/google";
-import { useQuery } from "@tanstack/react-query";
 import { useReadContract } from "wagmi";
 import { sepolia } from "@/config/wagmi";
-import { getResolvedRwaAsset, type Order, type RwaMetadata } from "@/lib/core";
+import { type Order, type RwaMetadata } from "@/lib/core";
 import {
   TOKENABLE_RWA_ADDRESS,
   TOKENABLE_RWA_READ_ABI,
 } from "@/constants/contracts";
 import { COLLECTION_LISTING_CARD_CHROME } from "@/components/marketplace/collectionOverviewChrome";
 import { PRODUCT_OUTLINE_GRADIENT } from "@/components/ui/GradientOutlineFrame";
-import { getCachedRwaMetadata, getCachedRwaImageUrl } from "@/lib/marketplace";
 import { displayAssetNameFromMetadata } from "@/lib/marketplace/rwaDisplayTitle";
 import { useCollectionDetailMobile } from "@/hooks/collection-detail";
+import { useCollectionRwaCardData } from "@/hooks/collection-listings/useCollectionRwaCardData";
 
 const rwaCardFont = IBM_Plex_Sans({
   subsets: ["latin"],
@@ -137,29 +136,10 @@ export function CollectionRwaCard({
   compact = false,
 }: CollectionRwaCardProps) {
   const useCompact = compact && useCollectionDetailMobile();
-  const hasPrefetch =
-    prefetchedImageUrl !== undefined || prefetchedMetadata !== undefined;
-
-  const { data: metaBundle } = useQuery({
-    queryKey: ["marketplace-detail-metadata", tokenId],
-    queryFn: () => getResolvedRwaAsset(tokenId),
-    staleTime: 60_000,
-    enabled: !hasPrefetch,
-    initialData: hasPrefetch
-      ? undefined
-      : (() => {
-          const cachedMeta = getCachedRwaMetadata(tokenId) as RwaMetadata | null;
-          const cachedImg = getCachedRwaImageUrl(tokenId);
-          if (cachedMeta || cachedImg) {
-            return {
-              tokenId,
-              tokenURI: "",
-              metadata: cachedMeta,
-              imageUrl: cachedImg,
-            };
-          }
-          return undefined;
-        })(),
+  const { metaBundle, metadata, imageUrl: resolvedImageUrl } = useCollectionRwaCardData({
+    tokenId,
+    prefetchedImageUrl,
+    prefetchedMetadata,
   });
 
   const { data: ownerOnChain } = useReadContract({
@@ -170,12 +150,7 @@ export function CollectionRwaCard({
     chainId: sepolia.id,
   });
 
-  const metadata = hasPrefetch
-    ? (prefetchedMetadata ?? null)
-    : (metaBundle?.metadata ?? null);
-  const imageUrl = hasPrefetch
-    ? (prefetchedImageUrl ?? null)
-    : (metaBundle?.imageUrl ?? null);
+  const imageUrl = resolvedImageUrl;
   const listingPrice =
     listing != null ? formatUsdc(listing.considerationAmount) : null;
   const sellerAddr = listing

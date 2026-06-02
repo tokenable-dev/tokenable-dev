@@ -1,9 +1,10 @@
 import { formatUnits } from "viem";
 import type { Order } from "@/lib/core";
+import type { CollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
 
 /** IPFS `metadata.name` persisted on `collection.components` at listing — matches in-grid RWA titles. */
-export function listingDisplayTitleFromComp(comp: Record<string, unknown>): string {
-  const v = comp["listingDisplayTitle"];
+export function listingDisplayTitleFromComp(comp: CollectionComponents): string {
+  const v = comp.listingDisplayTitle;
   return typeof v === "string" ? v.trim().replace(/\s+/g, " ") : "";
 }
 

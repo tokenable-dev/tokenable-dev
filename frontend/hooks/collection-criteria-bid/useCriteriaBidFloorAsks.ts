@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { formatUnits, parseUnits } from "viem";
-import { postRwaMetadataBatch, type Order } from "@/lib/core";
+import { postRwaMetadataBatch, rq, marketplaceRqPolicy, type Order } from "@/lib/core";
 import {
   askPriceMicros,
   formatCriteriaBidUsdc6,
@@ -50,15 +50,16 @@ export function useCriteriaBidFloorAsks(input: {
     [lowestAskCandidates],
   );
 
+  const floorAskMetadataSig = useMemo(
+    () => [...floorAskTokenIds].sort((a, b) => a - b).join(","),
+    [floorAskTokenIds],
+  );
+
   const { data: floorAskMetaPack } = useQuery({
-    queryKey: [
-      "floor-ask-metadata",
-      collectionKey,
-      [...floorAskTokenIds].sort((a, b) => a - b).join(","),
-    ],
+    queryKey: rq.floorAskMetadata(collectionKey, floorAskMetadataSig),
     queryFn: () => postRwaMetadataBatch({ tokenIds: floorAskTokenIds }),
     enabled: showAskChooserModal && floorAskTokenIds.length > 0,
-    staleTime: 60_000,
+    staleTime: marketplaceRqPolicy.metadataDetailStaleMs,
   });
 
   const floorMetaByTokenId = useMemo(() => {

@@ -6,6 +6,7 @@ import {
   formatHeadlineCardNumber,
   leadingYearFromSetLine,
 } from "@/lib/marketplace/collectionFullDetailsTitle";
+import type { CollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
 
 export type CollectionHeadlineInfoTag = { id: string; text: string; title?: string };
 
@@ -47,15 +48,9 @@ export function variantAlreadyRepresentedInMetaStrip(
 /** `#085`-style token from preview or components (shared by hero title + chips). */
 export function resolveHeadlineFormattedCardNumber(
   marketPreview: HeadlineCardNumberMarketPreview,
-  comp: Record<string, unknown>,
+  comp: CollectionComponents,
 ): string | null {
-  const cardNoRaw = comp["cardNumber"];
-  const cardNoStr =
-    typeof cardNoRaw === "string"
-      ? cardNoRaw.trim()
-      : cardNoRaw != null
-        ? String(cardNoRaw).trim()
-        : "";
+  const cardNoStr = typeof comp.cardNumber === "string" ? comp.cardNumber.trim() : "";
   return formatHeadlineCardNumber(
     marketPreview?.card?.cardNumber?.trim() || cardNoStr,
   );
@@ -89,7 +84,7 @@ export function mergeHeadlineCardNumberIntoTitle(
 
 export type BuildCollectionHeadlineInfoTagsInput = {
   headlineSetLine: string | null;
-  comp: Record<string, unknown>;
+  comp: CollectionComponents;
   marketPreview: {
     card?: {
       cardNumber?: string | null;

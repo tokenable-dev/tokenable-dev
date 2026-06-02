@@ -2,16 +2,8 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
-import {
-  getActiveOrders,
-  getApiUrl,
-  postMarketplaceCollectionSnapshotsBatched,
-  rq,
-  marketplaceRqPolicy,
-  type CollectionListMarketSnapshot,
-} from "@/lib/core";
 import { useMarketplaceCollectionsInfinite } from "@/hooks/marketplace";
+import { useMarketsOrders, useMarketsSnapshots } from "@/hooks/markets/useMarketsPageData";
 import { useResolvedMediaUrlMap } from "@/hooks/media";
 import { CollectionCategoryFilterBar } from "@/components/marketplace/markets-ui";
 import {
@@ -35,13 +27,8 @@ export default function MarketsPage() {
   );
   const [sortId, setSortId] = useState<MarketsSortId>("high_price");
 
-  const ordersQuery = useQuery({
-    queryKey: rq.ordersActive(),
-    queryFn: getActiveOrders,
-    refetchInterval: marketplaceRqPolicy.ordersRefetchMs,
-    staleTime: marketplaceRqPolicy.ordersStaleMs,
-  });
-  const orders = ordersQuery.data ?? [];
+  const ordersQuery = useMarketsOrders();
+  const orders = ordersQuery.orders;
 
   const colInfinite = useMarketplaceCollectionsInfinite();
   const {
@@ -71,7 +58,7 @@ export default function MarketsPage() {
   const ordersInitialLoading = ordersQuery.isLoading;
   const isInitialLoading = ordersInitialLoading || colInitialLoading;
   const loadFailed = ordersQuery.isError || colLoadError;
-  const loadError = ordersQuery.error ?? colError;
+  const loadError = ordersQuery.error ?? colError ?? null;
   const showLoadingShell = isInitialLoading && !loadFailed;
 
   const snapshotKeysSorted = useMemo(() => {
@@ -83,28 +70,13 @@ export default function MarketsPage() {
     return [...u].sort();
   }, [collectionSummaries]);
 
-  const { data: snapshotPack, isPending: snapshotsPending } = useQuery({
-    queryKey: rq.collectionSnapshots(snapshotKeysSorted, MARKET_PRICE_CHANGE_SNAPSHOT_DURATION),
-    queryFn: () =>
-      postMarketplaceCollectionSnapshotsBatched(
-        snapshotKeysSorted,
-        MARKET_PRICE_CHANGE_SNAPSHOT_DURATION,
-      ),
-    enabled: snapshotKeysSorted.length > 0 && !isInitialLoading,
-    staleTime: marketplaceRqPolicy.snapshotsStaleMs,
-  });
+  const { snapshotByKey, isPending: snapshotsPending } = useMarketsSnapshots(
+    snapshotKeysSorted,
+    !isInitialLoading,
+  );
 
   const showMarketSnapshotLoadingBar =
     snapshotKeysSorted.length > 0 && !isInitialLoading && snapshotsPending;
-
-  const snapshotByKey = useMemo(() => {
-    const m = new Map<string, CollectionListMarketSnapshot>();
-    for (const it of snapshotPack?.items ?? []) {
-      const k = it.collectionKey?.trim().toLowerCase();
-      if (k) m.set(k, it);
-    }
-    return m;
-  }, [snapshotPack]);
 
   const sortedForRank = useMemo(() => {
     return [...collectionSummaries].sort((a, b) =>
@@ -135,7 +107,7 @@ export default function MarketsPage() {
           <h1 className="text-lg font-semibold text-red-400">Markets — API unavailable</h1>
           <p className="mt-2 text-sm text-zinc-400">
             Could not reach the backend at{" "}
-            <code className="rounded bg-zinc-900 px-1 text-mint">{getApiUrl()}</code>. Start the
+            <code className="rounded bg-zinc-900 px-1 text-mint">{process.env.NEXT_PUBLIC_API_URL ?? "/api"}</code>. Start the
             Nest server (in <code className="text-zinc-300">backend/</code>, run{" "}
             <code className="text-zinc-300">pnpm start:dev</code>) and confirm Postgres is up.
           </p>

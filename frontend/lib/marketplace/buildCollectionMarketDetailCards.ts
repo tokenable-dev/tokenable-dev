@@ -1,5 +1,6 @@
 import type { CollectionDetailCard } from "@/lib/marketplace/collectionDetailTypes";
 import type { CollectionMarketPreview } from "@/lib/core";
+import type { CollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
 import {
   bucketCardSetForDisplay,
   bucketGradingCompanyForDisplay,
@@ -20,7 +21,7 @@ export function buildCollectionMarketDetailCards(params: {
   key: string;
   hasCollection: boolean;
   marketPreview: CollectionMarketPreview | null;
-  comp: Record<string, unknown>;
+  comp: CollectionComponents;
   headlineCardNumberToken: string | null | undefined;
   headlineSetLine: string | null;
   collectionCategoryBadge: string | null | undefined;

@@ -1,6 +1,7 @@
 /**
  * Mirrors `backend/src/marketplace/utils/psa-grade-policy.util.ts`.
  */
+import type { CollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
 
 export type PsaGradePolicyClass =
   | "psa_10"
@@ -80,7 +81,7 @@ export function marketHistoryTierFromPsaGradeInput(
 }
 
 export function psaGradePolicyInputFromComponents(
-  components: Record<string, unknown> | null | undefined,
+  components: CollectionComponents | null | undefined,
 ): PsaGradePolicyInput {
   if (!components) return { gradingCompany: "PSA" };
   return {

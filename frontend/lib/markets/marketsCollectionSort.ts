@@ -25,7 +25,7 @@ function marketsListMarketPriceUsd(
   collection: MarketplaceCollectionSummary,
   snapshot: CollectionListMarketSnapshot | undefined,
 ): number {
-  const comp = collection.components as Record<string, unknown> & { gradeScore?: string };
+  const comp = collection.components;
   const usd = representativeGradeUsd(
     snapshot?.gradePrices ?? null,
     parseGradeScoreNumber(comp.gradeScore),

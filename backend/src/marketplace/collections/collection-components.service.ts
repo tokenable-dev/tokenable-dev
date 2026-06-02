@@ -23,6 +23,7 @@ import {
   extractListingDisplayTitleFromMeta,
   mintVariantFromGradedMeta,
 } from './collection-listing-meta.helpers';
+import { CollectionIdentityService } from './collection-identity.service';
 
 /** PSA/Cardhedger/listing component enrichment from IPFS metadata and active orders. */
 @Injectable()
@@ -39,6 +40,7 @@ export class CollectionComponentsService {
     private readonly cardhedger: CardhedgerService,
     private readonly ipfsResolver: IpfsGatewayResolverService,
     private readonly psaCertSnapshots: PsaCertSnapshotService,
+    private readonly identity: CollectionIdentityService,
   ) {}
 
   private collectionActiveOrdersCap(): number {
@@ -241,6 +243,10 @@ export class CollectionComponentsService {
 
   /**
    * `components.cardhedgerCardId` 보강: 활성 ask 메타에서 읽되, 서로 다른 id가 섞이면 저장하지 않음.
+   *
+   * When `IDENTITY_SERVICE_ENABLED=true`, the consensual ID from active listings is
+   * persisted through `CollectionIdentityService.writeFromMintMetadata` (mint precedence).
+   * Legacy direct-write path remains active when the flag is off.
    */
   async ensureCardhedgerCardIdFromListings(
     collectionKey: string,
@@ -263,13 +269,17 @@ export class CollectionComponentsService {
     const asks = await this.activeListingsForCollection(k);
     const ids = new Set<string>();
     const queries = new Set<string>();
+    let lastMeta: Record<string, unknown> | null = null;
     for (const o of asks) {
       if (!o.tokenId || String(o.tokenId).trim() === '') continue;
       try {
         const uri = await this.blockchain.getRwaTokenURI(Number(o.tokenId));
         const meta = await this.ipfsResolver.fetchMetadataJson(uri);
         const ch = cardhedgerFromRwaMetadata(meta);
-        if (ch.cardId) ids.add(ch.cardId);
+        if (ch.cardId) {
+          ids.add(ch.cardId);
+          lastMeta = meta;
+        }
         if (ch.searchQuery) queries.add(ch.searchQuery);
       } catch {
         /* skip */
@@ -284,6 +294,13 @@ export class CollectionComponentsService {
     }
     if (ids.size === 0) return false;
 
+    // When identity service is enabled, delegate to the canonical write path.
+    if (this.identity.isEnabled() && lastMeta) {
+      await this.identity.writeFromMintMetadata(k, lastMeta);
+      return true;
+    }
+
+    // Legacy direct-write path (flag disabled).
     const only = [...ids][0];
     const nextComp: Record<string, unknown> = { ...comp };
     let dirty = false;
@@ -514,34 +531,41 @@ export class CollectionComponentsService {
         set: { name: String(row.set ?? '') },
       },
     );
-    if (ex.ok)
-      return { checked: true, ok: true, cleared: false, failCodes: [] };
+    if (ex.ok) {
+      const successResult = { checked: true, ok: true, cleared: false, failCodes: [] };
+      if (this.identity.isEnabled()) {
+        this.identity.logAuditDecision(k, successResult);
+      }
+      return successResult;
+    }
 
     if (options?.clearOnMismatch) {
-      const nextComponents: Record<string, unknown> = { ...comp };
-      delete nextComponents.cardhedgerCardId;
-      delete nextComponents.cardhedgerSearchQuery;
-      await this.collectionRepo.update(
-        { collectionKey: k },
-        {
-          components: nextComponents as QueryDeepPartialEntity<
-            Record<string, unknown>
-          >,
-        },
+      const { cleared } = await this.identity.clearCardhedgerCardIdIfUnchanged(
+        k,
+        cardId,
       );
-      return {
+      const clearedResult = {
         checked: true,
         ok: false,
-        cleared: true,
+        cleared,
         failCodes: ex.failCodes,
       };
+      if (this.identity.isEnabled()) {
+        this.identity.logAuditDecision(k, clearedResult);
+      }
+      return clearedResult;
     }
-    return {
+    const result = {
       checked: true,
       ok: false,
       cleared: false,
       failCodes: ex.failCodes,
     };
+    // Forward audit outcome to identity service for unified logging (no behaviour change).
+    if (this.identity.isEnabled()) {
+      this.identity.logAuditDecision(k, result);
+    }
+    return result;
   }
 
   async auditStaleCardhedgerCardIdsOnBoot(): Promise<void> {
@@ -594,11 +618,24 @@ export class CollectionComponentsService {
     return this.auditCardhedgerCardIdExact(collectionKey, options);
   }
 
-  /** duplicate key race 시 메타에만 있고 DB에 없는 cardhedger id/searchQuery 병합 */
+  /**
+   * Duplicate-key race: fill `cardhedgerCardId` + `cardhedgerSearchQuery` when the
+   * row was created by another listing and its metadata had these fields.
+   *
+   * When `IDENTITY_SERVICE_ENABLED=true`, delegates to
+   * `CollectionIdentityService.writeFromMintMetadata` (canonical write path).
+   * Legacy direct-write path remains active when the flag is off.
+   */
   async mergeCardhedgerCardIdFromMetaIfMissing(
     collectionKey: string,
     meta: Record<string, unknown>,
   ): Promise<void> {
+    if (this.identity.isEnabled()) {
+      await this.identity.writeFromMintMetadata(collectionKey, meta);
+      return;
+    }
+
+    // Legacy direct-write path (flag disabled).
     const key = collectionKey.toLowerCase();
     const dbRow = await this.collectionRepo.findOne({
       where: { collectionKey: key },

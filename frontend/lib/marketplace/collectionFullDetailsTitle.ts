@@ -2,6 +2,7 @@ import {
   bucketCardNameForDisplay,
   bucketCardSetForDisplay,
 } from "@/lib/marketplace/bucketKey";
+import type { CollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
 
 export function leadingYearFromSetLine(setLineRaw: string): number | null {
   const m = /^\s*(\d{4})\b/.exec(setLineRaw);
@@ -48,7 +49,7 @@ export function formatHeadlineCardNumber(raw: string | undefined | null): string
   return `#${n}`;
 }
 
-export function yearFromComponents(components: Record<string, unknown>): number | null {
+export function yearFromComponents(components: CollectionComponents): number | null {
   const yearRaw = components.year;
   if (typeof yearRaw === "number" && Number.isFinite(yearRaw)) {
     const y = yearRaw;
@@ -67,7 +68,7 @@ export function yearFromComponents(components: Record<string, unknown>): number 
  */
 export function buildCollectionHeadlineMetaStrip(params: {
   setLine: string | null;
-  comp: Record<string, unknown>;
+  comp: CollectionComponents;
   marketPreview?: {
     card?: {
       setName?: string | null;
@@ -86,8 +87,8 @@ export function buildCollectionHeadlineMetaStrip(params: {
     (params.marketPreview?.card?.variant?.trim() ?? "");
   const setType = params.marketPreview?.card?.setType?.trim() ?? "";
   const listingTitle =
-    typeof params.comp["listingDisplayTitle"] === "string"
-      ? String(params.comp["listingDisplayTitle"]).trim()
+    typeof params.comp.listingDisplayTitle === "string"
+      ? params.comp.listingDisplayTitle.trim()
       : "";
   /** NFT `name` is canonical for this bucket — skip Cardhedger `setType` (often a second full set name). */
   const skipCatalogSetTypeEcho = listingTitle.length > 0;
@@ -127,7 +128,7 @@ function tagFragmentContainedInLine(fragment: string, lineRaw: string): boolean 
 }
 
 /** Prefer IPFS display name, formatted for reading when it looks like a bucket slug. */
-export function formatCollectionHeroCardTitle(comp: Record<string, unknown>): string {
+export function formatCollectionHeroCardTitle(comp: CollectionComponents): string {
   const raw = bucketCardNameForDisplay(comp).trim();
   if (!raw) return "";
   const looksSlug =

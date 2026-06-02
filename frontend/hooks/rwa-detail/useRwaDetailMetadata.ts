@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { getResolvedRwaAsset } from "@/lib/core";
+import { getResolvedRwaAsset, rq, marketplaceRqPolicy } from "@/lib/core";
 import {
   computeMarketBucketKey,
   extractBucketComponentsFromMetadata,
@@ -9,17 +9,17 @@ import {
 
 export function useRwaDetailMetadata(tokenId: number, tokenIdOk: boolean) {
   const { data: metaBundle, isLoading: metaLoading } = useQuery({
-    queryKey: ["marketplace-detail-metadata", tokenId],
+    queryKey: rq.rwaAssetDetail(tokenId),
     queryFn: () => getResolvedRwaAsset(tokenId),
     enabled: tokenIdOk,
-    staleTime: 60_000,
+    staleTime: marketplaceRqPolicy.metadataDetailStaleMs,
   });
 
   const metadata = metaBundle?.metadata ?? null;
   const imageUrl = metaBundle?.imageUrl ?? null;
 
   const { data: metadataDerivedCollectionKey } = useQuery({
-    queryKey: ["metadata-bucket-key", tokenId, metaBundle?.tokenURI],
+    queryKey: rq.rwaBucketKey(tokenId, metaBundle?.tokenURI),
     queryFn: async () => {
       const meta = metaBundle?.metadata;
       if (!meta) return null;

@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CardhedgerMarketDataService } from '../market-data/cardhedger-market-data.service';
-import { CollectionService } from '../collections/collection.service';
+import { CollectionEnrichmentService } from '../collections/collection-enrichment.service';
 import { CollectionMarketSnapshotSchedulerService } from './collection-market-snapshot-scheduler.service';
 import { CollectionMarketSnapshot } from '../entities/collection-market-snapshot.entity';
 import { MARKET_NM_HISTORY_MAX_DAYS } from '../utils/market-grade-strip.util';
@@ -34,8 +34,7 @@ export class CollectionMarketSnapshotService {
   constructor(
     @InjectRepository(CollectionMarketSnapshot)
     private readonly snapshotRepo: Repository<CollectionMarketSnapshot>,
-    @Inject(forwardRef(() => CollectionService))
-    private readonly collectionService: CollectionService,
+    private readonly collectionEnrichment: CollectionEnrichmentService,
     private readonly cardMarketData: CardhedgerMarketDataService,
     private readonly config: ConfigService,
     @Inject(forwardRef(() => CollectionMarketSnapshotSchedulerService))
@@ -157,20 +156,23 @@ export class CollectionMarketSnapshotService {
         reason,
         this.config.get<string>('PSA_PUBLIC_API_REFRESH_ON_SNAPSHOT'),
       );
-      await this.collectionService.refreshPsaPublicSnapshotForCollection(key, {
-        allowUpstream: allowPsaUpstream,
-      });
-      let col = await this.collectionService.findOne(key);
+      await this.collectionEnrichment.refreshPsaPublicSnapshotForCollection(
+        key,
+        { allowUpstream: allowPsaUpstream },
+      );
+      let col = await this.collectionEnrichment.findOne(key);
       if (col) {
-        await this.collectionService.auditCardhedgerCardIdExact(key, {
+        await this.collectionEnrichment.auditCardhedgerCardIdExact(key, {
           clearOnMismatch: true,
         });
-        await this.collectionService.ensureMintParallelVarietyFromListings(key);
-        col = await this.collectionService.findOne(key);
+        await this.collectionEnrichment.ensureMintParallelVarietyFromListings(
+          key,
+        );
+        col = await this.collectionEnrichment.findOne(key);
       }
       if (col) {
         col =
-          await this.collectionService.mergePsaSnapshotIntoComponentsFromDb(
+          await this.collectionEnrichment.mergePsaSnapshotIntoComponentsFromDb(
             col,
           );
       }

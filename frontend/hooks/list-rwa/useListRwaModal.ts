@@ -8,7 +8,7 @@ import {
   useWalletClient,
 } from "wagmi";
 import { formatUnits, parseUnits, type Address } from "viem";
-import { getOrderByHash } from "@/lib/core";
+import { getOrderByHash, rq } from "@/lib/core";
 import { sepolia } from "@/config/wagmi";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -54,7 +54,7 @@ export function useListRwaModal({
   const queryClient = useQueryClient();
 
   const { data: existingAskFetched } = useQuery({
-    queryKey: ["orders", "detail", existingAskOrderHash ?? ""],
+    queryKey: rq.orderDetail(existingAskOrderHash ?? ""),
     queryFn: () => getOrderByHash(existingAskOrderHash!),
     enabled: Boolean(existingAskOrderHash?.trim()) && !existingAskOrder,
     staleTime: 15_000,

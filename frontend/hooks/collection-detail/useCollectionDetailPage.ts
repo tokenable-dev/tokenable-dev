@@ -4,7 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { getMarketplaceCollectionDetail } from "@/lib/core";
+import { getMarketplaceCollectionDetail, rq, marketplaceRqPolicy } from "@/lib/core";
 import { isMarketplaceAdminWallet } from "@/lib/marketplace";
 import type { BookRowSelection } from "@/lib/marketplace/marketplaceTradingTypes";
 import type { CollectionTradeTab } from "@/lib/marketplace/collection-trading";
@@ -53,7 +53,7 @@ export function useCollectionDetailPage() {
   const [tradeDockOpen, setTradeDockOpen] = useState(false);
 
   const { data, isLoading, isError, error } = useQuery({
-    queryKey: ["marketplace-collection", collectionKey],
+    queryKey: rq.collectionDetail(collectionKey),
     queryFn: () => getMarketplaceCollectionDetail(collectionKey),
     enabled: collectionKey.length > 0,
     retry: false,
@@ -70,9 +70,7 @@ export function useCollectionDetailPage() {
     key: collectionKey,
     comp,
     hasCollection,
-    collectionComponents: data?.collection?.components as
-      | Record<string, unknown>
-      | undefined,
+    collectionComponents: data?.collection?.components,
     detailLoading: isLoading,
     detailError: isError,
     hasDetailData: Boolean(data),

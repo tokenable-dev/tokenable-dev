@@ -6,7 +6,8 @@ pnpm start:dev
 ```
 
 - API: [http://localhost:4000/api](http://localhost:4000/api) · Swagger: [http://localhost:4000/api/docs](http://localhost:4000/api/docs)
-- Env: `backend/.env` (Postgres, RPC, Pinata, OAuth, etc.)
+- Env: `backend/.env` (Postgres, **Redis** `REDIS_URL`, RPC, Pinata, OAuth, etc.)
+- Infra: `docker compose up -d postgres redis` (Redis = identity cache L2)
 
 **Database:** schema comes from TypeORM entities; no `sql/migrations` folder. See **[sql/README.md](./sql/README.md)** and **[../docs/README.md](../docs/README.md)**.
 

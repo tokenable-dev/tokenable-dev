@@ -17,6 +17,7 @@ export interface SnapshotRefreshJob {
   reason: SnapshotRefreshReason;
   priority: number;
   enqueuedAt: number;
+  /** Lock-contention retry count (0 = first attempt). */
   attempt: number;
 }
 

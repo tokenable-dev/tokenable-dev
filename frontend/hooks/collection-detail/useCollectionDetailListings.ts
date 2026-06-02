@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { postRwaMetadataBatch, type Order, type RwaMetadata } from "@/lib/core";
+import { postRwaMetadataBatch, rq, type Order, type RwaMetadata } from "@/lib/core";
 import { primeRwaMetadataCache } from "@/lib/marketplace";
 import {
   bestAskByToken,
@@ -23,7 +23,7 @@ export function useCollectionDetailListings(params: {
   );
 
   const { data: batchMetadata } = useQuery({
-    queryKey: ["collection-listings-metadata", collectionKey, tokenIds],
+    queryKey: rq.collectionListingsMetadata(collectionKey, tokenIds),
     queryFn: async () => {
       const ids = tokenIds;
       const BATCH_MAX = 80;

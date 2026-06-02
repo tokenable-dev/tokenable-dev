@@ -4,7 +4,6 @@ import {
   Get,
   NotFoundException,
   BadRequestException,
-  Delete,
   Param,
   Post,
   Query,
@@ -16,26 +15,16 @@ import {
   ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { MarketplaceAdminService } from '../admin/marketplace-admin.service';
 import { CardhedgerAiInsightService } from '../market-data/cardhedger-ai-insight.service';
 import { CardhedgerMarketDataService } from '../market-data/cardhedger-market-data.service';
-import { PortfolioDailySnapshotService } from '../portfolio/portfolio-daily-snapshot.service';
-import { PortfolioHiddenHoldingService } from '../portfolio/portfolio-hidden-holding.service';
-import { PortfolioHideHoldingDto } from '../portfolio/dto/portfolio-hide-holding.dto';
 import { PortfolioMarketBatchDto } from '../portfolio/dto/portfolio-market-batch.dto';
-import { CollectionMarketSnapshotReadService } from '../snapshots/collection-market-snapshot-read.service';
-import { CollectionMarketSnapshotSchedulerService } from '../snapshots/collection-market-snapshot-scheduler.service';
-import { CollectionMarketSnapshotService } from '../snapshots/collection-market-snapshot.service';
 import { CollectionMarketService } from './collection-market.service';
 import { CollectionService } from './collection.service';
 import { BatchMarketSnapshotsDto } from './dto/batch-market-snapshots.dto';
 import { MintPreviewsByTokenIdsDto } from './dto/mint-previews-by-token-ids.dto';
 import { TokenCollectionKeysDto } from './dto/token-collection-keys.dto';
-import {
-  isMarketHistoryPeriod,
-  marketPeriodToMaxCalendarDays,
-  type MarketHistoryPeriod,
-} from '../utils/price-history-period.util';
 import {
   AdminDeleteCollectionDto,
   AdminPreviewCollectionCoverFromTokenDto,
@@ -50,12 +39,8 @@ export class CollectionsController {
     private readonly collectionMarketService: CollectionMarketService,
     private readonly cardMarketData: CardhedgerMarketDataService,
     private readonly aiInsight: CardhedgerAiInsightService,
-    private readonly snapshotService: CollectionMarketSnapshotService,
-    private readonly snapshotRead: CollectionMarketSnapshotReadService,
-    private readonly snapshotScheduler: CollectionMarketSnapshotSchedulerService,
-    private readonly portfolioSnapshots: PortfolioDailySnapshotService,
-    private readonly portfolioHidden: PortfolioHiddenHoldingService,
     private readonly marketplaceAdmin: MarketplaceAdminService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   /** Decode URL-encoded path segments (some keys may be percent-encoded) and lowercase for DB lookup. */
@@ -172,67 +157,6 @@ export class CollectionsController {
 
   @ApiOperation({
     summary:
-      'Portfolio daily snapshots (09:00 KST capture) + derived 24h P&L from latest two rows.',
-  })
-  @Get('portfolio/daily/:wallet')
-  async getPortfolioDailySnapshots(
-    @Param('wallet') wallet: string,
-    @Query('limit') limitRaw?: string,
-  ) {
-    const limit =
-      limitRaw != null && String(limitRaw).trim() !== ''
-        ? Math.max(2, Math.min(120, parseInt(String(limitRaw), 10)))
-        : 32;
-    // Fallback capture runs in background — never block GET on full wallet pricing.
-    this.portfolioSnapshots.scheduleCurrentSlotSnapshot(wallet);
-    let rows = await this.portfolioSnapshots.listWalletSnapshots(wallet, limit);
-    if (rows.length === 0) {
-      this.portfolioSnapshots.scheduleBaselineSnapshot(wallet);
-    }
-    const p = await this.portfolioSnapshots.latest24h(wallet);
-    return {
-      items: rows.map((r) => ({
-        walletAddress: r.walletAddress,
-        snapshotDateKst: r.snapshotDateKst,
-        snapshotAt: r.snapshotAt.toISOString(),
-        totalValueUsd: r.totalValueUsd,
-        cardCount: r.cardCount,
-      })),
-      latest24h: {
-        pnlUsd: p.pnl24hUsd,
-        pnlPct: p.pnl24hPct,
-      },
-    };
-  }
-
-  @ApiOperation({
-    summary:
-      'Portfolio hidden holdings — token IDs excluded from portfolio value (off-chain preference; NFT stays in wallet).',
-  })
-  @Get('portfolio/hidden/:wallet')
-  async listPortfolioHidden(@Param('wallet') wallet: string) {
-    const tokenIds = await this.portfolioHidden.listHiddenTokenIds(wallet);
-    return { tokenIds };
-  }
-
-  @ApiOperation({ summary: 'Hide a holding from portfolio totals and default holdings view.' })
-  @ApiBody({ type: PortfolioHideHoldingDto })
-  @Post('portfolio/hidden')
-  async hidePortfolioHolding(@Body() body: PortfolioHideHoldingDto) {
-    await this.portfolioHidden.hide(body.walletAddress, body.tokenId);
-    return { ok: true };
-  }
-
-  @ApiOperation({ summary: 'Restore a hidden holding to portfolio totals and holdings view.' })
-  @ApiBody({ type: PortfolioHideHoldingDto })
-  @Delete('portfolio/hidden')
-  async unhidePortfolioHolding(@Body() body: PortfolioHideHoldingDto) {
-    await this.portfolioHidden.unhide(body.walletAddress, body.tokenId);
-    return { ok: true };
-  }
-
-  @ApiOperation({
-    summary:
       'My Assets: batch resolve Cardhedger PSA10 references from token ids (max 32).',
   })
   @ApiBody({
@@ -253,38 +177,6 @@ export class CollectionsController {
 
   @ApiOperation({
     summary:
-      'Cardhedger-backed preview: matched catalog card + PSA10 spot bands.',
-  })
-  @ApiParam({ name: 'key', description: 'collection_key' })
-  @Get('collections/:key/cardhedger')
-  async getCollectionCardhedger(@Param('key') key: string) {
-    const k = this.normalizeKey(key);
-    let row = await this.snapshotService.resolveSnapshotForRead(k, 'cold_start');
-    if (row?.previewJson) {
-      const stale = this.snapshotService.isRowStale(row);
-      this.snapshotService.touchLastViewed(k);
-      if (stale) this.snapshotScheduler.enqueue(k, 'stale_swr');
-      const preview = this.snapshotRead.previewFromRow(row);
-      const meta = this.snapshotRead.snapshotMeta(row);
-      return {
-        ...preview,
-        snapshotStale: meta.stale,
-        syncedAt: meta.syncedAt ?? undefined,
-        reliabilityScore: meta.reliabilityScore ?? undefined,
-      };
-    }
-    return {
-      enabled: true,
-      searchQuery: '',
-      matched: false,
-      message: 'Market snapshot unavailable',
-      card: null,
-      snapshotStale: true,
-    };
-  }
-
-  @ApiOperation({
-    summary:
       'Cardhedger AI market brief for this collection (card-match powered).',
   })
   @ApiParam({ name: 'key', description: 'collection_key' })
@@ -293,62 +185,6 @@ export class CollectionsController {
     const k = this.normalizeKey(key);
     const col = await this.collectionService.findOne(k);
     return this.aiInsight.getAiInsightForCollection(col);
-  }
-
-  @ApiOperation({
-    summary:
-      'Cardhedger PSA10 price history from materialized snapshot (external_usd_json).',
-  })
-  @ApiParam({ name: 'key', description: 'collection_key' })
-  @ApiQuery({
-    name: 'period',
-    required: false,
-    enum: ['7d', '30d', '90d', '1y'],
-    description: 'History window label (default 90d)',
-  })
-  @ApiQuery({
-    name: 'maxDays',
-    required: false,
-    description:
-      'Calendar lookback in days (default from period, max 365 in snapshot).',
-  })
-  @Get('collections/:key/cardhedger/price-history')
-  async getCollectionCardhedgerPriceHistory(
-    @Param('key') key: string,
-    @Query('period') periodRaw?: string,
-    @Query('maxDays') maxDaysRaw?: string,
-  ) {
-    const k = this.normalizeKey(key);
-    const periodStr = String(periodRaw ?? '90d');
-    const period: MarketHistoryPeriod = isMarketHistoryPeriod(periodStr)
-      ? periodStr
-      : '90d';
-    const parsedMax =
-      maxDaysRaw != null && String(maxDaysRaw).trim() !== ''
-        ? parseInt(String(maxDaysRaw), 10)
-        : NaN;
-    const maxCalendarDays = Number.isFinite(parsedMax)
-      ? Math.min(365, Math.max(1, parsedMax))
-      : marketPeriodToMaxCalendarDays(period);
-
-    let row = await this.snapshotService.resolveSnapshotForRead(k, 'cold_start');
-
-    if (row?.externalUsdJson != null) {
-      const stale = this.snapshotService.isRowStale(row);
-      this.snapshotService.touchLastViewed(k);
-      if (stale) this.snapshotScheduler.enqueue(k, 'stale_swr');
-      return this.snapshotRead.priceHistoryFromRow(row, {
-        tier: 'PSA_10',
-        period,
-        maxCalendarDays,
-      });
-    }
-
-    return this.snapshotRead.emptyPriceHistory({
-      tier: 'PSA_10',
-      period,
-      maxCalendarDays,
-    });
   }
 
   @ApiOperation({
@@ -415,7 +251,7 @@ export class CollectionsController {
       const cardhedgerUpdated =
         await this.collectionService.ensureCardhedgerCardIdFromListings(k);
       if (cardhedgerUpdated) {
-        this.snapshotScheduler.enqueue(k, 'manual');
+        this.eventEmitter.emit('snapshot.enqueue', { key: k, reason: 'manual' });
       }
       await this.collectionService.ensureListingDisplayTitleFromListings(k);
       col = await this.collectionService.findOne(k);

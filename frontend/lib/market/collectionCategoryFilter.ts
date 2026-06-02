@@ -53,7 +53,7 @@ function buildHaystack(
   collection: MarketplaceCollectionSummary,
   snapshot: CollectionListMarketSnapshot | undefined,
 ): string {
-  const comp = collection.components as Record<string, unknown>;
+  const comp = collection.components;
   const parts = [
     snapshot?.categoryLabel,
     collection.queryUsed,

@@ -4,12 +4,15 @@ import {
   Logger,
   OnModuleDestroy,
   OnModuleInit,
+  Optional,
   forwardRef,
 } from '@nestjs/common';
+import { OnEvent } from '@nestjs/event-emitter';
 import { ConfigService } from '@nestjs/config';
 import { Cron } from '@nestjs/schedule';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
+import { DataSource, Repository } from 'typeorm';
+import { CardhedgerMetricsService } from '../../common/metrics/cardhedger-metrics.service';
 import { CollectionMarketSnapshotService } from './collection-market-snapshot.service';
 import { Order, OrderSide, OrderStatus } from '../entities/order.entity';
 import { CollectionMarketSnapshot } from '../entities/collection-market-snapshot.entity';
@@ -18,6 +21,14 @@ import type {
   SnapshotRefreshJob,
   SnapshotRefreshReason,
 } from '../utils/market-snapshot.types';
+import {
+  collectionKeyToAdvisoryLockKey,
+  formatAdvisoryLockKey,
+  type SnapshotAdvisoryLockKey,
+} from '../utils/snapshot-advisory-lock.util';
+
+/** Result of `pg_try_advisory_lock` — drives retry vs fail-closed paths. */
+type LockResult = 'acquired' | 'held' | 'db_error';
 
 /**
  * Schedules materialized snapshot refresh.
@@ -32,8 +43,13 @@ export class CollectionMarketSnapshotSchedulerService
   );
   private readonly queue: SnapshotRefreshJob[] = [];
   private readonly queuedKeys = new Set<string>();
+  /** Keys with a scheduled lock-retry timer (dedup gate for enqueue). */
+  private readonly pendingLockRetries = new Set<string>();
+  private readonly lockRetryTimers = new Map<string, NodeJS.Timeout>();
   private processing = false;
   private drainTimer: NodeJS.Timeout | null = null;
+  /** Last observed null-cardhedgerCardId ratio from the batch-reduction check. */
+  private lastNullIdRatio: number | null = null;
 
   constructor(
     private readonly config: ConfigService,
@@ -45,6 +61,9 @@ export class CollectionMarketSnapshotSchedulerService
     private readonly snapshotRepo: Repository<CollectionMarketSnapshot>,
     @InjectRepository(RwaToken)
     private readonly rwaTokenRepo: Repository<RwaToken>,
+    @InjectDataSource()
+    private readonly dataSource: DataSource,
+    @Optional() private readonly metrics?: CardhedgerMetricsService,
   ) {}
 
   prewarmEnabled(): boolean {
@@ -67,6 +86,11 @@ export class CollectionMarketSnapshotSchedulerService
 
   onModuleDestroy(): void {
     if (this.drainTimer) clearTimeout(this.drainTimer);
+    for (const timer of this.lockRetryTimers.values()) {
+      clearTimeout(timer);
+    }
+    this.lockRetryTimers.clear();
+    this.pendingLockRetries.clear();
   }
 
   refreshConcurrency(): number {
@@ -109,7 +133,9 @@ export class CollectionMarketSnapshotSchedulerService
   /** Public enqueue API — used by scheduler and stale-while-revalidate hooks. */
   enqueue(collectionKey: string, reason: SnapshotRefreshReason): void {
     const key = collectionKey.toLowerCase();
-    if (!key || this.queuedKeys.has(key)) return;
+    if (!key || this.queuedKeys.has(key) || this.pendingLockRetries.has(key)) {
+      return;
+    }
     const priority = this.priorityForReason(reason);
     this.queue.push({
       collectionKey: key,
@@ -121,6 +147,16 @@ export class CollectionMarketSnapshotSchedulerService
     this.queuedKeys.add(key);
     this.queue.sort((a, b) => b.priority - a.priority || a.enqueuedAt - b.enqueuedAt);
     this.scheduleDrain();
+  }
+
+  /**
+   * Handles 'snapshot.enqueue' events emitted by CollectionService (and any future domain
+   * services) so they do not need a direct injection of this scheduler.
+   */
+  @OnEvent('snapshot.enqueue')
+  handleSnapshotEnqueue(payload: { key: string; reason: string }): void {
+    const reason = (payload.reason ?? 'cold_start') as SnapshotRefreshReason;
+    this.enqueue(payload.key, reason);
   }
 
   private priorityForReason(reason: SnapshotRefreshReason): number {
@@ -161,6 +197,33 @@ export class CollectionMarketSnapshotSchedulerService
         }
         await Promise.all(
           batch.map(async (job) => {
+            const lockKey = collectionKeyToAdvisoryLockKey(job.collectionKey);
+            const lockResult = await this.tryAdvisoryLock(lockKey);
+            if (lockResult !== 'acquired') {
+              if (lockResult === 'held') {
+                this.logger.debug(
+                  JSON.stringify({
+                    msg: 'snapshot:lock_contention',
+                    collectionKey: job.collectionKey,
+                    lockKey: formatAdvisoryLockKey(lockKey),
+                    attempt: job.attempt,
+                    reason: job.reason,
+                  }),
+                );
+                this.scheduleLockRetry(job);
+              } else {
+                this.logger.warn(
+                  JSON.stringify({
+                    msg: 'snapshot:lock_db_error',
+                    collectionKey: job.collectionKey,
+                    lockKey: formatAdvisoryLockKey(lockKey),
+                    attempt: job.attempt,
+                    reason: job.reason,
+                  }),
+                );
+              }
+              return;
+            }
             try {
               await this.snapshotService.refreshSnapshot(
                 job.collectionKey,
@@ -170,6 +233,8 @@ export class CollectionMarketSnapshotSchedulerService
               this.logger.warn(
                 `queue refresh failed key=${job.collectionKey}: ${e instanceof Error ? e.message : String(e)}`,
               );
+            } finally {
+              await this.releaseAdvisoryLock(lockKey);
             }
           }),
         );
@@ -183,6 +248,135 @@ export class CollectionMarketSnapshotSchedulerService
     }
   }
 
+  private async tryAdvisoryLock(
+    lockKey: SnapshotAdvisoryLockKey,
+  ): Promise<LockResult> {
+    try {
+      const rows = await this.dataSource.query(
+        'SELECT pg_try_advisory_lock($1, $2) AS locked',
+        [lockKey.key1, lockKey.key2],
+      );
+      const locked = rows?.[0]?.locked;
+      return locked === true || locked === 't' ? 'acquired' : 'held';
+    } catch {
+      // Fail-closed: if DB is unreachable, skip this job so other pods don't
+      // double-write the same snapshot row. No lock retry on db_error.
+      return 'db_error';
+    }
+  }
+
+  private async releaseAdvisoryLock(
+    lockKey: SnapshotAdvisoryLockKey,
+  ): Promise<void> {
+    try {
+      await this.dataSource.query('SELECT pg_advisory_unlock($1, $2)', [
+        lockKey.key1,
+        lockKey.key2,
+      ]);
+    } catch {
+      /* best-effort */
+    }
+  }
+
+  private lockRetryMax(): number {
+    const raw = Number(
+      this.config.get<string>('MARKET_SNAPSHOT_LOCK_RETRY_MAX') ?? '3',
+    );
+    return Number.isFinite(raw) && raw >= 0 ? Math.floor(raw) : 3;
+  }
+
+  private lockRetryBaseMs(): number {
+    const raw = Number(
+      this.config.get<string>('MARKET_SNAPSHOT_LOCK_RETRY_BASE_MS') ?? '500',
+    );
+    return Number.isFinite(raw) && raw >= 50 ? Math.floor(raw) : 500;
+  }
+
+  private lockRetryJitterMs(): number {
+    const raw = Number(
+      this.config.get<string>('MARKET_SNAPSHOT_LOCK_RETRY_JITTER_MS') ?? '300',
+    );
+    return Number.isFinite(raw) && raw >= 0 ? Math.floor(raw) : 300;
+  }
+
+  private lockRetryMaxDelayMs(): number {
+    const raw = Number(
+      this.config.get<string>('MARKET_SNAPSHOT_LOCK_RETRY_MAX_DELAY_MS') ??
+        '10000',
+    );
+    return Number.isFinite(raw) && raw >= 100 ? Math.floor(raw) : 10_000;
+  }
+
+  /** Exponential backoff with jitter, capped at MARKET_SNAPSHOT_LOCK_RETRY_MAX_DELAY_MS. */
+  private lockRetryDelayMs(attempt: number): number {
+    const base = this.lockRetryBaseMs();
+    const jitter = Math.random() * this.lockRetryJitterMs();
+    const delay = base * Math.pow(2, attempt) + jitter;
+    return Math.min(Math.floor(delay), this.lockRetryMaxDelayMs());
+  }
+
+  /**
+   * Re-enqueue a job after lock contention with bounded exponential backoff.
+   * At most one pending retry timer per collection key.
+   */
+  private scheduleLockRetry(job: SnapshotRefreshJob): void {
+    const maxRetries = this.lockRetryMax();
+    const lockKey = collectionKeyToAdvisoryLockKey(job.collectionKey);
+
+    if (job.attempt >= maxRetries) {
+      this.logger.warn(
+        JSON.stringify({
+          msg: 'snapshot:lock_retry_exhausted',
+          collectionKey: job.collectionKey,
+          lockKey: formatAdvisoryLockKey(lockKey),
+          attempt: job.attempt,
+          maxRetries,
+          reason: job.reason,
+        }),
+      );
+      return;
+    }
+
+    if (this.pendingLockRetries.has(job.collectionKey)) return;
+    if (this.queuedKeys.has(job.collectionKey)) return;
+
+    const delayMs = this.lockRetryDelayMs(job.attempt);
+    this.pendingLockRetries.add(job.collectionKey);
+
+    this.logger.log(
+      JSON.stringify({
+        msg: 'snapshot:lock_retry',
+        collectionKey: job.collectionKey,
+        lockKey: formatAdvisoryLockKey(lockKey),
+        attempt: job.attempt,
+        nextAttempt: job.attempt + 1,
+        delayMs,
+        reason: job.reason,
+      }),
+    );
+
+    const timer = setTimeout(() => {
+      this.lockRetryTimers.delete(job.collectionKey);
+      this.pendingLockRetries.delete(job.collectionKey);
+
+      if (this.queuedKeys.has(job.collectionKey)) return;
+      if (this.pendingLockRetries.has(job.collectionKey)) return;
+
+      this.queue.push({
+        ...job,
+        attempt: job.attempt + 1,
+        enqueuedAt: Date.now(),
+      });
+      this.queuedKeys.add(job.collectionKey);
+      this.queue.sort(
+        (a, b) => b.priority - a.priority || a.enqueuedAt - b.enqueuedAt,
+      );
+      this.scheduleDrain();
+    }, delayMs);
+
+    this.lockRetryTimers.set(job.collectionKey, timer);
+  }
+
   @Cron('0 */15 * * * *')
   async handleCronTick(): Promise<void> {
     if (!this.cronEnabled()) return;
@@ -190,7 +384,7 @@ export class CollectionMarketSnapshotSchedulerService
   }
 
   /** 09:00 KST daily full refresh for known portfolio collections. */
-  @Cron('0 0 0 * * *')
+  @Cron('0 0 9 * * *', { timeZone: 'Asia/Seoul' })
   async handleDailyPortfolioPrewarm(): Promise<void> {
     if (!this.cronEnabled()) return;
     const rows = await this.rwaTokenRepo
@@ -216,17 +410,189 @@ export class CollectionMarketSnapshotSchedulerService
 
   private async runScheduledRefresh(trigger: string): Promise<void> {
     const keys = await this.discoverRefreshCandidates();
-    for (const key of keys) {
+    const { effectiveKeys, nullRatio } = await this.applyNullIdBatchReduction(
+      keys,
+      trigger,
+    );
+    for (const key of effectiveKeys) {
       this.enqueue(key, 'cron');
     }
+
+    // ── Degradation profile: single structured log per cron tick ──────────
+    const metricsSnap = this.metrics?.getSnapshot();
+    const resolveTotal = metricsSnap?.resolveTotal ?? 0;
+    const fallbackSearchCount = metricsSnap?.resolvePaths.search ?? 0;
+    const fallbackSearchRate =
+      resolveTotal > 0 ? fallbackSearchCount / resolveTotal : null;
+
     this.logger.log(
       JSON.stringify({
         msg: 'market_snapshot_refresh_scheduled',
         trigger,
         candidateCount: keys.length,
+        effectiveCount: effectiveKeys.length,
         queueDepth: this.queue.length,
+        // Degradation profile fields
+        circuitState: metricsSnap?.circuitState ?? 'UNKNOWN',
+        circuitOpenDurationMs: metricsSnap?.circuitOpenDurationMs ?? 0,
+        nullIdRatio: nullRatio != null ? Number(nullRatio.toFixed(2)) : null,
+        fallbackSearchRate:
+          fallbackSearchRate != null
+            ? Number(fallbackSearchRate.toFixed(2))
+            : null,
+        searchDepthAvg:
+          metricsSnap?.searchDepthAvg != null
+            ? Number(metricsSnap.searchDepthAvg.toFixed(2))
+            : null,
+        batchReductionCount: metricsSnap?.batchReductionCount ?? 0,
       }),
     );
+
+    // Push scheduler state into the global metrics service so that the admin
+    // health endpoint can read it without injecting this service directly
+    // (direct injection requires importing MarketplaceSnapshotsModule from admin
+    // modules, which creates unresolvable circular module contexts).
+    this.metrics?.recordSchedulerState({
+      queueDepth: this.queue.length,
+      queuedKeyCount: this.queuedKeys.size,
+      processing: this.processing,
+      lastNullIdRatio: nullRatio,
+      cronEnabled: this.cronEnabled(),
+      refreshConcurrency: this.refreshConcurrency(),
+    });
+  }
+
+  /**
+   * Cold-start protection: if the fraction of candidate snapshots with a null
+   * `cardhedger_card_id` exceeds `MARKET_SNAPSHOT_NULL_ID_RATIO_THRESHOLD`
+   * (default 0.5), the batch is trimmed to limit search amplification.
+   *
+   * Shadow mode (`MARKET_SNAPSHOT_COLD_START_SHADOW_MODE`):
+   *   - When true: compute and log the reduction but DO NOT apply it.
+   *   - Default: true in non-production, false in production.
+   *   This allows observing thresholds in staging before enabling in production.
+   *
+   * DB-only read. Fails open — on DB error the full batch proceeds.
+   */
+  private async applyNullIdBatchReduction(
+    keys: string[],
+    trigger: string,
+  ): Promise<{ effectiveKeys: string[]; nullRatio: number | null }> {
+    if (keys.length === 0) return { effectiveKeys: keys, nullRatio: null };
+    const threshold = this.nullIdRatioThreshold();
+    if (threshold <= 0) return { effectiveKeys: keys, nullRatio: null };
+
+    try {
+      const row = await this.snapshotRepo
+        .createQueryBuilder('s')
+        .select('COUNT(*)', 'total')
+        .addSelect(
+          'COUNT(*) FILTER (WHERE s.cardhedger_card_id IS NULL)',
+          'null_count',
+        )
+        .where('s.collection_key IN (:...keys)', { keys })
+        .getRawOne<{ total: string; null_count: string }>();
+
+      if (!row) return { effectiveKeys: keys, nullRatio: null };
+      const total = Number(row.total) || 0;
+      if (total === 0) return { effectiveKeys: keys, nullRatio: null };
+
+      const nullRatio = (Number(row.null_count) || 0) / total;
+      this.lastNullIdRatio = nullRatio; // record for health surface
+      if (nullRatio <= threshold) return { effectiveKeys: keys, nullRatio };
+
+      const factor = this.nullIdBatchReductionFactor();
+      const reducedCount = Math.max(1, Math.ceil(keys.length * factor));
+      const shadow = this.coldStartShadowMode();
+
+      this.logger.warn(
+        JSON.stringify({
+          msg: 'market_snapshot_cold_start_batch_reduced',
+          trigger,
+          shadowMode: shadow,
+          nullRatio: nullRatio.toFixed(2),
+          threshold,
+          originalCount: keys.length,
+          reducedCount,
+        }),
+      );
+
+      if (shadow) {
+        // Observe-only: report what would have been reduced, but serve the full batch.
+        return { effectiveKeys: keys, nullRatio };
+      }
+
+      this.metrics?.recordBatchReduction(keys.length, reducedCount, false);
+      return { effectiveKeys: keys.slice(0, reducedCount), nullRatio };
+    } catch (e) {
+      // Best-effort — DB error during ratio check does not block snapshot refresh.
+      this.logger.warn(
+        `cold_start_batch_check failed (proceeding with full batch): ${String(e)}`,
+      );
+      return { effectiveKeys: keys, nullRatio: null };
+    }
+  }
+
+  /**
+   * Shadow mode: when true, batch reduction is computed and logged but NOT applied.
+   * Allows threshold calibration before enabling enforcement.
+   *
+   * Default: ON in non-production, OFF in production.
+   * Config key: MARKET_SNAPSHOT_COLD_START_SHADOW_MODE (1/true or 0/false to override)
+   */
+  private coldStartShadowMode(): boolean {
+    const raw = this.config.get<string>('MARKET_SNAPSHOT_COLD_START_SHADOW_MODE');
+    if (raw === '1' || raw === 'true') return true;
+    if (raw === '0' || raw === 'false') return false;
+    return this.config.get<string>('NODE_ENV') !== 'production';
+  }
+
+  /**
+   * Null-ID ratio above which the scheduled batch is reduced.
+   * 0 disables the feature; default 0.5 (50 %).
+   * Config key: MARKET_SNAPSHOT_NULL_ID_RATIO_THRESHOLD
+   */
+  private nullIdRatioThreshold(): number {
+    const raw = Number(
+      this.config.get<string>('MARKET_SNAPSHOT_NULL_ID_RATIO_THRESHOLD') ?? '0.5',
+    );
+    return Number.isFinite(raw) && raw >= 0 && raw <= 1 ? raw : 0.5;
+  }
+
+  /**
+   * Fraction of original batch to keep when the null-ID ratio threshold is breached.
+   * Default 0.5 (50 %); clamped to (0, 1).
+   * Config key: MARKET_SNAPSHOT_NULL_ID_REDUCTION_FACTOR
+   */
+  private nullIdBatchReductionFactor(): number {
+    const raw = Number(
+      this.config.get<string>('MARKET_SNAPSHOT_NULL_ID_REDUCTION_FACTOR') ?? '0.5',
+    );
+    return Number.isFinite(raw) && raw > 0 && raw < 1 ? raw : 0.5;
+  }
+
+  /**
+   * Returns a point-in-time read-only view of scheduler health for the admin surface.
+   * No business logic — reads in-memory state only.
+   */
+  getSchedulerHealth(): {
+    queueDepth: number;
+    queuedKeyCount: number;
+    processing: boolean;
+    lastNullIdRatio: number | null;
+    batchReductionCount: number;
+    cronEnabled: boolean;
+    refreshConcurrency: number;
+  } {
+    return {
+      queueDepth: this.queue.length,
+      queuedKeyCount: this.queuedKeys.size,
+      processing: this.processing,
+      lastNullIdRatio: this.lastNullIdRatio,
+      batchReductionCount: this.metrics?.getSnapshot().batchReductionCount ?? 0,
+      cronEnabled: this.cronEnabled(),
+      refreshConcurrency: this.refreshConcurrency(),
+    };
   }
 
   /**

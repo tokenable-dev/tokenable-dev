@@ -1,8 +1,4 @@
-import { getApiUrl } from "../core/api";
-
-function backendFetch(url: string, init?: RequestInit): Promise<Response> {
-  return fetch(url, { ...init, credentials: "include" });
-}
+import { backendFetch, getApiUrl } from "../core/api/client";
 
 export interface AuthUser {
   id: string;
