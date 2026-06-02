@@ -3,9 +3,9 @@ import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
 import { CollectionService } from './collection.service';
-import { CollectionMarketSnapshotReadService } from './collection-market-snapshot-read.service';
-import { CollectionMarketSnapshotSchedulerService } from './collection-market-snapshot-scheduler.service';
-import { CollectionMarketSnapshotService } from './collection-market-snapshot.service';
+import { CollectionMarketSnapshotReadService } from '../snapshots/collection-market-snapshot-read.service';
+import { CollectionMarketSnapshotSchedulerService } from '../snapshots/collection-market-snapshot-scheduler.service';
+import { CollectionMarketSnapshotService } from '../snapshots/collection-market-snapshot.service';
 import {
   type GradePriceStrip,
   type UsdPoint,
@@ -167,14 +167,10 @@ export class CollectionMarketService {
 
     if (!(await this.snapshotService.isUsableForRead(row, key))) {
       row =
-        (await this.snapshotService.ensureSnapshot(key, 'cold_start')) ?? row;
-    }
-
-    if (
-      row?.previewJson &&
-      !(await this.snapshotService.isUsableForRead(row, key))
-    ) {
-      row = await this.snapshotService.refreshSnapshot(key, 'manual');
+        (await this.snapshotService.resolveSnapshotForRead(
+          key,
+          'cold_start',
+        )) ?? row;
     }
 
     if (!row?.previewJson) {
@@ -239,31 +235,54 @@ export class CollectionMarketService {
     return usd;
   }
 
+  private platformTradesScanMax(): number {
+    return (
+      this.config.get<number>('marketplace.platformTradesFulfilledScanMax') ??
+      500
+    );
+  }
+
+  private marketStatsFulfilledScanMax(): number {
+    return (
+      this.config.get<number>('marketplace.marketStatsFulfilledScanMax') ?? 400
+    );
+  }
+
   async platformTradesForApi(collectionKey: string): Promise<{
     platformUsd: UsdPoint[];
     trades: PlatformTapeFillRow[];
   }> {
     const k = collectionKey.toLowerCase();
-  /** Fulfilled asks + collection bids (criteria match / buy flow). */
+    /** Fulfilled asks + collection bids — newest-first scan cap, then chart/tape trim. */
     const rows = await this.orderRepo.find({
       where: {
         collectionKey: k,
         status: OrderStatus.FULFILLED,
       },
-      order: { updatedAt: 'ASC' },
+      order: { updatedAt: 'DESC' },
+      take: this.platformTradesScanMax(),
     });
-    const valid: { order: Order; tokenId: string; priceUsdc: number }[] = [];
+    const validNewestFirst: {
+      order: Order;
+      tokenId: string;
+      priceUsdc: number;
+    }[] = [];
     for (const o of rows) {
       const priceUsdc = this.usdcPriceFromOrder(o, 'platform-trades');
       const fill = resolvePlatformTapeFill(o, priceUsdc);
       if (!fill) continue;
-      valid.push({ order: o, tokenId: fill.tokenId, priceUsdc: fill.priceUsdc });
+      validNewestFirst.push({
+        order: o,
+        tokenId: fill.tokenId,
+        priceUsdc: fill.priceUsdc,
+      });
     }
-    const platformUsd: UsdPoint[] = valid.map(({ order: o, priceUsdc }) => ({
+    const chronological = [...validNewestFirst].reverse();
+    const platformUsd: UsdPoint[] = chronological.map(({ order: o, priceUsdc }) => ({
       t: Math.floor(o.updatedAt.getTime() / 1000),
       v: priceUsdc,
     }));
-    const recent = valid.slice(-80);
+    const recent = chronological.slice(-80);
     const trades: PlatformTapeFillRow[] = [...recent].reverse().map(
       ({ order: o, tokenId, priceUsdc }) => ({
         t: Math.floor(o.updatedAt.getTime() / 1000),
@@ -309,7 +328,8 @@ export class CollectionMarketService {
         status: OrderStatus.FULFILLED,
         side: OrderSide.ASK,
       },
-      order: { updatedAt: 'ASC' },
+      order: { updatedAt: 'DESC' },
+      take: this.marketStatsFulfilledScanMax(),
     });
     let fulfilledSkippedToken = 0;
     let fulfilledNonUsdc = 0;
@@ -441,15 +461,9 @@ export class CollectionMarketService {
       }
     }
     if (missing.length > 0 && this.snapshotService.onDemandEnabled()) {
-      const COLD_CONCURRENCY = 4;
-      for (let i = 0; i < missing.length; i += COLD_CONCURRENCY) {
-        const chunk = missing.slice(i, i + COLD_CONCURRENCY);
-        await Promise.all(
-          chunk.map((k) => this.snapshotService.ensureSnapshot(k, 'cold_start')),
-        );
+      for (const k of missing) {
+        this.snapshotScheduler.enqueue(k, 'cold_start');
       }
-      const refreshed = await this.snapshotService.findByKeys(missing);
-      for (const [k, v] of refreshed) snapshotMap.set(k, v);
     }
 
     const items: CollectionListSnapshot[] = [];
@@ -497,9 +511,10 @@ export class CollectionMarketService {
       '90d',
       '180d',
       '365d',
+      'max',
     ].includes(windowRaw)
       ? windowRaw
-      : '365d';
+      : 'max';
 
     const keys = [
       ...new Set(

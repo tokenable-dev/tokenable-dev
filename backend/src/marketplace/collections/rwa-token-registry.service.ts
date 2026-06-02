@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { BlockchainService } from '../../blockchain/blockchain.service';
 import { IpfsGatewayResolverService } from '../../blockchain/ipfs-gateway-resolver.service';
 import { RwaToken } from '../entities/rwa-token.entity';
@@ -102,5 +102,62 @@ export class RwaTokenRegistryService {
       }
     }
     return { scanned: total, upserted };
+  }
+
+  async collectionKeysByTokenIds(
+    tokenIds: Array<string | number>,
+  ): Promise<Record<number, string>> {
+    const contract = this.rwaContractAddress();
+    const out: Record<number, string> = {};
+    if (!contract) return out;
+
+    const ids = [
+      ...new Set(tokenIds.map((id) => Math.floor(Number(id)))),
+    ].filter((id) => Number.isFinite(id) && id >= 0);
+    if (ids.length === 0) return out;
+
+    const rows = await this.repo.find({
+      where: {
+        tokenContract: contract,
+        tokenId: In(ids.map((id) => String(id))),
+      },
+      select: ['tokenId', 'collectionKey'],
+    });
+
+    for (const row of rows) {
+      const tokenId = Number(row.tokenId);
+      const key = row.collectionKey?.trim().toLowerCase();
+      if (!Number.isFinite(tokenId) || !key) continue;
+      out[tokenId] = key;
+    }
+    return out;
+  }
+
+  /** Minted token ids indexed for a marketplace collection bucket (fast merkle path). */
+  async tokenIdsForCollectionKey(collectionKey: string): Promise<string[]> {
+    const contract = this.rwaContractAddress();
+    const key = collectionKey.trim().toLowerCase();
+    if (!contract || !key) return [];
+
+    const rows = await this.repo.find({
+      where: {
+        tokenContract: contract,
+        collectionKey: key,
+      },
+      select: ['tokenId'],
+      order: { tokenId: 'ASC' },
+    });
+
+    const ids = rows
+      .map((r) => String(r.tokenId).trim())
+      .filter((id) => id.length > 0);
+    ids.sort((a, b) => {
+      const ba = BigInt(a);
+      const bb = BigInt(b);
+      if (ba < bb) return -1;
+      if (ba > bb) return 1;
+      return 0;
+    });
+    return ids;
   }
 }

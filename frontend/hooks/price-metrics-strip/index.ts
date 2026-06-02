@@ -1,0 +1,1 @@
+export { usePriceMetricsStripModel } from "./usePriceMetricsStripModel";

@@ -1,0 +1,1 @@
+export { useMarketplaceCollectionsInfinite } from "./useMarketplaceCollectionsInfinite";

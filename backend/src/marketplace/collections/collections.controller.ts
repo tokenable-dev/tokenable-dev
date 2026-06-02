@@ -1,4 +1,14 @@
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  NotFoundException,
+  BadRequestException,
+  Delete,
+  Param,
+  Post,
+  Query,
+} from '@nestjs/common';
 import {
   ApiBody,
   ApiOperation,
@@ -6,21 +16,31 @@ import {
   ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
-import { CardhedgerAiInsightService } from './cardhedger-ai-insight.service';
-import { CardhedgerMarketDataService } from './cardhedger-market-data.service';
+import { MarketplaceAdminService } from '../admin/marketplace-admin.service';
+import { CardhedgerAiInsightService } from '../market-data/cardhedger-ai-insight.service';
+import { CardhedgerMarketDataService } from '../market-data/cardhedger-market-data.service';
+import { PortfolioDailySnapshotService } from '../portfolio/portfolio-daily-snapshot.service';
+import { PortfolioHiddenHoldingService } from '../portfolio/portfolio-hidden-holding.service';
+import { PortfolioHideHoldingDto } from '../portfolio/dto/portfolio-hide-holding.dto';
+import { PortfolioMarketBatchDto } from '../portfolio/dto/portfolio-market-batch.dto';
+import { CollectionMarketSnapshotReadService } from '../snapshots/collection-market-snapshot-read.service';
+import { CollectionMarketSnapshotSchedulerService } from '../snapshots/collection-market-snapshot-scheduler.service';
+import { CollectionMarketSnapshotService } from '../snapshots/collection-market-snapshot.service';
 import { CollectionMarketService } from './collection-market.service';
-import { CollectionMarketSnapshotReadService } from './collection-market-snapshot-read.service';
-import { CollectionMarketSnapshotSchedulerService } from './collection-market-snapshot-scheduler.service';
-import { CollectionMarketSnapshotService } from './collection-market-snapshot.service';
 import { CollectionService } from './collection.service';
 import { BatchMarketSnapshotsDto } from './dto/batch-market-snapshots.dto';
 import { MintPreviewsByTokenIdsDto } from './dto/mint-previews-by-token-ids.dto';
-import { PortfolioMarketBatchDto } from './dto/portfolio-market-batch.dto';
+import { TokenCollectionKeysDto } from './dto/token-collection-keys.dto';
 import {
   isMarketHistoryPeriod,
   marketPeriodToMaxCalendarDays,
   type MarketHistoryPeriod,
 } from '../utils/price-history-period.util';
+import {
+  AdminDeleteCollectionDto,
+  AdminPreviewCollectionCoverFromTokenDto,
+  AdminSetCollectionCoverDto,
+} from './dto/admin-collection-cover.dto';
 
 @ApiTags('marketplace')
 @Controller('marketplace')
@@ -33,11 +53,18 @@ export class CollectionsController {
     private readonly snapshotService: CollectionMarketSnapshotService,
     private readonly snapshotRead: CollectionMarketSnapshotReadService,
     private readonly snapshotScheduler: CollectionMarketSnapshotSchedulerService,
+    private readonly portfolioSnapshots: PortfolioDailySnapshotService,
+    private readonly portfolioHidden: PortfolioHiddenHoldingService,
+    private readonly marketplaceAdmin: MarketplaceAdminService,
   ) {}
 
   /** Decode URL-encoded path segments (some keys may be percent-encoded) and lowercase for DB lookup. */
   private normalizeKey(raw: string): string {
     return decodeURIComponent(raw).toLowerCase();
+  }
+
+  private assertAdminWallet(adminWallet: string): void {
+    this.marketplaceAdmin.assertAdminWallet(adminWallet);
   }
 
   @ApiOperation({ summary: 'Collection list (cursor pagination)' })
@@ -110,6 +137,102 @@ export class CollectionsController {
 
   @ApiOperation({
     summary:
+      'Resolve marketplace collection_key by token IDs for portfolio (uses cached rwa_tokens first; read-only metadata hash fallback when missing).',
+  })
+  @ApiBody({ type: TokenCollectionKeysDto })
+  @Post('collections/token-collection-keys')
+  async batchTokenCollectionKeys(@Body() body: TokenCollectionKeysDto) {
+    const tokenIds = [
+      ...new Set((body.tokenIds ?? []).map((n) => Math.floor(Number(n)))),
+    ].filter((n) => Number.isFinite(n) && n >= 0);
+    if (tokenIds.length === 0) return { items: {} as Record<number, string> };
+
+    const cached = await this.collectionService.collectionKeysByTokenIds(tokenIds);
+    const out: Record<number, string> = { ...cached };
+    const missing = tokenIds.filter((id) => !out[id]);
+    const RESOLVE_CONCURRENCY = 4;
+    for (let i = 0; i < missing.length; i += RESOLVE_CONCURRENCY) {
+      const chunk = missing.slice(i, i + RESOLVE_CONCURRENCY);
+      await Promise.all(
+        chunk.map(async (tokenId) => {
+          try {
+            const k =
+              await this.collectionService.resolveCollectionKeyFromTokenMetadata(
+                String(tokenId),
+              );
+            if (k) out[tokenId] = k.toLowerCase();
+          } catch {
+            // Keep partial success; frontend can still fall back per-token preview.
+          }
+        }),
+      );
+    }
+    return { items: out };
+  }
+
+  @ApiOperation({
+    summary:
+      'Portfolio daily snapshots (09:00 KST capture) + derived 24h P&L from latest two rows.',
+  })
+  @Get('portfolio/daily/:wallet')
+  async getPortfolioDailySnapshots(
+    @Param('wallet') wallet: string,
+    @Query('limit') limitRaw?: string,
+  ) {
+    const limit =
+      limitRaw != null && String(limitRaw).trim() !== ''
+        ? Math.max(2, Math.min(120, parseInt(String(limitRaw), 10)))
+        : 32;
+    // Fallback capture runs in background — never block GET on full wallet pricing.
+    this.portfolioSnapshots.scheduleCurrentSlotSnapshot(wallet);
+    let rows = await this.portfolioSnapshots.listWalletSnapshots(wallet, limit);
+    if (rows.length === 0) {
+      this.portfolioSnapshots.scheduleBaselineSnapshot(wallet);
+    }
+    const p = await this.portfolioSnapshots.latest24h(wallet);
+    return {
+      items: rows.map((r) => ({
+        walletAddress: r.walletAddress,
+        snapshotDateKst: r.snapshotDateKst,
+        snapshotAt: r.snapshotAt.toISOString(),
+        totalValueUsd: r.totalValueUsd,
+        cardCount: r.cardCount,
+      })),
+      latest24h: {
+        pnlUsd: p.pnl24hUsd,
+        pnlPct: p.pnl24hPct,
+      },
+    };
+  }
+
+  @ApiOperation({
+    summary:
+      'Portfolio hidden holdings — token IDs excluded from portfolio value (off-chain preference; NFT stays in wallet).',
+  })
+  @Get('portfolio/hidden/:wallet')
+  async listPortfolioHidden(@Param('wallet') wallet: string) {
+    const tokenIds = await this.portfolioHidden.listHiddenTokenIds(wallet);
+    return { tokenIds };
+  }
+
+  @ApiOperation({ summary: 'Hide a holding from portfolio totals and default holdings view.' })
+  @ApiBody({ type: PortfolioHideHoldingDto })
+  @Post('portfolio/hidden')
+  async hidePortfolioHolding(@Body() body: PortfolioHideHoldingDto) {
+    await this.portfolioHidden.hide(body.walletAddress, body.tokenId);
+    return { ok: true };
+  }
+
+  @ApiOperation({ summary: 'Restore a hidden holding to portfolio totals and holdings view.' })
+  @ApiBody({ type: PortfolioHideHoldingDto })
+  @Delete('portfolio/hidden')
+  async unhidePortfolioHolding(@Body() body: PortfolioHideHoldingDto) {
+    await this.portfolioHidden.unhide(body.walletAddress, body.tokenId);
+    return { ok: true };
+  }
+
+  @ApiOperation({
+    summary:
       'My Assets: batch resolve Cardhedger PSA10 references from token ids (max 32).',
   })
   @ApiBody({
@@ -136,10 +259,7 @@ export class CollectionsController {
   @Get('collections/:key/cardhedger')
   async getCollectionCardhedger(@Param('key') key: string) {
     const k = this.normalizeKey(key);
-    let row = await this.snapshotService.findByKey(k);
-    if (!(await this.snapshotService.isUsableForRead(row, k))) {
-      row = await this.snapshotService.ensureSnapshot(k, 'cold_start');
-    }
+    let row = await this.snapshotService.resolveSnapshotForRead(k, 'cold_start');
     if (row?.previewJson) {
       const stale = this.snapshotService.isRowStale(row);
       this.snapshotService.touchLastViewed(k);
@@ -211,10 +331,7 @@ export class CollectionsController {
       ? Math.min(365, Math.max(1, parsedMax))
       : marketPeriodToMaxCalendarDays(period);
 
-    let row = await this.snapshotService.findByKey(k);
-    if (!(await this.snapshotService.isUsableForRead(row, k))) {
-      row = await this.snapshotService.ensureSnapshot(k, 'cold_start');
-    }
+    let row = await this.snapshotService.resolveSnapshotForRead(k, 'cold_start');
 
     if (row?.externalUsdJson != null) {
       const stale = this.snapshotService.isRowStale(row);
@@ -304,16 +421,15 @@ export class CollectionsController {
       col = await this.collectionService.findOne(k);
     }
 
-    const storedCover = col?.coverImageUrl?.trim() ?? null;
-    const needsCoverUpgrade =
-      col != null && this.collectionService.coverImageNeedsUpgrade(storedCover);
+    const needsFirstCover =
+      col != null && !(col.coverImageUrl?.trim() ?? '');
 
     // Single fetch for asks/bids; share the same promises with cover resolution (no duplicate listing queries).
     const listingsPromise =
       this.collectionService.activeListingsForCollection(k);
     const bidsPromise = this.collectionService.activeBidsForCollection(k);
 
-    const coverFinishPromise = needsCoverUpgrade
+    const coverFinishPromise = needsFirstCover
       ? Promise.all([listingsPromise, bidsPromise]).then(
           ([listings, collectionBids]) =>
             Promise.race([
@@ -337,7 +453,7 @@ export class CollectionsController {
     ]);
     await coverFinishPromise;
 
-    if (needsCoverUpgrade) {
+    if (needsFirstCover) {
       const refreshed = await this.collectionService.findOne(k);
       if (refreshed) col = refreshed;
     }
@@ -350,6 +466,108 @@ export class CollectionsController {
       collectionBids,
       representativeImageUrl,
     };
+  }
+
+  @ApiOperation({
+    summary:
+      'Admin: set collection cover URL (requires MARKETPLACE_ADMIN_WALLETS wallet in body)',
+  })
+  @ApiParam({ name: 'key', description: 'collection_key' })
+  @Post('collections/:key/admin/cover')
+  async adminSetCollectionCover(
+    @Param('key') key: string,
+    @Body() body: AdminSetCollectionCoverDto,
+  ) {
+    this.assertAdminWallet(body.adminWallet);
+    const k = this.normalizeKey(key);
+    try {
+      const col = await this.collectionService.setCollectionCoverImageAdmin(
+        k,
+        body.coverImageUrl,
+      );
+      return {
+        collectionKey: col.collectionKey,
+        coverImageUrl: col.coverImageUrl,
+      };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg === 'COLLECTION_NOT_FOUND') {
+        throw new NotFoundException('Collection not found');
+      }
+      if (
+        msg === 'COLLECTION_COVER_URL_EMPTY' ||
+        msg === 'COLLECTION_COVER_URL_INVALID'
+      ) {
+        throw new BadRequestException('Invalid cover image URL');
+      }
+      throw e;
+    }
+  }
+
+  @ApiOperation({
+    summary:
+      'Admin: resolve cover from token metadata (Cardhedger / PSA / TCG). Optional save=true persists.',
+  })
+  @ApiParam({ name: 'key', description: 'collection_key' })
+  @Post('collections/:key/admin/cover/from-token')
+  async adminCollectionCoverFromToken(
+    @Param('key') key: string,
+    @Body() body: AdminPreviewCollectionCoverFromTokenDto,
+  ) {
+    this.assertAdminWallet(body.adminWallet);
+    const k = this.normalizeKey(key);
+    const col = await this.collectionService.findOne(k);
+    if (!col) {
+      throw new NotFoundException('Collection not found');
+    }
+    const coverImageUrl =
+      await this.collectionService.adminPreviewCoverFromToken(
+        body.tokenId.trim(),
+        k,
+      );
+    if (!coverImageUrl) {
+      return { coverImageUrl: null, saved: false };
+    }
+    if (body.save) {
+      const updated = await this.collectionService.setCollectionCoverImageAdmin(
+        k,
+        coverImageUrl,
+      );
+      return {
+        coverImageUrl: updated.coverImageUrl,
+        saved: true,
+      };
+    }
+    return { coverImageUrl, saved: false };
+  }
+
+  @ApiOperation({
+    summary:
+      'Admin: permanently delete collection bucket (snapshots, orders, rwa_tokens row, marketplace_collections)',
+  })
+  @ApiParam({ name: 'key', description: 'collection_key' })
+  @Post('collections/:key/admin/delete')
+  async adminDeleteCollection(
+    @Param('key') key: string,
+    @Body() body: AdminDeleteCollectionDto,
+  ) {
+    this.assertAdminWallet(body.adminWallet);
+    const k = this.normalizeKey(key);
+    const confirm = body.confirmCollectionKey.trim().toLowerCase();
+    if (confirm !== k) {
+      throw new BadRequestException(
+        'confirmCollectionKey must match the collection key in the URL',
+      );
+    }
+    try {
+      return await this.collectionService.adminDeleteCollectionCompletely(k);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg === 'COLLECTION_NOT_FOUND') {
+        throw new NotFoundException('Collection not found');
+      }
+      throw e;
+    }
   }
 
   @ApiOperation({

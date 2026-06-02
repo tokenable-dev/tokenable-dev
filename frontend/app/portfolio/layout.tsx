@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "My Assets",
+  title: "Portfolio",
 };
 
 export default function PortfolioLayout({

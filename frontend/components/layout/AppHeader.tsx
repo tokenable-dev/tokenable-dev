@@ -24,8 +24,8 @@ import { sepolia } from "@/config/wagmi";
 import type { MarketplaceCollectionSummary } from "@/lib/core";
 import { ensureSepoliaNetwork } from "@/lib/network";
 import { WalletAddressCompact } from "@/components/wallet/WalletAddressCompact";
-import { useMarketplaceCollectionsInfinite } from "@/hooks/useMarketplaceCollectionsInfinite";
-import { useResolvedMediaUrlMap } from "@/hooks/useResolvedMediaUrl";
+import { useMarketplaceCollectionsInfinite } from "@/hooks/marketplace";
+import { useResolvedMediaUrlMap } from "@/hooks/media";
 import { useAppStore, selectUsdcBalance } from "@/store";
 import { useShallow } from "zustand/react/shallow";
 import { toCardDisplayUppercase } from "@/lib/marketplace/collectionFullDetailsTitle";
@@ -68,7 +68,7 @@ function isMarketsPrimaryNavActive(pathname: string | null | undefined): boolean
 
 const MAIN_HEADER_NAV = [
   { href: "/markets", label: "Markets" },
-  { href: "/portfolio", label: "My Assets" },
+  { href: "/portfolio", label: "Portfolio" },
   { href: "/vault", label: "Sell" },
 ] as const satisfies readonly { readonly href: string; readonly label: string }[];
 
@@ -502,7 +502,7 @@ function SearchBar({ compact = false }: { compact?: boolean }) {
 }
 
 const DROPDOWN_ITEMS = [
-  { label: "My Assets", href: "/portfolio", icon: "wallet" as const, available: true },
+  { label: "Portfolio", href: "/portfolio", icon: "wallet" as const, available: true },
   { label: "Transaction History", href: "#", icon: "history" as const, available: false },
   { label: "Watchlist", href: "#", icon: "star" as const, available: false },
   { label: "Notifications", href: "#", icon: "bell" as const, available: false },

@@ -13,15 +13,13 @@ export const REFERENCE_CHANGE_UNAVAILABLE_HINT =
 /** Target lookback: 365 calendar days. */
 export const MARKET_PRICE_CHANGE_LAG_SEC = 365 * 86_400;
 
-/** Batched collection snapshots — must include ≥1y of external USD for % change. */
-export const MARKET_PRICE_CHANGE_SNAPSHOT_DURATION =
-  "365d" as const;
+/** Batched collection snapshots — full comps-merged archive for chart + % change. */
+export const MARKET_PRICE_CHANGE_SNAPSHOT_DURATION = "max" as const;
 
 /**
- * `getCollectionMarketSeries` duration for headline metrics (spot, % change).
- * Must span ≥ {@link MARKET_PRICE_CHANGE_LAG_SEC}; independent of chart range (7D/90D…).
+ * `getCollectionMarketSeries` duration — full merged history (chart + headline metrics).
  */
-export const MARKET_METRICS_SERIES_DURATION = "365d" as const;
+export const MARKET_METRICS_SERIES_DURATION = "max" as const;
 
 /** Flat reference move (~0% over the window) — show explicit zero, not "no data". */
 export const REFERENCE_CHANGE_FLAT_LABEL = "0.0%";

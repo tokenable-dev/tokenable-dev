@@ -3,7 +3,7 @@ import type { GradePriceStrip, UsdPoint } from './collection-market.util';
 import type { MarketCollectionPreview } from './market-reference.types';
 
 /** Current persisted snapshot schema version. */
-export const MARKET_SNAPSHOT_SOURCE_VERSION = 7;
+export const MARKET_SNAPSHOT_SOURCE_VERSION = 8;
 
 export type SnapshotRefreshReason =
   | 'cron'

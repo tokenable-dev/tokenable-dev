@@ -1,0 +1,145 @@
+/**
+ * Sort helpers for `/markets` collection grid (not `lib/market/` pricing domain).
+ */
+import type {
+  CollectionListMarketSnapshot,
+  MarketplaceCollectionSummary,
+} from "@/lib/core";
+import { parseGradeScoreNumber, representativeGradeUsd } from "@/lib/market";
+
+export const MARKETS_SORT_OPTIONS = [
+  { id: "recent_listed", label: "Recent listed" },
+  { id: "pct_change_high", label: "% Chg. (high)" },
+  { id: "high_price", label: "High price" },
+  { id: "low_price", label: "Low price" },
+  { id: "recent_sold", label: "Recent sold" },
+] as const;
+
+export type MarketsSortId = (typeof MARKETS_SORT_OPTIONS)[number]["id"];
+
+export function collectionKeyLower(c: MarketplaceCollectionSummary): string {
+  return c.collectionKey?.trim().toLowerCase() ?? "";
+}
+
+function marketsListMarketPriceUsd(
+  collection: MarketplaceCollectionSummary,
+  snapshot: CollectionListMarketSnapshot | undefined,
+): number {
+  const comp = collection.components as Record<string, unknown> & { gradeScore?: string };
+  const usd = representativeGradeUsd(
+    snapshot?.gradePrices ?? null,
+    parseGradeScoreNumber(comp.gradeScore),
+    comp.gradeScore,
+  );
+  if (usd != null && Number.isFinite(usd) && usd > 0) return usd;
+  return Number.NEGATIVE_INFINITY;
+}
+
+function marketsHasListMarketPrice(
+  collection: MarketplaceCollectionSummary,
+  snapshot: CollectionListMarketSnapshot | undefined,
+): boolean {
+  return marketsListMarketPriceUsd(collection, snapshot) !== Number.NEGATIVE_INFINITY;
+}
+
+function compareMarketsByLabel(
+  a: MarketplaceCollectionSummary,
+  b: MarketplaceCollectionSummary,
+): number {
+  return (a.displayLabel ?? "").localeCompare(b.displayLabel ?? "");
+}
+
+function compareMarketsByMarketPriceDesc(
+  a: MarketplaceCollectionSummary,
+  b: MarketplaceCollectionSummary,
+  snapByKey: Map<string, CollectionListMarketSnapshot>,
+): number {
+  const pa = marketsListMarketPriceUsd(a, snapByKey.get(collectionKeyLower(a)));
+  const pb = marketsListMarketPriceUsd(b, snapByKey.get(collectionKeyLower(b)));
+  if (pa !== pb) return pb - pa;
+  return compareMarketsByLabel(a, b);
+}
+
+function compareMarketsByMarketPriceAsc(
+  a: MarketplaceCollectionSummary,
+  b: MarketplaceCollectionSummary,
+  snapByKey: Map<string, CollectionListMarketSnapshot>,
+): number {
+  return compareMarketsByMarketPriceDesc(b, a, snapByKey);
+}
+
+function compareMarketsByMarketChangePct(
+  a: MarketplaceCollectionSummary,
+  b: MarketplaceCollectionSummary,
+  snapByKey: Map<string, CollectionListMarketSnapshot>,
+): number {
+  const pa = snapByKey.get(collectionKeyLower(a))?.marketChangePct;
+  const pb = snapByKey.get(collectionKeyLower(b))?.marketChangePct;
+  const na =
+    pa != null && Number.isFinite(pa) ? pa : Number.NEGATIVE_INFINITY;
+  const nb =
+    pb != null && Number.isFinite(pb) ? pb : Number.NEGATIVE_INFINITY;
+  if (na !== nb) return nb - na;
+  return compareMarketsByLabel(a, b);
+}
+
+function compareMarketsByRecentSold(
+  a: MarketplaceCollectionSummary,
+  b: MarketplaceCollectionSummary,
+  snapByKey: Map<string, CollectionListMarketSnapshot>,
+): number {
+  const ta = snapByKey.get(collectionKeyLower(a))?.lastTokenableTradeAtSec ?? 0;
+  const tb = snapByKey.get(collectionKeyLower(b))?.lastTokenableTradeAtSec ?? 0;
+  if (ta !== tb) return tb - ta;
+  return compareMarketsByLabel(a, b);
+}
+
+function marketsListMarketRecencyMs(
+  collection: MarketplaceCollectionSummary,
+  snapshot: CollectionListMarketSnapshot | undefined,
+): number {
+  const synced = snapshot?.syncedAt ? Date.parse(snapshot.syncedAt) : Number.NaN;
+  if (Number.isFinite(synced)) return synced;
+  const created = Date.parse(collection.createdAt);
+  return Number.isFinite(created) ? created : 0;
+}
+
+function compareMarketsByRecentListed(
+  a: MarketplaceCollectionSummary,
+  b: MarketplaceCollectionSummary,
+  snapByKey: Map<string, CollectionListMarketSnapshot>,
+): number {
+  const ta = marketsListMarketRecencyMs(a, snapByKey.get(collectionKeyLower(a)));
+  const tb = marketsListMarketRecencyMs(b, snapByKey.get(collectionKeyLower(b)));
+  if (ta !== tb) return tb - ta;
+  return compareMarketsByLabel(a, b);
+}
+
+export function compareMarketsCollections(
+  a: MarketplaceCollectionSummary,
+  b: MarketplaceCollectionSummary,
+  sortId: MarketsSortId,
+  snapByKey: Map<string, CollectionListMarketSnapshot>,
+): number {
+  const snapA = snapByKey.get(collectionKeyLower(a));
+  const snapB = snapByKey.get(collectionKeyLower(b));
+  const hasPriceA = marketsHasListMarketPrice(a, snapA);
+  const hasPriceB = marketsHasListMarketPrice(b, snapB);
+  if (hasPriceA !== hasPriceB) {
+    return hasPriceA ? -1 : 1;
+  }
+
+  switch (sortId) {
+    case "recent_listed":
+      return compareMarketsByRecentListed(a, b, snapByKey);
+    case "pct_change_high":
+      return compareMarketsByMarketChangePct(a, b, snapByKey);
+    case "low_price":
+      return compareMarketsByMarketPriceAsc(a, b, snapByKey);
+    case "recent_sold":
+      return compareMarketsByRecentSold(a, b, snapByKey);
+    case "high_price":
+    default:
+      return compareMarketsByMarketPriceDesc(a, b, snapByKey);
+  }
+}

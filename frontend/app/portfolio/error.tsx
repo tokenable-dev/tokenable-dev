@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Surfaces client/runtime errors on /portfolio (My Assets).
+ * Surfaces client/runtime errors on /portfolio.
  */
 export default function PortfolioError({
   error,
@@ -14,7 +14,7 @@ export default function PortfolioError({
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-16 text-white">
-      <h1 className="text-lg font-semibold text-red-400">My Assets failed to render</h1>
+      <h1 className="text-lg font-semibold text-red-400">Portfolio failed to render</h1>
       <p className="mt-2 text-sm text-zinc-400">
         Copy the message below and share it for debugging.
       </p>

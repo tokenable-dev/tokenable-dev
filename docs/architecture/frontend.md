@@ -14,7 +14,7 @@ frontend/
 │   ├── exchange/page.tsx          # /exchange — Collection hub with category filter
 │   ├── markets/page.tsx           # /markets — Market indexes view (alias)
 │   ├── vault/page.tsx             # /vault — Mint / RWA registration entry
-│   ├── portfolio/                 # /portfolio — Owned assets
+│   ├── portfolio/                 # /portfolio — Owned assets + daily value chart (09:00 KST snapshots)
 │   │   ├── layout.tsx
 │   │   └── page.tsx
 │   ├── profile/page.tsx           # /profile — User profile & wallet settings

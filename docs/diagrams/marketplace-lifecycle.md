@@ -2,7 +2,7 @@
 
 > Seaport v1.5 · 오프체인 오더북(백엔드) · 온체인 `fulfillOrder` / `matchAdvancedOrders` 기준
 
-> **업데이트 (2026-05):** 실험용 **relational 매칭 계층**은 백엔드에서 **제거**되었습니다. 매칭은 **Seaport + `orders`만** 사용합니다. **DB는 4테이블:** `users`, `marketplace_collections`, **`collection_market_snapshots`** (Cardhedger materialized), `orders`. [database.md](../architecture/database.md) · [materialized-market-snapshots.md](../architecture/materialized-market-snapshots.md) · [api/marketplace.md](../api/marketplace.md)
+> **업데이트 (2026-05):** 실험용 **relational 매칭 계층**은 제거되었습니다. 매칭은 **Seaport + `orders`만** 사용합니다. **DB 7테이블:** `users`, `psa_cert_snapshots`, `marketplace_collections`, `rwa_tokens`, `collection_market_snapshots`, `orders`, `portfolio_daily_snapshots`. [database.md](../architecture/database.md) · [materialized-market-snapshots.md](../architecture/materialized-market-snapshots.md) · [api/marketplace.md](../api/marketplace.md)
 >
 > **HTTP 경로 표기:** 아래 시퀀스의 `POST /api/...` 는 Nest 글로벌 프리픽스 **`api`** 를 포함한 전체 경로입니다. 전체 API 개요는 **[api/README.md](../api/README.md)**.
 
@@ -213,60 +213,53 @@ sequenceDiagram
 
 ## Part 3 — DB 저장 구조 및 상태 전이
 
-> 마켓플레이스에서 발생하는 모든 주문·거래 데이터는 두 개의 테이블에 저장됩니다.
-> `orders` — 매도/매수 주문 원본과 상태 관리, `marketplace_collections` — 컬렉션 그룹 정보.
+> 애플리케이션 DB는 **7개 테이블**입니다. PostgreSQL FK는 없고, 키는 앱에서 논리적으로 연결합니다.
+> **전체 컬럼 ER 다이어그램(최신):** [architecture/database.md](../architecture/database.md#schema-overview)
 
-### 3-1. 테이블 구조
+### 3-1. 테이블 구조 (관계 요약)
 
 ```mermaid
 erDiagram
     users {
-        uuid id PK "고유 식별자"
-        string email UK "이메일 주소"
-        string google_id UK "Google OAuth ID"
-        string name "사용자 이름"
-        string picture_url "프로필 이미지"
-        boolean email_verified "이메일 인증 여부"
-        timestamp platform_email_verified_at "플랫폼 이메일 인증 시각"
-        string email_verification_token_hash "인증 토큰 해시"
-        timestamp email_verification_expires_at "인증 토큰 만료 시각"
-        timestamp verification_email_last_sent_at "마지막 인증 메일 발송"
-        string wallet_address UK "연결된 지갑 주소"
-        timestamp wallet_linked_at "지갑 연결 시각"
-        timestamp created_at "가입 시각"
-        timestamp updated_at "마지막 변경 시각"
+        uuid id PK
+        varchar wallet_address UK
     }
-
-    orders {
-        int id PK "자동 증가 고유 번호"
-        string order_hash UK "주문 식별 해시"
-        string offerer "주문 생성자 지갑 주소"
-        string side "주문 유형 ask 또는 bid"
-        string token_contract "NFT 컨트랙트 주소"
-        string token_id "NFT 토큰 번호"
-        string collection_key FK "소속 컬렉션 식별자"
-        string consideration_token "결제 수단 주소 USDC"
-        string consideration_amount "거래 금액"
-        json parameters "Seaport 주문 전체 데이터"
-        string signature "지갑 서명값"
-        string status "active fulfilled cancelled expired"
-        timestamp start_time "주문 유효 시작 시각"
-        timestamp end_time "주문 만료 시각"
-        timestamp created_at "최초 등록 시각"
-        timestamp updated_at "마지막 변경 시각"
+    psa_cert_snapshots {
+        varchar cert_number PK
     }
-
     marketplace_collections {
-        string collection_key PK "컬렉션 고유 식별자"
-        string display_label "컬렉션 표시 이름"
-        string query_used "생성 시 검색 조건"
-        json components "카드 등급 및 속성 구성"
-        string cover_image_url "대표 이미지 URL"
-        timestamp created_at "최초 등록 시각"
+        varchar collection_key PK
+        varchar psa_cert_number
+    }
+    collection_market_snapshots {
+        varchar collection_key PK
+    }
+    rwa_tokens {
+        varchar token_contract PK
+        varchar token_id PK
+        varchar collection_key
+    }
+    orders {
+        serial id PK
+        varchar order_hash UK
+        varchar offerer
+        varchar collection_key
+        varchar token_contract
+        varchar token_id
+    }
+    portfolio_daily_snapshots {
+        serial id PK
+        varchar wallet_address
+        date snapshot_date_kst UK
     }
 
-    users ||--o{ orders : "wallet_address = offerer"
-    orders }o--|| marketplace_collections : "collection_key"
+    marketplace_collections ||--o| collection_market_snapshots : "bucket pricing"
+    marketplace_collections ||--o{ orders : "collection_key"
+    marketplace_collections ||--o{ rwa_tokens : "collection_key"
+    marketplace_collections }o--o| psa_cert_snapshots : "psa_cert_number"
+    rwa_tokens ||--o{ orders : "token"
+    users |o--o{ orders : "offerer"
+    users |o--o{ portfolio_daily_snapshots : "wallet optional"
 ```
 
 ### 3-2. 언제, 어떤 데이터가 저장되는가
@@ -669,7 +662,7 @@ flowchart TD
     subgraph REST ["REST 네임스페이스"]
         direction TB
         R_AUTH["/api/auth<br/>Google OAuth · JWT 쿠키 · 지갑 연결"]:::route
-        R_MKT["/api/marketplace<br/>orders · collections · market-snapshots<br/>· portfolio-market-batch · Seaport 전용"]:::route
+        R_MKT["/api/marketplace<br/>orders · collections · market-snapshots<br/>· portfolio/daily · portfolio-market-batch · Seaport 전용"]:::route
         R_RWA["/api/rwa<br/>IPFS 메타 업로드 · 민팅 보조"]:::route
         R_BC["/api/blockchain<br/>RWA tokenURI · 메타/IPFS 해소"]:::route
         R_CH["/api/cardhedger<br/>indexes (+ 서버 내부 CardhedgerService)"]:::route
@@ -677,7 +670,7 @@ flowchart TD
     end
 
     subgraph PERSIST ["영속 계층"]
-        PG[("PostgreSQL<br/>users · marketplace_collections<br/>· collection_market_snapshots · orders")]:::data
+        PG[("PostgreSQL<br/>users · psa_cert_snapshots · marketplace_collections<br/>· rwa_tokens · collection_market_snapshots<br/>· orders · portfolio_daily_snapshots")]:::data
     end
 
     subgraph OUT ["외부 연동"]
@@ -707,7 +700,7 @@ flowchart TD
 
 ### 5-2. Nest 모듈·서비스 구조
 
-> **Note:** The diagram below still names removed controllers (`BidsController`, `PoketraceProxyController`, …). Current code: `OrdersController`, `CollectionsController`, `CertMarketTraceController` + snapshot services — see [backend.md](../architecture/backend.md).
+> **Note:** The diagram below still names removed controllers (`BidsController`, `PoketraceProxyController`, …). Current code: `OrdersController`, `CollectionsController`, `CertMarketTraceController`, collection/portfolio snapshot services — see [backend.md](../architecture/backend.md).
 
 ```mermaid
 %%{init: {'flowchart': {'rankSpacing': 36, 'nodeSpacing': 22, 'padding': 14}}}%%
@@ -721,7 +714,7 @@ flowchart TB
     subgraph APP ["AppModule"]
         direction TB
         CFG["ConfigModule global"]:::mod
-        ORM["TypeORM<br/>User · Order · MarketplaceCollection<br/>· CollectionMarketSnapshot"]:::ent
+        ORM["TypeORM<br/>User · Order · MarketplaceCollection<br/>· CollectionMarketSnapshot · PsaCertSnapshot<br/>· RwaToken · PortfolioDailySnapshot"]:::ent
     end
 
     subgraph M_AUTH ["auth/ — AuthModule"]

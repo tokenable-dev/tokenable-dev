@@ -283,6 +283,28 @@ Batch pool stats + `market-series` bundle per collection key (max 60 keys). Used
 
 ---
 
+### `POST /api/marketplace/collections/token-collection-keys`
+
+Resolves `collection_key` per token ID for Portfolio grouping. **Read-only** — does not create `marketplace_collections` rows (unlike listing flow).
+
+**Body:** `TokenCollectionKeysDto` — `tokenIds` array (max **80** per request).
+
+---
+
+### `GET /api/marketplace/portfolio/daily/:wallet`
+
+Daily portfolio value history for charts. Rows are written by the **09:00 KST cron** (`portfolio_daily_snapshots`). Read path backfills **only** if today's slot row is missing (does not overwrite existing cron rows).
+
+| Query | Description |
+|-------|-------------|
+| `limit` | Max rows (default 32, min 2, max 120) |
+
+**Response:** `{ items: [{ walletAddress, snapshotDateKst, snapshotAt, totalValueUsd, cardCount }], latest24h: { pnlUsd, pnlPct } }`
+
+Cron captures **all on-chain RWA holders** plus linked / historical wallets with zero holdings. See [database.md](../architecture/database.md#portfolio_daily_snapshots).
+
+---
+
 ## ~~My Assets (Hidden Tokens) — removed~~
 
 `GET/POST/PATCH /api/marketplace/my-assets/hidden` and the `hidden_assets` table are **no longer in this repository**. Portfolio lists on-chain RWA balances only.

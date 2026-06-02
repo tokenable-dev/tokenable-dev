@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { getActiveOrders, rq, marketplaceRqPolicy } from "@/lib/core";
-import { MarketplaceOrderBook } from "@/components/marketplace/MarketplaceOrderBook";
+import { MarketplaceOrderBook } from "@/components/marketplace/other-order-book";
 
 export default function MarketplaceOtherListingsPage() {
   const { data: orders = [], isLoading } = useQuery({

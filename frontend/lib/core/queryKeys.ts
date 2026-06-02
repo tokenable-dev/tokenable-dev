@@ -16,12 +16,13 @@ export const rq = {
    */
   collectionSnapshots: (
     sortedKeys: readonly string[],
-    priceHistoryDuration: "7d" | "30d" | "90d" | "180d" | "365d" = "365d",
+    priceHistoryDuration: "7d" | "30d" | "90d" | "180d" | "365d" | "max" = "max",
   ) => ["collection-snapshots", [...sortedKeys], priceHistoryDuration] as const,
   rwaMetadataBatch: (address: string | undefined, tokenIds: readonly number[]) =>
     ["rwa-metadata-batch", address ?? "", [...tokenIds].slice().sort((a, b) => a - b)] as const,
   marketMintPreviews: (address: string | undefined, tokenIds: readonly number[]) =>
     ["cardhedger-mint-previews", address ?? "", [...tokenIds].slice().sort((a, b) => a - b)] as const,
+  portfolioHidden: (address: string) => ["portfolio-hidden", address] as const,
 } as const;
 
 export const marketplaceRqPolicy = {

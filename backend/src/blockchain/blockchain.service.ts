@@ -59,6 +59,45 @@ export class BlockchainService {
   }
 
   /**
+   * `ownerOf` for many token ids (bounded concurrency).
+   * Used by portfolio daily snapshot holder discovery.
+   */
+  async batchOwnerOf(
+    tokenIds: number[],
+    concurrency = 24,
+  ): Promise<Map<number, string>> {
+    const unique = [
+      ...new Set(
+        tokenIds
+          .map((n) => Math.floor(Number(n)))
+          .filter((n) => Number.isFinite(n) && n >= 0),
+      ),
+    ];
+    const out = new Map<number, string>();
+    if (unique.length === 0) return out;
+
+    const parallel = Math.max(1, Math.min(Math.floor(concurrency), 64));
+    for (let i = 0; i < unique.length; i += parallel) {
+      const chunk = unique.slice(i, i + parallel);
+      const settled = await Promise.allSettled(
+        chunk.map(async (tokenId) => {
+          const owner: string = await this.tokenableRwa.ownerOf(tokenId);
+          return {
+            tokenId,
+            owner: String(owner).trim().toLowerCase(),
+          };
+        }),
+      );
+      for (const s of settled) {
+        if (s.status !== 'fulfilled') continue;
+        const { tokenId, owner } = s.value;
+        if (owner) out.set(tokenId, owner);
+      }
+    }
+    return out;
+  }
+
+  /**
    * tokenURI → metadata JSON → browser-safe image URL (all server-side, gateway fallbacks + CID cache).
    */
   async getResolvedRwaAsset(tokenId: number): Promise<{

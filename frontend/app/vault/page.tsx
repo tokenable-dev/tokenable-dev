@@ -77,7 +77,7 @@ function Stepper({ active }: { active: number }) {
                   className="shrink-0"
                   padClass={VAULT_OUTLINE_PAD_CLASS}
                 >
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#030712] text-xs font-bold text-mint">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-black text-xs font-bold text-mint">
                     {isDone ? "✓" : s.num}
                   </div>
                 </GradientOutlineFrame>
@@ -117,7 +117,7 @@ function Stepper({ active }: { active: number }) {
                     className="shrink-0"
                     padClass={VAULT_OUTLINE_PAD_CLASS}
                   >
-                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#030712] text-sm font-bold text-mint">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-black text-sm font-bold text-mint">
                       {isDone ? "✓" : s.num}
                     </div>
                   </GradientOutlineFrame>
@@ -161,7 +161,7 @@ function Stepper({ active }: { active: number }) {
 
 export default function VaultPage() {
   return (
-    <div className="min-h-screen min-w-0 overflow-x-clip bg-[#030712] text-white">
+    <div className="min-h-screen min-w-0 overflow-x-clip bg-black text-white">
       <Suspense fallback={null}>
         <LegacyVaultTabRedirect />
       </Suspense>

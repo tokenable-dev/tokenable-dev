@@ -1,5 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
@@ -7,12 +8,13 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
   const app = await NestFactory.create(AppModule);
+  const config = app.get(ConfigService);
 
   app.use(cookieParser());
 
   app.setGlobalPrefix('api');
 
-  const corsOrigin = process.env.CORS_ORIGIN ?? '*';
+  const corsOrigin = config.get<string>('app.corsOrigin') ?? '*';
   const originList =
     corsOrigin === '*'
       ? null
@@ -81,7 +83,7 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, swaggerConfig);
   SwaggerModule.setup('api/docs', app, document);
 
-  if (process.env.NODE_ENV !== 'production') {
+  if (!config.get<boolean>('app.isProduction')) {
     app.use(
       (
         req: { method: string; url?: string },
@@ -100,7 +102,7 @@ async function bootstrap() {
     );
   }
 
-  const port = Number(process.env.PORT ?? 4000);
+  const port = config.get<number>('app.port') ?? 4000;
   await app.listen(port, '0.0.0.0');
   logger.log(`Server running on http://0.0.0.0:${port}/api`);
   logger.log(`Swagger docs at http://localhost:${port}/api/docs`);

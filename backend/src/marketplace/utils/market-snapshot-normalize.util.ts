@@ -169,6 +169,12 @@ export function buildMaterializedSnapshotPayload(input: {
   historyTier: string;
   preview: MarketCollectionPreview;
   historyPoints: UsdPoint[];
+  /**
+   * Optional PSA estimate fallback (when Cardhedger comp/preview is unmatched).
+   * When provided and gradePrices are empty, we fill `psa10` so the UI can show a defensible
+   * market price.
+   */
+  psaEstimateUsd?: number | null;
 }): MaterializedMarketSnapshotPayload {
   const key = input.collectionKey.toLowerCase();
   const headlineUsd =
@@ -179,10 +185,22 @@ export function buildMaterializedSnapshotPayload(input: {
   let externalUsd = input.historyPoints.map((p) => ({ t: p.t, v: p.v }));
   externalUsd = syncExternalTerminalWithHeadline(externalUsd, headlineUsd);
 
-  const gradePrices = extractGradePricesFromPreview(
+  let gradePrices = extractGradePricesFromPreview(
     input.preview,
     input.historyTier,
   );
+
+  // When Cardhedger doesn't match / lacks defensible bands, extractGradePricesFromPreview can
+  // return an empty strip. In that case, fall back to PSA estimate so we still display a
+  // "market-like" price.
+  if (
+    input.psaEstimateUsd != null &&
+    Number.isFinite(input.psaEstimateUsd) &&
+    input.psaEstimateUsd > 0 &&
+    gradePrices.psa10 == null
+  ) {
+    gradePrices = { ...gradePrices, psa10: input.psaEstimateUsd };
+  }
   const spark90 = downsampleSparkPoints(
     filterExternalUsdByDays(externalUsd, 90),
     48,

@@ -1,66 +1,27 @@
 import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { BlockchainModule } from '../blockchain/blockchain.module';
-import { CardhedgerModule } from '../cardhedger/cardhedger.module';
-import { PsaModule } from '../psa/psa.module';
-import { CardhedgerAiInsightService } from './collections/cardhedger-ai-insight.service';
-import { CardhedgerMarketDataService } from './collections/cardhedger-market-data.service';
-import { CertMarketTraceController } from './collections/cert-market-trace.controller';
-import { CertMarketTraceService } from './collections/cert-market-trace.service';
-import { CollectionMarketSnapshotReadService } from './collections/collection-market-snapshot-read.service';
-import { CollectionMarketSnapshotSchedulerService } from './collections/collection-market-snapshot-scheduler.service';
-import { CollectionMarketSnapshotService } from './collections/collection-market-snapshot.service';
-import { CollectionMarketService } from './collections/collection-market.service';
-import { CollectionService } from './collections/collection.service';
-import { PsaCertSnapshotService } from './collections/psa-cert-snapshot.service';
-import { RwaTokenRegistryService } from './collections/rwa-token-registry.service';
-import { CollectionsController } from './collections/collections.controller';
-import { CollectionMarketSnapshot } from './entities/collection-market-snapshot.entity';
-import { MarketplaceCollection } from './entities/marketplace-collection.entity';
-import { PsaCertSnapshot } from './entities/psa-cert-snapshot.entity';
-import { RwaToken } from './entities/rwa-token.entity';
-import { Order } from './entities/order.entity';
-import { OrdersController } from './orders/orders.controller';
-import { OrdersService } from './orders/orders.service';
+import { MarketplaceCollectionsModule } from './collections/marketplace-collections.module';
+import { MarketplaceMarketDataModule } from './market-data/marketplace-market-data.module';
+import { MarketplaceOrdersModule } from './orders/marketplace-orders.module';
+import { MarketplacePortfolioModule } from './portfolio/marketplace-portfolio.module';
+import { MarketplaceSnapshotsModule } from './snapshots/marketplace-snapshots.module';
 
+/**
+ * Marketplace domain — orders, collections, materialized snapshots, portfolio, Cardhedger market data.
+ */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([
-      Order,
-      MarketplaceCollection,
-      CollectionMarketSnapshot,
-      PsaCertSnapshot,
-      RwaToken,
-    ]),
-    BlockchainModule,
-    CardhedgerModule,
-    PsaModule,
-  ],
-  controllers: [
-    OrdersController,
-    CollectionsController,
-    CertMarketTraceController,
-  ],
-  providers: [
-    OrdersService,
-    CollectionService,
-    PsaCertSnapshotService,
-    RwaTokenRegistryService,
-    CardhedgerMarketDataService,
-    CertMarketTraceService,
-    CardhedgerAiInsightService,
-    CollectionMarketService,
-    CollectionMarketSnapshotService,
-    CollectionMarketSnapshotReadService,
-    CollectionMarketSnapshotSchedulerService,
+    MarketplaceMarketDataModule,
+    MarketplaceSnapshotsModule,
+    MarketplacePortfolioModule,
+    MarketplaceCollectionsModule,
+    MarketplaceOrdersModule,
   ],
   exports: [
-    OrdersService,
-    CollectionService,
-    PsaCertSnapshotService,
-    RwaTokenRegistryService,
-    CollectionMarketService,
-    CollectionMarketSnapshotService,
+    MarketplaceMarketDataModule,
+    MarketplaceSnapshotsModule,
+    MarketplacePortfolioModule,
+    MarketplaceCollectionsModule,
+    MarketplaceOrdersModule,
   ],
 })
 export class MarketplaceModule {}

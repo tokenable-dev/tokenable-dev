@@ -2,9 +2,6 @@
  * Raster category / index icons ship at mixed native sizes (e.g. 16–32px).
  * Wrap in a fixed box so UI alignment stays consistent.
  */
-export const MARKET_RASTER_ICON_FRAME =
-  "flex h-9 w-9 shrink-0 items-center justify-center sm:h-10 sm:w-10";
-
 const MARKET_RASTER_ICON_IMG_SIZE =
   "max-h-[1.75rem] max-w-[1.75rem] object-contain object-center sm:max-h-8 sm:max-w-8";
 
