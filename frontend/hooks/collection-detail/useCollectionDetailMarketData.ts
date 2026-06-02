@@ -5,6 +5,8 @@ import { useQuery } from "@tanstack/react-query";
 import {
   getCollectionMarketSeries,
   getCollectionPlatformTrades,
+  rq,
+  marketplaceRqPolicy,
   type CollectionMarketSeries,
   type CollectionPlatformTapeFill,
 } from "@/lib/core";
@@ -19,15 +21,15 @@ import {
   resolveExternalMarketUsd,
 } from "@/lib/market";
 import { COLLECTION_SESSION_FILL_DEDUP_SEC } from "@/lib/marketplace/collectionDetailConstants";
-import type { CollectionDetailComponents } from "@/lib/marketplace/collectionDetailComponents";
+import type { CollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
 
 const LIVE_MARKET_LEGEND = "Live market price";
 
 export function useCollectionDetailMarketData(params: {
   key: string;
-  comp: CollectionDetailComponents;
+  comp: CollectionComponents;
   hasCollection: boolean;
-  collectionComponents: Record<string, unknown> | undefined;
+  collectionComponents: CollectionComponents | undefined;
   detailLoading: boolean;
   detailError: boolean;
   hasDetailData: boolean;
@@ -56,16 +58,16 @@ export function useCollectionDetailMarketData(params: {
     key.length > 0 && !detailLoading && !detailError && hasDetailData;
 
   const { data: marketSeries, isLoading: marketSeriesLoading } = useQuery({
-    queryKey: ["collection-market-series", key, MARKET_METRICS_SERIES_DURATION],
+    queryKey: rq.collectionMarketSeries(key, MARKET_METRICS_SERIES_DURATION),
     queryFn: () => getCollectionMarketSeries(key, MARKET_METRICS_SERIES_DURATION),
     enabled: marketSeriesEnabled,
-    staleTime: 120_000,
+    staleTime: marketplaceRqPolicy.marketSeriesStaleMs,
   });
 
   const marketPreview = marketSeries?.cardhedgerPreview ?? null;
 
   const { data: platformTradesData, isLoading: platformTradesLoading } = useQuery({
-    queryKey: ["collection-platform-trades", key],
+    queryKey: rq.collectionPlatformTrades(key),
     queryFn: () => getCollectionPlatformTrades(key),
     enabled: key.length > 0,
     refetchInterval: 20_000,

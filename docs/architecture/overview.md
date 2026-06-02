@@ -12,8 +12,8 @@ Browser / Wallet (MetaMask)
                         │
               ┌─────────┼──────────────┐
               ▼         ▼              ▼
-         PostgreSQL  Ethereum RPC   External APIs
-         (TypeORM)   (Alchemy)      Cardhedger
+         PostgreSQL  Redis (L2)     Ethereum RPC   External APIs
+         (TypeORM)   (identity)     (Alchemy)      Cardhedger
                                     PSA Public API
                                     Pinata IPFS
 ```
@@ -35,6 +35,7 @@ Browser / Wallet (MetaMask)
 | `tokenable-frontend` | ECR `tokenable-frontend` | 3000 (internal) |
 | `tokenable-backend` | ECR `tokenable-backend` | 4000 (internal) |
 | `tokenable-postgres` | `postgres:16-alpine` | 5432 (internal) |
+| `tokenable-redis` | `redis:7-alpine` | 6379 (internal; host dev: localhost:6379) |
 | `tokenable-nginx` | `nginx:alpine` | 80, 443 (public) |
 
 Local development omits Nginx; the frontend dev server proxies `/api` to `localhost:4000`.

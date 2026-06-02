@@ -115,10 +115,13 @@ export class PortfolioDailySnapshotSchedulerService implements OnModuleInit {
       const locked = rows?.[0]?.locked;
       return locked === true || locked === 't';
     } catch (e) {
+      // Fail-closed: if the DB is unreachable we cannot safely determine
+      // lock ownership, so we skip this run rather than letting all replicas
+      // proceed simultaneously.
       this.logger.warn(
-        `portfolio snapshot advisory lock unavailable: ${String(e)}`,
+        `portfolio snapshot advisory lock unavailable — skipping run: ${String(e)}`,
       );
-      return true;
+      return false;
     }
   }
 

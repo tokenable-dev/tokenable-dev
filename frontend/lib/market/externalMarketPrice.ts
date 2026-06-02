@@ -1,4 +1,5 @@
 import type { CollectionGradePrices, CollectionMarketPreview, CollectionUsdPoint } from "@/lib/core";
+import type { CollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
 import {
   catalogSpotUsdFromMarketPreview,
 } from "@/lib/market";
@@ -73,7 +74,7 @@ export function resolveExternalMarketUsd(params: {
   gradePrices: CollectionGradePrices | null | undefined;
   gradeScore: number | null | undefined;
   /** When set, picks PSA_10 history tier for spot (same as chart). */
-  components?: Record<string, unknown> | null;
+  components?: CollectionComponents | null;
 }): ResolvedExternalMarketUsd {
   const tier = marketHistoryTierFromComponents(params.components ?? null);
   const preview =

@@ -58,14 +58,10 @@ function KvBadge({
   );
 }
 
-function parsePsaPopulationFromComponents(components: Record<string, unknown>): number | null {
+function parsePsaPopulationFromComponents(components: import("@/lib/marketplace/collectionDetailComponents").CollectionComponents): number | null {
   const raw = components.psaTotalPopulation;
   if (typeof raw === "number" && Number.isFinite(raw) && raw >= 0) {
     return Math.floor(raw);
-  }
-  if (typeof raw === "string" && raw.trim()) {
-    const n = Number(String(raw).replace(/,/g, ""));
-    if (Number.isFinite(n) && n >= 0) return Math.floor(n);
   }
   return null;
 }
@@ -83,7 +79,7 @@ export function CollectionGridCard({
   listingCount: number;
   marketChangeLoading?: boolean;
 }) {
-  const comp = collection.components as Record<string, unknown> & { gradeScore?: string };
+  const comp = collection.components;
   const jtSpot = representativeGradeUsd(
     snapshot?.gradePrices ?? null,
     parseGradeScoreNumber(comp.gradeScore),

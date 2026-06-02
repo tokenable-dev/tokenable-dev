@@ -8,7 +8,6 @@ import { Order } from '../entities/order.entity';
 import { MarketplaceCollection } from '../entities/marketplace-collection.entity';
 import { RwaToken } from '../entities/rwa-token.entity';
 import { MarketplaceMarketDataModule } from '../market-data/marketplace-market-data.module';
-import { MarketplacePortfolioModule } from '../portfolio/marketplace-portfolio.module';
 import { MarketplaceSnapshotsModule } from '../snapshots/marketplace-snapshots.module';
 import { CertMarketTraceController } from './cert-market-trace.controller';
 import { CertMarketTraceService } from './cert-market-trace.service';
@@ -17,6 +16,20 @@ import { CollectionMerkleSetService } from './collection-merkle-set.service';
 import { CollectionBootService } from './collection-boot.service';
 import { CollectionComponentsService } from './collection-components.service';
 import { CollectionCoverService } from './collection-cover.service';
+import { CollectionEnrichmentService } from './collection-enrichment.service';
+import { CollectionIdentityService } from './collection-identity.service';
+import { IdentityCacheDecisionEngine } from './identity-cache-decision.engine';
+import { IdentityCacheExecutionService } from './identity-cache-execution.service';
+import { IdentityCacheReconciliationService } from './identity-cache-reconciliation.service';
+import { IdentityCacheSloService } from './identity-cache-slo.service';
+import { IdentityCacheWarmupService } from './identity-cache-warmup.service';
+import { IdentityStructuredLogger } from './identity-structured-logger';
+import {
+  IDENTITY_CACHE_PROVIDER,
+  InProcessIdentityCacheProvider,
+} from './identity-cache.provider';
+import { LayeredIdentityCacheProvider } from './layered-identity-cache.provider';
+import { RedisIdentityCacheProvider } from './redis-identity-cache.provider';
 import { CollectionService } from './collection.service';
 import { RwaTokenRegistryService } from './rwa-token-registry.service';
 import { CollectionsController } from './collections.controller';
@@ -24,6 +37,12 @@ import { CollectionsController } from './collections.controller';
 /**
  * Collection buckets, order-book reads, cover enrichment, merkle leaves.
  * Composes market-data, snapshots, and portfolio submodules.
+ *
+ * forwardRef(MarketplaceSnapshotsModule): CollectionMarketService depends on the
+ * three snapshot services (CollectionMarketSnapshotService, Read, Scheduler).
+ * MarketplaceSnapshotsModule also imports this module (for CollectionEnrichmentService),
+ * creating a circular module dependency. forwardRef on both sides is the NestJS-
+ * recommended way to handle this pattern without changing service boundaries.
  */
 @Module({
   imports: [
@@ -33,16 +52,30 @@ import { CollectionsController } from './collections.controller';
     PsaModule,
     MarketplaceMarketDataModule,
     forwardRef(() => MarketplaceSnapshotsModule),
-    forwardRef(() => MarketplacePortfolioModule),
   ],
   controllers: [CollectionsController, CertMarketTraceController],
   providers: [
+    InProcessIdentityCacheProvider,
+    RedisIdentityCacheProvider,
+    LayeredIdentityCacheProvider,
+    {
+      provide: IDENTITY_CACHE_PROVIDER,
+      useExisting: LayeredIdentityCacheProvider,
+    },
+    CollectionIdentityService,
+    IdentityCacheDecisionEngine,
+    IdentityCacheExecutionService,
+    IdentityCacheReconciliationService,
+    IdentityCacheSloService,
+    IdentityCacheWarmupService,
+    IdentityStructuredLogger,
     MarketplaceAdminService,
     CollectionMerkleSetService,
     CollectionCoverService,
     CollectionComponentsService,
     CollectionBootService,
     CollectionService,
+    CollectionEnrichmentService,
     RwaTokenRegistryService,
     CertMarketTraceService,
     CollectionMarketService,
@@ -50,6 +83,7 @@ import { CollectionsController } from './collections.controller';
   exports: [
     MarketplaceAdminService,
     CollectionService,
+    CollectionEnrichmentService,
     RwaTokenRegistryService,
     CollectionMarketService,
   ],

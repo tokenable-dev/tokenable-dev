@@ -1,4 +1,5 @@
 import { Inject, Injectable, Logger, forwardRef } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { QueryDeepPartialEntity, Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -24,11 +25,11 @@ import { MarketplaceCollection } from '../entities/marketplace-collection.entity
 import { RwaToken } from '../entities/rwa-token.entity';
 import { PsaCertSnapshotService } from './psa-cert-snapshot.service';
 import { RwaTokenRegistryService } from './rwa-token-registry.service';
-import { CollectionMarketSnapshotSchedulerService } from '../snapshots/collection-market-snapshot-scheduler.service';
 import { CollectionMerkleSetService } from './collection-merkle-set.service';
 import { CollectionBootService } from './collection-boot.service';
 import { CollectionComponentsService } from './collection-components.service';
 import { CollectionCoverService } from './collection-cover.service';
+import { CollectionIdentityService } from './collection-identity.service';
 import {
   cardhedgerFromRwaMetadata,
   extractListingDisplayTitleFromMeta,
@@ -63,11 +64,11 @@ export class CollectionService {
     private readonly ipfsResolver: IpfsGatewayResolverService,
     private readonly psaCertSnapshots: PsaCertSnapshotService,
     private readonly rwaTokenRegistry: RwaTokenRegistryService,
-    @Inject(forwardRef(() => CollectionMarketSnapshotSchedulerService))
-    private readonly snapshotScheduler: CollectionMarketSnapshotSchedulerService,
+    private readonly eventEmitter: EventEmitter2,
     private readonly merkleSet: CollectionMerkleSetService,
     private readonly cover: CollectionCoverService,
     private readonly components: CollectionComponentsService,
+    private readonly identity: CollectionIdentityService,
     @Inject(forwardRef(() => CollectionBootService))
     private readonly boot: CollectionBootService,
   ) {}
@@ -79,7 +80,7 @@ export class CollectionService {
   }
 
   private enqueueMarketSnapshotRefresh(collectionKey: string): void {
-    this.snapshotScheduler.enqueue(collectionKey, 'cold_start');
+    this.eventEmitter.emit('snapshot.enqueue', { key: collectionKey, reason: 'cold_start' });
   }
 
   private collectionActiveOrdersCap(): number {
@@ -155,7 +156,11 @@ export class CollectionService {
     if (listingTitle) {
       compRecord.listingDisplayTitle = listingTitle;
     }
-    if (ch.cardId) {
+    // When identity service is enabled, cardhedgerCardId is NOT written during INSERT.
+    // CollectionIdentityService.seedFromMintMetadataOnInsert() handles it post-insert
+    // so the identity service remains the sole write authority.
+    // When the flag is off, the legacy path writes it directly here (unchanged behavior).
+    if (ch.cardId && !this.identity.isEnabled()) {
       compRecord.cardhedgerCardId = ch.cardId;
       if (ch.searchQuery) compRecord.cardhedgerSearchQuery = ch.searchQuery;
     }
@@ -250,6 +255,7 @@ export class CollectionService {
         collectionKey,
         meta,
       );
+      // Already delegates to CollectionIdentityService.writeFromMintMetadata when flag is on.
       await this.components.mergeCardhedgerCardIdFromMetaIfMissing(
         collectionKey,
         meta,
@@ -262,6 +268,13 @@ export class CollectionService {
         collectionKey,
         meta,
       );
+    } else {
+      // New collection row created. Seed identity state non-blocking.
+      // Snapshot correctness does NOT depend on seed completion — the snapshot
+      // pipeline uses whatever cardhedgerCardId is in DB at execution time, and
+      // falls back to search when null (CardhedgerResolveService handles both paths).
+      // When flag is off this is a no-op.
+      void this.identity.seedFromMintMetadataOnInsert(collectionKey, meta);
     }
 
     void this.rwaTokenRegistry.upsertFromMetadata(tokenId, meta, {
@@ -382,9 +395,16 @@ export class CollectionService {
   }
 
   async findOne(key: string): Promise<MarketplaceCollection | null> {
-    return this.collectionRepo.findOne({
+    const row = await this.collectionRepo.findOne({
       where: { collectionKey: key.toLowerCase() },
     });
+    if (!row) return null;
+    // UX OPTIMIZATION ONLY (not a correctness requirement):
+    // Hydrates cardhedgerCardId from the identity cache when DB has null, reducing
+    // the propagation window visible to the collection detail API.
+    // The snapshot pipeline uses CollectionEnrichmentService.findOne which reads
+    // pure DB state and is correct regardless of this hydration.
+    return this.identity.hydrateCardhedgerCardId(row);
   }
 
   async ensureMintParallelVarietyFromListings(

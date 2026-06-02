@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { postResolveMediaUrls } from "@/lib/core";
+import { postResolveMediaUrls, rq, marketplaceRqPolicy } from "@/lib/core";
 import { uriNeedsBackendResolve } from "@/lib/marketplace";
 
 /**
@@ -16,13 +16,13 @@ export function useResolvedMediaUrl(uri: string | null | undefined): {
   const needs = Boolean(trimmed && uriNeedsBackendResolve(trimmed));
 
   const q = useQuery({
-    queryKey: ["media-https", trimmed],
+    queryKey: rq.mediaHttps(trimmed),
     queryFn: async () => {
       const { items } = await postResolveMediaUrls([trimmed]);
       return items[0]?.httpsUrl ?? null;
     },
     enabled: needs,
-    staleTime: 60 * 60 * 1000,
+    staleTime: marketplaceRqPolicy.mediaStaleMs,
   });
 
   if (!trimmed) return { url: "", isLoading: false };
@@ -52,7 +52,7 @@ export function useResolvedMediaUrlMap(
   }, [rawUris]);
 
   const q = useQuery({
-    queryKey: ["media-https-batch", key],
+    queryKey: rq.mediaHttpsBatch(key),
     queryFn: async () => {
       if (toResolve.length === 0) return new Map<string, string>();
       const { items } = await postResolveMediaUrls(toResolve);

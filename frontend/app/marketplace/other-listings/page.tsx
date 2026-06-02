@@ -1,17 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
-import { getActiveOrders, rq, marketplaceRqPolicy } from "@/lib/core";
 import { MarketplaceOrderBook } from "@/components/marketplace/other-order-book";
+import { useMarketsOrders } from "@/hooks/markets/useMarketsPageData";
 
 export default function MarketplaceOtherListingsPage() {
-  const { data: orders = [], isLoading } = useQuery({
-    queryKey: rq.ordersActive(),
-    queryFn: getActiveOrders,
-    refetchInterval: marketplaceRqPolicy.ordersRefetchMs,
-    staleTime: marketplaceRqPolicy.ordersStaleMs,
-  });
+  const { orders, isLoading } = useMarketsOrders();
 
   const asks = orders.filter((o) => o.side !== "bid");
   const orphan = asks.filter((o) => !o.collectionKey || !String(o.collectionKey).trim());

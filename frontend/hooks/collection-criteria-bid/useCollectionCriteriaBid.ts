@@ -17,11 +17,11 @@ import {
   USDC_ADDRESS,
   USDC_ABI,
 } from "@/constants/contracts";
-import { getMerkleEligibleTokenIds, type Order } from "@/lib/core";
+import { getMerkleEligibleTokenIds, rq, marketplaceRqPolicy, type Order } from "@/lib/core";
 import { mapWalletError } from "@/lib/network";
 import { askPriceMicros, pickLowestActiveAsk } from "@/lib/seaport/criteria/collectionCriteriaBidAsk";
 import { useCriteriaBidFloorAsks } from "./useCriteriaBidFloorAsks";
-import { invalidateCollectionCriteriaBidQueries } from "@/lib/seaport/criteria/invalidateCollectionCriteriaBidQueries";
+import { invalidateAfterCriteriaBid } from "@/lib/core/invalidation";
 import { runCollectionInstantAskPurchase } from "@/lib/seaport/criteria/runCollectionInstantAskPurchase";
 import { submitCollectionCriteriaBid } from "@/lib/seaport/criteria/submitCollectionCriteriaBid";
 import type { CollectionCriteriaBidStep } from "@/lib/marketplace/collectionCriteriaBidTypes";
@@ -60,10 +60,10 @@ export function useCollectionCriteriaBid(input: {
     isLoading: merkleLoading,
     isError: merkleIsError,
   } = useQuery({
-    queryKey: ["merkle-set", collectionKey],
+    queryKey: rq.merkleSet(collectionKey),
     queryFn: () => getMerkleEligibleTokenIds(collectionKey),
     enabled: String(collectionKey ?? "").trim().length > 0,
-    staleTime: 30_000,
+    staleTime: marketplaceRqPolicy.merkleSetStaleMs,
   });
 
   const merkleLeafTokenIds = merkleSet?.tokenIds ?? [];
@@ -115,7 +115,7 @@ export function useCollectionCriteriaBid(input: {
     merkleLeafTokenIds.length > 0 && counter !== undefined && !merkleLoading && !merkleIsError;
 
   const invalidateAfterTrade = async () => {
-    await invalidateCollectionCriteriaBidQueries(queryClient, collectionKey);
+    await invalidateAfterCriteriaBid(queryClient, collectionKey);
   };
 
   const runInstantPurchase = async (ask: Order) => {

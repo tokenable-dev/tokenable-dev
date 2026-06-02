@@ -65,7 +65,7 @@ export interface CollectionMetadataExpandableProps {
   queryUsed?: string | null;
   createdAt?: string | null;
   representativeImageUrl?: string | null;
-  components: Record<string, unknown>;
+  components: import("@/lib/marketplace/collectionDetailComponents").CollectionComponents;
   marketSeriesMeta?: {
     categoryLabel: string | null;
   } | null;

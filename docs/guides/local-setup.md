@@ -4,7 +4,7 @@
 
 - **Node.js** ≥ 22
 - **pnpm** ≥ 9
-- **Docker** + Docker Compose (for PostgreSQL)
+- **Docker** + Docker Compose (for PostgreSQL and Redis)
 - Git
 
 ---
@@ -24,10 +24,10 @@ cd frontend && pnpm install && cd ..
 
 ---
 
-## 2. Start PostgreSQL
+## 2. Start PostgreSQL & Redis
 
 ```bash
-docker compose up -d postgres
+docker compose up -d postgres redis
 ```
 
 Tables are auto-created at backend startup via TypeORM `synchronize: true` (dev mode).  
@@ -51,6 +51,10 @@ POSTGRES_PORT=5432
 POSTGRES_USER=tokenable
 POSTGRES_PASSWORD=tokenable
 POSTGRES_DB=tokenable
+
+# Redis (identity cache L2 — requires `docker compose up -d redis`)
+REDIS_URL=redis://127.0.0.1:6379
+# IDENTITY_SERVICE_ENABLED=true
 
 # Auth
 JWT_SECRET=your_jwt_secret_here

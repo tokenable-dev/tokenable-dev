@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { postTokenCollectionKeysByTokenIds } from "@/lib/core";
+import { postTokenCollectionKeysByTokenIds, rq } from "@/lib/core";
 import {
   computeMarketBucketKey,
   extractBucketComponentsFromMetadata,
@@ -58,12 +58,10 @@ export function usePortfolioCollectionKeys(input: {
     [assets, listingCollectionKeyByToken],
   );
 
+  const portfolioBucketKeysSig = portfolioBucketKeySourceSig;
+
   const { data: tokenToCollectionKey = {}, isFetching: bucketKeysFetching } = useQuery({
-    queryKey: [
-      "portfolio-bucket-keys",
-      address ?? "",
-      portfolioBucketKeySourceSig,
-    ] as const,
+    queryKey: rq.portfolioBucketKeys(address ?? "", portfolioBucketKeysSig),
     queryFn: async () => {
       const o: Record<number, string> = {};
       const backendResolved = await postTokenCollectionKeysByTokenIds(

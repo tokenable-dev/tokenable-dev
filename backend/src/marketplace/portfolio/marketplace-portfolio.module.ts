@@ -9,6 +9,7 @@ import { MarketplaceMarketDataModule } from '../market-data/marketplace-market-d
 import { PortfolioDailySnapshotSchedulerService } from './portfolio-daily-snapshot-scheduler.service';
 import { PortfolioDailySnapshotService } from './portfolio-daily-snapshot.service';
 import { PortfolioHiddenHoldingService } from './portfolio-hidden-holding.service';
+import { PortfolioController } from './portfolio.controller';
 
 /** Wallet portfolio daily snapshots and hidden-holdings UI state. */
 @Module({
@@ -22,6 +23,7 @@ import { PortfolioHiddenHoldingService } from './portfolio-hidden-holding.servic
     MarketplaceMarketDataModule,
     forwardRef(() => MarketplaceCollectionsModule),
   ],
+  controllers: [PortfolioController],
   providers: [
     PortfolioDailySnapshotService,
     PortfolioDailySnapshotSchedulerService,

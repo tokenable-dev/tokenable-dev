@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { getPortfolioDailySnapshots } from "@/lib/core";
+import { getPortfolioDailySnapshots, rq, marketplaceRqPolicy } from "@/lib/core";
 import { formatSnapshotAxisLabel } from "@/lib/portfolio/portfolioAssetMeta";
 
 export function usePortfolioDailyChart(
@@ -10,10 +10,10 @@ export function usePortfolioDailyChart(
   isConnected: boolean,
 ) {
   const { data: dailySnapshotsData, isLoading: dailySnapshotsLoading } = useQuery({
-    queryKey: ["portfolio-daily-snapshots", address ?? ""] as const,
+    queryKey: rq.portfolioDailySnapshots(address ?? ""),
     queryFn: () => getPortfolioDailySnapshots(address!, 32),
     enabled: Boolean(address && isConnected),
-    staleTime: 120_000,
+    staleTime: marketplaceRqPolicy.portfolioDailyStaleMs,
   });
 
   const dailyPnlUsd = dailySnapshotsData?.latest24h?.pnlUsd ?? null;

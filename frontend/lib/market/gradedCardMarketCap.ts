@@ -3,6 +3,7 @@ import type {
   CollectionMarketPreview,
 } from "@/lib/core";
 import { marketHistoryTierFromComponents } from "@/lib/market";
+import type { CollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
 
 /**
  * PSA 슬랩만 취급할 때의 "시가총액" 참고치.
@@ -165,7 +166,7 @@ export function computePsaMarketCapUsd(params: {
   };
 }
 
-export function parsePsaTotalPopulation(components: Record<string, unknown>): number | null {
+export function parsePsaTotalPopulation(components: CollectionComponents): number | null {
   const v = components.psaTotalPopulation;
   if (typeof v === "number" && Number.isFinite(v) && v > 0) return Math.floor(v);
   return null;
@@ -193,7 +194,7 @@ function unitUsdFromGradePrices(
  * - 목록 등: 스냅샷의 PokeTrace NM 스트립(`gradePrices`) × 인구
  */
 export function computeCollectionMarketCapUsd(params: {
-  components: Record<string, unknown>;
+  components: CollectionComponents;
   gradeScoreStr: string | undefined | null;
   marketCard: CollectionMarketPreview["card"];
   /** When preview is approximate-match, skip catalog $ path (same as primary price policy). */

@@ -1,11 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useAccount, usePublicClient, useWriteContract } from "wagmi";
 import { sepolia } from "viem/chains";
-import { getPortfolioHiddenHoldings, rq } from "@/lib/core";
 import {
   usePortfolioAssetList,
   usePortfolioCollectionKeys,
@@ -15,6 +14,7 @@ import {
   usePortfolioMarketPricing,
   useUserAssets,
 } from "@/hooks/portfolio";
+import { usePortfolioHiddenHoldings } from "@/hooks/portfolio/usePortfolioPageData";
 import { useIsMobileViewport } from "@/hooks/ui";
 import {
   buildPortfolioPricedRows,
@@ -67,14 +67,7 @@ export default function PortfolioPage() {
     [hookAssets],
   );
 
-  const { data: hiddenTokenIds = [] } = useQuery({
-    queryKey: rq.portfolioHidden(address ?? ""),
-    queryFn: () => getPortfolioHiddenHoldings(address!),
-    enabled: Boolean(address && isConnected),
-    staleTime: 30_000,
-  });
-
-  const hiddenSet = useMemo(() => new Set(hiddenTokenIds), [hiddenTokenIds]);
+  const { hiddenSet } = usePortfolioHiddenHoldings(address, isConnected);
 
   const listingCollectionKeyByToken = usePortfolioListingCollectionKeys(
     allOrders,

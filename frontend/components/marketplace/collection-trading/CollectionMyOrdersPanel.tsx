@@ -3,7 +3,7 @@
 import type { Order } from "@/lib/core";
 import { CollectionMyOrdersEmbeddedBody } from "./CollectionMyOrdersEmbeddedBody";
 import { CollectionMyOrdersStandaloneBody } from "./CollectionMyOrdersStandaloneBody";
-import { useCollectionMyOrders } from "./useCollectionMyOrders";
+import { useCollectionMyOrders } from "@/hooks/marketplace/collection-trading/useCollectionMyOrders";
 
 export function CollectionMyOrdersPanel({
   asks,

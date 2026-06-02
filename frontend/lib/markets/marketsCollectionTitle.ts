@@ -4,10 +4,11 @@ import {
   bucketCardNameForDisplay,
   bucketCardSetForDisplay,
 } from "@/lib/marketplace/bucketKey";
+import type { CollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
 
 export function buildMarketsCollectionTitle(params: {
   collection: MarketplaceCollectionSummary;
-  comp: Record<string, unknown>;
+  comp: CollectionComponents;
 }): string {
   const { collection, comp } = params;
 
@@ -30,7 +31,7 @@ export function buildMarketsCollectionTitle(params: {
   const dl =
     typeof collection.displayLabel === "string" ? collection.displayLabel.trim() : "";
 
-  const yearFromCompRaw = (comp as Record<string, unknown>).year;
+  const yearFromCompRaw = comp.year;
   const yearFromComp =
     typeof yearFromCompRaw === "number" && Number.isFinite(yearFromCompRaw)
       ? yearFromCompRaw

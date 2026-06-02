@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { getActiveOrderForToken } from "@/lib/core";
+import { getActiveOrderForToken, rq } from "@/lib/core";
 import {
   parseRwaDetailListingBuyPriceUsdc,
   pickActiveAskListing,
@@ -17,7 +17,7 @@ export function useRwaDetailListing(
     data: listing,
     isError: listingError,
   } = useQuery({
-    queryKey: ["orders", "by-token-active", tokenId],
+    queryKey: rq.orderByToken(tokenId),
     queryFn: () => getActiveOrderForToken(tokenId),
     retry: 1,
     enabled: tokenIdOk,

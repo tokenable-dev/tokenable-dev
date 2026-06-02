@@ -2,14 +2,11 @@
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
 import {
-  postMarketplaceCollectionSnapshotsBatched,
-  rq,
-  marketplaceRqPolicy,
   type CollectionListMarketSnapshot,
   type MarketplaceCollectionSummary,
 } from "@/lib/core";
+import { useTrendingSnapshots } from "@/hooks/landing/useTrendingCollections";
 import { useMarketplaceCollectionsInfinite } from "@/hooks/marketplace";
 import { CollectionCoverFrame } from "@/components/marketplace/collection-cover";
 import {
@@ -29,7 +26,7 @@ const MAX_TRENDING_VISIBLE_MOBILE = 1;
 const TRENDING_POOL = 10;
 const CAROUSEL_AUTO_INTERVAL_MS = 5000;
 
-function marketplaceSummaryHasPsaCertNumber(components: Record<string, unknown> | undefined): boolean {
+function marketplaceSummaryHasPsaCertNumber(components: import("@/lib/marketplace/collectionDetailComponents").CollectionComponents | undefined): boolean {
   const n = components?.psaCertNumber;
   return typeof n === "string" && n.trim().length > 0;
 }
@@ -39,9 +36,7 @@ function trendingCarouselImageUrl(c: MarketplaceCollectionSummary): string | nul
   const cover = c.coverImageUrl?.trim();
   if (cover && cover.length > 0) return cover;
   // Fall back to PSA slab image if no cover is available
-  const comp = c.components as Record<string, unknown> | undefined;
-  const slab =
-    typeof comp?.trendingSlabImageUrl === "string" ? comp.trendingSlabImageUrl.trim() : "";
+  const slab = typeof c.components.trendingSlabImageUrl === "string" ? c.components.trendingSlabImageUrl.trim() : "";
   return slab || null;
 }
 
@@ -95,7 +90,7 @@ export function TrendingCollectionsCarousel({
 
     const withCert: MarketplaceCollectionSummary[] = [];
     for (const c of sorted) {
-      if (marketplaceSummaryHasPsaCertNumber(c.components as Record<string, unknown>)) {
+      if (marketplaceSummaryHasPsaCertNumber(c.components)) {
         withCert.push(c);
       }
     }
@@ -125,22 +120,15 @@ export function TrendingCollectionsCarousel({
 
   const fetchSnapshotsLocally = snapshotByKeyProp == null && trendingSnapshotKeysSorted.length > 0;
 
-  const { data: snapshotPack } = useQuery({
-    queryKey: rq.collectionSnapshots(trendingSnapshotKeysSorted, "max" as const),
-    queryFn: () =>
-      postMarketplaceCollectionSnapshotsBatched(trendingSnapshotKeysSorted, "max"),
-    enabled: fetchSnapshotsLocally,
-    staleTime: marketplaceRqPolicy.snapshotsStaleMs,
-  });
+  const { snapshotByKey: localSnapshotByKey } = useTrendingSnapshots(
+    trendingSnapshotKeysSorted,
+    fetchSnapshotsLocally,
+  );
 
-  const snapshotByKey = useMemo(() => {
-    if (snapshotByKeyProp) return snapshotByKeyProp;
-    const m = new Map<string, CollectionListMarketSnapshot>();
-    for (const it of snapshotPack?.items ?? []) {
-      m.set(it.collectionKey.toLowerCase(), it);
-    }
-    return m;
-  }, [snapshotByKeyProp, snapshotPack]);
+  const snapshotByKey = useMemo(
+    () => snapshotByKeyProp ?? localSnapshotByKey,
+    [snapshotByKeyProp, localSnapshotByKey],
+  );
 
   const trendingCount = trendingNow.length;
 
@@ -309,7 +297,7 @@ export function TrendingCollectionsCarousel({
     narrowTrainSlideCount?: number,
   ) => {
     const s = snapshotByKey.get(c.collectionKey.toLowerCase());
-    const comp = c.components as { gradeScore?: string };
+    const comp = c.components;
     const eBayPrice = representativeGradeUsd(
       s?.gradePrices ?? null,
       parseGradeScoreNumber(comp.gradeScore),

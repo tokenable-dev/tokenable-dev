@@ -7,6 +7,7 @@ import {
   bucketGradeScoreFromPsaGradeInput,
   psaGradePolicyInputFromGraded,
 } from "@/lib/market/psaGradePolicy";
+import type { CollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
 
 export interface MarketBucketComponents {
   gradingCompany: string;
@@ -214,14 +215,14 @@ export function bucketTextForDisplay(primary: unknown, fallback: unknown): strin
   return typeof fallback === "string" ? fallback.trim() : "";
 }
 
-export function bucketCardNameForDisplay(comp: Record<string, unknown>): string {
+export function bucketCardNameForDisplay(comp: CollectionComponents): string {
   return bucketTextForDisplay(comp.cardNameDisplay, comp.cardName);
 }
 
-export function bucketCardSetForDisplay(comp: Record<string, unknown>): string {
+export function bucketCardSetForDisplay(comp: CollectionComponents): string {
   return bucketTextForDisplay(comp.cardSetDisplay, comp.cardSet);
 }
 
-export function bucketGradingCompanyForDisplay(comp: Record<string, unknown>): string {
+export function bucketGradingCompanyForDisplay(comp: CollectionComponents): string {
   return bucketTextForDisplay(comp.gradingCompanyDisplay, comp.gradingCompany);
 }

@@ -59,7 +59,7 @@ export function useRwaDetailMarketContext(input: {
   );
 
   const { data: collectionDetail } = useQuery({
-    queryKey: ["marketplace-collection", collectionKeyForMatch],
+    queryKey: rq.collectionDetail(collectionKeyForMatch ?? ""),
     queryFn: () => getMarketplaceCollectionDetailOrNull(collectionKeyForMatch!),
     enabled: Boolean(collectionKeyForMatch && tokenIdOk),
     staleTime: 15_000,
@@ -89,9 +89,7 @@ export function useRwaDetailMarketContext(input: {
   }, [detailSnapshotPack?.items, collectionSnapshotKey]);
 
   const externalRefUsd = useMemo(() => {
-    const comp = collectionDetail?.collection?.components as
-      | { gradeScore?: string }
-      | undefined;
+    const comp = collectionDetail?.collection?.components;
     const usd = representativeGradeUsd(
       collectionSnapshot?.gradePrices ?? null,
       parseGradeScoreNumber(comp?.gradeScore),

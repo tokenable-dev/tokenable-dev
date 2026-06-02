@@ -1,11 +1,12 @@
 import { backendFetch, getApiUrl } from "./client";
 import type { Order } from "./orders";
+import type { CollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
 
 export interface MarketplaceCollectionSummary {
   collectionKey: string;
   displayLabel: string;
   queryUsed: string | null;
-  components: Record<string, unknown>;
+  components: CollectionComponents;
   createdAt: string;
   activeListingCount: number;
   /** Collection representative image (card art/cert source); may be null. */
@@ -40,7 +41,7 @@ export interface MarketplaceCollectionDetail {
     collectionKey: string;
     displayLabel: string;
     queryUsed: string | null;
-    components: Record<string, unknown>;
+    components: CollectionComponents;
     createdAt: string;
     /** Persisted cover; stable once set. Prefer this over recomputed fallback in UI when present. */
     coverImageUrl?: string | null;

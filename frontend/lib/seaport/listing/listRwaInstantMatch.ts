@@ -3,6 +3,10 @@ import { formatUnits, type Address, type PublicClient } from "viem";
 import type { WalletClient } from "viem";
 import { cancelOrder, getMarketplaceCollectionDetail, getOrderByHash, rq, type Order } from "@/lib/core";
 import {
+  invalidateAfterListing,
+  invalidateForMatchRetry,
+} from "@/lib/core/invalidation";
+import {
   applyInstantOnlyProtection,
   isAbortLikeError,
   matchFlowHttpSignal,
@@ -110,9 +114,7 @@ async function tryMatchAfterListing(
   for (let round = 0; round < maxMatchRounds; round++) {
     if (round > 0) {
       await new Promise((r) => setTimeout(r, 200 * round));
-      await deps.queryClient.invalidateQueries({ queryKey: ["marketplace-collection", key] });
-      await deps.queryClient.invalidateQueries({ queryKey: ["merkle-set", key] });
-      await deps.queryClient.invalidateQueries({ queryKey: ["merkle-set"] });
+      await invalidateForMatchRetry(deps.queryClient, key);
     }
 
     let bids: Order[] = [];
@@ -392,23 +394,14 @@ export async function invalidateListingQueries(
   deps: ListRwaInstantMatchDeps,
   created: Order,
 ): Promise<void> {
-  await deps.queryClient.invalidateQueries({ queryKey: ["orders"] });
-  await deps.queryClient.invalidateQueries({ queryKey: ["rwa-metadata-batch"] });
-  await deps.queryClient.invalidateQueries({ queryKey: ["cardhedger-mint-previews"] });
-  await deps.queryClient.invalidateQueries({ queryKey: rq.collectionsMarketplace() });
-  await deps.queryClient.invalidateQueries({ queryKey: ["collection-snapshots"] });
-  await deps.queryClient.invalidateQueries({ queryKey: ["marketplace-collection"] });
-  await deps.queryClient.invalidateQueries({ queryKey: ["merkle-set"] });
   const colKey =
     orderCollectionKey(created) ||
     (deps.collectionKey != null ? deps.collectionKey.trim() : "") ||
     orderCollectionKey(deps.resolvedExistingAsk);
-  if (colKey) {
-    await deps.queryClient.invalidateQueries({ queryKey: ["merkle-set", colKey] });
-  }
-  if (deps.address) {
-    await deps.queryClient.invalidateQueries({ queryKey: rq.rwaTokens(deps.address) });
-  }
+  await invalidateAfterListing(deps.queryClient, {
+    collectionKey: colKey || null,
+    address: deps.address || null,
+  });
 }
 
 /** Shared post-list flow: optional instant match + instant-only protection. */
@@ -424,9 +417,7 @@ export async function runPostListInstantMatch(
   hooks?.onStartMatching?.();
   const ck = deps.collectionKey?.trim();
   if (ck) {
-    await deps.queryClient.invalidateQueries({ queryKey: ["marketplace-collection", ck] });
-    await deps.queryClient.invalidateQueries({ queryKey: ["merkle-set", ck] });
-    await deps.queryClient.invalidateQueries({ queryKey: ["merkle-set"] });
+    await invalidateForMatchRetry(deps.queryClient, ck);
   }
   let meta = await tryMatchAfterListingWithTimeout(deps, created);
   if (!meta.matched && instantDecision.enforceImmediateFill) {

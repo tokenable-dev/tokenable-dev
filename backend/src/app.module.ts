@@ -1,11 +1,14 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import appConfig from './config/app.config';
 import marketplaceConfig from './config/marketplace.config';
 import psaConfig from './config/psa.config';
 import { ScheduleModule } from '@nestjs/schedule';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CacheModule } from './common/cache/cache.module';
+import { CardhedgerMetricsModule } from './common/metrics/cardhedger-metrics.module';
+import { CardhedgerAdminModule } from './cardhedger/admin/cardhedger-admin.module';
 import { AuthModule } from './auth/auth.module';
 import { BlockchainModule } from './blockchain/blockchain.module';
 import { MarketplaceModule } from './marketplace/marketplace.module';
@@ -28,8 +31,10 @@ import { PortfolioHiddenHolding } from './marketplace/entities/portfolio-hidden-
       isGlobal: true,
       load: [appConfig, marketplaceConfig, psaConfig],
     }),
+    EventEmitterModule.forRoot({ global: true }),
     ScheduleModule.forRoot(),
     CacheModule,
+    CardhedgerMetricsModule,
 
     HealthModule,
 
@@ -56,10 +61,10 @@ import { PortfolioHiddenHolding } from './marketplace/entities/portfolio-hidden-
           PortfolioDailySnapshot,
           PortfolioHiddenHolding,
         ],
-        // 프로덕션은 기본 false. 빈 DB 최초 부트스트랩 시에만 TYPEORM_SYNC=true (이후 반드시 끌 것)
-        synchronize:
-          config.get<string>('NODE_ENV') !== 'production' ||
-          config.get<string>('TYPEORM_SYNC', '') === 'true',
+        // Schema sync is always disabled in production — use SQL migration scripts
+        // under backend/sql/schema/ instead. Enabled only in non-production
+        // environments for developer convenience.
+        synchronize: config.get<string>('NODE_ENV') !== 'production',
         logging: config.get<string>('NODE_ENV') === 'development',
       }),
     }),
@@ -70,6 +75,7 @@ import { PortfolioHiddenHolding } from './marketplace/entities/portfolio-hidden-
     CardhedgerModule,
     PsaModule,
     MarketplaceModule,
+    CardhedgerAdminModule,
   ],
 })
 export class AppModule {}
