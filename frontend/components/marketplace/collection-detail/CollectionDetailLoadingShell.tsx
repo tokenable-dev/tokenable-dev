@@ -3,7 +3,7 @@ import { CollectionDetailMobileNav } from "./CollectionDetailMobileNav";
 
 export function CollectionDetailLoadingShell() {
   return (
-    <div className="min-h-screen min-w-0 overflow-x-clip bg-[rgba(11,13,16,1)] text-white">
+    <div className="min-h-screen min-w-0 overflow-x-clip bg-black text-white">
       <div
         className={`${COLLECTION_DETAIL_SHELL_CLASS} py-4 sm:py-8 pb-[max(5.5rem,env(safe-area-inset-bottom,0px)+4.5rem)] sm:pb-20`}
       >

@@ -25,12 +25,12 @@ export const ASSETS = {
     psaMark: `${ASSETS_BASE}/icons/psa-logo.png`,
     /** Vault safe icon — shown before PSA wordmark on card detail. */
     psaVaultLeading: `${ASSETS_BASE}/icons/psa-vault-leading.png`,
-    /** Landing feature stat — Lowest Fees. */
-    lowestFees: `${ASSETS_BASE}/icons/landing-lowest-fees.png`,
-    /** Landing feature stat — PSA, TAG, BGS gems. */
-    gemsOnly: `${ASSETS_BASE}/icons/landing-gems-only.png`,
-    /** Landing feature stat — vaulted & authenticated. */
-    vaultedAuthenticated: `${ASSETS_BASE}/icons/landing-vaulted-authenticated.png`,
+    /** Landing offers — Authenticity seal. */
+    landingOffersAuthenticity: `${ASSETS_BASE}/icons/landing-offers-authenticity.png`,
+    /** Landing offers — PSA vault safe. */
+    landingOffersPsaVaults: `${ASSETS_BASE}/icons/landing-offers-psa-vaults.png`,
+    /** Landing offers — liquidity / exchange. */
+    landingOffersLiquidity: `${ASSETS_BASE}/icons/landing-offers-liquidity.png`,
     /** Market Indexes cards — Pokemon slot. */
     marketIndexPokemon: `${ASSETS_BASE}/icons/market-index-pokemon.png`,
     /** Market Indexes cards — MLB slot. */

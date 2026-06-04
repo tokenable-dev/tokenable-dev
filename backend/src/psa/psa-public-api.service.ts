@@ -84,6 +84,30 @@ export type PsaGetImagesLookupResult =
       reason?: 'cert_mismatch';
     };
 
+/** GET /order/GetProgress/{orderNumber} — PSA Swagger `OrderProgress`. */
+export type PsaOrderProgressLookupResult =
+  | { status: 'disabled'; reason: 'no_token' }
+  | { status: 'skipped'; reason: 'no_number' }
+  | {
+      status: 'success';
+      referenceNumber: string;
+      psaPath: string;
+      raw: unknown;
+    }
+  | {
+      status: 'error';
+      referenceNumber: string;
+      message: string;
+      httpStatus?: number;
+    };
+
+/** GET /order/GetSubmissionProgress/{submissionNumber} — same `OrderProgress` shape. */
+export type PsaSubmissionProgressLookupResult = PsaOrderProgressLookupResult;
+
+function normalizePsaReferenceNumber(raw: string | undefined): string {
+  return raw?.trim().replace(/\s+/g, '') ?? '';
+}
+
 function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }
@@ -653,6 +677,158 @@ export class PsaPublicApiService {
       return {
         status: 'error',
         certNumber: digits,
+        message: msg,
+      };
+    }
+  }
+
+  /**
+   * GET /order/GetProgress/{orderNumber}
+   * PSA account order progress (no per-item cert list in public schema).
+   */
+  async getOrderProgress(
+    orderNumberRaw: string | undefined,
+  ): Promise<PsaOrderProgressLookupResult> {
+    const referenceNumber = normalizePsaReferenceNumber(orderNumberRaw);
+    if (!referenceNumber) {
+      return { status: 'skipped', reason: 'no_number' };
+    }
+    const psaPath = `/order/GetProgress/${encodeURIComponent(referenceNumber)}`;
+    return this.runOrderProgressLookup(referenceNumber, psaPath, 'order');
+  }
+
+  /**
+   * GET /order/GetSubmissionProgress/{submissionNumber}
+   */
+  async getSubmissionProgress(
+    submissionNumberRaw: string | undefined,
+  ): Promise<PsaSubmissionProgressLookupResult> {
+    const referenceNumber = normalizePsaReferenceNumber(submissionNumberRaw);
+    if (!referenceNumber) {
+      return { status: 'skipped', reason: 'no_number' };
+    }
+    const psaPath = `/order/GetSubmissionProgress/${encodeURIComponent(referenceNumber)}`;
+    return this.runOrderProgressLookup(referenceNumber, psaPath, 'submission');
+  }
+
+  private async runOrderProgressLookup(
+    referenceNumber: string,
+    psaPath: string,
+    kind: 'order' | 'submission',
+  ): Promise<PsaOrderProgressLookupResult> {
+    const token = this.getToken();
+    if (!token) {
+      return { status: 'disabled', reason: 'no_token' };
+    }
+
+    const url = `${this.baseUrl}${psaPath}`;
+    const maxRetries = this.getMaxRetries();
+
+    try {
+      let lastRes: Response | null = null;
+      let lastText = '';
+
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        const res = await fetch(url, {
+          method: 'GET',
+          headers: {
+            authorization: `bearer ${token}`,
+            accept: 'application/json',
+            'user-agent': 'TokenableBackend/1.0 (PSA Public API)',
+          },
+        });
+
+        lastRes = res;
+        lastText = await res.text();
+
+        if (res.status === 429 && attempt < maxRetries) {
+          const retryAfter = res.headers.get('retry-after');
+          const waitMs = this.waitMsFrom429RetryAfter(retryAfter, attempt);
+          this.logger.warn(
+            `PSA ${kind} progress 429 ref=${referenceNumber} attempt=${attempt + 1}/${maxRetries + 1} waitMs=${waitMs}`,
+          );
+          await sleep(waitMs);
+          continue;
+        }
+
+        break;
+      }
+
+      const res = lastRes;
+      if (!res) {
+        return {
+          status: 'error',
+          referenceNumber,
+          message: 'PSA API: no response',
+        };
+      }
+
+      let body: unknown;
+      try {
+        body = lastText ? JSON.parse(lastText) : null;
+      } catch {
+        body = { _parseError: true, rawText: lastText.slice(0, 500) };
+      }
+
+      if (!res.ok) {
+        const errBody = body as { ServerMessage?: string; message?: string };
+        let message =
+          errBody?.ServerMessage ||
+          errBody?.message ||
+          `PSA API HTTP ${res.status}`;
+
+        if (res.status === 429) {
+          message =
+            'PSA API 요청 제한(HTTP 429). psacard.com/publicapi 일일 한도를 확인하세요.';
+        } else if (res.status === 401 || res.status === 403) {
+          message =
+            'PSA API 인증 실패(토큰 만료·무효). publicapi 에서 토큰을 재발급하세요.';
+        }
+
+        return {
+          status: 'error',
+          referenceNumber,
+          message,
+          httpStatus: res.status,
+        };
+      }
+
+      const obj = body as {
+        IsValidRequest?: boolean;
+        ServerMessage?: string;
+      };
+      if (obj?.IsValidRequest === false) {
+        return {
+          status: 'error',
+          referenceNumber,
+          message: obj.ServerMessage ?? 'Invalid request',
+          httpStatus: res.status,
+        };
+      }
+      if (
+        obj?.ServerMessage === 'No data found' ||
+        /no data found/i.test(String(obj?.ServerMessage ?? ''))
+      ) {
+        return {
+          status: 'error',
+          referenceNumber,
+          message: 'No data found for order/submission number',
+          httpStatus: res.status,
+        };
+      }
+
+      return {
+        status: 'success',
+        referenceNumber,
+        psaPath,
+        raw: body,
+      };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      this.logger.warn(`PSA ${kind} progress request failed: ${msg}`);
+      return {
+        status: 'error',
+        referenceNumber,
         message: msg,
       };
     }

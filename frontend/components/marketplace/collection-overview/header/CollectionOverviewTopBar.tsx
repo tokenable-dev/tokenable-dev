@@ -13,7 +13,7 @@ import {
   HEADLINE_OUTLINE_TAG,
   HEADLINE_TITLE_ONE_LINE,
 } from "../theme/constants";
-import { formatPopulationHeadlineTag } from "@/lib/marketplace/collectionHeadlineCopy";
+import { PsaVaultOutlineTag } from "@/components/marketplace/rwa-detail-asset-panel/ui/PsaVaultBadge";
 import type { CollectionOverviewStat } from "../types";
 import { HeaderInlineStat } from "./HeaderInlineStat";
 
@@ -82,14 +82,7 @@ export function CollectionOverviewTopBar({
                       {gradeBadge ? (
                         <span className={HEADLINE_OUTLINE_TAG}>{gradeBadge}</span>
                       ) : null}
-                      {populationBadge?.trim() ? (
-                        <span
-                          className={HEADLINE_OUTLINE_TAG}
-                          title="PSA population for this grade (reported)"
-                        >
-                          {formatPopulationHeadlineTag(populationBadge)}
-                        </span>
-                      ) : null}
+                      <PsaVaultOutlineTag variant="desktop" />
                     </div>
                   </div>
                   <span className="sr-only">{title}</span>
@@ -97,7 +90,7 @@ export function CollectionOverviewTopBar({
               ) : (
                 <>
                   <div className={`${collectionHeroFont.className} min-w-0`}>
-                    <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2 max-lg:justify-center lg:justify-start">
+                    <div className="flex min-w-0 flex-col gap-y-2 max-lg:items-center lg:items-start">
                       {useStructuredHeadline && headlineStructuredTitle ? (
                         <AssetDetailHeadlineTitle
                           as="h1"
@@ -113,7 +106,7 @@ export function CollectionOverviewTopBar({
                         </h1>
                       )}
                       <div
-                        className="flex shrink-0 flex-wrap items-center gap-2.5"
+                        className="flex flex-wrap items-center gap-2.5 max-lg:justify-center lg:justify-start"
                         aria-label="Collection tags"
                       >
                         {categoryBadge ? (
@@ -124,14 +117,7 @@ export function CollectionOverviewTopBar({
                         {gradeBadge ? (
                           <span className={HEADLINE_OUTLINE_TAG}>{gradeBadge}</span>
                         ) : null}
-                        {populationBadge?.trim() ? (
-                          <span
-                            className={HEADLINE_OUTLINE_TAG}
-                            title="PSA population for this grade (reported)"
-                          >
-                            {formatPopulationHeadlineTag(populationBadge)}
-                          </span>
-                        ) : null}
+                        <PsaVaultOutlineTag variant="desktop" />
                       </div>
                     </div>
                     {!useStructuredHeadline && headlineSubtitleLine ? (
@@ -171,7 +157,7 @@ export function CollectionOverviewTopBar({
         {stats.length > 0 ? (
           <>
             <div
-              className="mx-5 hidden w-px shrink-0 self-stretch bg-[rgba(11,13,16,1)] lg:block lg:mx-6"
+              className="mx-5 hidden w-px shrink-0 self-stretch bg-black lg:block lg:mx-6"
               aria-hidden
             />
             <div

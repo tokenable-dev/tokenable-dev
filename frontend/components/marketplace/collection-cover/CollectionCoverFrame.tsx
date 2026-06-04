@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import {
   COLLECTION_DETAILS_BG_CLASS,
   COLLECTION_DETAILS_BORDER_ALL,
+  COLLECTION_HERO_DESKTOP_HEIGHT_CLASS,
 } from "@/components/marketplace/collectionOverviewChrome";
 import { useResolvedMediaUrl } from "@/hooks/media";
 
@@ -49,7 +50,7 @@ function CollectionCoverLightbox({
       className="fixed inset-0 z-[100] flex cursor-default items-center justify-center bg-black/88 p-4 backdrop-blur-[2px] sm:p-8"
     >
       <div
-        className={`max-h-[min(92vh,900px)] w-full max-w-[min(96vw,560px)] overflow-hidden rounded-2xl ${COLLECTION_DETAILS_BORDER_ALL} bg-[rgba(11,13,16,1)] shadow-[0_28px_80px_-24px_rgba(0,0,0,0.85)] ring-1 ring-[rgba(11,13,16,1)]`}
+        className={`max-h-[min(92vh,900px)] w-full max-w-[min(96vw,560px)] overflow-hidden rounded-2xl ${COLLECTION_DETAILS_BORDER_ALL} bg-black shadow-[0_28px_80px_-24px_rgba(0,0,0,0.85)] ring-1 ring-black`}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
@@ -100,7 +101,7 @@ export function CollectionCoverFrame({
   if (variant === "flat") {
     return (
       <div className={`relative h-full min-h-0 w-full bg-[#0a0e14] ${className}`}>
-        <div className="relative h-full min-h-0 w-full overflow-hidden bg-[#030508]">
+        <div className="relative h-full min-h-0 w-full overflow-hidden bg-black">
           {resolved && !imgFailed ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -173,8 +174,8 @@ export function CollectionCoverFrame({
    */
   const heroOuter =
     variant === "hero"
-      ? "mx-auto w-full max-w-[min(100%,360px)] max-lg:h-[118px] max-lg:max-h-[122px] max-lg:w-[88px] max-lg:max-w-[88px] max-lg:shrink-0 lg:mx-0 lg:h-[427px] lg:w-[307px] lg:max-h-[427px] lg:max-w-full"
-      : "mx-auto w-full max-w-[min(100%,360px)] h-[min(460px,82vw)] max-h-[min(480px,88svh)] lg:mx-0 lg:h-[427px] lg:w-[307px] lg:max-h-[427px] lg:max-w-full";
+      ? `mx-auto w-full max-w-[min(100%,360px)] max-lg:h-[118px] max-lg:max-h-[122px] max-lg:w-[88px] max-lg:max-w-[88px] max-lg:shrink-0 lg:mx-0 lg:w-[307px] lg:max-w-full ${COLLECTION_HERO_DESKTOP_HEIGHT_CLASS}`
+      : `mx-auto w-full max-w-[min(100%,360px)] h-[min(460px,82vw)] max-h-[min(480px,88svh)] lg:mx-0 lg:w-[307px] lg:max-w-full ${COLLECTION_HERO_DESKTOP_HEIGHT_CLASS}`;
 
   const heroGlow =
     variant === "hero"
@@ -186,7 +187,7 @@ export function CollectionCoverFrame({
   const heroFlat =
     variant === "hero"
       ? {
-          outer: `${radiusOuter} ${COLLECTION_DETAILS_BG_CLASS} max-lg:shadow-none lg:shadow-[0_0_0_1px_rgba(11,13,16,1)]`,
+          outer: `${radiusOuter} ${COLLECTION_DETAILS_BG_CLASS} max-lg:shadow-none lg:shadow-[0_0_0_1px_rgba(0,0,0,1)]`,
           inner: `${radiusInner} ${COLLECTION_DETAILS_BG_CLASS} flex min-h-0 flex-1 flex-col`,
         }
       : null;
@@ -206,14 +207,14 @@ export function CollectionCoverFrame({
         }`;
 
   const imgShellBg =
-    variant === "hero" ? COLLECTION_DETAILS_BG_CLASS : "bg-[#030508]";
+    variant === "hero" ? COLLECTION_DETAILS_BG_CLASS : "bg-black";
 
   return (
     <div className={outerClass}>
       <div className={innerClass}>
         <div
           className={`relative min-h-0 w-full flex-1 overflow-hidden ${imgShellBg} ${
-            variant === "hero" ? "" : "ring-1 ring-[rgba(11,13,16,1)]"
+            variant === "hero" ? "" : "ring-1 ring-black"
           } ${radiusImg} ${
             variant === "compact" ? "aspect-[3/4]" : ""
           } ${heroInteractive ? "group/img" : ""}`}
@@ -238,7 +239,7 @@ export function CollectionCoverFrame({
                     title="Click to view larger"
                   />
                   <span
-                    className="pointer-events-none absolute bottom-2 left-1/2 z-[3] hidden max-w-[90%] -translate-x-1/2 truncate rounded-md bg-black/58 px-2.5 py-1 text-center text-[10px] font-medium text-zinc-100 shadow-md ring-1 ring-[rgba(11,13,16,1)] transition-opacity duration-150 max-lg:hidden sm:inline sm:opacity-0 sm:group-hover/img:opacity-100"
+                    className="pointer-events-none absolute bottom-2 left-1/2 z-[3] hidden max-w-[90%] -translate-x-1/2 truncate rounded-md bg-black/58 px-2.5 py-1 text-center text-[10px] font-medium text-zinc-100 shadow-md ring-1 ring-black transition-opacity duration-150 max-lg:hidden sm:inline sm:opacity-0 sm:group-hover/img:opacity-100"
                   >
                     Click to enlarge
                   </span>

@@ -102,7 +102,7 @@ export function CollectionDualPriceChart({
                   ? "h-full min-h-0"
                   : "max-lg:min-h-[min(96px,16svh)] max-lg:h-full max-lg:min-h-0 lg:h-full lg:min-h-0"
               }`
-            : "rounded-2xl border border-rose-500/20 bg-[rgba(11,13,16,1)] px-4 py-6 text-center text-sm text-rose-200/90"
+            : "rounded-2xl border border-rose-500/20 bg-black px-4 py-6 text-center text-sm text-rose-200/90"
         }
       >
         {errorMessage}

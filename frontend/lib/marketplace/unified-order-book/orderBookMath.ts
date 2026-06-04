@@ -58,7 +58,7 @@ export function formatTapeTime(tSec: number): string {
   if (diff < 90_000) return "Just now";
   if (diff < 3600_000) return `${Math.floor(diff / 60_000)}m ago`;
   if (diff < 86_400_000) return `${Math.floor(diff / 3600_000)}h ago`;
-  return d.toLocaleString(undefined, {
+  return d.toLocaleString("en-US", {
     month: "short",
     day: "numeric",
     hour: "numeric",

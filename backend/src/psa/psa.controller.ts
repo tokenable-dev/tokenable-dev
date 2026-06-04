@@ -2,15 +2,31 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Get,
   HttpException,
   InternalServerErrorException,
   Logger,
+  Param,
   Post,
+  ServiceUnavailableException,
   UploadedFiles,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
-import { ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBody,
+  ApiConsumes,
+  ApiOkResponse,
+  ApiOperation,
+  ApiParam,
+  ApiTags,
+} from '@nestjs/swagger';
+import { PsaOrderProgressLookupResponseDto } from './dto/psa-order-progress.dto';
+import {
+  PsaPublicApiService,
+  type PsaOrderProgressLookupResult,
+  type PsaSubmissionProgressLookupResult,
+} from './psa-public-api.service';
 import { PsaService, type PsaAnalyzeResult } from './psa.service';
 
 const imageFilter = (
@@ -27,7 +43,10 @@ const imageFilter = (
 export class PsaController {
   private readonly logger = new Logger(PsaController.name);
 
-  constructor(private readonly psaService: PsaService) {}
+  constructor(
+    private readonly psaService: PsaService,
+    private readonly psaPublicApi: PsaPublicApiService,
+  ) {}
 
   @ApiOperation({
     summary: 'PSA 슬랩 OCR + Cardhedger cert OCR 후보 → PSA Public API 조회',
@@ -146,6 +165,127 @@ export class PsaController {
       this.logger.error(`PSA analyze-by-cert failed: ${msg}`, stack);
       throw new InternalServerErrorException(
         'PSA Cert 조회 중 서버 오류가 발생했습니다. 백엔드 로그의 스택 트레이스를 확인하세요.',
+      );
+    }
+  }
+
+  @ApiOperation({
+    summary: 'PSA 주문 진행 상태 (Public API proxy)',
+    description:
+      'PSA Public API `GET /order/GetProgress/{orderNumber}` 프록시.\n\n' +
+      '- `PSA_PUBLIC_API_TOKEN` 필요 (psacard.com/publicapi)\n' +
+      '- 응답 `raw`는 PSA Swagger `OrderProgress` (gradesReady, shipped, orderProgressSteps 등)\n' +
+      '- **Cert 번호 목록은 포함되지 않음** (공식 스키마 기준)',
+  })
+  @ApiParam({
+    name: 'orderNumber',
+    description: 'PSA 주문 번호 (My Orders / 이메일 확인)',
+    example: '123456789',
+  })
+  @ApiOkResponse({ type: PsaOrderProgressLookupResponseDto })
+  @Get('order/progress/:orderNumber')
+  async getOrderProgress(
+    @Param('orderNumber') orderNumber: string,
+  ): Promise<PsaOrderProgressLookupResult> {
+    return this.handleOrderProgressLookup(
+      () => this.psaPublicApi.getOrderProgress(orderNumber),
+      'order progress',
+    );
+  }
+
+  @ApiOperation({
+    summary: 'PSA 제출(submission) 진행 상태 (Public API proxy)',
+    description:
+      'PSA Public API `GET /order/GetSubmissionProgress/{submissionNumber}` 프록시.\n\n' +
+      '제출 번호는 psacard.com/orderstatus 또는 제출 확인 이메일에서 확인.',
+  })
+  @ApiParam({
+    name: 'submissionNumber',
+    description: 'PSA submission 번호',
+    example: '987654321',
+  })
+  @ApiOkResponse({ type: PsaOrderProgressLookupResponseDto })
+  @Get('order/submission-progress/:submissionNumber')
+  async getSubmissionProgress(
+    @Param('submissionNumber') submissionNumber: string,
+  ): Promise<PsaSubmissionProgressLookupResult> {
+    return this.handleOrderProgressLookup(
+      () => this.psaPublicApi.getSubmissionProgress(submissionNumber),
+      'submission progress',
+    );
+  }
+
+  @ApiOperation({
+    summary: 'PSA 주문 진행 상태 (POST — Swagger 본문 테스트용)',
+    description:
+      '`GET /psa/order/progress/:orderNumber` 와 동일. Swagger에서 번호만 넣고 테스트할 때 사용.',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['orderNumber'],
+      properties: {
+        orderNumber: { type: 'string', example: '123456789' },
+      },
+    },
+  })
+  @ApiOkResponse({ type: PsaOrderProgressLookupResponseDto })
+  @Post('order/progress')
+  async postOrderProgress(
+    @Body() body: { orderNumber?: string },
+  ): Promise<PsaOrderProgressLookupResult> {
+    return this.handleOrderProgressLookup(
+      () => this.psaPublicApi.getOrderProgress(body?.orderNumber),
+      'order progress',
+    );
+  }
+
+  @ApiOperation({
+    summary: 'PSA 제출 진행 상태 (POST — Swagger 본문 테스트용)',
+    description:
+      '`GET /psa/order/submission-progress/:submissionNumber` 와 동일.',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['submissionNumber'],
+      properties: {
+        submissionNumber: { type: 'string', example: '987654321' },
+      },
+    },
+  })
+  @ApiOkResponse({ type: PsaOrderProgressLookupResponseDto })
+  @Post('order/submission-progress')
+  async postSubmissionProgress(
+    @Body() body: { submissionNumber?: string },
+  ): Promise<PsaSubmissionProgressLookupResult> {
+    return this.handleOrderProgressLookup(
+      () => this.psaPublicApi.getSubmissionProgress(body?.submissionNumber),
+      'submission progress',
+    );
+  }
+
+  private async handleOrderProgressLookup<T extends PsaOrderProgressLookupResult>(
+    run: () => Promise<T>,
+    label: string,
+  ): Promise<T> {
+    try {
+      const result = await run();
+      if (result.status === 'disabled') {
+        throw new ServiceUnavailableException(
+          'PSA_PUBLIC_API_TOKEN 이 설정되지 않았습니다. backend/.env 에 psacard.com/publicapi 토큰을 추가하세요.',
+        );
+      }
+      if (result.status === 'skipped') {
+        throw new BadRequestException('orderNumber 또는 submissionNumber 가 필요합니다.');
+      }
+      return result;
+    } catch (err: unknown) {
+      if (err instanceof HttpException) throw err;
+      const msg = err instanceof Error ? err.message : String(err);
+      this.logger.error(`PSA ${label} failed: ${msg}`);
+      throw new InternalServerErrorException(
+        `PSA ${label} 조회 중 서버 오류가 발생했습니다.`,
       );
     }
   }

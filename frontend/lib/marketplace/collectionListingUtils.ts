@@ -61,3 +61,24 @@ export function bidDisplayUsdc(b: Order): number {
   }
   return display;
 }
+
+/**
+ * Desktop listing grid columns — cards span the chart + order book width evenly.
+ * Up to 5 listings → N columns; 6+ → 5 columns per row.
+ */
+export function collectionDetailListingGridColsClass(listingCount: number): string {
+  if (listingCount <= 0) return "lg:grid-cols-1";
+  const cols = listingCount <= 5 ? listingCount : 5;
+  switch (cols) {
+    case 1:
+      return "lg:grid-cols-1";
+    case 2:
+      return "lg:grid-cols-2";
+    case 3:
+      return "lg:grid-cols-3";
+    case 4:
+      return "lg:grid-cols-4";
+    default:
+      return "lg:grid-cols-5";
+  }
+}

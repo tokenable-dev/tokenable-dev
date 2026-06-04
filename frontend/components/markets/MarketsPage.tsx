@@ -16,6 +16,7 @@ import {
 import {
   collectionKeyLower,
   compareMarketsCollections,
+  MARKETS_DEFAULT_SORT_ID,
   type MarketsSortId,
 } from "@/lib/markets/marketsCollectionSort";
 import { CollectionGridCard } from "./CollectionGridCard";
@@ -25,7 +26,7 @@ export default function MarketsPage() {
   const [categoryFilter, setCategoryFilter] = useState<CollectionCategoryFilterId>(
     MARKETS_DEFAULT_CATEGORY_FILTER,
   );
-  const [sortId, setSortId] = useState<MarketsSortId>("high_price");
+  const [sortId, setSortId] = useState<MarketsSortId>(MARKETS_DEFAULT_SORT_ID);
 
   const ordersQuery = useMarketsOrders();
   const orders = ordersQuery.orders;

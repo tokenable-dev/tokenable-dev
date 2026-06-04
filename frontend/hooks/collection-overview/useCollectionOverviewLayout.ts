@@ -79,7 +79,7 @@ export function useCollectionOverviewLayout(input: {
 
   const gridBodyClass = useMemo(() => {
     if (marketsTriple) {
-      return "gap-3 sm:gap-4 lg:gap-x-16 lg:gap-y-0 lg:items-start lg:grid-cols-[307px_minmax(0,1fr)]";
+      return "gap-3 sm:gap-4 lg:gap-x-8 lg:gap-y-0 lg:items-start lg:grid-cols-[307px_minmax(0,1fr)]";
     }
     if (hasBookColumn) {
       return "lg:items-start gap-6 lg:gap-8 lg:grid-cols-[minmax(260px,min(307px,40vw))_minmax(0,1fr)_minmax(220px,300px)]";

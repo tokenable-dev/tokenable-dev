@@ -6,6 +6,7 @@ import { CollectionMetadataExpandable } from "@/components/marketplace/collectio
 import {
   COLLECTION_DETAILS_BG_CLASS,
   COLLECTION_DETAILS_BORDER_ALL,
+  COLLECTION_HERO_DESKTOP_HEIGHT_CLASS,
 } from "@/components/marketplace/collectionOverviewChrome";
 import type { CollectionOverviewBoardProps } from "../types";
 
@@ -42,7 +43,7 @@ export function CollectionOverviewLeftColumn({
         useMobileTabbedMarket
           ? "max-lg:gap-0 max-lg:overflow-visible"
           : "max-lg:min-h-0 max-lg:flex-1 max-lg:gap-1 max-lg:overflow-hidden"
-      } ${marketsTriple ? "lg:w-full lg:items-start lg:min-h-0 lg:flex-1" : "w-full lg:items-stretch lg:min-h-0 lg:flex-1"}`}
+      } ${marketsTriple ? "lg:w-full lg:items-start lg:min-h-0 lg:flex-1 lg:gap-0" : "w-full lg:items-stretch lg:min-h-0 lg:flex-1"}`}
     >
       <div
         className={`flex w-full min-w-0 flex-col gap-3 ${
@@ -99,7 +100,7 @@ export function CollectionOverviewLeftColumn({
                   />
                 ) : (
                   <div
-                    className={`flex h-[427px] w-full max-h-[427px] items-center justify-center rounded-2xl ${COLLECTION_DETAILS_BORDER_ALL} ${COLLECTION_DETAILS_BG_CLASS} p-6 text-center text-[12px] text-gray-500 lg:w-[307px]`}
+                    className={`flex w-full items-center justify-center rounded-2xl ${COLLECTION_DETAILS_BORDER_ALL} ${COLLECTION_DETAILS_BG_CLASS} p-6 text-center text-[12px] text-gray-500 lg:w-[307px] ${COLLECTION_HERO_DESKTOP_HEIGHT_CLASS}`}
                   >
                     No preview
                   </div>
@@ -120,7 +121,7 @@ export function CollectionOverviewLeftColumn({
                 />
               ) : (
                 <div
-                  className={`flex h-[min(460px,82vw)] max-h-[min(480px,88svh)] w-full items-center justify-center rounded-2xl ${COLLECTION_DETAILS_BORDER_ALL} ${COLLECTION_DETAILS_BG_CLASS} p-6 text-center text-[12px] text-gray-500 max-lg:ms-auto max-lg:h-[118px] max-lg:max-h-[122px] max-lg:w-[88px] max-lg:max-w-[88px] max-lg:shrink-0 max-lg:p-2 max-lg:text-[9px] lg:h-[427px] lg:max-h-[427px] lg:w-[307px]`}
+                  className={`flex h-[min(460px,82vw)] max-h-[min(480px,88svh)] w-full items-center justify-center rounded-2xl ${COLLECTION_DETAILS_BORDER_ALL} ${COLLECTION_DETAILS_BG_CLASS} p-6 text-center text-[12px] text-gray-500 max-lg:ms-auto max-lg:h-[118px] max-lg:max-h-[122px] max-lg:w-[88px] max-lg:max-w-[88px] max-lg:shrink-0 max-lg:p-2 max-lg:text-[9px] lg:w-[307px] ${COLLECTION_HERO_DESKTOP_HEIGHT_CLASS}`}
                 >
                   No preview
                 </div>
@@ -141,7 +142,7 @@ export function CollectionOverviewLeftColumn({
           ) : null}
         </div>
         {belowCover != null ? (
-          <div className="hidden w-full min-w-0 lg:block">{belowCover}</div>
+          <div className="hidden w-full min-w-0 lg:mt-1 lg:block">{belowCover}</div>
         ) : null}
         {heroActions != null ? (
           <div className="flex w-full max-w-[307px] shrink-0 flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-stretch sm:gap-x-2 sm:gap-y-2">
@@ -156,7 +157,7 @@ export function CollectionOverviewLeftColumn({
           {metadataRows.map((row) => (
             <div
               key={row.label}
-              className={`col-span-2 rounded-lg ${COLLECTION_DETAILS_BORDER_ALL} bg-black/25 px-2.5 py-2 sm:col-span-1`}
+              className={`col-span-2 rounded-lg ${COLLECTION_DETAILS_BORDER_ALL} bg-black px-2.5 py-2 sm:col-span-1`}
             >
               <dt className="text-[10px] font-medium uppercase tracking-wide text-gray-500">
                 {row.label}

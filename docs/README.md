@@ -31,6 +31,7 @@ tokenable-dev/
 | All API routes | [api/README.md](api/README.md) |
 | Frontend routes | [frontend/routes.md](frontend/routes.md) |
 | Deploy & CI/CD (EC2 / Actions) | [guides/deployment.md](guides/deployment.md) |
+| Web analytics (GA4) | [guides/analytics.md](guides/analytics.md) |
 | CORS · TLS · same-origin `/api` | [guides/networking.md](guides/networking.md) |
 | Live Swagger UI | `http://localhost:4000/api/docs` (when running) |
 

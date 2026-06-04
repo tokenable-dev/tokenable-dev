@@ -113,6 +113,9 @@ NEXT_PUBLIC_ALCHEMY_RPC_URL=https://eth-sepolia.g.alchemy.com/v2/YOUR_KEY
 NEXT_PUBLIC_PLATFORM_FEE_RECIPIENT=0x...
 NEXT_PUBLIC_PLATFORM_FEE_BPS=500
 
+# Optional — GA4 page views (see docs/guides/analytics.md)
+# NEXT_PUBLIC_GA_MEASUREMENT_ID=G-XXXXXXXXXX
+
 # Leave unset in local dev — browser will use window.location.origin + "/api"
 # NEXT_PUBLIC_API_URL=
 ```

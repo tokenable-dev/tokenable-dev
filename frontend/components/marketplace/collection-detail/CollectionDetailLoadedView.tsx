@@ -85,7 +85,7 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
   });
 
   return (
-    <div className="min-h-screen min-w-0 overflow-x-clip bg-[rgba(11,13,16,1)] text-white max-lg:min-h-0">
+    <div className="min-h-screen min-w-0 overflow-x-clip bg-black text-white max-lg:min-h-0">
       <div
         className={`${COLLECTION_DETAIL_SHELL_CLASS} flex min-h-0 flex-1 flex-col py-4 max-lg:overflow-visible max-lg:py-1.5 max-lg:pb-[max(4.25rem,env(safe-area-inset-bottom,0px)+3.5rem)] sm:overflow-hidden sm:py-8 sm:pb-20`}
       >
@@ -156,7 +156,7 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
               }
               orderBookPanel={
                 <div
-                  className={`${COLLECTION_MARKETS_CHART_TAB_HEIGHT_CLASS} w-full min-w-0 shrink-0 overflow-y-auto overscroll-y-contain`}
+                  className={`${COLLECTION_MARKETS_CHART_TAB_HEIGHT_CLASS} flex w-full min-w-0 shrink-0 flex-col overflow-hidden`}
                 >
                   {collectionOrderBookMobile}
                 </div>

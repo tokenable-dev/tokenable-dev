@@ -5,6 +5,7 @@ import { Providers } from "./providers";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { ASSETS } from "@/constants/assets";
 import { MOBILE_PAGE_SHELL_CLASS } from "@/constants/layout";
+import { SiteAnalytics } from "@/components/analytics";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -27,7 +28,19 @@ const ibmPlexSans = IBM_Plex_Sans({
 export const metadata: Metadata = {
   title: "Tokenable",
   description:
-    "Mint and trade Tokenable_RWA assets on Ethereum Sepolia. Listings use Seaport.",
+    "Tokenized collectibles markets: trade markets for authenticated and vaulted gems with instant settlement.",
+  openGraph: {
+    title: "Tokenable",
+    description:
+      "Tokenized collectibles markets: trade markets for authenticated and vaulted gems with instant settlement.",
+    type: "website",
+  },
+  twitter: {
+    card: "summary",
+    title: "Tokenable",
+    description:
+      "Tokenized collectibles markets: trade markets for authenticated and vaulted gems with instant settlement.",
+  },
   icons: {
     icon: [{ url: ASSETS.icons.tokenable, type: "image/png" }],
     apple: ASSETS.icons.tokenable,
@@ -57,6 +70,7 @@ export default function RootLayout({
           <AppHeader />
           <div className={MOBILE_PAGE_SHELL_CLASS}>{children}</div>
         </Providers>
+        <SiteAnalytics />
       </body>
     </html>
   );

@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { Address } from "viem";
 import { CollectionRwaCard } from "@/components/marketplace/collection-listings";
 import type { Order, RwaMetadata } from "@/lib/core";
+import { collectionDetailListingGridColsClass } from "@/lib/marketplace/collectionListingUtils";
 
 export function CollectionDetailListingsGrid({
   collectionKey,
@@ -32,15 +33,18 @@ export function CollectionDetailListingsGrid({
     );
   }
 
+  const desktopGridCols = collectionDetailListingGridColsClass(tokenIds.length);
+
   return (
-    <div className="grid w-full min-w-0 max-w-full grid-cols-2 content-start items-stretch justify-items-stretch gap-2 max-lg:gap-2 lg:flex lg:flex-row lg:flex-wrap lg:gap-x-[0.875rem] lg:gap-y-[0.9rem] lg:pb-2">
+    <div
+      className={`grid w-full min-w-0 max-w-full grid-cols-2 content-start items-stretch gap-2 max-lg:gap-2 lg:gap-x-3 lg:gap-y-3 lg:pb-2 ${desktopGridCols} ${
+        tokenIds.length === 1 ? "lg:max-w-[240px]" : ""
+      }`}
+    >
       {tokenIds.map((tid) => {
         const prefetch = batchMetadata?.get(tid);
         return (
-          <div
-            key={tid}
-            className="flex min-h-0 min-w-0 w-full lg:w-[218px] lg:shrink-0 lg:w-[234px]"
-          >
+          <div key={tid} className="flex min-h-0 min-w-0 w-full">
             <CollectionRwaCard
               tokenId={tid}
               collectionKey={collectionKey}

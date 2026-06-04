@@ -69,7 +69,9 @@ export function buildCollectionDetailMarketsSlots(input: {
     ),
     collectionDualPriceChart: <CollectionDualPriceChart {...chartProps} />,
     collectionDualPriceChartTab: <CollectionDualPriceChart {...chartProps} embedInMobileTab />,
-    collectionOrderBook: <CollectionUnifiedOrderBook {...collectionOrderBookProps} />,
+    collectionOrderBook: (
+      <CollectionUnifiedOrderBook {...collectionOrderBookProps} defaultTab="trades" />
+    ),
     collectionOrderBookMobile: (
       <CollectionUnifiedOrderBook {...collectionOrderBookProps} embedInMobileTab />
     ),

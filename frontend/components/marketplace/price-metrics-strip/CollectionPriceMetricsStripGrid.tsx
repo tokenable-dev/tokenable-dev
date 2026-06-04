@@ -54,7 +54,7 @@ export function CollectionPriceMetricsStripGrid({
 
       {model.showChartColumn && model.showPriceChange ? (
         <MetricTile
-          label={`% Change (${model.changePeriodLabel})`}
+          label={`Chg (${model.changePeriodLabel})`}
           compact={compact}
           footer={metricFooterFromText(model.changeBasisText)}
           value={

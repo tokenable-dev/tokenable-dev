@@ -4,60 +4,18 @@ import {
   formatReferencePercentChange,
   formatUsdCompact,
   formatPsaPopulationCount,
+  formatPsaPopulationPair,
   NO_EXTERNAL_PRICE,
   REFERENCE_CHANGE_UNAVAILABLE_HINT,
   REFERENCE_CHANGE_UNAVAILABLE_LABEL,
   referenceChangeTone,
 } from "@/lib/market";
-import type { PsaPopulationMetrics } from "@/lib/market/gradedCardMarketCap";
 import type { CollectionPriceMetricsStripProps } from "@/lib/marketplace/price-metrics-strip";
 import type { usePriceMetricsStripModel } from "@/hooks/price-metrics-strip";
 import { MetricTile } from "./MetricTile";
 import { metricFooterFromText } from "./metricFootnotes";
-import {
-  metricPanelInsetCls,
-  metricPanelLabelCls,
-  metricPanelPopCellCls,
-  metricPanelValueCls,
-  metricPanelValueWrapCls,
-} from "./theme";
 
 type Model = ReturnType<typeof usePriceMetricsStripModel>;
-
-function PsaPopulationStat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="min-w-0 flex-1 basis-0">
-      <span className={metricPanelLabelCls}>{label}</span>
-      <div className={metricPanelValueWrapCls}>
-        <span
-          className={`max-lg:text-zinc-100 lg:text-white ${metricPanelValueCls}`}
-          title={value !== "—" ? value : undefined}
-        >
-          {value}
-        </span>
-      </div>
-    </div>
-  );
-}
-
-function PsaPopulationMetricCell({ metrics }: { metrics: PsaPopulationMetrics }) {
-  return (
-    <div
-      className={`flex min-w-0 flex-col items-start justify-center text-left ${metricPanelInsetCls} ${metricPanelPopCellCls}`}
-    >
-      <div className="grid w-full min-w-0 grid-cols-2 gap-x-3 lg:gap-x-5">
-        <PsaPopulationStat
-          label="PSA 10 Pop"
-          value={formatPsaPopulationCount(metrics.psa10Pop)}
-        />
-        <PsaPopulationStat
-          label="Total PSA Pop"
-          value={formatPsaPopulationCount(metrics.totalPsaPop)}
-        />
-      </div>
-    </div>
-  );
-}
 
 export function CollectionPriceMetricsStripUnifiedRow({
   compact = false,
@@ -72,8 +30,13 @@ export function CollectionPriceMetricsStripUnifiedRow({
 > & { model: Model }) {
   const change1Mo = model.change;
   const popMetrics = psaPopulationMetrics ?? { psa10Pop: null, totalPsaPop: null };
+  const popPairLabel = formatPsaPopulationPair(popMetrics.psa10Pop, popMetrics.totalPsaPop);
+  const popPairTitle =
+    popMetrics.psa10Pop != null || popMetrics.totalPsaPop != null
+      ? `PSA 10: ${formatPsaPopulationCount(popMetrics.psa10Pop)} · Total: ${formatPsaPopulationCount(popMetrics.totalPsaPop)}`
+      : undefined;
   const gridClass =
-    "grid w-full max-lg:grid-cols-2 max-lg:gap-x-2 max-lg:gap-y-1 lg:grid-cols-6 lg:gap-x-0 lg:gap-y-0";
+    "grid w-full max-lg:grid-cols-2 max-lg:gap-x-2 max-lg:gap-y-1 lg:grid-cols-5 lg:gap-x-3 lg:gap-y-0";
 
   return (
     <div className={`w-full min-w-0 lg:min-h-[116px] ${compact ? "mb-0 sm:mb-0.5" : "mb-0"}`}>
@@ -107,7 +70,7 @@ export function CollectionPriceMetricsStripUnifiedRow({
         />
         <MetricTile
           variant="panelCell"
-          label={`% Change ${model.changePeriodLabel}`}
+          label={`Chg ${model.changePeriodLabel}`}
           compact={compact}
           value={
             <>
@@ -171,7 +134,18 @@ export function CollectionPriceMetricsStripUnifiedRow({
             </span>
           }
         />
-        <PsaPopulationMetricCell metrics={popMetrics} />
+        <MetricTile
+          variant="panelCell"
+          label="PSA 10 / Total Pop"
+          labelValueLayout="stackedNowrap"
+          compact={compact}
+          cellClassName="max-lg:col-span-2"
+          value={
+            <span className="whitespace-nowrap max-lg:text-zinc-100 lg:text-white" title={popPairTitle}>
+              {popPairLabel}
+            </span>
+          }
+        />
       </div>
     </div>
   );

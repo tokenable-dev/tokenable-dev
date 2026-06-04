@@ -103,6 +103,9 @@ export function CollectionOverviewBoard(props: CollectionOverviewBoardProps) {
         onShowOrderBookChange={onShowOrderBookChange}
         orderBookColumnVisible={layout.orderBookColumnVisible}
         useMobileTabbedMarket={layout.useMobileTabbedMarket}
+        chartMetricsRow={
+          layout.desktopMetricsAboveChart ? chartMetricsRow : undefined
+        }
         priceChart={priceChart}
         orderBookNextToChart={orderBookNextToChart}
         marketsRightStackTop={marketsRightStackTop}
@@ -168,16 +171,9 @@ export function CollectionOverviewBoard(props: CollectionOverviewBoardProps) {
         </div>
 
         {marketsCluster != null ? (
-          layout.desktopMetricsAboveChart ? (
-            <div className="flex min-w-0 w-full max-w-full flex-col items-stretch gap-2 overflow-x-clip sm:gap-2.5 lg:col-start-2 lg:min-w-0 lg:gap-2 lg:self-start lg:pl-4 xl:pl-6">
-              <div className="hidden w-full min-w-0 shrink-0 lg:block">{chartMetricsRow}</div>
-              <div className="min-w-0 w-full">{marketsCluster}</div>
-            </div>
-          ) : (
-            <div className="flex min-w-0 w-full max-w-full flex-col items-stretch gap-2 overflow-x-clip sm:gap-2.5 lg:min-w-0 lg:self-start">
-              {marketsCluster}
-            </div>
-          )
+          <div className="flex min-w-0 w-full max-w-full flex-col items-stretch gap-2 overflow-x-clip sm:gap-2.5 lg:col-start-2 lg:min-w-0 lg:self-start">
+            {marketsCluster}
+          </div>
         ) : null}
 
         {layout.hasBookColumn ? (

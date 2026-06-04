@@ -1,16 +1,35 @@
 "use client";
 
-import Link from "next/link";
+import { COLLECTION_ORDER_BOOK_SCROLL_CLASS } from "@/components/marketplace/collectionOverviewChrome";
 import {
-  COLLECTION_DETAILS_BORDER_B,
-  COLLECTION_DETAILS_BORDER_T,
-  COLLECTION_ORDER_BOOK_SCROLL_CLASS,
-} from "@/components/marketplace/collectionOverviewChrome";
+  ORDER_BOOK_THREE_COL_GRID,
+  orderBookColEndCls,
+  orderBookColMidCls,
+  orderBookColStartCls,
+  orderBookColumnHeaderCls,
+  orderBookTradesRowValueCls,
+} from "@/components/marketplace/price-metrics-strip/theme";
 import type { CollectionPlatformTapeFill } from "@/lib/core";
 import {
   MAX_ORDER_BOOK_TAPE_ROWS,
   formatTapeTime,
 } from "@/lib/marketplace/unified-order-book";
+
+const TRADES_GRID_LEGACY =
+  "grid-cols-[minmax(0,1fr)_44px_minmax(0,52px)_minmax(0,1fr)]";
+
+function TradesColumnHeader({ flush, gridClass }: { flush?: boolean; gridClass: string }) {
+  return (
+    <div
+      className={`${gridClass} shrink-0 px-2.5 py-1.5 sm:px-3 ${orderBookColumnHeaderCls}`}
+    >
+      <span className={orderBookColStartCls}>Price</span>
+      <span className={orderBookColMidCls}>Side</span>
+      {!flush ? <span className={orderBookColEndCls}>Token</span> : null}
+      <span className={orderBookColEndCls}>Time</span>
+    </div>
+  );
+}
 
 export function OrderBookTradesTab({
   tapeFills,
@@ -21,65 +40,64 @@ export function OrderBookTradesTab({
   tapeLoading?: boolean;
   flush?: boolean;
 }) {
+  const gridClass = flush ? ORDER_BOOK_THREE_COL_GRID : TRADES_GRID_LEGACY;
+  const rootClass = flush
+    ? "flex h-full min-h-0 flex-1 flex-col overflow-hidden"
+    : "flex min-h-0 max-h-[min(420px,52vh)] flex-col";
+
+  if (!tapeLoading && tapeFills.length === 0) {
+    return (
+      <div
+        className={
+          flush
+            ? "flex h-full min-h-0 flex-1 items-center justify-center overflow-hidden"
+            : "flex items-center justify-center py-10"
+        }
+      >
+        <span className={`${orderBookTradesRowValueCls} text-zinc-500`}>N/A</span>
+      </div>
+    );
+  }
+
   return (
-    <div
-      className={`flex min-h-0 flex-col ${
-        flush ? "min-h-0 flex-1 overflow-hidden" : "max-h-[min(420px,52vh)]"
-      }`}
-    >
+    <div className={rootClass}>
+      {flush ? <TradesColumnHeader flush gridClass={gridClass} /> : null}
+
       {tapeLoading ? (
-        <div className="flex flex-1 items-center justify-center py-12 text-[11px] text-gray-500">
+        <div
+          className={`flex min-h-0 flex-1 items-center justify-center px-3 ${orderBookTradesRowValueCls} text-zinc-500`}
+        >
           Loading trades…
-        </div>
-      ) : tapeFills.length === 0 ? (
-        <div className="px-3 py-10 text-center text-[11px] leading-relaxed text-gray-600">
-          No on-chain sales recorded for this collection yet.
         </div>
       ) : (
         <>
-          <div
-            className={`grid shrink-0 grid-cols-[minmax(0,1fr)_44px_minmax(0,52px)_minmax(0,1fr)] gap-1 px-2.5 py-1.5 text-[9px] font-medium uppercase tracking-wide text-gray-500 sm:px-3 sm:text-[10px] ${COLLECTION_DETAILS_BORDER_B}`}
-          >
-            <span>Price</span>
-            <span className="text-center">Side</span>
-            <span className="text-right">Token</span>
-            <span className="text-right">Time</span>
-          </div>
+          {!flush ? <TradesColumnHeader flush={flush} gridClass={gridClass} /> : null}
           <div
             className={`min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-auto px-1 py-0.5 ${COLLECTION_ORDER_BOOK_SCROLL_CLASS}`}
           >
             {tapeFills.slice(0, MAX_ORDER_BOOK_TAPE_ROWS).map((row) => (
               <div
                 key={row.orderHash}
-                className="grid grid-cols-[minmax(0,1fr)_44px_minmax(0,52px)_minmax(0,1fr)] items-center gap-1 rounded-[2px] px-1.5 py-1 font-mono text-[10px] tabular-nums text-gray-200 hover:bg-white/[0.03] sm:text-[11px]"
+                className={`${gridClass} items-center px-1.5 py-1 ${orderBookTradesRowValueCls} text-zinc-200`}
               >
-                <span className="min-w-0 truncate text-mint/95">
+                <span className={`min-w-0 truncate ${orderBookColStartCls} text-mint/95`}>
                   {row.priceUsdc.toLocaleString("en-US", {
                     minimumFractionDigits: 2,
                     maximumFractionDigits: 2,
                   })}
                 </span>
                 <span
-                  className={`text-center text-[9px] font-sans font-medium uppercase tracking-wide sm:text-[10px] ${
-                    row.tapeAggressor === "sell" ? "text-rose-400/95" : "text-mint/90"
+                  className={`min-w-0 truncate ${orderBookColMidCls} ${
+                    row.tapeAggressor === "sell" ? "text-rose-400/95" : "text-white"
                   }`}
                 >
-                  {row.tapeAggressor === "sell" ? "Sell" : "Buy"}
+                  {row.tapeAggressor === "sell" ? "SELL" : "BUY"}
                 </span>
-                <span className="text-right">
-                  {/^\d+$/.test(String(row.tokenId)) ? (
-                    <Link
-                      href={`/marketplace/${encodeURIComponent(row.tokenId)}`}
-                      className="text-mint/90 hover:text-mint hover:underline"
-                    >
-                      #{row.tokenId}
-                    </Link>
-                  ) : (
-                    <span className="text-gray-500">{row.tokenId}</span>
-                  )}
-                </span>
+                {!flush ? (
+                  <span className={`${orderBookColEndCls} text-zinc-500`}>#{row.tokenId}</span>
+                ) : null}
                 <span
-                  className="min-w-0 truncate text-right text-gray-500"
+                  className={`min-w-0 truncate ${orderBookColEndCls} text-zinc-400`}
                   title={new Date(row.t * 1000).toISOString()}
                 >
                   {formatTapeTime(row.t)}
@@ -88,9 +106,7 @@ export function OrderBookTradesTab({
             ))}
           </div>
           {tapeFills.length > MAX_ORDER_BOOK_TAPE_ROWS ? (
-            <p
-              className={`shrink-0 px-2.5 py-1 text-center text-[9px] text-gray-600 ${COLLECTION_DETAILS_BORDER_T}`}
-            >
+            <p className={`shrink-0 px-2.5 py-1 text-center ${orderBookColumnHeaderCls}`}>
               Showing last {MAX_ORDER_BOOK_TAPE_ROWS} of {tapeFills.length} fills
             </p>
           ) : null}

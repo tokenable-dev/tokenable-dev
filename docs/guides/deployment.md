@@ -60,6 +60,9 @@ All of the following must be set in **Repository Secrets** (recommended) or Vari
 | `NEXT_PUBLIC_API_URL` | No | Leave empty for same-origin Nginx proxying |
 | `NEXT_PUBLIC_PLATFORM_FEE_RECIPIENT` | No | Fee recipient address |
 | `NEXT_PUBLIC_PLATFORM_FEE_BPS` | No | Fee in basis points |
+| `NEXT_PUBLIC_GA_MEASUREMENT_ID` | No | GA4 measurement ID (`G-XXXXXXXXXX`) for page-view analytics |
+
+See **[analytics.md](./analytics.md)** for GA4 property setup and Realtime verification.
 
 `API_PROXY_TARGET` is **not** a GitHub secret: the workflow passes  
 `--build-arg API_PROXY_TARGET=http://backend:4000` so the Next.js `/api` rewrite matches the Docker Compose service name `backend`.  

@@ -7,9 +7,11 @@ import type {
 } from "@/lib/core";
 import { parseGradeScoreNumber, representativeGradeUsd } from "@/lib/market";
 
+export const MARKETS_DEFAULT_SORT_ID = "pct_change_high" as const;
+
 export const MARKETS_SORT_OPTIONS = [
+  { id: "pct_change_high", label: "Highest % Chg." },
   { id: "recent_listed", label: "Recent listed" },
-  { id: "pct_change_high", label: "% Chg. (high)" },
   { id: "high_price", label: "High price" },
   { id: "low_price", label: "Low price" },
   { id: "recent_sold", label: "Recent sold" },

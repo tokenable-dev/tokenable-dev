@@ -25,6 +25,7 @@ export function MetricTile({
   compact,
   variant = "card",
   tone = "default",
+  labelValueLayout = "stacked",
   cellClassName,
 }: {
   label: string;
@@ -33,6 +34,8 @@ export function MetricTile({
   compact: boolean;
   variant?: "card" | "panelCell";
   tone?: "default" | "primary";
+  /** `stackedNowrap`: label row + value row, each kept on a single line. */
+  labelValueLayout?: "stacked" | "stackedNowrap";
   cellClassName?: string;
 }) {
   const border = `${COLLECTION_DETAILS_BORDER_ALL} shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]`;
@@ -49,17 +52,33 @@ export function MetricTile({
       tone === "primary"
         ? `max-lg:col-span-2 max-lg:rounded-sm max-lg:px-2 max-lg:py-1.5 max-lg:bg-mint/[0.05] lg:col-span-auto lg:rounded-none lg:bg-transparent ${metricPanelInsetCls}`
         : metricPanelInsetCls;
+    const nowrap = labelValueLayout === "stackedNowrap";
     const valueNode = (
-      <div className={metricPanelValueWrapCls}>
-        <div className={`min-w-0 max-w-full ${metricPanelValueCls}`}>{value}</div>
+      <div
+        className={
+          nowrap
+            ? "mt-0.5 flex w-full min-w-0 flex-nowrap items-baseline gap-x-1 lg:mt-3 lg:min-h-[1.75rem]"
+            : metricPanelValueWrapCls
+        }
+      >
+        <div
+          className={`min-w-0 max-w-full ${nowrap ? "whitespace-nowrap" : ""} ${metricPanelValueCls}`}
+        >
+          {value}
+        </div>
       </div>
+    );
+    const labelNode = (
+      <span className={`${metricPanelLabelCls}${nowrap ? " truncate whitespace-nowrap" : ""}`}>
+        {label}
+      </span>
     );
     if (!hasFooter) {
       return (
         <div
           className={`flex min-w-0 flex-col items-start justify-center text-left ${inset} ${cellClassName ?? ""}`}
         >
-          <span className={metricPanelLabelCls}>{label}</span>
+          {labelNode}
           {valueNode}
         </div>
       );
@@ -68,7 +87,7 @@ export function MetricTile({
       <div
         className={`flex min-w-0 flex-col items-start justify-center text-left ${inset} ${cellClassName ?? ""}`}
       >
-        <span className={metricPanelLabelCls}>{label}</span>
+        {labelNode}
         {valueNode}
         <div className="mt-1 w-full text-left text-[9px] leading-snug text-zinc-500 lg:mt-1.5 lg:text-[10px] lg:sm:text-[11px]">
           {footer}

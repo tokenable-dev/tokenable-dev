@@ -2,6 +2,7 @@
 
 import { IBM_Plex_Sans } from "next/font/google";
 import { type ReactNode } from "react";
+import { COLLECTION_DETAILS_BG_CLASS } from "@/components/marketplace/collectionOverviewChrome";
 import type { CollectionDetailCard } from "@/lib/marketplace/collectionDetailTypes";
 
 const detailsKvFont = IBM_Plex_Sans({
@@ -62,7 +63,7 @@ function FullDetailsBody({
   footer?: ReactNode;
 }) {
   return (
-    <article className="hidden rounded-2xl bg-[rgba(8,8,8,1)] px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:px-5 sm:py-5 lg:px-6 lg:py-6 lg:block">
+    <article className={`hidden rounded-2xl ${COLLECTION_DETAILS_BG_CLASS} px-3 py-3 sm:px-5 sm:py-5 lg:px-6 lg:py-6 lg:block`}>
       <h2
         className={`${detailsKvFont.className} text-[16px] font-bold leading-[140%] tracking-normal text-white sm:text-[17px]`}
       >

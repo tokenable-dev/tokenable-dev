@@ -1,82 +1,9 @@
 "use client";
 
-import type { CSSProperties, ReactNode } from "react";
+import type { CSSProperties } from "react";
 import Link from "next/link";
 import { TrendingCollectionsCarousel } from "@/components/landing/TrendingCollectionsCarousel";
-import { ASSETS } from "@/constants/assets";
-
-/** Fixed visual row so icons + $10B align across the 2×2 / 4-col grid. */
-const FEATURE_STAT_VISUAL_SLOT_CLASS =
-  "flex w-full h-9 shrink-0 items-center justify-center sm:h-10";
-
-/** Square landing stat icons (gems, fees) — slightly larger than PSA / $10B slot. */
-const FEATURE_STAT_SQUARE_ICON_CLASS =
-  "h-8 w-8 object-contain grayscale saturate-0 sm:h-9 sm:w-9";
-
-/** Wide PSA wordmark — height capped to match square icons’ visual weight. */
-const FEATURE_STAT_WIDE_ICON_CLASS =
-  "max-h-[1.625rem] w-auto max-w-[4.25rem] object-contain sm:max-h-[1.875rem] sm:max-w-[4.75rem]";
-
-function FeeBadgeIcons() {
-  return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={ASSETS.icons.lowestFees}
-      alt=""
-      width={78}
-      height={78}
-      className={FEATURE_STAT_SQUARE_ICON_CLASS}
-      aria-hidden
-    />
-  );
-}
-
-function GemsOnlyIcon() {
-  return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={ASSETS.icons.gemsOnly}
-      alt=""
-      width={78}
-      height={78}
-      className={FEATURE_STAT_SQUARE_ICON_CLASS}
-      aria-hidden
-    />
-  );
-}
-
-function VaultedAuthenticatedIcon() {
-  return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={ASSETS.icons.vaultedAuthenticated}
-      alt=""
-      width={104}
-      height={40}
-      className={FEATURE_STAT_WIDE_ICON_CLASS}
-      aria-hidden
-    />
-  );
-}
-
-function FeatureStat({
-  label,
-  children,
-}: {
-  label: string;
-  children: ReactNode;
-}) {
-  return (
-    <div className="flex flex-col items-center text-center">
-      <div className={FEATURE_STAT_VISUAL_SLOT_CLASS}>
-        {children}
-      </div>
-      <span className="mt-3 text-[11px] font-semibold uppercase leading-snug tracking-[0.14em] text-mint sm:text-xs">
-        {label}
-      </span>
-    </div>
-  );
-}
+import { LandingOffersSection } from "@/components/landing/LandingOffersSection";
 
 export default function LandingPage() {
   return (
@@ -97,15 +24,14 @@ export default function LandingPage() {
             className="landing-enter mb-2 max-w-4xl text-center text-[1.48rem] font-bold leading-[1.18] tracking-tight text-white max-sm:px-1 sm:mb-5 sm:text-4xl sm:leading-tight md:text-5xl lg:text-[3.25rem] lg:leading-[1.12]"
             style={{ "--landing-enter-delay": "0s" } as CSSProperties}
           >
-            Tokenized Collectibles Markets
+            Tokenized collectibles markets
           </h1>
 
           <p
             className="landing-enter mb-3 max-w-xl text-center text-lg leading-snug text-gray-400 sm:mb-8 sm:text-xl sm:leading-relaxed md:text-2xl"
             style={{ "--landing-enter-delay": "70ms" } as CSSProperties}
           >
-            <span className="block">Trade Authenticated and Vaulted Gems</span>
-            <span className="block">with Instant Settlement.</span>
+            Trade markets for authenticated and vaulted gems with instant settlement.
           </p>
 
           <TrendingCollectionsCarousel
@@ -133,28 +59,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Feature stats */}
-      <section className="landing-stats-stagger relative z-10 mx-auto max-w-5xl border-t border-white/[0.06] px-6 py-16 sm:py-20">
-        <div className="grid grid-cols-2 items-start gap-x-8 gap-y-12 sm:gap-x-10 lg:grid-cols-4 lg:gap-x-8 lg:gap-y-0">
-          <FeatureStat label="100% Vaulted & Authenticated">
-            <VaultedAuthenticatedIcon />
-          </FeatureStat>
-
-          <FeatureStat label="PSA, TAG, BGS Gems Only">
-            <GemsOnlyIcon />
-          </FeatureStat>
-
-          <FeatureStat label="Lowest Fees">
-            <FeeBadgeIcons />
-          </FeatureStat>
-
-          <FeatureStat label="Collectibles Market">
-            <span className="text-[1.625rem] font-extrabold leading-none tracking-tight text-white tabular-nums sm:text-[1.875rem]">
-              $10B
-            </span>
-          </FeatureStat>
-        </div>
-      </section>
+      <LandingOffersSection />
 
       <footer
         className="landing-enter relative z-10 border-t border-gray-800/60 py-8 text-center text-xs text-gray-600"

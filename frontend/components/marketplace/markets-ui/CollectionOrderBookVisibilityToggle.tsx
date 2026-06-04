@@ -35,7 +35,7 @@ export function CollectionOrderBookVisibilityToggle({
         className={`flex w-full items-center justify-between gap-3 rounded-lg border px-3 py-2.5 text-left transition-all duration-200 ${
           checked
             ? "border-mint/40 bg-mint/[0.07] shadow-[inset_0_1px_0_rgba(16,211,51,0.14),0_0_20px_-12px_rgba(16,211,51,0.45)]"
-            : "border-[rgba(38,39,45,1)] bg-[rgb(20,20,21)] hover:border-zinc-600/90 active:bg-[rgb(24,24,25)]"
+            : "border-black bg-black hover:border-zinc-600/90 active:bg-black"
         }`}
       >
         <span className="flex min-w-0 items-center gap-2.5">

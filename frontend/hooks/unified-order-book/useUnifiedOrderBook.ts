@@ -21,11 +21,18 @@ export function useUnifiedOrderBook({
   lastTradeSide = null,
   compact = false,
   flush = false,
+  defaultTab = "book",
 }: Pick<
   CollectionUnifiedOrderBookProps,
-  "asks" | "collectionBids" | "lastTradePriceUsdc" | "lastTradeSide" | "compact" | "flush"
+  | "asks"
+  | "collectionBids"
+  | "lastTradePriceUsdc"
+  | "lastTradeSide"
+  | "compact"
+  | "flush"
+  | "defaultTab"
 >) {
-  const [tab, setTab] = useState<OrderBookTab>("book");
+  const [tab, setTab] = useState<OrderBookTab>(defaultTab);
 
   const criteriaBids = useMemo(
     () => collectionBids.filter((b) => isCriteriaCollectionBid(b) && b.status === "active"),

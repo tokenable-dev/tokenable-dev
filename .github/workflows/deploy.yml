@@ -6,6 +6,7 @@
 #   NEXT_PUBLIC_ALCHEMY_RPC_URL         (필수, Alchemy Sepolia)
 #   NEXT_PUBLIC_PLATFORM_FEE_RECIPIENT  (선택, 빈 값이면 수수료 미적용)
 #   NEXT_PUBLIC_PLATFORM_FEE_BPS        (선택, 기본 0)
+#   NEXT_PUBLIC_GA_MEASUREMENT_ID      (선택, GA4 `G-XXXXXXXXXX` — 페이지뷰 추적)
 #   NEXT_PUBLIC_API_URL - 비우면 브라우저는 same-origin /api (Nginx→Nest 권장)
 #   CI에서 프론트 이미지 빌드 시 API_PROXY_TARGET=http://backend:4000 고정 (레포 deploy.yml)
 #   ECR_REGISTRY, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
@@ -67,10 +68,16 @@ jobs:
           if [ -z "$FEE_RCPT" ]; then FEE_RCPT="${{ vars.NEXT_PUBLIC_PLATFORM_FEE_RECIPIENT }}"; fi
           if [ -z "$FEE_BPS" ];  then FEE_BPS="${{ vars.NEXT_PUBLIC_PLATFORM_FEE_BPS }}"; fi
 
+          GA_ID="${{ secrets.NEXT_PUBLIC_GA_MEASUREMENT_ID }}"
+          if [ -z "$GA_ID" ]; then GA_ID="${{ vars.NEXT_PUBLIC_GA_MEASUREMENT_ID }}"; fi
+
           EXTRA_BUILD_ARGS=()
           API_URL="${{ secrets.NEXT_PUBLIC_API_URL }}"
           if [ -n "$API_URL" ]; then
             EXTRA_BUILD_ARGS+=(--build-arg "NEXT_PUBLIC_API_URL=$API_URL")
+          fi
+          if [ -n "$GA_ID" ]; then
+            EXTRA_BUILD_ARGS+=(--build-arg "NEXT_PUBLIC_GA_MEASUREMENT_ID=$GA_ID")
           fi
 
           docker build \

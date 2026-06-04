@@ -122,7 +122,7 @@ export function CriteriaBidFormPriceSection({
             className={`min-w-0 flex-1 bg-transparent font-mono tabular-nums text-white placeholder:text-zinc-600 ${inputText}`}
           />
           <span
-            className={`shrink-0 border-l border-[rgba(11,13,16,1)] font-mono font-semibold tabular-nums ${suffixText}`}
+            className={`shrink-0 border-l border-black font-mono font-semibold tabular-nums ${suffixText}`}
           >
             USDC
           </span>

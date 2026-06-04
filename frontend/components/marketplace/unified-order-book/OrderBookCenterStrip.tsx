@@ -1,9 +1,9 @@
 "use client";
 
+import { COLLECTION_DETAILS_BG_CLASS } from "@/components/marketplace/collectionOverviewChrome";
 import {
-  COLLECTION_DETAILS_BG_CLASS,
-  COLLECTION_DETAILS_BORDER_Y,
-} from "@/components/marketplace/collectionOverviewChrome";
+  orderBookRowValueCls,
+} from "@/components/marketplace/price-metrics-strip/theme";
 import type { BookCenterModel } from "@/lib/marketplace/unified-order-book";
 
 export function OrderBookCenterStrip({ model }: { model: BookCenterModel }) {
@@ -37,13 +37,13 @@ export function OrderBookCenterStrip({ model }: { model: BookCenterModel }) {
     <div
       className={`relative flex shrink-0 flex-col items-center justify-center ${
         isNaPlaceholder ? "gap-0 px-2 py-0" : "gap-0.5 px-2 py-1"
-      } ${COLLECTION_DETAILS_BORDER_Y} ${COLLECTION_DETAILS_BG_CLASS} ${
+      } ${COLLECTION_DETAILS_BG_CLASS} ${
         hasCaption
           ? "min-h-[1.875rem]"
           : isNaPlaceholder
             ? "min-h-0"
             : isLastTrade
-              ? "min-h-[1.25rem]"
+              ? "min-h-[1.75rem]"
               : isSpreadPrimary
                 ? "min-h-[1.5rem]"
                 : "min-h-[1.75rem]"
@@ -58,7 +58,7 @@ export function OrderBookCenterStrip({ model }: { model: BookCenterModel }) {
         <div className="flex items-center gap-1">
           {showUp ? (
             <span
-              className={`font-bold leading-none text-mint/90 ${isLastTrade ? "text-xs" : "text-base"}`}
+              className="text-[13px] font-bold leading-none text-mint/90 lg:text-[15px]"
               aria-hidden
             >
               ↑
@@ -66,28 +66,28 @@ export function OrderBookCenterStrip({ model }: { model: BookCenterModel }) {
           ) : null}
           {showDown ? (
             <span
-              className={`font-bold leading-none text-rose-400/90 ${isLastTrade ? "text-xs" : "text-base"}`}
+              className="text-[13px] font-bold leading-none text-rose-400/90 lg:text-[15px]"
               aria-hidden
             >
               ↓
             </span>
           ) : null}
           <span
-            className={`tabular-nums tracking-tight ${
+            className={`tabular-nums tracking-tight ${orderBookRowValueCls} ${
               isNaPlaceholder
-                ? "text-[10px] font-medium leading-none text-zinc-500"
+                ? "text-zinc-500"
                 : isSpreadPrimary
-                  ? "max-w-[min(100%,17rem)] px-0.5 text-center text-[11px] font-semibold leading-snug sm:text-xs"
-                  : isLastTrade
-                    ? `text-[13px] font-semibold leading-none sm:text-sm ${primaryClass}`
-                    : `text-xl font-bold sm:text-2xl ${primaryClass}`
+                  ? "max-w-[min(100%,17rem)] px-0.5 text-center text-zinc-200"
+                  : primaryClass
             }`}
           >
             {model.primary}
           </span>
         </div>
         {model.secondary != null ? (
-          <span className="max-w-[min(100%,220px)] truncate text-[11px] font-mono tabular-nums text-zinc-500 sm:max-w-none">
+          <span
+            className={`max-w-[min(100%,220px)] truncate tabular-nums text-zinc-500 sm:max-w-none ${orderBookRowValueCls}`}
+          >
             {model.secondary}
           </span>
         ) : null}

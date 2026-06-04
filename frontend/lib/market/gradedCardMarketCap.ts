@@ -200,7 +200,15 @@ export function formatPsaPopulationCount(n: number | null | undefined): string {
   return n.toLocaleString("en-US");
 }
 
-/** Compact pop for narrow mobile stat cells — full value via `title` when needed. */
+/** PSA 10 pop / total pop for metric tiles (e.g. `48.4k / 111.1k`; full values in `title`). */
+export function formatPsaPopulationPair(
+  psa10Pop: number | null | undefined,
+  totalPsaPop: number | null | undefined,
+): string {
+  return `${formatPsaPopulationCompact(psa10Pop)} / ${formatPsaPopulationCompact(totalPsaPop)}`;
+}
+
+/** Compact pop for narrow cells — e.g. `48k`, `1.2M`; full value via `title` when needed. */
 export function formatPsaPopulationCompact(n: number | null | undefined): string {
   if (n == null || !Number.isFinite(n) || n <= 0) return "—";
   if (n >= 1_000_000) {
@@ -208,8 +216,11 @@ export function formatPsaPopulationCompact(n: number | null | undefined): string
     return `${m >= 10 ? Math.round(m) : m.toFixed(1)}M`;
   }
   if (n >= 10_000) {
+    return `${Math.round(n / 1_000).toLocaleString("en-US")}k`;
+  }
+  if (n >= 1_000) {
     const k = n / 1_000;
-    return `${k >= 100 ? Math.round(k) : k.toFixed(1)}k`;
+    return `${k >= 10 ? Math.round(k) : k.toFixed(1)}k`;
   }
   return n.toLocaleString("en-US");
 }

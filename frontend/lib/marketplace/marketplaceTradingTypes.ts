@@ -1,4 +1,5 @@
 import type { CollectionPlatformTapeFill, Order } from "@/lib/core";
+import type { OrderBookTab } from "@/lib/marketplace/unified-order-book";
 
 /** Order-book depth row selected for the trade ticket / buy flow. */
 export type BookRowSelection =
@@ -28,6 +29,8 @@ export type CollectionUnifiedOrderBookProps = {
   lastTradeSide?: "buy" | "sell" | null;
   tapeFills?: CollectionPlatformTapeFill[];
   tapeLoading?: boolean;
+  /** Initial tab; desktop collection detail defaults to trades. */
+  defaultTab?: OrderBookTab;
 };
 
 /** Post-trade celebration modal (buy vs sell). */

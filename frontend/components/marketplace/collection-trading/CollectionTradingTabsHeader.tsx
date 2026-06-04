@@ -59,7 +59,7 @@ export function CollectionTradingTabsHeader({
           className={`rounded border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide transition-colors ${
             flow === "orders"
               ? `${COLLECTION_DETAILS_BORDER_ALL} bg-zinc-800/80 text-zinc-100`
-              : `border-transparent text-zinc-500 hover:border-[rgba(11,13,16,1)] hover:bg-zinc-900/60 hover:text-zinc-300`
+              : `border-transparent text-zinc-500 hover:border-black hover:bg-zinc-900/60 hover:text-zinc-300`
           }`}
           title="Your active listings and collection bids in this collection"
         >

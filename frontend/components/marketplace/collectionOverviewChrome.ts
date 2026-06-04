@@ -5,14 +5,14 @@
  * Mobile shell (tabs, compact hero): viewport below `lg` (1024px). Desktop chart + book: `lg` and up.
  */
 
-/** Single flat fill for collection detail marketplace surfaces (no layered grays). */
-export const COLLECTION_DETAILS_BG_CLASS = "bg-[rgba(11,13,16,1)]";
+/** Single flat fill — matches site root (`globals.css` `--background: #000`). */
+export const COLLECTION_DETAILS_BG_CLASS = "bg-black";
 
-/** Borders / dividers that blend into the panel (same rgb as fill). */
-export const COLLECTION_DETAILS_BORDER_ALL = "border border-[rgba(11,13,16,1)]";
-export const COLLECTION_DETAILS_BORDER_B = "border-b border-[rgba(11,13,16,1)]";
-export const COLLECTION_DETAILS_BORDER_T = "border-t border-[rgba(11,13,16,1)]";
-export const COLLECTION_DETAILS_BORDER_Y = "border-y border-[rgba(11,13,16,1)]";
+/** Borders / dividers that blend into the panel (same as fill). */
+export const COLLECTION_DETAILS_BORDER_ALL = "border border-black";
+export const COLLECTION_DETAILS_BORDER_B = "border-b border-black";
+export const COLLECTION_DETAILS_BORDER_T = "border-t border-black";
+export const COLLECTION_DETAILS_BORDER_Y = "border-y border-black";
 
 /** Inner mat — slightly tighter top padding so metrics align with hero cover band. */
 export const COLLECTION_MARKET_CLUSTER_MAT =
@@ -27,10 +27,19 @@ export const COLLECTION_MARKET_CLUSTER_BEZEL =
  * `border-radius: 8px`, `border-width: 1px`.
  */
 export const COLLECTION_MARKETS_CHART_ROW_HEIGHT_CLASS =
-  "lg:h-[200px] lg:max-h-[200px]";
+  "lg:h-[160px] lg:max-h-[160px]";
 
+/** Desktop order book column beside chart (collection detail). */
+export const COLLECTION_MARKETS_ORDER_BOOK_COLUMN_WIDTH_CLASS =
+  "lg:w-[320px] lg:max-w-[320px] lg:shrink-0";
+
+/** Desktop: stretches with markets cluster right column; mobile keeps capped height. */
 export const COLLECTION_MARKETS_ORDER_BOOK_FRAME =
-  `w-[min(100%,221px)] shrink-0 rounded-lg border border-[rgba(38,39,45,1)] bg-[rgb(20,20,21)] sm:w-[221px] max-lg:h-[min(300px,44svh)] max-lg:w-full ${COLLECTION_MARKETS_CHART_ROW_HEIGHT_CLASS}`;
+  `w-[min(100%,320px)] shrink-0 rounded-lg ${COLLECTION_DETAILS_BG_CLASS} max-lg:h-[min(300px,44svh)] max-lg:w-full lg:min-h-0 lg:w-[320px] lg:max-w-[320px] lg:flex-1`;
+
+/** Markets cluster grid when chart + order book share a row (desktop). */
+export const COLLECTION_MARKETS_CLUSTER_GRID_COLS_CLASS =
+  "lg:grid-cols-[minmax(0,1fr)_320px]";
 
 /** Dual chart in collection markets mat — same fill as mat; no inset border/frame line. */
 export const COLLECTION_CHART_SURFACE =
@@ -38,6 +47,13 @@ export const COLLECTION_CHART_SURFACE =
 
 /** Chart column height in collection detail markets cluster (desktop). */
 export const COLLECTION_MARKETS_CHART_HEIGHT_CLASS = COLLECTION_MARKETS_CHART_ROW_HEIGHT_CLASS;
+
+/**
+ * Desktop hero cover height — bottom edge aligns with top of the listings card row
+ * (cluster inset + metrics strip + chart band + row gaps).
+ */
+export const COLLECTION_HERO_DESKTOP_HEIGHT_CLASS =
+  "lg:h-[calc(10px+116px+0.75rem+160px+0.75rem+0.25rem)] lg:max-h-[calc(10px+116px+0.75rem+160px+0.75rem+0.25rem)]";
 
 /** Chart column height when shown inline on mobile (non-tab layout). */
 export const COLLECTION_MARKETS_CHART_HEIGHT_MOBILE_CLASS =

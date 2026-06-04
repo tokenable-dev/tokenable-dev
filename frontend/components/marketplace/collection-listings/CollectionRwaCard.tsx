@@ -92,7 +92,7 @@ function ListingCtaPill({ label, compact = false }: { label: string; compact?: b
         className={`${rwaCardFont.className} flex h-full min-h-0 w-full min-w-0 items-center justify-center rounded-[14px] border border-black/80 px-3 py-0.5 leading-snug tracking-wide transition-[background-color,box-shadow,color] duration-200 ease-out sm:rounded-[17px] sm:px-5 sm:py-1 ${
           isBuy
             ? "bg-black text-[12px] font-bold text-mint shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] group-hover:bg-zinc-950 group-hover:brightness-110 sm:text-[14px]"
-            : "bg-[rgba(11,13,16,1)] text-[11px] font-bold text-white group-hover:bg-[rgba(16,18,22,1)] sm:text-[13px]"
+            : "bg-black text-[11px] font-bold text-white group-hover:bg-zinc-950 sm:text-[13px]"
         }`}
       >
         {label}
@@ -266,7 +266,7 @@ export function CollectionRwaCard({
         </div>
 
         <div
-          className={`${rwaCardFont.className} flex shrink-0 flex-col bg-[rgba(20,18,27,1)] px-2 pb-1 pt-1.5 leading-[140%] tracking-normal sm:px-3 sm:pb-1.5 sm:pt-2.5`}
+          className={`${rwaCardFont.className} flex shrink-0 flex-col bg-black px-2 pb-1 pt-1.5 leading-[140%] tracking-normal sm:px-3 sm:pb-1.5 sm:pt-2.5`}
         >
           {listing && listingPrice !== "—" ? (
             <p className="text-[13px] font-medium font-semibold tabular-nums text-white [overflow-wrap:anywhere] sm:text-[16px]">

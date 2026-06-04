@@ -11,7 +11,7 @@ import {
   COLLECTION_HEADLINE_TITLE_MOBILE_CLASS,
   HEADLINE_OUTLINE_TAG_MOBILE,
 } from "../theme/constants";
-import { formatPopulationHeadlineTag } from "@/lib/marketplace/collectionHeadlineCopy";
+import { PsaVaultOutlineTag } from "@/components/marketplace/rwa-detail-asset-panel/ui/PsaVaultBadge";
 
 export function CollectionMobileHeadline({
   headlineTitle,
@@ -34,12 +34,6 @@ export function CollectionMobileHeadline({
   badgeLabel: string;
   suppressTitle?: boolean;
 }) {
-  const hasBadges =
-    Boolean(categoryBadge) ||
-    Boolean(gradeBadge) ||
-    Boolean(populationBadge?.trim()) ||
-    Boolean(badgeLabel);
-
   const cardNo = headlineCardNumber?.trim() || null;
   const structuredHasCardNo = Boolean(
     headlineStructuredTitle &&
@@ -79,29 +73,17 @@ export function CollectionMobileHeadline({
         <p className="text-[11px] font-medium tabular-nums text-zinc-500">{cardNo}</p>
       ) : null}
 
-      {hasBadges ? (
-        <div
-          className="flex flex-wrap items-center gap-1.5 pt-0.5"
-          aria-label="Collection tags"
-        >
-          {categoryBadge ? (
-            <span className={HEADLINE_OUTLINE_TAG_MOBILE}>{categoryBadge}</span>
-          ) : (
-            <span className={HEADLINE_OUTLINE_TAG_MOBILE}>{badgeLabel}</span>
-          )}
-          {gradeBadge ? (
-            <span className={HEADLINE_OUTLINE_TAG_MOBILE}>{gradeBadge}</span>
-          ) : null}
-          {populationBadge?.trim() ? (
-            <span
-              className={HEADLINE_OUTLINE_TAG_MOBILE}
-              title="PSA population for this grade (reported)"
-            >
-              {formatPopulationHeadlineTag(populationBadge)}
-            </span>
-          ) : null}
-        </div>
-      ) : null}
+      <div className="flex flex-wrap items-center gap-1.5 pt-0.5" aria-label="Collection tags">
+        {categoryBadge ? (
+          <span className={HEADLINE_OUTLINE_TAG_MOBILE}>{categoryBadge}</span>
+        ) : (
+          <span className={HEADLINE_OUTLINE_TAG_MOBILE}>{badgeLabel}</span>
+        )}
+        {gradeBadge ? (
+          <span className={HEADLINE_OUTLINE_TAG_MOBILE}>{gradeBadge}</span>
+        ) : null}
+        <PsaVaultOutlineTag variant="mobile" />
+      </div>
     </header>
   );
 }
