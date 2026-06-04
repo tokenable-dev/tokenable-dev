@@ -7,6 +7,7 @@ import { marketHistoryTierFromComponents } from "@/lib/market";
 import { isAuthQualifierGradeScore } from "@/lib/market/priceTier";
 import {
   MARKET_PRICE_CHANGE_LAG_SEC,
+  referenceHistoryCoversFullYear,
   type ReferencePercentChangeResult,
 } from "@/lib/market/priceChangePeriod";
 
@@ -198,7 +199,7 @@ export function percentChangeReferenceBestWindow(
     points,
     MARKET_PRICE_CHANGE_LAG_SEC,
   );
-  const historyCovers1y = spanSec >= MARKET_PRICE_CHANGE_LAG_SEC;
+  const historyCovers1y = referenceHistoryCoversFullYear(spanSec);
   if (lag1y != null && historyCovers1y) {
     return {
       pct: lag1y.pct,
@@ -207,6 +208,19 @@ export function percentChangeReferenceBestWindow(
       refUsd: lag1y.refUsd,
       refAtSec: lag1y.refAtSec,
     };
+  }
+
+  if (historyCovers1y && lag1y == null) {
+    const lagSpan = referenceLagAnchorFromPoints(points, spanSec);
+    if (lagSpan != null) {
+      return {
+        pct: lagSpan.pct,
+        isFullYear: true,
+        windowSec: MARKET_PRICE_CHANGE_LAG_SEC,
+        refUsd: lagSpan.refUsd,
+        refAtSec: lagSpan.refAtSec,
+      };
+    }
   }
 
   const lagSpan = referenceLagAnchorFromPoints(points, spanSec);

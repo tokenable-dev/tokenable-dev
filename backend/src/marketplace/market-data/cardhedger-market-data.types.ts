@@ -32,9 +32,16 @@ export type CardhedgerCompsHeadline = {
 };
 
 /** Cached `POST /v1/cards/comps` payload slice — headline + optional raw sale points for charts. */
+export type CardhedgerCompRawPoint = {
+  t: number;
+  v: number;
+  /** Cardhedger `sale_type` (e.g. Auction, Best Offer) — not buy/sell aggressor. */
+  saleType?: string | null;
+};
+
 export type CardhedgerCompsCached = {
   headline: CardhedgerCompsHeadline | null;
-  rawPoints: Array<{ t: number; v: number }>;
+  rawPoints: CardhedgerCompRawPoint[];
   /** Upstream 404: catalog match but no indexed sales for requested grade. */
   noSalesForGrade?: boolean;
 };

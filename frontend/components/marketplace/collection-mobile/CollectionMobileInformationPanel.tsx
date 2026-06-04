@@ -32,7 +32,7 @@ function changeToneClass(tone: ReturnType<typeof referenceChangeTone>): string {
   }
 }
 
-function formatVolume24h(usdc: number): string {
+function formatTradeVolume(usdc: number): string {
   if (!Number.isFinite(usdc) || usdc <= 0) return "$0";
   if (usdc >= 1_000_000) return `$${(usdc / 1_000_000).toFixed(1)}M`;
   if (usdc >= 1_000) return `$${(usdc / 1_000).toFixed(1)}k`;
@@ -67,8 +67,8 @@ export function CollectionMobileInformationPanel({
   changePct,
   changePeriod = null,
   changeLoading = false,
-  volume24hUsdc,
-  volume24hLoading = false,
+  tradeVolumeUsdc,
+  tradeVolumeLoading = false,
   marketCapUsd,
   totalPopulation,
   psaPopulationMetrics = null,
@@ -76,10 +76,13 @@ export function CollectionMobileInformationPanel({
   formatMarketCap,
 }: {
   changePct?: number | null;
-  changePeriod?: Pick<ReferencePercentChangeResult, "isFullYear" | "windowSec"> | null;
+  changePeriod?: Pick<
+    ReferencePercentChangeResult,
+    "isFullYear" | "windowSec" | "marketChangeWindow"
+  > | null;
   changeLoading?: boolean;
-  volume24hUsdc?: number | null;
-  volume24hLoading?: boolean;
+  tradeVolumeUsdc?: number | null;
+  tradeVolumeLoading?: boolean;
   marketCapUsd?: number | null;
   totalPopulation?: number | null;
   psaPopulationMetrics?: PsaPopulationMetrics | null;
@@ -92,7 +95,7 @@ export function CollectionMobileInformationPanel({
   const changeTone = changeShowsPct ? referenceChangeTone(changePct) : null;
 
   const volReady =
-    volume24hUsdc != null && Number.isFinite(volume24hUsdc);
+    tradeVolumeUsdc != null && Number.isFinite(tradeVolumeUsdc);
 
   const changeValue =
     changeLoading && changePct == null
@@ -133,11 +136,11 @@ export function CollectionMobileInformationPanel({
           }
         />
         <InfoStatCell
-          label="Vol. 24h"
+          label="Volume 30d"
           value={
-            volume24hLoading && !volReady
+            tradeVolumeLoading && !volReady
               ? "…"
-              : formatVolume24h(volReady ? volume24hUsdc : 0)
+              : formatTradeVolume(volReady ? tradeVolumeUsdc : 0)
           }
         />
         <InfoStatCell label="Market cap" value={capLabel} title="Market cap" />

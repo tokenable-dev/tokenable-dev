@@ -16,7 +16,7 @@ export interface CollectionPriceMetricsStripProps {
   externalPriceChange1MoLoading?: boolean;
   externalPriceChangePeriod?: Pick<
     ReferencePercentChangeResult,
-    "isFullYear" | "windowSec"
+    "isFullYear" | "windowSec" | "marketChangeWindow"
   > | null;
   externalPriceChangeBasisText?: string | null;
   marketCapUsd?: number | null;
@@ -29,8 +29,9 @@ export interface CollectionPriceMetricsStripProps {
   formatMarketCap: (usd: number | null) => string;
   marketsColumn?: "chart" | "trade";
   marketsUnifiedRow?: boolean;
-  volume24hUsdc?: number | null;
-  volume24hLoading?: boolean;
+  /** 30d merged trade notional (platform + Cardhedger comps in trades tape). */
+  tradeVolumeUsdc?: number | null;
+  tradeVolumeLoading?: boolean;
   /** @deprecated Prefer psaPopulationMetrics */
   totalPopulation?: number | null;
   psaPopulationMetrics?: PsaPopulationMetrics | null;

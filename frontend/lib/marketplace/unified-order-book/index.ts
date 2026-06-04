@@ -8,7 +8,9 @@ export {
   cmpAskByPriceThenToken,
   cmpBidByPriceDesc,
   formatOrderBookPriceUsdc,
-  formatTapeTime,
+  formatTapeDate,
+  formatTapeTimeFull,
   priceUsdcFromOrder,
 } from "./orderBookMath";
+export { externalTapeSideDisplay, tapeSideDisplay } from "./tapeSideDisplay";
 export type { BookCenterModel, BookCenterTone, OrderBookTab, OrderBookDepthLevel } from "./types";

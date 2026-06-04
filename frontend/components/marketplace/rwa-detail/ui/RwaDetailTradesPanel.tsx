@@ -1,10 +1,8 @@
 "use client";
 
 import type { CollectionPlatformTapeFill } from "@/lib/core";
-import { formatTapeTime } from "@/lib/marketplace/unified-order-book";
+import { formatTapeDate, formatTapeTimeFull, tapeSideDisplay } from "@/lib/marketplace/unified-order-book";
 import { rwaDetailRightFont } from "../theme";
-
-const MAX_RWA_DETAIL_TRADES = 30;
 
 export function RwaDetailTradesPanel({
   trades,
@@ -17,8 +15,6 @@ export function RwaDetailTradesPanel({
   tradesAvailable: boolean;
   className?: string;
 }) {
-  const visible = trades.slice(0, MAX_RWA_DETAIL_TRADES);
-
   return (
     <section
       className={`${rwaDetailRightFont.className} ${className}`}
@@ -42,22 +38,24 @@ export function RwaDetailTradesPanel({
             />
           ))}
         </div>
-      ) : visible.length === 0 ? (
+      ) : trades.length === 0 ? (
         <p className="mt-4 text-[14px] leading-relaxed text-zinc-500">
           No on-platform trades recorded for this card yet.
         </p>
       ) : (
         <div className="mt-4 min-w-0">
-          <div className="grid grid-cols-[minmax(0,1fr)_52px_minmax(0,4.5rem)] gap-2 border-b border-[rgba(38,39,45,1)] pb-2 text-[11px] font-medium uppercase tracking-wide text-zinc-500">
+          <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(4.75rem,5.5rem)] gap-2 border-b border-[rgba(38,39,45,1)] pb-2 text-[11px] font-medium uppercase tracking-wide text-zinc-500">
             <span>Price</span>
             <span className="text-center">Side</span>
             <span className="text-right">Time</span>
           </div>
           <ul className="max-h-[min(280px,40vh)] space-y-0 overflow-y-auto overflow-x-hidden overscroll-y-auto">
-            {visible.map((row) => (
+            {trades.map((row) => {
+              const side = tapeSideDisplay(row);
+              return (
               <li
                 key={row.orderHash}
-                className="grid grid-cols-[minmax(0,1fr)_52px_minmax(0,4.5rem)] items-center gap-2 border-b border-[rgba(38,39,45,0.45)] py-2.5 text-[14px] tabular-nums last:border-b-0"
+                className="grid grid-cols-[minmax(0,1fr)_auto_minmax(4.75rem,5.5rem)] items-center gap-2 border-b border-[rgba(38,39,45,0.45)] py-2.5 text-[14px] tabular-nums last:border-b-0"
               >
                 <span className="min-w-0 truncate font-medium text-mint">
                   {row.priceUsdc.toLocaleString("en-US", {
@@ -66,26 +64,21 @@ export function RwaDetailTradesPanel({
                   })}
                 </span>
                 <span
-                  className={`text-center text-[11px] font-semibold uppercase tracking-wide ${
-                    row.tapeAggressor === "sell" ? "text-rose-400" : "text-mint/90"
-                  }`}
+                  className={`min-w-0 truncate text-center text-[11px] font-semibold uppercase tracking-wide ${side.className}`}
+                  title={side.title}
                 >
-                  {row.tapeAggressor === "sell" ? "Sell" : "Buy"}
+                  {side.label}
                 </span>
                 <span
-                  className="min-w-0 truncate text-right text-[13px] text-zinc-500"
-                  title={new Date(row.t * 1000).toISOString()}
+                  className="min-w-0 truncate text-right text-[13px] tabular-nums text-zinc-500"
+                  title={formatTapeTimeFull(row.t)}
                 >
-                  {formatTapeTime(row.t)}
+                  {formatTapeDate(row.t)}
                 </span>
               </li>
-            ))}
+            );
+            })}
           </ul>
-          {trades.length > MAX_RWA_DETAIL_TRADES ? (
-            <p className="mt-2 text-center text-[11px] text-zinc-600">
-              Showing last {MAX_RWA_DETAIL_TRADES} of {trades.length} trades
-            </p>
-          ) : null}
         </div>
       )}
     </section>

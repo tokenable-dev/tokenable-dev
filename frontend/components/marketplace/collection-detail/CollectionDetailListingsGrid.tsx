@@ -4,7 +4,9 @@ import Link from "next/link";
 import type { Address } from "viem";
 import { CollectionRwaCard } from "@/components/marketplace/collection-listings";
 import type { Order, RwaMetadata } from "@/lib/core";
-import { collectionDetailListingGridColsClass } from "@/lib/marketplace/collectionListingUtils";
+import {
+  COLLECTION_DETAIL_LISTING_GRID_CLASS,
+} from "@/lib/marketplace/collectionListingUtils";
 
 export function CollectionDetailListingsGrid({
   collectionKey,
@@ -23,7 +25,7 @@ export function CollectionDetailListingsGrid({
 }) {
   if (tokenIds.length === 0) {
     return (
-      <div className="w-full px-1 py-6 text-center text-[13px] leading-relaxed text-zinc-500 max-lg:py-5 lg:px-4 lg:py-8 lg:text-[15px] lg:text-[#a0a0a0]">
+      <div className="w-full px-0 py-6 text-center text-[13px] leading-relaxed text-zinc-500 max-lg:py-5 lg:py-8 lg:text-[15px] lg:text-[#a0a0a0]">
         No listings yet. List an asset from{" "}
         <Link href="/portfolio" className="text-mint hover:underline">
           Portfolio
@@ -33,28 +35,22 @@ export function CollectionDetailListingsGrid({
     );
   }
 
-  const desktopGridCols = collectionDetailListingGridColsClass(tokenIds.length);
-
   return (
-    <div
-      className={`grid w-full min-w-0 max-w-full grid-cols-2 content-start items-stretch gap-2 max-lg:gap-2 lg:gap-x-3 lg:gap-y-3 lg:pb-2 ${desktopGridCols} ${
-        tokenIds.length === 1 ? "lg:max-w-[240px]" : ""
-      }`}
-    >
+    <div className={COLLECTION_DETAIL_LISTING_GRID_CLASS}>
       {tokenIds.map((tid) => {
         const prefetch = batchMetadata?.get(tid);
         return (
-          <div key={tid} className="flex min-h-0 min-w-0 w-full">
-            <CollectionRwaCard
-              tokenId={tid}
-              collectionKey={collectionKey}
-              listing={askMap.get(tid) ?? null}
-              address={address}
-              prefetchedImageUrl={prefetch?.imageUrl}
-              prefetchedMetadata={prefetch?.metadata}
-              compact
-            />
-          </div>
+          <CollectionRwaCard
+            key={tid}
+            tokenId={tid}
+            collectionKey={collectionKey}
+            listing={askMap.get(tid) ?? null}
+            address={address}
+            prefetchedImageUrl={prefetch?.imageUrl}
+            prefetchedMetadata={prefetch?.metadata}
+            compact
+            collectionDetailListing
+          />
         );
       })}
     </div>

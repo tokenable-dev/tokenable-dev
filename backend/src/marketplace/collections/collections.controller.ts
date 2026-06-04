@@ -216,7 +216,7 @@ export class CollectionsController {
 
   @ApiOperation({
     summary:
-      'Fulfilled listings for this collection (DB): chart points + tape rows for the order book Trades tab.',
+      'Trades tape: Tokenable fulfilled orders + Cardhedger comps raw (max 100 individual sales). Volume windows computed from oldest comp/platform fill.',
   })
   @ApiParam({ name: 'key', description: 'collection_key' })
   @Get('collections/:key/platform-trades')

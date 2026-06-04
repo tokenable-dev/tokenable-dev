@@ -52,13 +52,19 @@ export function priceLevelKey(p: number): number {
   return Math.round(p * 1_000_000) / 1_000_000;
 }
 
-export function formatTapeTime(tSec: number): string {
-  const d = new Date(tSec * 1000);
-  const diff = Date.now() - d.getTime();
-  if (diff < 90_000) return "Just now";
-  if (diff < 3600_000) return `${Math.floor(diff / 60_000)}m ago`;
-  if (diff < 86_400_000) return `${Math.floor(diff / 3600_000)}h ago`;
-  return d.toLocaleString("en-US", {
+export function formatTapeDate(tSec: number): string {
+  return new Date(tSec * 1000).toLocaleString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+/** Full trade timestamp for tooltips (column shows date only). */
+export function formatTapeTimeFull(tSec: number): string {
+  return new Date(tSec * 1000).toLocaleString("en-US", {
+    weekday: "short",
+    year: "numeric",
     month: "short",
     day: "numeric",
     hour: "numeric",

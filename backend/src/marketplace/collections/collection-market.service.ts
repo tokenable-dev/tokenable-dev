@@ -14,9 +14,19 @@ import { Order, OrderSide, OrderStatus } from '../entities/order.entity';
 import { computeRobustMarketStatsFromUsdPrices } from '../utils/collection-market-stats.util';
 import type { MarketCollectionPreview } from '../utils/market-reference.types';
 import {
+  cardhedgerRawSalesToTapeRows,
+  computeCollectionTradesVolumeStats,
+  mergePlatformAndCardhedgerTape,
+  type CollectionTradesVolumeStats,
+  type PlatformTapeFillRow,
+} from '../utils/collection-tape-merge.util';
+import { CARDHEDGER_COMPS_HISTORY_RAW_COUNT } from '../market-data/cardhedger-pricing.service';
+import {
   resolveFulfilledAskTokenId,
   resolvePlatformTapeFill,
 } from '../utils/platform-tape.util';
+import { CardhedgerMarketDataService } from '../market-data/cardhedger-market-data.service';
+import { marketHistoryTierFromComponents } from '../utils/market-history-tier.util';
 
 export type PriceHistoryDuration =
   | '7d'
@@ -78,14 +88,7 @@ export interface CollectionMarketBundle {
   reliabilityScore?: number;
 }
 
-/** Fulfilled listing (ask) — tape row for collection order book. */
-export interface PlatformTapeFillRow {
-  t: number;
-  priceUsdc: number;
-  tokenId: string;
-  orderHash: string;
-  tapeAggressor: 'buy' | 'sell';
-}
+export type { CollectionTradesVolumeStats, PlatformTapeFillRow } from '../utils/collection-tape-merge.util';
 
 function tapeAggressorFromOrderParameters(
   parameters: Record<string, unknown>,
@@ -131,6 +134,7 @@ export class CollectionMarketService {
     private readonly snapshotScheduler: CollectionMarketSnapshotSchedulerService,
     @InjectRepository(Order)
     private readonly orderRepo: Repository<Order>,
+    private readonly cardhedgerMarket: CardhedgerMarketDataService,
   ) {}
 
   private touchAndMaybeRefreshStale(
@@ -251,12 +255,48 @@ export class CollectionMarketService {
   async platformTradesForApi(collectionKey: string): Promise<{
     platformUsd: UsdPoint[];
     trades: PlatformTapeFillRow[];
+    volume: CollectionTradesVolumeStats;
   }> {
     const k = collectionKey.toLowerCase();
-    /** Fulfilled asks + collection bids — newest-first scan cap, then chart/tape trim. */
+    const { platformUsd, platformTrades } =
+      await this.buildPlatformTradesForKey(k);
+
+    let cardhedgerTrades: PlatformTapeFillRow[] = [];
+    try {
+      const col = await this.collectionService.findOne(k);
+      const tier = marketHistoryTierFromComponents(col?.components);
+      const comps = await this.cardhedgerMarket.getCompsSnapshotForCollection(
+        col,
+        { tier, rawCount: CARDHEDGER_COMPS_HISTORY_RAW_COUNT },
+      );
+      cardhedgerTrades = cardhedgerRawSalesToTapeRows(
+        comps.rawSales,
+        comps.cardId,
+      );
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.logger.warn(
+        `platform-trades: Cardhedger comps skipped for ${k}: ${msg}`,
+      );
+    }
+
+    const merged = mergePlatformAndCardhedgerTape(
+      platformTrades,
+      cardhedgerTrades,
+    );
+    const volume = computeCollectionTradesVolumeStats(merged);
+
+    return { platformUsd, trades: merged, volume };
+  }
+
+  /** Platform-only fulfilled orders (chart platform series + tape platform rows). */
+  private async buildPlatformTradesForKey(collectionKey: string): Promise<{
+    platformUsd: UsdPoint[];
+    platformTrades: PlatformTapeFillRow[];
+  }> {
     const rows = await this.orderRepo.find({
       where: {
-        collectionKey: k,
+        collectionKey,
         status: OrderStatus.FULFILLED,
       },
       order: { updatedAt: 'DESC' },
@@ -282,17 +322,17 @@ export class CollectionMarketService {
       t: Math.floor(o.updatedAt.getTime() / 1000),
       v: priceUsdc,
     }));
-    const recent = chronological.slice(-80);
-    const trades: PlatformTapeFillRow[] = [...recent].reverse().map(
-      ({ order: o, tokenId, priceUsdc }) => ({
+    const platformTrades: PlatformTapeFillRow[] = [...chronological]
+      .reverse()
+      .map(({ order: o, tokenId, priceUsdc }) => ({
         t: Math.floor(o.updatedAt.getTime() / 1000),
         priceUsdc,
         tokenId,
         orderHash: o.orderHash,
         tapeAggressor: tapeAggressorFromOrderParameters(o.parameters),
-      }),
-    );
-    return { platformUsd, trades };
+        source: 'platform' as const,
+      }));
+    return { platformUsd, platformTrades };
   }
 
   async getCollectionMarketStats(

@@ -22,7 +22,7 @@ type MarketSlice = Pick<
   | "externalPriceChange1MoPct"
   | "externalPriceChangeResult"
   | "externalPriceChangeCoverageHint"
-  | "volume24hUsdc"
+  | "tradeVolumeUsdc"
   | "platformTradesLoading"
   | "totalPopulation"
   | "psaPopulationMetrics"
@@ -58,8 +58,8 @@ export function buildCollectionDetailMarketsSlots(input: {
         externalPriceChangePeriod={market.externalPriceChangeResult}
         externalPriceChangeBasisText={market.externalPriceChangeCoverageHint}
         externalPriceChange1MoLoading={market.marketSeriesLoading}
-        volume24hUsdc={market.volume24hUsdc}
-        volume24hLoading={market.platformTradesLoading}
+        tradeVolumeUsdc={market.tradeVolumeUsdc}
+        tradeVolumeLoading={market.platformTradesLoading}
         psaPopulationMetrics={market.psaPopulationMetrics}
         totalPopulation={market.totalPopulation}
         marketCapUsd={market.marketCapComputation?.usd ?? null}
@@ -94,8 +94,8 @@ export function buildCollectionDetailMobilePanels(input: {
         changePct={market.externalPriceChange1MoPct}
         changePeriod={market.externalPriceChangeResult}
         changeLoading={market.marketSeriesLoading}
-        volume24hUsdc={market.volume24hUsdc}
-        volume24hLoading={market.platformTradesLoading}
+        tradeVolumeUsdc={market.tradeVolumeUsdc}
+        tradeVolumeLoading={market.platformTradesLoading}
         marketCapUsd={market.marketCapComputation?.usd ?? null}
         totalPopulation={market.totalPopulation}
         psaPopulationMetrics={market.psaPopulationMetrics}

@@ -473,4 +473,20 @@ export class CardhedgerMarketDataService {
     ]);
     return { preview, history, comps };
   }
+
+  /** `POST /v1/cards/comps` raw sales for collection trades tape (cached upstream). */
+  getCompsSnapshotForCollection(
+    col: MarketplaceCollection | null,
+    options?: { tier?: string; rawCount?: number },
+  ): Promise<MarketCompsSnapshot> {
+    return this.pricing.getCompsSnapshotForCollection(col, options);
+  }
+
+  fetchTierHistoryByCard(
+    cardId: string,
+    tier: string,
+    days: number,
+  ): Promise<Array<{ t: number; v: number }>> {
+    return this.pricing.fetchTierHistoryByCard(cardId, tier, days);
+  }
 }

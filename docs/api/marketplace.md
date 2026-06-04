@@ -236,7 +236,7 @@ Returns a chart bundle: platform fills (USDC) + Cardhedger reference prices + wi
 
 ### `GET /api/marketplace/collections/:key/platform-trades`
 
-Returns fulfilled listings for this collection (chart data points + trade tape rows).
+Returns platform fulfilled listings (chart `platformUsd`) plus a merged trades tape: Tokenable fills + Cardhedger comps raw (max **100** individual sales). `volume.windows` sums comps + platform fills per calendar window.
 
 ---
 

@@ -55,7 +55,13 @@ function formatUsdc(amount: string): string {
  * Gradient rim pill on listing cards — always visible; Buy gets stronger chrome.
  * The whole {@link CollectionRwaCard} is a Link; this layer is decorative (`aria-hidden`).
  */
-function ListingCtaPill({ label, compact = false }: { label: string; compact?: boolean }) {
+function ListingCtaPill({
+  label,
+  compact = false,
+}: {
+  label: string;
+  compact?: boolean;
+}) {
   const isBuy = label === "Buy";
 
   if (compact) {
@@ -128,6 +134,8 @@ interface CollectionRwaCardProps {
   prefetchedMetadata?: RwaMetadata | null;
   /** Tighter 2-col grid on collection detail mobile. */
   compact?: boolean;
+  /** Collection detail listings grid — smaller Buy CTA + used with wider grid gap. */
+  collectionDetailListing?: boolean;
 }
 
 export function CollectionRwaCard({
@@ -138,6 +146,7 @@ export function CollectionRwaCard({
   prefetchedImageUrl,
   prefetchedMetadata,
   compact = false,
+  collectionDetailListing = false,
 }: CollectionRwaCardProps) {
   const useCompact = compact && useCollectionDetailMobile();
   const { metaBundle, metadata, imageUrl: resolvedImageUrl } = useCollectionRwaCardData({
@@ -202,7 +211,9 @@ export function CollectionRwaCard({
               <img
                 src={imageUrl}
                 alt=""
-                className="relative z-[1] h-[88%] w-[88%] max-w-full object-contain object-center"
+                className={`relative z-[1] max-w-full object-contain object-center ${
+                  collectionDetailListing ? "h-[90%] w-[90%]" : "h-[88%] w-[88%]"
+                }`}
               />
             ) : (
               <div className="relative z-[1] px-2 text-center text-[9px] text-zinc-500">
@@ -211,16 +222,16 @@ export function CollectionRwaCard({
             )}
           </div>
 
-          <div className="flex min-w-0 flex-col gap-2 px-2.5 pb-2.5 pt-2">
+          <div className="flex min-w-0 flex-col gap-2 px-3 pb-3 pt-2.5">
             <p
-              className="min-h-[14px] min-w-0 truncate text-[12px] font-medium leading-[14px] text-white"
+              className="min-h-[15px] min-w-0 truncate text-[13px] font-medium leading-[15px] text-white"
               title={displayTitle}
             >
               {displayTitle}
             </p>
-            <div className="flex min-h-[15px] min-w-0 items-baseline leading-none">
+            <div className="flex min-h-[16px] min-w-0 items-baseline leading-none">
               {listing && listingPrice !== "—" ? (
-                <span className="text-[13px] font-semibold tabular-nums text-white">
+                <span className="text-[14px] font-semibold tabular-nums text-white">
                   <span className="font-normal text-zinc-500">$ </span>
                   {listingPrice}
                 </span>
@@ -240,14 +251,24 @@ export function CollectionRwaCard({
       className={`group flex h-full w-full min-w-0 cursor-pointer text-inherit no-underline outline-none ${COLLECTION_LISTING_CARD_CHROME}`}
       aria-label={`Listing ${formatTokenIdShort(tokenId)} — ${ctaLabel}`}
     >
-      <article className="flex h-full min-h-[148px] w-full min-w-0 flex-col overflow-hidden sm:min-h-[202px]">
-        <div className="relative flex min-h-[88px] flex-1 flex-col items-center justify-center bg-black p-1 sm:min-h-[120px] sm:p-1.5">
+      <article className="flex h-full w-full min-w-0 flex-col overflow-hidden">
+        <div
+          className={`relative flex w-full items-center justify-center bg-black ${
+            collectionDetailListing
+              ? "aspect-[4/5] p-0.5 sm:p-1"
+              : "min-h-[88px] flex-1 flex-col sm:min-h-[120px] sm:p-1.5"
+          }`}
+        >
           {imageUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={imageUrl}
               alt=""
-              className="h-full w-full max-w-full flex-1 object-contain object-center min-h-0"
+              className={
+                collectionDetailListing
+                  ? "relative z-[1] h-[92%] w-[92%] max-h-full max-w-full object-contain object-center"
+                  : "h-full w-full max-w-full flex-1 object-contain object-center min-h-0"
+              }
             />
           ) : (
             <div className="px-2 text-center text-[9px] text-zinc-500">
@@ -259,7 +280,7 @@ export function CollectionRwaCard({
             className="pointer-events-none absolute inset-x-0 bottom-0 z-[1] flex justify-center bg-gradient-to-t from-black via-black/75 to-transparent px-1.5 pb-1.5 pt-10 sm:px-2 sm:pb-2 sm:pt-12"
             aria-hidden
           >
-            <div className="mx-auto w-full min-w-0 max-w-[min(100%,180px)] sm:max-w-[min(100%,240px)]">
+            <div className="mx-auto w-full min-w-0 max-w-full px-0.5">
               <ListingCtaPill label={ctaLabel} compact={false} />
             </div>
           </div>

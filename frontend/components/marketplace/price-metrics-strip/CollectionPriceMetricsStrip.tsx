@@ -13,8 +13,8 @@ export function CollectionPriceMetricsStrip(props: CollectionPriceMetricsStripPr
       <CollectionPriceMetricsStripUnifiedRow
         compact={props.compact ?? false}
         formatMarketCap={props.formatMarketCap}
-        volume24hUsdc={props.volume24hUsdc}
-        volume24hLoading={props.volume24hLoading}
+        tradeVolumeUsdc={props.tradeVolumeUsdc}
+        tradeVolumeLoading={props.tradeVolumeLoading}
         psaPopulationMetrics={props.psaPopulationMetrics}
         model={model}
       />

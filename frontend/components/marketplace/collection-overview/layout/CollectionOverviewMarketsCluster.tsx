@@ -167,7 +167,7 @@ export function CollectionOverviewMarketsCluster({
             {marketsBelowChart != null ? (
               <div
                 className={[
-                  "min-w-0 w-full max-w-full",
+                  "min-w-0 w-full max-w-full self-stretch",
                   useMobileTabbedMarket ? "max-lg:hidden" : "",
                   orderBookSideColumn ? "max-lg:mt-2 mt-1" : "max-lg:mt-1 mt-1",
                   orderBookSideColumn ? "lg:col-span-2 lg:col-start-1" : "lg:col-span-1 lg:col-start-1",

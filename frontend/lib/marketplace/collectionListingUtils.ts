@@ -63,22 +63,12 @@ export function bidDisplayUsdc(b: Order): number {
 }
 
 /**
- * Desktop listing grid columns — cards span the chart + order book width evenly.
- * Up to 5 listings → N columns; 6+ → 5 columns per row.
+ * Desktop listing grid — fills the same width as chart + order book (cluster col-span-2).
+ * `auto-fill` + `minmax` stretches cards evenly; no trailing gap on the right.
  */
-export function collectionDetailListingGridColsClass(listingCount: number): string {
-  if (listingCount <= 0) return "lg:grid-cols-1";
-  const cols = listingCount <= 5 ? listingCount : 5;
-  switch (cols) {
-    case 1:
-      return "lg:grid-cols-1";
-    case 2:
-      return "lg:grid-cols-2";
-    case 3:
-      return "lg:grid-cols-3";
-    case 4:
-      return "lg:grid-cols-4";
-    default:
-      return "lg:grid-cols-5";
-  }
-}
+export const COLLECTION_DETAIL_LISTING_CARD_MIN_PX = 200;
+
+export const COLLECTION_DETAIL_LISTING_GRID_CLASS = [
+  "grid w-full min-w-0 max-w-full grid-cols-2 content-start items-stretch gap-3",
+  "lg:grid-cols-[repeat(auto-fill,minmax(200px,1fr))] lg:gap-x-3 lg:gap-y-3",
+].join(" ");

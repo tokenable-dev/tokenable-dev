@@ -20,13 +20,13 @@ type Model = ReturnType<typeof usePriceMetricsStripModel>;
 export function CollectionPriceMetricsStripUnifiedRow({
   compact = false,
   formatMarketCap,
-  volume24hUsdc = null,
-  volume24hLoading = false,
+  tradeVolumeUsdc = null,
+  tradeVolumeLoading = false,
   psaPopulationMetrics = null,
   model,
 }: Pick<
   CollectionPriceMetricsStripProps,
-  "compact" | "formatMarketCap" | "volume24hUsdc" | "volume24hLoading" | "psaPopulationMetrics"
+  "compact" | "formatMarketCap" | "tradeVolumeUsdc" | "tradeVolumeLoading" | "psaPopulationMetrics"
 > & { model: Model }) {
   const change1Mo = model.change;
   const popMetrics = psaPopulationMetrics ?? { psa10Pop: null, totalPsaPop: null };
@@ -46,7 +46,7 @@ export function CollectionPriceMetricsStripUnifiedRow({
         <MetricTile
           variant="panelCell"
           tone="primary"
-          label="Current Price"
+          label="Price"
           compact={compact}
           footer={metricFooterFromText(model.priceFooterText)}
           value={
@@ -104,11 +104,11 @@ export function CollectionPriceMetricsStripUnifiedRow({
         />
         <MetricTile
           variant="panelCell"
-          label="Volume 24h"
+          label="Volume 30d"
           compact={compact}
           value={
             <>
-              {volume24hLoading && volume24hUsdc == null ? (
+              {tradeVolumeLoading && tradeVolumeUsdc == null ? (
                 <span
                   className="inline-block h-[0.8rem] w-[3.75rem] max-w-full animate-pulse rounded bg-zinc-800/75 lg:h-[1.5rem] lg:w-[5.5rem]"
                   aria-hidden
@@ -116,7 +116,9 @@ export function CollectionPriceMetricsStripUnifiedRow({
               ) : (
                 <span className="min-w-0 max-lg:text-zinc-100 lg:text-white">
                   {formatUsdCompact(
-                    volume24hUsdc != null && Number.isFinite(volume24hUsdc) ? volume24hUsdc : 0,
+                    tradeVolumeUsdc != null && Number.isFinite(tradeVolumeUsdc)
+                      ? tradeVolumeUsdc
+                      : 0,
                   )}
                 </span>
               )}

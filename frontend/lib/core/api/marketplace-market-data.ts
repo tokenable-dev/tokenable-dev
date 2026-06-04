@@ -187,20 +187,47 @@ export async function postBatchMintMarketPreviews(
   return out;
 }
 
-/** Fulfilled listing fill for collection tape (same source as chart platform series). */
+export type CollectionTapeFillSource = "platform" | "cardhedger";
+
+/** Trades tape row — platform fills and/or Cardhedger comps. */
 export interface CollectionPlatformTapeFill {
   t: number;
   priceUsdc: number;
   tokenId: string;
   orderHash: string;
-  /** buy = instant take of listing; sell = matched listing to collection bid (new fills only). */
+  /** buy = instant take of listing; sell = matched listing to collection bid. */
   tapeAggressor?: "buy" | "sell";
+  source?: CollectionTapeFillSource;
+  /** Cardhedger comps sale_type (Auction, Best Offer, …) — not buy/sell aggressor. */
+  externalSaleType?: string | null;
 }
 
-/** DB-only: chart points + tape rows. */
+export interface TradesVolumeWindowStats {
+  notionalUsdc: number;
+  tradeCount: number;
+  platformCount: number;
+  cardhedgerCount: number;
+}
+
+export interface CollectionTradesVolumeStats {
+  windows: {
+    "7d": TradesVolumeWindowStats;
+    "30d": TradesVolumeWindowStats;
+    "90d": TradesVolumeWindowStats;
+    "180d": TradesVolumeWindowStats;
+    "365d": TradesVolumeWindowStats;
+  };
+  total: TradesVolumeWindowStats;
+}
+
+/** Platform chart points + merged trades tape + volume stats. */
 export async function getCollectionPlatformTrades(
   collectionKey: string
-): Promise<{ platformUsd: CollectionUsdPoint[]; trades: CollectionPlatformTapeFill[] }> {
+): Promise<{
+  platformUsd: CollectionUsdPoint[];
+  trades: CollectionPlatformTapeFill[];
+  volume: CollectionTradesVolumeStats;
+}> {
   const enc = encodeURIComponent(collectionKey);
   const res = await backendFetch(
     `${getApiUrl()}/marketplace/collections/${enc}/platform-trades`
@@ -214,6 +241,7 @@ export async function getCollectionPlatformTrades(
   return res.json() as Promise<{
     platformUsd: CollectionUsdPoint[];
     trades: CollectionPlatformTapeFill[];
+    volume: CollectionTradesVolumeStats;
   }>;
 }
 

@@ -17,6 +17,7 @@ import type {
 import type { MarketHistoryPeriod } from '../utils/price-history-period.util';
 import type {
   CardhedgerCardRow,
+  CardhedgerCompRawPoint,
   CardhedgerCompsCached,
   CardhedgerCompsHeadline,
   CardhedgerPsa10SpotBasis,
@@ -463,7 +464,7 @@ export class CardhedgerPricingService {
   ): CardhedgerCompsCached | null {
     if (typeof body !== 'object' || body == null) return null;
     const o = body as Record<string, unknown>;
-    const rawPoints: Array<{ t: number; v: number }> = [];
+    const rawPoints: CardhedgerCompRawPoint[] = [];
     const raw = o.raw_prices;
     if (Array.isArray(raw)) {
       for (const item of raw) {
@@ -474,7 +475,16 @@ export class CardhedgerPricingService {
         if (!Number.isFinite(ms)) continue;
         const price = this.parsePrice((item as { price?: unknown }).price);
         if (price == null || price <= 0) continue;
-        rawPoints.push({ t: Math.floor(ms / 1000), v: price });
+        const saleTypeRaw = (item as { sale_type?: unknown }).sale_type;
+        const saleType =
+          typeof saleTypeRaw === 'string' && saleTypeRaw.trim()
+            ? saleTypeRaw.trim()
+            : null;
+        rawPoints.push({
+          t: Math.floor(ms / 1000),
+          v: price,
+          saleType,
+        });
       }
     }
     rawPoints.sort((a, b) => a.t - b.t);
@@ -591,7 +601,13 @@ export class CardhedgerPricingService {
     grade: string,
     requestCount: number,
   ): MarketCompsSnapshot {
-    const rawSales = [...(cached?.rawPoints ?? [])].sort((a, b) => a.t - b.t);
+    const rawSales = [...(cached?.rawPoints ?? [])]
+      .sort((a, b) => a.t - b.t)
+      .map((p) => ({
+        t: p.t,
+        v: p.v,
+        saleType: p.saleType ?? null,
+      }));
     const earliestSaleAtSec =
       rawSales.length > 0 ? rawSales[0]!.t : null;
     const latestSaleAtSec =

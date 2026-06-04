@@ -19,6 +19,9 @@ import {
   percentChangeReferenceBestWindow,
   parseGradeScoreNumber,
   resolveExternalMarketUsd,
+  computeTradeVolume30dUsdc,
+  countableTapeFills,
+  prependSessionFillToTape,
   resolvePsaPopulationMetrics,
 } from "@/lib/market";
 import { COLLECTION_SESSION_FILL_DEDUP_SEC } from "@/lib/marketplace/collectionDetailConstants";
@@ -138,6 +141,7 @@ export function useCollectionDetailMarketData(params: {
         windowSec: m.marketChangeSpanSec,
         refUsd: m.marketChangeRefUsd ?? null,
         refAtSec: m.marketChangeRefAtSec ?? null,
+        marketChangeWindow: m.marketChangeWindow ?? null,
       };
     }
     return percentChangeReferenceBestWindow(externalReferencePtsForChange);
@@ -150,32 +154,22 @@ export function useCollectionDetailMarketData(params: {
 
   const externalPriceChange1MoPct = externalPriceChangeResult.pct;
 
-  const volume24hUsdc = useMemo(() => {
-    const raw = platformTradesData?.trades;
-    if (raw == null && sessionFillPoint == null) return null;
-    const now = Math.floor(Date.now() / 1000);
-    const cutoff = now - 86400;
-    let sum = 0;
-    for (const row of raw ?? []) {
-      if (row.t >= cutoff && Number.isFinite(row.priceUsdc) && row.priceUsdc > 0) {
-        sum += row.priceUsdc;
-      }
-    }
-    if (
-      sessionFillPoint != null &&
-      Number.isFinite(sessionFillPoint.v) &&
-      sessionFillPoint.v > 0 &&
-      sessionFillPoint.t >= cutoff
-    ) {
-      const alreadyCounted = (raw ?? []).some(
-        (row) =>
-          Math.abs(row.priceUsdc - sessionFillPoint.v) < 1e-4 &&
-          Math.abs(row.t - sessionFillPoint.t) <= COLLECTION_SESSION_FILL_DEDUP_SEC,
-      );
-      if (!alreadyCounted) sum += sessionFillPoint.v;
-    }
-    return sum;
+  const orderBookTapeFills = useMemo((): CollectionPlatformTapeFill[] => {
+    return prependSessionFillToTape(
+      countableTapeFills(platformTradesData?.trades ?? []),
+      sessionFillPoint,
+      COLLECTION_SESSION_FILL_DEDUP_SEC,
+    );
   }, [platformTradesData?.trades, sessionFillPoint]);
+
+  const tradeVolumeUsdc = useMemo(() => {
+    if (platformTradesData == null && sessionFillPoint == null) return null;
+    return computeTradeVolume30dUsdc(
+      platformTradesData?.trades ?? [],
+      sessionFillPoint,
+      COLLECTION_SESSION_FILL_DEDUP_SEC,
+    );
+  }, [platformTradesData, sessionFillPoint]);
 
   const psaPopulationMetrics = useMemo(
     () => resolvePsaPopulationMetrics(comp),
@@ -190,21 +184,6 @@ export function useCollectionDetailMarketData(params: {
     return Math.round(Number(n));
   }, [comp.psaTotalPopulation, psaPopulationMetrics.totalPsaPop]);
 
-  const orderBookTapeFills = useMemo((): CollectionPlatformTapeFill[] => {
-    const raw = platformTradesData?.trades ?? [];
-    if (raw.length > 0) return raw;
-    if (displayPlatformUsd.length === 0) return [];
-    return [...displayPlatformUsd]
-      .sort((a, b) => b.t - a.t)
-      .slice(0, 80)
-      .map((p, i) => ({
-        t: p.t,
-        priceUsdc: p.v,
-        tokenId: "—",
-        orderHash: `synthetic-${p.t}-${i}`,
-        tapeAggressor: "buy" as const,
-      }));
-  }, [platformTradesData?.trades, displayPlatformUsd]);
 
   const resolvedExternal = useMemo(
     () =>
@@ -294,7 +273,7 @@ export function useCollectionDetailMarketData(params: {
     displayPlatformUsd,
     resolvedExternal,
     marketCapComputation,
-    volume24hUsdc,
+    tradeVolumeUsdc,
     totalPopulation,
     psaPopulationMetrics,
     orderBookTapeFills,
