@@ -31,6 +31,8 @@ export type CollectionUnifiedOrderBookProps = {
   tapeLoading?: boolean;
   /** Initial tab; desktop collection detail defaults to trades. */
   defaultTab?: OrderBookTab;
+  connectedAddress?: string | null;
+  onInvalidate?: () => void;
 };
 
 /** Post-trade celebration modal (buy vs sell). */

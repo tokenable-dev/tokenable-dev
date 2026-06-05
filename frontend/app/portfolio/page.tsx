@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useAccount, usePublicClient, useWriteContract } from "wagmi";
@@ -29,6 +29,7 @@ import {
   PortfolioActivitySection,
   PortfolioCollectionBidsSection,
   PortfolioDisconnectedState,
+  PortfolioCancelBidConfirmModal,
   PortfolioHideConfirmModal,
   PortfolioHoldingsSection,
   PortfolioMainSection,
@@ -168,13 +169,17 @@ export default function PortfolioPage() {
     setAssetFilter,
     holdingsAssetRows,
     hiddenAssetRows,
-    listedAssetCount,
-    unlistedAssetCount,
     filteredAssetRows,
     pagedAssetRows,
     visibleAssetCount,
     assetScrollSentinelRef,
   } = usePortfolioAssetList(assetRows, hiddenSet);
+
+  useEffect(() => {
+    if (assetFilter !== "hidden" && assetFilter !== "all") {
+      setAssetFilter("all");
+    }
+  }, [assetFilter, setAssetFilter]);
 
   const holdingActions = usePortfolioHoldingActions({
     address,
@@ -221,7 +226,7 @@ export default function PortfolioPage() {
 
   return (
     <div className="min-h-screen min-w-0 overflow-x-clip bg-black text-white">
-      <div className={`${APP_MAIN_SHELL_CLASS} py-8 pb-20`}>
+      <div className={`${APP_MAIN_SHELL_CLASS} py-5 pb-16 sm:py-8 sm:pb-20`}>
         <PortfolioSummaryBar
           holdingsCount={holdingsAssetRows.length}
           totalTrades={totalTrades}
@@ -252,9 +257,6 @@ export default function PortfolioPage() {
               assetRowsLength={assetRows.length}
               assetFilter={assetFilter}
               setAssetFilter={setAssetFilter}
-              holdingsCount={holdingsAssetRows.length}
-              listedAssetCount={listedAssetCount}
-              unlistedAssetCount={unlistedAssetCount}
               hiddenAssetCount={hiddenAssetRows.length}
               filteredAssetRows={filteredAssetRows}
               pagedAssetRows={pagedAssetRows}
@@ -289,7 +291,9 @@ export default function PortfolioPage() {
               collectionMetaByKey={myBids.collectionMetaByKey}
               cancellingHash={bidActions.cancellingHash}
               openingChangeHash={bidActions.openingChangeHash}
-              onCancel={(hash, key) => void bidActions.handleCancel(hash, key)}
+              onCancel={(hash, key, label, price) =>
+                bidActions.requestCancel(hash, key, label, price)
+              }
               onChangePrice={(hash, key) => void bidActions.openChangeBid(hash, key)}
             />
           }
@@ -312,6 +316,17 @@ export default function PortfolioPage() {
           onUpdated={() =>
             void bidActions.handleBidUpdated(bidActions.changeModal!.collectionKey)
           }
+        />
+      ) : null}
+
+      {bidActions.cancelConfirm != null ? (
+        <PortfolioCancelBidConfirmModal
+          open
+          collectionLabel={bidActions.cancelConfirm.collectionLabel}
+          priceLabel={bidActions.cancelConfirm.priceLabel}
+          pending={bidActions.cancellingHash === bidActions.cancelConfirm.orderHash}
+          onClose={bidActions.closeCancelConfirm}
+          onConfirm={() => void bidActions.confirmCancel()}
         />
       ) : null}
 

@@ -24,7 +24,7 @@ export function CollectionChangeBidModal({
   if (!open || bid == null) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-end justify-center px-0 py-0 sm:items-center sm:px-4 sm:py-8">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center px-4 py-6 sm:py-8">
       <div
         className="absolute inset-0 bg-black/70 backdrop-blur-sm"
         onClick={onClose}
@@ -34,7 +34,7 @@ export function CollectionChangeBidModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="collection-change-bid-title"
-        className="relative flex max-h-[min(88svh,520px)] w-full max-w-[min(100%,26rem)] flex-col overflow-hidden rounded-t-2xl border border-zinc-700/90 bg-zinc-950 shadow-xl shadow-black/40 sm:rounded-2xl"
+        className="relative flex max-h-[min(88svh,520px)] w-full max-w-[min(calc(100vw-2rem),26rem)] flex-col overflow-hidden rounded-2xl border border-zinc-700/90 bg-zinc-950 shadow-xl shadow-black/40"
       >
         <div className="flex shrink-0 items-start justify-between gap-3 border-b border-zinc-800/90 px-5 py-5 sm:px-6">
           <div className="min-w-0 pr-8">

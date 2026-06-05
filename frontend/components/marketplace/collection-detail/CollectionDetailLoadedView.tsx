@@ -15,6 +15,7 @@ import {
   CollectionMobileMarketTabs,
 } from "@/components/marketplace/collection-mobile";
 import { CollectionTradingTabs } from "@/components/marketplace/collection-trading";
+import { OrderBookAskListingModal } from "@/components/marketplace/unified-order-book/OrderBookAskListingModal";
 import { CollectionOwnedRwaListModal } from "@/components/marketplace/collection-listings";
 import { TradeCelebrationModal } from "@/components/marketplace/trade";
 import type { CollectionDetailLoadedProps } from "@/hooks/collection-detail";
@@ -50,6 +51,8 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
     tradeCelebration,
     setTradeCelebration,
     bookSelection,
+    orderBookAskPicker,
+    setOrderBookAskPicker,
     aiInsightComingSoonOpen,
     setAiInsightComingSoonOpen,
     showOrderBook,
@@ -240,6 +243,14 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
         listPricePresetUsdc={listPricePresetUsdc}
         preferredBidOrderHash={preferredBidOrderHash}
         onSaleCelebration={() => setTradeCelebration("sale")}
+      />
+
+      <OrderBookAskListingModal
+        open={orderBookAskPicker?.side === "ask"}
+        onClose={() => setOrderBookAskPicker(null)}
+        collectionKey={collection.collectionKey}
+        price={orderBookAskPicker?.price ?? 0}
+        orders={orderBookAskPicker?.side === "ask" ? orderBookAskPicker.orders : []}
       />
     </div>
   );

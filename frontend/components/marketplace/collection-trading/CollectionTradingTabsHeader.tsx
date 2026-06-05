@@ -10,7 +10,6 @@ import type { CollectionTradeTab } from "@/lib/marketplace/collection-trading";
 export function CollectionTradingTabsHeader({
   collectionLabel,
   flow,
-  ordersCount,
   onSelectOrders,
   flush,
   docked,
@@ -19,7 +18,6 @@ export function CollectionTradingTabsHeader({
 }: {
   collectionLabel: string;
   flow: CollectionTradeTab;
-  ordersCount: number;
   onSelectOrders: () => void;
   flush: boolean;
   docked: boolean;
@@ -64,9 +62,6 @@ export function CollectionTradingTabsHeader({
           title="Your active listings and collection bids in this collection"
         >
           Orders
-          {ordersCount > 0 ? (
-            <span className="ml-1 tabular-nums text-zinc-400">{ordersCount}</span>
-          ) : null}
         </button>
         {docked && dockControlled ? (
           <button

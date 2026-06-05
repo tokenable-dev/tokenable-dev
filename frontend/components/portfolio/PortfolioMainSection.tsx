@@ -4,12 +4,12 @@ import type { ReactNode } from "react";
 
 export type PortfolioMainTab = "collectibles" | "bids";
 
-function tabButtonClass(active: boolean, variant: "primary" | "secondary"): string {
-  const base = "rounded-full px-3.5 py-1.5 text-[11px] font-semibold transition-colors sm:px-4 sm:py-1.5 sm:text-xs";
-  if (!active) return `${base} text-gray-400 hover:text-white`;
-  if (variant === "primary") return `${base} bg-mint text-[#061018]`;
-  return `${base} bg-zinc-600/90 text-white`;
-}
+const TAB_SHELL =
+  "flex w-full gap-1 rounded-full border border-gray-700/80 bg-gray-900/70 p-1 sm:inline-flex sm:w-auto sm:gap-0.5";
+const TAB_BASE =
+  "min-w-0 flex-1 rounded-full px-3 py-2 text-center text-[11px] font-semibold transition-colors sm:flex-none sm:px-3.5 sm:py-1";
+const TAB_ACTIVE = "bg-mint text-[#061018]";
+const TAB_INACTIVE = "text-gray-400 hover:text-white";
 
 export function PortfolioMainSection({
   activeTab,
@@ -23,13 +23,9 @@ export function PortfolioMainSection({
   bidsPanel: ReactNode;
 }) {
   return (
-    <div className="mb-6 rounded-2xl border border-gray-800 bg-[#0b1118] p-4 sm:p-6">
-      <div
-        className="mb-4 flex flex-wrap items-center gap-3"
-        role="tablist"
-        aria-label="Portfolio sections"
-      >
-        <div className="inline-flex rounded-full border border-gray-700/80 bg-gray-900/70 p-1">
+    <div className="mb-6 rounded-2xl border border-gray-800 bg-[#0b1118] p-3 sm:p-5">
+      <div className="mb-3 sm:mb-4" role="tablist" aria-label="Portfolio sections">
+        <div className={TAB_SHELL}>
           <button
             type="button"
             role="tab"
@@ -37,7 +33,7 @@ export function PortfolioMainSection({
             aria-selected={activeTab === "collectibles"}
             aria-controls="portfolio-panel-collectibles"
             onClick={() => onTabChange("collectibles")}
-            className={tabButtonClass(activeTab === "collectibles", "primary")}
+            className={`${TAB_BASE} ${activeTab === "collectibles" ? TAB_ACTIVE : TAB_INACTIVE}`}
           >
             My Collectibles
           </button>
@@ -48,7 +44,7 @@ export function PortfolioMainSection({
             aria-selected={activeTab === "bids"}
             aria-controls="portfolio-panel-bids"
             onClick={() => onTabChange("bids")}
-            className={tabButtonClass(activeTab === "bids", "secondary")}
+            className={`${TAB_BASE} ${activeTab === "bids" ? TAB_ACTIVE : TAB_INACTIVE}`}
           >
             Collection Bids
           </button>

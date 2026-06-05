@@ -102,7 +102,7 @@ function ActiveBidCard({
             type="button"
             disabled={busy}
             onClick={onChangePrice}
-            className="min-w-0 rounded-lg border border-mint/35 bg-mint/[0.08] px-2.5 py-2 text-[10px] font-semibold text-mint transition-colors hover:bg-mint/[0.14] disabled:opacity-40 sm:px-3 sm:py-1.5 sm:text-[11px]"
+            className="min-w-0 rounded-lg border border-white/15 bg-white/[0.06] px-2.5 py-2 text-[10px] font-semibold text-zinc-100 transition-colors hover:border-white/25 hover:bg-white/[0.1] hover:text-white disabled:opacity-40 sm:px-3 sm:py-1.5 sm:text-[11px]"
           >
             {isOpening ? "Opening…" : "Change price"}
           </button>
@@ -110,7 +110,7 @@ function ActiveBidCard({
             type="button"
             disabled={busy}
             onClick={onCancel}
-            className="min-w-0 rounded-lg border border-zinc-700/55 bg-zinc-800/35 px-2.5 py-2 text-[10px] font-semibold text-zinc-400 transition-colors hover:border-zinc-600/65 hover:bg-zinc-800/55 hover:text-zinc-200 disabled:opacity-40 sm:px-3 sm:py-1.5 sm:text-[11px]"
+            className="min-w-0 rounded-lg border border-rose-500/35 bg-rose-500/10 px-2.5 py-2 text-[10px] font-semibold text-rose-200 transition-colors hover:border-rose-400/45 hover:bg-rose-500/18 disabled:cursor-not-allowed disabled:opacity-50 sm:px-3 sm:py-1.5 sm:text-[11px]"
           >
             {isCancelling ? "Cancelling…" : "Cancel"}
           </button>
@@ -139,7 +139,12 @@ export function PortfolioCollectionBidsSection({
   collectionMetaByKey: Map<string, PortfolioBidCollectionMeta>;
   cancellingHash: string | null;
   openingChangeHash: string | null;
-  onCancel: (orderHash: string, collectionKey: string) => void;
+  onCancel: (
+    orderHash: string,
+    collectionKey: string,
+    collectionLabel: string,
+    priceLabel: string,
+  ) => void;
   onChangePrice: (orderHash: string, collectionKey: string) => void;
 }) {
   const isMobileViewport = useIsMobileViewport();
@@ -225,7 +230,15 @@ export function PortfolioCollectionBidsSection({
                   isOpening={openingChangeHash === bid.orderHash}
                   isCancelling={cancellingHash === bid.orderHash}
                   onChangePrice={() => onChangePrice(bid.orderHash, bid.collectionKey)}
-                  onCancel={() => onCancel(bid.orderHash, bid.collectionKey)}
+                  onCancel={() =>
+                    onCancel(
+                      bid.orderHash,
+                      bid.collectionKey,
+                      collectionMetaByKey.get(bid.collectionKey)?.displayLabel ??
+                        bid.collectionKey.replace(/^ch:/, "").slice(0, 48),
+                      bid.priceLabel,
+                    )
+                  }
                 />
               );
             })}
