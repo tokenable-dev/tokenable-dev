@@ -6,8 +6,6 @@ import {
   buildAskDepthLevels,
   buildBidDepthLevels,
   buildOrderBookCenterModel,
-  bestAskFromRows,
-  bestBidFromRows,
   cmpAskByPriceThenToken,
   cmpBidByPriceDesc,
 } from "@/lib/marketplace/unified-order-book";
@@ -45,18 +43,13 @@ export function useUnifiedOrderBook({
   const askLevels = useMemo(() => buildAskDepthLevels(askRows), [askRows]);
   const bidLevels = useMemo(() => buildBidDepthLevels(bidRows), [bidRows]);
 
-  const bestAskPrice = useMemo(() => bestAskFromRows(askRows), [askRows]);
-  const bestBidPrice = useMemo(() => bestBidFromRows(bidRows), [bidRows]);
-
   const bookCenterModel = useMemo(
     () =>
       buildOrderBookCenterModel({
         lastTradePriceUsdc,
         lastTradeSide,
-        bestAskPrice,
-        bestBidPrice,
       }),
-    [bestAskPrice, bestBidPrice, lastTradePriceUsdc, lastTradeSide],
+    [lastTradePriceUsdc, lastTradeSide],
   );
 
   const depthMax = compact ? "max-h-[72px]" : "max-h-[100px]";

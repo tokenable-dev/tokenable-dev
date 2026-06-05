@@ -9,7 +9,11 @@ import {
   orderBookColumnHeaderCls,
   orderBookRowValueCls,
 } from "@/components/marketplace/price-metrics-strip/theme";
-import type { BookCenterModel, OrderBookDepthLevel } from "@/lib/marketplace/unified-order-book";
+import {
+  ORDER_BOOK_FLUSH_DEPTH_PANE_HEIGHT_CLASS,
+  type BookCenterModel,
+  type OrderBookDepthLevel,
+} from "@/lib/marketplace/unified-order-book";
 import type { BookRowSelection } from "@/lib/marketplace/marketplaceTradingTypes";
 import { OrderBookCenterStrip } from "./OrderBookCenterStrip";
 import { OrderBookDepthLevelRow } from "./OrderBookDepthLevelRow";
@@ -152,7 +156,10 @@ function emptyLevelsClass(flush?: boolean) {
     : `py-3 text-center ${orderBookColumnHeaderCls}`;
 }
 
-function scrollPaneClass(scrollable: boolean) {
+function scrollPaneClass(scrollable: boolean, flush?: boolean) {
+  if (flush && scrollable) {
+    return `min-h-0 shrink-0 overflow-y-auto overflow-x-hidden overscroll-y-auto ${COLLECTION_ORDER_BOOK_SCROLL_CLASS} ${ORDER_BOOK_FLUSH_DEPTH_PANE_HEIGHT_CLASS}`;
+  }
   return scrollable
     ? `min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-auto ${COLLECTION_ORDER_BOOK_SCROLL_CLASS}`
     : "shrink-0 overflow-hidden";
@@ -219,7 +226,7 @@ export function OrderBookBookTab({
     return (
       <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
         <OrderBookColumnHeader flush />
-        <div className={scrollPaneClass(askScrollable)}>
+        <div className={scrollPaneClass(askScrollable, true)}>
           <AskLevelsList
             levels={askLevels}
             emptyLabel="No sell orders"
@@ -229,15 +236,15 @@ export function OrderBookBookTab({
             emptyClassName={emptyLevelsClass(true)}
             wrapperClass={
               askScrollable
-                ? "flex min-h-full flex-col justify-end gap-px px-1 pt-0.5 pb-0.5"
-                : "flex flex-col gap-px px-1 pt-0.5 pb-0.5"
+                ? "flex min-h-full flex-col justify-end gap-px px-1 pt-0.5 pb-1"
+                : "flex flex-col gap-px px-1 pt-0.5 pb-1"
             }
           />
         </div>
         <div className="relative mx-0.5 shrink-0">
           <OrderBookCenterStrip model={bookCenterModel} />
         </div>
-        <div className={scrollPaneClass(bidScrollable)}>
+        <div className={scrollPaneClass(bidScrollable, true)}>
           <BidLevelsList
             levels={bidLevels}
             emptyLabel="No buy orders"
@@ -245,7 +252,7 @@ export function OrderBookBookTab({
             onSelectLevel={onSelectLevel}
             flush
             emptyClassName={emptyLevelsClass(true)}
-            wrapperClass="flex flex-col gap-px px-1 py-0.5 pb-1.5"
+            wrapperClass="flex flex-col gap-px px-1 pt-0.5 pb-1"
           />
         </div>
         <OrderBookFooterCounts bidCount={bidCount} askCount={askCount} flush />

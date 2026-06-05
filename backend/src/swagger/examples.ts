@@ -109,6 +109,26 @@ export const replaceListingExample = {
   },
 };
 
+export const replaceBidExample = {
+  oldOrderHash: F.orderHashBid,
+  callerAddress: F.wallet,
+  order: {
+    ...createCollectionBidExample,
+    considerationAmount: '160000000',
+    parameters: {
+      ...createCollectionBidExample.parameters,
+      salt: '4234567890123',
+      offer: [
+        {
+          ...createCollectionBidExample.parameters.offer[0],
+          startAmount: '160000000',
+          endAmount: '160000000',
+        },
+      ],
+    },
+  },
+};
+
 export const SWAGGER_BODY_EXAMPLES = {
   linkWallet: { address: F.wallet },
   ordersBatchByToken: { tokenIds: F.tokenIds },

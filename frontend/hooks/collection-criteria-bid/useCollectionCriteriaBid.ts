@@ -36,6 +36,8 @@ export function useCollectionCriteriaBid(input: {
   onPurchaseFilled?: () => void;
   /** When true, never instant-buy on submit — caller owns Buy Now (card detail). */
   bidOnlySubmit?: boolean;
+  /** Active collection bid to replace (change price). */
+  bidToReplace?: Order | null;
 }) {
   const {
     collectionKey,
@@ -46,6 +48,7 @@ export function useCollectionCriteriaBid(input: {
     onInstantBuyFillUsdc,
     onPurchaseFilled,
     bidOnlySubmit = false,
+    bidToReplace = null,
   } = input;
 
   const { address: wagmiAddress, isConnected } = useAccount();
@@ -75,7 +78,10 @@ export function useCollectionCriteriaBid(input: {
     collectionKey,
     activeAsks,
     presetPriceFromBook,
+    bidToReplace,
   });
+
+  const isReplaceBid = bidToReplace != null && bidToReplace.status === "active";
 
   const [step, setStep] = useState<CollectionCriteriaBidStep>("idle");
   const [errorMsg, setErrorMsg] = useState("");
@@ -202,7 +208,7 @@ export function useCollectionCriteriaBid(input: {
     setPostBidMatchHint(null);
 
     try {
-      setStep("signing");
+      setStep(isReplaceBid ? "submitting" : "signing");
       const result = await submitCollectionCriteriaBid({
         collectionKey,
         address,
@@ -214,6 +220,8 @@ export function useCollectionCriteriaBid(input: {
         counter: counter as bigint,
         usdcAllowanceRaw: usdcAllowanceRaw as bigint | undefined,
         activeAsks,
+        mode: isReplaceBid ? "replace" : "create",
+        oldOrderHash: isReplaceBid ? bidToReplace!.orderHash : undefined,
       });
 
       setStep("matching");
@@ -296,5 +304,6 @@ export function useCollectionCriteriaBid(input: {
     walletSignerMissing,
     handleSubmit,
     runInstantPurchase,
+    isReplaceBid,
   };
 }

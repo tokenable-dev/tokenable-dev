@@ -18,6 +18,7 @@ import { apiBodyDefault } from '../../swagger/api-body.util';
 import {
   createAskOrderExample,
   createCollectionBidExample,
+  replaceBidExample,
   replaceListingExample,
   SWAGGER_BODY_EXAMPLES,
 } from '../../swagger/examples';
@@ -25,10 +26,13 @@ import { SWAGGER_FIXTURES } from '../../swagger/fixtures';
 import { OrdersBatchByTokenDto } from './dto/orders-batch-by-token.dto';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { FulfillMatchedPairDto } from './dto/fulfill-matched-pair.dto';
+import { ReplaceBidDto } from './dto/replace-bid.dto';
 import { ReplaceListingDto } from './dto/replace-listing.dto';
 import { Order } from '../entities/order.entity';
 import { ListActiveOrdersQueryDto } from './dto/list-active-orders-query.dto';
+import { ListOrdersByOffererQueryDto } from './dto/list-orders-by-offerer-query.dto';
 import { OrdersService } from './orders.service';
+import type { OrderListItem } from '../utils/order-list.util';
 
 /**
  * 마켓플레이스 Seaport 주문 — DB 등록·조회·취소·체결.
@@ -64,12 +68,42 @@ export class OrdersController {
     );
   }
 
+  /** 활성 collection bid 가격/조건 변경 (취소+신규 주문 단일 트랜잭션) */
+  @ApiOperation({ summary: 'collection bid 교체 (취소+신규)' })
+  @ApiBody(apiBodyDefault(ReplaceBidDto, replaceBidExample))
+  @Post('orders/replace-bid')
+  replaceBid(@Body() body: ReplaceBidDto): Promise<Order> {
+    return this.ordersService.replaceBuyerBid(
+      body.oldOrderHash,
+      body.callerAddress,
+      body.order,
+    );
+  }
+
   /** 여러 tokenId 주문 이력 배치 조회 */
   @ApiOperation({ summary: 'tokenId별 주문 이력 배치' })
   @ApiBody(apiBodyDefault(OrdersBatchByTokenDto, SWAGGER_BODY_EXAMPLES.ordersBatchByToken))
   @Post('orders/batch-by-token')
   batchOrdersByToken(@Body() body: OrdersBatchByTokenDto) {
     return this.ordersService.findOrdersBatchByTokenIds(body.tokenIds ?? []);
+  }
+
+  /** 지갑이 등록한 collection bid 주문 내역 (active·fulfilled·cancelled 등) */
+  @ApiOperation({ summary: '지갑별 collection bid 주문 내역' })
+  @ApiQuery({ name: 'offerer', example: SWAGGER_FIXTURES.wallet })
+  @ApiQuery({ name: 'side', example: 'bid', enum: ['bid'] })
+  @ApiQuery({ name: 'limit', required: false, example: 100 })
+  @Get('orders/by-offerer')
+  findOrdersByOfferer(
+    @Query() query: ListOrdersByOffererQueryDto,
+  ): Promise<OrderListItem[]> {
+    if (query.side !== 'bid') {
+      return Promise.resolve([]);
+    }
+    return this.ordersService.findCollectionBidsByOfferer(
+      query.offerer,
+      query.limit,
+    );
   }
 
   /** 활성 ask listing 목록 (경량, parameters 없음) */

@@ -3,6 +3,11 @@ export { PortfolioActivitySection } from "./PortfolioActivitySection";
 export { PortfolioAssetCard } from "./PortfolioAssetCard";
 export { PortfolioDisconnectedState } from "./PortfolioDisconnectedState";
 export { PortfolioHoldingsSection } from "./PortfolioHoldingsSection";
+export { PortfolioCollectionBidsSection } from "./PortfolioCollectionBidsSection";
+export {
+  PortfolioMainSection,
+  type PortfolioMainTab,
+} from "./PortfolioMainSection";
 export { PortfolioHideConfirmModal } from "./PortfolioHideConfirmModal";
 export { PortfolioSummaryBar } from "./PortfolioSummaryBar";
 export { PortfolioValuePanel } from "./PortfolioValuePanel";

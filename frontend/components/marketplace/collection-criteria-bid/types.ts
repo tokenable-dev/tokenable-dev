@@ -22,4 +22,6 @@ export type CollectionCriteriaBidPanelProps = {
   hideSellFooter?: boolean;
   /** Hide submit CTA — caller triggers submit via ref (mobile sticky footer). */
   hideSubmitButton?: boolean;
+  /** When set, submit replaces this active collection bid (change price). */
+  bidToReplace?: Order | null;
 };

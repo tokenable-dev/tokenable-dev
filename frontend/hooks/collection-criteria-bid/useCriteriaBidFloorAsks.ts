@@ -14,8 +14,10 @@ export function useCriteriaBidFloorAsks(input: {
   collectionKey: string;
   activeAsks: Order[];
   presetPriceFromBook?: string | null;
+  /** When set, pre-fills price from an existing bid (change-price flow). */
+  bidToReplace?: Order | null;
 }) {
-  const { collectionKey, activeAsks, presetPriceFromBook } = input;
+  const { collectionKey, activeAsks, presetPriceFromBook, bidToReplace } = input;
 
   const [price, setPrice] = useState("");
   const priceTouchedRef = useRef(false);
@@ -86,7 +88,22 @@ export function useCriteriaBidFloorAsks(input: {
   }, [presetPriceFromBook]);
 
   useEffect(() => {
-    if (priceTouchedRef.current || !lowestAsk || presetPriceFromBook != null) return;
+    if (bidToReplace == null || presetPriceFromBook != null) return;
+    try {
+      const offer0 = bidToReplace.parameters?.offer?.[0];
+      const amt = offer0?.startAmount ?? bidToReplace.considerationAmount;
+      const s = formatUnits(BigInt(amt), 6);
+      const n = parseFloat(s);
+      setPrice(Number.isFinite(n) ? String(n) : s);
+      priceTouchedRef.current = false;
+    } catch {
+      /* ignore */
+    }
+  }, [bidToReplace?.orderHash, presetPriceFromBook]);
+
+  useEffect(() => {
+    if (priceTouchedRef.current || !lowestAsk || presetPriceFromBook != null || bidToReplace != null)
+      return;
     try {
       const s = formatUnits(askPriceMicros(lowestAsk), 6);
       const n = parseFloat(s);

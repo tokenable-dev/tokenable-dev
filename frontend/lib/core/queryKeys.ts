@@ -32,6 +32,11 @@ export const rq = {
   marketMintPreviews: (address: string | undefined, tokenIds: readonly number[]) =>
     ["cardhedger-mint-previews", address ?? "", [...tokenIds].slice().sort((a, b) => a - b)] as const,
   portfolioHidden: (address: string) => ["portfolio-hidden", address] as const,
+  /** Collection labels/covers for portfolio bid rows (sorted keys). */
+  portfolioBidCollections: (sortedKeys: readonly string[]) =>
+    ["portfolio-bid-collections", [...sortedKeys]] as const,
+  /** Collection bids placed by wallet (portfolio). */
+  portfolioBids: (address: string) => ["portfolio-bids", address] as const,
 
   // ── Collection ─────────────────────────────────────────────────────────────
 

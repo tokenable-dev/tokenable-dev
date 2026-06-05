@@ -13,6 +13,7 @@ export function CollectionMyOrdersEmbeddedBody({
   myBids,
   cancelling,
   onCancel,
+  onChangeBidPrice,
   isBidStale,
 }: {
   addr: string;
@@ -21,6 +22,7 @@ export function CollectionMyOrdersEmbeddedBody({
   myBids: Order[];
   cancelling: string | null;
   onCancel: (orderHash: string) => void;
+  onChangeBidPrice: (bid: Order) => void;
   isBidStale: (o: Order) => boolean;
 }) {
   if (!addr) {
@@ -99,15 +101,26 @@ export function CollectionMyOrdersEmbeddedBody({
                     </span>
                   ) : null}
                 </div>
-                <button
-                  type="button"
-                  disabled={cancelling === o.orderHash}
-                  onClick={() => onCancel(o.orderHash)}
-                  className="shrink-0 text-[10px] font-medium text-zinc-400 hover:text-zinc-200 disabled:opacity-40"
-                  title="Cancel collection bid"
-                >
-                  {cancelling === o.orderHash ? "…" : "Cancel"}
-                </button>
+                <div className="flex shrink-0 items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={cancelling === o.orderHash}
+                    onClick={() => onChangeBidPrice(o)}
+                    className="text-[10px] font-medium text-mint/90 hover:text-mint disabled:opacity-40"
+                    title="Change bid price"
+                  >
+                    Change price
+                  </button>
+                  <button
+                    type="button"
+                    disabled={cancelling === o.orderHash}
+                    onClick={() => onCancel(o.orderHash)}
+                    className="text-[10px] font-medium text-zinc-400 hover:text-zinc-200 disabled:opacity-40"
+                    title="Cancel collection bid"
+                  >
+                    {cancelling === o.orderHash ? "…" : "Cancel"}
+                  </button>
+                </div>
               </li>
             ))}
           </ul>

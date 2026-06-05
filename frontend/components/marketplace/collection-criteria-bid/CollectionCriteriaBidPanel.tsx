@@ -36,6 +36,7 @@ export const CollectionCriteriaBidPanel = forwardRef<
     actionLayout = "combined",
     hideSellFooter = false,
     hideSubmitButton = false,
+    bidToReplace = null,
   },
   ref,
 ) {
@@ -50,6 +51,7 @@ export const CollectionCriteriaBidPanel = forwardRef<
     onInstantBuyFillUsdc,
     onPurchaseFilled,
     bidOnlySubmit,
+    bidToReplace,
   });
 
   useImperativeHandle(
@@ -66,7 +68,13 @@ export const CollectionCriteriaBidPanel = forwardRef<
     bid.showAskChooserModal && bid.crossesBook && bid.lowestAskCandidates.length >= 2;
 
   const headerTitle =
-    actionLayout === "split" ? "Place bid" : undefined;
+    actionLayout === "split"
+      ? bid.isReplaceBid
+        ? "Change bid"
+        : "Place bid"
+      : bid.isReplaceBid
+        ? "Change bid"
+        : undefined;
 
   return (
     <div
@@ -109,6 +117,7 @@ export const CollectionCriteriaBidPanel = forwardRef<
         onOpenSellModal={onOpenSellModal}
         hideSellFooter={hideSellFooter}
         hideSubmitButton={hideSubmitButton}
+        isReplaceBid={bid.isReplaceBid}
       />
 
       <CollectionCriteriaBidFloorChooserModal

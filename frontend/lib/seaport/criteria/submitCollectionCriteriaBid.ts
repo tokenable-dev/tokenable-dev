@@ -8,7 +8,7 @@ import {
   USDC_ADDRESS,
   USDC_ABI,
 } from "@/constants/contracts";
-import { createOrder, type Order } from "@/lib/core";
+import { createOrder, replaceBidApi, type CreateOrderPayload, type Order } from "@/lib/core";
 import { GAS_FALLBACK, gasWithCapFast } from "@/lib/network";
 import { assertMerkleRootBytes32 } from "@/lib/seaport/eip712Uint";
 import { SeaportMerkleTree } from "@/lib/seaport/merkle";
@@ -42,6 +42,8 @@ export async function submitCollectionCriteriaBid(input: {
   counter: bigint;
   usdcAllowanceRaw: bigint | undefined;
   activeAsks: Order[];
+  mode?: "create" | "replace";
+  oldOrderHash?: string;
 }): Promise<CollectionCriteriaBidSubmitResult> {
   const {
     collectionKey,
@@ -54,7 +56,13 @@ export async function submitCollectionCriteriaBid(input: {
     counter,
     usdcAllowanceRaw,
     activeAsks,
+    mode = "create",
+    oldOrderHash,
   } = input;
+
+  if (mode === "replace" && !oldOrderHash) {
+    throw new Error("oldOrderHash required for replace");
+  }
 
   const now = await getChainTimestampSec(publicClient);
   const endTime = now + BigInt(CRITERIA_BID_ORDER_DURATION_SECONDS);
@@ -167,7 +175,7 @@ export async function submitCollectionCriteriaBid(input: {
   }
 
   const str = (v: unknown): string => String(v);
-  const order = await createOrder({
+  const payload: CreateOrderPayload = {
     side: "bid",
     collectionKey,
     parameters: {
@@ -206,7 +214,16 @@ export async function submitCollectionCriteriaBid(input: {
     tokenId: "0",
     considerationToken: USDC_ADDRESS,
     considerationAmount: str(bidUnits),
-  });
+  };
+
+  const order =
+    mode === "replace" && oldOrderHash
+      ? await replaceBidApi({
+          callerAddress: address,
+          oldOrderHash,
+          order: payload,
+        })
+      : await createOrder(payload);
 
   const matchWrite = ((args: Parameters<MatchWriteContractAsync>[0]) =>
     writeContractAsync(

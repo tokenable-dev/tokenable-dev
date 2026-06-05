@@ -83,7 +83,7 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
   );
 
   const collectionListingsBody = (
-    <CollectionDetailListingsSection count={listings.tokenIds.length}>
+    <CollectionDetailListingsSection>
       {collectionListingsGrid}
     </CollectionDetailListingsSection>
   );

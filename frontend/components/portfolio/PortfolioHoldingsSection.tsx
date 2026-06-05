@@ -21,6 +21,7 @@ function filterEmptyMessage(
 }
 
 export function PortfolioHoldingsSection({
+  embedded = false,
   assetsSectionLoading,
   assetRowsLength,
   assetFilter,
@@ -46,6 +47,8 @@ export function PortfolioHoldingsSection({
   onCancelListing,
   onBurn,
 }: {
+  /** When true, omits outer card chrome (used inside PortfolioMainSection tabs). */
+  embedded?: boolean;
   assetsSectionLoading: boolean;
   assetRowsLength: number;
   assetFilter: AssetListFilter;
@@ -71,12 +74,7 @@ export function PortfolioHoldingsSection({
   onCancelListing: (tokenId: number, orderHash: string) => void;
   onBurn: (tokenId: number, hasListing: boolean) => void;
 }) {
-  return (
-    <div className="mb-6 rounded-2xl border border-gray-800 bg-[#0b1118] p-4 sm:p-6">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-sm font-bold">My Collectibles</h2>
-        </div>
+  const filterPills = (
         <div className="inline-flex rounded-full border border-gray-700/80 bg-gray-900/70 p-1 text-[11px]">
           <button
             type="button"
@@ -123,7 +121,10 @@ export function PortfolioHoldingsSection({
             </button>
           ) : null}
         </div>
-      </div>
+  );
+
+  const body = (
+    <>
       {assetsSectionLoading ? (
         <div className="-mx-0.5 grid grid-cols-2 gap-2.5 pb-2 pt-0.5 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
           {[...Array(6)].map((_, i) => (
@@ -184,6 +185,27 @@ export function PortfolioHoldingsSection({
           ) : null}
         </div>
       )}
+    </>
+  );
+
+  if (embedded) {
+    return (
+      <div>
+        <div className="mb-3 flex flex-wrap items-center justify-end gap-3">{filterPills}</div>
+        {body}
+      </div>
+    );
+  }
+
+  return (
+    <div className="mb-6 rounded-2xl border border-gray-800 bg-[#0b1118] p-4 sm:p-6">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-bold">My Collectibles</h2>
+        </div>
+        {filterPills}
+      </div>
+      {body}
     </div>
   );
 }

@@ -1,5 +1,7 @@
 export {
   MAX_ORDER_BOOK_TAPE_ROWS,
+  ORDER_BOOK_FLUSH_DEPTH_PANE_HEIGHT_CLASS,
+  ORDER_BOOK_FLUSH_VISIBLE_DEPTH_ROWS,
   buildAskDepthLevels,
   buildBidDepthLevels,
   buildOrderBookCenterModel,
