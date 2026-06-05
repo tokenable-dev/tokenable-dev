@@ -66,7 +66,7 @@ export function CollectionMobileMarketTabs({
         className={
           isInfoTab
             ? "shrink-0 pt-2 min-h-0 overflow-visible"
-            : "shrink-0 max-lg:overflow-x-clip pt-2 min-h-[168px] overflow-hidden"
+            : "shrink-0 max-lg:overflow-x-clip pt-2 min-h-[min(300px,48svh)] overflow-hidden"
         }
         role="tabpanel"
       >

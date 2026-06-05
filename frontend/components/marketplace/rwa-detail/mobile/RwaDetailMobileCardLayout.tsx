@@ -71,7 +71,7 @@ export function RwaDetailMobileCardHeader({
  * Scroll only the card copy region — height stops above the fixed CTA (no document `pb` ghost scroll).
  */
 export const RWA_MOBILE_CONTENT_SCROLL_CLASS =
-  "max-lg:max-h-[calc(100svh-4rem-9.25rem-env(safe-area-inset-bottom,0px))] max-lg:overflow-y-auto max-lg:overflow-x-hidden max-lg:overscroll-y-contain max-lg:pt-1";
+  "scrollbar-dark max-lg:max-h-[calc(100svh-4rem-9.25rem-env(safe-area-inset-bottom,0px))] max-lg:overflow-y-auto max-lg:overflow-x-hidden max-lg:overscroll-y-contain max-lg:pt-1";
 
 export function RwaDetailStickyBuyFooter({
   children,

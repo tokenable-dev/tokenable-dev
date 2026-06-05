@@ -1,8 +1,7 @@
 /**
- * EC2+Nginx: leave NEXT_PUBLIC_API_URL unset so the browser uses
- * `window.location.origin + '/api'` (IP, http/https domain; avoids mixed content).
+ * Browser: same-origin `/api` via Next rewrites (leave NEXT_PUBLIC_API_URL unset).
+ * Server/SSR: INTERNAL_API_URL, else API_PROXY_TARGET / http://127.0.0.1:4000.
  * Set NEXT_PUBLIC_API_URL only when the API is on a different host.
- * Server/SSR: INTERNAL_API_URL or direct backend URL.
  */
 export function getApiUrl(): string {
   const explicit = process.env.NEXT_PUBLIC_API_URL?.trim();
@@ -12,7 +11,6 @@ export function getApiUrl(): string {
   if (typeof window !== "undefined") {
     return `${window.location.origin}/api`;
   }
-  // Server-only: `backendOrigin` uses `os` — must not be a static client import.
   const { internalApiUrl } =
     require("@/lib/core/backendOrigin") as typeof import("@/lib/core/backendOrigin");
   return internalApiUrl();

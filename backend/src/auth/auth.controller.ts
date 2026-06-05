@@ -27,6 +27,9 @@ import { AuthService } from './auth.service';
 import { LinkWalletDto } from './dto/link-wallet.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
+/**
+ * 인증·세션 — Google OAuth, JWT httpOnly 쿠키, 지갑 연결.
+ */
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
@@ -46,18 +49,18 @@ export class AuthController {
     return frontUrl.startsWith('https:');
   }
 
+  /** Google 로그인 시작 (Google로 리다이렉트) */
   @Get('google')
   @UseGuards(AuthGuard('google'))
-  @ApiOperation({ summary: 'Google OAuth 시작 (302 → Google)' })
+  @ApiOperation({ summary: 'Google OAuth 시작' })
   googleAuth(): void {
     /* Passport redirects */
   }
 
+  /** Google 콜백 — JWT 쿠키 설정 후 프론트 `/auth/callback` */
   @Get('google/callback')
   @UseGuards(AuthGuard('google'))
-  @ApiOperation({
-    summary: 'Google OAuth 콜백 → JWT 쿠키 후 프론트로 리다이렉트',
-  })
+  @ApiOperation({ summary: 'Google OAuth 콜백 (JWT 쿠키)' })
   googleCallback(
     @Req() req: Request & { user: User },
     @Res() res: Response,
@@ -86,13 +89,10 @@ export class AuthController {
     res.redirect(`${front}/auth/callback?ok=1`);
   }
 
+  /** 메일 인증 링크 클릭 처리 */
   @Get('verify-email')
-  @ApiOperation({ summary: '이메일 인증 링크 (메일에서 클릭)' })
-  @ApiQuery({
-    name: 'token',
-    required: true,
-    description: '메일에 포함된 일회용 인증 토큰',
-  })
+  @ApiOperation({ summary: '이메일 인증 링크' })
+  @ApiQuery({ name: 'token', required: true, example: 'paste-verification-token-from-email' })
   async verifyEmail(
     @Query('token') token: string | undefined,
     @Res() res: Response,
@@ -110,21 +110,20 @@ export class AuthController {
     );
   }
 
+  /** 로그인 사용자에게 인증 메일 재발송 */
   @Post('send-verification-email')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
   @HttpCode(200)
-  @ApiOperation({ summary: '인증 메일 재발송 (로그인 필요)' })
+  @ApiOperation({ summary: '인증 메일 재발송' })
   async sendVerificationEmail(@Req() req: Request & { user: User }) {
     await this.auth.resendVerificationEmail(req.user.id);
     return { ok: true };
   }
 
+  /** 현재 로그인 사용자 (비로그인 시 `user: null`, 200) */
   @Get('session')
-  @ApiOperation({
-    summary:
-      '현재 세션 (비로그인도 200 + user: null — 브라우저 콘솔 401 노이즈 방지)',
-  })
+  @ApiOperation({ summary: '현재 세션 조회' })
   async session(@Req() req: Request) {
     const u = await this.auth.sessionUserFromRequest(req);
     if (!u) return { user: null };
@@ -143,18 +142,20 @@ export class AuthController {
     };
   }
 
+  /** access_token 쿠키 삭제 */
   @Post('logout')
   @HttpCode(204)
-  @ApiOperation({ summary: '로그아웃 (쿠키 삭제)' })
+  @ApiOperation({ summary: '로그아웃' })
   logout(@Res() res: Response): void {
     res.clearCookie('access_token', { path: '/' });
     res.end();
   }
 
+  /** 계정에 지갑 주소 연결 */
   @Post('wallet')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
-  @ApiOperation({ summary: '지갑 주소를 계정에 연결 (체크섬 정규화)' })
+  @ApiOperation({ summary: '지갑 연결' })
   async linkWallet(
     @Req() req: Request & { user: User },
     @Body() dto: LinkWalletDto,
@@ -168,6 +169,7 @@ export class AuthController {
     };
   }
 
+  /** 계정에서 지갑 연결 해제 */
   @Delete('wallet')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')

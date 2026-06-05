@@ -26,7 +26,13 @@ export function useRwaDetailPlatformTrades(input: {
   const trades = useMemo((): CollectionPlatformTapeFill[] => {
     const raw = data?.trades ?? [];
     const tid = String(tokenId);
-    return raw.filter((row) => String(row.tokenId) === tid);
+    // Platform fills are per tokenId; Cardhedger comps use tokenId "—" (catalog-grade market sales).
+    return raw
+      .filter(
+        (row) =>
+          row.source === "cardhedger" || String(row.tokenId) === tid,
+      )
+      .sort((a, b) => b.t - a.t);
   }, [data?.trades, tokenId]);
 
   return {
