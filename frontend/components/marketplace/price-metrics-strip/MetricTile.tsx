@@ -20,6 +20,7 @@ function isNonemptyFooter(node: ReactNode): boolean {
 
 export function MetricTile({
   label,
+  labelTitle,
   value,
   footer,
   compact,
@@ -29,6 +30,8 @@ export function MetricTile({
   cellClassName,
 }: {
   label: string;
+  /** Full label when {@link label} is abbreviated (narrow desktop). */
+  labelTitle?: string;
   value: ReactNode;
   footer?: ReactNode;
   compact: boolean;
@@ -57,26 +60,22 @@ export function MetricTile({
       <div
         className={
           nowrap
-            ? "mt-0.5 flex w-full min-w-0 flex-nowrap items-baseline gap-x-1 lg:mt-3 lg:min-h-[1.75rem]"
+            ? "mt-0.5 flex w-full min-w-0 flex-nowrap items-baseline gap-x-1 overflow-hidden lg:mt-2 lg:min-h-[1.5rem] xl:mt-3 xl:min-h-[1.75rem]"
             : metricPanelValueWrapCls
         }
       >
-        <div
-          className={`min-w-0 max-w-full ${nowrap ? "whitespace-nowrap" : ""} ${metricPanelValueCls}`}
-        >
-          {value}
-        </div>
+        <div className={metricPanelValueCls}>{value}</div>
       </div>
     );
     const labelNode = (
-      <span className={`${metricPanelLabelCls}${nowrap ? " truncate whitespace-nowrap" : ""}`}>
+      <span className={metricPanelLabelCls} title={labelTitle ?? label}>
         {label}
       </span>
     );
     if (!hasFooter) {
       return (
         <div
-          className={`flex min-w-0 flex-col items-start justify-center text-left ${inset} ${cellClassName ?? ""}`}
+          className={`flex w-full min-w-0 flex-col items-start justify-center overflow-hidden text-left ${inset} ${cellClassName ?? ""}`}
         >
           {labelNode}
           {valueNode}
@@ -85,11 +84,11 @@ export function MetricTile({
     }
     return (
       <div
-        className={`flex min-w-0 flex-col items-start justify-center text-left ${inset} ${cellClassName ?? ""}`}
+        className={`flex w-full min-w-0 flex-col items-start justify-center overflow-hidden text-left ${inset} ${cellClassName ?? ""}`}
       >
         {labelNode}
         {valueNode}
-        <div className="mt-1 w-full text-left text-[9px] leading-snug text-zinc-500 lg:mt-1.5 lg:text-[10px] lg:sm:text-[11px]">
+        <div className="mt-1 w-full min-w-0 truncate text-left text-[9px] leading-snug text-zinc-500 lg:mt-1.5 lg:text-[clamp(8px,2cqw,11px)]">
           {footer}
         </div>
       </div>

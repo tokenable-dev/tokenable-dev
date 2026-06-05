@@ -40,6 +40,7 @@ export function CollectionCriteriaBidPanelForm({
   hideSellFooter = false,
   hideSubmitButton = false,
   headerTitle,
+  isReplaceBid = false,
 }: {
   embedded: boolean;
   isModal?: boolean;
@@ -73,6 +74,7 @@ export function CollectionCriteriaBidPanelForm({
   hideSellFooter?: boolean;
   hideSubmitButton?: boolean;
   headerTitle?: string;
+  isReplaceBid?: boolean;
 }) {
   return (
     <>
@@ -132,6 +134,7 @@ export function CollectionCriteriaBidPanelForm({
             onSubmit={onSubmit}
             onOpenSellModal={onOpenSellModal}
             hideSellFooter={hideSellFooter}
+            isReplaceBid={isReplaceBid}
           />
         ) : (
           <>
@@ -142,7 +145,11 @@ export function CollectionCriteriaBidPanelForm({
             ) : null}
             {step === "success" ? (
               <p className={`text-mint/90 ${embedded ? "text-[10px]" : "text-[11px]"}`}>
-                {lastOutcome === "instant" ? "Purchase complete." : "Bid placed."}
+                {lastOutcome === "instant"
+                  ? "Purchase complete."
+                  : isReplaceBid
+                    ? "Bid updated."
+                    : "Bid placed."}
               </p>
             ) : null}
             {step === "success" && lastOutcome === "bid" && postBidMatchHint ? (

@@ -104,7 +104,7 @@ export function buildCollectionDetailMobilePanels(input: {
       />
     ),
     mobileListingsPanel: (
-      <CollectionMobileListingsSection count={asks.length}>
+      <CollectionMobileListingsSection>
         {listingsBody}
       </CollectionMobileListingsSection>
     ),

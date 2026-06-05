@@ -4,6 +4,24 @@ import type { BookCenterModel } from "./types";
 
 export const MAX_ORDER_BOOK_TAPE_ROWS = 50;
 
+/** Flush collection order book — full depth rows visible before wheel scroll. */
+export const ORDER_BOOK_FLUSH_VISIBLE_DEPTH_ROWS = 5;
+export const ORDER_BOOK_FLUSH_DEPTH_ROW_PX = 25;
+export const ORDER_BOOK_FLUSH_DEPTH_GAP_PX = 1;
+/** Matches bid/ask list wrapper `pt-0.5 pb-1` (2px + 4px). */
+export const ORDER_BOOK_FLUSH_DEPTH_PANE_PAD_PX = 6;
+
+export function orderBookFlushDepthPaneHeightPx(
+  visibleRows = ORDER_BOOK_FLUSH_VISIBLE_DEPTH_ROWS,
+): number {
+  const rowBlock = visibleRows * ORDER_BOOK_FLUSH_DEPTH_ROW_PX;
+  const gaps = Math.max(0, visibleRows - 1) * ORDER_BOOK_FLUSH_DEPTH_GAP_PX;
+  return rowBlock + gaps + ORDER_BOOK_FLUSH_DEPTH_PANE_PAD_PX;
+}
+
+/** Keep in sync with {@link orderBookFlushDepthPaneHeightPx} — Tailwind needs a static class. */
+export const ORDER_BOOK_FLUSH_DEPTH_PANE_HEIGHT_CLASS = "h-[135px]";
+
 export function priceUsdcFromOrder(o: Order): number {
   return Number(o.considerationAmount) / 1_000_000;
 }
@@ -13,25 +31,6 @@ export function formatOrderBookPriceUsdc(n: number): string {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
-}
-
-export function formatSpreadPrimary(bestAsk: number | null, bestBid: number | null): string | null {
-  if (
-    bestAsk == null ||
-    bestBid == null ||
-    !Number.isFinite(bestAsk) ||
-    !Number.isFinite(bestBid) ||
-    bestAsk <= 0 ||
-    bestBid <= 0
-  ) {
-    return null;
-  }
-  const spread = Math.abs(bestAsk - bestBid);
-  const mid = (bestAsk + bestBid) / 2;
-  if (!(mid > 0)) return null;
-  const pct = (spread / mid) * 100;
-  const pctStr = pct < 0.1 ? pct.toFixed(3) : pct.toFixed(2);
-  return `Spread value: ${formatOrderBookPriceUsdc(spread)} (${pctStr}%)`;
 }
 
 export function cmpAskByPriceThenToken(a: Order, b: Order): number {
@@ -161,10 +160,8 @@ export function bestBidFromRows(bidRows: Order[]): number | null {
 export function buildOrderBookCenterModel(input: {
   lastTradePriceUsdc: number | null | undefined;
   lastTradeSide: "buy" | "sell" | null | undefined;
-  bestAskPrice: number | null;
-  bestBidPrice: number | null;
 }): BookCenterModel {
-  const { lastTradePriceUsdc, lastTradeSide, bestAskPrice, bestBidPrice } = input;
+  const { lastTradePriceUsdc, lastTradeSide } = input;
   const fmt = (n: number) =>
     n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -179,26 +176,12 @@ export function buildOrderBookCenterModel(input: {
     };
   }
 
-  if (bestAskPrice != null || bestBidPrice != null) {
-    const spreadLine = formatSpreadPrimary(bestAskPrice, bestBidPrice);
-    return {
-      primary: spreadLine ?? "N/A",
-      tone: "none",
-      lastSide: null,
-      secondary: null,
-      caption: "",
-      title: spreadLine
-        ? "Bid–ask spread (absolute USDC and percent of mid). Last traded price appears here after a sale is recorded."
-        : "Last traded price appears here after a sale is recorded. Spread needs both a bid and an ask.",
-    };
-  }
-
   return {
     primary: "N/A",
     tone: "none",
     lastSide: null,
     secondary: null,
     caption: "",
-    title: "No bid or ask in this book yet.",
+    title: "No on-platform sale recorded yet. Last traded price appears here after a match or purchase.",
   };
 }

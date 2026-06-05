@@ -133,6 +133,7 @@ export async function invalidateAfterCriteriaBid(
   // Broad prefix — refreshes ALL collections' market series after a bid event
   await qc.invalidateQueries({ queryKey: ["collection-market-series"] });
   await _invalidateOrdersAll(qc);
+  await qc.invalidateQueries({ queryKey: ["portfolio-bids"] });
   await qc.invalidateQueries({ queryKey: rq.merkleSetAll() });
   await qc.invalidateQueries({ queryKey: rq.merkleSet(key) });
   await _invalidateRwaTokensAll(qc);

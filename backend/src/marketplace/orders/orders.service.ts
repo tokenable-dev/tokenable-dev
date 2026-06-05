@@ -177,6 +177,62 @@ export class OrdersService {
     });
   }
 
+  /**
+   * Cancel an active collection bid and insert a new signed bid in one transaction.
+   */
+  async replaceBuyerBid(
+    oldOrderHash: string,
+    callerAddress: string,
+    dto: CreateOrderDto,
+  ): Promise<Order> {
+    if (dto.side !== 'bid') {
+      throw new BadRequestException('replaceBuyerBid only accepts bids');
+    }
+
+    const cons = dto.parameters.consideration?.[0];
+    if (!cons || Number(cons.itemType) !== 4) {
+      throw new BadRequestException(
+        'Only ERC721_WITH_CRITERIA collection bids are supported (itemType 4)',
+      );
+    }
+    this.assertValidCriteriaBid(dto);
+
+    const newCollectionKey = dto.collectionKey?.trim().toLowerCase();
+    if (!newCollectionKey) {
+      throw new BadRequestException('collectionKey is required for collection bids');
+    }
+
+    return this.orderRepo.manager.transaction(async (em) => {
+      const old = await em.findOne(Order, {
+        where: { orderHash: oldOrderHash },
+      });
+      if (!old) {
+        throw new NotFoundException(`Order not found: ${oldOrderHash}`);
+      }
+      if (!isCriteriaCollectionBidOrder(old)) {
+        throw new BadRequestException('Only collection bids can be replaced');
+      }
+      if (old.status !== OrderStatus.ACTIVE) {
+        throw new BadRequestException(`Order is already ${old.status}`);
+      }
+      if (old.offerer.toLowerCase() !== callerAddress.toLowerCase()) {
+        throw new BadRequestException('Only the offerer can replace this bid');
+      }
+      const oldKey = old.collectionKey?.trim().toLowerCase();
+      if (!oldKey || oldKey !== newCollectionKey) {
+        throw new BadRequestException(
+          'New bid collectionKey must match the bid being replaced',
+        );
+      }
+
+      old.status = OrderStatus.CANCELLED;
+      await em.save(old);
+
+      const order = await this.materializeOrderFromDto(dto);
+      return this.persistOrder(order, em);
+    });
+  }
+
   private async materializeOrderFromDto(dto: CreateOrderDto): Promise<Order> {
     const side = dto.side === 'bid' ? OrderSide.BID : OrderSide.ASK;
     const { parameters, signature } = dto;
@@ -459,6 +515,26 @@ export class OrdersService {
   /**
    * Order history keyed by requested token id string (one batch query; no N+1).
    */
+  /** Collection criteria bids placed by a wallet (active + historical). */
+  async findCollectionBidsByOfferer(
+    offererAddress: string,
+    limit?: number,
+  ): Promise<OrderListItem[]> {
+    await this.expireOrders();
+    const addr = offererAddress.trim().toLowerCase();
+    if (!addr) return [];
+    const cap = Math.min(Math.max(1, limit ?? 100), 500);
+    const rows = await this.orderRepo
+      .createQueryBuilder('o')
+      .where('LOWER(o.offerer) = :addr', { addr })
+      .andWhere('o.side = :side', { side: OrderSide.BID })
+      .andWhere('o.collection_key IS NOT NULL')
+      .orderBy('o.updated_at', 'DESC')
+      .take(cap)
+      .getMany();
+    return rows.map((o) => orderToListItem(o));
+  }
+
   async findOrdersBatchByTokenIds(
     tokenIds: number[],
   ): Promise<Record<string, OrderListItem[]>> {

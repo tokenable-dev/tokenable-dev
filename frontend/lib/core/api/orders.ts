@@ -85,6 +85,32 @@ export interface CreateOrderPayload {
   collectionKey?: string;
 }
 
+/** Wallet's collection bid order history (active + fulfilled + cancelled). */
+export async function getCollectionBidsByOfferer(
+  offerer: string,
+  opts?: { limit?: number; signal?: AbortSignal },
+): Promise<OrderListItem[]> {
+  const sp = new URLSearchParams();
+  sp.set("offerer", offerer);
+  sp.set("side", "bid");
+  if (opts?.limit != null) sp.set("limit", String(opts.limit));
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/orders/by-offerer?${sp.toString()}`,
+    { signal: opts?.signal },
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ message: "Failed to fetch bids" }));
+    throw new Error((err as { message?: string }).message ?? "Failed to fetch bids");
+  }
+  const raw = (await res.json()) as OrderListItem[];
+  return raw.map((o) => ({
+    ...o,
+    considerationRecipients: Array.isArray(o.considerationRecipients)
+      ? o.considerationRecipients
+      : [],
+  }));
+}
+
 /** 활성 매도(ask) 주문 — 경량 리스트 */
 export async function getActiveOrders(): Promise<OrderListItem[]> {
   const res = await backendFetch(`${getApiUrl()}/marketplace/orders`);
@@ -191,6 +217,29 @@ export async function fulfillMatchedPairApi(
     throw new Error((err as { message?: string }).message ?? "Failed to record match");
   }
   return res.json() as Promise<{ ask: Order; bid: Order }>;
+}
+
+/** Cancel + insert new collection bid in one DB transaction. */
+export async function replaceBidApi(body: {
+  callerAddress: string;
+  oldOrderHash: string;
+  order: CreateOrderPayload;
+}): Promise<Order> {
+  const res = await backendFetch(`${getApiUrl()}/marketplace/orders/replace-bid`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = (await res.json().catch(() => ({}))) as {
+      message?: string | string[];
+    };
+    const msg = Array.isArray(err.message)
+      ? err.message.join(" ")
+      : err.message ?? "Failed to replace bid";
+    throw new Error(msg);
+  }
+  return res.json() as Promise<Order>;
 }
 
 /** Cancel + insert new ask in one DB transaction (keeps Merkle token IDs stable). */

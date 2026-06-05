@@ -24,6 +24,7 @@ export function useCollectionMyOrders({
   collectionKey?: string;
 }) {
   const [cancelling, setCancelling] = useState<string | null>(null);
+  const [bidToChange, setBidToChange] = useState<Order | null>(null);
   const { data: currentMerkleRootHex } = useCollectionMerkleRootHex(collectionKey);
 
   const addr = address?.toLowerCase() ?? "";
@@ -75,5 +76,7 @@ export function useCollectionMyOrders({
     cancelling,
     handleCancel,
     isBidStale,
+    bidToChange,
+    setBidToChange,
   };
 }

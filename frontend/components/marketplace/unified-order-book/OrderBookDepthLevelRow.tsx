@@ -33,7 +33,7 @@ export function OrderBookDepthLevelRow({
     : "absolute inset-y-0 left-0 bg-gradient-to-r from-mint/35 to-mint/[0.07] transition-[width]";
 
   const buttonClass = flush
-    ? `relative flex min-h-[24px] w-full cursor-pointer items-center overflow-hidden rounded-[2px] text-left transition-colors focus:outline-none ${
+    ? `relative flex h-[25px] min-h-[25px] max-h-[25px] w-full cursor-pointer items-center overflow-hidden rounded-[2px] text-left transition-colors focus:outline-none ${
         selected ? "bg-white/[0.06] ring-1 " + selectedRing : ""
       }`
     : `relative min-h-[24px] w-full text-left flex items-center rounded-[2px] overflow-hidden transition-colors cursor-pointer focus:outline-none ${
@@ -41,7 +41,7 @@ export function OrderBookDepthLevelRow({
       }`;
 
   const totalUsdc = level.price * level.count;
-  const flushGridClass = `pointer-events-none relative z-10 ${ORDER_BOOK_THREE_COL_GRID} w-full items-center px-2 py-1 leading-none ${orderBookRowValueCls}`;
+  const flushGridClass = `pointer-events-none relative z-10 ${ORDER_BOOK_THREE_COL_GRID} w-full items-center px-2 py-0.5 leading-none ${orderBookRowValueCls}`;
   const legacyGridClass = `relative z-10 grid grid-cols-[1fr_44px] gap-1.5 w-full px-2 py-1 items-center leading-none pointer-events-none ${orderBookRowValueCls}`;
 
   return (

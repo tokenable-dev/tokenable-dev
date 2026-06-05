@@ -36,10 +36,12 @@ export function CollectionPriceMetricsStripUnifiedRow({
       ? `PSA 10: ${formatPsaPopulationCount(popMetrics.psa10Pop)} · Total: ${formatPsaPopulationCount(popMetrics.totalPsaPop)}`
       : undefined;
   const gridClass =
-    "grid w-full max-lg:grid-cols-2 max-lg:gap-x-2 max-lg:gap-y-1 lg:grid-cols-5 lg:gap-x-3 lg:gap-y-0";
+    "grid w-full max-lg:grid-cols-2 max-lg:gap-x-2 max-lg:gap-y-1 lg:grid-cols-5 lg:gap-x-1 lg:gap-y-0 xl:gap-x-1.5";
 
   return (
-    <div className={`w-full min-w-0 lg:min-h-[116px] ${compact ? "mb-0 sm:mb-0.5" : "mb-0"}`}>
+    <div
+      className={`@container/metrics w-full min-w-0 lg:min-h-[116px] ${compact ? "mb-0 sm:mb-0.5" : "mb-0"}`}
+    >
       <div
         className={`grid ${gridClass} h-full min-h-0 min-w-0 items-stretch justify-items-stretch`}
       >
@@ -61,7 +63,7 @@ export function CollectionPriceMetricsStripUnifiedRow({
                   {formatUsdCompact(model.externalMarketUsd!)}
                 </span>
               ) : (
-                <span className="min-w-0 truncate max-lg:text-zinc-400 lg:text-white">
+                <span className="max-lg:text-zinc-400 lg:text-white">
                   {NO_EXTERNAL_PRICE}
                 </span>
               )}
@@ -131,19 +133,20 @@ export function CollectionPriceMetricsStripUnifiedRow({
           compact={compact}
           footer={metricFooterFromText(model.capFooterText)}
           value={
-            <span className="min-w-0 truncate max-lg:text-zinc-100 lg:text-white">
+            <span className="max-lg:text-zinc-100 lg:text-white">
               {formatMarketCap(model.marketCapUsd)}
             </span>
           }
         />
         <MetricTile
           variant="panelCell"
-          label="PSA 10 / Total Pop"
+          label="PSA 10 / Pop"
+          labelTitle="PSA 10 / Total Pop"
           labelValueLayout="stackedNowrap"
           compact={compact}
           cellClassName="max-lg:col-span-2"
           value={
-            <span className="whitespace-nowrap max-lg:text-zinc-100 lg:text-white" title={popPairTitle}>
+            <span className="max-lg:text-zinc-100 lg:text-white" title={popPairTitle}>
               {popPairLabel}
             </span>
           }

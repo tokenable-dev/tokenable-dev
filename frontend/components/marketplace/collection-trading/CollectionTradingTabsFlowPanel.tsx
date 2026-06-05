@@ -1,8 +1,10 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { useMemo } from "react";
 import type { Address } from "viem";
 import type { Order } from "@/lib/core";
+import { isCriteriaCollectionBid } from "@/lib/seaport/criteria/criteriaMatch";
 import { CollectionCriteriaBidPanel } from "@/components/marketplace/collection-criteria-bid";
 import type { CollectionTradeTab } from "@/lib/marketplace/collection-trading";
 import type { BookRowSelection } from "@/lib/marketplace/marketplaceTradingTypes";
@@ -52,6 +54,18 @@ export function CollectionTradingTabsFlowPanel({
   listingCount: number;
   showSellListingCount: boolean;
 }) {
+  const myBidToReplace = useMemo(() => {
+    const addr = connectedAddress?.toLowerCase();
+    if (!addr) return null;
+    const mine = collectionBids.filter(
+      (o) =>
+        o.offerer.toLowerCase() === addr &&
+        o.status === "active" &&
+        isCriteriaCollectionBid(o),
+    );
+    return mine.length === 1 ? mine[0]! : null;
+  }, [collectionBids, connectedAddress]);
+
   if (flow === "orders") {
     return (
       <div
@@ -89,6 +103,7 @@ export function CollectionTradingTabsFlowPanel({
               collectionKey={collectionKey}
               activeAsks={asks}
               connectedAddress={connectedAddress}
+              bidToReplace={myBidToReplace}
               onPlaced={() => onInvalidate()}
               onInstantBuyFillUsdc={onInstantBuyFillUsdc}
               onOpenSellModal={onOpenSellModal}

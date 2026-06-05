@@ -1,6 +1,7 @@
 "use client";
 
 import type { Order } from "@/lib/core";
+import { CollectionChangeBidModal } from "./CollectionChangeBidModal";
 import { CollectionMyOrdersEmbeddedBody } from "./CollectionMyOrdersEmbeddedBody";
 import { CollectionMyOrdersStandaloneBody } from "./CollectionMyOrdersStandaloneBody";
 import { useCollectionMyOrders } from "@/hooks/marketplace/collection-trading/useCollectionMyOrders";
@@ -37,13 +38,28 @@ export function CollectionMyOrdersPanel({
     myBids: orders.myBids,
     cancelling: orders.cancelling,
     onCancel: (hash: string) => void orders.handleCancel(hash),
+    onChangeBidPrice: (bid: Order) => orders.setBidToChange(bid),
     isBidStale: orders.isBidStale,
   };
+
+  const changeBidModal =
+    collectionKey != null && collectionKey.trim() !== "" ? (
+      <CollectionChangeBidModal
+        open={orders.bidToChange != null}
+        bid={orders.bidToChange}
+        collectionKey={collectionKey}
+        activeAsks={asks}
+        connectedAddress={address ?? undefined}
+        onClose={() => orders.setBidToChange(null)}
+        onUpdated={() => onInvalidate?.()}
+      />
+    ) : null;
 
   if (embedded) {
     return (
       <div id="collection-my-orders" aria-label="Your orders in this collection">
         <CollectionMyOrdersEmbeddedBody {...bodyProps} />
+        {changeBidModal}
       </div>
     );
   }
@@ -85,6 +101,7 @@ export function CollectionMyOrdersPanel({
       <div className="p-4 sm:p-6">
         <CollectionMyOrdersStandaloneBody {...bodyProps} />
       </div>
+      {changeBidModal}
     </section>
   );
 }

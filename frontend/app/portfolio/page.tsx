@@ -9,9 +9,11 @@ import {
   usePortfolioAssetList,
   usePortfolioCollectionKeys,
   usePortfolioDailyChart,
+  usePortfolioBidActions,
   usePortfolioHoldingActions,
   usePortfolioListingCollectionKeys,
   usePortfolioMarketPricing,
+  usePortfolioMyBids,
   useUserAssets,
 } from "@/hooks/portfolio";
 import { usePortfolioHiddenHoldings } from "@/hooks/portfolio/usePortfolioPageData";
@@ -25,12 +27,16 @@ import type { OwnedAsset, PricedAssetRow } from "@/lib/portfolio/portfolioTypes"
 import { APP_MAIN_SHELL_CLASS } from "@/constants/layout";
 import {
   PortfolioActivitySection,
+  PortfolioCollectionBidsSection,
   PortfolioDisconnectedState,
   PortfolioHideConfirmModal,
   PortfolioHoldingsSection,
+  PortfolioMainSection,
+  type PortfolioMainTab,
   PortfolioSummaryBar,
   PortfolioValuePanel,
 } from "@/components/portfolio";
+import { CollectionChangeBidModal } from "@/components/marketplace/collection-trading/CollectionChangeBidModal";
 import { isMarketplaceAdminWallet } from "@/lib/marketplace";
 
 export default function PortfolioPage() {
@@ -41,6 +47,7 @@ export default function PortfolioPage() {
   const { writeContractAsync } = useWriteContract();
   const isMobileViewport = useIsMobileViewport();
   const [portfolioChartOpen, setPortfolioChartOpen] = useState(false);
+  const [portfolioMainTab, setPortfolioMainTab] = useState<PortfolioMainTab>("collectibles");
   const isBurnAdmin = isMarketplaceAdminWallet(address);
 
   const {
@@ -177,6 +184,14 @@ export default function PortfolioPage() {
     refetchActiveOrders,
   });
 
+  const myBids = usePortfolioMyBids(address);
+  const bidActions = usePortfolioBidActions({
+    address,
+    queryClient,
+    refetchActiveOrders,
+    refetchPortfolioBids: () => myBids.refetchBids(),
+  });
+
   const txRows = useMemo(() => {
     if (!address) return [];
     return buildPortfolioTxRows(fulfilledOrders, address, assets);
@@ -227,35 +242,57 @@ export default function PortfolioPage() {
           dailyChartLabels={dailyChartLabels}
         />
 
-        <PortfolioHoldingsSection
-          assetsSectionLoading={assetsSectionLoading}
-          assetRowsLength={assetRows.length}
-          assetFilter={assetFilter}
-          setAssetFilter={setAssetFilter}
-          holdingsCount={holdingsAssetRows.length}
-          listedAssetCount={listedAssetCount}
-          unlistedAssetCount={unlistedAssetCount}
-          hiddenAssetCount={hiddenAssetRows.length}
-          filteredAssetRows={filteredAssetRows}
-          pagedAssetRows={pagedAssetRows}
-          visibleAssetCount={visibleAssetCount}
-          assetScrollSentinelRef={assetScrollSentinelRef}
-          address={address}
-          valuesPending={valuesPending}
-          isBurnAdmin={isBurnAdmin}
-          cancellingListingTokenId={holdingActions.cancellingListingTokenId}
-          burningTokenId={holdingActions.burningTokenId}
-          hidingTokenId={holdingActions.hidingTokenId}
-          unhidingTokenId={holdingActions.unhidingTokenId}
-          onOpenToken={(tokenId) => router.push(`/marketplace/${tokenId}`)}
-          onRequestHide={(r) => {
-            holdingActions.requestHide(r.tokenId, r.name, r.listPriceUsd != null);
-          }}
-          onUnhide={(tokenId) => void holdingActions.unhideHolding(tokenId)}
-          onCancelListing={(tokenId, orderHash) =>
-            void holdingActions.cancelListing(tokenId, orderHash)
+        <PortfolioMainSection
+          activeTab={portfolioMainTab}
+          onTabChange={setPortfolioMainTab}
+          collectiblesPanel={
+            <PortfolioHoldingsSection
+              embedded
+              assetsSectionLoading={assetsSectionLoading}
+              assetRowsLength={assetRows.length}
+              assetFilter={assetFilter}
+              setAssetFilter={setAssetFilter}
+              holdingsCount={holdingsAssetRows.length}
+              listedAssetCount={listedAssetCount}
+              unlistedAssetCount={unlistedAssetCount}
+              hiddenAssetCount={hiddenAssetRows.length}
+              filteredAssetRows={filteredAssetRows}
+              pagedAssetRows={pagedAssetRows}
+              visibleAssetCount={visibleAssetCount}
+              assetScrollSentinelRef={assetScrollSentinelRef}
+              address={address}
+              valuesPending={valuesPending}
+              isBurnAdmin={isBurnAdmin}
+              cancellingListingTokenId={holdingActions.cancellingListingTokenId}
+              burningTokenId={holdingActions.burningTokenId}
+              hidingTokenId={holdingActions.hidingTokenId}
+              unhidingTokenId={holdingActions.unhidingTokenId}
+              onOpenToken={(tokenId) => router.push(`/marketplace/${tokenId}`)}
+              onRequestHide={(r) => {
+                holdingActions.requestHide(r.tokenId, r.name, r.listPriceUsd != null);
+              }}
+              onUnhide={(tokenId) => void holdingActions.unhideHolding(tokenId)}
+              onCancelListing={(tokenId, orderHash) =>
+                void holdingActions.cancelListing(tokenId, orderHash)
+              }
+              onBurn={(tokenId, hasListing) =>
+                void holdingActions.burnToken(tokenId, hasListing)
+              }
+            />
           }
-          onBurn={(tokenId, hasListing) => void holdingActions.burnToken(tokenId, hasListing)}
+          bidsPanel={
+            <PortfolioCollectionBidsSection
+              embedded
+              loading={myBids.loading}
+              metaLoading={myBids.collectionMetaLoading}
+              activeBids={myBids.activeBids}
+              collectionMetaByKey={myBids.collectionMetaByKey}
+              cancellingHash={bidActions.cancellingHash}
+              openingChangeHash={bidActions.openingChangeHash}
+              onCancel={(hash, key) => void bidActions.handleCancel(hash, key)}
+              onChangePrice={(hash, key) => void bidActions.openChangeBid(hash, key)}
+            />
+          }
         />
 
         <PortfolioActivitySection
@@ -263,6 +300,20 @@ export default function PortfolioPage() {
           txRows={txRows}
         />
       </div>
+
+      {bidActions.changeModal != null ? (
+        <CollectionChangeBidModal
+          open
+          bid={bidActions.changeModal.bid}
+          collectionKey={bidActions.changeModal.collectionKey}
+          activeAsks={bidActions.changeModal.activeAsks}
+          connectedAddress={address}
+          onClose={bidActions.closeChangeModal}
+          onUpdated={() =>
+            void bidActions.handleBidUpdated(bidActions.changeModal!.collectionKey)
+          }
+        />
+      ) : null}
 
       <PortfolioHideConfirmModal
         open={holdingActions.hideConfirm != null}

@@ -24,6 +24,7 @@ export function CriteriaBidFormActions({
   onSubmit,
   onOpenSellModal,
   hideSellFooter = false,
+  isReplaceBid = false,
 }: {
   embedded: boolean;
   minimal?: boolean;
@@ -43,6 +44,7 @@ export function CriteriaBidFormActions({
   onSubmit: () => void;
   onOpenSellModal?: () => void;
   hideSellFooter?: boolean;
+  isReplaceBid?: boolean;
 }) {
   const splitActions = actionLayout === "split";
   const submitLabel = !address
@@ -55,13 +57,15 @@ export function CriteriaBidFormActions({
         : "Open wallet…"
       : busy
         ? busyLabel
-        : splitActions
-          ? "Place bid"
-          : crossesBook && lowestAsk
-            ? "Buy now"
-            : embedded
-              ? "Place bid"
-              : "Buy";
+        : isReplaceBid
+          ? "Update bid"
+          : splitActions
+            ? "Place bid"
+            : crossesBook && lowestAsk
+              ? "Buy now"
+              : embedded
+                ? "Place bid"
+                : "Buy";
 
   return (
     <>
@@ -70,7 +74,9 @@ export function CriteriaBidFormActions({
         disabled={submitDisabled}
         onClick={onSubmit}
         title={
-          splitActions
+          isReplaceBid
+            ? "Sign an updated collection bid at your new USDC amount. The previous bid is cancelled in one step."
+            : splitActions
             ? "Sign a collection bid up to your entered USDC amount."
             : crossesBook && lowestAsk
               ? `Instant buy: pay ${lowestAskUsdc} USDC for token #${lowestAsk.tokenId} (listing price).`
@@ -104,14 +110,20 @@ export function CriteriaBidFormActions({
           {minimal
             ? lastOutcome === "instant"
               ? "Purchase complete."
-              : "Bid placed."
+              : isReplaceBid
+                ? "Bid updated."
+                : "Bid placed."
             : embedded
               ? lastOutcome === "instant"
                 ? "Bought."
-                : "Bid placed."
+                : isReplaceBid
+                  ? "Bid updated."
+                  : "Bid placed."
               : lastOutcome === "instant"
                 ? "Purchase complete. The RWA is in your wallet."
-                : "Collection bid saved. Sellers can match from their listing."}
+                : isReplaceBid
+                  ? "Collection bid updated. Sellers can match at your new price."
+                  : "Collection bid saved. Sellers can match from their listing."}
         </p>
       ) : null}
 

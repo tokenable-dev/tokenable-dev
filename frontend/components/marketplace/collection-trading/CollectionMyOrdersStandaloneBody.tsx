@@ -13,6 +13,7 @@ export function CollectionMyOrdersStandaloneBody({
   myBids,
   cancelling,
   onCancel,
+  onChangeBidPrice,
   isBidStale,
 }: {
   addr: string;
@@ -21,6 +22,7 @@ export function CollectionMyOrdersStandaloneBody({
   myBids: Order[];
   cancelling: string | null;
   onCancel: (orderHash: string) => void;
+  onChangeBidPrice: (bid: Order) => void;
   isBidStale: (o: Order) => boolean;
 }) {
   if (!addr) {
@@ -104,21 +106,30 @@ export function CollectionMyOrdersStandaloneBody({
                   </p>
                   {isBidStale(o) ? (
                     <p className="mt-2 text-[10px] leading-relaxed text-amber-200/90">
-                      Merkle pool changed since this bid was signed —{" "}
-                      <span className="text-amber-100/95">cancel and place again from Buy</span>{" "}
-                      (same USDC) so instant match can run. Seaport locks the root inside your
-                      signature; it cannot auto-update.
+                      Merkle pool changed since this bid was signed — use{" "}
+                      <span className="text-amber-100/95">Change price</span> (or cancel and re-bid)
+                      so instant match can run with the current pool.
                     </p>
                   ) : null}
                 </div>
-                <button
-                  type="button"
-                  disabled={cancelling === o.orderHash}
-                  onClick={() => onCancel(o.orderHash)}
-                  className="shrink-0 rounded-lg border border-amber-500/35 bg-amber-500/[0.08] px-3 py-2 text-[11px] font-semibold text-amber-100/95 transition-colors hover:bg-amber-500/[0.14] disabled:opacity-40"
-                >
-                  {cancelling === o.orderHash ? "Cancelling…" : "Cancel bid"}
-                </button>
+                <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
+                  <button
+                    type="button"
+                    disabled={cancelling === o.orderHash}
+                    onClick={() => onChangeBidPrice(o)}
+                    className="rounded-lg border border-mint/35 bg-mint/[0.08] px-3 py-2 text-[11px] font-semibold text-mint transition-colors hover:bg-mint/[0.14] disabled:opacity-40"
+                  >
+                    Change price
+                  </button>
+                  <button
+                    type="button"
+                    disabled={cancelling === o.orderHash}
+                    onClick={() => onCancel(o.orderHash)}
+                    className="rounded-lg border border-amber-500/35 bg-amber-500/[0.08] px-3 py-2 text-[11px] font-semibold text-amber-100/95 transition-colors hover:bg-amber-500/[0.14] disabled:opacity-40"
+                  >
+                    {cancelling === o.orderHash ? "Cancelling…" : "Cancel bid"}
+                  </button>
+                </div>
               </li>
             ))}
           </ul>
