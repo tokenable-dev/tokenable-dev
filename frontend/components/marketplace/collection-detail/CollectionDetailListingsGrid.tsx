@@ -25,7 +25,7 @@ export function CollectionDetailListingsGrid({
 }) {
   if (tokenIds.length === 0) {
     return (
-      <div className="w-full px-0 py-6 text-center text-[13px] leading-relaxed text-zinc-500 max-lg:py-5 lg:py-8 lg:text-[15px] lg:text-[#a0a0a0]">
+      <div className="w-full rounded-lg border border-zinc-900/80 bg-zinc-950/40 px-4 py-8 text-center text-[13px] leading-relaxed text-zinc-500 max-lg:py-6 lg:py-10 lg:text-[14px]">
         No listings yet. List an asset from{" "}
         <Link href="/portfolio" className="text-mint hover:underline">
           Portfolio

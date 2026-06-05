@@ -40,16 +40,16 @@ export function RwaDetailTradesPanel({
         </div>
       ) : trades.length === 0 ? (
         <p className="mt-4 text-[14px] leading-relaxed text-zinc-500">
-          No on-platform trades recorded for this card yet.
+          No trades recorded for this card yet.
         </p>
       ) : (
         <div className="mt-4 min-w-0">
           <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(4.75rem,5.5rem)] gap-2 border-b border-[rgba(38,39,45,1)] pb-2 text-[11px] font-medium uppercase tracking-wide text-zinc-500">
             <span>Price</span>
-            <span className="text-center">Side</span>
+            <span className="text-center">Type</span>
             <span className="text-right">Time</span>
           </div>
-          <ul className="max-h-[min(280px,40vh)] space-y-0 overflow-y-auto overflow-x-hidden overscroll-y-auto">
+          <ul className="scrollbar-dark max-h-[min(280px,40vh)] space-y-0 overflow-y-auto overflow-x-hidden overscroll-y-auto">
             {trades.map((row) => {
               const side = tapeSideDisplay(row);
               return (

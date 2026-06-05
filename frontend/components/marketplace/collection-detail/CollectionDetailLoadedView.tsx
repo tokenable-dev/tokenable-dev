@@ -4,7 +4,10 @@ import type { Address } from "viem";
 import { pickCollectionHeroImageUrl } from "@/lib/marketplace";
 import { CollectionAdminCoverPanel } from "@/components/marketplace/collection-hero";
 import { COLLECTION_DETAIL_SHELL_CLASS } from "@/constants/layout";
-import { COLLECTION_MARKETS_CHART_TAB_HEIGHT_CLASS } from "@/components/marketplace/collectionOverviewChrome";
+import {
+  COLLECTION_MARKETS_CHART_TAB_HEIGHT_CLASS,
+  COLLECTION_MARKETS_ORDER_BOOK_TAB_HEIGHT_CLASS,
+} from "@/components/marketplace/collectionOverviewChrome";
 import { CollectionOverviewBoard } from "@/components/marketplace/collection-overview";
 import { CollectionDetailsKvCard, CollectionHeroDetailsTabs } from "@/components/marketplace/collection-hero";
 import {
@@ -17,6 +20,7 @@ import { TradeCelebrationModal } from "@/components/marketplace/trade";
 import type { CollectionDetailLoadedProps } from "@/hooks/collection-detail";
 import { AiInsightComingSoonModal } from "./AiInsightComingSoonModal";
 import { CollectionDetailListingsGrid } from "./CollectionDetailListingsGrid";
+import { CollectionDetailListingsSection } from "./CollectionDetailListingsSection";
 import { CollectionDetailMobileNav } from "./CollectionDetailMobileNav";
 import {
   buildCollectionDetailMarketsSlots,
@@ -68,7 +72,7 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
     collectionOrderBookMobile,
   } = buildCollectionDetailMarketsSlots({ market, collectionOrderBookProps });
 
-  const collectionListingsBody = (
+  const collectionListingsGrid = (
     <CollectionDetailListingsGrid
       collectionKey={collectionKey}
       tokenIds={listings.tokenIds}
@@ -78,10 +82,16 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
     />
   );
 
+  const collectionListingsBody = (
+    <CollectionDetailListingsSection count={listings.tokenIds.length}>
+      {collectionListingsGrid}
+    </CollectionDetailListingsSection>
+  );
+
   const { mobileInformationPanel, mobileListingsPanel } = buildCollectionDetailMobilePanels({
     market,
     asks,
-    listingsBody: collectionListingsBody,
+    listingsBody: collectionListingsGrid,
   });
 
   return (
@@ -156,7 +166,7 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
               }
               orderBookPanel={
                 <div
-                  className={`${COLLECTION_MARKETS_CHART_TAB_HEIGHT_CLASS} flex w-full min-w-0 shrink-0 flex-col overflow-hidden`}
+                  className={`${COLLECTION_MARKETS_ORDER_BOOK_TAB_HEIGHT_CLASS} flex w-full min-w-0 shrink-0 flex-col overflow-hidden`}
                 >
                   {collectionOrderBookMobile}
                 </div>

@@ -7,9 +7,14 @@ import {
   Post,
 } from '@nestjs/common';
 import { ApiBody, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { apiBodyDefault } from '../../swagger/api-body.util';
+import { SWAGGER_BODY_EXAMPLES } from '../../swagger/examples';
 import { CertMarketTraceService } from './cert-market-trace.service';
 import { CertMarketTraceDto } from './dto/cert-market-trace.dto';
 
+/**
+ * Cert → PSA → Cardhedger 전 구간 덤프 (디버그·기획용).
+ */
 @ApiTags('marketplace')
 @Controller('marketplace')
 export class CertMarketTraceController {
@@ -17,25 +22,14 @@ export class CertMarketTraceController {
 
   constructor(private readonly traceService: CertMarketTraceService) {}
 
+  /** Cert 번호로 PSA·Cardhedger·차트·comps 전체 추적 */
   @ApiOperation({
-    summary:
-      'Cert만으로 PSA → Cardhedger 시장가·메타 전체 덤프 (디버그/기획)',
+    summary: 'Cert 시장 추적 (전체 덤프)',
     description:
-      '**경로:** `POST /api/marketplace/cert-market-trace`\n\n' +
-      '1. `psaService.analyzeByCertNumber` — `POST /psa/analyze-by-cert`와 동일한 PSA 슬랩/공식 API 병합(`PSA_PUBLIC_API_TOKEN`).\n' +
-      '2. 합성 `syntheticCollection.components`는 **민트 IPFS와 동일한 Cardhedger 입력**을 쓰도록 `psaVariety`/`psaSubject`/`psaBrand`/`psaYear`(PSA Variety·Subject·Brand·Year)를 채움 — **같은 #라도 Base vs Silver 병행** 구분.\n' +
-      '3. `getBundledCardData` — 단일 resolve로 **preview** + **history**(일별+comps 병합) + **comps**(경매 raw 최대 100건) 반환.\n' +
-      '4. 선택: PSA `specId`가 있으면 Playwright로 spec 페이지 카탈로그 이미지 URL 스크랩.\n\n' +
-      '**필요 env:** `CARDHEDGER_API_KEY`,(권장) `PSA_PUBLIC_API_TOKEN`. 응답이 크고 느릴 수 있음.',
+      'PSA 공식 API + Cardhedger preview/history/comps. `CARDHEDGER_API_KEY`·`PSA_PUBLIC_API_TOKEN` 필요. 응답이 크고 느릴 수 있음.',
   })
-  @ApiBody({ type: CertMarketTraceDto })
-  @ApiOkResponse({
-    description:
-      '`meta`(소요 시간, `psaEnrichedFromOfficialApi`, `cardhedgerEnabled`, `syntheticHasPsaVariety` 등) + ' +
-      '전체 `psaAnalyze`(analyze-by-cert와 동일) + `syntheticCollection`(민트 형태 components) + ' +
-      '`collectionQuery`(내부 쿼리) + `inferredBucket` + `psaSpecPageImageUrl` + ' +
-      '`cardhedger`: `{ preview, history, comps, mergedChartPoints }` — comps는 Cardhedger `POST /v1/cards/comps`, `mergedChartPoints`는 컬렉션 차트와 동일 병합 시계열.',
-  })
+  @ApiBody(apiBodyDefault(CertMarketTraceDto, SWAGGER_BODY_EXAMPLES.certMarketTrace))
+  @ApiOkResponse({ description: 'PSA analyze + synthetic collection + cardhedger bundle' })
   @Post('cert-market-trace')
   async runCertMarketTrace(@Body() body: CertMarketTraceDto) {
     try {

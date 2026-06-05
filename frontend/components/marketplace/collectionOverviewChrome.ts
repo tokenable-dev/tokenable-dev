@@ -23,11 +23,11 @@ export const COLLECTION_MARKET_CLUSTER_BEZEL =
   `p-[2px] sm:p-[3px] rounded-[1.28rem] sm:rounded-[1.35rem] ${COLLECTION_DETAILS_BG_CLASS}`;
 
 /**
- * Figma order book frame beside chart: 221×409 (legacy); desktop row height matches chart (`lg`+).
- * `border-radius: 8px`, `border-width: 1px`.
+ * Desktop chart band — height also sets the flush order book / Trades column (`lg`+).
+ * Taller band → more trade rows and book depth visible before scroll.
  */
 export const COLLECTION_MARKETS_CHART_ROW_HEIGHT_CLASS =
-  "lg:h-[160px] lg:max-h-[160px]";
+  "lg:h-[300px] lg:max-h-[300px]";
 
 /** Desktop order book column beside chart (collection detail). */
 export const COLLECTION_MARKETS_ORDER_BOOK_COLUMN_WIDTH_CLASS =
@@ -35,7 +35,7 @@ export const COLLECTION_MARKETS_ORDER_BOOK_COLUMN_WIDTH_CLASS =
 
 /** Desktop: stretches with markets cluster right column; mobile keeps capped height. */
 export const COLLECTION_MARKETS_ORDER_BOOK_FRAME =
-  `w-[min(100%,320px)] shrink-0 rounded-lg ${COLLECTION_DETAILS_BG_CLASS} max-lg:h-[min(300px,44svh)] max-lg:w-full lg:min-h-0 lg:w-[320px] lg:max-w-[320px] lg:flex-1`;
+  `w-[min(100%,320px)] shrink-0 rounded-lg ${COLLECTION_DETAILS_BG_CLASS} max-lg:h-[min(400px,54svh)] max-lg:w-full lg:min-h-0 lg:w-[320px] lg:max-w-[320px] lg:flex-1`;
 
 /** Markets cluster grid when chart + order book share a row (desktop). */
 export const COLLECTION_MARKETS_CLUSTER_GRID_COLS_CLASS =
@@ -53,7 +53,7 @@ export const COLLECTION_MARKETS_CHART_HEIGHT_CLASS = COLLECTION_MARKETS_CHART_RO
  * (cluster inset + metrics strip + chart band + row gaps).
  */
 export const COLLECTION_HERO_DESKTOP_HEIGHT_CLASS =
-  "lg:h-[calc(10px+116px+0.75rem+160px+0.75rem+0.25rem)] lg:max-h-[calc(10px+116px+0.75rem+160px+0.75rem+0.25rem)]";
+  "lg:h-[calc(10px+116px+0.75rem+300px+0.75rem+0.25rem)] lg:max-h-[calc(10px+116px+0.75rem+300px+0.75rem+0.25rem)]";
 
 /** Chart column height when shown inline on mobile (non-tab layout). */
 export const COLLECTION_MARKETS_CHART_HEIGHT_MOBILE_CLASS =
@@ -61,6 +61,10 @@ export const COLLECTION_MARKETS_CHART_HEIGHT_MOBILE_CLASS =
 
 /** Chart panel inside mobile Information / Chart / Book tabs. */
 export const COLLECTION_MARKETS_CHART_TAB_HEIGHT_CLASS = "h-[120px]";
+
+/** Order book + Trades tab on mobile (taller than chart tab). */
+export const COLLECTION_MARKETS_ORDER_BOOK_TAB_HEIGHT_CLASS =
+  "h-[min(320px,48svh)] min-h-[280px]";
 
 /** Scrollable order book panes — dark scrollbar (see `.scrollbar-dark` in globals.css). */
 export const COLLECTION_ORDER_BOOK_SCROLL_CLASS = "scrollbar-dark";

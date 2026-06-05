@@ -13,15 +13,11 @@ import {
 import { CollectionMarketSnapshotReadService } from './collection-market-snapshot-read.service';
 import { CollectionMarketSnapshotSchedulerService } from './collection-market-snapshot-scheduler.service';
 import { CollectionMarketSnapshotService } from './collection-market-snapshot.service';
+import { SWAGGER_FIXTURES } from '../../swagger/fixtures';
 
 /**
- * Snapshot-domain HTTP endpoints for collection market data.
- *
- * Relocated from CollectionsController (P1.5) to break the last
- * module-level circular dependency between MarketplaceCollectionsModule
- * and MarketplaceSnapshotsModule.
- *
- * Route paths are IDENTICAL to what was in CollectionsController.
+ * 컬렉션 Cardhedger 스냅샷 읽기 — preview·가격 이력 (materialized snapshot).
+ * 경로는 기존 CollectionsController 와 동일 (`/api/marketplace/collections/:key/...`).
  */
 @ApiTags('marketplace')
 @Controller('marketplace')
@@ -36,11 +32,9 @@ export class CollectionMarketSnapshotController {
     return decodeURIComponent(raw).toLowerCase();
   }
 
-  @ApiOperation({
-    summary:
-      'Cardhedger-backed preview: matched catalog card + PSA10 spot bands.',
-  })
-  @ApiParam({ name: 'key', description: 'collection_key' })
+  /** Cardhedger 카드 매칭 + PSA10 스팟 밴드 프리뷰 */
+  @ApiOperation({ summary: 'Cardhedger 프리뷰' })
+  @ApiParam({ name: 'key', example: SWAGGER_FIXTURES.collectionKey })
   @Get('collections/:key/cardhedger')
   async getCollectionCardhedger(@Param('key') key: string) {
     const k = this.normalizeKey(key);
@@ -71,23 +65,11 @@ export class CollectionMarketSnapshotController {
     };
   }
 
-  @ApiOperation({
-    summary:
-      'Cardhedger PSA10 price history from materialized snapshot (external_usd_json).',
-  })
-  @ApiParam({ name: 'key', description: 'collection_key' })
-  @ApiQuery({
-    name: 'period',
-    required: false,
-    enum: ['7d', '30d', '90d', '1y'],
-    description: 'History window label (default 90d)',
-  })
-  @ApiQuery({
-    name: 'maxDays',
-    required: false,
-    description:
-      'Calendar lookback in days (default from period, max 365 in snapshot).',
-  })
+  /** 스냅샷 기반 Cardhedger PSA10 가격 이력 */
+  @ApiOperation({ summary: 'Cardhedger 가격 이력' })
+  @ApiParam({ name: 'key', example: SWAGGER_FIXTURES.collectionKey })
+  @ApiQuery({ name: 'period', required: false, example: '90d', enum: ['7d', '30d', '90d', '1y'] })
+  @ApiQuery({ name: 'maxDays', required: false, example: 90 })
   @Get('collections/:key/cardhedger/price-history')
   async getCollectionCardhedgerPriceHistory(
     @Param('key') key: string,

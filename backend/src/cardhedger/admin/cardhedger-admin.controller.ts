@@ -11,6 +11,7 @@ import type { Response } from 'express';
 import { MarketplaceAdminService } from '../../marketplace/admin/marketplace-admin.service';
 import { CardhedgerHealthService } from './cardhedger-health.service';
 import { CardhedgerPrometheusService } from './cardhedger-prometheus.service';
+import { SWAGGER_FIXTURES } from '../../swagger/fixtures';
 import type {
   CardhedgerHealthPayload,
   CircuitHealth,
@@ -19,15 +20,8 @@ import type {
 } from './cardhedger-health.service';
 
 /**
- * Read-only admin surface for Cardhedger integration health.
- *
- * Authorization: `adminWallet` query parameter — must be a wallet address
- * present in `marketplace.adminWallets` (env: `MARKETPLACE_ADMIN_WALLETS`).
- *
- * All routes are under the global `api` prefix → effective paths:
- *   GET /api/admin/cardhedger/health
- *   GET /api/admin/cardhedger/circuit
- *   GET /api/admin/cardhedger/metrics
+ * Cardhedger 연동 헬스·메트릭 (관리자 지갑 `adminWallet` 쿼리 필수).
+ * `GET /api/admin/cardhedger/*`
  */
 @ApiTags('admin')
 @Controller('admin/cardhedger')
@@ -45,17 +39,14 @@ export class CardhedgerAdminController {
     this.adminService.assertAdminWallet(adminWallet.trim());
   }
 
-  // ─── Endpoints ─────────────────────────────────────────────────────────────
-
+  /** Cardhedger 통합 헬스 (서킷·resolve·스케줄러) */
   @Get('health')
-  @ApiOperation({
-    summary:
-      'Full Cardhedger integration health: circuit breaker + resolve path metrics + snapshot scheduler state',
-  })
+  @ApiOperation({ summary: 'Cardhedger 통합 헬스' })
   @ApiQuery({
     name: 'adminWallet',
     required: true,
-    description: 'Caller admin wallet address (must be in MARKETPLACE_ADMIN_WALLETS)',
+    example: SWAGGER_FIXTURES.walletAlt,
+    description: 'MARKETPLACE_ADMIN_WALLETS 에 등록된 지갑',
   })
   getHealth(
     @Query('adminWallet') adminWallet: string,
@@ -64,11 +55,10 @@ export class CardhedgerAdminController {
     return this.health.getFullHealth();
   }
 
+  /** 서킷 브레이커 상태 */
   @Get('circuit')
-  @ApiOperation({
-    summary: 'Circuit breaker state: CLOSED / OPEN / HALF_OPEN + consecutive failures + open duration',
-  })
-  @ApiQuery({ name: 'adminWallet', required: true })
+  @ApiOperation({ summary: '서킷 브레이커 상태' })
+  @ApiQuery({ name: 'adminWallet', required: true, example: SWAGGER_FIXTURES.walletAlt })
   getCircuit(
     @Query('adminWallet') adminWallet: string,
   ): CircuitHealth {
@@ -76,12 +66,10 @@ export class CardhedgerAdminController {
     return this.health.getCircuitHealth();
   }
 
+  /** resolve·스케줄러 운영 메트릭 */
   @Get('metrics')
-  @ApiOperation({
-    summary:
-      'Resolve path distribution, search depth average, scheduler queue depth, and batch reduction counters for the current metrics window',
-  })
-  @ApiQuery({ name: 'adminWallet', required: true })
+  @ApiOperation({ summary: '운영 메트릭' })
+  @ApiQuery({ name: 'adminWallet', required: true, example: SWAGGER_FIXTURES.walletAlt })
   getMetrics(
     @Query('adminWallet') adminWallet: string,
   ): { resolve: ResolveHealth; scheduler: SchedulerHealth; timestamp: string } {
@@ -93,12 +81,10 @@ export class CardhedgerAdminController {
     };
   }
 
+  /** Prometheus scrape (text/plain) */
   @Get('prometheus')
-  @ApiOperation({
-    summary:
-      'Prometheus text exposition format scrape endpoint for all Cardhedger operational metrics. Returns text/plain.',
-  })
-  @ApiQuery({ name: 'adminWallet', required: true })
+  @ApiOperation({ summary: 'Prometheus 메트릭' })
+  @ApiQuery({ name: 'adminWallet', required: true, example: SWAGGER_FIXTURES.walletAlt })
   async getPrometheus(
     @Query('adminWallet') adminWallet: string,
     @Res() res: Response,

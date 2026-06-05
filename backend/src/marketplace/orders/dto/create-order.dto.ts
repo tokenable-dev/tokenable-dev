@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Transform, Type } from 'class-transformer';
+import { Type } from 'class-transformer';
+import { SWAGGER_FIXTURES } from '../../../swagger/fixtures';
 import {
   IsArray,
   IsEthereumAddress,
@@ -18,7 +19,7 @@ class SeaportOfferItemDto {
   @IsNumber()
   itemType: number;
 
-  @ApiProperty({ description: 'Token contract address' })
+  @ApiProperty({ example: SWAGGER_FIXTURES.rwaContract })
   @IsString()
   token: string;
 
@@ -43,7 +44,7 @@ class SeaportConsiderationItemDto {
   @IsNumber()
   itemType: number;
 
-  @ApiProperty()
+  @ApiProperty({ example: SWAGGER_FIXTURES.usdc })
   @IsString()
   token: string;
 
@@ -51,29 +52,29 @@ class SeaportConsiderationItemDto {
   @IsString()
   identifierOrCriteria: string;
 
-  @ApiProperty({ example: '1000000' })
+  @ApiProperty({ example: '150000000' })
   @IsString()
   startAmount: string;
 
-  @ApiProperty({ example: '1000000' })
+  @ApiProperty({ example: '150000000' })
   @IsString()
   endAmount: string;
 
-  @ApiProperty()
+  @ApiProperty({ example: SWAGGER_FIXTURES.wallet })
   @IsString()
   recipient: string;
 }
 
 class SeaportOrderParametersDto {
-  @ApiProperty()
+  @ApiProperty({ example: SWAGGER_FIXTURES.wallet })
   @IsString()
   offerer: string;
 
-  @ApiProperty()
+  @ApiProperty({ example: SWAGGER_FIXTURES.zero })
   @IsString()
   zone: string;
 
-  @ApiProperty()
+  @ApiProperty({ example: SWAGGER_FIXTURES.zoneHash })
   @IsString()
   zoneHash: string;
 
@@ -109,7 +110,7 @@ class SeaportOrderParametersDto {
   @IsString()
   salt: string;
 
-  @ApiProperty()
+  @ApiProperty({ example: SWAGGER_FIXTURES.conduitKey })
   @IsString()
   conduitKey: string;
 
@@ -135,12 +136,12 @@ export class CreateOrderDto {
   @Type(() => SeaportOrderParametersDto)
   parameters: SeaportOrderParametersDto;
 
-  @ApiProperty({ description: 'EIP-712 signature' })
+  @ApiProperty({ example: SWAGGER_FIXTURES.signature })
   @IsString()
   @IsNotEmpty()
   signature: string;
 
-  @ApiProperty({ description: 'RWA (ERC-721) contract address' })
+  @ApiProperty({ example: SWAGGER_FIXTURES.rwaContract })
   @IsEthereumAddress()
   tokenContract: string;
 
@@ -153,11 +154,11 @@ export class CreateOrderDto {
   @IsNumberString()
   tokenId: string;
 
-  @ApiProperty({ description: 'USDC address' })
+  @ApiProperty({ example: SWAGGER_FIXTURES.usdc })
   @IsEthereumAddress()
   considerationToken: string;
 
-  @ApiProperty({ description: 'USDC amount (6 decimals)' })
+  @ApiProperty({ example: '150000000', description: 'USDC 6 decimals' })
   @IsNumberString()
   considerationAmount: string;
 

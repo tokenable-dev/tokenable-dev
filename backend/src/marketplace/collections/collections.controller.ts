@@ -30,7 +30,13 @@ import {
   AdminPreviewCollectionCoverFromTokenDto,
   AdminSetCollectionCoverDto,
 } from './dto/admin-collection-cover.dto';
+import { apiBodyDefault } from '../../swagger/api-body.util';
+import { SWAGGER_BODY_EXAMPLES } from '../../swagger/examples';
+import { SWAGGER_FIXTURES } from '../../swagger/fixtures';
 
+/**
+ * 컬렉션·시장 데이터·Cardhedger 연동·관리자 커버/삭제.
+ */
 @ApiTags('marketplace')
 @Controller('marketplace')
 export class CollectionsController {
@@ -52,17 +58,10 @@ export class CollectionsController {
     this.marketplaceAdmin.assertAdminWallet(adminWallet);
   }
 
-  @ApiOperation({ summary: 'Collection list (cursor pagination)' })
-  @ApiQuery({
-    name: 'limit',
-    required: false,
-    description: 'Page size (default 30, max 60)',
-  })
-  @ApiQuery({
-    name: 'cursor',
-    required: false,
-    description: 'Opaque cursor from prior page',
-  })
+  /** 컬렉션 목록 (커서 페이지) */
+  @ApiOperation({ summary: '컬렉션 목록' })
+  @ApiQuery({ name: 'limit', required: false, example: 30 })
+  @ApiQuery({ name: 'cursor', required: false, example: '' })
   @Get('collections')
   listCollections(
     @Query('limit') limitRaw?: string,
@@ -79,25 +78,9 @@ export class CollectionsController {
     });
   }
 
-  @ApiOperation({
-    summary:
-      'Batch list-row snapshots: Cardhedger-backed grade strip + category + external sparkline when history is available. Pool floor/median/band/vol: use GET …/collections/:key/stats or `marketStats` on each item when present.',
-  })
-  @ApiBody({
-    type: BatchMarketSnapshotsDto,
-    examples: {
-      snapshots: {
-        summary: 'Batch fetch collection list snapshots',
-        value: {
-          collectionKeys: [
-            'ab5f1f362c9a16151b10159d3d5ca465fe8e23b7ff20169d20bf92188e292bfa',
-            '22028c1276253bbe8118fe2015d8d06bace4d30ed3664c2aacc9943b4ee8aaed',
-          ],
-          priceHistoryDuration: '90d',
-        },
-      },
-    },
-  })
+  /** 목록용 시장 스냅샷 배치 (등급·스파크라인 등) */
+  @ApiOperation({ summary: '컬렉션 목록 시장 스냅샷 배치' })
+  @ApiBody(apiBodyDefault(BatchMarketSnapshotsDto, SWAGGER_BODY_EXAMPLES.batchMarketSnapshots))
   @Post('collections/market-snapshots')
   batchMarketSnapshots(@Body() body: BatchMarketSnapshotsDto) {
     return this.collectionMarketService.batchListSnapshots(
@@ -106,11 +89,9 @@ export class CollectionsController {
     );
   }
 
-  @ApiOperation({
-    summary:
-      'Portfolio: batch pool stats + market-series bundle per key — same JSON as GET …/collections/:key/stats and GET …/collections/:key/market-series (max 60 keys, server-side concurrency cap).',
-  })
-  @ApiBody({ type: PortfolioMarketBatchDto })
+  /** 포트폴리오용 stats+차트 시리즈 배치 (키당 최대 60) */
+  @ApiOperation({ summary: '포트폴리오 시장 데이터 배치' })
+  @ApiBody(apiBodyDefault(PortfolioMarketBatchDto, SWAGGER_BODY_EXAMPLES.portfolioMarketBatch))
   @Post('collections/portfolio-market-batch')
   batchPortfolioMarketData(@Body() body: PortfolioMarketBatchDto) {
     const keys = (body.collectionKeys ?? []).map((k) => this.normalizeKey(k));
@@ -120,11 +101,9 @@ export class CollectionsController {
     });
   }
 
-  @ApiOperation({
-    summary:
-      'Resolve marketplace collection_key by token IDs for portfolio (uses cached rwa_tokens first; read-only metadata hash fallback when missing).',
-  })
-  @ApiBody({ type: TokenCollectionKeysDto })
+  /** tokenId → collection_key 매핑 (캐시·메타 fallback) */
+  @ApiOperation({ summary: 'tokenId별 collection_key 배치' })
+  @ApiBody(apiBodyDefault(TokenCollectionKeysDto, SWAGGER_BODY_EXAMPLES.tokenCollectionKeys))
   @Post('collections/token-collection-keys')
   async batchTokenCollectionKeys(@Body() body: TokenCollectionKeysDto) {
     const tokenIds = [
@@ -155,19 +134,9 @@ export class CollectionsController {
     return { items: out };
   }
 
-  @ApiOperation({
-    summary:
-      'My Assets: batch resolve Cardhedger PSA10 references from token ids (max 32).',
-  })
-  @ApiBody({
-    type: MintPreviewsByTokenIdsDto,
-    examples: {
-      mintPreview: {
-        summary: 'Resolve Cardhedger previews for owned tokens',
-        value: { tokenIds: [101, 102, 103] },
-      },
-    },
-  })
+  /** My Assets: tokenId별 Cardhedger PSA10 프리뷰 (최대 32) */
+  @ApiOperation({ summary: '민트 Cardhedger 프리뷰 배치' })
+  @ApiBody(apiBodyDefault(MintPreviewsByTokenIdsDto, SWAGGER_BODY_EXAMPLES.mintPreviews))
   @Post('cardhedger/mint-previews')
   postMintCardhedgerPreviews(@Body() body: MintPreviewsByTokenIdsDto) {
     return this.cardMarketData.getBatchMintPreviewsFromTokenIds(
@@ -175,11 +144,9 @@ export class CollectionsController {
     );
   }
 
-  @ApiOperation({
-    summary:
-      'Cardhedger AI market brief for this collection (card-match powered).',
-  })
-  @ApiParam({ name: 'key', description: 'collection_key' })
+  /** 컬렉션 AI 시장 브리프 */
+  @ApiOperation({ summary: '컬렉션 AI 인사이트' })
+  @ApiParam({ name: 'key', example: SWAGGER_FIXTURES.collectionKey })
   @Get('collections/:key/ai-insight')
   async getCollectionAiInsight(@Param('key') key: string) {
     const k = this.normalizeKey(key);
@@ -187,11 +154,15 @@ export class CollectionsController {
     return this.aiInsight.getAiInsightForCollection(col);
   }
 
-  @ApiOperation({
-    summary:
-      'Chart bundle: platform fills (USDC) + Cardhedger-backed reference prices and window % change. Includes `cardhedgerPreview` (same Cardhedger resolve as the chart) — prefer this over a separate GET …/cardhedger for collection UIs. Listing-pool statistics: GET …/collections/:key/stats.',
+  /** 차트용: 플랫폼 체결 + Cardhedger 참조가·기간 변동률 */
+  @ApiOperation({ summary: '컬렉션 시장 시리즈 (차트)' })
+  @ApiParam({ name: 'key', example: SWAGGER_FIXTURES.collectionKey })
+  @ApiQuery({
+    name: 'priceHistoryDuration',
+    required: false,
+    example: '365d',
+    enum: ['7d', '30d', '90d', '180d', '365d', 'max'],
   })
-  @ApiParam({ name: 'key', description: 'collection_key' })
   @Get('collections/:key/market-series')
   getCollectionMarketSeries(
     @Param('key') key: string,
@@ -214,21 +185,17 @@ export class CollectionsController {
     );
   }
 
-  @ApiOperation({
-    summary:
-      'Trades tape: Tokenable fulfilled orders + Cardhedger comps raw (max 100 individual sales). Volume windows computed from oldest comp/platform fill.',
-  })
-  @ApiParam({ name: 'key', description: 'collection_key' })
+  /** Trades 탭: 플랫폼 체결 + Cardhedger comps (최대 100건) */
+  @ApiOperation({ summary: '컬렉션 체결·comps (Trades)' })
+  @ApiParam({ name: 'key', example: SWAGGER_FIXTURES.collectionKey })
   @Get('collections/:key/platform-trades')
   getCollectionPlatformTrades(@Param('key') key: string) {
     return this.collectionMarketService.platformTradesForApi(key);
   }
 
-  @ApiOperation({
-    summary:
-      'Collection market pool statistics (USDC only): Tukey IQR trim, floor = 10th percentile on trimmed set, volatility = sample stdev on trimmed set. sampleSize < 5 → numeric fields null and isReliable false. `reference.cardhedgerCardId` is metadata only.',
-  })
-  @ApiParam({ name: 'key', description: 'collection_key' })
+  /** listing 풀 통계 (floor·median·변동성 등, USDC) */
+  @ApiOperation({ summary: '컬렉션 시장 통계' })
+  @ApiParam({ name: 'key', example: SWAGGER_FIXTURES.collectionKey })
   @Get('collections/:key/stats')
   getCollectionMarketStats(@Param('key') key: string) {
     return this.collectionMarketService.getCollectionMarketStats(
@@ -236,11 +203,9 @@ export class CollectionsController {
     );
   }
 
-  @ApiOperation({
-    summary:
-      'Collection detail + order book (listings + collection bids). `collection` is null when no `marketplace_collections` row yet (same key may still have orders); avoids 404 for client prefetch.',
-  })
-  @ApiParam({ name: 'key', description: 'collection_key' })
+  /** 컬렉션 상세 + 호가 (listings·collection bids) */
+  @ApiOperation({ summary: '컬렉션 상세·오더북' })
+  @ApiParam({ name: 'key', example: SWAGGER_FIXTURES.collectionKey })
   @Get('collections/:key')
   async getCollection(@Param('key') key: string) {
     const k = this.normalizeKey(key);
@@ -306,11 +271,10 @@ export class CollectionsController {
     };
   }
 
-  @ApiOperation({
-    summary:
-      'Admin: set collection cover URL (requires MARKETPLACE_ADMIN_WALLETS wallet in body)',
-  })
-  @ApiParam({ name: 'key', description: 'collection_key' })
+  /** 관리자: 커버 이미지 URL 설정 */
+  @ApiOperation({ summary: '[Admin] 커버 URL 설정' })
+  @ApiParam({ name: 'key', example: SWAGGER_FIXTURES.collectionKey })
+  @ApiBody(apiBodyDefault(AdminSetCollectionCoverDto, SWAGGER_BODY_EXAMPLES.adminSetCover))
   @Post('collections/:key/admin/cover')
   async adminSetCollectionCover(
     @Param('key') key: string,
@@ -342,11 +306,10 @@ export class CollectionsController {
     }
   }
 
-  @ApiOperation({
-    summary:
-      'Admin: resolve cover from token metadata (Cardhedger / PSA / TCG). Optional save=true persists.',
-  })
-  @ApiParam({ name: 'key', description: 'collection_key' })
+  /** 관리자: token 메타에서 커버 후보 (save=true 시 저장) */
+  @ApiOperation({ summary: '[Admin] token에서 커버 미리보기' })
+  @ApiParam({ name: 'key', example: SWAGGER_FIXTURES.collectionKey })
+  @ApiBody(apiBodyDefault(AdminPreviewCollectionCoverFromTokenDto, SWAGGER_BODY_EXAMPLES.adminCoverFromToken))
   @Post('collections/:key/admin/cover/from-token')
   async adminCollectionCoverFromToken(
     @Param('key') key: string,
@@ -379,11 +342,10 @@ export class CollectionsController {
     return { coverImageUrl, saved: false };
   }
 
-  @ApiOperation({
-    summary:
-      'Admin: permanently delete collection bucket (snapshots, orders, rwa_tokens row, marketplace_collections)',
-  })
-  @ApiParam({ name: 'key', description: 'collection_key' })
+  /** 관리자: 컬렉션 버킷 영구 삭제 */
+  @ApiOperation({ summary: '[Admin] 컬렉션 삭제' })
+  @ApiParam({ name: 'key', example: SWAGGER_FIXTURES.collectionKey })
+  @ApiBody(apiBodyDefault(AdminDeleteCollectionDto, SWAGGER_BODY_EXAMPLES.adminDeleteCollection))
   @Post('collections/:key/admin/delete')
   async adminDeleteCollection(
     @Param('key') key: string,
@@ -408,11 +370,10 @@ export class CollectionsController {
     }
   }
 
-  @ApiOperation({
-    summary:
-      'Token IDs for Merkle tree: all minted RWAs in this collection bucket (metadata), not only active asks',
-  })
-  @ApiParam({ name: 'key', description: 'collection_key' })
+  /** criteria bid용 Merkle 집합 tokenId (버킷 내 전체 민트) */
+  @ApiOperation({ summary: 'Merkle eligible tokenId 목록' })
+  @ApiParam({ name: 'key', example: SWAGGER_FIXTURES.collectionKey })
+  @ApiQuery({ name: 'bypassCache', required: false, example: 'false' })
   @Get('collections/:key/merkle-set')
   merkleSet(
     @Param('key') key: string,

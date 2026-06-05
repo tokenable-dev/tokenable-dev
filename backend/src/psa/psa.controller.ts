@@ -28,6 +28,8 @@ import {
   type PsaSubmissionProgressLookupResult,
 } from './psa-public-api.service';
 import { PsaService, type PsaAnalyzeResult } from './psa.service';
+import { SWAGGER_BODY_EXAMPLES } from '../swagger/examples';
+import { SWAGGER_FIXTURES } from '../swagger/fixtures';
 
 const imageFilter = (
   _req: unknown,
@@ -38,6 +40,9 @@ const imageFilter = (
   cb(null, allowed.includes(file.mimetype));
 };
 
+/**
+ * PSA 슬랩 분석·Cert 조회·주문/제출 진행 상태 (Public API 프록시).
+ */
 @ApiTags('psa')
 @Controller('psa')
 export class PsaController {
@@ -48,8 +53,9 @@ export class PsaController {
     private readonly psaPublicApi: PsaPublicApiService,
   ) {}
 
+  /** 슬랩 사진 OCR → Cert 후보 → PSA 공식 API 검증 */
   @ApiOperation({
-    summary: 'PSA 슬랩 OCR + Cardhedger cert OCR 후보 → PSA Public API 조회',
+    summary: '슬랩 이미지 분석 (OCR + PSA API)',
     description:
       '슬랩 앞면 필수, 뒷면 선택. Cardhedger OCR과 슬랩 OCR로 Cert 후보를 찾은 뒤 PSA 공식 API로 검증·메타 보강합니다. OCR이 Cert를 못 읽으면 multipart 필드 `certNumber`(숫자 또는 psacard.com/cert/ URL)를 넣으면 해당 번호를 우선 조회합니다.',
   })
@@ -59,26 +65,13 @@ export class PsaController {
       type: 'object',
       required: ['slabFront'],
       properties: {
-        slabFront: {
-          type: 'string',
-          format: 'binary',
-          description: '슬랩 앞면',
-        },
-        slabBack: {
-          type: 'string',
-          format: 'binary',
-          description: '슬랩 뒷면 (선택)',
-        },
-        certNumber: {
-          type: 'string',
-          description:
-            '선택. OCR보다 우선 — Cert 숫자만 또는 https://www.psacard.com/cert/83179580 형태',
-        },
+        slabFront: { type: 'string', format: 'binary' },
+        slabBack: { type: 'string', format: 'binary' },
+        certNumber: { type: 'string', example: SWAGGER_FIXTURES.certNumber },
       },
       example: {
-        slabFront: '(binary)',
-        slabBack: '(binary, optional)',
-        certNumber: '83179580',
+        slabFront: '(binary — jpg/png/webp)',
+        certNumber: SWAGGER_FIXTURES.certNumber,
       },
     },
   })
@@ -126,8 +119,9 @@ export class PsaController {
     }
   }
 
+  /** Cert 번호만으로 PSA 메타 조회 */
   @ApiOperation({
-    summary: 'Cert 번호만으로 PSA Public API 조회 (OCR 없음)',
+    summary: 'Cert 번호로 PSA 조회',
     description:
       '슬랩 사진 없이 `certNumber`만 보냅니다. 값은 7~10자리 숫자이거나 `https://www.psacard.com/cert/12345678` 형태일 수 있습니다. `PSA_PUBLIC_API_TOKEN`이 있으면 공식 API로 메타·이미지 URL을 보강합니다.',
   })
@@ -136,16 +130,9 @@ export class PsaController {
       type: 'object',
       required: ['certNumber'],
       properties: {
-        certNumber: {
-          type: 'string',
-          description:
-            'PSA Cert 숫자만 또는 psacard.com/cert/… URL (본문 JSON)',
-        },
+        certNumber: { type: 'string', example: SWAGGER_FIXTURES.certNumber },
       },
-      examples: [
-        { certNumber: '83179580' },
-        { certNumber: 'https://www.psacard.com/cert/83179580' },
-      ],
+      example: SWAGGER_BODY_EXAMPLES.psaAnalyzeByCert,
     },
   })
   @Post('analyze-by-cert')
@@ -169,19 +156,16 @@ export class PsaController {
     }
   }
 
+  /** PSA 주문 진행 상태 (Public API 프록시) */
   @ApiOperation({
-    summary: 'PSA 주문 진행 상태 (Public API proxy)',
+    summary: 'PSA 주문 진행 조회',
     description:
       'PSA Public API `GET /order/GetProgress/{orderNumber}` 프록시.\n\n' +
       '- `PSA_PUBLIC_API_TOKEN` 필요 (psacard.com/publicapi)\n' +
       '- 응답 `raw`는 PSA Swagger `OrderProgress` (gradesReady, shipped, orderProgressSteps 등)\n' +
       '- **Cert 번호 목록은 포함되지 않음** (공식 스키마 기준)',
   })
-  @ApiParam({
-    name: 'orderNumber',
-    description: 'PSA 주문 번호 (My Orders / 이메일 확인)',
-    example: '123456789',
-  })
+  @ApiParam({ name: 'orderNumber', example: SWAGGER_FIXTURES.psaOrderNumber })
   @ApiOkResponse({ type: PsaOrderProgressLookupResponseDto })
   @Get('order/progress/:orderNumber')
   async getOrderProgress(
@@ -193,17 +177,14 @@ export class PsaController {
     );
   }
 
+  /** PSA 제출(submission) 진행 상태 */
   @ApiOperation({
-    summary: 'PSA 제출(submission) 진행 상태 (Public API proxy)',
+    summary: 'PSA 제출 진행 조회',
     description:
       'PSA Public API `GET /order/GetSubmissionProgress/{submissionNumber}` 프록시.\n\n' +
       '제출 번호는 psacard.com/orderstatus 또는 제출 확인 이메일에서 확인.',
   })
-  @ApiParam({
-    name: 'submissionNumber',
-    description: 'PSA submission 번호',
-    example: '987654321',
-  })
+  @ApiParam({ name: 'submissionNumber', example: SWAGGER_FIXTURES.psaSubmissionNumber })
   @ApiOkResponse({ type: PsaOrderProgressLookupResponseDto })
   @Get('order/submission-progress/:submissionNumber')
   async getSubmissionProgress(
@@ -215,8 +196,9 @@ export class PsaController {
     );
   }
 
+  /** 주문 진행 조회 (POST, Swagger 테스트용) */
   @ApiOperation({
-    summary: 'PSA 주문 진행 상태 (POST — Swagger 본문 테스트용)',
+    summary: 'PSA 주문 진행 조회 (POST)',
     description:
       '`GET /psa/order/progress/:orderNumber` 와 동일. Swagger에서 번호만 넣고 테스트할 때 사용.',
   })
@@ -225,8 +207,9 @@ export class PsaController {
       type: 'object',
       required: ['orderNumber'],
       properties: {
-        orderNumber: { type: 'string', example: '123456789' },
+        orderNumber: { type: 'string', example: SWAGGER_FIXTURES.psaOrderNumber },
       },
+      example: SWAGGER_BODY_EXAMPLES.psaOrderProgress,
     },
   })
   @ApiOkResponse({ type: PsaOrderProgressLookupResponseDto })
@@ -240,8 +223,9 @@ export class PsaController {
     );
   }
 
+  /** 제출 진행 조회 (POST, Swagger 테스트용) */
   @ApiOperation({
-    summary: 'PSA 제출 진행 상태 (POST — Swagger 본문 테스트용)',
+    summary: 'PSA 제출 진행 조회 (POST)',
     description:
       '`GET /psa/order/submission-progress/:submissionNumber` 와 동일.',
   })
@@ -250,8 +234,12 @@ export class PsaController {
       type: 'object',
       required: ['submissionNumber'],
       properties: {
-        submissionNumber: { type: 'string', example: '987654321' },
+        submissionNumber: {
+          type: 'string',
+          example: SWAGGER_FIXTURES.psaSubmissionNumber,
+        },
       },
+      example: SWAGGER_BODY_EXAMPLES.psaSubmissionProgress,
     },
   })
   @ApiOkResponse({ type: PsaOrderProgressLookupResponseDto })
