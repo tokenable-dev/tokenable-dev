@@ -47,12 +47,9 @@ function OfferRow({
 export function LandingOffersSection() {
   return (
     <section className="relative z-10 mx-auto max-w-3xl border-t border-white/[0.06] px-6 py-14 sm:max-w-4xl sm:py-20">
-      <div className="grid grid-cols-[3rem_1fr] gap-x-5 sm:grid-cols-[3.25rem_1fr] sm:gap-x-8">
-        <div aria-hidden />
-        <h2 className="mb-10 text-lg font-bold leading-snug text-white sm:mb-12 sm:text-xl sm:leading-snug">
-          What Tokenable offers Collectibles trading
-        </h2>
-      </div>
+      <h2 className="mb-10 text-lg font-bold leading-snug text-white sm:mb-12 sm:text-xl sm:leading-snug">
+        Trading Collectibles on Tokenable
+      </h2>
 
       <div className="flex flex-col gap-10 sm:gap-12">
         {OFFERS.map((offer) => (
