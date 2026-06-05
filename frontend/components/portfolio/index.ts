@@ -9,6 +9,7 @@ export {
   type PortfolioMainTab,
 } from "./PortfolioMainSection";
 export { PortfolioHideConfirmModal } from "./PortfolioHideConfirmModal";
+export { PortfolioCancelBidConfirmModal } from "./PortfolioCancelBidConfirmModal";
 export { PortfolioSummaryBar } from "./PortfolioSummaryBar";
 export { PortfolioValuePanel } from "./PortfolioValuePanel";
 export {

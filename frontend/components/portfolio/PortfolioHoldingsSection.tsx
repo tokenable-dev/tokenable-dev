@@ -10,10 +10,6 @@ function filterEmptyMessage(
   assetRowsLength: number,
 ): string {
   if (assetFilter === "hidden") return "No hidden cards.";
-  if (assetFilter === "listed") return "No cards are currently listed for sale.";
-  if (assetFilter === "unlisted") {
-    return "All visible cards are currently listed. Cancel a listing to move back to not listed.";
-  }
   if (assetRowsLength > 0) {
     return "All holdings are hidden. Open Hidden to manage or unhide.";
   }
@@ -26,9 +22,6 @@ export function PortfolioHoldingsSection({
   assetRowsLength,
   assetFilter,
   setAssetFilter,
-  holdingsCount,
-  listedAssetCount,
-  unlistedAssetCount,
   hiddenAssetCount,
   filteredAssetRows,
   pagedAssetRows,
@@ -53,9 +46,6 @@ export function PortfolioHoldingsSection({
   assetRowsLength: number;
   assetFilter: AssetListFilter;
   setAssetFilter: (f: AssetListFilter) => void;
-  holdingsCount: number;
-  listedAssetCount: number;
-  unlistedAssetCount: number;
   hiddenAssetCount: number;
   filteredAssetRows: AssetRow[];
   pagedAssetRows: AssetRow[];
@@ -74,54 +64,28 @@ export function PortfolioHoldingsSection({
   onCancelListing: (tokenId: number, orderHash: string) => void;
   onBurn: (tokenId: number, hasListing: boolean) => void;
 }) {
-  const filterPills = (
-        <div className="inline-flex rounded-full border border-gray-700/80 bg-gray-900/70 p-1 text-[11px]">
+  const hiddenToggle =
+    hiddenAssetCount > 0 ? (
+      <div className="mb-2 flex justify-end">
+        {assetFilter === "hidden" ? (
           <button
             type="button"
             onClick={() => setAssetFilter("all")}
-            className={`rounded-full px-3 py-1 font-semibold transition-colors ${
-              assetFilter === "all" ? "bg-mint text-[#061018]" : "text-gray-400 hover:text-white"
-            }`}
+            className="text-[11px] font-semibold text-zinc-400 transition-colors hover:text-white"
           >
-            All <span className="tabular-nums">({holdingsCount})</span>
+            Show all
           </button>
+        ) : (
           <button
             type="button"
-            onClick={() => setAssetFilter("listed")}
-            className={`rounded-full px-3 py-1 font-semibold transition-colors ${
-              assetFilter === "listed"
-                ? "bg-mint text-mint-ink"
-                : "text-gray-400 hover:text-white"
-            }`}
+            onClick={() => setAssetFilter("hidden")}
+            className="text-[11px] font-semibold text-zinc-400 transition-colors hover:text-white"
           >
-            Listed <span className="tabular-nums">({listedAssetCount})</span>
+            Hidden <span className="tabular-nums text-zinc-500">({hiddenAssetCount})</span>
           </button>
-          <button
-            type="button"
-            onClick={() => setAssetFilter("unlisted")}
-            className={`rounded-full px-3 py-1 font-semibold transition-colors ${
-              assetFilter === "unlisted"
-                ? "bg-zinc-500/90 text-[#061018]"
-                : "text-gray-400 hover:text-white"
-            }`}
-          >
-            Not listed <span className="tabular-nums">({unlistedAssetCount})</span>
-          </button>
-          {hiddenAssetCount > 0 ? (
-            <button
-              type="button"
-              onClick={() => setAssetFilter("hidden")}
-              className={`rounded-full px-3 py-1 font-semibold transition-colors ${
-                assetFilter === "hidden"
-                  ? "bg-zinc-600/90 text-white"
-                  : "text-gray-400 hover:text-white"
-              }`}
-            >
-              Hidden <span className="tabular-nums">({hiddenAssetCount})</span>
-            </button>
-          ) : null}
-        </div>
-  );
+        )}
+      </div>
+    ) : null;
 
   const body = (
     <>
@@ -191,7 +155,7 @@ export function PortfolioHoldingsSection({
   if (embedded) {
     return (
       <div>
-        <div className="mb-3 flex flex-wrap items-center justify-end gap-3">{filterPills}</div>
+        {hiddenToggle}
         {body}
       </div>
     );
@@ -199,11 +163,9 @@ export function PortfolioHoldingsSection({
 
   return (
     <div className="mb-6 rounded-2xl border border-gray-800 bg-[#0b1118] p-4 sm:p-6">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-sm font-bold">My Collectibles</h2>
-        </div>
-        {filterPills}
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <h2 className="text-sm font-bold">My Collectibles</h2>
+        {hiddenToggle}
       </div>
       {body}
     </div>

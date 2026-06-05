@@ -12,8 +12,8 @@ export const metricPanelValueCls = `${collectionDetailArialClass} block min-w-0 
 export const metricPanelInsetCls =
   "max-lg:px-2 max-lg:py-1.5 lg:px-[clamp(2px,0.45cqw,4px)] lg:py-2 lg:first:pl-[clamp(8px,1.8cqw,12px)] xl:py-2.5";
 
-/** Order book tab labels — same size as metric labels (Price, Chg, etc.). */
-export const orderBookTabLabelCls = `${collectionDetailArialClass} text-[9px] font-semibold normal-case tracking-normal max-lg:uppercase max-lg:tracking-[0.07em] lg:text-[16px] lg:font-normal lg:leading-[150%] lg:tracking-[0px]`;
+/** Order book tab labels (Trades / Order book / Orders). */
+export const orderBookTabLabelCls = `${collectionDetailArialClass} whitespace-nowrap text-[9px] font-semibold leading-none tracking-[0.07em] max-lg:uppercase lg:text-[16px] lg:font-normal lg:normal-case lg:tracking-[0px]`;
 
 /** Order book + trades data rows — shared size/weight. */
 export const orderBookTradesRowValueCls = `${collectionDetailArialClass} tabular-nums font-normal max-lg:text-[13px] max-lg:leading-[1.35] lg:text-[15px] lg:leading-[140%]`;

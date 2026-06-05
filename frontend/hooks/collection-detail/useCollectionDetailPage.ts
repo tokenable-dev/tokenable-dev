@@ -42,6 +42,7 @@ export function useCollectionDetailPage() {
   const [sellModalOpen, setSellModalOpen] = useState(false);
   const [tradeCelebration, setTradeCelebration] = useState<TradeCelebrationKind | null>(null);
   const [bookSelection, setBookSelection] = useState<BookRowSelection | null>(null);
+  const [orderBookAskPicker, setOrderBookAskPicker] = useState<BookRowSelection | null>(null);
   useCollectionDetailMobile();
   const [aiInsightComingSoonOpen, setAiInsightComingSoonOpen] = useState(false);
   const [sessionFillPoint, setSessionFillPoint] = useState<{
@@ -148,8 +149,13 @@ export function useCollectionDetailPage() {
       collectionKey: data.collection.collectionKey,
       asks,
       collectionBids,
-      selectedLevelKey: bookSelection?.levelKey ?? null,
+      selectedLevelKey: orderBookAskPicker?.levelKey ?? null,
       onSelectLevel: (sel) => {
+        if (sel.side === "bid") return;
+        if (sel.side === "ask") {
+          setOrderBookAskPicker(sel);
+          return;
+        }
         setBookSelection(sel);
         setTradeFlow("buy");
         setTradeDockOpen(true);
@@ -157,15 +163,19 @@ export function useCollectionDetailPage() {
       lastTradePriceUsdc: market.orderBookLastSaleUsdc,
       tapeFills: market.orderBookTapeFills,
       tapeLoading: market.platformTradesLoading,
+      connectedAddress: address,
+      onInvalidate: invalidateCollection,
     });
   }, [
     data?.collection,
     asks,
     collectionBids,
-    bookSelection?.levelKey,
+    orderBookAskPicker?.levelKey,
     market.orderBookLastSaleUsdc,
     market.orderBookTapeFills,
     market.platformTradesLoading,
+    address,
+    invalidateCollection,
   ]);
 
   return {
@@ -192,6 +202,8 @@ export function useCollectionDetailPage() {
     tradeCelebration,
     setTradeCelebration,
     bookSelection,
+    orderBookAskPicker,
+    setOrderBookAskPicker,
     aiInsightComingSoonOpen,
     setAiInsightComingSoonOpen,
     showOrderBook,

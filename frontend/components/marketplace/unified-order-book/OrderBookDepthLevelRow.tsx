@@ -32,32 +32,21 @@ export function OrderBookDepthLevelRow({
     ? "absolute inset-y-0 right-0 bg-gradient-to-l from-rose-600/35 to-rose-600/[0.07] transition-[width]"
     : "absolute inset-y-0 left-0 bg-gradient-to-r from-mint/35 to-mint/[0.07] transition-[width]";
 
-  const buttonClass = flush
-    ? `relative flex h-[25px] min-h-[25px] max-h-[25px] w-full cursor-pointer items-center overflow-hidden rounded-[2px] text-left transition-colors focus:outline-none ${
-        selected ? "bg-white/[0.06] ring-1 " + selectedRing : ""
-      }`
-    : `relative min-h-[24px] w-full text-left flex items-center rounded-[2px] overflow-hidden transition-colors cursor-pointer focus:outline-none ${
-        selected ? `ring-1 ${selectedRing} bg-white/[0.06]` : ""
-      }`;
+  const interactive = isAsk;
+  const rowClass = flush
+    ? `relative flex h-[25px] min-h-[25px] max-h-[25px] w-full items-center overflow-hidden rounded-[2px] text-left ${
+        interactive ? "cursor-pointer transition-colors focus:outline-none" : "cursor-default"
+      } ${selected && interactive ? "bg-white/[0.06] ring-1 " + selectedRing : ""}`
+    : `relative min-h-[24px] w-full text-left flex items-center rounded-[2px] overflow-hidden ${
+        interactive ? "transition-colors cursor-pointer focus:outline-none" : "cursor-default"
+      } ${selected && interactive ? `ring-1 ${selectedRing} bg-white/[0.06]` : ""}`;
 
   const totalUsdc = level.price * level.count;
   const flushGridClass = `pointer-events-none relative z-10 ${ORDER_BOOK_THREE_COL_GRID} w-full items-center px-2 py-0.5 leading-none ${orderBookRowValueCls}`;
   const legacyGridClass = `relative z-10 grid grid-cols-[1fr_44px] gap-1.5 w-full px-2 py-1 items-center leading-none pointer-events-none ${orderBookRowValueCls}`;
 
-  return (
-    <button
-      key={level.key}
-      type="button"
-      onClick={() =>
-        onSelectLevel?.({
-          side,
-          levelKey: level.key,
-          price: level.price,
-          orders: level.orders,
-        })
-      }
-      className={buttonClass}
-    >
+  const rowBody = (
+    <>
       <div
         className={depthGradient}
         style={{ width: `${Math.min(100, level.depth * 100)}%` }}
@@ -73,6 +62,32 @@ export function OrderBookDepthLevelRow({
           </span>
         ) : null}
       </div>
+    </>
+  );
+
+  if (!interactive) {
+    return (
+      <div key={level.key} className={rowClass}>
+        {rowBody}
+      </div>
+    );
+  }
+
+  return (
+    <button
+      key={level.key}
+      type="button"
+      onClick={() =>
+        onSelectLevel?.({
+          side,
+          levelKey: level.key,
+          price: level.price,
+          orders: level.orders,
+        })
+      }
+      className={rowClass}
+    >
+      {rowBody}
     </button>
   );
 }

@@ -1,10 +1,9 @@
 "use client";
 
-import { type ReactNode, useMemo, useState } from "react";
+import { type ReactNode, useState } from "react";
 import type { Address } from "viem";
 import type { Order } from "@/lib/core";
 import type { CollectionTradeTab } from "@/lib/marketplace/collection-trading";
-import { countMyActiveOrders } from "@/lib/marketplace/collection-trading/countMyActiveOrders";
 import type { BookRowSelection } from "@/lib/marketplace/marketplaceTradingTypes";
 import { CollectionTradingBuySellTablist } from "./CollectionTradingBuySellTablist";
 import { CollectionTradingDockBackdrop } from "./CollectionTradingDockBackdrop";
@@ -69,11 +68,6 @@ export function CollectionTradingTabs({
     else setInternalFlow(f);
   };
 
-  const ordersCount = useMemo(
-    () => countMyActiveOrders(asks, collectionBids, connectedAddress),
-    [asks, collectionBids, connectedAddress],
-  );
-
   const docked = Boolean(flush && marketsDock);
   const dockControlled = onDockOpenChange != null;
   const dockVisible = docked ? (dockControlled ? dockOpen : true) : true;
@@ -93,7 +87,6 @@ export function CollectionTradingTabs({
         <CollectionTradingTabsHeader
           collectionLabel={collectionLabel}
           flow={flow}
-          ordersCount={ordersCount}
           onSelectOrders={() => setFlow("orders")}
           flush={flush}
           docked={docked}

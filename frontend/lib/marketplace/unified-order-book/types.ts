@@ -9,6 +9,6 @@ export type BookCenterModel = {
   title: string;
 };
 
-export type OrderBookTab = "book" | "trades";
+export type OrderBookTab = "book" | "trades" | "orders";
 
 export type { OrderBookDepthLevel } from "./orderBookMath";

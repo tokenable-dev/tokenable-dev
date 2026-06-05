@@ -26,6 +26,12 @@ export function usePortfolioBidActions(input: {
     collectionKey: string;
     activeAsks: Order[];
   } | null>(null);
+  const [cancelConfirm, setCancelConfirm] = useState<{
+    orderHash: string;
+    collectionKey: string;
+    collectionLabel: string;
+    priceLabel: string;
+  } | null>(null);
 
   const refreshBidData = useCallback(
     async (collectionKey?: string) => {
@@ -40,19 +46,35 @@ export function usePortfolioBidActions(input: {
     [address, queryClient, refetchActiveOrders, refetchPortfolioBids],
   );
 
-  const handleCancel = useCallback(
-    async (orderHash: string, collectionKey: string) => {
-      if (!address) return;
-      setCancellingHash(orderHash);
-      try {
-        await cancelOrder(orderHash, address);
-        await refreshBidData(collectionKey);
-      } finally {
-        setCancellingHash(null);
-      }
+  const requestCancel = useCallback(
+    (
+      orderHash: string,
+      collectionKey: string,
+      collectionLabel: string,
+      priceLabel: string,
+    ) => {
+      setCancelConfirm({ orderHash, collectionKey, collectionLabel, priceLabel });
     },
-    [address, refreshBidData],
+    [],
   );
+
+  const closeCancelConfirm = useCallback(() => {
+    if (cancellingHash != null) return;
+    setCancelConfirm(null);
+  }, [cancellingHash]);
+
+  const confirmCancel = useCallback(async () => {
+    if (!address || cancelConfirm == null) return;
+    const { orderHash, collectionKey } = cancelConfirm;
+    setCancellingHash(orderHash);
+    try {
+      await cancelOrder(orderHash, address);
+      await refreshBidData(collectionKey);
+      setCancelConfirm(null);
+    } finally {
+      setCancellingHash(null);
+    }
+  }, [address, cancelConfirm, refreshBidData]);
 
   const openChangeBid = useCallback(
     async (orderHash: string, collectionKey: string) => {
@@ -88,9 +110,12 @@ export function usePortfolioBidActions(input: {
     cancellingHash,
     openingChangeHash,
     changeModal,
+    cancelConfirm,
     openChangeBid,
     closeChangeModal,
-    handleCancel,
+    requestCancel,
+    closeCancelConfirm,
+    confirmCancel,
     handleBidUpdated,
   };
 }
