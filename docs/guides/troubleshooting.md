@@ -147,5 +147,4 @@ docker logs tokenable-backend 2>&1 | grep portfolio_daily_snapshot
 # API smoke tests
 curl -s http://localhost:4000/api/auth/session
 curl -s http://localhost:4000/api/marketplace/collections
-curl -s http://localhost:4000/api/cardhedger/indexes
 ```

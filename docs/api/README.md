@@ -23,10 +23,10 @@ Base URL examples:
 | `marketplace` | `marketplace/snapshots/collection-market-snapshot.controller.ts` | `/api/marketplace` |
 | `marketplace` | `marketplace/portfolio/portfolio.controller.ts` | `/api/marketplace` |
 | `marketplace` | `marketplace/collections/cert-market-trace.controller.ts` | `/api/marketplace` |
-| `cardhedger` | `cardhedger/controllers/indexes.controller.ts` | `/api/cardhedger` |
+| `cardladder` | `cardladder/controllers/cardladder-indexes.controller.ts` | `/api/cardladder` |
 | `admin` | `cardhedger/admin/cardhedger-admin.controller.ts` | `/api/admin/cardhedger` |
 
-`CardhedgerService` also calls Cardhedger upstream from PSA, collections, and indexes code — those paths are **not** duplicated as `/api/cardhedger/v1/*` HTTP routes.
+`CardhedgerService` calls Cardhedger upstream from PSA and collections code — those paths are **not** duplicated as `/api/cardhedger/v1/*` HTTP routes.
 
 ---
 
@@ -80,7 +80,7 @@ Base URL examples:
 | POST | `/api/marketplace/collections/:key/admin/cover/from-token` | — | Admin: preview cover from token metadata |
 | POST | `/api/marketplace/collections/:key/admin/delete` | — | Admin: delete collection + related rows |
 | POST | `/api/marketplace/cardhedger/mint-previews` | — | Batch tokenIds → Cardhedger PSA10 band (max 32) |
-| GET | `/api/cardhedger/indexes` | — | Dashboard market indexes (Pokemon/MLB/NFL/NBA) |
+| GET | `/api/cardladder/indexes` | — | Landing dashboard indexes (Pokemon/MLB/NFL/NBA via Card Ladder scrape + cache) |
 | GET | `/api/admin/cardhedger/health` | admin wallet | Full Cardhedger integration health |
 | GET | `/api/admin/cardhedger/circuit` | admin wallet | Circuit breaker state |
 | GET | `/api/admin/cardhedger/metrics` | admin wallet | Resolve + scheduler counters (JSON) |

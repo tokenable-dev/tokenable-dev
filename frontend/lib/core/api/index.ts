@@ -7,3 +7,4 @@ export * from "./orders";
 export * from "./marketplace-collections";
 export * from "./marketplace-market-data";
 export * from "./portfolio";
+export * from "./cardladder-indexes";

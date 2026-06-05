@@ -51,7 +51,7 @@ backend/src/
 ├── rwa/                     # IPFS upload (Pinata) — PSA 10 gate on mint metadata
 ├── blockchain/              # Sepolia read-only RWA + IPFS gateway resolver
 ├── psa/                     # Slab OCR, analyze-by-cert, Public API, spec-page scraper
-├── cardhedger/              # Upstream HTTP client + GET /api/cardhedger/indexes
+├── cardhedger/              # Upstream HTTP client (server-to-server)
 │   └── admin/               # CardhedgerAdminModule — health, circuit, metrics, prometheus
 │
 └── marketplace/             # MarketplaceModule (facade — re-exports submodules)

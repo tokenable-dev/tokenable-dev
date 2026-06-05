@@ -42,7 +42,7 @@ All routes are file-system based. Dynamic segments use `[param]` notation.
 
 | Route | Primary API calls |
 |-------|------------------|
-| `/` | `GET /api/cardhedger/indexes` |
+| `/` | `GET /api/cardladder/indexes` |
 | `/exchange` | `GET /api/marketplace/collections`, `POST /api/marketplace/collections/market-snapshots` |
 | `/vault` | `POST /api/psa/analyze`, `POST /api/psa/analyze-by-cert`, `POST /api/rwa/upload` |
 | `/portfolio` | `GET /api/blockchain/rwa/tokens/:address`, `POST …/metadata/batch`, `POST …/token-collection-keys`, `POST …/mint-previews`, `POST …/portfolio-market-batch`, `GET …/portfolio/daily/:wallet`, `GET …/portfolio/hidden/:wallet`, `GET /api/marketplace/orders/token/:tokenId` |

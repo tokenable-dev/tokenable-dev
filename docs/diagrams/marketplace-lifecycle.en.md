@@ -654,7 +654,7 @@ flowchart TD
         R_MKT["/api/marketplace<br/>orders · collections · snapshots<br/>· portfolio/daily · cardhedger · Seaport only"]:::route
         R_RWA["/api/rwa<br/>IPFS metadata upload · mint helpers"]:::route
         R_BC["/api/blockchain<br/>RWA tokenURI · metadata / IPFS resolve"]:::route
-        R_CH["/api/cardhedger<br/>indexes (+ server-side CardhedgerService)"]:::route
+        R_CH["/api/admin/cardhedger<br/>health · metrics (server-side CardhedgerService)"]:::route
         R_PSA["/api/psa<br/>slab OCR · PSA Public API"]:::route
     end
 
@@ -876,9 +876,7 @@ backend/
 │   │   └── providers/          # ethers · RWA factories
 │   │
 │   ├── cardhedger/
-│   │   ├── controllers/indexes.controller.ts
-│   │   ├── cardhedger.service.ts       # CARDHEDGER_API_KEY required
-│   │   └── indexes.service.ts          # 24h scheduled refresh + disk cache
+│   │   └── cardhedger.service.ts       # CARDHEDGER_API_KEY required
 │   │
 │   └── psa/
 │       ├── psa.controller.ts   # /psa/analyze

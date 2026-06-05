@@ -4,6 +4,7 @@ import type { CSSProperties } from "react";
 import Link from "next/link";
 import { TrendingCollectionsCarousel } from "@/components/landing/TrendingCollectionsCarousel";
 import { LandingOffersSection } from "@/components/landing/LandingOffersSection";
+import { MarketIndexes } from "@/components/landing/MarketIndexes";
 
 export default function LandingPage() {
   return (
@@ -60,6 +61,8 @@ export default function LandingPage() {
       </section>
 
       <LandingOffersSection />
+
+      <MarketIndexes />
 
       <footer
         className="landing-enter relative z-10 border-t border-gray-800/60 py-8 text-center text-xs text-gray-600"

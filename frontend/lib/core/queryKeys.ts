@@ -19,6 +19,8 @@ export const rq = {
   ordersByTokenBatch: (address: string | undefined, tokenIds: readonly number[]) =>
     ["orders", "by-token-batch", address ?? "", [...tokenIds].slice().sort((a, b) => a - b)] as const,
   collectionsMarketplace: () => ["collections", "marketplace"] as const,
+  /** Landing dashboard — Card Ladder category indexes (Pokemon / MLB / NFL / NBA). */
+  cardladderIndexes: () => ["cardladder-indexes"] as const,
   /**
    * Second element: sorted collection keys. Third: `priceHistoryDuration` for batched snapshots
    * (must match POST body so cache invalidates when window changes).

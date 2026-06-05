@@ -1,7 +1,5 @@
 # Cardhedger integration
 
-**Public HTTP:** `GET /api/cardhedger/indexes` — dashboard market indexes (Pokemon, MLB, NFL, NBA), backed by `CardhedgerIndexesService` (scheduled refresh + disk cache).
-
 **Admin / ops HTTP** (requires `?adminWallet=` in `MARKETPLACE_ADMIN_WALLETS`):
 
 | Method | Path | Purpose |
@@ -18,7 +16,6 @@
 - **`CardhedgerPricingService`** — preview, comps, tier history (snapshot workers)
 - **`CardhedgerMintService`** — portfolio mint-previews batch
 - **`CollectionIdentityService`** — cert lookup + search writes to `components.cardhedgerCardId`
-- Indexes aggregation (`cardhedger/indexes.service.ts`)
 
 Market-data logic was split from a single god service into **resolve / pricing / mint** under `marketplace/market-data/`. `CardhedgerMarketDataService` remains the facade used by collections and snapshots.
 
