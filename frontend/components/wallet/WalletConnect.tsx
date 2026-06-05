@@ -9,6 +9,10 @@ import {
   connectMetaMaskWallet,
   findMetaMaskConnector,
 } from "@/lib/wallet/connectMetaMaskWallet";
+import {
+  isWalletSessionActive,
+  isWalletSessionPending,
+} from "@/lib/wallet/walletConnectionDisplay";
 import { WalletAddressCompact } from "@/components/wallet/WalletAddressCompact";
 
 export interface WalletConnectProps {
@@ -22,7 +26,14 @@ export function WalletConnect({
   connectButtonClassName,
   connectButtonStyle,
 }: WalletConnectProps = {}) {
-  const { address, isConnected, chain, connector } = useAccount();
+  const {
+    address,
+    isConnected,
+    isConnecting,
+    isReconnecting,
+    chain,
+    connector,
+  } = useAccount();
   const { connect, connectors, isPending } = useConnect();
   const { disconnect } = useDisconnect();
   const { data: balance } = useBalance({ address, chainId: sepolia.id });
@@ -47,7 +58,36 @@ export function WalletConnect({
     }
   }
 
-  if (isConnected && address) {
+  const sessionActive = isWalletSessionActive({
+    address,
+    isConnected,
+    isConnecting,
+    isReconnecting,
+  });
+  const sessionPending = isWalletSessionPending({
+    address,
+    isConnected,
+    isConnecting,
+    isReconnecting,
+  });
+
+  if (sessionPending) {
+    return (
+      <button
+        type="button"
+        disabled
+        className={
+          connectButtonClassName ??
+          "px-4 py-2 text-sm font-semibold text-zinc-400 rounded-lg cursor-wait"
+        }
+        style={connectButtonStyle}
+      >
+        {isReconnecting ? "Reconnecting..." : "Connecting..."}
+      </button>
+    );
+  }
+
+  if (sessionActive && address) {
     return (
       <div className="flex flex-col items-end gap-2">
         <div className="flex items-center gap-3">

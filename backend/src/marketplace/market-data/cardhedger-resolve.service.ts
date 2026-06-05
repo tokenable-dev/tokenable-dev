@@ -8,6 +8,7 @@ import {
 import { CardhedgerMetricsService } from '../../common/metrics/cardhedger-metrics.service';
 import { CardhedgerService } from '../../cardhedger/cardhedger.service';
 import {
+  cardNumberTokenForCardhedgerSearch,
   normalizeForExactCardNumberKey,
   normalizeForExactCatalogMatch,
   primaryCardNumber,
@@ -220,7 +221,7 @@ export class CardhedgerResolveService {
     if (q.psaSubject) parts.push(q.psaSubject);
     if (q.psaBrand) parts.push(q.psaBrand);
     if (q.psaYear) parts.push(q.psaYear);
-    if (q.cardNumber) parts.push(`#${primaryCardNumber(q.cardNumber)}`);
+    if (q.cardNumber) parts.push(cardNumberTokenForCardhedgerSearch(q.cardNumber));
     if (q.psaVariety) {
       parts.push(...varietyHintsForSearch(q.psaVariety));
     }
@@ -269,7 +270,7 @@ export class CardhedgerResolveService {
       q.psaSubject,
       q.psaBrand,
       q.psaYear,
-      q.cardNumber ? `#${primaryCardNumber(q.cardNumber)}` : '',
+      q.cardNumber ? cardNumberTokenForCardhedgerSearch(q.cardNumber) : '',
     ]
       .map((x) => String(x ?? '').trim())
       .filter(Boolean)
@@ -315,6 +316,7 @@ export class CardhedgerResolveService {
       cardSet: q.cardSet,
       psaBrand: q.psaBrand,
       psaSubject: q.psaSubject,
+      psaVariety: q.psaVariety,
     })) {
       push(sq);
     }
@@ -425,6 +427,9 @@ export class CardhedgerResolveService {
       !opts?.trustStoredCardhedgerCatalogId
     ) {
       const vr = String(row.variant ?? '').trim().toLowerCase();
+      const colorTokens = chromeColorTokensIn(pv);
+      /** PSA `{SPORT} REFRACTOR` with no color → flagship `Refractor` is the default row. */
+      if (vr === 'refractor' && colorTokens.length === 0) return false;
       if (vr === 'refractor') return true;
     }
     return false;
@@ -750,7 +755,12 @@ export class CardhedgerResolveService {
             Number(varietyInRowBlob(b.r)) - Number(varietyInRowBlob(a.r));
           if (d !== 0) return d;
         }
-        if (genericRef) {
+        if (genericRef && colorHints.length === 0) {
+          const isFlagship = (row: CardhedgerCardRow) =>
+            String(row.variant ?? '').trim().toLowerCase() === 'refractor';
+          const d = Number(isFlagship(b.r)) - Number(isFlagship(a.r));
+          if (d !== 0) return d;
+        } else if (genericRef) {
           const d = specificity(b.r) - specificity(a.r);
           if (d !== 0) return d;
         }

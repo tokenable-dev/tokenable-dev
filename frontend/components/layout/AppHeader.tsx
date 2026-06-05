@@ -27,6 +27,10 @@ import {
   connectMetaMaskWallet,
   findMetaMaskConnector,
 } from "@/lib/wallet/connectMetaMaskWallet";
+import {
+  isWalletSessionActive,
+  isWalletSessionPending,
+} from "@/lib/wallet/walletConnectionDisplay";
 import { WalletAddressCompact } from "@/components/wallet/WalletAddressCompact";
 import { useMarketplaceCollectionsInfinite } from "@/hooks/marketplace";
 import { useResolvedMediaUrlMap } from "@/hooks/media";
@@ -536,7 +540,14 @@ function DropdownIcon({ name, className }: { name: IconName; className?: string 
 }
 
 function WalletDropdown() {
-  const { address, isConnected, chain, connector } = useAccount();
+  const {
+    address,
+    isConnected,
+    isConnecting,
+    isReconnecting,
+    chain,
+    connector,
+  } = useAccount();
   const { connect, connectors, isPending } = useConnect();
   const { disconnect } = useDisconnect();
   const { data: balance } = useBalance({ address, chainId: sepolia.id });
@@ -574,7 +585,32 @@ function WalletDropdown() {
     }
   }
 
-  if (!isConnected || !address) {
+  const sessionActive = isWalletSessionActive({
+    address,
+    isConnected,
+    isConnecting,
+    isReconnecting,
+  });
+  const sessionPending = isWalletSessionPending({
+    address,
+    isConnected,
+    isConnecting,
+    isReconnecting,
+  });
+
+  if (sessionPending) {
+    return (
+      <button
+        type="button"
+        disabled
+        className={`flex h-10 min-w-0 touch-manipulation items-center justify-center gap-1.5 rounded-xl border px-3 text-sm font-semibold text-zinc-400 sm:w-[164px] sm:gap-2 sm:px-4 ${HEADER_BAR_BORDER} ${HEADER_BAR_BG}`}
+      >
+        {isReconnecting ? "Reconnecting…" : "Connecting…"}
+      </button>
+    );
+  }
+
+  if (!sessionActive || !address) {
     return (
       <button
         type="button"

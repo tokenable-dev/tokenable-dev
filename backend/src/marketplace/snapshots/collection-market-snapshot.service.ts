@@ -160,16 +160,16 @@ export class CollectionMarketSnapshotService {
         key,
         { allowUpstream: allowPsaUpstream },
       );
-      let col = await this.collectionEnrichment.findOne(key);
-      if (col) {
-        await this.collectionEnrichment.auditCardhedgerCardIdExact(key, {
-          clearOnMismatch: true,
-        });
+      if (await this.collectionEnrichment.findOne(key)) {
+        await this.collectionEnrichment.persistPsaMirrorFromCertToDb(key);
         await this.collectionEnrichment.ensureMintParallelVarietyFromListings(
           key,
         );
-        col = await this.collectionEnrichment.findOne(key);
+        await this.collectionEnrichment.auditCardhedgerCardIdExact(key, {
+          clearOnMismatch: true,
+        });
       }
+      let col = await this.collectionEnrichment.findOne(key);
       if (col) {
         col =
           await this.collectionEnrichment.mergePsaSnapshotIntoComponentsFromDb(

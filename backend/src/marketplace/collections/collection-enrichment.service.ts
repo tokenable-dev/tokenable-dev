@@ -73,4 +73,8 @@ export class CollectionEnrichmentService {
   ): Promise<MarketplaceCollection> {
     return this.components.mergePsaSnapshotIntoComponentsFromDb(col);
   }
+
+  async persistPsaMirrorFromCertToDb(collectionKey: string): Promise<boolean> {
+    return this.components.persistPsaMirrorFromCertToDb(collectionKey);
+  }
 }

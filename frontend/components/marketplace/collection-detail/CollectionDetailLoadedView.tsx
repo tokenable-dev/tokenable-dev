@@ -169,7 +169,7 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
               }
               orderBookPanel={
                 <div
-                  className={`${COLLECTION_MARKETS_ORDER_BOOK_TAB_HEIGHT_CLASS} flex w-full min-w-0 shrink-0 flex-col overflow-hidden`}
+                  className={`${COLLECTION_MARKETS_ORDER_BOOK_TAB_HEIGHT_CLASS} flex w-full min-w-0 shrink-0 flex-col`}
                 >
                   {collectionOrderBookMobile}
                 </div>
