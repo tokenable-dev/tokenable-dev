@@ -664,7 +664,7 @@ flowchart TD
         R_MKT["/api/marketplace<br/>orders · collections · market-snapshots<br/>· portfolio/daily · portfolio-market-batch · Seaport 전용"]:::route
         R_RWA["/api/rwa<br/>IPFS 메타 업로드 · 민팅 보조"]:::route
         R_BC["/api/blockchain<br/>RWA tokenURI · 메타/IPFS 해소"]:::route
-        R_CH["/api/cardhedger<br/>indexes (+ 서버 내부 CardhedgerService)"]:::route
+        R_CH["/api/admin/cardhedger<br/>health · metrics (서버 내부 CardhedgerService)"]:::route
         R_PSA["/api/psa<br/>슬랩 OCR · PSA Public API"]:::route
     end
 
@@ -888,9 +888,7 @@ backend/
 │   │   └── providers/          # ethers · RWA 팩토리
 │   │
 │   ├── cardhedger/
-│   │   ├── controllers/indexes.controller.ts
-│   │   ├── cardhedger.service.ts       # CARDHEDGER_API_KEY 필수
-│   │   └── indexes.service.ts          # 24h 스케줄 + 디스크 캐시
+│   │   └── cardhedger.service.ts       # CARDHEDGER_API_KEY 필수
 │   │
 │   └── psa/
 │       ├── psa.controller.ts   # /psa/analyze

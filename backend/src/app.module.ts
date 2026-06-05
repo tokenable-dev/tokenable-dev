@@ -4,6 +4,7 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
 import appConfig from './config/app.config';
 import marketplaceConfig from './config/marketplace.config';
 import psaConfig from './config/psa.config';
+import cardladderConfig from './config/cardladder.config';
 import { ScheduleModule } from '@nestjs/schedule';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CacheModule } from './common/cache/cache.module';
@@ -13,6 +14,7 @@ import { AuthModule } from './auth/auth.module';
 import { BlockchainModule } from './blockchain/blockchain.module';
 import { MarketplaceModule } from './marketplace/marketplace.module';
 import { CardhedgerModule } from './cardhedger/cardhedger.module';
+import { CardladderModule } from './cardladder/cardladder.module';
 import { RwaModule } from './rwa/rwa.module';
 import { PsaModule } from './psa/psa.module';
 import { HealthModule } from './health/health.module';
@@ -29,7 +31,7 @@ import { PortfolioHiddenHolding } from './marketplace/entities/portfolio-hidden-
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [appConfig, marketplaceConfig, psaConfig],
+      load: [appConfig, marketplaceConfig, psaConfig, cardladderConfig],
     }),
     EventEmitterModule.forRoot({ global: true }),
     ScheduleModule.forRoot(),
@@ -73,6 +75,7 @@ import { PortfolioHiddenHolding } from './marketplace/entities/portfolio-hidden-
     RwaModule,
     BlockchainModule,
     CardhedgerModule,
+    CardladderModule,
     PsaModule,
     MarketplaceModule,
     CardhedgerAdminModule,

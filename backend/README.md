@@ -13,7 +13,7 @@ pnpm start:dev
 
 **Marketplace:** Seaport off-chain order book (`marketplace/orders/*`), collections + **materialized snapshots** (`marketplace/collections/*`, `collection_market_snapshots` table). Matching is **wallet-signed Seaport only**. Overview: **[../docs/api/marketplace.md](../docs/api/marketplace.md)** · DB: **[../docs/architecture/database.md](../docs/architecture/database.md)**.
 
-**Card Hedge:** optional **`CARDHEDGER_API_KEY`**. Public HTTP: **`GET /api/cardhedger/indexes`** (dashboard indexes). All other Cardhedger calls go **server-to-server** via `CardhedgerService.forwardJson` (PSA mint, collection pricing, etc.) — not exposed as `/api/cardhedger/v1/*` HTTP proxies. Override base URL with **`CARDHEDGER_BASE_URL`** if needed.
+**Card Hedge:** optional **`CARDHEDGER_API_KEY`**. All Cardhedger calls go **server-to-server**. Public HTTP: **`GET /api/cardladder/indexes`** — landing dashboard indexes (Pokemon/MLB/NFL/NBA) scraped from Card Ladder with Playwright + cache. via `CardhedgerService.forwardJson` (PSA mint, collection pricing, etc.) — not exposed as `/api/cardhedger/v1/*` HTTP proxies. Override base URL with **`CARDHEDGER_BASE_URL`** if needed.
 
 **PSA spec scraper (clean collection covers):** headless Chromium pulls the **card-only** image (`https://d1htnxwo4o0jhw.cloudfront.net/spec/{specId}/*.jpg`) off Cloudflare-protected PSA spec pages. See **[`docs/api/psa.md` — PSA spec scraper](../docs/api/psa.md#psa-spec-page-scraper-collection-covers)** for failure modes and env vars (`PSA_SPEC_NAV_TIMEOUT_MS`, `PSA_SPEC_SCRAPER_PROXY`, `PSA_SPEC_COVER_ALLOW_FALLBACK`, etc.). Defaults: 120s nav / 45s image wait. Cache: 24h success / 1h failure (override `PSA_SPEC_NEGATIVE_CACHE_MS`).
 

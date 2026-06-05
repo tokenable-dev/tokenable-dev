@@ -29,7 +29,7 @@ flowchart TB
 2. **NestJS** validates the request via `ValidationPipe`, applies JWT auth where required, and routes to the appropriate module.
 3. **PostgreSQL** (TypeORM) persists **eight** application tables — see [database.md](./database.md): `users`, `psa_cert_snapshots`, `marketplace_collections`, `rwa_tokens`, `collection_market_snapshots`, `orders`, `portfolio_daily_snapshots`, `portfolio_hidden_holdings`.
 4. **Ethereum RPC** (Alchemy Sepolia) provides read-only contract data. On-chain settlement uses **Seaport 1.5** via wallet-signed transactions in the browser.
-5. **Cardhedger API** is called from **background snapshot workers**, identity/cert resolution, and cold-start refresh — not on every marketplace chart/list request. Dashboard indexes: `GET /api/cardhedger/indexes`. Ops: `GET /api/admin/cardhedger/*` (admin wallet gate).
+5. **Cardhedger API** is called from **background snapshot workers**, identity/cert resolution, and cold-start refresh — not on every marketplace chart/list request. Ops: `GET /api/admin/cardhedger/*` (admin wallet gate). Landing market indexes: `GET /api/cardladder/indexes` (Card Ladder scrape + cache).
 6. **Redis** (optional L2) backs the collection **identity cache** (`components.cardhedgerCardId`). Without `REDIS_URL`, L1 in-process cache only.
 7. **PSA Public API** verifies cert numbers and provides slab metadata.
 8. **Pinata** stores IPFS metadata and images.
