@@ -8,6 +8,10 @@ import { CollectionChangeBidModal } from "@/components/marketplace/collection-tr
 import type { Order } from "@/lib/core";
 import { useCollectionMyOrders } from "@/hooks/marketplace/collection-trading/useCollectionMyOrders";
 import type { CollectionUnifiedOrderBookProps } from "@/lib/marketplace/marketplaceTradingTypes";
+import {
+  ORDER_BOOK_FLUSH_MOBILE_VISIBLE_DEPTH_ROWS,
+  ORDER_BOOK_MOBILE_EMBED_TAB_BODY_HEIGHT_CLASS,
+} from "@/lib/marketplace/unified-order-book";
 import { useUnifiedOrderBook } from "@/hooks/unified-order-book";
 import { OrderBookBookTab } from "./OrderBookBookTab";
 import { OrderBookOrdersTab } from "./OrderBookOrdersTab";
@@ -49,12 +53,27 @@ export function CollectionUnifiedOrderBook({
     collectionKey,
   });
 
+  const mobileFlushDepth =
+    embedInMobileTab && flush ? ORDER_BOOK_FLUSH_MOBILE_VISIBLE_DEPTH_ROWS : undefined;
+  const displayAskLevels =
+    mobileFlushDepth != null
+      ? book.askLevels.slice(-mobileFlushDepth)
+      : book.askLevels;
+  const displayBidLevels =
+    mobileFlushDepth != null
+      ? book.bidLevels.slice(0, mobileFlushDepth)
+      : book.bidLevels;
+
+  const mobileEmbed = embedInMobileTab && flush;
+
   const bookTabProps = {
     flush,
     compact,
     depthMax: book.depthMax,
-    askLevels: book.askLevels,
-    bidLevels: book.bidLevels,
+    flushDepthRows: mobileFlushDepth,
+    mobileEmbed,
+    askLevels: displayAskLevels,
+    bidLevels: displayBidLevels,
     bookCenterModel: book.bookCenterModel,
     bidCount: book.bidRows.length,
     askCount: book.askRows.length,
@@ -75,7 +94,7 @@ export function CollectionUnifiedOrderBook({
 
   const shell = flush
     ? embedInMobileTab
-      ? "relative flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden rounded-none border-0 bg-transparent shadow-none"
+      ? "relative flex min-h-0 w-full min-w-0 shrink-0 flex-col overflow-hidden rounded-none border-0 bg-transparent shadow-none"
       : "relative flex h-full max-h-full min-h-0 w-full max-w-full flex-col overflow-hidden rounded-none border-0 bg-transparent shadow-none"
     : `relative overflow-hidden ${COLLECTION_DETAILS_BORDER_ALL} ${COLLECTION_DETAILS_BG_CLASS} ${
         compact
@@ -105,7 +124,7 @@ export function CollectionUnifiedOrderBook({
       )}
       <OrderBookTabHeader tab={book.tab} setTab={book.setTab} flush={flush} />
 
-      {flush ? (
+      {flush && !embedInMobileTab ? (
         <div className="relative min-h-0 flex-1 overflow-hidden">
           <div
             className={`absolute inset-0 flex flex-col overflow-hidden ${
@@ -132,13 +151,34 @@ export function CollectionUnifiedOrderBook({
             <OrderBookOrdersTab {...ordersTabProps} flush />
           </div>
         </div>
+      ) : mobileEmbed ? (
+        <div
+          className={`${ORDER_BOOK_MOBILE_EMBED_TAB_BODY_HEIGHT_CLASS} flex min-h-0 shrink-0 flex-col overflow-hidden`}
+        >
+          {book.tab === "book" ? <OrderBookBookTab {...bookTabProps} flush /> : null}
+          {book.tab === "trades" ? (
+            <OrderBookTradesTab
+              tapeFills={tapeFills}
+              tapeLoading={tapeLoading}
+              flush
+              mobileEmbed
+            />
+          ) : null}
+          {book.tab === "orders" ? (
+            <OrderBookOrdersTab {...ordersTabProps} flush mobileEmbed />
+          ) : null}
+        </div>
       ) : (
         <>
-          {book.tab === "book" ? <OrderBookBookTab {...bookTabProps} /> : null}
+          {book.tab === "book" ? (
+            <OrderBookBookTab {...bookTabProps} flush={flush} />
+          ) : null}
           {book.tab === "trades" ? (
             <OrderBookTradesTab tapeFills={tapeFills} tapeLoading={tapeLoading} flush={flush} />
           ) : null}
-          {book.tab === "orders" ? <OrderBookOrdersTab {...ordersTabProps} /> : null}
+          {book.tab === "orders" ? (
+            <OrderBookOrdersTab {...ordersTabProps} flush={flush} />
+          ) : null}
         </>
       )}
       {changeBidModal}

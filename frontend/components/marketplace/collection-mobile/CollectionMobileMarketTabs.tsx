@@ -25,10 +25,15 @@ export function CollectionMobileMarketTabs({
 }) {
   const [tab, setTab] = useState<CollectionMobileMarketTabId>(defaultTab);
   const isInfoTab = tab === "information";
+  const isChartTab = tab === "chart";
+  const isOrderBookTab = tab === "orderbook";
+  const listingsBelowPanel = isInfoTab || isChartTab;
 
   let panel: ReactNode = informationPanel;
-  if (tab === "chart") panel = chartPanel;
-  if (tab === "orderbook") panel = orderBookPanel;
+  if (isChartTab) panel = chartPanel;
+  if (isOrderBookTab) panel = orderBookPanel;
+
+  const tabPanelClass = "shrink-0 pt-2 min-h-0 overflow-visible max-lg:overflow-x-clip";
 
   return (
     <div className="flex w-full min-w-0 shrink-0 flex-col lg:hidden">
@@ -62,22 +67,15 @@ export function CollectionMobileMarketTabs({
         })}
       </div>
 
-      <div
-        className={
-          isInfoTab
-            ? "shrink-0 pt-2 min-h-0 overflow-visible"
-            : "shrink-0 max-lg:overflow-x-clip pt-2 min-h-[min(300px,48svh)] overflow-hidden"
-        }
-        role="tabpanel"
-      >
+      <div className={tabPanelClass} role="tabpanel">
         {panel}
-        {isInfoTab && listingsPanel ? (
-          <div className="mt-2 min-w-0 shrink-0">{listingsPanel}</div>
+        {listingsBelowPanel && listingsPanel ? (
+          <div className="mt-2 min-w-0 shrink-0 pb-1">{listingsPanel}</div>
         ) : null}
       </div>
 
-      {!isInfoTab && listingsPanel ? (
-        <div className="mt-1 min-w-0 shrink-0 pb-4">{listingsPanel}</div>
+      {isOrderBookTab && listingsPanel ? (
+        <div className="mt-2 min-w-0 shrink-0 pb-4">{listingsPanel}</div>
       ) : null}
     </div>
   );

@@ -10,7 +10,8 @@ import {
   orderBookRowValueCls,
 } from "@/components/marketplace/price-metrics-strip/theme";
 import {
-  ORDER_BOOK_FLUSH_DEPTH_PANE_HEIGHT_CLASS,
+  ORDER_BOOK_FLUSH_VISIBLE_DEPTH_ROWS,
+  orderBookFlushDepthPaneHeightClass,
   type BookCenterModel,
   type OrderBookDepthLevel,
 } from "@/lib/marketplace/unified-order-book";
@@ -156,9 +157,14 @@ function emptyLevelsClass(flush?: boolean) {
     : `py-3 text-center ${orderBookColumnHeaderCls}`;
 }
 
-function scrollPaneClass(scrollable: boolean, flush?: boolean) {
-  if (flush && scrollable) {
-    return `min-h-0 shrink-0 overflow-y-auto overflow-x-hidden overscroll-y-auto ${COLLECTION_ORDER_BOOK_SCROLL_CLASS} ${ORDER_BOOK_FLUSH_DEPTH_PANE_HEIGHT_CLASS}`;
+function scrollPaneClass(
+  scrollable: boolean,
+  flush?: boolean,
+  flushDepthRows = ORDER_BOOK_FLUSH_VISIBLE_DEPTH_ROWS,
+  mobileEmbed?: boolean,
+) {
+  if (flush && (scrollable || mobileEmbed)) {
+    return `min-h-0 shrink-0 overflow-y-auto overflow-x-hidden overscroll-y-auto ${COLLECTION_ORDER_BOOK_SCROLL_CLASS} ${orderBookFlushDepthPaneHeightClass(flushDepthRows)}`;
   }
   return scrollable
     ? `min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-auto ${COLLECTION_ORDER_BOOK_SCROLL_CLASS}`
@@ -177,12 +183,20 @@ function isOrderBookFullyEmpty(
   );
 }
 
-function OrderBookEmptyNaOnly({ flush }: { flush?: boolean }) {
+function OrderBookEmptyNaOnly({
+  flush,
+  mobileEmbed,
+}: {
+  flush?: boolean;
+  mobileEmbed?: boolean;
+}) {
   return (
     <div
       className={
         flush
-          ? "flex h-full min-h-0 flex-1 items-center justify-center overflow-hidden"
+          ? `flex min-h-0 items-center justify-center overflow-hidden ${
+              mobileEmbed ? "h-full" : "h-full flex-1"
+            }`
           : "flex items-center justify-center py-10"
       }
     >
@@ -195,6 +209,8 @@ export function OrderBookBookTab({
   flush,
   compact,
   depthMax,
+  flushDepthRows = ORDER_BOOK_FLUSH_VISIBLE_DEPTH_ROWS,
+  mobileEmbed,
   askLevels,
   bidLevels,
   bookCenterModel,
@@ -206,6 +222,8 @@ export function OrderBookBookTab({
   flush?: boolean;
   compact?: boolean;
   depthMax: string;
+  flushDepthRows?: number;
+  mobileEmbed?: boolean;
   askLevels: OrderBookDepthLevel[];
   bidLevels: OrderBookDepthLevel[];
   bookCenterModel: BookCenterModel;
@@ -219,14 +237,18 @@ export function OrderBookBookTab({
   const fullyEmpty = isOrderBookFullyEmpty(askLevels, bidLevels, bookCenterModel);
 
   if (fullyEmpty) {
-    return <OrderBookEmptyNaOnly flush={flush} />;
+    return <OrderBookEmptyNaOnly flush={flush} mobileEmbed={mobileEmbed} />;
   }
 
   if (flush) {
     return (
-      <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
+      <div
+        className={`flex min-h-0 flex-col overflow-hidden ${
+          mobileEmbed ? "h-full" : "h-full flex-1"
+        }`}
+      >
         <OrderBookColumnHeader flush />
-        <div className={scrollPaneClass(askScrollable, true)}>
+        <div className={scrollPaneClass(askScrollable, true, flushDepthRows, mobileEmbed)}>
           <AskLevelsList
             levels={askLevels}
             emptyLabel="No sell orders"
@@ -244,7 +266,7 @@ export function OrderBookBookTab({
         <div className="relative mx-0.5 shrink-0">
           <OrderBookCenterStrip model={bookCenterModel} />
         </div>
-        <div className={scrollPaneClass(bidScrollable, true)}>
+        <div className={scrollPaneClass(bidScrollable, true, flushDepthRows, mobileEmbed)}>
           <BidLevelsList
             levels={bidLevels}
             emptyLabel="No buy orders"

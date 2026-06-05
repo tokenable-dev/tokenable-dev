@@ -47,11 +47,13 @@ export function cardhedgerExtraSearchQueries(q: {
   cardSet: string;
   psaBrand: string | null;
   psaSubject: string | null;
+  psaVariety?: string | null;
 }): string[] {
   const blob = promoBlob([
     q.cardSet,
     q.psaBrand ?? '',
     q.psaSubject ?? '',
+    q.psaVariety ?? '',
     q.cardName,
   ]);
   const out: string[] = [];

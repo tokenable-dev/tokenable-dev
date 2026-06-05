@@ -100,16 +100,15 @@ function MobileMarketContext({
     showChange && !isFlatReferencePercentChange(marketChangePct);
   const changeTone = changeShowsPct ? referenceChangeTone(marketChangePct) : null;
 
+  const changeLabel = `${marketChangePeriodShort} change`.toLowerCase();
+
   return (
-    <div className="mt-4 w-full min-w-0 shrink-0 px-3 py-1 sm:px-4">
-      <p className="mb-2 text-center text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500">
-        Market context
-      </p>
+    <div className="mt-4 w-full min-w-0 shrink-0 bg-black px-3 py-1 sm:px-4">
       <div className="w-full min-w-0">
         <div className="mobile-scroll-x-contain flex min-w-0 justify-between gap-1 px-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {showRef ? (
             <TrustStat
-              label="eBay ref"
+              label="ebay reference"
               value={formatUsdCompact(externalRefUsd)}
               valueClassName="text-[#87FF48]"
               title="eBay reference price"
@@ -117,7 +116,7 @@ function MobileMarketContext({
           ) : null}
           {showChange ? (
             <TrustStat
-              label={marketChangePeriodShort}
+              label={changeLabel}
               value={
                 changeShowsPct
                   ? formatReferencePercentChange(marketChangePct, 0)

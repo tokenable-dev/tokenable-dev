@@ -6,7 +6,8 @@ import { WagmiProvider } from "wagmi";
 import { wagmiConfig } from "@/config/wagmi";
 import { configureMarketQueryDefaults } from "@/lib/core";
 import { WalletDataProvider } from "@/providers/WalletDataProvider";
-import { WalletAutoReconnect } from "@/providers/WalletAutoReconnect";
+import { WalletConnectionSync } from "@/providers/WalletConnectionSync";
+import { shouldAutoReconnectWalletOnMount } from "@/lib/wallet/walletEnvironment";
 import { AuthProvider } from "@/providers/AuthProvider";
 import { MarketplaceQueryPersistence } from "@/providers/MarketplaceQueryPersistence";
 
@@ -25,10 +26,13 @@ export function Providers({ children }: { children: React.ReactNode }) {
   });
 
   return (
-    <WagmiProvider config={wagmiConfig} reconnectOnMount={false}>
+    <WagmiProvider
+      config={wagmiConfig}
+      reconnectOnMount={shouldAutoReconnectWalletOnMount()}
+    >
       <QueryClientProvider client={queryClient}>
         <MarketplaceQueryPersistence />
-        <WalletAutoReconnect />
+        <WalletConnectionSync />
         {/* Syncs wagmi on-chain data → Zustand store for all children */}
         <AuthProvider>
           <WalletDataProvider>{children}</WalletDataProvider>

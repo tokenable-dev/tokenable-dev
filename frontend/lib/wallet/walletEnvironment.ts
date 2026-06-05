@@ -6,7 +6,11 @@ export function isMobileMetaMaskBrowser(): boolean {
   );
 }
 
-/** Desktop extension sessions can silently reconnect; mobile should wait for a tap. */
+/**
+ * Desktop extension sessions can silently reconnect; mobile should wait for a tap.
+ * SSR returns false — wagmi hydrates on the client with the real value.
+ */
 export function shouldAutoReconnectWalletOnMount(): boolean {
+  if (typeof window === "undefined") return false;
   return !isMobileMetaMaskBrowser();
 }

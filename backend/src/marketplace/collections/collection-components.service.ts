@@ -18,7 +18,7 @@ import {
   componentsPsaMirrorSufficientForCardhedger,
   mergePsaCertSnapshotIntoMirror,
 } from '../utils/psa-components-mirror.util';
-import { exactCatalogMatch } from '../utils/card-match.util';
+import { relaxedCatalogMatchForAudit } from '../utils/card-match.util';
 import { Order, OrderSide, OrderStatus } from '../entities/order.entity';
 import { MarketplaceCollection } from '../entities/marketplace-collection.entity';
 import { PsaCertSnapshotService } from './psa-cert-snapshot.service';
@@ -552,6 +552,32 @@ export class CollectionComponentsService {
     return this.mergePsaSnapshotIntoComponents(col, snap);
   }
 
+  /** Persist PSA cert mirror fields onto `marketplace_collections` before cardhedger audit. */
+  async persistPsaMirrorFromCertToDb(collectionKey: string): Promise<boolean> {
+    const k = collectionKey.toLowerCase();
+    const row = await this.collectionRepo.findOne({
+      where: { collectionKey: k },
+    });
+    if (!row) return false;
+    const merged = await this.mergePsaSnapshotIntoComponentsFromDb(row);
+    const compBefore = JSON.stringify(row.components);
+    const compAfter = JSON.stringify(merged.components);
+    const parallelChanged =
+      String(row.marketParallelKey ?? '').toLowerCase() !==
+      String(merged.marketParallelKey ?? '').toLowerCase();
+    if (compBefore === compAfter && !parallelChanged) return false;
+    await this.collectionRepo.update(
+      { collectionKey: k },
+      {
+        components: merged.components as QueryDeepPartialEntity<
+          Record<string, unknown>
+        >,
+        marketParallelKey: merged.marketParallelKey,
+      },
+    );
+    return true;
+  }
+
   private extractCardhedgerCardDataRow(
     raw: unknown,
   ): Record<string, unknown> | null {
@@ -630,8 +656,18 @@ export class CollectionComponentsService {
         cleared: false,
         failCodes: ['empty_card_payload'],
       };
-    const ex = exactCatalogMatch(
-      { cardName: wantName, cardSet: wantSet, cardNumber: wantNum },
+    const psaSubject =
+      typeof comp.psaSubject === 'string' ? comp.psaSubject.trim() : '';
+    const psaBrand =
+      typeof comp.psaBrand === 'string' ? comp.psaBrand.trim() : '';
+    const ex = relaxedCatalogMatchForAudit(
+      {
+        cardName: wantName,
+        cardSet: wantSet,
+        cardNumber: wantNum,
+        psaSubject: psaSubject || undefined,
+        psaBrand: psaBrand || undefined,
+      },
       {
         name: String(row.description ?? row.name ?? ''),
         cardNumber: String(row.number ?? ''),

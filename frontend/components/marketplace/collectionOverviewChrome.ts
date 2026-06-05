@@ -62,9 +62,8 @@ export const COLLECTION_MARKETS_CHART_HEIGHT_MOBILE_CLASS =
 /** Chart panel inside mobile Information / Chart / Book tabs. */
 export const COLLECTION_MARKETS_CHART_TAB_HEIGHT_CLASS = "h-[120px]";
 
-/** Order book + Trades tab on mobile (taller than chart tab). */
-export const COLLECTION_MARKETS_ORDER_BOOK_TAB_HEIGHT_CLASS =
-  "h-[min(320px,48svh)] min-h-[280px]";
+/** Order book tab on mobile — content height (3 bid + 3 ask rows); no fixed min reserve. */
+export const COLLECTION_MARKETS_ORDER_BOOK_TAB_HEIGHT_CLASS = "min-h-0 h-auto";
 
 /** Scrollable order book panes — dark scrollbar (see `.scrollbar-dark` in globals.css). */
 export const COLLECTION_ORDER_BOOK_SCROLL_CLASS = "scrollbar-dark";

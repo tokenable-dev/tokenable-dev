@@ -37,14 +37,16 @@ export function OrderBookTradesTab({
   tapeFills,
   tapeLoading,
   flush,
+  mobileEmbed,
 }: {
   tapeFills: CollectionPlatformTapeFill[];
   tapeLoading?: boolean;
   flush?: boolean;
+  mobileEmbed?: boolean;
 }) {
   const gridClass = flush ? TRADES_FLUSH_GRID : TRADES_GRID_LEGACY;
   const rootClass = flush
-    ? "flex h-full min-h-0 flex-1 flex-col overflow-hidden"
+    ? `flex min-h-0 flex-col overflow-hidden ${mobileEmbed ? "h-full" : "h-full flex-1"}`
     : "flex min-h-0 max-h-[min(420px,52vh)] flex-col";
 
   if (!tapeLoading && tapeFills.length === 0) {
@@ -52,7 +54,9 @@ export function OrderBookTradesTab({
       <div
         className={
           flush
-            ? "flex h-full min-h-0 flex-1 items-center justify-center overflow-hidden"
+            ? `flex min-h-0 items-center justify-center overflow-hidden ${
+                mobileEmbed ? "h-full" : "h-full flex-1"
+              }`
             : "flex items-center justify-center py-10"
         }
       >

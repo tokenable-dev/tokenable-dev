@@ -6,6 +6,8 @@ export const MAX_ORDER_BOOK_TAPE_ROWS = 50;
 
 /** Flush collection order book — full depth rows visible before wheel scroll. */
 export const ORDER_BOOK_FLUSH_VISIBLE_DEPTH_ROWS = 5;
+/** Mobile collection tab — compact bid/ask depth (best levels only). */
+export const ORDER_BOOK_FLUSH_MOBILE_VISIBLE_DEPTH_ROWS = 3;
 export const ORDER_BOOK_FLUSH_DEPTH_ROW_PX = 25;
 export const ORDER_BOOK_FLUSH_DEPTH_GAP_PX = 1;
 /** Matches bid/ask list wrapper `pt-0.5 pb-1` (2px + 4px). */
@@ -21,6 +23,39 @@ export function orderBookFlushDepthPaneHeightPx(
 
 /** Keep in sync with {@link orderBookFlushDepthPaneHeightPx} — Tailwind needs a static class. */
 export const ORDER_BOOK_FLUSH_DEPTH_PANE_HEIGHT_CLASS = "h-[135px]";
+/** Keep in sync with {@link orderBookFlushDepthPaneHeightPx}(3) — mobile collection tab. */
+export const ORDER_BOOK_FLUSH_MOBILE_DEPTH_PANE_HEIGHT_CLASS = "h-[83px]";
+
+export function orderBookFlushDepthPaneHeightClass(
+  visibleRows = ORDER_BOOK_FLUSH_VISIBLE_DEPTH_ROWS,
+): string {
+  if (visibleRows === ORDER_BOOK_FLUSH_MOBILE_VISIBLE_DEPTH_ROWS) {
+    return ORDER_BOOK_FLUSH_MOBILE_DEPTH_PANE_HEIGHT_CLASS;
+  }
+  return ORDER_BOOK_FLUSH_DEPTH_PANE_HEIGHT_CLASS;
+}
+
+/** Flush book chrome — keep in sync with OrderBookBookTab mobile layout. */
+export const ORDER_BOOK_FLUSH_COLUMN_HEADER_PX = 21;
+export const ORDER_BOOK_FLUSH_CENTER_STRIP_PX = 28;
+export const ORDER_BOOK_FLUSH_FOOTER_COUNTS_PX = 21;
+
+/** Mobile collection tab body — matches flush book (header + 3 ask + center + 3 bid + footer). */
+export function orderBookMobileEmbedTabBodyHeightPx(
+  depthRows = ORDER_BOOK_FLUSH_MOBILE_VISIBLE_DEPTH_ROWS,
+): number {
+  const pane = orderBookFlushDepthPaneHeightPx(depthRows);
+  return (
+    ORDER_BOOK_FLUSH_COLUMN_HEADER_PX +
+    pane +
+    ORDER_BOOK_FLUSH_CENTER_STRIP_PX +
+    pane +
+    ORDER_BOOK_FLUSH_FOOTER_COUNTS_PX
+  );
+}
+
+/** Keep in sync with {@link orderBookMobileEmbedTabBodyHeightPx}(3). */
+export const ORDER_BOOK_MOBILE_EMBED_TAB_BODY_HEIGHT_CLASS = "h-[236px]";
 
 export function priceUsdcFromOrder(o: Order): number {
   return Number(o.considerationAmount) / 1_000_000;

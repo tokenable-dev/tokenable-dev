@@ -65,6 +65,7 @@ export function RwaDetailOwnerListingPanel({
         <RwaDetailAskPriceDisplay priceUsd={listingPriceUsd} />
       ) : (
         <RwaDetailMarketContextStrip
+          variant="flat"
           externalRefUsd={marketPriceUsd}
           marketChangePct={marketChangePct}
           changePeriodLabel={marketChangePeriodLabel}
