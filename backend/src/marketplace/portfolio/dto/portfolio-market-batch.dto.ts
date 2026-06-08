@@ -11,6 +11,7 @@ import { SWAGGER_BODY_EXAMPLES } from '../../../swagger/examples';
 export class PortfolioMarketBatchDto {
   @ApiProperty({
     type: [String],
+    description: '포트폴리오 시장 데이터를 조회할 collection_key 목록 (최대 60)',
     example: SWAGGER_BODY_EXAMPLES.portfolioMarketBatch.collectionKeys,
   })
   @IsArray()
@@ -19,6 +20,7 @@ export class PortfolioMarketBatchDto {
   collectionKeys!: string[];
 
   @ApiPropertyOptional({
+    description: '가격 이력 기간',
     enum: ['7d', '30d', '90d', '180d', '365d', 'max'],
     example: '365d',
   })

@@ -165,7 +165,7 @@ export class PsaController {
       '- 응답 `raw`는 PSA Swagger `OrderProgress` (gradesReady, shipped, orderProgressSteps 등)\n' +
       '- **Cert 번호 목록은 포함되지 않음** (공식 스키마 기준)',
   })
-  @ApiParam({ name: 'orderNumber', example: SWAGGER_FIXTURES.psaOrderNumber })
+  @ApiParam({ name: 'orderNumber', description: 'PSA 주문 번호', example: SWAGGER_FIXTURES.psaOrderNumber })
   @ApiOkResponse({ type: PsaOrderProgressLookupResponseDto })
   @Get('order/progress/:orderNumber')
   async getOrderProgress(
@@ -184,7 +184,7 @@ export class PsaController {
       'PSA Public API `GET /order/GetSubmissionProgress/{submissionNumber}` 프록시.\n\n' +
       '제출 번호는 psacard.com/orderstatus 또는 제출 확인 이메일에서 확인.',
   })
-  @ApiParam({ name: 'submissionNumber', example: SWAGGER_FIXTURES.psaSubmissionNumber })
+  @ApiParam({ name: 'submissionNumber', description: 'PSA 제출 번호', example: SWAGGER_FIXTURES.psaSubmissionNumber })
   @ApiOkResponse({ type: PsaOrderProgressLookupResponseDto })
   @Get('order/submission-progress/:submissionNumber')
   async getSubmissionProgress(

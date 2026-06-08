@@ -1,3 +1,4 @@
+import { join } from 'path';
 import type { SwaggerCustomOptions } from '@nestjs/swagger';
 
 const SWAGGER_UI_CSS = `
@@ -18,8 +19,9 @@ const SWAGGER_UI_CSS = `
 `;
 
 export const swaggerUiOptions: SwaggerCustomOptions = {
-  customSiteTitle: 'Tokenable API',
+  customSiteTitle: 'Tokenable API 문서',
   customCss: SWAGGER_UI_CSS,
+  customJs: join(__dirname, 'swagger-ui-ko.js'),
   swaggerOptions: {
     persistAuthorization: true,
     displayRequestDuration: true,

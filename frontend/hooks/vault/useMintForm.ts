@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import {
   useAccount,
   usePublicClient,
@@ -36,10 +36,12 @@ export function useMintForm() {
   const [errorMsg, setErrorMsg] = useState("");
   const [result, setResult] = useState<{ tokenURI: string; txHash: string } | null>(null);
   const [mintImageBlobUrl, setMintImageBlobUrl] = useState<string | null>(null);
+  /** Synchronous guard — `isProcessing` lags one React render so double-clicks can fire two mint txs. */
+  const submitLockRef = useRef(false);
 
   const psa = useMintFormPsaState(form, setForm);
 
-  const { writeContractAsync } = useWriteContract();
+  const { writeContractAsync, isPending: isWriteContractPending } = useWriteContract();
   const { data: receipt, isLoading: waitingForReceipt } =
     useWaitForTransactionReceipt({
       hash: result?.txHash as `0x${string}` | undefined,
@@ -78,6 +80,7 @@ export function useMintForm() {
   }, [form, psa.lastAnalyze, psa.psaInputMode]);
 
   const resetForm = useCallback(() => {
+    submitLockRef.current = false;
     setStep("idle");
     setErrorMsg("");
     setResult(null);
@@ -99,8 +102,10 @@ export function useMintForm() {
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
+      if (submitLockRef.current) return;
       if (!validate() || !address || !isConnected) return;
 
+      submitLockRef.current = true;
       setErrorMsg("");
       setStep("uploading");
 
@@ -181,7 +186,11 @@ export function useMintForm() {
           err instanceof Error ? err.message : "An unexpected error occurred";
         setErrorMsg(message);
         setStep("error");
+        // Allow retry after a failed upload or rejected MetaMask signature.
+        submitLockRef.current = false;
       }
+      // On success the lock stays until resetForm — prevents a second mint tx
+      // while MetaMask is still open or before the success view mounts.
     },
     [
       address,
@@ -195,7 +204,8 @@ export function useMintForm() {
     ],
   );
 
-  const isProcessing = step === "uploading" || step === "minting";
+  const isProcessing =
+    step === "uploading" || step === "minting" || isWriteContractPending;
 
   return {
     form,

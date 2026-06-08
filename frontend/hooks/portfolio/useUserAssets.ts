@@ -58,10 +58,10 @@ export function useUserAssets(
     staleTime: marketplaceRqPolicy.rwaTokensStaleMs,
   });
 
-  const tokenIds = useMemo(
-    () => tokenIdsQuery.data ?? EMPTY_TOKEN_IDS,
-    [tokenIdsQuery.data],
-  );
+  const tokenIds = useMemo(() => {
+    const raw = tokenIdsQuery.data ?? EMPTY_TOKEN_IDS;
+    return [...new Set(raw)];
+  }, [tokenIdsQuery.data]);
 
   const metadataQuery = useQuery({
     queryKey: rq.rwaMetadataBatch(address, tokenIds),

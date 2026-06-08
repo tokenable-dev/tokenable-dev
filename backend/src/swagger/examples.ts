@@ -172,7 +172,7 @@ export const SWAGGER_BODY_EXAMPLES = {
   psaSubmissionProgress: { submissionNumber: F.psaSubmissionNumber },
   uploadRwa: {
     name: 'PSA 10 Sample Card',
-    description: 'Local Swagger test metadata',
+    description: '로컬 Swagger 테스트용 메타데이터',
     attributes: [{ trait_type: 'Grade', value: '10' }],
   },
 } as const;

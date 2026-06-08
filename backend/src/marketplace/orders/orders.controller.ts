@@ -47,8 +47,8 @@ export class OrdersController {
   @ApiBody({
     type: CreateOrderDto,
     examples: {
-      ask: { summary: 'Ask listing', value: createAskOrderExample },
-      bid: { summary: 'Collection bid', value: createCollectionBidExample },
+      ask: { summary: '판매 listing (ask)', value: createAskOrderExample },
+      bid: { summary: '컬렉션 입찰 (bid)', value: createCollectionBidExample },
     },
   })
   @Post('orders')
@@ -121,7 +121,7 @@ export class OrdersController {
 
   /** tokenId별 주문 (activeOnly=true 시 활성 ask 1건) */
   @ApiOperation({ summary: 'tokenId별 주문 조회' })
-  @ApiParam({ name: 'tokenId', example: '1' })
+  @ApiParam({ name: 'tokenId', description: 'RWA tokenId', example: '1' })
   @ApiQuery({
     name: 'activeOnly',
     required: false,
@@ -141,7 +141,7 @@ export class OrdersController {
 
   /** orderHash로 주문 단건 */
   @ApiOperation({ summary: '주문 hash 조회' })
-  @ApiParam({ name: 'hash', example: SWAGGER_FIXTURES.orderHash })
+  @ApiParam({ name: 'hash', description: '주문 hash', example: SWAGGER_FIXTURES.orderHash })
   @Get('orders/:hash')
   findOrder(@Param('hash') hash: string): Promise<Order> {
     return this.ordersService.findByHash(hash);
@@ -149,8 +149,8 @@ export class OrdersController {
 
   /** offerer만 주문 취소 */
   @ApiOperation({ summary: '주문 취소' })
-  @ApiParam({ name: 'hash', example: SWAGGER_FIXTURES.orderHash })
-  @ApiQuery({ name: 'callerAddress', example: SWAGGER_FIXTURES.wallet })
+  @ApiParam({ name: 'hash', description: '주문 hash', example: SWAGGER_FIXTURES.orderHash })
+  @ApiQuery({ name: 'callerAddress', description: '취소 요청 지갑', example: SWAGGER_FIXTURES.wallet })
   @Patch('orders/:hash/cancel')
   cancelOrder(
     @Param('hash') hash: string,
@@ -161,7 +161,7 @@ export class OrdersController {
 
   /** 단일 주문 체결 처리 (on-chain fulfill 후) */
   @ApiOperation({ summary: '주문 체결 표시' })
-  @ApiParam({ name: 'hash', example: SWAGGER_FIXTURES.orderHash })
+  @ApiParam({ name: 'hash', description: '주문 hash', example: SWAGGER_FIXTURES.orderHash })
   @Patch('orders/:hash/fulfill')
   fulfillOrder(@Param('hash') hash: string): Promise<Order> {
     return this.ordersService.fulfillOrder(hash);

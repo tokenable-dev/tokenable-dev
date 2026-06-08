@@ -50,14 +50,14 @@ async function bootstrap() {
     .setTitle('Tokenable API')
     .setDescription(
       [
-        '로컬: `http://localhost:4000/api/docs` · 모든 경로는 `/api` 접두사.',
+        '로컬 문서: `http://localhost:4000/api/docs` · 모든 경로는 `/api` 접두사입니다.',
         '',
-        '**Try it out** — POST/PATCH 본문은 **「기본 예시」** 가 미리 채워져 있습니다. 파일 업로드(PSA·RWA)만 이미지를 직접 선택하세요.',
-        '**인증** — 🔓 **Authorize** 에 JWT(또는 OAuth 후 `access_token` 쿠키와 동일한 Bearer).',
+        '**실행(Try it out)** — POST/PATCH 본문은 **「기본 예시」** 가 미리 채워져 있습니다. PSA·RWA 파일 업로드만 이미지를 직접 선택하세요.',
+        '**인증** — 🔓 **Authorize** 에 JWT를 넣거나, OAuth 로그인 후 발급된 `access_token` 쿠키와 동일한 Bearer 토큰을 사용하세요.',
       ].join('\n'),
     )
     .setVersion('1.0')
-    .addServer('http://localhost:4000', 'Local')
+    .addServer('http://localhost:4000', '로컬')
     .addBearerAuth(
       { type: 'http', scheme: 'bearer', bearerFormat: 'JWT', in: 'header' },
       'access-token',
@@ -67,9 +67,13 @@ async function bootstrap() {
     .addTag('blockchain', 'RWA·IPFS 읽기')
     .addTag('rwa', 'IPFS 업로드')
     .addTag('marketplace', '주문·컬렉션·포트폴리오')
-    .addTag('cardhedger', '시장 지수')
-    .addTag('psa', '슬랩·Cert·주문 진행')
-    .addTag('admin', 'Cardhedger 운영 (관리자 지갑)')
+    .addTag(
+      'cardhedger',
+      'Card Hedge upstream 프록시 (`/api/cardhedger/v1/...`) — 서버가 API 키를 주입합니다. 전체 목록: `GET /api/cardhedger/routes`',
+    )
+    .addTag('cardladder', 'Card Ladder 대시보드 시장 지수')
+    .addTag('psa', 'PSA 슬랩·Cert·주문 진행')
+    .addTag('admin', 'Cardhedger 운영·헬스 (관리자 지갑)')
     .build();
 
   const document = SwaggerModule.createDocument(app, swaggerConfig);
