@@ -36,7 +36,7 @@ function OfferRow({
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={icon} alt="" width={48} height={48} className={OFFER_ICON_CLASS} aria-hidden />
       </div>
-      <p className="text-[15px] leading-relaxed text-gray-400 sm:text-base sm:leading-[1.65]">
+      <p className="text-base leading-relaxed text-gray-400 sm:text-lg sm:leading-[1.65]">
         <span className="font-semibold text-white">{title}</span> {body}
       </p>
     </div>
@@ -47,7 +47,7 @@ function OfferRow({
 export function LandingOffersSection() {
   return (
     <section className="relative z-10 mx-auto max-w-3xl border-t border-white/[0.06] px-6 py-14 sm:max-w-4xl sm:py-20">
-      <h2 className="mb-10 text-lg font-bold leading-snug text-white sm:mb-12 sm:text-xl sm:leading-snug">
+      <h2 className="mb-10 text-xl font-bold leading-snug text-white sm:mb-12 sm:text-2xl sm:leading-snug md:text-3xl">
         Trading Collectibles on Tokenable
       </h2>
 

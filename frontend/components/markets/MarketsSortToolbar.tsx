@@ -1,75 +1,48 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import {
   MARKETS_SORT_OPTIONS,
   type MarketsSortId,
 } from "@/lib/markets/marketsCollectionSort";
 
-const VIEW_TOGGLE_ACTIVE =
-  "rounded-lg border border-white/75 bg-white/[0.06] text-white hover:border-white/90";
-const VIEW_TOGGLE_INACTIVE =
-  "rounded-lg border border-zinc-700/80 bg-zinc-900/50 text-zinc-500 hover:border-zinc-600/80 hover:text-zinc-400";
-
-const LAYOUT_TOGGLE_SHELL =
-  "shrink-0 items-center gap-1 rounded-xl border border-zinc-700/80 bg-zinc-900/80 p-1";
-
-function SortToggleButton({
-  active,
-  onClick,
-  ariaLabel,
+function SortTextButton({
+  sortId,
   sortMenuOpen,
-  children,
+  onClick,
 }: {
-  active: boolean;
-  onClick: () => void;
-  ariaLabel: string;
+  sortId: MarketsSortId;
   sortMenuOpen: boolean;
-  children: ReactNode;
+  onClick: () => void;
 }) {
+  const label = MARKETS_SORT_OPTIONS.find((o) => o.id === sortId)?.label ?? "Sort";
   return (
     <button
       type="button"
       onClick={onClick}
-      aria-label={ariaLabel}
-      aria-pressed={active}
       aria-haspopup="menu"
       aria-expanded={sortMenuOpen}
-      className={`inline-flex h-11 w-11 touch-manipulation items-center justify-center transition-colors sm:h-10 sm:w-10 ${
-        active ? VIEW_TOGGLE_ACTIVE : VIEW_TOGGLE_INACTIVE
+      aria-label={`Sort collections — current: ${label}`}
+      className={`inline-flex shrink-0 touch-manipulation items-center gap-1.5 rounded-xl border px-3 py-2 text-[12px] font-semibold tracking-tight transition-colors sm:text-[13px] ${
+        sortMenuOpen
+          ? "border-zinc-500/70 bg-zinc-800/70 text-white"
+          : "border-zinc-700/65 bg-zinc-900/50 text-zinc-300 hover:border-zinc-500/60 hover:bg-zinc-800/50 hover:text-white"
       }`}
     >
-      {children}
-    </button>
-  );
-}
-
-function SortToggle({
-  sortMenuOpen,
-  onSortMenu,
-  className = "",
-}: {
-  sortMenuOpen: boolean;
-  onSortMenu: () => void;
-  className?: string;
-}) {
-  return (
-    <div
-      className={[className, LAYOUT_TOGGLE_SHELL].filter(Boolean).join(" ")}
-    >
-      <SortToggleButton
-        active={sortMenuOpen}
-        onClick={onSortMenu}
-        ariaLabel="Sort collections"
-        sortMenuOpen={sortMenuOpen}
+      <span className="whitespace-nowrap">{label}</span>
+      <svg
+        viewBox="0 0 10 6"
+        className={`h-2.5 w-2.5 shrink-0 text-zinc-400 transition-transform duration-150 ${sortMenuOpen ? "rotate-180" : ""}`}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden
       >
-        <svg viewBox="0 0 16 16" className="h-4 w-4" fill="currentColor" aria-hidden>
-          <rect x="1" y="2" width="14" height="2" rx="1" />
-          <rect x="1" y="7" width="14" height="2" rx="1" />
-          <rect x="1" y="12" width="14" height="2" rx="1" />
-        </svg>
-      </SortToggleButton>
-    </div>
+        <path d="M1 1l4 4 4-4" />
+      </svg>
+    </button>
   );
 }
 
@@ -156,9 +129,10 @@ export function MarketsSortToolbar({
 
   return (
     <div className={`relative ${className}`.trim()}>
-      <SortToggle
+      <SortTextButton
+        sortId={sortId}
         sortMenuOpen={sortMenuOpen}
-        onSortMenu={() => setSortMenuOpen((open) => !open)}
+        onClick={() => setSortMenuOpen((open) => !open)}
       />
       <SortMenu
         open={sortMenuOpen}
