@@ -101,7 +101,7 @@ export function CollectionGridCard({
   return (
     <Link
       href={`/marketplace/collections/${encodeURIComponent(collection.collectionKey)}`}
-      className="group flex h-full flex-col overflow-hidden rounded-2xl bg-black outline-none transition-[background-color,box-shadow] duration-200 ease-out hover:bg-zinc-950/90 hover:shadow-[0_10px_28px_-14px_rgba(0,0,0,0.75)] hover:ring-1 hover:ring-white/[0.08]"
+      className="group flex h-full flex-col overflow-hidden rounded-2xl bg-black outline-none transition-[background-color,box-shadow] duration-200 ease-out hover:bg-zinc-950/90 hover:shadow-[0_10px_28px_-14px_rgba(0,0,0,0.75)]"
     >
       {/* 15% horizontal padding each side → image is 70% of card width (30% smaller).
           Top padding keeps the image away from the Link's overflow-hidden rounded corners. */}
