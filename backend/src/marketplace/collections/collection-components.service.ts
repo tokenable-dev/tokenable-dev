@@ -578,6 +578,51 @@ export class CollectionComponentsService {
     return true;
   }
 
+  /**
+   * Back-fill `components.cardhedgerCardId` when a snapshot search resolves a verified match.
+   * Only writes when `components.cardhedgerCardId` is currently empty (delegates to
+   * `CollectionIdentityService.writeFromResolvedSearch`, which is a no-op when an id is
+   * already stored or when confidence is below `verified`).
+   */
+  async writeCardhedgerIdFromResolvedSearch(
+    collectionKey: string,
+    resolvedCardId: string,
+    confidence: 'verified' | 'approximate',
+    searchQuery?: string | null,
+  ): Promise<void> {
+    return this.identity.writeFromResolvedSearch(
+      collectionKey,
+      resolvedCardId,
+      confidence,
+      searchQuery,
+    );
+  }
+
+  /**
+   * Back-fill `components.cardhedgerCardId` from a cert-authoritative lookup
+   * (`POST /v1/cards/details-by-certs`). Delegates to `writeFromCertLookup`
+   * which is a conditional first-write (no-op when ID already stored).
+   */
+  async writeCardhedgerIdFromCertLookup(
+    collectionKey: string,
+    certCardId: string,
+    searchQuery?: string | null,
+  ): Promise<void> {
+    return this.identity.writeFromCertLookup(collectionKey, certCardId, searchQuery);
+  }
+
+  /**
+   * Store a CardHedger-formatted search query from `cert_info.description` when
+   * `card: null`. Enables the text-search path to use a high-quality query on
+   * the next snapshot refresh.
+   */
+  async writeCardhedgerSearchQueryFromCert(
+    collectionKey: string,
+    description: string,
+  ): Promise<void> {
+    return this.identity.writeSearchQueryFromCert(collectionKey, description);
+  }
+
   private extractCardhedgerCardDataRow(
     raw: unknown,
   ): Record<string, unknown> | null {

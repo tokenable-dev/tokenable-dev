@@ -13,7 +13,6 @@ import { RwaDetailOwnerListingPanel } from "../ui/RwaDetailOwnerListingPanel";
 import { RwaDetailTradesPanel } from "../ui/RwaDetailTradesPanel";
 import { RwaDetailBuyerTradePanel } from "../ui/RwaDetailBuyerTradePanel";
 import type { CollectionPlatformTapeFill, Order } from "@/lib/core";
-import type { ListModalAnchorRect } from "@/lib/seaport/listing/listRwaModalTypes";
 import type { AssetDetailHeadlineParts } from "@/lib/marketplace/assetDetailHeadline";
 
 export function RwaDetailMobileColumn({
@@ -75,10 +74,7 @@ export function RwaDetailMobileColumn({
   onFulfillAsk: () => void;
   onConnectWallet: () => void;
   onOpenPlaceBid?: () => void;
-  onOpenListModal: (
-    initialPriceUsdc?: string | null,
-    anchorRect?: ListModalAnchorRect | null,
-  ) => void;
+  onOpenListModal: (initialPriceUsdc?: string | null) => void;
   onViewMarket: () => void;
   tokenTrades: CollectionPlatformTapeFill[];
   tradesLoading: boolean;

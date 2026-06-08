@@ -77,4 +77,52 @@ export class CollectionEnrichmentService {
   async persistPsaMirrorFromCertToDb(collectionKey: string): Promise<boolean> {
     return this.components.persistPsaMirrorFromCertToDb(collectionKey);
   }
+
+  /**
+   * Back-fill `components.cardhedgerCardId` when a snapshot search resolves a verified match.
+   * Fire-and-forget: callers should `void` this call.
+   */
+  async writeCardhedgerIdFromResolvedSearch(
+    collectionKey: string,
+    resolvedCardId: string,
+    confidence: 'verified' | 'approximate',
+    searchQuery?: string | null,
+  ): Promise<void> {
+    return this.components.writeCardhedgerIdFromResolvedSearch(
+      collectionKey,
+      resolvedCardId,
+      confidence,
+      searchQuery,
+    );
+  }
+
+  /**
+   * Back-fill `components.cardhedgerCardId` when resolved via CardHedger's
+   * `details-by-certs` (cert-authoritative lookup). Fire-and-forget.
+   */
+  async writeCardhedgerIdFromCertLookup(
+    collectionKey: string,
+    certCardId: string,
+    searchQuery?: string | null,
+  ): Promise<void> {
+    return this.components.writeCardhedgerIdFromCertLookup(
+      collectionKey,
+      certCardId,
+      searchQuery,
+    );
+  }
+
+  /**
+   * Store a CardHedger `cert_info.description` as `cardhedgerSearchQuery` when
+   * cert lookup returned `card: null`. Fire-and-forget.
+   */
+  async writeCardhedgerSearchQueryFromCert(
+    collectionKey: string,
+    description: string,
+  ): Promise<void> {
+    return this.components.writeCardhedgerSearchQueryFromCert(
+      collectionKey,
+      description,
+    );
+  }
 }

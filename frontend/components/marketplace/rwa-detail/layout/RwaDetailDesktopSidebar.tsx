@@ -11,7 +11,6 @@ import {
   type AssetDetailHeadlineParts,
 } from "@/lib/marketplace/assetDetailHeadline";
 import type { CollectionPlatformTapeFill, Order } from "@/lib/core";
-import type { ListModalAnchorRect } from "@/lib/seaport/listing/listRwaModalTypes";
 import { rwaDetailRightFont } from "../theme";
 import { RwaDetailBuyerTradePanel } from "../ui/RwaDetailBuyerTradePanel";
 import { RwaDetailMarketContextStrip } from "../ui/RwaDetailMarketContextStrip";
@@ -67,10 +66,7 @@ export function RwaDetailDesktopSidebar({
   onConnectWallet: () => void;
   onOpenPlaceBid?: () => void;
   collectionKey: string | null;
-  onOpenListModal: (
-    initialPriceUsdc?: string | null,
-    anchorRect?: ListModalAnchorRect | null,
-  ) => void;
+  onOpenListModal: (initialPriceUsdc?: string | null) => void;
 }) {
   const showBuyerActions = !isOwner && (collectionKey || activeAskListing);
 

@@ -157,7 +157,6 @@ export function RwaDetailLoadedView({
         collectionBids={market.collectionBids}
         existingAskOrder={listing && isListingSeller ? listing : undefined}
         initialPriceUsdc={listFlow.listModalInitialPrice}
-        anchorRect={listFlow.listModalAnchorRect}
         onMatchedSale={() => listFlow.setTradeCelebration("sale")}
         onClose={listFlow.closeListModal}
         onListed={handleListed}

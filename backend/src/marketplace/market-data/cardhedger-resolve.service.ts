@@ -18,6 +18,7 @@ import {
   cardhedgerSetAliasTokens,
   hintsLookLikeMegaEvolutionPromo,
   hintsLookLikeSvBlackStarPromo,
+  hintsLookLikeSwshBlackStarPromo,
 } from '../utils/cardhedger-search-alias.util';
 import {
   cardhedgerRowMatchesMarketParallelKey,
@@ -27,13 +28,14 @@ import { cardhedgerRowMatchesPsaVariety } from '../utils/cardhedger-psa-variety.
 import {
   chromeColorTokensIn,
   mergePsaVarietyWithMintVariant,
+  psaVarietyIndicatesGenericBaseLine,
+  psaVarietyIsArtRareLabel,
   psaVarietyIsGenericSportRefractorLine,
   psaVarietyIsIllustrationRareLabel,
   psaVarietyIsSpecialIllustrationRareLabel,
   psaVarietyRequiresNonBaseCardhedgerRow,
 } from '../../psa/psa-variety-catalog.util';
 import { varietyHintsForSearch } from '../../psa/utils/psa-ocr.util';
-import { readPsaSpecIdCardhedgerMapFromConfig } from '../utils/psa-spec-cardhedger-map.util';
 import type { MarketplaceCollection } from '../entities/marketplace-collection.entity';
 import type { CardhedgerCardRow } from './cardhedger-market-data.types';
 
@@ -68,7 +70,6 @@ export type ResolvedCard = {
 @Injectable()
 export class CardhedgerResolveService {
   private readonly logger = new Logger(CardhedgerResolveService.name);
-  private readonly psaSpecIdMap = new Map<string, string>();
   private readonly RESOLVE_CACHE_TTL_MS = 5 * 60 * 1000;
   private static readonly NS_RESOLVE = 'cardhedger:resolve';
 
@@ -83,7 +84,6 @@ export class CardhedgerResolveService {
      */
     @Optional() private readonly metrics?: CardhedgerMetricsService,
   ) {
-    this.psaSpecIdMap = readPsaSpecIdCardhedgerMapFromConfig(this.config);
   }
 
   /**
@@ -150,10 +150,21 @@ export class CardhedgerResolveService {
       typeof mintVariantRaw === 'string' ? mintVariantRaw : null,
     ) || null;
     const parallelRaw = comp['marketParallelKey'];
-    const marketParallelKey =
+    const storedParallelKey =
       typeof parallelRaw === 'string' && parallelRaw.trim()
         ? parallelRaw.trim().toLowerCase()
-        : marketParallelKeyFromPsaVariety(psaVariety);
+        : null;
+    // Always re-derive when psaVariety is a packaging descriptor (e.g. "OBSIDIAN FLAMES ETB",
+    // "CELEBRATIONS COLLECTION") — the stored key may have been computed before this rule existed
+    // and would be stuck as a non-base slug, causing all CardHedger rows to be rejected.
+    const computedParallelKey = marketParallelKeyFromPsaVariety(psaVariety);
+    const marketParallelKey =
+      storedParallelKey &&
+      storedParallelKey !== 'base' &&
+      psaVariety &&
+      psaVarietyIndicatesGenericBaseLine(psaVariety)
+        ? 'base' // override stale stored key for packaging descriptors
+        : storedParallelKey ?? computedParallelKey;
     const psaSubjectRaw = comp['psaSubject'];
     const psaSubject =
       typeof psaSubjectRaw === 'string' && psaSubjectRaw.trim()
@@ -264,6 +275,36 @@ export class CardhedgerResolveService {
       ordered.push(t);
     };
 
+    /**
+     * For known promo card types (MEP, SVP), push Cardhedger-idiomatic aliases first
+     * so they are tried within the default cap of 4 before the PSA-forward queries which
+     * include raw PSA brand strings like "MEP EN-ME BLACK STAR PROMO" that Cardhedger
+     * does not index under that name.
+     */
+    const extraQueryHints = {
+      cardName: q.cardName,
+      cardNumber: q.cardNumber,
+      cardSet: q.cardSet,
+      psaBrand: q.psaBrand,
+      psaSubject: q.psaSubject,
+      psaVariety: q.psaVariety,
+    };
+    const isKnownPromoType =
+      hintsLookLikeMegaEvolutionPromo(extraQueryHints) ||
+      hintsLookLikeSvBlackStarPromo({
+        cardSet: q.cardSet,
+        psaBrand: q.psaBrand,
+      }) ||
+      hintsLookLikeSwshBlackStarPromo({
+        cardSet: q.cardSet,
+        psaBrand: q.psaBrand,
+      });
+    if (isKnownPromoType) {
+      for (const sq of cardhedgerExtraSearchQueries(extraQueryHints)) {
+        push(sq);
+      }
+    }
+
     push(this.buildPsaForwardCardhedgerSearchQuery(q));
 
     const forwardNoVariety = [
@@ -305,20 +346,28 @@ export class CardhedgerResolveService {
     push([q.psaBrand, q.psaYear].filter(Boolean).join(' ').trim());
     push([q.psaSubject, q.psaYear].filter(Boolean).join(' ').trim());
 
-    const promoBlob = [q.cardSet, q.psaBrand, q.cardName, q.query]
-      .filter(Boolean)
-      .join(' ')
-      .toLowerCase();
-    void promoBlob; // assembled for future promo-detection guards
-    for (const sq of cardhedgerExtraSearchQueries({
-      cardName: q.cardName,
-      cardNumber: q.cardNumber,
-      cardSet: q.cardSet,
-      psaBrand: q.psaBrand,
-      psaSubject: q.psaSubject,
-      psaVariety: q.psaVariety,
-    })) {
-      push(sq);
+    // For Japanese Pokemon cards, PSA includes "JAPANESE" in brand/set but CardHedger
+    // typically omits it. Emit de-japanified variants so they land within the search cap.
+    const psaBrandDeJa =
+      q.psaBrand && /\bjapanese\b/i.test(q.psaBrand)
+        ? q.psaBrand.replace(/\bjapanese\b[\s-]*/gi, '').trim()
+        : null;
+    if (psaBrandDeJa) {
+      const numPart = q.cardNumber ? q.cardNumber.replace(/^#/, '').trim() : '';
+      push(
+        [q.psaSubject, psaBrandDeJa, q.psaYear, numPart]
+          .filter(Boolean)
+          .join(' ')
+          .trim(),
+      );
+      push([q.psaSubject, psaBrandDeJa, numPart].filter(Boolean).join(' ').trim());
+      push([q.psaSubject, psaBrandDeJa].filter(Boolean).join(' ').trim());
+    }
+
+    if (!isKnownPromoType) {
+      for (const sq of cardhedgerExtraSearchQueries(extraQueryHints)) {
+        push(sq);
+      }
     }
 
     if (q.cardName && q.cardSet) {
@@ -402,6 +451,10 @@ export class CardhedgerResolveService {
       if (vr === 'base') return false;
     }
     if (psaVarietyIsIllustrationRareLabel(pv)) {
+      const vr = String(row.variant ?? '').trim().toLowerCase();
+      if (vr === 'base') return false;
+    }
+    if (psaVarietyIsArtRareLabel(pv)) {
       const vr = String(row.variant ?? '').trim().toLowerCase();
       if (vr === 'base') return false;
     }
@@ -515,6 +568,11 @@ export class CardhedgerResolveService {
       hints.cardSet,
       hints.psaBrand ?? '',
       hints.cardhedgerSearchQuery ?? '',
+      // Japanese PSA sets include "JAPANESE" in brand/set while CardHedger typically omits it.
+      // Add a de-japanified variant so set token coverage still passes.
+      hints.psaBrand && /\bjapanese\b/i.test(hints.psaBrand)
+        ? hints.psaBrand.replace(/\bjapanese\b[\s-]*/gi, '').trim()
+        : '',
       ...cardhedgerSetAliasTokens(hints.cardSet, hints.psaBrand ?? null),
     ]
       .filter(Boolean)
@@ -940,50 +998,10 @@ export class CardhedgerResolveService {
       }
     }
 
-    // ── Path 2: psaSpecId static map → card-details lookup ───────────────
-    const mappedFromSpec =
-      q.psaSpecId && this.psaSpecIdMap.has(q.psaSpecId)
-        ? (this.psaSpecIdMap.get(q.psaSpecId) ?? null)
-        : null;
-    if (mappedFromSpec) {
-      try {
-        const body = await this.cardhedger.forwardJson(
-          'POST',
-          '/v1/cards/card-details',
-          {
-            body: { card_id: mappedFromSpec },
-          },
-        );
-        const rows = this.parseCardRows(body);
-        if (rows[0]) {
-          const strict = this.scoreCard(rows[0], q);
-          if (
-            (strict.verified || strict.numberMatched) &&
-            !this.parallelRowFailsExpectation(q.psaVariety, rows[0])
-          ) {
-            const confidence = strict.verified ? 'verified' : 'approximate';
-            this.metrics?.recordResolvePath('spec_id');
-            this.logger.log(
-              JSON.stringify({
-                msg: 'resolve_path',
-                path: 'spec_id',
-                key: collectionKey,
-                specId: q.psaSpecId,
-                mappedCardId: mappedFromSpec,
-                confidence,
-              }),
-            );
-            return { query, row: rows[0], confidence };
-          }
-        }
-      } catch (e) {
-        const isCircuitOpen =
-          e instanceof Error && e.message.includes('circuit breaker');
-        if (isCircuitOpen) this.metrics?.recordResolvePath('circuit_open');
-      }
-    }
-
-    // ── Path 3: card-search fallback (capped by CARDHEDGER_MAX_SEARCH_CANDIDATES) ──
+    // ── Path 2: card-search fallback (capped by CARDHEDGER_MAX_SEARCH_CANDIDATES) ──
+    // Note: cert-based lookup is handled upstream in the snapshot enrichment pipeline
+    // (via CardhedgerMarketDataService.tryResolveCardIdByCert) before this method is
+    // called, so Path 1 (stored cardhedgerCardId) catches those cases.
     const allSearchCandidates = this.collectCardhedgerSearchCandidates(
       q,
       displayLabel,

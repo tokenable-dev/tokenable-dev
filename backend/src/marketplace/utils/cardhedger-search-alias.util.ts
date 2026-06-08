@@ -28,6 +28,11 @@ export function cardhedgerSetAliasTokens(
     push('scarlet violet black star promos');
     push('pokemon scarlet violet');
   }
+  if (/\b(swsh|sword\s*&?\s*shield)\b/.test(blob) && /\b(black\s*star|promo)\b/.test(blob)) {
+    push('sword shield black star promo');
+    push('pokemon swsh black star promo');
+    push('pokemon sword shield');
+  }
   if (/\b(mep|en-me)\b/.test(blob) && /\b(black\s*star|promo)\b/.test(blob)) {
     push('mega evolution promo');
     push('pokemon mega evolution promo');
@@ -92,8 +97,43 @@ export function cardhedgerExtraSearchQueries(q: {
       [name, numPart, 'scarlet violet black star promo'].filter(Boolean).join(' '),
     );
   }
+  if (
+    /\b(swsh|sword\s*&?\s*shield)\b/.test(blob) &&
+    /\b(black\s*star|promo)\b/.test(blob)
+  ) {
+    push(
+      [name, numPart, 'sword shield black star promo'].filter(Boolean).join(' '),
+    );
+    push(
+      [name, numPart, 'pokemon swsh black star promo'].filter(Boolean).join(' '),
+    );
+    push(
+      [name, numPart, 'pokemon sword shield black star promo']
+        .filter(Boolean)
+        .join(' '),
+    );
+    // include variety (e.g. "celebrations collection") in an alias as well
+    if (q.psaVariety) {
+      push(
+        [name, numPart, 'sword shield black star promo', q.psaVariety]
+          .filter(Boolean)
+          .join(' '),
+      );
+    }
+  }
 
   return out;
+}
+
+export function hintsLookLikeSwshBlackStarPromo(hints: {
+  cardSet: string;
+  psaBrand: string | null;
+}): boolean {
+  const blob = promoBlob([hints.cardSet, hints.psaBrand ?? '']);
+  return (
+    /\b(swsh|sword\s*&?\s*shield)\b/.test(blob) &&
+    /\b(black\s*star|promo)\b/.test(blob)
+  );
 }
 
 export function hintsLookLikeMegaEvolutionPromo(hints: {

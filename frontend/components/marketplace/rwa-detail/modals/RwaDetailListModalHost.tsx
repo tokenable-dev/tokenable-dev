@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import type { Order } from "@/lib/core";
-import type { ListModalAnchorRect } from "@/lib/seaport/listing/listRwaModalTypes";
+
 const ListRwaModal = dynamic(
   () =>
     import("@/components/marketplace/list-rwa/ListRwaModal").then((m) => ({
@@ -19,7 +19,6 @@ export function RwaDetailListModalHost({
   collectionBids,
   existingAskOrder,
   initialPriceUsdc,
-  anchorRect,
   onMatchedSale,
   onClose,
   onListed,
@@ -31,7 +30,6 @@ export function RwaDetailListModalHost({
   collectionBids: Order[];
   existingAskOrder?: Order;
   initialPriceUsdc: string | null;
-  anchorRect?: ListModalAnchorRect | null;
   onMatchedSale: () => void;
   onClose: () => void;
   onListed: () => void;
@@ -46,7 +44,6 @@ export function RwaDetailListModalHost({
       collectionBids={collectionBids}
       existingAskOrder={existingAskOrder}
       initialPriceUsdc={initialPriceUsdc}
-      anchorRect={anchorRect}
       onMatchedSale={onMatchedSale}
       onClose={onClose}
       onListed={onListed}

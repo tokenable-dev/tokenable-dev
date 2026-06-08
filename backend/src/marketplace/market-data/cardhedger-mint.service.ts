@@ -60,9 +60,12 @@ export class CardhedgerMintService {
   /**
    * Cardhedger `POST /v1/cards/details-by-certs` — up to 100 certs per request.
    * Returns cert digits → catalog row (skips entries with no `card`).
+   * Additionally captures `cert_info.description` even when `card` is null into
+   * the companion `descriptionOut` map (when provided), enabling fallback text search.
    */
   private async fetchCardRowsByCertsBatch(
     certs: string[],
+    descriptionOut?: Map<string, string>,
   ): Promise<Map<string, CardhedgerCardRow>> {
     const out = new Map<string, CardhedgerCardRow>();
     if (!this.isConfigured()) return out;
@@ -82,15 +85,22 @@ export class CardhedgerMintService {
         i + CardhedgerMintService.CERT_DETAILS_BATCH_MAX,
       );
       const cacheKey = chunk.join(',');
-      const cached = this.ttlCache.get<{ map: Map<string, CardhedgerCardRow> }>(
+      const cached = this.ttlCache.get<{
+        map: Map<string, CardhedgerCardRow>;
+        descriptions?: Map<string, string>;
+      }>(
         CardhedgerMintService.NS_CERT_DETAILS_BATCH,
         cacheKey,
       );
       if (cached) {
         for (const [k, v] of cached.map) out.set(k, v);
+        if (descriptionOut && cached.descriptions) {
+          for (const [k, v] of cached.descriptions) descriptionOut.set(k, v);
+        }
         continue;
       }
       const chunkMap = new Map<string, CardhedgerCardRow>();
+      const chunkDescriptions = new Map<string, string>();
       try {
         const body = await this.cardhedger.forwardJson(
           'POST',
@@ -107,16 +117,24 @@ export class CardhedgerMintService {
         for (const raw of results) {
           if (typeof raw !== 'object' || raw == null) continue;
           const row = raw as {
-            cert_info?: { cert?: string | number };
+            cert_info?: { cert?: string | number; description?: string };
             card?: CardhedgerCardRow;
           };
           const certDigits = this.normalizeCertDigits(
             String(row.cert_info?.cert ?? ''),
           );
+          if (!certDigits) continue;
+          // Capture cert_info.description regardless of whether card is present
+          const desc =
+            typeof row.cert_info?.description === 'string' &&
+            row.cert_info.description.trim()
+              ? row.cert_info.description.trim()
+              : null;
+          if (desc) chunkDescriptions.set(certDigits, desc);
           const card = row.card;
           const cardId =
             typeof card?.card_id === 'string' ? card.card_id.trim() : '';
-          if (certDigits && cardId && card) {
+          if (cardId && card) {
             chunkMap.set(certDigits, card);
           }
         }
@@ -124,10 +142,13 @@ export class CardhedgerMintService {
         this.ttlCache.set(
           CardhedgerMintService.NS_CERT_DETAILS_BATCH,
           cacheKey,
-          { map: chunkMap },
+          { map: chunkMap, descriptions: chunkDescriptions },
           this.CERT_CACHE_TTL_MS,
         );
         for (const [k, v] of chunkMap) out.set(k, v);
+        if (descriptionOut) {
+          for (const [k, v] of chunkDescriptions) descriptionOut.set(k, v);
+        }
       } catch (e) {
         // Upstream failure — skip this chunk without caching so the next
         // request can retry against the live API once it recovers.
@@ -139,6 +160,26 @@ export class CardhedgerMintService {
       }
     }
     return out;
+  }
+
+  /**
+   * Resolve a single PSA cert to its Cardhedger catalog row via `details-by-certs`.
+   * Also returns `certDescription` (CardHedger-formatted card name) even when the cert
+   * is not yet matched to a catalog card (`card: null`). Use `certDescription` as a
+   * high-confidence text search query when `row` is null.
+   */
+  async getCardRowByCert(cert: string): Promise<{
+    row: CardhedgerCardRow | null;
+    certDescription: string | null;
+  }> {
+    const digits = this.normalizeCertDigits(cert);
+    if (!digits) return { row: null, certDescription: null };
+    const descriptions = new Map<string, string>();
+    const cardMap = await this.fetchCardRowsByCertsBatch([digits], descriptions);
+    return {
+      row: cardMap.get(digits) ?? null,
+      certDescription: descriptions.get(digits) ?? null,
+    };
   }
 
   private async mapInBatches<T, R>(

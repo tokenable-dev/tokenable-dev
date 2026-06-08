@@ -11,7 +11,7 @@ flowchart TB
     PG[("PostgreSQL")]
     RD[("Redis L2 — identity cache")]
     RPC["Ethereum RPC"]
-    EXT["Cardhedger · PSA · Pinata"]
+    EXT["Cardhedger · PSA · Pinata · Card Ladder"]
 
     Browser --> Nginx
     Nginx -->|"/"| FE
@@ -74,6 +74,8 @@ Relational matching (`bids`/`asks` tables, settlement workers) has been **remove
 | `PINATA_JWT` + `PINATA_GATEWAY` | backend | IPFS upload & read |
 | `JWT_SECRET` | backend | JWT signing |
 | `GOOGLE_CLIENT_ID/SECRET` | backend | Google OAuth |
+| `CARDLADDER_INDEXES_SCRAPER_PROXY` | backend | Residential proxy for Card Ladder scraper (required on datacenter IPs) |
+| `CARDLADDER_INDEXES_PREWARM_DISABLED` | backend | Set `1` to skip boot scrape (default: enabled → scrapes on startup then every 6h) |
 | `NEXT_PUBLIC_RWA_CONTRACT_ADDRESS` | frontend | Baked into bundle at Docker build |
 | `NEXT_PUBLIC_ALCHEMY_RPC_URL` | frontend | Browser-side RPC |
 

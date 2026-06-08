@@ -4,7 +4,6 @@ import { useCallback, useEffect, useState } from "react";
 import type { ReadonlyURLSearchParams } from "next/navigation";
 import type { useRouter } from "next/navigation";
 import type { TradeCelebrationKind } from "@/lib/marketplace/marketplaceTradingTypes";
-import type { ListModalAnchorRect } from "@/lib/seaport/listing/listRwaModalTypes";
 
 export function useRwaDetailListFlow(input: {
   tokenId: number;
@@ -20,20 +19,13 @@ export function useRwaDetailListFlow(input: {
 
   const [listModalOpen, setListModalOpen] = useState(false);
   const [listModalInitialPrice, setListModalInitialPrice] = useState<string | null>(null);
-  const [listModalAnchorRect, setListModalAnchorRect] = useState<ListModalAnchorRect | null>(
-    null,
-  );
   const [tradeCelebration, setTradeCelebration] = useState<TradeCelebrationKind | null>(
     null,
   );
 
   const openListModal = useCallback(
-    (
-      initialPriceUsdc: string | null = null,
-      anchorRect: ListModalAnchorRect | null = null,
-    ) => {
+    (initialPriceUsdc: string | null = null) => {
       setListModalInitialPrice(initialPriceUsdc);
-      setListModalAnchorRect(anchorRect);
       setListModalOpen(true);
     },
     [],
@@ -42,7 +34,6 @@ export function useRwaDetailListFlow(input: {
   const closeListModal = useCallback(() => {
     setListModalOpen(false);
     setListModalInitialPrice(null);
-    setListModalAnchorRect(null);
   }, []);
 
   /** Collection card entry with `?list=1` — auto-open list modal for owner, then strip query. */
@@ -72,7 +63,6 @@ export function useRwaDetailListFlow(input: {
   return {
     listModalOpen,
     listModalInitialPrice,
-    listModalAnchorRect,
     tradeCelebration,
     setTradeCelebration,
     openListModal,

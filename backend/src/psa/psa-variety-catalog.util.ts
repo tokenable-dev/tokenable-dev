@@ -88,16 +88,27 @@ export function psaVarietyIsLanguageOnlyLabel(
 
 /**
  * PSA names the product/sku (ETB, poster tin, …) in Variety while Cardhedger keeps `variant: Base`.
+ *
+ * Covers compound variety strings like "OBSIDIAN FLAMES ETB", "CELEBRATIONS COLLECTION",
+ * "PIKACHU V-UNION ETB", etc. — the word token "ETB" or known product-collection suffixes
+ * always indicate packaging, not a card parallel.
  */
 export function psaVarietyIsPackagingDescriptor(
   psaVariety: string | null | undefined,
 ): boolean {
   const t = String(psaVariety ?? '').trim().toLowerCase();
   if (!t) return false;
-  if (t === 'etb' || /\belite\s+trainer\s+box\b/.test(t)) return true;
+  // Any variety containing "ETB" as a word covers "OBSIDIAN FLAMES ETB",
+  // "CELEBRATIONS ETB", "PIKACHU V-UNION ETB", etc.
+  if (/\betb\b/.test(t)) return true;
+  if (/\belite\s+trainer\s+box\b/.test(t)) return true;
   if (/\bblister\b/.test(t)) return true;
   if (/\bposter\s+collection\b/.test(t)) return true;
   if (/\bultra[\s-]*premium\s+collection\b/.test(t)) return true;
+  if (/\bcelebrations?\s+collection\b/.test(t)) return true;
+  // Generic "[product name] COLLECTION" packaging (e.g. "CHAMPIONS PATH COLLECTION")
+  // but only when paired with a known expansion/set word before "collection".
+  if (/\b(collection\s+box|gift\s+collection|premium\s+collection|special\s+collection)\b/.test(t)) return true;
   if (/\btin\b/.test(t) && /\bpromo/.test(t)) return true;
   return false;
 }
@@ -111,6 +122,7 @@ export function psaVarietyIndicatesGenericBaseLine(
   if (psaVarietyIsCardNumberOnly(v)) return true;
   if (psaVarietyIsLanguageOnlyLabel(v)) return true;
   if (psaVarietyIsPackagingDescriptor(v)) return true;
+  if (psaVarietyIsPokemonRarityLabel(v)) return true;
   const t = v.toLowerCase();
   if (/\bbase\b/.test(t)) return true;
   if (
@@ -174,4 +186,42 @@ export function psaVarietyIsIllustrationRareLabel(
   const v = String(psaVariety ?? '').trim().toLowerCase();
   if (!v) return false;
   return /\billustration\s+rare\b/.test(v);
+}
+
+/**
+ * Pokémon TCG **Art Rare** (AR) — PSA lists **ART RARE** while Cardhedger catalogs the slot as
+ * `variant: "Base"`. Art Rare cards occupy unique card numbers in the secret-rare range, so
+ * there is no parallel conflict with Base prints — treating as Base is safe.
+ */
+export function psaVarietyIsArtRareLabel(
+  psaVariety: string | null | undefined,
+): boolean {
+  const v = String(psaVariety ?? '').trim().toLowerCase();
+  if (!v) return false;
+  if (/^art\s+rare$/.test(v)) return true;
+  if (/\bar\b/.test(v) && /\brare\b/.test(v)) return true;
+  return false;
+}
+
+/**
+ * Pokémon TCG rarity labels where PSA names the card's rarity slot while
+ * Cardhedger still uses `variant: "Base"` (e.g. Art Rare, Illustration Rare,
+ * Special Illustration Rare, Hyper Rare, Full Art, Amazing Rare, Ultra Rare).
+ * These occupy unique card numbers in the secret-rare range — no parallel conflict.
+ */
+export function psaVarietyIsPokemonRarityLabel(
+  psaVariety: string | null | undefined,
+): boolean {
+  const v = String(psaVariety ?? '').trim().toLowerCase();
+  if (!v) return false;
+  if (psaVarietyIsSpecialIllustrationRareLabel(psaVariety)) return true;
+  if (psaVarietyIsIllustrationRareLabel(psaVariety)) return true;
+  if (psaVarietyIsArtRareLabel(psaVariety)) return true;
+  if (/^hyper\s+rare$/.test(v)) return true;
+  if (/^full\s+art$/.test(v)) return true;
+  if (/^amazing\s+rare$/.test(v)) return true;
+  if (/^ultra\s+rare$/.test(v)) return true;
+  if (/^trainer\s+gallery$/.test(v)) return true;
+  if (/^secret\s+rare$/.test(v)) return true;
+  return false;
 }

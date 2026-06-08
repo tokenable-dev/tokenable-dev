@@ -791,6 +791,39 @@ export class CollectionIdentityService {
   }
 
   /**
+   * Store a CardHedger-formatted search query derived from cert lookup
+   * `cert_info.description` when `card: null`.
+   *
+   * Does NOT write a `cardhedgerCardId`. Only sets `cardhedgerSearchQuery`
+   * so the text-search path uses it as a high-priority candidate.
+   * No-op if a query (or card ID) is already stored.
+   */
+  async writeSearchQueryFromCert(
+    collectionKey: string,
+    description: string,
+  ): Promise<void> {
+    if (!this.enabled) return;
+    const trimmed = description.trim();
+    if (!trimmed) return;
+    const key = collectionKey.toLowerCase();
+    const col = await this.collectionRepo.findOne({ where: { collectionKey: key } });
+    if (!col) return;
+    const comp = (col.components ?? {}) as Record<string, unknown>;
+    // Skip if a card ID or search query is already stored
+    if (comp.cardhedgerCardId || comp.cardhedgerSearchQuery) return;
+    await this.collectionRepo.update(
+      { collectionKey: key },
+      { components: { ...comp, cardhedgerSearchQuery: trimmed } },
+    );
+    this.identityLog.logWrite(this.logger, 'info', {
+      key,
+      outcome: 'cert_desc_search_query_stored',
+      context: 'write',
+      detail: `query="${trimmed.slice(0, 80)}"`,
+    });
+  }
+
+  /**
    * **Path 3 — Cardhedger card search resolution.**
    *
    * Lowest precedence. Only `'verified'` confidence is accepted.
