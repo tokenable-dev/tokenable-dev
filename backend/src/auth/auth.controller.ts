@@ -92,7 +92,7 @@ export class AuthController {
   /** 메일 인증 링크 클릭 처리 */
   @Get('verify-email')
   @ApiOperation({ summary: '이메일 인증 링크' })
-  @ApiQuery({ name: 'token', required: true, example: 'paste-verification-token-from-email' })
+  @ApiQuery({ name: 'token', required: true, description: '인증 메일의 token', example: 'paste-verification-token-from-email' })
   async verifyEmail(
     @Query('token') token: string | undefined,
     @Res() res: Response,

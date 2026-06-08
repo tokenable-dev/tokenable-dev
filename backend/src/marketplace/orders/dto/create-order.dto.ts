@@ -15,7 +15,7 @@ import {
 } from 'class-validator';
 
 class SeaportOfferItemDto {
-  @ApiProperty({ description: 'ItemType (1 = ERC20, 2 = ERC721)', example: 1 })
+  @ApiProperty({ description: 'ItemType (1=ERC20, 2=ERC721)', example: 1 })
   @IsNumber()
   itemType: number;
 
@@ -38,7 +38,7 @@ class SeaportOfferItemDto {
 
 class SeaportConsiderationItemDto {
   @ApiProperty({
-    description: 'ItemType (1 = ERC20, 2 = ERC721, 4 = ERC721_WITH_CRITERIA)',
+    description: 'ItemType (1=ERC20, 2=ERC721, 4=ERC721_WITH_CRITERIA)',
     example: 1,
   })
   @IsNumber()
@@ -121,8 +121,7 @@ class SeaportOrderParametersDto {
 
 export class CreateOrderDto {
   @ApiPropertyOptional({
-    description:
-      'ask = listing, bid = buy order (FULL ERC721 or ERC721_WITH_CRITERIA)',
+    description: 'ask=판매 listing, bid=구매 주문 (ERC721 또는 ERC721_WITH_CRITERIA)',
     enum: ['ask', 'bid'],
     default: 'ask',
   })
@@ -130,7 +129,7 @@ export class CreateOrderDto {
   @IsIn(['ask', 'bid'])
   side?: 'ask' | 'bid';
 
-  @ApiProperty({ description: 'Seaport order parameters' })
+  @ApiProperty({ description: 'Seaport 주문 parameters' })
   @IsObject()
   @ValidateNested()
   @Type(() => SeaportOrderParametersDto)
@@ -147,8 +146,7 @@ export class CreateOrderDto {
 
   /** ask: minted ERC-721 id (includes `0`). criteria bid: sentinel `"0"`. */
   @ApiProperty({
-    description:
-      'Ask: decimal token id (`0` is valid for first mint). Criteria bid: use `"0"`.',
+    description: 'Ask: tokenId (첫 mint는 `0` 가능). Criteria bid: `"0"` 사용.',
     example: '1',
   })
   @IsNumberString()
@@ -158,13 +156,12 @@ export class CreateOrderDto {
   @IsEthereumAddress()
   considerationToken: string;
 
-  @ApiProperty({ example: '150000000', description: 'USDC 6 decimals' })
+  @ApiProperty({ example: '150000000', description: 'USDC 금액 (소수 6자리)' })
   @IsNumberString()
   considerationAmount: string;
 
   @ApiPropertyOptional({
-    description:
-      'Required when bid uses ERC721_WITH_CRITERIA (collection-wide bid)',
+    description: 'ERC721_WITH_CRITERIA bid(컬렉션 전체 입찰)일 때 필수',
   })
   @IsOptional()
   @IsString()

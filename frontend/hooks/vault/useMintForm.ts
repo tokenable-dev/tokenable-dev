@@ -41,7 +41,7 @@ export function useMintForm() {
 
   const psa = useMintFormPsaState(form, setForm);
 
-  const { writeContractAsync } = useWriteContract();
+  const { writeContractAsync, isPending: isWriteContractPending } = useWriteContract();
   const { data: receipt, isLoading: waitingForReceipt } =
     useWaitForTransactionReceipt({
       hash: result?.txHash as `0x${string}` | undefined,
@@ -186,9 +186,11 @@ export function useMintForm() {
           err instanceof Error ? err.message : "An unexpected error occurred";
         setErrorMsg(message);
         setStep("error");
-      } finally {
+        // Allow retry after a failed upload or rejected MetaMask signature.
         submitLockRef.current = false;
       }
+      // On success the lock stays until resetForm — prevents a second mint tx
+      // while MetaMask is still open or before the success view mounts.
     },
     [
       address,
@@ -202,7 +204,8 @@ export function useMintForm() {
     ],
   );
 
-  const isProcessing = step === "uploading" || step === "minting";
+  const isProcessing =
+    step === "uploading" || step === "minting" || isWriteContractPending;
 
   return {
     form,

@@ -60,8 +60,8 @@ export class CollectionsController {
 
   /** 컬렉션 목록 (커서 페이지) */
   @ApiOperation({ summary: '컬렉션 목록' })
-  @ApiQuery({ name: 'limit', required: false, example: 30 })
-  @ApiQuery({ name: 'cursor', required: false, example: '' })
+  @ApiQuery({ name: 'limit', required: false, example: 30, description: '페이지당 건수' })
+  @ApiQuery({ name: 'cursor', required: false, example: '', description: '다음 페이지 커서' })
   @Get('collections')
   listCollections(
     @Query('limit') limitRaw?: string,
@@ -146,7 +146,7 @@ export class CollectionsController {
 
   /** 컬렉션 AI 시장 브리프 */
   @ApiOperation({ summary: '컬렉션 AI 인사이트' })
-  @ApiParam({ name: 'key', example: SWAGGER_FIXTURES.collectionKey })
+  @ApiParam({ name: 'key', description: 'collection_key', example: SWAGGER_FIXTURES.collectionKey })
   @Get('collections/:key/ai-insight')
   async getCollectionAiInsight(@Param('key') key: string) {
     const k = this.normalizeKey(key);
@@ -156,11 +156,12 @@ export class CollectionsController {
 
   /** 차트용: 플랫폼 체결 + Cardhedger 참조가·기간 변동률 */
   @ApiOperation({ summary: '컬렉션 시장 시리즈 (차트)' })
-  @ApiParam({ name: 'key', example: SWAGGER_FIXTURES.collectionKey })
+  @ApiParam({ name: 'key', description: 'collection_key', example: SWAGGER_FIXTURES.collectionKey })
   @ApiQuery({
     name: 'priceHistoryDuration',
     required: false,
     example: '365d',
+    description: '가격 이력 기간',
     enum: ['7d', '30d', '90d', '180d', '365d', 'max'],
   })
   @Get('collections/:key/market-series')
@@ -187,7 +188,7 @@ export class CollectionsController {
 
   /** Trades 탭: 플랫폼 체결 + Cardhedger comps (최대 100건) */
   @ApiOperation({ summary: '컬렉션 체결·comps (Trades)' })
-  @ApiParam({ name: 'key', example: SWAGGER_FIXTURES.collectionKey })
+  @ApiParam({ name: 'key', description: 'collection_key', example: SWAGGER_FIXTURES.collectionKey })
   @Get('collections/:key/platform-trades')
   getCollectionPlatformTrades(@Param('key') key: string) {
     return this.collectionMarketService.platformTradesForApi(key);
@@ -195,7 +196,7 @@ export class CollectionsController {
 
   /** listing 풀 통계 (floor·median·변동성 등, USDC) */
   @ApiOperation({ summary: '컬렉션 시장 통계' })
-  @ApiParam({ name: 'key', example: SWAGGER_FIXTURES.collectionKey })
+  @ApiParam({ name: 'key', description: 'collection_key', example: SWAGGER_FIXTURES.collectionKey })
   @Get('collections/:key/stats')
   getCollectionMarketStats(@Param('key') key: string) {
     return this.collectionMarketService.getCollectionMarketStats(
@@ -205,7 +206,7 @@ export class CollectionsController {
 
   /** 컬렉션 상세 + 호가 (listings·collection bids) */
   @ApiOperation({ summary: '컬렉션 상세·오더북' })
-  @ApiParam({ name: 'key', example: SWAGGER_FIXTURES.collectionKey })
+  @ApiParam({ name: 'key', description: 'collection_key', example: SWAGGER_FIXTURES.collectionKey })
   @Get('collections/:key')
   async getCollection(@Param('key') key: string) {
     const k = this.normalizeKey(key);
@@ -273,7 +274,7 @@ export class CollectionsController {
 
   /** 관리자: 커버 이미지 URL 설정 */
   @ApiOperation({ summary: '[Admin] 커버 URL 설정' })
-  @ApiParam({ name: 'key', example: SWAGGER_FIXTURES.collectionKey })
+  @ApiParam({ name: 'key', description: 'collection_key', example: SWAGGER_FIXTURES.collectionKey })
   @ApiBody(apiBodyDefault(AdminSetCollectionCoverDto, SWAGGER_BODY_EXAMPLES.adminSetCover))
   @Post('collections/:key/admin/cover')
   async adminSetCollectionCover(
@@ -308,7 +309,7 @@ export class CollectionsController {
 
   /** 관리자: token 메타에서 커버 후보 (save=true 시 저장) */
   @ApiOperation({ summary: '[Admin] token에서 커버 미리보기' })
-  @ApiParam({ name: 'key', example: SWAGGER_FIXTURES.collectionKey })
+  @ApiParam({ name: 'key', description: 'collection_key', example: SWAGGER_FIXTURES.collectionKey })
   @ApiBody(apiBodyDefault(AdminPreviewCollectionCoverFromTokenDto, SWAGGER_BODY_EXAMPLES.adminCoverFromToken))
   @Post('collections/:key/admin/cover/from-token')
   async adminCollectionCoverFromToken(
@@ -344,7 +345,7 @@ export class CollectionsController {
 
   /** 관리자: 컬렉션 버킷 영구 삭제 */
   @ApiOperation({ summary: '[Admin] 컬렉션 삭제' })
-  @ApiParam({ name: 'key', example: SWAGGER_FIXTURES.collectionKey })
+  @ApiParam({ name: 'key', description: 'collection_key', example: SWAGGER_FIXTURES.collectionKey })
   @ApiBody(apiBodyDefault(AdminDeleteCollectionDto, SWAGGER_BODY_EXAMPLES.adminDeleteCollection))
   @Post('collections/:key/admin/delete')
   async adminDeleteCollection(
@@ -372,8 +373,8 @@ export class CollectionsController {
 
   /** criteria bid용 Merkle 집합 tokenId (버킷 내 전체 민트) */
   @ApiOperation({ summary: 'Merkle eligible tokenId 목록' })
-  @ApiParam({ name: 'key', example: SWAGGER_FIXTURES.collectionKey })
-  @ApiQuery({ name: 'bypassCache', required: false, example: 'false' })
+  @ApiParam({ name: 'key', description: 'collection_key', example: SWAGGER_FIXTURES.collectionKey })
+  @ApiQuery({ name: 'bypassCache', required: false, example: 'false', description: '1 또는 true 이면 캐시 무시' })
   @Get('collections/:key/merkle-set')
   merkleSet(
     @Param('key') key: string,

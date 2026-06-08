@@ -29,7 +29,7 @@ export class CertMarketTraceController {
       'PSA 공식 API + Cardhedger preview/history/comps. `CARDHEDGER_API_KEY`·`PSA_PUBLIC_API_TOKEN` 필요. 응답이 크고 느릴 수 있음.',
   })
   @ApiBody(apiBodyDefault(CertMarketTraceDto, SWAGGER_BODY_EXAMPLES.certMarketTrace))
-  @ApiOkResponse({ description: 'PSA analyze + synthetic collection + cardhedger bundle' })
+  @ApiOkResponse({ description: 'PSA 분석 + 합성 컬렉션 + Cardhedger 묶음 응답' })
   @Post('cert-market-trace')
   async runCertMarketTrace(@Body() body: CertMarketTraceDto) {
     try {

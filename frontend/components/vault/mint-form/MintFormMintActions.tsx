@@ -63,7 +63,7 @@ export function MintFormMintActions({
           <span className="text-sm text-gray-400">
             {step === "uploading"
               ? "Uploading to IPFS..."
-              : "Waiting for MetaMask signature..."}
+              : "Confirm once in MetaMask — do not click Mint again."}
           </span>
         </div>
       )}

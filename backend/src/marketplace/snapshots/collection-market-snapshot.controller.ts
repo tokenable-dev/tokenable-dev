@@ -34,7 +34,7 @@ export class CollectionMarketSnapshotController {
 
   /** Cardhedger 카드 매칭 + PSA10 스팟 밴드 프리뷰 */
   @ApiOperation({ summary: 'Cardhedger 프리뷰' })
-  @ApiParam({ name: 'key', example: SWAGGER_FIXTURES.collectionKey })
+  @ApiParam({ name: 'key', description: 'collection_key', example: SWAGGER_FIXTURES.collectionKey })
   @Get('collections/:key/cardhedger')
   async getCollectionCardhedger(@Param('key') key: string) {
     const k = this.normalizeKey(key);
@@ -67,9 +67,9 @@ export class CollectionMarketSnapshotController {
 
   /** 스냅샷 기반 Cardhedger PSA10 가격 이력 */
   @ApiOperation({ summary: 'Cardhedger 가격 이력' })
-  @ApiParam({ name: 'key', example: SWAGGER_FIXTURES.collectionKey })
-  @ApiQuery({ name: 'period', required: false, example: '90d', enum: ['7d', '30d', '90d', '1y'] })
-  @ApiQuery({ name: 'maxDays', required: false, example: 90 })
+  @ApiParam({ name: 'key', description: 'collection_key', example: SWAGGER_FIXTURES.collectionKey })
+  @ApiQuery({ name: 'period', required: false, example: '90d', description: '차트 기간', enum: ['7d', '30d', '90d', '1y'] })
+  @ApiQuery({ name: 'maxDays', required: false, example: 90, description: '최대 달력 일수 (1–365)' })
   @Get('collections/:key/cardhedger/price-history')
   async getCollectionCardhedgerPriceHistory(
     @Param('key') key: string,

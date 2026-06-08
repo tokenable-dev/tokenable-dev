@@ -20,8 +20,8 @@ export class PortfolioController {
 
   /** 지갑 일별 가치 스냅샷 + 최근 24h 손익 */
   @ApiOperation({ summary: '포트폴리오 일별 스냅샷·24h P&L' })
-  @ApiParam({ name: 'wallet', example: SWAGGER_FIXTURES.wallet })
-  @ApiQuery({ name: 'limit', required: false, example: 32 })
+  @ApiParam({ name: 'wallet', description: '지갑 주소', example: SWAGGER_FIXTURES.wallet })
+  @ApiQuery({ name: 'limit', required: false, example: 32, description: '조회할 일별 스냅샷 수 (2–120)' })
   @Get('portfolio/daily/:wallet')
   async getPortfolioDailySnapshots(
     @Param('wallet') wallet: string,
@@ -55,7 +55,7 @@ export class PortfolioController {
 
   /** 포트폴리오 합계에서 제외한 tokenId 목록 */
   @ApiOperation({ summary: '숨긴 보유 목록' })
-  @ApiParam({ name: 'wallet', example: SWAGGER_FIXTURES.wallet })
+  @ApiParam({ name: 'wallet', description: '지갑 주소', example: SWAGGER_FIXTURES.wallet })
   @Get('portfolio/hidden/:wallet')
   async listPortfolioHidden(@Param('wallet') wallet: string) {
     const tokenIds = await this.portfolioHidden.listHiddenTokenIds(wallet);

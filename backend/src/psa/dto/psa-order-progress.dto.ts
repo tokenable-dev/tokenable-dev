@@ -6,7 +6,7 @@ export class PsaOrderProgressStepDto {
   index?: number;
 
   @ApiPropertyOptional({
-    description: 'PSA pipeline step enum (0–8)',
+    description: 'PSA 처리 단계 enum (0–8)',
     example: 5,
   })
   step?: number;
@@ -27,7 +27,7 @@ export class PsaOrderProgressBodyDto {
   readyForLabelReview?: boolean;
 
   @ApiPropertyOptional({
-    description: 'Grades published — often precedes vault routing / ship',
+    description: '등급 공개 완료 — 보통 vault 라우팅·배송 전 단계',
   })
   gradesReady?: boolean;
 
@@ -55,19 +55,19 @@ export class PsaOrderProgressLookupResponseDto {
   status!: 'success' | 'error' | 'disabled' | 'skipped';
 
   @ApiPropertyOptional({
-    description: 'Normalized order or submission number sent to PSA',
+    description: 'PSA에 전달한 정규화된 주문·제출 번호',
     example: '123456789',
   })
   referenceNumber?: string;
 
   @ApiPropertyOptional({
-    description: 'PSA Public API path (proxy target)',
+    description: 'PSA Public API 경로 (프록시 대상)',
     example: '/order/GetProgress/123456789',
   })
   psaPath?: string;
 
   @ApiPropertyOptional({
-    description: 'PSA JSON body on success (OrderProgress model)',
+    description: '성공 시 PSA JSON 본문 (OrderProgress 모델)',
     type: PsaOrderProgressBodyDto,
   })
   raw?: unknown;

@@ -26,7 +26,7 @@ export class BlockchainController {
   @ApiOperation({
     summary: 'RWA 자산 단건 (tokenURI·메타·이미지 URL)',
   })
-  @ApiParam({ name: 'tokenId', example: 1 })
+  @ApiParam({ name: 'tokenId', description: 'RWA tokenId', example: 1 })
   @Get('rwa/asset/:tokenId')
   getResolvedRwaAsset(@Param('tokenId', ParseIntPipe) tokenId: number) {
     return this.blockchainService.getResolvedRwaAsset(tokenId);
@@ -34,7 +34,7 @@ export class BlockchainController {
 
   /** ERC-721 tokenURI 문자열만 */
   @ApiOperation({ summary: 'tokenURI 조회' })
-  @ApiParam({ name: 'tokenId', example: 1 })
+  @ApiParam({ name: 'tokenId', description: 'RWA tokenId', example: 1 })
   @Get('rwa/token-uri/:tokenId')
   getRwaTokenURI(
     @Param('tokenId', ParseIntPipe) tokenId: number,
@@ -44,7 +44,7 @@ export class BlockchainController {
 
   /** 지갑 주소로 보유 tokenId 배열 */
   @ApiOperation({ summary: '지갑별 보유 RWA tokenId 목록' })
-  @ApiParam({ name: 'address', example: SWAGGER_FIXTURES.wallet })
+  @ApiParam({ name: 'address', description: '지갑 주소', example: SWAGGER_FIXTURES.wallet })
   @Get('rwa/tokens/:address')
   getRwaTokensByOwner(@Param('address') address: string): Promise<number[]> {
     return this.blockchainService.getRwaTokensByOwner(address);

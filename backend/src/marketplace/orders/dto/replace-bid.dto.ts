@@ -9,21 +9,18 @@ import {
 import { CreateOrderDto } from './create-order.dto';
 
 export class ReplaceBidDto {
-  @ApiProperty({
-    description:
-      'Wallet that signed the new bid (must own the old collection bid)',
-  })
+  @ApiProperty({ description: '새 bid에 서명한 지갑 (기존 collection bid 소유자와 동일)' })
   @IsEthereumAddress()
   callerAddress: string;
 
-  @ApiProperty({ description: 'orderHash of the active collection bid to cancel' })
+  @ApiProperty({ description: '취소할 활성 collection bid의 orderHash' })
   @IsString()
   @IsNotEmpty()
   oldOrderHash: string;
 
   @ApiProperty({
     type: CreateOrderDto,
-    description: 'New signed collection bid (same collectionKey, new price/signature)',
+    description: '새로 서명한 collection bid (동일 collectionKey, 가격/서명만 변경)',
   })
   @ValidateNested()
   @Type(() => CreateOrderDto)
