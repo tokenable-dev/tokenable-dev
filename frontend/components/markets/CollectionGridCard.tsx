@@ -103,16 +103,20 @@ export function CollectionGridCard({
       href={`/marketplace/collections/${encodeURIComponent(collection.collectionKey)}`}
       className="group flex h-full flex-col overflow-hidden rounded-2xl bg-black outline-none transition-[background-color,box-shadow] duration-200 ease-out hover:bg-zinc-950/90 hover:shadow-[0_10px_28px_-14px_rgba(0,0,0,0.75)] hover:ring-1 hover:ring-white/[0.08]"
     >
-      <div className="aspect-[3/4] shrink-0 bg-[#0a0a0a]">
-        {(resolvedCoverUrl || collection.coverImageUrl) ? (
-          <CollectionCoverFrame
-            imageUrl={resolvedCoverUrl || collection.coverImageUrl!}
-            variant="flat"
-            className="h-full w-full object-cover"
-          />
-        ) : (
-          <div className="h-full w-full bg-zinc-900" />
-        )}
+      {/* 15% horizontal padding each side → image is 70% of card width (30% smaller).
+          Top padding keeps the image away from the Link's overflow-hidden rounded corners. */}
+      <div className="shrink-0 bg-black px-[15%] pt-[8%] pb-[3%]">
+        <div className="aspect-[3/4] w-full overflow-hidden rounded-md">
+          {(resolvedCoverUrl || collection.coverImageUrl) ? (
+            <CollectionCoverFrame
+              imageUrl={resolvedCoverUrl || collection.coverImageUrl!}
+              variant="flat"
+              className="h-full w-full"
+            />
+          ) : (
+            <div className="h-full w-full bg-zinc-900" />
+          )}
+        </div>
       </div>
       <div className="flex min-h-0 flex-1 flex-col gap-1.5 p-2 max-[380px]:p-1.5 sm:gap-2 sm:p-3">
         <div className={GRID_CARD_BADGE_ROW}>
@@ -131,7 +135,7 @@ export function CollectionGridCard({
         </div>
 
         <h3
-          className="line-clamp-2 min-w-0 break-words text-[0.8125rem] font-bold leading-snug text-white max-[380px]:text-xs sm:text-[1.05rem]"
+          className="line-clamp-2 min-w-0 break-words text-[0.61rem] font-bold leading-snug text-white max-[380px]:text-[9px] sm:text-[0.79rem]"
           title={marketsTitle}
         >
           {marketsTitle}
