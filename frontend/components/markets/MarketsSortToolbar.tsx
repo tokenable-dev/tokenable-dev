@@ -23,7 +23,7 @@ function SortTextButton({
       aria-haspopup="menu"
       aria-expanded={sortMenuOpen}
       aria-label={`Sort collections — current: ${label}`}
-      className={`inline-flex shrink-0 touch-manipulation items-center gap-1.5 rounded-xl border px-3 py-2 text-[12px] font-semibold tracking-tight transition-colors sm:text-[13px] ${
+      className={`inline-flex min-h-[28px] shrink-0 touch-manipulation items-center gap-1 rounded-lg border px-2.5 py-1 text-[12px] font-semibold tracking-tight transition-colors sm:min-h-[32px] sm:gap-1.5 sm:rounded-xl sm:px-3 sm:py-1.5 sm:text-[13px] ${
         sortMenuOpen
           ? "border-zinc-500/70 bg-zinc-800/70 text-white"
           : "border-zinc-700/65 bg-zinc-900/50 text-zinc-300 hover:border-zinc-500/60 hover:bg-zinc-800/50 hover:text-white"
@@ -32,7 +32,7 @@ function SortTextButton({
       <span className="whitespace-nowrap">{label}</span>
       <svg
         viewBox="0 0 10 6"
-        className={`h-2.5 w-2.5 shrink-0 text-zinc-400 transition-transform duration-150 ${sortMenuOpen ? "rotate-180" : ""}`}
+        className={`h-2 w-2 shrink-0 text-zinc-400 transition-transform duration-150 sm:h-2.5 sm:w-2.5 ${sortMenuOpen ? "rotate-180" : ""}`}
         fill="none"
         stroke="currentColor"
         strokeWidth="1.8"

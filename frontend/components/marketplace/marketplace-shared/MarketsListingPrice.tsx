@@ -67,7 +67,7 @@ function MarketsReferenceChangeInline({
 
   return (
     <span
-      className="flex min-w-0 max-w-full flex-nowrap items-center justify-end gap-x-0.5 overflow-hidden"
+      className="flex min-w-0 max-w-full flex-nowrap items-center justify-start gap-x-0.5 overflow-hidden"
       title={hint}
     >
       <span className={`shrink-0 ${textClassName} ${referenceChangePctColorClass(displayPct)}`}>

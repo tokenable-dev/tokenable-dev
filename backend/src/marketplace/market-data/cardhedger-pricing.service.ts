@@ -46,7 +46,7 @@ const SPARSE_SALE_POINTS_MAX = 5;
 export class CardhedgerPricingService {
   private readonly logger = new Logger(CardhedgerPricingService.name);
 
-  private readonly PRICES_CACHE_TTL_MS = 5 * 60 * 1000; // 5 min
+  private readonly PRICES_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
   readonly MIN_RELIABLE_SALES_30D: number;
   /**
    * Minimum 30-day sales required even for `verified` confidence matches.
@@ -71,6 +71,7 @@ export class CardhedgerPricingService {
   private static readonly NS_ALL_PRICES = 'cardhedger:allPrices';
   private static readonly NS_TIER_HISTORY = 'cardhedger:tierHistory';
   private static readonly NS_COMPS = 'cardhedger:comps';
+  private static readonly NS_FMV = 'cardhedger:fmv';
 
   constructor(
     private readonly cardhedger: CardhedgerService,
@@ -231,6 +232,72 @@ export class CardhedgerPricingService {
       // Do not cache upstream failures — return empty and allow the next
       // request to retry the live API.
       return [];
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // FMV (POST /v1/cards/card-fmv) — smoothed Fair Market Value with confidence
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Fetch CardHedger's Winsorized-median FMV for a card+grade.
+   * Falls back to movement-index projection for stale/sparse data.
+   * Returns null on network error or when the API returns no usable price.
+   */
+  private async fetchFmvByCard(
+    cardId: string,
+    grade: string,
+  ): Promise<{
+    price: number | null;
+    price_low: number | null;
+    price_high: number | null;
+    confidence: number | null;
+    confidence_grade: 'A' | 'B' | 'C' | 'D' | null;
+    method: string | null;
+    freshness_days: number | null;
+  } | null> {
+    const id = String(cardId ?? '').trim();
+    const gradeKey = String(grade ?? '').trim();
+    if (!id || !gradeKey) return null;
+
+    const cacheKey = `${id}:${gradeKey.toLowerCase()}:fmv`;
+    const hit = this.ttlCache.get<{
+      value: ReturnType<typeof this.fetchFmvByCard> extends Promise<infer T> ? T : never;
+    }>(CardhedgerPricingService.NS_FMV, cacheKey);
+    if (hit) return hit.value as Awaited<ReturnType<typeof this.fetchFmvByCard>>;
+
+    try {
+      const body = await this.cardhedger.forwardJson('POST', '/v1/cards/card-fmv', {
+        body: { card_id: id, grade: gradeKey },
+      });
+      if (typeof body !== 'object' || body == null) {
+        this.ttlCache.set(CardhedgerPricingService.NS_FMV, cacheKey, { value: null }, this.PRICES_CACHE_TTL_MS);
+        return null;
+      }
+      const b = body as Record<string, unknown>;
+      const parse = (v: unknown): number | null => {
+        const n = typeof v === 'number' ? v : typeof v === 'string' ? parseFloat(v) : NaN;
+        return Number.isFinite(n) && n > 0 ? n : null;
+      };
+      const parseAny = (v: unknown): number | null => {
+        const n = typeof v === 'number' ? v : typeof v === 'string' ? parseFloat(v) : NaN;
+        return Number.isFinite(n) ? n : null;
+      };
+      const cg = String(b.confidence_grade ?? '').trim().toUpperCase();
+      const result = {
+        price: parse(b.price),
+        price_low: parse(b.price_low),
+        price_high: parse(b.price_high),
+        confidence: parseAny(b.confidence),
+        confidence_grade: (['A', 'B', 'C', 'D'].includes(cg) ? cg : null) as 'A' | 'B' | 'C' | 'D' | null,
+        method: typeof b.method === 'string' && b.method.trim() ? b.method.trim() : null,
+        freshness_days: typeof b.freshness_days === 'number' && Number.isFinite(b.freshness_days) ? Math.floor(b.freshness_days) : null,
+      };
+      this.ttlCache.set(CardhedgerPricingService.NS_FMV, cacheKey, { value: result }, this.PRICES_CACHE_TTL_MS);
+      return result;
+    } catch {
+      // Do not cache failures — allow retry on next request.
+      return null;
     }
   }
 
@@ -976,7 +1043,7 @@ export class CardhedgerPricingService {
     const chGrade = cardhedgerGradeFromHistoryTier(tierU);
     const isQualifierTier = tierU === 'PSA_AUTH';
     const cardId = String(row.card_id ?? '').trim();
-    const [allPrices, tierHistory, compsCached] = await Promise.all([
+    const [allPrices, tierHistory, compsCached, fmvResult] = await Promise.all([
       cardId ? this.fetchAllPricesByCard(cardId) : Promise.resolve([]),
       cardId
         ? this.fetchTierHistoryByCardOnce(
@@ -986,6 +1053,7 @@ export class CardhedgerPricingService {
           )
         : Promise.resolve([]),
       cardId ? this.fetchCompsCached(cardId, chGrade) : Promise.resolve(null),
+      cardId ? this.fetchFmvByCard(cardId, chGrade).catch(() => null) : Promise.resolve(null),
     ]);
     const compsHeadline = compsCached?.headline ?? null;
     const merged = allPrices.length > 0 ? { ...row, prices: allPrices } : row;
@@ -1020,9 +1088,15 @@ export class CardhedgerPricingService {
       | 'sparse_sale_avg'
       | 'catalog'
       | 'comps_median'
+      | 'fmv'
       | null = null;
     let latestSaleAt: number | null = null;
     let headlineCompCount: number | null = null;
+    let fmvConfidenceGrade: 'A' | 'B' | 'C' | 'D' | null = null;
+    let fmvFreshnessDays: number | null = null;
+    let fmvMethod: string | null = null;
+    let fmvPriceLow: number | null = null;
+    let fmvPriceHigh: number | null = null;
 
     const pickBestTierReference = (): void => {
       const rawPts = compsCached?.rawPoints;
@@ -1118,14 +1192,57 @@ export class CardhedgerPricingService {
       }
     }
 
+    // FMV fallback: when comps/history produced no spot price, use CardHedger's
+    // Winsorized-median FMV with movement-index projection for stale cards.
+    // Segment-level fallbacks (too broad) and no_data are excluded.
+    if (spotUsd == null && fmvResult != null) {
+      const fmvPriceRaw = fmvResult.price;
+      const fmvGrade_ = fmvResult.confidence_grade;
+      const fmvMethod_ = fmvResult.method;
+      const isUsableMethod =
+        fmvMethod_ != null &&
+        fmvMethod_ !== 'no_data' &&
+        !fmvMethod_.startsWith('segment_fallback');
+      const isUsableGrade = fmvGrade_ === 'A' || fmvGrade_ === 'B' || fmvGrade_ === 'C';
+      if (
+        fmvPriceRaw != null &&
+        Number.isFinite(fmvPriceRaw) &&
+        fmvPriceRaw > 0 &&
+        isUsableMethod &&
+        isUsableGrade
+      ) {
+        spotUsd = fmvPriceRaw;
+        spotPriceBasis = 'fmv';
+        fmvConfidenceGrade = fmvGrade_;
+        fmvFreshnessDays = fmvResult.freshness_days;
+        fmvMethod = fmvMethod_;
+        fmvPriceLow =
+          fmvResult.price_low != null && fmvResult.price_low > 0
+            ? fmvResult.price_low
+            : null;
+        fmvPriceHigh =
+          fmvResult.price_high != null && fmvResult.price_high > 0
+            ? fmvResult.price_high
+            : null;
+        if (fmvFreshnessDays != null) {
+          latestSaleAt = Math.floor(Date.now() / 1000) - fmvFreshnessDays * 86400;
+        }
+        this.logger.debug(
+          `cardhedger_fmv_fallback card_id=${cardId} grade=${chGrade} price=${fmvPriceRaw} grade=${fmvGrade_} method=${fmvMethod_} freshness=${fmvFreshnessDays ?? 'n/a'}d`,
+        );
+      }
+    }
+
     const compsNoSales = compsCached?.noSalesForGrade === true;
-    const pricingSuppressedReason = compsNoSales
-      ? 'cardhedger_no_sales_for_grade'
-      : !anyTierSignal
-        ? 'no_tier_price_in_source'
-        : spotUsd == null
-          ? 'no_publishable_tier_slot'
-          : null;
+    // Only suppress when FMV didn't recover a price (spotUsd still null after fallback).
+    const pricingSuppressedReason =
+      compsNoSales && spotUsd == null
+        ? 'cardhedger_no_sales_for_grade'
+        : !anyTierSignal && spotUsd == null
+          ? 'no_tier_price_in_source'
+          : spotUsd == null
+            ? 'no_publishable_tier_slot'
+            : null;
     const headlineIso =
       latestSaleAt != null ? new Date(latestSaleAt * 1000).toISOString() : null;
     this.logger.debug(
@@ -1154,12 +1271,24 @@ export class CardhedgerPricingService {
     }
     const basisForPricesByGrade =
       spotPriceBasis != null &&
-      ['comps', 'latest_sale', 'sparse_sale_avg', 'catalog', 'comps_median'].includes(
+      ['comps', 'latest_sale', 'sparse_sale_avg', 'catalog', 'comps_median', 'fmv'].includes(
         spotPriceBasis,
       );
     if (spotUsd != null && basisForPricesByGrade) {
       pricesByGrade[chGrade] = spotUsd;
     }
+    // Pre-compute band metadata outside closures; TypeScript's CFA aggressively
+    // narrows spotPriceBasis inside closures and removes valid union members
+    // ('sparse_sale_avg', 'catalog') through control-flow analysis of the
+    // assignments above, so we capture the data here at the call site instead.
+    const _basisStr = String(spotPriceBasis ?? ''); // string comparison escapes CFA narrowing
+    const _bandSaleCount: number | null =
+      headlineCompCount != null &&
+      (_basisStr === 'comps' || _basisStr === 'sparse_sale_avg' || _basisStr === 'comps_median')
+        ? headlineCompCount
+        : null;
+    const _bandApproxSaleCount: boolean | null =
+      _basisStr === 'comps' ? false : _basisStr === 'sparse_sale_avg' || _basisStr === 'comps_median' ? true : null;
     const mkBand = (v: number | null) =>
       v != null
         ? ({
@@ -1167,21 +1296,8 @@ export class CardhedgerPricingService {
             low: v,
             high: v,
             lastUpdated: headlineIso,
-            saleCount:
-              spotPriceBasis === 'comps' && headlineCompCount != null
-                ? headlineCompCount
-                : (spotPriceBasis === 'sparse_sale_avg' ||
-                    spotPriceBasis === 'comps_median') &&
-                    headlineCompCount != null
-                  ? headlineCompCount
-                  : null,
-            approxSaleCount:
-              spotPriceBasis === 'comps'
-                ? false
-                : spotPriceBasis === 'sparse_sale_avg' ||
-                    spotPriceBasis === 'comps_median'
-                  ? true
-                  : null,
+            saleCount: _bandSaleCount,
+            approxSaleCount: _bandApproxSaleCount,
             avg1d: null,
             avg7d: null,
             avg30d: null,
@@ -1231,17 +1347,27 @@ export class CardhedgerPricingService {
         currency: 'USD',
         market: this.pickCardhedgerMarketField(merged),
         lastUpdated: headlineIso,
-        topPrice:
-          spotUsd != null &&
-          (allowTierPricing ||
-            hasCompsEvidence ||
-            spotPriceBasis === 'comps' ||
-            spotPriceBasis === 'comps_median' ||
-            spotPriceBasis === 'latest_sale' ||
-            spotPriceBasis === 'sparse_sale_avg' ||
-            (spotPriceBasis === 'catalog' && confidence === 'verified'))
-            ? spotUsd
-            : null,
+        topPrice: (() => {
+          if (spotUsd == null) return null;
+          if (allowTierPricing || hasCompsEvidence) return spotUsd;
+          // Use _basisStr (pre-computed string) to avoid TypeScript CFA
+          // narrowing that removes 'sparse_sale_avg' / 'catalog' inside IIFEs.
+          if (
+            _basisStr === 'comps' ||
+            _basisStr === 'comps_median' ||
+            _basisStr === 'latest_sale' ||
+            _basisStr === 'sparse_sale_avg'
+          )
+            return spotUsd;
+          if (_basisStr === 'catalog') return confidence === 'verified' ? spotUsd : null;
+          if (_basisStr === 'fmv')
+            return fmvConfidenceGrade === 'A' ||
+              fmvConfidenceGrade === 'B' ||
+              fmvConfidenceGrade === 'C'
+              ? spotUsd
+              : null;
+          return null;
+        })(),
         totalSaleCount:
           typeof merged['30 Day Sales'] === 'number'
             ? Number(merged['30 Day Sales'])
@@ -1262,6 +1388,11 @@ export class CardhedgerPricingService {
         pricingSuppressedReason,
         spotPriceBasis,
         latestSaleAt,
+        fmvConfidenceGrade,
+        fmvFreshnessDays,
+        fmvMethod,
+        fmvPriceLow,
+        fmvPriceHigh,
         ebayNearMint: null,
         tcgplayerNearMint: null,
         ebayPsa10: tierU === 'PSA_10' ? mkBand(spotUsd) : null,

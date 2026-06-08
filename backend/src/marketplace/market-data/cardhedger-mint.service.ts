@@ -29,7 +29,7 @@ import { CardhedgerPricingService } from './cardhedger-pricing.service';
 export class CardhedgerMintService {
   private readonly logger = new Logger(CardhedgerMintService.name);
 
-  private readonly CERT_CACHE_TTL_MS = 5 * 60 * 1000; // 5 min (cert-details batch)
+  private readonly CERT_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour (cert-details batch)
   private static readonly NS_CERT_DETAILS_BATCH = 'cardhedger:certDetailsBatch';
   private static readonly CERT_DETAILS_BATCH_MAX = 100;
 

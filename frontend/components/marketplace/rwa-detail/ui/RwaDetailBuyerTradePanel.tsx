@@ -76,8 +76,8 @@ export function RwaDetailBuyerTradePanel({
             <RwaDetailAskPriceDisplay priceUsd={listingPriceUsd} />
           ) : null}
 
-          <div className={canBid ? "flex min-w-0 gap-2" : undefined}>
-            <div className={canBid ? "min-w-0 flex-1" : undefined}>
+          <div className={canBid && isConnected ? "flex min-w-0 gap-2" : undefined}>
+            <div className={canBid && isConnected ? "min-w-0 flex-1" : undefined}>
               <RwaDetailGradientButton
                 bright={!isConnected}
                 compact={compactActions}
@@ -93,7 +93,7 @@ export function RwaDetailBuyerTradePanel({
                 {buyNowCta}
               </RwaDetailGradientButton>
             </div>
-            {canBid ? (
+            {canBid && isConnected ? (
               <div className="min-w-0 flex-1">
                 <RwaDetailOutlineButton
                   compact={compactActions}

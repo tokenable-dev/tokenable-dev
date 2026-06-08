@@ -2,7 +2,7 @@
 export const MARKET_PRICE_CHANGE_PERIOD_LABEL = "1 yr";
 
 /** Compact suffix for badges (exchange cards, pills). */
-export const MARKET_PRICE_CHANGE_PERIOD_SHORT = "1 yr";
+export const MARKET_PRICE_CHANGE_PERIOD_SHORT = "1Y";
 
 /** When reference % cannot be computed (insufficient Cardhedger history). */
 export const REFERENCE_CHANGE_UNAVAILABLE_LABEL = "—";
@@ -103,12 +103,15 @@ function referenceChangeDisplayLabel(
     "isFullYear" | "windowSec" | "marketChangeWindow"
   >,
   apiWindow?: string | null,
+  variant: "short" | "long" = "short",
 ): string {
   const resolvedWindow = apiWindow ?? result.marketChangeWindow ?? null;
-  if (result.isFullYear) return "1 yr";
-  if (resolvedWindow === "365d") return "1 yr";
+  const fullYearLabel =
+    variant === "short" ? MARKET_PRICE_CHANGE_PERIOD_SHORT : MARKET_PRICE_CHANGE_PERIOD_LABEL;
+  if (result.isFullYear) return fullYearLabel;
+  if (resolvedWindow === "365d") return fullYearLabel;
   const days = referenceChangeCoverageDays(result);
-  if (days != null && days >= 300) return "1 yr";
+  if (days != null && days >= 300) return fullYearLabel;
   if (days == null) return MARKET_PRICE_CHANGE_PERIOD_SHORT;
   const bucket =
     resolvedWindow && resolvedWindow !== "365d" && resolvedWindow !== "24h"
@@ -138,7 +141,7 @@ export function formatReferenceChangePeriodLabel(
   apiWindow?: string | null,
 ): string {
   if (!result || result.windowSec <= 0) return MARKET_PRICE_CHANGE_PERIOD_LABEL;
-  return referenceChangeDisplayLabel(result, apiWindow);
+  return referenceChangeDisplayLabel(result, apiWindow, "long");
 }
 
 /** Mobile / compact stat column e.g. `180d chg.` */
