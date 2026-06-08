@@ -58,7 +58,9 @@ erDiagram
     marketplace_collections {
         varchar collection_key PK
         varchar display_label
+        text query_used
         jsonb components
+        text cover_image_url
         varchar psa_cert_number
         varchar market_parallel_key
         smallint bucket_key_version

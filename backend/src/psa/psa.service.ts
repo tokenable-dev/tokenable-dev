@@ -5,7 +5,6 @@ import {
   InternalServerErrorException,
   Logger,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import sharp from 'sharp';
 import { CardhedgerService } from '../cardhedger/cardhedger.service';
 import {
@@ -14,7 +13,6 @@ import {
   primaryCardNumber,
 } from '../marketplace/utils/card-match.util';
 import { normalizeImageUrl } from '../marketplace/utils/collection-image.util';
-import { readPsaSpecIdCardhedgerMapFromConfig } from '../marketplace/utils/psa-spec-cardhedger-map.util';
 import {
   psaCertVerifyUrl,
   resolveCertHintForLookup,
@@ -137,21 +135,11 @@ async function probeCertImageUrlReachable(url: string): Promise<boolean> {
 @Injectable()
 export class PsaService {
   private readonly logger = new Logger(PsaService.name);
-  /** Lazy-cached PSA `specId` → Cardhedger `card_id` map (env JSON parsed once). */
-  private psaSpecIdMap: Map<string, string> | null = null;
 
   constructor(
     private readonly psaPublicApi: PsaPublicApiService,
     private readonly cardhedgerService: CardhedgerService,
-    private readonly config: ConfigService,
   ) {}
-
-  private getPsaSpecIdMap(): Map<string, string> {
-    if (!this.psaSpecIdMap) {
-      this.psaSpecIdMap = readPsaSpecIdCardhedgerMapFromConfig(this.config);
-    }
-    return this.psaSpecIdMap;
-  }
 
   private static readonly MAX_COMBINED_OCR_CHARS = 150_000;
 
@@ -568,59 +556,70 @@ export class PsaService {
   }
 
   /**
-   * Curated {@link readPsaSpecIdCardhedgerMapFromConfig}: when PSA Public API returns `specId`
-   * and it is mapped to a Cardhedger catalog id, mint metadata can persist a stable `cardId`.
+   * Resolve a PSA cert to a Cardhedger catalog entry via
+   * `POST /v1/cards/details-by-certs`. This is the authoritative cert-to-card
+   * lookup that replaces the old manual `CARDHEDGER_PSA_SPECID_MAP`.
    */
-  private async tryResolveCardhedgerMintFromPsaSpecMap(
-    psaParsed: ParsedPsaLabel,
+  private async tryResolveCardhedgerMintByCert(
+    certNumber: string,
     fallbackSearchQuery: string,
   ): Promise<PsaAnalyzeResult['cardhedgerMint'] | undefined> {
-    const rawSpec = psaParsed.specId;
-    if (rawSpec == null || !Number.isFinite(Number(rawSpec))) return undefined;
+    const digits = certNumber.replace(/\D/g, '');
+    if (digits.length < 7) return undefined;
     try {
       this.cardhedgerService.assertConfigured();
     } catch {
       return undefined;
     }
-    const specKey = String(Math.floor(Number(rawSpec)));
-    const cardIdMapped = this.getPsaSpecIdMap().get(specKey);
-    if (!cardIdMapped) return undefined;
     try {
       const body = await this.cardhedgerService.forwardJson(
         'POST',
-        '/v1/cards/card-details',
-        { body: { card_id: cardIdMapped } },
+        '/v1/cards/details-by-certs',
+        { body: { certs: [digits], grader: 'PSA' } },
       );
-      const cards = (body as { cards?: unknown[] }).cards;
-      if (!Array.isArray(cards) || cards.length === 0) return undefined;
-      const row = cards[0] as Record<string, unknown>;
-      const id =
-        typeof row.card_id === 'string' && row.card_id.trim()
-          ? row.card_id.trim()
-          : '';
-      if (!id) return undefined;
-      const searchFromRow =
-        typeof row.description === 'string' && row.description.trim()
-          ? row.description.trim()
-          : typeof row.name === 'string' && row.name.trim()
-            ? row.name.trim()
-            : fallbackSearchQuery.trim();
-      const imageUrl =
-        typeof row.image === 'string' && row.image.trim()
-          ? normalizeImageUrl(row.image)
-          : undefined;
-      return {
-        matchConfidence: 'verified',
-        cardId: id,
-        searchQuery: searchFromRow || fallbackSearchQuery,
-        ...(imageUrl ? { imageUrl } : {}),
-      };
+      const results = Array.isArray(
+        (body as { results?: unknown[] } | null)?.results,
+      )
+        ? ((body as { results: unknown[] }).results ?? [])
+        : [];
+      for (const raw of results) {
+        if (typeof raw !== 'object' || raw == null) continue;
+        const row = raw as {
+          cert_info?: { cert?: string | number };
+          card?: Record<string, unknown>;
+        };
+        const certDigits = String(row.cert_info?.cert ?? '').replace(/\D/g, '');
+        if (certDigits !== digits) continue;
+        const card = row.card;
+        if (!card) continue;
+        const id =
+          typeof card.card_id === 'string' && card.card_id.trim()
+            ? card.card_id.trim()
+            : '';
+        if (!id) continue;
+        const searchQuery =
+          (typeof card.description === 'string' && card.description.trim()
+            ? card.description.trim()
+            : typeof card.name === 'string' && card.name.trim()
+              ? card.name.trim()
+              : null) ?? fallbackSearchQuery;
+        const imageUrl =
+          typeof card.image === 'string' && card.image.trim()
+            ? normalizeImageUrl(card.image)
+            : undefined;
+        return {
+          matchConfidence: 'verified',
+          cardId: id,
+          searchQuery,
+          ...(imageUrl ? { imageUrl } : {}),
+        };
+      }
     } catch (e) {
       this.logger.warn(
-        `Cardhedger mint resolve via PSA spec map failed: ${e instanceof Error ? e.message : String(e)}`,
+        `Cardhedger mint resolve via cert lookup failed: ${e instanceof Error ? e.message : String(e)}`,
       );
-      return undefined;
     }
+    return undefined;
   }
 
   private buildCardhedgerSearchQuery(psa: ParsedPsaLabel): string {
@@ -1087,10 +1086,13 @@ export class PsaService {
         ...(cardhedgerOcr.imageUrl ? { imageUrl: cardhedgerOcr.imageUrl } : {}),
       };
     } else {
-      cardhedgerMint = await this.tryResolveCardhedgerMintFromPsaSpecMap(
-        psaParsed,
-        cardhedgerQuery,
-      );
+      // Try cert-based lookup first (direct, authoritative — replaces psaSpecId static map)
+      if (psaParsed.certNumber) {
+        cardhedgerMint = await this.tryResolveCardhedgerMintByCert(
+          psaParsed.certNumber,
+          cardhedgerQuery,
+        );
+      }
       if (!cardhedgerMint) {
         try {
           cardhedgerMint = await this.tryResolveCardhedgerMint(cardhedgerQuery, {

@@ -75,6 +75,47 @@ export class CardhedgerMarketDataService {
     return this.mint.getBatchMintPreviewsFromTokenIds(tokenIds);
   }
 
+  /**
+   * Resolve a PSA cert number to a Cardhedger `card_id` via
+   * `POST /v1/cards/details-by-certs`.
+   *
+   * - When `card` is present → returns `{ cardId, query }` immediately (authoritative).
+   * - When `card: null` but `cert_info.description` is available → returns
+   *   `{ cardId: null, certDescription }` so callers can use the CardHedger-formatted
+   *   description as a high-priority text search query.
+   * - Returns null when the cert is fully unknown to Cardhedger.
+   */
+  async tryResolveCardIdByCert(cert: string): Promise<{
+    cardId: string | null;
+    query: string;
+    certDescription: string | null;
+  } | null> {
+    const { row, certDescription } = await this.mint.getCardRowByCert(cert);
+    if (!row && !certDescription) return null;
+    if (row) {
+      const cardId =
+        typeof row.card_id === 'string' && row.card_id.trim()
+          ? row.card_id.trim()
+          : null;
+      if (cardId) {
+        const query =
+          (typeof row.description === 'string' && row.description.trim()
+            ? row.description.trim()
+            : typeof row.name === 'string' && row.name.trim()
+              ? row.name.trim()
+              : null) ??
+          certDescription ??
+          cert;
+        return { cardId, query, certDescription };
+      }
+    }
+    // card: null but certDescription available — signal to use description as search query
+    if (certDescription) {
+      return { cardId: null, query: certDescription, certDescription };
+    }
+    return null;
+  }
+
   private emptyInsightStats(): CollectionAiInsightPricingStats {
     return {
       psa10SpotUsd: null,

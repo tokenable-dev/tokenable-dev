@@ -1,9 +1,7 @@
 "use client";
 
-import type { MouseEvent } from "react";
 import { useConnect } from "wagmi";
 import { connectMetaMaskWallet } from "@/lib/wallet/connectMetaMaskWallet";
-import type { ListModalAnchorRect } from "@/lib/seaport/listing/listRwaModalTypes";
 import { RwaDetailAskPriceDisplay } from "./RwaDetailAskPriceDisplay";
 import { RwaDetailGradientButton } from "./RwaDetailGradientButton";
 import { RwaDetailMarketContextStrip } from "./RwaDetailMarketContextStrip";
@@ -25,10 +23,7 @@ export function RwaDetailOwnerListingPanel({
   marketChangePct: number | null;
   marketChangePeriodLabel: string;
   marketChangeCoverageHint: string;
-  onOpenListModal: (
-    initialPriceUsdc?: string | null,
-    anchorRect?: ListModalAnchorRect | null,
-  ) => void;
+  onOpenListModal: (initialPriceUsdc?: string | null) => void;
 }) {
   const { connect, connectors } = useConnect();
 
@@ -49,16 +44,6 @@ export function RwaDetailOwnerListingPanel({
 
   const hasListing = listingPriceUsd != null;
 
-  const handleOpenListModal = (e: MouseEvent<HTMLButtonElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    onOpenListModal(hasListing ? String(listingPriceUsd) : null, {
-      top: rect.top,
-      left: rect.left,
-      width: rect.width,
-      height: rect.height,
-    });
-  };
-
   return (
     <div className="space-y-4">
       {hasListing ? (
@@ -73,7 +58,11 @@ export function RwaDetailOwnerListingPanel({
         />
       )}
 
-      <RwaDetailGradientButton bright thickRim onClick={handleOpenListModal}>
+      <RwaDetailGradientButton
+        bright
+        thickRim
+        onClick={() => onOpenListModal(hasListing ? String(listingPriceUsd) : null)}
+      >
         {hasListing ? "Change price" : "List for sale"}
       </RwaDetailGradientButton>
     </div>

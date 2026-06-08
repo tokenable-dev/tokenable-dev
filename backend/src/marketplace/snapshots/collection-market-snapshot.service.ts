@@ -18,6 +18,7 @@ import type {
 } from '../utils/market-snapshot.types';
 import { MARKET_SNAPSHOT_SOURCE_VERSION } from '../utils/market-snapshot.types';
 import { psaPublicApiAllowedForSnapshotReason } from '../utils/psa-components-mirror.util';
+import { psaCertNumberFromCollectionRow } from '../utils/collection-row.util';
 
 /**
  * Builds and persists materialized Cardhedger snapshots.
@@ -168,6 +169,37 @@ export class CollectionMarketSnapshotService {
         await this.collectionEnrichment.auditCardhedgerCardIdExact(key, {
           clearOnMismatch: true,
         });
+
+        // Cert-based card ID resolution: if cardhedgerCardId is still empty
+        // after the audit, try details-by-certs as a direct cert lookup.
+        // This replaces the old env-based CARDHEDGER_PSA_SPECID_MAP path.
+        const colForCert = await this.collectionEnrichment.findOne(key);
+        const certMissingId = !(
+          (colForCert?.components as Record<string, unknown> | null)
+            ?.cardhedgerCardId
+        );
+        const certNumber = colForCert
+          ? psaCertNumberFromCollectionRow(colForCert)
+          : null;
+        if (certNumber && certMissingId) {
+          const certResolved =
+            await this.cardMarketData.tryResolveCardIdByCert(certNumber);
+          if (certResolved?.cardId) {
+            void this.collectionEnrichment.writeCardhedgerIdFromCertLookup(
+              key,
+              certResolved.cardId,
+              certResolved.query,
+            );
+          } else if (certResolved?.certDescription) {
+            // card: null but CardHedger returned a well-formatted description.
+            // Store it as cardhedgerSearchQuery so the text-search path uses it
+            // as a high-priority query on this and future snapshot refreshes.
+            void this.collectionEnrichment.writeCardhedgerSearchQueryFromCert(
+              key,
+              certResolved.certDescription,
+            );
+          }
+        }
       }
       let col = await this.collectionEnrichment.findOne(key);
       if (col) {
@@ -223,6 +255,22 @@ export class CollectionMarketSnapshotService {
           durationMs: Date.now() - started,
         }),
       );
+
+      // When the snapshot resolved a card via search (no stored ID), persist it back
+      // to components so the next refresh uses the faster card-details direct path.
+      if (
+        preview.matched &&
+        preview.card?.id &&
+        !((col?.components as Record<string, unknown> | null)?.cardhedgerCardId)
+      ) {
+        void this.collectionEnrichment.writeCardhedgerIdFromResolvedSearch(
+          key,
+          preview.card.id,
+          preview.matchConfidence ?? 'approximate',
+          preview.searchQuery ?? null,
+        );
+      }
+
       return row;
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);

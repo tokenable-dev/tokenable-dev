@@ -52,7 +52,8 @@ export class CardhedgerPricingService {
    * Minimum 30-day sales required even for `verified` confidence matches.
    * Prevents stale catalog prices (e.g. low-population rare cards) from surfacing
    * as market price when no recent trades have occurred.
-   * Defaults to 1; set CARDHEDGER_MIN_VERIFIED_SALES_30D=0 to restore old behaviour.
+   * Defaults to 1; set CARDHEDGER_MIN_VERIFIED_SALES_30D=0 to disable gate entirely.
+   * Raise to 5+ for stricter liquidity requirements.
    */
   readonly MIN_VERIFIED_SALES_30D: number;
   private readonly PSA10_SPOT_BASIS: CardhedgerPsa10SpotBasis;
@@ -86,8 +87,8 @@ export class CardhedgerPricingService {
     this.MIN_VERIFIED_SALES_30D = Math.max(
       0,
       Number(
-        this.config.get<string>('CARDHEDGER_MIN_VERIFIED_SALES_30D') ?? 5,
-      ) || 5,
+        this.config.get<string>('CARDHEDGER_MIN_VERIFIED_SALES_30D') ?? 1,
+      ) || 1,
     );
     {
       const raw = this.config
@@ -1237,7 +1238,8 @@ export class CardhedgerPricingService {
             spotPriceBasis === 'comps' ||
             spotPriceBasis === 'comps_median' ||
             spotPriceBasis === 'latest_sale' ||
-            spotPriceBasis === 'sparse_sale_avg')
+            spotPriceBasis === 'sparse_sale_avg' ||
+            (spotPriceBasis === 'catalog' && confidence === 'verified'))
             ? spotUsd
             : null,
         totalSaleCount:

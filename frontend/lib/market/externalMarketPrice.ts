@@ -22,12 +22,11 @@ export type ResolvedExternalMarketUsd = {
 };
 
 /**
- * Minimum 30-day sales required before trusting a Cardhedger preview price.
- * Must match CARDHEDGER_MIN_RELIABLE_SALES_30D / CARDHEDGER_MIN_VERIFIED_SALES_30D on the backend.
+ * Minimum 30-day sales required before trusting a Cardhedger preview price as "high reliability".
+ * Must match CARDHEDGER_MIN_VERIFIED_SALES_30D on the backend (default 1).
  * NOTE: Cardhedger's `sales30d` is total-card (all grades), not PSA-10-specific.
- * A conservative threshold prevents stale catalog prices on thinly-traded rare cards.
  */
-export const EXTERNAL_PRICE_MIN_SALES_30D = 5;
+export const EXTERNAL_PRICE_MIN_SALES_30D = 1;
 
 function finitePositive(n: number | null | undefined): number | null {
   if (n == null || !Number.isFinite(n) || n <= 0) return null;
