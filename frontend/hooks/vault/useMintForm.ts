@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import {
   useAccount,
   usePublicClient,
@@ -36,6 +36,8 @@ export function useMintForm() {
   const [errorMsg, setErrorMsg] = useState("");
   const [result, setResult] = useState<{ tokenURI: string; txHash: string } | null>(null);
   const [mintImageBlobUrl, setMintImageBlobUrl] = useState<string | null>(null);
+  /** Synchronous guard — `isProcessing` lags one React render so double-clicks can fire two mint txs. */
+  const submitLockRef = useRef(false);
 
   const psa = useMintFormPsaState(form, setForm);
 
@@ -78,6 +80,7 @@ export function useMintForm() {
   }, [form, psa.lastAnalyze, psa.psaInputMode]);
 
   const resetForm = useCallback(() => {
+    submitLockRef.current = false;
     setStep("idle");
     setErrorMsg("");
     setResult(null);
@@ -99,8 +102,10 @@ export function useMintForm() {
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
+      if (submitLockRef.current) return;
       if (!validate() || !address || !isConnected) return;
 
+      submitLockRef.current = true;
       setErrorMsg("");
       setStep("uploading");
 
@@ -181,6 +186,8 @@ export function useMintForm() {
           err instanceof Error ? err.message : "An unexpected error occurred";
         setErrorMsg(message);
         setStep("error");
+      } finally {
+        submitLockRef.current = false;
       }
     },
     [

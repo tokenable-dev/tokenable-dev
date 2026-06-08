@@ -102,8 +102,8 @@ export function useRwaDetailSlabPanel(input: {
     : "min-h-[4.5rem]";
 
   const slabControlsGap = openSeaMobile
-    ? "mt-0 flex w-full shrink-0 flex-wrap items-center justify-center gap-2.5 max-lg:min-h-[3rem] max-lg:px-5 max-lg:pb-2 max-lg:pt-2 lg:items-end lg:gap-3 lg:px-0 lg:pb-0 lg:pt-0"
-    : "mt-0 flex w-full flex-wrap items-end justify-center gap-3 sm:gap-4";
+    ? "mt-3 flex w-full shrink-0 flex-wrap items-center justify-center gap-2.5 max-lg:min-h-[3rem] max-lg:px-5 max-lg:pb-2 max-lg:pt-2 lg:mt-4 lg:items-end lg:gap-3 lg:px-0 lg:pb-0 lg:pt-0"
+    : "mt-4 flex w-full flex-wrap items-end justify-center gap-3 sm:mt-5 sm:gap-4";
 
   const slabRotateGlyphWrap = openSeaMobile
     ? "flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/95 shadow-md ring-1 ring-black/45 max-xl:h-6 max-xl:w-6 lg:h-8 lg:w-8"
