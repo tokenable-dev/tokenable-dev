@@ -210,7 +210,14 @@ export function MarketIndexes() {
     queryKey: rq.cardladderIndexes(),
     queryFn: () => getCardladderIndexes(),
     staleTime: 5 * 60_000,
-    refetchInterval: 10 * 60_000,
+    retry: 2,
+    refetchInterval: (query) => {
+      const rows = query.state.data?.data ?? [];
+      const awaitingScrape =
+        rows.length > 0 &&
+        rows.every((r) => r.changePct == null || !Number.isFinite(r.changePct));
+      return awaitingScrape ? 8_000 : 10 * 60_000;
+    },
   });
 
   const rows = useMemo(() => {

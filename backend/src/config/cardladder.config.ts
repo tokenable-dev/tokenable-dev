@@ -34,15 +34,26 @@ export default registerAs('cardladder', () => ({
     0,
     600_000,
   ),
-  indexesPrewarmEnabled:
-    flag(process.env.CARDLADDER_INDEXES_PREWARM_ENABLED) ||
-    (!flag(process.env.CARDLADDER_INDEXES_PREWARM_DISABLED) &&
-      process.env.NODE_ENV === 'production'),
+  /** Boot + interval refresh unless CARDLADDER_INDEXES_PREWARM_DISABLED=1 */
+  indexesPrewarmEnabled: !flag(process.env.CARDLADDER_INDEXES_PREWARM_DISABLED),
+  /** Max wait for an in-flight scrape on cold HTTP reads (avoids proxy socket hang-up). */
+  indexesColdWaitMs: clampInt(
+    process.env.CARDLADDER_INDEXES_COLD_WAIT_MS,
+    8_000,
+    0,
+    120_000,
+  ),
   indexesNavTimeoutMs: clampInt(
     process.env.CARDLADDER_INDEXES_NAV_TIMEOUT_MS,
-    120_000,
+    60_000,
     10_000,
-    300_000,
+    180_000,
+  ),
+  indexesCardsWaitMs: clampInt(
+    process.env.CARDLADDER_INDEXES_CARDS_WAIT_MS,
+    30_000,
+    3_000,
+    120_000,
   ),
   indexesScraperProxy: process.env.CARDLADDER_INDEXES_SCRAPER_PROXY?.trim() || '',
 }));
