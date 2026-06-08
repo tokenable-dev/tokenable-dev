@@ -77,6 +77,11 @@ CARDHEDGER_API_KEY=your_cardhedger_key
 PSA_PUBLIC_API_TOKEN=your_psa_token    # recommended for cert lookup & Variety
 # CARDHEDGER_PSA_SPECID_MAP={"9656727":"1745765714667x…"}  # optional PSA spec → Cardhedger id map
 
+# Card Ladder dashboard indexes (Playwright scrape — run `pnpm run install:browsers` once)
+# CARDLADDER_INDEXES_PREWARM_DISABLED=false   # boot + every 6h refresh (default on)
+# CARDLADDER_INDEXES_CACHE_TTL_MS=21600000    # 6h serve TTL (default)
+# CARDLADDER_INDEXES_REFRESH_INTERVAL_MS=21600000  # 6h background rescrape (default)
+
 # Collection market snapshot worker (optional — code defaults apply if omitted)
 # MARKET_SNAPSHOT_ON_DEMAND=true
 # MARKET_SNAPSHOT_STALE_AFTER_SEC=900

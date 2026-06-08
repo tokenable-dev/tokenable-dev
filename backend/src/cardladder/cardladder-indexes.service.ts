@@ -26,6 +26,7 @@ export class CardladderIndexesService
   private readonly cacheTtlMs: number;
   private readonly prewarmDelayMs: number;
   private readonly refreshIntervalMs: number;
+  private readonly coldWaitMs: number;
   private readonly diskCachePath: string;
 
   private cacheValue: CardladderIndexesResponse | null = null;
@@ -46,6 +47,8 @@ export class CardladderIndexesService
     this.refreshIntervalMs =
       this.config.get<number>('cardladder.indexesRefreshIntervalMs') ??
       6 * 60 * 60 * 1000;
+    this.coldWaitMs =
+      this.config.get<number>('cardladder.indexesColdWaitMs') ?? 8_000;
     this.diskCachePath = path.join(
       os.tmpdir(),
       `cardladder-indexes-v${DISK_CACHE_SCHEMA_VERSION}.json`,
@@ -55,6 +58,10 @@ export class CardladderIndexesService
 
   onApplicationBootstrap(): void {
     if (!this.prewarmEnabled()) return;
+    const refreshH = Math.round(this.refreshIntervalMs / 3_600_000);
+    this.logger.log(
+      `Card Ladder indexes scheduler on — prewarm in ${this.prewarmDelayMs}ms, refresh every ${refreshH}h`,
+    );
     this.prewarmTimer = setTimeout(() => {
       void this.rebuildCache().catch((err) =>
         this.logger.warn(
@@ -87,22 +94,29 @@ export class CardladderIndexesService
 
     const now = Date.now();
     const fresh =
-      this.cacheValue != null && now - this.cacheUpdatedAtMs < this.cacheTtlMs;
+      this.cacheValue != null &&
+      this.filledSlotCount(this.cacheValue) > 0 &&
+      now - this.cacheUpdatedAtMs < this.cacheTtlMs;
 
     if (fresh && this.cacheValue) {
       return { ...this.cacheValue, stale: false };
     }
 
-    if (this.cacheValue) {
+    if (this.cacheValue && this.filledSlotCount(this.cacheValue) > 0) {
       void this.ensureFreshCache();
       return { ...this.cacheValue, stale: true };
     }
 
     if (this.inflight) {
-      return this.inflight;
+      const raced = await this.raceInflight(this.coldWaitMs);
+      if (raced) return raced;
+      return this.bestEffortResponse();
     }
 
-    return this.rebuildCache();
+    void this.ensureFreshCache();
+    const raced = await this.raceInflight(this.coldWaitMs);
+    if (raced) return raced;
+    return this.bestEffortResponse();
   }
 
   private prewarmEnabled(): boolean {
@@ -113,6 +127,47 @@ export class CardladderIndexesService
     void this.rebuildCache().catch(() => undefined);
   }
 
+  private filledSlotCount(payload: CardladderIndexesResponse): number {
+    return payload.data.filter(
+      (r) => r.changePct != null && Number.isFinite(r.changePct),
+    ).length;
+  }
+
+  private bestEffortResponse(): CardladderIndexesResponse {
+    if (this.cacheValue && this.filledSlotCount(this.cacheValue) > 0) {
+      return { ...this.cacheValue, stale: true };
+    }
+    return this.emptyResponse();
+  }
+
+  private emptyResponse(): CardladderIndexesResponse {
+    return {
+      data: CARDLADDER_DASHBOARD_SLOTS.map((slot) => ({
+        id: slot.id,
+        slug: slot.slug,
+        name: slot.title.replace(/ Index$/, ''),
+        changePct: null,
+        direction: null,
+      })),
+      updatedAt: new Date(0).toISOString(),
+      source: 'cardladder',
+      stale: true,
+    };
+  }
+
+  /** Wait for in-flight scrape up to `waitMs`; null when still running. */
+  private async raceInflight(
+    waitMs: number,
+  ): Promise<CardladderIndexesResponse | null> {
+    if (!this.inflight || waitMs <= 0) return null;
+    const result = await Promise.race([
+      this.inflight.catch(() => null),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), waitMs)),
+    ]);
+    if (!result || this.filledSlotCount(result) === 0) return null;
+    return result;
+  }
+
   private async rebuildCache(): Promise<CardladderIndexesResponse> {
     if (this.inflight) return this.inflight;
 
@@ -120,13 +175,25 @@ export class CardladderIndexesService
       const started = Date.now();
       const scraped = await this.scraper.scrapeIndexes();
       const payload = this.buildResponse(scraped);
-      this.cacheValue = payload;
-      this.cacheUpdatedAtMs = Date.now();
-      this.writeDiskCache(payload);
-      this.logger.log(
-        `Card Ladder dashboard indexes cached in ${Date.now() - started}ms (${payload.data.filter((r) => r.changePct != null).length}/${payload.data.length} slots)`,
+      const filled = this.filledSlotCount(payload);
+
+      if (filled > 0) {
+        this.cacheValue = payload;
+        this.cacheUpdatedAtMs = Date.now();
+        this.writeDiskCache(payload);
+        this.logger.log(
+          `Card Ladder dashboard indexes cached in ${Date.now() - started}ms (${filled}/${payload.data.length} slots)`,
+        );
+        return { ...payload, stale: false };
+      }
+
+      this.logger.warn(
+        `Card Ladder scrape produced 0/${payload.data.length} dashboard slots in ${Date.now() - started}ms`,
       );
-      return payload;
+      if (this.cacheValue && this.filledSlotCount(this.cacheValue) > 0) {
+        return { ...this.cacheValue, stale: true };
+      }
+      return { ...payload, stale: true };
     })();
 
     try {
@@ -183,6 +250,7 @@ export class CardladderIndexesService
       };
       if (parsed.schemaVersion !== DISK_CACHE_SCHEMA_VERSION) return;
       if (!parsed.payload?.data?.length) return;
+      if (this.filledSlotCount(parsed.payload) === 0) return;
       this.cacheValue = parsed.payload;
       this.cacheUpdatedAtMs = Number(parsed.updatedAtMs) || 0;
       const ageSec = Math.round((Date.now() - this.cacheUpdatedAtMs) / 1000);
@@ -195,6 +263,7 @@ export class CardladderIndexesService
   }
 
   private writeDiskCache(payload: CardladderIndexesResponse): void {
+    if (this.filledSlotCount(payload) === 0) return;
     try {
       fs.writeFileSync(
         this.diskCachePath,
