@@ -11,6 +11,7 @@ export type ResolvePath =
   | 'card_details'
   | 'spec_id'
   | 'search'
+  | 'card_match'
   | 'none'
   | 'circuit_open';
 
@@ -550,6 +551,7 @@ export class CardhedgerMetricsService implements OnModuleInit, OnModuleDestroy {
         card_details: 0,
         spec_id: 0,
         search: 0,
+        card_match: 0,
         none: 0,
         circuit_open: 0,
       },

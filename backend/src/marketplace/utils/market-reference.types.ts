@@ -104,9 +104,20 @@ export type MarketCollectionPreview = {
       | 'sparse_sale_avg'
       | 'catalog'
       | 'comps_median'
+      | 'fmv'
       | null;
     /** Unix seconds — newest `sale_date` in comps raw payload, or history point time when basis is `latest_sale`. */
     latestSaleAt?: number | null;
+    /** CardHedger FMV confidence grade (A=≥0.7, B=≥0.5, C=≥0.3, D<0.3). Only set when spotPriceBasis='fmv'. */
+    fmvConfidenceGrade?: 'A' | 'B' | 'C' | 'D' | null;
+    /** Age of the FMV's underlying sale data in days. */
+    fmvFreshnessDays?: number | null;
+    /** FMV calculation method (e.g. 'direct', 'card_interpolation', 'anchor_multiplier'). */
+    fmvMethod?: string | null;
+    /** FMV lower price bound USD (Winsorized uncertainty band). */
+    fmvPriceLow?: number | null;
+    /** FMV upper price bound USD (Winsorized uncertainty band). */
+    fmvPriceHigh?: number | null;
     ebayNearMint: PriceBand | null;
     tcgplayerNearMint: PriceBand | null;
     ebayPsa10?: PriceBand | null;

@@ -26,6 +26,10 @@ const CARD_BADGE_KV_VALUE = "tabular-nums text-white";
 const GRID_CARD_BADGE_ROW =
   "mobile-scroll-x-contain flex min-w-0 max-w-full flex-nowrap items-center gap-1 scroll-smooth touch-pan-x [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden max-[380px]:gap-0.5 sm:gap-1.5";
 
+/** Slightly lifted from page `bg-black` — single surface on the Link so hover covers image + text. */
+const GRID_CARD_SURFACE =
+  "bg-[#0d0d0d] transition-[background-color,box-shadow] duration-200 ease-out hover:bg-[#141414] hover:shadow-[0_10px_28px_-14px_rgba(0,0,0,0.75)]";
+
 function formatBadgeCount(n: number): string {
   const abs = Math.abs(n);
   if (abs >= 1_000_000) {
@@ -101,11 +105,12 @@ export function CollectionGridCard({
   return (
     <Link
       href={`/marketplace/collections/${encodeURIComponent(collection.collectionKey)}`}
-      className="group flex h-full flex-col overflow-hidden rounded-2xl bg-black outline-none transition-[background-color,box-shadow] duration-200 ease-out hover:bg-zinc-950/90 hover:shadow-[0_10px_28px_-14px_rgba(0,0,0,0.75)]"
+      className={`group flex h-full flex-col overflow-hidden rounded-2xl outline-none ${GRID_CARD_SURFACE}`}
     >
       {/* 15% horizontal padding each side → image is 70% of card width (30% smaller).
-          Top padding keeps the image away from the Link's overflow-hidden rounded corners. */}
-      <div className="shrink-0 bg-black px-[15%] pt-[8%] pb-[3%]">
+          Top padding keeps the image away from the Link's overflow-hidden rounded corners.
+          No local background — inherits Link surface so hover applies to the full card. */}
+      <div className="shrink-0 px-[15%] pt-[8%] pb-[3%]">
         <div className="aspect-[3/4] w-full overflow-hidden rounded-md">
           {(resolvedCoverUrl || collection.coverImageUrl) ? (
             <CollectionCoverFrame
@@ -135,7 +140,7 @@ export function CollectionGridCard({
         </div>
 
         <h3
-          className="line-clamp-2 min-w-0 break-words text-[0.61rem] font-bold leading-snug text-white max-[380px]:text-[9px] sm:text-[0.79rem]"
+          className="line-clamp-2 min-w-0 break-words text-[0.61rem] font-bold leading-snug text-zinc-400 max-[380px]:text-[9px] sm:text-[0.79rem]"
           title={marketsTitle}
         >
           {marketsTitle}
@@ -149,7 +154,7 @@ export function CollectionGridCard({
             windowShort={changeWindowShort}
             titleDetail={changeCoverageHint}
             priceTitle="External eBay reference price."
-            spread
+            align="start"
           />
         </div>
       </div>

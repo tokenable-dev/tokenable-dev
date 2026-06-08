@@ -70,7 +70,7 @@ export type ResolvedCard = {
 @Injectable()
 export class CardhedgerResolveService {
   private readonly logger = new Logger(CardhedgerResolveService.name);
-  private readonly RESOLVE_CACHE_TTL_MS = 5 * 60 * 1000;
+  private readonly RESOLVE_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
   private static readonly NS_RESOLVE = 'cardhedger:resolve';
 
   constructor(
@@ -275,6 +275,12 @@ export class CardhedgerResolveService {
       ordered.push(t);
     };
 
+    // cardhedgerSearchQuery is either admin-set or derived from a CardHedger-formatted
+    // cert_info.description — both are the most specific identifier available and should
+    // be tried first, before any alias expansions. Placing it here ensures it lands within
+    // the default search-candidate cap (CARDHEDGER_MAX_SEARCH_CANDIDATES).
+    push(q.cardhedgerSearchQuery);
+
     /**
      * For known promo card types (MEP, SVP), push Cardhedger-idiomatic aliases first
      * so they are tried within the default cap of 4 before the PSA-forward queries which
@@ -376,7 +382,6 @@ export class CardhedgerResolveService {
       );
     }
 
-    push(q.cardhedgerSearchQuery);
     push(q.listingDisplayTitle);
     push(displayLabel);
     push(q.query);
@@ -1066,6 +1071,28 @@ export class CardhedgerResolveService {
       }
     }
 
+    // ── Path 3: card-match AI fallback ────────────────────────────────────────
+    // After all text-search candidates have failed, ask CardHedger's LLM to
+    // match the query description.  This is slower (LLM round-trip) but handles
+    // promo cards, unusual naming, and non-English descriptions that trip up the
+    // keyword scorer.  Only used as a last resort; confidence < 0.5 returns null
+    // from the API so we never get a match below that threshold.
+    const cardMatchResult = await this.tryCardMatchFallback(query, collectionKey);
+    if (cardMatchResult) {
+      this.metrics?.recordResolvePath('card_match');
+      this.logger.log(
+        JSON.stringify({
+          msg: 'resolve_path',
+          path: 'card_match',
+          key: collectionKey,
+          query,
+          cardId: (cardMatchResult.row as { card_id?: unknown })?.card_id ?? 'n/a',
+          confidence: cardMatchResult.confidence,
+        }),
+      );
+      return cardMatchResult;
+    }
+
     this.metrics?.recordResolvePath('none');
     this.logger.log(
       JSON.stringify({
@@ -1077,5 +1104,56 @@ export class CardhedgerResolveService {
       }),
     );
     return { query, row: null };
+  }
+
+  /**
+   * AI-powered card matching via `POST /v1/cards/card-match`.
+   * Returns a resolved card if the LLM finds a confident match (≥0.5),
+   * or null when no match is found or the request fails.
+   */
+  private async tryCardMatchFallback(
+    query: string,
+    collectionKey: string,
+  ): Promise<ResolvedCard | null> {
+    if (!query.trim()) return null;
+    try {
+      const body = await this.cardhedger.forwardJson('POST', '/v1/cards/card-match', {
+        body: { query: query.trim(), max_candidates: 10 },
+      });
+      if (typeof body !== 'object' || body == null) return null;
+      const b = body as Record<string, unknown>;
+      const match = b.match as Record<string, unknown> | null | undefined;
+      if (!match || typeof match !== 'object') return null;
+
+      const aiConfidence =
+        typeof match.confidence === 'number' && Number.isFinite(match.confidence)
+          ? match.confidence
+          : 0;
+      if (aiConfidence < 0.5) return null;
+
+      // Map AI confidence to our 'verified' / 'approximate' tiers
+      const confidence: 'verified' | 'approximate' = aiConfidence >= 0.7 ? 'verified' : 'approximate';
+
+      // CardMatchResult fields are compatible with CardhedgerCardRow (both Record<string,unknown>).
+      // Normalise the key differences so downstream scoring / pricing works unchanged.
+      const row: CardhedgerCardRow = {
+        ...match,
+        // card-match returns card_id at top level (same as card-search)
+        card_id: match.card_id,
+        // prices array is [{grade, price}] — same shape as card-search
+        prices: Array.isArray(match.prices) ? match.prices : [],
+      } as CardhedgerCardRow;
+
+      this.logger.debug(
+        `card_match_fallback key=${collectionKey} ai_confidence=${aiConfidence} mapped=${confidence} card_id=${match.card_id ?? 'n/a'}`,
+      );
+      return { query, row, confidence };
+    } catch (e) {
+      const isCircuitOpen = e instanceof Error && e.message.includes('circuit breaker');
+      this.logger.debug(
+        `card_match_fallback failed key=${collectionKey} circuit=${isCircuitOpen} err=${e instanceof Error ? e.message : String(e)}`,
+      );
+      return null;
+    }
   }
 }
