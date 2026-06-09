@@ -76,7 +76,7 @@ export function CollectionOverviewMarketsCluster({
           <div
             className={[
               "flex min-w-0 w-full max-w-full flex-col gap-3 max-lg:gap-2 max-lg:items-stretch",
-              "lg:grid lg:min-h-0 lg:items-stretch lg:gap-x-3 lg:gap-y-3",
+              "lg:grid lg:min-h-0 lg:items-stretch lg:gap-x-1 lg:gap-y-3",
               orderBookSideColumn
                 ? COLLECTION_MARKETS_CLUSTER_GRID_COLS_CLASS
                 : "lg:grid-cols-[minmax(0,1fr)]",

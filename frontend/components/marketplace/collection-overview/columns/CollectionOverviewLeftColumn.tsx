@@ -63,7 +63,7 @@ export function CollectionOverviewLeftColumn({
           (imageUrl || mobileHeadlineBlock || mobileCurrentPriceRow) ? (
             <>
               <div className="max-lg:shrink-0 max-lg:border-b max-lg:border-zinc-800/35 max-lg:px-3.5 max-lg:pb-4 max-lg:pt-2 lg:hidden">
-                <div className="flex w-full min-w-0 items-stretch gap-2.5">
+                <div className="flex w-full min-w-0 items-stretch gap-0">
                   <div className="flex min-h-[118px] min-w-0 flex-1 flex-col justify-between gap-1.5">
                     {mobileHeadlineBlock ? (
                       <div className="min-w-0">{mobileHeadlineBlock}</div>
@@ -108,7 +108,7 @@ export function CollectionOverviewLeftColumn({
               </div>
             </>
           ) : (
-            <div className="flex w-full min-w-0 flex-col gap-2 max-lg:flex-row max-lg:items-start max-lg:gap-2.5">
+            <div className="flex w-full min-w-0 flex-col gap-2 max-lg:flex-row max-lg:items-start max-lg:gap-0">
               {mobileHeadlineBlock ? (
                 <div className="min-w-0 flex-1 max-lg:pt-0.5">{mobileHeadlineBlock}</div>
               ) : null}
@@ -142,7 +142,7 @@ export function CollectionOverviewLeftColumn({
           ) : null}
         </div>
         {belowCover != null ? (
-          <div className="hidden w-full min-w-0 lg:mt-1 lg:block">{belowCover}</div>
+          <div className="hidden w-full min-w-0 lg:mt-0 lg:block">{belowCover}</div>
         ) : null}
         {heroActions != null ? (
           <div className="flex w-full max-w-[307px] shrink-0 flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-stretch sm:gap-x-2 sm:gap-y-2">

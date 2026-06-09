@@ -139,10 +139,7 @@ export default function MarketsPage() {
           <>
             <div className="mb-3 flex items-center justify-between gap-3 sm:mb-5">
               <div className="min-w-0">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-zinc-600">
-                  Browse
-                </p>
-                <h2 className="mt-1 min-w-0 text-xl font-bold leading-tight tracking-tight text-white sm:text-2xl">
+                <h2 className="min-w-0 text-xl font-bold leading-tight tracking-tight text-white sm:text-2xl">
                   All Collections
                 </h2>
               </div>

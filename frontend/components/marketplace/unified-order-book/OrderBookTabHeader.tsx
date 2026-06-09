@@ -1,5 +1,6 @@
 "use client";
 
+import { COLLECTION_ORDER_BOOK_FLUSH_INSET } from "@/components/marketplace/collectionOverviewChrome";
 import { orderBookTabLabelCls } from "@/components/marketplace/price-metrics-strip/theme";
 import type { OrderBookTab } from "@/lib/marketplace/unified-order-book";
 
@@ -28,17 +29,21 @@ export function OrderBookTabHeader({
   setTab: (tab: OrderBookTab) => void;
   flush?: boolean;
 }) {
-  const tabBase = `${orderBookTabLabelCls} px-2 py-1.5 text-center transition-colors duration-200`;
-  const tabActive = "text-white";
-  const tabInactive = "text-zinc-500 hover:text-zinc-300";
+  const tabBase = flush
+    ? `${orderBookTabLabelCls} border-b-2 border-transparent pb-2 text-left transition-colors duration-200`
+    : `${orderBookTabLabelCls} border-b-2 border-transparent px-2 pb-2.5 pt-2 text-center transition-colors duration-200`;
+  const tabActive = "border-white text-white";
+  const tabInactive = "font-medium text-zinc-500 hover:border-zinc-700 hover:text-zinc-300";
 
   return (
     <div
-      className={`relative flex w-full shrink-0 items-center px-2.5 pt-2 pb-1.5 sm:px-3 ${
-        flush ? "" : "max-lg:px-2.5 max-lg:pt-1.5 max-lg:pb-1"
+      className={`relative flex w-full shrink-0 items-end border-b border-zinc-800/70 bg-black ${
+        flush
+          ? `${COLLECTION_ORDER_BOOK_FLUSH_INSET} pb-0`
+          : "px-2.5 sm:px-3 max-lg:px-2.5 max-lg:pb-0 max-lg:pt-2"
       }`}
     >
-      <div className="flex min-w-0 w-full gap-0.5 sm:gap-1" role="tablist">
+      <div className="flex min-w-0 w-full gap-3 sm:gap-4" role="tablist">
         {TABS.map((t) => (
           <button
             key={t.id}

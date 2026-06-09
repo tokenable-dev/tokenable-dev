@@ -1,6 +1,9 @@
 "use client";
 
-import { COLLECTION_ORDER_BOOK_SCROLL_CLASS } from "@/components/marketplace/collectionOverviewChrome";
+import {
+  COLLECTION_ORDER_BOOK_FLUSH_INSET_X,
+  COLLECTION_ORDER_BOOK_SCROLL_CLASS,
+} from "@/components/marketplace/collectionOverviewChrome";
 import type { Order } from "@/lib/core";
 import { CollectionMyOrdersEmbeddedBody } from "@/components/marketplace/collection-trading/CollectionMyOrdersEmbeddedBody";
 
@@ -38,7 +41,7 @@ export function OrderBookOrdersTab({
       <div
         className={
           flush
-            ? `min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-auto px-3 py-2.5 sm:px-3.5 sm:py-3 ${COLLECTION_ORDER_BOOK_SCROLL_CLASS}`
+            ? `min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-auto py-2.5 sm:py-3 ${COLLECTION_ORDER_BOOK_FLUSH_INSET_X} ${COLLECTION_ORDER_BOOK_SCROLL_CLASS}`
             : "px-3 py-2.5 sm:px-3.5"
         }
       >

@@ -20,7 +20,7 @@ export function CollectionHeroDetailsTabs({
         <div
           role="tab"
           aria-selected
-          className="relative flex min-h-[40px] min-w-0 flex-1 items-center justify-center px-2 pb-2 pt-1.5 text-center text-[13px] font-semibold tracking-tight text-white max-lg:min-h-[28px] max-lg:px-1 max-lg:pb-1 max-lg:pt-0.5 max-lg:text-[10px] sm:min-h-0 sm:px-1 sm:pb-3 sm:pt-1 sm:text-[14px]"
+          className="relative flex min-h-[32px] min-w-0 flex-1 items-center justify-center px-2 pb-1.5 pt-1 text-center text-[13px] font-semibold tracking-tight text-white max-lg:min-h-[24px] max-lg:px-1 max-lg:pb-1 max-lg:pt-0.5 max-lg:text-[10px] sm:min-h-0 sm:px-1 sm:pb-1.5 sm:pt-0.5 sm:text-[14px]"
         >
           Details
           <span
@@ -33,12 +33,12 @@ export function CollectionHeroDetailsTabs({
           role="tab"
           aria-selected={false}
           onClick={() => onAiInsightsClick?.()}
-          className="relative flex min-h-[40px] min-w-0 flex-1 items-center justify-center px-2 pb-2 pt-1.5 text-center text-[13px] font-semibold tracking-tight text-[#a0a0a0] transition-colors hover:text-zinc-200 max-lg:min-h-[28px] max-lg:px-1 max-lg:pb-1 max-lg:pt-0.5 max-lg:text-[10px] sm:min-h-0 sm:px-1 sm:pb-3 sm:pt-1 sm:text-[14px] active:bg-white/[0.04]"
+          className="relative flex min-h-[32px] min-w-0 flex-1 items-center justify-center px-2 pb-1.5 pt-1 text-center text-[13px] font-semibold tracking-tight text-[#a0a0a0] transition-colors hover:text-zinc-200 max-lg:min-h-[24px] max-lg:px-1 max-lg:pb-1 max-lg:pt-0.5 max-lg:text-[10px] sm:min-h-0 sm:px-1 sm:pb-1.5 sm:pt-0.5 sm:text-[14px] active:bg-white/[0.04]"
         >
           AI Insights
         </button>
       </div>
-      <div className="mt-2 w-full min-w-0 max-lg:mt-2 sm:mt-3" role="tabpanel" aria-label="Details">
+      <div className="mt-1 w-full min-w-0 max-lg:mt-1" role="tabpanel" aria-label="Details">
         {detailsPanel}
       </div>
     </div>

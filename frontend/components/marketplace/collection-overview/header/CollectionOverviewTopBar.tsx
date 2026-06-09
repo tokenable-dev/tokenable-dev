@@ -56,7 +56,7 @@ export function CollectionOverviewTopBar({
 }) {
   return (
     <div
-      className={`relative px-3.5 pt-3 pb-3.5 sm:px-6 sm:py-4 lg:px-8 ${COLLECTION_DETAILS_BORDER_B} ${
+      className={`relative px-3.5 pt-3 pb-0 sm:px-6 sm:pt-4 sm:pb-0 lg:px-8 ${COLLECTION_DETAILS_BORDER_B} ${
         hideTopHeadlineBarOnMobile ? "max-lg:hidden" : ""
       }`}
     >
