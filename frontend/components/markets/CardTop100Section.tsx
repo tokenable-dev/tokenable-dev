@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTop100, useTop100Categories, type Top100Item } from "@/hooks/markets/usePokemonTop100";
+import type { Top100Category } from "@/lib/core/api/cardhedger";
 import { ASSETS } from "@/constants/assets";
 import {
   MARKET_RASTER_ICON_IMG,

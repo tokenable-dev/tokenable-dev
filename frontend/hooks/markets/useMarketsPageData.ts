@@ -6,6 +6,7 @@ import {
   getActiveOrders,
   postMarketplaceCollectionSnapshotsBatched,
   rq,
+  marketplaceApiRetryDelay,
   marketplaceRqPolicy,
   type CollectionListMarketSnapshot,
 } from "@/lib/core";
@@ -21,6 +22,8 @@ export function useMarketsOrders() {
     queryFn: getActiveOrders,
     refetchInterval: marketplaceRqPolicy.ordersRefetchMs,
     staleTime: marketplaceRqPolicy.ordersStaleMs,
+    retry: marketplaceRqPolicy.apiQueryRetry,
+    retryDelay: marketplaceApiRetryDelay,
   });
   return {
     orders: query.data ?? [],
