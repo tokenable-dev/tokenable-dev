@@ -15,6 +15,7 @@ import {
 } from "@/lib/markets/top100CardDisplay";
 import type { Top100DayChange } from "@/lib/markets/top100DayChanges";
 import { top100CardDetailHref } from "@/lib/markets/top100CardDetailUrl";
+import { formatSportCategoryDisplayLabel } from "@/lib/market/sportCategoryDisplay";
 import { TOP_CARDS_SECTION_TITLE } from "@/lib/markets/top100Copy";
 import { Top100DayChangeBadge } from "./Top100DayChangeBadge";
 import { ASSETS } from "@/constants/assets";
@@ -89,7 +90,22 @@ const CHIP_ROW =
   "mobile-scroll-x-contain flex w-full min-w-0 flex-nowrap items-stretch gap-2 scroll-smooth touch-pan-x snap-x snap-mandatory scroll-px-3 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden max-sm:gap-1.5 sm:gap-2.5";
 
 const CHIP_BUTTON =
-  "group relative inline-flex min-h-[28px] shrink-0 snap-start touch-manipulation items-center justify-center rounded-lg px-2 py-1 text-[12px] font-semibold tracking-tight transition-[color,background-color,box-shadow,transform] duration-200 ease-out hover:bg-zinc-800/45 hover:text-white active:scale-[0.985] active:text-white sm:min-h-[32px] sm:rounded-xl sm:px-3 sm:py-1.5 sm:text-[13px]";
+  "group inline-flex min-h-[28px] shrink-0 snap-start touch-manipulation items-center justify-center rounded-lg px-2 py-1 text-[12px] font-semibold tracking-tight transition-colors duration-200 ease-out hover:bg-zinc-800/45 hover:text-white active:scale-[0.985] active:text-white sm:min-h-[32px] sm:rounded-xl sm:px-3 sm:py-1.5 sm:text-[13px]";
+
+/** Align tab order with All Collections: Pokemon → NBA → MLB → NFL. */
+const TOP100_CATEGORY_SORT_ORDER: Record<string, number> = {
+  Pokemon: 0,
+  Basketball: 1,
+  Baseball: 2,
+  Football: 3,
+};
+
+function sortTop100Categories(categories: string[]): string[] {
+  return [...categories].sort(
+    (a, b) =>
+      (TOP100_CATEGORY_SORT_ORDER[a] ?? 99) - (TOP100_CATEGORY_SORT_ORDER[b] ?? 99),
+  );
+}
 
 const SCROLL_FADE =
   "pointer-events-none absolute inset-y-0 z-10 w-7 from-black via-black/80 to-transparent sm:w-9";
@@ -195,19 +211,19 @@ function TabBar({
               aria-pressed={isActive}
               className={`${CHIP_BUTTON} relative z-[1] ${
                 isActive
-                  ? "bg-mint/[0.08] text-white shadow-[0_0_20px_-12px_rgba(16,211,51,0.45)] hover:bg-mint/[0.11]"
+                  ? "bg-white/[0.06] text-white hover:bg-white/[0.09]"
                   : "bg-transparent text-zinc-400 [&_svg]:text-zinc-400"
               }`}
             >
               <span
-                className={`inline-flex items-center gap-1 whitespace-nowrap leading-none sm:gap-1.5 ${
-                  isActive ? "" : "group-hover:text-zinc-100"
-                }`}
+                className={`inline-flex items-center whitespace-nowrap leading-none ${
+                  iconSrc ? "gap-1 sm:gap-1.5" : "px-0.5"
+                } ${isActive ? "" : "group-hover:text-zinc-100"}`}
               >
                 {iconSrc ? (
                   <ChipIcon src={iconSrc} isNbaStyle={isNbaStyle} active={isActive} />
                 ) : null}
-                {cat}
+                {formatSportCategoryDisplayLabel(cat) || cat}
               </span>
             </button>
           );
@@ -233,29 +249,11 @@ const CARD_IMAGE_FILTER: CSSProperties = {
   filter: "saturate(1.04) contrast(1.02)",
 };
 
-function Top100CardImage({
-  item,
-  size = "row",
-  embedded = false,
-}: {
-  item: Top100Item;
-  size?: "row" | "podium" | "podiumHero";
-  embedded?: boolean;
-}) {
+function Top100CardImage({ item }: { item: Top100Item }) {
   const imgUrl = resolveTop100ImageUrl(item.image);
-  const isPodium = size === "podium" || size === "podiumHero";
-  const sizeClass =
-    size === "podiumHero"
-      ? "aspect-[3/4] w-full"
-      : size === "podium"
-        ? "aspect-[3/4] w-full"
-        : "aspect-[3/4] w-11 sm:w-12";
-  const frameClass = embedded
-    ? "relative shrink-0 overflow-hidden bg-[#0d0d0d]"
-    : `${IMAGE_FRAME} ${isPodium ? "rounded-2xl" : ""}`;
 
   return (
-    <div className={`${frameClass} ${sizeClass}`}>
+    <div className={`${IMAGE_FRAME} aspect-[3/4] w-11 shrink-0 sm:w-12`}>
       {imgUrl ? (
         <div className={IMAGE_INNER_PAD}>
           <Image
@@ -264,13 +262,7 @@ function Top100CardImage({
             fill
             className="object-contain"
             style={CARD_IMAGE_FILTER}
-            sizes={
-              size === "row"
-                ? "48px"
-                : size === "podiumHero"
-                  ? "300px"
-                  : "260px"
-            }
+            sizes="48px"
             unoptimized
           />
         </div>
@@ -336,119 +328,85 @@ function GradeBadge({ grade }: { grade: string | null }) {
   );
 }
 
-const PODIUM_SLOT_WIDTH = {
-  hero: "w-full sm:w-60 md:w-64",
-  default: "w-full sm:w-52 md:w-56",
-} as const;
+// ─── leaderboard row ──────────────────────────────────────────────────────────
 
-/** Centers rank-1 card in the mobile preview rail (matches View all max-w-md). */
-const PODIUM_MOBILE_SCROLL_PAD =
-  "pl-[calc((100%-min(76vw,17rem))/2)] pr-[calc((100%-min(72vw,15rem))/2)]";
-
-const PODIUM_SHELL_STYLE = {
-  gold: "border-mint/30 shadow-[0_0_36px_-18px_rgba(16,211,51,0.4)]",
-  silver: "border-white/14",
-  bronze: "border-amber-500/22",
-} as const;
-
-const PODIUM_RANK_THEME = {
-  1: {
-    header: "bg-gradient-to-r from-mint/[0.2] via-mint/[0.07] to-[#0d0d0d]",
-    rankCell: "bg-mint/25",
-    rankText: "text-lg font-bold text-mint sm:text-xl",
-    gradeText: "font-semibold text-mint/90",
-  },
-  2: {
-    header: "bg-gradient-to-r from-white/[0.14] via-white/[0.05] to-[#0d0d0d]",
-    rankCell: "bg-white/[0.1]",
-    rankText: "text-base font-bold text-zinc-100 sm:text-lg",
-    gradeText: "font-semibold text-zinc-300",
-  },
-  3: {
-    header: "bg-gradient-to-r from-amber-500/[0.16] via-amber-500/[0.05] to-[#0d0d0d]",
-    rankCell: "bg-amber-500/[0.12]",
-    rankText: "text-base font-bold text-amber-300 sm:text-lg",
-    gradeText: "font-semibold text-amber-200/85",
-  },
-} as const;
-
-function PodiumSlotMetaBar({ rank, grade }: { rank: 1 | 2 | 3; grade: string | null }) {
-  const theme = PODIUM_RANK_THEME[rank];
-
-  return (
-    <div
-      className={`flex w-full min-w-0 items-stretch ${theme.header}`}
-      aria-label={grade ? `Rank ${rank}, ${grade}` : `Rank ${rank}`}
-    >
-      <span
-        className={`flex w-10 shrink-0 items-center justify-center py-2 sm:w-11 sm:py-2.5 ${theme.rankCell}`}
-      >
-        <span className={`tabular-nums leading-none ${theme.rankText}`}>{rank}</span>
-      </span>
-      {grade ? (
-        <span className="flex min-w-0 flex-1 items-center px-2.5 py-2 sm:px-3 sm:py-2.5">
-          <span className={`truncate text-[11px] sm:text-sm ${theme.gradeText}`}>{grade}</span>
-        </span>
-      ) : null}
-    </div>
-  );
+function formatTop100SalesLabel(
+  count: number | null | undefined,
+  capitalize = false,
+): string | null {
+  if (count == null) return null;
+  return `${count.toLocaleString()} ${capitalize ? "Sales" : "sales"}`;
 }
 
-// ─── podium stage (open layout — no card boxes) ───────────────────────────────
-
-function PodiumSlot({
+function LeaderboardCardRow({
   item,
   category,
-  accent,
-  hero = false,
   dayChange,
   dayChangeLoading = false,
-  className = "",
+  emphasizeSales = false,
 }: {
   item: Top100Item;
   category: string;
-  accent: keyof typeof PODIUM_SHELL_STYLE;
-  hero?: boolean;
   dayChange?: Top100DayChange;
   dayChangeLoading?: boolean;
-  className?: string;
+  /** Top 3 preview — 90-day sales is the primary metric (price secondary). */
+  emphasizeSales?: boolean;
 }) {
-  const rank = item.rank as 1 | 2 | 3;
   const subText = top100CardSubText(item);
-
-  const slotWidth = hero ? PODIUM_SLOT_WIDTH.hero : PODIUM_SLOT_WIDTH.default;
+  const salesLabel = formatTop100SalesLabel(item["90_day_sales"], emphasizeSales);
 
   return (
     <Link
       href={top100CardDetailHref(item, category)}
-      className={`flex min-w-0 cursor-pointer flex-col items-center text-center no-underline outline-none focus-visible:ring-2 focus-visible:ring-mint/40 focus-visible:ring-offset-2 focus-visible:ring-offset-black ${slotWidth} ${className}`}
+      className={`group flex min-w-0 items-center gap-2 rounded-xl border border-white/[0.06] bg-[#0d0d0d] px-2 py-2.5 duration-200 hover:border-white/[0.1] hover:bg-[#121212] hover:shadow-[0_8px_24px_-18px_rgba(0,0,0,0.9)] sm:gap-3 sm:px-3 sm:py-3 ${CARD_CLICKABLE}`}
     >
-      <div
-        className={`w-full overflow-hidden rounded-2xl border bg-[#0d0d0d] ${PODIUM_SHELL_STYLE[accent]}`}
-      >
-        <PodiumSlotMetaBar rank={rank} grade={item.grade} />
-        <Top100CardImage item={item} size={hero ? "podiumHero" : "podium"} embedded />
-      </div>
-
-      <div className="mt-3 w-full min-w-0 px-0.5">
-        <h3
-          className="line-clamp-2 text-sm font-bold leading-snug text-white sm:text-base"
+      <RankBadge rank={item.rank} />
+      <Top100CardImage item={item} />
+      <div className="min-w-0 flex-1 overflow-hidden">
+        <p
+          className="line-clamp-1 text-[0.8rem] font-semibold leading-snug text-white sm:text-sm"
           title={top100CardTitle(item)}
         >
           {top100CardTitle(item)}
-        </h3>
+        </p>
         {subText ? (
-          <p className="mt-1.5 line-clamp-1 text-xs font-medium text-white sm:text-sm">{subText}</p>
+          <p className="mt-0.5 line-clamp-1 text-[11px] text-zinc-500">{subText}</p>
         ) : null}
-        {item["90_day_sales"] != null ? (
-          <p className="mt-2 text-xs tabular-nums text-white sm:text-sm">
-            {item["90_day_sales"].toLocaleString()} sales
+        <div className="mt-1.5 flex flex-wrap items-center gap-1.5 sm:hidden">
+          <GradeBadge grade={item.grade} />
+          {!emphasizeSales && salesLabel ? (
+            <span className="text-[10px] tabular-nums text-zinc-500">{salesLabel}</span>
+          ) : null}
+        </div>
+      </div>
+      <div className="hidden shrink-0 flex-col items-end gap-1 sm:flex">
+        <GradeBadge grade={item.grade} />
+        {!emphasizeSales && salesLabel ? (
+          <span className="text-[10px] tabular-nums text-zinc-500">{salesLabel}</span>
+        ) : null}
+      </div>
+      <div className="shrink-0 text-right max-[380px]:pl-1">
+        {emphasizeSales ? (
+          salesLabel ? (
+            <span className="text-[0.8rem] font-bold tabular-nums text-white sm:text-[0.95rem]">
+              {salesLabel}
+            </span>
+          ) : (
+            <span className="text-sm text-zinc-600">—</span>
+          )
+        ) : item.priceNum != null ? (
+          <span className="text-[0.8rem] font-bold tabular-nums text-white sm:text-[0.95rem]">
+            {formatTop100Usd(item.priceNum)}
+          </span>
+        ) : (
+          <span className="text-sm text-zinc-600">—</span>
+        )}
+        {emphasizeSales && item.priceNum != null ? (
+          <p className="mt-0.5 text-[10px] tabular-nums text-zinc-500">
+            {formatTop100Usd(item.priceNum)}
           </p>
         ) : null}
-        <p className="mt-2.5 text-base font-bold tabular-nums text-white sm:text-lg">
-          {item.priceNum != null ? formatTop100Usd(item.priceNum) : "—"}
-        </p>
-        <div className="mt-1 flex min-h-[1rem] justify-center">
+        <div className="mt-0.5 flex justify-end">
           <Top100DayChangeBadge
             change={dayChange}
             loading={dayChangeLoading}
@@ -457,65 +415,6 @@ function PodiumSlot({
         </div>
       </div>
     </Link>
-  );
-}
-
-function PodiumSkeleton() {
-  const slots = [
-    { rank: 1, hero: true, order: "order-1 sm:order-2", mobileOrder: 1 },
-    { rank: 2, hero: false, order: "order-2 sm:order-1", mobileOrder: 2 },
-    { rank: 3, hero: false, order: "order-3", mobileOrder: 3 },
-  ] as const;
-
-  return (
-    <div className="mx-auto w-full min-w-0 max-w-6xl">
-      <div className="mx-auto w-full max-w-md sm:max-w-none">
-        <div
-          className={`mobile-scroll-x-contain flex gap-3 overflow-x-auto scroll-smooth snap-x snap-mandatory pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:hidden ${PODIUM_MOBILE_SCROLL_PAD}`}
-        >
-          {slots
-            .slice()
-            .sort((a, b) => a.mobileOrder - b.mobileOrder)
-            .map(({ rank, hero }) => (
-              <div
-                key={`mobile-${rank}`}
-                className={`flex w-[min(76vw,272px)] shrink-0 snap-center animate-pulse flex-col items-center ${
-                  hero ? "max-w-[17rem]" : "max-w-[15rem]"
-                }`}
-              >
-              <div className="w-full overflow-hidden rounded-2xl border border-zinc-800/70 bg-[#0d0d0d]">
-                <div className="flex h-9">
-                  <div className="w-10 bg-zinc-800/90" />
-                  <div className="flex-1 bg-zinc-800/50" />
-                </div>
-                <div className="aspect-[3/4] w-full bg-zinc-800" />
-              </div>
-              <div className="mt-3 h-4 w-full rounded bg-zinc-800" />
-              <div className="mx-auto mt-2 h-5 w-2/3 max-w-[9rem] rounded bg-zinc-800/70" />
-              </div>
-            ))}
-        </div>
-      </div>
-      <div className="hidden gap-4 sm:grid sm:grid-cols-3 sm:items-end md:gap-6">
-        {slots.map(({ rank, hero, order }) => (
-          <div key={rank} className={`flex animate-pulse flex-col items-center justify-center ${order}`}>
-            <div
-              className={`w-full overflow-hidden rounded-2xl border border-zinc-800/70 bg-[#0d0d0d] ${
-                hero ? PODIUM_SLOT_WIDTH.hero : PODIUM_SLOT_WIDTH.default
-              }`}
-            >
-              <div className="flex h-9 sm:h-10">
-                <div className="w-10 bg-zinc-800/90 sm:w-11" />
-                <div className="flex-1 bg-zinc-800/50" />
-              </div>
-              <div className="aspect-[3/4] w-full bg-zinc-800" />
-            </div>
-            <div className="mt-3 h-4 w-full rounded bg-zinc-800" />
-            <div className="mx-auto mt-2 h-5 w-2/3 max-w-[9rem] rounded bg-zinc-800/70" />
-          </div>
-        ))}
-      </div>
-    </div>
   );
 }
 
@@ -532,150 +431,24 @@ function Top3Podium({
   getDayChange: (cardId: string) => Top100DayChange | undefined;
   dayChangeLoading?: boolean;
 }) {
-  if (loading) return <PodiumSkeleton />;
+  if (loading) return <LeaderboardSkeleton count={3} />;
 
-  const first = items[0];
-  const second = items[1];
-  const third = items[2];
-  if (!first) return null;
-
-  const mobileSlots = [first, second, third].filter(
-    (item): item is Top100Item => item != null,
-  );
+  const top3 = items.slice(0, 3);
+  if (top3.length === 0) return null;
 
   return (
-    <div className="mx-auto w-full min-w-0 max-w-6xl">
-      <div className="mx-auto w-full max-w-md sm:max-w-none">
-        <div
-          className={`mobile-scroll-x-contain flex gap-3 overflow-x-auto scroll-smooth snap-x snap-mandatory pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:hidden ${PODIUM_MOBILE_SCROLL_PAD}`}
-        >
-          {mobileSlots.map((item) => (
-            <PodiumSlot
-              key={`mobile-${item.card_id}`}
-              item={item}
-              category={category}
-              hero={item.rank === 1}
-              accent={item.rank === 1 ? "gold" : item.rank === 2 ? "silver" : "bronze"}
-              dayChange={getDayChange(item.card_id)}
-              dayChangeLoading={dayChangeLoading}
-              className={
-                item.rank === 1
-                  ? "w-[min(76vw,272px)] max-w-[17rem] shrink-0 snap-center"
-                  : "w-[min(72vw,256px)] max-w-[15rem] shrink-0 snap-center"
-              }
-            />
-          ))}
-        </div>
-      </div>
-
-      <div className="hidden gap-4 sm:grid sm:grid-cols-3 sm:items-end md:gap-6">
-        {second ? (
-          <div className="order-2 flex flex-col items-center sm:order-1">
-            <PodiumSlot
-              item={second}
-              category={category}
-              accent="silver"
-              dayChange={getDayChange(second.card_id)}
-              dayChangeLoading={dayChangeLoading}
-            />
-          </div>
-        ) : (
-          <div className="hidden sm:order-1 sm:block" aria-hidden />
-        )}
-        <div className="order-1 flex flex-col items-center sm:order-2">
-          <PodiumSlot
-            item={first}
-            category={category}
-            hero
-            accent="gold"
-            dayChange={getDayChange(first.card_id)}
-            dayChangeLoading={dayChangeLoading}
-          />
-        </div>
-        {third ? (
-          <div className="order-3 flex flex-col items-center">
-            <PodiumSlot
-              item={third}
-              category={category}
-              accent="bronze"
-              dayChange={getDayChange(third.card_id)}
-              dayChangeLoading={dayChangeLoading}
-            />
-          </div>
-        ) : (
-          <div className="hidden sm:order-3 sm:block" aria-hidden />
-        )}
-      </div>
+    <div className="space-y-2">
+      {top3.map((item) => (
+        <LeaderboardCardRow
+          key={item.card_id}
+          item={item}
+          category={category}
+          dayChange={getDayChange(item.card_id)}
+          dayChangeLoading={dayChangeLoading}
+          emphasizeSales
+        />
+      ))}
     </div>
-  );
-}
-
-// ─── leaderboard row ──────────────────────────────────────────────────────────
-
-function LeaderboardCardRow({
-  item,
-  category,
-  dayChange,
-  dayChangeLoading = false,
-}: {
-  item: Top100Item;
-  category: string;
-  dayChange?: Top100DayChange;
-  dayChangeLoading?: boolean;
-}) {
-  const subText = top100CardSubText(item);
-
-  return (
-    <Link
-      href={top100CardDetailHref(item, category)}
-      className={`group flex min-w-0 items-center gap-2 rounded-xl border border-white/[0.06] bg-[#0d0d0d] px-2 py-2.5 duration-200 hover:border-white/[0.1] hover:bg-[#121212] hover:shadow-[0_8px_24px_-18px_rgba(0,0,0,0.9)] sm:gap-3 sm:px-3 sm:py-3 ${CARD_CLICKABLE}`}
-    >
-      <RankBadge rank={item.rank} />
-      <Top100CardImage item={item} size="row" />
-      <div className="min-w-0 flex-1 overflow-hidden">
-        <p
-          className="line-clamp-1 text-[0.8rem] font-semibold leading-snug text-white sm:text-sm"
-          title={top100CardTitle(item)}
-        >
-          {top100CardTitle(item)}
-        </p>
-        {subText ? (
-          <p className="mt-0.5 line-clamp-1 text-[11px] text-zinc-500">{subText}</p>
-        ) : null}
-        <div className="mt-1.5 flex flex-wrap items-center gap-1.5 sm:hidden">
-          <GradeBadge grade={item.grade} />
-          {item["90_day_sales"] != null ? (
-            <span className="text-[10px] tabular-nums text-zinc-500">
-              {item["90_day_sales"].toLocaleString()} sales
-            </span>
-          ) : null}
-        </div>
-      </div>
-      <div className="hidden shrink-0 flex-col items-end gap-1 sm:flex">
-        <GradeBadge grade={item.grade} />
-        {item["90_day_sales"] != null ? (
-          <span className="text-[10px] tabular-nums text-zinc-500">
-            {item["90_day_sales"].toLocaleString()} sales
-          </span>
-        ) : null}
-      </div>
-      <div className="shrink-0 text-right max-[380px]:pl-1">
-        {item.priceNum != null ? (
-          <span className="text-[0.8rem] font-bold tabular-nums text-white sm:text-[0.95rem]">
-            {formatTop100Usd(item.priceNum)}
-          </span>
-        ) : (
-          <span className="text-sm text-zinc-600">—</span>
-        )}
-        <div className="mt-0.5 flex justify-end">
-          <Top100DayChangeBadge
-            change={dayChange}
-            loading={dayChangeLoading}
-            variant="compact"
-          />
-        </div>
-      </div>
-    </Link>
   );
 }
 
@@ -754,18 +527,12 @@ function ViewFullTop100Cta({
   category: string;
 }) {
   return (
-    <div className="mx-auto flex w-full max-w-md flex-col items-center gap-2 pt-1 sm:pt-2">
+    <div className="flex w-full justify-center pt-0.5 sm:pt-0">
       <Link
         href={top100FullHref(category)}
-        className="group inline-flex w-full items-center justify-center gap-2 rounded-xl border border-mint/30 bg-mint/[0.06] px-5 py-3.5 text-sm font-semibold text-mint transition-[border-color,background-color,box-shadow] duration-200 hover:border-mint/45 hover:bg-mint/[0.1] hover:shadow-[0_0_28px_-14px_rgba(16,211,51,0.45)] sm:py-4"
+        className="text-sm font-medium text-mint transition-colors hover:text-mint/85 hover:underline sm:text-[15px]"
       >
-        View all
-        <span
-          className="transition-transform duration-200 group-hover:translate-x-0.5"
-          aria-hidden
-        >
-          →
-        </span>
+        View all →
       </Link>
     </div>
   );
@@ -819,7 +586,7 @@ function TabPanel({
 
   if (variant === "preview") {
     return (
-      <div className="flex w-full flex-col items-center space-y-5 sm:space-y-6">
+      <div className="flex w-full flex-col items-center space-y-5 sm:space-y-3">
         <div className="w-full">{podium}</div>
         <ViewFullTop100Cta category={category} />
       </div>
@@ -901,21 +668,25 @@ export function CardTop100Section({
   const isFull = variant === "full";
 
   return (
-    <section className={isFull ? "" : "mb-10 sm:mb-12"}>
-      <div className="mb-4 sm:mb-5">
+    <section className={isFull ? "" : "mb-10 sm:mb-4"}>
+      <div className="mb-3 sm:mb-5">
         {isFull ? (
-          <h1 className="text-xl font-bold leading-snug tracking-tight text-white sm:text-2xl lg:text-3xl">
+          <h1 className="min-w-0 text-xl font-bold leading-tight tracking-tight text-white sm:text-2xl lg:text-3xl">
             {TOP_CARDS_SECTION_TITLE}
           </h1>
         ) : (
-          <h2 className="text-lg font-bold leading-snug tracking-tight text-white sm:text-2xl lg:text-3xl">
+          <h2 className="min-w-0 text-xl font-bold leading-tight tracking-tight text-white sm:text-2xl">
             {TOP_CARDS_SECTION_TITLE}
           </h2>
         )}
       </div>
 
-      <div className="mb-4 sm:mb-5">
-        <TabBar categories={categories} active={effectiveTab} onChange={handleTabChange} />
+      <div className="mb-4 sm:mb-4">
+        <TabBar
+          categories={sortTop100Categories(categories)}
+          active={effectiveTab}
+          onChange={handleTabChange}
+        />
       </div>
 
       <div key={effectiveTab} className="markets-tab-panel-enter">

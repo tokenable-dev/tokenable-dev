@@ -86,6 +86,11 @@ export function RwaDetailMobileColumn({
   return (
     <div className="relative flex w-full min-w-0 flex-col gap-0 max-lg:items-center lg:col-start-1 lg:items-start lg:justify-start">
       <div className={`w-full ${RWA_MOBILE_CONTENT_SCROLL_CLASS}`}>
+        <RwaDetailMobileCardHeader
+          headlineParts={detailHeadlineParts}
+          titleLoading={detailTitlePulse}
+          metadata={metadata}
+        />
         <RwaDetailAssetPanel
           metadata={metadata}
           imageUrl={imageUrl}
@@ -93,11 +98,6 @@ export function RwaDetailMobileColumn({
           collectionLabel={collectionDisplayName}
           metaLoading={metaLoading}
           openSeaMobile
-        />
-        <RwaDetailMobileCardHeader
-          headlineParts={detailHeadlineParts}
-          titleLoading={detailTitlePulse}
-          metadata={metadata}
         />
         <RwaDetailMobileSpecsPanel
           metadata={metadata}

@@ -1,10 +1,24 @@
 "use client";
 
 import Link from "next/link";
-import { Suspense } from "react";
+import { useRouter } from "next/navigation";
+import { Suspense, useEffect } from "react";
+import { TOP_CARDS_UI_ENABLED } from "@/lib/markets/top100Copy";
 import { CardTop100Section } from "./CardTop100Section";
 
 function CardTop100PageContent() {
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!TOP_CARDS_UI_ENABLED) {
+      router.replace("/markets");
+    }
+  }, [router]);
+
+  if (!TOP_CARDS_UI_ENABLED) {
+    return null;
+  }
+
   return (
     <div className="min-h-screen min-w-0 overflow-x-clip bg-black text-white">
       <div className="mx-auto w-full max-w-6xl min-w-0 px-3 pb-20 pt-8 max-[380px]:px-2 sm:px-6 sm:pb-24 sm:pt-12">

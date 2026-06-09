@@ -11,7 +11,7 @@ const TABS: {
   flexClass: string;
 }[] = [
   { id: "trades", label: "Trades", flexClass: "min-w-0 flex-1" },
-  { id: "book", label: "Order book", flexClass: "min-w-0 flex-[1.45]" },
+  { id: "book", label: "Order book", flexClass: "min-w-0 flex-1" },
   {
     id: "orders",
     label: "Orders",
@@ -30,7 +30,7 @@ export function OrderBookTabHeader({
   flush?: boolean;
 }) {
   const tabBase = flush
-    ? `${orderBookTabLabelCls} border-b-2 border-transparent pb-2 text-left transition-colors duration-200`
+    ? `${orderBookTabLabelCls} border-b-2 border-transparent pb-2 text-center transition-colors duration-200`
     : `${orderBookTabLabelCls} border-b-2 border-transparent px-2 pb-2.5 pt-2 text-center transition-colors duration-200`;
   const tabActive = "border-white text-white";
   const tabInactive = "font-medium text-zinc-500 hover:border-zinc-700 hover:text-zinc-300";

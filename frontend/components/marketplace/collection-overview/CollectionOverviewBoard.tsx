@@ -54,6 +54,7 @@ export function CollectionOverviewBoard(props: CollectionOverviewBoardProps) {
     belowCover,
     mobileCoverBelowMetrics,
     mobileCurrentPriceRow,
+    mobileHeroStatsRow,
     mobileMarketTabs,
     mobileTabbedMarketUi = false,
     marketsBelowChart,
@@ -87,10 +88,6 @@ export function CollectionOverviewBoard(props: CollectionOverviewBoardProps) {
       headlineStructuredTitle={headlineStructuredTitle}
       headlineSubtitleLine={layout.headlineSubtitleLine}
       mobileHeadlineCopy={layout.mobileHeadlineCopy}
-      categoryBadge={categoryBadge}
-      gradeBadge={gradeBadge}
-      populationBadge={populationBadge}
-      badgeLabel={badgeLabel}
       suppressHeadlineBanner={layout.suppressHeadlineBanner}
     />
   );
@@ -160,6 +157,7 @@ export function CollectionOverviewBoard(props: CollectionOverviewBoardProps) {
             useMobileTabbedMarket={layout.useMobileTabbedMarket}
             mobileHeadlineBlock={mobileHeadlineBlock}
             mobileCurrentPriceRow={mobileCurrentPriceRow}
+            mobileHeroStatsRow={mobileHeroStatsRow}
             mobileMarketTabs={mobileMarketTabs}
             mobileCoverBelowMetrics={mobileCoverBelowMetrics}
             belowCover={belowCover}

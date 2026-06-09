@@ -1,48 +1,103 @@
 "use client";
 
-import { formatUsdCompact, NO_EXTERNAL_PRICE } from "@/lib/market";
+import {
+  formatReferenceChangePeriodShort,
+  formatReferencePercentChange,
+  formatUsdCompact,
+  isFlatReferencePercentChange,
+  NO_EXTERNAL_PRICE,
+  REFERENCE_CHANGE_UNAVAILABLE_LABEL,
+  referenceChangeTone,
+  type ReferencePercentChangeResult,
+} from "@/lib/market";
+
+function changeToneClass(tone: ReturnType<typeof referenceChangeTone>): string {
+  switch (tone) {
+    case "up":
+      return "text-mint";
+    case "down":
+      return "text-rose-400";
+    default:
+      return "text-zinc-400";
+  }
+}
 
 /**
- * Mobile collection hero — market price grouped with identity copy (left column).
- * Label + value stay together; sits under title/badges beside the cover image.
+ * Mobile collection hero — price + % change on one row (left of cover thumbnail).
  */
 export function CollectionMobileCurrentPriceRow({
   priceUsd,
   loading = false,
-  label = "Market price",
+  changePct,
+  changePeriod = null,
+  changeLoading = false,
 }: {
   /** Cardhedger catalog reference (not Tokenable listing / floor). */
   priceUsd: number | null | undefined;
   loading?: boolean;
-  label?: string;
+  changePct?: number | null;
+  changePeriod?: Pick<
+    ReferencePercentChangeResult,
+    "isFullYear" | "windowSec" | "marketChangeWindow"
+  > | null;
+  changeLoading?: boolean;
 }) {
   const showPrice =
     priceUsd != null && Number.isFinite(priceUsd) && priceUsd > 0;
 
-  const labelText = label.endsWith(":") ? label : `${label}:`;
+  const changeOk = changePct != null && Number.isFinite(changePct);
+  const changeShowsPct =
+    changeOk && !isFlatReferencePercentChange(changePct);
+  const changeTone = changeShowsPct ? referenceChangeTone(changePct) : null;
+  const changePeriodShort = formatReferenceChangePeriodShort(changePeriod);
+
+  const changeLabel =
+    changeLoading && changePct == null
+      ? "…"
+      : changeOk
+        ? formatReferencePercentChange(changePct, 1)
+        : REFERENCE_CHANGE_UNAVAILABLE_LABEL;
+
+  const priceClass =
+    "text-[1.25rem] font-bold tabular-nums leading-none tracking-tight text-mint sm:text-[1.3rem]";
+  const changeClass =
+    "text-[1.25rem] font-bold tabular-nums leading-none tracking-tight sm:text-[1.3rem]";
 
   return (
     <div
-      className="min-w-0 pt-2"
+      className="flex w-full min-w-0 justify-center pt-3"
       title="External market reference from Cardhedger (eBay strip), not Tokenable list prices"
     >
-      <p className="min-w-0 text-[14px] leading-snug">
-        <span className="text-[13px] font-medium text-zinc-400">{labelText} </span>
+      <div className="inline-flex min-w-0 max-w-full flex-wrap items-baseline justify-center gap-x-14 gap-y-0.5 sm:gap-x-16">
         {loading && !showPrice ? (
           <span
-            className="inline-block h-[1.05rem] w-[5rem] max-w-full translate-y-0.5 animate-pulse rounded bg-zinc-800/80 align-middle"
+            className="inline-block h-[1.2rem] w-[5.5rem] max-w-full animate-pulse rounded bg-zinc-800/80"
             aria-hidden
           />
         ) : showPrice ? (
-          <span className="text-[18px] font-semibold tabular-nums tracking-tight text-mint">
-            {formatUsdCompact(priceUsd)}
-          </span>
+          <span className={priceClass}>{formatUsdCompact(priceUsd)}</span>
         ) : (
           <span className="text-[13px] font-medium tabular-nums text-zinc-500">
             {NO_EXTERNAL_PRICE}
           </span>
         )}
-      </p>
+        {showPrice || changeLoading ? (
+          <span className="inline-flex min-w-0 shrink-0 items-baseline gap-0.5">
+            <span
+              className={`${changeClass} ${
+                changeTone ? changeToneClass(changeTone) : "text-zinc-400"
+              }`}
+            >
+              {changeLabel}
+            </span>
+            {changePeriodShort ? (
+              <span className={`${changeClass} font-bold text-zinc-500`}>
+                {changePeriodShort}
+              </span>
+            ) : null}
+          </span>
+        ) : null}
+      </div>
     </div>
   );
 }

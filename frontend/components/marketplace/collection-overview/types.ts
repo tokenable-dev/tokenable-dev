@@ -44,6 +44,7 @@ export interface CollectionOverviewBoardProps {
   belowCover?: ReactNode;
   mobileCoverBelowMetrics?: ReactNode;
   mobileCurrentPriceRow?: ReactNode;
+  mobileHeroStatsRow?: ReactNode;
   mobileMarketTabs?: ReactNode;
   mobileTabbedMarketUi?: boolean;
   marketsBelowChart?: ReactNode;

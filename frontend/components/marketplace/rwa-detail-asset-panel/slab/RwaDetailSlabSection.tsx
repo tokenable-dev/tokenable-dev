@@ -48,10 +48,10 @@ export function RwaDetailSlabSection({
 
   return (
     <div
-      className={`min-w-0 space-y-3 ${
+      className={`min-w-0 ${
         openSeaMobile
-          ? "max-lg:order-none max-lg:w-full max-lg:items-center max-lg:space-y-3 lg:order-none lg:space-y-3"
-          : "max-xl:order-1 lg:order-none"
+          ? "max-lg:order-none max-lg:w-full max-lg:items-center max-lg:space-y-0 lg:order-none lg:space-y-3"
+          : "space-y-3 max-xl:order-1 lg:order-none"
       }`}
     >
       <div

@@ -9,7 +9,8 @@ import { CollectionPriceMetricsStrip } from "@/components/marketplace/price-metr
 import { CollectionUnifiedOrderBook } from "@/components/marketplace/unified-order-book";
 import type { CollectionUnifiedOrderBookProps } from "@/lib/marketplace/marketplaceTradingTypes";
 import {
-  CollectionMobileInformationPanel,
+  CollectionDetailMobileScrollPanel,
+  CollectionMobileHeroStatsStrip,
   CollectionMobileListingsSection,
 } from "@/components/marketplace/collection-mobile";
 import type { useCollectionDetailMarketData } from "@/hooks/collection-detail";
@@ -73,40 +74,45 @@ export function buildCollectionDetailMarketsSlots(input: {
       <CollectionUnifiedOrderBook {...collectionOrderBookProps} defaultTab="trades" />
     ),
     collectionOrderBookMobile: (
-      <CollectionUnifiedOrderBook {...collectionOrderBookProps} embedInMobileTab />
+      <CollectionUnifiedOrderBook
+        {...collectionOrderBookProps}
+        defaultTab="trades"
+        embedInMobileTab
+      />
     ),
   };
 }
 
 export function buildCollectionDetailMobilePanels(input: {
   market: MarketSlice;
-  asks: Order[];
   listingsBody: ReactNode;
+  chartPanel: ReactNode;
+  orderBookStack: ReactNode;
 }): {
-  mobileInformationPanel: ReactNode;
-  mobileListingsPanel: ReactNode;
+  mobileHeroStatsRow: ReactNode;
+  mobileScrollPanel: ReactNode;
 } {
-  const { market, asks, listingsBody } = input;
+  const { market, listingsBody, chartPanel, orderBookStack } = input;
 
   return {
-    mobileInformationPanel: (
-      <CollectionMobileInformationPanel
-        changePct={market.externalPriceChange1MoPct}
-        changePeriod={market.externalPriceChangeResult}
-        changeLoading={market.marketSeriesLoading}
+    mobileHeroStatsRow: (
+      <CollectionMobileHeroStatsStrip
         tradeVolumeUsdc={market.tradeVolumeUsdc}
         tradeVolumeLoading={market.platformTradesLoading}
         marketCapUsd={market.marketCapComputation?.usd ?? null}
         totalPopulation={market.totalPopulation}
         psaPopulationMetrics={market.psaPopulationMetrics}
-        listingCount={asks.length}
         formatMarketCap={formatMarketCapUsd}
       />
     ),
-    mobileListingsPanel: (
-      <CollectionMobileListingsSection>
-        {listingsBody}
-      </CollectionMobileListingsSection>
+    mobileScrollPanel: (
+      <CollectionDetailMobileScrollPanel
+        chartPanel={chartPanel}
+        listingsPanel={
+          <CollectionMobileListingsSection>{listingsBody}</CollectionMobileListingsSection>
+        }
+        orderBookStack={orderBookStack}
+      />
     ),
   };
 }

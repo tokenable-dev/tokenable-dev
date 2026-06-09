@@ -21,6 +21,7 @@ import {
 } from "@/lib/markets/marketsCollectionSort";
 import { CollectionGridCard } from "./CollectionGridCard";
 import { MarketsSortToolbar } from "./MarketsSortToolbar";
+import { TOP_CARDS_UI_ENABLED } from "@/lib/markets/top100Copy";
 import { CardTop100Section } from "./CardTop100Section";
 
 export default function MarketsPage() {
@@ -122,18 +123,22 @@ export default function MarketsPage() {
   return (
     <div className="min-h-screen min-w-0 overflow-x-clip bg-black text-white">
       <div className="mx-auto w-full max-w-6xl min-w-0 px-3 pb-20 pt-8 max-[380px]:px-2 sm:px-6 sm:pb-24 sm:pt-12">
-        <Suspense
-          fallback={
-            <div className="mb-10 h-64 animate-pulse rounded-2xl border border-zinc-800/50 bg-[#0d0d0d] sm:mb-12" />
-          }
-        >
-          <CardTop100Section variant="preview" />
-        </Suspense>
+        {TOP_CARDS_UI_ENABLED ? (
+          <>
+            <Suspense
+              fallback={
+                <div className="mb-10 h-64 animate-pulse rounded-2xl border border-zinc-800/50 bg-[#0d0d0d] sm:mb-12" />
+              }
+            >
+              <CardTop100Section variant="preview" />
+            </Suspense>
 
-        <div
-          className="mb-6 border-t border-white/[0.06] pt-8 sm:mb-8 sm:pt-10"
-          aria-hidden
-        />
+            <div
+              className="mb-6 border-t border-white/[0.06] pt-8 sm:mb-5 sm:pt-4"
+              aria-hidden
+            />
+          </>
+        ) : null}
 
         {!showLoadingShell && sortedForRank.length > 0 ? (
           <>
