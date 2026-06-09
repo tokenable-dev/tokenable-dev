@@ -1,0 +1,104 @@
+type Top100CardLike = {
+  description: string;
+  player: string | null;
+  set: string | null;
+  number: string | null;
+  variant: string | null;
+};
+
+export function resolveTop100ImageUrl(raw: string | null): string | null {
+  if (!raw) return null;
+  if (raw.startsWith("//")) return `https:${raw}`;
+  return raw;
+}
+
+export function formatTop100Usd(price: number): string {
+  return price.toLocaleString("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+export function top100CardSubText(card: Top100CardLike): string {
+  const subParts: string[] = [];
+  if (card.set) subParts.push(card.set);
+  if (card.number) subParts.push(`#${card.number}`);
+  if (card.variant) subParts.push(card.variant);
+  return subParts.join(" · ");
+}
+
+export function top100CardTitle(card: Top100CardLike): string {
+  return card.player ?? card.description;
+}
+
+export function parseTop100Price(price: string | null): number | null {
+  if (price == null) return null;
+  const n = parseFloat(price);
+  return Number.isFinite(n) ? n : null;
+}
+
+export type Top100DetailField = {
+  label: string;
+  value: string;
+};
+
+/** Detail rows that are not already shown in the page header (title / subtitle). */
+export function buildTop100DetailFields(params: {
+  card: Top100CardLike & {
+    category?: string | null;
+    category_group?: string | null;
+    set_type?: string | null;
+    description?: string;
+  } | null;
+  fallbackCategory: string;
+  title: string;
+  subText: string;
+}): Top100DetailField[] {
+  const { card, fallbackCategory, title, subText } = params;
+  if (!card) return [];
+
+  const rows: Top100DetailField[] = [];
+  const category = card.category?.trim();
+  const categoryGroup = card.category_group?.trim();
+  const setType = card.set_type?.trim();
+  const description = card.description?.trim();
+  const normalizedTitle = title.trim();
+
+  if (category) {
+    rows.push({ label: "Category", value: category });
+  } else if (fallbackCategory) {
+    rows.push({ label: "Category", value: fallbackCategory });
+  }
+
+  if (categoryGroup) {
+    rows.push({ label: "Category group", value: categoryGroup });
+  }
+
+  if (setType) {
+    rows.push({ label: "Set type", value: setType });
+  }
+
+  if (
+    description &&
+    description !== normalizedTitle &&
+    !(card.player && description === card.player.trim())
+  ) {
+    rows.push({ label: "Description", value: description });
+  }
+
+  return rows;
+}
+
+export function formatSnapshotDateLabel(dateKst: string): string {
+  const [y, m, d] = dateKst.split("-").map((v) => parseInt(v, 10));
+  if (!y || !m || !d) return dateKst;
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  return dt.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}

@@ -205,7 +205,8 @@ const PLACEHOLDER_ROWS: CardladderDashboardIndexRow[] = [
 const INDEX_RAIL =
   "mobile-scroll-x-contain flex w-full min-w-0 flex-nowrap items-stretch gap-2.5 overflow-x-auto scroll-smooth touch-pan-x snap-x snap-mandatory scroll-px-4 pb-1 pr-4 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:grid sm:grid-cols-2 sm:gap-5 sm:overflow-visible sm:scroll-px-0 sm:pr-0 sm:pb-0 lg:grid-cols-4";
 
-export function MarketIndexes() {
+export function MarketIndexes({ variant = "landing" }: { variant?: "landing" | "embedded" }) {
+  const embedded = variant === "embedded";
   const { data, isLoading, isFetching, isError, error } = useQuery({
     queryKey: rq.cardladderIndexes(),
     queryFn: () => getCardladderIndexes(),
@@ -232,12 +233,24 @@ export function MarketIndexes() {
   const loading = isLoading || (isFetching && !data);
 
   return (
-    <section className="relative z-10 mx-auto w-full max-w-6xl max-sm:px-0 sm:px-6 pb-10 sm:pb-16">
-      <div className="mb-4 px-4 text-center sm:mb-8 sm:px-0">
-        <h2 className="text-base font-bold tracking-tight text-white sm:text-xl">
-          Market Indexes
-        </h2>
-      </div>
+    <section
+      className={`relative z-10 w-full ${
+        embedded ? "pb-0" : "mx-auto max-w-6xl max-sm:px-0 sm:px-6 pb-10 sm:pb-16"
+      }`}
+    >
+      {!embedded ? (
+        <div className="mb-4 px-4 text-center sm:mb-8 sm:px-0">
+          <h2 className="text-base font-bold tracking-tight text-white sm:text-xl">
+            Market Indexes
+          </h2>
+        </div>
+      ) : (
+        <div className="mb-3 sm:mb-4">
+          <h2 className="text-sm font-bold tracking-tight text-zinc-300 sm:text-base">
+            Market Indexes
+          </h2>
+        </div>
+      )}
 
       {isError ? (
         <div className="mx-4 mb-4 rounded-xl border border-amber-500/20 bg-amber-500/[0.06] px-4 py-3 text-sm text-amber-200/90 sm:mx-0">

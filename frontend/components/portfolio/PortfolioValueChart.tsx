@@ -85,23 +85,50 @@ function chartValueCalloutBox(
   return { rectX, rectW, textX: rectX + rectW / 2 };
 }
 
+const CHART_SIZE = {
+  default: {
+    axisFont: 9,
+    xAxisFont: 9,
+    hoverTooltipFont: 10,
+    lastCalloutFont: 11,
+    axisFill: "#52525b",
+    leftPad: 54,
+    bottomPad: 48,
+    topPad: 20,
+  },
+  large: {
+    axisFont: 15,
+    xAxisFont: 14,
+    hoverTooltipFont: 16,
+    lastCalloutFont: 17,
+    axisFill: "#a1a1aa",
+    leftPad: 76,
+    bottomPad: 60,
+    topPad: 24,
+  },
+} as const;
+
 export function PortfolioValueChart({
   points,
   xLabels,
   compact = false,
+  size = "default",
 }: {
   points: number[];
   /** Daily snapshot dates (same length as `points` when provided). */
   xLabels?: string[];
   /** Mobile: fill container, hide volume bars, larger stroke/dots. */
   compact?: boolean;
+  /** `large` — bigger axis price/date labels (e.g. Top 100 card detail). */
+  size?: keyof typeof CHART_SIZE;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [hover, setHover] = useState<{ idx: number; x: number; y: number } | null>(null);
-  const dotR = compact ? 6 : 5;
-  const lastDotR = compact ? 7 : 5;
-  const lastDotRingR = compact ? 11 : 9;
-  const lineStroke = compact ? 2.75 : 2;
+  const sz = CHART_SIZE[size];
+  const dotR = compact ? 6 : size === "large" ? 6 : 5;
+  const lastDotR = compact ? 7 : size === "large" ? 7 : 5;
+  const lastDotRingR = compact ? 11 : size === "large" ? 12 : 9;
+  const lineStroke = compact ? 2.75 : size === "large" ? 2.5 : 2;
 
   const volumeBars = useMemo(() => {
     if (points.length < 2) return [] as number[];
@@ -122,11 +149,11 @@ export function PortfolioValueChart({
     );
 
   const W = compact ? 400 : 800;
-  const H = compact ? 228 : 260;
-  const LEFT = compact ? 44 : 54;
+  const H = compact ? 228 : size === "large" ? 296 : 260;
+  const LEFT = compact ? 44 : sz.leftPad;
   const RIGHT = compact ? 12 : 16;
-  const TOP = compact ? 16 : 20;
-  const BOT = compact ? 32 : 48;
+  const TOP = compact ? 16 : sz.topPad;
+  const BOT = compact ? 32 : sz.bottomPad;
   const showVolumeBars = !compact;
   const chartW = W - LEFT - RIGHT;
   const chartH = H - TOP - BOT;
@@ -164,7 +191,7 @@ export function PortfolioValueChart({
   const barY = TOP + chartH + 2;
   const barW = Math.max(2, chartW / Math.max(points.length, 1) - 1);
 
-  const labelStep = Math.max(1, Math.floor(points.length / 6));
+  const labelStep = Math.max(1, Math.floor(points.length / (size === "large" ? 5 : 6)));
 
   function handleMouseMove(e: React.MouseEvent<SVGSVGElement>) {
     const svg = e.currentTarget;
@@ -185,12 +212,17 @@ export function PortfolioValueChart({
   const lastX = xOf(lastIdx);
   const lastY = yOf(points[lastIdx]);
   const displayValue = points[lastIdx];
-  const lastTooltipBelow = lastY < TOP + 38;
-  const lastTooltipRectY = lastTooltipBelow ? lastY + 8 : lastY - 30;
-  const lastTooltipTextY = lastTooltipBelow ? lastY + 22 : lastY - 16;
+  const lastTooltipClearance = size === "large" ? 44 : 38;
+  const lastTooltipBelow = lastY < TOP + lastTooltipClearance;
+  const lastTooltipRectY = lastTooltipBelow
+    ? lastY + (size === "large" ? 10 : 8)
+    : lastY - (size === "large" ? 34 : 30);
+  const lastTooltipTextY = lastTooltipBelow
+    ? lastY + (size === "large" ? 26 : 22)
+    : lastY - (size === "large" ? 18 : 16);
   const chartBounds = { left: LEFT, right: W - RIGHT };
   const lastValueLabel = formatUsdCompact(displayValue);
-  const lastCallout = chartValueCalloutBox(lastX, lastValueLabel, 11, chartBounds);
+  const lastCallout = chartValueCalloutBox(lastX, lastValueLabel, sz.lastCalloutFont, chartBounds);
 
   return (
     <div ref={containerRef} className="w-full h-full min-h-[200px]">
@@ -233,11 +265,12 @@ export function PortfolioValueChart({
               />
               <text
                 x={LEFT - 8}
-                y={y + 3.5}
+                y={y + (size === "large" ? 5.5 : 3.5)}
                 textAnchor="end"
-                className="fill-gray-600"
-                fontSize="9"
-                fontFamily="monospace"
+                fill={sz.axisFill}
+                fontSize={sz.axisFont}
+                fontFamily="ui-monospace, monospace"
+                fontWeight={size === "large" ? 500 : 400}
               >
                 {fmtAxisVal(t)}
               </text>
@@ -252,11 +285,12 @@ export function PortfolioValueChart({
             <text
               key={i}
               x={xOf(i)}
-              y={H - 4}
+              y={H - (size === "large" ? 8 : 4)}
               textAnchor="middle"
-              className="fill-gray-600"
-              fontSize="9"
-              fontFamily="monospace"
+              fill={sz.axisFill}
+              fontSize={sz.xAxisFont}
+              fontFamily="ui-sans-serif, system-ui, sans-serif"
+              fontWeight={size === "large" ? 500 : 400}
             >
               {label}
             </text>
@@ -319,26 +353,36 @@ export function PortfolioValueChart({
             {/* Tooltip */}
             {(() => {
               const hoverLabel = formatUsdCompact(points[hover.idx]);
-              const hoverTip = chartValueCalloutBox(hover.x, hoverLabel, 10, chartBounds);
-              const hoverBelow = hover.y < TOP + 32;
+              const hoverTip = chartValueCalloutBox(
+                hover.x,
+                hoverLabel,
+                sz.hoverTooltipFont,
+                chartBounds,
+              );
+              const hoverBelow = hover.y < TOP + (size === "large" ? 44 : 32);
+              const tipH = size === "large" ? 28 : 20;
               return (
                 <g>
                   <rect
                     x={hoverTip.rectX}
-                    y={hoverBelow ? hover.y + 10 : hover.y - 28}
+                    y={hoverBelow ? hover.y + 10 : hover.y - (tipH + 8)}
                     width={hoverTip.rectW}
-                    height="20"
+                    height={tipH}
                     rx="6"
                     fill="#1a2332"
-                    stroke="rgba(16,211,51,0.3)"
+                    stroke="rgba(16,211,51,0.35)"
                     strokeWidth="1"
                   />
                   <text
                     x={hoverTip.textX}
-                    y={hoverBelow ? hover.y + 24 : hover.y - 15}
+                    y={
+                      hoverBelow
+                        ? hover.y + (size === "large" ? 28 : 24)
+                        : hover.y - (size === "large" ? 19 : 15)
+                    }
                     textAnchor="middle"
                     fill="white"
-                    fontSize="10"
+                    fontSize={sz.hoverTooltipFont}
                     fontWeight="600"
                   >
                     {hoverLabel}
@@ -374,18 +418,18 @@ export function PortfolioValueChart({
                 x={lastCallout.rectX}
                 y={lastTooltipRectY}
                 width={lastCallout.rectW}
-                height="22"
+                height={size === "large" ? 30 : 22}
                 rx="6"
                 fill="#1a2332"
-                stroke="rgba(16,211,51,0.3)"
+                stroke="rgba(16,211,51,0.35)"
                 strokeWidth="1"
               />
               <text
                 x={lastCallout.textX}
-                y={lastTooltipTextY}
+                y={lastTooltipTextY + (size === "large" ? 1 : 0)}
                 textAnchor="middle"
                 fill="white"
-                fontSize="11"
+                fontSize={sz.lastCalloutFont}
                 fontWeight="700"
               >
                 {lastValueLabel}
