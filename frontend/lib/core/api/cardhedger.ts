@@ -193,3 +193,36 @@ export async function getPriceByGrade(
   }
   return res.json() as Promise<PriceByGradeResponse>;
 }
+
+export type SearchWith90DayPricesRequest = {
+  search: string;
+  grade: string;
+  page?: number;
+  page_size?: number;
+};
+
+export type SearchWith90DayPricesResponse = {
+  page: number;
+  pages: number;
+  found: number;
+  search_time_ms: number;
+  cards: PriceByGradeCard[];
+};
+
+/** Grade-specific 90-day sales for a single card (Typesense search + price merge). */
+export async function get90DayPricesByGradeSearch(
+  req: SearchWith90DayPricesRequest,
+): Promise<SearchWith90DayPricesResponse> {
+  const res = await backendFetch(
+    `${getApiUrl()}/cardhedger/v1/cards/90day-prices-by-grade-search`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(req),
+    },
+  );
+  if (!res.ok) {
+    throw new Error(`CardHedger 90day-prices-by-grade-search 요청 실패 (${res.status})`);
+  }
+  return res.json() as Promise<SearchWith90DayPricesResponse>;
+}

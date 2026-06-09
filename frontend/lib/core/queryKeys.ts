@@ -162,6 +162,9 @@ export const rq = {
     ["cardhedger-prices-by-card", cardId, grade, days] as const,
   cardhedgerAllPricesByCard: (cardId: string) =>
     ["cardhedger-all-prices-by-card", cardId] as const,
+  /** Grade-specific 90-day sales via 90day-prices-by-grade-search. */
+  cardhedger90DaySalesByGrade: (cardId: string, grade: string, searchSig: string) =>
+    ["cardhedger-90day-sales-by-grade", cardId, grade, searchSig] as const,
 } as const;
 
 /** Retry Nest API blips (dev hot-reload, brief proxy ECONNRESET). */

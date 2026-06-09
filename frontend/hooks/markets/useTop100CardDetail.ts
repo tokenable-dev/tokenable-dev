@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
+  get90DayPricesByGradeSearch,
   getAllPricesByCard,
   getCardDetails,
   getPricesByCard,
@@ -43,6 +44,24 @@ export function useTop100CardDetail(cardId: string, grade: string, chartDays: nu
   });
 
   const card = detailsQuery.data?.cards?.[0] ?? null;
+  const searchText = card?.description?.trim() ?? "";
+
+  const sales90Query = useQuery({
+    queryKey: rq.cardhedger90DaySalesByGrade(cardId, grade, searchText),
+    queryFn: async () => {
+      const res = await get90DayPricesByGradeSearch({
+        search: searchText,
+        grade,
+        page: 1,
+        page_size: 50,
+      });
+      const match = res.cards.find((c) => c.card_id === cardId);
+      return match?.["90_day_sales"] ?? null;
+    },
+    staleTime: marketplaceRqPolicy.cardhedgerStaleMs,
+    gcTime: marketplaceRqPolicy.cardhedgerGcMs,
+    enabled: Boolean(cardId && grade && searchText),
+  });
 
   const gradeOptions = useMemo(() => {
     const fromAll = allGradesQuery.data?.prices ?? [];
@@ -90,6 +109,9 @@ export function useTop100CardDetail(cardId: string, grade: string, chartDays: nu
     metrics,
     sales30,
     sales7: card?.["7 Day Sales"] ?? null,
+    sales90: sales90Query.data ?? null,
+    sales90Loading: sales90Query.isLoading || sales90Query.isFetching,
+    salesAllGradesLoading: detailsQuery.isLoading,
     isLoading:
       detailsQuery.isLoading || historyQuery.isLoading || allGradesQuery.isLoading,
     isError: detailsQuery.isError || historyQuery.isError,

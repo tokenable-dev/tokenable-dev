@@ -9,6 +9,7 @@ import { useTop100 } from "@/hooks/markets/usePokemonTop100";
 import { useTop100CardDetail } from "@/hooks/markets/useTop100CardDetail";
 import {
   buildTop100DetailFields,
+  buildTop100EbaySearchQuery,
   formatTop100Usd,
   resolveTop100ImageUrl,
   top100CardSubText,
@@ -69,75 +70,126 @@ function DetailRow({ label, value }: { label: string; value: string }) {
 }
 
 type SalesVolumeItem = {
-  id: string;
+  id: "7d" | "30d" | "90d";
   label: string;
-  value: number;
+  shortLabel: string;
+  scope: string;
+  value: number | null;
+  loading: boolean;
 };
 
+function SalesScopeBadge({ label }: { label: string }) {
+  return (
+    <span
+      className="inline-flex max-w-[5.25rem] shrink-0 items-center rounded-md border border-mint/35 bg-mint/10 px-1.5 py-0.5 text-[9px] font-semibold leading-none text-mint sm:max-w-none sm:text-[10px]"
+      title={label}
+    >
+      <span className="truncate">{label}</span>
+    </span>
+  );
+}
+
 function SalesVolumePanel({
+  grade,
   sales7,
   sales30,
   sales90,
-  loading = false,
+  salesAllGradesLoading = false,
+  sales90Loading = false,
 }: {
+  grade: string;
   sales7: number | null;
   sales30: number | null;
   sales90: number | null;
-  loading?: boolean;
+  salesAllGradesLoading?: boolean;
+  sales90Loading?: boolean;
 }) {
-  const items: SalesVolumeItem[] = [];
-  if (sales7 != null) {
-    items.push({ id: "7d", label: "7 day sales", value: sales7 });
-  }
-  if (sales30 != null) {
-    items.push({ id: "30d", label: "30 day sales", value: sales30 });
-  }
-  if (sales90 != null) {
-    items.push({ id: "90d", label: "90 day sales (Top 100)", value: sales90 });
-  }
+  const items: SalesVolumeItem[] = [
+    {
+      id: "7d",
+      label: "7 day sales",
+      shortLabel: "7d sales",
+      scope: "All grades",
+      value: sales7,
+      loading: salesAllGradesLoading,
+    },
+    {
+      id: "30d",
+      label: "30 day sales",
+      shortLabel: "30d sales",
+      scope: "All grades",
+      value: sales30,
+      loading: salesAllGradesLoading,
+    },
+    {
+      id: "90d",
+      label: "90 day sales",
+      shortLabel: "90d sales",
+      scope: grade,
+      value: sales90,
+      loading: salesAllGradesLoading || sales90Loading,
+    },
+  ];
 
-  if (!loading && items.length === 0) return null;
+  const anyLoading = items.some((i) => i.loading);
+  const anyValue = items.some((i) => i.value != null);
+  if (!anyLoading && !anyValue) return null;
+
+  const renderTile = (item: SalesVolumeItem, layout: "scroll" | "grid") => {
+    const tileWidth =
+      layout === "scroll"
+        ? "w-[min(72vw,13.5rem)] shrink-0 snap-start"
+        : "min-w-0 w-full";
+
+    if (item.loading) {
+      return (
+        <div
+          key={`${layout}-${item.id}`}
+          className={`animate-pulse rounded-xl border border-white/[0.06] bg-black px-3 py-3 sm:px-4 sm:py-3.5 ${tileWidth}`}
+        >
+          <div className="flex items-center justify-between gap-1.5">
+            <div className="h-3 w-16 rounded bg-zinc-800/80 sm:h-3.5 sm:w-24" />
+            <div className="h-4 w-12 shrink-0 rounded-md bg-zinc-800/70 sm:w-14" />
+          </div>
+          <div className="mt-2.5 h-7 w-16 rounded bg-zinc-800/90 sm:mt-3 sm:h-8 sm:w-20" />
+        </div>
+      );
+    }
+
+    return (
+      <div
+        key={`${layout}-${item.id}`}
+        className={`relative overflow-hidden rounded-xl border border-white/[0.08] bg-black px-3 py-3 sm:px-4 sm:py-3.5 ${tileWidth}`}
+      >
+        <div className="flex items-center justify-between gap-1.5 sm:gap-2">
+          <p className="min-w-0 flex-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-white sm:text-[11px] sm:tracking-[0.1em]">
+            <span className="block truncate sm:hidden">{item.shortLabel}</span>
+            <span className="hidden truncate sm:block">{item.label}</span>
+          </p>
+          <SalesScopeBadge label={item.scope} />
+        </div>
+
+        <p className="mt-2 text-xl font-bold tabular-nums leading-none text-white sm:mt-2.5 sm:text-[1.75rem]">
+          {item.value != null ? item.value.toLocaleString() : "—"}
+        </p>
+      </div>
+    );
+  };
 
   return (
-    <div className="mt-4 border-t border-white/[0.06] pt-4">
-      <div className="mb-3 flex items-center justify-between gap-2">
+    <div className="mt-4 min-w-0 border-t border-white/[0.06] pt-4">
+      <div className="mb-3">
         <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500">
           Sales activity
         </p>
-        <p className="text-[10px] text-zinc-600">Graded comps · market turnover</p>
       </div>
 
-      <div className="grid grid-cols-1 gap-2.5 min-[420px]:grid-cols-3 sm:gap-3">
-        {(loading ? ["7d", "30d", "90d"] : items.map((i) => i.id)).map((key) => {
-          const item = items.find((i) => i.id === key);
-          if (loading) {
-            return (
-              <div
-                key={key}
-                className="animate-pulse rounded-xl border border-white/[0.06] bg-black px-4 py-3.5"
-              >
-                <div className="h-3.5 w-24 rounded bg-zinc-800/80" />
-                <div className="mt-3 h-8 w-20 rounded bg-zinc-800/90" />
-              </div>
-            );
-          }
-          if (!item) return null;
+      <div className="mobile-scroll-x-contain -mx-3 flex gap-2 overflow-x-auto scroll-smooth snap-x snap-mandatory scroll-px-3 pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:mx-0 sm:hidden">
+        {items.map((item) => renderTile(item, "scroll"))}
+      </div>
 
-          return (
-            <div
-              key={item.id}
-              className="relative overflow-hidden rounded-xl border border-white/[0.08] bg-black px-4 py-3.5"
-            >
-              <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-zinc-500">
-                {item.label}
-              </p>
-
-              <p className="mt-2.5 text-2xl font-bold tabular-nums leading-none text-white sm:text-[1.75rem]">
-                {item.value.toLocaleString()}
-              </p>
-            </div>
-          );
-        })}
+      <div className="hidden gap-2.5 sm:grid sm:grid-cols-3 sm:gap-3">
+        {items.map((item) => renderTile(item, "grid"))}
       </div>
     </div>
   );
@@ -170,6 +222,9 @@ function Top100CardDetailContent() {
     metrics,
     sales30,
     sales7,
+    sales90,
+    sales90Loading,
+    salesAllGradesLoading,
     isLoading,
     isError,
     error,
@@ -199,7 +254,12 @@ function Top100CardDetailContent() {
     [card, top100Item, category, title, subText],
   );
 
-  const ebaySearch = `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(title)}`;
+  const ebaySearchQuery = useMemo(() => {
+    const source = card ?? top100Item;
+    return source ? buildTop100EbaySearchQuery(source) : title;
+  }, [card, top100Item, title]);
+
+  const ebaySearch = `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(ebaySearchQuery)}`;
 
   const handleGradeChange = (next: string) => {
     setGrade(next);
@@ -372,10 +432,12 @@ function Top100CardDetailContent() {
                 </div>
 
                 <SalesVolumePanel
+                  grade={grade}
                   sales7={sales7}
                   sales30={sales30}
-                  sales90={top100Item?.["90_day_sales"] ?? null}
-                  loading={isLoading}
+                  sales90={sales90}
+                  salesAllGradesLoading={salesAllGradesLoading}
+                  sales90Loading={sales90Loading}
                 />
               </div>
             </div>
