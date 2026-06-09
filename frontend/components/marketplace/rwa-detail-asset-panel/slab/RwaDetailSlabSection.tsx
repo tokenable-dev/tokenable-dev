@@ -110,7 +110,7 @@ export function RwaDetailSlabSection({
               <div
                 className={`group/img relative h-full min-h-0 w-full overflow-hidden ${
                   openSeaMobile
-                    ? "max-lg:bg-transparent lg:aspect-[3/4] lg:rounded-2xl lg:bg-[#030508]"
+                    ? "max-lg:rounded-none max-lg:bg-transparent lg:aspect-[3/4] lg:rounded-2xl lg:bg-[#030508]"
                     : `${slabHeroSizing} bg-[#030508]`
                 }`}
               >

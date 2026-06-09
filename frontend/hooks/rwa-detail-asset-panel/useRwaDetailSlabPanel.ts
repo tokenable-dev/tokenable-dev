@@ -90,7 +90,7 @@ export function useRwaDetailSlabPanel(input: {
   const backHeroLoading = Boolean(backNeedsGateway) && backResolving;
 
   const slabHeroSizing = openSeaMobile
-    ? "relative mx-auto aspect-square w-full max-w-none shrink-0 overflow-hidden rounded-none bg-transparent max-lg:max-h-[min(72vw,340px)] lg:aspect-[3/4] lg:max-h-[min(72vh,680px)] lg:max-w-none lg:overflow-visible lg:rounded-2xl lg:bg-[#030508]"
+    ? "relative mx-auto aspect-[3/4] w-full max-w-[min(100%,360px)] shrink-0 overflow-hidden rounded-none bg-transparent max-lg:max-h-[min(72vh,520px)] sm:max-w-[min(100%,380px)] lg:max-h-[min(72vh,680px)] lg:max-w-none lg:overflow-visible lg:rounded-2xl lg:bg-[#030508]"
     : "relative mx-auto aspect-[3/4] w-full max-w-[min(100%,340px)] overflow-visible rounded-xl max-h-[min(62vh,560px)] sm:max-w-[min(100%,380px)] sm:rounded-2xl sm:max-h-[min(68vh,620px)] lg:max-w-none lg:max-h-[min(72vh,680px)]";
 
   const slabThumbSize = openSeaMobile

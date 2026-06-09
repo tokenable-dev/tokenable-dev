@@ -21,6 +21,7 @@ import {
 } from "@/lib/markets/marketsCollectionSort";
 import { CollectionGridCard } from "./CollectionGridCard";
 import { MarketsSortToolbar } from "./MarketsSortToolbar";
+import { CardTop100Section } from "./CardTop100Section";
 
 export default function MarketsPage() {
   const [categoryFilter, setCategoryFilter] = useState<CollectionCategoryFilterId>(
@@ -275,6 +276,9 @@ export default function MarketsPage() {
           </>
         )}
       </div>
+
+      {/* CardHedger Top 100 (Pokemon / Baseball / Basketball / Football) */}
+      <CardTop100Section />
 
     </div>
   );
