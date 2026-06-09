@@ -79,6 +79,23 @@ const CHIP_BUTTON =
 const SCROLL_FADE =
   "pointer-events-none absolute inset-y-0 z-10 w-7 from-black via-black/80 to-transparent sm:w-9";
 
+/** Scroll chip into view inside the horizontal rail only — never scroll the page. */
+function scrollChipIntoHorizontalRail(
+  container: HTMLElement,
+  chip: HTMLElement,
+  behavior: ScrollBehavior = "smooth",
+) {
+  const chipLeft = chip.offsetLeft;
+  const chipRight = chipLeft + chip.offsetWidth;
+  const viewLeft = container.scrollLeft;
+  const viewRight = viewLeft + container.clientWidth;
+  if (chipLeft < viewLeft) {
+    container.scrollTo({ left: chipLeft, behavior });
+  } else if (chipRight > viewRight) {
+    container.scrollTo({ left: chipRight - container.clientWidth, behavior });
+  }
+}
+
 function TabBar({
   categories,
   active,
@@ -89,6 +106,7 @@ function TabBar({
   onChange: (c: string) => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const userChangedTabRef = useRef(false);
   const [showLeft, setShowLeft] = useState(false);
   const [showRight, setShowRight] = useState(false);
 
@@ -113,12 +131,19 @@ function TabBar({
     };
   }, [updateFades, categories.length]);
 
+  // Only scroll the chip rail when the user picks a tab — not on initial page load.
   useEffect(() => {
+    if (!userChangedTabRef.current) return;
     const el = scrollRef.current;
     if (!el) return;
     const btn = el.querySelector<HTMLButtonElement>(`[data-tab="${active}"]`);
-    btn?.scrollIntoView({ inline: "nearest", block: "nearest", behavior: "smooth" });
+    if (btn) scrollChipIntoHorizontalRail(el, btn);
   }, [active]);
+
+  const handleTabChange = (cat: string) => {
+    userChangedTabRef.current = true;
+    onChange(cat);
+  };
 
   return (
     <div className="relative w-full min-w-0" role="toolbar" aria-label="Filter Top 100 by category">
@@ -133,7 +158,7 @@ function TabBar({
               key={cat}
               type="button"
               data-tab={cat}
-              onClick={() => onChange(cat)}
+              onClick={() => handleTabChange(cat)}
               aria-pressed={isActive}
               className={`${CHIP_BUTTON} ${
                 isActive
