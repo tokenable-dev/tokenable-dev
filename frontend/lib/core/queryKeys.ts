@@ -146,6 +146,14 @@ export const rq = {
   tokenBalance: (addr: string) => ["token-balance", addr] as const,
   /** RWA NFT balance count for a wallet address (on-chain). */
   rwaBalance: (addr: string) => ["rwa-balance", addr] as const,
+
+  // ── CardHedger ─────────────────────────────────────────────────────────────
+
+  /** List of available Top 100 categories (discovered daily from CardHedger). */
+  cardhedgerTop100Categories: () => ["cardhedger-top100-categories"] as const,
+  /** Cached daily Top 100 snapshot by category. */
+  cardhedgerTop100: (category: string) =>
+    ["cardhedger-top100", category] as const,
 } as const;
 
 export const marketplaceRqPolicy = {

@@ -26,6 +26,7 @@ import { RwaToken } from './marketplace/entities/rwa-token.entity';
 import { User } from './user/entities/user.entity';
 import { PortfolioDailySnapshot } from './marketplace/entities/portfolio-daily-snapshot.entity';
 import { PortfolioHiddenHolding } from './marketplace/entities/portfolio-hidden-holding.entity';
+import { CardTop100DailySnapshot } from './cardhedger/entities/card-top100-snapshot.entity';
 
 @Module({
   imports: [
@@ -62,6 +63,7 @@ import { PortfolioHiddenHolding } from './marketplace/entities/portfolio-hidden-
           User,
           PortfolioDailySnapshot,
           PortfolioHiddenHolding,
+          CardTop100DailySnapshot,
         ],
         // Schema sync is always disabled in production — use SQL migration scripts
         // under backend/sql/schema/ instead. Enabled only in non-production
