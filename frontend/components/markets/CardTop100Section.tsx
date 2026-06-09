@@ -341,6 +341,10 @@ const PODIUM_SLOT_WIDTH = {
   default: "w-full sm:w-52 md:w-56",
 } as const;
 
+/** Centers rank-1 card in the mobile preview rail (matches View all max-w-md). */
+const PODIUM_MOBILE_SCROLL_PAD =
+  "pl-[calc((100%-min(76vw,17rem))/2)] pr-[calc((100%-min(72vw,15rem))/2)]";
+
 const PODIUM_SHELL_STYLE = {
   gold: "border-mint/30 shadow-[0_0_36px_-18px_rgba(16,211,51,0.4)]",
   silver: "border-white/14",
@@ -465,17 +469,20 @@ function PodiumSkeleton() {
 
   return (
     <div className="mx-auto w-full min-w-0 max-w-6xl">
-      <div className="mobile-scroll-x-contain flex gap-3 overflow-x-auto scroll-smooth snap-x snap-mandatory scroll-px-1 pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:hidden">
-        {slots
-          .slice()
-          .sort((a, b) => a.mobileOrder - b.mobileOrder)
-          .map(({ rank, hero }) => (
-            <div
-              key={`mobile-${rank}`}
-              className={`flex w-[min(76vw,272px)] shrink-0 snap-center animate-pulse flex-col items-center ${
-                hero ? "max-w-[17rem]" : "max-w-[15rem]"
-              }`}
-            >
+      <div className="mx-auto w-full max-w-md sm:max-w-none">
+        <div
+          className={`mobile-scroll-x-contain flex gap-3 overflow-x-auto scroll-smooth snap-x snap-mandatory pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:hidden ${PODIUM_MOBILE_SCROLL_PAD}`}
+        >
+          {slots
+            .slice()
+            .sort((a, b) => a.mobileOrder - b.mobileOrder)
+            .map(({ rank, hero }) => (
+              <div
+                key={`mobile-${rank}`}
+                className={`flex w-[min(76vw,272px)] shrink-0 snap-center animate-pulse flex-col items-center ${
+                  hero ? "max-w-[17rem]" : "max-w-[15rem]"
+                }`}
+              >
               <div className="w-full overflow-hidden rounded-2xl border border-zinc-800/70 bg-[#0d0d0d]">
                 <div className="flex h-9">
                   <div className="w-10 bg-zinc-800/90" />
@@ -485,12 +492,13 @@ function PodiumSkeleton() {
               </div>
               <div className="mt-3 h-4 w-full rounded bg-zinc-800" />
               <div className="mx-auto mt-2 h-5 w-2/3 max-w-[9rem] rounded bg-zinc-800/70" />
-            </div>
-          ))}
+              </div>
+            ))}
+        </div>
       </div>
       <div className="hidden gap-4 sm:grid sm:grid-cols-3 sm:items-end md:gap-6">
         {slots.map(({ rank, hero, order }) => (
-          <div key={rank} className={`flex animate-pulse flex-col items-center ${order}`}>
+          <div key={rank} className={`flex animate-pulse flex-col items-center justify-center ${order}`}>
             <div
               className={`w-full overflow-hidden rounded-2xl border border-zinc-800/70 bg-[#0d0d0d] ${
                 hero ? PODIUM_SLOT_WIDTH.hero : PODIUM_SLOT_WIDTH.default
@@ -537,28 +545,32 @@ function Top3Podium({
 
   return (
     <div className="mx-auto w-full min-w-0 max-w-6xl">
-      <div className="mobile-scroll-x-contain flex gap-3 overflow-x-auto scroll-smooth snap-x snap-mandatory scroll-px-1 pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:hidden">
-        {mobileSlots.map((item) => (
-          <PodiumSlot
-            key={`mobile-${item.card_id}`}
-            item={item}
-            category={category}
-            hero={item.rank === 1}
-            accent={item.rank === 1 ? "gold" : item.rank === 2 ? "silver" : "bronze"}
-            dayChange={getDayChange(item.card_id)}
-            dayChangeLoading={dayChangeLoading}
-            className={
-              item.rank === 1
-                ? "w-[min(76vw,272px)] max-w-[17rem] shrink-0 snap-center"
-                : "w-[min(72vw,256px)] max-w-[15rem] shrink-0 snap-center"
-            }
-          />
-        ))}
+      <div className="mx-auto w-full max-w-md sm:max-w-none">
+        <div
+          className={`mobile-scroll-x-contain flex gap-3 overflow-x-auto scroll-smooth snap-x snap-mandatory pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:hidden ${PODIUM_MOBILE_SCROLL_PAD}`}
+        >
+          {mobileSlots.map((item) => (
+            <PodiumSlot
+              key={`mobile-${item.card_id}`}
+              item={item}
+              category={category}
+              hero={item.rank === 1}
+              accent={item.rank === 1 ? "gold" : item.rank === 2 ? "silver" : "bronze"}
+              dayChange={getDayChange(item.card_id)}
+              dayChangeLoading={dayChangeLoading}
+              className={
+                item.rank === 1
+                  ? "w-[min(76vw,272px)] max-w-[17rem] shrink-0 snap-center"
+                  : "w-[min(72vw,256px)] max-w-[15rem] shrink-0 snap-center"
+              }
+            />
+          ))}
+        </div>
       </div>
 
       <div className="hidden gap-4 sm:grid sm:grid-cols-3 sm:items-end md:gap-6">
         {second ? (
-          <div className="order-2 sm:order-1">
+          <div className="order-2 flex flex-col items-center sm:order-1">
             <PodiumSlot
               item={second}
               category={category}
@@ -570,7 +582,7 @@ function Top3Podium({
         ) : (
           <div className="hidden sm:order-1 sm:block" aria-hidden />
         )}
-        <div className="order-1 sm:order-2">
+        <div className="order-1 flex flex-col items-center sm:order-2">
           <PodiumSlot
             item={first}
             category={category}
@@ -581,7 +593,7 @@ function Top3Podium({
           />
         </div>
         {third ? (
-          <div className="order-3">
+          <div className="order-3 flex flex-col items-center">
             <PodiumSlot
               item={third}
               category={category}
@@ -742,10 +754,10 @@ function ViewFullTop100Cta({
   category: string;
 }) {
   return (
-    <div className="flex flex-col items-center gap-2 pt-1 sm:pt-2">
+    <div className="mx-auto flex w-full max-w-md flex-col items-center gap-2 pt-1 sm:pt-2">
       <Link
         href={top100FullHref(category)}
-        className="group inline-flex w-full max-w-md items-center justify-center gap-2 rounded-xl border border-mint/30 bg-mint/[0.06] px-5 py-3.5 text-sm font-semibold text-mint transition-[border-color,background-color,box-shadow] duration-200 hover:border-mint/45 hover:bg-mint/[0.1] hover:shadow-[0_0_28px_-14px_rgba(16,211,51,0.45)] sm:py-4"
+        className="group inline-flex w-full items-center justify-center gap-2 rounded-xl border border-mint/30 bg-mint/[0.06] px-5 py-3.5 text-sm font-semibold text-mint transition-[border-color,background-color,box-shadow] duration-200 hover:border-mint/45 hover:bg-mint/[0.1] hover:shadow-[0_0_28px_-14px_rgba(16,211,51,0.45)] sm:py-4"
       >
         View all
         <span
@@ -807,12 +819,10 @@ function TabPanel({
 
   if (variant === "preview") {
     return (
-      <>
-        <div className="space-y-5 sm:space-y-6">
-          {podium}
-          <ViewFullTop100Cta category={category} />
-        </div>
-      </>
+      <div className="flex w-full flex-col items-center space-y-5 sm:space-y-6">
+        <div className="w-full">{podium}</div>
+        <ViewFullTop100Cta category={category} />
+      </div>
     );
   }
 
