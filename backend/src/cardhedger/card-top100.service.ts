@@ -2,6 +2,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -45,7 +46,7 @@ export type Top100Response = {
   cards: Top100Card[];
   totalPages: number;
   snapshotDate: string;
-  fetchedAt: string;
+  fetchedAt: string | null;
   /** True when serving a previous day's data because today's row is missing. */
   stale: boolean;
 };
@@ -80,9 +81,32 @@ export class CardTop100Service implements OnApplicationBootstrap {
 
   constructor(
     private readonly cardhedger: CardhedgerService,
+    private readonly config: ConfigService,
     @InjectRepository(CardTop100DailySnapshot)
     private readonly repo: Repository<CardTop100DailySnapshot>,
   ) {}
+
+  /**
+   * On boot, fetch missing today's rows from CardHedger.
+   * Default: on in production, off in development (avoids re-fetch on every restart).
+   */
+  private bootstrapFetchEnabled(): boolean {
+    const raw = this.config.get<string>('CARD_TOP100_BOOTSTRAP_FETCH_ENABLED');
+    if (raw === '1' || raw === 'true') return true;
+    if (raw === '0' || raw === 'false') return false;
+    return this.config.get<string>('NODE_ENV') === 'production';
+  }
+
+  /**
+   * Serve requests by calling CardHedger when DB has no row.
+   * Default: on in production, off in development (DB-only reads).
+   */
+  private onDemandFetchEnabled(): boolean {
+    const raw = this.config.get<string>('CARD_TOP100_ON_DEMAND_FETCH_ENABLED');
+    if (raw === '1' || raw === 'true') return true;
+    if (raw === '0' || raw === 'false') return false;
+    return this.config.get<string>('NODE_ENV') === 'production';
+  }
 
   // ─── Bootstrap ───────────────────────────────────────────────────────────
 
@@ -93,23 +117,36 @@ export class CardTop100Service implements OnApplicationBootstrap {
   }
 
   /**
-   * Load today's rows from DB into memory.
+   * Load snapshot rows from DB into memory (today first, then latest per category).
    * Also registers any extra categories found in the DB.
    */
   private async warmCacheFromDb(): Promise<void> {
     const today = kstToday();
     try {
-      const rows = await this.repo.find({
+      const todayRows = await this.repo.find({
         where: { snapshotDateKst: today, grade: TOP100_GRADE },
       });
-      for (const row of rows) {
+      for (const row of todayRows) {
         if (row.cardsJson.length > 0) {
           this.cache.set(row.category, this.rowToResponse(row, false));
-          if (!this.knownCategories.includes(row.category)) {
-            this.knownCategories.push(row.category);
-          }
+          this.registerCategory(row.category);
         }
       }
+
+      // Dev restarts: if today is missing, still serve the most recent saved day.
+      for (const category of [...this.knownCategories]) {
+        if (this.cache.has(category)) continue;
+        const latest = await this.repo.findOne({
+          where: { category, grade: TOP100_GRADE },
+          order: { snapshotDateKst: 'DESC' },
+        });
+        if (latest && latest.cardsJson.length > 0) {
+          const stale = latest.snapshotDateKst !== today;
+          this.cache.set(category, this.rowToResponse(latest, stale));
+          this.registerCategory(latest.category);
+        }
+      }
+
       this.logger.log(
         `Card Top100: warmed ${this.cache.size} categories from DB (date=${today})`,
       );
@@ -121,23 +158,38 @@ export class CardTop100Service implements OnApplicationBootstrap {
   }
 
   /**
-   * For any known category that doesn't have today's row yet, trigger a
-   * background fetch so users never see empty data after a server restart.
+   * Production only (by default): fetch today's missing categories from CardHedger.
+   * Development relies on DB rows from prior cron/manual refresh.
    */
   private async ensureTodayDataExists(): Promise<void> {
+    if (!this.bootstrapFetchEnabled()) {
+      this.logger.log(
+        'Card Top100: bootstrap fetch disabled — serving from DB only',
+      );
+      return;
+    }
+
     const today = kstToday();
     for (const category of this.knownCategories) {
-      if (!this.cache.has(category)) {
-        this.logger.log(
-          `Card Top100: [${category}] missing today's row (${today}) — fetching now`,
+      if (this.cache.has(category)) continue;
+
+      const existing = await this.repo.findOne({
+        where: { snapshotDateKst: today, category, grade: TOP100_GRADE },
+      });
+      if (existing && existing.cardsJson.length > 0) {
+        this.cache.set(category, this.rowToResponse(existing, false));
+        continue;
+      }
+
+      this.logger.log(
+        `Card Top100: [${category}] missing today's row (${today}) — fetching now`,
+      );
+      try {
+        await this.fetchAndInsert(category, today);
+      } catch (err) {
+        this.logger.error(
+          `Card Top100: [${category}] bootstrap fetch failed — ${err instanceof Error ? err.message : err}`,
         );
-        try {
-          await this.fetchAndInsert(category, today);
-        } catch (err) {
-          this.logger.error(
-            `Card Top100: [${category}] bootstrap fetch failed — ${err instanceof Error ? err.message : err}`,
-          );
-        }
       }
     }
   }
@@ -208,19 +260,32 @@ export class CardTop100Service implements OnApplicationBootstrap {
         order: { snapshotDateKst: 'DESC' },
       });
       if (latest && latest.cardsJson.length > 0) {
-        this.logger.log(
-          `Card Top100: [${category}] serving stale row from ${latest.snapshotDateKst} — fetching today's`,
-        );
-        // Async refresh without blocking the response
-        void this.fetchAndInsert(category, today).catch(() => undefined);
+        if (this.onDemandFetchEnabled()) {
+          this.logger.log(
+            `Card Top100: [${category}] serving stale row from ${latest.snapshotDateKst} — fetching today's`,
+          );
+          void this.fetchAndInsert(category, today).catch(() => undefined);
+        }
         return this.rowToResponse(latest, true);
       }
     } catch {
       // fall through
     }
 
-    // 4. Nothing in DB — live fetch (blocks until complete)
-    return this.fetchAndInsert(category, today);
+    // 4. Nothing in DB — live fetch when enabled (production / explicit opt-in)
+    if (this.onDemandFetchEnabled()) {
+      return this.fetchAndInsert(category, today);
+    }
+
+    return {
+      category,
+      grade: TOP100_GRADE,
+      cards: [],
+      totalPages: 0,
+      snapshotDate: today,
+      fetchedAt: null,
+      stale: true,
+    };
   }
 
   /**
@@ -347,9 +412,7 @@ export class CardTop100Service implements OnApplicationBootstrap {
     });
     await this.repo.save(row);
 
-    if (!this.knownCategories.includes(category)) {
-      this.knownCategories = [...this.knownCategories, category].sort();
-    }
+    this.registerCategory(category);
 
     const resp = this.rowToResponse(row, false);
     this.cache.set(category, resp);
@@ -358,6 +421,12 @@ export class CardTop100Service implements OnApplicationBootstrap {
       `Card Top100: [${category}] date=${dateKst} — inserted ${cards.length} cards in ${Date.now() - started}ms`,
     );
     return resp;
+  }
+
+  private registerCategory(category: string): void {
+    if (!this.knownCategories.includes(category)) {
+      this.knownCategories = [...this.knownCategories, category].sort();
+    }
   }
 
   private rowToResponse(

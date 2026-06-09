@@ -275,10 +275,10 @@ export default function MarketsPage() {
           ) : null}
           </>
         )}
-      </div>
 
-      {/* CardHedger Top 100 (Pokemon / Baseball / Basketball / Football) */}
-      <CardTop100Section />
+        {/* CardHedger Top 100 (Pokemon / Baseball / Basketball / Football) */}
+        <CardTop100Section />
+      </div>
 
     </div>
   );
