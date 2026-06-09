@@ -156,11 +156,18 @@ export const rq = {
     ["cardhedger-top100", category] as const,
 } as const;
 
+/** Retry Nest API blips (dev hot-reload, brief proxy ECONNRESET). */
+export function marketplaceApiRetryDelay(attemptIndex: number): number {
+  return Math.min(1000 * 2 ** attemptIndex, 4000);
+}
+
 export const marketplaceRqPolicy = {
   // ── Existing policy values (do not remove) ─────────────────────────────────
   /** Active order book — same interval on every page */
   ordersRefetchMs: 30_000,
   ordersStaleMs: 15_000,
+  /** Extra React Query retries for same-origin /api → Nest (on top of backendFetch retries). */
+  apiQueryRetry: 2,
   collectionsStaleMs: 5 * 60_000,
   snapshotsStaleMs: 5 * 60_000,
   rwaTokensStaleMs: 60_000,

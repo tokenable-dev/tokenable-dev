@@ -1,7 +1,12 @@
 "use client";
 
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { getMarketplaceCollectionsPage, rq, marketplaceRqPolicy } from "@/lib/core";
+import {
+  getMarketplaceCollectionsPage,
+  rq,
+  marketplaceApiRetryDelay,
+  marketplaceRqPolicy,
+} from "@/lib/core";
 
 export function useMarketplaceCollectionsInfinite() {
   return useInfiniteQuery({
@@ -14,5 +19,7 @@ export function useMarketplaceCollectionsInfinite() {
     initialPageParam: null as string | null,
     getNextPageParam: (last) => last.nextCursor,
     staleTime: marketplaceRqPolicy.collectionsStaleMs,
+    retry: marketplaceRqPolicy.apiQueryRetry,
+    retryDelay: marketplaceApiRetryDelay,
   });
 }
