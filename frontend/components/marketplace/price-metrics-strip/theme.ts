@@ -36,6 +36,6 @@ export const orderBookColStartCls = "justify-self-start text-left";
 export const orderBookColMidCls = "justify-self-start text-left pl-0";
 export const orderBookColEndCls = "justify-self-end text-right";
 
-/** Trades flush — Side sits left in its column; only Time aligns right (keeps gap from Side). */
-export const orderBookTradesSideColCls = orderBookColMidCls;
+/** Trades flush — Side centered in its column; Time aligns right. */
+export const orderBookTradesSideColCls = "justify-self-center text-center";
 export const orderBookTradesTimeColCls = `${orderBookColEndCls} tabular-nums`;
