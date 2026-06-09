@@ -243,24 +243,6 @@ export function CollectionCoverFrame({
                   >
                     Click to enlarge
                   </span>
-                  <div
-                    className={`pointer-events-none absolute bottom-1 right-1 z-[6] flex h-5 w-5 items-center justify-center rounded-[5px] ${COLLECTION_DETAILS_BORDER_ALL} bg-black/45 text-white/70 backdrop-blur-sm max-lg:bottom-1 max-lg:right-1 lg:bottom-1.5 lg:right-1.5 lg:h-7 lg:w-7 lg:rounded-md lg:shadow-sm`}
-                    aria-hidden
-                    title="Click or tap for larger view"
-                  >
-                    <svg
-                      className="h-[11px] w-[11px] lg:h-[15px] lg:w-[15px]"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      aria-hidden
-                    >
-                      <circle cx="11" cy="11" r="6" />
-                      <path d="M16 16l5 5" />
-                    </svg>
-                  </div>
                 </>
               ) : null}
             </>

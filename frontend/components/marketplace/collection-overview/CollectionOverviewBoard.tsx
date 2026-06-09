@@ -151,7 +151,7 @@ export function CollectionOverviewBoard(props: CollectionOverviewBoardProps) {
       />
 
       <div
-        className={`relative grid w-full min-w-0 max-lg:grid-cols-1 max-lg:justify-items-stretch max-lg:overflow-visible lg:min-h-0 lg:flex-1 lg:overflow-hidden ${layout.gridBodyClass} max-lg:gap-0 max-lg:px-0 max-lg:pt-1.5 max-lg:pb-2 px-3.5 pt-3.5 pb-4 sm:p-6 lg:px-8 lg:pt-6 lg:pb-6`}
+        className={`relative grid w-full min-w-0 max-lg:grid-cols-1 max-lg:justify-items-stretch max-lg:overflow-visible lg:min-h-0 lg:flex-1 lg:overflow-hidden ${layout.gridBodyClass} max-lg:gap-0 max-lg:px-0 max-lg:pt-0 max-lg:pb-2 px-3.5 pt-0 pb-4 sm:px-6 sm:pb-6 lg:px-8 lg:pt-0 lg:pb-6`}
       >
         <div className="min-w-0">
           <CollectionOverviewLeftColumn

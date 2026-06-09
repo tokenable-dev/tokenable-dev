@@ -1,6 +1,9 @@
 "use client";
 
-import { COLLECTION_ORDER_BOOK_SCROLL_CLASS } from "@/components/marketplace/collectionOverviewChrome";
+import {
+  COLLECTION_ORDER_BOOK_FLUSH_INSET_X,
+  COLLECTION_ORDER_BOOK_SCROLL_CLASS,
+} from "@/components/marketplace/collectionOverviewChrome";
 import {
   ORDER_BOOK_THREE_COL_GRID,
   orderBookColEndCls,
@@ -23,7 +26,7 @@ function OrderBookColumnHeader({ flush }: { flush?: boolean }) {
   if (flush) {
     return (
       <div
-        className={`relative ${ORDER_BOOK_THREE_COL_GRID} shrink-0 px-2.5 py-1.5 sm:px-3 ${orderBookColumnHeaderCls}`}
+        className={`relative ${ORDER_BOOK_THREE_COL_GRID} shrink-0 border-b border-zinc-800/50 bg-zinc-950/50 py-1.5 ${COLLECTION_ORDER_BOOK_FLUSH_INSET_X} ${orderBookColumnHeaderCls}`}
       >
         <span className={orderBookColStartCls}>Price</span>
         <span className={orderBookColMidCls}>Size</span>
@@ -54,7 +57,13 @@ function OrderBookFooterCounts({
   showSellHint?: boolean;
 }) {
   return (
-    <div className={flush ? "shrink-0 space-y-1 px-2.5 py-1.5" : "px-2.5 py-1.5 space-y-1"}>
+    <div
+      className={
+        flush
+          ? `shrink-0 space-y-1 py-1.5 ${COLLECTION_ORDER_BOOK_FLUSH_INSET_X}`
+          : "space-y-1 px-2.5 py-1.5"
+      }
+    >
       <div className={`flex justify-between gap-2 ${orderBookColumnHeaderCls} tabular-nums`}>
         <span>
           Bids <span className="text-mint/80">{bidCount}</span>
@@ -258,8 +267,8 @@ export function OrderBookBookTab({
             emptyClassName={emptyLevelsClass(true)}
             wrapperClass={
               askScrollable
-                ? "flex min-h-full flex-col justify-end gap-px px-1 pt-0.5 pb-1"
-                : "flex flex-col gap-px px-1 pt-0.5 pb-1"
+                ? `flex min-h-full flex-col justify-end gap-px pt-0.5 pb-1 ${COLLECTION_ORDER_BOOK_FLUSH_INSET_X}`
+                : `flex flex-col gap-px pt-0.5 pb-1 ${COLLECTION_ORDER_BOOK_FLUSH_INSET_X}`
             }
           />
         </div>
@@ -274,7 +283,7 @@ export function OrderBookBookTab({
             onSelectLevel={onSelectLevel}
             flush
             emptyClassName={emptyLevelsClass(true)}
-            wrapperClass="flex flex-col gap-px px-1 pt-0.5 pb-1"
+            wrapperClass={`flex flex-col gap-px pt-0.5 pb-1 ${COLLECTION_ORDER_BOOK_FLUSH_INSET_X}`}
           />
         </div>
         <OrderBookFooterCounts bidCount={bidCount} askCount={askCount} flush />

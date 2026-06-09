@@ -14,12 +14,12 @@ export const HEADLINE_OUTLINE_TAG_MOBILE =
 
 export const HEADLINE_NAME_TEXT = "text-[15px] leading-snug tracking-normal";
 
-/** Collection detail title — 25% smaller than prior scale (design feedback). */
+/** Collection detail title — ~20% below prior headline scale. */
 export const HEADLINE_TITLE_ONE_LINE =
-  "w-full min-w-0 truncate whitespace-nowrap text-[18px] font-bold tracking-tight text-white sm:text-[22.5px] lg:text-[1.3875rem] xl:text-[1.59375rem] leading-[1.15]";
+  "w-full min-w-0 truncate whitespace-nowrap text-[14.4px] font-bold tracking-tight text-white sm:text-[18px] lg:text-[1.11rem] xl:text-[1.275rem] leading-[1.15]";
 
 export const COLLECTION_HEADLINE_TITLE_CLASS =
-  "min-w-0 break-words text-[18px] font-bold leading-snug tracking-normal text-white sm:text-[22.5px] sm:leading-[1.35] lg:text-[26.25px] lg:leading-[1.4]";
+  "min-w-0 break-words text-[14.4px] font-bold leading-snug tracking-normal text-white sm:text-[18px] sm:leading-[1.35] lg:text-[21px] lg:leading-[1.4]";
 
 export const COLLECTION_HEADLINE_TITLE_MOBILE_CLASS =
-  "text-[12.75px] font-bold leading-[1.15] tracking-tight text-white";
+  "text-[10.2px] font-bold leading-[1.15] tracking-tight text-white";

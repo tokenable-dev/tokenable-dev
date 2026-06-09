@@ -42,7 +42,7 @@ export function OrderBookDepthLevelRow({
       } ${selected && interactive ? `ring-1 ${selectedRing} bg-white/[0.06]` : ""}`;
 
   const totalUsdc = level.price * level.count;
-  const flushGridClass = `pointer-events-none relative z-10 ${ORDER_BOOK_THREE_COL_GRID} w-full items-center px-2 py-0.5 leading-none ${orderBookRowValueCls}`;
+  const flushGridClass = `pointer-events-none relative z-10 ${ORDER_BOOK_THREE_COL_GRID} w-full items-center py-0.5 leading-none ${orderBookRowValueCls}`;
   const legacyGridClass = `relative z-10 grid grid-cols-[1fr_44px] gap-1.5 w-full px-2 py-1 items-center leading-none pointer-events-none ${orderBookRowValueCls}`;
 
   const rowBody = (

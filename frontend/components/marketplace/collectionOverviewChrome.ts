@@ -1,3 +1,8 @@
+import {
+  metricPanelLeadingInsetCls,
+  metricPanelLeadingInsetXCls,
+} from "@/components/marketplace/price-metrics-strip/theme";
+
 /**
  * Visual chrome aligned with {@link CollectionCoverFrame} hero (gradient bezel + inner mat).
  * Used around the marketplace cluster on collection detail (chart · order book · trade).
@@ -18,6 +23,10 @@ export const COLLECTION_DETAILS_BORDER_Y = "border-y border-black";
 export const COLLECTION_MARKET_CLUSTER_MAT =
   `rounded-[1.15rem] sm:rounded-[1.2rem] ${COLLECTION_DETAILS_BG_CLASS} px-2.5 pt-2 max-lg:pb-1.5 pb-2.5 sm:px-3.5 sm:pt-2.5 sm:pb-3.5 lg:pl-5 lg:pr-4 lg:pt-2 lg:pb-4`;
 
+/** Flush order book — x-axis aligned with {@link MetricTile} panelCell (first column). */
+export const COLLECTION_ORDER_BOOK_FLUSH_INSET = metricPanelLeadingInsetCls;
+export const COLLECTION_ORDER_BOOK_FLUSH_INSET_X = metricPanelLeadingInsetXCls;
+
 /** Outer rim — tight ring matching {@link CollectionCoverFrame} hero bezel thickness. */
 export const COLLECTION_MARKET_CLUSTER_BEZEL =
   `p-[2px] sm:p-[3px] rounded-[1.28rem] sm:rounded-[1.35rem] ${COLLECTION_DETAILS_BG_CLASS}`;
@@ -37,9 +46,12 @@ export const COLLECTION_MARKETS_ORDER_BOOK_COLUMN_WIDTH_CLASS =
 export const COLLECTION_MARKETS_ORDER_BOOK_FRAME =
   `w-[min(100%,320px)] shrink-0 rounded-lg ${COLLECTION_DETAILS_BG_CLASS} max-lg:h-[min(400px,54svh)] max-lg:w-full lg:min-h-0 lg:w-[320px] lg:max-w-[320px] lg:flex-1`;
 
-/** Markets cluster grid when chart + order book share a row (desktop). */
+/**
+ * Markets cluster grid when chart + order book share a row (desktop).
+ * Trailing track keeps the book column off the panel’s right edge (shift left toward chart).
+ */
 export const COLLECTION_MARKETS_CLUSTER_GRID_COLS_CLASS =
-  "lg:grid-cols-[minmax(0,1fr)_320px]";
+  "lg:grid-cols-[minmax(0,1fr)_320px_minmax(1.25rem,2rem)]";
 
 /** Dual chart in collection markets mat — same fill as mat; no inset border/frame line. */
 export const COLLECTION_CHART_SURFACE =

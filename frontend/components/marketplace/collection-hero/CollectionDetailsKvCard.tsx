@@ -26,7 +26,7 @@ function CompactDetailsBody({
   return (
     <article className="mx-auto w-full min-w-0 max-w-[min(100%,20rem)] bg-transparent px-3 py-2 lg:hidden">
       <h2 className="sr-only">{title}</h2>
-      <dl className="flex w-full min-w-0 flex-col gap-y-2.5">
+      <dl className="flex w-full min-w-0 flex-col gap-y-1.5">
         {rows.map((row) => (
           <div key={row.id} className="flex items-start justify-between gap-4">
             <dt
@@ -63,31 +63,25 @@ function FullDetailsBody({
   footer?: ReactNode;
 }) {
   return (
-    <article className={`hidden rounded-2xl ${COLLECTION_DETAILS_BG_CLASS} px-3 py-3 sm:px-5 sm:py-5 lg:px-6 lg:py-6 lg:block`}>
-      <h2
-        className={`${detailsKvFont.className} text-[16px] font-bold leading-[140%] tracking-normal text-white sm:text-[17px]`}
-      >
-        {title}
-      </h2>
+    <article className={`hidden rounded-2xl ${COLLECTION_DETAILS_BG_CLASS} px-3 py-2 sm:px-4 sm:py-3 lg:px-5 lg:pb-4 lg:pt-2 lg:block`}>
+      <h2 className="sr-only">{title}</h2>
       {subtitle?.trim() ? (
-        <p
-          className={`${detailsKvFont.className} mt-2 text-[16px] font-bold leading-[140%] tracking-normal text-white sm:text-[17px]`}
-        >
-          {subtitle}
-        </p>
+        <p className="sr-only">{subtitle}</p>
       ) : null}
       {catalogLine?.trim() ? (
         <p
-          className={`${detailsKvFont.className} mt-1 text-[11px] font-normal leading-snug tracking-normal text-[#a0a0a0] sm:text-[12px] sm:leading-[140%]`}
+          className={`${detailsKvFont.className} text-[11px] font-normal leading-snug tracking-normal text-[#a0a0a0] sm:text-[12px] sm:leading-[140%]`}
         >
           {catalogLine}
         </p>
       ) : null}
 
       {rows.length > 0 ? (
-        <dl className="mt-3 space-y-0 sm:mt-4">
+        <dl
+          className={`space-y-0 ${catalogLine?.trim() ? "mt-1.5 sm:mt-2" : ""}`}
+        >
           {rows.map((row) => (
-            <div key={row.id} className="flex gap-2 py-2 sm:gap-3 sm:py-2.5">
+            <div key={row.id} className="flex gap-2 py-1 sm:gap-2.5 sm:py-1.5">
               <dt className={ROW_LABEL_CLASS}>{row.label}</dt>
               <dd className={ROW_VALUE_CLASS}>{row.value}</dd>
             </div>
@@ -96,7 +90,7 @@ function FullDetailsBody({
       ) : null}
 
       {footer ? (
-        <div className={`${rows.length > 0 ? "mt-3 pt-3 sm:mt-4 sm:pt-4" : "mt-1"}`}>{footer}</div>
+        <div className={`${rows.length > 0 ? "mt-2 pt-2 sm:mt-2.5 sm:pt-2.5" : "mt-1"}`}>{footer}</div>
       ) : null}
     </article>
   );
