@@ -6,8 +6,8 @@ import {
 } from "@/components/marketplace/collectionOverviewChrome";
 import {
   ORDER_BOOK_THREE_COL_GRID,
+  orderBookBookSizeColCls,
   orderBookColEndCls,
-  orderBookColMidCls,
   orderBookColStartCls,
   orderBookColumnHeaderCls,
   orderBookRowValueCls,
@@ -29,7 +29,7 @@ function OrderBookColumnHeader({ flush }: { flush?: boolean }) {
         className={`relative ${ORDER_BOOK_THREE_COL_GRID} shrink-0 border-b border-zinc-800/50 bg-zinc-950/50 py-1.5 ${COLLECTION_ORDER_BOOK_FLUSH_INSET_X} ${orderBookColumnHeaderCls}`}
       >
         <span className={orderBookColStartCls}>Price</span>
-        <span className={orderBookColMidCls}>Size</span>
+        <span className={orderBookBookSizeColCls}>Size</span>
         <span className={`${orderBookColEndCls} tabular-nums`}>Total</span>
       </div>
     );

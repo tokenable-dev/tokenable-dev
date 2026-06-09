@@ -2,8 +2,8 @@
 
 import {
   ORDER_BOOK_THREE_COL_GRID,
+  orderBookBookSizeColCls,
   orderBookColEndCls,
-  orderBookColMidCls,
   orderBookColStartCls,
   orderBookRowValueCls,
 } from "@/components/marketplace/price-metrics-strip/theme";
@@ -55,7 +55,7 @@ export function OrderBookDepthLevelRow({
         <span className={`${priceClass} ${orderBookColStartCls}`}>
           {formatOrderBookPriceUsdc(level.price)}
         </span>
-        <span className={`text-zinc-200/90 ${orderBookColMidCls}`}>{level.count}</span>
+        <span className={`text-zinc-200/90 ${orderBookBookSizeColCls}`}>{level.count}</span>
         {flush ? (
           <span className={`text-zinc-200/90 ${orderBookColEndCls}`}>
             {formatOrderBookPriceUsdc(totalUsdc)}

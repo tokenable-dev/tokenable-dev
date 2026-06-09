@@ -108,10 +108,10 @@ export function RwaDetailSlabSection({
           ) : imageUrl ? (
             <>
               <div
-                className={`group/img relative h-full min-h-0 w-full overflow-hidden ${
+                className={`group/img relative w-full ${
                   openSeaMobile
-                    ? "max-lg:rounded-none max-lg:bg-transparent lg:aspect-[3/4] lg:rounded-2xl lg:bg-[#030508]"
-                    : `${slabHeroSizing} bg-[#030508]`
+                    ? "max-lg:overflow-visible max-lg:rounded-none max-lg:bg-transparent lg:aspect-[3/4] lg:h-full lg:min-h-0 lg:overflow-hidden lg:rounded-2xl lg:bg-[#030508]"
+                    : `${slabHeroSizing} h-full min-h-0 overflow-hidden bg-[#030508]`
                 }`}
               >
                 {showSlabFront ? (
@@ -120,7 +120,11 @@ export function RwaDetailSlabSection({
                     <img
                       src={imageUrl}
                       alt={`${slabImageTitle} — slab front`}
-                      className="h-full w-full min-h-0 object-contain object-center"
+                      className={
+                        openSeaMobile
+                          ? "block h-auto w-full max-w-full object-contain object-center lg:h-full lg:w-full lg:min-h-0"
+                          : "h-full w-full min-h-0 object-contain object-center"
+                      }
                       draggable={false}
                       referrerPolicy="no-referrer"
                     />
@@ -143,7 +147,11 @@ export function RwaDetailSlabSection({
                     <img
                       src={effectiveBackUrl}
                       alt={`${slabImageTitle} — slab back`}
-                      className="h-full w-full min-h-0 object-contain object-center"
+                      className={
+                        openSeaMobile
+                          ? "block h-auto w-full max-w-full object-contain object-center lg:h-full lg:w-full lg:min-h-0"
+                          : "h-full w-full min-h-0 object-contain object-center"
+                      }
                       draggable={false}
                       loading="lazy"
                       referrerPolicy="no-referrer"
