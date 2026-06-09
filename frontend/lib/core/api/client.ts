@@ -17,6 +17,8 @@ export function getApiUrl(): string {
 }
 
 const DEFAULT_API_FETCH_TIMEOUT_MS = 25_000;
+
+export type BackendFetchInit = RequestInit & { timeoutMs?: number };
 /** Retry count after the first attempt (2 retries = 3 total attempts). */
 const TRANSIENT_NETWORK_RETRY_COUNT = 2;
 const TRANSIENT_NETWORK_RETRY_BASE_MS = 400;
@@ -77,25 +79,26 @@ function toBackendFetchError(err: unknown, url: string, timeoutMs: number): Erro
   return err instanceof Error ? err : new Error(String(err));
 }
 
-async function backendFetchOnce(url: string, init?: RequestInit): Promise<Response> {
-  const timeoutMs = DEFAULT_API_FETCH_TIMEOUT_MS;
+async function backendFetchOnce(url: string, init?: BackendFetchInit): Promise<Response> {
+  const timeoutMs = init?.timeoutMs ?? DEFAULT_API_FETCH_TIMEOUT_MS;
+  const { timeoutMs: _timeoutMs, ...fetchInit } = init ?? {};
   const timeoutSignal =
     typeof AbortSignal !== "undefined" && "timeout" in AbortSignal
       ? AbortSignal.timeout(timeoutMs)
       : null;
   const signal =
-    init?.signal && timeoutSignal
-      ? mergeAbortSignals(init.signal, timeoutSignal)
-      : init?.signal ?? timeoutSignal ?? undefined;
+    fetchInit.signal && timeoutSignal
+      ? mergeAbortSignals(fetchInit.signal, timeoutSignal)
+      : fetchInit.signal ?? timeoutSignal ?? undefined;
 
   try {
-    return await fetch(url, { ...init, credentials: "include", signal });
+    return await fetch(url, { ...fetchInit, credentials: "include", signal });
   } catch (err) {
     throw toBackendFetchError(err, url, timeoutMs);
   }
 }
 
-export async function backendFetch(url: string, init?: RequestInit): Promise<Response> {
+export async function backendFetch(url: string, init?: BackendFetchInit): Promise<Response> {
   let lastError: unknown;
   const maxAttempts = TRANSIENT_NETWORK_RETRY_COUNT + 1;
 

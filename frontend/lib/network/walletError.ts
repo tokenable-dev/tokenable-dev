@@ -254,6 +254,14 @@ export function mapWalletError(err: unknown): WalletErrorResult {
     };
   }
 
+  if (/api request timed out/i.test(lower)) {
+    return {
+      code: "TIMEOUT",
+      message:
+        "The server took too long to register your listing. It may still have been saved — refresh Portfolio before trying again.",
+    };
+  }
+
   if (/timeout|timed out|time out|deadline/i.test(lower)) {
     return {
       code: "TIMEOUT",
