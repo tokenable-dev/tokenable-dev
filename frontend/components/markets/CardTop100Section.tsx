@@ -336,14 +336,9 @@ function GradeBadge({ grade }: { grade: string | null }) {
   );
 }
 
-const PODIUM_IMAGE_WIDTH = {
-  hero: "w-[min(252px,70vw)] sm:w-60 md:w-64",
-  default: "w-[min(220px,62vw)] sm:w-52 md:w-56",
-} as const;
-
-const PODIUM_TEXT_WIDTH = {
-  hero: "w-[min(292px,82vw)] sm:w-72 md:w-80",
-  default: "w-[min(264px,76vw)] sm:w-64 md:w-72",
+const PODIUM_SLOT_WIDTH = {
+  hero: "w-full sm:w-60 md:w-64",
+  default: "w-full sm:w-52 md:w-56",
 } as const;
 
 const PODIUM_SHELL_STYLE = {
@@ -378,17 +373,17 @@ function PodiumSlotMetaBar({ rank, grade }: { rank: 1 | 2 | 3; grade: string | n
 
   return (
     <div
-      className={`flex w-full items-stretch ${theme.header}`}
+      className={`flex w-full min-w-0 items-stretch ${theme.header}`}
       aria-label={grade ? `Rank ${rank}, ${grade}` : `Rank ${rank}`}
     >
       <span
-        className={`flex min-w-[2.75rem] shrink-0 items-center justify-center px-3 py-2 sm:min-w-[3rem] sm:px-3.5 sm:py-2.5 ${theme.rankCell}`}
+        className={`flex w-10 shrink-0 items-center justify-center py-2 sm:w-11 sm:py-2.5 ${theme.rankCell}`}
       >
         <span className={`tabular-nums leading-none ${theme.rankText}`}>{rank}</span>
       </span>
       {grade ? (
-        <span className="flex min-w-0 flex-1 items-center px-3 py-2 sm:px-3.5 sm:py-2.5">
-          <span className={`truncate text-xs sm:text-sm ${theme.gradeText}`}>{grade}</span>
+        <span className="flex min-w-0 flex-1 items-center px-2.5 py-2 sm:px-3 sm:py-2.5">
+          <span className={`truncate text-[11px] sm:text-sm ${theme.gradeText}`}>{grade}</span>
         </span>
       ) : null}
     </div>
@@ -404,6 +399,7 @@ function PodiumSlot({
   hero = false,
   dayChange,
   dayChangeLoading = false,
+  className = "",
 }: {
   item: Top100Item;
   category: string;
@@ -411,26 +407,26 @@ function PodiumSlot({
   hero?: boolean;
   dayChange?: Top100DayChange;
   dayChangeLoading?: boolean;
+  className?: string;
 }) {
   const rank = item.rank as 1 | 2 | 3;
   const subText = top100CardSubText(item);
 
-  const imageWidth = hero ? PODIUM_IMAGE_WIDTH.hero : PODIUM_IMAGE_WIDTH.default;
-  const textWidth = hero ? PODIUM_TEXT_WIDTH.hero : PODIUM_TEXT_WIDTH.default;
+  const slotWidth = hero ? PODIUM_SLOT_WIDTH.hero : PODIUM_SLOT_WIDTH.default;
 
   return (
     <Link
       href={top100CardDetailHref(item, category)}
-      className="flex min-w-0 cursor-pointer flex-col items-center text-center no-underline outline-none focus-visible:ring-2 focus-visible:ring-mint/40 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+      className={`flex min-w-0 cursor-pointer flex-col items-center text-center no-underline outline-none focus-visible:ring-2 focus-visible:ring-mint/40 focus-visible:ring-offset-2 focus-visible:ring-offset-black ${slotWidth} ${className}`}
     >
       <div
-        className={`mx-auto overflow-hidden rounded-2xl border bg-[#0d0d0d] ${PODIUM_SHELL_STYLE[accent]} ${imageWidth}`}
+        className={`w-full overflow-hidden rounded-2xl border bg-[#0d0d0d] ${PODIUM_SHELL_STYLE[accent]}`}
       >
         <PodiumSlotMetaBar rank={rank} grade={item.grade} />
         <Top100CardImage item={item} size={hero ? "podiumHero" : "podium"} embedded />
       </div>
 
-      <div className={`mt-3 w-full ${textWidth}`}>
+      <div className="mt-3 w-full min-w-0 px-0.5">
         <h3
           className="line-clamp-2 text-sm font-bold leading-snug text-white sm:text-base"
           title={top100CardTitle(item)}
@@ -462,32 +458,51 @@ function PodiumSlot({
 
 function PodiumSkeleton() {
   const slots = [
-    { rank: 1, hero: true, order: "order-1 sm:order-2" },
-    { rank: 2, hero: false, order: "order-2 sm:order-1" },
-    { rank: 3, hero: false, order: "order-3" },
+    { rank: 1, hero: true, order: "order-1 sm:order-2", mobileOrder: 1 },
+    { rank: 2, hero: false, order: "order-2 sm:order-1", mobileOrder: 2 },
+    { rank: 3, hero: false, order: "order-3", mobileOrder: 3 },
   ] as const;
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-1 sm:px-2">
-      <div className="grid grid-cols-1 gap-8 sm:grid-cols-3 sm:items-end sm:gap-4 md:gap-6">
+    <div className="mx-auto w-full min-w-0 max-w-6xl">
+      <div className="mobile-scroll-x-contain flex gap-3 overflow-x-auto scroll-smooth snap-x snap-mandatory scroll-px-1 pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:hidden">
+        {slots
+          .slice()
+          .sort((a, b) => a.mobileOrder - b.mobileOrder)
+          .map(({ rank, hero }) => (
+            <div
+              key={`mobile-${rank}`}
+              className={`flex w-[min(76vw,272px)] shrink-0 snap-center animate-pulse flex-col items-center ${
+                hero ? "max-w-[17rem]" : "max-w-[15rem]"
+              }`}
+            >
+              <div className="w-full overflow-hidden rounded-2xl border border-zinc-800/70 bg-[#0d0d0d]">
+                <div className="flex h-9">
+                  <div className="w-10 bg-zinc-800/90" />
+                  <div className="flex-1 bg-zinc-800/50" />
+                </div>
+                <div className="aspect-[3/4] w-full bg-zinc-800" />
+              </div>
+              <div className="mt-3 h-4 w-full rounded bg-zinc-800" />
+              <div className="mx-auto mt-2 h-5 w-2/3 max-w-[9rem] rounded bg-zinc-800/70" />
+            </div>
+          ))}
+      </div>
+      <div className="hidden gap-4 sm:grid sm:grid-cols-3 sm:items-end md:gap-6">
         {slots.map(({ rank, hero, order }) => (
           <div key={rank} className={`flex animate-pulse flex-col items-center ${order}`}>
             <div
-              className={`overflow-hidden rounded-2xl border border-zinc-800/70 bg-[#0d0d0d] ${
-                hero ? PODIUM_IMAGE_WIDTH.hero : PODIUM_IMAGE_WIDTH.default
+              className={`w-full overflow-hidden rounded-2xl border border-zinc-800/70 bg-[#0d0d0d] ${
+                hero ? PODIUM_SLOT_WIDTH.hero : PODIUM_SLOT_WIDTH.default
               }`}
             >
               <div className="flex h-9 sm:h-10">
-                <div className="w-11 bg-zinc-800/90 sm:w-12" />
+                <div className="w-10 bg-zinc-800/90 sm:w-11" />
                 <div className="flex-1 bg-zinc-800/50" />
               </div>
               <div className="aspect-[3/4] w-full bg-zinc-800" />
             </div>
-            <div
-              className={`mt-3 h-4 w-full rounded bg-zinc-800 ${
-                hero ? PODIUM_TEXT_WIDTH.hero : PODIUM_TEXT_WIDTH.default
-              }`}
-            />
+            <div className="mt-3 h-4 w-full rounded bg-zinc-800" />
             <div className="mx-auto mt-2 h-5 w-2/3 max-w-[9rem] rounded bg-zinc-800/70" />
           </div>
         ))}
@@ -516,9 +531,32 @@ function Top3Podium({
   const third = items[2];
   if (!first) return null;
 
+  const mobileSlots = [first, second, third].filter(
+    (item): item is Top100Item => item != null,
+  );
+
   return (
-    <div className="mx-auto w-full max-w-6xl px-1 sm:px-2">
-      <div className="grid grid-cols-1 gap-8 sm:grid-cols-3 sm:items-end sm:gap-4 md:gap-6">
+    <div className="mx-auto w-full min-w-0 max-w-6xl">
+      <div className="mobile-scroll-x-contain flex gap-3 overflow-x-auto scroll-smooth snap-x snap-mandatory scroll-px-1 pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:hidden">
+        {mobileSlots.map((item) => (
+          <PodiumSlot
+            key={`mobile-${item.card_id}`}
+            item={item}
+            category={category}
+            hero={item.rank === 1}
+            accent={item.rank === 1 ? "gold" : item.rank === 2 ? "silver" : "bronze"}
+            dayChange={getDayChange(item.card_id)}
+            dayChangeLoading={dayChangeLoading}
+            className={
+              item.rank === 1
+                ? "w-[min(76vw,272px)] max-w-[17rem] shrink-0 snap-center"
+                : "w-[min(72vw,256px)] max-w-[15rem] shrink-0 snap-center"
+            }
+          />
+        ))}
+      </div>
+
+      <div className="hidden gap-4 sm:grid sm:grid-cols-3 sm:items-end md:gap-6">
         {second ? (
           <div className="order-2 sm:order-1">
             <PodiumSlot
@@ -578,11 +616,11 @@ function LeaderboardCardRow({
   return (
     <Link
       href={top100CardDetailHref(item, category)}
-      className={`group flex items-center gap-2.5 rounded-xl border border-white/[0.06] bg-[#0d0d0d] px-2.5 py-2.5 duration-200 hover:border-white/[0.1] hover:bg-[#121212] hover:shadow-[0_8px_24px_-18px_rgba(0,0,0,0.9)] sm:gap-3 sm:px-3 sm:py-3 ${CARD_CLICKABLE}`}
+      className={`group flex min-w-0 items-center gap-2 rounded-xl border border-white/[0.06] bg-[#0d0d0d] px-2 py-2.5 duration-200 hover:border-white/[0.1] hover:bg-[#121212] hover:shadow-[0_8px_24px_-18px_rgba(0,0,0,0.9)] sm:gap-3 sm:px-3 sm:py-3 ${CARD_CLICKABLE}`}
     >
       <RankBadge rank={item.rank} />
       <Top100CardImage item={item} size="row" />
-      <div className="min-w-0 flex-1">
+      <div className="min-w-0 flex-1 overflow-hidden">
         <p
           className="line-clamp-1 text-[0.8rem] font-semibold leading-snug text-white sm:text-sm"
           title={top100CardTitle(item)}
@@ -609,9 +647,9 @@ function LeaderboardCardRow({
           </span>
         ) : null}
       </div>
-      <div className="shrink-0 text-right">
+      <div className="shrink-0 text-right max-[380px]:pl-1">
         {item.priceNum != null ? (
-          <span className="text-sm font-bold tabular-nums text-white sm:text-[0.95rem]">
+          <span className="text-[0.8rem] font-bold tabular-nums text-white sm:text-[0.95rem]">
             {formatTop100Usd(item.priceNum)}
           </span>
         ) : (

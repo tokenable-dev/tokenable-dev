@@ -4,6 +4,7 @@ type Top100CardLike = {
   set: string | null;
   number: string | null;
   variant: string | null;
+  set_type?: string | null;
 };
 
 export function resolveTop100ImageUrl(raw: string | null): string | null {
@@ -31,6 +32,27 @@ export function top100CardSubText(card: Top100CardLike): string {
 
 export function top100CardTitle(card: Top100CardLike): string {
   return card.player ?? card.description;
+}
+
+/** eBay search — card name plus set type (and set when distinct). */
+export function buildTop100EbaySearchQuery(card: Top100CardLike): string {
+  const parts: string[] = [];
+  const name = top100CardTitle(card).trim();
+  if (name) parts.push(name);
+
+  const haystack = name.toLowerCase();
+  const appendIfMissing = (value: string | null | undefined) => {
+    const trimmed = value?.trim();
+    if (!trimmed) return;
+    if (haystack.includes(trimmed.toLowerCase())) return;
+    if (parts.some((p) => p.toLowerCase() === trimmed.toLowerCase())) return;
+    parts.push(trimmed);
+  };
+
+  appendIfMissing(card.set_type);
+  appendIfMissing(card.set);
+
+  return parts.join(" ");
 }
 
 export function parseTop100Price(price: string | null): number | null {
