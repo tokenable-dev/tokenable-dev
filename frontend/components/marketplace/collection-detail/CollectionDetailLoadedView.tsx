@@ -4,16 +4,9 @@ import type { Address } from "viem";
 import { pickCollectionHeroImageUrl } from "@/lib/marketplace";
 import { CollectionAdminCoverPanel } from "@/components/marketplace/collection-hero";
 import { COLLECTION_DETAIL_SHELL_CLASS } from "@/constants/layout";
-import {
-  COLLECTION_MARKETS_CHART_TAB_HEIGHT_CLASS,
-  COLLECTION_MARKETS_ORDER_BOOK_TAB_HEIGHT_CLASS,
-} from "@/components/marketplace/collectionOverviewChrome";
 import { CollectionOverviewBoard } from "@/components/marketplace/collection-overview";
 import { CollectionDetailsKvCard, CollectionHeroDetailsTabs } from "@/components/marketplace/collection-hero";
-import {
-  CollectionMobileCurrentPriceRow,
-  CollectionMobileMarketTabs,
-} from "@/components/marketplace/collection-mobile";
+import { CollectionMobileCurrentPriceRow } from "@/components/marketplace/collection-mobile";
 import { CollectionTradingTabs } from "@/components/marketplace/collection-trading";
 import { OrderBookAskListingModal } from "@/components/marketplace/unified-order-book/OrderBookAskListingModal";
 import { CollectionOwnedRwaListModal } from "@/components/marketplace/collection-listings";
@@ -91,16 +84,17 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
     </CollectionDetailListingsSection>
   );
 
-  const { mobileInformationPanel, mobileListingsPanel } = buildCollectionDetailMobilePanels({
+  const { mobileHeroStatsRow, mobileScrollPanel } = buildCollectionDetailMobilePanels({
     market,
-    asks,
     listingsBody: collectionListingsGrid,
+    chartPanel: collectionDualPriceChartTab,
+    orderBookStack: collectionOrderBookMobile,
   });
 
   return (
     <div className="min-h-screen min-w-0 overflow-x-clip bg-black text-white max-lg:min-h-0">
       <div
-        className={`${COLLECTION_DETAIL_SHELL_CLASS} flex min-h-0 flex-1 flex-col py-4 max-lg:overflow-visible max-lg:py-1.5 max-lg:pb-[max(4.25rem,env(safe-area-inset-bottom,0px)+3.5rem)] sm:overflow-hidden sm:py-8 sm:pb-20`}
+        className={`${COLLECTION_DETAIL_SHELL_CLASS} flex min-h-0 flex-1 flex-col py-4 max-lg:overflow-visible max-lg:py-1.5 max-lg:pb-[max(1.25rem,env(safe-area-inset-bottom,0px))] sm:overflow-hidden sm:py-8 sm:pb-20`}
       >
         <CollectionDetailMobileNav />
         {isCoverAdmin && address ? (
@@ -155,28 +149,13 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
             <CollectionMobileCurrentPriceRow
               priceUsd={market.resolvedExternal.usd}
               loading={market.marketSeriesLoading}
+              changePct={market.externalPriceChange1MoPct}
+              changePeriod={market.externalPriceChangeResult}
+              changeLoading={market.marketSeriesLoading}
             />
           }
-          mobileMarketTabs={
-            <CollectionMobileMarketTabs
-              informationPanel={mobileInformationPanel}
-              chartPanel={
-                <div
-                  className={`${COLLECTION_MARKETS_CHART_TAB_HEIGHT_CLASS} w-full min-w-0 shrink-0 overflow-hidden`}
-                >
-                  {collectionDualPriceChartTab}
-                </div>
-              }
-              orderBookPanel={
-                <div
-                  className={`${COLLECTION_MARKETS_ORDER_BOOK_TAB_HEIGHT_CLASS} flex w-full min-w-0 shrink-0 flex-col`}
-                >
-                  {collectionOrderBookMobile}
-                </div>
-              }
-              listingsPanel={mobileListingsPanel}
-            />
-          }
+          mobileHeroStatsRow={mobileHeroStatsRow}
+          mobileMarketTabs={mobileScrollPanel}
           bookColumnMetricsRow={null}
           showOrderBook={showOrderBook}
           onShowOrderBookChange={setShowOrderBook}

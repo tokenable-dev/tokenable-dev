@@ -19,7 +19,7 @@ export function CollectionListingsSectionHeader({
         id="collection-listings-heading"
         className={
           compact
-            ? "min-w-0 text-[14px] font-semibold tracking-tight text-white"
+            ? "min-w-0 text-[15px] font-bold tracking-tight text-white"
             : "min-w-0 text-[15px] font-semibold tracking-tight text-white sm:text-base lg:text-[17px]"
         }
       >

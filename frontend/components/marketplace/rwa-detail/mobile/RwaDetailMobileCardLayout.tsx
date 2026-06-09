@@ -32,7 +32,7 @@ export function RwaDetailMobileCardHeader({
   const hasHeadline = headlineParts != null && assetDetailHeadlineHasContent(headlineParts);
 
   return (
-    <header className="mx-auto w-full max-w-[32rem] min-w-0 space-y-2.5 px-5 pb-2 pt-7 text-center lg:hidden">
+    <header className="mx-auto w-full max-w-[32rem] min-w-0 space-y-2 px-5 pb-1 pt-3 text-center lg:hidden">
       {titleLoading ? (
         <div
           className="mx-auto h-9 w-[min(100%,17rem)] max-w-full animate-pulse rounded-lg bg-zinc-800/85"
@@ -71,7 +71,7 @@ export function RwaDetailMobileCardHeader({
  * Scroll only the card copy region — height stops above the fixed CTA (no document `pb` ghost scroll).
  */
 export const RWA_MOBILE_CONTENT_SCROLL_CLASS =
-  "scrollbar-dark max-lg:max-h-[calc(100svh-4rem-9.25rem-env(safe-area-inset-bottom,0px))] max-lg:overflow-y-auto max-lg:overflow-x-hidden max-lg:overscroll-y-contain max-lg:pt-1";
+  "scrollbar-dark max-lg:max-h-[calc(100svh-4rem-5.5rem-env(safe-area-inset-bottom,0px))] max-lg:overflow-y-auto max-lg:overflow-x-hidden max-lg:overscroll-y-contain";
 
 export function RwaDetailStickyBuyFooter({
   children,
@@ -82,14 +82,16 @@ export function RwaDetailStickyBuyFooter({
 }) {
   return (
     <div
-      className="fixed bottom-0 left-0 right-0 z-[90] w-full bg-[#07090c]/98 px-4 pt-4 pb-[max(0.875rem,env(safe-area-inset-bottom,0px))] shadow-[0_-20px_56px_-12px_rgba(0,0,0,0.92)] backdrop-blur-md max-xl:bg-black/98 lg:hidden"
+      className="pointer-events-none fixed bottom-0 left-0 right-0 z-[90] flex w-full flex-col items-center px-4 pb-[max(0.875rem,env(safe-area-inset-bottom,0px))] lg:hidden"
       role="region"
       aria-label="Purchase actions"
     >
       {footerNote != null ? (
-        <div className="mb-2 min-w-0 text-center">{footerNote}</div>
+        <div className="pointer-events-auto mb-2 w-full max-w-[32rem] min-w-0 rounded-lg bg-black/90 px-3 py-2 text-center backdrop-blur-sm">
+          {footerNote}
+        </div>
       ) : null}
-      {children}
+      <div className="pointer-events-auto w-full max-w-[32rem] min-w-0">{children}</div>
     </div>
   );
 }

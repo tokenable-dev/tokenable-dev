@@ -5,12 +5,7 @@ import type { CollectionOverviewBoardProps } from "./types";
 
 type MobileHeadlineSlotProps = Pick<
   CollectionOverviewBoardProps,
-  | "headlineTitle"
-  | "headlineStructuredTitle"
-  | "categoryBadge"
-  | "gradeBadge"
-  | "populationBadge"
-  | "badgeLabel"
+  "headlineTitle" | "headlineStructuredTitle"
 > & {
   show: boolean;
   headlineSubtitleLine: string | null;
@@ -27,10 +22,6 @@ export function CollectionOverviewMobileHeadlineSlot({
   headlineStructuredTitle,
   headlineSubtitleLine,
   mobileHeadlineCopy,
-  categoryBadge,
-  gradeBadge,
-  populationBadge,
-  badgeLabel = "Collection",
   suppressHeadlineBanner,
 }: MobileHeadlineSlotProps) {
   if (!show || !headlineTitle) return null;
@@ -41,10 +32,6 @@ export function CollectionOverviewMobileHeadlineSlot({
       headlineStructuredTitle={headlineStructuredTitle}
       headlineSubtitleLine={mobileHeadlineCopy?.subtitleLine ?? headlineSubtitleLine}
       headlineCardNumber={mobileHeadlineCopy?.cardNumber}
-      categoryBadge={categoryBadge}
-      gradeBadge={gradeBadge}
-      populationBadge={populationBadge}
-      badgeLabel={badgeLabel}
       suppressTitle={suppressHeadlineBanner}
     />
   );

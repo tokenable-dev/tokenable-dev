@@ -67,9 +67,9 @@ export const COLLECTION_MARKETS_CHART_HEIGHT_CLASS = COLLECTION_MARKETS_CHART_RO
 export const COLLECTION_HERO_DESKTOP_HEIGHT_CLASS =
   "lg:h-[calc(10px+116px+0.75rem+300px+0.75rem+0.25rem)] lg:max-h-[calc(10px+116px+0.75rem+300px+0.75rem+0.25rem)]";
 
-/** Chart column height when shown inline on mobile (non-tab layout). */
+/** Chart column height when shown inline on mobile (scroll panel + non-tab layout). */
 export const COLLECTION_MARKETS_CHART_HEIGHT_MOBILE_CLASS =
-  "max-lg:h-[min(180px,30svh)] max-lg:shrink-0";
+  "max-lg:h-[min(150px,26svh)] max-lg:shrink-0";
 
 /** Chart panel inside mobile Information / Chart / Book tabs. */
 export const COLLECTION_MARKETS_CHART_TAB_HEIGHT_CLASS = "h-[120px]";

@@ -16,6 +16,7 @@ export function CollectionOverviewLeftColumn({
   useMobileTabbedMarket,
   mobileHeadlineBlock,
   mobileCurrentPriceRow,
+  mobileHeroStatsRow,
   mobileMarketTabs,
   mobileCoverBelowMetrics,
   belowCover,
@@ -29,6 +30,7 @@ export function CollectionOverviewLeftColumn({
   useMobileTabbedMarket: boolean;
   mobileHeadlineBlock: ReactNode;
   mobileCurrentPriceRow?: ReactNode;
+  mobileHeroStatsRow?: ReactNode;
   mobileMarketTabs?: ReactNode;
   mobileCoverBelowMetrics?: ReactNode;
   belowCover?: ReactNode;
@@ -63,15 +65,17 @@ export function CollectionOverviewLeftColumn({
           (imageUrl || mobileHeadlineBlock || mobileCurrentPriceRow) ? (
             <>
               <div className="max-lg:shrink-0 max-lg:border-b max-lg:border-zinc-800/35 max-lg:px-3.5 max-lg:pb-4 max-lg:pt-2 lg:hidden">
-                <div className="flex w-full min-w-0 items-stretch gap-0">
-                  <div className="flex min-h-[118px] min-w-0 flex-1 flex-col justify-between gap-1.5">
+                <div className="flex w-full min-w-0 items-start gap-3.5 sm:gap-4">
+                  <div className="flex min-h-[128px] min-w-0 flex-1 flex-col pr-0.5">
                     {mobileHeadlineBlock ? (
-                      <div className="min-w-0">{mobileHeadlineBlock}</div>
-                    ) : (
-                      <div className="min-h-0 flex-1" aria-hidden />
-                    )}
+                      <div className="min-w-0 shrink-0">{mobileHeadlineBlock}</div>
+                    ) : null}
                     {mobileCurrentPriceRow ? (
-                      <div className="mt-auto min-w-0">{mobileCurrentPriceRow}</div>
+                      <div className="min-w-0 shrink-0">{mobileCurrentPriceRow}</div>
+                    ) : null}
+                    <div className="min-h-0 flex-1" aria-hidden />
+                    {mobileHeroStatsRow ? (
+                      <div className="mt-auto min-w-0 shrink-0">{mobileHeroStatsRow}</div>
                     ) : null}
                   </div>
                   {imageUrl ? (
@@ -83,7 +87,7 @@ export function CollectionOverviewLeftColumn({
                     />
                   ) : (
                     <div
-                      className={`flex h-[118px] w-[88px] shrink-0 items-center justify-center self-start rounded-xl ${COLLECTION_DETAILS_BORDER_ALL} ${COLLECTION_DETAILS_BG_CLASS} text-center text-[9px] text-gray-500`}
+                      className={`flex h-[128px] w-[96px] shrink-0 items-center justify-center self-start rounded-xl ${COLLECTION_DETAILS_BORDER_ALL} ${COLLECTION_DETAILS_BG_CLASS} text-center text-[9px] text-gray-500`}
                     >
                       No preview
                     </div>
@@ -121,7 +125,7 @@ export function CollectionOverviewLeftColumn({
                 />
               ) : (
                 <div
-                  className={`flex h-[min(460px,82vw)] max-h-[min(480px,88svh)] w-full items-center justify-center rounded-2xl ${COLLECTION_DETAILS_BORDER_ALL} ${COLLECTION_DETAILS_BG_CLASS} p-6 text-center text-[12px] text-gray-500 max-lg:ms-auto max-lg:h-[118px] max-lg:max-h-[122px] max-lg:w-[88px] max-lg:max-w-[88px] max-lg:shrink-0 max-lg:p-2 max-lg:text-[9px] lg:w-[307px] ${COLLECTION_HERO_DESKTOP_HEIGHT_CLASS}`}
+                  className={`flex h-[min(460px,82vw)] max-h-[min(480px,88svh)] w-full items-center justify-center rounded-2xl ${COLLECTION_DETAILS_BORDER_ALL} ${COLLECTION_DETAILS_BG_CLASS} p-6 text-center text-[12px] text-gray-500 max-lg:ms-auto max-lg:h-[128px] max-lg:max-h-[132px] max-lg:w-[96px] max-lg:max-w-[96px] max-lg:shrink-0 max-lg:p-2 max-lg:text-[9px] lg:w-[307px] ${COLLECTION_HERO_DESKTOP_HEIGHT_CLASS}`}
                 >
                   No preview
                 </div>

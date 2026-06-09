@@ -9,29 +9,19 @@ import {
 import {
   collectionHeroFont,
   COLLECTION_HEADLINE_TITLE_MOBILE_CLASS,
-  HEADLINE_OUTLINE_TAG_MOBILE,
 } from "../theme/constants";
-import { PsaVaultOutlineTag } from "@/components/marketplace/rwa-detail-asset-panel/ui/PsaVaultBadge";
 
 export function CollectionMobileHeadline({
   headlineTitle,
   headlineStructuredTitle,
   headlineSubtitleLine,
   headlineCardNumber,
-  categoryBadge,
-  gradeBadge,
-  populationBadge,
-  badgeLabel,
   suppressTitle,
 }: {
   headlineTitle: string;
   headlineStructuredTitle?: AssetDetailHeadlineParts | null;
   headlineSubtitleLine: string | null;
   headlineCardNumber?: string | null;
-  categoryBadge?: string | null;
-  gradeBadge?: string | null;
-  populationBadge?: string | null;
-  badgeLabel: string;
   suppressTitle?: boolean;
 }) {
   const cardNo = headlineCardNumber?.trim() || null;
@@ -72,18 +62,6 @@ export function CollectionMobileHeadline({
       {cardNo && !structuredHasCardNo ? (
         <p className="text-[11px] font-medium tabular-nums text-zinc-500">{cardNo}</p>
       ) : null}
-
-      <div className="flex flex-wrap items-center gap-1.5 pt-0.5" aria-label="Collection tags">
-        {categoryBadge ? (
-          <span className={HEADLINE_OUTLINE_TAG_MOBILE}>{categoryBadge}</span>
-        ) : (
-          <span className={HEADLINE_OUTLINE_TAG_MOBILE}>{badgeLabel}</span>
-        )}
-        {gradeBadge ? (
-          <span className={HEADLINE_OUTLINE_TAG_MOBILE}>{gradeBadge}</span>
-        ) : null}
-        <PsaVaultOutlineTag variant="mobile" />
-      </div>
     </header>
   );
 }

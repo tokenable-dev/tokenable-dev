@@ -2,7 +2,8 @@
 
 import Image from "next/image";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useMemo, useState, type CSSProperties } from "react";
+import { Suspense, useEffect, useMemo, useState, type CSSProperties } from "react";
+import { TOP_CARDS_UI_ENABLED } from "@/lib/markets/top100Copy";
 import { PortfolioValueChart } from "@/components/portfolio/PortfolioValueChart";
 import { useTop100DayChanges } from "@/hooks/markets/useTop100DayChanges";
 import { useTop100 } from "@/hooks/markets/usePokemonTop100";
@@ -231,6 +232,12 @@ function Top100CardDetailContent() {
     isFetching,
   } = useTop100CardDetail(cardId, grade, chartDays);
 
+  useEffect(() => {
+    if (!TOP_CARDS_UI_ENABLED) {
+      router.replace("/markets");
+    }
+  }, [router]);
+
   const title = card
     ? top100CardTitle(card)
     : top100Item
@@ -272,6 +279,10 @@ function Top100CardDetailContent() {
 
   const chartLoading = isLoading || isFetching;
   const priceStats = buildChartPriceStats(metrics, chartDays, chartLoading);
+
+  if (!TOP_CARDS_UI_ENABLED) {
+    return null;
+  }
 
   if (!cardId) {
     return (
