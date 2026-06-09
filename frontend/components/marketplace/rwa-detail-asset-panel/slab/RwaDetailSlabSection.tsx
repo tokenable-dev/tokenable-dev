@@ -39,6 +39,7 @@ export function RwaDetailSlabSection({
     frontHeroLoading,
     backHeroLoading,
     slabHeroSizing,
+    openSeaMobileSlabImgCls,
     slabThumbSize,
     slabThumbMinH,
     slabControlsGap,
@@ -121,9 +122,7 @@ export function RwaDetailSlabSection({
                       src={imageUrl}
                       alt={`${slabImageTitle} — slab front`}
                       className={
-                        openSeaMobile
-                          ? "block h-auto w-full max-w-full object-contain object-center lg:h-full lg:w-full lg:min-h-0"
-                          : "h-full w-full min-h-0 object-contain object-center"
+                        openSeaMobile ? openSeaMobileSlabImgCls : "h-full w-full min-h-0 object-contain object-center"
                       }
                       draggable={false}
                       referrerPolicy="no-referrer"
@@ -148,9 +147,7 @@ export function RwaDetailSlabSection({
                       src={effectiveBackUrl}
                       alt={`${slabImageTitle} — slab back`}
                       className={
-                        openSeaMobile
-                          ? "block h-auto w-full max-w-full object-contain object-center lg:h-full lg:w-full lg:min-h-0"
-                          : "h-full w-full min-h-0 object-contain object-center"
+                        openSeaMobile ? openSeaMobileSlabImgCls : "h-full w-full min-h-0 object-contain object-center"
                       }
                       draggable={false}
                       loading="lazy"
