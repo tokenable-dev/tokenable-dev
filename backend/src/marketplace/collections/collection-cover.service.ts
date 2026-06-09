@@ -374,10 +374,22 @@ export class CollectionCoverService {
   }
 
   /**
+   * Sync cover for ask listing — no network. Uses mint-time Cardhedger/PSA HTTPS already on metadata.
+   */
+  quickCoverUrlForListing(meta: Record<string, unknown>): string | null {
+    const ref = extractCollectionRepresentativeImage(meta);
+    if (!ref) return null;
+    if (/^https?:\/\//i.test(ref) && !ref.toLowerCase().includes('/ipfs/')) {
+      return ref;
+    }
+    return null;
+  }
+
+  /**
    * Pick the best collection cover URL from metadata — cert number must NOT be visible.
    * Priority:
-   *   1. Cardhedger catalog image / Pokemon TCG API (clean card, no slab)
-   *   2. `graded.cardhedger.imageUrl` already stored in metadata
+   *   1. `graded.cardhedger.imageUrl` / other HTTPS already on metadata (mint analyze)
+   *   2. Cardhedger catalog image / Pokemon TCG API / PSA spec scrape (network)
    *   3. `collectionCoverImage` (IPFS, Sharp-cropped slab)
    *   4. PSA `certImageSourceUrl` only as last resort (full slab, cert number visible)
    */
@@ -385,14 +397,15 @@ export class CollectionCoverService {
     meta: Record<string, unknown>,
     psaSpecIdFallback?: string | null,
   ): Promise<string | null> {
-    // Try to fetch a clean catalog image at registration time
+    const quick = this.quickCoverUrlForListing(meta);
+    if (quick) return quick;
+
     const catalogImg = await this.fetchCatalogImageFromMeta(
       meta,
       psaSpecIdFallback,
     );
     if (catalogImg) return catalogImg;
 
-    // Fall back to what's stored in metadata
     const ref = extractCollectionRepresentativeImage(meta);
     if (!ref) return null;
     if (/^https?:\/\//i.test(ref) && !ref.toLowerCase().includes('/ipfs/')) {

@@ -169,11 +169,15 @@ export async function getOrderByHash(
 }
 
 /** 판매 주문 등록 */
+/** First listing may create a collection row (RPC + IPFS); allow extra headroom vs default 25s. */
+const CREATE_ORDER_FETCH_TIMEOUT_MS = 45_000;
+
 export async function createOrder(payload: CreateOrderPayload): Promise<Order> {
   const res = await backendFetch(`${getApiUrl()}/marketplace/orders`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
+    timeoutMs: CREATE_ORDER_FETCH_TIMEOUT_MS,
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ message: "Failed to create order" }));

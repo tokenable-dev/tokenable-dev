@@ -147,7 +147,7 @@ export class CollectionService {
       );
     }
     const ch = cardhedgerFromRwaMetadata(meta);
-    const coverImageUrl = await this.cover.resolveBestCoverUrl(meta, ch.psaSpecId);
+    const coverImageUrl = this.cover.quickCoverUrlForListing(meta);
 
     const compRecord: Record<string, unknown> = {
       ...(components as unknown as Record<string, unknown>),
@@ -257,8 +257,8 @@ export class CollectionService {
       .execute();
 
     const inserted = (insertResult.identifiers?.length ?? 0) > 0;
+    void this.cover.persistCoverFromMetaIfMissing(collectionKey, meta);
     if (!inserted) {
-      await this.cover.persistCoverFromMetaIfMissing(collectionKey, meta);
       await this.components.mergePsaPopulationFromMetaIfMissing(
         collectionKey,
         meta,
