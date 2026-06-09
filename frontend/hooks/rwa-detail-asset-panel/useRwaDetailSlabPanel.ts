@@ -90,7 +90,11 @@ export function useRwaDetailSlabPanel(input: {
   const backHeroLoading = Boolean(backNeedsGateway) && backResolving;
 
   const slabHeroSizing = openSeaMobile
-    ? "relative mx-auto w-full max-w-[min(100%,min(92vw,340px))] shrink-0 max-lg:overflow-visible max-lg:rounded-none max-lg:bg-transparent sm:max-w-[min(100%,360px)] lg:aspect-[3/4] lg:max-h-[min(72vh,680px)] lg:max-w-none lg:overflow-visible lg:rounded-2xl lg:bg-[#030508]"
+    ? "relative mx-auto w-full max-w-[min(100%,300px)] shrink-0 max-lg:overflow-visible max-lg:rounded-none max-lg:bg-transparent sm:max-w-[min(100%,320px)] lg:aspect-[3/4] lg:max-h-[min(72vh,680px)] lg:max-w-none lg:overflow-visible lg:rounded-2xl lg:bg-[#030508]"
+
+  /** Full slab visible (object-contain) — capped to prior hero footprint without clipping. */
+  const openSeaMobileSlabImgCls =
+    "mx-auto block h-auto w-full max-h-[min(44vh,300px)] max-w-full object-contain object-center lg:h-full lg:w-full lg:max-h-none lg:min-h-0"
     : "relative mx-auto aspect-[3/4] w-full max-w-[min(100%,340px)] overflow-visible rounded-xl max-h-[min(62vh,560px)] sm:max-w-[min(100%,380px)] sm:rounded-2xl sm:max-h-[min(68vh,620px)] lg:max-w-none lg:max-h-[min(72vh,680px)]";
 
   const slabThumbSize = openSeaMobile
@@ -142,6 +146,7 @@ export function useRwaDetailSlabPanel(input: {
     frontHeroLoading,
     backHeroLoading,
     slabHeroSizing,
+    openSeaMobileSlabImgCls,
     slabThumbSize,
     slabThumbMinH,
     slabControlsGap,
