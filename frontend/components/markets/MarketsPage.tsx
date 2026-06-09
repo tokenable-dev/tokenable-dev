@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import Link from "next/link";
 import { useMarketplaceCollectionsInfinite } from "@/hooks/marketplace";
 import { useMarketsOrders, useMarketsSnapshots } from "@/hooks/markets/useMarketsPageData";
@@ -122,12 +122,30 @@ export default function MarketsPage() {
   return (
     <div className="min-h-screen min-w-0 overflow-x-clip bg-black text-white">
       <div className="mx-auto w-full max-w-6xl min-w-0 px-3 pb-20 pt-8 max-[380px]:px-2 sm:px-6 sm:pb-24 sm:pt-12">
+        <Suspense
+          fallback={
+            <div className="mb-10 h-64 animate-pulse rounded-2xl border border-zinc-800/50 bg-[#0d0d0d] sm:mb-12" />
+          }
+        >
+          <CardTop100Section variant="preview" />
+        </Suspense>
+
+        <div
+          className="mb-6 border-t border-white/[0.06] pt-8 sm:mb-8 sm:pt-10"
+          aria-hidden
+        />
+
         {!showLoadingShell && sortedForRank.length > 0 ? (
           <>
             <div className="mb-3 flex items-center justify-between gap-3 sm:mb-5">
-              <h2 className="min-w-0 text-xl font-bold leading-tight tracking-tight text-white sm:text-3xl">
-                All Collections
-              </h2>
+              <div className="min-w-0">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-zinc-600">
+                  Browse
+                </p>
+                <h2 className="mt-1 min-w-0 text-xl font-bold leading-tight tracking-tight text-white sm:text-2xl">
+                  All Collections
+                </h2>
+              </div>
               <MarketsSortToolbar
                 className="inline-flex sm:hidden"
                 sortId={sortId}
@@ -275,9 +293,6 @@ export default function MarketsPage() {
           ) : null}
           </>
         )}
-
-        {/* CardHedger Top 100 (Pokemon / Baseball / Basketball / Football) */}
-        <CardTop100Section />
       </div>
 
     </div>

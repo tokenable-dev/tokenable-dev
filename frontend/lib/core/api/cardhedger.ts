@@ -29,6 +29,17 @@ export type Top100ApiResponse = {
   grade: string;
   cards: PriceByGradeCard[];
   totalPages: number;
+  snapshotDate?: string;
+  fetchedAt: string | null;
+  stale: boolean;
+};
+
+export type Top100HistorySnapshot = {
+  category: string;
+  grade: string;
+  cards: PriceByGradeCard[];
+  totalPages: number;
+  snapshotDate: string;
   fetchedAt: string | null;
   stale: boolean;
 };
@@ -55,6 +66,99 @@ export async function getTop100(category: string): Promise<Top100ApiResponse> {
     throw new Error(`Top 100 fetch failed [${category}] (${res.status})`);
   }
   return res.json() as Promise<Top100ApiResponse>;
+}
+
+export async function getTop100History(
+  category: string,
+  limit = 2,
+): Promise<Top100HistorySnapshot[]> {
+  const res = await backendFetch(
+    `${getApiUrl()}/cardhedger/top100/${encodeURIComponent(category.toLowerCase())}/history?limit=${limit}`,
+  );
+  if (!res.ok) {
+    throw new Error(`Top 100 history fetch failed [${category}] (${res.status})`);
+  }
+  return res.json() as Promise<Top100HistorySnapshot[]>;
+}
+
+// ─── Card detail & price history (live CardHedger proxy) ─────────────────────
+
+export type CardHedgerPricePoint = {
+  closing_date: string;
+  Grade?: string;
+  grade?: string;
+  card_id: string;
+  price: string;
+};
+
+export type CardHedgerGradePrice = {
+  card_id: string;
+  grade: string;
+  grader?: string;
+  price: string;
+  display_order?: string;
+};
+
+export type CardHedgerCardDetail = {
+  card_id: string;
+  description: string;
+  player: string | null;
+  set: string | null;
+  number: string | null;
+  variant: string | null;
+  image: string | null;
+  category: string | null;
+  category_group: string | null;
+  set_type: string | null;
+  rookie?: boolean;
+  gain?: number;
+  prices?: Array<{ grade: string; price: string }>;
+  "7 Day Sales"?: number;
+  "30 Day Sales"?: number;
+};
+
+export async function getCardDetails(
+  cardId: string,
+): Promise<{ cards: CardHedgerCardDetail[] }> {
+  const res = await backendFetch(`${getApiUrl()}/cardhedger/v1/cards/card-details`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ card_id: cardId }),
+  });
+  if (!res.ok) {
+    throw new Error(`Card details fetch failed (${res.status})`);
+  }
+  return res.json() as Promise<{ cards: CardHedgerCardDetail[] }>;
+}
+
+export async function getPricesByCard(req: {
+  card_id: string;
+  grade: string;
+  days?: number;
+}): Promise<{ prices: CardHedgerPricePoint[] }> {
+  const res = await backendFetch(`${getApiUrl()}/cardhedger/v1/cards/prices-by-card`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(req),
+  });
+  if (!res.ok) {
+    throw new Error(`Price history fetch failed (${res.status})`);
+  }
+  return res.json() as Promise<{ prices: CardHedgerPricePoint[] }>;
+}
+
+export async function getAllPricesByCard(
+  cardId: string,
+): Promise<{ prices: CardHedgerGradePrice[] }> {
+  const res = await backendFetch(`${getApiUrl()}/cardhedger/v1/cards/all-prices-by-card`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ card_id: cardId }),
+  });
+  if (!res.ok) {
+    throw new Error(`All prices fetch failed (${res.status})`);
+  }
+  return res.json() as Promise<{ prices: CardHedgerGradePrice[] }>;
 }
 
 // ─── Direct 90-day prices by grade (proxy, bypasses cache) ──────────────────

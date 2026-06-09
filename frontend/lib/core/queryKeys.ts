@@ -154,6 +154,14 @@ export const rq = {
   /** Cached daily Top 100 snapshot by category. */
   cardhedgerTop100: (category: string) =>
     ["cardhedger-top100", category] as const,
+  /** Recent daily Top 100 snapshots for day-over-day comparison. */
+  cardhedgerTop100History: (category: string, limit: number) =>
+    ["cardhedger-top100-history", category, limit] as const,
+  cardhedgerCardDetails: (cardId: string) => ["cardhedger-card-details", cardId] as const,
+  cardhedgerPricesByCard: (cardId: string, grade: string, days: number) =>
+    ["cardhedger-prices-by-card", cardId, grade, days] as const,
+  cardhedgerAllPricesByCard: (cardId: string) =>
+    ["cardhedger-all-prices-by-card", cardId] as const,
 } as const;
 
 /** Retry Nest API blips (dev hot-reload, brief proxy ECONNRESET). */
