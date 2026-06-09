@@ -204,26 +204,26 @@ export function CollectionRwaCard({
     return (
       <Link
         href={ctaHref}
-        className={`${rwaCardFont.className} group flex h-full w-full min-w-0 cursor-pointer bg-black text-inherit no-underline outline-none`}
+        className={`${rwaCardFont.className} group flex w-full min-w-0 cursor-pointer self-start bg-black text-inherit no-underline outline-none`}
         aria-label={`${displayTitle} — ${ctaLabel}`}
       >
         <article className="flex w-full min-w-0 flex-col">
-          <div className="relative flex aspect-[2/3] w-full min-h-0 items-end justify-center overflow-hidden bg-black">
+          <div className="relative w-full bg-black">
             {imageUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={imageUrl}
                 alt=""
-                className="relative z-[1] h-full w-full max-h-full max-w-full object-contain object-bottom"
+                className="relative z-[1] block h-auto w-full max-w-full object-contain object-center"
               />
             ) : (
-              <div className="relative z-[1] px-2 text-center text-[9px] text-zinc-500">
+              <div className="flex aspect-[3/4] w-full items-center justify-center px-2 text-center text-[9px] text-zinc-500">
                 No image
               </div>
             )}
           </div>
 
-          <div className="-mt-2.5 flex min-w-0 flex-col">
+          <div className="mt-1.5 flex min-w-0 flex-col">
             <ListingCtaPill label={ctaLabel} mobileListing />
             <div className="mt-2.5 flex min-w-0 flex-col gap-1">
               {listing && listingPrice !== "—" ? (

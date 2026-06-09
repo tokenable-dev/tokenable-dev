@@ -70,6 +70,6 @@ export const COLLECTION_DETAIL_LISTING_CARD_MIN_PX = 200;
 
 export const COLLECTION_DETAIL_LISTING_GRID_CLASS = [
   "grid w-full min-w-0 max-w-full grid-cols-2 content-start items-stretch",
-  "max-lg:-mx-2 max-lg:w-[calc(100%+1rem)] max-lg:gap-x-1.5 max-lg:gap-y-5",
+  "max-lg:-mx-2 max-lg:w-[calc(100%+1rem)] max-lg:items-start max-lg:gap-x-1.5 max-lg:gap-y-5",
   "lg:mx-0 lg:w-full lg:grid-cols-[repeat(auto-fill,minmax(200px,1fr))] lg:gap-x-3 lg:gap-y-3",
 ].join(" ");
