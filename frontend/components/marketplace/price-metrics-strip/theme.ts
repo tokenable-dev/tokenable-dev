@@ -29,12 +29,15 @@ export const orderBookRowValueCls = orderBookTradesRowValueCls;
 /** Order book column headers (Price, Side, Time) — distinct from tabs via case/color, not tiny type. */
 export const orderBookColumnHeaderCls = `${collectionDetailArialClass} text-[11px] font-medium uppercase leading-none tracking-[0.08em] text-zinc-500 lg:text-[13px] lg:tracking-[0.07em]`;
 
-/** Trades / order book 3-column grid — equal width; Side/Size align start, Time/Total align end. */
+/** Trades / order book 3-column grid — equal width; Price left, middle centered, Total/Time right. */
 export const ORDER_BOOK_THREE_COL_GRID = "grid grid-cols-3 gap-x-4 sm:gap-x-5";
 
 export const orderBookColStartCls = "justify-self-start text-left";
 export const orderBookColMidCls = "justify-self-start text-left pl-0";
 export const orderBookColEndCls = "justify-self-end text-right";
+
+/** Order book flush — Size centered in its column; Total aligns right. */
+export const orderBookBookSizeColCls = "justify-self-center text-center tabular-nums";
 
 /** Trades flush — Side centered in its column; Time aligns right. */
 export const orderBookTradesSideColCls = "justify-self-center text-center";
