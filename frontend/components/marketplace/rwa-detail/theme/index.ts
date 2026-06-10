@@ -1,20 +1,23 @@
-import { IBM_Plex_Sans } from "next/font/google";
+/** RWA detail typography — design spec: Arial. */
+export const RWA_DETAIL_FONT_CLASS =
+  "[font-family:Arial,Helvetica,'Helvetica_Neue',sans-serif]";
 
-export const rwaDetailRightFont = IBM_Plex_Sans({
-  subsets: ["latin"],
-  weight: ["400", "600", "700"],
-  display: "swap",
-});
+export const rwaDetailRightFont = {
+  className: RWA_DETAIL_FONT_CLASS,
+};
 
-/** Card detail CTAs — slight corner radius (not pill). */
-export const RWA_DETAIL_BUTTON_FRAME_ROUNDED = "rounded-lg";
+/** Shared CTA height — mobile sticky + desktop gradient/outline pairs. */
+export const RWA_DETAIL_CTA_HEIGHT_CLASS = "h-[38px] min-h-[38px]";
+
+/** Card detail CTAs — moderate corner radius (not pill). */
+export const RWA_DETAIL_BUTTON_FRAME_ROUNDED = "rounded-xl";
 export const RWA_DETAIL_BUTTON_RIM_PAD_CLASS = "p-[2px]";
-export const RWA_DETAIL_BUTTON_INNER_ROUNDED = "!rounded-[6px]";
+export const RWA_DETAIL_BUTTON_INNER_ROUNDED = "!rounded-[9px]";
 
-/** Mobile sticky footer — pill CTAs matching design spec. */
-export const RWA_DETAIL_MOBILE_CTA_FRAME_ROUNDED = "rounded-2xl";
-export const RWA_DETAIL_MOBILE_CTA_RIM_PAD_CLASS = "p-[3px]";
-export const RWA_DETAIL_MOBILE_CTA_INNER_ROUNDED = "!rounded-[13px]";
+/** Buy now / Place bid — frame + inner radius (mobile sticky + desktop sidebar). */
+export const RWA_DETAIL_MOBILE_CTA_FRAME_ROUNDED = RWA_DETAIL_BUTTON_FRAME_ROUNDED;
+export const RWA_DETAIL_MOBILE_CTA_RIM_PAD_CLASS = RWA_DETAIL_BUTTON_RIM_PAD_CLASS;
+export const RWA_DETAIL_MOBILE_CTA_INNER_ROUNDED = RWA_DETAIL_BUTTON_INNER_ROUNDED;
 export const RWA_DETAIL_BUY_NOW_TEXT_CLASS = "!text-[#10D333]";
 export const RWA_DETAIL_BUY_NOW_FRAME_SHADOW =
   "shadow-[0_0_16px_-10px_rgba(16,211,51,0.22),0_0_24px_-14px_rgba(0,107,107,0.1)] has-[:enabled]:hover:shadow-[0_0_24px_-6px_rgba(16,211,51,0.38),0_0_36px_-10px_rgba(0,107,107,0.16)]";
@@ -24,12 +27,15 @@ export const RWA_DETAIL_PLACE_BID_FRAME_SHADOW =
 /** Design ref omits external reference + period change on card detail — set true to re-enable. */
 export const RWA_DETAIL_SHOW_MARKET_CONTEXT = false;
 
+/** Card detail titles — medium weight (Arial reads heavy at semibold/bold). */
+export const RWA_DETAIL_TITLE_WEIGHT_CLASS = "font-medium";
+export const RWA_DETAIL_TITLE_CERT_WEIGHT_CLASS = "font-normal";
+
 /** Slab headline muted blue-grey — mobile caption line 1. */
 export const RWA_DETAIL_SLAB_TITLE_MUTED_COLOR_CLASS = "text-[#8BA1B3]";
 /** Desktop right sidebar title — same tone as mobile, smaller than legacy hero sizing. */
-export const RWA_DETAIL_DESKTOP_SIDEBAR_TITLE_CLASS = `${RWA_DETAIL_SLAB_TITLE_MUTED_COLOR_CLASS} min-w-0 whitespace-normal break-words text-[15px] font-semibold leading-[1.2] tracking-wide [overflow-wrap:anywhere] sm:text-[16px]`;
-export const RWA_DETAIL_DESKTOP_SIDEBAR_CERT_CLASS =
-  "font-bold tabular-nums text-white";
+export const RWA_DETAIL_DESKTOP_SIDEBAR_TITLE_CLASS = `${RWA_DETAIL_SLAB_TITLE_MUTED_COLOR_CLASS} min-w-0 whitespace-normal break-words text-[15px] ${RWA_DETAIL_TITLE_WEIGHT_CLASS} leading-[1.2] tracking-normal [overflow-wrap:anywhere] sm:text-[16px]`;
+export const RWA_DETAIL_DESKTOP_SIDEBAR_CERT_CLASS = `${RWA_DETAIL_TITLE_CERT_WEIGHT_CLASS} tabular-nums text-white`;
 
 /**
  * Mobile RWA hero — scales to parent width; height capped with svh + reserved chrome
@@ -49,4 +55,4 @@ export const RWA_MOBILE_SLAB_CAPTION_BLOCK_CLASS =
 export const RWA_MOBILE_SLAB_CAPTION_LINE_GAP_CLASS = "gap-1.5";
 /** Bottom inset above fixed purchase footer (dual CTA + safe-area). */
 export const RWA_MOBILE_STICKY_FOOTER_RESERVE_CLASS =
-  "max-lg:pb-[calc(5.5rem+env(safe-area-inset-bottom,0px))]";
+  "max-lg:pb-[calc(5rem+env(safe-area-inset-bottom,0px))]";

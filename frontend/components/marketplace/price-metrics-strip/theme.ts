@@ -39,6 +39,9 @@ export const orderBookColEndCls = "justify-self-end text-right";
 /** Order book flush — Size centered in its column; Total aligns right. */
 export const orderBookBookSizeColCls = "justify-self-center text-center tabular-nums";
 
-/** Trades flush — Side centered in its column; Time aligns right. */
+/** Trades flush — Side centered in its column; Time values align to column end. */
 export const orderBookTradesSideColCls = "justify-self-center text-center";
 export const orderBookTradesTimeColCls = `${orderBookColEndCls} tabular-nums`;
+/** Trades column header only — "Time" label inset slightly left of the value edge. */
+export const orderBookTradesTimeHeaderColCls =
+  "justify-self-end pr-3.5 text-right sm:pr-4";

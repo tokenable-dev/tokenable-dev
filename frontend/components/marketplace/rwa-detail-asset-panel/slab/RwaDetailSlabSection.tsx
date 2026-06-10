@@ -323,10 +323,10 @@ export function RwaDetailSlabSection({
               <button
                 type="button"
                 aria-pressed={slabAutoRotateOn}
-                className={`group ${slabThumbSize} bg-black/35 shadow-[0_4px_14px_-8px_rgba(0,0,0,0.75)] transition max-xl:shadow-[0_4px_12px_-8px_rgba(0,0,0,0.7)] lg:shadow-[0_6px_20px_-10px_rgba(0,0,0,0.75)] ${
+                className={`group ${slabThumbSize} border-gray-700/90 bg-black/40 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mint/70 ${
                   slabAutoRotateOn
-                    ? "border-mint/40 ring-1 ring-mint/15 hover:border-mint/55 hover:ring-mint/25"
-                    : "border-mint/55 ring-1 ring-mint/20 hover:border-mint/80 hover:ring-mint/35"
+                    ? "border-mint/65 bg-mint/10 ring-1 ring-mint/25 max-xl:ring-1 lg:ring-2"
+                    : "opacity-85 hover:border-gray-500 hover:opacity-100"
                 }`}
                 onClick={() => setSlabAutoRotateOn((on) => !on)}
                 aria-label={

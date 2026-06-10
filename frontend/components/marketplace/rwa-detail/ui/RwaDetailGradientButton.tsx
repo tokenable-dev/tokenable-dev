@@ -10,6 +10,7 @@ import {
   rwaDetailRightFont,
   RWA_DETAIL_BUY_NOW_FRAME_SHADOW,
   RWA_DETAIL_BUY_NOW_TEXT_CLASS,
+  RWA_DETAIL_CTA_HEIGHT_CLASS,
   RWA_DETAIL_MOBILE_CTA_FRAME_ROUNDED,
   RWA_DETAIL_MOBILE_CTA_INNER_ROUNDED,
   RWA_DETAIL_MOBILE_CTA_RIM_PAD_CLASS,
@@ -46,11 +47,7 @@ export function RwaDetailGradientButton({
         type="button"
         onClick={onClick}
         disabled={disabled}
-        className={`${rwaDetailRightFont.className} ${gradientOutlineInnerButtonClass} flex w-full items-center justify-center ${innerRoundedClass} border-0 leading-none tracking-normal outline-none transition-[background-color,box-shadow,filter] duration-200 ease-out enabled:hover:bg-zinc-950 enabled:hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.12),inset_0_-1px_0_rgba(16,211,51,0.08)] enabled:hover:brightness-110 enabled:hover:saturate-110 disabled:cursor-not-allowed disabled:!bg-black disabled:text-mint/35 motion-reduce:enabled:hover:brightness-100 ${
-          compact
-            ? `min-h-[50px] px-4 text-[16px] font-bold ${RWA_DETAIL_BUY_NOW_TEXT_CLASS} sm:min-h-[54px] sm:text-[17px]`
-            : `min-h-[50px] px-6 text-[16px] font-bold sm:min-h-[54px] sm:px-8 sm:text-[17px] ${RWA_DETAIL_BUY_NOW_TEXT_CLASS}`
-        }`}
+        className={`${rwaDetailRightFont.className} ${gradientOutlineInnerButtonClass} ${RWA_DETAIL_CTA_HEIGHT_CLASS} flex w-full items-center justify-center ${innerRoundedClass} border-0 px-4 text-[14px] font-bold leading-none tracking-normal outline-none transition-[background-color,box-shadow,filter] duration-200 ease-out enabled:hover:bg-zinc-950 enabled:hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.12),inset_0_-1px_0_rgba(16,211,51,0.08)] enabled:hover:brightness-110 enabled:hover:saturate-110 disabled:cursor-not-allowed disabled:!bg-black disabled:text-mint/35 motion-reduce:enabled:hover:brightness-100 sm:px-5 sm:text-[15px] ${RWA_DETAIL_BUY_NOW_TEXT_CLASS}`}
         style={{ backgroundColor: "#000000" }}
       >
         {children}

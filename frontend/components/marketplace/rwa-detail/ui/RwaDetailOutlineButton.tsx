@@ -7,6 +7,7 @@ import {
 } from "@/components/ui/GradientOutlineFrame";
 import {
   rwaDetailRightFont,
+  RWA_DETAIL_CTA_HEIGHT_CLASS,
   RWA_DETAIL_MOBILE_CTA_FRAME_ROUNDED,
   RWA_DETAIL_MOBILE_CTA_INNER_ROUNDED,
   RWA_DETAIL_MOBILE_CTA_RIM_PAD_CLASS,
@@ -27,11 +28,7 @@ export function RwaDetailOutlineButton({
   className?: string;
   compact?: boolean;
 }) {
-  const buttonClass = `${rwaDetailRightFont.className} w-full border-0 bg-black font-bold leading-none tracking-normal text-white outline-none transition-[background-color] duration-200 ease-out enabled:hover:bg-zinc-950 disabled:cursor-not-allowed disabled:text-zinc-500 ${
-    compact
-      ? "min-h-[48px] px-4 text-[15px] sm:min-h-[52px] sm:text-base"
-      : "min-h-[50px] px-6 text-[18px] sm:min-h-[58px] sm:px-10 sm:text-[20px]"
-  }`;
+  const buttonClass = `${rwaDetailRightFont.className} ${RWA_DETAIL_CTA_HEIGHT_CLASS} w-full border-0 bg-black px-4 text-[14px] font-bold leading-none tracking-normal text-white outline-none transition-[background-color] duration-200 ease-out enabled:hover:bg-zinc-950 disabled:cursor-not-allowed disabled:text-zinc-500 sm:px-5 sm:text-[15px]`;
 
   return (
     <GradientOutlineFrame

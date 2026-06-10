@@ -13,6 +13,7 @@ import {
   orderBookTradesRowValueCls,
   orderBookTradesSideColCls,
   orderBookTradesTimeColCls,
+  orderBookTradesTimeHeaderColCls,
 } from "@/components/marketplace/price-metrics-strip/theme";
 import type { CollectionPlatformTapeFill } from "@/lib/core";
 import {
@@ -32,7 +33,7 @@ function TradesColumnHeader({ flush, gridClass }: { flush?: boolean; gridClass: 
       >
         <span className={orderBookColStartCls}>Price</span>
         <span className={orderBookTradesSideColCls}>Side</span>
-        <span className={orderBookTradesTimeColCls}>Time</span>
+        <span className={orderBookTradesTimeHeaderColCls}>Time</span>
       </div>
     );
   }
@@ -44,7 +45,7 @@ function TradesColumnHeader({ flush, gridClass }: { flush?: boolean; gridClass: 
       <span className={orderBookColStartCls}>Price</span>
       <span className={orderBookColMidCls}>Side</span>
       <span className={orderBookColEndCls}>Token</span>
-      <span className={orderBookColEndCls}>Time</span>
+      <span className={orderBookTradesTimeHeaderColCls}>Time</span>
     </div>
   );
 }
@@ -138,7 +139,7 @@ export function OrderBookTradesTab({
                       </span>
                       <span className={`${orderBookColEndCls} text-zinc-500`}>#{row.tokenId}</span>
                       <span
-                        className={`min-w-0 truncate tabular-nums ${orderBookColEndCls} text-zinc-400`}
+                        className={`min-w-0 truncate ${orderBookTradesTimeColCls} text-zinc-400`}
                         title={formatTapeTimeFull(row.t)}
                       >
                         {formatTapeDate(row.t)}

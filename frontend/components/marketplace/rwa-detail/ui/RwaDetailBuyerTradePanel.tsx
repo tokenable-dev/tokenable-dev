@@ -72,8 +72,18 @@ export function RwaDetailBuyerTradePanel({
     <div className={`${rwaDetailRightFont.className} flex min-w-0 flex-col gap-4 sm:gap-5`}>
       {hasListing ? (
         <>
-          {!compactActions && listingPriceUsd != null ? (
-            <RwaDetailAskPriceDisplay priceUsd={listingPriceUsd} />
+          {listingPriceUsd != null ? (
+            compactActions ? (
+              <p className="text-center text-[1.125rem] font-semibold leading-none tabular-nums text-white sm:text-[1.1875rem]">
+                $
+                {listingPriceUsd.toLocaleString("en-US", {
+                  minimumFractionDigits: 0,
+                  maximumFractionDigits: 2,
+                })}
+              </p>
+            ) : (
+              <RwaDetailAskPriceDisplay priceUsd={listingPriceUsd} />
+            )
           ) : null}
 
           {!compactActions ? (

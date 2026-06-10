@@ -7,7 +7,6 @@ import {
   gradientOutlineInnerButtonClass,
 } from "@/components/ui/GradientOutlineFrame";
 import type { AssetDetailHeadlineParts } from "@/lib/marketplace/assetDetailHeadline";
-import { formatUsdcPricePrimary } from "@/lib/market/usdcKrwDisplay";
 import {
   buildRwaDetailMobileTrustView,
   formatRwaMobileSlabLabelLine,
@@ -17,11 +16,15 @@ import {
 import {
   RWA_DETAIL_BUY_NOW_FRAME_SHADOW,
   RWA_DETAIL_BUY_NOW_TEXT_CLASS,
+  RWA_DETAIL_CTA_HEIGHT_CLASS,
   RWA_DETAIL_MOBILE_CTA_FRAME_ROUNDED,
   RWA_DETAIL_MOBILE_CTA_INNER_ROUNDED,
   RWA_DETAIL_MOBILE_CTA_RIM_PAD_CLASS,
+  RWA_DETAIL_TITLE_CERT_WEIGHT_CLASS,
+  RWA_DETAIL_TITLE_WEIGHT_CLASS,
   RWA_MOBILE_SLAB_CAPTION_BLOCK_CLASS,
   RWA_MOBILE_SLAB_CAPTION_LINE_GAP_CLASS,
+  rwaDetailRightFont,
 } from "@/components/marketplace/rwa-detail/theme";
 
 /** Muted blue-grey slab copy (lines 1–2 body). */
@@ -29,14 +32,14 @@ const MOBILE_SLAB_CAPTION_MUTED_COLOR = "text-[#8BA1B3]";
 /** Brighter off-white for grade on line 2. */
 const MOBILE_SLAB_CAPTION_GRADE_COLOR = "text-[#E4E9ED]";
 const MOBILE_SLAB_CAPTION_BASE =
-  "uppercase leading-[1.2] tracking-wide";
+  "uppercase leading-[1.2] tracking-normal";
 const MOBILE_SLAB_CAPTION_LINE_CLASS = `block line-clamp-1 break-normal ${MOBILE_SLAB_CAPTION_BASE}`;
 
 function mobileSlabCaptionSizeClass(charCount: number, tier: "primary" | "secondary"): string {
   if (tier === "primary") {
-    if (charCount > 48) return "text-[13px] font-semibold sm:text-[14px]";
-    if (charCount > 36) return "text-[14px] font-semibold sm:text-[15px]";
-    return "text-[15px] font-semibold sm:text-[16px]";
+    if (charCount > 48) return `text-[13px] ${RWA_DETAIL_TITLE_WEIGHT_CLASS} sm:text-[14px]`;
+    if (charCount > 36) return `text-[14px] ${RWA_DETAIL_TITLE_WEIGHT_CLASS} sm:text-[15px]`;
+    return `text-[15px] ${RWA_DETAIL_TITLE_WEIGHT_CLASS} sm:text-[16px]`;
   }
   if (charCount > 85) return "text-[8px] font-medium sm:text-[9px]";
   if (charCount > 72) return "text-[9px] font-medium sm:text-[10px]";
@@ -73,12 +76,14 @@ export function RwaDetailMobileSlabCaption({
   const line1Class = `${MOBILE_SLAB_CAPTION_LINE_CLASS} ${MOBILE_SLAB_CAPTION_MUTED_COLOR} ${mobileSlabCaptionSizeClass(line1.length, "primary")}`;
   const line2Class = `${MOBILE_SLAB_CAPTION_LINE_CLASS} ${mobileSlabCaptionSizeClass(line2DisplayLen, "secondary")}`;
   const line2MutedClass = MOBILE_SLAB_CAPTION_MUTED_COLOR;
-  const line2GradeClass = `${MOBILE_SLAB_CAPTION_GRADE_COLOR} font-semibold`;
-  const line3Class = `${MOBILE_SLAB_CAPTION_LINE_CLASS} text-[14px] font-bold tabular-nums text-white sm:text-[15px]`;
+  const line2GradeClass = `${MOBILE_SLAB_CAPTION_GRADE_COLOR} ${RWA_DETAIL_TITLE_WEIGHT_CLASS}`;
+  const line3Class = `${MOBILE_SLAB_CAPTION_LINE_CLASS} text-[14px] ${RWA_DETAIL_TITLE_CERT_WEIGHT_CLASS} tabular-nums text-white sm:text-[15px]`;
   const showLine2 = Boolean(line2 || line2Grade);
 
   return (
-    <footer className={`${RWA_MOBILE_SLAB_CAPTION_BLOCK_CLASS} min-w-0 lg:hidden`}>
+    <footer
+      className={`${rwaDetailRightFont.className} ${RWA_MOBILE_SLAB_CAPTION_BLOCK_CLASS} min-w-0 lg:hidden`}
+    >
       {titleLoading ? (
         <div
           className={`flex w-full flex-col ${RWA_MOBILE_SLAB_CAPTION_LINE_GAP_CLASS}`}
@@ -148,27 +153,49 @@ export function RwaDetailStickyBuyFooter({
   );
 }
 
-/** Mobile sticky CTA — product gradient rim; optional fused price + action label. */
+/** Price line above mobile sticky CTA — kept outside the button for uniform height. */
+export function RwaDetailStickyPriceLine({
+  priceUsd,
+  caption,
+}: {
+  priceUsd: number;
+  caption?: string;
+}) {
+  const priceStr = priceUsd.toLocaleString("en-US", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  });
+
+  return (
+    <div className={`${rwaDetailRightFont.className} mb-2.5 text-center`}>
+      {caption?.trim() ? (
+        <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-zinc-500">
+          {caption}
+        </p>
+      ) : null}
+      <p className="text-[1.125rem] font-semibold leading-none tabular-nums text-white sm:text-[1.1875rem]">
+        ${priceStr}
+      </p>
+    </div>
+  );
+}
+
+/** Mobile sticky CTA — product gradient rim; uniform height across states. */
 export function RwaDetailStickyBuyButton({
   children,
   onClick,
   disabled,
-  priceUsd,
-  priceCaption,
 }: {
   children: ReactNode;
   onClick?: () => void;
   disabled?: boolean;
   /** @deprecated Buy-now rim is always used on mobile sticky CTAs. */
   emphasis?: "primary" | "default";
-  /** When set, USDC price renders inside the button above the action label. */
+  /** @deprecated Render price via RwaDetailStickyPriceLine above the button. */
   priceUsd?: number | null;
+  /** @deprecated Render price via RwaDetailStickyPriceLine above the button. */
   priceCaption?: string;
 }) {
-  const hasPrice =
-    priceUsd != null && Number.isFinite(priceUsd) && priceUsd > 0;
-  const showCaption = Boolean(priceCaption?.trim());
-
   return (
     <GradientOutlineFrame
       className={`group/cta w-full min-w-0 transition-shadow duration-200 ease-out ${RWA_DETAIL_BUY_NOW_FRAME_SHADOW}`}
@@ -180,34 +207,10 @@ export function RwaDetailStickyBuyButton({
         type="button"
         onClick={onClick}
         disabled={disabled}
-        className={`${gradientOutlineInnerButtonClass} flex w-full min-w-0 flex-col items-center justify-center ${RWA_DETAIL_MOBILE_CTA_INNER_ROUNDED} border-0 leading-none tracking-wide outline-none transition-[background-color,box-shadow,filter] duration-200 ease-out enabled:hover:bg-zinc-950 enabled:hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.12),inset_0_-1px_0_rgba(16,211,51,0.1)] enabled:hover:brightness-110 enabled:hover:saturate-110 motion-reduce:transition-none motion-reduce:enabled:hover:brightness-100 ${
-          hasPrice
-            ? "min-h-[4.75rem] gap-1.5 px-3.5 py-2.5 text-center"
-            : `h-[54px] px-4 text-[16px] font-bold ${RWA_DETAIL_BUY_NOW_TEXT_CLASS} sm:h-[56px] sm:text-[17px]`
-        }`}
+        className={`${rwaDetailRightFont.className} ${gradientOutlineInnerButtonClass} ${RWA_DETAIL_CTA_HEIGHT_CLASS} flex w-full min-w-0 items-center justify-center ${RWA_DETAIL_MOBILE_CTA_INNER_ROUNDED} border-0 px-4 text-[14px] font-bold leading-none tracking-wide outline-none transition-[background-color,box-shadow,filter] duration-200 ease-out enabled:hover:bg-zinc-950 enabled:hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.12),inset_0_-1px_0_rgba(16,211,51,0.1)] enabled:hover:brightness-110 enabled:hover:saturate-110 motion-reduce:transition-none motion-reduce:enabled:hover:brightness-100 sm:text-[15px] ${RWA_DETAIL_BUY_NOW_TEXT_CLASS}`}
         style={{ backgroundColor: "#000000" }}
       >
-        {hasPrice ? (
-          <>
-            {showCaption ? (
-              <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-zinc-500">
-                {priceCaption}
-              </span>
-            ) : null}
-            <span className="text-[1.2rem] font-bold leading-none tabular-nums text-white">
-              {formatUsdcPricePrimary(priceUsd)}
-            </span>
-            <span
-              className={`w-full text-center text-[16px] font-bold sm:text-[17px] ${RWA_DETAIL_BUY_NOW_TEXT_CLASS}`}
-            >
-              {children}
-            </span>
-          </>
-        ) : (
-          <span className={`flex w-full items-center justify-center ${RWA_DETAIL_BUY_NOW_TEXT_CLASS}`}>
-            {children}
-          </span>
-        )}
+        {children}
       </button>
     </GradientOutlineFrame>
   );

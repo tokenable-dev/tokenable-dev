@@ -11,7 +11,7 @@ export function RwaDetailAskPriceDisplay({ priceUsd }: { priceUsd: number }) {
         Price
       </p>
       <p
-        className={`${rwaDetailRightFont.className} mt-2 text-[clamp(2.5rem,9vw,3.75rem)] font-bold leading-none tabular-nums text-mint sm:text-[3.25rem]`}
+        className={`${rwaDetailRightFont.className} mt-2 text-[1.125rem] font-semibold leading-none tabular-nums text-white sm:text-[1.25rem]`}
       >
         {formatUsdCompact(priceUsd)}
       </p>

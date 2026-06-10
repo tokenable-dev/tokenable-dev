@@ -37,7 +37,7 @@ export function RwaDetailBuyerTradingPanel({
       {!compact && listingPriceUsd != null && Number.isFinite(listingPriceUsd) ? (
         <RwaDetailAskPriceDisplay priceUsd={listingPriceUsd} />
       ) : listingPriceUsd != null && Number.isFinite(listingPriceUsd) && compact ? (
-        <p className="text-[clamp(1.65rem,7vw,2.1rem)] font-bold leading-none tracking-tight text-mint tabular-nums">
+        <p className="text-[1.125rem] font-semibold leading-none tabular-nums text-white sm:text-[1.1875rem]">
           $
           {listingPriceUsd.toLocaleString("en-US", {
             minimumFractionDigits: 0,

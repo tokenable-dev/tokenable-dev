@@ -101,7 +101,7 @@ export function useRwaDetailSlabPanel(input: {
   const openSeaMobileSlabImgCls = `mx-auto block h-auto w-auto max-w-full ${RWA_MOBILE_SLAB_MAX_HEIGHT_CLASS} object-contain object-center lg:h-full lg:w-full lg:max-h-none lg:min-h-0`;
 
   const slabThumbSize = openSeaMobile
-    ? "relative aspect-[3/4] w-10 shrink-0 overflow-hidden rounded-md border-2 max-xl:rounded-md lg:w-14 lg:rounded-lg"
+    ? "relative h-[2.75rem] w-[2.0625rem] shrink-0 overflow-hidden rounded-md border-2 max-xl:rounded-md lg:aspect-[3/4] lg:h-auto lg:w-14 lg:rounded-lg"
     : "relative aspect-[3/4] w-14 shrink-0 overflow-hidden rounded-lg border-2";
 
   const slabThumbMinH = openSeaMobile

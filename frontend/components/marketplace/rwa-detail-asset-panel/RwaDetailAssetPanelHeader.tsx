@@ -3,6 +3,7 @@
 import { AssetDetailHeadlineTitle } from "@/components/marketplace/marketplace-shared";
 import { assetDetailHeadlineHasContent } from "@/lib/marketplace/assetDetailHeadline";
 import type { RwaDetailMetadata } from "@/lib/marketplace/rwa-detail";
+import { rwaDetailRightFont } from "@/components/marketplace/rwa-detail/theme";
 import { RwaDetailHeaderBadges } from "./ui/RwaDetailHeaderBadges";
 
 export function RwaDetailAssetPanelHeader({
@@ -24,13 +25,13 @@ export function RwaDetailAssetPanelHeader({
 }) {
   return (
     <div
-      className={
+      className={`${rwaDetailRightFont.className} ${
         openSeaMobile
           ? "hidden space-y-2 px-0.5 lg:block lg:px-0"
           : hideHeaderOnXl
             ? "space-y-2 px-0.5 max-xl:order-3 lg:order-none lg:px-0 lg:hidden"
             : "space-y-2 px-0.5 max-xl:order-3 lg:order-none lg:px-0"
-      }
+      }`}
     >
       <RwaDetailHeaderBadges metadata={metadata} loading={headerRowPulse} variant="mobile" />
 
@@ -43,7 +44,7 @@ export function RwaDetailAssetPanelHeader({
         <AssetDetailHeadlineTitle
           as="h1"
           parts={headlineParts}
-          className="text-xl font-bold leading-snug tracking-tight text-white sm:text-[1.375rem]"
+          className="text-xl font-medium leading-snug tracking-normal text-white sm:text-[1.375rem]"
         />
       ) : null}
     </div>
