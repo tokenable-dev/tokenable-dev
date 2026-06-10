@@ -16,11 +16,11 @@ function HeroStatCell({
   title?: string;
 }) {
   return (
-    <div className="flex min-w-0 flex-col gap-1 text-left" title={title}>
-      <span className="text-[11px] font-medium leading-tight text-zinc-500 sm:text-[12px]">
+    <div className="flex min-w-0 flex-col gap-0.5 text-left" title={title}>
+      <span className="text-[clamp(10px,2.7vw,12px)] font-medium leading-tight text-zinc-500">
         {label}
       </span>
-      <span className="min-w-0 truncate text-[15px] font-bold tabular-nums leading-tight text-white sm:text-[16px]">
+      <span className="min-w-0 truncate text-[clamp(12px,3.5vw,16px)] font-bold tabular-nums leading-tight text-white">
         {value}
       </span>
     </div>
@@ -82,7 +82,7 @@ export function CollectionMobileHeroStatsStrip({
       : undefined;
 
   return (
-    <div className="grid w-full min-w-0 grid-cols-3 gap-x-2 gap-y-0">
+    <div className="grid w-full min-w-0 grid-cols-3 gap-x-1 gap-y-0 min-[360px]:gap-x-1.5 sm:gap-x-2">
       <HeroStatCell
         label="Volume 30d"
         value={

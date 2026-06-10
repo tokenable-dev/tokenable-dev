@@ -1,4 +1,6 @@
 import { formatSportCategoryDisplayLabel } from "@/lib/market";
+import type { AssetDetailHeadlineParts } from "@/lib/marketplace/assetDetailHeadline";
+import { formatAssetDetailHeadlineText } from "@/lib/marketplace/assetDetailHeadline";
 import { resolveRwaMetadataVariant } from "@/lib/marketplace/resolveCardVariantLabel";
 
 export type RwaDetailMetadata = {
@@ -108,6 +110,31 @@ export type RwaDetailMobileTrustView = {
   certNumber: string | null;
   certVerifyUrl: string | null;
 };
+
+/**
+ * Mobile RWA hero — one line like the PSA slab top label (year, brand, grade).
+ */
+export function formatRwaMobileSlabLabelLine(
+  parts: AssetDetailHeadlineParts,
+  trust: RwaDetailMobileTrustView,
+): string {
+  const segments: string[] = [];
+  const year = parts.year?.trim();
+  const set = parts.setName?.trim();
+  if (year) segments.push(year);
+  if (set) segments.push(set);
+
+  const grade = trust.gradeLine?.trim();
+  if (grade) {
+    const short = grade.replace(/^PSA\s+/i, "").trim();
+    segments.push(short.length > 0 ? short : grade);
+  }
+
+  if (segments.length > 0) return segments.join(" ");
+
+  const fallback = formatAssetDetailHeadlineText(parts).trim();
+  return fallback.length > 0 ? fallback : "—";
+}
 
 export function buildRwaDetailMobileTrustView(meta: RwaDetailMetadata | null): RwaDetailMobileTrustView {
   const empty: RwaDetailMobileTrustView = {

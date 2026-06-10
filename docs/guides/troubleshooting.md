@@ -126,6 +126,24 @@ pnpm install --no-frozen-lockfile
 
 ---
 
+## Local dev: API empty / `curl localhost:4000/api/health` hangs
+
+**Symptom:** UI shows no marketplace data; `curl http://127.0.0.1:4000/api/health` times out; Postgres still has rows; backend logs show SQL running.
+
+**Cause:** Cursor / VS Code **Ports** panel can bind `localhost:4000` for remote/tunnel forwarding. That listener wins over Nest on `127.0.0.1`, while Next.js dev rewrites `/api` → `http://127.0.0.1:4000` (see `frontend/lib/core/backendOrigin.ts`). Browser and SSR calls then hit the IDE tunnel, not the API.
+
+**Verify:**
+
+```bash
+lsof -i :4000 | head -5
+curl -s --max-time 3 http://127.0.0.1:4000/api/health
+# expect {"ok":true,"service":"tokenable-api",...}
+```
+
+**Fix (normal process — keep `PORT=4000`):** In Cursor/VS Code **Ports**, stop or remove the forward on **4000**, then restart only if needed. Do not add extra `.env.local` unless you intentionally run Nest on another port.
+
+---
+
 ## Quick Inspection Commands
 
 ```bash

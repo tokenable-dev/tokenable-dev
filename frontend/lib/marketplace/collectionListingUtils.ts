@@ -68,6 +68,10 @@ export function bidDisplayUsdc(b: Order): number {
  */
 export const COLLECTION_DETAIL_LISTING_CARD_MIN_PX = 200;
 
+/** Mobile listing grid card image — full slab visible, scaled down within cell. */
+export const COLLECTION_MOBILE_LISTING_IMG_CLASS =
+  "mx-auto block h-auto w-full max-h-[min(34vw,124px)] max-w-[86%] object-contain object-center sm:max-h-[min(32vw,128px)]";
+
 export const COLLECTION_DETAIL_LISTING_GRID_CLASS = [
   "grid w-full min-w-0 max-w-full grid-cols-2 content-start items-stretch",
   "max-lg:-mx-2 max-lg:w-[calc(100%+1rem)] max-lg:items-start max-lg:gap-x-1.5 max-lg:gap-y-5",

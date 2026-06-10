@@ -134,9 +134,11 @@ export function RwaDetailSlabSection({
                       aria-label="View enlarged slab front"
                       title="Tap to enlarge"
                     />
-                    <span className="pointer-events-none absolute bottom-2 left-1/2 z-[3] max-w-[90%] -translate-x-1/2 truncate rounded-md bg-black/58 px-2 py-0.5 text-center text-[9px] font-medium text-zinc-100/95 sm:text-[10px]">
-                      Tap to enlarge
-                    </span>
+                    {!openSeaMobile ? (
+                      <span className="pointer-events-none absolute bottom-2 left-1/2 z-[3] max-w-[90%] -translate-x-1/2 truncate rounded-md bg-black/58 px-2 py-0.5 text-center text-[9px] font-medium text-zinc-100/95 sm:text-[10px]">
+                        Tap to enlarge
+                      </span>
+                    ) : null}
                   </>
                 ) : backHeroLoading ? (
                   <div className="absolute inset-0 animate-pulse rounded-2xl bg-gray-800/80" />
@@ -160,9 +162,11 @@ export function RwaDetailSlabSection({
                       aria-label="View enlarged slab back"
                       title="Tap to enlarge"
                     />
-                    <span className="pointer-events-none absolute bottom-2 left-1/2 z-[3] max-w-[90%] -translate-x-1/2 truncate rounded-md bg-black/58 px-2 py-0.5 text-center text-[9px] font-medium text-zinc-100/95 sm:text-[10px]">
-                      Tap to enlarge
-                    </span>
+                    {!openSeaMobile ? (
+                      <span className="pointer-events-none absolute bottom-2 left-1/2 z-[3] max-w-[90%] -translate-x-1/2 truncate rounded-md bg-black/58 px-2 py-0.5 text-center text-[9px] font-medium text-zinc-100/95 sm:text-[10px]">
+                        Tap to enlarge
+                      </span>
+                    ) : null}
                   </>
                 ) : (
                   <div className="absolute inset-0 flex flex-col items-center justify-center px-4 text-center text-sm text-gray-500">

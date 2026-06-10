@@ -1,19 +1,17 @@
 "use client";
 
-import type { ReactNode } from "react";
-import { AssetDetailHeadlineTitle } from "@/components/marketplace/marketplace-shared";
+import { useMemo, type ReactNode } from "react";
 import {
   GradientOutlineFrame,
   gradientOutlineInnerButtonClass,
 } from "@/components/ui/GradientOutlineFrame";
-import {
-  assetDetailHeadlineHasContent,
-  formatAssetDetailHeadlineText,
-  type AssetDetailHeadlineParts,
-} from "@/lib/marketplace/assetDetailHeadline";
+import type { AssetDetailHeadlineParts } from "@/lib/marketplace/assetDetailHeadline";
 import { formatUsdcPricePrimary } from "@/lib/market/usdcKrwDisplay";
-import { RwaDetailHeaderBadges } from "@/components/marketplace/rwa-detail-asset-panel";
-import type { RwaDetailMetadata } from "@/lib/marketplace/rwa-detail";
+import {
+  buildRwaDetailMobileTrustView,
+  formatRwaMobileSlabLabelLine,
+  type RwaDetailMetadata,
+} from "@/lib/marketplace/rwa-detail";
 import {
   RWA_DETAIL_BUTTON_FRAME_ROUNDED,
   RWA_DETAIL_BUTTON_INNER_ROUNDED,
@@ -29,40 +27,29 @@ export function RwaDetailMobileCardHeader({
   titleLoading?: boolean;
   metadata?: RwaDetailMetadata | null;
 }) {
-  const hasHeadline = headlineParts != null && assetDetailHeadlineHasContent(headlineParts);
+  const slabLabel = useMemo(() => {
+    if (!headlineParts) return "—";
+    return formatRwaMobileSlabLabelLine(
+      headlineParts,
+      buildRwaDetailMobileTrustView(metadata),
+    );
+  }, [headlineParts, metadata]);
 
   return (
-    <header className="mx-auto w-full max-w-[32rem] min-w-0 space-y-2 px-5 pb-1 pt-3 text-center lg:hidden">
+    <header className="mx-auto w-full max-w-[32rem] min-w-0 shrink-0 px-5 pb-2 pt-3 text-center lg:hidden">
       {titleLoading ? (
         <div
-          className="mx-auto h-9 w-[min(100%,17rem)] max-w-full animate-pulse rounded-lg bg-zinc-800/85"
+          className="mx-auto h-4 w-[min(100%,14rem)] max-w-full animate-pulse rounded bg-zinc-800/85"
           aria-hidden
         />
-      ) : hasHeadline && headlineParts ? (
-        <AssetDetailHeadlineTitle
-          as="h1"
-          parts={headlineParts}
-          className="whitespace-normal text-[1.4rem] font-bold leading-[1.25] tracking-tight text-white [overflow-wrap:anywhere] sm:text-[1.45rem]"
-        />
       ) : (
-        <h1 className="text-[1.4rem] font-bold leading-[1.2] tracking-tight text-white sm:text-[1.45rem]">
-          {formatAssetDetailHeadlineText(
-            headlineParts ?? {
-              year: null,
-              setName: null,
-              cardNumber: null,
-              cardName: null,
-              variety: null,
-            },
-          )}
+        <h1
+          className="text-[11px] font-medium uppercase leading-snug tracking-wide text-zinc-400 [overflow-wrap:anywhere] sm:text-[12px]"
+          title={slabLabel}
+        >
+          {slabLabel}
         </h1>
       )}
-      <RwaDetailHeaderBadges
-        metadata={metadata}
-        loading={titleLoading}
-        variant="mobile"
-        className="justify-center"
-      />
     </header>
   );
 }

@@ -87,12 +87,6 @@ export function RwaDetailLoadedView({
           metaLoading={metaLoading}
           detailHeadlineParts={headline.detailHeadlineParts}
           detailTitlePulse={headline.detailTitlePulse}
-          externalRefUsd={market.externalRefUsd}
-          marketChangePct={market.marketChangePct}
-          marketChangePeriodShort={market.marketChangePeriodShort}
-          marketChangePeriodLabel={market.marketChangePeriodLabel}
-          marketChangeCoverageHint={market.marketChangeCoverageHint}
-          showMobileMarketContext={showMobileMarketContext}
           footerNote={mobileStickyFooterNote}
           activeAskListing={activeAskListing}
           isOwner={isOwner}
@@ -110,9 +104,6 @@ export function RwaDetailLoadedView({
           onViewMarket={() => {
             if (market.collectionHref) router.push(market.collectionHref);
           }}
-          tokenTrades={platformTrades.trades}
-          tradesLoading={platformTrades.tradesLoading}
-          tradesAvailable={platformTrades.tradesAvailable}
         />
 
         <RwaDetailDesktopSidebar

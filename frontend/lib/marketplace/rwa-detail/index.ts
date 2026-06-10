@@ -13,6 +13,7 @@ export type { RwaDetailAssetPanelProps } from "./rwaDetailPanelTypes";
 export type { RwaDetailMetadata, RwaDetailMobileTrustView } from "./rwaDetailMetadata";
 export {
   buildRwaDetailMobileTrustView,
+  formatRwaMobileSlabLabelLine,
   buildRwaDetailStatRows,
   extractGradedSlabBackCandidate,
   formatRwaDetailCardIdLine,

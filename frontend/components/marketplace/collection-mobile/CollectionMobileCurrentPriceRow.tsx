@@ -59,30 +59,32 @@ export function CollectionMobileCurrentPriceRow({
         : REFERENCE_CHANGE_UNAVAILABLE_LABEL;
 
   const priceClass =
-    "text-[1.25rem] font-bold tabular-nums leading-none tracking-tight text-mint sm:text-[1.3rem]";
+    "shrink-0 font-bold tabular-nums leading-none tracking-tight text-mint text-[clamp(1.05rem,4.5vw,1.3rem)]";
   const changeClass =
-    "text-[1.25rem] font-bold tabular-nums leading-none tracking-tight sm:text-[1.3rem]";
+    "min-w-0 font-bold tabular-nums leading-none tracking-tight text-[clamp(1.05rem,4.5vw,1.3rem)]";
+  const changePeriodClass =
+    "shrink-0 font-bold tabular-nums leading-none tracking-tight text-[clamp(1.05rem,4.5vw,1.3rem)] text-zinc-500";
 
   return (
     <div
-      className="flex w-full min-w-0 justify-center pt-3"
+      className="flex w-full min-w-0 justify-center py-3 sm:py-3.5"
       title="External market reference from Cardhedger (eBay strip), not Tokenable list prices"
     >
-      <div className="inline-flex min-w-0 max-w-full flex-wrap items-baseline justify-center gap-x-14 gap-y-0.5 sm:gap-x-16">
+      <div className="inline-flex max-w-full min-w-0 flex-wrap items-baseline justify-center gap-x-3 gap-y-0.5 min-[360px]:gap-x-4 sm:gap-x-5">
         {loading && !showPrice ? (
           <span
-            className="inline-block h-[1.2rem] w-[5.5rem] max-w-full animate-pulse rounded bg-zinc-800/80"
+            className="inline-block h-[1.15rem] w-[4.75rem] shrink-0 animate-pulse rounded bg-zinc-800/80"
             aria-hidden
           />
         ) : showPrice ? (
           <span className={priceClass}>{formatUsdCompact(priceUsd)}</span>
         ) : (
-          <span className="text-[13px] font-medium tabular-nums text-zinc-500">
+          <span className="shrink-0 text-[clamp(12px,3.2vw,13px)] font-medium tabular-nums text-zinc-500">
             {NO_EXTERNAL_PRICE}
           </span>
         )}
         {showPrice || changeLoading ? (
-          <span className="inline-flex min-w-0 shrink-0 items-baseline gap-0.5">
+          <span className="inline-flex min-w-0 shrink-0 items-baseline gap-x-0.5">
             <span
               className={`${changeClass} ${
                 changeTone ? changeToneClass(changeTone) : "text-zinc-400"
@@ -91,9 +93,7 @@ export function CollectionMobileCurrentPriceRow({
               {changeLabel}
             </span>
             {changePeriodShort ? (
-              <span className={`${changeClass} font-bold text-zinc-500`}>
-                {changePeriodShort}
-              </span>
+              <span className={changePeriodClass}>{changePeriodShort}</span>
             ) : null}
           </span>
         ) : null}
