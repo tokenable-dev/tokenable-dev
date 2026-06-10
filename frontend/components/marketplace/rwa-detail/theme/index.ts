@@ -40,8 +40,9 @@ export const RWA_MOBILE_SLAB_MAX_HEIGHT_CLASS =
   "max-h-[min(480px,68svh,calc(100svh-4rem-11.5rem-env(safe-area-inset-bottom,0px)))]";
 /** Image + caption column — hugs rendered slab width (not letterboxed container). */
 export const RWA_MOBILE_SLAB_STACK_CLASS = `mx-auto flex w-fit min-w-0 ${RWA_MOBILE_SLAB_MAX_WIDTH_CLASS} flex-col items-stretch`;
-/** Even padding on caption block (top/bottom match; width aligns with card edges). */
-export const RWA_MOBILE_SLAB_CAPTION_BLOCK_CLASS = "w-full shrink-0 pt-3 pb-3 text-left";
+/** Caption block — vertical rhythm + horizontal inset so copy does not hug screen edges. */
+export const RWA_MOBILE_SLAB_CAPTION_BLOCK_CLASS =
+  "w-full shrink-0 px-4 pt-3 pb-3 text-left max-[380px]:px-3.5 sm:px-5";
 export const RWA_MOBILE_SLAB_CAPTION_LINE_GAP_CLASS = "gap-1.5";
 /** Bottom inset above fixed purchase footer (dual CTA + safe-area). */
 export const RWA_MOBILE_STICKY_FOOTER_RESERVE_CLASS =
