@@ -34,9 +34,9 @@ const MOBILE_SLAB_CAPTION_LINE_CLASS = `block line-clamp-1 break-normal ${MOBILE
 
 function mobileSlabCaptionSizeClass(charCount: number, tier: "primary" | "secondary"): string {
   if (tier === "primary") {
-    if (charCount > 48) return "text-[11px] font-semibold sm:text-[12px]";
-    if (charCount > 36) return "text-[12px] font-semibold sm:text-[13px]";
-    return "text-[13px] font-semibold sm:text-[14px]";
+    if (charCount > 48) return "text-[13px] font-semibold sm:text-[14px]";
+    if (charCount > 36) return "text-[14px] font-semibold sm:text-[15px]";
+    return "text-[15px] font-semibold sm:text-[16px]";
   }
   if (charCount > 85) return "text-[8px] font-medium sm:text-[9px]";
   if (charCount > 72) return "text-[9px] font-medium sm:text-[10px]";
@@ -74,7 +74,7 @@ export function RwaDetailMobileSlabCaption({
   const line2Class = `${MOBILE_SLAB_CAPTION_LINE_CLASS} ${mobileSlabCaptionSizeClass(line2DisplayLen, "secondary")}`;
   const line2MutedClass = MOBILE_SLAB_CAPTION_MUTED_COLOR;
   const line2GradeClass = `${MOBILE_SLAB_CAPTION_GRADE_COLOR} font-semibold`;
-  const line3Class = `${MOBILE_SLAB_CAPTION_LINE_CLASS} text-[11px] font-bold tabular-nums text-white sm:text-[12px]`;
+  const line3Class = `${MOBILE_SLAB_CAPTION_LINE_CLASS} text-[14px] font-bold tabular-nums text-white sm:text-[15px]`;
   const showLine2 = Boolean(line2 || line2Grade);
 
   return (
@@ -84,9 +84,9 @@ export function RwaDetailMobileSlabCaption({
           className={`flex w-full flex-col ${RWA_MOBILE_SLAB_CAPTION_LINE_GAP_CLASS}`}
           aria-hidden
         >
-          <div className="h-3.5 w-full animate-pulse rounded bg-zinc-800/85" />
-          <div className="h-3.5 w-full animate-pulse rounded bg-zinc-800/80" />
-          <div className="h-3.5 w-[45%] animate-pulse rounded bg-zinc-800/75" />
+          <div className="h-4 w-full animate-pulse rounded bg-zinc-800/85" />
+          <div className="h-4 w-full animate-pulse rounded bg-zinc-800/80" />
+          <div className="h-4 w-[45%] animate-pulse rounded bg-zinc-800/75" />
         </div>
       ) : (
         <>
