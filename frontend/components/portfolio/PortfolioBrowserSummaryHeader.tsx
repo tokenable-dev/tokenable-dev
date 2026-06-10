@@ -7,7 +7,7 @@ const BROWSER_VALUE_TEXT_SIZE_CLASS =
   "text-xl font-extrabold tracking-tight sm:text-2xl lg:text-3xl";
 /** Match {@link BROWSER_VALUE_TEXT_SIZE_CLASS} cap height for inline chart icon. */
 export const BROWSER_VALUE_CHART_ICON_SIZE_CLASS =
-  "h-[1.25rem] w-[1.25rem] sm:h-6 sm:w-6 lg:h-[1.875rem] lg:w-[1.875rem]";
+  "h-10 w-10 sm:h-11 sm:w-11 lg:h-12 lg:w-12";
 const BROWSER_VALUE_LABEL_CLASS = `shrink-0 ${BROWSER_VALUE_TEXT_SIZE_CLASS} text-white`;
 const BROWSER_VALUE_AMOUNT_CLASS = `shrink-0 tabular-nums ${BROWSER_VALUE_TEXT_SIZE_CLASS} text-white`;
 const BROWSER_VALUE_PCT_POSITIVE_CLASS = `shrink-0 tabular-nums ${BROWSER_VALUE_TEXT_SIZE_CLASS} text-mint`;
