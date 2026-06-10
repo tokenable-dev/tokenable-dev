@@ -55,11 +55,14 @@ export function OrderBookTradesTab({
   tapeLoading,
   flush,
   mobileEmbed,
+  emptyLabel = "N/A",
 }: {
   tapeFills: CollectionPlatformTapeFill[];
   tapeLoading?: boolean;
   flush?: boolean;
   mobileEmbed?: boolean;
+  /** Shown when the tape is empty and not loading (default: N/A). */
+  emptyLabel?: string;
 }) {
   const gridClass = flush ? ORDER_BOOK_THREE_COL_GRID : TRADES_GRID_LEGACY;
   const rowGridClass = flush
@@ -80,7 +83,7 @@ export function OrderBookTradesTab({
             : "flex items-center justify-center py-10"
         }
       >
-        <span className={`${orderBookTradesRowValueCls} text-zinc-500`}>N/A</span>
+        <span className={`${orderBookTradesRowValueCls} text-zinc-500`}>{emptyLabel}</span>
       </div>
     );
   }

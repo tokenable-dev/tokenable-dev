@@ -1,14 +1,15 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
+import { parseEventLogs } from "viem";
 import {
   useAccount,
   usePublicClient,
   useWriteContract,
   useWaitForTransactionReceipt,
 } from "wagmi";
-import { uploadRwaMetadata } from "@/lib/core";
-import { TOKENABLE_RWA_ADDRESS, TOKENABLE_RWA_MINT_ABI } from "@/constants/contracts";
+import { uploadRwaMetadata, notifyRwaMint } from "@/lib/core";
+import { TOKENABLE_RWA_ADDRESS, TOKENABLE_RWA_MINT_ABI, TOKENABLE_RWA_EVENTS_ABI } from "@/constants/contracts";
 import { sepolia } from "@/config/wagmi";
 import { GAS_FALLBACK, gasWithCapFast } from "@/lib/network";
 import {
@@ -98,6 +99,25 @@ export function useMintForm() {
     setMintImageBlobUrl(u);
     return () => URL.revokeObjectURL(u);
   }, [form.image]);
+
+  // Once the mint tx is confirmed, parse the Minted event to get the tokenId
+  // and notify the backend so it can bootstrap the marketplace collection immediately.
+  useEffect(() => {
+    if (!receipt?.logs?.length) return;
+    try {
+      const parsed = parseEventLogs({
+        abi: TOKENABLE_RWA_EVENTS_ABI,
+        logs: receipt.logs,
+        eventName: "Minted",
+      });
+      const tokenId = Number(parsed[0]?.args?.tokenId);
+      if (Number.isFinite(tokenId) && tokenId >= 0) {
+        void notifyRwaMint(tokenId);
+      }
+    } catch {
+      // best-effort — mint succeeded regardless
+    }
+  }, [receipt]);
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {

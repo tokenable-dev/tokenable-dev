@@ -67,6 +67,7 @@ export function useRwaDetailPage() {
   });
 
   const platformTrades = useRwaDetailPlatformTrades({
+    tokenId,
     tokenIdOk,
     collectionKey: market.collectionKeyForMatch,
   });

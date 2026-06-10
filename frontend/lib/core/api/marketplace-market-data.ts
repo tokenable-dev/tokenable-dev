@@ -222,15 +222,20 @@ export interface CollectionTradesVolumeStats {
 
 /** Platform chart points + merged trades tape + volume stats. */
 export async function getCollectionPlatformTrades(
-  collectionKey: string
+  collectionKey: string,
+  opts?: { bootstrapTokenId?: number },
 ): Promise<{
   platformUsd: CollectionUsdPoint[];
   trades: CollectionPlatformTapeFill[];
   volume: CollectionTradesVolumeStats;
 }> {
   const enc = encodeURIComponent(collectionKey);
+  const bootstrapQs =
+    opts?.bootstrapTokenId != null && Number.isFinite(opts.bootstrapTokenId)
+      ? `?bootstrapTokenId=${Math.floor(opts.bootstrapTokenId)}`
+      : "";
   const res = await backendFetch(
-    `${getApiUrl()}/marketplace/collections/${enc}/platform-trades`
+    `${getApiUrl()}/marketplace/collections/${enc}/platform-trades${bootstrapQs}`,
   );
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));

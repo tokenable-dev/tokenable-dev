@@ -252,7 +252,10 @@ export class CollectionMarketService {
     );
   }
 
-  async platformTradesForApi(collectionKey: string): Promise<{
+  async platformTradesForApi(
+    collectionKey: string,
+    opts?: { bootstrapTokenId?: number },
+  ): Promise<{
     platformUsd: UsdPoint[];
     trades: PlatformTapeFillRow[];
     volume: CollectionTradesVolumeStats;
@@ -263,7 +266,60 @@ export class CollectionMarketService {
 
     let cardhedgerTrades: PlatformTapeFillRow[] = [];
     try {
-      const col = await this.collectionService.findOne(k);
+      let col = await this.collectionService.findOne(k);
+      const bootstrapTokenId = opts?.bootstrapTokenId;
+      if (
+        !col &&
+        bootstrapTokenId != null &&
+        Number.isFinite(bootstrapTokenId) &&
+        bootstrapTokenId >= 0
+      ) {
+        const ensured = await this.collectionService.ensureCollectionForListing(
+          String(Math.floor(bootstrapTokenId)),
+        );
+        if (ensured?.trim().toLowerCase() === k) {
+          col = await this.collectionService.findOne(k);
+        }
+      }
+
+      // ── Lazy cardId enrichment ─────────────────────────────────────────────
+      // When the collection exists but cardhedgerCardId is not yet resolved
+      // (e.g., minted before the MintEventListenerService cert-lookup was deployed,
+      // or identity seeding was a no-op because the mint metadata lacked a cardId),
+      // attempt a blocking cert → Cardhedger lookup so the comps resolve on THIS
+      // request rather than after a background enrichment cycle.
+      if (
+        col &&
+        bootstrapTokenId != null &&
+        !col.components?.cardhedgerCardId &&
+        col.psaCertNumber?.trim()
+      ) {
+        try {
+          const resolved = await this.cardhedgerMarket.tryResolveCardIdByCert(
+            col.psaCertNumber.trim(),
+          );
+          if (resolved?.cardId) {
+            await this.collectionService.mergeComponentsForMintBootstrap(k, {
+              cardhedgerCardId: resolved.cardId,
+              ...(resolved.query ? { cardhedgerSearchQuery: resolved.query } : {}),
+            });
+            col = await this.collectionService.findOne(k);
+            this.logger.log(
+              `platform-trades: lazy cardId enrichment for ${k} → ${resolved.cardId}`,
+            );
+          } else if (resolved?.certDescription) {
+            await this.collectionService.mergeComponentsForMintBootstrap(k, {
+              cardhedgerSearchQuery: resolved.certDescription,
+            });
+            col = await this.collectionService.findOne(k);
+          }
+        } catch (e) {
+          this.logger.debug(
+            `platform-trades: cert-lookup skipped for ${k}: ${String(e)}`,
+          );
+        }
+      }
+
       const tier = marketHistoryTierFromComponents(col?.components);
       const comps = await this.cardhedgerMarket.getCompsSnapshotForCollection(
         col,

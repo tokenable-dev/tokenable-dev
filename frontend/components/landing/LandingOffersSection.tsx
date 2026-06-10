@@ -3,25 +3,25 @@ import { ASSETS } from "@/constants/assets";
 const OFFERS = [
   {
     icon: ASSETS.icons.landingOffersAuthenticity,
-    title: "Authenticity.",
-    body: "Only cards graded by the best: PSA, BGS, SGC, CGC, and TAG are accepted to provide assurance of the authenticity of all collectibles on the Tokenable platform.",
+    title: "Authenticity",
+    body: "Only cards graded 9+ by PSA, BGS, SGC, and TAG are accepted to provide the highest grades and authenticity.",
   },
   {
     icon: ASSETS.icons.landingOffersPsaVaults,
-    title: "PSA Vaults.",
-    body: "Cards are held in secure custody at PSA with intake verification against the PSA certification database, ensuring each token is backed by re-verified and authenticated graded card.",
+    title: "Security",
+    body: "Cards are held in secure custody at PSA vaults with intake verification ensuring that each graded card is authentic and safely stored.",
   },
   {
     icon: ASSETS.icons.landingOffersLiquidity,
-    title: "Liquidity.",
-    body: "Cards stay vaulted while transactions settle onchain instantly, enabling continuous trading with no shipping, fees, customs, chargebacks, returns, or counterfeit risk.",
+    title: "Liquidity",
+    body: "Transactions settle on-chain instantly, enabling continuous trading with no delivery, customs, chargebacks, or returns.",
   },
 ] as const;
 
 const OFFER_ICON_CLASS =
-  "h-11 w-11 shrink-0 object-contain object-center invert sm:h-12 sm:w-12";
+  "mx-auto h-20 w-20 object-contain object-center invert sm:h-24 sm:w-24 md:h-28 md:w-28";
 
-function OfferRow({
+function OfferColumn({
   icon,
   title,
   body,
@@ -31,29 +31,28 @@ function OfferRow({
   body: string;
 }) {
   return (
-    <div className="grid grid-cols-[3rem_1fr] items-start gap-x-5 sm:grid-cols-[3.25rem_1fr] sm:gap-x-8">
-      <div className="flex h-full items-center justify-center pt-0.5">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={icon} alt="" width={48} height={48} className={OFFER_ICON_CLASS} aria-hidden />
-      </div>
-      <p className="text-base leading-relaxed text-gray-400 sm:text-lg sm:leading-[1.65]">
-        <span className="font-semibold text-white">{title}</span> {body}
+    <div className="flex flex-col items-center text-center">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={icon} alt="" width={112} height={112} className={OFFER_ICON_CLASS} aria-hidden />
+      <h3 className="mt-6 text-xl font-bold text-white sm:mt-8 sm:text-2xl md:text-[1.625rem]">{title}</h3>
+      <p className="mt-4 max-w-[20rem] text-base leading-relaxed text-gray-400 sm:mt-5 sm:max-w-[17rem] sm:text-lg sm:leading-[1.7] md:max-w-[18rem]">
+        {body}
       </p>
     </div>
   );
 }
 
-/** Landing bottom — value props (Authenticity, PSA Vaults, Liquidity). */
+/** Landing — value props (Authenticity, Security, Liquidity). */
 export function LandingOffersSection() {
   return (
-    <section className="relative z-10 mx-auto max-w-3xl border-t border-white/[0.06] px-6 py-14 sm:max-w-4xl sm:py-20">
-      <h2 className="mb-10 text-xl font-bold leading-snug text-white sm:mb-12 sm:text-2xl sm:leading-snug md:text-3xl">
-        Trading Collectibles on Tokenable
+    <section className="relative z-10 mx-auto max-w-6xl border-t border-white/[0.06] px-6 py-16 sm:max-w-7xl sm:py-24">
+      <h2 className="mb-14 text-center text-xl font-medium leading-snug text-gray-400 sm:mb-20 sm:text-2xl md:text-3xl lg:text-[2rem]">
+        What value does Tokenable provide users?
       </h2>
 
-      <div className="flex flex-col gap-10 sm:gap-12">
+      <div className="grid grid-cols-1 gap-14 sm:grid-cols-3 sm:gap-10 md:gap-12 lg:gap-14">
         {OFFERS.map((offer) => (
-          <OfferRow key={offer.title} {...offer} />
+          <OfferColumn key={offer.title} {...offer} />
         ))}
       </div>
     </section>

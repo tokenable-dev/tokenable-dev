@@ -594,4 +594,51 @@ export class CollectionService {
   ): Promise<{ tokenIds: string[] }> {
     return this.merkleSet.merkleEligibleTokenIds(collectionKey, options);
   }
+
+  /**
+   * Merge additional component fields for a newly bootstrapped mint.
+   * Only updates fields not already set — idempotent.
+   * Used by MintEventListenerService when identity service is disabled.
+   */
+  async mergeComponentsForMintBootstrap(
+    collectionKey: string,
+    patch: Record<string, string>,
+  ): Promise<void> {
+    const k = collectionKey.toLowerCase();
+    const col = await this.collectionRepo.findOne({
+      where: { collectionKey: k },
+    });
+    if (!col) return;
+    const comp = (col.components ?? {}) as Record<string, unknown>;
+    let dirty = false;
+    const next: Record<string, unknown> = { ...comp };
+    for (const [key, value] of Object.entries(patch)) {
+      if (!next[key] && value) {
+        next[key] = value;
+        dirty = true;
+      }
+    }
+    if (!dirty) return;
+    await this.collectionRepo.update(
+      { collectionKey: k },
+      { components: next as QueryDeepPartialEntity<Record<string, unknown>> },
+    );
+  }
+
+  /**
+   * Resolves token metadata from chain (via BlockchainService) for cover retry.
+   * Returns null on any failure so callers can gracefully skip.
+   */
+  async resolveAssetForCoverRetry(
+    tokenId: number,
+  ): Promise<{ meta: Record<string, unknown> } | null> {
+    try {
+      const uri = await this.blockchain.getRwaTokenURI(tokenId);
+      if (!uri?.trim()) return null;
+      const meta = await this.ipfsResolver.fetchMetadataJson(uri);
+      return { meta };
+    } catch {
+      return null;
+    }
+  }
 }

@@ -35,6 +35,7 @@ import { RwaTokenRegistryService } from './rwa-token-registry.service';
 import { CollectionsController } from './collections.controller';
 import { RwaTokenAdminController } from './rwa-token-admin.controller';
 import { RwaTokenAdminService } from './rwa-token-admin.service';
+import { MintEventListenerService } from './mint-event-listener.service';
 
 /**
  * Collection buckets, order-book reads, cover enrichment, merkle leaves.
@@ -86,6 +87,7 @@ import { RwaTokenAdminService } from './rwa-token-admin.service';
     RwaTokenAdminService,
     CertMarketTraceService,
     CollectionMarketService,
+    MintEventListenerService,
   ],
   exports: [
     MarketplaceAdminService,

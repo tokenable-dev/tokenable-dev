@@ -53,7 +53,10 @@ export const rq = {
     duration: "7d" | "30d" | "90d" | "180d" | "365d" | "max" = "max",
   ) => ["collection-market-series", key, duration] as const,
   /** On-chain platform trades for a collection. */
-  collectionPlatformTrades: (key: string) => ["collection-platform-trades", key] as const,
+  collectionPlatformTrades: (key: string, bootstrapTokenId?: number) =>
+    bootstrapTokenId != null
+      ? (["collection-platform-trades", key, bootstrapTokenId] as const)
+      : (["collection-platform-trades", key] as const),
   /** Metadata rows for RWA tokens listed under a collection. */
   collectionListingsMetadata: (key: string, tokenIds: readonly number[]) =>
     [
