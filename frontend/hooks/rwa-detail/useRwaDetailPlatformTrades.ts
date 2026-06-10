@@ -11,14 +11,16 @@ import {
 import { countableTapeFills } from "@/lib/market/tradesVolume";
 
 export function useRwaDetailPlatformTrades(input: {
+  tokenId: number;
   tokenIdOk: boolean;
   collectionKey: string | null;
 }) {
-  const { tokenIdOk, collectionKey } = input;
+  const { tokenId, tokenIdOk, collectionKey } = input;
 
   const { data, isLoading } = useQuery({
-    queryKey: rq.collectionPlatformTrades(collectionKey ?? ""),
-    queryFn: () => getCollectionPlatformTrades(collectionKey!),
+    queryKey: rq.collectionPlatformTrades(collectionKey ?? "", tokenId),
+    queryFn: () =>
+      getCollectionPlatformTrades(collectionKey!, { bootstrapTokenId: tokenId }),
     enabled: Boolean(collectionKey && tokenIdOk),
     staleTime: marketplaceRqPolicy.snapshotsStaleMs,
     refetchInterval: 20_000,

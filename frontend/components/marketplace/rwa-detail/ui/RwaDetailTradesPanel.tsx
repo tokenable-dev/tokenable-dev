@@ -35,7 +35,12 @@ export function RwaDetailTradesPanel({
         </p>
       ) : (
         <div className="mt-3 flex min-h-0 max-h-[min(280px,40vh)] flex-col overflow-hidden sm:mt-4">
-          <OrderBookTradesTab tapeFills={trades} tapeLoading={loading} flush />
+          <OrderBookTradesTab
+            tapeFills={trades}
+            tapeLoading={loading}
+            flush
+            emptyLabel="No trades yet"
+          />
         </div>
       )}
     </section>

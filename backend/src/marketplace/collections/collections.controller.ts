@@ -22,6 +22,7 @@ import { CardhedgerMarketDataService } from '../market-data/cardhedger-market-da
 import { PortfolioMarketBatchDto } from '../portfolio/dto/portfolio-market-batch.dto';
 import { CollectionMarketService } from './collection-market.service';
 import { CollectionService } from './collection.service';
+import { MintEventListenerService } from './mint-event-listener.service';
 import { BatchMarketSnapshotsDto } from './dto/batch-market-snapshots.dto';
 import { MintPreviewsByTokenIdsDto } from './dto/mint-previews-by-token-ids.dto';
 import { TokenCollectionKeysDto } from './dto/token-collection-keys.dto';
@@ -47,6 +48,7 @@ export class CollectionsController {
     private readonly aiInsight: CardhedgerAiInsightService,
     private readonly marketplaceAdmin: MarketplaceAdminService,
     private readonly eventEmitter: EventEmitter2,
+    private readonly mintEventListener: MintEventListenerService,
   ) {}
 
   /** Decode URL-encoded path segments (some keys may be percent-encoded) and lowercase for DB lookup. */
@@ -56,6 +58,31 @@ export class CollectionsController {
 
   private assertAdminWallet(adminWallet: string): void {
     this.marketplaceAdmin.assertAdminWallet(adminWallet);
+  }
+
+  /**
+   * Front-end webhook: called right after the on-chain mint tx is confirmed.
+   * Immediately bootstraps marketplace_collections + rwa_tokens so that
+   * Cardhedger comps and trades are ready before the owner tries to list.
+   * Fire-and-forget on the server side — returns `{ accepted: true }` instantly.
+   */
+  @ApiOperation({ summary: '민트 완료 알림 (컬렉션 자동 생성)' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['tokenId'],
+      properties: { tokenId: { type: 'integer', example: 42 } },
+    },
+  })
+  @Post('collections/on-mint')
+  postOnMint(@Body() body: { tokenId?: unknown }): { accepted: boolean } {
+    const tid = Math.floor(Number(body?.tokenId));
+    if (Number.isFinite(tid) && tid >= 0) {
+      void this.mintEventListener.handleMintedToken(tid).catch(() => {
+        // swallow — background task
+      });
+    }
+    return { accepted: true };
   }
 
   /** 컬렉션 목록 (커서 페이지) */
@@ -189,9 +216,25 @@ export class CollectionsController {
   /** Trades 탭: 플랫폼 체결 + Cardhedger comps (최대 100건) */
   @ApiOperation({ summary: '컬렉션 체결·comps (Trades)' })
   @ApiParam({ name: 'key', description: 'collection_key', example: SWAGGER_FIXTURES.collectionKey })
+  @ApiQuery({
+    name: 'bootstrapTokenId',
+    required: false,
+    description:
+      'When marketplace_collections row is missing, ensure it from this RWA tokenId before Cardhedger comps (e.g. portfolio → list for sale).',
+  })
   @Get('collections/:key/platform-trades')
-  getCollectionPlatformTrades(@Param('key') key: string) {
-    return this.collectionMarketService.platformTradesForApi(key);
+  getCollectionPlatformTrades(
+    @Param('key') key: string,
+    @Query('bootstrapTokenId') bootstrapTokenId?: string,
+  ) {
+    const tid = bootstrapTokenId != null ? Number(bootstrapTokenId) : NaN;
+    return this.collectionMarketService.platformTradesForApi(
+      this.normalizeKey(key),
+      {
+        bootstrapTokenId:
+          Number.isFinite(tid) && tid >= 0 ? Math.floor(tid) : undefined,
+      },
+    );
   }
 
   /** listing 풀 통계 (floor·median·변동성 등, USDC) */

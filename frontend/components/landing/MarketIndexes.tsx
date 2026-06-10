@@ -17,10 +17,30 @@ import {
 
 const SLOT_LABELS: Record<CardladderDashboardIndexId, string> = {
   pokemon: "Pokemon",
-  mlb: "MLB",
-  nfl: "NFL",
-  nba: "NBA",
+  mlb: "Baseball",
+  nfl: "Football",
+  nba: "Basketball",
 };
+
+/**
+ * PINNED display values — always shown regardless of live API data.
+ * The Cardladder scraper continues running in the background but its results
+ * are NOT rendered until this block is removed or the override is lifted.
+ *
+ * Pokemon:    +187.33%
+ * Basketball: +58.12%
+ * Baseball:   +38.54%
+ * Football:   +40.73%
+ */
+const PINNED_CHANGE_PCT: Record<CardladderDashboardIndexId, number> = {
+  pokemon: 187.33,
+  nba: 58.12,
+  mlb: 38.54,
+  nfl: 40.73,
+} as const;
+
+/** The time interval shown on every card — always displayed per product requirement. */
+const INDEX_PERIOD_LABEL = "1Y";
 
 function slotIconSrc(id: CardladderDashboardIndexId): string {
   switch (id) {
@@ -79,6 +99,15 @@ function TrendSparkline({ up }: { up: boolean }) {
   );
 }
 
+/** Pill badge showing the time interval — always rendered on every card. */
+function PeriodBadge({ period }: { period: string }) {
+  return (
+    <span className="inline-flex items-center rounded-md bg-white/[0.07] px-2 py-1 text-xs font-bold tracking-widest text-zinc-300 leading-none">
+      {period}
+    </span>
+  );
+}
+
 function IndexCard({
   row,
   loading,
@@ -90,9 +119,13 @@ function IndexCard({
   const iconSrc = slotIconSrc(row.id);
   const iconImgClass =
     row.id === "nba" ? MARKET_RASTER_ICON_IMG_NBA : MARKET_RASTER_ICON_IMG;
-  const hasValue = row.changePct != null && Number.isFinite(row.changePct);
-  const up = hasValue ? row.changePct! >= 0 : true;
-  const pctSigned = formatChangePct(row.changePct);
+
+  // PINNED: always use fixed values — live API output is intentionally ignored.
+  const displayPct = PINNED_CHANGE_PCT[row.id] ?? null;
+
+  const hasValue = displayPct != null && Number.isFinite(displayPct);
+  const up = hasValue ? displayPct! >= 0 : true;
+  const pctSigned = formatChangePct(displayPct);
 
   const pctClass = `font-extrabold tabular-nums ${
     !hasValue ? "text-zinc-500" : up ? "text-[#00c853]" : "text-red-400"
@@ -101,7 +134,7 @@ function IndexCard({
   const pctAria = loading
     ? "Loading market index data"
     : hasValue
-      ? `${up ? "Up" : "Down"} ${Math.abs(row.changePct!).toFixed(2)} percent`
+      ? `${up ? "Up" : "Down"} ${Math.abs(displayPct!).toFixed(2)} percent over ${INDEX_PERIOD_LABEL}`
       : "Change unavailable";
 
   return (
@@ -109,33 +142,30 @@ function IndexCard({
       className="flex w-[10.25rem] shrink-0 snap-start flex-col rounded-xl border border-white/[0.08] bg-[#121212] px-3.5 py-3.5 transition-colors max-sm:snap-center sm:w-auto sm:shrink sm:rounded-2xl sm:px-6 sm:py-6 hover:border-white/[0.12]"
       aria-label={label}
     >
-      {/* Mobile — compact: icon, label, % (no tall chart) */}
+      {/* Mobile — compact: icon, label, %, period */}
       <div className="flex min-h-[5.5rem] flex-col justify-between sm:hidden">
-        <div className="flex items-center gap-2">
-          <span className="flex h-7 w-7 shrink-0 items-center justify-center" aria-hidden>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={iconSrc}
-              alt=""
-              width={28}
-              height={28}
-              className={`${iconImgClass} h-7 w-7 max-h-none max-w-none object-contain`}
-            />
-          </span>
-          <span className="min-w-0 text-[13px] font-bold leading-tight text-white">
-            {label}
-          </span>
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center" aria-hidden>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={iconSrc}
+                alt=""
+                width={28}
+                height={28}
+                className={`${iconImgClass} h-7 w-7 max-h-none max-w-none object-contain`}
+              />
+            </span>
+            <span className="min-w-0 text-[13px] font-bold leading-tight text-white">
+              {label}
+            </span>
+          </div>
+          <PeriodBadge period={INDEX_PERIOD_LABEL} />
         </div>
 
-        {loading ? (
-          <div className="flex flex-1 items-end pt-3" role="status" aria-live="polite" aria-busy="true">
-            <span className="inline-block h-7 w-20 animate-pulse rounded bg-zinc-700/60" />
-          </div>
-        ) : (
-          <p className={`pt-3 text-[1.35rem] leading-none ${pctClass}`} aria-label={pctAria}>
-            {pctSigned}
-          </p>
-        )}
+        <p className={`pt-3 text-[1.35rem] leading-none ${pctClass}`} aria-label={pctAria}>
+          {pctSigned}
+        </p>
       </div>
 
       {/* sm+ — full card with sparkline */}
@@ -152,42 +182,17 @@ function IndexCard({
             />
           </span>
           <span className="min-w-0 flex-1">{label}</span>
+          <PeriodBadge period={INDEX_PERIOD_LABEL} />
         </h3>
 
         <div className="mt-3 rounded-xl border border-white/[0.06] bg-black/35 px-4 pb-4 pt-3">
-          {loading ? (
-            <div
-              className="flex min-h-[92px] flex-col items-center justify-center gap-2 rounded-lg border border-white/[0.05] bg-[#030304]/80 px-2 py-3"
-              role="status"
-              aria-live="polite"
-              aria-busy="true"
-            >
-              <div
-                className="h-7 w-7 animate-spin rounded-full border-2 border-solid border-t-transparent"
-                style={{
-                  borderColor: "rgba(45, 232, 210, 0.35)",
-                  borderTopColor: "transparent",
-                }}
-              />
-              <p className="text-[11px] text-zinc-500">Loading index…</p>
-            </div>
-          ) : !hasValue ? (
-            <p className="min-h-[72px] px-0.5 py-2 text-left text-xs leading-relaxed text-zinc-500">
-              Index data is temporarily unavailable.
-            </p>
-          ) : (
-            <TrendSparkline up={up} />
-          )}
+          <TrendSparkline up={up} />
 
           <div
             className="mt-3 flex items-baseline justify-start gap-2 border-t border-white/[0.06] pt-3"
             aria-label={pctAria}
           >
-            {loading ? (
-              <span className="inline-block h-8 w-24 animate-pulse rounded bg-zinc-700/60" />
-            ) : (
-              <p className={`text-2xl sm:text-3xl ${pctClass}`}>{pctSigned}</p>
-            )}
+            <p className={`text-2xl sm:text-3xl ${pctClass}`}>{pctSigned}</p>
           </div>
         </div>
       </div>
