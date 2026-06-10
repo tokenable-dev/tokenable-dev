@@ -92,11 +92,13 @@ export function RwaDetailMobileColumn({
             collectionLabel={collectionDisplayName}
             metaLoading={metaLoading}
             openSeaMobile
-          />
-          <RwaDetailMobileSlabCaption
-            headlineParts={detailHeadlineParts}
-            titleLoading={detailTitlePulse}
-            metadata={metadata}
+            mobileSlabCaptionSlot={
+              <RwaDetailMobileSlabCaption
+                headlineParts={detailHeadlineParts}
+                titleLoading={detailTitlePulse}
+                metadata={metadata}
+              />
+            }
           />
         </div>
       </div>

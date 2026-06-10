@@ -16,6 +16,7 @@ export function RwaDetailAssetPanel({
   metaLoading,
   priceMetricsSlot,
   mobileHeroTradingSlot,
+  mobileSlabCaptionSlot,
   hideHeaderOnXl = false,
   openSeaMobile = false,
 }: RwaDetailAssetPanelProps) {
@@ -55,6 +56,7 @@ export function RwaDetailAssetPanel({
         imageUrl={imageUrl}
         openSeaMobile={openSeaMobile}
         mobileHeroTradingSlot={mobileHeroTradingSlot}
+        mobileSlabCaptionSlot={mobileSlabCaptionSlot}
         slab={slab}
       />
     </div>

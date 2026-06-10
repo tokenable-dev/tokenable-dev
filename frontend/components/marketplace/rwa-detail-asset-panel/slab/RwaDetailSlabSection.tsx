@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { RWA_MOBILE_SLAB_IMAGE_CAPTION_COLUMN_CLASS } from "@/components/marketplace/rwa-detail/theme";
 import { RwaImageLightbox } from "@/components/common";
 import { SlabCardFlip } from "@/components/marketplace/marketplace-shared";
 import { SlabPauseGlyph, SlabPlayGlyph } from "../ui/SlabControlGlyphs";
@@ -13,11 +14,13 @@ export function RwaDetailSlabSection({
   imageUrl,
   openSeaMobile,
   mobileHeroTradingSlot,
+  mobileSlabCaptionSlot,
   slab,
 }: {
   imageUrl: string | null;
   openSeaMobile?: boolean;
   mobileHeroTradingSlot?: ReactNode;
+  mobileSlabCaptionSlot?: ReactNode;
   slab: SlabPanel;
 }) {
   const {
@@ -47,6 +50,146 @@ export function RwaDetailSlabSection({
     slabRotateGlyph,
   } = slab;
 
+  const slabHero = (
+    <div
+      className={`${slabHeroSizing} bg-transparent ${openSeaMobile ? "max-lg:shrink-0" : ""}`}
+    >
+      {useFlipSlab ? (
+        <>
+          <div
+            className={`${slabHeroSizing} ${
+              openSeaMobile ? "max-lg:bg-transparent" : "bg-[#030508]"
+            }`}
+          >
+            {frontHeroLoading ? (
+              <div className="absolute inset-0 animate-pulse rounded-2xl bg-gray-800/80" />
+            ) : imageUrl ? (
+              <SlabCardFlip
+                frontSrc={imageUrl}
+                backSrc={effectiveBackUrl}
+                backLoading={backHeroLoading}
+                altFront={`${slabAltCaption} — slab front`}
+                altBack={`${slabAltCaption} — slab back`}
+                backPlaceholder={<SlabBackPlaceholder />}
+                angleDeg={flipAngle}
+                onAngleChange={setFlipAngle}
+                autoSweepEnabled={Boolean(
+                  hasBackFace && !backHeroLoading && slabAutoRotateOn,
+                )}
+                onAutoSweepUserGesture={() => setSlabAutoRotateOn(false)}
+              />
+            ) : (
+              <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-[#030508] text-sm text-gray-600">
+                No image
+              </div>
+            )}
+          </div>
+          {!openSeaMobile ? (
+            <div
+              className="pointer-events-none absolute inset-x-0 top-0 z-[1] h-2/5 rounded-t-2xl bg-gradient-to-b from-white/[0.04] to-transparent"
+              aria-hidden
+            />
+          ) : null}
+        </>
+      ) : frontHeroLoading ? (
+        <div className="absolute inset-0 rounded-2xl bg-gray-800/80 animate-pulse" />
+      ) : imageUrl ? (
+        <>
+          <div
+            className={`group/img relative ${
+              openSeaMobile
+                ? "mx-auto w-fit max-w-full max-lg:overflow-visible max-lg:rounded-none max-lg:bg-transparent lg:aspect-[3/4] lg:h-full lg:w-full lg:min-h-0 lg:overflow-hidden lg:rounded-2xl lg:bg-[#030508]"
+                : `${slabHeroSizing} h-full min-h-0 w-full overflow-hidden bg-[#030508]`
+            }`}
+          >
+            {showSlabFront ? (
+              <>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={imageUrl}
+                  alt={`${slabImageTitle} — slab front`}
+                  className={
+                    openSeaMobile
+                      ? openSeaMobileSlabImgCls
+                      : "h-full w-full min-h-0 object-contain object-center"
+                  }
+                  draggable={false}
+                  referrerPolicy="no-referrer"
+                />
+                <button
+                  type="button"
+                  onClick={() => setLightboxOpen(true)}
+                  className="absolute inset-0 z-[2] cursor-pointer bg-transparent outline-none transition-colors hover:bg-black/[0.12] active:bg-black/[0.18]"
+                  aria-label="View enlarged slab front"
+                  title="Tap to enlarge"
+                />
+                {!openSeaMobile ? (
+                  <span className="pointer-events-none absolute bottom-2 left-1/2 z-[3] max-w-[90%] -translate-x-1/2 truncate rounded-md bg-black/58 px-2 py-0.5 text-center text-[9px] font-medium text-zinc-100/95 sm:text-[10px]">
+                    Tap to enlarge
+                  </span>
+                ) : null}
+              </>
+            ) : backHeroLoading ? (
+              <div className="absolute inset-0 animate-pulse rounded-2xl bg-gray-800/80" />
+            ) : effectiveBackUrl ? (
+              <>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={effectiveBackUrl}
+                  alt={`${slabImageTitle} — slab back`}
+                  className={
+                    openSeaMobile
+                      ? openSeaMobileSlabImgCls
+                      : "h-full w-full min-h-0 object-contain object-center"
+                  }
+                  draggable={false}
+                  loading="lazy"
+                  referrerPolicy="no-referrer"
+                />
+                <button
+                  type="button"
+                  onClick={() => setLightboxOpen(true)}
+                  className="absolute inset-0 z-[2] cursor-pointer bg-transparent outline-none transition-colors hover:bg-black/[0.12] active:bg-black/[0.18]"
+                  aria-label="View enlarged slab back"
+                  title="Tap to enlarge"
+                />
+                {!openSeaMobile ? (
+                  <span className="pointer-events-none absolute bottom-2 left-1/2 z-[3] max-w-[90%] -translate-x-1/2 truncate rounded-md bg-black/58 px-2 py-0.5 text-center text-[9px] font-medium text-zinc-100/95 sm:text-[10px]">
+                    Tap to enlarge
+                  </span>
+                ) : null}
+              </>
+            ) : (
+              <div className="absolute inset-0 flex flex-col items-center justify-center px-4 text-center text-sm text-gray-500">
+                <SlabBackPlaceholder />
+              </div>
+            )}
+          </div>
+          {!openSeaMobile ? (
+            <div
+              className="pointer-events-none absolute inset-x-0 top-0 z-[1] h-2/5 rounded-t-2xl bg-gradient-to-b from-white/[0.04] to-transparent"
+              aria-hidden
+            />
+          ) : null}
+          <RwaImageLightbox
+            open={lightboxOpen}
+            src={showSlabFront ? imageUrl : effectiveBackUrl ?? imageUrl}
+            alt={
+              showSlabFront
+                ? `${slabImageTitle} — slab front`
+                : `${slabImageTitle} — slab back`
+            }
+            onClose={() => setLightboxOpen(false)}
+          />
+        </>
+      ) : (
+        <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-[#030508] text-sm text-gray-600">
+          No image
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <div
       className={`min-w-0 ${
@@ -64,139 +207,14 @@ export function RwaDetailSlabSection({
               : ""
         }
       >
-        <div
-          className={`${slabHeroSizing} bg-transparent ${openSeaMobile ? "max-lg:shrink-0" : ""}`}
-        >
-          {useFlipSlab ? (
-            <>
-              <div
-                className={`${slabHeroSizing} ${
-                  openSeaMobile ? "max-lg:bg-transparent" : "bg-[#030508]"
-                }`}
-              >
-                {frontHeroLoading ? (
-                  <div className="absolute inset-0 animate-pulse rounded-2xl bg-gray-800/80" />
-                ) : imageUrl ? (
-                  <SlabCardFlip
-                    frontSrc={imageUrl}
-                    backSrc={effectiveBackUrl}
-                    backLoading={backHeroLoading}
-                    altFront={`${slabAltCaption} — slab front`}
-                    altBack={`${slabAltCaption} — slab back`}
-                    backPlaceholder={<SlabBackPlaceholder />}
-                    angleDeg={flipAngle}
-                    onAngleChange={setFlipAngle}
-                    autoSweepEnabled={Boolean(
-                      hasBackFace && !backHeroLoading && slabAutoRotateOn,
-                    )}
-                    onAutoSweepUserGesture={() => setSlabAutoRotateOn(false)}
-                  />
-                ) : (
-                  <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-[#030508] text-sm text-gray-600">
-                    No image
-                  </div>
-                )}
-              </div>
-              {!openSeaMobile ? (
-                <div
-                  className="pointer-events-none absolute inset-x-0 top-0 z-[1] h-2/5 rounded-t-2xl bg-gradient-to-b from-white/[0.04] to-transparent"
-                  aria-hidden
-                />
-              ) : null}
-            </>
-          ) : frontHeroLoading ? (
-            <div className="absolute inset-0 rounded-2xl bg-gray-800/80 animate-pulse" />
-          ) : imageUrl ? (
-            <>
-              <div
-                className={`group/img relative ${
-                  openSeaMobile
-                    ? "mx-auto w-fit max-w-full max-lg:overflow-visible max-lg:rounded-none max-lg:bg-transparent lg:aspect-[3/4] lg:h-full lg:w-full lg:min-h-0 lg:overflow-hidden lg:rounded-2xl lg:bg-[#030508]"
-                    : `${slabHeroSizing} h-full min-h-0 w-full overflow-hidden bg-[#030508]`
-                }`}
-              >
-                {showSlabFront ? (
-                  <>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={imageUrl}
-                      alt={`${slabImageTitle} — slab front`}
-                      className={
-                        openSeaMobile ? openSeaMobileSlabImgCls : "h-full w-full min-h-0 object-contain object-center"
-                      }
-                      draggable={false}
-                      referrerPolicy="no-referrer"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setLightboxOpen(true)}
-                      className="absolute inset-0 z-[2] cursor-pointer bg-transparent outline-none transition-colors hover:bg-black/[0.12] active:bg-black/[0.18]"
-                      aria-label="View enlarged slab front"
-                      title="Tap to enlarge"
-                    />
-                    {!openSeaMobile ? (
-                      <span className="pointer-events-none absolute bottom-2 left-1/2 z-[3] max-w-[90%] -translate-x-1/2 truncate rounded-md bg-black/58 px-2 py-0.5 text-center text-[9px] font-medium text-zinc-100/95 sm:text-[10px]">
-                        Tap to enlarge
-                      </span>
-                    ) : null}
-                  </>
-                ) : backHeroLoading ? (
-                  <div className="absolute inset-0 animate-pulse rounded-2xl bg-gray-800/80" />
-                ) : effectiveBackUrl ? (
-                  <>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={effectiveBackUrl}
-                      alt={`${slabImageTitle} — slab back`}
-                      className={
-                        openSeaMobile ? openSeaMobileSlabImgCls : "h-full w-full min-h-0 object-contain object-center"
-                      }
-                      draggable={false}
-                      loading="lazy"
-                      referrerPolicy="no-referrer"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setLightboxOpen(true)}
-                      className="absolute inset-0 z-[2] cursor-pointer bg-transparent outline-none transition-colors hover:bg-black/[0.12] active:bg-black/[0.18]"
-                      aria-label="View enlarged slab back"
-                      title="Tap to enlarge"
-                    />
-                    {!openSeaMobile ? (
-                      <span className="pointer-events-none absolute bottom-2 left-1/2 z-[3] max-w-[90%] -translate-x-1/2 truncate rounded-md bg-black/58 px-2 py-0.5 text-center text-[9px] font-medium text-zinc-100/95 sm:text-[10px]">
-                        Tap to enlarge
-                      </span>
-                    ) : null}
-                  </>
-                ) : (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center px-4 text-center text-sm text-gray-500">
-                    <SlabBackPlaceholder />
-                  </div>
-                )}
-              </div>
-              {!openSeaMobile ? (
-                <div
-                  className="pointer-events-none absolute inset-x-0 top-0 z-[1] h-2/5 rounded-t-2xl bg-gradient-to-b from-white/[0.04] to-transparent"
-                  aria-hidden
-                />
-              ) : null}
-              <RwaImageLightbox
-                open={lightboxOpen}
-                src={showSlabFront ? imageUrl : effectiveBackUrl ?? imageUrl}
-                alt={
-                  showSlabFront
-                    ? `${slabImageTitle} — slab front`
-                    : `${slabImageTitle} — slab back`
-                }
-                onClose={() => setLightboxOpen(false)}
-              />
-            </>
-          ) : (
-            <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-[#030508] text-sm text-gray-600">
-              No image
-            </div>
-          )}
-        </div>
+        {openSeaMobile ? (
+          <div className={RWA_MOBILE_SLAB_IMAGE_CAPTION_COLUMN_CLASS}>
+            {slabHero}
+            {mobileSlabCaptionSlot}
+          </div>
+        ) : (
+          slabHero
+        )}
 
         {mobileHeroTradingSlot && !openSeaMobile ? (
           <div className="flex min-w-0 flex-col justify-end gap-3 max-xl:pt-1 lg:hidden">
@@ -208,7 +226,7 @@ export function RwaDetailSlabSection({
           <div
             className={`${slabControlsGap} ${
               openSeaMobile
-                ? "relative z-[1] max-lg:w-full max-lg:border-t max-lg:border-zinc-800/50"
+                ? "relative z-[1] max-lg:mx-auto max-lg:w-fit max-lg:max-w-full max-lg:border-t max-lg:border-zinc-800/50"
                 : ""
             }`}
             role="group"

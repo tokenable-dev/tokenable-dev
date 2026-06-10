@@ -9,6 +9,8 @@ export interface RwaDetailAssetPanelProps {
   metaLoading?: boolean;
   priceMetricsSlot?: ReactNode;
   mobileHeroTradingSlot?: ReactNode;
+  /** Mobile openSea — slab label directly under hero image (image width, not controls row). */
+  mobileSlabCaptionSlot?: ReactNode;
   hideHeaderOnXl?: boolean;
   openSeaMobile?: boolean;
 }
