@@ -41,7 +41,7 @@ Create `backend/.env`:
 
 ```env
 # Server
-PORT=4000
+PORT=4100
 NODE_ENV=development
 CORS_ORIGIN=http://localhost:3000
 
@@ -60,7 +60,7 @@ REDIS_URL=redis://127.0.0.1:6379
 JWT_SECRET=your_jwt_secret_here
 GOOGLE_CLIENT_ID=your_google_client_id
 GOOGLE_CLIENT_SECRET=your_google_client_secret
-GOOGLE_CALLBACK_URL=http://localhost:4000/api/auth/google/callback
+GOOGLE_CALLBACK_URL=http://localhost:4100/api/auth/google/callback
 FRONTEND_URL=http://localhost:3000
 
 # Blockchain (Sepolia)
@@ -132,7 +132,7 @@ NEXT_PUBLIC_PLATFORM_FEE_BPS=500
 ## 5. Start Services
 
 ```bash
-# Backend (port 4000)
+# Backend (port 4100 in dev — avoids Cursor forwarding on 4000)
 cd backend && pnpm start:dev
 
 # Frontend (port 3000)
@@ -140,7 +140,7 @@ cd frontend && pnpm dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000).  
-Swagger: [http://localhost:4000/api/docs](http://localhost:4000/api/docs).
+Swagger: [http://localhost:4100/api/docs](http://localhost:4100/api/docs).
 
 ---
 

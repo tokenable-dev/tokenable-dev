@@ -1,6 +1,6 @@
 /**
  * Browser: same-origin `/api` via Next rewrites (leave NEXT_PUBLIC_API_URL unset).
- * Server/SSR: INTERNAL_API_URL, else API_PROXY_TARGET / http://127.0.0.1:4000.
+ * Server/SSR: INTERNAL_API_URL, else API_PROXY_TARGET / http://127.0.0.1:4100 (dev) or :4000 (prod).
  * Set NEXT_PUBLIC_API_URL only when the API is on a different host.
  */
 export function getApiUrl(): string {
