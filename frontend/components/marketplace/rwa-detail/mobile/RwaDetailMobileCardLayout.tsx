@@ -19,8 +19,35 @@ import {
   RWA_DETAIL_BUTTON_RIM_PAD_CLASS,
 } from "@/components/marketplace/rwa-detail/theme";
 
+const MOBILE_SLAB_CAPTION_BASE =
+  "uppercase leading-[1.2] tracking-wide text-white";
 const MOBILE_SLAB_CAPTION_LINE_CLASS =
-  "text-[11px] font-medium uppercase leading-snug tracking-wide text-zinc-400 [overflow-wrap:anywhere] sm:text-[12px] sm:leading-[1.35]";
+  `block line-clamp-1 break-normal ${MOBILE_SLAB_CAPTION_BASE}`;
+
+function mobileSlabCaptionFontClasses(line1: string, line2: string): {
+  line1Class: string;
+  line2Class: string;
+} {
+  const line1Len = line1.length;
+  const line2Len = line2.length;
+  const line1Class =
+    line1Len > 48
+      ? `${MOBILE_SLAB_CAPTION_LINE_CLASS} text-[11px] font-semibold sm:text-[12px]`
+      : line1Len > 36
+        ? `${MOBILE_SLAB_CAPTION_LINE_CLASS} text-[12px] font-semibold sm:text-[13px]`
+        : `${MOBILE_SLAB_CAPTION_LINE_CLASS} text-[13px] font-semibold sm:text-[14px]`;
+  const line2Class =
+    line2Len > 85
+      ? `${MOBILE_SLAB_CAPTION_LINE_CLASS} text-[8px] font-medium sm:text-[9px]`
+      : line2Len > 72
+      ? `${MOBILE_SLAB_CAPTION_LINE_CLASS} text-[9px] font-medium sm:text-[10px]`
+      : line2Len > 55
+        ? `${MOBILE_SLAB_CAPTION_LINE_CLASS} text-[10px] font-medium sm:text-[11px]`
+        : line2Len > 40
+          ? `${MOBILE_SLAB_CAPTION_LINE_CLASS} text-[11px] font-medium sm:text-[12px]`
+          : `${MOBILE_SLAB_CAPTION_LINE_CLASS} text-[12px] font-medium sm:text-[13px]`;
+  return { line1Class, line2Class };
+}
 
 /** Full PSA slab text — two lines directly under the hero image (mobile). */
 export function RwaDetailMobileSlabCaption({
@@ -44,21 +71,25 @@ export function RwaDetailMobileSlabCaption({
     if (!headlineParts) return "—";
     return formatRwaMobileSlabLabelLine(headlineParts, trust);
   }, [headlineParts, trust]);
+  const { line1Class, line2Class } = useMemo(
+    () => mobileSlabCaptionFontClasses(line1, line2),
+    [line1, line2],
+  );
 
   return (
-    <footer className="mx-auto w-full max-w-[32rem] min-w-0 shrink-0 px-5 pb-1 pt-3 text-center lg:hidden">
+    <footer className="mx-auto w-full min-w-0 max-w-full shrink-0 px-2 pb-0 pt-0 text-center lg:hidden">
       {titleLoading ? (
-        <div className="mx-auto flex w-[min(100%,17rem)] max-w-full flex-col gap-1.5" aria-hidden>
+        <div className="mx-auto flex w-full max-w-full flex-col gap-1" aria-hidden>
           <div className="h-3.5 w-full animate-pulse rounded bg-zinc-800/85" />
-          <div className="h-3.5 w-[72%] animate-pulse rounded bg-zinc-800/80" />
+          <div className="h-3.5 w-full animate-pulse rounded bg-zinc-800/80" />
         </div>
       ) : (
         <>
           <h1 className="sr-only">{fullLabel}</h1>
-          <p className={MOBILE_SLAB_CAPTION_LINE_CLASS}>{line1}</p>
-          {line2 ? (
-            <p className={`mt-0.5 ${MOBILE_SLAB_CAPTION_LINE_CLASS}`}>{line2}</p>
-          ) : null}
+          <p className="min-w-0" title={fullLabel}>
+            <span className={line1Class}>{line1}</span>
+            <span className={line2Class}>{line2 || "\u00A0"}</span>
+          </p>
         </>
       )}
     </footer>
@@ -80,7 +111,7 @@ export function RwaDetailStickyBuyFooter({
 }) {
   return (
     <div
-      className="pointer-events-none fixed bottom-0 left-0 right-0 z-[90] flex w-full flex-col items-center px-4 pb-[max(0.875rem,env(safe-area-inset-bottom,0px))] lg:hidden"
+      className="pointer-events-none fixed bottom-0 left-0 right-0 z-[90] flex w-full flex-col items-center px-4 pb-[max(0.625rem,env(safe-area-inset-bottom,0px))] lg:hidden"
       role="region"
       aria-label="Purchase actions"
     >

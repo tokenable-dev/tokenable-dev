@@ -76,9 +76,9 @@ export function RwaDetailMobileColumn({
     !isOwner && !showBuyerFooter && collectionHref != null;
 
   return (
-    <div className="relative flex w-full min-w-0 flex-col max-lg:min-h-0 max-lg:flex-1 lg:col-start-1 lg:items-start lg:justify-start">
-      <div className="flex min-h-0 w-full flex-1 flex-col items-center max-lg:overflow-hidden">
-        <div className="flex w-full min-h-0 flex-1 flex-col items-center justify-center px-3 pt-2">
+    <div className="relative flex w-full min-w-0 flex-col max-lg:min-h-0 max-lg:flex-1 max-lg:pb-[calc(4.75rem+env(safe-area-inset-bottom,0px))] lg:col-start-1 lg:items-start lg:justify-start">
+      <div className="flex min-h-0 w-full flex-1 flex-col items-center justify-center px-3 py-2 max-lg:overflow-hidden">
+        <div className="flex w-full min-w-0 flex-col items-center gap-4">
           <RwaDetailAssetPanel
             metadata={metadata}
             imageUrl={imageUrl}

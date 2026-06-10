@@ -140,7 +140,8 @@ curl -s --max-time 3 http://127.0.0.1:4000/api/health
 # expect {"ok":true,"service":"tokenable-api",...}
 ```
 
-**Fix (normal process — keep `PORT=4000`):** In Cursor/VS Code **Ports**, stop or remove the forward on **4000**, then restart only if needed. Do not add extra `.env.local` unless you intentionally run Nest on another port.
+**Fix:** Local dev defaults to Nest on **`127.0.0.1:4100`**. Next dev probes **4100 then 4000** via `app/api/[...path]/route.ts` (no `.env.local`). Restart both backend and frontend. If `backend/.env` has `PORT=4000`, use `4100` instead.
+
 
 ---
 

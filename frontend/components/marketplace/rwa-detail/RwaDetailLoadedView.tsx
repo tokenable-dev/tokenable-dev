@@ -78,7 +78,7 @@ export function RwaDetailLoadedView({
 
   return (
     <>
-      <div className="grid grid-cols-1 items-start gap-y-6 max-lg:items-center max-lg:gap-y-0 lg:grid-cols-[minmax(0,1.05fr)_minmax(280px,0.62fr)] lg:items-start lg:gap-x-10 xl:gap-x-12">
+      <div className="grid grid-cols-1 items-start gap-y-6 max-lg:flex max-lg:min-h-0 max-lg:flex-1 max-lg:flex-col max-lg:gap-y-0 lg:grid-cols-[minmax(0,1.05fr)_minmax(280px,0.62fr)] lg:items-start lg:gap-x-10 xl:gap-x-12">
         <RwaDetailMobileColumn
           metadata={metadata}
           imageUrl={imageUrl}

@@ -124,6 +124,49 @@ function slabGradeShort(trust: RwaDetailMobileTrustView): string {
   return grade.replace(/^PSA\s+/i, "").trim() || grade;
 }
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * PSA subject line — card name only (drop year / set / #NNN prefix from line 1).
+ * Feedback: "drop the text after the #20 so the first line is the name."
+ */
+function slabSubjectName(parts: AssetDetailHeadlineParts): string | null {
+  const raw = parts.cardName?.trim();
+  if (!raw) return null;
+
+  const num = parts.cardNumber?.trim();
+  if (num) {
+    const afterNumber = new RegExp(`${escapeRegExp(num)}\\s+(.+)$`, "i").exec(raw);
+    if (afterNumber?.[1]?.trim()) {
+      let subject = afterNumber[1].trim();
+      const variety = parts.variety?.trim();
+      if (
+        variety &&
+        subject.toUpperCase().endsWith(variety.toUpperCase())
+      ) {
+        subject = subject.slice(0, subject.length - variety.length).trim();
+      }
+      if (subject) return subject;
+    }
+  }
+
+  let name = raw;
+  if (parts.year) {
+    name = name.replace(new RegExp(`^${escapeRegExp(parts.year)}\\s+`, "i"), "");
+  }
+  if (parts.setName) {
+    name = name.replace(new RegExp(`^${escapeRegExp(parts.setName)}\\s+`, "i"), "");
+  }
+  if (num) {
+    name = name.replace(new RegExp(`^${escapeRegExp(num)}\\s+`, "i"), "");
+  }
+
+  const trimmed = name.trim();
+  return trimmed || raw;
+}
+
 /**
  * Mobile RWA — full slab copy as one line (e.g. screen readers).
  */
@@ -136,27 +179,26 @@ export function formatRwaMobileSlabLabelLine(
 }
 
 /**
- * Mobile RWA — slab label under the image: catalog row + grade/variety/cert row.
+ * Mobile RWA — full slab copy below the card in exactly two visual lines:
+ * line 1 = name · year · set · # (card number always on line 1);
+ * line 2 = variety · grade.
  */
 export function formatRwaMobileSlabLabelTwoLines(
   parts: AssetDetailHeadlineParts,
   trust: RwaDetailMobileTrustView,
 ): { line1: string; line2: string } {
+  const subject = slabSubjectName(parts);
   const line1 = joinSlabTextParts(
+    subject,
     parts.year,
     parts.setName,
     parts.cardNumber,
-    parts.cardName,
-  );
-  const line2 = joinSlabTextParts(
-    parts.variety,
-    slabGradeShort(trust),
-    trust.certNumber,
-  );
+  ) || "—";
+  const line2 = joinSlabTextParts(parts.variety, slabGradeShort(trust));
 
   return {
-    line1: line1 || "—",
-    line2,
+    line1,
+    line2: line2 && line2 !== line1 ? line2 : "",
   };
 }
 

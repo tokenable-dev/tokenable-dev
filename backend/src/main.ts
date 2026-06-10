@@ -98,9 +98,9 @@ async function bootstrap() {
     );
   }
 
-  const port = config.get<number>('app.port') ?? 4000;
+  const port = config.get<number>('app.port') ?? 4100;
   await app.listen(port, '0.0.0.0');
-  logger.log(`Server running on http://0.0.0.0:${port}/api`);
+  logger.log(`Server running on http://127.0.0.1:${port}/api`);
   logger.log(`Swagger docs at http://localhost:${port}/api/docs`);
 }
 bootstrap();
