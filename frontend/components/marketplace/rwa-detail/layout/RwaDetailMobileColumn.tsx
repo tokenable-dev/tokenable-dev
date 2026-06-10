@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { RwaDetailAssetPanel } from "@/components/marketplace/rwa-detail-asset-panel";
 import type { RwaDetailMetadata } from "@/lib/marketplace/rwa-detail";
 import {
-  RwaDetailMobileCardHeader,
+  RwaDetailMobileSlabCaption,
   RwaDetailStickyBuyButton,
   RwaDetailStickyBuyFooter,
 } from "@/components/marketplace/rwa-detail/mobile";
@@ -78,12 +78,7 @@ export function RwaDetailMobileColumn({
   return (
     <div className="relative flex w-full min-w-0 flex-col max-lg:min-h-0 max-lg:flex-1 lg:col-start-1 lg:items-start lg:justify-start">
       <div className="flex min-h-0 w-full flex-1 flex-col items-center max-lg:overflow-hidden">
-        <RwaDetailMobileCardHeader
-          headlineParts={detailHeadlineParts}
-          titleLoading={detailTitlePulse}
-          metadata={metadata}
-        />
-        <div className="flex w-full min-h-0 flex-1 flex-col items-center justify-center px-3 pb-2">
+        <div className="flex w-full min-h-0 flex-1 flex-col items-center justify-center px-3 pt-2">
           <RwaDetailAssetPanel
             metadata={metadata}
             imageUrl={imageUrl}
@@ -91,6 +86,11 @@ export function RwaDetailMobileColumn({
             collectionLabel={collectionDisplayName}
             metaLoading={metaLoading}
             openSeaMobile
+          />
+          <RwaDetailMobileSlabCaption
+            headlineParts={detailHeadlineParts}
+            titleLoading={detailTitlePulse}
+            metadata={metadata}
           />
         </div>
       </div>

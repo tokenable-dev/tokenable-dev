@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { WagmiProvider } from "wagmi";
 import { wagmiConfig } from "@/config/wagmi";
@@ -11,7 +11,17 @@ import { shouldAutoReconnectWalletOnMount } from "@/lib/wallet/walletEnvironment
 import { AuthProvider } from "@/providers/AuthProvider";
 import { MarketplaceQueryPersistence } from "@/providers/MarketplaceQueryPersistence";
 
+function subscribeReconnectOnMount() {
+  return () => {};
+}
+
 export function Providers({ children }: { children: React.ReactNode }) {
+  const reconnectOnMount = useSyncExternalStore(
+    subscribeReconnectOnMount,
+    shouldAutoReconnectWalletOnMount,
+    () => false,
+  );
+
   const [queryClient] = useState(() => {
     const c = new QueryClient({
       defaultOptions: {
@@ -28,7 +38,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <WagmiProvider
       config={wagmiConfig}
-      reconnectOnMount={shouldAutoReconnectWalletOnMount()}
+      reconnectOnMount={reconnectOnMount}
     >
       <QueryClientProvider client={queryClient}>
         <MarketplaceQueryPersistence />

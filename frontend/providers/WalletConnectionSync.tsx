@@ -10,8 +10,8 @@ type EthereumProvider = {
 };
 
 /**
- * Desktop safety net: if MetaMask still has accounts but wagmi fell back to
- * disconnected (e.g. reconnect raced on HMR), try reconnect again.
+ * Safety net: if MetaMask still has accounts but wagmi fell back to
+ * disconnected (e.g. reconnect raced on HMR or mobile refresh), try reconnect again.
  */
 export function WalletConnectionSync() {
   const { status } = useAccount();
@@ -54,7 +54,11 @@ export function WalletConnectionSync() {
       | undefined;
     eth?.on?.("accountsChanged", onAccountsChanged);
 
+    // Mobile refresh: wagmi may finish hydrating after the first paint.
+    const mountTimer = window.setTimeout(() => void tryReconnect(), 0);
+
     return () => {
+      window.clearTimeout(mountTimer);
       document.removeEventListener("visibilitychange", onVisibility);
       eth?.removeListener?.("accountsChanged", onAccountsChanged);
     };

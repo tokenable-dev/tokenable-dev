@@ -10,6 +10,7 @@ import { formatUsdcPricePrimary } from "@/lib/market/usdcKrwDisplay";
 import {
   buildRwaDetailMobileTrustView,
   formatRwaMobileSlabLabelLine,
+  formatRwaMobileSlabLabelTwoLines,
   type RwaDetailMetadata,
 } from "@/lib/marketplace/rwa-detail";
 import {
@@ -18,7 +19,11 @@ import {
   RWA_DETAIL_BUTTON_RIM_PAD_CLASS,
 } from "@/components/marketplace/rwa-detail/theme";
 
-export function RwaDetailMobileCardHeader({
+const MOBILE_SLAB_CAPTION_LINE_CLASS =
+  "text-[11px] font-medium uppercase leading-snug tracking-wide text-zinc-400 [overflow-wrap:anywhere] sm:text-[12px] sm:leading-[1.35]";
+
+/** Full PSA slab text — two lines directly under the hero image (mobile). */
+export function RwaDetailMobileSlabCaption({
   headlineParts,
   titleLoading = false,
   metadata = null,
@@ -27,30 +32,36 @@ export function RwaDetailMobileCardHeader({
   titleLoading?: boolean;
   metadata?: RwaDetailMetadata | null;
 }) {
-  const slabLabel = useMemo(() => {
+  const trust = useMemo(
+    () => buildRwaDetailMobileTrustView(metadata),
+    [metadata],
+  );
+  const { line1, line2 } = useMemo(() => {
+    if (!headlineParts) return { line1: "—", line2: "" };
+    return formatRwaMobileSlabLabelTwoLines(headlineParts, trust);
+  }, [headlineParts, trust]);
+  const fullLabel = useMemo(() => {
     if (!headlineParts) return "—";
-    return formatRwaMobileSlabLabelLine(
-      headlineParts,
-      buildRwaDetailMobileTrustView(metadata),
-    );
-  }, [headlineParts, metadata]);
+    return formatRwaMobileSlabLabelLine(headlineParts, trust);
+  }, [headlineParts, trust]);
 
   return (
-    <header className="mx-auto w-full max-w-[32rem] min-w-0 shrink-0 px-5 pb-2 pt-3 text-center lg:hidden">
+    <footer className="mx-auto w-full max-w-[32rem] min-w-0 shrink-0 px-5 pb-1 pt-3 text-center lg:hidden">
       {titleLoading ? (
-        <div
-          className="mx-auto h-4 w-[min(100%,14rem)] max-w-full animate-pulse rounded bg-zinc-800/85"
-          aria-hidden
-        />
+        <div className="mx-auto flex w-[min(100%,17rem)] max-w-full flex-col gap-1.5" aria-hidden>
+          <div className="h-3.5 w-full animate-pulse rounded bg-zinc-800/85" />
+          <div className="h-3.5 w-[72%] animate-pulse rounded bg-zinc-800/80" />
+        </div>
       ) : (
-        <h1
-          className="text-[11px] font-medium uppercase leading-snug tracking-wide text-zinc-400 [overflow-wrap:anywhere] sm:text-[12px]"
-          title={slabLabel}
-        >
-          {slabLabel}
-        </h1>
+        <>
+          <h1 className="sr-only">{fullLabel}</h1>
+          <p className={MOBILE_SLAB_CAPTION_LINE_CLASS}>{line1}</p>
+          {line2 ? (
+            <p className={`mt-0.5 ${MOBILE_SLAB_CAPTION_LINE_CLASS}`}>{line2}</p>
+          ) : null}
+        </>
       )}
-    </header>
+    </footer>
   );
 }
 
