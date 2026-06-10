@@ -7,8 +7,6 @@ import { RwaDetailGradientButton } from "./RwaDetailGradientButton";
 import { RwaDetailMarketContextStrip } from "./RwaDetailMarketContextStrip";
 import {
   RWA_DETAIL_CTA_ROW_TOP_CLASS,
-  RWA_DETAIL_CTA_ROW_TOP_COMPACT_CLASS,
-  RWA_DETAIL_LISTING_PRICE_COMPACT_AMOUNT_CLASS,
   RWA_DETAIL_UNLISTED_CTA_FOOTER_LEAD_CLASS,
   RWA_DETAIL_UNLISTED_CTA_ROW_TOP_CLASS,
   rwaDetailRightFont,
@@ -61,7 +59,7 @@ export function RwaDetailOwnerListingPanel({
 
   const ctaRowTopClass = hasListing
     ? compactActions
-      ? RWA_DETAIL_CTA_ROW_TOP_COMPACT_CLASS
+      ? ""
       : RWA_DETAIL_CTA_ROW_TOP_CLASS
     : compactActions
       ? ""
@@ -73,18 +71,8 @@ export function RwaDetailOwnerListingPanel({
         compactActions && !hasListing ? RWA_DETAIL_UNLISTED_CTA_FOOTER_LEAD_CLASS : ""
       }`}
     >
-      {hasListing && listingPriceUsd != null ? (
-        compactActions ? (
-          <p className={`text-center ${RWA_DETAIL_LISTING_PRICE_COMPACT_AMOUNT_CLASS}`}>
-            $
-            {listingPriceUsd.toLocaleString("en-US", {
-              minimumFractionDigits: 0,
-              maximumFractionDigits: 2,
-            })}
-          </p>
-        ) : (
-          <RwaDetailAskPriceDisplay priceUsd={listingPriceUsd} />
-        )
+      {hasListing && listingPriceUsd != null && !compactActions ? (
+        <RwaDetailAskPriceDisplay priceUsd={listingPriceUsd} />
       ) : null}
 
       {!compactActions ? (

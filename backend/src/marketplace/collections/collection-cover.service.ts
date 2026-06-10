@@ -5,8 +5,12 @@ import { QueryDeepPartialEntity, Repository } from 'typeorm';
 import { BlockchainService } from '../../blockchain/blockchain.service';
 import { IpfsGatewayResolverService } from '../../blockchain/ipfs-gateway-resolver.service';
 import { CardhedgerService } from '../../cardhedger/cardhedger.service';
-import { specIdStringFromPsaCertBody } from '../../psa/psa-public-api.service';
+import {
+  PsaPublicApiService,
+  specIdStringFromPsaCertBody,
+} from '../../psa/psa-public-api.service';
 import { PsaSpecScraperService } from '../../psa/psa-spec-scraper.service';
+import { extractPsaCertImagesFromGetImagesBody } from '../../psa/utils/psa-cert-images.util';
 import {
   extractCollectionRepresentativeImage,
   normalizeImageUrl,
@@ -40,6 +44,7 @@ export class CollectionCoverService {
     private readonly ipfsResolver: IpfsGatewayResolverService,
     private readonly psaSpecScraper: PsaSpecScraperService,
     private readonly psaCertSnapshots: PsaCertSnapshotService,
+    private readonly psaPublicApi: PsaPublicApiService,
   ) {}
 
   private collectionActiveOrdersCap(): number {
@@ -78,6 +83,24 @@ export class CollectionCoverService {
 
   clearResolveInflight(collectionKey: string): void {
     this.representativeImageResolveInflight.delete(collectionKey.toLowerCase());
+  }
+
+  /** PSA Public API slab front image — fallback when spec-page scrape is blocked. */
+  private async fetchPsaCertSlabFrontFromApi(
+    certNumber: string,
+  ): Promise<string | null> {
+    const cert = certNumber.replace(/\D/g, '');
+    if (cert.length < 7) return null;
+    try {
+      const lookup = await this.psaPublicApi.getImagesByCertNumber(cert);
+      if (lookup.status !== 'success' || !lookup.raw) return null;
+      const imgs = extractPsaCertImagesFromGetImagesBody(lookup.raw);
+      const front = imgs.front?.trim();
+      if (!front) return null;
+      return normalizeImageUrl(front);
+    } catch {
+      return null;
+    }
   }
 
   private async fetchCatalogImageFromMeta(
@@ -148,6 +171,18 @@ export class CollectionCoverService {
           }`,
         );
       }
+
+      const certRaw = psaCertNumberFromGradedMeta(meta);
+      if (certRaw) {
+        const slabImg = await this.fetchPsaCertSlabFrontFromApi(certRaw);
+        if (slabImg) {
+          this.logger.log(
+            `[CoverImg] PSA Public API cert slab (spec scrape unavailable) cert=${certRaw} → ${slabImg.slice(0, 100)}`,
+          );
+          return slabImg;
+        }
+      }
+
       if (!allowFallback) return null;
       // fall through — Cardhedger / TCG may still resolve a catalog image
     }
