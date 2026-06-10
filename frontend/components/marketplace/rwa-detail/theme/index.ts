@@ -40,9 +40,12 @@ export const RWA_MOBILE_SLAB_MAX_HEIGHT_CLASS =
   "max-h-[min(480px,68svh,calc(100svh-4rem-11.5rem-env(safe-area-inset-bottom,0px)))]";
 /** Image + caption column — hugs rendered slab width (not letterboxed container). */
 export const RWA_MOBILE_SLAB_STACK_CLASS = `mx-auto flex w-fit min-w-0 ${RWA_MOBILE_SLAB_MAX_WIDTH_CLASS} flex-col items-stretch`;
-/** Caption block — vertical rhythm + horizontal inset so copy does not hug screen edges. */
+/** Hero image + caption — width tracks intrinsic slab photo, not full-width controls. */
+export const RWA_MOBILE_SLAB_IMAGE_CAPTION_COLUMN_CLASS =
+  "mx-auto flex w-fit max-w-full min-w-0 flex-col items-stretch max-lg:shrink-0";
+/** Caption under hero — inset within image column width. */
 export const RWA_MOBILE_SLAB_CAPTION_BLOCK_CLASS =
-  "w-full shrink-0 px-4 pt-3 pb-3 text-left max-[380px]:px-3.5 sm:px-5";
+  "w-full shrink-0 px-3 pt-3 pb-3 text-left sm:px-4";
 export const RWA_MOBILE_SLAB_CAPTION_LINE_GAP_CLASS = "gap-1.5";
 /** Bottom inset above fixed purchase footer (dual CTA + safe-area). */
 export const RWA_MOBILE_STICKY_FOOTER_RESERVE_CLASS =
