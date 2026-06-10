@@ -30,7 +30,7 @@ export function RwaDetailBuyerTradingPanel({
       : "Connect wallet"
     : buyBusy
       ? "Buying…"
-      : "Buy";
+      : "Buy now";
 
   return (
     <div className={compact ? "flex min-w-0 flex-col gap-2.5" : "space-y-5 sm:space-y-6"}>

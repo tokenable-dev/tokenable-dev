@@ -32,7 +32,7 @@ export function RwaDetailAssetPanel({
     <div
       className={`flex min-w-0 flex-col gap-4 max-xl:gap-3 lg:gap-5 ${
         openSeaMobile
-          ? "max-lg:items-center max-lg:gap-0 max-lg:px-0 max-lg:pt-0 max-lg:text-center lg:items-start lg:pt-0"
+          ? "max-lg:w-fit max-lg:max-w-full max-lg:self-center max-lg:items-stretch max-lg:gap-0 max-lg:px-0 max-lg:pt-0 lg:items-start lg:pt-0"
           : ""
       }`}
     >

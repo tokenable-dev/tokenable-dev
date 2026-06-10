@@ -4,9 +4,6 @@ import {
   COLLECTION_DETAILS_BG_CLASS,
   COLLECTION_DETAILS_BORDER_ALL,
 } from "@/components/marketplace/collectionOverviewChrome";
-import { CollectionChangeBidModal } from "@/components/marketplace/collection-trading/CollectionChangeBidModal";
-import type { Order } from "@/lib/core";
-import { useCollectionMyOrders } from "@/hooks/marketplace/collection-trading/useCollectionMyOrders";
 import type { CollectionUnifiedOrderBookProps } from "@/lib/marketplace/marketplaceTradingTypes";
 import {
   ORDER_BOOK_FLUSH_MOBILE_VISIBLE_DEPTH_ROWS,
@@ -14,7 +11,6 @@ import {
 } from "@/lib/marketplace/unified-order-book";
 import { useUnifiedOrderBook } from "@/hooks/unified-order-book";
 import { OrderBookBookTab } from "./OrderBookBookTab";
-import { OrderBookOrdersTab } from "./OrderBookOrdersTab";
 import { OrderBookTabHeader } from "./OrderBookTabHeader";
 import { OrderBookTradesTab } from "./OrderBookTradesTab";
 
@@ -32,8 +28,6 @@ export function CollectionUnifiedOrderBook({
   tapeFills = [],
   tapeLoading = false,
   defaultTab = "book",
-  connectedAddress,
-  onInvalidate,
 }: CollectionUnifiedOrderBookProps) {
   const book = useUnifiedOrderBook({
     asks,
@@ -43,14 +37,6 @@ export function CollectionUnifiedOrderBook({
     compact,
     flush,
     defaultTab,
-  });
-
-  const orders = useCollectionMyOrders({
-    asks,
-    collectionBids,
-    address: connectedAddress,
-    onInvalidate,
-    collectionKey,
   });
 
   const mobileFlushDepth =
@@ -81,17 +67,6 @@ export function CollectionUnifiedOrderBook({
     onSelectLevel,
   };
 
-  const ordersTabProps = {
-    addr: orders.addr,
-    total: orders.total,
-    myListings: orders.myListings,
-    myBids: orders.myBids,
-    cancelling: orders.cancelling,
-    onCancel: (hash: string) => void orders.handleCancel(hash),
-    onChangeBidPrice: (bid: Order) => orders.setBidToChange(bid),
-    isBidStale: orders.isBidStale,
-  };
-
   const shell = flush
     ? embedInMobileTab
       ? "@container/orderbook relative flex min-h-0 w-full min-w-0 shrink-0 flex-col overflow-hidden rounded-none border-0 bg-transparent shadow-none"
@@ -101,18 +76,6 @@ export function CollectionUnifiedOrderBook({
           ? "rounded-xl shadow-none"
           : "rounded-2xl shadow-[0_16px_48px_-20px_rgba(0,0,0,0.75)]"
       }`;
-
-  const changeBidModal = (
-    <CollectionChangeBidModal
-      open={orders.bidToChange != null}
-      bid={orders.bidToChange}
-      collectionKey={collectionKey}
-      activeAsks={asks}
-      connectedAddress={connectedAddress ?? undefined}
-      onClose={() => orders.setBidToChange(null)}
-      onUpdated={() => onInvalidate?.()}
-    />
-  );
 
   return (
     <div className={shell} aria-label={`OrderBook ${collectionKey}`}>
@@ -142,14 +105,6 @@ export function CollectionUnifiedOrderBook({
           >
             <OrderBookTradesTab tapeFills={tapeFills} tapeLoading={tapeLoading} flush />
           </div>
-          <div
-            className={`absolute inset-0 flex flex-col overflow-hidden ${
-              book.tab === "orders" ? "" : "pointer-events-none invisible"
-            }`}
-            aria-hidden={book.tab !== "orders"}
-          >
-            <OrderBookOrdersTab {...ordersTabProps} flush />
-          </div>
         </div>
       ) : mobileEmbed ? (
         <div
@@ -164,9 +119,6 @@ export function CollectionUnifiedOrderBook({
               mobileEmbed
             />
           ) : null}
-          {book.tab === "orders" ? (
-            <OrderBookOrdersTab {...ordersTabProps} flush mobileEmbed />
-          ) : null}
         </div>
       ) : (
         <>
@@ -176,12 +128,8 @@ export function CollectionUnifiedOrderBook({
           {book.tab === "trades" ? (
             <OrderBookTradesTab tapeFills={tapeFills} tapeLoading={tapeLoading} flush={flush} />
           ) : null}
-          {book.tab === "orders" ? (
-            <OrderBookOrdersTab {...ordersTabProps} flush={flush} />
-          ) : null}
         </>
       )}
-      {changeBidModal}
     </div>
   );
 }

@@ -12,6 +12,7 @@ import {
   MARKET_PRICE_CHANGE_PERIOD_SHORT,
   referenceChangeTone,
 } from "@/lib/market";
+import { RWA_DETAIL_SHOW_MARKET_CONTEXT } from "../theme";
 
 function formatMobileGradeDisplay(gradeLine: string | null): string {
   if (!gradeLine?.trim()) return "—";
@@ -180,6 +181,7 @@ export function RwaDetailMobileSpecsPanel({
   const hasTrust =
     view.gradeLine != null || view.population != null || view.certNumber != null;
   const hasMarket =
+    RWA_DETAIL_SHOW_MARKET_CONTEXT &&
     showMarketContext &&
     (externalRefUsd != null || marketChangePct != null);
 

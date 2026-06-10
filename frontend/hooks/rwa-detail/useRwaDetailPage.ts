@@ -16,6 +16,7 @@ import { useRwaDetailMarketContext } from "./useRwaDetailMarketContext";
 import { useRwaDetailMetadata } from "./useRwaDetailMetadata";
 import { useRwaDetailOwner } from "./useRwaDetailOwner";
 import { useRwaDetailPlatformTrades } from "./useRwaDetailPlatformTrades";
+import { RWA_DETAIL_SHOW_MARKET_CONTEXT } from "@/components/marketplace/rwa-detail/theme";
 
 export type RwaDetailPageStatus = "invalid" | "loading" | "not_found" | "ready";
 
@@ -66,7 +67,6 @@ export function useRwaDetailPage() {
   });
 
   const platformTrades = useRwaDetailPlatformTrades({
-    tokenId,
     tokenIdOk,
     collectionKey: market.collectionKeyForMatch,
   });
@@ -115,8 +115,7 @@ export function useRwaDetailPage() {
   const showMain = tokenIdOk && !ownerLoading && !ownerError && ownerOnChain != null;
 
   const showMobileMarketContext =
-    !activeAskListing &&
-    !isOwner &&
+    RWA_DETAIL_SHOW_MARKET_CONTEXT &&
     (market.externalRefUsd != null || market.marketChangePct != null);
 
   const status: RwaDetailPageStatus = !tokenIdOk

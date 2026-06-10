@@ -270,6 +270,9 @@ export default function PortfolioPage() {
               hidingTokenId={holdingActions.hidingTokenId}
               unhidingTokenId={holdingActions.unhidingTokenId}
               onOpenToken={(tokenId) => router.push(`/marketplace/${tokenId}`)}
+              onChangeListing={(tokenId) =>
+                router.push(`/marketplace/${tokenId}?list=1`)
+              }
               onRequestHide={(r) => {
                 holdingActions.requestHide(r.tokenId, r.name, r.listPriceUsd != null);
               }}

@@ -2,14 +2,17 @@
 
 import type { MouseEventHandler, ReactNode } from "react";
 import {
+  BUY_NOW_OUTLINE_GRADIENT,
   GradientOutlineFrame,
   gradientOutlineInnerButtonClass,
 } from "@/components/ui/GradientOutlineFrame";
 import {
   rwaDetailRightFont,
-  RWA_DETAIL_BUTTON_FRAME_ROUNDED,
-  RWA_DETAIL_BUTTON_INNER_ROUNDED,
-  RWA_DETAIL_BUTTON_RIM_PAD_CLASS,
+  RWA_DETAIL_BUY_NOW_FRAME_SHADOW,
+  RWA_DETAIL_BUY_NOW_TEXT_CLASS,
+  RWA_DETAIL_MOBILE_CTA_FRAME_ROUNDED,
+  RWA_DETAIL_MOBILE_CTA_INNER_ROUNDED,
+  RWA_DETAIL_MOBILE_CTA_RIM_PAD_CLASS,
 } from "../theme";
 
 export function RwaDetailGradientButton({
@@ -17,30 +20,27 @@ export function RwaDetailGradientButton({
   onClick,
   disabled,
   className = "",
-  bright = false,
   compact = false,
-  thickRim = false,
 }: {
   children: ReactNode;
   onClick?: MouseEventHandler<HTMLButtonElement>;
   disabled?: boolean;
   className?: string;
-  bright?: boolean;
   compact?: boolean;
-  /** Wider mint gradient rim (e.g. List for sale). */
+  /** @deprecated Ignored — all CTAs use the Buy now gradient rim. */
+  bright?: boolean;
+  /** @deprecated Ignored — all CTAs use the Buy now gradient rim. */
   thickRim?: boolean;
 }) {
-  const rimPadClass = thickRim ? "p-[4px]" : RWA_DETAIL_BUTTON_RIM_PAD_CLASS;
-  const innerRoundedClass = thickRim ? "!rounded-[4px]" : RWA_DETAIL_BUTTON_INNER_ROUNDED;
-  const frameShadow = bright
-    ? "shadow-[0_10px_28px_-10px_rgba(0,0,0,0.75),0_0_40px_-4px_rgba(16,211,51,0.48)] has-[:enabled]:hover:shadow-[0_12px_32px_-10px_rgba(0,0,0,0.82),0_0_52px_-2px_rgba(16,211,51,0.62)]"
-    : "shadow-[0_8px_24px_-10px_rgba(0,0,0,0.75),0_0_24px_-8px_rgba(16,211,51,0.32)] has-[:enabled]:hover:shadow-[0_10px_28px_-10px_rgba(0,0,0,0.8),0_0_36px_-6px_rgba(16,211,51,0.5)]";
+  const rimPadClass = RWA_DETAIL_MOBILE_CTA_RIM_PAD_CLASS;
+  const innerRoundedClass = RWA_DETAIL_MOBILE_CTA_INNER_ROUNDED;
 
   return (
     <GradientOutlineFrame
-      className={`group/cta w-full min-w-0 max-w-full transition-shadow duration-200 ease-out ${frameShadow} ${className}`}
-      roundedClass={RWA_DETAIL_BUTTON_FRAME_ROUNDED}
+      className={`group/cta w-full min-w-0 max-w-full transition-shadow duration-200 ease-out ${RWA_DETAIL_BUY_NOW_FRAME_SHADOW} ${className}`}
+      roundedClass={RWA_DETAIL_MOBILE_CTA_FRAME_ROUNDED}
       padClass={rimPadClass}
+      style={{ background: BUY_NOW_OUTLINE_GRADIENT }}
     >
       <button
         type="button"
@@ -48,8 +48,8 @@ export function RwaDetailGradientButton({
         disabled={disabled}
         className={`${rwaDetailRightFont.className} ${gradientOutlineInnerButtonClass} flex w-full items-center justify-center ${innerRoundedClass} border-0 leading-none tracking-normal outline-none transition-[background-color,box-shadow,filter] duration-200 ease-out enabled:hover:bg-zinc-950 enabled:hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.12),inset_0_-1px_0_rgba(16,211,51,0.08)] enabled:hover:brightness-110 enabled:hover:saturate-110 disabled:cursor-not-allowed disabled:!bg-black disabled:text-mint/35 motion-reduce:enabled:hover:brightness-100 ${
           compact
-            ? "min-h-[48px] px-4 text-[15px] sm:min-h-[52px] sm:text-base"
-            : "min-h-[50px] px-6 text-[18px] sm:min-h-[58px] sm:px-10 sm:text-[20px]"
+            ? `min-h-[50px] px-4 text-[16px] font-bold ${RWA_DETAIL_BUY_NOW_TEXT_CLASS} sm:min-h-[54px] sm:text-[17px]`
+            : `min-h-[50px] px-6 text-[16px] font-bold sm:min-h-[54px] sm:px-8 sm:text-[17px] ${RWA_DETAIL_BUY_NOW_TEXT_CLASS}`
         }`}
         style={{ backgroundColor: "#000000" }}
       >

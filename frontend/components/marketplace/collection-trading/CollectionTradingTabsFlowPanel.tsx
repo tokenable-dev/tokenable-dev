@@ -12,7 +12,6 @@ import {
   COLLECTION_DETAILS_BG_CLASS,
   COLLECTION_DETAILS_BORDER_ALL,
 } from "@/components/marketplace/collectionOverviewChrome";
-import { CollectionMyOrdersPanel } from "./CollectionMyOrdersPanel";
 import { CollectionTradeTicket } from "./CollectionTradeTicket";
 
 export function CollectionTradingTabsFlowPanel({
@@ -65,26 +64,6 @@ export function CollectionTradingTabsFlowPanel({
     );
     return mine.length === 1 ? mine[0]! : null;
   }, [collectionBids, connectedAddress]);
-
-  if (flow === "orders") {
-    return (
-      <div
-        className={`px-2 py-1.5 sm:px-2.5 ${flush ? "min-h-0 shrink-0" : "sm:py-2"}`}
-        role="tabpanel"
-        aria-label="Your orders"
-      >
-        <CollectionMyOrdersPanel
-          asks={asks}
-          collectionBids={collectionBids}
-          address={connectedAddress}
-          onInvalidate={onInvalidate}
-          collectionLabel={collectionLabel}
-          collectionKey={collectionKey}
-          embedded
-        />
-      </div>
-    );
-  }
 
   return (
     <div

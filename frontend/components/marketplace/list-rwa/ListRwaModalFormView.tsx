@@ -4,6 +4,7 @@ import { formatUnits } from "viem";
 import type { Order } from "@/lib/core";
 import { bidUsdcAmount } from "@/lib/seaport/orders/bidUsdc";
 import { feePercent } from "@/lib/seaport/orders/platformFee";
+import { RwaDetailGradientButton } from "@/components/marketplace/rwa-detail/ui/RwaDetailGradientButton";
 import { ListingFlowProgress } from "./ListingFlowProgress";
 import { listModalAssetLabel, shortBidder } from "@/lib/seaport/listing/listRwaModalUtils";
 import type { ListRwaModalStep } from "@/lib/seaport/listing/listRwaModalTypes";
@@ -196,22 +197,17 @@ export function ListRwaModalFormView({
         </div>
       )}
 
-      <button
-        type="button"
+      <RwaDetailGradientButton
+        className="mt-0.5"
         onClick={onSubmit}
         disabled={isProcessing || !price || parseFloat(price) <= 0}
-        className={`mt-0.5 w-full rounded-xl bg-gradient-to-r from-mint to-mint-dim font-semibold text-mint-ink shadow-md shadow-mint/10 transition-all hover:brightness-[1.03] disabled:cursor-not-allowed disabled:opacity-50 ${
-          isEmbedded
-            ? "min-h-[52px] py-3.5 text-base sm:min-h-[56px] sm:text-lg"
-            : "py-3 text-sm"
-        }`}
       >
         {isProcessing
           ? "Processing..."
           : isReplaceListing
             ? "Update listing"
             : "List for sale"}
-      </button>
+      </RwaDetailGradientButton>
     </div>
   );
 }

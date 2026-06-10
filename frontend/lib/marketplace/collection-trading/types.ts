@@ -1,6 +1,6 @@
 import type { BookRowSelection } from "@/lib/marketplace/marketplaceTradingTypes";
 
-export type CollectionTradeTab = "buy" | "sell" | "orders";
+export type CollectionTradeTab = "buy" | "sell";
 
 export function formatMarketTradePriceLabel(
   bookSelection: BookRowSelection | null,

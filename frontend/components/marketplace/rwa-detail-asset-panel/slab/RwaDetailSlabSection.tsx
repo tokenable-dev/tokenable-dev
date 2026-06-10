@@ -51,14 +51,14 @@ export function RwaDetailSlabSection({
     <div
       className={`min-w-0 ${
         openSeaMobile
-          ? "max-lg:order-none max-lg:w-full max-lg:items-center max-lg:space-y-0 lg:order-none lg:space-y-3"
+          ? "max-lg:order-none max-lg:w-fit max-lg:max-w-full max-lg:items-stretch max-lg:space-y-0 lg:order-none lg:w-full lg:space-y-3"
           : "space-y-3 max-xl:order-1 lg:order-none"
       }`}
     >
       <div
         className={
           openSeaMobile
-            ? "flex w-full min-w-0 flex-col items-center gap-3 max-lg:shrink-0 lg:contents"
+            ? "flex w-fit max-w-full min-w-0 flex-col items-stretch gap-3 max-lg:shrink-0 lg:contents lg:w-full"
             : mobileHeroTradingSlot
               ? "max-xl:grid max-xl:grid-cols-[minmax(0,1fr)_minmax(112px,34%)] max-xl:items-start max-xl:gap-3 sm:max-xl:gap-3.5"
               : ""
@@ -109,10 +109,10 @@ export function RwaDetailSlabSection({
           ) : imageUrl ? (
             <>
               <div
-                className={`group/img relative w-full ${
+                className={`group/img relative ${
                   openSeaMobile
-                    ? "max-lg:overflow-visible max-lg:rounded-none max-lg:bg-transparent lg:aspect-[3/4] lg:h-full lg:min-h-0 lg:overflow-hidden lg:rounded-2xl lg:bg-[#030508]"
-                    : `${slabHeroSizing} h-full min-h-0 overflow-hidden bg-[#030508]`
+                    ? "mx-auto w-fit max-w-full max-lg:overflow-visible max-lg:rounded-none max-lg:bg-transparent lg:aspect-[3/4] lg:h-full lg:w-full lg:min-h-0 lg:overflow-hidden lg:rounded-2xl lg:bg-[#030508]"
+                    : `${slabHeroSizing} h-full min-h-0 w-full overflow-hidden bg-[#030508]`
                 }`}
               >
                 {showSlabFront ? (

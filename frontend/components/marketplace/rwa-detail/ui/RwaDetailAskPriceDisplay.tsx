@@ -1,13 +1,15 @@
 "use client";
 
 import { formatUsdCompact } from "@/lib/market";
-import { rwaDetailRightFont } from "../theme";
+import { RWA_DETAIL_SLAB_TITLE_MUTED_COLOR_CLASS, rwaDetailRightFont } from "../theme";
 
-/** Card detail — labeled ask price (buyer / owner listing header). */
+/** Card detail — labeled listing price (buyer / owner listing header). */
 export function RwaDetailAskPriceDisplay({ priceUsd }: { priceUsd: number }) {
   return (
     <div className="min-w-0">
-      <p className="text-lg font-medium text-white sm:text-xl">Ask Price</p>
+      <p className={`text-lg font-medium sm:text-xl ${RWA_DETAIL_SLAB_TITLE_MUTED_COLOR_CLASS}`}>
+        Price
+      </p>
       <p
         className={`${rwaDetailRightFont.className} mt-2 text-[clamp(2.5rem,9vw,3.75rem)] font-bold leading-none tabular-nums text-mint sm:text-[3.25rem]`}
       >

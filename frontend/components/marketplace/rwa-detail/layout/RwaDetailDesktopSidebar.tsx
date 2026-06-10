@@ -1,17 +1,24 @@
 "use client";
 
-import type { ReactNode } from "react";
-import { AssetDetailHeadlineTitle } from "@/components/marketplace/marketplace-shared";
+import { useMemo, type ReactNode } from "react";
 import {
   RwaDetailHeaderBadges,
 } from "@/components/marketplace/rwa-detail-asset-panel";
-import type { RwaDetailMetadata } from "@/lib/marketplace/rwa-detail";
+import {
+  buildRwaDetailMobileTrustView,
+  type RwaDetailMetadata,
+} from "@/lib/marketplace/rwa-detail";
 import {
   assetDetailHeadlineHasContent,
+  formatAssetDetailHeadlineText,
   type AssetDetailHeadlineParts,
 } from "@/lib/marketplace/assetDetailHeadline";
 import type { CollectionPlatformTapeFill, Order } from "@/lib/core";
-import { rwaDetailRightFont } from "../theme";
+import {
+  RWA_DETAIL_DESKTOP_SIDEBAR_CERT_CLASS,
+  RWA_DETAIL_DESKTOP_SIDEBAR_TITLE_CLASS,
+  rwaDetailRightFont,
+} from "../theme";
 import { RwaDetailBuyerTradePanel } from "../ui/RwaDetailBuyerTradePanel";
 import { RwaDetailMarketContextStrip } from "../ui/RwaDetailMarketContextStrip";
 import { RwaDetailOwnerListingPanel } from "../ui/RwaDetailOwnerListingPanel";
@@ -69,26 +76,40 @@ export function RwaDetailDesktopSidebar({
   onOpenListModal: (initialPriceUsdc?: string | null) => void;
 }) {
   const showBuyerActions = !isOwner && (collectionKey || activeAskListing);
+  const certNumber = useMemo(() => {
+    const trust = buildRwaDetailMobileTrustView(metadata);
+    return trust.certNumber?.trim() ?? "";
+  }, [metadata]);
+  const titleText = useMemo(() => {
+    if (assetDetailHeadlineHasContent(detailHeadlineParts)) {
+      return formatAssetDetailHeadlineText(detailHeadlineParts);
+    }
+    return detailTitle;
+  }, [detailHeadlineParts, detailTitle]);
+  const titleTooltip = certNumber ? `${titleText} ${certNumber}` : titleText;
 
   return (
     <div className="hidden w-full min-w-0 flex-col gap-5 lg:sticky lg:top-6 lg:col-start-2 lg:flex lg:max-w-[400px] lg:justify-self-end lg:self-start">
       <div className="hidden min-w-0 space-y-2.5 lg:block">
         {detailTitlePulse ? (
           <div
-            className="h-9 w-[min(100%,20rem)] max-w-full animate-pulse rounded-lg bg-gray-800/85"
+            className="h-7 w-[min(100%,20rem)] max-w-full animate-pulse rounded bg-gray-800/85"
             aria-hidden
-          />
-        ) : assetDetailHeadlineHasContent(detailHeadlineParts) ? (
-          <AssetDetailHeadlineTitle
-            as="h1"
-            parts={detailHeadlineParts}
-            className={`${rwaDetailRightFont.className} min-w-0 whitespace-normal break-words text-[clamp(1.375rem,2.8vw,1.75rem)] font-bold leading-snug tracking-tight text-white [overflow-wrap:anywhere]`}
           />
         ) : (
           <h1
-            className={`${rwaDetailRightFont.className} min-w-0 whitespace-normal break-words text-[clamp(1.375rem,2.8vw,1.75rem)] font-bold leading-snug tracking-tight text-white [overflow-wrap:anywhere]`}
+            className={`${rwaDetailRightFont.className} ${RWA_DETAIL_DESKTOP_SIDEBAR_TITLE_CLASS}`}
+            title={titleTooltip}
           >
-            {detailTitle}
+            {titleText}
+            {certNumber ? (
+              <>
+                {" "}
+                <span className={RWA_DETAIL_DESKTOP_SIDEBAR_CERT_CLASS}>
+                  {certNumber}
+                </span>
+              </>
+            ) : null}
           </h1>
         )}
         <RwaDetailHeaderBadges metadata={metadata} loading={detailTitlePulse} />

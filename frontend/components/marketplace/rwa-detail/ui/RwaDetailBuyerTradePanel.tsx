@@ -76,6 +76,16 @@ export function RwaDetailBuyerTradePanel({
             <RwaDetailAskPriceDisplay priceUsd={listingPriceUsd} />
           ) : null}
 
+          {!compactActions ? (
+            <RwaDetailMarketContextStrip
+              variant="flat"
+              externalRefUsd={marketPriceUsd}
+              marketChangePct={marketChangePct ?? null}
+              changePeriodLabel={marketChangePeriodLabel ?? ""}
+              changeCoverageHint={marketChangeCoverageHint ?? ""}
+            />
+          ) : null}
+
           <div className={canBid && isConnected ? "flex min-w-0 gap-2" : undefined}>
             <div className={canBid && isConnected ? "min-w-0 flex-1" : undefined}>
               <RwaDetailGradientButton

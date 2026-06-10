@@ -31,8 +31,6 @@ export function RwaDetailOwnerListingPanel({
     return (
       <div className="space-y-4">
         <RwaDetailGradientButton
-          bright
-          thickRim
           disabled={connectPending}
           onClick={() => connectMetaMaskWallet(connect, connectors)}
         >
@@ -48,19 +46,17 @@ export function RwaDetailOwnerListingPanel({
     <div className="space-y-4">
       {hasListing ? (
         <RwaDetailAskPriceDisplay priceUsd={listingPriceUsd} />
-      ) : (
-        <RwaDetailMarketContextStrip
-          variant="flat"
-          externalRefUsd={marketPriceUsd}
-          marketChangePct={marketChangePct}
-          changePeriodLabel={marketChangePeriodLabel}
-          changeCoverageHint={marketChangeCoverageHint}
-        />
-      )}
+      ) : null}
+
+      <RwaDetailMarketContextStrip
+        variant="flat"
+        externalRefUsd={marketPriceUsd}
+        marketChangePct={marketChangePct}
+        changePeriodLabel={marketChangePeriodLabel}
+        changeCoverageHint={marketChangeCoverageHint}
+      />
 
       <RwaDetailGradientButton
-        bright
-        thickRim
         onClick={() => onOpenListModal(hasListing ? String(listingPriceUsd) : null)}
       >
         {hasListing ? "Change price" : "List for sale"}
