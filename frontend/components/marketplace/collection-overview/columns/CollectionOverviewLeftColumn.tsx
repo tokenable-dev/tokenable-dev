@@ -64,9 +64,9 @@ export function CollectionOverviewLeftColumn({
           {useMobileTabbedMarket &&
           (imageUrl || mobileHeadlineBlock || mobileCurrentPriceRow) ? (
             <>
-              <div className="max-lg:shrink-0 max-lg:border-b max-lg:border-zinc-800/35 max-lg:px-3.5 max-lg:pb-4 max-lg:pt-2 lg:hidden">
-                <div className="flex w-full min-w-0 items-start gap-3.5 sm:gap-4">
-                  <div className="flex min-h-[128px] min-w-0 flex-1 flex-col pr-0.5">
+              <div className="@container/hero max-lg:shrink-0 max-lg:border-b max-lg:border-zinc-800/35 max-lg:px-3 max-lg:pb-4 max-lg:pt-2 min-[400px]:max-lg:px-3.5 lg:hidden">
+                <div className="flex w-full min-w-0 items-start gap-2.5 min-[360px]:gap-3 min-[400px]:gap-3.5 sm:gap-4">
+                  <div className="flex min-h-[clamp(112px,30vw,128px)] min-w-0 flex-1 flex-col pr-0.5">
                     {mobileHeadlineBlock ? (
                       <div className="min-w-0 shrink-0">{mobileHeadlineBlock}</div>
                     ) : null}
@@ -87,7 +87,7 @@ export function CollectionOverviewLeftColumn({
                     />
                   ) : (
                     <div
-                      className={`flex h-[128px] w-[96px] shrink-0 items-center justify-center self-start rounded-xl ${COLLECTION_DETAILS_BORDER_ALL} ${COLLECTION_DETAILS_BG_CLASS} text-center text-[9px] text-gray-500`}
+                      className={`flex h-[clamp(112px,30vw,128px)] w-[clamp(84px,22.5vw,96px)] shrink-0 items-center justify-center self-start rounded-xl ${COLLECTION_DETAILS_BORDER_ALL} ${COLLECTION_DETAILS_BG_CLASS} text-center text-[9px] text-gray-500`}
                     >
                       No preview
                     </div>

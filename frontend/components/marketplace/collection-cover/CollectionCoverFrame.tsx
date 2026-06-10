@@ -174,7 +174,7 @@ export function CollectionCoverFrame({
    */
   const heroOuter =
     variant === "hero"
-      ? `mx-auto w-full max-w-[min(100%,360px)] max-lg:h-[128px] max-lg:max-h-[132px] max-lg:w-[96px] max-lg:max-w-[96px] max-lg:shrink-0 lg:mx-0 lg:w-[307px] lg:max-w-full ${COLLECTION_HERO_DESKTOP_HEIGHT_CLASS}`
+      ? `mx-auto w-full max-w-[min(100%,360px)] max-lg:h-[clamp(112px,30vw,128px)] max-lg:max-h-[132px] max-lg:w-[clamp(84px,22.5vw,96px)] max-lg:max-w-[96px] max-lg:shrink-0 lg:mx-0 lg:w-[307px] lg:max-w-full ${COLLECTION_HERO_DESKTOP_HEIGHT_CLASS}`
       : `mx-auto w-full max-w-[min(100%,360px)] h-[min(460px,82vw)] max-h-[min(480px,88svh)] lg:mx-0 lg:w-[307px] lg:max-w-full ${COLLECTION_HERO_DESKTOP_HEIGHT_CLASS}`;
 
   const heroGlow =

@@ -22,4 +22,4 @@ export const COLLECTION_HEADLINE_TITLE_CLASS =
   "min-w-0 break-words text-[14.4px] font-bold leading-snug tracking-normal text-white sm:text-[18px] sm:leading-[1.35] lg:text-[21px] lg:leading-[1.4]";
 
 export const COLLECTION_HEADLINE_TITLE_MOBILE_CLASS =
-  "text-[14px] font-bold leading-[1.2] tracking-tight text-zinc-400 sm:text-[15px]";
+  "text-[clamp(13px,3.6vw,15px)] font-bold leading-[1.2] tracking-tight text-zinc-400";

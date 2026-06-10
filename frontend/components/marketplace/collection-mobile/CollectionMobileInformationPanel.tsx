@@ -52,9 +52,11 @@ function InfoStatCell({
 }) {
   return (
     <div className="flex min-w-0 flex-col gap-0.5" title={title}>
-      <span className="text-[11px] font-medium leading-tight text-zinc-500">{label}</span>
+      <span className="text-[clamp(10px,2.8vw,11px)] font-medium leading-tight text-zinc-500">
+        {label}
+      </span>
       <span
-        className={`min-w-0 truncate text-[15px] font-bold tabular-nums leading-tight ${valueClassName}`}
+        className={`min-w-0 truncate text-[clamp(13px,3.6vw,15px)] font-bold tabular-nums leading-tight ${valueClassName}`}
       >
         {value}
       </span>
@@ -122,7 +124,7 @@ export function CollectionMobileInformationPanel({
 
   return (
     <div className="w-full min-w-0 shrink-0">
-      <div className="grid grid-cols-2 gap-x-4 gap-y-3 px-0.5">
+      <div className="grid grid-cols-2 gap-x-2 gap-y-3 px-0.5 min-[360px]:gap-x-3 sm:gap-x-4">
         <InfoStatCell
           label={changeStatLabel}
           value={changeValue}

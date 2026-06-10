@@ -10,6 +10,7 @@ import {
   TOKENABLE_RWA_READ_ABI,
 } from "@/constants/contracts";
 import { COLLECTION_LISTING_CARD_CHROME } from "@/components/marketplace/collectionOverviewChrome";
+import { COLLECTION_MOBILE_LISTING_IMG_CLASS } from "@/lib/marketplace/collectionListingUtils";
 import { PRODUCT_OUTLINE_GRADIENT } from "@/components/ui/GradientOutlineFrame";
 import {
   buildRwaAssetDetailHeadlineParts,
@@ -67,14 +68,14 @@ function ListingCtaPill({
   if (mobileListing) {
     return (
       <span
-        className={`relative z-[2] box-border flex w-full min-w-0 max-w-none shrink-0 items-center justify-center rounded-2xl p-[2px] text-center transition-[transform,box-shadow] duration-200 ease-out [-webkit-tap-highlight-color:transparent] group-active:scale-[0.99] motion-reduce:transition-none ${
-          isBuy ? "h-10 min-h-10" : "h-9 min-h-9"
+        className={`relative z-[2] box-border flex w-full min-w-0 max-w-none shrink-0 items-center justify-center rounded-xl p-[1.5px] text-center transition-[transform,box-shadow] duration-200 ease-out [-webkit-tap-highlight-color:transparent] group-active:scale-[0.99] motion-reduce:transition-none ${
+          isBuy ? "h-7 min-h-7" : "h-6 min-h-6"
         }`}
         style={{ background: PRODUCT_OUTLINE_GRADIENT }}
         aria-hidden
       >
         <span
-          className={`${rwaCardFont.className} flex h-full w-full items-center justify-center rounded-[16px] border border-black/80 bg-black px-3 text-[13px] font-bold leading-none ${
+          className={`${rwaCardFont.className} flex h-full w-full items-center justify-center rounded-[10px] border border-black/80 bg-black px-2 text-[11px] font-bold leading-none ${
             isBuy ? "text-mint" : "text-white"
           }`}
         >
@@ -208,13 +209,13 @@ export function CollectionRwaCard({
         aria-label={`${displayTitle} — ${ctaLabel}`}
       >
         <article className="flex w-full min-w-0 flex-col">
-          <div className="relative w-full bg-black">
+          <div className="relative flex w-full items-center justify-center bg-black px-1.5">
             {imageUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={imageUrl}
                 alt=""
-                className="relative z-[1] block h-auto w-full max-w-full object-contain object-center"
+                className={`relative z-[1] ${COLLECTION_MOBILE_LISTING_IMG_CLASS}`}
               />
             ) : (
               <div className="flex aspect-[3/4] w-full items-center justify-center px-2 text-center text-[9px] text-zinc-500">
@@ -223,15 +224,15 @@ export function CollectionRwaCard({
             )}
           </div>
 
-          <div className="mt-1.5 flex min-w-0 flex-col">
+          <div className="mt-1 flex min-w-0 flex-col">
             <ListingCtaPill label={ctaLabel} mobileListing />
-            <div className="mt-2.5 flex min-w-0 flex-col gap-1">
+            <div className="mt-1.5 flex min-w-0 flex-col gap-0.5">
               {listing && listingPrice !== "—" ? (
-                <p className="text-left text-[17px] font-bold tabular-nums leading-none text-white">
+                <p className="text-left text-[clamp(14px,4vw,17px)] font-bold tabular-nums leading-none text-white">
                   ${listingPrice}
                 </p>
               ) : (
-                <p className="text-left text-[15px] font-medium leading-none text-zinc-500">
+                <p className="text-left text-[clamp(13px,3.6vw,15px)] font-medium leading-none text-zinc-500">
                   —
                 </p>
               )}
