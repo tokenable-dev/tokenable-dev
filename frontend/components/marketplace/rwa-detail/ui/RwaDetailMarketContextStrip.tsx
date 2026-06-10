@@ -1,7 +1,7 @@
 "use client";
 
 import { formatUsdCompact } from "@/lib/market";
-import { rwaDetailRightFont } from "../theme";
+import { RWA_DETAIL_SHOW_MARKET_CONTEXT, rwaDetailRightFont } from "../theme";
 
 export function RwaDetailMarketContextStrip({
   externalRefUsd,
@@ -17,6 +17,7 @@ export function RwaDetailMarketContextStrip({
   /** `flat` — no border/background (mobile card details). */
   variant?: "card" | "flat";
 }) {
+  if (!RWA_DETAIL_SHOW_MARKET_CONTEXT) return null;
   if (externalRefUsd == null && marketChangePct == null) return null;
   const changeUp = marketChangePct != null && marketChangePct > 0;
   const changeDown = marketChangePct != null && marketChangePct < 0;

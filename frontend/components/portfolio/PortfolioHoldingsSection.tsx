@@ -37,6 +37,7 @@ export function PortfolioHoldingsSection({
   onOpenToken,
   onRequestHide,
   onUnhide,
+  onChangeListing,
   onCancelListing,
   onBurn,
 }: {
@@ -61,6 +62,7 @@ export function PortfolioHoldingsSection({
   onOpenToken: (tokenId: number) => void;
   onRequestHide: (row: AssetRow) => void;
   onUnhide: (tokenId: number) => void;
+  onChangeListing: (tokenId: number) => void;
   onCancelListing: (tokenId: number, orderHash: string) => void;
   onBurn: (tokenId: number, hasListing: boolean) => void;
 }) {
@@ -132,6 +134,8 @@ export function PortfolioHoldingsSection({
               onOpen={() => onOpenToken(r.tokenId)}
               onRequestHide={() => onRequestHide(r)}
               onUnhide={() => onUnhide(r.tokenId)}
+              onChangeListing={() => onChangeListing(r.tokenId)}
+              onSellNow={() => onChangeListing(r.tokenId)}
               onCancelListing={() => {
                 if (r.activeListingOrderHash) {
                   onCancelListing(r.tokenId, r.activeListingOrderHash);

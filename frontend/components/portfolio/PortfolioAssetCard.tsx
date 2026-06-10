@@ -1,8 +1,9 @@
 "use client";
 
-import { formatUsdCompact } from "@/lib/market";
 import type { AssetListFilter, AssetRow } from "@/lib/portfolio/portfolioTypes";
-import { CategoryBadge, CollectiblePriceLine } from "./CollectibleCardChrome";
+import { PortfolioListingManageButton } from "./PortfolioListingManageButton";
+import { PortfolioListingPriceStrip } from "./PortfolioListingPriceStrip";
+import { PortfolioSellNowButton } from "./PortfolioSellNowButton";
 import {
   PortfolioCardIconButton,
   PortfolioHideIcon,
@@ -22,7 +23,9 @@ export function PortfolioAssetCard({
   onOpen,
   onRequestHide,
   onUnhide,
+  onChangeListing,
   onCancelListing,
+  onSellNow,
   onBurn,
 }: {
   row: AssetRow;
@@ -37,10 +40,13 @@ export function PortfolioAssetCard({
   onOpen: () => void;
   onRequestHide: () => void;
   onUnhide: () => void;
+  onChangeListing: () => void;
   onCancelListing: () => void;
+  onSellNow: () => void;
   onBurn: () => void;
 }) {
   const titleLine = row.name;
+  const isListed = row.listPriceUsd != null && row.activeListingOrderHash != null;
 
   return (
     <div
@@ -113,64 +119,30 @@ export function PortfolioAssetCard({
         ) : null}
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-2 p-2.5 pt-2 sm:gap-3 sm:p-4 sm:pt-3">
-        <div className="min-w-0 space-y-1">
-          <div className="flex min-w-0 flex-wrap items-center gap-1">
-            {row.listPriceUsd != null ? (
-              <span className="inline-flex shrink-0 items-center rounded-full bg-mint/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-mint sm:px-2 sm:text-[10px]">
-                Listed
-              </span>
-            ) : null}
-            {row.category ? <CategoryBadge label={row.category} /> : null}
-          </div>
-          <p
-            className="line-clamp-2 text-[11px] font-semibold leading-tight text-white sm:text-[13px]"
-            title={titleLine}
-          >
-            {titleLine}
-          </p>
+        <p
+          className="line-clamp-2 text-[11px] font-semibold leading-tight text-white sm:text-[13px]"
+          title={titleLine}
+        >
+          {titleLine}
+        </p>
+        <div className="min-w-0 border-t border-gray-800/80 pt-2 sm:pt-3">
+          <PortfolioListingPriceStrip
+            askPriceUsd={row.listPriceUsd}
+            marketPriceUsd={row.currentPrice}
+            marketPending={valuesPending}
+          />
         </div>
-        <div className="min-w-0 space-y-0.5 border-t border-gray-800/80 pt-2 sm:space-y-1 sm:pt-3">
-          <CollectiblePriceLine
-            label="Your Ask Price"
-            title={
-              row.listPriceUsd != null
-                ? `Your Ask Price : ${formatUsdCompact(row.listPriceUsd)}`
-                : "Your Ask Price : —"
-            }
-          >
-            {row.listPriceUsd != null ? formatUsdCompact(row.listPriceUsd) : "—"}
-          </CollectiblePriceLine>
-          <CollectiblePriceLine
-            label="Market Price"
-            title={
-              row.currentPrice != null
-                ? `Market Price : ${formatUsdCompact(row.currentPrice)}`
-                : "Market Price : —"
-            }
-          >
-            {valuesPending && row.currentPrice == null ? (
-              <span className="inline-block h-3 w-12 animate-pulse rounded bg-gray-800/80 align-middle sm:h-3.5 sm:w-14" />
-            ) : row.currentPrice != null ? (
-              formatUsdCompact(row.currentPrice)
-            ) : (
-              "—"
-            )}
-          </CollectiblePriceLine>
-        </div>
-        {row.listPriceUsd != null && row.activeListingOrderHash && address ? (
+        {address && assetFilter !== "hidden" ? (
           <div className="border-t border-gray-800/80 pt-2 sm:pt-3">
-            <button
-              type="button"
-              disabled={cancellingListingTokenId === row.tokenId}
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                onCancelListing();
-              }}
-              className="w-full rounded-md border border-rose-500/35 bg-rose-500/10 px-2 py-1.5 text-center text-[10px] font-semibold text-rose-200 transition-colors hover:border-rose-400/45 hover:bg-rose-500/18 disabled:cursor-not-allowed disabled:opacity-50 sm:rounded-lg sm:px-3 sm:py-2.5 sm:text-[12px]"
-            >
-              {cancellingListingTokenId === row.tokenId ? "Cancelling…" : "Cancel listing"}
-            </button>
+            {isListed ? (
+              <PortfolioListingManageButton
+                busy={cancellingListingTokenId === row.tokenId}
+                onChange={onChangeListing}
+                onCancel={onCancelListing}
+              />
+            ) : (
+              <PortfolioSellNowButton onClick={onSellNow} />
+            )}
           </div>
         ) : null}
         {isBurnAdmin && address && assetFilter !== "hidden" ? (

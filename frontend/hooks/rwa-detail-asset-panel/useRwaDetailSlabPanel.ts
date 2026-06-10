@@ -15,6 +15,10 @@ import {
   type RwaDetailMetadata,
 } from "@/lib/marketplace/rwa-detail";
 import { SLAB_3D_UI_ENABLED } from "@/lib/marketplace/rwa-detail";
+import {
+  RWA_MOBILE_SLAB_MAX_HEIGHT_CLASS,
+  RWA_MOBILE_SLAB_MAX_WIDTH_CLASS,
+} from "@/components/marketplace/rwa-detail/theme";
 
 export function useRwaDetailSlabPanel(input: {
   metadata: RwaDetailMetadata | null;
@@ -90,12 +94,11 @@ export function useRwaDetailSlabPanel(input: {
   const backHeroLoading = Boolean(backNeedsGateway) && backResolving;
 
   const slabHeroSizing = openSeaMobile
-    ? "relative mx-auto w-full max-w-[min(100%,340px)] shrink-0 max-lg:overflow-visible max-lg:rounded-none max-lg:bg-transparent sm:max-w-[min(100%,360px)] lg:aspect-[3/4] lg:max-h-[min(72vh,680px)] lg:max-w-none lg:overflow-visible lg:rounded-2xl lg:bg-[#030508]"
+    ? `relative mx-auto w-fit ${RWA_MOBILE_SLAB_MAX_WIDTH_CLASS} shrink-0 max-lg:overflow-visible max-lg:rounded-none max-lg:bg-transparent lg:aspect-[3/4] lg:max-h-[min(72vh,680px)] lg:w-full lg:max-w-none lg:overflow-visible lg:rounded-2xl lg:bg-[#030508]`
     : "relative mx-auto aspect-[3/4] w-full max-w-[min(100%,340px)] overflow-visible rounded-xl max-h-[min(62vh,560px)] sm:max-w-[min(100%,380px)] sm:rounded-2xl sm:max-h-[min(68vh,620px)] lg:max-w-none lg:max-h-[min(72vh,680px)]";
 
-  /** Full slab visible (object-contain) — mobile hero slightly enlarged. */
-  const openSeaMobileSlabImgCls =
-    "mx-auto block h-auto w-full max-h-[min(50vh,360px)] max-w-[min(100%,360px)] object-contain object-center lg:h-full lg:w-full lg:max-h-none lg:min-h-0";
+  /** Full slab visible (object-contain) — svh cap leaves room for caption + sticky footer. */
+  const openSeaMobileSlabImgCls = `mx-auto block h-auto w-auto max-w-full ${RWA_MOBILE_SLAB_MAX_HEIGHT_CLASS} object-contain object-center lg:h-full lg:w-full lg:max-h-none lg:min-h-0`;
 
   const slabThumbSize = openSeaMobile
     ? "relative aspect-[3/4] w-10 shrink-0 overflow-hidden rounded-md border-2 max-xl:rounded-md lg:w-14 lg:rounded-lg"

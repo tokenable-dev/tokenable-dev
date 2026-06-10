@@ -4,12 +4,14 @@ import type { ReactNode } from "react";
 
 export type PortfolioMainTab = "collectibles" | "bids";
 
+/** Segmented tab bar — equal halves, compact height and horizontal inset. */
 const TAB_SHELL =
-  "flex w-full gap-1 rounded-full border border-gray-700/80 bg-gray-900/70 p-1 sm:inline-flex sm:w-auto sm:gap-0.5";
+  "flex w-full gap-1 rounded-[10px] border border-zinc-800/90 bg-black p-1 sm:max-w-[18rem] sm:p-1.5 lg:max-w-[19rem]";
 const TAB_BASE =
-  "min-w-0 flex-1 rounded-full px-3 py-2 text-center text-[11px] font-semibold transition-colors sm:flex-none sm:px-3.5 sm:py-1";
-const TAB_ACTIVE = "bg-mint text-[#061018]";
-const TAB_INACTIVE = "text-gray-400 hover:text-white";
+  "min-w-0 flex-1 basis-0 rounded-md px-4 py-1.5 text-center text-sm font-medium transition-colors sm:px-6 sm:py-1.5 lg:px-7";
+const TAB_ACTIVE = "border border-white bg-black text-white";
+const TAB_INACTIVE =
+  "border border-transparent bg-transparent text-[#8E9BAE] hover:text-[#A8B8C8]";
 
 export function PortfolioMainSection({
   activeTab,
@@ -35,7 +37,7 @@ export function PortfolioMainSection({
             onClick={() => onTabChange("collectibles")}
             className={`${TAB_BASE} ${activeTab === "collectibles" ? TAB_ACTIVE : TAB_INACTIVE}`}
           >
-            My Collectibles
+            Listings
           </button>
           <button
             type="button"
@@ -46,7 +48,7 @@ export function PortfolioMainSection({
             onClick={() => onTabChange("bids")}
             className={`${TAB_BASE} ${activeTab === "bids" ? TAB_ACTIVE : TAB_INACTIVE}`}
           >
-            Collection Bids
+            Bids
           </button>
         </div>
       </div>

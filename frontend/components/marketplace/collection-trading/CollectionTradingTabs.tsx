@@ -86,8 +86,6 @@ export function CollectionTradingTabs({
       >
         <CollectionTradingTabsHeader
           collectionLabel={collectionLabel}
-          flow={flow}
-          onSelectOrders={() => setFlow("orders")}
           flush={flush}
           docked={docked}
           dockControlled={dockControlled}

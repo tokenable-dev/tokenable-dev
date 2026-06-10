@@ -11,6 +11,10 @@ import {
 import { RwaDetailBuyerTradePanel } from "../ui/RwaDetailBuyerTradePanel";
 import type { Order } from "@/lib/core";
 import type { AssetDetailHeadlineParts } from "@/lib/marketplace/assetDetailHeadline";
+import {
+  RWA_MOBILE_SLAB_STACK_CLASS,
+  RWA_MOBILE_STICKY_FOOTER_RESERVE_CLASS,
+} from "@/components/marketplace/rwa-detail/theme";
 
 export function RwaDetailMobileColumn({
   metadata,
@@ -76,9 +80,11 @@ export function RwaDetailMobileColumn({
     !isOwner && !showBuyerFooter && collectionHref != null;
 
   return (
-    <div className="relative flex w-full min-w-0 flex-col max-lg:min-h-0 max-lg:flex-1 max-lg:pb-[calc(4.75rem+env(safe-area-inset-bottom,0px))] lg:col-start-1 lg:items-start lg:justify-start">
-      <div className="flex min-h-0 w-full flex-1 flex-col items-center justify-center px-3 py-2 max-lg:overflow-hidden">
-        <div className="flex w-full min-w-0 flex-col items-center gap-4">
+    <div
+      className={`relative flex w-full min-w-0 flex-col max-lg:min-h-0 max-lg:flex-1 ${RWA_MOBILE_STICKY_FOOTER_RESERVE_CLASS} lg:col-start-1 lg:items-start lg:justify-start`}
+    >
+      <div className="flex min-h-0 w-full flex-1 flex-col items-center justify-center px-3 py-2 max-lg:overflow-y-auto max-lg:overscroll-y-contain">
+        <div className={RWA_MOBILE_SLAB_STACK_CLASS}>
           <RwaDetailAssetPanel
             metadata={metadata}
             imageUrl={imageUrl}
@@ -98,7 +104,6 @@ export function RwaDetailMobileColumn({
       <RwaDetailStickyBuyFooter footerNote={footerNote}>
         {showOwnerCta ? (
           <RwaDetailStickyBuyButton
-            emphasis={!isConnected ? "primary" : "default"}
             disabled={connectPending}
             onClick={() => {
               if (!isConnected) {

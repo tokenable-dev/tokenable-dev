@@ -12,12 +12,6 @@ const TABS: {
 }[] = [
   { id: "trades", label: "Trades", flexClass: "min-w-0 flex-1" },
   { id: "book", label: "Order book", flexClass: "min-w-0 flex-1" },
-  {
-    id: "orders",
-    label: "Orders",
-    title: "Your active listings and collection bids",
-    flexClass: "min-w-0 flex-1",
-  },
 ];
 
 export function OrderBookTabHeader({

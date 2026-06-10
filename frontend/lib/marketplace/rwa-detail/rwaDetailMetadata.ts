@@ -174,19 +174,30 @@ export function formatRwaMobileSlabLabelLine(
   parts: AssetDetailHeadlineParts,
   trust: RwaDetailMobileTrustView,
 ): string {
-  const { line1, line2 } = formatRwaMobileSlabLabelTwoLines(parts, trust);
-  return joinSlabTextParts(line1 === "—" ? null : line1, line2) || "—";
+  const { line1, line2, line2Grade, line3 } = formatRwaMobileSlabLabelTwoLines(
+    parts,
+    trust,
+  );
+  return (
+    joinSlabTextParts(
+      line1 === "—" ? null : line1,
+      line2,
+      line2Grade,
+      line3,
+    ) || "—"
+  );
 }
 
 /**
- * Mobile RWA — full slab copy below the card in exactly two visual lines:
- * line 1 = name · year · set · # (card number always on line 1);
- * line 2 = variety · grade.
+ * Mobile RWA — slab copy below the card:
+ * line 1 = name · year · set · #;
+ * line 2 = variety (+ grade rendered separately for color);
+ * line 3 = cert #.
  */
 export function formatRwaMobileSlabLabelTwoLines(
   parts: AssetDetailHeadlineParts,
   trust: RwaDetailMobileTrustView,
-): { line1: string; line2: string } {
+): { line1: string; line2: string; line2Grade: string; line3: string } {
   const subject = slabSubjectName(parts);
   const line1 = joinSlabTextParts(
     subject,
@@ -194,11 +205,15 @@ export function formatRwaMobileSlabLabelTwoLines(
     parts.setName,
     parts.cardNumber,
   ) || "—";
-  const line2 = joinSlabTextParts(parts.variety, slabGradeShort(trust));
+  const line2 = parts.variety?.trim() ?? "";
+  const line2Grade = slabGradeShort(trust);
+  const line3 = trust.certNumber?.trim() ?? "";
 
   return {
     line1,
     line2: line2 && line2 !== line1 ? line2 : "",
+    line2Grade,
+    line3,
   };
 }
 

@@ -5,20 +5,14 @@ import {
   COLLECTION_DETAILS_BORDER_ALL,
   COLLECTION_DETAILS_BORDER_B,
 } from "@/components/marketplace/collectionOverviewChrome";
-import type { CollectionTradeTab } from "@/lib/marketplace/collection-trading";
-
 export function CollectionTradingTabsHeader({
   collectionLabel,
-  flow,
-  onSelectOrders,
   flush,
   docked,
   dockControlled,
   onCloseDock,
 }: {
   collectionLabel: string;
-  flow: CollectionTradeTab;
-  onSelectOrders: () => void;
   flush: boolean;
   docked: boolean;
   dockControlled: boolean;
@@ -49,20 +43,6 @@ export function CollectionTradingTabsHeader({
         </span>
       </div>
       <div className="flex shrink-0 items-center gap-1.5">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={flow === "orders"}
-          onClick={onSelectOrders}
-          className={`rounded border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide transition-colors ${
-            flow === "orders"
-              ? `${COLLECTION_DETAILS_BORDER_ALL} bg-zinc-800/80 text-zinc-100`
-              : `border-transparent text-zinc-500 hover:border-black hover:bg-zinc-900/60 hover:text-zinc-300`
-          }`}
-          title="Your active listings and collection bids in this collection"
-        >
-          Orders
-        </button>
         {docked && dockControlled ? (
           <button
             type="button"

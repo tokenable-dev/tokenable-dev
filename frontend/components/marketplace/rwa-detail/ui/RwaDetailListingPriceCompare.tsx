@@ -1,14 +1,14 @@
 "use client";
 
 import { formatUsdCompact } from "@/lib/market";
-import { rwaDetailRightFont } from "../theme";
+import { RWA_DETAIL_SLAB_TITLE_MUTED_COLOR_CLASS, rwaDetailRightFont } from "../theme";
 
 /** Side-by-side listing / ask and collection market price. */
 export function RwaDetailListingPriceCompare({
   listingPriceUsd,
   marketPriceUsd,
   compact = false,
-  listingLabel = "Ask Price",
+  listingLabel = "Price",
   marketLabel = "Market Price",
 }: {
   listingPriceUsd: number | null;
@@ -31,7 +31,9 @@ export function RwaDetailListingPriceCompare({
   return (
     <div className={`grid gap-4 ${compact ? "grid-cols-1" : "grid-cols-2 sm:gap-5"}`}>
       <div className="min-w-0">
-        <p className="text-lg font-medium text-white sm:text-xl">{listingLabel}</p>
+        <p className={`text-lg font-medium sm:text-xl ${RWA_DETAIL_SLAB_TITLE_MUTED_COLOR_CLASS}`}>
+          {listingLabel}
+        </p>
         <p
           className={`${rwaDetailRightFont.className} mt-2 text-[clamp(2.25rem,8vw,3.25rem)] font-bold tabular-nums text-mint sm:text-[2.75rem]`}
         >
