@@ -6,6 +6,24 @@ export const rwaDetailRightFont = {
   className: RWA_DETAIL_FONT_CLASS,
 };
 
+/** Listing ask amount (e.g. $3,100) — sidebar / labeled price block. */
+export const RWA_DETAIL_LISTING_PRICE_AMOUNT_CLASS =
+  "text-[1.5rem] font-semibold leading-none tabular-nums text-white sm:text-[1.625rem]";
+/** Compact sticky-footer price — same emphasis, centered. */
+export const RWA_DETAIL_LISTING_PRICE_COMPACT_AMOUNT_CLASS =
+  "text-[1.4375rem] font-semibold leading-none tabular-nums text-white sm:text-[1.5625rem]";
+
+/** Extra space between price line and Buy now / Place bid row. */
+export const RWA_DETAIL_CTA_ROW_TOP_CLASS = "mt-6";
+export const RWA_DETAIL_CTA_ROW_TOP_COMPACT_CLASS = "mt-5";
+/** Unlisted owner — List for sale / Connect (no price line above CTA). */
+export const RWA_DETAIL_UNLISTED_CTA_ROW_TOP_CLASS = "mt-8";
+/** Mobile sticky footer — inset above CTA when caption is the only content above. */
+export const RWA_DETAIL_UNLISTED_CTA_FOOTER_LEAD_CLASS = "pt-8";
+/** Mobile sticky footer — inset from viewport bottom (below CTAs). */
+export const RWA_DETAIL_STICKY_FOOTER_PB_CLASS =
+  "pb-[max(1.5rem,env(safe-area-inset-bottom,0px))]";
+
 /** Shared CTA height — mobile sticky + desktop gradient/outline pairs. */
 export const RWA_DETAIL_CTA_HEIGHT_CLASS = "h-[38px] min-h-[38px]";
 
@@ -45,7 +63,7 @@ export const RWA_MOBILE_SLAB_MAX_WIDTH_CLASS = "max-w-[min(100%,480px)]";
 export const RWA_MOBILE_SLAB_MAX_HEIGHT_CLASS =
   "max-h-[min(480px,68svh,calc(100svh-4rem-11.5rem-env(safe-area-inset-bottom,0px)))]";
 /** Image + caption column — hugs rendered slab width (not letterboxed container). */
-export const RWA_MOBILE_SLAB_STACK_CLASS = `mx-auto flex w-fit min-w-0 ${RWA_MOBILE_SLAB_MAX_WIDTH_CLASS} flex-col items-stretch`;
+export const RWA_MOBILE_SLAB_STACK_CLASS = `mx-auto flex w-fit min-w-0 ${RWA_MOBILE_SLAB_MAX_WIDTH_CLASS} flex-col items-stretch lg:ml-auto lg:mr-0`;
 /** Hero image + caption — width tracks intrinsic slab photo, not full-width controls. */
 export const RWA_MOBILE_SLAB_IMAGE_CAPTION_COLUMN_CLASS =
   "mx-auto flex w-fit max-w-full min-w-0 flex-col items-stretch max-lg:shrink-0";
@@ -55,4 +73,4 @@ export const RWA_MOBILE_SLAB_CAPTION_BLOCK_CLASS =
 export const RWA_MOBILE_SLAB_CAPTION_LINE_GAP_CLASS = "gap-1.5";
 /** Bottom inset above fixed purchase footer (dual CTA + safe-area). */
 export const RWA_MOBILE_STICKY_FOOTER_RESERVE_CLASS =
-  "max-lg:pb-[calc(5rem+env(safe-area-inset-bottom,0px))]";
+  "max-lg:pb-[calc(6.25rem+env(safe-area-inset-bottom,0px))]";

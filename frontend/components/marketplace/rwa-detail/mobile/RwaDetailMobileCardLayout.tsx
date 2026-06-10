@@ -17,6 +17,8 @@ import {
   RWA_DETAIL_BUY_NOW_FRAME_SHADOW,
   RWA_DETAIL_BUY_NOW_TEXT_CLASS,
   RWA_DETAIL_CTA_HEIGHT_CLASS,
+  RWA_DETAIL_LISTING_PRICE_COMPACT_AMOUNT_CLASS,
+  RWA_DETAIL_STICKY_FOOTER_PB_CLASS,
   RWA_DETAIL_MOBILE_CTA_FRAME_ROUNDED,
   RWA_DETAIL_MOBILE_CTA_INNER_ROUNDED,
   RWA_DETAIL_MOBILE_CTA_RIM_PAD_CLASS,
@@ -139,7 +141,7 @@ export function RwaDetailStickyBuyFooter({
 }) {
   return (
     <div
-      className="pointer-events-none fixed bottom-0 left-0 right-0 z-[90] flex w-full flex-col items-center px-3 pb-[max(0.625rem,env(safe-area-inset-bottom,0px))] sm:px-4 lg:hidden"
+      className={`pointer-events-none fixed bottom-0 left-0 right-0 z-[90] flex w-full flex-col items-center px-3 sm:px-4 lg:hidden ${RWA_DETAIL_STICKY_FOOTER_PB_CLASS}`}
       role="region"
       aria-label="Purchase actions"
     >
@@ -173,7 +175,7 @@ export function RwaDetailStickyPriceLine({
           {caption}
         </p>
       ) : null}
-      <p className="text-[1.125rem] font-semibold leading-none tabular-nums text-white sm:text-[1.1875rem]">
+      <p className={RWA_DETAIL_LISTING_PRICE_COMPACT_AMOUNT_CLASS}>
         ${priceStr}
       </p>
     </div>

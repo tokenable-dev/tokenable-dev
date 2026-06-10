@@ -81,6 +81,9 @@ export const rq = {
 
   /** Single RWA resolved asset (tokenURI + metadata + imageUrl). */
   rwaAssetDetail: (tokenId: number) => ["marketplace-detail-metadata", tokenId] as const,
+  /** Admin — active listed RWA cards registry overview. */
+  adminListedRwaCards: (adminWallet: string) =>
+    ["admin-listed-rwa-cards", adminWallet.toLowerCase()] as const,
   /**
    * Derived collection/bucket key computed from a token's metadata + tokenURI.
    * URI included so the key invalidates if the on-chain tokenURI is updated.

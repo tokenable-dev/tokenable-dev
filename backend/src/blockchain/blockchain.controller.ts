@@ -11,6 +11,7 @@ import { apiBodyDefault } from '../swagger/api-body.util';
 import { SWAGGER_BODY_EXAMPLES } from '../swagger/examples';
 import { SWAGGER_FIXTURES } from '../swagger/fixtures';
 import { BlockchainService } from './blockchain.service';
+import { RwaAssetResolveService } from './rwa-asset-resolve.service';
 import { MediaResolveDto } from './dto/media-resolve.dto';
 import { RwaMetadataBatchDto } from './dto/rwa-metadata-batch.dto';
 
@@ -20,7 +21,10 @@ import { RwaMetadataBatchDto } from './dto/rwa-metadata-batch.dto';
 @ApiTags('blockchain')
 @Controller('blockchain')
 export class BlockchainController {
-  constructor(private readonly blockchainService: BlockchainService) {}
+  constructor(
+    private readonly blockchainService: BlockchainService,
+    private readonly rwaAssetResolve: RwaAssetResolveService,
+  ) {}
 
   /** tokenId → tokenURI + 메타데이터 + https 이미지 URL 일괄 */
   @ApiOperation({
@@ -29,7 +33,7 @@ export class BlockchainController {
   @ApiParam({ name: 'tokenId', description: 'RWA tokenId', example: 1 })
   @Get('rwa/asset/:tokenId')
   getResolvedRwaAsset(@Param('tokenId', ParseIntPipe) tokenId: number) {
-    return this.blockchainService.getResolvedRwaAsset(tokenId);
+    return this.rwaAssetResolve.getResolvedRwaAsset(tokenId);
   }
 
   /** ERC-721 tokenURI 문자열만 */
@@ -57,7 +61,7 @@ export class BlockchainController {
   @ApiBody(apiBodyDefault(RwaMetadataBatchDto, SWAGGER_BODY_EXAMPLES.rwaMetadataBatch))
   @Post('rwa/metadata/batch')
   batchRwaMetadata(@Body() body: RwaMetadataBatchDto) {
-    return this.blockchainService.batchRwaMetadata(body.tokenIds ?? []);
+    return this.rwaAssetResolve.batchRwaMetadata(body.tokenIds ?? []);
   }
 
   /** ipfs:// URI → 브라우저용 https URL */

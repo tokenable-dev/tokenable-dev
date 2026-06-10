@@ -32,6 +32,10 @@ export class RwaToken {
   @Column({ name: 'display_name', type: 'varchar', length: 512, nullable: true })
   displayName: string | null;
 
+  /** Admin override — shown instead of metadata-derived image when set. */
+  @Column({ name: 'display_image_url', type: 'text', nullable: true })
+  displayImageUrl: string | null;
+
   /** Last marketplace bucket from an ask listing (nullable if never listed). */
   @Index()
   @Column({
