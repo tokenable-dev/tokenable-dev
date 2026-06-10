@@ -111,29 +111,53 @@ export type RwaDetailMobileTrustView = {
   certVerifyUrl: string | null;
 };
 
+function joinSlabTextParts(...vals: (string | null | undefined)[]): string {
+  return vals
+    .map((v) => v?.trim())
+    .filter((v): v is string => Boolean(v))
+    .join(" ");
+}
+
+function slabGradeShort(trust: RwaDetailMobileTrustView): string {
+  const grade = trust.gradeLine?.trim();
+  if (!grade) return "";
+  return grade.replace(/^PSA\s+/i, "").trim() || grade;
+}
+
 /**
- * Mobile RWA hero — one line like the PSA slab top label (year, brand, grade).
+ * Mobile RWA — full slab copy as one line (e.g. screen readers).
  */
 export function formatRwaMobileSlabLabelLine(
   parts: AssetDetailHeadlineParts,
   trust: RwaDetailMobileTrustView,
 ): string {
-  const segments: string[] = [];
-  const year = parts.year?.trim();
-  const set = parts.setName?.trim();
-  if (year) segments.push(year);
-  if (set) segments.push(set);
+  const { line1, line2 } = formatRwaMobileSlabLabelTwoLines(parts, trust);
+  return joinSlabTextParts(line1 === "—" ? null : line1, line2) || "—";
+}
 
-  const grade = trust.gradeLine?.trim();
-  if (grade) {
-    const short = grade.replace(/^PSA\s+/i, "").trim();
-    segments.push(short.length > 0 ? short : grade);
-  }
+/**
+ * Mobile RWA — slab label under the image: catalog row + grade/variety/cert row.
+ */
+export function formatRwaMobileSlabLabelTwoLines(
+  parts: AssetDetailHeadlineParts,
+  trust: RwaDetailMobileTrustView,
+): { line1: string; line2: string } {
+  const line1 = joinSlabTextParts(
+    parts.year,
+    parts.setName,
+    parts.cardNumber,
+    parts.cardName,
+  );
+  const line2 = joinSlabTextParts(
+    parts.variety,
+    slabGradeShort(trust),
+    trust.certNumber,
+  );
 
-  if (segments.length > 0) return segments.join(" ");
-
-  const fallback = formatAssetDetailHeadlineText(parts).trim();
-  return fallback.length > 0 ? fallback : "—";
+  return {
+    line1: line1 || "—",
+    line2,
+  };
 }
 
 export function buildRwaDetailMobileTrustView(meta: RwaDetailMetadata | null): RwaDetailMobileTrustView {

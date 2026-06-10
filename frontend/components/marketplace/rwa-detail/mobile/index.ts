@@ -1,5 +1,5 @@
 export {
-  RwaDetailMobileCardHeader,
+  RwaDetailMobileSlabCaption,
   RwaDetailStickyBuyButton,
   RwaDetailStickyBuyFooter,
   RWA_MOBILE_CONTENT_SCROLL_CLASS,

@@ -209,7 +209,7 @@ export function CollectionRwaCard({
         aria-label={`${displayTitle} — ${ctaLabel}`}
       >
         <article className="flex w-full min-w-0 flex-col">
-          <div className="relative flex w-full items-center justify-center bg-black px-1.5">
+          <div className="relative flex w-full items-center justify-center bg-black px-1">
             {imageUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img

@@ -70,7 +70,7 @@ export const COLLECTION_DETAIL_LISTING_CARD_MIN_PX = 200;
 
 /** Mobile listing grid card image — full slab visible, scaled down within cell. */
 export const COLLECTION_MOBILE_LISTING_IMG_CLASS =
-  "mx-auto block h-auto w-full max-h-[min(34vw,124px)] max-w-[86%] object-contain object-center sm:max-h-[min(32vw,128px)]";
+  "mx-auto block h-auto w-full max-h-[min(38vw,136px)] max-w-[92%] object-contain object-center sm:max-h-[min(36vw,140px)]";
 
 export const COLLECTION_DETAIL_LISTING_GRID_CLASS = [
   "grid w-full min-w-0 max-w-full grid-cols-2 content-start items-stretch",

@@ -14,6 +14,7 @@ export type { RwaDetailMetadata, RwaDetailMobileTrustView } from "./rwaDetailMet
 export {
   buildRwaDetailMobileTrustView,
   formatRwaMobileSlabLabelLine,
+  formatRwaMobileSlabLabelTwoLines,
   buildRwaDetailStatRows,
   extractGradedSlabBackCandidate,
   formatRwaDetailCardIdLine,
