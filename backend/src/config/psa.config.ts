@@ -13,9 +13,22 @@ export default registerAs('psa', () => ({
     60_000,
     7 * 86_400_000,
   ),
+  /** Shorter cache when PSA redirects to Collectors sign-in (login wall). */
+  specAuthBlockedCacheMs: clampInt(
+    process.env.PSA_SPEC_AUTH_BLOCKED_CACHE_MS,
+    300_000,
+    30_000,
+    3_600_000,
+  ),
   specScraperProxy: process.env.PSA_SPEC_SCRAPER_PROXY?.trim() || '',
   specRetryEmpty: flag(process.env.PSA_SPEC_RETRY_EMPTY),
   specCoverAllowFallback: flag(process.env.PSA_SPEC_COVER_ALLOW_FALLBACK),
+  /**
+   * Optional Collectors/PSA session cookie string for authenticated spec-page scrapes.
+   * Export from a logged-in browser session (Application → Cookies → psacard.com).
+   * Format: `name1=value1; name2=value2`
+   */
+  collectorsSessionCookie: process.env.PSA_COLLECTORS_SESSION_COOKIE?.trim() || '',
 }));
 
 function clampInt(

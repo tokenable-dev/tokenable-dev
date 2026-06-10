@@ -53,7 +53,10 @@ export class PsaSpecScraperService implements OnModuleInit, OnModuleDestroy {
     { url: string | null; expiresAt: number }
   >();
   /** Deduplicates concurrent scrapes of the same specId. */
-  private readonly inFlight = new Map<string, Promise<string | null>>();
+  private readonly inFlight = new Map<
+    string,
+    Promise<{ url: string | null; authBlocked: boolean }>
+  >();
 
   private static readonly POSITIVE_TTL_MS = 24 * 60 * 60 * 1000;
   private static readonly CDN_HOST = 'd1htnxwo4o0jhw.cloudfront.net';
@@ -72,6 +75,14 @@ export class PsaSpecScraperService implements OnModuleInit, OnModuleDestroy {
     return this.config.get<number>('psa.specNegativeCacheMs') ?? 3_600_000;
   }
 
+  private authBlockedCacheTtlMs(): number {
+    return this.config.get<number>('psa.specAuthBlockedCacheMs') ?? 300_000;
+  }
+
+  private collectorsSessionCookie(): string {
+    return this.config.get<string>('psa.collectorsSessionCookie')?.trim() ?? '';
+  }
+
   private scraperProxy(): { proxy: { server: string } } | undefined {
     const s = this.config.get<string>('psa.specScraperProxy')?.trim();
     if (!s) return undefined;
@@ -80,10 +91,17 @@ export class PsaSpecScraperService implements OnModuleInit, OnModuleDestroy {
 
   onModuleInit(): void {
     const proxy = this.scraperProxy();
+    const hasSession = Boolean(this.collectorsSessionCookie());
     this.logger.log(
-      proxy
-        ? 'PSA spec scraper enabled — Chromium will use PSA_SPEC_SCRAPER_PROXY for egress; first scrape launches browser (lazy).'
-        : 'PSA spec scraper enabled — first scrape will launch Chromium (lazy).',
+      [
+        'PSA spec scraper enabled — first scrape launches Chromium (lazy).',
+        proxy ? 'PSA_SPEC_SCRAPER_PROXY set.' : null,
+        hasSession
+          ? 'PSA_COLLECTORS_SESSION_COOKIE set (authenticated spec scrape).'
+          : 'No PSA_COLLECTORS_SESSION_COOKIE — spec pages may redirect to Collectors sign-in.',
+      ]
+        .filter(Boolean)
+        .join(' '),
     );
   }
 
@@ -120,7 +138,7 @@ export class PsaSpecScraperService implements OnModuleInit, OnModuleDestroy {
     if (hit && hit.expiresAt > Date.now()) return hit.url;
 
     const existing = this.inFlight.get(id);
-    if (existing) return existing;
+    if (existing) return (await existing).url;
 
     const job = this.doScrapeWithRetry(id)
       .catch((err) => {
@@ -131,30 +149,37 @@ export class PsaSpecScraperService implements OnModuleInit, OnModuleDestroy {
             'PSA spec scraper: Chromium is not installed for playwright-core. From repo root: cd backend && pnpm run install:browsers',
           );
         }
-        return null;
+        return { url: null, authBlocked: false } as const;
       })
       .finally(() => {
         this.inFlight.delete(id);
       });
 
     this.inFlight.set(id, job);
-    const url = await job;
+    const result = await job;
 
     this.cache.set(id, {
-      url,
+      url: result.url,
       expiresAt:
         Date.now() +
-        (url
+        (result.url
           ? PsaSpecScraperService.POSITIVE_TTL_MS
-          : this.negativeCacheTtlMs()),
+          : result.authBlocked
+            ? this.authBlockedCacheTtlMs()
+            : this.negativeCacheTtlMs()),
     });
 
-    return url;
+    return result.url;
   }
 
   /** One navigation timeout retry; optional second full attempt if no image (PSA_SPEC_RETRY_EMPTY). */
-  private async doScrapeWithRetry(specId: string): Promise<string | null> {
-    const attempt = async (): Promise<string | null> => {
+  private async doScrapeWithRetry(
+    specId: string,
+  ): Promise<{ url: string | null; authBlocked: boolean }> {
+    const attempt = async (): Promise<{
+      url: string | null;
+      authBlocked: boolean;
+    }> => {
       try {
         return await this.doScrape(specId);
       } catch (first) {
@@ -168,21 +193,76 @@ export class PsaSpecScraperService implements OnModuleInit, OnModuleDestroy {
       }
     };
 
-    let url = await attempt();
-    if (url) return url;
+    let result = await attempt();
+    if (result.url) return result;
 
     const retryEmpty = this.config.get<boolean>('psa.specRetryEmpty') === true;
-    if (retryEmpty) {
+    if (retryEmpty && !result.authBlocked) {
       this.logger.debug(
         `PSA spec scrape retry_empty specId=${specId} (second full attempt)`,
       );
       await new Promise((r) => setTimeout(r, 2_500));
-      url = await attempt();
+      result = await attempt();
     }
-    return url ?? null;
+    return result;
   }
 
-  private async doScrape(specId: string): Promise<string | null> {
+  private isCollectorsSignInUrl(url: string): boolean {
+    try {
+      const u = new URL(url);
+      return (
+        /collectors\.com$/i.test(u.hostname) &&
+        /\/signin/i.test(u.pathname)
+      );
+    } catch {
+      return /collectors\.com\/signin/i.test(url);
+    }
+  }
+
+  private parseSessionCookies(
+    raw: string,
+  ): Array<{ name: string; value: string; domain: string; path: string }> {
+    const out: Array<{
+      name: string;
+      value: string;
+      domain: string;
+      path: string;
+    }> = [];
+    for (const part of raw.split(';')) {
+      const idx = part.indexOf('=');
+      if (idx <= 0) continue;
+      const name = part.slice(0, idx).trim();
+      const value = part.slice(idx + 1).trim();
+      if (!name || !value) continue;
+      out.push({
+        name,
+        value,
+        domain: '.psacard.com',
+        path: '/',
+      });
+      out.push({
+        name,
+        value,
+        domain: '.collectors.com',
+        path: '/',
+      });
+    }
+    return out;
+  }
+
+  private specImageFromText(text: string, specId: string): string | null {
+    const host = PsaSpecScraperService.CDN_HOST.replace(/\./g, '\\.');
+    const re = new RegExp(
+      `https?://${host}/spec/${specId}/[A-Za-z0-9_\\-]+\\.(?:jpg|jpeg|png|webp)`,
+      'i',
+    );
+    const m = text.match(re);
+    return m?.[0] ?? null;
+  }
+
+  private async doScrape(
+    specId: string,
+  ): Promise<{ url: string | null; authBlocked: boolean }> {
     const context = await this.ensureContext();
     const navTimeout = this.navTimeoutMs();
     const imgTimeout = this.imgTimeoutMs();
@@ -192,10 +272,27 @@ export class PsaSpecScraperService implements OnModuleInit, OnModuleDestroy {
       `https://www.psacard.com/spec/psa/${specId}`,
     ];
 
+    let sawAuthBlock = false;
+
     for (const targetUrl of urls) {
       const page = await context.newPage();
       page.setDefaultNavigationTimeout(navTimeout);
       page.setDefaultTimeout(Math.max(navTimeout, imgTimeout));
+      const networkHits: string[] = [];
+
+      page.on('response', (response) => {
+        const u = response.url();
+        if (u.includes(`/spec/${specId}/`) && u.includes('cloudfront')) {
+          networkHits.push(u);
+        }
+        void response
+          .text()
+          .then((body) => {
+            const hit = this.specImageFromText(body, specId);
+            if (hit) networkHits.push(hit);
+          })
+          .catch(() => {});
+      });
 
       try {
         await page.route('**/*', (route) => {
@@ -224,6 +321,15 @@ export class PsaSpecScraperService implements OnModuleInit, OnModuleDestroy {
             );
           });
 
+        const currentUrl = page.url();
+        if (this.isCollectorsSignInUrl(currentUrl)) {
+          sawAuthBlock = true;
+          this.logger.warn(
+            `PSA spec scrape auth_blocked specId=${specId} — redirected to Collectors sign-in. Set PSA_COLLECTORS_SESSION_COOKIE or PSA_SPEC_COVER_ALLOW_FALLBACK=1.`,
+          );
+          continue;
+        }
+
         const titleNow = await page.title().catch(() => '');
         if (/just a moment/i.test(titleNow)) {
           this.logger.debug('Cloudflare challenge detected — waiting…');
@@ -232,6 +338,22 @@ export class PsaSpecScraperService implements OnModuleInit, OnModuleDestroy {
               timeout: navTimeout,
             })
             .catch(() => {});
+        }
+
+        if (this.isCollectorsSignInUrl(page.url())) {
+          sawAuthBlock = true;
+          continue;
+        }
+
+        const fromNetwork = networkHits.find((u) =>
+          this.specImageFromText(u, specId),
+        );
+        if (fromNetwork) {
+          const img = this.normalizeScrapedImageSrc(fromNetwork);
+          this.logger.log(
+            `PSA spec scrape OK (network) specId=${specId} → ${img.slice(0, 100)}`,
+          );
+          return { url: img, authBlocked: false };
         }
 
         const extracted = await this.extractSpecImageFromPage(
@@ -243,7 +365,7 @@ export class PsaSpecScraperService implements OnModuleInit, OnModuleDestroy {
           this.logger.log(
             `PSA spec scrape OK specId=${specId} → ${extracted.slice(0, 100)}`,
           );
-          return extracted;
+          return { url: extracted, authBlocked: false };
         }
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
@@ -255,10 +377,14 @@ export class PsaSpecScraperService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
+    if (sawAuthBlock) {
+      return { url: null, authBlocked: true };
+    }
+
     this.logger.warn(
       `PSA spec scrape: no_image specId=${specId} (tried default + plain spec URL; see docs for fallbacks)`,
     );
-    return null;
+    return { url: null, authBlocked: false };
   }
 
   private normalizeScrapedImageSrc(src: string): string {
@@ -377,6 +503,17 @@ export class PsaSpecScraperService implements OnModuleInit, OnModuleDestroy {
           get: () => [1, 2, 3, 4, 5],
         });
       });
+
+      const sessionRaw = this.collectorsSessionCookie();
+      if (sessionRaw) {
+        const cookies = this.parseSessionCookies(sessionRaw);
+        if (cookies.length > 0) {
+          await context.addCookies(cookies);
+          this.logger.log(
+            `PSA spec scraper: injected ${cookies.length} session cookie(s) from PSA_COLLECTORS_SESSION_COOKIE`,
+          );
+        }
+      }
 
       this.browser.on('disconnected', () => {
         this.browser = null;

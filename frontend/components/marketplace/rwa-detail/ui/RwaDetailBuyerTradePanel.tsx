@@ -7,8 +7,6 @@ import { RwaDetailMarketContextStrip } from "./RwaDetailMarketContextStrip";
 import { RwaDetailOutlineButton } from "./RwaDetailOutlineButton";
 import {
   RWA_DETAIL_CTA_ROW_TOP_CLASS,
-  RWA_DETAIL_CTA_ROW_TOP_COMPACT_CLASS,
-  RWA_DETAIL_LISTING_PRICE_COMPACT_AMOUNT_CLASS,
   rwaDetailRightFont,
 } from "../theme";
 
@@ -77,18 +75,8 @@ export function RwaDetailBuyerTradePanel({
     <div className={`${rwaDetailRightFont.className} flex min-w-0 flex-col gap-4 sm:gap-5`}>
       {hasListing ? (
         <>
-          {listingPriceUsd != null ? (
-            compactActions ? (
-              <p className={`text-center ${RWA_DETAIL_LISTING_PRICE_COMPACT_AMOUNT_CLASS}`}>
-                $
-                {listingPriceUsd.toLocaleString("en-US", {
-                  minimumFractionDigits: 0,
-                  maximumFractionDigits: 2,
-                })}
-              </p>
-            ) : (
-              <RwaDetailAskPriceDisplay priceUsd={listingPriceUsd} />
-            )
+          {!compactActions && listingPriceUsd != null ? (
+            <RwaDetailAskPriceDisplay priceUsd={listingPriceUsd} />
           ) : null}
 
           {!compactActions ? (
@@ -103,7 +91,7 @@ export function RwaDetailBuyerTradePanel({
 
           <div
             className={[
-              compactActions ? RWA_DETAIL_CTA_ROW_TOP_COMPACT_CLASS : RWA_DETAIL_CTA_ROW_TOP_CLASS,
+              !compactActions ? RWA_DETAIL_CTA_ROW_TOP_CLASS : undefined,
               canBid && isConnected ? "flex min-w-0 gap-2" : undefined,
             ]
               .filter(Boolean)

@@ -142,19 +142,20 @@ export class MintEventListenerService implements OnModuleInit, OnModuleDestroy {
       reason: 'cold_start',
     });
 
-    // ── Step 5: Cover image — attempt resolution after cert snapshot ────────
-    // PSA cert snapshot was scheduled in ensureCollectionForListing. Give the
-    // PSA API fetch a few seconds to complete, then re-attempt cover resolution
-    // so the cert's specId is available for the PSA spec scraper.
-    setTimeout(() => {
-      void this.retryResolveCoverFromToken(id, collectionKey).catch(
-        (e: unknown) => {
-          this.logger.warn(
-            `cover retry failed for #${id}: ${String(e)}`,
-          );
-        },
-      );
-    }, 8_000);
+    // ── Step 5: Cover image — retry after cert/spec enrichment ─────────────
+    // PSA spec pages may require Collectors login; fallbacks (Public API slab,
+    // Cardhedger catalog) run inside CollectionCoverService.
+    for (const delayMs of [8_000, 25_000]) {
+      setTimeout(() => {
+        void this.retryResolveCoverFromToken(id, collectionKey).catch(
+          (e: unknown) => {
+            this.logger.warn(
+              `cover retry failed for #${id} (delay=${delayMs}ms): ${String(e)}`,
+            );
+          },
+        );
+      }, delayMs);
+    }
   }
 
   /**
@@ -253,15 +254,25 @@ export class MintEventListenerService implements OnModuleInit, OnModuleDestroy {
   ): Promise<void> {
     const col = await this.collectionService.findOne(collectionKey);
     if (!col) return;
-    if (col.coverImageUrl?.trim()) return; // already resolved
+    if (col.coverImageUrl?.trim()) return;
 
-    // Fetch token metadata from chain (resolves IPFS via server-side gateway).
+    // Populate components.psaSpecId from PSA cert snapshot / Public API.
+    await this.collectionService.ensurePsaSpecPopulationFromApi(collectionKey);
+
     const asset = await this.collectionService.resolveAssetForCoverRetry(tokenId);
     if (!asset?.meta) return;
 
     await this.cover.persistCoverFromMetaIfMissing(collectionKey, asset.meta);
-    this.logger.log(
-      `mint-bootstrap #${tokenId}: cover retry completed for ${collectionKey}`,
-    );
+
+    const after = await this.collectionService.findOne(collectionKey);
+    if (after?.coverImageUrl?.trim()) {
+      this.logger.log(
+        `mint-bootstrap #${tokenId}: cover set for ${collectionKey} → ${after.coverImageUrl.slice(0, 80)}`,
+      );
+    } else {
+      this.logger.debug(
+        `mint-bootstrap #${tokenId}: cover still empty for ${collectionKey} after retry`,
+      );
+    }
   }
 }

@@ -98,6 +98,7 @@ Headless Chromium opens **`https://www.psacard.com/spec/psa/{specId}`** (with an
 
 | Risk | Effect | Mitigation |
 |------|--------|------------|
+| **Collectors sign-in redirect** | Headless browser lands on `app.collectors.com/signin` — no spec image in DOM | Set `PSA_COLLECTORS_SESSION_COOKIE` (logged-in PSA/Collectors session). Or rely on `PSA_SPEC_COVER_ALLOW_FALLBACK=1` (Cardhedger / PSA Public API cert slab). |
 | **Cloudflare / bot detection** | Challenge never clears or endless “Just a moment…” | Residential or cleaner egress: set `PSA_SPEC_SCRAPER_PROXY`; increase `PSA_SPEC_NAV_TIMEOUT_MS`. Optional `PSA_SPEC_RETRY_EMPTY=1`. |
 | **PSA layout / CDN URL shape change** | No `img` matches selector / regex | Logs `no_image`; operational alert on rate; falls back only if `PSA_SPEC_COVER_ALLOW_FALLBACK=1` in `CollectionService` (then Cardhedger / Pokémon TCG / metadata image). |
 | **No image for that spec** | PSA page exists but asset missing | Same as above; persist other pipeline sources. |
@@ -114,6 +115,8 @@ Headless Chromium opens **`https://www.psacard.com/spec/psa/{specId}`** (with an
 | `PSA_SPEC_SCRAPER_PROXY` | Playwright browser proxy `server` URL (e.g. `http://user:pass@host:port`). |
 | `PSA_SPEC_NEGATIVE_CACHE_MS` | How long to cache a **failed** scrape per `specId` (default 1h). |
 | `PSA_SPEC_RETRY_EMPTY` | `1` / `true`: run a **second** full scrape if the first returns no image (hydration / CF races). |
+| `PSA_COLLECTORS_SESSION_COOKIE` | Optional `name=value; …` cookie string from a logged-in PSA browser session (bypasses Collectors sign-in on spec pages). |
+| `PSA_SPEC_AUTH_BLOCKED_CACHE_MS` | Cache TTL after sign-in redirect (default 5m; shorter than generic `PSA_SPEC_NEGATIVE_CACHE_MS`). |
 
 Cover pipeline **`PSA_SPEC_COVER_ALLOW_FALLBACK`** (in `CollectionService`): when the scraper returns null, allow Cardhedger / TCG / IPFS fallbacks instead of stopping at PSA-only.
 
