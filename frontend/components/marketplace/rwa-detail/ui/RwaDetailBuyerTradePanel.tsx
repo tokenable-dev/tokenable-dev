@@ -5,7 +5,12 @@ import { RwaDetailAskPriceDisplay } from "./RwaDetailAskPriceDisplay";
 import { RwaDetailGradientButton } from "./RwaDetailGradientButton";
 import { RwaDetailMarketContextStrip } from "./RwaDetailMarketContextStrip";
 import { RwaDetailOutlineButton } from "./RwaDetailOutlineButton";
-import { rwaDetailRightFont } from "../theme";
+import {
+  RWA_DETAIL_CTA_ROW_TOP_CLASS,
+  RWA_DETAIL_CTA_ROW_TOP_COMPACT_CLASS,
+  RWA_DETAIL_LISTING_PRICE_COMPACT_AMOUNT_CLASS,
+  rwaDetailRightFont,
+} from "../theme";
 
 export function RwaDetailBuyerTradePanel({
   collectionKey,
@@ -74,7 +79,7 @@ export function RwaDetailBuyerTradePanel({
         <>
           {listingPriceUsd != null ? (
             compactActions ? (
-              <p className="text-center text-[1.125rem] font-semibold leading-none tabular-nums text-white sm:text-[1.1875rem]">
+              <p className={`text-center ${RWA_DETAIL_LISTING_PRICE_COMPACT_AMOUNT_CLASS}`}>
                 $
                 {listingPriceUsd.toLocaleString("en-US", {
                   minimumFractionDigits: 0,
@@ -96,7 +101,14 @@ export function RwaDetailBuyerTradePanel({
             />
           ) : null}
 
-          <div className={canBid && isConnected ? "flex min-w-0 gap-2" : undefined}>
+          <div
+            className={[
+              compactActions ? RWA_DETAIL_CTA_ROW_TOP_COMPACT_CLASS : RWA_DETAIL_CTA_ROW_TOP_CLASS,
+              canBid && isConnected ? "flex min-w-0 gap-2" : undefined,
+            ]
+              .filter(Boolean)
+              .join(" ")}
+          >
             <div className={canBid && isConnected ? "min-w-0 flex-1" : undefined}>
               <RwaDetailGradientButton
                 bright={!isConnected}

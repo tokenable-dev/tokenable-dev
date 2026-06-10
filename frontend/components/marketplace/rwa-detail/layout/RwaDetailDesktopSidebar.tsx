@@ -89,7 +89,7 @@ export function RwaDetailDesktopSidebar({
   const titleTooltip = certNumber ? `${titleText} ${certNumber}` : titleText;
 
   return (
-    <div className="hidden w-full min-w-0 flex-col gap-5 lg:sticky lg:top-6 lg:col-start-2 lg:flex lg:max-w-[400px] lg:justify-self-end lg:self-start">
+    <div className="hidden w-full min-w-0 flex-col gap-5 lg:sticky lg:top-6 lg:col-start-2 lg:flex lg:max-w-[400px] lg:justify-self-start lg:self-start">
       <div className="hidden min-w-0 space-y-2.5 lg:block">
         {detailTitlePulse ? (
           <div
@@ -154,7 +154,11 @@ export function RwaDetailDesktopSidebar({
       ) : null}
 
       {isOwner ? (
-        <div className="hidden w-full max-w-full lg:block">
+        <div
+          className={`hidden w-full max-w-full lg:block ${
+            listingBuyPriceUsdc == null ? "lg:mt-4" : ""
+          }`}
+        >
           <RwaDetailOwnerListingPanel
             isConnected={isConnected}
             connectPending={connectPending}
@@ -164,6 +168,7 @@ export function RwaDetailDesktopSidebar({
             marketChangePeriodLabel={marketChangePeriodLabel}
             marketChangeCoverageHint={marketChangeCoverageHint}
             onOpenListModal={onOpenListModal}
+            onConnectWallet={onConnectWallet}
           />
         </div>
       ) : null}

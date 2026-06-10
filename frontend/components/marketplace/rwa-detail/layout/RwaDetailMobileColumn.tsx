@@ -9,6 +9,7 @@ import {
   RwaDetailStickyBuyFooter,
 } from "@/components/marketplace/rwa-detail/mobile";
 import { RwaDetailBuyerTradePanel } from "../ui/RwaDetailBuyerTradePanel";
+import { RwaDetailOwnerListingPanel } from "../ui/RwaDetailOwnerListingPanel";
 import type { Order } from "@/lib/core";
 import type { AssetDetailHeadlineParts } from "@/lib/marketplace/assetDetailHeadline";
 import {
@@ -63,17 +64,8 @@ export function RwaDetailMobileColumn({
   onOpenListModal: (initialPriceUsdc?: string | null) => void;
   onViewMarket: () => void;
 }) {
-  const hasListing = activeAskListing != null && listingBuyPriceUsdc != null;
   const showBuyerFooter =
     !isOwner && (Boolean(collectionKey) || activeAskListing != null);
-
-  const ownerLabel = !isConnected
-    ? connectPending
-      ? "Connecting…"
-      : "Connect wallet"
-    : hasListing
-      ? "Change price"
-      : "List for sale";
 
   const showOwnerCta = isOwner;
   const showViewMarket =
@@ -83,7 +75,7 @@ export function RwaDetailMobileColumn({
     <div
       className={`relative flex w-full min-w-0 flex-col max-lg:min-h-0 max-lg:flex-1 ${RWA_MOBILE_STICKY_FOOTER_RESERVE_CLASS} lg:col-start-1 lg:items-start lg:justify-start`}
     >
-      <div className="flex min-h-0 w-full flex-1 flex-col items-center justify-center px-3 py-2 max-lg:overflow-y-auto max-lg:overscroll-y-contain">
+      <div className="flex min-h-0 w-full flex-1 flex-col items-center justify-center px-3 py-2 max-lg:overflow-y-auto max-lg:overscroll-y-contain lg:items-end lg:px-0 lg:pr-2">
         <div className={RWA_MOBILE_SLAB_STACK_CLASS}>
           <RwaDetailAssetPanel
             metadata={metadata}
@@ -105,22 +97,18 @@ export function RwaDetailMobileColumn({
 
       <RwaDetailStickyBuyFooter footerNote={footerNote}>
         {showOwnerCta ? (
-          <RwaDetailStickyBuyButton
-            disabled={connectPending}
-            onClick={() => {
-              if (!isConnected) {
-                onConnectWallet();
-                return;
-              }
-              onOpenListModal(
-                hasListing && listingBuyPriceUsdc != null
-                  ? String(listingBuyPriceUsdc)
-                  : null,
-              );
-            }}
-          >
-            {ownerLabel}
-          </RwaDetailStickyBuyButton>
+          <RwaDetailOwnerListingPanel
+            isConnected={isConnected}
+            connectPending={connectPending}
+            listingPriceUsd={listingBuyPriceUsdc}
+            marketPriceUsd={null}
+            marketChangePct={null}
+            marketChangePeriodLabel=""
+            marketChangeCoverageHint=""
+            onOpenListModal={onOpenListModal}
+            onConnectWallet={onConnectWallet}
+            compactActions
+          />
         ) : showBuyerFooter ? (
           <RwaDetailBuyerTradePanel
             collectionKey={collectionKey}

@@ -18,6 +18,7 @@ BEGIN;
 \ir schema/015_psa_cert_snapshots.sql
 \ir schema/020_marketplace_collections.sql
 \ir schema/025_rwa_tokens.sql
+\ir schema/026_rwa_tokens_display_image.sql
 \ir schema/030_collection_market_snapshots.sql
 \ir schema/040_orders.sql
 \ir schema/050_refactor_legacy_columns.sql

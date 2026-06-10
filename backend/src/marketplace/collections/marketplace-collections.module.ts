@@ -33,6 +33,8 @@ import { RedisIdentityCacheProvider } from './redis-identity-cache.provider';
 import { CollectionService } from './collection.service';
 import { RwaTokenRegistryService } from './rwa-token-registry.service';
 import { CollectionsController } from './collections.controller';
+import { RwaTokenAdminController } from './rwa-token-admin.controller';
+import { RwaTokenAdminService } from './rwa-token-admin.service';
 
 /**
  * Collection buckets, order-book reads, cover enrichment, merkle leaves.
@@ -53,7 +55,11 @@ import { CollectionsController } from './collections.controller';
     MarketplaceMarketDataModule,
     forwardRef(() => MarketplaceSnapshotsModule),
   ],
-  controllers: [CollectionsController, CertMarketTraceController],
+  controllers: [
+    CollectionsController,
+    CertMarketTraceController,
+    RwaTokenAdminController,
+  ],
   providers: [
     InProcessIdentityCacheProvider,
     RedisIdentityCacheProvider,
@@ -77,6 +83,7 @@ import { CollectionsController } from './collections.controller';
     CollectionService,
     CollectionEnrichmentService,
     RwaTokenRegistryService,
+    RwaTokenAdminService,
     CertMarketTraceService,
     CollectionMarketService,
   ],
