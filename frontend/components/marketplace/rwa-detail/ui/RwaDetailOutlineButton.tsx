@@ -20,13 +20,11 @@ export function RwaDetailOutlineButton({
   onClick,
   disabled,
   className = "",
-  compact = false,
 }: {
   children: ReactNode;
   onClick?: () => void;
   disabled?: boolean;
   className?: string;
-  compact?: boolean;
 }) {
   const buttonClass = `${rwaDetailRightFont.className} ${RWA_DETAIL_CTA_HEIGHT_CLASS} w-full border-0 bg-black px-4 text-[14px] font-bold leading-none tracking-normal text-white outline-none transition-[background-color] duration-200 ease-out enabled:hover:bg-zinc-950 disabled:cursor-not-allowed disabled:text-zinc-500 sm:px-5 sm:text-[15px]`;
 

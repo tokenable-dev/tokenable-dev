@@ -9,13 +9,9 @@ export const rwaDetailRightFont = {
 /** Listing ask amount (e.g. $3,100) — sidebar / labeled price block. */
 export const RWA_DETAIL_LISTING_PRICE_AMOUNT_CLASS =
   "text-[1.5rem] font-semibold leading-none tabular-nums text-white sm:text-[1.625rem]";
-/** Compact sticky-footer price — same emphasis, centered. */
-export const RWA_DETAIL_LISTING_PRICE_COMPACT_AMOUNT_CLASS =
-  "text-[1.4375rem] font-semibold leading-none tabular-nums text-white sm:text-[1.5625rem]";
 
 /** Extra space between price line and Buy now / Place bid row. */
 export const RWA_DETAIL_CTA_ROW_TOP_CLASS = "mt-6";
-export const RWA_DETAIL_CTA_ROW_TOP_COMPACT_CLASS = "mt-5";
 /** Unlisted owner — List for sale / Connect (no price line above CTA). */
 export const RWA_DETAIL_UNLISTED_CTA_ROW_TOP_CLASS = "mt-8";
 /** Mobile sticky footer — inset above CTA when caption is the only content above. */
@@ -64,9 +60,11 @@ export const RWA_MOBILE_SLAB_MAX_HEIGHT_CLASS =
   "max-h-[min(480px,68svh,calc(100svh-4rem-11.5rem-env(safe-area-inset-bottom,0px)))]";
 /** Image + caption column — hugs rendered slab width (not letterboxed container). */
 export const RWA_MOBILE_SLAB_STACK_CLASS = `mx-auto flex w-fit min-w-0 ${RWA_MOBILE_SLAB_MAX_WIDTH_CLASS} flex-col items-stretch lg:ml-auto lg:mr-0`;
-/** Hero image + caption — width tracks intrinsic slab photo, not full-width controls. */
+/** Hero image + caption — caption uses full stack width; image stays centered at intrinsic size. */
 export const RWA_MOBILE_SLAB_IMAGE_CAPTION_COLUMN_CLASS =
-  "mx-auto flex w-fit max-w-full min-w-0 flex-col items-stretch max-lg:shrink-0";
+  "mx-auto flex w-full max-w-full min-w-0 flex-col items-stretch max-lg:shrink-0";
+export const RWA_MOBILE_SLAB_HERO_WRAP_CLASS =
+  "mx-auto w-fit max-w-full shrink-0";
 /** Caption under hero — inset within image column width. */
 export const RWA_MOBILE_SLAB_CAPTION_BLOCK_CLASS =
   "w-full shrink-0 px-3 pt-3 pb-3 text-left sm:px-4";

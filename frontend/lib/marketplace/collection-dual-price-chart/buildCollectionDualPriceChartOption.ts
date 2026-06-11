@@ -9,7 +9,7 @@ import {
 import { niceScale } from "./chartScale";
 import {
   formatHoverWhen,
-  formatTickDate,
+  formatTickShortMdYear,
   formatTooltipUsd,
   formatYAxisLabelCompact,
   roughTickConfigByWindowDays,
@@ -119,7 +119,7 @@ export function buildCollectionDualPriceChartOption(input: {
         margin: isMobileChart ? 6 : 8,
         formatter: (value: number) => {
           const tSec = Math.floor(value / 1000);
-          if (!useCoarseTimeTicks) return formatTickDate(tSec);
+          if (!useCoarseTimeTicks) return formatTickShortMdYear(tSec);
           return roughTick.formatter(tSec);
         },
       },

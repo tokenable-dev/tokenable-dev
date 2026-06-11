@@ -9,10 +9,12 @@ import {
 export function AssetDetailHeadlineTitle({
   parts,
   className,
+  style,
   as: Tag = "span",
 }: {
   parts: AssetDetailHeadlineParts;
   className?: string;
+  style?: React.CSSProperties;
   as?: "h1" | "h2" | "p" | "span";
 }) {
   if (!assetDetailHeadlineHasContent(parts)) return null;
@@ -20,7 +22,7 @@ export function AssetDetailHeadlineTitle({
   const fullTitle = formatAssetDetailHeadlineText(parts);
 
   return (
-    <Tag className={className} title={fullTitle}>
+    <Tag className={className} style={style} title={fullTitle}>
       <span className="block min-w-0 whitespace-normal [overflow-wrap:anywhere]">
         {fullTitle}
       </span>

@@ -21,17 +21,11 @@ export function RwaDetailGradientButton({
   onClick,
   disabled,
   className = "",
-  compact = false,
 }: {
   children: ReactNode;
   onClick?: MouseEventHandler<HTMLButtonElement>;
   disabled?: boolean;
   className?: string;
-  compact?: boolean;
-  /** @deprecated Ignored — all CTAs use the Buy now gradient rim. */
-  bright?: boolean;
-  /** @deprecated Ignored — all CTAs use the Buy now gradient rim. */
-  thickRim?: boolean;
 }) {
   const rimPadClass = RWA_DETAIL_MOBILE_CTA_RIM_PAD_CLASS;
   const innerRoundedClass = RWA_DETAIL_MOBILE_CTA_INNER_ROUNDED;

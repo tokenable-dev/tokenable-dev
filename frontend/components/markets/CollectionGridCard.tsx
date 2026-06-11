@@ -30,6 +30,10 @@ const GRID_CARD_BADGE_ROW =
 const GRID_CARD_SURFACE =
   "bg-[#0d0d0d] transition-[background-color,box-shadow] duration-200 ease-out hover:bg-[#141414] hover:shadow-[0_10px_28px_-14px_rgba(0,0,0,0.75)]";
 
+/** Markets grid + landing carousel — Arial, smaller card name (design spec). */
+export const MARKETS_GRID_CARD_TITLE_CLASS =
+  "line-clamp-2 min-w-0 break-words font-[Arial,Helvetica,sans-serif] text-[0.61rem] font-bold leading-snug text-zinc-400 max-[380px]:text-[9px] sm:text-[0.79rem]";
+
 function formatBadgeCount(n: number): string {
   const abs = Math.abs(n);
   if (abs >= 1_000_000) {
@@ -139,10 +143,7 @@ export function CollectionGridCard({
           />
         </div>
 
-        <h3
-          className="line-clamp-2 min-w-0 break-words text-[0.61rem] font-bold leading-snug text-zinc-400 max-[380px]:text-[9px] sm:text-[0.79rem]"
-          title={marketsTitle}
-        >
+        <h3 className={MARKETS_GRID_CARD_TITLE_CLASS} title={marketsTitle}>
           {marketsTitle}
         </h3>
 

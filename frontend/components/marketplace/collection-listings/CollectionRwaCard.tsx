@@ -66,18 +66,25 @@ function ListingCtaPill({
   const isBuy = label === "Buy";
 
   if (mobileListing) {
+    if (isBuy) {
+      return (
+        <span
+          className={`${rwaCardFont.className} relative z-[2] box-border inline-flex h-6 min-h-6 min-w-[4.75rem] shrink-0 items-center justify-center rounded-full border border-mint/80 bg-transparent px-6 text-center text-[11px] font-bold leading-none text-mint transition-[transform,opacity] duration-200 ease-out [-webkit-tap-highlight-color:transparent] group-active:scale-[0.98] motion-reduce:transition-none`}
+          aria-hidden
+        >
+          {label}
+        </span>
+      );
+    }
+
     return (
       <span
-        className={`relative z-[2] box-border flex w-full min-w-0 max-w-none shrink-0 items-center justify-center rounded-xl p-[1.5px] text-center transition-[transform,box-shadow] duration-200 ease-out [-webkit-tap-highlight-color:transparent] group-active:scale-[0.99] motion-reduce:transition-none ${
-          isBuy ? "h-7 min-h-7" : "h-6 min-h-6"
-        }`}
+        className="relative z-[2] box-border flex h-6 min-h-6 w-full min-w-0 max-w-none shrink-0 items-center justify-center rounded-full p-[1.5px] text-center"
         style={{ background: PRODUCT_OUTLINE_GRADIENT }}
         aria-hidden
       >
         <span
-          className={`${rwaCardFont.className} flex h-full w-full items-center justify-center rounded-[10px] border border-black/80 bg-black px-2 text-[11px] font-bold leading-none ${
-            isBuy ? "text-mint" : "text-white"
-          }`}
+          className={`${rwaCardFont.className} flex h-full w-full items-center justify-center rounded-full border border-black/80 bg-black px-3 text-[10px] font-bold leading-none text-white`}
         >
           {label}
         </span>
@@ -224,29 +231,38 @@ export function CollectionRwaCard({
             )}
           </div>
 
-          <div className="mt-1 flex min-w-0 flex-col">
-            <ListingCtaPill label={ctaLabel} mobileListing />
-            <div className="mt-1.5 flex min-w-0 flex-col gap-0.5">
-              {listing && listingPrice !== "—" ? (
-                <p className="text-left text-[clamp(14px,4vw,17px)] font-bold tabular-nums leading-none text-white">
-                  ${listingPrice}
+          {listing ? (
+            <div className="mt-2 flex min-w-0 flex-col items-center gap-1 px-1">
+              <div className="max-w-full min-w-0 w-fit text-left">
+                {listingPrice !== "—" ? (
+                  <p className="truncate text-[15px] font-bold tabular-nums leading-none text-white">
+                    ${listingPrice}
+                  </p>
+                ) : (
+                  <p className="text-[15px] font-medium leading-none text-zinc-500">—</p>
+                )}
+                <p
+                  className="truncate text-[11px] font-normal leading-snug text-zinc-500"
+                  title={sellerAddr}
+                >
+                  Seller:{" "}
+                  <span className="tabular-nums" title={sellerAddr}>
+                    {sellerDisplay}
+                  </span>
                 </p>
-              ) : (
-                <p className="text-left text-[clamp(13px,3.6vw,15px)] font-medium leading-none text-zinc-500">
-                  —
-                </p>
-              )}
-              <p
-                className="text-left text-[11px] font-normal leading-snug text-zinc-500"
-                title={listing ? sellerAddr : undefined}
-              >
-                Seller:{" "}
-                <span className="tabular-nums" title={sellerAddr}>
-                  {listing ? sellerDisplay : "—"}
-                </span>
-              </p>
+              </div>
+              <div className="mt-1 flex justify-center">
+                <ListingCtaPill label={ctaLabel} mobileListing />
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="mt-2 flex min-w-0 flex-col items-center gap-1.5 px-1">
+              <p className="w-fit text-left text-[15px] font-medium leading-none text-zinc-500">
+                —
+              </p>
+              <ListingCtaPill label={ctaLabel} mobileListing />
+            </div>
+          )}
         </article>
       </Link>
     );

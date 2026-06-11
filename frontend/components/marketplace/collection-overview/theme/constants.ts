@@ -21,5 +21,14 @@ export const HEADLINE_TITLE_ONE_LINE =
 export const COLLECTION_HEADLINE_TITLE_CLASS =
   "min-w-0 break-words text-[14.4px] font-bold leading-snug tracking-normal text-white sm:text-[18px] sm:leading-[1.35] lg:text-[21px] lg:leading-[1.4]";
 
+/** Collection detail mobile — design spec: Arial (`globals.css`, not Tailwind arbitrary). */
+export const COLLECTION_DETAIL_ARIAL_FONT_CLASS = "collection-detail-mobile-arial";
+
+export const COLLECTION_DETAIL_MOBILE_ARIAL_STYLE = {
+  fontFamily: 'Arial, Helvetica, "Helvetica Neue", sans-serif',
+  fontWeight: 400,
+} as const;
+
+/** Arial reads heavy at bold — match RWA mobile slab (`font-normal`). */
 export const COLLECTION_HEADLINE_TITLE_MOBILE_CLASS =
-  "text-[clamp(13px,3.6vw,15px)] font-bold leading-[1.2] tracking-tight text-zinc-400";
+  "collection-detail-mobile-arial text-[clamp(13px,3.6vw,15px)] font-normal leading-[1.2] tracking-normal text-zinc-400";

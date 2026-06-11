@@ -20,6 +20,3 @@ export function RwaDetailAskPriceDisplay({ priceUsd }: { priceUsd: number }) {
     </div>
   );
 }
-
-/** @deprecated Use RwaDetailAskPriceDisplay */
-export const RwaDetailListPriceDisplay = RwaDetailAskPriceDisplay;

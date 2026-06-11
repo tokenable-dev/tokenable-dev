@@ -124,47 +124,26 @@ function slabGradeShort(trust: RwaDetailMobileTrustView): string {
   return grade.replace(/^PSA\s+/i, "").trim() || grade;
 }
 
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+function formatRwaMobileSlabCertLabel(certNumber: string | null | undefined): string {
+  const cert = certNumber?.trim() ?? "";
+  return cert ? `CERT. ${cert}` : "";
 }
 
-/**
- * PSA subject line — card name only (drop year / set / #NNN prefix from line 1).
- * Feedback: "drop the text after the #20 so the first line is the name."
- */
-function slabSubjectName(parts: AssetDetailHeadlineParts): string | null {
-  const raw = parts.cardName?.trim();
-  if (!raw) return null;
+function formatRwaMobileSlabTitleBlock(parts: AssetDetailHeadlineParts): string {
+  const variety = parts.variety?.trim() ?? "";
+  const withoutVariety =
+    joinSlabTextParts(
+      parts.year,
+      parts.setName,
+      parts.cardName,
+      parts.cardNumber,
+    ) || "";
+  const title =
+    variety && variety !== withoutVariety
+      ? joinSlabTextParts(withoutVariety || null, variety)
+      : withoutVariety;
 
-  const num = parts.cardNumber?.trim();
-  if (num) {
-    const afterNumber = new RegExp(`${escapeRegExp(num)}\\s+(.+)$`, "i").exec(raw);
-    if (afterNumber?.[1]?.trim()) {
-      let subject = afterNumber[1].trim();
-      const variety = parts.variety?.trim();
-      if (
-        variety &&
-        subject.toUpperCase().endsWith(variety.toUpperCase())
-      ) {
-        subject = subject.slice(0, subject.length - variety.length).trim();
-      }
-      if (subject) return subject;
-    }
-  }
-
-  let name = raw;
-  if (parts.year) {
-    name = name.replace(new RegExp(`^${escapeRegExp(parts.year)}\\s+`, "i"), "");
-  }
-  if (parts.setName) {
-    name = name.replace(new RegExp(`^${escapeRegExp(parts.setName)}\\s+`, "i"), "");
-  }
-  if (num) {
-    name = name.replace(new RegExp(`^${escapeRegExp(num)}\\s+`, "i"), "");
-  }
-
-  const trimmed = name.trim();
-  return trimmed || raw;
+  return title || "—";
 }
 
 /**
@@ -174,46 +153,32 @@ export function formatRwaMobileSlabLabelLine(
   parts: AssetDetailHeadlineParts,
   trust: RwaDetailMobileTrustView,
 ): string {
-  const { line1, line2, line2Grade, line3 } = formatRwaMobileSlabLabelTwoLines(
+  const { titleBlock, gradeLine, certLabel } = formatRwaMobileSlabLabelTwoLines(
     parts,
     trust,
   );
   return (
     joinSlabTextParts(
-      line1 === "—" ? null : line1,
-      line2,
-      line2Grade,
-      line3,
+      titleBlock === "—" ? null : titleBlock,
+      gradeLine,
+      certLabel,
     ) || "—"
   );
 }
 
 /**
  * Mobile RWA — slab copy below the card:
- * line 1 = name · year · set · #;
- * line 2 = variety (+ grade rendered separately for color);
- * line 3 = cert #.
+ * title = year · set · subject · # · variety (wraps naturally);
+ * meta row = grade + CERT. number (styled separately in UI).
  */
 export function formatRwaMobileSlabLabelTwoLines(
   parts: AssetDetailHeadlineParts,
   trust: RwaDetailMobileTrustView,
-): { line1: string; line2: string; line2Grade: string; line3: string } {
-  const subject = slabSubjectName(parts);
-  const line1 = joinSlabTextParts(
-    subject,
-    parts.year,
-    parts.setName,
-    parts.cardNumber,
-  ) || "—";
-  const line2 = parts.variety?.trim() ?? "";
-  const line2Grade = slabGradeShort(trust);
-  const line3 = trust.certNumber?.trim() ?? "";
-
+): { titleBlock: string; gradeLine: string; certLabel: string } {
   return {
-    line1,
-    line2: line2 && line2 !== line1 ? line2 : "",
-    line2Grade,
-    line3,
+    titleBlock: formatRwaMobileSlabTitleBlock(parts),
+    gradeLine: slabGradeShort(trust),
+    certLabel: formatRwaMobileSlabCertLabel(trust.certNumber),
   };
 }
 

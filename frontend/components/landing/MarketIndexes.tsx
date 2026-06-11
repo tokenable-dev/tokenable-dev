@@ -108,13 +108,7 @@ function PeriodBadge({ period }: { period: string }) {
   );
 }
 
-function IndexCard({
-  row,
-  loading,
-}: {
-  row: CardladderDashboardIndexRow;
-  loading: boolean;
-}) {
+function IndexCard({ row }: { row: CardladderDashboardIndexRow }) {
   const label = SLOT_LABELS[row.id];
   const iconSrc = slotIconSrc(row.id);
   const iconImgClass =
@@ -131,11 +125,9 @@ function IndexCard({
     !hasValue ? "text-zinc-500" : up ? "text-[#00c853]" : "text-red-400"
   }`;
 
-  const pctAria = loading
-    ? "Loading market index data"
-    : hasValue
-      ? `${up ? "Up" : "Down"} ${Math.abs(displayPct!).toFixed(2)} percent over ${INDEX_PERIOD_LABEL}`
-      : "Change unavailable";
+  const pctAria = hasValue
+    ? `${up ? "Up" : "Down"} ${Math.abs(displayPct!).toFixed(2)} percent over ${INDEX_PERIOD_LABEL}`
+    : "Change unavailable";
 
   return (
     <article
@@ -212,7 +204,7 @@ const INDEX_RAIL =
 
 export function MarketIndexes({ variant = "landing" }: { variant?: "landing" | "embedded" }) {
   const embedded = variant === "embedded";
-  const { data, isLoading, isFetching, isError, error } = useQuery({
+  const { data, isError, error } = useQuery({
     queryKey: rq.cardladderIndexes(),
     queryFn: () => getCardladderIndexes(),
     staleTime: 5 * 60_000,
@@ -234,8 +226,6 @@ export function MarketIndexes({ variant = "landing" }: { variant?: "landing" | "
       (id) => fromApi.find((r) => r.id === id) ?? PLACEHOLDER_ROWS.find((r) => r.id === id)!,
     );
   }, [data]);
-
-  const loading = isLoading || (isFetching && !data);
 
   return (
     <section
@@ -265,7 +255,7 @@ export function MarketIndexes({ variant = "landing" }: { variant?: "landing" | "
 
       <div className={INDEX_RAIL}>
         {rows.map((row) => (
-          <IndexCard key={row.id} row={row} loading={loading} />
+          <IndexCard key={row.id} row={row} />
         ))}
       </div>
     </section>

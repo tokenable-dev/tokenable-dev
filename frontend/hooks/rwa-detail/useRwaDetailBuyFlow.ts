@@ -7,7 +7,7 @@ import { sepolia } from "@/config/wagmi";
 import type { Order } from "@/lib/core";
 import { fulfillAskListingOrder } from "@/lib/seaport/orders/fulfillAskListing";
 import { mapWalletError } from "@/lib/network";
-import { invalidateRwaDetailQueries } from "@/lib/marketplace/rwa-detail";
+import { invalidateAfterRwaDetail } from "@/lib/core/invalidation";
 import type { useWriteContract } from "wagmi";
 
 export function useRwaDetailBuyFlow(input: {
@@ -35,7 +35,7 @@ export function useRwaDetailBuyFlow(input: {
   const [buyErr, setBuyErr] = useState<string | null>(null);
 
   const invalidateMarketplaceQueries = useCallback(async () => {
-    await invalidateRwaDetailQueries(queryClient, {
+    await invalidateAfterRwaDetail(queryClient, {
       tokenId,
       collectionKeyForMatch,
     });
