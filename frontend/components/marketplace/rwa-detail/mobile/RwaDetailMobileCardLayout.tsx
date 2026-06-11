@@ -22,6 +22,7 @@ import {
   RWA_DETAIL_MOBILE_CTA_INNER_ROUNDED,
   RWA_DETAIL_MOBILE_CTA_RIM_PAD_CLASS,
   RWA_MOBILE_SLAB_CAPTION_BLOCK_CLASS,
+  RWA_MOBILE_PAGE_CHANNEL_CLASS,
   RWA_MOBILE_SLAB_CAPTION_LINE_GAP_CLASS,
   rwaDetailRightFont,
 } from "@/components/marketplace/rwa-detail/theme";
@@ -110,16 +111,18 @@ export function RwaDetailStickyBuyFooter({
 }) {
   return (
     <div
-      className={`pointer-events-none fixed bottom-0 left-0 right-0 z-[90] flex w-full flex-col items-center px-3 sm:px-4 lg:hidden ${RWA_DETAIL_STICKY_FOOTER_PB_CLASS}`}
+      className={`pointer-events-none fixed bottom-0 left-0 right-0 z-[90] flex w-full flex-col items-center lg:hidden ${RWA_DETAIL_STICKY_FOOTER_PB_CLASS}`}
       role="region"
       aria-label="Purchase actions"
     >
       {footerNote != null ? (
-        <div className="pointer-events-auto mb-2 w-full min-w-0 max-w-[min(100%,480px)] rounded-lg bg-black/90 px-3 py-2 text-center backdrop-blur-sm">
+        <div
+          className={`pointer-events-auto mb-2 rounded-lg bg-black/90 px-3 py-2 text-center backdrop-blur-sm ${RWA_MOBILE_PAGE_CHANNEL_CLASS}`}
+        >
           {footerNote}
         </div>
       ) : null}
-      <div className="pointer-events-auto w-full min-w-0 max-w-[min(100%,480px)]">{children}</div>
+      <div className={`pointer-events-auto ${RWA_MOBILE_PAGE_CHANNEL_CLASS}`}>{children}</div>
     </div>
   );
 }

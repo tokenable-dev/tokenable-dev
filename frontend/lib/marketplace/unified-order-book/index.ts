@@ -15,9 +15,15 @@ export {
   cmpAskByPriceThenToken,
   cmpBidByPriceDesc,
   formatOrderBookPriceUsdc,
+  formatTradesTapePriceUsdc,
   formatTapeDate,
   formatTapeTimeFull,
   priceUsdcFromOrder,
 } from "./orderBookMath";
-export { externalTapeSideDisplay, tapeSideDisplay } from "./tapeSideDisplay";
+export {
+  externalTapeSideDisplay,
+  openExternalSaleListing,
+  tapeSideDisplay,
+  tapeSourceDisplay,
+} from "./tapeSideDisplay";
 export type { BookCenterModel, BookCenterTone, OrderBookTab, OrderBookDepthLevel } from "./types";

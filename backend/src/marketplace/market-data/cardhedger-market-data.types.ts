@@ -37,6 +37,12 @@ export type CardhedgerCompRawPoint = {
   v: number;
   /** Cardhedger `sale_type` (e.g. Auction, Best Offer) — not buy/sell aggressor. */
   saleType?: string | null;
+  /** Cardhedger `price_source` (e.g. marketplace). */
+  priceSource?: string | null;
+  /** Cardhedger `sale_url` — sold listing link when provided. */
+  saleUrl?: string | null;
+  /** Inferred marketplace label from {@link saleUrl} / {@link priceSource}. */
+  platform?: string | null;
 };
 
 export type CardhedgerCompsCached = {

@@ -61,6 +61,16 @@ export class OrdersService {
         );
       }
       this.assertValidCriteriaBid(dto);
+      const bidCollectionKey = dto.collectionKey?.trim().toLowerCase();
+      if (!bidCollectionKey) {
+        throw new BadRequestException(
+          'collectionKey is required for ERC721_WITH_CRITERIA bids',
+        );
+      }
+      await this.assertActiveCollectionBidLimit(
+        dto.parameters.offerer,
+        bidCollectionKey,
+      );
     }
 
     if (side === OrderSide.ASK) {
@@ -359,6 +369,39 @@ export class OrdersService {
         }
       }
       throw e;
+    }
+  }
+
+  private maxActiveCollectionBidsPerOfferer(): number {
+    return (
+      this.config.get<number>('marketplace.maxActiveCollectionBidsPerOfferer') ??
+      3
+    );
+  }
+
+  /** Per-wallet cap on simultaneous active collection bids in one bucket. */
+  private async assertActiveCollectionBidLimit(
+    offererAddress: string,
+    collectionKey: string,
+  ): Promise<void> {
+    const max = this.maxActiveCollectionBidsPerOfferer();
+    const addr = String(offererAddress ?? '').trim().toLowerCase();
+    const key = collectionKey.trim().toLowerCase();
+    if (!addr || !key) return;
+
+    await this.expireOrders();
+    const activeCount = await this.orderRepo
+      .createQueryBuilder('o')
+      .where('LOWER(o.offerer) = :addr', { addr })
+      .andWhere('LOWER(o.collection_key) = :key', { key })
+      .andWhere('o.side = :side', { side: OrderSide.BID })
+      .andWhere('o.status = :status', { status: OrderStatus.ACTIVE })
+      .getCount();
+
+    if (activeCount >= max) {
+      throw new BadRequestException(
+        `You already have ${max} active collection bids for this collection. Cancel one before placing another.`,
+      );
     }
   }
 

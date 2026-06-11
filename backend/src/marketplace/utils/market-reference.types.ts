@@ -49,7 +49,13 @@ export type MarketCompsSnapshot = {
     countUsed: number;
     latestSaleAtSec: number | null;
   } | null;
-  rawSales: Array<{ t: number; v: number; saleType?: string | null }>;
+  rawSales: Array<{
+    t: number;
+    v: number;
+    saleType?: string | null;
+    platform?: string | null;
+    saleUrl?: string | null;
+  }>;
   earliestSaleAtSec: number | null;
   latestSaleAtSec: number | null;
   upstreamSource: 'cardhedger:comps';

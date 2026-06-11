@@ -26,6 +26,12 @@ export default registerAs('marketplace', () => {
     1,
     10_000,
   );
+  const maxActiveCollectionBidsPerOfferer = clampInt(
+    process.env.MARKETPLACE_MAX_ACTIVE_BIDS_PER_OFFERER,
+    3,
+    1,
+    20,
+  );
   const platformTradesFulfilledScanMax = clampInt(
     process.env.MARKETPLACE_PLATFORM_TRADES_SCAN_MAX,
     500,
@@ -68,6 +74,7 @@ export default registerAs('marketplace', () => {
     adminWallets,
     activeOrdersMax,
     collectionActiveOrdersMax,
+    maxActiveCollectionBidsPerOfferer,
     platformTradesFulfilledScanMax,
     marketStatsFulfilledScanMax,
     merkleSetCacheTtlMs,

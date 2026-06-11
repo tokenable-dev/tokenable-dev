@@ -118,6 +118,7 @@ export const CollectionCriteriaBidPanel = forwardRef<
         hideSellFooter={hideSellFooter}
         hideSubmitButton={hideSubmitButton}
         isReplaceBid={bid.isReplaceBid}
+        bidLimitMsg={bid.bidLimitMsg}
       />
 
       <CollectionCriteriaBidFloorChooserModal

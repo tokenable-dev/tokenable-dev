@@ -5,13 +5,15 @@ import {
   COLLECTION_ORDER_BOOK_SCROLL_CLASS,
 } from "@/components/marketplace/collectionOverviewChrome";
 import {
-  ORDER_BOOK_THREE_COL_GRID,
+  ORDER_BOOK_TRADES_FOUR_COL_GRID,
   orderBookColEndCls,
   orderBookColMidCls,
-  orderBookColStartCls,
   orderBookColumnHeaderCls,
-  orderBookTradesRowValueCls,
+  orderBookTradesFlushHeaderCls,
+  orderBookTradesContentValueCls,
+  orderBookTradesPriceColCls,
   orderBookTradesSideColCls,
+  orderBookTradesSourceColCls,
   orderBookTradesTimeColCls,
   orderBookTradesTimeHeaderColCls,
 } from "@/components/marketplace/price-metrics-strip/theme";
@@ -19,20 +21,62 @@ import type { CollectionPlatformTapeFill } from "@/lib/core";
 import {
   formatTapeDate,
   formatTapeTimeFull,
+  formatTradesTapePriceUsdc,
+  openExternalSaleListing,
   tapeSideDisplay,
+  tapeSourceDisplay,
 } from "@/lib/marketplace/unified-order-book";
 
-const TRADES_GRID_LEGACY =
-  "grid grid-cols-[minmax(0,1fr)_auto_minmax(0,2.5rem)_minmax(4.75rem,5.5rem)] gap-x-2";
+function TradesSourceCell({
+  source,
+  className,
+}: {
+  source: ReturnType<typeof tapeSourceDisplay>;
+  className: string;
+}) {
+  if (source.href) {
+    return (
+      <button
+        type="button"
+        className={`min-w-0 max-w-full truncate ${className} ${source.className} cursor-pointer bg-transparent p-0 font-inherit text-inherit leading-inherit tracking-inherit`}
+        title={source.title}
+        onClick={() => openExternalSaleListing(source.href!)}
+      >
+        {source.label}
+      </button>
+    );
+  }
 
-function TradesColumnHeader({ flush, gridClass }: { flush?: boolean; gridClass: string }) {
+  return (
+    <span
+      className={`min-w-0 max-w-full truncate ${className} ${source.className}`}
+      title={source.title}
+    >
+      {source.label}
+    </span>
+  );
+}
+
+const TRADES_GRID_LEGACY =
+  "grid grid-cols-[minmax(0,1fr)_auto_minmax(0,3.25rem)_minmax(0,2.5rem)_minmax(4.75rem,5.5rem)] gap-x-2";
+
+function TradesColumnHeader({
+  flush,
+  gridClass,
+}: {
+  flush?: boolean;
+  gridClass: string;
+}) {
+  const headerCls = flush ? orderBookTradesFlushHeaderCls : orderBookColumnHeaderCls;
+
   if (flush) {
     return (
       <div
-        className={`${ORDER_BOOK_THREE_COL_GRID} shrink-0 border-b border-zinc-800/50 bg-zinc-950/50 py-1.5 ${COLLECTION_ORDER_BOOK_FLUSH_INSET_X} ${orderBookColumnHeaderCls}`}
+        className={`${ORDER_BOOK_TRADES_FOUR_COL_GRID} shrink-0 border-b border-zinc-800/50 bg-zinc-950/50 py-1 ${COLLECTION_ORDER_BOOK_FLUSH_INSET_X} ${headerCls}`}
       >
-        <span className={orderBookColStartCls}>Price</span>
+        <span className={orderBookTradesPriceColCls}>Price</span>
         <span className={orderBookTradesSideColCls}>Side</span>
+        <span className={orderBookTradesSourceColCls}>Source</span>
         <span className={orderBookTradesTimeHeaderColCls}>Time</span>
       </div>
     );
@@ -40,10 +84,11 @@ function TradesColumnHeader({ flush, gridClass }: { flush?: boolean; gridClass: 
 
   return (
     <div
-      className={`${gridClass} shrink-0 px-2.5 py-1.5 sm:px-3 ${orderBookColumnHeaderCls}`}
+      className={`${gridClass} shrink-0 px-2.5 py-1.5 sm:px-3 ${headerCls}`}
     >
-      <span className={orderBookColStartCls}>Price</span>
+      <span className={orderBookTradesPriceColCls}>Price</span>
       <span className={orderBookColMidCls}>Side</span>
+      <span className={orderBookTradesSourceColCls}>Source</span>
       <span className={orderBookColEndCls}>Token</span>
       <span className={orderBookTradesTimeHeaderColCls}>Time</span>
     </div>
@@ -61,13 +106,13 @@ export function OrderBookTradesTab({
   tapeLoading?: boolean;
   flush?: boolean;
   mobileEmbed?: boolean;
-  /** Shown when the tape is empty and not loading (default: N/A). */
   emptyLabel?: string;
 }) {
-  const gridClass = flush ? ORDER_BOOK_THREE_COL_GRID : TRADES_GRID_LEGACY;
+  const gridClass = flush ? ORDER_BOOK_TRADES_FOUR_COL_GRID : TRADES_GRID_LEGACY;
   const rowGridClass = flush
-    ? `${ORDER_BOOK_THREE_COL_GRID} items-center`
+    ? `${ORDER_BOOK_TRADES_FOUR_COL_GRID} items-center`
     : `${gridClass} items-center`;
+  const rowValueCls = orderBookTradesContentValueCls;
   const rootClass = flush
     ? `flex min-h-0 flex-col overflow-hidden ${mobileEmbed ? "h-full" : "h-full flex-1"}`
     : "flex min-h-0 max-h-[min(420px,52vh)] flex-col";
@@ -83,7 +128,7 @@ export function OrderBookTradesTab({
             : "flex items-center justify-center py-10"
         }
       >
-        <span className={`${orderBookTradesRowValueCls} text-zinc-500`}>{emptyLabel}</span>
+        <span className={`${rowValueCls} text-zinc-500`}>{emptyLabel}</span>
       </div>
     );
   }
@@ -94,7 +139,7 @@ export function OrderBookTradesTab({
 
       {tapeLoading ? (
         <div
-          className={`flex min-h-0 flex-1 items-center justify-center px-3 ${orderBookTradesRowValueCls} text-zinc-500`}
+          className={`flex min-h-0 flex-1 items-center justify-center px-3 ${rowValueCls} text-zinc-500`}
         >
           Loading trades…
         </div>
@@ -106,16 +151,17 @@ export function OrderBookTradesTab({
           >
             {tapeFills.map((row) => {
               const side = tapeSideDisplay(row);
+              const source = tapeSourceDisplay(row);
+
               return (
                 <div
                   key={row.orderHash}
-                  className={`${rowGridClass} py-1 ${orderBookTradesRowValueCls} text-zinc-200`}
+                  className={`${rowGridClass} py-0.5 ${rowValueCls} text-zinc-200`}
                 >
-                  <span className={`min-w-0 truncate ${orderBookColStartCls} text-mint/95`}>
-                    {row.priceUsdc.toLocaleString("en-US", {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}
+                  <span
+                    className={`min-w-0 truncate ${orderBookTradesPriceColCls} text-mint/95`}
+                  >
+                    {formatTradesTapePriceUsdc(row.priceUsdc)}
                   </span>
                   {flush ? (
                     <>
@@ -125,6 +171,10 @@ export function OrderBookTradesTab({
                       >
                         {side.label}
                       </span>
+                      <TradesSourceCell
+                        source={source}
+                        className={orderBookTradesSourceColCls}
+                      />
                       <span
                         className={`min-w-0 truncate ${orderBookTradesTimeColCls} text-zinc-400`}
                         title={formatTapeTimeFull(row.t)}
@@ -140,7 +190,13 @@ export function OrderBookTradesTab({
                       >
                         {side.label}
                       </span>
-                      <span className={`${orderBookColEndCls} text-zinc-500`}>#{row.tokenId}</span>
+                      <TradesSourceCell
+                        source={source}
+                        className={orderBookTradesSourceColCls}
+                      />
+                      <span className={`${orderBookColEndCls} text-zinc-500`}>
+                        #{row.tokenId}
+                      </span>
                       <span
                         className={`min-w-0 truncate ${orderBookTradesTimeColCls} text-zinc-400`}
                         title={formatTapeTimeFull(row.t)}

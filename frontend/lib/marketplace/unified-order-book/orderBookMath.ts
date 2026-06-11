@@ -68,6 +68,14 @@ export function formatOrderBookPriceUsdc(n: number): string {
   });
 }
 
+/** Trades tape — whole dollars only (no cents). */
+export function formatTradesTapePriceUsdc(n: number): string {
+  return n.toLocaleString("en-US", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  });
+}
+
 export function cmpAskByPriceThenToken(a: Order, b: Order): number {
   const pa = BigInt(a.considerationAmount);
   const pb = BigInt(b.considerationAmount);

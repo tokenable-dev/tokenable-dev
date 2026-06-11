@@ -10,6 +10,10 @@ export type PlatformTapeFillRow = {
   source: TapeFillSource;
   /** Cardhedger comps `sale_type` when {@link source} is `cardhedger`. */
   externalSaleType?: string | null;
+  /** Inferred marketplace (e.g. eBay) from Cardhedger `sale_url` / `price_source`. */
+  externalSalePlatform?: string | null;
+  /** Cardhedger comps `sale_url` — sold listing when upstream provides it. */
+  externalSaleUrl?: string | null;
 };
 
 export type TradesVolumeWindowStats = {
@@ -95,7 +99,13 @@ export function supplementCardhedgerTapeWithDailyReference(
 }
 
 export function cardhedgerRawSalesToTapeRows(
-  rawSales: Array<{ t: number; v: number; saleType?: string | null }>,
+  rawSales: Array<{
+    t: number;
+    v: number;
+    saleType?: string | null;
+    platform?: string | null;
+    saleUrl?: string | null;
+  }>,
   cardId: string | null,
 ): PlatformTapeFillRow[] {
   const id = cardId?.trim() || 'na';
@@ -108,6 +118,8 @@ export function cardhedgerRawSalesToTapeRows(
       orderHash: `cardhedger:${id}:${p.t}:${i}`,
       source: 'cardhedger' as const,
       externalSaleType: p.saleType ?? null,
+      externalSalePlatform: p.platform ?? null,
+      externalSaleUrl: p.saleUrl ?? null,
     }));
 }
 

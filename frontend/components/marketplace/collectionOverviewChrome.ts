@@ -40,18 +40,18 @@ export const COLLECTION_MARKETS_CHART_ROW_HEIGHT_CLASS =
 
 /** Desktop order book column beside chart (collection detail). */
 export const COLLECTION_MARKETS_ORDER_BOOK_COLUMN_WIDTH_CLASS =
-  "lg:w-[320px] lg:max-w-[320px] lg:shrink-0";
+  "lg:w-[360px] lg:max-w-[360px] lg:shrink-0";
 
 /** Desktop: stretches with markets cluster right column; mobile keeps capped height. */
 export const COLLECTION_MARKETS_ORDER_BOOK_FRAME =
-  `w-[min(100%,320px)] shrink-0 rounded-lg ${COLLECTION_DETAILS_BG_CLASS} max-lg:h-[min(400px,54svh)] max-lg:w-full lg:min-h-0 lg:w-[320px] lg:max-w-[320px] lg:flex-1`;
+  `w-[min(100%,360px)] shrink-0 rounded-lg ${COLLECTION_DETAILS_BG_CLASS} max-lg:h-[min(400px,54svh)] max-lg:w-full lg:min-h-0 lg:w-[360px] lg:max-w-[360px] lg:flex-1`;
 
 /**
  * Markets cluster grid when chart + order book share a row (desktop).
  * Trailing track keeps the book column off the panel’s right edge (shift left toward chart).
  */
 export const COLLECTION_MARKETS_CLUSTER_GRID_COLS_CLASS =
-  "lg:grid-cols-[minmax(0,1fr)_320px_minmax(1.25rem,2rem)]";
+  "lg:grid-cols-[minmax(0,1fr)_360px_minmax(1.25rem,2rem)]";
 
 /** Dual chart in collection markets mat — same fill as mat; no inset border/frame line. */
 export const COLLECTION_CHART_SURFACE =

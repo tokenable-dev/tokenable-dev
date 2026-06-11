@@ -25,6 +25,7 @@ export function CriteriaBidFormActions({
   onOpenSellModal,
   hideSellFooter = false,
   isReplaceBid = false,
+  bidLimitMsg = "",
 }: {
   embedded: boolean;
   minimal?: boolean;
@@ -45,6 +46,7 @@ export function CriteriaBidFormActions({
   onOpenSellModal?: () => void;
   hideSellFooter?: boolean;
   isReplaceBid?: boolean;
+  bidLimitMsg?: string;
 }) {
   const splitActions = actionLayout === "split";
   const submitLabel = !address
@@ -69,6 +71,14 @@ export function CriteriaBidFormActions({
 
   return (
     <>
+      {bidLimitMsg && !crossesBook ? (
+        <p
+          className={`text-amber-200/90 ${minimal ? "text-sm" : embedded ? "text-[10px] leading-snug" : "text-[11px] leading-snug"}`}
+        >
+          {bidLimitMsg}
+        </p>
+      ) : null}
+
       <button
         type="button"
         disabled={submitDisabled}

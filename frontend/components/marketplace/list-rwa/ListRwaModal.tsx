@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { ListRwaModalFormView } from "@/components/marketplace/list-rwa/ListRwaModalFormView";
 import { ListRwaModalSuccessView } from "@/components/marketplace/list-rwa/ListRwaModalSuccessView";
 import { useListRwaModal } from "@/hooks/list-rwa";
@@ -10,14 +12,27 @@ export type { ListRwaModalProps } from "@/lib/seaport/listing/listRwaModalTypes"
 export function ListRwaModal(props: ListRwaModalProps) {
   const { tokenId, assetTitle, onClose } = props;
   const modal = useListRwaModal(props);
+  const [mounted, setMounted] = useState(false);
 
-  return (
+  useEffect(() => setMounted(true), []);
+
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, []);
+
+  if (!mounted) return null;
+
+  return createPortal(
     <div className="fixed inset-0 z-[100] flex items-center justify-center px-4 py-5 sm:px-6 sm:py-8">
       <div
         className="absolute inset-0 bg-black/70 backdrop-blur-sm"
         onClick={onClose}
       />
-      <div className="relative flex w-full max-w-[min(100%,22rem)] flex-col rounded-2xl border border-zinc-700/90 bg-zinc-950 px-6 py-6 shadow-xl shadow-black/40 sm:py-8">
+      <div className="relative mx-auto flex w-full max-w-[min(100%,22rem)] flex-col rounded-2xl border border-zinc-700/90 bg-zinc-950 px-6 py-6 shadow-xl shadow-black/40 sm:py-8">
         <button
           type="button"
           aria-label="Close"
@@ -52,6 +67,7 @@ export function ListRwaModal(props: ListRwaModalProps) {
           />
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

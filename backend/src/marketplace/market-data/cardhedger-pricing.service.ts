@@ -26,6 +26,7 @@ import {
   CardhedgerResolveService,
   type ResolvedCard,
 } from './cardhedger-resolve.service';
+import { inferExternalSalePlatform } from '../utils/cardhedger-sale-platform.util';
 
 /** Card Hedge `POST /v1/cards/prices-by-card` documents rolling `days` in [1, **365**] only. */
 const CARDHEDGER_PRICES_BY_CARD_MAX_DAYS = 365;
@@ -548,10 +549,24 @@ export class CardhedgerPricingService {
           typeof saleTypeRaw === 'string' && saleTypeRaw.trim()
             ? saleTypeRaw.trim()
             : null;
+        const priceSourceRaw = (item as { price_source?: unknown }).price_source;
+        const priceSource =
+          typeof priceSourceRaw === 'string' && priceSourceRaw.trim()
+            ? priceSourceRaw.trim()
+            : null;
+        const saleUrlRaw = (item as { sale_url?: unknown }).sale_url;
+        const saleUrl =
+          typeof saleUrlRaw === 'string' && saleUrlRaw.trim()
+            ? saleUrlRaw.trim()
+            : null;
+        const platform = inferExternalSalePlatform({ saleUrl, priceSource });
         rawPoints.push({
           t: Math.floor(ms / 1000),
           v: price,
           saleType,
+          priceSource,
+          saleUrl,
+          platform,
         });
       }
     }
@@ -675,6 +690,8 @@ export class CardhedgerPricingService {
         t: p.t,
         v: p.v,
         saleType: p.saleType ?? null,
+        platform: p.platform ?? null,
+        saleUrl: p.saleUrl ?? null,
       }));
     const earliestSaleAtSec =
       rawSales.length > 0 ? rawSales[0]!.t : null;

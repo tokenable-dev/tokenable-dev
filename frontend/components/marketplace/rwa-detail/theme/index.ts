@@ -47,6 +47,11 @@ export const RWA_DETAIL_TITLE_CERT_WEIGHT_CLASS = "font-normal";
 
 /** Slab headline muted blue-grey — mobile caption line 1. */
 export const RWA_DETAIL_SLAB_TITLE_MUTED_COLOR_CLASS = "text-[#8BA1B3]";
+/** Desktop right sidebar — nudge below grid top so title aligns with slab hero. */
+export const RWA_DETAIL_DESKTOP_SIDEBAR_TOP_INSET_CLASS = "lg:pt-8";
+/** Mobile slab stack — room below header; avoids hero sitting too high in the column. */
+export const RWA_DETAIL_MOBILE_SLAB_TOP_INSET_CLASS =
+  "max-lg:justify-start max-lg:pt-6 sm:max-lg:pt-8";
 /** Desktop right sidebar title — same tone as mobile, smaller than legacy hero sizing. */
 export const RWA_DETAIL_DESKTOP_SIDEBAR_TITLE_CLASS = `${RWA_DETAIL_SLAB_TITLE_MUTED_COLOR_CLASS} min-w-0 whitespace-normal break-words text-[15px] ${RWA_DETAIL_TITLE_WEIGHT_CLASS} leading-[1.2] tracking-normal [overflow-wrap:anywhere] sm:text-[16px]`;
 export const RWA_DETAIL_DESKTOP_SIDEBAR_CERT_CLASS = `${RWA_DETAIL_TITLE_CERT_WEIGHT_CLASS} tabular-nums text-white`;
@@ -56,6 +61,11 @@ export const RWA_DETAIL_DESKTOP_SIDEBAR_CERT_CLASS = `${RWA_DETAIL_TITLE_CERT_WE
  * (header, 3-line caption, sticky CTAs, safe-area) so short / notched devices do not clip.
  */
 export const RWA_MOBILE_SLAB_MAX_WIDTH_CLASS = "max-w-[min(100%,480px)]";
+/** Mobile card detail — one centered column for slab, sticky CTAs, and modals. */
+export const RWA_MOBILE_PAGE_CHANNEL_CLASS = `mx-auto w-full min-w-0 ${RWA_MOBILE_SLAB_MAX_WIDTH_CLASS} px-3 sm:px-4`;
+/** Same channel, scoped to mobile breakpoints inside shared desktop layouts. */
+export const RWA_MOBILE_PAGE_CHANNEL_MAX_LG_CLASS =
+  "max-lg:mx-auto max-lg:w-full max-lg:min-w-0 max-lg:max-w-[min(100%,480px)] max-lg:px-3 sm:max-lg:px-4";
 export const RWA_MOBILE_SLAB_MAX_HEIGHT_CLASS =
   "max-h-[min(480px,68svh,calc(100svh-4rem-11.5rem-env(safe-area-inset-bottom,0px)))]";
 /** Image + caption column — hugs rendered slab width (not letterboxed container). */

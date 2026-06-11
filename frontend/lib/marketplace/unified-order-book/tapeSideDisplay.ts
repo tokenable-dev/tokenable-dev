@@ -33,6 +33,88 @@ export function externalTapeSideDisplay(row: CollectionPlatformTapeFill): {
   };
 }
 
+function normalizeExternalSaleUrl(url: string | null | undefined): string | null {
+  const raw = url?.trim();
+  if (!raw) return null;
+  try {
+    const parsed = new URL(raw);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null;
+    return parsed.toString();
+  } catch {
+    return null;
+  }
+}
+
+/** Trades tape Source column — marketplace inferred from Cardhedger or on-platform. */
+export function tapeSourceDisplay(row: CollectionPlatformTapeFill): {
+  label: string;
+  title?: string;
+  className: string;
+  /** Opens sold listing in a popup when Cardhedger provides sale_url. */
+  href?: string | null;
+} {
+  if (row.source === "cardhedger") {
+    const lower = row.externalSaleType?.trim().toLowerCase() ?? "";
+    if (lower.includes("daily reference") || lower === "reference") {
+      return {
+        label: "—",
+        title: "Cardhedger daily reference — not an individual marketplace sale.",
+        className: "text-zinc-500",
+        href: null,
+      };
+    }
+    const platform = row.externalSalePlatform?.trim();
+    const href = normalizeExternalSaleUrl(row.externalSaleUrl);
+    if (!platform) {
+      return {
+        label: "—",
+        title: "Marketplace not identified (no sale URL from Cardhedger).",
+        className: "text-zinc-500",
+        href: null,
+      };
+    }
+    return {
+      label: platform,
+      title: href
+        ? `Open sold listing on ${platform}`
+        : `Inferred marketplace from Cardhedger (listing URL not available).`,
+      className: href
+        ? "text-mint/85 hover:text-mint"
+        : "text-zinc-300",
+      href,
+    };
+  }
+
+  return {
+    label: "Tokenable",
+    title: "On-platform Tokenable trade.",
+    className: "text-zinc-300",
+    href: null,
+  };
+}
+
+/** Popup sold-listing view — avoids navigating away from Tokenable. */
+export function openExternalSaleListing(url: string): void {
+  const normalized = normalizeExternalSaleUrl(url);
+  if (!normalized) return;
+  const w = Math.min(1024, Math.round(window.screen.availWidth * 0.9));
+  const h = Math.min(800, Math.round(window.screen.availHeight * 0.85));
+  const left = Math.max(0, Math.round((window.screen.availWidth - w) / 2));
+  const top = Math.max(0, Math.round((window.screen.availHeight - h) / 2));
+  const features = [
+    `width=${w}`,
+    `height=${h}`,
+    `left=${left}`,
+    `top=${top}`,
+    "noopener",
+    "noreferrer",
+    "scrollbars=yes",
+    "resizable=yes",
+  ].join(",");
+  const popup = window.open(normalized, "tokenable-external-sale", features);
+  popup?.focus();
+}
+
 export function tapeSideDisplay(row: CollectionPlatformTapeFill): {
   label: string;
   title?: string;
