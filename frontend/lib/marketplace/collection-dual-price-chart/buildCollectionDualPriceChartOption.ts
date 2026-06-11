@@ -1,17 +1,20 @@
 import type { EChartsOption, LineSeriesOption } from "echarts";
 import {
   AXIS_LABEL,
+  AXIS_LABEL_MOBILE,
   CHART_DAY_SEC,
   LIVE_LINE_WIDTH,
   LIVE_MARKET_AREA_GRADIENT,
   LIVE_MARKET_LINE,
 } from "./constants";
-import { niceScale } from "./chartScale";
+import { niceScale, yearViewPriceScale } from "./chartScale";
 import {
   formatHoverWhen,
   formatTickShortMdYear,
+  formatTickYearOrMonthLabel,
   formatTooltipUsd,
   formatYAxisLabelCompact,
+  formatYAxisLabelPlain,
   roughTickConfigByWindowDays,
 } from "./chartTimeTicks";
 import type { MergedExternalChartData } from "./types";
@@ -81,20 +84,30 @@ export function buildCollectionDualPriceChartOption(input: {
   const axisSpanDays =
     merged.tMax > merged.tMin ? (merged.tMax - merged.tMin) / CHART_DAY_SEC : 0;
   const useCoarseTimeTicks = axisSpanDays > 1;
+  const isYearView =
+    merged.fixedWindowDays != null && merged.fixedWindowDays >= 300;
 
   const yTickCount = compactTab ? 2 : isMobileChart ? 3 : 4;
-  const { min, max, interval } = niceScale(merged.vMin, merged.vMax, yTickCount);
+  const { min, max, interval } = isYearView
+    ? yearViewPriceScale(merged.vMin, merged.vMax)
+    : niceScale(merged.vMin, merged.vMax, yTickCount);
+
+  const axisLabelColor = isMobileChart ? AXIS_LABEL_MOBILE : AXIS_LABEL;
+  const axisLabelSize = isMobileChart ? 10 : 13;
+  const yAxisLabelSize = isMobileChart ? 10 : 11;
 
   return {
     backgroundColor: "transparent",
     animation: !compactTab,
     animationDuration: compactTab ? 0 : 250,
-    textStyle: { color: AXIS_LABEL, fontFamily: "ui-sans-serif, system-ui, sans-serif" },
+    textStyle: { color: axisLabelColor, fontFamily: "ui-sans-serif, system-ui, sans-serif" },
     grid: compactTab
-      ? { left: 28, right: 4, top: 6, bottom: 20, containLabel: false }
+      ? { left: 38, right: 6, top: 20, bottom: 30, containLabel: false }
       : isMobileChart
-        ? { left: 32, right: 6, top: 10, bottom: 24, containLabel: false }
-        : { left: 48, right: 10, top: 4, bottom: 22, containLabel: false },
+        ? { left: 44, right: 8, top: 26, bottom: 36, containLabel: false }
+        : isYearView
+          ? { left: 52, right: 12, top: 28, bottom: 32, containLabel: false }
+          : { left: 48, right: 10, top: 4, bottom: 22, containLabel: false },
     dataZoom: [
       { type: "inside", xAxisIndex: 0, filterMode: "none" },
       { type: "slider", xAxisIndex: 0, height: 16, bottom: 0, show: false },
@@ -113,13 +126,24 @@ export function buildCollectionDualPriceChartOption(input: {
       axisTick: { show: false },
       splitLine: { show: false },
       axisLabel: {
-        color: AXIS_LABEL,
-        fontSize: isMobileChart ? 10 : 13,
+        color: axisLabelColor,
+        fontSize: axisLabelSize,
         hideOverlap: true,
-        margin: isMobileChart ? 6 : 8,
+        margin: isMobileChart ? 12 : 10,
+        padding: [4, 0, 0, isMobileChart ? 6 : 4],
+        rich: isYearView
+          ? {
+              year: {
+                color: axisLabelColor,
+                fontWeight: 700,
+                fontSize: axisLabelSize,
+              },
+            }
+          : undefined,
         formatter: (value: number) => {
           const tSec = Math.floor(value / 1000);
           if (!useCoarseTimeTicks) return formatTickShortMdYear(tSec);
+          if (isYearView) return formatTickYearOrMonthLabel(tSec, merged.tMin);
           return roughTick.formatter(tSec);
         },
       },
@@ -129,25 +153,39 @@ export function buildCollectionDualPriceChartOption(input: {
       min,
       max,
       interval,
+      name: isYearView ? "USD" : undefined,
+      nameLocation: "end",
+      nameGap: isMobileChart ? 6 : 8,
+      nameTextStyle: {
+        color: axisLabelColor,
+        fontSize: yAxisLabelSize,
+        align: "right",
+        padding: [0, 6, 0, 0],
+      },
       axisLine: { show: false },
       axisTick: { show: false },
       splitLine: { show: false },
       axisLabel: {
-        color: AXIS_LABEL,
-        fontSize: isMobileChart ? 9 : 11,
-        width: isMobileChart ? 30 : 44,
+        color: axisLabelColor,
+        fontSize: yAxisLabelSize,
+        width: isMobileChart ? 34 : 44,
         overflow: "truncate",
+        align: "right",
+        margin: isMobileChart ? 10 : 8,
+        padding: [0, 0, isMobileChart ? 4 : 2, 0],
         formatter: (value: number) =>
-          isMobileChart
-            ? formatYAxisLabelCompact(value)
-            : (() => {
-                if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`;
-                if (value >= 1_000) {
-                  return `$${(value / 1_000).toFixed(value % 1_000 === 0 ? 0 : 1)}K`;
-                }
-                if (value >= 10) return `$${Math.round(value)}`;
-                return `$${value.toFixed(value === 0 ? 0 : 2)}`;
-              })(),
+          isYearView
+            ? formatYAxisLabelPlain(value)
+            : isMobileChart
+              ? formatYAxisLabelCompact(value)
+              : (() => {
+                  if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`;
+                  if (value >= 1_000) {
+                    return `$${(value / 1_000).toFixed(value % 1_000 === 0 ? 0 : 1)}K`;
+                  }
+                  if (value >= 10) return `$${Math.round(value)}`;
+                  return `$${value.toFixed(value === 0 ? 0 : 2)}`;
+                })(),
       },
     },
     tooltip: {

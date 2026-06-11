@@ -21,7 +21,7 @@ export function RwaDetailPageShell({
       <main
         className={`${rwaDetailRightFont.className} mx-auto w-full max-w-6xl px-3 py-6 max-[380px]:px-2.5 sm:px-5 sm:py-8 lg:min-h-screen lg:px-6 lg:pb-8 ${
           showMain
-            ? "max-lg:flex max-lg:h-full max-lg:min-h-0 max-lg:flex-col max-lg:overflow-hidden max-lg:py-2 max-lg:pb-0"
+            ? "max-lg:flex max-lg:h-full max-lg:min-h-0 max-lg:flex-col max-lg:items-center max-lg:overflow-hidden max-lg:px-0 max-lg:py-2 max-lg:pb-0"
             : "max-lg:pb-6"
         }`}
       >

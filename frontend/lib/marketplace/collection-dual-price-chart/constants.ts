@@ -16,6 +16,8 @@ export const LIVE_MARKET_AREA_GRADIENT = {
 
 /** X/Y tick labels — silver / light grey */
 export const AXIS_LABEL = "rgba(190, 190, 195, 0.92)";
+/** Mobile collection chart axis — design ref white labels */
+export const AXIS_LABEL_MOBILE = "rgba(255, 255, 255, 0.95)";
 
 export const LIVE_LINE_WIDTH = 3;
 export const CHART_DAY_SEC = 86400;

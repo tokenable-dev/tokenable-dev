@@ -17,6 +17,7 @@ import type { CollectionPlatformTapeFill, Order } from "@/lib/core";
 import {
   RWA_DETAIL_DESKTOP_SIDEBAR_CERT_CLASS,
   RWA_DETAIL_DESKTOP_SIDEBAR_TITLE_CLASS,
+  RWA_DETAIL_DESKTOP_SIDEBAR_TOP_INSET_CLASS,
   rwaDetailRightFont,
 } from "../theme";
 import { RwaDetailBuyerTradePanel } from "../ui/RwaDetailBuyerTradePanel";
@@ -89,7 +90,9 @@ export function RwaDetailDesktopSidebar({
   const titleTooltip = certNumber ? `${titleText} ${certNumber}` : titleText;
 
   return (
-    <div className="hidden w-full min-w-0 flex-col gap-5 lg:sticky lg:top-6 lg:col-start-2 lg:flex lg:max-w-[400px] lg:justify-self-start lg:self-start">
+    <div
+      className={`hidden w-full min-w-0 flex-col gap-5 lg:sticky lg:top-6 lg:col-start-2 lg:flex lg:max-w-[400px] lg:justify-self-start lg:self-start ${RWA_DETAIL_DESKTOP_SIDEBAR_TOP_INSET_CLASS}`}
+    >
       <div className="hidden min-w-0 space-y-2.5 lg:block">
         {detailTitlePulse ? (
           <div

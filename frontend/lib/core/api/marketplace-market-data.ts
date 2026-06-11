@@ -200,6 +200,10 @@ export interface CollectionPlatformTapeFill {
   source?: CollectionTapeFillSource;
   /** Cardhedger comps sale_type (Auction, Best Offer, …) — not buy/sell aggressor. */
   externalSaleType?: string | null;
+  /** Inferred marketplace (e.g. eBay) from Cardhedger sale_url / price_source. */
+  externalSalePlatform?: string | null;
+  /** Cardhedger comps sale_url — sold listing link when available. */
+  externalSaleUrl?: string | null;
 }
 
 export interface TradesVolumeWindowStats {

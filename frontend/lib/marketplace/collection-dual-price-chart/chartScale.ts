@@ -25,6 +25,22 @@ export function niceScale(
   return { min, max, interval: step };
 }
 
+/** 1y collection chart — $100 steps up to ~$1k (design ref), else fall back to niceScale. */
+export function yearViewPriceScale(
+  rawMin: number,
+  rawMax: number,
+): { min: number; max: number; interval: number } {
+  const paddedMax = rawMax * 1.06;
+  if (!Number.isFinite(paddedMax) || paddedMax <= 0) {
+    return { min: 0, max: 1000, interval: 100 };
+  }
+  if (paddedMax <= 1200) {
+    const max = Math.max(100, Math.ceil(paddedMax / 100) * 100);
+    return { min: 0, max, interval: 100 };
+  }
+  return niceScale(Math.max(0, rawMin), paddedMax, 6);
+}
+
 export function computeSmartTimeDomain(
   plat: CollectionUsdPoint[],
   nowSec: number,

@@ -17,7 +17,17 @@ import {
   USDC_ADDRESS,
   USDC_ABI,
 } from "@/constants/contracts";
-import { getMerkleEligibleTokenIds, rq, marketplaceRqPolicy, type Order } from "@/lib/core";
+import {
+  getCollectionBidsByOfferer,
+  getMerkleEligibleTokenIds,
+  rq,
+  marketplaceRqPolicy,
+  type Order,
+} from "@/lib/core";
+import {
+  MAX_ACTIVE_COLLECTION_BIDS_PER_COLLECTION,
+} from "@/lib/seaport/criteria/collectionCriteriaBidConstants";
+import { countActiveCollectionBidsForCollection } from "@/lib/seaport/criteria/countActiveCollectionBids";
 import { mapWalletError } from "@/lib/network";
 import { askPriceMicros, pickLowestActiveAsk } from "@/lib/seaport/criteria/collectionCriteriaBidAsk";
 import { useCriteriaBidFloorAsks } from "./useCriteriaBidFloorAsks";
@@ -82,6 +92,30 @@ export function useCollectionCriteriaBid(input: {
   });
 
   const isReplaceBid = bidToReplace != null && bidToReplace.status === "active";
+
+  const myBidsQuery = useQuery({
+    queryKey: rq.portfolioBids(address ?? ""),
+    queryFn: () => getCollectionBidsByOfferer(address!),
+    enabled: Boolean(address?.trim()) && !isReplaceBid,
+    staleTime: 15_000,
+  });
+
+  const activeBidsForCollection = useMemo(
+    () =>
+      countActiveCollectionBidsForCollection(
+        myBidsQuery.data,
+        collectionKey,
+      ),
+    [myBidsQuery.data, collectionKey],
+  );
+
+  const bidLimitReached =
+    !isReplaceBid &&
+    activeBidsForCollection >= MAX_ACTIVE_COLLECTION_BIDS_PER_COLLECTION;
+
+  const bidLimitMsg = bidLimitReached
+    ? `You can have at most ${MAX_ACTIVE_COLLECTION_BIDS_PER_COLLECTION} active bids per collection. Cancel one in Portfolio or My Orders before placing another.`
+    : "";
 
   const [step, setStep] = useState<CollectionCriteriaBidStep>("idle");
   const [errorMsg, setErrorMsg] = useState("");
@@ -161,6 +195,12 @@ export function useCollectionCriteriaBid(input: {
     }
     if (!floor.priceOk || floor.priceInUnits == null) {
       setErrorMsg("Enter a valid USDC amount.");
+      return;
+    }
+
+    if (bidLimitReached) {
+      setErrorMsg(bidLimitMsg);
+      setStep("error");
       return;
     }
 
@@ -253,6 +293,7 @@ export function useCollectionCriteriaBid(input: {
     !publicClient ||
     !floor.priceOk ||
     walletSignerMissing ||
+    (bidLimitReached && !floor.crossesBook) ||
     (!floor.crossesBook && (!canPlaceCriteriaBid || merkleLoading));
 
   const busyLabel =
@@ -305,5 +346,8 @@ export function useCollectionCriteriaBid(input: {
     handleSubmit,
     runInstantPurchase,
     isReplaceBid,
+    bidLimitReached,
+    bidLimitMsg,
+    activeBidsForCollection,
   };
 }

@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import dynamic from "next/dynamic";
 import type { Order } from "@/lib/core";
 import { rwaDetailRightFont } from "../theme";
@@ -33,9 +35,22 @@ export function RwaDetailPlaceBidModal({
   onPlaced?: () => void;
   onPurchaseFilled?: () => void;
 }) {
-  if (!open) return null;
+  const [mounted, setMounted] = useState(false);
 
-  return (
+  useEffect(() => setMounted(true), []);
+
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
+
+  if (!open || !mounted) return null;
+
+  return createPortal(
     <div className="fixed inset-0 z-[100] flex items-center justify-center px-4 py-6 sm:py-8">
       <div
         className="absolute inset-0 bg-black/70 backdrop-blur-sm"
@@ -46,7 +61,7 @@ export function RwaDetailPlaceBidModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="rwa-place-bid-title"
-        className={`relative flex max-h-[min(88svh,520px)] w-full max-w-[min(100%,26rem)] flex-col overflow-hidden rounded-2xl border border-zinc-700/90 bg-zinc-950 shadow-xl shadow-black/40 ${rwaDetailRightFont.className}`}
+        className={`relative mx-auto flex max-h-[min(88svh,520px)] w-full max-w-[min(100%,26rem)] flex-col overflow-hidden rounded-2xl border border-zinc-700/90 bg-zinc-950 shadow-xl shadow-black/40 ${rwaDetailRightFont.className}`}
       >
         <div className="flex shrink-0 items-start justify-between gap-3 border-b border-zinc-800/90 px-5 py-5 sm:px-6">
           <div className="min-w-0 pr-8">
@@ -84,6 +99,7 @@ export function RwaDetailPlaceBidModal({
           />
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

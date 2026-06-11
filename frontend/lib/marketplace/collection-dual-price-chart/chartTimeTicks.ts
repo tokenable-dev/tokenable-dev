@@ -71,8 +71,8 @@ export function roughTickConfigByWindowDays(windowDays: number | null): {
   }
   if (windowDays <= 365) {
     return {
-      minIntervalMs: 75 * CHART_DAY_SEC * 1000,
-      splitNumber: 5,
+      minIntervalMs: 28 * CHART_DAY_SEC * 1000,
+      splitNumber: 12,
       formatter: shortLabel,
     };
   }
@@ -88,6 +88,25 @@ export function roughTickConfigByWindowDays(windowDays: number | null): {
     splitNumber: 5,
     formatter: shortLabel,
   };
+}
+
+/** 1y chart — bold year at range start / January, otherwise month abbrev (Feb, Mar, …). */
+export function formatTickYearOrMonthLabel(tSec: number, rangeStartSec: number): string {
+  const d = new Date(tSec * 1000);
+  const rangeStart = new Date(rangeStartSec * 1000);
+  const sameMonthAsStart =
+    d.getFullYear() === rangeStart.getFullYear() && d.getMonth() === rangeStart.getMonth();
+  if (d.getMonth() === 0 || sameMonthAsStart) {
+    return `{year|${d.getFullYear()}}`;
+  }
+  return d.toLocaleDateString("en-US", { month: "short" });
+}
+
+export function formatYAxisLabelPlain(value: number): string {
+  const rounded = Math.round(value);
+  if (rounded >= 1_000_000) return `${Math.round(rounded / 1_000_000)}M`;
+  if (rounded >= 10_000) return `${Math.round(rounded / 1_000)}k`;
+  return String(rounded);
 }
 
 export function formatHoverWhen(tSec: number): string {

@@ -41,6 +41,7 @@ export function CollectionCriteriaBidPanelForm({
   hideSubmitButton = false,
   headerTitle,
   isReplaceBid = false,
+  bidLimitMsg = "",
 }: {
   embedded: boolean;
   isModal?: boolean;
@@ -75,6 +76,7 @@ export function CollectionCriteriaBidPanelForm({
   hideSubmitButton?: boolean;
   headerTitle?: string;
   isReplaceBid?: boolean;
+  bidLimitMsg?: string;
 }) {
   return (
     <>
@@ -135,6 +137,7 @@ export function CollectionCriteriaBidPanelForm({
             onOpenSellModal={onOpenSellModal}
             hideSellFooter={hideSellFooter}
             isReplaceBid={isReplaceBid}
+            bidLimitMsg={bidLimitMsg}
           />
         ) : (
           <>
