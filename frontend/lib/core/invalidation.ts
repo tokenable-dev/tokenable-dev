@@ -147,7 +147,7 @@ export async function invalidateAfterCriteriaBid(
 /**
  * After a fulfillment, listing, or cancel on the RWA detail page.
  *
- * Replaces: `invalidateRwaDetailQueries`
+ * RWA detail buy/list flows — order, asset, collection market queries.
  */
 export async function invalidateAfterRwaDetail(
   qc: QueryClient,

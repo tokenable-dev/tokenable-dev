@@ -87,8 +87,6 @@ export function RwaDetailOwnerListingPanel({
 
       <div className={ctaRowTopClass || undefined}>
         <RwaDetailGradientButton
-          bright={!isConnected}
-          compact={compactActions}
           disabled={connectPending}
           onClick={() => {
             if (!isConnected) {

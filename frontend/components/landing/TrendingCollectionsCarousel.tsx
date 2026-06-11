@@ -19,8 +19,8 @@ import {
   type CollectionCategoryFilterId,
 } from "@/lib/market";
 import { MarketsListingPriceWithChange } from "@/components/marketplace/marketplace-shared";
+import { MARKETS_GRID_CARD_TITLE_CLASS } from "@/components/markets/CollectionGridCard";
 import { buildMarketsCollectionTitle } from "@/lib/markets/marketsCollectionTitle";
-import { toCardDisplayUppercase } from "@/lib/marketplace/collectionFullDetailsTitle";
 
 const MAX_TRENDING_VISIBLE = 4;
 const MAX_TRENDING_VISIBLE_MOBILE = 1;
@@ -312,6 +312,8 @@ export function TrendingCollectionsCarousel({
     const changeWindowShort = formatReferenceChangePeriodFromSnapshotMeta(s);
     const changeCoverageHint = formatReferenceChangeCoverageHint(changePeriodMeta);
     const displayImageUrl = trendingCarouselImageUrl(c);
+    const marketsTitle = buildMarketsCollectionTitle({ collection: c, comp: c.components });
+    const isLandingCard = variant === "landing";
     return (
       <Link
         key={`${c.collectionKey}${slideKeySuffix}`}
@@ -343,18 +345,36 @@ export function TrendingCollectionsCarousel({
               <div className="h-full w-full bg-zinc-900" />
             )}
           </div>
-          <div className="shrink-0 space-y-1 p-2.5 sm:p-3 min-h-[4.25rem] sm:min-h-[4rem]">
-            <p className="line-clamp-2 min-h-[2.75rem] break-words text-base font-semibold uppercase leading-snug text-white sm:min-h-[1.75rem] sm:truncate sm:text-lg">
-              {buildMarketsCollectionTitle({ collection: c, comp: c.components })}
+          <div
+            className={
+              isLandingCard
+                ? "flex shrink-0 flex-col gap-1.5 p-2 max-[380px]:p-1.5 sm:gap-2 sm:p-3"
+                : "shrink-0 space-y-1 p-2.5 sm:p-3 min-h-[4.25rem] sm:min-h-[4rem]"
+            }
+          >
+            <p
+              className={
+                isLandingCard
+                  ? MARKETS_GRID_CARD_TITLE_CLASS
+                  : "line-clamp-2 min-h-[2.75rem] break-words text-base font-semibold uppercase leading-snug text-white sm:min-h-[1.75rem] sm:truncate sm:text-lg"
+              }
+              title={marketsTitle}
+            >
+              {marketsTitle}
             </p>
-            <div className="min-h-[1.35rem] w-full min-w-0 sm:min-h-[1.5rem]">
+            <div
+              className={
+                isLandingCard
+                  ? "mt-auto w-full min-w-0 pt-0.5"
+                  : "min-h-[1.35rem] w-full min-w-0 sm:min-h-[1.5rem]"
+              }
+            >
               <MarketsListingPriceWithChange
                 priceUsd={eBayPrice}
                 changePct={changePctExternal}
                 windowShort={changeWindowShort}
                 titleDetail={changeCoverageHint}
-                spread={variant === "landing"}
-                textClassName="text-base font-bold leading-none tabular-nums tracking-normal [font-family:var(--font-ibm-plex-sans),sans-serif] sm:text-[18px]"
+                align={isLandingCard ? "start" : "end"}
                 priceTitle="External eBay reference price."
               />
             </div>

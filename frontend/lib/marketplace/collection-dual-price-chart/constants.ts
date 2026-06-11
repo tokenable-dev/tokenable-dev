@@ -20,3 +20,6 @@ export const AXIS_LABEL = "rgba(190, 190, 195, 0.92)";
 export const LIVE_LINE_WIDTH = 3;
 export const CHART_DAY_SEC = 86400;
 export const CHART_HOUR_SEC = 3600;
+
+/** Default collection price chart lookback (1 calendar year). */
+export const COLLECTION_CHART_DEFAULT_WINDOW_DAYS = 365;

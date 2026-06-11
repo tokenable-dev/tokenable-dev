@@ -1,7 +1,10 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { RWA_MOBILE_SLAB_IMAGE_CAPTION_COLUMN_CLASS } from "@/components/marketplace/rwa-detail/theme";
+import {
+  RWA_MOBILE_SLAB_HERO_WRAP_CLASS,
+  RWA_MOBILE_SLAB_IMAGE_CAPTION_COLUMN_CLASS,
+} from "@/components/marketplace/rwa-detail/theme";
 import { RwaImageLightbox } from "@/components/common";
 import { SlabCardFlip } from "@/components/marketplace/marketplace-shared";
 import { SlabPauseGlyph, SlabPlayGlyph } from "../ui/SlabControlGlyphs";
@@ -209,7 +212,7 @@ export function RwaDetailSlabSection({
       >
         {openSeaMobile ? (
           <div className={RWA_MOBILE_SLAB_IMAGE_CAPTION_COLUMN_CLASS}>
-            {slabHero}
+            <div className={RWA_MOBILE_SLAB_HERO_WRAP_CLASS}>{slabHero}</div>
             {mobileSlabCaptionSlot}
           </div>
         ) : (

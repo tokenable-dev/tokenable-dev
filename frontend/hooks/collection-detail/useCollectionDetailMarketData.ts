@@ -24,6 +24,7 @@ import {
   prependSessionFillToTape,
   resolvePsaPopulationMetrics,
 } from "@/lib/market";
+import { COLLECTION_CHART_DEFAULT_WINDOW_DAYS } from "@/lib/marketplace/collection-dual-price-chart";
 import { COLLECTION_SESSION_FILL_DEDUP_SEC } from "@/lib/marketplace/collectionDetailConstants";
 import type { CollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
 
@@ -112,7 +113,7 @@ export function useCollectionDetailMarketData(params: {
   const chartExternalRollingUsd = marketSeries?.externalUsd ?? [];
   const metricsReferencePts = marketSeries?.externalUsd ?? [];
   const jtHistOk = chartExternalRollingUsd.length >= 2;
-  const chartExternalWindowDays = null;
+  const chartExternalWindowDays = COLLECTION_CHART_DEFAULT_WINDOW_DAYS;
   const chartExternalLegend = jtHistOk
     ? LIVE_MARKET_LEGEND
     : `External market (${pokeTierLabel})`;

@@ -28,13 +28,6 @@ export default function LandingPage() {
             Tokenized collectibles markets
           </h1>
 
-          <p
-            className="landing-enter mb-3 max-w-xl text-center text-lg leading-snug text-gray-400 sm:mb-8 sm:text-xl sm:leading-relaxed md:text-2xl"
-            style={{ "--landing-enter-delay": "70ms" } as CSSProperties}
-          >
-            Trade markets for authenticated and vaulted gems with instant settlement.
-          </p>
-
           <TrendingCollectionsCarousel
             variant="landing"
             className="max-sm:!my-2 max-sm:w-full sm:mx-auto sm:mt-0"

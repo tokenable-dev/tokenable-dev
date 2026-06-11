@@ -28,7 +28,6 @@ export function RwaDetailLoadedView({
   listFlow,
   buyFlow,
   platformTrades,
-  showMobileMarketContext,
   navigateToCollectionAfterTrade,
   router,
   address,

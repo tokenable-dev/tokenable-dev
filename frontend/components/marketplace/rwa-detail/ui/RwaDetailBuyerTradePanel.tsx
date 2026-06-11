@@ -99,8 +99,6 @@ export function RwaDetailBuyerTradePanel({
           >
             <div className={canBid && isConnected ? "min-w-0 flex-1" : undefined}>
               <RwaDetailGradientButton
-                bright={!isConnected}
-                compact={compactActions}
                 onClick={() => {
                   if (!isConnected) {
                     onConnectWallet();
@@ -116,7 +114,6 @@ export function RwaDetailBuyerTradePanel({
             {canBid && isConnected ? (
               <div className="min-w-0 flex-1">
                 <RwaDetailOutlineButton
-                  compact={compactActions}
                   onClick={handlePlaceBid}
                   disabled={connectPending}
                 >
@@ -146,8 +143,6 @@ export function RwaDetailBuyerTradePanel({
 
           {canBid ? (
             <RwaDetailGradientButton
-              bright={!isConnected}
-              compact={compactActions}
               onClick={handlePlaceBid}
               disabled={connectPending}
             >

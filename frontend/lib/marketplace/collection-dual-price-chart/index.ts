@@ -2,6 +2,7 @@ export {
   AXIS_LABEL,
   CHART_DAY_SEC,
   CHART_HOUR_SEC,
+  COLLECTION_CHART_DEFAULT_WINDOW_DAYS,
   LIVE_LINE_WIDTH,
   LIVE_MARKET_AREA_GRADIENT,
   LIVE_MARKET_LINE,
@@ -11,6 +12,7 @@ export { computeSmartTimeDomain, niceScale } from "./chartScale";
 export {
   formatHoverWhen,
   formatTickDate,
+  formatTickShortMdYear,
   formatTooltipUsd,
   formatYAxisLabelCompact,
   roughTickConfigByWindowDays,
