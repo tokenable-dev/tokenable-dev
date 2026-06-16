@@ -24,11 +24,9 @@ import {
   prependSessionFillToTape,
   resolvePsaPopulationMetrics,
 } from "@/lib/market";
-import { COLLECTION_CHART_DEFAULT_WINDOW_DAYS } from "@/lib/marketplace/collection-dual-price-chart";
 import { COLLECTION_SESSION_FILL_DEDUP_SEC } from "@/lib/marketplace/collectionDetailConstants";
 import type { CollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
-
-const LIVE_MARKET_LEGEND = "Live market price";
+import { useCollectionGradeChart } from "@/hooks/collection-grade-chart";
 
 export function useCollectionDetailMarketData(params: {
   key: string;
@@ -69,12 +67,22 @@ export function useCollectionDetailMarketData(params: {
     staleTime: marketplaceRqPolicy.marketSeriesStaleMs,
   });
 
+  const gradeChart = useCollectionGradeChart({
+    collectionKey: key,
+    comp,
+    marketSeries,
+    marketSeriesLoading,
+    marketSeriesEnabled,
+  });
+
+  const activeGradeForTrades = gradeChart.activeGrade;
+
   const marketPreview = marketSeries?.cardhedgerPreview ?? null;
 
   const { data: platformTradesData, isLoading: platformTradesLoading } = useQuery({
-    queryKey: rq.collectionPlatformTrades(key),
-    queryFn: () => getCollectionPlatformTrades(key),
-    enabled: key.length > 0,
+    queryKey: rq.collectionPlatformTrades(key, undefined, activeGradeForTrades),
+    queryFn: () => getCollectionPlatformTrades(key, { grade: activeGradeForTrades }),
+    enabled: key.length > 0 && activeGradeForTrades.length > 0,
     refetchInterval: 20_000,
     refetchIntervalInBackground: false,
   });
@@ -110,17 +118,16 @@ export function useCollectionDetailMarketData(params: {
     return deduped;
   }, [platformPtsBase, sessionFillPoint]);
 
-  const chartExternalRollingUsd = marketSeries?.externalUsd ?? [];
-  const metricsReferencePts = marketSeries?.externalUsd ?? [];
+  const chartExternalRollingUsd = gradeChart.chartExternalRollingUsd;
   const jtHistOk = chartExternalRollingUsd.length >= 2;
-  const chartExternalWindowDays = COLLECTION_CHART_DEFAULT_WINDOW_DAYS;
-  const chartExternalLegend = jtHistOk
-    ? LIVE_MARKET_LEGEND
-    : `External market (${pokeTierLabel})`;
-  const chartExternalShort = LIVE_MARKET_LEGEND;
+  const chartExternalWindowDays = gradeChart.chartDays;
+  const chartExternalLegend = gradeChart.chartExternalLegend;
+  const chartExternalShort = gradeChart.chartExternalShort;
   const chartExternalRollingKind: "history" | "snapshot" = jtHistOk
     ? "history"
     : "snapshot";
+
+  const metricsReferencePts = marketSeries?.externalUsd ?? [];
   const metricsHistOk = metricsReferencePts.length >= 2;
 
   const externalReferencePtsForChange = useMemo(() => {
@@ -155,6 +162,33 @@ export function useCollectionDetailMarketData(params: {
 
   const externalPriceChange1MoPct = externalPriceChangeResult.pct;
 
+  const resolvedExternal = useMemo(
+    () =>
+      resolveExternalMarketUsd({
+        marketPreview,
+        gradePrices: marketSeries?.gradePrices ?? null,
+        gradeScore: parseGradeScoreNumber(comp.gradeScore),
+        components: comp,
+      }),
+    [marketPreview, marketSeries?.gradePrices, comp.gradeScore, comp],
+  );
+
+  const gradeAwareExternalUsd =
+    gradeChart.selectedPriceUsd ?? resolvedExternal.usd;
+  const gradeAwareChangeResult =
+    gradeChart.chartExternalRollingUsd.length >= 2
+      ? gradeChart.selectedPriceChangeResult
+      : externalPriceChangeResult;
+  const gradeAwareChange1MoPct = gradeAwareChangeResult.pct;
+  const gradeAwareChangeCoverageHint =
+    gradeChart.chartExternalRollingUsd.length >= 2
+      ? gradeChart.selectedPriceChangeCoverageHint
+      : externalPriceChangeCoverageHint;
+  const gradeAwareTierLabel = gradeChart.activeGrade;
+  const gradeAwarePriceLoading =
+    gradeChart.gradeChartLoading || marketSeriesLoading;
+  const gradeAwareChangeLoading = gradeAwarePriceLoading;
+
   const orderBookTapeFills = useMemo((): CollectionPlatformTapeFill[] => {
     return prependSessionFillToTape(
       countableTapeFills(platformTradesData?.trades ?? []),
@@ -173,8 +207,8 @@ export function useCollectionDetailMarketData(params: {
   }, [platformTradesData, sessionFillPoint]);
 
   const psaPopulationMetrics = useMemo(
-    () => resolvePsaPopulationMetrics(comp),
-    [comp],
+    () => resolvePsaPopulationMetrics(comp, gradeChart.activeGrade),
+    [comp, gradeChart.activeGrade],
   );
 
   const totalPopulation = useMemo(() => {
@@ -185,41 +219,50 @@ export function useCollectionDetailMarketData(params: {
     return Math.round(Number(n));
   }, [comp.psaTotalPopulation, psaPopulationMetrics.totalPsaPop]);
 
+  const chartExternalRefTag = gradeChart.chartExternalRefTag;
 
-  const resolvedExternal = useMemo(
-    () =>
-      resolveExternalMarketUsd({
-        marketPreview,
-        gradePrices: marketSeries?.gradePrices ?? null,
-        gradeScore: parseGradeScoreNumber(comp.gradeScore),
-        components: comp,
-      }),
-    [marketPreview, marketSeries?.gradePrices, comp.gradeScore, comp],
-  );
-
-  const chartExternalRefTag =
-    resolvedExternal.source === "cardhedger"
-      ? LIVE_MARKET_LEGEND
-      : `External ${pokeTierLabel}`;
+  const chartProps = {
+    variant: "markets" as const,
+    collectionOverviewMat: true,
+    chartTitle: "",
+    platformUsd: displayPlatformUsd,
+    externalMarketUsd:
+      chartExternalRollingUsd.length >= 2
+        ? null
+        : gradeChart.selectedPriceUsd ?? resolvedExternal.usd,
+    externalWindowDays: chartExternalWindowDays,
+    externalRollingUsd:
+      chartExternalRollingUsd.length > 0 ? chartExternalRollingUsd : null,
+    externalRollingKind: chartExternalRollingKind,
+    externalLegendLabel: chartExternalLegend,
+    externalSeriesShortLabel: chartExternalShort,
+    externalRefLineTag: chartExternalRefTag,
+    emptyStateMessage: `No Cardhedger price history for ${gradeChart.activeGrade} in this window.`,
+    isLoading: platformTradesLoading || gradeChart.gradeChartLoading,
+    errorMessage: null as string | null,
+  };
 
   const marketCapComputation = useMemo(
     () =>
-      hasCollection && collectionComponents
+      hasCollection
         ? computeCollectionMarketCapUsd({
-            components: collectionComponents,
+            components: comp,
             gradeScoreStr: comp.gradeScore,
             marketCard: marketPreview?.card ?? null,
             marketMatchConfidence: marketPreview?.matchConfidence,
             gradePrices: marketSeries?.gradePrices ?? null,
             marketPreview: marketPreview ?? null,
+            chartGradeLabel: gradeChart.activeGrade,
+            referenceUnitUsd: gradeChart.selectedPriceUsd,
           })
         : null,
     [
       hasCollection,
-      collectionComponents,
-      comp.gradeScore,
+      comp,
       marketPreview,
       marketSeries?.gradePrices,
+      gradeChart.activeGrade,
+      gradeChart.selectedPriceUsd,
     ],
   );
 
@@ -247,24 +290,6 @@ export function useCollectionDetailMarketData(params: {
     if (found) setSessionFillPoint(null);
   }, [platformPtsBase, sessionFillPoint, setSessionFillPoint]);
 
-  const chartProps = {
-    variant: "markets" as const,
-    collectionOverviewMat: true,
-    chartTitle: "",
-    platformUsd: displayPlatformUsd,
-    externalMarketUsd:
-      chartExternalRollingUsd.length >= 2 ? null : resolvedExternal.usd,
-    externalWindowDays: chartExternalWindowDays,
-    externalRollingUsd:
-      chartExternalRollingUsd.length > 0 ? chartExternalRollingUsd : null,
-    externalRollingKind: chartExternalRollingKind,
-    externalLegendLabel: chartExternalLegend,
-    externalSeriesShortLabel: chartExternalShort,
-    externalRefLineTag: chartExternalRefTag,
-    isLoading: platformTradesLoading || marketSeriesLoading,
-    errorMessage: null as string | null,
-  };
-
   return {
     marketSeries: marketSeries as CollectionMarketSeries | undefined,
     marketSeriesLoading,
@@ -273,6 +298,13 @@ export function useCollectionDetailMarketData(params: {
     pokeTierLabel,
     displayPlatformUsd,
     resolvedExternal,
+    gradeAwareExternalUsd,
+    gradeAwareChange1MoPct,
+    gradeAwareChangeResult,
+    gradeAwareChangeCoverageHint,
+    gradeAwareTierLabel,
+    gradeAwarePriceLoading,
+    gradeAwareChangeLoading,
     marketCapComputation,
     tradeVolumeUsdc,
     totalPopulation,
@@ -283,5 +315,6 @@ export function useCollectionDetailMarketData(params: {
     externalPriceChangeResult,
     externalPriceChangeCoverageHint,
     chartProps,
+    gradeChart,
   };
 }

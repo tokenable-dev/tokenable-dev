@@ -21,24 +21,31 @@ import {
 import { MarketsListingPriceWithChange } from "@/components/marketplace/marketplace-shared";
 import { MARKETS_GRID_CARD_TITLE_CLASS } from "@/components/markets/CollectionGridCard";
 import { buildMarketsCollectionTitle } from "@/lib/markets/marketsCollectionTitle";
+import { pickCollectionSummaryDisplayImageUrl } from "@/lib/marketplace/collectionDisplayImage";
+import { ASSETS } from "@/constants/assets";
 
 const MAX_TRENDING_VISIBLE = 4;
 const MAX_TRENDING_VISIBLE_MOBILE = 1;
 const TRENDING_POOL = 10;
 const CAROUSEL_AUTO_INTERVAL_MS = 5000;
 
+function LandingCarouselNavChevron({ direction }: { direction: "left" | "right" }) {
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={ASSETS.icons.landingCarouselChevron}
+      alt=""
+      aria-hidden
+      className={`h-6 w-auto max-w-[2.25rem] object-contain object-center sm:h-8 sm:max-w-[3rem] ${
+        direction === "left" ? "-scale-x-100" : ""
+      }`}
+    />
+  );
+}
+
 function marketplaceSummaryHasPsaCertNumber(components: import("@/lib/marketplace/collectionDetailComponents").CollectionComponents | undefined): boolean {
   const n = components?.psaCertNumber;
   return typeof n === "string" && n.trim().length > 0;
-}
-
-function trendingCarouselImageUrl(c: MarketplaceCollectionSummary): string | null {
-  // Representative cover image (no cert label) takes priority
-  const cover = c.coverImageUrl?.trim();
-  if (cover && cover.length > 0) return cover;
-  // Fall back to PSA slab image if no cover is available
-  const slab = typeof c.components.trendingSlabImageUrl === "string" ? c.components.trendingSlabImageUrl.trim() : "";
-  return slab || null;
 }
 
 const CAROUSEL_SLIDE_TRANSITION_MS = 520;
@@ -311,7 +318,7 @@ export function TrendingCollectionsCarousel({
     const changePeriodMeta = referenceChangePeriodFromSnapshotMeta(s);
     const changeWindowShort = formatReferenceChangePeriodFromSnapshotMeta(s);
     const changeCoverageHint = formatReferenceChangeCoverageHint(changePeriodMeta);
-    const displayImageUrl = trendingCarouselImageUrl(c);
+    const displayImageUrl = pickCollectionSummaryDisplayImageUrl(c);
     const marketsTitle = buildMarketsCollectionTitle({ collection: c, comp: c.components });
     const isLandingCard = variant === "landing";
     return (
@@ -459,23 +466,34 @@ export function TrendingCollectionsCarousel({
     resetSwipeGesture();
   };
 
-  /** Black circular control, mint chevrons — same on landing and Markets. */
+  /** Black circular control, mint chevrons — Markets carousel only. */
   const carouselArrowMintEnabled =
     "border border-zinc-700/90 bg-black text-mint shadow-[inset_0_1px_0_rgba(255,255,255,0.07),0_4px_16px_rgba(0,0,0,0.55)] ring-1 ring-black/80 hover:border-mint/45 hover:bg-zinc-950 hover:text-mint active:opacity-85 motion-reduce:hover:border-zinc-700/90 motion-reduce:hover:bg-black";
 
-  const carouselArrowOverlayClasses = (enabled: boolean) =>
-    `absolute top-1/2 z-30 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border text-2xl font-semibold leading-none transition-[transform,colors,box-shadow,opacity,border-color,background-color] motion-reduce:transition-none ${
+  const carouselArrowLandingClasses = (enabled: boolean, overlay: boolean) =>
+    `${overlay ? "absolute top-1/2 z-30 -translate-y-1/2" : "shrink-0"} flex h-11 w-11 items-center justify-center border-0 bg-transparent p-0 shadow-none ring-0 transition-opacity motion-reduce:transition-none ${
       enabled
-        ? carouselArrowMintEnabled
-        : "cursor-not-allowed border-zinc-600/65 bg-zinc-950/80 text-zinc-500 opacity-60 shadow-[inset_0_1px_0_rgba(63,63,70,0.35)] backdrop-blur-sm ring-1 ring-black/25"
+        ? "cursor-pointer opacity-90 hover:opacity-100 active:opacity-75"
+        : "cursor-not-allowed opacity-35"
     }`;
 
+  const carouselArrowOverlayClasses = (enabled: boolean) =>
+    variant === "landing"
+      ? carouselArrowLandingClasses(enabled, true)
+      : `absolute top-1/2 z-30 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border text-2xl font-semibold leading-none transition-[transform,colors,box-shadow,opacity,border-color,background-color] motion-reduce:transition-none ${
+          enabled
+            ? carouselArrowMintEnabled
+            : "cursor-not-allowed border-zinc-600/65 bg-zinc-950/80 text-zinc-500 opacity-60 shadow-[inset_0_1px_0_rgba(63,63,70,0.35)] backdrop-blur-sm ring-1 ring-black/25"
+        }`;
+
   const carouselArrowRailClasses = (enabled: boolean) =>
-    `shrink-0 flex h-11 w-11 items-center justify-center rounded-full border text-2xl font-semibold leading-none transition-[transform,colors,box-shadow,opacity,border-color] motion-reduce:transition-none ${
-      enabled
-        ? carouselArrowMintEnabled
-        : "cursor-not-allowed border-zinc-700/65 bg-zinc-950/50 text-zinc-600 opacity-50 ring-1 ring-black/20"
-    }`;
+    variant === "landing"
+      ? carouselArrowLandingClasses(enabled, false)
+      : `shrink-0 flex h-11 w-11 items-center justify-center rounded-full border text-2xl font-semibold leading-none transition-[transform,colors,box-shadow,opacity,border-color] motion-reduce:transition-none ${
+          enabled
+            ? carouselArrowMintEnabled
+            : "cursor-not-allowed border-zinc-700/65 bg-zinc-950/50 text-zinc-600 opacity-50 ring-1 ring-black/20"
+        }`;
 
   const landingNarrowBleedRail =
     variant === "landing" && narrowTrackSlide
@@ -526,7 +544,11 @@ export function TrendingCollectionsCarousel({
                   (narrowCarousel && trendingCount > 1),
               )}`}
             >
-              ‹
+              {variant === "landing" ? (
+                <LandingCarouselNavChevron direction="left" />
+              ) : (
+                "‹"
+              )}
             </button>
             <button
               type="button"
@@ -543,7 +565,11 @@ export function TrendingCollectionsCarousel({
                   (narrowCarousel && trendingCount > 1),
               )}`}
             >
-              ›
+              {variant === "landing" ? (
+                <LandingCarouselNavChevron direction="right" />
+              ) : (
+                "›"
+              )}
             </button>
           </>
         ) : null}
@@ -590,7 +616,11 @@ export function TrendingCollectionsCarousel({
                   (narrowCarousel && trendingCount > 1),
               )}
             >
-              ‹
+              {variant === "landing" ? (
+                <LandingCarouselNavChevron direction="left" />
+              ) : (
+                "‹"
+              )}
             </button>
             <div
               role="presentation"
@@ -639,7 +669,11 @@ export function TrendingCollectionsCarousel({
                   (narrowCarousel && trendingCount > 1),
               )}
             >
-              ›
+              {variant === "landing" ? (
+                <LandingCarouselNavChevron direction="right" />
+              ) : (
+                "›"
+              )}
             </button>
           </div>
         ) : (

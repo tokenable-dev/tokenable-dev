@@ -59,6 +59,10 @@ export interface CollectionComponents {
   psaGrade10Population?: number;
   /** PSA spec pop report — total graded across all PSA grades for this spec. */
   psaSpecTotalPopulation?: number;
+  /** PSA spec pop report — Grade1…Grade10 counts keyed by numeric string. */
+  psaPopulationByGrade?: Partial<
+    Record<"1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" | "10", number>
+  >;
 
   // ── Cardhedger enrichment ───────────────────────────────────────────────────
   /** Cardhedger card ID resolved at listing/boot time. */
@@ -87,6 +91,9 @@ export type CollectionDetailComponents = CollectionComponents;
  * Runtime behaviour is identical to the previous blind-cast implementation: absent or
  * wrongly-typed fields surface as `undefined`.
  */
+
+import { parsePsaPopulationByGrade } from "@/lib/market/psaPopulationByGrade";
+
 export function parseCollectionComponents(raw: unknown): CollectionComponents {
   if (!raw || typeof raw !== "object") return {};
   const r = raw as Record<string, unknown>;
@@ -170,6 +177,9 @@ export function parseCollectionComponents(raw: unknown): CollectionComponents {
 
   const psaSpecTotalPopulation = num(r.psaSpecTotalPopulation);
   if (psaSpecTotalPopulation !== undefined) out.psaSpecTotalPopulation = psaSpecTotalPopulation;
+
+  const psaPopulationByGrade = parsePsaPopulationByGrade(r.psaPopulationByGrade);
+  if (psaPopulationByGrade !== undefined) out.psaPopulationByGrade = psaPopulationByGrade;
 
   const cardhedgerCardId = strOrNull(r.cardhedgerCardId);
   if (cardhedgerCardId !== undefined) out.cardhedgerCardId = cardhedgerCardId;

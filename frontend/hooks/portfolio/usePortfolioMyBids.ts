@@ -13,6 +13,7 @@ import type {
   PortfolioBidCollectionMeta,
   PortfolioBidRow,
 } from "@/lib/portfolio/portfolioBidTypes";
+import { pickCollectionDetailDisplayImageUrl } from "@/lib/marketplace/collectionDisplayImage";
 
 const PORTFOLIO_USDC_DECIMALS = 1_000_000;
 
@@ -81,10 +82,9 @@ export function usePortfolioMyBids(address: string | undefined) {
               displayLabel:
                 detail?.collection?.displayLabel?.trim() ||
                 key.replace(/^ch:/, "").slice(0, 48),
-              imageUrl:
-                detail?.representativeImageUrl ??
-                detail?.collection?.coverImageUrl ??
-                null,
+              imageUrl: detail
+                ? pickCollectionDetailDisplayImageUrl(detail)
+                : null,
             });
           } catch {
             map.set(key, {

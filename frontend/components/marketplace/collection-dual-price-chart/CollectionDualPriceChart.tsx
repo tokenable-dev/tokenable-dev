@@ -34,6 +34,7 @@ export function CollectionDualPriceChart({
   variant = "default",
   collectionOverviewMat = false,
   embedInMobileTab = false,
+  chartToolbar = null,
 }: CollectionDualPriceChartProps) {
   const marketsLayout = variant === "markets";
   const isMobileChart = useCollectionDetailMobile();
@@ -67,27 +68,37 @@ export function CollectionDualPriceChart({
     compactTab,
   });
 
+  const chartToolbarBarCls =
+    "flex shrink-0 items-center border-b border-[rgba(38,39,45,0.5)] px-2 py-1 sm:px-2.5";
+
   if (isLoading) {
     return (
       <div
         className={
           marketsLayout
-            ? `${marketsChrome} flex min-h-[72px] flex-col items-center justify-center gap-2 px-4 ${
+            ? `${marketsChrome} flex min-h-[72px] flex-col overflow-hidden ${
                 compactTab
                   ? "h-full min-h-0"
                   : "max-lg:min-h-[min(96px,16svh)] max-lg:h-full max-lg:min-h-0 lg:h-full lg:min-h-0"
               }`
-            : `${chartShellDefault} flex min-h-[260px] flex-col items-center justify-center gap-3 px-4`
+            : `${chartShellDefault} flex min-h-[260px] flex-col overflow-hidden`
         }
         role="status"
         aria-live="polite"
         aria-busy="true"
       >
-        <div
-          className="h-8 w-8 animate-spin rounded-full border-2 border-solid border-t-transparent"
-          style={{ borderColor: `${LIVE_MARKET_LINE}40`, borderTopColor: "transparent" }}
-        />
-        <p className="text-center text-xs text-zinc-600">Loading chart…</p>
+        {chartToolbar ? (
+          <div className={chartToolbarBarCls}>
+            {chartToolbar}
+          </div>
+        ) : null}
+        <div className="flex flex-1 flex-col items-center justify-center gap-2 px-4">
+          <div
+            className="h-8 w-8 animate-spin rounded-full border-2 border-solid border-t-transparent"
+            style={{ borderColor: `${LIVE_MARKET_LINE}40`, borderTopColor: "transparent" }}
+          />
+          <p className="text-center text-xs text-zinc-600">Loading chart…</p>
+        </div>
       </div>
     );
   }
@@ -115,16 +126,23 @@ export function CollectionDualPriceChart({
       <div
         className={
           marketsLayout
-            ? `${marketsChrome} flex min-h-[72px] flex-col items-center justify-center px-4 py-4 text-center text-sm text-zinc-600 ${
+            ? `${marketsChrome} flex min-h-[72px] flex-col overflow-hidden ${
                 compactTab
                   ? "h-full min-h-0"
                   : "max-lg:min-h-[min(96px,16svh)] max-lg:h-full max-lg:min-h-0 lg:h-full lg:min-h-0"
               }`
-            : `${chartShellDefault} flex min-h-[110px] flex-col items-center justify-center px-4 py-8 text-center text-sm text-zinc-600`
+            : `${chartShellDefault} flex min-h-[110px] flex-col overflow-hidden`
         }
       >
-        {emptyStateMessage ??
-          "No live market price series yet — external NM history will appear here when available."}
+        {chartToolbar ? (
+          <div className={chartToolbarBarCls}>
+            {chartToolbar}
+          </div>
+        ) : null}
+        <div className="flex flex-1 flex-col items-center justify-center px-4 py-4 text-center text-sm text-zinc-600">
+          {emptyStateMessage ??
+            "No live market price series yet — external NM history will appear here when available."}
+        </div>
       </div>
     );
   }
@@ -139,10 +157,10 @@ export function CollectionDualPriceChart({
           : `${chartShellDefault} text-white`
       }
     >
-      {rangeToolbar || (controls && !useIntegratedRange) ? (
-        <div className="flex shrink-0 items-center border-b border-[rgba(38,39,45,0.5)] px-2 py-1.5 sm:px-3 sm:py-2">
-          <div className="flex min-w-0 flex-1 items-center justify-center overflow-x-auto sm:justify-start">
-            {rangeToolbar ?? controls}
+      {chartToolbar || rangeToolbar || (controls && !useIntegratedRange) ? (
+        <div className={chartToolbarBarCls}>
+          <div className="flex min-w-0 flex-1 items-center justify-end overflow-x-auto">
+            {chartToolbar ?? rangeToolbar ?? controls}
           </div>
         </div>
       ) : null}

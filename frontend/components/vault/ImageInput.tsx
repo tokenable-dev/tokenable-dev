@@ -134,7 +134,7 @@ export function ImageInput({
                   </span>
                 </GradientOutlineFrame>
                 <span className="max-w-sm text-[11px] font-medium leading-relaxed text-gray-500 sm:text-xs">
-                  Upload a front photo of your PSA 10 graded card. *PNG, JPG or WEBP
+                  Upload a front photo of your PSA graded card (PSA 1–10 or AUTH). *PNG, JPG or WEBP
                 </span>
               </span>
             </button>

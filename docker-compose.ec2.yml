@@ -1,9 +1,16 @@
 # EC2 전용 — 레포의 backend/.env.production 에 쓰지 않고 홈의 시크릿 파일 사용
 # ~/.env.production.backend: DATABASE_*, JWT_*, CORS_ORIGIN (comma list: IP + https domain),
 #   FRONTEND_URL, GOOGLE_CALLBACK_URL, GOOGLE_CLIENT_ID/SECRET, COOKIE_SECURE,
-#   REDIS_URL=redis://redis:6379 (identity cache L2; omit → L1-only per pod), etc.
+#   REDIS_URL=redis://redis:6379 (identity cache L2; omit → L1-only per pod),
+#   SITE_ACCESS_ENABLED=true, SITE_ACCESS_PASSWORD=717171,
+#   SITE_ACCESS_SECRET=<random 32+ chars, same value on frontend container>,
+#   SITE_ACCESS_SESSION_SECONDS=3600 (optional), etc.
 # 사용법:
 #   docker compose -f docker-compose.yml -f docker-compose.ec2.yml up -d
+#
+# Frontend gate vars (docker-compose.yml interpolation) — create /home/ubuntu/app/.env :
+#   SITE_ACCESS_ENABLED=true
+#   SITE_ACCESS_SECRET=<same value as in .env.production.backend>
 services:
   backend:
     env_file:

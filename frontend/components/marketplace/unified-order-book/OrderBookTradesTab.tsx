@@ -22,40 +22,10 @@ import {
   formatTapeDate,
   formatTapeTimeFull,
   formatTradesTapePriceUsdc,
-  openExternalSaleListing,
   tapeSideDisplay,
   tapeSourceDisplay,
 } from "@/lib/marketplace/unified-order-book";
-
-function TradesSourceCell({
-  source,
-  className,
-}: {
-  source: ReturnType<typeof tapeSourceDisplay>;
-  className: string;
-}) {
-  if (source.href) {
-    return (
-      <button
-        type="button"
-        className={`min-w-0 max-w-full truncate ${className} ${source.className} cursor-pointer bg-transparent p-0 font-inherit text-inherit leading-inherit tracking-inherit`}
-        title={source.title}
-        onClick={() => openExternalSaleListing(source.href!)}
-      >
-        {source.label}
-      </button>
-    );
-  }
-
-  return (
-    <span
-      className={`min-w-0 max-w-full truncate ${className} ${source.className}`}
-      title={source.title}
-    >
-      {source.label}
-    </span>
-  );
-}
+import { TradeSourceMark } from "./TradeSourceMark";
 
 const TRADES_GRID_LEGACY =
   "grid grid-cols-[minmax(0,1fr)_auto_minmax(0,3.25rem)_minmax(0,2.5rem)_minmax(4.75rem,5.5rem)] gap-x-2";
@@ -171,7 +141,7 @@ export function OrderBookTradesTab({
                       >
                         {side.label}
                       </span>
-                      <TradesSourceCell
+                      <TradeSourceMark
                         source={source}
                         className={orderBookTradesSourceColCls}
                       />
@@ -190,7 +160,7 @@ export function OrderBookTradesTab({
                       >
                         {side.label}
                       </span>
-                      <TradesSourceCell
+                      <TradeSourceMark
                         source={source}
                         className={orderBookTradesSourceColCls}
                       />

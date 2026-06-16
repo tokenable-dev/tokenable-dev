@@ -56,6 +56,10 @@ export const RWA_DETAIL_MOBILE_SLAB_TOP_INSET_CLASS =
 export const RWA_DETAIL_DESKTOP_SIDEBAR_TITLE_CLASS = `${RWA_DETAIL_SLAB_TITLE_MUTED_COLOR_CLASS} min-w-0 whitespace-normal break-words text-[15px] ${RWA_DETAIL_TITLE_WEIGHT_CLASS} leading-[1.2] tracking-normal [overflow-wrap:anywhere] sm:text-[16px]`;
 export const RWA_DETAIL_DESKTOP_SIDEBAR_CERT_CLASS = `${RWA_DETAIL_TITLE_CERT_WEIGHT_CLASS} tabular-nums text-white`;
 
+/** Desktop two-column shell — slab hugs content; tight gap to sidebar. */
+export const RWA_DETAIL_DESKTOP_GRID_CLASS =
+  "lg:mx-auto lg:w-fit lg:max-w-full lg:grid-cols-[auto_minmax(280px,340px)] lg:items-start lg:gap-x-5 xl:gap-x-6";
+
 /**
  * Mobile RWA hero — scales to parent width; height capped with svh + reserved chrome
  * (header, 3-line caption, sticky CTAs, safe-area) so short / notched devices do not clip.
@@ -69,7 +73,7 @@ export const RWA_MOBILE_PAGE_CHANNEL_MAX_LG_CLASS =
 export const RWA_MOBILE_SLAB_MAX_HEIGHT_CLASS =
   "max-h-[min(480px,68svh,calc(100svh-4rem-11.5rem-env(safe-area-inset-bottom,0px)))]";
 /** Image + caption column — hugs rendered slab width (not letterboxed container). */
-export const RWA_MOBILE_SLAB_STACK_CLASS = `mx-auto flex w-fit min-w-0 ${RWA_MOBILE_SLAB_MAX_WIDTH_CLASS} flex-col items-stretch lg:ml-auto lg:mr-0`;
+export const RWA_MOBILE_SLAB_STACK_CLASS = `flex w-fit min-w-0 ${RWA_MOBILE_SLAB_MAX_WIDTH_CLASS} flex-col items-stretch max-lg:mx-auto lg:mx-0`;
 /** Hero image + caption — caption uses full stack width; image stays centered at intrinsic size. */
 export const RWA_MOBILE_SLAB_IMAGE_CAPTION_COLUMN_CLASS =
   "mx-auto flex w-full max-w-full min-w-0 flex-col items-stretch max-lg:shrink-0";

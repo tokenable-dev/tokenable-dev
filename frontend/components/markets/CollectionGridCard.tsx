@@ -14,6 +14,7 @@ import {
 } from "@/lib/market";
 import { parseGradeScoreNumber, representativeGradeUsd } from "@/lib/market";
 import { buildMarketsCollectionTitle } from "@/lib/markets/marketsCollectionTitle";
+import { pickCollectionSummaryDisplayImageUrl } from "@/lib/marketplace/collectionDisplayImage";
 
 const CARD_BADGE_BASE =
   "box-border inline-flex min-h-[20px] shrink-0 items-center justify-center rounded-[4px] border px-1.5 py-0.5 text-[10px] font-semibold leading-none tracking-tight sm:min-h-[22px] sm:rounded-[3px] sm:px-[5px] sm:py-0 sm:text-[10px] md:text-[11px]";
@@ -105,6 +106,7 @@ export function CollectionGridCard({
   const changeCoverageHint = formatReferenceChangeCoverageHint(changePeriodMeta);
   const pop = parsePsaPopulationFromComponents(comp);
   const marketsTitle = buildMarketsCollectionTitle({ collection, comp });
+  const displayImageUrl = pickCollectionSummaryDisplayImageUrl(collection);
 
   return (
     <Link
@@ -116,9 +118,9 @@ export function CollectionGridCard({
           No local background — inherits Link surface so hover applies to the full card. */}
       <div className="shrink-0 px-[15%] pt-[8%] pb-[3%]">
         <div className="aspect-[3/4] w-full overflow-hidden rounded-md">
-          {(resolvedCoverUrl || collection.coverImageUrl) ? (
+          {displayImageUrl ? (
             <CollectionCoverFrame
-              imageUrl={resolvedCoverUrl || collection.coverImageUrl!}
+              imageUrl={resolvedCoverUrl || displayImageUrl}
               variant="flat"
               className="h-full w-full"
             />

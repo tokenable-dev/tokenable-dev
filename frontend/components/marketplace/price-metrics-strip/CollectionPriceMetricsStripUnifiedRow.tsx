@@ -5,6 +5,8 @@ import {
   formatUsdCompact,
   formatPsaPopulationCount,
   formatPsaPopulationPair,
+  formatPsaGradePopPairTitle,
+  formatPsaGradePopTileLabel,
   NO_EXTERNAL_PRICE,
   REFERENCE_CHANGE_UNAVAILABLE_HINT,
   REFERENCE_CHANGE_UNAVAILABLE_LABEL,
@@ -29,12 +31,23 @@ export function CollectionPriceMetricsStripUnifiedRow({
   "compact" | "formatMarketCap" | "tradeVolumeUsdc" | "tradeVolumeLoading" | "psaPopulationMetrics"
 > & { model: Model }) {
   const change1Mo = model.change;
-  const popMetrics = psaPopulationMetrics ?? { psa10Pop: null, totalPsaPop: null };
-  const popPairLabel = formatPsaPopulationPair(popMetrics.psa10Pop, popMetrics.totalPsaPop);
-  const popPairTitle =
-    popMetrics.psa10Pop != null || popMetrics.totalPsaPop != null
-      ? `PSA 10: ${formatPsaPopulationCount(popMetrics.psa10Pop)} · Total: ${formatPsaPopulationCount(popMetrics.totalPsaPop)}`
-      : undefined;
+  const popMetrics = psaPopulationMetrics ?? {
+    gradeLabel: "PSA 10",
+    gradePop: null,
+    totalPsaPop: null,
+    psa10Pop: null,
+  };
+  const popPairLabel = formatPsaPopulationPair(
+    popMetrics.gradePop,
+    popMetrics.totalPsaPop,
+  );
+  const popTileLabel = formatPsaGradePopTileLabel(popMetrics.gradeLabel);
+  const popPairTitle = formatPsaGradePopPairTitle(
+    popMetrics.gradeLabel,
+    popMetrics.gradePop,
+    popMetrics.totalPsaPop,
+    formatPsaPopulationCount,
+  );
   const gridClass =
     "grid w-full max-lg:grid-cols-2 max-lg:gap-x-2 max-lg:gap-y-1 lg:grid-cols-5 lg:gap-x-1 lg:gap-y-0 xl:gap-x-1.5";
 
@@ -140,8 +153,8 @@ export function CollectionPriceMetricsStripUnifiedRow({
         />
         <MetricTile
           variant="panelCell"
-          label="PSA 10 / Pop"
-          labelTitle="PSA 10 / Total Pop"
+          label={popTileLabel}
+          labelTitle={`${popMetrics.gradeLabel} / Total Pop`}
           labelValueLayout="stackedNowrap"
           compact={compact}
           cellClassName="max-lg:col-span-2"

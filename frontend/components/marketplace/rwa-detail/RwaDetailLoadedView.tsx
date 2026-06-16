@@ -9,7 +9,7 @@ import { RwaDetailMobileColumn } from "./layout/RwaDetailMobileColumn";
 import { RwaDetailListModalHost } from "./modals/RwaDetailListModalHost";
 import { RwaDetailPlaceBidModal } from "./modals/RwaDetailPlaceBidModal";
 import { TradeCelebrationModal } from "@/components/marketplace/trade";
-import { RWA_MOBILE_PAGE_CHANNEL_MAX_LG_CLASS } from "./theme";
+import { RWA_DETAIL_DESKTOP_GRID_CLASS, RWA_MOBILE_PAGE_CHANNEL_MAX_LG_CLASS } from "./theme";
 
 export function RwaDetailLoadedView({
   tokenId,
@@ -79,7 +79,7 @@ export function RwaDetailLoadedView({
   return (
     <>
       <div
-        className={`grid grid-cols-1 items-start gap-y-6 max-lg:flex max-lg:min-h-0 max-lg:flex-1 max-lg:flex-col max-lg:gap-y-0 max-lg:self-stretch lg:grid-cols-[minmax(0,1.05fr)_minmax(280px,0.62fr)] lg:items-start lg:gap-x-6 xl:gap-x-8 ${RWA_MOBILE_PAGE_CHANNEL_MAX_LG_CLASS}`}
+        className={`grid grid-cols-1 items-start gap-y-6 max-lg:flex max-lg:min-h-0 max-lg:flex-1 max-lg:flex-col max-lg:gap-y-0 max-lg:self-stretch ${RWA_DETAIL_DESKTOP_GRID_CLASS} ${RWA_MOBILE_PAGE_CHANNEL_MAX_LG_CLASS}`}
       >
         <RwaDetailMobileColumn
           metadata={metadata}

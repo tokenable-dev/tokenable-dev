@@ -52,11 +52,19 @@ export const rq = {
     key: string,
     duration: "7d" | "30d" | "90d" | "180d" | "365d" | "max" = "max",
   ) => ["collection-market-series", key, duration] as const,
+  /** Cardhedger all-grade catalog for collection chart picker. */
+  collectionGradeCatalog: (key: string, live = false) =>
+    ["collection-grade-catalog", key, live] as const,
+  /** Cardhedger price history for a selected grade label. */
+  collectionGradeSeries: (key: string, grade: string, days: number) =>
+    ["collection-grade-series", key, grade, days] as const,
   /** On-chain platform trades for a collection. */
-  collectionPlatformTrades: (key: string, bootstrapTokenId?: number) =>
+  collectionPlatformTrades: (key: string, bootstrapTokenId?: number, grade?: string) =>
     bootstrapTokenId != null
-      ? (["collection-platform-trades", key, bootstrapTokenId] as const)
-      : (["collection-platform-trades", key] as const),
+      ? (["collection-platform-trades", key, bootstrapTokenId, grade ?? ""] as const)
+      : grade != null && grade.length > 0
+        ? (["collection-platform-trades", key, grade] as const)
+        : (["collection-platform-trades", key] as const),
   /** Metadata rows for RWA tokens listed under a collection. */
   collectionListingsMetadata: (key: string, tokenIds: readonly number[]) =>
     [

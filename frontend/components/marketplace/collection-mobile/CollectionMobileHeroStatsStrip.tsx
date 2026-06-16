@@ -3,6 +3,8 @@
 import {
   formatPsaPopulationCompact,
   formatPsaPopulationCount,
+  formatPsaGradePopPairTitle,
+  formatPsaGradePopTileLabel,
 } from "@/lib/market";
 import type { PsaPopulationMetrics } from "@/lib/market/gradedCardMarketCap";
 
@@ -53,33 +55,31 @@ export function CollectionMobileHeroStatsStrip({
   const volReady =
     tradeVolumeUsdc != null && Number.isFinite(tradeVolumeUsdc);
 
-  const psa10Raw = psaPopulationMetrics?.psa10Pop ?? null;
+  const gradeLabel = psaPopulationMetrics?.gradeLabel ?? "PSA 10";
+  const gradePopRaw = psaPopulationMetrics?.gradePop ?? psaPopulationMetrics?.psa10Pop ?? null;
   const psaTotalRaw =
     psaPopulationMetrics?.totalPsaPop ??
     (totalPopulation != null && Number.isFinite(totalPopulation) && totalPopulation > 0
       ? totalPopulation
       : null);
 
-  const psa10Label = formatPsaPopulationCompact(psa10Raw);
+  const gradePopLabel = formatPsaPopulationCompact(gradePopRaw);
   const psaTotalLabel = formatPsaPopulationCompact(psaTotalRaw);
   const psaCombined =
-    psa10Raw != null && psaTotalRaw != null
-      ? `${psa10Label} / ${psaTotalLabel}`
-      : psa10Raw != null
-        ? psa10Label
+    gradePopRaw != null && psaTotalRaw != null
+      ? `${gradePopLabel} / ${psaTotalLabel}`
+      : gradePopRaw != null
+        ? gradePopLabel
         : psaTotalRaw != null
           ? psaTotalLabel
           : "—";
 
-  const psaTitle =
-    psa10Raw != null || psaTotalRaw != null
-      ? [
-          psa10Raw != null ? `PSA 10: ${formatPsaPopulationCount(psa10Raw)}` : null,
-          psaTotalRaw != null ? `Total: ${formatPsaPopulationCount(psaTotalRaw)}` : null,
-        ]
-          .filter(Boolean)
-          .join(" · ")
-      : undefined;
+  const psaTitle = formatPsaGradePopPairTitle(
+    gradeLabel,
+    gradePopRaw,
+    psaTotalRaw,
+    formatPsaPopulationCount,
+  );
 
   return (
     <div className="grid w-full min-w-0 grid-cols-3 gap-x-1 gap-y-0 min-[360px]:gap-x-1.5 sm:gap-x-2">
@@ -96,7 +96,11 @@ export function CollectionMobileHeroStatsStrip({
         value={formatMarketCap(marketCapUsd ?? null)}
         title="Market cap"
       />
-      <HeroStatCell label="PSA 10 / Pop" value={psaCombined} title={psaTitle} />
+      <HeroStatCell
+        label={formatPsaGradePopTileLabel(gradeLabel)}
+        value={psaCombined}
+        title={psaTitle}
+      />
     </div>
   );
 }

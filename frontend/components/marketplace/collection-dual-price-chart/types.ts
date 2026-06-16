@@ -28,4 +28,6 @@ export type CollectionDualPriceChartProps = {
   collectionOverviewMat?: boolean;
   /** Fixed-height mobile tab panel — do not stretch to fill viewport. */
   embedInMobileTab?: boolean;
+  /** Grade selector + period toolbar (collection detail multi-grade chart). */
+  chartToolbar?: ReactNode;
 };

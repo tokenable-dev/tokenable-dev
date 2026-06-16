@@ -44,8 +44,17 @@ export function useCollectionDetailHeadline(params: {
   pokeTierLabel: string;
   displayLabel: string | null | undefined;
   hasCollection: boolean;
+  activeGradeLabel?: string | null;
 }) {
-  const { key, comp, marketPreview, pokeTierLabel, displayLabel, hasCollection } = params;
+  const {
+    key,
+    comp,
+    marketPreview,
+    pokeTierLabel,
+    displayLabel,
+    hasCollection,
+    activeGradeLabel,
+  } = params;
 
   const metadataRows = useMemo(() => [] as { label: string; value: string }[], [key]);
 
@@ -176,10 +185,10 @@ export function useCollectionDetailHeadline(params: {
     return toCardDisplayUppercase(raw);
   }, [headlineSetLine, comp, marketPreview, displayLabel]);
 
-  const headlineGradeBadge = useMemo(
-    () => (pokeTierLabel ? toCardDisplayUppercase(pokeTierLabel) : null),
-    [pokeTierLabel],
-  );
+  const headlineGradeBadge = useMemo(() => {
+    const label = activeGradeLabel?.trim() || pokeTierLabel;
+    return label ? toCardDisplayUppercase(label) : null;
+  }, [activeGradeLabel, pokeTierLabel]);
 
   const collectionPopulationBadge = useMemo(() => {
     const popRaw = comp.psaTotalPopulation;
