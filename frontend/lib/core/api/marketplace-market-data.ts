@@ -11,6 +11,14 @@ export interface CollectionGradePrices {
   raw: number | null;
 }
 
+/** One Cardhedger grade slot (PSA, BGS, SGC, …) for collection chart picker. */
+export interface CollectionGradeCatalogEntry {
+  grade: string;
+  priceUsd: number | null;
+  grader: string | null;
+  displayOrder: number;
+}
+
 /** Full dual-series bundle for collection detail chart */
 export interface CollectionMarketSeries {
   collectionKey: string;
@@ -28,6 +36,11 @@ export interface CollectionMarketSeries {
     | "none"
     | null;
   gradePrices: CollectionGradePrices;
+  /** All graders/grades from Cardhedger catalog (snapshot or live). */
+  allGradePrices?: CollectionGradeCatalogEntry[];
+  /** This collection slab grade label (e.g. PSA 8). */
+  collectionGrade?: string | null;
+  historyTier?: string | null;
   externalUsd: CollectionUsdPoint[];
   platformUsd: CollectionUsdPoint[];
   /**
@@ -65,6 +78,67 @@ export async function getCollectionMarketSeries(
     );
   }
   return res.json() as Promise<CollectionMarketSeries>;
+}
+
+export interface CollectionGradeCatalogResponse {
+  collectionKey: string;
+  cardhedgerCardId: string | null;
+  collectionGrade: string | null;
+  historyTier: string | null;
+  grades: CollectionGradeCatalogEntry[];
+  source: "snapshot" | "live";
+}
+
+export interface CollectionGradePriceSeries {
+  collectionKey: string;
+  grade: string;
+  cardhedgerCardId: string | null;
+  points: CollectionUsdPoint[];
+  days: number;
+}
+
+export async function getCollectionGradeCatalog(
+  collectionKey: string,
+  opts?: { live?: boolean; signal?: AbortSignal },
+): Promise<CollectionGradeCatalogResponse> {
+  const enc = encodeURIComponent(collectionKey);
+  const sp = new URLSearchParams();
+  if (opts?.live) sp.set("live", "1");
+  const qs = sp.toString();
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/collections/${enc}/grade-catalog${qs ? `?${qs}` : ""}`,
+    { signal: opts?.signal },
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(
+      (err as { message?: string }).message ?? "Failed to load grade catalog",
+    );
+  }
+  return res.json() as Promise<CollectionGradeCatalogResponse>;
+}
+
+export async function getCollectionGradePriceSeries(
+  collectionKey: string,
+  grade: string,
+  days = 365,
+  opts?: { signal?: AbortSignal },
+): Promise<CollectionGradePriceSeries> {
+  const enc = encodeURIComponent(collectionKey);
+  const sp = new URLSearchParams();
+  sp.set("grade", grade);
+  sp.set("days", String(days));
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/collections/${enc}/grade-series?${sp.toString()}`,
+    { signal: opts?.signal },
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(
+      (err as { message?: string }).message ?? "Failed to load grade price series",
+    );
+  }
+  return res.json() as Promise<CollectionGradePriceSeries>;
 }
 
 /** Listing-pool statistics for a collection (same contract as GET …/collections/:key/stats). */
@@ -227,19 +301,22 @@ export interface CollectionTradesVolumeStats {
 /** Platform chart points + merged trades tape + volume stats. */
 export async function getCollectionPlatformTrades(
   collectionKey: string,
-  opts?: { bootstrapTokenId?: number },
+  opts?: { bootstrapTokenId?: number; grade?: string },
 ): Promise<{
   platformUsd: CollectionUsdPoint[];
   trades: CollectionPlatformTapeFill[];
   volume: CollectionTradesVolumeStats;
 }> {
   const enc = encodeURIComponent(collectionKey);
-  const bootstrapQs =
-    opts?.bootstrapTokenId != null && Number.isFinite(opts.bootstrapTokenId)
-      ? `?bootstrapTokenId=${Math.floor(opts.bootstrapTokenId)}`
-      : "";
+  const qs = new URLSearchParams();
+  if (opts?.bootstrapTokenId != null && Number.isFinite(opts.bootstrapTokenId)) {
+    qs.set("bootstrapTokenId", String(Math.floor(opts.bootstrapTokenId)));
+  }
+  const grade = opts?.grade?.trim();
+  if (grade) qs.set("grade", grade);
+  const query = qs.toString();
   const res = await backendFetch(
-    `${getApiUrl()}/marketplace/collections/${enc}/platform-trades${bootstrapQs}`,
+    `${getApiUrl()}/marketplace/collections/${enc}/platform-trades${query ? `?${query}` : ""}`,
   );
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));

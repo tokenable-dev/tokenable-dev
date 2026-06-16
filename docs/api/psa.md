@@ -98,8 +98,8 @@ Headless Chromium opens **`https://www.psacard.com/spec/psa/{specId}`** (with an
 
 | Risk | Effect | Mitigation |
 |------|--------|------------|
-| **Collectors sign-in redirect** | Headless browser lands on `app.collectors.com/signin` — no spec image in DOM | Set `PSA_COLLECTORS_SESSION_COOKIE` (logged-in PSA/Collectors session). Or rely on `PSA_SPEC_COVER_ALLOW_FALLBACK=1` (Cardhedger / PSA Public API cert slab). |
-| **Cloudflare / bot detection** | Challenge never clears or endless “Just a moment…” | Residential or cleaner egress: set `PSA_SPEC_SCRAPER_PROXY`; increase `PSA_SPEC_NAV_TIMEOUT_MS`. Optional `PSA_SPEC_RETRY_EMPTY=1`. |
+| **Collectors sign-in redirect** | Headless browser lands on `app.collectors.com/signin` | Run `scripts/psa-collectors-login.ts` once; set `PSA_COLLECTORS_REFRESH_TOKEN` on server. |
+| **Cloudflare / bot detection** | Challenge never clears | Set `PSA_SPEC_SCRAPER_PROXY`; increase `PSA_SPEC_NAV_TIMEOUT_MS`. |
 | **PSA layout / CDN URL shape change** | No `img` matches selector / regex | Logs `no_image`; operational alert on rate; falls back only if `PSA_SPEC_COVER_ALLOW_FALLBACK=1` in `CollectionService` (then Cardhedger / Pokémon TCG / metadata image). |
 | **No image for that spec** | PSA page exists but asset missing | Same as above; persist other pipeline sources. |
 | **Chromium missing in deploy** | Log mentions `Executable doesn't exist` | Run `pnpm run install:browsers` in image (see backend README / Dockerfile). |
@@ -114,12 +114,20 @@ Headless Chromium opens **`https://www.psacard.com/spec/psa/{specId}`** (with an
 | `PSA_SPEC_IMG_TIMEOUT_MS` | Default `45000` — wait for spec `img` / DOM scan after load. |
 | `PSA_SPEC_SCRAPER_PROXY` | Playwright browser proxy `server` URL (e.g. `http://user:pass@host:port`). |
 | `PSA_SPEC_NEGATIVE_CACHE_MS` | How long to cache a **failed** scrape per `specId` (default 1h). |
-| `PSA_SPEC_RETRY_EMPTY` | `1` / `true`: run a **second** full scrape if the first returns no image (hydration / CF races). |
-| `PSA_COLLECTORS_SESSION_COOKIE` | Optional `name=value; …` cookie string from a logged-in PSA browser session (bypasses Collectors sign-in on spec pages). |
+| `PSA_COLLECTORS_COOKIES_FILE` | Playwright JSON cookie export (default `.psa-collectors-cookies.json`). Auto-updated by session refresh. |
+| `PSA_COLLECTORS_REFRESH_TOKEN` | **Server bootstrap (recommended):** one-time refresh JWT from login script. Service auto-renews DSR every 6h. |
+| `PSA_COLLECTORS_AUTH_REFRESH_LEAD_MS` | Refresh when DSR expires within this window (default 48h). |
+| `PSA_COLLECTORS_AUTH_REFRESH_CRON` | Set `0` / `false` to disable background refresh (default on). |
+| `PSA_SPEC_SCRAPER_USER_DATA_DIR` | Persistent Chromium profile (default `.psa-chromium-profile`) — keeps `cf_clearance` between runs. |
+| `PSA_SPEC_SCRAPER_CHANNEL` | Installed browser channel, e.g. `chrome` (recommended on macOS). |
+| `PSA_SPEC_CLOUDFLARE_TIMEOUT_MS` | Max wait for Cloudflare challenge to clear (default 45s). |
 | `PSA_SPEC_AUTH_BLOCKED_CACHE_MS` | Cache TTL after sign-in redirect (default 5m; shorter than generic `PSA_SPEC_NEGATIVE_CACHE_MS`). |
 
-Cover pipeline **`PSA_SPEC_COVER_ALLOW_FALLBACK`** (in `CollectionService`): when the scraper returns null, allow Cardhedger / TCG / IPFS fallbacks instead of stopping at PSA-only.
+**First-time setup (local):** `pnpm exec ts-node scripts/psa-collectors-login.ts` — prints `PSA_COLLECTORS_REFRESH_TOKEN` for server secrets.
 
-**Manual test:** from `backend/`, `pnpm exec ts-node scripts/test-psa-spec-scraper.ts 9656727`.
+**Production (EC2):** add only `PSA_COLLECTORS_REFRESH_TOKEN` to `~/.env.production.backend`. The backend refreshes DSR on boot, every 6h, and before scrapes when near expiry. Cookies file + Chromium profile are written on the server automatically — no manual cookie copy.
+
+Validate session: `pnpm exec ts-node scripts/test-psa-collectors-refresh.ts`  
+Validate scrape: `pnpm exec ts-node scripts/test-psa-spec-scraper.ts 9656727`.
 
 See also: [guides/troubleshooting.md](../guides/troubleshooting.md)

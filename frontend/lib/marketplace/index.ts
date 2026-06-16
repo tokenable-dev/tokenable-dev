@@ -3,7 +3,7 @@ export * from "./marketplaceTradingTypes";
 export * from "./collectionCriteriaBidTypes";
 export * from "./collectionHeadlineCopy";
 export * from "./collectionDetailConstants";
-export * from "./collectionHeroImage";
+export * from "./collectionDisplayImage";
 export * from './marketplaceAdmin';
 export * from './marketplaceQueryPersistence';
 export * from './mediaUriResolve';

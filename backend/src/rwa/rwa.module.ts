@@ -6,5 +6,6 @@ import { RwaService } from './rwa.service';
 @Module({
   controllers: [RwaController],
   providers: [PinataService, RwaService],
+  exports: [PinataService],
 })
 export class RwaModule {}

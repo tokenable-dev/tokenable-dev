@@ -49,7 +49,7 @@ export function CollectionOrderBookVisibilityToggle({
             <span
               className={`${orderBookToggleLabelFont.className} block text-[12px] font-semibold leading-tight tracking-tight text-white`}
             >
-              Order book
+              Offers
             </span>
             <span className="mt-0.5 block text-[10px] leading-snug text-zinc-500">
               {checked ? "Bids & asks — tap a level to trade" : "Show live depth beside the chart"}
@@ -92,7 +92,7 @@ export function CollectionOrderBookVisibilityToggle({
         id="orderbook-visibility-label"
         className={`${orderBookToggleLabelFont.className} text-[15px] font-medium leading-[150%] tracking-normal text-white`}
       >
-        Show Order Book
+        Show Offers
       </span>
       <button
         type="button"

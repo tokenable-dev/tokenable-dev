@@ -9,8 +9,10 @@ export interface MarketplaceCollectionSummary {
   components: CollectionComponents;
   createdAt: string;
   activeListingCount: number;
-  /** Collection representative image (card art/cert source); may be null. */
+  /** Persisted catalog cover (admin-editable). */
   coverImageUrl?: string | null;
+  /** UI image: `coverImageUrl` or slab fallback from components. */
+  displayImageUrl?: string | null;
 }
 
 /** Graded metadata-based collection summaries (cursor pagination). */
@@ -49,7 +51,7 @@ export interface MarketplaceCollectionDetail {
   listings: Order[];
   /** ERC721_WITH_CRITERIA collection bids */
   collectionBids: Order[];
-  /** Collection representative image (not guaranteed). */
+  /** UI display image: catalog cover or slab fallback (same as list `displayImageUrl`). */
   representativeImageUrl: string | null;
 }
 

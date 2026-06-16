@@ -23,6 +23,7 @@ import { PortfolioMarketBatchDto } from '../portfolio/dto/portfolio-market-batch
 import { CollectionMarketService } from './collection-market.service';
 import { CollectionService } from './collection.service';
 import { MintEventListenerService } from './mint-event-listener.service';
+import { pickCollectionDisplayImageUrl } from '../utils/collection-image.util';
 import { BatchMarketSnapshotsDto } from './dto/batch-market-snapshots.dto';
 import { MintPreviewsByTokenIdsDto } from './dto/mint-previews-by-token-ids.dto';
 import { TokenCollectionKeysDto } from './dto/token-collection-keys.dto';
@@ -213,6 +214,48 @@ export class CollectionsController {
     );
   }
 
+  /** Cardhedger 전 등급·전 그레이더 최신가 (차트 grade picker) */
+  @ApiOperation({ summary: '컬렉션 Cardhedger 전 등급 카탈로그' })
+  @ApiParam({ name: 'key', description: 'collection_key', example: SWAGGER_FIXTURES.collectionKey })
+  @ApiQuery({
+    name: 'live',
+    required: false,
+    description: '1/true — prefer live all-prices-by-card over snapshot map',
+  })
+  @Get('collections/:key/grade-catalog')
+  getCollectionGradeCatalog(
+    @Param('key') key: string,
+    @Query('live') live?: string,
+  ) {
+    const preferLive = live === '1' || live === 'true';
+    return this.collectionMarketService.getCollectionGradeCatalog(
+      this.normalizeKey(key),
+      { preferLive },
+    );
+  }
+
+  /** Cardhedger 등급별 가격 시계열 (PSA 10, BGS 9.5, Ungraded, …) */
+  @ApiOperation({ summary: '컬렉션 등급별 Cardhedger 가격 시계열' })
+  @ApiParam({ name: 'key', description: 'collection_key', example: SWAGGER_FIXTURES.collectionKey })
+  @ApiQuery({ name: 'grade', required: true, example: 'PSA 10' })
+  @ApiQuery({ name: 'days', required: false, example: 365 })
+  @Get('collections/:key/grade-series')
+  getCollectionGradePriceSeries(
+    @Param('key') key: string,
+    @Query('grade') grade?: string,
+    @Query('days') days?: string,
+  ) {
+    if (!grade?.trim()) {
+      throw new BadRequestException('grade query parameter is required');
+    }
+    const daysNum = Number(days ?? 365);
+    return this.collectionMarketService.getCollectionGradePriceSeries(
+      this.normalizeKey(key),
+      grade.trim(),
+      Number.isFinite(daysNum) ? daysNum : 365,
+    );
+  }
+
   /** Trades 탭: 플랫폼 체결 + Cardhedger comps (최대 100건) */
   @ApiOperation({ summary: '컬렉션 체결·comps (Trades)' })
   @ApiParam({ name: 'key', description: 'collection_key', example: SWAGGER_FIXTURES.collectionKey })
@@ -222,17 +265,26 @@ export class CollectionsController {
     description:
       'When marketplace_collections row is missing, ensure it from this RWA tokenId before Cardhedger comps (e.g. portfolio → list for sale).',
   })
+  @ApiQuery({
+    name: 'grade',
+    required: false,
+    description:
+      'Cardhedger grade label for comps in the trades tape (e.g. PSA 10, BGS 9.5). Defaults to collection slab tier.',
+  })
   @Get('collections/:key/platform-trades')
   getCollectionPlatformTrades(
     @Param('key') key: string,
     @Query('bootstrapTokenId') bootstrapTokenId?: string,
+    @Query('grade') grade?: string,
   ) {
     const tid = bootstrapTokenId != null ? Number(bootstrapTokenId) : NaN;
+    const gradeLabel = grade?.trim() || undefined;
     return this.collectionMarketService.platformTradesForApi(
       this.normalizeKey(key),
       {
         bootstrapTokenId:
           Number.isFinite(tid) && tid >= 0 ? Math.floor(tid) : undefined,
+        cardhedgerGrade: gradeLabel,
       },
     );
   }
@@ -269,7 +321,7 @@ export class CollectionsController {
     }
 
     const needsFirstCover =
-      col != null && !(col.coverImageUrl?.trim() ?? '');
+      col != null && this.collectionService.coverImageNeedsUpgrade(col.coverImageUrl);
 
     // Single fetch for asks/bids; share the same promises with cover resolution (no duplicate listing queries).
     const listingsPromise =
@@ -305,7 +357,9 @@ export class CollectionsController {
       if (refreshed) col = refreshed;
     }
 
-    const representativeImageUrl = col?.coverImageUrl?.trim() ?? null;
+    const representativeImageUrl = col
+      ? pickCollectionDisplayImageUrl(col.coverImageUrl, col.components)
+      : null;
 
     return {
       collection: col ?? null,

@@ -1,7 +1,7 @@
 "use client";
 
 import type { Address } from "viem";
-import { pickCollectionHeroImageUrl } from "@/lib/marketplace";
+import { pickCollectionDetailDisplayImageUrl } from "@/lib/marketplace";
 import { CollectionAdminCoverPanel } from "@/components/marketplace/collection-hero";
 import { COLLECTION_DETAIL_SHELL_CLASS } from "@/constants/layout";
 import { CollectionOverviewBoard } from "@/components/marketplace/collection-overview";
@@ -58,7 +58,7 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
   } = detail;
 
   const collection = data.collection!;
-  const collectionCoverUrl = pickCollectionHeroImageUrl(data);
+  const collectionCoverUrl = pickCollectionDetailDisplayImageUrl(data);
 
   const {
     marketsPriceMetricsStrip,
@@ -147,11 +147,11 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
           mobileTabbedMarketUi
           mobileCurrentPriceRow={
             <CollectionMobileCurrentPriceRow
-              priceUsd={market.resolvedExternal.usd}
-              loading={market.marketSeriesLoading}
-              changePct={market.externalPriceChange1MoPct}
-              changePeriod={market.externalPriceChangeResult}
-              changeLoading={market.marketSeriesLoading}
+              priceUsd={market.gradeAwareExternalUsd}
+              loading={market.gradeAwarePriceLoading}
+              changePct={market.gradeAwareChange1MoPct}
+              changePeriod={market.gradeAwareChangeResult}
+              changeLoading={market.gradeAwareChangeLoading}
             />
           }
           mobileHeroStatsRow={mobileHeroStatsRow}

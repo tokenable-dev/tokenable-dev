@@ -5,9 +5,11 @@ import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 import { swaggerUiOptions } from './swagger/swagger-ui.setup';
+import { assertSiteAccessConfig, readSiteAccessConfig } from './site-access/site-access.util';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
+  assertSiteAccessConfig(readSiteAccessConfig(process.env));
   const app = await NestFactory.create(AppModule);
   const config = app.get(ConfigService);
 

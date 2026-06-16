@@ -21,6 +21,7 @@ import {
 } from './cardhedger-resolve.service';
 import { CardhedgerPricingService } from './cardhedger-pricing.service';
 import { CardhedgerMintService } from './cardhedger-mint.service';
+import { catalogFromAllPricesRows } from '../utils/cardhedger-grade-catalog.util';
 
 export type {
   AiInsightPsa10PriceConfidence,
@@ -518,7 +519,7 @@ export class CardhedgerMarketDataService {
   /** `POST /v1/cards/comps` raw sales for collection trades tape (cached upstream). */
   getCompsSnapshotForCollection(
     col: MarketplaceCollection | null,
-    options?: { tier?: string; rawCount?: number },
+    options?: { tier?: string; gradeLabel?: string; rawCount?: number },
   ): Promise<MarketCompsSnapshot> {
     return this.pricing.getCompsSnapshotForCollection(col, options);
   }
@@ -529,5 +530,31 @@ export class CardhedgerMarketDataService {
     days: number,
   ): Promise<Array<{ t: number; v: number }>> {
     return this.pricing.fetchTierHistoryByCard(cardId, tier, days);
+  }
+
+  async getGradeCatalogForCardId(
+    cardId: string,
+  ) {
+    const id = String(cardId ?? '').trim();
+    if (!id) return [];
+    const rows = await this.pricing.fetchAllPricesByCard(id);
+    return catalogFromAllPricesRows(
+      rows as unknown as Array<Record<string, unknown>>,
+    );
+  }
+
+  async getGradePriceSeriesByCardId(
+    cardId: string,
+    gradeLabel: string,
+    days: number,
+  ): Promise<Array<{ t: number; v: number }>> {
+    const id = String(cardId ?? '').trim();
+    if (!id) return [];
+    const { pts } = await this.pricing.fetchGradeLabelHistoryAdaptive(
+      id,
+      gradeLabel,
+      days,
+    );
+    return pts;
   }
 }

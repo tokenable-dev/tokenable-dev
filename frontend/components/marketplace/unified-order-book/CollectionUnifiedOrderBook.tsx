@@ -103,7 +103,11 @@ export function CollectionUnifiedOrderBook({
             }`}
             aria-hidden={book.tab !== "trades"}
           >
-            <OrderBookTradesTab tapeFills={tapeFills} tapeLoading={tapeLoading} flush />
+            <OrderBookTradesTab
+              tapeFills={tapeFills}
+              tapeLoading={tapeLoading}
+              flush
+            />
           </div>
         </div>
       ) : mobileEmbed ? (
@@ -126,7 +130,11 @@ export function CollectionUnifiedOrderBook({
             <OrderBookBookTab {...bookTabProps} flush={flush} />
           ) : null}
           {book.tab === "trades" ? (
-            <OrderBookTradesTab tapeFills={tapeFills} tapeLoading={tapeLoading} flush={flush} />
+            <OrderBookTradesTab
+              tapeFills={tapeFills}
+              tapeLoading={tapeLoading}
+              flush={flush}
+            />
           ) : null}
         </>
       )}

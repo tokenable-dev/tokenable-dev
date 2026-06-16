@@ -1,4 +1,10 @@
 import type { CollectionPlatformTapeFill } from "@/lib/core";
+import {
+  brandIdFromPlatformLabel,
+  type TapeSourceBrandId,
+} from "./tapeSourceBrand";
+
+export type { TapeSourceBrandId } from "./tapeSourceBrand";
 
 /** Cardhedger comps are completed marketplace sales — no buy/sell aggressor in upstream data. */
 export function externalTapeSideDisplay(row: CollectionPlatformTapeFill): {
@@ -46,13 +52,15 @@ function normalizeExternalSaleUrl(url: string | null | undefined): string | null
 }
 
 /** Trades tape Source column — marketplace inferred from Cardhedger or on-platform. */
-export function tapeSourceDisplay(row: CollectionPlatformTapeFill): {
+export type TapeSourceDisplay = {
   label: string;
   title?: string;
   className: string;
-  /** Opens sold listing in a popup when Cardhedger provides sale_url. */
   href?: string | null;
-} {
+  brandId?: TapeSourceBrandId | null;
+};
+
+export function tapeSourceDisplay(row: CollectionPlatformTapeFill): TapeSourceDisplay {
   if (row.source === "cardhedger") {
     const lower = row.externalSaleType?.trim().toLowerCase() ?? "";
     if (lower.includes("daily reference") || lower === "reference") {
@@ -82,6 +90,7 @@ export function tapeSourceDisplay(row: CollectionPlatformTapeFill): {
         ? "text-mint/85 hover:text-mint"
         : "text-zinc-300",
       href,
+      brandId: brandIdFromPlatformLabel(platform),
     };
   }
 
@@ -90,6 +99,7 @@ export function tapeSourceDisplay(row: CollectionPlatformTapeFill): {
     title: "On-platform Tokenable trade.",
     className: "text-zinc-300",
     href: null,
+    brandId: "tokenable",
   };
 }
 

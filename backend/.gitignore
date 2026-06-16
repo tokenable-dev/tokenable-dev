@@ -1,4 +1,6 @@
 node_modules
 .env
+.psa-collectors-cookies.json
+.psa-chromium-profile/
 dist
 coverage

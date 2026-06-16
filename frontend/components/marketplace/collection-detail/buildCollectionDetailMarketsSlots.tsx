@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import type { Order } from "@/lib/core";
 import { formatMarketCapUsd } from "@/lib/market";
-import { CollectionDualPriceChart } from "@/components/marketplace/collection-dual-price-chart";
+import { CollectionDetailPriceChart } from "@/components/marketplace/collection-detail/CollectionDetailPriceChart";
 import type { CollectionDualPriceChartProps } from "@/components/marketplace/collection-dual-price-chart";
 import { CollectionPriceMetricsStrip } from "@/components/marketplace/price-metrics-strip";
 import { CollectionUnifiedOrderBook } from "@/components/marketplace/unified-order-book";
@@ -18,6 +18,13 @@ import type { useCollectionDetailMarketData } from "@/hooks/collection-detail";
 type MarketSlice = Pick<
   ReturnType<typeof useCollectionDetailMarketData>,
   | "resolvedExternal"
+  | "gradeAwareExternalUsd"
+  | "gradeAwareTierLabel"
+  | "gradeAwarePriceLoading"
+  | "gradeAwareChange1MoPct"
+  | "gradeAwareChangeResult"
+  | "gradeAwareChangeCoverageHint"
+  | "gradeAwareChangeLoading"
   | "pokeTierLabel"
   | "marketSeriesLoading"
   | "externalPriceChange1MoPct"
@@ -29,6 +36,7 @@ type MarketSlice = Pick<
   | "psaPopulationMetrics"
   | "marketCapComputation"
   | "chartProps"
+  | "gradeChart"
 >;
 
 export function buildCollectionDetailMarketsSlots(input: {
@@ -50,15 +58,15 @@ export function buildCollectionDetailMarketsSlots(input: {
         showFootnotes={false}
         compact
         marketsUnifiedRow
-        externalMarketUsd={market.resolvedExternal.usd}
+        externalMarketUsd={market.gradeAwareExternalUsd}
         externalPriceSource={market.resolvedExternal.source}
-        marketTierDisplay={market.pokeTierLabel}
+        marketTierDisplay={market.gradeAwareTierLabel}
         externalMarketMatchConfidence={market.resolvedExternal.marketMatchConfidence}
-        externalPriceLoading={market.marketSeriesLoading}
-        externalPriceChange1MoPct={market.externalPriceChange1MoPct}
-        externalPriceChangePeriod={market.externalPriceChangeResult}
-        externalPriceChangeBasisText={market.externalPriceChangeCoverageHint}
-        externalPriceChange1MoLoading={market.marketSeriesLoading}
+        externalPriceLoading={market.gradeAwarePriceLoading}
+        externalPriceChange1MoPct={market.gradeAwareChange1MoPct}
+        externalPriceChangePeriod={market.gradeAwareChangeResult}
+        externalPriceChangeBasisText={market.gradeAwareChangeCoverageHint}
+        externalPriceChange1MoLoading={market.gradeAwareChangeLoading}
         tradeVolumeUsdc={market.tradeVolumeUsdc}
         tradeVolumeLoading={market.platformTradesLoading}
         psaPopulationMetrics={market.psaPopulationMetrics}
@@ -68,8 +76,16 @@ export function buildCollectionDetailMarketsSlots(input: {
         formatMarketCap={formatMarketCapUsd}
       />
     ),
-    collectionDualPriceChart: <CollectionDualPriceChart {...chartProps} />,
-    collectionDualPriceChartTab: <CollectionDualPriceChart {...chartProps} embedInMobileTab />,
+    collectionDualPriceChart: (
+      <CollectionDetailPriceChart chartProps={chartProps} gradeChart={market.gradeChart} />
+    ),
+    collectionDualPriceChartTab: (
+      <CollectionDetailPriceChart
+        chartProps={chartProps}
+        gradeChart={market.gradeChart}
+        embedInMobileTab
+      />
+    ),
     collectionOrderBook: (
       <CollectionUnifiedOrderBook {...collectionOrderBookProps} defaultTab="trades" />
     ),

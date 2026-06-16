@@ -38,6 +38,7 @@ import { useAppStore, selectUsdcBalance } from "@/store";
 import { useShallow } from "zustand/react/shallow";
 import { buildMarketsCollectionTitle } from "@/lib/markets/marketsCollectionTitle";
 import { toCardDisplayUppercase } from "@/lib/marketplace/collectionFullDetailsTitle";
+import { pickCollectionSummaryDisplayImageUrl } from "@/lib/marketplace/collectionDisplayImage";
 
 /** Hex bucket keys are ~64 chars; short queries (esp. single digits 0–9) match almost every key and melt React. */
 const MIN_QUERY_LEN_FOR_KEY_MATCH = 4;
@@ -153,7 +154,9 @@ function SearchResultsList({
           Showing first {SEARCH_MAX_RESULTS} matches — type more to narrow.
         </li>
       ) : null}
-      {filtered.map((c, i) => (
+      {filtered.map((c, i) => {
+        const displayImageUrl = pickCollectionSummaryDisplayImageUrl(c);
+        return (
         <li
           key={c.collectionKey}
           role="option"
@@ -171,10 +174,10 @@ function SearchResultsList({
           <div
             className={`${thumbSize} shrink-0 overflow-hidden rounded-lg border border-gray-700/50 bg-gray-800 flex items-center justify-center`}
           >
-            {c.coverImageUrl ? (
+            {displayImageUrl ? (
               /* eslint-disable-next-line @next/next/no-img-element */
               <img
-                src={coverUrlMap.get(c.coverImageUrl.trim()) ?? c.coverImageUrl.trim()}
+                src={coverUrlMap.get(displayImageUrl) ?? displayImageUrl}
                 alt=""
                 className="h-full w-full object-cover"
                 loading="lazy"
@@ -212,7 +215,8 @@ function SearchResultsList({
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8.25 4.5l7.5 7.5-7.5 7.5" />
           </svg>
         </li>
-      ))}
+      );
+      })}
     </ul>
   );
 }
@@ -357,7 +361,7 @@ function SearchBar({ compact = false }: { compact?: boolean }) {
   const showMobileResults = mobileSheetOpen && query.trim().length > 0;
 
   const coverSources = useMemo(
-    () => filtered.map((c) => c.coverImageUrl),
+    () => filtered.map((c) => pickCollectionSummaryDisplayImageUrl(c)),
     [filtered],
   );
   const { map: coverUrlMap } = useResolvedMediaUrlMap(coverSources, {
@@ -770,6 +774,9 @@ function WalletDropdown() {
 
 export function AppHeader() {
   const pathname = usePathname();
+  if (pathname === "/site-access" || pathname.startsWith("/site-access/")) {
+    return null;
+  }
   const isCollectionDetailHeader = isMarketplaceCollectionDetailPath(pathname);
   const headerShellClass = isCollectionDetailHeader
     ? COLLECTION_DETAIL_SHELL_CLASS

@@ -17,7 +17,11 @@ import {
   buildCollectionDisplayLabel,
   extractCollectionQueryUsed,
 } from '../utils/collection-label.util';
-import { pickTrendingSlabImageRef, psaCertNumberFromGradedMeta } from '../utils/collection-image.util';
+import {
+  pickCollectionDisplayImageUrl,
+  pickTrendingSlabImageRef,
+  psaCertNumberFromGradedMeta,
+} from '../utils/collection-image.util';
 import { enrichCollectionComponentsForApi } from '../utils/collection-row.util';
 import { CollectionMarketSnapshot } from '../entities/collection-market-snapshot.entity';
 import { Order, OrderSide, OrderStatus } from '../entities/order.entity';
@@ -42,8 +46,10 @@ export interface CollectionSummary {
   components: Record<string, unknown>;
   createdAt: Date;
   activeListingCount: number;
-  /** IPFS 메타에서 추출한 대표 커버 URL */
+  /** Persisted catalog cover (may be null while slab fallback is used for display). */
   coverImageUrl: string | null;
+  /** Resolved UI image: `coverImageUrl` or `components.trendingSlabImageUrl`. */
+  displayImageUrl: string | null;
 }
 
 /**
@@ -147,7 +153,7 @@ export class CollectionService {
       );
     }
     const ch = cardhedgerFromRwaMetadata(meta);
-    const coverImageUrl = this.cover.quickCoverUrlForListing(meta);
+    const coverImageUrl: string | null = null;
 
     const compRecord: Record<string, unknown> = {
       ...(components as unknown as Record<string, unknown>),
@@ -386,18 +392,26 @@ export class CollectionService {
       countMap.set(String(r.key).toLowerCase(), Number(r.cnt));
     }
 
-    const items: CollectionSummary[] = page.map((c) => ({
-      collectionKey: c.collectionKey,
-      displayLabel: c.displayLabel,
-      queryUsed: c.queryUsed,
-      components: enrichCollectionComponentsForApi(
+    const items: CollectionSummary[] = page.map((c) => {
+      const components = enrichCollectionComponentsForApi(
         c.components,
         c.psaCertNumber,
-      ),
-      createdAt: c.createdAt,
-      activeListingCount: countMap.get(c.collectionKey.toLowerCase()) ?? 0,
-      coverImageUrl: c.coverImageUrl ?? null,
-    }));
+      );
+      const coverImageUrl = c.coverImageUrl ?? null;
+      return {
+        collectionKey: c.collectionKey,
+        displayLabel: c.displayLabel,
+        queryUsed: c.queryUsed,
+        components,
+        createdAt: c.createdAt,
+        activeListingCount: countMap.get(c.collectionKey.toLowerCase()) ?? 0,
+        coverImageUrl,
+        displayImageUrl: pickCollectionDisplayImageUrl(
+          coverImageUrl,
+          components,
+        ),
+      };
+    });
 
     return { items, nextCursor };
   }

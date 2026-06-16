@@ -6,7 +6,7 @@ export type CollectionMobileMarketTabId = "information" | "chart" | "orderbook";
 const TABS: { id: CollectionMobileMarketTabId; label: string }[] = [
   { id: "information", label: "Info" },
   { id: "chart", label: "Chart" },
-  { id: "orderbook", label: "Order book" },
+  { id: "orderbook", label: "Offers" },
 ];
 
 export function CollectionMobileMarketTabs({

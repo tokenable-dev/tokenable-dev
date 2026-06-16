@@ -9,6 +9,11 @@ import {
   normalizePsaSpecId,
   PsaPublicApiService,
 } from '../../psa/psa-public-api.service';
+import {
+  hasCompletePsaPopulationByGrade,
+  PSA_GRADE_KEYS,
+  psaPopulationByGradeRecord,
+} from '../../psa/psa-spec-population.util';
 import { mergePsaVarietyWithMintVariant } from '../../psa/psa-variety-catalog.util';
 import { extractBucketComponentsFromMetadata } from '../utils/bucket-key.util';
 import { marketParallelKeyFromPsaVariety } from '../utils/market-parallel-key.util';
@@ -195,7 +200,7 @@ export class CollectionComponentsService {
     }
   }
   /**
-   * Fetches PSA spec pop report (Grade10 + Total) when missing from components.
+   * Fetches PSA spec pop report (Grade1–10 + Total) when missing from components.
    * Uses PSA Public API `/pop/GetPSASpecPopulation/{specID}`.
    */
   async ensurePsaSpecPopulationFromApi(
@@ -207,13 +212,14 @@ export class CollectionComponentsService {
     });
     if (!row) return;
     const comp = row.components;
-    const hasGrade10 =
-      typeof comp.psaGrade10Population === 'number' &&
-      comp.psaGrade10Population > 0;
+    const hasFullByGrade = hasCompletePsaPopulationByGrade(
+      comp as Record<string, unknown>,
+    );
     const hasTotal =
       typeof comp.psaSpecTotalPopulation === 'number' &&
-      comp.psaSpecTotalPopulation > 0;
-    if (hasGrade10 && hasTotal) return;
+      Number.isFinite(comp.psaSpecTotalPopulation) &&
+      comp.psaSpecTotalPopulation >= 0;
+    if (hasFullByGrade && hasTotal) return;
 
     let specId = psaSpecIdFromComponentsRow(comp);
     if (!specId) {
@@ -254,25 +260,41 @@ export class CollectionComponentsService {
       return;
     }
 
-    const { grade10, total } = lookup.pop;
+    const { grade10, total, byGrade } = lookup.pop;
     const next: Record<string, unknown> = { ...comp };
     let dirty = false;
 
-    if (
-      grade10 != null &&
-      grade10 > 0 &&
-      !hasGrade10
-    ) {
-      next.psaGrade10Population = grade10;
-      dirty = true;
+    const byGradeRecord = psaPopulationByGradeRecord(byGrade);
+    if (byGradeRecord) {
+      const prev = comp.psaPopulationByGrade;
+      const changed =
+        !prev ||
+        typeof prev !== 'object' ||
+        PSA_GRADE_KEYS.some(
+          (key) =>
+            (prev as Record<string, unknown>)[key] !== byGradeRecord[key],
+        );
+      if (changed) {
+        next.psaPopulationByGrade = byGradeRecord;
+        dirty = true;
+      }
+    } else {
+      this.logger.debug(
+        `PSA spec pop incomplete grade breakdown collection=${k} specId=${lookup.specId}`,
+      );
     }
-    if (
-      total != null &&
-      total > 0 &&
-      !hasTotal
-    ) {
-      next.psaSpecTotalPopulation = total;
-      dirty = true;
+
+    if (grade10 != null && grade10 >= 0) {
+      if (comp.psaGrade10Population !== grade10) {
+        next.psaGrade10Population = grade10;
+        dirty = true;
+      }
+    }
+    if (total != null && total >= 0) {
+      if (comp.psaSpecTotalPopulation !== total) {
+        next.psaSpecTotalPopulation = total;
+        dirty = true;
+      }
     }
     if (
       grade10 != null &&

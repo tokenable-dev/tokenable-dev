@@ -123,6 +123,23 @@ export function pickTrendingSlabImageRef(
   return extractCollectionRepresentativeImage(meta);
 }
 
+/**
+ * UI display URL for collection cards (list, carousel, detail hero).
+ * `coverImageUrl` is the persisted catalog cover; when empty, fall back to mint-time slab ref.
+ */
+export function pickCollectionDisplayImageUrl(
+  coverImageUrl: string | null | undefined,
+  components: Record<string, unknown> | null | undefined,
+): string | null {
+  const cover = coverImageUrl?.trim();
+  if (cover) return cover;
+  const slab =
+    typeof components?.trendingSlabImageUrl === 'string'
+      ? components.trendingSlabImageUrl.trim()
+      : '';
+  return slab || null;
+}
+
 /** 메타 `graded.psa.certNumber` — Trending 풀 정렬·필터용 */
 export function psaCertNumberFromGradedMeta(
   meta: Record<string, unknown>,

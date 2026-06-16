@@ -86,6 +86,7 @@ export function useCollectionDetailPage() {
     pokeTierLabel: market.pokeTierLabel,
     displayLabel: data?.collection?.displayLabel,
     hasCollection,
+    activeGradeLabel: market.gradeAwareTierLabel,
   });
 
   const asks = useMemo(

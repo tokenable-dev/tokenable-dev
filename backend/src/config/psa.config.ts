@@ -21,14 +21,38 @@ export default registerAs('psa', () => ({
     3_600_000,
   ),
   specScraperProxy: process.env.PSA_SPEC_SCRAPER_PROXY?.trim() || '',
-  specRetryEmpty: flag(process.env.PSA_SPEC_RETRY_EMPTY),
   specCoverAllowFallback: flag(process.env.PSA_SPEC_COVER_ALLOW_FALLBACK),
-  /**
-   * Optional Collectors/PSA session cookie string for authenticated spec-page scrapes.
-   * Export from a logged-in browser session (Application → Cookies → psacard.com).
-   * Format: `name1=value1; name2=value2`
-   */
-  collectorsSessionCookie: process.env.PSA_COLLECTORS_SESSION_COOKIE?.trim() || '',
+  specCloudflareTimeoutMs: clampInt(
+    process.env.PSA_SPEC_CLOUDFLARE_TIMEOUT_MS,
+    45_000,
+    10_000,
+    120_000,
+  ),
+  /** Persistent Chromium profile — survives cf_clearance between runs. */
+  specScraperUserDataDir:
+    process.env.PSA_SPEC_SCRAPER_USER_DATA_DIR?.trim() ||
+    '.psa-chromium-profile',
+  /** Installed Chrome channel (`chrome`, `msedge`). Empty → bundled Chromium. */
+  specScraperChannel: process.env.PSA_SPEC_SCRAPER_CHANNEL?.trim() || '',
+  collectorsCookiesFile:
+    process.env.PSA_COLLECTORS_COOKIES_FILE?.trim() ||
+    '.psa-collectors-cookies.json',
+  /** One-time bootstrap — service auto-refreshes and updates cookies file. */
+  collectorsRefreshToken:
+    process.env.PSA_COLLECTORS_REFRESH_TOKEN?.trim() || '',
+  /** Refresh DSR when expiry is within this window (default 48h). */
+  collectorsAuthRefreshLeadMs: clampInt(
+    process.env.PSA_COLLECTORS_AUTH_REFRESH_LEAD_MS,
+    172_800_000,
+    3_600_000,
+    30 * 86_400_000,
+  ),
+  /** Background OAuth refresh every 6h (set `0` / `false` to disable). */
+  collectorsAuthRefreshCron:
+    process.env.PSA_COLLECTORS_AUTH_REFRESH_CRON !== '0' &&
+    process.env.PSA_COLLECTORS_AUTH_REFRESH_CRON !== 'false',
+  /** Match the browser that issued `cf_clearance` when possible. */
+  specScraperUserAgent: process.env.PSA_SPEC_SCRAPER_USER_AGENT?.trim() || '',
 }));
 
 function clampInt(

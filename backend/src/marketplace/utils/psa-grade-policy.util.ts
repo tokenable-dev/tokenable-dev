@@ -1,7 +1,6 @@
 /**
  * Platform PSA grade policy:
- * - PSA 10 (numeric) — standard mint + Cardhedger PSA_10 pricing
- * - PSA 1–9 — rejected
+ * - PSA 1–10 (numeric) — mint allowed; Cardhedger tier PSA_1 … PSA_10
  * - PSA qualifier slabs (AUTH / AUTHENTIC / …, no numeric grade) — mint allowed + PSA_AUTH pricing
  */
 
@@ -71,21 +70,25 @@ export function classifyPsaGradePolicy(
 
 export function isMintEligiblePsaGrade(input: PsaGradePolicyInput): boolean {
   const c = classifyPsaGradePolicy(input);
-  return c === 'psa_10' || c === 'psa_qualifier';
+  return c === 'psa_10' || c === 'psa_sub10' || c === 'psa_qualifier';
 }
 
 export function mintRejectionMessage(input: PsaGradePolicyInput): string | null {
-  const c = classifyPsaGradePolicy(input);
-  if (c === 'psa_10' || c === 'psa_qualifier') return null;
-  if (c === 'psa_sub10') {
-    const score = parseFiniteGradeScore(input.gradeScore);
-    return `PSA 10 또는 PSA 인증(등급 없음) 슬랩만 mint 가능합니다. 현재 등급: ${score ?? 'unknown'}`;
-  }
+  if (isMintEligiblePsaGrade(input)) return null;
   const label =
-    psaQualifierText(input) ||
+    [input.gradeLabel, input.gradeDescription]
+      .map((s) => String(s ?? '').trim())
+      .filter(Boolean)
+      .join(' ') ||
     String(input.gradeScore ?? '').trim() ||
     'unknown';
-  return `PSA 10 또는 PSA 인증(등급 없음) 슬랩만 mint 가능합니다. 현재 등급: ${label}`;
+  return `PSA 1–10 또는 PSA 인증(등급 없음) 슬랩만 mint 가능합니다. 현재 등급: ${label}`;
+}
+
+function numericPsaHistoryTier(score: number): string | null {
+  const floor = Math.floor(score);
+  if (floor >= 1 && floor <= 10) return `PSA_${floor}`;
+  return null;
 }
 
 export function marketHistoryTierFromPsaGradeInput(
@@ -99,8 +102,12 @@ export function marketHistoryTierFromPsaGradeInput(
     return 'PSA_AUTH';
   }
   const c = classifyPsaGradePolicy(input);
-  if (c === 'psa_10') return 'PSA_10';
   if (c === 'psa_qualifier') return 'PSA_AUTH';
+  const score = parseFiniteGradeScore(input.gradeScore);
+  if (score != null) {
+    const tier = numericPsaHistoryTier(score);
+    if (tier) return tier;
+  }
   return 'PSA_10';
 }
 
@@ -113,14 +120,17 @@ export function cardhedgerGradeFromHistoryTier(tier: string): string {
   return t.replace(/_/g, ' ');
 }
 
-/** Bucket hash grade key — `"10"` or `"auth"` for qualifier slabs. */
+/** Bucket hash grade key — `"1"`…`"10"` or `"auth"` for qualifier slabs. */
 export function bucketGradeScoreFromPsaGradeInput(
   input: PsaGradePolicyInput,
 ): string | null {
   const c = classifyPsaGradePolicy(input);
-  if (c === 'psa_10') {
+  if (c === 'psa_10' || c === 'psa_sub10') {
     const score = parseFiniteGradeScore(input.gradeScore);
-    return score != null ? String(Math.round(score)) : '10';
+    if (score == null) return c === 'psa_10' ? '10' : null;
+    const floor = Math.floor(score);
+    if (floor >= 1 && floor <= 10) return String(floor);
+    return null;
   }
   if (c === 'psa_qualifier') return 'auth';
   return null;

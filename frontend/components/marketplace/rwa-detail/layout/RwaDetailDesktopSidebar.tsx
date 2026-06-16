@@ -91,7 +91,7 @@ export function RwaDetailDesktopSidebar({
 
   return (
     <div
-      className={`hidden w-full min-w-0 flex-col gap-5 lg:sticky lg:top-6 lg:col-start-2 lg:flex lg:max-w-[400px] lg:justify-self-start lg:self-start ${RWA_DETAIL_DESKTOP_SIDEBAR_TOP_INSET_CLASS}`}
+      className={`hidden w-full min-w-0 flex-col gap-5 lg:sticky lg:top-6 lg:col-start-2 lg:flex lg:w-full lg:max-w-[340px] lg:self-start ${RWA_DETAIL_DESKTOP_SIDEBAR_TOP_INSET_CLASS}`}
     >
       <div className="hidden min-w-0 space-y-2.5 lg:block">
         {detailTitlePulse ? (

@@ -26,4 +26,7 @@ export {
   tapeSideDisplay,
   tapeSourceDisplay,
 } from "./tapeSideDisplay";
+export type { TapeSourceDisplay } from "./tapeSideDisplay";
+export { brandIdFromPlatformLabel } from "./tapeSourceBrand";
+export type { TapeSourceBrandId } from "./tapeSourceBrand";
 export type { BookCenterModel, BookCenterTone, OrderBookTab, OrderBookDepthLevel } from "./types";

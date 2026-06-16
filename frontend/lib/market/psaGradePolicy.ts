@@ -61,7 +61,13 @@ export function classifyPsaGradePolicy(
 
 export function isMintEligiblePsaGrade(input: PsaGradePolicyInput): boolean {
   const c = classifyPsaGradePolicy(input);
-  return c === "psa_10" || c === "psa_qualifier";
+  return c === "psa_10" || c === "psa_sub10" || c === "psa_qualifier";
+}
+
+function numericPsaHistoryTier(score: number): string | null {
+  const floor = Math.floor(score);
+  if (floor >= 1 && floor <= 10) return `PSA_${floor}`;
+  return null;
 }
 
 export function marketHistoryTierFromPsaGradeInput(
@@ -75,8 +81,12 @@ export function marketHistoryTierFromPsaGradeInput(
     return "PSA_AUTH";
   }
   const c = classifyPsaGradePolicy(input);
-  if (c === "psa_10") return "PSA_10";
   if (c === "psa_qualifier") return "PSA_AUTH";
+  const score = parseFiniteGradeScore(input.gradeScore);
+  if (score != null) {
+    const tier = numericPsaHistoryTier(score);
+    if (tier) return tier;
+  }
   return "PSA_10";
 }
 
@@ -102,9 +112,12 @@ export function bucketGradeScoreFromPsaGradeInput(
   input: PsaGradePolicyInput,
 ): string | null {
   const c = classifyPsaGradePolicy(input);
-  if (c === "psa_10") {
+  if (c === "psa_10" || c === "psa_sub10") {
     const score = parseFiniteGradeScore(input.gradeScore);
-    return score != null ? String(Math.round(score)) : "10";
+    if (score == null) return c === "psa_10" ? "10" : null;
+    const floor = Math.floor(score);
+    if (floor >= 1 && floor <= 10) return String(floor);
+    return null;
   }
   if (c === "psa_qualifier") return "auth";
   return null;

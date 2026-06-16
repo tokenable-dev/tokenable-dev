@@ -22,6 +22,7 @@ import {
 import { CollectionGridCard } from "./CollectionGridCard";
 import { MarketsSortToolbar } from "./MarketsSortToolbar";
 import { TOP_CARDS_UI_ENABLED } from "@/lib/markets/top100Copy";
+import { pickCollectionSummaryDisplayImageUrl } from "@/lib/marketplace/collectionDisplayImage";
 import { CardTop100Section } from "./CardTop100Section";
 
 export default function MarketsPage() {
@@ -51,7 +52,7 @@ export default function MarketsPage() {
   );
 
   const coverRawUrls = useMemo(
-    () => collectionSummaries.map((c) => c.coverImageUrl),
+    () => collectionSummaries.map((c) => pickCollectionSummaryDisplayImageUrl(c)),
     [collectionSummaries],
   );
   const { map: resolvedCoverMap } = useResolvedMediaUrlMap(coverRawUrls, {
@@ -229,16 +230,21 @@ export default function MarketsPage() {
         ) : (
           <>
           <div className="grid grid-cols-2 gap-2.5 pt-1 min-[400px]:gap-3 sm:grid-cols-3 sm:gap-6 lg:grid-cols-4">
-            {filteredSorted.map((c) => (
+            {filteredSorted.map((c) => {
+              const displayImageUrl = pickCollectionSummaryDisplayImageUrl(c);
+              return (
               <CollectionGridCard
                 key={c.collectionKey}
                 collection={c}
                 snapshot={snapshotByKey.get(collectionKeyLower(c))}
-                resolvedCoverUrl={c.coverImageUrl ? resolvedCoverMap.get(c.coverImageUrl) : undefined}
+                resolvedCoverUrl={
+                  displayImageUrl ? resolvedCoverMap.get(displayImageUrl) : undefined
+                }
                 listingCount={c.activeListingCount}
                 marketChangeLoading={showMarketSnapshotLoadingBar}
               />
-            ))}
+            );
+            })}
             {hasNextPage ? (
               <div className="col-span-full flex justify-center pt-2">
                 <button

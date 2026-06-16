@@ -339,17 +339,29 @@ export class CardhedgerPricingService {
     tier: string,
     days: number,
   ): Promise<Array<{ t: number; v: number }>> {
-    const id = String(cardId ?? '').trim();
-    if (!id) return [];
     const tierUpper = String(tier ?? '')
       .trim()
       .toUpperCase();
     const grade = cardhedgerGradeFromHistoryTier(tierUpper);
+    return this.fetchPricesByCardGradeOnce(cardId, grade, days);
+  }
+
+  /**
+   * Cardhedger `prices-by-card` for an explicit grade label (PSA 10, BGS 9.5, Ungraded, …).
+   */
+  async fetchPricesByCardGradeOnce(
+    cardId: string,
+    gradeLabel: string,
+    days: number,
+  ): Promise<Array<{ t: number; v: number }>> {
+    const id = String(cardId ?? '').trim();
+    const grade = String(gradeLabel ?? '').trim();
+    if (!id || !grade) return [];
     const d = Math.min(
       CARDHEDGER_PRICES_BY_CARD_MAX_DAYS,
       Math.max(1, Math.floor(days)),
     );
-    const cacheKey = `${id}:${grade}:${d}`;
+    const cacheKey = `${id}:${grade.toLowerCase()}:grade:${d}`;
     const cached = this.ttlCache.get<{ pts: Array<{ t: number; v: number }> }>(
       CardhedgerPricingService.NS_TIER_HISTORY,
       cacheKey,
@@ -374,10 +386,31 @@ export class CardhedgerPricingService {
       );
       return pts;
     } catch {
-      // Do not cache upstream failures — return empty and allow the next
-      // request to retry the live API.
       return [];
     }
+  }
+
+  /** Adaptive window backoff for any Cardhedger grade label (multi-grader charts). */
+  async fetchGradeLabelHistoryAdaptive(
+    cardId: string,
+    gradeLabel: string,
+    desiredDays: number,
+  ): Promise<{
+    pts: Array<{ t: number; v: number }>;
+    upstreamRequests: number;
+  }> {
+    const capRequested = Math.min(4000, Math.max(1, Math.floor(desiredDays)));
+    const widest = Math.min(CARDHEDGER_PRICES_BY_CARD_MAX_DAYS, capRequested);
+    const tiersDesc = [
+      ...new Set([widest, 180, 90, 30, 14, 7].filter((x) => x <= widest)),
+    ].sort((a, b) => b - a);
+    let upstreamRequests = 0;
+    for (const d of tiersDesc) {
+      upstreamRequests += 1;
+      const pts = await this.fetchPricesByCardGradeOnce(cardId, gradeLabel, d);
+      if (pts.length >= 2) return { pts, upstreamRequests };
+    }
+    return { pts: [], upstreamRequests };
   }
 
   /** Rightmost point after upstream sorts by time (latest observation in the series). */
@@ -771,7 +804,7 @@ export class CardhedgerPricingService {
   /** Cardhedger `POST /v1/cards/comps` for a collection row (resolve + up to 100 raw sales). */
   async getCompsSnapshotForCollection(
     col: MarketplaceCollection | null,
-    options?: { tier?: string; rawCount?: number },
+    options?: { tier?: string; gradeLabel?: string; rawCount?: number },
   ): Promise<MarketCompsSnapshot> {
     const requestCount = Math.min(
       100,
@@ -780,9 +813,10 @@ export class CardhedgerPricingService {
         Math.floor(options?.rawCount ?? CARDHEDGER_COMPS_HISTORY_RAW_COUNT),
       ),
     );
+    const gradeLabel = String(options?.gradeLabel ?? '').trim();
     const tier =
       String(options?.tier ?? 'PSA_10').trim().toUpperCase() || 'PSA_10';
-    const grade = cardhedgerGradeFromHistoryTier(tier);
+    const grade = gradeLabel || cardhedgerGradeFromHistoryTier(tier);
 
     if (!col) {
       return this.emptyMarketCompsSnapshot({
@@ -1325,7 +1359,7 @@ export class CardhedgerPricingService {
         : null;
     const previewMessage =
       compsNoSales && spotUsd == null
-        ? `Catalog matched (card_id=${cardId}) but Cardhedger has no PSA 10 sales indexed yet`
+        ? `Catalog matched (card_id=${cardId}) but Cardhedger has no ${chGrade} sales indexed yet`
         : undefined;
 
     return {
@@ -1390,9 +1424,7 @@ export class CardhedgerPricingService {
             ? Number(merged['30 Day Sales'])
             : sales30d,
         hasGraded: anyTierSignal,
-        gradedTiersAvailable: [spotUsd != null ? tierU : null].filter(
-          (x): x is string => Boolean(x),
-        ),
+        gradedTiersAvailable: Object.keys(pricesByGrade).filter(Boolean),
         pricesByGrade,
         sales7d,
         sales30d,

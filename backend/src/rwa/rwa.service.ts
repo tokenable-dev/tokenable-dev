@@ -127,7 +127,7 @@ export class RwaService {
         : false;
     if (!gradedObj || typeof gradedObj !== 'object') {
       throw new BadRequestException(
-        'PSA 인증 메타데이터가 필요합니다. OCR/Cert 조회로 PSA 10 확인 후 mint 해주세요.',
+        'PSA 인증 메타데이터가 필요합니다. OCR/Cert 조회로 PSA 등급 확인 후 mint 해주세요.',
       );
     }
     if (!psaGraded) {

@@ -112,7 +112,8 @@ export function CollectionMobileInformationPanel({
 
   const capLabel = formatMarketCap(marketCapUsd ?? null);
 
-  const psa10Raw = psaPopulationMetrics?.psa10Pop ?? null;
+  const gradeLabel = psaPopulationMetrics?.gradeLabel ?? "PSA 10";
+  const gradePopRaw = psaPopulationMetrics?.gradePop ?? psaPopulationMetrics?.psa10Pop ?? null;
   const psaTotalRaw =
     psaPopulationMetrics?.totalPsaPop ??
     (totalPopulation != null && Number.isFinite(totalPopulation) && totalPopulation > 0
@@ -152,10 +153,10 @@ export function CollectionMobileInformationPanel({
           title="Active listings in this collection"
         />
         <InfoStatCell
-          label="PSA 10 Pop"
-          value={formatPsaPopulationCompact(psa10Raw)}
+          label={`${gradeLabel} Pop`}
+          value={formatPsaPopulationCompact(gradePopRaw)}
           title={
-            psa10Raw != null ? formatPsaPopulationCount(psa10Raw) : undefined
+            gradePopRaw != null ? formatPsaPopulationCount(gradePopRaw) : undefined
           }
         />
         <InfoStatCell
