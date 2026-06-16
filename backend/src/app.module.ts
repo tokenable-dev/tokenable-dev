@@ -18,6 +18,7 @@ import { CardladderModule } from './cardladder/cardladder.module';
 import { RwaModule } from './rwa/rwa.module';
 import { PsaModule } from './psa/psa.module';
 import { HealthModule } from './health/health.module';
+import { SiteAccessModule } from './site-access/site-access.module';
 import { Order } from './marketplace/entities/order.entity';
 import { MarketplaceCollection } from './marketplace/entities/marketplace-collection.entity';
 import { CollectionMarketSnapshot } from './marketplace/entities/collection-market-snapshot.entity';
@@ -40,6 +41,7 @@ import { CardTop100DailySnapshot } from './cardhedger/entities/card-top100-snaps
     CardhedgerMetricsModule,
 
     HealthModule,
+    SiteAccessModule,
 
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],

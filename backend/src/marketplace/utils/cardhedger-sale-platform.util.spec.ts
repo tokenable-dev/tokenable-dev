@@ -21,6 +21,11 @@ describe('inferExternalSalePlatform', () => {
         saleUrl: 'https://www.pwccmarketplace.com/items/999',
       }),
     ).toBe('PWCC');
+    expect(
+      inferExternalSalePlatform({
+        saleUrl: 'https://www.starstock.com/marketplace/card/123',
+      }),
+    ).toBe('StarStock');
   });
 
   it('falls back to price_source when url is missing', () => {

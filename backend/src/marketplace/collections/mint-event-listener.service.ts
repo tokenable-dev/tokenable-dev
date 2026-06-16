@@ -254,7 +254,12 @@ export class MintEventListenerService implements OnModuleInit, OnModuleDestroy {
   ): Promise<void> {
     const col = await this.collectionService.findOne(collectionKey);
     if (!col) return;
-    if (col.coverImageUrl?.trim()) return;
+    if (
+      col.coverImageUrl?.trim() &&
+      !this.cover.coverImageNeedsUpgrade(col.coverImageUrl)
+    ) {
+      return;
+    }
 
     // Populate components.psaSpecId from PSA cert snapshot / Public API.
     await this.collectionService.ensurePsaSpecPopulationFromApi(collectionKey);

@@ -45,23 +45,52 @@ export function extractGradePricesFromPreview(
 
   const c = preview.card;
   const byGrade = c.pricesByGrade;
+  const tierKey = String(historyTier ?? '').trim().toUpperCase();
+  const tierGradeLabel =
+    tierKey.startsWith('PSA_') && tierKey !== 'PSA_AUTH'
+      ? `PSA ${tierKey.replace('PSA_', '')}`
+      : null;
+  const tierFromMap =
+    tierGradeLabel != null
+      ? priceFromGradeMap(byGrade, [
+          tierKey,
+          tierGradeLabel,
+          tierGradeLabel.replace(' ', ''),
+        ])
+      : null;
+
   const psa10 =
     finitePositive(c.topPrice) ??
     priceFromGradeMap(byGrade, ['PSA_10', 'PSA10', 'psa10']) ??
+    (tierKey === 'PSA_10' ? tierFromMap : null) ??
     base.psa10;
   const psa9 =
     priceFromGradeMap(byGrade, ['PSA_9', 'PSA9', 'psa9']) ??
     finitePositive(c.ebayPsa9?.avg ?? null) ??
+    (tierKey === 'PSA_9' ? tierFromMap : null) ??
     base.psa9;
   const raw =
     priceFromGradeMap(byGrade, ['NEAR_MINT', 'RAW', 'NM', 'Ungraded']) ??
     finitePositive(c.ebayNearMint?.avg ?? null) ??
     base.raw;
 
+  const tierSpot =
+    tierFromMap ??
+    (tierKey === 'PSA_10'
+      ? psa10
+      : tierKey === 'PSA_9'
+        ? psa9
+        : /^PSA_[1-8]$/.test(tierKey)
+          ? tierFromMap ?? raw
+          : null);
+
   return {
-    psa10: psa10 ?? base.psa10,
-    psa9: psa9 ?? base.psa9,
-    raw: raw ?? base.raw,
+    psa10: psa10 ?? (tierKey === 'PSA_10' ? tierSpot : null) ?? base.psa10,
+    psa9: psa9 ?? (tierKey === 'PSA_9' ? tierSpot : null) ?? base.psa9,
+    raw:
+      raw ??
+      (/^PSA_[1-8]$/.test(tierKey) ? tierSpot : null) ??
+      base.raw,
   };
 }
 

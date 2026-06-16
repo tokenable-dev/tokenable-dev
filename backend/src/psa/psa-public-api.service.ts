@@ -1,5 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import type { PsaSpecPopSummary } from './psa-spec-population.util';
+import {
+  isCompletePsaPopByGradeMap,
+  parsePsaSpecPopulationBody,
+} from './psa-spec-population.util';
 import { extractGrade, resolveCertHintForLookup, type ParsedPsaLabel } from './utils/psa-ocr.util';
 import { psaVarietyIsCardNumberOnly } from './psa-variety-catalog.util';
 
@@ -45,10 +50,8 @@ export type PsaPublicApiLookupResult =
     };
 
 /** GET /pop/GetPSASpecPopulation/{specID} — per-grade pop report for a PSA spec. */
-export interface PsaSpecPopSummary {
-  total: number | null;
-  grade10: number | null;
-}
+export type { PsaSpecPopSummary } from './psa-spec-population.util';
+export { parsePsaSpecPopulationBody } from './psa-spec-population.util';
 
 export type PsaSpecPopulationLookupResult =
   | { status: 'disabled'; reason: 'no_token' }
@@ -406,7 +409,7 @@ export class PsaPublicApiService {
       const hit = this.specPopSuccessCache.get(specId);
       if (hit && hit.expiresAt > Date.now()) {
         this.logger.debug(`PSA spec pop cache hit specId=${specId}`);
-        return hit.result;
+        return this.normalizeSpecPopCacheResult(hit.result);
       }
     }
 
@@ -421,6 +424,28 @@ export class PsaPublicApiService {
     });
     this.inFlightGetSpecPop.set(specId, run);
     return run;
+  }
+
+  /**
+   * In-memory cache may hold pre–Grade1–10 parses (`{ total, grade10 }` only).
+   * Re-parse stored `raw` when the cached breakdown is incomplete.
+   */
+  private normalizeSpecPopCacheResult(
+    result: Extract<PsaSpecPopulationLookupResult, { status: 'success' }>,
+  ): Extract<PsaSpecPopulationLookupResult, { status: 'success' }> {
+    if (isCompletePsaPopByGradeMap(result.pop.byGrade)) {
+      return result;
+    }
+    const reparsed = parsePsaSpecPopulationBody(result.raw);
+    const normalized = { ...result, pop: reparsed };
+    const ttl = this.getCacheTtlMs();
+    if (ttl > 0 && isCompletePsaPopByGradeMap(reparsed.byGrade)) {
+      this.specPopSuccessCache.set(result.specId, {
+        expiresAt: Date.now() + ttl,
+        result: normalized,
+      });
+    }
+    return normalized;
   }
 
   private async runGetSpecPopulation(
@@ -1034,25 +1059,6 @@ function mergePsaApiIntoParsedImpl(
     reverseBarcode,
     specId,
     varietyHint,
-  };
-}
-
-/** Parse PSA Public API `PSASpecPopulationModel.PSAPop` grade breakdown. */
-export function parsePsaSpecPopulationBody(body: unknown): PsaSpecPopSummary {
-  if (!body || typeof body !== 'object') {
-    return { total: null, grade10: null };
-  }
-  const pop = (body as { PSAPop?: Record<string, unknown> }).PSAPop;
-  if (!pop || typeof pop !== 'object') {
-    return { total: null, grade10: null };
-  }
-  const floorPop = (v: unknown): number | null => {
-    if (typeof v !== 'number' || !Number.isFinite(v) || v < 0) return null;
-    return Math.floor(v);
-  };
-  return {
-    total: floorPop(pop.Total),
-    grade10: floorPop(pop.Grade10),
   };
 }
 

@@ -9,6 +9,7 @@ const SALE_URL_PLATFORM_RULES: ReadonlyArray<{ test: (host: string) => boolean; 
     { test: (h) => h.includes('myslabs'), label: 'MySlabs' },
     { test: (h) => h.includes('alt.xyz') || h.includes('onlyalt'), label: 'Alt' },
     { test: (h) => h.includes('fanatics'), label: 'Fanatics' },
+    { test: (h) => h.includes('starstock'), label: 'StarStock' },
   ];
 
 function labelFromHostname(host: string): string | null {

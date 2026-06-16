@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
@@ -26,6 +26,14 @@ import {
   resolvePlatformTapeFill,
 } from '../utils/platform-tape.util';
 import { CardhedgerMarketDataService } from '../market-data/cardhedger-market-data.service';
+import type {
+  CollectionGradeCatalogEntry,
+} from '../utils/cardhedger-grade-catalog.util';
+import {
+  catalogFromAllPricesRows,
+  catalogFromPricesByGradeMap,
+  collectionGradeLabelFromHistoryTier,
+} from '../utils/cardhedger-grade-catalog.util';
 import { marketHistoryTierFromComponents } from '../utils/market-history-tier.util';
 
 export type PriceHistoryDuration =
@@ -80,12 +88,35 @@ export interface CollectionMarketBundle {
   marketChangeRefAtSec?: number | null;
   marketChangeSource: MarketChangePriceSource | null;
   gradePrices: GradePriceStrip;
+  /** All Cardhedger grade slots (PSA, BGS, SGC, …) for chart grade picker. */
+  allGradePrices: CollectionGradeCatalogEntry[];
+  /** This collection slab's Cardhedger grade label (e.g. `PSA 8`). */
+  collectionGrade: string | null;
+  /** Internal tier key stored on snapshot (`PSA_8`, `PSA_AUTH`, …). */
+  historyTier: string | null;
   externalUsd: UsdPoint[];
   platformUsd: UsdPoint[];
   cardhedgerPreview: MarketCollectionPreview;
   snapshotStale?: boolean;
   syncedAt?: string;
   reliabilityScore?: number;
+}
+
+export interface CollectionGradePriceSeries {
+  collectionKey: string;
+  grade: string;
+  cardhedgerCardId: string | null;
+  points: UsdPoint[];
+  days: number;
+}
+
+export interface CollectionGradeCatalogResponse {
+  collectionKey: string;
+  cardhedgerCardId: string | null;
+  collectionGrade: string | null;
+  historyTier: string | null;
+  grades: CollectionGradeCatalogEntry[];
+  source: 'snapshot' | 'live';
 }
 
 export type { CollectionTradesVolumeStats, PlatformTapeFillRow } from '../utils/collection-tape-merge.util';
@@ -110,6 +141,9 @@ function emptyMarketBundle(
     marketChangeWindow: window,
     marketChangeSource: 'none',
     gradePrices: { psa10: null, psa9: null, raw: null },
+    allGradePrices: [],
+    collectionGrade: null,
+    historyTier: null,
     externalUsd: [],
     platformUsd,
     cardhedgerPreview: {
@@ -186,6 +220,124 @@ export class CollectionMarketService {
     return this.snapshotRead.buildBundleFromRow(row, window, platformUsd).bundle;
   }
 
+  /**
+   * Live Cardhedger catalog — all graders / grades for the matched card.
+   */
+  async getCollectionGradeCatalog(
+    collectionKey: string,
+    opts?: { preferLive?: boolean },
+  ): Promise<CollectionGradeCatalogResponse> {
+    const key = collectionKey.toLowerCase();
+    const col = await this.collectionService.findOne(key);
+    if (!col) {
+      throw new NotFoundException(`Collection not found: ${key}`);
+    }
+    const historyTier = marketHistoryTierFromComponents(col.components);
+    const collectionGrade = collectionGradeLabelFromHistoryTier(historyTier);
+    const cardId = String(col.components?.cardhedgerCardId ?? '').trim();
+
+    if (opts?.preferLive && cardId) {
+      const grades = await this.cardhedgerMarket.getGradeCatalogForCardId(cardId);
+      if (grades.length > 0) {
+        return {
+          collectionKey: key,
+          cardhedgerCardId: cardId,
+          collectionGrade,
+          historyTier,
+          grades,
+          source: 'live',
+        };
+      }
+    }
+
+    const row = await this.snapshotService.findByKey(key);
+    const preview = row?.previewJson;
+    if (preview?.card?.pricesByGrade) {
+      return {
+        collectionKey: key,
+        cardhedgerCardId:
+          preview.card.id?.trim() || cardId || null,
+        collectionGrade,
+        historyTier,
+        grades: catalogFromPricesByGradeMap(preview.card.pricesByGrade),
+        source: 'snapshot',
+      };
+    }
+
+    if (cardId) {
+      const grades = await this.cardhedgerMarket.getGradeCatalogForCardId(cardId);
+      return {
+        collectionKey: key,
+        cardhedgerCardId: cardId,
+        collectionGrade,
+        historyTier,
+        grades,
+        source: 'live',
+      };
+    }
+
+    return {
+      collectionKey: key,
+      cardhedgerCardId: null,
+      collectionGrade,
+      historyTier,
+      grades: [],
+      source: 'snapshot',
+    };
+  }
+
+  /**
+   * Price history for any Cardhedger grade label (PSA 10, BGS 9.5, Ungraded, …).
+   */
+  async getCollectionGradePriceSeries(
+    collectionKey: string,
+    gradeLabel: string,
+    daysRaw?: number,
+  ): Promise<CollectionGradePriceSeries> {
+    const key = collectionKey.toLowerCase();
+    const grade = String(gradeLabel ?? '').trim();
+    if (!grade) {
+      throw new BadRequestException('grade query parameter is required');
+    }
+    const days = Math.min(
+      365,
+      Math.max(1, Math.floor(Number(daysRaw ?? 365) || 365)),
+    );
+
+    const col = await this.collectionService.findOne(key);
+    if (!col) {
+      throw new NotFoundException(`Collection not found: ${key}`);
+    }
+
+    let cardId = String(col.components?.cardhedgerCardId ?? '').trim();
+    if (!cardId) {
+      const row = await this.snapshotService.findByKey(key);
+      cardId = String(row?.previewJson?.card?.id ?? '').trim();
+    }
+    if (!cardId) {
+      const resolved = await this.cardhedgerMarket.tryResolveCardIdByCert(
+        col.psaCertNumber?.trim() ?? '',
+      );
+      cardId = String(resolved?.cardId ?? '').trim();
+    }
+
+    const points = cardId
+      ? await this.cardhedgerMarket.getGradePriceSeriesByCardId(
+          cardId,
+          grade,
+          days,
+        )
+      : [];
+
+    return {
+      collectionKey: key,
+      grade,
+      cardhedgerCardId: cardId || null,
+      points,
+      days,
+    };
+  }
+
   private usdcContractAddressLower(): string {
     const raw = this.config.get<string>('USDC_CONTRACT_ADDRESS');
     if (raw && String(raw).trim()) {
@@ -254,7 +406,7 @@ export class CollectionMarketService {
 
   async platformTradesForApi(
     collectionKey: string,
-    opts?: { bootstrapTokenId?: number },
+    opts?: { bootstrapTokenId?: number; cardhedgerGrade?: string },
   ): Promise<{
     platformUsd: UsdPoint[];
     trades: PlatformTapeFillRow[];
@@ -320,10 +472,16 @@ export class CollectionMarketService {
         }
       }
 
+      const cardhedgerGrade = String(opts?.cardhedgerGrade ?? '').trim();
       const tier = marketHistoryTierFromComponents(col?.components);
       const comps = await this.cardhedgerMarket.getCompsSnapshotForCollection(
         col,
-        { tier, rawCount: CARDHEDGER_COMPS_HISTORY_RAW_COUNT },
+        cardhedgerGrade
+          ? {
+              gradeLabel: cardhedgerGrade,
+              rawCount: CARDHEDGER_COMPS_HISTORY_RAW_COUNT,
+            }
+          : { tier, rawCount: CARDHEDGER_COMPS_HISTORY_RAW_COUNT },
       );
       cardhedgerTrades = cardhedgerRawSalesToTapeRows(
         comps.rawSales,
