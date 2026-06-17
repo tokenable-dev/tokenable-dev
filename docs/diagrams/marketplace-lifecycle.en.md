@@ -125,7 +125,11 @@ sequenceDiagram
         S -->> A  : tokenURI (IPFS CID)
         A  ->> C  : ERC721.mint(address, tokenURI)
         C -->> U  : 🎉 tokenId issued
-        Note over DB: Optional UPSERT rwa_tokens<br/>(RWA_TOKEN_REGISTRY_SYNC_ON_BOOT or first ask)
+        A  ->> S  : POST /api/marketplace/collections/on-mint { tokenId }
+        S  ->> DB : UPSERT marketplace_collections<br/>+ UPSERT rwa_tokens<br/>+ Cardhedger cert → cardId
+        S -->> A  : { collectionKey, bootstrapped }
+        Note over A: React Query prefetch<br/>platform-trades · snapshots · mint preview
+        Note over DB: Optional on-chain Minted listener<br/>(MINT_EVENT_LISTENER_ENABLED=1, same handler)
     end
 
     rect rgba(134, 239, 172, 0.15)
@@ -140,6 +144,7 @@ sequenceDiagram
         U  ->> A  : Approve signature
         A  ->> S  : POST /api/marketplace/orders [side: ask]
         S  ->> DB : INSERT orders … + UPSERT marketplace_collections<br/>+ UPSERT rwa_tokens
+        Note over S,DB: idempotent when on-mint already ran at mint
         S -->> A  : ASK ACTIVE
     end
 
@@ -260,6 +265,14 @@ flowchart LR
     classDef upd  fill:#1f1a00,stroke:#fbbf24,color:#fef3c7,padding:8px 16px
     classDef del  fill:#280a18,stroke:#f472b6,color:#fce7f3,padding:8px 16px
     classDef head fill:#111827,stroke:#6b7280,color:#e5e7eb,padding:8px 16px
+
+    subgraph OP0 ["Mint confirmed"]
+        OP0H["After on-chain Minted event<br/>POST /collections/on-mint"]:::head
+        OP0A["📁 Collection auto-created/updated<br/>· collection_key + PSA cert<br/>· Cardhedger cardId (when available)<br/>· snapshot + cover job enqueue"]:::ins
+        OP0B["📇 rwa_tokens registry<br/>· tokenId → collection_key"]:::ins
+        OP0H --> OP0A
+        OP0H --> OP0B
+    end
 
     subgraph OP1 ["Ask Listing"]
         OP1H["When the user sets a price<br/>and completes signing"]:::head

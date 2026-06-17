@@ -14,7 +14,11 @@ import {
 import type { MarketplaceCollection } from '../entities/marketplace-collection.entity';
 import { psaCertNumberFromGradedMeta } from '../utils/collection-image.util';
 import { extractBucketComponentsFromMetadata } from '../utils/bucket-key.util';
-import type { MarketCollectionPreview } from '../utils/market-reference.types';
+import type {
+  MarketCollectionPreview,
+  MarketCompsSnapshot,
+} from '../utils/market-reference.types';
+import { marketHistoryTierFromComponents } from '../utils/market-history-tier.util';
 import { mergePsaVarietyWithMintVariant } from '../../psa/psa-variety-catalog.util';
 import type { CardhedgerCardRow } from './cardhedger-market-data.types';
 import { CardhedgerResolveService } from './cardhedger-resolve.service';
@@ -352,14 +356,34 @@ export class CardhedgerMintService {
     if (!certRaw || certRaw.length < 7) return baseMirror;
 
     if (componentsPsaMirrorSufficientForCardhedger(baseMirror)) {
-      return baseMirror;
+      const existingEstimate = Number(baseMirror.psaEstimateUsd);
+      if (Number.isFinite(existingEstimate) && existingEstimate > 0) {
+        return baseMirror;
+      }
     }
 
     const snap = await this.psaCertSnapshots.fetchCertSnapshotJson(certRaw);
-    if (!snap) return baseMirror;
+    if (!snap) {
+      const scraped =
+        await this.psaCertSnapshots.refreshEstimateIfMissing(certRaw);
+      if (scraped != null) {
+        return { ...baseMirror, psaEstimateUsd: scraped };
+      }
+      return baseMirror;
+    }
 
     const hadVariety = Boolean(String(baseMirror.psaVariety ?? '').trim());
     const extra = mergePsaCertSnapshotIntoMirror(baseMirror, snap);
+    if (
+      !Number.isFinite(Number(extra.psaEstimateUsd)) ||
+      Number(extra.psaEstimateUsd) <= 0
+    ) {
+      const scraped =
+        await this.psaCertSnapshots.refreshEstimateIfMissing(certRaw);
+      if (scraped != null) {
+        extra.psaEstimateUsd = scraped;
+      }
+    }
     if (
       !hadVariety &&
       typeof extra.psaVariety === 'string' &&
@@ -458,5 +482,81 @@ export class CardhedgerMintService {
     );
 
     return out;
+  }
+
+  /**
+   * Cardhedger comps from on-chain mint metadata when no collection row exists yet
+   * (or collection resolve has not seeded `cardhedgerCardId`).
+   */
+  async getCompsSnapshotForTokenId(
+    tokenId: number,
+    options?: { gradeLabel?: string; tier?: string; rawCount?: number },
+  ): Promise<MarketCompsSnapshot> {
+    const id = Math.floor(Number(tokenId));
+    if (!Number.isFinite(id) || id < 0) {
+      return this.pricing.emptyMarketCompsSnapshot({
+        enabled: this.isConfigured(),
+        searchQuery: '',
+        matched: false,
+        message: 'Invalid token id',
+      });
+    }
+    if (!this.isConfigured()) {
+      return this.pricing.emptyMarketCompsSnapshot({
+        enabled: false,
+        searchQuery: '',
+        matched: false,
+        message: 'Cardhedger is not configured (CARDHEDGER_API_KEY)',
+      });
+    }
+
+    const pack = await this.blockchain.batchRwaMetadata([id]);
+    const item = pack.items.find((row) => row.tokenId === id);
+    const meta = item?.metadata;
+    if (!meta) {
+      return this.pricing.emptyMarketCompsSnapshot({
+        enabled: true,
+        searchQuery: '',
+        matched: false,
+        message: 'Metadata unavailable',
+      });
+    }
+
+    const certDigits = this.normalizeCertDigits(
+      psaCertNumberFromGradedMeta(meta),
+    );
+    let batchRow: CardhedgerCardRow | undefined;
+    if (certDigits && this.mintPreviewUseCertBatch()) {
+      const certMap = await this.fetchCardRowsByCertsBatch([certDigits]);
+      batchRow = certMap.get(certDigits);
+    }
+
+    const graded =
+      (meta.properties as Record<string, unknown> | undefined)?.graded ??
+      (meta.graded as Record<string, unknown> | undefined);
+    const psaMirror = await this.enrichPsaMirrorFromCertLookup(
+      graded as Record<string, unknown> | undefined,
+      this.psaMirrorFromGradedBlock(
+        graded as Record<string, unknown> | undefined,
+      ),
+    );
+
+    const syntheticCol = this.buildMintSyntheticCollection({
+      tokenId: id,
+      meta,
+      psaMirror,
+      cardhedgerCardIdOverride:
+        typeof batchRow?.card_id === 'string' ? batchRow.card_id.trim() : null,
+    });
+
+    const gradeLabel = String(options?.gradeLabel ?? '').trim();
+    const tier =
+      String(options?.tier ?? '').trim() ||
+      marketHistoryTierFromComponents(syntheticCol.components);
+
+    return this.pricing.getCompsSnapshotForCollection(syntheticCol, {
+      ...(gradeLabel ? { gradeLabel } : { tier }),
+      rawCount: options?.rawCount,
+    });
   }
 }

@@ -8,6 +8,7 @@ import { CardhedgerService } from '../../cardhedger/cardhedger.service';
 import {
   normalizePsaSpecId,
   PsaPublicApiService,
+  specIdStringFromPsaCertBody,
 } from '../../psa/psa-public-api.service';
 import {
   hasCompletePsaPopulationByGrade,
@@ -199,6 +200,49 @@ export class CollectionComponentsService {
       );
     }
   }
+
+  /**
+   * Persist `components.psaSpecId` from mint metadata or PSA Public API cert lookup
+   * so UI hides cert slab heroes while spec cover scrape is in flight.
+   */
+  async mergePsaSpecIdFromCertIfMissing(
+    collectionKey: string,
+    psaCert: string | undefined,
+    meta: Record<string, unknown>,
+  ): Promise<void> {
+    const key = collectionKey.toLowerCase();
+    const row = await this.collectionRepo.findOne({
+      where: { collectionKey: key },
+    });
+    if (!row) return;
+    if (psaSpecIdFromComponentsRow(row.components)) return;
+
+    let specId = cardhedgerFromRwaMetadata(meta).psaSpecId;
+    const cert = psaCert?.trim() || row.psaCertNumber?.trim() || '';
+    if (!specId && cert) {
+      try {
+        const snap = await this.psaCertSnapshots.fetchCertSnapshotJson(cert, {
+          allowUpstream: true,
+        });
+        specId =
+          snap != null
+            ? specIdStringFromPsaCertBody({ PSACert: snap }) ?? null
+            : null;
+      } catch {
+        /* retry on cover schedule */
+      }
+    }
+    if (!specId) return;
+
+    const next = { ...row.components, psaSpecId: specId };
+    await this.collectionRepo.update(
+      { collectionKey: key },
+      {
+        components: next as QueryDeepPartialEntity<Record<string, unknown>>,
+      },
+    );
+  }
+
   /**
    * Fetches PSA spec pop report (Grade1–10 + Total) when missing from components.
    * Uses PSA Public API `/pop/GetPSASpecPopulation/{specID}`.

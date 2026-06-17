@@ -78,6 +78,9 @@ export function useCollectionOverviewLayout(input: {
     marketsTriple && showInlineMarketCluster && chartMetricsRow != null;
 
   const gridBodyClass = useMemo(() => {
+    if (marketsTriple && useMobileTabbedMarket) {
+      return "gap-3 sm:gap-4 lg:grid-cols-1 lg:gap-y-0 lg:items-start";
+    }
     if (marketsTriple) {
       return "gap-3 sm:gap-4 lg:gap-x-10 lg:gap-y-0 lg:items-start lg:grid-cols-[307px_minmax(0,1fr)]";
     }
@@ -85,7 +88,7 @@ export function useCollectionOverviewLayout(input: {
       return "lg:items-start gap-6 lg:gap-8 lg:grid-cols-[minmax(260px,min(307px,40vw))_minmax(0,1fr)_minmax(220px,300px)]";
     }
     return "lg:items-start gap-6 lg:gap-8 lg:grid-cols-[minmax(260px,min(307px,40vw))_minmax(0,1fr)]";
-  }, [marketsTriple, hasBookColumn]);
+  }, [marketsTriple, useMobileTabbedMarket, hasBookColumn]);
 
   return {
     hasBookColumn,

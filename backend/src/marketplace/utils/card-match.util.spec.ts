@@ -1,5 +1,6 @@
 import {
   cardNumberTokenForCardhedgerSearch,
+  normalizeForExactCardNumberKey,
   relaxedCatalogMatchForAudit,
   exactCatalogMatch,
 } from './card-match.util';
@@ -8,10 +9,18 @@ describe('cardNumberTokenForCardhedgerSearch', () => {
   it('strips leading zeros for numeric Pokemon-style numbers', () => {
     expect(cardNumberTokenForCardhedgerSearch('024')).toBe('#24');
     expect(cardNumberTokenForCardhedgerSearch('#024')).toBe('#24');
+    expect(cardNumberTokenForCardhedgerSearch('085')).toBe('#85');
   });
 
   it('keeps alphanumeric promo numbers', () => {
     expect(cardNumberTokenForCardhedgerSearch('SWSH029')).toBe('#SWSH029');
+  });
+});
+
+describe('normalizeForExactCardNumberKey', () => {
+  it('treats PSA 085 and Cardhedger 85 as the same key', () => {
+    expect(normalizeForExactCardNumberKey('085')).toBe('85');
+    expect(normalizeForExactCardNumberKey('85')).toBe('85');
   });
 });
 

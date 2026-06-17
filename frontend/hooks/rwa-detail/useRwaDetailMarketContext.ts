@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   getMarketplaceCollectionDetailOrNull,
   postMarketplaceCollectionSnapshotsBatched,
+  postTokenCollectionKeysByTokenIds,
   rq,
   marketplaceRqPolicy,
   type CollectionListMarketSnapshot,
@@ -26,26 +27,44 @@ import {
 } from "@/lib/marketplace/rwa-detail";
 
 export function useRwaDetailMarketContext(input: {
+  tokenId: number;
   tokenIdOk: boolean;
   fromCollectionParam: string;
   listingCollectionKey?: string | null;
   metadataDerivedCollectionKey: string | null;
 }) {
   const {
+    tokenId,
     tokenIdOk,
     fromCollectionParam,
     listingCollectionKey,
     metadataDerivedCollectionKey,
   } = input;
 
+  const { data: serverCollectionKey } = useQuery({
+    queryKey: rq.tokenCollectionKey(tokenId),
+    queryFn: async () => {
+      const map = await postTokenCollectionKeysByTokenIds([tokenId]);
+      return map[tokenId]?.trim().toLowerCase() || null;
+    },
+    enabled: tokenIdOk,
+    staleTime: 60_000,
+  });
+
   const collectionKeyForMatch = useMemo(
     () =>
       resolveRwaDetailCollectionKeyForMatch({
         listingCollectionKey,
         fromCollectionParam,
+        serverCollectionKey,
         metadataDerivedCollectionKey,
       }),
-    [listingCollectionKey, fromCollectionParam, metadataDerivedCollectionKey],
+    [
+      listingCollectionKey,
+      fromCollectionParam,
+      serverCollectionKey,
+      metadataDerivedCollectionKey,
+    ],
   );
 
   const collectionKeyForRedirect = useMemo(
@@ -53,9 +72,15 @@ export function useRwaDetailMarketContext(input: {
       resolveRwaDetailCollectionKeyForRedirect({
         fromCollectionParam,
         listingCollectionKey,
+        serverCollectionKey,
         metadataDerivedCollectionKey,
       }),
-    [fromCollectionParam, listingCollectionKey, metadataDerivedCollectionKey],
+    [
+      fromCollectionParam,
+      listingCollectionKey,
+      serverCollectionKey,
+      metadataDerivedCollectionKey,
+    ],
   );
 
   const { data: collectionDetail } = useQuery({

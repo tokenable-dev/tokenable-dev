@@ -11,9 +11,12 @@ import {
   orderBookColumnHeaderCls,
   orderBookTradesFlushHeaderCls,
   orderBookTradesContentValueCls,
-  orderBookTradesPriceColCls,
+  orderBookTradesPriceDataColCls,
+  orderBookTradesPriceHeaderColCls,
+  orderBookTradesSideDataColCls,
   orderBookTradesSideColCls,
-  orderBookTradesSourceColCls,
+  orderBookTradesSourceDataCellCls,
+  orderBookTradesSourceHeaderColCls,
   orderBookTradesTimeColCls,
   orderBookTradesTimeHeaderColCls,
 } from "@/components/marketplace/price-metrics-strip/theme";
@@ -25,7 +28,7 @@ import {
   tapeSideDisplay,
   tapeSourceDisplay,
 } from "@/lib/marketplace/unified-order-book";
-import { TradeSourceMark } from "./TradeSourceMark";
+import { TradesSourceCell } from "./TradeSourceMark";
 
 const TRADES_GRID_LEGACY =
   "grid grid-cols-[minmax(0,1fr)_auto_minmax(0,3.25rem)_minmax(0,2.5rem)_minmax(4.75rem,5.5rem)] gap-x-2";
@@ -44,9 +47,9 @@ function TradesColumnHeader({
       <div
         className={`${ORDER_BOOK_TRADES_FOUR_COL_GRID} shrink-0 border-b border-zinc-800/50 bg-zinc-950/50 py-1 ${COLLECTION_ORDER_BOOK_FLUSH_INSET_X} ${headerCls}`}
       >
-        <span className={orderBookTradesPriceColCls}>Price</span>
+        <span className={orderBookTradesPriceHeaderColCls}>Price</span>
         <span className={orderBookTradesSideColCls}>Side</span>
-        <span className={orderBookTradesSourceColCls}>Source</span>
+        <span className={orderBookTradesSourceHeaderColCls}>Source</span>
         <span className={orderBookTradesTimeHeaderColCls}>Time</span>
       </div>
     );
@@ -56,9 +59,9 @@ function TradesColumnHeader({
     <div
       className={`${gridClass} shrink-0 px-2.5 py-1.5 sm:px-3 ${headerCls}`}
     >
-      <span className={orderBookTradesPriceColCls}>Price</span>
+      <span className={orderBookTradesPriceHeaderColCls}>Price</span>
       <span className={orderBookColMidCls}>Side</span>
-      <span className={orderBookTradesSourceColCls}>Source</span>
+      <span className={orderBookTradesSourceHeaderColCls}>Source</span>
       <span className={orderBookColEndCls}>Token</span>
       <span className={orderBookTradesTimeHeaderColCls}>Time</span>
     </div>
@@ -129,21 +132,21 @@ export function OrderBookTradesTab({
                   className={`${rowGridClass} py-0.5 ${rowValueCls} text-zinc-200`}
                 >
                   <span
-                    className={`min-w-0 truncate ${orderBookTradesPriceColCls} text-mint/95`}
+                    className={`min-w-0 truncate ${orderBookTradesPriceDataColCls} text-mint/95`}
                   >
                     {formatTradesTapePriceUsdc(row.priceUsdc)}
                   </span>
                   {flush ? (
                     <>
                       <span
-                        className={`min-w-0 truncate ${orderBookTradesSideColCls} ${side.className}`}
+                        className={`min-w-0 truncate ${orderBookTradesSideDataColCls} ${side.className}`}
                         title={side.title}
                       >
                         {side.label}
                       </span>
-                      <TradeSourceMark
+                      <TradesSourceCell
                         source={source}
-                        className={orderBookTradesSourceColCls}
+                        className={orderBookTradesSourceDataCellCls}
                       />
                       <span
                         className={`min-w-0 truncate ${orderBookTradesTimeColCls} text-zinc-400`}
@@ -155,14 +158,14 @@ export function OrderBookTradesTab({
                   ) : (
                     <>
                       <span
-                        className={`min-w-0 truncate ${orderBookColMidCls} ${side.className}`}
+                        className={`min-w-0 truncate ${orderBookColMidCls} pl-1 sm:pl-1.5 ${side.className}`}
                         title={side.title}
                       >
                         {side.label}
                       </span>
-                      <TradeSourceMark
+                      <TradesSourceCell
                         source={source}
-                        className={orderBookTradesSourceColCls}
+                        className={orderBookTradesSourceDataCellCls}
                       />
                       <span className={`${orderBookColEndCls} text-zinc-500`}>
                         #{row.tokenId}

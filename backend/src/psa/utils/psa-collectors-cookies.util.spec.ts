@@ -1,9 +1,15 @@
 import {
   collectorsAuthNeedsRefresh,
+  cookiesFromRefreshTokenOnly,
   findDsrToken,
   jwtExpiresAtMs,
+  loadPsaCollectorsCookies,
   preparePsaCollectorsCookies,
+  resolvePsaCollectorsSessionCookies,
 } from './psa-collectors-cookies.util';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 describe('psa-collectors-cookies.util', () => {
   it('drops expired cf_clearance and keeps auth cookies', () => {
@@ -50,5 +56,45 @@ describe('psa-collectors-cookies.util', () => {
     expect(collectorsAuthNeedsRefresh(cookies, 172_800_000)).toBe(true);
     expect(findDsrToken(cookies)).toBe(dsr);
     expect(jwtExpiresAtMs(dsr)).toBe(exp * 1000);
+  });
+
+  it('loadPsaCollectorsCookies returns [] when file is missing', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'psa-cookies-'));
+    try {
+      const rows = await loadPsaCollectorsCookies({
+        cookiesFile: 'missing.json',
+        cwd: dir,
+      });
+      expect(rows).toEqual([]);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('resolvePsaCollectorsSessionCookies falls back to refresh token when file missing', async () => {
+    const cookies = await resolvePsaCollectorsSessionCookies({
+      cookiesFile: '/no/such/path/cookies.json',
+      refreshToken: 'rt.jwt.value',
+    });
+    expect(cookies.some((c) => c.name === 'refreshToken' && c.value === 'rt.jwt.value')).toBe(
+      true,
+    );
+  });
+
+  it('resolvePsaCollectorsSessionCookies prefers env refresh token over file', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'psa-cookies-'));
+    const file = 'cookies.json';
+    try {
+      const cookies = await resolvePsaCollectorsSessionCookies({
+        cookiesFile: file,
+        refreshToken: 'env.refresh.token',
+        cwd: dir,
+      });
+      expect(cookies.some((c) => c.name === 'refreshToken' && c.value === 'env.refresh.token')).toBe(
+        true,
+      );
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
   });
 });

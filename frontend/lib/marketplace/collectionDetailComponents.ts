@@ -63,6 +63,8 @@ export interface CollectionComponents {
   psaPopulationByGrade?: Partial<
     Record<"1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" | "10", number>
   >;
+  /** PSA website estimate USD — fallback when Cardhedger has no catalog match. */
+  psaEstimateUsd?: number;
 
   // ── Cardhedger enrichment ───────────────────────────────────────────────────
   /** Cardhedger card ID resolved at listing/boot time. */
@@ -180,6 +182,9 @@ export function parseCollectionComponents(raw: unknown): CollectionComponents {
 
   const psaPopulationByGrade = parsePsaPopulationByGrade(r.psaPopulationByGrade);
   if (psaPopulationByGrade !== undefined) out.psaPopulationByGrade = psaPopulationByGrade;
+
+  const psaEstimateUsd = num(r.psaEstimateUsd);
+  if (psaEstimateUsd !== undefined) out.psaEstimateUsd = psaEstimateUsd;
 
   const cardhedgerCardId = strOrNull(r.cardhedgerCardId);
   if (cardhedgerCardId !== undefined) out.cardhedgerCardId = cardhedgerCardId;

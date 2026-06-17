@@ -94,7 +94,7 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
   return (
     <div className="min-h-screen min-w-0 overflow-x-clip bg-black text-white max-lg:min-h-0">
       <div
-        className={`${COLLECTION_DETAIL_SHELL_CLASS} flex min-h-0 flex-1 flex-col py-4 max-lg:overflow-visible max-lg:py-1.5 max-lg:pb-[max(1.25rem,env(safe-area-inset-bottom,0px))] sm:overflow-hidden sm:py-8 sm:pb-20`}
+        className={`${COLLECTION_DETAIL_SHELL_CLASS} flex min-h-0 flex-1 flex-col py-4 max-lg:overflow-visible max-lg:py-1.5 max-lg:pb-[max(1.25rem,env(safe-area-inset-bottom,0px))] sm:py-8 sm:pb-20 lg:overflow-visible`}
       >
         <CollectionDetailMobileNav />
         {isCoverAdmin && address ? (

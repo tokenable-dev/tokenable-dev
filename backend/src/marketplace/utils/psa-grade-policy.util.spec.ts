@@ -26,6 +26,16 @@ describe('psa-grade-policy.util', () => {
       expect(mintRejectionMessage(input)).toBeNull();
     });
 
+    it('allows PSA 7 from gradeLabel when gradeScore is missing', () => {
+      const input = {
+        gradingCompany: 'PSA',
+        gradeLabel: 'PSA 7',
+      };
+      expect(classifyPsaGradePolicy(input)).toBe('psa_sub10');
+      expect(isMintEligiblePsaGrade(input)).toBe(true);
+      expect(mintRejectionMessage(input)).toBeNull();
+    });
+
     it('rejects unknown grade', () => {
       const input = { gradingCompany: 'PSA' };
       expect(isMintEligiblePsaGrade(input)).toBe(false);

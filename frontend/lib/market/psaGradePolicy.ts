@@ -27,6 +27,27 @@ export function parseFiniteGradeScore(raw: unknown): number | null {
   return null;
 }
 
+function parseGradeScoreFromLabelText(text: string): number | null {
+  const t = text.trim();
+  if (!t) return null;
+  const m = t.match(
+    /\b(?:PSA\s*|GEM\s*MT\s*|MINT\s*|NM\s*-?\s*MT\s*)?(\d{1,2}(?:\.\d+)?)\b/i,
+  );
+  if (!m) return null;
+  const n = parseFloat(m[1]);
+  return Number.isFinite(n) ? n : null;
+}
+
+function effectiveGradeScore(input: PsaGradePolicyInput): number | null {
+  const fromScore = parseFiniteGradeScore(input.gradeScore);
+  if (fromScore != null) return fromScore;
+  const text = [input.gradeLabel, input.gradeDescription]
+    .map((s) => String(s ?? "").trim())
+    .filter(Boolean)
+    .join(" ");
+  return parseGradeScoreFromLabelText(text);
+}
+
 function psaQualifierText(input: PsaGradePolicyInput): string {
   return [input.gradeLabel, input.gradeDescription]
     .map((s) => String(s ?? "").trim())
@@ -49,7 +70,7 @@ export function isPsaQualifierGradeText(text: string): boolean {
 export function classifyPsaGradePolicy(
   input: PsaGradePolicyInput,
 ): PsaGradePolicyClass {
-  const score = parseFiniteGradeScore(input.gradeScore);
+  const score = effectiveGradeScore(input);
   if (score != null) {
     const floor = Math.floor(score);
     if (floor === 10) return "psa_10";
@@ -82,7 +103,7 @@ export function marketHistoryTierFromPsaGradeInput(
   }
   const c = classifyPsaGradePolicy(input);
   if (c === "psa_qualifier") return "PSA_AUTH";
-  const score = parseFiniteGradeScore(input.gradeScore);
+  const score = effectiveGradeScore(input);
   if (score != null) {
     const tier = numericPsaHistoryTier(score);
     if (tier) return tier;
@@ -113,7 +134,7 @@ export function bucketGradeScoreFromPsaGradeInput(
 ): string | null {
   const c = classifyPsaGradePolicy(input);
   if (c === "psa_10" || c === "psa_sub10") {
-    const score = parseFiniteGradeScore(input.gradeScore);
+    const score = effectiveGradeScore(input);
     if (score == null) return c === "psa_10" ? "10" : null;
     const floor = Math.floor(score);
     if (floor >= 1 && floor <= 10) return String(floor);

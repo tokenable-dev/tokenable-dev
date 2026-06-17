@@ -278,7 +278,7 @@ export function CollectionRwaCard({
         <div
           className={`relative flex w-full items-center justify-center bg-black ${
             collectionDetailListing
-              ? "aspect-[4/5] p-0.5 sm:p-1"
+              ? "aspect-[4/5] p-0.5 sm:p-1 lg:aspect-[5/6] lg:p-0.5"
               : "min-h-[88px] flex-1 flex-col sm:min-h-[120px] sm:p-1.5"
           }`}
         >
@@ -289,7 +289,7 @@ export function CollectionRwaCard({
               alt=""
               className={
                 collectionDetailListing
-                  ? "relative z-[1] h-[92%] w-[92%] max-h-full max-w-full object-contain object-center"
+                  ? "relative z-[1] h-[92%] w-[92%] max-h-full max-w-full object-contain object-center lg:h-[86%] lg:w-[86%]"
                   : "h-full w-full max-w-full flex-1 object-contain object-center min-h-0"
               }
             />
@@ -310,19 +310,31 @@ export function CollectionRwaCard({
         </div>
 
         <div
-          className={`${rwaCardFont.className} flex shrink-0 flex-col bg-black px-2 pb-1 pt-1.5 leading-[140%] tracking-normal sm:px-3 sm:pb-1.5 sm:pt-2.5`}
+          className={`${rwaCardFont.className} flex shrink-0 flex-col bg-black px-2 pb-1 pt-1.5 leading-[140%] tracking-normal sm:px-3 sm:pb-1.5 sm:pt-2.5 ${
+            collectionDetailListing ? "lg:px-1.5 lg:pb-1 lg:pt-1" : ""
+          }`}
         >
           {listing && listingPrice !== "—" ? (
-            <p className="text-[13px] font-medium font-semibold tabular-nums text-white [overflow-wrap:anywhere] sm:text-[16px]">
+            <p
+              className={`text-[13px] font-medium font-semibold tabular-nums text-white [overflow-wrap:anywhere] sm:text-[16px] ${
+                collectionDetailListing ? "lg:text-[12px]" : ""
+              }`}
+            >
               ${listingPrice}
             </p>
           ) : (
-            <p className="text-[13px] font-medium text-zinc-500 sm:text-[16px]">
+            <p
+              className={`text-[13px] font-medium text-zinc-500 sm:text-[16px] ${
+                collectionDetailListing ? "lg:text-[12px]" : ""
+              }`}
+            >
               —
             </p>
           )}
           <p
-            className="mt-0.5 min-w-0 break-words text-[10px] font-normal text-[#a0a0a0] [overflow-wrap:anywhere] sm:mt-1 sm:text-[12px]"
+            className={`mt-0.5 min-w-0 break-words text-[10px] font-normal text-[#a0a0a0] [overflow-wrap:anywhere] sm:mt-1 sm:text-[12px] ${
+              collectionDetailListing ? "lg:mt-0.5 lg:text-[10px]" : ""
+            }`}
             title={listing ? sellerAddr : undefined}
           >
             Seller:{" "}

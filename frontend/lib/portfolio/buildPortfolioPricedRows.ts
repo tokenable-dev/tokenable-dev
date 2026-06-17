@@ -54,6 +54,7 @@ export function buildPortfolioPricedRows(input: {
       gradePrices: series?.gradePrices ?? null,
       gradeScore: gradeScoreFromMetadata(a.metadata),
       components: marketTierComponentsFromMetadata(a.metadata),
+      spotPriceBasis: series?.spotPriceBasis ?? null,
     });
 
     let currentPrice: number | null = null;
@@ -64,7 +65,8 @@ export function buildPortfolioPricedRows(input: {
       resolved.usd > 0
     ) {
       currentPrice = resolved.usd;
-      priceSource = "cardhedger";
+      priceSource =
+        resolved.source === "psa_estimate" ? "psa_estimate" : "cardhedger";
     }
 
     const liquidityLabel = ck

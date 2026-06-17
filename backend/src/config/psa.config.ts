@@ -53,6 +53,10 @@ export default registerAs('psa', () => ({
     process.env.PSA_COLLECTORS_AUTH_REFRESH_CRON !== 'false',
   /** Match the browser that issued `cf_clearance` when possible. */
   specScraperUserAgent: process.env.PSA_SPEC_SCRAPER_USER_AGENT?.trim() || '',
+  /** Scrape psacard.com/cert for PSA Estimate when Public API omits it. */
+  certEstimateScrapeEnabled:
+    process.env.PSA_CERT_ESTIMATE_SCRAPE_ENABLED !== '0' &&
+    process.env.PSA_CERT_ESTIMATE_SCRAPE_ENABLED !== 'false',
 }));
 
 function clampInt(

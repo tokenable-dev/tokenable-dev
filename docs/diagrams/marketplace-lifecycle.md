@@ -134,7 +134,11 @@ sequenceDiagram
         S -->> A  : tokenURI (IPFS CID)
         A  ->> C  : ERC721.mint(address, tokenURI)
         C -->> U  : 🎉 tokenId 발급
-        Note over DB: 선택적 UPSERT rwa_tokens<br/>(RWA_TOKEN_REGISTRY_SYNC_ON_BOOT 또는 첫 ask 시)
+        A  ->> S  : POST /api/marketplace/collections/on-mint { tokenId }
+        S  ->> DB : UPSERT marketplace_collections<br/>+ UPSERT rwa_tokens<br/>+ Cardhedger cert → cardId
+        S -->> A  : { collectionKey, bootstrapped }
+        Note over A: React Query prefetch<br/>platform-trades · snapshots · mint preview
+        Note over DB: 선택적 on-chain Minted 리스너<br/>(MINT_EVENT_LISTENER_ENABLED=1, 동일 핸들러)
     end
 
     rect rgba(134, 239, 172, 0.15)
@@ -149,6 +153,7 @@ sequenceDiagram
         U  ->> A  : 서명 승인
         A  ->> S  : POST /api/marketplace/orders [side: ask]
         S  ->> DB : INSERT orders … + UPSERT marketplace_collections<br/>+ UPSERT rwa_tokens
+        Note over S,DB: mint 시 on-mint로 이미 생성된 경우 idempotent
         S -->> A  : ASK ACTIVE
     end
 
@@ -270,6 +275,14 @@ flowchart LR
     classDef del  fill:#280a18,stroke:#f472b6,color:#fce7f3,padding:8px 16px
     classDef head fill:#111827,stroke:#6b7280,color:#e5e7eb,padding:8px 16px
     classDef note fill:#1e1b4b,stroke:#818cf8,color:#c7d2fe,padding:8px 16px
+
+    subgraph OP0 ["민트 확정"]
+        OP0H["온체인 Minted 이벤트 후<br/>POST /collections/on-mint"]:::head
+        OP0A["📁 컬렉션 자동 생성/갱신<br/>· 컬렉션 키 + PSA cert<br/>· Cardhedger cardId (가능 시)<br/>· 스냅샷·커버 작업 큐"]:::ins
+        OP0B["📇 rwa_tokens 등록<br/>· tokenId → collection_key"]:::ins
+        OP0H --> OP0A
+        OP0H --> OP0B
+    end
 
     subgraph OP1 ["판매 등록"]
         OP1H["사용자가 판매가를 설정하고<br/>서명을 완료하면"]:::head

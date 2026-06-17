@@ -1,9 +1,24 @@
 import type { MarketplaceCollectionDetail, MarketplaceCollectionSummary } from "@/lib/core";
 import type { CollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
 
+/** PSA graded slab photos must never be collection hero images. */
+export function isPsaCertSlabCloudfrontUrl(url: string): boolean {
+  return url.includes("d1htnxwo4o0jhw.cloudfront.net/cert/");
+}
+
+function sanitizeCollectionCoverUrl(
+  url: string | null | undefined,
+): string | null {
+  const t = url?.trim();
+  if (!t) return null;
+  if (isPsaCertSlabCloudfrontUrl(t)) return null;
+  return t;
+}
+
 /**
  * Collection card / hero display image.
- * Matches backend `pickCollectionDisplayImageUrl`: persisted catalog cover, then slab fallback.
+ * Matches backend `pickCollectionDisplayImageUrl`: persisted catalog cover only (spec / Cardhedger / TCG).
+ * Never PSA cert slabs — not from `trendingSlabImageUrl`.
  */
 export function pickCollectionDisplayImageUrl(input: {
   displayImageUrl?: string | null;
@@ -11,15 +26,12 @@ export function pickCollectionDisplayImageUrl(input: {
   coverImageUrl?: string | null;
   components?: Pick<CollectionComponents, "trendingSlabImageUrl"> | null;
 }): string | null {
-  const fromApi =
-    input.displayImageUrl?.trim() || input.representativeImageUrl?.trim();
+  const fromApi = sanitizeCollectionCoverUrl(
+    input.displayImageUrl?.trim() || input.representativeImageUrl?.trim() || null,
+  );
   if (fromApi) return fromApi;
 
-  const cover = input.coverImageUrl?.trim();
-  if (cover) return cover;
-
-  const slab = input.components?.trendingSlabImageUrl?.trim();
-  return slab || null;
+  return sanitizeCollectionCoverUrl(input.coverImageUrl);
 }
 
 export function pickCollectionSummaryDisplayImageUrl(

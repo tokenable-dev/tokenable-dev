@@ -3,19 +3,21 @@ import { ConfigService } from '@nestjs/config';
 import { Cron } from '@nestjs/schedule';
 import {
   collectorsAuthNeedsRefresh,
-  cookiesFromRefreshTokenOnly,
   findRefreshToken,
   loadPsaCollectorsCookies,
-  preparePsaCollectorsCookies,
+  resolvePsaCollectorsSessionCookies,
+  syncPsaCollectorsCookiesFileFromEnv,
   type PsaCollectorsCookie,
 } from './utils/psa-collectors-cookies.util';
 import { refreshCollectorsSessionViaBrowser } from './utils/psa-collectors-session.util';
-import { psaDefaultUserAgent } from './utils/psa-scraper-browser.util';
+import { psaDefaultUserAgent } from './utils/psa-collectors-browser.util';
 
 /**
  * Keeps Collectors DSR/refreshToken fresh via headless browser session refresh.
  *
- * Bootstrap: set `PSA_COLLECTORS_REFRESH_TOKEN` once (from psa-collectors-login.ts).
+ * Set `PSA_COLLECTORS_REFRESH_TOKEN` in `.env` (local and production). The login
+ * script is only needed once to obtain that value. Cookies file + Chromium profile
+ * are auto-managed runtime caches (gitignored).
  */
 @Injectable()
 export class PsaCollectorsSessionService implements OnModuleInit {
@@ -26,6 +28,10 @@ export class PsaCollectorsSessionService implements OnModuleInit {
 
   async onModuleInit(): Promise<void> {
     if (!this.cookiesFile() && !this.envRefreshToken()) return;
+    await this.bootstrapCookiesFileFromEnv().catch((e) => {
+      const msg = e instanceof Error ? e.message : String(e);
+      this.logger.warn(`PSA Collectors cookies bootstrap skipped: ${msg}`);
+    });
     await this.ensureFreshSession('boot').catch((e) => {
       const msg = e instanceof Error ? e.message : String(e);
       this.logger.warn(`PSA Collectors session boot refresh skipped: ${msg}`);
@@ -84,13 +90,13 @@ export class PsaCollectorsSessionService implements OnModuleInit {
     const cookies = await this.loadSessionCookies();
     if (!findRefreshToken(cookies)) {
       this.logger.warn(
-        'PSA Collectors session: no refreshToken — set PSA_COLLECTORS_REFRESH_TOKEN or run psa-collectors-login.ts',
+        'PSA Collectors session: no refreshToken — set PSA_COLLECTORS_REFRESH_TOKEN in .env (run psa-collectors-login.ts once to obtain it)',
       );
       return false;
     }
 
     const envOnlyBootstrap =
-      Boolean(this.envRefreshToken()) && !(await this.hasCookiesFile());
+      Boolean(this.envRefreshToken()) && !(await this.hasCookiesFileOnDisk());
     const needsRefresh = collectorsAuthNeedsRefresh(
       cookies,
       this.refreshLeadMs(),
@@ -113,31 +119,38 @@ export class PsaCollectorsSessionService implements OnModuleInit {
       return true;
     }
 
-    this.logger.warn(`PSA Collectors session refresh failed (${reason})`);
+    const detail = result.error ? `: ${result.error}` : '';
+    this.logger.warn(`PSA Collectors session refresh failed (${reason})${detail}`);
     return false;
   }
 
-  private async hasCookiesFile(): Promise<boolean> {
+  private async bootstrapCookiesFileFromEnv(): Promise<void> {
+    const file = this.cookiesFile();
+    const rt = this.envRefreshToken();
+    if (!file || !rt) return;
+    const outcome = await syncPsaCollectorsCookiesFileFromEnv(file, rt);
+    if (outcome === 'created') {
+      this.logger.log(
+        'PSA Collectors: seeded cookies file from PSA_COLLECTORS_REFRESH_TOKEN',
+      );
+    } else if (outcome === 'updated') {
+      this.logger.log(
+        'PSA Collectors: cookies file refreshToken synced from PSA_COLLECTORS_REFRESH_TOKEN',
+      );
+    }
+  }
+
+  private async hasCookiesFileOnDisk(): Promise<boolean> {
     const file = this.cookiesFile();
     if (!file) return false;
-    const rows = await loadPsaCollectorsCookies({ cookiesFile: file }).catch(
-      () => [],
-    );
+    const rows = await loadPsaCollectorsCookies({ cookiesFile: file });
     return rows.length > 0;
   }
 
   private async loadSessionCookies(): Promise<PsaCollectorsCookie[]> {
-    const file = this.cookiesFile();
-    const fromFile = file
-      ? await loadPsaCollectorsCookies({ cookiesFile: file }).catch(() => [])
-      : [];
-
-    if (fromFile.length > 0) {
-      return preparePsaCollectorsCookies(fromFile).cookies;
-    }
-
-    const envRt = this.envRefreshToken();
-    if (envRt) return cookiesFromRefreshTokenOnly(envRt);
-    return [];
+    return resolvePsaCollectorsSessionCookies({
+      cookiesFile: this.cookiesFile(),
+      refreshToken: this.envRefreshToken(),
+    });
   }
 }

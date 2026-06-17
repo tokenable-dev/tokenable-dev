@@ -11,8 +11,15 @@ import {
   type ReferencePercentChangeResult,
 } from "@/lib/market/priceChangePeriod";
 
-/** Catalog reference for marketplace/portfolio (currently Cardhedger-backed). */
-export type ExternalMarketPriceSource = "cardhedger";
+/** Catalog reference for marketplace/portfolio (Cardhedger or PSA Estimate fallback). */
+export type ExternalMarketPriceSource = "cardhedger" | "psa_estimate";
+
+export function externalMarketPriceSourceLabel(
+  source: ExternalMarketPriceSource | null | undefined,
+): string | null {
+  if (source === "psa_estimate") return "PSA Estimate";
+  return null;
+}
 
 export type ResolvedExternalMarketUsd = {
   usd: number | null;
@@ -75,6 +82,8 @@ export function resolveExternalMarketUsd(params: {
   gradeScore: number | null | undefined;
   /** When set, picks PSA_10 history tier for spot (same as chart). */
   components?: CollectionComponents | null;
+  /** Materialized snapshot spot basis from market-series bundle. */
+  spotPriceBasis?: string | null;
 }): ResolvedExternalMarketUsd {
   const tier = marketHistoryTierFromComponents(params.components ?? null);
   const preview =
@@ -97,8 +106,32 @@ export function resolveExternalMarketUsd(params: {
       : null,
   );
   if (strip != null) {
-    return { usd: strip, source: "cardhedger" };
+    const compEstimate = finitePositive(params.components?.psaEstimateUsd);
+    const isPsaEstimate =
+      params.spotPriceBasis === "psa_estimate" ||
+      (preview == null && compEstimate != null && Math.abs(compEstimate - strip) < 0.01);
+    return {
+      usd: strip,
+      source: isPsaEstimate ? "psa_estimate" : "cardhedger",
+    };
   }
+
+  const compEstimate = finitePositive(params.components?.psaEstimateUsd);
+  if (compEstimate != null) {
+    const score = params.gradeScore;
+    if (
+      score == null ||
+      score >= 10 ||
+      isAuthQualifierGradeScore(
+        typeof params.components?.gradeScore === "string"
+          ? params.components.gradeScore
+          : null,
+      )
+    ) {
+      return { usd: compEstimate, source: "psa_estimate" };
+    }
+  }
+
   return { usd: null, source: null };
 }
 

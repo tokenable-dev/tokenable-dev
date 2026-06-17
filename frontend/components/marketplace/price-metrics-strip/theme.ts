@@ -53,11 +53,28 @@ export const orderBookBookSizeColCls = "justify-self-center text-center tabular-
 
 /** Trades — Price column values + header align right. */
 export const orderBookTradesPriceColCls = `${orderBookColEndCls} tabular-nums`;
+/** Trades — Price header + data; nudged left together. */
+export const orderBookTradesPriceNudgeCls = "relative -left-2 sm:-left-2.5";
+export const orderBookTradesPriceHeaderColCls =
+  `${orderBookTradesPriceColCls} ${orderBookTradesPriceNudgeCls}`;
+export const orderBookTradesPriceDataColCls = orderBookTradesPriceHeaderColCls;
 
 /** Trades flush — Side centered in its column; Time values align to column end. */
 export const orderBookTradesSideColCls = "justify-self-center text-center";
-/** Trades — Source / marketplace column (Cardhedger-inferred or Tokenable). */
-export const orderBookTradesSourceColCls = "justify-self-center text-center";
+/** Trades — Side data values; nudged right under the header. */
+export const orderBookTradesSideDataColCls =
+  `${orderBookTradesSideColCls} pl-1 sm:pl-1.5`;
+/** Trades — Source header label. */
+export const orderBookTradesSourceHeaderColCls =
+  "block w-full min-w-0 text-center";
+/** Trades — Source cell wrapper; centers logo under the header. */
+export const orderBookTradesSourceCellCls =
+  "flex w-full min-w-0 items-center justify-center";
+/** Trades — Source data cell; nudged right under the header. */
+export const orderBookTradesSourceDataCellCls =
+  `${orderBookTradesSourceCellCls} pl-1 sm:pl-1.5`;
+/** @deprecated Use {@link orderBookTradesSourceHeaderColCls} or {@link orderBookTradesSourceCellCls}. */
+export const orderBookTradesSourceColCls = orderBookTradesSourceCellCls;
 export const orderBookTradesTimeColCls = `${orderBookColEndCls} tabular-nums`;
 /** Trades — Time header inset left of value edge (values stay flush right). */
 export const orderBookTradesTimeHeaderColCls =

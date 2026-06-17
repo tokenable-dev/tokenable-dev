@@ -10,7 +10,7 @@ import type { ListRwaModalProps } from "@/lib/seaport/listing/listRwaModalTypes"
 export type { ListRwaModalProps } from "@/lib/seaport/listing/listRwaModalTypes";
 
 export function ListRwaModal(props: ListRwaModalProps) {
-  const { tokenId, assetTitle, onClose } = props;
+  const { tokenId, assetTitle, collectionKey, onClose } = props;
   const modal = useListRwaModal(props);
   const [mounted, setMounted] = useState(false);
 
@@ -54,6 +54,7 @@ export function ListRwaModal(props: ListRwaModalProps) {
           <ListRwaModalFormView
             tokenId={tokenId}
             assetTitle={assetTitle}
+            collectionKey={collectionKey}
             isReplaceListing={modal.isReplaceListing}
             price={modal.price}
             onPriceChange={modal.setPrice}

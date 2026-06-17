@@ -93,6 +93,27 @@ function TradeSourceLogo({
   );
 }
 
+/** Full-width grid cell — keeps marketplace logos centered under the Source header. */
+export function TradesSourceCell({
+  source,
+  compact = false,
+  className,
+}: {
+  source: TapeSource;
+  compact?: boolean;
+  className?: string;
+}) {
+  return (
+    <div
+      className={`flex w-full min-w-0 items-center justify-center${
+        className ? ` ${className}` : ""
+      }`}
+    >
+      <TradeSourceMark source={source} compact={compact} />
+    </div>
+  );
+}
+
 export function TradeSourceMark({
   source,
   className,
@@ -102,7 +123,7 @@ export function TradeSourceMark({
   className?: string;
   compact?: boolean;
 }) {
-  const sharedCls = `inline-flex min-w-0 max-w-full items-center justify-center${
+  const sharedCls = `inline-flex shrink-0 items-center justify-center${
     className ? ` ${className}` : ""
   }`;
 

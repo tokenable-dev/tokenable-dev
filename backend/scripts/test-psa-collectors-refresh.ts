@@ -13,7 +13,7 @@ import {
   preparePsaCollectorsCookies,
 } from '../src/psa/utils/psa-collectors-cookies.util';
 import { refreshCollectorsSessionViaBrowser } from '../src/psa/utils/psa-collectors-session.util';
-import { psaDefaultUserAgent } from '../src/psa/utils/psa-scraper-browser.util';
+import { psaDefaultUserAgent } from '../src/psa/utils/psa-collectors-browser.util';
 
 const LEAD_MS = Number(process.env.PSA_COLLECTORS_AUTH_REFRESH_LEAD_MS) || 172_800_000;
 

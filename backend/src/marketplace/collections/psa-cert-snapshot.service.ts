@@ -7,14 +7,15 @@ import {
   PsaPublicApiService,
   type PsaCertRecord,
 } from '../../psa/psa-public-api.service';
+import { PsaCertEstimateScraperService } from '../../psa/psa-cert-estimate-scraper.service';
 import { PsaCertSnapshot } from '../entities/psa-cert-snapshot.entity';
 
 /**
  * Single gateway for PSA Public API cert lookups — all callers should use this
  * instead of {@link PsaPublicApiService.getByCertNumber} directly.
  *
- * PSA Estimate USD is taken only from the Public API payload when present.
- * We do not scrape psacard.com (Cloudflare rate limits / ToS).
+ * PSA Estimate USD is taken from the Public API payload when present, otherwise
+ * from a Collectors-authenticated cert page scrape (website-only field).
  */
 @Injectable()
 export class PsaCertSnapshotService {
@@ -24,6 +25,7 @@ export class PsaCertSnapshotService {
     @InjectRepository(PsaCertSnapshot)
     private readonly repo: Repository<PsaCertSnapshot>,
     private readonly psaPublicApi: PsaPublicApiService,
+    private readonly certEstimateScraper: PsaCertEstimateScraperService,
     private readonly config: ConfigService,
   ) {}
 
@@ -189,8 +191,9 @@ export class PsaCertSnapshotService {
     }
     const lookup = await this.psaPublicApi.getByCertNumber(cert);
     if (lookup.status !== 'success' || !lookup.raw) return;
-    const snap = this.compactFromApiRaw(lookup.raw);
+    let snap = this.compactFromApiRaw(lookup.raw);
     if (!snap || Object.keys(snap).length === 0) return;
+    snap = await this.enrichSnapshotWithEstimateIfMissing(snap, cert);
 
     const row: QueryDeepPartialEntity<PsaCertSnapshot> = {
       certNumber: cert,
@@ -202,28 +205,53 @@ export class PsaCertSnapshotService {
 
   /**
    * Re-fetch cert snapshot from PSA Public API even when DB TTL is still valid.
-   * Only useful when PSA adds/changes fields in the API response (not for website-only Estimate).
+   * When Estimate is still missing, scrape the cert page (website-only field).
    */
-  async refreshIfEstimateMissing(certNumber: string): Promise<void> {
+  async refreshEstimateIfMissing(certNumber: string): Promise<number | null> {
     const cert = certNumber.trim();
-    if (!cert) return;
+    if (!cert) return null;
+
     const existing = await this.findByCert(cert);
     const existingEstimate = PsaCertSnapshotService.psaEstimateUsdFromSnapshotJson(
       existing?.snapshotJson ?? null,
     );
-    if (existingEstimate != null) return;
+    if (existingEstimate != null) return existingEstimate;
 
-    const lookup = await this.psaPublicApi.getByCertNumber(cert);
-    if (lookup.status !== 'success' || !lookup.raw) return;
-    const snap = this.compactFromApiRaw(lookup.raw);
-    if (!snap || Object.keys(snap).length === 0) return;
+    let snap = existing?.snapshotJson ?? null;
+    if (!snap || Object.keys(snap).length === 0) {
+      await this.refreshIfStale(cert);
+      snap = (await this.findByCert(cert))?.snapshotJson ?? null;
+    }
+    if (!snap || Object.keys(snap).length === 0) return null;
+
+    const enriched = await this.enrichSnapshotWithEstimateIfMissing(snap, cert);
+    const estimate = PsaCertSnapshotService.psaEstimateUsdFromSnapshotJson(enriched);
+    if (estimate == null) return null;
 
     const row: QueryDeepPartialEntity<PsaCertSnapshot> = {
       certNumber: cert,
-      snapshotJson: snap as object,
+      snapshotJson: enriched as object,
       fetchedAt: new Date(),
     };
     await this.repo.upsert(row, ['certNumber']);
+    return estimate;
+  }
+
+  private async enrichSnapshotWithEstimateIfMissing(
+    snap: Record<string, unknown>,
+    certNumber: string,
+  ): Promise<Record<string, unknown>> {
+    const existing = PsaCertSnapshotService.psaEstimateUsdFromSnapshotJson(snap);
+    if (existing != null) return snap;
+
+    const scraped = await this.certEstimateScraper.scrapeEstimateUsd(certNumber);
+    if (scraped == null) return snap;
+    return { ...snap, EstimateUsd: scraped };
+  }
+
+  /** @deprecated Use {@link refreshEstimateIfMissing}. */
+  async refreshIfEstimateMissing(certNumber: string): Promise<void> {
+    await this.refreshEstimateIfMissing(certNumber);
   }
 }
 

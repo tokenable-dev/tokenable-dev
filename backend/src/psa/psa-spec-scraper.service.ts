@@ -9,9 +9,9 @@ import type { Browser, BrowserContext, Page } from 'playwright-core';
 import { PsaCollectorsSessionService } from './psa-collectors-session.service';
 import {
   hasCollectorsAuthCookies,
-  loadPsaCollectorsCookies,
-  preparePsaCollectorsCookies,
   playwrightCookiesFromContext,
+  preparePsaCollectorsCookies,
+  resolvePsaCollectorsSessionCookies,
   savePsaCollectorsCookiesFile,
   summarizeCollectorsCookies,
   type PsaCollectorsCookie,
@@ -22,7 +22,7 @@ import {
   launchPsaChromiumContext,
   psaDefaultUserAgent,
   waitForCloudflare,
-} from './utils/psa-scraper-browser.util';
+} from './utils/psa-collectors-browser.util';
 
 const CDN_HOST = 'd1htnxwo4o0jhw.cloudfront.net';
 const POSITIVE_TTL_MS = 24 * 60 * 60 * 1000;
@@ -46,8 +46,16 @@ export class PsaSpecScraperService implements OnModuleInit, OnModuleDestroy {
   >();
   private readonly inFlight = new Map<
     string,
-    Promise<{ url: string | null; authBlocked: boolean }>
+    Promise<{ url: string | null; authBlocked: boolean; playwrightMissing: boolean }>
   >();
+
+  /** Drop cached null so the next cover retry can hit Playwright again (e.g. after install:browsers). */
+  bustCache(specId: string | number): void {
+    const id = String(specId).trim();
+    if (!/^\d+$/.test(id)) return;
+    this.cache.delete(id);
+    this.inFlight.delete(id);
+  }
 
   constructor(
     private readonly config: ConfigService,
@@ -76,12 +84,13 @@ export class PsaSpecScraperService implements OnModuleInit, OnModuleDestroy {
       .catch((err) => {
         const msg = err instanceof Error ? err.message : String(err);
         this.logger.warn(`PSA spec scrape errored specId=${id}: ${msg}`);
-        if (/Executable doesn't exist|browserType\.launch/i.test(msg)) {
+        const playwrightMissing = this.isPlaywrightMissingError(msg);
+        if (playwrightMissing) {
           this.logger.warn(
             'PSA spec scraper: run `cd backend && pnpm run install:browsers`',
           );
         }
-        return { url: null, authBlocked: false } as const;
+        return { url: null, authBlocked: false, playwrightMissing } as const;
       })
       .finally(() => {
         this.inFlight.delete(id);
@@ -96,17 +105,23 @@ export class PsaSpecScraperService implements OnModuleInit, OnModuleDestroy {
         Date.now() +
         (result.url
           ? POSITIVE_TTL_MS
-          : result.authBlocked
-            ? this.authBlockedCacheTtlMs()
-            : this.negativeCacheTtlMs()),
+          : result.playwrightMissing
+            ? this.playwrightMissingCacheTtlMs()
+            : result.authBlocked
+              ? this.authBlockedCacheTtlMs()
+              : this.negativeCacheTtlMs()),
     });
 
     return result.url;
   }
 
+  private isPlaywrightMissingError(msg: string): boolean {
+    return /Executable doesn't exist|browserType\.launch/i.test(msg);
+  }
+
   private async scrapeOnce(
     specId: string,
-  ): Promise<{ url: string | null; authBlocked: boolean }> {
+  ): Promise<{ url: string | null; authBlocked: boolean; playwrightMissing: boolean }> {
     let result = await this.doScrape(specId);
 
     if (result.authBlocked) {
@@ -118,7 +133,7 @@ export class PsaSpecScraperService implements OnModuleInit, OnModuleDestroy {
       result = await this.doScrape(specId);
     }
 
-    return result;
+    return { ...result, playwrightMissing: false };
   }
 
   private async doScrape(
@@ -295,11 +310,17 @@ export class PsaSpecScraperService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async loadCookies(): Promise<PsaCollectorsCookie[]> {
-    const file = this.cookiesFile();
-    const raw = await loadPsaCollectorsCookies({ cookiesFile: file });
-    const { cookies, warnings } = preparePsaCollectorsCookies(raw);
+    const cookies = await resolvePsaCollectorsSessionCookies({
+      cookiesFile: this.cookiesFile(),
+      refreshToken: this.envRefreshToken(),
+    });
+    const { warnings } = preparePsaCollectorsCookies(cookies);
     for (const w of warnings) this.logger.warn(`PSA spec cookies: ${w}`);
     return cookies;
+  }
+
+  private envRefreshToken(): string {
+    return this.config.get<string>('psa.collectorsRefreshToken')?.trim() ?? '';
   }
 
   private async persistCookies(): Promise<void> {
@@ -337,6 +358,11 @@ export class PsaSpecScraperService implements OnModuleInit, OnModuleDestroy {
 
   private authBlockedCacheTtlMs(): number {
     return this.config.get<number>('psa.specAuthBlockedCacheMs') ?? 300_000;
+  }
+
+  /** Short TTL when Chromium is missing — retries succeed right after install:browsers. */
+  private playwrightMissingCacheTtlMs(): number {
+    return this.config.get<number>('psa.specPlaywrightMissingCacheMs') ?? 30_000;
   }
 
   private cookiesFile(): string {

@@ -111,6 +111,7 @@ export type MarketCollectionPreview = {
       | 'catalog'
       | 'comps_median'
       | 'fmv'
+      | 'psa_estimate'
       | null;
     /** Unix seconds — newest `sale_date` in comps raw payload, or history point time when basis is `latest_sale`. */
     latestSaleAt?: number | null;

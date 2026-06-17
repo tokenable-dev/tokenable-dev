@@ -1,3 +1,4 @@
+import { mkdir } from 'node:fs/promises';
 import type { Browser, BrowserContext, Page } from 'playwright-core';
 
 const STEALTH_INIT_SCRIPT = `
@@ -79,6 +80,7 @@ export async function launchPsaChromiumContext(
 
   const userDataDir = options.userDataDir?.trim();
   if (userDataDir) {
+    await mkdir(userDataDir, { recursive: true });
     const context = await chromium.launchPersistentContext(
       userDataDir,
       launchBase,

@@ -38,13 +38,28 @@ export const COLLECTION_MARKET_CLUSTER_BEZEL =
 export const COLLECTION_MARKETS_CHART_ROW_HEIGHT_CLASS =
   "lg:h-[300px] lg:max-h-[300px]";
 
+/** Grade/range toolbar band above collection detail chart (hidden in UI; height reclaimed). */
+export const COLLECTION_MARKETS_CHART_TOOLBAR_BAND_PX = 36;
+
+/** Narrower collection detail desktop (max-w-6xl) — chart + trades row (280px + toolbar band). */
+export const COLLECTION_MARKETS_CHART_COMPACT_HEIGHT_CLASS =
+  "lg:h-[316px] lg:max-h-[316px]";
+
 /** Desktop order book column beside chart (collection detail). */
 export const COLLECTION_MARKETS_ORDER_BOOK_COLUMN_WIDTH_CLASS =
   "lg:w-[360px] lg:max-w-[360px] lg:shrink-0";
 
+/** Compact order book column for unified-width collection detail. */
+export const COLLECTION_MARKETS_ORDER_BOOK_COMPACT_WIDTH_CLASS =
+  "lg:w-[300px] lg:max-w-[300px] lg:shrink-0";
+
 /** Desktop: stretches with markets cluster right column; mobile keeps capped height. */
 export const COLLECTION_MARKETS_ORDER_BOOK_FRAME =
   `w-[min(100%,360px)] shrink-0 rounded-lg ${COLLECTION_DETAILS_BG_CLASS} max-lg:h-[min(400px,54svh)] max-lg:w-full lg:min-h-0 lg:w-[360px] lg:max-w-[360px] lg:flex-1`;
+
+/** Compact order book frame — fixed height, scroll inside. */
+export const COLLECTION_MARKETS_ORDER_BOOK_COMPACT_FRAME =
+  `w-full shrink-0 rounded-lg ${COLLECTION_DETAILS_BG_CLASS} lg:min-h-0 lg:max-h-full`;
 
 /**
  * Markets cluster grid when chart + order book share a row (desktop).

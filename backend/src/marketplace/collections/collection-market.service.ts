@@ -88,6 +88,8 @@ export interface CollectionMarketBundle {
   marketChangeRefAtSec?: number | null;
   marketChangeSource: MarketChangePriceSource | null;
   gradePrices: GradePriceStrip;
+  /** comps | latest_sale | catalog | psa_estimate — materialized snapshot spot basis. */
+  spotPriceBasis?: string | null;
   /** All Cardhedger grade slots (PSA, BGS, SGC, …) for chart grade picker. */
   allGradePrices: CollectionGradeCatalogEntry[];
   /** This collection slab's Cardhedger grade label (e.g. `PSA 8`). */
@@ -474,15 +476,40 @@ export class CollectionMarketService {
 
       const cardhedgerGrade = String(opts?.cardhedgerGrade ?? '').trim();
       const tier = marketHistoryTierFromComponents(col?.components);
-      const comps = await this.cardhedgerMarket.getCompsSnapshotForCollection(
+      const compsOpts = cardhedgerGrade
+        ? {
+            gradeLabel: cardhedgerGrade,
+            rawCount: CARDHEDGER_COMPS_HISTORY_RAW_COUNT,
+          }
+        : { tier, rawCount: CARDHEDGER_COMPS_HISTORY_RAW_COUNT };
+      let comps = await this.cardhedgerMarket.getCompsSnapshotForCollection(
         col,
-        cardhedgerGrade
-          ? {
-              gradeLabel: cardhedgerGrade,
-              rawCount: CARDHEDGER_COMPS_HISTORY_RAW_COUNT,
-            }
-          : { tier, rawCount: CARDHEDGER_COMPS_HISTORY_RAW_COUNT },
+        compsOpts,
       );
+      const compsTapeEmpty =
+        !comps.matched || !Array.isArray(comps.rawSales) || comps.rawSales.length === 0;
+      if (
+        compsTapeEmpty &&
+        bootstrapTokenId != null &&
+        Number.isFinite(bootstrapTokenId) &&
+        bootstrapTokenId >= 0
+      ) {
+        const tokenComps =
+          await this.cardhedgerMarket.getCompsSnapshotForTokenId(
+            Math.floor(bootstrapTokenId),
+            compsOpts,
+          );
+        if (
+          tokenComps.matched &&
+          Array.isArray(tokenComps.rawSales) &&
+          tokenComps.rawSales.length > 0
+        ) {
+          comps = tokenComps;
+          this.logger.debug(
+            `platform-trades: comps from mint metadata for token ${Math.floor(bootstrapTokenId)}`,
+          );
+        }
+      }
       cardhedgerTrades = cardhedgerRawSalesToTapeRows(
         comps.rawSales,
         comps.cardId,
@@ -819,6 +846,7 @@ export interface CollectionListSnapshot {
   marketChangeSpanSec?: number;
   marketChangeSource: MarketChangePriceSource | null;
   gradePrices: GradePriceStrip;
+  spotPriceBasis?: string | null;
   sparklineUsd: UsdPoint[];
   marketStats: CollectionMarketStatsResponse | null;
   lastTokenableTradeUsdc: number | null;
@@ -864,6 +892,7 @@ function bundleToListSnapshot(
     marketChangeSpanSec: bundle.marketChangeSpanSec,
     marketChangeSource: bundle.marketChangeSource,
     gradePrices: bundle.gradePrices,
+    spotPriceBasis: bundle.spotPriceBasis ?? null,
     sparklineUsd: spark,
     marketStats,
     lastTokenableTradeUsdc:

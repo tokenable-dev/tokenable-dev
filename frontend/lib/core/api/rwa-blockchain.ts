@@ -53,21 +53,10 @@ export async function getResolvedRwaAsset(tokenId: number): Promise<ResolvedRwaA
 
 /**
  * Notify the backend that a new RWA token was minted.
- * The backend will bootstrap the marketplace_collections row and rwa_tokens registry
- * so that Cardhedger comps and trades data are available before the first listing.
- * Fire-and-forget: never throws.
+ * @deprecated Import {@link bootstrapRwaMintMarketData} from `@/lib/core` instead.
  */
-export async function notifyRwaMint(tokenId: number): Promise<void> {
-  try {
-    await backendFetch(`${getApiUrl()}/marketplace/collections/on-mint`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tokenId }),
-    });
-  } catch {
-    // best-effort — do not block the mint success UX
-  }
-}
+export { bootstrapRwaMintMarketData, notifyRwaMint } from "../rwa-mint-bootstrap";
+export type { RwaMintBootstrapResult } from "../rwa-mint-bootstrap";
 
 /** 컬렉션 커버 등 임의 URI → 서버가 선택한 https URL (게이트웨이 폴백) */
 export async function postResolveMediaUrls(uris: string[]): Promise<{

@@ -62,6 +62,7 @@ Base URL examples:
 | GET | `/api/marketplace/collections` | — | Collection list (cursor pagination) |
 | POST | `/api/marketplace/collections/market-snapshots` | — | Batch list-row snapshots (DB-first) |
 | POST | `/api/marketplace/collections/portfolio-market-batch` | — | Portfolio batch stats + market-series |
+| POST | `/api/marketplace/collections/on-mint` | — | Mint webhook — bootstrap collection + rwa_tokens (awaited) |
 | POST | `/api/marketplace/collections/token-collection-keys` | — | Batch tokenIds → collection_key (read-only; max 80) |
 | GET | `/api/marketplace/portfolio/daily/:wallet` | — | Daily portfolio snapshots + 24h P&L (`?limit=`) |
 | GET | `/api/marketplace/portfolio/hidden/:wallet` | — | Hidden token IDs for portfolio UI |
