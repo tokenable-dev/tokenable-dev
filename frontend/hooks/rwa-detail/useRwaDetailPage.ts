@@ -58,6 +58,7 @@ export function useRwaDetailPage() {
   );
 
   const market = useRwaDetailMarketContext({
+    tokenId,
     tokenIdOk,
     fromCollectionParam,
     listingCollectionKey: listing?.collectionKey,

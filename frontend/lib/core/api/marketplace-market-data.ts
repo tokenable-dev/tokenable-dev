@@ -36,6 +36,8 @@ export interface CollectionMarketSeries {
     | "none"
     | null;
   gradePrices: CollectionGradePrices;
+  /** Materialized snapshot spot basis (`psa_estimate` when Cardhedger is unmatched). */
+  spotPriceBasis?: string | null;
   /** All graders/grades from Cardhedger catalog (snapshot or live). */
   allGradePrices?: CollectionGradeCatalogEntry[];
   /** This collection slab grade label (e.g. PSA 8). */
@@ -210,7 +212,7 @@ export interface CollectionMarketPreview {
     priceReliability?: "high" | "low";
     pricingSuppressedReason?: string | null;
     /** Backend: comps vs history point vs catalog PSA 10 slot. */
-    spotPriceBasis?: "comps" | "latest_sale" | "sparse_sale_avg" | "catalog" | "comps_median" | null;
+    spotPriceBasis?: "comps" | "latest_sale" | "sparse_sale_avg" | "catalog" | "comps_median" | "psa_estimate" | null;
     /** Unix seconds — comps newest sale or history observation when applicable. */
     latestSaleAt?: number | null;
     ebayNearMint: MarketPriceBand | null;
@@ -347,6 +349,7 @@ export interface CollectionListMarketSnapshot {
     | "none"
     | null;
   gradePrices: CollectionGradePrices;
+  spotPriceBasis?: string | null;
   sparklineUsd: CollectionUsdPoint[];
   /** Pool stats (listing-derived); same contract as collection stats endpoint */
   marketStats?: CollectionMarketStats | null;

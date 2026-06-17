@@ -199,37 +199,46 @@ export function buildMaterializedSnapshotPayload(input: {
   preview: MarketCollectionPreview;
   historyPoints: UsdPoint[];
   /**
-   * Optional PSA estimate fallback (when Cardhedger comp/preview is unmatched).
-   * When provided and gradePrices are empty, we fill `psa10` so the UI can show a defensible
-   * market price.
+   * Optional PSA estimate fallback when Cardhedger has no usable PSA 10 price
+   * (unmatched catalog, or matched but no comps / suppressed pricing).
    */
   psaEstimateUsd?: number | null;
 }): MaterializedMarketSnapshotPayload {
   const key = input.collectionKey.toLowerCase();
-  const headlineUsd =
-    finitePositive(input.preview.card?.topPrice ?? null) ??
-    finitePositive(
-      blendCatalogSpotUsdFromPreview(input.preview, input.historyTier),
-    );
-  let externalUsd = input.historyPoints.map((p) => ({ t: p.t, v: p.v }));
-  externalUsd = syncExternalTerminalWithHeadline(externalUsd, headlineUsd);
-
   let gradePrices = extractGradePricesFromPreview(
     input.preview,
     input.historyTier,
   );
 
-  // When Cardhedger doesn't match / lacks defensible bands, extractGradePricesFromPreview can
-  // return an empty strip. In that case, fall back to PSA estimate so we still display a
-  // "market-like" price.
-  if (
+  const tier = String(input.historyTier ?? '').trim().toUpperCase();
+  const psaEstimateForTier =
     input.psaEstimateUsd != null &&
     Number.isFinite(input.psaEstimateUsd) &&
     input.psaEstimateUsd > 0 &&
-    gradePrices.psa10 == null
-  ) {
-    gradePrices = { ...gradePrices, psa10: input.psaEstimateUsd };
+    gradePrices.psa10 == null &&
+    (tier === 'PSA_10' || tier === 'PSA_AUTH');
+
+  // Fall back to PSA website estimate for thin-market slabs even when Cardhedger matched
+  // the catalog but has no indexed sales for this grade.
+  if (psaEstimateForTier) {
+    gradePrices = { ...gradePrices, psa10: input.psaEstimateUsd! };
   }
+
+  const usedPsaEstimateFallback =
+    psaEstimateForTier && gradePrices.psa10 === input.psaEstimateUsd;
+
+  const spotPriceBasis =
+    input.preview.card?.spotPriceBasis?.trim() ||
+    (usedPsaEstimateFallback ? 'psa_estimate' : null);
+
+  const headlineUsd =
+    finitePositive(input.preview.card?.topPrice ?? null) ??
+    finitePositive(
+      blendCatalogSpotUsdFromPreview(input.preview, input.historyTier),
+    ) ??
+    (usedPsaEstimateFallback ? gradePrices.psa10 : null);
+  let externalUsd = input.historyPoints.map((p) => ({ t: p.t, v: p.v }));
+  externalUsd = syncExternalTerminalWithHeadline(externalUsd, headlineUsd);
   const spark90 = downsampleSparkPoints(
     filterExternalUsdByDays(externalUsd, 90),
     48,
@@ -248,9 +257,7 @@ export function buildMaterializedSnapshotPayload(input: {
     psa9Usd: gradePrices.psa9,
     rawUsd: gradePrices.raw,
     headlineUsd,
-    spotPriceBasis:
-      input.preview.card?.spotPriceBasis?.trim() ||
-      null,
+    spotPriceBasis,
     change7dPct: computeChangePctLag(externalUsd, 7),
     change30dPct: computeChangePctLag(externalUsd, 30),
     sparkline90dJson: spark90,

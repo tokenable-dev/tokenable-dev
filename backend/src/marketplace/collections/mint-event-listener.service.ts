@@ -105,13 +105,14 @@ export class MintEventListenerService implements OnModuleInit, OnModuleDestroy {
    *
    * Called from the on-chain event listener AND from POST /collections/on-mint.
    */
-  async handleMintedToken(tokenId: number): Promise<void> {
+  async handleMintedToken(tokenId: number): Promise<string | null> {
     const id = Math.floor(tokenId);
-    if (!Number.isFinite(id) || id < 0) return;
+    if (!Number.isFinite(id) || id < 0) return null;
 
     // ── Step 1: Ensure marketplace_collections row ─────────────────────────
     const collectionKey = await this.collectionService.ensureCollectionForListing(
       String(id),
+      { coverAwaitMs: 25_000 },
     );
 
     // ── Step 2: Sync rwa_tokens ────────────────────────────────────────────
@@ -121,7 +122,7 @@ export class MintEventListenerService implements OnModuleInit, OnModuleDestroy {
       this.logger.warn(
         `MintEventListenerService: no collectionKey for #${id} — graded metadata missing?`,
       );
-      return;
+      return null;
     }
 
     this.logger.log(
@@ -143,19 +144,9 @@ export class MintEventListenerService implements OnModuleInit, OnModuleDestroy {
     });
 
     // ── Step 5: Cover image — retry after cert/spec enrichment ─────────────
-    // PSA spec pages may require Collectors login; fallbacks (Public API slab,
-    // Cardhedger catalog) run inside CollectionCoverService.
-    for (const delayMs of [8_000, 25_000]) {
-      setTimeout(() => {
-        void this.retryResolveCoverFromToken(id, collectionKey).catch(
-          (e: unknown) => {
-            this.logger.warn(
-              `cover retry failed for #${id} (delay=${delayMs}ms): ${String(e)}`,
-            );
-          },
-        );
-      }, delayMs);
-    }
+    this.cover.scheduleCoverResolutionRetries(collectionKey, id);
+
+    return collectionKey;
   }
 
   /**
@@ -240,43 +231,6 @@ export class MintEventListenerService implements OnModuleInit, OnModuleDestroy {
     } catch (e: unknown) {
       this.logger.warn(
         `mint-bootstrap #${tokenId} cert-lookup failed: ${String(e)}`,
-      );
-    }
-  }
-
-  /**
-   * Re-attempts cover image resolution after the PSA cert snapshot has had a
-   * chance to be fetched.  Only runs if the cover is still empty.
-   */
-  private async retryResolveCoverFromToken(
-    tokenId: number,
-    collectionKey: string,
-  ): Promise<void> {
-    const col = await this.collectionService.findOne(collectionKey);
-    if (!col) return;
-    if (
-      col.coverImageUrl?.trim() &&
-      !this.cover.coverImageNeedsUpgrade(col.coverImageUrl)
-    ) {
-      return;
-    }
-
-    // Populate components.psaSpecId from PSA cert snapshot / Public API.
-    await this.collectionService.ensurePsaSpecPopulationFromApi(collectionKey);
-
-    const asset = await this.collectionService.resolveAssetForCoverRetry(tokenId);
-    if (!asset?.meta) return;
-
-    await this.cover.persistCoverFromMetaIfMissing(collectionKey, asset.meta);
-
-    const after = await this.collectionService.findOne(collectionKey);
-    if (after?.coverImageUrl?.trim()) {
-      this.logger.log(
-        `mint-bootstrap #${tokenId}: cover set for ${collectionKey} → ${after.coverImageUrl.slice(0, 80)}`,
-      );
-    } else {
-      this.logger.debug(
-        `mint-bootstrap #${tokenId}: cover still empty for ${collectionKey} after retry`,
       );
     }
   }

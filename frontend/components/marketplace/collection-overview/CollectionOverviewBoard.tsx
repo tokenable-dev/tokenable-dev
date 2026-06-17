@@ -124,7 +124,7 @@ export function CollectionOverviewBoard(props: CollectionOverviewBoardProps) {
 
   return (
     <section
-      className={`relative w-full min-w-0 overflow-hidden rounded-2xl ${COLLECTION_DETAILS_BORDER_ALL} ${COLLECTION_DETAILS_BG_CLASS} max-lg:overflow-visible max-lg:shadow-none lg:flex lg:min-h-0 lg:flex-1 lg:flex-col lg:shadow-[0_28px_64px_-32px_rgba(0,0,0,0.9)]`}
+      className={`relative w-full min-w-0 overflow-hidden rounded-2xl ${COLLECTION_DETAILS_BORDER_ALL} ${COLLECTION_DETAILS_BG_CLASS} max-lg:overflow-visible max-lg:shadow-none lg:flex lg:min-h-0 lg:flex-1 lg:flex-col lg:overflow-visible lg:shadow-[0_28px_64px_-32px_rgba(0,0,0,0.9)]`}
       aria-label="Collection overview"
     >
       <CollectionOverviewTopBar
@@ -145,12 +145,13 @@ export function CollectionOverviewBoard(props: CollectionOverviewBoardProps) {
         showMobileHeroIdentity={layout.showMobileHeroIdentity}
         hideTopHeadlineBarOnMobile={layout.hideTopHeadlineBarOnMobile}
         suppressHeadlineBanner={layout.suppressHeadlineBanner}
+        hideDesktopHeadlineBadges={layout.useMobileTabbedMarket}
       />
 
       <div
-        className={`relative grid w-full min-w-0 max-lg:grid-cols-1 max-lg:justify-items-stretch max-lg:overflow-visible lg:min-h-0 lg:flex-1 lg:overflow-hidden ${layout.gridBodyClass} max-lg:gap-0 max-lg:px-0 max-lg:pt-0 max-lg:pb-2 px-3.5 pt-0 pb-4 sm:px-6 sm:pb-6 lg:px-8 lg:pt-0 lg:pb-6`}
+        className={`relative grid w-full min-w-0 max-lg:grid-cols-1 max-lg:justify-items-stretch max-lg:overflow-visible lg:min-h-0 lg:flex-1 lg:overflow-visible ${layout.gridBodyClass} max-lg:gap-0 max-lg:px-0 max-lg:pt-0 max-lg:pb-2 px-3.5 pt-0 pb-4 sm:px-6 sm:pb-6 lg:px-8 lg:pt-0 lg:pb-6`}
       >
-        <div className="min-w-0">
+        <div className={`min-w-0 ${layout.useMobileTabbedMarket ? "lg:hidden" : ""}`}>
           <CollectionOverviewLeftColumn
             imageUrl={imageUrl}
             marketsTriple={layout.marketsTriple}
@@ -169,7 +170,11 @@ export function CollectionOverviewBoard(props: CollectionOverviewBoardProps) {
         </div>
 
         {marketsCluster != null ? (
-          <div className="flex min-w-0 w-full max-w-full flex-col items-stretch gap-2 overflow-x-clip sm:gap-2.5 lg:col-start-2 lg:min-w-0 lg:self-start">
+          <div
+            className={`flex min-w-0 w-full max-w-full flex-col items-stretch gap-2 overflow-x-clip sm:gap-2.5 lg:min-w-0 lg:self-start ${
+              layout.useMobileTabbedMarket ? "lg:col-span-full" : "lg:col-start-2"
+            }`}
+          >
             {marketsCluster}
           </div>
         ) : null}

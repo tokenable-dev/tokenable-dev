@@ -1,5 +1,5 @@
-import { readFile, writeFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { dirname, resolve } from 'node:path';
 
 /** Cookie shape accepted by Playwright `context.addCookies`. */
 export type PsaCollectorsCookie = {
@@ -34,7 +34,13 @@ export async function loadPsaCollectorsCookies(options: {
   if (!file) return [];
 
   const abs = resolve(options.cwd ?? process.cwd(), file);
-  const raw = await readFile(abs, 'utf8');
+  let raw: string;
+  try {
+    raw = await readFile(abs, 'utf8');
+  } catch (e: unknown) {
+    if (isEnoentError(e)) return [];
+    throw e;
+  }
   const parsed = JSON.parse(raw) as unknown;
   if (!Array.isArray(parsed)) {
     throw new Error('PSA_COLLECTORS_COOKIES_FILE must be a JSON array');
@@ -262,6 +268,106 @@ export function collectorsAuthNeedsRefresh(
   return expMs - nowMs <= leadMs;
 }
 
+/**
+ * Session cookies for PSA spec scraper.
+ *
+ * When `PSA_COLLECTORS_REFRESH_TOKEN` is set (local + production), it is the
+ * authoritative refresh credential. The cookies file only caches DSR / Cloudflare
+ * cookies between restarts — same model on laptop and EC2.
+ *
+ * Without env token, falls back to cookies file only (legacy manual export).
+ */
+export async function resolvePsaCollectorsSessionCookies(options: {
+  cookiesFile?: string;
+  refreshToken?: string;
+  cwd?: string;
+}): Promise<PsaCollectorsCookie[]> {
+  const file = options.cookiesFile?.trim();
+  const fromFile = file
+    ? await loadPsaCollectorsCookies({ cookiesFile: file, cwd: options.cwd })
+    : [];
+  const rt = options.refreshToken?.trim();
+
+  if (rt) {
+    const fromEnv = cookiesFromRefreshTokenOnly(rt);
+    if (fromFile.length === 0) {
+      return fromEnv;
+    }
+    const ephemeralFromFile = fromFile.filter((c) =>
+      (['DSR', 'cf_clearance', '__cf_bm'] as const).includes(
+        c.name as 'DSR' | 'cf_clearance' | '__cf_bm',
+      ),
+    );
+    return preparePsaCollectorsCookies([
+      ...fromEnv.filter((c) => c.name === 'refreshToken'),
+      ...ephemeralFromFile,
+    ]).cookies;
+  }
+
+  if (fromFile.length > 0) {
+    return preparePsaCollectorsCookies(fromFile).cookies;
+  }
+
+  return [];
+}
+
+/** Sync cookies file with env refresh token (create or rotate refreshToken row). */
+export async function syncPsaCollectorsCookiesFileFromEnv(
+  cookiesFile: string,
+  refreshToken: string,
+  cwd = process.cwd(),
+): Promise<'created' | 'updated' | 'unchanged'> {
+  const file = cookiesFile.trim();
+  const rt = refreshToken.trim();
+  if (!file || !rt) return 'unchanged';
+
+  const fromFile = await loadPsaCollectorsCookies({ cookiesFile: file, cwd });
+  const fileRt = findRefreshToken(
+    fromFile.length > 0 ? preparePsaCollectorsCookies(fromFile).cookies : [],
+  );
+
+  if (fromFile.length === 0) {
+    await savePsaCollectorsCookiesFile(file, cookiesFromRefreshTokenOnly(rt), cwd);
+    return 'created';
+  }
+
+  if (fileRt === rt) return 'unchanged';
+
+  const ephemeral = fromFile.filter((c) =>
+    (['DSR', 'cf_clearance', '__cf_bm'] as const).includes(
+      c.name as 'DSR' | 'cf_clearance' | '__cf_bm',
+    ),
+  );
+  await savePsaCollectorsCookiesFile(
+    file,
+    preparePsaCollectorsCookies([
+      ...cookiesFromRefreshTokenOnly(rt),
+      ...ephemeral,
+    ]).cookies,
+    cwd,
+  );
+  return 'updated';
+}
+
+/** @deprecated Use {@link syncPsaCollectorsCookiesFileFromEnv} */
+export async function seedPsaCollectorsCookiesFileIfMissing(
+  cookiesFile: string,
+  refreshToken: string,
+  cwd = process.cwd(),
+): Promise<boolean> {
+  return (await syncPsaCollectorsCookiesFileFromEnv(cookiesFile, refreshToken, cwd)) ===
+    'created';
+}
+
+function isEnoentError(e: unknown): boolean {
+  return (
+    typeof e === 'object' &&
+    e != null &&
+    'code' in e &&
+    (e as { code?: string }).code === 'ENOENT'
+  );
+}
+
 export function cookiesFromRefreshTokenOnly(
   refreshToken: string,
 ): PsaCollectorsCookie[] {
@@ -284,6 +390,7 @@ export async function savePsaCollectorsCookiesFile(
   cwd = process.cwd(),
 ): Promise<void> {
   const abs = resolve(cwd, cookiesFile);
+  await mkdir(dirname(abs), { recursive: true });
   const note = {
     _note:
       'Auto-updated by PSA Collectors session. Initial setup: scripts/psa-collectors-login.ts',

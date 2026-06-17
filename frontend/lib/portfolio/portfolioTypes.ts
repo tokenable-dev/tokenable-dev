@@ -13,7 +13,7 @@ export interface PricedAssetRow {
   category: string | null;
   amount: number;
   currentPrice: number | null;
-  priceSource: "cardhedger" | "none";
+  priceSource: "cardhedger" | "psa_estimate" | "none";
   liquidityLabel: string | null;
   listPriceUsd: number | null;
   activeListingOrderHash: string | null;

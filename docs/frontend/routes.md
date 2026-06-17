@@ -44,7 +44,7 @@ All routes are file-system based. Dynamic segments use `[param]` notation.
 |-------|------------------|
 | `/` | `GET /api/cardladder/indexes` |
 | `/exchange` | `GET /api/marketplace/collections`, `POST /api/marketplace/collections/market-snapshots` |
-| `/vault` | `POST /api/psa/analyze`, `POST /api/psa/analyze-by-cert`, `POST /api/rwa/upload` |
+| `/vault` | `POST /api/psa/analyze`, `POST /api/psa/analyze-by-cert`, `POST /api/rwa/upload`, `POST /api/marketplace/collections/on-mint` (after mint tx) |
 | `/portfolio` | `GET /api/blockchain/rwa/tokens/:address`, `POST …/metadata/batch`, `POST …/token-collection-keys`, `POST …/mint-previews`, `POST …/portfolio-market-batch`, `GET …/portfolio/daily/:wallet`, `GET …/portfolio/hidden/:wallet`, `GET /api/marketplace/orders/token/:tokenId` |
 | `/marketplace/[tokenId]` | `GET /api/blockchain/rwa/asset/:tokenId`, `GET /api/marketplace/orders/token/:tokenId` |
 | `/marketplace/collections/[collectionKey]` | `GET /api/marketplace/collections/:key`, `GET …/cardhedger`, `GET …/market-series`, `GET …/stats`, `GET …/ai-insight`, criteria bids via Seaport + `orders` |
@@ -53,10 +53,20 @@ All routes are file-system based. Dynamic segments use `[param]` notation.
 
 ## Collection Key
 
-Collection keys are SHA-256 bucket hashes from normalized graded metadata. Generated server-side at **first ask listing** (`ensureCollectionForListing`), not at mint.
+Collection keys are SHA-256 bucket hashes from normalized graded metadata.
 
 ```
 collectionKey = SHA256(normalize(cardName, cardSet, cardNumber, gradingCompany, gradeScore, …))
 ```
+
+**When the row is created**
+
+| Trigger | What runs |
+|---------|-----------|
+| **Mint confirmed** (`POST /api/marketplace/collections/on-mint`) | `ensureCollectionForListing` → `marketplace_collections` + `rwa_tokens`, Cardhedger cert lookup, snapshot enqueue, PSA spec cover retries |
+| **First ask** (`POST /api/marketplace/orders`, side `ask`) | Same `ensureCollectionForListing` if the mint hook missed (idempotent) |
+| **Platform trades read** (`GET …/platform-trades?bootstrapTokenId=`) | Ensures collection when key is known but row missing; lazy Cardhedger enrichment |
+
+**Sell-flow price suggestions** (`ListRwaModal` → `useListRwaPriceSuggestions`) need a `collectionKey` plus `bootstrapTokenId` to merge Tokenable fills with Cardhedger comps. The key can come from the server (`token-collection-keys`), client metadata hash, or the mint bootstrap response prefetched into React Query.
 
 See `backend/src/marketplace/utils/bucket-key.util.ts` and [database.md](../architecture/database.md).

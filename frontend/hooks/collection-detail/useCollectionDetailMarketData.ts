@@ -121,8 +121,14 @@ export function useCollectionDetailMarketData(params: {
   const chartExternalRollingUsd = gradeChart.chartExternalRollingUsd;
   const jtHistOk = chartExternalRollingUsd.length >= 2;
   const chartExternalWindowDays = gradeChart.chartDays;
-  const chartExternalLegend = gradeChart.chartExternalLegend;
-  const chartExternalShort = gradeChart.chartExternalShort;
+  const chartExternalLegend =
+    marketSeries?.spotPriceBasis === "psa_estimate"
+      ? `PSA Estimate · ${gradeChart.activeGrade}`
+      : gradeChart.chartExternalLegend;
+  const chartExternalShort =
+    marketSeries?.spotPriceBasis === "psa_estimate"
+      ? "PSA Estimate"
+      : gradeChart.chartExternalShort;
   const chartExternalRollingKind: "history" | "snapshot" = jtHistOk
     ? "history"
     : "snapshot";
@@ -169,8 +175,9 @@ export function useCollectionDetailMarketData(params: {
         gradePrices: marketSeries?.gradePrices ?? null,
         gradeScore: parseGradeScoreNumber(comp.gradeScore),
         components: comp,
+        spotPriceBasis: marketSeries?.spotPriceBasis ?? null,
       }),
-    [marketPreview, marketSeries?.gradePrices, comp.gradeScore, comp],
+    [marketPreview, marketSeries?.gradePrices, marketSeries?.spotPriceBasis, comp.gradeScore, comp],
   );
 
   const gradeAwareExternalUsd =
@@ -237,7 +244,10 @@ export function useCollectionDetailMarketData(params: {
     externalLegendLabel: chartExternalLegend,
     externalSeriesShortLabel: chartExternalShort,
     externalRefLineTag: chartExternalRefTag,
-    emptyStateMessage: `No Cardhedger price history for ${gradeChart.activeGrade} in this window.`,
+    emptyStateMessage:
+      marketSeries?.spotPriceBasis === "psa_estimate"
+        ? `PSA Estimate shown for ${gradeChart.activeGrade} — no Cardhedger sales history.`
+        : `No Cardhedger price history for ${gradeChart.activeGrade} in this window.`,
     isLoading: platformTradesLoading || gradeChart.gradeChartLoading,
     errorMessage: null as string | null,
   };

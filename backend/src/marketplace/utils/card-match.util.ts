@@ -38,12 +38,16 @@ export function normalizeForExactCatalogMatch(s: string): string {
 }
 
 export function normalizeForExactCardNumberKey(s: string): string {
-  return s
+  let t = s
     .replace(/^#/, '')
     .trim()
     .toLowerCase()
     .replace(/\s+/g, '')
     .replace(/[^a-z0-9]/g, '');
+  if (/^\d+$/.test(t)) {
+    t = t.replace(/^0+/, '') || '0';
+  }
+  return t;
 }
 
 export function exactCatalogMatch(

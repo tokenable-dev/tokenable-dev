@@ -10,3 +10,4 @@ export * from "./marketplace-market-data";
 export * from "./portfolio";
 export * from "./cardladder-indexes";
 export * from "./cardhedger";
+export * from "../rwa-mint-bootstrap";

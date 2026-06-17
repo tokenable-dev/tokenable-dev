@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Logger,
   NotFoundException,
   BadRequestException,
   Param,
@@ -42,6 +43,8 @@ import { SWAGGER_FIXTURES } from '../../swagger/fixtures';
 @ApiTags('marketplace')
 @Controller('marketplace')
 export class CollectionsController {
+  private readonly logger = new Logger(CollectionsController.name);
+
   constructor(
     private readonly collectionService: CollectionService,
     private readonly collectionMarketService: CollectionMarketService,
@@ -63,9 +66,8 @@ export class CollectionsController {
 
   /**
    * Front-end webhook: called right after the on-chain mint tx is confirmed.
-   * Immediately bootstraps marketplace_collections + rwa_tokens so that
-   * Cardhedger comps and trades are ready before the owner tries to list.
-   * Fire-and-forget on the server side — returns `{ accepted: true }` instantly.
+   * Awaits marketplace_collections + rwa_tokens bootstrap (and Cardhedger cert
+   * enrichment) so platform-trades / listing price suggestions work before ask.
    */
   @ApiOperation({ summary: '민트 완료 알림 (컬렉션 자동 생성)' })
   @ApiBody({
@@ -76,14 +78,34 @@ export class CollectionsController {
     },
   })
   @Post('collections/on-mint')
-  postOnMint(@Body() body: { tokenId?: unknown }): { accepted: boolean } {
+  async postOnMint(@Body() body: {
+    tokenId?: unknown;
+  }): Promise<{
+    accepted: boolean;
+    collectionKey: string | null;
+    bootstrapped: boolean;
+  }> {
     const tid = Math.floor(Number(body?.tokenId));
-    if (Number.isFinite(tid) && tid >= 0) {
-      void this.mintEventListener.handleMintedToken(tid).catch(() => {
-        // swallow — background task
-      });
+    if (!Number.isFinite(tid) || tid < 0) {
+      throw new BadRequestException('tokenId is required');
     }
-    return { accepted: true };
+
+    try {
+      const collectionKey = await this.mintEventListener.handleMintedToken(tid);
+      const key = collectionKey?.trim().toLowerCase() || null;
+      return {
+        accepted: true,
+        collectionKey: key,
+        bootstrapped: Boolean(key),
+      };
+    } catch (err: unknown) {
+      this.logger.warn(`on-mint bootstrap failed for #${tid}: ${String(err)}`);
+      return {
+        accepted: true,
+        collectionKey: null,
+        bootstrapped: false,
+      };
+    }
   }
 
   /** 컬렉션 목록 (커서 페이지) */
@@ -340,7 +362,7 @@ export class CollectionsController {
                 },
               ),
               new Promise<null>((resolve) =>
-                setTimeout(() => resolve(null), 15_000),
+                setTimeout(() => resolve(null), 45_000),
               ),
             ]),
         )

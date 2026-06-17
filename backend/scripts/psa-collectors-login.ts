@@ -17,7 +17,7 @@ import {
   closePsaChromiumContext,
   launchPsaChromiumContext,
   psaDefaultUserAgent,
-} from '../src/psa/utils/psa-scraper-browser.util';
+} from '../src/psa/utils/psa-collectors-browser.util';
 
 async function main() {
   const cookiesFile =
@@ -57,8 +57,12 @@ async function main() {
   const refreshToken = findRefreshToken(cookies);
   if (refreshToken) {
     console.log('');
-    console.log('Add to server secrets (one-time):');
+    console.log('Add to backend/.env (local) and ~/.env.production.backend (EC2):');
     console.log(`PSA_COLLECTORS_REFRESH_TOKEN=${refreshToken}`);
+    console.log('');
+    console.log(
+      'Daily dev uses the env token only — cookies file + profile are auto-managed caches.',
+    );
   }
 
   await closePsaChromiumContext(context, null);

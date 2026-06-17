@@ -145,6 +145,32 @@ export async function invalidateAfterCriteriaBid(
 }
 
 /**
+ * After mint bootstrap: refresh token lists, collection trades, and price snapshots
+ * so portfolio + list-modal suggestions see comps immediately.
+ */
+export async function invalidateAfterRwaMint(
+  qc: QueryClient,
+  input: { tokenId: number; collectionKey: string; address?: string | null },
+): Promise<void> {
+  const key = input.collectionKey.toLowerCase();
+
+  await qc.invalidateQueries({ queryKey: rq.rwaAssetDetail(input.tokenId) });
+  await qc.invalidateQueries({ queryKey: rq.tokenCollectionKey(input.tokenId) });
+  await _invalidateRwaTokensAll(qc);
+  await _invalidateRwaMetadataBatch(qc);
+  await _invalidateMintPreviews(qc);
+  await qc.invalidateQueries({ queryKey: rq.collectionDetail(key) });
+  await qc.invalidateQueries({ queryKey: rq.collectionPlatformTrades(key) });
+  await _invalidateCollectionSnapshots(qc);
+  await _invalidatePortfolioMarketBatch(qc);
+  await qc.invalidateQueries({ queryKey: rq.collectionsMarketplace() });
+
+  if (input.address?.trim()) {
+    await qc.invalidateQueries({ queryKey: rq.rwaTokens(input.address.trim()) });
+  }
+}
+
+/**
  * After a fulfillment, listing, or cancel on the RWA detail page.
  *
  * RWA detail buy/list flows — order, asset, collection market queries.

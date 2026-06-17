@@ -9,7 +9,7 @@ export function CollectionListingsSectionHeader({
 }) {
   return (
     <header
-      className={`relative ${compact ? "mb-3 pt-3" : "mb-4 pt-5 lg:mb-5 lg:pt-6"}`}
+      className={`relative ${compact ? "mb-3 pt-3" : "mb-3 pt-2 lg:mb-3 lg:pt-2"}`}
     >
       <div
         className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-zinc-700/75 to-transparent"

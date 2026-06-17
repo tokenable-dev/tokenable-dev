@@ -12,6 +12,7 @@ import {
 import { PsaSpecScraperService } from '../../psa/psa-spec-scraper.service';
 import { extractPsaCertImagesFromGetImagesBody } from '../../psa/utils/psa-cert-images.util';
 import {
+  isPsaCertSlabCloudfrontUrl,
   normalizeImageUrl,
   psaCertNumberFromGradedMeta,
 } from '../utils/collection-image.util';
@@ -170,6 +171,9 @@ export class CollectionCoverService {
               : ' — no fallback (set PSA_SPEC_COVER_ALLOW_FALLBACK=1 to allow Cardhedger/TCG)'
           }`,
         );
+        if (!allowFallback) {
+          return null;
+        }
       } catch (e) {
         this.logger.warn(
           `[CoverImg] PSA spec scrape failed specId=${specId}: ${e instanceof Error ? e.message : String(e)}${
@@ -180,8 +184,11 @@ export class CollectionCoverService {
         );
       }
 
-      // Spec scrape unavailable — fall through to Cardhedger / TCG (never PSA cert slab:
-      // cert number must not appear on collection cover).
+      if (!allowFallback) {
+        return null;
+      }
+
+      // Spec scrape unavailable — fall through to Cardhedger / TCG (never PSA cert slab).
     }
 
     // Correct field names: card.name / card.set / card.number (not cardName/setName/cardNumber)
@@ -406,13 +413,6 @@ export class CollectionCoverService {
   }
 
   /**
-   * Sync cover for ask listing — metadata only, no network (unused for persist; PSA resolved async).
-   */
-  quickCoverUrlForListing(_meta: Record<string, unknown>): string | null {
-    return null;
-  }
-
-  /**
    * Pick the best collection cover URL.
    * Priority: PSA spec scrape → Cardhedger / TCG fallbacks (when allowed).
    */
@@ -492,6 +492,7 @@ export class CollectionCoverService {
   coverImageNeedsUpgrade(url: string | null | undefined): boolean {
     const t = (url ?? '').trim();
     if (!t) return true;
+    if (isPsaCertSlabCloudfrontUrl(t)) return true;
     return this.isCoverUrlUpgradeable(t);
   }
 
@@ -502,6 +503,7 @@ export class CollectionCoverService {
   async persistCoverFromMetaIfMissing(
     collectionKey: string,
     meta: Record<string, unknown>,
+    options?: { psaSpecIdFallback?: string | null },
   ): Promise<void> {
     const key = collectionKey.toLowerCase();
     const row = await this.collectionRepo.findOne({
@@ -509,10 +511,22 @@ export class CollectionCoverService {
     });
     if (!row) return;
 
-    const existing = row.coverImageUrl?.trim() ?? '';
+    let existing = row.coverImageUrl?.trim() ?? '';
+    if (existing && isPsaCertSlabCloudfrontUrl(existing)) {
+      await this.collectionRepo.update(
+        { collectionKey: key },
+        { coverImageUrl: null },
+      );
+      existing = '';
+    }
     if (existing && !this.isCoverUrlUpgradeable(existing)) return;
 
-    const specFb = psaSpecIdFromComponentsRow(row.components);
+    const specFb =
+      options?.psaSpecIdFallback?.trim() ||
+      psaSpecIdFromComponentsRow(row.components);
+    if (specFb) {
+      this.psaSpecScraper.bustCache(specFb);
+    }
     const img = await this.resolveBestCoverUrl(meta, specFb);
     if (!img) return;
     if (existing === img) return;
@@ -621,6 +635,9 @@ export class CollectionCoverService {
     const col = await this.findOne(k);
     const stored = col?.coverImageUrl?.trim() ?? '';
     const psaSpecFromComp = psaSpecIdFromComponentsRow(col?.components);
+    if (psaSpecFromComp) {
+      this.psaSpecScraper.bustCache(psaSpecFromComp);
+    }
 
     if (stored && !this.isCoverUrlUpgradeable(stored)) return stored;
 
@@ -664,5 +681,89 @@ export class CollectionCoverService {
     }
 
     return stored || null;
+  }
+
+  /**
+   * Re-attempt PSA spec cover after cert/spec enrichment (mint, listing, or delayed retry).
+   */
+  async retryCoverFromToken(
+    collectionKey: string,
+    tokenId: number,
+  ): Promise<void> {
+    const k = collectionKey.toLowerCase();
+    const col = await this.findOne(k);
+    if (!col) return;
+    if (col.coverImageUrl?.trim() && isPsaCertSlabCloudfrontUrl(col.coverImageUrl)) {
+      await this.collectionRepo.update(
+        { collectionKey: k },
+        { coverImageUrl: null },
+      );
+    } else if (
+      col.coverImageUrl?.trim() &&
+      !this.coverImageNeedsUpgrade(col.coverImageUrl)
+    ) {
+      return;
+    }
+
+    let meta: Record<string, unknown>;
+    try {
+      const uri = await this.blockchain.getRwaTokenURI(tokenId);
+      meta = await this.ipfsResolver.fetchMetadataJson(uri);
+    } catch {
+      return;
+    }
+
+    let specId = psaSpecIdFromComponentsRow(col.components);
+    if (!specId) {
+      const cert =
+        col.psaCertNumber?.trim() || psaCertNumberFromGradedMeta(meta);
+      if (cert) {
+        const snap = await this.psaCertSnapshots.fetchCertSnapshotJson(cert, {
+          allowUpstream: true,
+        });
+        if (snap) {
+          specId = specIdStringFromPsaCertBody({ PSACert: snap }) ?? null;
+        }
+      }
+    }
+
+    if (specId && !psaSpecIdFromComponentsRow(col.components)) {
+      await this.collectionRepo.update(
+        { collectionKey: k },
+        {
+          components: {
+            ...col.components,
+            psaSpecId: specId,
+          } as QueryDeepPartialEntity<Record<string, unknown>>,
+        },
+      );
+    }
+
+    await this.persistCoverFromMetaIfMissing(k, meta, {
+      psaSpecIdFallback: specId,
+    });
+
+    const after = await this.findOne(k);
+    if (after?.coverImageUrl?.trim()) {
+      this.logger.log(
+        `[CoverImg] retry cover ${k} from token #${tokenId} → ${after.coverImageUrl.slice(0, 80)}`,
+      );
+    }
+  }
+
+  /** Delayed retries — specId / PSA cert snapshot may not be ready on first insert. */
+  scheduleCoverResolutionRetries(
+    collectionKey: string,
+    tokenId: number,
+  ): void {
+    for (const delayMs of [5_000, 20_000, 60_000]) {
+      setTimeout(() => {
+        void this.retryCoverFromToken(collectionKey, tokenId).catch((e: unknown) => {
+          this.logger.debug(
+            `[CoverImg] scheduled retry failed ${collectionKey} #${tokenId} delay=${delayMs}ms: ${String(e)}`,
+          );
+        });
+      }, delayMs);
+    }
   }
 }

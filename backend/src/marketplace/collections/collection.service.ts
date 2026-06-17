@@ -13,6 +13,7 @@ import {
 } from '../utils/bucket-key.util';
 import { marketParallelKeyFromPsaVariety } from '../utils/market-parallel-key.util';
 import { mergePsaVarietyWithMintVariant } from '../../psa/psa-variety-catalog.util';
+import { specIdStringFromPsaCertBody } from '../../psa/psa-public-api.service';
 import {
   buildCollectionDisplayLabel,
   extractCollectionQueryUsed,
@@ -48,7 +49,7 @@ export interface CollectionSummary {
   activeListingCount: number;
   /** Persisted catalog cover (may be null while slab fallback is used for display). */
   coverImageUrl: string | null;
-  /** Resolved UI image: `coverImageUrl` or `components.trendingSlabImageUrl`. */
+  /** Resolved UI image: persisted catalog cover only (never PSA cert slab). */
   displayImageUrl: string | null;
 }
 
@@ -102,10 +103,17 @@ export class CollectionService {
   }
 
   /**
-   * 매도(ask) 등록 시: 메타에서 버킷·컬렉션 라벨 문구를 읽어 컬렉션 행을 만들고 key 반환.
+   * 매도(ask) 등록·민트 on-mint 시: 메타에서 버킷·컬렉션 라벨 문구를 읽어 컬렉션 행을 만들고 key 반환.
    * graded 없으면 null (주문은 그대로 저장, 컬렉션 미부여).
+   *
+   * Cover: PSA spec scrape is attempted once (bounded by `coverAwaitMs`); delayed retries
+   * continue in the background. Mint uses a longer wait; listing uses a short cap so POST
+   * /orders stays within the frontend API timeout.
    */
-  async ensureCollectionForListing(tokenId: string): Promise<string | null> {
+  async ensureCollectionForListing(
+    tokenId: string,
+    opts?: { coverAwaitMs?: number },
+  ): Promise<string | null> {
     const uri = await this.blockchain.getRwaTokenURI(Number(tokenId));
     const meta = await this.ipfsResolver.fetchMetadataJson(uri);
     const extracted = extractOrDiagnoseBucketComponents(meta);
@@ -174,11 +182,29 @@ export class CollectionService {
       compRecord.psaSpecId = ch.psaSpecId;
     }
 
+    const psaCert = psaCertNumberFromGradedMeta(meta);
+    if (psaCert && !compRecord.psaSpecId) {
+      try {
+        const snap = await this.psaCertSnapshots.fetchCertSnapshotJson(psaCert, {
+          allowUpstream: true,
+        });
+        const specFromCert = snap
+          ? specIdStringFromPsaCertBody({ PSACert: snap })
+          : null;
+        if (specFromCert) {
+          compRecord.psaSpecId = specFromCert;
+        }
+      } catch (e: unknown) {
+        this.logger.debug(
+          `ensureCollectionForListing #${tokenId}: cert→specId lookup failed: ${String(e)}`,
+        );
+      }
+    }
+
     const trendingSlab = pickTrendingSlabImageRef(meta);
     if (trendingSlab) {
       compRecord.trendingSlabImageUrl = trendingSlab;
     }
-    const psaCert = psaCertNumberFromGradedMeta(meta);
 
     const gradedSrc =
       (meta.properties as Record<string, unknown> | undefined)?.graded ??
@@ -263,7 +289,27 @@ export class CollectionService {
       .execute();
 
     const inserted = (insertResult.identifiers?.length ?? 0) > 0;
-    void this.cover.persistCoverFromMetaIfMissing(collectionKey, meta);
+    const specFallback =
+      typeof compRecord.psaSpecId === 'string'
+        ? compRecord.psaSpecId
+        : typeof compRecord.psaSpecId === 'number'
+          ? String(compRecord.psaSpecId)
+          : null;
+    const coverJob = this.cover.persistCoverFromMetaIfMissing(
+      collectionKey,
+      meta,
+      { psaSpecIdFallback: specFallback },
+    );
+    const coverAwaitMs = opts?.coverAwaitMs ?? 0;
+    if (coverAwaitMs > 0) {
+      await Promise.race([
+        coverJob,
+        new Promise<void>((resolve) => setTimeout(resolve, coverAwaitMs)),
+      ]);
+    } else {
+      void coverJob;
+    }
+    this.cover.scheduleCoverResolutionRetries(collectionKey, Number(tokenId));
     if (!inserted) {
       await this.components.mergePsaPopulationFromMetaIfMissing(
         collectionKey,
@@ -280,6 +326,11 @@ export class CollectionService {
       );
       await this.components.mergeTrendingSlabMetaFromMetaIfMissing(
         collectionKey,
+        meta,
+      );
+      await this.components.mergePsaSpecIdFromCertIfMissing(
+        collectionKey,
+        psaCert,
         meta,
       );
     } else {

@@ -289,6 +289,37 @@ Batch pool stats + `market-series` bundle per collection key (max 60 keys). Used
 
 ---
 
+### `POST /api/marketplace/collections/on-mint`
+
+Called by the vault mint flow immediately after the on-chain `Minted` event is confirmed. **Awaits** marketplace bootstrap so listing price suggestions have comps before the first ask.
+
+**Body**
+
+```json
+{ "tokenId": 42 }
+```
+
+**Response**
+
+```json
+{
+  "accepted": true,
+  "collectionKey": "22028c12…",
+  "bootstrapped": true
+}
+```
+
+| Field | Meaning |
+|-------|---------|
+| `collectionKey` | Lowercase bucket key when `ensureCollectionForListing` succeeded |
+| `bootstrapped` | `true` when a `marketplace_collections` row exists for this mint |
+
+Server work (same as `MintEventListenerService.handleMintedToken`): UPSERT collection + `rwa_tokens`, Cardhedger cert → `cardhedgerCardId`, snapshot enqueue, PSA spec cover retries. The frontend retries up to 5 times on transient failure and prefetches `platform-trades` + snapshots into React Query.
+
+Also fired by optional on-chain listener when `MINT_EVENT_LISTENER_ENABLED=1` (idempotent with this POST).
+
+---
+
 ### `POST /api/marketplace/collections/token-collection-keys`
 
 Resolves `collection_key` per token ID for Portfolio grouping. **Read-only** — does not create `marketplace_collections` rows (unlike listing flow).

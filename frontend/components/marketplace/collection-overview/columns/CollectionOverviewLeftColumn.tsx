@@ -94,22 +94,6 @@ export function CollectionOverviewLeftColumn({
                   )}
                 </div>
               </div>
-              <div className="hidden w-full min-w-0 lg:block">
-                {imageUrl ? (
-                  <CollectionCoverFrame
-                    imageUrl={imageUrl}
-                    alt=""
-                    variant="hero"
-                    className="relative z-[1] w-full overflow-visible lg:w-full"
-                  />
-                ) : (
-                  <div
-                    className={`flex w-full items-center justify-center rounded-2xl ${COLLECTION_DETAILS_BORDER_ALL} ${COLLECTION_DETAILS_BG_CLASS} p-6 text-center text-[12px] text-gray-500 lg:w-[307px] ${COLLECTION_HERO_DESKTOP_HEIGHT_CLASS}`}
-                  >
-                    No preview
-                  </div>
-                )}
-              </div>
             </>
           ) : (
             <div className="flex w-full min-w-0 flex-col gap-2 max-lg:flex-row max-lg:items-start max-lg:gap-0">
@@ -145,7 +129,7 @@ export function CollectionOverviewLeftColumn({
             </div>
           ) : null}
         </div>
-        {belowCover != null ? (
+        {belowCover != null && !useMobileTabbedMarket ? (
           <div className="hidden w-full min-w-0 lg:mt-0 lg:block">{belowCover}</div>
         ) : null}
         {heroActions != null ? (

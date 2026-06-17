@@ -524,6 +524,14 @@ export class CardhedgerMarketDataService {
     return this.pricing.getCompsSnapshotForCollection(col, options);
   }
 
+  /** Comps from mint metadata when collection row is missing or not yet enriched. */
+  getCompsSnapshotForTokenId(
+    tokenId: number,
+    options?: { tier?: string; gradeLabel?: string; rawCount?: number },
+  ): Promise<MarketCompsSnapshot> {
+    return this.mint.getCompsSnapshotForTokenId(tokenId, options);
+  }
+
   fetchTierHistoryByCard(
     cardId: string,
     tier: string,

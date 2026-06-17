@@ -2,13 +2,19 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import { parseEventLogs } from "viem";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   useAccount,
   usePublicClient,
   useWriteContract,
   useWaitForTransactionReceipt,
 } from "wagmi";
-import { uploadRwaMetadata, notifyRwaMint } from "@/lib/core";
+import {
+  uploadRwaMetadata,
+  bootstrapRwaMintMarketData,
+  warmRwaMintMarketCache,
+} from "@/lib/core";
+import { invalidateAfterRwaMint } from "@/lib/core/invalidation";
 import { TOKENABLE_RWA_ADDRESS, TOKENABLE_RWA_MINT_ABI, TOKENABLE_RWA_EVENTS_ABI } from "@/constants/contracts";
 import { sepolia } from "@/config/wagmi";
 import { GAS_FALLBACK, gasWithCapFast } from "@/lib/network";
@@ -30,6 +36,7 @@ export function useMintForm() {
   const { address, isConnected } = useAccount();
   const publicClient = usePublicClient({ chainId: sepolia.id });
   const refresh = useAppStore(selectRefresh);
+  const queryClient = useQueryClient();
 
   const [form, setForm] = useState<GradedCardFormState>(MINT_FORM_INITIAL_STATE);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -100,8 +107,8 @@ export function useMintForm() {
     return () => URL.revokeObjectURL(u);
   }, [form.image]);
 
-  // Once the mint tx is confirmed, parse the Minted event to get the tokenId
-  // and notify the backend so it can bootstrap the marketplace collection immediately.
+  // Once the mint tx is confirmed, bootstrap marketplace collection + warm trades cache
+  // so listing price suggestions are ready before the owner opens the sell modal.
   useEffect(() => {
     if (!receipt?.logs?.length) return;
     try {
@@ -111,13 +118,26 @@ export function useMintForm() {
         eventName: "Minted",
       });
       const tokenId = Number(parsed[0]?.args?.tokenId);
-      if (Number.isFinite(tokenId) && tokenId >= 0) {
-        void notifyRwaMint(tokenId);
-      }
+      if (!Number.isFinite(tokenId) || tokenId < 0) return;
+
+      void (async () => {
+        const result = await bootstrapRwaMintMarketData(tokenId);
+        if (!result.collectionKey) return;
+
+        await invalidateAfterRwaMint(queryClient, {
+          tokenId,
+          collectionKey: result.collectionKey,
+          address: address ?? null,
+        });
+        await warmRwaMintMarketCache(queryClient, {
+          tokenId,
+          collectionKey: result.collectionKey,
+        });
+      })();
     } catch {
-      // best-effort — mint succeeded regardless
+      // mint succeeded regardless — listing flow can still bootstrap on first ask
     }
-  }, [receipt]);
+  }, [address, queryClient, receipt]);
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {

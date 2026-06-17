@@ -209,6 +209,7 @@ export class CollectionMarketSnapshotReadService {
         marketChangeRefAtSec: marketChangeRefAtSec ?? undefined,
         marketChangeSource,
         gradePrices,
+        spotPriceBasis: row.spotPriceBasis,
         allGradePrices,
         collectionGrade,
         historyTier,

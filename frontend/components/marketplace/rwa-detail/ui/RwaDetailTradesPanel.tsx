@@ -1,7 +1,11 @@
 "use client";
 
 import { COLLECTION_ORDER_BOOK_SCROLL_CLASS } from "@/components/marketplace/collectionOverviewChrome";
-import { TradeSourceMark } from "@/components/marketplace/unified-order-book/TradeSourceMark";
+import {
+  orderBookColumnHeaderCls,
+  orderBookTradesContentValueCls,
+} from "@/components/marketplace/price-metrics-strip/theme";
+import { TradesSourceCell } from "@/components/marketplace/unified-order-book/TradeSourceMark";
 import type { CollectionPlatformTapeFill } from "@/lib/core";
 import {
   formatTapeDate,
@@ -12,16 +16,25 @@ import {
 } from "@/lib/marketplace/unified-order-book";
 import { rwaDetailRightFont } from "../theme";
 
-/** Equal quarters — Price | Side | Source | Time */
-const RWA_TRADES_GRID = "grid grid-cols-4 items-center gap-x-1";
+/** Price · Side (narrow) · Source · Time (wider) */
+const RWA_TRADES_GRID =
+  "grid grid-cols-[minmax(0,1fr)_minmax(2rem,0.62fr)_minmax(1.75rem,0.55fr)_minmax(3.5rem,1.2fr)] items-center gap-x-3";
 
-const RWA_TRADES_COL = "min-w-0 truncate text-center";
+const RWA_PRICE_COL = "min-w-0 w-full truncate text-left tabular-nums";
+const RWA_SIDE_HDR_COL = "min-w-0 w-full truncate text-center";
+/** Data only — nudge left under centered header. */
+const RWA_SIDE_DATA_COL = "min-w-0 w-full truncate text-center relative -left-1.5";
+const RWA_SOURCE_HDR_COL = "block min-w-0 w-full text-center";
+const RWA_SOURCE_DATA_COL =
+  "flex w-full min-w-0 items-center justify-center justify-self-center";
+const RWA_TIME_HDR_COL = "min-w-0 w-full truncate text-right pr-2";
+const RWA_TIME_COL = "min-w-0 w-full truncate text-right tabular-nums";
 
 const RWA_TRADES_HEADER_CLS =
-  "border-b border-[rgba(38,39,45,1)] pb-2 text-[11px] font-medium uppercase tracking-wide text-zinc-500";
+  `shrink-0 border-b border-zinc-800/55 pb-2 ${orderBookColumnHeaderCls}`;
 
 const RWA_TRADES_ROW_CLS =
-  "border-b border-[rgba(38,39,45,0.45)] py-2.5 text-[14px] tabular-nums last:border-b-0";
+  `border-b border-zinc-800/40 py-2 last:border-b-0 ${orderBookTradesContentValueCls} text-[13px] text-zinc-200`;
 
 function RwaTradesTable({
   trades,
@@ -53,16 +66,16 @@ function RwaTradesTable({
   }
 
   return (
-    <div className="mt-4 min-w-0">
+    <div className="mt-4 min-w-0 overflow-hidden">
       <div className={`${RWA_TRADES_GRID} ${RWA_TRADES_HEADER_CLS}`}>
-        <span className={RWA_TRADES_COL}>Price</span>
-        <span className={RWA_TRADES_COL}>Side</span>
-        <span className={RWA_TRADES_COL}>Source</span>
-        <span className={`${RWA_TRADES_COL} relative -left-1 sm:-left-1.5`}>Time</span>
+        <span className={RWA_PRICE_COL}>Price</span>
+        <span className={RWA_SIDE_HDR_COL}>Side</span>
+        <span className={RWA_SOURCE_HDR_COL}>Source</span>
+        <span className={RWA_TIME_HDR_COL}>Time</span>
       </div>
 
       <ul
-        className={`max-h-[min(280px,40vh)] space-y-0 overflow-y-auto overflow-x-hidden overscroll-y-auto ${COLLECTION_ORDER_BOOK_SCROLL_CLASS}`}
+        className={`max-h-[min(280px,40vh)] overflow-y-auto overflow-x-hidden overscroll-y-auto ${COLLECTION_ORDER_BOOK_SCROLL_CLASS}`}
       >
         {trades.map((row) => {
           const side = tapeSideDisplay(row);
@@ -70,22 +83,20 @@ function RwaTradesTable({
 
           return (
             <li key={row.orderHash} className={`${RWA_TRADES_GRID} ${RWA_TRADES_ROW_CLS}`}>
-              <span className={`${RWA_TRADES_COL} font-medium text-mint`}>
+              <span className={`${RWA_PRICE_COL} font-medium text-mint`}>
                 {formatTradesTapePriceUsdc(row.priceUsdc)}
               </span>
               <span
-                className={`${RWA_TRADES_COL} text-[11px] font-semibold uppercase tracking-wide ${side.className}`}
+                className={`${RWA_SIDE_DATA_COL} text-[11px] font-semibold uppercase tracking-wide ${side.className}`}
                 title={side.title}
               >
                 {side.label}
               </span>
-              <TradeSourceMark
-                source={source}
-                compact
-                className={`${RWA_TRADES_COL} justify-self-center`}
-              />
+              <div className={RWA_SOURCE_DATA_COL}>
+                <TradesSourceCell source={source} compact className="!w-auto shrink-0" />
+              </div>
               <span
-                className={`${RWA_TRADES_COL} text-[13px] tabular-nums text-zinc-500`}
+                className={`${RWA_TIME_COL} text-zinc-400`}
                 title={formatTapeTimeFull(row.t)}
               >
                 {formatTapeDate(row.t)}

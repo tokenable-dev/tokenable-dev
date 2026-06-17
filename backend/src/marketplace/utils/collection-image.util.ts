@@ -123,21 +123,24 @@ export function pickTrendingSlabImageRef(
   return extractCollectionRepresentativeImage(meta);
 }
 
+export function isPsaCertSlabCloudfrontUrl(url: string): boolean {
+  return url.includes('d1htnxwo4o0jhw.cloudfront.net/cert/');
+}
+
 /**
  * UI display URL for collection cards (list, carousel, detail hero).
- * `coverImageUrl` is the persisted catalog cover; when empty, fall back to mint-time slab ref.
+ * Only persisted `coverImageUrl` (PSA spec / Cardhedger / TCG catalog) — never PSA cert slabs.
+ *
+ * `components.trendingSlabImageUrl` is mint-time slab reference for other surfaces only.
  */
 export function pickCollectionDisplayImageUrl(
   coverImageUrl: string | null | undefined,
-  components: Record<string, unknown> | null | undefined,
+  _components?: Record<string, unknown> | null | undefined,
 ): string | null {
   const cover = coverImageUrl?.trim();
-  if (cover) return cover;
-  const slab =
-    typeof components?.trendingSlabImageUrl === 'string'
-      ? components.trendingSlabImageUrl.trim()
-      : '';
-  return slab || null;
+  if (!cover) return null;
+  if (isPsaCertSlabCloudfrontUrl(cover)) return null;
+  return cover;
 }
 
 /** 메타 `graded.psa.certNumber` — Trending 풀 정렬·필터용 */

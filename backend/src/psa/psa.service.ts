@@ -8,6 +8,7 @@ import {
 import sharp from 'sharp';
 import { CardhedgerService } from '../cardhedger/cardhedger.service';
 import {
+  cardNumberTokenForCardhedgerSearch,
   normalizeForExactCardNumberKey,
   normalizeForExactCatalogMatch,
   primaryCardNumber,
@@ -623,11 +624,15 @@ export class PsaService {
   }
 
   private buildCardhedgerSearchQuery(psa: ParsedPsaLabel): string {
+    const numRaw = String(psa.cardNumberHint ?? '')
+      .replace(/^#/, '')
+      .trim();
+    const numToken = numRaw
+      ? cardNumberTokenForCardhedgerSearch(numRaw).replace(/^#/, '')
+      : '';
     const parts = [
       String(psa.cardNameHint ?? '').trim(),
-      String(psa.cardNumberHint ?? '')
-        .replace(/^#/, '')
-        .trim(),
+      numToken || numRaw,
       String(psa.setHint ?? '').trim(),
       String(psa.year ?? '').trim(),
       ...varietyHintsForSearch(psa.varietyHint),
@@ -1022,8 +1027,8 @@ export class PsaService {
       if (isPsaRateLimitHttpStatus(imagesLookup.httpStatus)) {
         throwPsaRateLimitHttpException(imagesLookup.message);
       }
-      throw new InternalServerErrorException(
-        `PSA 이미지 조회 실패: ${imagesLookup.message}`,
+      this.logger.warn(
+        `PSA GetImages failed cert=${digitsForImages}: ${imagesLookup.message} — continuing (Cardhedger/catalog image may still be available)`,
       );
     }
 

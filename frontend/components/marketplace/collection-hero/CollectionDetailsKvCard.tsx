@@ -3,6 +3,9 @@
 import { IBM_Plex_Sans } from "next/font/google";
 import { type ReactNode } from "react";
 import { COLLECTION_DETAILS_BG_CLASS } from "@/components/marketplace/collectionOverviewChrome";
+import {
+  collectionDetailArialClass,
+} from "@/components/marketplace/price-metrics-strip/theme";
 import type { CollectionDetailCard } from "@/lib/marketplace/collectionDetailTypes";
 
 const detailsKvFont = IBM_Plex_Sans({
@@ -11,8 +14,10 @@ const detailsKvFont = IBM_Plex_Sans({
   display: "swap",
 });
 
-const ROW_LABEL_CLASS = `${detailsKvFont.className} min-w-0 flex-1 text-[13px] font-normal leading-snug tracking-normal text-[#a0a0a0] sm:text-[14px] sm:leading-[140%]`;
-const ROW_VALUE_CLASS = `${detailsKvFont.className} min-w-0 shrink-0 max-w-[62%] text-right text-[14px] font-medium leading-snug tracking-normal text-white [overflow-wrap:anywhere] sm:max-w-[58%] sm:text-[15px] sm:leading-[140%]`;
+/** Desktop collection detail — slightly above Trades tape; inset from panel edges. */
+const DESKTOP_ROW_LABEL_CLASS = `${collectionDetailArialClass} min-w-0 flex-1 text-[13px] font-medium leading-snug text-zinc-500`;
+const DESKTOP_ROW_VALUE_CLASS = `${collectionDetailArialClass} min-w-0 shrink-0 max-w-[58%] text-right text-[14px] font-medium leading-[1.35] text-white [overflow-wrap:anywhere]`;
+const DESKTOP_KV_INSET_CLASS = "lg:px-2.5";
 
 function CompactDetailsBody({
   rows,
@@ -63,27 +68,25 @@ function FullDetailsBody({
   footer?: ReactNode;
 }) {
   return (
-    <article className={`hidden rounded-2xl ${COLLECTION_DETAILS_BG_CLASS} px-3 py-2 sm:px-4 sm:py-3 lg:px-5 lg:pb-4 lg:pt-2 lg:block`}>
+    <article
+      className={`hidden rounded-2xl ${COLLECTION_DETAILS_BG_CLASS} px-3 py-2 sm:px-4 sm:py-3 lg:block lg:rounded-none lg:bg-transparent lg:px-0 lg:py-0 lg:pb-1 ${DESKTOP_KV_INSET_CLASS}`}
+    >
       <h2 className="sr-only">{title}</h2>
       {subtitle?.trim() ? (
         <p className="sr-only">{subtitle}</p>
       ) : null}
       {catalogLine?.trim() ? (
-        <p
-          className={`${detailsKvFont.className} text-[11px] font-normal leading-snug tracking-normal text-[#a0a0a0] sm:text-[12px] sm:leading-[140%]`}
-        >
-          {catalogLine}
-        </p>
+        <p className={DESKTOP_ROW_LABEL_CLASS}>{catalogLine}</p>
       ) : null}
 
       {rows.length > 0 ? (
         <dl
-          className={`space-y-0 ${catalogLine?.trim() ? "mt-1.5 sm:mt-2" : ""}`}
+          className={`space-y-0 ${catalogLine?.trim() ? "mt-1.5" : ""}`}
         >
           {rows.map((row) => (
-            <div key={row.id} className="flex gap-2 py-1 sm:gap-2.5 sm:py-1.5">
-              <dt className={ROW_LABEL_CLASS}>{row.label}</dt>
-              <dd className={ROW_VALUE_CLASS}>{row.value}</dd>
+            <div key={row.id} className="flex gap-2 py-0.5 sm:gap-2.5 sm:py-1 lg:py-1">
+              <dt className={DESKTOP_ROW_LABEL_CLASS}>{row.label}</dt>
+              <dd className={DESKTOP_ROW_VALUE_CLASS}>{row.value}</dd>
             </div>
           ))}
         </dl>

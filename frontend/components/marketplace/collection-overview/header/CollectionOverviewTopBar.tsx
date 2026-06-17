@@ -35,6 +35,7 @@ export function CollectionOverviewTopBar({
   showMobileHeroIdentity,
   hideTopHeadlineBarOnMobile,
   suppressHeadlineBanner,
+  hideDesktopHeadlineBadges = false,
 }: {
   title: string;
   subtitle?: string | null;
@@ -53,6 +54,7 @@ export function CollectionOverviewTopBar({
   showMobileHeroIdentity: boolean;
   hideTopHeadlineBarOnMobile: boolean;
   suppressHeadlineBanner: boolean;
+  hideDesktopHeadlineBadges?: boolean;
 }) {
   return (
     <div
@@ -71,7 +73,9 @@ export function CollectionOverviewTopBar({
                   <h1 className="sr-only">{headlineTitle}</h1>
                   <div className={`${collectionHeroFont.className} min-w-0`}>
                     <div
-                      className="flex min-w-0 flex-wrap items-center gap-2.5 max-lg:justify-center lg:justify-start"
+                      className={`flex min-w-0 flex-wrap items-center gap-2.5 max-lg:justify-center lg:justify-start ${
+                        hideDesktopHeadlineBadges ? "lg:hidden" : ""
+                      }`}
                       aria-label="Collection tags"
                     >
                       {categoryBadge ? (
@@ -106,7 +110,9 @@ export function CollectionOverviewTopBar({
                         </h1>
                       )}
                       <div
-                        className="flex flex-wrap items-center gap-2.5 max-lg:justify-center lg:justify-start"
+                        className={`flex flex-wrap items-center gap-2.5 max-lg:justify-center lg:justify-start ${
+                          hideDesktopHeadlineBadges ? "lg:hidden" : ""
+                        }`}
                         aria-label="Collection tags"
                       >
                         {categoryBadge ? (

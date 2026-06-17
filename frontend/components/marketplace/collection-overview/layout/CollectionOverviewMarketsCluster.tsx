@@ -13,6 +13,7 @@ import {
   COLLECTION_MARKETS_ORDER_BOOK_COLUMN_WIDTH_CLASS,
 } from "@/components/marketplace/collectionOverviewChrome";
 import { withFlushProp } from "../utils/withFlushProp";
+import { CollectionOverviewMarketsClusterDesktop } from "./CollectionOverviewMarketsClusterDesktop";
 
 export function CollectionOverviewMarketsCluster({
   orderBookToggleEnabled,
@@ -54,6 +55,7 @@ export function CollectionOverviewMarketsCluster({
   let nextGridRow = chartGridRow + 1;
   const footerGridRow = marketsChartFooter != null ? nextGridRow++ : null;
   const listingsGridRow = marketsBelowChart != null ? nextGridRow++ : null;
+  const detailsGridRow = listingsGridRow;
   const tradeGridRow =
     marketsDockTradePanel && listingsGridRow != null
       ? listingsGridRow + 1
@@ -69,6 +71,34 @@ export function CollectionOverviewMarketsCluster({
             ? "lg:row-start-5"
             : "lg:row-start-2";
 
+  const rowStartClass = (row: number | null) =>
+    row === 2
+      ? "lg:row-start-2"
+      : row === 3
+        ? "lg:row-start-3"
+        : row === 4
+          ? "lg:row-start-4"
+          : row === 5
+            ? "lg:row-start-5"
+            : "lg:row-start-3";
+
+  const desktopDetailsBesideListings =
+    useMobileTabbedMarket && belowCover != null && listingsGridRow != null;
+
+  if (desktopDetailsBesideListings) {
+    return (
+      <CollectionOverviewMarketsClusterDesktop
+        chartMetricsRow={chartMetricsRow}
+        priceChart={priceChart}
+        orderBookNextToChart={orderBookNextToChart}
+        marketsDockTradePanel={marketsDockTradePanel}
+        tradePanel={tradePanel}
+        marketsBelowChart={marketsBelowChart}
+        belowCover={belowCover}
+      />
+    );
+  }
+
   return (
     <div className="relative w-full min-w-0 max-w-full">
       <div className={`${COLLECTION_MARKET_CLUSTER_BEZEL} w-full min-w-0 max-w-full lg:pt-0`}>
@@ -83,7 +113,11 @@ export function CollectionOverviewMarketsCluster({
             ].join(" ")}
           >
             {hasDesktopMetrics ? (
-              <div className="hidden min-w-0 shrink-0 lg:col-start-1 lg:row-start-1 lg:block">
+              <div
+                className={`hidden min-w-0 shrink-0 lg:col-start-1 lg:row-start-1 lg:block ${
+                  useMobileTabbedMarket && orderBookSideColumn ? "lg:col-span-2" : ""
+                }`}
+              >
                 {chartMetricsRow}
               </div>
             ) : null}
@@ -170,21 +204,29 @@ export function CollectionOverviewMarketsCluster({
                   "min-w-0 w-full max-w-full self-stretch",
                   useMobileTabbedMarket ? "max-lg:hidden" : "",
                   orderBookSideColumn ? "lg:mt-2 max-lg:mt-2 mt-1" : "lg:mt-2 max-lg:mt-1 mt-1",
-                  orderBookSideColumn ? "lg:col-span-2 lg:col-start-1" : "lg:col-span-1 lg:col-start-1",
-                  listingsGridRow === 2
-                    ? "lg:row-start-2"
-                    : listingsGridRow === 3
-                      ? "lg:row-start-3"
-                      : listingsGridRow === 4
-                        ? "lg:row-start-4"
-                        : listingsGridRow === 5
-                          ? "lg:row-start-5"
-                          : "lg:row-start-3",
+                  desktopDetailsBesideListings
+                    ? "lg:col-span-1 lg:col-start-1"
+                    : orderBookSideColumn
+                      ? "lg:col-span-2 lg:col-start-1"
+                      : "lg:col-span-1 lg:col-start-1",
+                  rowStartClass(listingsGridRow),
                 ].join(" ")}
                 id="collection-listings"
                 aria-label="Individual listings"
               >
                 {marketsBelowChart}
+              </div>
+            ) : null}
+            {desktopDetailsBesideListings ? (
+              <div
+                className={[
+                  "hidden min-w-0 w-full max-w-full lg:col-start-2 lg:block lg:border-t lg:border-zinc-800/35 lg:pt-3",
+                  COLLECTION_MARKETS_ORDER_BOOK_COLUMN_WIDTH_CLASS,
+                  rowStartClass(detailsGridRow),
+                ].join(" ")}
+                aria-label="Collection details"
+              >
+                {belowCover}
               </div>
             ) : null}
             {belowCover != null && !useMobileTabbedMarket ? (

@@ -19,6 +19,7 @@ import type {
 import { MARKET_SNAPSHOT_SOURCE_VERSION } from '../utils/market-snapshot.types';
 import { psaPublicApiAllowedForSnapshotReason } from '../utils/psa-components-mirror.util';
 import { psaCertNumberFromCollectionRow } from '../utils/collection-row.util';
+import { PsaCertSnapshotService } from '../collections/psa-cert-snapshot.service';
 
 /**
  * Builds and persists materialized Cardhedger snapshots.
@@ -37,6 +38,7 @@ export class CollectionMarketSnapshotService {
     private readonly snapshotRepo: Repository<CollectionMarketSnapshot>,
     private readonly collectionEnrichment: CollectionEnrichmentService,
     private readonly cardMarketData: CardhedgerMarketDataService,
+    private readonly psaCertSnapshots: PsaCertSnapshotService,
     private readonly config: ConfigService,
     @Inject(forwardRef(() => CollectionMarketSnapshotSchedulerService))
     private readonly snapshotScheduler: CollectionMarketSnapshotSchedulerService,
@@ -99,19 +101,27 @@ export class CollectionMarketSnapshotService {
     const extLen = row.externalUsdJson?.length ?? 0;
     if (extLen >= 2) return true;
 
+    const headline = row.headlineUsd;
+    if (
+      typeof headline === 'number' &&
+      Number.isFinite(headline) &&
+      headline > 0
+    ) {
+      return true;
+    }
+
+    const psa10 =
+      row.psa10Usd ??
+      (row.gradePricesJson as { psa10?: number | null } | null)?.psa10;
+    if (typeof psa10 === 'number' && Number.isFinite(psa10) && psa10 > 0) {
+      return true;
+    }
+
     const card = row.previewJson.card;
     const matched = Boolean(row.previewJson.matched && card);
     if (matched) {
       const top = card?.topPrice;
       if (typeof top === 'number' && Number.isFinite(top) && top > 0) {
-        return true;
-      }
-      const headline = row.headlineUsd;
-      if (
-        typeof headline === 'number' &&
-        Number.isFinite(headline) &&
-        headline > 0
-      ) {
         return true;
       }
     }
@@ -208,21 +218,23 @@ export class CollectionMarketSnapshotService {
             col,
           );
       }
-      const comps = (col?.components ?? null) as Record<string, unknown> | null;
-      const psaEstimateRaw = comps?.psaEstimateUsd;
-      const psaEstimateUsd =
-        typeof psaEstimateRaw === 'number'
-          ? Number.isFinite(psaEstimateRaw) && psaEstimateRaw > 0
-            ? psaEstimateRaw
-            : null
-          : typeof psaEstimateRaw === 'string'
-            ? Number(
-                psaEstimateRaw
-                  .replace(/,/g, '')
-                  .replace(/\$/g, '')
-                  .match(/(\d+(?:\.\d+)?)/)?.[1] ?? NaN,
-              )
-            : null;
+      const certForEstimate = col ? psaCertNumberFromCollectionRow(col) : null;
+      let psaEstimateUsd = this.psaEstimateUsdFromComponents(col?.components);
+      if (certForEstimate && psaEstimateUsd == null) {
+        const scraped =
+          await this.psaCertSnapshots.refreshEstimateIfMissing(certForEstimate);
+        if (scraped != null) {
+          await this.collectionEnrichment.persistPsaMirrorFromCertToDb(key);
+          col = await this.collectionEnrichment.findOne(key);
+          if (col) {
+            col =
+              await this.collectionEnrichment.mergePsaSnapshotIntoComponentsFromDb(
+                col,
+              );
+          }
+          psaEstimateUsd = scraped;
+        }
+      }
       const historyTier = marketHistoryTierFromComponents(col?.components);
       const { preview, history } = await this.cardMarketData.getBundledCardData(
         col,
@@ -239,9 +251,7 @@ export class CollectionMarketSnapshotService {
         historyTier,
         preview,
         historyPoints: history.points,
-        psaEstimateUsd: Number.isFinite(psaEstimateUsd as number)
-          ? (psaEstimateUsd as number)
-          : null,
+        psaEstimateUsd,
       });
 
       const row = await this.upsertPayload(payload);
@@ -391,5 +401,24 @@ export class CollectionMarketSnapshotService {
     }
     if (!this.onDemandEnabled()) return existing;
     return this.refreshSnapshot(key, reason);
+  }
+
+  private psaEstimateUsdFromComponents(
+    components: Record<string, unknown> | null | undefined,
+  ): number | null {
+    const raw = components?.psaEstimateUsd;
+    if (typeof raw === 'number') {
+      return Number.isFinite(raw) && raw > 0 ? raw : null;
+    }
+    if (typeof raw === 'string') {
+      const n = Number(
+        raw
+          .replace(/,/g, '')
+          .replace(/\$/g, '')
+          .match(/(\d+(?:\.\d+)?)/)?.[1] ?? NaN,
+      );
+      return Number.isFinite(n) && n > 0 ? n : null;
+    }
+    return null;
   }
 }

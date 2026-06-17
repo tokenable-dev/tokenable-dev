@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import type { Order } from "@/lib/core";
-import { formatMarketCapUsd } from "@/lib/market";
+import { externalMarketPriceSourceLabel, formatMarketCapUsd } from "@/lib/market";
 import { CollectionDetailPriceChart } from "@/components/marketplace/collection-detail/CollectionDetailPriceChart";
 import type { CollectionDualPriceChartProps } from "@/components/marketplace/collection-dual-price-chart";
 import { CollectionPriceMetricsStrip } from "@/components/marketplace/price-metrics-strip";
@@ -59,7 +59,7 @@ export function buildCollectionDetailMarketsSlots(input: {
         compact
         marketsUnifiedRow
         externalMarketUsd={market.gradeAwareExternalUsd}
-        externalPriceSource={market.resolvedExternal.source}
+        externalPriceSource={externalMarketPriceSourceLabel(market.resolvedExternal.source)}
         marketTierDisplay={market.gradeAwareTierLabel}
         externalMarketMatchConfidence={market.resolvedExternal.marketMatchConfidence}
         externalPriceLoading={market.gradeAwarePriceLoading}

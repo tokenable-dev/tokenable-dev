@@ -26,4 +26,6 @@ pnpm run install:browsers
 
 Quick manual check: `pnpm exec ts-node scripts/test-psa-spec-scraper.ts 9656727`.
 
+**PSA Collectors auth (local = production):** set `PSA_COLLECTORS_REFRESH_TOKEN` in `backend/.env`. Run `pnpm exec ts-node scripts/psa-collectors-login.ts` **once** to print the token — you do not need the script for daily dev. `.psa-collectors-cookies.json` and `.psa-chromium-profile/` are auto-managed caches (gitignored).
+
 > **Docker:** the production `Dockerfile` installs browsers under `PLAYWRIGHT_BROWSERS_PATH=/ms-playwright` and runs `playwright-core install --with-deps chromium` with **`CI` unset for that step** so the download is not skipped when `CI=true` elsewhere. Local dev: `pnpm run install:browsers`.

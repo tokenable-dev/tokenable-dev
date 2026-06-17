@@ -8,10 +8,12 @@ import { RwaDetailGradientButton } from "@/components/marketplace/rwa-detail/ui/
 import { ListingFlowProgress } from "./ListingFlowProgress";
 import { listModalAssetLabel, shortBidder } from "@/lib/seaport/listing/listRwaModalUtils";
 import type { ListRwaModalStep } from "@/lib/seaport/listing/listRwaModalTypes";
+import { ListRwaPriceSuggestionsPanel } from "./ListRwaPriceSuggestionsPanel";
 
 export function ListRwaModalFormView({
   tokenId,
   assetTitle,
+  collectionKey,
   isReplaceListing,
   price,
   onPriceChange,
@@ -26,6 +28,7 @@ export function ListRwaModalFormView({
 }: {
   tokenId: number;
   assetTitle?: string | null;
+  collectionKey?: string | null;
   isReplaceListing: boolean;
   price: string;
   onPriceChange: (value: string) => void;
@@ -113,6 +116,12 @@ export function ListRwaModalFormView({
             USDC
           </span>
         </div>
+        <ListRwaPriceSuggestionsPanel
+          tokenId={tokenId}
+          collectionKey={collectionKey}
+          onApplyPrice={onPriceChange}
+          disabled={isProcessing}
+        />
         {price && parseFloat(price) > 0 && feePercent() > 0 && (
           <div
             className={`space-y-2 rounded-lg border border-zinc-700/50 bg-zinc-900/40 px-3 py-2.5 ${

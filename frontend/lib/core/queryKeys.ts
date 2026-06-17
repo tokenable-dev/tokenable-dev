@@ -103,6 +103,8 @@ export const rq = {
     ["metadata-bucket-key", tokenId, uri] as const,
   /** On-chain trade activity events for a single token. */
   rwaActivity: (tokenId: number) => ["rwa-activity", tokenId] as const,
+  /** Server-resolved collection_key for a minted/owned token (rwa_tokens + metadata). */
+  tokenCollectionKey: (tokenId: number) => ["token-collection-key", tokenId] as const,
   /** Resolved https URL for the slab back-image (used in RWA detail panel). */
   rwaSlabBack: (uri: string) => ["rwa-detail-slab-back", uri] as const,
 

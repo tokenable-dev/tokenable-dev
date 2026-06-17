@@ -11,7 +11,7 @@ export interface MarketplaceCollectionSummary {
   activeListingCount: number;
   /** Persisted catalog cover (admin-editable). */
   coverImageUrl?: string | null;
-  /** UI image: `coverImageUrl` or slab fallback from components. */
+  /** UI image: persisted catalog cover only (PSA spec / Cardhedger — never cert slab). */
   displayImageUrl?: string | null;
 }
 
