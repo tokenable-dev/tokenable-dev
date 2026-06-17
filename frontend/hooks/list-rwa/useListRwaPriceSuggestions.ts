@@ -17,6 +17,7 @@ import {
   extractBucketComponentsFromMetadata,
   computeMarketBucketKey,
 } from "@/lib/marketplace/bucketKey";
+import type { CollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
 import {
   marketHistoryTierFromRwaMetadata,
   marketTierDisplayLabel,
@@ -110,14 +111,12 @@ export function useListRwaPriceSuggestions(input: {
     staleTime: marketplaceRqPolicy.collectionDetailStaleMs,
   });
 
-  const pricingComponents = useMemo(() => {
+  const pricingComponents = useMemo((): CollectionComponents | null => {
     const server = collectionDetail?.collection?.components;
     if (!server && !bucketComponents) return null;
     return {
       ...(bucketComponents ?? {}),
       ...(server ?? {}),
-      psaEstimateUsd:
-        server?.psaEstimateUsd ?? bucketComponents?.psaEstimateUsd,
     };
   }, [bucketComponents, collectionDetail?.collection?.components]);
 
