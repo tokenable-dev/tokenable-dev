@@ -4,11 +4,11 @@ import type { BookCenterModel } from "./types";
 
 export const MAX_ORDER_BOOK_TAPE_ROWS = 50;
 
-/** Flush collection order book — full depth rows visible before wheel scroll. */
-export const ORDER_BOOK_FLUSH_VISIBLE_DEPTH_ROWS = 5;
+/** Flush collection order book — depth rows visible before wheel scroll. */
+export const ORDER_BOOK_FLUSH_VISIBLE_DEPTH_ROWS = 3;
 /** Mobile collection tab — compact bid/ask depth (best levels only). */
 export const ORDER_BOOK_FLUSH_MOBILE_VISIBLE_DEPTH_ROWS = 3;
-export const ORDER_BOOK_FLUSH_DEPTH_ROW_PX = 25;
+export const ORDER_BOOK_FLUSH_DEPTH_ROW_PX = 22;
 export const ORDER_BOOK_FLUSH_DEPTH_GAP_PX = 1;
 /** Matches bid/ask list wrapper `pt-0.5 pb-1` (2px + 4px). */
 export const ORDER_BOOK_FLUSH_DEPTH_PANE_PAD_PX = 6;
@@ -22,9 +22,9 @@ export function orderBookFlushDepthPaneHeightPx(
 }
 
 /** Keep in sync with {@link orderBookFlushDepthPaneHeightPx} — Tailwind needs a static class. */
-export const ORDER_BOOK_FLUSH_DEPTH_PANE_HEIGHT_CLASS = "h-[135px]";
+export const ORDER_BOOK_FLUSH_DEPTH_PANE_HEIGHT_CLASS = "h-[74px]";
 /** Keep in sync with {@link orderBookFlushDepthPaneHeightPx}(3) — mobile collection tab. */
-export const ORDER_BOOK_FLUSH_MOBILE_DEPTH_PANE_HEIGHT_CLASS = "h-[83px]";
+export const ORDER_BOOK_FLUSH_MOBILE_DEPTH_PANE_HEIGHT_CLASS = "h-[74px]";
 
 export function orderBookFlushDepthPaneHeightClass(
   visibleRows = ORDER_BOOK_FLUSH_VISIBLE_DEPTH_ROWS,
@@ -55,7 +55,7 @@ export function orderBookMobileEmbedTabBodyHeightPx(
 }
 
 /** Keep in sync with {@link orderBookMobileEmbedTabBodyHeightPx}(3). */
-export const ORDER_BOOK_MOBILE_EMBED_TAB_BODY_HEIGHT_CLASS = "h-[236px]";
+export const ORDER_BOOK_MOBILE_EMBED_TAB_BODY_HEIGHT_CLASS = "h-[196px]";
 
 export function priceUsdcFromOrder(o: Order): number {
   return Number(o.considerationAmount) / 1_000_000;

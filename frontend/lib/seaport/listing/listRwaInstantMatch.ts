@@ -401,6 +401,7 @@ export async function invalidateListingQueries(
   await invalidateAfterListing(deps.queryClient, {
     collectionKey: colKey || null,
     address: deps.address || null,
+    tokenId: deps.tokenId,
   });
 }
 

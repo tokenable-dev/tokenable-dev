@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   marketplaceRqPolicy,
   postBatchMintMarketPreviews,
-  postPortfolioCollectionMarketBatch,
+  postPortfolioCollectionMarketBatchBatched,
   rq,
   type CollectionMarketSeries,
   type CollectionMarketStats,
@@ -38,7 +38,7 @@ export function usePortfolioMarketPricing(input: {
       portfolioMarketBatchSig,
     ] as const,
     queryFn: () =>
-      postPortfolioCollectionMarketBatch({
+      postPortfolioCollectionMarketBatchBatched({
         collectionKeys: uniqueCollectionKeys,
         priceHistoryDuration: "max",
       }),

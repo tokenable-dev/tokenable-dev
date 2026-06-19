@@ -34,7 +34,7 @@ export function OrderBookDepthLevelRow({
 
   const interactive = isAsk;
   const rowClass = flush
-    ? `relative flex h-[25px] min-h-[25px] max-h-[25px] w-full items-center overflow-hidden rounded-[2px] text-left ${
+    ? `relative flex h-[22px] min-h-[22px] max-h-[22px] w-full items-center overflow-hidden rounded-[2px] text-left ${
         interactive ? "cursor-pointer transition-colors focus:outline-none" : "cursor-default"
       } ${selected && interactive ? "bg-white/[0.06] ring-1 " + selectedRing : ""}`
     : `relative min-h-[24px] w-full text-left flex items-center rounded-[2px] overflow-hidden ${

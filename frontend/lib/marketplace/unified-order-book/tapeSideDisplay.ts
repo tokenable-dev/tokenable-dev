@@ -1,10 +1,4 @@
 import type { CollectionPlatformTapeFill } from "@/lib/core";
-import {
-  brandIdFromPlatformLabel,
-  type TapeSourceBrandId,
-} from "./tapeSourceBrand";
-
-export type { TapeSourceBrandId } from "./tapeSourceBrand";
 
 /** Cardhedger comps are completed marketplace sales — no buy/sell aggressor in upstream data. */
 export function externalTapeSideDisplay(row: CollectionPlatformTapeFill): {
@@ -51,13 +45,11 @@ function normalizeExternalSaleUrl(url: string | null | undefined): string | null
   }
 }
 
-/** Trades tape Source column — marketplace inferred from Cardhedger or on-platform. */
+/** Trades tape Source column — marketplace name as plain text. */
 export type TapeSourceDisplay = {
   label: string;
   title?: string;
-  className: string;
   href?: string | null;
-  brandId?: TapeSourceBrandId | null;
 };
 
 export function tapeSourceDisplay(row: CollectionPlatformTapeFill): TapeSourceDisplay {
@@ -67,7 +59,6 @@ export function tapeSourceDisplay(row: CollectionPlatformTapeFill): TapeSourceDi
       return {
         label: "—",
         title: "Cardhedger daily reference — not an individual marketplace sale.",
-        className: "text-zinc-500",
         href: null,
       };
     }
@@ -77,7 +68,6 @@ export function tapeSourceDisplay(row: CollectionPlatformTapeFill): TapeSourceDi
       return {
         label: "—",
         title: "Marketplace not identified (no sale URL from Cardhedger).",
-        className: "text-zinc-500",
         href: null,
       };
     }
@@ -86,20 +76,14 @@ export function tapeSourceDisplay(row: CollectionPlatformTapeFill): TapeSourceDi
       title: href
         ? `Open sold listing on ${platform}`
         : `Inferred marketplace from Cardhedger (listing URL not available).`,
-      className: href
-        ? "text-mint/85 hover:text-mint"
-        : "text-zinc-300",
       href,
-      brandId: brandIdFromPlatformLabel(platform),
     };
   }
 
   return {
     label: "Tokenable",
     title: "On-platform Tokenable trade.",
-    className: "text-zinc-300",
     href: null,
-    brandId: "tokenable",
   };
 }
 

@@ -63,7 +63,7 @@ collectionKey = SHA256(normalize(cardName, cardSet, cardNumber, gradingCompany, 
 
 | Trigger | What runs |
 |---------|-----------|
-| **Mint confirmed** (`POST /api/marketplace/collections/on-mint`) | `ensureCollectionForListing` → `marketplace_collections` + `rwa_tokens`, Cardhedger cert lookup, snapshot enqueue, PSA spec cover retries |
+| **Mint confirmed** (`POST /api/marketplace/collections/on-mint`) | `ensureCollectionForListing` → `marketplace_collections` + `rwa_tokens`, Cardhedger cert lookup, snapshot enqueue; cover set once on first listing bucket create |
 | **First ask** (`POST /api/marketplace/orders`, side `ask`) | Same `ensureCollectionForListing` if the mint hook missed (idempotent) |
 | **Platform trades read** (`GET …/platform-trades?bootstrapTokenId=`) | Ensures collection when key is known but row missing; lazy Cardhedger enrichment |
 

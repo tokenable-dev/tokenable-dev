@@ -24,7 +24,7 @@ export function OrderBookTabHeader({
   flush?: boolean;
 }) {
   const tabBase = flush
-    ? `${orderBookTabLabelCls} border-b-2 border-transparent pb-2 text-center transition-colors duration-200`
+    ? `${orderBookTabLabelCls} border-b-2 border-transparent pb-1.5 text-center transition-colors duration-200`
     : `${orderBookTabLabelCls} border-b-2 border-transparent px-2 pb-2.5 pt-2 text-center transition-colors duration-200`;
   const tabActive = "border-white text-white";
   const tabInactive = "font-medium text-zinc-500 hover:border-zinc-700 hover:text-zinc-300";

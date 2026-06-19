@@ -92,6 +92,11 @@ export class OrdersService {
     }
 
     const order = await this.materializeOrderFromDto(dto);
+    if (side === OrderSide.ASK && !order.collectionKey?.trim()) {
+      throw new BadRequestException(
+        'Could not create a marketplace collection for this token. Check that graded metadata is on IPFS and try again.',
+      );
+    }
     const saved = await this.persistOrder(order, this.orderRepo.manager);
     const diagOn =
       this.config.get<string>('MARKETPLACE_PIPELINE_DIAG') === '1' ||
@@ -109,6 +114,45 @@ export class OrdersService {
       );
     }
     return saved;
+  }
+
+  /**
+   * First ask listing: create marketplace_collections from token metadata, or reuse
+   * a prior ask's key when metadata fetch fails transiently.
+   */
+  private async resolveAskCollectionKey(
+    dto: CreateOrderDto,
+  ): Promise<string | null> {
+    const tidRaw = String(dto.tokenId);
+    try {
+      const key = await this.collectionService.ensureCollectionForListing(tidRaw);
+      if (key?.trim()) return key.trim().toLowerCase();
+    } catch (e) {
+      this.logger.warn(
+        `ensureCollectionForListing failed for token #${tidRaw}: ${String(e)}`,
+      );
+    }
+
+    const tidNorm = normalizeDecimalTokenId(tidRaw);
+    const tidVariants = [...new Set([tidRaw, tidNorm].filter((s) => s.length > 0))];
+    const prior = await this.orderRepo.findOne({
+      where: {
+        tokenContract: dto.tokenContract,
+        side: OrderSide.ASK,
+        tokenId: In(tidVariants),
+        collectionKey: Not(IsNull()),
+      },
+      order: { updatedAt: 'DESC' },
+    });
+    if (prior?.collectionKey?.trim()) {
+      const reused = prior.collectionKey.trim().toLowerCase();
+      this.logger.log(
+        `Reused collection_key from a prior ask for token #${tidRaw} (ensure failed or returned null).`,
+      );
+      return reused;
+    }
+
+    return null;
   }
 
   /**
@@ -161,10 +205,14 @@ export class OrdersService {
       await em.save(old);
 
       const order = await this.materializeOrderFromDto(dto);
-      const materializedKeyNull = order.collectionKey == null;
-      /** Re-attach bucket if IPFS/RPC flaked on replace but the prior row had a key (instant match needs it). */
-      if (!order.collectionKey && old.collectionKey) {
-        order.collectionKey = old.collectionKey;
+      const materializedKeyNull = !order.collectionKey?.trim();
+      if (materializedKeyNull && old.collectionKey?.trim()) {
+        order.collectionKey = old.collectionKey.trim().toLowerCase();
+      }
+      if (!order.collectionKey?.trim()) {
+        throw new BadRequestException(
+          'Could not resolve marketplace collection for this listing replacement.',
+        );
       }
       const saved = await this.persistOrder(order, em);
       const diagOn =
@@ -262,35 +310,7 @@ export class OrdersService {
       }
       collectionKey = col.collectionKey;
     } else {
-      try {
-        collectionKey = await this.collectionService.ensureCollectionForListing(
-          dto.tokenId,
-        );
-      } catch (e) {
-        this.logger.warn(
-          `Collection not attached for token #${dto.tokenId}: ${String(e)}`,
-        );
-        const tidRaw = String(dto.tokenId);
-        const tidNorm = normalizeDecimalTokenId(tidRaw);
-        const tidVariants = [
-          ...new Set([tidRaw, tidNorm].filter((s) => s.length > 0)),
-        ];
-        const prior = await this.orderRepo.findOne({
-          where: {
-            tokenContract: dto.tokenContract,
-            side: OrderSide.ASK,
-            tokenId: In(tidVariants),
-            collectionKey: Not(IsNull()),
-          },
-          order: { updatedAt: 'DESC' },
-        });
-        if (prior?.collectionKey) {
-          collectionKey = prior.collectionKey;
-          this.logger.log(
-            `Reused collection_key from a prior ask for token #${dto.tokenId} (metadata fetch failed).`,
-          );
-        }
-      }
+      collectionKey = await this.resolveAskCollectionKey(dto);
       const tid = String(dto.tokenId);
       const diagOn =
         this.config.get<string>('MARKETPLACE_PIPELINE_DIAG') === '1' ||
@@ -304,7 +324,6 @@ export class OrdersService {
             side: 'ask',
             tokenId: tid,
             tokenContract: dto.tokenContract,
-            note: 'Order will persist with collection_key NULL unless replace flow reuses prior listing key.',
           }),
         );
       } else if (diagOn) {

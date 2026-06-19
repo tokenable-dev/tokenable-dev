@@ -21,6 +21,10 @@ import {
 } from './cardhedger-resolve.service';
 import { CardhedgerPricingService } from './cardhedger-pricing.service';
 import { CardhedgerMintService } from './cardhedger-mint.service';
+import {
+  catalogRowTrustedForMarketData,
+  catalogTrustHintsFromComponents,
+} from '../utils/card-match.util';
 import { catalogFromAllPricesRows } from '../utils/cardhedger-grade-catalog.util';
 
 export type {
@@ -86,7 +90,10 @@ export class CardhedgerMarketDataService {
    *   description as a high-priority text search query.
    * - Returns null when the cert is fully unknown to Cardhedger.
    */
-  async tryResolveCardIdByCert(cert: string): Promise<{
+  async tryResolveCardIdByCert(
+    cert: string,
+    opts?: { collection?: MarketplaceCollection | null },
+  ): Promise<{
     cardId: string | null;
     query: string;
     certDescription: string | null;
@@ -99,6 +106,27 @@ export class CardhedgerMarketDataService {
           ? row.card_id.trim()
           : null;
       if (cardId) {
+        if (opts?.collection) {
+          const trust = catalogRowTrustedForMarketData(
+            catalogTrustHintsFromComponents(opts.collection.components),
+            row as Record<string, unknown>,
+          );
+          if (!trust.ok) {
+            this.logger.warn(
+              JSON.stringify({
+                msg: 'cert_card_id_rejected',
+                cert,
+                collectionKey: opts.collection.collectionKey,
+                cardId,
+                failCodes: trust.failCodes,
+              }),
+            );
+            if (certDescription) {
+              return { cardId: null, query: certDescription, certDescription };
+            }
+            return null;
+          }
+        }
         const query =
           (typeof row.description === 'string' && row.description.trim()
             ? row.description.trim()
@@ -522,6 +550,64 @@ export class CardhedgerMarketDataService {
     options?: { tier?: string; gradeLabel?: string; rawCount?: number },
   ): Promise<MarketCompsSnapshot> {
     return this.pricing.getCompsSnapshotForCollection(col, options);
+  }
+
+  /**
+   * Comps for trades tape — uses stored `cardhedgerCardId` or cert batch row directly
+   * (mint preview parity). Full resolve/verification is fallback only.
+   */
+  async getCompsSnapshotForTradesTape(
+    col: MarketplaceCollection | null,
+    options?: {
+      tier?: string;
+      gradeLabel?: string;
+      rawCount?: number;
+      catalogRow?: CardhedgerCardRow | null;
+      certNumber?: string;
+    },
+  ): Promise<MarketCompsSnapshot> {
+    const gradeLabel = String(options?.gradeLabel ?? '').trim();
+    const tier =
+      String(options?.tier ?? 'PSA_10').trim().toUpperCase() || 'PSA_10';
+    const rawCount = options?.rawCount;
+    const searchQuery = col
+      ? this.resolve.buildCollectionQuery(col).query
+      : '';
+
+    let catalogRow = options?.catalogRow ?? null;
+    let cardId = String(
+      (catalogRow as { card_id?: unknown } | null)?.card_id ?? '',
+    ).trim();
+    if (!cardId) {
+      cardId = String(col?.components?.cardhedgerCardId ?? '').trim();
+    }
+
+    const cert = String(
+      options?.certNumber ?? col?.psaCertNumber ?? '',
+    ).trim();
+    if (!cardId && cert) {
+      const { row } = await this.mint.getCardRowByCert(cert);
+      if (row) {
+        catalogRow = row;
+        cardId = String(row.card_id ?? '').trim();
+      }
+    }
+
+    if (cardId) {
+      return this.pricing.getCompsSnapshotByCardIdDirect(cardId, {
+        gradeLabel,
+        tier,
+        rawCount,
+        searchQuery,
+        catalogRow,
+      });
+    }
+
+    return this.pricing.getCompsSnapshotForCollection(col, {
+      gradeLabel,
+      tier,
+      rawCount,
+    });
   }
 
   /** Comps from mint metadata when collection row is missing or not yet enriched. */

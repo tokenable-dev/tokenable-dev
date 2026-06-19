@@ -3,25 +3,33 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
-  getCollectionPlatformTrades,
+  getRwaTokenTrades,
   marketplaceRqPolicy,
   rq,
   type CollectionPlatformTapeFill,
 } from "@/lib/core";
+import {
+  marketHistoryTierFromRwaMetadata,
+  marketTierDisplayLabel,
+} from "@/lib/market";
 import { countableTapeFills } from "@/lib/market/tradesVolume";
 
 export function useRwaDetailPlatformTrades(input: {
   tokenId: number;
   tokenIdOk: boolean;
-  collectionKey: string | null;
+  metadata?: Record<string, unknown> | null;
 }) {
-  const { tokenId, tokenIdOk, collectionKey } = input;
+  const { tokenId, tokenIdOk, metadata } = input;
+
+  const gradeLabel = useMemo(() => {
+    if (!metadata) return undefined;
+    return marketTierDisplayLabel(marketHistoryTierFromRwaMetadata(metadata));
+  }, [metadata]);
 
   const { data, isLoading } = useQuery({
-    queryKey: rq.collectionPlatformTrades(collectionKey ?? "", tokenId),
-    queryFn: () =>
-      getCollectionPlatformTrades(collectionKey!, { bootstrapTokenId: tokenId }),
-    enabled: Boolean(collectionKey && tokenIdOk),
+    queryKey: rq.rwaTokenTrades(tokenId, gradeLabel),
+    queryFn: () => getRwaTokenTrades(tokenId, { grade: gradeLabel }),
+    enabled: tokenIdOk,
     staleTime: marketplaceRqPolicy.snapshotsStaleMs,
     refetchInterval: 20_000,
     refetchIntervalInBackground: false,
@@ -33,7 +41,7 @@ export function useRwaDetailPlatformTrades(input: {
 
   return {
     trades,
-    tradesLoading: Boolean(collectionKey && tokenIdOk && isLoading),
-    tradesAvailable: Boolean(collectionKey),
+    tradesLoading: Boolean(tokenIdOk && isLoading),
+    tradesAvailable: tokenIdOk,
   };
 }

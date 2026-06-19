@@ -4,8 +4,8 @@ import { useMemo } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import {
   getRwaTokensByOwner,
-  postRwaMetadataBatch,
-  postOrdersBatchByToken,
+  postRwaMetadataBatchBatched,
+  postOrdersBatchByTokenBatched,
   getActiveOrders,
   postBatchMintMarketPreviews,
   type CollectionMarketPreview,
@@ -66,7 +66,7 @@ export function useUserAssets(
   const metadataQuery = useQuery({
     queryKey: rq.rwaMetadataBatch(address, tokenIds),
     queryFn: async () => {
-      const pack = await postRwaMetadataBatch({ tokenIds });
+      const pack = await postRwaMetadataBatchBatched(tokenIds);
       primeRwaMetadataCache(
         pack.items.map((it) => ({
           tokenId: it.tokenId,
@@ -91,7 +91,7 @@ export function useUserAssets(
 
   const historyQuery = useQuery({
     queryKey: rq.ordersByTokenBatch(address, tokenIds),
-    queryFn: () => postOrdersBatchByToken(tokenIds),
+    queryFn: () => postOrdersBatchByTokenBatched(tokenIds),
     enabled: enabled && includeOrderHistory && tokenIds.length > 0,
     staleTime: 30_000,
     placeholderData: keepPreviousData,

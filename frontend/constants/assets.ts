@@ -43,19 +43,6 @@ export const ASSETS = {
     marketIndexSoccer: `${ASSETS_BASE}/icons/market-index-soccer.png`,
     /** Landing hero carousel — double-chevron nav control. */
     landingCarouselChevron: `${ASSETS_BASE}/icons/landing-carousel-chevron.png`,
-    /** Trades tape — marketplace text wordmarks (no emblem / favicon marks). */
-    marketplaceLogos: {
-      ebay: `${ASSETS_BASE}/icons/marketplaces/ebay.svg`,
-      fanatics: `${ASSETS_BASE}/icons/marketplaces/fanatics.png`,
-      comc: `${ASSETS_BASE}/icons/marketplaces/comc.svg`,
-      pwcc: `${ASSETS_BASE}/icons/marketplaces/pwcc.svg`,
-      goldin: `${ASSETS_BASE}/icons/marketplaces/goldin.png`,
-      heritage: `${ASSETS_BASE}/icons/marketplaces/heritage.svg`,
-      myslabs: `${ASSETS_BASE}/icons/marketplaces/myslabs.svg`,
-      alt: `${ASSETS_BASE}/icons/marketplaces/alt.svg`,
-      starstock: `${ASSETS_BASE}/icons/marketplaces/starstock.svg`,
-      tokenable: `${ASSETS_BASE}/icons/tokenable_icon.png`,
-    },
   },
 
   /** 기타 이미지 */

@@ -86,7 +86,10 @@ export async function resolveBackendOrigin(): Promise<string> {
 
   const now = Date.now();
   if (cachedOrigin && now - cachedAt < CACHE_TTL_MS) {
-    return cachedOrigin;
+    if (await probeOrigin(cachedOrigin)) {
+      return cachedOrigin;
+    }
+    resetBackendOriginCache();
   }
 
   for (const candidate of devOriginCandidates()) {

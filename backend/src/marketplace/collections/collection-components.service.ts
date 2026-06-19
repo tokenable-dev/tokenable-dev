@@ -24,7 +24,7 @@ import {
   componentsPsaMirrorSufficientForCardhedger,
   mergePsaCertSnapshotIntoMirror,
 } from '../utils/psa-components-mirror.util';
-import { relaxedCatalogMatchForAudit } from '../utils/card-match.util';
+import { catalogRowTrustedForMarketData } from '../utils/card-match.util';
 import { Order, OrderSide, OrderStatus } from '../entities/order.entity';
 import { MarketplaceCollection } from '../entities/marketplace-collection.entity';
 import { PsaCertSnapshotService } from './psa-cert-snapshot.service';
@@ -202,8 +202,7 @@ export class CollectionComponentsService {
   }
 
   /**
-   * Persist `components.psaSpecId` from mint metadata or PSA Public API cert lookup
-   * so UI hides cert slab heroes while spec cover scrape is in flight.
+   * Persist `components.psaSpecId` from mint metadata or PSA Public API cert lookup.
    */
   async mergePsaSpecIdFromCertIfMissing(
     collectionKey: string,
@@ -771,13 +770,27 @@ export class CollectionComponentsService {
       typeof comp.psaSubject === 'string' ? comp.psaSubject.trim() : '';
     const psaBrand =
       typeof comp.psaBrand === 'string' ? comp.psaBrand.trim() : '';
-    const ex = relaxedCatalogMatchForAudit(
+    const ex = catalogRowTrustedForMarketData(
       {
         cardName: wantName,
-        cardSet: wantSet,
         cardNumber: wantNum,
+        cardSet: wantSet,
         psaSubject: psaSubject || undefined,
         psaBrand: psaBrand || undefined,
+        psaYear:
+          typeof comp.psaYear === 'string'
+            ? comp.psaYear.trim()
+            : typeof comp.psaYear === 'number' && Number.isFinite(comp.psaYear)
+              ? String(Math.floor(comp.psaYear))
+              : undefined,
+        cardhedgerSearchQuery:
+          typeof comp.cardhedgerSearchQuery === 'string'
+            ? comp.cardhedgerSearchQuery.trim()
+            : undefined,
+        listingDisplayTitle:
+          typeof comp.listingDisplayTitle === 'string'
+            ? comp.listingDisplayTitle.trim()
+            : undefined,
       },
       {
         name: String(row.description ?? row.name ?? ''),

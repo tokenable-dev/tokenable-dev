@@ -170,9 +170,6 @@ export default function PortfolioPage() {
     holdingsAssetRows,
     hiddenAssetRows,
     filteredAssetRows,
-    pagedAssetRows,
-    visibleAssetCount,
-    assetScrollSentinelRef,
   } = usePortfolioAssetList(assetRows, hiddenSet);
 
   useEffect(() => {
@@ -259,9 +256,6 @@ export default function PortfolioPage() {
               setAssetFilter={setAssetFilter}
               hiddenAssetCount={hiddenAssetRows.length}
               filteredAssetRows={filteredAssetRows}
-              pagedAssetRows={pagedAssetRows}
-              visibleAssetCount={visibleAssetCount}
-              assetScrollSentinelRef={assetScrollSentinelRef}
               address={address}
               valuesPending={valuesPending}
               isBurnAdmin={isBurnAdmin}

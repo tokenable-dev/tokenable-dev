@@ -3,7 +3,6 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import appConfig from './config/app.config';
 import marketplaceConfig from './config/marketplace.config';
-import psaConfig from './config/psa.config';
 import cardladderConfig from './config/cardladder.config';
 import { ScheduleModule } from '@nestjs/schedule';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -33,7 +32,7 @@ import { CardTop100DailySnapshot } from './cardhedger/entities/card-top100-snaps
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [appConfig, marketplaceConfig, psaConfig, cardladderConfig],
+      load: [appConfig, marketplaceConfig, cardladderConfig],
     }),
     EventEmitterModule.forRoot({ global: true }),
     ScheduleModule.forRoot(),

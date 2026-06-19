@@ -11,10 +11,9 @@ import {
 } from "wagmi";
 import {
   uploadRwaMetadata,
-  bootstrapRwaMintMarketData,
-  warmRwaMintMarketCache,
+  syncRwaTokenAfterMint,
 } from "@/lib/core";
-import { invalidateAfterRwaMint } from "@/lib/core/invalidation";
+import { invalidateAfterRwaMintTx } from "@/lib/core/invalidation";
 import { TOKENABLE_RWA_ADDRESS, TOKENABLE_RWA_MINT_ABI, TOKENABLE_RWA_EVENTS_ABI } from "@/constants/contracts";
 import { sepolia } from "@/config/wagmi";
 import { GAS_FALLBACK, gasWithCapFast } from "@/lib/network";
@@ -107,8 +106,7 @@ export function useMintForm() {
     return () => URL.revokeObjectURL(u);
   }, [form.image]);
 
-  // Once the mint tx is confirmed, bootstrap marketplace collection + warm trades cache
-  // so listing price suggestions are ready before the owner opens the sell modal.
+  // Mint confirms on-chain only — collection is created when the owner lists for sale.
   useEffect(() => {
     if (!receipt?.logs?.length) return;
     try {
@@ -121,23 +119,17 @@ export function useMintForm() {
       if (!Number.isFinite(tokenId) || tokenId < 0) return;
 
       void (async () => {
-        const result = await bootstrapRwaMintMarketData(tokenId);
-        if (!result.collectionKey) return;
-
-        await invalidateAfterRwaMint(queryClient, {
+        await syncRwaTokenAfterMint(tokenId);
+        await invalidateAfterRwaMintTx(queryClient, {
           tokenId,
-          collectionKey: result.collectionKey,
           address: address ?? null,
         });
-        await warmRwaMintMarketCache(queryClient, {
-          tokenId,
-          collectionKey: result.collectionKey,
-        });
+        refresh();
       })();
     } catch {
-      // mint succeeded regardless — listing flow can still bootstrap on first ask
+      /* mint succeeded — listing flow bootstraps collection on first ask */
     }
-  }, [address, queryClient, receipt]);
+  }, [address, queryClient, receipt, refresh]);
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {

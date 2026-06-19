@@ -33,17 +33,17 @@ export const COLLECTION_MARKET_CLUSTER_BEZEL =
 
 /**
  * Desktop chart band — height also sets the flush order book / Trades column (`lg`+).
- * Taller band → more trade rows and book depth visible before scroll.
+ * Compact band fits ~10 trade rows in the adjacent column (aligned with RWA card detail).
  */
 export const COLLECTION_MARKETS_CHART_ROW_HEIGHT_CLASS =
-  "lg:h-[300px] lg:max-h-[300px]";
+  "lg:h-[220px] lg:max-h-[220px]";
 
 /** Grade/range toolbar band above collection detail chart (hidden in UI; height reclaimed). */
-export const COLLECTION_MARKETS_CHART_TOOLBAR_BAND_PX = 36;
+export const COLLECTION_MARKETS_CHART_TOOLBAR_BAND_PX = 16;
 
-/** Narrower collection detail desktop (max-w-6xl) — chart + trades row (280px + toolbar band). */
+/** Narrower collection detail desktop (max-w-6xl) — chart + trades row. */
 export const COLLECTION_MARKETS_CHART_COMPACT_HEIGHT_CLASS =
-  "lg:h-[316px] lg:max-h-[316px]";
+  "lg:h-[220px] lg:max-h-[220px]";
 
 /** Desktop order book column beside chart (collection detail). */
 export const COLLECTION_MARKETS_ORDER_BOOK_COLUMN_WIDTH_CLASS =
@@ -80,7 +80,7 @@ export const COLLECTION_MARKETS_CHART_HEIGHT_CLASS = COLLECTION_MARKETS_CHART_RO
  * (cluster inset + metrics strip + chart band + row gaps).
  */
 export const COLLECTION_HERO_DESKTOP_HEIGHT_CLASS =
-  "lg:h-[calc(10px+116px+0.75rem+300px+0.75rem+0.25rem)] lg:max-h-[calc(10px+116px+0.75rem+300px+0.75rem+0.25rem)]";
+  "lg:h-[calc(10px+100px+0.75rem+220px+0.75rem+0.25rem)] lg:max-h-[calc(10px+100px+0.75rem+220px+0.75rem+0.25rem)]";
 
 /** Chart column height when shown inline on mobile (scroll panel + non-tab layout). */
 export const COLLECTION_MARKETS_CHART_HEIGHT_MOBILE_CLASS =

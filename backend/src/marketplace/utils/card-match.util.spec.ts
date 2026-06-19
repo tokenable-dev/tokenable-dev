@@ -1,5 +1,6 @@
 import {
   cardNumberTokenForCardhedgerSearch,
+  catalogRowTrustedForMarketData,
   normalizeForExactCardNumberKey,
   relaxedCatalogMatchForAudit,
   exactCatalogMatch,
@@ -69,6 +70,59 @@ describe('relaxedCatalogMatchForAudit', () => {
     );
     expect(r.ok).toBe(false);
     expect(r.failCodes).toContain('number_mismatch');
+  });
+});
+
+describe('catalogRowTrustedForMarketData', () => {
+  const italianCharmanderHints = {
+    cardName: 'charmander',
+    cardSet: 'pokemon game',
+    cardNumber: '046',
+    psaSubject: 'CHARMANDER',
+    psaBrand: '2000 POKEMON GAME ITALIAN',
+  };
+
+  const obsidianPromoRow = {
+    name: '2023 Pokemon SV Obsidian Flames ETB Black Star Promo Charmander',
+    number: '044',
+    set: '2023 Pokemon SV Black Star Promo',
+  };
+
+  it('rejects 2023 Obsidian Flames promo for 2000 Italian #046 Charmander', () => {
+    const r = catalogRowTrustedForMarketData(
+      italianCharmanderHints,
+      obsidianPromoRow,
+    );
+    expect(r.ok).toBe(false);
+    expect(r.failCodes).toContain('number_mismatch');
+  });
+
+  it('rejects same-name wrong-era row even when card numbers were equal', () => {
+    const r = catalogRowTrustedForMarketData(italianCharmanderHints, {
+      ...obsidianPromoRow,
+      number: '046',
+    });
+    expect(r.ok).toBe(false);
+    expect(r.failCodes.length).toBeGreaterThan(0);
+  });
+
+  it('accepts aligned vintage catalog row', () => {
+    const r = catalogRowTrustedForMarketData(italianCharmanderHints, {
+      name: '2000 Pokemon Game Italian Charmander 1st Edition',
+      number: '046',
+      set: '2000 Pokemon Game Italian',
+    });
+    expect(r.ok).toBe(true);
+    expect(r.failCodes).toEqual([]);
+  });
+
+  it('rejects comps when collection card number is missing', () => {
+    const r = catalogRowTrustedForMarketData(
+      { ...italianCharmanderHints, cardNumber: '' },
+      obsidianPromoRow,
+    );
+    expect(r.ok).toBe(false);
+    expect(r.failCodes).toContain('missing_card_number');
   });
 });
 

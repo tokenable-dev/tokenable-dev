@@ -9,6 +9,8 @@ import { CardhedgerMetricsService } from '../../common/metrics/cardhedger-metric
 import { CardhedgerService } from '../../cardhedger/cardhedger.service';
 import {
   cardNumberTokenForCardhedgerSearch,
+  catalogRowTrustedForMarketData,
+  type CatalogTrustHints,
   normalizeForExactCardNumberKey,
   normalizeForExactCatalogMatch,
   primaryCardNumber,
@@ -806,7 +808,14 @@ export class CardhedgerResolveService {
       String(row.variant ?? '').trim().length;
     const scored = rows
       .map((r) => ({ r, ...this.scoreCard(r, q) }))
-      .filter((x) => x.score > 0)
+      .filter(
+        (x) =>
+          x.score > 0 &&
+          catalogRowTrustedForMarketData(
+            this.trustHintsFromQuery(q),
+            x.r as Record<string, unknown>,
+          ).ok,
+      )
       .sort((a, b) => {
         if (b.score !== a.score) return b.score - a.score;
         if (colorHints.length > 0) {
@@ -897,16 +906,39 @@ export class CardhedgerResolveService {
       };
     }
 
-    /** Mint bucket sometimes omits card # — still match on name + set tokens. */
-    const wantNum = String(q.cardNumber ?? '').trim();
-    if (!wantNum && scored[0] && scored[0].score >= 110) {
-      return {
-        row: scored[0].r,
-        confidence: scored[0].verified ? 'verified' : 'approximate',
-      };
-    }
-
     return null;
+  }
+
+  private trustHintsFromQuery(q: {
+    cardName: string;
+    cardSet: string;
+    cardNumber: string;
+    cardhedgerSearchQuery: string | null;
+    listingDisplayTitle: string | null;
+    psaSubject: string | null;
+    psaBrand: string | null;
+    psaYear: string | null;
+  }): CatalogTrustHints {
+    return {
+      cardName: q.cardName,
+      cardNumber: q.cardNumber,
+      cardSet: q.cardSet,
+      psaSubject: q.psaSubject ?? undefined,
+      psaBrand: q.psaBrand ?? undefined,
+      psaYear: q.psaYear ?? undefined,
+      cardhedgerSearchQuery: q.cardhedgerSearchQuery ?? undefined,
+      listingDisplayTitle: q.listingDisplayTitle ?? undefined,
+    };
+  }
+
+  private rowTrustedForMarket(
+    q: Parameters<CardhedgerResolveService['trustHintsFromQuery']>[0],
+    row: CardhedgerCardRow,
+  ): boolean {
+    return catalogRowTrustedForMarketData(
+      this.trustHintsFromQuery(q),
+      row as Record<string, unknown>,
+    ).ok;
   }
 
   async resolveCardForCollection(
@@ -973,12 +1005,12 @@ export class CardhedgerResolveService {
             rows[0],
             storedIdOpts,
           );
-          /** Same trust as psaSpecId map: explicit catalog id + parallel check; allow number-strong rows. */
           const trustCardId =
             !parallelBad &&
-            (strict.verified || strict.numberMatched);
+            strict.verified &&
+            this.rowTrustedForMarket(q, rows[0]);
           if (trustCardId) {
-            const confidence = strict.verified ? 'verified' : 'approximate';
+            const confidence = 'verified';
             this.metrics?.recordResolvePath('card_details');
             this.logger.log(
               JSON.stringify({
@@ -1077,7 +1109,7 @@ export class CardhedgerResolveService {
     // promo cards, unusual naming, and non-English descriptions that trip up the
     // keyword scorer.  Only used as a last resort; confidence < 0.5 returns null
     // from the API so we never get a match below that threshold.
-    const cardMatchResult = await this.tryCardMatchFallback(query, collectionKey);
+    const cardMatchResult = await this.tryCardMatchFallback(query, collectionKey, q);
     if (cardMatchResult) {
       this.metrics?.recordResolvePath('card_match');
       this.logger.log(
@@ -1114,6 +1146,7 @@ export class CardhedgerResolveService {
   private async tryCardMatchFallback(
     query: string,
     collectionKey: string,
+    q: Parameters<CardhedgerResolveService['trustHintsFromQuery']>[0],
   ): Promise<ResolvedCard | null> {
     if (!query.trim()) return null;
     try {
@@ -1143,6 +1176,18 @@ export class CardhedgerResolveService {
         // prices array is [{grade, price}] — same shape as card-search
         prices: Array.isArray(match.prices) ? match.prices : [],
       } as CardhedgerCardRow;
+
+      if (!this.rowTrustedForMarket(q, row)) {
+        this.logger.warn(
+          JSON.stringify({
+            msg: 'card_match_rejected',
+            key: collectionKey,
+            cardId: match.card_id ?? null,
+            aiConfidence,
+          }),
+        );
+        return null;
+      }
 
       this.logger.debug(
         `card_match_fallback key=${collectionKey} ai_confidence=${aiConfidence} mapped=${confidence} card_id=${match.card_id ?? 'n/a'}`,

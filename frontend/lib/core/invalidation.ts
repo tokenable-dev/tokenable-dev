@@ -145,8 +145,27 @@ export async function invalidateAfterCriteriaBid(
 }
 
 /**
- * After mint bootstrap: refresh token lists, collection trades, and price snapshots
- * so portfolio + list-modal suggestions see comps immediately.
+ * After mint tx: refresh portfolio/token caches only (no collection bootstrap).
+ */
+export async function invalidateAfterRwaMintTx(
+  qc: QueryClient,
+  input: { tokenId: number; address?: string | null },
+): Promise<void> {
+  await qc.invalidateQueries({ queryKey: rq.rwaAssetDetail(input.tokenId) });
+  await qc.invalidateQueries({ queryKey: rq.tokenCollectionKey(input.tokenId) });
+  await _invalidateRwaTokensAll(qc);
+  await _invalidateRwaMetadataBatch(qc);
+  await _invalidateMintPreviews(qc);
+  await _invalidatePortfolioMarketBatch(qc);
+
+  if (input.address?.trim()) {
+    await qc.invalidateQueries({ queryKey: rq.rwaTokens(input.address.trim()) });
+  }
+}
+
+/**
+ * After mint bootstrap (legacy): refresh token lists, collection trades, and price snapshots.
+ * @deprecated Collection is created on first listing — use {@link invalidateAfterRwaMintTx}.
  */
 export async function invalidateAfterRwaMint(
   qc: QueryClient,
@@ -185,6 +204,7 @@ export async function invalidateAfterRwaDetail(
   await qc.invalidateQueries({ queryKey: rq.orderByToken(tokenId) });
   await qc.invalidateQueries({ queryKey: rq.rwaAssetDetail(tokenId) });
   await qc.invalidateQueries({ queryKey: rq.rwaActivity(tokenId) });
+  await qc.invalidateQueries({ queryKey: rq.rwaTokenTrades(tokenId) });
   await _invalidateRwaTokensAll(qc);
   await _invalidateRwaMetadataBatch(qc);
   // Prefix — refreshes all cached collection entries (detail + market)
@@ -211,6 +231,7 @@ export async function invalidateAfterListing(
   opts: {
     collectionKey?: string | null;
     address?: string | null;
+    tokenId?: number;
   } = {},
 ): Promise<void> {
   await _invalidateOrdersAll(qc);
@@ -222,8 +243,16 @@ export async function invalidateAfterListing(
   await _invalidateAllCollections(qc);
   await qc.invalidateQueries({ queryKey: rq.merkleSetAll() });
 
+  if (opts.tokenId != null && Number.isFinite(opts.tokenId) && opts.tokenId >= 0) {
+    await qc.invalidateQueries({ queryKey: rq.rwaAssetDetail(opts.tokenId) });
+    await qc.invalidateQueries({ queryKey: rq.tokenCollectionKey(opts.tokenId) });
+  }
+
   if (opts.collectionKey) {
-    await qc.invalidateQueries({ queryKey: rq.merkleSet(opts.collectionKey) });
+    const key = opts.collectionKey.toLowerCase();
+    await qc.invalidateQueries({ queryKey: rq.merkleSet(key) });
+    await qc.invalidateQueries({ queryKey: rq.collectionDetail(key) });
+    await qc.invalidateQueries({ queryKey: rq.collectionPlatformTrades(key) });
   }
   if (opts.address) {
     await qc.invalidateQueries({ queryKey: rq.rwaTokens(opts.address) });

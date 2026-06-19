@@ -1,28 +1,14 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { QueryDeepPartialEntity, Repository } from 'typeorm';
 import { BlockchainService } from '../../blockchain/blockchain.service';
 import { IpfsGatewayResolverService } from '../../blockchain/ipfs-gateway-resolver.service';
 import { CardhedgerService } from '../../cardhedger/cardhedger.service';
-import {
-  PsaPublicApiService,
-  specIdStringFromPsaCertBody,
-} from '../../psa/psa-public-api.service';
-import { PsaSpecScraperService } from '../../psa/psa-spec-scraper.service';
-import { extractPsaCertImagesFromGetImagesBody } from '../../psa/utils/psa-cert-images.util';
-import {
-  isPsaCertSlabCloudfrontUrl,
-  normalizeImageUrl,
-  psaCertNumberFromGradedMeta,
-} from '../utils/collection-image.util';
+import { normalizeImageUrl } from '../utils/collection-image.util';
 import { MarketplaceCollection } from '../entities/marketplace-collection.entity';
-import { Order, OrderSide, OrderStatus } from '../entities/order.entity';
-import { PsaCertSnapshotService } from './psa-cert-snapshot.service';
-import { psaSpecIdFromComponentsRow } from './collection-listing-meta.helpers';
 
-/** Collection covers: HTTPS catalog/spec URLs only (no IPFS re-upload, no slab cert photos). */
-function isPersistableHttpsCoverUrl(url: string): boolean {
+/** Collection covers: Cardhedger / TCG catalog HTTPS URLs only. */
+function isPersistableCoverUrl(url: string): boolean {
   const t = url.trim();
   if (!/^https?:\/\//i.test(t)) return false;
   if (t.toLowerCase().includes('/ipfs/')) return false;
@@ -31,33 +17,55 @@ function isPersistableHttpsCoverUrl(url: string): boolean {
 }
 
 /**
- * Collection cover images: PSA spec scrape, Cardhedger catalog, TCG API, representative resolve.
+ * Collection cover: Cardhedger / TCG catalog URLs.
+ * Set once at collection create or via admin; never auto-refreshed.
  */
 @Injectable()
 export class CollectionCoverService {
-  private readonly logger = new Logger(CollectionCoverService.name);
-
-  private readonly representativeImageResolveInflight = new Map<
-    string,
-    Promise<string | null>
-  >();
-
   constructor(
     @InjectRepository(MarketplaceCollection)
     private readonly collectionRepo: Repository<MarketplaceCollection>,
-    @InjectRepository(Order)
-    private readonly orderRepo: Repository<Order>,
     private readonly blockchain: BlockchainService,
-    private readonly config: ConfigService,
     private readonly cardhedger: CardhedgerService,
     private readonly ipfsResolver: IpfsGatewayResolverService,
-    private readonly psaSpecScraper: PsaSpecScraperService,
-    private readonly psaCertSnapshots: PsaCertSnapshotService,
-    private readonly psaPublicApi: PsaPublicApiService,
   ) {}
 
-  private collectionActiveOrdersCap(): number {
-    return this.config.get<number>('marketplace.collectionActiveOrdersMax') ?? 2_000;
+  /** Resolve a persistable cover URL from RWA metadata (no DB write). */
+  async resolveCoverUrlFromMeta(
+    meta: Record<string, unknown>,
+  ): Promise<string | null> {
+    const img = await this.resolveCatalogImageFromMeta(meta);
+    if (!img || !isPersistableCoverUrl(img)) return null;
+    return img;
+  }
+
+  async setCollectionCoverImageAdmin(
+    collectionKey: string,
+    coverImageUrl: string,
+  ): Promise<MarketplaceCollection> {
+    const k = collectionKey.toLowerCase();
+    const url = coverImageUrl.trim();
+    if (!url) throw new Error('COLLECTION_COVER_URL_EMPTY');
+    if (!isPersistableCoverUrl(url)) throw new Error('COLLECTION_COVER_URL_INVALID');
+
+    const row = await this.findOne(k);
+    if (!row) throw new Error('COLLECTION_NOT_FOUND');
+
+    const persisted = await this.persistCoverImageUrl(k, url);
+    if (!persisted) throw new Error('COLLECTION_COVER_URL_INVALID');
+
+    const refreshed = await this.findOne(k);
+    if (!refreshed) throw new Error('COLLECTION_NOT_FOUND');
+    return refreshed;
+  }
+
+  async adminPreviewCoverFromToken(
+    tokenId: string,
+    _collectionKey?: string,
+  ): Promise<string | null> {
+    const meta = await this.loadTokenMeta(Number(tokenId));
+    if (!meta) return null;
+    return this.resolveCoverUrlFromMeta(meta);
   }
 
   private async findOne(key: string): Promise<MarketplaceCollection | null> {
@@ -66,55 +74,17 @@ export class CollectionCoverService {
     });
   }
 
-  private async activeListingsForCollection(collectionKey: string): Promise<Order[]> {
-    return this.orderRepo.find({
-      where: {
-        collectionKey: collectionKey.toLowerCase(),
-        status: OrderStatus.ACTIVE,
-        side: OrderSide.ASK,
-      },
-      order: { createdAt: 'ASC' },
-      take: this.collectionActiveOrdersCap(),
-    });
-  }
-
-  private async activeBidsForCollection(collectionKey: string): Promise<Order[]> {
-    return this.orderRepo.find({
-      where: {
-        collectionKey: collectionKey.toLowerCase(),
-        status: OrderStatus.ACTIVE,
-        side: OrderSide.BID,
-      },
-      order: { createdAt: 'DESC' },
-      take: this.collectionActiveOrdersCap(),
-    });
-  }
-
-  clearResolveInflight(collectionKey: string): void {
-    this.representativeImageResolveInflight.delete(collectionKey.toLowerCase());
-  }
-
-  /** PSA Public API slab front image — fallback when spec-page scrape is blocked. */
-  private async fetchPsaCertSlabFrontFromApi(
-    certNumber: string,
-  ): Promise<string | null> {
-    const cert = certNumber.replace(/\D/g, '');
-    if (cert.length < 7) return null;
+  private async loadTokenMeta(tokenId: number): Promise<Record<string, unknown> | null> {
     try {
-      const lookup = await this.psaPublicApi.getImagesByCertNumber(cert);
-      if (lookup.status !== 'success' || !lookup.raw) return null;
-      const imgs = extractPsaCertImagesFromGetImagesBody(lookup.raw);
-      const front = imgs.front?.trim();
-      if (!front) return null;
-      return normalizeImageUrl(front);
+      const uri = await this.blockchain.getRwaTokenURI(tokenId);
+      return await this.ipfsResolver.fetchMetadataJson(uri);
     } catch {
       return null;
     }
   }
 
-  private async fetchCatalogImageFromMeta(
+  private async resolveCatalogImageFromMeta(
     meta: Record<string, unknown>,
-    psaSpecIdFallback?: string | null,
   ): Promise<string | null> {
     const props = meta.properties as Record<string, unknown> | undefined;
     const graded = (props?.graded ?? meta.graded) as
@@ -124,75 +94,13 @@ export class CollectionCoverService {
     const cardMeta = graded?.card as Record<string, unknown> | undefined;
     const psaMeta = graded?.psa as Record<string, unknown> | undefined;
 
-    // ── 0. PSA spec page scrape (clean card-only image, no slab) ────────────
-    const specIdRaw = psaMeta?.specId ?? psaMeta?.SpecID ?? psaMeta?.spec_id;
-    const specIdFromMeta =
-      typeof specIdRaw === 'number' && Number.isFinite(specIdRaw)
-        ? String(Math.floor(specIdRaw))
-        : typeof specIdRaw === 'string' && specIdRaw.trim()
-          ? specIdRaw.trim()
-          : '';
-    let specId =
-      specIdFromMeta ||
-      (typeof psaSpecIdFallback === 'string' && psaSpecIdFallback.trim()
-        ? psaSpecIdFallback.trim()
-        : '');
-
-    if (!specId) {
-      const certRaw = psaCertNumberFromGradedMeta(meta);
-      if (certRaw) {
-        const snap = await this.psaCertSnapshots.fetchCertSnapshotJson(certRaw);
-        const fromSnap = snap
-          ? specIdStringFromPsaCertBody({ PSACert: snap })
-          : null;
-        if (fromSnap) {
-          specId = fromSnap;
-          this.logger.debug(
-            `[CoverImg] SpecID from psa_cert_snapshots cert=${certRaw}`,
-          );
-        }
-      }
-    }
-
-    if (specId) {
-      const allowFallback =
-        this.config.get<boolean>('psa.specCoverAllowFallback') === true;
-      try {
-        const psaSpecImg = await this.psaSpecScraper.scrapeSpecImageUrl(specId);
-        if (psaSpecImg) {
-          const img = normalizeImageUrl(psaSpecImg);
-          this.logger.log(`[CoverImg] PSA spec page → ${img.slice(0, 100)}`);
-          return img;
-        }
-        this.logger.warn(
-          `[CoverImg] PSA spec scrape returned null for specId=${specId}${
-            allowFallback
-              ? ' — falling back'
-              : ' — no fallback (set PSA_SPEC_COVER_ALLOW_FALLBACK=1 to allow Cardhedger/TCG)'
-          }`,
-        );
-        if (!allowFallback) {
-          return null;
-        }
-      } catch (e) {
-        this.logger.warn(
-          `[CoverImg] PSA spec scrape failed specId=${specId}: ${e instanceof Error ? e.message : String(e)}${
-            allowFallback
-              ? ' — falling back'
-              : ' — no fallback (set PSA_SPEC_COVER_ALLOW_FALLBACK=1 to allow Cardhedger/TCG)'
-          }`,
-        );
-      }
-
-      if (!allowFallback) {
-        return null;
-      }
-
-      // Spec scrape unavailable — fall through to Cardhedger / TCG (never PSA cert slab).
-    }
-
-    // Correct field names: card.name / card.set / card.number (not cardName/setName/cardNumber)
     const cardId = typeof ch?.cardId === 'string' ? ch.cardId.trim() : '';
+    const chImageUrl =
+      typeof ch?.imageUrl === 'string' ? ch.imageUrl.trim() : '';
+    if (chImageUrl) {
+      return normalizeImageUrl(chImageUrl);
+    }
+
     const cardName = (
       typeof cardMeta?.name === 'string'
         ? cardMeta.name
@@ -214,21 +122,14 @@ export class CollectionCoverService {
     const category = String(
       psaMeta?.category ?? cardMeta?.category ?? '',
     ).trim();
-    const certImageUrl =
-      typeof psaMeta?.certImageSourceUrl === 'string'
-        ? psaMeta.certImageSourceUrl.trim()
-        : '';
 
-    // ── 1. Cardhedger card-details by stored cardId ──────────────────────────
     if (cardId) {
       try {
         this.cardhedger.assertConfigured();
         const body = await this.cardhedger.forwardJson(
           'POST',
           '/v1/cards/card-details',
-          {
-            body: { card_id: cardId },
-          },
+          { body: { card_id: cardId } },
         );
         const cards = (body as { cards?: unknown[] }).cards;
         if (Array.isArray(cards) && cards.length > 0) {
@@ -237,12 +138,8 @@ export class CollectionCoverService {
             typeof row.image === 'string' && row.image.trim()
               ? row.image.trim()
               : null;
-          const img = rawImg ? normalizeImageUrl(rawImg) : null;
-          if (img) {
-            this.logger.log(
-              `[CoverImg] Cardhedger card-details(id) → ${img.slice(0, 80)}`,
-            );
-            return img;
+          if (rawImg) {
+            return normalizeImageUrl(rawImg);
           }
         }
       } catch {
@@ -250,24 +147,19 @@ export class CollectionCoverService {
       }
     }
 
-    // ── 2. Cardhedger card-search (text query) ───────────────────────────────
     if (cardName) {
       try {
         this.cardhedger.assertConfigured();
         const parts = [cardName, cardNumber, setName, year].filter(Boolean);
-        const search = parts.join(' ');
         const body = await this.cardhedger.forwardJson(
           'POST',
           '/v1/cards/card-search',
-          {
-            body: { search, page: 1, page_size: 10 },
-          },
+          { body: { search: parts.join(' '), page: 1, page_size: 10 } },
         );
         const cards = Array.isArray((body as { cards?: unknown[] })?.cards)
           ? ((body as { cards: unknown[] }).cards ?? [])
           : [];
 
-        // Normalise helpers (same as card-match.util)
         const normNum = (s: string) =>
           s
             .replace(/^#/, '')
@@ -293,25 +185,16 @@ export class CollectionCoverService {
               : null;
           if (!rawImg) continue;
           const img = normalizeImageUrl(rawImg);
-
           const rowNum = normNum(String(row.number ?? ''));
           const rowDesc = normStr(String(row.description ?? row.name ?? ''));
           const rowSet = normStr(String(row.set ?? ''));
-
-          // Must match card number when we have one, to avoid completely wrong cards
           const numOk = !wantNum || rowNum === wantNum;
-          // Name fuzzy: all key words appear in description
           const nameOk =
             wantNameWords.length === 0 ||
             wantNameWords.every((w) => rowDesc.includes(w));
-          // Set substring match (handles year prefix differences)
           const setOk =
             !wantSet || rowSet.includes(wantSet) || wantSet.includes(rowSet);
-
           if (numOk && (nameOk || setOk)) {
-            this.logger.log(
-              `[CoverImg] Cardhedger card-search → ${img.slice(0, 80)}`,
-            );
             return img;
           }
         }
@@ -320,53 +203,6 @@ export class CollectionCoverService {
       }
     }
 
-    // ── 3. Cardhedger image-search via PSA cert image URL ───────────────────
-    if (certImageUrl) {
-      try {
-        this.cardhedger.assertConfigured();
-        // Fetch the PSA slab image and pass as base64 to image-search
-        const imgRes = await fetch(certImageUrl, {
-          signal: AbortSignal.timeout(10_000),
-          headers: { 'User-Agent': 'TokenableBackend/1.0' },
-        });
-        if (imgRes.ok) {
-          const buf = Buffer.from(await imgRes.arrayBuffer());
-          const jpg = (await import('sharp'))
-            .default(buf)
-            .resize({ width: 1200, fit: 'inside', withoutEnlargement: true })
-            .jpeg({ quality: 80 });
-          const b64 = `data:image/jpeg;base64,${(await jpg.toBuffer()).toString('base64')}`;
-          const raw = await this.cardhedger.forwardJson(
-            'POST',
-            '/v1/cards/image-search',
-            {
-              body: { image_base64: b64 },
-            },
-          );
-          const searchCards = Array.isArray(
-            (raw as { cards?: unknown[] })?.cards,
-          )
-            ? ((raw as { cards: unknown[] }).cards ?? [])
-            : [];
-          const first = searchCards[0] as Record<string, unknown> | undefined;
-          const rawFirst =
-            typeof first?.image === 'string' && first.image.trim()
-              ? first.image.trim()
-              : null;
-          const img = rawFirst ? normalizeImageUrl(rawFirst) : null;
-          if (img) {
-            this.logger.log(
-              `[CoverImg] Cardhedger image-search → ${img.slice(0, 80)}`,
-            );
-            return img;
-          }
-        }
-      } catch {
-        /* fall through */
-      }
-    }
-
-    // ── 4. Pokemon TCG API (free, official images) ───────────────────────────
     const isPokemon =
       /pokemon/i.test(setName) ||
       /pokemon/i.test(cardName) ||
@@ -398,11 +234,7 @@ export class CollectionCoverService {
           });
           const best = sorted[0];
           const images = best?.images as Record<string, string> | undefined;
-          const img = images?.large ?? images?.small ?? null;
-          if (img) {
-            this.logger.log(`[CoverImg] Pokemon TCG API → ${img.slice(0, 80)}`);
-            return img;
-          }
+          return images?.large ?? images?.small ?? null;
         }
       } catch {
         /* fall through */
@@ -412,358 +244,21 @@ export class CollectionCoverService {
     return null;
   }
 
-  /**
-   * Pick the best collection cover URL.
-   * Priority: PSA spec scrape → Cardhedger / TCG fallbacks (when allowed).
-   */
-  async resolveBestCoverUrl(
-    meta: Record<string, unknown>,
-    psaSpecIdFallback?: string | null,
-  ): Promise<string | null> {
-    return this.fetchCatalogImageFromMeta(meta, psaSpecIdFallback);
-  }
-
   private async persistCoverImageUrl(
     collectionKey: string,
     rawUrl: string,
-    options?: { onlyIfEmpty?: boolean },
   ): Promise<string | null> {
     const k = collectionKey.toLowerCase();
-    if (!isPersistableHttpsCoverUrl(rawUrl)) {
-      this.logger.warn(
-        `[CoverImg] skip non-HTTPS cover for ${k}: "${rawUrl.slice(0, 72)}"`,
-      );
+    const trimmed = rawUrl.trim();
+    if (!isPersistableCoverUrl(trimmed)) {
       return null;
     }
-    const finalUrl = rawUrl.trim();
+
     const patch: QueryDeepPartialEntity<MarketplaceCollection> = {
-      coverImageUrl: finalUrl,
+      coverImageUrl: trimmed,
     };
 
-    if (options?.onlyIfEmpty) {
-      await this.collectionRepo
-        .createQueryBuilder()
-        .update(MarketplaceCollection)
-        .set(patch)
-        .where('collection_key = :k', { k })
-        .andWhere(
-          '(cover_image_url IS NULL OR TRIM(cover_image_url) = \'\')',
-        )
-        .execute();
-    } else {
-      await this.collectionRepo.update({ collectionKey: k }, patch);
-    }
-
-    return finalUrl;
-  }
-
-  /**
-   * Whether a URL is a "low-quality" cover that should be upgraded if a better source exists.
-   *
-   * PSA CloudFront has two kinds of images on the same host:
-   *   • `/cert/{certNumber}/...` → full slab photo with cert label → UPGRADEABLE
-   *   • `/spec/{specId}/...`     → card-only image (no slab)       → already high-quality
-   */
-  private isCoverUrlUpgradeable(url: string): boolean {
-    const t = url.trim();
-    if (!t) return true;
-    if (t.includes('d1htnxwo4o0jhw.cloudfront.net/spec/')) return false;
-    return true;
-  }
-
-  private isPsaSpecCoverUrl(url: string): boolean {
-    return url.includes('d1htnxwo4o0jhw.cloudfront.net/spec/');
-  }
-
-  /** Direct, high-quality HTTPS source: Cardhedger catalog, Pokemon TCG, or PSA spec page. */
-  private isHighQualityCoverUrl(url: string): boolean {
-    const t = url.trim();
-    if (!t) return false;
-    if (!/^https?:\/\//i.test(t)) return false;
-    if (t.toLowerCase().includes('/ipfs/')) return false;
-    if (t.includes('d1htnxwo4o0jhw.cloudfront.net/cert/')) return false;
-    return true;
-  }
-
-  /**
-   * Whether the stored cover should be replaced with a direct HTTPS catalog/spec URL if possible.
-   * Used by CollectionsController to optionally await resolution on first paint.
-   */
-  coverImageNeedsUpgrade(url: string | null | undefined): boolean {
-    const t = (url ?? '').trim();
-    if (!t) return true;
-    if (isPsaCertSlabCloudfrontUrl(t)) return true;
-    return this.isCoverUrlUpgradeable(t);
-  }
-
-  /**
-   * Persist collection cover only while `cover_image_url` is still empty (first cover wins).
-   * Admin override: {@link setCollectionCoverImageAdmin}.
-   */
-  async persistCoverFromMetaIfMissing(
-    collectionKey: string,
-    meta: Record<string, unknown>,
-    options?: { psaSpecIdFallback?: string | null },
-  ): Promise<void> {
-    const key = collectionKey.toLowerCase();
-    const row = await this.collectionRepo.findOne({
-      where: { collectionKey: key },
-    });
-    if (!row) return;
-
-    let existing = row.coverImageUrl?.trim() ?? '';
-    if (existing && isPsaCertSlabCloudfrontUrl(existing)) {
-      await this.collectionRepo.update(
-        { collectionKey: key },
-        { coverImageUrl: null },
-      );
-      existing = '';
-    }
-    if (existing && !this.isCoverUrlUpgradeable(existing)) return;
-
-    const specFb =
-      options?.psaSpecIdFallback?.trim() ||
-      psaSpecIdFromComponentsRow(row.components);
-    if (specFb) {
-      this.psaSpecScraper.bustCache(specFb);
-    }
-    const img = await this.resolveBestCoverUrl(meta, specFb);
-    if (!img) return;
-    if (existing === img) return;
-
-    if (existing) {
-      if (!this.isPsaSpecCoverUrl(img)) return;
-      await this.persistCoverImageUrl(key, img);
-      this.logger.log(
-        `[CoverImg] upgraded cover for ${key} → PSA spec ${img.slice(0, 72)}`,
-      );
-      return;
-    }
-
-    const persisted = await this.persistCoverImageUrl(key, img, {
-      onlyIfEmpty: true,
-    });
-    if (!persisted) return;
-    this.logger.log(
-      `[CoverImg] first cover for ${key}: "${persisted.slice(0, 72)}"`,
-    );
-  }
-  /**
-   * Admin-only: replace collection cover (ignores first-cover freeze).
-   */
-  async setCollectionCoverImageAdmin(
-    collectionKey: string,
-    coverImageUrl: string,
-  ): Promise<MarketplaceCollection> {
-    const k = collectionKey.toLowerCase();
-    const url = coverImageUrl.trim();
-    if (!url) {
-      throw new Error('COLLECTION_COVER_URL_EMPTY');
-    }
-    if (!/^https?:\/\//i.test(url)) {
-      throw new Error('COLLECTION_COVER_URL_INVALID');
-    }
-    if (!isPersistableHttpsCoverUrl(url)) {
-      throw new Error('COLLECTION_COVER_URL_INVALID');
-    }
-    const row = await this.findOne(k);
-    if (!row) {
-      throw new Error('COLLECTION_NOT_FOUND');
-    }
-    const persisted = await this.persistCoverImageUrl(k, url);
-    if (!persisted) {
-      throw new Error('COLLECTION_COVER_URL_INVALID');
-    }
-    const refreshed = await this.findOne(k);
-    if (!refreshed) {
-      throw new Error('COLLECTION_NOT_FOUND');
-    }
-    this.logger.log(
-      `[CoverImg] admin set ${k}: "${persisted.slice(0, 72)}"`,
-    );
-    return refreshed;
-  }
-
-  /**
-   * Admin: resolve best catalog/cover URL from a token's IPFS metadata (Cardhedger / PSA / TCG).
-   */
-  async adminPreviewCoverFromToken(
-    tokenId: string,
-    collectionKey?: string,
-  ): Promise<string | null> {
-    const uri = await this.blockchain.getRwaTokenURI(Number(tokenId));
-    const meta = await this.ipfsResolver.fetchMetadataJson(uri);
-    let psaSpecFb: string | null = null;
-    if (collectionKey?.trim()) {
-      const col = await this.findOne(collectionKey);
-      psaSpecFb = psaSpecIdFromComponentsRow(col?.components);
-    }
-    return this.resolveBestCoverUrl(meta, psaSpecFb);
-  }
-
-  /**
-   * Representative image: persisted `cover_image_url` only.
-   * When still empty, pick art from active listings (lowest token id first) and persist once.
-   * Never overwrites an existing cover (use admin API to replace).
-   *
-   * Concurrency: at most one resolution per `collection_key` at a time (parallel page loads share one scrape).
-   *
-   * @param preloaded — When set (e.g. from `GET /collections/:key`), skips a second DB read for active asks/bids.
-   */
-  async resolveRepresentativeImageForCollection(
-    collectionKey: string,
-    preloaded?: { asks: Order[]; bids: Order[] },
-  ): Promise<string | null> {
-    const k = collectionKey.toLowerCase();
-    const inflight = this.representativeImageResolveInflight.get(k);
-    if (inflight) return inflight;
-
-    const job = this.runRepresentativeImageResolution(k, preloaded).finally(
-      () => {
-        this.representativeImageResolveInflight.delete(k);
-      },
-    );
-    this.representativeImageResolveInflight.set(k, job);
-    return job;
-  }
-
-  private async runRepresentativeImageResolution(
-    collectionKey: string,
-    preloaded?: { asks: Order[]; bids: Order[] },
-  ): Promise<string | null> {
-    const k = collectionKey.toLowerCase();
-    const col = await this.findOne(k);
-    const stored = col?.coverImageUrl?.trim() ?? '';
-    const psaSpecFromComp = psaSpecIdFromComponentsRow(col?.components);
-    if (psaSpecFromComp) {
-      this.psaSpecScraper.bustCache(psaSpecFromComp);
-    }
-
-    if (stored && !this.isCoverUrlUpgradeable(stored)) return stored;
-
-    const asks = preloaded?.asks ?? (await this.activeListingsForCollection(k));
-    const bids = preloaded?.bids ?? (await this.activeBidsForCollection(k));
-    const askIds = asks
-      .map((o) => o.tokenId)
-      .filter((id) => id != null && String(id).trim() !== '');
-    const bidIds = bids.map((o) => o.tokenId).filter((id) => id && id !== '0');
-    const tokenIds = [...new Set([...askIds, ...bidIds])].sort((a, b) => {
-      const na = Number(a);
-      const nb = Number(b);
-      if (Number.isFinite(na) && Number.isFinite(nb) && na !== nb)
-        return na - nb;
-      return String(a).localeCompare(String(b), undefined, { numeric: true });
-    });
-
-    for (const tokenId of tokenIds) {
-      try {
-        const uri = await this.blockchain.getRwaTokenURI(Number(tokenId));
-        const meta = await this.ipfsResolver.fetchMetadataJson(uri);
-        const img = await this.resolveBestCoverUrl(meta, psaSpecFromComp);
-        if (!img) continue;
-
-        if (stored && !this.isPsaSpecCoverUrl(img)) continue;
-
-        const persisted = await this.persistCoverImageUrl(
-          k,
-          img,
-          stored ? undefined : { onlyIfEmpty: true },
-        );
-        if (!persisted) continue;
-        this.logger.log(
-          `[CoverImg] resolveRepresentativeImage first cover ${k}: "${persisted.slice(0, 72)}"`,
-        );
-
-        return persisted;
-      } catch {
-        /* next token */
-      }
-    }
-
-    return stored || null;
-  }
-
-  /**
-   * Re-attempt PSA spec cover after cert/spec enrichment (mint, listing, or delayed retry).
-   */
-  async retryCoverFromToken(
-    collectionKey: string,
-    tokenId: number,
-  ): Promise<void> {
-    const k = collectionKey.toLowerCase();
-    const col = await this.findOne(k);
-    if (!col) return;
-    if (col.coverImageUrl?.trim() && isPsaCertSlabCloudfrontUrl(col.coverImageUrl)) {
-      await this.collectionRepo.update(
-        { collectionKey: k },
-        { coverImageUrl: null },
-      );
-    } else if (
-      col.coverImageUrl?.trim() &&
-      !this.coverImageNeedsUpgrade(col.coverImageUrl)
-    ) {
-      return;
-    }
-
-    let meta: Record<string, unknown>;
-    try {
-      const uri = await this.blockchain.getRwaTokenURI(tokenId);
-      meta = await this.ipfsResolver.fetchMetadataJson(uri);
-    } catch {
-      return;
-    }
-
-    let specId = psaSpecIdFromComponentsRow(col.components);
-    if (!specId) {
-      const cert =
-        col.psaCertNumber?.trim() || psaCertNumberFromGradedMeta(meta);
-      if (cert) {
-        const snap = await this.psaCertSnapshots.fetchCertSnapshotJson(cert, {
-          allowUpstream: true,
-        });
-        if (snap) {
-          specId = specIdStringFromPsaCertBody({ PSACert: snap }) ?? null;
-        }
-      }
-    }
-
-    if (specId && !psaSpecIdFromComponentsRow(col.components)) {
-      await this.collectionRepo.update(
-        { collectionKey: k },
-        {
-          components: {
-            ...col.components,
-            psaSpecId: specId,
-          } as QueryDeepPartialEntity<Record<string, unknown>>,
-        },
-      );
-    }
-
-    await this.persistCoverFromMetaIfMissing(k, meta, {
-      psaSpecIdFallback: specId,
-    });
-
-    const after = await this.findOne(k);
-    if (after?.coverImageUrl?.trim()) {
-      this.logger.log(
-        `[CoverImg] retry cover ${k} from token #${tokenId} → ${after.coverImageUrl.slice(0, 80)}`,
-      );
-    }
-  }
-
-  /** Delayed retries — specId / PSA cert snapshot may not be ready on first insert. */
-  scheduleCoverResolutionRetries(
-    collectionKey: string,
-    tokenId: number,
-  ): void {
-    for (const delayMs of [5_000, 20_000, 60_000]) {
-      setTimeout(() => {
-        void this.retryCoverFromToken(collectionKey, tokenId).catch((e: unknown) => {
-          this.logger.debug(
-            `[CoverImg] scheduled retry failed ${collectionKey} #${tokenId} delay=${delayMs}ms: ${String(e)}`,
-          );
-        });
-      }, delayMs);
-    }
+    await this.collectionRepo.update({ collectionKey: k }, patch);
+    return trimmed;
   }
 }

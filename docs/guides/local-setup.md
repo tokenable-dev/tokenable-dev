@@ -75,7 +75,6 @@ PINATA_GATEWAY=your_gateway.mypinata.cloud
 # External APIs
 CARDHEDGER_API_KEY=your_cardhedger_key
 PSA_PUBLIC_API_TOKEN=your_psa_token    # recommended for cert lookup & Variety
-# CARDHEDGER_PSA_SPECID_MAP={"9656727":"1745765714667x…"}  # optional PSA spec → Cardhedger id map
 
 # Card Ladder dashboard indexes (Playwright scrape — run `pnpm run install:browsers` once)
 # CARDLADDER_INDEXES_PREWARM_DISABLED=false   # boot + every 6h refresh (default on)

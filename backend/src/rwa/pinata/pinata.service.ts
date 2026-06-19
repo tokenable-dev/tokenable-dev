@@ -84,10 +84,7 @@ export class PinataService {
     }
   }
 
-  /**
-   * `uploadFromUrl`과 동일한 헤더로 이미지를 가져온다.
-   * PSA 슬랩 크롭 등 동일 바이트로 여러 작업을 할 때 한 번만 fetch하기 위해 사용.
-   */
+  /** `uploadFromUrl`과 동일한 헤더로 이미지를 가져온다. */
   async fetchImageBufferFromUrl(
     imageUrl: string,
   ): Promise<{ buffer: Buffer; mimeType: string; extension: string }> {

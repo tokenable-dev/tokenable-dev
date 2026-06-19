@@ -103,17 +103,13 @@ export class CollectionService {
   }
 
   /**
-   * 매도(ask) 등록·민트 on-mint 시: 메타에서 버킷·컬렉션 라벨 문구를 읽어 컬렉션 행을 만들고 key 반환.
-   * graded 없으면 null (주문은 그대로 저장, 컬렉션 미부여).
+   * 매도(ask) 등록 시: 메타에서 버킷·컬렉션 라벨 문구를 읽어 컬렉션 행을 만들고 key 반환.
+   * graded 없으면 null (호출부에서 listing 거부).
    *
-   * Cover: PSA spec scrape is attempted once (bounded by `coverAwaitMs`); delayed retries
-   * continue in the background. Mint uses a longer wait; listing uses a short cap so POST
-   * /orders stays within the frontend API timeout.
+   * Cover: Cardhedger/Pokémon TCG resolve is fire-and-forget in background.
+   * PSA cert snapshot upstream refresh is async — listing POST must stay within API timeout.
    */
-  async ensureCollectionForListing(
-    tokenId: string,
-    opts?: { coverAwaitMs?: number },
-  ): Promise<string | null> {
+  async ensureCollectionForListing(tokenId: string): Promise<string | null> {
     const uri = await this.blockchain.getRwaTokenURI(Number(tokenId));
     const meta = await this.ipfsResolver.fetchMetadataJson(uri);
     const extracted = extractOrDiagnoseBucketComponents(meta);
@@ -161,7 +157,7 @@ export class CollectionService {
       );
     }
     const ch = cardhedgerFromRwaMetadata(meta);
-    const coverImageUrl: string | null = null;
+    const coverImageUrl = await this.cover.resolveCoverUrlFromMeta(meta);
 
     const compRecord: Record<string, unknown> = {
       ...(components as unknown as Record<string, unknown>),
@@ -196,7 +192,7 @@ export class CollectionService {
         }
       } catch (e: unknown) {
         this.logger.debug(
-          `ensureCollectionForListing #${tokenId}: cert→specId lookup failed: ${String(e)}`,
+          `ensureCollectionForListing #${tokenId}: cert→specId cache lookup failed: ${String(e)}`,
         );
       }
     }
@@ -289,27 +285,6 @@ export class CollectionService {
       .execute();
 
     const inserted = (insertResult.identifiers?.length ?? 0) > 0;
-    const specFallback =
-      typeof compRecord.psaSpecId === 'string'
-        ? compRecord.psaSpecId
-        : typeof compRecord.psaSpecId === 'number'
-          ? String(compRecord.psaSpecId)
-          : null;
-    const coverJob = this.cover.persistCoverFromMetaIfMissing(
-      collectionKey,
-      meta,
-      { psaSpecIdFallback: specFallback },
-    );
-    const coverAwaitMs = opts?.coverAwaitMs ?? 0;
-    if (coverAwaitMs > 0) {
-      await Promise.race([
-        coverJob,
-        new Promise<void>((resolve) => setTimeout(resolve, coverAwaitMs)),
-      ]);
-    } else {
-      void coverJob;
-    }
-    this.cover.scheduleCoverResolutionRetries(collectionKey, Number(tokenId));
     if (!inserted) {
       await this.components.mergePsaPopulationFromMetaIfMissing(
         collectionKey,
@@ -457,10 +432,7 @@ export class CollectionService {
         createdAt: c.createdAt,
         activeListingCount: countMap.get(c.collectionKey.toLowerCase()) ?? 0,
         coverImageUrl,
-        displayImageUrl: pickCollectionDisplayImageUrl(
-          coverImageUrl,
-          components,
-        ),
+        displayImageUrl: pickCollectionDisplayImageUrl(coverImageUrl),
       };
     });
 
@@ -585,10 +557,6 @@ export class CollectionService {
     });
   }
 
-  coverImageNeedsUpgrade(url: string | null | undefined): boolean {
-    return this.cover.coverImageNeedsUpgrade(url);
-  }
-
   async setCollectionCoverImageAdmin(
     collectionKey: string,
     coverImageUrl: string,
@@ -634,23 +602,12 @@ export class CollectionService {
     });
 
     this.merkleSet.invalidateForCollection(k);
-    this.cover.clearResolveInflight(k);
 
     this.logger.warn(
       `[Admin] deleted collection ${k}: snapshots=${result.deletedSnapshots} orders=${result.deletedOrders} rwa_tokens=${result.deletedRwaTokens}`,
     );
 
     return { collectionKey: k, ...result };
-  }
-
-  async resolveRepresentativeImageForCollection(
-    collectionKey: string,
-    preloaded?: { asks: Order[]; bids: Order[] },
-  ): Promise<string | null> {
-    return this.cover.resolveRepresentativeImageForCollection(
-      collectionKey,
-      preloaded,
-    );
   }
 
   merkleEligibleTokenIds(

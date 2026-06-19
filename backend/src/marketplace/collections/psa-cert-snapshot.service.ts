@@ -7,15 +7,11 @@ import {
   PsaPublicApiService,
   type PsaCertRecord,
 } from '../../psa/psa-public-api.service';
-import { PsaCertEstimateScraperService } from '../../psa/psa-cert-estimate-scraper.service';
 import { PsaCertSnapshot } from '../entities/psa-cert-snapshot.entity';
 
 /**
  * Single gateway for PSA Public API cert lookups — all callers should use this
  * instead of {@link PsaPublicApiService.getByCertNumber} directly.
- *
- * PSA Estimate USD is taken from the Public API payload when present, otherwise
- * from a Collectors-authenticated cert page scrape (website-only field).
  */
 @Injectable()
 export class PsaCertSnapshotService {
@@ -25,7 +21,6 @@ export class PsaCertSnapshotService {
     @InjectRepository(PsaCertSnapshot)
     private readonly repo: Repository<PsaCertSnapshot>,
     private readonly psaPublicApi: PsaPublicApiService,
-    private readonly certEstimateScraper: PsaCertEstimateScraperService,
     private readonly config: ConfigService,
   ) {}
 
@@ -205,7 +200,6 @@ export class PsaCertSnapshotService {
 
   /**
    * Re-fetch cert snapshot from PSA Public API even when DB TTL is still valid.
-   * When Estimate is still missing, scrape the cert page (website-only field).
    */
   async refreshEstimateIfMissing(certNumber: string): Promise<number | null> {
     const cert = certNumber.trim();
@@ -239,14 +233,9 @@ export class PsaCertSnapshotService {
 
   private async enrichSnapshotWithEstimateIfMissing(
     snap: Record<string, unknown>,
-    certNumber: string,
+    _certNumber: string,
   ): Promise<Record<string, unknown>> {
-    const existing = PsaCertSnapshotService.psaEstimateUsdFromSnapshotJson(snap);
-    if (existing != null) return snap;
-
-    const scraped = await this.certEstimateScraper.scrapeEstimateUsd(certNumber);
-    if (scraped == null) return snap;
-    return { ...snap, EstimateUsd: scraped };
+    return snap;
   }
 
   /** @deprecated Use {@link refreshEstimateIfMissing}. */

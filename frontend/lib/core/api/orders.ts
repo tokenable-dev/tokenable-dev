@@ -143,6 +143,9 @@ export async function getActiveOrderForToken(
   return j as Order;
 }
 
+/** Must match backend `OrdersBatchByTokenDto` `@ArrayMaxSize(120)`. */
+export const ORDERS_BATCH_BY_TOKEN_MAX = 120;
+
 /** 여러 tokenId의 주문 이력을 한 번에 (경량 행) */
 export async function postOrdersBatchByToken(tokenIds: number[]): Promise<
   Record<string, OrderListItem[]>
@@ -154,6 +157,25 @@ export async function postOrdersBatchByToken(tokenIds: number[]): Promise<
   });
   if (!res.ok) throw new Error("Failed to fetch order batch");
   return res.json() as Promise<Record<string, OrderListItem[]>>;
+}
+
+export async function postOrdersBatchByTokenBatched(
+  tokenIds: number[],
+): Promise<Record<string, OrderListItem[]>> {
+  const unique = [
+    ...new Set((tokenIds ?? []).map((n) => Math.floor(Number(n)))),
+  ].filter((n) => Number.isFinite(n) && n >= 0);
+  if (unique.length === 0) return {};
+
+  const merged: Record<string, OrderListItem[]> = {};
+  for (let i = 0; i < unique.length; i += ORDERS_BATCH_BY_TOKEN_MAX) {
+    const chunk = unique.slice(i, i + ORDERS_BATCH_BY_TOKEN_MAX);
+    const part = await postOrdersBatchByToken(chunk);
+    for (const [tid, rows] of Object.entries(part)) {
+      merged[tid] = rows;
+    }
+  }
+  return merged;
 }
 
 /** orderHash로 단건 조회 */

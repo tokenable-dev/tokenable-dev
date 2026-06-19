@@ -872,7 +872,7 @@ backend/
 │   │   │                       #   cardhedger-ai-insight.service · dto/
 │   │   ├── assets/             # assets.controller · hidden-assets.service
 │   │   ├── entities/           # order · marketplace-collection · hidden-asset
-│   │   ├── utils/              # bucket-key · card-match · collection-image · psa-spec-cardhedger-map · …
+│   │   ├── utils/              # bucket-key · card-match · collection-image · …
 │   │
 │   ├── rwa/
 │   │   ├── rwa.controller.ts   # /rwa — IPFS upload
@@ -895,8 +895,7 @@ backend/
 │       ├── psa.controller.ts   # /psa/analyze
 │       ├── psa.service.ts      # PSA/Cardhedger blend, image fallback
 │       ├── psa-public-api.service.ts
-│       ├── psa-spec-scraper.service.ts  # optional PSA spec page (playwright-core)
-│       └── utils/              # psa-cert-images · psa-ocr · psa-slab-crop
+│       └── utils/              # psa-cert-images · psa-ocr
 │
 ├── sql/
 │   └── bootstrap-empty-prod-db.sql

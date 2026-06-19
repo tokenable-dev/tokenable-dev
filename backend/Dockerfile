@@ -38,9 +38,7 @@ RUN corepack enable && corepack prepare pnpm@11.0.9 --activate
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile --prod
 
-# PSA spec scraper — Chromium must exist in the image at runtime.
-# 1) PLAYWRIGHT_BROWSERS_PATH: predictable path (not only ~/.cache)
-# 2) CI= empty for this RUN only — with CI=true some Playwright versions skip browser download during install
+# Card Ladder dashboard indexes — Playwright (see cardladder module)
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 RUN CI= pnpm exec playwright-core install --with-deps chromium
 

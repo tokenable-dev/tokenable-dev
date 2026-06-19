@@ -3,9 +3,9 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
-  getCollectionPlatformTrades,
-  getMarketplaceCollectionDetail,
+  getMarketplaceCollectionDetailOrNull,
   getResolvedRwaAsset,
+  getRwaTokenTrades,
   marketplaceRqPolicy,
   postBatchMintMarketPreviews,
   postMarketplaceCollectionSnapshotsBatched,
@@ -46,7 +46,7 @@ export function useListRwaPriceSuggestions(input: {
 
   const metadata = metaBundle?.metadata ?? null;
 
-  const { data: serverCollectionKey, isFetching: serverKeyFetching } = useQuery({
+  const { data: serverCollectionKey } = useQuery({
     queryKey: rq.tokenCollectionKey(tokenId),
     queryFn: async () => {
       const map = await postTokenCollectionKeysByTokenIds([tokenId]);
@@ -71,8 +71,8 @@ export function useListRwaPriceSuggestions(input: {
     staleTime: 60_000,
   });
 
-  const collectionKey =
-    collectionKeyProp?.trim() ||
+  const candidateCollectionKey =
+    collectionKeyProp?.trim().toLowerCase() ||
     serverCollectionKey ||
     metadataDerivedCollectionKey ||
     null;
@@ -87,29 +87,24 @@ export function useListRwaPriceSuggestions(input: {
     return extractBucketComponentsFromMetadata(metadata as Record<string, unknown>);
   }, [metadata]);
 
+  /** Cert-based trades for this token — no collection row or bootstrap required. */
   const { data: tradesPack, isLoading: tradesLoading } = useQuery({
-    queryKey: rq.collectionPlatformTrades(
-      collectionKey ?? "",
-      tokenId,
-      gradeLabel,
-    ),
-    queryFn: () =>
-      getCollectionPlatformTrades(collectionKey!, {
-        bootstrapTokenId: tokenId,
-        grade: gradeLabel,
-      }),
-    enabled: enabled && tokenIdOk && Boolean(collectionKey),
+    queryKey: rq.rwaTokenTrades(tokenId, gradeLabel),
+    queryFn: () => getRwaTokenTrades(tokenId, { grade: gradeLabel }),
+    enabled: enabled && tokenIdOk,
     staleTime: marketplaceRqPolicy.snapshotsStaleMs,
   });
 
-  const collectionSnapshotKey = collectionKey?.toLowerCase() ?? null;
-
-  const { data: collectionDetail } = useQuery({
-    queryKey: rq.collectionDetail(collectionSnapshotKey ?? ""),
-    queryFn: () => getMarketplaceCollectionDetail(collectionSnapshotKey!),
-    enabled: enabled && tokenIdOk && Boolean(collectionSnapshotKey),
+  const { data: collectionDetail, isLoading: collectionDetailLoading } = useQuery({
+    queryKey: rq.collectionDetail(candidateCollectionKey ?? ""),
+    queryFn: () => getMarketplaceCollectionDetailOrNull(candidateCollectionKey!),
+    enabled: enabled && tokenIdOk && Boolean(candidateCollectionKey),
     staleTime: marketplaceRqPolicy.collectionDetailStaleMs,
   });
+
+  const persistedCollectionKey = collectionDetail
+    ? candidateCollectionKey?.toLowerCase() ?? null
+    : null;
 
   const pricingComponents = useMemo((): CollectionComponents | null => {
     const server = collectionDetail?.collection?.components;
@@ -121,19 +116,22 @@ export function useListRwaPriceSuggestions(input: {
   }, [bucketComponents, collectionDetail?.collection?.components]);
 
   const { data: snapshotPack, isLoading: snapshotLoading } = useQuery({
-    queryKey: rq.collectionSnapshots(collectionSnapshotKey ? [collectionSnapshotKey] : [], "max"),
+    queryKey: rq.collectionSnapshots(
+      persistedCollectionKey ? [persistedCollectionKey] : [],
+      "max",
+    ),
     queryFn: () =>
-      postMarketplaceCollectionSnapshotsBatched([collectionSnapshotKey!], "max"),
-    enabled: enabled && tokenIdOk && Boolean(collectionSnapshotKey),
+      postMarketplaceCollectionSnapshotsBatched([persistedCollectionKey!], "max"),
+    enabled: enabled && tokenIdOk && Boolean(persistedCollectionKey),
     staleTime: marketplaceRqPolicy.snapshotsStaleMs,
   });
 
   const collectionSnapshot = useMemo(() => {
-    if (!collectionSnapshotKey) return undefined;
+    if (!persistedCollectionKey) return undefined;
     return snapshotPack?.items?.find(
-      (row) => row.collectionKey.toLowerCase() === collectionSnapshotKey,
+      (row) => row.collectionKey.toLowerCase() === persistedCollectionKey,
     );
-  }, [snapshotPack?.items, collectionSnapshotKey]);
+  }, [snapshotPack?.items, persistedCollectionKey]);
 
   const { data: mintPreviewPack, isLoading: mintPreviewLoading } = useQuery({
     queryKey: ["list-rwa-mint-preview", tokenId] as const,
@@ -186,8 +184,16 @@ export function useListRwaPriceSuggestions(input: {
 
   const lastTokenableTradeUsd = useMemo(() => {
     const v = collectionSnapshot?.lastTokenableTradeUsdc;
-    return v != null && Number.isFinite(v) && v > 0 ? v : null;
-  }, [collectionSnapshot?.lastTokenableTradeUsdc]);
+    if (v != null && Number.isFinite(v) && v > 0) return v;
+
+    const platformFills = countableTapeFills(tradesPack?.trades ?? [])
+      .filter((row) => row.source === "platform")
+      .sort((a, b) => b.t - a.t);
+    const newest = platformFills[0];
+    if (newest && newest.priceUsdc > 0) return newest.priceUsdc;
+
+    return null;
+  }, [collectionSnapshot?.lastTokenableTradeUsdc, tradesPack?.trades]);
 
   const recentTrades = useMemo((): CollectionPlatformTapeFill[] => {
     return [...countableTapeFills(tradesPack?.trades ?? [])]
@@ -197,13 +203,9 @@ export function useListRwaPriceSuggestions(input: {
 
   const loading =
     tradesLoading ||
-    snapshotLoading ||
     mintPreviewLoading ||
-    serverKeyFetching ||
-    (!collectionKeyProp &&
-      !serverCollectionKey &&
-      !metadataDerivedCollectionKey &&
-      !!metaBundle?.metadata);
+    (Boolean(candidateCollectionKey) && collectionDetailLoading) ||
+    (Boolean(persistedCollectionKey) && snapshotLoading);
 
   const hasAnyReference =
     marketPriceUsd != null ||
@@ -211,7 +213,7 @@ export function useListRwaPriceSuggestions(input: {
     recentTrades.length > 0;
 
   return {
-    collectionKey,
+    collectionKey: persistedCollectionKey ?? candidateCollectionKey,
     gradeLabel,
     marketPriceUsd,
     lastTokenableTradeUsd,
