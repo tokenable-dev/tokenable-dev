@@ -18,7 +18,7 @@ export function SiteAccessClient() {
     setPending(true);
 
     try {
-      const res = await fetch("/api/site-access/verify", {
+      const res = await fetch("/site-access/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -26,7 +26,11 @@ export function SiteAccessClient() {
       });
 
       if (!res.ok) {
-        setError("Incorrect password.");
+        setError(
+          res.status === 401
+            ? "Incorrect password."
+            : "Unable to verify access. Please try again.",
+        );
         return;
       }
 

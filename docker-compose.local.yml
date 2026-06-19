@@ -7,3 +7,6 @@ services:
     environment:
       # backend/.env is host-oriented (127.0.0.1); override for in-network Redis.
       REDIS_URL: redis://redis:6379
+  frontend:
+    env_file:
+      - ./backend/.env

@@ -72,9 +72,8 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3000
-      # Site-wide access gate (tokenable-dev.com) — set in host .env / EC2 secrets
-      - SITE_ACCESS_ENABLED=${SITE_ACCESS_ENABLED:-false}
-      - SITE_ACCESS_SECRET=${SITE_ACCESS_SECRET:-}
+      # Site-wide access gate — EC2: docker-compose.ec2.yml env_file (not empty defaults here;
+      # empty interpolation would override env_file). Local full stack: docker-compose.local.yml
       # SSR: 서버 컴포넌트가 Nest 를 직접 부를 때
       - INTERNAL_API_URL=http://backend:4000/api
       # Next rewrites 는 이미지 **빌드 시** API_PROXY_TARGET 으로 고정 — CI 가 http://backend:4000 전달 (로컬 빌드 시에도 동일하게 맞출 것)
