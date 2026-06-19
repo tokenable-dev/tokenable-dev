@@ -13,14 +13,13 @@ import {
   collectionMatchesCategoryFilter,
   formatReferenceChangeCoverageHint,
   formatReferenceChangePeriodFromSnapshotMeta,
-  parseGradeScoreNumber,
   referenceChangePeriodFromSnapshotMeta,
-  representativeGradeUsd,
   type CollectionCategoryFilterId,
 } from "@/lib/market";
 import { MarketsListingPriceWithChange } from "@/components/marketplace/marketplace-shared";
 import { MARKETS_GRID_CARD_TITLE_CLASS } from "@/components/markets/CollectionGridCard";
 import { buildMarketsCollectionTitle } from "@/lib/markets/marketsCollectionTitle";
+import { resolveMarketsListingMarketUsd, resolveMarketsListingMarketChangePct } from "@/lib/markets/marketsListingMarketPrice";
 import { pickCollectionSummaryDisplayImageUrl } from "@/lib/marketplace/collectionDisplayImage";
 import { ASSETS } from "@/constants/assets";
 
@@ -306,15 +305,8 @@ export function TrendingCollectionsCarousel({
   ) => {
     const s = snapshotByKey.get(c.collectionKey.toLowerCase());
     const comp = c.components;
-    const eBayPrice = representativeGradeUsd(
-      s?.gradePrices ?? null,
-      parseGradeScoreNumber(comp.gradeScore),
-      comp.gradeScore,
-    );
-    const changePctExternal =
-      s?.marketChangePct != null && Number.isFinite(s.marketChangePct)
-        ? s.marketChangePct
-        : null;
+    const eBayPrice = resolveMarketsListingMarketUsd(c, s);
+    const changePctExternal = resolveMarketsListingMarketChangePct(s);
     const changePeriodMeta = referenceChangePeriodFromSnapshotMeta(s);
     const changeWindowShort = formatReferenceChangePeriodFromSnapshotMeta(s);
     const changeCoverageHint = formatReferenceChangeCoverageHint(changePeriodMeta);

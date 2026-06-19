@@ -215,17 +215,25 @@ export function buildMaterializedSnapshotPayload(input: {
     input.psaEstimateUsd != null &&
     Number.isFinite(input.psaEstimateUsd) &&
     input.psaEstimateUsd > 0 &&
-    gradePrices.psa10 == null &&
-    (tier === 'PSA_10' || tier === 'PSA_AUTH');
+    (tier === 'PSA_10' || tier === 'PSA_AUTH' || tier === 'PSA_9') &&
+    (tier === 'PSA_9'
+      ? gradePrices.psa9 == null
+      : gradePrices.psa10 == null);
 
   // Fall back to PSA website estimate for thin-market slabs even when Cardhedger matched
   // the catalog but has no indexed sales for this grade.
   if (psaEstimateForTier) {
-    gradePrices = { ...gradePrices, psa10: input.psaEstimateUsd! };
+    gradePrices =
+      tier === 'PSA_9'
+        ? { ...gradePrices, psa9: input.psaEstimateUsd! }
+        : { ...gradePrices, psa10: input.psaEstimateUsd! };
   }
 
   const usedPsaEstimateFallback =
-    psaEstimateForTier && gradePrices.psa10 === input.psaEstimateUsd;
+    psaEstimateForTier &&
+    (tier === 'PSA_9'
+      ? gradePrices.psa9 === input.psaEstimateUsd
+      : gradePrices.psa10 === input.psaEstimateUsd);
 
   const spotPriceBasis =
     input.preview.card?.spotPriceBasis?.trim() ||

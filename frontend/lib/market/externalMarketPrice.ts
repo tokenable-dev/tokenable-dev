@@ -118,18 +118,7 @@ export function resolveExternalMarketUsd(params: {
 
   const compEstimate = finitePositive(params.components?.psaEstimateUsd);
   if (compEstimate != null) {
-    const score = params.gradeScore;
-    if (
-      score == null ||
-      score >= 10 ||
-      isAuthQualifierGradeScore(
-        typeof params.components?.gradeScore === "string"
-          ? params.components.gradeScore
-          : null,
-      )
-    ) {
-      return { usd: compEstimate, source: "psa_estimate" };
-    }
+    return { usd: compEstimate, source: "psa_estimate" };
   }
 
   return { usd: null, source: null };

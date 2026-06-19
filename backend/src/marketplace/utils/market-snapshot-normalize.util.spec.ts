@@ -65,4 +65,22 @@ describe('buildMaterializedSnapshotPayload PSA estimate fallback', () => {
     expect(payload.gradePricesJson?.psa10).toBe(450);
     expect(payload.spotPriceBasis).not.toBe('psa_estimate');
   });
+
+  it('uses PSA estimate for PSA 9 tier when grade strip is empty', () => {
+    const payload = buildMaterializedSnapshotPayload({
+      collectionKey: 'abc',
+      historyTier: 'PSA_9',
+      preview: {
+        enabled: true,
+        searchQuery: 'Pikachu',
+        matched: false,
+        card: null,
+      },
+      historyPoints: [],
+      psaEstimateUsd: 300,
+    });
+
+    expect(payload.gradePricesJson?.psa9).toBe(300);
+    expect(payload.spotPriceBasis).toBe('psa_estimate');
+  });
 });

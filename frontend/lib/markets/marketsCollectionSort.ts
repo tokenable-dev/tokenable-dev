@@ -5,7 +5,7 @@ import type {
   CollectionListMarketSnapshot,
   MarketplaceCollectionSummary,
 } from "@/lib/core";
-import { parseGradeScoreNumber, representativeGradeUsd } from "@/lib/market";
+import { resolveMarketsListingMarketUsd, resolveMarketsListingMarketChangePct } from "@/lib/markets/marketsListingMarketPrice";
 
 export const MARKETS_DEFAULT_SORT_ID = "pct_change_high" as const;
 
@@ -27,13 +27,8 @@ function marketsListMarketPriceUsd(
   collection: MarketplaceCollectionSummary,
   snapshot: CollectionListMarketSnapshot | undefined,
 ): number {
-  const comp = collection.components;
-  const usd = representativeGradeUsd(
-    snapshot?.gradePrices ?? null,
-    parseGradeScoreNumber(comp.gradeScore),
-    comp.gradeScore,
-  );
-  if (usd != null && Number.isFinite(usd) && usd > 0) return usd;
+  const usd = resolveMarketsListingMarketUsd(collection, snapshot);
+  if (usd != null) return usd;
   return Number.NEGATIVE_INFINITY;
 }
 
@@ -75,8 +70,12 @@ function compareMarketsByMarketChangePct(
   b: MarketplaceCollectionSummary,
   snapByKey: Map<string, CollectionListMarketSnapshot>,
 ): number {
-  const pa = snapByKey.get(collectionKeyLower(a))?.marketChangePct;
-  const pb = snapByKey.get(collectionKeyLower(b))?.marketChangePct;
+  const pa = resolveMarketsListingMarketChangePct(
+    snapByKey.get(collectionKeyLower(a)),
+  );
+  const pb = resolveMarketsListingMarketChangePct(
+    snapByKey.get(collectionKeyLower(b)),
+  );
   const na =
     pa != null && Number.isFinite(pa) ? pa : Number.NEGATIVE_INFINITY;
   const nb =

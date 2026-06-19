@@ -447,6 +447,8 @@ export class CardhedgerResolveService {
     row: CardhedgerCardRow,
     opts?: { trustStoredCardhedgerCatalogId?: boolean },
   ): boolean {
+    /** Mint/catalog `cardhedgerCardId` is authoritative — PSA Variety vs Cardhedger `variant` often diverges on TCG. */
+    if (opts?.trustStoredCardhedgerCatalogId) return false;
     const pv = psaVariety?.trim() ?? '';
     if (!psaVarietyRequiresNonBaseCardhedgerRow(pv)) return false;
     /**
@@ -512,6 +514,7 @@ export class CardhedgerResolveService {
   ): { score: number; verified: boolean; numberMatched: boolean } {
     const parallelKey = (hints.marketParallelKey ?? 'base').trim().toLowerCase();
     if (
+      !parallelOpts?.trustStoredCardhedgerCatalogId &&
       !cardhedgerRowMatchesMarketParallelKey(
         row as Record<string, unknown>,
         parallelKey,
@@ -1000,32 +1003,23 @@ export class CardhedgerResolveService {
         if (rows[0]) {
           const storedIdOpts = { trustStoredCardhedgerCatalogId: true } as const;
           const strict = this.scoreCard(rows[0], q, storedIdOpts);
-          const parallelBad = this.parallelRowFailsExpectation(
-            q.psaVariety,
-            rows[0],
-            storedIdOpts,
+          const confidence =
+            strict.verified && this.rowTrustedForMarket(q, rows[0])
+              ? 'verified'
+              : 'approximate';
+          this.metrics?.recordResolvePath('card_details');
+          this.logger.log(
+            JSON.stringify({
+              msg: 'resolve_path',
+              path: 'card_details',
+              key: collectionKey,
+              cardId: q.cardhedgerCardId,
+              confidence,
+              score: strict.score,
+              numberMatched: strict.numberMatched,
+            }),
           );
-          const trustCardId =
-            !parallelBad &&
-            strict.verified &&
-            this.rowTrustedForMarket(q, rows[0]);
-          if (trustCardId) {
-            const confidence = 'verified';
-            this.metrics?.recordResolvePath('card_details');
-            this.logger.log(
-              JSON.stringify({
-                msg: 'resolve_path',
-                path: 'card_details',
-                key: collectionKey,
-                cardId: q.cardhedgerCardId,
-                confidence,
-              }),
-            );
-            return { query, row: rows[0], confidence };
-          }
-          this.logger.debug(
-            `card-details card_id=${q.cardhedgerCardId} not trusted (parallelBad=${parallelBad} verified=${strict.verified} numberMatched=${strict.numberMatched} score=${strict.score}) — search fallback`,
-          );
+          return { query, row: rows[0], confidence };
         }
       } catch (e) {
         // Circuit open or network failure — fall through to next path

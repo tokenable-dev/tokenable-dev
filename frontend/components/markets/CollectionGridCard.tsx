@@ -12,8 +12,8 @@ import {
   formatReferenceChangePeriodFromSnapshotMeta,
   referenceChangePeriodFromSnapshotMeta,
 } from "@/lib/market";
-import { parseGradeScoreNumber, representativeGradeUsd } from "@/lib/market";
 import { buildMarketsCollectionTitle } from "@/lib/markets/marketsCollectionTitle";
+import { resolveMarketsListingMarketUsd, resolveMarketsListingMarketChangePct } from "@/lib/markets/marketsListingMarketPrice";
 import { pickCollectionSummaryDisplayImageUrl } from "@/lib/marketplace/collectionDisplayImage";
 
 const CARD_BADGE_BASE =
@@ -89,18 +89,9 @@ export function CollectionGridCard({
   marketChangeLoading?: boolean;
 }) {
   const comp = collection.components;
-  const jtSpot = representativeGradeUsd(
-    snapshot?.gradePrices ?? null,
-    parseGradeScoreNumber(comp.gradeScore),
-    comp.gradeScore,
-  );
-  const marketPriceUsd =
-    jtSpot != null && Number.isFinite(jtSpot) && jtSpot > 0 ? jtSpot : null;
+  const marketPriceUsd = resolveMarketsListingMarketUsd(collection, snapshot);
 
-  const changePctExternal =
-    snapshot?.marketChangePct != null && Number.isFinite(snapshot.marketChangePct)
-      ? snapshot.marketChangePct
-      : null;
+  const changePctExternal = resolveMarketsListingMarketChangePct(snapshot);
   const changePeriodMeta = referenceChangePeriodFromSnapshotMeta(snapshot);
   const changeWindowShort = formatReferenceChangePeriodFromSnapshotMeta(snapshot);
   const changeCoverageHint = formatReferenceChangeCoverageHint(changePeriodMeta);

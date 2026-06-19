@@ -9,8 +9,10 @@ import { CollectionMarketSnapshotService } from '../snapshots/collection-market-
 import {
   type GradePriceStrip,
   type UsdPoint,
+  referenceChangeWithBestWindow,
 } from '../utils/collection-market.util';
 import { Order, OrderSide, OrderStatus } from '../entities/order.entity';
+import { CollectionMarketSnapshot } from '../entities/collection-market-snapshot.entity';
 import { computeRobustMarketStatsFromUsdPrices } from '../utils/collection-market-stats.util';
 import type { MarketCollectionPreview } from '../utils/market-reference.types';
 import {
@@ -35,6 +37,12 @@ import {
   collectionGradeLabelFromHistoryTier,
 } from '../utils/cardhedger-grade-catalog.util';
 import { marketHistoryTierFromComponents } from '../utils/market-history-tier.util';
+import {
+  buildMaterializedSnapshotPayload,
+  filterExternalUsdForChartWindow,
+} from '../utils/market-snapshot-normalize.util';
+import { nmHistoryDaysForBundleWindow } from '../utils/market-grade-strip.util';
+import type { MarketplaceCollection } from '../entities/marketplace-collection.entity';
 
 export type PriceHistoryDuration =
   | '7d'
@@ -131,6 +139,35 @@ function tapeAggressorFromOrderParameters(
   return 'buy';
 }
 
+/** Row can serve list/detail bundle reads (preview and/or materialized grade strip). */
+function rowHasMaterializedListPrices(
+  row: CollectionMarketSnapshot,
+): boolean {
+  if (row.previewJson) return true;
+  const headline = row.headlineUsd;
+  if (typeof headline === 'number' && Number.isFinite(headline) && headline > 0) {
+    return true;
+  }
+  const gp = row.gradePricesJson as GradePriceStrip | null | undefined;
+  if (gp?.psa10 != null && Number.isFinite(gp.psa10) && gp.psa10 > 0) {
+    return true;
+  }
+  if (gp?.psa9 != null && Number.isFinite(gp.psa9) && gp.psa9 > 0) {
+    return true;
+  }
+  if (gp?.raw != null && Number.isFinite(gp.raw) && gp.raw > 0) {
+    return true;
+  }
+  if (
+    typeof row.psa10Usd === 'number' &&
+    Number.isFinite(row.psa10Usd) &&
+    row.psa10Usd > 0
+  ) {
+    return true;
+  }
+  return false;
+}
+
 function emptyMarketBundle(
   collectionKey: string,
   platformUsd: UsdPoint[],
@@ -213,13 +250,241 @@ export class CollectionMarketService {
         )) ?? row;
     }
 
-    if (!row?.previewJson) {
+    if (!row || !rowHasMaterializedListPrices(row)) {
       return emptyMarketBundle(key, platformUsd, window);
     }
 
     const stale = this.snapshotService.isRowStale(row);
-    this.touchAndMaybeRefreshStale(key, stale);
-    return this.snapshotRead.buildBundleFromRow(row, window, platformUsd).bundle;
+    const preview = row.previewJson;
+    const needsHistoryRefresh =
+      preview != null &&
+      preview.matched !== true &&
+      (row.externalUsdJson?.length ?? 0) < 2;
+    this.touchAndMaybeRefreshStale(key, stale || needsHistoryRefresh);
+    const materialized = this.snapshotRead.buildBundleFromRow(
+      row,
+      window,
+      platformUsd,
+    ).bundle;
+    return this.overlayLiveCardhedgerWhenThin(materialized, key, window);
+  }
+
+  /**
+   * Collection row for market reads — back-fill `cardhedgerCardId` from active listing
+   * metadata when missing (same side effect as visiting collection detail once).
+   */
+  private async collectionForMarketRead(
+    key: string,
+  ): Promise<MarketplaceCollection | null> {
+    let col = await this.collectionService.findOne(key);
+    if (!col) return null;
+    const storedId = String(col.components?.cardhedgerCardId ?? '').trim();
+    if (storedId) return col;
+    const updated =
+      await this.collectionService.ensureCardhedgerCardIdFromListings(key);
+    if (updated) {
+      this.snapshotScheduler.enqueue(key, 'stale_swr');
+      col = await this.collectionService.findOne(key);
+    }
+    return col;
+  }
+
+  /**
+   * Materialized snapshots can lag behind collection detail (PSA estimate only) while
+   * live Cardhedger + listing metadata already have comps. Overlay matches detail UX.
+   */
+  private async overlayLiveCardhedgerWhenThin(
+    bundle: CollectionMarketBundle,
+    key: string,
+    window: PriceHistoryDuration,
+  ): Promise<CollectionMarketBundle> {
+    const thin =
+      bundle.spotPriceBasis === 'psa_estimate' ||
+      bundle.cardhedgerPreview?.matched !== true ||
+      (bundle.marketChangePct == null &&
+        (bundle.externalUsd?.length ?? 0) < 2);
+    if (!thin) return bundle;
+
+    const col = await this.collectionForMarketRead(key);
+    if (!col) return bundle;
+
+    if (!this.cardhedgerMarket.isConfigured()) {
+      return enrichListBundleFromCollection(bundle, col);
+    }
+
+    const fromStoredId = await this.overlayFromStoredCardhedgerCatalogId(
+      bundle,
+      col,
+      window,
+    );
+    if (fromStoredId) return fromStoredId;
+
+    try {
+      const historyTier = marketHistoryTierFromComponents(col.components);
+      const maxCalendarDays = nmHistoryDaysForBundleWindow(window);
+      const { preview, history } = await this.cardhedgerMarket.getBundledCardData(
+        col,
+        {
+          tier: historyTier,
+          period: '1y',
+          maxCalendarDays,
+          maxRequests: 4,
+          includeComps: false,
+        },
+      );
+
+      const psaEst = psaEstimateUsdFromComponents(col.components);
+      const payload = buildMaterializedSnapshotPayload({
+        collectionKey: key,
+        historyTier,
+        preview,
+        historyPoints: history.points,
+        psaEstimateUsd: psaEst,
+      });
+
+      const liveWorthUsing =
+        preview.matched === true ||
+        (history.points?.length ?? 0) >= 2 ||
+        (payload.spotPriceBasis != null &&
+          payload.spotPriceBasis !== 'psa_estimate');
+      if (!liveWorthUsing) {
+        return enrichListBundleFromCollection(bundle, col);
+      }
+
+      const fullExternal = payload.externalUsdJson ?? [];
+      const externalUsd = filterExternalUsdForChartWindow(fullExternal, window);
+      const change = referenceChangeWithBestWindow(fullExternal);
+      const gradePrices: GradePriceStrip =
+        payload.gradePricesJson ?? bundle.gradePrices;
+
+      return {
+        ...bundle,
+        categoryLabel: payload.categoryLabel ?? bundle.categoryLabel,
+        marketChangePct: change.pct,
+        marketChangeWindow: change.window,
+        marketChangeIsFullYear: change.isFullYear,
+        marketChangeSpanSec: change.spanSec,
+        marketChangeRefUsd: change.refUsd ?? undefined,
+        marketChangeRefAtSec: change.refAtSec ?? undefined,
+        marketChangeSource:
+          change.pct != null
+            ? historyTier === 'NEAR_MINT'
+              ? 'cardhedger_nm'
+              : 'cardhedger_graded'
+            : bundle.marketChangeSource,
+        gradePrices,
+        spotPriceBasis: payload.spotPriceBasis,
+        cardhedgerPreview: preview,
+        externalUsd,
+        snapshotStale: bundle.snapshotStale ?? true,
+      };
+    } catch (e) {
+      this.logger.debug(
+        `live cardhedger overlay failed key=${key}: ${e instanceof Error ? e.message : String(e)}`,
+      );
+      return enrichListBundleFromCollection(bundle, col);
+    }
+  }
+
+  /**
+   * Direct Cardhedger reads by mint/catalog `cardhedgerCardId` — same data detail grade
+   * chart uses, without re-running strict catalog resolve on PSA Variety text.
+   */
+  private async overlayFromStoredCardhedgerCatalogId(
+    bundle: CollectionMarketBundle,
+    col: MarketplaceCollection,
+    window: PriceHistoryDuration,
+  ): Promise<CollectionMarketBundle | null> {
+    const cardId = String(col.components?.cardhedgerCardId ?? '').trim();
+    if (!cardId) return null;
+
+    const historyTier = marketHistoryTierFromComponents(col.components);
+    const slabGrade =
+      collectionGradeLabelFromHistoryTier(historyTier) || 'PSA 10';
+    const maxDays = nmHistoryDaysForBundleWindow(window);
+    const comp = col.components ?? {};
+
+    const [catalogGrades, points] = await Promise.all([
+      this.cardhedgerMarket.getGradeCatalogForCardId(cardId),
+      this.cardhedgerMarket.getGradePriceSeriesByCardId(
+        cardId,
+        slabGrade,
+        maxDays,
+      ),
+    ]);
+
+    const catalogPrice =
+      catalogGrades.find((e) => e.grade === slabGrade)?.priceUsd ?? null;
+    const hasHistory = points.length >= 2;
+    if (
+      (catalogPrice == null || !(catalogPrice > 0)) &&
+      !hasHistory
+    ) {
+      return null;
+    }
+
+    const gradePrices: GradePriceStrip = { ...bundle.gradePrices };
+    if (catalogPrice != null && catalogPrice > 0) {
+      if (historyTier === 'PSA_9') gradePrices.psa9 = catalogPrice;
+      else gradePrices.psa10 = catalogPrice;
+    }
+
+    const change = referenceChangeWithBestWindow(points);
+    const externalUsd = filterExternalUsdForChartWindow(points, window);
+    const spotPrice =
+      catalogPrice != null && catalogPrice > 0
+        ? catalogPrice
+        : points.length > 0
+          ? points[points.length - 1]!.v
+          : null;
+
+    const preview: MarketCollectionPreview = {
+      enabled: true,
+      searchQuery: col.displayLabel ?? '',
+      matched: true,
+      matchConfidence: 'verified',
+      card: {
+        id: cardId,
+        name: String(comp.cardName ?? col.displayLabel ?? ''),
+        cardNumber: String(comp.cardNumber ?? ''),
+        setName: String(comp.cardSet ?? ''),
+        setSlug: null,
+        image: null,
+        tcgplayerId: null,
+        currency: 'USD',
+        market: null,
+        lastUpdated: null,
+        topPrice: spotPrice,
+        totalSaleCount: null,
+        hasGraded: true,
+        gradedTiersAvailable: [],
+        spotPriceBasis: 'catalog',
+        ebayNearMint: null,
+        tcgplayerNearMint: null,
+      },
+    };
+
+    return {
+      ...bundle,
+      categoryLabel: bundle.categoryLabel ?? preview.card?.setName ?? null,
+      marketChangePct: change.pct,
+      marketChangeWindow: change.window,
+      marketChangeIsFullYear: change.isFullYear,
+      marketChangeSpanSec: change.spanSec,
+      marketChangeRefUsd: change.refUsd ?? undefined,
+      marketChangeRefAtSec: change.refAtSec ?? undefined,
+      marketChangeSource:
+        change.pct != null
+          ? historyTier === 'NEAR_MINT'
+            ? 'cardhedger_nm'
+            : 'cardhedger_graded'
+          : bundle.marketChangeSource,
+      gradePrices,
+      spotPriceBasis: 'latest_sale',
+      cardhedgerPreview: preview,
+      externalUsd,
+      snapshotStale: bundle.snapshotStale ?? true,
+    };
   }
 
   /**
@@ -801,42 +1066,31 @@ export class CollectionMarketService {
     );
     const window = priceHistoryDuration;
 
-    const snapshotMap = await this.snapshotService.findByKeys(keys);
-    const missing: string[] = [];
-    for (const key of keys) {
-      const row = snapshotMap.get(key);
-      if (!(await this.snapshotService.isUsableForRead(row, key))) {
-        missing.push(key);
-      }
-    }
-    if (missing.length > 0 && this.snapshotService.onDemandEnabled()) {
-      for (const k of missing) {
-        this.snapshotScheduler.enqueue(k, 'cold_start');
-      }
-    }
-
+    /** Same bundle path as `GET …/market-series` (collection detail chart). */
+    const LIST_SNAPSHOT_BATCH_CONCURRENCY = 8;
     const items: CollectionListSnapshot[] = [];
-    for (const key of keys) {
-      try {
-        const row = snapshotMap.get(key);
-        const stats = await this.getCollectionMarketStats(key).catch(() => null);
-        if (row?.previewJson) {
-          const stale = this.snapshotService.isRowStale(row);
-          this.touchAndMaybeRefreshStale(key, stale);
-          const { platformUsd } = await this.platformTradesForApi(key);
-          const bundle = this.snapshotRead.buildBundleFromRow(
-            row,
-            window,
-            platformUsd,
-          ).bundle;
-          items.push(bundleToListSnapshot(bundle, stats));
-          continue;
-        }
-        items.push(emptyListSnapshot(key, window));
-      } catch (e) {
-        this.logger.warn(`batch snapshot failed for ${key}: ${String(e)}`);
-        items.push(emptyListSnapshot(key, window));
-      }
+
+    for (let i = 0; i < keys.length; i += LIST_SNAPSHOT_BATCH_CONCURRENCY) {
+      const chunk = keys.slice(i, i + LIST_SNAPSHOT_BATCH_CONCURRENCY);
+      const chunkResults = await Promise.all(
+        chunk.map(async (key) => {
+          try {
+            const [stats, bundle, col] = await Promise.all([
+              this.getCollectionMarketStats(key).catch(() => null),
+              this.getCollectionMarketBundle(key, window),
+              this.collectionService.findOne(key).catch(() => null),
+            ]);
+            return bundleToListSnapshot(
+              enrichListBundleFromCollection(bundle, col),
+              stats,
+            );
+          } catch (e) {
+            this.logger.warn(`batch snapshot failed for ${key}: ${String(e)}`);
+            return emptyListSnapshot(key, window);
+          }
+        }),
+      );
+      items.push(...chunkResults);
     }
     return { items };
   }
@@ -912,9 +1166,13 @@ export interface CollectionListSnapshot {
   marketChangeWindow: MarketChangeWindowLabel;
   marketChangeIsFullYear?: boolean;
   marketChangeSpanSec?: number;
+  marketChangeRefUsd?: number | null;
+  marketChangeRefAtSec?: number | null;
   marketChangeSource: MarketChangePriceSource | null;
   gradePrices: GradePriceStrip;
   spotPriceBasis?: string | null;
+  /** Same Cardhedger preview as collection detail `market-series`. */
+  cardhedgerPreview?: MarketCollectionPreview;
   sparklineUsd: UsdPoint[];
   marketStats: CollectionMarketStatsResponse | null;
   lastTokenableTradeUsdc: number | null;
@@ -942,6 +1200,60 @@ function emptyListSnapshot(
   };
 }
 
+function psaEstimateUsdFromComponents(
+  components: Record<string, unknown> | null | undefined,
+): number | null {
+  const raw = components?.psaEstimateUsd;
+  if (typeof raw === 'number') {
+    return Number.isFinite(raw) && raw > 0 ? raw : null;
+  }
+  if (typeof raw === 'string') {
+    const n = Number(
+      raw
+        .replace(/,/g, '')
+        .replace(/\$/g, '')
+        .match(/(\d+(?:\.\d+)?)/)?.[1] ?? NaN,
+    );
+    return Number.isFinite(n) && n > 0 ? n : null;
+  }
+  return null;
+}
+
+function gradeStripHasPositiveUsd(gp: GradePriceStrip): boolean {
+  return (
+    (gp.psa10 != null && gp.psa10 > 0) ||
+    (gp.psa9 != null && gp.psa9 > 0) ||
+    (gp.raw != null && gp.raw > 0)
+  );
+}
+
+/**
+ * When the materialized snapshot row is missing or thin, mirror collection detail by
+ * surfacing slab `psaEstimateUsd` on the list bundle grade strip.
+ */
+function enrichListBundleFromCollection(
+  bundle: CollectionMarketBundle,
+  col: { components: Record<string, unknown> } | null,
+): CollectionMarketBundle {
+  if (!col || gradeStripHasPositiveUsd(bundle.gradePrices)) return bundle;
+  const psaEst = psaEstimateUsdFromComponents(col.components);
+  if (psaEst == null) return bundle;
+
+  const tier = String(
+    marketHistoryTierFromComponents(col.components),
+  ).toUpperCase();
+  const gradePrices: GradePriceStrip =
+    tier === 'PSA_9'
+      ? { ...bundle.gradePrices, psa9: psaEst }
+      : { ...bundle.gradePrices, psa10: psaEst };
+
+  return {
+    ...bundle,
+    gradePrices,
+    spotPriceBasis: bundle.spotPriceBasis ?? 'psa_estimate',
+  };
+}
+
 function bundleToListSnapshot(
   bundle: CollectionMarketBundle,
   marketStats: CollectionMarketStatsResponse | null,
@@ -958,9 +1270,12 @@ function bundleToListSnapshot(
     marketChangeWindow: bundle.marketChangeWindow,
     marketChangeIsFullYear: bundle.marketChangeIsFullYear,
     marketChangeSpanSec: bundle.marketChangeSpanSec,
+    marketChangeRefUsd: bundle.marketChangeRefUsd ?? null,
+    marketChangeRefAtSec: bundle.marketChangeRefAtSec ?? null,
     marketChangeSource: bundle.marketChangeSource,
     gradePrices: bundle.gradePrices,
     spotPriceBasis: bundle.spotPriceBasis ?? null,
+    cardhedgerPreview: bundle.cardhedgerPreview,
     sparklineUsd: spark,
     marketStats,
     lastTokenableTradeUsdc:
