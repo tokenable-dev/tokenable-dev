@@ -9,6 +9,7 @@ import {
 
 export type ResolvePath =
   | 'card_details'
+  | 'details_by_certs'
   | 'spec_id'
   | 'search'
   | 'card_match'
@@ -549,6 +550,7 @@ export class CardhedgerMetricsService implements OnModuleInit, OnModuleDestroy {
       startedAt: Date.now(),
       resolvePaths: {
         card_details: 0,
+        details_by_certs: 0,
         spec_id: 0,
         search: 0,
         card_match: 0,

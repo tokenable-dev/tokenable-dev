@@ -90,10 +90,10 @@ export function resolveExternalMarketUsd(params: {
     params.marketPreview?.matched && params.marketPreview.card
       ? params.marketPreview
       : null;
-  const poke = catalogSpotUsdFromMarketPreview(preview, tier);
-  if (poke != null) {
+  const catalogSpotUsd = catalogSpotUsdFromMarketPreview(preview, tier);
+  if (catalogSpotUsd != null) {
     return {
-      usd: poke,
+      usd: catalogSpotUsd,
       source: "cardhedger",
       marketMatchConfidence: params.marketPreview?.matchConfidence,
     };

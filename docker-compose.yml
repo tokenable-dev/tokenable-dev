@@ -32,9 +32,9 @@ services:
     command: redis-server --appendonly yes
     volumes:
       - redis_data:/data
-    # 호스트 Nest (`pnpm start:dev`) → localhost:6379
+    # 호스트 Nest (`pnpm start:dev`) → 127.0.0.1:6380 (6380 avoids VS Code/Cursor Redis on :6379)
     ports:
-      - "6379:6379"
+      - "6380:6379"
     expose:
       - "6379"
     restart: always
@@ -98,7 +98,7 @@ services:
       redis:
         condition: service_healthy
     environment:
-      # Host dev uses backend/.env → redis://127.0.0.1:6379; in-compose backend uses service DNS.
+      # Host dev uses backend/.env → redis://127.0.0.1:6380; in-compose backend uses service DNS.
       - REDIS_URL=${REDIS_URL:-redis://redis:6379}
     healthcheck:
       test:

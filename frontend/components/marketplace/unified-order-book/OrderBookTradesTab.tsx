@@ -77,7 +77,7 @@ export function OrderBookTradesTab({
   const gridClass = flush ? ORDER_BOOK_TRADES_FOUR_COL_GRID : TRADES_GRID_LEGACY;
   const rowValueCls = orderBookTradesContentValueCls;
   const rootClass = flush
-    ? "flex shrink-0 flex-col overflow-hidden"
+    ? "flex h-full min-h-0 flex-1 flex-col overflow-hidden"
     : "flex min-h-0 max-h-[min(420px,52vh)] flex-col";
 
   if (!tapeLoading && tapeFills.length === 0) {
@@ -85,8 +85,8 @@ export function OrderBookTradesTab({
       <div
         className={
           flush
-            ? "flex min-h-0 items-center justify-center overflow-hidden py-6"
-            : "flex items-center justify-center py-10"
+            ? "flex h-full min-h-0 flex-1 flex-col items-center justify-center overflow-hidden"
+            : "flex min-h-[12rem] flex-1 items-center justify-center"
         }
       >
         <span className={`${rowValueCls} text-zinc-500`}>{emptyLabel}</span>

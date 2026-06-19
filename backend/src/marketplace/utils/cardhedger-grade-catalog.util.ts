@@ -105,3 +105,27 @@ export function collectionGradeLabelFromHistoryTier(
   if (!tier) return null;
   return cardhedgerGradeFromHistoryTier(tier);
 }
+
+/** Match slab label to Cardhedger catalog rows (exact, then PSA 10 family). */
+export function catalogPriceForSlabGrade(
+  catalogGrades: CollectionGradeCatalogEntry[],
+  slabGrade: string,
+): number | null {
+  const want = String(slabGrade ?? '').trim();
+  if (!want) return null;
+  const wantLo = want.toLowerCase();
+  for (const e of catalogGrades) {
+    if (e.grade.trim().toLowerCase() === wantLo) {
+      const p = e.priceUsd;
+      if (p != null && p > 0) return p;
+    }
+  }
+  if (/\bpsa\s*10\b/i.test(want)) {
+    for (const e of catalogGrades) {
+      if (/\bpsa\s*10\b/i.test(e.grade) && e.priceUsd != null && e.priceUsd > 0) {
+        return e.priceUsd;
+      }
+    }
+  }
+  return null;
+}

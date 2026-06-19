@@ -70,7 +70,10 @@ import { CardTop100DailySnapshot } from './cardhedger/entities/card-top100-snaps
         // under backend/sql/schema/ instead. Enabled only in non-production
         // environments for developer convenience.
         synchronize: config.get<string>('NODE_ENV') !== 'production',
-        logging: config.get<string>('NODE_ENV') === 'development',
+        // SQL query logs are opt-in — set DB_LOGGING=1 when debugging migrations/queries.
+        logging:
+          config.get<string>('DB_LOGGING') === '1' ||
+          config.get<string>('DB_LOGGING') === 'true',
       }),
     }),
 

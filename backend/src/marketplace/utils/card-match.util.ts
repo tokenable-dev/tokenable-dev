@@ -144,6 +144,18 @@ export type CatalogTrustHints = {
   listingDisplayTitle?: string;
 };
 
+/** `components.cardhedgerCardIdSource` when ID came from PSA `details-by-certs`. */
+export const CARDHEDGER_CARD_ID_SOURCE_PSA_CERT = 'psa_cert';
+
+export function cardIdFromPsaCertLookup(
+  comp: Record<string, unknown> | null | undefined,
+): boolean {
+  return (
+    String(comp?.cardhedgerCardIdSource ?? '').trim() ===
+    CARDHEDGER_CARD_ID_SOURCE_PSA_CERT
+  );
+}
+
 /** First 4-digit year in [1990, 2100] from catalog copy (set name, PSA brand, listing title, …). */
 export function extractLeadingCatalogYear(text: string | null | undefined): number | null {
   const m = String(text ?? '').match(/\b(19\d{2}|20\d{2})\b/);

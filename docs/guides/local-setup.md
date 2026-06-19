@@ -53,7 +53,8 @@ POSTGRES_PASSWORD=tokenable
 POSTGRES_DB=tokenable
 
 # Redis (identity cache L2 — requires `docker compose up -d redis`)
-REDIS_URL=redis://127.0.0.1:6379
+# Host port 6380 — VS Code / Cursor often bind 127.0.0.1:6379 and break Docker Redis.
+REDIS_URL=redis://127.0.0.1:6380
 # IDENTITY_SERVICE_ENABLED=true
 
 # Auth

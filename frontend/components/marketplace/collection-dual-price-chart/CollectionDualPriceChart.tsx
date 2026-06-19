@@ -141,7 +141,7 @@ export function CollectionDualPriceChart({
         ) : null}
         <div className="flex flex-1 flex-col items-center justify-center px-4 py-4 text-center text-sm text-zinc-600">
           {emptyStateMessage ??
-            "No live market price series yet — external NM history will appear here when available."}
+            "No market price history in this window yet."}
         </div>
       </div>
     );
