@@ -1,11 +1,30 @@
 export const SITE_ACCESS_COOKIE = "site_access";
 
+export type SiteAccessConfig = {
+  enabled: boolean;
+  password: string;
+  secret: string;
+  sessionSeconds: number;
+};
+
+export function readSiteAccessConfig(): SiteAccessConfig {
+  return {
+    enabled: parseTruthy(process.env.SITE_ACCESS_ENABLED),
+    password: process.env.SITE_ACCESS_PASSWORD?.trim() ?? "",
+    secret: process.env.SITE_ACCESS_SECRET?.trim() ?? "",
+    sessionSeconds: clampInt(process.env.SITE_ACCESS_SESSION_SECONDS, 3600, 60, 86_400),
+  };
+}
+
 export function isSiteAccessEnabled(): boolean {
-  return parseTruthy(process.env.SITE_ACCESS_ENABLED);
+  return readSiteAccessConfig().enabled;
 }
 
 export function isSiteAccessPublicPath(pathname: string, method: string): boolean {
   if (pathname === "/site-access") return true;
+  if (pathname === "/site-access/verify" && method.toUpperCase() === "POST") {
+    return true;
+  }
   if (pathname === "/api/site-access/verify" && method.toUpperCase() === "POST") {
     return true;
   }
@@ -23,6 +42,15 @@ export function isSiteAccessPublicPath(pathname: string, method: string): boolea
     return true;
   }
   return false;
+}
+
+export async function issueSiteAccessToken(
+  secret: string,
+  sessionSeconds: number,
+): Promise<string> {
+  const exp = Math.floor(Date.now() / 1000) + sessionSeconds;
+  const sig = await signSiteAccessExp(secret, exp);
+  return `${exp}.${sig}`;
 }
 
 export async function verifySiteAccessCookie(
@@ -72,4 +100,15 @@ function timingSafeEqualHex(a: string, b: string): boolean {
 function parseTruthy(raw: string | undefined): boolean {
   const v = raw?.trim().toLowerCase();
   return v === "1" || v === "true" || v === "yes" || v === "on";
+}
+
+function clampInt(
+  raw: string | undefined,
+  fallback: number,
+  min: number,
+  max: number,
+): number {
+  const n = Number(raw ?? fallback);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(max, Math.max(min, Math.floor(n)));
 }
