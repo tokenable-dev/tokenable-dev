@@ -21,6 +21,9 @@ const REDIS_CONNECT_TIMEOUT_MS = 2_000;
 /** Per-command cap — bounds identity read/write latency under partition. */
 const REDIS_COMMAND_TIMEOUT_MS = 1_000;
 
+/** Stop reconnect loops after repeated failures (L1-only fallback). */
+const REDIS_MAX_RECONNECT_ATTEMPTS = 5;
+
 /**
  * Redis-backed L2 cache for `collection.components.cardhedgerCardId`.
  *
@@ -36,6 +39,7 @@ export class RedisIdentityCacheProvider
   private readonly logger = new Logger(RedisIdentityCacheProvider.name);
   private client: Redis | null = null;
   private connected = false;
+  private lastErrorLogAtMs = 0;
 
   constructor(
     private readonly config: ConfigService,
@@ -62,8 +66,12 @@ export class RedisIdentityCacheProvider
       commandTimeout: REDIS_COMMAND_TIMEOUT_MS,
       maxRetriesPerRequest: 1,
       enableReadyCheck: true,
+      enableOfflineQueue: false,
       lazyConnect: true,
-      retryStrategy: (times) => Math.min(times * 200, 5_000),
+      retryStrategy: (times) =>
+        times > REDIS_MAX_RECONNECT_ATTEMPTS
+          ? null
+          : Math.min(times * 200, 5_000),
     });
 
     this.client.on('ready', () => {
@@ -73,9 +81,7 @@ export class RedisIdentityCacheProvider
     });
     this.client.on('error', (err: Error) => {
       this.connected = false;
-      this.logger.warn(
-        `[identity:cache] redis layer=L2 action=error detail=${err.message}`,
-      );
+      this.logThrottledRedisError('error', err.message);
       this.pushHealth(false);
     });
     this.client.on('close', () => {
@@ -89,7 +95,7 @@ export class RedisIdentityCacheProvider
 
     void this.client.connect().catch((err: Error) => {
       this.logger.warn(
-        `[identity:cache] redis layer=L2 action=connect_failed detail=${err.message}`,
+        `[identity:cache] redis layer=L2 action=connect_failed detail=${err.message} hint=${localRedisConnectHint(url)}`,
       );
       this.pushHealth(false);
     });
@@ -189,11 +195,18 @@ export class RedisIdentityCacheProvider
     return 'command_error';
   }
 
+  private logThrottledRedisError(action: string, detail: string): void {
+    const now = Date.now();
+    if (now - this.lastErrorLogAtMs < 60_000) return;
+    this.lastErrorLogAtMs = now;
+    this.logger.warn(
+      `[identity:cache] redis layer=L2 action=${action} detail=${detail}`,
+    );
+  }
+
   private logRedisFailure(op: string, err: unknown): void {
     const detail = err instanceof Error ? err.message : String(err);
-    this.logger.warn(
-      `[identity:cache] redis layer=L2 action=${op}_failed detail=${detail}`,
-    );
+    this.logThrottledRedisError(`${op}_failed`, detail);
     if (
       op === 'get' ||
       op === 'set' ||
@@ -202,5 +215,23 @@ export class RedisIdentityCacheProvider
     ) {
       this.recordFailure(op, this.classifyRedisError(err));
     }
+  }
+}
+
+/** Actionable hint when host dev Redis is mis-pointed (common macOS port clash). */
+function localRedisConnectHint(url: string): string {
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname;
+    const port = parsed.port || '6379';
+    if (
+      (host === '127.0.0.1' || host === 'localhost') &&
+      port === '6379'
+    ) {
+      return 'run `docker compose up -d redis` and set REDIS_URL=redis://127.0.0.1:6380 (VS Code may occupy :6379)';
+    }
+    return 'run `docker compose up -d redis` and verify REDIS_URL';
+  } catch {
+    return 'verify REDIS_URL and `docker compose up -d redis`';
   }
 }

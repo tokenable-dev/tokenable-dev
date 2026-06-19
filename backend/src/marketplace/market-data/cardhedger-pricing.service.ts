@@ -6,9 +6,6 @@ import {
   type TtlCacheProvider,
 } from '../../common/cache/ttl-cache.interface';
 import { CardhedgerService } from '../../cardhedger/cardhedger.service';
-import {
-  catalogRowTrustedForMarketData,
-} from '../utils/card-match.util';
 import { cardhedgerGradeFromHistoryTier } from '../utils/psa-grade-policy.util';
 import { marketHistoryTierFromComponents } from '../utils/market-history-tier.util';
 import type { MarketplaceCollection } from '../entities/marketplace-collection.entity';
@@ -909,40 +906,6 @@ export class CardhedgerPricingService {
       });
     }
 
-    const q = this.resolve.buildCollectionQuery(col);
-    const trust = catalogRowTrustedForMarketData(
-      {
-        cardName: q.cardName,
-        cardNumber: q.cardNumber,
-        cardSet: q.cardSet,
-        psaSubject: q.psaSubject ?? undefined,
-        psaBrand: q.psaBrand ?? undefined,
-        psaYear: q.psaYear ?? undefined,
-        cardhedgerSearchQuery: q.cardhedgerSearchQuery ?? undefined,
-        listingDisplayTitle: q.listingDisplayTitle ?? undefined,
-      },
-      resolved.row as Record<string, unknown>,
-    );
-    if (!trust.ok) {
-      this.logger.warn(
-        JSON.stringify({
-          msg: 'comps_catalog_verification_failed',
-          collectionKey: col.collectionKey,
-          failCodes: trust.failCodes,
-          cardId:
-            (resolved.row as { card_id?: unknown }).card_id != null
-              ? String((resolved.row as { card_id?: unknown }).card_id)
-              : null,
-        }),
-      );
-      return this.emptyMarketCompsSnapshot({
-        enabled: true,
-        searchQuery: resolved.query,
-        matched: false,
-        message: 'Cardhedger catalog match failed verification',
-      });
-    }
-
     const cardId = String(
       (resolved.row as { card_id?: unknown }).card_id ?? '',
     ).trim();
@@ -956,13 +919,13 @@ export class CardhedgerPricingService {
       });
     }
 
-    const cached = await this.fetchCompsCached(cardId, grade, requestCount);
-    return this.marketCompsSnapshotFromCached(
-      resolved,
-      cached,
-      grade,
-      requestCount,
-    );
+    return this.getCompsSnapshotByCardIdDirect(cardId, {
+      gradeLabel,
+      tier,
+      rawCount: requestCount,
+      searchQuery: resolved.query,
+      catalogRow: resolved.row,
+    });
   }
 
   // ---------------------------------------------------------------------------

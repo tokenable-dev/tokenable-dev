@@ -246,8 +246,8 @@ export function useCollectionDetailMarketData(params: {
     externalRefLineTag: chartExternalRefTag,
     emptyStateMessage:
       marketSeries?.spotPriceBasis === "psa_estimate"
-        ? `PSA Estimate shown for ${gradeChart.activeGrade} — no Cardhedger sales history.`
-        : `No Cardhedger price history for ${gradeChart.activeGrade} in this window.`,
+        ? `PSA Estimate shown for ${gradeChart.activeGrade} — no sales history in this window.`
+        : `No price history for ${gradeChart.activeGrade} in this window.`,
     isLoading: platformTradesLoading || gradeChart.gradeChartLoading,
     errorMessage: null as string | null,
   };

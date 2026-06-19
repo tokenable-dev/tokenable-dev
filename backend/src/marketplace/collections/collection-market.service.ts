@@ -34,9 +34,11 @@ import type {
 import {
   catalogFromAllPricesRows,
   catalogFromPricesByGradeMap,
+  catalogPriceForSlabGrade,
   collectionGradeLabelFromHistoryTier,
 } from '../utils/cardhedger-grade-catalog.util';
 import { marketHistoryTierFromComponents } from '../utils/market-history-tier.util';
+import { CARDHEDGER_CARD_ID_SOURCE_PSA_CERT } from '../utils/card-match.util';
 import {
   buildMaterializedSnapshotPayload,
   filterExternalUsdForChartWindow,
@@ -250,23 +252,25 @@ export class CollectionMarketService {
         )) ?? row;
     }
 
+    let bundle: CollectionMarketBundle;
     if (!row || !rowHasMaterializedListPrices(row)) {
-      return emptyMarketBundle(key, platformUsd, window);
+      bundle = emptyMarketBundle(key, platformUsd, window);
+    } else {
+      const stale = this.snapshotService.isRowStale(row);
+      const preview = row.previewJson;
+      const needsHistoryRefresh =
+        preview != null &&
+        preview.matched !== true &&
+        (row.externalUsdJson?.length ?? 0) < 2;
+      this.touchAndMaybeRefreshStale(key, stale || needsHistoryRefresh);
+      bundle = this.snapshotRead.buildBundleFromRow(
+        row,
+        window,
+        platformUsd,
+      ).bundle;
     }
 
-    const stale = this.snapshotService.isRowStale(row);
-    const preview = row.previewJson;
-    const needsHistoryRefresh =
-      preview != null &&
-      preview.matched !== true &&
-      (row.externalUsdJson?.length ?? 0) < 2;
-    this.touchAndMaybeRefreshStale(key, stale || needsHistoryRefresh);
-    const materialized = this.snapshotRead.buildBundleFromRow(
-      row,
-      window,
-      platformUsd,
-    ).bundle;
-    return this.overlayLiveCardhedgerWhenThin(materialized, key, window);
+    return this.overlayLiveCardhedgerWhenThin(bundle, key, window);
   }
 
   /**
@@ -278,14 +282,42 @@ export class CollectionMarketService {
   ): Promise<MarketplaceCollection | null> {
     let col = await this.collectionService.findOne(key);
     if (!col) return null;
-    const storedId = String(col.components?.cardhedgerCardId ?? '').trim();
-    if (storedId) return col;
-    const updated =
-      await this.collectionService.ensureCardhedgerCardIdFromListings(key);
-    if (updated) {
-      this.snapshotScheduler.enqueue(key, 'stale_swr');
-      col = await this.collectionService.findOne(key);
+
+    let storedId = String(col.components?.cardhedgerCardId ?? '').trim();
+    if (!storedId) {
+      const updated =
+        await this.collectionService.ensureCardhedgerCardIdFromListings(key);
+      if (updated) {
+        this.snapshotScheduler.enqueue(key, 'stale_swr');
+        col = (await this.collectionService.findOne(key)) ?? col;
+        storedId = String(col.components?.cardhedgerCardId ?? '').trim();
+      }
     }
+
+    if (!storedId && col.psaCertNumber?.trim()) {
+      try {
+        const resolved = await this.cardhedgerMarket.tryResolveCardIdByCert(
+          col.psaCertNumber.trim(),
+          { collection: col },
+        );
+        if (resolved?.cardId) {
+          await this.collectionService.mergeComponentsForMintBootstrap(key, {
+            cardhedgerCardId: resolved.cardId,
+            cardhedgerCardIdSource: CARDHEDGER_CARD_ID_SOURCE_PSA_CERT,
+            ...(resolved.query
+              ? { cardhedgerSearchQuery: resolved.query }
+              : {}),
+          });
+          this.snapshotScheduler.enqueue(key, 'stale_swr');
+          col = (await this.collectionService.findOne(key)) ?? col;
+        }
+      } catch (e) {
+        this.logger.debug(
+          `cert cardhedger resolve skipped key=${key}: ${e instanceof Error ? e.message : String(e)}`,
+        );
+      }
+    }
+
     return col;
   }
 
@@ -312,11 +344,16 @@ export class CollectionMarketService {
       return enrichListBundleFromCollection(bundle, col);
     }
 
-    const fromStoredId = await this.overlayFromStoredCardhedgerCatalogId(
+    const fromStoredId = await this.overlayFromStoredCatalogId(
       bundle,
       col,
       window,
-    );
+    ).catch((e) => {
+      this.logger.debug(
+        `stored catalog overlay failed key=${key}: ${e instanceof Error ? e.message : String(e)}`,
+      );
+      return null;
+    });
     if (fromStoredId) return fromStoredId;
 
     try {
@@ -333,13 +370,12 @@ export class CollectionMarketService {
         },
       );
 
-      const psaEst = psaEstimateUsdFromComponents(col.components);
       const payload = buildMaterializedSnapshotPayload({
         collectionKey: key,
         historyTier,
         preview,
         historyPoints: history.points,
-        psaEstimateUsd: psaEst,
+        psaEstimateUsd: psaEstimateUsdFromComponents(col.components),
       });
 
       const liveWorthUsing =
@@ -351,33 +387,14 @@ export class CollectionMarketService {
         return enrichListBundleFromCollection(bundle, col);
       }
 
-      const fullExternal = payload.externalUsdJson ?? [];
-      const externalUsd = filterExternalUsdForChartWindow(fullExternal, window);
-      const change = referenceChangeWithBestWindow(fullExternal);
-      const gradePrices: GradePriceStrip =
-        payload.gradePricesJson ?? bundle.gradePrices;
-
-      return {
-        ...bundle,
-        categoryLabel: payload.categoryLabel ?? bundle.categoryLabel,
-        marketChangePct: change.pct,
-        marketChangeWindow: change.window,
-        marketChangeIsFullYear: change.isFullYear,
-        marketChangeSpanSec: change.spanSec,
-        marketChangeRefUsd: change.refUsd ?? undefined,
-        marketChangeRefAtSec: change.refAtSec ?? undefined,
-        marketChangeSource:
-          change.pct != null
-            ? historyTier === 'NEAR_MINT'
-              ? 'cardhedger_nm'
-              : 'cardhedger_graded'
-            : bundle.marketChangeSource,
-        gradePrices,
+      return mergeLiveCardhedgerOverlay(bundle, window, historyTier, {
+        gradePrices: payload.gradePricesJson ?? bundle.gradePrices,
         spotPriceBasis: payload.spotPriceBasis,
         cardhedgerPreview: preview,
-        externalUsd,
+        externalUsdFull: payload.externalUsdJson ?? [],
+        categoryLabel: payload.categoryLabel,
         snapshotStale: bundle.snapshotStale ?? true,
-      };
+      });
     } catch (e) {
       this.logger.debug(
         `live cardhedger overlay failed key=${key}: ${e instanceof Error ? e.message : String(e)}`,
@@ -387,10 +404,10 @@ export class CollectionMarketService {
   }
 
   /**
-   * Direct Cardhedger reads by mint/catalog `cardhedgerCardId` — same data detail grade
-   * chart uses, without re-running strict catalog resolve on PSA Variety text.
+   * Direct Cardhedger reads by mint/catalog `cardhedgerCardId` — same path as detail grade
+   * chart, without re-running strict PSA Variety resolve on search picks.
    */
-  private async overlayFromStoredCardhedgerCatalogId(
+  private async overlayFromStoredCatalogId(
     bundle: CollectionMarketBundle,
     col: MarketplaceCollection,
     window: PriceHistoryDuration,
@@ -402,7 +419,6 @@ export class CollectionMarketService {
     const slabGrade =
       collectionGradeLabelFromHistoryTier(historyTier) || 'PSA 10';
     const maxDays = nmHistoryDaysForBundleWindow(window);
-    const comp = col.components ?? {};
 
     const [catalogGrades, points] = await Promise.all([
       this.cardhedgerMarket.getGradeCatalogForCardId(cardId),
@@ -413,8 +429,7 @@ export class CollectionMarketService {
       ),
     ]);
 
-    const catalogPrice =
-      catalogGrades.find((e) => e.grade === slabGrade)?.priceUsd ?? null;
+    const catalogPrice = catalogPriceForSlabGrade(catalogGrades, slabGrade);
     const hasHistory = points.length >= 2;
     if (
       (catalogPrice == null || !(catalogPrice > 0)) &&
@@ -429,8 +444,6 @@ export class CollectionMarketService {
       else gradePrices.psa10 = catalogPrice;
     }
 
-    const change = referenceChangeWithBestWindow(points);
-    const externalUsd = filterExternalUsdForChartWindow(points, window);
     const spotPrice =
       catalogPrice != null && catalogPrice > 0
         ? catalogPrice
@@ -438,53 +451,23 @@ export class CollectionMarketService {
           ? points[points.length - 1]!.v
           : null;
 
-    const preview: MarketCollectionPreview = {
-      enabled: true,
-      searchQuery: col.displayLabel ?? '',
-      matched: true,
-      matchConfidence: 'verified',
-      card: {
-        id: cardId,
-        name: String(comp.cardName ?? col.displayLabel ?? ''),
-        cardNumber: String(comp.cardNumber ?? ''),
-        setName: String(comp.cardSet ?? ''),
-        setSlug: null,
-        image: null,
-        tcgplayerId: null,
-        currency: 'USD',
-        market: null,
-        lastUpdated: null,
-        topPrice: spotPrice,
-        totalSaleCount: null,
-        hasGraded: true,
-        gradedTiersAvailable: [],
-        spotPriceBasis: 'catalog',
-        ebayNearMint: null,
-        tcgplayerNearMint: null,
-      },
-    };
+    const preview = previewFromStoredCatalogOverlay({
+      col,
+      cardId,
+      catalogGrades,
+      historyTier,
+      spotPrice,
+    });
 
-    return {
-      ...bundle,
-      categoryLabel: bundle.categoryLabel ?? preview.card?.setName ?? null,
-      marketChangePct: change.pct,
-      marketChangeWindow: change.window,
-      marketChangeIsFullYear: change.isFullYear,
-      marketChangeSpanSec: change.spanSec,
-      marketChangeRefUsd: change.refUsd ?? undefined,
-      marketChangeRefAtSec: change.refAtSec ?? undefined,
-      marketChangeSource:
-        change.pct != null
-          ? historyTier === 'NEAR_MINT'
-            ? 'cardhedger_nm'
-            : 'cardhedger_graded'
-          : bundle.marketChangeSource,
+    return mergeLiveCardhedgerOverlay(bundle, window, historyTier, {
       gradePrices,
       spotPriceBasis: 'latest_sale',
       cardhedgerPreview: preview,
-      externalUsd,
+      externalUsdFull: points,
+      categoryLabel: preview.card?.setName ?? null,
       snapshotStale: bundle.snapshotStale ?? true,
-    };
+      allGradePrices: catalogGrades,
+    });
   }
 
   /**
@@ -713,6 +696,7 @@ export class CollectionMarketService {
           if (resolved?.cardId) {
             await this.collectionService.mergeComponentsForMintBootstrap(k, {
               cardhedgerCardId: resolved.cardId,
+              cardhedgerCardIdSource: CARDHEDGER_CARD_ID_SOURCE_PSA_CERT,
               ...(resolved.query ? { cardhedgerSearchQuery: resolved.query } : {}),
             });
             col = await this.collectionService.findOne(k);
@@ -1075,15 +1059,11 @@ export class CollectionMarketService {
       const chunkResults = await Promise.all(
         chunk.map(async (key) => {
           try {
-            const [stats, bundle, col] = await Promise.all([
+            const [stats, bundle] = await Promise.all([
               this.getCollectionMarketStats(key).catch(() => null),
               this.getCollectionMarketBundle(key, window),
-              this.collectionService.findOne(key).catch(() => null),
             ]);
-            return bundleToListSnapshot(
-              enrichListBundleFromCollection(bundle, col),
-              stats,
-            );
+            return bundleToListSnapshot(bundle, stats);
           } catch (e) {
             this.logger.warn(`batch snapshot failed for ${key}: ${String(e)}`);
             return emptyListSnapshot(key, window);
@@ -1225,6 +1205,113 @@ function gradeStripHasPositiveUsd(gp: GradePriceStrip): boolean {
     (gp.psa9 != null && gp.psa9 > 0) ||
     (gp.raw != null && gp.raw > 0)
   );
+}
+
+/** Apply live Cardhedger catalog + history onto a materialized bundle (list/detail parity). */
+function mergeLiveCardhedgerOverlay(
+  bundle: CollectionMarketBundle,
+  window: PriceHistoryDuration,
+  historyTier: string,
+  input: {
+    gradePrices: GradePriceStrip;
+    spotPriceBasis: string | null | undefined;
+    cardhedgerPreview: MarketCollectionPreview;
+    externalUsdFull: UsdPoint[];
+    categoryLabel?: string | null;
+    snapshotStale?: boolean;
+    allGradePrices?: CollectionGradeCatalogEntry[];
+  },
+): CollectionMarketBundle {
+  const change = referenceChangeWithBestWindow(input.externalUsdFull);
+  return {
+    ...bundle,
+    categoryLabel: input.categoryLabel ?? bundle.categoryLabel,
+    marketChangePct: change.pct,
+    marketChangeWindow: change.window,
+    marketChangeIsFullYear: change.isFullYear,
+    marketChangeSpanSec: change.spanSec,
+    marketChangeRefUsd: change.refUsd ?? undefined,
+    marketChangeRefAtSec: change.refAtSec ?? undefined,
+    marketChangeSource:
+      change.pct != null
+        ? historyTier === 'NEAR_MINT'
+          ? 'cardhedger_nm'
+          : 'cardhedger_graded'
+        : bundle.marketChangeSource,
+    gradePrices: input.gradePrices,
+    spotPriceBasis: input.spotPriceBasis ?? bundle.spotPriceBasis,
+    cardhedgerPreview: input.cardhedgerPreview,
+    externalUsd: filterExternalUsdForChartWindow(input.externalUsdFull, window),
+    allGradePrices:
+      input.allGradePrices != null && input.allGradePrices.length > 0
+        ? input.allGradePrices
+        : bundle.allGradePrices,
+    snapshotStale: input.snapshotStale ?? bundle.snapshotStale ?? true,
+  };
+}
+
+function previewFromStoredCatalogOverlay(params: {
+  col: MarketplaceCollection;
+  cardId: string;
+  catalogGrades: CollectionGradeCatalogEntry[];
+  historyTier: string;
+  spotPrice: number | null;
+}): MarketCollectionPreview {
+  const { col, cardId, catalogGrades, historyTier, spotPrice } = params;
+  const comp = col.components ?? {};
+  const tierU = String(historyTier ?? '').trim().toUpperCase();
+  const pricesByGrade: Record<string, number> = {};
+  for (const e of catalogGrades) {
+    if (e.priceUsd != null && e.priceUsd > 0) {
+      pricesByGrade[e.grade] = e.priceUsd;
+    }
+  }
+  const mkBand = (v: number | null) =>
+    v != null && v > 0
+      ? {
+          avg: v,
+          low: v,
+          high: v,
+          lastUpdated: null,
+          saleCount: null,
+          approxSaleCount: null,
+          avg1d: null,
+          avg7d: null,
+          avg30d: null,
+          median3d: null,
+          median7d: null,
+          median30d: null,
+        }
+      : null;
+
+  return {
+    enabled: true,
+    searchQuery: col.displayLabel ?? '',
+    matched: true,
+    matchConfidence: 'verified',
+    card: {
+      id: cardId,
+      name: String(comp.cardName ?? col.displayLabel ?? ''),
+      cardNumber: String(comp.cardNumber ?? ''),
+      setName: String(comp.cardSet ?? ''),
+      setSlug: null,
+      image: null,
+      tcgplayerId: null,
+      currency: 'USD',
+      market: null,
+      lastUpdated: null,
+      topPrice: spotPrice,
+      totalSaleCount: null,
+      hasGraded: true,
+      gradedTiersAvailable: Object.keys(pricesByGrade),
+      pricesByGrade,
+      spotPriceBasis: 'catalog',
+      ebayNearMint: null,
+      tcgplayerNearMint: null,
+      ebayPsa10: tierU === 'PSA_10' ? mkBand(spotPrice) : null,
+      ebayPsa9: tierU === 'PSA_9' ? mkBand(spotPrice) : null,
+    },
+  };
 }
 
 /**

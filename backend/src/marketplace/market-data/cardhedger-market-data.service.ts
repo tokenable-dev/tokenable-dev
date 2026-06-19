@@ -106,27 +106,6 @@ export class CardhedgerMarketDataService {
           ? row.card_id.trim()
           : null;
       if (cardId) {
-        if (opts?.collection) {
-          const trust = catalogRowTrustedForMarketData(
-            catalogTrustHintsFromComponents(opts.collection.components),
-            row as Record<string, unknown>,
-          );
-          if (!trust.ok) {
-            this.logger.warn(
-              JSON.stringify({
-                msg: 'cert_card_id_rejected',
-                cert,
-                collectionKey: opts.collection.collectionKey,
-                cardId,
-                failCodes: trust.failCodes,
-              }),
-            );
-            if (certDescription) {
-              return { cardId: null, query: certDescription, certDescription };
-            }
-            return null;
-          }
-        }
         const query =
           (typeof row.description === 'string' && row.description.trim()
             ? row.description.trim()
@@ -135,6 +114,29 @@ export class CardhedgerMarketDataService {
               : null) ??
           certDescription ??
           cert;
+        /**
+         * PSA `details-by-certs` is authoritative for the slab — same trust model as
+         * trades tape {@link getCompsSnapshotForTradesTape} (direct comps by card_id).
+         * PSA mirror `cardSet` strings often diverge from Cardhedger set names
+         * (Japanese promos, DRI EN-DESTINED RIVALS, …); do not reject on set_mismatch.
+         */
+        if (opts?.collection) {
+          const trust = catalogRowTrustedForMarketData(
+            catalogTrustHintsFromComponents(opts.collection.components),
+            row as Record<string, unknown>,
+          );
+          if (!trust.ok) {
+            this.logger.debug(
+              JSON.stringify({
+                msg: 'cert_card_id_authoritative',
+                cert,
+                collectionKey: opts.collection.collectionKey,
+                cardId,
+                failCodes: trust.failCodes,
+              }),
+            );
+          }
+        }
         return { cardId, query, certDescription };
       }
     }

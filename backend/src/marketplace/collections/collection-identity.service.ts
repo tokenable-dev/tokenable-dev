@@ -6,6 +6,7 @@ import type { QueryDeepPartialEntity } from 'typeorm/query-builder/QueryPartialE
 import { Repository } from 'typeorm';
 import { CardhedgerMetricsService } from '../../common/metrics/cardhedger-metrics.service';
 import { MarketplaceCollection } from '../entities/marketplace-collection.entity';
+import { CARDHEDGER_CARD_ID_SOURCE_PSA_CERT } from '../utils/card-match.util';
 import { cardhedgerFromRwaMetadata } from './collection-listing-meta.helpers';
 import {
   IDENTITY_CACHE_PROVIDER,
@@ -783,7 +784,9 @@ export class CollectionIdentityService {
         return { outcome: 'rejected', detail: `stored_id=${existing}` };
       }
 
-      const extras: Record<string, unknown> = {};
+      const extras: Record<string, unknown> = {
+        cardhedgerCardIdSource: CARDHEDGER_CARD_ID_SOURCE_PSA_CERT,
+      };
       if (searchQuery?.trim()) extras.cardhedgerSearchQuery = searchQuery.trim();
 
       return { outcome: 'accept', cardId: trimmedId, extras };

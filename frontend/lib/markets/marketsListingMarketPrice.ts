@@ -1,6 +1,5 @@
 import type {
   CollectionListMarketSnapshot,
-  CollectionMarketPreview,
   MarketplaceCollectionSummary,
 } from "@/lib/core";
 import {
@@ -43,10 +42,4 @@ export function resolveMarketsListingMarketChangePct(
   const spark = snapshot?.sparklineUsd ?? [];
   if (spark.length < 2) return null;
   return percentChangeReferenceBestWindow(spark).pct;
-}
-
-export function marketsListingCardhedgerPreview(
-  snapshot: CollectionListMarketSnapshot | undefined,
-): CollectionMarketPreview | null {
-  return snapshot?.cardhedgerPreview ?? null;
 }

@@ -1,5 +1,6 @@
 import {
   catalogFromPricesByGradeMap,
+  catalogPriceForSlabGrade,
   collectionGradeLabelFromHistoryTier,
   parseGraderFromGradeLabel,
 } from './cardhedger-grade-catalog.util';
@@ -26,5 +27,12 @@ describe('cardhedger-grade-catalog.util', () => {
     const grades = rows.map((r) => r.grade);
     expect(grades.indexOf('PSA 10')).toBeLessThan(grades.indexOf('BGS 9.5'));
     expect(rows.find((r) => r.grade === 'PSA 10')?.priceUsd).toBe(200);
+  });
+
+  it('resolves catalog price with fuzzy PSA 10 match', () => {
+    const rows = catalogFromPricesByGradeMap({ 'PSA 10': 88.5, 'PSA 9': 40 });
+    expect(catalogPriceForSlabGrade(rows, 'PSA 10')).toBe(88.5);
+    expect(catalogPriceForSlabGrade(rows, 'psa 10')).toBe(88.5);
+    expect(catalogPriceForSlabGrade(rows, 'PSA 9')).toBe(40);
   });
 });

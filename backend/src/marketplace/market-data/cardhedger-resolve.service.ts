@@ -9,6 +9,7 @@ import { CardhedgerMetricsService } from '../../common/metrics/cardhedger-metric
 import { CardhedgerService } from '../../cardhedger/cardhedger.service';
 import {
   cardNumberTokenForCardhedgerSearch,
+  cardIdFromPsaCertLookup,
   catalogRowTrustedForMarketData,
   type CatalogTrustHints,
   normalizeForExactCardNumberKey,
@@ -39,7 +40,9 @@ import {
 } from '../../psa/psa-variety-catalog.util';
 import { varietyHintsForSearch } from '../../psa/utils/psa-ocr.util';
 import type { MarketplaceCollection } from '../entities/marketplace-collection.entity';
+import { psaCertNumberFromCollectionRow } from '../utils/collection-row.util';
 import type { CardhedgerCardRow } from './cardhedger-market-data.types';
+import { CardhedgerCertLookupService } from './cardhedger-cert-lookup.service';
 
 /**
  * `POST /v1/cards/card-search` — slightly larger page so niche Brand/Subject lines still surface
@@ -78,6 +81,7 @@ export class CardhedgerResolveService {
   constructor(
     private readonly cardhedger: CardhedgerService,
     private readonly config: ConfigService,
+    private readonly certLookup: CardhedgerCertLookupService,
     @Inject(TTL_CACHE_PROVIDER) private readonly ttlCache: TtlCacheProvider,
     /**
      * Optional so ResolveService can be used in test contexts without the
@@ -447,7 +451,7 @@ export class CardhedgerResolveService {
     row: CardhedgerCardRow,
     opts?: { trustStoredCardhedgerCatalogId?: boolean },
   ): boolean {
-    /** Mint/catalog `cardhedgerCardId` is authoritative — PSA Variety vs Cardhedger `variant` often diverges on TCG. */
+    /** Mint/catalog `cardhedgerCardId` is authoritative — PSA Variety vs Cardhedger `variant` often diverge. */
     if (opts?.trustStoredCardhedgerCatalogId) return false;
     const pv = psaVariety?.trim() ?? '';
     if (!psaVarietyRequiresNonBaseCardhedgerRow(pv)) return false;
@@ -989,6 +993,34 @@ export class CardhedgerResolveService {
       ].find((s) => typeof s === 'string' && s.length > 0) ?? '';
     if (!query) return { query: '', row: null };
 
+    // ── Path 0: PSA cert → details-by-certs (authoritative when no stored id) ──
+    if (!q.cardhedgerCardId && col) {
+      const cert = psaCertNumberFromCollectionRow(col);
+      if (cert) {
+        try {
+          const { row } = await this.certLookup.getCardRowByCert(cert);
+          const certCardId = String(row?.card_id ?? '').trim();
+          if (row && certCardId) {
+            this.metrics?.recordResolvePath('details_by_certs');
+            this.logger.log(
+              JSON.stringify({
+                msg: 'resolve_path',
+                path: 'details_by_certs',
+                key: collectionKey,
+                cardId: certCardId,
+                confidence: 'verified',
+              }),
+            );
+            return { query, row, confidence: 'verified' };
+          }
+        } catch (e) {
+          this.logger.debug(
+            `details-by-certs resolve skipped key=${collectionKey}: ${e instanceof Error ? e.message : String(e)}`,
+          );
+        }
+      }
+    }
+
     // ── Path 1: stored cardhedgerCardId → card-details direct lookup ──────
     if (q.cardhedgerCardId) {
       try {
@@ -1030,9 +1062,8 @@ export class CardhedgerResolveService {
     }
 
     // ── Path 2: card-search fallback (capped by CARDHEDGER_MAX_SEARCH_CANDIDATES) ──
-    // Note: cert-based lookup is handled upstream in the snapshot enrichment pipeline
-    // (via CardhedgerMarketDataService.tryResolveCardIdByCert) before this method is
-    // called, so Path 1 (stored cardhedgerCardId) catches those cases.
+    // Cert lookup (Path 0) runs when no stored cardhedgerCardId; successful cert writes
+    // persist ID so Path 1 serves subsequent reads.
     const allSearchCandidates = this.collectCardhedgerSearchCandidates(
       q,
       displayLabel,

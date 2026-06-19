@@ -197,7 +197,7 @@ export class CollectionMarketSnapshotService {
               collection: colForCert,
             });
           if (certResolved?.cardId) {
-            void this.collectionEnrichment.writeCardhedgerIdFromCertLookup(
+            await this.collectionEnrichment.writeCardhedgerIdFromCertLookup(
               key,
               certResolved.cardId,
               certResolved.query,

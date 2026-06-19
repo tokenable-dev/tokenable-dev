@@ -24,7 +24,11 @@ import {
   componentsPsaMirrorSufficientForCardhedger,
   mergePsaCertSnapshotIntoMirror,
 } from '../utils/psa-components-mirror.util';
-import { catalogRowTrustedForMarketData } from '../utils/card-match.util';
+import {
+  cardIdFromPsaCertLookup,
+  CARDHEDGER_CARD_ID_SOURCE_PSA_CERT,
+  catalogRowTrustedForMarketData,
+} from '../utils/card-match.util';
 import { Order, OrderSide, OrderStatus } from '../entities/order.entity';
 import { MarketplaceCollection } from '../entities/marketplace-collection.entity';
 import { PsaCertSnapshotService } from './psa-cert-snapshot.service';
@@ -673,7 +677,33 @@ export class CollectionComponentsService {
     certCardId: string,
     searchQuery?: string | null,
   ): Promise<void> {
-    return this.identity.writeFromCertLookup(collectionKey, certCardId, searchQuery);
+    if (this.identity.isEnabled()) {
+      await this.identity.writeFromCertLookup(
+        collectionKey,
+        certCardId,
+        searchQuery,
+      );
+      return;
+    }
+    const k = collectionKey.toLowerCase();
+    const row = await this.collectionRepo.findOne({
+      where: { collectionKey: k },
+    });
+    if (!row) return;
+    const comp = (row.components ?? {}) as Record<string, unknown>;
+    if (String(comp.cardhedgerCardId ?? '').trim()) return;
+    const next: Record<string, unknown> = {
+      ...comp,
+      cardhedgerCardId: certCardId.trim(),
+      cardhedgerCardIdSource: CARDHEDGER_CARD_ID_SOURCE_PSA_CERT,
+    };
+    if (searchQuery?.trim()) {
+      next.cardhedgerSearchQuery = searchQuery.trim();
+    }
+    await this.collectionRepo.update(
+      { collectionKey: k },
+      { components: next as QueryDeepPartialEntity<Record<string, unknown>> },
+    );
   }
 
   /**
@@ -722,6 +752,9 @@ export class CollectionComponentsService {
       };
     }
     const comp = dbRow.components;
+    if (cardIdFromPsaCertLookup(comp)) {
+      return { checked: true, ok: true, cleared: false, failCodes: [] };
+    }
     const cardId =
       typeof comp.cardhedgerCardId === 'string'
         ? comp.cardhedgerCardId.trim()
