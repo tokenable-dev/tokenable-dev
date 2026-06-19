@@ -380,6 +380,8 @@ export interface CollectionListMarketSnapshot {
     | null;
   gradePrices: CollectionGradePrices;
   spotPriceBasis?: string | null;
+  /** Same Cardhedger preview as collection detail `market-series`. */
+  cardhedgerPreview?: CollectionMarketPreview;
   sparklineUsd: CollectionUsdPoint[];
   /** Pool stats (listing-derived); same contract as collection stats endpoint */
   marketStats?: CollectionMarketStats | null;
