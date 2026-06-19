@@ -1,7 +1,7 @@
 "use client";
 
 import type { Address } from "viem";
-import { pickCollectionDetailDisplayImageUrl } from "@/lib/marketplace";
+import { pickCollectionDetailDisplayImageUrl } from "@/lib/marketplace/collectionDisplayImage";
 import { CollectionAdminCoverPanel } from "@/components/marketplace/collection-hero";
 import { COLLECTION_DETAIL_SHELL_CLASS } from "@/constants/layout";
 import { CollectionOverviewBoard } from "@/components/marketplace/collection-overview";

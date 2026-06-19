@@ -51,13 +51,10 @@ export const orderBookColEndCls = "justify-self-end text-right";
 /** Order book flush — Size centered in its column; Total aligns right. */
 export const orderBookBookSizeColCls = "justify-self-center text-center tabular-nums";
 
-/** Trades — Price column values + header align right. */
-export const orderBookTradesPriceColCls = `${orderBookColEndCls} tabular-nums`;
-/** Trades — Price header + data; nudged left together. */
-export const orderBookTradesPriceNudgeCls = "relative -left-2 sm:-left-2.5";
-export const orderBookTradesPriceHeaderColCls =
-  `${orderBookTradesPriceColCls} ${orderBookTradesPriceNudgeCls}`;
-export const orderBookTradesPriceDataColCls = orderBookTradesPriceHeaderColCls;
+/** Trades — Price column values + header align left. */
+export const orderBookTradesPriceColCls = `${orderBookColStartCls} tabular-nums`;
+export const orderBookTradesPriceHeaderColCls = orderBookTradesPriceColCls;
+export const orderBookTradesPriceDataColCls = orderBookTradesPriceColCls;
 
 /** Trades flush — Side centered in its column; Time values align to column end. */
 export const orderBookTradesSideColCls = "justify-self-center text-center";

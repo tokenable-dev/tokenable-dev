@@ -2,11 +2,8 @@ import {
   BadRequestException,
   Injectable,
   InternalServerErrorException,
-  Logger,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { PinataService } from './pinata/pinata.service';
-import { cropPsaSlabForCollectionCover } from '../psa/utils/psa-slab-crop.util';
 import { UploadRwaDto } from './dto/upload-rwa.dto';
 import {
   mintRejectionMessage,
@@ -18,10 +15,6 @@ import {
   UploadRwaResult,
 } from './interfaces/rwa-metadata.interface';
 
-function safeCollectionCoverFilename(name: string): string {
-  return name.replace(/[^a-zA-Z0-9-_]+/g, '-').slice(0, 48) || 'rwa';
-}
-
 function isPsaGraded(graded: Record<string, unknown> | undefined): boolean {
   if (!graded || typeof graded !== 'object') return false;
   const gc = graded.gradingCompany;
@@ -32,63 +25,7 @@ function isPsaGraded(graded: Record<string, unknown> | undefined): boolean {
 
 @Injectable()
 export class RwaService {
-  private readonly logger = new Logger(RwaService.name);
-
-  constructor(
-    private readonly pinataService: PinataService,
-    private readonly config: ConfigService,
-  ) {}
-
-  /** 상단 PSA 라벨 제거 비율 (0~0.55). 기본 0.26 — `PSA_SLAB_COVER_TOP_TRIM_RATIO` */
-  private getPsaSlabTopTrimRatio(): number {
-    const raw = this.config.get<string>('PSA_SLAB_COVER_TOP_TRIM_RATIO');
-    if (raw === undefined || raw === '') return 0.26;
-    const n = Number(raw);
-    return Number.isFinite(n) && n >= 0 && n < 0.55 ? n : 0.26;
-  }
-
-  /** 좌·우 베젤 제거: 너비의 비율(각 측). 기본 0.09 — `PSA_SLAB_COVER_SIDE_INSET_RATIO` */
-  private getPsaSlabSideInsetRatio(): number {
-    const raw = this.config.get<string>('PSA_SLAB_COVER_SIDE_INSET_RATIO');
-    if (raw === undefined || raw === '') return 0.09;
-    const n = Number(raw);
-    return Number.isFinite(n) && n >= 0 && n < 0.25 ? n : 0.09;
-  }
-
-  /** 하단 베젤 제거: 높이 비율. 기본 0.05(보수적) — `PSA_SLAB_COVER_BOTTOM_INSET_RATIO` */
-  private getPsaSlabBottomInsetRatio(): number {
-    const raw = this.config.get<string>('PSA_SLAB_COVER_BOTTOM_INSET_RATIO');
-    if (raw === undefined || raw === '') return 0.05;
-    const n = Number(raw);
-    return Number.isFinite(n) && n >= 0 && n < 0.4 ? n : 0.05;
-  }
-
-  private psaSlabCropOptions() {
-    return {
-      topTrimRatio: this.getPsaSlabTopTrimRatio(),
-      sideInsetRatio: this.getPsaSlabSideInsetRatio(),
-      bottomInsetRatio: this.getPsaSlabBottomInsetRatio(),
-    };
-  }
-
-  /** 컬렉션 대표용 — 상단 PSA 라벨·베젤 크롭 후 IPFS CID. 실패 시 undefined. */
-  private async tryUploadPsaCollectionCover(
-    buffer: Buffer,
-    dtoName: string,
-  ): Promise<string | undefined> {
-    try {
-      const cropped = await cropPsaSlabForCollectionCover(
-        buffer,
-        this.psaSlabCropOptions(),
-      );
-      const fn = `collection-cover-${safeCollectionCoverFilename(dtoName)}.png`;
-      return await this.pinataService.uploadBuffer(cropped, fn, 'image/png');
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
-      this.logger.warn(`PSA slab crop skipped: ${msg}`);
-      return undefined;
-    }
-  }
+  constructor(private readonly pinataService: PinataService) {}
 
   async uploadToIpfs(
     dto: UploadRwaDto,
@@ -143,41 +80,18 @@ export class RwaService {
     }
 
     let imageCID: string;
-    let collectionCoverIpfsCid: string | undefined;
 
     if (file?.buffer) {
       imageCID = await this.pinataService.uploadFile(file);
-      if (psaGraded) {
-        collectionCoverIpfsCid = await this.tryUploadPsaCollectionCover(
-          file.buffer,
-          dto.name,
-        );
-      }
     } else if (dto.imageUrl) {
-      if (psaGraded) {
-        try {
-          const { buffer, mimeType, extension } =
-            await this.pinataService.fetchImageBufferFromUrl(dto.imageUrl);
-          const baseFn = `${safeCollectionCoverFilename(dto.name)}.${extension}`;
-          imageCID = await this.pinataService.uploadBuffer(
-            buffer,
-            baseFn,
-            mimeType,
-          );
-          collectionCoverIpfsCid = await this.tryUploadPsaCollectionCover(
-            buffer,
-            dto.name,
-          );
-        } catch (e: unknown) {
-          this.logger.error('Failed to fetch or upload PSA image from URL', e);
-          throw new InternalServerErrorException(
-            'URL 이미지 IPFS 업로드에 실패했습니다.',
-          );
-        }
-      } else {
+      try {
         imageCID = await this.pinataService.uploadFromUrl(
           dto.imageUrl,
           dto.name,
+        );
+      } catch {
+        throw new InternalServerErrorException(
+          'URL 이미지 IPFS 업로드에 실패했습니다.',
         );
       }
     } else {
@@ -201,9 +115,6 @@ export class RwaService {
       if (parsedGraded.graded && typeof parsedGraded.graded === 'object') {
         metadata.properties.graded = {
           ...parsedGraded.graded,
-          ...(collectionCoverIpfsCid && {
-            collectionCoverImage: `ipfs://${collectionCoverIpfsCid}`,
-          }),
         };
       }
       if (parsedGraded.attributes?.length) {

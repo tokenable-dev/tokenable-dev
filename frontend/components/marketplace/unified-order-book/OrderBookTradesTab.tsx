@@ -11,24 +11,17 @@ import {
   orderBookColumnHeaderCls,
   orderBookTradesFlushHeaderCls,
   orderBookTradesContentValueCls,
-  orderBookTradesPriceDataColCls,
   orderBookTradesPriceHeaderColCls,
-  orderBookTradesSideDataColCls,
   orderBookTradesSideColCls,
-  orderBookTradesSourceDataCellCls,
   orderBookTradesSourceHeaderColCls,
-  orderBookTradesTimeColCls,
   orderBookTradesTimeHeaderColCls,
 } from "@/components/marketplace/price-metrics-strip/theme";
 import type { CollectionPlatformTapeFill } from "@/lib/core";
 import {
-  formatTapeDate,
-  formatTapeTimeFull,
-  formatTradesTapePriceUsdc,
-  tapeSideDisplay,
-  tapeSourceDisplay,
-} from "@/lib/marketplace/unified-order-book";
-import { TradesSourceCell } from "./TradeSourceMark";
+  TRADES_TAPE_FLUSH_HEADER_CLASS,
+  TRADES_TAPE_SCROLL_HEIGHT_CLASS,
+} from "@/lib/marketplace/unified-order-book/tradesTapeTableChrome";
+import { TradesTapeScrollList } from "./TradesTapeScrollList";
 
 const TRADES_GRID_LEGACY =
   "grid grid-cols-[minmax(0,1fr)_auto_minmax(0,3.25rem)_minmax(0,2.5rem)_minmax(4.75rem,5.5rem)] gap-x-2";
@@ -45,7 +38,7 @@ function TradesColumnHeader({
   if (flush) {
     return (
       <div
-        className={`${ORDER_BOOK_TRADES_FOUR_COL_GRID} shrink-0 border-b border-zinc-800/50 bg-zinc-950/50 py-1 ${COLLECTION_ORDER_BOOK_FLUSH_INSET_X} ${headerCls}`}
+        className={`${ORDER_BOOK_TRADES_FOUR_COL_GRID} shrink-0 bg-zinc-950/50 py-1 ${COLLECTION_ORDER_BOOK_FLUSH_INSET_X} ${orderBookTradesFlushHeaderCls} ${TRADES_TAPE_FLUSH_HEADER_CLASS}`}
       >
         <span className={orderBookTradesPriceHeaderColCls}>Price</span>
         <span className={orderBookTradesSideColCls}>Side</span>
@@ -82,12 +75,9 @@ export function OrderBookTradesTab({
   emptyLabel?: string;
 }) {
   const gridClass = flush ? ORDER_BOOK_TRADES_FOUR_COL_GRID : TRADES_GRID_LEGACY;
-  const rowGridClass = flush
-    ? `${ORDER_BOOK_TRADES_FOUR_COL_GRID} items-center`
-    : `${gridClass} items-center`;
   const rowValueCls = orderBookTradesContentValueCls;
   const rootClass = flush
-    ? `flex min-h-0 flex-col overflow-hidden ${mobileEmbed ? "h-full" : "h-full flex-1"}`
+    ? "flex shrink-0 flex-col overflow-hidden"
     : "flex min-h-0 max-h-[min(420px,52vh)] flex-col";
 
   if (!tapeLoading && tapeFills.length === 0) {
@@ -95,9 +85,7 @@ export function OrderBookTradesTab({
       <div
         className={
           flush
-            ? `flex min-h-0 items-center justify-center overflow-hidden ${
-                mobileEmbed ? "h-full" : "h-full flex-1"
-              }`
+            ? "flex min-h-0 items-center justify-center overflow-hidden py-6"
             : "flex items-center justify-center py-10"
         }
       >
@@ -119,69 +107,13 @@ export function OrderBookTradesTab({
       ) : (
         <>
           {!flush ? <TradesColumnHeader flush={flush} gridClass={gridClass} /> : null}
-          <div
-            className={`min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-auto py-0.5 ${COLLECTION_ORDER_BOOK_FLUSH_INSET_X} ${COLLECTION_ORDER_BOOK_SCROLL_CLASS}`}
-          >
-            {tapeFills.map((row) => {
-              const side = tapeSideDisplay(row);
-              const source = tapeSourceDisplay(row);
-
-              return (
-                <div
-                  key={row.orderHash}
-                  className={`${rowGridClass} py-0.5 ${rowValueCls} text-zinc-200`}
-                >
-                  <span
-                    className={`min-w-0 truncate ${orderBookTradesPriceDataColCls} text-mint/95`}
-                  >
-                    {formatTradesTapePriceUsdc(row.priceUsdc)}
-                  </span>
-                  {flush ? (
-                    <>
-                      <span
-                        className={`min-w-0 truncate ${orderBookTradesSideDataColCls} ${side.className}`}
-                        title={side.title}
-                      >
-                        {side.label}
-                      </span>
-                      <TradesSourceCell
-                        source={source}
-                        className={orderBookTradesSourceDataCellCls}
-                      />
-                      <span
-                        className={`min-w-0 truncate ${orderBookTradesTimeColCls} text-zinc-400`}
-                        title={formatTapeTimeFull(row.t)}
-                      >
-                        {formatTapeDate(row.t)}
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      <span
-                        className={`min-w-0 truncate ${orderBookColMidCls} pl-1 sm:pl-1.5 ${side.className}`}
-                        title={side.title}
-                      >
-                        {side.label}
-                      </span>
-                      <TradesSourceCell
-                        source={source}
-                        className={orderBookTradesSourceDataCellCls}
-                      />
-                      <span className={`${orderBookColEndCls} text-zinc-500`}>
-                        #{row.tokenId}
-                      </span>
-                      <span
-                        className={`min-w-0 truncate ${orderBookTradesTimeColCls} text-zinc-400`}
-                        title={formatTapeTimeFull(row.t)}
-                      >
-                        {formatTapeDate(row.t)}
-                      </span>
-                    </>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+          <TradesTapeScrollList
+            tapeFills={tapeFills}
+            flush={Boolean(flush)}
+            insetXClass={flush ? COLLECTION_ORDER_BOOK_FLUSH_INSET_X : "py-0.5"}
+            scrollClass={COLLECTION_ORDER_BOOK_SCROLL_CLASS}
+            maxHeightClass={flush ? TRADES_TAPE_SCROLL_HEIGHT_CLASS : undefined}
+          />
         </>
       )}
     </div>

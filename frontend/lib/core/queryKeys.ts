@@ -65,6 +65,9 @@ export const rq = {
       : grade != null && grade.length > 0
         ? (["collection-platform-trades", key, grade] as const)
         : (["collection-platform-trades", key] as const),
+  /** RWA card detail trades (platform + Cardhedger comps, collection optional). */
+  rwaTokenTrades: (tokenId: number, grade?: string) =>
+    ["rwa-token-trades", tokenId, grade ?? ""] as const,
   /** Metadata rows for RWA tokens listed under a collection. */
   collectionListingsMetadata: (key: string, tokenIds: readonly number[]) =>
     [
@@ -95,6 +98,8 @@ export const rq = {
   /** Admin — active listed RWA cards registry overview. */
   adminListedRwaCards: (adminWallet: string) =>
     ["admin-listed-rwa-cards", adminWallet.toLowerCase()] as const,
+  /** Admin — marketplace collections list (cursor pages). */
+  adminCollectionsList: () => ["admin-collections-list"] as const,
   /**
    * Derived collection/bucket key computed from a token's metadata + tokenURI.
    * URI included so the key invalidates if the on-chain tokenURI is updated.

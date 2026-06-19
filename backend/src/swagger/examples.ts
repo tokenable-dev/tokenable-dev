@@ -152,7 +152,6 @@ export const SWAGGER_BODY_EXAMPLES = {
   certMarketTrace: {
     certNumber: F.certNumber,
     historyMaxCalendarDays: 90,
-    scrapePsaSpecImage: false,
   },
   adminSetCover: {
     adminWallet: F.walletAlt,

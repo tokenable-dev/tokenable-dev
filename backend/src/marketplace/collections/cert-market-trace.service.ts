@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { PsaAnalyzeResult } from '../../psa/psa.service';
 import { PsaService } from '../../psa/psa.service';
-import { PsaSpecScraperService } from '../../psa/psa-spec-scraper.service';
 import { buildSearchQueryFromParsed } from '../../psa/utils/psa-ocr.util';
 import type { MarketplaceCollection } from '../entities/marketplace-collection.entity';
 import {
@@ -55,8 +54,6 @@ export interface CertMarketTraceResult {
     historyMaxCalendarDays: number;
     /** Same policy as {@link marketHistoryTierFromComponents} (currently always PSA_10 bucket). */
     historyTierPolicy: 'marketHistoryTierFromComponents';
-    scrapePsaSpecImageRequested: boolean;
-    scrapePsaSpecImageAttempted: boolean;
     /** True when `POST /psa/analyze-by-cert` merged PSA Public API PSACert (needs `PSA_PUBLIC_API_TOKEN`). */
     psaEnrichedFromOfficialApi: boolean;
     /** False when `CARDHEDGER_API_KEY` is missing — `cardhedger` payload is stubbed. */
@@ -80,7 +77,6 @@ export interface CertMarketTraceResult {
     CardhedgerMarketDataService['buildCollectionQuery']
   >;
   inferredBucket: CertMarketTraceInferredBucket;
-  psaSpecPageImageUrl: string | null;
   cardhedger: {
     preview: MarketCollectionPreview;
     history: MarketPriceHistoryResult;
@@ -98,7 +94,6 @@ export interface CertMarketTraceResult {
 export class CertMarketTraceService {
   constructor(
     private readonly psaService: PsaService,
-    private readonly psaSpecScraper: PsaSpecScraperService,
     private readonly cardMarket: CardhedgerMarketDataService,
   ) {}
 
@@ -267,7 +262,6 @@ export class CertMarketTraceService {
       Math.max(1, Math.floor(dto.historyMaxCalendarDays ?? 90)),
     );
     const period = historyPeriodFromMaxDays(maxDays);
-    const scrapeRequested = dto.scrapePsaSpecImage !== false;
 
     const psaAnalyze = await this.psaService.analyzeByCertNumber(
       dto.certNumber,
@@ -275,24 +269,13 @@ export class CertMarketTraceService {
     const synthetic = this.buildSyntheticCollection(psaAnalyze);
     const tier = marketHistoryTierFromComponents(synthetic.components);
 
-    const specIdRaw = psaAnalyze.psa.specId;
-    const specIdStr =
-      typeof specIdRaw === 'number' && Number.isFinite(specIdRaw)
-        ? String(Math.floor(specIdRaw))
-        : null;
-
-    const scrapeAttempted = Boolean(scrapeRequested && specIdStr);
-
-    const [bundled, psaSpecPageImageUrl, inferredBucket] = await Promise.all([
+    const [bundled, inferredBucket] = await Promise.all([
       this.cardMarket.getBundledCardData(synthetic, {
         tier,
         period,
         maxCalendarDays: maxDays,
         includeComps: true,
       }),
-      scrapeAttempted && specIdStr
-        ? this.psaSpecScraper.scrapeSpecImageUrl(specIdStr)
-        : Promise.resolve(null),
       Promise.resolve(this.inferBucketFromAnalyze(psaAnalyze)),
     ]);
 
@@ -314,8 +297,6 @@ export class CertMarketTraceService {
         historyPeriod: period,
         historyMaxCalendarDays: maxDays,
         historyTierPolicy: 'marketHistoryTierFromComponents',
-        scrapePsaSpecImageRequested: scrapeRequested,
-        scrapePsaSpecImageAttempted: scrapeAttempted,
         psaEnrichedFromOfficialApi: Boolean(
           psaAnalyze.psa.enrichedFromOfficialApi,
         ),
@@ -335,7 +316,6 @@ export class CertMarketTraceService {
       },
       collectionQuery: this.cardMarket.buildCollectionQuery(synthetic),
       inferredBucket,
-      psaSpecPageImageUrl,
       cardhedger,
     };
   }

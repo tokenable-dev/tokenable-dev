@@ -78,6 +78,7 @@ export type WalletErrorCode =
   | "TIMEOUT"
   | "NONCE"
   | "RATE_LIMIT"
+  | "LISTING_COLLECTION"
   | "REVERT"
   | "UNKNOWN";
 
@@ -251,6 +252,14 @@ export function mapWalletError(err: unknown): WalletErrorResult {
     return {
       code: "NETWORK_MISMATCH",
       message: "Wrong network. Switch to Sepolia in your wallet and try again.",
+    };
+  }
+
+  if (/could not create a marketplace collection|could not resolve marketplace collection/i.test(lower)) {
+    return {
+      code: "LISTING_COLLECTION",
+      message:
+        "This token could not be grouped into a marketplace collection. Check graded metadata on IPFS and try listing again.",
     };
   }
 

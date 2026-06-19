@@ -26,7 +26,20 @@ export {
   tapeSideDisplay,
   tapeSourceDisplay,
 } from "./tapeSideDisplay";
+export {
+  TRADES_TAPE_PRICE_DEFAULT_CLASS,
+  TRADES_TAPE_PRICE_DOWN_CLASS,
+  tradesTapePriceClassName,
+  tradesTapePriceCompareTone,
+} from "./tradesTapePriceDisplay";
+export type { TradesTapePriceTone } from "./tradesTapePriceDisplay";
 export type { TapeSourceDisplay } from "./tapeSideDisplay";
-export { brandIdFromPlatformLabel } from "./tapeSourceBrand";
-export type { TapeSourceBrandId } from "./tapeSourceBrand";
+export {
+  TRADES_TAPE_FLUSH_HEADER_CLASS,
+  TRADES_TAPE_FLUSH_ROW_CLASS,
+  TRADES_TAPE_SCROLL_HEIGHT_CLASS,
+  TRADES_TAPE_SCROLL_MAX_HEIGHT_CLASS,
+  TRADES_TAPE_TARGET_VISIBLE_ROWS,
+  tradesTapeScrollHeightPx,
+} from "./tradesTapeTableChrome";
 export type { BookCenterModel, BookCenterTone, OrderBookTab, OrderBookDepthLevel } from "./types";

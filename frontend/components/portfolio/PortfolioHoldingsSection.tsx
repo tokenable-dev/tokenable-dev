@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import type { RefObject } from "react";
 import type { AssetListFilter, AssetRow } from "@/lib/portfolio/portfolioTypes";
 import { PortfolioAssetCard } from "./PortfolioAssetCard";
 
@@ -24,9 +23,6 @@ export function PortfolioHoldingsSection({
   setAssetFilter,
   hiddenAssetCount,
   filteredAssetRows,
-  pagedAssetRows,
-  visibleAssetCount,
-  assetScrollSentinelRef,
   address,
   valuesPending,
   isBurnAdmin,
@@ -49,9 +45,6 @@ export function PortfolioHoldingsSection({
   setAssetFilter: (f: AssetListFilter) => void;
   hiddenAssetCount: number;
   filteredAssetRows: AssetRow[];
-  pagedAssetRows: AssetRow[];
-  visibleAssetCount: number;
-  assetScrollSentinelRef: RefObject<HTMLDivElement | null>;
   address: string | undefined;
   valuesPending: boolean;
   isBurnAdmin: boolean;
@@ -119,7 +112,7 @@ export function PortfolioHoldingsSection({
         </p>
       ) : (
         <div className="-mx-0.5 grid grid-cols-2 gap-2.5 pb-2 pt-0.5 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
-          {pagedAssetRows.map((r) => (
+          {filteredAssetRows.map((r) => (
             <PortfolioAssetCard
               key={r.tokenId}
               row={r}
@@ -144,13 +137,6 @@ export function PortfolioHoldingsSection({
               onBurn={() => onBurn(r.tokenId, r.listPriceUsd != null)}
             />
           ))}
-          {visibleAssetCount < filteredAssetRows.length ? (
-            <div
-              ref={assetScrollSentinelRef}
-              className="col-span-full h-px w-full"
-              aria-hidden
-            />
-          ) : null}
         </div>
       )}
     </>

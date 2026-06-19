@@ -32,7 +32,6 @@ Cert 번호만 넣어 **PSA 공식 조회(`analyze-by-cert`와 동일)** + **Car
 |-------|-------------|
 | `certNumber` | Cert 숫자 또는 `psacard.com/cert/…` URL (필수) |
 | `historyMaxCalendarDays` | 히스토리 윈도우 1–365 (기본 90) |
-| `scrapePsaSpecImage` | `specId`가 있을 때 Playwright로 spec 이미지 URL 스크랩 (기본 true) |
 
 **Env:** `CARDHEDGER_API_KEY` 필수, **`PSA_PUBLIC_API_TOKEN`** 권장 (PSACert Variety 등).
 
@@ -43,8 +42,7 @@ Cert 번호만 넣어 **PSA 공식 조회(`analyze-by-cert`와 동일)** + **Car
 ```json
 {
   "certNumber": "89531714",
-  "historyMaxCalendarDays": 90,
-  "scrapePsaSpecImage": true
+  "historyMaxCalendarDays": 90
 }
 ```
 
@@ -314,7 +312,7 @@ Called by the vault mint flow immediately after the on-chain `Minted` event is c
 | `collectionKey` | Lowercase bucket key when `ensureCollectionForListing` succeeded |
 | `bootstrapped` | `true` when a `marketplace_collections` row exists for this mint |
 
-Server work (same as `MintEventListenerService.handleMintedToken`): UPSERT collection + `rwa_tokens`, Cardhedger cert → `cardhedgerCardId`, snapshot enqueue, PSA spec cover retries. The frontend retries up to 5 times on transient failure and prefetches `platform-trades` + snapshots into React Query.
+Server work (same as `MintEventListenerService.handleMintedToken`): UPSERT collection + `rwa_tokens`, Cardhedger cert → `cardhedgerCardId`, snapshot enqueue, collection cover set once on first bucket create. The frontend retries up to 5 times on transient failure and prefetches `platform-trades` + snapshots into React Query.
 
 Also fired by optional on-chain listener when `MINT_EVENT_LISTENER_ENABLED=1` (idempotent with this POST).
 

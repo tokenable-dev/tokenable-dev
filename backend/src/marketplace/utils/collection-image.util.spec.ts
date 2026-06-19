@@ -4,27 +4,31 @@ import {
 } from './collection-image.util';
 
 describe('pickCollectionDisplayImageUrl', () => {
-  it('returns persisted catalog cover', () => {
+  it('returns catalog HTTPS URLs as-is', () => {
     expect(
-      pickCollectionDisplayImageUrl('https://cdn.example/card.png', {
-        trendingSlabImageUrl:
-          'https://d1htnxwo4o0jhw.cloudfront.net/cert/1/x.jpg',
-      }),
-    ).toBe('https://cdn.example/card.png');
+      pickCollectionDisplayImageUrl(
+        'https://942284f33c575895b4be9de571ca6e40.cdn.bubble.io/foo/resize',
+      ),
+    ).toBe(
+      'https://942284f33c575895b4be9de571ca6e40.cdn.bubble.io/foo/resize',
+    );
   });
 
-  it('never falls back to trending slab (PSA cert or otherwise)', () => {
+  it('returns PSA spec cloudfront URLs as-is', () => {
     expect(
-      pickCollectionDisplayImageUrl(null, {
-        trendingSlabImageUrl: 'https://psa.example/slab.jpg',
-      }),
-    ).toBeNull();
+      pickCollectionDisplayImageUrl(
+        'https://d1htnxwo4o0jhw.cloudfront.net/spec/2427023/a4PuiPdzmECPOwdi1I7juQ.jpg',
+      ),
+    ).toBe(
+      'https://d1htnxwo4o0jhw.cloudfront.net/spec/2427023/a4PuiPdzmECPOwdi1I7juQ.jpg',
+    );
+  });
+
+  it('rejects legacy normalized cover API paths', () => {
     expect(
-      pickCollectionDisplayImageUrl(null, {
-        psaSpecId: '2427023',
-        trendingSlabImageUrl:
-          'https://d1htnxwo4o0jhw.cloudfront.net/cert/143719559/uDxUkmwFzE.jpg',
-      }),
+      pickCollectionDisplayImageUrl(
+        '/api/marketplace/collections/foo/cover-image.jpg',
+      ),
     ).toBeNull();
   });
 
@@ -32,13 +36,13 @@ describe('pickCollectionDisplayImageUrl', () => {
     expect(
       pickCollectionDisplayImageUrl(
         'https://d1htnxwo4o0jhw.cloudfront.net/cert/143719559/uDxUkmwFzE.jpg',
-        {},
       ),
     ).toBeNull();
   });
 
   it('returns null when cover is empty', () => {
-    expect(pickCollectionDisplayImageUrl('', {})).toBeNull();
+    expect(pickCollectionDisplayImageUrl(null)).toBeNull();
+    expect(pickCollectionDisplayImageUrl('')).toBeNull();
   });
 });
 

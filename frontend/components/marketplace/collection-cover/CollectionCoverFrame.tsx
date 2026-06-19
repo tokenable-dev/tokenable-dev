@@ -88,14 +88,24 @@ export function CollectionCoverFrame({
   quietLoading = false,
   className = "",
 }: CollectionCoverFrameProps) {
-  const { url: resolved, isLoading } = useResolvedMediaUrl(imageUrl);
+  const [activeImageUrl, setActiveImageUrl] = useState(imageUrl);
+  const { url: resolved, isLoading } = useResolvedMediaUrl(activeImageUrl);
   const [imgFailed, setImgFailed] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
 
   useEffect(() => {
+    setActiveImageUrl(imageUrl);
     setImgFailed(false);
     setLightboxOpen(false);
-  }, [imageUrl, resolved]);
+  }, [imageUrl]);
+
+  useEffect(() => {
+    setImgFailed(false);
+  }, [resolved, activeImageUrl]);
+
+  const handleImageError = () => {
+    setImgFailed(true);
+  };
 
   /** Carousel 등 — 그라데이션 베젤·ring 없이 카드 안에 이미지만 채움 */
   if (variant === "flat") {
@@ -109,7 +119,7 @@ export function CollectionCoverFrame({
               alt={alt}
               className="absolute inset-0 h-full w-full object-contain object-center"
               style={{ filter: "saturate(1.04) contrast(1.02)" }}
-              onError={() => setImgFailed(true)}
+              onError={handleImageError}
             />
           ) : imgFailed ? (
             <div
@@ -227,7 +237,7 @@ export function CollectionCoverFrame({
                 alt={alt}
                 className="absolute inset-0 h-full w-full object-contain object-center"
                 style={{ filter: "saturate(1.04) contrast(1.02)" }}
-                onError={() => setImgFailed(true)}
+                onError={handleImageError}
               />
               {heroInteractive ? (
                 <>

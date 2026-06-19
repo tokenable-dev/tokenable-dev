@@ -193,7 +193,9 @@ export class CollectionMarketSnapshotService {
           : null;
         if (certNumber && certMissingId) {
           const certResolved =
-            await this.cardMarketData.tryResolveCardIdByCert(certNumber);
+            await this.cardMarketData.tryResolveCardIdByCert(certNumber, {
+              collection: colForCert,
+            });
           if (certResolved?.cardId) {
             void this.collectionEnrichment.writeCardhedgerIdFromCertLookup(
               key,

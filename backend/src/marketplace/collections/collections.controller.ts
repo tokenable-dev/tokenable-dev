@@ -65,11 +65,10 @@ export class CollectionsController {
   }
 
   /**
-   * Front-end webhook: called right after the on-chain mint tx is confirmed.
-   * Awaits marketplace_collections + rwa_tokens bootstrap (and Cardhedger cert
-   * enrichment) so platform-trades / listing price suggestions work before ask.
+   * Front-end hook after mint tx confirms. Syncs `rwa_tokens` only; collection
+   * rows are created when the owner lists the token for sale (first ask).
    */
-  @ApiOperation({ summary: '민트 완료 알림 (컬렉션 자동 생성)' })
+  @ApiOperation({ summary: '민트 완료 알림 (rwa_tokens 동기화)' })
   @ApiBody({
     schema: {
       type: 'object',
@@ -182,6 +181,28 @@ export class CollectionsController {
       );
     }
     return { items: out };
+  }
+
+  /** RWA card detail trades — platform fills + Cardhedger comps (no collection row required). */
+  @ApiOperation({ summary: 'RWA token trades tape (platform + Cardhedger comps)' })
+  @ApiParam({ name: 'tokenId', description: 'RWA tokenId', example: 1 })
+  @ApiQuery({
+    name: 'grade',
+    required: false,
+    description: 'Cardhedger grade label for comps (e.g. PSA 10). Defaults from mint metadata.',
+  })
+  @Get('rwa/:tokenId/trades')
+  getRwaTokenTrades(
+    @Param('tokenId') tokenId: string,
+    @Query('grade') grade?: string,
+  ) {
+    const id = Number(tokenId);
+    if (!Number.isFinite(id) || id < 0) {
+      throw new BadRequestException('Invalid token id');
+    }
+    return this.collectionMarketService.rwaTradesForApi(Math.floor(id), {
+      cardhedgerGrade: grade?.trim() || undefined,
+    });
   }
 
   /** My Assets: tokenId별 Cardhedger PSA10 프리뷰 (최대 32) */
@@ -342,45 +363,13 @@ export class CollectionsController {
       col = await this.collectionService.findOne(k);
     }
 
-    const needsFirstCover =
-      col != null && this.collectionService.coverImageNeedsUpgrade(col.coverImageUrl);
-
-    // Single fetch for asks/bids; share the same promises with cover resolution (no duplicate listing queries).
-    const listingsPromise =
-      this.collectionService.activeListingsForCollection(k);
-    const bidsPromise = this.collectionService.activeBidsForCollection(k);
-
-    const coverFinishPromise = needsFirstCover
-      ? Promise.all([listingsPromise, bidsPromise]).then(
-          ([listings, collectionBids]) =>
-            Promise.race([
-              this.collectionService.resolveRepresentativeImageForCollection(
-                k,
-                {
-                  asks: listings,
-                  bids: collectionBids,
-                },
-              ),
-              new Promise<null>((resolve) =>
-                setTimeout(() => resolve(null), 45_000),
-              ),
-            ]),
-        )
-      : Promise.resolve(null);
-
     const [listings, collectionBids] = await Promise.all([
-      listingsPromise,
-      bidsPromise,
+      this.collectionService.activeListingsForCollection(k),
+      this.collectionService.activeBidsForCollection(k),
     ]);
-    await coverFinishPromise;
-
-    if (needsFirstCover) {
-      const refreshed = await this.collectionService.findOne(k);
-      if (refreshed) col = refreshed;
-    }
 
     const representativeImageUrl = col
-      ? pickCollectionDisplayImageUrl(col.coverImageUrl, col.components)
+      ? pickCollectionDisplayImageUrl(col.coverImageUrl)
       : null;
 
     return {

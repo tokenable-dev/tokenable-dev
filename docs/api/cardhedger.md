@@ -21,6 +21,6 @@ Market-data logic was split from a single god service into **resolve / pricing /
 
 Former **`/api/cardhedger/v1/*` HTTP proxy controllers** were removed; the frontend does not call those paths. Use **Swagger `/api/docs`** for the current route list.
 
-Optional env: **`CARDHEDGER_PSA_SPECID_MAP`** — JSON map of PSA `specId` → Cardhedger `card_id` (see `psa-spec-cardhedger-map.util.ts`).
+Card ID resolution uses **`CollectionIdentityService`** (cert lookup + search). The old `CARDHEDGER_PSA_SPECID_MAP` env override was removed.
 
 **PSA Variety vs parallel pricing:** Same player/# can map to different Cardhedger rows (Base vs Silver, etc.). See **[Cardhedger + PSA Variety guide](../guides/cardhedger-psa-variety.md)**.

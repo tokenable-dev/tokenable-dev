@@ -3,6 +3,10 @@ import type {
   CollectionMarketSeries,
   CollectionMarketStats,
 } from "./marketplace-market-data";
+import { MARKETPLACE_COLLECTION_SNAPSHOTS_MAX_KEYS } from "./marketplace-market-data";
+
+/** Must match backend `TokenCollectionKeysDto` `@ArrayMaxSize(120)`. */
+export const TOKEN_COLLECTION_KEYS_BATCH_MAX = 120;
 
 /** Portfolio batch — same shapes as collection stats + market series. */
 export interface PortfolioMarketBatchItem {
@@ -60,6 +64,49 @@ export async function postTokenCollectionKeysByTokenIds(
   }
   const j = (await res.json()) as { items?: Record<number, string> };
   return j.items ?? {};
+}
+
+export async function postTokenCollectionKeysByTokenIdsBatched(
+  tokenIds: number[],
+): Promise<Record<number, string>> {
+  const ids = [...new Set((tokenIds ?? []).map((n) => Math.floor(Number(n))))].filter(
+    (n) => Number.isFinite(n) && n >= 0,
+  );
+  if (ids.length === 0) return {};
+
+  const merged: Record<number, string> = {};
+  for (let i = 0; i < ids.length; i += TOKEN_COLLECTION_KEYS_BATCH_MAX) {
+    const chunk = ids.slice(i, i + TOKEN_COLLECTION_KEYS_BATCH_MAX);
+    const part = await postTokenCollectionKeysByTokenIds(chunk);
+    Object.assign(merged, part);
+  }
+  return merged;
+}
+
+export async function postPortfolioCollectionMarketBatchBatched(body: {
+  collectionKeys: string[];
+  priceHistoryDuration?: "7d" | "30d" | "90d" | "180d" | "365d" | "max";
+}): Promise<{ items: PortfolioMarketBatchItem[] }> {
+  const keys = [
+    ...new Set(
+      (body.collectionKeys ?? [])
+        .map((k) => k.trim().toLowerCase())
+        .filter(Boolean),
+    ),
+  ].sort();
+  if (keys.length === 0) return { items: [] };
+
+  const max = MARKETPLACE_COLLECTION_SNAPSHOTS_MAX_KEYS;
+  const items: PortfolioMarketBatchItem[] = [];
+  for (let i = 0; i < keys.length; i += max) {
+    const chunk = keys.slice(i, i + max);
+    const pack = await postPortfolioCollectionMarketBatch({
+      collectionKeys: chunk,
+      priceHistoryDuration: body.priceHistoryDuration,
+    });
+    items.push(...pack.items);
+  }
+  return { items };
 }
 
 export interface PortfolioDailySnapshotItem {

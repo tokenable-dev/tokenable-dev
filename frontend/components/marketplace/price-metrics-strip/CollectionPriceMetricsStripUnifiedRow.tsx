@@ -53,7 +53,7 @@ export function CollectionPriceMetricsStripUnifiedRow({
 
   return (
     <div
-      className={`@container/metrics w-full min-w-0 lg:min-h-[116px] ${compact ? "mb-0 sm:mb-0.5" : "mb-0"}`}
+      className={`@container/metrics w-full min-w-0 lg:min-h-[100px] ${compact ? "mb-0 sm:mb-0.5" : "mb-0"}`}
     >
       <div
         className={`grid ${gridClass} h-full min-h-0 min-w-0 items-stretch justify-items-stretch`}

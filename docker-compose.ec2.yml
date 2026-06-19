@@ -2,8 +2,6 @@
 # ~/.env.production.backend: DATABASE_*, JWT_*, CORS_ORIGIN (comma list: IP + https domain),
 #   FRONTEND_URL, GOOGLE_CALLBACK_URL, GOOGLE_CLIENT_ID/SECRET, COOKIE_SECURE,
 #   REDIS_URL=redis://redis:6379 (identity cache L2; omit → L1-only per pod),
-#   PSA_COLLECTORS_REFRESH_TOKEN=... (from scripts/psa-collectors-login.ts),
-#   PSA_SPEC_COVER_ALLOW_FALLBACK=1 (Cardhedger after PSA spec miss),
 #   SITE_ACCESS_ENABLED=true, SITE_ACCESS_PASSWORD=717171,
 #   SITE_ACCESS_SECRET=<random 32+ chars, same value on frontend container>,
 #   SITE_ACCESS_SESSION_SECONDS=3600 (optional), etc.
@@ -17,12 +15,3 @@ services:
   backend:
     env_file:
       - /home/ubuntu/.env.production.backend
-    environment:
-      # Persist PSA scraper session across deploys (cookies + cf_clearance profile).
-      PSA_SPEC_SCRAPER_USER_DATA_DIR: /var/lib/tokenable/psa-chromium-profile
-      PSA_COLLECTORS_COOKIES_FILE: /var/lib/tokenable/psa-collectors-cookies.json
-    volumes:
-      - psa_scraper_state:/var/lib/tokenable
-
-volumes:
-  psa_scraper_state:

@@ -6,6 +6,9 @@ import {
   type TtlCacheProvider,
 } from '../../common/cache/ttl-cache.interface';
 import { CardhedgerService } from '../../cardhedger/cardhedger.service';
+import {
+  catalogRowTrustedForMarketData,
+} from '../utils/card-match.util';
 import { cardhedgerGradeFromHistoryTier } from '../utils/psa-grade-policy.util';
 import { marketHistoryTierFromComponents } from '../utils/market-history-tier.util';
 import type { MarketplaceCollection } from '../entities/marketplace-collection.entity';
@@ -801,6 +804,66 @@ export class CardhedgerPricingService {
     };
   }
 
+  /**
+   * Fetch comps by known `card_id` — skips resolve/verification (trades tape, mint cert batch).
+   */
+  async getCompsSnapshotByCardIdDirect(
+    cardId: string,
+    options?: {
+      gradeLabel?: string;
+      tier?: string;
+      rawCount?: number;
+      searchQuery?: string;
+      catalogRow?: CardhedgerCardRow | null;
+    },
+  ): Promise<MarketCompsSnapshot> {
+    const id = String(cardId ?? '').trim();
+    const requestCount = Math.min(
+      100,
+      Math.max(
+        1,
+        Math.floor(options?.rawCount ?? CARDHEDGER_COMPS_HISTORY_RAW_COUNT),
+      ),
+    );
+    const gradeLabel = String(options?.gradeLabel ?? '').trim();
+    const tier =
+      String(options?.tier ?? 'PSA_10').trim().toUpperCase() || 'PSA_10';
+    const grade = gradeLabel || cardhedgerGradeFromHistoryTier(tier);
+
+    if (!id) {
+      return this.emptyMarketCompsSnapshot({
+        enabled: this.isConfigured(),
+        searchQuery: options?.searchQuery ?? '',
+        matched: false,
+        message: 'Missing card_id',
+      });
+    }
+    if (!this.isConfigured()) {
+      return this.emptyMarketCompsSnapshot({
+        enabled: false,
+        searchQuery: options?.searchQuery ?? '',
+        matched: false,
+        message: 'Cardhedger is not configured (CARDHEDGER_API_KEY)',
+      });
+    }
+
+    const row =
+      options?.catalogRow ??
+      ({ card_id: id } as CardhedgerCardRow);
+    const resolved: ResolvedCard = {
+      query: options?.searchQuery ?? '',
+      row,
+      confidence: 'verified',
+    };
+    const cached = await this.fetchCompsCached(id, grade, requestCount);
+    return this.marketCompsSnapshotFromCached(
+      resolved,
+      cached,
+      grade,
+      requestCount,
+    );
+  }
+
   /** Cardhedger `POST /v1/cards/comps` for a collection row (resolve + up to 100 raw sales). */
   async getCompsSnapshotForCollection(
     col: MarketplaceCollection | null,
@@ -843,6 +906,40 @@ export class CardhedgerPricingService {
         searchQuery: resolved.query,
         matched: false,
         message: 'No matching Cardhedger card found',
+      });
+    }
+
+    const q = this.resolve.buildCollectionQuery(col);
+    const trust = catalogRowTrustedForMarketData(
+      {
+        cardName: q.cardName,
+        cardNumber: q.cardNumber,
+        cardSet: q.cardSet,
+        psaSubject: q.psaSubject ?? undefined,
+        psaBrand: q.psaBrand ?? undefined,
+        psaYear: q.psaYear ?? undefined,
+        cardhedgerSearchQuery: q.cardhedgerSearchQuery ?? undefined,
+        listingDisplayTitle: q.listingDisplayTitle ?? undefined,
+      },
+      resolved.row as Record<string, unknown>,
+    );
+    if (!trust.ok) {
+      this.logger.warn(
+        JSON.stringify({
+          msg: 'comps_catalog_verification_failed',
+          collectionKey: col.collectionKey,
+          failCodes: trust.failCodes,
+          cardId:
+            (resolved.row as { card_id?: unknown }).card_id != null
+              ? String((resolved.row as { card_id?: unknown }).card_id)
+              : null,
+        }),
+      );
+      return this.emptyMarketCompsSnapshot({
+        enabled: true,
+        searchQuery: resolved.query,
+        matched: false,
+        message: 'Cardhedger catalog match failed verification',
       });
     }
 

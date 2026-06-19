@@ -34,7 +34,6 @@
 
 - [ ] `CARDHEDGER_API_KEY` — Cardhedger 시세·검색.
 - [ ] `PSA_PUBLIC_API_TOKEN` — cert로 PSACert 병합·민트 프리뷰 Variety 보강.
-- [ ] (선택) `CARDHEDGER_PSA_SPECID_MAP` — 특정 specId → card_id 오버라이드.
 
 ### 가격 이상 징후
 

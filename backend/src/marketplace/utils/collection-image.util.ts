@@ -19,8 +19,7 @@ export function normalizeImageUrl(s: string): string {
 /**
  * 컬렉션 대표 이미지 URL — cert number가 보이지 않는 이미지를 우선합니다.
  * 1) `graded.cardhedger.imageUrl` — Cardhedger 카탈로그 이미지 (슬랩 없음, cert label 없음)
- * 2) `graded.collectionCoverImage` — 민팅 시 서버가 PSA 슬랩 상단 라벨·베젤을 크롭해 올린 IPFS 이미지
- * 3) `graded.psa.certImageSourceUrl` — PSA 슬랩 사진 원본 (cert label 포함, 최후 수단)
+ * 2) `graded.psa.certImageSourceUrl` — PSA 슬랩 사진 원본 (cert label 포함, 최후 수단)
  */
 export function extractCollectionRepresentativeImage(
   meta: Record<string, unknown>,
@@ -29,19 +28,12 @@ export function extractCollectionRepresentativeImage(
   const graded = (props?.graded ?? meta.graded) as
     | Record<string, unknown>
     | undefined;
-  // 1) Cardhedger catalog image — cleanest (no slab, no cert label)
   const ch = graded?.cardhedger as Record<string, unknown> | undefined;
   const chImage =
     typeof ch?.imageUrl === 'string' ? normalizeImageUrl(ch.imageUrl) : '';
   if (chImage && isUsableCoverUrl(chImage)) {
     return chImage;
   }
-  // 2) IPFS cropped cover — slab frame removed but still shows card in slab context
-  const explicit = graded?.collectionCoverImage;
-  if (typeof explicit === 'string' && isUsableCoverUrl(explicit)) {
-    return explicit.trim();
-  }
-  // 3) PSA slab photo — cert number label visible, last resort
   const psa = graded?.psa as Record<string, unknown> | undefined;
   const psaCert =
     typeof psa?.certImageSourceUrl === 'string'
@@ -61,7 +53,7 @@ function isDirectHttpsImageUrl(s: string): boolean {
 /**
  * RWA 카드 히어로/리스트용 이미지 ref — 민트 구조는 그대로 두고, 응답 `imageUrl`만 빠르게 만든다.
  * 순서: (1) PSA `certImageSourceUrl`·Cardhedger `imageUrl` 중 **순수 HTTPS**(IPFS 경로 제외)
- * → (2) {@link extractCollectionRepresentativeImage} (크롭 커버·그 외 graded)
+ * → (2) {@link extractCollectionRepresentativeImage} (Cardhedger·PSA cert fallback)
  * → (3) 표준 `image`(보통 ipfs://).
  */
 export function pickRwaAssetDisplayImageRef(
@@ -93,7 +85,7 @@ export function pickRwaAssetDisplayImageRef(
 }
 
 /**
- * Trending / listing 카드용: 컬렉션 커버(크롭)보다 **슬랩 전체(인증 라벨 포함)**에 가까운 URL 우선.
+ * Trending / listing 카드용: **슬랩 전체(인증 라벨 포함)**에 가까운 URL 우선.
  * 순서: PSA 슬랩 원본 URL → Cardhedger → 민트 `image`(ipfs) → {@link extractCollectionRepresentativeImage}.
  */
 export function pickTrendingSlabImageRef(
@@ -123,23 +115,29 @@ export function pickTrendingSlabImageRef(
   return extractCollectionRepresentativeImage(meta);
 }
 
+/** @deprecated Legacy normalized cover API — migrate to direct HTTPS URLs. */
+export function isLegacyNormalizedCollectionCoverApiPath(
+  url: string | null | undefined,
+): boolean {
+  const t = (url ?? '').trim();
+  return /\/marketplace\/collections\/[^/?#]+\/cover-image\.jpg$/i.test(t);
+}
+
 export function isPsaCertSlabCloudfrontUrl(url: string): boolean {
   return url.includes('d1htnxwo4o0jhw.cloudfront.net/cert/');
 }
 
 /**
  * UI display URL for collection cards (list, carousel, detail hero).
- * Only persisted `coverImageUrl` (PSA spec / Cardhedger / TCG catalog) — never PSA cert slabs.
- *
- * `components.trendingSlabImageUrl` is mint-time slab reference for other surfaces only.
+ * Uses marketplace_collections.cover_image_url only.
  */
 export function pickCollectionDisplayImageUrl(
   coverImageUrl: string | null | undefined,
-  _components?: Record<string, unknown> | null | undefined,
 ): string | null {
-  const cover = coverImageUrl?.trim();
+  const cover = coverImageUrl?.trim() ?? '';
   if (!cover) return null;
   if (isPsaCertSlabCloudfrontUrl(cover)) return null;
+  if (isLegacyNormalizedCollectionCoverApiPath(cover)) return null;
   return cover;
 }
 

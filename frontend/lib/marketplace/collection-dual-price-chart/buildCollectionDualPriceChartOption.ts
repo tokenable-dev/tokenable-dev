@@ -95,6 +95,8 @@ export function buildCollectionDualPriceChartOption(input: {
   const axisLabelColor = isMobileChart ? AXIS_LABEL_MOBILE : AXIS_LABEL;
   const axisLabelSize = isMobileChart ? 10 : 13;
   const yAxisLabelSize = isMobileChart ? 10 : 11;
+  const yearViewYAxisNamePadBottom = isMobileChart ? 12 : 16;
+  const yearViewGridTop = compactTab ? 30 : isMobileChart ? 36 : 40;
 
   return {
     backgroundColor: "transparent",
@@ -102,11 +104,17 @@ export function buildCollectionDualPriceChartOption(input: {
     animationDuration: compactTab ? 0 : 250,
     textStyle: { color: axisLabelColor, fontFamily: "ui-sans-serif, system-ui, sans-serif" },
     grid: compactTab
-      ? { left: 38, right: 6, top: 20, bottom: 30, containLabel: false }
+      ? { left: 38, right: 6, top: isYearView ? yearViewGridTop : 20, bottom: 30, containLabel: false }
       : isMobileChart
-        ? { left: 44, right: 8, top: 26, bottom: 36, containLabel: false }
+        ? {
+            left: 44,
+            right: 8,
+            top: isYearView ? yearViewGridTop : 26,
+            bottom: 36,
+            containLabel: false,
+          }
         : isYearView
-          ? { left: 52, right: 12, top: 28, bottom: 32, containLabel: false }
+          ? { left: 52, right: 12, top: yearViewGridTop, bottom: 32, containLabel: false }
           : { left: 48, right: 10, top: 4, bottom: 22, containLabel: false },
     dataZoom: [
       { type: "inside", xAxisIndex: 0, filterMode: "none" },
@@ -155,12 +163,12 @@ export function buildCollectionDualPriceChartOption(input: {
       interval,
       name: isYearView ? "USD" : undefined,
       nameLocation: "end",
-      nameGap: isMobileChart ? 6 : 8,
+      nameGap: isMobileChart ? 10 : 12,
       nameTextStyle: {
         color: axisLabelColor,
         fontSize: yAxisLabelSize,
         align: "right",
-        padding: [0, 6, 0, 0],
+        padding: [0, 6, yearViewYAxisNamePadBottom, 0],
       },
       axisLine: { show: false },
       axisTick: { show: false },

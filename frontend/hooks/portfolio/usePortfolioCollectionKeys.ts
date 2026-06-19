@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { postTokenCollectionKeysByTokenIds, rq } from "@/lib/core";
+import { postTokenCollectionKeysByTokenIdsBatched, rq } from "@/lib/core";
 import {
   computeMarketBucketKey,
   extractBucketComponentsFromMetadata,
@@ -64,7 +64,7 @@ export function usePortfolioCollectionKeys(input: {
     queryKey: rq.portfolioBucketKeys(address ?? "", portfolioBucketKeysSig),
     queryFn: async () => {
       const o: Record<number, string> = {};
-      const backendResolved = await postTokenCollectionKeysByTokenIds(
+      const backendResolved = await postTokenCollectionKeysByTokenIdsBatched(
         assets.map((a) => a.tokenId),
       ).catch(() => ({} as Record<number, string>));
       for (const a of assets) {

@@ -319,6 +319,7 @@ export class CollectionMarketService {
     if (!cardId) {
       const resolved = await this.cardhedgerMarket.tryResolveCardIdByCert(
         col.psaCertNumber?.trim() ?? '',
+        { collection: col },
       );
       cardId = String(resolved?.cardId ?? '').trim();
     }
@@ -437,20 +438,12 @@ export class CollectionMarketService {
       }
 
       // ── Lazy cardId enrichment ─────────────────────────────────────────────
-      // When the collection exists but cardhedgerCardId is not yet resolved
-      // (e.g., minted before the MintEventListenerService cert-lookup was deployed,
-      // or identity seeding was a no-op because the mint metadata lacked a cardId),
-      // attempt a blocking cert → Cardhedger lookup so the comps resolve on THIS
-      // request rather than after a background enrichment cycle.
-      if (
-        col &&
-        bootstrapTokenId != null &&
-        !col.components?.cardhedgerCardId &&
-        col.psaCertNumber?.trim()
-      ) {
+      // Persist cert → cardId when missing so later pricing paths can reuse it.
+      if (col && !col.components?.cardhedgerCardId && col.psaCertNumber?.trim()) {
         try {
           const resolved = await this.cardhedgerMarket.tryResolveCardIdByCert(
             col.psaCertNumber.trim(),
+            { collection: col },
           );
           if (resolved?.cardId) {
             await this.collectionService.mergeComponentsForMintBootstrap(k, {
@@ -482,34 +475,10 @@ export class CollectionMarketService {
             rawCount: CARDHEDGER_COMPS_HISTORY_RAW_COUNT,
           }
         : { tier, rawCount: CARDHEDGER_COMPS_HISTORY_RAW_COUNT };
-      let comps = await this.cardhedgerMarket.getCompsSnapshotForCollection(
+      const comps = await this.cardhedgerMarket.getCompsSnapshotForTradesTape(
         col,
         compsOpts,
       );
-      const compsTapeEmpty =
-        !comps.matched || !Array.isArray(comps.rawSales) || comps.rawSales.length === 0;
-      if (
-        compsTapeEmpty &&
-        bootstrapTokenId != null &&
-        Number.isFinite(bootstrapTokenId) &&
-        bootstrapTokenId >= 0
-      ) {
-        const tokenComps =
-          await this.cardhedgerMarket.getCompsSnapshotForTokenId(
-            Math.floor(bootstrapTokenId),
-            compsOpts,
-          );
-        if (
-          tokenComps.matched &&
-          Array.isArray(tokenComps.rawSales) &&
-          tokenComps.rawSales.length > 0
-        ) {
-          comps = tokenComps;
-          this.logger.debug(
-            `platform-trades: comps from mint metadata for token ${Math.floor(bootstrapTokenId)}`,
-          );
-        }
-      }
       cardhedgerTrades = cardhedgerRawSalesToTapeRows(
         comps.rawSales,
         comps.cardId,
@@ -519,6 +488,57 @@ export class CollectionMarketService {
       this.logger.warn(
         `platform-trades: Cardhedger comps skipped for ${k}: ${msg}`,
       );
+    }
+
+    const merged = mergePlatformAndCardhedgerTape(
+      platformTrades,
+      cardhedgerTrades,
+    );
+    const volume = computeCollectionTradesVolumeStats(merged);
+
+    return { platformUsd, trades: merged, volume };
+  }
+
+  /**
+   * Trades tape for a single RWA token — no marketplace_collections row required.
+   * Platform fills for this tokenId + Cardhedger comps from mint metadata (cert → cardId).
+   */
+  async rwaTradesForApi(
+    tokenId: number,
+    opts?: { cardhedgerGrade?: string },
+  ): Promise<{
+    platformUsd: UsdPoint[];
+    trades: PlatformTapeFillRow[];
+    volume: CollectionTradesVolumeStats;
+  }> {
+    const id = Math.floor(Number(tokenId));
+    if (!Number.isFinite(id) || id < 0) {
+      throw new BadRequestException('Invalid token id');
+    }
+
+    const { platformUsd, platformTrades } =
+      await this.buildPlatformTradesForTokenId(id);
+
+    let cardhedgerTrades: PlatformTapeFillRow[] = [];
+    try {
+      const cardhedgerGrade = String(opts?.cardhedgerGrade ?? '').trim();
+      const compsOpts = cardhedgerGrade
+        ? {
+            gradeLabel: cardhedgerGrade,
+            rawCount: CARDHEDGER_COMPS_HISTORY_RAW_COUNT,
+          }
+        : { rawCount: CARDHEDGER_COMPS_HISTORY_RAW_COUNT };
+      const comps = await this.cardhedgerMarket.getCompsSnapshotForTokenId(
+        id,
+        compsOpts,
+      );
+      cardhedgerTrades = cardhedgerRawSalesToTapeRows(
+        comps.rawSales,
+        comps.cardId,
+      );
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.logger.warn(`rwa-trades: Cardhedger comps skipped for #${id}: ${msg}`);
     }
 
     const merged = mergePlatformAndCardhedgerTape(
@@ -569,6 +589,54 @@ export class CollectionMarketService {
         t: Math.floor(o.updatedAt.getTime() / 1000),
         priceUsdc,
         tokenId,
+        orderHash: o.orderHash,
+        tapeAggressor: tapeAggressorFromOrderParameters(o.parameters),
+        source: 'platform' as const,
+      }));
+    return { platformUsd, platformTrades };
+  }
+
+  /** Fulfilled on-platform sales for one RWA token (collection row optional). */
+  private async buildPlatformTradesForTokenId(tokenId: number): Promise<{
+    platformUsd: UsdPoint[];
+    platformTrades: PlatformTapeFillRow[];
+  }> {
+    const tid = String(Math.floor(tokenId));
+    const rows = await this.orderRepo.find({
+      where: {
+        tokenId: tid,
+        status: OrderStatus.FULFILLED,
+      },
+      order: { updatedAt: 'DESC' },
+      take: this.platformTradesScanMax(),
+    });
+    const validNewestFirst: {
+      order: Order;
+      tokenId: string;
+      priceUsdc: number;
+    }[] = [];
+    for (const o of rows) {
+      const priceUsdc = this.usdcPriceFromOrder(o, 'rwa-trades');
+      const fill = resolvePlatformTapeFill(o, priceUsdc);
+      if (!fill) continue;
+      if (fill.tokenId !== tid) continue;
+      validNewestFirst.push({
+        order: o,
+        tokenId: fill.tokenId,
+        priceUsdc: fill.priceUsdc,
+      });
+    }
+    const chronological = [...validNewestFirst].reverse();
+    const platformUsd: UsdPoint[] = chronological.map(({ order: o, priceUsdc }) => ({
+      t: Math.floor(o.updatedAt.getTime() / 1000),
+      v: priceUsdc,
+    }));
+    const platformTrades: PlatformTapeFillRow[] = [...chronological]
+      .reverse()
+      .map(({ order: o, tokenId: rowTokenId, priceUsdc }) => ({
+        t: Math.floor(o.updatedAt.getTime() / 1000),
+        priceUsdc,
+        tokenId: rowTokenId,
         orderHash: o.orderHash,
         tapeAggressor: tapeAggressorFromOrderParameters(o.parameters),
         source: 'platform' as const,

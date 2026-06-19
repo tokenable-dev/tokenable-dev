@@ -553,10 +553,34 @@ export class CardhedgerMintService {
     const tier =
       String(options?.tier ?? '').trim() ||
       marketHistoryTierFromComponents(syntheticCol.components);
-
-    return this.pricing.getCompsSnapshotForCollection(syntheticCol, {
+    const compsOpts = {
       ...(gradeLabel ? { gradeLabel } : { tier }),
       rawCount: options?.rawCount,
-    });
+    };
+    const q = this.resolve.buildCollectionQuery(syntheticCol).query;
+
+    if (batchRow) {
+      const cardId =
+        typeof batchRow.card_id === 'string' ? batchRow.card_id.trim() : '';
+      if (cardId) {
+        return this.pricing.getCompsSnapshotByCardIdDirect(cardId, {
+          ...compsOpts,
+          searchQuery: q,
+          catalogRow: batchRow,
+        });
+      }
+    }
+
+    const storedId = String(
+      syntheticCol.components?.cardhedgerCardId ?? '',
+    ).trim();
+    if (storedId) {
+      return this.pricing.getCompsSnapshotByCardIdDirect(storedId, {
+        ...compsOpts,
+        searchQuery: q,
+      });
+    }
+
+    return this.pricing.getCompsSnapshotForCollection(syntheticCol, compsOpts);
   }
 }

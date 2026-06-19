@@ -132,3 +132,117 @@ export function relaxedCatalogMatchForAudit(
 
   return { ok: failCodes.length === 0, failCodes };
 }
+
+export type CatalogTrustHints = {
+  cardName: string;
+  cardNumber: string;
+  cardSet: string;
+  psaSubject?: string;
+  psaBrand?: string;
+  psaYear?: string;
+  cardhedgerSearchQuery?: string;
+  listingDisplayTitle?: string;
+};
+
+/** First 4-digit year in [1990, 2100] from catalog copy (set name, PSA brand, listing title, …). */
+export function extractLeadingCatalogYear(text: string | null | undefined): number | null {
+  const m = String(text ?? '').match(/\b(19\d{2}|20\d{2})\b/);
+  if (!m) return null;
+  const y = parseInt(m[1], 10);
+  return y >= 1990 && y <= 2100 ? y : null;
+}
+
+export function catalogYearFromTrustHints(hints: CatalogTrustHints): number | null {
+  const fromField = extractLeadingCatalogYear(hints.psaYear);
+  if (fromField != null) return fromField;
+  for (const blob of [
+    hints.psaBrand,
+    hints.cardSet,
+    hints.listingDisplayTitle,
+    hints.cardhedgerSearchQuery,
+  ]) {
+    const y = extractLeadingCatalogYear(blob);
+    if (y != null) return y;
+  }
+  return null;
+}
+
+export function catalogYearFromCardhedgerRow(row: Record<string, unknown>): number | null {
+  const set = isRecord(row.set) ? row.set : null;
+  const setName =
+    typeof set?.name === 'string' ? set.name : String(row.set ?? '');
+  const blob = [
+    setName,
+    typeof row.name === 'string' ? row.name : '',
+    typeof row.description === 'string' ? row.description : '',
+    typeof row.variant === 'string' ? row.variant : '',
+  ].join(' ');
+  return extractLeadingCatalogYear(blob);
+}
+
+/**
+ * Stricter than {@link relaxedCatalogMatchForAudit} for comps / trades / stored card_id trust.
+ * Rejects cross-era mismatches (e.g. 2000 Italian Base Set vs 2023 SV promo) when both years are known.
+ */
+export function catalogRowTrustedForMarketData(
+  hints: CatalogTrustHints,
+  row: Record<string, unknown>,
+): { ok: boolean; failCodes: string[] } {
+  const wantNum = primaryCardNumber(hints.cardNumber).trim();
+  if (!wantNum) {
+    return { ok: false, failCodes: ['missing_card_number'] };
+  }
+
+  const audit = relaxedCatalogMatchForAudit(
+    {
+      cardName: hints.cardName,
+      cardNumber: hints.cardNumber,
+      cardSet: hints.cardSet,
+      psaSubject: hints.psaSubject,
+      psaBrand: hints.psaBrand,
+    },
+    row,
+  );
+  if (!audit.ok) return audit;
+
+  const hintYear = catalogYearFromTrustHints(hints);
+  const rowYear = catalogYearFromCardhedgerRow(row);
+  if (hintYear != null && rowYear != null && Math.abs(hintYear - rowYear) > 1) {
+    return { ok: false, failCodes: [...audit.failCodes, 'year_mismatch'] };
+  }
+
+  return audit;
+}
+
+export function catalogTrustHintsFromComponents(
+  comp: Record<string, unknown> | null | undefined,
+): CatalogTrustHints {
+  const c = comp ?? {};
+  return {
+    cardName: String(c.cardName ?? '').trim(),
+    cardNumber: String(c.cardNumber ?? '').trim(),
+    cardSet: String(c.cardSet ?? '').trim(),
+    psaSubject:
+      typeof c.psaSubject === 'string' && c.psaSubject.trim()
+        ? c.psaSubject.trim()
+        : undefined,
+    psaBrand:
+      typeof c.psaBrand === 'string' && c.psaBrand.trim()
+        ? c.psaBrand.trim()
+        : undefined,
+    psaYear:
+      typeof c.psaYear === 'string' && c.psaYear.trim()
+        ? c.psaYear.trim()
+        : typeof c.psaYear === 'number' && Number.isFinite(c.psaYear)
+          ? String(Math.floor(c.psaYear))
+          : undefined,
+    cardhedgerSearchQuery:
+      typeof c.cardhedgerSearchQuery === 'string' && c.cardhedgerSearchQuery.trim()
+        ? c.cardhedgerSearchQuery.trim()
+        : undefined,
+    listingDisplayTitle:
+      typeof c.listingDisplayTitle === 'string' && c.listingDisplayTitle.trim()
+        ? c.listingDisplayTitle.trim()
+        : undefined,
+  };
+}

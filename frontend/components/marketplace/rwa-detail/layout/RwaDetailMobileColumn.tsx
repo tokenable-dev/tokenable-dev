@@ -13,6 +13,7 @@ import { RwaDetailOwnerListingPanel } from "../ui/RwaDetailOwnerListingPanel";
 import type { Order } from "@/lib/core";
 import type { AssetDetailHeadlineParts } from "@/lib/marketplace/assetDetailHeadline";
 import {
+  RWA_DETAIL_DESKTOP_SLAB_TOP_INSET_CLASS,
   RWA_DETAIL_MOBILE_SLAB_TOP_INSET_CLASS,
   RWA_MOBILE_SLAB_STACK_CLASS,
   RWA_MOBILE_STICKY_FOOTER_RESERVE_CLASS,
@@ -77,7 +78,7 @@ export function RwaDetailMobileColumn({
       className={`relative flex w-full min-w-0 flex-col max-lg:min-h-0 max-lg:flex-1 ${RWA_MOBILE_STICKY_FOOTER_RESERVE_CLASS} lg:col-start-1 lg:items-start lg:justify-start`}
     >
       <div
-        className={`flex min-h-0 w-full flex-1 flex-col items-center py-2 max-lg:overflow-y-auto max-lg:overscroll-y-contain lg:items-start lg:justify-start lg:px-0 ${RWA_DETAIL_MOBILE_SLAB_TOP_INSET_CLASS}`}
+        className={`flex min-h-0 w-full flex-1 flex-col items-center py-2 max-lg:overflow-y-auto max-lg:overscroll-y-contain lg:items-start lg:justify-start lg:px-0 ${RWA_DETAIL_MOBILE_SLAB_TOP_INSET_CLASS} ${RWA_DETAIL_DESKTOP_SLAB_TOP_INSET_CLASS}`}
       >
         <div className={RWA_MOBILE_SLAB_STACK_CLASS}>
           <RwaDetailAssetPanel

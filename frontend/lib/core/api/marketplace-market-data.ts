@@ -333,6 +333,36 @@ export async function getCollectionPlatformTrades(
   }>;
 }
 
+/** Trades for one RWA token — works without a marketplace collection row. */
+export async function getRwaTokenTrades(
+  tokenId: number,
+  opts?: { grade?: string },
+): Promise<{
+  platformUsd: CollectionUsdPoint[];
+  trades: CollectionPlatformTapeFill[];
+  volume: CollectionTradesVolumeStats;
+}> {
+  const id = Math.floor(Number(tokenId));
+  const qs = new URLSearchParams();
+  const grade = opts?.grade?.trim();
+  if (grade) qs.set("grade", grade);
+  const query = qs.toString();
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/rwa/${id}/trades${query ? `?${query}` : ""}`,
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(
+      (err as { message?: string }).message ?? "Failed to load RWA trades",
+    );
+  }
+  return res.json() as Promise<{
+    platformUsd: CollectionUsdPoint[];
+    trades: CollectionPlatformTapeFill[];
+    volume: CollectionTradesVolumeStats;
+  }>;
+}
+
 export interface CollectionListMarketSnapshot {
   collectionKey: string;
   categoryLabel: string | null;

@@ -68,7 +68,7 @@ export function useRwaDetailPage() {
   const platformTrades = useRwaDetailPlatformTrades({
     tokenId,
     tokenIdOk,
-    collectionKey: market.collectionKeyForMatch,
+    metadata: metadata as Record<string, unknown> | null,
   });
 
   const headline = useRwaDetailHeadline(

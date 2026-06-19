@@ -4,11 +4,14 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { Address } from "viem";
 import { useResolvedMediaUrl } from "@/hooks/media";
-import type { AdminListedRwaCardRow } from "@/lib/core";
+import type { AdminListedRwaCardRow, CollectionListMarketSnapshot } from "@/lib/core";
+import { representativeGradeUsd } from "@/lib/market";
+import { AdminMarketPriceStrip } from "./AdminMarketPriceStrip";
 
 export function MarketplaceAdminCardRow({
   row,
   adminWallet,
+  snapshot,
   busy,
   onSave,
   onPreviewMetadata,
@@ -16,6 +19,7 @@ export function MarketplaceAdminCardRow({
 }: {
   row: AdminListedRwaCardRow;
   adminWallet: Address;
+  snapshot?: CollectionListMarketSnapshot;
   busy: boolean;
   onSave: (patch: {
     displayImageUrl?: string | null;
@@ -96,6 +100,9 @@ export function MarketplaceAdminCardRow({
 
   const disabled = busy || rowBusy != null;
 
+  const refUsd = representativeGradeUsd(snapshot?.gradePrices, 10, "10");
+  const floorUsd = snapshot?.marketStats?.floor ?? null;
+
   return (
     <article className="rounded-xl border border-zinc-800/90 bg-zinc-950/60 p-3 sm:p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
@@ -126,9 +133,14 @@ export function MarketplaceAdminCardRow({
                 </Link>
               </h3>
               <p className="font-mono text-[10px] text-zinc-500">
-                ${row.priceUsdc.toLocaleString("en-US", { maximumFractionDigits: 2 })}{" "}
-                · cert {row.certNumber ?? "—"}
+                cert {row.certNumber ?? "—"}
               </p>
+              <AdminMarketPriceStrip
+                askUsd={row.priceUsdc}
+                refUsd={refUsd}
+                floorUsd={floorUsd}
+                compact
+              />
             </div>
             <span className="font-mono text-[10px] text-amber-200/50">
               {adminWallet.slice(0, 6)}…{adminWallet.slice(-4)}

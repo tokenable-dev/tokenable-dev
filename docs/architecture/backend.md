@@ -37,7 +37,7 @@ backend/src/
 ├── config/
 │   ├── app.config.ts
 │   ├── marketplace.config.ts   # Admin wallets, order scan limits, merkle tuning
-│   └── psa.config.ts
+│   └── cardladder.config.ts
 │
 ├── common/
 │   ├── cache/               # Global MemoryTtlCacheProvider (TTL_CACHE_PROVIDER)
@@ -50,7 +50,7 @@ backend/src/
 │
 ├── rwa/                     # IPFS upload (Pinata) — PSA 10 gate on mint metadata
 ├── blockchain/              # Sepolia read-only RWA + IPFS gateway resolver
-├── psa/                     # Slab OCR, analyze-by-cert, Public API, spec-page scraper
+├── psa/                     # Slab OCR, analyze-by-cert, Public API
 ├── cardhedger/              # Upstream HTTP client (server-to-server)
 │   └── admin/               # CardhedgerAdminModule — health, circuit, metrics, prometheus
 │

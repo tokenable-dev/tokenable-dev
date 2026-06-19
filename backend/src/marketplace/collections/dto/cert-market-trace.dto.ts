@@ -1,6 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
-  IsBoolean,
   IsInt,
   IsOptional,
   IsString,
@@ -35,13 +34,4 @@ export class CertMarketTraceDto {
   @Min(1)
   @Max(365)
   historyMaxCalendarDays?: number;
-
-  @ApiPropertyOptional({
-    description:
-      'PSA `specId`가 있을 때, psacard.com spec 카탈로그 이미지 URL을 Playwright로 스크랩해 포함합니다(느리지만 장기적으로 가장 정확한 카탈로그 컷). `false`면 건너뜁니다.',
-    default: true,
-  })
-  @IsOptional()
-  @IsBoolean()
-  scrapePsaSpecImage?: boolean;
 }
