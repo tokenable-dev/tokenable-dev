@@ -63,7 +63,7 @@ export function SiteAccessClient() {
               autoFocus
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-lg border border-zinc-700 bg-black px-3 py-2.5 text-sm text-white outline-none ring-mint/40 placeholder:text-zinc-600 focus:border-mint/50 focus:ring-2"
+              className="w-full rounded-lg border border-zinc-700 bg-black px-3 py-2.5 text-base text-white outline-none ring-mint/40 placeholder:text-zinc-600 focus:border-mint/50 focus:ring-2"
               placeholder="Enter password"
               disabled={pending}
             />
