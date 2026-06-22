@@ -8,6 +8,7 @@ import {
   COLLECTION_HERO_DESKTOP_HEIGHT_CLASS,
 } from "@/components/marketplace/collectionOverviewChrome";
 import { useResolvedMediaUrl } from "@/hooks/media";
+import { collectionCoverImageStyle } from "@/lib/marketplace/cardhedgerBubbleCoverImage";
 
 function CollectionCoverLightbox({
   open,
@@ -57,7 +58,7 @@ function CollectionCoverLightbox({
           src={resolvedUrl}
           alt={alt || "Collection cover"}
           className="max-h-[min(82vh,820px)] w-full object-contain object-center"
-          style={{ filter: "saturate(1.04) contrast(1.02)" }}
+          style={collectionCoverImageStyle(resolvedUrl)}
         />
       </div>
     </button>,
@@ -118,7 +119,7 @@ export function CollectionCoverFrame({
               src={resolved}
               alt={alt}
               className="absolute inset-0 h-full w-full object-contain object-center"
-              style={{ filter: "saturate(1.04) contrast(1.02)" }}
+              style={collectionCoverImageStyle(resolved)}
               onError={handleImageError}
             />
           ) : imgFailed ? (
@@ -236,7 +237,7 @@ export function CollectionCoverFrame({
                 src={resolved}
                 alt={alt}
                 className="absolute inset-0 h-full w-full object-contain object-center"
-                style={{ filter: "saturate(1.04) contrast(1.02)" }}
+                style={collectionCoverImageStyle(resolved)}
                 onError={handleImageError}
               />
               {heroInteractive ? (
