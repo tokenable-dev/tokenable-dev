@@ -1,8 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useConnect } from "wagmi";
-import { connectMetaMaskWallet } from "@/lib/wallet/connectMetaMaskWallet";
+import { useTradeAccessGate } from "@/hooks/auth/useTradeAccessGate";
 import type { RwaDetailLoadedProps } from "@/hooks/rwa-detail";
 import { RwaDetailDesktopSidebar } from "./layout/RwaDetailDesktopSidebar";
 import { RwaDetailMobileColumn } from "./layout/RwaDetailMobileColumn";
@@ -33,7 +32,8 @@ export function RwaDetailLoadedView({
   router,
   address,
 }: RwaDetailLoadedProps) {
-  const { connect, connectors } = useConnect();
+  const tradeReturnTo = `/marketplace/${tokenId}`;
+  const { runTradeAccessGate } = useTradeAccessGate(tradeReturnTo);
   const [bidModalOpen, setBidModalOpen] = useState(false);
 
   const handleBidPurchaseFilled = () => {
@@ -49,17 +49,19 @@ export function RwaDetailLoadedView({
   };
 
   const handleConnectWallet = () => {
-    connectMetaMaskWallet(connect, connectors);
+    runTradeAccessGate();
+  };
+
+  const handleFulfillAsk = () => {
+    runTradeAccessGate(() => void buyFlow.handleFulfillAsk());
   };
 
   const handleOpenPlaceBid = () => {
-    if (!isConnected) {
-      handleConnectWallet();
-      return;
-    }
-    if (market.collectionKeyForMatch) {
-      setBidModalOpen(true);
-    }
+    runTradeAccessGate(() => {
+      if (market.collectionKeyForMatch) {
+        setBidModalOpen(true);
+      }
+    });
   };
 
   const mobileStickyFooterNote =
@@ -99,7 +101,7 @@ export function RwaDetailLoadedView({
           connectPending={connectPending}
           collectionHref={market.collectionHref}
           collectionKey={collectionKey}
-          onFulfillAsk={() => void buyFlow.handleFulfillAsk()}
+          onFulfillAsk={handleFulfillAsk}
           onConnectWallet={handleConnectWallet}
           onOpenPlaceBid={collectionKey ? handleOpenPlaceBid : undefined}
           onOpenListModal={listFlow.openListModal}
@@ -128,7 +130,7 @@ export function RwaDetailLoadedView({
           tokenTrades={platformTrades.trades}
           tradesLoading={platformTrades.tradesLoading}
           tradesAvailable={platformTrades.tradesAvailable}
-          onFulfillAsk={() => void buyFlow.handleFulfillAsk()}
+          onFulfillAsk={handleFulfillAsk}
           onConnectWallet={handleConnectWallet}
           onOpenPlaceBid={collectionKey ? handleOpenPlaceBid : undefined}
           collectionKey={collectionKey}

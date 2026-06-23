@@ -9,6 +9,7 @@ import {
   readSiteAccessConfig,
   verifySiteAccessToken,
 } from './site-access.util';
+import { isAuthPublicApiPath } from '../auth/auth-oauth.util';
 
 @Injectable()
 export class SiteAccessMiddleware implements NestMiddleware {
@@ -21,6 +22,10 @@ export class SiteAccessMiddleware implements NestMiddleware {
 
     const path = (req.originalUrl ?? req.url ?? '').split('?')[0];
     if (isSiteAccessPublicApiPath(path, req.method)) {
+      next();
+      return;
+    }
+    if (isAuthPublicApiPath(path, req.method)) {
       next();
       return;
     }

@@ -8,6 +8,7 @@ export * from "./marketplace-collections";
 export * from "./marketplace-admin-rwa";
 export * from "./marketplace-market-data";
 export * from "./portfolio";
+export * from "./watchlist";
 export * from "./cardladder-indexes";
 export * from "./cardhedger";
 export * from "../rwa-mint-bootstrap";

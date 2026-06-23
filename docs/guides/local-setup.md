@@ -61,7 +61,7 @@ REDIS_URL=redis://127.0.0.1:6380
 JWT_SECRET=your_jwt_secret_here
 GOOGLE_CLIENT_ID=your_google_client_id
 GOOGLE_CLIENT_SECRET=your_google_client_secret
-GOOGLE_CALLBACK_URL=http://localhost:4100/api/auth/google/callback
+GOOGLE_CALLBACK_URL=http://localhost:3000/api/auth/google/callback
 FRONTEND_URL=http://localhost:3000
 
 # Blockchain (Sepolia)

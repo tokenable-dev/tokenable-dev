@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { ReadonlyURLSearchParams } from "next/navigation";
 import type { useRouter } from "next/navigation";
 import type { TradeCelebrationKind } from "@/lib/marketplace/marketplaceTradingTypes";
+import { useSellAccessGate } from "@/hooks/auth/useSellAccessGate";
 
 export function useRwaDetailListFlow(input: {
   tokenId: number;
@@ -17,6 +18,9 @@ export function useRwaDetailListFlow(input: {
   const { tokenId, tokenIdOk, searchParams, router, isOwner, isConnected, ownerLoading } =
     input;
 
+  const listReturnTo = `/marketplace/${tokenId}?list=1`;
+  const { runSellAccessGate } = useSellAccessGate(listReturnTo);
+
   const [listModalOpen, setListModalOpen] = useState(false);
   const [listModalInitialPrice, setListModalInitialPrice] = useState<string | null>(null);
   const [tradeCelebration, setTradeCelebration] = useState<TradeCelebrationKind | null>(
@@ -25,10 +29,12 @@ export function useRwaDetailListFlow(input: {
 
   const openListModal = useCallback(
     (initialPriceUsdc: string | null = null) => {
-      setListModalInitialPrice(initialPriceUsdc);
-      setListModalOpen(true);
+      runSellAccessGate(() => {
+        setListModalInitialPrice(initialPriceUsdc);
+        setListModalOpen(true);
+      });
     },
-    [],
+    [runSellAccessGate],
   );
 
   const closeListModal = useCallback(() => {
@@ -41,7 +47,10 @@ export function useRwaDetailListFlow(input: {
     if (searchParams.get("list") !== "1") return;
     if (!tokenIdOk || ownerLoading) return;
     if (isOwner && isConnected) {
-      openListModal(null);
+      runSellAccessGate(() => {
+        setListModalInitialPrice(null);
+        setListModalOpen(true);
+      });
     }
     const fc = searchParams.get("fromCollection");
     const next =
@@ -57,7 +66,7 @@ export function useRwaDetailListFlow(input: {
     isConnected,
     tokenId,
     router,
-    openListModal,
+    runSellAccessGate,
   ]);
 
   return {

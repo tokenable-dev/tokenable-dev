@@ -2,9 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
-import { useAccount, usePublicClient, useWriteContract } from "wagmi";
+import { useRouter, useSearchParams } from "next/navigation";
+import { usePublicClient, useWriteContract } from "wagmi";
 import { sepolia } from "viem/chains";
+import { useLinkedPortfolioWallet } from "@/hooks/auth/useLinkedPortfolioWallet";
 import {
   usePortfolioAssetList,
   usePortfolioCollectionKeys,
@@ -25,10 +26,13 @@ import {
 import { buildPortfolioTxRows } from "@/lib/portfolio/buildPortfolioTxRows";
 import type { OwnedAsset, PricedAssetRow } from "@/lib/portfolio/portfolioTypes";
 import { APP_MAIN_SHELL_CLASS } from "@/constants/layout";
+import { useAuthStore } from "@/store/authStore";
+import { useAuthUiStore } from "@/store/authUiStore";
 import {
   PortfolioActivitySection,
   PortfolioCollectionBidsSection,
   PortfolioDisconnectedState,
+  PortfolioGuestState,
   PortfolioCancelBidConfirmModal,
   PortfolioHideConfirmModal,
   PortfolioHoldingsSection,
@@ -36,20 +40,42 @@ import {
   type PortfolioMainTab,
   PortfolioSummaryBar,
   PortfolioValuePanel,
+  PortfolioWatchlistSection,
 } from "@/components/portfolio";
 import { CollectionChangeBidModal } from "@/components/marketplace/collection-trading/CollectionChangeBidModal";
 import { isMarketplaceAdminWallet } from "@/lib/marketplace";
+import { useSellAccessGate } from "@/hooks/auth/useSellAccessGate";
 
 export default function PortfolioPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
-  const { address, isConnected } = useAccount();
+  const user = useAuthStore((s) => s.user);
+  const openWalletMismatch = useAuthUiStore((s) => s.openWalletMismatch);
+  const { runSellAccessGate } = useSellAccessGate("/portfolio");
+  const wallet = useLinkedPortfolioWallet();
+  const { connectedAddress, isConnected } = wallet;
+  const portfolioAddress = wallet.portfolioAddress;
+  const signerAddress = wallet.canSign ? connectedAddress : undefined;
   const publicClient = usePublicClient({ chainId: sepolia.id });
   const { writeContractAsync } = useWriteContract();
   const isMobileViewport = useIsMobileViewport();
   const [portfolioChartOpen, setPortfolioChartOpen] = useState(false);
   const [portfolioMainTab, setPortfolioMainTab] = useState<PortfolioMainTab>("collectibles");
-  const isBurnAdmin = isMarketplaceAdminWallet(address);
+
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (tab === "watchlist" || tab === "bids" || tab === "collectibles") {
+      setPortfolioMainTab(tab);
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (!user || !wallet.hasLinkedWallet || !wallet.walletMismatch) return;
+    openWalletMismatch({ returnTo: "/portfolio" });
+  }, [user, wallet.hasLinkedWallet, wallet.walletMismatch, openWalletMismatch]);
+
+  const isBurnAdmin = isMarketplaceAdminWallet(connectedAddress);
 
   const {
     assets: hookAssets,
@@ -59,11 +85,23 @@ export default function PortfolioPage() {
     isLoadingMetadata: assetsLoading,
     isLoadingHistoryBatch: historyBatchLoading,
     refetchActiveOrders,
-  } = useUserAssets(isConnected ? address : undefined, {
-    enabled: Boolean(address && isConnected),
+  } = useUserAssets(portfolioAddress, {
+    enabled: Boolean(portfolioAddress),
     includeOrderHistory: true,
     includeMarketPreview: false,
   });
+
+  useEffect(() => {
+    if (typeof window === "undefined" || window.location.hash !== "#transaction-history") return;
+    const scrollToHistory = () => {
+      document.getElementById("transaction-history")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    };
+    const timer = window.setTimeout(scrollToHistory, 150);
+    return () => window.clearTimeout(timer);
+  }, [searchParams, idsLoading, historyBatchLoading]);
 
   const assets: OwnedAsset[] = useMemo(
     () =>
@@ -75,16 +113,19 @@ export default function PortfolioPage() {
     [hookAssets],
   );
 
-  const { hiddenSet } = usePortfolioHiddenHoldings(address, isConnected);
+  const { hiddenSet } = usePortfolioHiddenHoldings(
+    portfolioAddress,
+    Boolean(portfolioAddress),
+  );
 
   const listingCollectionKeyByToken = usePortfolioListingCollectionKeys(
     allOrders,
-    address,
+    portfolioAddress,
   );
 
   const { tokenToCollectionKey, uniqueCollectionKeys } = usePortfolioCollectionKeys({
-    address,
-    isConnected,
+    address: portfolioAddress,
+    isConnected: Boolean(portfolioAddress),
     assets,
     listingCollectionKeyByToken,
   });
@@ -95,8 +136,8 @@ export default function PortfolioPage() {
     mintPreviewByToken,
     valuesPending,
   } = usePortfolioMarketPricing({
-    address,
-    isConnected,
+    address: portfolioAddress,
+    isConnected: Boolean(portfolioAddress),
     assets,
     uniqueCollectionKeys,
     tokenToCollectionKey,
@@ -108,9 +149,10 @@ export default function PortfolioPage() {
         (o) =>
           o.status === "active" &&
           o.side === "ask" &&
-          (o.offerer?.trim().toLowerCase() ?? "") === address?.toLowerCase(),
+          (o.offerer?.trim().toLowerCase() ?? "") ===
+            portfolioAddress?.toLowerCase(),
       ),
-    [allOrders, address],
+    [allOrders, portfolioAddress],
   );
 
   const listingByTokenId = useMemo(() => {
@@ -179,25 +221,25 @@ export default function PortfolioPage() {
   }, [assetFilter, setAssetFilter]);
 
   const holdingActions = usePortfolioHoldingActions({
-    address,
+    address: signerAddress,
     queryClient,
     publicClient: publicClient ?? undefined,
     writeContractAsync,
     refetchActiveOrders,
   });
 
-  const myBids = usePortfolioMyBids(address);
+  const myBids = usePortfolioMyBids(portfolioAddress);
   const bidActions = usePortfolioBidActions({
-    address,
+    address: signerAddress,
     queryClient,
     refetchActiveOrders,
     refetchPortfolioBids: () => myBids.refetchBids(),
   });
 
   const txRows = useMemo(() => {
-    if (!address) return [];
-    return buildPortfolioTxRows(fulfilledOrders, address, assets);
-  }, [fulfilledOrders, address, assets]);
+    if (!portfolioAddress) return [];
+    return buildPortfolioTxRows(fulfilledOrders, portfolioAddress, assets);
+  }, [fulfilledOrders, portfolioAddress, assets]);
 
   const totalValue = useMemo(
     () => holdingsAssetRows.reduce((s, r) => s + (r.currentPrice ?? 0), 0),
@@ -211,19 +253,28 @@ export default function PortfolioPage() {
     hasDailyPnl,
     dailyChartPoints,
     dailyChartLabels,
-  } = usePortfolioDailyChart(address, isConnected);
+  } = usePortfolioDailyChart(portfolioAddress, Boolean(portfolioAddress));
 
   const totalTrades = fulfilledOrders.length;
   const assetsSectionLoading = idsLoading || assetsLoading;
   const chartTotalsPending = idsLoading || dailySnapshotsLoading;
 
-  if (!isConnected) {
+  if (!user) {
+    return <PortfolioGuestState />;
+  }
+
+  if (!wallet.hasLinkedWallet) {
     return <PortfolioDisconnectedState />;
   }
 
   return (
     <div className="min-h-screen min-w-0 overflow-x-clip bg-black text-white">
       <div className={`${APP_MAIN_SHELL_CLASS} py-5 pb-16 sm:py-8 sm:pb-20`}>
+        {!isConnected ? (
+          <p className="mb-4 rounded-xl border border-gray-800 bg-gray-900/40 px-4 py-3 text-xs text-gray-400">
+            Connect MetaMask to manage listings and bids.
+          </p>
+        ) : null}
         <PortfolioSummaryBar
           holdingsCount={holdingsAssetRows.length}
           totalTrades={totalTrades}
@@ -256,7 +307,7 @@ export default function PortfolioPage() {
               setAssetFilter={setAssetFilter}
               hiddenAssetCount={hiddenAssetRows.length}
               filteredAssetRows={filteredAssetRows}
-              address={address}
+              address={portfolioAddress}
               valuesPending={valuesPending}
               isBurnAdmin={isBurnAdmin}
               cancellingListingTokenId={holdingActions.cancellingListingTokenId}
@@ -265,7 +316,9 @@ export default function PortfolioPage() {
               unhidingTokenId={holdingActions.unhidingTokenId}
               onOpenToken={(tokenId) => router.push(`/marketplace/${tokenId}`)}
               onChangeListing={(tokenId) =>
-                router.push(`/marketplace/${tokenId}?list=1`)
+                runSellAccessGate(() =>
+                  router.push(`/marketplace/${tokenId}?list=1`),
+                )
               }
               onRequestHide={(r) => {
                 holdingActions.requestHide(r.tokenId, r.name, r.listPriceUsd != null);
@@ -294,6 +347,7 @@ export default function PortfolioPage() {
               onChangePrice={(hash, key) => void bidActions.openChangeBid(hash, key)}
             />
           }
+          watchlistPanel={<PortfolioWatchlistSection />}
         />
 
         <PortfolioActivitySection
@@ -308,7 +362,7 @@ export default function PortfolioPage() {
           bid={bidActions.changeModal.bid}
           collectionKey={bidActions.changeModal.collectionKey}
           activeAsks={bidActions.changeModal.activeAsks}
-          connectedAddress={address}
+          connectedAddress={signerAddress}
           onClose={bidActions.closeChangeModal}
           onUpdated={() =>
             void bidActions.handleBidUpdated(bidActions.changeModal!.collectionKey)

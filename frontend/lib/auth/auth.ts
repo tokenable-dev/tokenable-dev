@@ -1,4 +1,5 @@
 import { backendFetch, getApiUrl } from "../core/api/client";
+import type { LinkedWallet } from "./wallets";
 
 export interface AuthUser {
   id: string;
@@ -7,8 +8,8 @@ export interface AuthUser {
   pictureUrl: string | null;
   walletAddress: string | null;
   walletLinkedAt: string | null;
-  /** 플랫폼 이메일 인증(메일 링크) 완료 시각, 없으면 미인증 */
-  platformEmailVerifiedAt: string | null;
+  wallets?: LinkedWallet[];
+  emailVerified: boolean;
 }
 
 /** 세션 없으면 null (`/auth/session` 은 항상 200 — 미인증 시 `{ user: null }`) */
@@ -31,20 +32,9 @@ export function getGoogleAuthHref(): string {
   return `${getApiUrl()}/auth/google`;
 }
 
-export async function linkWalletToAccount(address: string): Promise<void> {
-  const res = await backendFetch(`${getApiUrl()}/auth/wallet`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ address }),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ message: "Link failed" }));
-    throw new Error((err as { message?: string }).message ?? "Link failed");
-  }
-}
-
-export async function unlinkWalletFromAccount(): Promise<void> {
-  const res = await backendFetch(`${getApiUrl()}/auth/wallet`, {
+export async function unlinkWalletFromAccount(address: string): Promise<void> {
+  const enc = encodeURIComponent(address);
+  const res = await backendFetch(`${getApiUrl()}/auth/wallet?address=${enc}`, {
     method: "DELETE",
   });
   if (!res.ok) {

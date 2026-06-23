@@ -24,6 +24,10 @@ BEGIN;
 \ir schema/050_refactor_legacy_columns.sql
 \ir schema/060_portfolio_daily_snapshots.sql
 \ir schema/061_portfolio_hidden_holdings.sql
+\ir schema/062_user_watchlist.sql
+\ir schema/063_users_password_hash.sql
+\ir schema/064_verification_tokens.sql
+\ir schema/065_user_wallets.sql
 \ir schema/900_triggers.sql
 
 COMMIT;

@@ -5,6 +5,7 @@ import { pickCollectionDetailDisplayImageUrl } from "@/lib/marketplace/collectio
 import { CollectionAdminCoverPanel } from "@/components/marketplace/collection-hero";
 import { COLLECTION_DETAIL_SHELL_CLASS } from "@/constants/layout";
 import { CollectionOverviewBoard } from "@/components/marketplace/collection-overview";
+import { WatchlistToggleButton } from "@/components/watchlist/WatchlistToggleButton";
 import { CollectionDetailsKvCard, CollectionHeroDetailsTabs } from "@/components/marketplace/collection-hero";
 import { CollectionMobileCurrentPriceRow } from "@/components/marketplace/collection-mobile";
 import { CollectionTradingTabs } from "@/components/marketplace/collection-trading";
@@ -112,7 +113,7 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
             }}
           />
         ) : null}
-        <CollectionOverviewBoard
+          <CollectionOverviewBoard
           title={headline.collectionWovenTitle}
           subtitle={headline.subtitle}
           headlineTitle={headline.collectionHeadlineDisplayTitle}
@@ -126,6 +127,7 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
           headlineTitleLayout
           badgeLabel="Collection"
           imageUrl={collectionCoverUrl}
+          coverOverlay={<WatchlistToggleButton collectionKey={collectionKey} size="sm" />}
           belowCover={
             <CollectionHeroDetailsTabs
               onAiInsightsClick={() => setAiInsightComingSoonOpen(true)}

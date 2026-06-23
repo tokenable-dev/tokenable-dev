@@ -1,13 +1,12 @@
 "use client";
 
-import { Suspense, useState, useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { MintForm } from "@/components/vault";
+import { VaultPageBody } from "@/components/vault/VaultPageBody";
 import {
   GradientOutlineFrame,
   VAULT_OUTLINE_PAD_CLASS,
 } from "@/components/ui/GradientOutlineFrame";
-import { useAuthStore } from "@/store/authStore";
 
 const STEPS = [
   { num: 1, label: "Ship to Vault" },
@@ -28,38 +27,6 @@ function LegacyVaultTabRedirect() {
   }, [searchParams, router]);
 
   return null;
-}
-
-function EmailVerifyToastSync() {
-  const searchParams = useSearchParams();
-  const refresh = useAuthStore((s) => s.refresh);
-  const [msg, setMsg] = useState<string | null>(null);
-
-  useEffect(() => {
-    const v = searchParams.get("email_verify");
-    if (!v) return;
-    void refresh();
-    const messages: Record<string, string> = {
-      ok: "이메일 인증이 완료되었습니다.",
-      invalid: "인증 링크가 만료되었거나 잘못되었습니다.",
-      missing: "인증 요청이 올바르지 않습니다.",
-    };
-    setMsg(messages[v] ?? "이메일 인증을 확인할 수 없습니다.");
-    if (typeof window !== "undefined") {
-      const u = new URL(window.location.href);
-      u.searchParams.delete("email_verify");
-      window.history.replaceState({}, "", u.pathname + (u.search || ""));
-    }
-    const t = setTimeout(() => setMsg(null), 8000);
-    return () => clearTimeout(t);
-  }, [searchParams, refresh]);
-
-  if (!msg) return null;
-  return (
-    <div className="fixed bottom-6 left-1/2 z-[60] max-w-md w-[calc(100%-2rem)] -translate-x-1/2 px-4 py-3 rounded-lg bg-[#0a1210]/95 border border-mint/25 text-sm text-mint/95 shadow-xl shadow-mint/10 text-center">
-      {msg}
-    </div>
-  );
 }
 
 function Stepper({ active }: { active: number }) {
@@ -165,9 +132,6 @@ export default function VaultPage() {
       <Suspense fallback={null}>
         <LegacyVaultTabRedirect />
       </Suspense>
-      <Suspense fallback={null}>
-        <EmailVerifyToastSync />
-      </Suspense>
 
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8 pb-20">
         <Stepper active={1} />
@@ -178,7 +142,7 @@ export default function VaultPage() {
           </h1>
         </header>
 
-        <MintForm />
+        <VaultPageBody />
       </div>
     </div>
   );

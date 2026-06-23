@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { CollectionCoverFrame } from "@/components/marketplace/collection-cover";
+import { WatchlistToggleButton } from "@/components/watchlist/WatchlistToggleButton";
 import { MarketsListingPriceWithChange } from "@/components/marketplace/marketplace-shared";
 import type {
   CollectionListMarketSnapshot,
@@ -100,10 +101,16 @@ export function CollectionGridCard({
   const displayImageUrl = pickCollectionSummaryDisplayImageUrl(collection);
 
   return (
-    <Link
-      href={`/marketplace/collections/${encodeURIComponent(collection.collectionKey)}`}
-      className={`group flex h-full flex-col overflow-hidden rounded-2xl outline-none ${GRID_CARD_SURFACE}`}
-    >
+    <div className="relative h-full">
+      <div className="pointer-events-none absolute right-1 top-1 z-10 sm:right-1.5 sm:top-1.5">
+        <div className="pointer-events-auto">
+          <WatchlistToggleButton collectionKey={collection.collectionKey} size="sm" />
+        </div>
+      </div>
+      <Link
+        href={`/marketplace/collections/${encodeURIComponent(collection.collectionKey)}`}
+        className={`group flex h-full flex-col overflow-hidden rounded-2xl outline-none ${GRID_CARD_SURFACE}`}
+      >
       {/* 15% horizontal padding each side → image is 70% of card width (30% smaller).
           Top padding keeps the image away from the Link's overflow-hidden rounded corners.
           No local background — inherits Link surface so hover applies to the full card. */}
@@ -153,5 +160,6 @@ export function CollectionGridCard({
         </div>
       </div>
     </Link>
+    </div>
   );
 }

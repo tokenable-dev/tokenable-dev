@@ -51,6 +51,7 @@ export function CollectionOverviewBoard(props: CollectionOverviewBoardProps) {
     onShowOrderBookChange,
     leftColumnFooter,
     heroActions,
+    coverOverlay,
     belowCover,
     mobileCoverBelowMetrics,
     mobileCurrentPriceRow,
@@ -163,6 +164,7 @@ export function CollectionOverviewBoard(props: CollectionOverviewBoardProps) {
             mobileCoverBelowMetrics={mobileCoverBelowMetrics}
             belowCover={belowCover}
             heroActions={heroActions}
+            coverOverlay={coverOverlay}
             metadataExpand={metadataExpand}
             metadataRows={metadataRows}
             leftColumnFooter={leftColumnFooter}

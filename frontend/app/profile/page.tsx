@@ -3,20 +3,22 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useAccount } from "wagmi";
-import { WalletConnect } from "@/components/wallet/WalletConnect";
-import {
-  linkWalletToAccount,
-  sendVerificationEmail,
-  unlinkWalletFromAccount,
-} from "@/lib/auth";
+import { unlinkWalletFromAccount, sendVerificationEmail } from "@/lib/auth";
+import { getUserLinkedWallets } from "@/lib/auth/wallets";
 import { useAuthStore } from "@/store/authStore";
+import { useAuthUiStore } from "@/store/authUiStore";
+import { useWalletLink } from "@/hooks/auth/useWalletLink";
 
 export default function ProfilePage() {
   const router = useRouter();
   const { user, loading, initialized, refresh, logout } = useAuthStore();
+  const openConnectWallet = useAuthUiStore((s) => s.openConnectWallet);
   const { address, isConnected } = useAccount();
-  const [msg, setMsg] = useState<string | null>(null);
+  const { linking, error, isLinkedTo, linkAddress } = useWalletLink();
   const [busy, setBusy] = useState(false);
+  const [unlinking, setUnlinking] = useState<string | null>(null);
+
+  const linkedWallets = getUserLinkedWallets(user);
 
   useEffect(() => {
     if (!loading && initialized && !user) {
@@ -24,44 +26,27 @@ export default function ProfilePage() {
     }
   }, [user, loading, initialized, router]);
 
-  async function handleLink() {
-    if (!address) return;
-    setBusy(true);
-    setMsg(null);
+  useEffect(() => {
+    if (!user || !isConnected || !address || linking) return;
+    if (isLinkedTo(address)) return;
+    void linkAddress(address);
+  }, [user, isConnected, address, linking, linkAddress, isLinkedTo]);
+
+  async function handleUnlink(walletAddress: string) {
+    setUnlinking(walletAddress);
     try {
-      await linkWalletToAccount(address);
+      await unlinkWalletFromAccount(walletAddress);
       await refresh();
-      setMsg("Wallet linked to your account.");
-    } catch (e) {
-      setMsg(e instanceof Error ? e.message : "Failed to link wallet");
     } finally {
-      setBusy(false);
+      setUnlinking(null);
     }
   }
 
   async function handleResendVerification() {
     setBusy(true);
-    setMsg(null);
     try {
       await sendVerificationEmail();
       await refresh();
-      setMsg("인증 메일을 보냈습니다. 메일함을 확인해 주세요.");
-    } catch (e) {
-      setMsg(e instanceof Error ? e.message : "재발송 실패");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function handleUnlink() {
-    setBusy(true);
-    setMsg(null);
-    try {
-      await unlinkWalletFromAccount();
-      await refresh();
-      setMsg("Wallet unlinked.");
-    } catch (e) {
-      setMsg(e instanceof Error ? e.message : "Failed to unlink");
     } finally {
       setBusy(false);
     }
@@ -69,101 +54,113 @@ export default function ProfilePage() {
 
   if (!user) {
     return (
-      <div className="min-h-[calc(100vh-4rem)] bg-gray-950 flex items-center justify-center text-gray-500 text-sm">
-        Loading…
+      <div className="min-h-[calc(100vh-4rem)] bg-gray-950 flex items-center justify-center">
+        <span className="h-5 w-5 animate-spin rounded-full border-2 border-mint/30 border-t-mint" />
       </div>
     );
   }
 
+  const displayName = user.name?.trim() || user.email.split("@")[0];
+
   return (
     <div className="min-h-[calc(100vh-4rem)] bg-gray-950 text-white">
-      <main className="max-w-lg mx-auto px-4 py-10">
-        <div className="flex items-start justify-between gap-4 mb-8">
-          <div>
-            <h1 className="text-2xl font-bold">Profile</h1>
-            <p className="text-sm text-gray-500 mt-1">{user.email}</p>
+      <main className="mx-auto max-w-lg px-4 py-10">
+        <div className="mb-8 flex items-start justify-between gap-4">
+          <div className="flex min-w-0 items-center gap-3">
+            {user.pictureUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={user.pictureUrl}
+                alt=""
+                className="h-12 w-12 shrink-0 rounded-full border border-gray-700 object-cover"
+              />
+            ) : (
+              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-gray-700 bg-gray-800 text-sm font-semibold text-mint">
+                {displayName.charAt(0).toUpperCase()}
+              </span>
+            )}
+            <div className="min-w-0">
+              <h1 className="truncate text-xl font-bold">{displayName}</h1>
+              <p className="truncate text-sm text-gray-500">{user.email}</p>
+            </div>
           </div>
           <button
             type="button"
             onClick={() => void logout().then(() => router.push("/"))}
-            className="text-xs text-gray-500 hover:text-red-400"
+            className="shrink-0 text-sm text-gray-500 hover:text-red-400"
           >
             Log out
           </button>
         </div>
 
-        {user.pictureUrl && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={user.pictureUrl}
-            alt=""
-            className="w-16 h-16 rounded-full mb-6 border border-gray-700"
-          />
-        )}
-        {user.name && <p className="text-gray-300 mb-6">{user.name}</p>}
+        <section className="mb-4 rounded-xl border border-gray-800 bg-gray-900/30 p-5">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-sm font-semibold text-white">Wallets</h2>
+            {linking ? (
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-mint/30 border-t-mint" />
+            ) : null}
+          </div>
 
-        <section className="rounded-xl border border-gray-800 bg-gray-900/30 p-6 space-y-3 mb-6">
-          <h2 className="text-xs font-semibold text-mint/90 uppercase tracking-wider">
-            Email verification
-          </h2>
-          {user.platformEmailVerifiedAt ? (
-            <p className="text-sm text-mint/90">
-              이메일 인증이 완료되었습니다.
-            </p>
+          {linkedWallets.length > 0 ? (
+            <ul className="mt-3 space-y-3">
+              {linkedWallets.map((w) => (
+                <li
+                  key={w.address}
+                  className="flex flex-col gap-2 rounded-lg border border-gray-800/80 bg-black/20 px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:py-2.5"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p
+                      className="select-all break-all font-mono text-[11px] leading-relaxed text-white sm:text-xs"
+                      title={w.address}
+                    >
+                      {w.address}
+                    </p>
+                    {w.isPrimary ? (
+                      <p className="mt-1 text-[10px] uppercase tracking-wide text-gray-500">
+                        Primary
+                      </p>
+                    ) : null}
+                  </div>
+                  <button
+                    type="button"
+                    disabled={unlinking === w.address || linking}
+                    onClick={() => void handleUnlink(w.address)}
+                    className="min-h-[40px] shrink-0 self-end text-xs text-gray-500 hover:text-red-400 disabled:opacity-50 sm:min-h-0 sm:self-auto"
+                  >
+                    {unlinking === w.address ? "…" : "Unlink"}
+                  </button>
+                </li>
+              ))}
+            </ul>
           ) : (
-            <>
-              <p className="text-xs text-gray-500 leading-relaxed">
-                구글 로그인 직후 인증 메일이 발송됩니다. 메일의 링크를 눌러 플랫폼 이메일 인증을
-                완료해 주세요.
-              </p>
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => void handleResendVerification()}
-                className="text-sm font-semibold px-4 py-2 rounded-lg bg-mint/15 hover:bg-mint/25 border border-mint-deep/35 disabled:opacity-50 text-mint"
-              >
-                {busy ? "Sending…" : "인증 메일 다시 보내기"}
-              </button>
-            </>
+            <p className="mt-3 text-sm text-gray-500">No wallets linked.</p>
           )}
+
+          <button
+            type="button"
+            disabled={linking}
+            onClick={() => openConnectWallet()}
+            className="mt-4 min-h-[48px] w-full rounded-lg border border-mint/25 bg-mint/[0.06] py-2.5 text-sm font-semibold text-mint hover:bg-mint/[0.1] disabled:opacity-50"
+          >
+            Add wallet
+          </button>
+
+          {error ? <p className="mt-3 text-sm text-red-400">{error}</p> : null}
         </section>
 
-        <section className="rounded-xl border border-gray-800 bg-gray-900/30 p-6 space-y-4">
-          <h2 className="text-xs font-semibold text-mint/90 uppercase tracking-wider">
-            Wallet (MetaMask)
-          </h2>
-          <p className="text-xs text-gray-500 leading-relaxed">
-            Connect MetaMask, then link the address to this account. You can use a different
-            connection on the Mint tab for transactions; linking here stores the address on your
-            profile for future features.
-          </p>
-          <WalletConnect />
-          {isConnected && address && (
+        {!user.emailVerified ? (
+          <section className="flex items-center justify-between gap-3 rounded-xl border border-mint/20 bg-mint/5 px-4 py-3">
+            <span className="text-xs font-medium text-mint">Verify email</span>
             <button
               type="button"
               disabled={busy}
-              onClick={() => void handleLink()}
-              className="w-full py-2.5 text-sm font-semibold rounded-lg bg-mint-dim hover:brightness-110 disabled:opacity-50 text-mint-ink"
+              onClick={() => void handleResendVerification()}
+              className="text-xs font-semibold text-mint hover:text-mint/80 disabled:opacity-50"
             >
-              {busy ? "Working…" : "Link this wallet to my account"}
+              Resend
             </button>
-          )}
-          {user.walletAddress && (
-            <div className="pt-2 space-y-2">
-              <p className="text-xs text-gray-500">Linked address</p>
-              <p className="text-sm font-mono text-mint/90 break-all">{user.walletAddress}</p>
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => void handleUnlink()}
-                className="text-xs text-gray-500 hover:text-red-400"
-              >
-                Unlink wallet
-              </button>
-            </div>
-          )}
-          {msg && <p className="text-xs text-mint/90">{msg}</p>}
-        </section>
+          </section>
+        ) : null}
       </main>
     </div>
   );

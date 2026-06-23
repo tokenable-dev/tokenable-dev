@@ -1,7 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import type { AssetListFilter, AssetRow } from "@/lib/portfolio/portfolioTypes";
+import { GatedSellLink } from "@/components/auth/GatedSellLink";
 import { PortfolioAssetCard } from "./PortfolioAssetCard";
 
 function filterEmptyMessage(
@@ -102,9 +102,9 @@ export function PortfolioHoldingsSection({
       ) : assetRowsLength === 0 ? (
         <p className="py-8 text-center text-sm text-gray-500">
           No assets yet.{" "}
-          <Link href="/vault" className="text-mint hover:underline">
+          <GatedSellLink className="text-mint hover:underline">
             Mint your first card
-          </Link>
+          </GatedSellLink>
         </p>
       ) : filteredAssetRows.length === 0 ? (
         <p className="py-8 text-center text-sm text-gray-500">

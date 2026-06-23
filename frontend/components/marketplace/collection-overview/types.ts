@@ -50,4 +50,5 @@ export interface CollectionOverviewBoardProps {
   marketsBelowChart?: ReactNode;
   suppressHeadlineBanner?: boolean;
   heroActions?: ReactNode;
+  coverOverlay?: ReactNode;
 }

@@ -6,6 +6,7 @@ import { useMarketplaceCollectionsInfinite } from "@/hooks/marketplace";
 import { useMarketsOrders, useMarketsSnapshots } from "@/hooks/markets/useMarketsPageData";
 import { useResolvedMediaUrlMap } from "@/hooks/media";
 import { CollectionCategoryFilterBar } from "@/components/marketplace/markets-ui";
+import { GatedSellLink } from "@/components/auth/GatedSellLink";
 import {
   collectionMatchesCategoryFilter,
   MARKET_PRICE_CHANGE_SNAPSHOT_DURATION,
@@ -212,9 +213,9 @@ export default function MarketsPage() {
             <p className="mb-2 text-base text-gray-500 sm:text-lg">No assets listed for sale yet.</p>
             <p className="text-sm text-gray-600 sm:text-base">
               Mint and list your assets from{" "}
-              <Link href="/vault" className="text-mint hover:underline">
+              <GatedSellLink className="text-mint hover:underline">
                 Vault
-              </Link>
+              </GatedSellLink>
               .
             </p>
           </div>

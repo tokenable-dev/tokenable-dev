@@ -2,14 +2,13 @@
 
 import type { ReactNode } from "react";
 
-export type PortfolioMainTab = "collectibles" | "bids";
+export type PortfolioMainTab = "collectibles" | "bids" | "watchlist";
 
-/** Segmented tab bar — equal halves, compact height and horizontal inset. */
 const TAB_SHELL =
-  "flex w-full gap-1 rounded-[10px] border border-zinc-800/90 bg-black p-1 sm:max-w-[18rem] sm:p-1.5 lg:max-w-[19rem]";
+  "flex w-full gap-1 rounded-[10px] border border-zinc-800/90 bg-black p-1 sm:max-w-[22rem] sm:p-1.5 lg:max-w-[24rem]";
 const TAB_BASE =
-  "min-w-0 flex-1 basis-0 rounded-md px-4 py-1.5 text-center text-sm font-medium transition-colors sm:px-6 sm:py-1.5 lg:px-7";
-const TAB_ACTIVE = "border border-white bg-black text-white";
+  "min-w-0 flex-1 basis-0 rounded-md px-2 py-1.5 text-center text-xs font-medium transition-colors sm:px-3 sm:text-sm lg:px-4";
+const TAB_ACTIVE = "border border-mint/40 bg-mint/10 text-mint";
 const TAB_INACTIVE =
   "border border-transparent bg-transparent text-[#8E9BAE] hover:text-[#A8B8C8]";
 
@@ -18,11 +17,13 @@ export function PortfolioMainSection({
   onTabChange,
   collectiblesPanel,
   bidsPanel,
+  watchlistPanel,
 }: {
   activeTab: PortfolioMainTab;
   onTabChange: (tab: PortfolioMainTab) => void;
   collectiblesPanel: ReactNode;
   bidsPanel: ReactNode;
+  watchlistPanel: ReactNode;
 }) {
   return (
     <div className="mb-6 rounded-2xl border border-gray-800 bg-[#0b1118] p-3 sm:p-5">
@@ -50,6 +51,17 @@ export function PortfolioMainSection({
           >
             Bids
           </button>
+          <button
+            type="button"
+            role="tab"
+            id="portfolio-tab-watchlist"
+            aria-selected={activeTab === "watchlist"}
+            aria-controls="portfolio-panel-watchlist"
+            onClick={() => onTabChange("watchlist")}
+            className={`${TAB_BASE} ${activeTab === "watchlist" ? TAB_ACTIVE : TAB_INACTIVE}`}
+          >
+            Watchlist
+          </button>
         </div>
       </div>
 
@@ -61,7 +73,7 @@ export function PortfolioMainSection({
         >
           {collectiblesPanel}
         </div>
-      ) : (
+      ) : activeTab === "bids" ? (
         <div
           role="tabpanel"
           id="portfolio-panel-bids"
@@ -69,6 +81,15 @@ export function PortfolioMainSection({
           className="min-w-0 overflow-x-hidden"
         >
           {bidsPanel}
+        </div>
+      ) : (
+        <div
+          role="tabpanel"
+          id="portfolio-panel-watchlist"
+          aria-labelledby="portfolio-tab-watchlist"
+          className="min-w-0 overflow-x-hidden"
+        >
+          {watchlistPanel}
         </div>
       )}
     </div>

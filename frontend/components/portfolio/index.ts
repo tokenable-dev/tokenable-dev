@@ -3,12 +3,14 @@ export { PortfolioActivitySection } from "./PortfolioActivitySection";
 export { PortfolioAssetCard } from "./PortfolioAssetCard";
 export { PortfolioListingPriceStrip } from "./PortfolioListingPriceStrip";
 export { PortfolioDisconnectedState } from "./PortfolioDisconnectedState";
+export { PortfolioGuestState } from "./PortfolioGuestState";
 export { PortfolioHoldingsSection } from "./PortfolioHoldingsSection";
 export { PortfolioCollectionBidsSection } from "./PortfolioCollectionBidsSection";
 export {
   PortfolioMainSection,
   type PortfolioMainTab,
 } from "./PortfolioMainSection";
+export { PortfolioWatchlistSection } from "./PortfolioWatchlistSection";
 export { PortfolioHideConfirmModal } from "./PortfolioHideConfirmModal";
 export { PortfolioCancelBidConfirmModal } from "./PortfolioCancelBidConfirmModal";
 export { PortfolioBrowserSummaryHeader } from "./PortfolioBrowserSummaryHeader";

@@ -11,7 +11,7 @@ export function PortfolioActivitySection({
   txRows: TxRow[];
 }) {
   return (
-    <div className="rounded-2xl border border-gray-800 bg-[#0b1118] p-5 sm:p-6">
+    <div id="transaction-history" className="rounded-2xl border border-gray-800 bg-[#0b1118] p-5 sm:p-6 scroll-mt-24">
       <h2 className="mb-4 text-sm font-bold">Transaction History</h2>
       {loading ? (
         <div className="space-y-3">

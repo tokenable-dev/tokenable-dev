@@ -5,8 +5,11 @@ import Link from "next/link";
 import { TrendingCollectionsCarousel } from "@/components/landing/TrendingCollectionsCarousel";
 import { LandingOffersSection } from "@/components/landing/LandingOffersSection";
 import { MarketIndexes } from "@/components/landing/MarketIndexes";
+import { useSellAccessGate } from "@/hooks/auth/useSellAccessGate";
 
 export default function LandingPage() {
+  const { navigateToVault } = useSellAccessGate("/vault");
+
   return (
     <div className="relative min-h-screen overflow-x-clip bg-black text-white">
       <div
@@ -44,12 +47,13 @@ export default function LandingPage() {
           >
             Markets
           </Link>
-          <Link
-            href="/vault"
+          <button
+            type="button"
+            onClick={navigateToVault}
             className="inline-flex min-w-[200px] items-center justify-center rounded-full border-2 border-mint/70 bg-transparent px-7 py-2.5 text-center text-base font-semibold text-white transition hover:border-mint hover:bg-mint/10 active:scale-[0.98] max-sm:w-full max-sm:min-h-[44px] sm:min-w-[220px] sm:py-3.5"
           >
             Start Selling
-          </Link>
+          </button>
         </div>
       </section>
 
