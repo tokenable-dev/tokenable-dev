@@ -3,6 +3,7 @@ import { MarketplaceCollectionsModule } from './collections/marketplace-collecti
 import { MarketplaceMarketDataModule } from './market-data/marketplace-market-data.module';
 import { MarketplaceOrdersModule } from './orders/marketplace-orders.module';
 import { MarketplacePortfolioModule } from './portfolio/marketplace-portfolio.module';
+import { MarketplaceWatchlistModule } from './watchlist/marketplace-watchlist.module';
 import { MarketplaceSnapshotsModule } from './snapshots/marketplace-snapshots.module';
 
 /**
@@ -13,6 +14,7 @@ import { MarketplaceSnapshotsModule } from './snapshots/marketplace-snapshots.mo
     MarketplaceMarketDataModule,
     MarketplaceSnapshotsModule,
     MarketplacePortfolioModule,
+    MarketplaceWatchlistModule,
     MarketplaceCollectionsModule,
     MarketplaceOrdersModule,
   ],
@@ -20,6 +22,7 @@ import { MarketplaceSnapshotsModule } from './snapshots/marketplace-snapshots.mo
     MarketplaceMarketDataModule,
     MarketplaceSnapshotsModule,
     MarketplacePortfolioModule,
+    MarketplaceWatchlistModule,
     MarketplaceCollectionsModule,
     MarketplaceOrdersModule,
   ],

@@ -6,12 +6,15 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from './entities/user.entity';
+import { UserWallet } from './entities/user-wallet.entity';
 
 @Injectable()
 export class UserService {
   constructor(
     @InjectRepository(User)
     private readonly users: Repository<User>,
+    @InjectRepository(UserWallet)
+    private readonly userWallets: Repository<UserWallet>,
   ) {}
 
   async findById(id: string): Promise<User | null> {
@@ -22,6 +25,25 @@ export class UserService {
     const u = await this.findById(id);
     if (!u) throw new NotFoundException('User not found');
     return u;
+  }
+
+  async findByEmail(email: string): Promise<User | null> {
+    return this.users.findOne({ where: { email: email.toLowerCase().trim() } });
+  }
+
+  async createWithPassword(params: {
+    email: string;
+    passwordHash: string;
+    name?: string | null;
+  }): Promise<User> {
+    const user = this.users.create({
+      email: params.email.toLowerCase().trim(),
+      passwordHash: params.passwordHash,
+      name: params.name?.trim() || null,
+      googleId: null,
+      emailVerified: false,
+    });
+    return this.users.save(user);
   }
 
   async findOrCreateFromGoogle(params: {
@@ -95,50 +117,105 @@ export class UserService {
     if (dirty) await this.users.save(user);
   }
 
-  async setWalletAddress(userId: string, address: string): Promise<User> {
-    const user = await this.findByIdOrFail(userId);
-    const other = await this.users.findOne({
-      where: { walletAddress: address },
+  async listWalletsForUser(userId: string): Promise<UserWallet[]> {
+    return this.userWallets.find({
+      where: { userId },
+      order: { isPrimary: 'DESC', linkedAt: 'ASC' },
     });
-    if (other && other.id !== userId) {
+  }
+
+  async findWalletByAddress(address: string): Promise<UserWallet | null> {
+    return this.userWallets.findOne({ where: { walletAddress: address } });
+  }
+
+  /** Add a wallet to the user (does not remove existing wallets). */
+  async addWalletAddress(userId: string, address: string): Promise<User> {
+    const user = await this.findByIdOrFail(userId);
+    const normalized = address;
+
+    const existing = await this.findWalletByAddress(normalized);
+    if (existing) {
+      if (existing.userId === userId) {
+        return user;
+      }
       throw new ConflictException(
         'This wallet is already linked to another user',
       );
     }
-    user.walletAddress = address;
-    user.walletLinkedAt = new Date();
+
+    const count = await this.userWallets.count({ where: { userId } });
+    const isPrimary = count === 0;
+
+    const row = this.userWallets.create({
+      userId,
+      walletAddress: normalized,
+      isPrimary,
+    });
+    await this.userWallets.save(row);
+
+    if (isPrimary) {
+      user.walletAddress = normalized;
+      user.walletLinkedAt = row.linkedAt;
+      return this.users.save(user);
+    }
+
+    return user;
+  }
+
+  async removeWallet(userId: string, address: string): Promise<User> {
+    const user = await this.findByIdOrFail(userId);
+    const normalized = address;
+    const row = await this.userWallets.findOne({
+      where: { userId, walletAddress: normalized },
+    });
+    if (!row) {
+      throw new NotFoundException('Wallet not linked to this account');
+    }
+
+    const wasPrimary = row.isPrimary;
+    await this.userWallets.remove(row);
+
+    if (!wasPrimary) {
+      return user;
+    }
+
+    const next = await this.userWallets.findOne({
+      where: { userId },
+      order: { linkedAt: 'ASC' },
+    });
+
+    if (next) {
+      next.isPrimary = true;
+      await this.userWallets.save(next);
+      user.walletAddress = next.walletAddress;
+      user.walletLinkedAt = next.linkedAt;
+    } else {
+      user.walletAddress = null;
+      user.walletLinkedAt = null;
+    }
+
     return this.users.save(user);
   }
 
+  /** @deprecated Use addWalletAddress — kept for internal callers */
+  async setWalletAddress(userId: string, address: string): Promise<User> {
+    return this.addWalletAddress(userId, address);
+  }
+
+  /** @deprecated Use removeWallet — removes primary or sole wallet when address omitted */
   async clearWallet(userId: string): Promise<User> {
     const user = await this.findByIdOrFail(userId);
-    user.walletAddress = null;
-    user.walletLinkedAt = null;
-    return this.users.save(user);
-  }
-
-  async findByEmailVerificationTokenHash(hash: string): Promise<User | null> {
-    return this.users.findOne({ where: { emailVerificationTokenHash: hash } });
-  }
-
-  async setEmailVerificationToken(
-    userId: string,
-    tokenHash: string,
-    expiresAt: Date,
-    lastSentAt: Date,
-  ): Promise<void> {
-    await this.users.update(userId, {
-      emailVerificationTokenHash: tokenHash,
-      emailVerificationExpiresAt: expiresAt,
-      verificationEmailLastSentAt: lastSentAt,
-    });
-  }
-
-  async markPlatformEmailVerified(userId: string): Promise<void> {
-    await this.users.update(userId, {
-      platformEmailVerifiedAt: new Date(),
-      emailVerificationTokenHash: null,
-      emailVerificationExpiresAt: null,
-    });
+    const primary =
+      (await this.userWallets.findOne({ where: { userId, isPrimary: true } })) ??
+      (await this.userWallets.findOne({
+        where: { userId },
+        order: { linkedAt: 'ASC' },
+      }));
+    if (!primary) {
+      user.walletAddress = null;
+      user.walletLinkedAt = null;
+      return this.users.save(user);
+    }
+    return this.removeWallet(userId, primary.walletAddress);
   }
 }

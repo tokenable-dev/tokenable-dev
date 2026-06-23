@@ -130,7 +130,24 @@ export const replaceBidExample = {
 };
 
 export const SWAGGER_BODY_EXAMPLES = {
-  linkWallet: { address: F.wallet },
+  authRegister: {
+    email: 'collector@example.com',
+    password: 'secure-pass-123',
+    name: 'Alex Collector',
+  },
+  authLogin: {
+    email: 'collector@example.com',
+    password: 'secure-pass-123',
+  },
+  authResendVerification: {
+    email: 'collector@example.com',
+  },
+  linkWallet: {
+    address: F.wallet,
+    signature: '0x' + 'a'.repeat(130),
+    challenge: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.example',
+  },
+  watchlistMutate: { collectionKey: F.collectionKey },
   ordersBatchByToken: { tokenIds: F.tokenIds },
   fulfillMatchedPair: {
     askOrderHash: F.orderHash,

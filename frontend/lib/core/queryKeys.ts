@@ -39,6 +39,7 @@ export const rq = {
     ["portfolio-bid-collections", [...sortedKeys]] as const,
   /** Collection bids placed by wallet (portfolio). */
   portfolioBids: (address: string) => ["portfolio-bids", address] as const,
+  userWatchlist: (userId: string) => ["user-watchlist", userId] as const,
 
   // ── Collection ─────────────────────────────────────────────────────────────
 

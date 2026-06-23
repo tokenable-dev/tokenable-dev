@@ -42,6 +42,7 @@ export function CollectionCriteriaBidPanelForm({
   headerTitle,
   isReplaceBid = false,
   bidLimitMsg = "",
+  usdcInsufficientMsg = "",
 }: {
   embedded: boolean;
   isModal?: boolean;
@@ -77,6 +78,7 @@ export function CollectionCriteriaBidPanelForm({
   headerTitle?: string;
   isReplaceBid?: boolean;
   bidLimitMsg?: string;
+  usdcInsufficientMsg?: string;
 }) {
   return (
     <>
@@ -138,6 +140,7 @@ export function CollectionCriteriaBidPanelForm({
             hideSellFooter={hideSellFooter}
             isReplaceBid={isReplaceBid}
             bidLimitMsg={bidLimitMsg}
+            usdcInsufficientMsg={usdcInsufficientMsg}
           />
         ) : (
           <>

@@ -1,27 +1,33 @@
-import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import {
+  ConflictException,
+  Injectable,
+  UnauthorizedException,
+  BadRequestException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { createHash, randomBytes } from 'crypto';
+import { randomBytes } from 'crypto';
+import { getAddress } from 'ethers';
 import type { Request } from 'express';
-import { MailService } from '../mail/mail.service';
 import { User } from '../user/entities/user.entity';
 import { UserService } from '../user/user.service';
-
-const VERIFY_TOKEN_TTL_MS = 48 * 60 * 60 * 1000;
-/** 구글 로그인 직후 자동 발송 최소 간격 */
-const AUTO_SEND_COOLDOWN_MS = 60 * 60 * 1000;
-/** 수동 재발송 최소 간격 */
-const RESEND_COOLDOWN_MS = 60 * 1000;
+import {
+  EmailVerificationService,
+  type VerifyEmailResult,
+} from './email-verification.service';
+import { hashPassword, verifyPassword } from './password.util';
+import {
+  WALLET_LINK_CHALLENGE_TTL_SEC,
+  WALLET_LINK_JWT_PURPOSE,
+  assertWalletLinkSignature,
+  buildWalletLinkMessage,
+} from './wallet-link.util';
 
 @Injectable()
 export class AuthService {
-  private readonly logger = new Logger(AuthService.name);
-
   constructor(
     private readonly users: UserService,
     private readonly jwt: JwtService,
-    private readonly mail: MailService,
-    private readonly config: ConfigService,
+    private readonly emailVerification: EmailVerificationService,
   ) {}
 
   validateGoogleProfile(params: {
@@ -34,6 +40,54 @@ export class AuthService {
     return this.users.findOrCreateFromGoogle(params);
   }
 
+  async registerWithEmail(params: {
+    email: string;
+    password: string;
+    name?: string;
+  }): Promise<User> {
+    const email = params.email.toLowerCase().trim();
+    const existing = await this.users.findByEmail(email);
+    if (existing) {
+      if (existing.googleId && !existing.passwordHash) {
+        throw new ConflictException(
+          'This email is registered with Google. Sign in with Google instead.',
+        );
+      }
+      throw new ConflictException(
+        'An account with this email already exists. Sign in instead.',
+      );
+    }
+
+    const passwordHash = hashPassword(params.password);
+    const user = await this.users.createWithPassword({
+      email,
+      passwordHash,
+      name: params.name,
+    });
+    await this.emailVerification.issueAndSend(user.id);
+    return user;
+  }
+
+  async loginWithEmail(email: string, password: string): Promise<User> {
+    const normalized = email.toLowerCase().trim();
+    const user = await this.users.findByEmail(normalized);
+    if (!user?.passwordHash) {
+      if (user?.googleId) {
+        throw new UnauthorizedException('This account uses Google sign-in');
+      }
+      throw new UnauthorizedException('Invalid email or password');
+    }
+    if (!verifyPassword(password, user.passwordHash)) {
+      throw new UnauthorizedException('Invalid email or password');
+    }
+    if (!user.emailVerified) {
+      throw new UnauthorizedException(
+        'Email not verified. Check your inbox or resend verification.',
+      );
+    }
+    return user;
+  }
+
   issueAccessToken(user: User): string {
     return this.jwt.sign({
       sub: user.id,
@@ -41,7 +95,6 @@ export class AuthService {
     });
   }
 
-  /** 쿠키 JWT로 사용자 조회 — 없거나 만료면 null (401 대신 200 세션 조회용) */
   async sessionUserFromRequest(req: Request): Promise<User | null> {
     const token = (req.cookies?.access_token as string | undefined)?.trim();
     if (!token) return null;
@@ -54,76 +107,67 @@ export class AuthService {
     }
   }
 
-  /**
-   * 플랫폼 이메일 미인증이면 인증 메일 발송 (구글 로그인 직후·쿨다운 적용).
-   */
-  async sendVerificationEmailAfterOAuth(userId: string): Promise<void> {
-    await this.sendVerificationEmailInternal(userId, AUTO_SEND_COOLDOWN_MS);
+  resendVerificationEmail(userId: string): Promise<void> {
+    return this.emailVerification.resendForUserId(userId);
   }
 
-  /** 로그인 사용자가 재발송 (짧은 쿨다운) */
-  async resendVerificationEmail(userId: string): Promise<void> {
-    await this.sendVerificationEmailInternal(userId, RESEND_COOLDOWN_MS);
+  resendVerificationEmailByEmail(email: string): Promise<void> {
+    return this.emailVerification.resendForEmail(email);
   }
 
-  private async sendVerificationEmailInternal(
-    userId: string,
-    cooldownMs: number,
-  ): Promise<void> {
-    const user = await this.users.findByIdOrFail(userId);
-    if (user.platformEmailVerifiedAt) {
-      return;
-    }
-    const now = Date.now();
-    if (user.verificationEmailLastSentAt) {
-      const elapsed = now - user.verificationEmailLastSentAt.getTime();
-      if (elapsed < cooldownMs) {
-        throw new HttpException(
-          `Please wait before requesting another email (${Math.ceil((cooldownMs - elapsed) / 1000)}s)`,
-          HttpStatus.TOO_MANY_REQUESTS,
-        );
-      }
-    }
+  verifyEmailToken(rawToken: string): Promise<VerifyEmailResult> {
+    return this.emailVerification.verifyRawToken(rawToken);
+  }
 
-    const token = randomBytes(32).toString('hex');
-    const tokenHash = createHash('sha256').update(token).digest('hex');
-    const expiresAt = new Date(now + VERIFY_TOKEN_TTL_MS);
-    const lastSent = new Date();
-
-    await this.users.setEmailVerificationToken(
-      userId,
-      tokenHash,
-      expiresAt,
-      lastSent,
+  createWalletLinkChallenge(userId: string): { message: string; challenge: string } {
+    const nonce = randomBytes(16).toString('hex');
+    const issuedAt = new Date().toISOString();
+    const message = buildWalletLinkMessage({ userId, nonce, issuedAt });
+    const challenge = this.jwt.sign(
+      {
+        sub: userId,
+        purpose: WALLET_LINK_JWT_PURPOSE,
+        nonce,
+        issuedAt,
+      },
+      { expiresIn: WALLET_LINK_CHALLENGE_TTL_SEC },
     );
-
-    const front = this.config
-      .getOrThrow<string>('FRONTEND_URL')
-      .replace(/\/$/, '');
-    const verifyLink = `${front}/api/auth/verify-email?token=${encodeURIComponent(token)}`;
-
-    try {
-      await this.mail.sendVerificationEmail(user.email, verifyLink);
-    } catch (e) {
-      this.logger.error(`sendVerificationEmail failed: ${String(e)}`);
-      throw e;
-    }
+    return { message, challenge };
   }
 
-  async verifyEmailToken(rawToken: string): Promise<boolean> {
-    const token = rawToken?.trim();
-    if (!token || token.length < 32) {
-      return false;
+  async linkWalletWithSignature(
+    userId: string,
+    address: string,
+    signature: string,
+    challenge: string,
+  ): Promise<User> {
+    let payload: {
+      sub?: string;
+      purpose?: string;
+      nonce?: string;
+      issuedAt?: string;
+    };
+    try {
+      payload = this.jwt.verify(challenge);
+    } catch {
+      throw new BadRequestException('Wallet link challenge expired or invalid');
     }
-    const tokenHash = createHash('sha256').update(token).digest('hex');
-    const user = await this.users.findByEmailVerificationTokenHash(tokenHash);
-    if (!user?.emailVerificationExpiresAt) {
-      return false;
+    if (
+      payload.purpose !== WALLET_LINK_JWT_PURPOSE ||
+      payload.sub !== userId ||
+      !payload.nonce ||
+      !payload.issuedAt
+    ) {
+      throw new BadRequestException('Wallet link challenge expired or invalid');
     }
-    if (user.emailVerificationExpiresAt.getTime() < Date.now()) {
-      return false;
-    }
-    await this.users.markPlatformEmailVerified(user.id);
-    return true;
+
+    const normalized = getAddress(address);
+    const message = buildWalletLinkMessage({
+      userId,
+      nonce: payload.nonce,
+      issuedAt: payload.issuedAt,
+    });
+    assertWalletLinkSignature(message, signature, normalized);
+    return this.users.addWalletAddress(userId, normalized);
   }
 }

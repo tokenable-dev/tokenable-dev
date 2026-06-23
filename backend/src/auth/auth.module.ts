@@ -2,10 +2,14 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { MailModule } from '../mail/mail.module';
 import { UserModule } from '../user/user.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { EmailVerificationService } from './email-verification.service';
+import { VerificationToken } from './entities/verification-token.entity';
+import { GoogleOAuthExceptionFilter } from './filters/google-oauth-exception.filter';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { GoogleStrategy } from './strategies/google.strategy';
 import { JwtStrategy } from './strategies/jwt.strategy';
@@ -15,6 +19,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
     ConfigModule,
     MailModule,
     UserModule,
+    TypeOrmModule.forFeature([VerificationToken]),
     PassportModule.register({ session: false }),
     JwtModule.registerAsync({
       inject: [ConfigService],
@@ -27,7 +32,14 @@ import { JwtStrategy } from './strategies/jwt.strategy';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, GoogleStrategy, JwtStrategy, JwtAuthGuard],
+  providers: [
+    AuthService,
+    EmailVerificationService,
+    GoogleStrategy,
+    JwtStrategy,
+    JwtAuthGuard,
+    GoogleOAuthExceptionFilter,
+  ],
   exports: [AuthService, JwtAuthGuard],
 })
 export class AuthModule {}

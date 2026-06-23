@@ -3,6 +3,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { QueryDeepPartialEntity, Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
+import { In } from 'typeorm';
 import { BlockchainService } from '../../blockchain/blockchain.service';
 import { IpfsGatewayResolverService } from '../../blockchain/ipfs-gateway-resolver.service';
 import {
@@ -437,6 +438,67 @@ export class CollectionService {
     });
 
     return { items, nextCursor };
+  }
+
+  /** Watchlist / batch UI — preserve caller key order; omit unknown keys. */
+  async listSummariesByKeys(
+    collectionKeys: string[],
+  ): Promise<CollectionSummary[]> {
+    const ordered = [
+      ...new Set(
+        collectionKeys
+          .map((k) => decodeURIComponent(k).trim().toLowerCase())
+          .filter(Boolean),
+      ),
+    ].slice(0, 200);
+    if (ordered.length === 0) return [];
+
+    const rows = await this.collectionRepo.find({
+      where: { collectionKey: In(ordered) },
+    });
+    if (rows.length === 0) return [];
+
+    const rowByKey = new Map(
+      rows.map((r) => [r.collectionKey.toLowerCase(), r] as const),
+    );
+
+    const countRows = await this.orderRepo
+      .createQueryBuilder('o')
+      .select('o.collection_key', 'key')
+      .addSelect('COUNT(o.id)::int', 'cnt')
+      .where('o.collection_key IS NOT NULL')
+      .andWhere('o.collection_key IN (:...keys)', { keys: ordered })
+      .andWhere('o.status = :st', { st: OrderStatus.ACTIVE })
+      .andWhere('o.side = :side', { side: OrderSide.ASK })
+      .groupBy('o.collection_key')
+      .getRawMany<{ key: string; cnt: number }>();
+
+    const countMap = new Map<string, number>();
+    for (const r of countRows) {
+      countMap.set(String(r.key).toLowerCase(), Number(r.cnt));
+    }
+
+    const items: CollectionSummary[] = [];
+    for (const key of ordered) {
+      const c = rowByKey.get(key);
+      if (!c) continue;
+      const components = enrichCollectionComponentsForApi(
+        c.components,
+        c.psaCertNumber,
+      );
+      const coverImageUrl = c.coverImageUrl ?? null;
+      items.push({
+        collectionKey: c.collectionKey,
+        displayLabel: c.displayLabel,
+        queryUsed: c.queryUsed,
+        components,
+        createdAt: c.createdAt,
+        activeListingCount: countMap.get(key) ?? 0,
+        coverImageUrl,
+        displayImageUrl: pickCollectionDisplayImageUrl(coverImageUrl),
+      });
+    }
+    return items;
   }
 
   async findOne(key: string): Promise<MarketplaceCollection | null> {

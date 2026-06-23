@@ -1,11 +1,13 @@
 "use client";
 
 import { forwardRef, useImperativeHandle } from "react";
+import { usePathname } from "next/navigation";
 import {
   COLLECTION_DETAILS_BG_CLASS,
   COLLECTION_DETAILS_BORDER_ALL,
 } from "@/components/marketplace/collectionOverviewChrome";
 import { useCollectionCriteriaBid } from "@/hooks/collection-criteria-bid";
+import { useTradeAccessGate } from "@/hooks/auth/useTradeAccessGate";
 import { CollectionCriteriaBidFloorChooserModal } from "./CollectionCriteriaBidFloorChooserModal";
 import { CollectionCriteriaBidPanelForm } from "./CollectionCriteriaBidPanelForm";
 import type { CollectionCriteriaBidPanelProps } from "./types";
@@ -42,6 +44,8 @@ export const CollectionCriteriaBidPanel = forwardRef<
 ) {
   const isModal = variant === "modal";
   const embedded = variant === "embedded" || isModal;
+  const pathname = usePathname();
+  const { runTradeAccessGate } = useTradeAccessGate(pathname || "/markets");
   const bid = useCollectionCriteriaBid({
     collectionKey,
     activeAsks,
@@ -57,11 +61,11 @@ export const CollectionCriteriaBidPanel = forwardRef<
   useImperativeHandle(
     ref,
     () => ({
-      submitBid: () => void bid.handleSubmit(),
+      submitBid: () => runTradeAccessGate(() => void bid.handleSubmit()),
       submitDisabled: bid.submitDisabled,
       busy: bid.busy,
     }),
-    [bid.handleSubmit, bid.submitDisabled, bid.busy],
+    [bid.handleSubmit, bid.submitDisabled, bid.busy, runTradeAccessGate],
   );
 
   const showFloorChooser =
@@ -113,12 +117,13 @@ export const CollectionCriteriaBidPanel = forwardRef<
         step={bid.step}
         lastOutcome={bid.lastOutcome}
         postBidMatchHint={bid.postBidMatchHint}
-        onSubmit={() => void bid.handleSubmit()}
+        onSubmit={() => runTradeAccessGate(() => void bid.handleSubmit())}
         onOpenSellModal={onOpenSellModal}
         hideSellFooter={hideSellFooter}
         hideSubmitButton={hideSubmitButton}
         isReplaceBid={bid.isReplaceBid}
         bidLimitMsg={bid.bidLimitMsg}
+        usdcInsufficientMsg={bid.usdcInsufficientMsg}
       />
 
       <CollectionCriteriaBidFloorChooserModal
@@ -130,7 +135,7 @@ export const CollectionCriteriaBidPanel = forwardRef<
         busy={bid.busy}
         onClose={() => bid.setShowAskChooserModal(false)}
         onSelectAskHash={bid.setSelectedFloorAskHash}
-        onConfirmBuy={() => void bid.handleSubmit()}
+        onConfirmBuy={() => runTradeAccessGate(() => void bid.handleSubmit())}
       />
     </div>
   );

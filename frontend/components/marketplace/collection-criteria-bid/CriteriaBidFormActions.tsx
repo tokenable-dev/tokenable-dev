@@ -26,6 +26,7 @@ export function CriteriaBidFormActions({
   hideSellFooter = false,
   isReplaceBid = false,
   bidLimitMsg = "",
+  usdcInsufficientMsg = "",
 }: {
   embedded: boolean;
   minimal?: boolean;
@@ -47,6 +48,7 @@ export function CriteriaBidFormActions({
   hideSellFooter?: boolean;
   isReplaceBid?: boolean;
   bidLimitMsg?: string;
+  usdcInsufficientMsg?: string;
 }) {
   const splitActions = actionLayout === "split";
   const submitLabel = !address
@@ -76,6 +78,14 @@ export function CriteriaBidFormActions({
           className={`text-amber-200/90 ${minimal ? "text-sm" : embedded ? "text-[10px] leading-snug" : "text-[11px] leading-snug"}`}
         >
           {bidLimitMsg}
+        </p>
+      ) : null}
+
+      {usdcInsufficientMsg ? (
+        <p
+          className={`text-rose-400/90 ${minimal ? "text-sm" : embedded ? "text-[10px] leading-snug" : "text-[11px] leading-snug"}`}
+        >
+          {usdcInsufficientMsg}
         </p>
       ) : null}
 

@@ -154,6 +154,20 @@ export function useCollectionCriteriaBid(input: {
     return Number(formatUnits(usdcBalRaw as bigint, 6));
   }, [usdcBalRaw]);
 
+  const isBidSubmitPath = bidOnlySubmit || !floor.crossesBook;
+
+  const usdcInsufficientForBid =
+    isBidSubmitPath &&
+    floor.priceOk &&
+    floor.priceInUnits != null &&
+    usdcBalRaw != null &&
+    (usdcBalRaw as bigint) < floor.priceInUnits;
+
+  const usdcBalancePending =
+    isBidSubmitPath && Boolean(address) && usdcBalRaw === undefined && floor.priceOk;
+
+  const usdcInsufficientMsg = usdcInsufficientForBid ? "Insufficient USDC balance." : "";
+
   const canPlaceCriteriaBid =
     merkleLeafTokenIds.length > 0 && counter !== undefined && !merkleLoading && !merkleIsError;
 
@@ -244,6 +258,17 @@ export function useCollectionCriteriaBid(input: {
       return;
     }
 
+    if (usdcBalRaw == null) {
+      setErrorMsg("Could not read USDC balance.");
+      setStep("error");
+      return;
+    }
+    if ((usdcBalRaw as bigint) < floor.priceInUnits) {
+      setErrorMsg("Insufficient USDC balance.");
+      setStep("error");
+      return;
+    }
+
     setErrorMsg("");
     setPostBidMatchHint(null);
 
@@ -289,12 +314,13 @@ export function useCollectionCriteriaBid(input: {
 
   const submitDisabled =
     busy ||
-    !address ||
-    !publicClient ||
-    !floor.priceOk ||
-    walletSignerMissing ||
-    (bidLimitReached && !floor.crossesBook) ||
-    (!floor.crossesBook && (!canPlaceCriteriaBid || merkleLoading));
+    (Boolean(address) &&
+      (!publicClient ||
+        !floor.priceOk ||
+        walletSignerMissing ||
+        (bidLimitReached && !floor.crossesBook) ||
+        (!floor.crossesBook && (!canPlaceCriteriaBid || merkleLoading)) ||
+        (isBidSubmitPath && (usdcBalancePending || usdcInsufficientForBid))));
 
   const busyLabel =
     step === "approving"
@@ -348,6 +374,7 @@ export function useCollectionCriteriaBid(input: {
     isReplaceBid,
     bidLimitReached,
     bidLimitMsg,
+    usdcInsufficientMsg,
     activeBidsForCollection,
   };
 }

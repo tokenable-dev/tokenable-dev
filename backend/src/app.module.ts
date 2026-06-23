@@ -24,8 +24,11 @@ import { CollectionMarketSnapshot } from './marketplace/entities/collection-mark
 import { PsaCertSnapshot } from './marketplace/entities/psa-cert-snapshot.entity';
 import { RwaToken } from './marketplace/entities/rwa-token.entity';
 import { User } from './user/entities/user.entity';
+import { UserWallet } from './user/entities/user-wallet.entity';
+import { VerificationToken } from './auth/entities/verification-token.entity';
 import { PortfolioDailySnapshot } from './marketplace/entities/portfolio-daily-snapshot.entity';
 import { PortfolioHiddenHolding } from './marketplace/entities/portfolio-hidden-holding.entity';
+import { UserWatchlist } from './marketplace/entities/user-watchlist.entity';
 import { CardTop100DailySnapshot } from './cardhedger/entities/card-top100-snapshot.entity';
 
 @Module({
@@ -62,8 +65,11 @@ import { CardTop100DailySnapshot } from './cardhedger/entities/card-top100-snaps
           PsaCertSnapshot,
           RwaToken,
           User,
+          UserWallet,
+          VerificationToken,
           PortfolioDailySnapshot,
           PortfolioHiddenHolding,
+          UserWatchlist,
           CardTop100DailySnapshot,
         ],
         // Schema sync is always disabled in production — use SQL migration scripts

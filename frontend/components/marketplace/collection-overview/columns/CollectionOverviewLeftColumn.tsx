@@ -21,6 +21,7 @@ export function CollectionOverviewLeftColumn({
   mobileCoverBelowMetrics,
   belowCover,
   heroActions,
+  coverOverlay,
   metadataExpand,
   metadataRows,
   leftColumnFooter,
@@ -35,10 +36,25 @@ export function CollectionOverviewLeftColumn({
   mobileCoverBelowMetrics?: ReactNode;
   belowCover?: ReactNode;
   heroActions?: ReactNode;
+  coverOverlay?: ReactNode;
   metadataExpand?: CollectionOverviewBoardProps["metadataExpand"];
   metadataRows: { label: string; value: string }[];
   leftColumnFooter?: ReactNode;
 }) {
+  const coverOverlaySlot =
+    coverOverlay != null ? (
+      <div className="pointer-events-none absolute right-1.5 top-1.5 z-20 sm:right-2 sm:top-2">
+        <div className="pointer-events-auto">{coverOverlay}</div>
+      </div>
+    ) : null;
+
+  const wrapCover = (cover: ReactNode) =>
+    coverOverlay != null ? (
+      <div className="relative w-fit max-w-full shrink-0">{coverOverlaySlot}{cover}</div>
+    ) : (
+      cover
+    );
+
   return (
     <div
       className={`flex min-w-0 w-full max-w-full flex-col gap-3 sm:gap-4 ${
@@ -79,12 +95,14 @@ export function CollectionOverviewLeftColumn({
                     ) : null}
                   </div>
                   {imageUrl ? (
-                    <CollectionCoverFrame
-                      imageUrl={imageUrl}
-                      alt=""
-                      variant="hero"
-                      className="relative z-[1] shrink-0 self-start max-lg:overflow-visible"
-                    />
+                    wrapCover(
+                      <CollectionCoverFrame
+                        imageUrl={imageUrl}
+                        alt=""
+                        variant="hero"
+                        className="relative z-[1] shrink-0 self-start max-lg:overflow-visible"
+                      />,
+                    )
                   ) : (
                     <div
                       className={`flex h-[clamp(112px,30vw,128px)] w-[clamp(84px,22.5vw,96px)] shrink-0 items-center justify-center self-start rounded-xl ${COLLECTION_DETAILS_BORDER_ALL} ${COLLECTION_DETAILS_BG_CLASS} text-center text-[9px] text-gray-500`}
@@ -101,12 +119,14 @@ export function CollectionOverviewLeftColumn({
                 <div className="min-w-0 flex-1 max-lg:pt-0.5">{mobileHeadlineBlock}</div>
               ) : null}
               {imageUrl ? (
-                <CollectionCoverFrame
-                  imageUrl={imageUrl}
-                  alt=""
-                  variant="hero"
-                  className="relative z-[1] w-full shrink-0 overflow-visible max-lg:ms-auto max-lg:shrink-0 lg:w-full"
-                />
+                wrapCover(
+                  <CollectionCoverFrame
+                    imageUrl={imageUrl}
+                    alt=""
+                    variant="hero"
+                    className="relative z-[1] w-full shrink-0 overflow-visible max-lg:ms-auto max-lg:shrink-0 lg:w-full"
+                  />,
+                )
               ) : (
                 <div
                   className={`flex h-[min(460px,82vw)] max-h-[min(480px,88svh)] w-full items-center justify-center rounded-2xl ${COLLECTION_DETAILS_BORDER_ALL} ${COLLECTION_DETAILS_BG_CLASS} p-6 text-center text-[12px] text-gray-500 max-lg:ms-auto max-lg:h-[128px] max-lg:max-h-[132px] max-lg:w-[96px] max-lg:max-w-[96px] max-lg:shrink-0 max-lg:p-2 max-lg:text-[9px] lg:w-[307px] ${COLLECTION_HERO_DESKTOP_HEIGHT_CLASS}`}

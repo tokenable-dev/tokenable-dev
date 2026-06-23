@@ -8,6 +8,9 @@
   --mint-dim: #0cb82e;
   --mint-deep: #0a8f24;
   --mint-ink: #041208;
+  --input-surface: #0a0f0c;
+  --input-surface-autofill: #0c1210;
+  --input-text: #f3f4f6;
   --scrollbar-track: #000000;
   --scrollbar-thumb: #141414;
   --scrollbar-thumb-hover: #242424;
@@ -89,6 +92,33 @@ body {
 
   *::-webkit-scrollbar-corner {
     background: var(--scrollbar-track);
+  }
+
+  /** Dark inputs — tame browser autofill (no bright yellow/white flash). */
+  .input-dark {
+    color-scheme: dark;
+  }
+
+  .input-dark:-webkit-autofill,
+  .input-dark:-webkit-autofill:hover,
+  .input-dark:-webkit-autofill:focus,
+  .input-dark:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0 1000px var(--input-surface-autofill) inset !important;
+    box-shadow: 0 0 0 1000px var(--input-surface-autofill) inset !important;
+    -webkit-text-fill-color: var(--input-text) !important;
+    caret-color: var(--input-text);
+    transition:
+      background-color 99999s ease-out 0s,
+      color 99999s ease-out 0s;
+  }
+
+  .input-dark:autofill,
+  .input-dark:-moz-autofill,
+  .input-dark:-moz-autofill-preview {
+    box-shadow: 0 0 0 1000px var(--input-surface-autofill) inset !important;
+    -webkit-text-fill-color: var(--input-text) !important;
+    color: var(--input-text) !important;
+    background-color: var(--input-surface-autofill) !important;
   }
 }
 
