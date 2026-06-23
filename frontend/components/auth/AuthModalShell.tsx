@@ -33,7 +33,7 @@ export function AuthModalShell({
 
   return (
     <div
-      className="fixed inset-0 z-[140] flex items-end justify-center p-0 sm:items-center sm:p-4"
+      className="fixed inset-0 z-[140] flex items-center justify-center p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby={titleId}
@@ -45,7 +45,7 @@ export function AuthModalShell({
         onClick={onClose}
       />
       <div
-        className={`relative z-10 w-full ${maxWidthClass} rounded-t-2xl border border-gray-800/90 bg-gray-900/95 shadow-2xl shadow-black/50 ring-1 ring-mint/10 sm:rounded-2xl [color-scheme:dark]`}
+        className={`relative z-10 w-full ${maxWidthClass} max-h-[min(92dvh,720px)] overflow-y-auto rounded-2xl border border-gray-800/90 bg-gray-900/95 shadow-2xl shadow-black/50 ring-1 ring-mint/10 [color-scheme:dark]`}
       >
         {children}
       </div>

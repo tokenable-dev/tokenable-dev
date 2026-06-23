@@ -51,6 +51,25 @@ export function verifySiteAccessToken(
   return safeEqualHex(sig, expected);
 }
 
+/** Re-issue site-access cookie after successful sign-in (OAuth redirect may drop the prior gate cookie). */
+export function maybeRefreshSiteAccessCookie(
+  res: import('express').Response,
+  env: NodeJS.ProcessEnv,
+  cookieSecure: boolean,
+): void {
+  const cfg = readSiteAccessConfig(env);
+  if (!cfg.enabled || !cfg.secret) return;
+
+  const token = issueSiteAccessToken(cfg.secret, cfg.sessionSeconds);
+  res.cookie(SITE_ACCESS_COOKIE, token, {
+    httpOnly: true,
+    secure: cookieSecure,
+    sameSite: 'lax',
+    path: '/',
+    maxAge: cfg.sessionSeconds * 1000,
+  });
+}
+
 function signSiteAccessExp(secret: string, exp: number): string {
   return createHmac('sha256', secret).update(String(exp)).digest('hex');
 }

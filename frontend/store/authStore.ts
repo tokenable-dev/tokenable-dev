@@ -7,7 +7,7 @@ interface AuthState {
   loading: boolean;
   initialized: boolean;
   setUser: (u: AuthUser | null) => void;
-  refresh: () => Promise<void>;
+  refresh: (options?: { showLoading?: boolean }) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -15,9 +15,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   loading: true,
   initialized: false,
-  setUser: (user) => set({ user }),
-  refresh: async () => {
-    set({ loading: true });
+  setUser: (user) => set({ user, initialized: true, loading: false }),
+  refresh: async (options?: { showLoading?: boolean }) => {
+    const showLoading = options?.showLoading !== false;
+    if (showLoading) set({ loading: true });
     try {
       const user = await fetchAuthMe();
       set({ user, initialized: true });

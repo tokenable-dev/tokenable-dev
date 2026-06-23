@@ -7,13 +7,7 @@ import { useAccessGate } from "@/hooks/auth/useAccessGate";
 import { useAuthStore } from "@/store/authStore";
 import { useAuthUiStore } from "@/store/authUiStore";
 
-const PORTFOLIO_SUB_LINKS = [
-  { label: "Active Bids", href: "/portfolio?tab=bids" },
-  { label: "Transaction History", href: "/portfolio#transaction-history" },
-] as const;
-
 const ACCOUNT_MENU_LINKS = [
-  { label: "Watchlist", href: "/portfolio?tab=watchlist" },
   { label: "Notifications", href: "/profile?section=notifications" },
   { label: "Settings", href: "/profile" },
 ] as const;
@@ -21,18 +15,15 @@ const ACCOUNT_MENU_LINKS = [
 const MENU_PAD_X = "px-6";
 /** Header: px-6 + user icon (2.5rem) + gap-3 — align menu labels with email column. */
 const MENU_TEXT_INSET = "pl-[4.75rem] pr-6";
-const MENU_SUB_INSET = "pl-[5.5rem] pr-6";
 
 function AccountMenuLinkItem({
   label,
   href,
-  indent,
   onNavigate,
   gated = false,
 }: {
   label: string;
   href: string;
-  indent?: boolean;
   onNavigate: () => void;
   gated?: boolean;
 }) {
@@ -46,20 +37,9 @@ function AccountMenuLinkItem({
           onNavigate();
           navigateIfAllowed(href);
         }}
-        className={`block w-full py-2 text-left text-sm text-gray-300 transition-colors hover:text-white ${
-          indent ? MENU_SUB_INSET : MENU_TEXT_INSET
-        }`}
+        className={`block w-full py-2 text-left text-sm text-gray-300 transition-colors hover:text-white ${MENU_TEXT_INSET}`}
       >
-        {indent ? (
-          <span className="flex items-center gap-2">
-            <span className="text-gray-600" aria-hidden>
-              –
-            </span>
-            {label}
-          </span>
-        ) : (
-          label
-        )}
+        {label}
       </button>
     );
   }
@@ -68,20 +48,9 @@ function AccountMenuLinkItem({
     <Link
       href={href}
       onClick={onNavigate}
-      className={`block py-2 text-sm text-gray-300 transition-colors hover:text-white ${
-        indent ? MENU_SUB_INSET : MENU_TEXT_INSET
-      }`}
+      className={`block py-2 text-sm text-gray-300 transition-colors hover:text-white ${MENU_TEXT_INSET}`}
     >
-      {indent ? (
-        <span className="flex items-center gap-2">
-          <span className="text-gray-600" aria-hidden>
-            –
-          </span>
-          {label}
-        </span>
-      ) : (
-        label
-      )}
+      {label}
     </Link>
   );
 }
@@ -90,12 +59,10 @@ export function HeaderAccountMenu() {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const [open, setOpen] = useState(false);
-  const [portfolioExpanded, setPortfolioExpanded] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   const close = useCallback(() => {
     setOpen(false);
-    setPortfolioExpanded(false);
   }, []);
 
   useEffect(() => {
@@ -183,46 +150,17 @@ export function HeaderAccountMenu() {
           </div>
 
           <nav className="py-1.5" aria-label="Account">
-            <div>
-              <button
-                type="button"
-                aria-expanded={portfolioExpanded}
-                onClick={() => setPortfolioExpanded((p) => !p)}
-                className={`flex w-full items-center justify-between ${MENU_TEXT_INSET} py-2 text-left text-sm text-gray-300 transition-colors hover:text-white`}
-              >
-                <span>My Portfolio</span>
-                <svg
-                  className={`h-3.5 w-3.5 shrink-0 text-gray-500 transition-transform ${
-                    portfolioExpanded ? "rotate-180" : ""
-                  }`}
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  aria-hidden
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-              {portfolioExpanded ? (
-                <div className="pb-0.5">
-                  {PORTFOLIO_SUB_LINKS.map((item) => (
-                    <AccountMenuLinkItem
-                      key={item.label}
-                      {...item}
-                      indent
-                      gated
-                      onNavigate={close}
-                    />
-                  ))}
-                </div>
-              ) : null}
-            </div>
+            <AccountMenuLinkItem
+              label="Portfolio"
+              href="/portfolio"
+              gated
+              onNavigate={close}
+            />
 
             {ACCOUNT_MENU_LINKS.map((item) => (
               <AccountMenuLinkItem
                 key={item.label}
                 {...item}
-                gated={item.label === "Watchlist"}
                 onNavigate={close}
               />
             ))}
