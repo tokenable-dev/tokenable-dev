@@ -1,5 +1,8 @@
 export const SITE_ACCESS_COOKIE = "site_access";
 
+/** Default gate password when SITE_ACCESS_PASSWORD is unset (local + deploy parity). */
+export const DEFAULT_SITE_ACCESS_PASSWORD = "717171";
+
 export type SiteAccessConfig = {
   enabled: boolean;
   password: string;
@@ -10,7 +13,8 @@ export type SiteAccessConfig = {
 export function readSiteAccessConfig(): SiteAccessConfig {
   return {
     enabled: parseTruthy(process.env.SITE_ACCESS_ENABLED),
-    password: process.env.SITE_ACCESS_PASSWORD?.trim() ?? "",
+    password:
+      process.env.SITE_ACCESS_PASSWORD?.trim() || DEFAULT_SITE_ACCESS_PASSWORD,
     secret: process.env.SITE_ACCESS_SECRET?.trim() ?? "",
     sessionSeconds: clampInt(process.env.SITE_ACCESS_SESSION_SECONDS, 3600, 60, 86_400),
   };
