@@ -15,9 +15,7 @@ export function PortfolioAssetCard({
   assetFilter,
   address,
   valuesPending,
-  isBurnAdmin,
   cancellingListingTokenId,
-  burningTokenId,
   hidingTokenId,
   unhidingTokenId,
   onOpen,
@@ -26,15 +24,12 @@ export function PortfolioAssetCard({
   onChangeListing,
   onCancelListing,
   onSellNow,
-  onBurn,
 }: {
   row: AssetRow;
   assetFilter: AssetListFilter;
   address: string | undefined;
   valuesPending: boolean;
-  isBurnAdmin: boolean;
   cancellingListingTokenId: number | null;
-  burningTokenId: number | null;
   hidingTokenId: number | null;
   unhidingTokenId: number | null;
   onOpen: () => void;
@@ -43,7 +38,6 @@ export function PortfolioAssetCard({
   onChangeListing: () => void;
   onCancelListing: () => void;
   onSellNow: () => void;
-  onBurn: () => void;
 }) {
   const titleLine = row.name;
   const isListed = row.listPriceUsd != null && row.activeListingOrderHash != null;
@@ -143,24 +137,6 @@ export function PortfolioAssetCard({
             ) : (
               <PortfolioSellNowButton onClick={onSellNow} />
             )}
-          </div>
-        ) : null}
-        {isBurnAdmin && address && assetFilter !== "hidden" ? (
-          <div className="border-t border-gray-800/80 pt-2 sm:pt-3">
-            <button
-              type="button"
-              disabled={
-                burningTokenId === row.tokenId || cancellingListingTokenId === row.tokenId
-              }
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                onBurn();
-              }}
-              className="w-full rounded-md border border-amber-500/35 bg-amber-500/10 px-2 py-1.5 text-center text-[10px] font-semibold text-amber-200 transition-colors hover:border-amber-400/45 hover:bg-amber-500/18 disabled:cursor-not-allowed disabled:opacity-50 sm:rounded-lg sm:px-3 sm:py-2.5 sm:text-[12px]"
-            >
-              {burningTokenId === row.tokenId ? "Burning…" : "Burn (test)"}
-            </button>
           </div>
         ) : null}
       </div>

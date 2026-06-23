@@ -28,6 +28,9 @@ BEGIN;
 \ir schema/063_users_password_hash.sql
 \ir schema/064_verification_tokens.sql
 \ir schema/065_user_wallets.sql
+\ir schema/066_user_wallets_allow_shared.sql
+\ir schema/067_password_reset_tokens.sql
+\ir schema/068_marketplace_admins.sql
 \ir schema/900_triggers.sql
 
 COMMIT;

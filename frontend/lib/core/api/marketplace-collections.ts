@@ -86,10 +86,10 @@ export async function getMarketplaceCollectionDetailOrNull(
   return d.collection ? d : null;
 }
 
-/** Admin: persist collection cover (requires admin wallet in body). */
+/** Admin: persist collection cover (requires admin session cookie). */
 export async function postAdminSetCollectionCover(
   collectionKey: string,
-  body: { adminWallet: string; coverImageUrl: string },
+  body: { coverImageUrl: string },
 ): Promise<{ collectionKey: string; coverImageUrl: string | null }> {
   const enc = encodeURIComponent(collectionKey);
   const res = await backendFetch(
@@ -112,7 +112,7 @@ export async function postAdminSetCollectionCover(
 /** Admin: resolve cover from token metadata; `save: true` persists. */
 export async function postAdminCollectionCoverFromToken(
   collectionKey: string,
-  body: { adminWallet: string; tokenId: string; save?: boolean },
+  body: { tokenId: string; save?: boolean },
 ): Promise<{ coverImageUrl: string | null; saved: boolean }> {
   const enc = encodeURIComponent(collectionKey);
   const res = await backendFetch(
@@ -136,7 +136,7 @@ export async function postAdminCollectionCoverFromToken(
 /** Admin: delete collection bucket and related marketplace rows. */
 export async function postAdminDeleteCollection(
   collectionKey: string,
-  body: { adminWallet: string; confirmCollectionKey: string },
+  body: { confirmCollectionKey: string },
 ): Promise<{
   collectionKey: string;
   deletedSnapshots: number;

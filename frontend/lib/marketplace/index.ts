@@ -4,7 +4,6 @@ export * from "./collectionCriteriaBidTypes";
 export * from "./collectionHeadlineCopy";
 export * from "./collectionDetailConstants";
 export * from "./collectionDisplayImage";
-export * from './marketplaceAdmin';
 export * from './marketplaceQueryPersistence';
 export * from './mediaUriResolve';
 export * from './normalizeTokenId';

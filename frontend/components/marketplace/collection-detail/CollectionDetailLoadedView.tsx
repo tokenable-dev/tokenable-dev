@@ -2,7 +2,6 @@
 
 import type { Address } from "viem";
 import { pickCollectionDetailDisplayImageUrl } from "@/lib/marketplace/collectionDisplayImage";
-import { CollectionAdminCoverPanel } from "@/components/marketplace/collection-hero";
 import { COLLECTION_DETAIL_SHELL_CLASS } from "@/constants/layout";
 import { CollectionOverviewBoard } from "@/components/marketplace/collection-overview";
 import { WatchlistToggleButton } from "@/components/watchlist/WatchlistToggleButton";
@@ -34,8 +33,6 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
     collectionBids,
     listings,
     invalidateCollection,
-    listingTokenIdsForAdmin,
-    isCoverAdmin,
     presetPriceFromBook,
     listPricePresetUsdc,
     preferredBidOrderHash,
@@ -98,21 +95,6 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
         className={`${COLLECTION_DETAIL_SHELL_CLASS} flex min-h-0 flex-1 flex-col py-4 max-lg:overflow-visible max-lg:py-1.5 max-lg:pb-[max(1.25rem,env(safe-area-inset-bottom,0px))] sm:py-8 sm:pb-20 lg:overflow-visible`}
       >
         <CollectionDetailMobileNav />
-        {isCoverAdmin && address ? (
-          <CollectionAdminCoverPanel
-            collectionKey={collection.collectionKey}
-            adminWallet={address as Address}
-            currentCoverUrl={collectionCoverUrl}
-            listingTokenIds={listingTokenIdsForAdmin}
-            onSaved={() => {
-              invalidateCollection();
-            }}
-            onDeleted={() => {
-              invalidateCollection();
-              router.push("/markets");
-            }}
-          />
-        ) : null}
           <CollectionOverviewBoard
           title={headline.collectionWovenTitle}
           subtitle={headline.subtitle}

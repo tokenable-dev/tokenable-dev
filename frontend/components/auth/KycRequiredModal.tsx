@@ -22,14 +22,6 @@ export function KycRequiredModal() {
         >
           Coming soon
         </button>
-
-        <button
-          type="button"
-          onClick={closeKyc}
-          className="mt-2 w-full py-2 text-sm text-gray-500 hover:text-gray-300"
-        >
-          Close
-        </button>
       </div>
     </AuthModalShell>
   );

@@ -19,12 +19,11 @@ async function parseAdminError(res: Response, fallback: string): Promise<never> 
 }
 
 /** Admin: all active ask listings with registry + image fields. */
-export async function getAdminListedRwaCards(adminWallet: string): Promise<{
+export async function getAdminListedRwaCards(): Promise<{
   items: AdminListedRwaCardRow[];
 }> {
-  const q = new URLSearchParams({ adminWallet });
   const res = await backendFetch(
-    `${getApiUrl()}/marketplace/admin/rwa-tokens/listings?${q}`,
+    `${getApiUrl()}/marketplace/admin/rwa-tokens/listings`,
   );
   if (!res.ok) {
     await parseAdminError(res, "Failed to load listed cards");
@@ -35,7 +34,6 @@ export async function getAdminListedRwaCards(adminWallet: string): Promise<{
 export async function patchAdminRwaToken(
   tokenId: number,
   body: {
-    adminWallet: string;
     displayImageUrl?: string | null;
     displayName?: string | null;
     collectionKey?: string | null;
@@ -67,14 +65,13 @@ export async function patchAdminRwaToken(
 
 export async function postAdminPreviewRwaMetadataImage(
   tokenId: number,
-  body: { adminWallet: string },
 ): Promise<{ imageRef: string | null; httpsUrl: string | null }> {
   const res = await backendFetch(
     `${getApiUrl()}/marketplace/admin/rwa-tokens/${tokenId}/preview-metadata-image`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+      body: JSON.stringify({}),
     },
   );
   if (!res.ok) {

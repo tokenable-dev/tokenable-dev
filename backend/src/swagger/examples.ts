@@ -185,16 +185,13 @@ export const SWAGGER_BODY_EXAMPLES = {
     historyMaxCalendarDays: 90,
   },
   adminSetCover: {
-    adminWallet: F.walletAlt,
     coverImageUrl: F.coverUrl,
   },
   adminCoverFromToken: {
-    adminWallet: F.walletAlt,
     tokenId: '1',
     save: false,
   },
   adminDeleteCollection: {
-    adminWallet: F.walletAlt,
     confirmCollectionKey: F.collectionKey,
   },
   psaAnalyzeByCert: { certNumber: F.certNumber },

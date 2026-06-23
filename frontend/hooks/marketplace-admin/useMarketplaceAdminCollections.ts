@@ -2,15 +2,13 @@
 
 import { useMemo } from "react";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
-import type { Address } from "viem";
 import { getMarketplaceCollectionsPage, postAdminDeleteCollection, rq } from "@/lib/core";
 import { useAdminCollectionMarketSnapshots } from "./useAdminCollectionMarketSnapshots";
 
 const PAGE_SIZE = 30;
 
-export function useMarketplaceAdminCollections(adminWallet: Address | undefined) {
+export function useMarketplaceAdminCollections() {
   const qc = useQueryClient();
-  const wallet = adminWallet?.toLowerCase();
 
   const listQuery = useInfiniteQuery({
     queryKey: rq.adminCollectionsList(),
@@ -48,9 +46,7 @@ export function useMarketplaceAdminCollections(adminWallet: Address | undefined)
   }
 
   async function deleteCollection(collectionKey: string, confirmKey: string) {
-    if (!wallet) throw new Error("Admin wallet required");
     const result = await postAdminDeleteCollection(collectionKey, {
-      adminWallet: wallet,
       confirmCollectionKey: confirmKey,
     });
     await invalidateCollections(collectionKey);

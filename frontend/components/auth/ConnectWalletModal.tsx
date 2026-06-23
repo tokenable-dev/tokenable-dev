@@ -105,9 +105,6 @@ export function ConnectWalletModal() {
         <h2 id={titleId} className="text-lg font-bold text-white sm:text-xl">
           Connect wallet
         </h2>
-        <p className="mt-2 text-sm text-gray-400">
-          Link your wallet to continue.
-        </p>
 
         <div className="mt-5">
           <button

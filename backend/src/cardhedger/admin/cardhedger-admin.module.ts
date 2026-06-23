@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { CardhedgerModule } from '../cardhedger.module';
-import { MarketplaceAdminService } from '../../marketplace/admin/marketplace-admin.service';
+import { MarketplaceAdminModule } from '../../marketplace/admin/marketplace-admin.module';
 import { CardhedgerAdminController } from './cardhedger-admin.controller';
 import { CardhedgerHealthService } from './cardhedger-health.service';
 import { CardhedgerPrometheusService } from './cardhedger-prometheus.service';
@@ -12,7 +12,7 @@ import { CardhedgerPrometheusService } from './cardhedger-prometheus.service';
  *
  *   - CardhedgerService      → provided by CardhedgerModule
  *   - CardhedgerMetricsService → @Global() provider (no explicit import required)
- *   - MarketplaceAdminService  → only depends on ConfigService (@Global()); provided directly
+ *   - MarketplaceAdminModule → admin session guard for ops endpoints
  *   - Scheduler state          → pushed into CardhedgerMetricsService by the scheduler
  *     on every cron tick via `recordSchedulerState()`; no direct injection needed.
  *
@@ -23,12 +23,8 @@ import { CardhedgerPrometheusService } from './cardhedger-prometheus.service';
  * circular module context. The push-based state pattern above avoids this entirely.
  */
 @Module({
-  imports: [CardhedgerModule],
+  imports: [CardhedgerModule, MarketplaceAdminModule],
   controllers: [CardhedgerAdminController],
-  providers: [
-    MarketplaceAdminService,
-    CardhedgerHealthService,
-    CardhedgerPrometheusService,
-  ],
+  providers: [CardhedgerHealthService, CardhedgerPrometheusService],
 })
 export class CardhedgerAdminModule {}

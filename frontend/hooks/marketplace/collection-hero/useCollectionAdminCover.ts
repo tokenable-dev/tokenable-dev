@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import type { Address } from "viem";
 import {
   postAdminCollectionCoverFromToken,
   postAdminDeleteCollection,
@@ -10,39 +9,23 @@ import {
 
 export type AdminCoverBusyState = "url" | "fetch" | "apply" | "delete" | null;
 
-/**
- * Centralises the three admin cover mutations for a collection:
- * - save a cover URL
- * - resolve cover from a token's on-chain metadata (optionally persist)
- * - permanently delete the collection
- *
- * The hook owns `busy` and `error` state so the component only deals
- * with UI-level state (inputs, preview, delete-confirm).
- */
 export function useCollectionAdminCover({
   collectionKey,
-  adminWallet,
   onSaved,
   onDeleted,
 }: {
   collectionKey: string;
-  adminWallet: Address;
   onSaved: () => void;
   onDeleted: () => void;
 }) {
   const [busy, setBusy] = useState<AdminCoverBusyState>(null);
   const [error, setError] = useState<string | null>(null);
 
-  /**
-   * Persist a cover image URL. Returns `true` on success so the component
-   * can update its own `urlInput` / `previewUrl` state accordingly.
-   */
   async function saveCoverUrl(url: string): Promise<boolean> {
     setBusy("url");
     setError(null);
     try {
       await postAdminSetCollectionCover(collectionKey, {
-        adminWallet,
         coverImageUrl: url,
       });
       onSaved();
@@ -55,11 +38,6 @@ export function useCollectionAdminCover({
     }
   }
 
-  /**
-   * Resolve a cover image from token metadata.
-   * `save: true` also persists the result and fires `onSaved`.
-   * Returns the resolved `coverImageUrl` string on success, or `null` on failure.
-   */
   async function fetchCoverFromToken(
     tokenId: string,
     save: boolean,
@@ -68,7 +46,6 @@ export function useCollectionAdminCover({
     setError(null);
     try {
       const res = await postAdminCollectionCoverFromToken(collectionKey, {
-        adminWallet,
         tokenId,
         save,
       });
@@ -86,16 +63,11 @@ export function useCollectionAdminCover({
     }
   }
 
-  /**
-   * Permanently delete the collection from the marketplace database.
-   * Requires `confirmKey === collectionKey` (validated by the caller).
-   */
   async function deleteCollection(confirmKey: string): Promise<void> {
     setBusy("delete");
     setError(null);
     try {
       await postAdminDeleteCollection(collectionKey, {
-        adminWallet,
         confirmCollectionKey: confirmKey,
       });
       onDeleted();

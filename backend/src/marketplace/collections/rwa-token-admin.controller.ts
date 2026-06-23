@@ -7,8 +7,10 @@ import {
   Patch,
   Post,
   Query,
+  Req,
 } from '@nestjs/common';
-import { ApiOperation, ApiParam, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
+import type { Request } from 'express';
 import { MarketplaceAdminService } from '../admin/marketplace-admin.service';
 import {
   AdminRwaTokenActionDto,
@@ -26,10 +28,12 @@ export class RwaTokenAdminController {
   ) {}
 
   @ApiOperation({ summary: '[Admin] Active listed RWA cards overview' })
-  @ApiQuery({ name: 'adminWallet', required: true })
   @Get('listings')
-  async listListedCards(@Query() query: AdminRwaTokenListQueryDto) {
-    this.admin.assertAdminWallet(query.adminWallet);
+  async listListedCards(
+    @Req() req: Request,
+    @Query() _query: AdminRwaTokenListQueryDto,
+  ) {
+    this.admin.assertAdminSession(req);
     return this.rwaTokenAdmin.listActiveListedCards();
   }
 
@@ -37,10 +41,11 @@ export class RwaTokenAdminController {
   @ApiParam({ name: 'tokenId', example: 1 })
   @Patch(':tokenId')
   async updateToken(
+    @Req() req: Request,
     @Param('tokenId', ParseIntPipe) tokenId: number,
     @Body() body: AdminUpdateRwaTokenDto,
   ) {
-    this.admin.assertAdminWallet(body.adminWallet);
+    this.admin.assertAdminSession(req);
     const row = await this.rwaTokenAdmin.updateTokenAdmin(tokenId, {
       displayImageUrl: body.displayImageUrl,
       displayName: body.displayName,
@@ -60,10 +65,11 @@ export class RwaTokenAdminController {
   @ApiParam({ name: 'tokenId', example: 1 })
   @Post(':tokenId/preview-metadata-image')
   async previewMetadataImage(
+    @Req() req: Request,
     @Param('tokenId', ParseIntPipe) tokenId: number,
-    @Body() body: AdminRwaTokenActionDto,
+    @Body() _body: AdminRwaTokenActionDto,
   ) {
-    this.admin.assertAdminWallet(body.adminWallet);
+    this.admin.assertAdminSession(req);
     return this.rwaTokenAdmin.previewImageRefFromMetadata(tokenId);
   }
 }

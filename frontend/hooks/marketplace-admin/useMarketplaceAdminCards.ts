@@ -1,7 +1,6 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { Address } from "viem";
 import {
   getAdminListedRwaCards,
   patchAdminRwaToken,
@@ -9,21 +8,17 @@ import {
   rq,
 } from "@/lib/core";
 
-export function useMarketplaceAdminCards(adminWallet: Address | undefined) {
+export function useMarketplaceAdminCards() {
   const qc = useQueryClient();
-  const wallet = adminWallet?.toLowerCase();
 
   const query = useQuery({
-    queryKey: rq.adminListedRwaCards(wallet ?? ""),
-    queryFn: () => getAdminListedRwaCards(wallet!),
-    enabled: Boolean(wallet),
+    queryKey: rq.adminListedRwaCards(),
+    queryFn: () => getAdminListedRwaCards(),
     staleTime: 30_000,
   });
 
   const invalidateCard = async (tokenId: number) => {
-    if (wallet) {
-      await qc.invalidateQueries({ queryKey: rq.adminListedRwaCards(wallet) });
-    }
+    await qc.invalidateQueries({ queryKey: rq.adminListedRwaCards() });
     await qc.invalidateQueries({ queryKey: rq.rwaAssetDetail(tokenId) });
   };
 
@@ -34,12 +29,8 @@ export function useMarketplaceAdminCards(adminWallet: Address | undefined) {
       displayName?: string | null;
       collectionKey?: string | null;
     }) => {
-      if (!wallet) throw new Error("Admin wallet required");
       const { tokenId, ...patch } = input;
-      return patchAdminRwaToken(tokenId, {
-        adminWallet: wallet,
-        ...patch,
-      });
+      return patchAdminRwaToken(tokenId, patch);
     },
     onSuccess: async (_data, vars) => {
       await invalidateCard(vars.tokenId);
@@ -47,8 +38,7 @@ export function useMarketplaceAdminCards(adminWallet: Address | undefined) {
   });
 
   const previewMetadataImage = async (tokenId: number) => {
-    if (!wallet) throw new Error("Admin wallet required");
-    return postAdminPreviewRwaMetadataImage(tokenId, { adminWallet: wallet });
+    return postAdminPreviewRwaMetadataImage(tokenId);
   };
 
   return {

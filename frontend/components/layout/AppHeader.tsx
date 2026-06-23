@@ -21,7 +21,7 @@ import {
 import type { MarketplaceCollectionSummary } from "@/lib/core";
 import { HeaderAuthModals } from "@/components/auth/HeaderAuthModals";
 import { HeaderAuthControls } from "@/components/layout/header/HeaderAuthControls";
-import { HeaderDesktopNav, HeaderMobileNav } from "@/components/layout/header/HeaderNav";
+import { HeaderDesktopNav } from "@/components/layout/header/HeaderNav";
 import { useMarketplaceCollectionsInfinite } from "@/hooks/marketplace";
 import { useResolvedMediaUrlMap } from "@/hooks/media";
 import { buildMarketsCollectionTitle } from "@/lib/markets/marketsCollectionTitle";
@@ -474,6 +474,9 @@ export function AppHeader() {
   if (pathname === "/site-access" || pathname.startsWith("/site-access/")) {
     return null;
   }
+  if (pathname.startsWith("/marketplace/admin")) {
+    return null;
+  }
   const isCollectionDetailHeader = isMarketplaceCollectionDetailPath(pathname);
   const headerShellClass = isCollectionDetailHeader
     ? COLLECTION_DETAIL_SHELL_CLASS
@@ -494,7 +497,6 @@ export function AppHeader() {
                 className="h-8 w-auto object-contain"
               />
             </Link>
-            <HeaderMobileNav />
             <HeaderDesktopNav />
           </div>
 

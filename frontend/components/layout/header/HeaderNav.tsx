@@ -1,6 +1,5 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import {
   isMarketplaceCollectionDetailPath,
@@ -101,80 +100,5 @@ export function HeaderDesktopNav() {
         />
       ))}
     </nav>
-  );
-}
-
-/** Mobile nav sheet — hamburger on narrow viewports. */
-export function HeaderMobileNav() {
-  const pathname = usePathname();
-  const navigate = useHeaderNavGate();
-  const [open, setOpen] = useState(false);
-
-  const close = useCallback(() => setOpen(false), []);
-
-  useEffect(() => {
-    if (!open) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, [open]);
-
-  const handleNavigate = useCallback(
-    (href: string, minLevel: HeaderNavMinLevel) => {
-      close();
-      navigate(href, minLevel);
-    },
-    [close, navigate],
-  );
-
-  return (
-    <div className="sm:hidden">
-      <button
-        type="button"
-        aria-expanded={open}
-        aria-label="Open menu"
-        onClick={() => setOpen(true)}
-        className="flex h-10 w-10 items-center justify-center rounded-lg border border-gray-800/60 bg-gray-950/90 text-gray-300 transition-colors hover:border-gray-700/70 hover:text-white"
-      >
-        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 6h16M4 12h16M4 18h16" />
-        </svg>
-      </button>
-
-      {open ? (
-        <div className="fixed inset-0 z-[120] flex flex-col bg-gray-950/98 backdrop-blur-sm">
-          <div className="flex items-center justify-between border-b border-gray-800/80 px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top,0px))]">
-            <p className="text-sm font-semibold text-white">Menu</p>
-            <button
-              type="button"
-              onClick={close}
-              className="rounded-lg px-2 py-2 text-sm text-zinc-400 hover:text-white"
-            >
-              Close
-            </button>
-          </div>
-          <nav className="flex flex-col px-2 py-3" aria-label="Main">
-            {HEADER_NAV_ITEMS.map(({ href, label, minLevel }) => {
-              const active = navItemActive(pathname, href);
-              return (
-                <HeaderNavLink
-                  key={href}
-                  href={href}
-                  label={label}
-                  minLevel={minLevel}
-                  active={active}
-                  onNavigate={handleNavigate}
-                  className={`w-full rounded-xl px-4 py-3.5 text-left text-base font-semibold transition-colors ${
-                    active ? "bg-mint/10 text-mint" : "text-gray-300 hover:bg-gray-800/50 hover:text-white"
-                  }`}
-                />
-              );
-            })}
-          </nav>
-        </div>
-      ) : null}
-    </div>
   );
 }

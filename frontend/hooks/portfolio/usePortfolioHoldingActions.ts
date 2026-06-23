@@ -2,8 +2,6 @@
 
 import { useCallback, useState } from "react";
 import type { QueryClient } from "@tanstack/react-query";
-import type { PublicClient } from "viem";
-import { sepolia } from "viem/chains";
 import {
   cancelOrder,
   hidePortfolioHolding,
@@ -11,29 +9,17 @@ import {
   unhidePortfolioHolding,
   type OrderListItem,
 } from "@/lib/core";
-import { invalidateAfterBurn } from "@/lib/core/invalidation";
-import {
-  TOKENABLE_RWA_ADDRESS,
-  TOKENABLE_RWA_TRANSFER_ABI,
-} from "@/constants/contracts";
-import type { useWriteContract } from "wagmi";
-
-const TEST_BURN_TO_ADDRESS = "0x88CE98390ACA24C6A232946dc94EC12794f85FB2" as const;
 
 export function usePortfolioHoldingActions(input: {
   address: string | undefined;
   queryClient: QueryClient;
-  publicClient: PublicClient | undefined;
-  writeContractAsync: ReturnType<typeof useWriteContract>["writeContractAsync"];
   refetchActiveOrders: () => Promise<unknown>;
 }) {
-  const { address, queryClient, publicClient, writeContractAsync, refetchActiveOrders } =
-    input;
+  const { address, queryClient, refetchActiveOrders } = input;
 
   const [cancellingListingTokenId, setCancellingListingTokenId] = useState<number | null>(
     null,
   );
-  const [burningTokenId, setBurningTokenId] = useState<number | null>(null);
   const [hidingTokenId, setHidingTokenId] = useState<number | null>(null);
   const [unhidingTokenId, setUnhidingTokenId] = useState<number | null>(null);
   const [hideConfirm, setHideConfirm] = useState<{ tokenId: number; name: string } | null>(
@@ -127,42 +113,6 @@ export function usePortfolioHoldingActions(input: {
     [address, queryClient, refetchActiveOrders],
   );
 
-  const burnToken = useCallback(
-    async (tokenId: number, hasActiveListing: boolean) => {
-      if (!address || !publicClient) return;
-      if (hasActiveListing) {
-        window.alert("Cancel listing first, then burn.");
-        return;
-      }
-      if (
-        !window.confirm(
-          `Send token #${tokenId} to burn test address ${TEST_BURN_TO_ADDRESS}? This is not reversible.`,
-        )
-      ) {
-        return;
-      }
-      setBurningTokenId(tokenId);
-      try {
-        const txHash = await writeContractAsync({
-          address: TOKENABLE_RWA_ADDRESS,
-          abi: TOKENABLE_RWA_TRANSFER_ABI,
-          functionName: "transferFrom",
-          args: [address as `0x${string}`, TEST_BURN_TO_ADDRESS, BigInt(tokenId)],
-          chainId: sepolia.id,
-        });
-        await publicClient.waitForTransactionReceipt({ hash: txHash });
-        await invalidateAfterBurn(queryClient, address);
-      } catch (err) {
-        window.alert(
-          err instanceof Error ? err.message : "Failed to burn-transfer token",
-        );
-      } finally {
-        setBurningTokenId(null);
-      }
-    },
-    [address, publicClient, queryClient, writeContractAsync],
-  );
-
   const requestHide = useCallback((tokenId: number, name: string, hasListing: boolean) => {
     if (!address) return;
     if (hasListing) {
@@ -174,7 +124,6 @@ export function usePortfolioHoldingActions(input: {
 
   return {
     cancellingListingTokenId,
-    burningTokenId,
     hidingTokenId,
     unhidingTokenId,
     hideConfirm,
@@ -182,7 +131,6 @@ export function usePortfolioHoldingActions(input: {
     executeHideHolding,
     unhideHolding,
     cancelListing,
-    burnToken,
     requestHide,
   };
 }
