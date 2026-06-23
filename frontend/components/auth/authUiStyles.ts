@@ -1,5 +1,5 @@
 export const AUTH_INPUT_CLASS =
-  "input-dark w-full rounded-xl border border-gray-700/90 bg-[var(--input-surface)] px-3 py-2.5 text-sm text-white outline-none placeholder:text-gray-600 focus:border-mint/45 focus:ring-1 focus:ring-mint/25";
+  "input-dark w-full rounded-xl border border-gray-700/90 bg-[var(--input-surface)] px-3 py-2.5 text-base text-white outline-none placeholder:text-gray-600 focus:border-mint/45 focus:ring-1 focus:ring-mint/25";
 
 export const AUTH_PRIMARY_BTN =
   "w-full rounded-xl bg-mint-dim py-3 text-sm font-semibold text-mint-ink transition-[filter] hover:brightness-110 disabled:opacity-50";

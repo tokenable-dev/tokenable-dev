@@ -120,6 +120,15 @@ body {
     color: var(--input-text) !important;
     background-color: var(--input-surface-autofill) !important;
   }
+
+  /** iOS Safari: inputs below 16px trigger auto-zoom on focus. */
+  @media (max-width: 639px) {
+    [role="dialog"] input,
+    [role="dialog"] textarea,
+    [role="dialog"] select {
+      font-size: 16px !important;
+    }
+  }
 }
 
 /* 스크롤은 유지하고 스크롤바만 숨김 (Firefox / Chromium / legacy IE) */

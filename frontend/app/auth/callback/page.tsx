@@ -22,7 +22,7 @@ function AuthCallbackContent() {
 
     void (async () => {
       try {
-        await refresh();
+        await refresh({ showLoading: false });
         const returnTo = consumeReturnTo();
         router.replace(returnTo ?? "/");
       } catch (e) {

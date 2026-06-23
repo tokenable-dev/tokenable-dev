@@ -28,6 +28,7 @@ import { UserService } from '../user/user.service';
 import { AuthService } from './auth.service';
 import {
   clearAccessTokenCookie,
+  resolveCookieSecure,
   serializeAuthUser,
   setAccessTokenCookie,
   userMayAuthenticate,
@@ -44,6 +45,7 @@ import { ResetPasswordDto } from './dto/reset-password.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { apiBodyDefault } from '../swagger/api-body.util';
 import { SWAGGER_BODY_EXAMPLES } from '../swagger/examples';
+import { maybeRefreshSiteAccessCookie } from '../site-access/site-access.util';
 
 /**
  * 인증·세션 — Google OAuth, email/password, JWT httpOnly 쿠키, 지갑 연결.
@@ -78,7 +80,13 @@ export class AuthController {
   @ApiBody(apiBodyDefault(LoginDto, SWAGGER_BODY_EXAMPLES.authLogin))
   async login(@Body() dto: LoginDto, @Res({ passthrough: true }) res: Response) {
     const user = await this.auth.loginWithEmail(dto.email, dto.password);
+    const front = this.config.getOrThrow<string>('FRONTEND_URL').replace(/\/$/, '');
     setAccessTokenCookie(res, this.auth.issueAccessToken(user), this.config);
+    maybeRefreshSiteAccessCookie(
+      res,
+      process.env,
+      resolveCookieSecure(this.config, front),
+    );
     const wallets = await this.users.listWalletsForUser(user.id);
     return { user: serializeAuthUser(user, wallets) };
   }
@@ -113,6 +121,11 @@ export class AuthController {
     }
     const token = this.auth.issueAccessToken(user);
     setAccessTokenCookie(res, token, this.config);
+    maybeRefreshSiteAccessCookie(
+      res,
+      process.env,
+      resolveCookieSecure(this.config, front),
+    );
     res.redirect(`${front}/auth/callback?ok=1`);
   }
 

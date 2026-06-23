@@ -18,7 +18,7 @@ export function SiteAccessClient() {
     setPending(true);
 
     try {
-      const res = await fetch("/site-access/verify", {
+      const res = await fetch("/api/site-access/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
