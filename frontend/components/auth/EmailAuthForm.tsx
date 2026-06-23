@@ -30,6 +30,14 @@ function MailIcon({ className }: { className?: string }) {
   );
 }
 
+function FieldLabel({ htmlFor, children }: { htmlFor: string; children: React.ReactNode }) {
+  return (
+    <label htmlFor={htmlFor} className="mb-1.5 block text-xs font-medium text-gray-400">
+      {children}
+    </label>
+  );
+}
+
 export function EmailAuthForm({
   mode,
   onBack,
@@ -78,9 +86,9 @@ export function EmailAuthForm({
       const returnTo = consumeReturnTo();
       if (returnTo) router.push(returnTo);
     } catch (err) {
-      const msg = formatAuthError(err instanceof Error ? err.message : "Error");
+      const msg = formatAuthError(err instanceof Error ? err.message : "Something went wrong.");
       setError(msg);
-      setNeedsVerify(msg === "Verify your email first.");
+      setNeedsVerify(msg === "Please verify your email before signing in.");
     } finally {
       setPending(false);
     }
@@ -91,11 +99,12 @@ export function EmailAuthForm({
     if (!to) return;
     setResendPending(true);
     setError(null);
+    setResendOk(false);
     try {
       await resendVerificationEmailPublic(to);
       setResendOk(true);
     } catch (err) {
-      setError(formatAuthError(err instanceof Error ? err.message : "Failed"));
+      setError(formatAuthError(err instanceof Error ? err.message : "Could not resend email."));
     } finally {
       setResendPending(false);
     }
@@ -104,105 +113,157 @@ export function EmailAuthForm({
   if (signupSentTo) {
     return (
       <div className="space-y-4 text-center">
-        <MailIcon className="mx-auto h-8 w-8 text-mint" />
-        <p className="text-sm text-gray-300">Check your inbox</p>
-        <p className="truncate text-xs text-gray-500">{signupSentTo}</p>
+        <div className="rounded-xl border border-mint/25 bg-mint/5 px-4 py-5">
+          <MailIcon className="mx-auto h-9 w-9 text-mint" />
+          <h3 className="mt-3 text-base font-semibold text-white">Verify your email</h3>
+          <p className="mt-2 text-sm leading-relaxed text-gray-400">
+            We sent a verification link to
+          </p>
+          <p className="mt-1 truncate text-sm font-medium text-white" title={signupSentTo}>
+            {signupSentTo}
+          </p>
+          <p className="mt-3 text-xs leading-relaxed text-gray-500">
+            Open the link in that email to activate your account. Check spam if you do not see it
+            within a few minutes.
+          </p>
+        </div>
+
         {error ? (
           <p className="text-sm text-red-400" role="alert">
             {error}
           </p>
         ) : null}
-        {resendOk ? <p className="text-xs text-mint">Sent</p> : null}
+
+        {resendOk ? (
+          <p className="text-sm font-medium text-mint" role="status">
+            Verification email sent again.
+          </p>
+        ) : null}
+
         <button
           type="button"
           disabled={resendPending}
           onClick={() => void handleResend()}
           className={`${AUTH_MINT_LINK} disabled:opacity-50`}
         >
-          Resend
+          {resendPending ? "Sending…" : "Resend verification email"}
         </button>
+
         <button
           type="button"
           onClick={() => {
             setSignupSentTo(null);
-            openSignIn({ mode: "sign-in" });
+            openSignIn({ mode: "sign-in", openEmailForm: true });
           }}
-          className="block w-full text-xs text-gray-500 hover:text-gray-300"
+          className="block w-full text-xs text-gray-500 transition-colors hover:text-gray-300"
         >
-          Sign in
+          Already verified? Sign in
         </button>
       </div>
     );
   }
 
   return (
-    <form onSubmit={(e) => void onSubmit(e)} className="space-y-3">
+    <form onSubmit={(e) => void onSubmit(e)} className="space-y-3.5">
       <button
         type="button"
         onClick={onBack}
-        className="mb-0.5 flex items-center gap-1 text-xs text-gray-500 hover:text-gray-300"
+        className="mb-0.5 flex items-center gap-1 text-xs text-gray-500 transition-colors hover:text-gray-300"
       >
         <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
         </svg>
-        Back
+        All sign-in options
       </button>
 
       {isSignUp ? (
-        <input
-          id="auth-name"
-          type="text"
-          autoComplete="name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          className={AUTH_INPUT_CLASS}
-          placeholder="Name (optional)"
-        />
+        <div>
+          <FieldLabel htmlFor="auth-name">Name</FieldLabel>
+          <input
+            id="auth-name"
+            type="text"
+            autoComplete="name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className={AUTH_INPUT_CLASS}
+            placeholder="Optional"
+          />
+        </div>
       ) : null}
 
-      <input
-        id="auth-email"
-        type="email"
-        required
-        autoComplete="email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        className={AUTH_INPUT_CLASS}
-        placeholder="Email"
-      />
+      <div>
+        <FieldLabel htmlFor="auth-email">Email</FieldLabel>
+        <input
+          id="auth-email"
+          type="email"
+          required
+          autoComplete="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className={AUTH_INPUT_CLASS}
+          placeholder="you@example.com"
+        />
+      </div>
 
-      <input
-        id="auth-password"
-        type="password"
-        required
-        minLength={isSignUp ? 8 : 1}
-        autoComplete={isSignUp ? "new-password" : "current-password"}
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        className={AUTH_INPUT_CLASS}
-        placeholder={isSignUp ? "Password (8+)" : "Password"}
-      />
+      <div>
+        <FieldLabel htmlFor="auth-password">Password</FieldLabel>
+        <input
+          id="auth-password"
+          type="password"
+          required
+          minLength={isSignUp ? 8 : 1}
+          autoComplete={isSignUp ? "new-password" : "current-password"}
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          className={AUTH_INPUT_CLASS}
+          placeholder={isSignUp ? "At least 8 characters" : "Your password"}
+        />
+        {isSignUp ? (
+          <p className="mt-1.5 text-xs text-gray-500">Use 8 or more characters.</p>
+        ) : null}
+      </div>
 
-      {error ? (
+      {needsVerify ? (
+        <div
+          className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3.5 py-3 text-left"
+          role="alert"
+        >
+          <p className="text-sm font-semibold text-amber-100">Email not verified yet</p>
+          <p className="mt-0.5 text-xs leading-relaxed text-amber-200/80">
+            Confirm your email using the link we sent, then sign in again.
+          </p>
+          <button
+            type="button"
+            disabled={resendPending}
+            onClick={() => void handleResend()}
+            className={`${AUTH_MINT_LINK} mt-2 inline-block text-xs disabled:opacity-50`}
+          >
+            {resendPending ? "Sending…" : "Resend verification email"}
+          </button>
+        </div>
+      ) : null}
+
+      {error && !needsVerify ? (
         <p className="text-center text-sm text-red-400" role="alert">
           {error}
         </p>
       ) : null}
 
-      {needsVerify ? (
-        <button
-          type="button"
-          disabled={resendPending}
-          onClick={() => void handleResend()}
-          className={`${AUTH_MINT_LINK} w-full text-center disabled:opacity-50`}
-        >
-          Resend verification
-        </button>
+      {resendOk && needsVerify ? (
+        <p className="text-center text-sm font-medium text-mint" role="status">
+          Verification email sent. Check your inbox.
+        </p>
       ) : null}
 
       <button type="submit" disabled={pending} className={AUTH_PRIMARY_BTN}>
-        {pending ? "…" : isSignUp ? "Create account" : "Sign in"}
+        {pending ? "Please wait…" : isSignUp ? "Create account" : "Sign in"}
       </button>
+
+      {isSignUp ? (
+        <p className="text-center text-xs leading-relaxed text-gray-500">
+          By creating an account, you agree to receive a one-time verification email.
+        </p>
+      ) : null}
     </form>
   );
 }

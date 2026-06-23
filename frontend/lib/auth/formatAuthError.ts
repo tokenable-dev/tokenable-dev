@@ -2,7 +2,7 @@
 export function formatAuthError(message: string): string {
   const m = message.toLowerCase();
   if (m.includes("not verified") || m.includes("verify your email")) {
-    return "Verify your email first.";
+    return "Please verify your email before signing in.";
   }
   if (m.includes("google sign-in") || m.includes("sign in with google")) {
     return "Use Google for this account.";

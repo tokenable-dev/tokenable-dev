@@ -51,3 +51,33 @@ export function getPrimaryWalletAddress(user: AuthUser | null | undefined): stri
 export function userHasLinkedWallet(user: AuthUser | null | undefined): boolean {
   return getUserLinkedWallets(user).length > 0;
 }
+
+/** Portfolio read path — never returns an address unless it is linked on the account. */
+export function resolvePortfolioViewAddress(
+  user: AuthUser | null | undefined,
+  connectedAddress: string | undefined,
+): string | undefined {
+  const linked = getUserLinkedWallets(user)
+    .map((w) => normalizeWalletAddress(w.address))
+    .filter((a): a is string => Boolean(a));
+
+  if (!linked.length) return undefined;
+
+  const connected = normalizeWalletAddress(connectedAddress);
+  if (connected && linked.includes(connected)) {
+    return connected;
+  }
+
+  return getPrimaryWalletAddress(user);
+}
+
+export function isLinkedPortfolioViewAddress(
+  user: AuthUser | null | undefined,
+  address: string | undefined,
+): boolean {
+  const normalized = normalizeWalletAddress(address);
+  if (!normalized) return false;
+  return getUserLinkedWallets(user).some(
+    (w) => normalizeWalletAddress(w.address) === normalized,
+  );
+}

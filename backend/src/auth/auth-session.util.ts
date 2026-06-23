@@ -29,6 +29,25 @@ export function setAccessTokenCookie(
   });
 }
 
+export function clearAccessTokenCookie(
+  res: Response,
+  config: ConfigService,
+): void {
+  const frontBase = config.getOrThrow<string>('FRONTEND_URL').replace(/\/$/, '');
+  res.clearCookie('access_token', {
+    httpOnly: true,
+    secure: resolveCookieSecure(config, frontBase),
+    sameSite: 'lax',
+    path: '/',
+  });
+}
+
+/** Email/password accounts must verify inbox before a session is valid. */
+export function userMayAuthenticate(user: User): boolean {
+  if (!user.passwordHash) return true;
+  return user.emailVerified;
+}
+
 export type SerializedLinkedWallet = {
   address: string;
   linkedAt: string;

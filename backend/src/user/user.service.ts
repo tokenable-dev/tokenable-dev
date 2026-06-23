@@ -75,8 +75,11 @@ export class UserService {
       existingByEmail.name = params.name ?? existingByEmail.name;
       existingByEmail.pictureUrl =
         params.pictureUrl ?? existingByEmail.pictureUrl;
-      existingByEmail.emailVerified =
-        params.emailVerified ?? existingByEmail.emailVerified;
+      // Email/password sign-ups must complete our verification link; Google must not skip it.
+      if (!existingByEmail.passwordHash) {
+        existingByEmail.emailVerified =
+          params.emailVerified ?? existingByEmail.emailVerified;
+      }
       return this.users.save(existingByEmail);
     }
 
@@ -124,8 +127,13 @@ export class UserService {
     });
   }
 
-  async findWalletByAddress(address: string): Promise<UserWallet | null> {
-    return this.userWallets.findOne({ where: { walletAddress: address } });
+  async findWalletForUser(
+    userId: string,
+    address: string,
+  ): Promise<UserWallet | null> {
+    return this.userWallets.findOne({
+      where: { userId, walletAddress: address },
+    });
   }
 
   /** Add a wallet to the user (does not remove existing wallets). */
@@ -133,14 +141,9 @@ export class UserService {
     const user = await this.findByIdOrFail(userId);
     const normalized = address;
 
-    const existing = await this.findWalletByAddress(normalized);
+    const existing = await this.findWalletForUser(userId, normalized);
     if (existing) {
-      if (existing.userId === userId) {
-        return user;
-      }
-      throw new ConflictException(
-        'This wallet is already linked to another user',
-      );
+      return user;
     }
 
     const count = await this.userWallets.count({ where: { userId } });

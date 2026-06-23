@@ -1,6 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
+import { MAIL_LOGO_CID, resolveMailLogoPath } from './mail-brand.util';
+import { buildVerificationEmailContent } from './templates/verification-email.template';
 
 @Injectable()
 export class MailService {
@@ -12,8 +14,16 @@ export class MailService {
     return !!this.config.get<string>('SMTP_HOST')?.trim();
   }
 
+  private formatFromAddress(): string {
+    const email = this.config.get<string>('MAIL_FROM')?.trim() ?? 'noreply@localhost';
+    const name = this.config.get<string>('MAIL_FROM_NAME')?.trim() || 'Tokenable';
+    if (email.includes('<')) return email;
+    return `"${name}" <${email}>`;
+  }
+
   /**
-   * 플랫폼 이메일 인증 링크 발송. SMTP 미설정 시 로그만 남기고 스킵(로컬 개발).
+   * Transactional verification email (English HTML + plain text).
+   * Deliverability: use a domain-aligned From address and configure SPF, DKIM, and DMARC.
    */
   async sendVerificationEmail(to: string, verifyLink: string): Promise<void> {
     if (!this.isEnabled()) {
@@ -23,12 +33,22 @@ export class MailService {
       return;
     }
 
-    const from = this.config.get<string>('MAIL_FROM') ?? 'noreply@localhost';
+    const from = this.formatFromAddress();
     const host = this.config.getOrThrow<string>('SMTP_HOST');
     const port = this.config.get<number>('SMTP_PORT', 587);
     const user = this.config.get<string>('SMTP_USER');
     const pass = this.config.get<string>('SMTP_PASS');
     const secure = this.config.get<string>('SMTP_SECURE') === 'true';
+    const replyTo =
+      this.config.get<string>('MAIL_REPLY_TO')?.trim() ||
+      this.config.get<string>('MAIL_FROM')?.trim();
+
+    const logoPath = resolveMailLogoPath();
+    const content = buildVerificationEmailContent({
+      verifyLink,
+      siteName: this.config.get<string>('MAIL_FROM_NAME')?.trim() || 'Tokenable',
+      logoCid: logoPath ? MAIL_LOGO_CID : null,
+    });
 
     const transporter = nodemailer.createTransport({
       host,
@@ -40,13 +60,23 @@ export class MailService {
     await transporter.sendMail({
       from,
       to,
-      subject: '[Tokenable] 이메일 주소를 인증해 주세요',
-      text: `아래 링크를 클릭하면 이메일 인증이 완료됩니다.\n\n${verifyLink}\n\n48시간 이내에만 유효합니다.`,
-      html: `
-        <p>Tokenable 계정 이메일 인증을 진행해 주세요.</p>
-        <p><a href="${verifyLink}">이메일 인증하기</a></p>
-        <p style="color:#666;font-size:12px;">링크는 48시간 동안만 유효합니다. 본인이 요청하지 않았다면 무시하세요.</p>
-      `,
+      replyTo: replyTo || undefined,
+      subject: content.subject,
+      text: content.text,
+      html: content.html,
+      attachments: logoPath
+        ? [
+            {
+              filename: 'tokenable_icon.png',
+              path: logoPath,
+              cid: MAIL_LOGO_CID,
+            },
+          ]
+        : undefined,
+      headers: {
+        'Auto-Submitted': 'auto-generated',
+        'X-Auto-Response-Suppress': 'All',
+      },
     });
     this.logger.log(`Verification email sent to ${to}`);
   }

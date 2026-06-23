@@ -40,12 +40,11 @@ export class User {
   @Column({ name: 'email_verified', default: false })
   emailVerified: boolean;
 
-  /** 체크섬 정규화 주소 (0x…). NULL 허용·UNIQUE — PostgreSQL에서 NULL은 중복 허용 */
+  /** Primary linked wallet (denormalized). Not globally unique — shared wallets allowed. */
   @Column({
     name: 'wallet_address',
     type: 'varchar',
     length: 42,
-    unique: true,
     nullable: true,
   })
   walletAddress: string | null;

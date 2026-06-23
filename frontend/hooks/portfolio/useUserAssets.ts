@@ -45,11 +45,15 @@ export function useUserAssets(
     includeMarketPreview?: boolean;
     /** When false, skip `GET /marketplace/orders` (default true). */
     loadMarketOrders?: boolean;
+    /** Keep prior page data while the owner address changes (default true). */
+    retainPreviousOwner?: boolean;
   },
 ) {
   const enabled = (opts?.enabled ?? true) && Boolean(address?.trim());
   const includeOrderHistory = opts?.includeOrderHistory ?? true;
   const includeMarketPreview = opts?.includeMarketPreview ?? true;
+  const retainPreviousOwner = opts?.retainPreviousOwner ?? true;
+  const previousOwnerPlaceholder = retainPreviousOwner ? keepPreviousData : undefined;
 
   const tokenIdsQuery = useQuery({
     queryKey: rq.rwaTokens(address!),
@@ -78,7 +82,7 @@ export function useUserAssets(
     },
     enabled: enabled && tokenIds.length > 0,
     staleTime: marketplaceRqPolicy.metadataBatchStaleMs,
-    placeholderData: keepPreviousData,
+    placeholderData: previousOwnerPlaceholder,
   });
 
   const ordersQuery = useQuery({
@@ -94,14 +98,14 @@ export function useUserAssets(
     queryFn: () => postOrdersBatchByTokenBatched(tokenIds),
     enabled: enabled && includeOrderHistory && tokenIds.length > 0,
     staleTime: 30_000,
-    placeholderData: keepPreviousData,
+    placeholderData: previousOwnerPlaceholder,
   });
 
   const marketPreviewQuery = useQuery({
     queryKey: rq.marketMintPreviews(address, tokenIds),
     queryFn: () => postBatchMintMarketPreviews(tokenIds),
     enabled: enabled && includeMarketPreview && tokenIds.length > 0,
-    placeholderData: keepPreviousData,
+    placeholderData: previousOwnerPlaceholder,
   });
 
   const assets: UserOwnedAsset[] = useMemo(() => {
