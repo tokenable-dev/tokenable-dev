@@ -2,6 +2,9 @@ import { createHmac, timingSafeEqual } from 'crypto';
 
 export const SITE_ACCESS_COOKIE = 'site_access';
 
+/** Default gate password when SITE_ACCESS_PASSWORD is unset (local + deploy parity). */
+export const DEFAULT_SITE_ACCESS_PASSWORD = '717171';
+
 export type SiteAccessConfig = {
   enabled: boolean;
   password: string;
@@ -11,7 +14,8 @@ export type SiteAccessConfig = {
 
 export function readSiteAccessConfig(env: NodeJS.ProcessEnv): SiteAccessConfig {
   const enabled = parseTruthy(env.SITE_ACCESS_ENABLED);
-  const password = env.SITE_ACCESS_PASSWORD?.trim() ?? '';
+  const password =
+    env.SITE_ACCESS_PASSWORD?.trim() || DEFAULT_SITE_ACCESS_PASSWORD;
   const secret = env.SITE_ACCESS_SECRET?.trim() ?? '';
   const sessionSeconds = clampInt(env.SITE_ACCESS_SESSION_SECONDS, 3600, 60, 86_400);
 

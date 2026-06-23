@@ -11,6 +11,13 @@ import {
 } from './site-access.util';
 import { isAuthPublicApiPath } from '../auth/auth-oauth.util';
 
+function normalizeRequestPath(path: string): string {
+  const base = path.split('?')[0] || '/';
+  if (base.startsWith('/api/')) return base;
+  if (base.startsWith('/')) return `/api${base}`;
+  return `/api/${base}`;
+}
+
 @Injectable()
 export class SiteAccessMiddleware implements NestMiddleware {
   use(req: Request, _res: Response, next: NextFunction): void {
@@ -20,7 +27,7 @@ export class SiteAccessMiddleware implements NestMiddleware {
       return;
     }
 
-    const path = (req.originalUrl ?? req.url ?? '').split('?')[0];
+    const path = normalizeRequestPath(req.originalUrl ?? req.url ?? '/');
     if (isSiteAccessPublicApiPath(path, req.method)) {
       next();
       return;

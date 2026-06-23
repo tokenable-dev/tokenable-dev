@@ -14,7 +14,7 @@ export async function POST(request: Request) {
   let password = "";
   try {
     const body = (await request.json()) as { password?: unknown };
-    password = typeof body?.password === "string" ? body.password : "";
+    password = typeof body?.password === "string" ? body.password.trim() : "";
   } catch {
     return NextResponse.json({ message: "Invalid request body" }, { status: 400 });
   }
@@ -31,7 +31,10 @@ export async function POST(request: Request) {
   }
 
   const token = await issueSiteAccessToken(cfg.secret, cfg.sessionSeconds);
-  const secure = process.env.NODE_ENV === "production";
+  const secure =
+    process.env.COOKIE_SECURE === "true" ||
+    (process.env.COOKIE_SECURE !== "false" &&
+      (process.env.FRONTEND_URL?.trim() ?? "").startsWith("https:"));
   const response = NextResponse.json({ ok: true, expiresIn: cfg.sessionSeconds });
 
   response.cookies.set(SITE_ACCESS_COOKIE, token, {

@@ -9,6 +9,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { IsString, MinLength } from 'class-validator';
 import type { Response } from 'express';
+import { resolveCookieSecure } from '../auth/auth-session.util';
 import {
   SITE_ACCESS_COOKIE,
   issueSiteAccessToken,
@@ -36,13 +37,14 @@ export class SiteAccessController {
       return { ok: true, expiresIn: cfg.sessionSeconds };
     }
 
-    const password = typeof body?.password === 'string' ? body.password : '';
+    const password = (typeof body?.password === 'string' ? body.password : '').trim();
     if (!password || password !== cfg.password) {
       throw new UnauthorizedException('Invalid site access password');
     }
 
     const token = issueSiteAccessToken(cfg.secret, cfg.sessionSeconds);
-    const secure = this.config.get<string>('NODE_ENV') === 'production';
+    const frontBase = this.config.getOrThrow<string>('FRONTEND_URL').replace(/\/$/, '');
+    const secure = resolveCookieSecure(this.config, frontBase);
 
     res.cookie(SITE_ACCESS_COOKIE, token, {
       httpOnly: true,
