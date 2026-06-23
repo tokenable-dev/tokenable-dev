@@ -12,6 +12,7 @@ import { ConfigService } from '@nestjs/config';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { IsString, MinLength } from 'class-validator';
 import type { Request, Response } from 'express';
+import { resolveCookieSecure } from '../../auth/auth-session.util';
 import { MarketplaceAdminService } from './marketplace-admin.service';
 import {
   MARKETPLACE_ADMIN_COOKIE,
@@ -69,7 +70,8 @@ export class MarketplaceAdminAuthController {
       'marketplace.adminSessionSecret',
     );
     const token = issueMarketplaceAdminToken(secret, sessionSeconds);
-    const secure = this.config.get<string>('NODE_ENV') === 'production';
+    const frontBase = this.config.getOrThrow<string>('FRONTEND_URL').replace(/\/$/, '');
+    const secure = resolveCookieSecure(this.config, frontBase);
 
     res.cookie(MARKETPLACE_ADMIN_COOKIE, token, {
       httpOnly: true,
@@ -86,7 +88,8 @@ export class MarketplaceAdminAuthController {
   @HttpCode(200)
   @ApiOperation({ summary: '[Admin] Sign out' })
   logout(@Res({ passthrough: true }) res: Response): { ok: true } {
-    const secure = this.config.get<string>('NODE_ENV') === 'production';
+    const frontBase = this.config.getOrThrow<string>('FRONTEND_URL').replace(/\/$/, '');
+    const secure = resolveCookieSecure(this.config, frontBase);
     res.clearCookie(MARKETPLACE_ADMIN_COOKIE, {
       httpOnly: true,
       secure,

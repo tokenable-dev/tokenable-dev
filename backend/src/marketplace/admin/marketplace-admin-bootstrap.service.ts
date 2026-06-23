@@ -21,13 +21,14 @@ export class MarketplaceAdminBootstrapService implements OnModuleInit {
     const password = this.config.get<string>('marketplace.adminPassword');
     if (!username || !password) return;
 
-    const existing = await this.admins.findOne({ where: { username } });
+    const normalized = username.toLowerCase();
+    const existing = await this.admins.findOne({ where: { username: normalized } });
     if (existing) return;
 
     await this.admins.save({
-      username: username.toLowerCase(),
+      username: normalized,
       passwordHash: hashPassword(password),
     });
-    this.logger.log(`Seeded marketplace admin account "${username}"`);
+    this.logger.log(`Seeded marketplace admin account "${normalized}"`);
   }
 }
