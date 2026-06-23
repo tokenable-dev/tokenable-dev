@@ -61,6 +61,7 @@ Google OAuth callback. Issues JWT cookie and redirects to the frontend.
   - `Secure` flag: `true` when `FRONTEND_URL` starts with `https://` or `COOKIE_SECURE=true`
 - **Redirect:** `{FRONTEND_URL}/auth/callback?ok=1`
 - **Account linking:** If the Google email matches an existing email/password account, `google_id` is linked to the same `users` row.
+- **Email/password accounts:** If the user registered with email/password but has not clicked the verification link (`email_verified = false`), Google sign-in does **not** issue a JWT — redirect includes `?error=...` instead. Google-only accounts (no password) are signed in normally.
 
 ---
 
@@ -141,6 +142,8 @@ Issues a short-lived JWT challenge for wallet linking (requires signature).
 
 Links an Ethereum wallet address to the authenticated account. Requires a valid `personal_sign` over the challenge message.
 
+The same wallet may be linked to multiple platform accounts (e.g. shared custody). Uniqueness is per `(user, address)` only.
+
 - **Guard:** `JwtAuthGuard`
 - **Request body:** `LinkWalletDto`
 
@@ -185,3 +188,23 @@ Unlinks the wallet address from the authenticated account.
 | `FRONTEND_URL` | Frontend base URL used for redirects and cookie Secure flag |
 | `JWT_SECRET` | JWT signing secret |
 | `COOKIE_SECURE` | Optional override: `true` / `false` |
+| `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` | Email verification (register / resend) |
+| `MAIL_FROM` | Sender address — use an address on your **verified sending domain** |
+| `MAIL_FROM_NAME` | Display name in inbox (default: `Tokenable`) |
+| `MAIL_REPLY_TO` | Optional reply-to (defaults to `MAIL_FROM`) |
+
+### Email verification template
+
+Verification emails are sent in **English** with branded HTML (inline T icon via CID attachment when available, white wordmark, CTA button, plain-text fallback). Asset: `backend/src/assets/mail/tokenable_icon.png` (same favicon as the site). Template: `backend/src/mail/templates/verification-email.template.ts`.
+
+### Reducing spam folder delivery
+
+Code changes (bilingual subject removal, HTML+text, `From` display name, `Reply-To`) help, but **inbox placement is mostly DNS and sender reputation**:
+
+1. **Align the From domain** — `MAIL_FROM` should match your site domain (e.g. `noreply@tokenable-dev.com`), not a personal Gmail, when sending from production.
+2. **SPF, DKIM, DMARC** — Add DNS records for the domain you send from. Gmail SMTP with `@gmail.com` only helps Gmail-to-Gmail; custom-domain From without matching DNS often lands in spam.
+3. **Transactional provider (recommended)** — [Resend](https://resend.com), SendGrid, Amazon SES, or Postmark on `tokenable-dev.com` with verified domain + DKIM.
+4. **Warm up** — New domains/senders start with lower trust; avoid burst sends.
+5. **Ask users** — “Mark as not spam” once improves future delivery for that mailbox.
+
+Until DNS is fixed, some messages may still hit spam even with the new template.

@@ -27,7 +27,7 @@ import { buildPortfolioTxRows } from "@/lib/portfolio/buildPortfolioTxRows";
 import type { OwnedAsset, PricedAssetRow } from "@/lib/portfolio/portfolioTypes";
 import { APP_MAIN_SHELL_CLASS } from "@/constants/layout";
 import { useAuthStore } from "@/store/authStore";
-import { useAuthUiStore } from "@/store/authUiStore";
+import { isLinkedPortfolioViewAddress } from "@/lib/auth/wallets";
 import {
   PortfolioActivitySection,
   PortfolioCollectionBidsSection,
@@ -41,6 +41,7 @@ import {
   PortfolioSummaryBar,
   PortfolioValuePanel,
   PortfolioWatchlistSection,
+  PortfolioWalletScopeBanner,
 } from "@/components/portfolio";
 import { CollectionChangeBidModal } from "@/components/marketplace/collection-trading/CollectionChangeBidModal";
 import { isMarketplaceAdminWallet } from "@/lib/marketplace";
@@ -51,11 +52,17 @@ export default function PortfolioPage() {
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const user = useAuthStore((s) => s.user);
-  const openWalletMismatch = useAuthUiStore((s) => s.openWalletMismatch);
+  const authInitialized = useAuthStore((s) => s.initialized);
+  const authLoading = useAuthStore((s) => s.loading);
   const { runSellAccessGate } = useSellAccessGate("/portfolio");
   const wallet = useLinkedPortfolioWallet();
   const { connectedAddress, isConnected } = wallet;
   const portfolioAddress = wallet.portfolioAddress;
+  const portfolioDataEnabled =
+    authInitialized &&
+    Boolean(user) &&
+    Boolean(portfolioAddress) &&
+    isLinkedPortfolioViewAddress(user, portfolioAddress);
   const signerAddress = wallet.canSign ? connectedAddress : undefined;
   const publicClient = usePublicClient({ chainId: sepolia.id });
   const { writeContractAsync } = useWriteContract();
@@ -70,12 +77,9 @@ export default function PortfolioPage() {
     }
   }, [searchParams]);
 
-  useEffect(() => {
-    if (!user || !wallet.hasLinkedWallet || !wallet.walletMismatch) return;
-    openWalletMismatch({ returnTo: "/portfolio" });
-  }, [user, wallet.hasLinkedWallet, wallet.walletMismatch, openWalletMismatch]);
-
-  const isBurnAdmin = isMarketplaceAdminWallet(connectedAddress);
+  const isBurnAdmin = isMarketplaceAdminWallet(
+    wallet.connectedIsLinked ? connectedAddress : portfolioAddress,
+  );
 
   const {
     assets: hookAssets,
@@ -86,9 +90,10 @@ export default function PortfolioPage() {
     isLoadingHistoryBatch: historyBatchLoading,
     refetchActiveOrders,
   } = useUserAssets(portfolioAddress, {
-    enabled: Boolean(portfolioAddress),
+    enabled: portfolioDataEnabled,
     includeOrderHistory: true,
     includeMarketPreview: false,
+    retainPreviousOwner: false,
   });
 
   useEffect(() => {
@@ -115,7 +120,7 @@ export default function PortfolioPage() {
 
   const { hiddenSet } = usePortfolioHiddenHoldings(
     portfolioAddress,
-    Boolean(portfolioAddress),
+    portfolioDataEnabled,
   );
 
   const listingCollectionKeyByToken = usePortfolioListingCollectionKeys(
@@ -125,7 +130,7 @@ export default function PortfolioPage() {
 
   const { tokenToCollectionKey, uniqueCollectionKeys } = usePortfolioCollectionKeys({
     address: portfolioAddress,
-    isConnected: Boolean(portfolioAddress),
+    isConnected: portfolioDataEnabled,
     assets,
     listingCollectionKeyByToken,
   });
@@ -137,7 +142,7 @@ export default function PortfolioPage() {
     valuesPending,
   } = usePortfolioMarketPricing({
     address: portfolioAddress,
-    isConnected: Boolean(portfolioAddress),
+    isConnected: portfolioDataEnabled,
     assets,
     uniqueCollectionKeys,
     tokenToCollectionKey,
@@ -228,7 +233,7 @@ export default function PortfolioPage() {
     refetchActiveOrders,
   });
 
-  const myBids = usePortfolioMyBids(portfolioAddress);
+  const myBids = usePortfolioMyBids(portfolioDataEnabled ? portfolioAddress : undefined);
   const bidActions = usePortfolioBidActions({
     address: signerAddress,
     queryClient,
@@ -253,11 +258,19 @@ export default function PortfolioPage() {
     hasDailyPnl,
     dailyChartPoints,
     dailyChartLabels,
-  } = usePortfolioDailyChart(portfolioAddress, Boolean(portfolioAddress));
+  } = usePortfolioDailyChart(portfolioAddress, portfolioDataEnabled);
 
   const totalTrades = fulfilledOrders.length;
   const assetsSectionLoading = idsLoading || assetsLoading;
   const chartTotalsPending = idsLoading || dailySnapshotsLoading;
+
+  if (!authInitialized || authLoading) {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center bg-black">
+        <span className="h-7 w-7 animate-spin rounded-full border-2 border-mint/30 border-t-mint" />
+      </div>
+    );
+  }
 
   if (!user) {
     return <PortfolioGuestState />;
@@ -270,9 +283,19 @@ export default function PortfolioPage() {
   return (
     <div className="min-h-screen min-w-0 overflow-x-clip bg-black text-white">
       <div className={`${APP_MAIN_SHELL_CLASS} py-5 pb-16 sm:py-8 sm:pb-20`}>
+        <PortfolioWalletScopeBanner
+          portfolioAddress={portfolioAddress}
+          connectedAddress={connectedAddress}
+          walletMismatch={wallet.walletMismatch}
+        />
+
         {!isConnected ? (
           <p className="mb-4 rounded-xl border border-gray-800 bg-gray-900/40 px-4 py-3 text-xs text-gray-400">
-            Connect MetaMask to manage listings and bids.
+            Connect MetaMask with a linked wallet to manage listings and bids.
+          </p>
+        ) : !wallet.connectedIsLinked ? (
+          <p className="mb-4 rounded-xl border border-gray-800 bg-gray-900/40 px-4 py-3 text-xs text-gray-400">
+            Switch MetaMask to a linked wallet, or add the current wallet to your account.
           </p>
         ) : null}
         <PortfolioSummaryBar

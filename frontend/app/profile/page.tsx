@@ -2,19 +2,15 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { useAccount } from "wagmi";
 import { unlinkWalletFromAccount, sendVerificationEmail } from "@/lib/auth";
 import { getUserLinkedWallets } from "@/lib/auth/wallets";
 import { useAuthStore } from "@/store/authStore";
 import { useAuthUiStore } from "@/store/authUiStore";
-import { useWalletLink } from "@/hooks/auth/useWalletLink";
 
 export default function ProfilePage() {
   const router = useRouter();
   const { user, loading, initialized, refresh, logout } = useAuthStore();
   const openConnectWallet = useAuthUiStore((s) => s.openConnectWallet);
-  const { address, isConnected } = useAccount();
-  const { linking, error, isLinkedTo, linkAddress } = useWalletLink();
   const [busy, setBusy] = useState(false);
   const [unlinking, setUnlinking] = useState<string | null>(null);
 
@@ -25,12 +21,6 @@ export default function ProfilePage() {
       router.replace("/login");
     }
   }, [user, loading, initialized, router]);
-
-  useEffect(() => {
-    if (!user || !isConnected || !address || linking) return;
-    if (isLinkedTo(address)) return;
-    void linkAddress(address);
-  }, [user, isConnected, address, linking, linkAddress, isLinkedTo]);
 
   async function handleUnlink(walletAddress: string) {
     setUnlinking(walletAddress);
@@ -94,12 +84,7 @@ export default function ProfilePage() {
         </div>
 
         <section className="mb-4 rounded-xl border border-gray-800 bg-gray-900/30 p-5">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="text-sm font-semibold text-white">Wallets</h2>
-            {linking ? (
-              <span className="h-4 w-4 animate-spin rounded-full border-2 border-mint/30 border-t-mint" />
-            ) : null}
-          </div>
+          <h2 className="text-sm font-semibold text-white">Wallets</h2>
 
           {linkedWallets.length > 0 ? (
             <ul className="mt-3 space-y-3">
@@ -123,7 +108,7 @@ export default function ProfilePage() {
                   </div>
                   <button
                     type="button"
-                    disabled={unlinking === w.address || linking}
+                    disabled={unlinking === w.address}
                     onClick={() => void handleUnlink(w.address)}
                     className="min-h-[40px] shrink-0 self-end text-xs text-gray-500 hover:text-red-400 disabled:opacity-50 sm:min-h-0 sm:self-auto"
                   >
@@ -138,14 +123,14 @@ export default function ProfilePage() {
 
           <button
             type="button"
-            disabled={linking}
-            onClick={() => openConnectWallet()}
-            className="mt-4 min-h-[48px] w-full rounded-lg border border-mint/25 bg-mint/[0.06] py-2.5 text-sm font-semibold text-mint hover:bg-mint/[0.1] disabled:opacity-50"
+            onClick={() => openConnectWallet({ returnTo: "/profile" })}
+            className="mt-4 min-h-[48px] w-full rounded-lg border border-mint/25 bg-mint/[0.06] py-2.5 text-sm font-semibold text-mint hover:bg-mint/[0.1]"
           >
             Add wallet
           </button>
-
-          {error ? <p className="mt-3 text-sm text-red-400">{error}</p> : null}
+          <p className="mt-2 text-xs text-gray-500">
+            Connect MetaMask and sign once to link a wallet to your account.
+          </p>
         </section>
 
         {!user.emailVerified ? (

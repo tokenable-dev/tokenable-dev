@@ -1,18 +1,18 @@
 "use client";
 
 import { useMemo } from "react";
-import { getAddress } from "viem";
 import { useAccount } from "wagmi";
 import {
   getPrimaryWalletAddress,
   getUserLinkedWallets,
   isUserWalletLinked,
   normalizeWalletAddress,
+  resolvePortfolioViewAddress,
   userHasLinkedWallet,
 } from "@/lib/auth/wallets";
 import { useAuthStore } from "@/store/authStore";
 
-/** Portfolio uses connected wallet when linked; otherwise primary linked wallet. */
+/** Portfolio data is scoped to platform-linked wallets only. */
 export function useLinkedPortfolioWallet() {
   const user = useAuthStore((s) => s.user);
   const { address: connectedAddress, isConnected } = useAccount();
@@ -39,10 +39,14 @@ export function useLinkedPortfolioWallet() {
     [user, connectedAddress],
   );
 
-  const portfolioAddress = useMemo(() => {
-    if (connectedIsLinked && connectedNormalized) return connectedNormalized;
-    return primaryAddress;
-  }, [connectedIsLinked, connectedNormalized, primaryAddress]);
+  const portfolioAddress = useMemo(
+    () => resolvePortfolioViewAddress(user, connectedAddress),
+    [user, connectedAddress],
+  );
+
+  const walletMismatch = Boolean(
+    isConnected && connectedNormalized && !connectedIsLinked,
+  );
 
   return {
     linkedWallets,
@@ -53,9 +57,13 @@ export function useLinkedPortfolioWallet() {
     isConnected,
     hasLinkedWallet: userHasLinkedWallet(user),
     connectedIsLinked,
+    walletMismatch,
     canSign: Boolean(isConnected && connectedIsLinked),
-    walletMismatch: Boolean(
-      isConnected && connectedNormalized && !connectedIsLinked,
+    /** True when portfolio rows match the wallet currently selected in MetaMask. */
+    isViewingConnectedWallet: Boolean(
+      portfolioAddress &&
+        connectedNormalized &&
+        portfolioAddress === connectedNormalized,
     ),
     /** @deprecated use connectedIsLinked */
     walletsMatch: Boolean(isConnected && connectedIsLinked),

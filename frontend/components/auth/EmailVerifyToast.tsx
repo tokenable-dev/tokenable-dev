@@ -1,57 +1,66 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
+import { useAuthUiStore, type AuthBanner } from "@/store/authUiStore";
 
-const MESSAGES: Record<string, string> = {
-  ok: "Email verified",
-  invalid: "Invalid link",
-  expired: "Link expired",
-  missing: "Invalid request",
+const VERIFY_BANNERS: Record<string, AuthBanner> = {
+  ok: {
+    tone: "success",
+    title: "Email verified",
+    body: "Your email is confirmed. Sign in to continue.",
+  },
+  invalid: {
+    tone: "error",
+    title: "Invalid verification link",
+    body: "The link may be broken. Sign in and request a new email.",
+  },
+  expired: {
+    tone: "error",
+    title: "Verification link expired",
+    body: "Sign in and resend a new verification email.",
+  },
+  missing: {
+    tone: "error",
+    title: "Invalid verification request",
+    body: "Try signing up again or use the link from your latest email.",
+  },
 };
 
-function EmailVerifyToastInner() {
+function EmailVerifyHandlerInner() {
   const searchParams = useSearchParams();
   const refresh = useAuthStore((s) => s.refresh);
-  const [msg, setMsg] = useState<string | null>(null);
-  const [ok, setOk] = useState(false);
+  const openSignIn = useAuthUiStore((s) => s.openSignIn);
 
   useEffect(() => {
     const v = searchParams.get("email_verify");
     if (!v) return;
+
     void refresh();
-    setOk(v === "ok");
-    setMsg(MESSAGES[v] ?? "Could not verify");
+
+    const banner = VERIFY_BANNERS[v] ?? VERIFY_BANNERS.invalid;
+    openSignIn({
+      mode: "sign-in",
+      openEmailForm: v === "ok",
+      banner,
+    });
+
     if (typeof window !== "undefined") {
       const u = new URL(window.location.href);
       u.searchParams.delete("email_verify");
-      window.history.replaceState({}, "", u.pathname + (u.search || ""));
+      window.history.replaceState({}, "", u.pathname + (u.search || "") + u.hash);
     }
-    const t = setTimeout(() => setMsg(null), 5000);
-    return () => clearTimeout(t);
-  }, [searchParams, refresh]);
+  }, [searchParams, refresh, openSignIn]);
 
-  if (!msg) return null;
-
-  return (
-    <div
-      className={`fixed bottom-6 left-1/2 z-[150] w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 rounded-xl border px-4 py-2.5 text-center text-sm font-medium shadow-lg ${
-        ok
-          ? "border-mint/30 bg-[#0a1210]/95 text-mint shadow-mint/10"
-          : "border-red-500/25 bg-gray-950/95 text-red-300"
-      }`}
-      role="status"
-    >
-      {msg}
-    </div>
-  );
+  return null;
 }
 
+/** Opens the sign-in modal after email verification redirect (`?email_verify=`). */
 export function EmailVerifyToast() {
   return (
     <Suspense fallback={null}>
-      <EmailVerifyToastInner />
+      <EmailVerifyHandlerInner />
     </Suspense>
   );
 }

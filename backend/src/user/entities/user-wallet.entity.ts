@@ -10,7 +10,7 @@ import {
 import { User } from './user.entity';
 
 @Entity('user_wallets')
-@Unique('user_wallets_address_unique', ['walletAddress'])
+@Unique('user_wallets_user_address_unique', ['userId', 'walletAddress'])
 export class UserWallet {
   @PrimaryGeneratedColumn('uuid')
   id: string;

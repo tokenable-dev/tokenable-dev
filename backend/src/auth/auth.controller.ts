@@ -25,7 +25,12 @@ import { getAddress } from 'ethers';
 import type { User } from '../user/entities/user.entity';
 import { UserService } from '../user/user.service';
 import { AuthService } from './auth.service';
-import { serializeAuthUser, setAccessTokenCookie } from './auth-session.util';
+import {
+  clearAccessTokenCookie,
+  serializeAuthUser,
+  setAccessTokenCookie,
+  userMayAuthenticate,
+} from './auth-session.util';
 import { GoogleOAuthExceptionFilter } from './filters/google-oauth-exception.filter';
 import { LinkWalletDto } from './dto/link-wallet.dto';
 import { LoginDto } from './dto/login.dto';
@@ -91,11 +96,18 @@ export class AuthController {
     @Res() res: Response,
   ): void {
     const user = req.user;
-    const token = this.auth.issueAccessToken(user);
-    setAccessTokenCookie(res, token, this.config);
     const front = this.config
       .getOrThrow<string>('FRONTEND_URL')
       .replace(/\/$/, '');
+    if (!userMayAuthenticate(user)) {
+      const message = encodeURIComponent(
+        'Verify your email before signing in with Google.',
+      );
+      res.redirect(`${front}/auth/callback?error=${message}`);
+      return;
+    }
+    const token = this.auth.issueAccessToken(user);
+    setAccessTokenCookie(res, token, this.config);
     res.redirect(`${front}/auth/callback?ok=1`);
   }
 
@@ -146,9 +158,16 @@ export class AuthController {
   /** 현재 로그인 사용자 (비로그인 시 `user: null`, 200) */
   @Get('session')
   @ApiOperation({ summary: '현재 세션 조회' })
-  async session(@Req() req: Request) {
+  async session(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     const u = await this.auth.sessionUserFromRequest(req);
     if (!u) return { user: null };
+    if (!userMayAuthenticate(u)) {
+      clearAccessTokenCookie(res, this.config);
+      return { user: null };
+    }
     const wallets = await this.users.listWalletsForUser(u.id);
     return { user: serializeAuthUser(u, wallets) };
   }
@@ -158,7 +177,7 @@ export class AuthController {
   @HttpCode(204)
   @ApiOperation({ summary: '로그아웃' })
   logout(@Res() res: Response): void {
-    res.clearCookie('access_token', { path: '/' });
+    clearAccessTokenCookie(res, this.config);
     res.end();
   }
 

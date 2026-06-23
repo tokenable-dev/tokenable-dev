@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAccount, useConnect } from "wagmi";
 import { AuthModalShell } from "./AuthModalShell";
+import { AUTH_MINT_LINK } from "./authUiStyles";
 import { useAuthUiStore } from "@/store/authUiStore";
 import { useWalletLink } from "@/hooks/auth/useWalletLink";
 import {
@@ -24,7 +25,8 @@ export function ConnectWalletModal() {
   const { address, isConnected, isConnecting, isReconnecting } = useAccount();
   const { connect, connectors, isPending } = useConnect();
   const { linking, error, isLinkedTo, linkAddress, clearError } = useWalletLink();
-  const autoLinkStarted = useRef(false);
+  /** One auto-link attempt per address per modal open — no retry loop after cancel. */
+  const autoLinkAttemptedFor = useRef<string | null>(null);
 
   const sessionActive = isWalletSessionActive({
     address,
@@ -45,41 +47,52 @@ export function ConnectWalletModal() {
     if (returnTo) router.push(returnTo);
   }, [closeConnectWallet, consumeReturnTo, router]);
 
+  const runLink = useCallback(
+    async (target: string, opts?: { manual?: boolean }) => {
+      if (opts?.manual) {
+        autoLinkAttemptedFor.current = null;
+      }
+      const key = target.toLowerCase();
+      if (!opts?.manual && autoLinkAttemptedFor.current === key) return;
+      autoLinkAttemptedFor.current = key;
+
+      const ok = await linkAddress(target);
+      if (ok) finish();
+    },
+    [linkAddress, finish],
+  );
+
   useEffect(() => {
     if (!connectWalletOpen) {
-      autoLinkStarted.current = false;
+      autoLinkAttemptedFor.current = null;
       clearError();
     }
   }, [connectWalletOpen, clearError]);
 
   useEffect(() => {
     if (!connectWalletOpen || !sessionActive || !address || linking) return;
-    if (autoLinkStarted.current) return;
 
     if (isLinkedTo(address)) {
       finish();
       return;
     }
 
-    autoLinkStarted.current = true;
-    void (async () => {
-      const ok = await linkAddress(address);
-      if (ok) finish();
-      else autoLinkStarted.current = false;
-    })();
+    void runLink(address);
   }, [
     connectWalletOpen,
     sessionActive,
     address,
     linking,
     isLinkedTo,
-    linkAddress,
+    runLink,
     finish,
   ]);
 
   const busy = sessionPending || isPending || linking;
   const metaMaskReady = Boolean(findMetaMaskConnector(connectors));
   const titleId = "connect-wallet-modal-title";
+  const needsManualSign =
+    Boolean(sessionActive && address && !isLinkedTo(address) && error);
 
   return (
     <AuthModalShell
@@ -120,6 +133,17 @@ export function ConnectWalletModal() {
         </div>
 
         {error ? <p className="mt-4 text-center text-sm text-red-400">{error}</p> : null}
+
+        {needsManualSign && address ? (
+          <button
+            type="button"
+            disabled={linking}
+            onClick={() => void runLink(address, { manual: true })}
+            className={`${AUTH_MINT_LINK} mt-3 block w-full text-center disabled:opacity-50`}
+          >
+            {linking ? "Waiting for signature…" : "Sign to link wallet"}
+          </button>
+        ) : null}
       </div>
     </AuthModalShell>
   );
