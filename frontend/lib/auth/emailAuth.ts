@@ -56,3 +56,44 @@ export async function resendVerificationEmailPublic(email: string): Promise<void
     await parseAuthError(res, "Failed to resend verification email");
   }
 }
+
+export async function requestPasswordReset(email: string): Promise<void> {
+  const res = await backendFetch(`${getApiUrl()}/auth/forgot-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+  if (!res.ok) {
+    await parseAuthError(res, "Could not send reset email");
+  }
+}
+
+export async function resetPasswordWithToken(params: {
+  token: string;
+  password: string;
+}): Promise<AuthUser> {
+  const res = await backendFetch(`${getApiUrl()}/auth/reset-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) {
+    await parseAuthError(res, "Could not reset password");
+  }
+  const data = (await res.json()) as { user: AuthUser };
+  return data.user;
+}
+
+export async function changePassword(params: {
+  currentPassword: string;
+  newPassword: string;
+}): Promise<void> {
+  const res = await backendFetch(`${getApiUrl()}/auth/change-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) {
+    await parseAuthError(res, "Could not change password");
+  }
+}

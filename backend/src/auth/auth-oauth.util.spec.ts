@@ -30,5 +30,7 @@ describe('auth-oauth.util', () => {
     expect(isAuthPublicApiPath('/api/auth/resend-verification-email', 'POST')).toBe(
       true,
     );
+    expect(isAuthPublicApiPath('/api/auth/forgot-password', 'POST')).toBe(true);
+    expect(isAuthPublicApiPath('/api/auth/reset-password', 'POST')).toBe(true);
   });
 });

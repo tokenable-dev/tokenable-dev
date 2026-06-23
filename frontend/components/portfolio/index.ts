@@ -4,7 +4,6 @@ export { PortfolioAssetCard } from "./PortfolioAssetCard";
 export { PortfolioListingPriceStrip } from "./PortfolioListingPriceStrip";
 export { PortfolioDisconnectedState } from "./PortfolioDisconnectedState";
 export { PortfolioGuestState } from "./PortfolioGuestState";
-export { PortfolioWalletScopeBanner } from "./PortfolioWalletScopeBanner";
 export { PortfolioHoldingsSection } from "./PortfolioHoldingsSection";
 export { PortfolioCollectionBidsSection } from "./PortfolioCollectionBidsSection";
 export {

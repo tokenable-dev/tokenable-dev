@@ -9,6 +9,7 @@ import { formatAuthError } from "@/lib/auth/formatAuthError";
 import {
   loginWithEmail,
   registerWithEmail,
+  requestPasswordReset,
   resendVerificationEmailPublic,
 } from "@/lib/auth/emailAuth";
 import {
@@ -60,6 +61,8 @@ export function EmailAuthForm({
   const [resendPending, setResendPending] = useState(false);
   const [resendOk, setResendOk] = useState(false);
   const [needsVerify, setNeedsVerify] = useState(false);
+  const [forgotOpen, setForgotOpen] = useState(false);
+  const [forgotSent, setForgotSent] = useState(false);
 
   const isSignUp = mode === "sign-up";
 
@@ -108,6 +111,87 @@ export function EmailAuthForm({
     } finally {
       setResendPending(false);
     }
+  }
+
+  async function handleForgot(e: React.FormEvent) {
+    e.preventDefault();
+    const to = email.trim();
+    if (!to) return;
+    setPending(true);
+    setError(null);
+    try {
+      await requestPasswordReset(to);
+      setForgotSent(true);
+    } catch (err) {
+      setError(formatAuthError(err instanceof Error ? err.message : "Could not send email."));
+    } finally {
+      setPending(false);
+    }
+  }
+
+  if (forgotSent) {
+    return (
+      <div className="space-y-4 text-center">
+        <p className="text-sm font-medium text-white">Check your inbox</p>
+        <p className="truncate text-sm text-gray-400" title={email.trim()}>
+          {email.trim()}
+        </p>
+        <p className="text-xs leading-relaxed text-gray-500">
+          Email/password accounts get a reset link. Google-only accounts get a sign-in note.
+        </p>
+        <button
+          type="button"
+          onClick={() => {
+            setForgotSent(false);
+            setForgotOpen(false);
+          }}
+          className={AUTH_MINT_LINK}
+        >
+          Back to sign in
+        </button>
+      </div>
+    );
+  }
+
+  if (forgotOpen) {
+    return (
+      <form onSubmit={(e) => void handleForgot(e)} className="space-y-3.5">
+        <button
+          type="button"
+          onClick={() => {
+            setForgotOpen(false);
+            setError(null);
+          }}
+          className="mb-0.5 flex items-center gap-1 text-xs text-gray-500 transition-colors hover:text-gray-300"
+        >
+          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+          Sign in
+        </button>
+        <div>
+          <FieldLabel htmlFor="forgot-email">Email</FieldLabel>
+          <input
+            id="forgot-email"
+            type="email"
+            required
+            autoComplete="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className={AUTH_INPUT_CLASS}
+            placeholder="you@example.com"
+          />
+        </div>
+        {error ? (
+          <p className="text-center text-sm text-red-400" role="alert">
+            {error}
+          </p>
+        ) : null}
+        <button type="submit" disabled={pending} className={AUTH_PRIMARY_BTN}>
+          {pending ? "Sending…" : "Send reset link"}
+        </button>
+      </form>
+    );
   }
 
   if (signupSentTo) {
@@ -220,7 +304,18 @@ export function EmailAuthForm({
         />
         {isSignUp ? (
           <p className="mt-1.5 text-xs text-gray-500">Use 8 or more characters.</p>
-        ) : null}
+        ) : (
+          <button
+            type="button"
+            onClick={() => {
+              setForgotOpen(true);
+              setError(null);
+            }}
+            className="mt-2 text-xs text-gray-500 transition-colors hover:text-mint"
+          >
+            Forgot password?
+          </button>
+        )}
       </div>
 
       {needsVerify ? (

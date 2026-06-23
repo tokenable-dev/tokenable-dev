@@ -14,6 +14,10 @@ import {
   EmailVerificationService,
   type VerifyEmailResult,
 } from './email-verification.service';
+import {
+  PasswordResetService,
+  type ResetPasswordResult,
+} from './password-reset.service';
 import { hashPassword, verifyPassword } from './password.util';
 import {
   WALLET_LINK_CHALLENGE_TTL_SEC,
@@ -28,6 +32,7 @@ export class AuthService {
     private readonly users: UserService,
     private readonly jwt: JwtService,
     private readonly emailVerification: EmailVerificationService,
+    private readonly passwordReset: PasswordResetService,
   ) {}
 
   validateGoogleProfile(params: {
@@ -117,6 +122,50 @@ export class AuthService {
 
   verifyEmailToken(rawToken: string): Promise<VerifyEmailResult> {
     return this.emailVerification.verifyRawToken(rawToken);
+  }
+
+  requestPasswordReset(email: string): Promise<void> {
+    return this.passwordReset.requestResetForEmail(email);
+  }
+
+  resetPasswordWithToken(
+    rawToken: string,
+    newPassword: string,
+  ): Promise<ResetPasswordResult> {
+    return this.passwordReset.resetWithToken(rawToken, newPassword);
+  }
+
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<void> {
+    const user = await this.users.findByIdOrFail(userId);
+    if (!user.passwordHash) {
+      throw new BadRequestException('This account uses Google sign-in');
+    }
+    if (!user.emailVerified) {
+      throw new UnauthorizedException(
+        'Email not verified. Verify your email before changing your password.',
+      );
+    }
+    if (!verifyPassword(currentPassword, user.passwordHash)) {
+      throw new UnauthorizedException('Current password is incorrect');
+    }
+    if (currentPassword === newPassword) {
+      throw new BadRequestException('New password must be different');
+    }
+    await this.users.updatePasswordHash(userId, hashPassword(newPassword));
+  }
+
+  async deleteAccount(userId: string, password?: string): Promise<void> {
+    const user = await this.users.findByIdOrFail(userId);
+    if (user.passwordHash) {
+      if (!password || !verifyPassword(password, user.passwordHash)) {
+        throw new UnauthorizedException('Password is incorrect');
+      }
+    }
+    await this.users.deleteById(userId);
   }
 
   createWalletLinkChallenge(userId: string): { message: string; challenge: string } {

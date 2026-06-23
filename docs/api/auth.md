@@ -98,6 +98,48 @@ Resends the verification email by email address (no login required).
 
 ---
 
+### `POST /api/auth/forgot-password`
+
+Sends a password-reset email for email/password accounts. Google-only accounts are ignored (same `200` response).
+
+- **Request body:** `{ "email": "you@example.com" }`
+- **Rate limit:** 60s between sends per user
+- **Email link:** `{FRONTEND_URL}/auth/reset-password?token=...` (expires in 1 hour)
+
+---
+
+### `POST /api/auth/reset-password`
+
+Sets a new password using the token from the reset email. Issues a session cookie on success.
+
+- **Request body:** `{ "token": "...", "password": "at-least-8-chars" }`
+- **Response:** `200 { "ok": true, "user": { ... } }` + `access_token` cookie
+- **Errors:** `400` — invalid or expired token
+
+---
+
+### `POST /api/auth/change-password`
+
+Change password while signed in (email/password accounts only). **Requires `email_verified = true`.**
+
+- **Guard:** `JwtAuthGuard`
+- **Request body:** `{ "currentPassword": "...", "newPassword": "at-least-8-chars" }`
+- **Response:** `200 { "ok": true }`
+- **Errors:** `401` — wrong current password or unverified email; `400` — Google-only account or same password
+
+---
+
+### `POST /api/auth/delete-account`
+
+Permanently delete the signed-in account (email/password or Google). Clears the session cookie.
+
+- **Guard:** `JwtAuthGuard`
+- **Request body:** `{ "password": "..." }` — required for email/password accounts; omit for Google-only
+- **Response:** `204 No Content`
+- **Side effects:** Deletes `users` row; `user_wallets`, `user_watchlist`, and `verification_tokens` cascade
+
+---
+
 ### `GET /api/auth/session`
 
 Returns the current session user. Never returns `401`; unauthenticated requests get `{ user: null }`.
@@ -195,7 +237,7 @@ Unlinks the wallet address from the authenticated account.
 
 ### Email verification template
 
-Verification emails are sent in **English** with branded HTML (inline T icon via CID attachment when available, white wordmark, CTA button, plain-text fallback). Asset: `backend/src/assets/mail/tokenable_icon.png` (same favicon as the site). Template: `backend/src/mail/templates/verification-email.template.ts`.
+Verification emails are sent in **English** with branded HTML (inline T icon via CID + white wordmark, left-aligned header, CTA button). Asset: `backend/src/assets/mail/tokenable_icon.png`. Template: `backend/src/mail/templates/verification-email.template.ts`.
 
 ### Reducing spam folder delivery
 

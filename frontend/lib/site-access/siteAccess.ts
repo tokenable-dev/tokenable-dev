@@ -31,6 +31,7 @@ export function isSiteAccessPublicPath(pathname: string, method: string): boolea
   if (pathname === "/api/health" && method.toUpperCase() === "GET") {
     return true;
   }
+  if (pathname.startsWith("/auth/")) return true;
   if (pathname.startsWith("/_next/")) return true;
   if (pathname.startsWith("/assets/")) return true;
   if (

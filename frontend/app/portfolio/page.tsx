@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { usePublicClient, useWriteContract } from "wagmi";
 import { sepolia } from "viem/chains";
 import { useLinkedPortfolioWallet } from "@/hooks/auth/useLinkedPortfolioWallet";
+import { usePortfolioWalletMismatchPrompt } from "@/hooks/auth/usePortfolioWalletMismatchPrompt";
 import {
   usePortfolioAssetList,
   usePortfolioCollectionKeys,
@@ -41,7 +42,6 @@ import {
   PortfolioSummaryBar,
   PortfolioValuePanel,
   PortfolioWatchlistSection,
-  PortfolioWalletScopeBanner,
 } from "@/components/portfolio";
 import { CollectionChangeBidModal } from "@/components/marketplace/collection-trading/CollectionChangeBidModal";
 import { isMarketplaceAdminWallet } from "@/lib/marketplace";
@@ -57,6 +57,9 @@ export default function PortfolioPage() {
   const { runSellAccessGate } = useSellAccessGate("/portfolio");
   const wallet = useLinkedPortfolioWallet();
   const { connectedAddress, isConnected } = wallet;
+  const portfolioMismatchPromptEnabled =
+    authInitialized && Boolean(user) && wallet.hasLinkedWallet;
+  usePortfolioWalletMismatchPrompt(portfolioMismatchPromptEnabled);
   const portfolioAddress = wallet.portfolioAddress;
   const portfolioDataEnabled =
     authInitialized &&
@@ -283,19 +286,9 @@ export default function PortfolioPage() {
   return (
     <div className="min-h-screen min-w-0 overflow-x-clip bg-black text-white">
       <div className={`${APP_MAIN_SHELL_CLASS} py-5 pb-16 sm:py-8 sm:pb-20`}>
-        <PortfolioWalletScopeBanner
-          portfolioAddress={portfolioAddress}
-          connectedAddress={connectedAddress}
-          walletMismatch={wallet.walletMismatch}
-        />
-
         {!isConnected ? (
           <p className="mb-4 rounded-xl border border-gray-800 bg-gray-900/40 px-4 py-3 text-xs text-gray-400">
             Connect MetaMask with a linked wallet to manage listings and bids.
-          </p>
-        ) : !wallet.connectedIsLinked ? (
-          <p className="mb-4 rounded-xl border border-gray-800 bg-gray-900/40 px-4 py-3 text-xs text-gray-400">
-            Switch MetaMask to a linked wallet, or add the current wallet to your account.
           </p>
         ) : null}
         <PortfolioSummaryBar
