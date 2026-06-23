@@ -2,6 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { ChangePasswordSettingsRow } from "@/components/auth/ChangePasswordSettings";
+import { DeleteAccountSettingsRow } from "@/components/auth/DeleteAccountSettings";
 import { unlinkWalletFromAccount, sendVerificationEmail } from "@/lib/auth";
 import { getUserLinkedWallets } from "@/lib/auth/wallets";
 import { useAuthStore } from "@/store/authStore";
@@ -133,8 +135,12 @@ export default function ProfilePage() {
           </p>
         </section>
 
+        {user.hasPassword ? (
+          <ChangePasswordSettingsRow emailVerified={user.emailVerified} />
+        ) : null}
+
         {!user.emailVerified ? (
-          <section className="flex items-center justify-between gap-3 rounded-xl border border-mint/20 bg-mint/5 px-4 py-3">
+          <section className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-mint/20 bg-mint/5 px-4 py-3">
             <span className="text-xs font-medium text-mint">Verify email</span>
             <button
               type="button"
@@ -146,6 +152,8 @@ export default function ProfilePage() {
             </button>
           </section>
         ) : null}
+
+        <DeleteAccountSettingsRow hasPassword={user.hasPassword === true} />
       </main>
     </div>
   );

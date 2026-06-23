@@ -12,6 +12,7 @@ import { MailService } from '../mail/mail.service';
 import { User } from '../user/entities/user.entity';
 import { UserService } from '../user/user.service';
 import { VerificationToken } from './entities/verification-token.entity';
+import { hashPassword } from './password.util';
 import { VerificationTokenType } from './verification-token-type';
 import {
   generateVerificationRawToken,
@@ -19,16 +20,16 @@ import {
   isValidRawVerificationToken,
 } from './verification-token.util';
 
-const VERIFY_TOKEN_TTL_MS = 48 * 60 * 60 * 1000;
+const RESET_TOKEN_TTL_MS = 60 * 60 * 1000;
 const RESEND_COOLDOWN_MS = 60 * 1000;
 
-export type VerifyEmailResult =
-  | { ok: true }
-  | { ok: false; reason: 'missing' | 'invalid' | 'expired' };
+export type ResetPasswordResult =
+  | { ok: true; user: User }
+  | { ok: false; reason: 'invalid' | 'expired' };
 
 @Injectable()
-export class EmailVerificationService {
-  private readonly logger = new Logger(EmailVerificationService.name);
+export class PasswordResetService {
+  private readonly logger = new Logger(PasswordResetService.name);
 
   constructor(
     @InjectDataSource()
@@ -38,45 +39,41 @@ export class EmailVerificationService {
     private readonly config: ConfigService,
   ) {}
 
-  async issueAndSend(userId: string): Promise<void> {
-    const user = await this.users.findByIdOrFail(userId);
-    if (user.emailVerified) return;
-
-    const rawToken = await this.replaceTokenForUser(userId, 0);
-    await this.sendVerificationEmail(user.email, rawToken);
-  }
-
-  async resendForUserId(userId: string): Promise<void> {
-    const user = await this.users.findByIdOrFail(userId);
-    if (user.emailVerified) return;
-
-    const rawToken = await this.replaceTokenForUser(
-      userId,
-      RESEND_COOLDOWN_MS,
-    );
-    await this.sendVerificationEmail(user.email, rawToken);
-  }
-
-  /** Public resend by email — no user enumeration on unknown email. */
-  async resendForEmail(email: string): Promise<void> {
+  /** No user enumeration — only email/password accounts receive a reset link. */
+  async requestResetForEmail(email: string): Promise<void> {
     const user = await this.users.findByEmail(email);
-    if (!user || user.emailVerified || !user.passwordHash) {
+    if (!user) {
+      this.logger.debug('Password reset skipped: no matching account');
+      return;
+    }
+    if (!user.passwordHash) {
+      if (user.googleId) {
+        try {
+          await this.mail.sendGoogleOnlySignInEmail(user.email);
+        } catch (e) {
+          this.logger.error(`sendGoogleOnlySignInEmail failed: ${String(e)}`);
+          throw new BadRequestException('Failed to send email');
+        }
+      } else {
+        this.logger.debug('Password reset skipped: account has no password');
+      }
       return;
     }
 
-    const rawToken = await this.replaceTokenForUser(
-      user.id,
-      RESEND_COOLDOWN_MS,
-    );
-    await this.sendVerificationEmail(user.email, rawToken);
+    const rawToken = await this.replaceTokenForUser(user.id, RESEND_COOLDOWN_MS);
+    await this.sendResetEmail(user.email, rawToken);
   }
 
-  async verifyRawToken(rawToken: string): Promise<VerifyEmailResult> {
+  async resetWithToken(
+    rawToken: string,
+    newPassword: string,
+  ): Promise<ResetPasswordResult> {
     if (!isValidRawVerificationToken(rawToken)) {
       return { ok: false, reason: 'invalid' };
     }
 
     const tokenHash = hashVerificationToken(rawToken);
+    const passwordHash = hashPassword(newPassword);
 
     return this.dataSource.transaction(async (manager) => {
       const row = await manager
@@ -84,7 +81,9 @@ export class EmailVerificationService {
         .createQueryBuilder('t')
         .setLock('pessimistic_write')
         .where('t.token_hash = :tokenHash', { tokenHash })
-        .andWhere('t.type = :type', { type: VerificationTokenType.EMAIL_VERIFY })
+        .andWhere('t.type = :type', {
+          type: VerificationTokenType.PASSWORD_RESET,
+        })
         .getOne();
 
       if (!row) {
@@ -94,17 +93,25 @@ export class EmailVerificationService {
       if (row.expiresAt.getTime() < Date.now()) {
         await manager.delete(VerificationToken, {
           userId: row.userId,
-          type: VerificationTokenType.EMAIL_VERIFY,
+          type: VerificationTokenType.PASSWORD_RESET,
         });
         return { ok: false, reason: 'expired' };
       }
 
-      await manager.update(User, { id: row.userId }, { emailVerified: true });
+      const user = await manager.findOne(User, { where: { id: row.userId } });
+      if (!user?.passwordHash) {
+        return { ok: false, reason: 'invalid' };
+      }
+
+      user.passwordHash = passwordHash;
+      user.emailVerified = true;
+      await manager.save(user);
       await manager.delete(VerificationToken, {
         userId: row.userId,
-        type: VerificationTokenType.EMAIL_VERIFY,
+        type: VerificationTokenType.PASSWORD_RESET,
       });
-      return { ok: true };
+
+      return { ok: true, user };
     });
   }
 
@@ -114,14 +121,14 @@ export class EmailVerificationService {
   ): Promise<string> {
     const rawToken = generateVerificationRawToken();
     const tokenHash = hashVerificationToken(rawToken);
-    const expiresAt = new Date(Date.now() + VERIFY_TOKEN_TTL_MS);
+    const expiresAt = new Date(Date.now() + RESET_TOKEN_TTL_MS);
 
     await this.dataSource.transaction(async (manager) => {
       const repo = manager.getRepository(VerificationToken);
 
       if (cooldownMs > 0) {
         const latest = await repo.findOne({
-          where: { userId, type: VerificationTokenType.EMAIL_VERIFY },
+          where: { userId, type: VerificationTokenType.PASSWORD_RESET },
           order: { createdAt: 'DESC' },
           lock: { mode: 'pessimistic_write' },
         });
@@ -136,12 +143,15 @@ export class EmailVerificationService {
         }
       }
 
-      await repo.delete({ userId, type: VerificationTokenType.EMAIL_VERIFY });
+      await repo.delete({
+        userId,
+        type: VerificationTokenType.PASSWORD_RESET,
+      });
       await repo.save(
         repo.create({
           userId,
           tokenHash,
-          type: VerificationTokenType.EMAIL_VERIFY,
+          type: VerificationTokenType.PASSWORD_RESET,
           expiresAt,
         }),
       );
@@ -150,20 +160,17 @@ export class EmailVerificationService {
     return rawToken;
   }
 
-  private async sendVerificationEmail(
-    to: string,
-    rawToken: string,
-  ): Promise<void> {
+  private async sendResetEmail(to: string, rawToken: string): Promise<void> {
     const front = this.config
       .getOrThrow<string>('FRONTEND_URL')
       .replace(/\/$/, '');
-    const verifyLink = `${front}/api/auth/verify-email?token=${encodeURIComponent(rawToken)}`;
+    const resetLink = `${front}/auth/reset-password?token=${encodeURIComponent(rawToken)}`;
 
     try {
-      await this.mail.sendVerificationEmail(to, verifyLink);
+      await this.mail.sendPasswordResetEmail(to, resetLink);
     } catch (e) {
-      this.logger.error(`sendVerificationEmail failed: ${String(e)}`);
-      throw new BadRequestException('Failed to send verification email');
+      this.logger.error(`sendPasswordResetEmail failed: ${String(e)}`);
+      throw new BadRequestException('Failed to send reset email');
     }
   }
 }

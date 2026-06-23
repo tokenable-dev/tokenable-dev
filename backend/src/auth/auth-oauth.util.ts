@@ -37,7 +37,9 @@ export function isAuthPublicApiPath(path: string, method: string): boolean {
     return (
       path === '/api/auth/register' ||
       path === '/api/auth/login' ||
-      path === '/api/auth/resend-verification-email'
+      path === '/api/auth/resend-verification-email' ||
+      path === '/api/auth/forgot-password' ||
+      path === '/api/auth/reset-password'
     );
   }
   return false;

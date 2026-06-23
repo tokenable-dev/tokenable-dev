@@ -10,6 +10,7 @@ export interface AuthUser {
   walletLinkedAt: string | null;
   wallets?: LinkedWallet[];
   emailVerified: boolean;
+  hasPassword: boolean;
 }
 
 /** 세션 없으면 null (`/auth/session` 은 항상 200 — 미인증 시 `{ user: null }`) */
@@ -51,5 +52,19 @@ export async function sendVerificationEmail(): Promise<void> {
   if (!res.ok) {
     const err = await res.json().catch(() => ({ message: "Send failed" }));
     throw new Error((err as { message?: string }).message ?? "Send failed");
+  }
+}
+
+export async function deleteAccount(params?: { password?: string }): Promise<void> {
+  const res = await backendFetch(`${getApiUrl()}/auth/delete-account`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(params ?? {}),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ message: "Delete failed" }));
+    const message =
+      (err as { message?: string | string[] }).message ?? "Delete failed";
+    throw new Error(Array.isArray(message) ? message.join(", ") : message);
   }
 }

@@ -10,6 +10,7 @@ import {
   Res,
   UseFilters,
   UseGuards,
+  BadRequestException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AuthGuard } from '@nestjs/passport';
@@ -32,10 +33,14 @@ import {
   userMayAuthenticate,
 } from './auth-session.util';
 import { GoogleOAuthExceptionFilter } from './filters/google-oauth-exception.filter';
+import { ChangePasswordDto } from './dto/change-password.dto';
+import { DeleteAccountDto } from './dto/delete-account.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { LinkWalletDto } from './dto/link-wallet.dto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { ResendVerificationDto } from './dto/resend-verification.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { apiBodyDefault } from '../swagger/api-body.util';
 import { SWAGGER_BODY_EXAMPLES } from '../swagger/examples';
@@ -153,6 +158,78 @@ export class AuthController {
   async resendVerificationEmailPublic(@Body() dto: ResendVerificationDto) {
     await this.auth.resendVerificationEmailByEmail(dto.email);
     return { ok: true };
+  }
+
+  /** Request a password reset email (email/password accounts only). */
+  @Post('forgot-password')
+  @HttpCode(200)
+  @ApiOperation({ summary: '비밀번호 재설정 메일 요청' })
+  @ApiBody(apiBodyDefault(ForgotPasswordDto, SWAGGER_BODY_EXAMPLES.authForgotPassword))
+  async forgotPassword(@Body() dto: ForgotPasswordDto) {
+    await this.auth.requestPasswordReset(dto.email);
+    return { ok: true };
+  }
+
+  /** Set a new password using the token from the reset email. */
+  @Post('reset-password')
+  @HttpCode(200)
+  @ApiOperation({ summary: '비밀번호 재설정' })
+  @ApiBody(apiBodyDefault(ResetPasswordDto, SWAGGER_BODY_EXAMPLES.authResetPassword))
+  async resetPassword(
+    @Body() dto: ResetPasswordDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.auth.resetPasswordWithToken(
+      dto.token,
+      dto.password,
+    );
+    if (!result.ok) {
+      throw new BadRequestException(
+        result.reason === 'expired'
+          ? 'Reset link expired. Request a new one.'
+          : 'Invalid or expired reset link.',
+      );
+    }
+    const user = result.user;
+    setAccessTokenCookie(res, this.auth.issueAccessToken(user), this.config);
+    const wallets = await this.users.listWalletsForUser(user.id);
+    return { ok: true, user: serializeAuthUser(user, wallets) };
+  }
+
+  /** Change password while signed in (email/password accounts). */
+  @Post('change-password')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @HttpCode(200)
+  @ApiOperation({ summary: '비밀번호 변경 (로그인)' })
+  @ApiBody(apiBodyDefault(ChangePasswordDto, SWAGGER_BODY_EXAMPLES.authChangePassword))
+  async changePassword(
+    @Req() req: Request & { user: User },
+    @Body() dto: ChangePasswordDto,
+  ) {
+    await this.auth.changePassword(
+      req.user.id,
+      dto.currentPassword,
+      dto.newPassword,
+    );
+    return { ok: true };
+  }
+
+  /** Permanently delete the signed-in account (email or Google). */
+  @Post('delete-account')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @HttpCode(204)
+  @ApiOperation({ summary: '회원 탈퇴' })
+  @ApiBody(apiBodyDefault(DeleteAccountDto, SWAGGER_BODY_EXAMPLES.authDeleteAccount))
+  async deleteAccount(
+    @Req() req: Request & { user: User },
+    @Body() dto: DeleteAccountDto,
+    @Res() res: Response,
+  ): Promise<void> {
+    await this.auth.deleteAccount(req.user.id, dto.password);
+    clearAccessTokenCookie(res, this.config);
+    res.end();
   }
 
   /** 현재 로그인 사용자 (비로그인 시 `user: null`, 200) */

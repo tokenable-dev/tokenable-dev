@@ -165,6 +165,16 @@ export class UserService {
     return user;
   }
 
+  async updatePasswordHash(userId: string, passwordHash: string): Promise<User> {
+    const user = await this.findByIdOrFail(userId);
+    user.passwordHash = passwordHash;
+    return this.users.save(user);
+  }
+
+  async deleteById(id: string): Promise<void> {
+    await this.users.delete({ id });
+  }
+
   async removeWallet(userId: string, address: string): Promise<User> {
     const user = await this.findByIdOrFail(userId);
     const normalized = address;

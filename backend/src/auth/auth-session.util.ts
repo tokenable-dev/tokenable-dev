@@ -78,6 +78,7 @@ export function serializeAuthUser(user: User, wallets: UserWallet[] = []) {
     name: user.name,
     pictureUrl: user.pictureUrl,
     emailVerified: user.emailVerified,
+    hasPassword: !!user.passwordHash,
     walletAddress: primary?.walletAddress ?? user.walletAddress ?? null,
     walletLinkedAt: primary?.linkedAt
       ? new Date(primary.linkedAt).toISOString()

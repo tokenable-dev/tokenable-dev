@@ -142,6 +142,20 @@ export const SWAGGER_BODY_EXAMPLES = {
   authResendVerification: {
     email: 'collector@example.com',
   },
+  authForgotPassword: {
+    email: 'collector@example.com',
+  },
+  authResetPassword: {
+    token: 'paste-reset-token-from-email',
+    password: 'new-secure-pass',
+  },
+  authChangePassword: {
+    currentPassword: 'current-pass',
+    newPassword: 'new-secure-pass',
+  },
+  authDeleteAccount: {
+    password: 'current-pass',
+  },
   linkWallet: {
     address: F.wallet,
     signature: '0x' + 'a'.repeat(130),
