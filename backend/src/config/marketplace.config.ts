@@ -1,16 +1,20 @@
 import { registerAs } from '@nestjs/config';
 
-export const DEFAULT_MARKETPLACE_ADMIN_WALLET =
-  '0xd5abdd307414718c59949ac5465930a1f8a52691';
-
 export default registerAs('marketplace', () => {
-  const adminRaw =
-    process.env.MARKETPLACE_ADMIN_WALLETS?.trim() ||
-    DEFAULT_MARKETPLACE_ADMIN_WALLET;
-  const adminWallets = adminRaw
-    .split(',')
-    .map((s) => s.trim().toLowerCase())
-    .filter((s) => /^0x[a-f0-9]{40}$/.test(s));
+  const adminUsername =
+    process.env.MARKETPLACE_ADMIN_USERNAME?.trim() || 'skyand';
+  const adminPassword =
+    process.env.MARKETPLACE_ADMIN_PASSWORD?.trim() || '071725';
+  const adminSessionSecret =
+    process.env.MARKETPLACE_ADMIN_SESSION_SECRET?.trim() ||
+    process.env.SITE_ACCESS_SECRET?.trim() ||
+    '';
+  const adminSessionSeconds = clampInt(
+    process.env.MARKETPLACE_ADMIN_SESSION_SECONDS,
+    28_800,
+    300,
+    86_400,
+  );
 
   const activeOrdersMaxRaw = Number(
     process.env.MARKETPLACE_ACTIVE_ORDERS_MAX ?? '20000',
@@ -71,7 +75,10 @@ export default registerAs('marketplace', () => {
     process.env.CARDHEDGER_MINT_PREVIEW_CERT_BATCH !== 'false';
 
   return {
-    adminWallets,
+    adminUsername,
+    adminPassword,
+    adminSessionSecret,
+    adminSessionSeconds,
     activeOrdersMax,
     collectionActiveOrdersMax,
     maxActiveCollectionBidsPerOfferer,

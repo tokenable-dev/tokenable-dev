@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import type { Address } from "viem";
 import { useResolvedMediaUrl } from "@/hooks/media";
 import type { AdminListedRwaCardRow, CollectionListMarketSnapshot } from "@/lib/core";
 import { representativeGradeUsd } from "@/lib/market";
@@ -10,7 +9,6 @@ import { AdminMarketPriceStrip } from "./AdminMarketPriceStrip";
 
 export function MarketplaceAdminCardRow({
   row,
-  adminWallet,
   snapshot,
   busy,
   onSave,
@@ -18,7 +16,6 @@ export function MarketplaceAdminCardRow({
   onClearImageOverride,
 }: {
   row: AdminListedRwaCardRow;
-  adminWallet: Address;
   snapshot?: CollectionListMarketSnapshot;
   busy: boolean;
   onSave: (patch: {
@@ -142,9 +139,6 @@ export function MarketplaceAdminCardRow({
                 compact
               />
             </div>
-            <span className="font-mono text-[10px] text-amber-200/50">
-              {adminWallet.slice(0, 6)}…{adminWallet.slice(-4)}
-            </span>
           </div>
 
           <label className="block">

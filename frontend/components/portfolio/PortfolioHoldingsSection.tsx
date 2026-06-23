@@ -25,9 +25,7 @@ export function PortfolioHoldingsSection({
   filteredAssetRows,
   address,
   valuesPending,
-  isBurnAdmin,
   cancellingListingTokenId,
-  burningTokenId,
   hidingTokenId,
   unhidingTokenId,
   onOpenToken,
@@ -35,7 +33,6 @@ export function PortfolioHoldingsSection({
   onUnhide,
   onChangeListing,
   onCancelListing,
-  onBurn,
 }: {
   /** When true, omits outer card chrome (used inside PortfolioMainSection tabs). */
   embedded?: boolean;
@@ -47,9 +44,7 @@ export function PortfolioHoldingsSection({
   filteredAssetRows: AssetRow[];
   address: string | undefined;
   valuesPending: boolean;
-  isBurnAdmin: boolean;
   cancellingListingTokenId: number | null;
-  burningTokenId: number | null;
   hidingTokenId: number | null;
   unhidingTokenId: number | null;
   onOpenToken: (tokenId: number) => void;
@@ -57,7 +52,6 @@ export function PortfolioHoldingsSection({
   onUnhide: (tokenId: number) => void;
   onChangeListing: (tokenId: number) => void;
   onCancelListing: (tokenId: number, orderHash: string) => void;
-  onBurn: (tokenId: number, hasListing: boolean) => void;
 }) {
   const hiddenToggle =
     hiddenAssetCount > 0 ? (
@@ -119,9 +113,7 @@ export function PortfolioHoldingsSection({
               assetFilter={assetFilter}
               address={address}
               valuesPending={valuesPending}
-              isBurnAdmin={isBurnAdmin}
               cancellingListingTokenId={cancellingListingTokenId}
-              burningTokenId={burningTokenId}
               hidingTokenId={hidingTokenId}
               unhidingTokenId={unhidingTokenId}
               onOpen={() => onOpenToken(r.tokenId)}
@@ -134,7 +126,6 @@ export function PortfolioHoldingsSection({
                   onCancelListing(r.tokenId, r.activeListingOrderHash);
                 }
               }}
-              onBurn={() => onBurn(r.tokenId, r.listPriceUsd != null)}
             />
           ))}
         </div>

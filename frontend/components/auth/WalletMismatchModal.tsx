@@ -50,7 +50,6 @@ export function WalletMismatchModal() {
         <h2 id={titleId} className="text-base font-bold text-white sm:text-xl">
           Link wallet
         </h2>
-        <p className="mt-1.5 text-sm text-gray-400">Add this wallet to your account.</p>
 
         {connected ? (
           <div className="mt-4 max-h-28 overflow-y-auto rounded-xl border border-gray-800 bg-gray-900/50 px-3 py-3 sm:max-h-none">
@@ -69,7 +68,7 @@ export function WalletMismatchModal() {
           </p>
         ) : null}
 
-        <div className="mt-5 flex flex-col gap-2 sm:mt-6">
+        <div className="mt-5 sm:mt-6">
           <button
             type="button"
             disabled={linking}
@@ -77,14 +76,6 @@ export function WalletMismatchModal() {
             className={`${AUTH_PRIMARY_BTN} min-h-[48px] text-sm sm:min-h-[52px] sm:text-base`}
           >
             {linking ? "…" : "Add wallet"}
-          </button>
-          <button
-            type="button"
-            disabled={linking}
-            onClick={dismiss}
-            className="min-h-[44px] w-full text-sm text-gray-500 hover:text-gray-300 disabled:opacity-50"
-          >
-            Not now
           </button>
         </div>
       </div>

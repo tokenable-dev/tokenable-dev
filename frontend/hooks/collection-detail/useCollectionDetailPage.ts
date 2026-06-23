@@ -5,7 +5,6 @@ import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { getMarketplaceCollectionDetail, rq, marketplaceRqPolicy } from "@/lib/core";
-import { isMarketplaceAdminWallet } from "@/lib/marketplace";
 import type { BookRowSelection } from "@/lib/marketplace/marketplaceTradingTypes";
 import type { CollectionTradeTab } from "@/lib/marketplace/collection-trading";
 import type { TradeCelebrationKind } from "@/lib/marketplace/marketplaceTradingTypes";
@@ -107,17 +106,6 @@ export function useCollectionDetailPage() {
 
   const invalidateCollection = useCollectionDetailInvalidation(collectionKey);
 
-  const listingTokenIdsForAdmin = useMemo(() => {
-    const ids: number[] = [];
-    for (const o of asks) {
-      const id = Number(o.tokenId);
-      if (Number.isFinite(id)) ids.push(id);
-    }
-    return ids;
-  }, [asks]);
-
-  const isCoverAdmin = isMarketplaceAdminWallet(address);
-
   const presetPriceFromBook = useMemo(() => {
     if (bookSelection == null) return null;
     return bookSelection.price.toLocaleString("en-US", {
@@ -192,8 +180,6 @@ export function useCollectionDetailPage() {
     collectionBids,
     listings,
     invalidateCollection,
-    listingTokenIdsForAdmin,
-    isCoverAdmin,
     presetPriceFromBook,
     listPricePresetUsdc,
     preferredBidOrderHash,

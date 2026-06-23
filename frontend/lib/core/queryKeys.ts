@@ -97,8 +97,7 @@ export const rq = {
   /** Single RWA resolved asset (tokenURI + metadata + imageUrl). */
   rwaAssetDetail: (tokenId: number) => ["marketplace-detail-metadata", tokenId] as const,
   /** Admin — active listed RWA cards registry overview. */
-  adminListedRwaCards: (adminWallet: string) =>
-    ["admin-listed-rwa-cards", adminWallet.toLowerCase()] as const,
+  adminListedRwaCards: () => ["admin-listed-rwa-cards"] as const,
   /** Admin — marketplace collections list (cursor pages). */
   adminCollectionsList: () => ["admin-collections-list"] as const,
   /**

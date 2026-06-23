@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import type { Address } from "viem";
 import type { CollectionListMarketSnapshot, MarketplaceCollectionSummary } from "@/lib/core";
 import { useResolvedMediaUrl } from "@/hooks/media";
 import { useCollectionAdminCover } from "@/hooks/marketplace/collection-hero/useCollectionAdminCover";
@@ -13,14 +12,12 @@ import { AdminMarketPriceStrip } from "./AdminMarketPriceStrip";
 export function MarketplaceAdminCollectionRow({
   row,
   snapshot,
-  adminWallet,
   busy,
   onCoverSaved,
   onDeleted,
 }: {
   row: MarketplaceCollectionSummary;
   snapshot: CollectionListMarketSnapshot | undefined;
-  adminWallet: Address;
   busy: boolean;
   onCoverSaved: () => void;
   onDeleted: () => void;
@@ -41,7 +38,6 @@ export function MarketplaceAdminCollectionRow({
     deleteCollection,
   } = useCollectionAdminCover({
     collectionKey: row.collectionKey,
-    adminWallet,
     onSaved: onCoverSaved,
     onDeleted,
   });

@@ -30,6 +30,7 @@ import { PortfolioDailySnapshot } from './marketplace/entities/portfolio-daily-s
 import { PortfolioHiddenHolding } from './marketplace/entities/portfolio-hidden-holding.entity';
 import { UserWatchlist } from './marketplace/entities/user-watchlist.entity';
 import { CardTop100DailySnapshot } from './cardhedger/entities/card-top100-snapshot.entity';
+import { MarketplaceAdmin } from './marketplace/entities/marketplace-admin.entity';
 
 @Module({
   imports: [
@@ -71,6 +72,7 @@ import { CardTop100DailySnapshot } from './cardhedger/entities/card-top100-snaps
           PortfolioHiddenHolding,
           UserWatchlist,
           CardTop100DailySnapshot,
+          MarketplaceAdmin,
         ],
         // Schema sync is always disabled in production — use SQL migration scripts
         // under backend/sql/schema/ instead. Enabled only in non-production

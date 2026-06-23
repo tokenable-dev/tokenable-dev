@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { MarketplaceAdminModule } from './admin/marketplace-admin.module';
 import { MarketplaceCollectionsModule } from './collections/marketplace-collections.module';
 import { MarketplaceMarketDataModule } from './market-data/marketplace-market-data.module';
 import { MarketplaceOrdersModule } from './orders/marketplace-orders.module';
@@ -11,6 +12,7 @@ import { MarketplaceSnapshotsModule } from './snapshots/marketplace-snapshots.mo
  */
 @Module({
   imports: [
+    MarketplaceAdminModule,
     MarketplaceMarketDataModule,
     MarketplaceSnapshotsModule,
     MarketplacePortfolioModule,
@@ -19,6 +21,7 @@ import { MarketplaceSnapshotsModule } from './snapshots/marketplace-snapshots.mo
     MarketplaceOrdersModule,
   ],
   exports: [
+    MarketplaceAdminModule,
     MarketplaceMarketDataModule,
     MarketplaceSnapshotsModule,
     MarketplacePortfolioModule,

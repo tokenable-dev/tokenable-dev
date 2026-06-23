@@ -8,6 +8,7 @@ import {
   Param,
   Post,
   Query,
+  Req,
 } from '@nestjs/common';
 import {
   ApiBody,
@@ -17,6 +18,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import type { Request } from 'express';
 import { MarketplaceAdminService } from '../admin/marketplace-admin.service';
 import { CardhedgerAiInsightService } from '../market-data/cardhedger-ai-insight.service';
 import { CardhedgerMarketDataService } from '../market-data/cardhedger-market-data.service';
@@ -60,8 +62,8 @@ export class CollectionsController {
     return decodeURIComponent(raw).toLowerCase();
   }
 
-  private assertAdminWallet(adminWallet: string): void {
-    this.marketplaceAdmin.assertAdminWallet(adminWallet);
+  private assertAdminSession(req: Request): void {
+    this.marketplaceAdmin.assertAdminSession(req);
   }
 
   /**
@@ -386,10 +388,11 @@ export class CollectionsController {
   @ApiBody(apiBodyDefault(AdminSetCollectionCoverDto, SWAGGER_BODY_EXAMPLES.adminSetCover))
   @Post('collections/:key/admin/cover')
   async adminSetCollectionCover(
+    @Req() req: Request,
     @Param('key') key: string,
     @Body() body: AdminSetCollectionCoverDto,
   ) {
-    this.assertAdminWallet(body.adminWallet);
+    this.assertAdminSession(req);
     const k = this.normalizeKey(key);
     try {
       const col = await this.collectionService.setCollectionCoverImageAdmin(
@@ -421,10 +424,11 @@ export class CollectionsController {
   @ApiBody(apiBodyDefault(AdminPreviewCollectionCoverFromTokenDto, SWAGGER_BODY_EXAMPLES.adminCoverFromToken))
   @Post('collections/:key/admin/cover/from-token')
   async adminCollectionCoverFromToken(
+    @Req() req: Request,
     @Param('key') key: string,
     @Body() body: AdminPreviewCollectionCoverFromTokenDto,
   ) {
-    this.assertAdminWallet(body.adminWallet);
+    this.assertAdminSession(req);
     const k = this.normalizeKey(key);
     const col = await this.collectionService.findOne(k);
     if (!col) {
@@ -457,10 +461,11 @@ export class CollectionsController {
   @ApiBody(apiBodyDefault(AdminDeleteCollectionDto, SWAGGER_BODY_EXAMPLES.adminDeleteCollection))
   @Post('collections/:key/admin/delete')
   async adminDeleteCollection(
+    @Req() req: Request,
     @Param('key') key: string,
     @Body() body: AdminDeleteCollectionDto,
   ) {
-    this.assertAdminWallet(body.adminWallet);
+    this.assertAdminSession(req);
     const k = this.normalizeKey(key);
     const confirm = body.confirmCollectionKey.trim().toLowerCase();
     if (confirm !== k) {

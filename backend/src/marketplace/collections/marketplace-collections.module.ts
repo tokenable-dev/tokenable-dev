@@ -3,7 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { BlockchainModule } from '../../blockchain/blockchain.module';
 import { CardhedgerModule } from '../../cardhedger/cardhedger.module';
 import { PsaModule } from '../../psa/psa.module';
-import { MarketplaceAdminService } from '../admin/marketplace-admin.service';
+import { MarketplaceAdminModule } from '../admin/marketplace-admin.module';
 import { Order } from '../entities/order.entity';
 import { MarketplaceCollection } from '../entities/marketplace-collection.entity';
 import { RwaToken } from '../entities/rwa-token.entity';
@@ -50,6 +50,7 @@ import { MintEventListenerService } from './mint-event-listener.service';
 @Module({
   imports: [
     TypeOrmModule.forFeature([Order, MarketplaceCollection, RwaToken]),
+    MarketplaceAdminModule,
     BlockchainModule,
     CardhedgerModule,
     PsaModule,
@@ -76,7 +77,6 @@ import { MintEventListenerService } from './mint-event-listener.service';
     IdentityCacheSloService,
     IdentityCacheWarmupService,
     IdentityStructuredLogger,
-    MarketplaceAdminService,
     CollectionMerkleSetService,
     CollectionCoverService,
     CollectionComponentsService,
@@ -90,7 +90,6 @@ import { MintEventListenerService } from './mint-event-listener.service';
     MintEventListenerService,
   ],
   exports: [
-    MarketplaceAdminService,
     CollectionService,
     CollectionEnrichmentService,
     RwaTokenRegistryService,

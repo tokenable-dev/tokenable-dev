@@ -6,6 +6,7 @@ export * from "./rwa-blockchain";
 export * from "./orders";
 export * from "./marketplace-collections";
 export * from "./marketplace-admin-rwa";
+export * from "./marketplace-admin-auth";
 export * from "./marketplace-market-data";
 export * from "./portfolio";
 export * from "./watchlist";

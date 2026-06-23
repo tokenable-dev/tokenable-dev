@@ -3,8 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
-import { usePublicClient, useWriteContract } from "wagmi";
-import { sepolia } from "viem/chains";
 import { useLinkedPortfolioWallet } from "@/hooks/auth/useLinkedPortfolioWallet";
 import { usePortfolioWalletMismatchPrompt } from "@/hooks/auth/usePortfolioWalletMismatchPrompt";
 import {
@@ -44,7 +42,6 @@ import {
   PortfolioWatchlistSection,
 } from "@/components/portfolio";
 import { CollectionChangeBidModal } from "@/components/marketplace/collection-trading/CollectionChangeBidModal";
-import { isMarketplaceAdminWallet } from "@/lib/marketplace";
 import { useSellAccessGate } from "@/hooks/auth/useSellAccessGate";
 
 export default function PortfolioPage() {
@@ -67,8 +64,6 @@ export default function PortfolioPage() {
     Boolean(portfolioAddress) &&
     isLinkedPortfolioViewAddress(user, portfolioAddress);
   const signerAddress = wallet.canSign ? connectedAddress : undefined;
-  const publicClient = usePublicClient({ chainId: sepolia.id });
-  const { writeContractAsync } = useWriteContract();
   const isMobileViewport = useIsMobileViewport();
   const [portfolioChartOpen, setPortfolioChartOpen] = useState(false);
   const [portfolioMainTab, setPortfolioMainTab] = useState<PortfolioMainTab>("collectibles");
@@ -79,10 +74,6 @@ export default function PortfolioPage() {
       setPortfolioMainTab(tab);
     }
   }, [searchParams]);
-
-  const isBurnAdmin = isMarketplaceAdminWallet(
-    wallet.connectedIsLinked ? connectedAddress : portfolioAddress,
-  );
 
   const {
     assets: hookAssets,
@@ -231,8 +222,6 @@ export default function PortfolioPage() {
   const holdingActions = usePortfolioHoldingActions({
     address: signerAddress,
     queryClient,
-    publicClient: publicClient ?? undefined,
-    writeContractAsync,
     refetchActiveOrders,
   });
 
@@ -325,9 +314,7 @@ export default function PortfolioPage() {
               filteredAssetRows={filteredAssetRows}
               address={portfolioAddress}
               valuesPending={valuesPending}
-              isBurnAdmin={isBurnAdmin}
               cancellingListingTokenId={holdingActions.cancellingListingTokenId}
-              burningTokenId={holdingActions.burningTokenId}
               hidingTokenId={holdingActions.hidingTokenId}
               unhidingTokenId={holdingActions.unhidingTokenId}
               onOpenToken={(tokenId) => router.push(`/marketplace/${tokenId}`)}
@@ -342,9 +329,6 @@ export default function PortfolioPage() {
               onUnhide={(tokenId) => void holdingActions.unhideHolding(tokenId)}
               onCancelListing={(tokenId, orderHash) =>
                 void holdingActions.cancelListing(tokenId, orderHash)
-              }
-              onBurn={(tokenId, hasListing) =>
-                void holdingActions.burnToken(tokenId, hasListing)
               }
             />
           }
