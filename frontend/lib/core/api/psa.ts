@@ -50,6 +50,9 @@ export interface PsaAnalyzeResult {
     cardId?: string;
     searchQuery?: string;
     imageUrl?: string;
+    /** Headline USD when resolved via prices-by-cert-ocr (Phase 5). */
+    priceUsd?: number;
+    priceSource?: "cardhedger_prices_by_cert_ocr";
   };
   /** PSA cert-images 등 — 앞면 URL은 민팅 시 imageUrl로 쓸 수 있음 */
   psaCertImages?: { front?: string; back?: string };

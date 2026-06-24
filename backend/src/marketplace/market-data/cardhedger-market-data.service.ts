@@ -21,6 +21,7 @@ import {
 } from './cardhedger-resolve.service';
 import { CardhedgerPricingService } from './cardhedger-pricing.service';
 import { CardhedgerMintService } from './cardhedger-mint.service';
+import { slicePriceHistoryByDays } from './cardhedger-insight-history.util';
 import {
   catalogRowTrustedForMarketData,
   catalogTrustHintsFromComponents,
@@ -369,19 +370,30 @@ export class CardhedgerMarketDataService {
       };
     }
     const cardId = String(resolved.row.card_id ?? '').trim();
-    const allPrices = cardId ? await this.pricing.fetchAllPricesByCard(cardId) : [];
-    const merged =
-      allPrices.length > 0
-        ? ({ ...resolved.row, prices: allPrices } as CardhedgerCardRow)
-        : resolved.row;
-    const [h90, h365] = await Promise.all([
-      cardId
-        ? this.pricing.fetchTierHistoryByCard(cardId, 'PSA_10', 90)
-        : Promise.resolve([]),
+
+    const [allPrices, h365] = await Promise.all([
+      cardId ? this.pricing.fetchAllPricesByCard(cardId) : Promise.resolve([]),
       cardId
         ? this.pricing.fetchTierHistoryByCard(cardId, 'PSA_10', 365)
         : Promise.resolve([]),
     ]);
+    const h90 = slicePriceHistoryByDays(h365, 90);
+
+    this.logger.debug(
+      JSON.stringify({
+        msg: 'ai_insight_pricing_bundle',
+        cardId: cardId || null,
+        pricesByCardFetches: 1,
+        historyFetches: cardId ? 1 : 0,
+        points90d: h90.length,
+        points365d: h365.length,
+      }),
+    );
+
+    const merged =
+      allPrices.length > 0
+        ? ({ ...resolved.row, prices: allPrices } as CardhedgerCardRow)
+        : resolved.row;
     const statsBase = this.computeInsightStatsFromMerged(
       merged,
       resolved.confidence,

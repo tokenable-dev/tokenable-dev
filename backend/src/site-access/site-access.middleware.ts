@@ -10,6 +10,7 @@ import {
   verifySiteAccessToken,
 } from './site-access.util';
 import { isAuthPublicApiPath } from '../auth/auth-oauth.util';
+import { isSwaggerPublicApiPath } from './site-access-swagger.util';
 
 function normalizeRequestPath(path: string): string {
   const base = path.split('?')[0] || '/';
@@ -29,6 +30,10 @@ export class SiteAccessMiddleware implements NestMiddleware {
 
     const path = normalizeRequestPath(req.originalUrl ?? req.url ?? '/');
     if (isSiteAccessPublicApiPath(path, req.method)) {
+      next();
+      return;
+    }
+    if (isSwaggerPublicApiPath(path, req.method)) {
       next();
       return;
     }
@@ -56,6 +61,12 @@ function isSiteAccessPublicApiPath(path: string, method: string): boolean {
     return true;
   }
   if (path === '/api/health' && method.toUpperCase() === 'GET') {
+    return true;
+  }
+  if (
+    path === '/api/webhooks/cardhedger/price-updates' &&
+    method.toUpperCase() === 'POST'
+  ) {
     return true;
   }
   return false;

@@ -1,5 +1,9 @@
 "use client";
 
+/**
+ * Phase 5: wire `getCollectionAiInsight` per row when AI Insight ships on admin
+ * (public collection detail stays on AiInsightComingSoonModal until then).
+ */
 import { useMarketplaceAdminCollections } from "@/hooks/marketplace-admin/useMarketplaceAdminCollections";
 import { MarketplaceAdminCollectionRow } from "./MarketplaceAdminCollectionRow";
 import { MarketplaceAdminNav } from "./MarketplaceAdminNav";

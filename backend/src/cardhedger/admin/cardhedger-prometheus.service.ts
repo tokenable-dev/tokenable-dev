@@ -427,5 +427,62 @@ export class CardhedgerPrometheusService implements OnModuleInit, OnModuleDestro
         this.set(metricsService.getIdentityLogInvalidCount());
       },
     });
+
+    // ── Upstream HTTP (Cardhedger API) ───────────────────────────────────────
+
+    new Gauge({
+      name: 'cardhedger_upstream_requests_total',
+      help: [
+        'Cardhedger upstream HTTP requests in the current 60-second metrics window.',
+        'Labels: endpoint (short slug, e.g. card-fmv), outcome (success|error).',
+      ].join(' '),
+      labelNames: ['endpoint', 'outcome'] as const,
+      registers: [this.registry],
+      collect() {
+        const { byEndpoint } = metricsService.getUpstreamMetrics();
+        this.reset();
+        for (const [endpoint, counts] of Object.entries(byEndpoint)) {
+          this.labels(endpoint, 'success').set(counts.success);
+          this.labels(endpoint, 'error').set(counts.error);
+        }
+      },
+    });
+
+    new Gauge({
+      name: 'cardhedger_upstream_duration_ms_avg',
+      help: [
+        'Average upstream latency (ms) per endpoint in the current 60-second window.',
+        '-1 = no calls for that endpoint in the window.',
+      ].join(' '),
+      labelNames: ['endpoint'] as const,
+      registers: [this.registry],
+      collect() {
+        const { byEndpoint } = metricsService.getUpstreamMetrics();
+        this.reset();
+        for (const [endpoint, counts] of Object.entries(byEndpoint)) {
+          const n = counts.success + counts.error;
+          this.labels(endpoint).set(
+            n > 0 ? counts.durationMsTotal / n : -1,
+          );
+        }
+      },
+    });
+
+    new Gauge({
+      name: 'cardhedger_upstream_operations_total',
+      help: [
+        'Upstream calls tagged with a logical operation (metricsOperation) in the current window.',
+        'Labels: operation (mint_previews, resolve, proxy, …).',
+      ].join(' '),
+      labelNames: ['operation'] as const,
+      registers: [this.registry],
+      collect() {
+        const { byOperation } = metricsService.getUpstreamMetrics();
+        this.reset();
+        for (const [operation, count] of Object.entries(byOperation)) {
+          this.labels(operation).set(count);
+        }
+      },
+    });
   }
 }

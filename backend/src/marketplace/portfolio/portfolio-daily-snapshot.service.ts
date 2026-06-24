@@ -22,6 +22,7 @@ import type {
   PortfolioPricingContext,
 } from './portfolio-daily-snapshot.types';
 import { PortfolioHiddenHoldingService } from './portfolio-hidden-holding.service';
+import { readCardhedgerFeatureFlags } from '../../config/cardhedger-feature-flags.util';
 
 type SnapshotTotals = { totalValueUsd: number; cardCount: number };
 
@@ -399,6 +400,20 @@ export class PortfolioDailySnapshotService {
       const pv = seriesByKey.get(key)?.cardhedgerPreview;
       return !(pv?.matched && pv?.card);
     });
+    if (missingPreviewTokenIds.length > 0) {
+      const flags =
+        this.config.get<ReturnType<typeof readCardhedgerFeatureFlags>>(
+          'marketplace.cardhedgerFeatureFlags',
+        ) ?? readCardhedgerFeatureFlags();
+      this.logger.log(
+        JSON.stringify({
+          msg: 'portfolio_snapshot_mint_previews',
+          tokenCount: missingPreviewTokenIds.length,
+          fmvBatchEnabled: flags.fmvBatchEnabled,
+          mintPreviewSkipComps: flags.mintPreviewSkipComps,
+        }),
+      );
+    }
     const mintPreviews = await this.cardhedger.getBatchMintPreviewsFromTokenIds(
       missingPreviewTokenIds,
     );

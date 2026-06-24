@@ -9,7 +9,9 @@ export type SnapshotRefreshReason =
   | 'cron'
   | 'stale_swr'
   | 'cold_start'
-  | 'manual';
+  | 'manual'
+  | 'price_webhook'
+  | 'price_delta';
 
 /** In-memory refresh job — BullMQ-compatible shape for future queue migration. */
 export interface SnapshotRefreshJob {

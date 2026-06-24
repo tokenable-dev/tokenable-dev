@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState, type CSSProperties } from "react";
 import { TOP_CARDS_UI_ENABLED } from "@/lib/markets/top100Copy";
@@ -196,7 +197,11 @@ function SalesVolumePanel({
   );
 }
 
-function Top100CardDetailContent() {
+function Top100CardDetailContent({
+  adminPreview = false,
+}: {
+  adminPreview?: boolean;
+}) {
   const params = useParams<{ cardId: string }>();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -230,13 +235,17 @@ function Top100CardDetailContent() {
     isError,
     error,
     isFetching,
-  } = useTop100CardDetail(cardId, grade, chartDays);
+  } = useTop100CardDetail(cardId, grade, chartDays, {
+    category,
+    snapshotSales90: top100Item?.["90_day_sales"] ?? null,
+    snapshotGrade: top100Item?.grade ?? initialGrade,
+  });
 
   useEffect(() => {
-    if (!TOP_CARDS_UI_ENABLED) {
+    if (!adminPreview && !TOP_CARDS_UI_ENABLED) {
       router.replace("/markets");
     }
-  }, [router]);
+  }, [router, adminPreview]);
 
   const title = card
     ? top100CardTitle(card)
@@ -272,7 +281,10 @@ function Top100CardDetailContent() {
     setGrade(next);
     const p = new URLSearchParams(searchParams.toString());
     p.set("grade", next);
-    router.replace(`/markets/top100/card/${encodeURIComponent(cardId)}?${p.toString()}`, {
+    const base = adminPreview
+      ? `/marketplace/admin/top100/card/${encodeURIComponent(cardId)}`
+      : `/markets/top100/card/${encodeURIComponent(cardId)}`;
+    router.replace(`${base}?${p.toString()}`, {
       scroll: false,
     });
   };
@@ -280,7 +292,7 @@ function Top100CardDetailContent() {
   const chartLoading = isLoading || isFetching;
   const priceStats = buildChartPriceStats(metrics, chartDays, chartLoading);
 
-  if (!TOP_CARDS_UI_ENABLED) {
+  if (!adminPreview && !TOP_CARDS_UI_ENABLED) {
     return null;
   }
 
@@ -295,6 +307,14 @@ function Top100CardDetailContent() {
   return (
     <div className="min-h-screen min-w-0 overflow-x-clip bg-black text-white">
       <div className="mx-auto w-full max-w-6xl min-w-0 px-3 pb-20 pt-6 max-[380px]:px-2 sm:px-6 sm:pb-24 sm:pt-10">
+        {adminPreview ? (
+          <Link
+            href={`/marketplace/admin/top100?category=${encodeURIComponent(category)}`}
+            className="mb-4 inline-flex text-xs font-medium text-amber-400/90 hover:text-amber-300"
+          >
+            ← Back to Top 100 (admin)
+          </Link>
+        ) : null}
         {isError ? (
           <div className="rounded-xl border border-red-900/40 bg-red-950/20 px-4 py-4 text-sm text-red-400">
             {error instanceof Error ? error.message : "Failed to load card data."}
@@ -518,6 +538,20 @@ export default function Top100CardDetailPage() {
       }
     >
       <Top100CardDetailContent />
+    </Suspense>
+  );
+}
+
+export function AdminTop100CardDetailPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-black px-4 py-16 text-center text-sm text-zinc-500">
+          Loading card…
+        </div>
+      }
+    >
+      <Top100CardDetailContent adminPreview />
     </Suspense>
   );
 }

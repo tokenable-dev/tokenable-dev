@@ -82,6 +82,82 @@ export async function getCollectionMarketSeries(
   return res.json() as Promise<CollectionMarketSeries>;
 }
 
+/** AI market brief for a collection (admin / future collection detail). */
+export interface CollectionAiInsightResponse {
+  title: string;
+  summary: string;
+  bullets: string[];
+  dynamics?: string[];
+  syntheticChart?: string;
+  chartSpec?: {
+    chartStyle: string;
+    trendStructure: string[];
+    momentumBehavior: string;
+    visualInterpretation: string;
+    miniSeries: number[];
+    pathRepresentation: string;
+  };
+  outlook?: string;
+  outlookScenarios?: {
+    bullCase: string;
+    baseCase: string;
+    bearCase: string;
+  };
+  uiInstructions?: {
+    loading: {
+      style: string;
+      scanningEffect: string;
+      minDurationMs: number;
+      maxDurationMs: number;
+    };
+    progressiveRenderOrder: string[];
+  };
+  generatedAt: string;
+  confidence?: number | null;
+  confidenceNote?: string | null;
+  riskTapeNote?: string | null;
+  marketTone?: string | null;
+  riskScore?: number | null;
+  riskLabel?: "Low" | "Medium" | "High" | null;
+  stats?: {
+    psa10SpotUsd: number | null;
+    rawSpotUsd: number | null;
+    premiumVsRawPct: number | null;
+    sales7d: number | null;
+    sales30d: number | null;
+    change7dPct: number | null;
+    change30dPct: number | null;
+    change90dPct: number | null;
+    change365dPct: number | null;
+    points90d: number;
+    points365d: number;
+    psaTotalPopulation?: number | null;
+    psa10PriceConfidence?: "high" | "medium" | "low" | null;
+    psa10PricingNote?: string | null;
+    psa10SpotLowUsd?: number | null;
+    psa10SpotHighUsd?: number | null;
+    psa10CatalogUsd?: number | null;
+  };
+}
+
+export async function getCollectionAiInsight(
+  collectionKey: string,
+  opts?: { signal?: AbortSignal },
+): Promise<CollectionAiInsightResponse> {
+  const enc = encodeURIComponent(collectionKey);
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/collections/${enc}/ai-insight`,
+    { signal: opts?.signal },
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(
+      (err as { message?: string }).message ?? "Failed to load AI insight",
+    );
+  }
+  return res.json() as Promise<CollectionAiInsightResponse>;
+}
+
 export interface CollectionGradeCatalogResponse {
   collectionKey: string;
   cardhedgerCardId: string | null;
@@ -212,7 +288,19 @@ export interface CollectionMarketPreview {
     priceReliability?: "high" | "low";
     pricingSuppressedReason?: string | null;
     /** Backend: comps vs history point vs catalog PSA 10 slot. */
-    spotPriceBasis?: "comps" | "latest_sale" | "sparse_sale_avg" | "catalog" | "comps_median" | "psa_estimate" | null;
+    spotPriceBasis?:
+      | "comps"
+      | "latest_sale"
+      | "sparse_sale_avg"
+      | "catalog"
+      | "comps_median"
+      | "fmv"
+      | "cert_estimate"
+      | "batch_price_estimate"
+      | "psa_estimate"
+      | null;
+    /** Phase 4 — headline pricing upstream (fmv / estimate / comps). */
+    priceSource?: "cardhedger_fmv" | "cardhedger_estimate" | "cardhedger_comps" | null;
     /** Unix seconds — comps newest sale or history observation when applicable. */
     latestSaleAt?: number | null;
     ebayNearMint: MarketPriceBand | null;

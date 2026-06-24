@@ -12,12 +12,30 @@ import {
 } from "@/lib/market/priceChangePeriod";
 
 /** Catalog reference for marketplace/portfolio (Cardhedger or PSA Estimate fallback). */
-export type ExternalMarketPriceSource = "cardhedger" | "psa_estimate";
+export type ExternalMarketPriceSource =
+  | "cardhedger"
+  | "cardhedger_fmv"
+  | "cardhedger_estimate"
+  | "cardhedger_comps"
+  | "psa_estimate";
 
 export function externalMarketPriceSourceLabel(
   source: ExternalMarketPriceSource | null | undefined,
 ): string | null {
   if (source === "psa_estimate") return "PSA Estimate";
+  if (source === "cardhedger_fmv") return "Cardhedger FMV";
+  if (source === "cardhedger_estimate") return "Cardhedger Estimate";
+  if (source === "cardhedger_comps") return "Cardhedger Comps";
+  return null;
+}
+
+function priceSourceFromPreview(
+  preview: CollectionMarketPreview | null | undefined,
+): ExternalMarketPriceSource | null {
+  const raw = preview?.card?.priceSource;
+  if (raw === "cardhedger_fmv") return "cardhedger_fmv";
+  if (raw === "cardhedger_estimate") return "cardhedger_estimate";
+  if (raw === "cardhedger_comps") return "cardhedger_comps";
   return null;
 }
 
@@ -92,9 +110,10 @@ export function resolveExternalMarketUsd(params: {
       : null;
   const catalogSpotUsd = catalogSpotUsdFromMarketPreview(preview, tier);
   if (catalogSpotUsd != null) {
+    const explicitSource = priceSourceFromPreview(params.marketPreview);
     return {
       usd: catalogSpotUsd,
-      source: "cardhedger",
+      source: explicitSource ?? "cardhedger",
       marketMatchConfidence: params.marketPreview?.matchConfidence,
     };
   }

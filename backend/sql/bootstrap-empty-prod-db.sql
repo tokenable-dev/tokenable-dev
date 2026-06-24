@@ -31,6 +31,7 @@ BEGIN;
 \ir schema/066_user_wallets_allow_shared.sql
 \ir schema/067_password_reset_tokens.sql
 \ir schema/068_marketplace_admins.sql
+\ir schema/070_cardhedger_price_infra.sql
 \ir schema/900_triggers.sql
 
 COMMIT;

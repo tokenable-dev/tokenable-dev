@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { readCardhedgerFeatureFlags } from '../../config/cardhedger-feature-flags.util';
 import { BlockchainService } from '../../blockchain/blockchain.service';
 import { CardhedgerService } from '../../cardhedger/cardhedger.service';
 import { PsaCertSnapshotService } from '../collections/psa-cert-snapshot.service';
@@ -18,8 +19,15 @@ import { marketHistoryTierFromComponents } from '../utils/market-history-tier.ut
 import { mergePsaVarietyWithMintVariant } from '../../psa/psa-variety-catalog.util';
 import type { CardhedgerCardRow } from './cardhedger-market-data.types';
 import { CardhedgerCertLookupService } from './cardhedger-cert-lookup.service';
+import { CardhedgerCertPricingService } from './cardhedger-cert-pricing.service';
+import type { CardhedgerCertPriceResult } from './cardhedger-cert-price.util';
+import { cardhedgerFmvMapKey, type CardhedgerFmvResult } from './cardhedger-fmv.util';
 import { CardhedgerResolveService } from './cardhedger-resolve.service';
-import { CardhedgerPricingService } from './cardhedger-pricing.service';
+import {
+  CardhedgerPricingService,
+  type BuildPreviewOptions,
+} from './cardhedger-pricing.service';
+import { cardhedgerGradeFromHistoryTier } from '../utils/psa-grade-policy.util';
 
 /**
  * Handles mint/cert/IPFS preview logic: resolves a PSA cert number to a
@@ -36,6 +44,7 @@ export class CardhedgerMintService {
     private readonly config: ConfigService,
     private readonly psaCertSnapshots: PsaCertSnapshotService,
     private readonly certLookup: CardhedgerCertLookupService,
+    private readonly certPricing: CardhedgerCertPricingService,
     private readonly resolve: CardhedgerResolveService,
     private readonly pricing: CardhedgerPricingService,
   ) {}
@@ -96,6 +105,77 @@ export class CardhedgerMintService {
       'marketplace.cardhedgerMintPreviewUseCertBatch',
     );
     return v !== false;
+  }
+
+  private cardhedgerFeatureFlags() {
+    return (
+      this.config.get<ReturnType<typeof readCardhedgerFeatureFlags>>(
+        'marketplace.cardhedgerFeatureFlags',
+      ) ?? readCardhedgerFeatureFlags()
+    );
+  }
+
+  private previewOptsForMint(
+    syntheticCol: MarketplaceCollection,
+    batchRow: CardhedgerCardRow | undefined,
+    fmvByKey: Map<string, CardhedgerFmvResult | null>,
+    certPrice: CardhedgerCertPriceResult | undefined,
+    flags: ReturnType<typeof readCardhedgerFeatureFlags>,
+  ): BuildPreviewOptions | undefined {
+    const tier = marketHistoryTierFromComponents(syntheticCol.components);
+    const chGrade = cardhedgerGradeFromHistoryTier(tier);
+    const cardId = String(
+      batchRow?.card_id ?? syntheticCol.components?.cardhedgerCardId ?? '',
+    ).trim();
+
+    const useCertBatch =
+      flags.batchPricesByCertEnabled &&
+      certPrice != null &&
+      certPrice.price != null &&
+      certPrice.price > 0;
+
+    const opts: BuildPreviewOptions = {};
+    if (flags.mintPreviewSkipComps || useCertBatch) opts.skipComps = true;
+
+    if (useCertBatch) {
+      opts.preFetchedCertPrice = certPrice;
+      opts.skipCatalogFetches = true;
+      opts.skipFmvFetch = true;
+      return opts;
+    }
+
+    const sparseCertNeedsEstimate =
+      flags.batchPricesByCertEnabled &&
+      certPrice != null &&
+      !(certPrice.price != null && certPrice.price > 0);
+    if (sparseCertNeedsEstimate && flags.batchPriceEstimateEnabled && cardId) {
+      const est =
+        fmvByKey.get(cardhedgerFmvMapKey(cardId, chGrade)) ?? null;
+      if (est?.price != null && est.price > 0) {
+        opts.skipComps = true;
+        opts.skipCatalogFetches = true;
+        opts.skipFmvFetch = true;
+        opts.preFetchedFmv = est;
+        opts.preFetchedEstimate = true;
+        return opts;
+      }
+    }
+
+    if (flags.fmvBatchEnabled) {
+      opts.skipFmvFetch = true;
+      opts.preFetchedFmv = cardId
+        ? (fmvByKey.get(cardhedgerFmvMapKey(cardId, chGrade)) ?? null)
+        : null;
+    }
+
+    if (
+      !flags.fmvBatchEnabled &&
+      !flags.mintPreviewSkipComps &&
+      !useCertBatch
+    ) {
+      return undefined;
+    }
+    return opts;
   }
 
   private buildMintSyntheticCollection(input: {
@@ -301,19 +381,73 @@ export class CardhedgerMintService {
     }
 
     let certCardByDigits = new Map<string, CardhedgerCardRow>();
+    let certPriceByDigits = new Map<string, CardhedgerCertPriceResult>();
+    const flags = this.cardhedgerFeatureFlags();
+
     if (this.mintPreviewUseCertBatch() && work.length > 0) {
       const certs = work
         .map((item) => psaCertNumberFromGradedMeta(item.metadata!))
         .filter((c): c is string => Boolean(c));
-      certCardByDigits = await this.fetchCardRowsByCertsBatch(certs);
+
+      if (flags.batchPricesByCertEnabled && this.isConfigured()) {
+        certPriceByDigits = await this.certPricing.fetchPricesByCertsBatch(certs);
+        for (const [digits, cp] of certPriceByDigits) {
+          if (cp.card) certCardByDigits.set(digits, cp.card);
+        }
+
+        if (flags.certPricePilotCompare) {
+          const legacyMap = await this.fetchCardRowsByCertsBatch(certs);
+          this.certPricing.logPilotPriceDiffs(
+            certPriceByDigits,
+            legacyMap,
+            (row, gradeLabel) =>
+              this.pricing.readGradePrice(row, gradeLabel ?? 'PSA 10'),
+          );
+        }
+
+        const missingIdentity = [
+          ...new Set(
+            certs
+              .map((c) => this.normalizeCertDigits(c))
+              .filter((d) => d && !certCardByDigits.has(d)),
+          ),
+        ];
+        if (missingIdentity.length > 0) {
+          const fallback = await this.fetchCardRowsByCertsBatch(missingIdentity);
+          for (const [k, v] of fallback) certCardByDigits.set(k, v);
+        }
+
+        this.logger.log(
+          JSON.stringify({
+            msg: 'mint_previews_cert_batch',
+            certCount: certs.length,
+            priced: [...certPriceByDigits.values()].filter((r) => r.price != null)
+              .length,
+            pilotCompare: flags.certPricePilotCompare,
+          }),
+        );
+      } else {
+        certCardByDigits = await this.fetchCardRowsByCertsBatch(certs);
+      }
     }
 
     const psaMirrorByCert = new Map<string, Record<string, unknown>>();
 
-    await this.mapInBatches(
+    type MintWork = {
+      tokenId: number;
+      meta: Record<string, unknown>;
+      graded: Record<string, unknown> | undefined;
+      certDigits: string;
+      batchRow?: CardhedgerCardRow;
+      psaMirror: Record<string, unknown>;
+      syntheticCol: MarketplaceCollection;
+      query: string;
+    };
+
+    const workItems = await this.mapInBatches(
       work,
       this.mintPreviewConcurrency(),
-      async (item) => {
+      async (item): Promise<MintWork> => {
         const meta = item.metadata!;
         const graded =
           (meta.properties as Record<string, unknown> | undefined)?.graded ??
@@ -347,17 +481,110 @@ export class CardhedgerMintService {
         });
 
         const q = this.resolve.buildCollectionQuery(syntheticCol).query;
-        if (batchRow) {
-          out[item.tokenId] = await this.pricing.buildPreviewFromResolved(
+        return {
+          tokenId: item.tokenId,
+          meta,
+          graded: graded as Record<string, unknown> | undefined,
+          certDigits,
+          batchRow,
+          psaMirror,
+          syntheticCol,
+          query: q,
+        };
+      },
+    );
+
+    let fmvByKey = new Map<string, CardhedgerFmvResult | null>();
+    if (flags.fmvBatchEnabled && this.isConfigured()) {
+      const fmvItems = workItems
+        .filter((w) => {
+          if (!flags.batchPricesByCertEnabled) return true;
+          const cp = w.certDigits ? certPriceByDigits.get(w.certDigits) : undefined;
+          return !(cp?.price != null && cp.price > 0);
+        })
+        .map((w) => {
+          const cardId = String(
+            w.batchRow?.card_id ??
+              w.syntheticCol.components?.cardhedgerCardId ??
+              '',
+          ).trim();
+          if (!cardId) return null;
+          const tier = marketHistoryTierFromComponents(w.syntheticCol.components);
+          const grade = cardhedgerGradeFromHistoryTier(tier);
+          return { card_id: cardId, grade };
+        })
+        .filter((x): x is { card_id: string; grade: string } => x != null);
+      fmvByKey = await this.pricing.fetchFmvBatch(fmvItems);
+      this.logger.debug(
+        JSON.stringify({
+          msg: 'mint_previews_fmv_batch',
+          requested: fmvItems.length,
+          resolved: fmvByKey.size,
+        }),
+      );
+    }
+
+    if (
+      flags.batchPricesByCertEnabled &&
+      flags.batchPriceEstimateEnabled &&
+      this.isConfigured()
+    ) {
+      const sparseItems = workItems
+        .map((w) => {
+          const cp = w.certDigits ? certPriceByDigits.get(w.certDigits) : undefined;
+          if (!cp?.card || (cp.price != null && cp.price > 0)) return null;
+          const cardId = String(cp.card.card_id ?? '').trim();
+          if (!cardId) return null;
+          const tier = marketHistoryTierFromComponents(w.syntheticCol.components);
+          return { card_id: cardId, grade: cardhedgerGradeFromHistoryTier(tier) };
+        })
+        .filter((x): x is { card_id: string; grade: string } => x != null);
+
+      if (sparseItems.length > 0) {
+        const estimates = await this.certPricing.fetchPriceEstimatesBatch(
+          sparseItems,
+        );
+        for (const [key, est] of estimates) {
+          if (est != null) fmvByKey.set(key, est);
+        }
+        this.logger.debug(
+          JSON.stringify({
+            msg: 'mint_previews_price_estimate_batch',
+            requested: sparseItems.length,
+            resolved: estimates.size,
+          }),
+        );
+      }
+    }
+
+    await this.mapInBatches(
+      workItems,
+      this.mintPreviewConcurrency(),
+      async (w) => {
+        const certPrice = w.certDigits
+          ? certPriceByDigits.get(w.certDigits)
+          : undefined;
+        const previewOpts = this.previewOptsForMint(
+          w.syntheticCol,
+          w.batchRow,
+          fmvByKey,
+          certPrice,
+          flags,
+        );
+        if (w.batchRow) {
+          out[w.tokenId] = await this.pricing.buildPreviewFromResolved(
             {
-              query: q,
-              row: batchRow,
+              query: w.query,
+              row: w.batchRow,
               confidence: 'verified',
             },
-            syntheticCol,
+            w.syntheticCol,
+            previewOpts,
           );
         } else {
-          out[item.tokenId] = await this.pricing.getPreviewForCollection(syntheticCol);
+          out[w.tokenId] = await this.pricing.getPreviewForCollection(
+            w.syntheticCol,
+          );
         }
       },
     );

@@ -81,6 +81,59 @@ export async function getTop100History(
   return res.json() as Promise<Top100HistorySnapshot[]>;
 }
 
+// ─── Cached Top Movers (weekly gain, 1h server cache) ─────────────────────────
+
+export type TopMoverCard = {
+  card_id: string;
+  description: string;
+  player: string | null;
+  set: string | null;
+  number: string | null;
+  variant: string | null;
+  image: string | null;
+  category: string | null;
+  category_group: string | null;
+  set_type: string | null;
+  gain: number;
+  rookie: boolean;
+  prices: Array<{ grade: string; price: string }>;
+  seven_day_sales: number | null;
+  thirty_day_sales: number | null;
+};
+
+export type TopMoversApiResponse = {
+  category: string | null;
+  count: number;
+  cards: TopMoverCard[];
+  total_count: number;
+  filtered_count: number;
+  gain_threshold: number;
+  fetchedAt: string;
+  fromCache: boolean;
+  cacheExpiresAt: string;
+};
+
+export async function getTopMovers(req?: {
+  category?: string;
+  count?: number;
+}): Promise<TopMoversApiResponse> {
+  const params = new URLSearchParams();
+  if (req?.category?.trim()) {
+    params.set("category", req.category.trim());
+  }
+  if (req?.count != null && Number.isFinite(req.count)) {
+    params.set("count", String(Math.floor(req.count)));
+  }
+  const qs = params.toString();
+  const res = await backendFetch(
+    `${getApiUrl()}/cardhedger/top-movers${qs ? `?${qs}` : ""}`,
+  );
+  if (!res.ok) {
+    throw new Error(`Top movers fetch failed (${res.status})`);
+  }
+  return res.json() as Promise<TopMoversApiResponse>;
+}
+
 // ─── Card detail & price history (live CardHedger proxy) ─────────────────────
 
 export type CardHedgerPricePoint = {
@@ -115,6 +168,7 @@ export type CardHedgerCardDetail = {
   prices?: Array<{ grade: string; price: string }>;
   "7 Day Sales"?: number;
   "30 Day Sales"?: number;
+  "90_day_sales"?: number | null;
 };
 
 export async function getCardDetails(
@@ -209,7 +263,7 @@ export type SearchWith90DayPricesResponse = {
   cards: PriceByGradeCard[];
 };
 
-/** Grade-specific 90-day sales for a single card (Typesense search + price merge). */
+/** @deprecated Prefer card-details / snapshot 90_day_sales; kept for legacy callers. */
 export async function get90DayPricesByGradeSearch(
   req: SearchWith90DayPricesRequest,
 ): Promise<SearchWith90DayPricesResponse> {

@@ -27,6 +27,32 @@ import {
   type ResolvedCard,
 } from './cardhedger-resolve.service';
 import { inferExternalSalePlatform } from '../utils/cardhedger-sale-platform.util';
+import {
+  cardhedgerFmvMapKey,
+  chunkFmvBatchItems,
+  parseCardhedgerFmvRecord,
+  type CardhedgerFmvBatchItem,
+  type CardhedgerFmvResult,
+} from './cardhedger-fmv.util';
+import type { CardhedgerCertPriceResult } from './cardhedger-cert-price.util';
+
+export type { CardhedgerFmvResult } from './cardhedger-fmv.util';
+
+/** Options for mint-previews bulk path (Phase 2+). */
+export type BuildPreviewOptions = {
+  /** When set with `skipFmvFetch`, use batch FMV instead of per-card `card-fmv`. */
+  preFetchedFmv?: CardhedgerFmvResult | null;
+  /** Skip `POST /v1/cards/card-fmv` — requires batch prefetch when FMV needed. */
+  skipFmvFetch?: boolean;
+  /** Skip `POST /v1/cards/comps` (headline/catalog path only). */
+  skipComps?: boolean;
+  /** Phase 4 — cert batch price from `batch-prices-by-cert`. */
+  preFetchedCertPrice?: CardhedgerCertPriceResult | null;
+  /** Skip per-card `all-prices-by-card` + tier history when cert batch supplies headline. */
+  skipCatalogFetches?: boolean;
+  /** When true, `preFetchedFmv` came from `batch-price-estimate` (sparse cert fallback). */
+  preFetchedEstimate?: boolean;
+};
 
 /** Card Hedge `POST /v1/cards/prices-by-card` documents rolling `days` in [1, **365**] only. */
 const CARDHEDGER_PRICES_BY_CARD_MAX_DAYS = 365;
@@ -42,6 +68,25 @@ export const CARDHEDGER_COMPS_HISTORY_RAW_COUNT = 100;
  * instead of a single last observation (comps raw → then PSA 10 history).
  */
 const SPARSE_SALE_POINTS_MAX = 5;
+
+function priceSourceFromSpotBasis(
+  basis: string | null | undefined,
+): 'cardhedger_fmv' | 'cardhedger_estimate' | 'cardhedger_comps' | null {
+  switch (basis) {
+    case 'fmv':
+      return 'cardhedger_fmv';
+    case 'cert_estimate':
+    case 'batch_price_estimate':
+      return 'cardhedger_estimate';
+    case 'comps':
+    case 'latest_sale':
+    case 'sparse_sale_avg':
+    case 'comps_median':
+      return 'cardhedger_comps';
+    default:
+      return null;
+  }
+}
 
 @Injectable()
 export class CardhedgerPricingService {
@@ -248,58 +293,128 @@ export class CardhedgerPricingService {
   private async fetchFmvByCard(
     cardId: string,
     grade: string,
-  ): Promise<{
-    price: number | null;
-    price_low: number | null;
-    price_high: number | null;
-    confidence: number | null;
-    confidence_grade: 'A' | 'B' | 'C' | 'D' | null;
-    method: string | null;
-    freshness_days: number | null;
-  } | null> {
+  ): Promise<CardhedgerFmvResult | null> {
     const id = String(cardId ?? '').trim();
     const gradeKey = String(grade ?? '').trim();
     if (!id || !gradeKey) return null;
 
-    const cacheKey = `${id}:${gradeKey.toLowerCase()}:fmv`;
-    const hit = this.ttlCache.get<{
-      value: ReturnType<typeof this.fetchFmvByCard> extends Promise<infer T> ? T : never;
-    }>(CardhedgerPricingService.NS_FMV, cacheKey);
-    if (hit) return hit.value as Awaited<ReturnType<typeof this.fetchFmvByCard>>;
+    const cacheKey = cardhedgerFmvMapKey(id, gradeKey);
+    const hit = this.ttlCache.get<{ value: CardhedgerFmvResult | null }>(
+      CardhedgerPricingService.NS_FMV,
+      cacheKey,
+    );
+    if (hit) return hit.value;
 
     try {
       const body = await this.cardhedger.forwardJson('POST', '/v1/cards/card-fmv', {
         body: { card_id: id, grade: gradeKey },
+        metricsOperation: 'mint_previews',
       });
       if (typeof body !== 'object' || body == null) {
-        this.ttlCache.set(CardhedgerPricingService.NS_FMV, cacheKey, { value: null }, this.PRICES_CACHE_TTL_MS);
+        this.ttlCache.set(
+          CardhedgerPricingService.NS_FMV,
+          cacheKey,
+          { value: null },
+          this.PRICES_CACHE_TTL_MS,
+        );
         return null;
       }
-      const b = body as Record<string, unknown>;
-      const parse = (v: unknown): number | null => {
-        const n = typeof v === 'number' ? v : typeof v === 'string' ? parseFloat(v) : NaN;
-        return Number.isFinite(n) && n > 0 ? n : null;
-      };
-      const parseAny = (v: unknown): number | null => {
-        const n = typeof v === 'number' ? v : typeof v === 'string' ? parseFloat(v) : NaN;
-        return Number.isFinite(n) ? n : null;
-      };
-      const cg = String(b.confidence_grade ?? '').trim().toUpperCase();
-      const result = {
-        price: parse(b.price),
-        price_low: parse(b.price_low),
-        price_high: parse(b.price_high),
-        confidence: parseAny(b.confidence),
-        confidence_grade: (['A', 'B', 'C', 'D'].includes(cg) ? cg : null) as 'A' | 'B' | 'C' | 'D' | null,
-        method: typeof b.method === 'string' && b.method.trim() ? b.method.trim() : null,
-        freshness_days: typeof b.freshness_days === 'number' && Number.isFinite(b.freshness_days) ? Math.floor(b.freshness_days) : null,
-      };
-      this.ttlCache.set(CardhedgerPricingService.NS_FMV, cacheKey, { value: result }, this.PRICES_CACHE_TTL_MS);
+      const result = parseCardhedgerFmvRecord(body as Record<string, unknown>);
+      this.ttlCache.set(
+        CardhedgerPricingService.NS_FMV,
+        cacheKey,
+        { value: result },
+        this.PRICES_CACHE_TTL_MS,
+      );
       return result;
     } catch {
-      // Do not cache failures — allow retry on next request.
       return null;
     }
+  }
+
+  /**
+   * Batch FMV via `POST /v1/cards/card-fmv-batch` (max 100 items per request).
+   * Returns a map keyed by {@link cardhedgerFmvMapKey}.
+   */
+  async fetchFmvBatch(
+    items: CardhedgerFmvBatchItem[],
+  ): Promise<Map<string, CardhedgerFmvResult | null>> {
+    const out = new Map<string, CardhedgerFmvResult | null>();
+    if (!this.isConfigured()) return out;
+
+    const normalized: CardhedgerFmvBatchItem[] = [];
+    const seen = new Set<string>();
+    for (const raw of items) {
+      const card_id = String(raw.card_id ?? '').trim();
+      const grade = String(raw.grade ?? '').trim();
+      if (!card_id || !grade) continue;
+      const key = cardhedgerFmvMapKey(card_id, grade);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      normalized.push({ card_id, grade });
+    }
+    if (normalized.length === 0) return out;
+
+    const uncached: CardhedgerFmvBatchItem[] = [];
+    for (const it of normalized) {
+      const key = cardhedgerFmvMapKey(it.card_id, it.grade);
+      const hit = this.ttlCache.get<{ value: CardhedgerFmvResult | null }>(
+        CardhedgerPricingService.NS_FMV,
+        key,
+      );
+      if (hit) {
+        out.set(key, hit.value);
+      } else {
+        uncached.push(it);
+      }
+    }
+
+    for (const chunk of chunkFmvBatchItems(uncached)) {
+      try {
+        const body = await this.cardhedger.forwardJson(
+          'POST',
+          '/v1/cards/card-fmv-batch',
+          {
+            body: { items: chunk },
+            metricsOperation: 'mint_previews',
+          },
+        );
+        const results = Array.isArray(
+          (body as { results?: unknown[] } | null)?.results,
+        )
+          ? ((body as { results: unknown[] }).results ?? [])
+          : [];
+
+        for (let i = 0; i < chunk.length; i++) {
+          const req = chunk[i];
+          const key = cardhedgerFmvMapKey(req.card_id, req.grade);
+          const raw =
+            results[i] != null && typeof results[i] === 'object'
+              ? (results[i] as Record<string, unknown>)
+              : null;
+          const parsed = raw ? parseCardhedgerFmvRecord(raw) : null;
+          out.set(key, parsed);
+          this.ttlCache.set(
+            CardhedgerPricingService.NS_FMV,
+            key,
+            { value: parsed },
+            this.PRICES_CACHE_TTL_MS,
+          );
+        }
+      } catch (e) {
+        this.logger.warn(
+          `card-fmv-batch chunk failed (${chunk.length} items): ${
+            e instanceof Error ? e.message : String(e)
+          }`,
+        );
+        for (const req of chunk) {
+          const key = cardhedgerFmvMapKey(req.card_id, req.grade);
+          if (!out.has(key)) out.set(key, null);
+        }
+      }
+    }
+
+    return out;
   }
 
   // ---------------------------------------------------------------------------
@@ -1147,6 +1262,7 @@ export class CardhedgerPricingService {
     query: string,
     confidence: 'verified' | 'approximate',
     pricingTier = 'PSA_10',
+    previewOpts?: BuildPreviewOptions,
   ): Promise<MarketCollectionPreview> {
     const tierU = String(pricingTier ?? 'PSA_10')
       .trim()
@@ -1154,17 +1270,37 @@ export class CardhedgerPricingService {
     const chGrade = cardhedgerGradeFromHistoryTier(tierU);
     const isQualifierTier = tierU === 'PSA_AUTH';
     const cardId = String(row.card_id ?? '').trim();
+    const skipComps = previewOpts?.skipComps === true;
+    const skipFmvFetch = previewOpts?.skipFmvFetch === true;
+    const skipCatalog = previewOpts?.skipCatalogFetches === true;
+    const certPrice = previewOpts?.preFetchedCertPrice;
+    const useCertHeadline =
+      skipCatalog &&
+      certPrice?.price != null &&
+      Number.isFinite(certPrice.price) &&
+      certPrice.price > 0;
+
+    const fmvPromise: Promise<CardhedgerFmvResult | null> = skipFmvFetch
+      ? Promise.resolve(previewOpts?.preFetchedFmv ?? null)
+      : cardId
+        ? this.fetchFmvByCard(cardId, chGrade).catch(() => null)
+        : Promise.resolve(null);
+
     const [allPrices, tierHistory, compsCached, fmvResult] = await Promise.all([
-      cardId ? this.fetchAllPricesByCard(cardId) : Promise.resolve([]),
-      cardId
+      cardId && !skipCatalog
+        ? this.fetchAllPricesByCard(cardId)
+        : Promise.resolve([]),
+      cardId && !skipCatalog
         ? this.fetchTierHistoryByCardOnce(
             cardId,
             tierU,
             CARDHEDGER_PRICES_BY_CARD_MAX_DAYS,
           )
         : Promise.resolve([]),
-      cardId ? this.fetchCompsCached(cardId, chGrade) : Promise.resolve(null),
-      cardId ? this.fetchFmvByCard(cardId, chGrade).catch(() => null) : Promise.resolve(null),
+      cardId && !skipComps && !skipCatalog
+        ? this.fetchCompsCached(cardId, chGrade)
+        : Promise.resolve(null),
+      fmvPromise,
     ]);
     const compsHeadline = compsCached?.headline ?? null;
     const merged = allPrices.length > 0 ? { ...row, prices: allPrices } : row;
@@ -1182,7 +1318,7 @@ export class CardhedgerPricingService {
       (compsHeadline != null &&
         Number.isFinite(compsHeadline.usd) &&
         compsHeadline.usd > 0);
-    const allowTierPricing = isQualifierTier
+    let allowTierPricing = isQualifierTier
       ? tierCatalogRaw != null ||
         latestPt != null ||
         compsCached != null ||
@@ -1200,6 +1336,13 @@ export class CardhedgerPricingService {
       | 'catalog'
       | 'comps_median'
       | 'fmv'
+      | 'cert_estimate'
+      | 'batch_price_estimate'
+      | null = null;
+    let priceSource:
+      | 'cardhedger_fmv'
+      | 'cardhedger_estimate'
+      | 'cardhedger_comps'
       | null = null;
     let latestSaleAt: number | null = null;
     let headlineCompCount: number | null = null;
@@ -1275,15 +1418,40 @@ export class CardhedgerPricingService {
       }
     };
 
-    if (anyTierSignal) {
+    if (useCertHeadline && certPrice) {
+      spotUsd = certPrice.price;
+      spotPriceBasis = 'cert_estimate';
+      priceSource = 'cardhedger_estimate';
+      fmvPriceLow =
+        certPrice.price_low != null && certPrice.price_low > 0
+          ? certPrice.price_low
+          : null;
+      fmvPriceHigh =
+        certPrice.price_high != null && certPrice.price_high > 0
+          ? certPrice.price_high
+          : null;
+      fmvMethod = certPrice.method;
+      const conf = certPrice.confidence;
+      fmvConfidenceGrade =
+        conf != null && conf >= 0.7
+          ? 'A'
+          : conf != null && conf >= 0.5
+            ? 'B'
+            : conf != null && conf >= 0.3
+              ? 'C'
+              : 'D';
+      allowTierPricing =
+        conf == null || conf >= 0.3 || confidence === 'verified';
+    } else if (anyTierSignal) {
       pickBestTierReference();
     }
 
     /** Cardhedger grade-slot catalog can sit far above recent comps TW — prefer comps when divergent. */
     const CATALOG_COMPS_STALE_RATIO = 2;
     if (
+      !useCertHeadline &&
       spotUsd != null &&
-      spotPriceBasis === 'catalog' &&
+      String(spotPriceBasis) === 'catalog' &&
       compsHeadline != null &&
       Number.isFinite(compsHeadline.usd) &&
       compsHeadline.usd > 0 &&
@@ -1306,7 +1474,7 @@ export class CardhedgerPricingService {
     // FMV fallback: when comps/history produced no spot price, use CardHedger's
     // Winsorized-median FMV with movement-index projection for stale cards.
     // Segment-level fallbacks (too broad) and no_data are excluded.
-    if (spotUsd == null && fmvResult != null) {
+    if (!useCertHeadline && spotUsd == null && fmvResult != null) {
       const fmvPriceRaw = fmvResult.price;
       const fmvGrade_ = fmvResult.confidence_grade;
       const fmvMethod_ = fmvResult.method;
@@ -1323,7 +1491,12 @@ export class CardhedgerPricingService {
         isUsableGrade
       ) {
         spotUsd = fmvPriceRaw;
-        spotPriceBasis = 'fmv';
+        spotPriceBasis = previewOpts?.preFetchedEstimate
+          ? 'batch_price_estimate'
+          : 'fmv';
+        priceSource = previewOpts?.preFetchedEstimate
+          ? 'cardhedger_estimate'
+          : 'cardhedger_fmv';
         fmvConfidenceGrade = fmvGrade_;
         fmvFreshnessDays = fmvResult.freshness_days;
         fmvMethod = fmvMethod_;
@@ -1382,9 +1555,16 @@ export class CardhedgerPricingService {
     }
     const basisForPricesByGrade =
       spotPriceBasis != null &&
-      ['comps', 'latest_sale', 'sparse_sale_avg', 'catalog', 'comps_median', 'fmv'].includes(
-        spotPriceBasis,
-      );
+      [
+        'comps',
+        'latest_sale',
+        'sparse_sale_avg',
+        'catalog',
+        'comps_median',
+        'fmv',
+        'cert_estimate',
+        'batch_price_estimate',
+      ].includes(spotPriceBasis);
     if (spotUsd != null && basisForPricesByGrade) {
       pricesByGrade[chGrade] = spotUsd;
     }
@@ -1477,6 +1657,11 @@ export class CardhedgerPricingService {
               fmvConfidenceGrade === 'C'
               ? spotUsd
               : null;
+          if (
+            _basisStr === 'cert_estimate' ||
+            _basisStr === 'batch_price_estimate'
+          )
+            return spotUsd;
           return null;
         })(),
         totalSaleCount:
@@ -1496,6 +1681,8 @@ export class CardhedgerPricingService {
         priceReliability: allowTierPricing ? 'high' : 'low',
         pricingSuppressedReason,
         spotPriceBasis,
+        priceSource:
+          priceSource ?? priceSourceFromSpotBasis(spotPriceBasis),
         latestSaleAt,
         fmvConfidenceGrade,
         fmvFreshnessDays,
@@ -1553,6 +1740,7 @@ export class CardhedgerPricingService {
   async buildPreviewFromResolved(
     r: ResolvedCard,
     col?: MarketplaceCollection | null,
+    previewOpts?: BuildPreviewOptions,
   ): Promise<MarketCollectionPreview> {
     if (!r.row || !r.confidence) {
       return {
@@ -1564,7 +1752,7 @@ export class CardhedgerPricingService {
       };
     }
     const tier = this.historyTierForCollection(col ?? null);
-    return this.rowToPreview(r.row, r.query, r.confidence, tier);
+    return this.rowToPreview(r.row, r.query, r.confidence, tier, previewOpts);
   }
 
   // ---------------------------------------------------------------------------

@@ -53,18 +53,21 @@ async function bootstrap() {
     }),
   );
 
+  const port = config.get<number>('app.port') ?? 4100;
+
   const swaggerConfig = new DocumentBuilder()
     .setTitle('Tokenable API')
     .setDescription(
       [
-        '로컬 문서: `http://localhost:4000/api/docs` · 모든 경로는 `/api` 접두사입니다.',
+        `로컬 문서: \`http://localhost:${port}/api/docs\` · 모든 경로는 \`/api\` 접두사입니다.`,
         '',
         '**실행(Try it out)** — POST/PATCH 본문은 **「기본 예시」** 가 미리 채워져 있습니다. PSA·RWA 파일 업로드만 이미지를 직접 선택하세요.',
         '**인증** — 🔓 **Authorize** 에 JWT를 넣거나, OAuth 로그인 후 발급된 `access_token` 쿠키와 동일한 Bearer 토큰을 사용하세요.',
+        '**Site access** — `SITE_ACCESS_ENABLED` 시 먼저 `POST /api/site-access/verify` 로 비밀번호를 제출해 쿠키를 받은 뒤 Try it out 하세요 (동일 origin).',
       ].join('\n'),
     )
     .setVersion('1.0')
-    .addServer('http://localhost:4000', '로컬')
+    .addServer(`http://localhost:${port}`, '로컬')
     .addBearerAuth(
       { type: 'http', scheme: 'bearer', bearerFormat: 'JWT', in: 'header' },
       'access-token',
@@ -105,7 +108,6 @@ async function bootstrap() {
     );
   }
 
-  const port = config.get<number>('app.port') ?? 4100;
   await app.listen(port, '0.0.0.0');
   logger.log(`Server running on http://127.0.0.1:${port}/api`);
   logger.log(`Swagger docs at http://localhost:${port}/api/docs`);

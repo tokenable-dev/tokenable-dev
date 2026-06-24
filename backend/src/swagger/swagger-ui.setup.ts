@@ -1,5 +1,11 @@
+import { readFileSync } from 'fs';
 import { join } from 'path';
 import type { SwaggerCustomOptions } from '@nestjs/swagger';
+
+const SWAGGER_UI_KO_JS = readFileSync(
+  join(__dirname, 'swagger-ui-ko.js'),
+  'utf8',
+);
 
 const SWAGGER_UI_CSS = `
   .swagger-ui .topbar { display: none; }
@@ -21,7 +27,7 @@ const SWAGGER_UI_CSS = `
 export const swaggerUiOptions: SwaggerCustomOptions = {
   customSiteTitle: 'Tokenable API 문서',
   customCss: SWAGGER_UI_CSS,
-  customJs: join(__dirname, 'swagger-ui-ko.js'),
+  customJsStr: SWAGGER_UI_KO_JS,
   swaggerOptions: {
     persistAuthorization: true,
     displayRequestDuration: true,
@@ -35,5 +41,9 @@ export const swaggerUiOptions: SwaggerCustomOptions = {
     syntaxHighlight: { activated: true, theme: 'agate' },
     tagsSorter: 'alpha',
     operationsSorter: 'method',
+    requestInterceptor: (req: { credentials?: string }) => {
+      req.credentials = 'include';
+      return req;
+    },
   },
 };

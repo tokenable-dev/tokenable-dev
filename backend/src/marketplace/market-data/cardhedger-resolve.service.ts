@@ -7,6 +7,7 @@ import {
 } from '../../common/cache/ttl-cache.interface';
 import { CardhedgerMetricsService } from '../../common/metrics/cardhedger-metrics.service';
 import { CardhedgerService } from '../../cardhedger/cardhedger.service';
+import { readCardhedgerFeatureFlags } from '../../config/cardhedger-feature-flags.util';
 import {
   cardNumberTokenForCardhedgerSearch,
   cardIdFromPsaCertLookup,
@@ -102,6 +103,20 @@ export class CardhedgerResolveService {
       this.config.get<string>('CARDHEDGER_MAX_SEARCH_CANDIDATES') ?? '4',
     );
     return Number.isFinite(raw) && raw >= 1 ? Math.min(Math.floor(raw), 20) : 4;
+  }
+
+  private cardhedgerFeatureFlags() {
+    return (
+      this.config.get<ReturnType<typeof readCardhedgerFeatureFlags>>(
+        'marketplace.cardhedgerFeatureFlags',
+      ) ?? readCardhedgerFeatureFlags()
+    );
+  }
+
+  private resolveMatchFirstPilotLogEnabled(): boolean {
+    return this.config.get<boolean>(
+      'marketplace.cardhedgerResolveMatchFirstPilotLog',
+    ) === true;
   }
 
   buildCollectionQuery(col: MarketplaceCollection | null): {
@@ -1061,9 +1076,163 @@ export class CardhedgerResolveService {
       }
     }
 
-    // ── Path 2: card-search fallback (capped by CARDHEDGER_MAX_SEARCH_CANDIDATES) ──
+    // ── Path 2: card-match-first (optional) → card-search → card-match fallback ──
     // Cert lookup (Path 0) runs when no stored cardhedgerCardId; successful cert writes
     // persist ID so Path 1 serves subsequent reads.
+    const flags = this.cardhedgerFeatureFlags();
+    const path2Started = Date.now();
+    let path2Result: ResolvedCard | null = null;
+    let path2ResolvePath: 'search' | 'card_match' | 'card_match_first' | 'none' =
+      'none';
+
+    if (flags.cardMatchFirst) {
+      const cardMatchFirstResult = await this.tryCardMatchFallback(
+        query,
+        collectionKey,
+        q,
+      );
+      if (cardMatchFirstResult) {
+        path2Result = cardMatchFirstResult;
+        path2ResolvePath = 'card_match_first';
+      }
+    }
+
+    if (!path2Result) {
+      const searchResult = await this.tryResolveViaCardSearch(
+        q,
+        displayLabel,
+        collectionKey,
+      );
+      if (searchResult) {
+        path2Result = { ...searchResult.result, query };
+        path2ResolvePath = 'search';
+        this.metrics?.recordResolvePath('search', searchResult.depth);
+        this.logger.log(
+          JSON.stringify({
+            msg: 'resolve_path',
+            path: 'search',
+            key: collectionKey,
+            query: searchResult.query,
+            candidateIndex: searchResult.candidateIndex,
+            candidateCount: searchResult.candidateCount,
+            cardId: searchResult.result.row?.card_id ?? 'n/a',
+            confidence: searchResult.result.confidence,
+          }),
+        );
+      }
+    }
+
+    if (!path2Result && !flags.cardMatchFirst) {
+      const cardMatchResult = await this.tryCardMatchFallback(
+        query,
+        collectionKey,
+        q,
+      );
+      if (cardMatchResult) {
+        path2Result = cardMatchResult;
+        path2ResolvePath = 'card_match';
+      }
+    }
+
+    const path2DurationMs = Date.now() - path2Started;
+    const path2Success = path2Result?.row != null;
+
+    this.metrics?.recordResolvePath2Pilot({
+      cardMatchFirstEnabled: flags.cardMatchFirst,
+      durationMs: path2DurationMs,
+      success: path2Success,
+    });
+
+    if (path2Result) {
+      if (path2ResolvePath === 'card_match_first') {
+        this.metrics?.recordResolvePath('card_match_first');
+        this.logger.log(
+          JSON.stringify({
+            msg: 'resolve_path',
+            path: 'card_match_first',
+            key: collectionKey,
+            query,
+            cardId:
+              (path2Result.row as { card_id?: unknown })?.card_id ?? 'n/a',
+            confidence: path2Result.confidence,
+            durationMs: path2DurationMs,
+          }),
+        );
+      } else if (path2ResolvePath === 'card_match') {
+        this.metrics?.recordResolvePath('card_match');
+        this.logger.log(
+          JSON.stringify({
+            msg: 'resolve_path',
+            path: 'card_match',
+            key: collectionKey,
+            query,
+            cardId:
+              (path2Result.row as { card_id?: unknown })?.card_id ?? 'n/a',
+            confidence: path2Result.confidence,
+            durationMs: path2DurationMs,
+          }),
+        );
+      }
+
+      if (this.resolveMatchFirstPilotLogEnabled()) {
+        this.logger.log(
+          JSON.stringify({
+            msg: 'resolve_path2_pilot',
+            key: collectionKey,
+            cardMatchFirstEnabled: flags.cardMatchFirst,
+            path: path2ResolvePath,
+            success: path2Success,
+            durationMs: path2DurationMs,
+            confidence: path2Result.confidence ?? null,
+          }),
+        );
+      }
+
+      return path2Result;
+    }
+
+    this.metrics?.recordResolvePath('none');
+    if (this.resolveMatchFirstPilotLogEnabled()) {
+      this.logger.log(
+        JSON.stringify({
+          msg: 'resolve_path2_pilot',
+          key: collectionKey,
+          cardMatchFirstEnabled: flags.cardMatchFirst,
+          path: 'none',
+          success: false,
+          durationMs: path2DurationMs,
+          confidence: null,
+        }),
+      );
+    }
+    this.logger.log(
+      JSON.stringify({
+        msg: 'resolve_path',
+        path: 'none',
+        key: collectionKey,
+        query,
+        searchCandidateCount: this.maxSearchCandidates(),
+        cardMatchFirstEnabled: flags.cardMatchFirst,
+        durationMs: path2DurationMs,
+      }),
+    );
+    return { query, row: null };
+  }
+
+  /**
+   * Capped `card-search` loop — returns the first scored match or null.
+   */
+  private async tryResolveViaCardSearch(
+    q: ReturnType<CardhedgerResolveService['buildCollectionQuery']>,
+    displayLabel: string,
+    collectionKey: string,
+  ): Promise<{
+    result: ResolvedCard;
+    depth: number;
+    query: string;
+    candidateIndex: number;
+    candidateCount: number;
+  } | null> {
     const allSearchCandidates = this.collectCardhedgerSearchCandidates(
       q,
       displayLabel,
@@ -1100,67 +1269,30 @@ export class CardhedgerResolveService {
         if (r.length === 0) continue;
         const picked = this.pickBestResolvedCardFromSearchResults(r, q);
         if (picked) {
-          // depth = 1-based index of the first successful candidate
           const depth = i + 1;
-          this.metrics?.recordResolvePath('search', depth);
-          this.logger.log(
-            JSON.stringify({
-              msg: 'resolve_path',
-              path: 'search',
-              key: collectionKey,
+          return {
+            result: {
               query: sq,
-              candidateIndex: i,
-              candidateCount: searchCandidates.length,
-              cardId: picked.row.id,
+              row: picked.row,
               confidence: picked.confidence,
-            }),
-          );
-          return { query, row: picked.row, confidence: picked.confidence };
+            },
+            depth,
+            query: sq,
+            candidateIndex: i,
+            candidateCount: searchCandidates.length,
+          };
         }
       } catch (e) {
         const isCircuitOpen =
           e instanceof Error && e.message.includes('circuit breaker');
         if (isCircuitOpen) {
           this.metrics?.recordResolvePath('circuit_open');
-          break; // circuit is open — no point trying remaining candidates
+          break;
         }
-        // Other error (network transient) — try next candidate
       }
     }
 
-    // ── Path 3: card-match AI fallback ────────────────────────────────────────
-    // After all text-search candidates have failed, ask CardHedger's LLM to
-    // match the query description.  This is slower (LLM round-trip) but handles
-    // promo cards, unusual naming, and non-English descriptions that trip up the
-    // keyword scorer.  Only used as a last resort; confidence < 0.5 returns null
-    // from the API so we never get a match below that threshold.
-    const cardMatchResult = await this.tryCardMatchFallback(query, collectionKey, q);
-    if (cardMatchResult) {
-      this.metrics?.recordResolvePath('card_match');
-      this.logger.log(
-        JSON.stringify({
-          msg: 'resolve_path',
-          path: 'card_match',
-          key: collectionKey,
-          query,
-          cardId: (cardMatchResult.row as { card_id?: unknown })?.card_id ?? 'n/a',
-          confidence: cardMatchResult.confidence,
-        }),
-      );
-      return cardMatchResult;
-    }
-
-    this.metrics?.recordResolvePath('none');
-    this.logger.log(
-      JSON.stringify({
-        msg: 'resolve_path',
-        path: 'none',
-        key: collectionKey,
-        query,
-        searchCandidateCount: searchCandidates.length,
-      }),
-    );
-    return { query, row: null };
+    return null;
   }
 
   /**

@@ -10,6 +10,7 @@ import { CardhedgerMarketDataService } from './cardhedger-market-data.service';
 import { CardhedgerResolveService } from './cardhedger-resolve.service';
 import { CardhedgerPricingService } from './cardhedger-pricing.service';
 import { CardhedgerCertLookupService } from './cardhedger-cert-lookup.service';
+import { CardhedgerCertPricingService } from './cardhedger-cert-pricing.service';
 import { CardhedgerMintService } from './cardhedger-mint.service';
 
 /** Cardhedger resolve, preview, comps, PSA cert DB cache, and mint previews for marketplace pricing. */
@@ -23,6 +24,7 @@ import { CardhedgerMintService } from './cardhedger-mint.service';
   providers: [
     PsaCertSnapshotService,
     CardhedgerCertLookupService,
+    CardhedgerCertPricingService,
     CardhedgerResolveService,
     CardhedgerPricingService,
     CardhedgerMintService,

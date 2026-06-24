@@ -4,6 +4,11 @@ import {
   OnModuleDestroy,
   OnModuleInit,
 } from '@nestjs/common';
+import {
+  cardhedgerUpstreamEndpointSlug,
+  normalizeCardhedgerUpstreamPath,
+  type CardhedgerUpstreamOperation,
+} from './cardhedger-upstream.util';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -13,6 +18,8 @@ export type ResolvePath =
   | 'spec_id'
   | 'search'
   | 'card_match'
+  /** Phase 6 — card-match tried before card-search when CARDHEDGER_CARD_MATCH_FIRST=1. */
+  | 'card_match_first'
   | 'none'
   | 'circuit_open';
 
@@ -85,6 +92,11 @@ interface MetricsBucket {
   batchReducedTotal: number;
   /** Number of cron ticks where a non-shadow reduction was applied. */
   batchReductionCount: number;
+  /** Phase 6 — Path-2 (search/match) pilot: attempts when match-first flag on/off. */
+  resolvePath2Pilot: {
+    matchFirstOn: ResolvePath2PilotBucket;
+    matchFirstOff: ResolvePath2PilotBucket;
+  };
   /** Cumulative ms the circuit was in OPEN state within this window. */
   circuitOpenDurationMs: number;
   identityCacheHits: Record<IdentityCacheLayer, number>;
@@ -101,6 +113,8 @@ interface MetricsBucket {
   identityCacheRepair: Record<IdentityCacheRepairOutcome, number>;
   identityReconciliation: Record<IdentityReconciliationOutcome, number>;
   identityLogInvalid: number;
+  upstreamByEndpoint: Record<string, UpstreamEndpointCounts>;
+  upstreamByOperation: Record<string, number>;
 }
 
 export interface IdentityReconciliationMetricsState {
@@ -125,17 +139,56 @@ export interface IdentitySloMetricsSnapshot {
  * Public snapshot returned by `getSnapshot()`.
  * Used to build the per-cron degradation profile log in the snapshot scheduler.
  */
+export type UpstreamCallOutcome = 'success' | 'error';
+
+export interface UpstreamEndpointCounts {
+  success: number;
+  error: number;
+  durationMsTotal: number;
+}
+
+interface ResolvePath2PilotBucket {
+  attempts: number;
+  success: number;
+  latencyMsTotal: number;
+}
+
+export interface ResolvePath2PilotSnapshot {
+  attempts: number;
+  success: number;
+  successRate: number | null;
+  avgLatencyMs: number | null;
+}
+
+export interface CardhedgerUpstreamMetricsSnapshot {
+  total: number;
+  success: number;
+  errors: number;
+  /** Mean upstream latency (ms) across recorded calls, or null when no calls. */
+  avgDurationMs: number | null;
+  /** Keyed by short endpoint slug (e.g. `card-fmv`, `details-by-certs`). */
+  byEndpoint: Record<string, UpstreamEndpointCounts>;
+  /** Optional operation tags when callers pass `metricsOperation` to forwardJson. */
+  byOperation: Record<string, number>;
+}
+
 export interface CardhedgerMetricsSnapshot {
   circuitState: CircuitState;
   resolveTotal: number;
   resolvePaths: Record<ResolvePath, number>;
   /** Average number of search candidates evaluated per successful search-path resolve, or null if no search resolves. */
   searchDepthAvg: number | null;
+  /** Phase 6 — Path-2 latency/success when CARDHEDGER_CARD_MATCH_FIRST on vs off. */
+  resolvePath2Pilot: {
+    matchFirstOn: ResolvePath2PilotSnapshot;
+    matchFirstOff: ResolvePath2PilotSnapshot;
+  };
   batchReductionCount: number;
   /** Average reduced/original ratio across actual (non-shadow) reductions, or null if none. */
   batchReductionRatioAvg: number | null;
   /** Cumulative ms circuit was OPEN in the current window (includes ongoing open period). */
   circuitOpenDurationMs: number;
+  upstream: CardhedgerUpstreamMetricsSnapshot;
   windowStartedAt: number;
 }
 
@@ -205,6 +258,23 @@ export class CardhedgerMetricsService implements OnModuleInit, OnModuleDestroy {
       this.current.searchDepthTotal += depth;
       this.current.searchDepthCount++;
     }
+  }
+
+  /**
+   * Phase 6 — record Path-2 outcome (card-match-first vs search) for A/B pilot.
+   * Only collections that reach Path 2 after cert/card-details paths are counted.
+   */
+  recordResolvePath2Pilot(input: {
+    cardMatchFirstEnabled: boolean;
+    durationMs: number;
+    success: boolean;
+  }): void {
+    const bucket = input.cardMatchFirstEnabled
+      ? this.current.resolvePath2Pilot.matchFirstOn
+      : this.current.resolvePath2Pilot.matchFirstOff;
+    bucket.attempts++;
+    if (input.success) bucket.success++;
+    bucket.latencyMsTotal += Math.max(0, Math.floor(input.durationMs));
   }
 
   /**
@@ -324,6 +394,41 @@ export class CardhedgerMetricsService implements OnModuleInit, OnModuleDestroy {
     this.current.identityLogInvalid++;
   }
 
+  /**
+   * Record one Cardhedger upstream HTTP call (from {@link CardhedgerService.forwardJson}
+   * / `forwardBinary`). Endpoint is normalized; operation is optional.
+   */
+  recordUpstreamCall(input: {
+    upstreamPath: string;
+    method: 'GET' | 'POST';
+    outcome: UpstreamCallOutcome;
+    durationMs: number;
+    operation?: CardhedgerUpstreamOperation;
+  }): void {
+    const normalized = normalizeCardhedgerUpstreamPath(input.upstreamPath);
+    const slug = cardhedgerUpstreamEndpointSlug(normalized);
+    const bucket =
+      this.current.upstreamByEndpoint[slug] ??
+      ({ success: 0, error: 0, durationMsTotal: 0 } satisfies UpstreamEndpointCounts);
+    if (input.outcome === 'success') {
+      bucket.success++;
+    } else {
+      bucket.error++;
+    }
+    bucket.durationMsTotal += Math.max(0, Math.floor(input.durationMs));
+    this.current.upstreamByEndpoint[slug] = bucket;
+
+    if (input.operation) {
+      const opKey = input.operation;
+      this.current.upstreamByOperation[opKey] =
+        (this.current.upstreamByOperation[opKey] ?? 0) + 1;
+    }
+  }
+
+  getUpstreamMetrics(): CardhedgerUpstreamMetricsSnapshot {
+    return this.buildUpstreamSnapshot(this.current);
+  }
+
   recordIdentityReconciliationRun(summary: {
     hotKeyCount: number;
     scanned: number;
@@ -429,10 +534,38 @@ export class CardhedgerMetricsService implements OnModuleInit, OnModuleDestroy {
       resolveTotal,
       resolvePaths: { ...b.resolvePaths },
       searchDepthAvg,
+      resolvePath2Pilot: this.buildResolvePath2PilotSnapshot(b),
       batchReductionCount: b.batchReductionCount,
       batchReductionRatioAvg,
       circuitOpenDurationMs,
+      upstream: this.buildUpstreamSnapshot(b),
       windowStartedAt: b.startedAt,
+    };
+  }
+
+  private buildUpstreamSnapshot(
+    b: MetricsBucket,
+  ): CardhedgerUpstreamMetricsSnapshot {
+    const byEndpoint: Record<string, UpstreamEndpointCounts> = {};
+    let success = 0;
+    let errors = 0;
+    let durationMsTotal = 0;
+
+    for (const [slug, counts] of Object.entries(b.upstreamByEndpoint)) {
+      byEndpoint[slug] = { ...counts };
+      success += counts.success;
+      errors += counts.error;
+      durationMsTotal += counts.durationMsTotal;
+    }
+
+    const total = success + errors;
+    return {
+      total,
+      success,
+      errors,
+      avgDurationMs: total > 0 ? durationMsTotal / total : null,
+      byEndpoint,
+      byOperation: { ...b.upstreamByOperation },
     };
   }
 
@@ -443,7 +576,8 @@ export class CardhedgerMetricsService implements OnModuleInit, OnModuleDestroy {
     const idle =
       snap.resolveTotal === 0 &&
       snap.batchReductionCount === 0 &&
-      snap.circuitOpenDurationMs === 0;
+      snap.circuitOpenDurationMs === 0 &&
+      snap.upstream.total === 0;
 
     this.current = this.freshBucket();
     this.circuitOpenSince =
@@ -467,11 +601,21 @@ export class CardhedgerMetricsService implements OnModuleInit, OnModuleDestroy {
           snap.searchDepthAvg != null
             ? Number(snap.searchDepthAvg.toFixed(2))
             : null,
+        resolvePath2Pilot: snap.resolvePath2Pilot,
         batchReductionCount: snap.batchReductionCount,
         batchReductionRatioAvg:
           snap.batchReductionRatioAvg != null
             ? Number(snap.batchReductionRatioAvg.toFixed(2))
             : null,
+        upstreamTotal: snap.upstream.total,
+        upstreamSuccess: snap.upstream.success,
+        upstreamErrors: snap.upstream.errors,
+        upstreamAvgDurationMs:
+          snap.upstream.avgDurationMs != null
+            ? Number(snap.upstream.avgDurationMs.toFixed(1))
+            : null,
+        upstreamByEndpoint: snap.upstream.byEndpoint,
+        upstreamByOperation: snap.upstream.byOperation,
       }),
     );
   }
@@ -545,6 +689,34 @@ export class CardhedgerMetricsService implements OnModuleInit, OnModuleDestroy {
     return { hit: 0, miss: 0, repair: 0, skipped: 0 };
   }
 
+  private buildResolvePath2PilotSnapshot(
+    b: MetricsBucket,
+  ): CardhedgerMetricsSnapshot['resolvePath2Pilot'] {
+    const toSnap = (bucket: ResolvePath2PilotBucket): ResolvePath2PilotSnapshot => ({
+      attempts: bucket.attempts,
+      success: bucket.success,
+      successRate:
+        bucket.attempts > 0 ? bucket.success / bucket.attempts : null,
+      avgLatencyMs:
+        bucket.attempts > 0 ? bucket.latencyMsTotal / bucket.attempts : null,
+    });
+    return {
+      matchFirstOn: toSnap(b.resolvePath2Pilot.matchFirstOn),
+      matchFirstOff: toSnap(b.resolvePath2Pilot.matchFirstOff),
+    };
+  }
+
+  private freshResolvePath2PilotBucket(): ResolvePath2PilotBucket {
+    return { attempts: 0, success: 0, latencyMsTotal: 0 };
+  }
+
+  private freshResolvePath2Pilot(): MetricsBucket['resolvePath2Pilot'] {
+    return {
+      matchFirstOn: this.freshResolvePath2PilotBucket(),
+      matchFirstOff: this.freshResolvePath2PilotBucket(),
+    };
+  }
+
   private freshBucket(): MetricsBucket {
     return {
       startedAt: Date.now(),
@@ -554,6 +726,7 @@ export class CardhedgerMetricsService implements OnModuleInit, OnModuleDestroy {
         spec_id: 0,
         search: 0,
         card_match: 0,
+        card_match_first: 0,
         none: 0,
         circuit_open: 0,
       },
@@ -562,6 +735,7 @@ export class CardhedgerMetricsService implements OnModuleInit, OnModuleDestroy {
       batchOriginalTotal: 0,
       batchReducedTotal: 0,
       batchReductionCount: 0,
+      resolvePath2Pilot: this.freshResolvePath2Pilot(),
       circuitOpenDurationMs: 0,
       identityCacheHits: { l1: 0, l2: 0 },
       identityCacheMisses: { l1: 0, l2: 0 },
@@ -574,6 +748,10 @@ export class CardhedgerMetricsService implements OnModuleInit, OnModuleDestroy {
       identityCacheRepair: this.freshIdentityCacheRepair(),
       identityReconciliation: this.freshIdentityReconciliation(),
       identityLogInvalid: 0,
+      upstreamByEndpoint: {},
+      upstreamByOperation: {},
     };
   }
 }
+
+export type { CardhedgerUpstreamOperation } from './cardhedger-upstream.util';
