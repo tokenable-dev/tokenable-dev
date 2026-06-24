@@ -49,6 +49,9 @@ export function useTop100(category: string) {
       totalPages: data.totalPages,
       fetchedAt: data.fetchedAt,
       stale: data.stale,
+      snapshotDate: data.snapshotDate ?? null,
+      grade: data.grade,
+      category: data.category,
     }),
   });
 }

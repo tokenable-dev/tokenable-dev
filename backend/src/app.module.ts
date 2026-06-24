@@ -30,6 +30,10 @@ import { PortfolioDailySnapshot } from './marketplace/entities/portfolio-daily-s
 import { PortfolioHiddenHolding } from './marketplace/entities/portfolio-hidden-holding.entity';
 import { UserWatchlist } from './marketplace/entities/user-watchlist.entity';
 import { CardTop100DailySnapshot } from './cardhedger/entities/card-top100-snapshot.entity';
+import { CardhedgerPriceSubscription } from './cardhedger/entities/cardhedger-price-subscription.entity';
+import { CardhedgerPriceDeltaCheckpoint } from './cardhedger/entities/cardhedger-price-delta-checkpoint.entity';
+import { CardhedgerDailyPriceExportRun } from './cardhedger/entities/cardhedger-daily-price-export-run.entity';
+import { CardhedgerPriceDeltaImportRun } from './cardhedger/entities/cardhedger-price-delta-import-run.entity';
 import { MarketplaceAdmin } from './marketplace/entities/marketplace-admin.entity';
 
 @Module({
@@ -72,6 +76,10 @@ import { MarketplaceAdmin } from './marketplace/entities/marketplace-admin.entit
           PortfolioHiddenHolding,
           UserWatchlist,
           CardTop100DailySnapshot,
+          CardhedgerPriceSubscription,
+          CardhedgerPriceDeltaCheckpoint,
+          CardhedgerDailyPriceExportRun,
+          CardhedgerPriceDeltaImportRun,
           MarketplaceAdmin,
         ],
         // Schema sync is always disabled in production — use SQL migration scripts

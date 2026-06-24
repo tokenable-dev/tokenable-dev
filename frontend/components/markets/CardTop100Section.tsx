@@ -14,7 +14,10 @@ import {
   top100CardTitle,
 } from "@/lib/markets/top100CardDisplay";
 import type { Top100DayChange } from "@/lib/markets/top100DayChanges";
-import { top100CardDetailHref } from "@/lib/markets/top100CardDetailUrl";
+import {
+  MARKETS_TOP100_ROUTING,
+  type Top100Routing,
+} from "@/lib/markets/top100Routing";
 import { formatSportCategoryDisplayLabel } from "@/lib/market/sportCategoryDisplay";
 import { TOP_CARDS_SECTION_TITLE } from "@/lib/markets/top100Copy";
 import { Top100DayChangeBadge } from "./Top100DayChangeBadge";
@@ -344,6 +347,7 @@ function LeaderboardCardRow({
   dayChange,
   dayChangeLoading = false,
   emphasizeSales = false,
+  routing = MARKETS_TOP100_ROUTING,
 }: {
   item: Top100Item;
   category: string;
@@ -351,13 +355,14 @@ function LeaderboardCardRow({
   dayChangeLoading?: boolean;
   /** Top 3 preview — 90-day sales is the primary metric (price secondary). */
   emphasizeSales?: boolean;
+  routing?: Top100Routing;
 }) {
   const subText = top100CardSubText(item);
   const salesLabel = formatTop100SalesLabel(item["90_day_sales"], emphasizeSales);
 
   return (
     <Link
-      href={top100CardDetailHref(item, category)}
+      href={routing.cardDetailHref(item, category)}
       className={`group flex min-w-0 items-center gap-2 rounded-xl border border-white/[0.06] bg-[#0d0d0d] px-2 py-2.5 duration-200 hover:border-white/[0.1] hover:bg-[#121212] hover:shadow-[0_8px_24px_-18px_rgba(0,0,0,0.9)] sm:gap-3 sm:px-3 sm:py-3 ${CARD_CLICKABLE}`}
     >
       <RankBadge rank={item.rank} />
@@ -424,12 +429,14 @@ function Top3Podium({
   loading,
   getDayChange,
   dayChangeLoading = false,
+  routing = MARKETS_TOP100_ROUTING,
 }: {
   items: Top100Item[];
   category: string;
   loading: boolean;
   getDayChange: (cardId: string) => Top100DayChange | undefined;
   dayChangeLoading?: boolean;
+  routing?: Top100Routing;
 }) {
   if (loading) return <LeaderboardSkeleton count={3} />;
 
@@ -446,6 +453,7 @@ function Top3Podium({
           dayChange={getDayChange(item.card_id)}
           dayChangeLoading={dayChangeLoading}
           emphasizeSales
+          routing={routing}
         />
       ))}
     </div>
@@ -480,6 +488,7 @@ function LeaderboardColumn({
   loading,
   getDayChange,
   dayChangeLoading = false,
+  routing = MARKETS_TOP100_ROUTING,
 }: {
   label: string;
   items: Top100Item[];
@@ -487,6 +496,7 @@ function LeaderboardColumn({
   loading: boolean;
   getDayChange: (cardId: string) => Top100DayChange | undefined;
   dayChangeLoading?: boolean;
+  routing?: Top100Routing;
 }) {
   return (
     <div className="min-w-0">
@@ -509,6 +519,7 @@ function LeaderboardColumn({
               category={category}
               dayChange={getDayChange(item.card_id)}
               dayChangeLoading={dayChangeLoading}
+              routing={routing}
             />
           ))}
         </div>
@@ -517,19 +528,17 @@ function LeaderboardColumn({
   );
 }
 
-function top100FullHref(category: string): string {
-  return `/markets/top100?category=${encodeURIComponent(category)}`;
-}
-
 function ViewFullTop100Cta({
   category,
+  routing = MARKETS_TOP100_ROUTING,
 }: {
   category: string;
+  routing?: Top100Routing;
 }) {
   return (
     <div className="flex w-full justify-center pt-0.5 sm:pt-0">
       <Link
-        href={top100FullHref(category)}
+        href={routing.listHref(category)}
         className="text-sm font-medium text-mint transition-colors hover:text-mint/85 hover:underline sm:text-[15px]"
       >
         View all →
@@ -543,9 +552,11 @@ function ViewFullTop100Cta({
 function TabPanel({
   category,
   variant,
+  routing = MARKETS_TOP100_ROUTING,
 }: {
   category: Top100Category;
   variant: "preview" | "full";
+  routing?: Top100Routing;
 }) {
   const { data, isLoading, isError } = useTop100(category);
   const items = data?.items ?? [];
@@ -581,6 +592,7 @@ function TabPanel({
       loading={isLoading}
       getDayChange={getDayChange}
       dayChangeLoading={dayChangesQuery.isLoading}
+      routing={routing}
     />
   );
 
@@ -588,7 +600,9 @@ function TabPanel({
     return (
       <div className="flex w-full flex-col items-center space-y-5 sm:space-y-3">
         <div className="w-full">{podium}</div>
-        <ViewFullTop100Cta category={category} />
+        {routing.showViewAllCta ? (
+          <ViewFullTop100Cta category={category} routing={routing} />
+        ) : null}
       </div>
     );
   }
@@ -607,6 +621,7 @@ function TabPanel({
               loading={isLoading}
               getDayChange={getDayChange}
               dayChangeLoading={dayChangesQuery.isLoading}
+              routing={routing}
             />
             {(isLoading || rightCol.length > 0) && (
               <LeaderboardColumn
@@ -616,6 +631,7 @@ function TabPanel({
                 loading={isLoading}
                 getDayChange={getDayChange}
                 dayChangeLoading={dayChangesQuery.isLoading}
+                routing={routing}
               />
             )}
           </div>
@@ -630,9 +646,14 @@ function TabPanel({
 export function CardTop100Section({
   variant = "preview",
   initialCategory,
+  routing = MARKETS_TOP100_ROUTING,
+  title,
 }: {
   variant?: "preview" | "full";
   initialCategory?: string;
+  routing?: Top100Routing;
+  /** Override section title (admin preview). */
+  title?: string;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -658,10 +679,11 @@ export function CardTop100Section({
 
   const handleTabChange = (cat: string) => {
     setActiveTab(cat);
-    if (variant === "full") {
+    if (variant === "full" && routing.syncCategoryToUrl) {
       const params = new URLSearchParams(searchParams.toString());
       params.set("category", cat);
-      router.replace(`/markets/top100?${params.toString()}`, { scroll: false });
+      const base = routing.listHref(cat).split("?")[0];
+      router.replace(`${base}?${params.toString()}`, { scroll: false });
     }
   };
 
@@ -672,7 +694,7 @@ export function CardTop100Section({
       <div className="mb-3 sm:mb-5">
         {isFull ? (
           <h1 className="min-w-0 text-xl font-bold leading-tight tracking-tight text-white sm:text-2xl lg:text-3xl">
-            {TOP_CARDS_SECTION_TITLE}
+            {title ?? TOP_CARDS_SECTION_TITLE}
           </h1>
         ) : (
           <h2 className="min-w-0 text-xl font-bold leading-tight tracking-tight text-white sm:text-2xl">
@@ -690,7 +712,7 @@ export function CardTop100Section({
       </div>
 
       <div key={effectiveTab} className="markets-tab-panel-enter">
-        <TabPanel category={effectiveTab} variant={variant} />
+        <TabPanel category={effectiveTab} variant={variant} routing={routing} />
       </div>
     </section>
   );

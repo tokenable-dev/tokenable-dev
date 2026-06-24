@@ -1,5 +1,13 @@
 import { Injectable } from '@nestjs/common';
-import { CardhedgerMetricsService } from '../../common/metrics/cardhedger-metrics.service';
+import { ConfigService } from '@nestjs/config';
+import {
+  readCardhedgerFeatureFlags,
+  type CardhedgerFeatureFlags,
+} from '../../config/cardhedger-feature-flags.util';
+import {
+  CardhedgerMetricsService,
+  type CardhedgerUpstreamMetricsSnapshot,
+} from '../../common/metrics/cardhedger-metrics.service';
 import { CardhedgerService } from '../cardhedger.service';
 
 // ─── Response shapes ─────────────────────────────────────────────────────────
@@ -120,6 +128,10 @@ export interface CardhedgerHealthPayload {
   identityCache: IdentityCacheHealthSurface;
   identityObservability: IdentityObservabilitySurface;
   identitySlo: IdentitySloHealthSurface;
+  /** Per-endpoint upstream call counts in the current 60s metrics window. */
+  upstream: CardhedgerUpstreamMetricsSnapshot;
+  /** Rollout flags for Cardhedger optimisation phases (Phase 0+). */
+  featureFlags: CardhedgerFeatureFlags;
   /** ISO-8601 UTC timestamp of when this snapshot was taken. */
   timestamp: string;
 }
@@ -141,6 +153,7 @@ export class CardhedgerHealthService {
   constructor(
     private readonly cardhedger: CardhedgerService,
     private readonly metrics: CardhedgerMetricsService,
+    private readonly config: ConfigService,
   ) {}
 
   getFullHealth(): CardhedgerHealthPayload {
@@ -151,8 +164,17 @@ export class CardhedgerHealthService {
       identityCache: this.getIdentityCacheHealth(),
       identityObservability: this.getIdentityObservability(),
       identitySlo: this.getIdentitySloHealth(),
+      upstream: this.metrics.getUpstreamMetrics(),
+      featureFlags: this.getFeatureFlags(),
       timestamp: new Date().toISOString(),
     };
+  }
+
+  getFeatureFlags(): CardhedgerFeatureFlags {
+    const fromConfig = this.config.get<CardhedgerFeatureFlags>(
+      'marketplace.cardhedgerFeatureFlags',
+    );
+    return fromConfig ?? readCardhedgerFeatureFlags();
   }
 
   getCircuitHealth(): CircuitHealth {

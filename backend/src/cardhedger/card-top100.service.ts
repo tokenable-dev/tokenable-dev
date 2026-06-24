@@ -398,7 +398,9 @@ export class CardTop100Service implements OnApplicationBootstrap {
       { body: { grade: TOP100_GRADE, category, page: 1, page_size: TOP100_PAGE_SIZE } },
     )) as CardhedgerPageResponse;
 
-    const cards: Top100Card[] = Array.isArray(raw.cards) ? raw.cards : [];
+    const cards: Top100Card[] = (Array.isArray(raw.cards) ? raw.cards : []).map(
+      (row) => this.normalizeTop100Card(row),
+    ).filter((c): c is Top100Card => c != null);
     const totalPages = typeof raw.pages === 'number' ? raw.pages : 0;
     const fetchedAt = new Date();
 
@@ -421,6 +423,41 @@ export class CardTop100Service implements OnApplicationBootstrap {
       `Card Top100: [${category}] date=${dateKst} — inserted ${cards.length} cards in ${Date.now() - started}ms`,
     );
     return resp;
+  }
+
+  private normalizeTop100Card(raw: unknown): Top100Card | null {
+    if (typeof raw !== 'object' || raw == null) return null;
+    const row = raw as Record<string, unknown>;
+    const cardId =
+      typeof row.card_id === 'string' ? row.card_id.trim() : '';
+    if (!cardId) return null;
+
+    const salesRaw = row['90_day_sales'];
+    const sales90 =
+      typeof salesRaw === 'number' && Number.isFinite(salesRaw)
+        ? salesRaw
+        : typeof salesRaw === 'string' && salesRaw.trim()
+          ? Number(salesRaw)
+          : null;
+
+    return {
+      card_id: cardId,
+      description:
+        typeof row.description === 'string' ? row.description : '',
+      player: typeof row.player === 'string' ? row.player : null,
+      set: typeof row.set === 'string' ? row.set : null,
+      number: typeof row.number === 'string' ? row.number : null,
+      variant: typeof row.variant === 'string' ? row.variant : null,
+      image: typeof row.image === 'string' ? row.image : null,
+      category: typeof row.category === 'string' ? row.category : null,
+      category_group:
+        typeof row.category_group === 'string' ? row.category_group : null,
+      set_type: typeof row.set_type === 'string' ? row.set_type : null,
+      '90_day_sales':
+        sales90 != null && Number.isFinite(sales90) ? sales90 : null,
+      grade: typeof row.grade === 'string' ? row.grade : null,
+      price: typeof row.price === 'string' ? row.price : null,
+    };
   }
 
   private registerCategory(category: string): void {

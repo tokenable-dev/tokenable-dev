@@ -1,4 +1,5 @@
 import { registerAs } from '@nestjs/config';
+import { readCardhedgerFeatureFlags } from './cardhedger-feature-flags.util';
 
 export default registerAs('marketplace', () => {
   const adminUsername =
@@ -74,6 +75,12 @@ export default registerAs('marketplace', () => {
     process.env.CARDHEDGER_MINT_PREVIEW_CERT_BATCH !== '0' &&
     process.env.CARDHEDGER_MINT_PREVIEW_CERT_BATCH !== 'false';
 
+  const cardhedgerFeatureFlags = readCardhedgerFeatureFlags(process.env);
+
+  /** Phase 6 — per-resolve debug log for match-first A/B pilot (latency + path). */
+  const cardhedgerResolveMatchFirstPilotLog =
+    envTruthy(process.env.CARDHEDGER_RESOLVE_MATCH_FIRST_PILOT_LOG);
+
   return {
     adminUsername,
     adminPassword,
@@ -89,8 +96,15 @@ export default registerAs('marketplace', () => {
     merklePreferRegistry,
     cardhedgerMintPreviewConcurrency,
     cardhedgerMintPreviewUseCertBatch,
+    cardhedgerFeatureFlags,
+    cardhedgerResolveMatchFirstPilotLog,
   };
 });
+
+function envTruthy(raw: string | undefined): boolean {
+  const v = raw?.trim().toLowerCase();
+  return v === '1' || v === 'true' || v === 'yes' || v === 'on';
+}
 
 function clampInt(
   raw: string | undefined,

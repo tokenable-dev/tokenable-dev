@@ -178,6 +178,9 @@ export const rq = {
   /** Recent daily Top 100 snapshots for day-over-day comparison. */
   cardhedgerTop100History: (category: string, limit: number) =>
     ["cardhedger-top100-history", category, limit] as const,
+  /** Cached top movers (weekly gain) by category — 1h server TTL. */
+  cardhedgerTopMovers: (category: string, count: number) =>
+    ["cardhedger-top-movers", category, count] as const,
   cardhedgerCardDetails: (cardId: string) => ["cardhedger-card-details", cardId] as const,
   cardhedgerPricesByCard: (cardId: string, grade: string, days: number) =>
     ["cardhedger-prices-by-card", cardId, grade, days] as const,
@@ -186,6 +189,20 @@ export const rq = {
   /** Grade-specific 90-day sales via 90day-prices-by-grade-search. */
   cardhedger90DaySalesByGrade: (cardId: string, grade: string, searchSig: string) =>
     ["cardhedger-90day-sales-by-grade", cardId, grade, searchSig] as const,
+  /** Fallback 90-day sales via `90day-prices-by-grade` (not search API). */
+  cardhedger90DaySalesFallback: (
+    cardId: string,
+    grade: string,
+    category: string,
+    description: string,
+  ) =>
+    [
+      "cardhedger-90day-sales-fallback",
+      cardId,
+      grade,
+      category,
+      description,
+    ] as const,
 } as const;
 
 /** Retry Nest API blips (dev hot-reload, brief proxy ECONNRESET). */
@@ -205,7 +222,8 @@ export const marketplaceRqPolicy = {
   rwaTokensStaleMs: 60_000,
   metadataBatchStaleMs: 5 * 60_000,
   /** Cardhedger-backed queries (mint batch, portfolio batch, market-series) share this freshness window */
-  cardhedgerStaleMs: 5 * 60_000,
+  /** Cardhedger catalog snapshots (top100, top-movers) — align with server 1h cache where applicable. */
+  cardhedgerStaleMs: 60 * 60_000,
   /** Keep resolved Cardhedger payloads in memory while navigating (matches marketplace bundle gc pattern) */
   cardhedgerGcMs: 24 * 60 * 60 * 1000,
 

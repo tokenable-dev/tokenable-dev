@@ -5,8 +5,11 @@ import {
   InternalServerErrorException,
   Logger,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import sharp from 'sharp';
 import { CardhedgerService } from '../cardhedger/cardhedger.service';
+import { readCardhedgerFeatureFlags } from '../config/cardhedger-feature-flags.util';
+import { parseCertPriceResult } from '../marketplace/market-data/cardhedger-cert-price.util';
 import {
   cardNumberTokenForCardhedgerSearch,
   normalizeForExactCardNumberKey,
@@ -50,6 +53,19 @@ export interface CardhedgerOcrNormalized {
     signer_guess: string | null;
   };
   confidence: number; // 0..1
+}
+
+/** Resolved slab OCR via Cardhedger cert-ocr endpoints (details or prices). */
+export interface CardhedgerCertOcrResolveResult {
+  certCandidates: string[];
+  normalized: CardhedgerOcrNormalized;
+  cardId?: string;
+  searchQuery?: string;
+  imageUrl?: string;
+  /** Phase 5 — cert+price resolved in one OCR call; skip redundant details-by-certs. */
+  certLookupComplete?: boolean;
+  priceUsd?: number;
+  priceSource?: 'cardhedger_prices_by_cert_ocr';
 }
 
 export interface PsaAnalyzeResult {
@@ -108,6 +124,9 @@ export interface PsaAnalyzeResult {
     cardId?: string;
     searchQuery?: string;
     imageUrl?: string;
+    /** Headline USD when resolved via prices-by-cert-ocr (Phase 5). */
+    priceUsd?: number;
+    priceSource?: 'cardhedger_prices_by_cert_ocr';
   };
   /** PSA GetImages / GetByCertNumber에서 가져온 슬랩 사진 URL (앞면은 민팅 imageUrl 후보) */
   psaCertImages?: { front?: string; back?: string };
@@ -140,7 +159,16 @@ export class PsaService {
   constructor(
     private readonly psaPublicApi: PsaPublicApiService,
     private readonly cardhedgerService: CardhedgerService,
+    private readonly config: ConfigService,
   ) {}
+
+  private cardhedgerFeatureFlags() {
+    return (
+      this.config.get<ReturnType<typeof readCardhedgerFeatureFlags>>(
+        'marketplace.cardhedgerFeatureFlags',
+      ) ?? readCardhedgerFeatureFlags()
+    );
+  }
 
   private static readonly MAX_COMBINED_OCR_CHARS = 150_000;
 
@@ -361,76 +389,149 @@ export class PsaService {
     };
   }
 
-  private async tryResolveByCardhedgerCertOcr(image: Buffer): Promise<{
-    certCandidates: string[];
-    normalized: CardhedgerOcrNormalized;
-    cardId?: string;
-    searchQuery?: string;
-    imageUrl?: string;
-  }> {
+  private static emptyCardhedgerOcrNormalized(): CardhedgerOcrNormalized {
+    return {
+      raw_text: '',
+      parsed_entities: {
+        card_name: '',
+        set: '',
+        year: '',
+        card_number: '',
+        cert_number: '',
+        grade: '',
+        autograph_detected: false,
+        signer_guess: null,
+      },
+      confidence: 0,
+    };
+  }
+
+  /** Map Cardhedger `CertLookupResponse` (details/prices-by-cert-ocr) to OCR resolve hints. */
+  static mapCertLookupToOcrResolve(
+    raw: unknown,
+    options?: {
+      certLookupComplete?: boolean;
+      priceSource?: 'cardhedger_prices_by_cert_ocr';
+    },
+  ): CardhedgerCertOcrResolveResult | null {
+    if (typeof raw !== 'object' || raw == null) return null;
+    const normalized = PsaService.normalizeOcrEntitiesFromCardhedger(raw);
+    const cert = resolveCertHintForLookup(
+      normalized.parsed_entities.cert_number,
+    );
+    const card = (raw as { card?: unknown }).card as
+      | Record<string, unknown>
+      | undefined;
+    const cardId =
+      typeof card?.card_id === 'string' && card.card_id.trim()
+        ? card.card_id.trim()
+        : undefined;
+    const searchQuery =
+      typeof card?.description === 'string' && card.description.trim()
+        ? card.description.trim()
+        : undefined;
+    const imageUrl =
+      typeof card?.image === 'string' && card.image.trim()
+        ? normalizeImageUrl(card.image.trim())
+        : undefined;
+    const priceUsd = parseCertPriceResult(raw)?.price ?? undefined;
+
+    if (!cert && !cardId && !normalized.parsed_entities.cert_number.trim()) {
+      return null;
+    }
+
+    return {
+      certCandidates: cert ? [cert] : [],
+      normalized,
+      ...(cardId ? { cardId } : {}),
+      ...(searchQuery ? { searchQuery } : {}),
+      ...(imageUrl ? { imageUrl } : {}),
+      ...(options?.certLookupComplete ? { certLookupComplete: true } : {}),
+      ...(priceUsd != null && options?.priceSource
+        ? { priceUsd, priceSource: options.priceSource }
+        : {}),
+    };
+  }
+
+  private async encodeSlabForCardhedgerOcr(image: Buffer): Promise<string> {
+    const jpg = await sharp(image)
+      .resize({ width: 1800, fit: 'inside', withoutEnlargement: true })
+      .jpeg({ quality: 85 })
+      .toBuffer();
+    return jpg.toString('base64');
+  }
+
+  private async forwardCertOcrWithBodyVariants(
+    path: string,
+    b64: string,
+  ): Promise<unknown> {
+    const tryBodies: Array<Record<string, unknown>> = [
+      { image_base64: b64 },
+      { image_base64: `data:image/jpeg;base64,${b64}` },
+    ];
+    for (const body of tryBodies) {
+      const raw = await this.cardhedgerService.forwardJson('POST', path, {
+        body,
+      });
+      if (typeof raw === 'object' && raw != null) return raw;
+    }
+    return null;
+  }
+
+  private static isCertOcrResolveUsable(
+    mapped: CardhedgerCertOcrResolveResult | null,
+  ): boolean {
+    if (!mapped) return false;
+    return mapped.certCandidates.length > 0 || Boolean(mapped.cardId);
+  }
+
+  private async tryResolveByCardhedgerCertOcr(
+    image: Buffer,
+  ): Promise<CardhedgerCertOcrResolveResult> {
     // HARD ENFORCEMENT: all OCR must be CardHedger OCR API.
     this.cardhedgerService.assertConfigured();
     try {
-      const jpg = await sharp(image)
-        .resize({ width: 1800, fit: 'inside', withoutEnlargement: true })
-        .jpeg({ quality: 85 })
-        .toBuffer();
-      const b64 = jpg.toString('base64');
+      const b64 = await this.encodeSlabForCardhedgerOcr(image);
+      const flags = this.cardhedgerFeatureFlags();
 
-      const tryBodies: Array<Record<string, unknown>> = [
-        { image_base64: b64 },
-        { image_base64: `data:image/jpeg;base64,${b64}` },
-      ];
-      for (const body of tryBodies) {
-        const raw = await this.cardhedgerService.forwardJson(
-          'POST',
-          '/v1/cards/details-by-cert-ocr',
-          { body },
-        );
-        if (typeof raw !== 'object' || raw == null) continue;
-        const normalized = PsaService.normalizeOcrEntitiesFromCardhedger(raw);
-        const cert = resolveCertHintForLookup(
-          normalized.parsed_entities.cert_number,
-        );
-        const card = (raw as { card?: unknown }).card as
-          | Record<string, unknown>
-          | undefined;
-        const cardId =
-          typeof card?.card_id === 'string' && card.card_id.trim()
-            ? card.card_id.trim()
-            : undefined;
-        const searchQuery =
-          typeof card?.description === 'string' && card.description.trim()
-            ? card.description.trim()
-            : undefined;
-        const imageUrl =
-          typeof card?.image === 'string' && card.image.trim()
-            ? card.image.trim()
-            : undefined;
-        return {
-          certCandidates: cert ? [cert] : [],
-          normalized,
-          ...(cardId ? { cardId } : {}),
-          ...(searchQuery ? { searchQuery } : {}),
-          ...(imageUrl ? { imageUrl } : {}),
-        };
+      if (flags.pricesByCertOcrEnabled) {
+        const t0 = Date.now();
+        try {
+          const raw = await this.forwardCertOcrWithBodyVariants(
+            '/v1/cards/prices-by-cert-ocr',
+            b64,
+          );
+          const mapped = PsaService.mapCertLookupToOcrResolve(raw, {
+            certLookupComplete: true,
+            priceSource: 'cardhedger_prices_by_cert_ocr',
+          });
+          if (PsaService.isCertOcrResolveUsable(mapped)) {
+            this.logger.log(
+              `Cardhedger prices-by-cert-ocr ok in ${Date.now() - t0}ms cert=${mapped!.certCandidates[0] ?? 'n/a'} cardId=${mapped!.cardId ?? 'n/a'} price=${mapped!.priceUsd ?? 'n/a'}`,
+            );
+            return mapped!;
+          }
+          this.logger.warn(
+            'Cardhedger prices-by-cert-ocr returned no cert/card — falling back to details-by-cert-ocr',
+          );
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          this.logger.warn(
+            `Cardhedger prices-by-cert-ocr failed (${msg}) — falling back to details-by-cert-ocr`,
+          );
+        }
       }
+
+      const raw = await this.forwardCertOcrWithBodyVariants(
+        '/v1/cards/details-by-cert-ocr',
+        b64,
+      );
+      const mapped = PsaService.mapCertLookupToOcrResolve(raw);
+      if (mapped) return mapped;
+
       return {
         certCandidates: [],
-        normalized: {
-          raw_text: '',
-          parsed_entities: {
-            card_name: '',
-            set: '',
-            year: '',
-            card_number: '',
-            cert_number: '',
-            grade: '',
-            autograph_detected: false,
-            signer_guess: null,
-          },
-          confidence: 0,
-        },
+        normalized: PsaService.emptyCardhedgerOcrNormalized(),
       };
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -853,6 +954,11 @@ export class PsaService {
         ...(frontOcr.cardId ? { cardId: frontOcr.cardId } : {}),
         ...(frontOcr.searchQuery ? { searchQuery: frontOcr.searchQuery } : {}),
         ...(frontOcr.imageUrl ? { imageUrl: frontOcr.imageUrl } : {}),
+        ...(frontOcr.certLookupComplete ? { certLookupComplete: true } : {}),
+        ...(frontOcr.priceUsd != null
+          ? { priceUsd: frontOcr.priceUsd }
+          : {}),
+        ...(frontOcr.priceSource ? { priceSource: frontOcr.priceSource } : {}),
       },
       slabFront,
       hintDigits ? { explicitCertHint: hintDigits } : undefined,
@@ -903,6 +1009,9 @@ export class PsaService {
       cardId?: string;
       searchQuery?: string;
       imageUrl?: string;
+      certLookupComplete?: boolean;
+      priceUsd?: number;
+      priceSource?: 'cardhedger_prices_by_cert_ocr';
     },
     imageBuffer?: Buffer,
     options?: { explicitCertHint?: string },
@@ -1080,6 +1189,15 @@ export class PsaService {
 
     const cardhedgerQuery = this.buildCardhedgerSearchQuery(psaParsed);
 
+    const cardhedgerMintPriceFields = {
+      ...(cardhedgerOcr?.priceUsd != null
+        ? { priceUsd: cardhedgerOcr.priceUsd }
+        : {}),
+      ...(cardhedgerOcr?.priceSource
+        ? { priceSource: cardhedgerOcr.priceSource }
+        : {}),
+    };
+
     let cardhedgerMint: PsaAnalyzeResult['cardhedgerMint'] = undefined;
     if (cardhedgerOcr?.cardId) {
       cardhedgerMint = {
@@ -1089,7 +1207,32 @@ export class PsaService {
           ? { searchQuery: cardhedgerOcr.searchQuery }
           : {}),
         ...(cardhedgerOcr.imageUrl ? { imageUrl: cardhedgerOcr.imageUrl } : {}),
+        ...cardhedgerMintPriceFields,
       };
+    } else if (cardhedgerOcr?.certLookupComplete) {
+      // Phase 5: prices-by-cert-ocr already ran cert lookup — skip details-by-certs.
+      try {
+        cardhedgerMint = await this.tryResolveCardhedgerMint(cardhedgerQuery, {
+          cardName: String(psaParsed.cardNameHint ?? ''),
+          cardNumber:
+            primaryCardNumber(String(psaParsed.cardNumberHint ?? '')) ||
+            String(psaParsed.cardNumberHint ?? '')
+              .replace(/^#/, '')
+              .trim(),
+          cardSet:
+            typeof psaParsed.setHint === 'string' && psaParsed.setHint.trim()
+              ? psaParsed.setHint.trim()
+              : undefined,
+          psaVariety: psaParsed.varietyHint,
+        });
+        if (cardhedgerMint) {
+          cardhedgerMint = { ...cardhedgerMint, ...cardhedgerMintPriceFields };
+        }
+      } catch (e) {
+        this.logger.warn(
+          `Cardhedger mint id resolve skipped: ${e instanceof Error ? e.message : String(e)}`,
+        );
+      }
     } else {
       // Try cert-based lookup first (direct, authoritative — replaces psaSpecId static map)
       if (psaParsed.certNumber) {

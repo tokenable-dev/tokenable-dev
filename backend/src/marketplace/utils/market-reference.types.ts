@@ -111,7 +111,20 @@ export type MarketCollectionPreview = {
       | 'catalog'
       | 'comps_median'
       | 'fmv'
+      | 'cert_estimate'
+      | 'batch_price_estimate'
       | 'psa_estimate'
+      | null;
+    /**
+     * Headline pricing upstream for UI (Phase 4).
+     * `cardhedger_comps` = comps / last sale / sparse history;
+     * `cardhedger_fmv` = card-fmv or card-fmv-batch;
+     * `cardhedger_estimate` = batch-prices-by-cert or batch-price-estimate.
+     */
+    priceSource?:
+      | 'cardhedger_fmv'
+      | 'cardhedger_estimate'
+      | 'cardhedger_comps'
       | null;
     /** Unix seconds — newest `sale_date` in comps raw payload, or history point time when basis is `latest_sale`. */
     latestSaleAt?: number | null;

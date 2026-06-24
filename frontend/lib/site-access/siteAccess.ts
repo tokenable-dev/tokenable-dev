@@ -35,6 +35,13 @@ export function isSiteAccessPublicPath(pathname: string, method: string): boolea
   if (pathname === "/api/health" && method.toUpperCase() === "GET") {
     return true;
   }
+  if (
+    pathname === "/api/webhooks/cardhedger/price-updates" &&
+    method.toUpperCase() === "POST"
+  ) {
+    return true;
+  }
+  if (isSwaggerPublicPath(pathname, method)) return true;
   if (pathname.startsWith("/auth/")) return true;
   if (pathname.startsWith("/_next/")) return true;
   if (pathname.startsWith("/assets/")) return true;
@@ -47,6 +54,19 @@ export function isSiteAccessPublicPath(pathname: string, method: string): boolea
     return true;
   }
   return false;
+}
+
+/** Swagger UI static assets + OpenAPI spec (GET). */
+export function isSwaggerPublicPath(pathname: string, method: string): boolean {
+  if (method.toUpperCase() !== 'GET') return false;
+  if (
+    pathname === '/api/docs' ||
+    pathname === '/api/docs-json' ||
+    pathname === '/api/docs-yaml'
+  ) {
+    return true;
+  }
+  return pathname.startsWith('/api/docs/');
 }
 
 export async function issueSiteAccessToken(

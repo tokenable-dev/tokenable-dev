@@ -167,6 +167,10 @@ export class CollectionMarketSnapshotSchedulerService
         return 80;
       case 'manual':
         return 60;
+      case 'price_webhook':
+        return 95;
+      case 'price_delta':
+        return 55;
       case 'cron':
       default:
         return 40;

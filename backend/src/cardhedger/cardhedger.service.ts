@@ -6,7 +6,11 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import type { CardhedgerMetricsService } from '../common/metrics/cardhedger-metrics.service';
+import type {
+  CardhedgerMetricsService,
+  UpstreamCallOutcome,
+} from '../common/metrics/cardhedger-metrics.service';
+import type { CardhedgerUpstreamOperation } from '../common/metrics/cardhedger-upstream.util';
 
 /**
  * Card Hedge upstream (`https://api.cardhedger.com`) with server-side `X-API-Key`.
@@ -236,6 +240,8 @@ export class CardhedgerService {
     opts?: {
       query?: Record<string, string | undefined>;
       body?: unknown;
+      /** Optional logical operation for per-flow upstream metrics (Phase 0+). */
+      metricsOperation?: CardhedgerUpstreamOperation;
     },
   ): Promise<unknown> {
     if (this.isCircuitOpen()) {
@@ -272,12 +278,22 @@ export class CardhedgerService {
       init.body = JSON.stringify(opts.body);
     }
 
+    const startedAt = Date.now();
+    let outcome: UpstreamCallOutcome = 'error';
+
     let upstream: globalThis.Response;
     try {
       upstream = await this.attemptFetch(url, init);
     } catch (e) {
       // Network failure after all retries — counts as infrastructure failure.
       this.recordCircuitFailure();
+      this.recordUpstreamMetric(
+        upstreamPath,
+        method,
+        'error',
+        Date.now() - startedAt,
+        opts?.metricsOperation,
+      );
       throw e;
     }
 
@@ -290,6 +306,13 @@ export class CardhedgerService {
       } else {
         this.recordCircuitSuccess();
       }
+      this.recordUpstreamMetric(
+        upstreamPath,
+        method,
+        'error',
+        Date.now() - startedAt,
+        opts?.metricsOperation,
+      );
       let payload: unknown = text;
       try {
         payload = text ? JSON.parse(text) : { detail: text };
@@ -303,6 +326,14 @@ export class CardhedgerService {
     }
 
     this.recordCircuitSuccess();
+    outcome = 'success';
+    this.recordUpstreamMetric(
+      upstreamPath,
+      method,
+      outcome,
+      Date.now() - startedAt,
+      opts?.metricsOperation,
+    );
     const ct = upstream.headers.get('content-type') ?? '';
     if (ct.includes('application/json') && text) {
       try {
@@ -314,8 +345,27 @@ export class CardhedgerService {
     return text;
   }
 
+  private recordUpstreamMetric(
+    upstreamPath: string,
+    method: 'GET' | 'POST',
+    outcome: UpstreamCallOutcome,
+    durationMs: number,
+    operation?: CardhedgerUpstreamOperation,
+  ): void {
+    this.metrics?.recordUpstreamCall({
+      upstreamPath,
+      method,
+      outcome,
+      durationMs,
+      operation,
+    });
+  }
+
   /** Binary GET (e.g. daily CSV export). */
-  async forwardBinary(upstreamPath: string): Promise<{
+  async forwardBinary(
+    upstreamPath: string,
+    opts?: { metricsOperation?: CardhedgerUpstreamOperation },
+  ): Promise<{
     buffer: Buffer;
     contentType: string;
   }> {
@@ -329,6 +379,7 @@ export class CardhedgerService {
     const base = this.getUpstreamBase();
     const url = new URL(upstreamPath.replace(/^\//, ''), `${base}/`);
 
+    const startedAt = Date.now();
     const upstream = await this.attemptFetch(url, {
       method: 'GET',
       headers: {
@@ -342,6 +393,13 @@ export class CardhedgerService {
       upstream.headers.get('content-type') ?? 'application/octet-stream';
 
     if (!upstream.ok) {
+      this.recordUpstreamMetric(
+        upstreamPath,
+        'GET',
+        'error',
+        Date.now() - startedAt,
+        opts?.metricsOperation,
+      );
       let payload: unknown = buf.toString('utf8');
       try {
         payload = JSON.parse(buf.toString('utf8'));
@@ -353,6 +411,14 @@ export class CardhedgerService {
         upstream.status,
       );
     }
+
+    this.recordUpstreamMetric(
+      upstreamPath,
+      'GET',
+      'success',
+      Date.now() - startedAt,
+      opts?.metricsOperation,
+    );
 
     return { buffer: buf, contentType };
   }

@@ -22,9 +22,10 @@ import {
 } from "@/lib/markets/marketsCollectionSort";
 import { CollectionGridCard } from "./CollectionGridCard";
 import { MarketsSortToolbar } from "./MarketsSortToolbar";
-import { TOP_CARDS_UI_ENABLED } from "@/lib/markets/top100Copy";
+import { TOP_CARDS_UI_ENABLED, TOP_MOVERS_UI_ENABLED } from "@/lib/markets/top100Copy";
 import { pickCollectionSummaryDisplayImageUrl } from "@/lib/marketplace/collectionDisplayImage";
 import { CardTop100Section } from "./CardTop100Section";
+import { TopMoversSection } from "./TopMoversSection";
 
 export default function MarketsPage() {
   const [categoryFilter, setCategoryFilter] = useState<CollectionCategoryFilterId>(
@@ -125,15 +126,34 @@ export default function MarketsPage() {
   return (
     <div className="min-h-screen min-w-0 overflow-x-clip bg-black text-white">
       <div className="mx-auto w-full max-w-6xl min-w-0 px-3 pb-20 pt-8 max-[380px]:px-2 sm:px-6 sm:pb-24 sm:pt-12">
-        {TOP_CARDS_UI_ENABLED ? (
+        {(TOP_CARDS_UI_ENABLED || TOP_MOVERS_UI_ENABLED) ? (
           <>
-            <Suspense
-              fallback={
-                <div className="mb-10 h-64 animate-pulse rounded-2xl border border-zinc-800/50 bg-[#0d0d0d] sm:mb-12" />
+            <div
+              className={
+                TOP_CARDS_UI_ENABLED && TOP_MOVERS_UI_ENABLED
+                  ? "mb-10 grid grid-cols-1 gap-8 lg:mb-4 lg:grid-cols-2 lg:gap-6 xl:gap-8"
+                  : "mb-10 sm:mb-4"
               }
             >
-              <CardTop100Section variant="preview" />
-            </Suspense>
+              {TOP_CARDS_UI_ENABLED ? (
+                <Suspense
+                  fallback={
+                    <div className="h-64 animate-pulse rounded-2xl border border-zinc-800/50 bg-[#0d0d0d]" />
+                  }
+                >
+                  <CardTop100Section variant="preview" />
+                </Suspense>
+              ) : null}
+              {TOP_MOVERS_UI_ENABLED ? (
+                <Suspense
+                  fallback={
+                    <div className="h-64 animate-pulse rounded-2xl border border-zinc-800/50 bg-[#0d0d0d]" />
+                  }
+                >
+                  <TopMoversSection />
+                </Suspense>
+              ) : null}
+            </div>
 
             <div
               className="mb-6 border-t border-white/[0.06] pt-8 sm:mb-5 sm:pt-4"

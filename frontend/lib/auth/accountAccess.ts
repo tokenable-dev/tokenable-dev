@@ -3,10 +3,24 @@ import { userHasLinkedWallet } from "./wallets";
 
 export type AccountAccessLevel = 0 | 1 | 2;
 
+/** Dev-only KYC bypass until identity provider integration ships. */
+const KYC_DEV_BYPASS_EMAILS = new Set(["tokenable.dev@gmail.com"]);
+
+function normalizeAuthEmail(email: string | null | undefined): string {
+  return email?.trim().toLowerCase() ?? "";
+}
+
+export function isKycDevBypassUser(user: AuthUser | null | undefined): boolean {
+  const email = normalizeAuthEmail(user?.email);
+  return email.length > 0 && KYC_DEV_BYPASS_EMAILS.has(email);
+}
+
 /**
  * KYC completion — backend field TBD. Stub until Polsinelli / identity provider integration.
+ * `tokenable.dev@gmail.com` bypasses for local/staging feature testing.
  */
-export function isKycComplete(_user: AuthUser | null | undefined): boolean {
+export function isKycComplete(user: AuthUser | null | undefined): boolean {
+  if (isKycDevBypassUser(user)) return true;
   return false;
 }
 
