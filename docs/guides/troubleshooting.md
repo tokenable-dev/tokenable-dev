@@ -33,6 +33,7 @@
 - Check that `access_token` cookie is present in the browser (DevTools → Application → Cookies).
 - Google OAuth callback URL must match exactly what is registered in Google Cloud Console.
 - `FRONTEND_URL` in backend env must match the URL the user opens in the browser.
+- If response includes `"code":"SITE_ACCESS_REQUIRED"`, complete **`/site-access`** first when `SITE_ACCESS_ENABLED=true` — see [site-access.md](../api/site-access.md).
 
 ---
 
@@ -64,7 +65,7 @@ GitHub Actions deploys frontend and backend from the **same commit** when you pu
 
 ## Database: "relation does not exist"
 
-Production expects **seven** application tables — see [architecture/database.md](../architecture/database.md). Apply bootstrap once:
+Production expects **seventeen** application tables — see [architecture/database.md](../architecture/database.md). Apply bootstrap once:
 
 ```bash
 # From repo root (host has backend/sql/)
@@ -157,7 +158,7 @@ docker logs tokenable-backend 2>&1 | tail -80
 # Check env vars in backend container
 docker exec tokenable-backend env | grep -E 'TYPEORM|POSTGRES|NODE_ENV|CARDHEDGER'
 
-# Verify DB tables (expect 7 application tables — see architecture/database.md)
+# Verify DB tables (see architecture/database.md for full list)
 docker exec tokenable-postgres psql -U tokenable -d tokenable -c '\dt'
 
 # Portfolio cron log (after 09:00 KST or bootstrap)

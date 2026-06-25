@@ -1,7 +1,7 @@
 # Database
 
 **Engine:** PostgreSQL 16  
-**ORM:** TypeORM (NestJS)  
+**ORM:** TypeORM (NestJS) — **17 entities**  
 **DDL:** `backend/sql/schema/` — applied via [bootstrap script](../../backend/sql/README.md)  
 **Source of truth:** `backend/src/**/entities/*.ts`
 
@@ -11,32 +11,61 @@
 
 | Rule | Detail |
 |------|--------|
-| **Eight tables** | All application state lives in the tables listed below — no relational `bids`/`asks` matching layer |
-| **No FK constraints** | Relationships are **logical** (denormalized keys, enforced in application code) |
+| **Domain tables** | Auth/users, marketplace core, portfolio, Cardhedger price infra, admin — see table list below |
+| **No FK constraints (marketplace core)** | Core bucket/order relationships are **logical** (denormalized keys, enforced in app code) |
+| **FK on user-scoped tables** | `user_wallets`, `user_watchlist`, `verification_tokens` reference `users(id)` with CASCADE |
 | **Bucket vs pricing split** | `marketplace_collections` = metadata · `collection_market_snapshots` = Cardhedger pricing |
 | **PSA cache split** | `psa_cert_snapshots` = API cache by cert · `marketplace_collections.psa_cert_number` = bucket facet |
 | **Hot read path** | Collection charts/list rows read PostgreSQL only — Cardhedger upstream runs in snapshot workers |
 
 ---
 
-## Tables
+## Tables by domain
+
+### Auth & users
 
 | Table | Purpose | Entity |
 |-------|---------|--------|
-| `users` | Google OAuth accounts + optional linked wallet | `user/entities/user.entity.ts` |
+| `users` | Google OAuth + email/password accounts | `user/entities/user.entity.ts` |
+| `user_wallets` | Multiple linked wallets per user (shared address allowed across users) | `user/entities/user-wallet.entity.ts` |
+| `verification_tokens` | Hashed single-use tokens (email verify, password reset) | `auth/entities/verification-token.entity.ts` |
+
+### Marketplace core
+
+| Table | Purpose | Entity |
+|-------|---------|--------|
 | `psa_cert_snapshots` | PSA Public API response cache (by cert number) | `marketplace/entities/psa-cert-snapshot.entity.ts` |
 | `marketplace_collections` | Graded-metadata bucket catalog (created on first ask) | `marketplace/entities/marketplace-collection.entity.ts` |
 | `rwa_tokens` | On-chain mint registry (contract + tokenId → cert, IPFS) | `marketplace/entities/rwa-token.entity.ts` |
 | `collection_market_snapshots` | Materialized Cardhedger market state per bucket | `marketplace/entities/collection-market-snapshot.entity.ts` |
 | `orders` | Seaport signed asks/bids + fulfilled trade tape | `marketplace/entities/order.entity.ts` |
+
+### Portfolio & engagement
+
+| Table | Purpose | Entity |
+|-------|---------|--------|
 | `portfolio_daily_snapshots` | Daily 09:00 KST wallet mark-to-market | `marketplace/entities/portfolio-daily-snapshot.entity.ts` |
 | `portfolio_hidden_holdings` | Per-wallet UI hide list (off-chain preference) | `marketplace/entities/portfolio-hidden-holding.entity.ts` |
+| `user_watchlist` | Saved marketplace collections per authenticated user | `marketplace/entities/user-watchlist.entity.ts` |
+
+### Admin & Cardhedger infra
+
+| Table | Purpose | Entity |
+|-------|---------|--------|
+| `marketplace_admins` | Marketplace admin console credentials | `marketplace/entities/marketplace-admin.entity.ts` |
+| `card_top100_daily_snapshots` | Daily Top 100 rank snapshots (KST date × category × grade) | `cardhedger/entities/card-top100-snapshot.entity.ts` |
+| `cardhedger_price_subscriptions` | Cardhedger `subscribe-price-updates` registrations | `cardhedger/entities/cardhedger-price-subscription.entity.ts` |
+| `cardhedger_price_delta_checkpoints` | Singleton checkpoint for delta polling | `cardhedger/entities/cardhedger-price-delta-checkpoint.entity.ts` |
+| `cardhedger_daily_price_export_runs` | Nightly CSV export import audit | `cardhedger/entities/cardhedger-daily-price-export-run.entity.ts` |
+| `cardhedger_price_delta_import_runs` | Per-run delta import audit | `cardhedger/entities/cardhedger-price-delta-import-run.entity.ts` |
+
+> **Note:** `card_top100_daily_snapshots` is not yet in `bootstrap-empty-prod-db.sql`. Created via TypeORM sync in dev; add DDL before relying on it in a bootstrap-only prod DB.
 
 ---
 
-## Entity relationships
+## Entity relationships (core marketplace)
 
-PostgreSQL does not declare foreign keys. Arrows show **logical** links only.
+PostgreSQL does not declare foreign keys on marketplace core tables. Arrows show **logical** links only.
 
 ```mermaid
 erDiagram
@@ -44,9 +73,21 @@ erDiagram
         uuid id PK
         varchar email UK
         varchar google_id UK
-        varchar wallet_address UK
-        timestamptz created_at
-        timestamptz updated_at
+        varchar wallet_address
+        varchar password_hash
+    }
+
+    user_wallets {
+        uuid id PK
+        uuid user_id FK
+        varchar wallet_address
+        boolean is_primary
+    }
+
+    user_watchlist {
+        serial id PK
+        uuid user_id FK
+        varchar collection_key
     }
 
     psa_cert_snapshots {
@@ -58,22 +99,14 @@ erDiagram
     marketplace_collections {
         varchar collection_key PK
         varchar display_label
-        text query_used
         jsonb components
-        text cover_image_url
         varchar psa_cert_number
-        varchar market_parallel_key
-        smallint bucket_key_version
-        timestamptz created_at
     }
 
     collection_market_snapshots {
         varchar collection_key PK
-        varchar cardhedger_card_id
         float headline_usd
         varchar market_state
-        timestamptz synced_at
-        timestamptz stale_after
     }
 
     rwa_tokens {
@@ -81,45 +114,34 @@ erDiagram
         varchar token_id PK
         varchar cert_number
         varchar collection_key
-        timestamptz metadata_synced_at
     }
 
     orders {
         serial id PK
         varchar order_hash UK
-        varchar offerer
         varchar side
-        varchar token_contract
-        varchar token_id
         varchar collection_key
         varchar status
-        timestamptz end_time
     }
 
     portfolio_daily_snapshots {
         serial id PK
         varchar wallet_address
         date snapshot_date_kst
-        timestamptz snapshot_at
-        float total_value_usd
-        int card_count
     }
 
     portfolio_hidden_holdings {
         serial id PK
         varchar wallet_address
         int token_id
-        timestamptz hidden_at
     }
 
-    marketplace_collections ||--o| collection_market_snapshots : "collection_key 1:1"
+    users ||--o{ user_wallets : "user_id"
+    users ||--o{ user_watchlist : "user_id"
+    marketplace_collections ||--o| collection_market_snapshots : "collection_key"
     marketplace_collections ||--o{ orders : "collection_key"
     marketplace_collections ||--o{ rwa_tokens : "collection_key"
-    marketplace_collections }o--o| psa_cert_snapshots : "psa_cert_number"
     rwa_tokens ||--o{ orders : "token_contract + token_id"
-    users |o--o{ orders : "wallet_address ~ offerer"
-    users |o--o{ portfolio_daily_snapshots : "wallet_address"
-    users |o--o{ portfolio_hidden_holdings : "wallet_address"
 ```
 
 ---
@@ -129,7 +151,8 @@ erDiagram
 ```mermaid
 flowchart LR
     subgraph auth [Auth]
-        A1[Google OAuth] --> users
+        A1[Google OAuth / register] --> users
+        A2[Wallet link] --> user_wallets
     end
 
     subgraph mint [Mint]
@@ -153,14 +176,17 @@ flowchart LR
         H1[hide / unhide API] --> portfolio_hidden_holdings
     end
 
-    subgraph read [Hot read — no Cardhedger upstream]
-        R1[markets / charts] --> marketplace_collections
-        R1 --> collection_market_snapshots
-        R1 --> orders
+    subgraph watchlist [Watchlist]
+        W1[JWT user] --> user_watchlist
+    end
+
+    subgraph cardhedger [Cardhedger infra]
+        T1[Top 100 cron] --> card_top100_daily_snapshots
+        S1[price webhook / delta] --> cardhedger_price_subscriptions
     end
 ```
 
-Cardhedger upstream calls happen only inside **snapshot workers**, **cold-start refresh**, **cert trace**, and **portfolio capture** — not on every chart/list GET. See [materialized-market-snapshots.md](./materialized-market-snapshots.md).
+Cardhedger upstream calls happen inside **snapshot workers**, **cold-start refresh**, **cert trace**, **portfolio capture**, and **Cardhedger proxy/controllers** — not on every chart/list GET. See [materialized-market-snapshots.md](./materialized-market-snapshots.md).
 
 ---
 
@@ -170,15 +196,16 @@ Cardhedger upstream calls happen only inside **snapshot workers**, **cold-start 
 |---------|---------|
 | Bucket identity | `marketplace_collections.collection_key` + `market_parallel_key` + `bucket_key_version` |
 | Cardhedger catalog id | `marketplace_collections.components.cardhedgerCardId` (via `CollectionIdentityService`) |
-| Cardhedger pricing | `collection_market_snapshots` (`headline_usd`, `preview_json`, `external_usd_json`, …) |
+| Cardhedger pricing | `collection_market_snapshots` |
 | PSA cert (canonical per bucket) | `marketplace_collections.psa_cert_number` |
 | PSA API payload cache | `psa_cert_snapshots.snapshot_json` |
-| Mint inventory | `rwa_tokens` (optional boot sync: `RWA_TOKEN_REGISTRY_SYNC_ON_BOOT`) |
+| Mint inventory | `rwa_tokens` |
 | Order book + trade tape | `orders` |
 | Portfolio history | `portfolio_daily_snapshots` |
 | Portfolio hide preference | `portfolio_hidden_holdings` |
-
-`marketplace_collections` does **not** store Cardhedger pricing columns or per-row PSA JSON blobs — those live in the tables above.
+| Saved collections | `user_watchlist` |
+| Top 100 daily rank | `card_top100_daily_snapshots` |
+| Live price push / delta | `cardhedger_price_subscriptions` + import run tables |
 
 ---
 
@@ -186,192 +213,121 @@ Cardhedger upstream calls happen only inside **snapshot workers**, **cold-start 
 
 Applied in order by `backend/sql/bootstrap-empty-prod-db.sql`:
 
-| File | Table(s) |
-|------|----------|
+| File | Table(s) / change |
+|------|-------------------|
 | `schema/010_users.sql` | `users` |
 | `schema/015_psa_cert_snapshots.sql` | `psa_cert_snapshots` |
 | `schema/020_marketplace_collections.sql` | `marketplace_collections` |
 | `schema/025_rwa_tokens.sql` | `rwa_tokens` |
+| `schema/026_rwa_tokens_display_image.sql` | `rwa_tokens.display_image_url` |
 | `schema/030_collection_market_snapshots.sql` | `collection_market_snapshots` |
 | `schema/040_orders.sql` | `orders` |
 | `schema/050_refactor_legacy_columns.sql` | Legacy column migration (safe on fresh bootstrap) |
 | `schema/060_portfolio_daily_snapshots.sql` | `portfolio_daily_snapshots` |
 | `schema/061_portfolio_hidden_holdings.sql` | `portfolio_hidden_holdings` |
+| `schema/062_user_watchlist.sql` | `user_watchlist` |
+| `schema/063_users_password_hash.sql` | `users.password_hash` |
+| `schema/064_verification_tokens.sql` | `verification_tokens` |
+| `schema/065_user_wallets.sql` | `user_wallets` |
+| `schema/066_user_wallets_allow_shared.sql` | Shared wallet constraint change |
+| `schema/067_password_reset_tokens.sql` | `verification_token_type` + `password_reset` |
+| `schema/068_marketplace_admins.sql` | `marketplace_admins` |
+| `schema/070_cardhedger_price_infra.sql` | subscriptions, checkpoints, export runs |
 | `schema/900_triggers.sql` | `updated_at` triggers |
+
+**Manual migrations (not in bootstrap orchestrator):**
+
+| File | Purpose |
+|------|---------|
+| `schema/071_cardhedger_price_delta_import_runs.sql` | Delta import audit table |
+| `schema/072_cardhedger_delta_catalog_fallback.sql` | Extra columns on import runs |
+
+Apply `071`/`072` on existing DBs that bootstrapped before those files existed.
 
 | Environment | Approach |
 |-------------|----------|
 | **Local dev** | `NODE_ENV !== production` → TypeORM `synchronize: true` on backend boot |
-| **Production / empty DB** | Run `backend/sql/scripts/bootstrap-db.sh` once |
+| **Production / empty DB** | Run `backend/sql/scripts/bootstrap-db.sh` once, then apply `071`/`072` if needed |
 | **Older DBs** | Bootstrap includes `050_refactor_legacy_columns.sql` for legacy column cleanup |
 
 Details: [backend/sql/README.md](../../backend/sql/README.md) · [guides/deployment.md](../guides/deployment.md)
 
 ---
 
-## Table reference
+## Table reference (key columns)
 
 ### `users`
 
-Google OAuth accounts with optional linked wallet.
+| Column | Notes |
+|--------|-------|
+| `id` | uuid PK |
+| `email` | UNIQUE |
+| `google_id` | UNIQUE, nullable |
+| `password_hash` | nullable — Google-only users have NULL |
+| `email_verified` | boolean — required for email/password login |
+| `wallet_address` | Denormalized primary wallet (nullable; not globally unique) |
+| `name`, `picture_url` | Profile |
 
-| Column | Type | Notes |
-|--------|------|-------|
-| `id` | uuid PK | `gen_random_uuid()` |
-| `email` | varchar(320) | UNIQUE |
-| `google_id` | varchar(64) | UNIQUE, nullable |
-| `name` | varchar(200) | nullable |
-| `picture_url` | text | nullable |
-| `email_verified` | boolean | default `false` |
-| `platform_email_verified_at` | timestamptz | nullable |
-| `email_verification_token_hash` | varchar(64) | nullable |
-| `email_verification_expires_at` | timestamptz | nullable |
-| `verification_email_last_sent_at` | timestamptz | nullable |
-| `wallet_address` | varchar(42) | UNIQUE, nullable (EIP-55) |
-| `wallet_linked_at` | timestamptz | nullable |
-| `created_at`, `updated_at` | timestamptz | `updated_at` trigger |
+Legacy per-user verification columns were moved to `verification_tokens`.
 
----
+### `user_wallets`
 
-### `psa_cert_snapshots`
+| Column | Notes |
+|--------|-------|
+| `user_id` | FK → `users` |
+| `wallet_address` | Same address may appear on **multiple users** (shared custody) |
+| `is_primary` | One primary per user |
+| **Unique** | `(user_id, wallet_address)` |
 
-PSA Public API cache keyed by cert digits.
+### `verification_tokens`
 
-| Column | Type | Notes |
-|--------|------|-------|
-| `cert_number` | varchar(32) PK | |
-| `snapshot_json` | jsonb | Compact `PSACert` fields |
-| `fetched_at` | timestamptz | TTL: `PSA_PUBLIC_SNAPSHOT_DB_TTL_SEC` |
-
----
+| Column | Notes |
+|--------|-------|
+| `token_hash` | SHA-256 of raw token (email only) |
+| `type` | `email_verify` \| `password_reset` |
+| `expires_at` | Single-use until consumed |
 
 ### `marketplace_collections`
 
 Logical bucket from graded RWA metadata (`computeMarketBucketKey`, **v2**). Created on **first ask**, not at mint.
 
-| Column | Type | Notes |
-|--------|------|-------|
-| `collection_key` | varchar(64) PK | SHA-256 hex bucket key |
-| `display_label` | varchar | Human-readable title |
-| `query_used` | text | Cardhedger search text, nullable |
-| `components` | jsonb | Bucket fields + enrichments (`cardhedgerCardId`, `psaVariety`, …) |
-| `cover_image_url` | text | nullable |
-| `psa_cert_number` | varchar(32) | Indexed; canonical cert for bucket |
-| `market_parallel_key` | varchar(96) | Indexed; `base` or PSA Variety slug |
-| `bucket_key_version` | smallint | default `2`, CHECK `>= 1` |
-| `created_at` | timestamptz | |
-
-**Indexes:** `psa_cert_number` (partial), `market_parallel_key`, `created_at DESC`
-
----
+Key columns: `collection_key`, `display_label`, `components` (jsonb — includes `cardhedgerCardId`, `psaVariety`), `cover_image_url`, `psa_cert_number`, `market_parallel_key`, `bucket_key_version`.
 
 ### `rwa_tokens`
 
-On-chain mint registry. Populated on ask listing; optional full scan via `RWA_TOKEN_REGISTRY_SYNC_ON_BOOT`.
-
-| Column | Type | Notes |
-|--------|------|-------|
-| `token_contract` | varchar(42) PK | `RWA_CONTRACT_ADDRESS` |
-| `token_id` | varchar(64) PK | |
-| `cert_number` | varchar(32) | From IPFS `graded.psa.certNumber` |
-| `token_uri` | text | On-chain `tokenURI` |
-| `metadata_cid` | varchar(128) | Parsed from `ipfs://` |
-| `display_name` | varchar(512) | IPFS `name` |
-| `collection_key` | varchar(64) | Last listing bucket, nullable |
-| `metadata_synced_at` | timestamptz | |
-| `created_at`, `updated_at` | timestamptz | |
-
----
+On-chain mint registry. Key columns: `(token_contract, token_id)` PK, `cert_number`, `token_uri`, `metadata_cid`, `display_name`, `display_image_url`, `collection_key`.
 
 ### `collection_market_snapshots`
 
-Materialized Cardhedger state — **API read path is DB-first**.
-
-| Column | Type | Notes |
-|--------|------|-------|
-| `collection_key` | varchar(64) PK | |
-| `cardhedger_card_id` | varchar(64) | nullable |
-| `psa10_usd`, `psa9_usd`, `raw_usd`, `headline_usd` | double precision | nullable |
-| `spot_price_basis` | varchar(32) | `comps`, `latest_sale`, `catalog`, … |
-| `change_7d_pct`, `change_30d_pct` | double precision | nullable |
-| `sparkline_90d_json` | jsonb | ~90d downsampled series |
-| `preview_json` | jsonb | Full preview for `GET …/cardhedger` |
-| `external_usd_json` | jsonb | Up to ~365d — `market-series` / `price-history` |
-| `grade_prices_json` | jsonb | nullable |
-| `category_label` | varchar(512) | nullable |
-| `history_tier` | varchar(32) | nullable |
-| `reliability_score` | smallint | 0–100, nullable |
-| `market_state` | varchar(16) | `fresh` \| `stale` \| `error` \| `empty` |
-| `synced_at`, `stale_after` | timestamptz | SWR freshness window |
-| `source_version` | smallint | default `1` |
-| `last_viewed_at` | timestamptz | Scheduler prioritization |
-| `last_refresh_error` | text | nullable |
-| `created_at`, `updated_at` | timestamptz | |
-
-**Indexes:** `stale_after`, `last_viewed_at DESC`, `market_state`, `synced_at DESC`
-
----
+Materialized Cardhedger state — API read path is DB-first. Key columns: `headline_usd`, `preview_json`, `external_usd_json`, `sparkline_90d_json`, `market_state`, `synced_at`, `stale_after`.
 
 ### `orders`
 
-Seaport off-chain order book.
-
-| Column | Type | Notes |
-|--------|------|-------|
-| `id` | serial PK | |
-| `order_hash` | varchar(255) | UNIQUE — Seaport hash |
-| `offerer` | varchar(255) | ask: seller · bid: buyer |
-| `side` | varchar(16) | `ask` \| `bid` |
-| `token_contract` | varchar(255) | RWA ERC-721 |
-| `token_id` | varchar(255) | bid criteria uses sentinel `"0"` |
-| `collection_key` | varchar(64) | Denormalized at insert |
-| `consideration_token` | varchar(255) | USDC |
-| `consideration_amount` | varchar(255) | Micro-units string |
-| `parameters` | jsonb | Full Seaport order |
-| `signature` | varchar(255) | EIP-712 |
-| `status` | varchar(32) | `active` \| `fulfilled` \| `cancelled` \| `expired` |
-| `start_time`, `end_time` | timestamptz | |
-| `created_at`, `updated_at` | timestamptz | |
-
-**Indexes:** `offerer`, `token_id`, `(token_contract, token_id)`, `collection_key`, `end_time`  
-**Partial:** active asks per collection · fulfilled asks per collection (chart tape)
-
----
+Seaport off-chain order book. `side`: `ask` \| `bid`. `status`: `active` \| `fulfilled` \| `cancelled` \| `expired`.
 
 ### `portfolio_daily_snapshots`
 
-Daily wallet totals for portfolio charts. Captured at **09:00 Asia/Seoul**.
-
-| Column | Type | Notes |
-|--------|------|-------|
-| `id` | serial PK | |
-| `wallet_address` | varchar(42) | Lowercase `0x…` |
-| `snapshot_date_kst` | date | KST calendar day |
-| `snapshot_at` | timestamptz | Slot instant (09:00 KST) |
-| `total_value_usd` | double precision | CHECK `>= 0` |
-| `card_count` | integer | CHECK `>= 0` |
-| `created_at` | timestamptz | |
-
-**Unique:** `(wallet_address, snapshot_date_kst)`  
-**Index:** `(wallet_address, snapshot_at DESC)`
-
-Cron targets: all on-chain RWA holders + linked zero-card wallets + wallets with prior history.
-
----
+Daily wallet totals at **09:00 Asia/Seoul**. Unique `(wallet_address, snapshot_date_kst)`.
 
 ### `portfolio_hidden_holdings`
 
-Off-chain UI preference — NFT stays in wallet; excluded from portfolio totals and default list.
+Off-chain UI preference — NFT stays in wallet. Unique `(wallet_address, token_id)`.
 
-| Column | Type | Notes |
-|--------|------|-------|
-| `id` | serial PK | |
-| `wallet_address` | varchar(42) | |
-| `token_id` | integer | CHECK `>= 0` |
-| `hidden_at` | timestamptz | default `now()` |
+### `user_watchlist`
 
-**Unique:** `(wallet_address, token_id)`  
-**Index:** `wallet_address`
+Unique `(user_id, collection_key)`.
+
+### `marketplace_admins`
+
+Separate admin console auth (`username`, `password_hash`) — not linked to `users`.
+
+### `card_top100_daily_snapshots`
+
+Unique `(snapshot_date_kst, category, grade)`. Stores ranked card JSON array for that day's snapshot.
+
+### Cardhedger price infra tables
+
+See `schema/070_cardhedger_price_infra.sql` and entity files under `backend/src/cardhedger/entities/`.
 
 ---
 

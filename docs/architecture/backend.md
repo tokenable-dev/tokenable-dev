@@ -5,21 +5,24 @@
 
 ## Marketplace layout
 
-The marketplace domain is organized into **five submodules**:
+The marketplace domain is organized into **six submodules**:
 
 | Submodule | Role |
 |-----------|------|
 | `marketplace/orders/` | Seaport order book CRUD |
-| `marketplace/collections/` | Bucket metadata, listing enrichment, merkle set, **identity cache** |
+| `marketplace/collections/` | Bucket metadata, listing enrichment, merkle set, **identity cache**, RWA token admin |
 | `marketplace/market-data/` | Cardhedger resolve / pricing / mint previews / AI insight |
 | `marketplace/snapshots/` | Materialized `collection_market_snapshots` (write, read, cron) |
 | `marketplace/portfolio/` | Daily wallet snapshots + hidden-holdings preference |
+| `marketplace/watchlist/` | Per-user saved collections |
+| `marketplace/admin/` | Marketplace admin auth (username/password, separate from `users`) |
 
 Cross-cutting additions:
 
 - **`CollectionIdentityService`** — canonical writer for `components.cardhedgerCardId` with L1 in-process + L2 Redis cache, row-lock precedence, write-through invalidation.
 - **`CardhedgerResolveService`** — Cardhedger card-search resolution (resolve / pricing / mint are separate services under `market-data/`).
 - **`CardhedgerAdminModule`** — ops health + Prometheus scrape (`/api/admin/cardhedger/*`).
+- **`CardhedgerPriceInfraModule`** — price webhook receiver, subscription sync, nightly delta import (`/api/admin/cardhedger/price-subscriptions/*`).
 - **`common/cache/`** — global in-memory TTL cache (`TTL_CACHE_PROVIDER`) for resolve paths.
 - **`common/metrics/`** — Cardhedger operational counters (identity + resolve + scheduler).
 
@@ -32,7 +35,7 @@ Cross-cutting additions:
 ```
 backend/src/
 ├── main.ts                  # Bootstrap: global prefix /api, CORS, ValidationPipe, Swagger
-├── app.module.ts            # Root — TypeORM (8 entities), ScheduleModule, EventEmitter, CacheModule
+├── app.module.ts            # Root — TypeORM (17 entities), ScheduleModule, EventEmitter, CacheModule
 │
 ├── config/
 │   ├── app.config.ts
@@ -43,21 +46,34 @@ backend/src/
 │   ├── cache/               # Global MemoryTtlCacheProvider (TTL_CACHE_PROVIDER)
 │   └── metrics/             # CardhedgerMetricsModule — identity/resolve/scheduler counters
 │
-├── auth/                    # Google OAuth, JWT cookies, wallet link
-├── user/                    # users table
-├── mail/                    # SMTP (auth verification emails)
+├── auth/                    # Google OAuth, email/password, JWT cookies, wallet link
+├── user/                    # users + user_wallets
+├── mail/                    # SMTP (verification + password reset emails)
 ├── health/                  # GET /api/health
+├── site-access/             # Optional staging gate middleware + POST verify
 │
 ├── rwa/                     # IPFS upload (Pinata) — PSA 10 gate on mint metadata
 ├── blockchain/              # Sepolia read-only RWA + IPFS gateway resolver
-├── psa/                     # Slab OCR, analyze-by-cert, Public API
-├── cardhedger/              # Upstream HTTP client (server-to-server)
-│   └── admin/               # CardhedgerAdminModule — health, circuit, metrics, prometheus
+├── psa/                     # Slab OCR, analyze-by-cert, Public API progress proxy
+│
+├── cardhedger/              # Upstream HTTP client + public controllers
+│   ├── cardhedger.service.ts       # forwardJson to Cardhedger upstream
+│   ├── controllers/
+│   │   ├── cardhedger-proxy.controller.ts    # /api/cardhedger/v1/* full proxy
+│   │   ├── card-top100.controller.ts         # /api/cardhedger/top100/*
+│   │   ├── card-top-movers.controller.ts     # /api/cardhedger/top-movers
+│   │   ├── cardhedger-catalog.controller.ts  # GET /api/cardhedger/routes
+│   │   └── cardhedger-price-webhook.controller.ts  # POST /api/webhooks/cardhedger/*
+│   ├── admin/               # CardhedgerAdminModule — health, circuit, metrics
+│   └── cardhedger-price-infra.module.ts  # subscriptions + delta import admin
+│
+├── cardladder/              # Card Ladder indexes scrape (Playwright)
+│   └── controllers/cardladder-indexes.controller.ts  # GET /api/cardladder/indexes
 │
 └── marketplace/             # MarketplaceModule (facade — re-exports submodules)
     ├── marketplace.module.ts
-    ├── admin/               # MarketplaceAdminService (wallet-gated admin ops)
-    ├── entities/            # All TypeORM entities for this domain
+    ├── admin/               # MarketplaceAdminService + marketplace-admin-auth
+    ├── entities/            # TypeORM entities for marketplace + portfolio + watchlist
     ├── utils/               # bucket-key, card-match, market-stats, PSA variety helpers, …
     │
     ├── orders/
@@ -67,9 +83,10 @@ backend/src/
     ├── collections/
     │   ├── collections.controller.ts  # List, detail, stats, market-series, portfolio batch, admin
     │   ├── cert-market-trace.controller.ts
-    │   ├── collection.service.ts      # Buckets, covers, listing enrichment
+    │   ├── rwa-token-admin.controller.ts   # /api/marketplace/admin/rwa-tokens
+    │   ├── collection.service.ts
     │   ├── collection-market.service.ts
-    │   ├── collection-identity.service.ts   # cardhedgerCardId authority + layered cache
+    │   ├── collection-identity.service.ts
     │   ├── collection-enrichment.service.ts
     │   ├── collection-components.service.ts
     │   ├── collection-cover.service.ts
@@ -81,28 +98,32 @@ backend/src/
     │   └── redis-identity-cache.provider.ts
     │
     ├── market-data/
-    │   ├── cardhedger-resolve.service.ts    # card-search + row scoring (5-min TTL cache)
-    │   ├── cardhedger-pricing.service.ts    # preview, comps, tier history
-    │   ├── cardhedger-mint.service.ts       # mint-previews batch
-    │   ├── cardhedger-market-data.service.ts  # Facade — delegates to resolve/pricing/mint
+    │   ├── cardhedger-resolve.service.ts
+    │   ├── cardhedger-pricing.service.ts
+    │   ├── cardhedger-mint.service.ts
+    │   ├── cardhedger-market-data.service.ts
     │   └── cardhedger-ai-insight.service.ts
     │
     ├── snapshots/
-    │   ├── collection-market-snapshot.controller.ts   # GET …/cardhedger, …/price-history
-    │   ├── collection-market-snapshot.service.ts      # Worker refresh / upsert
-    │   ├── collection-market-snapshot-read.service.ts # DB-first API reads
+    │   ├── collection-market-snapshot.controller.ts
+    │   ├── collection-market-snapshot.service.ts
+    │   ├── collection-market-snapshot-read.service.ts
     │   └── collection-market-snapshot-scheduler.service.ts
     │
-    └── portfolio/
-        ├── portfolio.controller.ts            # daily snapshots + hidden holdings
-        ├── portfolio-daily-snapshot.service.ts
-        ├── portfolio-daily-snapshot-scheduler.service.ts
-        └── portfolio-hidden-holding.service.ts
+    ├── portfolio/
+    │   ├── portfolio.controller.ts
+    │   ├── portfolio-daily-snapshot.service.ts
+    │   ├── portfolio-daily-snapshot-scheduler.service.ts
+    │   └── portfolio-hidden-holding.service.ts
+    │
+    └── watchlist/
+        ├── watchlist.controller.ts
+        └── watchlist.service.ts
 ```
 
-**Entities (TypeORM):** `User`, `Order`, `MarketplaceCollection`, `CollectionMarketSnapshot`, `PsaCertSnapshot`, `RwaToken`, `PortfolioDailySnapshot`, `PortfolioHiddenHolding` — see [database.md](./database.md).
+**Entities (17):** `User`, `UserWallet`, `VerificationToken`, `Order`, `MarketplaceCollection`, `CollectionMarketSnapshot`, `PsaCertSnapshot`, `RwaToken`, `PortfolioDailySnapshot`, `PortfolioHiddenHolding`, `UserWatchlist`, `MarketplaceAdmin`, `CardTop100DailySnapshot`, `CardhedgerPriceSubscription`, `CardhedgerPriceDeltaCheckpoint`, `CardhedgerDailyPriceExportRun`, `CardhedgerPriceDeltaImportRun` — see [database.md](./database.md).
 
-There is **no** relational `BidsController` / `TradeController`, or PokéTrace proxy in the current tree.
+There is **no** relational `BidsController` / `TradeController`, or PokéTrace proxy in the current tree. **VaultModule** is not implemented yet (planned).
 
 ---
 
@@ -146,6 +167,13 @@ GET/POST/DELETE …/portfolio/hidden*
          → portfolio_hidden_holdings (off-chain UI preference; NFT stays on-chain)
 ```
 
+### Watchlist
+
+```
+GET/POST/DELETE …/marketplace/watchlist
+         → user_watchlist (JWT user_id + collection_key)
+```
+
 ---
 
 ## Identity cache (collections)
@@ -174,15 +202,21 @@ flowchart TB
     PF[MarketplacePortfolioModule]
     CO[MarketplaceCollectionsModule]
     OR[MarketplaceOrdersModule]
+    WL[MarketplaceWatchlistModule]
     AD[CardhedgerAdminModule]
+    CH[CardhedgerModule]
+    PI[CardhedgerPriceInfraModule]
 
     MM --> MD
     MM --> SN
     MM --> PF
     MM --> CO
     MM --> OR
+    MM --> WL
     SN <-->|forwardRef| CO
     PF <-->|forwardRef| CO
+    CH --> PI
+    MM --> CH
     AD -.->|reads metrics| MD
     AD -.->|reads metrics| SN
 ```
@@ -200,7 +234,7 @@ flowchart TB
 | ValidationPipe | `whitelist: true`, `forbidNonWhitelisted: true`, `transform: true` |
 | CORS | `CORS_ORIGIN` (comma-separated); `credentials: true` |
 | Cookie parser | `cookie-parser` |
-| Default port | `4000` (`PORT` env) |
+| Default port | `4000` (`PORT` env; local dev often `4100`) |
 
 ## Production TypeORM
 
@@ -208,4 +242,5 @@ flowchart TB
 synchronize: NODE_ENV !== 'production'
 ```
 
-Use bootstrap SQL for prod; do not rely on `synchronize` in production.
+Use bootstrap SQL for prod; do not rely on `synchronize` in production.  
+`card_top100_daily_snapshots` is entity-backed — ensure table exists via sync (dev) or add DDL before prod use.
