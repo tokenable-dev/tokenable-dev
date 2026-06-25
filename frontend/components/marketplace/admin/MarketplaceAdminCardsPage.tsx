@@ -9,8 +9,14 @@ import { useAdminBurnToken } from "@/hooks/marketplace-admin/useAdminBurnToken";
 import { connectMetaMaskWallet } from "@/lib/wallet/connectMetaMaskWallet";
 import { useAppStore, selectWallet } from "@/store";
 import { AdminBurnTokenPanel } from "./AdminBurnTokenPanel";
+import {
+  ADMIN_COUNT,
+  ADMIN_LIST,
+  ADMIN_PAGE,
+} from "./adminUi";
 import { MarketplaceAdminCardRow } from "./MarketplaceAdminCardRow";
 import { MarketplaceAdminNav } from "./MarketplaceAdminNav";
+import { MarketplaceAdminPageHeader } from "./MarketplaceAdminPageHeader";
 
 export function MarketplaceAdminCardsPage() {
   const { address, isConnected } = useAppStore(useShallow(selectWallet));
@@ -32,8 +38,12 @@ export function MarketplaceAdminCardsPage() {
   const { burningTokenId, burnToken } = useAdminBurnToken(operatorAddress);
 
   return (
-    <div className="mx-auto min-h-screen w-full max-w-4xl px-3 py-6 sm:px-5 sm:py-8">
+    <div className={ADMIN_PAGE}>
       <MarketplaceAdminNav />
+      <MarketplaceAdminPageHeader
+        title="Listed cards"
+        subtitle="Active marketplace listings — edit display metadata and preview prices."
+      />
 
       <AdminBurnTokenPanel
         burningTokenId={burningTokenId}
@@ -44,18 +54,20 @@ export function MarketplaceAdminCardsPage() {
       />
 
       {query.isLoading ? (
-        <p className="text-sm text-zinc-500">Loading listed cards…</p>
+        <p className="text-base text-zinc-500">Loading listed cards…</p>
       ) : query.isError ? (
-        <p className="text-sm text-red-400" role="alert">
+        <p className="text-base text-red-400" role="alert">
           {query.error instanceof Error
             ? query.error.message
             : "Failed to load cards"}
         </p>
       ) : items.length === 0 ? (
-        <p className="text-sm text-zinc-500">No active listings found.</p>
+        <p className="text-base text-zinc-500">No active listings found.</p>
       ) : (
-        <div className="space-y-4">
-          <p className="text-xs text-zinc-500">{items.length} listed card(s)</p>
+        <div className={ADMIN_LIST}>
+          <p className={ADMIN_COUNT}>
+            {items.length} listed card{items.length === 1 ? "" : "s"}
+          </p>
           {items.map((row) => (
             <MarketplaceAdminCardRow
               key={row.tokenId}

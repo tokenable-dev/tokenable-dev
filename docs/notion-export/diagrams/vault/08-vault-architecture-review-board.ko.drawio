@@ -1,0 +1,480 @@
+<mxfile host="65bd71144e">
+    <diagram id="vault-arch-review-ko" name="Vault 아키텍처 리뷰 보드">
+        <mxGraphModel dx="1980" dy="1392" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2800" pageHeight="2200" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="title" value="Tokenable Vault System — 엔지니어링 아키텍처 리뷰 보드" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=22;fontStyle=1;fontColor=#1a1a1a;" parent="1" vertex="1">
+                    <mxGeometry x="700" y="20" width="900" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="subtitle" value="PSA 등급 카드 RWA 플랫폼 · 상태: 설계 완료, 미구현 · 현재 /vault = 레거시 민트 위저드" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=12;fontColor=#666666;" parent="1" vertex="1">
+                    <mxGeometry x="600" y="55" width="1100" height="25" as="geometry"/>
+                </mxCell>
+                <mxCell id="sot_lane" value="정본(SoT) 소유권" style="swimlane;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontStyle=1;startSize=28;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="90" width="2720" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="sot_db" value="PostgreSQL&#10;워크플로 상태 정본&#10;submissions · items · states · events · jobs" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;align=left;spacingLeft=8;" parent="sot_lane" vertex="1">
+                    <mxGeometry x="20" y="35" width="300" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="sot_chain" value="블록체인&#10;소유권 정본&#10;tokenId · 소유자 · burn · 전송" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontStyle=1;align=left;spacingLeft=8;" parent="sot_lane" vertex="1">
+                    <mxGeometry x="340" y="35" width="260" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="sot_evidence" value="증거 저장소 (S3/R2)&#10;물리적 증명 정본&#10;슬랩 사진 · 포장 · 출고 번들 · sha256" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;align=left;spacingLeft=8;" parent="sot_lane" vertex="1">
+                    <mxGeometry x="620" y="35" width="320" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="sot_psa" value="PSA&#10;카드 검증 정본&#10;cert 조회 · 등급 · population (API)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontStyle=1;align=left;spacingLeft=8;" parent="sot_lane" vertex="1">
+                    <mxGeometry x="960" y="35" width="280" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="sot_bridge" value="asset_cert_registry&#10;브릿지: 활성 (grader,cert) 1개 ↔ 토큰 1개" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontStyle=1;align=left;spacingLeft=8;" parent="sot_lane" vertex="1">
+                    <mxGeometry x="1260" y="35" width="320" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="sot_note" value="하이브리드 SoT — DB 재고 vs 체인 vs PSA 대사 (V4)" style="text;html=1;align=left;fontSize=11;fontColor=#666666;" parent="sot_lane" vertex="1">
+                    <mxGeometry x="1600" y="42" width="400" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="lifecycle_lane" value="전체 라이프사이클" style="swimlane;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;startSize=28;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="200" width="2720" height="100" as="geometry"/>
+                </mxCell>
+                <mxCell id="lc1" value="사용자" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" parent="lifecycle_lane" vertex="1">
+                    <mxGeometry x="20" y="40" width="80" height="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="lc2" value="Vault&#10;제출" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;" parent="lifecycle_lane" vertex="1">
+                    <mxGeometry x="130" y="40" width="100" height="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="lc3" value="배송&#10;(인바운드)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;" parent="lifecycle_lane" vertex="1">
+                    <mxGeometry x="260" y="40" width="100" height="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="lc4" value="Vault&#10;입고" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;" parent="lifecycle_lane" vertex="1">
+                    <mxGeometry x="390" y="40" width="90" height="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="lc5" value="커스터디&#10;검증" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;" parent="lifecycle_lane" vertex="1">
+                    <mxGeometry x="510" y="40" width="110" height="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="lc6" value="NFT 민트&#10;(플랫폼)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;" parent="lifecycle_lane" vertex="1">
+                    <mxGeometry x="650" y="40" width="100" height="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="lc7" value="마켓플레이스&#10;거래" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;" parent="lifecycle_lane" vertex="1">
+                    <mxGeometry x="780" y="40" width="110" height="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="lc8" value="리뎀션&#10;요청" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;" parent="lifecycle_lane" vertex="1">
+                    <mxGeometry x="920" y="40" width="100" height="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="lc9" value="NFT 소각" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;" parent="lifecycle_lane" vertex="1">
+                    <mxGeometry x="1050" y="40" width="90" height="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="lc10" value="실물&#10;반송" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;" parent="lifecycle_lane" vertex="1">
+                    <mxGeometry x="1170" y="40" width="110" height="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="lc11" value="재 Vault&#10;(선택)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;dashed=1;strokeColor=#666666;" parent="lifecycle_lane" vertex="1">
+                    <mxGeometry x="1310" y="40" width="100" height="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="lce1" style="endArrow=classic;html=1;rounded=0;strokeWidth=2;" parent="lifecycle_lane" source="lc1" target="lc2" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="lce2" style="endArrow=classic;html=1;rounded=0;strokeWidth=2;" parent="lifecycle_lane" source="lc2" target="lc3" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="lce3" style="endArrow=classic;html=1;rounded=0;strokeWidth=2;" parent="lifecycle_lane" source="lc3" target="lc4" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="lce4" style="endArrow=classic;html=1;rounded=0;strokeWidth=2;" parent="lifecycle_lane" source="lc4" target="lc5" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="lce5" style="endArrow=classic;html=1;rounded=0;strokeWidth=2;" parent="lifecycle_lane" source="lc5" target="lc6" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="lce6" style="endArrow=classic;html=1;rounded=0;strokeWidth=2;" parent="lifecycle_lane" source="lc6" target="lc7" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="lce7" style="endArrow=classic;html=1;rounded=0;strokeWidth=2;" parent="lifecycle_lane" source="lc7" target="lc8" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="lce8" style="endArrow=classic;html=1;rounded=0;strokeWidth=2;" parent="lifecycle_lane" source="lc8" target="lc9" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="lce9" style="endArrow=classic;html=1;rounded=0;strokeWidth=2;" parent="lifecycle_lane" source="lc9" target="lc10" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="lce10" value="신규 TBV" style="endArrow=classic;html=1;rounded=0;dashed=1;" parent="lifecycle_lane" source="lc10" target="lc11" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="lce11" style="endArrow=classic;html=1;rounded=0;dashed=1;" parent="lifecycle_lane" source="lc11" target="lc2" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="1410" y="30"/>
+                            <mxPoint x="180" y="30"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="domains_lane" value="도메인 아키텍처 &amp; 엔티티" style="swimlane;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontStyle=1;startSize=28;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="320" width="2000" height="720" as="geometry"/>
+                </mxCell>
+                <mxCell id="d_user" value="사용자" style="swimlane;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;startSize=22;fontStyle=1;fontSize=11;" parent="domains_lane" vertex="1">
+                    <mxGeometry x="15" y="35" width="150" height="200" as="geometry"/>
+                </mxCell>
+                <mxCell id="u1" value="수집가&#10;지갑 연결" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;" parent="d_user" vertex="1">
+                    <mxGeometry x="10" y="30" width="130" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="u2" value="제출 UI&#10;TBV 생성 · 발송" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;" parent="d_user" vertex="1">
+                    <mxGeometry x="10" y="80" width="130" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="u3" value="포트폴리오 /&#10;리뎀션 UI" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;" parent="d_user" vertex="1">
+                    <mxGeometry x="10" y="130" width="130" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="d_vault" value="VAULT 워크플로" style="swimlane;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;startSize=22;fontStyle=1;fontSize=11;" parent="domains_lane" vertex="1">
+                    <mxGeometry x="180" y="35" width="280" height="320" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_sub" value="vault_submissions&#10;TBV-{YYYY}-{SEQ6}&#10;status · default_wallet" style="shape=parallelogram;perimeter=parallelogramPerimeter;whiteSpace=wrap;html=1;fixedSize=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;align=left;spacingLeft=6;" parent="d_vault" vertex="1">
+                    <mxGeometry x="10" y="30" width="260" height="55" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_items" value="vault_submission_items&#10;item_ref · grader · cert_number&#10;status · token_id · mint_job_id" style="shape=parallelogram;perimeter=parallelogramPerimeter;whiteSpace=wrap;html=1;fixedSize=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;align=left;spacingLeft=6;" parent="d_vault" vertex="1">
+                    <mxGeometry x="10" y="95" width="260" height="55" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_events" value="vault_submission_events&#10;감사 로그 · 월별 파티션" style="shape=parallelogram;perimeter=parallelogramPerimeter;whiteSpace=wrap;html=1;fixedSize=1;fillColor=#f5f5f5;strokeColor=#666666;align=left;spacingLeft=6;" parent="d_vault" vertex="1">
+                    <mxGeometry x="10" y="160" width="260" height="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_seq" value="vault_id_sequences&#10;TBV 번호 할당" style="shape=parallelogram;perimeter=parallelogramPerimeter;whiteSpace=wrap;html=1;fixedSize=1;fillColor=#f5f5f5;strokeColor=#666666;align=left;spacingLeft=6;" parent="d_vault" vertex="1">
+                    <mxGeometry x="10" y="215" width="260" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="de1" value="1:N" style="endArrow=classic;html=1;" parent="d_vault" source="e_sub" target="e_items" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="d_ship" value="배송" style="swimlane;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;startSize=22;fontStyle=1;fontSize=11;" parent="domains_lane" vertex="1">
+                    <mxGeometry x="475" y="35" width="200" height="200" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_ship_in" value="vault_shipments&#10;인바운드 FedEx&#10;추적 · 폴링" style="shape=parallelogram;perimeter=parallelogramPerimeter;whiteSpace=wrap;html=1;fixedSize=1;fillColor=#fff2cc;align=left;spacingLeft=6;" parent="d_ship" vertex="1">
+                    <mxGeometry x="10" y="30" width="180" height="55" as="geometry"/>
+                </mxCell>
+                <mxCell id="fedex" value="FedEx Track API&#10;배송중 → 도착" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;dashed=1;" parent="d_ship" vertex="1">
+                    <mxGeometry x="10" y="100" width="180" height="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_ship_out" value="vault_outbound_shipments&#10;아웃바운드 FedEx · 리뎀션" style="shape=parallelogram;perimeter=parallelogramPerimeter;whiteSpace=wrap;html=1;fixedSize=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontStyle=1;align=left;spacingLeft=6;" parent="d_ship" vertex="1">
+                    <mxGeometry x="10" y="155" width="180" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="d_custody" value="커스터디" style="swimlane;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;startSize=22;fontStyle=1;fontSize=11;" parent="domains_lane" vertex="1">
+                    <mxGeometry x="690" y="35" width="280" height="320" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_intake" value="vault_intake_sessions&#10;INT-{TBV} · 포장상태&#10;open → locked" style="shape=parallelogram;perimeter=parallelogramPerimeter;whiteSpace=wrap;html=1;fixedSize=1;fillColor=#d5e8d4;fontStyle=1;align=left;spacingLeft=6;" parent="d_custody" vertex="1">
+                    <mxGeometry x="10" y="30" width="260" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_evidence" value="vault_custody_evidence&#10;슬랩 앞·뒤 · 라벨&#10;비공개 S3/R2 · sha256" style="shape=parallelogram;perimeter=parallelogramPerimeter;whiteSpace=wrap;html=1;fixedSize=1;fillColor=#dae8fc;fontStyle=1;align=left;spacingLeft=6;" parent="d_custody" vertex="1">
+                    <mxGeometry x="10" y="90" width="260" height="55" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_custody" value="vault_custody_records&#10;검증자 · cert 일치&#10;evidence_bundle 스냅샷" style="shape=parallelogram;perimeter=parallelogramPerimeter;whiteSpace=wrap;html=1;fixedSize=1;fillColor=#d5e8d4;fontStyle=1;align=left;spacingLeft=6;" parent="d_custody" vertex="1">
+                    <mxGeometry x="10" y="155" width="260" height="55" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_inventory" value="vault_inventory_positions&#10;보관중 · 리뎀션 예약" style="shape=parallelogram;perimeter=parallelogramPerimeter;whiteSpace=wrap;html=1;fixedSize=1;fillColor=#e1d5e7;align=left;spacingLeft=6;" parent="d_custody" vertex="1">
+                    <mxGeometry x="10" y="220" width="260" height="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_exit" value="vault_custody_exit_records&#10;출고 증거 · burn 연결" style="shape=parallelogram;perimeter=parallelogramPerimeter;whiteSpace=wrap;html=1;fixedSize=1;fillColor=#ffe6cc;align=left;spacingLeft=6;" parent="d_custody" vertex="1">
+                    <mxGeometry x="10" y="275" width="260" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="dc1" style="endArrow=classic;html=1;" parent="d_custody" source="e_intake" target="e_evidence" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="dc2" style="endArrow=classic;html=1;" parent="d_custody" source="e_evidence" target="e_custody" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="d_nft" value="NFT" style="swimlane;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;startSize=22;fontStyle=1;fontSize=11;" parent="domains_lane" vertex="1">
+                    <mxGeometry x="985" y="35" width="280" height="280" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_mintjob" value="vault_mint_jobs&#10;대기 → 확정&#10;tx_hash · attempt_count" style="shape=parallelogram;perimeter=parallelogramPerimeter;whiteSpace=wrap;html=1;fixedSize=1;fillColor=#d5e8d4;fontStyle=1;align=left;spacingLeft=6;" parent="d_nft" vertex="1">
+                    <mxGeometry x="10" y="30" width="260" height="55" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_registry" value="asset_cert_registry&#10;활성 UNIQUE (grader,cert)&#10;active | released" style="shape=parallelogram;perimeter=parallelogramPerimeter;whiteSpace=wrap;html=1;fixedSize=1;fillColor=#e1d5e7;fontStyle=1;align=left;spacingLeft=6;" parent="d_nft" vertex="1">
+                    <mxGeometry x="10" y="95" width="260" height="55" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_rwa" value="rwa_tokens (기존)&#10;마켓플레이스 연결" style="shape=parallelogram;perimeter=parallelogramPerimeter;whiteSpace=wrap;html=1;fixedSize=1;fillColor=#f5f5f5;dashed=1;align=left;spacingLeft=6;" parent="d_nft" vertex="1">
+                    <mxGeometry x="10" y="160" width="260" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="relayer" value="플랫폼 Relayer&#10;MINTER_ROLE · BullMQ 워커" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontStyle=1;" parent="d_nft" vertex="1">
+                    <mxGeometry x="10" y="210" width="260" height="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="dn1" style="endArrow=classic;html=1;" parent="d_nft" source="e_mintjob" target="e_registry" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="dn2" style="endArrow=classic;html=1;" parent="d_nft" source="e_registry" target="e_rwa" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="d_mkt" value="마켓플레이스" style="swimlane;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;startSize=22;fontStyle=1;fontSize=11;" parent="domains_lane" vertex="1">
+                    <mxGeometry x="1280" y="35" width="200" height="200" as="geometry"/>
+                </mxCell>
+                <mxCell id="mkt1" value="ListingsModule&#10;Seaport 주문" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;" parent="d_mkt" vertex="1">
+                    <mxGeometry x="10" y="30" width="180" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="mkt2" value="오퍼 / 거래&#10;온체인 결제" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;" parent="d_mkt" vertex="1">
+                    <mxGeometry x="10" y="80" width="180" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="mkt3" value="리뎀션 차단&#10;리스팅 활성 시 (409)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" parent="d_mkt" vertex="1">
+                    <mxGeometry x="10" y="130" width="180" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="d_rdm" value="리뎀션" style="swimlane;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;startSize=22;fontStyle=1;fontSize=11;" parent="domains_lane" vertex="1">
+                    <mxGeometry x="1495" y="35" width="240" height="280" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_rdm" value="vault_redemption_requests&#10;RDM-{YYYY}-{SEQ}&#10;burn_tx · 배송 주소" style="shape=parallelogram;perimeter=parallelogramPerimeter;whiteSpace=wrap;html=1;fixedSize=1;fillColor=#ffe6cc;fontStyle=1;align=left;spacingLeft=6;" parent="d_rdm" vertex="1">
+                    <mxGeometry x="10" y="30" width="220" height="55" as="geometry"/>
+                </mxCell>
+                <mxCell id="rdm_flow" value="리스팅 해제 → 승인 → burn&#10;→ cert 해제 → 배송 → redeemed" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;align=left;spacingLeft=6;" parent="d_rdm" vertex="1">
+                    <mxGeometry x="10" y="95" width="220" height="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="rdm_out" value="vault_outbound_shipments&#10;+ custody_exit_records 연결" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;dashed=1;align=left;spacingLeft=6;" parent="d_rdm" vertex="1">
+                    <mxGeometry x="10" y="150" width="220" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="d_comp" value="컴플라이언스" style="swimlane;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;startSize=22;fontStyle=1;fontSize=11;" parent="domains_lane" vertex="1">
+                    <mxGeometry x="15" y="370" width="340" height="160" as="geometry"/>
+                </mxCell>
+                <mxCell id="c1" value="KYC / AML 게이트&#10;(결정 대기)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;align=left;spacingLeft=6;" parent="d_comp" vertex="1">
+                    <mxGeometry x="10" y="30" width="150" height="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="c2" value="전송 제한&#10;NFT 컨트랙트" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;align=left;spacingLeft=6;" parent="d_comp" vertex="1">
+                    <mxGeometry x="170" y="30" width="160" height="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="c3" value="중복 cert 정책&#10;레지스트리 강제" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;align=left;spacingLeft=6;" parent="d_comp" vertex="1">
+                    <mxGeometry x="10" y="85" width="150" height="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="c4" value="증거 보관&#10;legal hold" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;align=left;spacingLeft=6;" parent="d_comp" vertex="1">
+                    <mxGeometry x="170" y="85" width="160" height="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="c5" value="감사: vault_submission_events" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;align=left;spacingLeft=6;" parent="d_comp" vertex="1">
+                    <mxGeometry x="10" y="135" width="320" height="25" as="geometry"/>
+                </mxCell>
+                <mxCell id="d_ops" value="운영" style="swimlane;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;startSize=22;fontStyle=1;fontSize=11;" parent="domains_lane" vertex="1">
+                    <mxGeometry x="370" y="370" width="340" height="160" as="geometry"/>
+                </mxCell>
+                <mxCell id="o1" value="Vault 관리 콘솔&#10;입고 · 커스터디 검증" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;align=left;spacingLeft=6;" parent="d_ops" vertex="1">
+                    <mxGeometry x="10" y="30" width="150" height="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="o2" value="슈퍼바이저 세션 락&#10;MVP 커스터디 게이트" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;align=left;spacingLeft=6;" parent="d_ops" vertex="1">
+                    <mxGeometry x="170" y="30" width="160" height="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="o3" value="민트 운영 큐&#10;실패 작업 재시도" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;align=left;spacingLeft=6;" parent="d_ops" vertex="1">
+                    <mxGeometry x="10" y="85" width="150" height="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="o4" value="대사 실행&#10;DB vs 체인 vs PSA" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;dashed=1;align=left;spacingLeft=6;" parent="d_ops" vertex="1">
+                    <mxGeometry x="170" y="85" width="160" height="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="o5" value="SLA: 24h 자동 민트 · 7일 에스컬레이션" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;align=left;spacingLeft=6;" parent="d_ops" vertex="1">
+                    <mxGeometry x="10" y="135" width="320" height="25" as="geometry"/>
+                </mxCell>
+                <mxCell id="d_ext" value="외부 연동" style="swimlane;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;startSize=22;fontStyle=1;fontSize=11;" parent="domains_lane" vertex="1">
+                    <mxGeometry x="725" y="370" width="340" height="160" as="geometry"/>
+                </mxCell>
+                <mxCell id="x1" value="PSA Cert API&#10;입고 시 검증" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;align=left;spacingLeft=6;" parent="d_ext" vertex="1">
+                    <mxGeometry x="10" y="30" width="150" height="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="x2" value="PSA Vault API&#10;(V2 — 재고 SoT)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;dashed=1;align=left;spacingLeft=6;" parent="d_ext" vertex="1">
+                    <mxGeometry x="170" y="30" width="160" height="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="x3" value="FedEx Track API&#10;인·아웃바운드" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;align=left;spacingLeft=6;" parent="d_ext" vertex="1">
+                    <mxGeometry x="10" y="85" width="150" height="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="x4" value="Cardhedger&#10;시세 (기존)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;align=left;spacingLeft=6;" parent="d_ext" vertex="1">
+                    <mxGeometry x="170" y="85" width="160" height="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="x5" value="Seaport / OpenSea&#10;마켓플레이스 결제" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;align=left;spacingLeft=6;" parent="d_ext" vertex="1">
+                    <mxGeometry x="10" y="135" width="320" height="25" as="geometry"/>
+                </mxCell>
+                <mxCell id="d_infra" value="인프라" style="swimlane;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;startSize=22;fontStyle=1;fontSize=11;" parent="domains_lane" vertex="1">
+                    <mxGeometry x="1080" y="370" width="655" height="160" as="geometry"/>
+                </mxCell>
+                <mxCell id="i1" value="NestJS API&#10;VaultModule (예정)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;" parent="d_infra" vertex="1">
+                    <mxGeometry x="10" y="30" width="120" height="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="i2" value="PostgreSQL&#10;TypeORM" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=8;fillColor=#d5e8d4;" parent="d_infra" vertex="1">
+                    <mxGeometry x="140" y="25" width="100" height="55" as="geometry"/>
+                </mxCell>
+                <mxCell id="i3" value="Redis / BullMQ&#10;민트 작업" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=8;fillColor=#f5f5f5;" parent="d_infra" vertex="1">
+                    <mxGeometry x="250" y="25" width="100" height="55" as="geometry"/>
+                </mxCell>
+                <mxCell id="i4" value="S3 / R2&#10;증거" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=8;fillColor=#dae8fc;" parent="d_infra" vertex="1">
+                    <mxGeometry x="360" y="25" width="100" height="55" as="geometry"/>
+                </mxCell>
+                <mxCell id="i5" value="EVM RPC&#10;민트 · burn · 감시" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=8;fillColor=#f8cecc;" parent="d_infra" vertex="1">
+                    <mxGeometry x="470" y="25" width="100" height="55" as="geometry"/>
+                </mxCell>
+                <mxCell id="i6" value="Next.js&#10;vault UI (예정)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;" parent="d_infra" vertex="1">
+                    <mxGeometry x="580" y="30" width="65" height="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="i7" value="EC2 · Docker · GitHub Actions 배포 (develop → dev)" style="text;html=1;align=left;fontSize=10;" parent="d_infra" vertex="1">
+                    <mxGeometry x="10" y="95" width="635" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="i8" value="site-access 미들웨어 · admin 인증 (기존)" style="text;html=1;align=left;fontSize=10;" parent="d_infra" vertex="1">
+                    <mxGeometry x="10" y="120" width="400" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="xd1" value="생성" style="endArrow=classic;html=1;dashed=1;" parent="domains_lane" source="u2" target="e_sub" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="xd2" value="추적" style="endArrow=classic;html=1;dashed=1;" parent="domains_lane" source="e_sub" target="e_ship_in" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="xd3" value="입고" style="endArrow=classic;html=1;dashed=1;" parent="domains_lane" source="e_ship_in" target="e_intake" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="xd4" value="검증" style="endArrow=classic;html=1;dashed=1;" parent="domains_lane" source="e_custody" target="e_mintjob" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="xd5" value="리스팅" style="endArrow=classic;html=1;dashed=1;" parent="domains_lane" source="e_rwa" target="mkt1" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="xd6" value="리뎀션" style="endArrow=classic;html=1;dashed=1;" parent="domains_lane" source="u3" target="e_rdm" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="xd7" value="출고" style="endArrow=classic;html=1;dashed=1;" parent="domains_lane" source="e_rdm" target="e_ship_out" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="red_lane" value="🔴 미결정 창업자 의사결정" style="swimlane;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontStyle=1;startSize=28;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="2060" y="320" width="700" height="340" as="geometry"/>
+                </mxCell>
+                <mxCell id="r1" value="리뎀션 지원&#10;런치 시 포함 vs 2단계?" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;align=left;spacingLeft=8;fontSize=11;" parent="red_lane" vertex="1">
+                    <mxGeometry x="15" y="38" width="210" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="r2" value="NFT 민트 주체&#10;사용자 지갑 vs 플랫폼 relayer?" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;align=left;spacingLeft=8;fontSize=11;" parent="red_lane" vertex="1">
+                    <mxGeometry x="240" y="38" width="210" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="r3" value="Burn vs Lock&#10;토큰 소각 vs 에스크로 잠금?" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;align=left;spacingLeft=8;fontSize=11;" parent="red_lane" vertex="1">
+                    <mxGeometry x="465" y="38" width="220" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="r4" value="ERC721 vs ERC1155&#10;1:1 카드 vs 분할 지분?" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;align=left;spacingLeft=8;fontSize=11;" parent="red_lane" vertex="1">
+                    <mxGeometry x="15" y="100" width="210" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="r5" value="업그레이드 가능 vs 불변&#10;컨트랙트 업그레이드 경로?" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;align=left;spacingLeft=8;fontSize=11;" parent="red_lane" vertex="1">
+                    <mxGeometry x="240" y="100" width="210" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="r6" value="메타데이터 정책&#10;온체인 vs IPFS vs 중앙 URI?" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;align=left;spacingLeft=8;fontSize=11;" parent="red_lane" vertex="1">
+                    <mxGeometry x="465" y="100" width="220" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="r7" value="전송 제한&#10;화이트리스트 · 소울바운드 기간?" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;align=left;spacingLeft=8;fontSize=11;" parent="red_lane" vertex="1">
+                    <mxGeometry x="15" y="162" width="210" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="r8" value="KYC 요건&#10;Vault 제출 · 거래 · 리뎀션 게이트?" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;align=left;spacingLeft=8;fontSize=11;" parent="red_lane" vertex="1">
+                    <mxGeometry x="240" y="162" width="210" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="r9" value="마켓플레이스 전략&#10;자체 only · Seaport · 외부 애그리게이터?" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;align=left;spacingLeft=8;fontSize=11;" parent="red_lane" vertex="1">
+                    <mxGeometry x="465" y="162" width="220" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="r10" value="PSA 파트너십&#10;공식 vault API · 공동 마케팅 · 책임?" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;align=left;spacingLeft=8;fontSize=11;" parent="red_lane" vertex="1">
+                    <mxGeometry x="15" y="224" width="210" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="r11" value="중복 cert 정책&#10;재민트 차단 · released 후 허용?" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;align=left;spacingLeft=8;fontSize=11;" parent="red_lane" vertex="1">
+                    <mxGeometry x="240" y="224" width="210" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="r12" value="메인 블록체인&#10;Base · Ethereum · Polygon · 기타?" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;align=left;spacingLeft=8;fontSize=11;fontStyle=1" parent="red_lane" vertex="1">
+                    <mxGeometry x="465" y="224" width="220" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="r_note" value="V0 전: 민트 주체, burn 모델, 토큰 표준, 메인 체인 결정 필요" style="text;html=1;align=center;fontSize=10;fontStyle=2;" parent="red_lane" vertex="1">
+                    <mxGeometry x="15" y="290" width="670" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="yellow_lane" value="⚠️ 리스크 영역" style="swimlane;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontStyle=1;startSize=28;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="1060" width="1320" height="130" as="geometry"/>
+                </mxCell>
+                <mxCell id="y1" value="중복 민트&#10;완화: asset_cert_registry UNIQUE + 멱등 mint_jobs" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;align=left;spacingLeft=8;fontSize=11;" parent="yellow_lane" vertex="1">
+                    <mxGeometry x="15" y="38" width="200" height="55" as="geometry"/>
+                </mxCell>
+                <mxCell id="y2" value="잘못된 카드 검증&#10;완화: PSA API + 증거 + cert_match 게이트" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;align=left;spacingLeft=8;fontSize=11;" parent="yellow_lane" vertex="1">
+                    <mxGeometry x="230" y="38" width="200" height="55" as="geometry"/>
+                </mxCell>
+                <mxCell id="y3" value="증거 누락&#10;완화: 번들 없이 custody_verified 차단" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;align=left;spacingLeft=8;fontSize=11;" parent="yellow_lane" vertex="1">
+                    <mxGeometry x="445" y="38" width="200" height="55" as="geometry"/>
+                </mxCell>
+                <mxCell id="y4" value="지갑 분실&#10;완화: 사용자 지갑으로 플랫폼 민트 — 복구 정책 미정" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;align=left;spacingLeft=8;fontSize=11;" parent="yellow_lane" vertex="1">
+                    <mxGeometry x="660" y="38" width="200" height="55" as="geometry"/>
+                </mxCell>
+                <mxCell id="y5" value="운영자 부정&#10;완화: events 감사 · supervisor lock · V2 4-eyes" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;align=left;spacingLeft=8;fontSize=11;" parent="yellow_lane" vertex="1">
+                    <mxGeometry x="875" y="38" width="200" height="55" as="geometry"/>
+                </mxCell>
+                <mxCell id="y6" value="리뎀션 분쟁&#10;완화: 출고 증거 · 배송 전 burn 정책 미정" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;align=left;spacingLeft=8;fontSize=11;" parent="yellow_lane" vertex="1">
+                    <mxGeometry x="1090" y="38" width="210" height="55" as="geometry"/>
+                </mxCell>
+                <mxCell id="orange_lane" value="🟠 향후 V2+ 구성요소" style="swimlane;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontStyle=1;startSize=28;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="1380" y="1060" width="1380" height="130" as="geometry"/>
+                </mxCell>
+                <mxCell id="v1" value="PSA Vault API 연동&#10;재고 SoT · 일일 대사" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;align=left;spacingLeft=8;fontSize=11;" parent="orange_lane" vertex="1">
+                    <mxGeometry x="15" y="38" width="200" height="55" as="geometry"/>
+                </mxCell>
+                <mxCell id="v2" value="OCR 검증&#10;슬랩 사진에서 cert 자동입력" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;align=left;spacingLeft=8;fontSize=11;" parent="orange_lane" vertex="1">
+                    <mxGeometry x="230" y="38" width="180" height="55" as="geometry"/>
+                </mxCell>
+                <mxCell id="v3" value="4-eyes 승인&#10;커스터디 이중 검증자" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;align=left;spacingLeft=8;fontSize=11;" parent="orange_lane" vertex="1">
+                    <mxGeometry x="425" y="38" width="180" height="55" as="geometry"/>
+                </mxCell>
+                <mxCell id="v4" value="멀티 카드 제출&#10;TBV당 N개 아이템 (MVP=1)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;align=left;spacingLeft=8;fontSize=11;" parent="orange_lane" vertex="1">
+                    <mxGeometry x="620" y="38" width="180" height="55" as="geometry"/>
+                </mxCell>
+                <mxCell id="v5" value="분할 NFT&#10;ERC1155 · vault 지분" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;align=left;spacingLeft=8;fontSize=11;" parent="orange_lane" vertex="1">
+                    <mxGeometry x="815" y="38" width="160" height="55" as="geometry"/>
+                </mxCell>
+                <mxCell id="v6" value="멀티체인 지원&#10;브릿지 · 체인별 민트" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;align=left;spacingLeft=8;fontSize=11;" parent="orange_lane" vertex="1">
+                    <mxGeometry x="990" y="38" width="170" height="55" as="geometry"/>
+                </mxCell>
+                <mxCell id="v7" value="NFT V2 컨트랙트&#10;certKey 온체인 · MINTER_ROLE" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;align=left;spacingLeft=8;fontSize=11;" parent="orange_lane" vertex="1">
+                    <mxGeometry x="1175" y="38" width="180" height="55" as="geometry"/>
+                </mxCell>
+                <mxCell id="phase_lane" value="구현 단계" style="swimlane;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontStyle=1;startSize=28;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="1210" width="2720" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="ph0" value="V0&#10;스키마 · 상태머신 · TBV ID · events 파티션" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;fontSize=10;" parent="phase_lane" vertex="1">
+                    <mxGeometry x="15" y="35" width="220" height="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="ph1" value="V1&#10;입고 · 증거 · 수동 커스터디 · PSA 검증" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;fontSize=10;" parent="phase_lane" vertex="1">
+                    <mxGeometry x="250" y="35" width="220" height="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="ph15" value="V1.5&#10;플랫폼 민트 큐 · vault_mint_jobs" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;fontSize=10;" parent="phase_lane" vertex="1">
+                    <mxGeometry x="485" y="35" width="200" height="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="ph2" value="V2&#10;멀티 카드 · OCR · 리뎀션 아웃바운드" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;fontSize=10;" parent="phase_lane" vertex="1">
+                    <mxGeometry x="700" y="35" width="200" height="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="ph3" value="V3&#10;NFT V2 컨트랙트 · certKey 온체인" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;fontSize=10;" parent="phase_lane" vertex="1">
+                    <mxGeometry x="915" y="35" width="200" height="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="ph4" value="V4&#10;PSA 대사 · 엔터프라이즈 4-eyes" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;fontSize=10;" parent="phase_lane" vertex="1">
+                    <mxGeometry x="1130" y="35" width="200" height="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="phe1" style="endArrow=classic;html=1;" parent="phase_lane" source="ph0" target="ph1" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="phe2" style="endArrow=classic;html=1;" parent="phase_lane" source="ph1" target="ph15" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="phe3" style="endArrow=classic;html=1;" parent="phase_lane" source="ph15" target="ph2" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="phe4" style="endArrow=classic;html=1;" parent="phase_lane" source="ph2" target="ph3" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="phe5" style="endArrow=classic;html=1;" parent="phase_lane" source="ph3" target="ph4" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="legend_lane" value="범례" style="swimlane;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;startSize=22;fontSize=11;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="1320" width="600" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="leg1" value="엔티티 테이블" style="shape=parallelogram;perimeter=parallelogramPerimeter;whiteSpace=wrap;html=1;fixedSize=1;fillColor=#dae8fc;fontSize=10;" parent="legend_lane" vertex="1">
+                    <mxGeometry x="10" y="28" width="90" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="leg2" value="합의됨" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;fontSize=10;" parent="legend_lane" vertex="1">
+                    <mxGeometry x="110" y="28" width="70" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="leg3" value="미결정" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;fontSize=10;" parent="legend_lane" vertex="1">
+                    <mxGeometry x="190" y="28" width="90" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="leg4" value="리스크" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;fontSize=10;" parent="legend_lane" vertex="1">
+                    <mxGeometry x="290" y="28" width="60" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="leg5" value="V2 예정" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;fontSize=10;" parent="legend_lane" vertex="1">
+                    <mxGeometry x="360" y="28" width="70" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="leg6" value="예정 / 점선" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;dashed=1;fontSize=10;" parent="legend_lane" vertex="1">
+                    <mxGeometry x="440" y="28" width="100" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="link_red1" value="V0 차단" style="endArrow=open;html=1;dashed=1;strokeColor=#b85450;fontColor=#b85450;" parent="1" source="r2" target="relayer" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="link_red2" value="컨트랙트 차단" style="endArrow=open;html=1;dashed=1;strokeColor=#b85450;fontColor=#b85450;" parent="1" source="r4" target="e_mintjob" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="link_red3" value="리뎀션 차단" style="endArrow=open;html=1;dashed=1;strokeColor=#b85450;fontColor=#b85450;" parent="1" source="r1" target="e_rdm" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>

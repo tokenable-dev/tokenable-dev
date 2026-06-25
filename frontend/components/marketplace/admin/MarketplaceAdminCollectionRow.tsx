@@ -7,7 +7,17 @@ import { useResolvedMediaUrl } from "@/hooks/media";
 import { useCollectionAdminCover } from "@/hooks/marketplace/collection-hero/useCollectionAdminCover";
 import { parseGradeScoreNumber, representativeGradeUsd } from "@/lib/market";
 import { formatUsdCompact } from "@/lib/market/collectionMarketPricing";
+import { CollectionAiInsightPanel } from "@/components/marketplace/collection-ai-insight";
 import { AdminMarketPriceStrip } from "./AdminMarketPriceStrip";
+import {
+  ADMIN_ARTICLE,
+  ADMIN_BTN_PRIMARY,
+  ADMIN_BTN_SECONDARY,
+  ADMIN_COVER_BOX,
+  ADMIN_DETAILS_SUMMARY,
+  ADMIN_INPUT_MONO,
+  ADMIN_LABEL,
+} from "./adminUi";
 
 export function MarketplaceAdminCollectionRow({
   row,
@@ -28,6 +38,7 @@ export function MarketplaceAdminCollectionRow({
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState("");
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [aiInsightOpen, setAiInsightOpen] = useState(false);
 
   const {
     busy: coverBusy,
@@ -48,6 +59,7 @@ export function MarketplaceAdminCollectionRow({
     setDeleteConfirm("");
     setValidationError(null);
     setCoverApiError(null);
+    setAiInsightOpen(false);
   }, [row.collectionKey, currentCoverUrl, setCoverApiError]);
 
   const rowError = validationError ?? coverApiError;
@@ -104,27 +116,27 @@ export function MarketplaceAdminCollectionRow({
   }
 
   return (
-    <article className="rounded-xl border border-zinc-800/90 bg-zinc-950/60 p-3 sm:p-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
-        <div className="flex h-24 w-full shrink-0 items-center justify-center overflow-hidden rounded-lg border border-zinc-700/80 bg-zinc-900/80 sm:h-28 sm:w-24">
+    <article className={ADMIN_ARTICLE}>
+      <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
+        <div className={ADMIN_COVER_BOX}>
           {displayPreview && resolvedPreview ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={resolvedPreview}
               alt=""
-              className="max-h-full max-w-full object-contain p-1"
+              className="max-h-full max-w-full object-contain p-2"
             />
           ) : previewLoading ? (
-            <span className="text-[10px] text-zinc-500">Loading…</span>
+            <span className="text-sm text-zinc-500">Loading…</span>
           ) : (
-            <span className="text-[10px] text-zinc-600">No cover</span>
+            <span className="text-sm text-zinc-600">No cover</span>
           )}
         </div>
 
-        <div className="min-w-0 flex-1 space-y-3">
-          <div className="flex flex-wrap items-start justify-between gap-2">
-            <div className="min-w-0">
-              <h3 className="truncate text-sm font-semibold text-white">
+        <div className="min-w-0 flex-1 space-y-5">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0 space-y-1">
+              <h3 className="text-lg font-bold leading-snug text-white sm:text-xl">
                 <Link
                   href={`/marketplace/collections/${encodeURIComponent(row.collectionKey)}`}
                   className="text-mint hover:underline"
@@ -132,40 +144,68 @@ export function MarketplaceAdminCollectionRow({
                   {row.displayLabel || row.collectionKey}
                 </Link>
               </h3>
-              <p className="truncate font-mono text-[10px] text-zinc-500">
+              <p className="truncate font-mono text-xs text-zinc-500 sm:text-sm">
                 {row.collectionKey}
               </p>
-              <p className="mt-1 text-[10px] text-zinc-500">
-                {row.activeListingCount} active listing
-                {row.activeListingCount === 1 ? "" : "s"}
-                {changePct != null && Number.isFinite(changePct)
-                  ? ` · ${changePct >= 0 ? "+" : ""}${changePct.toFixed(1)}% ref`
-                  : ""}
+              <p className="text-sm text-zinc-400">
+                <span className="font-semibold text-zinc-200">
+                  {row.activeListingCount}
+                </span>{" "}
+                active listing{row.activeListingCount === 1 ? "" : "s"}
+                {changePct != null && Number.isFinite(changePct) ? (
+                  <>
+                    {" "}
+                    ·{" "}
+                    <span
+                      className={
+                        changePct >= 0 ? "font-semibold text-mint" : "font-semibold text-red-400"
+                      }
+                    >
+                      {changePct >= 0 ? "+" : ""}
+                      {changePct.toFixed(1)}% ref
+                    </span>
+                  </>
+                ) : null}
               </p>
             </div>
             {lastTradeUsd != null ? (
-              <div className="text-right">
-                <span className="text-[9px] font-semibold uppercase tracking-wide text-zinc-600">
+              <div className="shrink-0 rounded-xl border border-zinc-800/80 bg-zinc-900/50 px-4 py-3 text-right">
+                <span className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
                   Last trade
                 </span>
-                <p className="text-[11px] font-semibold text-zinc-200">
+                <p className="text-lg font-bold text-white">
                   {formatUsdCompact(lastTradeUsd)}
                 </p>
               </div>
             ) : null}
           </div>
 
-          <AdminMarketPriceStrip refUsd={refUsd} floorUsd={floorUsd} compact />
+          <AdminMarketPriceStrip refUsd={refUsd} floorUsd={floorUsd} />
 
-          <details className="rounded-lg border border-amber-500/35 bg-amber-500/[0.04] p-2.5">
-            <summary className="cursor-pointer text-[10px] font-semibold uppercase tracking-wide text-amber-200/90">
+          <details
+            className="rounded-xl border border-mint/35 bg-mint/[0.04] p-4 sm:p-5"
+            open={aiInsightOpen}
+            onToggle={(e) => setAiInsightOpen((e.target as HTMLDetailsElement).open)}
+          >
+            <summary className={`${ADMIN_DETAILS_SUMMARY} text-mint`}>
+              AI Insight (admin preview)
+            </summary>
+            <div className="mt-4">
+              <CollectionAiInsightPanel
+                row={row}
+                snapshot={snapshot}
+                enabled={aiInsightOpen}
+              />
+            </div>
+          </details>
+
+          <details className="rounded-xl border border-amber-500/35 bg-amber-500/[0.04] p-4 sm:p-5">
+            <summary className={`${ADMIN_DETAILS_SUMMARY} text-amber-200/90`}>
               Cover image
             </summary>
-            <div className="mt-2 space-y-2">
+            <div className="mt-4 space-y-4">
               <label className="block">
-                <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
-                  Cover URL (https or ipfs)
-                </span>
+                <span className={ADMIN_LABEL}>Cover URL (https or ipfs)</span>
                 <input
                   type="url"
                   value={urlInput}
@@ -174,36 +214,34 @@ export function MarketplaceAdminCollectionRow({
                     setPreviewUrl(null);
                   }}
                   placeholder="https://…"
-                  className="w-full min-w-0 rounded-lg border border-zinc-700 bg-zinc-950/80 px-2.5 py-2 font-mono text-[10px] text-white outline-none focus:border-amber-500/50"
+                  className={ADMIN_INPUT_MONO}
                 />
               </label>
               <button
                 type="button"
                 disabled={disabled}
                 onClick={() => void saveUrl()}
-                className="rounded-lg bg-amber-500/90 px-3 py-1.5 text-[11px] font-bold text-[#0a0a0a] hover:bg-amber-400 disabled:opacity-50"
+                className={ADMIN_BTN_PRIMARY}
               >
                 {coverBusy === "url" ? "Saving…" : "Save cover URL"}
               </button>
 
-              <div className="border-t border-zinc-800/80 pt-2">
-                <span className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
-                  From token metadata
-                </span>
-                <div className="flex flex-wrap items-center gap-2">
+              <div className="border-t border-zinc-800/80 pt-4">
+                <span className={ADMIN_LABEL}>From token metadata</span>
+                <div className="flex flex-wrap items-center gap-3">
                   <input
                     type="text"
                     inputMode="numeric"
                     value={tokenIdInput}
                     onChange={(e) => setTokenIdInput(e.target.value)}
                     placeholder="Token ID"
-                    className="w-24 rounded-lg border border-zinc-700 bg-zinc-950/80 px-2.5 py-1.5 font-mono text-[10px] text-white outline-none focus:border-amber-500/50"
+                    className="w-32 rounded-xl border border-zinc-700 bg-zinc-950/80 px-4 py-3 font-mono text-sm text-white outline-none focus:border-amber-500/50"
                   />
                   <button
                     type="button"
                     disabled={disabled}
                     onClick={() => void fetchFromToken(false)}
-                    className="rounded-lg border border-zinc-600 px-2.5 py-1.5 text-[10px] font-semibold text-zinc-200 hover:bg-zinc-800/80 disabled:opacity-50"
+                    className={ADMIN_BTN_SECONDARY}
                   >
                     {coverBusy === "fetch" ? "Fetching…" : "Preview"}
                   </button>
@@ -211,7 +249,7 @@ export function MarketplaceAdminCollectionRow({
                     type="button"
                     disabled={disabled}
                     onClick={() => void fetchFromToken(true)}
-                    className="rounded-lg border border-amber-500/50 bg-amber-500/15 px-2.5 py-1.5 text-[10px] font-semibold text-amber-100 hover:bg-amber-500/25 disabled:opacity-50"
+                    className="rounded-xl border border-amber-500/50 bg-amber-500/15 px-4 py-2.5 text-sm font-semibold text-amber-100 hover:bg-amber-500/25 disabled:opacity-50"
                   >
                     {coverBusy === "apply" ? "Applying…" : "Fetch & save"}
                   </button>
@@ -220,11 +258,11 @@ export function MarketplaceAdminCollectionRow({
             </div>
           </details>
 
-          <details className="rounded-lg border border-red-900/40 bg-red-950/10 p-2.5">
-            <summary className="cursor-pointer text-[10px] font-semibold uppercase tracking-wide text-red-400/90">
+          <details className="rounded-xl border border-red-900/40 bg-red-950/10 p-4 sm:p-5">
+            <summary className={`${ADMIN_DETAILS_SUMMARY} text-red-400/90`}>
               Delete collection
             </summary>
-            <p className="mt-2 text-[10px] leading-relaxed text-zinc-500">
+            <p className="mt-3 text-sm leading-relaxed text-zinc-500">
               Removes snapshots, orders, rwa_tokens rows, and the collection row.
               On-chain NFTs are not burned. Type the collection key to confirm.
             </p>
@@ -232,8 +270,8 @@ export function MarketplaceAdminCollectionRow({
               type="text"
               value={deleteConfirm}
               onChange={(e) => setDeleteConfirm(e.target.value)}
-              placeholder={row.collectionKey.slice(0, 20) + "…"}
-              className="mt-2 w-full min-w-0 rounded-lg border border-red-900/60 bg-zinc-950/80 px-2.5 py-2 font-mono text-[10px] text-white outline-none focus:border-red-500/60"
+              placeholder={row.collectionKey.slice(0, 24) + "…"}
+              className={`${ADMIN_INPUT_MONO} mt-3 border-red-900/60 focus:border-red-500/60`}
               spellCheck={false}
               autoComplete="off"
             />
@@ -252,14 +290,14 @@ export function MarketplaceAdminCollectionRow({
                 setCoverApiError(null);
                 void deleteCollection(deleteConfirm.trim());
               }}
-              className="mt-2 rounded-lg border border-red-600/70 bg-red-950/40 px-3 py-1.5 text-[11px] font-bold text-red-300 hover:bg-red-900/50 disabled:opacity-40"
+              className="mt-3 rounded-xl border border-red-600/70 bg-red-950/40 px-4 py-2.5 text-sm font-bold text-red-300 hover:bg-red-900/50 disabled:opacity-40"
             >
               {coverBusy === "delete" ? "Deleting…" : "Delete permanently"}
             </button>
           </details>
 
           {rowError ? (
-            <p className="text-[11px] text-red-400" role="alert">
+            <p className="text-sm text-red-400" role="alert">
               {rowError}
             </p>
           ) : null}

@@ -35,6 +35,7 @@ cd docs/notion-export && zip -r tokenable-notion.zip Tech-Stack.md API-Docs.md
 | Deployment | [guides/deployment.md](https://github.com/tokenable-dev/tokenable-dev/blob/develop/docs/guides/deployment.md) |
 | Notion — Tech Stack | [notion-export/Tech-Stack.md](https://github.com/tokenable-dev/tokenable-dev/blob/develop/docs/notion-export/Tech-Stack.md) |
 | Notion — API Docs | [notion-export/API-Docs.md](https://github.com/tokenable-dev/tokenable-dev/blob/develop/docs/notion-export/API-Docs.md) |
+| **Vault system (draw.io)** | [notion-export/diagrams/vault/](https://github.com/tokenable-dev/tokenable-dev/tree/develop/docs/notion-export/diagrams/vault) |
 
 **Live API schemas:** `GET /api/docs` (local: `http://localhost:4100/api/docs`)
 

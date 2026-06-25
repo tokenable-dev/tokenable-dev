@@ -5,7 +5,9 @@ import { useSearchParams } from "next/navigation";
 import { CardTop100Section } from "@/components/markets/CardTop100Section";
 import { useTop100, useTop100Categories } from "@/hooks/markets/usePokemonTop100";
 import { ADMIN_TOP100_ROUTING } from "@/lib/markets/top100Routing";
+import { ADMIN_ARTICLE, ADMIN_PAGE_WIDE } from "./adminUi";
 import { MarketplaceAdminNav } from "./MarketplaceAdminNav";
+import { MarketplaceAdminPageHeader } from "./MarketplaceAdminPageHeader";
 
 function Top100SnapshotMeta({ category }: { category: string }) {
   const { data: categories = [] } = useTop100Categories();
@@ -13,14 +15,14 @@ function Top100SnapshotMeta({ category }: { category: string }) {
 
   if (isLoading && !data) {
     return (
-      <p className="text-xs text-zinc-500">Loading snapshot metadata…</p>
+      <p className="text-base text-zinc-500">Loading snapshot metadata…</p>
     );
   }
 
   return (
-    <div className="mb-5 rounded-xl border border-zinc-800/80 bg-zinc-950/60 px-4 py-3 text-xs text-zinc-400">
-      <p className="font-semibold text-zinc-300">Snapshot metadata</p>
-      <dl className="mt-2 grid gap-1.5 sm:grid-cols-2">
+    <div className={`${ADMIN_ARTICLE} mb-6 text-sm text-zinc-400 sm:text-base`}>
+      <p className="text-base font-semibold text-zinc-200">Snapshot metadata</p>
+      <dl className="mt-4 grid gap-3 sm:grid-cols-2">
         <div>
           <dt className="text-zinc-600">Category</dt>
           <dd className="text-zinc-300">{data?.category ?? category}</dd>
@@ -56,7 +58,7 @@ function Top100SnapshotMeta({ category }: { category: string }) {
           </dd>
         </div>
       </dl>
-      <p className="mt-3 text-[11px] leading-relaxed text-zinc-600">
+      <p className="mt-4 text-sm leading-relaxed text-zinc-600">
         Admin preview only — public Markets Top Cards UI remains disabled until
         production rollout. Data is served from daily Cardhedger snapshots (
         <code className="text-zinc-500">90day-prices-by-grade</code>).
@@ -70,8 +72,12 @@ function MarketplaceAdminTop100PageContent() {
   const category = searchParams.get("category") ?? "Pokemon";
 
   return (
-    <div className="mx-auto min-h-screen w-full max-w-6xl px-3 py-6 sm:px-5 sm:py-8">
+    <div className={ADMIN_PAGE_WIDE}>
       <MarketplaceAdminNav />
+      <MarketplaceAdminPageHeader
+        title="Top 100 preview"
+        subtitle="Daily Cardhedger PSA 10 leaders by category (admin only)."
+      />
       <Top100SnapshotMeta category={category} />
       <CardTop100Section
         variant="full"
