@@ -5,9 +5,12 @@
 - `marketplace/collections/collections.controller.ts`
 - `marketplace/snapshots/collection-market-snapshot.controller.ts` — `GET …/cardhedger`, `GET …/cardhedger/price-history`
 - `marketplace/portfolio/portfolio.controller.ts` — daily snapshots + hidden holdings
+- `marketplace/watchlist/watchlist.controller.ts` — saved collections (JWT)
 - `marketplace/collections/cert-market-trace.controller.ts`
+- `marketplace/collections/rwa-token-admin.controller.ts` — `/api/marketplace/admin/rwa-tokens`
+- `marketplace/admin/marketplace-admin-auth.controller.ts` — admin console session
 
-**Base path:** `/api/marketplace`  
+**Base paths:** `/api/marketplace`, `/api/marketplace/watchlist`, `/api/marketplace/admin/*`  
 **Swagger tag:** `marketplace`
 
 Trading is **Seaport-centric**: off-chain signed orders in `orders`, fulfillment via wallet. Collection **pricing reads** come from `collection_market_snapshots` (materialized Cardhedger) — see [materialized-market-snapshots.md](../architecture/materialized-market-snapshots.md).

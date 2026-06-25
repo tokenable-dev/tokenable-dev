@@ -5,18 +5,30 @@ pnpm install
 pnpm start:dev
 ```
 
-- API: [http://localhost:4000/api](http://localhost:4000/api) · Swagger: [http://localhost:4000/api/docs](http://localhost:4000/api/docs)
-- Env: `backend/.env` (Postgres, **Redis** `REDIS_URL`, RPC, Pinata, OAuth, etc.)
-- Infra: `docker compose up -d postgres redis` (Redis = identity cache L2)
+- API: [http://localhost:4100/api](http://localhost:4100/api) (local dev default — see [local-setup.md](../docs/guides/local-setup.md))
+- Swagger: [http://localhost:4100/api/docs](http://localhost:4100/api/docs)
+- Env: `backend/.env` (Postgres, **Redis** `REDIS_URL`, RPC, Pinata, OAuth, Cardhedger, PSA, …)
+- Infra: `docker compose up -d postgres redis` (Redis = identity cache L2 on host port **6380**)
 
-**Database:** schema comes from TypeORM entities; no `sql/migrations` folder. See **[sql/README.md](./sql/README.md)** and **[../docs/README.md](../docs/README.md)**.
+**Database:** 17 TypeORM entities; production DDL in **`sql/schema/`**. See **[sql/README.md](./sql/README.md)** and **[../docs/architecture/database.md](../docs/architecture/database.md)**.
 
-**Marketplace:** Seaport off-chain order book (`marketplace/orders/*`), collections + **materialized snapshots** (`marketplace/collections/*`, `collection_market_snapshots` table). Matching is **wallet-signed Seaport only**. Overview: **[../docs/api/marketplace.md](../docs/api/marketplace.md)** · DB: **[../docs/architecture/database.md](../docs/architecture/database.md)**.
+**Marketplace:** Seaport off-chain order book, collections + **materialized snapshots**, portfolio daily cron, **user watchlist**. Overview: **[../docs/api/marketplace.md](../docs/api/marketplace.md)**.
 
-**Card Hedge:** optional **`CARDHEDGER_API_KEY`**. All Cardhedger calls go **server-to-server** via `CardhedgerService.forwardJson` (PSA mint, collection pricing, collection covers, etc.) — not exposed as `/api/cardhedger/v1/*` HTTP proxies. Override base URL with **`CARDHEDGER_BASE_URL`** if needed.
+**Cardhedger:**
+- **`/api/cardhedger/v1/*`** — full upstream proxy (API key injected server-side)
+- **Top 100 / Top Movers** — `/api/cardhedger/top100/*`, `/api/cardhedger/top-movers`
+- **Price webhooks** — `POST /api/webhooks/cardhedger/price-updates`
+- **Admin ops** — `/api/admin/cardhedger/*`, `/api/admin/cardhedger/price-subscriptions/*`
+- Internal server-to-server calls from PSA, collections, snapshot workers
 
-**Card Ladder indexes:** public **`GET /api/cardladder/indexes`** — landing dashboard indexes (Pokemon/MLB/NFL/NBA) scraped from Card Ladder with Playwright + cache.
+**Card Ladder indexes:** **`GET /api/cardladder/indexes`** — landing dashboard (Playwright + cache).
 
-**Collection covers:** **`CollectionCoverService`** sets display images once from **Cardhedger** catalog URLs and **Pokémon TCG** HTTPS art (at first listing). See **[`docs/api/psa.md` — collection covers](../docs/api/psa.md#collection-covers)**.
+**Auth:** Google OAuth + email/password + wallet link (signature challenge). See **[../docs/api/auth.md](../docs/api/auth.md)**.
 
-> **Docker:** the production `Dockerfile` installs browsers under `PLAYWRIGHT_BROWSERS_PATH=/ms-playwright` and runs `playwright-core install --with-deps chromium` with **`CI` unset for that step** so the download is not skipped when `CI=true` elsewhere. Local dev: `pnpm run install:browsers`.
+**Site access:** optional staging gate — **`SITE_ACCESS_ENABLED`**. See **[../docs/api/site-access.md](../docs/api/site-access.md)**.
+
+**Collection covers:** **`CollectionCoverService`** sets display images from Cardhedger catalog URLs and Pokémon TCG HTTPS art at first listing.
+
+> **Docker:** the production `Dockerfile` installs Playwright browsers under `PLAYWRIGHT_BROWSERS_PATH=/ms-playwright`. Local dev: `pnpm run install:browsers`.
+
+**Vault module:** not implemented — inbound custody/mint orchestration is planned separately.
