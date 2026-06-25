@@ -156,6 +156,9 @@ export const SWAGGER_BODY_EXAMPLES = {
   authDeleteAccount: {
     password: 'current-pass',
   },
+  siteAccessVerify: {
+    password: '',
+  },
   linkWallet: {
     address: F.wallet,
     signature: '0x' + 'a'.repeat(130),

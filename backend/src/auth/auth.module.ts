@@ -42,6 +42,11 @@ import { JwtStrategy } from './strategies/jwt.strategy';
     JwtAuthGuard,
     GoogleOAuthExceptionFilter,
   ],
-  exports: [AuthService, JwtAuthGuard],
+  exports: [
+    AuthService,
+    JwtAuthGuard,
+    EmailVerificationService,
+    PasswordResetService,
+  ],
 })
 export class AuthModule {}

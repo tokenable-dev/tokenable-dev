@@ -5,6 +5,8 @@ import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 import { swaggerUiOptions } from './swagger/swagger-ui.setup';
+import { buildSwaggerServers } from './swagger/swagger-servers.util';
+import { sortSwaggerTagsPinFirst } from './swagger/swagger-tags.util';
 import { assertSiteAccessConfig, readSiteAccessConfig } from './site-access/site-access.util';
 import {
   assertMarketplaceAdminAuthConfig,
@@ -54,23 +56,41 @@ async function bootstrap() {
   );
 
   const port = config.get<number>('app.port') ?? 4100;
+  const isProduction = config.get<boolean>('app.isProduction') ?? false;
+  const publicApiUrl = config.get<string | null>('app.publicApiUrl') ?? null;
+  const swaggerServers = buildSwaggerServers({
+    port,
+    isProduction,
+    publicApiUrl,
+  });
 
-  const swaggerConfig = new DocumentBuilder()
+  let swaggerBuilder = new DocumentBuilder()
     .setTitle('Tokenable API')
     .setDescription(
       [
-        `로컬 문서: \`http://localhost:${port}/api/docs\` · 모든 경로는 \`/api\` 접두사입니다.`,
+        isProduction
+          ? `배포 문서 — Try it out 요청은 **현재 호스트**(\`${swaggerServers[0]?.url === '/' ? 'same origin' : swaggerServers[0]?.url}\`)로 전송됩니다.`
+          : `로컬 문서: \`http://localhost:${port}/api/docs\` · 모든 경로는 \`/api\` 접두사입니다.`,
         '',
         '**실행(Try it out)** — POST/PATCH 본문은 **「기본 예시」** 가 미리 채워져 있습니다. PSA·RWA 파일 업로드만 이미지를 직접 선택하세요.',
         '**인증** — 🔓 **Authorize** 에 JWT를 넣거나, OAuth 로그인 후 발급된 `access_token` 쿠키와 동일한 Bearer 토큰을 사용하세요.',
-        '**Site access** — `SITE_ACCESS_ENABLED` 시 먼저 `POST /api/site-access/verify` 로 비밀번호를 제출해 쿠키를 받은 뒤 Try it out 하세요 (동일 origin).',
+        '**Site access** — `SITE_ACCESS_ENABLED` 시 먼저 `POST /api/site-access/verify` 로 비밀번호를 제출해 쿠키를 받은 뒤 Try it out 하세요 (동일 origin, 쿠키 자동 전송).',
       ].join('\n'),
     )
-    .setVersion('1.0')
-    .addServer(`http://localhost:${port}`, '로컬')
+    .setVersion('1.0');
+
+  for (const server of swaggerServers) {
+    swaggerBuilder = swaggerBuilder.addServer(server.url, server.description);
+  }
+
+  const swaggerConfig = swaggerBuilder
     .addBearerAuth(
       { type: 'http', scheme: 'bearer', bearerFormat: 'JWT', in: 'header' },
       'access-token',
+    )
+    .addTag(
+      'site-access',
+      '배포 게이트 — Swagger Try it out 전에 먼저 verify 호출 (쿠키 발급)',
     )
     .addTag('health', '헬스체크')
     .addTag('auth', 'OAuth · 세션 · 지갑')
@@ -87,6 +107,7 @@ async function bootstrap() {
     .build();
 
   const document = SwaggerModule.createDocument(app, swaggerConfig);
+  document.tags = sortSwaggerTagsPinFirst(document.tags, 'site-access');
   SwaggerModule.setup('api/docs', app, document, swaggerUiOptions);
 
   if (!config.get<boolean>('app.isProduction')) {

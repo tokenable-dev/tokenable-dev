@@ -1,3 +1,5 @@
+export { MarketplaceAdminUsersPage } from "./MarketplaceAdminUsersPage";
+export { MarketplaceAdminUserRow } from "./MarketplaceAdminUserRow";
 export { MarketplaceAdminCardsPage } from "./MarketplaceAdminCardsPage";
 export { MarketplaceAdminCardRow } from "./MarketplaceAdminCardRow";
 export { MarketplaceAdminCollectionsPage } from "./MarketplaceAdminCollectionsPage";

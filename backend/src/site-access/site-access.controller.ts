@@ -6,28 +6,34 @@ import {
   Res,
   UnauthorizedException,
 } from '@nestjs/common';
+import { ApiBody, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
-import { IsString, MinLength } from 'class-validator';
 import type { Response } from 'express';
 import { resolveCookieSecure } from '../auth/auth-session.util';
+import { apiBodyDefault } from '../swagger/api-body.util';
+import { SWAGGER_BODY_EXAMPLES } from '../swagger/examples';
+import { VerifySiteAccessDto } from './dto/verify-site-access.dto';
 import {
   SITE_ACCESS_COOKIE,
   issueSiteAccessToken,
   readSiteAccessConfig,
 } from './site-access.util';
 
-class VerifySiteAccessDto {
-  @IsString()
-  @MinLength(1)
-  password!: string;
-}
-
+@ApiTags('site-access')
 @Controller('site-access')
 export class SiteAccessController {
   constructor(private readonly config: ConfigService) {}
 
   @Post('verify')
   @HttpCode(200)
+  @ApiOperation({
+    summary: 'Site access 비밀번호 검증',
+    description:
+      '배포 환경(`SITE_ACCESS_ENABLED`)에서 API Try it out 전에 먼저 호출하세요. 성공 시 `site_access` 쿠키가 설정됩니다.',
+  })
+  @ApiBody(
+    apiBodyDefault(VerifySiteAccessDto, SWAGGER_BODY_EXAMPLES.siteAccessVerify),
+  )
   verify(
     @Body() body: VerifySiteAccessDto,
     @Res({ passthrough: true }) res: Response,

@@ -39,7 +39,6 @@ export const swaggerUiOptions: SwaggerCustomOptions = {
     displayOperationId: false,
     tryItOutEnabled: true,
     syntaxHighlight: { activated: true, theme: 'agate' },
-    tagsSorter: 'alpha',
     operationsSorter: 'method',
     requestInterceptor: (req: { credentials?: string }) => {
       req.credentials = 'include';
