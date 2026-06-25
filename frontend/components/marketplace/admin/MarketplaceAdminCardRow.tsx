@@ -6,6 +6,15 @@ import { useResolvedMediaUrl } from "@/hooks/media";
 import type { AdminListedRwaCardRow, CollectionListMarketSnapshot } from "@/lib/core";
 import { representativeGradeUsd } from "@/lib/market";
 import { AdminMarketPriceStrip } from "./AdminMarketPriceStrip";
+import {
+  ADMIN_ARTICLE,
+  ADMIN_BTN_PRIMARY,
+  ADMIN_BTN_SECONDARY,
+  ADMIN_COVER_BOX_CARD,
+  ADMIN_INPUT,
+  ADMIN_INPUT_MONO,
+  ADMIN_LABEL,
+} from "./adminUi";
 
 export function MarketplaceAdminCardRow({
   row,
@@ -101,96 +110,89 @@ export function MarketplaceAdminCardRow({
   const floorUsd = snapshot?.marketStats?.floor ?? null;
 
   return (
-    <article className="rounded-xl border border-zinc-800/90 bg-zinc-950/60 p-3 sm:p-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
-        <div className="flex h-28 w-full shrink-0 items-center justify-center overflow-hidden rounded-lg border border-zinc-700/80 bg-zinc-900/80 sm:h-32 sm:w-28">
+    <article className={ADMIN_ARTICLE}>
+      <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
+        <div className={ADMIN_COVER_BOX_CARD}>
           {displayPreview && resolvedPreview ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={resolvedPreview}
               alt=""
-              className="max-h-full max-w-full object-contain p-1"
+              className="max-h-full max-w-full object-contain p-2"
             />
           ) : previewLoading ? (
-            <span className="text-[10px] text-zinc-500">Loading…</span>
+            <span className="text-sm text-zinc-500">Loading…</span>
           ) : (
-            <span className="text-[10px] text-zinc-600">No image</span>
+            <span className="text-sm text-zinc-600">No image</span>
           )}
         </div>
 
-        <div className="min-w-0 flex-1 space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <h3 className="text-sm font-semibold text-white">
-                <Link
-                  href={`/marketplace/${row.tokenId}`}
-                  className="text-mint hover:underline"
-                >
-                  Token #{row.tokenId}
-                </Link>
-              </h3>
-              <p className="font-mono text-[10px] text-zinc-500">
-                cert {row.certNumber ?? "—"}
-              </p>
-              <AdminMarketPriceStrip
-                askUsd={row.priceUsdc}
-                refUsd={refUsd}
-                floorUsd={floorUsd}
-                compact
-              />
-            </div>
+        <div className="min-w-0 flex-1 space-y-5">
+          <div className="space-y-3">
+            <h3 className="text-lg font-bold text-white sm:text-xl">
+              <Link
+                href={`/marketplace/${row.tokenId}`}
+                className="text-mint hover:underline"
+              >
+                Token #{row.tokenId}
+              </Link>
+            </h3>
+            <p className="font-mono text-sm text-zinc-500">
+              Cert {row.certNumber ?? "—"}
+            </p>
+            <AdminMarketPriceStrip
+              askUsd={row.priceUsdc}
+              refUsd={refUsd}
+              floorUsd={floorUsd}
+            />
           </div>
 
-          <label className="block">
-            <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
-              Display name
-            </span>
-            <input
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              className="w-full rounded-lg border border-zinc-700 bg-zinc-950/80 px-2.5 py-2 text-[11px] text-white outline-none focus:border-amber-500/50"
-            />
-          </label>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="block sm:col-span-2">
+              <span className={ADMIN_LABEL}>Display name</span>
+              <input
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                className={ADMIN_INPUT}
+              />
+            </label>
 
-          <label className="block">
-            <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
-              Collection key
-            </span>
-            <input
-              value={collectionKey}
-              onChange={(e) => setCollectionKey(e.target.value)}
-              className="w-full rounded-lg border border-zinc-700 bg-zinc-950/80 px-2.5 py-2 font-mono text-[10px] text-white outline-none focus:border-amber-500/50"
-              spellCheck={false}
-            />
-          </label>
+            <label className="block sm:col-span-2">
+              <span className={ADMIN_LABEL}>Collection key</span>
+              <input
+                value={collectionKey}
+                onChange={(e) => setCollectionKey(e.target.value)}
+                className={ADMIN_INPUT_MONO}
+                spellCheck={false}
+              />
+            </label>
 
-          <label className="block">
-            <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
-              Display image URL (admin override)
-            </span>
-            <input
-              type="url"
-              value={imageUrlInput}
-              onChange={(e) => {
-                setImageUrlInput(e.target.value);
-                setPreviewUrl(null);
-              }}
-              placeholder="https://… or ipfs://…"
-              className="w-full rounded-lg border border-zinc-700 bg-zinc-950/80 px-2.5 py-2 font-mono text-[10px] text-white outline-none focus:border-amber-500/50"
-            />
-            {row.catalogImageUrl ? (
-              <p className="mt-1 truncate text-[10px] text-zinc-600">
-                Metadata default: {row.catalogImageUrl}
-              </p>
-            ) : null}
-          </label>
+            <label className="block sm:col-span-2">
+              <span className={ADMIN_LABEL}>Display image URL (admin override)</span>
+              <input
+                type="url"
+                value={imageUrlInput}
+                onChange={(e) => {
+                  setImageUrlInput(e.target.value);
+                  setPreviewUrl(null);
+                }}
+                placeholder="https://… or ipfs://…"
+                className={ADMIN_INPUT_MONO}
+              />
+              {row.catalogImageUrl ? (
+                <p className="mt-2 truncate text-xs text-zinc-600 sm:text-sm">
+                  Metadata default: {row.catalogImageUrl}
+                </p>
+              ) : null}
+            </label>
+          </div>
 
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-3">
             <button
               type="button"
               disabled={disabled}
               onClick={() => void handleSave()}
-              className="rounded-lg bg-amber-500/90 px-3 py-1.5 text-[11px] font-bold text-[#0a0a0a] hover:bg-amber-400 disabled:opacity-50"
+              className={ADMIN_BTN_PRIMARY}
             >
               {rowBusy === "save" ? "Saving…" : "Save changes"}
             </button>
@@ -198,7 +200,7 @@ export function MarketplaceAdminCardRow({
               type="button"
               disabled={disabled}
               onClick={() => void handlePreviewMetadata()}
-              className="rounded-lg border border-zinc-600 px-2.5 py-1.5 text-[11px] font-semibold text-zinc-200 hover:bg-zinc-800/80 disabled:opacity-50"
+              className={ADMIN_BTN_SECONDARY}
             >
               {rowBusy === "preview" ? "Fetching…" : "From metadata"}
             </button>
@@ -206,22 +208,22 @@ export function MarketplaceAdminCardRow({
               type="button"
               disabled={disabled || !row.displayImageUrl}
               onClick={() => void handleClearOverride()}
-              className="rounded-lg border border-zinc-700 px-2.5 py-1.5 text-[11px] font-semibold text-zinc-400 hover:bg-zinc-800/80 disabled:opacity-40"
+              className="rounded-xl border border-zinc-700 px-4 py-2.5 text-sm font-semibold text-zinc-400 hover:bg-zinc-800/80 disabled:opacity-40"
             >
               {rowBusy === "clear" ? "Clearing…" : "Clear override"}
             </button>
             {row.collectionKey ? (
               <Link
                 href={`/marketplace/collections/${encodeURIComponent(row.collectionKey)}`}
-                className="rounded-lg border border-zinc-700 px-2.5 py-1.5 text-[11px] font-semibold text-zinc-300 hover:bg-zinc-800/80"
+                className={ADMIN_BTN_SECONDARY}
               >
-                Collection
+                View collection
               </Link>
             ) : null}
           </div>
 
           {rowError ? (
-            <p className="text-[11px] text-red-400" role="alert">
+            <p className="text-sm text-red-400" role="alert">
               {rowError}
             </p>
           ) : null}

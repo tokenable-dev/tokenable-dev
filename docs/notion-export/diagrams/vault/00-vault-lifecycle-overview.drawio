@@ -1,0 +1,87 @@
+<mxfile host="app.diagrams.net" agent="tokenable-vault-docs" version="22.1.0">
+  <diagram id="vault-lifecycle" name="Vault Lifecycle Overview">
+    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="900" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="title" value="Tokenable Vault System — Full Lifecycle (Planned)" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=20;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="320" y="15" width="560" height="40" as="geometry"/>
+        </mxCell>
+        <mxCell id="status" value="STATUS: Architecture approved · NOT in codebase · /vault today = legacy mint wizard only" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="200" y="55" width="800" height="35" as="geometry"/>
+        </mxCell>
+        <mxCell id="user" value="Collector / User" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="60" y="200" width="40" height="80" as="geometry"/>
+        </mxCell>
+        <mxCell id="inbound" value="INBOUND&#xa;&#xa;1. Create submission (TBV-ID)&#xa;2. Ship package (FedEx)&#xa;3. Warehouse intake&#xa;4. Custody evidence&#xa;5. Custody verified" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;align=left;spacingLeft=10;" vertex="1" parent="1">
+          <mxGeometry x="160" y="130" width="200" height="130" as="geometry"/>
+        </mxCell>
+        <mxCell id="mint" value="MINT (platform)&#xa;&#xa;6. mint_queued&#xa;7. Backend relayer&#xa;8. mint_confirmed&#xa;9. cert_registry active&#xa;10. completed" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;align=left;spacingLeft=10;" vertex="1" parent="1">
+          <mxGeometry x="400" y="130" width="200" height="130" as="geometry"/>
+        </mxCell>
+        <mxCell id="active" value="ACTIVE&#xa;&#xa;11. Marketplace listing&#xa;12. Seaport trading&#xa;13. Portfolio" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;align=left;spacingLeft=10;" vertex="1" parent="1">
+          <mxGeometry x="640" y="130" width="180" height="100" as="geometry"/>
+        </mxCell>
+        <mxCell id="redeem" value="REDEMPTION&#xa;&#xa;14. Request (must delist)&#xa;15. Burn NFT&#xa;16. cert_registry released&#xa;17. Outbound ship&#xa;18. redeemed" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;align=left;spacingLeft=10;" vertex="1" parent="1">
+          <mxGeometry x="860" y="130" width="200" height="130" as="geometry"/>
+        </mxCell>
+        <mxCell id="revault" value="RE-VAULT (optional)&#xa;New TBV submission&#xa;same cert allowed after released" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;dashed=1;align=left;spacingLeft=10;" vertex="1" parent="1">
+          <mxGeometry x="1100" y="150" width="180" height="90" as="geometry"/>
+        </mxCell>
+        <mxCell id="vault" value="Physical Vault&#xa;(PSA / partner facility)" style="shape=process;whiteSpace=wrap;html=1;backgroundOutline=1;fillColor=#fff2cc;strokeColor=#d6b656;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="400" y="320" width="260" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="evidence" value="Private Object Storage&#xa;slab photos · packaging · exit bundle" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=12;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="160" y="310" width="180" height="70" as="geometry"/>
+        </mxCell>
+        <mxCell id="chain" value="Blockchain&#xa;NFT · Seaport · burn" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=12;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="720" y="310" width="160" height="70" as="geometry"/>
+        </mxCell>
+        <mxCell id="db" value="Tokenable DB&#xa;workflow SoT" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=12;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="920" y="310" width="140" height="70" as="geometry"/>
+        </mxCell>
+        <mxCell id="e1" style="endArrow=classic;html=1;rounded=0;" edge="1" parent="1" source="inbound" target="mint">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e2" style="endArrow=classic;html=1;rounded=0;" edge="1" parent="1" source="mint" target="active">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e3" style="endArrow=classic;html=1;rounded=0;" edge="1" parent="1" source="active" target="redeem">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e4" value="new TBV" style="endArrow=classic;html=1;rounded=0;dashed=1;" edge="1" parent="1" source="redeem" target="revault">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e5" style="endArrow=classic;html=1;rounded=0;dashed=1;" edge="1" parent="1" source="revault" target="inbound">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1190" y="100"/>
+              <mxPoint x="260" y="100"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e6" style="endArrow=classic;html=1;rounded=0;" edge="1" parent="1" source="inbound" target="vault">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e7" style="endArrow=classic;html=1;rounded=0;" edge="1" parent="1" source="inbound" target="evidence">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e8" style="endArrow=classic;html=1;rounded=0;" edge="1" parent="1" source="mint" target="chain">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e9" style="endArrow=classic;html=1;rounded=0;" edge="1" parent="1" source="redeem" target="chain">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="open1" value="OPEN: Platform mint before or with NFT V2?&#xa;OPEN: PSA Vault API as inventory SoT — when?" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;align=left;spacingLeft=8;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="160" y="420" width="380" height="45" as="geometry"/>
+        </mxCell>
+        <mxCell id="open2" value="OPEN: Multi-card MVP cap — 1 vs 10 vs 50 per submission?" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;align=left;spacingLeft=8;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="560" y="420" width="340" height="35" as="geometry"/>
+        </mxCell>
+        <mxCell id="mvp" value="MVP scope: 1 item/submission (schema supports N) · FedEx manual tracking · Admin custody + evidence · Platform auto-mint within 24h SLA" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=11;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="160" y="490" width="900" height="30" as="geometry"/>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

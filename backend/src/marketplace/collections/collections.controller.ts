@@ -21,6 +21,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { Request } from 'express';
 import { MarketplaceAdminService } from '../admin/marketplace-admin.service';
 import { CardhedgerAiInsightService } from '../market-data/cardhedger-ai-insight.service';
+import type { AiInsightPlatformContext } from '../market-data/cardhedger-ai-insight.types';
 import { CardhedgerMarketDataService } from '../market-data/cardhedger-market-data.service';
 import { PortfolioMarketBatchDto } from '../portfolio/dto/portfolio-market-batch.dto';
 import { CollectionMarketService } from './collection-market.service';
@@ -224,7 +225,24 @@ export class CollectionsController {
   async getCollectionAiInsight(@Param('key') key: string) {
     const k = this.normalizeKey(key);
     const col = await this.collectionService.findOne(k);
-    return this.aiInsight.getAiInsightForCollection(col);
+    if (!col) {
+      return this.aiInsight.getAiInsightForCollection(null);
+    }
+
+    const [marketStats, listingPrices] = await Promise.all([
+      this.collectionMarketService.getCollectionMarketStats(k),
+      this.collectionMarketService.getActiveListingUsdcPrices(k),
+    ]);
+
+    const platform: AiInsightPlatformContext = {
+      activeListingCount: marketStats.sampleSize,
+      floorUsd: marketStats.floor,
+      medianUsd: marketStats.median,
+      sampleSize: marketStats.sampleSize,
+      listingPricesUsd: listingPrices,
+    };
+
+    return this.aiInsight.getAiInsightForCollection(col, { platform });
   }
 
   /** 차트용: 플랫폼 체결 + Cardhedger 참조가·기간 변동률 */

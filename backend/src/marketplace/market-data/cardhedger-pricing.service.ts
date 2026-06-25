@@ -733,7 +733,16 @@ export class CardhedgerPricingService {
     }
 
     if (rawPoints.length === 0 && headline == null) return null;
-    return { headline, rawPoints };
+    const lowUsd = this.parsePrice(o.low);
+    const highUsd = this.parsePrice(o.high);
+    return { headline, rawPoints, lowUsd, highUsd };
+  }
+
+  fetchFmvCached(
+    cardId: string,
+    grade: string,
+  ): Promise<CardhedgerFmvResult | null> {
+    return this.fetchFmvByCard(cardId, grade);
   }
 
   fetchCompsCached(
@@ -784,6 +793,8 @@ export class CardhedgerPricingService {
           const value: CardhedgerCompsCached = {
             headline: null,
             rawPoints: [],
+            lowUsd: null,
+            highUsd: null,
             noSalesForGrade: true,
           };
           this.ttlCache.set(

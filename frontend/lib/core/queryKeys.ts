@@ -56,6 +56,8 @@ export const rq = {
   /** Cardhedger all-grade catalog for collection chart picker. */
   collectionGradeCatalog: (key: string, live = false) =>
     ["collection-grade-catalog", key, live] as const,
+  /** Admin-only AI market brief for a collection. */
+  collectionAiInsight: (key: string) => ["collection-ai-insight", key] as const,
   /** Cardhedger price history for a selected grade label. */
   collectionGradeSeries: (key: string, grade: string, days: number) =>
     ["collection-grade-series", key, grade, days] as const,

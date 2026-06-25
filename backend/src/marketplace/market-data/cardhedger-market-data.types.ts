@@ -48,6 +48,8 @@ export type CardhedgerCompRawPoint = {
 export type CardhedgerCompsCached = {
   headline: CardhedgerCompsHeadline | null;
   rawPoints: CardhedgerCompRawPoint[];
+  lowUsd: number | null;
+  highUsd: number | null;
   /** Upstream 404: catalog match but no indexed sales for requested grade. */
   noSalesForGrade?: boolean;
 };

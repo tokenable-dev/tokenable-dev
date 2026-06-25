@@ -9,19 +9,21 @@ import {
   TOP_MOVERS_SECTION_TITLE,
 } from "@/lib/markets/top100Copy";
 import { ADMIN_TOP_MOVERS_ROUTING } from "@/lib/markets/top100Routing";
+import { ADMIN_ARTICLE, ADMIN_PAGE_WIDE } from "./adminUi";
 import { MarketplaceAdminNav } from "./MarketplaceAdminNav";
+import { MarketplaceAdminPageHeader } from "./MarketplaceAdminPageHeader";
 
 function TopMoversSnapshotMeta({ category }: { category: string }) {
   const { data, isLoading } = useTopMovers(category, TOP_MOVERS_FETCH_COUNT);
 
   if (isLoading && !data) {
-    return <p className="text-xs text-zinc-500">Loading snapshot metadata…</p>;
+    return <p className="text-base text-zinc-500">Loading snapshot metadata…</p>;
   }
 
   return (
-    <div className="mb-5 rounded-xl border border-zinc-800/80 bg-zinc-950/60 px-4 py-3 text-xs text-zinc-400">
-      <p className="font-semibold text-zinc-300">Snapshot metadata</p>
-      <dl className="mt-2 grid gap-1.5 sm:grid-cols-2">
+    <div className={`${ADMIN_ARTICLE} mb-6 text-sm text-zinc-400 sm:text-base`}>
+      <p className="text-base font-semibold text-zinc-200">Snapshot metadata</p>
+      <dl className="mt-4 grid gap-3 sm:grid-cols-2">
         <div>
           <dt className="text-zinc-600">Category</dt>
           <dd className="text-zinc-300">{data?.category ?? category}</dd>
@@ -49,7 +51,7 @@ function TopMoversSnapshotMeta({ category }: { category: string }) {
           </dd>
         </div>
       </dl>
-      <p className="mt-3 text-[11px] leading-relaxed text-zinc-600">
+      <p className="mt-4 text-sm leading-relaxed text-zinc-600">
         Admin preview only — public Markets Top Movers UI remains disabled until
         production rollout. Data is served from Cardhedger{" "}
         <code className="text-zinc-500">top-movers</code> (1h server cache).
@@ -63,8 +65,12 @@ function MarketplaceAdminTopMoversPageContent() {
   const category = searchParams.get("category") ?? "Pokemon";
 
   return (
-    <div className="mx-auto min-h-screen w-full max-w-6xl px-3 py-6 sm:px-5 sm:py-8">
+    <div className={ADMIN_PAGE_WIDE}>
       <MarketplaceAdminNav />
+      <MarketplaceAdminPageHeader
+        title="Top Movers preview"
+        subtitle="Weekly gain leaders from Cardhedger (admin only)."
+      />
       <TopMoversSnapshotMeta category={category} />
       <TopMoversSection
         routing={ADMIN_TOP_MOVERS_ROUTING}

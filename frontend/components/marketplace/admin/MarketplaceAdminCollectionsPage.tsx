@@ -1,12 +1,18 @@
 "use client";
 
 /**
- * Phase 5: wire `getCollectionAiInsight` per row when AI Insight ships on admin
- * (public collection detail stays on AiInsightComingSoonModal until then).
+ * AI Insight preview: admin collections tab only (public detail uses coming-soon modal).
  */
 import { useMarketplaceAdminCollections } from "@/hooks/marketplace-admin/useMarketplaceAdminCollections";
+import {
+  ADMIN_BTN_LOAD_MORE,
+  ADMIN_COUNT,
+  ADMIN_LIST,
+  ADMIN_PAGE,
+} from "./adminUi";
 import { MarketplaceAdminCollectionRow } from "./MarketplaceAdminCollectionRow";
 import { MarketplaceAdminNav } from "./MarketplaceAdminNav";
+import { MarketplaceAdminPageHeader } from "./MarketplaceAdminPageHeader";
 
 export function MarketplaceAdminCollectionsPage() {
   const {
@@ -21,23 +27,27 @@ export function MarketplaceAdminCollectionsPage() {
   } = useMarketplaceAdminCollections();
 
   return (
-    <div className="mx-auto min-h-screen w-full max-w-4xl px-3 py-6 sm:px-5 sm:py-8">
+    <div className={ADMIN_PAGE}>
       <MarketplaceAdminNav />
+      <MarketplaceAdminPageHeader
+        title="Collections"
+        subtitle="Browse collection buckets, market snapshots, and AI insight previews."
+      />
 
       {listQuery.isLoading ? (
-        <p className="text-sm text-zinc-500">Loading collections…</p>
+        <p className="text-base text-zinc-500">Loading collections…</p>
       ) : listQuery.isError ? (
-        <p className="text-sm text-red-400" role="alert">
+        <p className="text-base text-red-400" role="alert">
           {listQuery.error instanceof Error
             ? listQuery.error.message
             : "Failed to load collections"}
         </p>
       ) : items.length === 0 ? (
-        <p className="text-sm text-zinc-500">No collections found.</p>
+        <p className="text-base text-zinc-500">No collections found.</p>
       ) : (
-        <div className="space-y-4">
-          <p className="text-xs text-zinc-500">
-            {items.length} collection(s)
+        <div className={ADMIN_LIST}>
+          <p className={ADMIN_COUNT}>
+            {items.length} collection{items.length === 1 ? "" : "s"}
             {snapshotsQuery.isFetching ? " · refreshing market data…" : ""}
           </p>
           {items.map((row) => (
@@ -55,9 +65,9 @@ export function MarketplaceAdminCollectionsPage() {
               type="button"
               disabled={isLoadingMore}
               onClick={() => void loadMore()}
-              className="w-full rounded-lg border border-zinc-700 py-2 text-[11px] font-semibold text-zinc-300 hover:bg-zinc-800/80 disabled:opacity-50"
+              className={ADMIN_BTN_LOAD_MORE}
             >
-              {isLoadingMore ? "Loading…" : "Load more"}
+              {isLoadingMore ? "Loading…" : "Load more collections"}
             </button>
           ) : null}
         </div>

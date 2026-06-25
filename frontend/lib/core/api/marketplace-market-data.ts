@@ -83,12 +83,221 @@ export async function getCollectionMarketSeries(
 }
 
 /** AI market brief for a collection (admin / future collection detail). */
+export type AiInsightPriceTrendLabel =
+  | "cooling"
+  | "consolidation"
+  | "breakout"
+  | "stable"
+  | "volatile";
+
+export type AiInsightLiquidityLevel =
+  | "healthy"
+  | "moderate"
+  | "thin"
+  | "very_thin";
+
+export type AiInsightConfidenceLevel = "high" | "medium" | "low";
+
+export type AiInsightVolatilityLevel = "low" | "medium" | "high";
+
+export type AiInsightMarketCycleLabel =
+  | "accumulation"
+  | "expansion"
+  | "distribution"
+  | "correction";
+
+export interface AiInsightScoredComponent {
+  key: string;
+  label: string;
+  score: number;
+  weight: number;
+  contribution: number;
+}
+
+export interface AiInsightTrendWindow {
+  window: "7d" | "30d" | "90d" | "365d";
+  changePct: number | null;
+}
+
+export interface AiInsightSectionBase {
+  dataSources?: string[];
+}
+
+export interface AiInsightMarketPerformanceSection extends AiInsightSectionBase {
+  commentary: string[];
+  trends: AiInsightTrendWindow[];
+  volumeNote: string | null;
+}
+
+export interface AiInsightPriceTrendSection extends AiInsightSectionBase {
+  label: AiInsightPriceTrendLabel | null;
+  commentary: string[];
+  lowestUsd: number | null;
+  highestUsd: number | null;
+  medianSaleUsd: number | null;
+  recentSaleUsd: number | null;
+}
+
+export interface AiInsightLiquiditySection extends AiInsightSectionBase {
+  level: AiInsightLiquidityLevel | null;
+  commentary: string[];
+  sales7d: number | null;
+  sales30d: number | null;
+  avgDaysBetweenSales: number | null;
+  tokenableActiveListings: number | null;
+  listingToSaleRatio: number | null;
+}
+
+export interface AiInsightDemandSection extends AiInsightSectionBase {
+  score: number;
+  components: AiInsightScoredComponent[];
+  reasoning: string[];
+}
+
+export interface AiInsightRarityPopulationRow {
+  label: string;
+  count: number;
+}
+
+export interface AiInsightRaritySection extends AiInsightSectionBase {
+  commentary: string[];
+  populations: AiInsightRarityPopulationRow[];
+  psa10SharePct: number | null;
+  scarcityRatio10vs9: number | null;
+  gradeDistribution: AiInsightRarityPopulationRow[];
+}
+
+export interface AiInsightInvestmentThesisSection extends AiInsightSectionBase {
+  bullCase: string[];
+  bearCase: string[];
+  keyRisks: string[];
+}
+
+export interface AiInsightSalesTimelineEntry {
+  date: string;
+  priceUsd: number;
+  marketplace: string | null;
+  grade: string;
+}
+
+export interface AiInsightSalesTimelineSection extends AiInsightSectionBase {
+  entries: AiInsightSalesTimelineEntry[];
+  trendSummary: string | null;
+}
+
+export interface AiInsightPsaVerificationSection extends AiInsightSectionBase {
+  psaVerified: boolean | null;
+  certMatch: boolean | null;
+  gradeMatch: boolean | null;
+  marketDataCoverage: boolean;
+  certification: string | null;
+  gradingLabel: string | null;
+  trustScore: number;
+  reasoning: string[];
+}
+
+export interface AiInsightMarketStructureSection extends AiInsightSectionBase {
+  spotUsd: number | null;
+  compLowUsd: number | null;
+  compHighUsd: number | null;
+  tokenableFloorUsd: number | null;
+  floorPremiumPct: number | null;
+  listingConcentrationPct: number | null;
+  marketplaceDistribution: Array<{ label: string; pct: number }>;
+  commentary: string[];
+}
+
+export interface AiInsightFmvSection extends AiInsightSectionBase {
+  currentUsd: number | null;
+  fmvUsd: number | null;
+  premiumVsFmvPct: number | null;
+  confidenceGrade: "A" | "B" | "C" | "D" | null;
+  method: string | null;
+  freshnessDays: number | null;
+}
+
+export interface AiInsightGradePremiumRow {
+  grade: string;
+  priceUsd: number | null;
+}
+
+export interface AiInsightGradePremiumSection extends AiInsightSectionBase {
+  grades: AiInsightGradePremiumRow[];
+  psa10VsRawPct: number | null;
+  psa10VsPsa9Ratio: number | null;
+  psa10VsPsa8Ratio: number | null;
+}
+
+export interface AiInsightVolatilitySection extends AiInsightSectionBase {
+  vol30dPct: number | null;
+  vol90dPct: number | null;
+  vol365dPct: number | null;
+  level30d: AiInsightVolatilityLevel | null;
+  level90d: AiInsightVolatilityLevel | null;
+  level365d: AiInsightVolatilityLevel | null;
+}
+
+export interface AiInsightMarketCycleSection extends AiInsightSectionBase {
+  label: AiInsightMarketCycleLabel;
+  reasoning: string[];
+}
+
+export interface AiInsightMarketRankSection extends AiInsightSectionBase {
+  rank: number;
+  category: string;
+  rankChange30d: number | null;
+  percentile: number;
+}
+
+export interface AiInsightOpportunitySection extends AiInsightSectionBase {
+  score: number;
+  components: AiInsightScoredComponent[];
+}
+
+export interface AiInsightCardIdentityFact {
+  label: string;
+  value: string;
+}
+
+export interface AiInsightCardIdentitySection extends AiInsightSectionBase {
+  facts: AiInsightCardIdentityFact[];
+}
+
+export interface AiInsightExecutiveSummarySection extends AiInsightSectionBase {
+  paragraphs: string[];
+}
+
+export interface AiInsightConfidenceSection extends AiInsightSectionBase {
+  level: AiInsightConfidenceLevel;
+  score: number;
+  reasoning: string[];
+}
+
+export interface CollectionAiInsightSections {
+  marketPerformance?: AiInsightMarketPerformanceSection;
+  priceTrend?: AiInsightPriceTrendSection;
+  liquidity?: AiInsightLiquiditySection;
+  demand?: AiInsightDemandSection;
+  rarity?: AiInsightRaritySection;
+  investmentThesis?: AiInsightInvestmentThesisSection;
+  salesTimeline?: AiInsightSalesTimelineSection;
+  psaVerification?: AiInsightPsaVerificationSection;
+  marketStructure?: AiInsightMarketStructureSection;
+  fmv?: AiInsightFmvSection;
+  gradePremium?: AiInsightGradePremiumSection;
+  volatility?: AiInsightVolatilitySection;
+  marketCycle?: AiInsightMarketCycleSection;
+  marketRank?: AiInsightMarketRankSection;
+  opportunity?: AiInsightOpportunitySection;
+  cardIdentity?: AiInsightCardIdentitySection;
+  executiveSummary?: AiInsightExecutiveSummarySection;
+  confidence?: AiInsightConfidenceSection;
+}
+
 export interface CollectionAiInsightResponse {
   title: string;
   summary: string;
   bullets: string[];
-  dynamics?: string[];
-  syntheticChart?: string;
   chartSpec?: {
     chartStyle: string;
     trendStructure: string[];
@@ -96,12 +305,6 @@ export interface CollectionAiInsightResponse {
     visualInterpretation: string;
     miniSeries: number[];
     pathRepresentation: string;
-  };
-  outlook?: string;
-  outlookScenarios?: {
-    bullCase: string;
-    baseCase: string;
-    bearCase: string;
   };
   uiInstructions?: {
     loading: {
@@ -138,6 +341,9 @@ export interface CollectionAiInsightResponse {
     psa10SpotHighUsd?: number | null;
     psa10CatalogUsd?: number | null;
   };
+  sections?: CollectionAiInsightSections;
+  priceHistory?: Array<{ t: number; v: number }>;
+  dataAvailable: boolean;
 }
 
 export async function getCollectionAiInsight(

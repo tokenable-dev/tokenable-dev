@@ -29,7 +29,7 @@ export function MarketplaceAdminLoginForm({
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black px-4">
       <form onSubmit={(e) => void handleSubmit(e)} className="w-full max-w-sm space-y-4">
-        <h1 className="text-center text-xl font-bold text-white">Admin</h1>
+        <h1 className="text-center text-2xl font-bold text-white sm:text-3xl">Admin</h1>
 
         <div>
           <label htmlFor="admin-username" className="mb-1.5 block text-xs font-medium text-zinc-400">

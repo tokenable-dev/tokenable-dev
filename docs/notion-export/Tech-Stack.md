@@ -292,13 +292,16 @@ backend/sql/scripts/bootstrap-db.sh
 
 | Decision | Choice |
 |----------|--------|
-| Model | `vault_submissions` → `vault_submission_items` |
-| Public ID | `TBV-{YYYY}-{SEQ}` |
+| Model | `vault_submissions` → `vault_submission_items` (1:N) |
+| Public ID | `TBV-{YYYY}-{SEQ6}` + `item_ref` suffix |
 | Evidence | Private object storage (not IPFS) |
 | Mint | Platform-orchestrated after custody (not client mint) |
-| Redemption | Burn + outbound shipment |
+| `completed` | Custody verified + on-chain mint confirmed |
+| Redemption | Delist → burn → cert release → outbound ship |
 
-Not in codebase yet.
+Not in codebase yet. Current `/vault` route = legacy mint wizard only.
+
+**Draw.io diagrams:** [diagrams/vault/](https://github.com/tokenable-dev/tokenable-dev/tree/develop/docs/notion-export/diagrams/vault) — lifecycle, ER, state machines, intake, mint, redemption, SoT, open questions.
 
 ---
 
@@ -312,6 +315,7 @@ Not in codebase yet.
 | Frontend layout | [architecture/frontend.md](https://github.com/tokenable-dev/tokenable-dev/blob/develop/docs/architecture/frontend.md) |
 | Database ER + DDL | [architecture/database.md](https://github.com/tokenable-dev/tokenable-dev/blob/develop/docs/architecture/database.md) |
 | Marketplace pipeline | [diagrams/marketplace-lifecycle.en.md](https://github.com/tokenable-dev/tokenable-dev/blob/develop/docs/diagrams/marketplace-lifecycle.en.md) |
+| **Vault system (draw.io)** | [notion-export/diagrams/vault/](https://github.com/tokenable-dev/tokenable-dev/tree/develop/docs/notion-export/diagrams/vault) |
 | API reference (Notion) | [notion-export/API-Docs.md](https://github.com/tokenable-dev/tokenable-dev/blob/develop/docs/notion-export/API-Docs.md) |
 | API reference (full) | [api/README.md](https://github.com/tokenable-dev/tokenable-dev/blob/develop/docs/api/README.md) |
 | Troubleshooting | [guides/troubleshooting.md](https://github.com/tokenable-dev/tokenable-dev/blob/develop/docs/guides/troubleshooting.md) |

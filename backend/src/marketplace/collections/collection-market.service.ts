@@ -893,6 +893,18 @@ export class CollectionMarketService {
     return { platformUsd, platformTrades };
   }
 
+  async getActiveListingUsdcPrices(collectionKey: string): Promise<number[]> {
+    const key = collectionKey.toLowerCase();
+    const asks =
+      await this.collectionService.activeListingsForCollection(key);
+    const prices: number[] = [];
+    for (const o of asks) {
+      const { usd, skip } = this.classifyUsdcConsideration(o);
+      if (skip === 'none' && usd != null && usd > 0) prices.push(usd);
+    }
+    return prices;
+  }
+
   async getCollectionMarketStats(
     collectionKey: string,
   ): Promise<CollectionMarketStatsResponse> {

@@ -15,6 +15,7 @@ import type {
   CardhedgerCardRow,
   CollectionAiInsightPricingStats,
 } from './cardhedger-market-data.types';
+import type { AiInsightDataBundle } from './cardhedger-ai-insight.types';
 import {
   CardhedgerResolveService,
   type ResolvedCard,
@@ -334,59 +335,63 @@ export class CardhedgerMarketDataService {
     return null;
   }
 
-  async getAiInsightPricingBundle(col: MarketplaceCollection | null): Promise<{
-    matched: boolean;
-    matchConfidence: 'verified' | 'approximate' | null;
-    catalogLabel: string;
-    uiConfidence: number | null;
-    stats: CollectionAiInsightPricingStats;
-  }> {
-    if (!col) {
-      return {
-        matched: false,
-        matchConfidence: null,
-        catalogLabel: '',
-        uiConfidence: null,
-        stats: this.emptyInsightStats(),
-      };
-    }
+  async getAiInsightDataBundle(
+    col: MarketplaceCollection | null,
+  ): Promise<AiInsightDataBundle> {
+    const empty: AiInsightDataBundle = {
+      matched: false,
+      matchConfidence: null,
+      catalogLabel: '',
+      uiConfidence: null,
+      stats: this.emptyInsightStats(),
+      cardId: null,
+      gradeLabel: 'PSA 10',
+      history90: [],
+      history365: [],
+      compsRaw: [],
+      compsLowUsd: null,
+      compsHighUsd: null,
+      fmv: null,
+      allPricesRow: null,
+    };
+    if (!col) return empty;
     if (!this.isConfigured()) {
       return {
-        matched: false,
-        matchConfidence: null,
+        ...empty,
         catalogLabel: String(col.displayLabel ?? ''),
-        uiConfidence: null,
-        stats: this.emptyInsightStats(),
       };
     }
     const resolved = await this.resolve.resolveCardForCollection(col);
     if (!resolved.row || !resolved.confidence) {
       return {
-        matched: false,
-        matchConfidence: null,
+        ...empty,
         catalogLabel: String(col.displayLabel ?? ''),
-        uiConfidence: null,
-        stats: this.emptyInsightStats(),
       };
     }
     const cardId = String(resolved.row.card_id ?? '').trim();
+    const gradeLabel = 'PSA 10';
 
-    const [allPrices, h365] = await Promise.all([
+    const [allPrices, h365, compsCached, fmv] = await Promise.all([
       cardId ? this.pricing.fetchAllPricesByCard(cardId) : Promise.resolve([]),
       cardId
         ? this.pricing.fetchTierHistoryByCard(cardId, 'PSA_10', 365)
         : Promise.resolve([]),
+      cardId
+        ? this.pricing.fetchCompsCached(cardId, gradeLabel, 100)
+        : Promise.resolve(null),
+      cardId
+        ? this.pricing.fetchFmvCached(cardId, gradeLabel)
+        : Promise.resolve(null),
     ]);
     const h90 = slicePriceHistoryByDays(h365, 90);
 
     this.logger.debug(
       JSON.stringify({
-        msg: 'ai_insight_pricing_bundle',
+        msg: 'ai_insight_data_bundle',
         cardId: cardId || null,
-        pricesByCardFetches: 1,
-        historyFetches: cardId ? 1 : 0,
         points90d: h90.length,
         points365d: h365.length,
+        compsRaw: compsCached?.rawPoints?.length ?? 0,
       }),
     );
 
@@ -416,9 +421,17 @@ export class CardhedgerMarketDataService {
       catalogLabel,
       uiConfidence,
       stats,
+      cardId: cardId || null,
+      gradeLabel,
+      history90: h90,
+      history365: h365,
+      compsRaw: compsCached?.rawPoints ?? [],
+      compsLowUsd: compsCached?.lowUsd ?? null,
+      compsHighUsd: compsCached?.highUsd ?? null,
+      fmv,
+      allPricesRow: merged,
     };
   }
-
 
   /**
    * Resolves the Cardhedger card once and returns both the price preview and tier price history

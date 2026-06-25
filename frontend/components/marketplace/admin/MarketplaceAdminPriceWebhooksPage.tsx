@@ -3,12 +3,18 @@
 import { useState } from "react";
 import { useCardhedgerPriceInfraAdmin } from "@/hooks/marketplace-admin/useCardhedgerPriceInfraAdmin";
 import type { DeltaImportRun } from "@/lib/core/api/marketplace-admin-cardhedger";
+import {
+  ADMIN_ARTICLE,
+  ADMIN_BTN_PRIMARY,
+  ADMIN_PAGE_WIDE,
+  ADMIN_PAGE_TITLE,
+} from "./adminUi";
 import { MarketplaceAdminNav } from "./MarketplaceAdminNav";
 
 function FlagPill({ on, label }: { on: boolean; label: string }) {
   return (
     <span
-      className={`inline-flex rounded-md px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+      className={`inline-flex rounded-lg px-3 py-1 text-xs font-semibold uppercase tracking-wide sm:text-sm ${
         on ? "bg-emerald-500/15 text-emerald-400" : "bg-zinc-800 text-zinc-500"
       }`}
     >
@@ -27,17 +33,17 @@ function DeltaRunDetail({
   const [open, setOpen] = useState(defaultOpen);
 
   return (
-    <div className="rounded-lg border border-zinc-800/80 bg-black/30">
+    <div className="rounded-xl border border-zinc-800/80 bg-black/30">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-start justify-between gap-3 px-3 py-2.5 text-left"
+        className="flex w-full items-start justify-between gap-3 px-4 py-3.5 text-left sm:px-5 sm:py-4"
       >
         <div className="min-w-0">
-          <p className="text-[11px] font-semibold text-zinc-200">
+          <p className="text-sm font-semibold text-zinc-200 sm:text-base">
             {new Date(run.ranAt).toLocaleString()} · {run.status}
           </p>
-          <p className="mt-1 text-[10px] text-zinc-500">
+          <p className="mt-1.5 text-xs text-zinc-500 sm:text-sm">
             Checkpoint{" "}
             <span className="font-mono text-zinc-400">{run.sinceIso}</span>
             {run.latestTimestampIso ? (
@@ -47,7 +53,7 @@ function DeltaRunDetail({
               </>
             ) : null}
           </p>
-          <p className="mt-1 text-[10px] text-zinc-400">
+          <p className="mt-2 text-xs text-zinc-400 sm:text-sm">
             <span className="text-emerald-400">{run.matchedCollectionCount}</span> collections
             queued for snapshot refresh
             {run.catalogFallbackCount > 0 ? (
@@ -65,17 +71,17 @@ function DeltaRunDetail({
             ) : null}
           </p>
         </div>
-        <span className="shrink-0 text-[10px] text-zinc-600">{open ? "▲" : "▼"}</span>
+        <span className="shrink-0 text-sm text-zinc-600">{open ? "▲" : "▼"}</span>
       </button>
 
       {open ? (
-        <div className="space-y-3 border-t border-zinc-800/60 px-3 py-3">
+        <div className="space-y-3 border-t border-zinc-800/60 px-4 py-4 sm:px-5">
           {run.matchedCollections.length > 0 ? (
-            <ul className="space-y-1.5">
+            <ul className="space-y-2">
               {run.matchedCollections.map((row) => (
                 <li
                   key={row.collectionKey}
-                  className="rounded-md bg-zinc-900/60 px-2 py-1.5 text-[10px] text-zinc-400"
+                  className="rounded-lg bg-zinc-900/60 px-3 py-2 text-xs text-zinc-400 sm:text-sm"
                 >
                   <span className="font-mono font-semibold text-zinc-200">{row.collectionKey}</span>
                   {row.cardDesc ? (
@@ -134,12 +140,12 @@ export function MarketplaceAdminPriceWebhooksPage() {
   const runs = status?.recentDeltaRuns ?? [];
 
   return (
-    <div className="mx-auto min-h-screen w-full max-w-6xl px-3 py-6 sm:px-5 sm:py-8">
+    <div className={ADMIN_PAGE_WIDE}>
       <MarketplaceAdminNav />
 
-      <header className="mb-6">
-        <h1 className="text-xl font-bold text-white sm:text-2xl">Price sync</h1>
-        <p className="mt-2 text-sm leading-relaxed text-zinc-400">
+      <header className="mb-8">
+        <h1 className={ADMIN_PAGE_TITLE}>Price sync</h1>
+        <p className="mt-2 text-sm leading-relaxed text-zinc-400 sm:text-base">
           Cardhedger 시세를 DB snapshot에 반영합니다. Markets collection 가격·차트와 Portfolio
           카드 가격이 이 snapshot을 읽습니다. 페이지를 열 때마다 Cardhedger를 호출하지 않도록
           미리 저장해 두는 용도입니다.
@@ -155,14 +161,14 @@ export function MarketplaceAdminPriceWebhooksPage() {
             : "Failed to load status"}
         </p>
       ) : status ? (
-        <div className="space-y-5">
-          <section className="rounded-xl border border-zinc-800/80 bg-zinc-950/60 px-4 py-4">
-            <h2 className="text-sm font-semibold text-zinc-200">Automation</h2>
-            <div className="mt-3 flex flex-wrap gap-2">
+        <div className="space-y-6">
+          <section className={ADMIN_ARTICLE}>
+            <h2 className="text-base font-semibold text-zinc-200 sm:text-lg">Automation</h2>
+            <div className="mt-4 flex flex-wrap gap-2">
               <FlagPill on={status.flags.dailyPriceDeltaImportEnabled} label="Sync enabled" />
               <FlagPill on={status.deltaCronEnabled} label="Nightly cron" />
             </div>
-            <p className="mt-3 text-xs leading-relaxed text-zinc-400">
+            <p className="mt-4 text-sm leading-relaxed text-zinc-400">
               {status.deltaCronEnabled ? (
                 <>
                   Production: 매일 <strong className="text-zinc-300">04:00 KST</strong>에 자동
@@ -180,30 +186,30 @@ export function MarketplaceAdminPriceWebhooksPage() {
             </p>
           </section>
 
-          <section className="rounded-xl border border-zinc-800/80 bg-zinc-950/60 px-4 py-4">
-            <h2 className="text-sm font-semibold text-zinc-200">Run price sync</h2>
+          <section className={ADMIN_ARTICLE}>
+            <h2 className="text-base font-semibold text-zinc-200 sm:text-lg">Run price sync</h2>
             <button
               type="button"
               disabled={busy || !status.flags.dailyPriceDeltaImportEnabled}
               onClick={() => void runDelta()}
-              className="mt-4 rounded-lg bg-amber-500/90 px-4 py-2 text-xs font-semibold text-[#0a0a0a] hover:bg-amber-400 disabled:opacity-50"
+              className={`${ADMIN_BTN_PRIMARY} mt-5`}
             >
               {deltaMutation.isPending ? "Running…" : "Run price sync now"}
             </button>
             {actionMessage ? (
-              <p className="mt-3 text-xs text-zinc-300" role="status">
+              <p className="mt-4 text-sm text-zinc-300" role="status">
                 {actionMessage}
               </p>
             ) : null}
           </section>
 
           {runs.length > 0 ? (
-            <section className="rounded-xl border border-zinc-800/80 bg-zinc-950/60 px-4 py-4">
-              <h2 className="text-sm font-semibold text-zinc-200">Sync history</h2>
-              <p className="mt-1 text-[11px] text-zinc-500">
+            <section className={ADMIN_ARTICLE}>
+              <h2 className="text-base font-semibold text-zinc-200 sm:text-lg">Sync history</h2>
+              <p className="mt-2 text-sm text-zinc-500">
                 펼치면 snapshot refresh가 큐에 들어간 collection 목록을 볼 수 있습니다.
               </p>
-              <div className="mt-3 space-y-2">
+              <div className="mt-4 space-y-3">
                 {runs.map((run) => (
                   <DeltaRunDetail
                     key={run.id}
