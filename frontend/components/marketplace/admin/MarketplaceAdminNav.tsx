@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const TABS = [
+  { href: "/marketplace/admin/users", label: "Users" },
   { href: "/marketplace/admin/cards", label: "Listed cards" },
   { href: "/marketplace/admin/collections", label: "Collections" },
   { href: "/marketplace/admin/top100", label: "Top 100" },
@@ -19,6 +20,8 @@ export function MarketplaceAdminNav() {
       {TABS.map((tab) => {
         const active =
           pathname === tab.href ||
+          (tab.href === "/marketplace/admin/users" &&
+            pathname.startsWith("/marketplace/admin/users")) ||
           (tab.href === "/marketplace/admin/top100" &&
             pathname.startsWith("/marketplace/admin/top100")) ||
           (tab.href === "/marketplace/admin/top-movers" &&

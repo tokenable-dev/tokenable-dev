@@ -64,6 +64,18 @@ export class PasswordResetService {
     await this.sendResetEmail(user.email, rawToken);
   }
 
+  /** Admin — send password reset email (no cooldown). */
+  async adminRequestResetForUserId(userId: string): Promise<void> {
+    const user = await this.users.findByIdOrFail(userId);
+    if (!user.passwordHash) {
+      throw new BadRequestException(
+        'Account has no password — use Google sign-in or set a password first',
+      );
+    }
+    const rawToken = await this.replaceTokenForUser(user.id, 0);
+    await this.sendResetEmail(user.email, rawToken);
+  }
+
   async resetWithToken(
     rawToken: string,
     newPassword: string,

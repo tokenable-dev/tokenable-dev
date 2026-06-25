@@ -24,6 +24,8 @@ export default registerAs('app', () => ({
   nodeEnv: process.env.NODE_ENV?.trim() || 'development',
   corsOrigin: process.env.CORS_ORIGIN?.trim() || '*',
   isProduction: process.env.NODE_ENV === 'production',
+  /** Optional absolute API origin for Swagger Try-it-out (e.g. https://tokenable-dev.com). */
+  publicApiUrl: process.env.PUBLIC_API_URL?.trim() || null,
 }));
 
 function clampInt(

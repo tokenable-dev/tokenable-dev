@@ -57,7 +57,6 @@ export class EmailVerificationService {
     await this.sendVerificationEmail(user.email, rawToken);
   }
 
-  /** Public resend by email — no user enumeration on unknown email. */
   async resendForEmail(email: string): Promise<void> {
     const user = await this.users.findByEmail(email);
     if (!user || user.emailVerified || !user.passwordHash) {
@@ -68,6 +67,16 @@ export class EmailVerificationService {
       user.id,
       RESEND_COOLDOWN_MS,
     );
+    await this.sendVerificationEmail(user.email, rawToken);
+  }
+
+  /** Admin — bypass resend cooldown. */
+  async adminIssueVerification(userId: string): Promise<void> {
+    const user = await this.users.findByIdOrFail(userId);
+    if (user.emailVerified) {
+      throw new BadRequestException('Email already verified');
+    }
+    const rawToken = await this.replaceTokenForUser(userId, 0);
     await this.sendVerificationEmail(user.email, rawToken);
   }
 

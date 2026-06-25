@@ -100,6 +100,14 @@ export const rq = {
   rwaAssetDetail: (tokenId: number) => ["marketplace-detail-metadata", tokenId] as const,
   /** Admin — active listed RWA cards registry overview. */
   adminListedRwaCards: () => ["admin-listed-rwa-cards"] as const,
+  adminUserStats: () => ["admin-user-stats"] as const,
+  adminUsersList: (
+    q: string,
+    filter: string,
+    page: number,
+    limit: number,
+  ) => ["admin-users-list", q, filter, page, limit] as const,
+  adminUserDetail: (userId: string) => ["admin-user-detail", userId] as const,
   /** Admin — marketplace collections list (cursor pages). */
   adminCollectionsList: () => ["admin-collections-list"] as const,
   /**
