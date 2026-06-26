@@ -1,8 +1,10 @@
 "use client";
 
+import { useMemo } from "react";
 import type { Address } from "viem";
 import { pickCollectionDetailDisplayImageUrl } from "@/lib/marketplace/collectionDisplayImage";
 import { COLLECTION_DETAIL_SHELL_CLASS } from "@/constants/layout";
+import { useCollectionCoverGallery } from "@/hooks/collection-detail/useCollectionCoverGallery";
 import { CollectionOverviewBoard } from "@/components/marketplace/collection-overview";
 import { WatchlistToggleButton } from "@/components/watchlist/WatchlistToggleButton";
 import { CollectionDetailsKvCard, CollectionHeroDetailsTabs } from "@/components/marketplace/collection-hero";
@@ -58,6 +60,23 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
   const collection = data.collection!;
   const collectionCoverUrl = pickCollectionDetailDisplayImageUrl(data);
 
+  const coverGalleryState = useCollectionCoverGallery(collectionKey, router);
+  const coverGallery = useMemo(() => {
+    const g = coverGalleryState.gallery;
+    if (!g) return undefined;
+    return {
+      entries: g.entries,
+      viewingKey: g.viewingKey,
+      currentIndex: g.currentIndex,
+      canSwipe: g.canSwipe,
+      onNext: g.onNext,
+      onPrev: g.onPrev,
+      open: coverGalleryState.lightboxOpen,
+      onOpenChange: coverGalleryState.setLightboxOpen,
+      onClose: coverGalleryState.closeLightbox,
+    };
+  }, [coverGalleryState]);
+
   const {
     marketsPriceMetricsStrip,
     collectionDualPriceChart,
@@ -110,6 +129,7 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
           badgeLabel="Collection"
           imageUrl={collectionCoverUrl}
           coverOverlay={<WatchlistToggleButton collectionKey={collectionKey} size="sm" />}
+          coverGallery={coverGallery}
           belowCover={
             <CollectionHeroDetailsTabs
               onAiInsightsClick={() => setAiInsightComingSoonOpen(true)}

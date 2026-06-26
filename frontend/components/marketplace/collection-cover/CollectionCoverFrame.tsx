@@ -9,6 +9,20 @@ import {
 } from "@/components/marketplace/collectionOverviewChrome";
 import { useResolvedMediaUrl } from "@/hooks/media";
 import { collectionCoverImageStyle } from "@/lib/marketplace/cardhedgerBubbleCoverImage";
+import type { CollectionBrowseEntry } from "@/lib/marketplace/collectionBrowseContext";
+import { CollectionCoverSwipeLightbox } from "./CollectionCoverSwipeLightbox";
+
+export type CollectionCoverGalleryProps = {
+  entries: CollectionBrowseEntry[];
+  viewingKey: string;
+  currentIndex: number;
+  canSwipe: boolean;
+  onNext: () => void;
+  onPrev: () => void;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onClose: () => void;
+};
 
 function CollectionCoverLightbox({
   open,
@@ -75,6 +89,8 @@ export interface CollectionCoverFrameProps {
   /** Carousel slides: static placeholder while resolving (no pulse — avoids vertical “shake”). */
   quietLoading?: boolean;
   className?: string;
+  /** When set (e.g. from Markets browse context), fullscreen cover supports swipe between cards. */
+  coverGallery?: CollectionCoverGalleryProps;
 }
 
 /**
@@ -88,6 +104,7 @@ export function CollectionCoverFrame({
   variant = "compact",
   quietLoading = false,
   className = "",
+  coverGallery,
 }: CollectionCoverFrameProps) {
   const [activeImageUrl, setActiveImageUrl] = useState(imageUrl);
   const { url: resolved, isLoading } = useResolvedMediaUrl(activeImageUrl);
@@ -244,7 +261,10 @@ export function CollectionCoverFrame({
                 <>
                   <button
                     type="button"
-                    onClick={() => setLightboxOpen(true)}
+                    onClick={() => {
+                      if (coverGallery) coverGallery.onOpenChange(true);
+                      else setLightboxOpen(true);
+                    }}
                     className="absolute inset-0 z-[2] cursor-pointer bg-transparent outline-none transition-colors hover:bg-black/[0.12] active:bg-black/[0.18]"
                     aria-label="Open collection cover in large view"
                     title="Click to view larger"
@@ -280,12 +300,25 @@ export function CollectionCoverFrame({
           ) : null}
         </div>
       </div>
-      <CollectionCoverLightbox
-        open={lightboxOpen && heroInteractive && Boolean(resolved) && !imgFailed}
-        resolvedUrl={resolved}
-        alt={alt}
-        onClose={() => setLightboxOpen(false)}
-      />
+      {coverGallery?.canSwipe ? (
+        <CollectionCoverSwipeLightbox
+          open={coverGallery.open}
+          entries={coverGallery.entries}
+          viewingKey={coverGallery.viewingKey}
+          currentIndex={coverGallery.currentIndex}
+          canSwipe={coverGallery.canSwipe}
+          onClose={coverGallery.onClose}
+          onNext={coverGallery.onNext}
+          onPrev={coverGallery.onPrev}
+        />
+      ) : (
+        <CollectionCoverLightbox
+          open={lightboxOpen && heroInteractive && Boolean(resolved) && !imgFailed}
+          resolvedUrl={resolved}
+          alt={alt}
+          onClose={() => setLightboxOpen(false)}
+        />
+      )}
     </div>
   );
 }

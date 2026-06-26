@@ -82,12 +82,14 @@ export function CollectionGridCard({
   resolvedCoverUrl,
   listingCount,
   marketChangeLoading = false,
+  onBeforeNavigate,
 }: {
   collection: MarketplaceCollectionSummary;
   snapshot: CollectionListMarketSnapshot | undefined;
   resolvedCoverUrl?: string;
   listingCount: number;
   marketChangeLoading?: boolean;
+  onBeforeNavigate?: () => void;
 }) {
   const comp = collection.components;
   const marketPriceUsd = resolveMarketsListingMarketUsd(collection, snapshot);
@@ -110,6 +112,7 @@ export function CollectionGridCard({
       <Link
         href={`/marketplace/collections/${encodeURIComponent(collection.collectionKey)}`}
         className={`group flex h-full flex-col overflow-hidden rounded-2xl outline-none ${GRID_CARD_SURFACE}`}
+        onClick={() => onBeforeNavigate?.()}
       >
       {/* 15% horizontal padding each side → image is 70% of card width (30% smaller).
           Top padding keeps the image away from the Link's overflow-hidden rounded corners.

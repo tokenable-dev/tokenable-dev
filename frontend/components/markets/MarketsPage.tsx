@@ -24,6 +24,10 @@ import { CollectionGridCard } from "./CollectionGridCard";
 import { MarketsSortToolbar } from "./MarketsSortToolbar";
 import { TOP_CARDS_UI_ENABLED, TOP_MOVERS_UI_ENABLED } from "@/lib/markets/top100Copy";
 import { pickCollectionSummaryDisplayImageUrl } from "@/lib/marketplace/collectionDisplayImage";
+import {
+  buildBrowseEntriesFromSummaries,
+  saveCollectionBrowseContext,
+} from "@/lib/marketplace/collectionBrowseContext";
 import { CardTop100Section } from "./CardTop100Section";
 import { TopMoversSection } from "./TopMoversSection";
 
@@ -263,6 +267,14 @@ export default function MarketsPage() {
                 }
                 listingCount={c.activeListingCount}
                 marketChangeLoading={showMarketSnapshotLoadingBar}
+                onBeforeNavigate={() =>
+                  saveCollectionBrowseContext({
+                    source: "markets-grid",
+                    entries: buildBrowseEntriesFromSummaries(filteredSorted),
+                    categoryFilter,
+                    sortId,
+                  })
+                }
               />
             );
             })}

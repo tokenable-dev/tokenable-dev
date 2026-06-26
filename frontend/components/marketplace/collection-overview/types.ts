@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { CollectionMetadataExpandableProps } from "@/components/marketplace/collection-cover";
+import type { CollectionCoverGalleryProps } from "@/components/marketplace/collection-cover/CollectionCoverFrame";
 import type { AssetDetailHeadlineParts } from "@/lib/marketplace/assetDetailHeadline";
 
 export interface CollectionOverviewStat {
@@ -51,4 +52,5 @@ export interface CollectionOverviewBoardProps {
   suppressHeadlineBanner?: boolean;
   heroActions?: ReactNode;
   coverOverlay?: ReactNode;
+  coverGallery?: CollectionCoverGalleryProps;
 }
