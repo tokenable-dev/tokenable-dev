@@ -58,7 +58,6 @@ export function CollectionCoverSwipeLightbox({
   const touchAxis = useRef<"none" | "horizontal" | "vertical">("none");
   const suppressCloseClickRef = useRef(false);
 
-  const hasNext = canSwipe && currentIndex < entries.length - 1;
   const mounted = useCollectionCoverLightboxPortal(open, onClose);
 
   useEffect(() => {
@@ -150,8 +149,8 @@ export function CollectionCoverSwipeLightbox({
         />
       </div>
 
-      <div className={COLLECTION_COVER_LIGHTBOX_SWIPE_FOOTER_CLASS} aria-hidden={!hasNext}>
-        {hasNext ? <SwipeUpHintChevrons /> : null}
+      <div className={COLLECTION_COVER_LIGHTBOX_SWIPE_FOOTER_CLASS}>
+        <SwipeUpHintChevrons />
       </div>
     </div>,
     document.body,
