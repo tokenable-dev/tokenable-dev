@@ -28,10 +28,12 @@ export function CollectionAiInsightSparkline({
   sparklineUsd,
   miniSeries,
   className = "",
+  emptyClassName,
 }: {
   sparklineUsd?: CollectionUsdPoint[];
   miniSeries?: number[];
   className?: string;
+  emptyClassName?: string;
 }) {
   const paths = useMemo(() => {
     if (sparklineUsd && sparklineUsd.length >= 2) {
@@ -51,7 +53,10 @@ export function CollectionAiInsightSparkline({
   if (!paths) {
     return (
       <div
-        className={`flex h-[140px] items-center justify-center rounded-xl border border-zinc-800/80 bg-zinc-950/40 text-[11px] text-zinc-500 ${className}`}
+        className={
+          emptyClassName ??
+          `flex h-[140px] items-center justify-center rounded-xl border border-zinc-800/80 bg-zinc-950/40 text-[11px] text-zinc-500 ${className}`
+        }
       >
         Chart data unavailable
       </div>

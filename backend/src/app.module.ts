@@ -4,6 +4,7 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
 import appConfig from './config/app.config';
 import marketplaceConfig from './config/marketplace.config';
 import cardladderConfig from './config/cardladder.config';
+import ga4Config from './config/ga4.config';
 import { ScheduleModule } from '@nestjs/schedule';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CacheModule } from './common/cache/cache.module';
@@ -40,7 +41,7 @@ import { MarketplaceAdmin } from './marketplace/entities/marketplace-admin.entit
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [appConfig, marketplaceConfig, cardladderConfig],
+      load: [appConfig, marketplaceConfig, cardladderConfig, ga4Config],
     }),
     EventEmitterModule.forRoot({ global: true }),
     ScheduleModule.forRoot(),

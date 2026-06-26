@@ -142,6 +142,8 @@ cd frontend && pnpm dev
 Open [http://localhost:3000](http://localhost:3000).  
 Swagger: [http://localhost:4100/api/docs](http://localhost:4100/api/docs).
 
+**Admin console:** [http://localhost:3000/marketplace/admin](http://localhost:3000/marketplace/admin) — default dev login `skyand` / `071725` (override with `MARKETPLACE_ADMIN_*` in `backend/.env`). See [marketplace-admin.md](./marketplace-admin.md).
+
 ---
 
 ## 6. Reset the Database

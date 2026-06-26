@@ -1,5 +1,6 @@
 "use client";
 
+import { createContext, useContext } from "react";
 import Link from "next/link";
 import type { CollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
 import type {
@@ -10,7 +11,18 @@ import type {
 } from "@/lib/core";
 import { formatUsdCompact } from "@/lib/market";
 import { useCollectionAiInsight } from "@/hooks/collection-ai-insight/useCollectionAiInsight";
+import {
+  AI_INSIGHT_THEME_DARK,
+  AI_INSIGHT_THEME_LIGHT,
+  type AiInsightPanelTheme,
+} from "./aiInsightPanelTheme";
 import { CollectionAiInsightSparkline } from "./CollectionAiInsightSparkline";
+
+const AiInsightThemeContext = createContext<AiInsightPanelTheme>(AI_INSIGHT_THEME_DARK);
+
+function useT(): AiInsightPanelTheme {
+  return useContext(AiInsightThemeContext);
+}
 
 function formatPct(n: number | null | undefined): string {
   if (n == null || !Number.isFinite(n)) return "—";
@@ -35,25 +47,22 @@ function SectionCard({
   title: string;
   children: React.ReactNode;
 }) {
+  const t = useT();
   return (
-    <section className="rounded-xl border border-zinc-800/80 bg-zinc-950/50 p-3">
-      <h5 className="text-xs font-semibold uppercase tracking-wide text-zinc-500 sm:text-sm">
-        {title}
-      </h5>
+    <section className={t.sectionCard}>
+      <h5 className={t.sectionTitle}>{title}</h5>
       <div className="mt-2">{children}</div>
     </section>
   );
 }
 
 function BulletList({ items }: { items: string[] }) {
+  const t = useT();
   if (items.length === 0) return null;
   return (
     <ul className="space-y-2">
       {items.map((line) => (
-        <li
-          key={line}
-          className="flex gap-2 text-[13px] leading-relaxed text-zinc-300 sm:text-sm before:mt-2 before:h-1.5 before:w-1.5 before:shrink-0 before:rounded-full before:bg-mint/80 before:content-['']"
-        >
+        <li key={line} className={t.bullet}>
           <span>{line}</span>
         </li>
       ))}
@@ -61,16 +70,17 @@ function BulletList({ items }: { items: string[] }) {
   );
 }
 
-function confidenceBadge(level: "high" | "medium" | "low") {
-  if (level === "high") return "text-mint border-mint/30 bg-mint/10";
-  if (level === "medium") return "text-amber-300 border-amber-500/30 bg-amber-500/10";
-  return "text-zinc-400 border-zinc-600/40 bg-zinc-800/40";
+function confidenceBadge(level: "high" | "medium" | "low", t: AiInsightPanelTheme) {
+  if (level === "high") return t.confidenceHigh;
+  if (level === "medium") return t.confidenceMedium;
+  return t.confidenceLow;
 }
 
 function DataSourcesFooter({ sources }: { sources?: string[] }) {
+  const t = useT();
   if (!sources?.length) return null;
   return (
-    <p className="mt-2 text-[9px] leading-relaxed text-zinc-600">
+    <p className={t.sources}>
       Sources: {sources.join(" · ")}
     </p>
   );
@@ -81,17 +91,15 @@ function MetricGrid({
 }: {
   items: Array<{ label: string; value: React.ReactNode } | null>;
 }) {
+  const t = useT();
   const rows = items.filter(Boolean) as Array<{ label: string; value: React.ReactNode }>;
   if (rows.length === 0) return null;
   return (
     <dl className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
       {rows.map((row) => (
-        <div
-          key={row.label}
-          className="rounded-lg border border-zinc-800/70 bg-zinc-900/40 px-2 py-1.5"
-        >
-          <dt className="text-[9px] uppercase text-zinc-600">{row.label}</dt>
-          <dd className="text-[12px] font-semibold text-white">{row.value}</dd>
+        <div key={row.label} className={t.metricBox}>
+          <dt className={t.metricLabel}>{row.label}</dt>
+          <dd className={t.metricValue}>{row.value}</dd>
         </div>
       ))}
     </dl>
@@ -111,21 +119,20 @@ function ScoredBreakdown({
     contribution: number;
   }>;
 }) {
+  const t = useT();
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
-      <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border-2 border-mint/40 bg-mint/10">
-        <span className="text-lg font-bold text-mint">{score}</span>
+      <div className={t.scoredRing}>
+        <span className={t.scoredScore}>{score}</span>
       </div>
       <div className="min-w-0 flex-1 space-y-2">
         {components.map((c) => (
           <div key={c.key} className="flex items-center justify-between gap-2 text-[11px]">
-            <span className="text-zinc-400">
+            <span className={t.scoredLabel}>
               {c.label}{" "}
-              <span className="text-zinc-600">(w{c.weight}%)</span>
+              <span className={t.scoredWeight}>(w{c.weight}%)</span>
             </span>
-            <span className="font-semibold text-zinc-200">
-              +{c.contribution.toFixed(1)}
-            </span>
+            <span className={t.scoredContribution}>+{c.contribution.toFixed(1)}</span>
           </div>
         ))}
       </div>
@@ -143,13 +150,14 @@ function cycleLabel(label: string): string {
 }
 
 function InsightSections({ sections }: { sections: CollectionAiInsightSections }) {
+  const t = useT();
   return (
     <div className="space-y-3">
       {sections.executiveSummary ? (
         <SectionCard title="AI market summary">
           <div className="space-y-2">
             {sections.executiveSummary.paragraphs.map((p) => (
-              <p key={p} className="text-[12px] leading-relaxed text-zinc-300">
+              <p key={p} className={t.body}>
                 {p}
               </p>
             ))}
@@ -164,10 +172,10 @@ function InsightSections({ sections }: { sections: CollectionAiInsightSections }
             {sections.cardIdentity.facts.map((f) => (
               <div
                 key={f.label}
-                className="flex items-center justify-between rounded-lg border border-zinc-800/70 bg-zinc-900/40 px-3 py-2"
+                className={t.identityRow}
               >
-                <dt className="text-[11px] text-zinc-400">{f.label}</dt>
-                <dd className="text-[12px] font-semibold text-white">{f.value}</dd>
+                <dt className={t.bodyMuted}>{f.label}</dt>
+                <dd className={t.metricValue}>{f.value}</dd>
               </div>
             ))}
           </dl>
@@ -214,10 +222,10 @@ function InsightSections({ sections }: { sections: CollectionAiInsightSections }
               {sections.marketStructure.marketplaceDistribution.map((m) => (
                 <span
                   key={m.label}
-                  className="rounded-md border border-zinc-800 bg-zinc-900/60 px-2 py-1 text-[10px] text-zinc-400"
+                  className={t.chip}
                 >
                   {m.label}{" "}
-                  <span className="font-semibold text-zinc-200">{m.pct.toFixed(0)}%</span>
+                  <span className={t.chipValue}>{m.pct.toFixed(0)}%</span>
                 </span>
               ))}
             </div>
@@ -231,14 +239,14 @@ function InsightSections({ sections }: { sections: CollectionAiInsightSections }
           <BulletList items={sections.marketPerformance.commentary} />
           {sections.marketPerformance.trends.length > 0 ? (
             <div className="mt-3 flex flex-wrap gap-2">
-              {sections.marketPerformance.trends.map((t) => (
+              {sections.marketPerformance.trends.map((trend) => (
                 <span
-                  key={t.window}
-                  className="rounded-md border border-zinc-800 bg-zinc-900/60 px-2 py-1 text-[10px] text-zinc-400"
+                  key={trend.window}
+                  className={t.chip}
                 >
-                  {t.window}{" "}
-                  <span className="font-semibold text-zinc-200">
-                    {formatPct(t.changePct)}
+                  {trend.window}{" "}
+                  <span className={t.chipValue}>
+                    {formatPct(trend.changePct)}
                   </span>
                 </span>
               ))}
@@ -251,7 +259,7 @@ function InsightSections({ sections }: { sections: CollectionAiInsightSections }
       {sections.priceTrend ? (
         <SectionCard title="Price trend insight">
           {sections.priceTrend.label ? (
-            <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-mint/90">
+            <p className={t.accentLabel}>
               {sections.priceTrend.label}
             </p>
           ) : null}
@@ -291,7 +299,7 @@ function InsightSections({ sections }: { sections: CollectionAiInsightSections }
             ]}
           />
           {sections.fmv.method ? (
-            <p className="mt-2 text-[11px] text-zinc-500">
+            <p className={`mt-2 ${t.bodyMuted}`}>
               Method: {sections.fmv.method}
               {sections.fmv.freshnessDays != null
                 ? ` · ${sections.fmv.freshnessDays}d fresh`
@@ -308,10 +316,10 @@ function InsightSections({ sections }: { sections: CollectionAiInsightSections }
             {sections.gradePremium.grades.map((g) => (
               <div
                 key={g.grade}
-                className="flex items-center justify-between rounded-lg border border-zinc-800/70 bg-zinc-900/40 px-3 py-2"
+                className={t.identityRow}
               >
-                <dt className="text-[11px] text-zinc-400">{g.grade}</dt>
-                <dd className="text-[12px] font-semibold text-white">
+                <dt className={t.bodyMuted}>{g.grade}</dt>
+                <dd className={t.metricValue}>
                   {g.priceUsd != null ? formatUsdCompact(g.priceUsd) : "—"}
                 </dd>
               </div>
@@ -370,7 +378,7 @@ function InsightSections({ sections }: { sections: CollectionAiInsightSections }
 
       {sections.marketCycle ? (
         <SectionCard title="Market cycle">
-          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-mint/90">
+          <p className={t.accentLabel}>
             {cycleLabel(sections.marketCycle.label)}
           </p>
           <BulletList items={sections.marketCycle.reasoning} />
@@ -430,10 +438,10 @@ function InsightSections({ sections }: { sections: CollectionAiInsightSections }
             {sections.rarity.populations.map((row) => (
               <div
                 key={row.label}
-                className="flex items-center justify-between rounded-lg border border-zinc-800/70 bg-zinc-900/40 px-3 py-2"
+                className={t.identityRow}
               >
-                <dt className="text-[11px] text-zinc-400">{row.label}</dt>
-                <dd className="text-[12px] font-semibold text-white">
+                <dt className={t.bodyMuted}>{row.label}</dt>
+                <dd className={t.metricValue}>
                   {row.count.toLocaleString("en-US")}
                 </dd>
               </div>
@@ -441,17 +449,17 @@ function InsightSections({ sections }: { sections: CollectionAiInsightSections }
           </dl>
           {sections.rarity.gradeDistribution.length > 0 ? (
             <div className="mt-3">
-              <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+              <p className={`mb-2 ${t.metricLabel}`}>
                 Grade distribution
               </p>
               <dl className="grid gap-2 sm:grid-cols-3">
                 {sections.rarity.gradeDistribution.map((row) => (
                   <div
                     key={row.label}
-                    className="flex items-center justify-between rounded-lg border border-zinc-800/70 bg-zinc-900/40 px-3 py-2"
+                    className={t.identityRow}
                   >
-                    <dt className="text-[11px] text-zinc-400">{row.label}</dt>
-                    <dd className="text-[12px] font-semibold text-white">
+                    <dt className={t.bodyMuted}>{row.label}</dt>
+                    <dd className={t.metricValue}>
                       {row.count.toLocaleString("en-US")}
                     </dd>
                   </div>
@@ -520,9 +528,7 @@ function InsightSections({ sections }: { sections: CollectionAiInsightSections }
             ).map(([label, items]) =>
               items.length > 0 ? (
                 <div key={label}>
-                  <p className="text-[9px] font-bold uppercase tracking-wide text-zinc-500">
-                    {label}
-                  </p>
+                  <p className={t.metricLabel}>{label}</p>
                   <BulletList items={items} />
                 </div>
               ) : null,
@@ -535,14 +541,14 @@ function InsightSections({ sections }: { sections: CollectionAiInsightSections }
       {sections.salesTimeline ? (
         <SectionCard title="Historical sales timeline">
           {sections.salesTimeline.trendSummary ? (
-            <p className="mb-2 text-[11px] text-zinc-400">
+            <p className={`mb-2 ${t.bodyMuted}`}>
               {sections.salesTimeline.trendSummary}
             </p>
           ) : null}
           <div className="overflow-x-auto">
             <table className="w-full min-w-[320px] text-left text-[11px]">
               <thead>
-                <tr className="border-b border-zinc-800 text-zinc-600">
+                <tr className={t.tableHead}>
                   <th className="pb-2 pr-3 font-medium">Date</th>
                   <th className="pb-2 pr-3 font-medium">Price</th>
                   <th className="pb-2 pr-3 font-medium">Marketplace</th>
@@ -551,13 +557,13 @@ function InsightSections({ sections }: { sections: CollectionAiInsightSections }
               </thead>
               <tbody>
                 {sections.salesTimeline.entries.map((e) => (
-                  <tr key={`${e.date}-${e.priceUsd}`} className="border-b border-zinc-900">
-                    <td className="py-2 pr-3 text-zinc-400">{formatDate(e.date)}</td>
-                    <td className="py-2 pr-3 font-semibold text-white">
+                  <tr key={`${e.date}-${e.priceUsd}`} className={t.tableRow}>
+                    <td className={t.tableCell}>{formatDate(e.date)}</td>
+                    <td className={t.tableCellValue}>
                       {formatUsdCompact(e.priceUsd)}
                     </td>
-                    <td className="py-2 pr-3 text-zinc-400">{e.marketplace ?? "—"}</td>
-                    <td className="py-2 text-zinc-400">{e.grade}</td>
+                    <td className={t.tableCell}>{e.marketplace ?? "—"}</td>
+                    <td className={t.tableCell}>{e.grade}</td>
                   </tr>
                 ))}
               </tbody>
@@ -570,11 +576,11 @@ function InsightSections({ sections }: { sections: CollectionAiInsightSections }
       {sections.psaVerification ? (
         <SectionCard title="PSA verification">
           <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="space-y-1 text-[12px] text-zinc-300">
+            <div className={`space-y-1 ${t.body}`}>
               {sections.psaVerification.gradingLabel ? (
                 <p>
                   Grade:{" "}
-                  <span className="font-semibold text-white">
+                  <span className={t.metricValue}>
                     {sections.psaVerification.gradingLabel}
                   </span>
                 </p>
@@ -582,14 +588,14 @@ function InsightSections({ sections }: { sections: CollectionAiInsightSections }
               {sections.psaVerification.certification ? (
                 <p>
                   Certification:{" "}
-                  <span className="font-mono text-zinc-200">
+                  <span className={`font-mono ${t.chipValue}`}>
                     #{sections.psaVerification.certification}
                   </span>
                 </p>
               ) : null}
               <p>
                 PSA verified:{" "}
-                <span className="font-semibold text-white">
+                <span className={t.metricValue}>
                   {sections.psaVerification.psaVerified == null
                     ? "—"
                     : sections.psaVerification.psaVerified
@@ -599,7 +605,7 @@ function InsightSections({ sections }: { sections: CollectionAiInsightSections }
               </p>
               <p>
                 Cert match:{" "}
-                <span className="font-semibold text-white">
+                <span className={t.metricValue}>
                   {sections.psaVerification.certMatch == null
                     ? "—"
                     : sections.psaVerification.certMatch
@@ -609,7 +615,7 @@ function InsightSections({ sections }: { sections: CollectionAiInsightSections }
               </p>
               <p>
                 Grade match:{" "}
-                <span className="font-semibold text-white">
+                <span className={t.metricValue}>
                   {sections.psaVerification.gradeMatch == null
                     ? "—"
                     : sections.psaVerification.gradeMatch
@@ -619,14 +625,14 @@ function InsightSections({ sections }: { sections: CollectionAiInsightSections }
               </p>
               <p>
                 Market data coverage:{" "}
-                <span className="font-semibold text-white">
+                <span className={t.metricValue}>
                   {sections.psaVerification.marketDataCoverage ? "Yes" : "No"}
                 </span>
               </p>
             </div>
-            <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 px-3 py-2 text-center">
-              <p className="text-[9px] uppercase text-zinc-600">Trust score</p>
-              <p className="text-lg font-bold text-mint">
+            <div className={t.trustBox}>
+              <p className={t.trustLabel}>Trust score</p>
+              <p className={t.trustScore}>
                 {sections.psaVerification.trustScore}
               </p>
             </div>
@@ -642,11 +648,11 @@ function InsightSections({ sections }: { sections: CollectionAiInsightSections }
         <SectionCard title="Insight confidence">
           <div className="flex flex-wrap items-center gap-2">
             <span
-              className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${confidenceBadge(sections.confidence.level)}`}
+              className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${confidenceBadge(sections.confidence.level, t)}`}
             >
               {sections.confidence.level} confidence
             </span>
-            <span className="text-[11px] text-zinc-500">
+            <span className={t.bodyMuted}>
               Score {(sections.confidence.score * 100).toFixed(0)}%
             </span>
           </div>
@@ -661,18 +667,19 @@ function InsightSections({ sections }: { sections: CollectionAiInsightSections }
 }
 
 function InsightLoadingShell() {
+  const t = useT();
   return (
-    <div className="ai-insight-loading-shell rounded-xl border border-mint/20 p-4">
+    <div className={t.loadingShell}>
       <div className="space-y-3">
-        <div className="ai-insight-loading-block h-5 w-2/3 rounded bg-zinc-800/80" />
-        <div className="ai-insight-loading-block h-16 w-full rounded bg-zinc-800/60" />
+        <div className={`${t.loadingBlock} h-5 w-2/3`} />
+        <div className={`${t.loadingBlock} h-16 w-full`} />
         <div className="grid grid-cols-3 gap-2">
-          <div className="ai-insight-loading-block h-12 rounded bg-zinc-800/50" />
-          <div className="ai-insight-loading-block h-12 rounded bg-zinc-800/50" />
-          <div className="ai-insight-loading-block h-12 rounded bg-zinc-800/50" />
+          <div className={`${t.loadingBlock} h-12`} />
+          <div className={`${t.loadingBlock} h-12`} />
+          <div className={`${t.loadingBlock} h-12`} />
         </div>
-        <div className="ai-insight-loading-block h-28 w-full rounded bg-zinc-800/40" />
-        <p className="text-center text-[10px] font-medium uppercase tracking-widest text-mint/70">
+        <div className={`${t.loadingBlock} h-28 w-full`} />
+        <p className={t.loadingText}>
           Scanning Cardhedger market data…
         </p>
       </div>
@@ -689,6 +696,7 @@ function InsightBody({
   row: MarketplaceCollectionSummary;
   snapshot?: CollectionListMarketSnapshot;
 }) {
+  const t = useT();
   const { components } = row;
   const stats = insight.stats;
   const sections = insight.sections ?? {};
@@ -702,12 +710,12 @@ function InsightBody({
 
   if (!insight.dataAvailable) {
     return (
-      <div className="space-y-3 rounded-xl border border-zinc-800/80 bg-zinc-950/40 p-4">
-        <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-amber-300">
+      <div className={t.emptyState}>
+        <span className={t.badgeAmber}>
           Admin preview · Cardhedger data required
         </span>
-        <h4 className="text-base font-semibold text-white">{insight.title}</h4>
-        <p className="text-[13px] leading-relaxed text-zinc-400">{insight.summary}</p>
+        <h4 className={t.title}>{insight.title}</h4>
+        <p className={t.bodyMuted}>{insight.summary}</p>
       </div>
     );
   }
@@ -715,22 +723,22 @@ function InsightBody({
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="rounded-full border border-mint/30 bg-mint/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-mint">
+        <span className={t.badgeLive}>
           Admin preview · Cardhedger live data
         </span>
         {insight.marketTone ? (
-          <span className="text-[10px] text-zinc-500">{insight.marketTone}</span>
+          <span className={t.marketTone}>{insight.marketTone}</span>
         ) : null}
       </div>
 
       <header className="space-y-2">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-mint/80 sm:text-xs">
+        <p className={t.kicker}>
           AI Insight
         </p>
-        <h4 className="text-lg font-semibold leading-snug text-white sm:text-xl">
+        <h4 className={t.title}>
           {insight.title}
         </h4>
-        <p className="text-sm leading-relaxed text-zinc-300 sm:text-[15px]">{insight.summary}</p>
+        <p className={t.summary}>{insight.summary}</p>
       </header>
 
       {insight.bullets.length > 0 ? (
@@ -740,18 +748,18 @@ function InsightBody({
       ) : null}
 
       {(refUsd != null || priceHistorySparkline || insight.chartSpec?.miniSeries) && (
-        <section className="rounded-xl border border-zinc-800/80 bg-zinc-950/40 p-3">
+        <section className={t.priceSection}>
           <div className="mb-2 flex flex-wrap items-end justify-between gap-2">
             <div>
-              <h5 className="text-xs font-semibold uppercase tracking-wide text-zinc-500 sm:text-sm">
+              <h5 className={t.sectionTitle}>
                 Price trajectory
               </h5>
               {refUsd != null ? (
-                <p className="text-lg font-semibold text-white">{formatUsdCompact(refUsd)}</p>
+                <p className={t.priceValue}>{formatUsdCompact(refUsd)}</p>
               ) : null}
             </div>
             {stats?.change90dPct != null ? (
-              <p className="text-[11px] text-zinc-400">
+              <p className={t.priceChange}>
                 90d {formatPct(stats.change90dPct)}
                 {stats.change30dPct != null ? ` · 30d ${formatPct(stats.change30dPct)}` : ""}
               </p>
@@ -760,9 +768,10 @@ function InsightBody({
           <CollectionAiInsightSparkline
             sparklineUsd={priceHistorySparkline}
             miniSeries={insight.chartSpec?.miniSeries}
+            emptyClassName={t.emptyChart}
           />
           {insight.chartSpec?.visualInterpretation ? (
-            <p className="mt-2 text-[11px] leading-relaxed text-zinc-500">
+            <p className={t.chartCaption}>
               {insight.chartSpec.visualInterpretation}
             </p>
           ) : null}
@@ -771,26 +780,26 @@ function InsightBody({
 
       <InsightSections sections={sections} />
 
-      <section className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-mint/20 bg-mint/[0.04] p-3">
+      <section className={t.platformFooter}>
         <div>
-          <p className="text-[10px] uppercase tracking-wide text-zinc-500">On-platform</p>
-          <p className="text-sm font-semibold text-white">
+          <p className={t.platformLabel}>On-platform</p>
+          <p className={t.platformValue}>
             {floorUsd != null ? formatUsdCompact(floorUsd) : "No floor"}
           </p>
-          <p className="text-[10px] text-zinc-500">
+          <p className={t.platformMeta}>
             {row.activeListingCount} listing{row.activeListingCount === 1 ? "" : "s"}
           </p>
         </div>
         <Link
           href={`/marketplace/collections/${encodeURIComponent(row.collectionKey)}`}
-          className="rounded-lg bg-mint px-4 py-2 text-[11px] font-bold text-[#0a0a0a] hover:bg-mint/90"
+          className={t.ctaButton}
         >
           View collection
         </Link>
       </section>
 
       {(insight.confidenceNote || insight.riskTapeNote || insight.riskLabel) && (
-        <footer className="space-y-1 border-t border-zinc-800/60 pt-2 text-[10px] leading-relaxed text-zinc-600">
+        <footer className={t.footer}>
           {insight.confidence != null ? (
             <p>
               Model confidence: {(insight.confidence * 100).toFixed(0)}%
@@ -808,7 +817,7 @@ function InsightBody({
           ) : insight.riskTapeNote ? (
             <p>{insight.riskTapeNote}</p>
           ) : null}
-          <p className="text-zinc-700">
+          <p className={t.footerMeta}>
             Generated {new Date(insight.generatedAt).toLocaleString()}
             {components.psaCertNumber ? ` · Cert #${components.psaCertNumber}` : ""}
           </p>
@@ -822,34 +831,45 @@ export function CollectionAiInsightPanel({
   row,
   snapshot,
   enabled,
+  variant = "dark",
 }: {
   row: MarketplaceCollectionSummary;
   snapshot?: CollectionListMarketSnapshot;
   enabled: boolean;
+  variant?: "light" | "dark";
 }) {
+  const theme = variant === "light" ? AI_INSIGHT_THEME_LIGHT : AI_INSIGHT_THEME_DARK;
   const { loading, error, insight } = useCollectionAiInsight(row.collectionKey, { enabled });
 
-  if (!enabled) {
-    return (
-      <p className="text-[11px] text-zinc-500">
-        Expand to load AI insight for this collection.
-      </p>
-    );
-  }
+  const content = (() => {
+    if (!enabled) {
+      return (
+        <p className={theme.expandHint}>
+          Expand to load AI insight for this collection.
+        </p>
+      );
+    }
 
-  if (loading) return <InsightLoadingShell />;
+    if (loading) return <InsightLoadingShell />;
 
-  if (error) {
-    return (
-      <p className="text-[11px] text-red-400" role="alert">
-        {error instanceof Error ? error.message : "Failed to load AI insight"}
-      </p>
-    );
-  }
+    if (error) {
+      return (
+        <p className={theme.error} role="alert">
+          {error instanceof Error ? error.message : "Failed to load AI insight"}
+        </p>
+      );
+    }
 
-  if (!insight) {
-    return <p className="text-[11px] text-zinc-500">No insight data.</p>;
-  }
+    if (!insight) {
+      return <p className={theme.expandHint}>No insight data.</p>;
+    }
 
-  return <InsightBody insight={insight} row={row} snapshot={snapshot} />;
+    return <InsightBody insight={insight} row={row} snapshot={snapshot} />;
+  })();
+
+  return (
+    <AiInsightThemeContext.Provider value={theme}>
+      {content}
+    </AiInsightThemeContext.Provider>
+  );
 }

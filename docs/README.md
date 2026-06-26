@@ -41,6 +41,7 @@ tokenable-dev/
 | Frontend routes | [frontend/routes.md](frontend/routes.md) |
 | Deploy & CI/CD (EC2 / Actions) | [guides/deployment.md](guides/deployment.md) |
 | Web analytics (GA4) | [guides/analytics.md](guides/analytics.md) |
+| Marketplace admin console | [guides/marketplace-admin.md](guides/marketplace-admin.md) |
 | CORS · TLS · same-origin `/api` | [guides/networking.md](guides/networking.md) |
 | Troubleshooting | [guides/troubleshooting.md](guides/troubleshooting.md) |
 | Live Swagger UI | `http://localhost:4100/api/docs` (local dev) |

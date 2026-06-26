@@ -12,10 +12,8 @@ import { AdminBurnTokenPanel } from "./AdminBurnTokenPanel";
 import {
   ADMIN_COUNT,
   ADMIN_LIST,
-  ADMIN_PAGE,
 } from "./adminUi";
 import { MarketplaceAdminCardRow } from "./MarketplaceAdminCardRow";
-import { MarketplaceAdminNav } from "./MarketplaceAdminNav";
 import { MarketplaceAdminPageHeader } from "./MarketplaceAdminPageHeader";
 
 export function MarketplaceAdminCardsPage() {
@@ -38,8 +36,7 @@ export function MarketplaceAdminCardsPage() {
   const { burningTokenId, burnToken } = useAdminBurnToken(operatorAddress);
 
   return (
-    <div className={ADMIN_PAGE}>
-      <MarketplaceAdminNav />
+    <>
       <MarketplaceAdminPageHeader
         title="Listed cards"
         subtitle="Active marketplace listings — edit display metadata and preview prices."
@@ -54,15 +51,15 @@ export function MarketplaceAdminCardsPage() {
       />
 
       {query.isLoading ? (
-        <p className="text-base text-zinc-500">Loading listed cards…</p>
+        <p className="text-base text-zinc-700">Loading listed cards…</p>
       ) : query.isError ? (
-        <p className="text-base text-red-400" role="alert">
+        <p className="text-base text-red-600" role="alert">
           {query.error instanceof Error
             ? query.error.message
             : "Failed to load cards"}
         </p>
       ) : items.length === 0 ? (
-        <p className="text-base text-zinc-500">No active listings found.</p>
+        <p className="text-base text-zinc-700">No active listings found.</p>
       ) : (
         <div className={ADMIN_LIST}>
           <p className={ADMIN_COUNT}>
@@ -98,6 +95,6 @@ export function MarketplaceAdminCardsPage() {
           ))}
         </div>
       )}
-    </div>
+    </>
   );
 }

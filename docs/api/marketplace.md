@@ -9,6 +9,10 @@
 - `marketplace/collections/cert-market-trace.controller.ts`
 - `marketplace/collections/rwa-token-admin.controller.ts` — `/api/marketplace/admin/rwa-tokens`
 - `marketplace/admin/marketplace-admin-auth.controller.ts` — admin console session
+- `marketplace/admin/platform-analytics.controller.ts` — platform KPI dashboard
+- `marketplace/admin/user-admin.controller.ts` — user support API
+
+Admin console overview: [guides/marketplace-admin.md](../guides/marketplace-admin.md).
 
 **Base paths:** `/api/marketplace`, `/api/marketplace/watchlist`, `/api/marketplace/admin/*`  
 **Swagger tag:** `marketplace`

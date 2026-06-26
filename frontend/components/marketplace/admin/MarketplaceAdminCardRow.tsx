@@ -14,6 +14,11 @@ import {
   ADMIN_INPUT,
   ADMIN_INPUT_MONO,
   ADMIN_LABEL,
+  ADMIN_LINK,
+  ADMIN_TEXT_EMPTY,
+  ADMIN_TEXT_META,
+  ADMIN_TEXT_MUTED,
+  ADMIN_TEXT_SECONDARY,
 } from "./adminUi";
 
 export function MarketplaceAdminCardRow({
@@ -121,23 +126,23 @@ export function MarketplaceAdminCardRow({
               className="max-h-full max-w-full object-contain p-2"
             />
           ) : previewLoading ? (
-            <span className="text-sm text-zinc-500">Loading…</span>
+            <span className={`text-sm ${ADMIN_TEXT_EMPTY}`}>Loading…</span>
           ) : (
-            <span className="text-sm text-zinc-600">No image</span>
+            <span className={`text-sm ${ADMIN_TEXT_MUTED}`}>No image</span>
           )}
         </div>
 
         <div className="min-w-0 flex-1 space-y-5">
           <div className="space-y-3">
-            <h3 className="text-lg font-bold text-white sm:text-xl">
+            <h3 className="text-lg font-semibold text-zinc-900 sm:text-xl">
               <Link
                 href={`/marketplace/${row.tokenId}`}
-                className="text-mint hover:underline"
+                className={ADMIN_LINK}
               >
                 Token #{row.tokenId}
               </Link>
             </h3>
-            <p className="font-mono text-sm text-zinc-500">
+            <p className={`font-mono text-sm ${ADMIN_TEXT_META}`}>
               Cert {row.certNumber ?? "—"}
             </p>
             <AdminMarketPriceStrip
@@ -180,7 +185,7 @@ export function MarketplaceAdminCardRow({
                 className={ADMIN_INPUT_MONO}
               />
               {row.catalogImageUrl ? (
-                <p className="mt-2 truncate text-xs text-zinc-600 sm:text-sm">
+                <p className={`mt-2 truncate text-xs sm:text-sm ${ADMIN_TEXT_SECONDARY}`}>
                   Metadata default: {row.catalogImageUrl}
                 </p>
               ) : null}
@@ -208,7 +213,7 @@ export function MarketplaceAdminCardRow({
               type="button"
               disabled={disabled || !row.displayImageUrl}
               onClick={() => void handleClearOverride()}
-              className="rounded-xl border border-zinc-700 px-4 py-2.5 text-sm font-semibold text-zinc-400 hover:bg-zinc-800/80 disabled:opacity-40"
+              className={`${ADMIN_BTN_SECONDARY} disabled:opacity-40`}
             >
               {rowBusy === "clear" ? "Clearing…" : "Clear override"}
             </button>
@@ -223,7 +228,7 @@ export function MarketplaceAdminCardRow({
           </div>
 
           {rowError ? (
-            <p className="text-sm text-red-400" role="alert">
+            <p className="text-sm text-red-600" role="alert">
               {rowError}
             </p>
           ) : null}

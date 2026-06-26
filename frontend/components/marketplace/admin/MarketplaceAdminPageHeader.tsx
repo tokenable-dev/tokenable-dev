@@ -10,7 +10,7 @@ export function MarketplaceAdminPageHeader({
   subtitle?: string;
 }) {
   return (
-    <header className="mb-6 sm:mb-8">
+    <header className="mb-5 border-b border-zinc-200 pb-4 sm:mb-6 sm:pb-5">
       <h1 className={ADMIN_PAGE_TITLE}>{title}</h1>
       {subtitle ? <p className={ADMIN_PAGE_SUBTITLE}>{subtitle}</p> : null}
     </header>

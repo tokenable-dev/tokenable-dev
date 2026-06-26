@@ -8,10 +8,8 @@ import {
   ADMIN_BTN_LOAD_MORE,
   ADMIN_COUNT,
   ADMIN_LIST,
-  ADMIN_PAGE,
 } from "./adminUi";
 import { MarketplaceAdminCollectionRow } from "./MarketplaceAdminCollectionRow";
-import { MarketplaceAdminNav } from "./MarketplaceAdminNav";
 import { MarketplaceAdminPageHeader } from "./MarketplaceAdminPageHeader";
 
 export function MarketplaceAdminCollectionsPage() {
@@ -27,23 +25,22 @@ export function MarketplaceAdminCollectionsPage() {
   } = useMarketplaceAdminCollections();
 
   return (
-    <div className={ADMIN_PAGE}>
-      <MarketplaceAdminNav />
+    <>
       <MarketplaceAdminPageHeader
         title="Collections"
         subtitle="Browse collection buckets, market snapshots, and AI insight previews."
       />
 
       {listQuery.isLoading ? (
-        <p className="text-base text-zinc-500">Loading collections…</p>
+        <p className="text-base text-zinc-700">Loading collections…</p>
       ) : listQuery.isError ? (
-        <p className="text-base text-red-400" role="alert">
+        <p className="text-base text-red-600" role="alert">
           {listQuery.error instanceof Error
             ? listQuery.error.message
             : "Failed to load collections"}
         </p>
       ) : items.length === 0 ? (
-        <p className="text-base text-zinc-500">No collections found.</p>
+        <p className="text-base text-zinc-700">No collections found.</p>
       ) : (
         <div className={ADMIN_LIST}>
           <p className={ADMIN_COUNT}>
@@ -72,6 +69,6 @@ export function MarketplaceAdminCollectionsPage() {
           ) : null}
         </div>
       )}
-    </div>
+    </>
   );
 }

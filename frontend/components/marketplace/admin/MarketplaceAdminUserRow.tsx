@@ -92,38 +92,38 @@ export function MarketplaceAdminUserRow({
     <article className={ADMIN_ARTICLE}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <p className="truncate text-base font-semibold text-white sm:text-lg">
+          <p className="truncate text-base font-semibold text-zinc-900 sm:text-lg">
             {row.email}
           </p>
           {row.name ? (
-            <p className="mt-0.5 text-sm text-zinc-400">{row.name}</p>
+            <p className="mt-0.5 text-sm text-zinc-600">{row.name}</p>
           ) : null}
           <div className="mt-2 flex flex-wrap gap-2">
             <span
               className={`rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
                 row.emailVerified
-                  ? "bg-emerald-500/15 text-emerald-300"
-                  : "bg-amber-500/15 text-amber-300"
+                  ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
+                  : "bg-amber-50 text-amber-700 ring-1 ring-amber-200"
               }`}
             >
               {row.emailVerified ? "Verified" : "Unverified"}
             </span>
-            <span className="rounded-md bg-zinc-800 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-400">
+            <span className="rounded-md bg-zinc-100 px-2 py-0.5 text-[10px] font-medium text-zinc-600 ring-1 ring-zinc-200">
               {signupLabel(row.signupType)}
             </span>
             {row.walletCount > 0 ? (
-              <span className="rounded-md bg-zinc-800 px-2 py-0.5 text-[10px] font-semibold text-zinc-400">
+              <span className="rounded-md bg-zinc-100 px-2 py-0.5 text-[10px] font-medium text-zinc-600 ring-1 ring-zinc-200">
                 {row.walletCount} wallet{row.walletCount === 1 ? "" : "s"}
               </span>
             ) : null}
             {row.watchlistCount > 0 ? (
-              <span className="rounded-md bg-zinc-800 px-2 py-0.5 text-[10px] font-semibold text-zinc-400">
+              <span className="rounded-md bg-zinc-100 px-2 py-0.5 text-[10px] font-medium text-zinc-600 ring-1 ring-zinc-200">
                 {row.watchlistCount} watchlist
               </span>
             ) : null}
           </div>
-          <p className="mt-2 font-mono text-[11px] text-zinc-600">{row.id}</p>
-          <p className="mt-1 text-xs text-zinc-500">Joined {formatDate(row.createdAt)}</p>
+          <p className="mt-2 font-mono text-[11px] text-zinc-700">{row.id}</p>
+          <p className="mt-1 text-xs text-zinc-600">Joined {formatDate(row.createdAt)}</p>
         </div>
         <button
           type="button"
@@ -135,11 +135,11 @@ export function MarketplaceAdminUserRow({
       </div>
 
       {expanded ? (
-        <div className="mt-5 space-y-5 border-t border-zinc-800/80 pt-5">
+        <div className="mt-5 space-y-5 border-t border-zinc-200 pt-5">
           {detailQuery.isLoading ? (
-            <p className="text-sm text-zinc-500">Loading user detail…</p>
+            <p className="text-sm text-zinc-700">Loading user detail…</p>
           ) : detailQuery.isError ? (
-            <p className="text-sm text-red-400" role="alert">
+            <p className="text-sm text-red-600" role="alert">
               {detailQuery.error instanceof Error
                 ? detailQuery.error.message
                 : "Failed to load detail"}
@@ -147,7 +147,7 @@ export function MarketplaceAdminUserRow({
           ) : detail ? (
             <>
               <section>
-                <h4 className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-zinc-600">
                   Profile
                 </h4>
                 <div className="mt-2 grid gap-3 sm:grid-cols-2">
@@ -173,24 +173,24 @@ export function MarketplaceAdminUserRow({
                 </div>
                 <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
                   <div>
-                    <dt className="text-zinc-500">Google ID</dt>
-                    <dd className="font-mono text-xs text-zinc-300">
+                    <dt className="text-zinc-600">Google ID</dt>
+                    <dd className="font-mono text-xs text-zinc-700">
                       {detail.googleId ?? "—"}
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-zinc-500">Has password</dt>
-                    <dd className="text-zinc-200">{detail.hasPassword ? "Yes" : "No"}</dd>
+                    <dt className="text-zinc-600">Has password</dt>
+                    <dd className="text-zinc-800">{detail.hasPassword ? "Yes" : "No"}</dd>
                   </div>
                   <div>
-                    <dt className="text-zinc-500">Pending email verify</dt>
-                    <dd className="text-zinc-200">
+                    <dt className="text-zinc-600">Pending email verify</dt>
+                    <dd className="text-zinc-800">
                       {detail.pendingEmailVerification ? "Yes" : "No"}
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-zinc-500">Pending password reset</dt>
-                    <dd className="text-zinc-200">
+                    <dt className="text-zinc-600">Pending password reset</dt>
+                    <dd className="text-zinc-800">
                       {detail.pendingPasswordReset ? "Yes" : "No"}
                     </dd>
                   </div>
@@ -198,28 +198,28 @@ export function MarketplaceAdminUserRow({
               </section>
 
               <section>
-                <h4 className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-zinc-600">
                   Wallets
                 </h4>
                 {detail.wallets.length === 0 ? (
-                  <p className="mt-2 text-sm text-zinc-500">No linked wallets.</p>
+                  <p className="mt-2 text-sm text-zinc-700">No linked wallets.</p>
                 ) : (
                   <ul className="mt-2 space-y-2">
                     {detail.wallets.map((w) => (
                       <li
                         key={w.id}
-                        className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-zinc-800 bg-zinc-900/50 px-3 py-2"
+                        className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2"
                       >
                         <div>
-                          <p className="font-mono text-xs text-zinc-200">
+                          <p className="font-mono text-xs text-zinc-800">
                             {w.walletAddress}
                             {w.isPrimary ? (
-                              <span className="ml-2 text-[10px] uppercase text-amber-400">
+                              <span className="ml-2 text-[10px] uppercase text-amber-600">
                                 primary
                               </span>
                             ) : null}
                           </p>
-                          <p className="text-[10px] text-zinc-600">
+                          <p className="text-[10px] text-zinc-700">
                             Linked {formatDate(w.linkedAt)}
                           </p>
                         </div>
@@ -267,24 +267,24 @@ export function MarketplaceAdminUserRow({
               </section>
 
               <section>
-                <h4 className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-zinc-600">
                   Watchlist ({detail.watchlistKeys.length})
                 </h4>
                 {detail.watchlistKeys.length === 0 ? (
-                  <p className="mt-2 text-sm text-zinc-500">Empty watchlist.</p>
+                  <p className="mt-2 text-sm text-zinc-700">Empty watchlist.</p>
                 ) : (
                   <ul className="mt-2 max-h-40 space-y-1 overflow-y-auto">
                     {detail.watchlistKeys.map((key) => (
                       <li
                         key={key}
-                        className="flex items-center justify-between gap-2 rounded-lg border border-zinc-800/80 px-2 py-1.5"
+                        className="flex items-center justify-between gap-2 rounded-md border border-zinc-200 px-2 py-1.5"
                       >
-                        <span className="truncate font-mono text-[11px] text-zinc-300">
+                        <span className="truncate font-mono text-[11px] text-zinc-700">
                           {key}
                         </span>
                         <button
                           type="button"
-                          className="shrink-0 text-[11px] font-semibold text-red-400 hover:text-red-300"
+                          className="shrink-0 text-[11px] font-semibold text-red-600 hover:text-red-700"
                           disabled={busy}
                           onClick={() =>
                             void runAction({
@@ -303,7 +303,7 @@ export function MarketplaceAdminUserRow({
               </section>
 
               <section>
-                <h4 className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-zinc-600">
                   Account actions
                 </h4>
                 <div className="mt-2 flex flex-wrap gap-2">
@@ -378,12 +378,12 @@ export function MarketplaceAdminUserRow({
               </section>
 
               <details className="rounded-xl border border-red-900/40 bg-red-950/20 p-3">
-                <summary className={`${ADMIN_DETAILS_SUMMARY} text-red-400`}>
+                <summary className={`${ADMIN_DETAILS_SUMMARY} text-red-600`}>
                   Danger zone
                 </summary>
                 <div className="mt-3 space-y-2">
-                  <p className="text-xs text-zinc-500">
-                    Type <span className="font-mono text-zinc-300">DELETE</span> to
+                  <p className="text-xs text-zinc-600">
+                    Type <span className="font-mono text-zinc-700">DELETE</span> to
                     permanently remove this account (wallets, watchlist, tokens).
                   </p>
                   <input
@@ -407,7 +407,7 @@ export function MarketplaceAdminUserRow({
           ) : null}
 
           {actionError ? (
-            <p className="text-sm text-red-400" role="alert">
+            <p className="text-sm text-red-600" role="alert">
               {actionError}
             </p>
           ) : null}
