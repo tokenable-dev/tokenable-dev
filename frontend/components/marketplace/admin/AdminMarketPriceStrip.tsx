@@ -1,6 +1,10 @@
 "use client";
 
 import { formatUsdCompact } from "@/lib/market";
+import { ADMIN_TEXT_BODY, ADMIN_TEXT_META } from "./adminUi";
+
+const CHIP =
+  "rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2";
 
 export function AdminMarketPriceStrip({
   askUsd,
@@ -23,14 +27,9 @@ export function AdminMarketPriceStrip({
     return (
       <div className="flex flex-wrap gap-2">
         {chips.map(({ label, value }) => (
-          <div
-            key={label}
-            className="rounded-lg border border-zinc-800/80 bg-zinc-900/50 px-3 py-2"
-          >
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
-              {label}
-            </span>
-            <p className="text-sm font-bold text-white">{formatUsdCompact(value)}</p>
+          <div key={label} className={CHIP}>
+            <span className={`text-[10px] font-medium ${ADMIN_TEXT_META}`}>{label}</span>
+            <p className={`text-sm font-semibold ${ADMIN_TEXT_BODY}`}>{formatUsdCompact(value)}</p>
           </div>
         ))}
       </div>
@@ -38,16 +37,11 @@ export function AdminMarketPriceStrip({
   }
 
   return (
-    <div className="flex flex-wrap gap-3">
+    <div className="flex flex-wrap gap-2 sm:gap-3">
       {chips.map(({ label, value }) => (
-        <div
-          key={label}
-          className="min-w-[5.5rem] rounded-xl border border-zinc-800/80 bg-zinc-900/60 px-4 py-3"
-        >
-          <span className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
-            {label}
-          </span>
-          <p className="mt-0.5 text-lg font-bold text-white sm:text-xl">
+        <div key={label} className={`min-w-[5rem] ${CHIP} sm:min-w-[5.5rem] sm:px-4 sm:py-3`}>
+          <span className={`text-xs font-medium ${ADMIN_TEXT_META}`}>{label}</span>
+          <p className={`mt-0.5 text-base font-semibold sm:text-lg ${ADMIN_TEXT_BODY}`}>
             {formatUsdCompact(value)}
           </p>
         </div>

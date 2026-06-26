@@ -3,7 +3,9 @@
 import { useState } from "react";
 import {
   ADMIN_BTN_SECONDARY,
+  ADMIN_INPUT_MONO,
   ADMIN_LABEL,
+  ADMIN_TEXT_SECONDARY,
 } from "./adminUi";
 
 export function AdminBurnTokenPanel({
@@ -24,11 +26,11 @@ export function AdminBurnTokenPanel({
   const valid = Number.isFinite(parsed) && parsed > 0;
 
   return (
-    <section className="mb-8 rounded-2xl border border-red-900/40 bg-red-950/10 p-5 sm:p-6">
-      <h2 className="text-sm font-bold uppercase tracking-wider text-red-300/90 sm:text-base">
+    <section className="mb-6 rounded-lg border border-red-200 bg-red-50 p-4 sm:mb-8 sm:p-5">
+      <h2 className="text-sm font-semibold text-red-800 sm:text-base">
         Burn token (test)
       </h2>
-      <p className="mt-2 text-sm leading-relaxed text-zinc-500">
+      <p className={`mt-2 text-sm leading-relaxed ${ADMIN_TEXT_SECONDARY}`}>
         Transfers an RWA you own to the test burn address. Cancel any active listing
         first. Not reversible.
       </p>
@@ -51,14 +53,14 @@ export function AdminBurnTokenPanel({
               value={tokenIdInput}
               onChange={(e) => setTokenIdInput(e.target.value)}
               placeholder="e.g. 42"
-              className="w-36 rounded-xl border border-zinc-700 bg-zinc-950/80 px-4 py-3 font-mono text-base text-white outline-none focus:border-red-500/50"
+              className={`${ADMIN_INPUT_MONO} w-full max-w-[9rem] sm:w-36`}
             />
           </label>
           <button
             type="button"
             disabled={!valid || burningTokenId != null}
             onClick={() => onBurn(parsed)}
-            className="rounded-xl border border-red-600/70 bg-red-950/40 px-5 py-3 text-sm font-bold text-red-300 hover:bg-red-900/50 disabled:opacity-40"
+            className="rounded-md border border-red-300 bg-white px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-40"
           >
             {burningTokenId === parsed ? "Burning…" : "Burn token"}
           </button>

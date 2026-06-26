@@ -1,7 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { AUTH_INPUT_CLASS, AUTH_PRIMARY_BTN } from "@/components/auth/authUiStyles";
+import {
+  ADMIN_ARTICLE,
+  ADMIN_BTN_PRIMARY,
+  ADMIN_INPUT,
+  ADMIN_LABEL,
+  ADMIN_SHELL_BG,
+} from "./adminUi";
 
 export function MarketplaceAdminLoginForm({
   onLogin,
@@ -27,12 +33,17 @@ export function MarketplaceAdminLoginForm({
   }
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black px-4">
-      <form onSubmit={(e) => void handleSubmit(e)} className="w-full max-w-sm space-y-4">
-        <h1 className="text-center text-2xl font-bold text-white sm:text-3xl">Admin</h1>
+    <div
+      className={`flex min-h-screen items-center justify-center px-4 py-8 ${ADMIN_SHELL_BG}`}
+    >
+      <form onSubmit={(e) => void handleSubmit(e)} className={`${ADMIN_ARTICLE} w-full max-w-sm space-y-4`}>
+        <div className="text-center">
+          <h1 className="text-xl font-semibold text-zinc-900">Admin sign in</h1>
+          <p className="mt-1 text-sm text-zinc-700">Tokenable backoffice</p>
+        </div>
 
         <div>
-          <label htmlFor="admin-username" className="mb-1.5 block text-xs font-medium text-zinc-400">
+          <label htmlFor="admin-username" className={ADMIN_LABEL}>
             ID
           </label>
           <input
@@ -42,12 +53,12 @@ export function MarketplaceAdminLoginForm({
             required
             value={username}
             onChange={(e) => setUsername(e.target.value)}
-            className={AUTH_INPUT_CLASS}
+            className={ADMIN_INPUT}
           />
         </div>
 
         <div>
-          <label htmlFor="admin-password" className="mb-1.5 block text-xs font-medium text-zinc-400">
+          <label htmlFor="admin-password" className={ADMIN_LABEL}>
             Password
           </label>
           <input
@@ -57,17 +68,17 @@ export function MarketplaceAdminLoginForm({
             required
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className={AUTH_INPUT_CLASS}
+            className={ADMIN_INPUT}
           />
         </div>
 
         {error ? (
-          <p className="text-sm text-red-400" role="alert">
+          <p className="text-sm text-red-600" role="alert">
             {error}
           </p>
         ) : null}
 
-        <button type="submit" disabled={pending} className={AUTH_PRIMARY_BTN}>
+        <button type="submit" disabled={pending} className={`${ADMIN_BTN_PRIMARY} w-full`}>
           {pending ? "Signing in…" : "Sign in"}
         </button>
       </form>

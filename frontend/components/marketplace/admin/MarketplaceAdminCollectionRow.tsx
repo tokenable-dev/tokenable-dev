@@ -17,6 +17,11 @@ import {
   ADMIN_DETAILS_SUMMARY,
   ADMIN_INPUT_MONO,
   ADMIN_LABEL,
+  ADMIN_LINK,
+  ADMIN_TEXT_EMPTY,
+  ADMIN_TEXT_META,
+  ADMIN_TEXT_MUTED,
+  ADMIN_TEXT_SECONDARY,
 } from "./adminUi";
 
 export function MarketplaceAdminCollectionRow({
@@ -127,28 +132,28 @@ export function MarketplaceAdminCollectionRow({
               className="max-h-full max-w-full object-contain p-2"
             />
           ) : previewLoading ? (
-            <span className="text-sm text-zinc-500">Loading…</span>
+            <span className={`text-sm ${ADMIN_TEXT_EMPTY}`}>Loading…</span>
           ) : (
-            <span className="text-sm text-zinc-600">No cover</span>
+            <span className={`text-sm ${ADMIN_TEXT_MUTED}`}>No cover</span>
           )}
         </div>
 
         <div className="min-w-0 flex-1 space-y-5">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0 space-y-1">
-              <h3 className="text-lg font-bold leading-snug text-white sm:text-xl">
+              <h3 className="text-lg font-semibold leading-snug text-zinc-900 sm:text-xl">
                 <Link
                   href={`/marketplace/collections/${encodeURIComponent(row.collectionKey)}`}
-                  className="text-mint hover:underline"
+                  className={ADMIN_LINK}
                 >
                   {row.displayLabel || row.collectionKey}
                 </Link>
               </h3>
-              <p className="truncate font-mono text-xs text-zinc-500 sm:text-sm">
+              <p className={`truncate font-mono text-xs sm:text-sm ${ADMIN_TEXT_META}`}>
                 {row.collectionKey}
               </p>
-              <p className="text-sm text-zinc-400">
-                <span className="font-semibold text-zinc-200">
+              <p className={`text-sm ${ADMIN_TEXT_SECONDARY}`}>
+                <span className="font-semibold text-zinc-800">
                   {row.activeListingCount}
                 </span>{" "}
                 active listing{row.activeListingCount === 1 ? "" : "s"}
@@ -158,7 +163,7 @@ export function MarketplaceAdminCollectionRow({
                     ·{" "}
                     <span
                       className={
-                        changePct >= 0 ? "font-semibold text-mint" : "font-semibold text-red-400"
+                        changePct >= 0 ? "font-semibold text-emerald-600" : "font-semibold text-red-600"
                       }
                     >
                       {changePct >= 0 ? "+" : ""}
@@ -169,11 +174,11 @@ export function MarketplaceAdminCollectionRow({
               </p>
             </div>
             {lastTradeUsd != null ? (
-              <div className="shrink-0 rounded-xl border border-zinc-800/80 bg-zinc-900/50 px-4 py-3 text-right">
-                <span className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+              <div className="shrink-0 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-right sm:px-4 sm:py-3">
+                <span className={`text-xs font-semibold uppercase tracking-wider ${ADMIN_TEXT_META}`}>
                   Last trade
                 </span>
-                <p className="text-lg font-bold text-white">
+                <p className="text-lg font-semibold text-zinc-900">
                   {formatUsdCompact(lastTradeUsd)}
                 </p>
               </div>
@@ -183,11 +188,11 @@ export function MarketplaceAdminCollectionRow({
           <AdminMarketPriceStrip refUsd={refUsd} floorUsd={floorUsd} />
 
           <details
-            className="rounded-xl border border-mint/35 bg-mint/[0.04] p-4 sm:p-5"
+            className="rounded-lg border border-zinc-200 bg-white p-4 sm:p-5"
             open={aiInsightOpen}
             onToggle={(e) => setAiInsightOpen((e.target as HTMLDetailsElement).open)}
           >
-            <summary className={`${ADMIN_DETAILS_SUMMARY} text-mint`}>
+            <summary className={`${ADMIN_DETAILS_SUMMARY} text-zinc-900`}>
               AI Insight (admin preview)
             </summary>
             <div className="mt-4">
@@ -195,12 +200,13 @@ export function MarketplaceAdminCollectionRow({
                 row={row}
                 snapshot={snapshot}
                 enabled={aiInsightOpen}
+                variant="light"
               />
             </div>
           </details>
 
-          <details className="rounded-xl border border-amber-500/35 bg-amber-500/[0.04] p-4 sm:p-5">
-            <summary className={`${ADMIN_DETAILS_SUMMARY} text-amber-200/90`}>
+          <details className="rounded-lg border border-amber-200 bg-amber-50 p-4 sm:p-5">
+            <summary className={`${ADMIN_DETAILS_SUMMARY} text-amber-900`}>
               Cover image
             </summary>
             <div className="mt-4 space-y-4">
@@ -226,7 +232,7 @@ export function MarketplaceAdminCollectionRow({
                 {coverBusy === "url" ? "Saving…" : "Save cover URL"}
               </button>
 
-              <div className="border-t border-zinc-800/80 pt-4">
+              <div className="border-t border-zinc-200 pt-4">
                 <span className={ADMIN_LABEL}>From token metadata</span>
                 <div className="flex flex-wrap items-center gap-3">
                   <input
@@ -235,7 +241,7 @@ export function MarketplaceAdminCollectionRow({
                     value={tokenIdInput}
                     onChange={(e) => setTokenIdInput(e.target.value)}
                     placeholder="Token ID"
-                    className="w-32 rounded-xl border border-zinc-700 bg-zinc-950/80 px-4 py-3 font-mono text-sm text-white outline-none focus:border-amber-500/50"
+                    className={`${ADMIN_INPUT_MONO} w-full max-w-[8rem] sm:w-32`}
                   />
                   <button
                     type="button"
@@ -249,7 +255,7 @@ export function MarketplaceAdminCollectionRow({
                     type="button"
                     disabled={disabled}
                     onClick={() => void fetchFromToken(true)}
-                    className="rounded-xl border border-amber-500/50 bg-amber-500/15 px-4 py-2.5 text-sm font-semibold text-amber-100 hover:bg-amber-500/25 disabled:opacity-50"
+                    className="rounded-md border border-amber-300 bg-amber-100 px-4 py-2 text-sm font-medium text-amber-900 hover:bg-amber-200 disabled:opacity-50"
                   >
                     {coverBusy === "apply" ? "Applying…" : "Fetch & save"}
                   </button>
@@ -259,10 +265,10 @@ export function MarketplaceAdminCollectionRow({
           </details>
 
           <details className="rounded-xl border border-red-900/40 bg-red-950/10 p-4 sm:p-5">
-            <summary className={`${ADMIN_DETAILS_SUMMARY} text-red-400/90`}>
+            <summary className={`${ADMIN_DETAILS_SUMMARY} text-red-600`}>
               Delete collection
             </summary>
-            <p className="mt-3 text-sm leading-relaxed text-zinc-500">
+            <p className={`mt-3 text-sm leading-relaxed ${ADMIN_TEXT_SECONDARY}`}>
               Removes snapshots, orders, rwa_tokens rows, and the collection row.
               On-chain NFTs are not burned. Type the collection key to confirm.
             </p>
@@ -297,7 +303,7 @@ export function MarketplaceAdminCollectionRow({
           </details>
 
           {rowError ? (
-            <p className="text-sm text-red-400" role="alert">
+            <p className="text-sm text-red-600" role="alert">
               {rowError}
             </p>
           ) : null}

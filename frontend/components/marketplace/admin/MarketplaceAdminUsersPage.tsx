@@ -10,13 +10,17 @@ import {
 import {
   ADMIN_ARTICLE,
   ADMIN_BTN_LOAD_MORE,
+  ADMIN_BTN_PRIMARY,
+  ADMIN_BTN_SECONDARY,
   ADMIN_COUNT,
   ADMIN_INPUT,
   ADMIN_LABEL,
   ADMIN_LIST,
-  ADMIN_PAGE,
+  ADMIN_SEGMENT,
+  ADMIN_SEGMENT_BTN,
+  ADMIN_SEGMENT_BTN_ACTIVE,
+  ADMIN_TEXT_META,
 } from "./adminUi";
-import { MarketplaceAdminNav } from "./MarketplaceAdminNav";
 import { MarketplaceAdminPageHeader } from "./MarketplaceAdminPageHeader";
 import { MarketplaceAdminUserRow } from "./MarketplaceAdminUserRow";
 
@@ -50,8 +54,7 @@ export function MarketplaceAdminUsersPage() {
   const stats = statsQuery.data;
 
   return (
-    <div className={ADMIN_PAGE}>
-      <MarketplaceAdminNav />
+    <>
       <MarketplaceAdminPageHeader
         title="Users"
         subtitle="Registered platform accounts — verify email, wallets, watchlist, and account lifecycle."
@@ -70,17 +73,15 @@ export function MarketplaceAdminUsersPage() {
             ] as const
           ).map(([label, val]) => (
             <div key={label}>
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
-                {label}
-              </p>
-              <p className="text-xl font-bold text-white">{val.toLocaleString()}</p>
+              <p className={`text-xs font-medium ${ADMIN_TEXT_META}`}>{label}</p>
+              <p className="text-lg font-semibold text-zinc-900 sm:text-xl">{val.toLocaleString()}</p>
             </div>
           ))}
         </div>
       ) : null}
 
       <div className={`${ADMIN_ARTICLE} mb-6 space-y-4`}>
-        <div className="flex flex-wrap gap-2">
+        <div className={`flex flex-wrap gap-1 ${ADMIN_SEGMENT}`}>
           {FILTERS.map((f) => (
             <button
               key={f.value}
@@ -90,11 +91,9 @@ export function MarketplaceAdminUsersPage() {
                 setPage(1);
                 setExpandedId(null);
               }}
-              className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
-                filter === f.value
-                  ? "bg-amber-500 text-[#0a0a0a]"
-                  : "border border-zinc-700 text-zinc-400 hover:bg-zinc-800"
-              }`}
+              className={
+                filter === f.value ? ADMIN_SEGMENT_BTN_ACTIVE : ADMIN_SEGMENT_BTN
+              }
             >
               {f.label}
             </button>
@@ -119,13 +118,13 @@ export function MarketplaceAdminUsersPage() {
             />
           </div>
           <div className="flex items-end gap-2">
-            <button type="submit" className="rounded-xl bg-amber-500 px-4 py-3 text-sm font-bold text-[#0a0a0a]">
+            <button type="submit" className={ADMIN_BTN_PRIMARY}>
               Search
             </button>
             {search ? (
               <button
                 type="button"
-                className="rounded-xl border border-zinc-600 px-4 py-3 text-sm font-semibold text-zinc-300"
+                className={ADMIN_BTN_SECONDARY}
                 onClick={() => {
                   setQ("");
                   setSearch("");
@@ -140,15 +139,15 @@ export function MarketplaceAdminUsersPage() {
       </div>
 
       {listQuery.isLoading ? (
-        <p className="text-base text-zinc-500">Loading users…</p>
+        <p className="text-base text-zinc-700">Loading users…</p>
       ) : listQuery.isError ? (
-        <p className="text-base text-red-400" role="alert">
+        <p className="text-base text-red-600" role="alert">
           {listQuery.error instanceof Error
             ? listQuery.error.message
             : "Failed to load users"}
         </p>
       ) : items.length === 0 ? (
-        <p className="text-base text-zinc-500">No users match this filter.</p>
+        <p className="text-base text-zinc-700">No users match this filter.</p>
       ) : (
         <div className={ADMIN_LIST}>
           <p className={ADMIN_COUNT}>
@@ -193,7 +192,7 @@ export function MarketplaceAdminUsersPage() {
               >
                 Previous
               </button>
-              <span className="text-sm text-zinc-500">
+              <span className="text-sm text-zinc-700">
                 Page {page} of {Math.max(1, Math.ceil(total / ADMIN_USERS_PAGE_SIZE))}
               </span>
               <button
@@ -211,6 +210,6 @@ export function MarketplaceAdminUsersPage() {
           ) : null}
         </div>
       )}
-    </div>
+    </>
   );
 }

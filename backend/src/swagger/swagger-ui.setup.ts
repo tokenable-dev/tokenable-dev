@@ -1,11 +1,26 @@
-import { readFileSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import type { SwaggerCustomOptions } from '@nestjs/swagger';
 
-const SWAGGER_UI_KO_JS = readFileSync(
-  join(__dirname, 'swagger-ui-ko.js'),
-  'utf8',
-);
+function resolveSwaggerUiKoJs(): string {
+  const candidates = [
+    join(__dirname, 'swagger-ui-ko.js'),
+    join(__dirname, '../../swagger/swagger-ui-ko.js'),
+    join(process.cwd(), 'dist/src/swagger/swagger-ui-ko.js'),
+    join(process.cwd(), 'dist/swagger/swagger-ui-ko.js'),
+    join(process.cwd(), 'src/swagger/swagger-ui-ko.js'),
+  ];
+  for (const path of candidates) {
+    if (existsSync(path)) {
+      return readFileSync(path, 'utf8');
+    }
+  }
+  throw new Error(
+    `swagger-ui-ko.js not found (checked: ${candidates.join(', ')})`,
+  );
+}
+
+const SWAGGER_UI_KO_JS = resolveSwaggerUiKoJs();
 
 const SWAGGER_UI_CSS = `
   .swagger-ui .topbar { display: none; }

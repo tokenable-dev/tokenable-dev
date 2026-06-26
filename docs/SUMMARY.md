@@ -37,6 +37,7 @@
 - [Troubleshooting](guides/troubleshooting.md)
 - [Cardhedger & PSA Variety (parallel pricing)](guides/cardhedger-psa-variety.md)
 - [Analytics (GA4)](guides/analytics.md)
+- [Marketplace Admin Console](guides/marketplace-admin.md)
 
 ## Diagrams
 

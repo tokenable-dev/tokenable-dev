@@ -30,12 +30,15 @@ Legacy **`/exchange`** redirects to **`/markets`** via `next.config.ts`.
 | `/marketplace/[tokenId]` | `app/marketplace/[tokenId]/page.tsx` | Token detail — slab panel, buy/sell, price compare |
 | `/marketplace/collections/[collectionKey]` | `app/marketplace/collections/[collectionKey]/page.tsx` | Collection — order book, dual chart, AI insight, listings |
 | `/marketplace/other-listings` | `app/marketplace/other-listings/page.tsx` | Listings not matched to a known collection |
-| `/marketplace/admin/collections` | `app/marketplace/admin/collections/page.tsx` | Admin — collection cover/delete |
+| `/marketplace/admin` | `app/marketplace/admin/page.tsx` | Admin — **Overview** (platform KPIs, funnel, ops metrics) |
+| `/marketplace/admin/analytics` | `app/marketplace/admin/analytics/page.tsx` | Admin — **Analytics** (GA4 console link) |
+| `/marketplace/admin/users` | `app/marketplace/admin/users/page.tsx` | Admin — user support & lifecycle |
+| `/marketplace/admin/collections` | `app/marketplace/admin/collections/page.tsx` | Admin — collection cover/delete, AI insight preview |
 | `/marketplace/admin/cards` | `app/marketplace/admin/cards/page.tsx` | Admin — RWA token listings/metadata |
-| `/marketplace/admin/top100` | `app/marketplace/admin/top100/page.tsx` | Admin — Top 100 preview + refresh |
+| `/marketplace/admin/top100` | `app/marketplace/admin/top100/page.tsx` | Admin — Top 100 preview |
 | `/marketplace/admin/top100/card/[cardId]` | `app/marketplace/admin/top100/card/[cardId]/page.tsx` | Admin — Top 100 card detail |
 | `/marketplace/admin/top-movers` | `app/marketplace/admin/top-movers/page.tsx` | Admin — Top Movers preview |
-| `/marketplace/admin/price-webhooks` | `app/marketplace/admin/price-webhooks/page.tsx` | Admin — Cardhedger price subscription + delta runs |
+| `/marketplace/admin/price-webhooks` | `app/marketplace/admin/price-webhooks/page.tsx` | Admin — Cardhedger price sync (delta import) |
 
 ---
 
@@ -48,6 +51,7 @@ Legacy **`/exchange`** redirects to **`/markets`** via `next.config.ts`.
 | `app/portfolio/layout.tsx` | `/portfolio` | Portfolio-scoped layout |
 | `app/marketplace/[tokenId]/layout.tsx` | `/marketplace/[tokenId]` | Token-detail layout |
 | `app/marketplace/collections/[collectionKey]/layout.tsx` | Collection detail | Collection layout |
+| `app/marketplace/admin/layout.tsx` | `/marketplace/admin/*` | Admin gate + backoffice shell (`MarketplaceAdminGate`) |
 
 ---
 
@@ -65,7 +69,7 @@ Legacy **`/exchange`** redirects to **`/markets`** via `next.config.ts`.
 | `/site-access` | `POST /api/site-access/verify` |
 | `/marketplace/[tokenId]` | `GET /api/blockchain/rwa/asset/:tokenId`, `GET /api/marketplace/orders/token/:tokenId` |
 | `/marketplace/collections/[collectionKey]` | Collection detail, cardhedger, market-series, stats, ai-insight, Seaport orders |
-| `/marketplace/admin/*` | `/api/marketplace/admin/auth/*`, admin collection/RWA routes, `/api/admin/cardhedger/price-subscriptions/*` |
+| `/marketplace/admin/*` | `/api/marketplace/admin/auth/*`, `/api/marketplace/admin/analytics`, `/api/marketplace/admin/users/*`, `/api/marketplace/admin/rwa-tokens/*`, `/api/marketplace/collections/:key/admin/*`, `/api/admin/cardhedger/*` — see [marketplace-admin.md](../guides/marketplace-admin.md) |
 
 ---
 

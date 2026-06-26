@@ -101,6 +101,8 @@ export const rq = {
   /** Admin — active listed RWA cards registry overview. */
   adminListedRwaCards: () => ["admin-listed-rwa-cards"] as const,
   adminUserStats: () => ["admin-user-stats"] as const,
+  adminAnalytics: (days: number) => ["admin-analytics", days] as const,
+  adminGa4Analytics: (days: number) => ["admin-ga4-analytics", days] as const,
   adminUsersList: (
     q: string,
     filter: string,

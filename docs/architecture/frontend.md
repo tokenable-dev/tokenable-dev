@@ -18,7 +18,7 @@ Marketplace UI is organized into **feature folders** with matching `hooks/` and 
 | Listing flow | `list-rwa/` | `hooks/list-rwa/`, `lib/seaport/listing/` |
 | Portfolio | `portfolio/` | `hooks/portfolio/`, `lib/portfolio/` |
 | Vault / mint | `vault/` | `hooks/vault/`, `lib/vault/` |
-| Marketplace admin | `marketplace/admin/` | `hooks/marketplace-admin/`, `lib/core/api/marketplace-admin-auth.ts` |
+| Marketplace admin | `marketplace/admin/` | `hooks/marketplace-admin/`, `lib/core/api/marketplace-admin-*.ts` — see [marketplace-admin.md](../guides/marketplace-admin.md) |
 | Auth / profile | `auth/` | `providers/AuthProvider.tsx`, `lib/auth/` |
 | Shared chrome | `layout/`, `marketplace-shared/`, `collection-cover/` | `lib/marketplace/assetDetailHeadline.ts` |
 
@@ -62,7 +62,7 @@ frontend/
 │       ├── rwa-detail-asset-panel/
 │       ├── list-rwa/
 │       ├── markets-ui/
-│       └── admin/                 # Collections, cards, top100, top-movers, webhooks
+│       └── admin/                 # Backoffice shell, overview, users, collections, price sync
 │
 ├── hooks/                         # Feature-scoped hooks
 │
