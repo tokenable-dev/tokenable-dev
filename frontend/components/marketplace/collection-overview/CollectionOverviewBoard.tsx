@@ -52,6 +52,7 @@ export function CollectionOverviewBoard(props: CollectionOverviewBoardProps) {
     leftColumnFooter,
     heroActions,
     coverOverlay,
+    coverGallery,
     belowCover,
     mobileCoverBelowMetrics,
     mobileCurrentPriceRow,
@@ -165,6 +166,7 @@ export function CollectionOverviewBoard(props: CollectionOverviewBoardProps) {
             belowCover={belowCover}
             heroActions={heroActions}
             coverOverlay={coverOverlay}
+            coverGallery={coverGallery}
             metadataExpand={metadataExpand}
             metadataRows={metadataRows}
             leftColumnFooter={leftColumnFooter}

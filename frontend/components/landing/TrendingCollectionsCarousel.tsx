@@ -21,6 +21,10 @@ import { MARKETS_GRID_CARD_TITLE_CLASS } from "@/components/markets/CollectionGr
 import { buildMarketsCollectionTitle } from "@/lib/markets/marketsCollectionTitle";
 import { resolveMarketsListingMarketUsd, resolveMarketsListingMarketChangePct } from "@/lib/markets/marketsListingMarketPrice";
 import { pickCollectionSummaryDisplayImageUrl } from "@/lib/marketplace/collectionDisplayImage";
+import {
+  buildBrowseEntriesFromSummaries,
+  saveCollectionBrowseContext,
+} from "@/lib/marketplace/collectionBrowseContext";
 import { ASSETS } from "@/constants/assets";
 
 const MAX_TRENDING_VISIBLE = 4;
@@ -328,7 +332,15 @@ export function TrendingCollectionsCarousel({
             : undefined
         }
         onClick={(e) => {
-          if (Date.now() < suppressNavUntilRef.current) e.preventDefault();
+          if (Date.now() < suppressNavUntilRef.current) {
+            e.preventDefault();
+            return;
+          }
+          saveCollectionBrowseContext({
+            source: "markets-trending",
+            entries: buildBrowseEntriesFromSummaries(trendingNow),
+            categoryFilter: listingCategoryEffective,
+          });
         }}
       >
         <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl">

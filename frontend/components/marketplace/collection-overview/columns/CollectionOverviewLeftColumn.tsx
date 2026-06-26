@@ -8,6 +8,7 @@ import {
   COLLECTION_DETAILS_BORDER_ALL,
   COLLECTION_HERO_DESKTOP_HEIGHT_CLASS,
 } from "@/components/marketplace/collectionOverviewChrome";
+import type { CollectionCoverGalleryProps } from "@/components/marketplace/collection-cover/CollectionCoverFrame";
 import type { CollectionOverviewBoardProps } from "../types";
 
 export function CollectionOverviewLeftColumn({
@@ -22,6 +23,7 @@ export function CollectionOverviewLeftColumn({
   belowCover,
   heroActions,
   coverOverlay,
+  coverGallery,
   metadataExpand,
   metadataRows,
   leftColumnFooter,
@@ -37,6 +39,7 @@ export function CollectionOverviewLeftColumn({
   belowCover?: ReactNode;
   heroActions?: ReactNode;
   coverOverlay?: ReactNode;
+  coverGallery?: CollectionCoverGalleryProps;
   metadataExpand?: CollectionOverviewBoardProps["metadataExpand"];
   metadataRows: { label: string; value: string }[];
   leftColumnFooter?: ReactNode;
@@ -101,6 +104,7 @@ export function CollectionOverviewLeftColumn({
                         alt=""
                         variant="hero"
                         className="relative z-[1] shrink-0 self-start max-lg:overflow-visible"
+                        coverGallery={coverGallery}
                       />,
                     )
                   ) : (
@@ -125,6 +129,7 @@ export function CollectionOverviewLeftColumn({
                     alt=""
                     variant="hero"
                     className="relative z-[1] w-full shrink-0 overflow-visible max-lg:ms-auto max-lg:shrink-0 lg:w-full"
+                    coverGallery={coverGallery}
                   />,
                 )
               ) : (
