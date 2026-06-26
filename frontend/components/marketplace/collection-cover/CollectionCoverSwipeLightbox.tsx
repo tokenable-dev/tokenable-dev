@@ -7,6 +7,7 @@ import type { CollectionBrowseEntry } from "@/lib/marketplace/collectionBrowseCo
 import {
   COLLECTION_COVER_LIGHTBOX_BACKDROP_CLASS,
   COLLECTION_COVER_LIGHTBOX_IMAGE_STAGE_CLASS,
+  COLLECTION_COVER_LIGHTBOX_SWIPE_FOOTER_CLASS,
 } from "./collectionCoverLightboxChrome";
 import { CollectionCoverLightboxImage } from "./CollectionCoverLightboxImage";
 import { useCollectionCoverLightboxPortal } from "./useCollectionCoverLightboxPortal";
@@ -149,11 +150,9 @@ export function CollectionCoverSwipeLightbox({
         />
       </div>
 
-      {hasNext ? (
-        <div className="pointer-events-none flex shrink-0 justify-center pb-[max(1.25rem,env(safe-area-inset-bottom,0px))] pt-1">
-          <SwipeUpHintChevrons />
-        </div>
-      ) : null}
+      <div className={COLLECTION_COVER_LIGHTBOX_SWIPE_FOOTER_CLASS} aria-hidden={!hasNext}>
+        {hasNext ? <SwipeUpHintChevrons /> : null}
+      </div>
     </div>,
     document.body,
   );

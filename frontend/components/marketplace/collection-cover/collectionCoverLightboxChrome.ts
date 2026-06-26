@@ -15,3 +15,7 @@ export const COLLECTION_COVER_LIGHTBOX_BACKDROP_CLASS =
 
 export const COLLECTION_COVER_LIGHTBOX_IMAGE_STAGE_CLASS =
   "flex min-h-0 flex-1 items-center justify-center p-4 sm:p-8";
+
+/** Reserved bottom slot so image vertical position stays stable when swipe hint is hidden. */
+export const COLLECTION_COVER_LIGHTBOX_SWIPE_FOOTER_CLASS =
+  "pointer-events-none flex shrink-0 justify-center pt-1 pb-[max(1.25rem,env(safe-area-inset-bottom,0px))] min-h-[2.75rem]";
