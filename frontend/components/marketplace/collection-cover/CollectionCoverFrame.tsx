@@ -1,15 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
 import {
   COLLECTION_DETAILS_BG_CLASS,
-  COLLECTION_DETAILS_BORDER_ALL,
   COLLECTION_HERO_DESKTOP_HEIGHT_CLASS,
 } from "@/components/marketplace/collectionOverviewChrome";
 import { useResolvedMediaUrl } from "@/hooks/media";
 import { collectionCoverImageStyle } from "@/lib/marketplace/cardhedgerBubbleCoverImage";
 import type { CollectionBrowseEntry } from "@/lib/marketplace/collectionBrowseContext";
+import { CollectionCoverLightbox } from "./CollectionCoverLightbox";
 import { CollectionCoverSwipeLightbox } from "./CollectionCoverSwipeLightbox";
 
 export type CollectionCoverGalleryProps = {
@@ -23,62 +22,6 @@ export type CollectionCoverGalleryProps = {
   onOpenChange: (open: boolean) => void;
   onClose: () => void;
 };
-
-function CollectionCoverLightbox({
-  open,
-  resolvedUrl,
-  alt,
-  onClose,
-}: {
-  open: boolean;
-  resolvedUrl: string | null;
-  alt: string;
-  onClose: () => void;
-}) {
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => setMounted(true), []);
-
-  useEffect(() => {
-    if (!open) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => {
-      document.body.style.overflow = prev;
-      window.removeEventListener("keydown", onKey);
-    };
-  }, [open, onClose]);
-
-  if (!mounted || !open || !resolvedUrl) return null;
-
-  return createPortal(
-    <button
-      type="button"
-      role="dialog"
-      aria-modal
-      aria-label="Collection cover enlarged — tap anywhere to close"
-      onClick={onClose}
-      className="fixed inset-0 z-[100] flex cursor-default items-center justify-center bg-black/88 p-4 backdrop-blur-[2px] sm:p-8"
-    >
-      <div
-        className={`max-h-[min(92vh,900px)] w-full max-w-[min(96vw,560px)] overflow-hidden rounded-2xl ${COLLECTION_DETAILS_BORDER_ALL} bg-black shadow-[0_28px_80px_-24px_rgba(0,0,0,0.85)] ring-1 ring-black`}
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={resolvedUrl}
-          alt={alt || "Collection cover"}
-          className="max-h-[min(82vh,820px)] w-full object-contain object-center"
-          style={collectionCoverImageStyle(resolvedUrl)}
-        />
-      </div>
-    </button>,
-    document.body,
-  );
-}
 
 export interface CollectionCoverFrameProps {
   /** `ipfs://`, `https://…/ipfs/…`, 또는 일반 https — 브라우저는 API로만 해석 */
@@ -215,8 +158,8 @@ export function CollectionCoverFrame({
   const heroFlat =
     variant === "hero"
       ? {
-          outer: `${radiusOuter} ${COLLECTION_DETAILS_BG_CLASS} max-lg:shadow-none lg:shadow-[0_0_0_1px_rgba(0,0,0,1)]`,
-          inner: `${radiusInner} ${COLLECTION_DETAILS_BG_CLASS} flex min-h-0 flex-1 flex-col`,
+          outer: `max-lg:rounded-none ${radiusOuter} ${COLLECTION_DETAILS_BG_CLASS} max-lg:shadow-none lg:shadow-[0_0_0_1px_rgba(0,0,0,1)]`,
+          inner: `max-lg:rounded-none ${radiusInner} ${COLLECTION_DETAILS_BG_CLASS} flex min-h-0 flex-1 flex-col`,
         }
       : null;
 

@@ -39,9 +39,9 @@ export const ADMIN_LABEL =
   `mb-1.5 block text-xs font-medium ${ADMIN_TEXT_SECONDARY}`;
 
 export const ADMIN_INPUT =
-  "w-full min-w-0 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors placeholder:text-zinc-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20";
+  "w-full min-w-0 rounded-md border border-zinc-300 bg-white px-3 py-2 text-base text-zinc-900 outline-none transition-colors placeholder:text-zinc-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 sm:text-sm";
 
-export const ADMIN_INPUT_MONO = `${ADMIN_INPUT} font-mono text-[13px]`;
+export const ADMIN_INPUT_MONO = `${ADMIN_INPUT} font-mono sm:text-[13px]`;
 
 export const ADMIN_BTN_PRIMARY =
   "inline-flex items-center justify-center rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50";
