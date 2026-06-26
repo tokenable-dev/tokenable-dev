@@ -1,16 +1,34 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import {
-  COLLECTION_DETAILS_BORDER_ALL,
-} from "@/components/marketplace/collectionOverviewChrome";
 import { useResolvedMediaUrl } from "@/hooks/media";
-import { collectionCoverImageStyle } from "@/lib/marketplace/cardhedgerBubbleCoverImage";
 import type { CollectionBrowseEntry } from "@/lib/marketplace/collectionBrowseContext";
+import {
+  COLLECTION_COVER_LIGHTBOX_BACKDROP_CLASS,
+  COLLECTION_COVER_LIGHTBOX_IMAGE_STAGE_CLASS,
+} from "./collectionCoverLightboxChrome";
+import { CollectionCoverLightboxImage } from "./CollectionCoverLightboxImage";
+import { useCollectionCoverLightboxPortal } from "./useCollectionCoverLightboxPortal";
 
 const SWIPE_THRESHOLD_PX = 48;
 const SWIPE_AXIS_LOCK_PX = 10;
+
+function SwipeUpHintChevrons() {
+  return (
+    <div
+      className="pointer-events-none flex flex-col items-center gap-0 text-white/55"
+      aria-hidden
+    >
+      <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6" />
+      </svg>
+      <svg className="-mt-3 h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6" />
+      </svg>
+    </div>
+  );
+}
 
 export function CollectionCoverSwipeLightbox({
   open,
@@ -31,7 +49,6 @@ export function CollectionCoverSwipeLightbox({
   onNext: () => void;
   onPrev: () => void;
 }) {
-  const [mounted, setMounted] = useState(false);
   const entry = entries[currentIndex] ?? entries.find((e) => e.collectionKey === viewingKey);
   const { url: resolvedUrl } = useResolvedMediaUrl(open && entry?.imageUrl ? entry.imageUrl : null);
 
@@ -40,24 +57,19 @@ export function CollectionCoverSwipeLightbox({
   const touchAxis = useRef<"none" | "horizontal" | "vertical">("none");
   const suppressCloseClickRef = useRef(false);
 
-  useEffect(() => setMounted(true), []);
+  const hasNext = canSwipe && currentIndex < entries.length - 1;
+  const mounted = useCollectionCoverLightboxPortal(open, onClose);
 
   useEffect(() => {
     if (!open) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
       if (!canSwipe) return;
-      if (e.key === "ArrowRight") onNext();
-      if (e.key === "ArrowLeft") onPrev();
+      if (e.key === "ArrowUp") onNext();
+      if (e.key === "ArrowDown") onPrev();
     };
     window.addEventListener("keydown", onKey);
-    return () => {
-      document.body.style.overflow = prev;
-      window.removeEventListener("keydown", onKey);
-    };
-  }, [open, onClose, onNext, onPrev, canSwipe]);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onNext, onPrev, canSwipe]);
 
   const resetTouch = () => {
     touchStartX.current = null;
@@ -68,11 +80,11 @@ export function CollectionCoverSwipeLightbox({
   if (!mounted || !open || !entry || !resolvedUrl) return null;
 
   return createPortal(
-    <button
-      type="button"
+    <div
       role="dialog"
       aria-modal
-      aria-label="Collection cover enlarged — tap anywhere to close"
+      aria-label="Collection cover enlarged — tap anywhere to close, swipe up for next card"
+      className={`${COLLECTION_COVER_LIGHTBOX_BACKDROP_CLASS} flex-col`}
       onClick={() => {
         if (suppressCloseClickRef.current) {
           suppressCloseClickRef.current = false;
@@ -80,7 +92,6 @@ export function CollectionCoverSwipeLightbox({
         }
         onClose();
       }}
-      className="fixed inset-0 z-[100] flex cursor-default items-center justify-center bg-black/88 p-4 backdrop-blur-[2px] sm:p-8"
       onTouchStart={(e) => {
         if (!canSwipe) return;
         const t = e.changedTouches[0] ?? e.touches[0];
@@ -93,47 +104,57 @@ export function CollectionCoverSwipeLightbox({
         if (!canSwipe) return;
         const startX = touchStartX.current;
         const startY = touchStartY.current;
-        if (startX == null || startY == null || touchAxis.current !== "none") return;
+        if (startX == null || startY == null) return;
         const t = e.changedTouches[0] ?? e.touches[0];
         if (!t) return;
         const dx = Math.abs(t.clientX - startX);
         const dy = Math.abs(t.clientY - startY);
-        if (dx < SWIPE_AXIS_LOCK_PX && dy < SWIPE_AXIS_LOCK_PX) return;
-        touchAxis.current = dx > dy ? "horizontal" : "vertical";
+        if (touchAxis.current === "none") {
+          if (dx < SWIPE_AXIS_LOCK_PX && dy < SWIPE_AXIS_LOCK_PX) return;
+          touchAxis.current = dy >= dx ? "vertical" : "horizontal";
+        }
+        if (touchAxis.current === "vertical") {
+          e.preventDefault();
+          e.stopPropagation();
+        }
       }}
       onTouchEnd={(e) => {
         if (!canSwipe) return;
-        const startX = touchStartX.current;
+        const startY = touchStartY.current;
         const axis = touchAxis.current;
         resetTouch();
-        if (startX == null || axis !== "horizontal") return;
+        if (startY == null || axis !== "vertical") return;
         const t = e.changedTouches[0];
         if (!t) return;
-        const dx = t.clientX - startX;
-        if (dx <= -SWIPE_THRESHOLD_PX) {
+        const dy = t.clientY - startY;
+        if (dy <= -SWIPE_THRESHOLD_PX) {
           suppressCloseClickRef.current = true;
+          e.preventDefault();
+          e.stopPropagation();
           onNext();
-        } else if (dx >= SWIPE_THRESHOLD_PX) {
+        } else if (dy >= SWIPE_THRESHOLD_PX) {
           suppressCloseClickRef.current = true;
+          e.preventDefault();
+          e.stopPropagation();
           onPrev();
         }
       }}
       onTouchCancel={resetTouch}
     >
-      <div
-        className={`max-h-[min(92vh,900px)] w-full max-w-[min(96vw,560px)] overflow-hidden rounded-2xl ${COLLECTION_DETAILS_BORDER_ALL} bg-black shadow-[0_28px_80px_-24px_rgba(0,0,0,0.85)] ring-1 ring-black`}
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          key={viewingKey}
+      <div className={COLLECTION_COVER_LIGHTBOX_IMAGE_STAGE_CLASS}>
+        <CollectionCoverLightboxImage
           src={resolvedUrl}
           alt={entry.title || "Collection cover"}
-          className="max-h-[min(82vh,820px)] w-full object-contain object-center"
-          style={collectionCoverImageStyle(resolvedUrl)}
-          draggable={false}
+          imageKey={viewingKey}
         />
       </div>
-    </button>,
+
+      {hasNext ? (
+        <div className="pointer-events-none flex shrink-0 justify-center pb-[max(1.25rem,env(safe-area-inset-bottom,0px))] pt-1">
+          <SwipeUpHintChevrons />
+        </div>
+      ) : null}
+    </div>,
     document.body,
   );
 }
