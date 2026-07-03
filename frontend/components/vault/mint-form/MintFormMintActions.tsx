@@ -5,13 +5,14 @@ import type { MintFormStep } from "@/lib/vault/mintFormConstants";
 import type { PsaInputMode } from "@/lib/vault/mintFormConstants";
 import {
   GradientOutlineFrame,
-  gradientOutlineInnerButtonClass,
   VAULT_OUTLINE_PAD_CLASS,
 } from "@/components/ui/GradientOutlineFrame";
 import { WalletConnect } from "@/components/wallet/WalletConnect";
 
 type MintFormMintActionsProps = {
-  isConnected: boolean;
+  isWalletReady: boolean;
+  isWalletActivating: boolean;
+  hasAccountWallet: boolean;
   showMintReady: boolean;
   isProcessing: boolean;
   showPsaAnalyzeOverlay: boolean;
@@ -21,7 +22,9 @@ type MintFormMintActionsProps = {
 };
 
 export function MintFormMintActions({
-  isConnected,
+  isWalletReady,
+  isWalletActivating,
+  hasAccountWallet,
   showMintReady,
   isProcessing,
   showPsaAnalyzeOverlay,
@@ -31,12 +34,18 @@ export function MintFormMintActions({
 }: MintFormMintActionsProps) {
   return (
     <>
-      {!isConnected ? (
+      {!isWalletReady ? (
         <GradientOutlineFrame className="w-full" padClass={VAULT_OUTLINE_PAD_CLASS}>
-          <WalletConnect
-            connectButtonClassName={`${gradientOutlineInnerButtonClass} !rounded-[11px] py-3.5 text-sm`}
-            connectButtonStyle={{ backgroundColor: "#000000" }}
-          />
+          <div className="flex justify-center py-1">
+            {isWalletActivating || hasAccountWallet ? (
+              <div className="flex items-center gap-2 px-2 py-1.5 text-sm text-gray-400">
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-mint border-t-transparent" />
+                <span>Preparing account wallet…</span>
+              </div>
+            ) : (
+              <WalletConnect />
+            )}
+          </div>
         </GradientOutlineFrame>
       ) : showMintReady ? (
         <GradientOutlineFrame className="w-full" padClass={VAULT_OUTLINE_PAD_CLASS}>
@@ -63,7 +72,7 @@ export function MintFormMintActions({
           <span className="text-sm text-gray-400">
             {step === "uploading"
               ? "Uploading to IPFS..."
-              : "Confirm once in MetaMask — do not click Mint again."}
+              : "Submitting mint — platform is minting to custody; admin will deliver to your account wallet."}
           </span>
         </div>
       )}

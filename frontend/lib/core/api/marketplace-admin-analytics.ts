@@ -30,8 +30,11 @@ export type PlatformAnalyticsOverview = {
     total: number;
     verified: number;
     unverified: number;
-    googleOnly: number;
-    emailPassword: number;
+    privy: number;
+    legacy: number;
+    google: number;
+    emailOtp: number;
+    walletLogin: number;
     withWallet: number;
     newInPeriod: number;
     linkedWallets: number;

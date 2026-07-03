@@ -33,3 +33,21 @@ CREATE TRIGGER trg_rwa_tokens_updated_at
   BEFORE UPDATE ON rwa_tokens
   FOR EACH ROW
   EXECUTE PROCEDURE tokenable_set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_vault_assets_updated_at ON vault_assets;
+CREATE TRIGGER trg_vault_assets_updated_at
+  BEFORE UPDATE ON vault_assets
+  FOR EACH ROW
+  EXECUTE PROCEDURE tokenable_set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_vault_cycles_updated_at ON vault_cycles;
+CREATE TRIGGER trg_vault_cycles_updated_at
+  BEFORE UPDATE ON vault_cycles
+  FOR EACH ROW
+  EXECUTE PROCEDURE tokenable_set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_vault_redemptions_updated_at ON vault_redemptions;
+CREATE TRIGGER trg_vault_redemptions_updated_at
+  BEFORE UPDATE ON vault_redemptions
+  FOR EACH ROW
+  EXECUTE PROCEDURE tokenable_set_updated_at();

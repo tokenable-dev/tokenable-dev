@@ -5,11 +5,8 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { getAddress } from 'ethers';
 import { Repository } from 'typeorm';
-import { EmailVerificationService } from '../../auth/email-verification.service';
-import { PasswordResetService } from '../../auth/password-reset.service';
-import { hashPassword } from '../../auth/password.util';
-import { VerificationToken } from '../../auth/entities/verification-token.entity';
-import { VerificationTokenType } from '../../auth/verification-token-type';
+import { isWalletOnlyPlaceholderEmail } from '../../auth/privy/privy-user.parser';
+import { UserAuthProvider } from '../../user/entities/user-auth-provider.entity';
 import { User } from '../../user/entities/user.entity';
 import { UserWallet } from '../../user/entities/user-wallet.entity';
 import { UserService } from '../../user/user.service';
@@ -19,19 +16,43 @@ import type {
   AdminUserListQueryDto,
 } from './dto/admin-user.dto';
 
+/** How the user authenticates — derived from Privy linked accounts. */
+export type AdminPrivyAuthMethod =
+  | 'wallet'
+  | 'google'
+  | 'email'
+  | 'google+email'
+  | 'apple'
+  | 'other'
+  | 'legacy';
+
+export type AdminAuthProviderRow = {
+  id: string;
+  providerType: string;
+  providerSubject: string;
+  email: string | null;
+  phone: string | null;
+  displayName: string | null;
+  isVerified: boolean;
+  linkedAt: string;
+};
+
 export type AdminUserSummary = {
   id: string;
   email: string;
   name: string | null;
   pictureUrl: string | null;
   emailVerified: boolean;
-  googleId: string | null;
-  hasPassword: boolean;
-  signupType: 'google' | 'email' | 'google+email';
+  privyAuthMethod: AdminPrivyAuthMethod;
+  privyId: string | null;
+  authProviderTypes: string[];
+  kycStatus: User['kycStatus'];
+  kycVerifiedAt: string | null;
   walletAddress: string | null;
   walletLinkedAt: string | null;
   walletCount: number;
   watchlistCount: number;
+  lastPrivySyncAt: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -40,37 +61,68 @@ export type AdminUserWalletRow = {
   id: string;
   walletAddress: string;
   isPrimary: boolean;
+  chainType: string;
+  walletKind: UserWallet['walletKind'];
+  walletClient: string | null;
+  connectorType: string | null;
+  source: UserWallet['source'];
   linkedAt: string;
 };
 
 export type AdminUserDetail = AdminUserSummary & {
   wallets: AdminUserWalletRow[];
+  authProviders: AdminAuthProviderRow[];
   watchlistKeys: string[];
-  pendingEmailVerification: boolean;
-  pendingPasswordReset: boolean;
+  kycProvider: string | null;
+  kycExternalId: string | null;
+  kycRejectionReason: string | null;
 };
 
 export type AdminUserStats = {
   total: number;
+  privy: number;
+  legacy: number;
+  google: number;
+  emailOtp: number;
+  walletLogin: number;
+  withWallet: number;
+  kycApproved: number;
+  kycPending: number;
   verified: number;
   unverified: number;
-  googleOnly: number;
-  emailPassword: number;
-  withWallet: number;
 };
 
-function signupType(user: User): AdminUserSummary['signupType'] {
-  const hasGoogle = Boolean(user.googleId);
-  const hasPassword = Boolean(user.passwordHash);
-  if (hasGoogle && hasPassword) return 'google+email';
+function deriveAdminPrivyAuthMethod(
+  user: User,
+  providerTypes: string[],
+): AdminPrivyAuthMethod {
+  const types = new Set(providerTypes);
+  if (!user.privyId && !types.has('privy')) {
+    return 'legacy';
+  }
+
+  const hasWallet = types.has('wallet');
+  const hasGoogle = types.has('google_oauth') || Boolean(user.googleId);
+  const hasEmail = types.has('email');
+  const hasApple = types.has('apple_oauth');
+
+  if (hasWallet && !hasGoogle && !hasEmail && !hasApple) return 'wallet';
+  if (hasGoogle && hasEmail) return 'google+email';
   if (hasGoogle) return 'google';
-  return 'email';
+  if (hasEmail) return 'email';
+  if (hasApple) return 'apple';
+  if (hasWallet) return 'other';
+  return 'other';
 }
+
+/** @internal exported for unit tests */
+export const privyAuthMethod = deriveAdminPrivyAuthMethod;
 
 function toSummary(
   user: User,
   walletCount: number,
   watchlistCount: number,
+  authProviderTypes: string[],
 ): AdminUserSummary {
   return {
     id: user.id,
@@ -78,13 +130,16 @@ function toSummary(
     name: user.name,
     pictureUrl: user.pictureUrl,
     emailVerified: user.emailVerified,
-    googleId: user.googleId,
-    hasPassword: Boolean(user.passwordHash),
-    signupType: signupType(user),
+    privyAuthMethod: deriveAdminPrivyAuthMethod(user, authProviderTypes),
+    privyId: user.privyId,
+    authProviderTypes,
+    kycStatus: user.kycStatus,
+    kycVerifiedAt: user.kycVerifiedAt?.toISOString() ?? null,
     walletAddress: user.walletAddress,
     walletLinkedAt: user.walletLinkedAt?.toISOString() ?? null,
     walletCount,
     watchlistCount,
+    lastPrivySyncAt: user.lastPrivySyncAt?.toISOString() ?? null,
     createdAt: user.createdAt.toISOString(),
     updatedAt: user.updatedAt.toISOString(),
   };
@@ -97,13 +152,11 @@ export class UserAdminService {
     private readonly usersRepo: Repository<User>,
     @InjectRepository(UserWallet)
     private readonly walletsRepo: Repository<UserWallet>,
+    @InjectRepository(UserAuthProvider)
+    private readonly authProvidersRepo: Repository<UserAuthProvider>,
     @InjectRepository(UserWatchlist)
     private readonly watchlistRepo: Repository<UserWatchlist>,
-    @InjectRepository(VerificationToken)
-    private readonly tokensRepo: Repository<VerificationToken>,
     private readonly users: UserService,
-    private readonly emailVerification: EmailVerificationService,
-    private readonly passwordReset: PasswordResetService,
   ) {}
 
   async getStats(): Promise<AdminUserStats> {
@@ -119,32 +172,71 @@ export class UserAdminService {
         'unverified',
       )
       .addSelect(
-        'COUNT(*) FILTER (WHERE u.google_id IS NOT NULL AND u.password_hash IS NULL)::int',
-        'googleOnly',
+        'COUNT(*) FILTER (WHERE u.privy_id IS NOT NULL)::int',
+        'privy',
       )
       .addSelect(
-        'COUNT(*) FILTER (WHERE u.password_hash IS NOT NULL)::int',
-        'emailPassword',
+        'COUNT(*) FILTER (WHERE u.privy_id IS NULL)::int',
+        'legacy',
+      )
+      .addSelect(
+        `COUNT(*) FILTER (WHERE EXISTS (
+          SELECT 1 FROM user_auth_providers p
+          WHERE p.user_id = u.id AND p.unlinked_at IS NULL AND p.provider_type = 'google_oauth'
+        ))::int`,
+        'google',
+      )
+      .addSelect(
+        `COUNT(*) FILTER (WHERE EXISTS (
+          SELECT 1 FROM user_auth_providers p
+          WHERE p.user_id = u.id AND p.unlinked_at IS NULL AND p.provider_type = 'email'
+        ))::int`,
+        'emailOtp',
+      )
+      .addSelect(
+        `COUNT(*) FILTER (WHERE EXISTS (
+          SELECT 1 FROM user_auth_providers p
+          WHERE p.user_id = u.id AND p.unlinked_at IS NULL AND p.provider_type = 'wallet'
+        ))::int`,
+        'walletLogin',
       )
       .addSelect(
         'COUNT(*) FILTER (WHERE u.wallet_address IS NOT NULL)::int',
         'withWallet',
       )
+      .addSelect(
+        "COUNT(*) FILTER (WHERE u.kyc_status = 'approved')::int",
+        'kycApproved',
+      )
+      .addSelect(
+        "COUNT(*) FILTER (WHERE u.kyc_status = 'pending')::int",
+        'kycPending',
+      )
       .getRawOne<{
         total: number;
         verified: number;
         unverified: number;
-        googleOnly: number;
-        emailPassword: number;
+        privy: number;
+        legacy: number;
+        google: number;
+        emailOtp: number;
+        walletLogin: number;
         withWallet: number;
+        kycApproved: number;
+        kycPending: number;
       }>();
     return {
       total: raw?.total ?? 0,
       verified: raw?.verified ?? 0,
       unverified: raw?.unverified ?? 0,
-      googleOnly: raw?.googleOnly ?? 0,
-      emailPassword: raw?.emailPassword ?? 0,
+      privy: raw?.privy ?? 0,
+      legacy: raw?.legacy ?? 0,
+      google: raw?.google ?? 0,
+      emailOtp: raw?.emailOtp ?? 0,
+      walletLogin: raw?.walletLogin ?? 0,
       withWallet: raw?.withWallet ?? 0,
+      kycApproved: raw?.kycApproved ?? 0,
+      kycPending: raw?.kycPending ?? 0,
     };
   }
 
@@ -167,22 +259,59 @@ export class UserAdminService {
         `(LOWER(u.email) LIKE :q
           OR LOWER(COALESCE(u.name, '')) LIKE :q
           OR LOWER(COALESCE(u.wallet_address, '')) LIKE :q
+          OR LOWER(COALESCE(u.privy_id, '')) LIKE :q
           OR EXISTS (
             SELECT 1 FROM user_wallets w
             WHERE w.user_id = u.id AND LOWER(w.wallet_address) LIKE :q
+          )
+          OR EXISTS (
+            SELECT 1 FROM user_auth_providers p
+            WHERE p.user_id = u.id
+              AND p.unlinked_at IS NULL
+              AND (
+                LOWER(COALESCE(p.email, '')) LIKE :q
+                OR LOWER(p.provider_subject) LIKE :q
+              )
           ))`,
         { q: `%${q}%` },
       );
     }
 
-    if (filter === 'google') {
-      qb.andWhere('u.google_id IS NOT NULL');
+    if (filter === 'legacy') {
+      qb.andWhere('u.privy_id IS NULL');
+    } else if (filter === 'google') {
+      qb.andWhere(
+        `EXISTS (
+          SELECT 1 FROM user_auth_providers p
+          WHERE p.user_id = u.id AND p.unlinked_at IS NULL AND p.provider_type = 'google_oauth'
+        )`,
+      );
     } else if (filter === 'email') {
-      qb.andWhere('u.password_hash IS NOT NULL');
+      qb.andWhere(
+        `EXISTS (
+          SELECT 1 FROM user_auth_providers p
+          WHERE p.user_id = u.id AND p.unlinked_at IS NULL AND p.provider_type = 'email'
+        )`,
+      );
+    } else if (filter === 'wallet') {
+      qb.andWhere(
+        `EXISTS (
+          SELECT 1 FROM user_auth_providers p
+          WHERE p.user_id = u.id AND p.unlinked_at IS NULL AND p.provider_type = 'wallet'
+        )`,
+      );
+    } else if (filter === 'privy') {
+      qb.andWhere('u.privy_id IS NOT NULL');
     } else if (filter === 'verified') {
       qb.andWhere('u.email_verified = true');
     } else if (filter === 'unverified') {
       qb.andWhere('u.email_verified = false');
+    } else if (filter === 'kyc_approved') {
+      qb.andWhere("u.kyc_status = 'approved'");
+    } else if (filter === 'kyc_pending') {
+      qb.andWhere("u.kyc_status = 'pending'");
+    } else if (filter === 'with_wallet') {
+      qb.andWhere('u.wallet_address IS NOT NULL');
     }
 
     qb.orderBy('u.created_at', 'DESC').skip(skip).take(limit);
@@ -199,12 +328,14 @@ export class UserAdminService {
       'user_id',
       ids,
     );
+    const providerTypesByUser = await this.providerTypesByUserIds(ids);
 
     const items = rows.map((user) =>
       toSummary(
         user,
         walletCounts.get(user.id) ?? 0,
         watchCounts.get(user.id) ?? 0,
+        providerTypesByUser.get(user.id) ?? [],
       ),
     );
 
@@ -219,28 +350,51 @@ export class UserAdminService {
 
   async getUserDetail(userId: string): Promise<AdminUserDetail> {
     const user = await this.users.findByIdOrFail(userId);
-    const [wallets, watchlistRows, pending] = await Promise.all([
+    const [wallets, authProviders, watchlistRows] = await Promise.all([
       this.users.listWalletsForUser(userId),
+      this.users.listAuthProvidersForUser(userId),
       this.watchlistRepo.find({
         where: { userId },
         order: { createdAt: 'DESC' },
         take: 200,
       }),
-      this.pendingTokenFlags(userId),
     ]);
 
-    const summary = toSummary(user, wallets.length, watchlistRows.length);
+    const authProviderTypes = authProviders.map((p) => p.providerType);
+    const summary = toSummary(
+      user,
+      wallets.length,
+      watchlistRows.length,
+      authProviderTypes,
+    );
+
     return {
       ...summary,
       wallets: wallets.map((w) => ({
         id: w.id,
         walletAddress: w.walletAddress,
         isPrimary: w.isPrimary,
+        chainType: w.chainType,
+        walletKind: w.walletKind,
+        walletClient: w.walletClient,
+        connectorType: w.connectorType,
+        source: w.source,
         linkedAt: w.linkedAt.toISOString(),
       })),
+      authProviders: authProviders.map((p) => ({
+        id: p.id,
+        providerType: p.providerType,
+        providerSubject: p.providerSubject,
+        email: p.email,
+        phone: p.phone,
+        displayName: p.displayName,
+        isVerified: p.isVerified,
+        linkedAt: p.linkedAt.toISOString(),
+      })),
       watchlistKeys: watchlistRows.map((r) => r.collectionKey),
-      pendingEmailVerification: pending.emailVerify,
-      pendingPasswordReset: pending.passwordReset,
+      kycProvider: user.kycProvider,
+      kycExternalId: user.kycExternalId,
+      kycRejectionReason: user.kycRejectionReason,
     };
   }
 
@@ -261,38 +415,16 @@ export class UserAdminService {
     return { ok: true };
   }
 
-  async resendVerificationEmail(userId: string): Promise<{ ok: true }> {
-    await this.emailVerification.adminIssueVerification(userId);
-    return { ok: true };
-  }
-
-  async sendPasswordResetEmail(userId: string): Promise<{ ok: true }> {
-    await this.passwordReset.adminRequestResetForUserId(userId);
-    return { ok: true };
-  }
-
-  async setPassword(userId: string, password: string): Promise<{ ok: true }> {
-    await this.users.updatePasswordHash(userId, hashPassword(password));
-    return { ok: true };
-  }
-
   async forceVerifyEmail(userId: string): Promise<AdminUserDetail> {
     const user = await this.users.findByIdOrFail(userId);
     user.emailVerified = true;
     await this.usersRepo.save(user);
-    await this.tokensRepo.delete({ userId });
     return this.getUserDetail(userId);
-  }
-
-  async clearPendingTokens(userId: string): Promise<{ ok: true }> {
-    await this.users.findByIdOrFail(userId);
-    await this.tokensRepo.delete({ userId });
-    return { ok: true };
   }
 
   async linkWallet(userId: string, address: string): Promise<AdminUserDetail> {
     const normalized = getAddress(address);
-    await this.users.addWalletAddress(userId, normalized);
+    await this.users.addWalletAddress(userId, normalized, { source: 'admin' });
     return this.getUserDetail(userId);
   }
 
@@ -316,22 +448,25 @@ export class UserAdminService {
     return this.getUserDetail(userId);
   }
 
-  private async pendingTokenFlags(
-    userId: string,
-  ): Promise<{ emailVerify: boolean; passwordReset: boolean }> {
-    const rows = await this.tokensRepo.find({
-      where: { userId },
-      select: ['type', 'expiresAt'],
-    });
-    const now = Date.now();
-    let emailVerify = false;
-    let passwordReset = false;
+  private async providerTypesByUserIds(
+    userIds: string[],
+  ): Promise<Map<string, string[]>> {
+    const out = new Map<string, string[]>();
+    if (userIds.length === 0) return out;
+
+    const rows = await this.authProvidersRepo
+      .createQueryBuilder('p')
+      .select('p.user_id', 'userId')
+      .addSelect('array_agg(DISTINCT p.provider_type ORDER BY p.provider_type)', 'types')
+      .where('p.user_id IN (:...userIds)', { userIds })
+      .andWhere('p.unlinked_at IS NULL')
+      .groupBy('p.user_id')
+      .getRawMany<{ userId: string; types: string[] }>();
+
     for (const row of rows) {
-      if (row.expiresAt.getTime() < now) continue;
-      if (row.type === VerificationTokenType.EMAIL_VERIFY) emailVerify = true;
-      if (row.type === VerificationTokenType.PASSWORD_RESET) passwordReset = true;
+      out.set(row.userId, row.types ?? []);
     }
-    return { emailVerify, passwordReset };
+    return out;
   }
 
   private async countByUserIds(
@@ -353,4 +488,13 @@ export class UserAdminService {
     }
     return out;
   }
+}
+
+/** Human-readable email label for admin (mask wallet-only placeholders). */
+export function formatAdminUserEmail(email: string): string {
+  if (isWalletOnlyPlaceholderEmail(email)) {
+    const wallet = email.replace(/@privy\.wallet$/i, '');
+    return `${wallet.slice(0, 6)}…${wallet.slice(-4)} (wallet-only)`;
+  }
+  return email;
 }

@@ -49,9 +49,25 @@ export function usePortfolioCollectionKeys(input: {
   address: string | undefined;
   isConnected: boolean;
   assets: OwnedAsset[];
+  /**
+   * Token IDs from useUserAssets — available right after rwaTokens resolves,
+   * before metadata is fetched. Passing them here lets us fire the server
+   * collection-key lookup in parallel with the metadata batch rather than
+   * sequentially after it.
+   */
+  tokenIds: number[];
   listingCollectionKeyByToken: Map<number, string>;
 }) {
-  const { address, isConnected, assets, listingCollectionKeyByToken } = input;
+  const { address, isConnected, assets, tokenIds, listingCollectionKeyByToken } = input;
+
+  // Fire the server collection-key batch as soon as tokenIds are available —
+  // in parallel with postRwaMetadataBatch. Both requests only need tokenIds.
+  const { data: prefetchedServerKeys } = useQuery({
+    queryKey: rq.tokenCollectionKeyBatch(address ?? "", tokenIds),
+    queryFn: () => postTokenCollectionKeysByTokenIdsBatched(tokenIds),
+    enabled: Boolean(address && isConnected && tokenIds.length > 0),
+    staleTime: 60_000,
+  });
 
   const portfolioBucketKeySourceSig = useMemo(
     () => buildPortfolioBucketKeySourceSig(assets, listingCollectionKeyByToken),
@@ -64,9 +80,9 @@ export function usePortfolioCollectionKeys(input: {
     queryKey: rq.portfolioBucketKeys(address ?? "", portfolioBucketKeysSig),
     queryFn: async () => {
       const o: Record<number, string> = {};
-      const backendResolved = await postTokenCollectionKeysByTokenIdsBatched(
-        assets.map((a) => a.tokenId),
-      ).catch(() => ({} as Record<number, string>));
+      // prefetchedServerKeys is guaranteed to be defined when this queryFn runs
+      // because `enabled` below requires it. No extra network call needed here.
+      const backendResolved: Record<number, string> = prefetchedServerKeys ?? {};
       for (const a of assets) {
         const listingKey = listingCollectionKeyByToken.get(a.tokenId);
         if (listingKey) {
@@ -89,7 +105,15 @@ export function usePortfolioCollectionKeys(input: {
       }
       return o;
     },
-    enabled: Boolean(address && isConnected && assets.length > 0),
+    // Wait until BOTH metadata (assets) and server keys are ready.
+    // Since both fire in parallel, the total wait is max(metadata, serverKeys)
+    // instead of metadata + serverKeys (sequential).
+    enabled: Boolean(
+      address &&
+        isConnected &&
+        assets.length > 0 &&
+        (tokenIds.length === 0 || prefetchedServerKeys !== undefined),
+    ),
     staleTime: 60_000,
   });
 

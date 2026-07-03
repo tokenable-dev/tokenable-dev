@@ -1,0 +1,87 @@
+---
+description: Architecture rules — patterns, boundaries, and structural constraints
+globs: ["backend/src/**/*", "frontend/**/*", "contracts/**/*"]
+alwaysApply: false
+---
+
+# Architecture Rules
+
+## Module Boundaries
+
+1. Modules declare their public API via `exports`. Only use exported providers from other modules.
+
+2. Do not inject services from a module that isn't imported. Add to `imports` array first.
+
+3. `forwardRef()` is allowed only for genuinely circular sibling submodules. Add a comment explaining why.
+
+4. `VaultModule` is imported by `RwaModule` and `MarketplaceCollectionsModule`. Don't import it elsewhere without architectural justification.
+
+## Service Design
+
+5. One concern per service. If a service grows beyond ~300 lines, consider splitting by domain boundary.
+
+6. Services must not have side effects on startup (unless using `OnModuleInit`). Heavy initialization should be lazy.
+
+7. Do not share mutable state between service instances. Use the database or Redis as shared state.
+
+## Domain Separation
+
+8. `blockchain/` handles on-chain reads and writes only. It has no knowledge of vault business logic.
+
+9. `vault/` handles the DB state machine only. It does not call blockchain directly.
+
+10. `rwa/` orchestrates the mint pipeline by composing `vault/` and `blockchain/`. It is the entry point for vault operations.
+
+11. `marketplace/` handles all trading, pricing, and portfolio concerns. It does not mint or burn.
+
+## Data Flow Rules
+
+12. **Hot reads go to PostgreSQL only.** Never call Cardhedger, PSA, or Pinata APIs in read endpoints.
+
+13. **Write paths trigger async workers**, not synchronous upstream calls. Example: a new ask listing triggers snapshot refresh, not a blocking Cardhedger call.
+
+14. Identity cache (`components.cardhedgerCardId`) is read-through: L1 → L2 → DB. Always write through via `CollectionIdentityService`.
+
+## Frontend Architecture
+
+15. **Thin routes, fat hooks.** App Router pages delegate to a primary hook. Pages do not fetch data directly.
+
+16. **Centralize query keys.** All React Query keys are in `lib/core/queryKeys.ts`. Never define inline query keys.
+
+17. **Centralize cache invalidation.** After mutations, call the appropriate function from `lib/core/invalidation.ts`.
+
+18. **API clients in `lib/core/api/`.** Never call `fetch` directly from a component or hook. Always use a typed function from the API layer.
+
+19. **Access gates compose.** `useTradeAccessGate` wraps `useAuthGate`. `useSellAccessGate` wraps `useTradeAccessGate`. Never bypass the chain.
+
+## State Ownership
+
+20. React Query owns server state. Zustand stores own global client UI state. Local `useState` owns ephemeral component state.
+
+21. Never put server-fetched data in Zustand (auth user is the one exception, via `useAuthStore`).
+
+22. Never put UI-only state (modal open/close, hover) in React Query.
+
+## Pattern: Admin Pages
+
+Admin pages follow a consistent pattern:
+- Page at `app/marketplace/admin/{feature}/page.tsx`
+- Component at `components/marketplace/admin/MarketplaceAdmin{Feature}Page.tsx`
+- Hook at `hooks/marketplace-admin/useMarketplaceAdmin{Feature}.ts`
+- API client at `lib/core/api/marketplace-admin-{feature}.ts`
+- Query key in `lib/core/queryKeys.ts` under `rq.admin*`
+- Exported from `components/marketplace/admin/index.ts`
+
+## Anti-Patterns
+
+23. **No business logic in controllers.** Ever.
+
+24. **No direct DB queries in controllers.** Always through services.
+
+25. **No hard-coded addresses or IDs.** Use env vars or constants files.
+
+26. **No inline query keys.** Always `queryKeys.ts`.
+
+27. **No `any` type.** Use `unknown` + type narrowing, or define a proper type.
+
+28. **No synchronous Cardhedger/PSA calls in read paths.**

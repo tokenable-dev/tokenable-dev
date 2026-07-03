@@ -3,7 +3,8 @@
 # Required Repository secrets / variables (Secrets 우선, Variables 폴백)
 #   NEXT_PUBLIC_RWA_CONTRACT_ADDRESS    (필수)
 #   NEXT_PUBLIC_USDC_CONTRACT_ADDRESS   (필수)
-#   NEXT_PUBLIC_ALCHEMY_RPC_URL         (필수, Alchemy Sepolia)
+#   NEXT_PUBLIC_ALCHEMY_RPC_URL         (필수, Alchemy Polygon Amoy)
+#   NEXT_PUBLIC_PRIVY_APP_ID            (필수, Privy 로그인·지갑 — Dashboard App ID)
 #   NEXT_PUBLIC_PLATFORM_FEE_RECIPIENT  (선택, 빈 값이면 수수료 미적용)
 #   NEXT_PUBLIC_PLATFORM_FEE_BPS        (선택, 기본 0)
 #   NEXT_PUBLIC_GA_MEASUREMENT_ID      (선택, GA4 `G-XXXXXXXXXX` — 페이지뷰 추적)
@@ -54,13 +55,16 @@ jobs:
           RWA="${{ secrets.NEXT_PUBLIC_RWA_CONTRACT_ADDRESS }}"
           USDC="${{ secrets.NEXT_PUBLIC_USDC_CONTRACT_ADDRESS }}"
           RPC="${{ secrets.NEXT_PUBLIC_ALCHEMY_RPC_URL }}"
+          PRIVY="${{ secrets.NEXT_PUBLIC_PRIVY_APP_ID }}"
           if [ -z "$RWA" ];  then RWA="${{ vars.NEXT_PUBLIC_RWA_CONTRACT_ADDRESS }}"; fi
           if [ -z "$USDC" ]; then USDC="${{ vars.NEXT_PUBLIC_USDC_CONTRACT_ADDRESS }}"; fi
           if [ -z "$RPC" ];  then RPC="${{ vars.NEXT_PUBLIC_ALCHEMY_RPC_URL }}"; fi
+          if [ -z "$PRIVY" ]; then PRIVY="${{ vars.NEXT_PUBLIC_PRIVY_APP_ID }}"; fi
 
           if [ -z "$RWA" ];  then echo "::error::NEXT_PUBLIC_RWA_CONTRACT_ADDRESS 가 비어 있습니다."; exit 1; fi
           if [ -z "$USDC" ]; then echo "::error::NEXT_PUBLIC_USDC_CONTRACT_ADDRESS 가 비어 있습니다."; exit 1; fi
           if [ -z "$RPC" ];  then echo "::error::NEXT_PUBLIC_ALCHEMY_RPC_URL 가 비어 있습니다."; exit 1; fi
+          if [ -z "$PRIVY" ]; then echo "::error::NEXT_PUBLIC_PRIVY_APP_ID 가 비어 있습니다."; exit 1; fi
 
           # Platform fee — 선택값 (없으면 빈값 그대로 build-arg 로 넘어가 런타임에 fee=0)
           FEE_RCPT="${{ secrets.NEXT_PUBLIC_PLATFORM_FEE_RECIPIENT }}"
@@ -85,6 +89,7 @@ jobs:
             --build-arg NEXT_PUBLIC_RWA_CONTRACT_ADDRESS="$RWA" \
             --build-arg NEXT_PUBLIC_USDC_CONTRACT_ADDRESS="$USDC" \
             --build-arg NEXT_PUBLIC_ALCHEMY_RPC_URL="$RPC" \
+            --build-arg NEXT_PUBLIC_PRIVY_APP_ID="$PRIVY" \
             --build-arg NEXT_PUBLIC_PLATFORM_FEE_RECIPIENT="$FEE_RCPT" \
             --build-arg NEXT_PUBLIC_PLATFORM_FEE_BPS="$FEE_BPS" \
             --build-arg API_PROXY_TARGET=http://backend:4000 \

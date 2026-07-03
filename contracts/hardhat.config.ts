@@ -1,8 +1,13 @@
 import { HardhatUserConfig } from 'hardhat/config';
 import '@nomicfoundation/hardhat-toolbox';
+import '@openzeppelin/hardhat-upgrades';
 import * as dotenv from 'dotenv';
 
 dotenv.config();
+
+const accounts = process.env.DEPLOYER_PRIVATE_KEY
+  ? [process.env.DEPLOYER_PRIVATE_KEY]
+  : [];
 
 const config: HardhatUserConfig = {
   solidity: {
@@ -13,12 +18,15 @@ const config: HardhatUserConfig = {
     },
   },
   networks: {
-    sepolia: {
-      url: process.env.SEPOLIA_RPC_URL ?? '',
-      chainId: 11155111,
-      accounts: process.env.DEPLOYER_PRIVATE_KEY
-        ? [process.env.DEPLOYER_PRIVATE_KEY]
-        : [],
+    polygon: {
+      url: process.env.POLYGON_RPC_URL ?? '',
+      chainId: 137,
+      accounts,
+    },
+    polygonAmoy: {
+      url: process.env.POLYGON_AMOY_RPC_URL ?? '',
+      chainId: 80002,
+      accounts,
     },
   },
   paths: {

@@ -1,7 +1,7 @@
 -- Dev-only: synthetic **fulfilled ask** rows so collection charts / platformUsd have ~2 months of points.
 -- Source: `CollectionMarketService.platformTradesForApi` — uses fulfilled asks, `updated_at`, `consideration_amount`.
 --
--- Before run: set addresses below to match `backend/.env` (Sepolia).
+-- Before run: set addresses below to match `backend/.env` (Polygon Amoy).
 -- Re-runnable: deletes previous rows seeded with `parameters._seedChart = true` in the same transaction body.
 --
 -- Docker (repo root):
@@ -12,8 +12,8 @@
 DO $$
 DECLARE
   -- ▼ Edit if your .env differs
-  rwa_contract text := '0x54f867520fece066F769ff441735B57169755Fc4';
-  usdc_contract text := '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238';
+  rwa_contract text := '0x355dd288e237dc5486b5659Cf49d15Ffb32c44fC';
+  usdc_contract text := '0x41E94Eb019C0762f9Bfcf9Fb1E58725BfB0e7582';
   seller text := '0x0000000000000000000000000000000000000001';
 
   ck text;

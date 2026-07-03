@@ -9,12 +9,8 @@ import {
   getAdminUserStats,
   getAdminUsers,
   patchAdminUser,
-  postAdminClearPendingTokens,
   postAdminForceVerifyEmail,
   postAdminLinkUserWallet,
-  postAdminResendVerification,
-  postAdminSendPasswordReset,
-  postAdminSetUserPassword,
   rq,
   type AdminUserDetail,
   type AdminUserFilter,
@@ -89,36 +85,14 @@ export function useMarketplaceAdminUsers(params: {
   const actionMutation = useMutation({
     mutationFn: async (input: {
       userId: string;
-      action:
-        | "resend-verification"
-        | "send-password-reset"
-        | "force-verify"
-        | "clear-tokens"
-        | "set-password"
-        | "link-wallet"
-        | "unlink-wallet"
-        | "remove-watchlist";
-      password?: string;
+      action: "force-verify" | "link-wallet" | "unlink-wallet" | "remove-watchlist";
       address?: string;
       collectionKey?: string;
     }): Promise<AdminUserDetail> => {
       const { userId, action } = input;
       switch (action) {
-        case "resend-verification":
-          await postAdminResendVerification(userId);
-          return getAdminUserDetail(userId);
-        case "send-password-reset":
-          await postAdminSendPasswordReset(userId);
-          return getAdminUserDetail(userId);
         case "force-verify":
-          return postAdminForceVerifyEmail(userId) as Promise<AdminUserDetail>;
-        case "clear-tokens":
-          await postAdminClearPendingTokens(userId);
-          return getAdminUserDetail(userId);
-        case "set-password":
-          if (!input.password?.trim()) throw new Error("Password required");
-          await postAdminSetUserPassword(userId, input.password);
-          return getAdminUserDetail(userId);
+          return postAdminForceVerifyEmail(userId);
         case "link-wallet":
           if (!input.address?.trim()) throw new Error("Wallet address required");
           return postAdminLinkUserWallet(userId, input.address.trim());

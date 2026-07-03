@@ -13,9 +13,21 @@ import { PsaCertSnapshot } from '../entities/psa-cert-snapshot.entity';
  * Single gateway for PSA Public API cert lookups — all callers should use this
  * instead of {@link PsaPublicApiService.getByCertNumber} directly.
  */
+/** Full PSA `GetByCertNumber` JSON stored inside `snapshot_json` for repeat lookups. */
+export const PSA_OFFICIAL_API_RAW_SNAPSHOT_KEY = '__officialApiRaw';
+
 @Injectable()
 export class PsaCertSnapshotService {
   private readonly logger = new Logger(PsaCertSnapshotService.name);
+
+  /** Strip internal-only keys before returning snapshot JSON to callers. */
+  static stripInternalSnapshotKeys(
+    snap: Record<string, unknown> | null | undefined,
+  ): Record<string, unknown> | null {
+    if (!snap || typeof snap !== 'object') return null;
+    const { [PSA_OFFICIAL_API_RAW_SNAPSHOT_KEY]: _raw, ...rest } = snap;
+    return Object.keys(rest).length > 0 ? rest : null;
+  }
 
   constructor(
     @InjectRepository(PsaCertSnapshot)
@@ -135,6 +147,39 @@ export class PsaCertSnapshotService {
     };
   }
 
+  /** Rebuild minimal `GetByCertNumber` body from legacy compact-only snapshot rows. */
+  reconstructOfficialApiRawFromCompact(
+    snap: Record<string, unknown>,
+  ): Record<string, unknown> | null {
+    const compact = PsaCertSnapshotService.stripInternalSnapshotKeys(snap);
+    if (!compact) return null;
+    const subject = String(compact.Subject ?? '').trim();
+    const certNumber = String(compact.CertNumber ?? '').trim();
+    if (!subject && !certNumber) return null;
+    const psaCert: Record<string, unknown> = {};
+    for (const key of [
+      'CertNumber',
+      'SpecID',
+      'Subject',
+      'Brand',
+      'Year',
+      'Variety',
+      'CardNumber',
+      'CardGrade',
+      'GradeDescription',
+      'Category',
+      'TotalPopulation',
+    ] as const) {
+      const v = compact[key];
+      if (v != null && String(v).trim() !== '') psaCert[key] = v;
+    }
+    if (Object.keys(psaCert).length === 0) return null;
+    return {
+      IsValidRequest: true,
+      PSACert: psaCert,
+    };
+  }
+
   async findByCert(certNumber: string): Promise<PsaCertSnapshot | null> {
     const cert = certNumber.trim();
     if (!cert) return null;
@@ -148,7 +193,25 @@ export class PsaCertSnapshotService {
     if (!row?.snapshotJson) return null;
     const age = Date.now() - row.fetchedAt.getTime();
     if (age >= this.ttlMs()) return null;
-    return row.snapshotJson;
+    return PsaCertSnapshotService.stripInternalSnapshotKeys(row.snapshotJson);
+  }
+
+  /**
+   * Previously fetched official PSA Public API body (same shape as `GetByCertNumber`).
+   * Used to serve repeat Vault cert lookups without another upstream call.
+   */
+  async getOfficialApiRawIfFresh(certNumber: string): Promise<unknown | null> {
+    const cert = certNumber.trim();
+    if (!cert) return null;
+    const row = await this.findByCert(cert);
+    if (!row?.snapshotJson) return null;
+    const age = Date.now() - row.fetchedAt.getTime();
+    if (age >= this.ttlMs()) return null;
+    const raw = row.snapshotJson[PSA_OFFICIAL_API_RAW_SNAPSHOT_KEY];
+    if (raw && typeof raw === 'object' && (raw as { PSACert?: unknown }).PSACert) {
+      return raw;
+    }
+    return this.reconstructOfficialApiRawFromCompact(row.snapshotJson);
   }
 
   /**
@@ -162,19 +225,34 @@ export class PsaCertSnapshotService {
     if (!cert) return null;
     const fresh = await this.getSnapshotJsonIfFresh(cert);
     if (fresh) return fresh;
-    if (opts?.allowUpstream === false) return null;
-    await this.refreshIfStale(cert);
-    return this.getSnapshotJsonIfFresh(cert);
-  }
 
-  /** Fire-and-forget upstream refresh when DB row is missing or past TTL. */
-  scheduleRefreshIfNeeded(certNumber: string): void {
-    void this.refreshIfStale(certNumber).catch((e) =>
-      this.logger.debug(`PSA cert snapshot refresh failed: ${String(e)}`),
+    if (opts?.allowUpstream === true) {
+      await this.refreshIfStale(cert, { allowUpstream: true });
+      return this.getSnapshotJsonIfFresh(cert);
+    }
+
+    const row = await this.findByCert(cert);
+    return (
+      PsaCertSnapshotService.stripInternalSnapshotKeys(row?.snapshotJson ?? null) ??
+      null
     );
   }
 
-  async refreshIfStale(certNumber: string): Promise<void> {
+  /**
+   * @deprecated PSA upstream is user-initiated only — no background refresh scheduling.
+   */
+  scheduleRefreshIfNeeded(
+    _certNumber: string,
+    _reason: 'mint' | 'cert_column_update' = 'cert_column_update',
+  ): void {
+    return;
+  }
+
+  async refreshIfStale(
+    certNumber: string,
+    opts?: { allowUpstream?: boolean },
+  ): Promise<void> {
+    if (opts?.allowUpstream !== true) return;
     const cert = certNumber.trim();
     if (!cert) return;
     const existing = await this.findByCert(cert);
@@ -189,6 +267,7 @@ export class PsaCertSnapshotService {
     let snap = this.compactFromApiRaw(lookup.raw);
     if (!snap || Object.keys(snap).length === 0) return;
     snap = await this.enrichSnapshotWithEstimateIfMissing(snap, cert);
+    snap[PSA_OFFICIAL_API_RAW_SNAPSHOT_KEY] = lookup.raw;
 
     const row: QueryDeepPartialEntity<PsaCertSnapshot> = {
       certNumber: cert,
@@ -198,10 +277,35 @@ export class PsaCertSnapshotService {
     await this.repo.upsert(row, ['certNumber']);
   }
 
+  /** Persist compact snapshot after user-initiated cert lookup (analyze-by-cert). */
+  async cacheUserLookupSnapshot(
+    certNumber: string,
+    apiRaw: unknown,
+  ): Promise<void> {
+    const cert = certNumber.trim();
+    if (!cert) return;
+    const snap = this.compactFromApiRaw(apiRaw);
+    if (!snap || Object.keys(snap).length === 0) return;
+    const payload: Record<string, unknown> = {
+      ...snap,
+      [PSA_OFFICIAL_API_RAW_SNAPSHOT_KEY]: apiRaw,
+    };
+    const row: QueryDeepPartialEntity<PsaCertSnapshot> = {
+      certNumber: cert,
+      snapshotJson: payload as object,
+      fetchedAt: new Date(),
+    };
+    await this.repo.upsert(row, ['certNumber']);
+  }
+
   /**
    * Re-fetch cert snapshot from PSA Public API even when DB TTL is still valid.
    */
-  async refreshEstimateIfMissing(certNumber: string): Promise<number | null> {
+  async refreshEstimateIfMissing(
+    certNumber: string,
+    opts?: { allowUpstream?: boolean },
+  ): Promise<number | null> {
+    const allowUpstream = opts?.allowUpstream === true;
     const cert = certNumber.trim();
     if (!cert) return null;
 
@@ -213,7 +317,8 @@ export class PsaCertSnapshotService {
 
     let snap = existing?.snapshotJson ?? null;
     if (!snap || Object.keys(snap).length === 0) {
-      await this.refreshIfStale(cert);
+      if (!allowUpstream) return null;
+      await this.refreshIfStale(cert, { allowUpstream: true });
       snap = (await this.findByCert(cert))?.snapshotJson ?? null;
     }
     if (!snap || Object.keys(snap).length === 0) return null;
@@ -240,7 +345,7 @@ export class PsaCertSnapshotService {
 
   /** @deprecated Use {@link refreshEstimateIfMissing}. */
   async refreshIfEstimateMissing(certNumber: string): Promise<void> {
-    await this.refreshEstimateIfMissing(certNumber);
+    await this.refreshEstimateIfMissing(certNumber, { allowUpstream: false });
   }
 }
 

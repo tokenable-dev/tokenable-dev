@@ -6,6 +6,19 @@ import {
   computeMarketBucketKey,
   extractBucketComponentsFromMetadata,
 } from "@/lib/marketplace/bucketKey";
+import { getCachedRwaImageUrl, getCachedRwaMetadata } from "@/lib/marketplace";
+
+function cachedAssetInitialData(tokenId: number) {
+  const cachedMeta = getCachedRwaMetadata(tokenId);
+  const cachedImg = getCachedRwaImageUrl(tokenId);
+  if (!cachedMeta && !cachedImg) return undefined;
+  return {
+    tokenId,
+    tokenURI: "",
+    metadata: cachedMeta,
+    imageUrl: cachedImg,
+  };
+}
 
 export function useRwaDetailMetadata(tokenId: number, tokenIdOk: boolean) {
   const { data: metaBundle, isLoading: metaLoading } = useQuery({
@@ -13,6 +26,7 @@ export function useRwaDetailMetadata(tokenId: number, tokenIdOk: boolean) {
     queryFn: () => getResolvedRwaAsset(tokenId),
     enabled: tokenIdOk,
     staleTime: marketplaceRqPolicy.metadataDetailStaleMs,
+    initialData: () => cachedAssetInitialData(tokenId),
   });
 
   const metadata = metaBundle?.metadata ?? null;

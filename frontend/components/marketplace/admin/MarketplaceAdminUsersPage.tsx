@@ -26,10 +26,14 @@ import { MarketplaceAdminUserRow } from "./MarketplaceAdminUserRow";
 
 const FILTERS: { value: AdminUserFilter; label: string }[] = [
   { value: "all", label: "All" },
-  { value: "verified", label: "Verified" },
-  { value: "unverified", label: "Unverified" },
+  { value: "privy", label: "Privy" },
   { value: "google", label: "Google" },
-  { value: "email", label: "Email/password" },
+  { value: "email", label: "Email OTP" },
+  { value: "wallet", label: "Wallet login" },
+  { value: "with_wallet", label: "With wallet" },
+  { value: "kyc_approved", label: "KYC approved" },
+  { value: "kyc_pending", label: "KYC pending" },
+  { value: "legacy", label: "Pre-Privy" },
 ];
 
 export function MarketplaceAdminUsersPage() {
@@ -57,24 +61,32 @@ export function MarketplaceAdminUsersPage() {
     <>
       <MarketplaceAdminPageHeader
         title="Users"
-        subtitle="Registered platform accounts — verify email, wallets, watchlist, and account lifecycle."
+        subtitle="Privy accounts — auth methods, linked wallets, KYC, and support actions."
       />
 
       {stats ? (
-        <div className={`${ADMIN_ARTICLE} mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6`}>
+        <div
+          className={`${ADMIN_ARTICLE} mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-10`}
+        >
           {(
             [
               ["Total", stats.total],
-              ["Verified", stats.verified],
-              ["Unverified", stats.unverified],
-              ["Google only", stats.googleOnly],
-              ["Email/password", stats.emailPassword],
+              ["Privy", stats.privy],
+              ["Google", stats.google],
+              ["Email OTP", stats.emailOtp],
+              ["Wallet login", stats.walletLogin],
               ["With wallet", stats.withWallet],
+              ["KYC ✓", stats.kycApproved],
+              ["KYC pending", stats.kycPending],
+              ["Verified", stats.verified],
+              ["Pre-Privy", stats.legacy],
             ] as const
           ).map(([label, val]) => (
             <div key={label}>
               <p className={`text-xs font-medium ${ADMIN_TEXT_META}`}>{label}</p>
-              <p className="text-lg font-semibold text-zinc-900 sm:text-xl">{val.toLocaleString()}</p>
+              <p className="text-lg font-semibold text-zinc-900 sm:text-xl">
+                {val.toLocaleString()}
+              </p>
             </div>
           ))}
         </div>
@@ -112,7 +124,7 @@ export function MarketplaceAdminUsersPage() {
             <label className={ADMIN_LABEL}>Search</label>
             <input
               className={ADMIN_INPUT}
-              placeholder="Email, name, or wallet…"
+              placeholder="Email, Privy ID, name, or wallet…"
               value={q}
               onChange={(e) => setQ(e.target.value)}
             />

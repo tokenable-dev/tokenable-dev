@@ -49,6 +49,21 @@ export class RwaToken {
   @Column({ name: 'metadata_synced_at', type: 'timestamptz', nullable: true })
   metadataSyncedAt: Date | null;
 
+  /** Links this mint to its vault_cycles row. NULL for pre-vault-lifecycle tokens. */
+  @Column({ name: 'vault_cycle_id', type: 'uuid', nullable: true })
+  vaultCycleId: string | null;
+
+  /** On-chain vaultRef this token was minted with (see TokenableRWA.vaultRef()). */
+  @Column({ name: 'vault_ref', type: 'varchar', length: 66, nullable: true })
+  vaultRef: string | null;
+
+  /** Set once the on-chain adminBurn (redemption) has been confirmed. */
+  @Column({ name: 'burned_at', type: 'timestamptz', nullable: true })
+  burnedAt: Date | null;
+
+  @Column({ name: 'burn_tx_hash', type: 'varchar', length: 80, nullable: true })
+  burnTxHash: string | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

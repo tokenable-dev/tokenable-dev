@@ -4,8 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import { formatUnits } from "viem";
 import { usePublicClient, useReadContract, useWriteContract } from "wagmi";
 import type { Address } from "viem";
-import { sepolia } from "@/config/wagmi";
-import { USDC_ADDRESS, USDC_ABI } from "@/constants/contracts";
+import { USDC_ABI } from "@/constants/contracts";
+import { useAppChain } from "@/providers/AppChainProvider";
+import { useChainContracts } from "@/hooks/chain/useChainContracts";
 import {
   COLLECTION_DETAILS_BG_CLASS,
   COLLECTION_DETAILS_BORDER_ALL,
@@ -27,15 +28,17 @@ export function CollectionTradeTicketBuy({
   address: Address | undefined;
   onBuySuccess?: () => void;
 }) {
-  const publicClient = usePublicClient({ chainId: sepolia.id });
+  const { chainId } = useAppChain();
+  const { usdcAddress } = useChainContracts();
+  const publicClient = usePublicClient({ chainId });
   const { writeContractAsync } = useWriteContract();
 
   const { data: usdcBalRaw } = useReadContract({
-    address: USDC_ADDRESS,
+    address: usdcAddress,
     abi: USDC_ABI,
     functionName: "balanceOf",
     args: address ? [address] : undefined,
-    chainId: sepolia.id,
+    chainId,
     query: { enabled: !!address },
   });
 
@@ -89,7 +92,7 @@ export function CollectionTradeTicketBuy({
         writeContractAsync: writeContractAsync as Parameters<
           typeof fulfillAskListingOrder
         >[0]["writeContractAsync"],
-        chainId: sepolia.id,
+        chainId,
       });
       onBuySuccess?.();
     } catch (e: unknown) {

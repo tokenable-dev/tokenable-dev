@@ -1,7 +1,5 @@
 "use client";
 
-import { useConnect } from "wagmi";
-import { connectMetaMaskWallet } from "@/lib/wallet/connectMetaMaskWallet";
 import { RwaDetailAskPriceDisplay } from "./RwaDetailAskPriceDisplay";
 import { RwaDetailGradientButton } from "./RwaDetailGradientButton";
 import { RwaDetailMarketContextStrip } from "./RwaDetailMarketContextStrip";
@@ -32,19 +30,14 @@ export function RwaDetailOwnerListingPanel({
   marketChangePeriodLabel: string;
   marketChangeCoverageHint: string;
   onOpenListModal: (initialPriceUsdc?: string | null) => void;
-  onConnectWallet?: () => void;
+  onConnectWallet: () => void;
   /** Mobile sticky footer — mirrors RwaDetailBuyerTradePanel compact layout. */
   compactActions?: boolean;
 }) {
-  const { connect, connectors } = useConnect();
   const hasListing = listingPriceUsd != null;
 
   const handleConnect = () => {
-    if (onConnectWallet) {
-      onConnectWallet();
-      return;
-    }
-    connectMetaMaskWallet(connect, connectors);
+    onConnectWallet();
   };
 
   const ctaLabel = !isConnected

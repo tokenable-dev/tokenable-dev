@@ -1,5 +1,5 @@
 import { formatUnits, type Address, type PublicClient } from "viem";
-import { sepolia } from "@/config/wagmi";
+import type { SupportedChainId } from "@/lib/chains";
 import type { Order } from "@/lib/core";
 import { fulfillAskListingOrder } from "@/lib/seaport/orders/fulfillAskListing";
 import type { useWriteContract } from "wagmi";
@@ -10,6 +10,7 @@ export async function runCollectionInstantAskPurchase(input: {
   address: Address;
   publicClient: PublicClient;
   writeContractAsync: ReturnType<typeof useWriteContract>["writeContractAsync"];
+  chainId: SupportedChainId;
 }): Promise<number | null> {
   await fulfillAskListingOrder({
     ask: input.ask,
@@ -18,7 +19,7 @@ export async function runCollectionInstantAskPurchase(input: {
     writeContractAsync: input.writeContractAsync as Parameters<
       typeof fulfillAskListingOrder
     >[0]["writeContractAsync"],
-    chainId: sepolia.id,
+    chainId: input.chainId,
   });
   try {
     const paid = Number(formatUnits(askPriceMicros(input.ask), 6));

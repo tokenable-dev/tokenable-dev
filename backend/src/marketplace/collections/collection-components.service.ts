@@ -225,7 +225,7 @@ export class CollectionComponentsService {
     if (!specId && cert) {
       try {
         const snap = await this.psaCertSnapshots.fetchCertSnapshotJson(cert, {
-          allowUpstream: true,
+          allowUpstream: false,
         });
         specId =
           snap != null
@@ -248,11 +248,13 @@ export class CollectionComponentsService {
 
   /**
    * Fetches PSA spec pop report (Grade1–10 + Total) when missing from components.
-   * Uses PSA Public API `/pop/GetPSASpecPopulation/{specID}`.
+   * Uses PSA Public API `/pop/GetPSASpecPopulation/{specID}` only when `allowUpstream`.
    */
   async ensurePsaSpecPopulationFromApi(
     collectionKey: string,
+    opts?: { allowUpstream?: boolean },
   ): Promise<void> {
+    const allowUpstream = opts?.allowUpstream === true;
     const k = collectionKey.toLowerCase();
     const row = await this.collectionRepo.findOne({
       where: { collectionKey: k },
@@ -273,7 +275,7 @@ export class CollectionComponentsService {
       const cert = psaCertNumberFromCollectionRow(row);
       if (cert) {
         const snap = await this.psaCertSnapshots.fetchCertSnapshotJson(cert, {
-          allowUpstream: true,
+          allowUpstream,
         });
         specId = normalizePsaSpecId(snap?.SpecID);
       }
@@ -296,6 +298,8 @@ export class CollectionComponentsService {
       }
     }
     if (!specId) return;
+
+    if (!allowUpstream) return;
 
     const lookup = await this.psaPublicApi.getSpecPopulation(specId);
     if (lookup.status !== 'success') {
@@ -502,7 +506,10 @@ export class CollectionComponentsService {
   }
 
   /** 활성 ask 메타에서 단일 cert → `psa_cert_number` 컬럼 (충돌 시 미저장). */
-  async ensurePsaCertNumberFromListings(collectionKey: string): Promise<void> {
+  async ensurePsaCertNumberFromListings(
+    collectionKey: string,
+    opts?: { schedulePsaRefresh?: boolean },
+  ): Promise<void> {
     const k = collectionKey.toLowerCase();
     const row = await this.collectionRepo.findOne({
       where: { collectionKey: k },
@@ -539,7 +546,9 @@ export class CollectionComponentsService {
       { collectionKey: k },
       { psaCertNumber: only },
     );
-    this.psaCertSnapshots.scheduleRefreshIfNeeded(only);
+    if (opts?.schedulePsaRefresh === true) {
+      this.psaCertSnapshots.scheduleRefreshIfNeeded(only, 'cert_column_update');
+    }
   }
 
   /**
@@ -609,7 +618,7 @@ export class CollectionComponentsService {
       if (fresh) return;
     }
 
-    await this.psaCertSnapshots.refreshIfStale(cert);
+    await this.psaCertSnapshots.refreshIfStale(cert, { allowUpstream: false });
   }
 
   async mergePsaSnapshotIntoComponentsFromDb(

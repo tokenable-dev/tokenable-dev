@@ -6,15 +6,14 @@ import {
   useAccount,
   usePublicClient,
   useReadContract,
-  useWalletClient,
   useWriteContract,
 } from "wagmi";
 import { formatUnits, type Address } from "viem";
-import { sepolia } from "@/config/wagmi";
+import { useAppChain } from "@/providers/AppChainProvider";
+import { useChainContracts } from "@/hooks/chain/useChainContracts";
 import {
   SEAPORT_ADDRESS,
   SEAPORT_ABI,
-  USDC_ADDRESS,
   USDC_ABI,
 } from "@/constants/contracts";
 import {
@@ -35,6 +34,7 @@ import { invalidateAfterCriteriaBid } from "@/lib/core/invalidation";
 import { runCollectionInstantAskPurchase } from "@/lib/seaport/criteria/runCollectionInstantAskPurchase";
 import { submitCollectionCriteriaBid } from "@/lib/seaport/criteria/submitCollectionCriteriaBid";
 import type { CollectionCriteriaBidStep } from "@/lib/marketplace/collectionCriteriaBidTypes";
+import { useSeaportOrderSigner } from "@/lib/privy";
 
 export function useCollectionCriteriaBid(input: {
   collectionKey: string;
@@ -66,8 +66,10 @@ export function useCollectionCriteriaBid(input: {
     (connectedAddress != null && String(connectedAddress).trim() !== ""
       ? (String(connectedAddress).trim() as `0x${string}`)
       : wagmiAddress) ?? undefined;
-  const publicClient = usePublicClient({ chainId: sepolia.id });
-  const { data: walletClient } = useWalletClient({ chainId: sepolia.id });
+  const { chainId } = useAppChain();
+  const { usdcAddress } = useChainContracts();
+  const publicClient = usePublicClient({ chainId });
+  const { signSeaportOrder } = useSeaportOrderSigner();
   const { writeContractAsync } = useWriteContract();
   const queryClient = useQueryClient();
 
@@ -127,25 +129,25 @@ export function useCollectionCriteriaBid(input: {
     abi: SEAPORT_ABI,
     functionName: "getCounter",
     args: address ? [address] : undefined,
-    chainId: sepolia.id,
+    chainId: chainId,
     query: { enabled: !!address },
   });
 
   const { data: usdcBalRaw } = useReadContract({
-    address: USDC_ADDRESS,
+    address: usdcAddress,
     abi: USDC_ABI,
     functionName: "balanceOf",
     args: address ? [address] : undefined,
-    chainId: sepolia.id,
+    chainId: chainId,
     query: { enabled: !!address },
   });
 
   const { data: usdcAllowanceRaw } = useReadContract({
-    address: USDC_ADDRESS,
+    address: usdcAddress,
     abi: USDC_ABI,
     functionName: "allowance",
     args: address ? [address, SEAPORT_ADDRESS] : undefined,
-    chainId: sepolia.id,
+    chainId: chainId,
     query: { enabled: !!address },
   });
 
@@ -185,6 +187,7 @@ export function useCollectionCriteriaBid(input: {
         address,
         publicClient,
         writeContractAsync,
+        chainId,
       });
       setLastOutcome("instant");
       setStep("success");
@@ -200,7 +203,7 @@ export function useCollectionCriteriaBid(input: {
 
   const handleSubmit = async () => {
     if (!publicClient) {
-      setErrorMsg("Network not ready. Refresh or switch to Sepolia.");
+      setErrorMsg("Network not ready. Refresh or switch network in the header.");
       return;
     }
     if (!address) {
@@ -240,8 +243,8 @@ export function useCollectionCriteriaBid(input: {
       return;
     }
 
-    if (!walletClient) {
-      setErrorMsg("Wallet not ready to sign. Unlock MetaMask and try again.");
+    if (!signSeaportOrder) {
+      setErrorMsg("Wallet not ready to sign. Reconnect your wallet and try again.");
       return;
     }
 
@@ -278,13 +281,14 @@ export function useCollectionCriteriaBid(input: {
         collectionKey,
         address,
         publicClient,
-        walletClient,
+        signSeaportOrder,
         writeContractAsync,
         bidUnits: floor.priceInUnits,
         merkleLeafTokenIds,
         counter: counter as bigint,
         usdcAllowanceRaw: usdcAllowanceRaw as bigint | undefined,
         activeAsks,
+        chainId,
         mode: isReplaceBid ? "replace" : "create",
         oldOrderHash: isReplaceBid ? bidToReplace!.orderHash : undefined,
       });
@@ -310,7 +314,7 @@ export function useCollectionCriteriaBid(input: {
 
   const busy = step !== "idle" && step !== "success" && step !== "error";
   const needsWalletSigner = !floor.crossesBook;
-  const walletSignerMissing = needsWalletSigner && isConnected && !walletClient;
+  const walletSignerMissing = needsWalletSigner && isConnected && !signSeaportOrder;
 
   const submitDisabled =
     busy ||

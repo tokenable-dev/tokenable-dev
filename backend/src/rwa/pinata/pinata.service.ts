@@ -6,6 +6,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { PinataSDK } from 'pinata';
 import { RwaMetadata } from '../interfaces/rwa-metadata.interface';
+import { safeIpfsUploadFilename } from './pinata-filename.util';
 
 function pinataErrorDetail(error: unknown): string {
   if (error == null) return 'unknown';
@@ -41,6 +42,12 @@ export class PinataService {
     });
   }
 
+  /** Browser/wallet-loadable HTTPS URL for a pinned CID (single file). */
+  ipfsHttpsUrl(cid: string): string {
+    const host = this.configService.getOrThrow<string>('PINATA_GATEWAY').trim();
+    return `https://${host}/ipfs/${cid}`;
+  }
+
   async uploadBuffer(
     buffer: Buffer,
     filename: string,
@@ -48,9 +55,10 @@ export class PinataService {
   ): Promise<string> {
     try {
       const blob = new Blob([new Uint8Array(buffer)], { type: mimeType });
-      const pinataFile = new File([blob], filename, { type: mimeType });
+      const safeName = safeIpfsUploadFilename(filename, mimeType.split('/')[1] ?? 'jpg');
+      const pinataFile = new File([blob], safeName, { type: mimeType });
       const result = await this.pinata.upload.public.file(pinataFile);
-      this.logger.log(`Buffer uploaded to IPFS: ${result.cid}`);
+      this.logger.log(`Buffer uploaded to IPFS: ${result.cid} (${safeName})`);
       return result.cid;
     } catch (error) {
       this.logger.error(
@@ -67,12 +75,14 @@ export class PinataService {
       const blob = new Blob([new Uint8Array(file.buffer)], {
         type: file.mimetype,
       });
-      const pinataFile = new File([blob], file.originalname, {
+      const ext = file.mimetype.split('/')[1] ?? 'jpg';
+      const safeName = safeIpfsUploadFilename(file.originalname, ext);
+      const pinataFile = new File([blob], safeName, {
         type: file.mimetype,
       });
 
       const result = await this.pinata.upload.public.file(pinataFile);
-      this.logger.log(`Image uploaded to IPFS: ${result.cid}`);
+      this.logger.log(`Image uploaded to IPFS: ${result.cid} (${safeName})`);
       return result.cid;
     } catch (error) {
       this.logger.error(

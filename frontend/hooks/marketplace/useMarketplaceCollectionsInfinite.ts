@@ -8,7 +8,7 @@ import {
   marketplaceRqPolicy,
 } from "@/lib/core";
 
-export function useMarketplaceCollectionsInfinite() {
+export function useMarketplaceCollectionsInfinite(opts?: { enabled?: boolean }) {
   return useInfiniteQuery({
     queryKey: rq.collectionsMarketplace(),
     queryFn: ({ pageParam }) =>
@@ -18,7 +18,11 @@ export function useMarketplaceCollectionsInfinite() {
       }),
     initialPageParam: null as string | null,
     getNextPageParam: (last) => last.nextCursor,
+    enabled: opts?.enabled ?? true,
     staleTime: marketplaceRqPolicy.collectionsStaleMs,
+    // Catalog data is stable; skip the background refetch on tab-focus/reconnect.
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
     retry: marketplaceRqPolicy.apiQueryRetry,
     retryDelay: marketplaceApiRetryDelay,
   });

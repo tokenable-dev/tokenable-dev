@@ -429,3 +429,24 @@ body {
 .touch-pan-y {
   touch-action: pan-y pinch-zoom;
 }
+
+/**
+ * Z-index layers (platform chrome only — Privy modals/menus keep default styling):
+ * - Page cards / watchlist chips: z-0–z-20 (within card stacking only)
+ * - Sticky header + in-header menus: z-135–z-140
+ * - Privy UserPill popovers (Floating UI portal): z-150 — see below
+ * - App modals (auth, trade, lightbox): z-200+
+ * - Privy login modal (#privy-dialog): z-999999 (Privy SDK)
+ *
+ * Privy UserPill menus portal via @floating-ui/react. The portal root is a static
+ * div; the popover surface is a nested `position: fixed` node with z-auto, so it
+ * loses to page sections like landing hero (`z-10`). Set z-index on the fixed node.
+ */
+[data-floating-ui-portal] {
+  position: relative;
+  z-index: 150;
+}
+
+[data-floating-ui-portal] > div {
+  z-index: 150 !important;
+}

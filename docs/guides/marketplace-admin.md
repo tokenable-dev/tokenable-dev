@@ -15,7 +15,7 @@ Admin routes are split by **operational role**, not duplicated dashboards.
 |-------|-----------|---------|
 | `/marketplace/admin` | **Overview** | Platform health from PostgreSQL — KPIs, funnel, users, orders, activity charts, AI pricing coverage, recent sales, Cardhedger infra snippet, **GA4 external link** |
 | `/marketplace/admin/analytics` | **Analytics** | Traffic — opens **Google Analytics** console (in-app GA4 Data API reports deferred) |
-| `/marketplace/admin/users` | **Users** | Registered accounts — search, filters, verify/reset/password/wallet/watchlist actions |
+| `/marketplace/admin/users` | **Users** | Privy accounts — auth methods, wallets, KYC, watchlist support |
 | `/marketplace/admin/cards` | **Listed cards** | Active marketplace listings — edit display metadata, preview images, optional on-chain burn (test) |
 | `/marketplace/admin/collections` | **Collections** | Collection buckets — cover image, delete, market snapshot strip, **AI Insight** preview |
 | `/marketplace/admin/top100` | **Top 100** | Admin-only preview of daily Cardhedger Top 100 (public Markets UI may stay disabled) |

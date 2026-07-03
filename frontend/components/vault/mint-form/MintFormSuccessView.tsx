@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import type { TransactionReceipt } from "viem";
 import {
   GradientOutlineFrame,
   VAULT_OUTLINE_PAD_CLASS,
@@ -9,13 +8,9 @@ import {
 
 export function MintFormSuccessView({
   txHash,
-  waitingForReceipt,
-  receipt,
   onReset,
 }: {
   txHash: string;
-  waitingForReceipt: boolean;
-  receipt: TransactionReceipt | undefined;
   onReset: () => void;
 }) {
   return (
@@ -33,16 +28,7 @@ export function MintFormSuccessView({
           <p className="text-xs text-gray-500 mb-1">Transaction Hash</p>
           <p className="text-xs font-mono text-blue-400 break-all">{txHash}</p>
         </div>
-        {waitingForReceipt && (
-          <p className="text-xs text-gray-500 text-center animate-pulse">
-            Waiting for confirmation...
-          </p>
-        )}
-        {receipt && (
-          <p className="text-xs text-mint text-center">
-            Confirmed in block #{receipt.blockNumber.toString()}
-          </p>
-        )}
+        <p className="text-xs text-mint text-center">Confirmed on-chain</p>
       </div>
       <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:gap-3">
         <GradientOutlineFrame className="w-full flex-1" padClass={VAULT_OUTLINE_PAD_CLASS}>

@@ -1,5 +1,6 @@
 import type { Abi } from "viem";
 
+import { DEFAULT_CHAIN_ID, getChainContracts } from "@/lib/chains/registry";
 import { SEAPORT_MATCH_ADVANCED_ORDERS_ABI } from "./seaportMatchAdvancedAbi";
 
 // ─── Contract Addresses ───────────────────────────────────────────────────────
@@ -7,43 +8,27 @@ import { SEAPORT_MATCH_ADVANCED_ORDERS_ABI } from "./seaportMatchAdvancedAbi";
 /** Collection display name when metadata has no `name` */
 export const TOKENABLE_RWA_DISPLAY_NAME = "Tokenable_RWA";
 
-const ADDR = /^0x[a-fA-F0-9]{40}$/;
+/** Default-chain contract addresses (legacy exports). */
+const defaultContracts = getChainContracts(DEFAULT_CHAIN_ID);
 
-/**
- * Next.js 는 `process.env.NEXT_PUBLIC_*` 를 **정적**으로만 빌드 시 번들에 넣습니다.
- * `process.env[name]` 같은 동적 접근은 클라이언트에서 항상 비어 있어 런타임 에러가 납니다.
- */
-function requireHexAddr(
-  raw: string | undefined,
-  label: string,
-): `0x${string}` {
-  const value = raw?.trim() ?? "";
-  if (!value || !ADDR.test(value)) {
-    throw new Error(
-      `[contracts] Set ${label} in frontend/.env (or as a docker build-arg).`,
-    );
-  }
-  return value as `0x${string}`;
-}
+export const TOKENABLE_RWA_ADDRESS = defaultContracts.rwaAddress;
+export const USDC_ADDRESS = defaultContracts.usdcAddress;
 
-export const TOKENABLE_RWA_ADDRESS = requireHexAddr(
-  process.env.NEXT_PUBLIC_RWA_CONTRACT_ADDRESS,
-  "NEXT_PUBLIC_RWA_CONTRACT_ADDRESS",
-);
+export { getChainContracts } from "@/lib/chains/registry";
 
-export const USDC_ADDRESS = requireHexAddr(
-  process.env.NEXT_PUBLIC_USDC_CONTRACT_ADDRESS,
-  "NEXT_PUBLIC_USDC_CONTRACT_ADDRESS",
-);
-
-/** Seaport v1.5 — deployed at the same address on all EVM chains */
+/** Seaport v1.5 — same canonical address on Polygon Amoy and other EVM chains. */
 export const SEAPORT_ADDRESS =
   "0x00000000000000ADc04C56Bf30aC9d3c0aAF14dC" as `0x${string}`;
+
+/** OpenSea ConduitController — create/authorize conduits for Seaport transfers. */
+export const CONDUIT_CONTROLLER_ADDRESS =
+  "0x00000000F9490004C11Cef243f5400493c00Ad63" as `0x${string}`;
 
 // ─── Platform Fee ─────────────────────────────────────────────────────────────
 
 /** Vault wallet that receives the platform fee on every trade. Empty ⇒ no fee. */
 export const PLATFORM_FEE_RECIPIENT: `0x${string}` | null = (() => {
+  const ADDR = /^0x[a-fA-F0-9]{40}$/;
   const raw = process.env.NEXT_PUBLIC_PLATFORM_FEE_RECIPIENT?.trim() ?? "";
   if (!raw || !ADDR.test(raw)) return null;
   return raw as `0x${string}`;

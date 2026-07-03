@@ -37,7 +37,7 @@ export function CollectionTradingTabsHeader({
         </span>
         <span
           className={`inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded ${COLLECTION_DETAILS_BORDER_ALL} text-[9px] font-semibold leading-none text-zinc-500`}
-          title="Collection market: bids and asks in USDC (Sepolia)."
+          title="Collection market: bids and asks in USDC on the selected network."
         >
           i
         </span>

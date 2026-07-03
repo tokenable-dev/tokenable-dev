@@ -31,7 +31,21 @@ BEGIN;
 \ir schema/066_user_wallets_allow_shared.sql
 \ir schema/067_password_reset_tokens.sql
 \ir schema/068_marketplace_admins.sql
+\ir schema/069_users_privy_kyc.sql
 \ir schema/070_cardhedger_price_infra.sql
+\ir schema/071_cardhedger_price_delta_import_runs.sql
+\ir schema/072_cardhedger_delta_catalog_fallback.sql
+\ir schema/074_user_auth_providers.sql
+\ir schema/075_user_wallets_metadata.sql
+\ir schema/076_user_kyc_platform.sql
+\ir schema/073_perf_indexes.sql
+\ir schema/078_rwa_tokens_cert_unique.sql
+\ir schema/079_portfolio_hidden_holdings_chain_scope.sql
+\ir schema/080_vault_assets.sql
+\ir schema/081_vault_cycles.sql
+\ir schema/082_vault_redemptions.sql
+\ir schema/083_rwa_tokens_vault_lifecycle.sql
+\ir schema/084_rwa_tokens_cert_unique_active_only.sql
 \ir schema/900_triggers.sql
 
 COMMIT;

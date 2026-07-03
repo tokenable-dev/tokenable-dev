@@ -104,7 +104,7 @@ export function CollectionGridCard({
 
   return (
     <div className="relative h-full">
-      <div className="pointer-events-none absolute right-1 top-1 z-10 sm:right-1.5 sm:top-1.5">
+      <div className="pointer-events-none absolute right-1 top-1 z-[1] sm:right-1.5 sm:top-1.5">
         <div className="pointer-events-auto">
           <WatchlistToggleButton collectionKey={collection.collectionKey} size="sm" />
         </div>

@@ -5,6 +5,21 @@ export type LinkedWallet = {
   address: string;
   linkedAt: string;
   isPrimary: boolean;
+  chainType?: string;
+  walletKind?: "embedded" | "external";
+  walletClient?: string | null;
+  connectorType?: string | null;
+  source?: string;
+};
+
+export type AuthProviderLink = {
+  providerType: string;
+  providerSubject: string;
+  email: string | null;
+  phone: string | null;
+  displayName: string | null;
+  isVerified: boolean;
+  linkedAt: string;
 };
 
 export function getUserLinkedWallets(user: AuthUser | null | undefined): LinkedWallet[] {

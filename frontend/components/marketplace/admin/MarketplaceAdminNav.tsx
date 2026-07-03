@@ -12,7 +12,17 @@ const NAV_ITEMS = [
   { href: "/marketplace/admin", label: "Overview", exact: true },
   { href: "/marketplace/admin/analytics", label: "Analytics" },
   { href: "/marketplace/admin/users", label: "Users", prefix: "/marketplace/admin/users" },
-  { href: "/marketplace/admin/cards", label: "Listed cards" },
+  { href: "/marketplace/admin/cards", label: "All cards" },
+  {
+    href: "/marketplace/admin/custody-nfts",
+    label: "Custody NFTs",
+    prefix: "/marketplace/admin/custody-nfts",
+  },
+  {
+    href: "/marketplace/admin/contract-roles",
+    label: "Contract roles",
+    prefix: "/marketplace/admin/contract-roles",
+  },
   { href: "/marketplace/admin/collections", label: "Collections" },
   { href: "/marketplace/admin/top100", label: "Top 100", prefix: "/marketplace/admin/top100" },
   {
@@ -24,6 +34,11 @@ const NAV_ITEMS = [
     href: "/marketplace/admin/price-webhooks",
     label: "Price sync",
     prefix: "/marketplace/admin/price-webhooks",
+  },
+  {
+    href: "/marketplace/admin/vault",
+    label: "Vault / PSA",
+    prefix: "/marketplace/admin/vault",
   },
 ] as const;
 

@@ -10,11 +10,11 @@ import { AuthService } from './auth.service';
 import { EmailVerificationService } from './email-verification.service';
 import { PasswordResetService } from './password-reset.service';
 import { VerificationToken } from './entities/verification-token.entity';
-import { GoogleOAuthExceptionFilter } from './filters/google-oauth-exception.filter';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
-import { GoogleStrategy } from './strategies/google.strategy';
 import { JwtStrategy } from './strategies/jwt.strategy';
+import { PrivyService } from './privy';
 
+/** User-facing auth is Privy-only; verification services remain for admin tooling. */
 @Module({
   imports: [
     ConfigModule,
@@ -37,16 +37,16 @@ import { JwtStrategy } from './strategies/jwt.strategy';
     AuthService,
     EmailVerificationService,
     PasswordResetService,
-    GoogleStrategy,
+    PrivyService,
     JwtStrategy,
     JwtAuthGuard,
-    GoogleOAuthExceptionFilter,
   ],
   exports: [
     AuthService,
     JwtAuthGuard,
     EmailVerificationService,
     PasswordResetService,
+    PrivyService,
   ],
 })
 export class AuthModule {}

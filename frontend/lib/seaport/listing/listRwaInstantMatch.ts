@@ -1,6 +1,5 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { formatUnits, type Address, type PublicClient } from "viem";
-import type { WalletClient } from "viem";
 import { cancelOrder, getMarketplaceCollectionDetail, getOrderByHash, rq, type Order } from "@/lib/core";
 import {
   invalidateAfterListing,
@@ -37,6 +36,8 @@ import {
   isSeaportOrderActiveAt,
 } from "@/lib/seaport/orders/seaportOrderTime";
 import { submitAskListingOrder } from "@/lib/seaport/orders/submitAskListing";
+import type { SupportedChainId } from "@/lib/chains";
+import type { SignSeaportOrderFn } from "@/lib/seaport/signSeaportOrder";
 
 export type ListRwaInstantMatchDeps = {
   tokenId: number;
@@ -47,9 +48,10 @@ export type ListRwaInstantMatchDeps = {
   preferredBidForMatch: string | null;
   topCollectionBid: { micros: bigint } | null;
   resolvedExistingAsk: Order | null;
-  getWalletClient: () => WalletClient | undefined;
+  getSignSeaportOrder: () => SignSeaportOrderFn | null;
   writeContractAsync: MatchWriteContractAsync;
   queryClient: QueryClient;
+  chainId: SupportedChainId;
 };
 
 async function resolveCollectionKeyForMatch(
@@ -221,8 +223,8 @@ async function tryMatchAfterListing(
       try {
         const chainNow = await getChainTimestampSec(deps.publicClient);
         if (!isSeaportOrderActiveAt(listing, chainNow)) {
-          const wc = deps.getWalletClient();
-          if (!wc) {
+          const signOrder = deps.getSignSeaportOrder();
+          if (!signOrder) {
             lastErr =
               "Wallet signer not ready — unlock your wallet, then try again so the listing can be refreshed.";
             continue;
@@ -232,17 +234,18 @@ async function tryMatchAfterListing(
             priceUsdc: formatUnits(askGrossUsdcMicros(listing), 6),
             address: deps.address,
             publicClient: deps.publicClient,
-            walletClient: wc,
+            signSeaportOrder: signOrder,
             writeContractAsync: deps.writeContractAsync as Parameters<
               typeof submitAskListingOrder
             >[0]["writeContractAsync"],
+            chainId: deps.chainId,
             mode: "replace",
             oldOrderHash: listing.orderHash,
           });
         }
         if (askGrossUsdcMicros(listing) > bidUsdcAmount(bid)) {
-          const wc = deps.getWalletClient();
-          if (!wc) {
+          const signOrder = deps.getSignSeaportOrder();
+          if (!signOrder) {
             lastErr =
               "Wallet signer not ready — unlock your wallet, then change the list price to the bid or try again.";
             continue;
@@ -252,10 +255,11 @@ async function tryMatchAfterListing(
             priceUsdc: formatUnits(bidUsdcAmount(bid), 6),
             address: deps.address,
             publicClient: deps.publicClient,
-            walletClient: wc,
+            signSeaportOrder: signOrder,
             writeContractAsync: deps.writeContractAsync as Parameters<
               typeof submitAskListingOrder
             >[0]["writeContractAsync"],
+            chainId: deps.chainId,
             mode: "replace",
             oldOrderHash: listing.orderHash,
           });
@@ -270,6 +274,7 @@ async function tryMatchAfterListing(
           tokenId: deps.tokenId,
           collectionKey: key,
           merkleTokenIds,
+          chainId: deps.chainId,
         });
 
         return { matched: true };

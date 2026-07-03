@@ -1,0 +1,103 @@
+---
+description: Backend coding rules for NestJS services, controllers, DTOs, and modules
+globs: ["backend/src/**/*"]
+alwaysApply: false
+---
+
+# Backend Rules
+
+## Required Reading
+
+Before modifying backend code, read:
+- `docs/architecture/backend.md` — module map and patterns
+- `docs/architecture/database.md` — entity and schema details
+- `.cursor/project-constitution.md` — coding philosophy
+
+## Module Structure
+
+1. Every feature has a dedicated `*.module.ts` that declares its `providers`, `controllers`, `imports`, and `exports`.
+
+2. Import foreign services via their module (not by injecting the service directly across modules without import).
+
+3. Use `forwardRef()` only when there is a genuine circular dependency between sibling submodules (e.g., `MarketplaceCollectionsModule` ↔ `MarketplaceSnapshotsModule`).
+
+## Controllers
+
+4. Controllers contain **no business logic**. They only:
+   - Parse input (via DTOs)
+   - Call one service method
+   - Return the result
+
+5. Use `@UseGuards(JwtAuthGuard)` for user-authenticated routes, or `assertAdminSession()` for admin routes.
+
+6. Always add Swagger decorators: `@ApiTags`, `@ApiOperation`, `@ApiResponse`, `@ApiBearerAuth`.
+
+7. Use appropriate HTTP status codes: 200/201 for success, 204 for no-content, 4xx for client errors, 5xx for server errors.
+
+## Services
+
+8. Services own all business logic. One service per domain concept.
+
+9. Inject TypeORM repositories via constructor: `@InjectRepository(MyEntity)`.
+
+10. Never call `EntityManager` directly for writes — use repository methods.
+
+11. Use `SELECT ... FOR UPDATE` (QueryBuilder `.setLock('pessimistic_write')`) when concurrent writes to the same row are possible.
+
+12. Throw NestJS exceptions (not plain `Error`): `BadRequestException`, `NotFoundException`, `ConflictException`, `ForbiddenException`, `UnauthorizedException`.
+
+## DTOs
+
+13. All DTOs use `class-validator` decorators. No raw unvalidated inputs enter services.
+
+14. Use `@IsString()`, `@IsNotEmpty()`, `@IsEthereumAddress()`, `@IsOptional()`, `@IsEnum()` etc.
+
+15. DTOs are in a `dto/` subfolder within their module.
+
+16. Request DTOs have `Dto` suffix. Response types can be plain objects or typed interfaces.
+
+## Entities
+
+17. Entity files live in `entities/` subfolder: `*.entity.ts`.
+
+18. Entity class names match the table name (PascalCase → snake_case).
+
+19. Add `updated_at` column to new entities (covered by `900_triggers.sql` trigger if using the trigger pattern).
+
+20. Declare relations with `@OneToMany`, `@ManyToOne` etc. with explicit `{ onDelete: 'CASCADE' }` or `'RESTRICT'` where applicable.
+
+## Database Schema
+
+21. Never use TypeORM `synchronize: true` in production. Use numbered SQL migration files.
+
+22. New schema files go in `backend/sql/schema/` with the next sequential number.
+
+23. Add the new file to `backend/sql/bootstrap-empty-prod-db.sql` with `\ir`.
+
+24. Update `docs/architecture/database.md` with any new tables or columns.
+
+## Authentication
+
+25. Use `@Req() req: Request` to access `req.user` (the JWT payload) in authenticated controllers.
+
+26. The user JWT payload includes `{ sub: userId, email, privyId, walletAddress }`.
+
+27. To get the user's wallets in a service, use `UserService.findUserWithWallets(userId)`.
+
+## Error Handling
+
+28. Services throw meaningful NestJS exceptions.
+
+29. Never catch and swallow exceptions. Let them propagate to the global exception handler.
+
+30. Log errors before re-throwing with `this.logger.error(message, error.stack)`.
+
+31. On-chain failures get wrapped in `InternalServerErrorException` with a helpful message.
+
+## Performance
+
+32. Add `PERF_LOG` instrumentation for operations exceeding ~200ms: PSA API calls, IPFS uploads, RPC calls, expensive queries.
+
+33. External HTTP calls must have `AbortSignal.timeout(15_000)` to prevent unbounded hangs.
+
+34. Never call Cardhedger upstream on hot read paths. Use snapshot workers.

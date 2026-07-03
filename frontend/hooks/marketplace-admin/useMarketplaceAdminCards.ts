@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  getAdminListedRwaCards,
+  getAdminRwaCards,
   patchAdminRwaToken,
   postAdminPreviewRwaMetadataImage,
   rq,
@@ -12,13 +12,13 @@ export function useMarketplaceAdminCards() {
   const qc = useQueryClient();
 
   const query = useQuery({
-    queryKey: rq.adminListedRwaCards(),
-    queryFn: () => getAdminListedRwaCards(),
+    queryKey: rq.adminRwaCards(),
+    queryFn: () => getAdminRwaCards(),
     staleTime: 30_000,
   });
 
   const invalidateCard = async (tokenId: number) => {
-    await qc.invalidateQueries({ queryKey: rq.adminListedRwaCards() });
+    await qc.invalidateQueries({ queryKey: rq.adminRwaCards() });
     await qc.invalidateQueries({ queryKey: rq.rwaAssetDetail(tokenId) });
   };
 

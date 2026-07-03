@@ -3,36 +3,23 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { AuthModalShell } from "./AuthModalShell";
-import { formatAuthError } from "@/lib/auth/formatAuthError";
 import { deleteAccount } from "@/lib/auth/auth";
 import { useAuthStore } from "@/store/authStore";
-import { AUTH_INPUT_CLASS, AUTH_MINT_LINK } from "./authUiStyles";
-
-function FieldLabel({ htmlFor, children }: { htmlFor: string; children: React.ReactNode }) {
-  return (
-    <label htmlFor={htmlFor} className="mb-1.5 block text-xs font-medium text-gray-400">
-      {children}
-    </label>
-  );
-}
+import { AUTH_MINT_LINK } from "./authUiStyles";
 
 function DeleteAccountModal({
   open,
   onClose,
-  hasPassword,
   onDeleted,
 }: {
   open: boolean;
   onClose: () => void;
-  hasPassword: boolean;
   onDeleted: () => void;
 }) {
-  const [password, setPassword] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   function handleClose() {
-    setPassword("");
     setError(null);
     onClose();
   }
@@ -42,11 +29,11 @@ function DeleteAccountModal({
     setError(null);
     setPending(true);
     try {
-      await deleteAccount(hasPassword ? { password } : undefined);
+      await deleteAccount();
       onDeleted();
       handleClose();
     } catch (err) {
-      setError(formatAuthError(err instanceof Error ? err.message : "Could not delete account."));
+      setError(err instanceof Error ? err.message : "Could not delete account.");
     } finally {
       setPending(false);
     }
@@ -63,21 +50,6 @@ function DeleteAccountModal({
         </p>
 
         <form onSubmit={(e) => void onSubmit(e)} className="mt-5 space-y-3.5">
-          {hasPassword ? (
-            <div>
-              <FieldLabel htmlFor="delete-account-password">Password</FieldLabel>
-              <input
-                id="delete-account-password"
-                type="password"
-                required
-                autoComplete="current-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className={AUTH_INPUT_CLASS}
-              />
-            </div>
-          ) : null}
-
           {error ? (
             <p className="text-sm text-red-400" role="alert">
               {error}
@@ -102,7 +74,7 @@ function DeleteAccountModal({
   );
 }
 
-export function DeleteAccountSettingsRow({ hasPassword }: { hasPassword: boolean }) {
+export function DeleteAccountSettingsRow() {
   const router = useRouter();
   const setUser = useAuthStore((s) => s.setUser);
   const [open, setOpen] = useState(false);
@@ -130,7 +102,6 @@ export function DeleteAccountSettingsRow({ hasPassword }: { hasPassword: boolean
       <DeleteAccountModal
         open={open}
         onClose={() => setOpen(false)}
-        hasPassword={hasPassword}
         onDeleted={handleDeleted}
       />
     </>

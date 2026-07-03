@@ -159,11 +159,6 @@ export const SWAGGER_BODY_EXAMPLES = {
   siteAccessVerify: {
     password: '',
   },
-  linkWallet: {
-    address: F.wallet,
-    signature: '0x' + 'a'.repeat(130),
-    challenge: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.example',
-  },
   watchlistMutate: { collectionKey: F.collectionKey },
   ordersBatchByToken: { tokenIds: F.tokenIds },
   fulfillMatchedPair: {
@@ -198,11 +193,30 @@ export const SWAGGER_BODY_EXAMPLES = {
     confirmCollectionKey: F.collectionKey,
   },
   psaAnalyzeByCert: { certNumber: F.certNumber },
+  psaSpecPopulation: { specId: F.psaSpecId },
   psaOrderProgress: { orderNumber: F.psaOrderNumber },
   psaSubmissionProgress: { submissionNumber: F.psaSubmissionNumber },
   uploadRwa: {
     name: 'PSA 10 Sample Card',
     description: '로컬 Swagger 테스트용 메타데이터',
     attributes: [{ trait_type: 'Grade', value: '10' }],
+  },
+  privyVerifyToken: {
+    accessToken: 'paste-privy-access-token-from-browser-devtools',
+  },
+  privySearchUsers: {
+    searchTerm: 'test@privy.io',
+  },
+  privyLookupEmail: {
+    address: 'test@privy.io',
+  },
+  privyLookupWallet: {
+    address: F.wallet,
+  },
+  privyCreateUser: {
+    linked_accounts: [{ type: 'email', address: 'swagger-test@privy.io' }],
+  },
+  privySetMetadata: {
+    custom_metadata: { swagger: true, env: 'dev' },
   },
 } as const;

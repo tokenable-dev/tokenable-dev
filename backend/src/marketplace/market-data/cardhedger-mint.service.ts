@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { readCardhedgerFeatureFlags } from '../../config/cardhedger-feature-flags.util';
-import { BlockchainService } from '../../blockchain/blockchain.service';
+import { RwaAssetResolveService } from '../../blockchain/rwa-asset-resolve.service';
 import { CardhedgerService } from '../../cardhedger/cardhedger.service';
 import { PsaCertSnapshotService } from '../collections/psa-cert-snapshot.service';
 import {
@@ -40,7 +40,7 @@ export class CardhedgerMintService {
 
   constructor(
     private readonly cardhedger: CardhedgerService,
-    private readonly blockchain: BlockchainService,
+    private readonly rwaAssetResolve: RwaAssetResolveService,
     private readonly config: ConfigService,
     private readonly psaCertSnapshots: PsaCertSnapshotService,
     private readonly certLookup: CardhedgerCertLookupService,
@@ -323,10 +323,14 @@ export class CardhedgerMintService {
       }
     }
 
-    const snap = await this.psaCertSnapshots.fetchCertSnapshotJson(certRaw);
+    const snap = await this.psaCertSnapshots.fetchCertSnapshotJson(certRaw, {
+      allowUpstream: false,
+    });
     if (!snap) {
-      const scraped =
-        await this.psaCertSnapshots.refreshEstimateIfMissing(certRaw);
+      const scraped = await this.psaCertSnapshots.refreshEstimateIfMissing(
+        certRaw,
+        { allowUpstream: false },
+      );
       if (scraped != null) {
         return { ...baseMirror, psaEstimateUsd: scraped };
       }
@@ -339,8 +343,10 @@ export class CardhedgerMintService {
       !Number.isFinite(Number(extra.psaEstimateUsd)) ||
       Number(extra.psaEstimateUsd) <= 0
     ) {
-      const scraped =
-        await this.psaCertSnapshots.refreshEstimateIfMissing(certRaw);
+      const scraped = await this.psaCertSnapshots.refreshEstimateIfMissing(
+        certRaw,
+        { allowUpstream: false },
+      );
       if (scraped != null) {
         extra.psaEstimateUsd = scraped;
       }
@@ -366,7 +372,7 @@ export class CardhedgerMintService {
     ].filter((n) => Number.isFinite(n) && n >= 0);
     if (ids.length === 0) return out;
 
-    const pack = await this.blockchain.batchRwaMetadata(ids);
+    const pack = await this.rwaAssetResolve.batchRwaMetadata(ids);
     const work = pack.items.filter((item) => item.metadata != null);
     const missingMeta = pack.items.filter((item) => !item.metadata);
 
@@ -618,7 +624,7 @@ export class CardhedgerMintService {
       });
     }
 
-    const pack = await this.blockchain.batchRwaMetadata([id]);
+    const pack = await this.rwaAssetResolve.batchRwaMetadata([id]);
     const item = pack.items.find((row) => row.tokenId === id);
     const meta = item?.metadata;
     if (!meta) {

@@ -3,12 +3,10 @@
 import Link from "next/link";
 import { IBM_Plex_Sans } from "next/font/google";
 import { useReadContract } from "wagmi";
-import { sepolia } from "@/config/wagmi";
 import { type Order, type RwaMetadata } from "@/lib/core";
-import {
-  TOKENABLE_RWA_ADDRESS,
-  TOKENABLE_RWA_READ_ABI,
-} from "@/constants/contracts";
+import { TOKENABLE_RWA_READ_ABI } from "@/constants/contracts";
+import { useAppChain } from "@/providers/AppChainProvider";
+import { useChainContracts } from "@/hooks/chain/useChainContracts";
 import { COLLECTION_LISTING_CARD_CHROME } from "@/components/marketplace/collectionOverviewChrome";
 import { COLLECTION_MOBILE_LISTING_IMG_CLASS } from "@/lib/marketplace/collectionListingUtils";
 import { PRODUCT_OUTLINE_GRADIENT } from "@/components/ui/GradientOutlineFrame";
@@ -162,6 +160,8 @@ export function CollectionRwaCard({
   compact = false,
   collectionDetailListing = false,
 }: CollectionRwaCardProps) {
+  const { chainId } = useAppChain();
+  const { rwaAddress } = useChainContracts();
   const useCompact = compact && useCollectionDetailMobile();
   const { metaBundle, metadata, imageUrl: resolvedImageUrl } = useCollectionRwaCardData({
     tokenId,
@@ -170,11 +170,11 @@ export function CollectionRwaCard({
   });
 
   const { data: ownerOnChain } = useReadContract({
-    address: TOKENABLE_RWA_ADDRESS,
+    address: rwaAddress,
     abi: TOKENABLE_RWA_READ_ABI,
     functionName: "ownerOf",
     args: [BigInt(Math.max(0, Math.floor(tokenId)))],
-    chainId: sepolia.id,
+    chainId,
   });
 
   const imageUrl = resolvedImageUrl;

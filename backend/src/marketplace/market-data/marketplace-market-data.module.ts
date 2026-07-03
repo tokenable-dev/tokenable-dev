@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BlockchainModule } from '../../blockchain/blockchain.module';
 import { CardhedgerModule } from '../../cardhedger/cardhedger.module';
@@ -26,7 +26,7 @@ import { CardhedgerMintService } from './cardhedger-mint.service';
     ]),
     CardhedgerModule,
     BlockchainModule,
-    PsaModule,
+    forwardRef(() => PsaModule),
   ],
   providers: [
     PsaCertSnapshotService,

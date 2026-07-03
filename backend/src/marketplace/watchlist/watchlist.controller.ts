@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  Headers,
   HttpCode,
   Post,
   Req,
@@ -19,6 +20,10 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import type { User } from '../../user/entities/user.entity';
 import { apiBodyDefault } from '../../swagger/api-body.util';
 import { SWAGGER_BODY_EXAMPLES } from '../../swagger/examples';
+import {
+  CHAIN_ID_HEADER,
+  ChainConfigService,
+} from '../../blockchain/chain-config.service';
 import { WatchlistMutateDto } from './dto/watchlist-mutate.dto';
 import { WatchlistService } from './watchlist.service';
 
@@ -27,12 +32,21 @@ import { WatchlistService } from './watchlist.service';
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth('access-token')
 export class WatchlistController {
-  constructor(private readonly watchlist: WatchlistService) {}
+  constructor(
+    private readonly watchlist: WatchlistService,
+    private readonly chainConfig: ChainConfigService,
+  ) {}
 
   @Get()
   @ApiOperation({ summary: 'Watchlist (saved collections)' })
-  list(@Req() req: Request & { user: User }) {
-    return this.watchlist.listForUser(req.user.id);
+  list(
+    @Req() req: Request & { user: User },
+    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
+  ) {
+    return this.watchlist.listForUser(
+      req.user.id,
+      this.chainConfig.resolveChainId(chainHeader),
+    );
   }
 
   @Post()

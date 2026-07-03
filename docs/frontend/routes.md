@@ -21,10 +21,8 @@ Legacy **`/exchange`** redirects to **`/markets`** via `next.config.ts`.
 | `/portfolio` | `app/portfolio/page.tsx` | Owned assets — daily value chart, hide holdings, token list |
 | `/watchlist` | `app/watchlist/page.tsx` | Saved collections (JWT) |
 | `/profile` | `app/profile/page.tsx` | User profile — wallets, email verification, password change |
-| `/login` | `app/login/page.tsx` | Sign in (Google OAuth + email/password) |
-| `/signup` | `app/signup/page.tsx` | Email/password registration |
-| `/auth/callback` | `app/auth/callback/page.tsx` | Google OAuth callback (`?ok=1` or `?error=`) |
-| `/auth/reset-password` | `app/auth/reset-password/page.tsx` | Password reset form (token from email link) |
+| `/login` | `app/login/page.tsx` | Sign in — Privy modal launcher (Google, email, wallet) |
+| `/signup` | `app/signup/page.tsx` | Sign up — Privy modal launcher |
 | `/site-access` | `app/site-access/page.tsx` | Staging site-access password gate |
 | `/site-access/verify` | `app/site-access/verify/route.ts` | Route handler for gate cookie (if used) |
 | `/marketplace/[tokenId]` | `app/marketplace/[tokenId]/page.tsx` | Token detail — slab panel, buy/sell, price compare |
@@ -47,7 +45,7 @@ Legacy **`/exchange`** redirects to **`/markets`** via `next.config.ts`.
 | File | Scope | Purpose |
 |------|-------|---------|
 | `app/layout.tsx` | Global | HTML shell, fonts, global providers wrapper |
-| `app/providers.tsx` | Global | QueryClient + Wagmi + AuthProvider + WalletDataProvider |
+| `app/providers.tsx` | Global | `PrivyAppProviders` → `PrivyProvider` → `QueryClient` → `WagmiProvider (@privy-io/wagmi)` → `WalletDataProvider` |
 | `app/portfolio/layout.tsx` | `/portfolio` | Portfolio-scoped layout |
 | `app/marketplace/[tokenId]/layout.tsx` | `/marketplace/[tokenId]` | Token-detail layout |
 | `app/marketplace/collections/[collectionKey]/layout.tsx` | Collection detail | Collection layout |
@@ -65,7 +63,8 @@ Legacy **`/exchange`** redirects to **`/markets`** via `next.config.ts`.
 | `/vault` | `POST /api/psa/analyze`, `POST /api/psa/analyze-by-cert`, `POST /api/rwa/upload`, `POST /api/marketplace/collections/on-mint` |
 | `/portfolio` | `GET /api/blockchain/rwa/tokens/:address`, batch metadata, `POST …/portfolio-market-batch`, `GET …/portfolio/daily/:wallet`, `GET …/portfolio/hidden/:wallet`, orders |
 | `/watchlist` | `GET/POST/DELETE /api/marketplace/watchlist` |
-| `/login`, `/signup`, `/profile` | `/api/auth/*` |
+| `/login`, `/signup` | Privy SDK (client-side modal) → `POST /api/auth/privy/session` |
+| `/profile` | `/api/auth/*` |
 | `/site-access` | `POST /api/site-access/verify` |
 | `/marketplace/[tokenId]` | `GET /api/blockchain/rwa/asset/:tokenId`, `GET /api/marketplace/orders/token/:tokenId` |
 | `/marketplace/collections/[collectionKey]` | Collection detail, cardhedger, market-series, stats, ai-insight, Seaport orders |

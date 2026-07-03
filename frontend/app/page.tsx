@@ -22,7 +22,7 @@ export default function LandingPage() {
       />
 
       {/* Hero — mobile: natural height (avoid 100svh jumps when browser chrome shows/hides) */}
-      <section className="relative z-10 flex flex-col max-sm:px-4 max-sm:pt-6 max-sm:pb-6 sm:items-center sm:px-6 sm:pt-28 sm:pb-20">
+      <section className="relative z-[1] flex flex-col max-sm:px-4 max-sm:pt-6 max-sm:pb-6 sm:items-center sm:px-6 sm:pt-28 sm:pb-20">
         <div className="flex w-full flex-col items-center max-sm:gap-3">
           <h1
             className="landing-enter mb-2 max-w-4xl text-center text-[1.48rem] font-bold leading-[1.18] tracking-tight text-white max-sm:px-1 sm:mb-5 sm:text-4xl sm:leading-tight md:text-5xl lg:text-[3.25rem] lg:leading-[1.12]"
@@ -62,7 +62,7 @@ export default function LandingPage() {
       <MarketIndexes />
 
       <footer
-        className="landing-enter relative z-10 border-t border-gray-800/60 py-8 text-center text-xs text-gray-600"
+        className="landing-enter relative z-[1] border-t border-gray-800/60 py-8 text-center text-xs text-gray-600"
         style={{ "--landing-enter-delay": "340ms" } as CSSProperties}
       >
         &copy; {new Date().getFullYear()} Tokenable. All rights reserved.

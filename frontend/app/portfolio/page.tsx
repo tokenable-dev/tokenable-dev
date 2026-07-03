@@ -77,6 +77,7 @@ export default function PortfolioPage() {
 
   const {
     assets: hookAssets,
+    tokenIds,
     activeOrders: allOrders,
     historiesFlat,
     isLoadingIds: idsLoading,
@@ -126,6 +127,7 @@ export default function PortfolioPage() {
     address: portfolioAddress,
     isConnected: portfolioDataEnabled,
     assets,
+    tokenIds,
     listingCollectionKeyByToken,
   });
 
@@ -277,7 +279,7 @@ export default function PortfolioPage() {
       <div className={`${APP_MAIN_SHELL_CLASS} py-5 pb-16 sm:py-8 sm:pb-20`}>
         {!isConnected ? (
           <p className="mb-4 rounded-xl border border-gray-800 bg-gray-900/40 px-4 py-3 text-xs text-gray-400">
-            Connect MetaMask with a linked wallet to manage listings and bids.
+            Connect your Privy wallet to manage listings and bids.
           </p>
         ) : null}
         <PortfolioSummaryBar

@@ -171,6 +171,11 @@ export class CollectionMarketSnapshotService {
         key,
         { allowUpstream: allowPsaUpstream },
       );
+      if (allowPsaUpstream) {
+        await this.collectionEnrichment.ensurePsaSpecPopulationFromApi(key, {
+          allowUpstream: true,
+        });
+      }
       if (await this.collectionEnrichment.findOne(key)) {
         await this.collectionEnrichment.persistPsaMirrorFromCertToDb(key);
         await this.collectionEnrichment.ensureMintParallelVarietyFromListings(
@@ -224,7 +229,9 @@ export class CollectionMarketSnapshotService {
       let psaEstimateUsd = this.psaEstimateUsdFromComponents(col?.components);
       if (certForEstimate && psaEstimateUsd == null) {
         const scraped =
-          await this.psaCertSnapshots.refreshEstimateIfMissing(certForEstimate);
+          await this.psaCertSnapshots.refreshEstimateIfMissing(certForEstimate, {
+            allowUpstream: allowPsaUpstream,
+          });
         if (scraped != null) {
           await this.collectionEnrichment.persistPsaMirrorFromCertToDb(key);
           col = await this.collectionEnrichment.findOne(key);

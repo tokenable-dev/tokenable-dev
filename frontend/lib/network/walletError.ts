@@ -240,7 +240,7 @@ export function mapWalletError(err: unknown): WalletErrorResult {
     return {
       code: "INSUFFICIENT_FUNDS",
       message:
-        "Not enough ETH for gas. Add Sepolia ETH to your wallet and try again.",
+        "Not enough native token for gas. Add funds on the selected network and try again.",
     };
   }
 
@@ -251,7 +251,7 @@ export function mapWalletError(err: unknown): WalletErrorResult {
   ) {
     return {
       code: "NETWORK_MISMATCH",
-      message: "Wrong network. Switch to Sepolia in your wallet and try again.",
+      message: "Wrong network. Switch to the app network in the header and try again.",
     };
   }
 
@@ -329,7 +329,7 @@ export function mapWalletError(err: unknown): WalletErrorResult {
     return {
       code: "NETWORK_MISMATCH",
       message:
-        "RPC returned no contract data. Confirm you are on Sepolia and that USDC / Seaport addresses match this app’s config.",
+        "RPC returned no contract data. Confirm the header network matches your wallet and that USDC / Seaport addresses are configured for this chain.",
     };
   }
 

@@ -12,6 +12,8 @@ import {
   UploadedFiles,
   UseInterceptors,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { isPsaPublicApiUpstreamEnabled } from '../marketplace/utils/psa-upstream-policy.util';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import {
   ApiBody,
@@ -23,8 +25,16 @@ import {
 } from '@nestjs/swagger';
 import { PsaOrderProgressLookupResponseDto } from './dto/psa-order-progress.dto';
 import {
+  PsaCertImagesLookupResponseDto,
+  PsaCertPublicApiLookupResponseDto,
+  PsaSpecPopulationLookupResponseDto,
+} from './dto/psa-public-api.dto';
+import {
   PsaPublicApiService,
+  type PsaGetImagesLookupResult,
   type PsaOrderProgressLookupResult,
+  type PsaPublicApiLookupResult,
+  type PsaSpecPopulationLookupResult,
   type PsaSubmissionProgressLookupResult,
 } from './psa-public-api.service';
 import { PsaService, type PsaAnalyzeResult } from './psa.service';
@@ -42,6 +52,14 @@ const imageFilter = (
 
 /**
  * PSA 슬랩 분석·Cert 조회·주문/제출 진행 상태 (Public API 프록시).
+ *
+ * PSA upstream (`backend/src/psa/psa-swagger.json`, base `/publicapi`):
+ * - cert/GetByCertNumber
+ * - cert/GetByCertNumberForFileAppend
+ * - cert/GetImagesByCertNumber
+ * - order/GetProgress
+ * - order/GetSubmissionProgress
+ * - pop/GetPSASpecPopulation
  */
 @ApiTags('psa')
 @Controller('psa')
@@ -51,7 +69,16 @@ export class PsaController {
   constructor(
     private readonly psaService: PsaService,
     private readonly psaPublicApi: PsaPublicApiService,
+    private readonly config: ConfigService,
   ) {}
+
+  private assertPsaPublicApiUpstreamEnabled(): void {
+    if (!isPsaPublicApiUpstreamEnabled(this.config)) {
+      throw new ServiceUnavailableException(
+        'PSA Public API upstream is disabled. Set PSA_PUBLIC_API_UPSTREAM_ENABLED=true in backend/.env to enable Swagger/debug proxies. Vault mint uses Cardhedger + DB cache.',
+      );
+    }
+  }
 
   /** 슬랩 사진 OCR → Cert 후보 → PSA 공식 API 검증 */
   @ApiOperation({
@@ -156,9 +183,218 @@ export class PsaController {
     }
   }
 
-  /** PSA 주문 진행 상태 (Public API 프록시) */
+  /** PSA upstream: GET /cert/GetByCertNumber/{certNumber} */
   @ApiOperation({
-    summary: 'PSA 주문 진행 조회',
+    summary: 'PSA Public API — Cert 조회 (GetByCertNumber)',
+    description:
+      'PSA upstream `GET /publicapi/cert/GetByCertNumber/{certNumber}` 프록시.\n\n' +
+      '**응답 모델:** `PublicCertificationModel` (`PSACert`, `DNACert`)\n\n' +
+      'Tokenable 민팅 파이프라인은 `POST /psa/analyze-by-cert` 가 OCR·Cardhedger까지 포함한 고수준 래퍼입니다. ' +
+      '이 엔드포인트는 **PSA raw JSON** 디버그·스냅샷용입니다.\n\n' +
+      '필요 env: `PSA_PUBLIC_API_TOKEN`',
+  })
+  @ApiParam({
+    name: 'certNumber',
+    description: '7~10자리 PSA Cert 번호',
+    example: SWAGGER_FIXTURES.certNumber,
+  })
+  @ApiOkResponse({ type: PsaCertPublicApiLookupResponseDto })
+  @Get('public/cert/:certNumber')
+  async getPublicCertByNumber(
+    @Param('certNumber') certNumber: string,
+  ): Promise<PsaCertPublicApiLookupResponseDto> {
+    return this.handleCertPublicLookup(
+      () => this.psaPublicApi.getByCertNumber(certNumber, { bypassCache: true }),
+      `/cert/GetByCertNumber/${certNumber.trim()}`,
+      'GetByCertNumber',
+    );
+  }
+
+  /** PSA upstream: GET /cert/GetByCertNumberForFileAppend/{certNumber} */
+  @ApiOperation({
+    summary: 'PSA Public API — Cert 파일/라벨용 (GetByCertNumberForFileAppend)',
+    description:
+      'PSA upstream `GET /publicapi/cert/GetByCertNumberForFileAppend/{certNumber}` 프록시.\n\n' +
+      '**응답 모델:** `CertFileAppendModel` — 인쇄·라벨·배치 파일용 축약 필드 (`SetName`, `QualifierCode`, population 문자열 등).\n\n' +
+      'Tokenable 연결 후보: vault 출고 라벨, custodian 인보이스, PDF cert card 생성.',
+  })
+  @ApiParam({
+    name: 'certNumber',
+    example: SWAGGER_FIXTURES.certNumber,
+  })
+  @ApiOkResponse({ type: PsaCertPublicApiLookupResponseDto })
+  @Get('public/cert/:certNumber/file-append')
+  async getPublicCertFileAppend(
+    @Param('certNumber') certNumber: string,
+  ): Promise<PsaCertPublicApiLookupResponseDto> {
+    return this.handleCertPublicLookup(
+      () => this.psaPublicApi.getByCertNumberForFileAppend(certNumber),
+      `/cert/GetByCertNumberForFileAppend/${certNumber.trim()}`,
+      'GetByCertNumberForFileAppend',
+    );
+  }
+
+  /** PSA upstream: GET /cert/GetImagesByCertNumber/{certNumber} */
+  @ApiOperation({
+    summary: 'PSA Public API — 슬랩 이미지 URL (GetImagesByCertNumber)',
+    description:
+      'PSA upstream `GET /publicapi/cert/GetImagesByCertNumber/{certNumber}` 프록시.\n\n' +
+      '**응답:** 보통 `{ ImageURL, IsFrontImage }[]` — 앞·뒷면 슬랩 사진.\n\n' +
+      'Tokenable 연결: `POST /psa/analyze` 내부에서 이미 호출 · RWA `imageUrl` · collection cover 후보.',
+  })
+  @ApiParam({
+    name: 'certNumber',
+    example: SWAGGER_FIXTURES.certNumber,
+  })
+  @ApiOkResponse({ type: PsaCertImagesLookupResponseDto })
+  @Get('public/cert/:certNumber/images')
+  async getPublicCertImages(
+    @Param('certNumber') certNumber: string,
+  ): Promise<PsaCertImagesLookupResponseDto> {
+    return this.handleCertImagesLookup(
+      () => this.psaPublicApi.getImagesByCertNumber(certNumber),
+      `/cert/GetImagesByCertNumber/${certNumber.trim()}`,
+    );
+  }
+
+  /** PSA upstream: GET /pop/GetPSASpecPopulation/{specID} */
+  @ApiOperation({
+    summary: 'PSA Public API — Spec 등급별 Population (GetPSASpecPopulation)',
+    description:
+      'PSA upstream `GET /publicapi/pop/GetPSASpecPopulation/{specID}` 프록시.\n\n' +
+      '**응답 모델:** `PSASpecPopulationModel` — Grade1~10·Q별 카운트, PSA/DNA pop.\n\n' +
+      'Tokenable 연결: `marketplace/collections` components (`psaSpecPopulation`, rarity) · collection detail pop chart.',
+  })
+  @ApiParam({
+    name: 'specId',
+    description: 'PSA Spec ID (PSACert.SpecID)',
+    example: SWAGGER_FIXTURES.psaSpecId,
+  })
+  @ApiOkResponse({ type: PsaSpecPopulationLookupResponseDto })
+  @Get('public/pop/:specId')
+  async getPublicSpecPopulation(
+    @Param('specId') specId: string,
+  ): Promise<PsaSpecPopulationLookupResponseDto> {
+    return this.handleSpecPopulationLookup(
+      () => this.psaPublicApi.getSpecPopulation(specId),
+      `/pop/GetPSASpecPopulation/${specId.trim()}`,
+    );
+  }
+
+  /** Cert 조회 (POST — Swagger Try it out) */
+  @ApiOperation({
+    summary: 'PSA Public API — Cert 조회 (POST)',
+    description: '`GET /psa/public/cert/:certNumber` 와 동일 (GetByCertNumber).',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['certNumber'],
+      properties: {
+        certNumber: { type: 'string', example: SWAGGER_FIXTURES.certNumber },
+      },
+      example: SWAGGER_BODY_EXAMPLES.psaAnalyzeByCert,
+    },
+  })
+  @ApiOkResponse({ type: PsaCertPublicApiLookupResponseDto })
+  @Post('public/cert')
+  async postPublicCertByNumber(
+    @Body() body: { certNumber?: string },
+  ): Promise<PsaCertPublicApiLookupResponseDto> {
+    const cert = body?.certNumber?.trim() ?? '';
+    return this.handleCertPublicLookup(
+      () => this.psaPublicApi.getByCertNumber(cert, { bypassCache: true }),
+      `/cert/GetByCertNumber/${cert}`,
+      'GetByCertNumber',
+    );
+  }
+
+  @ApiOperation({
+    summary: 'PSA Public API — Cert 파일/라벨용 (POST)',
+    description:
+      '`GET /psa/public/cert/:certNumber/file-append` 와 동일 (GetByCertNumberForFileAppend).',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['certNumber'],
+      properties: {
+        certNumber: { type: 'string', example: SWAGGER_FIXTURES.certNumber },
+      },
+      example: SWAGGER_BODY_EXAMPLES.psaAnalyzeByCert,
+    },
+  })
+  @ApiOkResponse({ type: PsaCertPublicApiLookupResponseDto })
+  @Post('public/cert/file-append')
+  async postPublicCertFileAppend(
+    @Body() body: { certNumber?: string },
+  ): Promise<PsaCertPublicApiLookupResponseDto> {
+    const cert = body?.certNumber?.trim() ?? '';
+    return this.handleCertPublicLookup(
+      () => this.psaPublicApi.getByCertNumberForFileAppend(cert),
+      `/cert/GetByCertNumberForFileAppend/${cert}`,
+      'GetByCertNumberForFileAppend',
+    );
+  }
+
+  @ApiOperation({
+    summary: 'PSA Public API — 슬랩 이미지 (POST)',
+    description:
+      '`GET /psa/public/cert/:certNumber/images` 와 동일 (GetImagesByCertNumber).',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['certNumber'],
+      properties: {
+        certNumber: { type: 'string', example: SWAGGER_FIXTURES.certNumber },
+      },
+      example: SWAGGER_BODY_EXAMPLES.psaAnalyzeByCert,
+    },
+  })
+  @ApiOkResponse({ type: PsaCertImagesLookupResponseDto })
+  @Post('public/cert/images')
+  async postPublicCertImages(
+    @Body() body: { certNumber?: string },
+  ): Promise<PsaCertImagesLookupResponseDto> {
+    const cert = body?.certNumber?.trim() ?? '';
+    return this.handleCertImagesLookup(
+      () => this.psaPublicApi.getImagesByCertNumber(cert),
+      `/cert/GetImagesByCertNumber/${cert}`,
+    );
+  }
+
+  @ApiOperation({
+    summary: 'PSA Public API — Spec Population (POST)',
+    description:
+      '`GET /psa/public/pop/:specId` 와 동일 (GetPSASpecPopulation).',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['specId'],
+      properties: {
+        specId: { type: 'string', example: SWAGGER_FIXTURES.psaSpecId },
+      },
+      example: SWAGGER_BODY_EXAMPLES.psaSpecPopulation,
+    },
+  })
+  @ApiOkResponse({ type: PsaSpecPopulationLookupResponseDto })
+  @Post('public/pop')
+  async postPublicSpecPopulation(
+    @Body() body: { specId?: string },
+  ): Promise<PsaSpecPopulationLookupResponseDto> {
+    const specId = body?.specId?.trim() ?? '';
+    return this.handleSpecPopulationLookup(
+      () => this.psaPublicApi.getSpecPopulation(specId),
+      `/pop/GetPSASpecPopulation/${specId}`,
+    );
+  }
+
+  /** PSA 주문 진행 상태 (Public API 프록시) */
+  /** PSA upstream: GET /order/GetProgress/{orderNumber} */
+  @ApiOperation({
+    summary: 'PSA Public API — 주문 진행 (GetProgress)',
     description:
       'PSA Public API `GET /order/GetProgress/{orderNumber}` 프록시.\n\n' +
       '- `PSA_PUBLIC_API_TOKEN` 필요 (psacard.com/publicapi)\n' +
@@ -178,8 +414,9 @@ export class PsaController {
   }
 
   /** PSA 제출(submission) 진행 상태 */
+  /** PSA upstream: GET /order/GetSubmissionProgress/{submissionNumber} */
   @ApiOperation({
-    summary: 'PSA 제출 진행 조회',
+    summary: 'PSA Public API — 제출 진행 (GetSubmissionProgress)',
     description:
       'PSA Public API `GET /order/GetSubmissionProgress/{submissionNumber}` 프록시.\n\n' +
       '제출 번호는 psacard.com/orderstatus 또는 제출 확인 이메일에서 확인.',
@@ -253,10 +490,108 @@ export class PsaController {
     );
   }
 
+  private async handleCertPublicLookup(
+    run: () => Promise<PsaPublicApiLookupResult>,
+    psaPath: string,
+    label: string,
+  ): Promise<PsaCertPublicApiLookupResponseDto> {
+    this.assertPsaPublicApiUpstreamEnabled();
+    try {
+      const result = await run();
+      if (result.status === 'disabled') {
+        throw new ServiceUnavailableException(
+          'PSA_PUBLIC_API_TOKEN 이 설정되지 않았습니다. backend/.env 에 psacard.com/publicapi 토큰을 추가하세요.',
+        );
+      }
+      if (result.status === 'skipped') {
+        throw new BadRequestException('유효한 certNumber(7~10자리)가 필요합니다.');
+      }
+      if (result.status === 'error' && result.reason === 'cert_mismatch') {
+        throw new BadRequestException(result.message);
+      }
+      return { ...result, psaPath };
+    } catch (err: unknown) {
+      if (err instanceof HttpException) throw err;
+      const msg = err instanceof Error ? err.message : String(err);
+      this.logger.error(`PSA ${label} failed: ${msg}`);
+      throw new InternalServerErrorException(
+        `PSA ${label} 조회 중 서버 오류가 발생했습니다.`,
+      );
+    }
+  }
+
+  private async handleCertImagesLookup(
+    run: () => Promise<PsaGetImagesLookupResult>,
+    psaPath: string,
+  ): Promise<PsaCertImagesLookupResponseDto> {
+    this.assertPsaPublicApiUpstreamEnabled();
+    try {
+      const result = await run();
+      if (result.status === 'disabled') {
+        throw new ServiceUnavailableException(
+          'PSA_PUBLIC_API_TOKEN 이 설정되지 않았습니다.',
+        );
+      }
+      if (result.status === 'skipped') {
+        throw new BadRequestException('유효한 certNumber(7~10자리)가 필요합니다.');
+      }
+      return { ...result, psaPath };
+    } catch (err: unknown) {
+      if (err instanceof HttpException) throw err;
+      const msg = err instanceof Error ? err.message : String(err);
+      this.logger.error(`PSA GetImagesByCertNumber failed: ${msg}`);
+      throw new InternalServerErrorException(
+        'PSA 슬랩 이미지 조회 중 서버 오류가 발생했습니다.',
+      );
+    }
+  }
+
+  private async handleSpecPopulationLookup(
+    run: () => Promise<PsaSpecPopulationLookupResult>,
+    psaPath: string,
+  ): Promise<PsaSpecPopulationLookupResponseDto> {
+    this.assertPsaPublicApiUpstreamEnabled();
+    try {
+      const result = await run();
+      if (result.status === 'disabled') {
+        throw new ServiceUnavailableException(
+          'PSA_PUBLIC_API_TOKEN 이 설정되지 않았습니다.',
+        );
+      }
+      if (result.status === 'skipped') {
+        throw new BadRequestException('유효한 specId가 필요합니다.');
+      }
+      if (result.status === 'success') {
+        return {
+          status: 'success',
+          specId: result.specId,
+          pop: result.pop,
+          raw: result.raw,
+          psaPath,
+        };
+      }
+      return {
+        status: result.status,
+        specId: result.specId,
+        message: result.message,
+        httpStatus: result.httpStatus,
+        psaPath,
+      };
+    } catch (err: unknown) {
+      if (err instanceof HttpException) throw err;
+      const msg = err instanceof Error ? err.message : String(err);
+      this.logger.error(`PSA GetPSASpecPopulation failed: ${msg}`);
+      throw new InternalServerErrorException(
+        'PSA Spec Population 조회 중 서버 오류가 발생했습니다.',
+      );
+    }
+  }
+
   private async handleOrderProgressLookup<T extends PsaOrderProgressLookupResult>(
     run: () => Promise<T>,
     label: string,
   ): Promise<T> {
+    this.assertPsaPublicApiUpstreamEnabled();
     try {
       const result = await run();
       if (result.status === 'disabled') {

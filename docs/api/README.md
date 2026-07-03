@@ -17,6 +17,7 @@ When **`SITE_ACCESS_ENABLED=true`**, most routes also require the site-access co
 | Tag | Controller | Base Path |
 |-----|-----------|-----------|
 | `auth` | `auth/auth.controller.ts` | `/api/auth` |
+| `privy` | `privy/privy-api.controller.ts` | `/api/privy` |
 | `rwa` | `rwa/rwa.controller.ts` | `/api/rwa` |
 | `blockchain` | `blockchain/blockchain.controller.ts` | `/api/blockchain` |
 | `psa` | `psa/psa.controller.ts` | `/api/psa` |
@@ -45,24 +46,26 @@ Scoped docs: [auth](./auth.md) · [rwa](./rwa.md) · [blockchain](./blockchain.m
 
 ## Auth (`/api/auth`)
 
+> **Primary auth flow** — Privy: `POST /api/auth/privy/session` (frontend exchanges Privy access token for an HTTP-only JWT cookie). Legacy email/password and Google OAuth routes remain for backward compatibility.
+
 | Method | Path | Guard | Description |
 |--------|------|-------|-------------|
-| POST | `/api/auth/register` | — | Email/password registration (verification email) |
-| POST | `/api/auth/login` | — | Email/password login → JWT cookie |
-| GET | `/api/auth/google` | — | Initiate Google OAuth |
-| GET | `/api/auth/google/callback` | — | OAuth callback → JWT cookie |
-| GET | `/api/auth/verify-email` | — | Email verification link (`?token=`) |
-| POST | `/api/auth/send-verification-email` | JWT | Resend verification |
-| POST | `/api/auth/resend-verification-email` | — | Resend (alternate) |
-| POST | `/api/auth/forgot-password` | — | Request password reset email |
-| POST | `/api/auth/reset-password` | — | Reset password with token |
-| POST | `/api/auth/change-password` | JWT | Change password (logged in) |
-| POST | `/api/auth/delete-account` | JWT | Delete account |
+| **POST** | **`/api/auth/privy/session`** | — | **Privy auth — exchange Privy access token → JWT cookie** |
 | GET | `/api/auth/session` | — | Current session (`user: null` if anonymous) |
+| GET | `/api/auth/me` | JWT | Current authenticated user |
 | POST | `/api/auth/logout` | — | Clear cookie (204) |
-| GET | `/api/auth/wallet/challenge` | JWT | Wallet link SIWE-style challenge |
-| POST | `/api/auth/wallet` | JWT | Link wallet (signature) |
-| DELETE | `/api/auth/wallet` | JWT | Unlink wallet |
+| POST | `/api/auth/delete-account` | JWT | Delete account |
+| POST | `/api/auth/register` | — | *(Legacy)* Email/password registration |
+| POST | `/api/auth/login` | — | *(Legacy)* Email/password login → JWT cookie |
+| GET | `/api/auth/google` | — | *(Legacy)* Initiate Google OAuth |
+| GET | `/api/auth/google/callback` | — | *(Legacy)* OAuth callback → JWT cookie |
+| GET | `/api/auth/verify-email` | — | *(Legacy)* Email verification link (`?token=`) |
+| POST | `/api/auth/forgot-password` | — | *(Legacy)* Request password reset email |
+| POST | `/api/auth/reset-password` | — | *(Legacy)* Reset password with token |
+| POST | `/api/auth/change-password` | JWT | *(Legacy)* Change password (logged in) |
+| GET | `/api/auth/wallet/challenge` | JWT | *(Legacy)* Wallet link challenge — Privy users unlink via Privy SDK |
+| POST | `/api/auth/wallet` | JWT | *(Legacy)* Link wallet (SIWE signature) |
+| DELETE | `/api/auth/wallet` | JWT | *(Legacy)* Unlink wallet |
 
 ---
 
@@ -81,14 +84,24 @@ Scoped docs: [auth](./auth.md) · [rwa](./rwa.md) · [blockchain](./blockchain.m
 
 ## PSA
 
+Full architecture: **[psa.md](./psa.md)** · Swagger tag `psa` · upstream spec `backend/src/psa/psa-swagger.json`
+
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | `/api/psa/analyze` | Multipart slab OCR → PSA Public API |
+| POST | `/api/psa/analyze` | Multipart slab OCR → PSA + Cardhedger |
 | POST | `/api/psa/analyze-by-cert` | JSON `{ certNumber }` |
-| GET | `/api/psa/order/progress/:orderNumber` | PSA order progress proxy |
-| GET | `/api/psa/order/submission-progress/:submissionNumber` | PSA submission progress proxy |
-| POST | `/api/psa/order/progress` | Batch order progress |
-| POST | `/api/psa/order/submission-progress` | Batch submission progress |
+| GET | `/api/psa/public/cert/:certNumber` | Proxy — GetByCertNumber |
+| POST | `/api/psa/public/cert` | Same (Swagger Try it out) |
+| GET | `/api/psa/public/cert/:certNumber/file-append` | Proxy — GetByCertNumberForFileAppend |
+| POST | `/api/psa/public/cert/file-append` | Same |
+| GET | `/api/psa/public/cert/:certNumber/images` | Proxy — GetImagesByCertNumber |
+| POST | `/api/psa/public/cert/images` | Same |
+| GET | `/api/psa/public/pop/:specId` | Proxy — GetPSASpecPopulation |
+| POST | `/api/psa/public/pop` | Same |
+| GET | `/api/psa/order/progress/:orderNumber` | Proxy — GetProgress |
+| POST | `/api/psa/order/progress` | Same |
+| GET | `/api/psa/order/submission-progress/:submissionNumber` | Proxy — GetSubmissionProgress |
+| POST | `/api/psa/order/submission-progress` | Same |
 
 ---
 

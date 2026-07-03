@@ -291,7 +291,7 @@ export class PortfolioDailySnapshotService {
       return { totalMinted: 0, holderIndex };
     }
 
-    const tokenIds = Array.from({ length: totalMinted }, (_, i) => i);
+    const tokenIds = Array.from({ length: totalMinted }, (_, i) => i + 1);
     const ownerByToken = await this.blockchain.batchOwnerOf(
       tokenIds,
       this.ownerScanConcurrency(),

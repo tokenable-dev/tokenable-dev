@@ -5,6 +5,10 @@ import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In } from 'typeorm';
 import { BlockchainService } from '../../blockchain/blockchain.service';
+import {
+  ChainConfigService,
+  type SupportedChainId,
+} from '../../blockchain/chain-config.service';
 import { IpfsGatewayResolverService } from '../../blockchain/ipfs-gateway-resolver.service';
 import {
   BUCKET_KEY_VERSION,
@@ -68,6 +72,7 @@ export class CollectionService {
     @InjectRepository(Order)
     private readonly orderRepo: Repository<Order>,
     private readonly blockchain: BlockchainService,
+    private readonly chainConfig: ChainConfigService,
     private readonly config: ConfigService,
     private readonly ipfsResolver: IpfsGatewayResolverService,
     private readonly psaCertSnapshots: PsaCertSnapshotService,
@@ -183,7 +188,7 @@ export class CollectionService {
     if (psaCert && !compRecord.psaSpecId) {
       try {
         const snap = await this.psaCertSnapshots.fetchCertSnapshotJson(psaCert, {
-          allowUpstream: true,
+          allowUpstream: false,
         });
         const specFromCert = snap
           ? specIdStringFromPsaCertBody({ PSACert: snap })
@@ -322,9 +327,6 @@ export class CollectionService {
       tokenUri: uri,
       collectionKey,
     });
-    if (psaCert) {
-      this.psaCertSnapshots.scheduleRefreshIfNeeded(psaCert);
-    }
 
     this.enqueueMarketSnapshotRefresh(collectionKey);
 
@@ -360,27 +362,49 @@ export class CollectionService {
     return { ca: new Date(j.ca), ck: String(j.ck).toLowerCase() };
   }
 
+  /** Collections with mints or orders on the selected chain's RWA contract. */
+  private chainScopedCollectionSql(rwaContract: string): string {
+    return `(
+      EXISTS (
+        SELECT 1 FROM orders o
+        WHERE LOWER(o.collection_key) = LOWER(c.collection_key)
+          AND LOWER(o.token_contract) = :rwaContract
+      )
+      OR EXISTS (
+        SELECT 1 FROM rwa_tokens t
+        WHERE LOWER(t.collection_key) = LOWER(c.collection_key)
+          AND LOWER(t.token_contract) = :rwaContract
+      )
+    )`;
+  }
+
   async listSummariesPaged(input: {
     limit?: number;
     cursor?: string | null;
+    chainId?: SupportedChainId;
   }): Promise<{
     items: CollectionSummary[];
     nextCursor: string | null;
   }> {
     const limit = Math.min(Math.max(input.limit ?? 30, 1), 60);
+    const chainId = input.chainId ?? this.chainConfig.getDefaultChainId();
+    const rwaContract = this.chainConfig.getRwaAddress(chainId).toLowerCase();
     const qb = this.collectionRepo.createQueryBuilder('c');
 
     const cur = input.cursor?.trim();
+    const chainFilter = this.chainScopedCollectionSql(rwaContract);
     if (cur) {
       try {
         const { ca, ck } = this.decodeCollectionCursor(cur);
         qb.where(
-          '(c.created_at < :ca OR (c.created_at = :ca AND c.collection_key > :ck))',
-          { ca, ck },
+          `${chainFilter} AND (c.created_at < :ca OR (c.created_at = :ca AND c.collection_key > :ck))`,
+          { rwaContract, ca, ck },
         );
       } catch {
-        /* invalid cursor — ignore */
+        qb.where(chainFilter, { rwaContract });
       }
+    } else {
+      qb.where(chainFilter, { rwaContract });
     }
 
     qb.orderBy('c.created_at', 'DESC')
@@ -403,21 +427,7 @@ export class CollectionService {
     }
 
     const keys = page.map((c) => c.collectionKey.toLowerCase());
-    const countRows = await this.orderRepo
-      .createQueryBuilder('o')
-      .select('o.collection_key', 'key')
-      .addSelect('COUNT(o.id)::int', 'cnt')
-      .where('o.collection_key IS NOT NULL')
-      .andWhere('o.collection_key IN (:...keys)', { keys })
-      .andWhere('o.status = :st', { st: OrderStatus.ACTIVE })
-      .andWhere('o.side = :side', { side: OrderSide.ASK })
-      .groupBy('o.collection_key')
-      .getRawMany<{ key: string; cnt: number }>();
-
-    const countMap = new Map<string, number>();
-    for (const r of countRows) {
-      countMap.set(String(r.key).toLowerCase(), Number(r.cnt));
-    }
+    const countMap = await this.activeAskCountsForKeys(keys, rwaContract);
 
     const items: CollectionSummary[] = page.map((c) => {
       const components = enrichCollectionComponentsForApi(
@@ -440,9 +450,34 @@ export class CollectionService {
     return { items, nextCursor };
   }
 
+  private async activeAskCountsForKeys(
+    keys: string[],
+    rwaContract: string,
+  ): Promise<Map<string, number>> {
+    if (keys.length === 0) return new Map();
+    const countRows = await this.orderRepo
+      .createQueryBuilder('o')
+      .select('o.collection_key', 'key')
+      .addSelect('COUNT(o.id)::int', 'cnt')
+      .where('o.collection_key IS NOT NULL')
+      .andWhere('o.collection_key IN (:...keys)', { keys })
+      .andWhere('LOWER(o.token_contract) = :rwaContract', { rwaContract })
+      .andWhere('o.status = :st', { st: OrderStatus.ACTIVE })
+      .andWhere('o.side = :side', { side: OrderSide.ASK })
+      .groupBy('o.collection_key')
+      .getRawMany<{ key: string; cnt: number }>();
+
+    const countMap = new Map<string, number>();
+    for (const r of countRows) {
+      countMap.set(String(r.key).toLowerCase(), Number(r.cnt));
+    }
+    return countMap;
+  }
+
   /** Watchlist / batch UI — preserve caller key order; omit unknown keys. */
   async listSummariesByKeys(
     collectionKeys: string[],
+    chainId?: SupportedChainId,
   ): Promise<CollectionSummary[]> {
     const ordered = [
       ...new Set(
@@ -453,30 +488,23 @@ export class CollectionService {
     ].slice(0, 200);
     if (ordered.length === 0) return [];
 
-    const rows = await this.collectionRepo.find({
-      where: { collectionKey: In(ordered) },
-    });
+    const resolvedChainId = chainId ?? this.chainConfig.getDefaultChainId();
+    const rwaContract = this.chainConfig
+      .getRwaAddress(resolvedChainId)
+      .toLowerCase();
+
+    const rows = await this.collectionRepo
+      .createQueryBuilder('c')
+      .where('c.collection_key IN (:...ordered)', { ordered })
+      .andWhere(this.chainScopedCollectionSql(rwaContract), { rwaContract })
+      .getMany();
     if (rows.length === 0) return [];
 
     const rowByKey = new Map(
       rows.map((r) => [r.collectionKey.toLowerCase(), r] as const),
     );
 
-    const countRows = await this.orderRepo
-      .createQueryBuilder('o')
-      .select('o.collection_key', 'key')
-      .addSelect('COUNT(o.id)::int', 'cnt')
-      .where('o.collection_key IS NOT NULL')
-      .andWhere('o.collection_key IN (:...keys)', { keys: ordered })
-      .andWhere('o.status = :st', { st: OrderStatus.ACTIVE })
-      .andWhere('o.side = :side', { side: OrderSide.ASK })
-      .groupBy('o.collection_key')
-      .getRawMany<{ key: string; cnt: number }>();
-
-    const countMap = new Map<string, number>();
-    for (const r of countRows) {
-      countMap.set(String(r.key).toLowerCase(), Number(r.cnt));
-    }
+    const countMap = await this.activeAskCountsForKeys(ordered, rwaContract);
 
     const items: CollectionSummary[] = [];
     for (const key of ordered) {
@@ -528,8 +556,13 @@ export class CollectionService {
 
   async ensurePsaSpecPopulationFromApi(
     collectionKey: string,
+    opts?: { allowUpstream?: boolean },
   ): Promise<void> {
-    return this.components.ensurePsaSpecPopulationFromApi(collectionKey);
+    return this.components.ensurePsaSpecPopulationFromApi(collectionKey, opts);
+  }
+
+  async persistPsaMirrorFromCertToDb(collectionKey: string): Promise<boolean> {
+    return this.components.persistPsaMirrorFromCertToDb(collectionKey);
   }
 
   async ensureCardhedgerCardIdFromListings(
@@ -538,8 +571,11 @@ export class CollectionService {
     return this.components.ensureCardhedgerCardIdFromListings(collectionKey);
   }
 
-  async ensurePsaCertNumberFromListings(collectionKey: string): Promise<void> {
-    return this.components.ensurePsaCertNumberFromListings(collectionKey);
+  async ensurePsaCertNumberFromListings(
+    collectionKey: string,
+    opts?: { schedulePsaRefresh?: boolean },
+  ): Promise<void> {
+    return this.components.ensurePsaCertNumberFromListings(collectionKey, opts);
   }
 
   mergePsaSnapshotIntoComponents(

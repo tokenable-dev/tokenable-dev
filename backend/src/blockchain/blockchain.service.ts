@@ -1,6 +1,7 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { Contract } from 'ethers';
 import { TOKENABLE_RWA_CONTRACT } from './constants/injection-tokens';
+import { perfNow, perfLog, elapsedMs } from '../common/perf/perf';
 import { IpfsGatewayResolverService } from './ipfs-gateway-resolver.service';
 import { pickRwaAssetDisplayImageRef } from '../marketplace/utils/collection-image.util';
 
@@ -40,6 +41,19 @@ export class BlockchainService {
     return { name, symbol, totalMinted: Number(totalMinted) };
   }
 
+  /** Returns the current on-chain owner of an RWA token (lowercase). Throws NotFoundException if not minted/burned. */
+  async getRwaTokenOwner(tokenId: number): Promise<string> {
+    try {
+      const owner: string = await this.tokenableRwa.ownerOf(tokenId);
+      return owner.trim().toLowerCase();
+    } catch (e: unknown) {
+      if (isErc721InvalidTokenError(e)) {
+        throw new NotFoundException(`RWA #${tokenId} does not exist on chain`);
+      }
+      throw e;
+    }
+  }
+
   async getRwaTokenURI(tokenId: number): Promise<string> {
     try {
       return await this.tokenableRwa.tokenURI(tokenId);
@@ -54,8 +68,26 @@ export class BlockchainService {
   }
 
   async getRwaTokensByOwner(address: string): Promise<number[]> {
-    const tokenIds: bigint[] = await this.tokenableRwa.tokensOfOwner(address);
-    return tokenIds.map(Number);
+    const _t0 = perfNow();
+    const normalized = address.trim().toLowerCase();
+    try {
+      const { totalMinted } = await this.getRwaInfo();
+      if (totalMinted <= 0) return [];
+
+      const owners = await this.batchOwnerOf(
+        Array.from({ length: totalMinted }, (_, i) => i + 1),
+      );
+      const tokenIds: number[] = [];
+      for (const [tokenId, owner] of owners) {
+        if (owner === normalized) tokenIds.push(tokenId);
+      }
+      tokenIds.sort((a, b) => a - b);
+      return tokenIds;
+    } finally {
+      perfLog('rpc', 'tokensByOwnerScan', elapsedMs(_t0), {
+        address: address.slice(0, 10),
+      });
+    }
   }
 
   /**
@@ -66,6 +98,7 @@ export class BlockchainService {
     tokenIds: number[],
     concurrency = 24,
   ): Promise<Map<number, string>> {
+    const _t0 = perfNow();
     const unique = [
       ...new Set(
         tokenIds
@@ -94,6 +127,7 @@ export class BlockchainService {
         if (owner) out.set(tokenId, owner);
       }
     }
+    perfLog('rpc', 'batchOwnerOf', elapsedMs(_t0), { count: unique.length });
     return out;
   }
 
@@ -135,6 +169,7 @@ export class BlockchainService {
       imageUrl: string | null;
     }>;
   }> {
+    const _t0 = perfNow();
     const unique = [
       ...new Set(tokenIds.map((n) => Math.floor(Number(n)))),
     ].filter((n) => n >= 0);
@@ -180,6 +215,7 @@ export class BlockchainService {
     }
 
     items.sort((a, b) => a.tokenId - b.tokenId);
+    perfLog('rpc', 'batchRwaMetadata', elapsedMs(_t0), { count: unique.length });
     return { items };
   }
 }

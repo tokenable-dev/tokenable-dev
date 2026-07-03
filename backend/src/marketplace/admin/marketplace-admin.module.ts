@@ -1,8 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { AuthModule } from '../../auth/auth.module';
-import { VerificationToken } from '../../auth/entities/verification-token.entity';
 import { UserModule } from '../../user/user.module';
+import { UserAuthProvider } from '../../user/entities/user-auth-provider.entity';
 import { User } from '../../user/entities/user.entity';
 import { UserWallet } from '../../user/entities/user-wallet.entity';
 import { CollectionMarketSnapshot } from '../entities/collection-market-snapshot.entity';
@@ -27,8 +26,8 @@ import { UserAdminService } from './user-admin.service';
       MarketplaceAdmin,
       User,
       UserWallet,
+      UserAuthProvider,
       UserWatchlist,
-      VerificationToken,
       Order,
       RwaToken,
       MarketplaceCollection,
@@ -36,7 +35,6 @@ import { UserAdminService } from './user-admin.service';
       PortfolioDailySnapshot,
     ]),
     UserModule,
-    AuthModule,
   ],
   controllers: [
     MarketplaceAdminAuthController,

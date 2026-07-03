@@ -6,12 +6,10 @@ GitHub Actions builds frontend and backend Docker images, pushes them to **AWS E
 
 | Branch | When you push | What runs |
 |--------|----------------|-----------|
-| **`develop`** | Every push | Build → ECR → **Dev EC2** (`DEV_EC2_*` secrets) — day-to-day environment; treat this branch as **current integration / deploy-from-here**. |
-| **`main`** | Every push | Build → ECR → **Prod EC2** (`PROD_EC2_*` secrets), when those secrets and host are configured. |
+| **`develop`** | Every push | Build → ECR → **Dev EC2** (`DEV_EC2_*` secrets) |
+| **`main`** | Every push | Build → ECR → **Prod EC2** (`PROD_EC2_*` secrets) |
 
-Images are tagged with **`develop`** / **`main`** (branch pointer, always matches latest build on that branch) **and** the full **`github.sha`** (immutable). The EC2 script sets `IMAGE_TAG` to the branch name so `docker compose pull` tracks the rolling branch tag.
-
-**Verify a deploy matched your commit:** GitHub Actions run → checkout step shows the SHA; optionally on EC2: `cd /home/ubuntu/app && git rev-parse HEAD` after `pull` matches that SHA.
+Images are tagged with the branch name (rolling pointer) **and** the full `github.sha` (immutable).
 
 ---
 
@@ -30,19 +28,16 @@ Images are tagged with **`develop`** / **`main`** (branch pointer, always matche
 
 **Workflow file:** [.github/workflows/deploy.yml](../../.github/workflows/deploy.yml)
 
-**Triggers:** Push to **`develop`** or **`main`** (same pipeline; deploy job selects host by branch).
+**Triggers:** Push to **`develop`** or **`main`**.
 
-1. **build-and-push** (always): build `tokenable-frontend` and `tokenable-backend` → push each image twice: `:develop` / `:main` (branch ref name) and `:<sha>`.
-2. **deploy-dev** (if branch is `develop`): SSH to dev EC2, `git pull` `develop`, `IMAGE_TAG=develop`, compose pull/up.
+1. **build-and-push** (always): build `tokenable-frontend` and `tokenable-backend` → push each image with branch and SHA tags.
+2. **deploy-dev** (if branch is `develop`): SSH to dev EC2, `git pull develop`, compose pull/up.
 3. **deploy-prod** (if branch is `main`): same for prod host with `IMAGE_TAG=main`.
-
-Each run deploys **both** frontend and backend from the **same commit** — if the UI looks older than APIs (or vice versa), check caching or a stale preview URL, not two different SHAs from this workflow.
 
 ---
 
 ## GitHub Secrets / Variables
 
-All of the following must be set in **Repository Secrets** (recommended) or Variables.  
 `NEXT_PUBLIC_*` values are baked into the frontend bundle at Docker build time — a rebuild is required when they change.
 
 | Name | Required | Description |
@@ -52,21 +47,23 @@ All of the following must be set in **Repository Secrets** (recommended) or Vari
 | `ECR_REGISTRY` | Yes | e.g. `717728193407.dkr.ecr.ap-northeast-2.amazonaws.com` |
 | `DEV_EC2_HOST` | Yes (`develop`) | Dev EC2 public IP or hostname |
 | `DEV_EC2_SSH_KEY` | Yes (`develop`) | Dev SSH private key |
-| `PROD_EC2_HOST` | Required for **`main`** deploy | Prod EC2 host |
-| `PROD_EC2_SSH_KEY` | Required for **`main`** deploy | Prod SSH private key |
-| `NEXT_PUBLIC_RWA_CONTRACT_ADDRESS` | Yes | Sepolia TokenableRWA address |
-| `NEXT_PUBLIC_USDC_CONTRACT_ADDRESS` | Yes | Sepolia MockUSDC address |
-| `NEXT_PUBLIC_ALCHEMY_RPC_URL` | Yes | Browser RPC URL |
+| `PROD_EC2_HOST` | For `main` | Prod EC2 host |
+| `PROD_EC2_SSH_KEY` | For `main` | Prod SSH private key |
+| `NEXT_PUBLIC_RWA_CONTRACT_ADDRESS` | Yes | TokenableRWA proxy address — Docker build arg |
+| `NEXT_PUBLIC_USDC_CONTRACT_ADDRESS` | Yes | USDC address — Docker build arg |
+| `NEXT_PUBLIC_ALCHEMY_RPC_URL` | Yes | Polygon RPC — Docker build arg |
+| `NEXT_PUBLIC_CHAIN_137_RPC_URL` | No | Polygon mainnet RPC |
+| `NEXT_PUBLIC_CHAIN_137_RWA` | No | Polygon mainnet TokenableRWA |
+| `NEXT_PUBLIC_CHAIN_137_USDC` | No | Polygon mainnet USDC |
+| `NEXT_PUBLIC_PRIVY_APP_ID` | Yes | Privy App ID — enables login |
 | `NEXT_PUBLIC_API_URL` | No | Leave empty for same-origin Nginx proxying |
 | `NEXT_PUBLIC_PLATFORM_FEE_RECIPIENT` | No | Fee recipient address |
 | `NEXT_PUBLIC_PLATFORM_FEE_BPS` | No | Fee in basis points |
-| `NEXT_PUBLIC_GA_MEASUREMENT_ID` | No | GA4 measurement ID (`G-XXXXXXXXXX`) for page-view analytics |
+| `NEXT_PUBLIC_GA_MEASUREMENT_ID` | No | GA4 measurement ID |
 
-See **[analytics.md](./analytics.md)** for GA4 property setup and Realtime verification.
+`API_PROXY_TARGET` is passed as `--build-arg API_PROXY_TARGET=http://backend:4000` by the workflow automatically.
 
-`API_PROXY_TARGET` is **not** a GitHub secret: the workflow passes  
-`--build-arg API_PROXY_TARGET=http://backend:4000` so the Next.js `/api` rewrite matches the Docker Compose service name `backend`.  
-If you build the frontend image manually, pass the same arg or browser/SSR paths that hit Next instead of Nginx may return **502**.
+---
 
 ## EC2 Setup (First Time)
 
@@ -75,40 +72,51 @@ If you build the frontend image manually, pass the same arg or browser/SSR paths
 git clone https://github.com/<org>/tokenable-dev.git /home/ubuntu/app
 ```
 
-Create `/home/ubuntu/.env.production.backend` with all backend secrets (same keys as `backend/.env`), including optional `PORTFOLIO_SNAPSHOT_*` for the daily 09:00 KST portfolio cron (defaults to on in production when unset — see [backend/sql/README.md](../../backend/sql/README.md)).
+Create `/home/ubuntu/.env.production.backend` with all backend secrets:
 
----
+```env
+# Privy (required)
+PRIVY_APP_ID=<same as NEXT_PUBLIC_PRIVY_APP_ID>
+PRIVY_APP_SECRET=<from Privy Dashboard → Settings → App secret>
+# PRIVY_JWT_VERIFICATION_KEY="-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----"
 
-## Manual Deploy / Pull
+FRONTEND_URL=https://your-domain.com
+CORS_ORIGIN=https://your-domain.com
+COOKIE_SECURE=true
+JWT_SECRET=<random 64-char string>
 
-Use `IMAGE_TAG=develop` and `checkout develop` for the dev server; for production use `IMAGE_TAG=main` and `checkout main` (must match the images you built for that branch).
+# Database
+POSTGRES_HOST=tokenable-postgres
+POSTGRES_PORT=5432
+POSTGRES_USER=tokenable
+POSTGRES_PASSWORD=<secure-password>
+POSTGRES_DB=tokenable
 
-```bash
-cd /home/ubuntu/app
+# Blockchain
+DEFAULT_CHAIN_ID=80002
+CHAIN_80002_RPC_URL=https://polygon-amoy.g.alchemy.com/v2/YOUR_KEY
+CHAIN_80002_RWA_ADDRESS=0x355dd288e237dc5486b5659Cf49d15Ffb32c44fC
+CHAIN_80002_USDC_ADDRESS=0x41E94Eb019C0762f9Bfcf9Fb1E58725BfB0e7582
+RWA_OWNER_PRIVATE_KEY=<backend signer private key>
+# RWA_CUSTODY_WALLET_ADDRESS=0x...  (defaults to RWA_OWNER address)
+# RWA_CUSTODY_PRIVATE_KEY=...       (optional separate key)
+PLATFORM_FEE_RECIPIENT=0x...
+PLATFORM_FEE_BPS=500
 
-export ECR_REGISTRY=717728193407.dkr.ecr.ap-northeast-2.amazonaws.com
-export IMAGE_TAG=develop   # or: main
+# IPFS
+PINATA_JWT=<pinata jwt>
+PINATA_GATEWAY=<gateway>.mypinata.cloud
 
-git fetch origin
-git checkout develop && git pull origin develop   # prod: main
+# PSA (multi-token pool)
+PSA_PUBLIC_API_TOKENS=token1,token2,...
 
-aws ecr get-login-password --region ap-northeast-2 \
-  | docker login --username AWS --password-stdin "$ECR_REGISTRY"
+# Cardhedger
+CARDHEDGER_API_KEY=<key>
 
-docker compose -f docker-compose.yml -f docker-compose.ec2.yml pull
-docker compose -f docker-compose.yml -f docker-compose.ec2.yml up -d --force-recreate --remove-orphans
-```
-
----
-
-## Backend-Only Redeploy
-
-When only `.env.production.backend` changed:
-
-```bash
-cd /home/ubuntu/app
-export ECR_REGISTRY=... && export IMAGE_TAG=develop
-docker compose -f docker-compose.yml -f docker-compose.ec2.yml up -d --force-recreate backend
+# Admin
+MARKETPLACE_ADMIN_USERNAME=<username>
+MARKETPLACE_ADMIN_PASSWORD=<password>
+MARKETPLACE_ADMIN_SESSION_SECRET=<random>
 ```
 
 ---
@@ -126,11 +134,29 @@ docker exec -i tokenable-postgres env PGPASSWORD=tokenable \
   bash -s < /home/ubuntu/app/backend/sql/scripts/bootstrap-db.sh
 ```
 
-(`bootstrap-empty-prod-db.sql` uses psql `\ir` — must run from `backend/sql/`; the shell script above is preferred for piping.)
-
 Then set `TYPEORM_SYNC=false` in `.env.production.backend` and redeploy the backend.
 
-Expect **seven** tables after bootstrap (`users`, `psa_cert_snapshots`, `marketplace_collections`, `rwa_tokens`, `collection_market_snapshots`, `orders`, `portfolio_daily_snapshots`). See [architecture/database.md](../architecture/database.md).
+The bootstrap creates **20+ tables** including all vault, auth provider, and KYC tables. See [architecture/database.md](../architecture/database.md) for the full list.
+
+---
+
+## Manual Deploy / Pull
+
+```bash
+cd /home/ubuntu/app
+
+export ECR_REGISTRY=717728193407.dkr.ecr.ap-northeast-2.amazonaws.com
+export IMAGE_TAG=develop   # or: main
+
+git fetch origin
+git checkout develop && git pull origin develop
+
+aws ecr get-login-password --region ap-northeast-2 \
+  | docker login --username AWS --password-stdin "$ECR_REGISTRY"
+
+docker compose -f docker-compose.yml -f docker-compose.ec2.yml pull
+docker compose -f docker-compose.yml -f docker-compose.ec2.yml up -d --force-recreate --remove-orphans
+```
 
 ---
 
@@ -143,33 +169,47 @@ docker compose -f docker-compose.yml -f docker-compose.ec2.yml ps
 # Logs
 docker logs tokenable-backend 2>&1 | tail -80
 
-# API smoke test (from EC2 host; backend publishes :4000 only inside the compose network)
-docker exec tokenable-backend node -e "fetch('http://127.0.0.1:4000/api/health').then(r=>r.json()).then(console.log)"
-
-# Through Nginx (HTTPS) from your machine:
-# curl -sS https://tokenable-dev.com/api/health
+# API health check
+curl -sS https://your-domain.com/api/health
 ```
-
-### Deploy looks wrong but Actions is green?
-
-- Confirm you are on the intended environment URL (dev vs prod vs Vercel preview if you use additional hosts outside this compose flow).
-- Hard refresh / private window rules out stuck JS chunks from a previous deployment.
-- `NEXT_PUBLIC_*` is baked into the frontend image at build time — env changes in GitHub require a **new** workflow run after updating secrets/variables.
-
-### `/api/...` returns 502 Bad Gateway
-
-1. **Nginx → Nest**: On the server, `docker compose ps` and `docker logs tokenable-backend --tail=100`. If the backend never reaches “Server running”, fix Postgres / `POSTGRES_*` / `.env.production.backend` (TypeORM must connect before the app listens).
-2. **Next.js image**: Images built **without** `API_PROXY_TARGET=http://backend:4000` bake `http://127.0.0.1:4000` into rewrites. Any request that reaches **Next** for `/api` (instead of Nginx) will 502. Redeploy after the workflow includes that build-arg (see `.github/workflows/deploy.yml`), or rebuild locally with  
-   `docker build --build-arg API_PROXY_TARGET=http://backend:4000 … ./frontend`.
-3. **Sanity check**: `curl -sS https://<your-domain>/api/health` should return JSON `{ "ok": true, ... }` when Nginx and Nest are healthy.
 
 ---
 
-Browser checklist:
-- [ ] API calls go to `https://<domain>/api/...` — not a mismatched host/scheme
-- [ ] Frontend built without `NEXT_PUBLIC_API_URL` unless using a separate API host
+## Deploy Checklist
+
+- [ ] API calls go to `https://<domain>/api/...`
+- [ ] Frontend built with correct `NEXT_PUBLIC_*` env
 - [ ] `CORS_ORIGIN` lists every frontend origin
-- [ ] Google OAuth callback URIs match real URLs
+- [ ] `FRONTEND_URL` matches the public HTTPS URL (required for Privy cookies)
+- [ ] GitHub secret `NEXT_PUBLIC_PRIVY_APP_ID` set and frontend image rebuilt
+- [ ] EC2 `.env.production.backend` has `PRIVY_APP_ID` + `PRIVY_APP_SECRET`
+- [ ] Privy Dashboard → **Domains** includes `https://your-domain.com`
+- [ ] `RWA_OWNER_PRIVATE_KEY` configured with MINTER_ROLE + BURNER_ROLE on deployed contract
+- [ ] If custody wallet differs from minter: `RWA_CUSTODY_WALLET_ADDRESS` + `RWA_CUSTODY_PRIVATE_KEY`
+- [ ] `PSA_PUBLIC_API_TOKENS` configured (comma-separated pool)
+- [ ] Polygon mainnet: add `CHAIN_137_*` env vars when ready
+
+---
+
+## Troubleshooting
+
+### `/api/...` returns 502 Bad Gateway
+
+1. **Nginx → Nest**: `docker logs tokenable-backend --tail=100`. If it never reaches "Server running", check `POSTGRES_*` / `.env.production.backend`.
+2. **Next.js image**: Images built **without** `API_PROXY_TARGET=http://backend:4000` bake `http://127.0.0.1:4000`. Redeploy with the workflow build-arg.
+3. **Sanity check**: `curl -sS https://<your-domain>/api/health`
+
+### Privy login fails
+
+- Verify Privy Dashboard → Domains includes production URL
+- Verify `PRIVY_APP_ID` in both GitHub secret (frontend image) and `.env.production.backend`
+- Check `FRONTEND_URL` and `CORS_ORIGIN` are set correctly
+
+### Vault mint fails
+
+- Verify `RWA_OWNER_PRIVATE_KEY` has MINTER_ROLE: `pnpm grant-burner:amoy` (or check on-chain)
+- Verify `CHAIN_80002_RWA_ADDRESS` matches deployed contract
+- Run `pnpm sync-abi` after any contract upgrade and redeploy backend
 
 ---
 
@@ -182,6 +222,6 @@ Browser checklist:
 | `docker-compose.ec2.yml` | EC2 overlay (env_file, image tags) |
 | `frontend/Dockerfile` | `NEXT_PUBLIC_*` build args |
 | `backend/Dockerfile` | Multi-stage NestJS build |
-| `nginx/nginx.conf` | HTTP + ACME challenge + `/api` proxy |
-| `nginx/nginx.tls.conf` | HTTPS + `/api` proxy (`NGINX_CONF` on EC2 after certbot) |
-| `backend/sql/bootstrap-empty-prod-db.sql` | Initial schema for empty production DB |
+| `backend/sql/bootstrap-empty-prod-db.sql` | Initial schema |
+| `contracts/scripts/deploy-tokenable-rwa-uups.ts` | Contract deployment |
+| `contracts/scripts/sync-abi.mjs` | ABI sync after contract change |

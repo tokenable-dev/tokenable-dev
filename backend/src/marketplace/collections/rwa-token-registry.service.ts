@@ -1,8 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { BlockchainService } from '../../blockchain/blockchain.service';
+import { ChainConfigService } from '../../blockchain/chain-config.service';
 import { IpfsGatewayResolverService } from '../../blockchain/ipfs-gateway-resolver.service';
 import { RwaToken } from '../entities/rwa-token.entity';
 import { psaCertNumberFromGradedMeta } from '../utils/collection-image.util';
@@ -24,14 +24,11 @@ export class RwaTokenRegistryService {
     private readonly repo: Repository<RwaToken>,
     private readonly blockchain: BlockchainService,
     private readonly ipfsResolver: IpfsGatewayResolverService,
-    private readonly config: ConfigService,
+    private readonly chainConfig: ChainConfigService,
   ) {}
 
   private rwaContractAddress(): string {
-    return (
-      this.config.get<string>('RWA_CONTRACT_ADDRESS')?.trim().toLowerCase() ??
-      ''
-    );
+    return this.chainConfig.getRwaAddress(this.chainConfig.getDefaultChainId());
   }
 
   async upsertFromMetadata(

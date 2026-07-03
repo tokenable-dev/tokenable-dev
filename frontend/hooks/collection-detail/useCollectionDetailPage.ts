@@ -56,6 +56,8 @@ export function useCollectionDetailPage() {
     queryKey: rq.collectionDetail(collectionKey),
     queryFn: () => getMarketplaceCollectionDetail(collectionKey),
     enabled: collectionKey.length > 0,
+    staleTime: marketplaceRqPolicy.collectionDetailStaleMs,
+    refetchOnWindowFocus: false,
     retry: false,
   });
 

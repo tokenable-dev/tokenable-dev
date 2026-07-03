@@ -21,6 +21,7 @@ import {
 import type { MarketplaceCollectionSummary } from "@/lib/core";
 import { HeaderAuthModals } from "@/components/auth/HeaderAuthModals";
 import { HeaderAuthControls } from "@/components/layout/header/HeaderAuthControls";
+import { NetworkSwitcher } from "@/components/network/NetworkSwitcher";
 import { HeaderDesktopNav } from "@/components/layout/header/HeaderNav";
 import { useMarketplaceCollectionsInfinite } from "@/hooks/marketplace";
 import { useResolvedMediaUrlMap } from "@/hooks/media";
@@ -190,7 +191,9 @@ function SearchBar({ compact = false }: { compact?: boolean }) {
 
   const searchActive = narrowViewport ? mobileSheetOpen : desktopOpen;
 
-  const colInfinite = useMarketplaceCollectionsInfinite();
+  // Only fetch the catalog when search is actually open — avoids a background
+  // collection API call on every non-markets page (portfolio, RWA detail, etc.).
+  const colInfinite = useMarketplaceCollectionsInfinite({ enabled: searchActive });
   const collections = useMemo<MarketplaceCollectionSummary[]>(
     () => colInfinite.data?.pages.flatMap((p) => p.items) ?? [],
     [colInfinite.data],
@@ -326,7 +329,7 @@ function SearchBar({ compact = false }: { compact?: boolean }) {
   const mobileSheet =
     mobileSheetOpen && typeof document !== "undefined"
       ? createPortal(
-          <div className="fixed inset-0 z-[120] flex flex-col bg-gray-950 sm:hidden" role="dialog" aria-modal aria-label="Search collections">
+          <div className="fixed inset-0 z-[145] flex flex-col bg-gray-950 sm:hidden" role="dialog" aria-modal aria-label="Search collections">
             <div className="flex shrink-0 items-center gap-2 border-b border-gray-800/80 px-3 pb-3 pt-[max(0.75rem,env(safe-area-inset-top,0px))]">
               <button
                 type="button"
@@ -450,7 +453,7 @@ function SearchBar({ compact = false }: { compact?: boolean }) {
         </div>
 
         {showDesktopDropdown ? (
-          <div className="absolute left-0 right-0 top-full z-[70] mt-1.5 overflow-hidden rounded-xl border border-gray-700/60 bg-gray-900/98 shadow-2xl shadow-black/50 backdrop-blur-lg sm:min-w-[280px]">
+          <div className="absolute left-0 right-0 top-full z-[140] mt-1.5 overflow-hidden rounded-xl border border-gray-700/60 bg-gray-900/98 shadow-2xl shadow-black/50 backdrop-blur-lg sm:min-w-[280px]">
             <SearchResultsList
               filtered={filtered}
               highlightIdx={highlightIdx}
@@ -485,7 +488,7 @@ export function AppHeader() {
   return (
     <>
       <HeaderAuthModals />
-      <header className="border-b border-gray-800/60 backdrop-blur-sm sticky top-0 z-50 bg-gray-950/90">
+      <header className="border-b border-gray-800/60 backdrop-blur-sm sticky top-0 z-[135] bg-gray-950/90">
         <div
           className={`${headerShellClass} h-16 flex items-center justify-between gap-3 sm:gap-4`}
         >
@@ -500,8 +503,9 @@ export function AppHeader() {
             <HeaderDesktopNav />
           </div>
 
-          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+          <div className="relative z-[140] flex shrink-0 items-center gap-2 sm:gap-3">
             <SearchBar compact={isCollectionDetailHeader} />
+            <NetworkSwitcher />
             <HeaderAuthControls />
           </div>
         </div>

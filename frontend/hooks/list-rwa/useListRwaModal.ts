@@ -5,14 +5,13 @@ import {
   useAccount,
   useWriteContract,
   usePublicClient,
-  useWalletClient,
 } from "wagmi";
 import { formatUnits, parseUnits, type Address } from "viem";
 import { getOrderByHash, rq } from "@/lib/core";
-import { sepolia } from "@/config/wagmi";
+import { useAppChain } from "@/providers/AppChainProvider";
+import { useChainContracts } from "@/hooks/chain/useChainContracts";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  TOKENABLE_RWA_ADDRESS,
   SEAPORT_ADDRESS,
   TOKENABLE_RWA_APPROVE_ABI,
 } from "@/constants/contracts";
@@ -33,6 +32,7 @@ import type {
   ListRwaModalStep,
   ListSuccessMeta,
 } from "@/lib/seaport/listing/listRwaModalTypes";
+import { useSeaportOrderSigner } from "@/lib/privy";
 
 export function useListRwaModal({
   tokenId,
@@ -47,10 +47,12 @@ export function useListRwaModal({
   preferredBidOrderHash,
 }: ListRwaModalProps) {
   const { address } = useAccount();
-  const publicClient = usePublicClient({ chainId: sepolia.id });
-  const { data: walletClient } = useWalletClient({ chainId: sepolia.id });
-  const walletClientRef = useRef(walletClient);
-  walletClientRef.current = walletClient;
+  const { chainId } = useAppChain();
+  const { rwaAddress } = useChainContracts();
+  const publicClient = usePublicClient({ chainId });
+  const { signSeaportOrder } = useSeaportOrderSigner();
+  const signSeaportOrderRef = useRef(signSeaportOrder);
+  signSeaportOrderRef.current = signSeaportOrder;
   const queryClient = useQueryClient();
 
   const { data: existingAskFetched } = useQuery({
@@ -189,9 +191,10 @@ export function useListRwaModal({
       preferredBidForMatch,
       topCollectionBid: topCollectionBid ? { micros: topCollectionBid.micros } : null,
       resolvedExistingAsk,
-      getWalletClient: () => walletClientRef.current ?? walletClient,
+      getSignSeaportOrder: () => signSeaportOrderRef.current,
       writeContractAsync: matchWrite,
       queryClient,
+      chainId,
     }),
     [
       tokenId,
@@ -202,15 +205,16 @@ export function useListRwaModal({
       preferredBidForMatch,
       topCollectionBid,
       resolvedExistingAsk,
-      walletClient,
+      signSeaportOrder,
       matchWrite,
       queryClient,
+      chainId,
     ],
   );
 
   async function handleList() {
     if (!address || !price || parseFloat(price) <= 0) return;
-    if (!walletClient) {
+    if (!signSeaportOrder) {
       setErrorMsg("Wallet not connected. Please reconnect.");
       return;
     }
@@ -230,10 +234,11 @@ export function useListRwaModal({
           priceUsdc: price.trim(),
           address: address as Address,
           publicClient,
-          walletClient,
+          signSeaportOrder,
           writeContractAsync: writeContractAsync as Parameters<
             typeof submitAskListingOrder
           >[0]["writeContractAsync"],
+          chainId,
           mode: "replace",
           oldOrderHash: resolvedExistingAsk.orderHash,
         });
@@ -261,7 +266,7 @@ export function useListRwaModal({
       }
 
       const alreadyAll = await publicClient.readContract({
-        address: TOKENABLE_RWA_ADDRESS,
+        address: rwaAddress,
         abi: TOKENABLE_RWA_APPROVE_ABI,
         functionName: "isApprovedForAll",
         args: [address, SEAPORT_ADDRESS],
@@ -271,7 +276,7 @@ export function useListRwaModal({
         const gasSetAll = await gasWithCapFast(
           publicClient,
           {
-            address: TOKENABLE_RWA_ADDRESS,
+            address: rwaAddress,
             abi: TOKENABLE_RWA_APPROVE_ABI,
             functionName: "setApprovalForAll",
             args: [SEAPORT_ADDRESS, true],
@@ -280,33 +285,28 @@ export function useListRwaModal({
           GAS_FALLBACK.setApprovalForAll,
         );
         const setAllTx = await writeContractAsync({
-          address: TOKENABLE_RWA_ADDRESS,
+          address: rwaAddress,
           abi: TOKENABLE_RWA_APPROVE_ABI,
           functionName: "setApprovalForAll",
           args: [SEAPORT_ADDRESS, true],
-          chainId: sepolia.id,
+          chainId,
           gas: gasSetAll,
         });
         await publicClient.waitForTransactionReceipt({ hash: setAllTx });
       }
 
       setStep("signing");
-      const wc = walletClientRef.current ?? walletClient;
-      if (!wc) {
-        setErrorMsg("Wallet not connected. Please reconnect.");
-        setStep("error");
-        return;
-      }
 
       let createdFinal = await submitAskListingOrder({
         tokenId,
         priceUsdc: price.trim(),
         address: address as Address,
         publicClient,
-        walletClient: wc,
+        signSeaportOrder,
         writeContractAsync: writeContractAsync as Parameters<
           typeof submitAskListingOrder
         >[0]["writeContractAsync"],
+        chainId,
         mode: "create",
       });
       if (!orderCollectionKey(createdFinal) && createdFinal.orderHash) {

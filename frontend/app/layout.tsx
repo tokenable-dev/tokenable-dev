@@ -53,16 +53,13 @@ export const viewport = {
   viewportFit: "cover",
 };
 
-// CI/Docker build stability: avoid static prerendering of error routes.
-export const dynamic = "force-dynamic";
-
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ko">
+    <html lang="en">
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${ibmPlexSans.variable} antialiased`}
       >

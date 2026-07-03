@@ -16,6 +16,8 @@ export function getApiUrl(): string {
   return internalApiUrl();
 }
 
+import { getActiveChainIdForApi, CHAIN_ID_HEADER } from "@/lib/chains/apiHeader";
+
 const DEFAULT_API_FETCH_TIMEOUT_MS = 25_000;
 
 export type BackendFetchInit = RequestInit & { timeoutMs?: number };
@@ -82,6 +84,11 @@ function toBackendFetchError(err: unknown, url: string, timeoutMs: number): Erro
 async function backendFetchOnce(url: string, init?: BackendFetchInit): Promise<Response> {
   const timeoutMs = init?.timeoutMs ?? DEFAULT_API_FETCH_TIMEOUT_MS;
   const { timeoutMs: _timeoutMs, ...fetchInit } = init ?? {};
+  const activeChainId = getActiveChainIdForApi();
+  const headers = new Headers(fetchInit.headers);
+  if (activeChainId != null && !headers.has(CHAIN_ID_HEADER)) {
+    headers.set(CHAIN_ID_HEADER, String(activeChainId));
+  }
   const timeoutSignal =
     typeof AbortSignal !== "undefined" && "timeout" in AbortSignal
       ? AbortSignal.timeout(timeoutMs)
@@ -92,7 +99,7 @@ async function backendFetchOnce(url: string, init?: BackendFetchInit): Promise<R
       : fetchInit.signal ?? timeoutSignal ?? undefined;
 
   try {
-    return await fetch(url, { ...fetchInit, credentials: "include", signal });
+    return await fetch(url, { ...fetchInit, headers, credentials: "include", signal });
   } catch (err) {
     throw toBackendFetchError(err, url, timeoutMs);
   }

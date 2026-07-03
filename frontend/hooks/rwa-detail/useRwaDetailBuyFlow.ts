@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { QueryClient } from "@tanstack/react-query";
 import type { Address, PublicClient } from "viem";
-import { sepolia } from "@/config/wagmi";
+import { useAppChain } from "@/providers/AppChainProvider";
 import type { Order } from "@/lib/core";
 import { fulfillAskListingOrder } from "@/lib/seaport/orders/fulfillAskListing";
 import { mapWalletError } from "@/lib/network";
@@ -31,6 +31,8 @@ export function useRwaDetailBuyFlow(input: {
     onPurchaseSuccess,
   } = input;
 
+  const { chainId } = useAppChain();
+
   const [buyBusy, setBuyBusy] = useState(false);
   const [buyErr, setBuyErr] = useState<string | null>(null);
 
@@ -53,7 +55,7 @@ export function useRwaDetailBuyFlow(input: {
         writeContractAsync: writeContractAsync as Parameters<
           typeof fulfillAskListingOrder
         >[0]["writeContractAsync"],
-        chainId: sepolia.id,
+        chainId,
       });
       await invalidateMarketplaceQueries();
       onPurchaseSuccess();
@@ -67,6 +69,7 @@ export function useRwaDetailBuyFlow(input: {
     address,
     publicClient,
     writeContractAsync,
+    chainId,
     invalidateMarketplaceQueries,
     onPurchaseSuccess,
   ]);

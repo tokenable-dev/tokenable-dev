@@ -78,6 +78,13 @@ export class CollectionEnrichmentService {
     return this.components.persistPsaMirrorFromCertToDb(collectionKey);
   }
 
+  async ensurePsaSpecPopulationFromApi(
+    collectionKey: string,
+    opts?: { allowUpstream?: boolean },
+  ): Promise<void> {
+    return this.components.ensurePsaSpecPopulationFromApi(collectionKey, opts);
+  }
+
   /**
    * Back-fill `components.cardhedgerCardId` when a snapshot search resolves a verified match.
    * Fire-and-forget: callers should `void` this call.

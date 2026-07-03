@@ -2,24 +2,37 @@ import {
   Body,
   Controller,
   Post,
+  Req,
   UploadedFile,
+  UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
+import type { Request } from 'express';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import type { User } from '../user/entities/user.entity';
 import { SWAGGER_BODY_EXAMPLES } from '../swagger/examples';
 import { UploadRwaDto } from './dto/upload-rwa.dto';
+import { MintRwaDto } from './dto/mint-rwa.dto';
+import { RedeemRequestDto } from './dto/redeem-request.dto';
 import { UploadRwaResult } from './interfaces/rwa-metadata.interface';
+import { RwaMintService } from './rwa-mint.service';
+import { RwaRedeemService } from './rwa-redeem.service';
 import { RwaService } from './rwa.service';
 
 /**
- * RWA 민트용 메타데이터 — IPFS 업로드.
- * `POST /api/rwa/upload`
+ * RWA 민트용 메타데이터 — IPFS 업로드 + owner-signed on-chain mint.
+ * `POST /api/rwa/upload` · `POST /api/rwa/mint`
  */
 @ApiTags('rwa')
 @Controller('rwa')
 export class RwaController {
-  constructor(private readonly rwaService: RwaService) {}
+  constructor(
+    private readonly rwaService: RwaService,
+    private readonly rwaMint: RwaMintService,
+    private readonly rwaRedeem: RwaRedeemService,
+  ) {}
 
   /** 이미지·속성을 IPFS에 올리고 ERC-721 `tokenURI` 반환 */
   @ApiOperation({
@@ -56,5 +69,38 @@ export class RwaController {
     @UploadedFile() file?: Express.Multer.File,
   ): Promise<UploadRwaResult> {
     return this.rwaService.uploadToIpfs(dto, file);
+  }
+
+  /** Platform owner wallet mints RWA to custody; admin delivers to user's linked wallet. */
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'RWA on-chain mint (owner-signed, backend relayer)',
+  })
+  @Post('mint')
+  @UseGuards(JwtAuthGuard)
+  mint(
+    @Req() req: Request & { user: User },
+    @Body() dto: MintRwaDto,
+  ) {
+    return this.rwaMint.mintForUser(req.user, dto);
+  }
+
+  /**
+   * User-initiated "Redeem Request" — verifies the caller currently owns the
+   * NFT (via a linked wallet), then records the request. Actual burn +
+   * physical vault release are executed by ops once redemption is confirmed
+   * (see POST /marketplace/admin/rwa-tokens/:tokenId/burn).
+   */
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Request redemption of an RWA NFT for its physical asset',
+  })
+  @Post('redeem-request')
+  @UseGuards(JwtAuthGuard)
+  redeemRequest(
+    @Req() req: Request & { user: User },
+    @Body() dto: RedeemRequestDto,
+  ) {
+    return this.rwaRedeem.requestRedemption(req.user, dto);
   }
 }

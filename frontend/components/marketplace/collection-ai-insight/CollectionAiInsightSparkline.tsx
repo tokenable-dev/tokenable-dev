@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useId, useMemo } from "react";
 import type { CollectionUsdPoint } from "@/lib/core";
 
 function normalizeSeries(values: number[]): { path: string; area: string } | null {
@@ -45,10 +45,8 @@ export function CollectionAiInsightSparkline({
     return null;
   }, [sparklineUsd, miniSeries]);
 
-  const gradId = useMemo(
-    () => `ai-insight-chart-${Math.random().toString(36).slice(2, 9)}`,
-    [],
-  );
+  const reactId = useId();
+  const gradId = `ai-insight-chart-${reactId.replace(/:/g, "")}`;
 
   if (!paths) {
     return (

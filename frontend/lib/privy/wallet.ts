@@ -1,0 +1,124 @@
+import type { ConnectedWallet } from "@privy-io/react-auth";
+import { isEmbeddedOnlyWalletPolicy } from "@/lib/privy/config";
+
+export function findPrivyWalletByAddress(
+  wallets: ConnectedWallet[],
+  address: string,
+): ConnectedWallet | undefined {
+  const needle = address.toLowerCase();
+  return wallets.find((w) => w.address.toLowerCase() === needle);
+}
+
+export function isPrivyEmbeddedWallet(
+  wallet: ConnectedWallet | undefined,
+): boolean {
+  if (!wallet) return false;
+  if (wallet.walletClientType === "privy") return true;
+  return String(wallet.connectorType ?? "").toLowerCase() === "embedded";
+}
+
+export function isPrivyExternalWallet(
+  wallet: ConnectedWallet | undefined,
+): boolean {
+  if (!wallet) return false;
+  return !isPrivyEmbeddedWallet(wallet);
+}
+
+/** Prefer embedded wallet for wagmi active account; fall back to first linked wallet. */
+export function pickPrimaryPrivyWallet(
+  wallets: ConnectedWallet[],
+): ConnectedWallet | undefined {
+  return wallets.find((w) => isPrivyEmbeddedWallet(w)) ?? wallets[0];
+}
+
+/**
+ * Align wagmi's active wallet with the Tokenable account primary when that
+ * wallet is present in the Privy session. Embedded-only policy never picks
+ * an external / browser-extension wallet.
+ */
+export function resolveActivePrivyWallet(
+  wallets: ConnectedWallet[],
+  accountPrimaryLinked?: string,
+): ConnectedWallet | undefined {
+  if (accountPrimaryLinked) {
+    const match = findPrivyWalletByAddress(wallets, accountPrimaryLinked);
+    if (match) {
+      if (isEmbeddedOnlyWalletPolicy() && !isPrivyEmbeddedWallet(match)) {
+        const embedded = wallets.find((w) => isPrivyEmbeddedWallet(w));
+        return embedded ?? match;
+      }
+      return match;
+    }
+  }
+  if (isEmbeddedOnlyWalletPolicy()) {
+    return wallets.find((w) => isPrivyEmbeddedWallet(w));
+  }
+  // No account primary yet — wait for backend session sync; do not guess embedded.
+  return undefined;
+}
+
+/** Wallet used for signing / txs — respects embedded-only policy and account primary. */
+export function resolveAccountSigningWallet(
+  wallets: ConnectedWallet[],
+  accountPrimary?: string,
+): ConnectedWallet | undefined {
+  const primary = accountPrimary?.trim();
+  const target = resolveActivePrivyWallet(wallets, primary);
+  if (!target) return undefined;
+
+  if (isEmbeddedOnlyWalletPolicy() && !isPrivyEmbeddedWallet(target)) {
+    return wallets.find((w) => isPrivyEmbeddedWallet(w));
+  }
+
+  if (primary) {
+    const match = findPrivyWalletByAddress(wallets, primary);
+    if (match && (!isEmbeddedOnlyWalletPolicy() || isPrivyEmbeddedWallet(match))) {
+      return match;
+    }
+  }
+
+  return target;
+}
+
+/**
+ * Embedded → Privy SDK. External only when wallet login is explicitly enabled.
+ */
+export function shouldUsePrivySdkForSigning(opts: {
+  privyEnabled: boolean;
+  activeWallet: ConnectedWallet | undefined;
+  accountPrimaryAddress?: string;
+  connectorId: string | undefined;
+  connectorName: string | undefined;
+}): boolean {
+  if (!opts.privyEnabled) return false;
+
+  if (isEmbeddedOnlyWalletPolicy()) {
+    if (opts.activeWallet && isPrivyEmbeddedWallet(opts.activeWallet)) return true;
+    if (opts.accountPrimaryAddress) return true;
+    return false;
+  }
+
+  if (opts.activeWallet && isPrivyExternalWallet(opts.activeWallet)) {
+    return false;
+  }
+
+  if (opts.activeWallet && isPrivyEmbeddedWallet(opts.activeWallet)) {
+    return true;
+  }
+
+  const connectorKey = `${opts.connectorId ?? ""} ${opts.connectorName ?? ""}`.toLowerCase();
+  if (
+    connectorKey.includes("metamask") ||
+    connectorKey.includes("injected") ||
+    connectorKey.includes("walletconnect") ||
+    connectorKey.includes("coinbase")
+  ) {
+    return false;
+  }
+
+  if (connectorKey.includes("privy") || connectorKey.includes("embedded")) {
+    return true;
+  }
+
+  return true;
+}

@@ -65,15 +65,12 @@ export function componentsPsaMirrorSufficientForCardhedger(
 }
 
 /**
- * When false, snapshot refresh may only read `psa_cert_snapshots` — no upstream PSA calls.
- * Default: only `cold_start` and `manual` (user-driven), not cron/stale_swr/prewarm.
+ * Snapshot refresh never calls PSA Public API — only reads `psa_cert_snapshots`.
+ * User cert lookup (`POST /psa/analyze-by-cert`) populates that cache.
  */
 export function psaPublicApiAllowedForSnapshotReason(
-  reason: SnapshotRefreshReason,
-  configValue: string | undefined,
+  _reason: SnapshotRefreshReason,
+  _configValue: string | undefined,
 ): boolean {
-  const mode = (configValue ?? 'manual').trim().toLowerCase();
-  if (mode === 'always' || mode === '1' || mode === 'true') return true;
-  if (mode === 'never' || mode === '0' || mode === 'false') return false;
-  return reason === 'cold_start' || reason === 'manual';
+  return false;
 }

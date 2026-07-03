@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
   Logger,
   NotFoundException,
   BadRequestException,
@@ -39,6 +40,10 @@ import {
 import { apiBodyDefault } from '../../swagger/api-body.util';
 import { SWAGGER_BODY_EXAMPLES } from '../../swagger/examples';
 import { SWAGGER_FIXTURES } from '../../swagger/fixtures';
+import {
+  CHAIN_ID_HEADER,
+  ChainConfigService,
+} from '../../blockchain/chain-config.service';
 
 /**
  * 컬렉션·시장 데이터·Cardhedger 연동·관리자 커버/삭제.
@@ -56,6 +61,7 @@ export class CollectionsController {
     private readonly marketplaceAdmin: MarketplaceAdminService,
     private readonly eventEmitter: EventEmitter2,
     private readonly mintEventListener: MintEventListenerService,
+    private readonly chainConfig: ChainConfigService,
   ) {}
 
   /** Decode URL-encoded path segments (some keys may be percent-encoded) and lowercase for DB lookup. */
@@ -118,6 +124,7 @@ export class CollectionsController {
   listCollections(
     @Query('limit') limitRaw?: string,
     @Query('cursor') cursor?: string,
+    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
   ) {
     const parsed =
       limitRaw != null && String(limitRaw).trim() !== ''
@@ -127,6 +134,7 @@ export class CollectionsController {
     return this.collectionService.listSummariesPaged({
       limit,
       cursor: cursor?.trim() || null,
+      chainId: this.chainConfig.resolveChainId(chainHeader),
     });
   }
 
@@ -371,8 +379,8 @@ export class CollectionsController {
     let col = await this.collectionService.findOne(k);
     if (col) {
       await this.collectionService.ensurePsaTotalPopulationFromListings(k);
-      // PSA spec pop report (Grade10 + Total) — persisted on components when missing.
-      await this.collectionService.ensurePsaSpecPopulationFromApi(k);
+      // PSA mirror/spec pop: DB cache only on read path (no PSA Public API upstream).
+      await this.collectionService.persistPsaMirrorFromCertToDb(k);
       await this.collectionService.ensurePsaCertNumberFromListings(k);
       const cardhedgerUpdated =
         await this.collectionService.ensureCardhedgerCardIdFromListings(k);

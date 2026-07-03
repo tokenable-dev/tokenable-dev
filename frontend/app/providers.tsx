@@ -1,53 +1,10 @@
 "use client";
 
-import { useState, useSyncExternalStore } from "react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { WagmiProvider } from "wagmi";
-import { wagmiConfig } from "@/config/wagmi";
-import { configureMarketQueryDefaults } from "@/lib/core";
-import { WalletDataProvider } from "@/providers/WalletDataProvider";
-import { WalletConnectionSync } from "@/providers/WalletConnectionSync";
-import { shouldAutoReconnectWalletOnMount } from "@/lib/wallet/walletEnvironment";
-import { AuthProvider } from "@/providers/AuthProvider";
-import { MarketplaceQueryPersistence } from "@/providers/MarketplaceQueryPersistence";
+import { installPrivyDevAnalyticsSuppressor } from "@/lib/privy/suppressDevAnalytics";
+import { PrivyAppProviders } from "@/lib/privy";
 
-function subscribeReconnectOnMount() {
-  return () => {};
-}
+installPrivyDevAnalyticsSuppressor();
 
 export function Providers({ children }: { children: React.ReactNode }) {
-  const reconnectOnMount = useSyncExternalStore(
-    subscribeReconnectOnMount,
-    shouldAutoReconnectWalletOnMount,
-    () => false,
-  );
-
-  const [queryClient] = useState(() => {
-    const c = new QueryClient({
-      defaultOptions: {
-        queries: {
-          staleTime: 10_000,
-          retry: 1,
-        },
-      },
-    });
-    configureMarketQueryDefaults(c);
-    return c;
-  });
-
-  return (
-    <WagmiProvider
-      config={wagmiConfig}
-      reconnectOnMount={reconnectOnMount}
-    >
-      <QueryClientProvider client={queryClient}>
-        <MarketplaceQueryPersistence />
-        <WalletConnectionSync />
-        {/* Syncs wagmi on-chain data → Zustand store for all children */}
-        <AuthProvider>
-          <WalletDataProvider>{children}</WalletDataProvider>
-        </AuthProvider>
-      </QueryClientProvider>
-    </WagmiProvider>
-  );
+  return <PrivyAppProviders>{children}</PrivyAppProviders>;
 }

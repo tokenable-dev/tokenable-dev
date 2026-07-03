@@ -2,19 +2,27 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { ChangePasswordSettingsRow } from "@/components/auth/ChangePasswordSettings";
 import { DeleteAccountSettingsRow } from "@/components/auth/DeleteAccountSettings";
-import { unlinkWalletFromAccount, sendVerificationEmail } from "@/lib/auth";
+import { PrivyUserPill } from "@/components/privy/PrivyUserPill";
+import {
+  usePrivyWalletUnlink,
+  findPrivyWalletByAddress,
+  isPrivyEmbeddedWallet,
+} from "@/lib/privy";
 import { getUserLinkedWallets } from "@/lib/auth/wallets";
 import { useAuthStore } from "@/store/authStore";
-import { useAuthUiStore } from "@/store/authUiStore";
+import { useExportWallet, useWallets } from "@privy-io/react-auth";
 
 export default function ProfilePage() {
   const router = useRouter();
-  const { user, loading, initialized, refresh, logout } = useAuthStore();
-  const openConnectWallet = useAuthUiStore((s) => s.openConnectWallet);
-  const [busy, setBusy] = useState(false);
+  const { user, loading, initialized } = useAuthStore();
+  const { unlink: unlinkPrivyWallet, canUnlink } = usePrivyWalletUnlink();
+  const { wallets: privyWallets } = useWallets();
+  const { exportWallet } = useExportWallet();
   const [unlinking, setUnlinking] = useState<string | null>(null);
+  const [walletError, setWalletError] = useState<string | null>(null);
+  const [exporting, setExporting] = useState<string | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   const linkedWallets = getUserLinkedWallets(user);
 
@@ -26,21 +34,35 @@ export default function ProfilePage() {
 
   async function handleUnlink(walletAddress: string) {
     setUnlinking(walletAddress);
+    setWalletError(null);
     try {
-      await unlinkWalletFromAccount(walletAddress);
-      await refresh();
+      await unlinkPrivyWallet(walletAddress);
+    } catch (e) {
+      setWalletError(e instanceof Error ? e.message : "Could not unlink wallet");
     } finally {
       setUnlinking(null);
     }
   }
 
-  async function handleResendVerification() {
-    setBusy(true);
+  async function handleExport(walletAddress: string) {
+    setExporting(walletAddress);
+    setExportError(null);
     try {
-      await sendVerificationEmail();
-      await refresh();
+      await exportWallet({ address: walletAddress });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Export failed";
+      // Privy throws when the feature isn't enabled in the Dashboard.
+      const isDashboardGated =
+        msg.toLowerCase().includes("not enabled") ||
+        msg.toLowerCase().includes("not allowed") ||
+        msg.toLowerCase().includes("disabled");
+      setExportError(
+        isDashboardGated
+          ? 'Export is not enabled. Go to Privy Dashboard → Embedded Wallets → enable "Allow users to export their embedded wallet".'
+          : msg,
+      );
     } finally {
-      setBusy(false);
+      setExporting(null);
     }
   }
 
@@ -52,7 +74,11 @@ export default function ProfilePage() {
     );
   }
 
-  const displayName = user.name?.trim() || user.email.split("@")[0];
+  const displayName =
+    user.name?.trim() ||
+    (user.walletAddress
+      ? `${user.walletAddress.slice(0, 6)}…${user.walletAddress.slice(-4)}`
+      : user.email.split("@")[0]);
 
   return (
     <div className="min-h-[calc(100vh-4rem)] bg-gray-950 text-white">
@@ -76,84 +102,113 @@ export default function ProfilePage() {
               <p className="truncate text-sm text-gray-500">{user.email}</p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={() => void logout().then(() => router.push("/"))}
-            className="shrink-0 text-sm text-gray-500 hover:text-red-400"
-          >
-            Log out
-          </button>
         </div>
 
         <section className="mb-4 rounded-xl border border-gray-800 bg-gray-900/30 p-5">
-          <h2 className="text-sm font-semibold text-white">Wallets</h2>
+          <h2 className="text-sm font-semibold text-white">Wallet identity</h2>
+          <p className="mt-1 text-xs text-gray-500">
+            Your Privy embedded wallet is the account primary for vault, mint, and trading.
+            Link MetaMask or another external wallet below — it stays secondary; unlink anytime.
+          </p>
 
           {linkedWallets.length > 0 ? (
             <ul className="mt-3 space-y-3">
-              {linkedWallets.map((w) => (
-                <li
-                  key={w.address}
-                  className="flex flex-col gap-2 rounded-lg border border-gray-800/80 bg-black/20 px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:py-2.5"
-                >
-                  <div className="min-w-0 flex-1">
-                    <p
-                      className="select-all break-all font-mono text-[11px] leading-relaxed text-white sm:text-xs"
-                      title={w.address}
-                    >
-                      {w.address}
-                    </p>
-                    {w.isPrimary ? (
-                      <p className="mt-1 text-[10px] uppercase tracking-wide text-gray-500">
-                        Primary
-                      </p>
-                    ) : null}
-                  </div>
-                  <button
-                    type="button"
-                    disabled={unlinking === w.address}
-                    onClick={() => void handleUnlink(w.address)}
-                    className="min-h-[40px] shrink-0 self-end text-xs text-gray-500 hover:text-red-400 disabled:opacity-50 sm:min-h-0 sm:self-auto"
+              {linkedWallets.map((w) => {
+                const privyWallet = findPrivyWalletByAddress(privyWallets, w.address);
+                const embedded = isPrivyEmbeddedWallet(privyWallet);
+                const showUnlink = canUnlink(w.address);
+
+                return (
+                  <li
+                    key={w.address}
+                    className="flex flex-col gap-2 rounded-lg border border-gray-800/80 bg-black/20 px-3 py-3"
                   >
-                    {unlinking === w.address ? "…" : "Unlink"}
-                  </button>
-                </li>
-              ))}
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <p
+                          className="select-all break-all font-mono text-[11px] leading-relaxed text-white sm:text-xs"
+                          title={w.address}
+                        >
+                          {w.address}
+                        </p>
+                        <p className="mt-1 text-[10px] uppercase tracking-wide text-gray-500">
+                          {w.isPrimary ? "Primary" : null}
+                          {w.isPrimary && embedded ? " · " : null}
+                          {embedded ? "Embedded (Privy)" : "External (MetaMask / EOA)"}
+                        </p>
+                      </div>
+                      {showUnlink ? (
+                        <button
+                          type="button"
+                          disabled={unlinking === w.address}
+                          onClick={() => void handleUnlink(w.address)}
+                          className="shrink-0 text-xs text-gray-500 hover:text-red-400 disabled:opacity-50"
+                        >
+                          {unlinking === w.address ? "…" : "Unlink"}
+                        </button>
+                      ) : null}
+                    </div>
+
+                    {/* Export private key — only for embedded wallets */}
+                    {embedded ? (
+                      <div className="border-t border-gray-800/60 pt-2">
+                        <p className="mb-1.5 text-[11px] text-gray-500">
+                          Export your private key to import this wallet into MetaMask or any external wallet app.
+                        </p>
+                        <button
+                          type="button"
+                          disabled={exporting === w.address}
+                          onClick={() => void handleExport(w.address)}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-gray-700/60 bg-gray-800/40 px-3 py-1.5 text-xs text-gray-300 transition-colors hover:border-gray-600 hover:text-white disabled:opacity-50"
+                        >
+                          {exporting === w.address ? (
+                            <>
+                              <svg className="h-3.5 w-3.5 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 12a8 8 0 018-8" />
+                              </svg>
+                              Opening…
+                            </>
+                          ) : (
+                            <>
+                              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" />
+                              </svg>
+                              Export Private Key
+                            </>
+                          )}
+                        </button>
+                        {exportError && exporting !== w.address ? (
+                          <p className="mt-2 text-[11px] text-red-400">{exportError}</p>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </li>
+                );
+              })}
             </ul>
           ) : (
-            <p className="mt-3 text-sm text-gray-500">No wallets linked.</p>
+            <p className="mt-3 text-sm text-gray-500">No wallet linked yet.</p>
           )}
 
-          <button
-            type="button"
-            onClick={() => openConnectWallet({ returnTo: "/profile" })}
-            className="mt-4 min-h-[48px] w-full rounded-lg border border-mint/25 bg-mint/[0.06] py-2.5 text-sm font-semibold text-mint hover:bg-mint/[0.1]"
-          >
-            Add wallet
-          </button>
-          <p className="mt-2 text-xs text-gray-500">
-            Connect MetaMask and sign once to link a wallet to your account.
-          </p>
+          {walletError ? (
+            <p className="mt-3 text-sm text-red-400" role="alert">
+              {walletError}
+            </p>
+          ) : null}
+
+          <div className="mt-4 flex justify-start">
+            <PrivyUserPill
+              action={{
+                type: "connectWallet",
+                options: {
+                  description: "Link MetaMask or another external wallet to your account",
+                },
+              }}
+            />
+          </div>
         </section>
 
-        {user.hasPassword ? (
-          <ChangePasswordSettingsRow emailVerified={user.emailVerified} />
-        ) : null}
-
-        {!user.emailVerified ? (
-          <section className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-mint/20 bg-mint/5 px-4 py-3">
-            <span className="text-xs font-medium text-mint">Verify email</span>
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => void handleResendVerification()}
-              className="text-xs font-semibold text-mint hover:text-mint/80 disabled:opacity-50"
-            >
-              Resend
-            </button>
-          </section>
-        ) : null}
-
-        <DeleteAccountSettingsRow hasPassword={user.hasPassword === true} />
+        <DeleteAccountSettingsRow />
       </main>
     </div>
   );
