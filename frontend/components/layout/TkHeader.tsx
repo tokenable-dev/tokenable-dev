@@ -1,5 +1,6 @@
 "use client";
 
+import "@/styles/tokenable-wallet-menu.css";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { usePathname } from "next/navigation";

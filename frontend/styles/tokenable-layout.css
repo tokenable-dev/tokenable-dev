@@ -272,20 +272,21 @@
   flex-shrink: 0;
 }
 
-/* index.html Search hint-size="300px,44px" — GNB CSS pins input to 36px tall */
+/* GNB search — was 300px in HTML prototype; narrowed for wallet chip + network switcher */
 .gnb-search-anchor {
+  --gnb-search-width: 220px;
   position: relative;
-  flex: 0 0 300px;
-  width: 300px;
-  min-width: 300px;
-  max-width: 300px;
+  flex: 0 0 var(--gnb-search-width);
+  width: var(--gnb-search-width);
+  min-width: var(--gnb-search-width);
+  max-width: var(--gnb-search-width);
 }
 
 .gnb-right .tk-search {
-  width: 300px;
-  min-width: 300px;
-  max-width: 300px;
-  flex: 0 0 300px;
+  width: var(--gnb-search-width);
+  min-width: var(--gnb-search-width);
+  max-width: var(--gnb-search-width);
+  flex: 0 0 var(--gnb-search-width);
   height: auto;
   clip-path: var(--pixel-notch-md);
   overflow: hidden;
@@ -294,10 +295,10 @@
 }
 
 .gnb-right .tk-search--compact {
-  width: 300px;
-  min-width: 300px;
-  max-width: 300px;
-  flex: 0 0 300px;
+  width: var(--gnb-search-width);
+  min-width: var(--gnb-search-width);
+  max-width: var(--gnb-search-width);
+  flex: 0 0 var(--gnb-search-width);
 }
 
 .gnb-right .tk-search .tk-input {
@@ -305,9 +306,9 @@
   color: #111 !important;
   border: none !important;
   box-shadow: none !important;
-  width: 300px !important;
-  min-width: 300px !important;
-  max-width: 300px !important;
+  width: var(--gnb-search-width) !important;
+  min-width: var(--gnb-search-width) !important;
+  max-width: var(--gnb-search-width) !important;
   box-sizing: border-box !important;
   height: 36px !important;
   min-height: 36px !important;

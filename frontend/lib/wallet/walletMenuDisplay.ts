@@ -30,6 +30,5 @@ export function formatNativeBalanceLabel(
   if (value === undefined) return `— ${symbol}`;
   const n = Number(formatEther(value));
   if (!Number.isFinite(n)) return `— ${symbol}`;
-  const rounded = n >= 100 ? n.toFixed(2) : n >= 1 ? n.toFixed(2) : n.toFixed(4);
-  return `${rounded} ${symbol}`;
+  return `${n.toFixed(2)} ${symbol}`;
 }

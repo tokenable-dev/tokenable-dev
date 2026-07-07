@@ -18,17 +18,17 @@ export function HeaderWalletMenu() {
 
   useEffect(() => {
     if (!open) return;
-    const onPointerDown = (event: MouseEvent) => {
+    const onOutsideClick = (event: MouseEvent) => {
       const root = wrapRef.current;
       if (!root?.contains(event.target as Node)) close();
     };
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") close();
     };
-    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("click", onOutsideClick);
     document.addEventListener("keydown", onKeyDown);
     return () => {
-      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("click", onOutsideClick);
       document.removeEventListener("keydown", onKeyDown);
     };
   }, [close, open]);

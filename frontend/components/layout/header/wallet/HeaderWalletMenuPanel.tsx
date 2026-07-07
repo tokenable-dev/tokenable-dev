@@ -1,12 +1,10 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { useRouter } from "next/navigation";
 import { useHeaderNavGate } from "@/hooks/auth/useHeaderNavGate";
 import { useHeaderWalletMenuData } from "@/hooks/auth/useHeaderWalletMenuData";
 import { completeSignOut } from "@/lib/auth/signOut";
 import { useAuthStore } from "@/store/authStore";
-import { useAuthUiStore } from "@/store/authUiStore";
 import {
   WalletBidsIcon,
   WalletHistoryIcon,
@@ -34,29 +32,17 @@ export function HeaderWalletMenuPanel({
   variant: MenuVariant;
   onNavigate?: () => void;
 }) {
-  const router = useRouter();
   const navigate = useHeaderNavGate();
-  const openSignIn = useAuthUiStore((s) => s.openSignIn);
   const logout = useAuthStore((s) => s.logout);
-  const { user, displayAddress, kyc, balanceLabel } = useHeaderWalletMenuData();
+  const { displayAddress, kyc, balanceLabel } = useHeaderWalletMenuData();
   const [signingOut, setSigningOut] = useState(false);
 
   const go = useCallback(
     (href: string, minLevel: 0 | 1 | 2 = 0) => {
-      if (minLevel === 0 && !user) {
-        openSignIn({ returnTo: href });
-        onNavigate?.();
-        return;
-      }
-      if (minLevel === 0) {
-        router.push(href);
-        onNavigate?.();
-        return;
-      }
       navigate(href, minLevel);
       onNavigate?.();
     },
-    [navigate, onNavigate, openSignIn, router, user],
+    [navigate, onNavigate],
   );
 
   const handleSignOut = useCallback(async () => {
