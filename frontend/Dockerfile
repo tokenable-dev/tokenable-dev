@@ -8,7 +8,8 @@ WORKDIR /app
 ENV CI=true
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-RUN pnpm install --frozen-lockfile
+# postinstall patches @privy-io in node_modules — needs scripts/ (not copied here yet).
+RUN pnpm install --frozen-lockfile --ignore-scripts
 
 # ── Stage 2: 빌드 ────────────────────────────────────────────────
 FROM node:22-alpine AS builder
@@ -18,6 +19,9 @@ WORKDIR /app
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+
+# Privy dist patches (package.json postinstall — skipped in deps stage).
+RUN node scripts/patch-privy-isactive.mjs
 
 # Build-time env (NEXT_PUBLIC_* 는 빌드 시 번들에 정적 포함)
 ARG NEXT_PUBLIC_API_URL
