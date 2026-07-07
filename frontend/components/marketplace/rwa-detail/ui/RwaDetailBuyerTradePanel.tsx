@@ -131,7 +131,7 @@ export function RwaDetailBuyerTradePanel({
         <>
           {showMarketContextWhenUnlisted ? (
             <div className="space-y-3">
-              <p className="text-xl font-semibold text-zinc-400">Not for sale</p>
+              <p className="rd-not-for-sale text-xl font-semibold">Not for sale</p>
               <RwaDetailMarketContextStrip
                 externalRefUsd={marketPriceUsd}
                 marketChangePct={marketChangePct ?? null}

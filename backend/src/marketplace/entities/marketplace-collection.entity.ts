@@ -5,7 +5,7 @@ import { Column, CreateDateColumn, Entity, Index, PrimaryColumn } from 'typeorm'
  * collection_key === `computeMarketBucketKey(components)` (풀 입찰 버킷과 동일 경계)
  *
  * Pricing / Cardhedger state: {@link CollectionMarketSnapshot} only.
- * PSA Public API cache: {@link PsaCertSnapshot} by cert digits.
+ * PSA cert facet: `psa_cert_number` column (canonical cert for active listings in bucket).
  */
 @Entity('marketplace_collections')
 export class MarketplaceCollection {

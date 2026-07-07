@@ -1,7 +1,7 @@
 import { mergePsaVarietyWithMintVariant } from '../../psa/psa-variety-catalog.util';
 import type { SnapshotRefreshReason } from './market-snapshot.types';
 
-/** Merge compact `psa_cert_snapshots.snapshot_json` into collection `components` PSA mirrors. */
+/** Merge compact PSA GetByCertNumber fields into collection `components` PSA mirrors. */
 export function mergePsaCertSnapshotIntoMirror(
   baseMirror: Record<string, unknown>,
   snap: Record<string, unknown>,
@@ -65,15 +65,13 @@ export function componentsPsaMirrorSufficientForCardhedger(
 }
 
 /**
- * When false, snapshot refresh may only read `psa_cert_snapshots` — no upstream PSA calls.
- * Default: only `cold_start` and `manual` (user-driven), not cron/stale_swr/prewarm.
+ * Whether Cardhedger snapshot refresh may call PSA Public API for cert mirror fields.
+ * Controlled by `PSA_PUBLIC_API_REFRESH_ON_SNAPSHOT` (e.g. `always`).
  */
 export function psaPublicApiAllowedForSnapshotReason(
-  reason: SnapshotRefreshReason,
+  _reason: SnapshotRefreshReason,
   configValue: string | undefined,
 ): boolean {
-  const mode = (configValue ?? 'manual').trim().toLowerCase();
-  if (mode === 'always' || mode === '1' || mode === 'true') return true;
-  if (mode === 'never' || mode === '0' || mode === 'false') return false;
-  return reason === 'cold_start' || reason === 'manual';
+  const v = (configValue ?? '').trim().toLowerCase();
+  return v === 'always' || v === 'true' || v === '1';
 }

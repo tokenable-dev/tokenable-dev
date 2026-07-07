@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
 import { CollectionService } from './collection.service';
+import { ChainConfigService } from '../../blockchain/chain-config.service';
 import { CollectionMarketSnapshotReadService } from '../snapshots/collection-market-snapshot-read.service';
 import { CollectionMarketSnapshotSchedulerService } from '../snapshots/collection-market-snapshot-scheduler.service';
 import { CollectionMarketSnapshotService } from '../snapshots/collection-market-snapshot.service';
@@ -204,6 +205,7 @@ export class CollectionMarketService {
   constructor(
     private readonly collectionService: CollectionService,
     private readonly config: ConfigService,
+    private readonly chainConfig: ChainConfigService,
     private readonly snapshotService: CollectionMarketSnapshotService,
     private readonly snapshotRead: CollectionMarketSnapshotReadService,
     private readonly snapshotScheduler: CollectionMarketSnapshotSchedulerService,
@@ -590,11 +592,7 @@ export class CollectionMarketService {
   }
 
   private usdcContractAddressLower(): string {
-    const raw = this.config.get<string>('USDC_CONTRACT_ADDRESS');
-    if (raw && String(raw).trim()) {
-      return String(raw).trim().toLowerCase();
-    }
-    return '0x1c7d4b196cb0c7b01d743fbc6116a902379c7238';
+    return this.chainConfig.getUsdcAddress(this.chainConfig.getDefaultChainId());
   }
 
   private isUsdcConsiderationToken(token: string | null | undefined): boolean {

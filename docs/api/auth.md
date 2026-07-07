@@ -2,164 +2,59 @@
 
 **Controller:** `backend/src/auth/auth.controller.ts`  
 **Base path:** `/api/auth`  
-**Swagger tag:** `auth`
+**Swagger tags:** `auth`, `privy-auth`
 
-Authentication supports **Google OAuth 2.0** and **email/password**. After sign-in, the backend issues a JWT as an `HttpOnly` cookie (`access_token`). Protected routes accept either the cookie or `Authorization: Bearer <token>`.
+Authentication is handled exclusively by **Privy**. After Privy login, the backend issues a JWT as an `HttpOnly` cookie (`access_token`). Protected routes accept either the cookie or `Authorization: Bearer <token>`.
+
+> **Legacy Google OAuth and email/password routes have been removed from the controller.** Email verification and password-reset services remain in the codebase for admin tooling only.
 
 ---
 
-## Routes
+## Active endpoints
 
-### `POST /api/auth/register`
+### `POST /api/auth/privy/session`
 
-Create an account with email and password.
+Exchange a Privy access token for a Tokenable session cookie.
 
-- **Request body:**
+Called automatically by `PrivySessionBridge` after every Privy authentication event. Clients do not call this directly.
 
-```json
-{ "email": "you@example.com", "password": "at-least-8-chars", "name": "Optional" }
-```
-
-- **Response:** `200 { "ok": true, "email": "...", "message": "..." }` — **no JWT cookie** until email is verified
-- **Side effect:** Creates `verification_tokens` row (SHA-256 hash) and sends raw token by email
+- **Header:** `Authorization: Bearer <privy_access_token>` — the short-lived JWT from Privy `getAccessToken()`
+- **On success:**
+  - Verifies the Privy token via JWKS (or `PRIVY_JWT_VERIFICATION_KEY` PEM key if set)
+  - Fetches the Privy user profile (embedded wallet, linked accounts, email, name)
+  - Upserts a `users` row keyed on `privy_id` (or email for existing legacy accounts)
+  - Syncs all wallet addresses from the Privy profile to `user_wallets`
+  - Syncs all linked auth providers to `user_auth_providers`
+  - Sets an `access_token` HttpOnly cookie (7-day default; see `JWT_EXPIRES_SEC`)
+  - Returns `{ user: { id, email, privyId, walletAddress, kycStatus, wallets, ... } }`
 - **Errors:**
-  - `409` — email already registered (Google-only accounts get a message to use Google sign-in)
-
----
-
-### `POST /api/auth/login`
-
-Sign in with email and password.
-
-- **Request body:**
-
-```json
-{ "email": "you@example.com", "password": "your-password" }
-```
-
-- **Response:** `200 { "user": { ... } }` and `access_token` cookie
-- **Errors:**
-  - `401` — invalid credentials, Google-only account, or **`email_verified = false`**
-
----
-
-### `GET /api/auth/google`
-
-Initiates Google OAuth. Passport redirects the browser to Google.
-
-- **Guard:** `AuthGuard('google')`
-- **Response:** `302` redirect to Google
-
----
-
-### `GET /api/auth/google/callback`
-
-Google OAuth callback. Issues JWT cookie and redirects to the frontend.
-
-- **Guard:** `AuthGuard('google')`
-- **Cookie set:** `access_token` (HttpOnly, maxAge 7 days)
-  - `Secure` flag: `true` when `FRONTEND_URL` starts with `https://` or `COOKIE_SECURE=true`
-- **Redirect:** `{FRONTEND_URL}/auth/callback?ok=1`
-- **Account linking:** If the Google email matches an existing email/password account, `google_id` is linked to the same `users` row.
-- **Email/password accounts:** If the user registered with email/password but has not clicked the verification link (`email_verified = false`), Google sign-in does **not** issue a JWT — redirect includes `?error=...` instead. Google-only accounts (no password) are signed in normally.
-
----
-
-### `GET /api/auth/verify-email`
-
-Handles the email-verification link sent to the user's inbox.
-
-| Query param | Required | Description |
-|-------------|----------|-------------|
-| `token` | Yes | One-time verification token (raw; stored hashed in `verification_tokens`) |
-
-- **On success:** `users.email_verified = true`, all `verification_tokens` for user deleted
-- **Response:** Redirects to `{FRONTEND_URL}/?email_verify=ok|invalid|expired|missing`
-
----
-
-### `POST /api/auth/send-verification-email`
-
-Resends the verification email (authenticated).
-
-- **Guard:** `JwtAuthGuard` (cookie or Bearer)
-- **Rate limit:** 60s between sends per user
-- **Response:** `200 { ok: true }`
-
----
-
-### `POST /api/auth/resend-verification-email`
-
-Resends the verification email by email address (no login required).
-
-- **Request body:** `{ "email": "you@example.com" }`
-- **Rate limit:** 60s between sends per user
-- **Response:** `200 { ok: true }` (always, to avoid email enumeration)
-
----
-
-### `POST /api/auth/forgot-password`
-
-Sends a password-reset email for email/password accounts. Google-only accounts are ignored (same `200` response).
-
-- **Request body:** `{ "email": "you@example.com" }`
-- **Rate limit:** 60s between sends per user
-- **Email link:** `{FRONTEND_URL}/auth/reset-password?token=...` (expires in 1 hour)
-
----
-
-### `POST /api/auth/reset-password`
-
-Sets a new password using the token from the reset email. Issues a session cookie on success.
-
-- **Request body:** `{ "token": "...", "password": "at-least-8-chars" }`
-- **Response:** `200 { "ok": true, "user": { ... } }` + `access_token` cookie
-- **Errors:** `400` — invalid or expired token
-
----
-
-### `POST /api/auth/change-password`
-
-Change password while signed in (email/password accounts only). **Requires `email_verified = true`.**
-
-- **Guard:** `JwtAuthGuard`
-- **Request body:** `{ "currentPassword": "...", "newPassword": "at-least-8-chars" }`
-- **Response:** `200 { "ok": true }`
-- **Errors:** `401` — wrong current password or unverified email; `400` — Google-only account or same password
-
----
-
-### `POST /api/auth/delete-account`
-
-Permanently delete the signed-in account (email/password or Google). Clears the session cookie.
-
-- **Guard:** `JwtAuthGuard`
-- **Request body:** `{ "password": "..." }` — required for email/password accounts; omit for Google-only
-- **Response:** `204 No Content`
-- **Side effects:** Deletes `users` row; `user_wallets`, `user_watchlist`, and `verification_tokens` cascade
+  - `400 Bad Request` — Privy not configured, or profile is invalid
+  - `401 Unauthorized` — Token signature invalid or expired
 
 ---
 
 ### `GET /api/auth/session`
 
-Returns the current session user. Never returns `401`; unauthenticated requests get `{ user: null }`.
+Returns the current session user. Never returns `401`.
 
 ```json
 // authenticated
-{ "user": { "id": "...", "email": "...", "emailVerified": true, "walletAddress": "0x...", ... } }
+{
+  "user": {
+    "id": "uuid",
+    "email": "user@example.com",
+    "privyId": "did:privy:...",
+    "walletAddress": "0x...",
+    "kycStatus": "none|pending|approved|rejected",
+    "wallets": [...],
+    "name": "...",
+    "pictureUrl": "..."
+  }
+}
 
 // unauthenticated
 { "user": null }
 ```
-
----
-
-### `GET /api/auth/me`
-
-Returns the current user. Returns `401` when unauthenticated.
-
-- **Guard:** `JwtAuthGuard`
-- **Response:** Same user shape as `session.user`
 
 ---
 
@@ -171,52 +66,80 @@ Clears the `access_token` cookie.
 
 ---
 
-### `GET /api/auth/wallet/challenge`
+### `POST /api/auth/delete-account`
 
-Issues a short-lived JWT challenge for wallet linking (requires signature).
+Permanently delete the authenticated account. Clears the session cookie.
 
 - **Guard:** `JwtAuthGuard`
-- **Response:** `{ "message": "...", "challenge": "..." }`
+- **Response:** `204 No Content`
+- **Side effects:** Deletes `users` row; `user_wallets`, `user_watchlist`, `user_auth_providers`, and `user_kyc_events` cascade
 
 ---
 
-### `POST /api/auth/wallet`
+## Marketplace Admin Auth
 
-Links an Ethereum wallet address to the authenticated account. Requires a valid `personal_sign` over the challenge message.
+Marketplace admin has a **separate** auth system (not Privy):
 
-The same wallet may be linked to multiple platform accounts (e.g. shared custody). Uniqueness is per `(user, address)` only.
+| Route | Purpose |
+|-------|---------|
+| `GET /api/marketplace/admin/auth/session` | Check admin session |
+| `POST /api/marketplace/admin/auth/login` | Login with username/password |
+| `POST /api/marketplace/admin/auth/logout` | Logout |
 
-- **Guard:** `JwtAuthGuard`
-- **Request body:** `LinkWalletDto`
+Admin credentials are stored in `marketplace_admins` table. Default dev: `skyand` / `071725` (override with `MARKETPLACE_ADMIN_USERNAME` / `MARKETPLACE_ADMIN_PASSWORD`).
 
-```json
-{ "address": "0xYourEthereumAddress", "signature": "0x...", "challenge": "..." }
+---
+
+## Authentication Flow
+
+```
+User → Privy login (email/Google/Apple/wallet)
+     → Frontend PrivySessionBridge calls getAccessToken()
+     → POST /api/auth/privy/session (Bearer privy_token)
+     → PrivyService.verifyAccessToken() — JWKS or PEM key
+     → fetchUser(privyId) → parsePrivyUserProfile()
+     → UserService.findOrCreateFromPrivy()
+       → upsert users by privy_id or email
+       → syncPrivyWallets() → user_wallets
+       → syncPrivyIdentity() → user_auth_providers
+     → issueAccessToken() — JWT cookie (7 days)
+     → return { user: AuthUser }
 ```
 
-- **Response:**
+### Wallet sync behavior
 
-```json
-{ "id": "...", "walletAddress": "0x...", "walletLinkedAt": "2024-01-01T00:00:00.000Z" }
-```
+On every `POST /auth/privy/session`:
+- Embedded Privy wallets are marked `wallet_kind = 'embedded'`
+- External wallets (MetaMask etc.) are marked `wallet_kind = 'external'`
+- External wallets are listed **first** (wallet-first identity)
+- First wallet linked becomes `is_primary = true`
+- Wallets removed from Privy are soft-removed (`source = 'privy_sync'` only)
 
----
+### Primary wallet
 
-### `DELETE /api/auth/wallet`
-
-Unlinks the wallet address from the authenticated account.
-
-- **Guard:** `JwtAuthGuard`
-- **Response:** `{ "walletAddress": null }`
+`users.wallet_address` = denormalized primary (first linked). `user_wallets.is_primary` = canonical primary per user. Multiple users can share the same wallet address.
 
 ---
 
-## Account linking (same email)
+## Access gates (frontend)
 
-| Scenario | Behavior |
-|----------|----------|
-| Google first → email/password register | `409` — use Google sign-in |
-| Email/password first → Google login | Same `users` row; `google_id` attached |
-| Email/password login on Google-only account | `401` — use Google sign-in |
+| Level | Requirement | Used for |
+|-------|-------------|----------|
+| 0 | None | Browse markets |
+| 1 | Signed in + linked wallet | Trade (`useTradeAccessGate`) |
+| 2 | Level 1 + KYC approved | Sell / vault (`useSellAccessGate`) |
+
+Gates open modals in sequence: sign-in → connect-wallet → KYC.
+
+---
+
+## KYC
+
+Stored on `users.kyc_status`: `none` | `pending` | `approved` | `rejected`.
+
+Audit trail in `user_kyc_events` (append-only). Updated via:
+- `UserService.updateKycStatus()` (webhook / admin action)
+- Admin UI: `/api/marketplace/admin/users/:id` + KYC actions
 
 ---
 
@@ -224,29 +147,10 @@ Unlinks the wallet address from the authenticated account.
 
 | Variable | Purpose |
 |----------|---------|
-| `GOOGLE_CLIENT_ID` | Google OAuth client ID |
-| `GOOGLE_CLIENT_SECRET` | Google OAuth client secret |
-| `GOOGLE_CALLBACK_URL` | Public URL — must match Google Console. Use **`{FRONTEND_URL}/api/auth/google/callback`** (Next dev proxy), not the Nest listen port (`4100` in dev). |
-| `FRONTEND_URL` | Frontend base URL used for redirects and cookie Secure flag |
-| `JWT_SECRET` | JWT signing secret |
-| `COOKIE_SECURE` | Optional override: `true` / `false` |
-| `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` | Email verification (register / resend) |
-| `MAIL_FROM` | Sender address — use an address on your **verified sending domain** |
-| `MAIL_FROM_NAME` | Display name in inbox (default: `Tokenable`) |
-| `MAIL_REPLY_TO` | Optional reply-to (defaults to `MAIL_FROM`) |
-
-### Email verification template
-
-Verification emails are sent in **English** with branded HTML (inline T icon via CID + white wordmark, left-aligned header, CTA button). Asset: `backend/src/assets/mail/tokenable_icon.png`. Template: `backend/src/mail/templates/verification-email.template.ts`.
-
-### Reducing spam folder delivery
-
-Code changes (bilingual subject removal, HTML+text, `From` display name, `Reply-To`) help, but **inbox placement is mostly DNS and sender reputation**:
-
-1. **Align the From domain** — `MAIL_FROM` should match your site domain (e.g. `noreply@tokenable-dev.com`), not a personal Gmail, when sending from production.
-2. **SPF, DKIM, DMARC** — Add DNS records for the domain you send from. Gmail SMTP with `@gmail.com` only helps Gmail-to-Gmail; custom-domain From without matching DNS often lands in spam.
-3. **Transactional provider (recommended)** — [Resend](https://resend.com), SendGrid, Amazon SES, or Postmark on `tokenable-dev.com` with verified domain + DKIM.
-4. **Warm up** — New domains/senders start with lower trust; avoid burst sends.
-5. **Ask users** — “Mark as not spam” once improves future delivery for that mailbox.
-
-Until DNS is fixed, some messages may still hit spam even with the new template.
+| `PRIVY_APP_ID` | Privy App ID — same as `NEXT_PUBLIC_PRIVY_APP_ID` |
+| `PRIVY_APP_SECRET` | Privy server secret — required |
+| `PRIVY_JWT_VERIFICATION_KEY` | Optional PEM public key — skips JWKS fetch |
+| `JWT_SECRET` | Session JWT signing |
+| `JWT_EXPIRES_SEC` | Session TTL (default: 604800 = 7 days) |
+| `FRONTEND_URL` | Used for redirects and cookie Secure flag |
+| `COOKIE_SECURE` | Override: `true` forces Secure cookie |

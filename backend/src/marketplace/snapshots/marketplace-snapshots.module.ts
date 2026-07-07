@@ -1,5 +1,6 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { PsaModule } from '../../psa/psa.module';
 import { CollectionMarketSnapshot } from '../entities/collection-market-snapshot.entity';
 import { Order } from '../entities/order.entity';
 import { RwaToken } from '../entities/rwa-token.entity';
@@ -20,6 +21,7 @@ import { CollectionMarketSnapshotService } from './collection-market-snapshot.se
 @Module({
   imports: [
     TypeOrmModule.forFeature([CollectionMarketSnapshot, Order, RwaToken]),
+    PsaModule,
     MarketplaceMarketDataModule,
     forwardRef(() => MarketplaceCollectionsModule),
   ],

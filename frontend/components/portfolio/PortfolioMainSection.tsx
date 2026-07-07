@@ -1,75 +1,91 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { TkTab, TkTabs } from "@/components/ds/Tabs";
 
-export type PortfolioMainTab = "collectibles" | "bids" | "watchlist";
+export type PortfolioMainTab = "collectibles" | "bids" | "history";
 
-const TAB_SHELL =
-  "flex w-full gap-1 rounded-[10px] border border-zinc-800/90 bg-black p-1 sm:max-w-[22rem] sm:p-1.5 lg:max-w-[24rem]";
-const TAB_BASE =
-  "min-w-0 flex-1 basis-0 rounded-md px-2 py-1.5 text-center text-xs font-medium transition-colors sm:px-3 sm:text-sm lg:px-4";
-const TAB_ACTIVE = "border border-mint/40 bg-mint/10 text-mint";
-const TAB_INACTIVE =
-  "border border-transparent bg-transparent text-[#8E9BAE] hover:text-[#A8B8C8]";
+function CollectiblesTabIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+      <rect x="3" y="3" width="7" height="7" />
+      <rect x="14" y="3" width="7" height="7" />
+      <rect x="3" y="14" width="7" height="7" />
+      <rect x="14" y="14" width="7" height="7" />
+    </svg>
+  );
+}
+
+function BidsTabIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+      <path d="M12 2L2 7l10 5 10-5-10-5z" />
+      <path d="M2 17l10 5 10-5" />
+      <path d="M2 12l10 5 10-5" />
+    </svg>
+  );
+}
+
+function HistoryTabIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+      <circle cx="12" cy="12" r="10" />
+      <polyline points="12 6 12 12 16 14" />
+    </svg>
+  );
+}
 
 export function PortfolioMainSection({
   activeTab,
   onTabChange,
   collectiblesPanel,
   bidsPanel,
-  watchlistPanel,
+  historyPanel,
 }: {
   activeTab: PortfolioMainTab;
   onTabChange: (tab: PortfolioMainTab) => void;
   collectiblesPanel: ReactNode;
   bidsPanel: ReactNode;
-  watchlistPanel: ReactNode;
+  historyPanel: ReactNode;
 }) {
   return (
-    <div className="mb-6 rounded-2xl border border-gray-800 bg-[#0b1118] p-3 sm:p-5">
-      <div className="mb-3 sm:mb-4" role="tablist" aria-label="Portfolio sections">
-        <div className={TAB_SHELL}>
-          <button
-            type="button"
-            role="tab"
-            id="portfolio-tab-collectibles"
-            aria-selected={activeTab === "collectibles"}
-            aria-controls="portfolio-panel-collectibles"
-            onClick={() => onTabChange("collectibles")}
-            className={`${TAB_BASE} ${activeTab === "collectibles" ? TAB_ACTIVE : TAB_INACTIVE}`}
-          >
-            Listings
-          </button>
-          <button
-            type="button"
-            role="tab"
-            id="portfolio-tab-bids"
-            aria-selected={activeTab === "bids"}
-            aria-controls="portfolio-panel-bids"
-            onClick={() => onTabChange("bids")}
-            className={`${TAB_BASE} ${activeTab === "bids" ? TAB_ACTIVE : TAB_INACTIVE}`}
-          >
-            Bids
-          </button>
-          <button
-            type="button"
-            role="tab"
-            id="portfolio-tab-watchlist"
-            aria-selected={activeTab === "watchlist"}
-            aria-controls="portfolio-panel-watchlist"
-            onClick={() => onTabChange("watchlist")}
-            className={`${TAB_BASE} ${activeTab === "watchlist" ? TAB_ACTIVE : TAB_INACTIVE}`}
-          >
-            Watchlist
-          </button>
-        </div>
-      </div>
+    <section className="pf-main-section" aria-label="Portfolio holdings">
+      <TkTabs className="portfolio-page__tabs" aria-label="Portfolio sections">
+        <TkTab
+          id="portfolio-tab-collectibles"
+          active={activeTab === "collectibles"}
+          aria-controls="portfolio-panel-collectibles"
+          onClick={() => onTabChange("collectibles")}
+        >
+          <CollectiblesTabIcon />
+          My Assets
+        </TkTab>
+        <TkTab
+          id="portfolio-tab-bids"
+          active={activeTab === "bids"}
+          aria-controls="portfolio-panel-bids"
+          onClick={() => onTabChange("bids")}
+        >
+          <BidsTabIcon />
+          Active Bids
+        </TkTab>
+        <TkTab
+          id="portfolio-tab-history"
+          active={activeTab === "history"}
+          aria-controls="portfolio-panel-history"
+          onClick={() => onTabChange("history")}
+        >
+          <HistoryTabIcon />
+          Transaction History
+        </TkTab>
+      </TkTabs>
 
       {activeTab === "collectibles" ? (
         <div
           role="tabpanel"
           id="portfolio-panel-collectibles"
           aria-labelledby="portfolio-tab-collectibles"
+          className="portfolio-page__tab-panel"
         >
           {collectiblesPanel}
         </div>
@@ -78,20 +94,20 @@ export function PortfolioMainSection({
           role="tabpanel"
           id="portfolio-panel-bids"
           aria-labelledby="portfolio-tab-bids"
-          className="min-w-0 overflow-x-hidden"
+          className="portfolio-page__tab-panel"
         >
           {bidsPanel}
         </div>
       ) : (
         <div
           role="tabpanel"
-          id="portfolio-panel-watchlist"
-          aria-labelledby="portfolio-tab-watchlist"
-          className="min-w-0 overflow-x-hidden"
+          id="portfolio-panel-history"
+          aria-labelledby="portfolio-tab-history"
+          className="portfolio-page__tab-panel"
         >
-          {watchlistPanel}
+          {historyPanel}
         </div>
       )}
-    </div>
+    </section>
   );
 }

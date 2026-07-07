@@ -130,39 +130,9 @@ export const replaceBidExample = {
 };
 
 export const SWAGGER_BODY_EXAMPLES = {
-  authRegister: {
-    email: 'collector@example.com',
-    password: 'secure-pass-123',
-    name: 'Alex Collector',
-  },
-  authLogin: {
-    email: 'collector@example.com',
-    password: 'secure-pass-123',
-  },
-  authResendVerification: {
-    email: 'collector@example.com',
-  },
-  authForgotPassword: {
-    email: 'collector@example.com',
-  },
-  authResetPassword: {
-    token: 'paste-reset-token-from-email',
-    password: 'new-secure-pass',
-  },
-  authChangePassword: {
-    currentPassword: 'current-pass',
-    newPassword: 'new-secure-pass',
-  },
-  authDeleteAccount: {
-    password: 'current-pass',
-  },
+  authDeleteAccount: {},
   siteAccessVerify: {
     password: '',
-  },
-  linkWallet: {
-    address: F.wallet,
-    signature: '0x' + 'a'.repeat(130),
-    challenge: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.example',
   },
   watchlistMutate: { collectionKey: F.collectionKey },
   ordersBatchByToken: { tokenIds: F.tokenIds },
@@ -183,12 +153,29 @@ export const SWAGGER_BODY_EXAMPLES = {
   rwaMetadataBatch: { tokenIds: F.tokenIds },
   mediaResolve: { uris: [F.ipfsImage, F.coverUrl] },
   portfolioHide: { walletAddress: F.wallet, tokenId: F.tokenId },
+  portfolioHoldingsBatch: { walletAddress: F.wallet, tokenIds: F.tokenIds },
+  portfolioSetCostBasis: {
+    walletAddress: F.wallet,
+    tokenId: F.tokenId,
+    costBasisUsd: 1250,
+  },
   certMarketTrace: {
     certNumber: F.certNumber,
     historyMaxCalendarDays: 90,
   },
   adminSetCover: {
     coverImageUrl: F.coverUrl,
+  },
+  adminLogin: {
+    username: 'admin',
+    password: 'your-admin-password',
+  },
+  adminUpdateUser: {
+    name: 'Updated display name',
+    emailVerified: true,
+  },
+  adminLinkWallet: {
+    address: F.wallet,
   },
   adminCoverFromToken: {
     tokenId: '1',
@@ -198,11 +185,30 @@ export const SWAGGER_BODY_EXAMPLES = {
     confirmCollectionKey: F.collectionKey,
   },
   psaAnalyzeByCert: { certNumber: F.certNumber },
+  psaSpecPopulation: { specId: F.psaSpecId },
   psaOrderProgress: { orderNumber: F.psaOrderNumber },
   psaSubmissionProgress: { submissionNumber: F.psaSubmissionNumber },
   uploadRwa: {
     name: 'PSA 10 Sample Card',
     description: '로컬 Swagger 테스트용 메타데이터',
     attributes: [{ trait_type: 'Grade', value: '10' }],
+  },
+  privyVerifyToken: {
+    accessToken: 'paste-privy-access-token-from-browser-devtools',
+  },
+  privySearchUsers: {
+    searchTerm: 'test@privy.io',
+  },
+  privyLookupEmail: {
+    address: 'test@privy.io',
+  },
+  privyLookupWallet: {
+    address: F.wallet,
+  },
+  privyCreateUser: {
+    linked_accounts: [{ type: 'email', address: 'swagger-test@privy.io' }],
+  },
+  privySetMetadata: {
+    custom_metadata: { swagger: true, env: 'dev' },
   },
 } as const;

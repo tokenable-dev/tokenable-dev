@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useResolvedMediaUrl } from "@/hooks/media";
-import type { AdminListedRwaCardRow, CollectionListMarketSnapshot } from "@/lib/core";
+import type { AdminRwaCardRow, CollectionListMarketSnapshot } from "@/lib/core";
 import { representativeGradeUsd } from "@/lib/market";
 import { AdminMarketPriceStrip } from "./AdminMarketPriceStrip";
 import {
@@ -28,8 +28,10 @@ export function MarketplaceAdminCardRow({
   onSave,
   onPreviewMetadata,
   onClearImageOverride,
+  onBurn,
+  burningTokenId,
 }: {
-  row: AdminListedRwaCardRow;
+  row: AdminRwaCardRow;
   snapshot?: CollectionListMarketSnapshot;
   busy: boolean;
   onSave: (patch: {
@@ -39,6 +41,8 @@ export function MarketplaceAdminCardRow({
   }) => Promise<void>;
   onPreviewMetadata: () => Promise<string | null>;
   onClearImageOverride: () => Promise<void>;
+  onBurn?: () => void;
+  burningTokenId?: number | null;
 }) {
   const [displayName, setDisplayName] = useState(row.displayName ?? "");
   const [collectionKey, setCollectionKey] = useState(row.collectionKey ?? "");
@@ -110,9 +114,23 @@ export function MarketplaceAdminCardRow({
   }
 
   const disabled = busy || rowBusy != null;
+  const isBurned = Boolean(row.burnedAt);
+  const isBurning = burningTokenId === row.tokenId;
+  const canBurn = !isBurned && onBurn != null;
 
   const refUsd = representativeGradeUsd(snapshot?.gradePrices, 10, "10");
   const floorUsd = snapshot?.marketStats?.floor ?? null;
+
+  const statusLabel = row.burnedAt
+    ? "Burned"
+    : row.hasActiveListing
+      ? "Listed"
+      : "Unlisted";
+  const statusTone = row.burnedAt
+    ? "bg-zinc-200 text-zinc-700 ring-zinc-300"
+    : row.hasActiveListing
+      ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
+      : "bg-amber-50 text-amber-800 ring-amber-200";
 
   return (
     <article className={ADMIN_ARTICLE}>
@@ -145,8 +163,20 @@ export function MarketplaceAdminCardRow({
             <p className={`font-mono text-sm ${ADMIN_TEXT_META}`}>
               Cert {row.certNumber ?? "—"}
             </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <span
+                className={`inline-flex rounded-md px-2 py-0.5 text-xs font-medium ring-1 ${statusTone}`}
+              >
+                {statusLabel}
+              </span>
+              {row.vaultCycleStatus ? (
+                <span className={`text-xs ${ADMIN_TEXT_META}`}>
+                  Cycle: {row.vaultCycleStatus}
+                </span>
+              ) : null}
+            </div>
             <AdminMarketPriceStrip
-              askUsd={row.priceUsdc}
+              askUsd={row.hasActiveListing ? row.priceUsdc : undefined}
               refUsd={refUsd}
               floorUsd={floorUsd}
             />
@@ -217,6 +247,23 @@ export function MarketplaceAdminCardRow({
             >
               {rowBusy === "clear" ? "Clearing…" : "Clear override"}
             </button>
+            {onBurn ? (
+              <button
+                type="button"
+                disabled={disabled || isBurning || !canBurn}
+                title={
+                  isBurned
+                    ? "Already burned"
+                    : row.hasActiveListing
+                      ? "Cancels active listing, then on-chain adminBurn"
+                      : "On-chain adminBurn (platform wallet)"
+                }
+                onClick={onBurn}
+                className="rounded-md border border-red-300 bg-white px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-40"
+              >
+                {isBurning ? "Burning…" : isBurned ? "Burned" : "Burn token"}
+              </button>
+            ) : null}
             {row.collectionKey ? (
               <Link
                 href={`/marketplace/collections/${encodeURIComponent(row.collectionKey)}`}

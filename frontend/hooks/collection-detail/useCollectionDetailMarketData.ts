@@ -57,8 +57,10 @@ export function useCollectionDetailMarketData(params: {
   );
   const pokeTierLabel = marketTierDisplayLabel(pokeHistoryTier);
 
-  const marketSeriesEnabled =
-    key.length > 0 && !detailLoading && !detailError && hasDetailData;
+  // Fire market series in parallel with collection detail — both only need the
+  // collection key, not the detail response. Guard only on confirmed errors so we
+  // don't fetch data for a key that 404s.
+  const marketSeriesEnabled = key.length > 0 && !detailError;
 
   const { data: marketSeries, isLoading: marketSeriesLoading } = useQuery({
     queryKey: rq.collectionMarketSeries(key, MARKET_METRICS_SERIES_DURATION),
@@ -79,13 +81,16 @@ export function useCollectionDetailMarketData(params: {
 
   const marketPreview = marketSeries?.cardhedgerPreview ?? null;
 
-  const { data: platformTradesData, isLoading: platformTradesLoading } = useQuery({
+  const { data: platformTradesData, isPending: platformTradesPending, isFetching: platformTradesFetching, isError: platformTradesError, error: platformTradesErrorDetail } = useQuery({
     queryKey: rq.collectionPlatformTrades(key, undefined, activeGradeForTrades),
     queryFn: () => getCollectionPlatformTrades(key, { grade: activeGradeForTrades }),
-    enabled: key.length > 0 && activeGradeForTrades.length > 0,
+    enabled: key.length > 0,
     refetchInterval: 20_000,
     refetchIntervalInBackground: false,
   });
+
+  const platformTradesLoading =
+    platformTradesPending || (platformTradesFetching && platformTradesData == null);
 
   const platformPtsBase = useMemo(
     () => platformTradesData?.platformUsd ?? [],
@@ -305,6 +310,8 @@ export function useCollectionDetailMarketData(params: {
     marketSeriesLoading,
     marketPreview,
     platformTradesLoading,
+    platformTradesError,
+    platformTradesErrorDetail,
     pokeTierLabel,
     displayPlatformUsd,
     resolvedExternal,

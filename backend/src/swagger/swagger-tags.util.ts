@@ -1,13 +1,20 @@
-/** Pin a tag to the top of Swagger UI; remaining tags sorted A→Z. */
+/** Pin tag(s) to the top of Swagger UI; remaining tags sorted A→Z. */
 export function sortSwaggerTagsPinFirst(
   tags: Array<{ name: string; description?: string }> | undefined,
-  pinnedName: string,
+  pinnedName: string | string[],
 ): Array<{ name: string; description?: string }> | undefined {
   if (!tags?.length) return tags;
-  const key = pinnedName.trim().toLowerCase();
-  const pinned = tags.find((t) => t.name.trim().toLowerCase() === key);
+  const pinnedNames = (Array.isArray(pinnedName) ? pinnedName : [pinnedName]).map(
+    (n) => n.trim().toLowerCase(),
+  );
+  const pinned: Array<{ name: string; description?: string }> = [];
+  for (const key of pinnedNames) {
+    const tag = tags.find((t) => t.name.trim().toLowerCase() === key);
+    if (tag) pinned.push(tag);
+  }
+  const pinnedSet = new Set(pinned.map((t) => t.name.trim().toLowerCase()));
   const rest = tags
-    .filter((t) => t.name.trim().toLowerCase() !== key)
+    .filter((t) => !pinnedSet.has(t.name.trim().toLowerCase()))
     .sort((a, b) => a.name.localeCompare(b.name));
-  return pinned ? [pinned, ...rest] : rest;
+  return [...pinned, ...rest];
 }

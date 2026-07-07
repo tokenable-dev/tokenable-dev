@@ -3,12 +3,11 @@
 import Link from "next/link";
 import { IBM_Plex_Sans } from "next/font/google";
 import { useReadContract } from "wagmi";
-import { sepolia } from "@/config/wagmi";
 import { type Order, type RwaMetadata } from "@/lib/core";
-import {
-  TOKENABLE_RWA_ADDRESS,
-  TOKENABLE_RWA_READ_ABI,
-} from "@/constants/contracts";
+import { TOKENABLE_RWA_READ_ABI } from "@/constants/contracts";
+import { useAppChain } from "@/providers/AppChainProvider";
+import { useChainContracts } from "@/hooks/chain/useChainContracts";
+import { TkButton } from "@/components/ds";
 import { COLLECTION_LISTING_CARD_CHROME } from "@/components/marketplace/collectionOverviewChrome";
 import { COLLECTION_MOBILE_LISTING_IMG_CLASS } from "@/lib/marketplace/collectionListingUtils";
 import { PRODUCT_OUTLINE_GRADIENT } from "@/components/ui/GradientOutlineFrame";
@@ -150,6 +149,8 @@ interface CollectionRwaCardProps {
   compact?: boolean;
   /** Collection detail listings grid — smaller Buy CTA + used with wider grid gap. */
   collectionDetailListing?: boolean;
+  /** Collection detail — open listing modal instead of navigating away. */
+  onOpenListing?: (tokenId: number, action?: "view" | "buy" | "bid") => void;
 }
 
 export function CollectionRwaCard({
@@ -161,7 +162,10 @@ export function CollectionRwaCard({
   prefetchedMetadata,
   compact = false,
   collectionDetailListing = false,
+  onOpenListing,
 }: CollectionRwaCardProps) {
+  const { chainId } = useAppChain();
+  const { rwaAddress } = useChainContracts();
   const useCompact = compact && useCollectionDetailMobile();
   const { metaBundle, metadata, imageUrl: resolvedImageUrl } = useCollectionRwaCardData({
     tokenId,
@@ -170,11 +174,11 @@ export function CollectionRwaCard({
   });
 
   const { data: ownerOnChain } = useReadContract({
-    address: TOKENABLE_RWA_ADDRESS,
+    address: rwaAddress,
     abi: TOKENABLE_RWA_READ_ABI,
     functionName: "ownerOf",
     args: [BigInt(Math.max(0, Math.floor(tokenId)))],
-    chainId: sepolia.id,
+    chainId,
   });
 
   const imageUrl = resolvedImageUrl;
@@ -207,6 +211,112 @@ export function CollectionRwaCard({
 
   const ctaHref =
     !listing && isOwner ? sellHref : detailHref;
+  const bidHref = `${detailHref}&bid=1`;
+
+  if (collectionDetailListing) {
+    const openView = () => onOpenListing?.(tokenId, "view");
+    const openBuy = () => onOpenListing?.(tokenId, "buy");
+    const openBid = () => onOpenListing?.(tokenId, "bid");
+
+    return (
+      <article className="cd-listing-card cd-listing-card--ds">
+        {onOpenListing ? (
+          <button
+            type="button"
+            className="cd-listing-card__img-wrap"
+            onClick={openView}
+          >
+            <div className="cd-listing-card__overlay" aria-hidden>
+              <span className="cd-listing-card__overlay-label">View details</span>
+            </div>
+            {imageUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={imageUrl} alt="" className="cd-listing-card__img" />
+            ) : (
+              <div className="cd-listing-card__img cd-listing-card__img--empty">No image</div>
+            )}
+          </button>
+        ) : (
+          <Link href={detailHref} className="cd-listing-card__img-wrap">
+            <div className="cd-listing-card__overlay" aria-hidden>
+              <span className="cd-listing-card__overlay-label">View details</span>
+            </div>
+            {imageUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={imageUrl} alt="" className="cd-listing-card__img" />
+            ) : (
+              <div className="cd-listing-card__img cd-listing-card__img--empty">No image</div>
+            )}
+          </Link>
+        )}
+
+        {listing ? (
+          <div className="cd-listing-card__actions">
+            {onOpenListing ? (
+              <>
+                <TkButton
+                  type="button"
+                  variant="primary"
+                  size="sm"
+                  className="cd-listing-card__btn"
+                  onClick={openBuy}
+                >
+                  Buy
+                </TkButton>
+                <TkButton
+                  type="button"
+                  variant="neutral"
+                  size="sm"
+                  className="cd-listing-card__btn"
+                  onClick={openBid}
+                >
+                  Bid
+                </TkButton>
+              </>
+            ) : (
+              <>
+                <TkButton variant="primary" size="sm" href={detailHref} className="cd-listing-card__btn">
+                  Buy
+                </TkButton>
+                <TkButton variant="neutral" size="sm" href={bidHref} className="cd-listing-card__btn">
+                  Bid
+                </TkButton>
+              </>
+            )}
+          </div>
+        ) : (
+          <div className="cd-listing-card__actions">
+            {onOpenListing ? (
+              <TkButton
+                type="button"
+                variant="primary"
+                size="sm"
+                className="cd-listing-card__btn"
+                onClick={openView}
+              >
+                {ctaLabel}
+              </TkButton>
+            ) : (
+              <TkButton variant="primary" size="sm" href={ctaHref} className="cd-listing-card__btn">
+                {ctaLabel}
+              </TkButton>
+            )}
+          </div>
+        )}
+
+        <div className="cd-listing-card__foot">
+          {listing && listingPrice !== "—" ? (
+            <span className="cd-listing-card__price">${listingPrice}</span>
+          ) : (
+            <span className="cd-listing-card__price cd-listing-card__price--muted">—</span>
+          )}
+          <span className="cd-listing-card__seller" title={sellerAddr}>
+            Seller: {listing ? sellerDisplay : "—"}
+          </span>
+        </div>
+      </article>
+    );
+  }
 
   if (useCompact) {
     return (
@@ -271,7 +381,9 @@ export function CollectionRwaCard({
   return (
     <Link
       href={ctaHref}
-      className={`group flex h-full w-full min-w-0 cursor-pointer text-inherit no-underline outline-none ${COLLECTION_LISTING_CARD_CHROME}`}
+      className={`group flex h-full w-full min-w-0 cursor-pointer text-inherit no-underline outline-none ${
+        collectionDetailListing ? "cd-listing-card" : COLLECTION_LISTING_CARD_CHROME
+      }`}
       aria-label={`Listing ${formatTokenIdShort(tokenId)} — ${ctaLabel}`}
     >
       <article className="flex h-full w-full min-w-0 flex-col overflow-hidden">

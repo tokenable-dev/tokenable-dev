@@ -1,10 +1,9 @@
 import type { Abi, PublicClient, Address } from "viem";
 import { formatUnits } from "viem";
-import { sepolia } from "@/config/wagmi";
+import { getChainContracts, type SupportedChainId } from "@/lib/chains";
 import {
   SEAPORT_ADDRESS,
   SEAPORT_ABI_WITH_MATCH_ADVANCED,
-  USDC_ADDRESS,
   USDC_ABI,
 } from "@/constants/contracts";
 import { fulfillMatchedPairApi, getMerkleEligibleTokenIds, type Order } from "@/lib/core";
@@ -47,11 +46,12 @@ const ITEM_ERC20 = 1;
 async function assertBuyerUsdcReadyForCriteriaBid(
   publicClient: PublicClient,
   bid: Order,
+  usdcAddress: Address,
 ): Promise<void> {
   const offer0 = bid.parameters?.offer?.[0];
   if (!offer0 || Number(offer0.itemType) !== ITEM_ERC20) return;
   if (
-    String(offer0.token).toLowerCase() !== String(USDC_ADDRESS).toLowerCase()
+    String(offer0.token).toLowerCase() !== String(usdcAddress).toLowerCase()
   ) {
     return;
   }
@@ -66,13 +66,13 @@ async function assertBuyerUsdcReadyForCriteriaBid(
 
   const [bal, allowance] = await Promise.all([
     publicClient.readContract({
-      address: USDC_ADDRESS,
+      address: usdcAddress,
       abi: USDC_ABI,
       functionName: "balanceOf",
       args: [buyer],
     }),
     publicClient.readContract({
-      address: USDC_ADDRESS,
+      address: usdcAddress,
       abi: USDC_ABI,
       functionName: "allowance",
       args: [buyer, SEAPORT_ADDRESS],
@@ -106,6 +106,7 @@ export async function runCriteriaMatch(params: {
    * proof/root match that snapshot. Otherwise we bypass server cache to avoid stale sets vs bids.
    */
   merkleTokenIds?: string[];
+  chainId: SupportedChainId;
 }): Promise<void> {
   const {
     address,
@@ -116,7 +117,10 @@ export async function runCriteriaMatch(params: {
     tokenId,
     collectionKey,
     merkleTokenIds: merkleTokenIdsParam,
+    chainId,
   } = params;
+
+  const { usdcAddress } = getChainContracts(chainId);
 
   if (!isCriteriaCollectionBid(bid)) {
     throw new Error("Not a criteria collection bid");
@@ -159,7 +163,7 @@ export async function runCriteriaMatch(params: {
 
   const proof = tree.getCriteriaProof(tidBn);
 
-  await assertBuyerUsdcReadyForCriteriaBid(publicClient, bid);
+  await assertBuyerUsdcReadyForCriteriaBid(publicClient, bid, usdcAddress);
 
   const exec = buildCriteriaMatchExecution({
     criteriaBidOrder: bid,
@@ -216,7 +220,7 @@ export async function runCriteriaMatch(params: {
     abi: prepared.abi as Abi,
     functionName: prepared.functionName,
     args: prepared.args as readonly unknown[],
-    chainId: sepolia.id,
+    chainId,
     gas,
   });
 

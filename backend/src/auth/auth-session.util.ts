@@ -52,9 +52,28 @@ export type SerializedLinkedWallet = {
   address: string;
   linkedAt: string;
   isPrimary: boolean;
+  chainType: string;
+  walletKind: 'embedded' | 'external';
+  walletClient: string | null;
+  connectorType: string | null;
+  source: string;
 };
 
-export function serializeAuthUser(user: User, wallets: UserWallet[] = []) {
+export type SerializedAuthProvider = {
+  providerType: string;
+  providerSubject: string;
+  email: string | null;
+  phone: string | null;
+  displayName: string | null;
+  isVerified: boolean;
+  linkedAt: string;
+};
+
+export function serializeAuthUser(
+  user: User,
+  wallets: UserWallet[] = [],
+  authProviders: import('../user/entities/user-auth-provider.entity').UserAuthProvider[] = [],
+) {
   const primary =
     wallets.find((w) => w.isPrimary) ??
     wallets[0] ??
@@ -70,6 +89,21 @@ export function serializeAuthUser(user: User, wallets: UserWallet[] = []) {
     address: w.walletAddress,
     linkedAt: w.linkedAt.toISOString(),
     isPrimary: w.isPrimary,
+    chainType: w.chainType,
+    walletKind: w.walletKind,
+    walletClient: w.walletClient,
+    connectorType: w.connectorType,
+    source: w.source,
+  }));
+
+  const serializedProviders: SerializedAuthProvider[] = authProviders.map((p) => ({
+    providerType: p.providerType,
+    providerSubject: p.providerSubject,
+    email: p.email,
+    phone: p.phone,
+    displayName: p.displayName,
+    isVerified: p.isVerified,
+    linkedAt: p.linkedAt.toISOString(),
   }));
 
   return {
@@ -79,6 +113,15 @@ export function serializeAuthUser(user: User, wallets: UserWallet[] = []) {
     pictureUrl: user.pictureUrl,
     emailVerified: user.emailVerified,
     hasPassword: !!user.passwordHash,
+    privyId: user.privyId,
+    kycStatus: user.kycStatus,
+    kycVerifiedAt: user.kycVerifiedAt
+      ? new Date(user.kycVerifiedAt).toISOString()
+      : null,
+    kycProvider: user.kycProvider,
+    lastPrivySyncAt: user.lastPrivySyncAt
+      ? new Date(user.lastPrivySyncAt).toISOString()
+      : null,
     walletAddress: primary?.walletAddress ?? user.walletAddress ?? null,
     walletLinkedAt: primary?.linkedAt
       ? new Date(primary.linkedAt).toISOString()
@@ -86,5 +129,6 @@ export function serializeAuthUser(user: User, wallets: UserWallet[] = []) {
         ? new Date(user.walletLinkedAt).toISOString()
         : null,
     wallets: serializedWallets,
+    authProviders: serializedProviders,
   };
 }

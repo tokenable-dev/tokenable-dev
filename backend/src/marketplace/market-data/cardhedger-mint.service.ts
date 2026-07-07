@@ -1,9 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { readCardhedgerFeatureFlags } from '../../config/cardhedger-feature-flags.util';
-import { BlockchainService } from '../../blockchain/blockchain.service';
+import { RwaAssetResolveService } from '../../blockchain/rwa-asset-resolve.service';
 import { CardhedgerService } from '../../cardhedger/cardhedger.service';
-import { PsaCertSnapshotService } from '../collections/psa-cert-snapshot.service';
+import { PsaPublicApiService } from '../../psa/psa-public-api.service';
+import { isPsaPublicApiUpstreamEnabled } from '../utils/psa-upstream-policy.util';
+import { fetchCompactPsaCertByNumber } from '../utils/psa-cert-compact.util';
 import {
   componentsPsaMirrorSufficientForCardhedger,
   mergePsaCertSnapshotIntoMirror,
@@ -40,9 +42,9 @@ export class CardhedgerMintService {
 
   constructor(
     private readonly cardhedger: CardhedgerService,
-    private readonly blockchain: BlockchainService,
+    private readonly rwaAssetResolve: RwaAssetResolveService,
     private readonly config: ConfigService,
-    private readonly psaCertSnapshots: PsaCertSnapshotService,
+    private readonly psaPublicApi: PsaPublicApiService,
     private readonly certLookup: CardhedgerCertLookupService,
     private readonly certPricing: CardhedgerCertPricingService,
     private readonly resolve: CardhedgerResolveService,
@@ -323,35 +325,20 @@ export class CardhedgerMintService {
       }
     }
 
-    const snap = await this.psaCertSnapshots.fetchCertSnapshotJson(certRaw);
-    if (!snap) {
-      const scraped =
-        await this.psaCertSnapshots.refreshEstimateIfMissing(certRaw);
-      if (scraped != null) {
-        return { ...baseMirror, psaEstimateUsd: scraped };
-      }
-      return baseMirror;
-    }
+    if (!isPsaPublicApiUpstreamEnabled(this.config)) return baseMirror;
+
+    const snap = await fetchCompactPsaCertByNumber(this.psaPublicApi, certRaw);
+    if (!snap) return baseMirror;
 
     const hadVariety = Boolean(String(baseMirror.psaVariety ?? '').trim());
     const extra = mergePsaCertSnapshotIntoMirror(baseMirror, snap);
-    if (
-      !Number.isFinite(Number(extra.psaEstimateUsd)) ||
-      Number(extra.psaEstimateUsd) <= 0
-    ) {
-      const scraped =
-        await this.psaCertSnapshots.refreshEstimateIfMissing(certRaw);
-      if (scraped != null) {
-        extra.psaEstimateUsd = scraped;
-      }
-    }
     if (
       !hadVariety &&
       typeof extra.psaVariety === 'string' &&
       String(extra.psaVariety).trim()
     ) {
       this.logger.log(
-        'Cardhedger mint preview: psaVariety filled via PSA cert snapshot (IPFS metadata had no PSA Variety)',
+        'Cardhedger mint preview: psaVariety filled via PSA Public API (IPFS metadata had no PSA Variety)',
       );
     }
     return extra;
@@ -366,7 +353,7 @@ export class CardhedgerMintService {
     ].filter((n) => Number.isFinite(n) && n >= 0);
     if (ids.length === 0) return out;
 
-    const pack = await this.blockchain.batchRwaMetadata(ids);
+    const pack = await this.rwaAssetResolve.batchRwaMetadata(ids);
     const work = pack.items.filter((item) => item.metadata != null);
     const missingMeta = pack.items.filter((item) => !item.metadata);
 
@@ -618,7 +605,7 @@ export class CardhedgerMintService {
       });
     }
 
-    const pack = await this.blockchain.batchRwaMetadata([id]);
+    const pack = await this.rwaAssetResolve.batchRwaMetadata([id]);
     const item = pack.items.find((row) => row.tokenId === id);
     const meta = item?.metadata;
     if (!meta) {

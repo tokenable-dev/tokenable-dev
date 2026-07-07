@@ -19,7 +19,12 @@ import type {
 import { MARKET_SNAPSHOT_SOURCE_VERSION } from '../utils/market-snapshot.types';
 import { psaPublicApiAllowedForSnapshotReason } from '../utils/psa-components-mirror.util';
 import { psaCertNumberFromCollectionRow } from '../utils/collection-row.util';
-import { PsaCertSnapshotService } from '../collections/psa-cert-snapshot.service';
+import {
+  fetchCompactPsaCertByNumber,
+  psaEstimateUsdFromCompact,
+} from '../utils/psa-cert-compact.util';
+import { isPsaPublicApiUpstreamEnabled } from '../utils/psa-upstream-policy.util';
+import { PsaPublicApiService } from '../../psa/psa-public-api.service';
 
 /**
  * Builds and persists materialized Cardhedger snapshots.
@@ -38,7 +43,7 @@ export class CollectionMarketSnapshotService {
     private readonly snapshotRepo: Repository<CollectionMarketSnapshot>,
     private readonly collectionEnrichment: CollectionEnrichmentService,
     private readonly cardMarketData: CardhedgerMarketDataService,
-    private readonly psaCertSnapshots: PsaCertSnapshotService,
+    private readonly psaPublicApi: PsaPublicApiService,
     private readonly config: ConfigService,
     @Inject(forwardRef(() => CollectionMarketSnapshotSchedulerService))
     private readonly snapshotScheduler: CollectionMarketSnapshotSchedulerService,
@@ -163,14 +168,21 @@ export class CollectionMarketSnapshotService {
   ): Promise<CollectionMarketSnapshot | null> {
     const started = Date.now();
     try {
-      const allowPsaUpstream = psaPublicApiAllowedForSnapshotReason(
-        reason,
-        this.config.get<string>('PSA_PUBLIC_API_REFRESH_ON_SNAPSHOT'),
-      );
+      const allowPsaUpstream =
+        isPsaPublicApiUpstreamEnabled(this.config) &&
+        psaPublicApiAllowedForSnapshotReason(
+          reason,
+          this.config.get<string>('PSA_PUBLIC_API_REFRESH_ON_SNAPSHOT'),
+        );
       await this.collectionEnrichment.refreshPsaPublicSnapshotForCollection(
         key,
         { allowUpstream: allowPsaUpstream },
       );
+      if (allowPsaUpstream) {
+        await this.collectionEnrichment.ensurePsaSpecPopulationFromApi(key, {
+          allowUpstream: true,
+        });
+      }
       if (await this.collectionEnrichment.findOne(key)) {
         await this.collectionEnrichment.persistPsaMirrorFromCertToDb(key);
         await this.collectionEnrichment.ensureMintParallelVarietyFromListings(
@@ -215,23 +227,29 @@ export class CollectionMarketSnapshotService {
       }
       let col = await this.collectionEnrichment.findOne(key);
       if (col) {
-        col =
-          await this.collectionEnrichment.mergePsaSnapshotIntoComponentsFromDb(
-            col,
-          );
+        col = await this.collectionEnrichment.mergePsaCertFromLiveApiIntoComponents(
+          col,
+          { allowUpstream: allowPsaUpstream },
+        );
       }
       const certForEstimate = col ? psaCertNumberFromCollectionRow(col) : null;
       let psaEstimateUsd = this.psaEstimateUsdFromComponents(col?.components);
-      if (certForEstimate && psaEstimateUsd == null) {
-        const scraped =
-          await this.psaCertSnapshots.refreshEstimateIfMissing(certForEstimate);
+      if (certForEstimate && psaEstimateUsd == null && allowPsaUpstream) {
+        const compact = await fetchCompactPsaCertByNumber(
+          this.psaPublicApi,
+          certForEstimate,
+        );
+        const scraped = psaEstimateUsdFromCompact(compact);
         if (scraped != null) {
-          await this.collectionEnrichment.persistPsaMirrorFromCertToDb(key);
+          await this.collectionEnrichment.persistPsaMirrorFromCertToDb(key, {
+            allowUpstream: true,
+          });
           col = await this.collectionEnrichment.findOne(key);
           if (col) {
             col =
-              await this.collectionEnrichment.mergePsaSnapshotIntoComponentsFromDb(
+              await this.collectionEnrichment.mergePsaCertFromLiveApiIntoComponents(
                 col,
+                { allowUpstream: true },
               );
           }
           psaEstimateUsd = scraped;

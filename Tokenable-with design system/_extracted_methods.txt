@@ -1,0 +1,119 @@
+makeEnv(renderer) {
+    const T = window.THREE;
+    const c = document.createElement('canvas'); c.width = 512; c.height = 256;
+    const g = c.getContext('2d');
+    const grad = g.createLinearGradient(0, 0, 0, 256);
+    grad.addColorStop(0, '#3a3a42'); grad.addColorStop(0.45, '#0e0e10');
+    grad.addColorStop(0.5, '#1a1a1e'); grad.addColorStop(1, '#050506');
+    g.fillStyle = grad; g.fillRect(0, 0, 512, 256);
+    g.fillStyle = 'rgba(47,107,255,0.5)'; g.fillRect(0, 96, 512, 26);
+    g.fillStyle = 'rgba(255,255,255,0.9)'; g.fillRect(120, 30, 90, 12); g.fillRect(330, 50, 60, 8);
+    const tex = new T.CanvasTexture(c);
+    tex.mapping = T.EquirectangularReflectionMapping;
+    const pmrem = new T.PMREMGenerator(renderer);
+    const env = pmrem.fromEquirectangular(tex).texture;
+    tex.dispose(); pmrem.dispose();
+    return env;
+  }
+
+---
+
+makeCardTexture(i) {
+    const T = window.THREE;
+    const data = [
+      { t: '1952 MANTLE', s: '#3a6ea5', n: 'PSA 9' },
+      { t: 'CHARIZARD', s: '#e0631f', n: 'PSA 10' },
+      { t: 'PATEK 5711', s: '#1f6b57', n: 'CSA 9.5' },
+      { t: 'JORDAN 1 — 85', s: '#b5341f', n: 'DS 10' },
+      { t: 'DAYTONA', s: '#444', n: 'CSA 10' },
+    ][i % 5];
+    const c = document.createElement('canvas'); c.width = 360; c.height = 540;
+    const g = c.getContext('2d');
+    g.fillStyle = '#0e0e10'; g.fillRect(0, 0, 360, 540);
+    g.fillStyle = '#f3f1ea'; g.fillRect(14, 14, 332, 512);
+    g.fillStyle = '#0a0a0b'; g.fillRect(22, 22, 316, 60);
+    g.fillStyle = '#2F6BFF'; g.font = '700 26px monospace'; g.fillText('TOKENABLE', 34, 60);
+    const ig = g.createLinearGradient(22, 90, 338, 430);
+    ig.addColorStop(0, data.s); ig.addColorStop(1, '#101012');
+    g.fillStyle = ig; g.fillRect(22, 90, 316, 348);
+    g.strokeStyle = 'rgba(255,255,255,.18)'; g.lineWidth = 1;
+    for (let k = 0; k < 6; k++) { g.beginPath(); g.arc(180, 264, 30 + k * 22, 0, Math.PI * 2); g.stroke(); }
+    g.fillStyle = '#0a0a0b'; g.font = '700 30px serif'; g.textAlign = 'center';
+    g.fillText(data.t, 180, 478); g.textAlign = 'left';
+    g.fillStyle = '#2F6BFF'; g.fillRect(22, 494, 70, 24);
+    g.fillStyle = '#ffffff'; g.font = '700 14px monospace'; g.fillText(data.n, 30, 511);
+    for (let x = 110; x < 338; x += 5) { g.fillStyle = Math.random() > 0.5 ? '#0a0a0b' : '#f3f1ea'; g.fillRect(x, 496, 3, 20); }
+    const tex = new T.CanvasTexture(c);
+    tex.anisotropy = 4; tex.encoding = T.sRGBEncoding;
+    return tex;
+  }
+
+---
+
+makeCardBack() {
+    const T = window.THREE;
+    const W = 620, H = 1040;
+    const c = document.createElement('canvas'); c.width = W; c.height = H;
+    const g = c.getContext('2d');
+    // matte dark case back
+    const grad = g.createLinearGradient(0, 0, W, H);
+    grad.addColorStop(0, '#18181d'); grad.addColorStop(0.5, '#101015'); grad.addColorStop(1, '#0a0a0d');
+    g.fillStyle = grad; g.fillRect(0, 0, W, H);
+    // faint diagonal sheen
+    g.save();
+    g.strokeStyle = 'rgba(255,255,255,0.022)'; g.lineWidth = 54;
+    for (let x = -H; x < W + H; x += 130) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x + H, H); g.stroke(); }
+    g.restore();
+    // hairline border
+    g.strokeStyle = 'rgba(255,255,255,0.08)'; g.lineWidth = 2;
+    this._rr(g, 28, 28, W - 56, H - 56, 30); g.stroke();
+    const tex = new T.CanvasTexture(c);
+    tex.encoding = T.sRGBEncoding; tex.anisotropy = 8;
+    // stamp the real wordmark (recoloured for a dark surface) once it loads
+    fetch((window.__resources && window.__resources.logoSvg) || './logo.svg').then(r => r.text()).then(txt => {
+      const white = txt.replace(/fill=\"black\"/g, 'fill=\"#eef1f5\"').replace(/fill=\"#000000\"/gi, 'fill=\"#eef1f5\"');
+      const url = URL.createObjectURL(new Blob([white], { type: 'image/svg+xml' }));
+      const img = new Image();
+      img.onload = () => {
+        const tw = W * 0.62, th = tw * (img.height / img.width);
+        g.drawImage(img, (W - tw) / 2, H / 2 - th / 2 - 26, tw, th);
+        g.textAlign = 'center'; g.textBaseline = 'middle';
+        g.fillStyle = '#2F6BFF'; g.font = '600 21px \"JetBrains Mono\", monospace';
+        g.fillText('VAULTED \\u2022 ON-CHAIN', W / 2, H / 2 + 26);
+        g.fillStyle = '#6c6c74'; g.font = '500 17px \"JetBrains Mono\", monospace';
+        g.fillText('GRADED ASSET \\u2014 CERT 1/1', W / 2, H - 66);
+        tex.needsUpdate = true;
+        URL.revokeObjectURL(url);
+      };
+      img.src = url;
+    }).catch(function () {});
+    return tex;
+  }
+
+---
+
+slabShape(w, h, r) {
+    const T = window.THREE;
+    const s = new T.Shape();
+    const x = -w / 2, y = -h / 2;
+    s.moveTo(x + r, y);
+    s.lineTo(x + w - r, y);
+    s.quadraticCurveTo(x + w, y, x + w, y + r);
+    s.lineTo(x + w, y + h - r);
+    s.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    s.lineTo(x + r, y + h);
+    s.quadraticCurveTo(x, y + h, x, y + h - r);
+    s.lineTo(x, y + r);
+    s.quadraticCurveTo(x, y, x + r, y);
+    return s;
+  }
+
+---
+
+camZForAspect(a) {
+    // narrower (portrait / mobile) viewports need the camera pulled back so the ring fits the width
+    if (a >= 1.4) return 9.2;
+    if (a >= 1.05) return 10.0;
+    if (a >= 0.8) return 11.4;
+    return 13.6;
+  }

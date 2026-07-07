@@ -1,11 +1,8 @@
-import { hexToBigInt, maxUint256, type Address, type PublicClient, type WalletClient } from "viem";
-import { sepolia } from "@/config/wagmi";
+import { hexToBigInt, maxUint256, type Address, type PublicClient } from "viem";
+import { getChainContracts, type SupportedChainId } from "@/lib/chains";
 import {
   SEAPORT_ADDRESS,
   SEAPORT_ABI,
-  SEAPORT_ORDER_TYPES,
-  TOKENABLE_RWA_ADDRESS,
-  USDC_ADDRESS,
   USDC_ABI,
 } from "@/constants/contracts";
 import { createOrder, replaceBidApi, type CreateOrderPayload, type Order } from "@/lib/core";
@@ -23,6 +20,7 @@ import {
   CRITERIA_BID_ZERO_ADDRESS,
   CRITERIA_BID_ZERO_BYTES32,
 } from "./collectionCriteriaBidConstants";
+import type { SignSeaportOrderFn } from "@/lib/seaport/signSeaportOrder";
 
 export type CollectionCriteriaBidSubmitResult = {
   order: Order;
@@ -35,13 +33,14 @@ export async function submitCollectionCriteriaBid(input: {
   collectionKey: string;
   address: Address;
   publicClient: PublicClient;
-  walletClient: WalletClient;
+  signSeaportOrder: SignSeaportOrderFn;
   writeContractAsync: ReturnType<typeof useWriteContract>["writeContractAsync"];
   bidUnits: bigint;
   merkleLeafTokenIds: string[];
   counter: bigint;
   usdcAllowanceRaw: bigint | undefined;
   activeAsks: Order[];
+  chainId: SupportedChainId;
   mode?: "create" | "replace";
   oldOrderHash?: string;
 }): Promise<CollectionCriteriaBidSubmitResult> {
@@ -49,16 +48,19 @@ export async function submitCollectionCriteriaBid(input: {
     collectionKey,
     address,
     publicClient,
-    walletClient,
+    signSeaportOrder,
     writeContractAsync,
     bidUnits,
     merkleLeafTokenIds,
     counter,
     usdcAllowanceRaw,
     activeAsks,
+    chainId,
     mode = "create",
     oldOrderHash,
   } = input;
+
+  const { rwaAddress, usdcAddress } = getChainContracts(chainId);
 
   if (mode === "replace" && !oldOrderHash) {
     throw new Error("oldOrderHash required for replace");
@@ -77,7 +79,7 @@ export async function submitCollectionCriteriaBid(input: {
   let allowancePre = usdcAllowanceRaw;
   if (allowancePre === undefined) {
     allowancePre = await publicClient.readContract({
-      address: USDC_ADDRESS,
+      address: usdcAddress,
       abi: USDC_ABI,
       functionName: "allowance",
       args: [address, SEAPORT_ADDRESS],
@@ -88,7 +90,7 @@ export async function submitCollectionCriteriaBid(input: {
     ? gasWithCapFast(
         publicClient,
         {
-          address: USDC_ADDRESS,
+          address: usdcAddress,
           abi: USDC_ABI,
           functionName: "approve",
           args: [SEAPORT_ADDRESS, maxUint256],
@@ -104,7 +106,7 @@ export async function submitCollectionCriteriaBid(input: {
     offer: [
       {
         itemType: CRITERIA_BID_ITEM_ERC20,
-        token: USDC_ADDRESS,
+        token: usdcAddress,
         identifierOrCriteria: BigInt(0),
         startAmount: bidUnits,
         endAmount: bidUnits,
@@ -113,7 +115,7 @@ export async function submitCollectionCriteriaBid(input: {
     consideration: [
       {
         itemType: CRITERIA_BID_ITEM_CRITERIA721,
-        token: TOKENABLE_RWA_ADDRESS,
+        token: rwaAddress,
         identifierOrCriteria: merkleRootU256,
         startAmount: BigInt(1),
         endAmount: BigInt(1),
@@ -129,22 +131,11 @@ export async function submitCollectionCriteriaBid(input: {
     counter: counter,
   };
 
-  const signature = await walletClient.signTypedData({
-    account: address,
-    domain: {
-      name: "Seaport",
-      version: "1.5",
-      chainId: sepolia.id,
-      verifyingContract: SEAPORT_ADDRESS,
-    },
-    types: SEAPORT_ORDER_TYPES,
-    primaryType: "OrderComponents",
-    message: orderMessage as never,
-  });
+  const signature = await signSeaportOrder(orderMessage, address);
 
   if (needsUsdcApprove) {
     const allowanceAfterSign = await publicClient.readContract({
-      address: USDC_ADDRESS,
+      address: usdcAddress,
       abi: USDC_ABI,
       functionName: "allowance",
       args: [address, SEAPORT_ADDRESS],
@@ -155,7 +146,7 @@ export async function submitCollectionCriteriaBid(input: {
         (await gasWithCapFast(
           publicClient,
           {
-            address: USDC_ADDRESS,
+            address: usdcAddress,
             abi: USDC_ABI,
             functionName: "approve",
             args: [SEAPORT_ADDRESS, maxUint256],
@@ -164,11 +155,11 @@ export async function submitCollectionCriteriaBid(input: {
           GAS_FALLBACK.erc20Approve,
         ));
       await writeContractAsync({
-        address: USDC_ADDRESS,
+        address: usdcAddress,
         abi: USDC_ABI,
         functionName: "approve",
         args: [SEAPORT_ADDRESS, maxUint256],
-        chainId: sepolia.id,
+        chainId,
         gas: gasApprove,
       });
     }
@@ -188,7 +179,7 @@ export async function submitCollectionCriteriaBid(input: {
       offer: [
         {
           itemType: CRITERIA_BID_ITEM_ERC20,
-          token: USDC_ADDRESS,
+          token: usdcAddress,
           identifierOrCriteria: "0",
           startAmount: str(bidUnits),
           endAmount: str(bidUnits),
@@ -197,7 +188,7 @@ export async function submitCollectionCriteriaBid(input: {
       consideration: [
         {
           itemType: CRITERIA_BID_ITEM_CRITERIA721,
-          token: TOKENABLE_RWA_ADDRESS,
+          token: rwaAddress,
           identifierOrCriteria: rootHex,
           startAmount: "1",
           endAmount: "1",
@@ -210,9 +201,9 @@ export async function submitCollectionCriteriaBid(input: {
       counter: str(counter),
     },
     signature,
-    tokenContract: TOKENABLE_RWA_ADDRESS,
+    tokenContract: rwaAddress,
     tokenId: "0",
-    considerationToken: USDC_ADDRESS,
+    considerationToken: usdcAddress,
     considerationAmount: str(bidUnits),
   };
 
@@ -237,6 +228,7 @@ export async function submitCollectionCriteriaBid(input: {
     publicClient,
     writeContractAsync: matchWrite,
     listingHints: activeAsks,
+    chainId,
   });
 
   if (matchResult.matched) {

@@ -19,6 +19,8 @@ export const rq = {
   ordersByTokenBatch: (address: string | undefined, tokenIds: readonly number[]) =>
     ["orders", "by-token-batch", address ?? "", [...tokenIds].slice().sort((a, b) => a - b)] as const,
   collectionsMarketplace: () => ["collections", "marketplace"] as const,
+  /** Full marketplace catalog (cursor walk) — home Top movers / Just vaulted. */
+  homeAllCollections: () => ["collections", "marketplace", "all"] as const,
   /** Landing dashboard — Card Ladder category indexes (Pokemon / MLB / NFL / NBA). */
   cardladderIndexes: () => ["cardladder-indexes"] as const,
   /**
@@ -34,6 +36,12 @@ export const rq = {
   marketMintPreviews: (address: string | undefined, tokenIds: readonly number[]) =>
     ["cardhedger-mint-previews", address ?? "", [...tokenIds].slice().sort((a, b) => a - b)] as const,
   portfolioHidden: (address: string) => ["portfolio-hidden", address] as const,
+  portfolioHoldings: (address: string, tokenIds: readonly number[]) =>
+    [
+      "portfolio-holdings",
+      address.toLowerCase(),
+      [...tokenIds].slice().sort((a, b) => a - b),
+    ] as const,
   /** Collection labels/covers for portfolio bid rows (sorted keys). */
   portfolioBidCollections: (sortedKeys: readonly string[]) =>
     ["portfolio-bid-collections", [...sortedKeys]] as const,
@@ -98,8 +106,14 @@ export const rq = {
 
   /** Single RWA resolved asset (tokenURI + metadata + imageUrl). */
   rwaAssetDetail: (tokenId: number) => ["marketplace-detail-metadata", tokenId] as const,
-  /** Admin — active listed RWA cards registry overview. */
-  adminListedRwaCards: () => ["admin-listed-rwa-cards"] as const,
+  /** Admin — all RWA registry cards (listed + unlisted). */
+  adminRwaCards: () => ["admin-rwa-cards"] as const,
+  adminCustodyNfts: () => ["admin-custody-nfts"] as const,
+  adminRwaRolesOverview: () => ["admin-rwa-roles-overview"] as const,
+  adminRwaRolesStatus: (wallet: string) =>
+    ["admin-rwa-roles-status", wallet.toLowerCase()] as const,
+  /** @deprecated use adminRwaCards */
+  adminListedRwaCards: () => ["admin-rwa-cards"] as const,
   adminUserStats: () => ["admin-user-stats"] as const,
   adminAnalytics: (days: number) => ["admin-analytics", days] as const,
   adminGa4Analytics: (days: number) => ["admin-ga4-analytics", days] as const,
@@ -122,6 +136,17 @@ export const rq = {
   rwaActivity: (tokenId: number) => ["rwa-activity", tokenId] as const,
   /** Server-resolved collection_key for a minted/owned token (rwa_tokens + metadata). */
   tokenCollectionKey: (tokenId: number) => ["token-collection-key", tokenId] as const,
+  /**
+   * Batch server-resolved collection_key for a wallet's owned token set.
+   * Keyed by (wallet address, sorted token IDs) so it fires in parallel with
+   * the metadata batch — both only need tokenIds, not the full metadata payload.
+   */
+  tokenCollectionKeyBatch: (addr: string, tokenIds: readonly number[]) =>
+    [
+      "token-collection-key-batch",
+      addr.toLowerCase(),
+      [...tokenIds].slice().sort((a, b) => a - b),
+    ] as const,
   /** Resolved https URL for the slab back-image (used in RWA detail panel). */
   rwaSlabBack: (uri: string) => ["rwa-detail-slab-back", uri] as const,
 
@@ -243,7 +268,7 @@ export const marketplaceRqPolicy = {
   /** Collection market price series (chart data) — 5 min is sufficient given Cardhedger update cadence */
   marketSeriesStaleMs: 5 * 60_000,
   /** Single collection detail (cover, components, listing count) */
-  collectionDetailStaleMs: 15_000,
+  collectionDetailStaleMs: 60_000,
   /** Single RWA resolved asset (tokenURI + metadata) */
   metadataDetailStaleMs: 60_000,
   /** Merkle-eligible token set for criteria bids */

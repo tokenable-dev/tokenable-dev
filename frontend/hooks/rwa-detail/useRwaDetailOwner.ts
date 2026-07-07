@@ -1,27 +1,28 @@
 "use client";
 
 import { useReadContract } from "wagmi";
-import { sepolia } from "@/config/wagmi";
-import {
-  TOKENABLE_RWA_ADDRESS,
-  TOKENABLE_RWA_READ_ABI,
-} from "@/constants/contracts";
+import { TOKENABLE_RWA_READ_ABI } from "@/constants/contracts";
+import { useAppChain } from "@/providers/AppChainProvider";
+import { useChainContracts } from "@/hooks/chain/useChainContracts";
 
 export function useRwaDetailOwner(
   tokenId: number,
   tokenIdOk: boolean,
   viewerAddress: string | undefined,
 ) {
+  const { chainId } = useAppChain();
+  const { rwaAddress } = useChainContracts();
+
   const {
     data: ownerOnChain,
     isLoading: ownerLoading,
     isError: ownerError,
   } = useReadContract({
-    address: TOKENABLE_RWA_ADDRESS,
+    address: rwaAddress,
     abi: TOKENABLE_RWA_READ_ABI,
     functionName: "ownerOf",
     args: [BigInt(Math.max(0, Math.floor(tokenId)))],
-    chainId: sepolia.id,
+    chainId,
     query: {
       enabled: tokenIdOk,
       retry: 2,
@@ -33,14 +34,17 @@ export function useRwaDetailOwner(
 
   const ownerAddr =
     typeof ownerOnChain === "string" ? ownerOnChain.toLowerCase() : "";
-  const isOwner = Boolean(
-    viewerAddress && ownerAddr && viewerAddress.toLowerCase() === ownerAddr,
-  );
+
+  const isOwner =
+    Boolean(viewerAddress) &&
+    ownerAddr.length > 0 &&
+    ownerAddr === viewerAddress!.toLowerCase();
 
   return {
     ownerOnChain,
+    ownerAddr,
+    isOwner,
     ownerLoading,
     ownerError,
-    isOwner,
   };
 }

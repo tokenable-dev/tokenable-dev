@@ -1,5 +1,10 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { isPsaPublicApiUpstreamEnabled } from '../marketplace/utils/psa-upstream-policy.util';
+import { perfNow, perfLog, elapsedMs } from '../common/perf/perf';
+import {
+  parsePositiveIntEnv,
+} from './psa-public-api-rate-limit.util';
 import type { PsaSpecPopSummary } from './psa-spec-population.util';
 import {
   isCompletePsaPopByGradeMap,
@@ -32,6 +37,19 @@ export interface PsaCertRecord {
   [key: string]: unknown;
 }
 
+export interface PsaUpstreamCallMeta {
+  host: 'api.psacard.com';
+  method: 'GET';
+  path: string;
+  url: string;
+  httpStatus: number;
+  /** Seconds from PSA HTTP `Retry-After` response header — not computed by Tokenable. */
+  retryAfterSeconds: number | null;
+  durationMs: number;
+  /** `memory` only when `PSA_PUBLIC_API_CACHE_TTL_MS` > 0 and cache hit; otherwise live PSA HTTP. */
+  servedFrom: 'none' | 'memory';
+}
+
 export type PsaPublicApiLookupResult =
   | { status: 'disabled'; reason: 'no_token' }
   | { status: 'skipped'; reason: 'no_cert' | 'invalid_cert' }
@@ -40,6 +58,7 @@ export type PsaPublicApiLookupResult =
       certNumber: string;
       /** Full JSON body from PSA (includes PSACert, IsValidRequest, …) */
       raw: unknown;
+      upstream?: PsaUpstreamCallMeta;
     }
   | {
       status: 'error';
@@ -47,6 +66,7 @@ export type PsaPublicApiLookupResult =
       message: string;
       httpStatus?: number;
       reason?: 'cert_mismatch';
+      upstream?: PsaUpstreamCallMeta;
     };
 
 /** GET /pop/GetPSASpecPopulation/{specID} — per-grade pop report for a PSA spec. */
@@ -116,7 +136,7 @@ function sleep(ms: number): Promise<void> {
 }
 
 @Injectable()
-export class PsaPublicApiService {
+export class PsaPublicApiService implements OnModuleInit {
   private readonly logger = new Logger(PsaPublicApiService.name);
   private readonly baseUrl = 'https://api.psacard.com/publicapi';
   /** 성공 응답만 캐시 (동일 Cert 반복 호출·429 완화) */
@@ -127,6 +147,15 @@ export class PsaPublicApiService {
       result: Extract<PsaPublicApiLookupResult, { status: 'success' }>;
     }
   >();
+  private readonly imagesSuccessCache = new Map<
+    string,
+    {
+      expiresAt: number;
+      result: Extract<PsaGetImagesLookupResult, { status: 'success' }>;
+    }
+  >();
+  /** Per-cert backoff after GetImages 429 — avoids hammering PSA on every repeat lookup. */
+  private readonly imagesUpstreamBlockedUntil = new Map<string, number>();
 
   /**
    * 동일 cert에 대한 동시 요청을 한 번으로 합침 (포트폴리오 민트 N개 → PSA N중복 호출 방지).
@@ -151,32 +180,162 @@ export class PsaPublicApiService {
     Promise<PsaSpecPopulationLookupResult>
   >();
 
+  /**
+   * Multi-token pool for round-robin rotation.
+   * PSA free tier: ~1 call/day per token — rotating N tokens gives N calls/day.
+   * Populated from PSA_PUBLIC_API_TOKENS (comma-separated) at startup.
+   * Backward-compatible: PSA_PUBLIC_API_TOKEN (single) still works.
+   */
+  private tokenPool: string[] = [];
+  private tokenPoolIndex = 0;
+  /** ms timestamp until which a token is blocked due to 429 (day quota exhausted). */
+  private readonly tokenBlockedUntil = new Map<string, number>();
+
   constructor(private readonly config: ConfigService) {}
 
-  /**
-   * .env 에 토큰을 붙여넣을 때 줄바꿈·스페이스가 끼면 인증 실패/이상 응답이 날 수 있음 → 전부 제거
-   */
-  private normalizeToken(raw: string | undefined): string | undefined {
-    if (!raw) return undefined;
-    const compact = raw.replace(/\s+/g, '');
-    return compact.length > 0 ? compact : undefined;
+  onModuleInit(): void {
+    this.tokenPool = this.buildTokenPool();
+    if (this.tokenPool.length === 0) {
+      this.logger.warn(
+        'PSA_PUBLIC_API_TOKEN / PSA_PUBLIC_API_TOKENS not set — official cert lookup disabled',
+      );
+      return;
+    }
+    if (!isPsaPublicApiUpstreamEnabled(this.config)) {
+      this.logger.warn(
+        'PSA Public API upstream disabled (PSA_PUBLIC_API_UPSTREAM_ENABLED≠true) — live cert lookup blocked; vault uses Cardhedger + DB cache',
+      );
+      return;
+    }
+    const suffixes = this.tokenPool.map((t) =>
+      t.length >= 4 ? `…${t.slice(-4)}` : '****',
+    );
+    this.logger.log(
+      `PSA Public API enabled (${this.tokenPool.length} token(s): [${suffixes.join(', ')}], cacheTtlMs=${this.getCacheTtlMs()}, maxRetries=${this.getMaxRetries()})`,
+    );
   }
 
-  private getToken(): string | undefined {
-    return this.normalizeToken(this.config.get<string>('PSA_PUBLIC_API_TOKEN'));
+  /** Build deduped token pool from PSA_PUBLIC_API_TOKENS + PSA_PUBLIC_API_TOKEN. */
+  private buildTokenPool(): string[] {
+    const multi = this.config.get<string>('PSA_PUBLIC_API_TOKENS') ?? '';
+    const single = this.config.get<string>('PSA_PUBLIC_API_TOKEN') ?? '';
+    const raw = [
+      ...multi.split(','),
+      ...single.split(','),
+    ];
+    const seen = new Set<string>();
+    const pool: string[] = [];
+    for (const t of raw) {
+      const norm = this.normalizeToken(t);
+      if (norm && !seen.has(norm)) {
+        seen.add(norm);
+        pool.push(norm);
+      }
+    }
+    return pool;
+  }
+
+  /**
+   * Pick next available (non-429-blocked) token via round-robin.
+   * Returns undefined when all tokens are exhausted / pool is empty.
+   */
+  private getNextToken(): string | undefined {
+    if (this.tokenPool.length === 0) return undefined;
+    const now = Date.now();
+    for (let i = 0; i < this.tokenPool.length; i++) {
+      const idx = (this.tokenPoolIndex + i) % this.tokenPool.length;
+      const token = this.tokenPool[idx];
+      const blockedUntil = this.tokenBlockedUntil.get(token) ?? 0;
+      if (now >= blockedUntil) {
+        this.tokenPoolIndex = (idx + 1) % this.tokenPool.length;
+        return token;
+      }
+    }
+    this.logger.warn(
+      `PSA token pool: all ${this.tokenPool.length} token(s) rate-limited (429). Try again later.`,
+    );
+    return undefined;
+  }
+
+  /** Mark a token as blocked until the next UTC midnight (or retryAfterSeconds). */
+  private blockToken(token: string, retryAfterSeconds?: number | null): void {
+    let blockedUntilMs: number;
+    if (retryAfterSeconds != null && retryAfterSeconds > 0) {
+      blockedUntilMs = Date.now() + retryAfterSeconds * 1000;
+    } else {
+      const now = new Date();
+      const midnight = new Date(
+        Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1),
+      );
+      blockedUntilMs = midnight.getTime();
+    }
+    const suffix = token.length >= 4 ? token.slice(-4) : '****';
+    this.logger.warn(
+      `PSA token …${suffix} blocked until ${new Date(blockedUntilMs).toISOString()} (quota exhausted)`,
+    );
+    this.tokenBlockedUntil.set(token, blockedUntilMs);
+  }
+
+  private upstreamBlocked(): boolean {
+    return !isPsaPublicApiUpstreamEnabled(this.config);
   }
 
   private getCacheTtlMs(): number {
     const n = this.config.get<string>('PSA_PUBLIC_API_CACHE_TTL_MS');
     const parsed = n ? parseInt(n, 10) : NaN;
     if (!Number.isNaN(parsed) && parsed >= 0) return parsed;
-    return 10 * 60 * 1000; // 10분
+    return 0;
   }
 
-  /**
-   * Extra attempts after HTTP 429 (total calls = 1 + this value).
-   * Default **0** — fail fast so Vault UI is not left waiting on doomed retries.
-   */
+  private parseRetryAfterSeconds(
+    retryAfterHeader: string | null | undefined,
+  ): number | null {
+    const raw = retryAfterHeader?.trim();
+    if (!raw) return null;
+    const sec = parseInt(raw, 10);
+    return Number.isFinite(sec) && sec > 0 ? sec : null;
+  }
+
+  private buildUpstreamMeta(
+    digits: string,
+    url: string,
+    httpStatus: number,
+    retryAfterHeader: string | null,
+    durationMs: number,
+    servedFrom: PsaUpstreamCallMeta['servedFrom'],
+  ): PsaUpstreamCallMeta {
+    return {
+      host: 'api.psacard.com',
+      method: 'GET',
+      path: `/cert/GetByCertNumber/${digits}`,
+      url,
+      httpStatus,
+      retryAfterSeconds: this.parseRetryAfterSeconds(retryAfterHeader),
+      durationMs,
+      servedFrom,
+    };
+  }
+
+  private getImages429BackoffMs(): number {
+    return parsePositiveIntEnv(
+      this.config.get<string>('PSA_PUBLIC_API_GET_IMAGES_429_BACKOFF_MS'),
+      10 * 60 * 1000,
+      24 * 3600 * 1000,
+    );
+  }
+
+  /** Strip whitespace/newlines accidentally pasted into .env token values. */
+  private normalizeToken(raw: string | undefined): string | undefined {
+    if (!raw) return undefined;
+    const compact = raw.replace(/\s+/g, '');
+    return compact.length > 0 ? compact : undefined;
+  }
+
+  /** @deprecated Use getNextToken() for round-robin pool. Kept for backward compat checks. */
+  private getToken(): string | undefined {
+    return this.tokenPool[0];
+  }
+
   private getMaxRetries(): number {
     const n = this.config.get<string>('PSA_PUBLIC_API_MAX_RETRIES');
     const parsed = n ? parseInt(n, 10) : NaN;
@@ -204,8 +363,12 @@ export class PsaPublicApiService {
    */
   async getByCertNumber(
     certRaw: string | undefined,
+    opts?: { bypassCache?: boolean },
   ): Promise<PsaPublicApiLookupResult> {
-    const token = this.getToken();
+    if (this.upstreamBlocked()) {
+      return { status: 'disabled', reason: 'no_token' };
+    }
+    const token = this.getNextToken();
     if (!token) {
       return { status: 'disabled', reason: 'no_token' };
     }
@@ -217,11 +380,14 @@ export class PsaPublicApiService {
       return { status: 'skipped', reason: 'invalid_cert' };
     }
 
-    const ttl = this.getCacheTtlMs();
+    const bypassCache = opts?.bypassCache === true;
+    const ttl = bypassCache ? 0 : this.getCacheTtlMs();
     if (ttl > 0) {
       const hit = this.successCache.get(digits);
       if (hit && hit.expiresAt > Date.now()) {
-        this.logger.debug(`PSA API cache hit cert=${digits}`);
+        this.logger.debug(
+          `PSA API memory cache hit cert=${digits} (set PSA_PUBLIC_API_CACHE_TTL_MS=0 or bypassCache to force live upstream)`,
+        );
         return hit.result;
       }
     }
@@ -232,7 +398,7 @@ export class PsaPublicApiService {
       return inflight;
     }
 
-    const run = this.runGetByCertNumber(digits, token).finally(() => {
+    const run = this.runGetByCertNumber(digits, token, { bypassCache }).finally(() => {
       this.inFlightGetByCert.delete(digits);
     });
     this.inFlightGetByCert.set(digits, run);
@@ -242,9 +408,12 @@ export class PsaPublicApiService {
   private async runGetByCertNumber(
     digits: string,
     token: string,
+    opts?: { bypassCache?: boolean },
   ): Promise<PsaPublicApiLookupResult> {
     const url = `${this.baseUrl}/cert/GetByCertNumber/${digits}`;
     const maxRetries = this.getMaxRetries();
+    const _t0 = perfNow();
+    const cacheTtlMs = opts?.bypassCache ? 0 : this.getCacheTtlMs();
 
     try {
       let lastRes: Response | null = null;
@@ -253,9 +422,9 @@ export class PsaPublicApiService {
       for (let attempt = 0; attempt <= maxRetries; attempt++) {
         const res = await fetch(url, {
           method: 'GET',
+          signal: AbortSignal.timeout(15_000),
           headers: {
-            // PSA 문서 예시는 소문자 bearer
-            authorization: `bearer ${token}`,
+            Authorization: `Bearer ${token}`,
             accept: 'application/json',
             'user-agent': 'TokenableBackend/1.0 (PSA Public API)',
           },
@@ -295,6 +464,15 @@ export class PsaPublicApiService {
 
       if (!res.ok) {
         const retryAfter = res.headers.get('retry-after');
+        const durationMs = elapsedMs(_t0);
+        const upstream = this.buildUpstreamMeta(
+          digits,
+          url,
+          res.status,
+          retryAfter,
+          durationMs,
+          'none',
+        );
         const errBody = body as { ServerMessage?: string; message?: string };
         let message =
           errBody?.ServerMessage ||
@@ -302,14 +480,16 @@ export class PsaPublicApiService {
           `PSA API HTTP ${res.status}`;
 
         if (res.status === 429) {
+          const retrySec = upstream.retryAfterSeconds;
           message =
-            'PSA API 요청 제한(HTTP 429). 재시도 후에도 실패하면 일일 한도·IP 제한일 수 있습니다. 잠시 뒤에 다시 시도하거나 psacard.com/publicapi 에서 한도를 확인하세요.';
-          if (retryAfter) {
-            message += ` (Retry-After: ${retryAfter}초)`;
+            'PSA upstream(api.psacard.com) HTTP 429 — rate limit or daily quota from PSA, not Tokenable.';
+          if (retrySec != null) {
+            message += ` Retry-After=${retrySec}초는 PSA 응답 헤더 값입니다.`;
           }
           this.logger.warn(
-            `PSA API 429 final cert=${digits} retry-after=${retryAfter ?? 'n/a'}`,
+            `PSA upstream 429 cert=${digits} http=${res.status} retry-after-header=${retryAfter ?? 'n/a'} durationMs=${durationMs}`,
           );
+          this.blockToken(token, retrySec);
         } else if (res.status === 401 || res.status === 403) {
           message =
             'PSA API 인증 실패(토큰 만료·무효·공백 오염 가능). publicapi 에서 토큰을 재발급하고 .env 에 한 줄·공백 없이 넣었는지 확인하세요.';
@@ -320,6 +500,7 @@ export class PsaPublicApiService {
           certNumber: digits,
           message,
           httpStatus: res.status,
+          upstream,
         };
       }
 
@@ -366,15 +547,26 @@ export class PsaPublicApiService {
           status: 'success',
           certNumber: digits,
           raw: body,
+          upstream: this.buildUpstreamMeta(
+            digits,
+            url,
+            res.status,
+            res.headers.get('retry-after'),
+            elapsedMs(_t0),
+            'none',
+          ),
         };
 
-      const ttl = this.getCacheTtlMs();
-      if (ttl > 0) {
+      if (cacheTtlMs > 0) {
         this.successCache.set(digits, {
-          expiresAt: Date.now() + ttl,
+          expiresAt: Date.now() + cacheTtlMs,
           result: success,
         });
       }
+
+      this.logger.log(
+        `PSA upstream OK cert=${digits} http=${res.status} durationMs=${success.upstream?.durationMs ?? elapsedMs(_t0)}`,
+      );
 
       return success;
     } catch (e) {
@@ -385,6 +577,206 @@ export class PsaPublicApiService {
         certNumber: digits,
         message: msg,
       };
+    } finally {
+      perfLog('psa', 'GetByCertNumber', elapsedMs(_t0), { cert: digits });
+    }
+  }
+
+  /**
+   * GET /cert/GetByCertNumberForFileAppend/{cert}
+   * Compact cert + population payload for file/label printing integrations.
+   */
+  async getByCertNumberForFileAppend(
+    certRaw: string | undefined,
+  ): Promise<PsaPublicApiLookupResult> {
+    if (this.upstreamBlocked()) {
+      return { status: 'disabled', reason: 'no_token' };
+    }
+    const token = this.getNextToken();
+    if (!token) {
+      return { status: 'disabled', reason: 'no_token' };
+    }
+    const digits = certRaw?.replace(/\D/g, '') ?? '';
+    if (!digits) {
+      return { status: 'skipped', reason: 'no_cert' };
+    }
+    if (digits.length < 7 || digits.length > 10) {
+      return { status: 'skipped', reason: 'invalid_cert' };
+    }
+
+    const cacheKey = `file-append:${digits}`;
+    const ttl = this.getCacheTtlMs();
+    if (ttl > 0) {
+      const hit = this.successCache.get(cacheKey);
+      if (hit && hit.expiresAt > Date.now()) {
+        this.logger.debug(`PSA file-append cache hit cert=${digits}`);
+        return hit.result;
+      }
+    }
+
+    const inflightKey = `file-append:${digits}`;
+    const inflight = this.inFlightGetByCert.get(inflightKey);
+    if (inflight) {
+      this.logger.debug(
+        `PSA API coalesce in-flight GetByCertForFileAppend cert=${digits}`,
+      );
+      return inflight;
+    }
+
+    const run = this.runGetByCertNumberForFileAppend(digits, token).finally(
+      () => {
+        this.inFlightGetByCert.delete(inflightKey);
+      },
+    );
+    this.inFlightGetByCert.set(inflightKey, run);
+    return run;
+  }
+
+  private async runGetByCertNumberForFileAppend(
+    digits: string,
+    token: string,
+  ): Promise<PsaPublicApiLookupResult> {
+    const url = `${this.baseUrl}/cert/GetByCertNumberForFileAppend/${digits}`;
+    const cacheKey = `file-append:${digits}`;
+    const maxRetries = this.getMaxRetries();
+    const _t0 = perfNow();
+
+    try {
+      let lastRes: Response | null = null;
+      let lastText = '';
+
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        const res = await fetch(url, {
+          method: 'GET',
+          signal: AbortSignal.timeout(15_000),
+          headers: {
+            Authorization: `Bearer ${token}`,
+            accept: 'application/json',
+            'user-agent': 'TokenableBackend/1.0 (PSA Public API)',
+          },
+        });
+
+        lastRes = res;
+        lastText = await res.text();
+
+        if (res.status === 429 && attempt < maxRetries) {
+          const retryAfter = res.headers.get('retry-after');
+          const waitMs = this.waitMsFrom429RetryAfter(retryAfter, attempt);
+          this.logger.warn(
+            `PSA file-append 429 cert=${digits} attempt=${attempt + 1}/${maxRetries + 1} waitMs=${waitMs}`,
+          );
+          await sleep(waitMs);
+          continue;
+        }
+
+        break;
+      }
+
+      const res = lastRes;
+      if (!res) {
+        return {
+          status: 'error',
+          certNumber: digits,
+          message: 'PSA API: no response',
+        };
+      }
+
+      let body: unknown;
+      try {
+        body = lastText ? JSON.parse(lastText) : null;
+      } catch {
+        body = { _parseError: true, rawText: lastText.slice(0, 500) };
+      }
+
+      if (!res.ok) {
+        const errBody = body as { ServerMessage?: string; message?: string };
+        let message =
+          errBody?.ServerMessage ||
+          errBody?.message ||
+          `PSA API HTTP ${res.status}`;
+
+        if (res.status === 429) {
+          message =
+            'PSA API 요청 제한(HTTP 429). psacard.com/publicapi 일일 한도를 확인하세요.';
+          this.logger.warn(
+            `PSA file-append 429 cert=${digits} retry-after=${res.headers.get('retry-after') ?? 'n/a'}`,
+          );
+        } else if (res.status === 401 || res.status === 403) {
+          message =
+            'PSA API 인증 실패(토큰 만료·무효). publicapi 에서 토큰을 재발급하세요.';
+        }
+
+        return {
+          status: 'error',
+          certNumber: digits,
+          message,
+          httpStatus: res.status,
+        };
+      }
+
+      const obj = body as {
+        IsValidRequest?: boolean;
+        ServerMessage?: string;
+      };
+      if (obj?.IsValidRequest === false) {
+        return {
+          status: 'error',
+          certNumber: digits,
+          message: obj.ServerMessage ?? 'Invalid request',
+          httpStatus: res.status,
+        };
+      }
+      if (
+        obj?.ServerMessage === 'No data found' ||
+        /no data found/i.test(String(obj?.ServerMessage ?? ''))
+      ) {
+        return {
+          status: 'error',
+          certNumber: digits,
+          message: 'No data found for cert',
+          httpStatus: res.status,
+        };
+      }
+
+      const returnedCert = certNumberFromPsaCertBody(body);
+      if (returnedCert && returnedCert !== digits) {
+        return {
+          status: 'error',
+          certNumber: digits,
+          message: `PSA API returned cert ${returnedCert} for lookup ${digits} — cert numbers do not match`,
+          httpStatus: res.status,
+          reason: 'cert_mismatch',
+        };
+      }
+
+      const success: Extract<PsaPublicApiLookupResult, { status: 'success' }> =
+        {
+          status: 'success',
+          certNumber: digits,
+          raw: body,
+        };
+
+      const ttl = this.getCacheTtlMs();
+      if (ttl > 0) {
+        this.successCache.set(cacheKey, {
+          expiresAt: Date.now() + ttl,
+          result: success,
+        });
+      }
+
+      return success;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      this.logger.warn(`PSA file-append request failed: ${msg}`);
+      return {
+        status: 'error',
+        certNumber: digits,
+        message: msg,
+      };
+    } finally {
+      perfLog('psa', 'GetByCertNumberForFileAppend', elapsedMs(_t0), {
+        cert: digits,
+      });
     }
   }
 
@@ -395,7 +787,10 @@ export class PsaPublicApiService {
   async getSpecPopulation(
     specRaw: string | number | undefined,
   ): Promise<PsaSpecPopulationLookupResult> {
-    const token = this.getToken();
+    if (this.upstreamBlocked()) {
+      return { status: 'disabled', reason: 'no_token' };
+    }
+    const token = this.getNextToken();
     if (!token) {
       return { status: 'disabled', reason: 'no_token' };
     }
@@ -454,6 +849,7 @@ export class PsaPublicApiService {
   ): Promise<PsaSpecPopulationLookupResult> {
     const url = `${this.baseUrl}/pop/GetPSASpecPopulation/${specId}`;
     const maxRetries = this.getMaxRetries();
+    const _t0 = perfNow();
 
     try {
       let lastRes: Response | null = null;
@@ -462,8 +858,9 @@ export class PsaPublicApiService {
       for (let attempt = 0; attempt <= maxRetries; attempt++) {
         const res = await fetch(url, {
           method: 'GET',
+          signal: AbortSignal.timeout(15_000),
           headers: {
-            authorization: `bearer ${token}`,
+            Authorization: `Bearer ${token}`,
             accept: 'application/json',
             'user-agent': 'TokenableBackend/1.0 (PSA Public API)',
           },
@@ -547,6 +944,8 @@ export class PsaPublicApiService {
         specId,
         message: msg,
       };
+    } finally {
+      perfLog('psa', 'GetSpecPopulation', elapsedMs(_t0), { specId });
     }
   }
 
@@ -558,7 +957,10 @@ export class PsaPublicApiService {
   async getImagesByCertNumber(
     certRaw: string | undefined,
   ): Promise<PsaGetImagesLookupResult> {
-    const token = this.getToken();
+    if (this.upstreamBlocked()) {
+      return { status: 'disabled', reason: 'no_token' };
+    }
+    const token = this.getNextToken();
     if (!token) {
       return { status: 'disabled', reason: 'no_token' };
     }
@@ -568,6 +970,23 @@ export class PsaPublicApiService {
     }
     if (digits.length < 7 || digits.length > 10) {
       return { status: 'skipped', reason: 'invalid_cert' };
+    }
+
+    const blockedUntil = this.imagesUpstreamBlockedUntil.get(digits);
+    if (blockedUntil && blockedUntil > Date.now()) {
+      this.logger.debug(
+        `PSA GetImages per-cert backoff cert=${digits} until=${new Date(blockedUntil).toISOString()}`,
+      );
+      return { status: 'skipped', reason: 'no_cert' };
+    }
+
+    const ttl = this.getCacheTtlMs();
+    if (ttl > 0) {
+      const hit = this.imagesSuccessCache.get(digits);
+      if (hit && hit.expiresAt > Date.now()) {
+        this.logger.debug(`PSA GetImages cache hit cert=${digits}`);
+        return hit.result;
+      }
     }
 
     const inflight = this.inFlightGetImages.get(digits);
@@ -591,6 +1010,7 @@ export class PsaPublicApiService {
   ): Promise<PsaGetImagesLookupResult> {
     const url = `${this.baseUrl}/cert/GetImagesByCertNumber/${digits}`;
     const maxRetries = this.getMaxRetries();
+    const _t0 = perfNow();
 
     try {
       let lastRes: Response | null = null;
@@ -599,8 +1019,9 @@ export class PsaPublicApiService {
       for (let attempt = 0; attempt <= maxRetries; attempt++) {
         const res = await fetch(url, {
           method: 'GET',
+          signal: AbortSignal.timeout(15_000),
           headers: {
-            authorization: `bearer ${token}`,
+            Authorization: `Bearer ${token}`,
             accept: 'application/json',
             'user-agent': 'TokenableBackend/1.0 (PSA Public API)',
           },
@@ -656,7 +1077,14 @@ export class PsaPublicApiService {
 
         if (res.status === 429) {
           message =
-            'PSA GetImages 요청 제한(HTTP 429). 잠시 뒤에 다시 시도하세요.';
+            'PSA GetImages 요청 제한(HTTP 429). GetByCertNumber 본문에 이미지 URL이 있으면 GetImages를 건너뜁니다.';
+          this.imagesUpstreamBlockedUntil.set(
+            digits,
+            Date.now() + this.getImages429BackoffMs(),
+          );
+          this.logger.warn(
+            `PSA GetImages 429 final cert=${digits} retry-after=${res.headers.get('retry-after') ?? 'n/a'} backoffMs=${this.getImages429BackoffMs()}`,
+          );
         } else if (res.status === 401 || res.status === 403) {
           message =
             'PSA GetImages 인증 실패(토큰 만료·무효 가능). publicapi 토큰을 확인하세요.';
@@ -691,11 +1119,22 @@ export class PsaPublicApiService {
         };
       }
 
-      return {
-        status: 'success',
-        certNumber: digits,
-        raw: body,
-      };
+      const success: Extract<PsaGetImagesLookupResult, { status: 'success' }> =
+        {
+          status: 'success',
+          certNumber: digits,
+          raw: body,
+        };
+
+      const ttl = this.getCacheTtlMs();
+      if (ttl > 0) {
+        this.imagesSuccessCache.set(digits, {
+          expiresAt: Date.now() + ttl,
+          result: success,
+        });
+      }
+
+      return success;
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       this.logger.warn(`PSA GetImages request failed: ${msg}`);
@@ -704,6 +1143,8 @@ export class PsaPublicApiService {
         certNumber: digits,
         message: msg,
       };
+    } finally {
+      perfLog('psa', 'GetImagesByCertNumber', elapsedMs(_t0), { cert: digits });
     }
   }
 
@@ -741,13 +1182,17 @@ export class PsaPublicApiService {
     psaPath: string,
     kind: 'order' | 'submission',
   ): Promise<PsaOrderProgressLookupResult> {
-    const token = this.getToken();
+    if (this.upstreamBlocked()) {
+      return { status: 'disabled', reason: 'no_token' };
+    }
+    const token = this.getNextToken();
     if (!token) {
       return { status: 'disabled', reason: 'no_token' };
     }
 
     const url = `${this.baseUrl}${psaPath}`;
     const maxRetries = this.getMaxRetries();
+    const _t0 = perfNow();
 
     try {
       let lastRes: Response | null = null;
@@ -756,8 +1201,9 @@ export class PsaPublicApiService {
       for (let attempt = 0; attempt <= maxRetries; attempt++) {
         const res = await fetch(url, {
           method: 'GET',
+          signal: AbortSignal.timeout(15_000),
           headers: {
-            authorization: `bearer ${token}`,
+            Authorization: `Bearer ${token}`,
             accept: 'application/json',
             'user-agent': 'TokenableBackend/1.0 (PSA Public API)',
           },
@@ -856,6 +1302,8 @@ export class PsaPublicApiService {
         referenceNumber,
         message: msg,
       };
+    } finally {
+      perfLog('psa', 'OrderProgressLookup', elapsedMs(_t0), { referenceNumber, kind });
     }
   }
 }

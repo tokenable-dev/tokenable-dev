@@ -3,8 +3,6 @@ import { IsOptional, IsString } from 'class-validator';
 
 export class AdminRwaTokenListQueryDto {}
 
-export class AdminRwaTokenActionDto {}
-
 export class AdminUpdateRwaTokenDto {
   @ApiPropertyOptional({
     description:
@@ -24,4 +22,17 @@ export class AdminUpdateRwaTokenDto {
   @IsOptional()
   @IsString()
   collectionKey?: string | null;
+}
+
+export class AdminRwaTokenActionDto {}
+
+export class AdminDeliverRwaTokenDto {
+  @ApiPropertyOptional({
+    description:
+      'Override delivery wallet. Must be linked to the vault depositor account. Defaults to primary linked wallet.',
+    example: '0x1234567890123456789012345678901234567890',
+  })
+  @IsOptional()
+  @IsString()
+  recipientAddress?: string | null;
 }

@@ -1,11 +1,8 @@
 "use client";
 
 import { useMemo, type ReactNode } from "react";
-import {
-  BUY_NOW_OUTLINE_GRADIENT,
-  GradientOutlineFrame,
-  gradientOutlineInnerButtonClass,
-} from "@/components/ui/GradientOutlineFrame";
+import { TkButton } from "@/components/ds";
+import { cn } from "@/lib/ds/cn";
 import type { AssetDetailHeadlineParts } from "@/lib/marketplace/assetDetailHeadline";
 import {
   buildRwaDetailMobileTrustView,
@@ -14,13 +11,8 @@ import {
   type RwaDetailMetadata,
 } from "@/lib/marketplace/rwa-detail";
 import {
-  RWA_DETAIL_BUY_NOW_FRAME_SHADOW,
-  RWA_DETAIL_BUY_NOW_TEXT_CLASS,
   RWA_DETAIL_CTA_HEIGHT_CLASS,
   RWA_DETAIL_STICKY_FOOTER_PB_CLASS,
-  RWA_DETAIL_MOBILE_CTA_FRAME_ROUNDED,
-  RWA_DETAIL_MOBILE_CTA_INNER_ROUNDED,
-  RWA_DETAIL_MOBILE_CTA_RIM_PAD_CLASS,
   RWA_MOBILE_SLAB_CAPTION_BLOCK_CLASS,
   RWA_MOBILE_PAGE_CHANNEL_CLASS,
   RWA_MOBILE_SLAB_CAPTION_LINE_GAP_CLASS,
@@ -117,7 +109,7 @@ export function RwaDetailStickyBuyFooter({
     >
       {footerNote != null ? (
         <div
-          className={`pointer-events-auto mb-2 rounded-lg bg-black/90 px-3 py-2 text-center backdrop-blur-sm ${RWA_MOBILE_PAGE_CHANNEL_CLASS}`}
+          className={`pointer-events-auto mb-2 rounded-lg rd-sticky-footer__note px-3 py-2 text-center backdrop-blur-sm ${RWA_MOBILE_PAGE_CHANNEL_CLASS}`}
         >
           {footerNote}
         </div>
@@ -127,7 +119,7 @@ export function RwaDetailStickyBuyFooter({
   );
 }
 
-/** Mobile sticky CTA — product gradient rim; uniform height across states. */
+/** Mobile sticky CTA — DS primary button. */
 export function RwaDetailStickyBuyButton({
   children,
   onClick,
@@ -138,21 +130,14 @@ export function RwaDetailStickyBuyButton({
   disabled?: boolean;
 }) {
   return (
-    <GradientOutlineFrame
-      className={`group/cta w-full min-w-0 transition-shadow duration-200 ease-out ${RWA_DETAIL_BUY_NOW_FRAME_SHADOW}`}
-      roundedClass={RWA_DETAIL_MOBILE_CTA_FRAME_ROUNDED}
-      padClass={RWA_DETAIL_MOBILE_CTA_RIM_PAD_CLASS}
-      style={{ background: BUY_NOW_OUTLINE_GRADIENT }}
+    <TkButton
+      type="button"
+      variant="primary"
+      disabled={disabled}
+      onClick={onClick}
+      className={cn("w-full justify-center", RWA_DETAIL_CTA_HEIGHT_CLASS, rwaDetailRightFont.className)}
     >
-      <button
-        type="button"
-        onClick={onClick}
-        disabled={disabled}
-        className={`${rwaDetailRightFont.className} ${gradientOutlineInnerButtonClass} ${RWA_DETAIL_CTA_HEIGHT_CLASS} flex w-full min-w-0 items-center justify-center ${RWA_DETAIL_MOBILE_CTA_INNER_ROUNDED} border-0 px-4 text-[14px] font-bold leading-none tracking-wide outline-none transition-[background-color,box-shadow,filter] duration-200 ease-out enabled:hover:bg-zinc-950 enabled:hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.12),inset_0_-1px_0_rgba(16,211,51,0.1)] enabled:hover:brightness-110 enabled:hover:saturate-110 motion-reduce:transition-none motion-reduce:enabled:hover:brightness-100 sm:text-[15px] ${RWA_DETAIL_BUY_NOW_TEXT_CLASS}`}
-        style={{ backgroundColor: "#000000" }}
-      >
-        {children}
-      </button>
-    </GradientOutlineFrame>
+      {children}
+    </TkButton>
   );
 }

@@ -1,0 +1,53 @@
+---
+description: General coding rules that apply across the entire Tokenable repository
+globs: ["**/*"]
+alwaysApply: true
+---
+
+# General Rules
+
+## Read Before Write
+
+1. Always read the relevant documentation before making changes:
+   - `ARCHITECTURE_INDEX.md` for navigation
+   - `.cursor/project-constitution.md` for architecture philosophy
+   - The relevant `docs/` file for the subsystem you're modifying
+
+2. Always read existing implementation before writing new code. Search for similar patterns.
+
+3. Never guess at architecture. Derive every decision from the repository.
+
+## Code Quality
+
+4. Consistency over cleverness. Match existing patterns exactly.
+
+5. Never duplicate functionality. Search the codebase first.
+
+6. Do not add comments that narrate what code does. Only comment non-obvious intent, trade-offs, or constraints.
+
+7. No `TODO`, `FIXME`, or `HACK` comments unless tracking a real known issue with context.
+
+## Documentation
+
+8. Update `docs/` when you change how a subsystem works.
+
+9. If you create a new endpoint, update the relevant `docs/api/` file.
+
+10. If you change a database schema, update `docs/architecture/database.md`.
+
+11. Documentation should become the single source of truth. Never let it drift from implementation.
+
+## Testing
+
+12. Run `pnpm exec tsc --noEmit` (backend and frontend) before considering any change complete.
+
+13. For backend logic changes: add or update a unit test.
+
+14. For contract changes: add or update a test in `contracts/test/TokenableRWA.test.ts`.
+
+## Canonical Sources (do not repeat these rules here)
+
+- **Simplicity philosophy** → `.cursor/rules/simplicity.mdc`
+- **Security rules** (secrets, keys, auth) → `.cursor/rules/security.mdc`
+- **Invariants that must never change** (vaultRef formula, cookie names, `collection_key` algorithm, contract admin role) → `.cursor/project-constitution.md` § "Things That Must NEVER Be Changed"
+- **Working order for any task** → `AI_WORKFLOW.md`

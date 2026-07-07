@@ -4,7 +4,7 @@ import { formatUnits } from "viem";
 import type { Order } from "@/lib/core";
 import { bidUsdcAmount } from "@/lib/seaport/orders/bidUsdc";
 import { feePercent } from "@/lib/seaport/orders/platformFee";
-import { RwaDetailGradientButton } from "@/components/marketplace/rwa-detail/ui/RwaDetailGradientButton";
+import { TkButton } from "@/components/ds";
 import { ListingFlowProgress } from "./ListingFlowProgress";
 import { listModalAssetLabel, shortBidder } from "@/lib/seaport/listing/listRwaModalUtils";
 import type { ListRwaModalStep } from "@/lib/seaport/listing/listRwaModalTypes";
@@ -39,10 +39,11 @@ export function ListRwaModalFormView({
   errorMsg: string;
   isProcessing: boolean;
   onSubmit: () => void;
-  /** `embedded` — card detail inline panel (no modal header / long copy). */
-  variant?: "modal" | "embedded";
+  /** `embedded` — card detail inline panel; `sheet` — TkActionSheet on RWA detail. */
+  variant?: "modal" | "embedded" | "sheet";
 }) {
   const isEmbedded = variant === "embedded";
+  const isSheet = variant === "sheet";
   const showFlowProgress =
     !isEmbedded ||
     isProcessing ||
@@ -54,9 +55,17 @@ export function ListRwaModalFormView({
   return (
     <div className={`flex min-w-0 flex-col ${isEmbedded ? "gap-4" : "gap-5 pt-1"}`}>
       {!isEmbedded ? (
-        <header className="flex gap-3 border-b border-white/[0.06] pb-4">
+        <header
+          className={`flex gap-3 ${isSheet ? "pb-3" : "border-b border-white/[0.06] pb-4"}`}
+        >
           <div className="min-w-0 flex-1 space-y-2">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-mint/90">
+            <p
+              className={
+                isSheet
+                  ? "rd-list-sheet__eyebrow"
+                  : "text-[10px] font-semibold uppercase tracking-[0.14em] text-mint/90"
+              }
+            >
               {isReplaceListing ? "Update listing" : "New listing"}
             </p>
             <h2
@@ -66,7 +75,7 @@ export function ListRwaModalFormView({
               {listModalAssetLabel(tokenId, assetTitle)}
             </h2>
           </div>
-          <div className="w-7 shrink-0 sm:w-8" aria-hidden />
+          {!isSheet ? <div className="w-7 shrink-0 sm:w-8" aria-hidden /> : null}
         </header>
       ) : null}
 
@@ -89,9 +98,11 @@ export function ListRwaModalFormView({
           </label>
         )}
         <div
-          className={`relative rounded-xl border border-mint/40 bg-mint/[0.04] shadow-[inset_0_0_0_1px_rgba(45,212,191,0.06)] transition-[border-color,box-shadow] focus-within:border-mint/65 focus-within:shadow-[0_0_0_2px_rgba(45,212,191,0.12)] ${
-            isEmbedded ? "rounded-2xl" : ""
-          }`}
+          className={`relative rounded-xl border bg-mint/[0.04] shadow-[inset_0_0_0_1px_rgba(45,212,191,0.06)] transition-[border-color,box-shadow] focus-within:border-mint/65 focus-within:shadow-[0_0_0_2px_rgba(45,212,191,0.12)] ${
+            isSheet
+              ? "rd-list-sheet__price-wrap border-mint/40"
+              : "border-mint/40"
+          } ${isEmbedded ? "rounded-2xl" : ""}`}
         >
           <input
             id="list-rwa-price-usdc"
@@ -109,9 +120,9 @@ export function ListRwaModalFormView({
             }`}
           />
           <span
-            className={`pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 font-medium uppercase tracking-wide text-mint/70 ${
-              isEmbedded ? "text-xs sm:text-sm" : "text-[11px]"
-            }`}
+            className={`pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 font-medium uppercase tracking-wide ${
+              isSheet ? "rd-list-sheet__usdc text-mint/70" : "text-mint/70"
+            } ${isEmbedded ? "text-xs sm:text-sm" : "text-[11px]"}`}
           >
             USDC
           </span>
@@ -206,8 +217,8 @@ export function ListRwaModalFormView({
         </div>
       )}
 
-      <RwaDetailGradientButton
-        className="mt-0.5"
+      <TkButton
+        className="mt-0.5 w-full justify-center"
         onClick={onSubmit}
         disabled={isProcessing || !price || parseFloat(price) <= 0}
       >
@@ -216,7 +227,7 @@ export function ListRwaModalFormView({
           : isReplaceListing
             ? "Update listing"
             : "List for sale"}
-      </RwaDetailGradientButton>
+      </TkButton>
     </div>
   );
 }

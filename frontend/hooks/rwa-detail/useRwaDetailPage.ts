@@ -3,7 +3,7 @@
 import { useCallback } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useConnect, usePublicClient, useWriteContract } from "wagmi";
-import { sepolia } from "@/config/wagmi";
+import { useAppChain } from "@/providers/AppChainProvider";
 import { useQueryClient } from "@tanstack/react-query";
 import { useShallow } from "zustand/react/shallow";
 import type { RwaDetailMetadata } from "@/lib/marketplace/rwa-detail";
@@ -33,7 +33,8 @@ export function useRwaDetailPage() {
 
   const { address, isConnected } = useAppStore(useShallow(selectWallet));
   const { isPending: connectPending } = useConnect();
-  const publicClient = usePublicClient({ chainId: sepolia.id });
+  const { chainId } = useAppChain();
+  const publicClient = usePublicClient({ chainId });
   const { writeContractAsync } = useWriteContract();
 
   const {

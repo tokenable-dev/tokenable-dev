@@ -18,9 +18,6 @@ export function tradesTapeScrollHeightPx(
 /** Fixed viewport — 9 rows × {@link TRADES_TAPE_FLUSH_ROW_HEIGHT_PX}px; overflow scrolls. */
 export const TRADES_TAPE_SCROLL_HEIGHT_CLASS = "h-[261px] max-h-[261px]";
 
-/** @deprecated Use {@link TRADES_TAPE_SCROLL_HEIGHT_CLASS}. */
-export const TRADES_TAPE_SCROLL_MAX_HEIGHT_CLASS = TRADES_TAPE_SCROLL_HEIGHT_CLASS;
-
 /** Shared flush / card-detail trade row — tight single-line rows with dividers. */
 export const TRADES_TAPE_FLUSH_ROW_CLASS = `border-b border-zinc-800/40 py-1.5 last:border-b-0 ${orderBookTradesContentValueCls} text-[13px] leading-snug text-zinc-200`;
 

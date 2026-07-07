@@ -1,0 +1,195 @@
+/* RWA token detail — Card.html single-listing focus (Phase 9) */
+
+.rwa-detail-page {
+  background: var(--ink);
+  color: var(--t1);
+  overflow-x: clip;
+  min-height: 100%;
+}
+
+.rwa-detail-page__shell {
+  max-width: 72rem;
+  margin: 0 auto;
+  width: 100%;
+  padding: 24px clamp(12px, 3vw, 24px) 32px;
+}
+
+@media (min-width: 1024px) {
+  .rwa-detail-page__shell {
+    padding-top: 32px;
+    padding-bottom: 48px;
+  }
+}
+
+@media (max-width: 1023px) {
+  .rwa-detail-page__shell--main {
+    padding-left: 0;
+    padding-right: 0;
+    padding-top: 8px;
+    padding-bottom: 0;
+  }
+}
+
+/* ── Breadcrumb ─────────────────────────────────────────────────────────── */
+
+.rd-breadcrumb {
+  display: none;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: var(--t3);
+  margin-bottom: 20px;
+}
+
+@media (min-width: 1024px) {
+  .rd-breadcrumb {
+    display: block;
+  }
+}
+
+.rd-breadcrumb a {
+  color: var(--t2);
+  text-decoration: none;
+}
+
+.rd-breadcrumb a:hover {
+  color: #fff;
+  text-decoration: underline;
+}
+
+.rd-breadcrumb__sep {
+  margin: 0 0.35em;
+}
+
+.rd-breadcrumb__current {
+  color: #fff;
+}
+
+/* ── Sidebar / trade panel ────────────────────────────────────────────────── */
+
+.rwa-detail-page .rd-sidebar-panel {
+  min-width: 0;
+}
+
+.rwa-detail-page .rd-trades-panel h2 {
+  font-size: 18px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.rwa-detail-page .rd-sidebar-divider {
+  border-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+.rwa-detail-page .rd-price-label {
+  color: var(--t2) !important;
+}
+
+.rwa-detail-page .rd-not-for-sale {
+  color: var(--t2) !important;
+}
+
+/* ── Mint → Azure overrides (scoped) ─────────────────────────────────────── */
+
+.rwa-detail-page [class*="text-mint"],
+.rwa-detail-page .tk-sheet-panel [class*="text-mint"] {
+  color: var(--azure) !important;
+}
+
+.rwa-detail-page [class*="border-mint"],
+.rwa-detail-page .tk-sheet-panel [class*="border-mint"] {
+  border-color: rgba(26, 111, 255, 0.35) !important;
+}
+
+.rwa-detail-page [class*="bg-mint"],
+.rwa-detail-page .tk-sheet-panel [class*="bg-mint"] {
+  background: rgba(26, 111, 255, 0.08) !important;
+}
+
+.rwa-detail-page .accent-mint,
+.rwa-detail-page .tk-sheet-panel .accent-mint {
+  accent-color: var(--azure);
+}
+
+/* ── Sticky mobile footer ─────────────────────────────────────────────────── */
+
+.rwa-detail-page .rd-sticky-footer__note {
+  background: rgba(26, 26, 30, 0.95) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* ── Loading skeleton ─────────────────────────────────────────────────────── */
+
+.rwa-detail-page .rd-skeleton {
+  background: #1e1e2e !important;
+  border-radius: 16px;
+}
+
+/* ── Empty / error states ───────────────────────────────────────────────────── */
+
+.rd-empty-state {
+  text-align: center;
+  padding: 96px 16px;
+}
+
+.rd-empty-state__title {
+  margin: 0 0 8px;
+  font-size: 20px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.rd-empty-state__text {
+  margin: 0 0 24px;
+  font-size: 14px;
+  color: var(--t2);
+  line-height: 1.5;
+}
+
+/* ── List sheet form ────────────────────────────────────────────────────────── */
+
+.rd-list-sheet__eyebrow {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--azure);
+}
+
+.rd-list-sheet__price-wrap {
+  border-color: rgba(26, 111, 255, 0.35) !important;
+  background: rgba(26, 111, 255, 0.06) !important;
+  box-shadow: inset 0 0 0 1px rgba(26, 111, 255, 0.08) !important;
+}
+
+.rd-list-sheet__price-wrap:focus-within {
+  border-color: rgba(26, 111, 255, 0.55) !important;
+  box-shadow: 0 0 0 2px rgba(26, 111, 255, 0.12) !important;
+}
+
+.rd-list-sheet__usdc {
+  color: rgba(26, 111, 255, 0.75) !important;
+}
+
+/* ── Place bid sheet header ─────────────────────────────────────────────────── */
+
+.rd-bid-sheet__header {
+  padding-right: 40px;
+  margin-bottom: 16px;
+}
+
+.rd-bid-sheet__title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: -0.02em;
+}
+
+.rd-bid-sheet__subtitle {
+  margin: 8px 0 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--t2);
+}

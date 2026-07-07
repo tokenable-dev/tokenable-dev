@@ -10,6 +10,10 @@ export function validateMintForm(
 ): Record<string, string> {
   const next: Record<string, string> = {};
   if (!form.name.trim()) next.name = "Asset name is required";
+  if (!form.grade.certNumber.trim() && !lastAnalyze?.psa.certNumber?.trim()) {
+    next.certNumber =
+      "PSA cert number is required — run a cert lookup or PSA photo analysis first.";
+  }
   let hasImage = false;
   if (
     psaCertImageMatchesFormCert(lastAnalyze, form.grade.certNumber) ||
@@ -26,7 +30,9 @@ export function validateMintForm(
   if (!hasImage) {
     next.image =
       psaInputMode === "cert"
-        ? "Run Cert lookup first so PSA can supply an image URL, or switch to slab photos and upload a front image."
+        ? lastAnalyze?.psa?.enrichedFromOfficialApi
+          ? "PSA cert data loaded but no slab image is available. We use a Cardhedger catalog image when found; otherwise upload a slab photo in Photo mode."
+          : "Run cert lookup first. When PSA has no slab image, a Cardhedger catalog image or uploaded photo is used for minting."
         : "Upload a photo and wait for analysis, or use Cert # mode. If PSA does not supply an image URL, your uploaded photo is used.";
   }
   return next;

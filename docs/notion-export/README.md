@@ -1,42 +1,34 @@
-# Notion Import
+# Notion Export
 
-Condensed docs for Notion. **Canonical source:** [GitHub `docs/`](https://github.com/tokenable-dev/tokenable-dev/tree/develop/docs)
+> **Note:** The `Tech-Stack.md` and `API-Docs.md` Notion import files have been removed.
+> They duplicated the main `docs/` tree and fell out of date quickly.
+>
+> Use the live docs in [`docs/`](../) as the single source of truth.
 
-## Import
+---
 
-| Notion page | File |
-|-------------|------|
-| **Tech Stack** | `Tech-Stack.md` |
-| **API Docs** | `API-Docs.md` |
+## Recommended Notion pages (copy from source)
 
-1. Notion → **Import → Markdown** → pick file  
-2. Add a **Table of contents** block at the top  
-3. Mermaid blocks may need redraw in Notion — use [GitHub diagram docs](https://github.com/tokenable-dev/tokenable-dev/blob/develop/docs/diagrams/marketplace-lifecycle.en.md)
+| Topic | Source file |
+|-------|------------|
+| System overview | [architecture/overview.md](../architecture/overview.md) |
+| Backend modules | [architecture/backend.md](../architecture/backend.md) |
+| Frontend structure | [architecture/frontend.md](../architecture/frontend.md) |
+| Database (17 tables) | [architecture/database.md](../architecture/database.md) |
+| API reference | [api/README.md](../api/README.md) |
+| Auth (Privy) | [api/auth.md](../api/auth.md) |
+| Local setup | [guides/local-setup.md](../guides/local-setup.md) |
+| Privy auth migration | [guides/privy-auth-migration.md](../guides/privy-auth-migration.md) |
 
-## ZIP (both pages)
+## Draw.io diagrams (`diagrams/`)
 
-```bash
-cd docs/notion-export && zip -r tokenable-notion.zip Tech-Stack.md API-Docs.md
-```
+The `diagrams/` subfolder contains `.drawio` (XML) files for system architecture, backend modules, frontend structure, and vault lifecycle. Open them with [draw.io](https://app.diagrams.net/) or the VS Code draw.io extension.
 
-## GitHub references
+| File | Description |
+|------|-------------|
+| `01-system-architecture.drawio` | Overall Nginx / frontend / backend / DB topology |
+| `02-backend-modules.drawio` | NestJS module graph |
+| `03-frontend-structure.drawio` | Next.js component tree |
+| `vault/` | Vault lifecycle diagrams (planned feature) |
 
-| Topic | Link |
-|-------|------|
-| **Docs index** | [docs/README.md](https://github.com/tokenable-dev/tokenable-dev/blob/develop/docs/README.md) |
-| Architecture overview | [architecture/overview.md](https://github.com/tokenable-dev/tokenable-dev/blob/develop/docs/architecture/overview.md) |
-| Backend modules | [architecture/backend.md](https://github.com/tokenable-dev/tokenable-dev/blob/develop/docs/architecture/backend.md) |
-| Frontend structure | [architecture/frontend.md](https://github.com/tokenable-dev/tokenable-dev/blob/develop/docs/architecture/frontend.md) |
-| Database (17 tables) | [architecture/database.md](https://github.com/tokenable-dev/tokenable-dev/blob/develop/docs/architecture/database.md) |
-| API index | [api/README.md](https://github.com/tokenable-dev/tokenable-dev/blob/develop/docs/api/README.md) |
-| Frontend routes | [frontend/routes.md](https://github.com/tokenable-dev/tokenable-dev/blob/develop/docs/frontend/routes.md) |
-| Marketplace diagrams | [diagrams/marketplace-lifecycle.en.md](https://github.com/tokenable-dev/tokenable-dev/blob/develop/docs/diagrams/marketplace-lifecycle.en.md) |
-| Local setup | [guides/local-setup.md](https://github.com/tokenable-dev/tokenable-dev/blob/develop/docs/guides/local-setup.md) |
-| Deployment | [guides/deployment.md](https://github.com/tokenable-dev/tokenable-dev/blob/develop/docs/guides/deployment.md) |
-| Notion — Tech Stack | [notion-export/Tech-Stack.md](https://github.com/tokenable-dev/tokenable-dev/blob/develop/docs/notion-export/Tech-Stack.md) |
-| Notion — API Docs | [notion-export/API-Docs.md](https://github.com/tokenable-dev/tokenable-dev/blob/develop/docs/notion-export/API-Docs.md) |
-| **Vault system (draw.io)** | [notion-export/diagrams/vault/](https://github.com/tokenable-dev/tokenable-dev/tree/develop/docs/notion-export/diagrams/vault) |
-
-**Live API schemas:** `GET /api/docs` (local: `http://localhost:4100/api/docs`)
-
-**Last synced:** 2026-06-17 · branch `develop`
+These are not auto-synced with code changes.

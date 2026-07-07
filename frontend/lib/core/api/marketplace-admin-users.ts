@@ -1,13 +1,37 @@
 import { backendFetch, getApiUrl } from "./client";
 
-export type AdminUserSignupType = "google" | "email" | "google+email";
+export type AdminPrivyAuthMethod =
+  | "wallet"
+  | "google"
+  | "email"
+  | "google+email"
+  | "apple"
+  | "other"
+  | "legacy";
 
 export type AdminUserFilter =
   | "all"
+  | "privy"
+  | "legacy"
   | "google"
   | "email"
+  | "wallet"
   | "verified"
-  | "unverified";
+  | "unverified"
+  | "with_wallet"
+  | "kyc_approved"
+  | "kyc_pending";
+
+export type AdminAuthProviderRow = {
+  id: string;
+  providerType: string;
+  providerSubject: string;
+  email: string | null;
+  phone: string | null;
+  displayName: string | null;
+  isVerified: boolean;
+  linkedAt: string;
+};
 
 export type AdminUserSummary = {
   id: string;
@@ -15,13 +39,16 @@ export type AdminUserSummary = {
   name: string | null;
   pictureUrl: string | null;
   emailVerified: boolean;
-  googleId: string | null;
-  hasPassword: boolean;
-  signupType: AdminUserSignupType;
+  privyAuthMethod: AdminPrivyAuthMethod;
+  privyId: string | null;
+  authProviderTypes: string[];
+  kycStatus: "none" | "pending" | "approved" | "rejected";
+  kycVerifiedAt: string | null;
   walletAddress: string | null;
   walletLinkedAt: string | null;
   walletCount: number;
   watchlistCount: number;
+  lastPrivySyncAt: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -30,23 +57,35 @@ export type AdminUserWalletRow = {
   id: string;
   walletAddress: string;
   isPrimary: boolean;
+  chainType: string;
+  walletKind: "embedded" | "external";
+  walletClient: string | null;
+  connectorType: string | null;
+  source: "privy_sync" | "admin" | "legacy";
   linkedAt: string;
 };
 
 export type AdminUserDetail = AdminUserSummary & {
   wallets: AdminUserWalletRow[];
+  authProviders: AdminAuthProviderRow[];
   watchlistKeys: string[];
-  pendingEmailVerification: boolean;
-  pendingPasswordReset: boolean;
+  kycProvider: string | null;
+  kycExternalId: string | null;
+  kycRejectionReason: string | null;
 };
 
 export type AdminUserStats = {
   total: number;
+  privy: number;
+  legacy: number;
+  google: number;
+  emailOtp: number;
+  walletLogin: number;
+  withWallet: number;
+  kycApproved: number;
+  kycPending: number;
   verified: number;
   unverified: number;
-  googleOnly: number;
-  emailPassword: number;
-  withWallet: number;
 };
 
 async function parseAdminError(res: Response, fallback: string): Promise<never> {
@@ -124,37 +163,14 @@ export async function deleteAdminUser(userId: string): Promise<{ ok: true }> {
   return res.json() as Promise<{ ok: true }>;
 }
 
-async function postAdminUserAction(
-  userId: string,
-  path: string,
-  body?: Record<string, unknown>,
-): Promise<unknown> {
-  const res = await backendFetch(
-    `${getApiUrl()}/marketplace/admin/users/${encodeURIComponent(userId)}/${path}`,
-    {
-      method: "POST",
-      headers: body ? { "Content-Type": "application/json" } : undefined,
-      body: body ? JSON.stringify(body) : undefined,
-    },
-  );
-  if (!res.ok) await parseAdminError(res, "Action failed");
-  return res.json();
-}
-
-export const postAdminResendVerification = (userId: string) =>
-  postAdminUserAction(userId, "resend-verification");
-
-export const postAdminSendPasswordReset = (userId: string) =>
-  postAdminUserAction(userId, "send-password-reset");
-
-export const postAdminSetUserPassword = (userId: string, password: string) =>
-  postAdminUserAction(userId, "set-password", { password });
-
 export const postAdminForceVerifyEmail = (userId: string) =>
-  postAdminUserAction(userId, "force-verify-email");
-
-export const postAdminClearPendingTokens = (userId: string) =>
-  postAdminUserAction(userId, "clear-pending-tokens");
+  backendFetch(
+    `${getApiUrl()}/marketplace/admin/users/${encodeURIComponent(userId)}/force-verify-email`,
+    { method: "POST" },
+  ).then(async (res) => {
+    if (!res.ok) await parseAdminError(res, "Failed to verify email");
+    return res.json() as Promise<AdminUserDetail>;
+  });
 
 export async function postAdminLinkUserWallet(
   userId: string,
@@ -194,4 +210,59 @@ export async function deleteAdminUserWatchlistItem(
   );
   if (!res.ok) await parseAdminError(res, "Failed to remove watchlist item");
   return res.json() as Promise<AdminUserDetail>;
+}
+
+/** Mask wallet-only Privy placeholder emails for admin display. */
+export function formatAdminUserEmail(email: string): string {
+  if (email.toLowerCase().endsWith("@privy.wallet")) {
+    const wallet = email.replace(/@privy\.wallet$/i, "");
+    if (wallet.length >= 10) {
+      return `${wallet.slice(0, 6)}…${wallet.slice(-4)} (wallet-only)`;
+    }
+    return `${wallet} (wallet-only)`;
+  }
+  return email;
+}
+
+export function formatPrivyAuthMethod(method: AdminPrivyAuthMethod): string {
+  const labels: Record<AdminPrivyAuthMethod, string> = {
+    wallet: "Wallet login",
+    google: "Google",
+    email: "Email OTP",
+    "google+email": "Google + email",
+    apple: "Apple",
+    other: "Multi-method",
+    legacy: "Pre-Privy",
+  };
+  return labels[method];
+}
+
+export function formatAuthProviderLabel(type: string): string {
+  const labels: Record<string, string> = {
+    privy: "Privy",
+    email: "Email OTP",
+    google_oauth: "Google",
+    apple_oauth: "Apple",
+    wallet: "External wallet",
+    sms: "SMS",
+    passkey: "Passkey",
+  };
+  return labels[type] ?? type.replace(/_/g, " ");
+}
+
+export function formatKycStatus(status: AdminUserSummary["kycStatus"]): string {
+  if (status === "approved") return "KYC approved";
+  if (status === "pending") return "KYC pending";
+  if (status === "rejected") return "KYC rejected";
+  return "No KYC";
+}
+
+export function privyAuthMethodBadgeClass(method: AdminPrivyAuthMethod): string {
+  if (method === "legacy") {
+    return "bg-amber-50 text-amber-800 ring-1 ring-amber-200";
+  }
+  if (method === "wallet") {
+    return "bg-violet-50 text-violet-700 ring-1 ring-violet-200";
+  }
+  return "bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200";
 }

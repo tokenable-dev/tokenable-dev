@@ -2,6 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, useState } from "react";
+import { TkButton, TkField, TkInput } from "@/components/ds";
 
 export function SiteAccessClient() {
   const router = useRouter();
@@ -44,44 +45,41 @@ export function SiteAccessClient() {
   }
 
   return (
-    <div className="flex min-h-[100dvh] items-center justify-center px-4 py-10">
-      <div className="w-full max-w-sm rounded-2xl border border-zinc-800 bg-zinc-950/90 p-6 shadow-xl">
-        <h1 className="text-center text-lg font-semibold text-white">Site access</h1>
-        <p className="mt-2 text-center text-sm leading-relaxed text-zinc-400">
-          Password required. Access lasts 1 hour.
-        </p>
+    <div className="secondary-page secondary-page--full secondary-page--centered px-4 py-10">
+      <div className="secondary-gate-card">
+        <h1 className="secondary-gate-card__title">Site access</h1>
+        <p className="secondary-gate-card__text">Password required. Access lasts 1 hour.</p>
 
-        <form className="mt-6 space-y-4" onSubmit={onSubmit}>
-          <label className="block">
-            <span className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-zinc-500">
-              Password
-            </span>
-            <input
+        <form className="secondary-gate-form" onSubmit={onSubmit}>
+          <TkField label="Password" htmlFor="site-access-password">
+            <TkInput
+              id="site-access-password"
               type="password"
               name="password"
               autoComplete="current-password"
               autoFocus
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="input-dark w-full rounded-lg border border-zinc-700 bg-[var(--input-surface)] px-3 py-2.5 text-base text-white outline-none ring-mint/40 placeholder:text-zinc-600 focus:border-mint/50 focus:ring-2"
               placeholder="Enter password"
               disabled={pending}
+              hasError={error != null}
             />
-          </label>
+          </TkField>
 
           {error ? (
-            <p className="text-center text-sm text-red-400" role="alert">
+            <p className="secondary-gate-error" role="alert">
               {error}
             </p>
           ) : null}
 
-          <button
+          <TkButton
             type="submit"
+            variant="primary"
+            className="w-full justify-center"
             disabled={pending || password.length === 0}
-            className="w-full rounded-lg bg-mint px-4 py-2.5 text-sm font-semibold text-black transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {pending ? "Checking…" : "Continue"}
-          </button>
+          </TkButton>
         </form>
       </div>
     </div>

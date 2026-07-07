@@ -19,12 +19,6 @@ export const ADMIN_LIST = "space-y-4 sm:space-y-5";
 
 export const ADMIN_COUNT = `text-sm font-medium ${ADMIN_TEXT_SECONDARY}`;
 
-/** @deprecated Pages render inside MarketplaceAdminShell — use fragment children only. */
-export const ADMIN_PAGE = "";
-
-/** @deprecated Pages render inside MarketplaceAdminShell — use fragment children only. */
-export const ADMIN_PAGE_WIDE = "";
-
 export const ADMIN_ARTICLE =
   "rounded-lg border border-zinc-200 bg-white p-4 shadow-sm sm:p-5";
 
@@ -39,12 +33,12 @@ export const ADMIN_LABEL =
   `mb-1.5 block text-xs font-medium ${ADMIN_TEXT_SECONDARY}`;
 
 export const ADMIN_INPUT =
-  "w-full min-w-0 rounded-md border border-zinc-300 bg-white px-3 py-2 text-base text-zinc-900 outline-none transition-colors placeholder:text-zinc-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 sm:text-sm";
+  "w-full min-w-0 rounded-md border border-zinc-300 bg-white px-3 py-2 text-base text-zinc-900 outline-none transition-colors placeholder:text-zinc-500 focus:border-[#1A6FFF] focus:ring-2 focus:ring-[#1A6FFF]/20 sm:text-sm";
 
 export const ADMIN_INPUT_MONO = `${ADMIN_INPUT} font-mono sm:text-[13px]`;
 
 export const ADMIN_BTN_PRIMARY =
-  "inline-flex items-center justify-center rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50";
+  "inline-flex items-center justify-center rounded-md bg-[#1A6FFF] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#1558d6] disabled:cursor-not-allowed disabled:opacity-50";
 
 export const ADMIN_BTN_SECONDARY =
   "inline-flex items-center justify-center rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-800 transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50";
@@ -59,7 +53,7 @@ export const ADMIN_DETAILS_SUMMARY =
   `cursor-pointer select-none text-xs font-medium ${ADMIN_TEXT_SECONDARY} sm:text-sm`;
 
 export const ADMIN_LINK =
-  "font-medium text-blue-700 hover:text-blue-800 hover:underline";
+  "font-medium text-[#1A6FFF] hover:text-[#1558d6] hover:underline";
 
 export const ADMIN_COVER_BOX =
   "flex h-32 w-full shrink-0 items-center justify-center overflow-hidden rounded-md border border-zinc-200 bg-zinc-50 sm:h-36 sm:w-36";

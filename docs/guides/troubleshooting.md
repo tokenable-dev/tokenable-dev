@@ -28,6 +28,31 @@
 
 ---
 
+## Login modal does not open / Privy session not created
+
+**Symptom:** Clicking "Sign in" has no effect, or `POST /api/auth/privy/session` returns `400 Bad Request`.
+
+**Local dev**
+
+1. Verify `NEXT_PUBLIC_PRIVY_APP_ID` is set in `frontend/.env` and the dev server was restarted after adding it (Next.js bakes `NEXT_PUBLIC_*` at startup).
+2. Verify `PRIVY_APP_ID` and `PRIVY_APP_SECRET` are set in `backend/.env`.
+3. Confirm `localhost:3000` is listed in the **Allowed domains** in the [Privy Dashboard](https://dashboard.privy.io/).
+4. Check backend logs: `pnpm start:dev` — look for `Privy auth is not configured` or token verification errors.
+
+**Deployed server (EC2)**
+
+1. **Frontend:** GitHub secret `NEXT_PUBLIC_PRIVY_APP_ID` must be set and a **new** deploy must run (value is baked into the Docker image — editing EC2 env alone does not update the frontend bundle).
+2. **Backend:** `/home/ubuntu/.env.production.backend` must include `PRIVY_APP_ID` (same App ID) and `PRIVY_APP_SECRET`. Recreate backend after editing:  
+   `docker compose -f docker-compose.yml -f docker-compose.ec2.yml up -d --force-recreate backend`
+3. **Privy Dashboard → Domains:** add `https://your-production-domain.com` (exact scheme + host).
+4. **`FRONTEND_URL` / `CORS_ORIGIN`:** must match the URL users open in the browser (HTTPS in production).
+5. **`SITE_ACCESS_ENABLED=true`:** complete `/site-access` first — most API routes (including `POST /api/auth/privy/session`) require the `site_access` cookie.
+6. **Cookies:** after login, DevTools → Application → Cookies should show `access_token` (HttpOnly). If missing, check `COOKIE_SECURE=true` when using HTTPS.
+
+See [deployment.md](./deployment.md#privy-on-deploy-login--wallet--not-fiat-pay).
+
+---
+
 ## Frontend API calls return 401
 
 - Check that `access_token` cookie is present in the browser (DevTools → Application → Cookies).
@@ -47,7 +72,7 @@
 ## Containers start but frontend shows blank page
 
 1. Check frontend logs: `docker logs tokenable-frontend --tail=50`
-2. Verify `NEXT_PUBLIC_RWA_CONTRACT_ADDRESS` was provided as a build arg — the frontend Dockerfile validates this at build time.
+2. Verify `NEXT_PUBLIC_CHAIN_11155111_RPC_URL`, `_RWA`, and `_USDC` were provided as build args — the frontend Dockerfile validates these at build time.
 3. Force a hard refresh (Ctrl+Shift+R / Cmd+Shift+R) to bypass stale Service Worker cache.
 
 ---
@@ -124,6 +149,23 @@ This happens when `CI=1` is set in the environment, which enables `--frozen-lock
 ```bash
 pnpm install --no-frozen-lockfile
 ```
+
+---
+
+## Local dev: `net::ERR_CONTENT_DECODING_FAILED` on API responses
+
+**Symptom:** Browser DevTools shows `GET /api/marketplace/collections … net::ERR_CONTENT_DECODING_FAILED 200 (OK)`. Marketplace data does not load.
+
+**Cause:** The NestJS backend uses `compression()` middleware which GZIP-compresses responses. Node.js's `fetch` (undici) in the Next.js dev API proxy automatically decompresses the body — but the `Content-Encoding: gzip` response header was still forwarded to the browser, which then tried to decompress an already-decompressed body.
+
+**Fix (already applied):** `frontend/lib/core/apiDevProxy.ts` now strips `content-encoding` and `content-length` headers from proxied responses:
+
+```ts
+responseHeaders.delete("content-encoding");
+responseHeaders.delete("content-length");
+```
+
+If you see this error again, ensure you are running the latest frontend code. A browser hard-refresh (⌘⇧R) after a frontend restart clears any cached state.
 
 ---
 

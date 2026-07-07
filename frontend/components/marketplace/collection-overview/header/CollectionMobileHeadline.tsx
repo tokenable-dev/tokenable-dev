@@ -44,7 +44,7 @@ export function CollectionMobileHeadline({
         <AssetDetailHeadlineTitle
           as="h1"
           parts={headlineStructuredTitle}
-          className={`line-clamp-3 ${COLLECTION_HEADLINE_TITLE_MOBILE_CLASS}`}
+          className={`line-clamp-2 ${COLLECTION_HEADLINE_TITLE_MOBILE_CLASS}`}
           style={COLLECTION_DETAIL_MOBILE_ARIAL_STYLE}
         />
       ) : (

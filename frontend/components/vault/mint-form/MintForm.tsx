@@ -18,8 +18,6 @@ export function MintForm() {
     return (
       <MintFormSuccessView
         txHash={mint.result.txHash}
-        waitingForReceipt={mint.waitingForReceipt}
-        receipt={mint.receipt}
         onReset={mint.resetForm}
       />
     );
@@ -27,7 +25,7 @@ export function MintForm() {
 
   return (
     <>
-      <div className="rounded-2xl border border-gray-800 bg-[#0a0e14]/80 p-6 sm:p-8 transition-all duration-200">
+      <div className="vault-form-panel transition-all duration-200">
         <form
           onSubmit={mint.handleSubmit}
           className="space-y-6"
@@ -52,7 +50,9 @@ export function MintForm() {
             slotAfterHero={
               <div className="space-y-4">
                 <MintFormMintActions
-                  isConnected={mint.isConnected}
+                  isWalletReady={mint.isWalletReady}
+                  isWalletActivating={mint.isWalletActivating}
+                  hasAccountWallet={mint.hasAccountWallet}
                   showMintReady={psa.showMintReady}
                   isProcessing={mint.isProcessing}
                   showPsaAnalyzeOverlay={psa.showPsaAnalyzeOverlay}

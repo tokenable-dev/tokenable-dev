@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tokenable — My Vault</title>
+<script src="support.js"></script>
+</head>
+<body>
+<x-dc data-theme="dark">
+<helmet>
+<script src="ds-base.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root:root{ --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace; }
+  :root{
+    --ink: #1A1A1E; --ink-2: #1A1A1E;
+    --surf: #1b1b26; --surf-2: rgb(22,22,34);
+    --line: rgba(255,255,255,0.08);
+    --azure: rgb(26,111,255); --pos: rgb(0,200,100); --neg: rgb(228,55,74);
+    --amber: #F59E0B; --purple: #8B5CF6;
+    --t2: rgba(255,255,255,0.55); --t3: rgba(255,255,255,0.35);
+    --brand-500: #1A6FFF; --brand-400: #5B9AFF; --brand-900: #0C1640;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--ink);color:#fff;font-family:var(--font-sans, 'Inter', sans-serif);-webkit-font-smoothing:antialiased;}
+  .mono{font-family:var(--font-mono);}
+
+  /* GNB */
+  header{position:sticky;top:0;z-index:50;background:var(--ink-2);border-bottom:1px solid rgba(255,255,255,0.08);}
+  .navlink{font-size:15px;font-weight:500;color:var(--t2);text-decoration:none;padding:4px 0;position:relative;transition:color 0.15s;}
+  .navlink:hover{color:#fff;}
+  .navlink.on{color:#fff;font-weight:600;}
+  .navlink.on::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2px;background:var(--azure);}
+  .gnb-burger{display:none;background:none;border:0;color:#fff;cursor:pointer;padding:4px;}
+  .gnb-logo-full{height:22px;}
+  .gnb-logo-symbol{height:28px;display:none;}
+  .gnb-right{display:flex;align-items:center;gap:14px;}
+
+  /* Buttons */
+  .btn{display:inline-flex;align-items:center;justify-content:center;border:0;cursor:pointer;font-family:var(--font-sans);font-weight:600;transition:all 0.12s;border-radius:0;clip-path:polygon(0 6px,4px 2px,8px 0,calc(100% - 8px) 0,calc(100% - 4px) 2px,100% 6px,100% calc(100% - 6px),calc(100% - 4px) calc(100% - 2px),calc(100% - 8px) 100%,8px 100%,4px calc(100% - 2px),0 calc(100% - 6px));}
+  .btn--primary{background:#1A6FFF;color:#fff;box-shadow:inset 0 0 0 3px rgba(0,0,20,0.5),inset 0 0 0 1px rgba(80,160,255,0.6),inset 0 3px 0 0 rgba(80,170,255,0.7),inset 0 -3px 0 0 rgba(0,0,50,0.4);filter:drop-shadow(4px 4px 0 rgba(26,111,255,0.55));}
+  .btn--primary:hover{filter:drop-shadow(5px 5px 0 rgba(26,111,255,0.65));transform:translate(-1px,-1px);}
+  .btn--ghost{background:#0C1640;color:#fff;box-shadow:inset 0 0 0 3px rgba(0,0,20,0.5),inset 0 0 0 1px rgba(255,255,255,0.1),inset 0 3px 0 0 rgba(255,255,255,0.15),inset 0 -3px 0 0 rgba(0,0,0,0.3);filter:drop-shadow(4px 4px 0 rgba(5,10,30,0.7));}
+  .btn--ghost:hover{filter:drop-shadow(5px 5px 0 rgba(5,10,30,0.8));transform:translate(-1px,-1px);}
+  .btn--sm{height:34px;padding:0 14px;font-size:12px;}
+  .btn--outline{background:transparent;color:var(--azure);border:1px solid rgba(26,111,255,0.3);border-radius:8px;clip-path:none;box-shadow:none;filter:none;font-size:12px;height:32px;padding:0 14px;}
+  .btn--outline:hover{background:rgba(26,111,255,0.08);border-color:rgba(26,111,255,0.5);}
+
+  /* Card box */
+  .card-box{background:#1e1e2e;border-radius:16px;padding:24px;}
+
+  /* Badges */
+  .badge{font-family:var(--font-mono);font-size:11px;font-weight:600;padding:3px 10px;border-radius:6px;display:inline-flex;align-items:center;gap:5px;white-space:nowrap;}
+  .badge--minting{background:rgba(26,111,255,0.12);color:var(--azure);animation:pulse-badge 2s infinite;}
+  .badge--transit{background:rgba(26,111,255,0.12);color:var(--azure);}
+  .badge--action{background:rgba(245,158,11,0.12);color:var(--amber);}
+  .badge--vaulted{background:rgba(0,200,100,0.12);color:var(--pos);}
+  .badge--completed{background:rgba(0,200,100,0.12);color:var(--pos);}
+  .badge--rejected{background:rgba(228,55,74,0.12);color:var(--neg);}
+  .badge--grade{background:rgba(0,200,100,0.12);color:var(--pos);}
+  @keyframes pulse-badge{0%,100%{opacity:0.7;}50%{opacity:1;}}
+
+  /* Stat cards */
+  .stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:40px;}
+  .stat-card{background:#1e1e2e;border-radius:14px;padding:20px;border:1px solid rgba(255,255,255,0.04);}
+  .stat-label{font-size:12px;color:rgba(255,255,255,0.35);margin-bottom:8px;}
+  .stat-num{font-family:var(--font-mono);font-size:28px;font-weight:800;color:#fff;line-height:1;}
+  .stat-sub{font-size:11px;color:rgba(255,255,255,0.25);margin-top:6px;}
+
+  /* In-progress cards */
+  .ip-card{background:#1e1e2e;border-radius:14px;padding:18px 20px;display:flex;align-items:center;gap:16px;border:1px solid rgba(255,255,255,0.04);transition:border-color 0.15s;}
+  .ip-card:hover{border-color:rgba(255,255,255,0.1);}
+  .ip-card.action-needed{border-left:3px solid var(--amber);}
+  .ip-thumb{width:44px;height:62px;background:#101018;border-radius:6px;padding:3px;flex-shrink:0;}
+  .ip-thumb img{width:100%;height:100%;object-fit:contain;}
+
+  /* Table */
+  .vault-table{width:100%;border-collapse:collapse;}
+  .vault-table th{font-family:var(--font-mono);font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:rgba(255,255,255,0.3);font-weight:600;text-align:left;padding:12px 16px;border-bottom:1px solid rgba(255,255,255,0.06);}
+  .vault-table td{padding:14px 16px;border-bottom:1px solid rgba(255,255,255,0.04);vertical-align:middle;font-size:13px;}
+  .vault-table tr:hover td{background:rgba(255,255,255,0.02);}
+  .table-thumb{width:40px;height:56px;background:#101018;border-radius:4px;padding:2px;flex-shrink:0;}
+  .table-thumb img{width:100%;height:100%;object-fit:contain;}
+  .nft-link{font-family:var(--font-mono);font-size:12px;color:var(--azure);text-decoration:none;font-weight:600;}
+  .nft-link:hover{text-decoration:underline;}
+
+  /* Rejected section */
+  .rej-header{display:flex;align-items:center;gap:10px;cursor:pointer;padding:16px 0;user-select:none;}
+  .rej-body{overflow:hidden;max-height:0;transition:max-height 0.3s ease;}
+  .rej-card{background:#1e1e2e;border-radius:14px;padding:18px 20px;display:flex;align-items:center;gap:16px;border-left:3px solid var(--neg);margin-bottom:10px;}
+
+  /* Search bar */
+  .search-bar{display:flex;gap:10px;margin-bottom:20px;align-items:center;}
+  .search-input{flex:1;height:42px;padding:0 16px 0 40px;background:#141420;border:1px solid rgba(255,255,255,0.08);border-radius:10px;color:#fff;font-size:14px;outline:none;font-family:inherit;position:relative;}
+  .search-input:focus{border-color:var(--azure);box-shadow:0 0 0 3px rgba(26,111,255,0.12);}
+  .search-wrap{position:relative;flex:1;}
+  .search-wrap svg{position:absolute;left:14px;top:50%;transform:translateY(-50%);pointer-events:none;}
+  .filter-btn{height:42px;padding:0 16px;background:#141420;border:1px solid rgba(255,255,255,0.08);border-radius:10px;color:rgba(255,255,255,0.5);font-size:13px;font-family:inherit;cursor:pointer;display:flex;align-items:center;gap:6px;}
+
+  /* Section header */
+  .sec-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+  .sec-title{font-size:18px;font-weight:700;color:#fff;display:flex;align-items:center;gap:10px;}
+  .sec-count{font-family:var(--font-mono);font-size:12px;background:rgba(26,111,255,0.12);color:var(--azure);padding:2px 8px;border-radius:10px;font-weight:700;}
+
+  /* Search */
+  .tk-search .tk-input{background:rgba(255,255,255,0.85)!important;color:#111!important;border:none!important;box-shadow:none!important;}
+  .tk-search .tk-input::placeholder{color:rgba(0,0,0,0.4)!important;}
+  .tk-search__icon{display:flex!important;color:rgba(0,0,0,0.4)!important;}
+  .tk-search{clip-path:var(--pixel-notch-md);overflow:hidden;}
+  .tk-search .tk-input{clip-path:none!important;height:36px!important;font-size:14px!important;}
+
+  /* Mobile */
+  @media(max-width:900px){
+    .gnb-burger{display:block;}
+    .gnb-logo-full{display:none;}
+    .gnb-logo-symbol{display:block;}
+    header nav{display:none;}
+    .stat-grid{grid-template-columns:1fr 1fr;}
+    .vault-table-wrap{overflow-x:auto;}
+    .page-wrap{padding:24px 16px 100px!important;}
+    .ip-stack{flex-direction:column!important;}
+  }
+</style>
+</helmet>
+
+  <!-- ============ GNB ============ -->
+  <header>
+    <div style="display:flex;align-items:center;height:64px;padding:0 clamp(16px,4vw,40px);max-width:100%;">
+      <a href="index.html" style="display:flex;align-items:center;"><img class="gnb-logo-full" src="images/logo-tokenable.svg" alt="Tokenable" style="height:24px;"><img class="gnb-logo-symbol" src="images/symbol-white.svg" alt="Tokenable" style="height:26px;display:none;"></a>
+      <nav style="display:flex;gap:40px;margin-left:52px;">
+        <a class="navlink" href="Markets.html">Markets</a>
+        <a class="navlink" href="Portfolio.html">Portfolio</a>
+        <a class="navlink on" href="Vault.html">Vault</a>
+      </nav>
+      <div style="flex:1;"></div>
+      <button class="gnb-burger" aria-label="Open menu"><span class="burger-lines"><span></span><span></span></span></button>
+      <div class="gnb-right">
+        <x-import component-from-global-scope="TokenableDesignSystem_8d023b.Search" placeholder="Search cards, sets, players…" hint-size="300px,44px"></x-import>
+        <button class="btn btn--primary tk-connect" style="height:44px;padding:0 18px;font-size:14px;">Connect Wallet</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ============ MAIN ============ -->
+  <div class="page-wrap" style="max-width:1240px;margin:0 auto;padding:40px clamp(16px,4vw,40px) 80px;">
+
+    <!-- Page header -->
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:32px;flex-wrap:wrap;gap:16px;">
+      <div>
+        <h1 style="margin:0 0 4px;font-weight:700;font-size:32px;letter-spacing:-0.02em;">My Vault</h1>
+        <p style="margin:0;font-size:15px;color:rgba(255,255,255,0.4);">Manage your physical card submissions</p>
+      </div>
+      <a href="Vault-Submit.html" class="btn btn--primary" style="height:48px;padding:0 24px;font-size:14px;text-decoration:none;">
+        + Submit New Card <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-left:6px;"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+      </a>
+    </div>
+
+    <!-- ============ SUMMARY STATS ============ -->
+    <div class="stat-grid">
+      <div class="stat-card">
+        <div class="stat-label">Total Assets</div>
+        <div class="stat-num">12</div>
+        <div class="stat-sub">Cards</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">In Progress</div>
+        <div class="stat-num" style="color:var(--azure);">3</div>
+        <div class="stat-sub">Submissions</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Minted Tokens</div>
+        <div class="stat-num" style="color:var(--pos);">9</div>
+        <div class="stat-sub">Tokens</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Vault Value</div>
+        <div class="stat-num">$284,500</div>
+        <div class="stat-sub">Est. market</div>
+      </div>
+    </div>
+
+    <!-- ============ IN PROGRESS ============ -->
+    <div style="margin-bottom:40px;">
+      <div class="sec-header">
+        <div class="sec-title">In Progress <span class="sec-count">3</span></div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:12px;">
+
+        <!-- Item 1: Minting -->
+        <div class="ip-card">
+          <div class="ip-thumb"><img src="images/card-charizard.png" alt="Charizard"></div>
+          <div style="flex:1;min-width:0;">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+              <span style="font-size:14px;font-weight:700;color:#fff;">Charizard · 1999 Base 1st Ed.</span>
+              <span class="badge badge--grade">PSA 10</span>
+            </div>
+            <div style="margin-top:4px;display:flex;align-items:center;gap:8px;">
+              <span class="mono" style="font-size:11px;color:rgba(255,255,255,0.25);">SUB-20260616-00421</span>
+              <span class="badge badge--minting">🔵 Minting</span>
+            </div>
+          </div>
+          <a href="Vault-Detail.html" class="btn--outline btn" style="text-decoration:none;">View Details →</a>
+        </div>
+
+        <!-- Item 2: In Transit -->
+        <div class="ip-card">
+          <div class="ip-thumb"><img src="images/card-charizard.png" alt="LeBron"></div>
+          <div style="flex:1;min-width:0;">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+              <span style="font-size:14px;font-weight:700;color:#fff;">LeBron James Rookie Chrome</span>
+              <span class="badge badge--grade">PSA 10</span>
+            </div>
+            <div style="margin-top:4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+              <span class="mono" style="font-size:11px;color:rgba(255,255,255,0.25);">SUB-20260614-00398</span>
+              <span class="badge badge--transit">📦 In Transit</span>
+              <span class="mono" style="font-size:11px;color:rgba(255,255,255,0.25);">FedEx FX987654321</span>
+            </div>
+          </div>
+          <a href="Vault-Detail.html" class="btn--outline btn" style="text-decoration:none;">Track →</a>
+        </div>
+
+        <!-- Item 3: Action Needed -->
+        <div class="ip-card action-needed">
+          <div class="ip-thumb"><img src="images/card-charizard.png" alt="Pikachu"></div>
+          <div style="flex:1;min-width:0;">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+              <span style="font-size:14px;font-weight:700;color:#fff;">Pikachu Van Gogh</span>
+              <span class="badge" style="background:rgba(0,200,100,0.12);color:var(--pos);">PSA 9</span>
+            </div>
+            <div style="margin-top:4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+              <span class="mono" style="font-size:11px;color:rgba(255,255,255,0.25);">SUB-20260610-00371</span>
+              <span class="badge badge--action">⚠️ Action Needed</span>
+              <span style="font-size:12px;color:var(--amber);">Tracking number required</span>
+            </div>
+          </div>
+          <a href="Vault-Shipping.html" class="btn--outline btn" style="text-decoration:none;border-color:rgba(245,158,11,0.4);color:var(--amber);">Add Tracking →</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ VAULTED ASSETS ============ -->
+    <div style="margin-bottom:40px;">
+      <div class="sec-header">
+        <div class="sec-title">Vaulted Assets</div>
+        <span style="font-size:13px;color:rgba(255,255,255,0.35);">Cards in your vault with active tokens</span>
+      </div>
+
+      <!-- Search + Filter -->
+      <div class="search-bar">
+        <div class="search-wrap">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="21" y2="21"/></svg>
+          <input class="search-input" placeholder="Search cards..." style="padding-left:40px;">
+        </div>
+        <button class="filter-btn">Sort <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></button>
+        <button class="filter-btn">Filter <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></button>
+      </div>
+
+      <!-- Table -->
+      <div class="vault-table-wrap" style="background:#1e1e2e;border-radius:16px;overflow:hidden;">
+        <table class="vault-table">
+          <thead>
+            <tr>
+              <th>Card</th>
+              <th>Grade</th>
+              <th>Cert #</th>
+              <th>Status</th>
+              <th>NFT</th>
+              <th>Value</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>
+                <div style="display:flex;align-items:center;gap:12px;">
+                  <div class="table-thumb"><img src="images/card-charizard.png" alt=""></div>
+                  <div><div style="font-weight:600;color:#fff;">Charizard</div><div style="font-size:11px;color:rgba(255,255,255,0.3);">1999 Base 1st Ed.</div></div>
+                </div>
+              </td>
+              <td><span class="badge badge--grade">PSA 10</span></td>
+              <td><span class="mono" style="font-size:12px;color:rgba(255,255,255,0.5);">12345678</span></td>
+              <td><span class="badge badge--vaulted">✅ Vaulted</span></td>
+              <td><a href="#" class="nft-link">#0421 ↗</a></td>
+              <td style="font-weight:700;color:#fff;">$25,376</td>
+              <td><a href="Markets.html" class="btn btn--outline" style="text-decoration:none;">Trade</a></td>
+            </tr>
+            <tr>
+              <td>
+                <div style="display:flex;align-items:center;gap:12px;">
+                  <div class="table-thumb"><img src="images/card-charizard.png" alt=""></div>
+                  <div><div style="font-weight:600;color:#fff;">Jordan RC</div><div style="font-size:11px;color:rgba(255,255,255,0.3);">2003 Ultimate Collection</div></div>
+                </div>
+              </td>
+              <td><span class="badge badge--grade">PSA 10</span></td>
+              <td><span class="mono" style="font-size:12px;color:rgba(255,255,255,0.5);">55501248</span></td>
+              <td><span class="badge badge--vaulted">✅ Vaulted</span></td>
+              <td><a href="#" class="nft-link">#0389 ↗</a></td>
+              <td style="font-weight:700;color:#fff;">$65,000</td>
+              <td><a href="Markets.html" class="btn btn--outline" style="text-decoration:none;">Trade</a></td>
+            </tr>
+            <tr>
+              <td>
+                <div style="display:flex;align-items:center;gap:12px;">
+                  <div class="table-thumb"><img src="images/card-charizard.png" alt=""></div>
+                  <div><div style="font-weight:600;color:#fff;">Pikachu</div><div style="font-size:11px;color:rgba(255,255,255,0.3);">Van Gogh Museum</div></div>
+                </div>
+              </td>
+              <td><span class="badge badge--grade">PSA 10</span></td>
+              <td><span class="mono" style="font-size:12px;color:rgba(255,255,255,0.5);">22938102</span></td>
+              <td><span class="badge badge--vaulted">✅ Vaulted</span></td>
+              <td><a href="#" class="nft-link">#0412 ↗</a></td>
+              <td style="font-weight:700;color:#fff;">$1,800</td>
+              <td><a href="Markets.html" class="btn btn--outline" style="text-decoration:none;">Trade</a></td>
+            </tr>
+            <tr>
+              <td>
+                <div style="display:flex;align-items:center;gap:12px;">
+                  <div class="table-thumb"><img src="images/card-charizard.png" alt=""></div>
+                  <div><div style="font-weight:600;color:#fff;">Shohei Ohtani</div><div style="font-size:11px;color:rgba(255,255,255,0.3);">2018 Topps Chrome RC</div></div>
+                </div>
+              </td>
+              <td><span class="badge badge--grade">PSA 10</span></td>
+              <td><span class="mono" style="font-size:12px;color:rgba(255,255,255,0.5);">88712304</span></td>
+              <td><span class="badge badge--vaulted">✅ Vaulted</span></td>
+              <td><a href="#" class="nft-link">#0445 ↗</a></td>
+              <td style="font-weight:700;color:#fff;">$3,200</td>
+              <td><a href="Markets.html" class="btn btn--outline" style="text-decoration:none;">Trade</a></td>
+            </tr>
+            <tr>
+              <td>
+                <div style="display:flex;align-items:center;gap:12px;">
+                  <div class="table-thumb"><img src="images/card-charizard.png" alt=""></div>
+                  <div><div style="font-weight:600;color:#fff;">Mewtwo</div><div style="font-size:11px;color:rgba(255,255,255,0.3);">1999 Base Set Holo</div></div>
+                </div>
+              </td>
+              <td><span class="badge badge--grade">PSA 10</span></td>
+              <td><span class="mono" style="font-size:12px;color:rgba(255,255,255,0.5);">33901482</span></td>
+              <td><span class="badge badge--vaulted">✅ Vaulted</span></td>
+              <td><a href="#" class="nft-link">#0401 ↗</a></td>
+              <td style="font-weight:700;color:#fff;">$8,500</td>
+              <td><a href="Markets.html" class="btn btn--outline" style="text-decoration:none;">Trade</a></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ============ REJECTED SUBMISSIONS ============ -->
+    <div style="margin-bottom:40px;">
+      <div class="rej-header" id="rej-toggle">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.35)" stroke-width="2.5" id="rej-chevron" style="transition:transform 0.2s;"><polyline points="6 9 12 15 18 9"/></svg>
+        <span style="font-size:16px;font-weight:700;color:rgba(255,255,255,0.5);">Rejected</span>
+        <span class="badge badge--rejected">2</span>
+      </div>
+      <div class="rej-body" id="rej-body">
+        <div class="rej-card">
+          <div class="ip-thumb"><img src="images/card-charizard.png" alt=""></div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:14px;font-weight:700;color:#fff;">Mickey Mantle 1952 Topps</div>
+            <div style="margin-top:4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+              <span class="badge" style="background:rgba(228,55,74,0.12);color:var(--neg);">PSA 8</span>
+              <span class="badge badge--rejected">🔴 Rejected</span>
+              <span style="font-size:12px;color:var(--neg);">Grade below PSA 9 minimum</span>
+            </div>
+            <div style="font-size:11px;color:rgba(255,255,255,0.25);margin-top:4px;">Returned at submitter's expense</div>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <a href="#" class="btn btn--outline" style="text-decoration:none;border-color:rgba(255,255,255,0.12);color:rgba(255,255,255,0.5);">View Details</a>
+            <a href="Vault-Submit.html" class="btn btn--outline" style="text-decoration:none;">Submit Again</a>
+          </div>
+        </div>
+        <div class="rej-card">
+          <div class="ip-thumb"><img src="images/card-charizard.png" alt=""></div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:14px;font-weight:700;color:#fff;">Ken Griffey Jr. 1989 Upper Deck</div>
+            <div style="margin-top:4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+              <span class="badge" style="background:rgba(228,55,74,0.12);color:var(--neg);">PSA 7</span>
+              <span class="badge badge--rejected">🔴 Rejected</span>
+              <span style="font-size:12px;color:var(--neg);">Grade below PSA 9 minimum</span>
+            </div>
+            <div style="font-size:11px;color:rgba(255,255,255,0.25);margin-top:4px;">Returned at submitter's expense</div>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <a href="#" class="btn btn--outline" style="text-decoration:none;border-color:rgba(255,255,255,0.12);color:rgba(255,255,255,0.5);">View Details</a>
+            <a href="Vault-Submit.html" class="btn btn--outline" style="text-decoration:none;">Submit Again</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="tk-footer.js"></script>
+
+</x-dc>
+
+<script>
+/* Rejected section toggle — deferred */
+setTimeout(function(){
+  document.addEventListener('click', function(e){
+    if(e.target.closest('#rej-toggle')){
+      var body = document.getElementById('rej-body');
+      var chev = document.getElementById('rej-chevron');
+      if(!body || !chev) return;
+      var open = body.style.maxHeight !== '0px' && body.style.maxHeight !== '';
+      body.style.maxHeight = open ? '0px' : '600px';
+      chev.style.transform = open ? 'rotate(0deg)' : 'rotate(180deg)';
+    }
+  });
+}, 300);
+</script>
+<script src="tk-wallet.js"></script>
+<script src="tk-notifications.js"></script>
+</body>
+</html>

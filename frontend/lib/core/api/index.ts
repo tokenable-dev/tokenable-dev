@@ -1,6 +1,7 @@
 export * from "./client";
 export * from "./rwa-types";
 export * from "./rwa-upload";
+export * from "./rwa-mint";
 export * from "./psa";
 export * from "./rwa-blockchain";
 export * from "./orders";
@@ -9,6 +10,7 @@ export * from "./marketplace-admin-rwa";
 export * from "./marketplace-admin-auth";
 export * from "./marketplace-admin-users";
 export * from "./marketplace-admin-analytics";
+export * from "./marketplace-admin-psa";
 export * from "./marketplace-market-data";
 export * from "./portfolio";
 export * from "./watchlist";

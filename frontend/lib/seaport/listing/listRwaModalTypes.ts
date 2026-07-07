@@ -22,6 +22,8 @@ export interface InstantMatchDecision {
   enforceImmediateFill: boolean;
 }
 
+export type ListRwaModalShell = "modal" | "sheet";
+
 export interface ListRwaModalProps {
   tokenId: number;
   assetTitle?: string | null;
@@ -34,4 +36,6 @@ export interface ListRwaModalProps {
   collectionKey?: string | null;
   collectionBids?: Order[];
   preferredBidOrderHash?: string | null;
+  /** `sheet` — bottom `TkActionSheet` (RWA detail); default centered modal. */
+  shell?: ListRwaModalShell;
 }

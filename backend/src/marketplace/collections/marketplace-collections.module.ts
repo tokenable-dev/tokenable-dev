@@ -3,12 +3,16 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { BlockchainModule } from '../../blockchain/blockchain.module';
 import { CardhedgerModule } from '../../cardhedger/cardhedger.module';
 import { PsaModule } from '../../psa/psa.module';
+import { VaultCycle } from '../../vault/entities/vault-cycle.entity';
+import { VaultModule } from '../../vault/vault.module';
+import { UserModule } from '../../user/user.module';
 import { MarketplaceAdminModule } from '../admin/marketplace-admin.module';
 import { Order } from '../entities/order.entity';
 import { MarketplaceCollection } from '../entities/marketplace-collection.entity';
 import { RwaToken } from '../entities/rwa-token.entity';
 import { MarketplaceMarketDataModule } from '../market-data/marketplace-market-data.module';
 import { MarketplaceSnapshotsModule } from '../snapshots/marketplace-snapshots.module';
+import { MarketplacePortfolioModule } from '../portfolio/marketplace-portfolio.module';
 import { CertMarketTraceController } from './cert-market-trace.controller';
 import { CertMarketTraceService } from './cert-market-trace.service';
 import { CollectionMarketService } from './collection-market.service';
@@ -49,13 +53,16 @@ import { MintEventListenerService } from './mint-event-listener.service';
  */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Order, MarketplaceCollection, RwaToken]),
+    TypeOrmModule.forFeature([Order, MarketplaceCollection, RwaToken, VaultCycle]),
     MarketplaceAdminModule,
     BlockchainModule,
     CardhedgerModule,
     PsaModule,
+    VaultModule,
+    UserModule,
     MarketplaceMarketDataModule,
     forwardRef(() => MarketplaceSnapshotsModule),
+    forwardRef(() => MarketplacePortfolioModule),
   ],
   controllers: [
     CollectionsController,

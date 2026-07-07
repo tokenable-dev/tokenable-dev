@@ -19,7 +19,7 @@ Admin console overview: [guides/marketplace-admin.md](../guides/marketplace-admi
 
 Trading is **Seaport-centric**: off-chain signed orders in `orders`, fulfillment via wallet. Collection **pricing reads** come from `collection_market_snapshots` (materialized Cardhedger) — see [materialized-market-snapshots.md](../architecture/materialized-market-snapshots.md).
 
-Legacy relational matching (`bids`/`asks` tables, settlement workers) is **removed**. The old `hidden_assets` table was replaced by **`portfolio_hidden_holdings`** (off-chain UI preference only).
+Legacy relational matching (`bids`/`asks` tables, settlement workers) is **removed**. The old `hidden_assets` table was replaced by **`portfolio_holdings`** (off-chain hide + cost basis).
 
 See [architecture/database.md](../architecture/database.md) for current DB tables.
 
@@ -143,11 +143,15 @@ Cancels an order. Caller must be the offerer.
 
 Marks a single order fulfilled (e.g. after `fulfillOrder` on-chain).
 
+| Query | Required | Description |
+|-------|----------|-------------|
+| `buyerAddress` | Recommended (ask fills) | Buyer wallet — seeds `marketplace_buy` cost basis from listing USDC price |
+
 ---
 
 ### `POST /api/marketplace/orders/fulfill-matched-pair`
 
-Marks both the ask and the criteria bid fulfilled after `matchAdvancedOrders`.
+Marks both the ask and the criteria bid fulfilled after `matchAdvancedOrders`. Buyer cost basis is seeded from the ask fill price (`bid.offerer` wallet, `source = marketplace_buy`).
 
 **Body:** `FulfillMatchedPairDto`
 
@@ -347,13 +351,13 @@ Cron captures **all on-chain RWA holders** plus linked / historical wallets with
 
 ---
 
-## Portfolio hidden holdings
+## Portfolio holdings (hide + cost basis)
 
-Off-chain preference — NFT remains in the wallet; excluded from portfolio totals and default list view.
+Off-chain prefs — NFT remains in the wallet. `hidden_at` excludes a token from portfolio totals. `cost_basis_usd` powers P/L; `manual` edits are never overwritten by auto seed.
 
 ### `GET /api/marketplace/portfolio/hidden/:wallet`
 
-Returns `{ tokenIds: number[] }`.
+Returns `{ tokenIds: number[] }` (rows with `hidden_at` set).
 
 ### `POST /api/marketplace/portfolio/hidden`
 
@@ -362,6 +366,24 @@ Returns `{ tokenIds: number[] }`.
 ### `DELETE /api/marketplace/portfolio/hidden`
 
 **Body:** `{ walletAddress, tokenId }` — restore one holding.
+
+### `POST /api/marketplace/portfolio/holdings/batch`
+
+**Body:** `{ walletAddress, tokenIds }` (max 500).
+
+**Response:** `{ items: [{ tokenId, hidden, costBasisUsd, costBasisSource, acquiredAt }] }`
+
+`costBasisSource`: `manual` | `vault_delivery` | `marketplace_buy` | null.
+
+### `PUT /api/marketplace/portfolio/holdings/cost-basis`
+
+**Body:** `{ walletAddress, tokenId, costBasisUsd }` — user manual edit (`source = manual`).
+
+**Vault deliver seed:** when admin delivers a custody NFT (`deliverCustodyNftToUser`), the backend seeds `vault_delivery` cost basis from the current market mark USD at deliver time. Manual rows are skipped.
+
+**Marketplace buy seed:** after ask fulfill (`PATCH …/fulfill?buyerAddress=`) or matched-pair fulfill, the backend seeds `marketplace_buy` from the ask USDC price for the buyer wallet. Manual rows are skipped.
+
+**Portfolio totals:** `portfolio_daily_snapshots` (09:00 KST cron + read-path backfill) drives **Portfolio value** and **24h P/L** in the hero/chart. Per-row **My Assets P/L** uses `portfolio_holdings` cost basis vs live mark.
 
 ---
 

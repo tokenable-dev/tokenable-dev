@@ -3,6 +3,11 @@
 import { useEffect, useRef } from "react";
 import { MintForm } from "@/components/vault";
 import { useSellAccessGate } from "@/hooks/auth/useSellAccessGate";
+import { VaultFeatures } from "./VaultFeatures";
+import { VaultGateState } from "./VaultGateState";
+import { VaultPortfolioBanner } from "./VaultPortfolioBanner";
+import { VaultStepper } from "./VaultStepper";
+import { VaultSubmitHeader } from "./VaultSubmitHeader";
 
 export function VaultPageBody() {
   const { canSell, runSellAccessGate } = useSellAccessGate("/vault");
@@ -14,20 +19,19 @@ export function VaultPageBody() {
     runSellAccessGate();
   }, [canSell, runSellAccessGate]);
 
-  if (!canSell) {
-    return (
-      <div className="py-20 text-center">
-        <p className="text-sm text-gray-400">Verification required to sell.</p>
-        <button
-          type="button"
-          onClick={() => runSellAccessGate()}
-          className="mt-4 text-sm font-semibold text-mint hover:text-mint/80"
-        >
-          Continue
-        </button>
-      </div>
-    );
-  }
-
-  return <MintForm />;
+  return (
+    <>
+      {canSell ? (
+        <>
+          <VaultStepper active={1} />
+          <VaultSubmitHeader />
+          <MintForm />
+          <VaultPortfolioBanner />
+        </>
+      ) : (
+        <VaultGateState onContinue={() => runSellAccessGate()} />
+      )}
+      <VaultFeatures />
+    </>
+  );
 }

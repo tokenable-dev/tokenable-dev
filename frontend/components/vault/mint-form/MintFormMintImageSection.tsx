@@ -119,7 +119,7 @@ export function MintFormMintImageSection({
           <div className="rounded-lg border border-dashed border-gray-700/60 bg-gray-900/20 px-4 py-5 text-center">
             <p className="text-xs text-gray-500">
               {psaInputMode === "cert"
-                ? "Run cert lookup for a PSA image, or use Photo mode."
+                ? "Run cert lookup — PSA slab image when available, otherwise Cardhedger catalog art."
                 : "Appears here after slab analysis."}
             </p>
           </div>

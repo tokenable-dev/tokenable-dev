@@ -1,0 +1,49 @@
+/* Maps next/font variables into DS token stacks + prototype layout aliases. */
+
+:root:root {
+  /* Match index.html — out-specify design-system/tokens/base.css regardless of load order. */
+  --font-sans: var(--font-inter), "Inter", system-ui, -apple-system, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), "JetBrains Mono", ui-monospace, "SF Mono",
+    Menlo, monospace;
+}
+
+:root {
+  --ink: #1a1a1e;
+  --ink-2: #1a1a1e;
+  --surf: #1b1b26;
+  --surf-2: rgb(22, 22, 34);
+  --line: rgba(255, 255, 255, 0.08);
+  --azure: rgb(26, 111, 255);
+  --pos: rgb(0, 200, 100);
+  --neg: rgb(228, 55, 74);
+  --warn: rgb(234, 130, 0);
+  --t1: rgba(255, 255, 255, 0.95);
+  --t2: rgba(255, 255, 255, 0.6);
+  --t3: rgba(255, 255, 255, 0.38);
+}
+
+.mono,
+.tkl-mono {
+  font-family: var(--font-mono);
+  font-synthesis: none;
+}
+
+html {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+.tk-ds-surface {
+  background: var(--ink);
+  color: var(--t1);
+  font-family: inherit;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tk-btn,
+  .tk-dialog,
+  .tk-sheet-panel {
+    animation: none !important;
+    transition: none !important;
+  }
+}

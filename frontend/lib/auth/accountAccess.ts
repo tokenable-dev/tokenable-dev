@@ -3,25 +3,39 @@ import { userHasLinkedWallet } from "./wallets";
 
 export type AccountAccessLevel = 0 | 1 | 2;
 
-/** Dev-only KYC bypass until identity provider integration ships. */
-const KYC_DEV_BYPASS_EMAILS = new Set(["tokenable.dev@gmail.com"]);
+/** Internal dev account — pre-launch feature testing (KYC bypass, chain switcher). */
+const INTERNAL_DEV_EMAILS = new Set(["tokenable.dev@gmail.com"]);
 
 function normalizeAuthEmail(email: string | null | undefined): string {
   return email?.trim().toLowerCase() ?? "";
 }
 
-export function isKycDevBypassUser(user: AuthUser | null | undefined): boolean {
+export function isInternalDevUser(user: AuthUser | null | undefined): boolean {
   const email = normalizeAuthEmail(user?.email);
-  return email.length > 0 && KYC_DEV_BYPASS_EMAILS.has(email);
+  return email.length > 0 && INTERNAL_DEV_EMAILS.has(email);
+}
+
+export function isKycDevBypassUser(user: AuthUser | null | undefined): boolean {
+  return isInternalDevUser(user);
+}
+
+/** Sepolia ↔ Ethereum mainnet picker — internal dev only until public launch. */
+export function canUseAppChainSwitcher(user: AuthUser | null | undefined): boolean {
+  return isInternalDevUser(user);
+}
+
+/** `/vault` nav + mint wizard — internal dev only until public launch. */
+export function canAccessVault(user: AuthUser | null | undefined): boolean {
+  return isInternalDevUser(user);
 }
 
 /**
- * KYC completion — backend field TBD. Stub until Polsinelli / identity provider integration.
+ * KYC completion — synced from backend `kyc_status` (Privy identity verification in Phase 5).
  * `tokenable.dev@gmail.com` bypasses for local/staging feature testing.
  */
 export function isKycComplete(user: AuthUser | null | undefined): boolean {
   if (isKycDevBypassUser(user)) return true;
-  return false;
+  return user?.kycStatus === "approved";
 }
 
 export function deriveAccountAccessLevel(

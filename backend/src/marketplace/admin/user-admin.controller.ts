@@ -10,12 +10,13 @@ import {
   Query,
   Req,
 } from '@nestjs/common';
-import { ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
+import { ApiBody, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
+import { apiBodyDefault } from '../../swagger/api-body.util';
+import { SWAGGER_BODY_EXAMPLES } from '../../swagger/examples';
 import { MarketplaceAdminService } from './marketplace-admin.service';
 import {
   AdminLinkUserWalletDto,
-  AdminSetUserPasswordDto,
   AdminUpdateUserDto,
   AdminUserListQueryDto,
 } from './dto/admin-user.dto';
@@ -29,7 +30,7 @@ export class UserAdminController {
     private readonly users: UserAdminService,
   ) {}
 
-  @ApiOperation({ summary: '[Admin] Platform user stats' })
+  @ApiOperation({ summary: '[Admin] Platform user stats (Privy-centric)' })
   @Get('stats')
   stats(@Req() req: Request) {
     this.admin.assertAdminSession(req);
@@ -53,6 +54,7 @@ export class UserAdminController {
 
   @ApiOperation({ summary: '[Admin] Update user profile flags' })
   @ApiParam({ name: 'id' })
+  @ApiBody(apiBodyDefault(AdminUpdateUserDto, SWAGGER_BODY_EXAMPLES.adminUpdateUser))
   @Patch(':id')
   update(
     @Req() req: Request,
@@ -71,38 +73,7 @@ export class UserAdminController {
     return this.users.deleteUser(id);
   }
 
-  @ApiOperation({ summary: '[Admin] Resend email verification' })
-  @ApiParam({ name: 'id' })
-  @Post(':id/resend-verification')
-  @HttpCode(200)
-  resendVerification(@Req() req: Request, @Param('id') id: string) {
-    this.admin.assertAdminSession(req);
-    return this.users.resendVerificationEmail(id);
-  }
-
-  @ApiOperation({ summary: '[Admin] Send password reset email' })
-  @ApiParam({ name: 'id' })
-  @Post(':id/send-password-reset')
-  @HttpCode(200)
-  sendPasswordReset(@Req() req: Request, @Param('id') id: string) {
-    this.admin.assertAdminSession(req);
-    return this.users.sendPasswordResetEmail(id);
-  }
-
-  @ApiOperation({ summary: '[Admin] Set password directly' })
-  @ApiParam({ name: 'id' })
-  @Post(':id/set-password')
-  @HttpCode(200)
-  setPassword(
-    @Req() req: Request,
-    @Param('id') id: string,
-    @Body() body: AdminSetUserPasswordDto,
-  ) {
-    this.admin.assertAdminSession(req);
-    return this.users.setPassword(id, body.password);
-  }
-
-  @ApiOperation({ summary: '[Admin] Force verify email' })
+  @ApiOperation({ summary: '[Admin] Mark email verified (platform flag)' })
   @ApiParam({ name: 'id' })
   @Post(':id/force-verify-email')
   @HttpCode(200)
@@ -111,17 +82,9 @@ export class UserAdminController {
     return this.users.forceVerifyEmail(id);
   }
 
-  @ApiOperation({ summary: '[Admin] Clear pending verification tokens' })
-  @ApiParam({ name: 'id' })
-  @Post(':id/clear-pending-tokens')
-  @HttpCode(200)
-  clearTokens(@Req() req: Request, @Param('id') id: string) {
-    this.admin.assertAdminSession(req);
-    return this.users.clearPendingTokens(id);
-  }
-
   @ApiOperation({ summary: '[Admin] Link wallet without signature' })
   @ApiParam({ name: 'id' })
+  @ApiBody(apiBodyDefault(AdminLinkUserWalletDto, SWAGGER_BODY_EXAMPLES.adminLinkWallet))
   @Post(':id/wallets')
   @HttpCode(200)
   linkWallet(

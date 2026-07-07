@@ -1,9 +1,9 @@
-/** Swagger / 로컬 테스트용 고정 값 (Sepolia `.env` 와 맞춤). */
+/** Swagger / 로컬 테스트용 고정 값 (Ethereum Sepolia `.env` 와 맞춤). */
 export const SWAGGER_FIXTURES = {
   wallet: '0xAc5EBB0573Ca515741D8986a1bA1CDC178F46539',
   walletAlt: '0xD5abDD307414718C59949Ac5465930a1F8a52691',
   usdc: '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238',
-  rwaContract: '0x8a430E79fc7dcb5b8D9549bcF0844B5C1F9dD110',
+  rwaContract: '0x11117C44584dE2912689b62ddEE85ACa3dA17c28',
   zero: '0x0000000000000000000000000000000000000000',
   zoneHash:
     '0x0000000000000000000000000000000000000000000000000000000000000000',
@@ -16,6 +16,7 @@ export const SWAGGER_FIXTURES = {
   tokenId: 1,
   tokenIds: [1, 2, 3],
   certNumber: '83179580',
+  psaSpecId: '284890',
   psaOrderNumber: '123456789',
   psaSubmissionNumber: '987654321',
   orderHash:

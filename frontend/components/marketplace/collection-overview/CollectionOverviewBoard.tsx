@@ -61,6 +61,7 @@ export function CollectionOverviewBoard(props: CollectionOverviewBoardProps) {
     mobileTabbedMarketUi = false,
     marketsBelowChart,
     suppressHeadlineBanner = false,
+    hideDesktopTopBarHeadline = false,
   } = props;
 
   const layout = useCollectionOverviewLayout({
@@ -126,7 +127,7 @@ export function CollectionOverviewBoard(props: CollectionOverviewBoardProps) {
 
   return (
     <section
-      className={`relative w-full min-w-0 overflow-hidden rounded-2xl ${COLLECTION_DETAILS_BORDER_ALL} ${COLLECTION_DETAILS_BG_CLASS} max-lg:overflow-visible max-lg:shadow-none lg:flex lg:min-h-0 lg:flex-1 lg:flex-col lg:overflow-visible lg:shadow-[0_28px_64px_-32px_rgba(0,0,0,0.9)]`}
+      className={`cd-overview-board relative w-full min-w-0 overflow-hidden rounded-2xl ${COLLECTION_DETAILS_BORDER_ALL} ${COLLECTION_DETAILS_BG_CLASS} max-lg:overflow-visible max-lg:shadow-none lg:flex lg:min-h-0 lg:flex-1 lg:flex-col lg:overflow-visible lg:shadow-[0_28px_64px_-32px_rgba(0,0,0,0.9)]`}
       aria-label="Collection overview"
     >
       <CollectionOverviewTopBar
@@ -148,6 +149,7 @@ export function CollectionOverviewBoard(props: CollectionOverviewBoardProps) {
         hideTopHeadlineBarOnMobile={layout.hideTopHeadlineBarOnMobile}
         suppressHeadlineBanner={layout.suppressHeadlineBanner}
         hideDesktopHeadlineBadges={layout.useMobileTabbedMarket}
+        hideDesktopTopBarHeadline={hideDesktopTopBarHeadline}
       />
 
       <div

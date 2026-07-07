@@ -4,5 +4,6 @@ export type {
   CollectionDetailPageModel,
   CollectionDetailLoadedProps,
 } from "./useCollectionDetailPage";
+export { useCollectionListingModal } from "./useCollectionListingModal";
 export { useCollectionDetailMobile } from "./useCollectionDetailMobile";
 export { useCollectionDetailMarketData } from "./useCollectionDetailMarketData";

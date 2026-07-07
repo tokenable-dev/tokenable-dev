@@ -19,6 +19,7 @@ import {
 } from "@/lib/markets/top100CardDisplay";
 import type { Top100PriceMetrics } from "@/lib/markets/top100PriceMetrics";
 import { Top100DayChangeBadge } from "./Top100DayChangeBadge";
+import { AppPageState } from "@/components/ui/AppPageState";
 
 const IMAGE_FILTER: CSSProperties = {
   filter: "saturate(1.04) contrast(1.02)",
@@ -298,8 +299,8 @@ function Top100CardDetailContent({
 
   if (!cardId) {
     return (
-      <div className="min-h-screen bg-black px-4 py-16 text-center text-sm text-zinc-500">
-        Invalid card ID.
+      <div className="min-h-screen bg-black px-4 py-16 text-white">
+        <AppPageState kind="top100_invalid_card" />
       </div>
     );
   }
@@ -316,9 +317,20 @@ function Top100CardDetailContent({
           </Link>
         ) : null}
         {isError ? (
-          <div className="rounded-xl border border-red-900/40 bg-red-950/20 px-4 py-4 text-sm text-red-400">
-            {error instanceof Error ? error.message : "Failed to load card data."}
-          </div>
+          <AppPageState
+            kind="top100_load_failed"
+            layout="inline"
+            primaryAction={{
+              label: "Try again",
+              onClick: () => window.location.reload(),
+              variant: "primary",
+            }}
+            details={
+              process.env.NODE_ENV === "development" && error instanceof Error
+                ? error.message
+                : null
+            }
+          />
         ) : null}
 
         <header className="mb-6 sm:mb-8">

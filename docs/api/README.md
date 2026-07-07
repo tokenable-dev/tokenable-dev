@@ -16,7 +16,9 @@ When **`SITE_ACCESS_ENABLED=true`**, most routes also require the site-access co
 
 | Tag | Controller | Base Path |
 |-----|-----------|-----------|
-| `auth` | `auth/auth.controller.ts` | `/api/auth` |
+| `privy-auth` | `auth/auth.controller.ts` | `/api/auth` |
+| `privy` | `privy/privy-catalog.controller.ts` | `/api/privy` |
+| `privy-auth` / `privy-users` / `privy-funding` | `privy/privy-api.controller.ts` | `/api/privy` |
 | `rwa` | `rwa/rwa.controller.ts` | `/api/rwa` |
 | `blockchain` | `blockchain/blockchain.controller.ts` | `/api/blockchain` |
 | `psa` | `psa/psa.controller.ts` | `/api/psa` |
@@ -26,8 +28,10 @@ When **`SITE_ACCESS_ENABLED=true`**, most routes also require the site-access co
 | `marketplace` | `marketplace/portfolio/portfolio.controller.ts` | `/api/marketplace` |
 | `marketplace` | `marketplace/watchlist/watchlist.controller.ts` | `/api/marketplace/watchlist` |
 | `marketplace` | `marketplace/collections/cert-market-trace.controller.ts` | `/api/marketplace` |
-| `marketplace` | `marketplace/collections/rwa-token-admin.controller.ts` | `/api/marketplace/admin/rwa-tokens` |
-| `marketplace` | `marketplace/admin/marketplace-admin-auth.controller.ts` | `/api/marketplace/admin/auth` |
+| `marketplace-admin` | `marketplace/admin/platform-analytics.controller.ts` | `/api/marketplace/admin/analytics` |
+| `marketplace-admin` | `marketplace/admin/user-admin.controller.ts` | `/api/marketplace/admin/users` |
+| `marketplace-admin` | `marketplace/admin/marketplace-admin-auth.controller.ts` | `/api/marketplace/admin/auth` |
+| `marketplace-admin` | `marketplace/collections/rwa-token-admin.controller.ts` | `/api/marketplace/admin/rwa-tokens` |
 | `cardhedger` | `cardhedger/controllers/cardhedger-proxy.controller.ts` | `/api/cardhedger/v1` |
 | `cardhedger` | `cardhedger/controllers/card-top100.controller.ts` | `/api/cardhedger/top100` |
 | `cardhedger` | `cardhedger/controllers/card-top-movers.controller.ts` | `/api/cardhedger/top-movers` |
@@ -45,24 +49,14 @@ Scoped docs: [auth](./auth.md) · [rwa](./rwa.md) · [blockchain](./blockchain.m
 
 ## Auth (`/api/auth`)
 
+> **Privy-only** — `POST /api/auth/privy/session` exchanges a Privy access token for the Tokenable `access_token` HttpOnly cookie. Legacy email/password and Google OAuth routes were removed from the controller.
+
 | Method | Path | Guard | Description |
 |--------|------|-------|-------------|
-| POST | `/api/auth/register` | — | Email/password registration (verification email) |
-| POST | `/api/auth/login` | — | Email/password login → JWT cookie |
-| GET | `/api/auth/google` | — | Initiate Google OAuth |
-| GET | `/api/auth/google/callback` | — | OAuth callback → JWT cookie |
-| GET | `/api/auth/verify-email` | — | Email verification link (`?token=`) |
-| POST | `/api/auth/send-verification-email` | JWT | Resend verification |
-| POST | `/api/auth/resend-verification-email` | — | Resend (alternate) |
-| POST | `/api/auth/forgot-password` | — | Request password reset email |
-| POST | `/api/auth/reset-password` | — | Reset password with token |
-| POST | `/api/auth/change-password` | JWT | Change password (logged in) |
-| POST | `/api/auth/delete-account` | JWT | Delete account |
-| GET | `/api/auth/session` | — | Current session (`user: null` if anonymous) |
-| POST | `/api/auth/logout` | — | Clear cookie (204) |
-| GET | `/api/auth/wallet/challenge` | JWT | Wallet link SIWE-style challenge |
-| POST | `/api/auth/wallet` | JWT | Link wallet (signature) |
-| DELETE | `/api/auth/wallet` | JWT | Unlink wallet |
+| **POST** | **`/api/auth/privy/session`** | Bearer Privy | **Privy → Tokenable session** (`privy-access-token` in Swagger) |
+| GET | `/api/auth/session` | — | Current session (`{ user: null }` when anonymous — never 401) |
+| POST | `/api/auth/logout` | — | Clear Tokenable cookie (204) |
+| POST | `/api/auth/delete-account` | JWT | Delete account (`password` optional — legacy email users only) |
 
 ---
 
@@ -81,14 +75,24 @@ Scoped docs: [auth](./auth.md) · [rwa](./rwa.md) · [blockchain](./blockchain.m
 
 ## PSA
 
+Full architecture: **[psa.md](./psa.md)** · Swagger tag `psa` · upstream spec `backend/src/psa/psa-swagger.json`
+
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | `/api/psa/analyze` | Multipart slab OCR → PSA Public API |
+| POST | `/api/psa/analyze` | Multipart slab OCR → PSA + Cardhedger |
 | POST | `/api/psa/analyze-by-cert` | JSON `{ certNumber }` |
-| GET | `/api/psa/order/progress/:orderNumber` | PSA order progress proxy |
-| GET | `/api/psa/order/submission-progress/:submissionNumber` | PSA submission progress proxy |
-| POST | `/api/psa/order/progress` | Batch order progress |
-| POST | `/api/psa/order/submission-progress` | Batch submission progress |
+| GET | `/api/psa/public/cert/:certNumber` | Proxy — GetByCertNumber |
+| POST | `/api/psa/public/cert` | Same (Swagger Try it out) |
+| GET | `/api/psa/public/cert/:certNumber/file-append` | Proxy — GetByCertNumberForFileAppend |
+| POST | `/api/psa/public/cert/file-append` | Same |
+| GET | `/api/psa/public/cert/:certNumber/images` | Proxy — GetImagesByCertNumber |
+| POST | `/api/psa/public/cert/images` | Same |
+| GET | `/api/psa/public/pop/:specId` | Proxy — GetPSASpecPopulation |
+| POST | `/api/psa/public/pop` | Same |
+| GET | `/api/psa/order/progress/:orderNumber` | Proxy — GetProgress |
+| POST | `/api/psa/order/progress` | Same |
+| GET | `/api/psa/order/submission-progress/:submissionNumber` | Proxy — GetSubmissionProgress |
+| POST | `/api/psa/order/submission-progress` | Same |
 
 ---
 
@@ -142,11 +146,13 @@ Scoped docs: [auth](./auth.md) · [rwa](./rwa.md) · [blockchain](./blockchain.m
 
 | Method | Path | Guard | Description |
 |--------|------|-------|-------------|
-| GET | `/api/marketplace/portfolio/daily/:wallet` | — | Daily snapshots + P&L |
+| GET | `/api/marketplace/portfolio/daily/:wallet` | — | Daily snapshots + 24h P&L (`portfolio_daily_snapshots`) |
 | GET | `/api/marketplace/portfolio/hidden/:wallet` | — | Hidden token IDs |
 | POST | `/api/marketplace/portfolio/hidden` | — | Hide holding |
 | DELETE | `/api/marketplace/portfolio/hidden` | — | Unhide holding |
-| GET | `/api/marketplace/watchlist` | JWT | List saved collections |
+| POST | `/api/marketplace/portfolio/holdings/batch` | — | Batch hide + cost basis per tokenId |
+| PUT | `/api/marketplace/portfolio/holdings/cost-basis` | — | Manual cost basis (never overwritten by auto-seed) |
+| GET | `/api/marketplace/watchlist` | JWT | List saved collections (`x-tokenable-chain-id` optional) |
 | POST | `/api/marketplace/watchlist` | JWT | Add collection |
 | DELETE | `/api/marketplace/watchlist` | JWT | Remove collection |
 
@@ -154,18 +160,27 @@ Scoped docs: [auth](./auth.md) · [rwa](./rwa.md) · [blockchain](./blockchain.m
 
 ## Marketplace admin
 
-Separate session from user JWT — `/api/marketplace/admin/auth/*`.
+Separate session from user JWT — `POST /api/marketplace/admin/auth/login` sets `marketplace_admin` cookie. Swagger: **marketplace-admin** tag.
 
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/api/marketplace/admin/auth/session` | Admin session |
 | POST | `/api/marketplace/admin/auth/login` | Admin login |
 | POST | `/api/marketplace/admin/auth/logout` | Admin logout |
-| GET | `/api/marketplace/admin/rwa-tokens/listings` | RWA token admin list |
-| PATCH | `/api/marketplace/admin/rwa-tokens/:tokenId` | Update token metadata fields |
-| POST | `/api/marketplace/admin/rwa-tokens/:tokenId/preview-metadata-image` | Preview image fix |
+| GET | `/api/marketplace/admin/analytics` | Platform KPIs (`?days=7\|30\|90`) |
+| GET | `/api/marketplace/admin/analytics/ga4` | GA4 traffic (when configured) |
+| GET | `/api/marketplace/admin/users` | User list + filters |
+| GET | `/api/marketplace/admin/users/stats` | User stats |
+| GET | `/api/marketplace/admin/users/:id` | User detail |
+| GET | `/api/marketplace/admin/rwa-tokens/cards` | All RWA registry cards |
+| GET | `/api/marketplace/admin/rwa-tokens/custody-nfts` | Custody delivery queue |
+| GET | `/api/marketplace/admin/rwa-tokens/listings` | Listed cards (legacy) |
+| PATCH | `/api/marketplace/admin/rwa-tokens/:tokenId` | Update token metadata |
+| POST | `/api/marketplace/admin/rwa-tokens/:tokenId/deliver` | Deliver custody NFT to user |
 
-Collection admin routes (cover/delete) use `?adminWallet=` on `/api/marketplace/collections/:key/admin/*`.
+Collection admin routes (cover/delete) use admin session on `/api/marketplace/collections/:key/admin/*`.
+
+Full ops guide: [marketplace-admin.md](../guides/marketplace-admin.md).
 
 ---
 
@@ -192,4 +207,4 @@ See **[cardhedger.md](./cardhedger.md)** for full proxy path list, Top 100, Top 
 
 ---
 
-For request/response schemas, use **[Swagger UI](http://localhost:4100/api/docs)** or the scoped reference pages above.
+For request/response schemas and **Try it out** examples, use **[Swagger UI](http://localhost:4100/api/docs)** (`pnpm start:dev` in `backend/`). Quick flow: health → site-access (if enabled) → `privy/session` or Authorize → marketplace / marketplace-admin.

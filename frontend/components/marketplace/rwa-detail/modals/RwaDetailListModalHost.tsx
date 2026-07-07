@@ -38,6 +38,7 @@ export function RwaDetailListModalHost({
 
   return (
     <ListRwaModal
+      shell="sheet"
       tokenId={tokenId}
       assetTitle={assetTitle}
       collectionKey={collectionKey}

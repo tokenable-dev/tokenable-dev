@@ -109,4 +109,4 @@ Card ID resolution uses **`CollectionIdentityService`** (cert lookup + search). 
 
 ## UI feature flags
 
-Public Top 100 / Top Movers sections may be disabled in the frontend via `lib/markets/top100Copy.ts` while admin preview routes remain available under `/marketplace/admin/top100` and `/marketplace/admin/top-movers`.
+Public Top 100 / Top Movers sections may be disabled in the frontend via `lib/markets/top100Copy.ts` while admin preview remains on **`/marketplace/admin/markets`** (tabbed: home landing, Top 100, Cardhedger movers).

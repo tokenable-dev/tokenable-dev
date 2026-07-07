@@ -4,11 +4,13 @@ import {
   Injectable,
   InternalServerErrorException,
   Logger,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import sharp from 'sharp';
 import { CardhedgerService } from '../cardhedger/cardhedger.service';
 import { readCardhedgerFeatureFlags } from '../config/cardhedger-feature-flags.util';
+import { isPsaPublicApiUpstreamEnabled } from '../marketplace/utils/psa-upstream-policy.util';
 import { parseCertPriceResult } from '../marketplace/market-data/cardhedger-cert-price.util';
 import {
   cardNumberTokenForCardhedgerSearch,
@@ -39,6 +41,7 @@ import {
   isPsaRateLimitHttpStatus,
   throwPsaRateLimitHttpException,
 } from './psa-rate-limit.exception';
+import { parsePositiveIntEnv } from './psa-public-api-rate-limit.util';
 
 export interface CardhedgerOcrNormalized {
   raw_text: string;
@@ -171,6 +174,15 @@ export class PsaService {
   }
 
   private static readonly MAX_COMBINED_OCR_CHARS = 150_000;
+
+  /** Max distinct cert numbers tried against PSA Public API per OCR analyze. */
+  private maxOcrCertAttempts(): number {
+    return parsePositiveIntEnv(
+      this.config.get<string>('PSA_PUBLIC_API_MAX_CERT_ATTEMPTS'),
+      3,
+      10,
+    );
+  }
 
   private async preprocess(buffer: Buffer): Promise<Buffer> {
     return sharp(buffer)
@@ -550,6 +562,7 @@ export class PsaService {
       cardSet?: string;
       psaVariety?: string | null;
     },
+    opts?: { allowApproximate?: boolean },
   ): Promise<PsaAnalyzeResult['cardhedgerMint'] | undefined> {
     try {
       this.cardhedgerService.assertConfigured();
@@ -633,8 +646,8 @@ export class PsaService {
 
     const pick = scored[0];
     if (!pick) return undefined;
-    // Accuracy-first: persist Cardhedger id only for strict verified matches.
-    if (!pick.verified) return undefined;
+    // Accuracy-first by default; cert-only mint may allow approximate catalog match for display image.
+    if (!pick.verified && !opts?.allowApproximate) return undefined;
 
     // Extract image from the search result row if present
     const matchedRow = cards
@@ -650,11 +663,165 @@ export class PsaService {
         : undefined;
 
     return {
-      matchConfidence: 'verified',
+      matchConfidence: pick.verified ? 'verified' : 'approximate',
       cardId: pick.id,
       searchQuery,
       ...(imageUrl ? { imageUrl } : {}),
     };
+  }
+
+  private async fetchCardhedgerCatalogImageByCardId(
+    cardId: string,
+  ): Promise<string | undefined> {
+    const id = cardId.trim();
+    if (!id) return undefined;
+    try {
+      this.cardhedgerService.assertConfigured();
+    } catch {
+      return undefined;
+    }
+    try {
+      const detailsBody = await this.cardhedgerService.forwardJson(
+        'POST',
+        '/v1/cards/card-details',
+        { body: { card_id: id } },
+      );
+      const detailCards = (detailsBody as { cards?: unknown[] }).cards;
+      if (Array.isArray(detailCards) && detailCards.length > 0) {
+        const row = detailCards[0] as Record<string, unknown>;
+        const img =
+          typeof row.image === 'string' && row.image.trim()
+            ? normalizeImageUrl(row.image)
+            : undefined;
+        return img;
+      }
+    } catch (e) {
+      this.logger.warn(
+        `Cardhedger card-details image fetch skipped cardId=${id}: ${
+          e instanceof Error ? e.message : String(e)
+        }`,
+      );
+    }
+    return undefined;
+  }
+
+  /** Cert-number lookup via prices-by-cert when PSA slab image is unavailable. */
+  private async tryCardhedgerMintFromPricesByCert(
+    certNumber: string,
+    fallbackSearchQuery: string,
+  ): Promise<PsaAnalyzeResult['cardhedgerMint'] | undefined> {
+    const digits = certNumber.replace(/\D/g, '');
+    if (digits.length < 7) return undefined;
+    try {
+      this.cardhedgerService.assertConfigured();
+    } catch {
+      return undefined;
+    }
+    try {
+      const raw = await this.cardhedgerService.forwardJson(
+        'POST',
+        '/v1/cards/prices-by-cert',
+        { body: { cert: digits, grader: 'PSA', days: 30 } },
+      );
+      const mapped = PsaService.mapCertLookupToOcrResolve(raw, {
+        certLookupComplete: true,
+      });
+      if (!mapped?.cardId && !mapped?.imageUrl) return undefined;
+      let imageUrl = mapped.imageUrl;
+      if (mapped.cardId && !imageUrl) {
+        imageUrl = await this.fetchCardhedgerCatalogImageByCardId(mapped.cardId);
+      }
+      if (!mapped.cardId && !imageUrl) return undefined;
+      return {
+        matchConfidence: 'verified',
+        cardId: mapped.cardId ?? '',
+        searchQuery: mapped.searchQuery ?? fallbackSearchQuery,
+        ...(imageUrl ? { imageUrl } : {}),
+        ...(mapped.priceUsd != null
+          ? {
+              priceUsd: mapped.priceUsd,
+              priceSource: 'cardhedger_prices_by_cert_ocr' as const,
+            }
+          : {}),
+      };
+    } catch (e) {
+      this.logger.warn(
+        `Cardhedger prices-by-cert mint resolve failed cert=${digits}: ${
+          e instanceof Error ? e.message : String(e)
+        }`,
+      );
+      return undefined;
+    }
+  }
+
+  private async enrichCardhedgerMintWhenPsaSlabMissing(
+    certNumber: string,
+    psaParsed: ParsedPsaLabel,
+    searchQuery: string,
+    existing: PsaAnalyzeResult['cardhedgerMint'] | undefined,
+  ): Promise<PsaAnalyzeResult['cardhedgerMint'] | undefined> {
+    let mint = existing;
+
+    if (!mint?.imageUrl) {
+      const byPrice = await this.tryCardhedgerMintFromPricesByCert(
+        certNumber,
+        searchQuery,
+      );
+      if (byPrice) {
+        mint = mint
+          ? {
+              ...mint,
+              ...byPrice,
+              cardId: byPrice.cardId || mint.cardId,
+              imageUrl: byPrice.imageUrl ?? mint.imageUrl,
+            }
+          : byPrice;
+      }
+    }
+
+    if (!mint?.imageUrl) {
+      const relaxed = await this.tryResolveCardhedgerMint(
+        searchQuery,
+        {
+          cardName: String(psaParsed.cardNameHint ?? ''),
+          cardNumber:
+            primaryCardNumber(String(psaParsed.cardNumberHint ?? '')) ||
+            String(psaParsed.cardNumberHint ?? '')
+              .replace(/^#/, '')
+              .trim(),
+          cardSet:
+            typeof psaParsed.setHint === 'string' && psaParsed.setHint.trim()
+              ? psaParsed.setHint.trim()
+              : undefined,
+          psaVariety: psaParsed.varietyHint,
+        },
+        { allowApproximate: true },
+      );
+      if (relaxed) {
+        mint = mint
+          ? {
+              ...mint,
+              cardId: mint.cardId || relaxed.cardId,
+              imageUrl: relaxed.imageUrl ?? mint.imageUrl,
+              searchQuery: mint.searchQuery ?? relaxed.searchQuery,
+              matchConfidence: mint.matchConfidence ?? relaxed.matchConfidence,
+            }
+          : relaxed;
+      }
+    }
+
+    if (mint?.cardId && !mint.imageUrl) {
+      const img = await this.fetchCardhedgerCatalogImageByCardId(mint.cardId);
+      if (img) mint = { ...mint, imageUrl: img };
+    }
+
+    if (mint?.imageUrl && !existing?.imageUrl) {
+      this.logger.log(
+        `Cardhedger mint image resolved cert=${certNumber.replace(/\D/g, '')} (PSA slab image unavailable)`,
+      );
+    }
+
+    return mint;
   }
 
   /**
@@ -1019,7 +1186,7 @@ export class PsaService {
     let psaParsed = psaParsedIn;
 
     const explicitHint = resolveCertHintForLookup(options?.explicitCertHint);
-    const candidateList = explicitHint
+    const candidateList = (explicitHint
       ? [explicitHint]
       : [
           ...(certCandidates ?? [])
@@ -1030,7 +1197,7 @@ export class PsaService {
             : []),
         ]
           .filter((v, i, a) => a.indexOf(v) === i)
-          .slice(0, 80);
+          .slice(0, explicitHint ? 1 : this.maxOcrCertAttempts()));
     if (candidateList.length === 0) {
       throw new BadRequestException(
         'CertNumber OCR에 실패했습니다. Cert Number를 직접 입력한 뒤 다시 시도해 주세요.',
@@ -1046,15 +1213,33 @@ export class PsaService {
       reason: 'no_cert',
     };
     let selectedCert: string | null = null;
+    let enrichedFromOfficialApi = false;
+
+    if (!isPsaPublicApiUpstreamEnabled(this.config)) {
+      throw new ServiceUnavailableException(
+        'PSA Public API upstream is disabled. Vault cert lookup requires PSA_PUBLIC_API_TOKEN and PSA_PUBLIC_API_UPSTREAM_ENABLED=true in backend/.env.',
+      );
+    }
+
     let sawCertMismatch = false;
     let lastErrMessage = '';
     let lastHttpStatus: number | undefined;
+
+    if (!apiLookupSuccess) {
     for (const cert of candidateList) {
       try {
-        const apiTry = await this.psaPublicApi.getByCertNumber(cert);
+        const apiTry = await this.psaPublicApi.getByCertNumber(cert, {
+          bypassCache: false,
+        });
         if (apiTry.status === 'error') {
           if (isPsaRateLimitHttpStatus(apiTry.httpStatus)) {
             throwPsaRateLimitHttpException(apiTry.message);
+          }
+          if (apiTry.httpStatus === 401 || apiTry.httpStatus === 403) {
+            throw new BadRequestException(
+              apiTry.message ||
+                'PSA API authentication failed — check PSA_PUBLIC_API_TOKEN in backend/.env and restart the server.',
+            );
           }
           if (apiTry.reason === 'cert_mismatch') {
             sawCertMismatch = true;
@@ -1062,17 +1247,36 @@ export class PsaService {
           lastHttpStatus = apiTry.httpStatus;
         }
         if (apiTry.status === 'success') {
-          const imgTry = await this.psaPublicApi.getImagesByCertNumber(cert);
-          if (
-            imgTry.status === 'error' &&
-            isPsaRateLimitHttpStatus(imgTry.httpStatus)
-          ) {
-            throwPsaRateLimitHttpException(imgTry.message);
-          }
           selectedCert = cert;
           apiLookupSuccess = apiTry;
-          imagesLookup = imgTry;
           psaParsed = { ...psaParsed, certNumber: cert };
+
+          const fromCertBody = extractPsaCertImageUrlsFromApiBody(
+            apiTry.raw,
+            cert,
+          );
+          if (fromCertBody.front) {
+            this.logger.debug(
+              `PSA GetImages skipped cert=${cert} — front image already in GetByCertNumber body`,
+            );
+            imagesLookup = { status: 'skipped', reason: 'no_cert' };
+          } else {
+            const imgTry = await this.psaPublicApi.getImagesByCertNumber(cert);
+            if (
+              imgTry.status === 'error' &&
+              isPsaRateLimitHttpStatus(imgTry.httpStatus)
+            ) {
+              this.logger.warn(
+                `PSA GetImages rate-limited cert=${cert} — returning cert metadata without slab images`,
+              );
+              imagesLookup = {
+                status: 'skipped',
+                reason: 'no_cert',
+              };
+            } else {
+              imagesLookup = imgTry;
+            }
+          }
           break;
         }
         const m =
@@ -1086,6 +1290,8 @@ export class PsaService {
         lastErrMessage = m;
       }
     }
+    } // end if (!apiLookupSuccess)
+
     if (!selectedCert) {
       if (isPsaRateLimitHttpStatus(lastHttpStatus)) {
         throwPsaRateLimitHttpException(lastErrMessage);
@@ -1104,41 +1310,41 @@ export class PsaService {
         `PSA 공식 메타 조회에 실패했습니다 (시도 cert=${candidateList.join(',')}): ${lastErrMessage || 'unknown error'}`,
       );
     }
-    const digitsForImages = selectedCert;
-    if (!apiLookupSuccess) {
-      throw new InternalServerErrorException(
-        `PSA 공식 메타 조회에 실패했습니다 (cert=${digitsForImages}): unknown error`,
-      );
-    }
 
-    let enrichedFromOfficialApi = false;
-    try {
-      const hasCert = !!(apiLookupSuccess.raw as { PSACert?: unknown })
-        ?.PSACert;
-      if (!hasCert) {
-        throw new Error('PSACert payload is missing');
+    const digitsForImages = selectedCert!;
+
+    if (apiLookupSuccess) {
+      try {
+        const hasCert = !!(apiLookupSuccess.raw as { PSACert?: unknown })
+          ?.PSACert;
+        if (!hasCert) {
+          throw new Error('PSACert payload is missing');
+        }
+        psaParsed = mergePsaApiIntoParsed(psaParsed, apiLookupSuccess.raw);
+        enrichedFromOfficialApi = true;
+        const apiCert = certNumberFromPsaCertBody(apiLookupSuccess.raw);
+        if (apiCert && apiCert !== selectedCert) {
+          throw new BadRequestException(
+            `PSA Cert ${selectedCert} 조회 결과 cert(${apiCert})가 일치하지 않습니다.`,
+          );
+        }
+        psaParsed = { ...psaParsed, certNumber: selectedCert! };
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        throw new InternalServerErrorException(`PSA 공식 메타 병합 실패: ${msg}`);
       }
-      psaParsed = mergePsaApiIntoParsed(psaParsed, apiLookupSuccess.raw);
-      enrichedFromOfficialApi = true;
-      const apiCert = certNumberFromPsaCertBody(apiLookupSuccess.raw);
-      if (apiCert && apiCert !== selectedCert) {
-        throw new BadRequestException(
-          `PSA Cert ${selectedCert} 조회 결과 cert(${apiCert})가 일치하지 않습니다.`,
-        );
-      }
-      psaParsed = { ...psaParsed, certNumber: selectedCert };
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      throw new InternalServerErrorException(`PSA 공식 메타 병합 실패: ${msg}`);
     }
 
     if (imagesLookup.status === 'error') {
       if (isPsaRateLimitHttpStatus(imagesLookup.httpStatus)) {
-        throwPsaRateLimitHttpException(imagesLookup.message);
+        this.logger.warn(
+          `PSA GetImages failed cert=${digitsForImages} (429) — continuing without slab images`,
+        );
+      } else {
+        this.logger.warn(
+          `PSA GetImages failed cert=${digitsForImages}: ${imagesLookup.message} — continuing (Cardhedger/catalog image may still be available)`,
+        );
       }
-      this.logger.warn(
-        `PSA GetImages failed cert=${digitsForImages}: ${imagesLookup.message} — continuing (Cardhedger/catalog image may still be available)`,
-      );
     }
 
     let psaCertImages: { front?: string; back?: string } | undefined;
@@ -1158,10 +1364,12 @@ export class PsaService {
         );
       }
       try {
-        fromCertBody = extractPsaCertImageUrlsFromApiBody(
-          apiLookupSuccess.raw,
-          digitsForImages,
-        );
+        if (apiLookupSuccess) {
+          fromCertBody = extractPsaCertImageUrlsFromApiBody(
+            apiLookupSuccess.raw,
+            digitsForImages,
+          );
+        }
       } catch (e) {
         throw new InternalServerErrorException(
           `PSA Cert 이미지 URL 추출 실패: ${e instanceof Error ? e.message : String(e)}`,
@@ -1266,28 +1474,22 @@ export class PsaService {
 
     // If we have a cardId but still no imageUrl, fetch via card-details as a fallback
     if (cardhedgerMint?.cardId && !cardhedgerMint.imageUrl) {
-      try {
-        const detailsBody = await this.cardhedgerService.forwardJson(
-          'POST',
-          '/v1/cards/card-details',
-          { body: { card_id: cardhedgerMint.cardId } },
-        );
-        const detailCards = (detailsBody as { cards?: unknown[] }).cards;
-        if (Array.isArray(detailCards) && detailCards.length > 0) {
-          const row = detailCards[0] as Record<string, unknown>;
-          const img =
-            typeof row.image === 'string' && row.image.trim()
-              ? normalizeImageUrl(row.image)
-              : undefined;
-          if (img) {
-            cardhedgerMint = { ...cardhedgerMint, imageUrl: img };
-          }
-        }
-      } catch (e) {
-        this.logger.warn(
-          `Cardhedger card-details image fetch skipped: ${e instanceof Error ? e.message : String(e)}`,
-        );
+      const img = await this.fetchCardhedgerCatalogImageByCardId(
+        cardhedgerMint.cardId,
+      );
+      if (img) {
+        cardhedgerMint = { ...cardhedgerMint, imageUrl: img };
       }
+    }
+
+    // PSA cert metadata OK but no official slab URL → Cardhedger catalog image for mint
+    if (selectedCert && apiLookupSuccess && !psaCertImages?.front) {
+      cardhedgerMint = await this.enrichCardhedgerMintWhenPsaSlabMissing(
+        selectedCert,
+        psaParsed,
+        cardhedgerQuery,
+        cardhedgerMint,
+      );
     }
 
     // If still no catalog image, try additional sources (image passed in via imageBuffer param)
@@ -1347,7 +1549,7 @@ export class PsaService {
         cardhedgerMint,
       ),
       psaApi: {
-        lookup: apiLookupSuccess,
+        lookup: apiLookupSuccess!,
       },
       ...(cardhedgerMint != null ? { cardhedgerMint } : {}),
       ...(psaCertImages ? { psaCertImages } : {}),

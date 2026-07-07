@@ -1,17 +1,15 @@
 "use client";
 
+import { TkButton } from "@/components/ds";
 import { parseFriendlyMintError } from "@/lib/vault/friendlyMintError";
 import type { MintFormStep } from "@/lib/vault/mintFormConstants";
 import type { PsaInputMode } from "@/lib/vault/mintFormConstants";
-import {
-  GradientOutlineFrame,
-  gradientOutlineInnerButtonClass,
-  VAULT_OUTLINE_PAD_CLASS,
-} from "@/components/ui/GradientOutlineFrame";
 import { WalletConnect } from "@/components/wallet/WalletConnect";
 
 type MintFormMintActionsProps = {
-  isConnected: boolean;
+  isWalletReady: boolean;
+  isWalletActivating: boolean;
+  hasAccountWallet: boolean;
   showMintReady: boolean;
   isProcessing: boolean;
   showPsaAnalyzeOverlay: boolean;
@@ -21,7 +19,9 @@ type MintFormMintActionsProps = {
 };
 
 export function MintFormMintActions({
-  isConnected,
+  isWalletReady,
+  isWalletActivating,
+  hasAccountWallet,
   showMintReady,
   isProcessing,
   showPsaAnalyzeOverlay,
@@ -31,39 +31,47 @@ export function MintFormMintActions({
 }: MintFormMintActionsProps) {
   return (
     <>
-      {!isConnected ? (
-        <GradientOutlineFrame className="w-full" padClass={VAULT_OUTLINE_PAD_CLASS}>
-          <WalletConnect
-            connectButtonClassName={`${gradientOutlineInnerButtonClass} !rounded-[11px] py-3.5 text-sm`}
-            connectButtonStyle={{ backgroundColor: "#000000" }}
-          />
-        </GradientOutlineFrame>
+      {!isWalletReady ? (
+        <div className="flex justify-center py-2">
+          {isWalletActivating || hasAccountWallet ? (
+            <div className="flex items-center gap-2 px-2 py-1.5 text-sm text-[var(--t2)]">
+              <div
+                className="h-4 w-4 animate-spin rounded-full border-2 border-[var(--azure)] border-t-transparent"
+                aria-hidden
+              />
+              <span>Preparing account wallet…</span>
+            </div>
+          ) : (
+            <WalletConnect />
+          )}
+        </div>
       ) : showMintReady ? (
-        <GradientOutlineFrame className="w-full" padClass={VAULT_OUTLINE_PAD_CLASS}>
-          <button
-            type="submit"
-            disabled={isProcessing || showPsaAnalyzeOverlay}
-            className="w-full rounded-[11px] border-0 !bg-black py-3.5 text-sm font-bold text-mint transition disabled:cursor-not-allowed disabled:!bg-black disabled:text-mint/35"
-            style={{ backgroundColor: "#000000" }}
-          >
-            {isProcessing
-              ? "Minting…"
-              : showPsaAnalyzeOverlay
-                ? psaInputMode === "cert"
-                  ? "Looking up cert…"
-                  : "Analyzing slab…"
-                : "Mint"}
-          </button>
-        </GradientOutlineFrame>
+        <TkButton
+          type="submit"
+          variant="primary"
+          className="w-full"
+          disabled={isProcessing || showPsaAnalyzeOverlay}
+        >
+          {isProcessing
+            ? "Minting…"
+            : showPsaAnalyzeOverlay
+              ? psaInputMode === "cert"
+                ? "Looking up cert…"
+                : "Analyzing slab…"
+              : "Mint"}
+        </TkButton>
       ) : null}
 
       {isProcessing && (
         <div className="flex items-center gap-2 py-1">
-          <div className="h-4 w-4 animate-spin rounded-full border-2 border-mint border-t-transparent" />
-          <span className="text-sm text-gray-400">
+          <div
+            className="h-4 w-4 animate-spin rounded-full border-2 border-[var(--azure)] border-t-transparent"
+            aria-hidden
+          />
+          <span className="text-sm text-[var(--t2)]">
             {step === "uploading"
               ? "Uploading to IPFS..."
-              : "Confirm once in MetaMask — do not click Mint again."}
+              : "Submitting mint — platform is minting to custody; admin will deliver to your account wallet."}
           </span>
         </div>
       )}
@@ -73,8 +81,8 @@ export function MintFormMintActions({
           const friendly = parseFriendlyMintError(errorMsg);
           if (!friendly) {
             return (
-              <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3">
-                <p className="text-xs break-all text-red-400">{errorMsg}</p>
+              <div className="rounded-lg border border-[var(--neg)]/30 bg-[var(--neg)]/10 p-3">
+                <p className="text-xs break-all text-[var(--neg)]">{errorMsg}</p>
               </div>
             );
           }

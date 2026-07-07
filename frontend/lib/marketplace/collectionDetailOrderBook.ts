@@ -10,6 +10,8 @@ export function buildCollectionDetailOrderBookProps(input: {
   lastTradePriceUsdc: number | null | undefined;
   tapeFills: CollectionPlatformTapeFill[];
   tapeLoading: boolean;
+  tapeError?: boolean;
+  tapeErrorMessage?: string | null;
   connectedAddress?: string | null;
   onInvalidate?: () => void;
 }): CollectionUnifiedOrderBookProps {
@@ -25,6 +27,8 @@ export function buildCollectionDetailOrderBookProps(input: {
     lastTradeSide: "buy",
     tapeFills: input.tapeFills,
     tapeLoading: input.tapeLoading,
+    tapeError: input.tapeError,
+    tapeErrorMessage: input.tapeErrorMessage,
     connectedAddress: input.connectedAddress,
     onInvalidate: input.onInvalidate,
   };

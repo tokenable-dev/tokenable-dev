@@ -21,7 +21,7 @@ import type {
   PortfolioDailyCaptureRunResult,
   PortfolioPricingContext,
 } from './portfolio-daily-snapshot.types';
-import { PortfolioHiddenHoldingService } from './portfolio-hidden-holding.service';
+import { PortfolioHoldingService } from './portfolio-holding.service';
 import { readCardhedgerFeatureFlags } from '../../config/cardhedger-feature-flags.util';
 
 type SnapshotTotals = { totalValueUsd: number; cardCount: number };
@@ -86,7 +86,7 @@ export class PortfolioDailySnapshotService {
     private readonly collectionMarket: CollectionMarketService,
     private readonly cardhedger: CardhedgerMarketDataService,
     private readonly rwaTokenRegistry: RwaTokenRegistryService,
-    private readonly portfolioHidden: PortfolioHiddenHoldingService,
+    private readonly portfolioHoldings: PortfolioHoldingService,
   ) {}
 
   ownerScanConcurrency(): number {
@@ -239,7 +239,7 @@ export class PortfolioDailySnapshotService {
       const chunk = allWallets.slice(i, i + concurrency);
       const results = await Promise.allSettled(
         chunk.map(async (wallet) => {
-          const tokenIds = await this.portfolioHidden.filterVisibleTokenIds(
+          const tokenIds = await this.portfolioHoldings.filterVisibleTokenIds(
             wallet,
             holderIndex.get(wallet) ?? [],
           );
@@ -291,7 +291,7 @@ export class PortfolioDailySnapshotService {
       return { totalMinted: 0, holderIndex };
     }
 
-    const tokenIds = Array.from({ length: totalMinted }, (_, i) => i);
+    const tokenIds = Array.from({ length: totalMinted }, (_, i) => i + 1);
     const ownerByToken = await this.blockchain.batchOwnerOf(
       tokenIds,
       this.ownerScanConcurrency(),
@@ -468,12 +468,44 @@ export class PortfolioDailySnapshotService {
   /** Single-wallet path (read fallback / legacy). */
   private async computeWalletTotals(walletAddress: string): Promise<SnapshotTotals> {
     const owned = await this.blockchain.getRwaTokensByOwner(walletAddress);
-    const tokenIds = await this.portfolioHidden.filterVisibleTokenIds(
+    const tokenIds = await this.portfolioHoldings.filterVisibleTokenIds(
       walletAddress,
       owned,
     );
     if (tokenIds.length === 0) return { totalValueUsd: 0, cardCount: 0 };
     const ctx = await this.buildPricingContext(tokenIds);
     return this.computeTotalsFromContext(tokenIds, ctx);
+  }
+
+  /** Current mark USD per tokenId (vault deliver cost seed, portfolio display). */
+  async resolveMarkUsdByTokenIds(
+    tokenIds: number[],
+  ): Promise<Map<number, number>> {
+    const unique = [
+      ...new Set(
+        tokenIds
+          .map((n) => Math.floor(Number(n)))
+          .filter((n) => Number.isFinite(n) && n >= 0),
+      ),
+    ];
+    const out = new Map<number, number>();
+    if (unique.length === 0) return out;
+
+    const ctx = await this.buildPricingContext(unique);
+    for (const tokenId of unique) {
+      const meta = ctx.metaByToken.get(tokenId);
+      if (!meta) continue;
+      const key = ctx.tokenToCollection.get(tokenId);
+      const series = key ? ctx.seriesByKey.get(key) ?? null : null;
+      const usd = resolveTokenMarkUsd(
+        meta,
+        series,
+        ctx.mintPreviews[tokenId] ?? null,
+      );
+      if (usd != null && Number.isFinite(usd) && usd >= 0) {
+        out.set(tokenId, usd);
+      }
+    }
+    return out;
   }
 }

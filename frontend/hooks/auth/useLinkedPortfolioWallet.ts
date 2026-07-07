@@ -45,7 +45,10 @@ export function useLinkedPortfolioWallet() {
   );
 
   const walletMismatch = Boolean(
-    isConnected && connectedNormalized && !connectedIsLinked,
+    isConnected &&
+      connectedNormalized &&
+      !connectedIsLinked &&
+      !primaryAddress,
   );
 
   return {
@@ -59,7 +62,7 @@ export function useLinkedPortfolioWallet() {
     connectedIsLinked,
     walletMismatch,
     canSign: Boolean(isConnected && connectedIsLinked),
-    /** True when portfolio rows match the wallet currently selected in MetaMask. */
+    /** True when portfolio rows match the wallet currently active in wagmi. */
     isViewingConnectedWallet: Boolean(
       portfolioAddress &&
         connectedNormalized &&

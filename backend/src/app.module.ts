@@ -10,6 +10,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { CacheModule } from './common/cache/cache.module';
 import { CardhedgerMetricsModule } from './common/metrics/cardhedger-metrics.module';
 import { CardhedgerAdminModule } from './cardhedger/admin/cardhedger-admin.module';
+import { PrivyModule } from './privy/privy.module';
 import { AuthModule } from './auth/auth.module';
 import { BlockchainModule } from './blockchain/blockchain.module';
 import { MarketplaceModule } from './marketplace/marketplace.module';
@@ -22,13 +23,14 @@ import { SiteAccessModule } from './site-access/site-access.module';
 import { Order } from './marketplace/entities/order.entity';
 import { MarketplaceCollection } from './marketplace/entities/marketplace-collection.entity';
 import { CollectionMarketSnapshot } from './marketplace/entities/collection-market-snapshot.entity';
-import { PsaCertSnapshot } from './marketplace/entities/psa-cert-snapshot.entity';
 import { RwaToken } from './marketplace/entities/rwa-token.entity';
+import { UserAuthProvider } from './user/entities/user-auth-provider.entity';
+import { UserKycEvent } from './user/entities/user-kyc-event.entity';
 import { User } from './user/entities/user.entity';
 import { UserWallet } from './user/entities/user-wallet.entity';
 import { VerificationToken } from './auth/entities/verification-token.entity';
 import { PortfolioDailySnapshot } from './marketplace/entities/portfolio-daily-snapshot.entity';
-import { PortfolioHiddenHolding } from './marketplace/entities/portfolio-hidden-holding.entity';
+import { PortfolioHolding } from './marketplace/entities/portfolio-holding.entity';
 import { UserWatchlist } from './marketplace/entities/user-watchlist.entity';
 import { CardTop100DailySnapshot } from './cardhedger/entities/card-top100-snapshot.entity';
 import { CardhedgerPriceSubscription } from './cardhedger/entities/cardhedger-price-subscription.entity';
@@ -36,6 +38,9 @@ import { CardhedgerPriceDeltaCheckpoint } from './cardhedger/entities/cardhedger
 import { CardhedgerDailyPriceExportRun } from './cardhedger/entities/cardhedger-daily-price-export-run.entity';
 import { CardhedgerPriceDeltaImportRun } from './cardhedger/entities/cardhedger-price-delta-import-run.entity';
 import { MarketplaceAdmin } from './marketplace/entities/marketplace-admin.entity';
+import { VaultAsset } from './vault/entities/vault-asset.entity';
+import { VaultCycle } from './vault/entities/vault-cycle.entity';
+import { VaultRedemption } from './vault/entities/vault-redemption.entity';
 
 @Module({
   imports: [
@@ -68,13 +73,14 @@ import { MarketplaceAdmin } from './marketplace/entities/marketplace-admin.entit
           Order,
           MarketplaceCollection,
           CollectionMarketSnapshot,
-          PsaCertSnapshot,
           RwaToken,
           User,
           UserWallet,
+          UserAuthProvider,
+          UserKycEvent,
           VerificationToken,
           PortfolioDailySnapshot,
-          PortfolioHiddenHolding,
+          PortfolioHolding,
           UserWatchlist,
           CardTop100DailySnapshot,
           CardhedgerPriceSubscription,
@@ -82,6 +88,9 @@ import { MarketplaceAdmin } from './marketplace/entities/marketplace-admin.entit
           CardhedgerDailyPriceExportRun,
           CardhedgerPriceDeltaImportRun,
           MarketplaceAdmin,
+          VaultAsset,
+          VaultCycle,
+          VaultRedemption,
         ],
         // Schema sync is always disabled in production — use SQL migration scripts
         // under backend/sql/schema/ instead. Enabled only in non-production
@@ -91,10 +100,17 @@ import { MarketplaceAdmin } from './marketplace/entities/marketplace-admin.entit
         logging:
           config.get<string>('DB_LOGGING') === '1' ||
           config.get<string>('DB_LOGGING') === 'true',
+        // Slow-query instrumentation: log queries exceeding the threshold when PERF_LOG is set.
+        // TypeORM calls logQuerySlow() independently of normal query logging.
+        maxQueryExecutionTime:
+          process.env.PERF_LOG === 'true' || process.env.PERF_LOG === '1'
+            ? Number(process.env.PERF_THRESHOLD_DB_MS ?? '500')
+            : undefined,
       }),
     }),
 
     AuthModule,
+    PrivyModule,
     RwaModule,
     BlockchainModule,
     CardhedgerModule,

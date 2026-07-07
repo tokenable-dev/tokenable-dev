@@ -45,6 +45,11 @@ export async function proxyToBackend(
       const upstream = await fetch(targetUrl, init);
       const responseHeaders = new Headers(upstream.headers);
       responseHeaders.delete("transfer-encoding");
+      // Node.js fetch (undici) auto-decompresses gzip/br responses; strip
+      // Content-Encoding so the browser does not try to decompress again.
+      responseHeaders.delete("content-encoding");
+      // Content-Length no longer matches the decoded body size.
+      responseHeaders.delete("content-length");
 
       return new Response(upstream.body, {
         status: upstream.status,

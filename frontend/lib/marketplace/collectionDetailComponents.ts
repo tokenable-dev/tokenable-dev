@@ -78,12 +78,6 @@ export interface CollectionComponents {
 }
 
 /**
- * Backward-compatible alias. New code should import `CollectionComponents` directly.
- * @deprecated Use `CollectionComponents` instead.
- */
-export type CollectionDetailComponents = CollectionComponents;
-
-/**
  * Parse a raw API `components` value into a typed `CollectionComponents` object.
  *
  * Performs field-by-field extraction so that only declared fields reach the UI layer.
@@ -197,6 +191,3 @@ export function parseCollectionComponents(raw: unknown): CollectionComponents {
 
   return out;
 }
-
-/** Backward-compatible alias. */
-export const parseCollectionDetailComponents = parseCollectionComponents;

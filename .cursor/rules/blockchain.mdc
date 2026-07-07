@@ -1,0 +1,75 @@
+---
+description: Blockchain and smart contract rules for contracts/ and blockchain-related backend code
+globs: ["contracts/**/*", "backend/src/blockchain/**/*", "backend/src/rwa/**/*"]
+alwaysApply: false
+---
+
+# Blockchain Rules
+
+## Required Reading
+
+Before any blockchain change, read:
+- `docs/architecture/blockchain.md` — full contract and backend writer docs
+- `docs/architecture/vault-lifecycle.md` — vault NFT flow
+- `docs/business-rules.md` (BR-19 through BR-21) — contract invariants
+- `contracts/test/TokenableRWA.test.ts` — existing test coverage
+
+## Smart Contract
+
+1. **Never change the `vaultRef` storage mapping** — it's permanent on-chain data. Upgrading storage layout corrupts existing tokens.
+
+2. **Token IDs start at 1**. `_nextTokenId = 1` in `initialize()`. Never reset or change this.
+
+3. **`adminBurn` must clear `_activeTokenIdByVaultRef`** — this allows re-minting. Never remove this line.
+
+4. All new external functions must be covered by tests in `TokenableRWA.test.ts`.
+
+5. After any ABI change, run `pnpm sync-abi` and commit the updated `backend/src/blockchain/abis/tokenable-rwa.abi.ts`.
+
+6. UUPS upgrades: use `contracts/scripts/upgrade-tokenable-rwa.ts`. It auto-grants BURNER_ROLE if missing.
+
+7. Never use `selfdestruct`. Never add ETH receive/fallback unless audited.
+
+8. Custom errors are preferred over `require(condition, "string")` — they cost less gas and are decodable.
+
+## Backend Chain Writer (`rwa-chain-writer.service.ts`)
+
+9. This is the **only** service that submits transactions. Do not create new transaction-signing services.
+
+10. Always verify the required role before attempting a transaction. Return a clear error if the role is missing.
+
+11. On-chain errors (revert reasons) must be decoded and mapped to NestJS exceptions with helpful messages.
+
+12. Use `gasLimit` overrides for functions with hard-to-estimate gas (batch mints, upgrades).
+
+13. `safeTransferFromCustody` must verify on-chain that the token is actually owned by the custody wallet before attempting transfer.
+
+## ABI Management
+
+14. Frontend ABI constants (`constants/contracts.ts: TOKENABLE_RWA_*`) are partial ABIs for frontend use. They are not the source of truth.
+
+15. The source-of-truth ABI is in `backend/src/blockchain/abis/tokenable-rwa.abi.ts` — synced from contract compilation artifacts.
+
+16. **Known issue:** `TOKENABLE_RWA_MINT_ABI` in `constants/contracts.ts` uses the old 2-arg `mint(to, tokenURI)` signature. The contract requires 3 args (`mint(to, tokenURI, vaultRef)`). This ABI is for display only; minting goes through the backend.
+
+## Chain Config
+
+17. Never hard-code chain IDs or contract addresses. Use `ChainConfigService`.
+
+18. When adding a new chain: add `CHAIN_{id}_RPC_URL`, `CHAIN_{id}_RWA_ADDRESS`, `CHAIN_{id}_USDC_ADDRESS` to env vars and update `ChainConfigService`.
+
+## Seaport (Frontend)
+
+19. Seaport contract address `0x00000000000000ADc04C56Bf30aC9d3c0aAF14dC` is standard; never change.
+
+20. Platform fee is encoded in Seaport `consideration` items — not via a separate transfer.
+
+21. ERC-2981 royalty (contract-level) and Seaport platform fee (order-level) are independent mechanisms.
+
+## Environment Variables
+
+22. After deploying a new contract, update all three locations:
+    - `contracts/.env` — `CHAIN_80002_RWA_ADDRESS`
+    - `backend/.env` — `CHAIN_80002_RWA_ADDRESS`
+    - `frontend/.env` — `NEXT_PUBLIC_CHAIN_80002_RWA`
+    Also update: `backend/src/swagger/fixtures.ts` and any seed SQL files with the contract address.

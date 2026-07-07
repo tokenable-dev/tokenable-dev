@@ -1,0 +1,278 @@
+/* Secondary surfaces — auth, profile, site access, admin chrome (Phase 10) */
+
+.secondary-page {
+  background: var(--ink);
+  color: var(--t1);
+  min-height: calc(100vh - 4rem);
+}
+
+.secondary-page--full {
+  min-height: 100dvh;
+}
+
+.secondary-page--centered {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 16px;
+}
+
+.secondary-page__shell {
+  margin: 0 auto;
+  width: 100%;
+  max-width: 40rem;
+  padding: 40px clamp(16px, 4vw, 24px) 64px;
+}
+
+.secondary-page__shell--narrow {
+  max-width: 32rem;
+}
+
+/* ── Auth entry card ──────────────────────────────────────────────────────── */
+
+.secondary-auth-card {
+  width: 100%;
+  max-width: 400px;
+  text-align: center;
+  background: #1e1e2e;
+  border-radius: 16px;
+  padding: 40px 28px;
+}
+
+.secondary-auth-card__title {
+  margin: 0 0 8px;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #fff;
+}
+
+.secondary-auth-card__text {
+  margin: 0 0 28px;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--t2);
+}
+
+.secondary-spinner {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid rgba(26, 111, 255, 0.25);
+  border-top-color: var(--azure);
+  animation: secondary-spin 0.7s linear infinite;
+}
+
+@keyframes secondary-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ── Profile ──────────────────────────────────────────────────────────────── */
+
+.secondary-profile-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+.secondary-profile-header__avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.secondary-profile-header__avatar-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #141420;
+  color: var(--azure);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.secondary-profile-header__name {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: #fff;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.secondary-profile-header__email {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--t2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.secondary-panel {
+  background: #1e1e2e;
+  border-radius: 16px;
+  padding: 20px 22px;
+  margin-bottom: 16px;
+}
+
+.secondary-panel__title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.secondary-panel__text {
+  margin: 6px 0 0;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--t2);
+}
+
+.secondary-wallet-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: #141420;
+  padding: 12px 14px;
+}
+
+.secondary-wallet-row__address {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.5;
+  color: #fff;
+  word-break: break-all;
+}
+
+.secondary-wallet-row__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.secondary-panel--danger {
+  border: 1px solid rgba(228, 55, 74, 0.2);
+  background: rgba(228, 55, 74, 0.06);
+}
+
+.secondary-panel--danger .secondary-panel__title {
+  color: #fca5a5;
+}
+
+/* ── Site access gate ─────────────────────────────────────────────────────── */
+
+.secondary-gate-card {
+  width: 100%;
+  max-width: 360px;
+  background: #1e1e2e;
+  border-radius: 16px;
+  padding: 28px 24px;
+}
+
+.secondary-gate-card__title {
+  margin: 0;
+  text-align: center;
+  font-size: 18px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.secondary-gate-card__text {
+  margin: 8px 0 0;
+  text-align: center;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--t2);
+}
+
+.secondary-gate-form {
+  margin-top: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.secondary-gate-error {
+  text-align: center;
+  font-size: 13px;
+  color: var(--neg);
+}
+
+/* ── Admin console (minimal DS chrome) ────────────────────────────────────── */
+
+.admin-console .admin-login-card {
+  border-radius: 16px;
+}
+
+.admin-console .admin-nav-link--active {
+  color: var(--azure) !important;
+  background: rgba(26, 111, 255, 0.08) !important;
+}
+
+/* Dialog wallet highlight blocks */
+
+.secondary-dialog-wallet {
+  margin-top: 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #141420;
+  padding: 12px 14px;
+}
+
+.secondary-dialog-wallet--brand {
+  border-color: rgba(26, 111, 255, 0.25);
+  background: rgba(26, 111, 255, 0.08);
+}
+
+.secondary-dialog-wallet__label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--t3);
+}
+
+.secondary-dialog-wallet--brand .secondary-dialog-wallet__label {
+  color: rgba(91, 154, 255, 0.9);
+}
+
+.secondary-dialog-wallet__value {
+  margin-top: 6px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.45;
+  color: #fff;
+  word-break: break-all;
+}
+
+.secondary-dialog-wallet--brand .secondary-dialog-wallet__value {
+  color: #5b9aff;
+}
+
+@media (max-width: 768px) {
+  .secondary-page__shell {
+    padding-top: 24px;
+  }
+
+  .secondary-auth-card {
+    padding: 32px 20px;
+  }
+
+  .secondary-wallet-row {
+    flex-direction: column;
+    align-items: stretch !important;
+  }
+}

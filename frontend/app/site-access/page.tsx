@@ -5,7 +5,7 @@ export default function SiteAccessPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-[100dvh] items-center justify-center text-sm text-zinc-500">
+        <div className="secondary-page secondary-page--full secondary-page--centered text-sm text-[var(--t2)]">
           Loading…
         </div>
       }

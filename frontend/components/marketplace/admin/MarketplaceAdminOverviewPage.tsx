@@ -125,13 +125,10 @@ export function MarketplaceAdminOverviewPage() {
             <div className={ADMIN_ARTICLE}>
               <AdminSectionTitle title="Users" />
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-                <AdminStatTile label="Verified" value={o.users.verified} />
-                <AdminStatTile label="Unverified" value={o.users.unverified} />
-                <AdminStatTile label="Google only" value={o.users.googleOnly} />
-                <AdminStatTile
-                  label="Email/password"
-                  value={o.users.emailPassword}
-                />
+                <AdminStatTile label="Privy" value={o.users.privy} />
+                <AdminStatTile label="Google" value={o.users.google} />
+                <AdminStatTile label="Email OTP" value={o.users.emailOtp} />
+                <AdminStatTile label="Wallet login" value={o.users.walletLogin} />
                 <AdminStatTile label="With wallet" value={o.users.withWallet} />
                 <AdminStatTile
                   label="Linked wallets"
@@ -144,6 +141,14 @@ export function MarketplaceAdminOverviewPage() {
               <AdminSectionTitle
                 title="Engagement & vault"
                 subtitle="Watchlists and portfolio tracking"
+                action={
+                  <Link
+                    href="/marketplace/admin/portfolio"
+                    className="text-sm font-medium text-blue-600 hover:text-blue-700"
+                  >
+                    Portfolio ops →
+                  </Link>
+                }
               />
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
                 <AdminStatTile
@@ -168,8 +173,9 @@ export function MarketplaceAdminOverviewPage() {
                   value={o.portfolio.snapshotRows}
                 />
                 <AdminStatTile
-                  label="Latest snapshot"
-                  value={o.portfolio.latestSnapshotDate ?? "—"}
+                  label="Cost basis rows"
+                  value={o.portfolio.holdingsWithCostBasis}
+                  hint={`${o.portfolio.holdingsRows} holding rows`}
                 />
               </div>
             </div>

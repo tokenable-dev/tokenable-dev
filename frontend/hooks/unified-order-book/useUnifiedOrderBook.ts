@@ -37,7 +37,13 @@ export function useUnifiedOrderBook({
     [collectionBids],
   );
 
-  const askRows = useMemo(() => [...asks].sort(cmpAskByPriceThenToken), [asks]);
+  const askRows = useMemo(
+    () =>
+      [...asks]
+        .filter((o) => o.status === "active")
+        .sort(cmpAskByPriceThenToken),
+    [asks],
+  );
   const bidRows = useMemo(() => [...criteriaBids].sort(cmpBidByPriceDesc), [criteriaBids]);
 
   const askLevels = useMemo(() => buildAskDepthLevels(askRows), [askRows]);

@@ -4,7 +4,7 @@
 **Base path:** `/api/blockchain`  
 **Swagger tag:** `blockchain`
 
-Read-only access to Ethereum Sepolia. Wraps two contracts:
+Read-only access to configured EVM chains (Polygon mainnet and Polygon Amoy). Wraps two contracts per chain:
 
 - **MockUSDC** (ERC-20) — payment token
 - **TokenableRWA** (ERC-721) — graded-card NFTs
@@ -145,11 +145,17 @@ Resolves an array of IPFS or IPFS-gateway URIs to browser-loadable `https://` UR
 
 ---
 
-## Related Environment Variables
+## Multi-chain support
 
-| Variable | Purpose |
-|----------|---------|
-| `RWA_CONTRACT_ADDRESS` | TokenableRWA on Sepolia |
-| `USDC_CONTRACT_ADDRESS` | MockUSDC on Sepolia |
-| `SEPOLIA_RPC_URL` | Alchemy (or other) Sepolia JSON-RPC URL |
+The backend resolves the target chain from the `x-tokenable-chain-id` request header (set by the frontend `lib/chains/apiHeader.ts`). Supported chain IDs: `137` (Polygon mainnet), `80002` (Polygon Amoy). Each chain is configured independently:
+
+| Variable pattern | Purpose |
+|-----------------|---------|
+| `CHAIN_137_RPC_URL` | Polygon mainnet RPC |
+| `CHAIN_137_RWA_ADDRESS` | TokenableRWA on Polygon mainnet |
+| `CHAIN_137_USDC_ADDRESS` | USDC on Polygon mainnet |
+| `CHAIN_80002_RPC_URL` | Polygon Amoy testnet RPC |
+| `CHAIN_80002_RWA_ADDRESS` | TokenableRWA on Polygon Amoy |
+| `CHAIN_80002_USDC_ADDRESS` | USDC on Polygon Amoy (Circle testnet) |
+| `DEFAULT_CHAIN_ID` | Default chain when header absent (default `80002`) |
 | `PINATA_GATEWAY` | Custom gateway for resolving IPFS CIDs |

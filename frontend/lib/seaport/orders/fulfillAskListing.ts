@@ -109,5 +109,5 @@ export async function fulfillAskListingOrder(params: {
     throw new Error("Purchase was reverted on-chain. Check USDC balance and try again.");
   }
 
-  await fulfillOrderApi(ask.orderHash);
+  await fulfillOrderApi(ask.orderHash, address);
 }

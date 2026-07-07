@@ -2,12 +2,15 @@ import type {
   CollectionListMarketSnapshot,
   MarketplaceCollectionSummary,
 } from "@/lib/core";
+import { referenceLagAnchorFromPoints } from "@/lib/market/externalMarketPrice";
 import {
   parseGradeScoreNumber,
   percentChangeReferenceBestWindow,
   resolveExternalMarketUsd,
 } from "@/lib/market";
 import { parseCollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
+
+const MARKET_CHANGE_LAG_90D_SEC = 90 * 86_400;
 
 /**
  * Markets grid / landing carousel spot USD — same resolution order as collection detail
@@ -42,4 +45,14 @@ export function resolveMarketsListingMarketChangePct(
   const spark = snapshot?.sparklineUsd ?? [];
   if (spark.length < 2) return null;
   return percentChangeReferenceBestWindow(spark).pct;
+}
+
+/** Home Top movers — fixed 90-day LOCF reference vs latest (3-month gain). */
+export function resolveMarketsListingMarketChangePct90d(
+  snapshot: CollectionListMarketSnapshot | undefined,
+): number | null {
+  const spark = snapshot?.sparklineUsd ?? [];
+  if (spark.length < 2) return null;
+  const anchor = referenceLagAnchorFromPoints(spark, MARKET_CHANGE_LAG_90D_SEC);
+  return anchor?.pct ?? null;
 }

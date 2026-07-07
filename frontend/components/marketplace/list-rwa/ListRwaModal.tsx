@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { TkActionSheet } from "@/components/ds";
 import { ListRwaModalFormView } from "@/components/marketplace/list-rwa/ListRwaModalFormView";
 import { ListRwaModalSuccessView } from "@/components/marketplace/list-rwa/ListRwaModalSuccessView";
 import { useListRwaModal } from "@/hooks/list-rwa";
@@ -10,19 +11,57 @@ import type { ListRwaModalProps } from "@/lib/seaport/listing/listRwaModalTypes"
 export type { ListRwaModalProps } from "@/lib/seaport/listing/listRwaModalTypes";
 
 export function ListRwaModal(props: ListRwaModalProps) {
-  const { tokenId, assetTitle, collectionKey, onClose } = props;
+  const { tokenId, assetTitle, collectionKey, onClose, shell = "modal" } = props;
   const modal = useListRwaModal(props);
   const [mounted, setMounted] = useState(false);
+  const formVariant = shell === "sheet" ? "sheet" : "modal";
 
   useEffect(() => setMounted(true), []);
 
   useEffect(() => {
+    if (shell === "sheet") return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = prev;
     };
-  }, []);
+  }, [shell]);
+
+  const body =
+    modal.step === "success" ? (
+      <ListRwaModalSuccessView
+        tokenId={tokenId}
+        price={modal.price}
+        isReplaceListing={modal.isReplaceListing}
+        successMeta={modal.successMeta}
+        onClose={onClose}
+      />
+    ) : (
+      <ListRwaModalFormView
+        tokenId={tokenId}
+        assetTitle={assetTitle}
+        collectionKey={collectionKey}
+        isReplaceListing={modal.isReplaceListing}
+        price={modal.price}
+        onPriceChange={modal.setPrice}
+        crossingBidsForInstantSale={modal.crossingBidsForInstantSale}
+        selectedBidHash={modal.selectedBidHash}
+        onSelectBidHash={modal.setSelectedBidHash}
+        step={modal.step}
+        errorMsg={modal.errorMsg}
+        isProcessing={modal.isProcessing}
+        onSubmit={() => void modal.handleList()}
+        variant={formVariant}
+      />
+    );
+
+  if (shell === "sheet") {
+    return (
+      <TkActionSheet open onClose={onClose} aria-label="List for sale">
+        {body}
+      </TkActionSheet>
+    );
+  }
 
   if (!mounted) return null;
 
@@ -41,32 +80,7 @@ export function ListRwaModal(props: ListRwaModalProps) {
         >
           ✕
         </button>
-
-        {modal.step === "success" ? (
-          <ListRwaModalSuccessView
-            tokenId={tokenId}
-            price={modal.price}
-            isReplaceListing={modal.isReplaceListing}
-            successMeta={modal.successMeta}
-            onClose={onClose}
-          />
-        ) : (
-          <ListRwaModalFormView
-            tokenId={tokenId}
-            assetTitle={assetTitle}
-            collectionKey={collectionKey}
-            isReplaceListing={modal.isReplaceListing}
-            price={modal.price}
-            onPriceChange={modal.setPrice}
-            crossingBidsForInstantSale={modal.crossingBidsForInstantSale}
-            selectedBidHash={modal.selectedBidHash}
-            onSelectBidHash={modal.setSelectedBidHash}
-            step={modal.step}
-            errorMsg={modal.errorMsg}
-            isProcessing={modal.isProcessing}
-            onSubmit={() => void modal.handleList()}
-          />
-        )}
+        {body}
       </div>
     </div>,
     document.body,

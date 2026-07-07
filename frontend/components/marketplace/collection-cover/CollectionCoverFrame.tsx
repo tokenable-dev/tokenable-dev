@@ -71,8 +71,8 @@ export function CollectionCoverFrame({
   /** Carousel 등 — 그라데이션 베젤·ring 없이 카드 안에 이미지만 채움 */
   if (variant === "flat") {
     return (
-      <div className={`relative h-full min-h-0 w-full bg-[#0a0e14] ${className}`}>
-        <div className="relative h-full min-h-0 w-full overflow-hidden bg-black">
+      <div className={`relative h-full min-h-0 w-full ${className}`}>
+        <div className="relative h-full min-h-0 w-full overflow-hidden">
           {resolved && !imgFailed ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img

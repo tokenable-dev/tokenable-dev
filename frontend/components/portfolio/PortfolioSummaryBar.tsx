@@ -1,176 +1,89 @@
 "use client";
 
 import { formatUsdCompact } from "@/lib/market";
-import { formatSignedPnlAmount } from "@/lib/portfolio/formatSignedPnl";
-import { PortfolioBrowserSummaryHeader } from "./PortfolioBrowserSummaryHeader";
-import { PortfolioChartToggle } from "./PortfolioChartToggle";
-import { PortfolioHeaderStat } from "./PortfolioHeaderStat";
-
-function TotalValueBlock({
-  chartTotalsPending,
-  totalValue,
-  dailyPnlPct,
-  portfolioChartOpen,
-  onToggleChart,
-}: {
-  chartTotalsPending: boolean;
-  totalValue: number;
-  dailyPnlPct: number | null;
-  portfolioChartOpen: boolean;
-  onToggleChart: () => void;
-}) {
-  return (
-    <div className="flex min-w-0 flex-1 items-end justify-between gap-3">
-      <div className="min-w-0">
-        <p className="text-[10px] font-medium uppercase tracking-wide text-gray-500 sm:text-xs sm:normal-case sm:tracking-normal sm:text-gray-400">
-          Total Value
-        </p>
-        <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1">
-          {chartTotalsPending ? (
-            <span className="inline-block h-7 w-24 animate-pulse rounded-lg bg-gray-800/80 sm:h-8 sm:w-28" />
-          ) : (
-            <>
-              <span className="text-xl font-extrabold tracking-tight text-white sm:text-2xl lg:text-3xl">
-                {formatUsdCompact(totalValue)}
-              </span>
-              {dailyPnlPct != null && dailyPnlPct !== 0 ? (
-                <span
-                  className={`text-xs font-bold tabular-nums sm:text-sm ${
-                    dailyPnlPct >= 0 ? "text-mint" : "text-red-400"
-                  }`}
-                >
-                  {dailyPnlPct >= 0 ? "+" : ""}
-                  {dailyPnlPct.toFixed(1)}%
-                </span>
-              ) : null}
-            </>
-          )}
-        </div>
-      </div>
-      <PortfolioChartToggle
-        open={portfolioChartOpen}
-        disabled={chartTotalsPending}
-        onToggle={onToggleChart}
-      />
-    </div>
-  );
-}
-
-function SummaryStats({
-  holdingsCount,
-  totalTrades,
-  chartTotalsPending,
-  hasDailyPnl,
-  dailyPnlUsd,
-  mobile,
-}: {
-  holdingsCount: number;
-  totalTrades: number;
-  chartTotalsPending: boolean;
-  hasDailyPnl: boolean;
-  dailyPnlUsd: number | null;
-  mobile?: boolean;
-}) {
-  const align = mobile ? "center" : "end";
-
-  return (
-    <>
-      <PortfolioHeaderStat label="Amount" value={String(holdingsCount)} align={align} />
-      <PortfolioHeaderStat
-        label={
-          mobile ? (
-            "Trades"
-          ) : (
-            <>
-              <span className="sm:hidden">Trades</span>
-              <span className="hidden sm:inline">Total trades</span>
-            </>
-          )
-        }
-        value={String(totalTrades)}
-        align={align}
-      />
-      <PortfolioHeaderStat
-        label="P&L"
-        value={
-          chartTotalsPending
-            ? "…"
-            : !hasDailyPnl
-              ? "—"
-              : formatSignedPnlAmount(dailyPnlUsd!)
-        }
-        tone={
-          chartTotalsPending || !hasDailyPnl
-            ? "neutral"
-            : dailyPnlUsd! > 0
-              ? "positive"
-              : dailyPnlUsd! < 0
-                ? "negative"
-                : "neutral"
-        }
-        align={align}
-      />
-    </>
-  );
-}
+import { WalletAddressCompact } from "@/components/wallet/WalletAddressCompact";
+import { PortfolioStatGrid } from "./PortfolioStatGrid";
 
 export function PortfolioSummaryBar({
+  walletAddress,
   holdingsCount,
-  totalTrades,
+  bidsCount,
+  watchlistCount,
   totalValue,
   dailyPnlPct,
   chartTotalsPending,
   hasDailyPnl,
   dailyPnlUsd,
-  portfolioChartOpen,
-  onToggleChart,
 }: {
+  walletAddress: string | undefined;
   holdingsCount: number;
-  totalTrades: number;
+  bidsCount: number;
+  watchlistCount: number;
   totalValue: number;
   dailyPnlPct: number | null;
   chartTotalsPending: boolean;
   hasDailyPnl: boolean;
   dailyPnlUsd: number | null;
-  portfolioChartOpen: boolean;
-  onToggleChart: () => void;
 }) {
+  const changePositive = dailyPnlPct != null && dailyPnlPct >= 0;
+  const showChange =
+    !chartTotalsPending && dailyPnlPct != null && dailyPnlPct !== 0 && hasDailyPnl;
+
   return (
-    <>
-      <div className="mb-4 rounded-2xl border border-gray-800 bg-[#0b1118] p-4 sm:hidden">
-        <h1 className="text-lg font-extrabold tracking-tight">Portfolio</h1>
-        <div className="mt-3">
-          <TotalValueBlock
-            chartTotalsPending={chartTotalsPending}
-            totalValue={totalValue}
-            dailyPnlPct={dailyPnlPct}
-            portfolioChartOpen={portfolioChartOpen}
-            onToggleChart={onToggleChart}
-          />
-        </div>
-        <div
-          className="mt-4 grid grid-cols-3 gap-2 border-t border-gray-800/80 pt-4"
-          role="group"
-          aria-label="Portfolio summary"
-        >
-          <SummaryStats
-            holdingsCount={holdingsCount}
-            totalTrades={totalTrades}
-            chartTotalsPending={chartTotalsPending}
-            hasDailyPnl={hasDailyPnl}
-            dailyPnlUsd={dailyPnlUsd}
-            mobile
-          />
-        </div>
+    <header className="pf-hero" aria-label="Portfolio summary">
+      <div className="pf-hero__top">
+        <span className="pf-hero__eyebrow">Portfolio value</span>
+        {walletAddress ? (
+          <span className="pf-wallet-chip">
+            <span className="pf-wallet-chip__dot" aria-hidden />
+            <WalletAddressCompact address={walletAddress} />
+          </span>
+        ) : null}
       </div>
 
-      <PortfolioBrowserSummaryHeader
-        totalValue={totalValue}
-        dailyPnlPct={dailyPnlPct}
-        chartTotalsPending={chartTotalsPending}
-        portfolioChartOpen={portfolioChartOpen}
-        onToggleChart={onToggleChart}
+      <div className="pf-hero__value-row">
+        {chartTotalsPending ? (
+          <span
+            className="inline-block h-10 w-36 animate-pulse rounded-lg bg-white/10 sm:h-12 sm:w-44"
+            aria-hidden
+          />
+        ) : (
+          <span className="pf-hero__value">{formatUsdCompact(totalValue)}</span>
+        )}
+        {showChange ? (
+          <span className="pf-hero__metric-group">
+            <span
+              className={`pf-hero__change-chip ${
+                changePositive ? "pf-hero__change-chip--pos" : "pf-hero__change-chip--neg"
+              }`}
+            >
+              {changePositive ? "▲" : "▼"}{" "}
+              {(() => {
+                const n = dailyPnlUsd!;
+                const sign = n >= 0 ? "+" : "-";
+                const abs = Math.abs(n);
+                const body =
+                  abs >= 1000
+                    ? abs.toLocaleString("en-US", { maximumFractionDigits: 0 })
+                    : abs.toLocaleString("en-US", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      });
+                return `${sign}$${body}`;
+              })()}{" "}
+              ({dailyPnlPct! >= 0 ? "+" : ""}
+              {dailyPnlPct!.toFixed(2)}%)
+            </span>
+            <span className="pf-hero__period-label">24h</span>
+          </span>
+        ) : null}
+      </div>
+
+      <PortfolioStatGrid
+        assetsCount={holdingsCount}
+        bidsCount={bidsCount}
+        watchlistCount={watchlistCount}
       />
-    </>
+    </header>
   );
 }

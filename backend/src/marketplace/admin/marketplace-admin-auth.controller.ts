@@ -9,25 +9,17 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { IsString, MinLength } from 'class-validator';
+import { ApiBody, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
 import { resolveCookieSecure } from '../../auth/auth-session.util';
+import { apiBodyDefault } from '../../swagger/api-body.util';
+import { SWAGGER_BODY_EXAMPLES } from '../../swagger/examples';
 import { MarketplaceAdminService } from './marketplace-admin.service';
 import {
   MARKETPLACE_ADMIN_COOKIE,
   issueMarketplaceAdminToken,
 } from './marketplace-admin-auth.util';
-
-class MarketplaceAdminLoginDto {
-  @IsString()
-  @MinLength(1)
-  username!: string;
-
-  @IsString()
-  @MinLength(1)
-  password!: string;
-}
+import { MarketplaceAdminLoginDto } from './dto/marketplace-admin-login.dto';
 
 @ApiTags('marketplace-admin')
 @Controller('marketplace/admin/auth')
@@ -49,7 +41,12 @@ export class MarketplaceAdminAuthController {
 
   @Post('login')
   @HttpCode(200)
-  @ApiOperation({ summary: '[Admin] Sign in with username and password' })
+  @ApiOperation({
+    summary: '[Admin] Sign in with username and password',
+    description:
+      '성공 시 `marketplace_admin` HttpOnly 쿠키. 이후 marketplace-admin 태그 API는 별도 Bearer 없이 쿠키로 인증됩니다 (동일 origin Try it out).',
+  })
+  @ApiBody(apiBodyDefault(MarketplaceAdminLoginDto, SWAGGER_BODY_EXAMPLES.adminLogin))
   async login(
     @Body() body: MarketplaceAdminLoginDto,
     @Res({ passthrough: true }) res: Response,

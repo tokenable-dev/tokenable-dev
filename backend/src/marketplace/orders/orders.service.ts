@@ -8,6 +8,7 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import {
   EntityManager,
@@ -19,9 +20,16 @@ import {
   Repository,
 } from 'typeorm';
 import { CollectionService } from '../collections/collection.service';
+import {
+  ChainConfigService,
+  type SupportedChainId,
+} from '../../blockchain/chain-config.service';
 import { CreateOrderDto } from './dto/create-order.dto';
+import { FulfillOrderQueryDto } from './dto/fulfill-order-query.dto';
 import { Order, OrderSide, OrderStatus } from '../entities/order.entity';
 import { orderToListItem, type OrderListItem } from '../utils/order-list.util';
+import { microsToUsdc } from '../admin/platform-analytics.util';
+import { PortfolioHoldingService } from '../portfolio/portfolio-holding.service';
 import {
   backfillAskTokenIdFromParameters,
   CRITERIA_TOKEN_SENTINEL,
@@ -48,10 +56,22 @@ export class OrdersService {
     private readonly orderRepo: Repository<Order>,
     private readonly config: ConfigService,
     private readonly collectionService: CollectionService,
+    private readonly chainConfig: ChainConfigService,
+    private readonly portfolioHoldings: PortfolioHoldingService,
   ) {}
 
-  async createOrder(dto: CreateOrderDto): Promise<Order> {
+  async createOrder(
+    dto: CreateOrderDto,
+    chainId: SupportedChainId = this.chainConfig.getDefaultChainId(),
+  ): Promise<Order> {
     const side = dto.side === 'bid' ? OrderSide.BID : OrderSide.ASK;
+
+    const expectedRwa = this.chainConfig.getRwaAddress(chainId);
+    if (dto.tokenContract.toLowerCase() !== expectedRwa) {
+      throw new BadRequestException(
+        `tokenContract must match RWA for chain ${chainId}`,
+      );
+    }
 
     if (side === OrderSide.BID) {
       const cons = dto.parameters.consideration?.[0];
@@ -60,7 +80,7 @@ export class OrdersService {
           'Only ERC721_WITH_CRITERIA collection bids are supported (itemType 4)',
         );
       }
-      this.assertValidCriteriaBid(dto);
+      this.assertValidCriteriaBid(dto, chainId);
       const bidCollectionKey = dto.collectionKey?.trim().toLowerCase();
       if (!bidCollectionKey) {
         throw new BadRequestException(
@@ -74,7 +94,7 @@ export class OrdersService {
     }
 
     if (side === OrderSide.ASK) {
-      this.assertValidAskListing(dto);
+      this.assertValidAskListing(dto, chainId);
 
       const existing = await this.orderRepo.findOne({
         where: {
@@ -163,12 +183,20 @@ export class OrdersService {
     oldOrderHash: string,
     callerAddress: string,
     dto: CreateOrderDto,
+    chainId: SupportedChainId = this.chainConfig.getDefaultChainId(),
   ): Promise<Order> {
     if (dto.side === 'bid') {
       throw new BadRequestException(
         'replaceSellerListing only accepts ask listings',
       );
     }
+    const expectedRwa = this.chainConfig.getRwaAddress(chainId);
+    if (dto.tokenContract.toLowerCase() !== expectedRwa) {
+      throw new BadRequestException(
+        `tokenContract must match RWA for chain ${chainId}`,
+      );
+    }
+    this.assertValidAskListing(dto, chainId);
 
     return this.orderRepo.manager.transaction(async (em) => {
       const old = await em.findOne(Order, {
@@ -242,9 +270,17 @@ export class OrdersService {
     oldOrderHash: string,
     callerAddress: string,
     dto: CreateOrderDto,
+    chainId: SupportedChainId = this.chainConfig.getDefaultChainId(),
   ): Promise<Order> {
     if (dto.side !== 'bid') {
       throw new BadRequestException('replaceBuyerBid only accepts bids');
+    }
+
+    const expectedRwa = this.chainConfig.getRwaAddress(chainId);
+    if (dto.tokenContract.toLowerCase() !== expectedRwa) {
+      throw new BadRequestException(
+        `tokenContract must match RWA for chain ${chainId}`,
+      );
     }
 
     const cons = dto.parameters.consideration?.[0];
@@ -253,7 +289,7 @@ export class OrdersService {
         'Only ERC721_WITH_CRITERIA collection bids are supported (itemType 4)',
       );
     }
-    this.assertValidCriteriaBid(dto);
+    this.assertValidCriteriaBid(dto, chainId);
 
     const newCollectionKey = dto.collectionKey?.trim().toLowerCase();
     if (!newCollectionKey) {
@@ -408,7 +444,6 @@ export class OrdersService {
     const key = collectionKey.trim().toLowerCase();
     if (!addr || !key) return;
 
-    await this.expireOrders();
     const activeCount = await this.orderRepo
       .createQueryBuilder('o')
       .where('LOWER(o.offerer) = :addr', { addr })
@@ -425,7 +460,7 @@ export class OrdersService {
   }
 
   /** Collection bid: offer USDC, consideration ERC721_WITH_CRITERIA + Merkle root */
-  private assertValidCriteriaBid(dto: CreateOrderDto): void {
+  private assertValidCriteriaBid(dto: CreateOrderDto, chainId: SupportedChainId): void {
     const p = dto.parameters;
     const offer = p.offer?.[0];
     const cons = p.consideration?.[0];
@@ -442,7 +477,7 @@ export class OrdersService {
         'Criteria bid consideration[0] must be ERC721_WITH_CRITERIA (itemType 4)',
       );
     }
-    const usdc = this.config.get<string>('USDC_CONTRACT_ADDRESS') ?? '';
+    const usdc = this.chainConfig.getUsdcAddress(chainId);
     if (usdc && offer.token.toLowerCase() !== usdc.toLowerCase()) {
       throw new BadRequestException(
         'Bid offer token must match USDC_CONTRACT_ADDRESS',
@@ -467,7 +502,7 @@ export class OrdersService {
    * Ask listing: consideration[0] = USDC to seller, optional consideration[1] = USDC platform fee.
    * Sum of consideration amounts must equal dto.considerationAmount (= total price).
    */
-  private assertValidAskListing(dto: CreateOrderDto): void {
+  private assertValidAskListing(dto: CreateOrderDto, chainId: SupportedChainId): void {
     const p = dto.parameters;
     const cons = p.consideration;
     if (!cons || cons.length === 0) {
@@ -476,7 +511,7 @@ export class OrdersService {
       );
     }
 
-    const usdc = this.config.get<string>('USDC_CONTRACT_ADDRESS') ?? '';
+    const usdc = this.chainConfig.getUsdcAddress(chainId);
     const feeRecipient = (
       this.config.get<string>('PLATFORM_FEE_RECIPIENT') ?? ''
     ).toLowerCase();
@@ -540,23 +575,35 @@ export class OrdersService {
     return Math.min(Math.max(1, Math.floor(requested)), serverMax);
   }
 
-  async findActiveOrders(limit?: number): Promise<Order[]> {
-    await this.expireOrders();
-    return this.orderRepo.find({
-      where: { status: OrderStatus.ACTIVE, side: OrderSide.ASK },
-      order: { createdAt: 'DESC' },
-      take: this.activeOrdersCap(limit),
-    });
+  async findActiveOrders(
+    limit?: number,
+    chainId?: SupportedChainId,
+  ): Promise<Order[]> {
+    const id = chainId ?? this.chainConfig.getDefaultChainId();
+    const rwaContract = this.chainConfig.getRwaAddress(id).toLowerCase();
+    return this.orderRepo
+      .createQueryBuilder('o')
+      .where('o.status = :st', { st: OrderStatus.ACTIVE })
+      .andWhere('o.side = :side', { side: OrderSide.ASK })
+      .andWhere('LOWER(o.token_contract) = :rwaContract', { rwaContract })
+      .orderBy('o.created_at', 'DESC')
+      .take(this.activeOrdersCap(limit))
+      .getMany();
   }
 
-  async findActiveOrderListItems(limit?: number): Promise<OrderListItem[]> {
-    const rows = await this.findActiveOrders(limit);
+  async findActiveOrderListItems(
+    limit?: number,
+    chainId?: SupportedChainId,
+  ): Promise<OrderListItem[]> {
+    const rows = await this.findActiveOrders(limit, chainId);
     return rows.map((o) => orderToListItem(o));
   }
 
   /** Active ask listing for an ERC-721 token (including mint id `0`). */
-  async findActiveAskByTokenId(tokenIdRaw: string): Promise<Order | null> {
-    await this.expireOrders();
+  async findActiveAskByTokenId(
+    tokenIdRaw: string,
+    chainId?: SupportedChainId,
+  ): Promise<Order | null> {
     const tid = String(tokenIdRaw ?? '').trim();
     const variants = [
       ...new Set(
@@ -564,14 +611,16 @@ export class OrdersService {
       ),
     ];
     if (variants.length === 0) return null;
-    return this.orderRepo.findOne({
-      where: {
-        tokenId: In(variants),
-        status: OrderStatus.ACTIVE,
-        side: OrderSide.ASK,
-      },
-      order: { createdAt: 'DESC' },
-    });
+    const id = chainId ?? this.chainConfig.getDefaultChainId();
+    const rwaContract = this.chainConfig.getRwaAddress(id).toLowerCase();
+    return this.orderRepo
+      .createQueryBuilder('o')
+      .where('o.token_id IN (:...variants)', { variants })
+      .andWhere('o.status = :st', { st: OrderStatus.ACTIVE })
+      .andWhere('o.side = :side', { side: OrderSide.ASK })
+      .andWhere('LOWER(o.token_contract) = :rwaContract', { rwaContract })
+      .orderBy('o.created_at', 'DESC')
+      .getOne();
   }
 
   /**
@@ -581,16 +630,19 @@ export class OrdersService {
   async findCollectionBidsByOfferer(
     offererAddress: string,
     limit?: number,
+    chainId?: SupportedChainId,
   ): Promise<OrderListItem[]> {
-    await this.expireOrders();
     const addr = offererAddress.trim().toLowerCase();
     if (!addr) return [];
     const cap = Math.min(Math.max(1, limit ?? 100), 500);
+    const id = chainId ?? this.chainConfig.getDefaultChainId();
+    const rwaContract = this.chainConfig.getRwaAddress(id).toLowerCase();
     const rows = await this.orderRepo
       .createQueryBuilder('o')
       .where('LOWER(o.offerer) = :addr', { addr })
       .andWhere('o.side = :side', { side: OrderSide.BID })
       .andWhere('o.collection_key IS NOT NULL')
+      .andWhere('LOWER(o.token_contract) = :rwaContract', { rwaContract })
       .orderBy('o.updated_at', 'DESC')
       .take(cap)
       .getMany();
@@ -599,8 +651,8 @@ export class OrdersService {
 
   async findOrdersBatchByTokenIds(
     tokenIds: number[],
+    chainId?: SupportedChainId,
   ): Promise<Record<string, OrderListItem[]>> {
-    await this.expireOrders();
     const out: Record<string, OrderListItem[]> = {};
     const requested = [
       ...new Set(tokenIds.map((n) => Math.floor(Number(n)))),
@@ -617,10 +669,14 @@ export class OrdersService {
       variants.add(normalizeDecimalTokenId(s));
     }
 
-    const rows = await this.orderRepo.find({
-      where: { tokenId: In([...variants]) },
-      order: { updatedAt: 'DESC' },
-    });
+    const id = chainId ?? this.chainConfig.getDefaultChainId();
+    const rwaContract = this.chainConfig.getRwaAddress(id).toLowerCase();
+    const rows = await this.orderRepo
+      .createQueryBuilder('o')
+      .where('o.token_id IN (:...variants)', { variants: [...variants] })
+      .andWhere('LOWER(o.token_contract) = :rwaContract', { rwaContract })
+      .orderBy('o.updated_at', 'DESC')
+      .getMany();
 
     for (const o of rows) {
       const item = orderToListItem(o);
@@ -636,18 +692,24 @@ export class OrdersService {
     return out;
   }
 
-  async findByTokenId(tokenId: string): Promise<Order[]> {
-    await this.expireOrders();
+  async findByTokenId(
+    tokenId: string,
+    chainId?: SupportedChainId,
+  ): Promise<Order[]> {
     const tid = String(tokenId ?? '').trim();
     const variants = [
       ...new Set(
         [tid, normalizeDecimalTokenId(tid)].filter((s) => s.length > 0),
       ),
     ];
-    return this.orderRepo.find({
-      where: { tokenId: In(variants) },
-      order: { updatedAt: 'DESC' },
-    });
+    const id = chainId ?? this.chainConfig.getDefaultChainId();
+    const rwaContract = this.chainConfig.getRwaAddress(id).toLowerCase();
+    return this.orderRepo
+      .createQueryBuilder('o')
+      .where('o.token_id IN (:...variants)', { variants })
+      .andWhere('LOWER(o.token_contract) = :rwaContract', { rwaContract })
+      .orderBy('o.updated_at', 'DESC')
+      .getMany();
   }
 
   async findByHash(orderHash: string): Promise<Order> {
@@ -674,7 +736,10 @@ export class OrdersService {
    * Single-order fulfill (e.g. buyer fulfilling an ask listing only).
    * For criteria bid + ask matching, use fulfillMatchedPair after matchAdvancedOrders.
    */
-  async fulfillOrder(orderHash: string): Promise<Order> {
+  async fulfillOrder(
+    orderHash: string,
+    buyerAddress?: string,
+  ): Promise<Order> {
     const order = await this.findByHash(orderHash);
 
     if (order.status !== OrderStatus.ACTIVE) {
@@ -710,6 +775,14 @@ export class OrdersService {
             `fulfillOrder ${orderHash.slice(0, 10)}…: cancelled ${n} other active order(s) for token #${tid}`,
           );
         }
+      }
+
+      if (buyerAddress?.trim()) {
+        await this.seedMarketplaceBuyFromAskFill(
+          buyerAddress,
+          saved,
+          saved.updatedAt ?? new Date(),
+        );
       }
     }
 
@@ -793,7 +866,47 @@ export class OrdersService {
       );
     }
 
+    await this.seedMarketplaceBuyFromAskFill(
+      bid.offerer,
+      ask,
+      ask.updatedAt ?? new Date(),
+    );
+
     return { ask, bid };
+  }
+
+  private async seedMarketplaceBuyFromAskFill(
+    buyerWallet: string,
+    askOrder: Order,
+    acquiredAt: Date,
+  ): Promise<void> {
+    const tidRaw = resolveFulfilledAskTokenId(askOrder);
+    if (tidRaw == null) return;
+    const tid = Math.floor(Number(tidRaw));
+    if (!Number.isFinite(tid) || tid < 0) return;
+
+    const costUsd = microsToUsdc(askOrder.considerationAmount);
+    if (!(costUsd > 0)) return;
+
+    try {
+      await this.portfolioHoldings.seedMarketplaceBuyCostBasis(
+        buyerWallet,
+        tid,
+        costUsd,
+        acquiredAt,
+      );
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      this.logger.warn(
+        `marketplace buy cost basis seed failed for token #${tid}: ${msg}`,
+      );
+    }
+  }
+
+  /** Runs every 60 seconds to mark timed-out orders as expired. */
+  @Cron('*/1 * * * *')
+  async expireOrdersCron(): Promise<void> {
+    await this.expireOrders();
   }
 
   private async expireOrders(): Promise<void> {

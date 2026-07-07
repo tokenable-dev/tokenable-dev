@@ -23,7 +23,7 @@ export const COLLECTION_DETAILS_BORDER_Y = "border-y border-black";
 export const COLLECTION_MARKET_CLUSTER_MAT =
   `rounded-[1.15rem] sm:rounded-[1.2rem] ${COLLECTION_DETAILS_BG_CLASS} px-2.5 pt-2 max-lg:pb-1.5 pb-2.5 sm:px-3.5 sm:pt-2.5 sm:pb-3.5 lg:pl-5 lg:pr-4 lg:pt-2 lg:pb-4`;
 
-/** Flush order book — x-axis aligned with {@link MetricTile} panelCell (first column). */
+/** Flush order book — x-axis aligned with metric panel leading column. */
 export const COLLECTION_ORDER_BOOK_FLUSH_INSET = metricPanelLeadingInsetCls;
 export const COLLECTION_ORDER_BOOK_FLUSH_INSET_X = metricPanelLeadingInsetXCls;
 

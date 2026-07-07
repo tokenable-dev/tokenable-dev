@@ -2,7 +2,6 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   IsBoolean,
-  IsEmail,
   IsIn,
   IsInt,
   IsOptional,
@@ -12,20 +11,56 @@ import {
   Max,
   MaxLength,
   Min,
-  MinLength,
 } from 'class-validator';
 
 export class AdminUserListQueryDto {
-  @ApiPropertyOptional({ description: 'Search email, name, or wallet' })
+  @ApiPropertyOptional({ description: 'Search email, name, Privy ID, or wallet' })
   @IsOptional()
   @IsString()
   @MaxLength(120)
   q?: string;
 
-  @ApiPropertyOptional({ enum: ['all', 'google', 'email', 'verified', 'unverified'] })
+  @ApiPropertyOptional({
+    enum: [
+      'all',
+      'privy',
+      'legacy',
+      'google',
+      'email',
+      'wallet',
+      'verified',
+      'unverified',
+      'with_wallet',
+      'kyc_approved',
+      'kyc_pending',
+    ],
+  })
   @IsOptional()
-  @IsIn(['all', 'google', 'email', 'verified', 'unverified'])
-  filter?: 'all' | 'google' | 'email' | 'verified' | 'unverified';
+  @IsIn([
+    'all',
+    'privy',
+    'legacy',
+    'google',
+    'email',
+    'wallet',
+    'verified',
+    'unverified',
+    'with_wallet',
+    'kyc_approved',
+    'kyc_pending',
+  ])
+  filter?:
+    | 'all'
+    | 'privy'
+    | 'legacy'
+    | 'google'
+    | 'email'
+    | 'wallet'
+    | 'verified'
+    | 'unverified'
+    | 'with_wallet'
+    | 'kyc_approved'
+    | 'kyc_pending';
 
   @ApiPropertyOptional({ default: 1, minimum: 1 })
   @IsOptional()
@@ -54,14 +89,6 @@ export class AdminUpdateUserDto {
   @IsOptional()
   @IsBoolean()
   emailVerified?: boolean;
-}
-
-export class AdminSetUserPasswordDto {
-  @ApiProperty({ minLength: 8 })
-  @IsString()
-  @MinLength(8)
-  @MaxLength(128)
-  password!: string;
 }
 
 export class AdminLinkUserWalletDto {

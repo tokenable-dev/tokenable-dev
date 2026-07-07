@@ -12,18 +12,20 @@ export function RwaDetailPageShell({
 }) {
   return (
     <div
-      className={`${rwaDetailRightFont.className} bg-[#07090c] text-white max-xl:bg-black ${
+      className={`rwa-detail-page ${rwaDetailRightFont.className} ${
         showMain
           ? "max-lg:h-[calc(100svh-4rem)] max-lg:max-h-[calc(100svh-4rem)] max-lg:overflow-hidden"
           : "min-h-screen"
       }`}
     >
       <main
-        className={`${rwaDetailRightFont.className} mx-auto w-full max-w-6xl px-3 py-6 max-[380px]:px-2.5 sm:px-5 sm:py-8 lg:min-h-screen lg:px-6 lg:pb-8 ${
+        className={`rwa-detail-page__shell ${rwaDetailRightFont.className} ${
+          showMain ? "rwa-detail-page__shell--main" : ""
+        } ${
           showMain
-            ? "max-lg:flex max-lg:h-full max-lg:min-h-0 max-lg:flex-col max-lg:items-center max-lg:overflow-hidden max-lg:px-0 max-lg:py-2 max-lg:pb-0"
-            : "max-lg:pb-6"
-        }`}
+            ? "max-lg:flex max-lg:h-full max-lg:min-h-0 max-lg:flex-col max-lg:items-center max-lg:overflow-hidden max-lg:py-2 max-lg:pb-0"
+            : ""
+        } lg:min-h-screen`}
       >
         {children}
       </main>

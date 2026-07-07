@@ -1,6 +1,7 @@
 "use client";
 
 import { feePercent } from "@/lib/seaport/orders/platformFee";
+import { TkButton } from "@/components/ds";
 import type { ListSuccessMeta } from "@/lib/seaport/listing/listRwaModalTypes";
 
 export function ListRwaModalSuccessView({
@@ -18,7 +19,7 @@ export function ListRwaModalSuccessView({
 }) {
   return (
     <div className="flex flex-col px-0 pb-1 pt-1 text-center sm:pt-2">
-      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-mint/85">
+      <p className="rd-list-sheet__eyebrow">
         {successMeta?.matched ? "Sold" : isReplaceListing ? "Updated" : "Listed"}
       </p>
       <div className="mb-2 mt-2 text-3xl leading-none">
@@ -74,13 +75,9 @@ export function ListRwaModalSuccessView({
           <p>{successMeta.hint}</p>
         </div>
       ) : null}
-      <button
-        type="button"
-        onClick={onClose}
-        className="mt-6 w-full rounded-xl border border-zinc-600/80 bg-zinc-800/90 py-2.5 text-sm font-medium text-zinc-100 transition-colors hover:bg-zinc-700"
-      >
+      <TkButton variant="neutral" onClick={onClose} className="mt-6 w-full justify-center">
         Close
-      </button>
+      </TkButton>
     </div>
   );
 }

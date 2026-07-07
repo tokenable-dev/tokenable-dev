@@ -27,6 +27,8 @@ export function CollectionUnifiedOrderBook({
   lastTradeSide = null,
   tapeFills = [],
   tapeLoading = false,
+  tapeError = false,
+  tapeErrorMessage = null,
   defaultTab = "book",
 }: CollectionUnifiedOrderBookProps) {
   const book = useUnifiedOrderBook({
@@ -51,6 +53,7 @@ export function CollectionUnifiedOrderBook({
       : book.bidLevels;
 
   const mobileEmbed = embedInMobileTab && flush;
+  const collectionDetail = flush && compact;
 
   const bookTabProps = {
     flush,
@@ -65,12 +68,15 @@ export function CollectionUnifiedOrderBook({
     askCount: book.askRows.length,
     selectedLevelKey,
     onSelectLevel,
+    collectionDetail,
   };
 
   const shell = flush
     ? embedInMobileTab
       ? "@container/orderbook relative flex min-h-0 w-full min-w-0 shrink-0 flex-col overflow-hidden rounded-none border-0 bg-transparent shadow-none"
-      : "@container/orderbook relative flex h-full max-h-full min-h-0 w-full max-w-full flex-col overflow-hidden rounded-none border-0 bg-transparent shadow-none"
+      : collectionDetail
+        ? "@container/orderbook cd-ob-panel relative flex w-full max-w-full flex-col overflow-hidden rounded-none border-0 bg-transparent shadow-none"
+        : "@container/orderbook relative flex h-full max-h-full min-h-0 w-full max-w-full flex-col overflow-hidden rounded-none border-0 bg-transparent shadow-none"
     : `relative overflow-hidden ${COLLECTION_DETAILS_BORDER_ALL} ${COLLECTION_DETAILS_BG_CLASS} ${
         compact
           ? "rounded-xl shadow-none"
@@ -85,10 +91,19 @@ export function CollectionUnifiedOrderBook({
           aria-hidden
         />
       )}
-      <OrderBookTabHeader tab={book.tab} setTab={book.setTab} flush={flush} />
+      <OrderBookTabHeader
+        tab={book.tab}
+        setTab={book.setTab}
+        flush={flush}
+        collectionDetail={collectionDetail}
+      />
 
       {flush && !embedInMobileTab ? (
-        <div className="relative min-h-0 flex-1 overflow-hidden">
+        <div
+          className={`relative overflow-hidden ${
+            collectionDetail ? "cd-ob-body" : "min-h-0 flex-1"
+          }`}
+        >
           <div
             className={`absolute inset-0 flex flex-col overflow-hidden ${
               book.tab === "book" ? "" : "pointer-events-none invisible"
@@ -106,7 +121,10 @@ export function CollectionUnifiedOrderBook({
             <OrderBookTradesTab
               tapeFills={tapeFills}
               tapeLoading={tapeLoading}
+              tapeError={tapeError}
+              tapeErrorMessage={tapeErrorMessage}
               flush
+              collectionDetail={collectionDetail}
             />
           </div>
         </div>
@@ -119,8 +137,11 @@ export function CollectionUnifiedOrderBook({
             <OrderBookTradesTab
               tapeFills={tapeFills}
               tapeLoading={tapeLoading}
+              tapeError={tapeError}
+              tapeErrorMessage={tapeErrorMessage}
               flush
               mobileEmbed
+              collectionDetail={collectionDetail}
             />
           ) : null}
         </div>
@@ -133,7 +154,10 @@ export function CollectionUnifiedOrderBook({
             <OrderBookTradesTab
               tapeFills={tapeFills}
               tapeLoading={tapeLoading}
+              tapeError={tapeError}
+              tapeErrorMessage={tapeErrorMessage}
               flush={flush}
+              collectionDetail={collectionDetail}
             />
           ) : null}
         </>

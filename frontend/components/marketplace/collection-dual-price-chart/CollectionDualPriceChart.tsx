@@ -1,11 +1,11 @@
 "use client";
 
-import ReactECharts from "echarts-for-react";
 import {
   COLLECTION_CHART_SURFACE,
   COLLECTION_DETAILS_BG_CLASS,
   COLLECTION_DETAILS_BORDER_ALL,
 } from "@/components/marketplace/collectionOverviewChrome";
+import { EChartsSized } from "@/components/charts/EChartsSized";
 import { useCollectionDetailMobile } from "@/hooks/collection-detail";
 import { useCollectionDualPriceChart } from "@/hooks/collection-dual-price-chart";
 import { LIVE_MARKET_LINE } from "@/lib/marketplace/collection-dual-price-chart";
@@ -35,6 +35,7 @@ export function CollectionDualPriceChart({
   collectionOverviewMat = false,
   embedInMobileTab = false,
   chartToolbar = null,
+  colorTheme = "default",
 }: CollectionDualPriceChartProps) {
   const marketsLayout = variant === "markets";
   const isMobileChart = useCollectionDetailMobile();
@@ -66,6 +67,7 @@ export function CollectionDualPriceChart({
     externalRefLineTag,
     isMobileChart,
     compactTab,
+    colorTheme,
   });
 
   const chartToolbarBarCls =
@@ -172,16 +174,10 @@ export function CollectionDualPriceChart({
             : "relative min-h-[200px] px-2 pb-3 pt-0 sm:px-4"
         }
       >
-        <ReactECharts
-          key={merged.fixedWindowDays ?? "auto"}
+        <EChartsSized
+          chartKey={merged.fixedWindowDays ?? "auto"}
           option={chartOption}
-          notMerge
-          lazyUpdate
-          style={{
-            width: "100%",
-            height: marketsLayout ? "100%" : "300px",
-            minHeight: compactTab ? 72 : marketsLayout ? 72 : 200,
-          }}
+          minHeight={compactTab ? 72 : marketsLayout ? 72 : 200}
           className={
             marketsLayout
               ? compactTab

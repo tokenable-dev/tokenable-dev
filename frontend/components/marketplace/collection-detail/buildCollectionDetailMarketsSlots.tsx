@@ -2,10 +2,10 @@
 
 import type { ReactNode } from "react";
 import type { Order } from "@/lib/core";
-import { externalMarketPriceSourceLabel, formatMarketCapUsd } from "@/lib/market";
+import { formatMarketCapUsd } from "@/lib/market";
+import { CollectionDetailStatMain } from "@/components/marketplace/collection-detail/CollectionDetailStatMain";
 import { CollectionDetailPriceChart } from "@/components/marketplace/collection-detail/CollectionDetailPriceChart";
 import type { CollectionDualPriceChartProps } from "@/components/marketplace/collection-dual-price-chart";
-import { CollectionPriceMetricsStrip } from "@/components/marketplace/price-metrics-strip";
 import { CollectionUnifiedOrderBook } from "@/components/marketplace/unified-order-book";
 import type { CollectionUnifiedOrderBookProps } from "@/lib/marketplace/marketplaceTradingTypes";
 import {
@@ -42,6 +42,7 @@ type MarketSlice = Pick<
 export function buildCollectionDetailMarketsSlots(input: {
   market: MarketSlice;
   collectionOrderBookProps: CollectionUnifiedOrderBookProps;
+  coverImageUrl?: string | null;
 }): {
   marketsPriceMetricsStrip: ReactNode;
   collectionDualPriceChart: ReactNode;
@@ -49,32 +50,28 @@ export function buildCollectionDetailMarketsSlots(input: {
   collectionOrderBook: ReactNode;
   collectionOrderBookMobile: ReactNode;
 } {
-  const { market, collectionOrderBookProps } = input;
+  const { market, collectionOrderBookProps, coverImageUrl } = input;
   const chartProps = market.chartProps as CollectionDualPriceChartProps;
 
   return {
     marketsPriceMetricsStrip: (
-      <CollectionPriceMetricsStrip
-        showFootnotes={false}
-        compact
-        marketsUnifiedRow
-        externalMarketUsd={market.gradeAwareExternalUsd}
-        externalPriceSource={externalMarketPriceSourceLabel(market.resolvedExternal.source)}
-        marketTierDisplay={market.gradeAwareTierLabel}
-        externalMarketMatchConfidence={market.resolvedExternal.marketMatchConfidence}
-        externalPriceLoading={market.gradeAwarePriceLoading}
-        externalPriceChange1MoPct={market.gradeAwareChange1MoPct}
-        externalPriceChangePeriod={market.gradeAwareChangeResult}
-        externalPriceChangeBasisText={market.gradeAwareChangeCoverageHint}
-        externalPriceChange1MoLoading={market.gradeAwareChangeLoading}
-        tradeVolumeUsdc={market.tradeVolumeUsdc}
-        tradeVolumeLoading={market.platformTradesLoading}
-        psaPopulationMetrics={market.psaPopulationMetrics}
-        totalPopulation={market.totalPopulation}
-        marketCapUsd={market.marketCapComputation?.usd ?? null}
-        marketCapMethodHint={market.marketCapComputation?.methodLabel ?? null}
-        formatMarketCap={formatMarketCapUsd}
-      />
+      <div className="cd-metrics-strip">
+        <CollectionDetailStatMain
+          imageUrl={coverImageUrl}
+          priceUsd={market.gradeAwareExternalUsd}
+          priceLoading={market.gradeAwarePriceLoading}
+          changePct={market.gradeAwareChange1MoPct}
+          changeLoading={market.gradeAwareChangeLoading}
+          changePeriod={market.gradeAwareChangeResult}
+          gradeLabel={market.gradeAwareTierLabel}
+          tradeVolumeUsdc={market.tradeVolumeUsdc}
+          tradeVolumeLoading={market.platformTradesLoading}
+          marketCapUsd={market.marketCapComputation?.usd ?? null}
+          formatMarketCap={(n) => formatMarketCapUsd(n ?? null)}
+          psaPopulationMetrics={market.psaPopulationMetrics}
+          totalPopulation={market.totalPopulation}
+        />
+      </div>
     ),
     collectionDualPriceChart: (
       <CollectionDetailPriceChart chartProps={chartProps} gradeChart={market.gradeChart} />

@@ -1,7 +1,21 @@
 "use client";
 
+import { useMemo } from "react";
 import type { TxRow } from "@/lib/portfolio/portfolioTypes";
-import { CategoryBadge } from "./CollectibleCardChrome";
+import { compareSortNum, compareSortText, formatPortfolioUsd } from "@/lib/portfolio/portfolioTableHelpers";
+import { TkTable } from "@/components/ds";
+import { usePortfolioTableSort } from "@/hooks/portfolio/usePortfolioTableSort";
+import { PortfolioMobileSort } from "./PortfolioMobileSort";
+import { PortfolioSortableTh } from "./PortfolioSortableTh";
+
+type HistorySortKey = "date" | "type" | "card" | "amount";
+
+const HISTORY_SORT_OPTIONS = [
+  { key: "date", label: "Date" },
+  { key: "type", label: "Type" },
+  { key: "card", label: "Card" },
+  { key: "amount", label: "Amount" },
+] as const;
 
 export function PortfolioActivitySection({
   loading,
@@ -10,69 +24,114 @@ export function PortfolioActivitySection({
   loading: boolean;
   txRows: TxRow[];
 }) {
+  const { sortKey, sortDir, toggleSort, applyMobileSort, mobileSortValue } =
+    usePortfolioTableSort<HistorySortKey>("date");
+
+  const sortedRows = useMemo(() => {
+    const rows = [...txRows];
+    rows.sort((a, b) => {
+      switch (sortKey) {
+        case "type":
+          return compareSortText(a.type, b.type, sortDir);
+        case "card":
+          return compareSortText(a.asset, b.asset, sortDir);
+        case "amount":
+          return compareSortNum(a.price, b.price, sortDir);
+        default:
+          return compareSortText(a.date, b.date, sortDir);
+      }
+    });
+    return rows;
+  }, [txRows, sortKey, sortDir]);
+
+  if (loading) {
+    return (
+      <div className="space-y-3">
+        {[...Array(4)].map((_, i) => (
+          <div key={i} className="h-14 animate-pulse rounded-xl bg-white/5" />
+        ))}
+      </div>
+    );
+  }
+
+  if (txRows.length === 0) {
+    return <p className="pf-empty">No transactions yet</p>;
+  }
+
   return (
-    <div id="transaction-history" className="rounded-2xl border border-gray-800 bg-[#0b1118] p-5 sm:p-6 scroll-mt-24">
-      <h2 className="mb-4 text-sm font-bold">Transaction History</h2>
-      {loading ? (
-        <div className="space-y-3">
-          {[...Array(3)].map((_, i) => (
-            <div key={i} className="h-11 animate-pulse rounded-lg bg-gray-800/40" />
-          ))}
-        </div>
-      ) : txRows.length === 0 ? (
-        <p className="py-8 text-center text-sm text-gray-500">No transactions yet</p>
-      ) : (
-        <div className="max-h-[264px] overflow-hidden overflow-y-auto rounded-xl border border-gray-800/60">
-          <table className="w-full table-fixed text-[13px]">
-            <colgroup>
-              <col style={{ width: "10%" }} />
-              <col style={{ width: "36%" }} />
-              <col style={{ width: "14%" }} />
-              <col style={{ width: "16%" }} />
-              <col style={{ width: "24%" }} />
-            </colgroup>
-            <thead className="sticky top-0 z-10">
-              <tr className="bg-[#111a25] text-left text-xs text-gray-500">
-                <th className="px-4 py-2.5 font-medium">Type</th>
-                <th className="px-4 py-2.5 font-medium">Asset</th>
-                <th className="px-4 py-2.5 font-medium">Amount</th>
-                <th className="px-4 py-2.5 font-medium">Price</th>
-                <th className="px-4 py-2.5 font-medium">Date</th>
+    <>
+      <PortfolioMobileSort
+        options={[...HISTORY_SORT_OPTIONS]}
+        value={mobileSortValue}
+        onChange={applyMobileSort}
+      />
+
+      <TkTable wrapClassName="pf-table-wrap">
+        <thead>
+          <tr>
+            <PortfolioSortableTh
+              label="Date"
+              sortKey="date"
+              activeKey={sortKey}
+              sortDir={sortDir}
+              onSort={(k) => toggleSort(k as HistorySortKey)}
+            />
+            <PortfolioSortableTh
+              label="Type"
+              sortKey="type"
+              activeKey={sortKey}
+              sortDir={sortDir}
+              onSort={(k) => toggleSort(k as HistorySortKey)}
+            />
+            <PortfolioSortableTh
+              label="Card"
+              sortKey="card"
+              activeKey={sortKey}
+              sortDir={sortDir}
+              onSort={(k) => toggleSort(k as HistorySortKey)}
+            />
+            <th style={{ textAlign: "right" }}>Status</th>
+            <PortfolioSortableTh
+              label="Amount"
+              sortKey="amount"
+              activeKey={sortKey}
+              sortDir={sortDir}
+              align="right"
+              onSort={(k) => toggleSort(k as HistorySortKey)}
+            />
+          </tr>
+        </thead>
+        <tbody>
+          {sortedRows.map((tx, index) => {
+            const zebra = index % 2 === 1 ? "pf-table-row--zebra" : undefined;
+            return (
+              <tr key={tx.orderHash} className={zebra}>
+                <td data-label="Date">
+                  <span className="tkl-mono pf-table-muted">{tx.date}</span>
+                </td>
+                <td data-label="Type">
+                  <span
+                    className={`tkl-mono pf-table-type ${tx.type === "BUY" ? "pf-table-type--buy" : "pf-table-type--sell"}`}
+                  >
+                    {tx.type === "BUY" ? "Buy" : "Sell"}
+                  </span>
+                </td>
+                <td data-label="Card">
+                  <span className="pf-table-card-name">{tx.asset}</span>
+                </td>
+                <td data-label="Status" style={{ textAlign: "right" }}>
+                  <span className="pf-status-chip pf-status-chip--settled">Settled</span>
+                </td>
+                <td data-label="Amount" style={{ textAlign: "right" }}>
+                  <span className="tkl-mono pf-table-amount">
+                    {formatPortfolioUsd(tx.price)}
+                  </span>
+                </td>
               </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-800/40">
-              {txRows.map((tx) => (
-                <tr key={tx.orderHash} className="transition-colors hover:bg-white/[0.02]">
-                  <td className="px-4 py-2.5">
-                    <span
-                      className={`inline-flex items-center justify-center rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
-                        tx.type === "BUY"
-                          ? "bg-mint/15 text-mint"
-                          : "bg-red-500/15 text-red-400"
-                      }`}
-                    >
-                      {tx.type}
-                    </span>
-                  </td>
-                  <td className="px-4 py-2.5">
-                    <div className="flex min-w-0 items-center gap-2">
-                      <span className="truncate text-[13px] font-medium text-gray-200">
-                        {tx.asset}
-                      </span>
-                      {tx.category ? <CategoryBadge label={tx.category} /> : null}
-                    </div>
-                  </td>
-                  <td className="px-4 py-2.5 text-gray-400">{tx.amount}</td>
-                  <td className="px-4 py-2.5 text-gray-400">
-                    ${tx.price.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                  </td>
-                  <td className="px-4 py-2.5 text-gray-500">{tx.date}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
+            );
+          })}
+        </tbody>
+      </TkTable>
+    </>
   );
 }

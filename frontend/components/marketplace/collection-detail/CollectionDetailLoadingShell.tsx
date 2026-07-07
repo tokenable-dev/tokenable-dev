@@ -3,9 +3,9 @@ import { CollectionDetailMobileNav } from "./CollectionDetailMobileNav";
 
 export function CollectionDetailLoadingShell() {
   return (
-    <div className="min-h-screen min-w-0 overflow-x-clip bg-black text-white">
+    <div className="collection-detail-page min-h-screen min-w-0 overflow-x-clip text-white">
       <div
-        className={`${COLLECTION_DETAIL_SHELL_CLASS} py-4 sm:py-8 pb-[max(5.5rem,env(safe-area-inset-bottom,0px)+4.5rem)] sm:pb-20`}
+        className={`collection-detail-page__shell ${COLLECTION_DETAIL_SHELL_CLASS} sm:pb-20 pb-[max(5.5rem,env(safe-area-inset-bottom,0px)+4.5rem)]`}
       >
         <CollectionDetailMobileNav />
         <div className="h-4 w-40 bg-gray-800/80 rounded animate-pulse mb-6" />

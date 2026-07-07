@@ -9,6 +9,7 @@ import {
   CollectionService,
   type CollectionSummary,
 } from '../collections/collection.service';
+import type { SupportedChainId } from '../../blockchain/chain-config.service';
 import { UserWatchlist } from '../entities/user-watchlist.entity';
 
 const MAX_WATCHLIST_ITEMS = 200;
@@ -29,7 +30,10 @@ export class WatchlistService {
     return key;
   }
 
-  async listForUser(userId: string): Promise<{
+  async listForUser(
+    userId: string,
+    chainId?: SupportedChainId,
+  ): Promise<{
     collectionKeys: string[];
     items: CollectionSummary[];
   }> {
@@ -39,7 +43,10 @@ export class WatchlistService {
       take: MAX_WATCHLIST_ITEMS,
     });
     const collectionKeys = rows.map((r) => r.collectionKey);
-    const items = await this.collections.listSummariesByKeys(collectionKeys);
+    const items = await this.collections.listSummariesByKeys(
+      collectionKeys,
+      chainId,
+    );
     return { collectionKeys, items };
   }
 

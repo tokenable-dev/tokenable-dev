@@ -20,10 +20,8 @@ import { extractBucketComponentsFromMetadata } from '../utils/bucket-key.util';
 import { marketParallelKeyFromPsaVariety } from '../utils/market-parallel-key.util';
 import { pickTrendingSlabImageRef, psaCertNumberFromGradedMeta } from '../utils/collection-image.util';
 import { psaCertNumberFromCollectionRow } from '../utils/collection-row.util';
-import {
-  componentsPsaMirrorSufficientForCardhedger,
-  mergePsaCertSnapshotIntoMirror,
-} from '../utils/psa-components-mirror.util';
+import { fetchCompactPsaCertByNumber } from '../utils/psa-cert-compact.util';
+import { mergePsaCertSnapshotIntoMirror } from '../utils/psa-components-mirror.util';
 import {
   cardIdFromPsaCertLookup,
   CARDHEDGER_CARD_ID_SOURCE_PSA_CERT,
@@ -31,7 +29,6 @@ import {
 } from '../utils/card-match.util';
 import { Order, OrderSide, OrderStatus } from '../entities/order.entity';
 import { MarketplaceCollection } from '../entities/marketplace-collection.entity';
-import { PsaCertSnapshotService } from './psa-cert-snapshot.service';
 import {
   cardhedgerFromRwaMetadata,
   extractListingDisplayTitleFromMeta,
@@ -54,10 +51,21 @@ export class CollectionComponentsService {
     private readonly config: ConfigService,
     private readonly cardhedger: CardhedgerService,
     private readonly ipfsResolver: IpfsGatewayResolverService,
-    private readonly psaCertSnapshots: PsaCertSnapshotService,
     private readonly psaPublicApi: PsaPublicApiService,
     private readonly identity: CollectionIdentityService,
   ) {}
+
+  private async fetchCompactCertFromApi(
+    cert: string,
+    opts?: { allowUpstream?: boolean },
+  ): Promise<Record<string, unknown> | null> {
+    if (opts?.allowUpstream === false) return null;
+    try {
+      return await fetchCompactPsaCertByNumber(this.psaPublicApi, cert);
+    } catch {
+      return null;
+    }
+  }
 
   private collectionActiveOrdersCap(): number {
     return this.config.get<number>('marketplace.collectionActiveOrdersMax') ?? 2_000;
@@ -224,7 +232,7 @@ export class CollectionComponentsService {
     const cert = psaCert?.trim() || row.psaCertNumber?.trim() || '';
     if (!specId && cert) {
       try {
-        const snap = await this.psaCertSnapshots.fetchCertSnapshotJson(cert, {
+        const snap = await this.fetchCompactCertFromApi(cert, {
           allowUpstream: true,
         });
         specId =
@@ -248,11 +256,13 @@ export class CollectionComponentsService {
 
   /**
    * Fetches PSA spec pop report (Grade1–10 + Total) when missing from components.
-   * Uses PSA Public API `/pop/GetPSASpecPopulation/{specID}`.
+   * Uses PSA Public API `/pop/GetPSASpecPopulation/{specID}` only when `allowUpstream`.
    */
   async ensurePsaSpecPopulationFromApi(
     collectionKey: string,
+    opts?: { allowUpstream?: boolean },
   ): Promise<void> {
+    const allowUpstream = opts?.allowUpstream === true;
     const k = collectionKey.toLowerCase();
     const row = await this.collectionRepo.findOne({
       where: { collectionKey: k },
@@ -272,8 +282,8 @@ export class CollectionComponentsService {
     if (!specId) {
       const cert = psaCertNumberFromCollectionRow(row);
       if (cert) {
-        const snap = await this.psaCertSnapshots.fetchCertSnapshotJson(cert, {
-          allowUpstream: true,
+        const snap = await this.fetchCompactCertFromApi(cert, {
+          allowUpstream,
         });
         specId = normalizePsaSpecId(snap?.SpecID);
       }
@@ -296,6 +306,8 @@ export class CollectionComponentsService {
       }
     }
     if (!specId) return;
+
+    if (!allowUpstream) return;
 
     const lookup = await this.psaPublicApi.getSpecPopulation(specId);
     if (lookup.status !== 'success') {
@@ -502,7 +514,10 @@ export class CollectionComponentsService {
   }
 
   /** 활성 ask 메타에서 단일 cert → `psa_cert_number` 컬럼 (충돌 시 미저장). */
-  async ensurePsaCertNumberFromListings(collectionKey: string): Promise<void> {
+  async ensurePsaCertNumberFromListings(
+    collectionKey: string,
+    opts?: { schedulePsaRefresh?: boolean },
+  ): Promise<void> {
     const k = collectionKey.toLowerCase();
     const row = await this.collectionRepo.findOne({
       where: { collectionKey: k },
@@ -539,7 +554,6 @@ export class CollectionComponentsService {
       { collectionKey: k },
       { psaCertNumber: only },
     );
-    this.psaCertSnapshots.scheduleRefreshIfNeeded(only);
   }
 
   /**
@@ -595,40 +609,43 @@ export class CollectionComponentsService {
     collectionKey: string,
     opts?: { allowUpstream?: boolean },
   ): Promise<void> {
-    if (opts?.allowUpstream === false) return;
+    if (opts?.allowUpstream !== true) return;
     const k = collectionKey.toLowerCase();
-    const row = await this.collectionRepo.findOne({
-      where: { collectionKey: k },
-    });
-    if (!row) return;
-    const cert = psaCertNumberFromCollectionRow(row);
-    if (!cert) return;
-
-    if (componentsPsaMirrorSufficientForCardhedger(row.components)) {
-      const fresh = await this.psaCertSnapshots.getSnapshotJsonIfFresh(cert);
-      if (fresh) return;
-    }
-
-    await this.psaCertSnapshots.refreshIfStale(cert);
+    await this.persistPsaMirrorFromCertToDb(k, { allowUpstream: true });
   }
 
-  async mergePsaSnapshotIntoComponentsFromDb(
+  async mergePsaCertFromLiveApiIntoComponents(
     col: MarketplaceCollection,
+    opts?: { allowUpstream?: boolean },
   ): Promise<MarketplaceCollection> {
     const cert = psaCertNumberFromCollectionRow(col);
     if (!cert) return col;
-    const snap = await this.psaCertSnapshots.getSnapshotJsonIfFresh(cert);
+    const snap = await this.fetchCompactCertFromApi(cert, opts);
     return this.mergePsaSnapshotIntoComponents(col, snap);
   }
 
+  /** @deprecated Use {@link mergePsaCertFromLiveApiIntoComponents}. */
+  async mergePsaSnapshotIntoComponentsFromDb(
+    col: MarketplaceCollection,
+    opts?: { allowUpstream?: boolean },
+  ): Promise<MarketplaceCollection> {
+    return this.mergePsaCertFromLiveApiIntoComponents(col, opts);
+  }
+
   /** Persist PSA cert mirror fields onto `marketplace_collections` before cardhedger audit. */
-  async persistPsaMirrorFromCertToDb(collectionKey: string): Promise<boolean> {
+  async persistPsaMirrorFromCertToDb(
+    collectionKey: string,
+    opts?: { allowUpstream?: boolean },
+  ): Promise<boolean> {
     const k = collectionKey.toLowerCase();
     const row = await this.collectionRepo.findOne({
       where: { collectionKey: k },
     });
     if (!row) return false;
-    const merged = await this.mergePsaSnapshotIntoComponentsFromDb(row);
+    const merged = await this.mergePsaCertFromLiveApiIntoComponents(
+      row,
+      opts ?? { allowUpstream: true },
+    );
     const compBefore = JSON.stringify(row.components);
     const compAfter = JSON.stringify(merged.components);
     const parallelChanged =

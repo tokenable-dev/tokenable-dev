@@ -180,7 +180,9 @@ export function OrderBookAskListingModal({
 
   const navigateToBuy = (tokenId: number) => {
     onClose();
-    router.push(`/marketplace/${tokenId}?fromCollection=${encodeURIComponent(collectionKey)}`);
+    router.push(
+      `/marketplace/collections/${encodeURIComponent(collectionKey)}?listing=${tokenId}&checkout=buy`,
+    );
   };
 
   return (

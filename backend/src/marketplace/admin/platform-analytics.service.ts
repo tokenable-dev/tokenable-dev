@@ -11,6 +11,10 @@ import {
   OrderStatus,
 } from '../entities/order.entity';
 import { PortfolioDailySnapshot } from '../entities/portfolio-daily-snapshot.entity';
+import {
+  PortfolioCostBasisSource,
+  PortfolioHolding,
+} from '../entities/portfolio-holding.entity';
 import { RwaToken } from '../entities/rwa-token.entity';
 import { UserWatchlist } from '../entities/user-watchlist.entity';
 import { UserAdminService, type AdminUserStats } from './user-admin.service';
@@ -94,6 +98,14 @@ export type PlatformAnalyticsOverview = {
     trackedWallets: number;
     snapshotRows: number;
     latestSnapshotDate: string | null;
+    holdingsRows: number;
+    holdingsWithCostBasis: number;
+    holdingsHidden: number;
+    costBasisBySource: {
+      manual: number;
+      vault_delivery: number;
+      marketplace_buy: number;
+    };
   };
   funnel: {
     signupToWalletPct: number | null;
@@ -144,6 +156,8 @@ export class PlatformAnalyticsService {
     private readonly watchlistRepo: Repository<UserWatchlist>,
     @InjectRepository(PortfolioDailySnapshot)
     private readonly portfolioRepo: Repository<PortfolioDailySnapshot>,
+    @InjectRepository(PortfolioHolding)
+    private readonly portfolioHoldingsRepo: Repository<PortfolioHolding>,
     private readonly userAdmin: UserAdminService,
   ) {}
 
@@ -230,6 +244,10 @@ export class PlatformAnalyticsService {
         trackedWallets: overviewCounts.portfolioWallets,
         snapshotRows: overviewCounts.portfolioRows,
         latestSnapshotDate: overviewCounts.portfolioLatestDate,
+        holdingsRows: overviewCounts.portfolioHoldingsRows,
+        holdingsWithCostBasis: overviewCounts.portfolioHoldingsWithCostBasis,
+        holdingsHidden: overviewCounts.portfolioHoldingsHidden,
+        costBasisBySource: overviewCounts.portfolioCostBasisBySource,
       },
       funnel: {
         signupToWalletPct: pct(userStats.withWallet, userStats.total),
@@ -288,6 +306,12 @@ export class PlatformAnalyticsService {
       portfolioWallets,
       portfolioRows,
       portfolioLatest,
+      portfolioHoldingsRows,
+      portfolioHoldingsWithCostBasis,
+      portfolioHoldingsHidden,
+      portfolioCostBasisManual,
+      portfolioCostBasisVault,
+      portfolioCostBasisBuy,
     ] = await Promise.all([
       this.usersRepo
         .createQueryBuilder('u')
@@ -409,6 +433,34 @@ export class PlatformAnalyticsService {
           .select('MAX(p.snapshotDateKst)', 'max')
           .getRawOne<{ max: string | null }>(),
       ),
+      this.safeCount(() => this.portfolioHoldingsRepo.count()),
+      this.safeCount(() =>
+        this.portfolioHoldingsRepo
+          .createQueryBuilder('h')
+          .where('h.costBasisUsd IS NOT NULL')
+          .getCount(),
+      ),
+      this.safeCount(() =>
+        this.portfolioHoldingsRepo
+          .createQueryBuilder('h')
+          .where('h.hiddenAt IS NOT NULL')
+          .getCount(),
+      ),
+      this.safeCount(() =>
+        this.portfolioHoldingsRepo.count({
+          where: { costBasisSource: PortfolioCostBasisSource.MANUAL },
+        }),
+      ),
+      this.safeCount(() =>
+        this.portfolioHoldingsRepo.count({
+          where: { costBasisSource: PortfolioCostBasisSource.VAULT_DELIVERY },
+        }),
+      ),
+      this.safeCount(() =>
+        this.portfolioHoldingsRepo.count({
+          where: { costBasisSource: PortfolioCostBasisSource.MARKETPLACE_BUY },
+        }),
+      ),
     ]);
 
     return {
@@ -443,6 +495,14 @@ export class PlatformAnalyticsService {
       portfolioWallets: portfolioWallets ?? 0,
       portfolioRows: portfolioRows ?? 0,
       portfolioLatestDate: portfolioLatest?.max ?? null,
+      portfolioHoldingsRows: portfolioHoldingsRows ?? 0,
+      portfolioHoldingsWithCostBasis: portfolioHoldingsWithCostBasis ?? 0,
+      portfolioHoldingsHidden: portfolioHoldingsHidden ?? 0,
+      portfolioCostBasisBySource: {
+        manual: portfolioCostBasisManual ?? 0,
+        vault_delivery: portfolioCostBasisVault ?? 0,
+        marketplace_buy: portfolioCostBasisBuy ?? 0,
+      },
     };
   }
 

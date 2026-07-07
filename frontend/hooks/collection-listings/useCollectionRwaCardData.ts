@@ -19,15 +19,22 @@ export function useCollectionRwaCardData(input: {
 }) {
   const { tokenId, prefetchedImageUrl, prefetchedMetadata } = input;
 
-  const hasPrefetch =
-    prefetchedImageUrl !== undefined || prefetchedMetadata !== undefined;
+  const prefetchedImageReady =
+    typeof prefetchedImageUrl === "string" && prefetchedImageUrl.trim().length > 0;
 
   const { data: metaBundle } = useQuery({
     queryKey: rq.rwaAssetDetail(tokenId),
-    queryFn: () => getResolvedRwaAsset(tokenId),
+    queryFn: async () => {
+      const resolved = await getResolvedRwaAsset(tokenId);
+      const cachedImg = getCachedRwaImageUrl(tokenId);
+      if (!resolved.imageUrl?.trim() && cachedImg) {
+        return { ...resolved, imageUrl: cachedImg };
+      }
+      return resolved;
+    },
     staleTime: marketplaceRqPolicy.metadataDetailStaleMs,
-    enabled: !hasPrefetch,
-    initialData: hasPrefetch
+    enabled: !prefetchedImageReady,
+    initialData: prefetchedImageReady
       ? undefined
       : (() => {
           const cachedMeta = getCachedRwaMetadata(tokenId) as RwaMetadata | null;
@@ -44,12 +51,11 @@ export function useCollectionRwaCardData(input: {
         })(),
   });
 
-  const metadata: RwaMetadata | null = hasPrefetch
-    ? (prefetchedMetadata ?? null)
-    : (metaBundle?.metadata ?? null);
+  const metadata: RwaMetadata | null =
+    prefetchedMetadata ?? metaBundle?.metadata ?? null;
 
-  const imageUrl: string | null = hasPrefetch
-    ? (prefetchedImageUrl ?? null)
+  const imageUrl: string | null = prefetchedImageReady
+    ? prefetchedImageUrl!.trim()
     : (metaBundle?.imageUrl ?? null);
 
   return { metaBundle, metadata, imageUrl };

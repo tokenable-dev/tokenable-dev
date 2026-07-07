@@ -30,8 +30,11 @@ export type PlatformAnalyticsOverview = {
     total: number;
     verified: number;
     unverified: number;
-    googleOnly: number;
-    emailPassword: number;
+    privy: number;
+    legacy: number;
+    google: number;
+    emailOtp: number;
+    walletLogin: number;
     withWallet: number;
     newInPeriod: number;
     linkedWallets: number;
@@ -77,6 +80,14 @@ export type PlatformAnalyticsOverview = {
     trackedWallets: number;
     snapshotRows: number;
     latestSnapshotDate: string | null;
+    holdingsRows: number;
+    holdingsWithCostBasis: number;
+    holdingsHidden: number;
+    costBasisBySource: {
+      manual: number;
+      vault_delivery: number;
+      marketplace_buy: number;
+    };
   };
   funnel: {
     signupToWalletPct: number | null;

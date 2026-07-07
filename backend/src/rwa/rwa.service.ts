@@ -3,6 +3,8 @@ import {
   Injectable,
   InternalServerErrorException,
 } from '@nestjs/common';
+import { VaultService } from '../vault/vault.service';
+import { psaCertNumberFromGradedMeta } from '../marketplace/utils/collection-image.util';
 import { PinataService } from './pinata/pinata.service';
 import { UploadRwaDto } from './dto/upload-rwa.dto';
 import {
@@ -25,7 +27,10 @@ function isPsaGraded(graded: Record<string, unknown> | undefined): boolean {
 
 @Injectable()
 export class RwaService {
-  constructor(private readonly pinataService: PinataService) {}
+  constructor(
+    private readonly pinataService: PinataService,
+    private readonly vault: VaultService,
+  ) {}
 
   async uploadToIpfs(
     dto: UploadRwaDto,
@@ -79,6 +84,18 @@ export class RwaService {
       throw new BadRequestException(gradeReject);
     }
 
+    const certNumber = psaCertNumberFromGradedMeta({ graded: gradedObj });
+    if (!certNumber) {
+      throw new BadRequestException(
+        'Could not extract a PSA cert number from gradedMetadata — required to open a vault cycle.',
+      );
+    }
+    // Pre-flight only: the authoritative check happens again inside
+    // VaultService.reserveCycleForDeposit() at mint time (race-safe).
+    // A physical asset can be re-vaulted once its prior cycle is redeemed —
+    // this only blocks a cert that currently has a live, un-redeemed NFT.
+    await this.vault.assertAvailableForNewCycle(certNumber);
+
     let imageCID: string;
 
     if (file?.buffer) {
@@ -103,7 +120,8 @@ export class RwaService {
     const metadata: RwaMetadata = {
       name: dto.name,
       description: dto.description,
-      image: `ipfs://${imageCID}`,
+      // HTTPS gateway URL → single file CID; MetaMask/OpenSea cannot render directory CIDs.
+      image: this.pinataService.ipfsHttpsUrl(imageCID),
       ...(dto.attributes && { attributes: dto.attributes }),
     };
 

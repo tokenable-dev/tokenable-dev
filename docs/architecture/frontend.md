@@ -19,7 +19,7 @@ Marketplace UI is organized into **feature folders** with matching `hooks/` and 
 | Portfolio | `portfolio/` | `hooks/portfolio/`, `lib/portfolio/` |
 | Vault / mint | `vault/` | `hooks/vault/`, `lib/vault/` |
 | Marketplace admin | `marketplace/admin/` | `hooks/marketplace-admin/`, `lib/core/api/marketplace-admin-*.ts` — see [marketplace-admin.md](../guides/marketplace-admin.md) |
-| Auth / profile | `auth/` | `providers/AuthProvider.tsx`, `lib/auth/` |
+| Auth / profile | `auth/`, `layout/header/wallet/` | `providers/PrivyAuthBridge`, `lib/auth/` — header uses custom wallet menu + Privy hooks |
 | Shared chrome | `layout/`, `marketplace-shared/`, `collection-cover/` | `lib/marketplace/assetDetailHeadline.ts` |
 
 Seaport signing / fulfillment remains in **`lib/seaport/`** (orders, criteria, fulfillment).
@@ -46,6 +46,7 @@ frontend/
 │   ├── landing/                   # MarketIndexes
 │   ├── markets/                   # MarketsPage, Top100, TopMovers sections
 │   ├── portfolio/
+│   ├── watchlist/                 # WatchlistPage, WatchlistCollectibleCard
 │   ├── vault/                     # MintForm (inbound mint UX — Vault system TBD)
 │   ├── auth/
 │   └── marketplace/
@@ -68,7 +69,10 @@ frontend/
 │
 ├── lib/
 │   ├── core/                      # api/* split modules, queryKeys.ts (rq.*)
-│   ├── auth/                      # emailAuth, session helpers
+│   ├── auth/                      # Session helpers (syncPrivySession, signOut, refreshPrivyAuthSession)
+│   ├── privy/                     # Privy config, PrivyAppProviders, PrivySessionBridge, launchers, signing
+│   ├── chains/                    # Multi-chain registry (Polygon / Amoy), types, Seaport addresses
+│   ├── perf/                      # Client-side perf instrumentation (index.ts, PerfObservers.tsx)
 │   ├── market/                    # Pricing tiers, chart utils
 │   ├── markets/                   # Top 100 / Top Movers copy, routing, sort
 │   ├── marketplace/               # bucketKey, headlines, order book math, …
@@ -76,9 +80,10 @@ frontend/
 │   ├── portfolio/
 │   └── vault/
 │
-├── providers/                     # AuthProvider, WalletDataProvider, …
+├── providers/                     # AppChainProvider, PrivyAuthBridge, PrivySignInLauncher, PrivyWalletLauncher, WalletDataProvider, …
 ├── store/                         # authStore, useAppStore
-├── config/wagmi.ts
+├── config/wagmi.ts                # Legacy wagmi config (kept for reference)
+├── config/wagmiPrivy.ts           # Privy wagmi config (active)
 └── constants/                     # ABIs + contract addresses
 ```
 
@@ -92,15 +97,26 @@ frontend/
 
 ## Global providers chain
 
+Auth is managed by **Privy**. The provider tree is mounted via `PrivyAppProviders` (`lib/privy/PrivyAppProviders.tsx`):
+
 ```
 RootLayout
-└── Providers (providers.tsx)
-    ├── WagmiProvider
-    ├── QueryClientProvider
-    ├── AuthProvider
-    ├── WalletDataProvider
-    └── MarketplaceQueryPersistence
+└── PrivyAppProviders (lib/privy/PrivyAppProviders.tsx)
+    └── PrivyProvider  (@privy-io/react-auth)
+        └── QueryClientProvider
+            ├── PerfObservers  (lib/perf/PerfObservers.tsx — null-render, observes query/route/page-load)
+            └── WagmiProvider  (@privy-io/wagmi)
+                ├── MarketplaceQueryPersistence
+                ├── PrivySignInLauncher  (global openSignIn() trigger)
+                ├── PrivyWalletLauncher (global openConnectWallet() trigger)
+                ├── PrivySessionBridge  (syncs Privy token → Tokenable cookie on auth change)
+                └── AuthProvider
+                    └── AppChainProvider  (active chain context from x-tokenable-chain-id)
+                        └── WalletDataProvider
+                            └── {children}
 ```
+
+`PrivyAppProviders` is a no-op (returns children directly) when `NEXT_PUBLIC_PRIVY_APP_ID` is unset.
 
 ---
 
@@ -113,14 +129,55 @@ getApiUrl()
 // → SSR:    process.env.INTERNAL_API_URL
 ```
 
+In local development, `app/api/[...path]/route.ts` proxies all `/api/*` requests to the NestJS backend (auto-detected at port 4100 or 4000). The proxy strips `content-encoding` and `content-length` from backend responses so the browser does not attempt to re-decompress already-decompressed gzip bodies.
+
 Query keys: `frontend/lib/core/queryKeys.ts` (`rq.*`).
 
 When **site access** is enabled on the backend, the frontend `/site-access` page sets the gate cookie before other API calls succeed.
 
 PSA display titles (Year → Brand → # → Subject → Variety) are built client-side in `lib/marketplace/assetDetailHeadline.ts` and related helpers — not always stored verbatim in DB.
 
+## Header auth
+
+Authenticated users see a **custom wallet chip + dropdown** styled like HTML `tk-wallet.js` (`HeaderWalletMenu`, `HeaderMobileWalletSection`). Privy still owns login/logout/session (`useLogin`, `completeSignOut` → `useLogout`); the dropdown is Tokenable product nav only.
+
+`HeaderAuthControls` renders:
+
+- Skeleton while Privy + Tokenable session init  
+- `TkButton` **Sign up** → `useLogin()` when logged out  
+- `HeaderWalletMenu` (desktop chip: address + native balance + chevron) when logged in  
+
+`PrivyUserPill` remains for dev lab (`/dev/privy`), profile fallback, and wallet-mismatch flows — not in the main GNB.
+
+Do **not** restyle Privy modals or portal menus — only platform z-index in `globals.css` (`[data-floating-ui-portal]` → `150`) so page controls stay underneath.
+
+Tokenable JWT sync still runs via `PrivySessionBridge`; profile page and marketplace routes use `useAuthStore` as before.
+
+## Multi-chain support
+
+`lib/chains/` resolves chain definitions and contract addresses from `NEXT_PUBLIC_CHAIN_{id}_*` env vars. Active chain context is provided by `AppChainProvider`. The active chain ID is sent to the backend via the `x-tokenable-chain-id` request header.
+
+Supported chains: **Polygon Amoy** (80002, default), **Polygon mainnet** (137). Only chains with all three env vars (`NEXT_PUBLIC_CHAIN_{id}_RPC_URL`, `_RWA`, `_USDC`) configured are offered in the UI.
+
+## Performance instrumentation (`lib/perf/`)
+
+Toggle at runtime via `localStorage` — no rebuild required:
+
+```js
+localStorage.setItem('PERF_LOG', '1');
+localStorage.setItem('PERF_THRESHOLD_MS', '100'); // optional, default 200ms
+location.reload();
+```
+
+`PerfObservers` (mounted once in `PrivyAppProviders`) tracks:
+- **React Query fetches** — logs query label + duration on success/error
+- **Route transitions** — logs `from → to` path + duration on link click
+- **Initial page load** — Navigation Timing API (TTFB, DOMContentLoaded, loadEventEnd)
+
+Output is JSON via `console.log`, parseable in DevTools or piped to a CLI.
+
 ---
 
 ## Feature flags (UI)
 
-Top 100 / Top Movers public sections can be gated via env copy helpers in `lib/markets/top100Copy.ts` (`TOP_CARDS_UI_ENABLED`, `TOP_MOVERS_UI_ENABLED`). Admin preview routes under `/marketplace/admin/*` remain available for ops.
+Top 100 / Top Movers public sections can be gated via env copy helpers in `lib/markets/top100Copy.ts` (`TOP_CARDS_UI_ENABLED`, `TOP_MOVERS_UI_ENABLED`). Admin previews live under `/marketplace/admin/markets` (tabbed).

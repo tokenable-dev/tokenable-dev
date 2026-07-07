@@ -157,6 +157,7 @@ export async function invalidateAfterRwaMintTx(
   await _invalidateRwaMetadataBatch(qc);
   await _invalidateMintPreviews(qc);
   await _invalidatePortfolioMarketBatch(qc);
+  await qc.invalidateQueries({ queryKey: rq.adminCustodyNfts() });
 
   if (input.address?.trim()) {
     await qc.invalidateQueries({ queryKey: rq.rwaTokens(input.address.trim()) });
@@ -301,6 +302,8 @@ export async function invalidateAfterBurn(
   await _invalidateRwaTokensAll(qc);
   await _invalidateRwaMetadataBatch(qc);
   await _invalidateOrdersAll(qc);
+  await qc.invalidateQueries({ queryKey: rq.adminRwaCards() });
+  await qc.invalidateQueries({ queryKey: rq.adminCustodyNfts() });
   await qc.invalidateQueries({ queryKey: rq.portfolioDailySnapshots(address) });
 }
 
