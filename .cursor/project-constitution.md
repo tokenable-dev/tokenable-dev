@@ -245,7 +245,7 @@ marketplace/collections → CollectionIdentityService → Redis/DB
 1. Hot reads are PostgreSQL-only — no upstream API calls on every request.
 2. Snapshot workers handle expensive Cardhedger calls asynchronously.
 3. Performance logging opt-in via `PERF_LOG=true` with per-category thresholds.
-4. PSA cache (`psa_cert_snapshots`) reduces PSA API calls; always check cache first.
+4. PSA lookups use live Public API on mint/analyze; short in-memory cache only (`PSA_PUBLIC_API_CACHE_TTL_MS`).
 5. Identity cache uses L1 (in-process) + L2 (Redis) with DB as source of truth.
 6. External API calls carry `AbortSignal.timeout(15_000)` to prevent unbounded hangs.
 
@@ -269,7 +269,7 @@ marketplace/collections → CollectionIdentityService → Redis/DB
 3. **`adminBurn` burn mechanics** — clearing `activeTokenIdOf` is critical for re-mint.
 4. **Seaport contract address** — standard deployed address; never override.
 5. **`collection_key` computation algorithm (v2)** — changing breaks all existing orders/collections.
-6. **`psa_cert_snapshots` TTL mechanics** — affects PSA rate limit compliance.
+6. **PSA Public API token pool / rate limits** — affects mint and analyze availability.
 7. **JWT cookie name** (`access_token`) — changing logs out all users.
 8. **Admin session cookie name** (`marketplace_admin`) — changing logs out all admins.
 

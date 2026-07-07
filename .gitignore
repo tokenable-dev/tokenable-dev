@@ -16,6 +16,10 @@ contracts/.env
 dist
 build
 
+# Designer handoff scratch (keep HTML prototypes; ignore bulky refs)
+Tokenable-with design system/uploads/
+Tokenable-with design system/screenshots/
+
 # 기타
 .DS_Store
 *.log

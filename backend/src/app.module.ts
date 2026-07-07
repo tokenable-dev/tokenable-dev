@@ -23,7 +23,6 @@ import { SiteAccessModule } from './site-access/site-access.module';
 import { Order } from './marketplace/entities/order.entity';
 import { MarketplaceCollection } from './marketplace/entities/marketplace-collection.entity';
 import { CollectionMarketSnapshot } from './marketplace/entities/collection-market-snapshot.entity';
-import { PsaCertSnapshot } from './marketplace/entities/psa-cert-snapshot.entity';
 import { RwaToken } from './marketplace/entities/rwa-token.entity';
 import { UserAuthProvider } from './user/entities/user-auth-provider.entity';
 import { UserKycEvent } from './user/entities/user-kyc-event.entity';
@@ -31,7 +30,7 @@ import { User } from './user/entities/user.entity';
 import { UserWallet } from './user/entities/user-wallet.entity';
 import { VerificationToken } from './auth/entities/verification-token.entity';
 import { PortfolioDailySnapshot } from './marketplace/entities/portfolio-daily-snapshot.entity';
-import { PortfolioHiddenHolding } from './marketplace/entities/portfolio-hidden-holding.entity';
+import { PortfolioHolding } from './marketplace/entities/portfolio-holding.entity';
 import { UserWatchlist } from './marketplace/entities/user-watchlist.entity';
 import { CardTop100DailySnapshot } from './cardhedger/entities/card-top100-snapshot.entity';
 import { CardhedgerPriceSubscription } from './cardhedger/entities/cardhedger-price-subscription.entity';
@@ -74,7 +73,6 @@ import { VaultRedemption } from './vault/entities/vault-redemption.entity';
           Order,
           MarketplaceCollection,
           CollectionMarketSnapshot,
-          PsaCertSnapshot,
           RwaToken,
           User,
           UserWallet,
@@ -82,7 +80,7 @@ import { VaultRedemption } from './vault/entities/vault-redemption.entity';
           UserKycEvent,
           VerificationToken,
           PortfolioDailySnapshot,
-          PortfolioHiddenHolding,
+          PortfolioHolding,
           UserWatchlist,
           CardTop100DailySnapshot,
           CardhedgerPriceSubscription,

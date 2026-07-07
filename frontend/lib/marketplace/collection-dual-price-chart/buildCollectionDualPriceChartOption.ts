@@ -3,6 +3,11 @@ import {
   AXIS_LABEL,
   AXIS_LABEL_MOBILE,
   CHART_DAY_SEC,
+  COLLECTION_DETAIL_AXIS_LABEL,
+  COLLECTION_DETAIL_CHART_AREA_GRADIENT,
+  COLLECTION_DETAIL_CHART_LINE,
+  COLLECTION_DETAIL_GRID_LINE,
+  COLLECTION_DETAIL_LINE_WIDTH,
   LIVE_LINE_WIDTH,
   LIVE_MARKET_AREA_GRADIENT,
   LIVE_MARKET_LINE,
@@ -26,6 +31,7 @@ export function buildCollectionDualPriceChartOption(input: {
   externalRefLineTag: string;
   isMobileChart: boolean;
   compactTab: boolean;
+  colorTheme?: "default" | "collection-detail";
 }): EChartsOption {
   const {
     merged,
@@ -34,7 +40,13 @@ export function buildCollectionDualPriceChartOption(input: {
     externalRefLineTag,
     isMobileChart,
     compactTab,
+    colorTheme = "default",
   } = input;
+
+  const isCardHtml = colorTheme === "collection-detail";
+  const lineColor = isCardHtml ? COLLECTION_DETAIL_CHART_LINE : LIVE_MARKET_LINE;
+  const areaGradient = isCardHtml ? COLLECTION_DETAIL_CHART_AREA_GRADIENT : LIVE_MARKET_AREA_GRADIENT;
+  const lineWidth = isCardHtml ? COLLECTION_DETAIL_LINE_WIDTH : LIVE_LINE_WIDTH;
 
   const externalFlatSeries: Array<[number, number]> =
     !merged.extIsPolyline &&
@@ -56,9 +68,9 @@ export function buildCollectionDualPriceChartOption(input: {
       showSymbol: false,
       smooth: false,
       connectNulls: true,
-      lineStyle: { color: LIVE_MARKET_LINE, width: LIVE_LINE_WIDTH },
-      itemStyle: { color: LIVE_MARKET_LINE },
-      areaStyle: { color: LIVE_MARKET_AREA_GRADIENT },
+      lineStyle: { color: lineColor, width: lineWidth },
+      itemStyle: { color: lineColor },
+      areaStyle: { color: areaGradient },
       emphasis: { focus: "series" },
     });
   }
@@ -69,9 +81,9 @@ export function buildCollectionDualPriceChartOption(input: {
       data: externalFlatSeries,
       showSymbol: false,
       smooth: false,
-      lineStyle: { color: LIVE_MARKET_LINE, width: LIVE_LINE_WIDTH, type: "solid" },
-      itemStyle: { color: LIVE_MARKET_LINE },
-      areaStyle: { color: LIVE_MARKET_AREA_GRADIENT },
+      lineStyle: { color: lineColor, width: lineWidth, type: "solid" },
+      itemStyle: { color: lineColor },
+      areaStyle: { color: areaGradient },
       emphasis: { focus: "series" },
     });
   }
@@ -92,9 +104,13 @@ export function buildCollectionDualPriceChartOption(input: {
     ? yearViewPriceScale(merged.vMin, merged.vMax)
     : niceScale(merged.vMin, merged.vMax, yTickCount);
 
-  const axisLabelColor = isMobileChart ? AXIS_LABEL_MOBILE : AXIS_LABEL;
-  const axisLabelSize = isMobileChart ? 10 : 13;
-  const yAxisLabelSize = isMobileChart ? 10 : 11;
+  const axisLabelColor = isCardHtml
+    ? COLLECTION_DETAIL_AXIS_LABEL
+    : isMobileChart
+      ? AXIS_LABEL_MOBILE
+      : AXIS_LABEL;
+  const axisLabelSize = isMobileChart ? 10 : isCardHtml ? 13 : 13;
+  const yAxisLabelSize = isMobileChart ? 10 : isCardHtml ? 13 : 11;
   const yearViewYAxisNamePadBottom = isMobileChart ? 12 : 16;
   const yearViewGridTop = compactTab ? 30 : isMobileChart ? 36 : 40;
 
@@ -115,7 +131,9 @@ export function buildCollectionDualPriceChartOption(input: {
           }
         : isYearView
           ? { left: 52, right: 12, top: yearViewGridTop, bottom: 32, containLabel: false }
-          : { left: 48, right: 10, top: 4, bottom: 22, containLabel: false },
+          : isCardHtml
+            ? { left: 56, right: 16, top: 16, bottom: 34, containLabel: false }
+            : { left: 48, right: 10, top: 4, bottom: 22, containLabel: false },
     dataZoom: [
       { type: "inside", xAxisIndex: 0, filterMode: "none" },
       { type: "slider", xAxisIndex: 0, height: 16, bottom: 0, show: false },
@@ -172,10 +190,13 @@ export function buildCollectionDualPriceChartOption(input: {
       },
       axisLine: { show: false },
       axisTick: { show: false },
-      splitLine: { show: false },
+      splitLine: isCardHtml
+        ? { show: true, lineStyle: { color: COLLECTION_DETAIL_GRID_LINE, width: 1 } }
+        : { show: false },
       axisLabel: {
         color: axisLabelColor,
         fontSize: yAxisLabelSize,
+        fontFamily: isCardHtml ? "var(--font-mono), monospace" : undefined,
         width: isMobileChart ? 34 : 44,
         overflow: "truncate",
         align: "right",
@@ -200,11 +221,17 @@ export function buildCollectionDualPriceChartOption(input: {
       trigger: "axis",
       axisPointer: {
         type: "line",
-        lineStyle: { color: "rgba(255,255,255,0.26)", type: "dashed" },
+        lineStyle: {
+          color: isCardHtml ? "rgba(255,255,255,0.35)" : "rgba(255,255,255,0.26)",
+          type: "dashed",
+        },
       },
-      backgroundColor: "rgba(10,10,12,0.95)",
-      borderColor: "rgba(255,255,255,0.10)",
-      textStyle: { color: "#f4f4f5", fontSize: 11 },
+      backgroundColor: isCardHtml ? "var(--ink-2)" : "rgba(10,10,12,0.95)",
+      borderColor: isCardHtml ? "rgba(26,111,255,0.35)" : "rgba(255,255,255,0.10)",
+      extraCssText: isCardHtml
+        ? "filter:drop-shadow(5px 5px 0 rgba(26,111,255,0.5));padding:12px 15px;border-radius:0;"
+        : undefined,
+      textStyle: { color: "#f4f4f5", fontSize: isCardHtml ? 12 : 11 },
       formatter: (params: unknown) => {
         const rows = Array.isArray(params) ? params : [];
         const first = rows[0] as { axisValue?: number } | undefined;
@@ -221,9 +248,10 @@ export function buildCollectionDualPriceChartOption(input: {
           null;
 
         const when = t != null ? formatHoverWhen(t) : "";
+        const priceColor = isCardHtml ? "#00C350" : lineColor;
         return [
-          `<div style="color:#a1a1aa;font-size:10px;margin-bottom:6px">${when}</div>`,
-          `<div style="display:flex;justify-content:space-between;gap:16px"><span style="color:#e4e4e7">Live Market Price</span><span style="color:${LIVE_MARKET_LINE};font-weight:600">${formatTooltipUsd(
+          `<div style="color:rgba(255,255,255,0.55);font-size:${isCardHtml ? 12 : 10}px;margin-bottom:${isCardHtml ? 8 : 6}px;font-family:var(--font-mono),monospace">${when}</div>`,
+          `<div style="display:flex;justify-content:space-between;gap:${isCardHtml ? 20 : 16}px"><span style="color:${isCardHtml ? "rgba(255,255,255,0.82)" : "#e4e4e7"};font-size:${isCardHtml ? 14 : 12}px">Live Market Price</span><span style="color:${priceColor};font-weight:700;font-size:${isCardHtml ? 15 : 12}px;font-family:var(--font-mono),monospace">${formatTooltipUsd(
             e as number | null,
           )}</span></div>`,
         ].join("");

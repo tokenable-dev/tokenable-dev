@@ -1,20 +1,16 @@
 import {
   BadRequestException,
   HttpException,
-  Inject,
   Injectable,
   InternalServerErrorException,
   Logger,
-  Optional,
   ServiceUnavailableException,
-  forwardRef,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import sharp from 'sharp';
 import { CardhedgerService } from '../cardhedger/cardhedger.service';
 import { readCardhedgerFeatureFlags } from '../config/cardhedger-feature-flags.util';
 import { isPsaPublicApiUpstreamEnabled } from '../marketplace/utils/psa-upstream-policy.util';
-import { PsaCertSnapshotService } from '../marketplace/collections/psa-cert-snapshot.service';
 import { parseCertPriceResult } from '../marketplace/market-data/cardhedger-cert-price.util';
 import {
   cardNumberTokenForCardhedgerSearch,
@@ -167,9 +163,6 @@ export class PsaService {
     private readonly psaPublicApi: PsaPublicApiService,
     private readonly cardhedgerService: CardhedgerService,
     private readonly config: ConfigService,
-    @Optional()
-    @Inject(forwardRef(() => PsaCertSnapshotService))
-    private readonly psaCertSnapshots?: PsaCertSnapshotService,
   ) {}
 
   private cardhedgerFeatureFlags() {
@@ -1221,37 +1214,11 @@ export class PsaService {
     };
     let selectedCert: string | null = null;
     let enrichedFromOfficialApi = false;
-    let apiLookupFromDbCache = false;
 
     if (!isPsaPublicApiUpstreamEnabled(this.config)) {
       throw new ServiceUnavailableException(
         'PSA Public API upstream is disabled. Vault cert lookup requires PSA_PUBLIC_API_TOKEN and PSA_PUBLIC_API_UPSTREAM_ENABLED=true in backend/.env.',
       );
-    }
-
-    // DB snapshot cache gate — skip live PSA API call if a fresh snapshot exists.
-    // Default TTL = 7 days (PSA grades are permanent; only pop data can drift).
-    if (this.psaCertSnapshots) {
-      for (const cert of candidateList) {
-        try {
-          const cachedRaw = await this.psaCertSnapshots.getOfficialApiRawIfFresh(cert);
-          if (cachedRaw) {
-            this.logger.debug(
-              `PSA DB snapshot cache hit cert=${cert} — skipping live API call`,
-            );
-            apiLookupSuccess = { status: 'success', certNumber: cert, raw: cachedRaw };
-            selectedCert = cert;
-            psaParsed = { ...psaParsed, certNumber: cert };
-            enrichedFromOfficialApi = true;
-            apiLookupFromDbCache = true;
-            break;
-          }
-        } catch (e) {
-          this.logger.warn(
-            `PSA snapshot cache read failed cert=${cert}: ${e instanceof Error ? e.message : String(e)}`,
-          );
-        }
-      }
     }
 
     let sawCertMismatch = false;
@@ -1345,17 +1312,6 @@ export class PsaService {
     }
 
     const digitsForImages = selectedCert!;
-    if (apiLookupSuccess && !apiLookupFromDbCache && this.psaCertSnapshots) {
-      void this.psaCertSnapshots
-        .cacheUserLookupSnapshot(selectedCert!, apiLookupSuccess.raw)
-        .catch((err) => {
-          this.logger.warn(
-            `PSA snapshot cache write failed cert=${selectedCert}: ${
-              err instanceof Error ? err.message : String(err)
-            }`,
-          );
-        });
-    }
 
     if (apiLookupSuccess) {
       try {
@@ -1366,13 +1322,11 @@ export class PsaService {
         }
         psaParsed = mergePsaApiIntoParsed(psaParsed, apiLookupSuccess.raw);
         enrichedFromOfficialApi = true;
-        if (!apiLookupFromDbCache) {
-          const apiCert = certNumberFromPsaCertBody(apiLookupSuccess.raw);
-          if (apiCert && apiCert !== selectedCert) {
-            throw new BadRequestException(
-              `PSA Cert ${selectedCert} 조회 결과 cert(${apiCert})가 일치하지 않습니다.`,
-            );
-          }
+        const apiCert = certNumberFromPsaCertBody(apiLookupSuccess.raw);
+        if (apiCert && apiCert !== selectedCert) {
+          throw new BadRequestException(
+            `PSA Cert ${selectedCert} 조회 결과 cert(${apiCert})가 일치하지 않습니다.`,
+          );
         }
         psaParsed = { ...psaParsed, certNumber: selectedCert! };
       } catch (e) {

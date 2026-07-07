@@ -13,10 +13,12 @@ const SOURCE_TEXT_CLASS_COMPACT =
 export function TradesSourceCell({
   source,
   compact = false,
+  collectionDetail = false,
   className,
 }: {
   source: TapeSourceDisplay;
   compact?: boolean;
+  collectionDetail?: boolean;
   className?: string;
 }) {
   return (
@@ -25,7 +27,7 @@ export function TradesSourceCell({
         className ? ` ${className}` : ""
       }`}
     >
-      <TradeSourceMark source={source} compact={compact} />
+      <TradeSourceMark source={source} compact={compact} collectionDetail={collectionDetail} />
     </div>
   );
 }
@@ -34,12 +36,18 @@ export function TradeSourceMark({
   source,
   className,
   compact = false,
+  collectionDetail = false,
 }: {
   source: TapeSourceDisplay;
   className?: string;
   compact?: boolean;
+  collectionDetail?: boolean;
 }) {
-  const textCls = compact ? SOURCE_TEXT_CLASS_COMPACT : SOURCE_TEXT_CLASS;
+  const textCls = collectionDetail
+    ? "cd-ob-trades-source__label"
+    : compact
+      ? SOURCE_TEXT_CLASS_COMPACT
+      : SOURCE_TEXT_CLASS;
   const sharedCls = `inline-flex min-w-0 max-w-full items-center justify-center${
     className ? ` ${className}` : ""
   }`;

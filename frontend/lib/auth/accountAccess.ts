@@ -19,8 +19,13 @@ export function isKycDevBypassUser(user: AuthUser | null | undefined): boolean {
   return isInternalDevUser(user);
 }
 
-/** Amoy ↔ Polygon mainnet picker — internal dev only until public launch. */
+/** Sepolia ↔ Ethereum mainnet picker — internal dev only until public launch. */
 export function canUseAppChainSwitcher(user: AuthUser | null | undefined): boolean {
+  return isInternalDevUser(user);
+}
+
+/** `/vault` nav + mint wizard — internal dev only until public launch. */
+export function canAccessVault(user: AuthUser | null | undefined): boolean {
   return isInternalDevUser(user);
 }
 

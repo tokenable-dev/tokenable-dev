@@ -44,7 +44,7 @@ alwaysApply: false
 
 ## Database
 
-17. **Indexes exist on** `wallet_address`, `collection_key`, `order status + token`, and `JSONB cardhedgerCardId` (`073_perf_indexes.sql`). Use these columns in WHERE clauses.
+17. **Indexes exist on** `wallet_address`, `collection_key`, `order status + token`, and `JSONB cardhedgerCardId` (`040_marketplace.sql`). Use these columns in WHERE clauses.
 
 18. **Partial unique index on `rwa_tokens`:** `(token_contract, cert_number) WHERE burned_at IS NULL`. Queries filtering on `burned_at IS NULL` benefit from this index.
 

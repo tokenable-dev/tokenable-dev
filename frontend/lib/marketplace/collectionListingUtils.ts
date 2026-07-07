@@ -71,8 +71,17 @@ export const COLLECTION_DETAIL_LISTING_CARD_MIN_PX = 168;
 export const COLLECTION_MOBILE_LISTING_IMG_CLASS =
   "mx-auto block h-auto w-full max-h-[min(38vw,136px)] max-w-[92%] object-contain object-center sm:max-h-[min(36vw,140px)]";
 
-export const COLLECTION_DETAIL_LISTING_GRID_CLASS = [
-  "grid w-full min-w-0 max-w-full grid-cols-2 content-start items-stretch",
-  "max-lg:-mx-2 max-lg:w-[calc(100%+1rem)] max-lg:items-start max-lg:gap-x-1.5 max-lg:gap-y-5",
-  "lg:mx-0 lg:w-full lg:grid-cols-[repeat(auto-fill,minmax(168px,1fr))] lg:gap-x-2.5 lg:gap-y-2.5",
+export const COLLECTION_DETAIL_LISTING_GRID_DESKTOP_CLASS = [
+  "cd-listing-grid",
+  "cd-listing-grid--desktop",
+  "hidden w-full min-w-0 max-w-full lg:grid",
+  "lg:grid-cols-[repeat(auto-fill,minmax(240px,1fr))] lg:gap-[18px]",
 ].join(" ");
+
+export const COLLECTION_DETAIL_LISTING_ORDERBOOK_CLASS = [
+  "cd-listing-orderbook",
+  "flex flex-col lg:hidden",
+].join(" ");
+
+/** @deprecated use COLLECTION_DETAIL_LISTING_GRID_DESKTOP_CLASS */
+export const COLLECTION_DETAIL_LISTING_GRID_CLASS = COLLECTION_DETAIL_LISTING_GRID_DESKTOP_CLASS;

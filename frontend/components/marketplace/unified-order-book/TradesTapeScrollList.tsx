@@ -32,20 +32,24 @@ const TRADES_GRID_LEGACY =
 export function TradesTapeScrollList({
   tapeFills,
   flush,
+  collectionDetail,
   insetXClass = "",
   scrollClass = "",
   maxHeightClass,
 }: {
   tapeFills: CollectionPlatformTapeFill[];
   flush: boolean;
+  collectionDetail?: boolean;
   insetXClass?: string;
   scrollClass?: string;
   maxHeightClass?: string;
 }) {
   const gridClass = flush ? ORDER_BOOK_TRADES_FOUR_COL_GRID : TRADES_GRID_LEGACY;
-  const rowGridClass = flush
-    ? `${ORDER_BOOK_TRADES_FOUR_COL_GRID} items-center`
-    : `${gridClass} items-center`;
+  const rowGridClass = collectionDetail
+    ? "cd-ob-trades-row"
+    : flush
+      ? `${ORDER_BOOK_TRADES_FOUR_COL_GRID} items-center`
+      : `${gridClass} items-center`;
   const scrollHeightClass =
     maxHeightClass ?? (flush ? TRADES_TAPE_SCROLL_HEIGHT_CLASS : "");
 
@@ -53,9 +57,9 @@ export function TradesTapeScrollList({
     <div
       className={[
         "min-h-0 shrink-0 overflow-y-auto overflow-x-hidden overscroll-y-auto",
-        insetXClass,
+        collectionDetail ? "cd-ob-trades-scroll" : insetXClass,
         scrollClass,
-        scrollHeightClass,
+        !collectionDetail ? scrollHeightClass : "",
       ]
         .filter(Boolean)
         .join(" ")}
@@ -63,34 +67,66 @@ export function TradesTapeScrollList({
       {tapeFills.map((row, index) => {
         const side = tapeSideDisplay(row);
         const source = tapeSourceDisplay(row);
-        const priceClass = tradesTapePriceClassName(
-          tradesTapePriceCompareTone(row.priceUsdc, tapeFills[index + 1]?.priceUsdc),
+        const priceTone = tradesTapePriceCompareTone(
+          row.priceUsdc,
+          tapeFills[index + 1]?.priceUsdc,
         );
+        const priceClass = collectionDetail
+          ? priceTone === "down"
+            ? "cd-ob-trades-price cd-ob-trades-price--down"
+            : "cd-ob-trades-price cd-ob-trades-price--up"
+          : tradesTapePriceClassName(priceTone);
 
         return (
           <div
             key={row.orderHash}
-            className={`${rowGridClass} ${flush ? TRADES_TAPE_FLUSH_ROW_CLASS : `${orderBookTradesContentValueCls} py-0.5 text-zinc-200`}`}
+            className={`${rowGridClass} ${
+              collectionDetail
+                ? ""
+                : flush
+                  ? TRADES_TAPE_FLUSH_ROW_CLASS
+                  : `${orderBookTradesContentValueCls} py-0.5 text-zinc-200`
+            }`}
           >
             <span
-              className={`min-w-0 truncate ${orderBookTradesPriceDataColCls} ${priceClass}`}
+              className={
+                collectionDetail
+                  ? priceClass
+                  : `min-w-0 truncate ${orderBookTradesPriceDataColCls} ${priceClass}`
+              }
             >
               {formatTradesTapePriceUsdc(row.priceUsdc)}
             </span>
             {flush ? (
               <>
                 <span
-                  className={`min-w-0 truncate ${orderBookTradesSideDataColCls} ${side.className}`}
+                  className={
+                    collectionDetail
+                      ? "cd-ob-trades-side"
+                      : `min-w-0 truncate ${orderBookTradesSideDataColCls} ${side.className}`
+                  }
                   title={side.title}
                 >
                   {side.label}
                 </span>
-                <TradesSourceCell
-                  source={source}
-                  className={orderBookTradesSourceDataCellCls}
-                />
+                {collectionDetail ? (
+                  <TradesSourceCell
+                    source={source}
+                    className="cd-ob-trades-source"
+                    collectionDetail
+                  />
+                ) : (
+                  <TradesSourceCell
+                    source={source}
+                    className={orderBookTradesSourceDataCellCls}
+                  />
+                )}
                 <span
-                  className={`min-w-0 truncate ${orderBookTradesTimeColCls} text-zinc-400`}
+                  className={
+                    collectionDetail
+                      ? "cd-ob-trades-time"
+                      : `min-w-0 truncate ${orderBookTradesTimeColCls} text-zinc-400`
+                  }
                   title={formatTapeTimeFull(row.t)}
                 >
                   {formatTapeDate(row.t)}

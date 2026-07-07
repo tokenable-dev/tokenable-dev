@@ -49,12 +49,13 @@ Images are tagged with the branch name (rolling pointer) **and** the full `githu
 | `DEV_EC2_SSH_KEY` | Yes (`develop`) | Dev SSH private key |
 | `PROD_EC2_HOST` | For `main` | Prod EC2 host |
 | `PROD_EC2_SSH_KEY` | For `main` | Prod SSH private key |
-| `NEXT_PUBLIC_RWA_CONTRACT_ADDRESS` | Yes | TokenableRWA proxy address — Docker build arg |
-| `NEXT_PUBLIC_USDC_CONTRACT_ADDRESS` | Yes | USDC address — Docker build arg |
-| `NEXT_PUBLIC_ALCHEMY_RPC_URL` | Yes | Polygon RPC — Docker build arg |
-| `NEXT_PUBLIC_CHAIN_137_RPC_URL` | No | Polygon mainnet RPC |
-| `NEXT_PUBLIC_CHAIN_137_RWA` | No | Polygon mainnet TokenableRWA |
-| `NEXT_PUBLIC_CHAIN_137_USDC` | No | Polygon mainnet USDC |
+| `NEXT_PUBLIC_CHAIN_11155111_RPC_URL` | Yes | Sepolia RPC (Alchemy) — Docker build arg |
+| `NEXT_PUBLIC_CHAIN_11155111_RWA` | Yes | Sepolia TokenableRWA proxy — Docker build arg |
+| `NEXT_PUBLIC_CHAIN_11155111_USDC` | Yes | Sepolia USDC (Circle testnet) — Docker build arg |
+| `NEXT_PUBLIC_DEFAULT_CHAIN_ID` | No | Default `11155111` (Sepolia-only) |
+| `NEXT_PUBLIC_CHAIN_1_RPC_URL` | No | Ethereum mainnet RPC — add all three when mainnet goes live |
+| `NEXT_PUBLIC_CHAIN_1_RWA` | No | Ethereum mainnet TokenableRWA |
+| `NEXT_PUBLIC_CHAIN_1_USDC` | No | Ethereum mainnet USDC (`0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48`) |
 | `NEXT_PUBLIC_PRIVY_APP_ID` | Yes | Privy App ID — enables login |
 | `NEXT_PUBLIC_API_URL` | No | Leave empty for same-origin Nginx proxying |
 | `NEXT_PUBLIC_PLATFORM_FEE_RECIPIENT` | No | Fee recipient address |
@@ -93,10 +94,10 @@ POSTGRES_PASSWORD=<secure-password>
 POSTGRES_DB=tokenable
 
 # Blockchain
-DEFAULT_CHAIN_ID=80002
-CHAIN_80002_RPC_URL=https://polygon-amoy.g.alchemy.com/v2/YOUR_KEY
-CHAIN_80002_RWA_ADDRESS=0x355dd288e237dc5486b5659Cf49d15Ffb32c44fC
-CHAIN_80002_USDC_ADDRESS=0x41E94Eb019C0762f9Bfcf9Fb1E58725BfB0e7582
+DEFAULT_CHAIN_ID=11155111
+CHAIN_11155111_RPC_URL=https://eth-sepolia.g.alchemy.com/v2/YOUR_KEY
+CHAIN_11155111_RWA_ADDRESS=0xC3d32650Fa75D14A0E62337446C87f3D86637d61
+CHAIN_11155111_USDC_ADDRESS=0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238
 RWA_OWNER_PRIVATE_KEY=<backend signer private key>
 # RWA_CUSTODY_WALLET_ADDRESS=0x...  (defaults to RWA_OWNER address)
 # RWA_CUSTODY_PRIVATE_KEY=...       (optional separate key)
@@ -187,7 +188,7 @@ curl -sS https://your-domain.com/api/health
 - [ ] `RWA_OWNER_PRIVATE_KEY` configured with MINTER_ROLE + BURNER_ROLE on deployed contract
 - [ ] If custody wallet differs from minter: `RWA_CUSTODY_WALLET_ADDRESS` + `RWA_CUSTODY_PRIVATE_KEY`
 - [ ] `PSA_PUBLIC_API_TOKENS` configured (comma-separated pool)
-- [ ] Polygon mainnet: add `CHAIN_137_*` env vars when ready
+- [ ] Ethereum mainnet: add `CHAIN_1_*` env vars when ready
 
 ---
 
@@ -207,8 +208,8 @@ curl -sS https://your-domain.com/api/health
 
 ### Vault mint fails
 
-- Verify `RWA_OWNER_PRIVATE_KEY` has MINTER_ROLE: `pnpm grant-burner:amoy` (or check on-chain)
-- Verify `CHAIN_80002_RWA_ADDRESS` matches deployed contract
+- Verify `RWA_OWNER_PRIVATE_KEY` has MINTER_ROLE: `pnpm grant-burner:sepolia` (or check on-chain)
+- Verify `CHAIN_11155111_RWA_ADDRESS` matches deployed contract
 - Run `pnpm sync-abi` after any contract upgrade and redeploy backend
 
 ---

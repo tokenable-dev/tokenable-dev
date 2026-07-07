@@ -8,14 +8,16 @@ import {
   rq,
   unhidePortfolioHolding,
   type OrderListItem,
+  type PortfolioHoldingBatchItem,
 } from "@/lib/core";
 
 export function usePortfolioHoldingActions(input: {
   address: string | undefined;
+  tokenIds: readonly number[];
   queryClient: QueryClient;
   refetchActiveOrders: () => Promise<unknown>;
 }) {
-  const { address, queryClient, refetchActiveOrders } = input;
+  const { address, tokenIds, queryClient, refetchActiveOrders } = input;
 
   const [cancellingListingTokenId, setCancellingListingTokenId] = useState<number | null>(
     null,
@@ -26,63 +28,97 @@ export function usePortfolioHoldingActions(input: {
     null,
   );
 
+  const holdingsKey =
+    address != null ? rq.portfolioHoldings(address, tokenIds) : null;
+
+  const patchHoldingsHidden = useCallback(
+    (tokenId: number, hidden: boolean) => {
+      if (!holdingsKey) return;
+      queryClient.setQueryData<{ items: PortfolioHoldingBatchItem[] }>(
+        holdingsKey,
+        (old) => {
+          if (!old) return old;
+          const hasRow = old.items.some((item) => item.tokenId === tokenId);
+          if (!hasRow && hidden) {
+            return {
+              items: [
+                ...old.items,
+                {
+                  tokenId,
+                  hidden: true,
+                  costBasisUsd: null,
+                  costBasisSource: null,
+                  acquiredAt: null,
+                },
+              ],
+            };
+          }
+          return {
+            items: old.items.map((item) =>
+              item.tokenId === tokenId ? { ...item, hidden } : item,
+            ),
+          };
+        },
+      );
+    },
+    [holdingsKey, queryClient],
+  );
+
   const executeHideHolding = useCallback(
     async (tokenId: number) => {
-      if (!address) return;
+      if (!address || !holdingsKey) return;
       setHidingTokenId(tokenId);
-      const hiddenKey = rq.portfolioHidden(address);
-      const prev = queryClient.getQueryData<number[]>(hiddenKey);
-      queryClient.setQueryData<number[]>(hiddenKey, (old) => {
-        const next = new Set(old ?? []);
-        next.add(tokenId);
-        return [...next];
-      });
+      const prev = queryClient.getQueryData<{ items: PortfolioHoldingBatchItem[] }>(
+        holdingsKey,
+      );
+      patchHoldingsHidden(tokenId, true);
       try {
         await hidePortfolioHolding(address, tokenId);
+        void queryClient.invalidateQueries({ queryKey: holdingsKey });
         void queryClient.invalidateQueries({
           queryKey: rq.portfolioDailySnapshots(address),
         });
         setHideConfirm(null);
       } catch (err) {
         if (prev !== undefined) {
-          queryClient.setQueryData(hiddenKey, prev);
+          queryClient.setQueryData(holdingsKey, prev);
         } else {
-          void queryClient.invalidateQueries({ queryKey: hiddenKey });
+          void queryClient.invalidateQueries({ queryKey: holdingsKey });
         }
         window.alert(err instanceof Error ? err.message : "Failed to hide card");
       } finally {
         setHidingTokenId(null);
       }
     },
-    [address, queryClient],
+    [address, holdingsKey, patchHoldingsHidden, queryClient],
   );
 
   const unhideHolding = useCallback(
     async (tokenId: number) => {
-      if (!address) return;
+      if (!address || !holdingsKey) return;
       setUnhidingTokenId(tokenId);
-      const hiddenKey = rq.portfolioHidden(address);
-      const prev = queryClient.getQueryData<number[]>(hiddenKey);
-      queryClient.setQueryData<number[]>(hiddenKey, (old) =>
-        (old ?? []).filter((id) => id !== tokenId),
+      const prev = queryClient.getQueryData<{ items: PortfolioHoldingBatchItem[] }>(
+        holdingsKey,
       );
+      patchHoldingsHidden(tokenId, false);
       try {
         await unhidePortfolioHolding(address, tokenId);
+        void queryClient.invalidateQueries({ queryKey: holdingsKey });
         void queryClient.invalidateQueries({
           queryKey: rq.portfolioDailySnapshots(address),
         });
       } catch (err) {
         if (prev !== undefined) {
-          queryClient.setQueryData(hiddenKey, prev);
+          queryClient.setQueryData(holdingsKey, prev);
         } else {
-          void queryClient.invalidateQueries({ queryKey: hiddenKey });
+          void queryClient.invalidateQueries({ queryKey: holdingsKey });
         }
         window.alert(err instanceof Error ? err.message : "Failed to unhide card");
       } finally {
         setUnhidingTokenId(null);
       }
     },
-    [address, queryClient],
+    [address, holdingsKey, patchHoldingsHidden, queryClient],
   );
 
   const cancelListing = useCallback(

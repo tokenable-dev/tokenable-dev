@@ -21,11 +21,11 @@ export type PrivyFundingReadiness = {
   defaultRecommendedAmount: string | null;
   defaultRecommendedChain: string | null;
   defaultRecommendedAsset: string | null;
-  /** Dashboard default chain matches app funding target (Amoy / Ethereum / Polygon). */
+  /** Dashboard default chain matches app funding target (Sepolia / Ethereum). */
   chainAligned: boolean;
   /** MoonPay card on-ramp is enabled in Dashboard funding options. */
   moonpayEnabled: boolean;
-  /** App-side on-ramp destination CAIP-2 (from env or Amoy default). */
+  /** App-side on-ramp destination CAIP-2 (from env or Sepolia default). */
   targetFundingCaip2: string;
   /** Action items when `ready` is false. */
   dashboardChecklist: string[];
@@ -34,8 +34,8 @@ export type PrivyFundingReadiness = {
 
 const DASHBOARD_FUNDING_URL = 'https://dashboard.privy.io/apps?page=funding';
 
-export const PRODUCTION_FUNDING_CAIP2 = 'eip155:137';
-export const AMOY_FUNDING_CAIP2 = 'eip155:80002';
+export const PRODUCTION_FUNDING_CAIP2 = 'eip155:1';
+export const SEPOLIA_FUNDING_CAIP2 = 'eip155:11155111';
 export const ETHEREUM_FUNDING_CAIP2 = 'eip155:1';
 export const TOKENABLE_FUNDING_ASSET = 'USDC';
 
@@ -45,15 +45,15 @@ export const TOKENABLE_FUNDING_CAIP2 = PRODUCTION_FUNDING_CAIP2;
 export function resolveFundingTargetCaip2(): string {
   const fromEnv = process.env.PRIVY_FUNDING_TARGET_CAIP2?.trim();
   if (fromEnv?.startsWith('eip155:')) return fromEnv;
-  return AMOY_FUNDING_CAIP2;
+  return SEPOLIA_FUNDING_CAIP2;
 }
 
-/** Dashboard chains accepted while testing pay on Amoy / Ethereum. */
+/** Dashboard chains accepted while testing pay on Sepolia / Ethereum. */
 export function getAlignedFundingCaip2Chains(): string[] {
   const target = resolveFundingTargetCaip2();
   const chains = new Set<string>([
     target,
-    AMOY_FUNDING_CAIP2,
+    SEPOLIA_FUNDING_CAIP2,
     PRODUCTION_FUNDING_CAIP2,
     ETHEREUM_FUNDING_CAIP2,
   ]);
@@ -123,12 +123,12 @@ export function assessPrivyFundingReadiness(
       const chainId = parseCaip2EvmChainId(defaultRecommendedChain);
       checklist.push(
         defaultRecommendedChain
-          ? `Change Funding token setup from ${defaultRecommendedChain} to Polygon Amoy + USDC (${AMOY_FUNDING_CAIP2}) or Ethereum + USDC (${ETHEREUM_FUNDING_CAIP2}). App target: ${targetFundingCaip2}.`
-          : `Set Funding token setup to Polygon Amoy + USDC (${AMOY_FUNDING_CAIP2}) or Ethereum + USDC (${ETHEREUM_FUNDING_CAIP2}).`,
+          ? `Change Funding token setup from ${defaultRecommendedChain} to Ethereum Sepolia + USDC (${SEPOLIA_FUNDING_CAIP2}) or Ethereum + USDC (${ETHEREUM_FUNDING_CAIP2}). App target: ${targetFundingCaip2}.`
+          : `Set Funding token setup to Ethereum Sepolia + USDC (${SEPOLIA_FUNDING_CAIP2}) or Ethereum + USDC (${ETHEREUM_FUNDING_CAIP2}).`,
       );
       if (chainId === 1) {
         checklist.push(
-          'Ethereum mainnet in Dashboard is OK for MoonPay sandbox UI — useFiatOnramp still sends to Amoy when PRIVY_FUNDING_TARGET_CAIP2=eip155:80002.',
+          'Ethereum mainnet in Dashboard is OK for MoonPay sandbox UI — useFiatOnramp still sends to Sepolia when PRIVY_FUNDING_TARGET_CAIP2=eip155:11155111.',
         );
       }
     }
@@ -144,7 +144,7 @@ export function assessPrivyFundingReadiness(
       'Add app domains under Settings → Allowed domains (e.g. `http://localhost:3000`, production URL).',
     );
     checklist.push(
-      'Frontend: NEXT_PUBLIC_PRIVY_FUNDING_ENVIRONMENT=sandbox + NEXT_PUBLIC_PRIVY_FUNDING_USE_ONRAMP_ON_TESTNET=true for Amoy pay test.',
+      'Frontend: NEXT_PUBLIC_PRIVY_FUNDING_ENVIRONMENT=sandbox + NEXT_PUBLIC_PRIVY_FUNDING_USE_ONRAMP_ON_TESTNET=true for Sepolia pay test.',
     );
   } else if (methods.length === 0 && options.length === 0) {
     checklist.push(

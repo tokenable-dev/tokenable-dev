@@ -3,9 +3,5 @@ export default function SiteAccessLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return (
-    <div className="min-h-[100dvh] bg-gray-950">
-      {children}
-    </div>
-  );
+  return <div className="secondary-page secondary-page--full">{children}</div>;
 }

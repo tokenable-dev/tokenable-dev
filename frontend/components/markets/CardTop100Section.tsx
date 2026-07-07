@@ -21,6 +21,7 @@ import {
 import { formatSportCategoryDisplayLabel } from "@/lib/market/sportCategoryDisplay";
 import { TOP_CARDS_SECTION_TITLE } from "@/lib/markets/top100Copy";
 import { Top100DayChangeBadge } from "./Top100DayChangeBadge";
+import { AppPageState } from "@/components/ui/AppPageState";
 import { ASSETS } from "@/constants/assets";
 import {
   MARKET_RASTER_ICON_IMG,
@@ -566,9 +567,17 @@ function TabPanel({
 
   if (isError) {
     return (
-      <div className="rounded-xl border border-red-900/40 bg-red-950/20 px-4 py-4 text-sm text-red-400">
-        Failed to load data. Please check that the backend is running.
-      </div>
+      <AppPageState
+        kind="section_load_failed"
+        title="Top 100 unavailable"
+        message="Failed to load data. Please check that the backend is running."
+        layout="inline"
+        primaryAction={{
+          label: "Refresh page",
+          onClick: () => window.location.reload(),
+          variant: "neutral",
+        }}
+      />
     );
   }
 

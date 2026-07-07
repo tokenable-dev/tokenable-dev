@@ -1,28 +1,23 @@
 "use client";
 
-import { AuthModalShell } from "./AuthModalShell";
+import { TkButton, TkDialog } from "@/components/ds";
 import { useAuthUiStore } from "@/store/authUiStore";
 
 export function KycRequiredModal() {
   const kycOpen = useAuthUiStore((s) => s.kycOpen);
   const closeKyc = useAuthUiStore((s) => s.closeKyc);
-  const titleId = "kyc-required-modal-title";
 
   return (
-    <AuthModalShell open={kycOpen} onClose={closeKyc} titleId={titleId} maxWidthClass="max-w-sm">
-      <div className="px-6 pb-[max(1.25rem,env(safe-area-inset-bottom,0px))] pt-6 sm:px-7 sm:pb-7">
-        <h2 id={titleId} className="text-lg font-bold text-white sm:text-xl">
-          Verification required
-        </h2>
-
-        <button
-          type="button"
-          disabled
-          className="mt-5 w-full cursor-not-allowed rounded-xl bg-mint/20 py-3 text-sm font-semibold text-mint/70"
-        >
+    <TkDialog
+      open={kycOpen}
+      onClose={closeKyc}
+      title="Verification required"
+      description="Identity verification is required before you can trade on Tokenable."
+      footer={
+        <TkButton variant="primary" disabled className="w-full justify-center">
           Coming soon
-        </button>
-      </div>
-    </AuthModalShell>
+        </TkButton>
+      }
+    />
   );
 }

@@ -72,7 +72,7 @@ See [deployment.md](./deployment.md#privy-on-deploy-login--wallet--not-fiat-pay)
 ## Containers start but frontend shows blank page
 
 1. Check frontend logs: `docker logs tokenable-frontend --tail=50`
-2. Verify `NEXT_PUBLIC_RWA_CONTRACT_ADDRESS` was provided as a build arg — the frontend Dockerfile validates this at build time.
+2. Verify `NEXT_PUBLIC_CHAIN_11155111_RPC_URL`, `_RWA`, and `_USDC` were provided as build args — the frontend Dockerfile validates these at build time.
 3. Force a hard refresh (Ctrl+Shift+R / Cmd+Shift+R) to bypass stale Service Worker cache.
 
 ---

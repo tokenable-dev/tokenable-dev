@@ -14,6 +14,7 @@ describe('psa upstream policy', () => {
         PSA_PUBLIC_API_BACKGROUND_UPSTREAM: 'true',
         PSA_PUBLIC_API_ON_MINT: 'true',
         PSA_PUBLIC_API_REFRESH_ON_SNAPSHOT: 'always',
+        PSA_PUBLIC_API_TOKEN: 'abc123',
       })[key],
   } as ConfigService;
 
@@ -21,19 +22,19 @@ describe('psa upstream policy', () => {
     expect(isPsaPublicApiMintUpstreamEnabled(config)).toBe(false);
   });
 
-  it('blocks snapshot upstream even when env flags are set', () => {
+  it('allows snapshot upstream when refresh env is always and token is set', () => {
     expect(
       isPsaPublicApiSnapshotUpstreamEnabled(
         config,
         config.get('PSA_PUBLIC_API_REFRESH_ON_SNAPSHOT'),
       ),
-    ).toBe(false);
+    ).toBe(true);
   });
 
-  it('blocks snapshot reason policy', () => {
+  it('allows snapshot reason policy when refresh env is always', () => {
     expect(
       psaPublicApiAllowedForSnapshotReason('cold_start', 'always'),
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it('allows background only when PSA_PUBLIC_API_BACKGROUND_UPSTREAM is set', () => {

@@ -53,9 +53,9 @@ export function PortfolioAssetCard({
           onOpen();
         }
       }}
-      className="group flex min-w-0 w-full cursor-pointer flex-col rounded-lg bg-gradient-to-b from-gray-900/80 to-[#0a1018] text-left shadow-md shadow-black/20 outline-none transition-[box-shadow,background-color] duration-200 hover:bg-gray-900/90 hover:shadow-[0_14px_44px_-14px_rgba(0,0,0,0.75)] sm:rounded-xl sm:shadow-lg"
+      className="pf-asset-card group flex min-w-0 w-full cursor-pointer flex-col text-left outline-none"
     >
-      <div className="relative aspect-[3/4] w-full shrink-0 overflow-hidden rounded-t-lg bg-[#070a0f] sm:rounded-t-xl">
+      <div className="pf-asset-card__image-wrap relative w-full shrink-0 overflow-hidden">
         {row.imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -112,14 +112,14 @@ export function PortfolioAssetCard({
           </PortfolioCardIconButton>
         ) : null}
       </div>
-      <div className="flex min-w-0 flex-1 flex-col gap-2 p-2.5 pt-2 sm:gap-3 sm:p-4 sm:pt-3">
+      <div className="pf-asset-card__body flex min-w-0 flex-1 flex-col">
         <p
-          className="line-clamp-2 text-[11px] font-semibold leading-tight text-white sm:text-[13px]"
+          className="pf-asset-card__title line-clamp-2"
           title={titleLine}
         >
           {titleLine}
         </p>
-        <div className="min-w-0 border-t border-gray-800/80 pt-2 sm:pt-3">
+        <div className="min-w-0 border-t border-white/8 pt-2">
           <PortfolioListingPriceStrip
             askPriceUsd={row.listPriceUsd}
             marketPriceUsd={row.currentPrice}
@@ -127,7 +127,7 @@ export function PortfolioAssetCard({
           />
         </div>
         {address && assetFilter !== "hidden" ? (
-          <div className="border-t border-gray-800/80 pt-2 sm:pt-3">
+          <div className="pf-asset-card__actions border-t border-white/8 pt-2">
             {isListed ? (
               <PortfolioListingManageButton
                 busy={cancellingListingTokenId === row.tokenId}

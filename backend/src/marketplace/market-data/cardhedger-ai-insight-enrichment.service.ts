@@ -7,8 +7,8 @@ import {
 } from '../../cardhedger/entities/card-top100-snapshot.entity';
 import type { MarketplaceCollection } from '../entities/marketplace-collection.entity';
 import { UserWatchlist } from '../entities/user-watchlist.entity';
-import { PsaCertSnapshotService } from '../collections/psa-cert-snapshot.service';
 import { psaCertNumberFromCollectionRow } from '../utils/collection-row.util';
+import { compactPsaCertFromComponents } from '../utils/psa-cert-compact.util';
 import { hasCompletePsaPopulationByGrade } from '../../psa/psa-spec-population.util';
 import type {
   AiInsightEnrichmentContext,
@@ -35,7 +35,6 @@ export class CardhedgerAiInsightEnrichmentService {
     private readonly watchlistRepo: Repository<UserWatchlist>,
     @InjectRepository(CardTop100DailySnapshot)
     private readonly top100Repo: Repository<CardTop100DailySnapshot>,
-    private readonly psaCertSnapshots: PsaCertSnapshotService,
   ) {}
 
   async watchlistCountForCollection(collectionKey: string): Promise<number> {
@@ -101,13 +100,9 @@ export class CardhedgerAiInsightEnrichmentService {
     cardId: string | null,
   ): Promise<AiInsightEnrichmentContext> {
     const cert = psaCertNumberFromCollectionRow(col);
-    const [watchlistCount, psaCertSnapshot, top100Rank] = await Promise.all([
+    const psaCertSnapshot = compactPsaCertFromComponents(col.components, cert);
+    const [watchlistCount, top100Rank] = await Promise.all([
       this.watchlistCountForCollection(col.collectionKey),
-      cert
-        ? this.psaCertSnapshots.fetchCertSnapshotJson(cert, {
-            allowUpstream: false,
-          })
-        : Promise.resolve(null),
       cardId
         ? this.top100RankForCard(
             cardId,

@@ -25,8 +25,11 @@ import {
   type SupportedChainId,
 } from '../../blockchain/chain-config.service';
 import { CreateOrderDto } from './dto/create-order.dto';
+import { FulfillOrderQueryDto } from './dto/fulfill-order-query.dto';
 import { Order, OrderSide, OrderStatus } from '../entities/order.entity';
 import { orderToListItem, type OrderListItem } from '../utils/order-list.util';
+import { microsToUsdc } from '../admin/platform-analytics.util';
+import { PortfolioHoldingService } from '../portfolio/portfolio-holding.service';
 import {
   backfillAskTokenIdFromParameters,
   CRITERIA_TOKEN_SENTINEL,
@@ -54,6 +57,7 @@ export class OrdersService {
     private readonly config: ConfigService,
     private readonly collectionService: CollectionService,
     private readonly chainConfig: ChainConfigService,
+    private readonly portfolioHoldings: PortfolioHoldingService,
   ) {}
 
   async createOrder(
@@ -732,7 +736,10 @@ export class OrdersService {
    * Single-order fulfill (e.g. buyer fulfilling an ask listing only).
    * For criteria bid + ask matching, use fulfillMatchedPair after matchAdvancedOrders.
    */
-  async fulfillOrder(orderHash: string): Promise<Order> {
+  async fulfillOrder(
+    orderHash: string,
+    buyerAddress?: string,
+  ): Promise<Order> {
     const order = await this.findByHash(orderHash);
 
     if (order.status !== OrderStatus.ACTIVE) {
@@ -768,6 +775,14 @@ export class OrdersService {
             `fulfillOrder ${orderHash.slice(0, 10)}…: cancelled ${n} other active order(s) for token #${tid}`,
           );
         }
+      }
+
+      if (buyerAddress?.trim()) {
+        await this.seedMarketplaceBuyFromAskFill(
+          buyerAddress,
+          saved,
+          saved.updatedAt ?? new Date(),
+        );
       }
     }
 
@@ -851,7 +866,41 @@ export class OrdersService {
       );
     }
 
+    await this.seedMarketplaceBuyFromAskFill(
+      bid.offerer,
+      ask,
+      ask.updatedAt ?? new Date(),
+    );
+
     return { ask, bid };
+  }
+
+  private async seedMarketplaceBuyFromAskFill(
+    buyerWallet: string,
+    askOrder: Order,
+    acquiredAt: Date,
+  ): Promise<void> {
+    const tidRaw = resolveFulfilledAskTokenId(askOrder);
+    if (tidRaw == null) return;
+    const tid = Math.floor(Number(tidRaw));
+    if (!Number.isFinite(tid) || tid < 0) return;
+
+    const costUsd = microsToUsdc(askOrder.considerationAmount);
+    if (!(costUsd > 0)) return;
+
+    try {
+      await this.portfolioHoldings.seedMarketplaceBuyCostBasis(
+        buyerWallet,
+        tid,
+        costUsd,
+        acquiredAt,
+      );
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      this.logger.warn(
+        `marketplace buy cost basis seed failed for token #${tid}: ${msg}`,
+      );
+    }
   }
 
   /** Runs every 60 seconds to mark timed-out orders as expired. */

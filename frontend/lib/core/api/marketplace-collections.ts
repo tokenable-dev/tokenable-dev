@@ -37,6 +37,27 @@ export async function getMarketplaceCollectionsPage(opts?: {
   }>;
 }
 
+const ALL_COLLECTIONS_PAGE_LIMIT = 60;
+const ALL_COLLECTIONS_MAX_PAGES = 100;
+
+/** Walk cursor pages until exhausted — for home ranking across the full catalog. */
+export async function getAllMarketplaceCollections(): Promise<
+  MarketplaceCollectionSummary[]
+> {
+  const items: MarketplaceCollectionSummary[] = [];
+  let cursor: string | null = null;
+  for (let page = 0; page < ALL_COLLECTIONS_MAX_PAGES; page++) {
+    const pack = await getMarketplaceCollectionsPage({
+      cursor,
+      limit: ALL_COLLECTIONS_PAGE_LIMIT,
+    });
+    items.push(...pack.items);
+    cursor = pack.nextCursor;
+    if (!cursor) break;
+  }
+  return items;
+}
+
 export interface MarketplaceCollectionDetail {
   /** Null until first listing (or other flow) creates `marketplace_collections` for this key. */
   collection: {

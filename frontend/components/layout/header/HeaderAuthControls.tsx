@@ -1,25 +1,42 @@
 "use client";
 
-import { usePrivy } from "@privy-io/react-auth";
-import { PrivyUserPill } from "@/components/privy/PrivyUserPill";
+import { useLogin, usePrivy } from "@privy-io/react-auth";
+import { TkButton } from "@/components/ds";
+import { HeaderWalletMenu } from "@/components/layout/header/wallet/HeaderWalletMenu";
 import { useAuthStore } from "@/store/authStore";
 
-const SKELETON_CLS =
-  "h-10 w-[7.5rem] animate-pulse rounded-xl border border-gray-800/60 bg-gray-900/50";
+type HeaderAuthControlsProps = {
+  /** `drawer` — mobile footer connect only; wallet menu lives in `HeaderMobileWalletSection`. */
+  placement?: "header" | "drawer";
+};
 
-/** Header auth slot — Privy `UserPill` only (login + account dropdown). */
-export function HeaderAuthControls() {
+/** Header auth slot — GNB Sign up (HTML tk-connect) or custom wallet chip + menu. */
+export function HeaderAuthControls({ placement = "header" }: HeaderAuthControlsProps) {
   const { ready, authenticated } = usePrivy();
+  const { login } = useLogin();
   const initialized = useAuthStore((s) => s.initialized);
   const loading = useAuthStore((s) => s.loading);
 
   if (!ready || !initialized || loading) {
-    return <div className={SKELETON_CLS} aria-hidden />;
+    return <div className="gnb-auth-skeleton animate-pulse" aria-hidden />;
   }
 
   if (!authenticated) {
-    return <PrivyUserPill action={{ type: "login" }} />;
+    return (
+      <TkButton
+        type="button"
+        variant="primary"
+        className="tk-btn--gnb tk-connect"
+        onClick={() => login()}
+      >
+        Sign up
+      </TkButton>
+    );
   }
 
-  return <PrivyUserPill />;
+  if (placement === "drawer") {
+    return null;
+  }
+
+  return <HeaderWalletMenu />;
 }

@@ -160,7 +160,19 @@ Privy **does** support fiat funding via:
 | `useFiatOnramp()` | Direct on-ramp flow with destination chain/asset |
 | `useFundWalletWithBankDeposit()` | ACH / wire / SEPA (mainnet, provider-dependent) |
 
-**Current repo status:** Header uses Privy **`UserPill`** only (`HeaderAuthControls` → `PrivyUserPill`). MoonPay / Add funds flows through Privy’s native menu (patched to target Amoy in dev). Dev lab: `/dev/privy`, `PrivyFeaturesLab.tsx`.
+**Current repo status:** Header uses **custom wallet menu** (`HeaderWalletMenu` / `HeaderMobileWalletSection`) — HTML `tk-wallet.js` parity. Privy `UserPill` kept in dev lab (`/dev/privy`, `PrivyFeaturesLab.tsx`) and profile/mismatch flows. Add funds / export key: use `/profile` or dev lab until a product entry is added to the custom menu.
+
+### Header wallet menu
+
+HTML prototypes (`tk-wallet.js`) show a **Tokenable product dropdown** (Portfolio, Watchlist, KYC, Sign out) — not Privy’s account menu.
+
+| Approach | Feasible? | Notes |
+|----------|-----------|--------|
+| Restyle / extend `UserPill` dropdown | **No** | Menu items are Privy-owned (Add funds, linked accounts, export key, logout). No API to inject app nav links. |
+| Custom chip + dropdown + Privy hooks | **Yes** | **Implemented** — `components/layout/header/wallet/*`, styles in `tokenable-wallet-menu.css`. |
+| CSS-only overrides on Privy portal | Fragile | SDK updates break styling; does not add Portfolio/Watchlist items. |
+
+Do not patch Privy menu DOM in the header; use hooks + our dropdown for app navigation.
 
 **Why it does not work on Amoy for real deposits:**
 

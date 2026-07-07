@@ -1,13 +1,13 @@
 import type { Chain } from "viem/chains";
 
-/** Supported EVM networks — Polygon Amoy (dev) and Polygon mainnet. */
-export const SUPPORTED_CHAIN_IDS = [80002, 137] as const;
+/** Supported EVM networks — Ethereum Sepolia (dev) and Ethereum mainnet. */
+export const SUPPORTED_CHAIN_IDS = [11155111, 1] as const;
 
 export type SupportedChainId = (typeof SUPPORTED_CHAIN_IDS)[number];
 
 export type AppChainDefinition = {
   id: SupportedChainId;
-  key: "polygon" | "polygonAmoy";
+  key: "mainnet" | "sepolia";
   label: string;
   shortLabel: string;
   isTestnet: boolean;

@@ -1,11 +1,11 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import {
-  isMarketplaceCollectionDetailPath,
-} from "@/constants/layout";
-import { type HeaderNavMinLevel } from "@/lib/auth/accountAccess";
+import { cn } from "@/lib/ds/cn";
+import { isMarketplaceCollectionDetailPath } from "@/constants/layout";
+import { canAccessVault, type HeaderNavMinLevel } from "@/lib/auth/accountAccess";
 import { useHeaderNavGate } from "@/hooks/auth/useHeaderNavGate";
+import { useAuthStore } from "@/store/authStore";
 
 /** Exact path or nested routes (strip query/hash before compare). */
 function isPrimaryHeaderNavActive(pathname: string | null | undefined, href: string): boolean {
@@ -36,10 +36,16 @@ function isMarketsPrimaryNavActive(pathname: string | null | undefined): boolean
 export const HEADER_NAV_ITEMS = [
   { href: "/markets", label: "Markets", minLevel: 0 as HeaderNavMinLevel },
   { href: "/portfolio", label: "Portfolio", minLevel: 1 as HeaderNavMinLevel },
-  { href: "/vault", label: "Sell", minLevel: 2 as HeaderNavMinLevel },
+  { href: "/vault", label: "Vault", minLevel: 2 as HeaderNavMinLevel },
 ] as const;
 
-function navItemActive(pathname: string | null | undefined, href: string): boolean {
+export function visibleHeaderNavItems(user: Parameters<typeof canAccessVault>[0]) {
+  return HEADER_NAV_ITEMS.filter(
+    (item) => item.href !== "/vault" || canAccessVault(user),
+  );
+}
+
+export function navItemActive(pathname: string | null | undefined, href: string): boolean {
   if (href === "/markets") return isMarketsPrimaryNavActive(pathname);
   return isPrimaryHeaderNavActive(pathname, href);
 }
@@ -64,32 +70,23 @@ function HeaderNavLink({
       type="button"
       onClick={() => onNavigate(href, minLevel)}
       aria-current={active ? "page" : undefined}
-      className={
-        className ??
-        `relative flex h-full items-center text-[15px] font-semibold leading-normal tracking-tight transition-colors sm:text-base ${
-          active ? "text-mint" : "text-gray-400 hover:text-white"
-        }`
-      }
+      className={cn("navlink", active && "on", className)}
     >
       {label}
-      {active ? (
-        <span
-          aria-hidden
-          className="pointer-events-none absolute bottom-[10px] left-1/2 h-[3px] w-[calc(100%+12px)] max-w-none -translate-x-1/2 rounded-t-[2px] bg-mint sm:bottom-3 sm:rounded-t-[1px]"
-        />
-      ) : null}
     </button>
   );
 }
 
-/** Desktop primary nav — always visible from `sm` up. */
+/** Desktop primary nav — visible above GNB mobile breakpoint. */
 export function HeaderDesktopNav() {
   const pathname = usePathname();
   const navigate = useHeaderNavGate();
+  const user = useAuthStore((s) => s.user);
+  const navItems = visibleHeaderNavItems(user);
 
   return (
-    <nav className="hidden h-full items-center gap-8 sm:ml-1 sm:flex md:ml-3" aria-label="Main">
-      {HEADER_NAV_ITEMS.map(({ href, label, minLevel }) => (
+    <nav className="gnb-nav" aria-label="Main">
+      {navItems.map(({ href, label, minLevel }) => (
         <HeaderNavLink
           key={href}
           href={href}
@@ -100,5 +97,31 @@ export function HeaderDesktopNav() {
         />
       ))}
     </nav>
+  );
+}
+
+/** Mobile drawer nav — same items, closes drawer on navigate. */
+export function HeaderMobileNav({ onClose }: { onClose: () => void }) {
+  const pathname = usePathname();
+  const navigate = useHeaderNavGate();
+  const user = useAuthStore((s) => s.user);
+  const navItems = visibleHeaderNavItems(user);
+
+  return (
+    <>
+      {navItems.map(({ href, label, minLevel }) => (
+        <HeaderNavLink
+          key={href}
+          href={href}
+          label={label}
+          minLevel={minLevel}
+          active={navItemActive(pathname, href)}
+          onNavigate={(h, level) => {
+            navigate(h, level);
+            onClose();
+          }}
+        />
+      ))}
+    </>
   );
 }

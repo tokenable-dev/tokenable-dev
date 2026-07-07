@@ -18,7 +18,7 @@ import {
 } from '../utils/bucket-key.util';
 import { marketParallelKeyFromPsaVariety } from '../utils/market-parallel-key.util';
 import { mergePsaVarietyWithMintVariant } from '../../psa/psa-variety-catalog.util';
-import { specIdStringFromPsaCertBody } from '../../psa/psa-public-api.service';
+import { specIdStringFromPsaCertBody, PsaPublicApiService } from '../../psa/psa-public-api.service';
 import {
   buildCollectionDisplayLabel,
   extractCollectionQueryUsed,
@@ -33,7 +33,6 @@ import { CollectionMarketSnapshot } from '../entities/collection-market-snapshot
 import { Order, OrderSide, OrderStatus } from '../entities/order.entity';
 import { MarketplaceCollection } from '../entities/marketplace-collection.entity';
 import { RwaToken } from '../entities/rwa-token.entity';
-import { PsaCertSnapshotService } from './psa-cert-snapshot.service';
 import { RwaTokenRegistryService } from './rwa-token-registry.service';
 import { CollectionMerkleSetService } from './collection-merkle-set.service';
 import { CollectionBootService } from './collection-boot.service';
@@ -75,7 +74,7 @@ export class CollectionService {
     private readonly chainConfig: ChainConfigService,
     private readonly config: ConfigService,
     private readonly ipfsResolver: IpfsGatewayResolverService,
-    private readonly psaCertSnapshots: PsaCertSnapshotService,
+    private readonly psaPublicApi: PsaPublicApiService,
     private readonly rwaTokenRegistry: RwaTokenRegistryService,
     private readonly eventEmitter: EventEmitter2,
     private readonly merkleSet: CollectionMerkleSetService,
@@ -187,18 +186,17 @@ export class CollectionService {
     const psaCert = psaCertNumberFromGradedMeta(meta);
     if (psaCert && !compRecord.psaSpecId) {
       try {
-        const snap = await this.psaCertSnapshots.fetchCertSnapshotJson(psaCert, {
-          allowUpstream: false,
-        });
-        const specFromCert = snap
-          ? specIdStringFromPsaCertBody({ PSACert: snap })
-          : null;
+        const lookup = await this.psaPublicApi.getByCertNumber(psaCert);
+        const specFromCert =
+          lookup.status === 'success' && lookup.raw
+            ? specIdStringFromPsaCertBody(lookup.raw)
+            : null;
         if (specFromCert) {
           compRecord.psaSpecId = specFromCert;
         }
       } catch (e: unknown) {
         this.logger.debug(
-          `ensureCollectionForListing #${tokenId}: cert→specId cache lookup failed: ${String(e)}`,
+          `ensureCollectionForListing #${tokenId}: cert→specId lookup failed: ${String(e)}`,
         );
       }
     }

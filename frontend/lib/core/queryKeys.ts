@@ -19,6 +19,8 @@ export const rq = {
   ordersByTokenBatch: (address: string | undefined, tokenIds: readonly number[]) =>
     ["orders", "by-token-batch", address ?? "", [...tokenIds].slice().sort((a, b) => a - b)] as const,
   collectionsMarketplace: () => ["collections", "marketplace"] as const,
+  /** Full marketplace catalog (cursor walk) — home Top movers / Just vaulted. */
+  homeAllCollections: () => ["collections", "marketplace", "all"] as const,
   /** Landing dashboard — Card Ladder category indexes (Pokemon / MLB / NFL / NBA). */
   cardladderIndexes: () => ["cardladder-indexes"] as const,
   /**
@@ -34,6 +36,12 @@ export const rq = {
   marketMintPreviews: (address: string | undefined, tokenIds: readonly number[]) =>
     ["cardhedger-mint-previews", address ?? "", [...tokenIds].slice().sort((a, b) => a - b)] as const,
   portfolioHidden: (address: string) => ["portfolio-hidden", address] as const,
+  portfolioHoldings: (address: string, tokenIds: readonly number[]) =>
+    [
+      "portfolio-holdings",
+      address.toLowerCase(),
+      [...tokenIds].slice().sort((a, b) => a - b),
+    ] as const,
   /** Collection labels/covers for portfolio bid rows (sorted keys). */
   portfolioBidCollections: (sortedKeys: readonly string[]) =>
     ["portfolio-bid-collections", [...sortedKeys]] as const,

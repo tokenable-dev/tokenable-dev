@@ -18,14 +18,14 @@ const config: HardhatUserConfig = {
     },
   },
   networks: {
-    polygon: {
-      url: process.env.POLYGON_RPC_URL ?? '',
-      chainId: 137,
+    mainnet: {
+      url: process.env.ETHEREUM_RPC_URL ?? '',
+      chainId: 1,
       accounts,
     },
-    polygonAmoy: {
-      url: process.env.POLYGON_AMOY_RPC_URL ?? '',
-      chainId: 80002,
+    sepolia: {
+      url: process.env.SEPOLIA_RPC_URL ?? '',
+      chainId: 11155111,
       accounts,
     },
   },

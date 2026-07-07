@@ -27,6 +27,7 @@ import { SWAGGER_FIXTURES } from '../../swagger/fixtures';
 import { OrdersBatchByTokenDto } from './dto/orders-batch-by-token.dto';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { FulfillMatchedPairDto } from './dto/fulfill-matched-pair.dto';
+import { FulfillOrderQueryDto } from './dto/fulfill-order-query.dto';
 import { ReplaceBidDto } from './dto/replace-bid.dto';
 import { ReplaceListingDto } from './dto/replace-listing.dto';
 import { Order } from '../entities/order.entity';
@@ -37,12 +38,14 @@ import {
   CHAIN_ID_HEADER,
   ChainConfigService,
 } from '../../blockchain/chain-config.service';
+import { ApiChainIdHeader } from '../../swagger/api-headers.util';
 import type { OrderListItem } from '../utils/order-list.util';
 
 /**
  * 마켓플레이스 Seaport 주문 — DB 등록·조회·취소·체결.
  */
 @ApiTags('marketplace')
+@ApiChainIdHeader()
 @Controller('marketplace')
 export class OrdersController {
   constructor(
@@ -202,9 +205,18 @@ export class OrdersController {
   /** 단일 주문 체결 처리 (on-chain fulfill 후) */
   @ApiOperation({ summary: '주문 체결 표시' })
   @ApiParam({ name: 'hash', description: '주문 hash', example: SWAGGER_FIXTURES.orderHash })
+  @ApiQuery({
+    name: 'buyerAddress',
+    required: false,
+    description: 'Ask fill buyer wallet — seeds marketplace cost basis',
+    example: SWAGGER_FIXTURES.wallet,
+  })
   @Patch('orders/:hash/fulfill')
-  fulfillOrder(@Param('hash') hash: string): Promise<Order> {
-    return this.ordersService.fulfillOrder(hash);
+  fulfillOrder(
+    @Param('hash') hash: string,
+    @Query() query: FulfillOrderQueryDto,
+  ): Promise<Order> {
+    return this.ordersService.fulfillOrder(hash, query.buyerAddress);
   }
 
   /** ask+criteria bid 매칭 체결 후 두 주문 모두 fulfilled */

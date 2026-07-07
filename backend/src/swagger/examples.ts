@@ -130,32 +130,7 @@ export const replaceBidExample = {
 };
 
 export const SWAGGER_BODY_EXAMPLES = {
-  authRegister: {
-    email: 'collector@example.com',
-    password: 'secure-pass-123',
-    name: 'Alex Collector',
-  },
-  authLogin: {
-    email: 'collector@example.com',
-    password: 'secure-pass-123',
-  },
-  authResendVerification: {
-    email: 'collector@example.com',
-  },
-  authForgotPassword: {
-    email: 'collector@example.com',
-  },
-  authResetPassword: {
-    token: 'paste-reset-token-from-email',
-    password: 'new-secure-pass',
-  },
-  authChangePassword: {
-    currentPassword: 'current-pass',
-    newPassword: 'new-secure-pass',
-  },
-  authDeleteAccount: {
-    password: 'current-pass',
-  },
+  authDeleteAccount: {},
   siteAccessVerify: {
     password: '',
   },
@@ -178,12 +153,29 @@ export const SWAGGER_BODY_EXAMPLES = {
   rwaMetadataBatch: { tokenIds: F.tokenIds },
   mediaResolve: { uris: [F.ipfsImage, F.coverUrl] },
   portfolioHide: { walletAddress: F.wallet, tokenId: F.tokenId },
+  portfolioHoldingsBatch: { walletAddress: F.wallet, tokenIds: F.tokenIds },
+  portfolioSetCostBasis: {
+    walletAddress: F.wallet,
+    tokenId: F.tokenId,
+    costBasisUsd: 1250,
+  },
   certMarketTrace: {
     certNumber: F.certNumber,
     historyMaxCalendarDays: 90,
   },
   adminSetCover: {
     coverImageUrl: F.coverUrl,
+  },
+  adminLogin: {
+    username: 'admin',
+    password: 'your-admin-password',
+  },
+  adminUpdateUser: {
+    name: 'Updated display name',
+    emailVerified: true,
+  },
+  adminLinkWallet: {
+    address: F.wallet,
   },
   adminCoverFromToken: {
     tokenId: '1',

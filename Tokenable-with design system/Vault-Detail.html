@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tokenable — Submission Detail</title>
+<script src="support.js"></script>
+</head>
+<body>
+<x-dc data-theme="dark">
+<helmet>
+<script src="ds-base.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root:root{ --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace; }
+  :root{
+    --ink: #1A1A1E; --ink-2: #1A1A1E;
+    --surf: #1b1b26; --surf-2: rgb(22,22,34);
+    --line: rgba(255,255,255,0.08); --line-2: rgba(255,255,255,0.05);
+    --azure: rgb(26,111,255); --pos: rgb(0,200,100); --neg: rgb(228,55,74);
+    --amber: #F59E0B; --purple: #8B5CF6;
+    --t2: rgba(255,255,255,0.55); --t3: rgba(255,255,255,0.35);
+    --brand-500: #1A6FFF; --brand-400: #5B9AFF; --brand-900: #0C1640;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--ink);color:#fff;font-family:var(--font-sans, 'Inter', sans-serif);-webkit-font-smoothing:antialiased;}
+  .mono{font-family:var(--font-mono);}
+
+  /* GNB */
+  header{position:sticky;top:0;z-index:50;background:var(--ink-2);border-bottom:1px solid rgba(255,255,255,0.08);}
+  .navlink{font-size:15px;font-weight:500;color:var(--t2);text-decoration:none;padding:4px 0;position:relative;transition:color 0.15s;}
+  .navlink:hover{color:#fff;}
+  .navlink.on{color:#fff;font-weight:600;}
+  .navlink.on::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2px;background:var(--azure);}
+  .gnb-burger{display:none;background:none;border:0;color:#fff;cursor:pointer;padding:4px;}
+  .gnb-logo-full{height:22px;}
+  .gnb-logo-symbol{height:28px;display:none;}
+  .gnb-right{display:flex;align-items:center;gap:14px;}
+
+  /* Buttons */
+  .btn{display:inline-flex;align-items:center;justify-content:center;border:0;cursor:pointer;font-family:var(--font-sans);font-weight:600;transition:all 0.12s;border-radius:0;clip-path:polygon(0 6px,4px 2px,8px 0,calc(100% - 8px) 0,calc(100% - 4px) 2px,100% 6px,100% calc(100% - 6px),calc(100% - 4px) calc(100% - 2px),calc(100% - 8px) 100%,8px 100%,4px calc(100% - 2px),0 calc(100% - 6px));}
+  .btn--primary{background:#1A6FFF;color:#fff;box-shadow:inset 0 0 0 3px rgba(0,0,20,0.5),inset 0 0 0 1px rgba(80,160,255,0.6),inset 0 3px 0 0 rgba(80,170,255,0.7),inset 0 -3px 0 0 rgba(0,0,50,0.4);filter:drop-shadow(4px 4px 0 rgba(26,111,255,0.55));}
+  .btn--primary:hover{filter:drop-shadow(5px 5px 0 rgba(26,111,255,0.65));transform:translate(-1px,-1px);}
+  .btn--ghost{background:#0C1640;color:#fff;box-shadow:inset 0 0 0 3px rgba(0,0,20,0.5),inset 0 0 0 1px rgba(255,255,255,0.1),inset 0 3px 0 0 rgba(255,255,255,0.15),inset 0 -3px 0 0 rgba(0,0,0,0.3);filter:drop-shadow(4px 4px 0 rgba(5,10,30,0.7));}
+  .btn--ghost:hover{filter:drop-shadow(5px 5px 0 rgba(5,10,30,0.8));transform:translate(-1px,-1px);}
+  .btn--disabled{opacity:0.4;cursor:not-allowed;pointer-events:none;}
+
+  /* Card box */
+  .card-box{background:#1e1e2e;border-radius:16px;padding:24px;}
+
+  /* Badges */
+  .badge{font-family:var(--font-mono);font-size:11px;font-weight:600;padding:3px 10px;border-radius:6px;display:inline-flex;align-items:center;gap:4px;}
+  .badge--user{background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.6);}
+  .badge--system{background:rgba(26,111,255,0.12);color:var(--azure);}
+  .badge--webhook{background:rgba(139,92,246,0.12);color:var(--purple);}
+  .badge--blockchain{background:rgba(0,200,100,0.12);color:var(--pos);}
+  .badge--admin{background:rgba(245,158,11,0.12);color:var(--amber);}
+
+  /* Timeline */
+  .tl-step{display:flex;gap:16px;position:relative;padding-bottom:0;}
+  .tl-step:last-child{padding-bottom:0;}
+  .tl-rail{display:flex;flex-direction:column;align-items:center;flex-shrink:0;width:14px;}
+  .tl-dot{width:14px;height:14px;border-radius:50%;flex-shrink:0;position:relative;z-index:1;}
+  .tl-dot--done{background:var(--pos);}
+  .tl-dot--active{background:var(--azure);box-shadow:0 0 12px rgba(26,111,255,0.6);animation:pulse-dot 2s infinite;}
+  .tl-dot--pending{background:#374151;}
+  .tl-line{width:2px;flex:1;}
+  .tl-line--done{background:var(--pos);}
+  .tl-line--active{background:linear-gradient(180deg,var(--azure),#374151);}
+  .tl-line--pending{background:#374151;opacity:0.3;}
+  .tl-body{flex:1;min-width:0;padding-top:0;}
+  .tl-title{font-size:15px;font-weight:700;color:#fff;margin-bottom:2px;}
+  .tl-step.pending .tl-title{color:rgba(255,255,255,0.35);}
+  .tl-step.pending .tl-desc{color:rgba(255,255,255,0.2);}
+  .tl-meta{display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;}
+  .tl-time{font-family:var(--font-mono);font-size:11px;color:rgba(255,255,255,0.3);}
+  .tl-desc{font-size:13px;color:rgba(255,255,255,0.45);line-height:1.6;}
+
+  /* Spinner */
+  .spin{display:inline-block;width:14px;height:14px;border:2px solid rgba(26,111,255,0.2);border-top-color:var(--azure);border-radius:50%;animation:spin 0.8s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  @keyframes pulse-dot{0%,100%{box-shadow:0 0 6px rgba(26,111,255,0.4);}50%{box-shadow:0 0 18px rgba(26,111,255,0.8);}}
+
+  /* Progress pills */
+  .step-pills{display:flex;gap:0;align-items:center;margin-top:20px;}
+  .step-pill{flex:1;height:4px;transition:background 0.2s;}
+  .step-pill:first-child{border-radius:3px 0 0 3px;}
+  .step-pill:last-child{border-radius:0 3px 3px 0;}
+  .step-pill.done{background:var(--pos);}
+  .step-pill.active{background:var(--azure);animation:pulse-pill 2s infinite;}
+  .step-pill.pending{background:rgba(255,255,255,0.06);}
+  @keyframes pulse-pill{0%,100%{opacity:0.7;}50%{opacity:1;}}
+  .step-pills-labels{display:flex;gap:0;margin-top:14px;}
+  .step-pills-labels .sl{flex:1;font-size:12px;font-weight:500;color:rgba(255,255,255,0.3);}
+  .step-pills-labels .sl:first-child{text-align:left;}
+  .step-pills-labels .sl:last-child{text-align:right;}
+  .step-pills-labels .sl.done{color:var(--pos);font-weight:600;}
+  .step-pills-labels .sl.active{color:var(--azure);font-weight:700;}
+  .step-pills-labels .sl-sub{font-size:11px;font-weight:400;margin-top:2px;}
+
+  /* Live log */
+  .log-wrap{background:#0e0e18;border-radius:12px;padding:16px;max-height:240px;overflow-y:auto;font-family:var(--font-mono);font-size:12px;line-height:2;}
+  .log-wrap::-webkit-scrollbar{width:4px;}
+  .log-wrap::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);border-radius:2px;}
+  .log-line{display:flex;gap:10px;align-items:baseline;}
+  .log-time{color:rgba(255,255,255,0.25);flex-shrink:0;width:42px;}
+  .log-actor{flex-shrink:0;width:80px;}
+  .log-msg{color:rgba(255,255,255,0.5);}
+
+  /* Detail row */
+  .detail-row{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.04);}
+  .detail-row:last-child{border-bottom:none;}
+  .detail-k{font-family:var(--font-mono);font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:rgba(255,255,255,0.35);}
+  .detail-v{font-size:13px;font-weight:600;color:#fff;text-align:right;}
+
+  /* 2-col layout */
+  .page-grid{display:grid;grid-template-columns:1fr 380px;gap:40px;max-width:1200px;margin:0 auto;padding:40px clamp(16px,4vw,40px) 80px;}
+
+  /* Search */
+  .tk-search .tk-input{background:rgba(255,255,255,0.85)!important;color:#111!important;border:none!important;box-shadow:none!important;}
+  .tk-search .tk-input::placeholder{color:rgba(0,0,0,0.4)!important;}
+  .tk-search__icon{display:flex!important;color:rgba(0,0,0,0.4)!important;}
+  .tk-search{clip-path:var(--pixel-notch-md);overflow:hidden;}
+  .tk-search .tk-input{clip-path:none!important;height:36px!important;font-size:14px!important;}
+
+  /* Notification banner */
+  .notif-banner{background:rgba(26,111,255,0.06);border:1px solid rgba(26,111,255,0.15);border-radius:12px;padding:16px 20px;display:flex;align-items:center;gap:12px;font-size:13px;color:rgba(255,255,255,0.55);}
+
+  /* Mobile */
+  @media(max-width:900px){
+    .page-grid{grid-template-columns:1fr;gap:32px;}
+    .gnb-burger{display:block;}
+    .gnb-logo-full{display:none;}
+    .gnb-logo-symbol{display:block;}
+    header nav{display:none;}
+  }
+</style>
+</helmet>
+
+  <!-- ============ GNB ============ -->
+  <header>
+    <div style="display:flex;align-items:center;height:64px;gap:0;padding:0 clamp(16px,4vw,40px);max-width:100%;">
+      <a href="index.html" style="display:flex;align-items:center;"><img class="gnb-logo-full" src="images/logo-tokenable.svg" alt="Tokenable" style="height:24px;"><img class="gnb-logo-symbol" src="images/symbol-white.svg" alt="Tokenable" style="height:26px;display:none;"></a>
+      <nav style="display:flex;gap:40px;margin-left:52px;">
+        <a class="navlink" href="Markets.html">Markets</a>
+        <a class="navlink" href="Portfolio.html">Portfolio</a>
+        <a class="navlink on" href="Vault.html">Vault</a>
+      </nav>
+      <div style="flex:1;"></div>
+      <button class="gnb-burger" aria-label="Open menu"><span class="burger-lines"><span></span><span></span></span></button>
+      <div class="gnb-right">
+        <x-import component-from-global-scope="TokenableDesignSystem_8d023b.Search" placeholder="Search cards, sets, players…" hint-size="300px,44px"></x-import>
+        <button class="btn btn--primary tk-connect" style="height:44px;padding:0 18px;font-size:14px;">Connect Wallet</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ============ MAIN ============ -->
+  <div class="page-grid">
+
+    <!-- LEFT COLUMN -->
+    <div>
+      <!-- Breadcrumb -->
+      <div style="margin-bottom:20px;font-size:13px;color:rgba(255,255,255,0.35);">
+        <a href="Vault.html" style="color:rgba(255,255,255,0.35);text-decoration:none;">Vault</a>
+        <span style="margin:0 8px;">›</span>
+        <span style="color:rgba(255,255,255,0.6);">SUB-20260616-00421</span>
+      </div>
+
+      <!-- Page header -->
+      <h1 style="margin:0 0 16px;font-weight:700;font-size:28px;letter-spacing:-0.02em;">Submission Detail</h1>
+
+      <!-- Card summary row -->
+      <div style="display:flex;align-items:center;gap:16px;padding:16px 20px;background:#1e1e2e;border-radius:14px;margin-bottom:32px;">
+        <div style="width:56px;height:78px;background:#101018;border-radius:6px;padding:4px;flex-shrink:0;">
+          <img src="images/card-charizard.png" alt="Charizard" style="width:100%;height:100%;object-fit:contain;">
+        </div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:16px;font-weight:700;color:#fff;">Charizard · 1999 Base 1st Ed.</div>
+          <div style="display:flex;align-items:center;gap:8px;margin-top:6px;flex-wrap:wrap;">
+            <span class="badge" style="background:rgba(0,200,100,0.12);color:var(--pos);">PSA 10</span>
+            <span class="mono" style="font-size:11px;color:rgba(255,255,255,0.35);">Cert #12345678</span>
+            <span class="badge" style="background:rgba(139,92,246,0.12);color:var(--purple);">Polygon</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ STATUS BANNER (compact) ============ -->
+      <div style="margin-bottom:32px;padding:16px 20px;background:rgba(26,111,255,0.06);border:1px solid rgba(26,111,255,0.15);border-radius:14px;display:flex;align-items:center;gap:12px;">
+        <span class="spin" style="width:18px;height:18px;flex-shrink:0;"></span>
+        <div>
+          <div style="font-size:16px;font-weight:700;color:#fff;">Vaulting in Progress</div>
+          <div style="font-size:13px;color:rgba(255,255,255,0.45);margin-top:2px;">Your card is being verified and insured. Tokenization begins once vaulting is confirmed.</div>
+        </div>
+      </div>
+
+      <!-- ============ TIMELINE ============ -->
+      <div style="margin-bottom:32px;">
+        <span class="mono" style="font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:rgba(255,255,255,0.4);font-weight:600;display:block;margin-bottom:16px;">Timeline</span>
+
+        <!-- VERIFY phase -->
+        <div style="margin-bottom:6px;">
+          <span style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--pos);opacity:0.6;">VERIFY</span>
+        </div>
+        <div class="tl-step">
+          <div class="tl-rail"><div class="tl-dot tl-dot--done"></div><div class="tl-line tl-line--done"></div></div>
+          <div class="tl-body">
+            <div class="tl-title">Submitted</div>
+            <div class="tl-meta"><span class="tl-time">2026-06-10 09:14</span><span class="badge badge--user">USER</span></div>
+            <div class="tl-desc">Card info submitted · Cert #12345678</div>
+          </div>
+        </div>
+        <div class="tl-step">
+          <div class="tl-rail"><div class="tl-dot tl-dot--done"></div><div class="tl-line tl-line--done"></div></div>
+          <div class="tl-body">
+            <div class="tl-title">Verified</div>
+            <div class="tl-meta"><span class="tl-time">2026-06-10 09:14</span><span class="badge badge--system">SYSTEM</span></div>
+            <div class="tl-desc">PSA lookup success · Grade PSA 10 confirmed</div>
+          </div>
+        </div>
+
+        <!-- SHIP phase -->
+        <div style="margin-bottom:6px;margin-top:8px;">
+          <span style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--pos);opacity:0.6;">SHIP</span>
+        </div>
+        <div class="tl-step">
+          <div class="tl-rail"><div class="tl-dot tl-dot--done"></div><div class="tl-line tl-line--done"></div></div>
+          <div class="tl-body">
+            <div class="tl-title">Shipped</div>
+            <div class="tl-meta"><span class="tl-time">2026-06-12 09:00</span><span class="badge badge--user">USER</span></div>
+            <div class="tl-desc">FedEx · FX123456789 · Shipped from Seoul, KR</div>
+          </div>
+        </div>
+        <div class="tl-step">
+          <div class="tl-rail"><div class="tl-dot tl-dot--done"></div><div class="tl-line tl-line--done"></div></div>
+          <div class="tl-body">
+            <div class="tl-title">Delivered</div>
+            <div class="tl-meta"><span class="tl-time">2026-06-14 11:30</span><span class="badge badge--webhook">WEBHOOK</span></div>
+            <div class="tl-desc">Package received at vault facility</div>
+          </div>
+        </div>
+
+        <!-- VAULT phase (ACTIVE) -->
+        <div style="margin-bottom:6px;margin-top:8px;">
+          <span style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--azure);">VAULT</span>
+        </div>
+        <div class="tl-step">
+          <div class="tl-rail"><div class="tl-dot tl-dot--done"></div><div class="tl-line tl-line--active"></div></div>
+          <div class="tl-body">
+            <div class="tl-title">Intake Verified</div>
+            <div class="tl-meta"><span class="tl-time">2026-06-15 16:02</span><span class="badge badge--webhook">WEBHOOK</span></div>
+            <div class="tl-desc">PSA Vault intake confirmed · Cert #12345678 matched</div>
+          </div>
+        </div>
+        <div class="tl-step">
+          <div class="tl-rail"><div class="tl-dot tl-dot--active"></div><div class="tl-line tl-line--pending"></div></div>
+          <div class="tl-body">
+            <div class="tl-title" style="color:var(--azure);">Insured &amp; Vaulted</div>
+            <div class="tl-meta"><span style="font-size:12px;color:var(--azure);font-weight:600;">In Progress</span><span class="badge badge--system">SYSTEM</span></div>
+            <div class="tl-desc" style="color:rgba(255,255,255,0.55);">Insurance coverage being finalized… <span class="spin" style="vertical-align:middle;margin-left:4px;"></span></div>
+          </div>
+        </div>
+
+        <!-- TOKENIZE phase (PENDING) -->
+        <div style="margin-bottom:6px;margin-top:8px;">
+          <span style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:rgba(255,255,255,0.2);">TOKENIZE</span>
+        </div>
+        <div class="tl-step pending">
+          <div class="tl-rail"><div class="tl-dot tl-dot--pending"></div><div class="tl-line tl-line--pending"></div></div>
+          <div class="tl-body">
+            <div class="tl-title">Mint Token</div>
+            <div class="tl-meta"><span style="font-size:12px;color:rgba(255,255,255,0.2);">Pending</span></div>
+            <div class="tl-desc">ERC-721 will be minted on Polygon</div>
+          </div>
+        </div>
+        <div class="tl-step pending">
+          <div class="tl-rail"><div class="tl-dot tl-dot--pending"></div></div>
+          <div class="tl-body">
+            <div class="tl-title">Completed</div>
+            <div class="tl-meta"><span style="font-size:12px;color:rgba(255,255,255,0.2);">Pending</span></div>
+            <div class="tl-desc">Token will be sent to 0x7Fb…3aE2</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ LIVE LOG ============ -->
+      <div style="margin-bottom:32px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+          <span class="mono" style="font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:rgba(255,255,255,0.4);font-weight:600;">Live Activity</span>
+          <span style="font-size:11px;color:rgba(255,255,255,0.2);">Auto-refreshes every 30s</span>
+        </div>
+        <div class="log-wrap">
+          <div class="log-line"><span class="log-time">16:02</span><span class="log-actor"><span class="badge badge--webhook" style="font-size:10px;padding:2px 6px;">webhook</span></span><span class="log-msg">PSA Vault intake confirmed</span></div>
+          <div class="log-line"><span class="log-time">14:30</span><span class="log-actor"><span class="badge badge--system" style="font-size:10px;padding:2px 6px;">system</span></span><span class="log-msg">Shipping guide sent to email</span></div>
+          <div class="log-line"><span class="log-time">09:14</span><span class="log-actor"><span class="badge badge--system" style="font-size:10px;padding:2px 6px;">system</span></span><span class="log-msg">Grade verified · PSA 10</span></div>
+          <div class="log-line"><span class="log-time">09:14</span><span class="log-actor"><span class="badge badge--user" style="font-size:10px;padding:2px 6px;">user</span></span><span class="log-msg">Submission created</span></div>
+          <div class="log-line"><span class="log-time">09:00</span><span class="log-actor"><span class="badge badge--user" style="font-size:10px;padding:2px 6px;">user</span></span><span class="log-msg">FedEx tracking registered · FX123456789</span></div>
+          <div class="log-line"><span class="log-time">--:--</span><span class="log-actor"><span class="badge badge--blockchain" style="font-size:10px;padding:2px 6px;">blockchain</span></span><span class="log-msg">ERC-721 mint tx submitted… <span class="spin" style="width:10px;height:10px;border-width:1.5px;vertical-align:middle;"></span></span></div>
+        </div>
+      </div>
+
+      <!-- Notification banner -->
+      <div class="notif-banner">
+        <span style="font-size:18px;">🔔</span>
+        <span style="flex:1;">We'll notify you by email when your token is ready.</span>
+        <a href="#" style="color:var(--azure);font-size:13px;font-weight:600;text-decoration:none;white-space:nowrap;">Manage Notifications →</a>
+      </div>
+    </div>
+
+    <!-- RIGHT COLUMN -->
+    <div>
+      <!-- Card image -->
+      <div class="card-box" style="margin-bottom:20px;text-align:center;padding:32px;">
+        <div style="width:200px;height:280px;margin:0 auto;background:#101018;border-radius:10px;padding:8px;">
+          <img src="images/card-charizard.png" alt="Charizard PSA 10" style="width:100%;height:100%;object-fit:contain;">
+        </div>
+      </div>
+
+      <!-- Card details -->
+      <div class="card-box" style="margin-bottom:20px;">
+        <span class="mono" style="font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:rgba(255,255,255,0.4);font-weight:600;display:block;margin-bottom:12px;">Card Details</span>
+        <div class="detail-row"><span class="detail-k">Graded By</span><span class="detail-v">PSA · Gem Mint 10</span></div>
+        <div class="detail-row"><span class="detail-k">Cert #</span><span class="detail-v mono" style="font-size:12px;">12345678</span></div>
+        <div class="detail-row"><span class="detail-k">Vault</span><span class="detail-v mono" style="font-size:11px;color:rgba(255,255,255,0.5);">Tokenable Vault · NYC</span></div>
+        <div class="detail-row"><span class="detail-k">Token</span><span class="detail-v" style="color:var(--amber);">Pending…</span></div>
+      </div>
+
+      <!-- Blockchain receipt (pending) -->
+      <div class="card-box" style="margin-bottom:20px;border:1px dashed rgba(255,255,255,0.06);">
+        <span class="mono" style="font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:rgba(255,255,255,0.25);font-weight:600;display:block;margin-bottom:12px;">Blockchain Receipt</span>
+        <div style="text-align:center;padding:20px 0;">
+          <div class="spin" style="width:24px;height:24px;margin:0 auto 12px;"></div>
+          <div style="font-size:13px;color:rgba(255,255,255,0.25);">Awaiting mint confirmation…</div>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <button class="btn btn--primary btn--disabled" style="height:48px;width:100%;font-size:14px;" title="Available after minting completes">
+          View on OpenSea →
+        </button>
+        <button class="btn btn--ghost" style="height:42px;width:100%;font-size:13px;">Download Receipt</button>
+        <button class="btn btn--ghost" style="height:42px;width:100%;font-size:13px;">Request Card Delivery</button>
+        <button class="btn btn--ghost" style="height:38px;width:100%;font-size:12px;opacity:0.6;">Contact Support</button>
+      </div>
+      <!-- Delivery note -->
+      <div style="margin-top:16px;padding:14px 16px;background:rgba(255,255,255,0.03);border-radius:12px;font-size:12px;color:rgba(255,255,255,0.35);line-height:1.7;">
+        <strong style="color:rgba(255,255,255,0.5);">Card Delivery</strong><br>
+        Once a withdrawal request is submitted, processing time is generally 14–16 business days before shipment. This is an estimate and may vary depending on volume. After shipment, delivery times depend on the destination and carrier.
+      </div>
+    </div>
+
+  </div>
+
+  <script src="tk-footer.js"></script>
+
+</x-dc>
+
+<script src="tk-wallet.js"></script>
+<script src="tk-notifications.js"></script>
+</body>
+</html>

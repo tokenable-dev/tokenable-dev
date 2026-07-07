@@ -67,6 +67,18 @@ function fmtAxisVal(v: number): string {
   return `$${v.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
 }
 
+/** Portfolio.html Y-axis — `$560k`, `$480k`, … */
+function fmtAxisValCompact(v: number): string {
+  if (!Number.isFinite(v)) return "—";
+  const abs = Math.abs(v);
+  if (abs >= 1_000_000) {
+    const m = v / 1_000_000;
+    return `$${m >= 10 ? Math.round(m) : m.toFixed(1)}M`;
+  }
+  if (abs >= 1000) return `$${Math.round(v / 1000)}k`;
+  return `$${Math.round(v)}`;
+}
+
 /** Keep value callout inside chart viewBox (last point sits on the right edge). */
 function chartValueCalloutBox(
   anchorX: number,
@@ -108,11 +120,32 @@ const CHART_SIZE = {
   },
 } as const;
 
+const PORTFOLIO_HTML_CHART = {
+  W: 760,
+  H: 245,
+  LEFT: 56,
+  RIGHT: 16,
+  TOP: 16,
+  BOTTOM: 17,
+  lineColor: "rgb(26,111,255)",
+  areaGradId: "portfolio-html-area-grad",
+  gridStroke: "rgba(255,255,255,0.04)",
+  axisFill: "rgba(255,255,255,0.4)",
+  crosshairStroke: "rgba(255,255,255,0.15)",
+  dotFill: "rgb(26,111,255)",
+  dotStroke: "#fff",
+  lineWidth: 2.5,
+  axisFont: 10,
+  dotR: 4,
+  dotStrokeWidth: 2,
+} as const;
+
 export function PortfolioValueChart({
   points,
   xLabels,
   compact = false,
   size = "default",
+  variant = "markets",
 }: {
   points: number[];
   /** Daily snapshot dates (same length as `points` when provided). */
@@ -121,14 +154,23 @@ export function PortfolioValueChart({
   compact?: boolean;
   /** `large` — bigger axis price/date labels (e.g. Top 100 card detail). */
   size?: keyof typeof CHART_SIZE;
+  /** `portfolio` — Portfolio.html blue chart (760×245, no volume bars). */
+  variant?: "markets" | "portfolio";
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [hover, setHover] = useState<{ idx: number; x: number; y: number } | null>(null);
+  const isPortfolioHtml = variant === "portfolio";
   const sz = CHART_SIZE[size];
-  const dotR = compact ? 6 : size === "large" ? 6 : 5;
-  const lastDotR = compact ? 7 : size === "large" ? 7 : 5;
+  const dotR = isPortfolioHtml ? PORTFOLIO_HTML_CHART.dotR : compact ? 6 : size === "large" ? 6 : 5;
+  const lastDotR = isPortfolioHtml ? PORTFOLIO_HTML_CHART.dotR : compact ? 7 : size === "large" ? 7 : 5;
   const lastDotRingR = compact ? 11 : size === "large" ? 12 : 9;
-  const lineStroke = compact ? 2.75 : size === "large" ? 2.5 : 2;
+  const lineStroke = isPortfolioHtml
+    ? PORTFOLIO_HTML_CHART.lineWidth
+    : compact
+      ? 2.75
+      : size === "large"
+        ? 2.5
+        : 2;
 
   const volumeBars = useMemo(() => {
     if (points.length < 2) return [] as number[];
@@ -148,13 +190,13 @@ export function PortfolioValueChart({
       </div>
     );
 
-  const W = compact ? 400 : 800;
-  const H = compact ? 228 : size === "large" ? 296 : 260;
-  const LEFT = compact ? 44 : sz.leftPad;
-  const RIGHT = compact ? 12 : 16;
-  const TOP = compact ? 16 : sz.topPad;
-  const BOT = compact ? 32 : sz.bottomPad;
-  const showVolumeBars = !compact;
+  const W = isPortfolioHtml ? PORTFOLIO_HTML_CHART.W : compact ? 400 : 800;
+  const H = isPortfolioHtml ? PORTFOLIO_HTML_CHART.H : compact ? 228 : size === "large" ? 296 : 260;
+  const LEFT = isPortfolioHtml ? PORTFOLIO_HTML_CHART.LEFT : compact ? 44 : sz.leftPad;
+  const RIGHT = isPortfolioHtml ? PORTFOLIO_HTML_CHART.RIGHT : compact ? 12 : 16;
+  const TOP = isPortfolioHtml ? PORTFOLIO_HTML_CHART.TOP : compact ? 16 : sz.topPad;
+  const BOT = isPortfolioHtml ? PORTFOLIO_HTML_CHART.BOTTOM : compact ? 32 : sz.bottomPad;
+  const showVolumeBars = !compact && !isPortfolioHtml;
   const chartW = W - LEFT - RIGHT;
   const chartH = H - TOP - BOT;
 
@@ -191,7 +233,12 @@ export function PortfolioValueChart({
   const barY = TOP + chartH + 2;
   const barW = Math.max(2, chartW / Math.max(points.length, 1) - 1);
 
-  const labelStep = Math.max(1, Math.floor(points.length / (size === "large" ? 5 : 6)));
+  const labelStep = Math.max(1, Math.floor(points.length / (isPortfolioHtml ? 6 : size === "large" ? 5 : 6)));
+  const axisFmt = isPortfolioHtml ? fmtAxisValCompact : fmtAxisVal;
+  const axisFill = isPortfolioHtml ? PORTFOLIO_HTML_CHART.axisFill : sz.axisFill;
+  const axisFont = isPortfolioHtml ? PORTFOLIO_HTML_CHART.axisFont : sz.axisFont;
+  const xAxisFont = isPortfolioHtml ? PORTFOLIO_HTML_CHART.axisFont : sz.xAxisFont;
+  const xAxisFamily = isPortfolioHtml ? "var(--font-mono)" : "ui-sans-serif, system-ui, sans-serif";
 
   function handleMouseMove(e: React.MouseEvent<SVGSVGElement>) {
     const svg = e.currentTarget;
@@ -225,7 +272,7 @@ export function PortfolioValueChart({
   const lastCallout = chartValueCalloutBox(lastX, lastValueLabel, sz.lastCalloutFont, chartBounds);
 
   return (
-    <div ref={containerRef} className="w-full h-full min-h-[200px]">
+    <div ref={containerRef} className={`w-full h-full min-h-[200px]${isPortfolioHtml ? " pf-chart-svg-host" : ""}`}>
       <svg
         viewBox={`0 0 ${W} ${H}`}
         className="block h-full w-full"
@@ -233,20 +280,31 @@ export function PortfolioValueChart({
         preserveAspectRatio="xMidYMid meet"
         onMouseMove={handleMouseMove}
         onMouseLeave={() => setHover(null)}
+        role="img"
+        aria-label="Portfolio value history"
       >
         <defs>
-          <linearGradient id="portfolio-value-area-grad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="rgba(16,211,51,0.15)" />
-            <stop offset="80%" stopColor="rgba(16,211,51,0.02)" />
-            <stop offset="100%" stopColor="rgba(16,211,51,0)" />
-          </linearGradient>
-          <filter id="portfolio-value-glow">
-            <feGaussianBlur stdDeviation="3" result="blur" />
-            <feMerge>
-              <feMergeNode in="blur" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
+          {isPortfolioHtml ? (
+            <linearGradient id={PORTFOLIO_HTML_CHART.areaGradId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="rgba(26,111,255,0.25)" />
+              <stop offset="100%" stopColor="rgba(26,111,255,0)" />
+            </linearGradient>
+          ) : (
+            <linearGradient id="portfolio-value-area-grad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="rgba(16,211,51,0.15)" />
+              <stop offset="80%" stopColor="rgba(16,211,51,0.02)" />
+              <stop offset="100%" stopColor="rgba(16,211,51,0)" />
+            </linearGradient>
+          )}
+          {!isPortfolioHtml ? (
+            <filter id="portfolio-value-glow">
+              <feGaussianBlur stdDeviation="3" result="blur" />
+              <feMerge>
+                <feMergeNode in="blur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          ) : null}
         </defs>
 
         {/* Grid lines */}
@@ -260,19 +318,19 @@ export function PortfolioValueChart({
                 x2={W - RIGHT}
                 y1={y}
                 y2={y}
-                stroke="rgba(255,255,255,0.04)"
+                stroke={isPortfolioHtml ? PORTFOLIO_HTML_CHART.gridStroke : "rgba(255,255,255,0.04)"}
                 strokeWidth="1"
               />
               <text
-                x={LEFT - 8}
-                y={y + (size === "large" ? 5.5 : 3.5)}
+                x={LEFT - 6}
+                y={y + (isPortfolioHtml ? 4 : size === "large" ? 5.5 : 3.5)}
                 textAnchor="end"
-                fill={sz.axisFill}
-                fontSize={sz.axisFont}
-                fontFamily="ui-monospace, monospace"
-                fontWeight={size === "large" ? 500 : 400}
+                fill={axisFill}
+                fontSize={axisFont}
+                fontFamily={isPortfolioHtml ? "var(--font-mono)" : "ui-monospace, monospace"}
+                fontWeight={size === "large" && !isPortfolioHtml ? 500 : 400}
               >
-                {fmtAxisVal(t)}
+                {axisFmt(t)}
               </text>
             </g>
           );
@@ -285,12 +343,12 @@ export function PortfolioValueChart({
             <text
               key={i}
               x={xOf(i)}
-              y={H - (size === "large" ? 8 : 4)}
-              textAnchor="middle"
-              fill={sz.axisFill}
-              fontSize={sz.xAxisFont}
-              fontFamily="ui-sans-serif, system-ui, sans-serif"
-              fontWeight={size === "large" ? 500 : 400}
+              y={H - (isPortfolioHtml ? 17 : size === "large" ? 8 : 4)}
+              textAnchor={i === points.length - 1 && isPortfolioHtml ? "end" : i === 0 && isPortfolioHtml ? "start" : "middle"}
+              fill={axisFill}
+              fontSize={xAxisFont}
+              fontFamily={xAxisFamily}
+              fontWeight={size === "large" && !isPortfolioHtml ? 500 : 400}
             >
               {label}
             </text>
@@ -315,14 +373,16 @@ export function PortfolioValueChart({
             />
           ))}
 
-        {/* Area fill + line (2+ daily snapshots) */}
         {points.length >= 2 && (
           <>
-            <path d={areaPath} fill="url(#portfolio-value-area-grad)" />
+            <path
+              d={areaPath}
+              fill={isPortfolioHtml ? `url(#${PORTFOLIO_HTML_CHART.areaGradId})` : "url(#portfolio-value-area-grad)"}
+            />
             <path
               d={linePath}
               fill="none"
-              stroke="#87FF48"
+              stroke={isPortfolioHtml ? PORTFOLIO_HTML_CHART.lineColor : "#87FF48"}
               strokeWidth={lineStroke}
               strokeLinejoin="round"
               strokeLinecap="round"
@@ -330,7 +390,7 @@ export function PortfolioValueChart({
           </>
         )}
 
-        {/* Hover crosshair */}
+        {/* Hover crosshair — Portfolio.html white dashed line */}
         {hover && (
           <>
             <line
@@ -338,63 +398,107 @@ export function PortfolioValueChart({
               x2={hover.x}
               y1={TOP}
               y2={TOP + chartH}
-              stroke="rgba(16,211,51,0.2)"
+              stroke={isPortfolioHtml ? PORTFOLIO_HTML_CHART.crosshairStroke : "rgba(16,211,51,0.2)"}
               strokeWidth="1"
-              strokeDasharray="3 3"
+              strokeDasharray={isPortfolioHtml ? "3,3" : "3 3"}
             />
             <circle
               cx={hover.x}
               cy={hover.y}
               r={dotR}
-              fill="#87FF48"
-              stroke="#030712"
-              strokeWidth="2"
+              fill={isPortfolioHtml ? PORTFOLIO_HTML_CHART.dotFill : "#87FF48"}
+              stroke={isPortfolioHtml ? PORTFOLIO_HTML_CHART.dotStroke : "#030712"}
+              strokeWidth={isPortfolioHtml ? PORTFOLIO_HTML_CHART.dotStrokeWidth : 2}
             />
-            {/* Tooltip */}
-            {(() => {
-              const hoverLabel = formatUsdCompact(points[hover.idx]);
-              const hoverTip = chartValueCalloutBox(
-                hover.x,
-                hoverLabel,
-                sz.hoverTooltipFont,
-                chartBounds,
-              );
-              const hoverBelow = hover.y < TOP + (size === "large" ? 44 : 32);
-              const tipH = size === "large" ? 28 : 20;
-              return (
-                <g>
-                  <rect
-                    x={hoverTip.rectX}
-                    y={hoverBelow ? hover.y + 10 : hover.y - (tipH + 8)}
-                    width={hoverTip.rectW}
-                    height={tipH}
-                    rx="6"
-                    fill="#1a2332"
-                    stroke="rgba(16,211,51,0.35)"
-                    strokeWidth="1"
-                  />
-                  <text
-                    x={hoverTip.textX}
-                    y={
-                      hoverBelow
-                        ? hover.y + (size === "large" ? 28 : 24)
-                        : hover.y - (size === "large" ? 19 : 15)
-                    }
-                    textAnchor="middle"
-                    fill="white"
-                    fontSize={sz.hoverTooltipFont}
-                    fontWeight="600"
-                  >
-                    {hoverLabel}
-                  </text>
-                </g>
-              );
-            })()}
+            {isPortfolioHtml ? (
+              <g>
+                <rect
+                  x={Math.min(Math.max(hover.x - 70, LEFT), W - RIGHT - 140)}
+                  y={Math.max(TOP, hover.y - 52)}
+                  width={140}
+                  height={44}
+                  rx="8"
+                  fill="#1e1e2e"
+                  stroke="rgba(26,111,255,0.3)"
+                  strokeWidth="1"
+                />
+                <text
+                  x={Math.min(Math.max(hover.x - 62, LEFT + 8), W - RIGHT - 132)}
+                  y={Math.max(TOP, hover.y - 52) + 14}
+                  fill="rgba(255,255,255,0.5)"
+                  fontSize="10"
+                  fontFamily="var(--font-mono)"
+                >
+                  {timeLabels[hover.idx]}
+                </text>
+                <text
+                  x={Math.min(Math.max(hover.x - 62, LEFT + 8), W - RIGHT - 132)}
+                  y={Math.max(TOP, hover.y - 52) + 32}
+                  fill="#fff"
+                  fontSize="13"
+                  fontWeight="700"
+                  fontFamily="var(--font-mono)"
+                >
+                  {formatUsdCompact(points[hover.idx])}
+                </text>
+              </g>
+            ) : (
+              (() => {
+                const hoverLabel = formatUsdCompact(points[hover.idx]);
+                const hoverTip = chartValueCalloutBox(
+                  hover.x,
+                  hoverLabel,
+                  sz.hoverTooltipFont,
+                  chartBounds,
+                );
+                const hoverBelow = hover.y < TOP + (size === "large" ? 44 : 32);
+                const tipH = size === "large" ? 28 : 20;
+                return (
+                  <g>
+                    <rect
+                      x={hoverTip.rectX}
+                      y={hoverBelow ? hover.y + 10 : hover.y - (tipH + 8)}
+                      width={hoverTip.rectW}
+                      height={tipH}
+                      rx="6"
+                      fill="#1a2332"
+                      stroke="rgba(16,211,51,0.35)"
+                      strokeWidth="1"
+                    />
+                    <text
+                      x={hoverTip.textX}
+                      y={
+                        hoverBelow
+                          ? hover.y + (size === "large" ? 28 : 24)
+                          : hover.y - (size === "large" ? 19 : 15)
+                      }
+                      textAnchor="middle"
+                      fill="white"
+                      fontSize={sz.hoverTooltipFont}
+                      fontWeight="600"
+                    >
+                      {hoverLabel}
+                    </text>
+                  </g>
+                );
+              })()
+            )}
           </>
         )}
 
-        {/* Current value dot + tooltip (when not hovering) */}
-        {!hover && (
+        {points.length === 1 && isPortfolioHtml && (
+          <circle
+            cx={lastX}
+            cy={lastY}
+            r={PORTFOLIO_HTML_CHART.dotR}
+            fill={PORTFOLIO_HTML_CHART.dotFill}
+            stroke={PORTFOLIO_HTML_CHART.dotStroke}
+            strokeWidth={PORTFOLIO_HTML_CHART.dotStrokeWidth}
+          />
+        )}
+
+        {/* Markets variant — persistent last-value callout when not hovering */}
+        {!hover && !isPortfolioHtml && (
           <>
             <circle
               cx={lastX}

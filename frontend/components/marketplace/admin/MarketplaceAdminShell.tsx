@@ -19,7 +19,7 @@ export function MarketplaceAdminShell({
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    <div className={`flex min-h-screen ${ADMIN_SHELL_BG}`}>
+    <div className={`admin-console flex min-h-screen ${ADMIN_SHELL_BG}`}>
       {sidebarOpen ? (
         <button
           type="button"

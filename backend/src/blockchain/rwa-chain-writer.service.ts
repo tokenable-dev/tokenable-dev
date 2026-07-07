@@ -263,7 +263,7 @@ export class RwaChainWriterService {
     const hasBurner = await contract.hasRole(burnerRole, signerAddress);
     if (!hasBurner) {
       throw new InternalServerErrorException(
-        'Backend wallet lacks BURNER_ROLE on TokenableRWA. From contracts/: pnpm grant-burner:amoy (or grant-burner:polygon).',
+        'Backend wallet lacks BURNER_ROLE on TokenableRWA. From contracts/: pnpm grant-burner:sepolia (or grant-burner:mainnet).',
       );
     }
 

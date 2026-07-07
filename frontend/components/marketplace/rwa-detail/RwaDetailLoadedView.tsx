@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useTradeAccessGate } from "@/hooks/auth/useTradeAccessGate";
 import type { RwaDetailLoadedProps } from "@/hooks/rwa-detail";
+import { RwaDetailBreadcrumb } from "./RwaDetailBreadcrumb";
 import { RwaDetailDesktopSidebar } from "./layout/RwaDetailDesktopSidebar";
 import { RwaDetailMobileColumn } from "./layout/RwaDetailMobileColumn";
 import { RwaDetailListModalHost } from "./modals/RwaDetailListModalHost";
@@ -80,6 +81,12 @@ export function RwaDetailLoadedView({
 
   return (
     <>
+      <RwaDetailBreadcrumb
+        collectionHref={market.collectionHref}
+        collectionLabel={market.collectionDisplayName}
+        tokenLabel={headline.detailTitle || `#${tokenId}`}
+      />
+
       <div
         className={`grid grid-cols-1 items-start gap-y-6 max-lg:flex max-lg:min-h-0 max-lg:flex-1 max-lg:flex-col max-lg:gap-y-0 max-lg:self-stretch ${RWA_DETAIL_DESKTOP_GRID_CLASS} ${RWA_MOBILE_PAGE_CHANNEL_MAX_LG_CLASS}`}
       >

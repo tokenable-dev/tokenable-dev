@@ -1,11 +1,143 @@
 import type { CollectionMarketPreview, RwaMetadata } from "@/lib/core";
 import type { CollectionMarketSeries } from "@/lib/core";
 import { formatSportCategoryDisplayLabel, parseGradeScoreNumber } from "@/lib/market";
+import {
+  bucketGradeScoreFromPsaGradeInput,
+  parseFiniteGradeScore,
+  psaGradePolicyInputFromGraded,
+} from "@/lib/market/psaGradePolicy";
 import type { GradedCardMetadata } from "@/types/gradedCard";
 
 function getGraded(meta: RwaMetadata | null): GradedCardMetadata | undefined {
-  const g = meta?.properties?.graded;
+  if (!meta) return undefined;
+  const root = meta as RwaMetadata & { graded?: unknown };
+  const props = meta.properties as Record<string, unknown> | undefined;
+  const g = props?.graded ?? root.graded;
   return g && typeof g === "object" ? (g as GradedCardMetadata) : undefined;
+}
+
+function pickMetaString(...vals: unknown[]): string | undefined {
+  for (const v of vals) {
+    if (typeof v === "string" && v.trim()) return v.trim();
+    if (typeof v === "number" && Number.isFinite(v)) return String(v);
+  }
+  return undefined;
+}
+
+function resolveGradingCompany(graded: GradedCardMetadata): string {
+  if (typeof graded.gradingCompany === "string" && graded.gradingCompany.trim()) {
+    return graded.gradingCompany.trim();
+  }
+  const psa = graded.psa as Record<string, unknown> | undefined;
+  const company = pickMetaString(psa?.company);
+  if (company) return company;
+  const hasPsaSlab =
+    psa != null &&
+    Boolean(
+      pickMetaString(
+        psa.certNumber,
+        psa.gradeScore,
+        psa.gradeLabel,
+        psa.gradeDescription,
+      ) || graded.grade?.certNumber,
+    );
+  return hasPsaSlab ? "PSA" : "";
+}
+
+function gradeTraitsFromAttributes(meta: RwaMetadata | null): {
+  company?: string;
+  grade?: string;
+} {
+  let company: string | undefined;
+  let grade: string | undefined;
+  for (const a of meta?.attributes ?? []) {
+    const trait = (a.trait_type ?? "").trim();
+    const tl = trait.toLowerCase();
+    const v = String(a.value ?? "").trim();
+    if (!v) continue;
+    if (/grading\s*company/i.test(tl) || tl === "grader") company = v;
+    if (tl === "grade" || /^psa(\s|$)/i.test(trait)) grade = v;
+  }
+  return { company, grade };
+}
+
+function scoreStringFromMetadataName(name: string | undefined): string | undefined {
+  if (!name?.trim()) return undefined;
+  const m = name.trim().match(/\bPSA\s+(\d{1,2}(?:\.\d+)?)\s*$/i);
+  return m?.[1];
+}
+
+function resolvePortfolioGradeScoreString(
+  meta: RwaMetadata,
+  graded: GradedCardMetadata | undefined,
+  attrs: { company?: string; grade?: string },
+): string | undefined {
+  if (graded) {
+    const policy = psaGradePolicyInputFromGraded(graded as unknown as Record<string, unknown>);
+    const fromPolicy = bucketGradeScoreFromPsaGradeInput(policy);
+    if (fromPolicy) return fromPolicy;
+  }
+  if (attrs.grade) {
+    const fromAttr = bucketGradeScoreFromPsaGradeInput({
+      gradingCompany: attrs.company ?? "PSA",
+      gradeScore: attrs.grade,
+    });
+    if (fromAttr) return fromAttr;
+    return attrs.grade.trim();
+  }
+  return scoreStringFromMetadataName(meta.name);
+}
+
+function formatScoreForGradeChip(scoreStr: string): string {
+  return scoreStr === "auth" ? "AUTH" : scoreStr;
+}
+
+/** Portfolio table grade chip — mirrors RWA detail badge resolution. */
+export function formatPortfolioGradeLabel(meta: RwaMetadata | null): string | null {
+  if (!meta) return null;
+
+  const attrs = gradeTraitsFromAttributes(meta);
+  const graded = getGraded(meta);
+
+  if (graded) {
+    const company = resolveGradingCompany(graded) || attrs.company || "";
+    const scoreStr = resolvePortfolioGradeScoreString(meta, graded, attrs);
+
+    if (company && scoreStr) {
+      return `${company} ${formatScoreForGradeChip(scoreStr)}`.trim();
+    }
+
+    const psa = graded.psa as Record<string, unknown> | undefined;
+    const grade = graded.grade as Record<string, unknown> | undefined;
+    const gradeLabel = pickMetaString(
+      psa?.gradeLabel,
+      typeof grade?.label === "string" ? grade.label : undefined,
+    );
+    if (gradeLabel) {
+      if (/^psa\s/i.test(gradeLabel)) return gradeLabel.toUpperCase();
+      if (company) return `${company} ${gradeLabel}`.trim();
+      return gradeLabel;
+    }
+
+    if (scoreStr) {
+      const display = formatScoreForGradeChip(scoreStr);
+      return company ? `${company} ${display}`.trim() : display;
+    }
+  }
+
+  if (attrs.company && attrs.grade) {
+    return `${attrs.company} ${attrs.grade}`.trim();
+  }
+  if (attrs.grade) {
+    const company = attrs.company || (/^\d/.test(attrs.grade) ? "PSA" : "");
+    return company ? `${company} ${attrs.grade}`.trim() : attrs.grade;
+  }
+  if (attrs.company) return attrs.company;
+
+  const fromName = scoreStringFromMetadataName(meta.name);
+  if (fromName) return `PSA ${fromName}`;
+
+  return null;
 }
 
 /** Bucket components for {@link resolveExternalMarketUsd} — matches collection detail `comp`. */
@@ -14,17 +146,22 @@ export function marketTierComponentsFromMetadata(
 ): Record<string, unknown> | null {
   const g = getGraded(meta);
   if (!g) return null;
-  const score = g.psa?.gradeScore ?? g.grade?.score;
+  const attrs = gradeTraitsFromAttributes(meta);
+  const policy = psaGradePolicyInputFromGraded(g as unknown as Record<string, unknown>);
+  let gradeScore = bucketGradeScoreFromPsaGradeInput(policy);
+  if (!gradeScore && attrs.grade) {
+    gradeScore =
+      bucketGradeScoreFromPsaGradeInput({
+        gradingCompany: attrs.company ?? "PSA",
+        gradeScore: attrs.grade,
+      }) ?? attrs.grade.trim();
+  }
   const gradingCompany =
-    typeof g.gradingCompany === "string" && g.gradingCompany.trim()
-      ? g.gradingCompany.trim()
-      : g.psa != null
-        ? "PSA"
-        : "";
+    resolveGradingCompany(g) || attrs.company || (gradeScore ? "PSA" : "");
+  if (!gradingCompany || !gradeScore) return null;
   return {
     gradingCompany,
-    gradeScore:
-      score != null && Number.isFinite(Number(score)) ? String(score) : undefined,
+    gradeScore,
   };
 }
 
@@ -54,10 +191,18 @@ export function extractCategory(meta: RwaMetadata | null): string | null {
 
 export function gradeScoreFromMetadata(meta: RwaMetadata | null): number | null {
   const g = getGraded(meta);
-  if (g?.psa?.gradeScore != null) return parseGradeScoreNumber(String(g.psa.gradeScore));
-  if (g?.grade?.score != null && Number.isFinite(g.grade.score))
-    return parseGradeScoreNumber(String(g.grade.score));
-  return null;
+  const attrs = gradeTraitsFromAttributes(meta);
+  if (g) {
+    const policy = psaGradePolicyInputFromGraded(g as unknown as Record<string, unknown>);
+    const bucket = bucketGradeScoreFromPsaGradeInput(policy);
+    if (bucket && bucket !== "auth") {
+      const n = parseFiniteGradeScore(bucket);
+      if (n != null) return n;
+    }
+  }
+  if (attrs.grade) return parseGradeScoreNumber(attrs.grade);
+  const fromName = scoreStringFromMetadataName(meta?.name);
+  return fromName ? parseGradeScoreNumber(fromName) : null;
 }
 
 /**

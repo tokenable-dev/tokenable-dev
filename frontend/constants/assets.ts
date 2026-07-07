@@ -16,21 +16,46 @@ export const ASSETS = {
   /** 메인 로고 (Tokenable / Tokenable_RWA) */
   logo: {
     tokenable: `${ASSETS_BASE}/logo/tokenable.png`,
+    /** DS GNB — full wordmark */
+    tokenableDs: `${ASSETS_BASE}/ds/logo-tokenable.svg`,
+    /** DS GNB — symbol (mobile) */
+    tokenableSymbol: `${ASSETS_BASE}/ds/symbol-white.svg`,
+  },
+
+  /** Design system marketing assets (home, prototypes) */
+  ds: {
+    heroSlab: `${ASSETS_BASE}/ds/hero-slab.jpg`,
+    cards: {
+      charizard: `${ASSETS_BASE}/ds/card-charizard.png`,
+      lebron: `${ASSETS_BASE}/ds/card-lebron.png`,
+      pikachu: `${ASSETS_BASE}/ds/card-pikachu.png`,
+      luka: `${ASSETS_BASE}/ds/card-luka.png`,
+      nidoking: `${ASSETS_BASE}/ds/card-nidoking.jpg`,
+      pikachuEx: `${ASSETS_BASE}/ds/card-pikachu-ex.png`,
+    },
+    partners: {
+      psa: `${ASSETS_BASE}/ds/logo-psa.png`,
+      beckett: `${ASSETS_BASE}/ds/logo-beckett.png`,
+      cgc: `${ASSETS_BASE}/ds/logo-cgc.png`,
+      sgc: `${ASSETS_BASE}/ds/logo-sgc.png`,
+      tag: `${ASSETS_BASE}/ds/logo-tag.png`,
+    },
   },
 
   /** 아이콘 (favicon, 앱 아이콘 등) */
   icons: {
+    /** 32×32 favicon (from `tokenable_favicon.png`, dark background) */
     tokenable: `${ASSETS_BASE}/icons/tokenable_icon.png`,
-    /** PSA wordmark PNG (landing / docs). */
+    /** 360×360 favicon source — dark background */
+    tokenableFavicon: `${ASSETS_BASE}/icons/tokenable_favicon.png`,
+    /** 360×360 square brand mark (light-background master) */
+    tokenableLogo: `${ASSETS_BASE}/icons/tokenable_logo.png`,
+    /** 180×180 iOS home screen (from `tokenable_favicon.png`) */
+    tokenableApple: `${ASSETS_BASE}/icons/apple-touch-icon.png`,
+    /** PSA wordmark PNG (card detail / docs). */
     psaMark: `${ASSETS_BASE}/icons/psa-logo.png`,
     /** Vault safe icon — shown before PSA wordmark on card detail. */
     psaVaultLeading: `${ASSETS_BASE}/icons/psa-vault-leading.png`,
-    /** Landing offers — Authenticity seal. */
-    landingOffersAuthenticity: `${ASSETS_BASE}/icons/landing-offers-authenticity.png`,
-    /** Landing offers — PSA vault safe. */
-    landingOffersPsaVaults: `${ASSETS_BASE}/icons/landing-offers-psa-vaults.png`,
-    /** Landing offers — liquidity / exchange. */
-    landingOffersLiquidity: `${ASSETS_BASE}/icons/landing-offers-liquidity.png`,
     /** Market Indexes cards — Pokemon slot. */
     marketIndexPokemon: `${ASSETS_BASE}/icons/market-index-pokemon.png`,
     /** Market Indexes cards — MLB slot. */
@@ -41,8 +66,6 @@ export const ASSETS = {
     marketIndexNba: `${ASSETS_BASE}/icons/market-index-nba.png`,
     /** Exchange category filter — Soccer. */
     marketIndexSoccer: `${ASSETS_BASE}/icons/market-index-soccer.png`,
-    /** Landing hero carousel — double-chevron nav control. */
-    landingCarouselChevron: `${ASSETS_BASE}/icons/landing-carousel-chevron.png`,
   },
 
   /** 기타 이미지 */

@@ -15,10 +15,8 @@ export function isPsaPublicApiUpstreamEnabled(
 }
 
 /**
- * PSA Public API upstream is **user-initiated only** (`POST /psa/analyze-by-cert`,
- * `POST /psa/analyze` with cert). Background jobs and collection reads use DB cache.
- *
- * Legacy env flags are ignored unless explicitly set to force background (discouraged).
+ * PSA Public API upstream for background jobs (snapshot refresh, listing enrichment).
+ * Off by default; set `PSA_PUBLIC_API_BACKGROUND_UPSTREAM=true` to enable.
  */
 export function isPsaPublicApiBackgroundUpstreamEnabled(
   config: ConfigService,
@@ -35,10 +33,13 @@ export function isPsaPublicApiMintUpstreamEnabled(
   return false;
 }
 
-/** Snapshot refresh must never call PSA Public API (use `psa_cert_snapshots` cache). */
+/** Snapshot refresh may call PSA Public API when upstream is on and refresh env allows it. */
 export function isPsaPublicApiSnapshotUpstreamEnabled(
-  _config: ConfigService,
-  _refreshOnSnapshotEnv: string | undefined,
+  config: ConfigService,
+  refreshOnSnapshotEnv: string | undefined,
 ): boolean {
-  return false;
+  if (!isPsaPublicApiUpstreamEnabled(config)) return false;
+  const v = (refreshOnSnapshotEnv ?? '').trim().toLowerCase();
+  if (v === 'always' || v === 'true' || v === '1') return true;
+  return isPsaPublicApiBackgroundUpstreamEnabled(config);
 }

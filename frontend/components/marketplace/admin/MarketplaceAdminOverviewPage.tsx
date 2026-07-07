@@ -141,6 +141,14 @@ export function MarketplaceAdminOverviewPage() {
               <AdminSectionTitle
                 title="Engagement & vault"
                 subtitle="Watchlists and portfolio tracking"
+                action={
+                  <Link
+                    href="/marketplace/admin/portfolio"
+                    className="text-sm font-medium text-blue-600 hover:text-blue-700"
+                  >
+                    Portfolio ops →
+                  </Link>
+                }
               />
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
                 <AdminStatTile
@@ -165,8 +173,9 @@ export function MarketplaceAdminOverviewPage() {
                   value={o.portfolio.snapshotRows}
                 />
                 <AdminStatTile
-                  label="Latest snapshot"
-                  value={o.portfolio.latestSnapshotDate ?? "—"}
+                  label="Cost basis rows"
+                  value={o.portfolio.holdingsWithCostBasis}
+                  hint={`${o.portfolio.holdingsRows} holding rows`}
                 />
               </div>
             </div>

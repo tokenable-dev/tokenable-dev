@@ -10,8 +10,10 @@ import {
   Query,
   Req,
 } from '@nestjs/common';
-import { ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
+import { ApiBody, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
+import { apiBodyDefault } from '../../swagger/api-body.util';
+import { SWAGGER_BODY_EXAMPLES } from '../../swagger/examples';
 import { MarketplaceAdminService } from './marketplace-admin.service';
 import {
   AdminLinkUserWalletDto,
@@ -52,6 +54,7 @@ export class UserAdminController {
 
   @ApiOperation({ summary: '[Admin] Update user profile flags' })
   @ApiParam({ name: 'id' })
+  @ApiBody(apiBodyDefault(AdminUpdateUserDto, SWAGGER_BODY_EXAMPLES.adminUpdateUser))
   @Patch(':id')
   update(
     @Req() req: Request,
@@ -81,6 +84,7 @@ export class UserAdminController {
 
   @ApiOperation({ summary: '[Admin] Link wallet without signature' })
   @ApiParam({ name: 'id' })
+  @ApiBody(apiBodyDefault(AdminLinkUserWalletDto, SWAGGER_BODY_EXAMPLES.adminLinkWallet))
   @Post(':id/wallets')
   @HttpCode(200)
   linkWallet(

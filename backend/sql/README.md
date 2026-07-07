@@ -2,7 +2,7 @@
 
 Canonical model: TypeORM entities under `backend/src/**/entities/*.ts`.
 
-SQL in this folder is the **production-grade DDL** mirror — modular, commented, idempotent, with CHECK constraints and partial indexes where they matter.
+SQL in this folder is the **production DDL mirror** — domain-grouped files for fresh bootstrap (no incremental migration chain).
 
 ## Layout
 
@@ -10,41 +10,31 @@ SQL in this folder is the **production-grade DDL** mirror — modular, commented
 sql/
 ├── bootstrap-empty-prod-db.sql   # psql \ir orchestrator (run from this directory)
 ├── schema/
-│   ├── 010_users.sql
-│   ├── 015_psa_cert_snapshots.sql
-│   ├── 020_marketplace_collections.sql
-│   ├── 025_rwa_tokens.sql
-│   ├── 026_rwa_tokens_display_image.sql
-│   ├── 030_collection_market_snapshots.sql
-│   ├── 040_orders.sql
-│   ├── 050_refactor_legacy_columns.sql
-│   ├── 060_portfolio_daily_snapshots.sql
-│   ├── 061_portfolio_hidden_holdings.sql
-│   ├── 062_user_watchlist.sql
-│   ├── 063_users_password_hash.sql
-│   ├── 064_verification_tokens.sql
-│   ├── 065_user_wallets.sql
-│   ├── 066_user_wallets_allow_shared.sql
-│   ├── 067_password_reset_tokens.sql
-│   ├── 068_marketplace_admins.sql
-│   ├── 070_cardhedger_price_infra.sql
-│   ├── 071_cardhedger_price_delta_import_runs.sql   # apply manually if not in bootstrap
-│   ├── 072_cardhedger_delta_catalog_fallback.sql    # apply manually if not in bootstrap
-│   └── 900_triggers.sql
-├── scripts/
-│   └── bootstrap-db.sh
-└── seed-dev-platform-chart-fills.sql
+│   ├── 010_users_and_auth.sql    # users, wallets, auth providers, KYC, verification tokens
+│   ├── 020_vault.sql             # vault_assets, vault_cycles, vault_redemptions
+│   ├── 030_rwa_tokens.sql        # on-chain mint registry
+│   ├── 040_marketplace.sql       # collections, market snapshots, orders
+│   ├── 050_portfolio.sql         # portfolio snapshots, hidden holdings, watchlist
+│   ├── 060_admin.sql             # marketplace_admins
+│   ├── 070_cardhedger.sql        # Cardhedger infra + top100 snapshots
+│   └── 900_triggers.sql          # updated_at triggers
+├── seed/
+│   ├── marketplace-admin.sql     # default admin credentials (dev/staging)
+│   └── dev-platform-chart-fills.sql
+├── maintenance/
+│   └── reset_marketplace_data.sql  # wipe marketplace + vault rows (keep users)
+└── scripts/
+    └── bootstrap-db.sh
 ```
-
-> **`card_top100_daily_snapshots`** has a TypeORM entity but no SQL file yet — created via `synchronize` in dev. Add schema before bootstrap-only prod deploys that use Top 100.
 
 ## When to use what
 
 | Environment | Approach |
 |-------------|----------|
 | **Local dev** | `NODE_ENV !== production` → TypeORM `synchronize: true` on backend boot |
-| **Fresh prod / empty DB** | Run bootstrap once, then apply `071`/`072` if needed, then `TYPEORM_SYNC=false` |
-| **Review / audit** | Read `schema/*.sql` — one file per table group |
+| **Fresh prod / empty DB** | Run bootstrap once, then `TYPEORM_SYNC=false` |
+| **Site relaunch (keep users)** | `maintenance/reset_marketplace_data.sql` |
+| **Review / audit** | Read `schema/*.sql` — one file per domain |
 
 ### Bootstrap (recommended)
 
@@ -63,36 +53,42 @@ DATABASE_URL=postgres://tokenable:tokenable@localhost:5432/tokenable \
   backend/sql/scripts/bootstrap-db.sh
 ```
 
-When the SQL tree is **on disk inside the container**:
-
-```bash
-docker exec tokenable-postgres psql -U tokenable -d tokenable \
-  -v ON_ERROR_STOP=1 -f /path/to/backend/sql/bootstrap-empty-prod-db.sql
-```
-
 (`bootstrap-empty-prod-db.sql` uses `\ir schema/…` — must run from `backend/sql/`.)
 
-## Tables (17)
+### Reset marketplace data only
+
+Keeps `users`, `marketplace_admins`, and Cardhedger infra tables. Wipes orders, collections, rwa_tokens, vault lifecycle, portfolio snapshots.
+
+```bash
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+  -f backend/sql/maintenance/reset_marketplace_data.sql
+```
+
+## Tables (21)
 
 | Table | Purpose |
 |-------|---------|
-| `users` | Google OAuth + email/password accounts |
-| `user_wallets` | Linked wallets (shared address across users allowed) |
+| `users` | Platform accounts (Privy / Google / email) |
+| `user_wallets` | Linked wallets per user |
+| `user_auth_providers` | Normalized login methods |
+| `user_kyc_events` | KYC audit trail |
 | `verification_tokens` | Email verify + password reset tokens |
-| `psa_cert_snapshots` | PSA Public API cache by cert number |
-| `marketplace_collections` | Bucket metadata + indexed parallel/cert facets |
-| `rwa_tokens` | On-chain mint registry (tokenId → cert, IPFS) |
-| `collection_market_snapshots` | Materialized Cardhedger pricing (API read path) |
-| `orders` | Seaport ask/bid listings + fulfilled tape |
-| `portfolio_daily_snapshots` | Daily 09:00 KST portfolio total USD |
-| `portfolio_hidden_holdings` | Per-wallet UI hide list |
+| `marketplace_admins` | Admin console credentials |
+| `vault_assets` | Permanent physical card identity |
+| `vault_cycles` | Deposit→redeem lifecycle per asset |
+| `vault_redemptions` | Redemption state machine |
+| `rwa_tokens` | On-chain mint registry |
+| `marketplace_collections` | Graded-metadata bucket catalog |
+| `collection_market_snapshots` | Materialized Cardhedger pricing |
+| `orders` | Seaport ask/bid + fulfilled tape |
+| `portfolio_daily_snapshots` | Daily 09:00 KST portfolio totals |
+| `portfolio_holdings` | Per-wallet hide + cost basis |
 | `user_watchlist` | Saved collections per user |
-| `marketplace_admins` | Marketplace admin console credentials |
-| `card_top100_daily_snapshots` | Daily Top 100 rank snapshots (entity/sync) |
 | `cardhedger_price_subscriptions` | Cardhedger price push registrations |
 | `cardhedger_price_delta_checkpoints` | Delta poll checkpoint (singleton) |
 | `cardhedger_daily_price_export_runs` | Nightly CSV export audit |
 | `cardhedger_price_delta_import_runs` | Delta import run audit |
+| `card_top100_daily_snapshots` | Daily Top 100 rank snapshots |
 
 Full ER diagram: **[../docs/architecture/database.md](../docs/architecture/database.md)**
 
@@ -115,7 +111,7 @@ Full ER diagram: **[../docs/architecture/database.md](../docs/architecture/datab
 | `MARKET_SNAPSHOT_CRON_ENABLED` | Background refresh (default **on**) |
 | `MARKET_SNAPSHOT_REFRESH_CONCURRENCY` | Worker concurrency (default **4**) |
 | `MARKET_SNAPSHOT_CRON_MAX_KEYS` | Max keys per cron tick (default **120**) |
-| `PSA_PUBLIC_SNAPSHOT_DB_TTL_SEC` | PSA cert cache TTL (default **7 days**) |
+| `PSA_PUBLIC_API_REFRESH_ON_SNAPSHOT` | When `always`, snapshot refresh may call PSA for cert mirror |
 
 ## Collection bucket key (v2)
 
@@ -135,11 +131,11 @@ Full ER diagram: **[../docs/architecture/database.md](../docs/architecture/datab
 
 ---
 
-## Dev: platform chart seed data
+## Dev seeds (optional)
 
 ```bash
-docker exec -i tokenable-postgres psql -U tokenable -d tokenable \
-  < backend/sql/seed-dev-platform-chart-fills.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f backend/sql/seed/marketplace-admin.sql
+psql "$DATABASE_URL" -f backend/sql/seed/dev-platform-chart-fills.sql
 ```
 
-Match contract addresses at the top of the seed file to `backend/.env`.
+Match contract addresses at the top of `dev-platform-chart-fills.sql` to `backend/.env`.

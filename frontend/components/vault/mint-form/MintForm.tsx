@@ -25,7 +25,7 @@ export function MintForm() {
 
   return (
     <>
-      <div className="rounded-2xl border border-gray-800 bg-[#0a0e14]/80 p-6 sm:p-8 transition-all duration-200">
+      <div className="vault-form-panel transition-all duration-200">
         <form
           onSubmit={mint.handleSubmit}
           className="space-y-6"

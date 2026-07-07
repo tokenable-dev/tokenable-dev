@@ -4,15 +4,15 @@ const CHAIN_META: Record<
   string,
   { chainId: number; explorer: string; envVar: string }
 > = {
-  polygon: {
-    chainId: 137,
-    explorer: 'https://polygonscan.com',
-    envVar: 'CHAIN_137_RWA_ADDRESS',
+  mainnet: {
+    chainId: 1,
+    explorer: 'https://etherscan.io',
+    envVar: 'CHAIN_1_RWA_ADDRESS',
   },
-  polygonAmoy: {
-    chainId: 80002,
-    explorer: 'https://amoy.polygonscan.com',
-    envVar: 'CHAIN_80002_RWA_ADDRESS',
+  sepolia: {
+    chainId: 11155111,
+    explorer: 'https://sepolia.etherscan.io',
+    envVar: 'CHAIN_11155111_RWA_ADDRESS',
   },
 };
 
@@ -21,14 +21,14 @@ const CHAIN_META: Record<
  * existed may grant MINTER but not BURNER to the backend hot wallet. This script
  * grants BURNER_ROLE to the grantee (default: hardhat deployer / RWA_OWNER wallet).
  *
- *   pnpm grant-burner:amoy
- *   RWA_BURNER_GRANTEE=0x... pnpm grant-burner:amoy
+ *   pnpm grant-burner:sepolia
+ *   RWA_BURNER_GRANTEE=0x... pnpm grant-burner:sepolia
  */
 async function main() {
   const meta = CHAIN_META[network.name];
   if (!meta) {
     throw new Error(
-      `Unsupported network "${network.name}". Use polygon or polygonAmoy.`,
+      `Unsupported network "${network.name}". Use mainnet or sepolia.`,
     );
   }
 

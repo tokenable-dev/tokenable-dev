@@ -11,7 +11,7 @@ Verify the repository is ready for the release/deploy described below. **Verific
 - **Environment variables** — every new/changed var is documented in `local-setup.md` + `deployment.md`; required prod vars present.
 - **Production configuration** — `TYPEORM_SYNC=false`, correct `CORS_ORIGIN`/`FRONTEND_URL`, `NEXT_PUBLIC_*` build args set.
 - **Security** — no committed production secrets; obeys `.cursor/rules/security.mdc`.
-- **Migrations** — every schema change has a numbered SQL file added to `bootstrap-empty-prod-db.sql`; `database.md` updated.
+- **Schema** — entity changes reflected in the matching `backend/sql/schema/` domain file and `database.md`.
 - **Build** — `pnpm build` (frontend) and backend build succeed; `pnpm sync-abi` run if the contract changed.
 - **Tests** — `pnpm exec tsc --noEmit` (both), `pnpm test:ci` (backend), `pnpm test` (contracts) pass.
 

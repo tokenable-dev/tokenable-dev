@@ -221,9 +221,6 @@ erDiagram
         uuid id PK
         varchar wallet_address UK
     }
-    psa_cert_snapshots {
-        varchar cert_number PK
-    }
     marketplace_collections {
         varchar collection_key PK
         varchar psa_cert_number
@@ -253,7 +250,6 @@ erDiagram
     marketplace_collections ||--o| collection_market_snapshots : "bucket pricing"
     marketplace_collections ||--o{ orders : "collection_key"
     marketplace_collections ||--o{ rwa_tokens : "collection_key"
-    marketplace_collections }o--o| psa_cert_snapshots : "psa_cert_number"
     rwa_tokens ||--o{ orders : "token"
     users |o--o{ orders : "offerer"
     users |o--o{ portfolio_daily_snapshots : "wallet optional"

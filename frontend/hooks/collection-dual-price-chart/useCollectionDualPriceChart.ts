@@ -16,6 +16,7 @@ export function useCollectionDualPriceChart(input: {
   externalRefLineTag: string;
   isMobileChart: boolean;
   compactTab: boolean;
+  colorTheme?: "default" | "collection-detail";
 }) {
   const {
     externalMarketUsd,
@@ -25,6 +26,7 @@ export function useCollectionDualPriceChart(input: {
     externalRefLineTag,
     isMobileChart,
     compactTab,
+    colorTheme = "default",
   } = input;
 
   const nowSec = Math.floor(Date.now() / 1000);
@@ -49,6 +51,7 @@ export function useCollectionDualPriceChart(input: {
         externalRefLineTag,
         isMobileChart,
         compactTab,
+        colorTheme,
       }),
     [
       merged,
@@ -57,6 +60,7 @@ export function useCollectionDualPriceChart(input: {
       externalRefLineTag,
       isMobileChart,
       compactTab,
+      colorTheme,
     ],
   );
 

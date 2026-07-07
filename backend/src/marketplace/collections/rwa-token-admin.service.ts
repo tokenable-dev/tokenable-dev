@@ -23,6 +23,8 @@ import {
   ADMIN_RWA_ROLE_KEYS,
 } from './dto/admin-rwa-role.dto';
 import { UserService } from '../../user/user.service';
+import { PortfolioDailySnapshotService } from '../portfolio/portfolio-daily-snapshot.service';
+import { PortfolioHoldingService } from '../portfolio/portfolio-holding.service';
 
 export type AdminRwaCardRow = {
   tokenId: number;
@@ -79,6 +81,8 @@ export class RwaTokenAdminService {
     private readonly rwaTokenRegistry: RwaTokenRegistryService,
     private readonly vault: VaultService,
     private readonly users: UserService,
+    private readonly portfolioSnapshots: PortfolioDailySnapshotService,
+    private readonly portfolioHoldings: PortfolioHoldingService,
   ) {}
 
   private rwaContractAddress(): string {
@@ -499,6 +503,30 @@ export class RwaTokenAdminService {
       deliverTo,
       chainId,
     );
+
+    const deliveredAt = new Date();
+    try {
+      const marks = await this.portfolioSnapshots.resolveMarkUsdByTokenIds([tid]);
+      const markUsd = marks.get(tid);
+      if (markUsd != null && Number.isFinite(markUsd)) {
+        await this.portfolioHoldings.seedVaultDeliveryCostBasis(
+          deliverTo,
+          tid,
+          markUsd,
+          deliveredAt,
+        );
+      } else {
+        this.logger.warn(
+          `Vault deliver: no mark USD for token #${tid} — cost basis not seeded`,
+        );
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      this.logger.warn(
+        `Vault deliver: cost basis seed failed for token #${tid}: ${msg}`,
+      );
+    }
+
     return { txHash: result.txHash, recipientAddress: deliverTo };
   }
 

@@ -86,10 +86,16 @@ async function bootstrap() {
           ? `배포 문서 — Try it out 요청은 **현재 호스트**(\`${swaggerServers[0]?.url === '/' ? 'same origin' : swaggerServers[0]?.url}\`)로 전송됩니다.`
           : `로컬 문서: \`http://localhost:${port}/api/docs\` · 모든 경로는 \`/api\` 접두사입니다.`,
         '',
-        '**실행(Try it out)** — POST/PATCH 본문은 **「기본 예시」** 가 미리 채워져 있습니다. PSA·RWA 파일 업로드만 이미지를 직접 선택하세요.',
-        '**인증** — Tokenable JWT: 🔓 **Authorize** → `access-token`. Privy token: `privy-access-token` (세션 동기화·검증용).',
-        '**Privy** — `GET /api/privy/catalog` 로 전체 기능 목록 · `privy-auth` / `privy-users` / `privy-funding` 태그에서 Try it out.',
-        '**Site access** — `SITE_ACCESS_ENABLED` 시 먼저 `POST /api/site-access/verify` 로 비밀번호를 제출해 쿠키를 받은 뒤 Try it out 하세요 (동일 origin, 쿠키 자동 전송).',
+        '### 빠른 테스트 순서',
+        '1. **`GET /api/health`** — DB 연결 확인',
+        '2. **`site-access`** — `SITE_ACCESS_ENABLED` 시 `POST /api/site-access/verify` (비밀번호 → 쿠키)',
+        '3. **유저 JWT** — `POST /api/auth/privy/session` (`privy-access-token` Bearer) 또는 🔓 Authorize → `access-token`',
+        '4. **`marketplace`** — 컬렉션·주문·포트폴리오·watchlist (본문은 **기본 예시** 자동 채움)',
+        '5. **Admin** — `POST /api/marketplace/admin/auth/login` → `marketplace-admin` 태그 (쿠키 세션)',
+        '',
+        '**인증** — `access-token`: Tokenable JWT · `privy-access-token`: Privy `getAccessToken()` (세션 동기화·검증).',
+        '**체인** — 선택 헤더 `x-tokenable-chain-id` (예: `80002`). marketplace 태그 대부분에 적용.',
+        '**Privy 카탈로그** — `GET /api/privy/catalog` · 태그 `privy-auth` / `privy-users` / `privy-funding`.',
       ].join('\n'),
     )
     .setVersion('1.0');
@@ -127,10 +133,17 @@ async function bootstrap() {
       'privy-funding',
       '펀딩/on-ramp 설정 · Apple Pay · Google Pay는 클라이언트 useFiatOnramp (mainnet)',
     )
-    .addTag('health', '헬스체크')
+    .addTag('health', '헬스체크 — Swagger 테스트 1번')
     .addTag('blockchain', 'RWA·IPFS 읽기')
     .addTag('rwa', 'IPFS 업로드')
-    .addTag('marketplace', '주문·컬렉션·포트폴리오')
+    .addTag(
+      'marketplace',
+      '주문·컬렉션·스냅샷·포트폴리오(holdings/cost basis)·watchlist',
+    )
+    .addTag(
+      'marketplace-admin',
+      '백오피스 — `POST /marketplace/admin/auth/login` 후 쿠키 세션',
+    )
     .addTag(
       'cardhedger',
       'Card Hedge upstream 프록시 (`/api/cardhedger/v1/...`) — 서버가 API 키를 주입합니다. 전체 목록: `GET /api/cardhedger/routes`',
@@ -141,10 +154,18 @@ async function bootstrap() {
       'PSA Public API 6종 프록시 (cert·pop·order) + 슬랩 OCR analyze — upstream: `backend/src/psa/psa-swagger.json`',
     )
     .addTag('admin', 'Cardhedger 운영·헬스 (관리자 지갑)')
+    .addTag('webhooks', 'Cardhedger price webhook (HMAC)')
     .build();
 
   const document = SwaggerModule.createDocument(app, swaggerConfig);
-  document.tags = sortSwaggerTagsPinFirst(document.tags, ['site-access', 'privy']);
+  document.tags = sortSwaggerTagsPinFirst(document.tags, [
+    'site-access',
+    'privy',
+    'health',
+    'privy-auth',
+    'marketplace',
+    'marketplace-admin',
+  ]);
   SwaggerModule.setup('api/docs', app, document, swaggerUiOptions);
 
   const perfEnabled =

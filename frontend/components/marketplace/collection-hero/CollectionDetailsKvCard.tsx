@@ -16,8 +16,6 @@ const detailsKvFont = IBM_Plex_Sans({
 
 /** Desktop collection detail — slightly above Trades tape; inset from panel edges. */
 const DESKTOP_ROW_LABEL_CLASS = `${collectionDetailArialClass} min-w-0 flex-1 text-[13px] font-medium leading-snug text-zinc-500`;
-const DESKTOP_ROW_VALUE_CLASS = `${collectionDetailArialClass} min-w-0 shrink-0 max-w-[58%] text-right text-[14px] font-medium leading-[1.35] text-white [overflow-wrap:anywhere]`;
-const DESKTOP_KV_INSET_CLASS = "lg:px-2.5";
 
 function CompactDetailsBody({
   rows,
@@ -69,7 +67,7 @@ function FullDetailsBody({
 }) {
   return (
     <article
-      className={`hidden rounded-2xl ${COLLECTION_DETAILS_BG_CLASS} px-3 py-2 sm:px-4 sm:py-3 lg:block lg:rounded-none lg:bg-transparent lg:px-0 lg:py-0 lg:pb-1 ${DESKTOP_KV_INSET_CLASS}`}
+      className={`hidden rounded-2xl ${COLLECTION_DETAILS_BG_CLASS} px-3 py-2 sm:px-4 sm:py-3 lg:block lg:rounded-none lg:bg-transparent lg:px-0 lg:py-0 lg:pb-0`}
     >
       <h2 className="sr-only">{title}</h2>
       {subtitle?.trim() ? (
@@ -80,13 +78,19 @@ function FullDetailsBody({
       ) : null}
 
       {rows.length > 0 ? (
-        <dl
-          className={`space-y-0 ${catalogLine?.trim() ? "mt-1.5" : ""}`}
-        >
+        <dl className={`cd-details-kv ${catalogLine?.trim() ? "mt-1.5" : ""}`}>
           {rows.map((row) => (
-            <div key={row.id} className="flex gap-2 py-0.5 sm:gap-2.5 sm:py-1 lg:py-1">
-              <dt className={DESKTOP_ROW_LABEL_CLASS}>{row.label}</dt>
-              <dd className={DESKTOP_ROW_VALUE_CLASS}>{row.value}</dd>
+            <div key={row.id} className="cd-details-kv__row">
+              <dt className="cd-details-kv__label">{row.label}</dt>
+              <dd
+                className={`cd-details-kv__value${
+                  row.id === "token" || row.label.toLowerCase().includes("token")
+                    ? " cd-details-kv__value--link"
+                    : ""
+                }`}
+              >
+                {row.value}
+              </dd>
             </div>
           ))}
         </dl>

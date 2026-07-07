@@ -12,20 +12,20 @@ const CHAIN_META: Record<
     frontendEnv: string;
   }
 > = {
-  polygon: {
-    chainId: 137,
-    nativeSymbol: 'POL',
-    explorer: 'https://polygonscan.com',
-    backendEnv: 'CHAIN_137_RWA_ADDRESS',
-    frontendEnv: 'NEXT_PUBLIC_CHAIN_137_RWA',
+  mainnet: {
+    chainId: 1,
+    nativeSymbol: 'ETH',
+    explorer: 'https://etherscan.io',
+    backendEnv: 'CHAIN_1_RWA_ADDRESS',
+    frontendEnv: 'NEXT_PUBLIC_CHAIN_1_RWA',
   },
-  polygonAmoy: {
-    chainId: 80002,
-    nativeSymbol: 'POL',
-    explorer: 'https://amoy.polygonscan.com',
-    faucet: 'https://faucet.polygon.technology/',
-    backendEnv: 'CHAIN_80002_RWA_ADDRESS',
-    frontendEnv: 'NEXT_PUBLIC_CHAIN_80002_RWA',
+  sepolia: {
+    chainId: 11155111,
+    nativeSymbol: 'ETH',
+    explorer: 'https://sepolia.etherscan.io',
+    faucet: 'https://sepoliafaucet.com/',
+    backendEnv: 'CHAIN_11155111_RWA_ADDRESS',
+    frontendEnv: 'NEXT_PUBLIC_CHAIN_11155111_RWA',
   },
 };
 
@@ -33,15 +33,15 @@ const CHAIN_META: Record<
  * Deploy TokenableRWA as a UUPS upgradeable proxy.
  *
  * Examples:
- *   pnpm deploy:rwa              # Polygon Amoy (default dev)
- *   pnpm deploy:rwa:amoy
- *   pnpm deploy:rwa:polygon
+ *   pnpm deploy:rwa              # Sepolia (default dev)
+ *   pnpm deploy:rwa:sepolia
+ *   pnpm deploy:rwa:mainnet
  */
 async function main() {
   const meta = CHAIN_META[network.name];
   if (!meta) {
     throw new Error(
-      `Unsupported network "${network.name}". Use polygon or polygonAmoy.`,
+      `Unsupported network "${network.name}". Use mainnet or sepolia.`,
     );
   }
 
@@ -49,7 +49,7 @@ async function main() {
 
   // In production: admin should be a multisig (Gnosis Safe).
   // Minter is the backend hot wallet (same key used for RWA_OWNER_PRIVATE_KEY).
-  // For dev/Amoy: deployer fills both roles for simplicity.
+  // For dev/Sepolia: deployer fills both roles for simplicity.
   const adminAddress  = process.env.RWA_ADMIN_ADDRESS  ?? deployer.address;
   const minterAddress = process.env.RWA_MINTER_ADDRESS ?? deployer.address;
   // Platform fee wallet receives royalties. Defaults to deployer if not set.

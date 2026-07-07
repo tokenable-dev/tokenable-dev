@@ -186,7 +186,7 @@ export class PrivyFundingController {
   @ApiOperation({
     summary: 'Privy 앱 설정 (펀딩 / on-ramp)',
     description:
-      'Dashboard MoonPay on-ramp readiness. Default funding network must be Polygon + USDC (`eip155:137`) to match Tokenable `supportedChains`.',
+      'Dashboard MoonPay on-ramp readiness. Default funding network must be Ethereum + USDC (`eip155:1`) to match Tokenable `supportedChains`.',
   })
   async appSettings() {
     assertPrivyConfigured(this.privy);
@@ -210,7 +210,7 @@ export class PrivyFundingController {
         clientHook: 'useFiatOnramp (primary) · useFundWallet (legacy Privy modal)',
         provider: 'MoonPay only — card, Apple Pay, Google Pay via MoonPay when enabled in Dashboard',
         requiredDashboardDefaults: {
-          chain: 'eip155:137',
+          chain: 'eip155:1',
           asset: 'USDC',
         },
         testnet:

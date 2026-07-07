@@ -24,6 +24,7 @@ import {
   CHAIN_ID_HEADER,
   ChainConfigService,
 } from '../../blockchain/chain-config.service';
+import { ApiChainIdHeader } from '../../swagger/api-headers.util';
 import { WatchlistMutateDto } from './dto/watchlist-mutate.dto';
 import { WatchlistService } from './watchlist.service';
 
@@ -31,6 +32,7 @@ import { WatchlistService } from './watchlist.service';
 @Controller('marketplace/watchlist')
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth('access-token')
+@ApiChainIdHeader()
 export class WatchlistController {
   constructor(
     private readonly watchlist: WatchlistService,
@@ -38,7 +40,10 @@ export class WatchlistController {
   ) {}
 
   @Get()
-  @ApiOperation({ summary: 'Watchlist (saved collections)' })
+  @ApiOperation({
+    summary: 'Watchlist (saved collections)',
+    description: 'JWT 필수. `x-tokenable-chain-id`로 체인별 컬렉션 필터.',
+  })
   list(
     @Req() req: Request & { user: User },
     @Headers(CHAIN_ID_HEADER) chainHeader?: string,

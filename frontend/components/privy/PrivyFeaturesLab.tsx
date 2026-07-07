@@ -67,7 +67,7 @@ function FeatureRow({
 
 const API_DOCS_HINT = "http://localhost:4100/api/docs";
 
-/** Dev lab — trigger Privy-native flows (MoonPay via useFiatOnramp on Amoy test). */
+/** Dev lab — trigger Privy-native flows (MoonPay via useFiatOnramp on Sepolia test). */
 export function PrivyFeaturesLab() {
   const { ready, authenticated, user: privyUser } = usePrivy();
   const { login } = useLogin();
@@ -160,8 +160,8 @@ export function PrivyFeaturesLab() {
       <FeatureRow
         title="Fiat on-ramp — MoonPay (card · Apple Pay · Google Pay)"
         hook="useFiatOnramp → fund()"
-        status="amoy-sandbox"
-        note="Pay test: Amoy + MoonPay sandbox. Check fundingReadiness via GET /api/privy/apps/settings."
+        status="sepolia-sandbox"
+        note="Pay test: Sepolia + MoonPay sandbox. Check fundingReadiness via GET /api/privy/apps/settings."
       >
         <button
           type="button"
@@ -190,7 +190,7 @@ export function PrivyFeaturesLab() {
         {fundingStatus.chainAligned === false ? (
           <p className="mt-2 text-xs text-amber-300/90">
             Dashboard default chain is {fundingStatus.defaultRecommendedChain ?? "unset"} — set
-            Amoy + USDC or Ethereum + USDC in{" "}
+            Sepolia + USDC or Ethereum + USDC in{" "}
             <a href={fundingStatus.dashboardUrl} className="underline" target="_blank" rel="noreferrer">
               Account Funding
             </a>
@@ -208,7 +208,7 @@ export function PrivyFeaturesLab() {
       <FeatureRow
         title="Fund wallet (legacy Privy modal)"
         hook="useFundWallet → fundWallet()"
-        status="amoy-sandbox"
+        status="sepolia-sandbox"
       >
         <button
           type="button"

@@ -70,6 +70,7 @@ Admin pages follow a consistent pattern:
 - Hook at `hooks/marketplace-admin/useMarketplaceAdmin{Feature}.ts`
 - API client at `lib/core/api/marketplace-admin-{feature}.ts`
 - Query key in `lib/core/queryKeys.ts` under `rq.admin*`
+- Sidebar nav in `components/marketplace/admin/nav/adminNavConfig.ts` (`ADMIN_NAV_SECTIONS`)
 - Exported from `components/marketplace/admin/index.ts`
 
 ## Anti-Patterns

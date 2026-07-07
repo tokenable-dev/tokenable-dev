@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "postinstall": "node scripts/patch-privy-isactive.mjs",
+    "check:css": "node scripts/check-css-braces.mjs",
     "dev": "NODE_OPTIONS=--max-old-space-size=8192 next dev",
     "dev:webpack": "NODE_OPTIONS=--max-old-space-size=8192 next dev --webpack",
     "build": "NODE_OPTIONS=--max-old-space-size=8192 next build",
@@ -22,6 +23,7 @@
     "next": "16.1.6",
     "react": "19.2.3",
     "react-dom": "19.2.3",
+    "three": "^0.185.1",
     "viem": "^2.47.0",
     "wagmi": "^3.5.0",
     "zustand": "^5.0.11"
@@ -31,6 +33,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/three": "^0.185.0",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

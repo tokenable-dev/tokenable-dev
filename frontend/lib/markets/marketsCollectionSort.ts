@@ -5,6 +5,7 @@ import type {
   CollectionListMarketSnapshot,
   MarketplaceCollectionSummary,
 } from "@/lib/core";
+import { parseCollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
 import { resolveMarketsListingMarketUsd, resolveMarketsListingMarketChangePct } from "@/lib/markets/marketsListingMarketPrice";
 
 export const MARKETS_DEFAULT_SORT_ID = "pct_change_high" as const;
@@ -14,6 +15,7 @@ export const MARKETS_SORT_OPTIONS = [
   { id: "recent_listed", label: "Recent listed" },
   { id: "high_price", label: "High price" },
   { id: "low_price", label: "Low price" },
+  { id: "population_low", label: "Population low" },
   { id: "recent_sold", label: "Recent sold" },
 ] as const;
 
@@ -116,6 +118,20 @@ function compareMarketsByRecentListed(
   return compareMarketsByLabel(a, b);
 }
 
+function compareMarketsByPopulationAsc(
+  a: MarketplaceCollectionSummary,
+  b: MarketplaceCollectionSummary,
+): number {
+  const pop = (c: MarketplaceCollectionSummary) => {
+    const n = parseCollectionComponents(c.components).psaTotalPopulation;
+    return typeof n === "number" && n >= 0 ? n : Number.POSITIVE_INFINITY;
+  };
+  const pa = pop(a);
+  const pb = pop(b);
+  if (pa !== pb) return pa - pb;
+  return compareMarketsByLabel(a, b);
+}
+
 export function compareMarketsCollections(
   a: MarketplaceCollectionSummary,
   b: MarketplaceCollectionSummary,
@@ -139,6 +155,8 @@ export function compareMarketsCollections(
       return compareMarketsByMarketPriceAsc(a, b, snapByKey);
     case "recent_sold":
       return compareMarketsByRecentSold(a, b, snapByKey);
+    case "population_low":
+      return compareMarketsByPopulationAsc(a, b);
     case "high_price":
     default:
       return compareMarketsByMarketPriceDesc(a, b, snapByKey);

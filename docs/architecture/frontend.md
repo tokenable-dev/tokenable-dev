@@ -19,7 +19,7 @@ Marketplace UI is organized into **feature folders** with matching `hooks/` and 
 | Portfolio | `portfolio/` | `hooks/portfolio/`, `lib/portfolio/` |
 | Vault / mint | `vault/` | `hooks/vault/`, `lib/vault/` |
 | Marketplace admin | `marketplace/admin/` | `hooks/marketplace-admin/`, `lib/core/api/marketplace-admin-*.ts` — see [marketplace-admin.md](../guides/marketplace-admin.md) |
-| Auth / profile | `auth/`, `privy/PrivyUserPill.tsx` | `providers/PrivyAuthBridge`, `lib/auth/` — header uses Privy `UserPill` only |
+| Auth / profile | `auth/`, `layout/header/wallet/` | `providers/PrivyAuthBridge`, `lib/auth/` — header uses custom wallet menu + Privy hooks |
 | Shared chrome | `layout/`, `marketplace-shared/`, `collection-cover/` | `lib/marketplace/assetDetailHeadline.ts` |
 
 Seaport signing / fulfillment remains in **`lib/seaport/`** (orders, criteria, fulfillment).
@@ -46,6 +46,7 @@ frontend/
 │   ├── landing/                   # MarketIndexes
 │   ├── markets/                   # MarketsPage, Top100, TopMovers sections
 │   ├── portfolio/
+│   ├── watchlist/                 # WatchlistPage, WatchlistCollectibleCard
 │   ├── vault/                     # MintForm (inbound mint UX — Vault system TBD)
 │   ├── auth/
 │   └── marketplace/
@@ -138,15 +139,17 @@ PSA display titles (Year → Brand → # → Subject → Variety) are built clie
 
 ## Header auth
 
-Authenticated users see Privy’s native **`UserPill`** (`components/privy/PrivyUserPill.tsx` → `@privy-io/react-auth/ui`). Login, wallet management, **Add funds** (MoonPay), and account settings come from Privy — no custom Tokenable account dropdown in the header.
+Authenticated users see a **custom wallet chip + dropdown** styled like HTML `tk-wallet.js` (`HeaderWalletMenu`, `HeaderMobileWalletSection`). Privy still owns login/logout/session (`useLogin`, `completeSignOut` → `useLogout`); the dropdown is Tokenable product nav only.
 
 `HeaderAuthControls` renders:
 
 - Skeleton while Privy + Tokenable session init  
-- `UserPill` with `action={{ type: "login" }}` when logged out  
-- Default `UserPill` when logged in  
+- `TkButton` **Sign up** → `useLogin()` when logged out  
+- `HeaderWalletMenu` (desktop chip: address + native balance + chevron) when logged in  
 
-Do **not** restyle Privy modals or dropdowns — only platform z-index in `globals.css` (`[data-floating-ui-portal]` → `150`) so page controls (e.g. markets watchlist) stay underneath.
+`PrivyUserPill` remains for dev lab (`/dev/privy`), profile fallback, and wallet-mismatch flows — not in the main GNB.
+
+Do **not** restyle Privy modals or portal menus — only platform z-index in `globals.css` (`[data-floating-ui-portal]` → `150`) so page controls stay underneath.
 
 Tokenable JWT sync still runs via `PrivySessionBridge`; profile page and marketplace routes use `useAuthStore` as before.
 
@@ -177,4 +180,4 @@ Output is JSON via `console.log`, parseable in DevTools or piped to a CLI.
 
 ## Feature flags (UI)
 
-Top 100 / Top Movers public sections can be gated via env copy helpers in `lib/markets/top100Copy.ts` (`TOP_CARDS_UI_ENABLED`, `TOP_MOVERS_UI_ENABLED`). Admin preview routes under `/marketplace/admin/*` remain available for ops.
+Top 100 / Top Movers public sections can be gated via env copy helpers in `lib/markets/top100Copy.ts` (`TOP_CARDS_UI_ENABLED`, `TOP_MOVERS_UI_ENABLED`). Admin previews live under `/marketplace/admin/markets` (tabbed).

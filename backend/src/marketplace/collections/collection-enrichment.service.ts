@@ -68,14 +68,25 @@ export class CollectionEnrichmentService {
     return this.components.ensureMintParallelVarietyFromListings(collectionKey);
   }
 
-  async mergePsaSnapshotIntoComponentsFromDb(
+  async mergePsaCertFromLiveApiIntoComponents(
     col: MarketplaceCollection,
+    opts?: { allowUpstream?: boolean },
   ): Promise<MarketplaceCollection> {
-    return this.components.mergePsaSnapshotIntoComponentsFromDb(col);
+    return this.components.mergePsaCertFromLiveApiIntoComponents(col, opts);
   }
 
-  async persistPsaMirrorFromCertToDb(collectionKey: string): Promise<boolean> {
-    return this.components.persistPsaMirrorFromCertToDb(collectionKey);
+  async mergePsaSnapshotIntoComponentsFromDb(
+    col: MarketplaceCollection,
+    opts?: { allowUpstream?: boolean },
+  ): Promise<MarketplaceCollection> {
+    return this.components.mergePsaSnapshotIntoComponentsFromDb(col, opts);
+  }
+
+  async persistPsaMirrorFromCertToDb(
+    collectionKey: string,
+    opts?: { allowUpstream?: boolean },
+  ): Promise<boolean> {
+    return this.components.persistPsaMirrorFromCertToDb(collectionKey, opts);
   }
 
   async ensurePsaSpecPopulationFromApi(

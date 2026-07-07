@@ -1,7 +1,7 @@
 # Tokenable RWA Marketplace — Documentation
 
 A non-custodial marketplace for **graded trading-card RWAs** on **Polygon mainnet** (137) and **Polygon Amoy** testnet (80002).  
-Users vault **PSA 10** graded cards via IPFS (PSA cert lookup / slab OCR → Pinata); the backend mints an ERC-721 NFT to a **platform custody wallet**, an admin delivers it to the user, and the user trades with USDC via **Seaport 1.5** off-chain orders. External market pricing is **materialized** in PostgreSQL (`collection_market_snapshots`) and refreshed by Cardhedger snapshot workers — not pulled on every page view. Portfolio value history is stored in **`portfolio_daily_snapshots`** (daily **09:00 KST** cron). Hide preferences use **`portfolio_hidden_holdings`**. Authenticated users can save collections in **`user_watchlist`**.
+Users vault **PSA 10** graded cards via IPFS (PSA cert lookup / slab OCR → Pinata); the backend mints an ERC-721 NFT to a **platform custody wallet**, an admin delivers it to the user, and the user trades with USDC via **Seaport 1.5** off-chain orders. External market pricing is **materialized** in PostgreSQL (`collection_market_snapshots`) and refreshed by Cardhedger snapshot workers — not pulled on every page view. Portfolio value history is stored in **`portfolio_daily_snapshots`** (daily **09:00 KST** cron). Hide + cost basis use **`portfolio_holdings`**. Authenticated users can save collections in **`user_watchlist`**.
 
 The full physical-card lifecycle (deposit → mint → deliver → trade → redeem → burn) is documented in **[architecture/vault-lifecycle.md](architecture/vault-lifecycle.md)**.
 
@@ -59,6 +59,7 @@ tokenable-dev/
 | Marketplace admin console | [guides/marketplace-admin.md](guides/marketplace-admin.md) |
 | Privy auth migration | [guides/privy-auth-migration.md](guides/privy-auth-migration.md) |
 | Troubleshooting | [guides/troubleshooting.md](guides/troubleshooting.md) |
+| Design system migration (UI phases) | [guides/design-system-migration.md](guides/design-system-migration.md) |
 | Live Swagger UI | `http://localhost:4100/api/docs` (local dev) |
 
 ## Core Technologies

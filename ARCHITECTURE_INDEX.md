@@ -2,7 +2,7 @@
 
 Navigation guide for both humans and AI agents. Read this first before working on any subsystem.
 
-**Last updated:** 2026-07-03 | **Status:** Reflects current implementation.
+**Last updated:** 2026-07-07 | **Status:** Reflects current implementation.
 
 > **New session?** Follow [`AI_WORKFLOW.md`](AI_WORKFLOW.md) for the step order, and read [`.cursor/project-constitution.md`](.cursor/project-constitution.md) for philosophy and invariants. This index answers "I need to modify X → which files do I read?"
 
@@ -101,12 +101,12 @@ Key facts:
 | **Documentation** | `docs/api/psa.md`, `docs/guides/cardhedger-psa-variety.md` |
 | **Implementation** | `backend/src/psa/` |
 | **Rate limit util** | `backend/src/psa/psa-public-api.service.ts` |
-| **Cache table** | `psa_cert_snapshots` |
+| **In-memory cache** | `PsaPublicApiService` TTL (`PSA_PUBLIC_API_CACHE_TTL_MS`) |
 | **Required reading before changes** | `docs/api/psa.md`, `docs/business-rules.md` (BR-17, BR-18) |
 
 Key facts:
-- PSA free tier ~1 req/day per token — mitigated by `PSA_PUBLIC_API_TOKENS` pool
-- Responses cached in `psa_cert_snapshots`; TTL = `PSA_PUBLIC_SNAPSHOT_DB_TTL_SEC`
+- PSA subscription tier supports higher daily volume — mitigated by `PSA_PUBLIC_API_TOKENS` pool when needed
+- Live `GetByCertNumber` on mint/analyze; short in-memory cache only (no DB snapshot bypass)
 - 429 responses block a token for 24h (until next UTC midnight)
 
 ---
@@ -133,11 +133,13 @@ Key facts:
 |---|---|
 | **Documentation** | `docs/api/marketplace.md` (portfolio section) |
 | **Implementation** | `backend/src/marketplace/portfolio/` |
-| **Database table** | `portfolio_daily_snapshots`, `portfolio_hidden_holdings` |
+| **Database table** | `portfolio_daily_snapshots`, `portfolio_holdings` |
 
 Key facts:
-- Daily snapshot at 09:00 KST via cron
+- Daily snapshot at 09:00 KST via cron (`portfolio_daily_snapshots`)
 - Snapshots are **write-once** (never overwritten)
+- Portfolio **hero value + 24h change** use snapshot series only (not live sum)
+- Per-asset **My Assets P/L** uses `portfolio_holdings` cost basis vs live mark
 - Hidden holdings are off-chain UI preferences; NFT stays in wallet
 
 ---
@@ -209,7 +211,27 @@ Key facts:
 |---|---|
 | **Documentation** | `docs/guides/marketplace-admin.md`, `docs/api/marketplace-admin.md` |
 | **Route** | `/marketplace/admin` (separate auth from user session) |
+| **Nav config** | `frontend/components/marketplace/admin/nav/adminNavConfig.ts` (grouped sidebar) |
 | **Backend** | `backend/src/marketplace/admin/`, `backend/src/marketplace/collections/rwa-token-admin.controller.ts` |
+
+---
+
+### Frontend design system (UI migration)
+
+| | |
+|---|---|
+| **Migration plan (phases 0–10)** | `docs/guides/design-system-migration.md` |
+| **Committed DS CSS** | `frontend/design-system/` (`styles.css`, `tokens/`, `components/components.css`) |
+| **Screen inventory** | `frontend/design-system/INVENTORY.md` |
+| **HTML prototypes (reference)** | `Tokenable-with design system/` (repo root — not imported by Next.js) |
+| **DS public assets** | `frontend/public/assets/ds/` |
+| **Cursor rule** | `.cursor/rules/design-system-migration.mdc` |
+| **Required reading before UI/visual changes** | `docs/guides/design-system-migration.md`, `frontend/design-system/INVENTORY.md` |
+
+Key facts:
+- Phased rollout: Phase 0 setup → Phase 1 primitives → Phase 2 shell → pages 3–10.
+- Azure `#1A6FFF` pixel aesthetic replaces mint-green Tailwind chrome; business logic unchanged.
+- Center modals (`tk-dialog`) vs action sheets (`portfolio-modals.js` pattern) are separate shells.
 
 ---
 
@@ -246,6 +268,7 @@ Key facts:
 | Admin RWA ops | `docs/api/marketplace-admin.md`, `backend/src/marketplace/collections/rwa-token-admin.service.ts` |
 | PSA integration | `docs/api/psa.md`, `backend/src/psa/psa-public-api.service.ts` |
 | Frontend state | `frontend/store/authStore.ts`, `frontend/lib/core/queryKeys.ts`, `frontend/lib/core/invalidation.ts` |
+| Frontend UI / design system | `docs/guides/design-system-migration.md`, `frontend/design-system/INVENTORY.md`, active phase in migration checklist |
 | Deployment | `docs/guides/deployment.md`, `.github/workflows/deploy.yml` |
 
 ---

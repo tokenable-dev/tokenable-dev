@@ -3,7 +3,9 @@ import { ConfigService } from '@nestjs/config';
 import { readCardhedgerFeatureFlags } from '../../config/cardhedger-feature-flags.util';
 import { RwaAssetResolveService } from '../../blockchain/rwa-asset-resolve.service';
 import { CardhedgerService } from '../../cardhedger/cardhedger.service';
-import { PsaCertSnapshotService } from '../collections/psa-cert-snapshot.service';
+import { PsaPublicApiService } from '../../psa/psa-public-api.service';
+import { isPsaPublicApiUpstreamEnabled } from '../utils/psa-upstream-policy.util';
+import { fetchCompactPsaCertByNumber } from '../utils/psa-cert-compact.util';
 import {
   componentsPsaMirrorSufficientForCardhedger,
   mergePsaCertSnapshotIntoMirror,
@@ -42,7 +44,7 @@ export class CardhedgerMintService {
     private readonly cardhedger: CardhedgerService,
     private readonly rwaAssetResolve: RwaAssetResolveService,
     private readonly config: ConfigService,
-    private readonly psaCertSnapshots: PsaCertSnapshotService,
+    private readonly psaPublicApi: PsaPublicApiService,
     private readonly certLookup: CardhedgerCertLookupService,
     private readonly certPricing: CardhedgerCertPricingService,
     private readonly resolve: CardhedgerResolveService,
@@ -323,41 +325,20 @@ export class CardhedgerMintService {
       }
     }
 
-    const snap = await this.psaCertSnapshots.fetchCertSnapshotJson(certRaw, {
-      allowUpstream: false,
-    });
-    if (!snap) {
-      const scraped = await this.psaCertSnapshots.refreshEstimateIfMissing(
-        certRaw,
-        { allowUpstream: false },
-      );
-      if (scraped != null) {
-        return { ...baseMirror, psaEstimateUsd: scraped };
-      }
-      return baseMirror;
-    }
+    if (!isPsaPublicApiUpstreamEnabled(this.config)) return baseMirror;
+
+    const snap = await fetchCompactPsaCertByNumber(this.psaPublicApi, certRaw);
+    if (!snap) return baseMirror;
 
     const hadVariety = Boolean(String(baseMirror.psaVariety ?? '').trim());
     const extra = mergePsaCertSnapshotIntoMirror(baseMirror, snap);
-    if (
-      !Number.isFinite(Number(extra.psaEstimateUsd)) ||
-      Number(extra.psaEstimateUsd) <= 0
-    ) {
-      const scraped = await this.psaCertSnapshots.refreshEstimateIfMissing(
-        certRaw,
-        { allowUpstream: false },
-      );
-      if (scraped != null) {
-        extra.psaEstimateUsd = scraped;
-      }
-    }
     if (
       !hadVariety &&
       typeof extra.psaVariety === 'string' &&
       String(extra.psaVariety).trim()
     ) {
       this.logger.log(
-        'Cardhedger mint preview: psaVariety filled via PSA cert snapshot (IPFS metadata had no PSA Variety)',
+        'Cardhedger mint preview: psaVariety filled via PSA Public API (IPFS metadata had no PSA Variety)',
       );
     }
     return extra;

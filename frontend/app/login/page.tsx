@@ -3,5 +3,5 @@
 import { PrivyAuthEntryPage } from "@/components/auth/PrivyAuthEntryPage";
 
 export default function LoginPage() {
-  return <PrivyAuthEntryPage />;
+  return <PrivyAuthEntryPage mode="login" />;
 }

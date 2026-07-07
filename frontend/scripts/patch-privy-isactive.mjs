@@ -3,7 +3,7 @@
  *
  * 1. Remove unused `isActive` prop on TransactionDetails accordion (styled-components).
  * 2. `"clip-path"` → `"clipPath"` in bundled SVG icons (React 19 dev warning).
- * 3. UserPill "Add funds" → Amoy USDC + MoonPay (Dashboard default is often chain 1).
+ * 3. UserPill "Add funds" → Sepolia USDC + MoonPay (Dashboard default is often chain 1).
  * 4. fundWallet chain fallback when Dashboard default is not in supportedChains.
  *
  * Re-run safe after `pnpm install` — idempotent.
@@ -19,8 +19,8 @@ const PRIVY_DIST = path.join(
   "dist",
 );
 
-/** MoonPay test destination — must match NEXT_PUBLIC_PRIVY_FUNDING_CHAIN_ID (Amoy). */
-const FUNDING_CHAIN_ID = 80002;
+/** MoonPay test destination — must match NEXT_PUBLIC_PRIVY_FUNDING_CHAIN_ID (Sepolia). */
+const FUNDING_CHAIN_ID = 11155111;
 
 const FUNDING_OPTIONS =
   `{chain:{id:${FUNDING_CHAIN_ID}},asset:"USDC",defaultFundingMethod:"card",card:{preferredProvider:"moonpay"}}`;
@@ -33,18 +33,19 @@ const USERPILL_ADD_FUNDS_NEEDLE =
   'onClick:()=>i({address:a.address}),disabled:!t.wallet,children:"Add funds"';
 const USERPILL_ADD_FUNDS_REPLACEMENT = `onClick:()=>i({address:a.address,options:${FUNDING_OPTIONS}}),disabled:!t.wallet,children:"Add funds"`;
 
-/** Re-apply when chain id changes (e.g. Amoy → Polygon mainnet). */
-const USERPILL_ADD_FUNDS_LEGACY_REPLACEMENT = `onClick:()=>i({address:a.address,options:{chain:{id:137},asset:"USDC",defaultFundingMethod:"card",card:{preferredProvider:"moonpay"}}}),disabled:!t.wallet,children:"Add funds"`;
+/** Re-apply when chain id changes (e.g. Sepolia → Ethereum mainnet). */
+const USERPILL_ADD_FUNDS_LEGACY_REPLACEMENT = `onClick:()=>i({address:a.address,options:{chain:{id:1},asset:"USDC",defaultFundingMethod:"card",card:{preferredProvider:"moonpay"}}}),disabled:!t.wallet,children:"Add funds"`;
 
 const WALLET_ACTIONS_ADD_FUNDS_NEEDLE =
   '"ethereum"===c?.chainType?await a(c.address):';
 const WALLET_ACTIONS_ADD_FUNDS_REPLACEMENT = `"ethereum"===c?.chainType?await a(c.address,${FUNDING_OPTIONS}):`;
 
 const WALLET_ACTIONS_ADD_FUNDS_LEGACY_REPLACEMENT =
-  '"ethereum"===c?.chainType?await a(c.address,{chain:{id:137},asset:"USDC",defaultFundingMethod:"card",card:{preferredProvider:"moonpay"}}):';
+  '"ethereum"===c?.chainType?await a(c.address,{chain:{id:1},asset:"USDC",defaultFundingMethod:"card",card:{preferredProvider:"moonpay"}}):';
+
 
 const FUNDING_CHAIN_GUARD_LEGACY_REPLACEMENT =
-  `let u=r.chains.find((e=>e.id===l));if(!u){const _fb=r.chains.find((e=>137===e.id))??r.chains.find((e=>!e.testnet))??r.chains[0];if(_fb){l=_fb.id;u=_fb}}if(!u)throw new e(\`Funding chain \${l} is not in PrivyProvider chains list\`);`;
+  `let u=r.chains.find((e=>e.id===l));if(!u){const _fb=r.chains.find((e=>1===e.id))??r.chains.find((e=>!e.testnet))??r.chains[0];if(_fb){l=_fb.id;u=_fb}}if(!u)throw new e(\`Funding chain \${l} is not in PrivyProvider chains list\`);`;
 
 const FUNDING_CHAIN_GUARD_NEEDLE =
   "let u=r.chains.find((e=>e.id===l));if(!u)throw new e(`Funding chain ${l} is not in PrivyProvider chains list`);";

@@ -204,9 +204,10 @@ frontend/
 ├── components/             # React components
 │   ├── auth/               # PrivyAuthEntryPage, HeaderAuthModals, DeleteAccountSettings
 │   ├── charts/             # EChartsSized reusable chart wrapper
-│   ├── landing/            # Hero, offers, index sections
-│   ├── layout/             # AppHeader, HeaderAuthControls, nav
-│   ├── markets/            # Markets page, Top 100, CollectionGridCard
+│   ├── collectibles/         # CollectibleCard (shared DS marketplace tile)
+│   ├── home/                 # Home page sections (hero, ticker, grid4, features)
+│   ├── layout/             # TkHeader, TkFooter, header/*
+│   ├── markets/            # Markets page, Top 100, filter bar
 │   ├── marketplace/
 │   │   ├── admin/          # All admin page components
 │   │   ├── collection-detail/
@@ -220,6 +221,7 @@ frontend/
 │   └── vault/              # MintForm, GradedCardSection, VaultPageBody
 │
 ├── hooks/                  # Custom React hooks
+│   ├── home/               # useHomeMarketplaceGrids, useMarketplaceSnapshots
 │   ├── auth/               # useAuthSession, usePrivySession
 │   ├── marketplace-admin/  # useMarketplaceAdminCards, useMarketplaceAdminCustodyNfts, etc.
 │   ├── portfolio/
@@ -344,20 +346,27 @@ docs/
 
 ```
 backend/sql/
-├── bootstrap-empty-prod-db.sql   # Orchestrates all schema/* files in order
+├── bootstrap-empty-prod-db.sql   # Orchestrates schema/* in domain order
 ├── scripts/
-│   └── bootstrap-db.sh          # Shell wrapper for Docker exec
+│   └── bootstrap-db.sh
 ├── schema/
-│   ├── 010_users.sql            # Up to 084_*.sql + 900_triggers.sql
-│   └── ...
+│   ├── 010_users_and_auth.sql
+│   ├── 020_vault.sql
+│   ├── 030_rwa_tokens.sql
+│   ├── 040_marketplace.sql
+│   ├── 050_portfolio.sql
+│   ├── 060_admin.sql
+│   ├── 070_cardhedger.sql
+│   └── 900_triggers.sql
 ├── maintenance/
-│   └── 077_reset_amoy_marketplace_data.sql  # Dev Amoy data reset
-├── seed-dev-platform-chart-fills.sql
-├── seed-marketplace-admin.sql
+│   └── reset_marketplace_data.sql
+├── seed/
+│   ├── marketplace-admin.sql
+│   └── dev-platform-chart-fills.sql
 └── README.md
 ```
 
 **Rules:**
-- Never edit deployed schema files — add a new numbered migration
+- Schema files are domain-grouped final DDL for fresh bootstrap (not incremental migrations)
 - `900_triggers.sql` is idempotent; re-applied in bootstrap
-- `maintenance/` files are one-time ops scripts; not in bootstrap
+- `maintenance/` scripts are optional ops; not in bootstrap

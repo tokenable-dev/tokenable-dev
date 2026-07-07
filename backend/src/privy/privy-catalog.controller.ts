@@ -50,7 +50,7 @@ export class PrivyCatalogController {
         surface: 'client-sdk (useFiatOnramp)',
         clientHook: 'useFiatOnramp',
         note:
-          'Debit/credit, Apple Pay, Google Pay via Privy modal. Amoy/testnet on-ramps are not supported — use mainnet + sandbox providers in Dashboard.',
+          'Debit/credit, Apple Pay, Google Pay via Privy modal. Sepolia/testnet on-ramps are not supported — use mainnet + sandbox providers in Dashboard.',
       },
     };
   }

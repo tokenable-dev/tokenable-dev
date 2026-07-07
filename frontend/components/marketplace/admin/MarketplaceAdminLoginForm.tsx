@@ -34,9 +34,12 @@ export function MarketplaceAdminLoginForm({
 
   return (
     <div
-      className={`flex min-h-screen items-center justify-center px-4 py-8 ${ADMIN_SHELL_BG}`}
+      className={`admin-console flex min-h-screen items-center justify-center px-4 py-8 ${ADMIN_SHELL_BG}`}
     >
-      <form onSubmit={(e) => void handleSubmit(e)} className={`${ADMIN_ARTICLE} w-full max-w-sm space-y-4`}>
+      <form
+        onSubmit={(e) => void handleSubmit(e)}
+        className={`admin-login-card ${ADMIN_ARTICLE} w-full max-w-sm space-y-4`}
+      >
         <div className="text-center">
           <h1 className="text-xl font-semibold text-zinc-900">Admin sign in</h1>
           <p className="mt-1 text-sm text-zinc-700">Tokenable backoffice</p>

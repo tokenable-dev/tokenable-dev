@@ -44,11 +44,13 @@ import {
   CHAIN_ID_HEADER,
   ChainConfigService,
 } from '../../blockchain/chain-config.service';
+import { ApiChainIdHeader } from '../../swagger/api-headers.util';
 
 /**
  * 컬렉션·시장 데이터·Cardhedger 연동·관리자 커버/삭제.
  */
 @ApiTags('marketplace')
+@ApiChainIdHeader()
 @Controller('marketplace')
 export class CollectionsController {
   private readonly logger = new Logger(CollectionsController.name);

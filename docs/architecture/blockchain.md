@@ -208,7 +208,7 @@ After deploying a new contract, update:
 - `contracts/.env` — `CHAIN_80002_RWA_ADDRESS`
 - `backend/.env` — `CHAIN_80002_RWA_ADDRESS`
 - `frontend/.env` — `NEXT_PUBLIC_CHAIN_80002_RWA`
-- `backend/sql/seed-dev-platform-chart-fills.sql` — `rwa_contract` variable
+- `backend/sql/seed/dev-platform-chart-fills.sql` — `rwa_contract` variable
 - `backend/src/swagger/fixtures.ts` — `rwaContract`
 
 ---

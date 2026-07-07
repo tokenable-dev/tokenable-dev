@@ -107,7 +107,7 @@ backend/src/
     └── watchlist/
 ```
 
-**Entities (22):** `User`, `UserWallet`, `UserAuthProvider`, `UserKycEvent`, `VerificationToken`, `Order`, `MarketplaceCollection`, `CollectionMarketSnapshot`, `PsaCertSnapshot`, `RwaToken`, `PortfolioDailySnapshot`, `PortfolioHiddenHolding`, `UserWatchlist`, `MarketplaceAdmin`, `CardTop100DailySnapshot`, `CardhedgerPriceSubscription`, `CardhedgerPriceDeltaCheckpoint`, `CardhedgerDailyPriceExportRun`, `CardhedgerPriceDeltaImportRun`, `VaultAsset`, `VaultCycle`, `VaultRedemption` — see [database.md](./database.md).
+**Entities (21):** `User`, `UserWallet`, `UserAuthProvider`, `UserKycEvent`, `VerificationToken`, `Order`, `MarketplaceCollection`, `CollectionMarketSnapshot`, `RwaToken`, `PortfolioDailySnapshot`, `PortfolioHolding`, `UserWatchlist`, `MarketplaceAdmin`, `CardTop100DailySnapshot`, `CardhedgerPriceSubscription`, `CardhedgerPriceDeltaCheckpoint`, `CardhedgerDailyPriceExportRun`, `CardhedgerPriceDeltaImportRun`, `VaultAsset`, `VaultCycle`, `VaultRedemption` — see [database.md](./database.md).
 
 ---
 

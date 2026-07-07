@@ -22,7 +22,17 @@ import type { BookRowSelection } from "@/lib/marketplace/marketplaceTradingTypes
 import { OrderBookCenterStrip } from "./OrderBookCenterStrip";
 import { OrderBookDepthLevelRow } from "./OrderBookDepthLevelRow";
 
-function OrderBookColumnHeader({ flush }: { flush?: boolean }) {
+function OrderBookColumnHeader({ flush, collectionDetail }: { flush?: boolean; collectionDetail?: boolean }) {
+  if (collectionDetail) {
+    return (
+      <div className="cd-ob-book-hdr shrink-0">
+        <span>Price</span>
+        <span>Size</span>
+        <span>Total</span>
+      </div>
+    );
+  }
+
   if (flush) {
     return (
       <div
@@ -50,12 +60,27 @@ function OrderBookFooterCounts({
   askCount,
   flush,
   showSellHint,
+  collectionDetail,
 }: {
   bidCount: number;
   askCount: number;
   flush?: boolean;
   showSellHint?: boolean;
+  collectionDetail?: boolean;
 }) {
+  if (collectionDetail) {
+    return (
+      <div className="cd-ob-book-footer shrink-0">
+        <span>
+          Bids <span className="cd-ob-book-footer__bids">{bidCount}</span>
+        </span>
+        <span>
+          Asks <span className="cd-ob-book-footer__asks">{askCount}</span>
+        </span>
+      </div>
+    );
+  }
+
   return (
     <div
       className={
@@ -90,6 +115,7 @@ function AskLevelsList({
   flush,
   wrapperClass,
   emptyClassName,
+  collectionDetail,
 }: {
   levels: OrderBookDepthLevel[];
   emptyLabel: string;
@@ -98,6 +124,7 @@ function AskLevelsList({
   flush?: boolean;
   wrapperClass: string;
   emptyClassName?: string;
+  collectionDetail?: boolean;
 }) {
   return (
     <div className={wrapperClass}>
@@ -114,6 +141,7 @@ function AskLevelsList({
             selectedLevelKey={selectedLevelKey}
             onSelectLevel={onSelectLevel}
             flush={flush}
+            collectionDetail={collectionDetail}
           />
         ))
       )}
@@ -129,6 +157,7 @@ function BidLevelsList({
   flush,
   wrapperClass,
   emptyClassName,
+  collectionDetail,
 }: {
   levels: OrderBookDepthLevel[];
   emptyLabel: string;
@@ -137,6 +166,7 @@ function BidLevelsList({
   flush?: boolean;
   wrapperClass: string;
   emptyClassName?: string;
+  collectionDetail?: boolean;
 }) {
   return (
     <div className={wrapperClass}>
@@ -153,6 +183,7 @@ function BidLevelsList({
             selectedLevelKey={selectedLevelKey}
             onSelectLevel={onSelectLevel}
             flush={flush}
+            collectionDetail={collectionDetail}
           />
         ))
       )}
@@ -195,16 +226,18 @@ function isOrderBookFullyEmpty(
 function OrderBookEmptyNaOnly({
   flush,
   mobileEmbed,
+  collectionDetail,
 }: {
   flush?: boolean;
   mobileEmbed?: boolean;
+  collectionDetail?: boolean;
 }) {
   return (
     <div
       className={
         flush
           ? `flex min-h-0 items-center justify-center overflow-hidden ${
-              mobileEmbed ? "h-full" : "h-full flex-1"
+              collectionDetail ? "cd-ob-book-empty" : mobileEmbed ? "h-full" : "h-full flex-1"
             }`
           : "flex items-center justify-center py-10"
       }
@@ -227,6 +260,7 @@ export function OrderBookBookTab({
   askCount,
   selectedLevelKey,
   onSelectLevel,
+  collectionDetail,
 }: {
   flush?: boolean;
   compact?: boolean;
@@ -240,53 +274,101 @@ export function OrderBookBookTab({
   askCount: number;
   selectedLevelKey?: string | null;
   onSelectLevel?: (selection: BookRowSelection) => void;
+  collectionDetail?: boolean;
 }) {
   const askScrollable = askLevels.length > 0;
   const bidScrollable = bidLevels.length > 0;
   const fullyEmpty = isOrderBookFullyEmpty(askLevels, bidLevels, bookCenterModel);
 
   if (fullyEmpty) {
-    return <OrderBookEmptyNaOnly flush={flush} mobileEmbed={mobileEmbed} />;
+    return (
+      <OrderBookEmptyNaOnly
+        flush={flush}
+        mobileEmbed={mobileEmbed}
+        collectionDetail={collectionDetail}
+      />
+    );
   }
 
   if (flush) {
     return (
       <div
         className={`flex min-h-0 flex-col overflow-hidden ${
-          mobileEmbed ? "h-full" : "h-full flex-1"
+          collectionDetail
+            ? "cd-ob-book h-full"
+            : mobileEmbed
+              ? "h-full"
+              : "h-full flex-1"
         }`}
       >
-        <OrderBookColumnHeader flush />
-        <div className={scrollPaneClass(askScrollable, true, flushDepthRows, mobileEmbed)}>
-          <AskLevelsList
-            levels={askLevels}
-            emptyLabel="No sell orders"
-            selectedLevelKey={selectedLevelKey}
-            onSelectLevel={onSelectLevel}
-            flush
-            emptyClassName={emptyLevelsClass(true)}
-            wrapperClass={
-              askScrollable
-                ? `flex min-h-full flex-col justify-end gap-px pt-0.5 pb-1 ${COLLECTION_ORDER_BOOK_FLUSH_INSET_X}`
-                : `flex flex-col gap-px pt-0.5 pb-1 ${COLLECTION_ORDER_BOOK_FLUSH_INSET_X}`
+        <OrderBookColumnHeader flush collectionDetail={collectionDetail} />
+        <div
+          className={
+            collectionDetail
+              ? "cd-ob-book__scroll min-h-0 flex-1 overflow-x-hidden overflow-y-auto"
+              : "contents"
+          }
+        >
+          <div
+            className={
+              collectionDetail
+                ? "cd-ob-book-asks min-h-0 shrink-0 overflow-hidden"
+                : scrollPaneClass(askScrollable, true, flushDepthRows, mobileEmbed)
             }
-          />
+          >
+            <AskLevelsList
+              levels={askLevels}
+              emptyLabel="No sell orders"
+              selectedLevelKey={selectedLevelKey}
+              onSelectLevel={onSelectLevel}
+              flush
+              collectionDetail={collectionDetail}
+              emptyClassName={emptyLevelsClass(true)}
+              wrapperClass={
+                collectionDetail
+                  ? "cd-ob-book-asks__list"
+                  : askScrollable
+                    ? `flex min-h-full flex-col justify-end gap-px pt-0.5 pb-1 ${COLLECTION_ORDER_BOOK_FLUSH_INSET_X}`
+                    : `flex flex-col gap-px pt-0.5 pb-1 ${COLLECTION_ORDER_BOOK_FLUSH_INSET_X}`
+              }
+            />
+          </div>
+          <div
+            className={
+              collectionDetail ? "cd-ob-book-center shrink-0" : "relative mx-0.5 shrink-0"
+            }
+          >
+            <OrderBookCenterStrip model={bookCenterModel} collectionDetail={collectionDetail} />
+          </div>
+          <div
+            className={
+              collectionDetail
+                ? "cd-ob-book-bids min-h-0 shrink-0 overflow-hidden"
+                : scrollPaneClass(bidScrollable, true, flushDepthRows, mobileEmbed)
+            }
+          >
+            <BidLevelsList
+              levels={bidLevels}
+              emptyLabel="No buy orders"
+              selectedLevelKey={selectedLevelKey}
+              onSelectLevel={onSelectLevel}
+              flush
+              collectionDetail={collectionDetail}
+              emptyClassName={emptyLevelsClass(true)}
+              wrapperClass={
+                collectionDetail
+                  ? "cd-ob-book-bids__list"
+                  : `flex flex-col gap-px pt-0.5 pb-1 ${COLLECTION_ORDER_BOOK_FLUSH_INSET_X}`
+              }
+            />
+          </div>
         </div>
-        <div className="relative mx-0.5 shrink-0">
-          <OrderBookCenterStrip model={bookCenterModel} />
-        </div>
-        <div className={scrollPaneClass(bidScrollable, true, flushDepthRows, mobileEmbed)}>
-          <BidLevelsList
-            levels={bidLevels}
-            emptyLabel="No buy orders"
-            selectedLevelKey={selectedLevelKey}
-            onSelectLevel={onSelectLevel}
-            flush
-            emptyClassName={emptyLevelsClass(true)}
-            wrapperClass={`flex flex-col gap-px pt-0.5 pb-1 ${COLLECTION_ORDER_BOOK_FLUSH_INSET_X}`}
-          />
-        </div>
-        <OrderBookFooterCounts bidCount={bidCount} askCount={askCount} flush />
+        <OrderBookFooterCounts
+          bidCount={bidCount}
+          askCount={askCount}
+          flush
+          collectionDetail={collectionDetail}
+        />
       </div>
     );
   }

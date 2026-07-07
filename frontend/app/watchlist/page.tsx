@@ -1,5 +1,1 @@
-import { redirect } from "next/navigation";
-
-export default function WatchlistPage() {
-  redirect("/portfolio?tab=watchlist");
-}
+export { default } from "@/components/watchlist/WatchlistPage";

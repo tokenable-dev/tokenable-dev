@@ -81,13 +81,16 @@ export function useCollectionDetailMarketData(params: {
 
   const marketPreview = marketSeries?.cardhedgerPreview ?? null;
 
-  const { data: platformTradesData, isLoading: platformTradesLoading } = useQuery({
+  const { data: platformTradesData, isPending: platformTradesPending, isFetching: platformTradesFetching, isError: platformTradesError, error: platformTradesErrorDetail } = useQuery({
     queryKey: rq.collectionPlatformTrades(key, undefined, activeGradeForTrades),
     queryFn: () => getCollectionPlatformTrades(key, { grade: activeGradeForTrades }),
-    enabled: key.length > 0 && activeGradeForTrades.length > 0,
+    enabled: key.length > 0,
     refetchInterval: 20_000,
     refetchIntervalInBackground: false,
   });
+
+  const platformTradesLoading =
+    platformTradesPending || (platformTradesFetching && platformTradesData == null);
 
   const platformPtsBase = useMemo(
     () => platformTradesData?.platformUsd ?? [],
@@ -307,6 +310,8 @@ export function useCollectionDetailMarketData(params: {
     marketSeriesLoading,
     marketPreview,
     platformTradesLoading,
+    platformTradesError,
+    platformTradesErrorDetail,
     pokeTierLabel,
     displayPlatformUsd,
     resolvedExternal,

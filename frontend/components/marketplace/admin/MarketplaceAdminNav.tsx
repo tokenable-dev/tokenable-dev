@@ -7,52 +7,19 @@ import {
   ADMIN_SEGMENT_BTN,
   ADMIN_SEGMENT_BTN_ACTIVE,
 } from "./adminUi";
+import {
+  ADMIN_NAV_ITEMS,
+  ADMIN_NAV_SECTIONS,
+  isAdminMarketsPreviewActive,
+  isAdminNavItemActive,
+  type AdminNavItem,
+} from "./nav/adminNavConfig";
 
-const NAV_ITEMS = [
-  { href: "/marketplace/admin", label: "Overview", exact: true },
-  { href: "/marketplace/admin/analytics", label: "Analytics" },
-  { href: "/marketplace/admin/users", label: "Users", prefix: "/marketplace/admin/users" },
-  { href: "/marketplace/admin/cards", label: "All cards" },
-  {
-    href: "/marketplace/admin/custody-nfts",
-    label: "Custody NFTs",
-    prefix: "/marketplace/admin/custody-nfts",
-  },
-  {
-    href: "/marketplace/admin/contract-roles",
-    label: "Contract roles",
-    prefix: "/marketplace/admin/contract-roles",
-  },
-  { href: "/marketplace/admin/collections", label: "Collections" },
-  { href: "/marketplace/admin/top100", label: "Top 100", prefix: "/marketplace/admin/top100" },
-  {
-    href: "/marketplace/admin/top-movers",
-    label: "Top Movers",
-    prefix: "/marketplace/admin/top-movers",
-  },
-  {
-    href: "/marketplace/admin/price-webhooks",
-    label: "Price sync",
-    prefix: "/marketplace/admin/price-webhooks",
-  },
-  {
-    href: "/marketplace/admin/vault",
-    label: "Vault / PSA",
-    prefix: "/marketplace/admin/vault",
-  },
-] as const;
-
-function isActive(
-  pathname: string,
-  item: (typeof NAV_ITEMS)[number],
-): boolean {
-  if ("exact" in item && item.exact) {
-    return pathname === item.href;
+function navItemActive(pathname: string, item: AdminNavItem): boolean {
+  if (item.href === "/marketplace/admin/markets") {
+    return isAdminMarketsPreviewActive(pathname);
   }
-  if ("prefix" in item && item.prefix) {
-    return pathname.startsWith(item.prefix);
-  }
-  return pathname === item.href || pathname.startsWith(`${item.href}/`);
+  return isAdminNavItemActive(pathname, item);
 }
 
 export function MarketplaceAdminNav({
@@ -67,16 +34,14 @@ export function MarketplaceAdminNav({
   if (compact) {
     return (
       <div className="flex gap-1 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        {NAV_ITEMS.map((item) => {
-          const active = isActive(pathname, item);
+        {ADMIN_NAV_ITEMS.map((item) => {
+          const active = navItemActive(pathname, item);
           return (
             <Link
               key={item.href}
               href={item.href}
               onClick={onNavigate}
-              className={
-                active ? ADMIN_SEGMENT_BTN_ACTIVE : ADMIN_SEGMENT_BTN
-              }
+              className={active ? ADMIN_SEGMENT_BTN_ACTIVE : ADMIN_SEGMENT_BTN}
             >
               {item.label}
             </Link>
@@ -87,24 +52,34 @@ export function MarketplaceAdminNav({
   }
 
   return (
-    <nav className="flex flex-col gap-0.5 p-3">
-      {NAV_ITEMS.map((item) => {
-        const active = isActive(pathname, item);
-        return (
-          <Link
-            key={item.href}
-            href={item.href}
-            onClick={onNavigate}
-            className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-              active
-                ? "bg-zinc-100 font-semibold text-zinc-900 ring-1 ring-zinc-200"
-                : "text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900"
-            }`}
-          >
-            {item.label}
-          </Link>
-        );
-      })}
+    <nav className="flex flex-col gap-4 p-3">
+      {ADMIN_NAV_SECTIONS.map((section) => (
+        <div key={section.id}>
+          <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-400">
+            {section.label}
+          </p>
+          <div className="flex flex-col gap-0.5">
+            {section.items.map((item) => {
+              const active = navItemActive(pathname, item);
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={onNavigate}
+                  title={item.description}
+                  className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                    active
+                      ? "bg-zinc-100 font-semibold text-zinc-900 ring-1 ring-zinc-200"
+                      : "text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900"
+                  }`}
+                >
+                  {item.label}
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      ))}
     </nav>
   );
 }

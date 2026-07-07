@@ -50,6 +50,8 @@ export interface CollectionOverviewBoardProps {
   mobileTabbedMarketUi?: boolean;
   marketsBelowChart?: ReactNode;
   suppressHeadlineBanner?: boolean;
+  /** Card.html — h1 rendered outside the board on desktop. */
+  hideDesktopTopBarHeadline?: boolean;
   heroActions?: ReactNode;
   coverOverlay?: ReactNode;
   coverGallery?: CollectionCoverGalleryProps;

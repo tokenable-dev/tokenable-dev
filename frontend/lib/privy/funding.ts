@@ -9,11 +9,11 @@ export type PrivyFundingEnvironment = "sandbox" | "production";
 
 export const TOKENABLE_FUNDING_ASSET = "usdc" as const;
 
-/** Production launch target (Polygon) — used when not in Amoy pay-test mode. */
-export const PRODUCTION_FUNDING_CAIP2 = "eip155:137" as const;
+/** Production launch target (Ethereum mainnet). */
+export const PRODUCTION_FUNDING_CAIP2 = "eip155:1" as const;
 
-/** Amoy testnet — dev MoonPay sandbox destination. */
-export const AMOY_FUNDING_CAIP2 = "eip155:80002" as const;
+/** Sepolia testnet — dev MoonPay sandbox destination. */
+export const SEPOLIA_FUNDING_CAIP2 = "eip155:11155111" as const;
 
 /** Ethereum mainnet — common Privy Dashboard default during MoonPay setup. */
 export const ETHEREUM_FUNDING_CAIP2 = "eip155:1" as const;
@@ -33,21 +33,21 @@ export function parseCaip2EvmChainId(caip2: string): number | null {
 }
 
 /**
- * When true, Amoy uses MoonPay (`useFiatOnramp`) instead of MockUSDC mint.
+ * When true, Sepolia uses MoonPay (`useFiatOnramp`) instead of MockUSDC mint.
  * Set `NEXT_PUBLIC_PRIVY_FUNDING_USE_ONRAMP_ON_TESTNET=true` for pay-flow QA only.
  */
 export function shouldUseMoonPayOnTestnet(): boolean {
   return process.env.NEXT_PUBLIC_PRIVY_FUNDING_USE_ONRAMP_ON_TESTNET === "true";
 }
 
-/** Chain id passed to `useFiatOnramp` destination (defaults to Amoy for dev). */
+/** Chain id passed to `useFiatOnramp` destination (defaults to Sepolia for dev). */
 export function resolveFundingTargetChainId(): SupportedChainId {
   const raw = process.env.NEXT_PUBLIC_PRIVY_FUNDING_CHAIN_ID?.trim();
   const n = Number(raw);
   if (SUPPORTED_CHAIN_IDS.includes(n as SupportedChainId)) {
     return n as SupportedChainId;
   }
-  return 80002;
+  return 11155111;
 }
 
 export function resolveFundingTargetCaip2(): `eip155:${number}` {
@@ -116,8 +116,8 @@ export function formatPrivyFundingError(err: unknown): string {
   if (msg.includes("Funding chain") && msg.includes("not in PrivyProvider")) {
     return [
       "Privy Dashboard default funding network does not match this app.",
-      `Set Account Funding → Funding token to Polygon Amoy + USDC (${AMOY_FUNDING_CAIP2}) or Ethereum + USDC (${ETHEREUM_FUNDING_CAIP2}).`,
-      "Keep the header network on Amoy while testing.",
+      `Set Account Funding → Funding token to Ethereum Sepolia + USDC (${SEPOLIA_FUNDING_CAIP2}) or Ethereum + USDC (${ETHEREUM_FUNDING_CAIP2}).`,
+      "Keep the header network on Sepolia while testing.",
     ].join(" ");
   }
   return msg || "Funding flow failed. Please try again.";

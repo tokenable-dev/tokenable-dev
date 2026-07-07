@@ -1,67 +1,102 @@
 "use client";
 
-import { type ReactNode } from "react";
-import { orderBookTabLabelCls } from "@/components/marketplace/price-metrics-strip/theme";
+import { useState, type ReactNode } from "react";
 
-const MOBILE_TAB_CLASS =
-  "relative flex min-h-[24px] min-w-0 flex-1 items-center justify-center px-1 pb-1 pt-0.5 text-center text-[10px] font-semibold tracking-tight sm:min-h-0 sm:px-1 sm:pb-1.5 sm:pt-0.5 sm:text-[14px]";
+type SidebarTab = "details" | "psa";
 
-const DESKTOP_TAB_BASE = `${orderBookTabLabelCls} relative flex min-w-0 flex-1 items-center justify-center border-b-2 border-transparent pb-2 pt-1 text-center transition-colors max-lg:hidden`;
+const TAB_BASE =
+  "cd-ob-tab shrink-0 px-4 py-4 text-[15px] transition-colors duration-200";
+const TAB_ACTIVE = "cd-ob-tab--active";
+const TAB_INACTIVE = "";
+
+function SidebarTabButton({
+  id,
+  label,
+  active,
+  onSelect,
+}: {
+  id: SidebarTab;
+  label: string;
+  active: boolean;
+  onSelect: (id: SidebarTab) => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="tab"
+      id={`collection-sidebar-tab-${id}`}
+      aria-selected={active}
+      aria-controls={`collection-sidebar-panel-${id}`}
+      onClick={() => onSelect(id)}
+      className={`${TAB_BASE} ${active ? TAB_ACTIVE : TAB_INACTIVE}`}
+    >
+      {label}
+    </button>
+  );
+}
 
 export function CollectionHeroDetailsTabs({
   detailsPanel,
-  onAiInsightsClick,
+  psaPanel,
 }: {
   detailsPanel: ReactNode;
-  /** Opens “coming soon” / off-service UI — does not switch away from the details panel. */
-  onAiInsightsClick?: () => void;
+  psaPanel?: ReactNode;
 }) {
+  const [tab, setTab] = useState<SidebarTab>("details");
+  const showPsa = psaPanel != null;
+
   return (
-    <div className="w-full min-w-0 max-w-full">
+    <div className="cd-sidebar-tabs w-full min-w-0 max-w-full">
       <div
-        className="flex w-full min-w-0 gap-1 min-[375px]:gap-0 lg:gap-3 lg:border-b lg:border-zinc-800/70"
+        className="cd-ob-tabs relative hidden w-full shrink-0 items-end border-b border-white/[0.08] bg-transparent px-4 lg:flex"
         role="tablist"
         aria-label="Collection information"
       >
-        <div
-          role="tab"
-          aria-selected
-          className={`${MOBILE_TAB_CLASS} text-white lg:hidden`}
-        >
-          Details
-          <span
-            className="absolute bottom-0 left-1.5 right-1.5 h-[2px] rounded-t-[1px] bg-white min-[375px]:left-0 min-[375px]:right-0 lg:hidden"
-            aria-hidden
+        <div className="flex shrink-0 justify-start gap-0">
+          <SidebarTabButton
+            id="details"
+            label="Details"
+            active={tab === "details"}
+            onSelect={setTab}
           />
+          {showPsa ? (
+            <SidebarTabButton
+              id="psa"
+              label="PSA Population"
+              active={tab === "psa"}
+              onSelect={setTab}
+            />
+          ) : null}
         </div>
-        <div
-          role="tab"
-          aria-selected
-          className={`${DESKTOP_TAB_BASE} border-white font-semibold text-white`}
-        >
-          Details
-        </div>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={false}
-          onClick={() => onAiInsightsClick?.()}
-          className={`${MOBILE_TAB_CLASS} text-[#a0a0a0] transition-colors hover:text-zinc-200 active:bg-white/[0.04] lg:hidden`}
-        >
-          AI Insights
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={false}
-          onClick={() => onAiInsightsClick?.()}
-          className={`${DESKTOP_TAB_BASE} font-medium text-zinc-500 transition-colors hover:border-zinc-700 hover:text-zinc-300`}
-        >
-          AI Insights
-        </button>
       </div>
-      <div className="mt-1 w-full min-w-0 max-lg:mt-1 lg:mt-2" role="tabpanel" aria-label="Details">
-        {detailsPanel}
+
+      <div className="lg:hidden">{detailsPanel}</div>
+
+      <div className="cd-sidebar-tabs__body hidden lg:grid">
+        <div
+          id="collection-sidebar-panel-details"
+          role="tabpanel"
+          aria-labelledby="collection-sidebar-tab-details"
+          aria-hidden={tab !== "details"}
+          className={`cd-sidebar-tabs__panel${
+            tab === "details" ? "" : " cd-sidebar-tabs__panel--inactive"
+          }`}
+        >
+          {detailsPanel}
+        </div>
+        {showPsa ? (
+          <div
+            id="collection-sidebar-panel-psa"
+            role="tabpanel"
+            aria-labelledby="collection-sidebar-tab-psa"
+            aria-hidden={tab !== "psa"}
+            className={`cd-sidebar-tabs__panel${
+              tab === "psa" ? "" : " cd-sidebar-tabs__panel--inactive"
+            }`}
+          >
+            {psaPanel}
+          </div>
+        ) : null}
       </div>
     </div>
   );

@@ -35,6 +35,7 @@ export function CollectionDualPriceChart({
   collectionOverviewMat = false,
   embedInMobileTab = false,
   chartToolbar = null,
+  colorTheme = "default",
 }: CollectionDualPriceChartProps) {
   const marketsLayout = variant === "markets";
   const isMobileChart = useCollectionDetailMobile();
@@ -66,6 +67,7 @@ export function CollectionDualPriceChart({
     externalRefLineTag,
     isMobileChart,
     compactTab,
+    colorTheme,
   });
 
   const chartToolbarBarCls =

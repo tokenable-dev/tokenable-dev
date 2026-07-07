@@ -144,7 +144,7 @@ export function RwaDetailDesktopSidebar({
         </div>
       ) : !isOwner && !activeAskListing ? (
         <div className="hidden space-y-5 sm:space-y-6 lg:block">
-          <p className={`${rwaDetailRightFont.className} text-xl font-semibold text-zinc-400`}>
+          <p className={`${rwaDetailRightFont.className} rd-not-for-sale text-xl font-semibold`}>
             Not for sale
           </p>
           <RwaDetailMarketContextStrip
@@ -176,8 +176,9 @@ export function RwaDetailDesktopSidebar({
         </div>
       ) : null}
 
-      <div className="hidden border-t border-[rgba(38,39,45,1)] pt-6 lg:block">
+      <div className="hidden border-t rd-sidebar-divider pt-6 lg:block">
         <RwaDetailTradesPanel
+          className="rd-trades-panel"
           trades={tokenTrades}
           loading={tradesLoading}
           tradesAvailable={tradesAvailable}

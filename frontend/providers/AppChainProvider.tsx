@@ -28,8 +28,8 @@ import { useAuthStore } from "@/store/authStore";
 
 const STORAGE_KEY = "tokenable:chainId";
 
-/** Public users stay on Amoy until mainnet launch. */
-const PUBLIC_APP_CHAIN_ID = 80002 as SupportedChainId;
+/** Public users stay on Sepolia until mainnet launch. */
+const PUBLIC_APP_CHAIN_ID = 11155111 as SupportedChainId;
 
 type AppChainContextValue = {
   chainId: SupportedChainId;
@@ -41,13 +41,15 @@ type AppChainContextValue = {
 
 const AppChainContext = createContext<AppChainContextValue | null>(null);
 
-function readStoredChainId(): SupportedChainId {
+function readStoredChainId(internalDevBypass: boolean): SupportedChainId {
   if (typeof window === "undefined") return DEFAULT_CHAIN_ID;
   const raw = window.localStorage.getItem(STORAGE_KEY);
   const n = Number(raw);
   if (!SUPPORTED_CHAIN_IDS.includes(n as SupportedChainId)) return DEFAULT_CHAIN_ID;
-  // Dev: allow any supported chain ID, even if contracts are not yet configured.
-  if (process.env.NODE_ENV === "development") return n as SupportedChainId;
+  // Local dev + internal dev on deploy: allow any supported chain (wallet switch / QA).
+  if (process.env.NODE_ENV === "development" || internalDevBypass) {
+    return n as SupportedChainId;
+  }
   const configured = getConfiguredChains();
   if (configured.some((c) => c.id === n)) return n as SupportedChainId;
   return DEFAULT_CHAIN_ID;
@@ -69,7 +71,7 @@ export function AppChainProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!authInitialized) return;
     if (canSwitchChain) {
-      setChainIdState(readStoredChainId());
+      setChainIdState(readStoredChainId(true));
       return;
     }
     setChainIdState(PUBLIC_APP_CHAIN_ID);

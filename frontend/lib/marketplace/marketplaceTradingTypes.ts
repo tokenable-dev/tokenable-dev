@@ -29,6 +29,8 @@ export type CollectionUnifiedOrderBookProps = {
   lastTradeSide?: "buy" | "sell" | null;
   tapeFills?: CollectionPlatformTapeFill[];
   tapeLoading?: boolean;
+  tapeError?: boolean;
+  tapeErrorMessage?: string | null;
   /** Initial tab; desktop collection detail defaults to trades. */
   defaultTab?: OrderBookTab;
   connectedAddress?: string | null;

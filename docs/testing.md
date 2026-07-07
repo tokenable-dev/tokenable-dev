@@ -158,6 +158,6 @@ For PSA / rate-limited APIs:
 ## Test Data
 
 For integration tests requiring DB state:
-- Use `backend/sql/seed-marketplace-admin.sql` for admin credentials
-- Use `backend/sql/seed-dev-platform-chart-fills.sql` for marketplace chart data
+- Use `backend/sql/seed/marketplace-admin.sql` for admin credentials
+- Use `backend/sql/seed/dev-platform-chart-fills.sql` for marketplace chart data
 - Vault data is created programmatically; no seed scripts for vault tables

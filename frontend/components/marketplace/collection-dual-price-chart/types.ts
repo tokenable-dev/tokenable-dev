@@ -24,6 +24,8 @@ export type CollectionDualPriceChartProps = {
   isLoading?: boolean;
   errorMessage?: string | null;
   variant?: "default" | "markets";
+  /** Card.html blue chart on collection detail. */
+  colorTheme?: "default" | "collection-detail";
   /** When `variant` is `markets` and true, shell matches collection cover mat tones. */
   collectionOverviewMat?: boolean;
   /** Fixed-height mobile tab panel — do not stretch to fill viewport. */

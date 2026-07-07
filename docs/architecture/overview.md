@@ -10,7 +10,7 @@ flowchart TB
     BE["NestJS backend :4000"]
     PG[("PostgreSQL")]
     RD[("Redis L2 — identity cache")]
-    RPC["Polygon RPC (Amoy 80002 / Mainnet 137)"]
+    RPC["Ethereum RPC (Sepolia 11155111 / Mainnet 1)"]
     EXT["Cardhedger · PSA · Pinata · Card Ladder · Privy"]
 
     Browser --> Nginx
@@ -29,7 +29,7 @@ flowchart TB
 2. **Site access gate** (optional): when `SITE_ACCESS_ENABLED=true`, unauthenticated API calls return `401 SITE_ACCESS_REQUIRED` except public paths (health, auth, site-access verify, Cardhedger webhooks). See [site-access.md](../api/site-access.md).
 3. **NestJS** validates via `ValidationPipe`, applies JWT auth where required, and routes to the appropriate module.
 4. **PostgreSQL** (TypeORM) persists **22+ application tables** — see [database.md](./database.md).
-5. **Polygon RPC** (Amoy testnet or mainnet) provides read-only contract data. On-chain mint/burn is executed by the platform backend wallet; Seaport trading uses wallet-signed transactions in the browser.
+5. **Ethereum RPC** (Sepolia testnet or mainnet) provides read-only contract data. On-chain mint/burn is executed by the platform backend wallet; Seaport trading uses wallet-signed transactions in the browser.
 6. **Cardhedger API** is called from snapshot workers, identity/cert resolution, `/api/cardhedger/v1/*` proxy, Top 100 / Top Movers services, and portfolio capture — not on every marketplace chart/list GET.
 7. **Redis** (optional L2) backs the collection **identity cache** (`components.cardhedgerCardId`). Without `REDIS_URL`, L1 in-process cache only.
 8. **PSA Public API** (six upstream methods — see [api/psa.md](../api/psa.md)) verifies certs, slab images, spec population, and optional order/submission progress. A **multi-token pool** (`PSA_PUBLIC_API_TOKENS`) rotates across free API tokens.
@@ -91,7 +91,7 @@ Detail: [vault-lifecycle.md](./vault-lifecycle.md).
 | **Seaport** | `orders`, `marketplace_collections` | Wallet-signed on-chain `fulfillOrder` / `matchAdvancedOrders` | `marketplace/orders/*` API + `frontend/lib/seaport/*` |
 | **Market pricing (read)** | `collection_market_snapshots` | N/A — materialized + stale-while-revalidate | `marketplace/collections/*` + `POST …/market-snapshots` |
 | **Portfolio history** | `portfolio_daily_snapshots` | N/A — daily 09:00 KST cron (on-chain holders) | `GET …/portfolio/daily/:wallet` |
-| **Portfolio UI prefs** | `portfolio_hidden_holdings` | N/A — off-chain hide preference | `GET/POST/DELETE …/portfolio/hidden*` |
+| **Portfolio UI prefs** | `portfolio_holdings` | N/A — off-chain hide + cost basis | `GET/POST/DELETE …/portfolio/hidden*`, `POST …/holdings/batch`, `PUT …/holdings/cost-basis` |
 | **Watchlist** | `user_watchlist` | N/A — saved collections per user | `GET/POST/DELETE …/watchlist` |
 
 Relational matching (`bids`/`asks` tables, settlement workers) has been **removed**. See [database.md](./database.md) and [materialized-market-snapshots.md](./materialized-market-snapshots.md).
@@ -112,10 +112,10 @@ Relational matching (`bids`/`asks` tables, settlement workers) has been **remove
 
 | Variable | Service | Purpose |
 |----------|---------|---------|
-| `CHAIN_{id}_RPC_URL` | backend | Per-chain RPC URL (`137`, `80002`) |
+| `CHAIN_{id}_RPC_URL` | backend | Per-chain RPC URL (`1`, `11155111`) |
 | `CHAIN_{id}_RWA_ADDRESS` | backend | Per-chain TokenableRWA proxy address |
 | `CHAIN_{id}_USDC_ADDRESS` | backend | Per-chain USDC address |
-| `DEFAULT_CHAIN_ID` | backend | Default chain when header absent (default `80002`) |
+| `DEFAULT_CHAIN_ID` | backend | Default chain when header absent (default `11155111`) |
 | `RWA_OWNER_PRIVATE_KEY` | backend | Platform wallet — MINTER_ROLE + BURNER_ROLE |
 | `RWA_CUSTODY_WALLET_ADDRESS` | backend | Custody wallet address (defaults to owner address) |
 | `RWA_CUSTODY_PRIVATE_KEY` | backend | Optional separate custody signing key |

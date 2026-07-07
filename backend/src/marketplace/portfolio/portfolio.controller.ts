@@ -1,21 +1,32 @@
-import { Body, Controller, Delete, Get, Param, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Post,
+  Put,
+  Query,
+} from '@nestjs/common';
 import { ApiBody, ApiOperation, ApiParam, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { apiBodyDefault } from '../../swagger/api-body.util';
 import { SWAGGER_BODY_EXAMPLES } from '../../swagger/examples';
 import { SWAGGER_FIXTURES } from '../../swagger/fixtures';
 import { PortfolioHideHoldingDto } from './dto/portfolio-hide-holding.dto';
+import { PortfolioHoldingsBatchDto } from './dto/portfolio-holdings-batch.dto';
+import { PortfolioSetCostBasisDto } from './dto/portfolio-set-cost-basis.dto';
 import { PortfolioDailySnapshotService } from './portfolio-daily-snapshot.service';
-import { PortfolioHiddenHoldingService } from './portfolio-hidden-holding.service';
+import { PortfolioHoldingService } from './portfolio-holding.service';
 
 /**
- * 포트폴리오 — 일별 스냅샷·24h P&L·보유 숨김 설정.
+ * 포트폴리오 — 일별 스냅샷·24h P&L·보유 숨김·cost basis.
  */
 @ApiTags('marketplace')
 @Controller('marketplace')
 export class PortfolioController {
   constructor(
     private readonly portfolioSnapshots: PortfolioDailySnapshotService,
-    private readonly portfolioHidden: PortfolioHiddenHoldingService,
+    private readonly portfolioHoldings: PortfolioHoldingService,
   ) {}
 
   /** 지갑 일별 가치 스냅샷 + 최근 24h 손익 */
@@ -31,7 +42,6 @@ export class PortfolioController {
       limitRaw != null && String(limitRaw).trim() !== ''
         ? Math.max(2, Math.min(120, parseInt(String(limitRaw), 10)))
         : 32;
-    // Fallback capture runs in background — never block GET on full wallet pricing.
     this.portfolioSnapshots.scheduleCurrentSlotSnapshot(wallet);
     const rows = await this.portfolioSnapshots.listWalletSnapshots(wallet, limit);
     if (rows.length === 0) {
@@ -58,7 +68,7 @@ export class PortfolioController {
   @ApiParam({ name: 'wallet', description: '지갑 주소', example: SWAGGER_FIXTURES.wallet })
   @Get('portfolio/hidden/:wallet')
   async listPortfolioHidden(@Param('wallet') wallet: string) {
-    const tokenIds = await this.portfolioHidden.listHiddenTokenIds(wallet);
+    const tokenIds = await this.portfolioHoldings.listHiddenTokenIds(wallet);
     return { tokenIds };
   }
 
@@ -67,7 +77,7 @@ export class PortfolioController {
   @ApiBody(apiBodyDefault(PortfolioHideHoldingDto, SWAGGER_BODY_EXAMPLES.portfolioHide))
   @Post('portfolio/hidden')
   async hidePortfolioHolding(@Body() body: PortfolioHideHoldingDto) {
-    await this.portfolioHidden.hide(body.walletAddress, body.tokenId);
+    await this.portfolioHoldings.hide(body.walletAddress, body.tokenId);
     return { ok: true };
   }
 
@@ -76,7 +86,45 @@ export class PortfolioController {
   @ApiBody(apiBodyDefault(PortfolioHideHoldingDto, SWAGGER_BODY_EXAMPLES.portfolioHide))
   @Delete('portfolio/hidden')
   async unhidePortfolioHolding(@Body() body: PortfolioHideHoldingDto) {
-    await this.portfolioHidden.unhide(body.walletAddress, body.tokenId);
+    await this.portfolioHoldings.unhide(body.walletAddress, body.tokenId);
+    return { ok: true };
+  }
+
+  @ApiOperation({
+    summary: '보유 메타 배치 조회 (숨김·cost basis)',
+    description:
+      'My Assets P/L용. `costBasisUsd` + `costBasisSource` (vault_delivery, marketplace_buy, manual, …).',
+  })
+  @ApiBody(
+    apiBodyDefault(
+      PortfolioHoldingsBatchDto,
+      SWAGGER_BODY_EXAMPLES.portfolioHoldingsBatch,
+    ),
+  )
+  @Post('portfolio/holdings/batch')
+  async getPortfolioHoldingsBatch(@Body() body: PortfolioHoldingsBatchDto) {
+    const items = await this.portfolioHoldings.getHoldingsBatch(
+      body.walletAddress,
+      body.tokenIds,
+    );
+    return { items };
+  }
+
+  /** User manual cost basis edit — never overwritten by auto seed */
+  @ApiOperation({ summary: 'Cost basis 수동 설정' })
+  @ApiBody(
+    apiBodyDefault(
+      PortfolioSetCostBasisDto,
+      SWAGGER_BODY_EXAMPLES.portfolioSetCostBasis,
+    ),
+  )
+  @Put('portfolio/holdings/cost-basis')
+  async setPortfolioCostBasis(@Body() body: PortfolioSetCostBasisDto) {
+    await this.portfolioHoldings.setManualCostBasis(
+      body.walletAddress,
+      body.tokenId,
+      body.costBasisUsd,
+    );
     return { ok: true };
   }
 }

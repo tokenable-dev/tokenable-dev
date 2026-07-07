@@ -1,0 +1,227 @@
+/* tk-wallet.js parity — custom Privy whitelabel header menu */
+
+.tk-wallet-wrap {
+  position: relative;
+}
+
+.tk-wallet-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  height: 44px;
+  padding: 0 14px;
+  background: rgba(255, 255, 255, 0.04);
+  clip-path: var(--pixel-notch-lg);
+  cursor: pointer;
+  border: 0;
+  color: #fff;
+  transition: background 0.12s;
+}
+
+.tk-wallet-chip:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.tk-wallet-chip__avatar {
+  width: 22px;
+  height: 22px;
+  flex: none;
+  background: linear-gradient(135deg, var(--azure), var(--brand-400));
+  clip-path: var(--pixel-notch-lg);
+}
+
+.tk-wallet-chip__addr {
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
+}
+
+.tk-wallet-chip__bal {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--pos);
+  white-space: nowrap;
+}
+
+.tk-wallet-chip__chevron {
+  opacity: 0.7;
+  flex-shrink: 0;
+}
+
+.tk-wallet-dropdown {
+  display: none;
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 220px;
+  background: #1e1e2e;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  padding: 8px 0;
+  z-index: 145;
+}
+
+.tk-wallet-dropdown[data-open] {
+  display: block;
+}
+
+.tk-wallet-user {
+  padding: 16px 16px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.tk-wallet-user__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.tk-wallet-user__avatar {
+  width: 32px;
+  height: 32px;
+  flex: none;
+  background: linear-gradient(135deg, var(--azure), var(--brand-400));
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tk-wallet-user__meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.tk-wallet-user__addr {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.tk-wallet-user__kyc {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  margin-top: 2px;
+}
+
+.tk-wallet-user__kyc--pos {
+  color: var(--pos);
+}
+
+.tk-wallet-user__kyc--warn {
+  color: var(--warn);
+}
+
+.tk-wallet-user__kyc--muted {
+  color: var(--t2);
+}
+
+.tk-wallet-user__balance {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--pos);
+  flex-shrink: 0;
+}
+
+.tk-wd-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 16px;
+  color: #fff;
+  text-decoration: none;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  transition: background 0.1s;
+  cursor: pointer;
+  border: 0;
+  background: transparent;
+  text-align: left;
+}
+
+.tk-wd-item:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.tk-wd-item:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.tk-wd-sub {
+  padding-left: 32px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.tk-wd-sub:hover:not(:disabled) {
+  color: #fff;
+}
+
+.tk-wd-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+  margin: 4px 0;
+}
+
+.tk-wallet-disconnect {
+  color: #e4374a !important;
+}
+
+.tk-mobile-wallet-section {
+  padding: 0 0 8px;
+}
+
+.tk-mw-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 0;
+  color: #fff;
+  text-decoration: none;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  cursor: pointer;
+  border-left: 0;
+  border-right: 0;
+  border-top: 0;
+  background: transparent;
+  text-align: left;
+}
+
+.tk-mw-link:last-child {
+  border-bottom: none;
+}
+
+.tk-mw-link:active:not(:disabled) {
+  opacity: 0.7;
+}
+
+.tk-mw-link--sub {
+  padding-left: 16px;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.tk-mw-link--sub:hover:not(:disabled) {
+  color: #fff;
+}
+
+.tk-mw-link:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.gnb-drawer .tk-wallet-user {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.gnb-drawer .tk-wallet-disconnect {
+  border-bottom: none;
+}

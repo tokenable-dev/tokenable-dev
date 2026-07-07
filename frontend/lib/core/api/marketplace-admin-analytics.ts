@@ -80,6 +80,14 @@ export type PlatformAnalyticsOverview = {
     trackedWallets: number;
     snapshotRows: number;
     latestSnapshotDate: string | null;
+    holdingsRows: number;
+    holdingsWithCostBasis: number;
+    holdingsHidden: number;
+    costBasisBySource: {
+      manual: number;
+      vault_delivery: number;
+      marketplace_buy: number;
+    };
   };
   funnel: {
     signupToWalletPct: number | null;

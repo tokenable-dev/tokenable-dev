@@ -6,25 +6,27 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useLinkedPortfolioWallet } from "@/hooks/auth/useLinkedPortfolioWallet";
 import { usePortfolioWalletMismatchPrompt } from "@/hooks/auth/usePortfolioWalletMismatchPrompt";
 import {
-  usePortfolioAssetList,
   usePortfolioCollectionKeys,
   usePortfolioDailyChart,
   usePortfolioBidActions,
   usePortfolioHoldingActions,
+  usePortfolioHoldings,
   usePortfolioListingCollectionKeys,
   usePortfolioMarketPricing,
   usePortfolioMyBids,
   useUserAssets,
 } from "@/hooks/portfolio";
-import { usePortfolioHiddenHoldings } from "@/hooks/portfolio/usePortfolioPageData";
 import { useIsMobileViewport } from "@/hooks/ui";
 import {
   buildPortfolioPricedRows,
   PORTFOLIO_USDC_DECIMALS,
 } from "@/lib/portfolio/buildPortfolioPricedRows";
 import { buildPortfolioTxRows } from "@/lib/portfolio/buildPortfolioTxRows";
-import type { OwnedAsset, PricedAssetRow } from "@/lib/portfolio/portfolioTypes";
+import type { OwnedAsset } from "@/lib/portfolio/portfolioTypes";
+import { putPortfolioCostBasis, rq } from "@/lib/core";
 import { APP_MAIN_SHELL_CLASS } from "@/constants/layout";
+import { HomeTicker } from "@/components/home/HomeTicker";
+import { useWatchlist } from "@/hooks/watchlist/useWatchlist";
 import { useAuthStore } from "@/store/authStore";
 import { isLinkedPortfolioViewAddress } from "@/lib/auth/wallets";
 import {
@@ -33,13 +35,12 @@ import {
   PortfolioDisconnectedState,
   PortfolioGuestState,
   PortfolioCancelBidConfirmModal,
-  PortfolioHideConfirmModal,
+  PortfolioCostBasisModal,
   PortfolioHoldingsSection,
   PortfolioMainSection,
   type PortfolioMainTab,
   PortfolioSummaryBar,
   PortfolioValuePanel,
-  PortfolioWatchlistSection,
 } from "@/components/portfolio";
 import { CollectionChangeBidModal } from "@/components/marketplace/collection-trading/CollectionChangeBidModal";
 import { useSellAccessGate } from "@/hooks/auth/useSellAccessGate";
@@ -65,15 +66,35 @@ export default function PortfolioPage() {
     isLinkedPortfolioViewAddress(user, portfolioAddress);
   const signerAddress = wallet.canSign ? connectedAddress : undefined;
   const isMobileViewport = useIsMobileViewport();
-  const [portfolioChartOpen, setPortfolioChartOpen] = useState(false);
   const [portfolioMainTab, setPortfolioMainTab] = useState<PortfolioMainTab>("collectibles");
+  const [costBasisEdit, setCostBasisEdit] = useState<{
+    tokenId: number;
+    name: string;
+    currentUsd: number | null;
+  } | null>(null);
+  const [savingCostBasis, setSavingCostBasis] = useState(false);
 
   useEffect(() => {
     const tab = searchParams.get("tab");
-    if (tab === "watchlist" || tab === "bids" || tab === "collectibles") {
-      setPortfolioMainTab(tab);
+    if (tab === "bids") {
+      setPortfolioMainTab("bids");
+      return;
+    }
+    if (tab === "history" || tab === "transaction-history" || tab === "watchlist") {
+      setPortfolioMainTab("history");
+      return;
+    }
+    if (tab === "collectibles" || tab === "assets") {
+      setPortfolioMainTab("collectibles");
     }
   }, [searchParams]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (window.location.hash === "#transaction-history") {
+      setPortfolioMainTab("history");
+    }
+  }, []);
 
   const {
     assets: hookAssets,
@@ -91,18 +112,6 @@ export default function PortfolioPage() {
     retainPreviousOwner: false,
   });
 
-  useEffect(() => {
-    if (typeof window === "undefined" || window.location.hash !== "#transaction-history") return;
-    const scrollToHistory = () => {
-      document.getElementById("transaction-history")?.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-      });
-    };
-    const timer = window.setTimeout(scrollToHistory, 150);
-    return () => window.clearTimeout(timer);
-  }, [searchParams, idsLoading, historyBatchLoading]);
-
   const assets: OwnedAsset[] = useMemo(
     () =>
       hookAssets.map((a) => ({
@@ -113,10 +122,13 @@ export default function PortfolioPage() {
     [hookAssets],
   );
 
-  const { hiddenSet } = usePortfolioHiddenHoldings(
-    portfolioAddress,
-    portfolioDataEnabled,
-  );
+  const metadataByTokenId = useMemo(() => {
+    const m = new Map<number, OwnedAsset["metadata"]>();
+    for (const a of assets) {
+      m.set(a.tokenId, a.metadata);
+    }
+    return m;
+  }, [assets]);
 
   const listingCollectionKeyByToken = usePortfolioListingCollectionKeys(
     allOrders,
@@ -181,7 +193,13 @@ export default function PortfolioPage() {
     [historiesFlat],
   );
 
-  const pricedRows: PricedAssetRow[] = useMemo(
+  const { costBasisByTokenId, hiddenSet } = usePortfolioHoldings(
+    portfolioAddress,
+    tokenIds,
+    portfolioDataEnabled,
+  );
+
+  const assetRows = useMemo(
     () =>
       buildPortfolioPricedRows({
         assets,
@@ -190,7 +208,7 @@ export default function PortfolioPage() {
         statsByCollectionKey,
         seriesByCollectionKey,
         mintPreviewByToken,
-      }),
+      }).sort((a, b) => Number(b.tokenId) - Number(a.tokenId)),
     [
       assets,
       listingByTokenId,
@@ -201,33 +219,36 @@ export default function PortfolioPage() {
     ],
   );
 
-  const assetRows = useMemo(() => {
-    const rows = [...pricedRows];
-    rows.sort((a, b) => Number(b.tokenId) - Number(a.tokenId));
-    return rows;
-  }, [pricedRows]);
-
-  const {
-    assetFilter,
-    setAssetFilter,
-    holdingsAssetRows,
-    hiddenAssetRows,
-    filteredAssetRows,
-  } = usePortfolioAssetList(assetRows, hiddenSet);
-
-  useEffect(() => {
-    if (assetFilter !== "hidden" && assetFilter !== "all") {
-      setAssetFilter("all");
+  const saveCostBasis = async (costBasisUsd: number) => {
+    if (!signerAddress || costBasisEdit == null) return;
+    setSavingCostBasis(true);
+    try {
+      await putPortfolioCostBasis(
+        signerAddress,
+        costBasisEdit.tokenId,
+        costBasisUsd,
+      );
+      await queryClient.invalidateQueries({
+        queryKey: rq.portfolioHoldings(signerAddress, tokenIds),
+      });
+      setCostBasisEdit(null);
+    } catch (err) {
+      window.alert(err instanceof Error ? err.message : "Failed to save cost basis");
+    } finally {
+      setSavingCostBasis(false);
     }
-  }, [assetFilter, setAssetFilter]);
+  };
 
   const holdingActions = usePortfolioHoldingActions({
     address: signerAddress,
+    tokenIds,
     queryClient,
     refetchActiveOrders,
   });
 
   const myBids = usePortfolioMyBids(portfolioDataEnabled ? portfolioAddress : undefined);
+  const watchlistQuery = useWatchlist();
+  const watchlistCount = watchlistQuery.data?.collectionKeys?.length ?? 0;
   const bidActions = usePortfolioBidActions({
     address: signerAddress,
     queryClient,
@@ -240,13 +261,14 @@ export default function PortfolioPage() {
     return buildPortfolioTxRows(fulfilledOrders, portfolioAddress, assets);
   }, [fulfilledOrders, portfolioAddress, assets]);
 
-  const totalValue = useMemo(
-    () => holdingsAssetRows.reduce((s, r) => s + (r.currentPrice ?? 0), 0),
-    [holdingsAssetRows],
+  const visibleAssetRows = useMemo(
+    () => assetRows.filter((row) => !hiddenSet.has(row.tokenId)),
+    [assetRows, hiddenSet],
   );
 
   const {
     dailySnapshotsLoading,
+    portfolioValue,
     dailyPnlUsd,
     dailyPnlPct,
     hasDailyPnl,
@@ -254,9 +276,8 @@ export default function PortfolioPage() {
     dailyChartLabels,
   } = usePortfolioDailyChart(portfolioAddress, portfolioDataEnabled);
 
-  const totalTrades = fulfilledOrders.length;
   const assetsSectionLoading = idsLoading || assetsLoading;
-  const chartTotalsPending = idsLoading || dailySnapshotsLoading;
+  const portfolioValuePending = dailySnapshotsLoading;
 
   if (!authInitialized || authLoading) {
     return (
@@ -275,31 +296,33 @@ export default function PortfolioPage() {
   }
 
   return (
-    <div className="min-h-screen min-w-0 overflow-x-clip bg-black text-white">
-      <div className={`${APP_MAIN_SHELL_CLASS} py-5 pb-16 sm:py-8 sm:pb-20`}>
+    <div className="portfolio-page min-h-screen min-w-0 overflow-x-clip text-white">
+      <HomeTicker />
+      <div className={`portfolio-page__shell tkl-wrap ${APP_MAIN_SHELL_CLASS}`}>
         {!isConnected ? (
-          <p className="mb-4 rounded-xl border border-gray-800 bg-gray-900/40 px-4 py-3 text-xs text-gray-400">
+          <p className="mb-4 rounded-xl border border-white/10 bg-white/4 px-4 py-3 text-xs text-[var(--t2)]">
             Connect your Privy wallet to manage listings and bids.
           </p>
         ) : null}
+
         <PortfolioSummaryBar
-          holdingsCount={holdingsAssetRows.length}
-          totalTrades={totalTrades}
-          totalValue={totalValue}
+          walletAddress={portfolioAddress}
+          holdingsCount={visibleAssetRows.length}
+          bidsCount={myBids.activeBids.length}
+          watchlistCount={watchlistCount}
+          totalValue={portfolioValue ?? 0}
           dailyPnlPct={dailyPnlPct}
-          chartTotalsPending={chartTotalsPending}
+          chartTotalsPending={portfolioValuePending}
           hasDailyPnl={hasDailyPnl}
           dailyPnlUsd={dailyPnlUsd}
-          portfolioChartOpen={portfolioChartOpen}
-          onToggleChart={() => setPortfolioChartOpen((open) => !open)}
         />
 
         <PortfolioValuePanel
-          chartTotalsPending={chartTotalsPending}
-          portfolioChartOpen={portfolioChartOpen}
+          chartTotalsPending={portfolioValuePending}
           isMobileViewport={isMobileViewport}
           dailyChartPoints={dailyChartPoints}
           dailyChartLabels={dailyChartLabels}
+          totalValue={portfolioValue ?? 0}
         />
 
         <PortfolioMainSection
@@ -307,40 +330,55 @@ export default function PortfolioPage() {
           onTabChange={setPortfolioMainTab}
           collectiblesPanel={
             <PortfolioHoldingsSection
-              embedded
               assetsSectionLoading={assetsSectionLoading}
-              assetRowsLength={assetRows.length}
-              assetFilter={assetFilter}
-              setAssetFilter={setAssetFilter}
-              hiddenAssetCount={hiddenAssetRows.length}
-              filteredAssetRows={filteredAssetRows}
-              address={portfolioAddress}
+              assetRows={visibleAssetRows}
+              metadataByTokenId={metadataByTokenId}
+              tokenToCollectionKey={tokenToCollectionKey}
+              seriesByCollectionKey={seriesByCollectionKey}
+              costBasisByTokenId={costBasisByTokenId}
               valuesPending={valuesPending}
+              canEditCostBasis={Boolean(signerAddress)}
+              onEditCostBasis={(tokenId, currentUsd) => {
+                const row = assetRows.find((r) => r.tokenId === tokenId);
+                setCostBasisEdit({
+                  tokenId,
+                  name: row?.name ?? `RWA #${tokenId}`,
+                  currentUsd,
+                });
+              }}
               cancellingListingTokenId={holdingActions.cancellingListingTokenId}
-              hidingTokenId={holdingActions.hidingTokenId}
-              unhidingTokenId={holdingActions.unhidingTokenId}
-              onOpenToken={(tokenId) => router.push(`/marketplace/${tokenId}`)}
+              onOpenToken={(tokenId) => {
+                const ck = tokenToCollectionKey[tokenId];
+                if (ck) {
+                  router.push(
+                    `/marketplace/collections/${encodeURIComponent(ck)}?listing=${tokenId}`,
+                  );
+                } else {
+                  router.push(`/marketplace/${tokenId}`);
+                }
+              }}
               onChangeListing={(tokenId) =>
                 runSellAccessGate(() =>
                   router.push(`/marketplace/${tokenId}?list=1`),
                 )
               }
-              onRequestHide={(r) => {
-                holdingActions.requestHide(r.tokenId, r.name, r.listPriceUsd != null);
-              }}
-              onUnhide={(tokenId) => void holdingActions.unhideHolding(tokenId)}
               onCancelListing={(tokenId, orderHash) =>
                 void holdingActions.cancelListing(tokenId, orderHash)
+              }
+              onSellNow={(tokenId) =>
+                runSellAccessGate(() =>
+                  router.push(`/marketplace/${tokenId}?list=1`),
+                )
               }
             />
           }
           bidsPanel={
             <PortfolioCollectionBidsSection
-              embedded
               loading={myBids.loading}
               metaLoading={myBids.collectionMetaLoading}
               activeBids={myBids.activeBids}
               collectionMetaByKey={myBids.collectionMetaByKey}
+              statsByCollectionKey={statsByCollectionKey}
               cancellingHash={bidActions.cancellingHash}
               openingChangeHash={bidActions.openingChangeHash}
               onCancel={(hash, key, label, price) =>
@@ -349,12 +387,12 @@ export default function PortfolioPage() {
               onChangePrice={(hash, key) => void bidActions.openChangeBid(hash, key)}
             />
           }
-          watchlistPanel={<PortfolioWatchlistSection />}
-        />
-
-        <PortfolioActivitySection
-          loading={idsLoading || historyBatchLoading}
-          txRows={txRows}
+          historyPanel={
+            <PortfolioActivitySection
+              loading={idsLoading || historyBatchLoading}
+              txRows={txRows}
+            />
+          }
         />
       </div>
 
@@ -383,25 +421,17 @@ export default function PortfolioPage() {
         />
       ) : null}
 
-      <PortfolioHideConfirmModal
-        open={holdingActions.hideConfirm != null}
-        tokenId={holdingActions.hideConfirm?.tokenId ?? 0}
-        assetName={holdingActions.hideConfirm?.name ?? ""}
-        pending={
-          holdingActions.hideConfirm != null &&
-          holdingActions.hidingTokenId === holdingActions.hideConfirm.tokenId
-        }
-        onClose={() => {
-          if (holdingActions.hidingTokenId == null) {
-            holdingActions.setHideConfirm(null);
-          }
-        }}
-        onConfirm={() => {
-          if (holdingActions.hideConfirm) {
-            void holdingActions.executeHideHolding(holdingActions.hideConfirm.tokenId);
-          }
-        }}
-      />
+      {costBasisEdit != null ? (
+        <PortfolioCostBasisModal
+          open
+          tokenId={costBasisEdit.tokenId}
+          assetName={costBasisEdit.name}
+          initialUsd={costBasisEdit.currentUsd}
+          pending={savingCostBasis}
+          onClose={() => setCostBasisEdit(null)}
+          onSave={saveCostBasis}
+        />
+      ) : null}
     </div>
   );
 }

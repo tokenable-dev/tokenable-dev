@@ -14,13 +14,17 @@ Admin routes are split by **operational role**, not duplicated dashboards.
 | Route | Nav label | Purpose |
 |-------|-----------|---------|
 | `/marketplace/admin` | **Overview** | Platform health from PostgreSQL — KPIs, funnel, users, orders, activity charts, AI pricing coverage, recent sales, Cardhedger infra snippet, **GA4 external link** |
-| `/marketplace/admin/analytics` | **Analytics** | Traffic — opens **Google Analytics** console (in-app GA4 Data API reports deferred) |
 | `/marketplace/admin/users` | **Users** | Privy accounts — auth methods, wallets, KYC, watchlist support |
-| `/marketplace/admin/cards` | **Listed cards** | Active marketplace listings — edit display metadata, preview images, optional on-chain burn (test) |
 | `/marketplace/admin/collections` | **Collections** | Collection buckets — cover image, delete, market snapshot strip, **AI Insight** preview |
-| `/marketplace/admin/top100` | **Top 100** | Admin-only preview of daily Cardhedger Top 100 (public Markets UI may stay disabled) |
-| `/marketplace/admin/top-movers` | **Top Movers** | Admin-only preview of Cardhedger top movers |
+| `/marketplace/admin/cards` | **All cards** | RWA token registry — edit display metadata, burn (test) |
+| `/marketplace/admin/custody-nfts` | **Custody NFTs** | Deliver vaulted NFTs to user wallets |
+| `/marketplace/admin/markets` | **Markets preview** | Tabbed: **Home landing** (90d top movers + just vaulted), **Top 100**, **Cardhedger movers** |
+| `/marketplace/admin/portfolio` | **Portfolio ops** | Daily snapshots, `portfolio_holdings` cost basis stats, operator checklist |
 | `/marketplace/admin/price-webhooks` | **Price sync** | Cardhedger delta import — cron flags, manual “Run price sync”, sync history |
+| `/marketplace/admin/contract-roles` | **Contract roles** | TokenableRWA AccessControl grant/revoke |
+| `/marketplace/admin/vault` | **Vault / PSA** | PSA Public API console (shipping, cert, population, OCR) |
+
+Legacy redirects: `/marketplace/admin/analytics` → Overview; `/top100` and `/top-movers` → `/markets?tab=…`.
 
 Nested admin route: `/marketplace/admin/top100/card/[cardId]` — Top 100 card detail (admin routing).
 
@@ -247,7 +251,7 @@ If login returns **502 / API proxy failed**, the Nest process is usually down or
 ## Extending the admin
 
 1. **New page:** Add `app/marketplace/admin/<segment>/page.tsx` → page component in `components/marketplace/admin/` → hook in `hooks/marketplace-admin/` → API client in `lib/core/api/`.
-2. **New nav item:** Add entry to `NAV_ITEMS` in `MarketplaceAdminNav.tsx`.
+2. **New nav item:** Add entry to `ADMIN_NAV_SECTIONS` in `components/marketplace/admin/nav/adminNavConfig.ts`.
 3. **New API:** Prefer `MarketplaceAdminModule` or an existing module that imports `MarketplaceAdminService`; call `assertAdminSession(req)` on each handler.
 4. **UI tokens:** Reuse `adminUi.ts` (`ADMIN_ARTICLE`, `ADMIN_BTN_PRIMARY`, `ADMIN_TABLE_WRAP`, …) for consistent backoffice styling.
 

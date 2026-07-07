@@ -2,10 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { AuthModalShell } from "./AuthModalShell";
+import { TkButton, TkDialog } from "@/components/ds";
 import { deleteAccount } from "@/lib/auth/auth";
 import { useAuthStore } from "@/store/authStore";
-import { AUTH_MINT_LINK } from "./authUiStyles";
 
 function DeleteAccountModal({
   open,
@@ -24,8 +23,7 @@ function DeleteAccountModal({
     onClose();
   }
 
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function onSubmit() {
     setError(null);
     setPending(true);
     try {
@@ -40,37 +38,33 @@ function DeleteAccountModal({
   }
 
   return (
-    <AuthModalShell open={open} onClose={handleClose} titleId="delete-account-title" maxWidthClass="max-w-sm">
-      <div className="px-6 pb-[max(1.25rem,env(safe-area-inset-bottom,0px))] pt-6 sm:px-7 sm:pb-7">
-        <h2 id="delete-account-title" className="text-lg font-bold text-white">
-          Delete account
-        </h2>
-        <p className="mt-2 text-sm leading-relaxed text-gray-400">
-          This permanently removes your account, watchlist, and linked wallets. This cannot be undone.
+    <TkDialog
+      open={open}
+      onClose={handleClose}
+      title="Delete account"
+      description="This permanently removes your account, watchlist, and linked wallets. This cannot be undone."
+      footer={
+        <div className="flex w-full flex-col gap-2 sm:flex-row sm:justify-end">
+          <TkButton variant="subtle" onClick={handleClose} className="sm:min-w-[7rem]">
+            Cancel
+          </TkButton>
+          <TkButton
+            variant="danger"
+            disabled={pending}
+            onClick={() => void onSubmit()}
+            className="sm:min-w-[9rem]"
+          >
+            {pending ? "Deleting…" : "Delete account"}
+          </TkButton>
+        </div>
+      }
+    >
+      {error ? (
+        <p className="text-sm text-[var(--neg)]" role="alert">
+          {error}
         </p>
-
-        <form onSubmit={(e) => void onSubmit(e)} className="mt-5 space-y-3.5">
-          {error ? (
-            <p className="text-sm text-red-400" role="alert">
-              {error}
-            </p>
-          ) : null}
-
-          <div className="flex flex-col gap-2 pt-1">
-            <button
-              type="submit"
-              disabled={pending}
-              className="w-full rounded-xl border border-red-500/40 bg-red-500/10 py-3 text-sm font-semibold text-red-400 transition-colors hover:bg-red-500/15 disabled:opacity-50"
-            >
-              {pending ? "Deleting…" : "Delete account"}
-            </button>
-            <button type="button" onClick={handleClose} className={`${AUTH_MINT_LINK} py-2 text-center`}>
-              Cancel
-            </button>
-          </div>
-        </form>
-      </div>
-    </AuthModalShell>
+      ) : null}
+    </TkDialog>
   );
 }
 
@@ -86,18 +80,20 @@ export function DeleteAccountSettingsRow() {
 
   return (
     <>
-      <section className="rounded-xl border border-red-500/20 bg-red-500/[0.04] px-5 py-4">
-        <h2 className="text-sm font-semibold text-red-300">Delete account</h2>
-        <p className="mt-1 text-xs leading-relaxed text-gray-500">
+      <section className="secondary-panel secondary-panel--danger">
+        <h2 className="secondary-panel__title">Delete account</h2>
+        <p className="secondary-panel__text">
           Permanently remove your account and linked data.
         </p>
-        <button
+        <TkButton
           type="button"
+          variant="danger"
+          size="sm"
+          className="mt-3"
           onClick={() => setOpen(true)}
-          className="mt-3 rounded-lg border border-red-500/30 px-3 py-2 text-xs font-semibold text-red-400 transition-colors hover:border-red-500/50 hover:bg-red-500/10"
         >
           Delete account
-        </button>
+        </TkButton>
       </section>
       <DeleteAccountModal
         open={open}

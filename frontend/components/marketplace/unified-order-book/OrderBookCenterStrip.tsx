@@ -1,12 +1,16 @@
 "use client";
 
 import { COLLECTION_DETAILS_BG_CLASS } from "@/components/marketplace/collectionOverviewChrome";
-import {
-  orderBookRowValueCls,
-} from "@/components/marketplace/price-metrics-strip/theme";
+import { orderBookRowValueCls } from "@/components/marketplace/price-metrics-strip/theme";
 import type { BookCenterModel } from "@/lib/marketplace/unified-order-book";
 
-export function OrderBookCenterStrip({ model }: { model: BookCenterModel }) {
+export function OrderBookCenterStrip({
+  model,
+  collectionDetail,
+}: {
+  model: BookCenterModel;
+  collectionDetail?: boolean;
+}) {
   const isSpreadPrimary = model.primary.includes("Spread value:");
   const isNaPlaceholder = model.primary === "N/A";
   const isLastTrade = model.tone === "last";
@@ -33,11 +37,19 @@ export function OrderBookCenterStrip({ model }: { model: BookCenterModel }) {
 
   const hasCaption = model.caption.trim().length > 0;
 
+  if (collectionDetail && isNaPlaceholder) {
+    return (
+      <div className="cd-ob-book-center__na" title={model.title}>
+        N/A
+      </div>
+    );
+  }
+
   return (
     <div
       className={`relative flex shrink-0 flex-col items-center justify-center ${
         isNaPlaceholder ? "gap-0 px-2 py-0" : "gap-0.5 px-2 py-1"
-      } ${COLLECTION_DETAILS_BG_CLASS} ${
+      } ${collectionDetail ? "cd-ob-book-center__strip" : COLLECTION_DETAILS_BG_CLASS} ${
         hasCaption
           ? "min-h-[1.875rem]"
           : isNaPlaceholder

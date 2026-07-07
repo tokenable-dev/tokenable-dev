@@ -36,6 +36,7 @@ export function CollectionOverviewTopBar({
   hideTopHeadlineBarOnMobile,
   suppressHeadlineBanner,
   hideDesktopHeadlineBadges = false,
+  hideDesktopTopBarHeadline = false,
 }: {
   title: string;
   subtitle?: string | null;
@@ -55,17 +56,26 @@ export function CollectionOverviewTopBar({
   hideTopHeadlineBarOnMobile: boolean;
   suppressHeadlineBanner: boolean;
   hideDesktopHeadlineBadges?: boolean;
+  hideDesktopTopBarHeadline?: boolean;
 }) {
+  const desktopHeadlineHidden = hideDesktopTopBarHeadline;
+
   return (
     <div
       className={`relative px-3.5 pt-3 pb-0 sm:px-6 sm:pt-4 sm:pb-0 lg:px-8 ${COLLECTION_DETAILS_BORDER_B} ${
         hideTopHeadlineBarOnMobile ? "max-lg:hidden" : ""
-      }`}
+      } ${desktopHeadlineHidden && stats.length === 0 ? "lg:hidden" : ""}`}
     >
       <div className="flex flex-col gap-3 sm:gap-3 lg:flex-row lg:items-stretch lg:gap-0">
         <div className="flex min-w-0 flex-1 flex-col gap-3 lg:shrink-0 lg:basis-[min(100%,min(560px,52vw))] lg:justify-center lg:basis-[min(100%,min(620px,48vw))]">
           <div
-            className={`min-w-0 space-y-2 ${showMobileHeroIdentity ? "hidden lg:block" : ""}`}
+            className={`min-w-0 space-y-2 ${
+              showMobileHeroIdentity
+                ? desktopHeadlineHidden
+                  ? "hidden"
+                  : "hidden lg:block"
+                : ""
+            }`}
           >
             {headlineTitleLayout && headlineTitle ? (
               suppressHeadlineBanner ? (

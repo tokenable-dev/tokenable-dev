@@ -150,16 +150,15 @@ Daily portfolio snapshots (09:00 KST) are **write-once** — existing rows are n
 
 ### BR-17: PSA API Rate Limit Management
 
-PSA Public API free tier allows ~1 request/day per token.
+PSA Public API usage is pooled across `PSA_PUBLIC_API_TOKENS` (comma-separated).
 
-- Backend maintains a **multi-token pool** (`PSA_PUBLIC_API_TOKENS`, comma-separated)
 - Tokens blocked for 24h after a 429 error (until next UTC midnight)
-- `PsaCertSnapshotService` caches responses in `psa_cert_snapshots` to reduce API calls
-- `getOfficialApiRawIfFresh()` checks DB cache before calling PSA upstream
+- Mint and analyze paths call live `GetByCertNumber` (no `psa_cert_snapshots` DB cache)
+- `PsaPublicApiService` keeps a short in-process cache (`PSA_PUBLIC_API_CACHE_TTL_MS`)
 
 ### BR-18: PSA Snapshot Freshness
 
-`psa_cert_snapshots` rows older than `PSA_PUBLIC_SNAPSHOT_DB_TTL_SEC` are considered stale and trigger a background refresh.
+Collection PSA mirror fields live in `marketplace_collections.components` (populated from live API or mint metadata). Cardhedger **market** snapshots use `collection_market_snapshots` — separate from PSA cert lookup.
 
 ---
 

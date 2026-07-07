@@ -1,5 +1,5 @@
 import { addRpcUrlOverrideToChain } from "@privy-io/chains";
-import { polygon as viemPolygon, polygonAmoy as viemPolygonAmoy } from "viem/chains";
+import { mainnet as viemMainnet, sepolia as viemSepolia } from "viem/chains";
 import type { AppChainDefinition, ChainContracts, SupportedChainId } from "./types";
 import { SUPPORTED_CHAIN_IDS } from "./types";
 
@@ -21,58 +21,58 @@ function parseChainId(raw: string | undefined): SupportedChainId | null {
 /** Static env reads — required for Next.js client bundle inlining. */
 function readRpcUrl(chainId: SupportedChainId): string | undefined {
   switch (chainId) {
-    case 137:
-      return process.env.NEXT_PUBLIC_CHAIN_137_RPC_URL?.trim() || undefined;
-    case 80002:
-      return process.env.NEXT_PUBLIC_CHAIN_80002_RPC_URL?.trim() || undefined;
+    case 1:
+      return process.env.NEXT_PUBLIC_CHAIN_1_RPC_URL?.trim() || undefined;
+    case 11155111:
+      return process.env.NEXT_PUBLIC_CHAIN_11155111_RPC_URL?.trim() || undefined;
   }
 }
 
 function readRwaAddress(chainId: SupportedChainId): `0x${string}` | null {
   switch (chainId) {
-    case 137:
-      return parseHexAddr(process.env.NEXT_PUBLIC_CHAIN_137_RWA);
-    case 80002:
-      return parseHexAddr(process.env.NEXT_PUBLIC_CHAIN_80002_RWA);
+    case 1:
+      return parseHexAddr(process.env.NEXT_PUBLIC_CHAIN_1_RWA);
+    case 11155111:
+      return parseHexAddr(process.env.NEXT_PUBLIC_CHAIN_11155111_RWA);
   }
 }
 
 function readUsdcAddress(chainId: SupportedChainId): `0x${string}` | null {
   switch (chainId) {
-    case 137:
-      return parseHexAddr(process.env.NEXT_PUBLIC_CHAIN_137_USDC);
-    case 80002:
-      return parseHexAddr(process.env.NEXT_PUBLIC_CHAIN_80002_USDC);
+    case 1:
+      return parseHexAddr(process.env.NEXT_PUBLIC_CHAIN_1_USDC);
+    case 11155111:
+      return parseHexAddr(process.env.NEXT_PUBLIC_CHAIN_11155111_USDC);
   }
 }
 
 const BASE_DEFINITIONS: Record<SupportedChainId, Omit<AppChainDefinition, "viemChain">> = {
-  137: {
-    id: 137,
-    key: "polygon",
-    label: "Polygon",
-    shortLabel: "Polygon",
+  1: {
+    id: 1,
+    key: "mainnet",
+    label: "Ethereum",
+    shortLabel: "Ethereum",
     isTestnet: false,
-    nativeSymbol: "POL",
-    explorerBaseUrl: "https://polygonscan.com",
+    nativeSymbol: "ETH",
+    explorerBaseUrl: "https://etherscan.io",
   },
-  80002: {
-    id: 80002,
-    key: "polygonAmoy",
-    label: "Polygon Amoy",
-    shortLabel: "Amoy",
+  11155111: {
+    id: 11155111,
+    key: "sepolia",
+    label: "Ethereum Sepolia",
+    shortLabel: "Sepolia",
     isTestnet: true,
-    nativeSymbol: "POL",
-    explorerBaseUrl: "https://amoy.polygonscan.com",
+    nativeSymbol: "ETH",
+    explorerBaseUrl: "https://sepolia.etherscan.io",
   },
 };
 
 function baseViemChain(chainId: SupportedChainId) {
   switch (chainId) {
-    case 137:
-      return viemPolygon;
-    case 80002:
-      return viemPolygonAmoy;
+    case 1:
+      return viemMainnet;
+    case 11155111:
+      return viemSepolia;
   }
 }
 
@@ -88,22 +88,22 @@ export function getChainDefinition(chainId: SupportedChainId): AppChainDefinitio
 /**
  * Dev fallbacks when env vars are not set.
  *
- * Amoy USDC (Circle official testnet): 0x41E94Eb019C0762f9Bfcf9Fb1E58725BfB0e7582
- * Polygon USDC (native): 0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359
+ * Sepolia USDC (Circle official testnet): 0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238
+ * Ethereum mainnet USDC: 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48
  */
 const DEV_FALLBACK: Record<
   SupportedChainId,
   { rpcUrl: string; rwaAddress: `0x${string}`; usdcAddress: `0x${string}` }
 > = {
-  137: {
-    rpcUrl: "https://polygon-rpc.com",
+  1: {
+    rpcUrl: "https://cloudflare-eth.com",
     rwaAddress: "0x0000000000000000000000000000000000000000",
-    usdcAddress: "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359",
+    usdcAddress: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
   },
-  80002: {
-    rpcUrl: "https://rpc-amoy.polygon.technology",
+  11155111: {
+    rpcUrl: "https://rpc.sepolia.org",
     rwaAddress: "0x0000000000000000000000000000000000000000",
-    usdcAddress: "0x41E94Eb019C0762f9Bfcf9Fb1E58725BfB0e7582",
+    usdcAddress: "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238",
   },
 };
 
@@ -137,6 +137,10 @@ export function getChainContracts(chainId: SupportedChainId): ChainContracts {
   return { chainId, rpcUrl, rwaAddress, usdcAddress };
 }
 
+export function isChainRpcConfigured(chainId: SupportedChainId): boolean {
+  return Boolean(readRpcUrl(chainId));
+}
+
 export function isChainConfigured(chainId: SupportedChainId): boolean {
   return Boolean(readRpcUrl(chainId) && readRwaAddress(chainId) && readUsdcAddress(chainId));
 }
@@ -150,7 +154,7 @@ export function resolveDefaultChainId(): SupportedChainId {
   if (fromEnv && isChainConfigured(fromEnv)) return fromEnv;
   const first = SUPPORTED_CHAIN_IDS.find(isChainConfigured);
   if (first) return first;
-  return 80002;
+  return 11155111;
 }
 
 export const DEFAULT_CHAIN_ID = resolveDefaultChainId();

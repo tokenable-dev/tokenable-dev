@@ -1,15 +1,15 @@
 import { ethers, network, upgrades } from 'hardhat';
 
 const CHAIN_META: Record<string, { chainId: number; explorer: string; envVar: string }> = {
-  polygon: {
-    chainId: 137,
-    explorer: 'https://polygonscan.com',
-    envVar: 'CHAIN_137_RWA_ADDRESS',
+  mainnet: {
+    chainId: 1,
+    explorer: 'https://etherscan.io',
+    envVar: 'CHAIN_1_RWA_ADDRESS',
   },
-  polygonAmoy: {
-    chainId: 80002,
-    explorer: 'https://amoy.polygonscan.com',
-    envVar: 'CHAIN_80002_RWA_ADDRESS',
+  sepolia: {
+    chainId: 11155111,
+    explorer: 'https://sepolia.etherscan.io',
+    envVar: 'CHAIN_11155111_RWA_ADDRESS',
   },
 };
 
@@ -19,13 +19,13 @@ const CHAIN_META: Record<string, { chainId: number; explorer: string; envVar: st
  * backend/.env and frontend/.env do NOT need to be updated after this runs.
  *
  * Examples:
- *   pnpm upgrade:rwa:amoy
- *   pnpm upgrade:rwa:polygon
+ *   pnpm upgrade:rwa:sepolia
+ *   pnpm upgrade:rwa:mainnet
  */
 async function main() {
   const meta = CHAIN_META[network.name];
   if (!meta) {
-    throw new Error(`Unsupported network "${network.name}". Use polygon or polygonAmoy.`);
+    throw new Error(`Unsupported network "${network.name}". Use mainnet or sepolia.`);
   }
 
   const proxyAddress = process.env[meta.envVar];

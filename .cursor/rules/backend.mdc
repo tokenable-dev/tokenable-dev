@@ -70,9 +70,9 @@ Before modifying backend code, read:
 
 21. Never use TypeORM `synchronize: true` in production. Use numbered SQL migration files.
 
-22. New schema files go in `backend/sql/schema/` with the next sequential number.
+22. Schema lives in `backend/sql/schema/` as domain-grouped files (`010_users_and_auth.sql`, `040_marketplace.sql`, …). Edit the relevant domain file when the entity shape changes — do not add incremental ALTER migration chains for fresh-bootstrap workflows.
 
-23. Add the new file to `backend/sql/bootstrap-empty-prod-db.sql` with `\ir`.
+23. Add new domains with the next `NN0_` prefix and include `\ir` in `backend/sql/bootstrap-empty-prod-db.sql`.
 
 24. Update `docs/architecture/database.md` with any new tables or columns.
 

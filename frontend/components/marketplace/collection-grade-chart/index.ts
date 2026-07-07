@@ -1,1 +1,0 @@
-export { CollectionGradeChartToolbar } from "./CollectionGradeChartToolbar";

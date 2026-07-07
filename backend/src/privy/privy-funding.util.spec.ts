@@ -1,5 +1,5 @@
 import {
-  AMOY_FUNDING_CAIP2,
+  SEPOLIA_FUNDING_CAIP2,
   assessPrivyFundingReadiness,
   ETHEREUM_FUNDING_CAIP2,
   isTokenableFundingChainAligned,
@@ -20,9 +20,8 @@ function baseSettings(
 
 describe('parseCaip2EvmChainId', () => {
   it('parses eip155 chain ids', () => {
-    expect(parseCaip2EvmChainId('eip155:137')).toBe(137);
-    expect(parseCaip2EvmChainId('eip155:80002')).toBe(80002);
     expect(parseCaip2EvmChainId('eip155:1')).toBe(1);
+    expect(parseCaip2EvmChainId('eip155:11155111')).toBe(11155111);
   });
 
   it('returns null for invalid values', () => {
@@ -32,8 +31,8 @@ describe('parseCaip2EvmChainId', () => {
 });
 
 describe('isTokenableFundingChainAligned', () => {
-  it('accepts Amoy, Ethereum mainnet, and Polygon for pay test', () => {
-    expect(isTokenableFundingChainAligned(AMOY_FUNDING_CAIP2)).toBe(true);
+  it('accepts Sepolia and Ethereum mainnet for pay test', () => {
+    expect(isTokenableFundingChainAligned(SEPOLIA_FUNDING_CAIP2)).toBe(true);
     expect(isTokenableFundingChainAligned(ETHEREUM_FUNDING_CAIP2)).toBe(true);
     expect(isTokenableFundingChainAligned(PRODUCTION_FUNDING_CAIP2)).toBe(true);
     expect(isTokenableFundingChainAligned('eip155:42161')).toBe(false);
@@ -46,10 +45,10 @@ describe('assessPrivyFundingReadiness', () => {
     expect(result.ready).toBe(false);
     expect(result.moonpayEnabled).toBe(false);
     expect(result.dashboardChecklist.length).toBeGreaterThan(0);
-    expect(result.targetFundingCaip2).toBe(AMOY_FUNDING_CAIP2);
+    expect(result.targetFundingCaip2).toBe(SEPOLIA_FUNDING_CAIP2);
   });
 
-  it('marks funding ready when MoonPay + Amoy USDC are configured', () => {
+  it('marks funding ready when MoonPay + Sepolia USDC are configured', () => {
     const result = assessPrivyFundingReadiness(
       baseSettings({
         funding_config: {
@@ -57,7 +56,7 @@ describe('assessPrivyFundingReadiness', () => {
           options: [{ method: 'card', provider: 'moonpay' }],
           default_recommended_amount: '50',
           default_recommended_currency: {
-            chain: AMOY_FUNDING_CAIP2,
+            chain: SEPOLIA_FUNDING_CAIP2,
             asset: 'USDC',
           },
         },

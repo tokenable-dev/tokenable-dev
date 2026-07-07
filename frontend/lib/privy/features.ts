@@ -124,8 +124,8 @@ export const PRIVY_CLIENT_FEATURE_MATRIX = [
     id: "fiat-onramp",
     label: "Fiat on-ramp (MoonPay · card · Apple Pay · Google Pay)",
     hook: "useFiatOnramp",
-    status: "polygon-mainnet-only",
-    note: "Amoy testnet uses the official Amoy USDC faucet — MoonPay delivers mainnet USDC on Polygon only.",
+    status: "mainnet-only",
+    note: "Sepolia testnet uses the official Sepolia USDC faucet — MoonPay delivers mainnet USDC on Ethereum only.",
   },
   {
     id: "fund-wallet",

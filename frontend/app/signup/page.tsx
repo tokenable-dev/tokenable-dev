@@ -3,5 +3,5 @@
 import { PrivyAuthEntryPage } from "@/components/auth/PrivyAuthEntryPage";
 
 export default function SignupPage() {
-  return <PrivyAuthEntryPage />;
+  return <PrivyAuthEntryPage mode="signup" />;
 }

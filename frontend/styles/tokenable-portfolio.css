@@ -1,0 +1,911 @@
+/* Portfolio page — Portfolio.html patterns */
+
+.portfolio-page {
+  background: var(--ink);
+  color: var(--t1);
+  overflow-x: clip;
+  min-height: 100%;
+}
+
+.portfolio-page__shell {
+  padding-top: 32px;
+  padding-bottom: 64px;
+}
+
+/* ── Value hero ─────────────────────────────────────────────────────────── */
+
+.pf-hero {
+  margin-bottom: 12px;
+}
+
+.pf-hero__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  gap: 12px;
+}
+
+.pf-hero__eyebrow {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--azure);
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.pf-hero__eyebrow::before {
+  content: "";
+  width: 18px;
+  height: 2px;
+  background: var(--azure);
+}
+
+.pf-wallet-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 30px;
+  padding: 0 13px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  line-height: 1;
+}
+
+.pf-wallet-chip__dot {
+  width: 6px;
+  height: 6px;
+  background: var(--azure);
+  flex-shrink: 0;
+}
+
+.pf-hero__value-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 28px;
+}
+
+.pf-hero__metric-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pf-hero__value {
+  font-family: var(--font-sans);
+  font-weight: 900;
+  font-size: clamp(36px, 5vw, 48px);
+  letter-spacing: -0.03em;
+  color: #fff;
+  line-height: 1;
+}
+
+.pf-hero__change-chip {
+  display: inline-flex;
+  align-items: center;
+  height: 38px;
+  padding: 0 16px;
+  border-radius: 8px;
+  font-family: var(--font-mono);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.pf-hero__change-chip--pos {
+  background: rgba(0, 200, 100, 0.12);
+  color: var(--pos);
+}
+
+.pf-hero__change-chip--neg {
+  background: rgba(228, 55, 74, 0.12);
+  color: #e4374a;
+}
+
+.pf-hero__period-label {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* ── Stat grid ──────────────────────────────────────────────────────────── */
+
+.pf-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin-bottom: 28px;
+}
+
+.pf-stat-card {
+  background: #1e1e2e;
+  border-radius: 16px;
+  padding: 18px 20px;
+  text-decoration: none;
+  color: inherit;
+}
+
+.pf-stat-card--link:hover {
+  filter: drop-shadow(4px 4px 0 rgba(26, 111, 255, 0.15));
+}
+
+.pf-stat-card__label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.pf-stat-card__value {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: 32px;
+  color: #fff;
+  line-height: 1;
+}
+
+/* ── Chart panel ────────────────────────────────────────────────────────── */
+
+.pf-chart-panel {
+  background: #1e1e2e;
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 16px;
+}
+
+.pf-chart-panel__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 4px;
+  flex-wrap: wrap;
+}
+
+.pf-chart-panel__label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+  margin-bottom: 4px;
+}
+
+.pf-chart-panel__value-row {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.pf-chart-panel__value {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: 28px;
+  color: #fff;
+  line-height: 1.1;
+}
+
+.pf-chart-panel__change {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.pf-chart-panel__change--pos {
+  color: #00c350;
+}
+
+.pf-chart-panel__change--neg {
+  color: #e4374a;
+}
+
+.pf-period-group {
+  display: flex;
+  gap: 0;
+  flex-shrink: 0;
+}
+
+.pf-period {
+  height: 30px;
+  padding: 0 14px;
+  border: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.5);
+  border-radius: 6px;
+}
+
+.pf-period--active {
+  background: var(--azure);
+  color: #fff;
+}
+
+.pf-chart-panel__canvas {
+  margin-top: 16px;
+  aspect-ratio: 760 / 245;
+  height: auto;
+  width: 100%;
+  min-height: 180px;
+}
+
+.pf-chart-panel__canvas--sm {
+  min-height: 160px;
+}
+
+/* ── Tabs ───────────────────────────────────────────────────────────────── */
+
+.pf-main-section {
+  margin-bottom: 6px;
+}
+
+.portfolio-page__tabs.tk-tabs {
+  display: flex;
+  width: 100%;
+  gap: 0;
+  clip-path: none;
+  background: #14141e;
+  border-radius: 12px;
+  padding: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: none;
+  margin-bottom: 6px;
+}
+
+.portfolio-page__tabs .tk-tab {
+  flex: 1;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  clip-path: none;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 600;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.5);
+  box-shadow: none;
+  height: auto;
+  transition: all 0.15s;
+}
+
+.portfolio-page__tabs .tk-tab--active {
+  background: #1a6fff;
+  color: #fff;
+  box-shadow: none;
+}
+
+.portfolio-page__tab-panel {
+  min-width: 0;
+  padding-top: 6px;
+}
+
+/* ── Mobile sort ────────────────────────────────────────────────────────── */
+
+.pf-mobile-sort {
+  display: none;
+  gap: 8px;
+  align-items: center;
+  margin: 12px 0;
+}
+
+.pf-mobile-sort__label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.pf-mobile-sort__select-wrap {
+  position: relative;
+  flex: 1;
+  max-width: 220px;
+}
+
+.pf-mobile-sort__select {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  background: #1e1e2e;
+  color: #fff;
+  border: 0;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  padding: 10px 36px 10px 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+}
+
+.pf-mobile-sort__caret {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* ── Tables (Portfolio.html tk-table) ───────────────────────────────────── */
+
+.portfolio-page .pf-table-wrap {
+  overflow-x: auto;
+  border-radius: 16px;
+  background: #1e1e2e;
+  width: 100%;
+}
+
+.portfolio-page .pf-table-wrap .tk-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+/* My Assets — fixed column widths (Portfolio.html tk-table) */
+.portfolio-page .pf-table--holdings {
+  table-layout: fixed;
+}
+
+.portfolio-page .pf-table--holdings .pf-col-card {
+  width: 22%;
+}
+
+.portfolio-page .pf-table--holdings .pf-col-grade {
+  width: 8%;
+}
+
+.portfolio-page .pf-table--holdings .pf-col-cost {
+  width: 11%;
+}
+
+.portfolio-page .pf-table--holdings .pf-col-value {
+  width: 12%;
+}
+
+.portfolio-page .pf-table--holdings .pf-col-trend {
+  width: 90px;
+}
+
+.portfolio-page .pf-table--holdings .pf-col-pl {
+  width: 14%;
+}
+
+.portfolio-page .pf-table--holdings .pf-col-action {
+  width: auto;
+}
+
+.portfolio-page .pf-table--holdings .pf-col-trend-head {
+  text-align: center;
+  width: 90px;
+}
+
+.portfolio-page .pf-table--holdings .pf-col-action-head {
+  text-align: right;
+}
+
+.portfolio-page .pf-table--holdings .pf-col-num-cell {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.portfolio-page .pf-table--holdings .pf-col-pl-cell {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.portfolio-page .pf-table--holdings .pf-col-grade-cell {
+  white-space: nowrap;
+}
+
+.portfolio-page .pf-table--holdings .pf-col-trend-cell {
+  text-align: center;
+  padding-left: 6px;
+  padding-right: 6px;
+}
+
+.portfolio-page .pf-table--holdings .pf-col-trend-cell svg {
+  display: block;
+  margin: 0 auto;
+}
+
+.portfolio-page .pf-table--holdings .pf-col-action-cell {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.portfolio-page .pf-table-wrap thead tr {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.portfolio-page .pf-table-wrap thead th {
+  text-align: left;
+  padding: 10px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.7);
+  font-weight: 600;
+  border-bottom: none;
+  background: transparent;
+}
+
+.portfolio-page .pf-th-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+  padding: 0;
+}
+
+.portfolio-page .pf-th-sort--right {
+  margin-left: auto;
+}
+
+.portfolio-page .pf-th-sort--center {
+  margin: 0 auto;
+}
+
+.portfolio-page .pf-sort-arrow {
+  display: inline-flex;
+  opacity: 0.5;
+}
+
+.portfolio-page .pf-sort-arrow--idle {
+  opacity: 0.35;
+}
+
+.portfolio-page .pf-table-wrap tbody tr {
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.portfolio-page .pf-table-wrap tbody tr:hover {
+  background: rgba(26, 111, 255, 0.06);
+}
+
+.portfolio-page .pf-table-row--zebra {
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.portfolio-page .pf-table-wrap tbody td {
+  padding: 12px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  vertical-align: middle;
+}
+
+.portfolio-page .pf-table-wrap tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.portfolio-page .pf-table-card-cell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  text-decoration: none;
+  color: inherit;
+}
+
+.portfolio-page .pf-table-thumb {
+  width: 38px;
+  height: 56px;
+  background: linear-gradient(180deg, #101018, #08080e);
+  padding: 2px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.portfolio-page .pf-table-thumb--lg {
+  width: 52px;
+  height: 70px;
+  padding: 4px;
+  border-radius: 6px;
+}
+
+.portfolio-page .pf-table-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.portfolio-page .pf-table-card-name {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 14px;
+  color: #fff;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: break-word;
+}
+
+.portfolio-page .pf-grade-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 24px;
+  padding: 0 8px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+}
+
+.portfolio-page .pf-table-muted {
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.portfolio-page .pf-cost-basis-cell {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.portfolio-page .pf-cost-basis-edit {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--azure);
+  opacity: 0.85;
+}
+
+.portfolio-page .pf-cost-basis-edit:hover {
+  opacity: 1;
+  text-decoration: underline;
+}
+
+.portfolio-page .pf-table-strong {
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.portfolio-page .pf-table-bid {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--azure);
+}
+
+.portfolio-page .pf-table-pl {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.portfolio-page .pf-table-pl--pos {
+  color: var(--pos);
+}
+
+.portfolio-page .pf-table-pl--neg {
+  color: #e4374a;
+}
+
+.portfolio-page .pf-table-listed {
+  font-size: 12px;
+  color: var(--azure);
+  white-space: nowrap;
+}
+
+.portfolio-page .pf-table-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.portfolio-page .pf-table-btn {
+  height: 38px !important;
+  min-height: 38px !important;
+  padding: 0 18px !important;
+  font-size: 14px !important;
+}
+
+.portfolio-page .pf-table-type {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.portfolio-page .pf-table-type--buy {
+  color: var(--pos);
+}
+
+.portfolio-page .pf-table-type--sell {
+  color: #e4374a;
+}
+
+.portfolio-page .pf-table-amount {
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.portfolio-page .pf-status-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 28px;
+  padding: 0 12px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  border-radius: 6px;
+}
+
+.portfolio-page .pf-status-chip--settled {
+  color: var(--pos);
+  background: rgba(0, 200, 100, 0.08);
+  box-shadow: inset 0 0 0 2px rgba(0, 200, 100, 0.3);
+}
+
+/* ── Empty states ───────────────────────────────────────────────────────── */
+
+.portfolio-page .pf-empty {
+  padding: 32px 16px;
+  text-align: center;
+  font-size: 14px;
+  color: var(--t2);
+}
+
+.portfolio-page .pf-empty--panel {
+  padding: 48px 24px;
+}
+
+.portfolio-page .pf-empty__sub {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--t3);
+}
+
+.portfolio-page .pf-empty a,
+.portfolio-page .pf-empty__cta {
+  display: inline-flex;
+  margin-top: 16px;
+  color: var(--azure);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.portfolio-page .pf-empty a:hover,
+.portfolio-page .pf-empty__cta:hover {
+  color: #fff;
+}
+
+/* ── Mobile ─────────────────────────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+  .portfolio-page__shell {
+    padding-left: 12px;
+    padding-right: 12px;
+    padding-top: 20px;
+  }
+
+  .pf-stat-grid {
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+
+  .pf-stat-card {
+    padding: 12px 10px;
+  }
+
+  .pf-stat-card__label {
+    font-size: 9px;
+    gap: 4px;
+  }
+
+  .pf-stat-card__label svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .pf-stat-card__value {
+    font-size: 36px;
+  }
+
+  .pf-chart-panel {
+    padding: 16px 12px;
+  }
+
+  .pf-period {
+    font-size: 10px;
+    padding: 0 10px;
+  }
+
+  .pf-mobile-sort {
+    display: flex;
+  }
+
+  .portfolio-page__tabs.tk-tabs {
+    position: sticky;
+    top: 58px;
+    z-index: 40;
+    width: 100vw;
+    margin-left: -12px;
+    margin-right: -12px;
+    background: var(--ink);
+    padding: 8px 12px;
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06);
+    border-radius: 0;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .portfolio-page__tabs .tk-tab {
+    white-space: nowrap;
+    font-size: 12px;
+    padding: 10px 0;
+    gap: 5px;
+    flex: 1;
+  }
+
+  .portfolio-page .pf-table-wrap {
+    border-radius: 12px;
+    background: transparent;
+    max-width: calc(100vw - 24px);
+  }
+
+  .portfolio-page .pf-table-wrap thead {
+    display: none;
+  }
+
+  .portfolio-page .pf-table-wrap tbody tr {
+    display: block;
+    padding: 16px;
+    margin-bottom: 12px;
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  .portfolio-page .pf-table-wrap tbody tr:last-child {
+    margin-bottom: 0;
+  }
+
+  .portfolio-page .pf-table-wrap tbody td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 0;
+    width: 100%;
+    font-size: 14px;
+    border: none;
+  }
+
+  .portfolio-page .pf-table-wrap tbody td::before {
+    content: attr(data-label);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.45);
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+
+  .portfolio-page .pf-table-wrap tbody td:first-child {
+    font-size: 17px;
+    font-weight: 700;
+    margin-bottom: 4px;
+    justify-content: flex-start;
+  }
+
+  .portfolio-page .pf-table-wrap tbody td:first-child .pf-table-card-cell {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .portfolio-page .pf-table-wrap tbody td:first-child .pf-table-card-name {
+    font-size: 17px;
+    line-height: 1.3;
+  }
+
+  .portfolio-page .pf-table-wrap tbody td:first-child::before {
+    display: none;
+  }
+
+  .portfolio-page .pf-table-wrap tbody td:first-child img {
+    width: 48px;
+    height: 48px;
+    border-radius: 8px;
+  }
+
+  .portfolio-page .pf-table-wrap tbody td[data-label="Trend"],
+  .portfolio-page .pf-table-wrap tbody td[data-label="P/L"] {
+    float: left;
+    width: 50%;
+    box-sizing: border-box;
+    min-height: 36px;
+  }
+
+  .portfolio-page .pf-table-wrap tbody td[data-label="Trend"]::before,
+  .portfolio-page .pf-table-wrap tbody td[data-label="P/L"]::before {
+    display: none;
+  }
+
+  .portfolio-page .pf-table-wrap tbody td[data-label="Trend"] {
+    justify-content: flex-start;
+    padding-right: 0;
+  }
+
+  .portfolio-page .pf-table-wrap tbody td[data-label="P/L"] {
+    justify-content: flex-end;
+    padding-left: 0;
+  }
+
+  .portfolio-page .pf-table-wrap tbody td[data-label="P/L"] + td {
+    clear: both;
+  }
+
+  .portfolio-page .pf-table-wrap tbody td:last-child {
+    margin-top: 4px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  .portfolio-page .pf-table-wrap tbody td:last-child::before {
+    display: none;
+  }
+
+  .portfolio-page .pf-table-wrap tbody td:last-child .pf-table-actions {
+    width: 100%;
+  }
+
+  .portfolio-page .pf-table-wrap tbody td:last-child .pf-table-btn {
+    flex: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .portfolio-page__tabs .tk-tab,
+  .portfolio-page .pf-table-wrap tbody tr {
+    transition: none !important;
+  }
+}

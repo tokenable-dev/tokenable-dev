@@ -292,10 +292,18 @@ export async function replaceListingApi(body: {
 }
 
 /** 구매 완료 처리 (리스팅 이행 등 단일 주문) */
-export async function fulfillOrderApi(orderHash: string): Promise<Order> {
-  const res = await backendFetch(`${getApiUrl()}/marketplace/orders/${orderHash}/fulfill`, {
-    method: "PATCH",
-  });
+export async function fulfillOrderApi(
+  orderHash: string,
+  buyerAddress: string,
+): Promise<Order> {
+  const sp = new URLSearchParams();
+  sp.set('buyerAddress', buyerAddress);
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/orders/${orderHash}/fulfill?${sp.toString()}`,
+    {
+      method: "PATCH",
+    },
+  );
   if (!res.ok) {
     const err = await res.json().catch(() => ({ message: "Failed to fulfill order" }));
     throw new Error((err as { message: string }).message ?? "Failed to fulfill order");

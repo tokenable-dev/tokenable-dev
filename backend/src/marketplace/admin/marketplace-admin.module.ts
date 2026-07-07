@@ -8,6 +8,7 @@ import { CollectionMarketSnapshot } from '../entities/collection-market-snapshot
 import { MarketplaceCollection } from '../entities/marketplace-collection.entity';
 import { Order } from '../entities/order.entity';
 import { PortfolioDailySnapshot } from '../entities/portfolio-daily-snapshot.entity';
+import { PortfolioHolding } from '../entities/portfolio-holding.entity';
 import { RwaToken } from '../entities/rwa-token.entity';
 import { UserWatchlist } from '../entities/user-watchlist.entity';
 import { MarketplaceAdmin } from '../entities/marketplace-admin.entity';
@@ -33,6 +34,7 @@ import { UserAdminService } from './user-admin.service';
       MarketplaceCollection,
       CollectionMarketSnapshot,
       PortfolioDailySnapshot,
+      PortfolioHolding,
     ]),
     UserModule,
   ],

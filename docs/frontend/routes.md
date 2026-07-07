@@ -19,7 +19,7 @@ Legacy **`/exchange`** redirects to **`/markets`** via `next.config.ts`.
 | `/markets/top100/card/[cardId]` | `app/markets/top100/card/[cardId]/page.tsx` | Top 100 card detail |
 | `/vault` | `app/vault/page.tsx` | Mint / RWA registration — slab scan, PSA/Cardhedger lookup, IPFS upload, on-chain mint |
 | `/portfolio` | `app/portfolio/page.tsx` | Owned assets — daily value chart, hide holdings, token list |
-| `/watchlist` | `app/watchlist/page.tsx` | Saved collections (JWT) |
+| `/watchlist` | `app/watchlist/page.tsx` | Saved collections — filter bar, HTML-style cards, JWT |
 | `/profile` | `app/profile/page.tsx` | User profile — wallets, email verification, password change |
 | `/login` | `app/login/page.tsx` | Sign in — Privy modal launcher (Google, email, wallet) |
 | `/signup` | `app/signup/page.tsx` | Sign up — Privy modal launcher |
@@ -29,14 +29,18 @@ Legacy **`/exchange`** redirects to **`/markets`** via `next.config.ts`.
 | `/marketplace/collections/[collectionKey]` | `app/marketplace/collections/[collectionKey]/page.tsx` | Collection — order book, dual chart, AI insight, listings |
 | `/marketplace/other-listings` | `app/marketplace/other-listings/page.tsx` | Listings not matched to a known collection |
 | `/marketplace/admin` | `app/marketplace/admin/page.tsx` | Admin — **Overview** (platform KPIs, funnel, ops metrics) |
-| `/marketplace/admin/analytics` | `app/marketplace/admin/analytics/page.tsx` | Admin — **Analytics** (GA4 console link) |
 | `/marketplace/admin/users` | `app/marketplace/admin/users/page.tsx` | Admin — user support & lifecycle |
 | `/marketplace/admin/collections` | `app/marketplace/admin/collections/page.tsx` | Admin — collection cover/delete, AI insight preview |
 | `/marketplace/admin/cards` | `app/marketplace/admin/cards/page.tsx` | Admin — RWA token listings/metadata |
-| `/marketplace/admin/top100` | `app/marketplace/admin/top100/page.tsx` | Admin — Top 100 preview |
+| `/marketplace/admin/custody-nfts` | `app/marketplace/admin/custody-nfts/page.tsx` | Admin — custody delivery queue |
+| `/marketplace/admin/markets` | `app/marketplace/admin/markets/page.tsx` | Admin — home landing + Top 100 + Cardhedger movers |
+| `/marketplace/admin/portfolio` | `app/marketplace/admin/portfolio/page.tsx` | Admin — portfolio snapshots & cost basis ops |
 | `/marketplace/admin/top100/card/[cardId]` | `app/marketplace/admin/top100/card/[cardId]/page.tsx` | Admin — Top 100 card detail |
-| `/marketplace/admin/top-movers` | `app/marketplace/admin/top-movers/page.tsx` | Admin — Top Movers preview |
 | `/marketplace/admin/price-webhooks` | `app/marketplace/admin/price-webhooks/page.tsx` | Admin — Cardhedger price sync (delta import) |
+| `/marketplace/admin/contract-roles` | `app/marketplace/admin/contract-roles/page.tsx` | Admin — on-chain roles |
+| `/marketplace/admin/vault` | `app/marketplace/admin/vault/page.tsx` | Admin — PSA / vault tooling |
+
+Redirects: `analytics` → Overview; `top100` / `top-movers` → `markets?tab=…`.
 
 ---
 

@@ -245,6 +245,7 @@ export function percentChangeReferenceBestWindow(
       pct: lag1y.pct,
       isFullYear: true,
       windowSec: MARKET_PRICE_CHANGE_LAG_SEC,
+      marketChangeWindow: "365d",
       refUsd: lag1y.refUsd,
       refAtSec: lag1y.refAtSec,
     };
@@ -257,6 +258,7 @@ export function percentChangeReferenceBestWindow(
         pct: lagSpan.pct,
         isFullYear: true,
         windowSec: MARKET_PRICE_CHANGE_LAG_SEC,
+        marketChangeWindow: "365d",
         refUsd: lagSpan.refUsd,
         refAtSec: lagSpan.refAtSec,
       };
@@ -267,10 +269,22 @@ export function percentChangeReferenceBestWindow(
   const pct =
     lagSpan?.pct ?? percentChangeFromUsdPoints(points);
 
+  const days = Math.max(1, Math.round(spanSec / 86_400));
+
   return {
     pct,
     isFullYear: false,
     windowSec: spanSec,
+    marketChangeWindow:
+      days >= 300
+        ? "365d"
+        : days >= 150
+          ? "180d"
+          : days >= 60
+            ? "90d"
+            : days >= 21
+              ? "30d"
+              : "7d",
     refUsd: lagSpan?.refUsd ?? null,
     refAtSec: lagSpan?.refAtSec ?? null,
   };

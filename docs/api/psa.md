@@ -32,7 +32,6 @@ flowchart LR
   end
   subgraph marketplace [Marketplace]
     CC[collection-components]
-    SNAP[psa_cert_snapshots]
   end
   V --> A
   V --> B
@@ -49,7 +48,6 @@ flowchart LR
   C1 --> Cardhedger[Cardhedger match]
   C2 --> RWA[RWA imageUrl / cover]
   POP --> CC
-  C1 --> SNAP
   CD --> CC
 ```
 
@@ -68,7 +66,7 @@ flowchart LR
 
 | PSA API | Tokenable connection | Priority |
 |---------|----------------------|----------|
-| **GetByCertNumber** | `POST /psa/analyze`, `analyze-by-cert`, `psa_cert_snapshots`, Cardhedger cert lookup | **Required** — mint + identity |
+| **GetByCertNumber** | `POST /psa/analyze`, `analyze-by-cert`, Cardhedger cert lookup, collection mirror | **Required** — mint + identity |
 | **GetImagesByCertNumber** | Mint `imageUrl`, RWA metadata, collection cover candidates | **Required** — visual assets |
 | **GetPSASpecPopulation** | `collection-components.service` → `psaSpecPopulation`, rarity on collection detail | **Required** — market context |
 | **GetByCertNumberForFileAppend** | Not wired to UI yet | Future — vault outbound labels / PDF |
@@ -147,7 +145,7 @@ Successful proxy responses include `psaPath` (upstream path) and `raw` (PSA JSON
 | `PSA_PUBLIC_API_CACHE_TTL_MS` | In-memory cache TTL for successful PSA responses (default on) |
 | `PSA_PUBLIC_API_MAX_RETRIES` | Retry count on HTTP 429 |
 | `PSA_PUBLIC_API_MAX_CERT_ATTEMPTS` | Max distinct certs tried per OCR analyze |
-| `PSA_PUBLIC_SNAPSHOT_DB_TTL_SEC` | `psa_cert_snapshots` DB cache TTL |
+| `PSA_PUBLIC_API_REFRESH_ON_SNAPSHOT` | When `always`, Cardhedger snapshot refresh may call PSA for cert mirror fields |
 | `CARDHEDGER_API_KEY` | Cardhedger OCR + catalog enrichment in analyze pipeline |
 
 ---

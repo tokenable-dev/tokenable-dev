@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { usePrivy, useWallets } from "@privy-io/react-auth";
 import { useSetActiveWallet } from "@privy-io/wagmi";
 import { PrivyUserPill } from "@/components/privy/PrivyUserPill";
-import { AuthModalShell } from "./AuthModalShell";
+import { TkButton, TkDialog } from "@/components/ds";
 import { refreshPrivyAuthSession } from "@/lib/privy";
 import {
   getPrimaryWalletAddress,
@@ -133,52 +133,23 @@ export function PrivyWalletMismatchModal() {
     primaryLinked,
   ]);
 
-  const titleId = "privy-wallet-mismatch-modal-title";
-
   return (
-    <AuthModalShell open={open} onClose={dismiss} titleId={titleId} maxWidthClass="max-w-md">
-      <div className="px-5 pb-[max(1rem,env(safe-area-inset-bottom,0px))] pt-4 sm:px-7 sm:pb-7 sm:pt-6">
-        <h2 id={titleId} className="text-base font-bold text-white sm:text-xl">
-          Wallet mismatch
-        </h2>
-        <p className="mt-2 text-sm text-gray-400">
-          The wallet in your browser does not match your Tokenable account.
-        </p>
-
-        {connected ? (
-          <div className="mt-4 rounded-xl border border-gray-800 bg-gray-900/50 px-3 py-3">
-            <p className="text-[10px] uppercase tracking-wide text-gray-500">
-              Connected now
-            </p>
-            <p className="mt-1 break-all font-mono text-xs text-white">{connected}</p>
-          </div>
-        ) : null}
-
-        {linkedWallets.length > 0 && primaryLinked ? (
-          <div className="mt-3 rounded-xl border border-mint/20 bg-mint/5 px-3 py-3">
-            <p className="text-[10px] uppercase tracking-wide text-mint/80">
-              Account wallet
-            </p>
-            <p className="mt-1 break-all font-mono text-xs text-mint">{primaryLinked}</p>
-          </div>
-        ) : null}
-
-        {error ? (
-          <p className="mt-3 text-center text-sm text-red-400" role="alert">
-            {error}
-          </p>
-        ) : null}
-
-        <div className="mt-5 space-y-3 sm:mt-6">
+    <TkDialog
+      open={open}
+      onClose={dismiss}
+      title="Wallet mismatch"
+      description="The wallet in your browser does not match your Tokenable account."
+      footer={
+        <div className="flex w-full flex-col gap-3">
           {primaryLinked ? (
-            <button
-              type="button"
+            <TkButton
+              variant="primary"
               disabled={busy}
               onClick={() => void handleUsePrimary()}
-              className="flex w-full min-h-[48px] items-center justify-center rounded-xl border border-gray-700 bg-gray-800/50 text-sm font-semibold text-white hover:bg-gray-800 disabled:opacity-50 sm:min-h-[52px] sm:text-base"
+              className="w-full justify-center"
             >
               {busy ? "…" : "Use account wallet"}
-            </button>
+            </TkButton>
           ) : null}
           <div className="flex justify-center">
             <PrivyUserPill
@@ -191,7 +162,27 @@ export function PrivyWalletMismatchModal() {
             />
           </div>
         </div>
-      </div>
-    </AuthModalShell>
+      }
+    >
+      {connected ? (
+        <div className="secondary-dialog-wallet">
+          <p className="secondary-dialog-wallet__label">Connected now</p>
+          <p className="secondary-dialog-wallet__value">{connected}</p>
+        </div>
+      ) : null}
+
+      {linkedWallets.length > 0 && primaryLinked ? (
+        <div className="secondary-dialog-wallet secondary-dialog-wallet--brand">
+          <p className="secondary-dialog-wallet__label">Account wallet</p>
+          <p className="secondary-dialog-wallet__value">{primaryLinked}</p>
+        </div>
+      ) : null}
+
+      {error ? (
+        <p className="mt-3 text-center text-sm text-[var(--neg)]" role="alert">
+          {error}
+        </p>
+      ) : null}
+    </TkDialog>
   );
 }

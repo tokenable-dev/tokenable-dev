@@ -14,10 +14,16 @@ import { useCollectionDetailListings } from "./useCollectionDetailListings";
 import { useCollectionDetailMarketData } from "./useCollectionDetailMarketData";
 import { useCollectionDetailMobile } from "./useCollectionDetailMobile";
 import { useAppStore, selectWallet } from "@/store";
-import { parseCollectionDetailComponents } from "@/lib/marketplace/collectionDetailComponents";
+import { parseCollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
 import { buildCollectionDetailOrderBookProps } from "@/lib/marketplace/collectionDetailOrderBook";
+import { looksLikeCollectionKey } from "@/lib/ui/page-state-catalog";
 
-export type CollectionDetailPageStatus = "invalid" | "loading" | "error" | "ready";
+export type CollectionDetailPageStatus =
+  | "invalid"
+  | "loading"
+  | "not_created"
+  | "fetch_error"
+  | "ready";
 
 export type CollectionDetailPageModel = ReturnType<typeof useCollectionDetailPage>;
 
@@ -62,7 +68,7 @@ export function useCollectionDetailPage() {
   });
 
   const comp = useMemo(
-    () => parseCollectionDetailComponents(data?.collection?.components),
+    () => parseCollectionComponents(data?.collection?.components),
     [data?.collection?.components],
   );
 
@@ -128,11 +134,15 @@ export function useCollectionDetailPage() {
 
   const status: CollectionDetailPageStatus = !collectionKey
     ? "invalid"
-    : isLoading
-      ? "loading"
-      : isError || !data || !data.collection
-        ? "error"
-        : "ready";
+    : !looksLikeCollectionKey(collectionKey)
+      ? "invalid"
+      : isLoading
+        ? "loading"
+        : isError || !data
+          ? "fetch_error"
+          : !data.collection
+            ? "not_created"
+            : "ready";
 
   const collectionOrderBookProps = useMemo(() => {
     if (!data?.collection) return null;
@@ -154,6 +164,13 @@ export function useCollectionDetailPage() {
       lastTradePriceUsdc: market.orderBookLastSaleUsdc,
       tapeFills: market.orderBookTapeFills,
       tapeLoading: market.platformTradesLoading,
+      tapeError: market.platformTradesError,
+      tapeErrorMessage:
+        market.platformTradesErrorDetail instanceof Error
+          ? market.platformTradesErrorDetail.message
+          : market.platformTradesError
+            ? "Failed to load trades"
+            : null,
       connectedAddress: address,
       onInvalidate: invalidateCollection,
     });
@@ -165,6 +182,8 @@ export function useCollectionDetailPage() {
     market.orderBookLastSaleUsdc,
     market.orderBookTapeFills,
     market.platformTradesLoading,
+    market.platformTradesError,
+    market.platformTradesErrorDetail,
     address,
     invalidateCollection,
   ]);

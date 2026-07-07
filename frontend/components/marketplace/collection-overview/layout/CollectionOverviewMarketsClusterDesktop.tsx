@@ -1,18 +1,11 @@
 "use client";
 
 import type { ReactNode } from "react";
-import {
-  COLLECTION_MARKET_CLUSTER_BEZEL,
-  COLLECTION_MARKET_CLUSTER_MAT,
-  COLLECTION_MARKETS_CHART_COMPACT_HEIGHT_CLASS,
-  COLLECTION_MARKETS_ORDER_BOOK_COMPACT_FRAME,
-  COLLECTION_MARKETS_ORDER_BOOK_COMPACT_WIDTH_CLASS,
-} from "@/components/marketplace/collectionOverviewChrome";
 import { withFlushProp } from "../utils/withFlushProp";
 
 /**
- * Collection detail desktop — metrics | trades (same row), chart | trades (continued),
- * then listings | details without overlapping grid spans.
+ * Collection detail desktop — Card.html card-detail-grid:
+ * left (1.7fr): stat block → chart → listings; right (1fr, sticky): order book → details → trade dock.
  */
 export function CollectionOverviewMarketsClusterDesktop({
   chartMetricsRow,
@@ -32,76 +25,57 @@ export function CollectionOverviewMarketsClusterDesktop({
   belowCover?: ReactNode;
 }) {
   const hasMetrics = chartMetricsRow != null;
-  const chartRowStart = hasMetrics ? 2 : 1;
-  const listingsRowStart = hasMetrics ? 3 : 2;
-  const orderBookRowSpanClass = hasMetrics ? "lg:[grid-row:1/3]" : "lg:row-start-1";
 
   return (
-    <div className="relative hidden w-full min-w-0 max-w-full lg:block">
-      <div className={`${COLLECTION_MARKET_CLUSTER_BEZEL} w-full min-w-0 max-w-full`}>
-        <div className={`${COLLECTION_MARKET_CLUSTER_MAT} w-full min-w-0`}>
-          <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_300px] items-stretch gap-x-4 gap-y-3">
+    <div className="relative hidden w-full min-w-0 max-w-full lg:block cd-markets-cluster">
+      <div className="cd-markets-cluster__inner w-full min-w-0 max-w-full">
+        <div className="cd-markets-cluster__mat w-full min-w-0">
+          <div className="cd-detail-grid grid min-w-0 items-start gap-x-[clamp(20px,3vw,40px)] gap-y-[26px]">
             {hasMetrics ? (
-              <div className="min-w-0 self-stretch lg:col-start-1 lg:row-start-1">
+              <div className="cd-detail-grid__left cd-detail-grid__metrics min-w-0">
                 {chartMetricsRow}
               </div>
             ) : null}
 
             <div
-              className={`min-h-0 min-w-0 overflow-hidden lg:col-start-1 ${COLLECTION_MARKETS_CHART_COMPACT_HEIGHT_CLASS} ${
-                chartRowStart === 2 ? "lg:row-start-2" : "lg:row-start-1"
-              }`}
+              className="cd-detail-grid__left cd-detail-grid__chart min-h-0 min-w-0 overflow-hidden"
             >
               <div className="flex h-full min-h-0 w-full flex-col [&>*]:min-h-0 [&>*]:flex-1">
                 {priceChart}
               </div>
             </div>
 
-            <div
-              className={`flex min-h-0 flex-col self-stretch overflow-hidden lg:col-start-2 ${COLLECTION_MARKETS_ORDER_BOOK_COMPACT_WIDTH_CLASS} ${COLLECTION_MARKETS_ORDER_BOOK_COMPACT_FRAME} ${orderBookRowSpanClass}`}
-            >
-              <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
-                {withFlushProp(orderBookNextToChart)}
-              </div>
-            </div>
-
             {marketsBelowChart != null ? (
               <div
-                className={`min-w-0 self-start border-t border-zinc-800/30 lg:col-start-1 lg:pt-8 ${
-                  listingsRowStart === 3 ? "lg:row-start-3" : "lg:row-start-2"
-                }`}
+                className="cd-detail-grid__left cd-detail-grid__listings min-w-0"
                 id="collection-listings"
                 aria-label="Individual listings"
               >
                 {marketsBelowChart}
               </div>
-            ) : (
-              <div className="lg:col-start-1" aria-hidden />
-            )}
+            ) : null}
 
-            {belowCover != null ? (
-              <div
-                className={`flex min-w-0 flex-col gap-3 self-start border-t border-zinc-800/35 pt-5 lg:col-start-2 lg:pt-8 ${COLLECTION_MARKETS_ORDER_BOOK_COMPACT_WIDTH_CLASS} ${
-                  listingsRowStart === 3 ? "lg:row-start-3" : "lg:row-start-2"
-                }`}
-                aria-label="Collection details"
-              >
-                {belowCover}
+            <div className="cd-detail-grid__sidebar">
+              <div className="cd-sidebar-sticky flex flex-col gap-5">
+                <div className="cd-sidebar-orderbook flex min-h-0 flex-col overflow-hidden">
+                  <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
+                    {withFlushProp(orderBookNextToChart)}
+                  </div>
+                </div>
+
+                {belowCover != null ? (
+                  <div className="cd-sidebar-details flex min-w-0 flex-col" aria-label="Collection details">
+                    {belowCover}
+                  </div>
+                ) : null}
+
                 {marketsDockTradePanel ? (
-                  <div className="min-w-0 shrink-0">{withFlushProp(tradePanel)}</div>
+                  <div className="cd-sidebar-trade min-w-0 shrink-0">
+                    {withFlushProp(tradePanel)}
+                  </div>
                 ) : null}
               </div>
-            ) : marketsDockTradePanel ? (
-              <div
-                className={`min-w-0 self-start lg:col-start-2 ${COLLECTION_MARKETS_ORDER_BOOK_COMPACT_WIDTH_CLASS} ${
-                  listingsRowStart === 3 ? "lg:row-start-3" : "lg:row-start-2"
-                }`}
-              >
-                {withFlushProp(tradePanel)}
-              </div>
-            ) : (
-              <div className="lg:col-start-2" aria-hidden />
-            )}
+            </div>
           </div>
         </div>
       </div>

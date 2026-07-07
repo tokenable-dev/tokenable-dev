@@ -10,7 +10,7 @@ import {
   type AssetDetailHeadlineParts,
 } from "@/lib/marketplace/assetDetailHeadline";
 import { buildCollectionMarketDetailCards } from "@/lib/marketplace/buildCollectionMarketDetailCards";
-import type { CollectionDetailComponents } from "@/lib/marketplace/collectionDetailComponents";
+import type { CollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
 import { listingDisplayTitleFromComp } from "@/lib/marketplace/collectionListingUtils";
 import {
   bucketCardNameForDisplay,
@@ -39,7 +39,7 @@ import {
 
 export function useCollectionDetailHeadline(params: {
   key: string;
-  comp: CollectionDetailComponents;
+  comp: CollectionComponents;
   marketPreview: CollectionMarketPreview | null;
   pokeTierLabel: string;
   displayLabel: string | null | undefined;

@@ -1,7 +1,7 @@
 import { mergePsaVarietyWithMintVariant } from '../../psa/psa-variety-catalog.util';
 import type { SnapshotRefreshReason } from './market-snapshot.types';
 
-/** Merge compact `psa_cert_snapshots.snapshot_json` into collection `components` PSA mirrors. */
+/** Merge compact PSA GetByCertNumber fields into collection `components` PSA mirrors. */
 export function mergePsaCertSnapshotIntoMirror(
   baseMirror: Record<string, unknown>,
   snap: Record<string, unknown>,
@@ -65,12 +65,13 @@ export function componentsPsaMirrorSufficientForCardhedger(
 }
 
 /**
- * Snapshot refresh never calls PSA Public API — only reads `psa_cert_snapshots`.
- * User cert lookup (`POST /psa/analyze-by-cert`) populates that cache.
+ * Whether Cardhedger snapshot refresh may call PSA Public API for cert mirror fields.
+ * Controlled by `PSA_PUBLIC_API_REFRESH_ON_SNAPSHOT` (e.g. `always`).
  */
 export function psaPublicApiAllowedForSnapshotReason(
   _reason: SnapshotRefreshReason,
-  _configValue: string | undefined,
+  configValue: string | undefined,
 ): boolean {
-  return false;
+  const v = (configValue ?? '').trim().toLowerCase();
+  return v === 'always' || v === 'true' || v === '1';
 }
