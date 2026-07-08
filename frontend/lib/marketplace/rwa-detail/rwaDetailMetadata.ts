@@ -1,4 +1,8 @@
 import { formatSportCategoryDisplayLabel } from "@/lib/market";
+import {
+  formatPsaGradedByDisplay,
+  psaGradePolicyInputFromGraded,
+} from "@/lib/market/psaGradePolicy";
 import type { AssetDetailHeadlineParts } from "@/lib/marketplace/assetDetailHeadline";
 import { formatAssetDetailHeadlineText } from "@/lib/marketplace/assetDetailHeadline";
 import { resolveRwaMetadataVariant } from "@/lib/marketplace/resolveCardVariantLabel";
@@ -324,7 +328,21 @@ export function getRwaDetailHeaderBadgeLabels(meta: RwaDetailMetadata | null): {
     const v = String(a.value ?? "").trim();
     if (!v) continue;
     if (!catOut && /^(category|game|type)$/i.test(tl)) catOut = v;
-    if (!gradeOut && (/^grade$/i.test(tl) || /^psa(\s|$)/i.test(trait))) gradeOut = v;
+    if (!gradeOut && /^grade$/i.test(tl)) {
+      const graded =
+        meta.properties?.graded && typeof meta.properties.graded === "object"
+          ? (meta.properties.graded as Record<string, unknown>)
+          : {};
+      gradeOut =
+        formatPsaGradedByDisplay({
+          ...psaGradePolicyInputFromGraded(graded),
+          gradeScore: v,
+        }) ?? v;
+    }
+  }
+
+  if (!gradeOut && graded && typeof graded === "object") {
+    gradeOut = formatPsaGradedByDisplay(psaGradePolicyInputFromGraded(graded));
   }
 
   return {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useLinkedPortfolioWallet } from "@/hooks/auth/useLinkedPortfolioWallet";
@@ -24,6 +24,7 @@ import {
 import { buildPortfolioTxRows } from "@/lib/portfolio/buildPortfolioTxRows";
 import type { OwnedAsset } from "@/lib/portfolio/portfolioTypes";
 import { putPortfolioCostBasis, rq } from "@/lib/core";
+import { invalidateAfterListing } from "@/lib/core/invalidation";
 import { APP_MAIN_SHELL_CLASS } from "@/constants/layout";
 import { HomeTicker } from "@/components/home/HomeTicker";
 import { useWatchlist } from "@/hooks/watchlist/useWatchlist";
@@ -43,6 +44,7 @@ import {
   PortfolioValuePanel,
 } from "@/components/portfolio";
 import { CollectionChangeBidModal } from "@/components/marketplace/collection-trading/CollectionChangeBidModal";
+import { RwaDetailListModalHost } from "@/components/marketplace/rwa-detail/modals/RwaDetailListModalHost";
 import { useSellAccessGate } from "@/hooks/auth/useSellAccessGate";
 
 export default function PortfolioPage() {
@@ -73,6 +75,13 @@ export default function PortfolioPage() {
     currentUsd: number | null;
   } | null>(null);
   const [savingCostBasis, setSavingCostBasis] = useState(false);
+  const [listModal, setListModal] = useState<{
+    tokenId: number;
+    assetTitle: string;
+    collectionKey?: string;
+    existingAskOrderHash?: string;
+  } | null>(null);
+  const listQueryHandledRef = useRef<string | null>(null);
 
   useEffect(() => {
     const tab = searchParams.get("tab");
@@ -266,6 +275,22 @@ export default function PortfolioPage() {
     [assetRows, hiddenSet],
   );
 
+  const openPortfolioListModal = useCallback(
+    (tokenId: number) => {
+      runSellAccessGate(() => {
+        const row = assetRows.find((r) => r.tokenId === tokenId);
+        const listing = listingByTokenId.get(tokenId);
+        setListModal({
+          tokenId,
+          assetTitle: row?.name ?? `RWA #${tokenId}`,
+          collectionKey: tokenToCollectionKey[tokenId],
+          existingAskOrderHash: listing?.orderHash,
+        });
+      });
+    },
+    [assetRows, listingByTokenId, runSellAccessGate, tokenToCollectionKey],
+  );
+
   const {
     dailySnapshotsLoading,
     portfolioValue,
@@ -278,6 +303,29 @@ export default function PortfolioPage() {
 
   const assetsSectionLoading = idsLoading || assetsLoading;
   const portfolioValuePending = dailySnapshotsLoading;
+
+  useEffect(() => {
+    const listParam = searchParams.get("list")?.trim() ?? "";
+    if (!/^\d+$/.test(listParam)) return;
+    if (listQueryHandledRef.current === listParam) return;
+    if (!portfolioDataEnabled || assetsSectionLoading) return;
+
+    const tokenId = Number(listParam);
+    const ownsToken = tokenIds.includes(tokenId);
+    listQueryHandledRef.current = listParam;
+    router.replace("/portfolio", { scroll: false });
+
+    if (ownsToken) {
+      openPortfolioListModal(tokenId);
+    }
+  }, [
+    searchParams,
+    portfolioDataEnabled,
+    assetsSectionLoading,
+    tokenIds,
+    router,
+    openPortfolioListModal,
+  ]);
 
   if (!authInitialized || authLoading) {
     return (
@@ -357,19 +405,11 @@ export default function PortfolioPage() {
                   router.push(`/marketplace/${tokenId}`);
                 }
               }}
-              onChangeListing={(tokenId) =>
-                runSellAccessGate(() =>
-                  router.push(`/marketplace/${tokenId}?list=1`),
-                )
-              }
+              onChangeListing={openPortfolioListModal}
               onCancelListing={(tokenId, orderHash) =>
                 void holdingActions.cancelListing(tokenId, orderHash)
               }
-              onSellNow={(tokenId) =>
-                runSellAccessGate(() =>
-                  router.push(`/marketplace/${tokenId}?list=1`),
-                )
-              }
+              onSellNow={openPortfolioListModal}
             />
           }
           bidsPanel={
@@ -430,6 +470,29 @@ export default function PortfolioPage() {
           pending={savingCostBasis}
           onClose={() => setCostBasisEdit(null)}
           onSave={saveCostBasis}
+        />
+      ) : null}
+
+      {listModal != null ? (
+        <RwaDetailListModalHost
+          open
+          tokenId={listModal.tokenId}
+          assetTitle={listModal.assetTitle}
+          collectionKey={listModal.collectionKey}
+          collectionBids={[]}
+          existingAskOrderHash={listModal.existingAskOrderHash}
+          initialPriceUsdc={null}
+          onMatchedSale={() => {}}
+          onClose={() => setListModal(null)}
+          onListed={() => {
+            void invalidateAfterListing(queryClient, {
+              collectionKey: listModal.collectionKey,
+              address: signerAddress ?? portfolioAddress,
+              tokenId: listModal.tokenId,
+            });
+            void refetchActiveOrders();
+            setListModal(null);
+          }}
         />
       ) : null}
     </div>

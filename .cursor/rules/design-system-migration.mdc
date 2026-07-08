@@ -1,8 +1,9 @@
 ---
-description: Design system migration — always follow phased plan when changing frontend UI
+description: Design system migration — phased UI rollout (see design-system-reference.md for ongoing work)
 globs:
   - "frontend/**"
   - "docs/guides/design-system-migration.md"
+  - "docs/guides/design-system-reference.md"
   - "frontend/design-system/**"
 ---
 
@@ -10,12 +11,12 @@ globs:
 
 When the task involves **UI, layout, styling, or visual redesign** of the Tokenable frontend:
 
-1. Read **`docs/guides/design-system-migration.md`** — confirm the **active phase** from the checklist.
-2. Read **`frontend/design-system/INVENTORY.md`** for screen → component mapping.
-3. For layout reference, open the matching HTML in **`Tokenable-with design system/`** (see `frontend/design-system/PROTOTYPES.md`) — **do not** import or paste that HTML into React.
-4. Use committed DS CSS from **`frontend/design-system/`** (`tk-*` classes) via `components/ds/*` wrappers (Phase 1+).
-5. Implement **only the current phase** unless the user explicitly asks to skip ahead.
-6. When completing a phase, update the checklist in `docs/guides/design-system-migration.md` to **Done**.
+1. Read **`docs/guides/design-system-reference.md`** — canonical tokens, components, prototype sync, and checklist.
+2. Read **`docs/guides/design-system-migration.md`** — phase checklist and CSS bundle import order.
+3. Read **`frontend/design-system/INVENTORY.md`** for screen → component mapping.
+4. For layout reference, open the matching HTML in **`Tokenable-with design system/`** (see `frontend/design-system/PROTOTYPES.md`) — **do not** import or paste that HTML into React.
+5. Use committed DS CSS from **`frontend/design-system/`** (`tk-*` classes) via `components/ds/*` wrappers.
+6. Phases 0–10 are **Done** unless the user opens a new migration phase — default to reference doc + INVENTORY for new work.
 7. Run `cd frontend && pnpm exec tsc --noEmit` before considering UI work complete.
 
 ## Hard rules
@@ -31,5 +32,6 @@ When the task involves **UI, layout, styling, or visual redesign** of the Tokena
 | Asset | Path |
 |-------|------|
 | DS CSS | `frontend/design-system/styles.css` |
+| **Ongoing reference** | `docs/guides/design-system-reference.md` |
 | Migration plan | `docs/guides/design-system-migration.md` |
 | Public DS images | `frontend/public/assets/ds/` |

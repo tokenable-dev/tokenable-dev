@@ -144,6 +144,24 @@ export function bucketGradeScoreFromPsaGradeInput(
   return null;
 }
 
+/** Slab verification line, e.g. `PSA · Near Mint 7`. */
+export function formatPsaGradedByDisplay(input: PsaGradePolicyInput): string | null {
+  const companyRaw = String(input.gradingCompany ?? "PSA").trim();
+  const company = /psa/i.test(companyRaw) ? "PSA" : companyRaw || "PSA";
+
+  const label = [input.gradeLabel, input.gradeDescription]
+    .map((s) => String(s ?? "").trim())
+    .find(Boolean);
+  if (label) {
+    if (/^psa\s/i.test(label)) return label;
+    return `${company} · ${label}`;
+  }
+
+  const score = effectiveGradeScore(input);
+  if (score != null) return `${company} · ${score}`;
+  return null;
+}
+
 export function psaGradePolicyInputFromGraded(
   graded: Record<string, unknown>,
 ): PsaGradePolicyInput {

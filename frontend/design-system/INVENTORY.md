@@ -107,7 +107,7 @@ Maps designer HTML sections to existing React modules. Use when implementing Pha
 | Stat grid | `.pf-stat-grid`, `.notch` | `PortfolioStatGrid` | `components/portfolio/PortfolioStatGrid.tsx` |
 | Chart | `.notch` chart panel | `PortfolioValuePanel` | `components/portfolio/PortfolioValuePanel.tsx` |
 | Tabs | `.tk-tabs` | `PortfolioMainSection` | `components/portfolio/PortfolioMainSection.tsx` |
-| Holdings | card grid | `PortfolioHoldingsSection` + `PortfolioAssetCard` | `components/portfolio/*` |
+| Holdings | card grid | `PortfolioHoldingsSection` + `PortfolioAssetCard` + `PortfolioAssetCardCta` | `components/portfolio/*` |
 | Bids | bid rows | `PortfolioCollectionBidsSection` | `components/portfolio/PortfolioCollectionBidsSection.tsx` |
 | Watchlist tab | — | `PortfolioWatchlistSection` | `components/portfolio/PortfolioWatchlistSection.tsx` |
 | Transaction history | `.tk-table` | `PortfolioActivitySection` | `components/portfolio/PortfolioActivitySection.tsx` |
@@ -193,9 +193,29 @@ Overlap with Card.html sidebar: list/buy/trade panel.
 | Profile | `app/profile/page.tsx` — `TkButton`, `TkTag`, secondary panels |
 | Site access | `SiteAccessClient` — `TkField` / `TkInput` / `TkButton` |
 | Auth modals | `TkDialog` — delete account, KYC, wallet mismatch |
-| Admin | Azure primary + focus ring on login; light shell unchanged |
+| Admin | `adminUi.ts` + `/dev/admin-ui` showcase; light shell; brand via `--brand-500` |
 
 **CSS:** `frontend/styles/tokenable-secondary.css`
+
+---
+
+## Marketplace admin (backoffice)
+
+| Route | Component | Notes |
+|-------|-----------|--------|
+| `/marketplace/admin` | `MarketplaceAdminOverviewPage` | KPIs, funnel, GA4 |
+| `/marketplace/admin/users` | `MarketplaceAdminUsersPage` | User search, detail rows |
+| `/marketplace/admin/collections` | `MarketplaceAdminCollectionsPage` | Bucket admin, delete |
+| `/marketplace/admin/cards` | `MarketplaceAdminCardsPage` | RWA registry, burn |
+| `/marketplace/admin/custody-nfts` | `MarketplaceAdminCustodyNftsPage` | Deliver vaulted cards |
+| `/marketplace/admin/markets` | `MarketplaceAdminMarketsPage` | Home / Top 100 / movers preview |
+| `/marketplace/admin/portfolio` | `MarketplaceAdminPortfolioPage` | Snapshots, cost basis ops |
+| `/marketplace/admin/price-webhooks` | `MarketplaceAdminPriceWebhooksPage` | Cardhedger delta import |
+| `/marketplace/admin/contract-roles` | `MarketplaceAdminContractRolesPage` | On-chain roles |
+| `/marketplace/admin/vault` | `MarketplaceAdminVaultPage` | PSA API tooling |
+| `/dev/admin-ui` | `AdminUiShowcase` | Admin UI contract (not production) |
+
+**Shared:** `adminUi.ts`, `MarketplaceAdminShell`, `MarketplaceAdminNav`, `nav/adminNavConfig.ts`
 
 ---
 

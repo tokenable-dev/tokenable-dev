@@ -1,9 +1,8 @@
 "use client";
 
 import type { AssetListFilter, AssetRow } from "@/lib/portfolio/portfolioTypes";
-import { PortfolioListingManageButton } from "./PortfolioListingManageButton";
+import { PortfolioAssetCardCta } from "./PortfolioAssetCardCta";
 import { PortfolioListingPriceStrip } from "./PortfolioListingPriceStrip";
-import { PortfolioSellNowButton } from "./PortfolioSellNowButton";
 import {
   PortfolioCardIconButton,
   PortfolioHideIcon,
@@ -128,15 +127,13 @@ export function PortfolioAssetCard({
         </div>
         {address && assetFilter !== "hidden" ? (
           <div className="pf-asset-card__actions border-t border-white/8 pt-2">
-            {isListed ? (
-              <PortfolioListingManageButton
-                busy={cancellingListingTokenId === row.tokenId}
-                onChange={onChangeListing}
-                onCancel={onCancelListing}
-              />
-            ) : (
-              <PortfolioSellNowButton onClick={onSellNow} />
-            )}
+            <PortfolioAssetCardCta
+              isListed={isListed}
+              busy={cancellingListingTokenId === row.tokenId}
+              onChange={onChangeListing}
+              onCancel={onCancelListing}
+              onSellNow={onSellNow}
+            />
           </div>
         ) : null}
       </div>

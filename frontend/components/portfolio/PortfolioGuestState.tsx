@@ -1,6 +1,7 @@
 "use client";
 
 import { APP_MAIN_SHELL_CLASS } from "@/constants/layout";
+import { TkButton } from "@/components/ds";
 import { useAuthUiStore } from "@/store/authUiStore";
 
 export function PortfolioGuestState() {
@@ -17,13 +18,14 @@ export function PortfolioGuestState() {
             <p className="mt-2 text-sm leading-relaxed text-gray-400">
               Sign in to view your portfolio, watchlist, and activity.
             </p>
-            <button
+            <TkButton
               type="button"
+              variant="primary"
+              className="mt-7 w-full justify-center"
               onClick={() => openSignIn({ returnTo: "/portfolio" })}
-              className="mt-7 w-full rounded-xl bg-mint px-4 py-3 text-sm font-bold text-[#030712] transition hover:brightness-110"
             >
               Sign in
-            </button>
+            </TkButton>
           </div>
         </div>
       </div>

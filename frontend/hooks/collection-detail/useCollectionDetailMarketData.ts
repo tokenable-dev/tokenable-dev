@@ -24,6 +24,7 @@ import {
   prependSessionFillToTape,
   resolvePsaPopulationMetrics,
 } from "@/lib/market";
+import { parsePsaPopulationByGrade } from "@/lib/market/psaPopulationByGrade";
 import { COLLECTION_SESSION_FILL_DEDUP_SEC } from "@/lib/marketplace/collectionDetailConstants";
 import type { CollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
 import { useCollectionGradeChart } from "@/hooks/collection-grade-chart";
@@ -224,12 +225,19 @@ export function useCollectionDetailMarketData(params: {
   );
 
   const totalPopulation = useMemo(() => {
-    const total = psaPopulationMetrics.totalPsaPop;
-    if (total != null) return total;
-    const n = comp.psaTotalPopulation;
-    if (n == null || !Number.isFinite(Number(n)) || Number(n) <= 0) return null;
-    return Math.round(Number(n));
-  }, [comp.psaTotalPopulation, psaPopulationMetrics.totalPsaPop]);
+    const specTotal = psaPopulationMetrics.totalPsaPop;
+    if (specTotal != null) return specTotal;
+    const byGrade = parsePsaPopulationByGrade(comp.psaPopulationByGrade);
+    if (byGrade) {
+      let sum = 0;
+      for (let g = 1; g <= 10; g++) {
+        const n = byGrade[String(g) as keyof typeof byGrade];
+        if (typeof n === "number" && Number.isFinite(n)) sum += n;
+      }
+      if (sum > 0) return sum;
+    }
+    return null;
+  }, [comp.psaPopulationByGrade, psaPopulationMetrics.totalPsaPop]);
 
   const chartExternalRefTag = gradeChart.chartExternalRefTag;
 

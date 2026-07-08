@@ -67,6 +67,47 @@ export function psaChartGradeLabelForScore(score: number): string {
   return `PSA ${Math.floor(score)}`;
 }
 
+function sumPsaPopulationByGrade(map: PsaPopulationByGrade): number {
+  let sum = 0;
+  for (let g = 1; g <= 10; g++) {
+    const n = map[String(g) as keyof PsaPopulationByGrade];
+    if (typeof n === "number" && Number.isFinite(n)) sum += n;
+  }
+  return sum;
+}
+
+/** Panel input: spec-grade breakdown + cert-line pop for the collection slab grade. */
+export function resolveCollectionPsaPopulationPanelData(
+  components: CollectionComponents,
+): {
+  byGrade?: PsaPopulationByGrade;
+  totalPop: number | null;
+} {
+  const byGrade: PsaPopulationByGrade = {
+    ...(parsePsaPopulationByGrade(components.psaPopulationByGrade) ?? {}),
+  };
+
+  const gradeScore = parseFiniteGradeScore(components.gradeScore);
+  const certLinePop = finitePop(components.psaTotalPopulation);
+  if (
+    gradeScore != null &&
+    certLinePop != null &&
+    byGrade[String(gradeScore) as keyof PsaPopulationByGrade] == null
+  ) {
+    byGrade[String(gradeScore) as keyof PsaPopulationByGrade] = certLinePop;
+  }
+
+  const specTotal = finitePop(components.psaSpecTotalPopulation);
+  const totalPop =
+    specTotal ??
+    (Object.keys(byGrade).length > 0 ? sumPsaPopulationByGrade(byGrade) : null);
+
+  return {
+    byGrade: Object.keys(byGrade).length > 0 ? byGrade : undefined,
+    totalPop: totalPop != null && totalPop > 0 ? totalPop : null,
+  };
+}
+
 export function resolveActivePsaChartGradeLabel(
   components: CollectionComponents,
   activeGradeLabel?: string | null,

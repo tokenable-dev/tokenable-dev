@@ -1,6 +1,7 @@
 "use client";
 
 import { APP_MAIN_SHELL_CLASS } from "@/constants/layout";
+import { TkButton } from "@/components/ds";
 import { useAuthUiStore } from "@/store/authUiStore";
 
 export function PortfolioDisconnectedState() {
@@ -20,13 +21,14 @@ export function PortfolioDisconnectedState() {
               Link your wallet to view holdings, estimated value, and activity in your
               portfolio.
             </p>
-            <button
+            <TkButton
               type="button"
+              variant="primary"
+              className="mt-7 w-full justify-center"
               onClick={() => openConnectWallet({ returnTo: "/portfolio" })}
-              className="mt-7 w-full rounded-xl border border-mint/30 bg-mint/10 px-4 py-3 text-sm font-bold text-mint transition hover:bg-mint/15"
             >
               Connect wallet
-            </button>
+            </TkButton>
           </div>
         </div>
       </div>

@@ -5,6 +5,8 @@ import { useMarketplaceAdminAnalytics } from "@/hooks/marketplace-admin/useMarke
 import { AdminSectionTitle, AdminStatTile } from "../AdminAnalyticsWidgets";
 import {
   ADMIN_ARTICLE,
+  ADMIN_LINK,
+  ADMIN_STAT_CARD,
   ADMIN_TEXT_SECONDARY,
 } from "../adminUi";
 import { MarketplaceAdminPageHeader } from "../MarketplaceAdminPageHeader";
@@ -95,10 +97,7 @@ export function MarketplaceAdminPortfolioPage() {
         </div>
         <div className="mt-5 grid gap-3 sm:grid-cols-3">
           {COST_BASIS_ROWS.map((row) => (
-            <div
-              key={row.source}
-              className="rounded-lg border border-zinc-200 bg-zinc-50/80 px-4 py-3"
-            >
+            <div key={row.source} className={ADMIN_STAT_CARD}>
               <p className="text-sm font-semibold text-zinc-900">{row.label}</p>
               <p className={`mt-1 text-xs leading-relaxed ${ADMIN_TEXT_SECONDARY}`}>
                 {row.detail}
@@ -118,7 +117,7 @@ export function MarketplaceAdminPortfolioPage() {
         <ul className="mt-3 list-disc space-y-2 pl-5">
           <li>
             Deliver custody NFTs from{" "}
-            <Link href="/marketplace/admin/custody-nfts" className="text-blue-600 hover:text-blue-700">
+            <Link href="/marketplace/admin/custody-nfts" className={ADMIN_LINK}>
               Custody NFTs
             </Link>{" "}
             — seeds <code className="font-mono text-xs">vault_delivery</code> cost basis.
@@ -129,7 +128,7 @@ export function MarketplaceAdminPortfolioPage() {
           </li>
           <li>
             Preview home rankings under{" "}
-            <Link href="/marketplace/admin/markets?tab=home" className="text-blue-600 hover:text-blue-700">
+            <Link href="/marketplace/admin/markets?tab=home" className={ADMIN_LINK}>
               Markets preview → Home landing
             </Link>.
           </li>

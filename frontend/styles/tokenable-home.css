@@ -495,18 +495,19 @@
   height: 44px;
   border: 0;
   cursor: pointer;
-  color: #fff;
+  color: var(--brand-500);
   display: none;
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  background: rgba(26, 111, 255, 0.85);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
-  transition: transform 0.15s, background 0.15s;
+  background: var(--gray-100);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  transition: transform 0.15s, background 0.15s, color 0.15s;
 }
 
 .grid4-arrow:hover {
-  background: #2e80ff;
+  color: var(--brand-600);
+  background: #fff;
   transform: translateY(-50%) scale(1.1);
 }
 

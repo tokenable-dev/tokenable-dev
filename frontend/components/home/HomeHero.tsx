@@ -18,9 +18,11 @@ export function HomeHero() {
       <div className="home-hero__content">
         <div className="home-hero__inner">
           <h1 className="home-hero__title">
-            Onchain markets to
+            Onchain markets
             <br />
-            trade Gems and Grails.
+            to Trade
+            <br />
+            Gems and Grails.
           </h1>
 
           <div className="home-hero__chips">

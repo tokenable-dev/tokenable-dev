@@ -19,6 +19,8 @@ import {
 import { marketParallelKeyFromPsaVariety } from '../utils/market-parallel-key.util';
 import { mergePsaVarietyWithMintVariant } from '../../psa/psa-variety-catalog.util';
 import { specIdStringFromPsaCertBody, PsaPublicApiService } from '../../psa/psa-public-api.service';
+import { hasCompletePsaPopulationByGrade } from '../../psa/psa-spec-population.util';
+import { isPsaPublicApiUpstreamEnabled } from '../utils/psa-upstream-policy.util';
 import {
   buildCollectionDisplayLabel,
   extractCollectionQueryUsed,
@@ -328,6 +330,12 @@ export class CollectionService {
 
     this.enqueueMarketSnapshotRefresh(collectionKey);
 
+    if (isPsaPublicApiUpstreamEnabled(this.config)) {
+      void this.components.ensurePsaSpecPopulationFromApi(collectionKey, {
+        allowUpstream: true,
+      });
+    }
+
     return collectionKey;
   }
 
@@ -557,6 +565,20 @@ export class CollectionService {
     opts?: { allowUpstream?: boolean },
   ): Promise<void> {
     return this.components.ensurePsaSpecPopulationFromApi(collectionKey, opts);
+  }
+
+  /** Fetch PSA spec pop breakdown when collection components are incomplete (read-path enrichment). */
+  async ensurePsaSpecPopulationOnReadIfMissing(
+    collectionKey: string,
+  ): Promise<void> {
+    if (!isPsaPublicApiUpstreamEnabled(this.config)) return;
+    const k = collectionKey.toLowerCase();
+    const row = await this.collectionRepo.findOne({ where: { collectionKey: k } });
+    if (!row) return;
+    if (hasCompletePsaPopulationByGrade(row.components as Record<string, unknown>)) {
+      return;
+    }
+    await this.components.ensurePsaSpecPopulationFromApi(k, { allowUpstream: true });
   }
 
   async persistPsaMirrorFromCertToDb(collectionKey: string): Promise<boolean> {

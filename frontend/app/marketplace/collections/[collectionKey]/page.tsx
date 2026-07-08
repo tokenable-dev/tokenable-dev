@@ -37,19 +37,15 @@ function CollectionDetailPageContent() {
       <CollectionDetailStateShell>
         <AppPageState
           kind="collection_not_created"
-          primaryAction={
-            listingTokenId
-              ? {
-                  label: "List this card",
-                  href: `/marketplace/${listingTokenId}?list=1`,
-                  variant: "primary",
-                }
-              : undefined
-          }
+          primaryAction={{ label: "Go to Portfolio", href: "/portfolio", variant: "primary" }}
           secondaryAction={
             listingTokenId
-              ? { label: "Go to Portfolio", href: "/portfolio", variant: "neutral" }
-              : undefined
+              ? {
+                  label: "List from Portfolio",
+                  href: `/portfolio?list=${listingTokenId}`,
+                  variant: "neutral",
+                }
+              : { label: "Browse Markets", href: "/markets", variant: "neutral" }
           }
         />
       </CollectionDetailStateShell>

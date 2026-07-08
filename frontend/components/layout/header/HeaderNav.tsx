@@ -1,10 +1,12 @@
 "use client";
 
 import { usePathname } from "next/navigation";
+import { usePrivy } from "@privy-io/react-auth";
 import { cn } from "@/lib/ds/cn";
 import { isMarketplaceCollectionDetailPath } from "@/constants/layout";
 import { canAccessVault, type HeaderNavMinLevel } from "@/lib/auth/accountAccess";
 import { useHeaderNavGate } from "@/hooks/auth/useHeaderNavGate";
+import { useClientMounted } from "@/hooks/ui/useClientMounted";
 import { useAuthStore } from "@/store/authStore";
 
 /** Exact path or nested routes (strip query/hash before compare). */
@@ -100,12 +102,20 @@ export function HeaderDesktopNav() {
   );
 }
 
-/** Mobile drawer nav — same items, closes drawer on navigate. */
+/** Mobile drawer nav — guest only; signed-in users use `HeaderMobileWalletSection`. */
 export function HeaderMobileNav({ onClose }: { onClose: () => void }) {
+  const mounted = useClientMounted();
+  const { ready, authenticated } = usePrivy();
+  const initialized = useAuthStore((s) => s.initialized);
+  const loading = useAuthStore((s) => s.loading);
   const pathname = usePathname();
   const navigate = useHeaderNavGate();
   const user = useAuthStore((s) => s.user);
   const navItems = visibleHeaderNavItems(user);
+
+  if (!mounted || !ready || !initialized || loading || authenticated) {
+    return null;
+  }
 
   return (
     <>

@@ -1,0 +1,29 @@
+---
+description: Design system reference — read before any frontend UI, layout, or styling work
+globs:
+  - "frontend/**"
+  - "docs/guides/design-system-reference.md"
+  - "docs/guides/design-system-governance-phases.md"
+  - "frontend/design-system/**"
+---
+
+# Design system reference
+
+For **UI, layout, styling, or new visual design** on the Tokenable frontend:
+
+1. Read **`docs/guides/design-system-reference.md`** first (tokens, components, checklist, do/don't).
+2. Read **`frontend/design-system/INVENTORY.md`** for screen → component mapping.
+3. Use **`components/ds/*`** (`TkButton`, `TkDialog`, `TkActionSheet`, …) and tokens from **`frontend/design-system/tokens/fig-tokens.css`**.
+4. Phase history and CSS import order: **`docs/guides/design-system-migration.md`**.
+5. Run `cd frontend && pnpm exec tsc --noEmit` before considering UI work complete.
+
+## Quick rules
+
+- **Source of truth:** `frontend/design-system/` — not `Tokenable-with design system/` (prototype is reference only; manual merge).
+- Dark-first azure pixel aesthetic; prefer `--brand-500` over `--azure` in new code.
+- Center modal = `TkDialog`; portfolio trade sheets = `TkActionSheet`.
+- No prototype HTML paste, no `dangerouslySetInnerHTML`, no `support.js`.
+- DS CSS/token PRs: one-line `DS: …` changelog; check `/dev/design-system`.
+- Admin (`adminUi.ts`) is light Tailwind on purpose — not `tk-btn`.
+- New designer tokens → add to `fig-tokens.css`, then use `var(--token)` — no ad-hoc hex.
+- Business logic unchanged unless the task says otherwise.

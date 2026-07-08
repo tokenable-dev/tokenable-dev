@@ -8,6 +8,7 @@ import { representativeGradeUsd } from "@/lib/market";
 import { AdminMarketPriceStrip } from "./AdminMarketPriceStrip";
 import {
   ADMIN_ARTICLE,
+  ADMIN_BTN_DANGER,
   ADMIN_BTN_PRIMARY,
   ADMIN_BTN_SECONDARY,
   ADMIN_COVER_BOX_CARD,
@@ -259,7 +260,7 @@ export function MarketplaceAdminCardRow({
                       : "On-chain adminBurn (platform wallet)"
                 }
                 onClick={onBurn}
-                className="rounded-md border border-red-300 bg-white px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-40"
+                className={ADMIN_BTN_DANGER}
               >
                 {isBurning ? "Burning…" : isBurned ? "Burned" : "Burn token"}
               </button>

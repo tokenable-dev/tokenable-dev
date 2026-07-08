@@ -325,8 +325,7 @@ Treat as one **step flow** with routes or tabs:
 - [x] `app/profile/page.tsx` — secondary shell, `TkButton`, `TkTag`
 - [x] `DeleteAccountSettings`, `KycRequiredModal`, `PrivyWalletMismatchModal` → `TkDialog`
 - [x] `SiteAccessClient` — `TkField` + `TkInput` + `TkButton`
-- [x] Admin — Azure primary button, input focus ring, `admin-console` shell class (light UI preserved)
-- [x] `authUiStyles.ts` — mint aliases → DS tokens
+- [x] Admin — `adminUi.ts` tokens, `admin-console` shell, `/dev/admin-ui` showcase (light UI preserved)
 - [x] `pnpm exec tsc --noEmit` passes
 
 ### Deferred

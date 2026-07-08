@@ -36,6 +36,9 @@
 - [Analytics](guides/analytics.md)
 - [Networking](guides/networking.md)
 - [Troubleshooting](guides/troubleshooting.md)
+- [Design System Reference](guides/design-system-reference.md)
+- [Design System Governance Phases](guides/design-system-governance-phases.md)
+- [Design System Migration](guides/design-system-migration.md)
 
 ## Platform Documentation
 

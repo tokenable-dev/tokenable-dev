@@ -35,4 +35,14 @@ Logos and sample cards: `frontend/public/assets/ds/`
 
 ## Migration plan
 
-Full phases: [`docs/guides/design-system-migration.md`](../../docs/guides/design-system-migration.md)
+Full phases: [`docs/guides/design-system-migration.md`](../../docs/guides/design-system-migration.md)  
+**Ongoing UI reference:** [`docs/guides/design-system-reference.md`](../../docs/guides/design-system-reference.md)  
+**Prototype sync (no auto-import):** [`docs/guides/design-system-governance-phases.md`](../../docs/guides/design-system-governance-phases.md)
+
+## Prototype folder vs this directory
+
+| | `Tokenable-with design system/` | `frontend/design-system/` (here) |
+|---|--------------------------------|-------------------------------------|
+| Role | Designer HTML / `_ds` reference | **Production** tokens + `tk-*` CSS |
+| Next.js | Not imported | Imported via `tokenable-ds-entry.css` |
+| Updates | Manual diff + merge into here | PR + `DS: …` changelog line + `/dev/design-system` check |

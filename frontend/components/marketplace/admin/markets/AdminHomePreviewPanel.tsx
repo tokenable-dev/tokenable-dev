@@ -11,6 +11,7 @@ import { formatUsdCompact } from "@/lib/market";
 import {
   ADMIN_ARTICLE,
   ADMIN_EMBEDDED_DARK,
+  ADMIN_LINK,
   ADMIN_TABLE,
   ADMIN_TABLE_HEAD,
   ADMIN_TABLE_TD,
@@ -76,7 +77,7 @@ function AdminHomePreviewTable({
                     <td className={ADMIN_TABLE_TD}>
                       <Link
                         href={`/marketplace/collections/${encodeURIComponent(c.collectionKey)}`}
-                        className="font-medium text-blue-600 hover:text-blue-700"
+                        className={ADMIN_LINK}
                         target="_blank"
                         rel="noreferrer"
                       >
@@ -139,7 +140,7 @@ export function AdminHomePreviewPanel() {
           most recently minted collections by <code className="font-mono text-xs">createdAt</code>.
         </p>
         <p className="mt-2">
-          <Link href="/" className="font-medium text-blue-600 hover:text-blue-700" target="_blank" rel="noreferrer">
+          <Link href="/" className={ADMIN_LINK} target="_blank" rel="noreferrer">
             Open live home ↗
           </Link>
         </p>
