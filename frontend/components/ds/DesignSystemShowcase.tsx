@@ -20,6 +20,15 @@ import {
   TkTabs,
   TkTag,
 } from "@/components/ds";
+import type { TkButtonVariant } from "@/components/ds";
+
+const BUTTON_VARIANTS: { variant: TkButtonVariant; label: string }[] = [
+  { variant: "primary", label: "Primary" },
+  { variant: "primaryInv", label: "Primary inv" },
+  { variant: "neutral", label: "Neutral" },
+  { variant: "subtle", label: "Subtle" },
+  { variant: "danger", label: "Danger" },
+];
 
 function Section({
   title,
@@ -45,25 +54,104 @@ export function DesignSystemShowcase() {
 
   return (
     <div className="tk-ds-surface tkl-wrap" style={{ paddingTop: 32, paddingBottom: 64 }}>
-      <p className="tkl-eyebrow">Phase 1</p>
+      <p className="tkl-eyebrow">Designer QA</p>
       <h1 className="tkl-sec-title">Tokenable design system</h1>
       <p className="tkl-sec-sub">
-        Primitives for the Azure pixel UI. Production routes still use the legacy
-        shell until Phase 2.
+        Visual contract for committed DS primitives. Compare this page after any merge to{" "}
+        <code className="tkl-mono">frontend/design-system/</code> (especially{" "}
+        <code className="tkl-mono">components/components.css</code> and tokens).
       </p>
 
+      <div style={{ marginTop: 24, maxWidth: 640 }}>
+        <TkNote
+          tone="brand"
+          title="After a DS CSS merge"
+          message="Open /dev/design-system and spot-check buttons, inputs, and overlays against the prototype baseline before shipping."
+        />
+      </div>
+
       <div style={{ marginTop: 40 }}>
-        <Section title="Buttons">
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
-            <TkButton variant="primary">Primary</TkButton>
-            <TkButton variant="neutral">Neutral</TkButton>
-            <TkButton variant="subtle">Subtle</TkButton>
-            <TkButton variant="danger">Danger</TkButton>
-            <TkButton variant="primary" size="sm">
+        <Section title="Buttons — variant × size">
+          <p className="tk-body-sm" style={{ color: "var(--text-default-secondary)", marginBottom: 16 }}>
+            All <code className="tkl-mono">TkButton</code> variants at <code className="tkl-mono">md</code> (default)
+            and <code className="tkl-mono">sm</code>.
+          </p>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "minmax(7rem, auto) 1fr 1fr",
+              gap: "12px 20px",
+              alignItems: "center",
+              maxWidth: 520,
+            }}
+          >
+            <div />
+            <span
+              className="tk-body-sm"
+              style={{ color: "var(--text-default-tertiary)", fontWeight: 600 }}
+            >
+              md
+            </span>
+            <span
+              className="tk-body-sm"
+              style={{ color: "var(--text-default-tertiary)", fontWeight: 600 }}
+            >
+              sm
+            </span>
+            {BUTTON_VARIANTS.map(({ variant, label }) => (
+              <ButtonMatrixRow key={variant} variant={variant} label={label} />
+            ))}
+          </div>
+
+          <p
+            className="tk-body-sm"
+            style={{ color: "var(--text-default-secondary)", marginTop: 28, marginBottom: 12 }}
+          >
+            Primary inv on brand panel (typical hero / CTA band usage):
+          </p>
+          <div
+            style={{
+              maxWidth: 520,
+              padding: "20px 24px",
+              background: "var(--brand-500)",
+              clipPath: "var(--pixel-notch-lg)",
+            }}
+          >
+            <TkButton variant="primaryInv" size="md">
+              Primary inv
+            </TkButton>
+            <TkButton variant="primaryInv" size="sm" style={{ marginLeft: 12 }}>
               Small
             </TkButton>
-            <TkButton variant="primary" disabled>
-              Disabled
+          </div>
+
+          <p
+            className="tk-body-sm"
+            style={{ color: "var(--text-default-secondary)", marginTop: 28, marginBottom: 12 }}
+          >
+            Disabled (md):
+          </p>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 12, maxWidth: 640 }}>
+            {BUTTON_VARIANTS.map(({ variant, label }) => (
+              <TkButton key={variant} variant={variant} disabled>
+                {label}
+              </TkButton>
+            ))}
+          </div>
+
+          <p
+            className="tk-body-sm"
+            style={{ color: "var(--text-default-secondary)", marginTop: 28, marginBottom: 12 }}
+          >
+            Decorative <code className="tkl-mono">decorative</code> — labels inside a parent{" "}
+            <code className="tkl-mono">Link</code> (watchlist card, not focusable):
+          </p>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 12, maxWidth: 640 }}>
+            <TkButton variant="primary" size="sm" decorative>
+              Buy
+            </TkButton>
+            <TkButton variant="neutral" size="sm" decorative>
+              Bid
             </TkButton>
           </div>
         </Section>
@@ -214,5 +302,27 @@ export function DesignSystemShowcase() {
         </TkField>
       </TkActionSheet>
     </div>
+  );
+}
+
+function ButtonMatrixRow({
+  variant,
+  label,
+}: {
+  variant: TkButtonVariant;
+  label: string;
+}) {
+  return (
+    <>
+      <span className="tk-body-sm" style={{ color: "var(--text-default-secondary)", fontWeight: 600 }}>
+        {label}
+      </span>
+      <TkButton variant={variant} size="md">
+        {label}
+      </TkButton>
+      <TkButton variant={variant} size="sm">
+        {label}
+      </TkButton>
+    </>
   );
 }

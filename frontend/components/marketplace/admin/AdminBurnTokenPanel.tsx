@@ -2,10 +2,12 @@
 
 import { useState } from "react";
 import {
-  ADMIN_BTN_SECONDARY,
+  ADMIN_BTN_DANGER,
   ADMIN_INPUT_MONO,
   ADMIN_LABEL,
+  ADMIN_PANEL_DANGER,
   ADMIN_TEXT_SECONDARY,
+  ADMIN_TITLE_DANGER,
 } from "./adminUi";
 
 export function AdminBurnTokenPanel({
@@ -20,8 +22,8 @@ export function AdminBurnTokenPanel({
   const valid = Number.isFinite(parsed) && parsed > 0;
 
   return (
-    <section className="mb-6 rounded-lg border border-red-200 bg-red-50 p-4 sm:mb-8 sm:p-5">
-      <h2 className="text-sm font-semibold text-red-800 sm:text-base">
+    <section className={ADMIN_PANEL_DANGER}>
+      <h2 className={ADMIN_TITLE_DANGER}>
         Burn by token ID
       </h2>
       <p className={`mt-2 text-sm leading-relaxed ${ADMIN_TEXT_SECONDARY}`}>
@@ -45,7 +47,7 @@ export function AdminBurnTokenPanel({
           type="button"
           disabled={!valid || burningTokenId != null}
           onClick={() => onBurn(parsed)}
-          className="rounded-md border border-red-300 bg-white px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-40"
+          className={ADMIN_BTN_DANGER}
         >
           {burningTokenId === parsed ? "Burning…" : "Burn token"}
         </button>

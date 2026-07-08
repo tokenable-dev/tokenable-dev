@@ -59,6 +59,8 @@ tokenable-dev/
 | Marketplace admin console | [guides/marketplace-admin.md](guides/marketplace-admin.md) |
 | Privy auth migration | [guides/privy-auth-migration.md](guides/privy-auth-migration.md) |
 | Troubleshooting | [guides/troubleshooting.md](guides/troubleshooting.md) |
+| Design system reference (tokens, components) | [guides/design-system-reference.md](guides/design-system-reference.md) |
+| Design system governance phases | [guides/design-system-governance-phases.md](guides/design-system-governance-phases.md) |
 | Design system migration (UI phases) | [guides/design-system-migration.md](guides/design-system-migration.md) |
 | Live Swagger UI | `http://localhost:4100/api/docs` (local dev) |
 

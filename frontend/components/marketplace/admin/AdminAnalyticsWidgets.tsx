@@ -4,7 +4,12 @@ import Link from "next/link";
 import type { DailyAmount, DailyCount } from "@/lib/core";
 import { formatUsdcPricePrimary } from "@/lib/market/usdcKrwDisplay";
 import {
+  ADMIN_CHART_BAR,
+  ADMIN_LINK,
+  ADMIN_PROGRESS_FILL,
+  ADMIN_PROGRESS_TRACK,
   ADMIN_TEXT_BODY,
+  ADMIN_TEXT_BRAND,
   ADMIN_TEXT_META,
   ADMIN_TEXT_MUTED,
   ADMIN_TEXT_SECONDARY,
@@ -23,7 +28,7 @@ export function AdminAnalyticsMiniChart({
   data,
   valueKey = "count",
   formatValue,
-  colorClass = "bg-blue-500",
+  colorClass = ADMIN_CHART_BAR,
 }: MiniChartProps) {
   const values = data.map((d) =>
     valueKey === "amountUsdc"
@@ -104,13 +109,13 @@ export function AdminFunnelBar({ label, pct, detail }: FunnelBarProps) {
     <div>
       <div className="mb-1 flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-sm">
         <span className={`font-medium ${ADMIN_TEXT_BODY}`}>{label}</span>
-        <span className="font-semibold text-blue-700">
+        <span className={ADMIN_TEXT_BRAND}>
           {pct != null ? `${pct}%` : "—"}
         </span>
       </div>
-      <div className="h-2 overflow-hidden rounded-full bg-zinc-200">
+      <div className={ADMIN_PROGRESS_TRACK}>
         <div
-          className="h-full rounded-full bg-blue-600 transition-all"
+          className={ADMIN_PROGRESS_FILL}
           style={{ width: `${width}%` }}
         />
       </div>
@@ -163,7 +168,7 @@ export function AdminCollectionLink({
   return (
     <Link
       href={`/marketplace/collections/${encodeURIComponent(collectionKey)}`}
-      className="font-medium text-blue-700 hover:text-blue-800 hover:underline"
+      className={ADMIN_LINK}
       target="_blank"
       rel="noopener noreferrer"
     >

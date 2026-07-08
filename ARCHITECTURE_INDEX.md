@@ -220,18 +220,21 @@ Key facts:
 
 | | |
 |---|---|
+| **Ongoing reference (read first)** | `docs/guides/design-system-reference.md` |
 | **Migration plan (phases 0–10)** | `docs/guides/design-system-migration.md` |
 | **Committed DS CSS** | `frontend/design-system/` (`styles.css`, `tokens/`, `components/components.css`) |
 | **Screen inventory** | `frontend/design-system/INVENTORY.md` |
 | **HTML prototypes (reference)** | `Tokenable-with design system/` (repo root — not imported by Next.js) |
 | **DS public assets** | `frontend/public/assets/ds/` |
-| **Cursor rule** | `.cursor/rules/design-system-migration.mdc` |
-| **Required reading before UI/visual changes** | `docs/guides/design-system-migration.md`, `frontend/design-system/INVENTORY.md` |
+| **Cursor rule** | `.cursor/rules/design-system-migration.mdc`, `.cursor/rules/design-system-reference.mdc` |
+| **Required reading before UI/visual changes** | `docs/guides/design-system-reference.md`, `frontend/design-system/INVENTORY.md` |
 
 Key facts:
-- Phased rollout: Phase 0 setup → Phase 1 primitives → Phase 2 shell → pages 3–10.
+- Phased rollout: Phase 0 setup → Phase 1 primitives → Phase 2 shell → pages 3–10 (all **Done**).
+- **Prototype sync:** `Tokenable-with design system/` is reference only; production styles live in `frontend/design-system/` — see `docs/guides/design-system-governance-phases.md`.
 - Azure `#1A6FFF` pixel aesthetic replaces mint-green Tailwind chrome; business logic unchanged.
 - Center modals (`tk-dialog`) vs action sheets (`portfolio-modals.js` pattern) are separate shells.
+- Admin console uses `adminUi.ts` (light Tailwind) intentionally — not pixel `tk-btn`.
 
 ---
 
@@ -268,7 +271,7 @@ Key facts:
 | Admin RWA ops | `docs/api/marketplace-admin.md`, `backend/src/marketplace/collections/rwa-token-admin.service.ts` |
 | PSA integration | `docs/api/psa.md`, `backend/src/psa/psa-public-api.service.ts` |
 | Frontend state | `frontend/store/authStore.ts`, `frontend/lib/core/queryKeys.ts`, `frontend/lib/core/invalidation.ts` |
-| Frontend UI / design system | `docs/guides/design-system-migration.md`, `frontend/design-system/INVENTORY.md`, active phase in migration checklist |
+| Frontend UI / design system | `docs/guides/design-system-reference.md`, `frontend/design-system/INVENTORY.md` |
 | Deployment | `docs/guides/deployment.md`, `.github/workflows/deploy.yml` |
 
 ---

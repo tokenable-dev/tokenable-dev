@@ -16,25 +16,43 @@ const sizeClass: Record<TkButtonSize, string> = {
   sm: "tk-btn--sm",
 };
 
-export type TkButtonProps = {
+type TkButtonCommonProps = {
   variant?: TkButtonVariant;
   size?: TkButtonSize;
-  href?: string;
   className?: string;
   children: React.ReactNode;
-} & (
-  | (React.AnchorHTMLAttributes<HTMLAnchorElement> & { href: string })
-  | React.ButtonHTMLAttributes<HTMLButtonElement>
-);
+  /**
+   * Non-interactive label (e.g. inside a card `<Link>`).
+   * Renders `<span>` with `tk-btn` classes — not a focusable control.
+   */
+  decorative?: boolean;
+};
+
+export type TkButtonProps = TkButtonCommonProps &
+  (
+    | (React.AnchorHTMLAttributes<HTMLAnchorElement> & { href: string; decorative?: false })
+    | (React.ButtonHTMLAttributes<HTMLButtonElement> & { href?: undefined; decorative?: false })
+    | (React.HTMLAttributes<HTMLSpanElement> & { decorative: true; href?: undefined })
+  );
 
 export function TkButton({
   variant = "primary",
   size = "md",
   className,
+  decorative,
   children,
   ...rest
 }: TkButtonProps) {
   const classes = cn("tk-btn", variantClass[variant], sizeClass[size], className);
+
+  if (decorative) {
+    const spanRest = rest as React.HTMLAttributes<HTMLSpanElement>;
+    return (
+      <span className={classes} aria-hidden {...spanRest}>
+        {children}
+      </span>
+    );
+  }
 
   if ("href" in rest && rest.href) {
     const { href, ...anchorRest } = rest as React.AnchorHTMLAttributes<HTMLAnchorElement> & {

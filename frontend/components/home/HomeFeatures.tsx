@@ -35,9 +35,9 @@ export function HomeFeatures() {
       <div className="tkl-wrap home-features-band__inner">
           <div className="home-features-band__intro">
             <h2 className="tkl-sec-title">
-              Three guarantees,
+              Three guarantees
               <br />
-              every token.
+              for every token.
             </h2>
             <p className="tkl-sec-sub">
               Every card is graded, custodied, and tokenized before it ever reaches the

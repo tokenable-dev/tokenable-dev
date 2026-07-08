@@ -6,7 +6,7 @@ import type { AdminAnalyticsPeriod } from "@/lib/core";
 import { useMarketplaceAdminAnalytics } from "@/hooks/marketplace-admin/useMarketplaceAdminAnalytics";
 import { useCardhedgerPriceInfraAdmin } from "@/hooks/marketplace-admin/useCardhedgerPriceInfraAdmin";
 import { formatUsdcPricePrimary } from "@/lib/market/usdcKrwDisplay";
-import { ADMIN_ARTICLE, ADMIN_TABLE, ADMIN_TABLE_HEAD, ADMIN_TABLE_TD, ADMIN_TABLE_TH, ADMIN_TABLE_WRAP, ADMIN_TEXT_EMPTY, ADMIN_TEXT_META, ADMIN_TEXT_SECONDARY } from "./adminUi";
+import { ADMIN_ARTICLE, ADMIN_LINK_SM, ADMIN_TABLE, ADMIN_TABLE_HEAD, ADMIN_TABLE_TD, ADMIN_TABLE_TH, ADMIN_TABLE_WRAP, ADMIN_TEXT_EMPTY, ADMIN_TEXT_META, ADMIN_TEXT_SECONDARY } from "./adminUi";
 import {
   AdminAnalyticsMiniChart,
   AdminCollectionLink,
@@ -144,7 +144,7 @@ export function MarketplaceAdminOverviewPage() {
                 action={
                   <Link
                     href="/marketplace/admin/portfolio"
-                    className="text-sm font-medium text-blue-600 hover:text-blue-700"
+                    className={ADMIN_LINK_SM}
                   >
                     Portfolio ops →
                   </Link>
@@ -188,7 +188,7 @@ export function MarketplaceAdminOverviewPage() {
               action={
                 <Link
                   href="/marketplace/admin/collections"
-                  className="text-sm font-medium text-blue-600 hover:text-blue-700"
+                  className={ADMIN_LINK_SM}
                 >
                   Manage collections →
                 </Link>

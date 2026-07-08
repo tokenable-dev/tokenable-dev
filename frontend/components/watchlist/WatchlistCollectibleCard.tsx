@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { CollectionCoverFrame } from "@/components/marketplace/collection-cover";
+import { TkButton } from "@/components/ds";
 import { WatchlistToggleButton } from "@/components/watchlist/WatchlistToggleButton";
 import type { CollectionListMarketSnapshot, MarketplaceCollectionSummary } from "@/lib/core";
 import { formatUsdCompact } from "@/lib/market/collectionMarketPricing";
@@ -162,8 +163,12 @@ export function WatchlistCollectibleCard({
           </span>
         </div>
         <div className="watchlist-card-actions" aria-hidden>
-          <span className="tk-btn tk-btn--primary tk-btn--sm watchlist-card-actions__btn">Buy</span>
-          <span className="tk-btn tk-btn--neutral tk-btn--sm watchlist-card-actions__btn">Bid</span>
+          <TkButton variant="primary" size="sm" decorative className="watchlist-card-actions__btn">
+            Buy
+          </TkButton>
+          <TkButton variant="neutral" size="sm" decorative className="watchlist-card-actions__btn">
+            Bid
+          </TkButton>
         </div>
       </div>
     </Link>

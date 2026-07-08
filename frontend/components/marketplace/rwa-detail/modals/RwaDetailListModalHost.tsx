@@ -18,6 +18,7 @@ export function RwaDetailListModalHost({
   collectionKey,
   collectionBids,
   existingAskOrder,
+  existingAskOrderHash,
   initialPriceUsdc,
   onMatchedSale,
   onClose,
@@ -29,6 +30,7 @@ export function RwaDetailListModalHost({
   collectionKey?: string;
   collectionBids: Order[];
   existingAskOrder?: Order;
+  existingAskOrderHash?: string | null;
   initialPriceUsdc: string | null;
   onMatchedSale: () => void;
   onClose: () => void;
@@ -44,6 +46,7 @@ export function RwaDetailListModalHost({
       collectionKey={collectionKey}
       collectionBids={collectionBids}
       existingAskOrder={existingAskOrder}
+      existingAskOrderHash={existingAskOrderHash}
       initialPriceUsdc={initialPriceUsdc}
       onMatchedSale={onMatchedSale}
       onClose={onClose}

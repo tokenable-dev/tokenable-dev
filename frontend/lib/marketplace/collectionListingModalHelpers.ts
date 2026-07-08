@@ -1,5 +1,9 @@
 import type { RwaMetadata } from "@/lib/core";
 import {
+  formatPsaGradedByDisplay,
+  psaGradePolicyInputFromGraded,
+} from "@/lib/market/psaGradePolicy";
+import {
   buildRwaAssetDetailHeadlineParts,
   formatAssetDetailHeadlineText,
 } from "@/lib/marketplace/assetDetailHeadline";
@@ -39,8 +43,14 @@ export function listingVerificationTiles(metadata: RwaMetadata | null): {
   tokenLabel: string;
 } {
   const trust = buildRwaDetailMobileTrustView(metadata);
-  const grade = trust.gradeLine?.trim() || "—";
-  const gradedBy = grade !== "—" ? grade : "—";
+  const graded =
+    metadata?.properties?.graded && typeof metadata.properties.graded === "object"
+      ? (metadata.properties.graded as Record<string, unknown>)
+      : null;
+  const gradedBy =
+    (graded ? formatPsaGradedByDisplay(psaGradePolicyInputFromGraded(graded)) : null) ??
+    trust.gradeLine?.trim() ??
+    "—";
   return {
     gradedBy,
     certNumber: trust.certNumber ?? "—",

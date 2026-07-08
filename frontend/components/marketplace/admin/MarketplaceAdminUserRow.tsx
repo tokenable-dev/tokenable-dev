@@ -12,12 +12,14 @@ import {
 import { useMarketplaceAdminUserDetail } from "@/hooks/marketplace-admin/useMarketplaceAdminUsers";
 import {
   ADMIN_ARTICLE,
+  ADMIN_BTN_DANGER_EMPHASIS_ALT,
   ADMIN_BTN_PRIMARY,
   ADMIN_BTN_SECONDARY,
-  ADMIN_DETAILS_SUMMARY,
+  ADMIN_DETAILS_DANGER_SUMMARY,
   ADMIN_INPUT,
   ADMIN_INPUT_MONO,
   ADMIN_LABEL,
+  ADMIN_PANEL_DANGER_DARK_COMPACT,
   ADMIN_SEGMENT,
   ADMIN_SEGMENT_BTN,
   ADMIN_SEGMENT_BTN_ACTIVE,
@@ -428,8 +430,8 @@ export function MarketplaceAdminUserRow({
                 </section>
               ) : null}
 
-              <details className="rounded-xl border border-red-900/40 bg-red-950/20 p-3">
-                <summary className={`${ADMIN_DETAILS_SUMMARY} text-red-600`}>
+              <details className={ADMIN_PANEL_DANGER_DARK_COMPACT}>
+                <summary className={ADMIN_DETAILS_DANGER_SUMMARY}>
                   Danger zone
                 </summary>
                 <div className="mt-3 space-y-2">
@@ -447,7 +449,7 @@ export function MarketplaceAdminUserRow({
                   />
                   <button
                     type="button"
-                    className="rounded-xl border border-red-500/50 bg-red-500/10 px-4 py-2.5 text-sm font-semibold text-red-300 hover:bg-red-500/20 disabled:opacity-50"
+                    className={ADMIN_BTN_DANGER_EMPHASIS_ALT}
                     disabled={busy || deleteConfirm !== "DELETE"}
                     onClick={() => void onDelete(row.id)}
                   >

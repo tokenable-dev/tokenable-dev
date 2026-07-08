@@ -3,16 +3,19 @@
 import { useCallback, useState } from "react";
 import { useHeaderNavGate } from "@/hooks/auth/useHeaderNavGate";
 import { useHeaderWalletMenuData } from "@/hooks/auth/useHeaderWalletMenuData";
+import { canAccessVault } from "@/lib/auth/accountAccess";
 import { completeSignOut } from "@/lib/auth/signOut";
 import { useAuthStore } from "@/store/authStore";
 import {
   WalletBidsIcon,
   WalletHistoryIcon,
+  WalletMarketsIcon,
   WalletNotificationsIcon,
   WalletPortfolioIcon,
   WalletSettingsIcon,
   WalletSignOutIcon,
   WalletUserIcon,
+  WalletVaultIcon,
   WalletWatchlistIcon,
 } from "./HeaderWalletMenuIcons";
 
@@ -34,6 +37,7 @@ export function HeaderWalletMenuPanel({
 }) {
   const navigate = useHeaderNavGate();
   const logout = useAuthStore((s) => s.logout);
+  const user = useAuthStore((s) => s.user);
   const { displayAddress, kyc, balanceLabel } = useHeaderWalletMenuData();
   const [signingOut, setSigningOut] = useState(false);
 
@@ -76,6 +80,21 @@ export function HeaderWalletMenuPanel({
   return (
     <>
       {userInfo}
+      {variant === "mobile" ? (
+        <>
+          <button type="button" className={itemClass(variant)} onClick={() => go("/markets")}>
+            <WalletMarketsIcon />
+            Markets
+          </button>
+          {canAccessVault(user) ? (
+            <button type="button" className={itemClass(variant)} onClick={() => go("/vault", 2)}>
+              <WalletVaultIcon />
+              Vault
+            </button>
+          ) : null}
+          <div className="tk-wd-divider" />
+        </>
+      ) : null}
       <button type="button" className={itemClass(variant)} onClick={() => go("/portfolio", 1)}>
         <WalletPortfolioIcon />
         My Portfolio

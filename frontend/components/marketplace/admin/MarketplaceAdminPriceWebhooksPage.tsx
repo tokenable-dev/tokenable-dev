@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useCardhedgerPriceInfraAdmin } from "@/hooks/marketplace-admin/useCardhedgerPriceInfraAdmin";
 import type { DeltaImportRun } from "@/lib/core/api/marketplace-admin-cardhedger";
-import { ADMIN_ARTICLE, ADMIN_BTN_PRIMARY, ADMIN_PANEL } from "./adminUi";
+import { ADMIN_ARTICLE, ADMIN_BTN_PRIMARY, ADMIN_PANEL, ADMIN_TEXT_BRAND } from "./adminUi";
 import { MarketplaceAdminPageHeader } from "./MarketplaceAdminPageHeader";
 
 function FlagPill({ on, label }: { on: boolean; label: string }) {
@@ -56,7 +56,7 @@ function DeltaRunDetail({
             {run.catalogFallbackCount > 0 ? (
               <>
                 {" "}
-                (<span className="text-blue-600">{run.catalogFallbackCount}</span> catalog sync)
+                (<span className={ADMIN_TEXT_BRAND}>{run.catalogFallbackCount}</span> catalog sync)
               </>
             ) : null}
             {run.deltaMatchedCollectionCount > 0 ? (

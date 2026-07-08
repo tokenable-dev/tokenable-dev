@@ -381,8 +381,9 @@ export class CollectionsController {
     let col = await this.collectionService.findOne(k);
     if (col) {
       await this.collectionService.ensurePsaTotalPopulationFromListings(k);
-      // PSA mirror/spec pop: DB cache only on read path (no PSA Public API upstream).
+      // PSA mirror/spec pop: cert mirror from DB cache; spec pop fetched when breakdown missing.
       await this.collectionService.persistPsaMirrorFromCertToDb(k);
+      await this.collectionService.ensurePsaSpecPopulationOnReadIfMissing(k);
       await this.collectionService.ensurePsaCertNumberFromListings(k);
       const cardhedgerUpdated =
         await this.collectionService.ensureCardhedgerCardIdFromListings(k);

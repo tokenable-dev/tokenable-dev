@@ -11,13 +11,17 @@ import { CollectionAiInsightPanel } from "@/components/marketplace/collection-ai
 import { AdminMarketPriceStrip } from "./AdminMarketPriceStrip";
 import {
   ADMIN_ARTICLE,
+  ADMIN_BTN_DANGER_EMPHASIS,
   ADMIN_BTN_PRIMARY,
   ADMIN_BTN_SECONDARY,
   ADMIN_COVER_BOX,
+  ADMIN_DETAILS_DANGER_SUMMARY,
   ADMIN_DETAILS_SUMMARY,
+  ADMIN_INPUT_DANGER,
   ADMIN_INPUT_MONO,
   ADMIN_LABEL,
   ADMIN_LINK,
+  ADMIN_PANEL_DANGER_DARK,
   ADMIN_TEXT_EMPTY,
   ADMIN_TEXT_META,
   ADMIN_TEXT_MUTED,
@@ -264,8 +268,8 @@ export function MarketplaceAdminCollectionRow({
             </div>
           </details>
 
-          <details className="rounded-xl border border-red-900/40 bg-red-950/10 p-4 sm:p-5">
-            <summary className={`${ADMIN_DETAILS_SUMMARY} text-red-600`}>
+          <details className={ADMIN_PANEL_DANGER_DARK}>
+            <summary className={ADMIN_DETAILS_DANGER_SUMMARY}>
               Delete collection
             </summary>
             <p className={`mt-3 text-sm leading-relaxed ${ADMIN_TEXT_SECONDARY}`}>
@@ -277,7 +281,7 @@ export function MarketplaceAdminCollectionRow({
               value={deleteConfirm}
               onChange={(e) => setDeleteConfirm(e.target.value)}
               placeholder={row.collectionKey.slice(0, 24) + "…"}
-              className={`${ADMIN_INPUT_MONO} mt-3 border-red-900/60 focus:border-red-500/60`}
+              className={`${ADMIN_INPUT_DANGER} mt-3`}
               spellCheck={false}
               autoComplete="off"
             />
@@ -296,7 +300,7 @@ export function MarketplaceAdminCollectionRow({
                 setCoverApiError(null);
                 void deleteCollection(deleteConfirm.trim());
               }}
-              className="mt-3 rounded-xl border border-red-600/70 bg-red-950/40 px-4 py-2.5 text-sm font-bold text-red-300 hover:bg-red-900/50 disabled:opacity-40"
+              className={`${ADMIN_BTN_DANGER_EMPHASIS} mt-3`}
             >
               {coverBusy === "delete" ? "Deleting…" : "Delete permanently"}
             </button>

@@ -16,6 +16,7 @@ import { CollectionOwnedRwaListModal } from "@/components/marketplace/collection
 import { TradeCelebrationModal } from "@/components/marketplace/trade";
 import type { CollectionDetailLoadedProps } from "@/hooks/collection-detail";
 import { parseCollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
+import { resolveCollectionPsaPopulationPanelData } from "@/lib/market/psaPopulationByGrade";
 import { CollectionPsaPopulationPanel } from "./CollectionPsaPopulationPanel";
 import { CollectionDetailBreadcrumb } from "./CollectionDetailBreadcrumb";
 import { CollectionDetailListingsGrid } from "./CollectionDetailListingsGrid";
@@ -64,6 +65,11 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
   const collection = data.collection!;
   const collectionCoverUrl = pickCollectionDetailDisplayImageUrl(data);
   const comp = parseCollectionComponents(collection.components);
+
+  const psaPopulationPanel = useMemo(
+    () => resolveCollectionPsaPopulationPanelData(comp),
+    [comp],
+  );
 
   const coverGalleryState = useCollectionCoverGallery(collectionKey, router);
   const coverGallery = useMemo(() => {
@@ -187,8 +193,8 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
               }
               psaPanel={
                 <CollectionPsaPopulationPanel
-                  byGrade={comp.psaPopulationByGrade}
-                  totalPop={market.totalPopulation}
+                  byGrade={psaPopulationPanel.byGrade}
+                  totalPop={psaPopulationPanel.totalPop}
                   highlightGrade={comp.gradeScore ?? "10"}
                 />
               }

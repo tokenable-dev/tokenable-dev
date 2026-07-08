@@ -4,6 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   ADMIN_BTN_GHOST,
+  ADMIN_NAV_LINK,
+  ADMIN_NAV_LINK_ACTIVE,
   ADMIN_SEGMENT_BTN,
   ADMIN_SEGMENT_BTN_ACTIVE,
 } from "./adminUi";
@@ -67,11 +69,7 @@ export function MarketplaceAdminNav({
                   href={item.href}
                   onClick={onNavigate}
                   title={item.description}
-                  className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-                    active
-                      ? "bg-zinc-100 font-semibold text-zinc-900 ring-1 ring-zinc-200"
-                      : "text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900"
-                  }`}
+                  className={active ? ADMIN_NAV_LINK_ACTIVE : ADMIN_NAV_LINK}
                 >
                   {item.label}
                 </Link>
