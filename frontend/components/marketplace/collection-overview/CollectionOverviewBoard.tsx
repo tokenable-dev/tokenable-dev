@@ -1,12 +1,7 @@
 "use client";
 
-import {
-  COLLECTION_DETAILS_BG_CLASS,
-  COLLECTION_DETAILS_BORDER_ALL,
-} from "@/components/marketplace/collectionOverviewChrome";
 import { useCollectionOverviewLayout } from "@/hooks/collection-overview";
 import { CollectionOverviewLeftColumn } from "./columns/CollectionOverviewLeftColumn";
-import { CollectionOverviewMobileHeadlineSlot } from "./CollectionOverviewMobileHeadlineSlot";
 import { CollectionOverviewTopBar } from "./header/CollectionOverviewTopBar";
 import { CollectionOverviewBookColumn } from "./layout/CollectionOverviewBookColumn";
 import { CollectionOverviewChartPanel } from "./layout/CollectionOverviewChartPanel";
@@ -55,8 +50,6 @@ export function CollectionOverviewBoard(props: CollectionOverviewBoardProps) {
     coverGallery,
     belowCover,
     mobileCoverBelowMetrics,
-    mobileCurrentPriceRow,
-    mobileHeroStatsRow,
     mobileMarketTabs,
     mobileTabbedMarketUi = false,
     marketsBelowChart,
@@ -83,17 +76,6 @@ export function CollectionOverviewBoard(props: CollectionOverviewBoardProps) {
     suppressHeadlineBanner,
     chartMetricsRow,
   });
-
-  const mobileHeadlineBlock = (
-    <CollectionOverviewMobileHeadlineSlot
-      show={layout.showMobileHeroIdentity}
-      headlineTitle={headlineTitle}
-      headlineStructuredTitle={headlineStructuredTitle}
-      headlineSubtitleLine={layout.headlineSubtitleLine}
-      mobileHeadlineCopy={layout.mobileHeadlineCopy}
-      suppressHeadlineBanner={layout.suppressHeadlineBanner}
-    />
-  );
 
   const marketsCluster = layout.showInlineMarketCluster ? (
     layout.marketsTriple && orderBookNextToChart != null ? (
@@ -127,7 +109,7 @@ export function CollectionOverviewBoard(props: CollectionOverviewBoardProps) {
 
   return (
     <section
-      className={`cd-overview-board relative w-full min-w-0 overflow-hidden rounded-2xl ${COLLECTION_DETAILS_BORDER_ALL} ${COLLECTION_DETAILS_BG_CLASS} max-lg:overflow-visible max-lg:shadow-none lg:flex lg:min-h-0 lg:flex-1 lg:flex-col lg:overflow-visible lg:shadow-[0_28px_64px_-32px_rgba(0,0,0,0.9)]`}
+      className="cd-overview-board relative w-full min-w-0 overflow-visible lg:flex lg:min-h-0 lg:flex-1 lg:flex-col"
       aria-label="Collection overview"
     >
       <CollectionOverviewTopBar
@@ -160,9 +142,6 @@ export function CollectionOverviewBoard(props: CollectionOverviewBoardProps) {
             imageUrl={imageUrl}
             marketsTriple={layout.marketsTriple}
             useMobileTabbedMarket={layout.useMobileTabbedMarket}
-            mobileHeadlineBlock={mobileHeadlineBlock}
-            mobileCurrentPriceRow={mobileCurrentPriceRow}
-            mobileHeroStatsRow={mobileHeroStatsRow}
             mobileMarketTabs={mobileMarketTabs}
             mobileCoverBelowMetrics={mobileCoverBelowMetrics}
             belowCover={belowCover}

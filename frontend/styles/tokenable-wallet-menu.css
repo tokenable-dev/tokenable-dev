@@ -172,7 +172,40 @@
 }
 
 .tk-mobile-wallet-section {
-  padding: 0 0 8px;
+  padding: 8px 0 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  margin-top: 4px;
+}
+
+.gnb-drawer .tk-mw-link {
+  height: auto;
+  font-size: 18px;
+  font-weight: 500;
+  padding: 16px;
+  color: #fff;
+  border-bottom: none;
+  border-radius: 0;
+}
+
+.gnb-drawer .tk-mw-link:hover:not(:disabled) {
+  background: rgba(26, 111, 255, 0.06);
+  color: #fff;
+}
+
+.gnb-drawer .tk-mw-link--sub {
+  padding-left: 32px;
+  font-size: 16px;
+  font-weight: 400;
+  color: var(--t2);
+}
+
+.gnb-drawer .tk-mw-link--sub:hover:not(:disabled) {
+  color: #fff;
+}
+
+.gnb-drawer .tk-wallet-user {
+  padding: 8px 16px 12px;
+  border-bottom: none;
 }
 
 .tk-mw-link {

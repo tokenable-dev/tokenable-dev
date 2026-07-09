@@ -2,15 +2,15 @@
 
 import "@/styles/tokenable-wallet-menu.css";
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/ds/cn";
 import { ASSETS } from "@/constants/assets";
 import { isMarketplaceCollectionDetailPath } from "@/constants/layout";
 import { HeaderAuthModals } from "@/components/auth/HeaderAuthModals";
 import { HeaderAuthControls } from "@/components/layout/header/HeaderAuthControls";
-import { HeaderDesktopNav, HeaderMobileNav } from "@/components/layout/header/HeaderNav";
-import { HeaderMobileWalletSection } from "@/components/layout/header/wallet/HeaderMobileWalletSection";
+import { HeaderDesktopNav } from "@/components/layout/header/HeaderNav";
+import { HeaderMobileDrawer } from "@/components/layout/header/HeaderMobileDrawer";
 import {
   TkHeaderSearch,
   TkHeaderSearchMobileButton,
@@ -21,6 +21,8 @@ function shouldHideChrome(pathname: string | null | undefined): boolean {
   if (!pathname) return false;
   if (pathname === "/site-access" || pathname.startsWith("/site-access/")) return true;
   if (pathname.startsWith("/marketplace/admin")) return true;
+  if (pathname.startsWith("/dev/design-system")) return true;
+  if (pathname.startsWith("/dev/admin-ui")) return true;
   return false;
 }
 
@@ -87,20 +89,22 @@ export function TkHeader() {
 
           <div className="tk-header__spacer" aria-hidden />
 
-          <TkHeaderSearchMobileButton onClick={() => setMobileSearchOpen(true)} />
+          <div className="tk-header__mobile-actions">
+            <TkHeaderSearchMobileButton onClick={() => setMobileSearchOpen(true)} />
 
-          <button
-            type="button"
-            className={cn("gnb-burger", drawerOpen && "is-open")}
-            aria-label={drawerOpen ? "Close menu" : "Open menu"}
-            aria-expanded={drawerOpen}
-            onClick={() => setDrawerOpen((o) => !o)}
-          >
-            <span className="burger-lines">
-              <span />
-              <span />
-            </span>
-          </button>
+            <button
+              type="button"
+              className={cn("gnb-burger", drawerOpen && "is-open")}
+              aria-label={drawerOpen ? "Close menu" : "Open menu"}
+              aria-expanded={drawerOpen}
+              onClick={() => setDrawerOpen((o) => !o)}
+            >
+              <span className="burger-lines">
+                <span />
+                <span />
+              </span>
+            </button>
+          </div>
 
           <div className="gnb-right">
             <TkHeaderSearch
@@ -114,21 +118,9 @@ export function TkHeader() {
         </div>
       </header>
 
-      <div
-        className={cn("gnb-drawer", drawerOpen && "open")}
-        aria-hidden={!drawerOpen}
-        onWheel={(e) => {
-          if (!drawerOpen) return;
-          e.stopPropagation();
-        }}
-      >
-        <HeaderMobileNav onClose={closeDrawer} />
-        <HeaderMobileWalletSection onClose={closeDrawer} />
-        <div className="gnb-drawer__footer">
-          <NetworkSwitcher inDrawer />
-          <HeaderAuthControls placement="drawer" />
-        </div>
-      </div>
+      <Suspense fallback={null}>
+        <HeaderMobileDrawer open={drawerOpen} onClose={closeDrawer} />
+      </Suspense>
     </>
   );
 }

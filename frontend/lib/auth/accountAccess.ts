@@ -24,11 +24,6 @@ export function canUseAppChainSwitcher(user: AuthUser | null | undefined): boole
   return isInternalDevUser(user);
 }
 
-/** `/vault` nav + mint wizard — internal dev only until public launch. */
-export function canAccessVault(user: AuthUser | null | undefined): boolean {
-  return isInternalDevUser(user);
-}
-
 /**
  * KYC completion — synced from backend `kyc_status` (Privy identity verification in Phase 5).
  * `tokenable.dev@gmail.com` bypasses for local/staging feature testing.

@@ -98,12 +98,12 @@
 
 .rwa-detail-page [class*="border-mint"],
 .rwa-detail-page .tk-sheet-panel [class*="border-mint"] {
-  border-color: rgba(26, 111, 255, 0.35) !important;
+  border-color: rgba(0, 51, 255, 0.35) !important;
 }
 
 .rwa-detail-page [class*="bg-mint"],
 .rwa-detail-page .tk-sheet-panel [class*="bg-mint"] {
-  background: rgba(26, 111, 255, 0.08) !important;
+  background: rgba(0, 51, 255, 0.08) !important;
 }
 
 .rwa-detail-page .accent-mint,
@@ -158,18 +158,18 @@
 }
 
 .rd-list-sheet__price-wrap {
-  border-color: rgba(26, 111, 255, 0.35) !important;
-  background: rgba(26, 111, 255, 0.06) !important;
-  box-shadow: inset 0 0 0 1px rgba(26, 111, 255, 0.08) !important;
+  border-color: rgba(0, 51, 255, 0.35) !important;
+  background: rgba(0, 51, 255, 0.06) !important;
+  box-shadow: inset 0 0 0 1px rgba(0, 51, 255, 0.08) !important;
 }
 
 .rd-list-sheet__price-wrap:focus-within {
-  border-color: rgba(26, 111, 255, 0.55) !important;
-  box-shadow: 0 0 0 2px rgba(26, 111, 255, 0.12) !important;
+  border-color: rgba(0, 51, 255, 0.55) !important;
+  box-shadow: 0 0 0 2px rgba(0, 51, 255, 0.12) !important;
 }
 
 .rd-list-sheet__usdc {
-  color: rgba(26, 111, 255, 0.75) !important;
+  color: rgba(0, 51, 255, 0.75) !important;
 }
 
 /* ── Place bid sheet header ─────────────────────────────────────────────────── */

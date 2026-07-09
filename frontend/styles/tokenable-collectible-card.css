@@ -2,7 +2,7 @@
    Used by Home (grid4), Markets (.markets-grid), Watchlist (.watchlist-grid). */
 
 .card {
-  background: #1a1a1e;
+  background: #0e0e0e;
   border-radius: 16px;
   display: flex;
   flex-direction: column;
@@ -108,6 +108,7 @@
   height: 100%;
   object-fit: contain;
   display: block;
+  filter: saturate(1.05) contrast(1.04);
 }
 
 .card__fade {
@@ -232,6 +233,13 @@
 
 .card__sub--accent {
   color: rgb(142, 180, 255);
+}
+
+.card__per {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.5);
 }
 
 /* index.html card tokens — home grid4 (Top movers / Just vaulted) */

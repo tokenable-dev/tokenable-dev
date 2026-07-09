@@ -30,7 +30,7 @@ Read this before any visual work. The phased migration checklist lives in [desig
 | **Hybrid** | Some pages still use bridge aliases (`--azure`, `--ink`) or page-local CSS — acceptable; converge when touching that file |
 | **Not yet** | Full semantic-token coverage on every surface; designer may hand off additional tokens (e.g. background hover/selected/active) **later** — add to `fig-tokens.css`, do not hardcode one-off hex values |
 
-Tokenable is **dark-first**, **azure brand** (`#1A6FFF` / `--brand-500`), **pixel aesthetic** (hard shadows, chamfer notches). Source: Figma **「Tokenable Design System.fig」** → `frontend/design-system/tokens/fig-tokens.css`.
+Tokenable is **dark-first**, **Bold Blue brand** (`#0033FF` / `--brand-500`), **Light Violet secondary** (`#977DFF` neutral buttons / `--brand-400`), **pixel aesthetic** (inset highlights, chamfer notches). Source: designer handoff **Tokenable Design System (Standalone).html** → `frontend/design-system/tokens/fig-tokens.css` + `components/components.css`.
 
 ---
 
@@ -42,7 +42,7 @@ Tokenable is **dark-first**, **azure brand** (`#1A6FFF` / `--brand-500`), **pixe
 4. **[SOURCE-README.md](../../frontend/design-system/SOURCE-README.md)** — brand voice, a11y, pixel rules from designer export
 5. Matching HTML prototype (reference only): `Tokenable-with design system/` — see [PROTOTYPES.md](../../frontend/design-system/PROTOTYPES.md)
 
-**Visual QA:** `http://localhost:3000/dev/design-system` — **button variant matrix is the contract**; compare this page after any DS CSS or token merge (see Prototype sync below). Admin backoffice: `http://localhost:3000/dev/admin-ui`.
+**Visual QA:** `http://localhost:3000/dev/design-system` — designer **standalone HTML iframe** (source: `public/design-system-standalone.html`); compare after any DS CSS or token merge. Admin backoffice: `http://localhost:3000/dev/admin-ui`.
 
 ---
 
@@ -85,7 +85,7 @@ App root sets `data-theme="dark"` in `frontend/app/layout.tsx`.
 | Alias | Maps to | Use in new code |
 |-------|---------|-----------------|
 | `--azure` | `rgb(26, 111, 255)` | Prefer `--brand-500` |
-| `--ink` | `#1a1a1e` | Prefer `--background-default-default` where possible |
+| `--ink` | `#0e0e0e` | Prefer `--background-default-default` where possible |
 | `--t1`, `--t2`, `--t3` | text opacity steps | Prefer `--text-default-*` from fig-tokens |
 
 ### Adding tokens from designer handoff
@@ -106,7 +106,7 @@ When the designer updates `Tokenable-with design system/` (HTML pages, `_ds_bund
 ### Workflow
 
 1. **Do not** paste prototype HTML/JS into React or import the prototype folder from Next.js.
-2. **Diff** changed files against `frontend/design-system/` (especially `components/components.css`, `tokens/fig-tokens.css`). Phase 4 adds a helper script; until then, use `diff` manually.
+2. **Diff** changed files against `frontend/design-system/` (especially `components/components.css`, `tokens/fig-tokens.css`). Use `node frontend/scripts/ds-import-standalone.mjs --extract-css` to pull typography/components from the standalone bundle for diff.
 3. **Merge selectively** into `frontend/design-system/` — resolve intentional app-only deltas (e.g. `tk-btn--primary-inv` may exist only in the repo).
 4. **Reimplement** layout in existing React components (`components/ds/*`, domain folders) using `Tk*` primitives — see [INVENTORY.md](../../frontend/design-system/INVENTORY.md).
 5. **Verify** `http://localhost:3000/dev/design-system` after any `components.css` or token change.

@@ -227,9 +227,9 @@ export function buildCollectionDualPriceChartOption(input: {
         },
       },
       backgroundColor: isCardHtml ? "var(--ink-2)" : "rgba(10,10,12,0.95)",
-      borderColor: isCardHtml ? "rgba(26,111,255,0.35)" : "rgba(255,255,255,0.10)",
+      borderColor: isCardHtml ? "rgba(0, 51, 255,0.35)" : "rgba(255,255,255,0.10)",
       extraCssText: isCardHtml
-        ? "filter:drop-shadow(5px 5px 0 rgba(26,111,255,0.5));padding:12px 15px;border-radius:0;"
+        ? "filter:drop-shadow(5px 5px 0 rgba(0, 51, 255,0.5));padding:12px 15px;border-radius:0;"
         : undefined,
       textStyle: { color: "#f4f4f5", fontSize: isCardHtml ? 12 : 11 },
       formatter: (params: unknown) => {

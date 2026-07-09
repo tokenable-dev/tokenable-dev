@@ -1,10 +1,9 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { usePrivy } from "@privy-io/react-auth";
 import { cn } from "@/lib/ds/cn";
 import { isMarketplaceCollectionDetailPath } from "@/constants/layout";
-import { canAccessVault, type HeaderNavMinLevel } from "@/lib/auth/accountAccess";
+import type { HeaderNavMinLevel } from "@/lib/auth/accountAccess";
 import { useHeaderNavGate } from "@/hooks/auth/useHeaderNavGate";
 import { useClientMounted } from "@/hooks/ui/useClientMounted";
 import { useAuthStore } from "@/store/authStore";
@@ -38,13 +37,11 @@ function isMarketsPrimaryNavActive(pathname: string | null | undefined): boolean
 export const HEADER_NAV_ITEMS = [
   { href: "/markets", label: "Markets", minLevel: 0 as HeaderNavMinLevel },
   { href: "/portfolio", label: "Portfolio", minLevel: 1 as HeaderNavMinLevel },
-  { href: "/vault", label: "Vault", minLevel: 2 as HeaderNavMinLevel },
+  { href: "/vault", label: "Vault", minLevel: 1 as HeaderNavMinLevel },
 ] as const;
 
-export function visibleHeaderNavItems(user: Parameters<typeof canAccessVault>[0]) {
-  return HEADER_NAV_ITEMS.filter(
-    (item) => item.href !== "/vault" || canAccessVault(user),
-  );
+export function visibleHeaderNavItems() {
+  return HEADER_NAV_ITEMS;
 }
 
 export function navItemActive(pathname: string | null | undefined, href: string): boolean {
@@ -83,8 +80,7 @@ function HeaderNavLink({
 export function HeaderDesktopNav() {
   const pathname = usePathname();
   const navigate = useHeaderNavGate();
-  const user = useAuthStore((s) => s.user);
-  const navItems = visibleHeaderNavItems(user);
+  const navItems = visibleHeaderNavItems();
 
   return (
     <nav className="gnb-nav" aria-label="Main">
@@ -102,18 +98,16 @@ export function HeaderDesktopNav() {
   );
 }
 
-/** Mobile drawer nav — guest only; signed-in users use `HeaderMobileWalletSection`. */
+/** Mobile drawer primary nav — Markets / Portfolio / Vault (Vault.html gnb-drawer). */
 export function HeaderMobileNav({ onClose }: { onClose: () => void }) {
   const mounted = useClientMounted();
-  const { ready, authenticated } = usePrivy();
   const initialized = useAuthStore((s) => s.initialized);
   const loading = useAuthStore((s) => s.loading);
   const pathname = usePathname();
   const navigate = useHeaderNavGate();
-  const user = useAuthStore((s) => s.user);
-  const navItems = visibleHeaderNavItems(user);
+  const navItems = visibleHeaderNavItems();
 
-  if (!mounted || !ready || !initialized || loading || authenticated) {
+  if (!mounted || !initialized || loading) {
     return null;
   }
 

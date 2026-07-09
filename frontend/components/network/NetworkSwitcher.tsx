@@ -99,7 +99,7 @@ export function NetworkSwitcher({ inDrawer = false }: { inDrawer?: boolean }) {
                     }}
                     className={`flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm transition ${
                       active
-                        ? "bg-[rgba(26,111,255,0.12)] text-white"
+                        ? "bg-[rgba(0, 51, 255,0.12)] text-white"
                         : configured
                           ? "text-[var(--t2)] hover:bg-white/[0.04]"
                           : "text-[var(--t3)] hover:bg-white/[0.04]"

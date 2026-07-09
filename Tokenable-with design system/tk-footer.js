@@ -11,7 +11,7 @@
         '</div>' +
         '<nav style="display:flex;gap:28px;flex-wrap:wrap;">' +
           '<a class="navlink" href="Markets.html" style="font-size:13px;">Markets</a>' +
-          '<a class="navlink" href="Vault.html" style="font-size:13px;">Vault</a>' +
+          '<a class="navlink" href="Vault-Dashboard-Active.html" style="font-size:13px;">Vault</a>' +
           '<span class="navlink" style="font-size:13px;">Fees</span>' +
           '<span class="navlink" style="font-size:13px;">Docs</span>' +
           '<span class="navlink" style="font-size:13px;">Terms</span>' +

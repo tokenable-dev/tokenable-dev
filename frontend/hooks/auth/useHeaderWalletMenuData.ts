@@ -21,7 +21,7 @@ export function useHeaderWalletMenuData() {
 
   const kyc = useMemo(() => formatHeaderKycLabel(user), [user]);
 
-  const { data: nativeBalance } = useBalance({
+  const { data: nativeBalance, refetch: refetchBalance } = useBalance({
     address: primaryAddress as `0x${string}` | undefined,
     query: { enabled: Boolean(primaryAddress) },
   });
@@ -36,5 +36,6 @@ export function useHeaderWalletMenuData() {
     displayAddress,
     kyc,
     balanceLabel,
+    refetchBalance,
   };
 }

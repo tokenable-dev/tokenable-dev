@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { TkButton } from "@/components/ds";
+import { TkButton, TkTag } from "@/components/ds";
 import type { Order } from "@/lib/core";
 
 function formatUsdc(amount: string): string {
@@ -67,7 +67,11 @@ export function CollectionListingOrderbookRow({
         <div className="cd-listing-orderbook__price">${price}</div>
         <div className="cd-listing-orderbook__seller">{seller}</div>
       </div>
-      {gradeLabel ? <span className="pchip cd-listing-orderbook__grade">{gradeLabel}</span> : null}
+      {gradeLabel ? (
+        <TkTag tone="neutral" appearance="soft" className="cd-listing-orderbook__grade shrink-0">
+          {gradeLabel}
+        </TkTag>
+      ) : null}
       <div className="cd-listing-orderbook__actions">
         {onOpenListing ? (
           <>
@@ -82,7 +86,7 @@ export function CollectionListingOrderbookRow({
             </TkButton>
             <TkButton
               type="button"
-              variant="neutral"
+              variant="subtle"
               size="sm"
               className="cd-listing-orderbook__btn"
               onClick={() => onOpenListing(tokenId, "bid")}
@@ -95,7 +99,7 @@ export function CollectionListingOrderbookRow({
             <TkButton variant="primary" size="sm" href={detailHref} className="cd-listing-orderbook__btn">
               Buy
             </TkButton>
-            <TkButton variant="neutral" size="sm" href={bidHref} className="cd-listing-orderbook__btn">
+            <TkButton variant="subtle" size="sm" href={bidHref} className="cd-listing-orderbook__btn">
               Bid
             </TkButton>
           </>

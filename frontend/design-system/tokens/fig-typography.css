@@ -1,1 +1,17 @@
-/* No TEXT/EFFECT styles in this file. */
+/* Typography — mirror the Figma text styles. Apply directly. */
+.tk-title-hero{font-family:var(--font-sans);font-weight:700;font-size:72px;line-height:1.1;letter-spacing:-0.03em}
+.tk-title-page{font-family:var(--font-sans);font-weight:700;font-size:48px;line-height:1.2;letter-spacing:-0.02em}
+.tk-title-page-sm{font-family:var(--font-sans);font-weight:700;font-size:40px;line-height:1.2;letter-spacing:-0.02em}
+.tk-subtitle{font-family:var(--font-sans);font-weight:400;font-size:32px;line-height:1.2}
+.tk-heading{font-family:var(--font-sans);font-weight:600;font-size:24px;line-height:1.2;letter-spacing:-0.02em}
+.tk-subheading{font-family:var(--font-sans);font-weight:600;font-size:20px;line-height:1.2}
+.tk-body-lg{font-family:var(--font-sans);font-weight:400;font-size:20px;line-height:1.5}
+.tk-body{font-family:var(--font-sans);font-weight:400;font-size:16px;line-height:1.5}
+.tk-body-strong{font-family:var(--font-sans);font-weight:600;font-size:16px;line-height:1.4}
+.tk-body-sm{font-family:var(--font-sans);font-weight:400;font-size:14px;line-height:1.4}
+.tk-body-sm-strong{font-family:var(--font-sans);font-weight:600;font-size:14px;line-height:1.4}
+.tk-caption{font-family:var(--font-sans);font-weight:500;font-size:12px;line-height:1.3}
+.tk-code{font-family:var(--font-mono);font-weight:500;font-size:16px;line-height:1}
+.tk-bodycode{font-family:var(--font-mono);font-weight:500;font-size:16px;line-height:1.6;letter-spacing:0}
+.tk-bodycode-sm{font-family:var(--font-mono);font-weight:500;font-size:14px;line-height:1.6;letter-spacing:0}
+.tk-bodycode-xs{font-family:var(--font-mono);font-weight:500;font-size:12px;line-height:1.6;letter-spacing:0}

@@ -1,7 +1,13 @@
 "use client";
 
 import { useEffect } from "react";
-import { createHeroSlabCarousel } from "@/lib/home/heroSlabCarousel";
+import {
+  detectHeroCarouselTier,
+  type HeroCarouselTier,
+} from "@/lib/home/heroCarouselCapability";
+import { setupHeroCarouselFallback } from "@/lib/home/heroCarouselFallback";
+import { preloadHeroCarouselImages } from "@/lib/home/heroCarouselPreload";
+import type { HeroSlabCarouselController } from "@/lib/home/heroSlabCarousel";
 
 type HomeHeroSlabCarouselProps = {
   heroRef: React.RefObject<HTMLElement | null>;
@@ -9,6 +15,25 @@ type HomeHeroSlabCarouselProps = {
 };
 
 const MOBILE_MQ = "(max-width: 767px)";
+const INIT_TIMEOUT_MS = 10_000;
+const MOBILE_SLOT_WAIT_MS = 2_000;
+
+async function waitForMobileSlot(
+  slot: HTMLElement | null,
+  maxMs = MOBILE_SLOT_WAIT_MS,
+): Promise<boolean> {
+  if (!slot) return false;
+  const deadline = Date.now() + maxMs;
+  while (Date.now() < deadline) {
+    if (slot.clientWidth > 0 && slot.clientHeight > 0) return true;
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+  }
+  return slot.clientWidth > 0 && slot.clientHeight > 0;
+}
+
+type ActiveController =
+  | { kind: "webgl"; ctrl: HeroSlabCarouselController }
+  | { kind: "fallback"; ctrl: { dispose: () => void } };
 
 /** WebGL graded-card ring behind the home hero (index.html `hero-slab-3d.js`). */
 export function HomeHeroSlabCarousel({
@@ -22,43 +47,150 @@ export function HomeHeroSlabCarousel({
     const host = document.createElement("div");
     host.className = "home-hero__canvas-host";
     host.setAttribute("aria-hidden", "true");
+
+    const overlay = document.createElement("div");
+    overlay.className = "home-hero__overlay";
+    overlay.setAttribute("aria-hidden", "true");
+    host.appendChild(overlay);
+
     hero.insertBefore(host, hero.firstChild);
 
-    const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const mobileQuery = window.matchMedia(MOBILE_MQ);
-
-    let controller: ReturnType<typeof createHeroSlabCarousel> = null;
+    let active: ActiveController | null = null;
     let resizeObserver: ResizeObserver | null = null;
     let cancelled = false;
+    let initGeneration = 0;
 
-    const tryInit = () => {
-      if (cancelled || controller) return;
+    const disposeActive = () => {
+      active?.ctrl.dispose();
+      active = null;
+    };
 
-      const mobileSlot = mobileSlotRef.current;
-      if (mobileQuery.matches && !mobileSlot) return;
-
-      controller = createHeroSlabCarousel({
-        host,
-        heroSection: hero,
-        mobileSlot,
-        prefersReducedMotion,
-      });
-
-      if (controller) {
-        resizeObserver?.disconnect();
-        resizeObserver = null;
+    const mountFallback = () => {
+      disposeActive();
+      const frame = host.querySelector(".home-hero__fallback");
+      if (!frame) {
+        active = {
+          kind: "fallback",
+          ctrl: setupHeroCarouselFallback({
+            host,
+            heroSection: hero,
+            mobileSlot: mobileSlotRef.current,
+          }),
+        };
       }
     };
 
-    const scheduleTryInit = () => {
+    const pauseIfHidden = () => {
+      if (active?.kind !== "webgl") return;
+      const visible = document.visibilityState === "visible";
+      if (visible) active.ctrl.resume();
+      else active.ctrl.pause();
+    };
+
+    const boot = async (tier: HeroCarouselTier) => {
+      const gen = ++initGeneration;
+      disposeActive();
+      host.querySelector(".home-hero__fallback")?.remove();
+
+      if (tier === "fallback") {
+        mountFallback();
+        return;
+      }
+
+      if (mobileQuery.matches) {
+        const slotReady = await waitForMobileSlot(mobileSlotRef.current);
+        if (!slotReady) return;
+      }
+
+      const preload = preloadHeroCarouselImages(tier);
+      const loadModule = import("@/lib/home/heroSlabCarousel");
+
+      let aborted = false;
+      const timeoutId = window.setTimeout(() => {
+        aborted = true;
+      }, INIT_TIMEOUT_MS);
+
+      try {
+        await preload;
+        if (cancelled || gen !== initGeneration || aborted) {
+          if (aborted) mountFallback();
+          return;
+        }
+
+        const { createHeroSlabCarousel } = await loadModule;
+        if (cancelled || gen !== initGeneration || aborted) {
+          if (aborted) mountFallback();
+          return;
+        }
+
+        const ctrl = createHeroSlabCarousel({
+          host,
+          heroSection: hero,
+          mobileSlot: mobileSlotRef.current,
+          tier,
+        });
+
+        if (cancelled || gen !== initGeneration) {
+          ctrl?.dispose();
+          return;
+        }
+
+        if (!ctrl) {
+          if (mobileQuery.matches) return;
+          mountFallback();
+          return;
+        }
+
+        active = { kind: "webgl", ctrl };
+        pauseIfHidden();
+      } catch {
+        if (!cancelled && gen === initGeneration) mountFallback();
+      } finally {
+        window.clearTimeout(timeoutId);
+      }
+    };
+
+    const resolveTier = (): HeroCarouselTier => detectHeroCarouselTier();
+
+    const run = () => {
+      void boot(resolveTier());
+    };
+
+    const scheduleRun = () => {
       requestAnimationFrame(() => {
-        if (!cancelled) tryInit();
+        if (!cancelled) run();
       });
     };
 
-    scheduleTryInit();
+    scheduleRun();
 
-    resizeObserver = new ResizeObserver(() => scheduleTryInit());
+    const intersection = new IntersectionObserver(
+      (entries) => {
+        if (active?.kind !== "webgl") return;
+        const visible = entries.some((e) => e.isIntersecting);
+        if (visible) active.ctrl.resume();
+        else active.ctrl.pause();
+      },
+      { root: null, threshold: 0 },
+    );
+    intersection.observe(hero);
+
+    const onVisibility = () => pauseIfHidden();
+    document.addEventListener("visibilitychange", onVisibility);
+
+    const onMobileChange = () => {
+      scheduleRun();
+    };
+    mobileQuery.addEventListener("change", onMobileChange);
+
+    resizeObserver = new ResizeObserver(() => {
+      if (mobileQuery.matches && active?.kind === "webgl") {
+        scheduleRun();
+        return;
+      }
+      if (!active && host.isConnected) scheduleRun();
+    });
     resizeObserver.observe(hero);
     resizeObserver.observe(host);
     const mobileSlot = mobileSlotRef.current;
@@ -66,8 +198,12 @@ export function HomeHeroSlabCarousel({
 
     return () => {
       cancelled = true;
+      initGeneration += 1;
+      intersection.disconnect();
+      document.removeEventListener("visibilitychange", onVisibility);
+      mobileQuery.removeEventListener("change", onMobileChange);
       resizeObserver?.disconnect();
-      controller?.dispose();
+      disposeActive();
       host.remove();
     };
   }, [heroRef, mobileSlotRef]);

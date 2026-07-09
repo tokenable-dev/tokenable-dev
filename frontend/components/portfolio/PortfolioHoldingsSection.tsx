@@ -4,27 +4,28 @@ import { useMemo } from "react";
 import type { CollectionMarketSeries, RwaMetadata } from "@/lib/core";
 import type { AssetRow } from "@/lib/portfolio/portfolioTypes";
 import { GatedSellLink } from "@/components/auth/GatedSellLink";
-import { TkButton, TkTable } from "@/components/ds";
+import { TkTable, TkTag } from "@/components/ds";
 import { usePortfolioTableSort } from "@/hooks/portfolio/usePortfolioTableSort";
 import {
   compareSortNum,
   compareSortText,
-  extractSparklineValues,
   formatPortfolioGradeLabel,
-  formatPortfolioPnl,
+  formatPortfolioProfitReturn,
   formatPortfolioUsd,
 } from "@/lib/portfolio/portfolioTableHelpers";
+import { PortfolioCostBasisInlineEdit } from "./PortfolioCostBasisInlineEdit";
+import { PortfolioHoldingsRowActions } from "./PortfolioHoldingsRowActions";
+import { PortfolioMobileAssetCard } from "./PortfolioMobileAssetCard";
 import { PortfolioMobileSort } from "./PortfolioMobileSort";
 import { PortfolioSortableTh } from "./PortfolioSortableTh";
-import { PortfolioTrendSparkline } from "./PortfolioTrendSparkline";
 
 type HoldingsSortKey = "name" | "grade" | "cost" | "value" | "pl";
 
 const HOLDINGS_SORT_OPTIONS = [
-  { key: "name", label: "Card" },
+  { key: "name", label: "Name" },
   { key: "grade", label: "Grade" },
   { key: "cost", label: "Cost basis" },
-  { key: "value", label: "Current value" },
+  { key: "value", label: "Mkt Price" },
   { key: "pl", label: "P/L" },
 ] as const;
 
@@ -32,12 +33,11 @@ export function PortfolioHoldingsSection({
   assetsSectionLoading,
   assetRows,
   metadataByTokenId,
-  tokenToCollectionKey,
-  seriesByCollectionKey,
   costBasisByTokenId,
   valuesPending,
   canEditCostBasis,
-  onEditCostBasis,
+  onSaveCostBasis,
+  savingCostBasisTokenId,
   cancellingListingTokenId,
   onOpenToken,
   onChangeListing,
@@ -52,7 +52,8 @@ export function PortfolioHoldingsSection({
   costBasisByTokenId: Map<number, number>;
   valuesPending: boolean;
   canEditCostBasis?: boolean;
-  onEditCostBasis?: (tokenId: number, currentUsd: number | null) => void;
+  onSaveCostBasis?: (tokenId: number, costBasisUsd: number) => void | Promise<void>;
+  savingCostBasisTokenId?: number | null;
   cancellingListingTokenId: number | null;
   onOpenToken: (tokenId: number) => void;
   onChangeListing: (tokenId: number) => void;
@@ -120,14 +121,47 @@ export function PortfolioHoldingsSection({
         onChange={applyMobileSort}
       />
 
-      <TkTable wrapClassName="pf-table-wrap" className="pf-table--holdings">
+      <div className="pf-mobile-asset-cards">
+        {sortedRows.map((row) => {
+          const meta = metadataByTokenId.get(row.tokenId) ?? null;
+          const grade = formatPortfolioGradeLabel(meta);
+          const cost = costBasisByTokenId.get(row.tokenId);
+          const isListed =
+            row.listPriceUsd != null && row.activeListingOrderHash != null;
+
+          return (
+            <PortfolioMobileAssetCard
+              key={row.tokenId}
+              row={row}
+              grade={grade}
+              cost={cost}
+              valuesPending={valuesPending}
+              canEditCostBasis={Boolean(canEditCostBasis && onSaveCostBasis)}
+              savingCostBasis={savingCostBasisTokenId === row.tokenId}
+              isListed={isListed}
+              cancelling={cancellingListingTokenId === row.tokenId}
+              onOpen={() => onOpenToken(row.tokenId)}
+              onSaveCostBasis={
+                onSaveCostBasis ? (usd) => onSaveCostBasis(row.tokenId, usd) : undefined
+              }
+              onList={() => onChangeListing(row.tokenId)}
+              onCancel={() =>
+                onCancelListing(row.tokenId, row.activeListingOrderHash!)
+              }
+              onSellNow={() => onSellNow(row.tokenId)}
+            />
+          );
+        })}
+      </div>
+
+      <TkTable wrapClassName="pf-table-wrap pf-holdings-table-wrap" className="pf-table--holdings">
         <colgroup>
           <col className="pf-col-card" />
           <col className="pf-col-grade" />
           <col className="pf-col-cost" />
           <col className="pf-col-value" />
-          <col className="pf-col-trend" />
-          <col className="pf-col-pl" />
+          <col className="pf-col-profit" />
+          <col className="pf-col-return" />
           <col className="pf-col-action" />
         </colgroup>
         <thead>
@@ -155,16 +189,23 @@ export function PortfolioHoldingsSection({
               onSort={(k) => toggleSort(k as HoldingsSortKey)}
             />
             <PortfolioSortableTh
-              label="Current value"
+              label="Mkt Price"
               sortKey="value"
               activeKey={sortKey}
               sortDir={sortDir}
               align="right"
               onSort={(k) => toggleSort(k as HoldingsSortKey)}
             />
-            <th className="pf-col-trend-head">Trend</th>
             <PortfolioSortableTh
-              label="P/L"
+              label="Profit"
+              sortKey="pl"
+              activeKey={sortKey}
+              sortDir={sortDir}
+              align="right"
+              onSort={(k) => toggleSort(k as HoldingsSortKey)}
+            />
+            <PortfolioSortableTh
+              label="Return"
               sortKey="pl"
               activeKey={sortKey}
               sortDir={sortDir}
@@ -175,22 +216,22 @@ export function PortfolioHoldingsSection({
           </tr>
         </thead>
         <tbody>
-          {sortedRows.map((row, index) => {
+          {sortedRows.map((row) => {
             const meta = metadataByTokenId.get(row.tokenId) ?? null;
             const grade = formatPortfolioGradeLabel(meta);
             const cost = costBasisByTokenId.get(row.tokenId);
-            const pnl = formatPortfolioPnl(cost, row.currentPrice);
-            const ck = tokenToCollectionKey[row.tokenId]?.toLowerCase();
-            const series = ck ? seriesByCollectionKey.get(ck) : undefined;
-            const spark = extractSparklineValues(series);
+            const pnl = formatPortfolioProfitReturn(cost, row.currentPrice);
             const isListed =
               row.listPriceUsd != null && row.activeListingOrderHash != null;
-            const zebra = index % 2 === 1 ? "pf-table-row--zebra" : undefined;
+            const plClass = pnl
+              ? pnl.positive
+                ? "pf-table-pl--pos"
+                : "pf-table-pl--neg"
+              : "";
 
             return (
               <tr
                 key={row.tokenId}
-                className={zebra}
                 onClick={() => onOpenToken(row.tokenId)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") {
@@ -215,94 +256,63 @@ export function PortfolioHoldingsSection({
                   </div>
                 </td>
                 <td data-label="Grade" className="pf-col-grade-cell">
-                  {grade ? <span className="pf-grade-chip">{grade}</span> : "—"}
+                  {grade ? (
+                    <TkTag tone="neutral" appearance="soft">
+                      {grade}
+                    </TkTag>
+                  ) : (
+                    "—"
+                  )}
                 </td>
                 <td data-label="Cost basis" className="pf-col-num-cell">
                   <div
-                    className="pf-cost-basis-cell"
+                    className="pf-cost-basis-cell-wrap"
                     onClick={(e) => e.stopPropagation()}
                     onKeyDown={(e) => e.stopPropagation()}
                   >
-                    <span className="tkl-mono pf-table-muted">
-                      {formatPortfolioUsd(cost)}
-                    </span>
-                    {canEditCostBasis && onEditCostBasis ? (
-                      <button
-                        type="button"
-                        className="pf-cost-basis-edit"
-                        aria-label={`Edit cost basis for ${row.name}`}
-                        onClick={() => onEditCostBasis(row.tokenId, cost ?? null)}
-                      >
-                        Edit
-                      </button>
-                    ) : null}
+                    <PortfolioCostBasisInlineEdit
+                      layout="desktop"
+                      assetName={row.name}
+                      valueUsd={cost}
+                      editable={Boolean(canEditCostBasis && onSaveCostBasis)}
+                      saving={savingCostBasisTokenId === row.tokenId}
+                      showMintPriceNote={Boolean(canEditCostBasis && cost != null)}
+                      onSave={(usd) => void onSaveCostBasis?.(row.tokenId, usd)}
+                    />
                   </div>
                 </td>
-                <td data-label="Current value" className="pf-col-num-cell">
+                <td data-label="Mkt Price" className="pf-col-num-cell">
                   <span className="tkl-mono pf-table-strong">
                     {valuesPending ? "…" : formatPortfolioUsd(row.currentPrice)}
                   </span>
                 </td>
-                <td data-label="Trend" className="pf-col-trend-cell">
-                  <PortfolioTrendSparkline values={spark} />
-                </td>
-                <td data-label="P/L" className="pf-col-num-cell pf-col-pl-cell">
+                <td data-label="Profit" className="pf-col-num-cell">
                   {pnl ? (
-                    <span
-                      className={`tkl-mono pf-table-pl ${pnl.positive ? "pf-table-pl--pos" : "pf-table-pl--neg"}`}
-                    >
-                      {pnl.label}
+                    <span className={`tkl-mono pf-table-pl ${plClass}`}>{pnl.profit}</span>
+                  ) : (
+                    <span className="tkl-mono pf-table-muted">—</span>
+                  )}
+                </td>
+                <td data-label="Return" className="pf-col-return-cell">
+                  {pnl ? (
+                    <span className={`tkl-mono pf-table-pl pf-table-return ${plClass}`}>
+                      {pnl.returnPct}
                     </span>
                   ) : (
                     <span className="tkl-mono pf-table-muted">—</span>
                   )}
                 </td>
                 <td data-label="Action" className="pf-col-action-cell">
-                  <div
-                    className="pf-table-actions"
-                    onClick={(e) => e.stopPropagation()}
-                    onKeyDown={(e) => e.stopPropagation()}
-                  >
-                    {isListed ? (
-                      <>
-                        <span className="tkl-mono pf-table-listed">
-                          Listed {formatPortfolioUsd(row.listPriceUsd)}
-                        </span>
-                        <TkButton
-                          type="button"
-                          variant="neutral"
-                          size="sm"
-                          className="pf-table-btn"
-                          disabled={cancellingListingTokenId === row.tokenId}
-                          onClick={() =>
-                            onCancelListing(row.tokenId, row.activeListingOrderHash!)
-                          }
-                        >
-                          {cancellingListingTokenId === row.tokenId ? "…" : "Cancel"}
-                        </TkButton>
-                      </>
-                    ) : (
-                      <>
-                        <TkButton
-                          type="button"
-                          variant="neutral"
-                          size="sm"
-                          className="pf-table-btn"
-                          onClick={() => onChangeListing(row.tokenId)}
-                        >
-                          List
-                        </TkButton>
-                        <TkButton
-                          type="button"
-                          variant="primary"
-                          size="sm"
-                          className="pf-table-btn"
-                          onClick={() => onSellNow(row.tokenId)}
-                        >
-                          Sell Now
-                        </TkButton>
-                      </>
-                    )}
+                  <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+                    <PortfolioHoldingsRowActions
+                      isListed={isListed}
+                      cancelling={cancellingListingTokenId === row.tokenId}
+                      onList={() => onChangeListing(row.tokenId)}
+                      onCancel={() =>
+                        onCancelListing(row.tokenId, row.activeListingOrderHash!)
+                      }
+                      onSellNow={() => onSellNow(row.tokenId)}
+                    />
                   </div>
                 </td>
               </tr>

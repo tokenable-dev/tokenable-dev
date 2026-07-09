@@ -1,20 +1,22 @@
 "use client";
 
 import type { ReactNode } from "react";
-import {
-  GradientOutlineFrame,
-  VAULT_OUTLINE_PAD_CLASS,
-} from "@/components/ui/GradientOutlineFrame";
-
-/** Active Photo / Cert # tab — plain black fill inside gradient rim (matches inactive tab height). */
-const vaultTabActiveInnerClass =
-  "block w-full rounded-[7px] border-0 bg-black px-3 py-2.5 text-xs font-semibold leading-none text-mint transition-colors sm:text-sm";
+import { TkButton } from "@/components/ds";
+import { cn } from "@/lib/ds/cn";
 import type { PsaInputMode } from "@/lib/vault/mintFormConstants";
 import type { GradingCompany, PsaFieldLocks } from "@/types/gradedCard";
 import { ImageInput } from "./ImageInput";
 
 const inputClass =
-  "w-full bg-gray-800/80 border border-gray-700/60 focus:border-mint rounded-xl px-4 py-3 text-sm text-white placeholder-gray-600 outline-none transition-colors";
+  "w-full bg-[#141414] border border-white/[0.08] focus:border-[var(--azure)] focus:shadow-[0_0_0_3px_rgba(26,111,255,0.15)] rounded-xl px-4 py-3 text-sm text-white placeholder-white/35 outline-none transition-colors";
+
+const vaultTabClass = (active: boolean) =>
+  cn(
+    "min-w-0 flex-1 rounded-lg px-3 py-2.5 text-xs font-semibold transition-colors sm:text-sm",
+    active
+      ? "border border-[rgba(26,111,255,0.4)] bg-[rgba(26,111,255,0.08)] text-white"
+      : "border border-transparent text-white/40 hover:text-white",
+  );
 
 function lockedHint(locked: boolean): string | undefined {
   return locked ? "Set by PSA analysis and cannot be edited" : undefined;
@@ -181,17 +183,15 @@ function PsaCertLookupHero({
             Clear & edit cert
           </button>
         ) : (
-          <GradientOutlineFrame className="w-full" padClass={VAULT_OUTLINE_PAD_CLASS}>
-            <button
-              type="button"
-              onClick={() => onCertLookup()}
-              disabled={certLookupBusy || !hasHint}
-              className="w-full rounded-[11px] border-0 !bg-black py-3 text-sm font-bold text-mint transition disabled:cursor-not-allowed disabled:!bg-black disabled:text-mint/35"
-              style={{ backgroundColor: "#000000" }}
-            >
-              {certLookupBusy ? "Looking up…" : "Look up"}
-            </button>
-          </GradientOutlineFrame>
+          <TkButton
+            type="button"
+            variant="primary"
+            className="w-full justify-center"
+            onClick={() => onCertLookup()}
+            disabled={certLookupBusy || !hasHint}
+          >
+            {certLookupBusy ? "Looking up…" : "Look up"}
+          </TkButton>
         )}
       </div>
     </section>
@@ -226,64 +226,28 @@ export function GradedCardSection({
     <div className="space-y-6 transition-opacity duration-200">
       {setMode && (
         <div
-          className="flex items-center gap-1 rounded-xl bg-gray-900/60 p-1 ring-1 ring-white/[0.06]"
+          className="flex items-center gap-1 rounded-xl bg-[#141414] p-1 ring-1 ring-white/[0.06]"
           role="tablist"
           aria-label="PSA data source"
         >
-          {mode === "slab" ? (
-            <GradientOutlineFrame
-              className="min-w-0 flex-1 overflow-hidden"
-              roundedClass="rounded-lg"
-              padClass={VAULT_OUTLINE_PAD_CLASS}
-            >
-              <button
-                type="button"
-                role="tab"
-                aria-selected
-                onClick={() => setMode("slab")}
-                className={vaultTabActiveInnerClass}
-              >
-                Photo
-              </button>
-            </GradientOutlineFrame>
-          ) : (
-            <button
-              type="button"
-              role="tab"
-              aria-selected={false}
-              onClick={() => setMode("slab")}
-              className="min-w-0 flex-1 rounded-lg border border-transparent px-3 py-2.5 text-xs font-semibold text-gray-400 transition-colors hover:text-white sm:text-sm"
-            >
-              Photo
-            </button>
-          )}
-          {mode === "cert" ? (
-            <GradientOutlineFrame
-              className="min-w-0 flex-1 overflow-hidden"
-              roundedClass="rounded-lg"
-              padClass={VAULT_OUTLINE_PAD_CLASS}
-            >
-              <button
-                type="button"
-                role="tab"
-                aria-selected
-                onClick={() => setMode("cert")}
-                className={vaultTabActiveInnerClass}
-              >
-                Cert #
-              </button>
-            </GradientOutlineFrame>
-          ) : (
-            <button
-              type="button"
-              role="tab"
-              aria-selected={false}
-              onClick={() => setMode("cert")}
-              className="min-w-0 flex-1 rounded-lg border border-transparent px-3 py-2.5 text-xs font-semibold text-gray-400 transition-colors hover:text-white sm:text-sm"
-            >
-              Cert #
-            </button>
-          )}
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === "slab"}
+            onClick={() => setMode("slab")}
+            className={vaultTabClass(mode === "slab")}
+          >
+            Photo
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === "cert"}
+            onClick={() => setMode("cert")}
+            className={vaultTabClass(mode === "cert")}
+          >
+            Cert #
+          </button>
         </div>
       )}
 
@@ -678,7 +642,7 @@ function CheckField({
         type="checkbox"
         checked={checked}
         onChange={(e) => onChange(e.target.checked)}
-        className="w-4 h-4 rounded border-gray-600 bg-gray-800 text-mint"
+        className="h-4 w-4 rounded border-white/20 bg-[#141414] accent-[var(--azure)]"
       />
       <span className="text-sm text-gray-300">{label}</span>
     </label>

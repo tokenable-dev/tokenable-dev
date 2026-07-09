@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tokenable — List Your Card</title>
+<script src="support.js"></script>
+</head>
+<body>
+<x-dc data-theme="dark">
+<helmet>
+<script src="ds-base.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root:root{ --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace; }
+  :root{
+    --ink: #0e0e0e; --ink-2: #0e0e0e;
+    --surf: #141414; --surf-2: #111111;
+    --line: rgba(255,255,255,0.08);
+    --azure: rgb(26,111,255); --pos: rgb(0,200,100); --neg: rgb(228,55,74);
+    --warn: rgb(234,130,0);
+    --t1: rgba(255,255,255,0.95); --t2: rgba(255,255,255,0.55); --t3: rgba(255,255,255,0.35);
+    --brand-500: #1A6FFF; --brand-400: #5B9AFF; --brand-900: #191919;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--ink);color:#fff;font-family:var(--font-sans, 'Inter', sans-serif);-webkit-font-smoothing:antialiased;}
+  .mono{font-family:var(--font-mono);}
+
+  /* GNB */
+  header{position:sticky;top:0;z-index:50;background:var(--ink-2);border-bottom:1px solid rgba(255,255,255,0.08);}
+  .navlink{font-family:var(--font-sans);font-size:14.5px;font-weight:500;color:var(--t2);text-decoration:none;height:64px;display:inline-flex;align-items:center;position:relative;transition:color 0.15s;cursor:pointer;}
+  .navlink:hover{color:#fff;}
+  .navlink.on{color:#fff;font-weight:600;}
+  .navlink.on::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2px;background:var(--azure);}
+  .gnb-burger{display:none;width:42px;height:42px;border:0;background:transparent;color:#fff;cursor:pointer;align-items:center;justify-content:center;}
+  .burger-lines{display:flex;flex-direction:column;gap:6px;width:20px;}
+  .burger-lines span{display:block;height:2px;background:#fff;border-radius:1px;}
+  .gnb-logo-full{height:22px;}
+  .gnb-logo-symbol{height:28px;display:none;}
+  .gnb-right{display:flex;align-items:center;gap:14px;}
+  .tk-search .tk-input{background:rgba(255,255,255,0.85)!important;color:#111!important;border:none!important;box-shadow:none!important;}
+  .tk-search .tk-input::placeholder{color:rgba(0,0,0,0.4)!important;}
+  .tk-search__icon{display:flex!important;color:rgba(0,0,0,0.4)!important;}
+  .tk-search{clip-path:var(--pixel-notch-md);overflow:hidden;}
+  .tk-search .tk-input{clip-path:none!important;height:36px!important;font-size:14px!important;}
+
+  /* Breadcrumb */
+  .breadcrumb{display:flex;align-items:center;gap:8px;font-family:var(--font-mono);font-size:12px;margin-bottom:16px;}
+  .breadcrumb a{color:var(--azure);text-decoration:none;font-weight:600;letter-spacing:0.04em;}
+  .breadcrumb a:hover{color:#fff;}
+  .breadcrumb .sep{color:rgba(255,255,255,0.2);}
+  .breadcrumb .current{color:rgba(255,255,255,0.5);}
+
+  /* Eyebrow */
+  .eyebrow{font-family:var(--font-mono);font-size:13px;font-weight:600;letter-spacing:0.22em;text-transform:uppercase;color:var(--azure);display:inline-flex;align-items:center;gap:9px;}
+  .eyebrow::before{content:none;}
+
+  /* Card summary */
+  .card-summary{display:flex;gap:20px;align-items:center;background:#191919;border-radius:16px;padding:20px;margin-bottom:32px;}
+  .card-summary__img{width:80px;height:112px;background:#0e0e0e;border-radius:8px;padding:4px;flex-shrink:0;}
+  .card-summary__img img{width:100%;height:100%;object-fit:contain;}
+
+  /* Method cards */
+  .method-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:32px;}
+  .method-card{background:#191919;border-radius:16px;padding:20px;cursor:pointer;border:2px solid transparent;transition:all 0.15s;position:relative;}
+  .method-card:hover{border-color:rgba(255,255,255,0.1);}
+  .method-card.selected{border-color:var(--azure);background:rgba(26,111,255,0.04);}
+  .method-card__radio{width:20px;height:20px;border-radius:50%;border:2px solid rgba(255,255,255,0.2);display:flex;align-items:center;justify-content:center;margin-bottom:14px;transition:all 0.15s;}
+  .method-card.selected .method-card__radio{border-color:var(--azure);background:var(--azure);}
+  .method-card.selected .method-card__radio::after{content:"";width:8px;height:8px;border-radius:50%;background:#fff;}
+  .method-card__title{font-size:16px;font-weight:700;color:#fff;margin-bottom:8px;}
+  .method-card__desc{font-size:13px;color:rgba(255,255,255,0.4);line-height:1.6;}
+
+  /* Form */
+  .form-label{font-family:var(--font-mono);font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:rgba(255,255,255,0.5);font-weight:600;margin-bottom:8px;display:block;}
+  .form-input{width:100%;height:52px;padding:0 18px;background:#141414;border:1px solid rgba(255,255,255,0.08);border-radius:12px;color:#fff;font-family:var(--font-mono);font-size:18px;font-weight:700;outline:none;transition:border-color 0.2s;}
+  .form-input:focus{border-color:var(--azure);box-shadow:0 0 0 3px rgba(26,111,255,0.15);}
+  .form-helper{font-size:12px;color:rgba(255,255,255,0.3);margin-top:6px;}
+  .form-section{margin-bottom:28px;}
+
+  /* Reference prices */
+  .ref-prices{margin-top:14px;background:rgba(255,255,255,0.02);border-radius:10px;padding:14px 16px;}
+  .ref-prices__title{font-family:var(--font-mono);font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:rgba(255,255,255,0.3);margin-bottom:10px;font-weight:600;}
+  .ref-row{display:flex;justify-content:space-between;align-items:center;padding:4px 0;}
+  .ref-row__source{font-size:13px;color:rgba(255,255,255,0.4);}
+  .ref-row__price{font-family:var(--font-mono);font-size:13px;color:rgba(255,255,255,0.6);font-weight:600;}
+  .ref-row__date{font-family:var(--font-mono);font-size:11px;color:rgba(255,255,255,0.2);margin-left:8px;}
+
+  /* Duration */
+  .duration-group{display:flex;gap:0;margin-bottom:28px;}
+  .duration-btn{flex:1;height:44px;border:0;background:#191919;color:rgba(255,255,255,0.5);font-family:var(--font-mono);font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s;border:1px solid rgba(255,255,255,0.06);}
+  .duration-btn:first-child{border-radius:10px 0 0 10px;}
+  .duration-btn:last-child{border-radius:0 10px 10px 0;}
+  .duration-btn.sel{background:var(--azure);color:#fff;border-color:var(--azure);}
+
+  /* Fee breakdown */
+  .fee-table{background:#191919;border-radius:16px;padding:20px;margin-bottom:28px;}
+  .fee-row{display:flex;justify-content:space-between;padding:8px 0;font-size:14px;}
+  .fee-row--total{border-top:1px solid rgba(255,255,255,0.08);margin-top:8px;padding-top:14px;font-weight:700;font-size:16px;}
+  .fee-row__label{color:rgba(255,255,255,0.5);}
+  .fee-row__val{font-family:var(--font-mono);font-weight:600;color:#fff;}
+  .fee-row--total .fee-row__val{color:var(--pos);font-size:18px;}
+
+  /* Checkbox */
+  .terms-check{display:flex;gap:12px;align-items:flex-start;margin-bottom:28px;cursor:pointer;}
+  .terms-check__box{width:22px;height:22px;border:2px solid rgba(255,255,255,0.15);border-radius:6px;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all 0.15s;}
+  .terms-check.checked .terms-check__box{background:var(--azure);border-color:var(--azure);}
+  .terms-check__text{font-size:13px;color:rgba(255,255,255,0.5);line-height:1.6;}
+
+  /* Success banner */
+  .success-banner{display:none;background:rgba(0,200,100,0.08);border:1px solid rgba(0,200,100,0.2);border-radius:16px;padding:24px;margin-bottom:24px;text-align:center;}
+  .success-banner.show{display:block;}
+
+  /* Mobile nav */
+  .gnb-drawer{display:none;position:fixed;inset:64px 0 0 0;z-index:45;background:var(--ink-2);flex-direction:column;gap:4px;padding:16px;overflow-y:auto;}
+  .gnb-drawer.open{display:none!important;}.gnb-drawer{display:none!important;}
+  .gnb-drawer .navlink{height:auto;font-size:18px;padding:16px;color:#fff;}
+  .gnb-drawer .navlink::after{display:none!important;}
+  .gnb-search-overlay{display:none;position:fixed;top:0;left:0;right:0;z-index:60;background:var(--ink-2);}
+  .gnb-search-overlay.open{display:block;}
+  .gnb-search-overlay__bar{display:flex;align-items:center;height:64px;padding:0 16px;gap:12px;}
+  .gnb-search-overlay__input{flex:1;height:44px;border:0;background:rgba(255,255,255,0.08);color:#fff;font-family:var(--font-sans);font-size:15px;padding:0 16px;border-radius:8px;outline:none;}
+  .gnb-search-overlay__input::placeholder{color:rgba(255,255,255,0.35);}
+  .gnb-search-overlay__cancel{border:0;background:transparent;color:var(--azure);font-family:var(--font-sans);font-size:15px;font-weight:600;cursor:pointer;padding:0 8px;}
+
+  .mobile-sticky-cta{display:none;}
+
+  @media(max-width:1024px){
+    .gnb-nav{display:none!important;} .gnb-right{display:none!important;} .gnb-burger{display:flex!important;} .gnb-search-mobile{display:flex!important;} .gnb-logo-full{display:none!important;} .gnb-logo-symbol{display:block!important;}
+  }
+  @media(max-width:768px){
+    .method-grid{grid-template-columns:1fr;gap:10px;}
+    .card-summary{flex-direction:column;align-items:flex-start;gap:14px;}
+    .card-summary__img{width:100px;height:140px;}
+    .breadcrumb{display:none!important;}
+    .mobile-sticky-cta{display:block;position:fixed;bottom:0;left:0;right:0;padding:16px;background:linear-gradient(transparent,var(--ink) 30%);z-index:40;}
+    .desktop-cta{display:none!important;}
+  }
+</style>
+</helmet>
+
+  <!-- ============ GNB ============ -->
+  <header>
+    <div style="display:flex;align-items:center;height:64px;padding:0 clamp(16px,4vw,40px);max-width:100%;">
+      <a href="index.html" style="display:flex;align-items:center;"><img class="gnb-logo-full" src="images/logo-tokenable.svg" alt="Tokenable" style="height:24px;display:block;"><img class="gnb-logo-symbol" src="images/symbol-white.svg" alt="Tokenable" style="height:26px;display:none;"></a>
+      <nav class="gnb-nav" style="display:flex;gap:40px;margin-left:52px;">
+        <a class="navlink" href="Markets.html">Markets</a>
+        <a class="navlink" href="Portfolio.html">Portfolio</a>
+        <a class="navlink on" href="Vault-Dashboard-Active.html">Vault</a>
+      </nav>
+      <div style="flex:1;"></div>
+      <button class="gnb-search-mobile" aria-label="Search" style="display:none;width:42px;height:42px;border:0;background:transparent;color:#fff;cursor:pointer;align-items:center;justify-content:center;"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="21" y2="21"/></svg></button>
+      <button class="gnb-burger" aria-label="Open menu"><span class="burger-lines"><span></span><span></span></span></button>
+      <div class="gnb-right">
+        <x-import component-from-global-scope="TokenableDesignSystem_8d023b.Search" placeholder="Search cards, sets, players…" hint-size="300px,44px"></x-import>
+        <div class="tk-wallet-chip" style="display:flex;align-items:center;gap:10px;height:44px;padding:0 14px;background:rgba(255,255,255,0.04);clip-path:var(--pixel-notch-lg);cursor:pointer;">
+          <span style="width:22px;height:22px;flex:none;background:linear-gradient(135deg,var(--azure),var(--brand-400));clip-path:var(--pixel-notch-lg);"></span>
+          <span class="mono" style="font-size:13px;font-weight:600;color:#fff;">0x7Fb&hellip;3aE2</span>
+          <span class="mono" style="font-size:12px;font-weight:700;color:var(--pos);">2.41 ETH</span>
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Mobile drawer -->
+  <div class="gnb-drawer">
+    <a class="navlink" href="index.html">Home</a>
+    <a class="navlink" href="Markets.html">Markets</a>
+    <a class="navlink" href="Portfolio.html">Portfolio</a>
+    <a class="navlink" href="Vault-Dashboard-Active.html">Vault</a>
+  </div>
+
+  <!-- ============ PAGE ============ -->
+  <section style="max-width:640px;margin:0 auto;padding:40px clamp(16px,4vw,40px) 100px;">
+
+    <div class="breadcrumb">
+      <a href="Vault-Dashboard-Active.html">My Vault</a>
+      <span class="sep">›</span>
+      <span class="current">List for Sale</span>
+    </div>
+
+    <span class="eyebrow">List for Sale</span>
+    <h1 style="margin:10px 0 32px;font-family:var(--font-sans);font-weight:700;font-size:clamp(26px,4vw,38px);letter-spacing:-0.025em;line-height:1.05;color:#fff;">List Your Card</h1>
+
+    <!-- Card Summary -->
+    <div class="card-summary">
+      <div class="card-summary__img"><img src="images/card-charizard.png" alt="Charizard"></div>
+      <div>
+        <div style="font-size:16px;font-weight:700;color:#fff;margin-bottom:6px;line-height:1.3;">1999 POKEMON BASE SET 1ST EDITION #4 CHARIZARD HOLO</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px;">
+          <span class="tk-tag tk-tag--neutral tk-tag--soft">PSA 10</span>
+          <span class="mono" style="font-size:12px;color:rgba(255,255,255,0.4);">Cert #12345678</span>
+          <span class="mono" style="font-size:12px;color:var(--azure);">Token #0421</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:12px;color:rgba(255,255,255,0.35);">Current market value</span>
+          <span class="mono" style="font-size:16px;font-weight:700;color:#fff;">$25,376</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Selling Method -->
+    <div class="form-section">
+      <label class="form-label" style="margin-bottom:14px;">Selling method</label>
+      <div class="method-grid">
+        <div class="method-card" data-method="buynow" onclick="selectMethod('buynow')">
+          <div class="method-card__radio"></div>
+          <div class="method-card__title">Buy Now</div>
+          <div class="method-card__desc">Set a fixed price. Sell instantly when someone accepts.</div>
+        </div>
+        <div class="method-card" data-method="offers" onclick="selectMethod('offers')">
+          <div class="method-card__radio"></div>
+          <div class="method-card__title">Accept Offers</div>
+          <div class="method-card__desc">Let buyers make offers. You accept or decline.</div>
+        </div>
+        <div class="method-card" data-method="auction" onclick="selectMethod('auction')">
+          <div class="method-card__radio"></div>
+          <div class="method-card__title">Auction</div>
+          <div class="method-card__desc">Set a starting price. Highest bid wins.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Price Input (Buy Now) -->
+    <div class="form-section" id="price-buynow" style="display:none;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;padding:10px 14px;background:rgba(255,255,255,0.03);border-radius:8px;">
+        <span style="font-size:12px;color:rgba(255,255,255,0.35);">Market Price</span>
+        <span class="mono" style="font-size:14px;font-weight:700;color:rgba(255,255,255,0.6);">$25,376</span>
+      </div>
+      <label class="form-label">Your asking price</label>
+      <div style="position:relative;">
+        <span style="position:absolute;left:18px;top:50%;transform:translateY(-50%);font-family:var(--font-mono);font-size:18px;font-weight:700;color:rgba(255,255,255,0.3);">$</span>
+        <input class="form-input" id="input-price" type="text" placeholder="25,000" style="padding-left:36px;" oninput="updateFees()">
+      </div>
+      <div class="ref-prices">
+        <div class="ref-prices__title">📊 Recent sales reference</div>
+        <div class="ref-row"><span class="ref-row__source">eBay</span><span><span class="ref-row__price">$24,500</span><span class="ref-row__date">Jun 28</span></span></div>
+        <div class="ref-row"><span class="ref-row__source">Goldin</span><span><span class="ref-row__price">$25,376</span><span class="ref-row__date">Jun 15</span></span></div>
+        <div class="ref-row"><span class="ref-row__source">Tokenable</span><span><span class="ref-row__price">$25,000</span><span class="ref-row__date">Jun 10</span></span></div>
+      </div>
+    </div>
+
+    <!-- Price Input (Offers) -->
+    <div class="form-section" id="price-offers" style="display:none;">
+      <label class="form-label">Minimum offer (optional)</label>
+      <div style="position:relative;">
+        <span style="position:absolute;left:18px;top:50%;transform:translateY(-50%);font-family:var(--font-mono);font-size:18px;font-weight:700;color:rgba(255,255,255,0.3);">$</span>
+        <input class="form-input" id="input-minoffer" type="text" placeholder="20,000" style="padding-left:36px;" oninput="updateFees()">
+      </div>
+      <div class="form-helper">Leave blank to accept any offer</div>
+    </div>
+
+    <!-- Price Input (Auction) -->
+    <div class="form-section" id="price-auction" style="display:none;">
+      <label class="form-label">Starting bid</label>
+      <div style="position:relative;margin-bottom:16px;">
+        <span style="position:absolute;left:18px;top:50%;transform:translateY(-50%);font-family:var(--font-mono);font-size:18px;font-weight:700;color:rgba(255,255,255,0.3);">$</span>
+        <input class="form-input" id="input-startbid" type="text" placeholder="20,000" style="padding-left:36px;" oninput="updateFees()">
+      </div>
+      <label class="form-label">Reserve price (optional)</label>
+      <div style="position:relative;">
+        <span style="position:absolute;left:18px;top:50%;transform:translateY(-50%);font-family:var(--font-mono);font-size:18px;font-weight:700;color:rgba(255,255,255,0.3);">$</span>
+        <input class="form-input" id="input-reserve" type="text" placeholder="24,000" style="padding-left:36px;">
+      </div>
+    </div>
+
+    <!-- Duration (Auction only) -->
+    <div class="form-section" id="duration-section" style="display:none;">
+      <label class="form-label">Duration</label>
+      <div class="duration-group">
+        <button class="duration-btn" onclick="selectDuration(this)">3 days</button>
+        <button class="duration-btn sel" onclick="selectDuration(this)">7 days</button>
+        <button class="duration-btn" onclick="selectDuration(this)">14 days</button>
+      </div>
+    </div>
+
+    <!-- Fee Breakdown -->
+    <div class="fee-table" id="fee-table" style="display:none;">
+      <div class="fee-row"><span class="fee-row__label">Asking price</span><span class="fee-row__val" id="fee-price">$25,000</span></div>
+      <div class="fee-row"><span class="fee-row__label">Platform fee (5%)</span><span class="fee-row__val" id="fee-platform" style="color:var(--neg);">-$1,250</span></div>
+      <div class="fee-row fee-row--total"><span class="fee-row__label">You receive</span><span class="fee-row__val" id="fee-receive" style="color:var(--pos);font-size:20px;">$24,375</span></div>
+    </div>
+
+    <!-- Terms -->
+    <div class="terms-check" id="terms-check" onclick="toggleTerms()">
+      <div class="terms-check__box"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" style="display:none;"><polyline points="20 6 9 17 4 12"/></svg></div>
+      <div class="terms-check__text">I confirm this card is currently vaulted at Tokenable's PSA facility and I have the right to sell this token.</div>
+    </div>
+
+    <!-- Success banner -->
+    <div class="success-banner" id="success-banner">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--pos)" stroke-width="2.5" style="margin-bottom:12px;"><polyline points="20 6 9 17 4 12"/></svg>
+      <div style="font-size:18px;font-weight:700;color:#fff;margin-bottom:6px;">Your card is now listed on Tokenable Markets</div>
+      <div style="display:flex;gap:12px;justify-content:center;margin-top:16px;">
+        <a href="Markets.html" class="tk-btn tk-btn--sm tk-btn--primary" style="text-decoration:none;height:42px;padding:0 20px;font-size:14px;">View Listing →</a>
+        <a href="Vault-Dashboard-Active.html" class="tk-btn tk-btn--sm tk-btn--subtle" style="text-decoration:none;height:42px;padding:0 20px;font-size:14px;">Back to Vault →</a>
+      </div>
+    </div>
+
+    <!-- CTA -->
+    <div class="desktop-cta" id="desktop-cta">
+      <button class="tk-btn tk-btn--primary" id="list-btn" style="height:54px;width:100%;font-size:16px;opacity:0.4;cursor:not-allowed;" disabled onclick="submitListing()">
+        List for Sale <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-left:8px;"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+      </button>
+      <button class="tk-btn tk-btn--subtle" style="height:48px;width:100%;font-size:14px;margin-top:12px;color:rgba(255,255,255,0.5);" onclick="window.location.href='Vault-Dashboard-Active.html'">Cancel</button>
+    </div>
+  </section>
+
+  <!-- Mobile sticky CTA -->
+  <div class="mobile-sticky-cta" id="mobile-sticky-cta">
+    <button class="tk-btn tk-btn--primary" id="mobile-list-btn" style="height:52px;width:100%;font-size:15px;opacity:0.4;cursor:not-allowed;" disabled onclick="submitListing()">List for Sale →</button>
+  </div>
+
+  <script src="tk-footer.js"></script>
+</x-dc>
+
+<script>
+var selectedMethod = null;
+var termsAgreed = false;
+
+function selectMethod(m){
+  selectedMethod = m;
+  document.querySelectorAll('.method-card').forEach(function(c){
+    c.classList.toggle('selected', c.dataset.method === m);
+  });
+  document.getElementById('price-buynow').style.display = m==='buynow'?'block':'none';
+  document.getElementById('price-offers').style.display = m==='offers'?'block':'none';
+  document.getElementById('price-auction').style.display = m==='auction'?'block':'none';
+  document.getElementById('duration-section').style.display = m==='auction'?'block':'none';
+  document.getElementById('fee-table').style.display = 'block';
+  updateFees();
+  checkReady();
+}
+
+function selectDuration(btn){
+  document.querySelectorAll('.duration-btn').forEach(function(b){ b.classList.remove('sel'); });
+  btn.classList.add('sel');
+}
+
+function toggleTerms(){
+  var el = document.getElementById('terms-check');
+  termsAgreed = !termsAgreed;
+  el.classList.toggle('checked', termsAgreed);
+  var svg = el.querySelector('svg');
+  if(svg) svg.style.display = termsAgreed ? 'block' : 'none';
+  checkReady();
+}
+
+function updateFees(){
+  var input;
+  if(selectedMethod==='buynow') input = document.getElementById('input-price');
+  else if(selectedMethod==='offers') input = document.getElementById('input-minoffer');
+  else if(selectedMethod==='auction') input = document.getElementById('input-startbid');
+  if(!input) return;
+  var val = parseFloat(input.value.replace(/[^0-9.]/g,''));
+  if(isNaN(val) || val===0) val = 25000;
+  var fee = Math.round(val * 0.05);
+  var receive = val - fee;
+  document.getElementById('fee-price').textContent = '$' + val.toLocaleString();
+  document.getElementById('fee-platform').textContent = '-$' + fee.toLocaleString();
+  document.getElementById('fee-receive').textContent = '$' + receive.toLocaleString();
+  checkReady();
+}
+
+function checkReady(){
+  var ready = selectedMethod && termsAgreed;
+  var btn = document.getElementById('list-btn');
+  var mbtn = document.getElementById('mobile-list-btn');
+  if(btn){ btn.disabled = !ready; btn.style.opacity = ready?'1':'0.4'; btn.style.cursor = ready?'pointer':'not-allowed'; }
+  if(mbtn){ mbtn.disabled = !ready; mbtn.style.opacity = ready?'1':'0.4'; mbtn.style.cursor = ready?'pointer':'not-allowed'; }
+}
+
+function submitListing(){
+  var btn = document.getElementById('list-btn');
+  var mbtn = document.getElementById('mobile-list-btn');
+  if(btn){ btn.innerHTML = '<span style="display:inline-block;width:18px;height:18px;border:2px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;animation:spin 0.8s linear infinite;vertical-align:middle;"></span> Listing…'; btn.disabled = true; }
+  if(mbtn){ mbtn.innerHTML = 'Listing…'; mbtn.disabled = true; }
+  setTimeout(function(){
+    document.getElementById('success-banner').classList.add('show');
+    document.getElementById('desktop-cta').style.display = 'none';
+    var ms = document.getElementById('mobile-sticky-cta'); if(ms) ms.style.display = 'none';
+    document.getElementById('success-banner').scrollIntoView({behavior:'smooth',block:'center'});
+  }, 1500);
+}
+
+/* Mobile nav */
+document.addEventListener('click', function(e){
+  var burger=e.target.closest&&e.target.closest('.gnb-burger');
+  if(burger){ var d=document.querySelector('.gnb-drawer'); if(d) d.classList.toggle('open'); return; }
+  var searchMobile=e.target.closest&&e.target.closest('.gnb-search-mobile');
+  if(searchMobile){ var ov=document.getElementById('mobileSearchOverlay'); if(ov){ov.classList.add('open'); ov.querySelector('input')?.focus();} return; }
+});
+</script>
+
+<style>@keyframes spin{to{transform:rotate(360deg);}}</style>
+
+<script src="tk-wallet.js"></script>
+<script src="tk-kyc.js"></script>
+<script src="tk-notifications.js"></script>
+<script src="tk-mobile-nav.js"></script>
+</body>
+</html>

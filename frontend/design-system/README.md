@@ -11,7 +11,14 @@ Committed CSS source for the Azure / pixel UI. HTML prototypes live at repo root
 @import "../styles/tokenable-layout.css";
 ```
 
-**Visual QA:** `http://localhost:3000/dev/design-system`
+**Visual QA:** `http://localhost:3000/dev/design-system` (designer standalone iframe)
+
+**Designer handoff import:**
+
+```bash
+node scripts/ds-import-standalone.mjs                    # copy HTML → public/
+node scripts/ds-import-standalone.mjs --extract-css        # optional _import-*.css for diff
+```
 
 ```tsx
 import { TkButton, TkDialog } from "@/components/ds";

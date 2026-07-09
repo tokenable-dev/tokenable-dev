@@ -52,7 +52,7 @@ window.fmtPrice = fmtPrice;
 
 var inputStyle = 'width:100%;height:48px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:10px;color:#fff;font-family:var(--font-mono);font-size:16px;padding:0 14px;outline:none;box-sizing:border-box;';
 var primaryBtnStyle = 'display:inline-flex;align-items:center;justify-content:center;gap:8px;height:46px;padding:0 24px;font-family:var(--font-sans);font-size:15px;font-weight:600;cursor:pointer;border:0;border-radius:0;clip-path:var(--pixel-notch-lg);color:#fff;background:#1A6FFF;box-shadow:inset 0 0 0 3px rgba(0,0,20,0.5), inset 0 0 0 1px rgba(80,160,255,0.6), inset 0 3px 0 0 rgba(80,170,255,0.7), inset 0 -3px 0 0 rgba(0,0,50,0.4);filter:drop-shadow(4px 4px 0 rgba(26,111,255,0.55));white-space:nowrap;';
-var ghostBtnStyle = 'display:inline-flex;align-items:center;justify-content:center;gap:8px;height:46px;padding:0 24px;font-family:var(--font-sans);font-size:15px;font-weight:600;cursor:pointer;border:0;border-radius:0;clip-path:var(--pixel-notch-lg);color:#fff;background:#0C1640;box-shadow:none;filter:drop-shadow(4px 4px 0 rgba(5,10,30,0.7));white-space:nowrap;';
+var ghostBtnStyle = 'display:inline-flex;align-items:center;justify-content:center;gap:8px;height:46px;padding:0 24px;font-family:var(--font-sans);font-size:15px;font-weight:600;cursor:pointer;border:0;border-radius:0;clip-path:var(--pixel-notch-lg);color:#fff;background:#191919;box-shadow:none;filter:drop-shadow(4px 4px 0 rgba(5,10,30,0.7));white-space:nowrap;';
 var dangerBtnStyle = 'display:inline-flex;align-items:center;justify-content:center;gap:8px;height:46px;padding:0 24px;font-family:var(--font-sans);font-size:15px;font-weight:600;cursor:pointer;border:0;border-radius:0;clip-path:var(--pixel-notch-lg);color:#fff;background:#E4374A;box-shadow:inset 0 0 0 3px rgba(0,0,20,0.5), inset 0 0 0 1px rgba(255,150,160,0.5), inset 0 3px 0 0 rgba(255,150,160,0.6), inset 0 -3px 0 0 rgba(80,0,0,0.4);filter:drop-shadow(4px 4px 0 rgba(228,55,74,0.5));white-space:nowrap;';
 var labelStyle = 'font-family:var(--font-mono);font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:rgba(255,255,255,0.38);font-weight:600;margin-bottom:6px;';
 var valStyle = 'font-family:var(--font-sans);font-weight:700;font-size:22px;color:#fff;';
@@ -60,7 +60,7 @@ var closeBtn = '<button onclick="document.getElementById(\'pf-modal-overlay\').s
 
 /* ---- 1. SELL Modal ---- */
 window.pfSellModal = function(name, highestBid, fee){
-  fee = fee || Math.round(highestBid * 0.025);
+  fee = fee || Math.round(highestBid * 0.05);
   var net = highestBid - fee;
   openModal(
     '<div style="'+labelStyle+'">Sell card</div>' +
@@ -70,7 +70,7 @@ window.pfSellModal = function(name, highestBid, fee){
       '<span style="font-family:var(--font-mono);font-weight:700;color:#fff;">$' + fmtPrice(highestBid) + '</span>' +
     '</div>' +
     '<div style="display:flex;justify-content:space-between;padding:12px 0;border-top:1px solid rgba(255,255,255,0.06);">' +
-      '<span style="'+labelStyle+'margin:0;">Platform fee (2.5%)</span>' +
+      '<span style="'+labelStyle+'margin:0;">Platform fee (5%)</span>' +
       '<span style="font-family:var(--font-mono);color:rgba(255,255,255,0.5);">-$' + fmtPrice(fee) + '</span>' +
     '</div>' +
     '<div style="display:flex;justify-content:space-between;padding:12px 0 20px;border-top:1px solid rgba(255,255,255,0.06);">' +
@@ -133,8 +133,8 @@ window.pfListModal = function(name, currentVal){
       '<input id="pf-list-price" type="text" inputmode="decimal" placeholder="0" style="'+inputStyle+'padding-left:28px;" value="' + fmtPrice(currentVal) + '">' +
     '</div>' +
     '<div style="display:flex;justify-content:space-between;padding:8px 0 16px;">' +
-      '<span style="'+labelStyle+'margin:0;">Platform fee (2.5%)</span>' +
-      '<span id="pf-list-fee" style="font-family:var(--font-mono);font-size:13px;color:rgba(255,255,255,0.5);">-$' + fmtPrice(Math.round(currentVal*0.025)) + '</span>' +
+      '<span style="'+labelStyle+'margin:0;">Platform fee (5%)</span>' +
+      '<span id="pf-list-fee" style="font-family:var(--font-mono);font-size:13px;color:rgba(255,255,255,0.5);">-$' + fmtPrice(Math.round(currentVal*0.05)) + '</span>' +
     '</div>' +
     '',
     '<button style="'+primaryBtnStyle+'" onclick="pfConfirmAction(\'listed\')">List for Sale</button>' +
@@ -145,7 +145,7 @@ window.pfListModal = function(name, currentVal){
     var v = parseInt(this.value.replace(/[^0-9]/g,''))||0;
     this.value = fmtPrice(v);
     var feeEl = document.getElementById('pf-list-fee');
-    if(feeEl) feeEl.textContent = '-$'+fmtPrice(Math.round(v*0.025));
+    if(feeEl) feeEl.textContent = '-$'+fmtPrice(Math.round(v*0.05));
   });
 };
 
@@ -265,7 +265,7 @@ window.pfRemoveWatchModal = function(name){
 
 /* ---- 8. BUY NOW Modal (Watchlist) ---- */
 window.pfBuyNowModal = function(name, price){
-  var fee = Math.round(price * 0.025);
+  var fee = Math.round(price * 0.05);
   var total = price + fee;
   openModal(
     '<div style="'+labelStyle+'">Buy now</div>' +
@@ -275,7 +275,7 @@ window.pfBuyNowModal = function(name, price){
       '<span style="font-family:var(--font-mono);font-weight:700;color:#fff;">$' + fmtPrice(price) + '</span>' +
     '</div>' +
     '<div style="display:flex;justify-content:space-between;padding:12px 0;border-top:1px solid rgba(255,255,255,0.06);">' +
-      '<span style="'+labelStyle+'margin:0;">Platform fee (2.5%)</span>' +
+      '<span style="'+labelStyle+'margin:0;">Platform fee (5%)</span>' +
       '<span style="font-family:var(--font-mono);color:rgba(255,255,255,0.5);">$' + fmtPrice(fee) + '</span>' +
     '</div>' +
     '<div style="display:flex;justify-content:space-between;padding:12px 0 20px;border-top:1px solid rgba(255,255,255,0.06);">' +
@@ -357,7 +357,7 @@ document.addEventListener('click', function(e){
   switch(action){
     case 'sell': pfSellModal(name, val); break;
     case 'list': pfListModal(name, val); break;
-    case 'cancel-listing': pfCancelListingModal(name, val); break;
+    case 'cancel-listing': pfCancelListingModal(name, val, el.dataset.grade); break;
     case 'cancel-bid': pfCancelBidModal(name, val); break;
     case 'raise-bid': pfRaiseBidModal(name, val, val2); break;
     case 'target-price': pfTargetPriceModal(name, val); break;
@@ -384,12 +384,13 @@ var _dlgDanger = 'width:100%;height:48px;border:0;border-radius:10px;background:
 var _dlgGhost = 'width:100%;height:48px;border:0;border-radius:10px;background:rgba(255,255,255,0.06);color:#fff;font-family:var(--font-sans);font-size:15px;font-weight:600;cursor:pointer;margin-top:8px;';
 var _dlgLabel = 'font-family:var(--font-mono);font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:rgba(255,255,255,0.38);font-weight:600;margin-bottom:6px;';
 
-window.pfCancelListingModal = function(name, listPrice){
+window.pfCancelListingModal = function(name, listPrice, grade){
+  grade = grade || 'PSA 10';
   _openDlg(_dlgClose +
-    '<div style="'+_dlgLabel+'">Cancel listing</div>' +
-    '<div style="font-size:16px;font-weight:600;color:#fff;margin:8px 0 16px;">' + name + '</div>' +
-    '<div style="padding:16px;background:rgba(228,55,74,0.06);border-radius:10px;margin-bottom:20px;">' +
-      '<div style="font-size:14px;color:rgba(255,255,255,0.7);line-height:1.5;">Your listing at <strong style="color:#fff;">$' + fmtPrice(listPrice) + '</strong> will be removed. The card will remain in your vault.</div>' +
+    '<div style="'+_dlgLabel+'">Cancel Listing?</div>' +
+    '<div style="font-size:16px;font-weight:600;color:#fff;margin:8px 0 4px;">Your listing will be removed from the market.</div>' +
+    '<div style="padding:16px;background:rgba(255,255,255,0.03);border-radius:10px;margin:16px 0 20px;">' +
+      '<div style="font-size:13px;color:rgba(255,255,255,0.5);line-height:1.6;">' + name + ' &middot; ' + grade + ' &middot; <strong style="color:#fff;">Listed $' + fmtPrice(listPrice) + '</strong></div>' +
     '</div>' +
     '<button style="'+_dlgDanger+'" onclick="_closeDlg();pfConfirmAction(\'cancelled\')">Cancel Listing</button>' +
     '<button style="'+_dlgGhost+'" onclick="_closeDlg()">Keep Listed</button>'

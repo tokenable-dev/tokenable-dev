@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Tokenable — Submit Card for Vault</title>
+<title>Tokenable — Submit a Card</title>
 <script src="support.js"></script>
 </head>
 <body>
@@ -16,12 +16,13 @@
 <style>
   :root:root{ --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace; }
   :root{
-    --ink: #1A1A1E; --ink-2: #1A1A1E;
-    --surf: #1b1b26; --surf-2: rgb(22,22,34);
+    --ink: #0e0e0e; --ink-2: #0e0e0e;
+    --surf: #141414; --surf-2: #111111;
     --line: rgba(255,255,255,0.08); --line-2: rgba(255,255,255,0.05);
     --azure: rgb(26,111,255); --pos: rgb(0,200,100); --neg: rgb(228,55,74);
-    --t2: rgba(255,255,255,0.55); --t3: rgba(255,255,255,0.35);
-    --brand-500: #1A6FFF; --brand-400: #5B9AFF; --brand-900: #0C1640;
+    --warn: rgb(234,130,0);
+    --t1: rgba(255,255,255,0.95); --t2: rgba(255,255,255,0.55); --t3: rgba(255,255,255,0.35);
+    --brand-500: #1A6FFF; --brand-400: #5B9AFF; --brand-900: #191919;
   }
   *{box-sizing:border-box;}
   body{margin:0;background:var(--ink);color:#fff;font-family:var(--font-sans, 'Inter', sans-serif);-webkit-font-smoothing:antialiased;}
@@ -30,7 +31,7 @@
 
   /* GNB */
   header{position:sticky;top:0;z-index:50;background:var(--ink-2);border-bottom:1px solid rgba(255,255,255,0.08);}
-  .navlink{font-family:var(--font-sans);font-size:15px;font-weight:500;color:var(--t2);text-decoration:none;padding:4px 0;position:relative;transition:color 0.15s;letter-spacing:-0.01em;}
+  .navlink{font-family:var(--font-sans);font-size:14.5px;font-weight:500;color:var(--t2);text-decoration:none;height:64px;display:inline-flex;align-items:center;position:relative;transition:color 0.15s;cursor:pointer;}
   .navlink:hover{color:#fff;}
   .navlink.on{color:#fff;font-weight:600;}
   .navlink.on::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2px;background:var(--azure);}
@@ -40,95 +41,125 @@
   .gnb-right{display:flex;align-items:center;gap:14px;}
 
   /* Step indicator */
-  .step-bar{display:flex;align-items:flex-start;gap:0;width:100%;}
-  .step-dot{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:14px;font-weight:700;flex-shrink:0;transition:all 0.2s;}
-  .step-dot.active{background:var(--azure);color:#fff;}
+  .steps{display:flex;align-items:flex-start;width:100%;margin-bottom:40px;}
+  .step-item{display:flex;flex-direction:column;align-items:center;gap:10px;flex-shrink:0;position:relative;z-index:1;}
+  .step-dot{width:36px;height:36px;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:14px;font-weight:700;border-radius:50%;transition:all 0.2s;}
+  .step-dot.active{background:var(--azure);color:#fff;box-shadow:0 0 16px rgba(26,111,255,0.35);}
+  .step-dot.upcoming{background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.25);}
   .step-dot.done{background:var(--pos);color:#fff;}
-  .step-dot.upcoming{background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.3);}
-  .step-line{flex:1;height:2px;background:rgba(255,255,255,0.06);align-self:center;margin-top:-20px;}
+  .step-label{font-family:var(--font-sans);font-size:12px;font-weight:600;color:rgba(255,255,255,0.4);white-space:nowrap;}
+  .step-item.active .step-label{color:#fff;}
+  .step-line{flex:1;height:2px;background:rgba(255,255,255,0.06);margin:17px -4px 0;}
   .step-line.done{background:var(--pos);}
-  .step-line.active{background:linear-gradient(90deg,var(--azure),rgba(255,255,255,0.06));}
-  .step-label{font-family:var(--font-sans);font-size:13px;letter-spacing:0.02em;margin-top:10px;text-align:center;font-weight:600;}
-
-  /* Method cards */
-  .method-card{background:#1e1e2e;border-radius:16px;padding:32px 28px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:16px;cursor:pointer;border:2px solid transparent;transition:all 0.2s;}
-  .method-card:hover{border-color:rgba(255,255,255,0.1);}
-  .method-card.selected{border-color:var(--azure);box-shadow:0 0 20px rgba(26,111,255,0.15);}
-  .method-icon{width:56px;height:56px;border-radius:14px;display:flex;align-items:center;justify-content:center;}
 
   /* Form */
   .form-label{font-family:var(--font-mono);font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:rgba(255,255,255,0.5);font-weight:600;margin-bottom:8px;display:block;}
-  .form-input{width:100%;height:48px;padding:0 16px;background:#141420;border:1px solid rgba(255,255,255,0.08);border-radius:12px;color:#fff;font-family:var(--font-mono);font-size:15px;outline:none;transition:border-color 0.2s;}
+  .form-helper{font-size:13px;color:rgba(255,255,255,0.35);margin-bottom:12px;}
+  .form-input{width:100%;height:52px;padding:0 18px;background:#141414;border:1px solid rgba(255,255,255,0.08);border-radius:12px;color:#fff;font-family:var(--font-mono);font-size:16px;outline:none;transition:border-color 0.2s;}
   .form-input:focus{border-color:var(--azure);box-shadow:0 0 0 3px rgba(26,111,255,0.15);}
   .form-input.error{border-color:var(--neg);box-shadow:0 0 0 3px rgba(228,55,74,0.15);}
   .form-error{color:var(--neg);font-size:12px;margin-top:6px;display:none;}
 
   /* Result card */
-  .result-card{background:#1e1e2e;border-radius:16px;padding:24px;display:none;border-left:3px solid var(--azure);}
-  .result-card.show{display:flex;gap:24px;}
-  .result-img{width:120px;height:168px;background:#101018;border-radius:8px;padding:6px;flex-shrink:0;}
+  .result-card{background:#191919;border-radius:16px;padding:24px;display:none;border-left:4px solid var(--azure);}
+  .result-card.show{display:flex;gap:24px;align-items:flex-start;}
+  .result-img{width:120px;height:168px;background:#0e0e0e;border-radius:8px;padding:8px;flex-shrink:0;}
   .result-img img{width:100%;height:100%;object-fit:contain;}
-  .result-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.04);}
-  .result-row:last-child{border-bottom:none;}
-  .result-k{font-family:var(--font-mono);font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:rgba(255,255,255,0.4);}
-  .result-v{font-family:var(--font-sans);font-size:14px;font-weight:600;color:#fff;}
-
-  /* Alert section */
-  .alert-row{display:flex;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid rgba(255,255,255,0.04);}
-  .alert-row:last-child{border-bottom:none;}
-
-  /* Disclaimer */
-  .disclaimer{background:rgba(255,255,255,0.03);border-radius:12px;padding:18px 22px;font-size:14px;color:rgba(255,255,255,0.55);line-height:1.7;}
 
   /* Error banner */
-  .error-banner{display:none;background:rgba(228,55,74,0.1);border:1px solid rgba(228,55,74,0.3);border-radius:12px;padding:14px 20px;color:var(--neg);font-size:14px;font-weight:500;align-items:center;gap:10px;}
+  .error-banner{display:none;background:rgba(228,55,74,0.08);border:1px solid rgba(228,55,74,0.25);border-radius:12px;padding:18px 22px;color:var(--neg);font-size:14px;font-weight:500;line-height:1.6;gap:12px;margin-top:16px;}
+  .error-banner svg{flex-shrink:0;margin-top:2px;}
+
+  /* Amber disclaimer */
+  .disclaimer-amber{background:rgba(234,130,0,0.08);border:1px solid rgba(234,130,0,0.2);border-radius:12px;padding:18px 22px;font-size:13px;color:rgba(234,130,0,0.9);line-height:1.7;}
 
   /* Buttons */
   .btn{display:inline-flex;align-items:center;justify-content:center;border:0;cursor:pointer;font-family:var(--font-sans);font-weight:600;transition:all 0.12s;border-radius:0;clip-path:polygon(0 6px,4px 2px,8px 0,calc(100% - 8px) 0,calc(100% - 4px) 2px,100% 6px,100% calc(100% - 6px),calc(100% - 4px) calc(100% - 2px),calc(100% - 8px) 100%,8px 100%,4px calc(100% - 2px),0 calc(100% - 6px));}
   .btn--primary{background:#1A6FFF;color:#fff;box-shadow:inset 0 0 0 3px rgba(0,0,20,0.5),inset 0 0 0 1px rgba(80,160,255,0.6),inset 0 3px 0 0 rgba(80,170,255,0.7),inset 0 -3px 0 0 rgba(0,0,50,0.4);filter:drop-shadow(4px 4px 0 rgba(26,111,255,0.55));}
   .btn--primary:hover{filter:drop-shadow(5px 5px 0 rgba(26,111,255,0.65));transform:translate(-1px,-1px);}
-  .btn--ghost{background:#0C1640;color:#fff;box-shadow:inset 0 0 0 3px rgba(0,0,20,0.5),inset 0 0 0 1px rgba(255,255,255,0.1),inset 0 3px 0 0 rgba(255,255,255,0.15),inset 0 -3px 0 0 rgba(0,0,0,0.3);filter:drop-shadow(4px 4px 0 rgba(5,10,30,0.7));}
+  .btn--ghost{background:#191919;color:#fff;box-shadow:inset 0 0 0 3px rgba(0,0,20,0.5),inset 0 0 0 1px rgba(255,255,255,0.1),inset 0 3px 0 0 rgba(255,255,255,0.15),inset 0 -3px 0 0 rgba(0,0,0,0.3);filter:drop-shadow(4px 4px 0 rgba(5,10,30,0.7));}
   .btn--ghost:hover{filter:drop-shadow(5px 5px 0 rgba(5,10,30,0.8));transform:translate(-1px,-1px);}
 
-  /* Mobile */
-  @media(max-width:768px){
-    .gnb-burger{display:block;}
-    .gnb-logo-full{display:none;}
-    .gnb-logo-symbol{display:block;}
-    header nav{display:none;}
-    .method-grid{grid-template-columns:1fr!important;}
-    .result-card.show{flex-direction:column;align-items:center;}
-    .result-img{width:160px;height:224px;}
-    .step-bar{max-width:100%;}
-    .form-section{padding:0 16px!important;}
-  }
+  /* FAQ */
+  .faq-item{border-bottom:1px solid rgba(255,255,255,0.06);}
+  .faq-toggle{width:100%;display:flex;align-items:center;justify-content:space-between;padding:18px 0;background:none;border:none;cursor:pointer;text-align:left;}
+  .faq-toggle span{font-size:15px;font-weight:600;color:#fff;padding-right:16px;}
+  .faq-toggle svg{flex-shrink:0;transition:transform 0.2s;}
+  .faq-body{overflow:hidden;max-height:0;transition:max-height 0.25s ease;}
+  .faq-body p{margin:0 0 16px;font-size:14px;color:rgba(255,255,255,0.5);line-height:1.7;}
 
-  /* Search overlay */
+  /* Breadcrumb */
+  .breadcrumb{display:flex;align-items:center;gap:8px;font-family:var(--font-mono);font-size:12px;margin-bottom:16px;}
+  .breadcrumb a{color:var(--azure);text-decoration:none;font-weight:600;letter-spacing:0.04em;}
+  .breadcrumb a:hover{color:#fff;}
+  .breadcrumb .sep{color:rgba(255,255,255,0.2);}
+  .breadcrumb .current{color:rgba(255,255,255,0.5);}
+
+  /* Section card */
+  .section-card{background:#191919;border-radius:16px;padding:24px;margin-bottom:20px;}
+
+  /* Mobile nav */
+  .gnb-burger{display:none;width:42px;height:42px;border:0;background:transparent;color:#fff;cursor:pointer;align-items:center;justify-content:center;}
+  .burger-lines{display:flex;flex-direction:column;gap:6px;width:20px;}
+  .burger-lines span{display:block;height:2px;background:#fff;border-radius:1px;transition:transform 0.25s ease, opacity 0.25s ease;}
+  .gnb-burger.is-open .burger-lines span:first-child{transform:translateY(4px) rotate(45deg);}
+  .gnb-burger.is-open .burger-lines span:last-child{transform:translateY(-4px) rotate(-45deg);}
+  .gnb-drawer{display:none;position:fixed;inset:64px 0 0 0;z-index:45;background:var(--ink-2);flex-direction:column;gap:4px;padding:16px;overflow-y:auto;}
+  .gnb-drawer.open{display:none!important;}.gnb-drawer{display:none!important;}
+  .gnb-drawer .navlink{height:auto;font-size:18px;padding:16px;color:#fff;}
+  .gnb-drawer .navlink::after{display:none!important;}
+  .gnb-search-overlay{display:none;position:fixed;top:0;left:0;right:0;z-index:60;background:var(--ink-2);}
+  .gnb-search-overlay.open{display:block;}
+  .gnb-search-overlay__bar{display:flex;align-items:center;height:64px;padding:0 16px;gap:12px;}
+  .gnb-search-overlay__input{flex:1;height:44px;border:0;background:rgba(255,255,255,0.08);color:#fff;font-family:var(--font-sans);font-size:15px;padding:0 16px;border-radius:8px;outline:none;}
+  .gnb-search-overlay__input::placeholder{color:rgba(255,255,255,0.35);}
+  .gnb-search-overlay__cancel{border:0;background:transparent;color:var(--azure);font-family:var(--font-sans);font-size:15px;font-weight:600;cursor:pointer;padding:0 8px;white-space:nowrap;}
+
+  /* Search overrides */
   .tk-search .tk-input{background:rgba(255,255,255,0.85)!important;color:#111!important;border:none!important;box-shadow:none!important;}
   .tk-search .tk-input::placeholder{color:rgba(0,0,0,0.4)!important;}
-  .tk-search__icon{display:flex!important;color:rgba(0,0,0,0.4)!important;}
-  .gnb-right .tk-search .tk-input{background:rgba(255,255,255,0.85)!important;color:#111!important;border:none!important;box-shadow:none!important;}
-  .gnb-right .tk-search .tk-input::placeholder{color:rgba(0,0,0,0.4)!important;}
-  .gnb-right .tk-search__icon{color:rgba(0,0,0,0.35)!important;}
-  .tk-search__icon{display:flex!important;z-index:2;left:14px!important;}
+  .tk-search__icon{display:flex!important;color:rgba(0,0,0,0.35)!important;z-index:2;left:14px!important;}
   .tk-search{clip-path:var(--pixel-notch-md);overflow:hidden;}
-  .tk-search .tk-input{clip-path:none!important;height:36px!important;padding-top:0!important;padding-bottom:0!important;font-size:14px!important;text-overflow:ellipsis!important;overflow:hidden!important;white-space:nowrap!important;}
-  header .tk-input{font-size:14.5px;}
-  .tk-tag{background:rgba(255,255,255,0.08)!important;color:rgba(255,255,255,0.85)!important;}
-  .tk-tag--brand{background:rgba(26,111,255,0.12)!important;color:#5B9AFF!important;}
-  .tk-tag--positive{background:rgba(0,195,80,0.12)!important;color:#00C350!important;}
-  .tk-tag--danger{background:rgba(228,55,74,0.12)!important;color:#E4374A!important;}
+  .tk-search .tk-input{clip-path:none!important;height:36px!important;padding-top:0!important;padding-bottom:0!important;font-size:14px!important;}
+
+  /* Mobile sticky CTA */
+  .mobile-sticky-cta{display:none;}
+
+  @media(max-width:1024px){
+    .gnb-nav{display:none!important;}
+    .gnb-right{display:none!important;}
+    .gnb-burger{display:flex!important;}
+    .gnb-search-mobile{display:flex!important;}
+    .gnb-logo-full{display:none!important;}
+    .gnb-logo-symbol{display:block!important;}
+  }
+  @media(max-width:768px){
+    .steps{gap:0;}
+    .step-item{min-width:0;}
+    .step-label{font-size:10px;}
+    .step-dot{width:30px;height:30px;font-size:12px;}
+    .result-card.show{flex-direction:column;align-items:center;}
+    .result-img{width:160px;height:224px;}
+    .breadcrumb{display:none!important;}
+    .mobile-sticky-cta{display:block;position:fixed;bottom:0;left:0;right:0;padding:16px;background:linear-gradient(transparent,var(--ink) 30%);z-index:40;}
+    .desktop-cta{display:none!important;}
+    section > div[style*="grid-template-columns"]{grid-template-columns:1fr!important;gap:24px!important;}
+  }
+  @media(min-width:881px){
+    .gnb-drawer{display:none!important;}
+    .gnb-search-overlay{display:none!important;}
+  }
 </style>
 </helmet>
 
   <!-- ============ GNB ============ -->
-  <header style="position:sticky;top:0;z-index:50;background:var(--ink-2);border-bottom:1px solid rgba(255,255,255,0.08);">
+  <header>
     <div style="display:flex;align-items:center;height:64px;gap:0;padding:0 clamp(16px,4vw,40px);max-width:100%;">
       <a href="index.html" style="display:flex;align-items:center;"><img class="gnb-logo-full" src="images/logo-tokenable.svg" alt="Tokenable" style="height:24px;display:block;"><img class="gnb-logo-symbol" src="images/symbol-white.svg" alt="Tokenable" style="height:26px;display:none;"></a>
       <nav class="gnb-nav" style="display:flex;gap:40px;margin-left:52px;">
         <a class="navlink" href="Markets.html">Markets</a>
         <a class="navlink" href="Portfolio.html">Portfolio</a>
-        <a class="navlink on" href="Vault.html">Vault</a>
+        <a class="navlink on" href="Vault-Dashboard-Active.html">Vault</a>
       </nav>
       <div style="flex:1;"></div>
       <button class="gnb-search-mobile" aria-label="Search" style="display:none;width:42px;height:42px;border:0;background:transparent;color:#fff;cursor:pointer;align-items:center;justify-content:center;"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="21" y2="21"/></svg></button>
@@ -148,179 +179,195 @@
     </div>
   </header>
 
-  <!-- ============ PAGE CONTENT ============ -->
-  <section class="form-section" style="max-width:720px;margin:0 auto;padding:40px clamp(16px,4vw,40px) 80px;">
-
-    <!-- Page header -->
-    <div style="margin-bottom:32px;">
-      <span class="mono" style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:var(--azure);font-weight:600;">Vault submission</span>
-      <h1 style="margin:12px 0 0;font-family:var(--font-sans);font-weight:700;font-size:clamp(28px,4vw,40px);line-height:1.1;letter-spacing:-0.02em;color:#fff;">Submit Card for Vault</h1>
-      <p style="margin:8px 0 0;font-size:15px;color:rgba(255,255,255,0.45);line-height:1.5;">PSA 9 or PSA 10 graded cards only. Your card will be verified, vaulted, insured, and tokenized.</p>
+  <!-- Mobile drawer -->
+  <div class="gnb-drawer">
+    <a class="navlink" href="index.html">Home</a>
+    <a class="navlink" href="Markets.html">Markets</a>
+    <a class="navlink" href="Portfolio.html">Portfolio</a>
+    <a class="navlink" href="Vault-Dashboard-Active.html">Vault</a>
+    <div style="margin-top:auto;padding:16px 0;">
+      <button class="btn btn--primary tk-connect" style="height:48px;width:100%;font-size:15px;">Connect Wallet</button>
     </div>
+  </div>
+  <div class="gnb-search-overlay" id="mobileSearchOverlay">
+    <div class="gnb-search-overlay__bar">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="2" style="flex-shrink:0;"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="21" y2="21"/></svg>
+      <input class="gnb-search-overlay__input" type="text" placeholder="Search cards, sets, players…">
+      <button class="gnb-search-overlay__cancel" id="mobileSearchCancel">Cancel</button>
+    </div>
+  </div>
+
+  <!-- ============ PAGE CONTENT ============ -->
+  <section style="max-width:1200px;margin:0 auto;padding:40px clamp(16px,4vw,40px) 80px;">
+
+    <!-- Breadcrumb -->
+    <div class="breadcrumb">
+      <a href="Vault-Dashboard-Active.html">My Vault</a>
+      <span class="sep">›</span>
+      <span class="current">Submit Card</span>
+    </div>
+
+    <!-- Title -->
+    <h1 style="margin:0 0 32px;font-family:var(--font-sans);font-weight:700;font-size:clamp(28px,4vw,40px);line-height:1.1;letter-spacing:-0.02em;color:#fff;">Submit a Card</h1>
 
     <!-- Step indicator -->
-    <div style="margin-bottom:40px;">
-      <div style="position:relative;width:100%;height:60px;">
-        <!-- Lines layer — positioned by JS after render -->
-        <div id="step-lines" style="position:absolute;top:17px;left:0;right:0;height:2px;z-index:0;"></div>
-        <!-- Dots layer -->
-        <div style="position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;z-index:1;">
-          <div style="display:flex;flex-direction:column;align-items:center;">
-            <div class="step-dot active">1</div>
-            <div class="step-label" style="color:var(--azure);">Verify</div>
-          </div>
-          <div style="display:flex;flex-direction:column;align-items:center;">
-            <div class="step-dot upcoming">2</div>
-            <div class="step-label" style="color:rgba(255,255,255,0.3);">Ship</div>
-          </div>
-          <div style="display:flex;flex-direction:column;align-items:center;">
-            <div class="step-dot upcoming">3</div>
-            <div class="step-label" style="color:rgba(255,255,255,0.3);">Vault</div>
-          </div>
-          <div style="display:flex;flex-direction:column;align-items:center;">
-            <div class="step-dot upcoming">4</div>
-            <div class="step-label" style="color:rgba(255,255,255,0.3);">Tokenize</div>
-          </div>
-        </div>
+    <div style="display:grid;grid-template-columns:1fr 380px;gap:48px;">
+    <div>
+    <!-- Form column -->
+    <div class="steps" id="normal-steps">
+      <div class="step-item active">
+        <div class="step-dot active">1</div>
+        <div class="step-label">Submit</div>
+      </div>
+      <div class="step-line"></div>
+      <div class="step-item">
+        <div class="step-dot upcoming">2</div>
+        <div class="step-label">Ship</div>
+      </div>
+      <div class="step-line"></div>
+      <div class="step-item">
+        <div class="step-dot upcoming">3</div>
+        <div class="step-label">Vault</div>
+      </div>
+      <div class="step-line"></div>
+      <div class="step-item">
+        <div class="step-dot upcoming">4</div>
+        <div class="step-label">Mint</div>
       </div>
     </div>
 
-    <!-- Cert number input -->
+    <!-- Cert Lookup (OPTIONAL) -->
     <div id="cert-section" style="margin-bottom:32px;">
-      <label class="form-label" for="cert-input" style="display:flex;align-items:center;gap:10px;"><img src="uploads/image 69.png" alt="PSA" style="height:36px;width:auto;"> Certification Number</label>
-      <div style="display:flex;gap:12px;">
+      <label class="form-label" style="display:flex;align-items:center;gap:10px;"><img src="images/psa-logo.png" alt="PSA" style="height:44px;object-fit:contain;"> Certification Number</label>
+      <p class="form-helper" style="margin-bottom:4px;">Optional — look up cards you want to verify before submitting</p>
+      <div style="display:flex;gap:12px;" id="cert-input-wrap">
         <input class="form-input" id="cert-input" type="text" placeholder="e.g. 12345678" maxlength="10" style="flex:1;">
-        <button class="btn btn--primary" id="lookup-btn" style="height:48px;padding:0 24px;font-size:14px;flex-shrink:0;">
-          Lookup <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-left:6px;"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
-        </button>
+        <button class="tk-btn tk-btn--primary" id="lookup-btn" style="height:52px;padding:0 24px;font-size:14px;white-space:nowrap;">Look Up Card <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-left:6px;"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></button>
       </div>
-      <div class="form-error" id="cert-error">Invalid PSA certification number</div>
+      <div class="form-error" id="cert-error">Please enter a valid PSA cert number (at least 6 digits)</div>
     </div>
 
-    <!-- Error banner (grade too low) -->
-    <div class="error-banner" id="grade-error" style="margin-bottom:24px;">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-      PSA 9 or above required. This card does not meet vault requirements.
+    <!-- Looked-up cards list -->
+    <div id="lookup-list" style="margin-bottom:24px;display:flex;flex-direction:column;gap:10px;"></div>
+    <div id="add-another-wrap" style="display:none;margin-bottom:32px;">
+      <button class="tk-btn tk-btn--subtle" id="add-another-btn" style="height:38px;padding:0 18px;font-size:13px;">+ Look Up Another Card</button>
     </div>
 
-    <!-- PSA Lookup result -->
-    <div class="result-card" id="result-card">
-      <div class="result-img"><img src="images/card-charizard.png" alt="Card"></div>
-      <div style="flex:1;">
-        <div style="font-family:var(--font-sans);font-size:18px;font-weight:700;color:#fff;margin-bottom:16px;">Charizard &middot; 1999 Base 1st Ed.</div>
-        <div class="result-row">
-          <span class="result-k">Set</span>
-          <span class="result-v">Pokémon Base &middot; 1999</span>
-        </div>
-        <div class="result-row">
-          <span class="result-k">Grade</span>
-          <span class="result-v"><span style="display:inline-flex;align-items:center;padding:3px 10px;background:rgba(0,200,100,0.12);border-radius:6px;color:var(--pos);font-family:var(--font-mono);font-size:12px;font-weight:700;">PSA 10</span></span>
-        </div>
-        <div class="result-row">
-          <span class="result-k">Cert #</span>
-          <span class="result-v mono" style="font-size:13px;">12345678</span>
-        </div>
-        <div class="result-row">
-          <span class="result-k">Status</span>
-          <span class="result-v" style="color:var(--pos);display:flex;align-items:center;gap:6px;">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg> Valid
-          </span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Wallet & Alerts -->
-    <div id="wallet-alert-section" style="display:none;margin-top:32px;">
-      <div style="background:#1e1e2e;border-radius:16px;padding:24px;">
-        <span class="form-label" style="margin-bottom:16px;">Wallet & Notifications</span>
-        <div class="alert-row">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--azure)" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><polyline points="22,6 12,13 2,6"/></svg>
-          <div style="flex:1;">
-            <div style="font-size:13px;color:rgba(255,255,255,0.4);">Wallet address</div>
-            <div class="mono" style="font-size:14px;font-weight:600;color:#fff;margin-top:2px;">0xF4&hellip;9aE2</div>
+    <!-- Submission Details (REQUIRED) -->
+    <div style="margin-bottom:32px;">
+      <div class="section-card">
+        <label class="form-label" style="margin-bottom:14px;">Submission Details</label>
+        <div style="display:flex;flex-direction:column;gap:16px;">
+          <div>
+            <label class="form-label" style="font-size:10px;margin-bottom:6px;">Number of Cards</label>
+            <input class="form-input" id="input-numcards" type="number" min="1" max="99" placeholder="e.g. 5" style="height:48px;font-size:16px;" oninput="if(this.value>99)this.value=99;if(this.value<0)this.value='';checkSubmitReady()">
+            <div class="form-helper">Total cards you're sending (max 99)</div>
           </div>
-          <span style="font-size:12px;color:var(--pos);display:flex;align-items:center;gap:4px;">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg> Connected
-          </span>
-        </div>
-        <div class="alert-row">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-          <div style="flex:1;">
-            <div style="font-size:13px;color:rgba(255,255,255,0.4);">Email (required)</div>
-            <div style="font-size:14px;font-weight:500;color:#fff;margin-top:2px;">daisy@email.com</div>
-          </div>
-          <span style="font-size:12px;color:var(--pos);">✓</span>
-        </div>
-        <div class="alert-row" id="tg-row" style="flex-wrap:wrap;">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="2" id="tg-icon"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-          <div style="flex:1;min-width:0;">
-            <div style="font-size:13px;color:rgba(255,255,255,0.4);" id="tg-label">Telegram (optional)</div>
-          </div>
-          <span id="tg-check" style="display:none;font-size:12px;color:var(--pos);margin-right:4px;">✓</span>
-          <button class="btn btn--ghost" style="height:32px;padding:0 14px;font-size:12px;" id="tg-connect-btn" data-state="idle">Connect</button>
-          <!-- Inline input row -->
-          <div id="tg-input-row" style="display:none;width:100%;padding-top:8px;padding-left:26px;">
-            <div style="display:flex;gap:8px;align-items:center;">
-              <div style="position:relative;flex:1;">
-                <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:13px;color:rgba(255,255,255,0.3);">@</span>
-                <input type="text" id="tg-input" placeholder="username" style="width:100%;height:42px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:0 12px 0 28px;font-size:13px;color:#fff;outline:none;font-family:inherit;" />
-              </div>
+          <div>
+            <label class="form-label" style="font-size:10px;margin-bottom:6px;">Estimated Value</label>
+            <div style="position:relative;">
+              <span style="position:absolute;left:16px;top:50%;transform:translateY(-50%);font-family:var(--font-mono);font-size:16px;font-weight:700;color:rgba(255,255,255,0.3);">$</span>
+              <input class="form-input" id="input-estvalue" type="text" placeholder="e.g. 50,000" style="height:48px;font-size:16px;padding-left:32px;" oninput="formatEstValue(this);checkSubmitReady()">
             </div>
-            <div style="font-size:11px;color:rgba(255,255,255,0.25);margin-top:6px;">We'll send vault status updates to your Telegram.</div>
+            <div class="form-helper">Total value of all cards. Used for insurance and PSA records.</div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Disclaimer -->
-    <div style="margin-top:32px;">
-      <div class="disclaimer">
-        Only PSA 9 and PSA 10 graded cards are accepted. Cards that do not meet requirements will be rejected and returned at the submitter's expense. All accepted cards are insured up to their appraised market value.
+    <!-- Wallet -->
+    <div class="section-card">
+      <label class="form-label" style="margin-bottom:14px;">Token Recipient Wallet</label>
+      <div style="display:flex;align-items:center;gap:12px;padding:14px 16px;background:rgba(255,255,255,0.04);border-radius:10px;">
+        <span style="width:28px;height:28px;flex:none;background:linear-gradient(135deg,var(--azure),var(--brand-400));clip-path:var(--pixel-notch-lg);border-radius:6px;"></span>
+        <span class="mono" style="font-size:14px;font-weight:600;color:#fff;">0x7Fb3…3aE2</span>
+        <div style="margin-left:auto;display:flex;align-items:center;gap:6px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--pos)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          <span style="font-size:12px;color:var(--pos);font-weight:600;">Connected</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Notifications -->
+    <div class="section-card">
+      <label class="form-label" style="margin-bottom:14px;">Notify me via</label>
+      <div style="display:flex;flex-direction:column;gap:14px;">
+        <label style="display:flex;align-items:center;gap:12px;cursor:pointer;">
+          <input type="checkbox" id="email-checkbox" checked style="accent-color:var(--azure);width:18px;height:18px;flex-shrink:0;">
+          <div style="flex:1;">
+            <div style="font-size:14px;color:#fff;font-weight:500;">Email <span style="font-size:11px;color:rgba(255,255,255,0.3);font-weight:400;">(required)</span></div>
+            <div class="mono" style="font-size:12px;color:rgba(255,255,255,0.4);margin-top:2px;">you@example.com</div>
+          </div>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--pos)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+        </label>
+        <div id="tg-row" style="display:flex;align-items:center;gap:12px;">
+          <input type="checkbox" id="tg-checkbox" style="accent-color:var(--azure);width:18px;height:18px;flex-shrink:0;cursor:pointer;">
+          <div style="flex:1;">
+            <div id="tg-label" style="font-size:14px;color:rgba(255,255,255,0.5);font-weight:500;">Telegram <span style="font-size:11px;color:rgba(255,255,255,0.25);font-weight:400;">(optional)</span></div>
+          </div>
+          <button class="tk-btn tk-btn--subtle" id="tg-connect-btn" data-state="idle" style="height:32px;padding:0 14px;font-size:12px;">Connect →</button>
+        </div>
+        <div id="tg-input-row" style="display:none;padding-left:32px;">
+          <div style="display:flex;gap:8px;">
+            <input class="form-input" id="tg-input" type="text" placeholder="@username" style="height:38px;font-size:13px;flex:1;">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Disclaimer (amber) -->
+    <div class="disclaimer-amber" style="margin-bottom:24px;">
+      <div style="display:flex;gap:12px;align-items:flex-start;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;margin-top:1px;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <div>Only PSA 9 and PSA 10 graded cards are accepted. Cards that do not meet requirements will be rejected and returned at the submitter’s expense. All accepted cards are insured up to their appraised market value.</div>
       </div>
     </div>
 
     <!-- CTA -->
-    <div style="margin-top:32px;display:flex;flex-direction:column;gap:12px;">
-      <button class="btn btn--primary" id="submit-btn" style="height:54px;width:100%;font-size:16px;opacity:0.4;cursor:not-allowed;" disabled>
-        Submit for Vault <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-left:8px;"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+    <div class="desktop-cta" style="display:flex;flex-direction:column;gap:12px;">
+      <button class="tk-btn tk-btn--primary" id="submit-btn" style="height:54px;width:100%;font-size:16px;opacity:0.4;cursor:not-allowed;" disabled>
+        Continue to Shipping <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-left:8px;"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
       </button>
-      <button class="btn btn--ghost" style="height:46px;width:100%;font-size:14px;">Save as Draft</button>
+      <button class="tk-btn tk-btn--subtle" style="height:48px;width:100%;font-size:14px;color:rgba(255,255,255,0.6);">Save as Draft</button>
     </div>
 
+    <!-- FAQ Accordion -->
+    </div><!-- end form column -->
+    <div>
+    <!-- FAQ column -->
+    <div style="position:sticky;top:100px;">
+      <h2 style="font-family:var(--font-sans);font-weight:700;font-size:22px;margin:0 0 8px;color:#fff;">Frequently Asked Questions</h2>
+      <div id="faq-list"></div>
+    </div>
+    </div>
+    </div><!-- end grid -->
+
   </section>
 
-  <!-- FAQ Section -->
-  <section style="max-width:720px;margin:0 auto;padding:0 clamp(16px,4vw,40px) 80px;">
-    <h2 style="font-family:var(--font-sans);font-weight:700;font-size:24px;color:#fff;margin:0 0 6px;">Frequently Asked Questions</h2>
-    <p style="font-size:14px;color:rgba(255,255,255,0.4);margin:0 0 24px;">Everything you need to know about Vault submission</p>
-    <div id="faq-list" style="border-top:1px solid rgba(255,255,255,0.06);"></div>
-  </section>
+  <!-- Mobile sticky CTA -->
+  <div class="mobile-sticky-cta" id="mobile-sticky-cta">
+    <button class="btn btn--primary" id="mobile-submit-btn" style="height:52px;width:100%;font-size:15px;">
+      Continue → 
+    </button>
+  </div>
 
-  <!-- ============ FOOTER (shared) ============ -->
+  <!-- Footer -->
   <script src="tk-footer.js"></script>
 
 </x-dc>
 
 <script>
+/* ===== Lookup (multi-card, optional) ===== */
+function formatEstValue(el){
+  var v = el.value.replace(/[^0-9]/g,'');
+  if(v) el.value = parseInt(v).toLocaleString();
+}
+var lookupCards = [];
 
-
-/* Lookup simulation */
 function doLookup(){
   var val = document.getElementById('cert-input').value.trim();
   var errEl = document.getElementById('cert-error');
-  var resultEl = document.getElementById('result-card');
-  var gradeErr = document.getElementById('grade-error');
-  var walletSec = document.getElementById('wallet-alert-section');
-  var submitBtn = document.getElementById('submit-btn');
-
-  // Reset
   errEl.style.display = 'none';
-  gradeErr.style.display = 'none';
-  resultEl.classList.remove('show');
-  walletSec.style.display = 'none';
-  submitBtn.disabled = true;
-  submitBtn.style.opacity = '0.4';
-  submitBtn.style.cursor = 'not-allowed';
   document.getElementById('cert-input').classList.remove('error');
 
   if(!val || val.length < 6){
@@ -329,167 +376,197 @@ function doLookup(){
     return;
   }
 
-  // Simulate lookup delay
   var btn = document.getElementById('lookup-btn');
   btn.textContent = 'Looking up…';
   btn.disabled = true;
+
   setTimeout(function(){
-    btn.innerHTML = 'Lookup <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-left:6px;"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>';
+    btn.innerHTML = 'Look Up Card <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-left:6px;"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>';
     btn.disabled = false;
 
-    // Grade too low simulation (cert starting with 999)
-    if(val.indexOf('999') === 0){
-      gradeErr.style.display = 'flex';
-      // Show result with PSA 8
-      resultEl.querySelector('.result-v span[style*="pos"]').textContent = 'PSA 8';
-      resultEl.querySelector('.result-v span[style*="pos"]').style.background = 'rgba(228,55,74,0.12)';
-      resultEl.querySelector('.result-v span[style*="pos"]').style.color = 'var(--neg)';
-      resultEl.classList.add('show');
-      resultEl.style.borderLeftColor = 'var(--neg)';
-      setTimeout(function(){ resultEl.getBoundingClientRect().top > window.innerHeight && window.scrollBy({top:200,behavior:'smooth'}); }, 100);
-      return;
-    }
-
-    // Success — reset to PSA 10
-    var gradeSpan = resultEl.querySelector('.result-v span[style*="border-radius"]');
-    if(gradeSpan){
-      gradeSpan.textContent = 'PSA 10';
-      gradeSpan.style.background = 'rgba(0,200,100,0.12)';
-      gradeSpan.style.color = 'var(--pos)';
-    }
-    resultEl.style.borderLeftColor = 'var(--azure)';
-
-    // Show result
-    resultEl.classList.add('show');
-    walletSec.style.display = 'block';
-    submitBtn.disabled = false;
-    submitBtn.style.opacity = '1';
-    submitBtn.style.cursor = 'pointer';
-    submitBtn.onclick = function(){
-      if(!submitBtn.disabled) window.location.href = 'Vault-Shipping.html';
+    var rejected = val.indexOf('999') === 0;
+    var card = {
+      cert: val,
+      name: rejected ? '1952 TOPPS #311 MICKEY MANTLE ROOKIE' : (val.indexOf('229') === 0 ? '2023 POKEMON PROMO SVP #085 PIKACHU WITH GREY FELT HAT VAN GOGH' : '1999 POKEMON BASE SET 1ST EDITION #4 CHARIZARD HOLO'),
+      grade: rejected ? 'PSA 8' : (val.indexOf('229') === 0 ? 'PSA 9' : 'PSA 10'),
+      rejected: rejected,
+      img: rejected ? 'images/card-charizard.png' : (val.indexOf('229') === 0 ? 'images/card-pikachu.png' : 'images/card-charizard.png')
     };
-    // Scroll to result
-    setTimeout(function(){ resultEl.getBoundingClientRect().top > window.innerHeight && window.scrollBy({top:200,behavior:'smooth'}); }, 100);
+
+    lookupCards.push(card);
+    renderLookupList();
+    document.getElementById('cert-input').value = '';
+    document.getElementById('cert-input-wrap').style.display = 'none';
+    document.getElementById('add-another-wrap').style.display = 'block';
+    checkSubmitReady();
   }, 1200);
 }
 
-/* Enter key → lookup + click delegation */
-document.addEventListener('keydown', function(e){
-  if(e.key === 'Enter' && e.target && e.target.id === 'cert-input') doLookup();
-  if(e.key === 'Enter' && e.target && e.target.id === 'tg-input'){
-    var b = document.getElementById('tg-connect-btn');
-    if(b && b.dataset.state === 'editing') b.click();
-  }
-});
-document.addEventListener('click', function(e){
-  var btn = e.target.closest('#lookup-btn');
-  if(btn) doLookup();
-
-  /* Telegram Connect → Save → Change */
-  if(e.target.closest('#tg-connect-btn')){
-    var btnT = document.getElementById('tg-connect-btn');
-    var rowT = document.getElementById('tg-input-row');
-    var inputT = document.getElementById('tg-input');
-    var st = btnT.dataset.state;
-    if(st === 'idle' || st === 'saved'){
-      rowT.style.display = 'block';
-      btnT.textContent = 'Save';
-      btnT.classList.remove('btn--ghost');
-      btnT.classList.add('btn--primary');
-      btnT.dataset.state = 'editing';
-      inputT.focus();
-    } else if(st === 'editing'){
-      var val = inputT.value.trim();
-      if(!val) return;
-      document.getElementById('tg-label').innerHTML = 'Telegram<br><span style="color:#fff;font-size:14px;font-weight:500;">@' + val + '</span>';
-      document.getElementById('tg-icon').setAttribute('stroke','var(--azure)');
-      document.getElementById('tg-check').style.display = 'inline';
-      btnT.textContent = 'Change';
-      btnT.classList.remove('btn--primary');
-      btnT.classList.add('btn--ghost');
-      btnT.style.color = 'var(--azure)';
-      btnT.dataset.state = 'saved';
-      rowT.style.display = 'none';
-    }
-  }
-});
-
-/* Position step lines precisely between dot edges */
-function drawStepLines(){
-  var dots = document.querySelectorAll('.step-dot');
-  var container = document.getElementById('step-lines');
-  if(!container || dots.length < 2) return;
-  var parentRect = container.parentElement.getBoundingClientRect();
-  container.innerHTML = '';
-  var colors = ['var(--azure)', 'rgba(255,255,255,0.06)', 'rgba(255,255,255,0.06)'];
-  for(var i=0; i<dots.length-1; i++){
-    var r1 = dots[i].getBoundingClientRect();
-    var r2 = dots[i+1].getBoundingClientRect();
-    var left = (r1.left + r1.width) - parentRect.left;
-    var right = parentRect.right - r2.left;
-    var line = document.createElement('div');
-    line.style.cssText = 'position:absolute;top:0;height:2px;left:'+left+'px;right:'+right+'px;background:'+colors[i]+';';
-    container.appendChild(line);
+function renderLookupList(){
+  var list = document.getElementById('lookup-list');
+  list.innerHTML = '';
+  for(var i=0; i<lookupCards.length; i++){
+    var c = lookupCards[i];
+    var el = document.createElement('div');
+    el.style.cssText = 'display:flex;gap:16px;align-items:center;padding:16px;background:#191919;border-radius:14px;' + (c.rejected ? 'border-left:3px solid var(--neg);' : 'border-left:3px solid var(--pos);');
+    el.innerHTML = '<div style="width:56px;height:78px;background:#0e0e0e;border-radius:6px;padding:3px;flex-shrink:0;"><img src="' + c.img + '" style="width:100%;height:100%;object-fit:contain;"></div>' +
+      '<div style="flex:1;min-width:0;">' +
+        '<div style="font-size:14px;font-weight:700;color:#fff;margin-bottom:4px;">' + c.name + '</div>' +
+        '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' +
+          '<span class="tk-tag tk-tag--neutral tk-tag--soft" style="font-size:10px;">' + c.grade + '</span>' +
+          '<span class="mono" style="font-size:12px;color:rgba(255,255,255,0.4);">Cert #' + c.cert + '</span>' +
+          (c.rejected ? '<span style="font-size:12px;color:var(--neg);font-weight:600;">🔴 Not accepted — PSA 9 minimum</span>' : '<span style="font-size:12px;color:var(--pos);font-weight:600;">✅ Valid</span>') +
+        '</div>' +
+      '</div>' +
+      '<button data-remove-card="' + i + '" style="background:none;border:none;color:rgba(255,255,255,0.3);cursor:pointer;padding:8px;font-size:13px;font-family:var(--font-sans);">Remove ×</button>';
+    list.appendChild(el);
   }
 }
-setTimeout(drawStepLines, 100);
-window.addEventListener('resize', drawStepLines);
 
-/* Ensure submit button starts disabled (DC host strips HTML disabled attr) */
-var sb = document.getElementById('submit-btn');
-if(sb){ sb.disabled = true; sb.style.opacity = '0.4'; sb.style.cursor = 'not-allowed'; }
+function checkSubmitReady(){
+  var numCards = parseInt(document.getElementById('input-numcards')?.value);
+  var estVal = document.getElementById('input-estvalue')?.value.replace(/[^0-9.]/g,'');
+  var hasRejected = lookupCards.some(function(c){ return c.rejected; });
+  var ready = numCards >= 1 && parseFloat(estVal) > 0 && !hasRejected;
+  var btn = document.getElementById('submit-btn');
+  var mbtn = document.getElementById('mobile-submit-btn');
+  if(btn){ btn.disabled = !ready; btn.style.opacity = ready?'1':'0.4'; btn.style.cursor = ready?'pointer':'not-allowed'; }
+  if(mbtn){ mbtn.disabled = !ready; mbtn.style.opacity = ready?'1':'0.4'; mbtn.style.cursor = ready?'pointer':'not-allowed'; }
+}
 
+/* Enter key → lookup */
+document.addEventListener('keydown', function(e){
+  if(e.key === 'Enter' && e.target && e.target.id === 'cert-input') doLookup();
+  if(e.key === 'Enter' && e.target && e.target.id === 'tg-input') saveTelegram();
+});
 
+/* Click delegation */
+document.addEventListener('click', function(e){
+  if(e.target.closest('#lookup-btn')) doLookup();
 
+  /* Submit button → success animation */
+  if(e.target.closest('#submit-btn') || e.target.closest('#mobile-submit-btn')){
+    var btn = e.target.closest('#submit-btn') || e.target.closest('#mobile-submit-btn');
+    if(btn.disabled) return;
+    btn.disabled = true;
+    btn.innerHTML = 'Submitting…';
+    setTimeout(function(){
+      btn.innerHTML = '✓ Submitted!';
+      btn.style.background = 'var(--pos)';
+      btn.style.boxShadow = 'none';
+      btn.style.filter = 'none';
+      setTimeout(function(){ window.location.href = 'Vault-Shipping.html'; }, 1200);
+    }, 1500);
+  }
 
-</script>
-<script src="tk-wallet.js"></script>
-<script src="tk-notifications.js"></script>
-<script>
-/* ===== Method Selector + FAQ (deferred to avoid DC host race) ===== */
-setTimeout(function(){
-  /* FAQ toggle */
-  document.addEventListener('click', function(e){
-    var tog = e.target.closest('.faq-toggle');
-    if(tog){
-      var bd = tog.nextElementSibling;
-      var ch = tog.querySelector('svg');
-      if(bd && ch){
-        var op = bd.style.maxHeight !== '0px';
-        bd.style.maxHeight = op ? '0px' : '300px';
-        bd.style.paddingBottom = op ? '0' : '16px';
-        ch.style.transform = op ? 'rotate(0deg)' : 'rotate(180deg)';
-      }
+  /* Remove card from lookup list */
+  var removeBtn = e.target.closest('[data-remove-card]');
+  if(removeBtn){
+    var idx = parseInt(removeBtn.dataset.removeCard);
+    lookupCards.splice(idx, 1);
+    renderLookupList();
+    if(lookupCards.length === 0){
+      document.getElementById('add-another-wrap').style.display = 'none';
+      document.getElementById('cert-input-wrap').style.display = 'flex';
     }
-  });
+    checkSubmitReady();
+  }
 
-  /* Build FAQ items */
+  /* Add another card */
+  if(e.target.closest('#add-another-btn')){
+    document.getElementById('cert-input-wrap').style.display = 'flex';
+    document.getElementById('add-another-wrap').style.display = 'none';
+    document.getElementById('cert-input').focus();
+  }
+
+  /* Telegram flow */
+  var tgBtn = e.target.closest('#tg-connect-btn');
+  if(tgBtn){
+    var state = tgBtn.dataset.state;
+    if(state === 'idle' || state === 'saved'){
+      document.getElementById('tg-input-row').style.display = 'block';
+      tgBtn.textContent = 'Save';
+      tgBtn.dataset.state = 'editing';
+      document.getElementById('tg-input').focus();
+    } else if(state === 'editing'){
+      saveTelegram();
+    }
+  }
+
+  /* FAQ toggle */
+  var faqTog = e.target.closest('.faq-toggle');
+  if(faqTog){
+    var body = faqTog.nextElementSibling;
+    var chevron = faqTog.querySelector('svg');
+    if(body && chevron){
+      var isOpen = body.style.maxHeight !== '0px' && body.style.maxHeight !== '';
+      body.style.maxHeight = isOpen ? '0px' : '300px';
+      chevron.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(180deg)';
+    }
+  }
+});
+
+function saveTelegram(){
+  var input = document.getElementById('tg-input');
+  var val = input ? input.value.trim() : '';
+  if(!val) return;
+  var btn = document.getElementById('tg-connect-btn');
+  var label = document.getElementById('tg-label');
+  label.innerHTML = 'Telegram<br><span class="mono" style="font-size:12px;color:var(--azure);">@' + val + '</span>';
+  btn.textContent = 'Change';
+  btn.dataset.state = 'saved';
+  document.getElementById('tg-input-row').style.display = 'none';
+}
+
+/* Ensure email checkbox is checked */
+(function forceEmailCheck(){
+  function check(){
+    var cb = document.getElementById('email-checkbox');
+    if(cb && !cb.checked) cb.checked = true;
+  }
+  check(); setTimeout(check, 100); setTimeout(check, 300); setTimeout(check, 600); setTimeout(check, 1200);
+  var ob = new MutationObserver(function(){ check(); });
+  var el = document.getElementById('email-checkbox');
+  if(el) ob.observe(el, {attributes:true});
+})();
+
+/* Build FAQ */
+setTimeout(function(){
   var qs = [
     ["What cards are accepted?", "Only PSA 9 or PSA 10 graded cards. Cards below PSA 9 will be rejected and returned at the submitter\u2019s expense.", true],
     ["My card isn\u2019t graded yet. What should I do?", "You\u2019ll need to submit your card to PSA for grading first. Once graded PSA 9 or higher, you can submit it to our Vault for tokenization."],
     ["Do you accept BGS, CGC or other graders?", "Currently we only accept PSA-graded cards. Support for BGS and CGC is planned for a future update."],
     ["Where do I ship my card?", "After submitting your card for vault, you\u2019ll receive detailed shipping instructions including our secure vault facility address and a pre-printed shipping label."],
-    ["What happens if my card is lost or damaged in transit?", "Shipping is the sender\u2019s responsibility. We strongly recommend using insured, trackable shipping methods. Once received at our facility, your card is fully insured."],
+    ["What if my card is lost in transit?", "Shipping is the sender\u2019s responsibility. We strongly recommend using insured, trackable shipping methods. Once received at our facility, your card is fully insured."],
     ["Is my card insured while in the Vault?", "Yes. All cards in the Vault are insured up to their appraised market value through our insurance partner."],
-    ["Can I get my card back?", "Yes. You can request a withdrawal at any time from your Portfolio page. Once a withdrawal request is submitted, our current processing time is generally 14\u201316 business days before shipment. Please note that this is only an estimate and may vary depending on the volume of collectibles being processed at the time. After shipment, delivery times will depend on the destination and the carrier\u2019s service levels."],
+    ["Can I get my card back?", "Yes. You can request a withdrawal at any time from your Portfolio page. Processing takes approximately 14\u201316 business days before shipment."],
     ["How long does the process take?", "Typically 7\u201314 business days from when we receive your card: 1\u20132 days for verification, 1\u20133 days for vaulting, and 3\u20135 days for minting your token."],
-    ["Can I trade while my card is in the Vault?", "Absolutely. Once tokenized, your card\u2019s token can be traded on the Tokenable marketplace while the physical card remains safely in the Vault."],
-    ["How does minting work?", "After your card is verified and vaulted, we create a unique token linked to your physical card. The NFT is minted on-chain and sent to your connected wallet."]
+    ["Can I trade while my card is in the Vault?", "Absolutely. Once tokenized, your card\u2019s token can be traded on the Tokenable marketplace while the physical card remains safely in the Vault."]
   ];
   var fl = document.getElementById('faq-list');
   if(!fl) return;
   for(var i=0; i<qs.length; i++){
     var q=qs[i][0], a=qs[i][1], isOpen=qs[i][2]||false;
     var d = document.createElement('div');
-    d.style.borderBottom = '1px solid rgba(255,255,255,0.06)';
-    d.innerHTML = '<button class="faq-toggle" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:18px 0;background:none;border:none;cursor:pointer;text-align:left;">' +
-      '<span style="font-size:15px;font-weight:600;color:#fff;padding-right:16px;">'+q+'</span>' +
-      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="2.5" style="flex-shrink:0;transition:transform 0.2s;'+(isOpen?'transform:rotate(180deg);':'')+'"><polyline points="6 9 12 15 18 9"/></svg>' +
-      '</button>' +
-      '<div style="overflow:hidden;max-height:'+(isOpen?'300px':'0')+';transition:max-height 0.25s ease;padding-bottom:'+(isOpen?'16px':'0')+';"><p style="margin:0;font-size:14px;color:rgba(255,255,255,0.5);line-height:1.7;">'+a+'</p></div>';
+    d.className = 'faq-item';
+    d.innerHTML = '<button class="faq-toggle"><span>'+q+'</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="2.5" style="'+(isOpen?'transform:rotate(180deg);':'')+'"><polyline points="6 9 12 15 18 9"/></svg></button><div class="faq-body" style="max-height:'+(isOpen?'300px':'0')+';"><p>'+a+'</p></div>';
     fl.appendChild(d);
   }
-}, 500);
+}, 300);
+
+/* Mobile nav delegation */
+(function(){
+  if(window.__tkMobileNav) return; window.__tkMobileNav=true;
+  document.addEventListener('click', function(e){
+    var t=e.target;
+    /* burger handled by tk-mobile-nav.js */
+    var searchMobile=t.closest&&t.closest('.gnb-search-mobile');
+    if(searchMobile){ var ov=document.getElementById('mobileSearchOverlay'); if(ov){ov.classList.add('open'); ov.querySelector('input')?.focus();} return; }
+    var searchCancel=t.closest&&t.closest('.gnb-search-overlay__cancel');
+    if(searchCancel){ var ov=document.getElementById('mobileSearchOverlay'); if(ov){ov.classList.remove('open'); ov.querySelector('input').value='';} return; }
+  }, false);
+})();
 </script>
+<script src="tk-mobile-nav.js"></script>
 </body>
 </html>

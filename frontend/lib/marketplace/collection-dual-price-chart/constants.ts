@@ -1,7 +1,7 @@
 export const LIVE_MARKET_LINE = "rgba(16, 211, 51, 1)";
 
 /** Card.html collection detail price history */
-export const COLLECTION_DETAIL_CHART_LINE = "rgb(26, 111, 255)";
+export const COLLECTION_DETAIL_CHART_LINE = "rgb(0, 51, 255)";
 export const COLLECTION_DETAIL_LINE_WIDTH = 2.5;
 export const COLLECTION_DETAIL_AXIS_LABEL = "rgba(255, 255, 255, 0.55)";
 export const COLLECTION_DETAIL_GRID_LINE = "rgba(255, 255, 255, 0.03)";
@@ -13,8 +13,8 @@ export const COLLECTION_DETAIL_CHART_AREA_GRADIENT = {
   x2: 0,
   y2: 1,
   colorStops: [
-    { offset: 0, color: "rgba(26, 111, 255, 0.34)" },
-    { offset: 1, color: "rgba(26, 111, 255, 0)" },
+    { offset: 0, color: "rgba(0, 51, 255, 0.34)" },
+    { offset: 1, color: "rgba(0, 51, 255, 0)" },
   ],
 };
 

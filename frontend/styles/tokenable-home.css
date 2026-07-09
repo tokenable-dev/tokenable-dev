@@ -130,6 +130,12 @@
   overflow: hidden;
   background: var(--ink-2);
   min-height: min(100vh, 900px);
+  isolation: isolate;
+  /* Tune in DevTools → .home-hero → --hero-vignette-* (0–1) */
+  --hero-vignette-center: 0.32;
+  --hero-vignette-mid: 0.1;
+  --hero-vignette-outer: 0.02;
+  --hero-fade-strength: 0.5;
 }
 
 .home-hero__canvas-host {
@@ -137,40 +143,85 @@
   inset: 0;
   z-index: 0;
   overflow: hidden;
+  isolation: isolate;
 }
 
 .home-hero__carousel-mobile {
   display: none;
 }
 
-.home-hero__vignette {
+.home-hero__canvas-host canvas {
+  display: block;
+  position: relative;
+  z-index: 0;
+}
+
+/* Inside canvas host — must sit above WebGL canvas (sibling after canvas in DOM) */
+.home-hero__overlay {
   position: absolute;
   inset: 0;
   z-index: 1;
-  background: radial-gradient(
-    ellipse 45% 50% at 50% 42%,
-    rgba(10, 10, 14, 0.75) 0%,
-    rgba(10, 10, 14, 0.25) 55%,
-    rgba(10, 10, 14, 0.05) 80%,
-    transparent 100%
-  );
   pointer-events: none;
+  background:
+    linear-gradient(
+      to top,
+      rgb(26 26 30 / var(--hero-fade-strength)),
+      transparent
+    ),
+    radial-gradient(
+      ellipse 62% 58% at 58% 42%,
+      rgb(10 10 14 / var(--hero-vignette-center)) 0%,
+      rgb(10 10 14 / var(--hero-vignette-mid)) 55%,
+      rgb(10 10 14 / var(--hero-vignette-outer)) 82%,
+      transparent 100%
+    );
 }
 
-.home-hero__bottom-fade {
+/* Static slab when WebGL is skipped (mobile / reduced-motion / init fail) */
+.home-hero__fallback {
   position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 120px;
-  z-index: 1;
-  background: linear-gradient(to top, var(--ink-2), transparent);
+  inset: 0;
+  z-index: 0;
   pointer-events: none;
+  overflow: hidden;
+}
+
+.home-hero__fallback--mobile {
+  position: relative;
+  inset: auto;
+  width: 100%;
+  height: 100%;
+}
+
+.home-hero__fallback-img {
+  position: absolute;
+  right: clamp(4%, 8vw, 12%);
+  top: 50%;
+  transform: translateY(-50%);
+  max-height: min(72%, 520px);
+  width: auto;
+  max-width: min(42vw, 400px);
+  object-fit: contain;
+  object-position: center right;
+  filter: drop-shadow(0 12px 40px rgba(0, 0, 0, 0.45)) saturate(1.04) contrast(1.03);
+  image-rendering: auto;
+}
+
+.home-hero__fallback--mobile .home-hero__fallback-img {
+  position: relative;
+  right: auto;
+  top: auto;
+  transform: none;
+  margin: 0 auto;
+  display: block;
+  max-height: 100%;
+  max-width: min(72%, 220px);
+  object-position: center;
 }
 
 .home-hero__content {
   position: relative;
-  z-index: 2;
+  z-index: 3;
   padding: clamp(100px, 14vh, 160px) clamp(40px, 6vw, 80px) 84px;
   display: flex;
   align-items: center;
@@ -194,6 +245,11 @@
   line-height: 1;
   letter-spacing: -0.035em;
   color: #fff;
+  text-shadow: 0 2px 28px rgba(0, 0, 0, 0.55);
+}
+
+.home-hero__title-lines--mobile {
+  display: none;
 }
 
 .home-hero__chips {
@@ -271,8 +327,7 @@
     overflow: visible;
   }
 
-  .home-hero__vignette,
-  .home-hero__bottom-fade {
+  .home-hero__overlay {
     display: none;
   }
 
@@ -310,6 +365,14 @@
     z-index: 10;
     width: 100%;
     max-width: 100%;
+  }
+
+  .home-hero__title-lines--desktop {
+    display: none;
+  }
+
+  .home-hero__title-lines--mobile {
+    display: block;
   }
 
   .home-hero__chips {
@@ -446,6 +509,10 @@
   margin-bottom: 26px;
 }
 
+.home-section-head .tkl-view-all {
+  color: #5b9aff;
+}
+
 /* ── Card grid (grid4) ──────────────────────────────────────────────────── */
 
 .grid4-wrap {
@@ -495,19 +562,18 @@
   height: 44px;
   border: 0;
   cursor: pointer;
-  color: var(--brand-500);
+  color: var(--grey-100);
   display: none;
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  background: var(--gray-100);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
-  transition: transform 0.15s, background 0.15s, color 0.15s;
+  background: var(--brand-500);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  transition: transform 0.15s, background 0.15s;
 }
 
 .grid4-arrow:hover {
-  color: var(--brand-600);
-  background: #fff;
+  background: var(--brand-400);
   transform: translateY(-50%) scale(1.1);
 }
 

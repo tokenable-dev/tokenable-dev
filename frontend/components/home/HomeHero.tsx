@@ -12,17 +12,21 @@ export function HomeHero() {
     <section ref={heroRef} className="home-hero">
       <HomeHeroSlabCarousel heroRef={heroRef} mobileSlotRef={mobileSlotRef} />
 
-      <div className="home-hero__vignette" aria-hidden />
-      <div className="home-hero__bottom-fade" aria-hidden />
-
       <div className="home-hero__content">
         <div className="home-hero__inner">
           <h1 className="home-hero__title">
-            Onchain markets
-            <br />
-            to Trade
-            <br />
-            Gems and Grails.
+            <span className="home-hero__title-lines home-hero__title-lines--desktop">
+              Onchain markets
+              <br />
+              to Trade
+              <br />
+              Gems and Grails.
+            </span>
+            <span className="home-hero__title-lines home-hero__title-lines--mobile">
+              Onchain markets to
+              <br />
+              trade Gems and Grails.
+            </span>
           </h1>
 
           <div className="home-hero__chips">

@@ -126,6 +126,12 @@ function apply(){
   document.querySelectorAll('.tk-wallet-chip').forEach(function(c){
     c.style.display = on ? 'inline-flex' : 'none';
   });
+  localStorage.setItem('tk-wallet-connected', on ? '1' : '0');
+  // Update mobile drawer profile
+  var tkmProfile = document.getElementById('tkm-profile');
+  var tkmConnect = document.getElementById('tkm-connect');
+  if(tkmProfile) tkmProfile.style.display = on ? 'block' : 'none';
+  if(tkmConnect) tkmConnect.style.display = on ? 'none' : 'block';
   // Mobile wallet section
   document.querySelectorAll('.tk-mobile-wallet-section').forEach(function(s){
     s.style.display = on ? 'block' : 'none';
@@ -208,7 +214,7 @@ setInterval(apply, 400);
 /* ---- Inject CSS ---- */
 var style = document.createElement('style');
 style.textContent = [
-  '.tk-wallet-dropdown{display:none;position:absolute;top:calc(100% + 8px);right:0;min-width:220px;background:#1e1e2e;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.5);padding:8px 0;z-index:100;}',
+  '.tk-wallet-dropdown{display:none;position:absolute;top:calc(100% + 8px);right:0;min-width:220px;background:#191919;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.5);padding:8px 0;z-index:100;}',
   '.tk-wallet-dropdown[data-open]{display:block!important;}',
   '.tk-wd-item{display:flex;align-items:center;gap:12px;padding:12px 16px;color:#fff;text-decoration:none;font-family:var(--font-sans);font-size:14px;transition:background 0.1s;cursor:pointer;}',
   '.tk-wd-item:hover{background:rgba(255,255,255,0.06);}',

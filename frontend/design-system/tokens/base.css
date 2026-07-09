@@ -59,11 +59,11 @@
 
   /* Elevation — Tokenable dark-mode scale (inset hairline + top highlight + brand-blue glow).
      Levels: 1 Raised · 2 Floating · 3 Overlay · 4 Modal · 5 Lifted */
-  --elevation-1: inset 0 0 0 1px rgba(255,255,255,0.12), inset 0 1px 0 0 rgba(255,255,255,0.12), 0 4px 12px 0 rgba(26,111,255,0.12);
-  --elevation-2: inset 0 0 0 1px rgba(255,255,255,0.12), inset 0 1px 0 0 rgba(255,255,255,0.14), 0 8px 24px 0 rgba(26,111,255,0.2);
-  --elevation-3: inset 0 0 0 1px rgba(255,255,255,0.12), inset 0 1px 0 0 rgba(255,255,255,0.16), 0 12px 36px 0 rgba(26,111,255,0.32);
-  --elevation-4: inset 0 0 0 1px rgba(255,255,255,0.12), inset 0 1px 0 0 rgba(255,255,255,0.18), 0 16px 48px 0 rgba(26,111,255,0.45);
-  --elevation-5: inset 0 0 0 1px rgba(255,255,255,0.12), inset 0 1px 0 0 rgba(255,255,255,0.2), 0 20px 60px 0 rgba(26,111,255,0.58);
+  --elevation-1: inset 0 0 0 1px rgba(255,255,255,0.12), inset 0 1px 0 0 rgba(255,255,255,0.12), 0 4px 12px 0 rgba(0,51,255,0.12);
+  --elevation-2: inset 0 0 0 1px rgba(255,255,255,0.12), inset 0 1px 0 0 rgba(255,255,255,0.14), 0 8px 24px 0 rgba(0,51,255,0.2);
+  --elevation-3: inset 0 0 0 1px rgba(255,255,255,0.12), inset 0 1px 0 0 rgba(255,255,255,0.16), 0 12px 36px 0 rgba(0,51,255,0.32);
+  --elevation-4: inset 0 0 0 1px rgba(255,255,255,0.12), inset 0 1px 0 0 rgba(255,255,255,0.18), 0 16px 48px 0 rgba(0,51,255,0.45);
+  --elevation-5: inset 0 0 0 1px rgba(255,255,255,0.12), inset 0 1px 0 0 rgba(255,255,255,0.2), 0 20px 60px 0 rgba(0,51,255,0.58);
   /* Aliases */
   --shadow-sm: var(--elevation-1);
   --shadow-md: var(--elevation-2);
@@ -81,9 +81,9 @@
   --pixel-edge: 2px;
   --pixel-notch: 6px;            /* chamfer size for notched corners */
   --pixel-shadow-btn: 4px 4px 0 0 var(--brand-700);
-  --pixel-shadow-sm: 3px 3px 0 0 rgba(26,111,255,0.45);
-  --pixel-shadow-md: 5px 5px 0 0 rgba(26,111,255,0.5);
-  --pixel-shadow-lg: 7px 7px 0 0 rgba(26,111,255,0.55);
+  --pixel-shadow-sm: 3px 3px 0 0 rgba(0,51,255,0.45);
+  --pixel-shadow-md: 5px 5px 0 0 rgba(0,51,255,0.5);
+  --pixel-shadow-lg: 7px 7px 0 0 rgba(0,51,255,0.55);
   /* Notched (pixel chamfer) corner clip — apply with `clip-path: var(--pixel-clip)` */
   --pixel-clip: polygon(0 6px,6px 6px,6px 0,calc(100% - 6px) 0,calc(100% - 6px) 6px,100% 6px,100% calc(100% - 6px),calc(100% - 6px) calc(100% - 6px),calc(100% - 6px) 100%,6px 100%,6px calc(100% - 6px),0 calc(100% - 6px)); /* @kind other */
 }

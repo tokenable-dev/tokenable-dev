@@ -12,9 +12,9 @@ function VaultIcon() {
   return (
     <svg width={30} height={30} viewBox="0 0 12 12" shapeRendering="crispEdges" fill="currentColor" aria-hidden>
       <rect x={1} y={3} width={10} height={8} />
-      <rect x={3} y={3} width={6} height={2} fill="#1a1a1e" />
+      <rect x={3} y={3} width={6} height={2} fill="#0e0e0e" />
       <rect x={3} y={1} width={6} height={3} />
-      <rect x={5} y={6} width={2} height={3} fill="#1a1a1e" />
+      <rect x={5} y={6} width={2} height={3} fill="#0e0e0e" />
     </svg>
   );
 }
@@ -112,7 +112,7 @@ export function HomeFeatures() {
                 </span>
                 <span className="pchip">
                   <span className="dot" />
-                  No counterfeit risk
+                  Onchain
                 </span>
               </div>
             </div>

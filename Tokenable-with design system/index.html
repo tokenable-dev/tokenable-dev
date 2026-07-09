@@ -21,10 +21,10 @@
     --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
   }
   :root{
-    --ink: #1A1A1E;
-    --ink-2: #1A1A1E;
-    --surf: #1b1b26;
-    --surf-2: rgb(22,22,34);
+    --ink: #0e0e0e;
+    --ink-2: #0e0e0e;
+    --surf: #141414;
+    --surf-2: #111111;
     --line: rgba(255,255,255,0.08);
     --line-2: rgba(255,255,255,0.05);
     --azure: rgb(26,111,255);
@@ -45,7 +45,7 @@
   .notch{border-radius:16px;}
   /* eyebrow */
   .eyebrow{font-family:var(--font-mono);font-size:13px;font-weight:600;letter-spacing:0.22em;text-transform:uppercase;color:var(--azure);display:inline-flex;align-items:center;gap:9px;white-space:nowrap;}
-  .eyebrow::before{content:"";width:18px;height:2px;background:var(--azure);}
+  .eyebrow::before{content:none;}
   .sec-title{font-family:var(--font-sans);font-weight:700;font-size:clamp(26px,3.2vw,38px);letter-spacing:-0.025em;line-height:1.05;margin:14px 0 0;}
   .sec-sub{font-size:15px;color:var(--t2);margin:10px 0 0;max-width:520px;line-height:1.5;}
   .view-all{font-family:var(--font-mono);font-size:12px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--brand-400);display:inline-flex;align-items:center;gap:7px;white-space:nowrap;cursor:pointer;}
@@ -54,7 +54,7 @@
   .pchip{display:inline-flex;align-items:center;gap:8px;height:30px;padding:0 13px;font-family:var(--font-mono);font-size:11px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:rgba(255,255,255,0.7);background:rgba(255,255,255,0.08);border-radius:8px;white-space:nowrap;}--t2);background:rgba(255,255,255,0.04);border-radius:6px;background:var(--background-neutral-default);}
   .pchip .dot{width:6px;height:6px;background:var(--azure);}
   /* card */
-  .card{background:#1A1A1E;border-radius:16px;display:flex;flex-direction:column;padding:8px;gap:12px;cursor:pointer;position:relative;overflow:hidden;transition:transform 120ms steps(3);}
+  .card{background:#0e0e0e;border-radius:16px;display:flex;flex-direction:column;padding:8px;gap:12px;cursor:pointer;position:relative;overflow:hidden;transition:transform 120ms steps(3);}
   .card:hover{transform:translate(-2px,-2px);}
   .card::before{content:'';position:absolute;top:0;left:-100%;width:60%;height:100%;background:linear-gradient(105deg,transparent 0%,rgba(255,255,255,0) 35%,rgba(255,255,255,0.12) 50%,rgba(255,255,255,0) 65%,transparent 100%);pointer-events:none;z-index:5;transition:none;}
   .card:hover::before{left:120%;transition:left 0.6s ease;}
@@ -69,15 +69,10 @@
   .vbadge .dot{width:6px;height:6px;background:var(--pos);}
   .corner-rank{position:absolute;left:12px;top:10px;font-family:var(--font-mono);font-weight:700;font-size:34px;line-height:1;color:rgba(255,255,255,0.16);}
   .card__body{padding:8px 0 4px;display:flex;flex-direction:column;gap:8px;}
-  .card__title{font-family:var(--font-sans);font-size:18px;font-weight:600;color:#fff;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;text-overflow:ellipsis;min-height:2.6em;max-height:2.6em;height:2.6em;}
+  .card__title{font-family:var(--font-sans);font-size:18px;font-weight:600;color:#fff;line-height:1.2;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;text-overflow:ellipsis;min-height:2.4em;}
   .card__set{font-family:var(--font-mono);font-size:13px;color:var(--t2);margin-top:5px;}
   .card__price{font-family:var(--font-sans);font-size:22px;font-weight:600;color:#fff;letter-spacing:-0.02em;}
   .card__sub{font-family:var(--font-mono);font-size:14px;font-weight:700;}
-  .card__meta{display:flex;align-items:center;flex-wrap:wrap;gap:6px 8px;min-width:0;}
-  .card__grade{display:inline-flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:11px;font-weight:600;color:#fff;padding:4px 8px;line-height:1;white-space:nowrap;background:#1A6FFF;border-radius:6px;flex-shrink:0;font-synthesis:none;}
-  .card__stat{font-family:var(--font-mono);font-size:11px;font-weight:400;color:rgba(255,255,255,0.4);line-height:1;white-space:nowrap;flex-shrink:0;font-synthesis:none;}
-  .card__stat-val{color:rgba(255,255,255,0.8);margin-left:4px;font-weight:600;}
-  .card__price-row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:2px;min-width:0;}
   .grid4{display:flex;gap:22px;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;padding-bottom:12px;scrollbar-width:none;position:relative;max-width:100%;}
   .grid4::-webkit-scrollbar{display:none;}
   .grid4>.card,.grid4>a.card{flex:0 0 calc(25% - 17px);min-width:220px;scroll-snap-align:start;}
@@ -95,24 +90,13 @@
     .grid4>.card,.grid4>a.card{flex:0 0 55vw;max-width:220px;min-width:unset;}
     .card__img{aspect-ratio:0.85;}
     .card__body{padding:10px 10px 12px;gap:8px;}
-    .card__title{font-size:13px;line-height:1.3;min-height:2.6em;max-height:2.6em;height:2.6em;-webkit-line-clamp:2;}
-    .card__meta{gap:4px 6px;}
-    .card__grade{font-size:10px;padding:3px 7px;}
-    .card__stat{font-size:10px;}
-    .card__price{font-size:18px;min-width:0;}
-    .card__sub{font-size:11px;flex-shrink:0;}
-    .card__price-row{gap:6px;}
+    .card__title{font-size:13px;min-height:unset;-webkit-line-clamp:2;}
+    .card__price{font-size:18px;}
+    .card__sub{font-size:11px;}
     .grid4-wrap{padding:0;}
     .grid4-arrow{width:36px;height:36px;}
-    .gnb-burger,.gnb-search-mobile{flex-shrink:0;}
     @keyframes nudge-right{0%,100%{transform:translateY(-50%) translateX(0);}50%{transform:translateY(-50%) translateX(6px);}}
     .grid4-arrow[data-dir="right"]:not(.hidden){animation:nudge-right 1.5s ease-in-out infinite;}
-  }
-  @media(max-width:400px){
-    .card__grade{font-size:9px;padding:3px 6px;}
-    .card__stat{font-size:9px;}
-    .card__price{font-size:16px;}
-    .card__sub{font-size:10px;}
   }
   .pstat{display:inline-flex;align-items:center;gap:2px;font-family:var(--font-mono);font-size:12.5px;letter-spacing:0.04em;color:var(--t2);}
   .pstat b{color:#fff;font-weight:700;}
@@ -123,9 +107,9 @@
   .btn--primary{color:#fff;background:#1A6FFF;box-shadow:inset 0 0 0 3px rgba(0,0,20,0.5), inset 0 0 0 1px rgba(80,160,255,0.6), inset 0 3px 0 0 rgba(80,170,255,0.7), inset 0 -3px 0 0 rgba(0,0,50,0.4);filter:drop-shadow(4px 4px 0 rgba(26,111,255,0.55));}
   .btn--primary:hover{background:#2E80FF;box-shadow:inset 0 0 0 3px rgba(0,0,20,0.5), inset 0 0 0 1px rgba(100,180,255,0.7), inset 0 3px 0 0 rgba(100,190,255,0.8), inset 0 -3px 0 0 rgba(0,0,50,0.45);filter:drop-shadow(6px 6px 0 rgba(26,111,255,0.65));transform:translate(-2px,-2px);}
   .btn--primary:active{transform:translate(2px,2px);box-shadow:inset 0 0 0 3px rgba(0,0,20,0.6), inset 0 0 0 1px rgba(60,140,255,0.4), inset 0 3px 0 0 rgba(0,0,50,0.3), inset 0 -3px 0 0 rgba(80,170,255,0.3);filter:drop-shadow(2px 2px 0 rgba(26,111,255,0.4));}
-  .btn--ghost,.btn--neutral-secondary{color:#fff;background:#0C1640;box-shadow:none;filter:drop-shadow(4px 4px 0 rgba(5,10,30,0.7));}
-  .btn--ghost:hover,.btn--neutral-secondary:hover{background:#10204E;filter:drop-shadow(6px 6px 0 rgba(5,10,30,0.75));transform:translate(-1px,-1px);}
-  .btn--ghost:active,.btn--neutral-secondary:active{transform:translate(2px,2px);background:#080E30;filter:drop-shadow(1px 1px 0 rgba(5,10,30,0.5));}
+  .btn--ghost,.btn--neutral-secondary{color:#fff;background:#191919;box-shadow:none;filter:drop-shadow(4px 4px 0 rgba(5,10,30,0.7));}
+  .btn--ghost:hover,.btn--neutral-secondary:hover{background:#222;filter:drop-shadow(6px 6px 0 rgba(5,10,30,0.75));transform:translate(-1px,-1px);}
+  .btn--ghost:active,.btn--neutral-secondary:active{transform:translate(2px,2px);background:#111;filter:drop-shadow(1px 1px 0 rgba(5,10,30,0.5));}
   .btn--subtle,.btn--tertiary{color:rgba(255,255,255,0.9);background:rgba(255,255,255,0.08);box-shadow:inset 0 0 0 3px rgba(0,0,20,0.35), inset 0 0 0 1px rgba(255,255,255,0.12), inset 0 3px 0 0 rgba(255,255,255,0.18), inset 0 -3px 0 0 rgba(0,0,0,0.25);filter:drop-shadow(3px 3px 0 rgba(255,255,255,0.08));}
   .btn--subtle:hover,.btn--tertiary:hover{color:#fff;background:rgba(255,255,255,0.14);box-shadow:inset 0 0 0 3px rgba(0,0,20,0.3), inset 0 0 0 1px rgba(255,255,255,0.18), inset 0 3px 0 0 rgba(255,255,255,0.25), inset 0 -3px 0 0 rgba(0,0,0,0.28);filter:drop-shadow(4px 4px 0 rgba(255,255,255,0.12));transform:translate(-1px,-1px);}
   .btn--subtle:active,.btn--tertiary:active{color:rgba(255,255,255,0.8);background:rgba(255,255,255,0.06);box-shadow:inset 0 0 0 3px rgba(0,0,20,0.4), inset 0 0 0 1px rgba(255,255,255,0.08), inset 0 3px 0 0 rgba(0,0,0,0.15), inset 0 -3px 0 0 rgba(255,255,255,0.08);filter:drop-shadow(1px 1px 0 rgba(255,255,255,0.05));transform:translate(2px,2px);}
@@ -153,18 +137,18 @@
   .gnb-search-dropdown{display:none;position:absolute;top:100%;left:0;right:0;background:var(--ink-2);border:1px solid rgba(255,255,255,0.08);border-radius:0 0 12px 12px;padding:8px 16px 16px;z-index:55;box-shadow:0 12px 32px rgba(0,0,0,0.5);max-height:400px;overflow-y:auto;}
   .gnb-search-dropdown.open{display:block;}
   .gnb-right{position:relative;}
-  .gnb-burger{display:none;width:42px;height:42px;min-width:42px;border:0;background:transparent;color:#fff;cursor:pointer;align-items:center;justify-content:center;position:relative;flex-shrink:0;padding:0;}
-  .gnb-search-mobile{flex-shrink:0;min-width:42px;}
+  .gnb-burger{display:none;width:42px;height:42px;border:0;background:transparent;color:#fff;cursor:pointer;align-items:center;justify-content:center;position:relative;}
   .burger-lines{display:flex;flex-direction:column;gap:6px;width:20px;}
   .burger-lines span{display:block;height:2px;background:#fff;border-radius:1px;transition:transform 0.25s ease, opacity 0.25s ease;}
   .gnb-burger.is-open .burger-lines span:first-child{transform:translateY(4px) rotate(45deg);}
   .gnb-burger.is-open .burger-lines span:last-child{transform:translateY(-4px) rotate(-45deg);}
   .gnb-drawer{display:none;position:fixed;inset:64px 0 0 0;z-index:45;background:var(--ink-2);flex-direction:column;gap:4px;padding:16px;overflow-y:auto;}
-  .gnb-drawer.open{display:flex;}
+  .gnb-drawer.open{display:none!important;}.gnb-drawer{display:none!important;}
   .gnb-drawer .navlink{height:auto;font-size:18px;padding:16px;color:#fff;}
   .gnb-drawer .navlink::after{display:none!important;}
   .gnb-drawer .navlink:hover{background:var(--background-brand-tertiary);}
-  @media(max-width:880px){ .gnb-nav{display:none!important;} .gnb-right{display:none!important;} .gnb-burger{display:flex!important;} .gnb-search-mobile{display:flex!important;} .gnb-logo-full{display:none!important;} .gnb-logo-symbol{display:block!important;}lock!important;} }
+  @media(max-width:1024px){
+    .gnb-nav{display:none!important;} .gnb-right{display:none!important;} .gnb-burger{display:flex!important;} .gnb-search-mobile{display:flex!important;} .gnb-logo-full{display:none!important;} .gnb-logo-symbol{display:block!important;}lock!important;} }
   @media(min-width:881px){ .gnb-drawer{display:none!important;} .gnb-search-overlay{display:none!important;} }
   /* Mobile search overlay */
   .gnb-search-overlay{display:none;position:fixed;top:0;left:0;right:0;z-index:60;background:var(--ink-2);}
@@ -177,7 +161,7 @@
   .gnb-search-overlay__dropdown h4{font-family:var(--font-mono);font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:var(--t3);font-weight:600;margin:8px 0 12px;}
   .gnb-search-item{display:flex;align-items:center;gap:12px;padding:10px 0;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.04);}
   .gnb-search-item:last-child{border-bottom:none;}
-  .gnb-search-item img{width:40px;height:54px;object-fit:contain;flex-shrink:0;border-radius:4px;background:#101018;padding:2px;}
+  .gnb-search-item img{width:40px;height:54px;object-fit:contain;flex-shrink:0;border-radius:4px;background:#0e0e0e;padding:2px;}
   .gnb-search-item__info{flex:1;min-width:0;}
   .gnb-search-item__name{font-family:var(--font-sans);font-size:14px;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .gnb-search-item__meta{font-family:var(--font-mono);font-size:12px;color:var(--t2);margin-top:2px;}
@@ -245,7 +229,7 @@
       <nav class="gnb-nav" style="display:flex;gap:40px;margin-left:52px;">
         <a class="navlink" href="Markets.html">Markets</a>
         <a class="navlink" href="Portfolio.html">Portfolio</a>
-        <a class="navlink" href="Vault.html">Vault</a>
+        <a class="navlink" href="Vault-Dashboard-Active.html">Vault</a>
       </nav>
       <div style="flex:1;"></div>
       <button class="gnb-search-mobile" aria-label="Search" style="display:none;width:42px;height:42px;border:0;background:transparent;color:#fff;cursor:pointer;align-items:center;justify-content:center;"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="21" y2="21"/></svg></button>
@@ -264,11 +248,11 @@
         </div>
       <div class="gnb-search-dropdown" id="desktopSearchDropdown">
       <h4 style="font-family:var(--font-mono);font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:var(--t3);font-weight:600;margin:8px 0 12px;">Popular searches</h4>
-      <a href="Card.html" class="gnb-search-item" style="text-decoration:none;display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.04);"><img src="images/card-charizard.png" alt="" style="width:36px;height:48px;object-fit:contain;flex-shrink:0;border-radius:4px;background:#101018;padding:2px;"><div style="flex:1;min-width:0;"><div style="font-family:var(--font-sans);font-size:13px;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Charizard ex Special Illustration</div><div style="font-family:var(--font-mono);font-size:11px;color:var(--t2);margin-top:2px;">PSA 10 · 151 EN</div></div><div style="text-align:right;flex-shrink:0;"><div style="font-family:var(--font-mono);font-size:13px;font-weight:700;color:#fff;">$1,500</div><div style="font-family:var(--font-mono);font-size:11px;font-weight:600;color:var(--pos);margin-top:1px;">+118%</div></div></a>
-      <a href="Card.html" class="gnb-search-item" style="text-decoration:none;display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.04);"><img src="images/card-pikachu-ex.png" alt="" style="width:36px;height:48px;object-fit:contain;flex-shrink:0;border-radius:4px;background:#101018;padding:2px;"><div style="flex:1;min-width:0;"><div style="font-family:var(--font-sans);font-size:13px;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Mega Dream ex · Pikachu SAR</div><div style="font-family:var(--font-mono);font-size:11px;color:var(--t2);margin-top:2px;">PSA 10 · M2A JP</div></div><div style="text-align:right;flex-shrink:0;"><div style="font-family:var(--font-mono);font-size:13px;font-weight:700;color:#fff;">$4,312</div><div style="font-family:var(--font-mono);font-size:11px;font-weight:600;color:var(--pos);margin-top:1px;">+793%</div></div></a>
-      <a href="Card.html" class="gnb-search-item" style="text-decoration:none;display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.04);"><img src="images/card-lebron.png" alt="" style="width:36px;height:48px;object-fit:contain;flex-shrink:0;border-radius:4px;background:#101018;padding:2px;"><div style="flex:1;min-width:0;"><div style="font-family:var(--font-sans);font-size:13px;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">LeBron James Rookie Chrome</div><div style="font-family:var(--font-mono);font-size:11px;color:var(--t2);margin-top:2px;">BGS 9.5 · 2003 Topps</div></div><div style="text-align:right;flex-shrink:0;"><div style="font-family:var(--font-mono);font-size:13px;font-weight:700;color:#fff;">$58,000</div><div style="font-family:var(--font-mono);font-size:11px;font-weight:600;color:var(--pos);margin-top:1px;">+19%</div></div></a>
-      <a href="Card.html" class="gnb-search-item" style="text-decoration:none;display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.04);"><img src="images/card-nidoking.jpg" alt="" style="width:36px;height:48px;object-fit:contain;flex-shrink:0;border-radius:4px;background:#101018;padding:2px;"><div style="flex:1;min-width:0;"><div style="font-family:var(--font-sans);font-size:13px;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Team Rocket's Nidoking ex</div><div style="font-family:var(--font-mono);font-size:11px;color:var(--t2);margin-top:2px;">PSA 10 · POP 3</div></div><div style="text-align:right;flex-shrink:0;"><div style="font-family:var(--font-mono);font-size:13px;font-weight:700;color:#fff;">$58,000</div><div style="font-family:var(--font-mono);font-size:11px;font-weight:600;color:var(--pos);margin-top:1px;">+138%</div></div></a>
-      <a href="Card.html" class="gnb-search-item" style="text-decoration:none;display:flex;align-items:center;gap:12px;padding:8px 0;"><img src="images/card-luka.png" alt="" style="width:36px;height:48px;object-fit:contain;flex-shrink:0;border-radius:4px;background:#101018;padding:2px;"><div style="flex:1;min-width:0;"><div style="font-family:var(--font-sans);font-size:13px;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Luka Dončić Blue Ice Prizm</div><div style="font-family:var(--font-mono);font-size:11px;color:var(--t2);margin-top:2px;">BGS 9.5 · 2018 Prizm</div></div><div style="text-align:right;flex-shrink:0;"><div style="font-family:var(--font-mono);font-size:13px;font-weight:700;color:#fff;">$19,154</div><div style="font-family:var(--font-mono);font-size:11px;font-weight:600;color:var(--pos);margin-top:1px;">+19%</div></div></a>
+      <a href="Card.html" class="gnb-search-item" style="text-decoration:none;display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.04);"><img src="images/card-charizard.png" alt="" style="width:36px;height:48px;object-fit:contain;flex-shrink:0;border-radius:4px;background:#0e0e0e;padding:2px;"><div style="flex:1;min-width:0;"><div style="font-family:var(--font-sans);font-size:13px;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">2023 POKEMON MEW EN-151 #199 CHARIZARD EX SPECIAL ILLUSTRATION RARE</div><div style="font-family:var(--font-mono);font-size:11px;color:var(--t2);margin-top:2px;">PSA 10 · 151 EN</div></div><div style="text-align:right;flex-shrink:0;"><div style="font-family:var(--font-mono);font-size:13px;font-weight:700;color:#fff;">$1,500</div><div style="font-family:var(--font-mono);font-size:11px;font-weight:600;color:var(--pos);margin-top:1px;">+118%</div></div></a>
+      <a href="Card.html" class="gnb-search-item" style="text-decoration:none;display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.04);"><img src="images/card-pikachu-ex.png" alt="" style="width:36px;height:48px;object-fit:contain;flex-shrink:0;border-radius:4px;background:#0e0e0e;padding:2px;"><div style="flex:1;min-width:0;"><div style="font-family:var(--font-sans);font-size:13px;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Mega Dream ex · Pikachu SAR</div><div style="font-family:var(--font-mono);font-size:11px;color:var(--t2);margin-top:2px;">PSA 10 · M2A JP</div></div><div style="text-align:right;flex-shrink:0;"><div style="font-family:var(--font-mono);font-size:13px;font-weight:700;color:#fff;">$4,312</div><div style="font-family:var(--font-mono);font-size:11px;font-weight:600;color:var(--pos);margin-top:1px;">+793%</div></div></a>
+      <a href="Card.html" class="gnb-search-item" style="text-decoration:none;display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.04);"><img src="images/card-lebron.png" alt="" style="width:36px;height:48px;object-fit:contain;flex-shrink:0;border-radius:4px;background:#0e0e0e;padding:2px;"><div style="flex:1;min-width:0;"><div style="font-family:var(--font-sans);font-size:13px;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">2003 TOPPS CHROME #111 LEBRON JAMES ROOKIE REFRACTOR</div><div style="font-family:var(--font-mono);font-size:11px;color:var(--t2);margin-top:2px;">BGS 9.5 · 2003 Topps</div></div><div style="text-align:right;flex-shrink:0;"><div style="font-family:var(--font-mono);font-size:13px;font-weight:700;color:#fff;">$58,000</div><div style="font-family:var(--font-mono);font-size:11px;font-weight:600;color:var(--pos);margin-top:1px;">+19%</div></div></a>
+      <a href="Card.html" class="gnb-search-item" style="text-decoration:none;display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.04);"><img src="images/card-nidoking.jpg" alt="" style="width:36px;height:48px;object-fit:contain;flex-shrink:0;border-radius:4px;background:#0e0e0e;padding:2px;"><div style="flex:1;min-width:0;"><div style="font-family:var(--font-sans);font-size:13px;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">2024 POKEMON SV DESTINED RIVALS #233 NIDOKING EX STELLAR RARE</div><div style="font-family:var(--font-mono);font-size:11px;color:var(--t2);margin-top:2px;">PSA 10 · POP 3</div></div><div style="text-align:right;flex-shrink:0;"><div style="font-family:var(--font-mono);font-size:13px;font-weight:700;color:#fff;">$58,000</div><div style="font-family:var(--font-mono);font-size:11px;font-weight:600;color:var(--pos);margin-top:1px;">+138%</div></div></a>
+      <a href="Card.html" class="gnb-search-item" style="text-decoration:none;display:flex;align-items:center;gap:12px;padding:8px 0;"><img src="images/card-luka.png" alt="" style="width:36px;height:48px;object-fit:contain;flex-shrink:0;border-radius:4px;background:#0e0e0e;padding:2px;"><div style="flex:1;min-width:0;"><div style="font-family:var(--font-sans);font-size:13px;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">2018 PANINI PRIZM #280 LUKA DONCIC BLUE ICE ROOKIE Prizm</div><div style="font-family:var(--font-mono);font-size:11px;color:var(--t2);margin-top:2px;">BGS 9.5 · 2018 Prizm</div></div><div style="text-align:right;flex-shrink:0;"><div style="font-family:var(--font-mono);font-size:13px;font-weight:700;color:#fff;">$19,154</div><div style="font-family:var(--font-mono);font-size:11px;font-weight:600;color:var(--pos);margin-top:1px;">+19%</div></div></a>
     </div>
     </div>
     </div>
@@ -285,7 +269,7 @@
       <h4>Popular searches</h4>
       <a href="Card.html" class="gnb-search-item" style="text-decoration:none;">
         <img src="images/card-charizard.png" alt="">
-        <div class="gnb-search-item__info"><div class="gnb-search-item__name">Charizard ex Special Illustration</div><div class="gnb-search-item__meta">PSA 10 · 151 EN</div></div>
+        <div class="gnb-search-item__info"><div class="gnb-search-item__name">2023 POKEMON MEW EN-151 #199 CHARIZARD EX SPECIAL ILLUSTRATION RARE</div><div class="gnb-search-item__meta">PSA 10 · 151 EN</div></div>
         <div class="gnb-search-item__price"><div class="val">$1,500</div><div class="chg" style="color:var(--pos);">+118%</div></div>
       </a>
       <a href="Card.html" class="gnb-search-item" style="text-decoration:none;">
@@ -295,17 +279,17 @@
       </a>
       <a href="Card.html" class="gnb-search-item" style="text-decoration:none;">
         <img src="images/card-lebron.png" alt="">
-        <div class="gnb-search-item__info"><div class="gnb-search-item__name">LeBron James Rookie Chrome</div><div class="gnb-search-item__meta">BGS 9.5 · 2003 Topps</div></div>
+        <div class="gnb-search-item__info"><div class="gnb-search-item__name">2003 TOPPS CHROME #111 LEBRON JAMES ROOKIE REFRACTOR</div><div class="gnb-search-item__meta">BGS 9.5 · 2003 Topps</div></div>
         <div class="gnb-search-item__price"><div class="val">$58,000</div><div class="chg" style="color:var(--pos);">+19%</div></div>
       </a>
       <a href="Card.html" class="gnb-search-item" style="text-decoration:none;">
         <img src="images/card-nidoking.jpg" alt="">
-        <div class="gnb-search-item__info"><div class="gnb-search-item__name">Team Rocket's Nidoking ex</div><div class="gnb-search-item__meta">PSA 10 · POP 3</div></div>
+        <div class="gnb-search-item__info"><div class="gnb-search-item__name">2024 POKEMON SV DESTINED RIVALS #233 NIDOKING EX STELLAR RARE</div><div class="gnb-search-item__meta">PSA 10 · POP 3</div></div>
         <div class="gnb-search-item__price"><div class="val">$58,000</div><div class="chg" style="color:var(--pos);">+138%</div></div>
       </a>
       <a href="Card.html" class="gnb-search-item" style="text-decoration:none;">
         <img src="images/card-luka.png" alt="">
-        <div class="gnb-search-item__info"><div class="gnb-search-item__name">Luka Dončić Blue Ice Prizm</div><div class="gnb-search-item__meta">BGS 9.5 · 2018 Prizm</div></div>
+        <div class="gnb-search-item__info"><div class="gnb-search-item__name">2018 PANINI PRIZM #280 LUKA DONCIC BLUE ICE ROOKIE Prizm</div><div class="gnb-search-item__meta">BGS 9.5 · 2018 Prizm</div></div>
         <div class="gnb-search-item__price"><div class="val">$19,154</div><div class="chg" style="color:var(--pos);">+19%</div></div>
       </a>
     </div>
@@ -313,7 +297,7 @@
   <div class="gnb-drawer">
     <a class="navlink" href="Markets.html">Markets</a>
     <a class="navlink" href="Portfolio.html">Portfolio</a>
-    <a class="navlink" href="Vault.html">Vault</a>
+    <a class="navlink" href="Vault-Dashboard-Active.html">Vault</a>
     <div style="flex:1;"></div>
     <div style="padding:16px 0;border-top:1px solid rgba(255,255,255,0.06);">
       <button class="btn btn--primary tk-connect" style="height:50px;width:100%;font-size:15px;">Connect Wallet</button>
@@ -417,12 +401,12 @@
           </div>
           <div class="card__body">
             <div class="card__title">{{ c.title }}</div>
-            <div class="card__meta">
-              <span class="card__grade">{{ c.grade }}</span>
-              <span class="card__stat">POP<span class="card__stat-val">{{ c.pop }}</span></span>
-              <span class="card__stat">LISTED<span class="card__stat-val">{{ c.listed }}</span></span>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span style="display:inline-flex;align-items:center;font-family:var(--font-mono);font-size:11px;font-weight:400;color:#fff;padding:4px 8px;line-height:1.2;background:#1A6FFF;border-radius:6px;">{{ c.grade }}</span>
+              <span style="font-family:var(--font-mono);font-size:11px;font-weight:400;color:rgba(255,255,255,0.4);">POP<span style="color:rgba(255,255,255,0.8);margin-left:4px;">{{ c.pop }}</span></span>
+              <span style="font-family:var(--font-mono);font-size:11px;font-weight:400;color:rgba(255,255,255,0.4);line-height:1.2;">LISTED<span style="color:rgba(255,255,255,0.8);margin-left:4px;">{{ c.listed }}</span></span>
             </div>
-            <div class="card__price-row">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-top:2px;">
               <span class="card__price">{{ c.price }}</span>
               <span class="card__sub" style="color:{{ c.subColor }};">{{ c.sub }}</span>
             </div>
@@ -502,12 +486,12 @@
           </div>
           <div class="card__body">
             <div class="card__title">{{ c.title }}</div>
-            <div class="card__meta">
-              <span class="card__grade">{{ c.grade }}</span>
-              <span class="card__stat">POP<span class="card__stat-val">{{ c.pop }}</span></span>
-              <span class="card__stat">LISTED<span class="card__stat-val">{{ c.listed }}</span></span>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span style="display:inline-flex;align-items:center;font-family:var(--font-mono);font-size:11px;font-weight:400;color:#fff;padding:4px 8px;line-height:1.2;background:#1A6FFF;border-radius:6px;">{{ c.grade }}</span>
+              <span style="font-family:var(--font-mono);font-size:11px;font-weight:400;color:rgba(255,255,255,0.4);">POP<span style="color:rgba(255,255,255,0.8);margin-left:4px;">{{ c.pop }}</span></span>
+              <span style="font-family:var(--font-mono);font-size:11px;font-weight:400;color:rgba(255,255,255,0.4);line-height:1.2;">LISTED<span style="color:rgba(255,255,255,0.8);margin-left:4px;">{{ c.listed }}</span></span>
             </div>
-            <div class="card__price-row">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-top:2px;">
               <span class="card__price">{{ c.price }}</span>
               <span class="card__sub" style="color:{{ c.subColor }};">{{ c.sub }}</span>
             </div>
@@ -568,7 +552,7 @@
         <p style="margin:14px 0 0;font-size:16px;line-height:1.5;color:rgba(255,255,255,0.85);max-width:460px;">Get your cards graded, vault them securely, and trade on-chain with full provenance.</p>
       </div>
       <div style="position:relative;display:flex;gap:12px;flex-wrap:wrap;">
-        <a href="Vault.html" class="btn btn--primary-inv">Start vaulting <span class="mono" style="font-size:17px;">&#8599;</span></a>
+        <a href="Vault-Dashboard-Active.html" class="btn btn--primary-inv">Start vaulting <span class="mono" style="font-size:17px;">&#8599;</span></a>
       </div>
     </div>
   </section>
@@ -604,10 +588,10 @@ class Component extends DCLogic {
         title: "Mega Dream ex \u00b7 Pikachu Special Art Rare", set: "M2A Japanese \u00b7 234/193 SAR",
         price: "$4,312", sub: "\u25B2 +793.8% \u00b7 180d", subColor: G2(G) },
       { img: "images/card-nidoking.jpg", grade: "PSA 10", pop: "3", listed: "3",
-        title: "Team Rocket's Nidoking ex", set: "SV Destined Rivals \u00b7 233/182",
+        title: "2024 POKEMON SV DESTINED RIVALS #233 NIDOKING EX STELLAR RARE", set: "SV Destined Rivals \u00b7 233/182",
         price: "$58,000", sub: "\u25B2 +138% \u00b7 1Y", subColor: G2(G) },
       { img: "images/card-charizard.png", grade: "PSA 10", pop: "27.7k", listed: "1",
-        title: "Charizard ex Special Illustration", set: "151 EN \u00b7 199/165",
+        title: "2023 POKEMON MEW EN-151 #199 CHARIZARD EX SPECIAL ILLUSTRATION RARE", set: "151 EN \u00b7 199/165",
         price: "$1,500", sub: "\u25B2 +118.4% \u00b7 1Y", subColor: G2(G) },
       { img: "images/card-luka.png", grade: "BGS 9.5", pop: "42", listed: "1",
         title: "Luka Don\u010di\u0107 Blue Ice", set: "2018 Prizm \u00b7 #280",
@@ -616,7 +600,7 @@ class Component extends DCLogic {
         title: "Pikachu ex \u00b7 Surging Sparks", set: "SSP EN \u00b7 238/191",
         price: "$1,136", sub: "\u25B2 +47.5% \u00b7 180d", subColor: G2(G) },
       { img: "images/card-lebron.png", grade: "BGS 9.5", pop: "42", listed: "3",
-        title: "LeBron James Rookie Chrome", set: "2003 Topps Chrome \u00b7 #111",
+        title: "2003 TOPPS CHROME #111 LEBRON JAMES ROOKIE REFRACTOR", set: "2003 Topps Chrome \u00b7 #111",
         price: "$58,000", sub: "\u25B2 +87.5% \u00b7 1Y", subColor: G2(G) },
       { img: "images/card-charizard.png", grade: "PSA 9", pop: "666", listed: "4",
         title: "Charizard 1st Edition Base Set", set: "1999 Base Set \u00b7 #4",
@@ -624,13 +608,13 @@ class Component extends DCLogic {
     ];
     const vaulted = [
       { img: "images/card-lebron.png", grade: "PSA 10", pop: "16", listed: "1",
-        title: "LeBron James Rookie Autograph", set: "2003 Ultimate Collection \u00b7 #127",
+        title: "2003 UPPER DECK ULTIMATE COLLECTION #127 LEBRON JAMES ROOKIE AUTO", set: "2003 Ultimate Collection \u00b7 #127",
         price: "$65,000", sub: "Just listed", subColor: MU, vaulted: true, vaultedLabel: "Vaulted 1h" },
       { img: "images/card-pikachu.png", grade: "PSA 10", pop: "9,389", listed: "1",
         title: "Pikachu ex \u00b7 Surging Sparks", set: "SSP EN \u00b7 238/191",
         price: "$1,136", sub: "Just listed", subColor: MU, vaulted: true, vaultedLabel: "Vaulted 3h" },
       { img: "images/card-nidoking.jpg", grade: "PSA 10", pop: "3", listed: "1",
-        title: "Team Rocket's Nidoking ex", set: "SV Destined Rivals \u00b7 233/182",
+        title: "2024 POKEMON SV DESTINED RIVALS #233 NIDOKING EX STELLAR RARE", set: "SV Destined Rivals \u00b7 233/182",
         price: "$58,000", sub: "POP 3 \u00b7 scarce", subColor: BL, vaulted: true, vaultedLabel: "Vaulted 5h" },
       { img: "images/card-luka.png", grade: "BGS 9.5", pop: "42", listed: "1",
         title: "Luka Don\u010di\u0107 Blue Ice", set: "2018 Prizm \u00b7 #280",
@@ -729,6 +713,7 @@ document.addEventListener('click', function(e){
 </script>
 <script src="tk-wallet.js"></script>
 <script src="tk-notifications.js"></script>
+<script src="tk-mobile-nav.js"></script>
 </body>
 </html>
 
@@ -737,8 +722,7 @@ document.addEventListener('click', function(e){
   if(window.__tkDeleg) return; window.__tkDeleg=true;
   document.addEventListener('click', function(e){
     var t=e.target;
-    var burger=t.closest&&t.closest('.gnb-burger');
-    if(burger){ var d=document.querySelector('.gnb-drawer'); if(d) d.classList.toggle('open'); document.querySelectorAll('.gnb-burger').forEach(function(b){b.classList.toggle('is-open', d.classList.contains('open'));}); return; }
+    /* burger handled by tk-mobile-nav.js */
     var searchMobile=t.closest&&t.closest('.gnb-search-mobile');
     if(searchMobile){ var ov=document.getElementById('mobileSearchOverlay'); if(ov){ov.classList.add('open'); ov.querySelector('input')?.focus();} return; }
     var searchCancel=t.closest&&t.closest('.gnb-search-overlay__cancel');

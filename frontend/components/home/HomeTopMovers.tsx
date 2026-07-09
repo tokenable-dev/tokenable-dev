@@ -14,7 +14,7 @@ export function HomeTopMovers() {
         <div>
           <h2 className="tkl-sec-title">Top movers</h2>
           <p className="tkl-sec-sub">
-            Highest 90-day price gains across every vaulted collection.
+            Steepest price gains across the market right now.
           </p>
         </div>
         <Link href="/markets" className="tkl-view-all">
