@@ -5,13 +5,8 @@ import { TkButton } from "@/components/ds";
 import { HeaderWalletMenu } from "@/components/layout/header/wallet/HeaderWalletMenu";
 import { useAuthStore } from "@/store/authStore";
 
-type HeaderAuthControlsProps = {
-  /** `drawer` — mobile footer connect only; wallet menu lives in `HeaderMobileWalletSection`. */
-  placement?: "header" | "drawer";
-};
-
 /** Header auth slot — GNB Sign up (HTML tk-connect) or custom wallet chip + menu. */
-export function HeaderAuthControls({ placement = "header" }: HeaderAuthControlsProps) {
+export function HeaderAuthControls() {
   const { ready, authenticated } = usePrivy();
   const { login } = useLogin();
   const initialized = useAuthStore((s) => s.initialized);
@@ -32,10 +27,6 @@ export function HeaderAuthControls({ placement = "header" }: HeaderAuthControlsP
         Sign up
       </TkButton>
     );
-  }
-
-  if (placement === "drawer") {
-    return null;
   }
 
   return <HeaderWalletMenu />;

@@ -9,6 +9,18 @@ import { fileURLToPath } from "node:url";
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const stylesDir = path.join(root, "styles");
+const designSystemDir = path.join(root, "design-system");
+
+function collectCssFiles(dir) {
+  if (!fs.existsSync(dir)) return [];
+  const out = [];
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) out.push(...collectCssFiles(full));
+    else if (entry.name.endsWith(".css")) out.push(full);
+  }
+  return out;
+}
 
 function braceDepth(css) {
   let depth = 0;
@@ -57,10 +69,10 @@ function braceDepth(css) {
   return depth;
 }
 
-const files = fs
-  .readdirSync(stylesDir)
-  .filter((name) => name.endsWith(".css"))
-  .map((name) => path.join(stylesDir, name));
+const files = [
+  ...collectCssFiles(stylesDir),
+  ...collectCssFiles(designSystemDir),
+];
 
 let failed = false;
 

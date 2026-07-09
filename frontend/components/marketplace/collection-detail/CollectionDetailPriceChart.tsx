@@ -19,37 +19,36 @@ type GradeChartSlice = Pick<
 export function CollectionDetailPriceChart({
   chartProps,
   gradeChart,
-  embedInMobileTab = false,
+  mobileLayout = false,
 }: {
   chartProps: CollectionDualPriceChartProps;
   gradeChart: GradeChartSlice;
-  embedInMobileTab?: boolean;
+  /** Card.html mobile scroll column — show header + full-height chart. */
+  mobileLayout?: boolean;
 }) {
-  const showDesktopHeader = !embedInMobileTab;
-
   return (
     <div
-      className={
-        showDesktopHeader
-          ? "cd-chart-panel cd-notch max-lg:rounded-none max-lg:bg-transparent max-lg:p-0"
-          : "cd-chart-panel cd-chart-panel--embed"
-      }
+      className={`cd-chart-panel cd-notch${
+        mobileLayout ? " cd-chart-panel--embed" : ""
+      }`}
     >
-      {showDesktopHeader ? (
-        <div className="cd-chart-panel__header max-lg:hidden">
-          <span className="cd-chart-panel__title">Price history</span>
-          <CollectionDetailChartPeriodToolbar
-            chartDays={gradeChart.chartDays}
-            onChartDaysChange={gradeChart.setChartDays}
-            disabled={gradeChart.gradeChartLoading}
-          />
-        </div>
-      ) : null}
+      <div
+        className={`cd-chart-panel__header${
+          mobileLayout ? "" : " max-lg:hidden"
+        }`}
+      >
+        <span className="cd-chart-panel__title">Price history</span>
+        <CollectionDetailChartPeriodToolbar
+          chartDays={gradeChart.chartDays}
+          onChartDaysChange={gradeChart.setChartDays}
+          disabled={gradeChart.gradeChartLoading}
+        />
+      </div>
       <div className="cd-chart-panel__body cd-chart-panel__body--card-html">
         <CollectionDualPriceChart
           {...chartProps}
           chartToolbar={null}
-          embedInMobileTab={embedInMobileTab}
+          embedInMobileTab={false}
           colorTheme="collection-detail"
         />
       </div>

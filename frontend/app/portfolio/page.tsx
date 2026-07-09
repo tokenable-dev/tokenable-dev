@@ -27,7 +27,6 @@ import { putPortfolioCostBasis, rq } from "@/lib/core";
 import { invalidateAfterListing } from "@/lib/core/invalidation";
 import { APP_MAIN_SHELL_CLASS } from "@/constants/layout";
 import { HomeTicker } from "@/components/home/HomeTicker";
-import { useWatchlist } from "@/hooks/watchlist/useWatchlist";
 import { useAuthStore } from "@/store/authStore";
 import { isLinkedPortfolioViewAddress } from "@/lib/auth/wallets";
 import {
@@ -36,7 +35,6 @@ import {
   PortfolioDisconnectedState,
   PortfolioGuestState,
   PortfolioCancelBidConfirmModal,
-  PortfolioCostBasisModal,
   PortfolioHoldingsSection,
   PortfolioMainSection,
   type PortfolioMainTab,
@@ -69,12 +67,7 @@ export default function PortfolioPage() {
   const signerAddress = wallet.canSign ? connectedAddress : undefined;
   const isMobileViewport = useIsMobileViewport();
   const [portfolioMainTab, setPortfolioMainTab] = useState<PortfolioMainTab>("collectibles");
-  const [costBasisEdit, setCostBasisEdit] = useState<{
-    tokenId: number;
-    name: string;
-    currentUsd: number | null;
-  } | null>(null);
-  const [savingCostBasis, setSavingCostBasis] = useState(false);
+  const [savingCostBasisTokenId, setSavingCostBasisTokenId] = useState<number | null>(null);
   const [listModal, setListModal] = useState<{
     tokenId: number;
     assetTitle: string;
@@ -228,23 +221,19 @@ export default function PortfolioPage() {
     ],
   );
 
-  const saveCostBasis = async (costBasisUsd: number) => {
-    if (!signerAddress || costBasisEdit == null) return;
-    setSavingCostBasis(true);
+  const saveCostBasis = async (tokenId: number, costBasisUsd: number) => {
+    if (!signerAddress) return;
+    setSavingCostBasisTokenId(tokenId);
     try {
-      await putPortfolioCostBasis(
-        signerAddress,
-        costBasisEdit.tokenId,
-        costBasisUsd,
-      );
+      await putPortfolioCostBasis(signerAddress, tokenId, costBasisUsd);
       await queryClient.invalidateQueries({
         queryKey: rq.portfolioHoldings(signerAddress, tokenIds),
       });
-      setCostBasisEdit(null);
     } catch (err) {
       window.alert(err instanceof Error ? err.message : "Failed to save cost basis");
+      throw err;
     } finally {
-      setSavingCostBasis(false);
+      setSavingCostBasisTokenId(null);
     }
   };
 
@@ -256,8 +245,6 @@ export default function PortfolioPage() {
   });
 
   const myBids = usePortfolioMyBids(portfolioDataEnabled ? portfolioAddress : undefined);
-  const watchlistQuery = useWatchlist();
-  const watchlistCount = watchlistQuery.data?.collectionKeys?.length ?? 0;
   const bidActions = usePortfolioBidActions({
     address: signerAddress,
     queryClient,
@@ -294,9 +281,6 @@ export default function PortfolioPage() {
   const {
     dailySnapshotsLoading,
     portfolioValue,
-    dailyPnlUsd,
-    dailyPnlPct,
-    hasDailyPnl,
     dailyChartPoints,
     dailyChartLabels,
   } = usePortfolioDailyChart(portfolioAddress, portfolioDataEnabled);
@@ -354,15 +338,8 @@ export default function PortfolioPage() {
         ) : null}
 
         <PortfolioSummaryBar
-          walletAddress={portfolioAddress}
           holdingsCount={visibleAssetRows.length}
-          bidsCount={myBids.activeBids.length}
-          watchlistCount={watchlistCount}
-          totalValue={portfolioValue ?? 0}
-          dailyPnlPct={dailyPnlPct}
-          chartTotalsPending={portfolioValuePending}
-          hasDailyPnl={hasDailyPnl}
-          dailyPnlUsd={dailyPnlUsd}
+          tradesCount={txRows.length}
         />
 
         <PortfolioValuePanel
@@ -386,14 +363,8 @@ export default function PortfolioPage() {
               costBasisByTokenId={costBasisByTokenId}
               valuesPending={valuesPending}
               canEditCostBasis={Boolean(signerAddress)}
-              onEditCostBasis={(tokenId, currentUsd) => {
-                const row = assetRows.find((r) => r.tokenId === tokenId);
-                setCostBasisEdit({
-                  tokenId,
-                  name: row?.name ?? `RWA #${tokenId}`,
-                  currentUsd,
-                });
-              }}
+              onSaveCostBasis={saveCostBasis}
+              savingCostBasisTokenId={savingCostBasisTokenId}
               cancellingListingTokenId={holdingActions.cancellingListingTokenId}
               onOpenToken={(tokenId) => {
                 const ck = tokenToCollectionKey[tokenId];
@@ -458,18 +429,6 @@ export default function PortfolioPage() {
           pending={bidActions.cancellingHash === bidActions.cancelConfirm.orderHash}
           onClose={bidActions.closeCancelConfirm}
           onConfirm={() => void bidActions.confirmCancel()}
-        />
-      ) : null}
-
-      {costBasisEdit != null ? (
-        <PortfolioCostBasisModal
-          open
-          tokenId={costBasisEdit.tokenId}
-          assetName={costBasisEdit.name}
-          initialUsd={costBasisEdit.currentUsd}
-          pending={savingCostBasis}
-          onClose={() => setCostBasisEdit(null)}
-          onSave={saveCostBasis}
         />
       ) : null}
 

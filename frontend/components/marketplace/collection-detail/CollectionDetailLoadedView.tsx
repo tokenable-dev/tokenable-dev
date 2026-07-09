@@ -9,7 +9,6 @@ import { CollectionOverviewBoard } from "@/components/marketplace/collection-ove
 import { AssetDetailHeadlineTitle } from "@/components/marketplace/marketplace-shared";
 import { WatchlistToggleButton } from "@/components/watchlist/WatchlistToggleButton";
 import { CollectionDetailsKvCard, CollectionHeroDetailsTabs } from "@/components/marketplace/collection-hero";
-import { CollectionMobileCurrentPriceRow } from "@/components/marketplace/collection-mobile";
 import { CollectionTradingTabs } from "@/components/marketplace/collection-trading";
 import { OrderBookAskListingModal } from "@/components/marketplace/unified-order-book/OrderBookAskListingModal";
 import { CollectionOwnedRwaListModal } from "@/components/marketplace/collection-listings";
@@ -27,7 +26,6 @@ import { CollectionListingCheckoutModal } from "./CollectionListingCheckoutModal
 import { CollectionListingDetailModal } from "./CollectionListingDetailModal";
 import {
   buildCollectionDetailMarketsSlots,
-  buildCollectionDetailMobilePanels,
 } from "./buildCollectionDetailMarketsSlots";
 
 export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) {
@@ -88,18 +86,6 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
     };
   }, [coverGalleryState]);
 
-  const {
-    marketsPriceMetricsStrip,
-    collectionDualPriceChart,
-    collectionDualPriceChartTab,
-    collectionOrderBook,
-    collectionOrderBookMobile,
-  } = buildCollectionDetailMarketsSlots({
-    market,
-    collectionOrderBookProps,
-    coverImageUrl: collectionCoverUrl,
-  });
-
   const listingModal = useCollectionListingModal({
     collectionKey,
     askMap: listings.askMap,
@@ -121,18 +107,24 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
     />
   );
 
+  const {
+    marketsPriceMetricsStrip,
+    collectionDualPriceChart,
+    collectionOrderBook,
+    mobileScrollPanel,
+  } = buildCollectionDetailMarketsSlots({
+    market,
+    collectionOrderBookProps,
+    coverImageUrl: collectionCoverUrl,
+    mobileListingsBody: collectionListingsGrid,
+    mobileListingCount: asks.length,
+  });
+
   const collectionListingsBody = (
     <CollectionDetailListingsSection listingCount={asks.length}>
       {collectionListingsGrid}
     </CollectionDetailListingsSection>
   );
-
-  const { mobileHeroStatsRow, mobileScrollPanel } = buildCollectionDetailMobilePanels({
-    market,
-    listingsBody: collectionListingsGrid,
-    chartPanel: collectionDualPriceChartTab,
-    orderBookStack: collectionOrderBookMobile,
-  });
 
   return (
     <div className="collection-detail-page min-h-screen min-w-0 overflow-x-clip text-white max-lg:min-h-0">
@@ -145,7 +137,7 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
           trailLabel={headline.headlineSetLine ?? headline.subtitle ?? headline.collectionHeadlineDisplayTitle}
         />
         {headline.collectionHeadlineDisplayTitle ? (
-          <div className="cd-page-headline max-lg:hidden">
+          <div className="cd-page-headline">
             {headline.collectionHeadlineParts ? (
               <AssetDetailHeadlineTitle
                 as="h1"
@@ -204,18 +196,7 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
           stats={[]}
           chartMetricsRow={marketsPriceMetricsStrip}
           mobileTabbedMarketUi
-          mobileCurrentPriceRow={
-            <CollectionMobileCurrentPriceRow
-              priceUsd={market.gradeAwareExternalUsd}
-              loading={market.gradeAwarePriceLoading}
-              changePct={market.gradeAwareChange1MoPct}
-              changePeriod={market.gradeAwareChangeResult}
-              changeLoading={market.gradeAwareChangeLoading}
-            />
-          }
-          mobileHeroStatsRow={mobileHeroStatsRow}
           mobileMarketTabs={mobileScrollPanel}
-          bookColumnMetricsRow={null}
           showOrderBook={showOrderBook}
           onShowOrderBookChange={setShowOrderBook}
           marketsDockTradePanel

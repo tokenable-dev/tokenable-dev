@@ -53,7 +53,7 @@ Maps designer HTML sections to existing React modules. Use when implementing Pha
 | Section | Prototype class / id | React target | File |
 |---------|----------------------|--------------|------|
 | Hero + CTA | hero block, `.btn--primary` | `HomeHero` | `components/home/HomeHero.tsx` |
-| 3D spinning slab | `hero-slab-3d.js` | `HomeHeroSlabCarousel` | `lib/home/heroSlabCarousel.ts`, `components/home/HomeHeroSlabCarousel.tsx` |
+| 3D spinning slab | `hero-slab-3d.js` | `HomeHeroSlabCarousel` | `lib/home/heroSlabCarousel.ts`, `components/home/HomeHeroSlabCarousel.tsx` — tiers: `docs/guides/hero-carousel-performance.md` |
 | Price ticker | `.ticker-row` | `HomeTicker` | `components/home/HomeTicker.tsx` |
 | Top movers | `.grid4`, `.card` | `HomeTopMovers` + `CollectibleCard` | `components/home/HomeTopMovers.tsx` |
 | Just vaulted | `.grid4`, `.card` | `HomeJustVaulted` | `components/home/HomeJustVaulted.tsx` |
@@ -155,21 +155,22 @@ Maps designer HTML sections to existing React modules. Use when implementing Pha
 
 ---
 
-## Vault — `Vault*.html` (Phase 8) — **Done**
+## Vault — `Vault*.html` — **In progress (design screens)**
 
-| Prototype | Flow step | React target |
-|-----------|-----------|--------------|
-| Vault.html | Marketing / entry | `VaultGateState`, `VaultFeatures` on `app/vault/page.tsx` |
-| Vault-Submit.html | Cert analyze + mint form | `VaultStepper`, `VaultSubmitHeader`, `MintForm`, `useMintForm` |
-| Vault-Dashboard.html | Submissions list | deferred — `VaultPortfolioBanner` → Portfolio |
-| Vault-Detail.html | Cycle status timeline | deferred |
-| Vault-Shipping.html | Redemption address | deferred |
+| Prototype | Route | React target |
+|-----------|-------|--------------|
+| Vault.html | `/vault` | `VaultHubView` (landing / empty / dashboard) |
+| Vault-Submit.html | `/vault/submit` | `VaultSubmitDesignView` |
+| Vault-Shipping.html | `/vault/submit/shipping` | `VaultShippingDesignView` |
+| Vault-Detail.html | `/vault/submissions/[id]` | `VaultDetailDesignView` |
+| Vault-List.html | `/vault/list` | `VaultListDesignView` |
+| (functional mint) | `/vault/submit/mint` | `MintForm`, `useMintForm` |
 
 **CSS:** `frontend/styles/tokenable-vault.css`
 
-**Components:** `VaultStepper`, `VaultSubmitHeader`, `VaultGateState`, `VaultFeatures`, `VaultPortfolioBanner`, `VaultPageBody`
+**Shared:** `VaultShell`, `VaultStepper`, `VaultBreadcrumb`, `VaultBadge`, `VaultDemoToggle`
 
-**Existing (logic preserved):** `components/vault/mint-form/*`, `hooks/vault/useMintForm.ts`, `GradedCardSection`
+**Removed (legacy):** `VaultPageBody`, `VaultGateState`, `VaultFeatures`, `VaultPortfolioBanner`, `VaultSubmitHeader`, green `GradientOutlineFrame` CTAs in mint form
 
 ---
 
@@ -223,7 +224,7 @@ Overlap with Card.html sidebar: list/buy/trade panel.
 
 | Legacy (current app) | New DS |
 |----------------------|--------|
-| `--mint` `#10d333` | `--brand-500` `#1A6FFF` |
+| `--mint` `#10d333` | `--brand-500` `#0033FF` |
 | `bg-gray-950` | `--background-default-default` |
 | Geist sans/mono | Inter / JetBrains Mono |
 | Rounded Tailwind buttons | `tk-btn` pixel clip-path |

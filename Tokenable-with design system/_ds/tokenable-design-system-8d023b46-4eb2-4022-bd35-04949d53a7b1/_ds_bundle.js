@@ -1,4 +1,4 @@
-/* @ds-bundle: {"format":3,"namespace":"TokenableDesignSystem_8d023b","components":[{"name":"FINALSYMBOLLOGO","sourcePath":"assets/logo/FINALSYMBOLLOGO.jsx"},{"name":"LOGO","sourcePath":"assets/logo/LOGO.jsx"},{"name":"SYMBOL","sourcePath":"assets/logo/SYMBOL.jsx"},{"name":"CollectibleCard","sourcePath":"components/commerce/CollectibleCard.jsx"},{"name":"Avatar","sourcePath":"components/data/Avatar.jsx"},{"name":"Badge","sourcePath":"components/data/Badge.jsx"},{"name":"Stat","sourcePath":"components/data/Stat.jsx"},{"name":"Table","sourcePath":"components/data/Table.jsx"},{"name":"Tag","sourcePath":"components/data/Tag.jsx"},{"name":"Dialog","sourcePath":"components/feedback/Dialog.jsx"},{"name":"Notification","sourcePath":"components/feedback/Notification.jsx"},{"name":"Tooltip","sourcePath":"components/feedback/Tooltip.jsx"},{"name":"Button","sourcePath":"components/forms/Button.jsx"},{"name":"Checkbox","sourcePath":"components/forms/Checkbox.jsx"},{"name":"IconButton","sourcePath":"components/forms/IconButton.jsx"},{"name":"Input","sourcePath":"components/forms/Input.jsx"},{"name":"Radio","sourcePath":"components/forms/Radio.jsx"},{"name":"Search","sourcePath":"components/forms/Search.jsx"},{"name":"Select","sourcePath":"components/forms/Select.jsx"},{"name":"Slider","sourcePath":"components/forms/Slider.jsx"},{"name":"Switch","sourcePath":"components/forms/Switch.jsx"},{"name":"Textarea","sourcePath":"components/forms/Textarea.jsx"},{"name":"Accordion","sourcePath":"components/layout/Accordion.jsx"},{"name":"Card","sourcePath":"components/layout/Card.jsx"},{"name":"Divider","sourcePath":"components/layout/Divider.jsx"},{"name":"DetailBar","sourcePath":"components/navigation/DetailBar.jsx"},{"name":"GNB","sourcePath":"components/navigation/GNB.jsx"},{"name":"Menu","sourcePath":"components/navigation/Menu.jsx"},{"name":"MobileNav","sourcePath":"components/navigation/MobileNav.jsx"},{"name":"Pagination","sourcePath":"components/navigation/Pagination.jsx"},{"name":"SecondaryBar","sourcePath":"components/navigation/SecondaryBar.jsx"},{"name":"Tabs","sourcePath":"components/navigation/Tabs.jsx"}],"sourceHashes":{"assets/icons/pixel-icons.js":"99f8fcf84a0e","assets/logo/FINALSYMBOLLOGO.jsx":"986bdfac7aa8","assets/logo/LOGO.jsx":"4066aa8954dd","assets/logo/SYMBOL.jsx":"bcb01f1b6f57","components/commerce/CollectibleCard.jsx":"4f4b461a81b0","components/data/Avatar.jsx":"093e171bda11","components/data/Badge.jsx":"4e14abf9c4c9","components/data/Stat.jsx":"ca4536c98104","components/data/Table.jsx":"edc9413595f5","components/data/Tag.jsx":"8a84105cb643","components/feedback/Dialog.jsx":"4ba218643ce6","components/feedback/Notification.jsx":"ddb73fe44950","components/feedback/Tooltip.jsx":"f22ddc4734f6","components/forms/Button.jsx":"95962cb8c33d","components/forms/Checkbox.jsx":"433b35b1b223","components/forms/IconButton.jsx":"69f188e1fe5b","components/forms/Input.jsx":"226042d165db","components/forms/Radio.jsx":"9eda2adf76a9","components/forms/Search.jsx":"8303b62cf013","components/forms/Select.jsx":"1e5ecc97fbaa","components/forms/Slider.jsx":"a25156d171a7","components/forms/Switch.jsx":"48bdcc9be865","components/forms/Textarea.jsx":"b459a83847d0","components/layout/Accordion.jsx":"7548d1b38904","components/layout/Card.jsx":"23aeea13a2d3","components/layout/Divider.jsx":"044e56110d15","components/navigation/DetailBar.jsx":"d2195a0e3743","components/navigation/GNB.jsx":"ef89cfcb82f4","components/navigation/Menu.jsx":"dcc2529d28c5","components/navigation/MobileNav.jsx":"511235a860db","components/navigation/Pagination.jsx":"40fca462e744","components/navigation/SecondaryBar.jsx":"83c81684bc7f","components/navigation/Tabs.jsx":"8f0ece8e2196","overview-components.jsx":"caabac84a51f","ui_kits/marketplace/DetailScreen.jsx":"2a5b58299224","ui_kits/marketplace/MarketCard.jsx":"3ed8c3936b33","ui_kits/marketplace/MarketHeader.jsx":"78b6ebad1f94","ui_kits/marketplace/MarketScreen.jsx":"234204a99d9e","ui_kits/marketplace/PortfolioScreen.jsx":"755f06ddfbe3","ui_kits/marketplace/app.jsx":"f5863d074a74","ui_kits/marketplace/data.js":"789cb9493562"},"inlinedExternals":[],"unexposedExports":[]} */
+/* @ds-bundle: {"format":4,"namespace":"TokenableDesignSystem_8d023b","components":[{"name":"FINALSYMBOLLOGO","sourcePath":"assets/logo/FINALSYMBOLLOGO.jsx"},{"name":"LOGO","sourcePath":"assets/logo/LOGO.jsx"},{"name":"SYMBOL","sourcePath":"assets/logo/SYMBOL.jsx"},{"name":"CollectibleCard","sourcePath":"components/commerce/CollectibleCard.jsx"},{"name":"Avatar","sourcePath":"components/data/Avatar.jsx"},{"name":"Badge","sourcePath":"components/data/Badge.jsx"},{"name":"Stat","sourcePath":"components/data/Stat.jsx"},{"name":"Table","sourcePath":"components/data/Table.jsx"},{"name":"Tag","sourcePath":"components/data/Tag.jsx"},{"name":"Dialog","sourcePath":"components/feedback/Dialog.jsx"},{"name":"Notification","sourcePath":"components/feedback/Notification.jsx"},{"name":"Tooltip","sourcePath":"components/feedback/Tooltip.jsx"},{"name":"Button","sourcePath":"components/forms/Button.jsx"},{"name":"Checkbox","sourcePath":"components/forms/Checkbox.jsx"},{"name":"IconButton","sourcePath":"components/forms/IconButton.jsx"},{"name":"Input","sourcePath":"components/forms/Input.jsx"},{"name":"Radio","sourcePath":"components/forms/Radio.jsx"},{"name":"Search","sourcePath":"components/forms/Search.jsx"},{"name":"Select","sourcePath":"components/forms/Select.jsx"},{"name":"Slider","sourcePath":"components/forms/Slider.jsx"},{"name":"Switch","sourcePath":"components/forms/Switch.jsx"},{"name":"Textarea","sourcePath":"components/forms/Textarea.jsx"},{"name":"Accordion","sourcePath":"components/layout/Accordion.jsx"},{"name":"Card","sourcePath":"components/layout/Card.jsx"},{"name":"Divider","sourcePath":"components/layout/Divider.jsx"},{"name":"DetailBar","sourcePath":"components/navigation/DetailBar.jsx"},{"name":"GNB","sourcePath":"components/navigation/GNB.jsx"},{"name":"Menu","sourcePath":"components/navigation/Menu.jsx"},{"name":"MobileNav","sourcePath":"components/navigation/MobileNav.jsx"},{"name":"Pagination","sourcePath":"components/navigation/Pagination.jsx"},{"name":"SecondaryBar","sourcePath":"components/navigation/SecondaryBar.jsx"},{"name":"Tabs","sourcePath":"components/navigation/Tabs.jsx"}],"sourceHashes":{"assets/icons/pixel-icons.js":"99f8fcf84a0e","assets/logo/FINALSYMBOLLOGO.jsx":"986bdfac7aa8","assets/logo/LOGO.jsx":"4066aa8954dd","assets/logo/SYMBOL.jsx":"bcb01f1b6f57","components/commerce/CollectibleCard.jsx":"22037025d42d","components/data/Avatar.jsx":"093e171bda11","components/data/Badge.jsx":"4e14abf9c4c9","components/data/Stat.jsx":"ca4536c98104","components/data/Table.jsx":"75675a247d91","components/data/Tag.jsx":"8a84105cb643","components/feedback/Dialog.jsx":"4ba218643ce6","components/feedback/Notification.jsx":"ddb73fe44950","components/feedback/Tooltip.jsx":"f22ddc4734f6","components/forms/Button.jsx":"95962cb8c33d","components/forms/Checkbox.jsx":"433b35b1b223","components/forms/IconButton.jsx":"69f188e1fe5b","components/forms/Input.jsx":"226042d165db","components/forms/Radio.jsx":"9eda2adf76a9","components/forms/Search.jsx":"8303b62cf013","components/forms/Select.jsx":"1e5ecc97fbaa","components/forms/Slider.jsx":"a25156d171a7","components/forms/Switch.jsx":"48bdcc9be865","components/forms/Textarea.jsx":"b459a83847d0","components/layout/Accordion.jsx":"7548d1b38904","components/layout/Card.jsx":"23aeea13a2d3","components/layout/Divider.jsx":"044e56110d15","components/navigation/DetailBar.jsx":"d2195a0e3743","components/navigation/GNB.jsx":"9eb945eb4cad","components/navigation/Menu.jsx":"dcc2529d28c5","components/navigation/MobileNav.jsx":"511235a860db","components/navigation/Pagination.jsx":"40fca462e744","components/navigation/SecondaryBar.jsx":"83c81684bc7f","components/navigation/Tabs.jsx":"8f0ece8e2196","overview-components.jsx":"caabac84a51f","ui_kits/marketplace/DetailScreen.jsx":"2336299c6c58","ui_kits/marketplace/MarketCard.jsx":"99a76ec82b8f","ui_kits/marketplace/MarketHeader.jsx":"9a4ab1835e64","ui_kits/marketplace/MarketScreen.jsx":"db40c221e8ec","ui_kits/marketplace/PortfolioScreen.jsx":"3eb89ab5ff63","ui_kits/marketplace/app.jsx":"60dce72c3e63","ui_kits/marketplace/data.js":"789cb9493562"},"inlinedExternals":[],"unexposedExports":[]} */
 
 (() => {
 
@@ -260,7 +260,7 @@ function LOGO(_p = {}) {
     fillRule: "nonzero"
   })));
 }
-Object.assign(__ds_scope, { LOGO });
+Object.assign(__ds_scope, { LOGO, __ds_default_assets_logo_LOGO_3zhz2w: LOGO });
 })(); } catch (e) { __ds_ns.__errors.push({ path: "assets/logo/LOGO.jsx", error: String((e && e.message) || e) }); }
 
 // assets/logo/SYMBOL.jsx
@@ -296,7 +296,7 @@ function SYMBOL(_p = {}) {
     fillRule: "nonzero"
   })));
 }
-Object.assign(__ds_scope, { SYMBOL });
+Object.assign(__ds_scope, { SYMBOL, __ds_default_assets_logo_SYMBOL_cp51h9: SYMBOL });
 })(); } catch (e) { __ds_ns.__errors.push({ path: "assets/logo/SYMBOL.jsx", error: String((e && e.message) || e) }); }
 
 // assets/logo/FINALSYMBOLLOGO.jsx
@@ -336,7 +336,7 @@ function FINALSYMBOLLOGO(_p = {}) {
     }
   }));
 }
-Object.assign(__ds_scope, { FINALSYMBOLLOGO });
+Object.assign(__ds_scope, { FINALSYMBOLLOGO, __ds_default_assets_logo_FINALSYMBOLLOGO_1byuggo: FINALSYMBOLLOGO });
 })(); } catch (e) { __ds_ns.__errors.push({ path: "assets/logo/FINALSYMBOLLOGO.jsx", error: String((e && e.message) || e) }); }
 
 // components/commerce/CollectibleCard.jsx
@@ -454,16 +454,16 @@ function CollectibleCard({
     onClick: onClick,
     className: className,
     style: {
-      position: "relative",
-      background: "#1a1a1e",
+      position: "static",
+      background: "#191919",
       borderRadius: 16,
-      filter: hovered ? "drop-shadow(7px 7px 0 rgba(26,111,255,0.45))" : "drop-shadow(5px 5px 0 rgba(26,111,255,0.3))",
       display: "flex",
       flexDirection: "column",
-      padding: 14,
+      padding: 8,
       gap: 12,
+      boxShadow: hovered ? "0 8px 28px 0 rgba(0,0,0,0.55)" : "0 4px 16px 0 rgba(0,0,0,0.4)",
       transform: hovered ? "translate(-2px,-2px)" : "none",
-      transition: "transform 120ms steps(3), filter 120ms steps(3)",
+      transition: "transform 120ms ease, box-shadow 120ms ease",
       overflow: "hidden"
     }
   }, rest), /*#__PURE__*/React.createElement("div", {
@@ -482,8 +482,12 @@ function CollectibleCard({
       width: "60%",
       height: "200%",
       background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.12) 40%, rgba(255,255,255,0.22) 50%, rgba(255,255,255,0.12) 60%, transparent)",
-      transform: hovered ? "translateX(200%) rotate(-25deg)" : "translateX(-100%) rotate(-25deg)",
-      transition: hovered ? "transform 0.6s ease" : "none"
+      transform: "translateX(-100%) rotate(-25deg)",
+      opacity: hovered ? 1 : 0,
+      transition: hovered ? "transform 0.6s ease, opacity 0.1s ease" : "opacity 0.3s ease",
+      ...(hovered ? {
+        transform: "translateX(200%) rotate(-25deg)"
+      } : {})
     }
   })), /*#__PURE__*/React.createElement("div", {
     style: {
@@ -541,6 +545,21 @@ function CollectibleCard({
       gap: 8
     }
   }, /*#__PURE__*/React.createElement("div", {
+    title: title,
+    style: {
+      fontFamily: "var(--font-sans)",
+      fontSize: 18,
+      fontWeight: 600,
+      color: "#fff",
+      lineHeight: 1.2,
+      height: "2.7em",
+      display: "-webkit-box",
+      WebkitLineClamp: 2,
+      WebkitBoxOrient: "vertical",
+      overflow: "hidden",
+      alignSelf: "stretch"
+    }
+  }, title), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       alignItems: "center",
@@ -551,76 +570,68 @@ function CollectibleCard({
       display: "inline-flex",
       alignItems: "center",
       fontFamily: "var(--font-mono)",
-      fontSize: 12,
-      fontWeight: 700,
-      letterSpacing: "0.04em",
+      fontSize: 11,
+      fontWeight: 400,
+      letterSpacing: "0",
       textTransform: "uppercase",
       color: "#fff",
-      padding: "4px 10px",
-      background: "#1A6FFF",
+      padding: "4px 8px",
+      lineHeight: 1.2,
+      background: "#0033FF",
       borderRadius: 6
     }
   }, grade) : null, pop ? /*#__PURE__*/React.createElement("span", {
     style: {
       fontFamily: "var(--font-mono)",
-      fontSize: 12,
-      fontWeight: 600,
+      fontSize: 11,
+      fontWeight: 400,
       color: "rgba(255,255,255,0.4)"
     }
   }, "POP", /*#__PURE__*/React.createElement("span", {
     style: {
       color: "rgba(255,255,255,0.8)",
-      marginLeft: 3
+      marginLeft: 4
     }
   }, pop)) : null, listed ? /*#__PURE__*/React.createElement("span", {
     style: {
       fontFamily: "var(--font-mono)",
-      fontSize: 12,
-      fontWeight: 600,
-      color: "rgba(255,255,255,0.4)"
+      fontSize: 11,
+      fontWeight: 400,
+      color: "rgba(255,255,255,0.4)",
+      lineHeight: 1.2
     }
   }, "LISTED", /*#__PURE__*/React.createElement("span", {
     style: {
       color: "rgba(255,255,255,0.8)",
-      marginLeft: 3
+      marginLeft: 4
     }
   }, listed)) : null), /*#__PURE__*/React.createElement("div", {
-    title: title,
-    style: {
-      fontFamily: "var(--font-sans)",
-      fontSize: 15,
-      fontWeight: 600,
-      color: "#fff",
-      lineHeight: 1.35,
-      minHeight: 41,
-      display: "-webkit-box",
-      WebkitLineClamp: 2,
-      WebkitBoxOrient: "vertical",
-      overflow: "hidden"
-    }
-  }, title), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
-      alignItems: "baseline",
-      gap: 10,
+      alignItems: "center",
+      justifyContent: "space-between",
       marginTop: 2
     }
   }, price ? /*#__PURE__*/React.createElement("span", {
     style: {
       fontFamily: "var(--font-sans)",
       fontSize: 22,
-      fontWeight: 700,
+      fontWeight: 600,
       color: "#fff",
       letterSpacing: "-0.02em"
     }
   }, price) : null, sub ? /*#__PURE__*/React.createElement("span", {
     style: {
       fontFamily: "var(--font-mono)",
-      fontSize: variant === "trend" ? 16 : 13,
+      fontSize: 14,
       fontWeight: 700,
-      color: sc
+      color: variant === "trend" ? "#00C350" : sc,
+      textAlign: "right",
+      alignSelf: "center",
+      height: "100%",
+      width: "100%"
     }
-  }, variant === "trend" ? "▲ " : "", sub) : null))));
+  }, variant === "trend" ? "▲ " : "", sub && sub.replace(" · ", "·")) : null))));
 }
 Object.assign(__ds_scope, { CollectibleCard });
 })(); } catch (e) { __ds_ns.__errors.push({ path: "components/commerce/CollectibleCard.jsx", error: String((e && e.message) || e) }); }
@@ -687,8 +698,9 @@ Object.assign(__ds_scope, { Stat });
 // components/data/Table.jsx
 try { (() => {
 /**
- * Data table with pixel-notched header and surface-based rows.
- * Supports sortable columns, row selection, and compact/default sizes.
+ * Data table with surface-based rows.
+ * Supports sortable columns, row selection, card images, and mobile-optimized layout.
+ * On mobile (< 600px), switches to a stacked card layout.
  */
 function Table({
   columns = [],
@@ -704,6 +716,14 @@ function Table({
   className = "",
   style
 }) {
+  const [isMobile, setIsMobile] = React.useState(false);
+  React.useEffect(() => {
+    const mq = window.matchMedia("(max-width: 599px)");
+    const handler = e => setIsMobile(e.matches);
+    handler(mq);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
   const sizes = {
     sm: {
       cell: "10px 14px",
@@ -723,6 +743,89 @@ function Table({
     onSort(col.key, dir);
   };
   const isSelected = rowIdx => selectedRows.includes(rowIdx);
+  const toggleSelect = rowIdx => {
+    if (!onSelect) return;
+    onSelect(isSelected(rowIdx) ? selectedRows.filter(i => i !== rowIdx) : [...selectedRows, rowIdx]);
+  };
+
+  /* ---------- Mobile: stacked card layout ---------- */
+  if (isMobile) {
+    return /*#__PURE__*/React.createElement("div", {
+      className: `tk-table-wrap tk-table-wrap--mobile ${className}`,
+      style: style
+    }, data.map((row, rowIdx) => {
+      const imgCol = columns.find(c => c.type === "image");
+      const nameCol = columns.find(c => c.bold || c.key === "name");
+      const otherCols = columns.filter(c => c !== imgCol && c !== nameCol);
+      return /*#__PURE__*/React.createElement("div", {
+        key: rowIdx,
+        className: `tk-table-card ${isSelected(rowIdx) ? "tk-table-card--selected" : ""}`,
+        onClick: () => onRowClick && onRowClick(row, rowIdx),
+        style: {
+          cursor: onRowClick ? "pointer" : "default"
+        }
+      }, /*#__PURE__*/React.createElement("div", {
+        style: {
+          display: "flex",
+          gap: 14,
+          alignItems: "center"
+        }
+      }, selectable && /*#__PURE__*/React.createElement("input", {
+        type: "checkbox",
+        checked: isSelected(rowIdx),
+        onChange: () => toggleSelect(rowIdx),
+        onClick: e => e.stopPropagation(),
+        style: {
+          accentColor: "var(--brand-500)",
+          width: 16,
+          height: 16,
+          flexShrink: 0
+        }
+      }), imgCol && row[imgCol.key] && /*#__PURE__*/React.createElement("img", {
+        src: row[imgCol.key],
+        alt: "",
+        style: {
+          width: 48,
+          height: 48,
+          borderRadius: 8,
+          objectFit: "cover",
+          flexShrink: 0,
+          background: "#111113"
+        }
+      }), /*#__PURE__*/React.createElement("div", {
+        style: {
+          flex: 1,
+          minWidth: 0
+        }
+      }, nameCol && /*#__PURE__*/React.createElement("div", {
+        style: {
+          fontSize: 15,
+          fontWeight: 600,
+          color: "#fff",
+          whiteSpace: "nowrap",
+          overflow: "hidden",
+          textOverflow: "ellipsis"
+        }
+      }, nameCol.render ? nameCol.render(row[nameCol.key], row, rowIdx) : row[nameCol.key]), /*#__PURE__*/React.createElement("div", {
+        style: {
+          display: "flex",
+          gap: 12,
+          marginTop: 4,
+          flexWrap: "wrap"
+        }
+      }, otherCols.map(col => /*#__PURE__*/React.createElement("span", {
+        key: col.key,
+        style: {
+          fontSize: 13,
+          fontFamily: col.mono ? "var(--font-mono)" : "var(--font-sans)",
+          fontWeight: col.bold ? 600 : 400,
+          color: col.color || "rgba(255,255,255,0.7)"
+        }
+      }, col.render ? col.render(row[col.key], row, rowIdx) : row[col.key]))))));
+    }));
+  }
+
+  /* ---------- Desktop: standard table ---------- */
   return /*#__PURE__*/React.createElement("div", {
     className: `tk-table-wrap ${className}`,
     style: style
@@ -781,10 +884,7 @@ function Table({
   }, /*#__PURE__*/React.createElement("input", {
     type: "checkbox",
     checked: isSelected(rowIdx),
-    onChange: () => {
-      if (!onSelect) return;
-      onSelect(isSelected(rowIdx) ? selectedRows.filter(i => i !== rowIdx) : [...selectedRows, rowIdx]);
-    },
+    onChange: () => toggleSelect(rowIdx),
     onClick: e => e.stopPropagation()
   })), columns.map(col => /*#__PURE__*/React.createElement("td", {
     key: col.key,
@@ -797,7 +897,18 @@ function Table({
       textAlign: col.align || "left",
       whiteSpace: "nowrap"
     }
-  }, col.render ? col.render(row[col.key], row, rowIdx) : row[col.key])))))));
+  }, col.type === "image" && row[col.key] ? /*#__PURE__*/React.createElement("img", {
+    src: row[col.key],
+    alt: "",
+    style: {
+      width: 40,
+      height: 40,
+      borderRadius: 6,
+      objectFit: "cover",
+      verticalAlign: "middle",
+      background: "#111113"
+    }
+  }) : col.render ? col.render(row[col.key], row, rowIdx) : row[col.key])))))));
 }
 Object.assign(__ds_scope, { Table });
 })(); } catch (e) { __ds_ns.__errors.push({ path: "components/data/Table.jsx", error: String((e && e.message) || e) }); }
@@ -1527,8 +1638,8 @@ function GNB({
       alignItems: "center",
       height: 68,
       padding: "0 28px",
-      background: "#08080e",
-      borderBottom: "2px solid var(--border-default-tertiary)",
+      background: "#000",
+      borderBottom: "1px solid #2c2c2c",
       position: "sticky",
       top: 0,
       zIndex: 40
@@ -1567,7 +1678,7 @@ function GNB({
         fontFamily: "var(--font-sans)",
         fontSize: 15,
         fontWeight: on ? 600 : 500,
-        color: on ? "#fff" : "var(--text-default-secondary)",
+        color: on ? "#fff" : "#a7a9ac",
         padding: "8px 14px"
       }
     }, l.label, on ? /*#__PURE__*/React.createElement("span", {
@@ -2533,7 +2644,7 @@ function DetailScreen({
       background: "none",
       border: 0,
       cursor: "pointer",
-      color: "var(--text-default-secondary)",
+      color: "#a7a9ac",
       fontFamily: "var(--font-sans)",
       fontSize: 14,
       fontWeight: 500,
@@ -2553,8 +2664,8 @@ function DetailScreen({
   }, /*#__PURE__*/React.createElement("div", {
     style: {
       position: "relative",
-      background: "linear-gradient(180deg, #1c1c28, #0c0c12)",
-      boxShadow: "inset 0 0 0 2px var(--border-default-default)",
+      background: "#191919",
+      borderRadius: 16,
       padding: 24,
       position: "sticky",
       top: 92
@@ -2576,9 +2687,9 @@ function DetailScreen({
       width: 38,
       height: 38,
       border: 0,
+      borderRadius: 8,
       cursor: "pointer",
-      background: "rgba(8,8,16,0.7)",
-      boxShadow: "inset 0 0 0 2px rgba(255,255,255,0.35)",
+      background: "rgba(0,0,0,0.6)",
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
@@ -2626,16 +2737,15 @@ function DetailScreen({
     style: {
       fontFamily: "var(--font-mono)",
       fontSize: 13,
-      color: "var(--text-default-tertiary)",
+      color: "#6d6e71",
       marginTop: 6
     }
   }, card.set), /*#__PURE__*/React.createElement("div", {
     style: {
       marginTop: 22,
       padding: 22,
-      background: "var(--background-default-secondary)",
-      boxShadow: "inset 0 0 0 2px var(--border-default-default)",
-      clipPath: "var(--pixel-clip)"
+      background: "#191919",
+      borderRadius: 14
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
@@ -2647,7 +2757,7 @@ function DetailScreen({
     style: {
       fontFamily: "var(--font-mono)",
       fontSize: 12,
-      color: "var(--text-default-tertiary)"
+      color: "#6d6e71"
     }
   }, "Last sale"), /*#__PURE__*/React.createElement("div", {
     style: {
@@ -2671,7 +2781,7 @@ function DetailScreen({
       fontFamily: "var(--font-mono)",
       fontSize: 14,
       fontWeight: 700,
-      color: up ? "var(--text-positive-default)" : "var(--text-danger-default)"
+      color: up ? "#00C350" : "#E4374A"
     }
   }, icons.TrendUp({
     width: 15,
@@ -2748,14 +2858,14 @@ function DetailScreen({
     key: l,
     style: {
       padding: "14px 16px",
-      background: "var(--background-neutral-tertiary)",
-      boxShadow: "inset 0 0 0 2px var(--border-default-tertiary)"
+      background: "#191919",
+      borderRadius: 10
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
       fontFamily: "var(--font-mono)",
       fontSize: 12,
-      color: "var(--text-default-tertiary)",
+      color: "#6d6e71",
       textTransform: "uppercase",
       letterSpacing: "0.06em"
     }
@@ -2795,7 +2905,7 @@ function MarketCard({
     set: card.set,
     price: fmt(card.price),
     sub: `${pct(card.change)} · ${card.period}`,
-    subColor: up ? "var(--text-positive-default)" : "var(--text-danger-default)",
+    subColor: up ? "#00C350" : "#E4374A",
     pop: card.pop.replace("POP ", ""),
     listed: card.listed,
     img: card.img,
@@ -2851,13 +2961,13 @@ function MarketHeader({
       gap: 7,
       height: 38,
       padding: "0 12px",
-      background: "var(--background-brand-tertiary)",
+      background: "rgba(64,91,255,0.12)",
       boxShadow: "inset 0 0 0 2px var(--brand-500)",
       fontFamily: "var(--font-mono)",
       fontSize: 12,
       textTransform: "uppercase",
       letterSpacing: "0.03em",
-      color: "var(--text-brand-default)",
+      color: "#7084ff",
       fontWeight: 700
     }
   }, /*#__PURE__*/React.createElement("span", {
@@ -2868,7 +2978,7 @@ function MarketHeader({
     }
   }), "Ethereum ", /*#__PURE__*/React.createElement("span", {
     style: {
-      color: "var(--text-default-tertiary)",
+      color: "#6d6e71",
       fontWeight: 400
     }
   }, "14 gwei")), /*#__PURE__*/React.createElement("div", {
@@ -2879,15 +2989,15 @@ function MarketHeader({
       height: 38,
       padding: "0 5px 0 12px",
       background: "var(--background-neutral-secondary)",
-      boxShadow: "inset 0 0 0 2px var(--border-neutral-default)",
+      boxShadow: "inset 0 0 0 2px #2c2c2c",
       fontFamily: "var(--font-mono)",
       fontSize: 13,
-      color: "var(--text-default-default)",
+      color: "#fff",
       fontWeight: 700
     }
   }, /*#__PURE__*/React.createElement("span", {
     style: {
-      color: "var(--text-default-tertiary)",
+      color: "#6d6e71",
       fontSize: 12
     }
   }, "BAL"), window.TKData.fmt(balance), /*#__PURE__*/React.createElement(Avatar, {
@@ -2946,7 +3056,7 @@ function MarketScreen({
       padding: "6px 11px",
       background: "var(--background-positive-tertiary)",
       boxShadow: "inset 0 0 0 2px var(--border-positive-default)",
-      color: "var(--text-positive-default)",
+      color: "#00C350",
       fontFamily: "var(--font-mono)",
       fontSize: 12,
       fontWeight: 700,
@@ -2972,7 +3082,7 @@ function MarketScreen({
       margin: "12px 0 0",
       fontFamily: "var(--font-sans)",
       fontSize: 17,
-      color: "var(--text-default-secondary)",
+      color: "#a7a9ac",
       maxWidth: 460,
       lineHeight: 1.5
     }
@@ -2994,7 +3104,7 @@ function MarketScreen({
     style: {
       fontFamily: "var(--font-mono)",
       fontSize: 12,
-      color: "var(--text-default-tertiary)",
+      color: "#6d6e71",
       marginTop: 2
     }
   }, l)))))), /*#__PURE__*/React.createElement("div", {
@@ -3004,8 +3114,8 @@ function MarketScreen({
       zIndex: 30,
       background: "rgba(8,8,14,0.85)",
       backdropFilter: "blur(10px)",
-      borderTop: "1px solid var(--border-default-tertiary)",
-      borderBottom: "1px solid var(--border-default-tertiary)"
+      borderTop: "1px solid #2c2c2c",
+      borderBottom: "1px solid #2c2c2c"
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
@@ -3040,32 +3150,19 @@ function MarketScreen({
       alignItems: "center",
       gap: 10
     }
-  }, /*#__PURE__*/React.createElement("button", {
+  }, /*#__PURE__*/React.createElement(Button, {
+    variant: "subtle",
+    size: "sm",
     onClick: () => setSort(sort === "trending" ? "price" : "trending"),
-    style: {
-      display: "inline-flex",
-      alignItems: "center",
-      gap: 7,
-      height: 38,
-      padding: "0 14px",
-      border: 0,
-      cursor: "pointer",
-      background: "var(--background-neutral-tertiary)",
-      boxShadow: "inset 0 0 0 2px var(--border-neutral-default)",
-      color: "var(--text-default-default)",
-      fontFamily: "var(--font-mono)",
-      fontSize: 12,
-      fontWeight: 700,
-      textTransform: "uppercase",
-      letterSpacing: "0.03em"
-    }
-  }, icons.TrendUp({
-    width: 15,
-    height: 15
-  }), " ", sort === "trending" ? "Trending" : "Price: high", " ", icons.ChevronDown({
-    width: 15,
-    height: 15
-  })), /*#__PURE__*/React.createElement(Button, {
+    iconLeft: icons.TrendUp({
+      width: 15,
+      height: 15
+    }),
+    iconRight: icons.ChevronDown({
+      width: 15,
+      height: 15
+    })
+  }, sort === "trending" ? "Trending" : "Price: high"), /*#__PURE__*/React.createElement(Button, {
     variant: "neutral",
     size: "sm",
     iconLeft: icons.Filter({
@@ -3076,7 +3173,8 @@ function MarketScreen({
     style: {
       maxWidth: 1240,
       margin: "0 auto",
-      padding: "28px 40px 64px"
+      padding: "28px 40px 64px",
+      background: "#0e0e0e"
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
@@ -3111,7 +3209,8 @@ function PortfolioScreen({
     Card,
     Tag,
     Button,
-    Avatar
+    Avatar,
+    Table
   } = window.TokenableDesignSystem_8d023b;
   const totalValue = holdings.reduce((s, h) => s + h.value * h.qty, 0);
   const totalCost = holdings.reduce((s, h) => s + h.cost * h.qty, 0);
@@ -3145,7 +3244,7 @@ function PortfolioScreen({
     style: {
       fontFamily: "var(--font-mono)",
       fontSize: 13,
-      color: "var(--text-default-tertiary)",
+      color: "#6d6e71",
       marginTop: 2
     }
   }, "0xF4\u20269aE2 \xB7 ", holdings.length, " positions"))), /*#__PURE__*/React.createElement("div", {
@@ -3159,7 +3258,7 @@ function PortfolioScreen({
     style: {
       fontFamily: "var(--font-mono)",
       fontSize: 12,
-      color: "var(--text-default-tertiary)"
+      color: "#6d6e71"
     }
   }, "Portfolio value"), /*#__PURE__*/React.createElement("div", {
     style: {
@@ -3183,7 +3282,7 @@ function PortfolioScreen({
     style: {
       fontFamily: "var(--font-mono)",
       fontSize: 12,
-      color: "var(--text-default-tertiary)"
+      color: "#6d6e71"
     }
   }, "Total cost basis"), /*#__PURE__*/React.createElement("div", {
     style: {
@@ -3198,13 +3297,13 @@ function PortfolioScreen({
       marginTop: 8,
       fontFamily: "var(--font-sans)",
       fontSize: 13,
-      color: "var(--text-default-secondary)"
+      color: "#a7a9ac"
     }
   }, "Unrealized ", fmt(totalValue - totalCost))), /*#__PURE__*/React.createElement(Card, null, /*#__PURE__*/React.createElement("div", {
     style: {
       fontFamily: "var(--font-mono)",
       fontSize: 12,
-      color: "var(--text-default-tertiary)"
+      color: "#6d6e71"
     }
   }, "Cash balance"), /*#__PURE__*/React.createElement("div", {
     style: {
@@ -3221,104 +3320,69 @@ function PortfolioScreen({
   }, /*#__PURE__*/React.createElement(Button, {
     size: "sm",
     variant: "neutral"
-  }, "Add funds")))), /*#__PURE__*/React.createElement("div", {
-    style: {
-      background: "var(--background-default-secondary)",
-      boxShadow: "inset 0 0 0 2px var(--border-default-default)",
-      overflow: "hidden"
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "grid",
-      gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr",
-      padding: "14px 22px",
-      fontFamily: "var(--font-mono)",
-      fontSize: 12,
-      color: "var(--text-default-tertiary)",
-      textTransform: "uppercase",
-      letterSpacing: "0.06em",
-      borderBottom: "1px solid var(--border-default-tertiary)"
-    }
-  }, /*#__PURE__*/React.createElement("span", null, "Asset"), /*#__PURE__*/React.createElement("span", null, "Qty"), /*#__PURE__*/React.createElement("span", null, "Avg cost"), /*#__PURE__*/React.createElement("span", null, "Value"), /*#__PURE__*/React.createElement("span", {
-    style: {
-      textAlign: "right"
-    }
-  }, "Return")), holdings.map(h => {
-    const g = (h.value - h.cost) / h.cost * 100;
-    return /*#__PURE__*/React.createElement("div", {
-      key: h.id,
-      style: {
-        display: "grid",
-        gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr",
-        padding: "16px 22px",
-        alignItems: "center",
-        borderBottom: "1px solid var(--border-default-tertiary)"
-      }
-    }, /*#__PURE__*/React.createElement("div", {
-      style: {
-        display: "flex",
-        alignItems: "center",
-        gap: 12
-      }
-    }, /*#__PURE__*/React.createElement("div", {
-      style: {
-        width: 36,
-        height: 48,
-        background: "linear-gradient(180deg, #1c1c28, #0c0c12)",
-        overflow: "hidden",
-        flexShrink: 0,
-        boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.12)"
-      }
-    }, /*#__PURE__*/React.createElement("img", {
-      src: "../../assets/cards/nidoking.jpg",
-      style: {
-        width: "100%",
-        height: "100%",
-        objectFit: "cover"
-      }
-    })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontFamily: "var(--font-sans)",
-        fontSize: 15,
-        fontWeight: 600,
-        color: "#fff"
-      }
-    }, h.title), /*#__PURE__*/React.createElement("div", {
-      style: {
-        marginTop: 3
-      }
-    }, /*#__PURE__*/React.createElement(Tag, {
-      scheme: "brand",
-      variant: "soft"
-    }, h.grade)))), /*#__PURE__*/React.createElement("span", {
-      style: {
-        fontFamily: "var(--font-mono)",
-        fontSize: 15,
-        color: "var(--text-default-secondary)"
-      }
-    }, h.qty), /*#__PURE__*/React.createElement("span", {
-      style: {
-        fontFamily: "var(--font-mono)",
-        fontSize: 15,
-        color: "var(--text-default-secondary)"
-      }
-    }, fmt(h.cost)), /*#__PURE__*/React.createElement("span", {
-      style: {
-        fontFamily: "var(--font-mono)",
-        fontSize: 15,
-        fontWeight: 700,
-        color: "#fff"
-      }
-    }, fmt(h.value * h.qty)), /*#__PURE__*/React.createElement("span", {
-      style: {
-        textAlign: "right",
-        fontFamily: "var(--font-mono)",
-        fontSize: 15,
-        fontWeight: 700,
-        color: g >= 0 ? "var(--text-positive-default)" : "var(--text-danger-default)"
-      }
-    }, pct(g)));
-  })), /*#__PURE__*/React.createElement("div", {
+  }, "Add funds")))), /*#__PURE__*/React.createElement(Table, {
+    columns: [{
+      key: "img",
+      label: "",
+      type: "image"
+    }, {
+      key: "title",
+      label: "Asset",
+      bold: true,
+      render: (v, row) => /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+        style: {
+          fontFamily: "var(--font-sans)",
+          fontSize: 15,
+          fontWeight: 600,
+          color: "#fff"
+        }
+      }, v), /*#__PURE__*/React.createElement("div", {
+        style: {
+          marginTop: 3
+        }
+      }, /*#__PURE__*/React.createElement(Tag, {
+        scheme: "brand",
+        variant: "soft"
+      }, row.grade)))
+    }, {
+      key: "qty",
+      label: "Qty",
+      mono: true,
+      color: "#a7a9ac"
+    }, {
+      key: "cost",
+      label: "Avg cost",
+      mono: true,
+      color: "#a7a9ac",
+      render: v => fmt(v)
+    }, {
+      key: "totalValue",
+      label: "Value",
+      mono: true,
+      bold: true,
+      render: v => fmt(v)
+    }, {
+      key: "returnPct",
+      label: "Return",
+      align: "right",
+      mono: true,
+      bold: true,
+      render: v => /*#__PURE__*/React.createElement("span", {
+        style: {
+          color: v >= 0 ? "#00C350" : "#E4374A"
+        }
+      }, pct(v))
+    }],
+    data: holdings.map(h => ({
+      img: "../../assets/cards/nidoking.jpg",
+      title: h.title,
+      grade: h.grade,
+      qty: h.qty,
+      cost: h.cost,
+      totalValue: h.value * h.qty,
+      returnPct: (h.value - h.cost) / h.cost * 100
+    }))
+  }), /*#__PURE__*/React.createElement("div", {
     style: {
       textAlign: "center",
       marginTop: 24
@@ -3378,7 +3442,7 @@ function App() {
   return /*#__PURE__*/React.createElement("div", {
     style: {
       minHeight: "100vh",
-      background: "var(--background-default-default)"
+      background: "#0e0e0e"
     }
   }, /*#__PURE__*/React.createElement(MarketHeader, {
     route: route === "detail" ? "market" : route,
@@ -3410,9 +3474,9 @@ function App() {
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
-      background: "var(--background-brand-tertiary)",
+      background: "rgba(64,91,255,0.12)",
       boxShadow: "inset 0 0 0 2px var(--brand-500)",
-      color: "var(--icon-brand-default)"
+      color: "#7084ff"
     }
   }, icons.Box({
     width: 30,
@@ -3429,7 +3493,7 @@ function App() {
     style: {
       fontFamily: "var(--font-sans)",
       fontSize: 16,
-      color: "var(--text-default-secondary)",
+      color: "#a7a9ac",
       lineHeight: 1.5,
       marginTop: 12
     }
@@ -3471,10 +3535,10 @@ function App() {
     style: {
       width: 52,
       height: 70,
-      background: "linear-gradient(180deg, #1c1c28, #0c0c12)",
+      background: "#191919",
       overflow: "hidden",
       flexShrink: 0,
-      boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.12)"
+      borderRadius: 8
     }
   }, /*#__PURE__*/React.createElement("img", {
     src: buying.img,
@@ -3486,33 +3550,33 @@ function App() {
   })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     style: {
       fontWeight: 600,
-      color: "var(--text-default-default)",
+      color: "#fff",
       fontSize: 16
     }
   }, buying.title), /*#__PURE__*/React.createElement("div", {
     style: {
       fontFamily: "var(--font-mono)",
       fontSize: 12,
-      color: "var(--text-default-tertiary)",
+      color: "#6d6e71",
       marginTop: 3
     }
   }, buying.grade, " \xB7 ", buying.set))), /*#__PURE__*/React.createElement("div", {
     style: {
       marginTop: 14,
       paddingTop: 14,
-      borderTop: "1px solid var(--border-default-tertiary)",
+      borderTop: "1px solid #2c2c2c",
       display: "flex",
       justifyContent: "space-between",
       fontSize: 14
     }
   }, /*#__PURE__*/React.createElement("span", {
     style: {
-      color: "var(--text-default-secondary)"
+      color: "#a7a9ac"
     }
   }, "Settles instantly from balance ", fmt(12400)), /*#__PURE__*/React.createElement("span", {
     style: {
       fontWeight: 600,
-      color: "var(--text-default-default)"
+      color: "#fff"
     }
   }, fmt(buying.price)))), toast && /*#__PURE__*/React.createElement("div", {
     style: {

@@ -55,16 +55,13 @@ export function CollectionListingDetailModal({
   onBid: () => void;
 }) {
   const tid = tokenId ?? 0;
-  const { metadata, imageUrl } = useCollectionRwaCardData({
+  const { metadata } = useCollectionRwaCardData({
     tokenId: tid,
     prefetchedMetadata: prefetchedMetadata ?? null,
     prefetchedImageUrl: prefetchedImageUrl ?? null,
   });
 
-  const rawGallery = useMemo(
-    () => listingGalleryImages(metadata, imageUrl),
-    [metadata, imageUrl],
-  );
+  const rawGallery = useMemo(() => listingGalleryImages(metadata), [metadata]);
 
   const unresolvedUris = useMemo(
     () =>
@@ -315,7 +312,7 @@ export function CollectionListingDetailModal({
               </TkButton>
               <TkButton
                 type="button"
-                variant="neutral"
+                variant="subtle"
                 size="sm"
                 className="cd-listing-prov__btn"
                 onClick={onBid}

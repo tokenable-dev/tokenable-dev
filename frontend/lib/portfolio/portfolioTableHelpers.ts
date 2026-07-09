@@ -16,10 +16,10 @@ export function formatPortfolioUsd(
   return `$${value.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
 }
 
-export function formatPortfolioPnl(
+export function formatPortfolioProfitReturn(
   costBasis: number | null | undefined,
   currentValue: number | null | undefined,
-): { label: string; positive: boolean } | null {
+): { profit: string; returnPct: string; positive: boolean } | null {
   if (
     costBasis == null ||
     currentValue == null ||
@@ -37,9 +37,9 @@ export function formatPortfolioPnl(
     absUsd >= 1000
       ? absUsd.toLocaleString("en-US", { maximumFractionDigits: 0 })
       : absUsd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  const pctLabel = `${pct >= 0 ? "+" : ""}${pct.toFixed(0)}%`;
   return {
-    label: `${sign}$${usd} (${pctLabel})`,
+    profit: `${sign}$${usd}`,
+    returnPct: `${pct >= 0 ? "+" : ""}${pct.toFixed(0)}%`,
     positive: delta >= 0,
   };
 }

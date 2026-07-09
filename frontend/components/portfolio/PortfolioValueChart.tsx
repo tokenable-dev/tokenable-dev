@@ -127,12 +127,12 @@ const PORTFOLIO_HTML_CHART = {
   RIGHT: 16,
   TOP: 16,
   BOTTOM: 17,
-  lineColor: "rgb(26,111,255)",
+  lineColor: "rgb(0,51,255)",
   areaGradId: "portfolio-html-area-grad",
   gridStroke: "rgba(255,255,255,0.04)",
   axisFill: "rgba(255,255,255,0.4)",
   crosshairStroke: "rgba(255,255,255,0.15)",
-  dotFill: "rgb(26,111,255)",
+  dotFill: "rgb(0,51,255)",
   dotStroke: "#fff",
   lineWidth: 2.5,
   axisFont: 10,
@@ -286,8 +286,8 @@ export function PortfolioValueChart({
         <defs>
           {isPortfolioHtml ? (
             <linearGradient id={PORTFOLIO_HTML_CHART.areaGradId} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="rgba(26,111,255,0.25)" />
-              <stop offset="100%" stopColor="rgba(26,111,255,0)" />
+              <stop offset="0%" stopColor="rgba(0, 51, 255,0.25)" />
+              <stop offset="100%" stopColor="rgba(0, 51, 255,0)" />
             </linearGradient>
           ) : (
             <linearGradient id="portfolio-value-area-grad" x1="0" y1="0" x2="0" y2="1">
@@ -419,7 +419,7 @@ export function PortfolioValueChart({
                   height={44}
                   rx="8"
                   fill="#1e1e2e"
-                  stroke="rgba(26,111,255,0.3)"
+                  stroke="rgba(0, 51, 255,0.3)"
                   strokeWidth="1"
                 />
                 <text

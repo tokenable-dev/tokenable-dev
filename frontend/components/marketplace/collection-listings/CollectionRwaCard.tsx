@@ -265,7 +265,7 @@ export function CollectionRwaCard({
                 </TkButton>
                 <TkButton
                   type="button"
-                  variant="neutral"
+                  variant="subtle"
                   size="sm"
                   className="cd-listing-card__btn"
                   onClick={openBid}
@@ -278,7 +278,7 @@ export function CollectionRwaCard({
                 <TkButton variant="primary" size="sm" href={detailHref} className="cd-listing-card__btn">
                   Buy
                 </TkButton>
-                <TkButton variant="neutral" size="sm" href={bidHref} className="cd-listing-card__btn">
+                <TkButton variant="subtle" size="sm" href={bidHref} className="cd-listing-card__btn">
                   Bid
                 </TkButton>
               </>

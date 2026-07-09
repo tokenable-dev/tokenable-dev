@@ -3,20 +3,20 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ASSETS } from "@/constants/assets";
-import { canAccessVault } from "@/lib/auth/accountAccess";
-import { useAuthStore } from "@/store/authStore";
+import { useHeaderNavGate } from "@/hooks/auth/useHeaderNavGate";
 
 function shouldHideChrome(pathname: string | null | undefined): boolean {
   if (!pathname) return false;
   if (pathname === "/site-access" || pathname.startsWith("/site-access/")) return true;
   if (pathname.startsWith("/marketplace/admin")) return true;
+  if (pathname.startsWith("/dev/design-system")) return true;
+  if (pathname.startsWith("/dev/admin-ui")) return true;
   return false;
 }
 
 export function TkFooter() {
   const pathname = usePathname();
-  const user = useAuthStore((s) => s.user);
-  const showVaultLink = canAccessVault(user);
+  const navigate = useHeaderNavGate();
   if (shouldHideChrome(pathname)) return null;
 
   return (
@@ -31,11 +31,9 @@ export function TkFooter() {
           <Link href="/markets" className="navlink">
             Markets
           </Link>
-          {showVaultLink ? (
-            <Link href="/vault" className="navlink">
-              Vault
-            </Link>
-          ) : null}
+          <button type="button" className="navlink" onClick={() => navigate("/vault", 1)}>
+            Vault
+          </button>
           <span className="navlink" aria-disabled>
             Fees
           </span>

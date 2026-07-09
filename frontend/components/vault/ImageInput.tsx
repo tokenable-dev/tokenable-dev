@@ -1,10 +1,7 @@
 "use client";
 
 import { useRef, useEffect, useState } from "react";
-import {
-  GradientOutlineFrame,
-  VAULT_OUTLINE_PAD_CLASS,
-} from "@/components/ui/GradientOutlineFrame";
+import { TkButton } from "@/components/ds";
 
 type ImageMode = "file" | "fileOrUrl";
 
@@ -20,7 +17,12 @@ interface ImageInputProps {
 }
 
 const inputClass =
-  "w-full bg-gray-800 border border-gray-700 focus:border-mint rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 outline-none transition-colors";
+  "w-full bg-[#141414] border border-white/[0.08] focus:border-[var(--azure)] focus:shadow-[0_0_0_3px_rgba(26,111,255,0.15)] rounded-xl px-3 py-2 text-sm text-white placeholder-white/35 outline-none transition-colors";
+
+const toggleBtnClass = (active: boolean) =>
+  active
+    ? "bg-[rgba(26,111,255,0.12)] text-[var(--azure)]"
+    : "bg-[#141414] text-white/40 hover:text-white";
 
 export function ImageInput({
   value,
@@ -31,7 +33,7 @@ export function ImageInput({
   mode = "fileOrUrl",
 }: ImageInputProps) {
   const [toggleMode, setToggleMode] = useState<"file" | "url">(
-    value instanceof File ? "file" : typeof value === "string" && value ? "url" : "file"
+    value instanceof File ? "file" : typeof value === "string" && value ? "url" : "file",
   );
   const inputRef = useRef<HTMLInputElement>(null);
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
@@ -76,33 +78,25 @@ export function ImageInput({
   return (
     <div>
       {showLabel && (
-        <label className="block text-sm text-gray-400 mb-1.5">
+        <label className="mb-1.5 block text-sm text-white/55">
           {label}
-          {required && <span className="text-red-400 ml-0.5">*</span>}
+          {required && <span className="ml-0.5 text-[var(--neg)]">*</span>}
         </label>
       )}
 
       {mode === "fileOrUrl" && (
-        <div className="flex gap-2 mb-2">
+        <div className="mb-2 flex gap-2">
           <button
             type="button"
             onClick={() => handleModeSwitch("file")}
-            className={`text-xs px-3 py-1.5 rounded-lg transition-colors ${
-              toggleMode === "file"
-                ? "bg-mint-dim text-mint-ink"
-                : "bg-gray-800 text-gray-400 hover:text-white"
-            }`}
+            className={`rounded-lg px-3 py-1.5 text-xs transition-colors ${toggleBtnClass(toggleMode === "file")}`}
           >
             Upload File
           </button>
           <button
             type="button"
             onClick={() => handleModeSwitch("url")}
-            className={`text-xs px-3 py-1.5 rounded-lg transition-colors ${
-              toggleMode === "url"
-                ? "bg-mint-dim text-mint-ink"
-                : "bg-gray-800 text-gray-400 hover:text-white"
-            }`}
+            className={`rounded-lg px-3 py-1.5 text-xs transition-colors ${toggleBtnClass(toggleMode === "url")}`}
           >
             Image URL
           </button>
@@ -122,18 +116,13 @@ export function ImageInput({
             <button
               type="button"
               onClick={() => inputRef.current?.click()}
-              className="group w-full rounded-2xl border-2 border-dashed border-gray-600 bg-gray-900/40 px-5 py-10 text-center transition-all hover:border-gray-500 hover:bg-gray-900/55 sm:py-12"
+              className="group w-full rounded-2xl border-2 border-dashed border-white/[0.12] bg-[#141414]/60 px-5 py-10 text-center transition-all hover:border-white/20 hover:bg-[#141414] sm:py-12"
             >
               <span className="flex flex-col items-center gap-3">
-                <GradientOutlineFrame
-                  className="inline-block"
-                  padClass={VAULT_OUTLINE_PAD_CLASS}
-                >
-                  <span className="block rounded-[11px] bg-[#030712] px-10 py-3.5 text-base font-bold tracking-tight text-mint transition group-hover:bg-zinc-950 sm:px-12 sm:py-4 sm:text-lg">
-                    Upload photo
-                  </span>
-                </GradientOutlineFrame>
-                <span className="max-w-sm text-[11px] font-medium leading-relaxed text-gray-500 sm:text-xs">
+                <TkButton decorative variant="primary" size="md" className="px-10 py-3.5 text-base sm:px-12 sm:py-4 sm:text-lg">
+                  Upload photo
+                </TkButton>
+                <span className="max-w-sm text-[11px] font-medium leading-relaxed text-white/35 sm:text-xs">
                   Upload a front photo of your PSA graded card (PSA 1–10 or AUTH). *PNG, JPG or WEBP
                 </span>
               </span>
@@ -141,7 +130,7 @@ export function ImageInput({
           ) : (
             <div
               onClick={() => inputRef.current?.click()}
-              className="group w-full cursor-pointer rounded-xl border border-gray-700 bg-gray-900/40 py-4 px-4 text-center transition-colors hover:border-mint/40"
+              className="group w-full cursor-pointer rounded-xl border border-white/[0.08] bg-[#141414]/60 px-4 py-4 text-center transition-colors hover:border-[rgba(26,111,255,0.35)]"
             >
               <div className="relative inline-block">
                 <img
@@ -155,12 +144,12 @@ export function ImageInput({
                     e.stopPropagation();
                     handleClear();
                   }}
-                  className="absolute -top-2 -right-2 flex h-7 w-7 items-center justify-center rounded-full bg-red-500/90 text-sm font-bold text-white opacity-0 transition-opacity hover:bg-red-500 group-hover:opacity-100"
+                  className="absolute -right-2 -top-2 flex h-7 w-7 items-center justify-center rounded-full bg-[var(--neg)]/90 text-sm font-bold text-white opacity-0 transition-opacity hover:bg-[var(--neg)] group-hover:opacity-100"
                 >
                   ×
                 </button>
               </div>
-              <p className="mt-2 text-[11px] text-gray-500">Tap to replace</p>
+              <p className="mt-2 text-[11px] text-white/35">Tap to replace</p>
             </div>
           )}
         </>
@@ -181,7 +170,7 @@ export function ImageInput({
               <img
                 src={previewUrl}
                 alt="Preview"
-                className="max-h-32 rounded-lg object-contain border border-gray-700"
+                className="max-h-32 rounded-lg border border-white/[0.08] object-contain"
                 onError={(e) => {
                   (e.target as HTMLImageElement).style.display = "none";
                 }}

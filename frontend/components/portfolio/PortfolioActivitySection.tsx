@@ -1,12 +1,14 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import type { TxRow } from "@/lib/portfolio/portfolioTypes";
 import { compareSortNum, compareSortText, formatPortfolioUsd } from "@/lib/portfolio/portfolioTableHelpers";
 import { TkTable } from "@/components/ds";
 import { usePortfolioTableSort } from "@/hooks/portfolio/usePortfolioTableSort";
+import { PortfolioHistoryStatusBadge } from "./PortfolioHistoryStatusBadge";
 import { PortfolioMobileSort } from "./PortfolioMobileSort";
 import { PortfolioSortableTh } from "./PortfolioSortableTh";
+import { PortfolioTxDetailDrawer } from "./PortfolioTxDetailDrawer";
 
 type HistorySortKey = "date" | "type" | "card" | "amount";
 
@@ -24,6 +26,7 @@ export function PortfolioActivitySection({
   loading: boolean;
   txRows: TxRow[];
 }) {
+  const [selectedTx, setSelectedTx] = useState<TxRow | null>(null);
   const { sortKey, sortDir, toggleSort, applyMobileSort, mobileSortValue } =
     usePortfolioTableSort<HistorySortKey>("date");
 
@@ -102,36 +105,47 @@ export function PortfolioActivitySection({
           </tr>
         </thead>
         <tbody>
-          {sortedRows.map((tx, index) => {
-            const zebra = index % 2 === 1 ? "pf-table-row--zebra" : undefined;
-            return (
-              <tr key={tx.orderHash} className={zebra}>
-                <td data-label="Date">
-                  <span className="tkl-mono pf-table-muted">{tx.date}</span>
-                </td>
-                <td data-label="Type">
-                  <span
-                    className={`tkl-mono pf-table-type ${tx.type === "BUY" ? "pf-table-type--buy" : "pf-table-type--sell"}`}
-                  >
-                    {tx.type === "BUY" ? "Buy" : "Sell"}
-                  </span>
-                </td>
-                <td data-label="Card">
-                  <span className="pf-table-card-name">{tx.asset}</span>
-                </td>
-                <td data-label="Status" style={{ textAlign: "right" }}>
-                  <span className="pf-status-chip pf-status-chip--settled">Settled</span>
-                </td>
-                <td data-label="Amount" style={{ textAlign: "right" }}>
-                  <span className="tkl-mono pf-table-amount">
-                    {formatPortfolioUsd(tx.price)}
-                  </span>
-                </td>
-              </tr>
-            );
-          })}
+          {sortedRows.map((tx) => (
+            <tr
+              key={tx.orderHash}
+              className="pf-history-row"
+              onClick={() => setSelectedTx(tx)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  setSelectedTx(tx);
+                }
+              }}
+              tabIndex={0}
+              role="button"
+            >
+              <td data-label="Date">
+                <span className="tkl-mono pf-table-muted">{tx.date}</span>
+              </td>
+              <td data-label="Type">
+                <span
+                  className={`tkl-mono pf-table-type ${tx.type === "BUY" ? "pf-table-type--buy" : "pf-table-type--sell"}`}
+                >
+                  {tx.type === "BUY" ? "Buy" : "Sell"}
+                </span>
+              </td>
+              <td data-label="Card">
+                <span className="pf-table-card-name">{tx.asset}</span>
+              </td>
+              <td data-label="Status" style={{ textAlign: "right" }}>
+                <PortfolioHistoryStatusBadge status="settled" />
+              </td>
+              <td data-label="Amount" style={{ textAlign: "right" }}>
+                <span className="tkl-mono pf-table-amount">
+                  {formatPortfolioUsd(tx.price)}
+                </span>
+              </td>
+            </tr>
+          ))}
         </tbody>
       </TkTable>
+
+      <PortfolioTxDetailDrawer tx={selectedTx} onClose={() => setSelectedTx(null)} />
     </>
   );
 }

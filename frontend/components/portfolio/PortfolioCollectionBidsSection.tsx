@@ -5,7 +5,7 @@ import Link from "next/link";
 import type { CollectionMarketStats } from "@/lib/core";
 import type { PortfolioBidCollectionMeta, PortfolioBidRow } from "@/lib/portfolio/portfolioBidTypes";
 import { compareSortNum, compareSortText, formatPortfolioUsd } from "@/lib/portfolio/portfolioTableHelpers";
-import { TkButton, TkTable } from "@/components/ds";
+import { TkButton, TkTable, TkTag } from "@/components/ds";
 import { usePortfolioTableSort } from "@/hooks/portfolio/usePortfolioTableSort";
 import { PortfolioMobileSort } from "./PortfolioMobileSort";
 import { PortfolioSortableTh } from "./PortfolioSortableTh";
@@ -132,6 +132,7 @@ export function PortfolioCollectionBidsSection({
               align="right"
               onSort={(k) => toggleSort(k as BidsSortKey)}
             />
+            <th style={{ textAlign: "right" }}>Status</th>
             <th style={{ textAlign: "right" }}>Action</th>
           </tr>
         </thead>
@@ -144,6 +145,7 @@ export function PortfolioCollectionBidsSection({
             const busy =
               cancellingHash === bid.orderHash || openingChangeHash === bid.orderHash;
             const canRaise = ask != null && ask > bid.priceUsdc;
+            const isHighest = ask == null || bid.priceUsdc >= ask;
             const zebra = index % 2 === 1 ? "pf-table-row--zebra" : undefined;
 
             return (
@@ -169,6 +171,17 @@ export function PortfolioCollectionBidsSection({
                     {ask != null ? formatPortfolioUsd(ask) : "—"}
                   </span>
                 </td>
+                <td data-label="Status" style={{ textAlign: "right" }}>
+                  {isHighest ? (
+                    <TkTag tone="positive" appearance="soft" className="pf-bid-status-tag">
+                      HIGHEST
+                    </TkTag>
+                  ) : (
+                    <TkTag tone="warning" appearance="soft" className="pf-bid-status-tag">
+                      OUTBID
+                    </TkTag>
+                  )}
+                </td>
                 <td data-label="Action" style={{ textAlign: "right" }}>
                   <div className="pf-table-actions">
                     {canRaise ? (
@@ -185,7 +198,7 @@ export function PortfolioCollectionBidsSection({
                     ) : (
                       <TkButton
                         type="button"
-                        variant="neutral"
+                        variant="subtle"
                         size="sm"
                         className="pf-table-btn"
                         disabled={busy}

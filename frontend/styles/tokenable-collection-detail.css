@@ -1,7 +1,16 @@
 /* Collection detail — Card.html patterns (Phase 5) */
 
 .collection-detail-page {
-  background: var(--ink);
+  --ink: #0e0e0e;
+  --ink-2: #0e0e0e;
+  --surf: #141414;
+  --surf-2: #111111;
+  --line: rgba(255, 255, 255, 0.08);
+  --line-2: rgba(255, 255, 255, 0.05);
+  --t1: rgba(255, 255, 255, 0.95);
+  --t2: rgba(255, 255, 255, 0.6);
+  --t3: rgba(255, 255, 255, 0.38);
+  background: #0e0e0e;
   color: var(--t1);
   overflow-x: clip;
   min-height: 100%;
@@ -78,13 +87,6 @@
   }
 }
 
-@media (max-width: 1023px) {
-  .collection-detail-page .collection-detail-page__shell {
-    padding-top: 6px;
-    padding-bottom: max(1.25rem, env(safe-area-inset-bottom, 0px));
-  }
-}
-
 /* ── Breadcrumb ─────────────────────────────────────────────────────────── */
 
 .cd-breadcrumb {
@@ -123,8 +125,115 @@
 /* ── Notch panels ───────────────────────────────────────────────────────── */
 
 .collection-detail-page .cd-notch {
-  background: #1e1e2e;
+  background: #191919;
   border-radius: 16px;
+}
+
+/* ── Mobile layout (Card.html @max-width 768px / 1023px) ─────────────────── */
+
+@media (max-width: 1023px) {
+  .collection-detail-page .collection-detail-page__shell {
+    padding-top: 6px;
+    padding-left: clamp(16px, 4vw, 40px);
+    padding-right: clamp(16px, 4vw, 40px);
+    padding-bottom: max(1.25rem, env(safe-area-inset-bottom, 0px));
+  }
+
+  .collection-detail-page .cd-page-headline {
+    display: block;
+    margin-bottom: 20px;
+  }
+
+  .collection-detail-page .cd-page-headline__title {
+    font-size: clamp(24px, 5.5vw, 32px);
+  }
+
+  .collection-detail-page .cd-overview-board > div:last-child {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    padding-bottom: 0 !important;
+  }
+
+  .collection-detail-page .cd-mobile-scroll {
+    gap: 26px;
+  }
+
+  .collection-detail-page .cd-mobile-scroll__stat .cd-metrics-strip {
+    margin-bottom: 0;
+  }
+
+  .collection-detail-page .cd-mobile-scroll__stat .cd-stat-block {
+    gap: 16px;
+  }
+
+  .collection-detail-page .cd-mobile-scroll__chart .cd-chart-panel.cd-notch {
+    background: #191919;
+    border-radius: 16px;
+    padding: 16px 12px;
+  }
+
+  .collection-detail-page .cd-mobile-scroll__chart .cd-chart-panel__body {
+    margin: 0 -8px;
+  }
+
+  .collection-detail-page .cd-mobile-scroll__chart .cd-chart-panel__body--card-html {
+    min-height: 220px;
+  }
+
+  .collection-detail-page .cd-mobile-scroll__chart .cd-chart-panel__body--card-html > div,
+  .collection-detail-page .cd-mobile-scroll__chart .cd-chart-panel__body--card-html .echarts-for-react,
+  .collection-detail-page .cd-mobile-scroll__chart .cd-chart-panel__body--card-html canvas {
+    min-height: 220px !important;
+  }
+
+  .collection-detail-page .cd-mobile-scroll__listings .cd-listings-header--mobile {
+    margin-bottom: 0;
+  }
+
+  .collection-detail-page .cd-mobile-scroll__listings .cd-listing-orderbook {
+    margin-top: 18px;
+  }
+
+  .collection-detail-page .cd-mobile-scroll__book.cd-notch {
+    background: #191919;
+    border-radius: 16px;
+    padding-top: 0;
+  }
+
+  .collection-detail-page .cd-mobile-scroll__book .cd-ob-panel {
+    min-height: 0;
+  }
+
+  .collection-detail-page .cd-mobile-scroll__book .cd-ob-tabs {
+    padding-left: 16px;
+    padding-right: 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .collection-detail-page .cd-listing-orderbook__btn {
+    height: 38px !important;
+    min-height: 38px;
+    padding-left: 14px !important;
+    padding-right: 14px !important;
+    font-size: 13px !important;
+  }
+
+  .collection-detail-page .cd-listing-orderbook__price {
+    font-size: 17px;
+  }
+
+  .collection-detail-page .cd-listing-orderbook__seller {
+    font-size: 11px;
+    margin-top: 3px;
+  }
+
+  .collection-detail-page .cd-listing-orderbook__grade {
+    min-width: 0;
+    height: auto;
+    min-height: 0;
+    padding: 4px 8px;
+    font-size: 11px;
+  }
 }
 
 /* ── Overview board shell ─────────────────────────────────────────────────── */
@@ -140,12 +249,6 @@
 .collection-detail-page .cd-overview-board > div:last-child {
   padding-left: 0 !important;
   padding-right: 0 !important;
-}
-
-@media (min-width: 1024px) {
-  .collection-detail-page .cd-overview-board [class*="lg:grid-cols-[minmax(0,1fr)_300px]"] {
-    gap: clamp(20px, 3vw, 40px);
-  }
 }
 
 /* ── Card.html grid (desktop) ─────────────────────────────────────────────── */
@@ -169,7 +272,7 @@
 
 .collection-detail-page .cd-detail-grid__listings {
   grid-row: 3;
-  margin-top: 4px;
+  margin-top: 30px;
 }
 
 .collection-detail-page .cd-detail-grid__sidebar {
@@ -360,13 +463,13 @@
 }
 
 .collection-detail-page .cd-sidebar-details {
-  background: #1e1e2e;
+  background: #191919;
   border-radius: 16px;
   overflow: hidden;
 }
 
 .collection-detail-page .cd-sidebar-orderbook {
-  background: #1e1e2e;
+  background: #191919;
   border-radius: 16px;
 }
 
@@ -460,9 +563,9 @@
 /* ── Listing cards — Card.html desktop grid ─────────────────────────────── */
 
 .collection-detail-page .cd-listing-card--ds {
-  background: #1e1e2e;
-  border-radius: 16px;
-  padding: 16px;
+  background: transparent;
+  border-radius: 0;
+  padding: 0;
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -471,7 +574,7 @@
 
 .collection-detail-page .cd-listing-card__img-wrap {
   position: relative;
-  background: linear-gradient(180deg, #101018, #08080e);
+  background: linear-gradient(180deg, #0e0e0e, #08080e);
   padding: 12px;
   cursor: pointer;
   overflow: hidden;
@@ -817,6 +920,12 @@
   margin-top: 30px;
 }
 
+.cd-listings-header--mobile {
+  margin-top: 0;
+  margin-bottom: 0;
+  padding-top: 0;
+}
+
 .cd-listings-header__title {
   margin: 0;
   font-family: var(--font-sans);
@@ -850,19 +959,14 @@
 }
 
 .collection-detail-page .cd-listing-card {
-  background: #1e1e2e;
-  border-radius: 16px;
-  padding: 16px;
-  overflow: hidden;
+  background: transparent;
+  border-radius: 0;
+  padding: 0;
+  overflow: visible;
   height: 100%;
   display: flex;
   flex-direction: column;
   gap: 14px;
-  transition: filter 0.15s;
-}
-
-.collection-detail-page .cd-listing-card:hover {
-  filter: drop-shadow(4px 4px 0 rgba(26, 111, 255, 0.25));
 }
 
 .collection-detail-page .cd-listing-card article {
@@ -873,7 +977,7 @@
 }
 
 .collection-detail-page .cd-listing-card [class*="bg-black"]:first-child {
-  background: linear-gradient(180deg, #101018, #08080e) !important;
+  background: linear-gradient(180deg, #0e0e0e, #08080e) !important;
   border-radius: 0;
   padding: 12px !important;
   aspect-ratio: auto !important;
@@ -909,7 +1013,7 @@
   letter-spacing: -0.02em;
 }
 
-.collection-detail-page .cd-listing-card [class*="text-[#a0a0a0]"] {
+.collection-detail-page .cd-listing-card [class*="a0a0a0"] {
   font-family: var(--font-mono);
   font-size: 12px !important;
   color: var(--t3) !important;
@@ -917,7 +1021,7 @@
 }
 
 .collection-detail-page .cd-listings-empty {
-  background: #1e1e2e;
+  background: #191919;
   border-radius: 16px;
   border: 0;
   color: var(--t2);
@@ -971,8 +1075,8 @@
 
 .collection-detail-page .cd-ob-tab--active {
   font-weight: 700;
-  color: var(--brand-500);
-  border-bottom-color: var(--brand-500);
+  color: #fff;
+  border-bottom-color: var(--azure);
 }
 
 .collection-detail-page .cd-ob-tab:not(.cd-ob-tab--active) {
@@ -1168,7 +1272,7 @@
   justify-content: space-between;
   flex: none;
   padding: 16px 16px 4px;
-  background: #1e1e2e;
+  background: #191919;
 }
 
 .collection-detail-page .cd-ob-book-footer > span {
@@ -1200,10 +1304,15 @@
 @media (min-width: 1024px) {
   .collection-detail-page .cd-sidebar-orderbook,
   .collection-detail-page .cd-sidebar-details {
-    background: #1e1e2e;
+    background: #191919;
     border-radius: 16px;
     border: 0 !important;
     overflow: hidden;
+  }
+
+  /* Card.html — sidebar is order book + details only (no trade dock) */
+  .collection-detail-page .cd-sidebar-trade {
+    display: none;
   }
 
   .collection-detail-page .cd-sidebar-details {
@@ -1222,22 +1331,23 @@
 
 @media (max-width: 768px) {
   .collection-detail-page .collection-detail-page__shell {
-    padding-left: 12px;
-    padding-right: 12px;
+    padding-left: clamp(16px, 4vw, 40px);
+    padding-right: clamp(16px, 4vw, 40px);
   }
 
   .cd-breadcrumb {
     display: none !important;
   }
 
-  .collection-detail-page .cd-chart-panel {
-    padding: 16px 12px;
-  }
-
   .cd-stat-main {
     padding: 16px 18px;
-    flex-direction: column;
-    align-items: flex-start;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .cd-stat-main__thumb {
+    height: 100px;
   }
 
   .cd-stat-main__price {
@@ -1246,10 +1356,12 @@
 
   .cd-stat-grid {
     grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
   }
 
   .cd-stat-grid__cell {
     padding: 12px 14px;
+    min-height: 0;
   }
 
   .cd-stat-grid__value {
@@ -1258,6 +1370,15 @@
 
   .cd-listings-header__title {
     font-size: 24px;
+  }
+
+  .cd-chart-panel__header {
+    gap: 8px;
+  }
+
+  .cd-period {
+    padding: 0 10px;
+    font-size: 10px;
   }
 
   .cd-listing-prov {
@@ -1297,7 +1418,7 @@
 
 .cd-listing-prov__panel,
 .cd-listing-checkout__panel {
-  background: #1e1e2e;
+  background: #191919;
   border-radius: 16px;
   width: 100%;
   max-width: 560px;
@@ -1335,7 +1456,7 @@
   width: 38px;
   height: 38px;
   border: 0;
-  background: #0c1640;
+  background: #191919;
   color: #fff;
   font-size: 20px;
   line-height: 1;
@@ -1462,7 +1583,7 @@ button.cd-listing-orderbook__thumb-link {
 }
 
 .cd-listing-prov__verify-cell {
-  background: var(--surf);
+  background: #141414;
   border-radius: 16px;
   padding: 14px;
   display: flex;
@@ -1625,7 +1746,7 @@ button.cd-listing-orderbook__thumb-link {
   align-items: center;
   gap: 14px;
   padding: 12px;
-  background: var(--ink-2);
+  background: #141414;
   margin-bottom: 18px;
   border-radius: 8px;
 }
@@ -1727,7 +1848,7 @@ button.cd-listing-orderbook__thumb-link {
   gap: 10px;
   height: 56px;
   padding: 0 14px;
-  background: var(--ink-2);
+  background: #141414;
   margin-bottom: 9px;
 }
 
@@ -1784,7 +1905,7 @@ button.cd-listing-orderbook__thumb-link {
 }
 
 .cd-listing-checkout__wallet--disconnected {
-  background: var(--ink-2);
+  background: #141414;
 }
 
 .cd-listing-checkout__wallet--connected {

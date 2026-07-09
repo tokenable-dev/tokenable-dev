@@ -46,6 +46,7 @@ function formatGradeLabel(collection: MarketplaceCollectionSummary): string | nu
 
 type CardSub = {
   label: string;
+  period?: string;
   tone: "up" | "down" | "muted" | "accent";
 };
 
@@ -60,7 +61,7 @@ function formatCardChangePeriod(snapshot: CollectionListMarketSnapshot | undefin
   return "1Y";
 }
 
-/** index.html movers card sub — e.g. `▲ +793.8% · 180d`, `▲ +138% · 1Y` */
+/** index.html / Markets.html — e.g. `▲ +793.8%` with `180d` in `.card__per` */
 function formatCardChangePercent(pct: number): string {
   if (isFlatReferencePercentChange(pct)) return "0.0%";
   const sign = pct > 0 ? "+" : "";
@@ -89,7 +90,8 @@ function formatChangeSub(
   const pct = formatCardChangePercent(changePct);
   const arrow = tone === "down" ? "▼ " : "▲ ";
   return {
-    label: `${arrow}${pct} · ${window}`,
+    label: `${arrow}${pct}`,
+    period: window,
     tone: tone === "down" ? "down" : "up",
   };
 }
@@ -184,7 +186,10 @@ export function CollectibleCard({
         </div>
         <div className="card__price-row">
           <span className="card__price">{formatUsdCompact(priceUsd)}</span>
-          <span className={`card__sub card__sub--${sub.tone}`}>{sub.label}</span>
+          <span className={`card__sub card__sub--${sub.tone}`}>
+            {sub.label}
+            {sub.period ? <span className="card__per"> {sub.period}</span> : null}
+          </span>
         </div>
       </div>
     </Link>

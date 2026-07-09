@@ -24,7 +24,7 @@ export function isCardhedgerBubbleResizeUrl(
 }
 
 const COVER_IMAGE_FILTER: CSSProperties = {
-  filter: "saturate(1.04) contrast(1.02)",
+  filter: "saturate(1.05) contrast(1.04)",
 };
 
 /** Shared cover `<img>` style — applies horizontal stretch for narrow `/resize` URLs. */

@@ -8,14 +8,17 @@
 }
 
 :root {
-  --ink: #1a1a1e;
-  --ink-2: #1a1a1e;
-  --surf: #1b1b26;
-  --surf-2: rgb(22, 22, 34);
+  --ink: #0e0e0e;
+  --ink-2: #0e0e0e;
+  --surf: #141414;
+  --surf-2: #111111;
   --line: rgba(255, 255, 255, 0.08);
   --azure: rgb(26, 111, 255);
   --pos: rgb(0, 200, 100);
   --neg: rgb(228, 55, 74);
+  --amber: #f59e0b;
+  --amber-bg: rgba(245, 158, 11, 0.08);
+  --amber-border: rgba(245, 158, 11, 0.25);
   --warn: rgb(234, 130, 0);
   --t1: rgba(255, 255, 255, 0.95);
   --t2: rgba(255, 255, 255, 0.6);

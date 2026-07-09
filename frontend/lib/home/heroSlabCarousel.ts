@@ -14,6 +14,7 @@ import {
   DoubleSide,
   ExtrudeGeometry,
   Group as ThreeGroup,
+  LinearFilter,
   Mesh as ThreeMesh,
   MeshPhysicalMaterial as PhysMat,
   MeshStandardMaterial as StdMat,
@@ -28,25 +29,17 @@ import {
   ACESFilmicToneMapping,
   EquirectangularReflectionMapping,
 } from "three";
-import { ASSETS } from "@/constants/assets";
+import {
+  cardCountForTier,
+  type HeroCarouselTier,
+} from "@/lib/home/heroCarouselCapability";
+import { HERO_SLAB_CAROUSEL_SOURCES } from "@/lib/home/heroCarouselAssets";
+
+export { HERO_SLAB_CAROUSEL_SOURCES } from "@/lib/home/heroCarouselAssets";
 
 const AZURE = 0x1a6fff;
-const CARD_COUNT = 10;
 const ORBIT_RADIUS = 4.1;
 const AUTO_SPIN = 0.16;
-
-export const HERO_SLAB_CAROUSEL_SOURCES = [
-  ASSETS.ds.heroSlab,
-  ASSETS.ds.cards.charizard,
-  ASSETS.ds.cards.lebron,
-  ASSETS.ds.cards.pikachu,
-  ASSETS.ds.cards.luka,
-  ASSETS.ds.cards.nidoking,
-  ASSETS.ds.cards.pikachuEx,
-  ASSETS.ds.cards.charizard,
-  ASSETS.ds.cards.lebron,
-  ASSETS.ds.cards.luka,
-] as const;
 
 type FadeEntry = [Material, number];
 
@@ -62,13 +55,22 @@ export type HeroSlabCarouselOptions = {
   host: HTMLElement;
   heroSection: HTMLElement;
   mobileSlot: HTMLElement | null;
+  tier?: Exclude<HeroCarouselTier, "fallback">;
   prefersReducedMotion?: boolean;
   imageSources?: readonly string[];
 };
 
 export type HeroSlabCarouselController = {
   dispose: () => void;
+  pause: () => void;
+  resume: () => void;
 };
+
+function sharpenCardTexture(tex: import("three").Texture): void {
+  tex.minFilter = LinearFilter;
+  tex.magFilter = LinearFilter;
+  tex.generateMipmaps = false;
+}
 
 function roundRect(
   g: CanvasRenderingContext2D,
@@ -97,11 +99,11 @@ function makeEnv(renderer: import("three").WebGLRenderer): import("three").Textu
   const grad = g.createLinearGradient(0, 0, 0, 256);
   grad.addColorStop(0, "#3a3a42");
   grad.addColorStop(0.45, "#0e0e10");
-  grad.addColorStop(0.5, "#1a1a1e");
+  grad.addColorStop(0.5, "#0e0e0e");
   grad.addColorStop(1, "#050506");
   g.fillStyle = grad;
   g.fillRect(0, 0, 512, 256);
-  g.fillStyle = "rgba(26,111,255,0.5)";
+  g.fillStyle = "rgba(26, 111, 255,0.5)";
   g.fillRect(0, 96, 512, 26);
   g.fillStyle = "rgba(255,255,255,0.9)";
   g.fillRect(120, 30, 90, 12);
@@ -124,7 +126,7 @@ function makeCardTexture(i: number): CanvasTexture {
     { t: "PIKACHU VMAX", s: "#f5c518", n: "CGC 9" },
     { t: "LUKA PRIZM RC", s: "#6b2fa0", n: "SGC 10" },
     { t: "NIDOKING 1ST ED", s: "#1f6b57", n: "PSA 9" },
-    { t: "PIKACHU EX FA", s: "#1a6fff", n: "BGS 10" },
+    { t: "PIKACHU EX FA", s: "#1A6FFF", n: "BGS 10" },
     { t: "CHARIZARD BASE", s: "#e0631f", n: "PSA 10" },
     { t: "LEBRON CHROME", s: "#3a6ea5", n: "SGC 9.5" },
     { t: "LUKA BASE RC", s: "#6b2fa0", n: "CGC 9.5" },
@@ -142,7 +144,7 @@ function makeCardTexture(i: number): CanvasTexture {
   g.fillRect(14, 14, 332, 512);
   g.fillStyle = "#0a0a0b";
   g.fillRect(22, 22, 316, 60);
-  g.fillStyle = "#1a6fff";
+  g.fillStyle = "#1A6FFF";
   g.font = "700 26px monospace";
   g.fillText("TOKENABLE", 34, 60);
 
@@ -163,7 +165,7 @@ function makeCardTexture(i: number): CanvasTexture {
   g.textAlign = "center";
   g.fillText(data.t, 180, 478);
   g.textAlign = "left";
-  g.fillStyle = "#1a6fff";
+  g.fillStyle = "#1A6FFF";
   g.fillRect(22, 494, 70, 24);
   g.fillStyle = "#ffffff";
   g.font = "700 14px monospace";
@@ -176,6 +178,7 @@ function makeCardTexture(i: number): CanvasTexture {
   const tex = new CanvasTexture(c);
   tex.anisotropy = 4;
   tex.colorSpace = SRGBColorSpace;
+  sharpenCardTexture(tex);
   return tex;
 }
 
@@ -213,12 +216,13 @@ function makeCardBack(): CanvasTexture {
   g.fillStyle = "#eef1f5";
   g.font = "bold 28px monospace";
   g.fillText("TOKENABLE", W2 / 2, H2 / 2 - 16);
-  g.fillStyle = "#1a6fff";
+  g.fillStyle = "#1A6FFF";
   g.font = "600 14px monospace";
   g.fillText("VAULTED • ON-CHAIN", W2 / 2, H2 / 2 + 18);
 
   const tex = new CanvasTexture(c);
   tex.colorSpace = SRGBColorSpace;
+  sharpenCardTexture(tex);
   return tex;
 }
 
@@ -277,9 +281,13 @@ export function createHeroSlabCarousel(
     host,
     heroSection,
     mobileSlot,
+    tier = "full",
     prefersReducedMotion = false,
     imageSources = HERO_SLAB_CAROUSEL_SOURCES,
   } = options;
+
+  const cardCount = cardCountForTier(tier);
+  const useLightEnv = tier === "reduced";
 
   let wasMobile: boolean | null = null;
   const isMobileViewport = () => window.innerWidth < 768;
@@ -294,8 +302,14 @@ export function createHeroSlabCarousel(
   let W = host.clientWidth;
   let H = host.clientHeight;
 
-  const renderer = new GLRenderer({ antialias: true, alpha: true });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  const renderer = new GLRenderer({
+    antialias: !useLightEnv,
+    alpha: true,
+    powerPreference: useLightEnv ? "low-power" : "default",
+  });
+  renderer.setPixelRatio(
+    Math.min(window.devicePixelRatio, useLightEnv ? 1.25 : 2),
+  );
   renderer.setSize(W, H);
   renderer.outputColorSpace = SRGBColorSpace;
   renderer.toneMapping = ACESFilmicToneMapping;
@@ -303,8 +317,11 @@ export function createHeroSlabCarousel(
   host.insertBefore(renderer.domElement, host.firstChild);
 
   const scene = new ThreeScene();
-  const env = makeEnv(renderer);
-  scene.environment = env;
+  let env: import("three").Texture | null = null;
+  if (!useLightEnv) {
+    env = makeEnv(renderer);
+    scene.environment = env;
+  }
 
   const cam = new PerspCam(42, W / H, 0.1, 100);
   cam.position.set(0, 0, camZForAspect(W / H));
@@ -356,12 +373,19 @@ export function createHeroSlabCarousel(
   rimGeo.translate(0, 0, -(RIMD + 0.01) / 2);
 
   const loader = new TextureLoader();
-  const maxAniso = renderer.capabilities.getMaxAnisotropy?.() ?? 8;
+  const maxAniso = useLightEnv
+    ? Math.min(renderer.capabilities.getMaxAnisotropy?.() ?? 4, 4)
+    : (renderer.capabilities.getMaxAnisotropy?.() ?? 8);
   const backTex = makeCardBack();
+  sharpenCardTexture(backTex);
   const sideMat = new StdMat({ color: 0x0d0d10, roughness: 0.5, metalness: 0.2 });
 
-  for (let i = 0; i < CARD_COUNT; i++) {
-    const a = (i / CARD_COUNT) * Math.PI * 2;
+  const faceEnvIntensity = useLightEnv ? 0 : 0.85;
+  const backEnvIntensity = useLightEnv ? 0 : 0.85;
+  const rimEnvIntensity = useLightEnv ? 0 : 1.6;
+
+  for (let i = 0; i < cardCount; i++) {
+    const a = (i / cardCount) * Math.PI * 2;
     const src = imageSources[i % imageSources.length] ?? imageSources[0]!;
 
     const face = new PhysMat({
@@ -369,7 +393,7 @@ export function createHeroSlabCarousel(
       roughness: 0.34,
       clearcoat: 1.0,
       clearcoatRoughness: 0.05,
-      envMapIntensity: 0.85,
+      envMapIntensity: faceEnvIntensity,
       transparent: true,
     });
     const back = new PhysMat({
@@ -379,7 +403,7 @@ export function createHeroSlabCarousel(
       roughness: 0.42,
       clearcoat: 0.7,
       clearcoatRoughness: 0.18,
-      envMapIntensity: 0.85,
+      envMapIntensity: backEnvIntensity,
       transparent: true,
     });
     const side = sideMat.clone() as MeshStandardMaterial;
@@ -396,6 +420,7 @@ export function createHeroSlabCarousel(
     );
     tex.colorSpace = SRGBColorSpace;
     tex.anisotropy = maxAniso;
+    sharpenCardTexture(tex);
     face.map = tex;
 
     const cardMesh = new ThreeMesh(cardGeo, [side, side, side, side, face, back]);
@@ -408,9 +433,7 @@ export function createHeroSlabCarousel(
       clearcoatRoughness: 0.03,
       transparent: true,
       opacity: 0.4,
-      envMapIntensity: 1.6,
-      transmission: 0.35,
-      ior: 1.46,
+      envMapIntensity: rimEnvIntensity,
       side: DoubleSide,
     });
     const rim = new ThreeMesh(rimGeo, rimMat);
@@ -465,10 +488,17 @@ export function createHeroSlabCarousel(
 
   const clock = new Clock();
   let raf = 0;
+  let paused = false;
   const autoSpin = prefersReducedMotion ? 0 : AUTO_SPIN;
+  const targetFrameMs = useLightEnv ? 1000 / 30 : 1000 / 60;
+  let lastFrameAt = 0;
 
-  const loop = () => {
+  const loop = (now: number) => {
     raf = requestAnimationFrame(loop);
+    if (paused) return;
+    if (useLightEnv && now - lastFrameAt < targetFrameMs) return;
+    lastFrameAt = now;
+
     const dt = Math.min(clock.getDelta(), 0.05);
     if (!drag.active) {
       drag.angle += drag.vel;
@@ -489,7 +519,7 @@ export function createHeroSlabCarousel(
     });
     renderer.render(scene, cam);
   };
-  loop();
+  requestAnimationFrame(loop);
 
   const resizeRenderer = () => {
     W = host.clientWidth;
@@ -516,6 +546,14 @@ export function createHeroSlabCarousel(
   window.addEventListener("resize", reparentCarousel, { passive: true });
 
   return {
+    pause: () => {
+      paused = true;
+    },
+    resume: () => {
+      paused = false;
+      clock.getDelta();
+      lastFrameAt = 0;
+    },
     dispose: () => {
       cancelAnimationFrame(raf);
       host.removeEventListener("mousedown", onDown);
@@ -532,7 +570,7 @@ export function createHeroSlabCarousel(
       cardGeo.dispose();
       rimGeo.dispose();
       backTex.dispose();
-      env.dispose();
+      env?.dispose();
       scene.traverse((obj) => {
         const mesh = obj as Mesh;
         if (mesh.geometry) mesh.geometry.dispose();

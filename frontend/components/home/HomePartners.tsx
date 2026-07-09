@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import { TkButton } from "@/components/ds/Button";
 import { ASSETS } from "@/constants/assets";
-import { useSellAccessGate } from "@/hooks/auth/useSellAccessGate";
+import { useHeaderNavGate } from "@/hooks/auth/useHeaderNavGate";
 
 const PARTNER_LOGOS = [
   { src: ASSETS.ds.partners.psa, alt: "PSA", height: 25 },
@@ -14,7 +14,7 @@ const PARTNER_LOGOS = [
 ] as const;
 
 export function HomePartners() {
-  const { navigateToVault } = useSellAccessGate("/vault");
+  const navigate = useHeaderNavGate();
   const logosRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -68,7 +68,7 @@ export function HomePartners() {
             </p>
           </div>
           <div className="home-partners__cta-actions">
-            <TkButton variant="primaryInv" size="md" onClick={navigateToVault}>
+            <TkButton variant="primaryInv" size="md" onClick={() => navigate("/vault", 1)}>
               Start vaulting <span className="tkl-mono text-[17px]">↗</span>
             </TkButton>
           </div>

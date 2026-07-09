@@ -51,7 +51,7 @@ export function MintFormAssetListingSection({
                 ? "Name was set by PSA analysis and cannot be edited"
                 : undefined
             }
-            className="w-full bg-gray-800/80 border border-gray-700/60 focus:border-mint rounded-xl px-4 py-3 text-sm text-white placeholder-gray-600 outline-none transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            className="w-full rounded-xl border border-white/[0.08] bg-[#141414] px-4 py-3 text-sm text-white placeholder-white/35 outline-none transition-colors focus:border-[var(--azure)] focus:shadow-[0_0_0_3px_rgba(26,111,255,0.15)] disabled:cursor-not-allowed disabled:opacity-60"
             required
           />
           <p className="mt-1.5 text-[11px] leading-relaxed text-gray-500">
@@ -73,7 +73,7 @@ export function MintFormAssetListingSection({
             onChange={(e) => onDescriptionChange(e.target.value)}
             rows={2}
             placeholder="Describe your graded card..."
-            className="w-full bg-gray-800/80 border border-gray-700/60 focus:border-mint rounded-xl px-4 py-3 text-sm text-white placeholder-gray-600 outline-none transition-colors resize-none"
+            className="w-full resize-none rounded-xl border border-white/[0.08] bg-[#141414] px-4 py-3 text-sm text-white placeholder-white/35 outline-none transition-colors focus:border-[var(--azure)] focus:shadow-[0_0_0_3px_rgba(26,111,255,0.15)]"
           />
         </div>
       </div>

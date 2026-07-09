@@ -43,8 +43,8 @@
         "message": "Raw px value — use a design-system spacing token via var()."
       },
       {
-        "selector": "Literal[value=/font-family\\s*:\\s*(?!['\\\"]?(?:Inter|Roboto Mono|Noto Serif))/i]",
-        "message": "Font not provided by the design system. Available: Inter, Roboto Mono, Noto Serif."
+        "selector": "Literal[value=/font-family\\s*:\\s*(?!['\\\"]?(?:Inter|JetBrains Mono|Noto Serif))/i]",
+        "message": "Font not provided by the design system. Available: Inter, JetBrains Mono, Noto Serif."
       },
       {
         "selector": "JSXOpeningElement[name.name='AccordionItem'] > JSXAttribute > JSXIdentifier[name!=/^(?:title|content|key|ref|className|style|children)$/]",
@@ -183,6 +183,18 @@
         "message": "<SYMBOL> doesn't accept that prop. Declared props: className, style."
       },
       {
+        "selector": "JSXOpeningElement[name.name='TableColumn'] > JSXAttribute > JSXIdentifier[name!=/^(?:key|label|align|sortable|mono|bold|color|type|render|key|ref|className|style|children)$/]",
+        "message": "<TableColumn> doesn't accept that prop. Declared props: key, label, align, sortable, mono, bold, color, type, render."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='TableColumn'] > JSXAttribute[name.name='align'] > Literal[value!=/^(?:left|center|right)$/]",
+        "message": "<TableColumn> align must be one of 'left' | 'center' | 'right'."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='TableColumn'] > JSXAttribute[name.name='type'] > Literal[value!=/^(?:image)$/]",
+        "message": "<TableColumn> type must be one of 'image'."
+      },
+      {
         "selector": "JSXOpeningElement[name.name='TabItem'] > JSXAttribute > JSXIdentifier[name!=/^(?:value|label|icon|key|ref|className|style|children)$/]",
         "message": "<TabItem> doesn't accept that prop. Declared props: value, label, icon."
       },
@@ -303,6 +315,9 @@
         "replaces": []
       },
       "SYMBOL": {
+        "replaces": []
+      },
+      "TableColumn": {
         "replaces": []
       },
       "TabItem": {
@@ -437,6 +452,9 @@
       "--brand-700",
       "--brand-800",
       "--brand-900",
+      "--brand-accent-text",
+      "--brand-primary",
+      "--brand-secondary",
       "--checkbox-diameter",
       "--checkbox-icon-diameter",
       "--code-font-family",
@@ -444,6 +462,18 @@
       "--code-size-base",
       "--code-size-large",
       "--code-size-small",
+      "--color-accent-text",
+      "--color-ash",
+      "--color-carbon",
+      "--color-fog",
+      "--color-graphite",
+      "--color-midnight-ink",
+      "--color-paper",
+      "--color-signal-violet",
+      "--color-slate",
+      "--color-smoke",
+      "--color-steel",
+      "--color-voltage-blue",
       "--depth-0",
       "--depth-025",
       "--depth-100",
@@ -599,6 +629,9 @@
       "--pixel-clip",
       "--pixel-edge",
       "--pixel-notch",
+      "--pixel-notch-lg",
+      "--pixel-notch-md",
+      "--pixel-notch-sm",
       "--pixel-shadow-btn",
       "--pixel-shadow-lg",
       "--pixel-shadow-md",
@@ -1302,6 +1335,21 @@
       "--space-16": "spacing",
       "--space-20": "spacing",
       "--space-24": "spacing",
+      "--brand-primary": "color",
+      "--brand-secondary": "color",
+      "--brand-accent-text": "font",
+      "--color-signal-violet": "color",
+      "--color-voltage-blue": "color",
+      "--color-accent-text": "font",
+      "--color-midnight-ink": "color",
+      "--color-carbon": "color",
+      "--color-graphite": "color",
+      "--color-steel": "color",
+      "--color-slate": "color",
+      "--color-fog": "color",
+      "--color-ash": "color",
+      "--color-paper": "color",
+      "--color-smoke": "color",
       "--elevation-1": "shadow",
       "--elevation-2": "shadow",
       "--elevation-3": "shadow",
@@ -1322,12 +1370,15 @@
       "--pixel-shadow-sm": "shadow",
       "--pixel-shadow-md": "shadow",
       "--pixel-shadow-lg": "shadow",
-      "--pixel-clip": "other"
+      "--pixel-clip": "other",
+      "--pixel-notch-lg": "other",
+      "--pixel-notch-md": "other",
+      "--pixel-notch-sm": "other"
     },
     "fontFamilies": [
       "Inter",
-      "Noto Serif",
-      "Roboto Mono"
+      "JetBrains Mono",
+      "Noto Serif"
     ]
   }
 }

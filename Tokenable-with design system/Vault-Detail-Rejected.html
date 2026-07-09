@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tokenable — Submission Rejected</title>
+<script src="support.js"></script>
+</head>
+<body>
+<x-dc data-theme="dark">
+<helmet>
+<script src="ds-base.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root:root{ --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace; }
+  :root{
+    --ink: #0e0e0e; --ink-2: #0e0e0e;
+    --surf: #141414; --surf-2: #111111;
+    --line: rgba(255,255,255,0.08); --line-2: rgba(255,255,255,0.05);
+    --azure: rgb(26,111,255); --pos: rgb(0,200,100); --neg: rgb(228,55,74);
+    --amber: #F59E0B; --purple: #8B5CF6;
+    --t2: rgba(255,255,255,0.55); --t3: rgba(255,255,255,0.35);
+    --brand-500: #1A6FFF; --brand-400: #5B9AFF; --brand-900: #191919;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--ink);color:#fff;font-family:var(--font-sans, 'Inter', sans-serif);-webkit-font-smoothing:antialiased;}
+  .mono{font-family:var(--font-mono);}
+
+  /* GNB */
+  header{position:sticky;top:0;z-index:50;background:var(--ink-2);border-bottom:1px solid rgba(255,255,255,0.08);}
+  .navlink{font-family:var(--font-sans);font-size:14.5px;font-weight:500;color:var(--t2);text-decoration:none;height:64px;display:inline-flex;align-items:center;position:relative;transition:color 0.15s;cursor:pointer;}
+  .navlink:hover{color:#fff;}
+  .navlink.on{color:#fff;font-weight:600;}
+  .navlink.on::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2px;background:var(--azure);}
+  .gnb-burger{display:none;background:none;border:0;color:#fff;cursor:pointer;padding:4px;}
+  .gnb-logo-full{height:22px;}
+  .gnb-logo-symbol{height:28px;display:none;}
+  .gnb-right{display:flex;align-items:center;gap:14px;}
+
+  /* Buttons */
+  .btn{display:inline-flex;align-items:center;justify-content:center;border:0;cursor:pointer;font-family:var(--font-sans);font-weight:600;transition:all 0.12s;border-radius:0;clip-path:polygon(0 6px,4px 2px,8px 0,calc(100% - 8px) 0,calc(100% - 4px) 2px,100% 6px,100% calc(100% - 6px),calc(100% - 4px) calc(100% - 2px),calc(100% - 8px) 100%,8px 100%,4px calc(100% - 2px),0 calc(100% - 6px));}
+  .btn--primary{background:#1A6FFF;color:#fff;box-shadow:inset 0 0 0 3px rgba(0,0,20,0.5),inset 0 0 0 1px rgba(80,160,255,0.6),inset 0 3px 0 0 rgba(80,170,255,0.7),inset 0 -3px 0 0 rgba(0,0,50,0.4);filter:drop-shadow(4px 4px 0 rgba(26,111,255,0.55));}
+  .btn--primary:hover{filter:drop-shadow(5px 5px 0 rgba(26,111,255,0.65));transform:translate(-1px,-1px);}
+  .btn--ghost{background:#191919;color:#fff;box-shadow:inset 0 0 0 3px rgba(0,0,20,0.5),inset 0 0 0 1px rgba(255,255,255,0.1),inset 0 3px 0 0 rgba(255,255,255,0.15),inset 0 -3px 0 0 rgba(0,0,0,0.3);filter:drop-shadow(4px 4px 0 rgba(5,10,30,0.7));}
+  .btn--ghost:hover{filter:drop-shadow(5px 5px 0 rgba(5,10,30,0.8));transform:translate(-1px,-1px);}
+  .btn--disabled{opacity:0.4;cursor:not-allowed;pointer-events:none;}
+
+  /* Card box */
+  .card-box{background:#191919;border-radius:16px;padding:24px;}
+
+  /* Badges */
+  .badge{font-family:var(--font-mono);font-size:11px;font-weight:600;padding:3px 10px;border-radius:6px;display:inline-flex;align-items:center;gap:4px;}
+  .badge--user{background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.6);}
+  .badge--system{background:rgba(26,111,255,0.12);color:var(--azure);}
+  .badge--webhook{background:rgba(139,92,246,0.12);color:var(--purple);}
+  .badge--blockchain{background:rgba(0,200,100,0.12);color:var(--pos);}
+  .badge--admin{background:rgba(245,158,11,0.12);color:var(--amber);}
+
+  /* Timeline */
+  .tl-step{display:flex;gap:16px;position:relative;padding-bottom:0;}
+  .tl-step:last-child{padding-bottom:0;}
+  .tl-rail{display:flex;flex-direction:column;align-items:center;flex-shrink:0;width:14px;}
+  .tl-dot{width:14px;height:14px;border-radius:50%;flex-shrink:0;position:relative;z-index:1;}
+  .tl-dot--done{background:var(--pos);}
+  .tl-dot--active{background:var(--azure);box-shadow:0 0 12px rgba(26,111,255,0.6);animation:pulse-dot 2s infinite;}
+  .tl-dot--pending{background:#374151;}
+  .tl-line{width:2px;flex:1;}
+  .tl-line--done{background:var(--pos);}
+  .tl-line--active{background:linear-gradient(180deg,var(--azure),#374151);}
+  .tl-line--pending{background:#374151;opacity:0.3;}
+  .tl-body{flex:1;min-width:0;padding-top:0;}
+  .tl-title{font-size:15px;font-weight:700;color:#fff;margin-bottom:2px;}
+  .tl-step.pending .tl-title{color:rgba(255,255,255,0.35);}
+  .tl-step.pending .tl-desc{color:rgba(255,255,255,0.2);}
+  .tl-meta{display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;}
+  .tl-time{font-family:var(--font-mono);font-size:11px;color:rgba(255,255,255,0.3);}
+  .tl-desc{font-size:13px;color:rgba(255,255,255,0.45);line-height:1.6;}
+
+  /* Spinner */
+  .spin{display:inline-block;width:14px;height:14px;border:2px solid rgba(26,111,255,0.2);border-top-color:var(--azure);border-radius:50%;animation:spin 0.8s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  @keyframes pulse-dot{0%,100%{box-shadow:0 0 6px rgba(26,111,255,0.4);}50%{box-shadow:0 0 18px rgba(26,111,255,0.8);}}
+
+  /* Progress pills */
+  .step-pills{display:flex;gap:0;align-items:center;margin-top:20px;}
+  .step-pill{flex:1;height:4px;transition:background 0.2s;}
+  .step-pill:first-child{border-radius:3px 0 0 3px;}
+  .step-pill:last-child{border-radius:0 3px 3px 0;}
+  .step-pill.done{background:var(--pos);}
+  .step-pill.active{background:var(--azure);animation:pulse-pill 2s infinite;}
+  .step-pill.pending{background:rgba(255,255,255,0.06);}
+  @keyframes pulse-pill{0%,100%{opacity:0.7;}50%{opacity:1;}}
+  .step-pills-labels{display:flex;gap:0;margin-top:14px;}
+  .step-pills-labels .sl{flex:1;font-size:12px;font-weight:500;color:rgba(255,255,255,0.3);}
+  .step-pills-labels .sl:first-child{text-align:left;}
+  .step-pills-labels .sl:last-child{text-align:right;}
+  .step-pills-labels .sl.done{color:var(--pos);font-weight:600;}
+  .step-pills-labels .sl.active{color:var(--azure);font-weight:700;}
+  .step-pills-labels .sl-sub{font-size:11px;font-weight:400;margin-top:2px;}
+
+  /* Live log */
+  .log-wrap{background:#0e0e18;border-radius:12px;padding:16px;max-height:240px;overflow-y:auto;font-family:var(--font-mono);font-size:12px;line-height:2;}
+  .log-wrap::-webkit-scrollbar{width:4px;}
+  .log-wrap::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);border-radius:2px;}
+  .log-line{display:flex;gap:10px;align-items:baseline;}
+  .log-time{color:rgba(255,255,255,0.25);flex-shrink:0;width:42px;}
+  .log-actor{flex-shrink:0;width:80px;}
+  .log-msg{color:rgba(255,255,255,0.5);}
+
+  /* Detail row */
+  .detail-row{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.04);}
+  .detail-row:last-child{border-bottom:none;}
+  .detail-k{font-family:var(--font-mono);font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:rgba(255,255,255,0.35);}
+  .detail-v{font-size:13px;font-weight:600;color:#fff;text-align:right;}
+
+  /* 2-col layout */
+  .page-grid{display:grid;grid-template-columns:1fr 380px;gap:40px;max-width:1200px;margin:0 auto;padding:40px clamp(16px,4vw,40px) 80px;}
+
+  /* Search */
+  .tk-search .tk-input{background:rgba(255,255,255,0.85)!important;color:#111!important;border:none!important;box-shadow:none!important;}
+  .tk-search .tk-input::placeholder{color:rgba(0,0,0,0.4)!important;}
+  .tk-search__icon{display:flex!important;color:rgba(0,0,0,0.4)!important;}
+  .tk-search{clip-path:var(--pixel-notch-md);overflow:hidden;}
+  .tk-search .tk-input{clip-path:none!important;height:36px!important;font-size:14px!important;}
+
+  /* Notification banner */
+  .notif-banner{background:rgba(26,111,255,0.06);border:1px solid rgba(26,111,255,0.15);border-radius:12px;padding:16px 20px;display:flex;align-items:center;gap:12px;font-size:13px;color:rgba(255,255,255,0.55);}
+
+  /* Mobile */
+  @media(max-width:1024px){
+    .page-grid{grid-template-columns:1fr;gap:32px;}
+    .gnb-burger{display:block;}
+    .gnb-logo-full{display:none;}
+    .gnb-logo-symbol{display:block;}
+    header nav{display:none;}
+  }
+
+  /* Mobile nav */
+  .gnb-burger{display:none;width:42px;height:42px;border:0;background:transparent;color:#fff;cursor:pointer;align-items:center;justify-content:center;position:relative;}
+  .burger-lines{display:flex;flex-direction:column;gap:6px;width:20px;}
+  .burger-lines span{display:block;height:2px;background:#fff;border-radius:1px;transition:transform 0.25s ease, opacity 0.25s ease;}
+  .gnb-burger.is-open .burger-lines span:first-child{transform:translateY(4px) rotate(45deg);}
+  .gnb-burger.is-open .burger-lines span:last-child{transform:translateY(-4px) rotate(-45deg);}
+  .gnb-drawer{display:none;position:fixed;inset:64px 0 0 0;z-index:45;background:var(--ink-2);flex-direction:column;gap:4px;padding:16px;overflow-y:auto;}
+  .gnb-drawer.open{display:none!important;}.gnb-drawer{display:none!important;}
+  .gnb-drawer .navlink{height:auto;font-size:18px;padding:16px;color:#fff;}
+  .gnb-drawer .navlink::after{display:none!important;}
+  .gnb-drawer .navlink:hover{background:rgba(26,111,255,0.06);}
+  .gnb-search-overlay{display:none;position:fixed;top:0;left:0;right:0;z-index:60;background:var(--ink-2);}
+  .gnb-search-overlay.open{display:block;}
+  .gnb-search-overlay__bar{display:flex;align-items:center;height:64px;padding:0 16px;gap:12px;}
+  .gnb-search-overlay__input{flex:1;height:44px;border:0;background:rgba(255,255,255,0.08);color:#fff;font-family:var(--font-sans);font-size:15px;padding:0 16px;border-radius:8px;outline:none;}
+  .gnb-search-overlay__input::placeholder{color:rgba(255,255,255,0.35);}
+  .gnb-search-overlay__cancel{border:0;background:transparent;color:var(--azure);font-family:var(--font-sans);font-size:15px;font-weight:600;cursor:pointer;padding:0 8px;white-space:nowrap;}
+  @media(max-width:1024px){
+    .gnb-nav{display:none!important;} .gnb-right{display:none!important;} .gnb-burger{display:flex!important;} .gnb-search-mobile{display:flex!important;} .gnb-logo-full{display:none!important;} .gnb-logo-symbol{display:block!important;} }
+  @media(min-width:881px){ .gnb-drawer{display:none!important;} .gnb-search-overlay{display:none!important;} }
+</style>
+</helmet>
+
+  <!-- ============ GNB ============ -->
+  <header>
+    <div style="display:flex;align-items:center;height:64px;gap:0;padding:0 clamp(16px,4vw,40px);max-width:100%;">
+      <a href="index.html" style="display:flex;align-items:center;"><img class="gnb-logo-full" src="images/logo-tokenable.svg" alt="Tokenable" style="height:24px;"><img class="gnb-logo-symbol" src="images/symbol-white.svg" alt="Tokenable" style="height:26px;display:none;"></a>
+      <nav class="gnb-nav" style="display:flex;gap:40px;margin-left:52px;">
+        <a class="navlink" href="Markets.html">Markets</a>
+        <a class="navlink" href="Portfolio.html">Portfolio</a>
+        <a class="navlink on" href="Vault-Dashboard-Active.html">Vault</a>
+      </nav>
+      <div style="flex:1;"></div>
+      <button class="gnb-burger" aria-label="Open menu"><span class="burger-lines"><span></span><span></span></span></button>
+      <div class="gnb-right">
+        <x-import component-from-global-scope="TokenableDesignSystem_8d023b.Search" placeholder="Search cards, sets, players…" hint-size="300px,44px"></x-import>
+        <button class="btn btn--primary tk-connect" style="height:44px;padding:0 18px;font-size:14px;">Connect Wallet</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Mobile drawer -->
+  <div class="gnb-drawer">
+    <a class="navlink" href="index.html">Home</a>
+    <a class="navlink" href="Markets.html">Markets</a>
+    <a class="navlink" href="Portfolio.html">Portfolio</a>
+    <a class="navlink" href="Vault-Dashboard-Active.html">Vault</a>
+    <div style="margin-top:auto;padding:16px 0;">
+      <button class="btn btn--primary tk-connect" style="height:48px;width:100%;font-size:15px;">Connect Wallet</button>
+    </div>
+  </div>
+  <!-- Mobile Search Overlay -->
+  <div class="gnb-search-overlay" id="mobileSearchOverlay">
+    <div class="gnb-search-overlay__bar">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="2" style="flex-shrink:0;"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="21" y2="21"/></svg>
+      <input class="gnb-search-overlay__input" type="text" placeholder="Search cards, sets, players…">
+      <button class="gnb-search-overlay__cancel" id="mobileSearchCancel">Cancel</button>
+    </div>
+  </div>
+
+  <!-- ============ MAIN ============ -->
+  <div class="page-grid">
+
+    <!-- LEFT COLUMN -->
+    <div>
+      <!-- Breadcrumb -->
+      <div style="margin-bottom:20px;font-size:13px;color:rgba(255,255,255,0.35);">
+        <a href="Vault-Dashboard-Active.html" style="color:var(--azure);text-decoration:none;font-weight:600;">My Vault</a>
+        <span style="margin:0 8px;color:rgba(255,255,255,0.2);">›</span>
+        <span style="color:rgba(255,255,255,0.5);">SUB-20260616-00421</span>
+      </div>
+
+      <!-- Page header -->
+      <h1 style="margin:0 0 16px;font-weight:700;font-size:28px;letter-spacing:-0.02em;">Submission Detail</h1>
+
+      <!-- Card summary row -->
+      <div style="display:flex;align-items:center;gap:16px;padding:16px 20px;background:#191919;border-radius:14px;margin-bottom:32px;">
+        <div style="width:56px;height:78px;background:#0e0e0e;border-radius:6px;padding:4px;flex-shrink:0;">
+          <img src="images/card-charizard.png" alt="Charizard" style="width:100%;height:100%;object-fit:contain;">
+        </div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:16px;font-weight:700;color:#fff;">1999 POKEMON BASE SET 1ST EDITION #4 CHARIZARD HOLO</div>
+          <div style="display:flex;align-items:center;gap:8px;margin-top:6px;flex-wrap:wrap;">
+            <span class="badge" style="background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.6);">PSA 8</span>
+            <span class="mono" style="font-size:11px;color:rgba(255,255,255,0.35);">Cert #12345678</span>
+            <span class="badge" style="background:rgba(139,92,246,0.12);color:var(--purple);">Polygon</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Status hero -->
+      <div style="margin-bottom:32px;padding:24px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:14px;">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="2" style="flex-shrink:0;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <div style="font-size:24px;font-weight:700;color:#fff;">Not Eligible for Vault</div>
+        </div>
+        <div style="font-size:14px;color:rgba(255,255,255,0.45);line-height:1.6;padding-left:34px;">This card is graded PSA 8. We currently accept PSA 9 and PSA 10 only. Your card will be returned to you.</div>
+      </div>
+
+      <!-- Step indicator (rejected) -->
+      <div style="display:flex;align-items:flex-start;width:100%;margin-bottom:32px;">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:10px;flex-shrink:0;">
+          <div style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.5);font-size:16px;font-weight:700;">—</div>
+          <div style="font-size:12px;font-weight:600;color:rgba(255,255,255,0.4);">Submit</div>
+        </div>
+        <div style="flex:1;height:2px;background:rgba(255,255,255,0.06);margin:17px -4px 0;"></div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:10px;flex-shrink:0;">
+          <div style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.25);font-family:var(--font-mono);font-size:14px;font-weight:700;">2</div>
+          <div style="font-size:12px;font-weight:600;color:rgba(255,255,255,0.4);">Ship</div>
+        </div>
+        <div style="flex:1;height:2px;background:rgba(255,255,255,0.06);margin:17px -4px 0;"></div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:10px;flex-shrink:0;">
+          <div style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.25);font-family:var(--font-mono);font-size:14px;font-weight:700;">3</div>
+          <div style="font-size:12px;font-weight:600;color:rgba(255,255,255,0.4);">Vault</div>
+        </div>
+        <div style="flex:1;height:2px;background:rgba(255,255,255,0.06);margin:17px -4px 0;"></div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:10px;flex-shrink:0;">
+          <div style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.25);font-family:var(--font-mono);font-size:14px;font-weight:700;">4</div>
+          <div style="font-size:12px;font-weight:600;color:rgba(255,255,255,0.4);">Mint</div>
+        </div>
+      </div>
+      <div style="margin-bottom:32px;">
+        <span class="mono" style="font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:rgba(255,255,255,0.4);font-weight:600;display:block;margin-bottom:16px;">Timeline</span>
+
+      <!-- ============ TIMELINE ============ -->
+        <!-- SUBMIT phase (rejected) -->
+        <div class="tl-step">
+          <div class="tl-rail"><div class="tl-dot tl-dot--done"></div><div class="tl-line" style="background:rgba(255,255,255,0.1);"></div></div>
+          <div class="tl-body">
+            <div style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:rgba(255,255,255,0.4);margin-bottom:4px;">SUBMIT</div>
+            <div class="tl-title">Submitted</div>
+            <div class="tl-meta"><span class="tl-time">2026-06-10 09:14</span><span class="badge badge--user">USER</span></div>
+            <div class="tl-desc">Card info submitted · Cert #12345678</div>
+          </div>
+        </div>
+        <div class="tl-step">
+          <div class="tl-rail"><div class="tl-dot" style="background:rgba(255,255,255,0.15);"></div></div>
+          <div class="tl-body">
+            <div class="tl-title" style="color:rgba(255,255,255,0.7);">Not Accepted</div>
+            <div class="tl-meta"><span class="tl-time">2026-06-10 09:15</span><span class="badge badge--system">SYSTEM</span></div>
+            <div class="tl-desc">PSA 8 confirmed — we currently only accept PSA 9 and above</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Notification banner -->
+      </div>
+
+    <!-- RIGHT COLUMN -->
+    <div>
+      <!-- Card image -->
+      <div class="card-box" style="margin-bottom:20px;text-align:center;padding:32px;">
+        <div style="width:200px;height:280px;margin:0 auto;background:#0e0e0e;border-radius:10px;padding:8px;">
+          <img src="images/card-charizard.png" alt="Charizard PSA 10" style="width:100%;height:100%;object-fit:contain;">
+        </div>
+      </div>
+
+      <!-- Card details -->
+      <div class="card-box" style="margin-bottom:20px;">
+        <span class="mono" style="font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:rgba(255,255,255,0.4);font-weight:600;display:block;margin-bottom:12px;">Card Details</span>
+        <div class="detail-row"><span class="detail-k">Graded By</span><span class="detail-v">PSA · 8</span></div>
+        <div class="detail-row"><span class="detail-k">Cert #</span><span class="detail-v mono" style="font-size:12px;">12345678</span></div>
+        <div class="detail-row"><span class="detail-k">Vault</span><span class="detail-v mono" style="font-size:11px;color:rgba(255,255,255,0.5);">Delaware · Lloyd’s</span></div>
+        <div class="detail-row"><span class="detail-k">Status</span><span class="detail-v" style="color:rgba(255,255,255,0.5);">Not eligible</span></div>
+      </div>
+
+      <!-- Blockchain receipt (pending) -->
+      <div class="card-box" style="margin-bottom:20px;">
+        <span class="mono" style="font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:rgba(255,255,255,0.4);font-weight:600;display:block;margin-bottom:12px;">What Happened</span>
+        <div style="font-size:14px;color:rgba(255,255,255,0.5);line-height:1.7;">We currently accept PSA 9 and PSA 10 graded cards. This card (PSA 8) doesn't meet the minimum grade. We'll return it to you shortly.</div>
+      </div>
+
+      <!-- Actions -->
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <a href="Vault-Submit.html" class="btn btn--primary" style="height:48px;width:100%;font-size:14px;text-decoration:none;">Submit Another Card →</a>
+        <button class="btn btn--ghost" style="height:42px;width:100%;font-size:13px;">Contact Support</button>
+      </div>
+      <!-- Delivery note -->
+      <div style="margin-top:16px;padding:14px 16px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:12px;font-size:12px;color:rgba(255,255,255,0.45);line-height:1.7;">
+        <strong style="color:rgba(255,255,255,0.5);">Card Return</strong><br>
+        Your card will be returned to the address on file. Return shipping costs are the submitter's responsibility. Please allow 7–10 business days for processing.
+      </div>
+    </div>
+
+  </div>
+
+  <script src="tk-footer.js"></script>
+
+</x-dc>
+
+<script src="tk-wallet.js"></script>
+<script src="tk-notifications.js"></script>
+
+<script>
+/* Mobile nav delegation */
+(function(){
+  if(window.__tkMobileNav) return; window.__tkMobileNav=true;
+  document.addEventListener('click', function(e){
+    var t=e.target;
+    /* burger handled by tk-mobile-nav.js */
+    var searchMobile=t.closest&&t.closest('.gnb-search-mobile');
+    if(searchMobile){ var ov=document.getElementById('mobileSearchOverlay'); if(ov){ov.classList.add('open'); ov.querySelector('input')?.focus();} return; }
+    var searchCancel=t.closest&&t.closest('.gnb-search-overlay__cancel');
+    if(searchCancel){ var ov=document.getElementById('mobileSearchOverlay'); if(ov){ov.classList.remove('open'); ov.querySelector('input').value='';} return; }
+  }, false);
+})();
+</script>
+<script src="tk-mobile-nav.js"></script>
+</body>
+</html>

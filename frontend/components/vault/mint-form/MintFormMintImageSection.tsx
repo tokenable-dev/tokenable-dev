@@ -76,7 +76,7 @@ export function MintFormMintImageSection({
                   <p className="text-xs text-gray-500">
                     PSA image is used for IPFS and marketplace art.
                   </p>
-                  <span className="mt-2 inline-flex w-fit rounded-full border border-mint-deep/50 bg-mint/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-mint">
+                  <span className="mt-2 inline-flex w-fit rounded-full border border-[rgba(26,111,255,0.35)] bg-[rgba(26,111,255,0.1)] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--azure)]">
                     Source: PSA Cert Image
                   </span>
                 </>
