@@ -5,6 +5,9 @@ import { perfNow, perfLog, elapsedMs } from '../common/perf/perf';
 import {
   parsePositiveIntEnv,
 } from './psa-public-api-rate-limit.util';
+import type {
+  PsaPublicApiDisabledResult,
+} from './psa-disabled-response.util';
 import type { PsaSpecPopSummary } from './psa-spec-population.util';
 import {
   isCompletePsaPopByGradeMap,
@@ -51,7 +54,7 @@ export interface PsaUpstreamCallMeta {
 }
 
 export type PsaPublicApiLookupResult =
-  | { status: 'disabled'; reason: 'no_token' }
+  | PsaPublicApiDisabledResult
   | { status: 'skipped'; reason: 'no_cert' | 'invalid_cert' }
   | {
       status: 'success';
@@ -74,7 +77,7 @@ export type { PsaSpecPopSummary } from './psa-spec-population.util';
 export { parsePsaSpecPopulationBody } from './psa-spec-population.util';
 
 export type PsaSpecPopulationLookupResult =
-  | { status: 'disabled'; reason: 'no_token' }
+  | PsaPublicApiDisabledResult
   | { status: 'skipped'; reason: 'no_spec' | 'invalid_spec' }
   | {
       status: 'success';
@@ -91,7 +94,7 @@ export type PsaSpecPopulationLookupResult =
 
 /** GET /cert/GetImagesByCertNumber/{cert} — 슬랩 사진 URL(ImageURL, IsFrontImage 배열). */
 export type PsaGetImagesLookupResult =
-  | { status: 'disabled'; reason: 'no_token' }
+  | PsaPublicApiDisabledResult
   | { status: 'skipped'; reason: 'no_cert' | 'invalid_cert' }
   | {
       status: 'success';
@@ -109,7 +112,7 @@ export type PsaGetImagesLookupResult =
 
 /** GET /order/GetProgress/{orderNumber} — PSA Swagger `OrderProgress`. */
 export type PsaOrderProgressLookupResult =
-  | { status: 'disabled'; reason: 'no_token' }
+  | PsaPublicApiDisabledResult
   | { status: 'skipped'; reason: 'no_number' }
   | {
       status: 'success';
@@ -280,6 +283,16 @@ export class PsaPublicApiService implements OnModuleInit {
     return !isPsaPublicApiUpstreamEnabled(this.config);
   }
 
+  private buildDisabledResult(): PsaPublicApiDisabledResult {
+    if (this.upstreamBlocked()) {
+      return { status: 'disabled', reason: 'upstream_disabled' };
+    }
+    if (this.tokenPool.length === 0) {
+      return { status: 'disabled', reason: 'no_token' };
+    }
+    return { status: 'disabled', reason: 'all_tokens_rate_limited' };
+  }
+
   private getCacheTtlMs(): number {
     const n = this.config.get<string>('PSA_PUBLIC_API_CACHE_TTL_MS');
     const parsed = n ? parseInt(n, 10) : NaN;
@@ -366,11 +379,11 @@ export class PsaPublicApiService implements OnModuleInit {
     opts?: { bypassCache?: boolean },
   ): Promise<PsaPublicApiLookupResult> {
     if (this.upstreamBlocked()) {
-      return { status: 'disabled', reason: 'no_token' };
+      return this.buildDisabledResult();
     }
     const token = this.getNextToken();
     if (!token) {
-      return { status: 'disabled', reason: 'no_token' };
+      return this.buildDisabledResult();
     }
     const digits = certRaw?.replace(/\D/g, '') ?? '';
     if (!digits) {
@@ -590,11 +603,11 @@ export class PsaPublicApiService implements OnModuleInit {
     certRaw: string | undefined,
   ): Promise<PsaPublicApiLookupResult> {
     if (this.upstreamBlocked()) {
-      return { status: 'disabled', reason: 'no_token' };
+      return this.buildDisabledResult();
     }
     const token = this.getNextToken();
     if (!token) {
-      return { status: 'disabled', reason: 'no_token' };
+      return this.buildDisabledResult();
     }
     const digits = certRaw?.replace(/\D/g, '') ?? '';
     if (!digits) {
@@ -788,11 +801,11 @@ export class PsaPublicApiService implements OnModuleInit {
     specRaw: string | number | undefined,
   ): Promise<PsaSpecPopulationLookupResult> {
     if (this.upstreamBlocked()) {
-      return { status: 'disabled', reason: 'no_token' };
+      return this.buildDisabledResult();
     }
     const token = this.getNextToken();
     if (!token) {
-      return { status: 'disabled', reason: 'no_token' };
+      return this.buildDisabledResult();
     }
     const specId = normalizePsaSpecId(specRaw);
     if (!specId) {
@@ -958,11 +971,11 @@ export class PsaPublicApiService implements OnModuleInit {
     certRaw: string | undefined,
   ): Promise<PsaGetImagesLookupResult> {
     if (this.upstreamBlocked()) {
-      return { status: 'disabled', reason: 'no_token' };
+      return this.buildDisabledResult();
     }
     const token = this.getNextToken();
     if (!token) {
-      return { status: 'disabled', reason: 'no_token' };
+      return this.buildDisabledResult();
     }
     const digits = certRaw?.replace(/\D/g, '') ?? '';
     if (!digits) {
@@ -1183,11 +1196,11 @@ export class PsaPublicApiService implements OnModuleInit {
     kind: 'order' | 'submission',
   ): Promise<PsaOrderProgressLookupResult> {
     if (this.upstreamBlocked()) {
-      return { status: 'disabled', reason: 'no_token' };
+      return this.buildDisabledResult();
     }
     const token = this.getNextToken();
     if (!token) {
-      return { status: 'disabled', reason: 'no_token' };
+      return this.buildDisabledResult();
     }
 
     const url = `${this.baseUrl}${psaPath}`;

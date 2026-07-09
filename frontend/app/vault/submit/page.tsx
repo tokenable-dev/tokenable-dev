@@ -3,10 +3,8 @@ import { VaultSubmitDesignView } from "@/components/vault/submit/VaultSubmitDesi
 
 export default function VaultSubmitPage() {
   return (
-    <VaultShell className="vault-page--submit">
-      <div className="vault-page__shell vault-page__shell--submit">
-        <VaultSubmitDesignView />
-      </div>
+    <VaultShell wide className="vault-page--submit">
+      <VaultSubmitDesignView />
     </VaultShell>
   );
 }

@@ -14,6 +14,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { isPsaPublicApiUpstreamEnabled } from '../marketplace/utils/psa-upstream-policy.util';
+import { throwPsaPublicApiDisabledException } from './psa-disabled-response.util';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import {
   ApiBody,
@@ -499,9 +500,7 @@ export class PsaController {
     try {
       const result = await run();
       if (result.status === 'disabled') {
-        throw new ServiceUnavailableException(
-          'PSA_PUBLIC_API_TOKEN 이 설정되지 않았습니다. backend/.env 에 psacard.com/publicapi 토큰을 추가하세요.',
-        );
+        throwPsaPublicApiDisabledException(result.reason);
       }
       if (result.status === 'skipped') {
         throw new BadRequestException('유효한 certNumber(7~10자리)가 필요합니다.');
@@ -528,9 +527,7 @@ export class PsaController {
     try {
       const result = await run();
       if (result.status === 'disabled') {
-        throw new ServiceUnavailableException(
-          'PSA_PUBLIC_API_TOKEN 이 설정되지 않았습니다.',
-        );
+        throwPsaPublicApiDisabledException(result.reason);
       }
       if (result.status === 'skipped') {
         throw new BadRequestException('유효한 certNumber(7~10자리)가 필요합니다.');
@@ -554,9 +551,7 @@ export class PsaController {
     try {
       const result = await run();
       if (result.status === 'disabled') {
-        throw new ServiceUnavailableException(
-          'PSA_PUBLIC_API_TOKEN 이 설정되지 않았습니다.',
-        );
+        throwPsaPublicApiDisabledException(result.reason);
       }
       if (result.status === 'skipped') {
         throw new BadRequestException('유효한 specId가 필요합니다.');
@@ -595,9 +590,7 @@ export class PsaController {
     try {
       const result = await run();
       if (result.status === 'disabled') {
-        throw new ServiceUnavailableException(
-          'PSA_PUBLIC_API_TOKEN 이 설정되지 않았습니다. backend/.env 에 psacard.com/publicapi 토큰을 추가하세요.',
-        );
+        throwPsaPublicApiDisabledException(result.reason);
       }
       if (result.status === 'skipped') {
         throw new BadRequestException('orderNumber 또는 submissionNumber 가 필요합니다.');
