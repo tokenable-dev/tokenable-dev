@@ -167,7 +167,7 @@ export function VaultSubmitDesignView() {
               <Image src={ASSETS.icons.psaMark} alt="PSA" width={88} height={44} className="vault-cert-label__logo" />
               Certification Number
             </label>
-            <p className="vault-form-helper" style={{ marginBottom: 4 }}>
+            <p className="vault-form-helper vault-form-helper--tight">
               Optional — look up cards you want to verify before submitting
             </p>
 
@@ -227,10 +227,12 @@ export function VaultSubmitDesignView() {
                       <span className="vault-lookup-card__cert">Cert #{card.cert}</span>
                       {card.rejected ? (
                         <span className="vault-lookup-card__status vault-lookup-card__status--neg">
-                          Not accepted — PSA 9 minimum
+                          🔴 Not accepted — PSA 9 minimum
                         </span>
                       ) : (
-                        <span className="vault-lookup-card__status vault-lookup-card__status--pos">Valid</span>
+                        <span className="vault-lookup-card__status vault-lookup-card__status--pos">
+                          ✅ Valid
+                        </span>
                       )}
                     </div>
                   </div>
@@ -260,11 +262,12 @@ export function VaultSubmitDesignView() {
             </div>
           ) : null}
 
-          <div className="vault-section-card">
-            <label className="vault-form-label" style={{ marginBottom: 14 }}>
-              Submission Details
-            </label>
-            <div className="vault-submit-details-stack">
+          <div className="vault-submit-block">
+            <div className="vault-section-card vault-section-card--flush">
+              <label className="vault-form-label" style={{ marginBottom: 14 }}>
+                Submission Details
+              </label>
+              <div className="vault-submit-details-stack">
               <div>
                 <label className="vault-form-label vault-form-label--sm">Number of Cards</label>
                 <input
@@ -302,6 +305,7 @@ export function VaultSubmitDesignView() {
                 <div className="vault-form-helper">
                   Total value of all cards. Used for insurance and PSA records.
                 </div>
+              </div>
               </div>
             </div>
           </div>

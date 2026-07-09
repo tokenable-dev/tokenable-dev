@@ -22,6 +22,12 @@
   max-width: 1240px;
 }
 
+.vault-page--submit .vault-page__shell {
+  max-width: 1200px;
+  padding-top: 40px;
+  padding-bottom: 80px;
+}
+
 /* ── Stepper (Vault-Submit.html) ─────────────────────────────────────────── */
 
 .vault-stepper {
@@ -103,8 +109,8 @@
 .vault-stepper__line {
   flex: 1;
   height: 2px;
-  margin: 0 4px;
-  align-self: center;
+  margin: 17px -4px 0;
+  align-self: flex-start;
   background: rgba(255, 255, 255, 0.06);
 }
 
@@ -119,16 +125,16 @@
 .vault-stepper__label {
   margin-top: 10px;
   font-family: var(--font-sans);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
-  letter-spacing: 0.02em;
   text-align: center;
   color: rgba(255, 255, 255, 0.4);
+  white-space: nowrap;
 }
 
 @media (min-width: 640px) {
   .vault-stepper__label {
-    font-size: 13px;
+    font-size: 12px;
     max-width: none;
   }
 }
@@ -918,12 +924,6 @@
 
 /* ── Submit page (Vault-Submit.html) ─────────────────────────────────────── */
 
-.vault-page__shell--submit {
-  max-width: 1200px;
-  padding-top: 40px;
-  padding-bottom: 80px;
-}
-
 .vault-submit-title {
   margin: 0 0 32px;
   font-family: var(--font-sans);
@@ -1158,6 +1158,7 @@
   flex-shrink: 0;
   border-radius: 6px;
   background: linear-gradient(135deg, var(--azure), #5b9aff);
+  clip-path: var(--pixel-notch-lg);
 }
 
 .vault-wallet-connected__addr {
@@ -1314,6 +1315,14 @@
   color: rgba(255, 255, 255, 0.35);
 }
 
+.vault-form-helper--tight {
+  margin-bottom: 4px;
+}
+
+.vault-submit-block {
+  margin-bottom: 32px;
+}
+
 .vault-form-input {
   width: 100%;
   height: 52px;
@@ -1343,6 +1352,10 @@
   padding: 24px;
   background: #191919;
   border-radius: 16px;
+}
+
+.vault-section-card--flush {
+  margin-bottom: 0;
 }
 
 .vault-result-card {
@@ -3738,7 +3751,7 @@
   .vault-submit-layout,
   .vault-detail-grid {
     grid-template-columns: 1fr;
-    gap: 32px;
+    gap: 24px;
   }
 
   .vault-ship-grid {
@@ -3868,7 +3881,15 @@
 
   .vault-lookup-card {
     flex-direction: column;
-    align-items: flex-start;
+    align-items: center;
+  }
+
+  .vault-lookup-card__body {
+    width: 100%;
+  }
+
+  .vault-lookup-card__remove {
+    align-self: flex-end;
   }
 
   .vault-lookup-card__img {
@@ -3913,7 +3934,7 @@
     display: block;
   }
 
-  .vault-page__shell--submit {
+  .vault-page--submit .vault-page__shell {
     padding-bottom: 100px;
   }
 }
