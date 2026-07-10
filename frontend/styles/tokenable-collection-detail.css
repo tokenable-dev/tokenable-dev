@@ -1091,8 +1091,9 @@
 /* Trades tab */
 .collection-detail-page .cd-ob-trades-hdr {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr 1.2fr;
+  grid-template-columns: 1.1fr 0.9fr 1fr 1.15fr;
   align-items: center;
+  column-gap: 8px;
   padding: 10px 16px;
 }
 
@@ -1105,18 +1106,20 @@
 }
 
 .collection-detail-page .cd-ob-trades-hdr span:last-child {
-  text-align: right;
+  text-align: left;
 }
 
 .collection-detail-page .cd-ob-trades-scroll {
   max-height: 300px;
   overflow-y: auto;
+  scrollbar-gutter: stable;
 }
 
 .collection-detail-page .cd-ob-trades-row {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr 1.2fr;
+  grid-template-columns: 1.1fr 0.9fr 1fr 1.15fr;
   align-items: center;
+  column-gap: 8px;
   padding: 12px 16px;
 }
 
@@ -1142,6 +1145,10 @@
   min-width: 0;
 }
 
+.collection-detail-page .cd-ob-trades-source {
+  justify-content: flex-start;
+}
+
 .collection-detail-page .cd-ob-trades-source,
 .collection-detail-page .cd-ob-trades-source__label {
   font-family: var(--font-sans);
@@ -1163,8 +1170,11 @@
   font-family: var(--font-mono);
   font-size: 12px;
   color: var(--t2);
-  text-align: right;
+  text-align: left;
+  justify-self: start;
   min-width: 0;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 .collection-detail-page .cd-ob-trades-empty {

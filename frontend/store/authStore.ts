@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import type { AuthUser } from "@/lib/auth";
 import { fetchAuthMe, logoutAuth } from "@/lib/auth";
+import { userHasLinkedWallet } from "@/lib/auth/wallets";
 
 interface AuthState {
   user: AuthUser | null;
@@ -9,6 +10,25 @@ interface AuthState {
   setUser: (u: AuthUser | null) => void;
   refresh: (options?: { showLoading?: boolean }) => Promise<void>;
   logout: () => Promise<void>;
+}
+
+/** Prefer keeping linked wallets when a stale session response arrives without them. */
+function mergeAuthUser(prev: AuthUser | null, next: AuthUser | null): AuthUser | null {
+  if (!next) return null;
+  if (
+    prev &&
+    prev.id === next.id &&
+    userHasLinkedWallet(prev) &&
+    !userHasLinkedWallet(next)
+  ) {
+    return {
+      ...next,
+      wallets: prev.wallets,
+      walletAddress: prev.walletAddress,
+      walletLinkedAt: prev.walletLinkedAt,
+    };
+  }
+  return next;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -21,7 +41,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (showLoading) set({ loading: true });
     try {
       const user = await fetchAuthMe();
-      set({ user, initialized: true });
+      // Stale GET /auth/session can finish after PrivySessionBridge already linked wallets.
+      set({ user: mergeAuthUser(get().user, user), initialized: true });
     } catch {
       set({ user: null, initialized: true });
     } finally {
