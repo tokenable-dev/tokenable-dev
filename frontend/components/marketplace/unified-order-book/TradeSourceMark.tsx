@@ -23,9 +23,9 @@ export function TradesSourceCell({
 }) {
   return (
     <div
-      className={`flex w-full min-w-0 items-center justify-center${
-        className ? ` ${className}` : ""
-      }`}
+      className={`flex w-full min-w-0 items-center ${
+        collectionDetail ? "justify-start" : "justify-center"
+      }${className ? ` ${className}` : ""}`}
     >
       <TradeSourceMark source={source} compact={compact} collectionDetail={collectionDetail} />
     </div>

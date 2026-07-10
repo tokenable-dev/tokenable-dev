@@ -10,6 +10,8 @@ import {
 } from "@/lib/auth/wallets";
 import {
   findPrivyWalletByAddress,
+  pickPrimaryPrivyWallet,
+  pickPrivyUserEthereumWalletAddress,
   resolveAccountSigningWallet,
 } from "@/lib/privy/wallet";
 import { useAuthStore } from "@/store/authStore";
@@ -20,7 +22,7 @@ import { useAuthUiStore } from "@/store/authUiStore";
  * Waits until backend session sync sets primaryLinked — never guesses embedded early.
  */
 export function useEnsureAccountWalletActive() {
-  const { ready, authenticated } = usePrivy();
+  const { ready, authenticated, user: privyUser } = usePrivy();
   const { wallets } = useWallets();
   const { setActiveWallet } = useSetActiveWallet();
   const user = useAuthStore((s) => s.user);
@@ -28,15 +30,20 @@ export function useEnsureAccountWalletActive() {
   const alignInFlight = useRef(false);
   const lastAlignedAddress = useRef<string | null>(null);
   const walletFingerprint = wallets.map((w) => w.address.toLowerCase()).join(",");
+  const privyWalletHint = pickPrivyUserEthereumWalletAddress(privyUser) ?? "";
 
   useEffect(() => {
-    if (!ready || !authenticated || !user) return;
+    if (!ready || !authenticated) return;
 
     const primaryLinked = getPrimaryWalletAddress(user);
-    if (!primaryLinked) return;
+    const pendingLinked =
+      primaryLinked ??
+      normalizeWalletAddress(pickPrimaryPrivyWallet(wallets)?.address) ??
+      privyWalletHint;
+    if (!pendingLinked) return;
 
     const connected = normalizeWalletAddress(connectedAddress);
-    const primary = normalizeWalletAddress(primaryLinked);
+    const primary = normalizeWalletAddress(pendingLinked);
     if (connected && primary && connected === primary) {
       lastAlignedAddress.current = primary;
       useAuthUiStore.getState().closeWalletMismatch();
@@ -44,8 +51,9 @@ export function useEnsureAccountWalletActive() {
     }
 
     const target =
-      resolveAccountSigningWallet(wallets, primaryLinked) ??
-      findPrivyWalletByAddress(wallets, primaryLinked);
+      resolveAccountSigningWallet(wallets, primaryLinked ?? pendingLinked) ??
+      findPrivyWalletByAddress(wallets, pendingLinked) ??
+      pickPrimaryPrivyWallet(wallets);
     if (!target) return;
 
     const targetNorm = normalizeWalletAddress(target.address);
@@ -73,6 +81,7 @@ export function useEnsureAccountWalletActive() {
     user,
     connectedAddress,
     walletFingerprint,
+    privyWalletHint,
     wallets,
     setActiveWallet,
   ]);

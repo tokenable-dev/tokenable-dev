@@ -98,7 +98,7 @@ export function formatTapeDate(tSec: number): string {
   return new Date(tSec * 1000).toLocaleString("en-US", {
     year: "numeric",
     month: "short",
-    day: "numeric",
+    day: "2-digit",
   });
 }
 

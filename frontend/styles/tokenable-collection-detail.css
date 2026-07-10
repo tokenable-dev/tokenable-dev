@@ -210,6 +210,19 @@
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   }
 
+  /* Card.html — Details / PSA after order book */
+  .collection-detail-page .cd-mobile-scroll__details.cd-sidebar-details {
+    background: #191919;
+    border-radius: 16px;
+    overflow: hidden;
+  }
+
+  .collection-detail-page .cd-mobile-scroll__details .cd-ob-tabs {
+    padding-left: 16px;
+    padding-right: 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
   .collection-detail-page .cd-listing-orderbook__btn {
     height: 38px !important;
     min-height: 38px;
@@ -881,6 +894,18 @@
 
 /* ── Details KV rows (Card.html sidebar) ──────────────────────────────────── */
 
+.cd-details-kv__catalog {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--t2);
+  padding: 12px 16px 0;
+}
+
+.cd-details-kv--with-catalog {
+  margin-top: 4px;
+}
+
 .cd-details-kv__row {
   display: flex;
   align-items: center;
@@ -901,6 +926,7 @@
   font-weight: 600;
   color: #fff;
   text-align: right;
+  overflow-wrap: anywhere;
 }
 
 .cd-details-kv__value--link {
@@ -1091,8 +1117,9 @@
 /* Trades tab */
 .collection-detail-page .cd-ob-trades-hdr {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr 1.2fr;
+  grid-template-columns: 1.1fr 0.9fr 1fr 1.15fr;
   align-items: center;
+  column-gap: 8px;
   padding: 10px 16px;
 }
 
@@ -1105,18 +1132,20 @@
 }
 
 .collection-detail-page .cd-ob-trades-hdr span:last-child {
-  text-align: right;
+  text-align: left;
 }
 
 .collection-detail-page .cd-ob-trades-scroll {
   max-height: 300px;
   overflow-y: auto;
+  scrollbar-gutter: stable;
 }
 
 .collection-detail-page .cd-ob-trades-row {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr 1.2fr;
+  grid-template-columns: 1.1fr 0.9fr 1fr 1.15fr;
   align-items: center;
+  column-gap: 8px;
   padding: 12px 16px;
 }
 
@@ -1142,6 +1171,10 @@
   min-width: 0;
 }
 
+.collection-detail-page .cd-ob-trades-source {
+  justify-content: flex-start;
+}
+
 .collection-detail-page .cd-ob-trades-source,
 .collection-detail-page .cd-ob-trades-source__label {
   font-family: var(--font-sans);
@@ -1163,8 +1196,11 @@
   font-family: var(--font-mono);
   font-size: 12px;
   color: var(--t2);
-  text-align: right;
+  text-align: left;
+  justify-self: start;
   min-width: 0;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 .collection-detail-page .cd-ob-trades-empty {

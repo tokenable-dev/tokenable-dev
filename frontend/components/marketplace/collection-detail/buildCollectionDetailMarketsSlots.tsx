@@ -50,6 +50,7 @@ export function buildCollectionDetailMarketsSlots(input: {
   coverImageUrl?: string | null;
   mobileListingsBody: ReactNode;
   mobileListingCount?: number;
+  detailsPanel?: ReactNode;
 }): {
   marketsPriceMetricsStrip: ReactNode;
   collectionDualPriceChart: ReactNode;
@@ -64,6 +65,7 @@ export function buildCollectionDetailMarketsSlots(input: {
     coverImageUrl,
     mobileListingsBody,
     mobileListingCount,
+    detailsPanel,
   } = input;
   const chartProps = market.chartProps as CollectionDualPriceChartProps;
   const metricsProps = metricsStripProps(market, coverImageUrl);
@@ -107,6 +109,7 @@ export function buildCollectionDetailMarketsSlots(input: {
           </CollectionDetailMobileListingsSection>
         }
         orderBookStack={collectionOrderBookMobile}
+        detailsPanel={detailsPanel}
       />
     ),
   };
