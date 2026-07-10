@@ -3,7 +3,7 @@
 import { useCallback, useMemo, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { TkButton, TkTag } from "@/components/ds";
+import { TkButton } from "@/components/ds";
 import { ASSETS } from "@/constants/assets";
 import { VaultBreadcrumb } from "@/components/vault/VaultBreadcrumb";
 import { VaultStepper } from "@/components/vault/VaultStepper";
@@ -164,7 +164,7 @@ export function VaultSubmitDesignView() {
 
           <div className="vault-cert-section">
             <label className="vault-form-label vault-cert-label">
-              <Image src={ASSETS.icons.psaMark} alt="PSA" width={88} height={44} className="vault-cert-label__logo" />
+              <img src={ASSETS.icons.psaMarkSubmit} alt="PSA" className="vault-cert-label__logo" />
               Certification Number
             </label>
             <p className="vault-form-helper vault-form-helper--tight">
@@ -221,10 +221,8 @@ export function VaultSubmitDesignView() {
                   <div className="vault-lookup-card__body">
                     <div className="vault-lookup-card__name">{card.name}</div>
                     <div className="vault-lookup-card__meta">
-                      <TkTag tone="neutral" appearance="soft" className="vault-lookup-card__grade">
-                        {card.grade}
-                      </TkTag>
-                      <span className="vault-lookup-card__cert">Cert #{card.cert}</span>
+                      <span className="vault-lookup-card__grade">{card.grade}</span>
+                      <span className="mono vault-lookup-card__cert">Cert #{card.cert}</span>
                       {card.rejected ? (
                         <span className="vault-lookup-card__status vault-lookup-card__status--neg">
                           🔴 Not accepted — PSA 9 minimum
@@ -316,7 +314,7 @@ export function VaultSubmitDesignView() {
             </label>
             <div className="vault-wallet-connected">
               <span className="vault-wallet-avatar" aria-hidden />
-              <span className="tkl-mono vault-wallet-connected__addr">0x7Fb3…3aE2</span>
+              <span className="mono vault-wallet-connected__addr">0x7Fb3…3aE2</span>
               <div className="vault-wallet-connected__status">
                 <CheckIcon />
                 <span>Connected</span>
@@ -333,9 +331,9 @@ export function VaultSubmitDesignView() {
                 <input type="checkbox" checked readOnly className="vault-notify-checkbox" />
                 <div className="vault-notify-check__copy">
                   <div className="vault-notify-check__title">
-                    Email <span className="vault-notify-check__hint">(required)</span>
+                    Email <span className="vault-notify-check__hint vault-notify-check__hint--required">(required)</span>
                   </div>
-                  <div className="tkl-mono vault-notify-check__sub">you@example.com</div>
+                  <div className="mono vault-notify-check__sub">you@example.com</div>
                 </div>
                 <CheckIcon />
               </label>
@@ -362,7 +360,7 @@ export function VaultSubmitDesignView() {
                     Telegram <span className="vault-notify-check__hint">(optional)</span>
                   </div>
                   {tgHandle ? (
-                    <div className="tkl-mono vault-notify-check__sub vault-notify-check__sub--azure">
+                    <div className="mono vault-notify-check__sub vault-notify-check__sub--azure">
                       @{tgHandle}
                     </div>
                   ) : null}
