@@ -107,6 +107,26 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
     />
   );
 
+  const renderHeroDetailsTabs = () => (
+    <CollectionHeroDetailsTabs
+      detailsPanel={
+        <CollectionDetailsKvCard
+          title={headline.collectionHeadlineDisplayTitle}
+          subtitle={null}
+          catalogLine={headline.detailsCatalogLine}
+          rows={headline.heroDetailsKvRows}
+        />
+      }
+      psaPanel={
+        <CollectionPsaPopulationPanel
+          byGrade={psaPopulationPanel.byGrade}
+          totalPop={psaPopulationPanel.totalPop}
+          highlightGrade={comp.gradeScore ?? "10"}
+        />
+      }
+    />
+  );
+
   const {
     marketsPriceMetricsStrip,
     collectionDualPriceChart,
@@ -118,6 +138,7 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
     coverImageUrl: collectionCoverUrl,
     mobileListingsBody: collectionListingsGrid,
     mobileListingCount: asks.length,
+    detailsPanel: renderHeroDetailsTabs(),
   });
 
   const collectionListingsBody = (
@@ -171,27 +192,7 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
           imageUrl={collectionCoverUrl}
           coverOverlay={<WatchlistToggleButton collectionKey={collectionKey} size="sm" />}
           coverGallery={coverGallery}
-          belowCover={
-            <CollectionHeroDetailsTabs
-              detailsPanel={
-                <CollectionDetailsKvCard
-                  title={headline.collectionHeadlineDisplayTitle}
-                  subtitle={null}
-                  catalogLine={headline.detailsCatalogLine}
-                  rows={headline.heroDetailsKvRows}
-                  compactRows={headline.heroDetailsKvRows.filter((r) => r.id !== "player")}
-                  compact
-                />
-              }
-              psaPanel={
-                <CollectionPsaPopulationPanel
-                  byGrade={psaPopulationPanel.byGrade}
-                  totalPop={psaPopulationPanel.totalPop}
-                  highlightGrade={comp.gradeScore ?? "10"}
-                />
-              }
-            />
-          }
+          belowCover={renderHeroDetailsTabs()}
           metadataRows={headline.metadataRows}
           stats={[]}
           chartMetricsRow={marketsPriceMetricsStrip}

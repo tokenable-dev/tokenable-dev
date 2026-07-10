@@ -35,7 +35,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   loading: true,
   initialized: false,
-  setUser: (user) => set({ user, initialized: true, loading: false }),
+  setUser: (user) =>
+    set({ user: mergeAuthUser(get().user, user), initialized: true, loading: false }),
   refresh: async (options?: { showLoading?: boolean }) => {
     const showLoading = options?.showLoading !== false;
     if (showLoading) set({ loading: true });

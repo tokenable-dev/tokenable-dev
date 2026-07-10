@@ -1,5 +1,31 @@
-import type { ConnectedWallet } from "@privy-io/react-auth";
+import type { ConnectedWallet, User as PrivyUser } from "@privy-io/react-auth";
+import { normalizeWalletAddress } from "@/lib/auth/wallets";
 import { isEmbeddedOnlyWalletPolicy } from "@/lib/privy/config";
+
+function isPrivyLinkedEthereumWallet(
+  account: PrivyUser["linkedAccounts"][number],
+): account is Extract<PrivyUser["linkedAccounts"][number], { type: "wallet" }> {
+  return account.type === "wallet" && account.chainType === "ethereum";
+}
+
+/** Wallet address from Privy user profile — available before `useWallets()` populates. */
+export function pickPrivyUserEthereumWalletAddress(
+  privyUser: PrivyUser | null | undefined,
+): string | undefined {
+  if (!privyUser) return undefined;
+
+  const root = privyUser.wallet;
+  if (root?.chainType === "ethereum") {
+    const normalized = normalizeWalletAddress(root.address);
+    if (normalized) return normalized;
+  }
+
+  const linked = privyUser.linkedAccounts?.filter(isPrivyLinkedEthereumWallet) ?? [];
+  const embedded = linked.find(
+    (w) => w.walletClientType === "privy" || w.connectorType === "embedded",
+  );
+  return normalizeWalletAddress((embedded ?? linked[0])?.address);
+}
 
 export function findPrivyWalletByAddress(
   wallets: ConnectedWallet[],

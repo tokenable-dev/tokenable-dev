@@ -12,7 +12,11 @@ export function HeaderAuthControls() {
   const initialized = useAuthStore((s) => s.initialized);
   const loading = useAuthStore((s) => s.loading);
 
-  if (!ready || !initialized || loading) {
+  if (!ready) {
+    return <div className="gnb-auth-skeleton animate-pulse" aria-hidden />;
+  }
+
+  if (!authenticated && (!initialized || loading)) {
     return <div className="gnb-auth-skeleton animate-pulse" aria-hidden />;
   }
 

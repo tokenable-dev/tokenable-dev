@@ -1,14 +1,15 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useLogout, usePrivy, useWallets } from "@privy-io/react-auth";
+import { useLogout, useLogin, usePrivy, useWallets } from "@privy-io/react-auth";
 import { userHasLinkedWallet } from "@/lib/auth/wallets";
 import {
   isSignOutInProgress,
   registerPrivySignOut,
   syncPrivySession,
 } from "@/lib/privy/session";
+import { pickPrimaryPrivyWallet, pickPrivyUserEthereumWalletAddress } from "@/lib/privy/wallet";
 import { useAuthStore } from "@/store/authStore";
 import { useAuthUiStore } from "@/store/authUiStore";
 
@@ -24,7 +25,15 @@ const WALLET_CATCHUP_DELAYS_MS = [300, 600, 1000, 1500, 2000, 3000, 4000] as con
  */
 export function PrivySessionBridge() {
   const router = useRouter();
-  const { ready, authenticated, getAccessToken } = usePrivy();
+  const catchupAttempt = useRef(0);
+  const [loginSyncNonce, setLoginSyncNonce] = useState(0);
+  useLogin({
+    onComplete: () => {
+      catchupAttempt.current = 0;
+      setLoginSyncNonce((n) => n + 1);
+    },
+  });
+  const { ready, authenticated, getAccessToken, user: privyUser } = usePrivy();
   const { logout: privyLogout } = useLogout({
     onSuccess: () => {
       void useAuthStore.getState().logout();
@@ -36,10 +45,11 @@ export function PrivySessionBridge() {
   const syncPending = useRef(false);
   const returnToHandled = useRef(false);
   const wasAuthenticated = useRef(false);
-  const catchupAttempt = useRef(0);
   const walletsRef = useRef(wallets);
   walletsRef.current = wallets;
   const walletAddresses = wallets.map((w) => w.address.toLowerCase()).join(",");
+  const privyWalletHint =
+    pickPrivyUserEthereumWalletAddress(privyUser)?.toLowerCase() ?? "";
 
   useEffect(() => {
     registerPrivySignOut(privyLogout);
@@ -57,11 +67,11 @@ export function PrivySessionBridge() {
     wasAuthenticated.current = authenticated;
   }, [ready, authenticated]);
 
-  // New client wallets → allow another catch-up window (Privy API may still be empty).
+  // Privy user profile or client wallets appeared — restart catch-up window.
   useEffect(() => {
-    if (!walletAddresses) return;
+    if (!walletAddresses && !privyWalletHint) return;
     catchupAttempt.current = 0;
-  }, [walletAddresses]);
+  }, [walletAddresses, privyWalletHint]);
 
   useEffect(() => {
     if (!ready) return;
@@ -96,11 +106,14 @@ export function PrivySessionBridge() {
             catchupAttempt.current = 0;
           } else {
             const clientWalletCount = walletsRef.current.length;
+            const hasWalletHint =
+              clientWalletCount > 0 ||
+              Boolean(privyWalletHint) ||
+              Boolean(pickPrivyUserEthereumWalletAddress(privyUser));
             const attempt = catchupAttempt.current;
             const shouldRetry =
               attempt < WALLET_CATCHUP_DELAYS_MS.length &&
-              // Always retry a few times after login; prefer when client already has wallets.
-              (clientWalletCount > 0 || attempt < 3);
+              (hasWalletHint || attempt < 3);
 
             if (shouldRetry) {
               const delay =
@@ -132,7 +145,7 @@ export function PrivySessionBridge() {
     return () => {
       cancelled = true;
     };
-  }, [ready, authenticated, getAccessToken, setUser, router, walletAddresses]);
+  }, [ready, authenticated, getAccessToken, setUser, router, walletAddresses, privyWalletHint, privyUser, loginSyncNonce]);
 
   return null;
 }

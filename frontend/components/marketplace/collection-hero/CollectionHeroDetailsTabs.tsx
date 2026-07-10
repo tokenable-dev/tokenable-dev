@@ -35,6 +35,7 @@ function SidebarTabButton({
   );
 }
 
+/** Card.html Details / PSA Population tabs — same chrome on mobile and desktop. */
 export function CollectionHeroDetailsTabs({
   detailsPanel,
   psaPanel,
@@ -48,7 +49,7 @@ export function CollectionHeroDetailsTabs({
   return (
     <div className="cd-sidebar-tabs w-full min-w-0 max-w-full">
       <div
-        className="cd-ob-tabs relative hidden w-full shrink-0 items-end border-b border-white/[0.08] bg-transparent px-4 lg:flex"
+        className="cd-ob-tabs relative flex w-full shrink-0 items-end border-b border-white/[0.08] bg-transparent px-4"
         role="tablist"
         aria-label="Collection information"
       >
@@ -70,9 +71,7 @@ export function CollectionHeroDetailsTabs({
         </div>
       </div>
 
-      <div className="lg:hidden">{detailsPanel}</div>
-
-      <div className="cd-sidebar-tabs__body hidden lg:grid">
+      <div className="cd-sidebar-tabs__body grid">
         <div
           id="collection-sidebar-panel-details"
           role="tabpanel"

@@ -5,7 +5,10 @@ import { usePrivy, useWallets } from "@privy-io/react-auth";
 import { useBalance } from "wagmi";
 import { useAccountWalletSession } from "@/hooks/auth/useAccountWalletSession";
 import { normalizeWalletAddress } from "@/lib/auth/wallets";
-import { pickPrimaryPrivyWallet } from "@/lib/privy/wallet";
+import {
+  pickPrimaryPrivyWallet,
+  pickPrivyUserEthereumWalletAddress,
+} from "@/lib/privy/wallet";
 import {
   formatHeaderKycLabel,
   formatNativeBalanceLabel,
@@ -15,17 +18,19 @@ import { useAuthStore } from "@/store/authStore";
 
 export function useHeaderWalletMenuData() {
   const user = useAuthStore((s) => s.user);
-  const { authenticated } = usePrivy();
+  const { authenticated, user: privyUser } = usePrivy();
   const { wallets } = useWallets();
   const { primaryAddress } = useAccountWalletSession();
 
-  // First social login: Privy client has the embedded wallet before Tokenable session
-  // catches up — show that address/balance immediately instead of "—".
+  // First social login: Privy profile / client wallets appear before Tokenable session sync.
   const pendingPrivyAddress = useMemo(() => {
     if (primaryAddress || user?.walletAddress) return undefined;
     if (!authenticated) return undefined;
-    return normalizeWalletAddress(pickPrimaryPrivyWallet(wallets)?.address);
-  }, [primaryAddress, user?.walletAddress, authenticated, wallets]);
+    return (
+      normalizeWalletAddress(pickPrimaryPrivyWallet(wallets)?.address) ??
+      pickPrivyUserEthereumWalletAddress(privyUser)
+    );
+  }, [primaryAddress, user?.walletAddress, authenticated, wallets, privyUser]);
 
   const resolvedAddress = primaryAddress ?? user?.walletAddress ?? pendingPrivyAddress;
 
