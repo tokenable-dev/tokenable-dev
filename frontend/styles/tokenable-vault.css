@@ -1627,13 +1627,15 @@
 
 /* ── Shipping (Vault-Shipping.html) ─────────────────────────────────────── */
 
+/* Banner flush under GNB — cancel VaultShell padding (HTML: banner outside section) */
+.vault-page--shipping .vault-page__shell {
+  max-width: none;
+  padding: 0;
+}
+
 .vault-shipping-status-banner {
-  position: relative;
-  left: 50%;
-  width: 100vw;
-  margin-bottom: 0;
+  width: 100%;
   background: var(--azure);
-  transform: translateX(-50%);
 }
 
 .vault-shipping-status-banner__inner {
@@ -1642,8 +1644,6 @@
   justify-content: center;
   flex-wrap: wrap;
   gap: 10px;
-  max-width: 1200px;
-  margin: 0 auto;
   padding: 14px clamp(16px, 4vw, 40px);
 }
 
@@ -1674,6 +1674,12 @@
 .vault-shipping-status-banner__meta {
   font-size: 13px;
   color: rgba(255, 255, 255, 0.85);
+}
+
+.vault-shipping__body {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 40px clamp(16px, 4vw, 40px) 80px;
 }
 
 .vault-shipping-header {
@@ -3891,6 +3897,14 @@
   .vault-page__shell--wide,
   .vault-page__shell--hub,
   .vault-page__shell--flow {
+    padding: 24px 16px 80px;
+  }
+
+  .vault-page--shipping .vault-page__shell {
+    padding: 0;
+  }
+
+  .vault-shipping__body {
     padding: 24px 16px 80px;
   }
 

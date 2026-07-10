@@ -10,6 +10,7 @@ import {
   type HeaderNavMinLevel,
 } from "@/lib/auth/accountAccess";
 import { refreshPrivyAuthSession } from "@/lib/auth/refreshPrivyAuthSession";
+import { userHasLinkedWallet } from "@/lib/auth/wallets";
 import { resolveWalletSessionGate } from "@/lib/auth/walletSessionGate";
 import { useAuthStore } from "@/store/authStore";
 import { useAuthUiStore } from "@/store/authUiStore";
@@ -57,14 +58,14 @@ export function useHeaderNavGate() {
         }
       };
 
-      // Privy session active but Tokenable cookie/user missing — resync before gating.
-      if (!user && authenticated) {
+      // Privy session active but Tokenable user missing / wallet not yet linked — resync.
+      if (authenticated && (!user || !userHasLinkedWallet(user))) {
         void refreshPrivyAuthSession(getAccessToken)
           .then((synced) => {
             if (synced) setUser(synced);
-            applyGate(synced ?? null);
+            applyGate(synced ?? user ?? null);
           })
-          .catch(() => applyGate(null));
+          .catch(() => applyGate(user ?? null));
         return;
       }
 

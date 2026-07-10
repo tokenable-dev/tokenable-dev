@@ -76,12 +76,16 @@ export function TkHeader() {
               src={ASSETS.logo.tokenableDs}
               alt="Tokenable"
               className="tk-header__logo-full"
+              width={184}
+              height={24}
             />
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={ASSETS.logo.tokenableSymbol}
               alt="Tokenable"
               className="tk-header__logo-symbol"
+              width={26}
+              height={26}
             />
           </Link>
 

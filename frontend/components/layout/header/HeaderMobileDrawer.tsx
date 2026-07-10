@@ -173,7 +173,7 @@ export function HeaderMobileDrawer({ open, onClose }: HeaderMobileDrawerProps) {
         <div className="tkm-header">
           <Link href="/" className="tkm-logo" onClick={onClose} aria-label="Tokenable home">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={ASSETS.logo.tokenableSymbol} alt="" height={28} />
+            <img src={ASSETS.logo.tokenableSymbol} alt="" width={28} height={28} />
           </Link>
           <button type="button" className="tkm-close" aria-label="Close menu" onClick={onClose}>
             &times;

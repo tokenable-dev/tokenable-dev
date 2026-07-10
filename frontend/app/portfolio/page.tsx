@@ -22,6 +22,22 @@ import {
   PORTFOLIO_USDC_DECIMALS,
 } from "@/lib/portfolio/buildPortfolioPricedRows";
 import { buildPortfolioTxRows } from "@/lib/portfolio/buildPortfolioTxRows";
+import {
+  PORTFOLIO_MOCK_ASSET_ROWS,
+  PORTFOLIO_MOCK_BID_META_BY_KEY,
+  PORTFOLIO_MOCK_BIDS,
+  PORTFOLIO_MOCK_CHART_LABELS,
+  PORTFOLIO_MOCK_CHART_POINTS,
+  PORTFOLIO_MOCK_COST_BASIS_BY_TOKEN,
+  PORTFOLIO_MOCK_METADATA_BY_TOKEN,
+  PORTFOLIO_MOCK_STATS_BY_KEY,
+  PORTFOLIO_MOCK_TOKEN_TO_COLLECTION_KEY,
+  PORTFOLIO_MOCK_TOTAL_VALUE,
+  PORTFOLIO_MOCK_TRADES_COUNT,
+  PORTFOLIO_MOCK_TX_ROWS,
+  isPortfolioMockTokenId,
+  shouldUsePortfolioMock,
+} from "@/lib/portfolio/portfolioMockData";
 import type { OwnedAsset } from "@/lib/portfolio/portfolioTypes";
 import { putPortfolioCostBasis, rq } from "@/lib/core";
 import { invalidateAfterListing } from "@/lib/core/invalidation";
@@ -262,8 +278,30 @@ export default function PortfolioPage() {
     [assetRows, hiddenSet],
   );
 
+  const usePortfolioMocks = shouldUsePortfolioMock(visibleAssetRows.length > 0);
+
+  const displayAssetRows = usePortfolioMocks ? PORTFOLIO_MOCK_ASSET_ROWS : visibleAssetRows;
+  const displayMetadataByTokenId = usePortfolioMocks
+    ? PORTFOLIO_MOCK_METADATA_BY_TOKEN
+    : metadataByTokenId;
+  const displayCostBasisByTokenId = usePortfolioMocks
+    ? PORTFOLIO_MOCK_COST_BASIS_BY_TOKEN
+    : costBasisByTokenId;
+  const displayTokenToCollectionKey = usePortfolioMocks
+    ? PORTFOLIO_MOCK_TOKEN_TO_COLLECTION_KEY
+    : tokenToCollectionKey;
+  const displayStatsByCollectionKey = usePortfolioMocks
+    ? PORTFOLIO_MOCK_STATS_BY_KEY
+    : statsByCollectionKey;
+  const displayTxRows = usePortfolioMocks ? PORTFOLIO_MOCK_TX_ROWS : txRows;
+  const displayBids = usePortfolioMocks ? PORTFOLIO_MOCK_BIDS : myBids.activeBids;
+  const displayBidMeta = usePortfolioMocks
+    ? PORTFOLIO_MOCK_BID_META_BY_KEY
+    : myBids.collectionMetaByKey;
+
   const openPortfolioListModal = useCallback(
     (tokenId: number) => {
+      if (isPortfolioMockTokenId(tokenId)) return;
       runSellAccessGate(() => {
         const row = assetRows.find((r) => r.tokenId === tokenId);
         const listing = listingByTokenId.get(tokenId);
@@ -285,8 +323,22 @@ export default function PortfolioPage() {
     dailyChartLabels,
   } = usePortfolioDailyChart(portfolioAddress, portfolioDataEnabled);
 
-  const assetsSectionLoading = idsLoading || assetsLoading;
-  const portfolioValuePending = dailySnapshotsLoading;
+  const displayPortfolioValue = usePortfolioMocks
+    ? PORTFOLIO_MOCK_TOTAL_VALUE
+    : (portfolioValue ?? 0);
+  const displayChartPoints = usePortfolioMocks
+    ? PORTFOLIO_MOCK_CHART_POINTS
+    : dailyChartPoints;
+  const displayChartLabels = usePortfolioMocks
+    ? PORTFOLIO_MOCK_CHART_LABELS
+    : dailyChartLabels;
+
+  const assetsSectionLoading =
+    !usePortfolioMocks && (idsLoading || assetsLoading);
+  const portfolioValuePending = !usePortfolioMocks && dailySnapshotsLoading;
+  const bidsSectionLoading = !usePortfolioMocks && myBids.loading;
+  const historySectionLoading =
+    !usePortfolioMocks && (idsLoading || historyBatchLoading);
 
   useEffect(() => {
     const listParam = searchParams.get("list")?.trim() ?? "";
@@ -338,16 +390,18 @@ export default function PortfolioPage() {
         ) : null}
 
         <PortfolioSummaryBar
-          holdingsCount={visibleAssetRows.length}
-          tradesCount={txRows.length}
+          holdingsCount={displayAssetRows.length}
+          tradesCount={
+            usePortfolioMocks ? PORTFOLIO_MOCK_TRADES_COUNT : displayTxRows.length
+          }
         />
 
         <PortfolioValuePanel
           chartTotalsPending={portfolioValuePending}
           isMobileViewport={isMobileViewport}
-          dailyChartPoints={dailyChartPoints}
-          dailyChartLabels={dailyChartLabels}
-          totalValue={portfolioValue ?? 0}
+          dailyChartPoints={displayChartPoints}
+          dailyChartLabels={displayChartLabels}
+          totalValue={displayPortfolioValue}
         />
 
         <PortfolioMainSection
@@ -356,18 +410,18 @@ export default function PortfolioPage() {
           collectiblesPanel={
             <PortfolioHoldingsSection
               assetsSectionLoading={assetsSectionLoading}
-              assetRows={visibleAssetRows}
-              metadataByTokenId={metadataByTokenId}
-              tokenToCollectionKey={tokenToCollectionKey}
+              assetRows={displayAssetRows}
+              metadataByTokenId={displayMetadataByTokenId}
+              tokenToCollectionKey={displayTokenToCollectionKey}
               seriesByCollectionKey={seriesByCollectionKey}
-              costBasisByTokenId={costBasisByTokenId}
-              valuesPending={valuesPending}
-              canEditCostBasis={Boolean(signerAddress)}
-              onSaveCostBasis={saveCostBasis}
+              costBasisByTokenId={displayCostBasisByTokenId}
+              valuesPending={!usePortfolioMocks && valuesPending}
+              canEditCostBasis={!usePortfolioMocks && Boolean(signerAddress)}
+              onSaveCostBasis={usePortfolioMocks ? undefined : saveCostBasis}
               savingCostBasisTokenId={savingCostBasisTokenId}
               cancellingListingTokenId={holdingActions.cancellingListingTokenId}
               onOpenToken={(tokenId) => {
-                const ck = tokenToCollectionKey[tokenId];
+                const ck = displayTokenToCollectionKey[tokenId];
                 if (ck) {
                   router.push(
                     `/marketplace/collections/${encodeURIComponent(ck)}?listing=${tokenId}`,
@@ -377,31 +431,36 @@ export default function PortfolioPage() {
                 }
               }}
               onChangeListing={openPortfolioListModal}
-              onCancelListing={(tokenId, orderHash) =>
-                void holdingActions.cancelListing(tokenId, orderHash)
-              }
+              onCancelListing={(tokenId, orderHash) => {
+                if (isPortfolioMockTokenId(tokenId)) return;
+                void holdingActions.cancelListing(tokenId, orderHash);
+              }}
               onSellNow={openPortfolioListModal}
             />
           }
           bidsPanel={
             <PortfolioCollectionBidsSection
-              loading={myBids.loading}
-              metaLoading={myBids.collectionMetaLoading}
-              activeBids={myBids.activeBids}
-              collectionMetaByKey={myBids.collectionMetaByKey}
-              statsByCollectionKey={statsByCollectionKey}
+              loading={bidsSectionLoading}
+              metaLoading={!usePortfolioMocks && myBids.collectionMetaLoading}
+              activeBids={displayBids}
+              collectionMetaByKey={displayBidMeta}
+              statsByCollectionKey={displayStatsByCollectionKey}
               cancellingHash={bidActions.cancellingHash}
               openingChangeHash={bidActions.openingChangeHash}
-              onCancel={(hash, key, label, price) =>
-                bidActions.requestCancel(hash, key, label, price)
-              }
-              onChangePrice={(hash, key) => void bidActions.openChangeBid(hash, key)}
+              onCancel={(hash, key, label, price) => {
+                if (usePortfolioMocks) return;
+                bidActions.requestCancel(hash, key, label, price);
+              }}
+              onChangePrice={(hash, key) => {
+                if (usePortfolioMocks) return;
+                void bidActions.openChangeBid(hash, key);
+              }}
             />
           }
           historyPanel={
             <PortfolioActivitySection
-              loading={idsLoading || historyBatchLoading}
-              txRows={txRows}
+              loading={historySectionLoading}
+              txRows={displayTxRows}
             />
           }
         />

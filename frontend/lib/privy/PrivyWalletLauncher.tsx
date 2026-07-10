@@ -7,6 +7,7 @@ import type { ConnectedWallet } from "@privy-io/react-auth";
 import { useSetActiveWallet } from "@privy-io/wagmi";
 import { findPrivyWalletByAddress, resolveActivePrivyWallet } from "@/lib/privy/wallet";
 import { getPrimaryWalletAddress } from "@/lib/auth/wallets";
+import { refreshPrivyAuthSession } from "@/lib/privy/session";
 import { useAuthStore } from "@/store/authStore";
 import { useAuthUiStore } from "@/store/authUiStore";
 
@@ -35,7 +36,8 @@ export function PrivyWalletLauncher() {
   const closeConnectWallet = useAuthUiStore((s) => s.closeConnectWallet);
   const consumeReturnTo = useAuthUiStore((s) => s.consumeReturnTo);
   const user = useAuthStore((s) => s.user);
-  const { ready, authenticated, linkWallet } = usePrivy();
+  const setUser = useAuthStore((s) => s.setUser);
+  const { ready, authenticated, getAccessToken, linkWallet } = usePrivy();
   const { wallets } = useWallets();
   const { setActiveWallet } = useSetActiveWallet();
   const launchInFlight = useRef(false);
@@ -52,7 +54,17 @@ export function PrivyWalletLauncher() {
 
     void (async () => {
       try {
-        const primaryLinked = getPrimaryWalletAddress(user);
+        let primaryLinked = getPrimaryWalletAddress(user);
+
+        // Social login already created an embedded wallet in this browser, but Tokenable
+        // session may still be empty (Privy API lag / missed sync). Re-sync first.
+        if (!primaryLinked && walletsRef.current.length > 0) {
+          const synced = await refreshPrivyAuthSession(getAccessToken);
+          if (synced) {
+            setUser(synced);
+            primaryLinked = getPrimaryWalletAddress(synced);
+          }
+        }
 
         if (primaryLinked) {
           const matchingPrivyWallet =
@@ -70,9 +82,12 @@ export function PrivyWalletLauncher() {
         }
 
         await linkWallet();
+        const syncedAfterLink = await refreshPrivyAuthSession(getAccessToken);
+        if (syncedAfterLink) setUser(syncedAfterLink);
+        const linkedAfter = getPrimaryWalletAddress(syncedAfterLink) ?? primaryLinked;
         const activeWallet = resolveActivePrivyWallet(
           walletsRef.current,
-          primaryLinked ?? undefined,
+          linkedAfter ?? undefined,
         );
         if (activeWallet) {
           await setActiveWallet(activeWallet);
@@ -90,8 +105,10 @@ export function PrivyWalletLauncher() {
     connectWalletOpen,
     ready,
     authenticated,
+    getAccessToken,
     linkWallet,
     user,
+    setUser,
     setActiveWallet,
     closeConnectWallet,
     consumeReturnTo,
