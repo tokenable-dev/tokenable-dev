@@ -1,5 +1,8 @@
 "use client";
 
+import { Fragment } from "react";
+import { cn } from "@/lib/ds/cn";
+
 function StepCheckIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" aria-hidden>
@@ -8,6 +11,14 @@ function StepCheckIcon() {
   );
 }
 
+const STEPS = [
+  { num: 1, label: "Submit" },
+  { num: 2, label: "Ship" },
+  { num: 3, label: "Vault" },
+  { num: 4, label: "Mint" },
+] as const;
+
+/** Vault-Submit.html `.steps` — alternating step-item / step-line siblings. */
 export function VaultStepper({
   active = 1,
   variant = "default",
@@ -18,69 +29,65 @@ export function VaultStepper({
   const isRejected = variant === "rejected";
 
   return (
-    <nav className={`vault-stepper${isRejected ? " vault-stepper--rejected" : ""}`} aria-label="Vault submission progress">
-      <div className="vault-stepper__track">
-        {[
-          { num: 1, label: "Submit" },
-          { num: 2, label: "Ship" },
-          { num: 3, label: "Vault" },
-          { num: 4, label: "Mint" },
-        ].map((step, index) => {
-          const isActive = !isRejected && step.num === active;
-          const isDone = !isRejected && step.num < active;
-          const isLast = index === 3;
-          const lineDone = isRejected ? false : isDone;
-          const lineGradient = !isRejected && isActive && step.num === 4;
+    <nav
+      className={cn("vault-stepper", isRejected && "vault-stepper--rejected")}
+      aria-label="Vault submission progress"
+    >
+      {STEPS.map((step, index) => {
+        const isActive = !isRejected && step.num === active;
+        const isDone = !isRejected && step.num < active;
+        const isLast = index === STEPS.length - 1;
+        const lineDone = !isRejected && isDone;
+        const lineGradient = !isRejected && isActive && step.num === 4;
 
-          return (
-            <div key={step.num} className="vault-stepper__item" style={{ flex: isLast ? 0 : 1 }}>
-              <div className="vault-stepper__row">
-                <div
-                  className={`vault-stepper__dot ${
-                    isRejected
-                      ? step.num === 1
-                        ? "vault-stepper__dot--halted"
-                        : "vault-stepper__dot--upcoming"
-                      : isActive
-                        ? "vault-stepper__dot--active"
-                        : isDone
-                          ? "vault-stepper__dot--done"
-                          : "vault-stepper__dot--upcoming"
-                  }`}
-                  aria-current={isActive ? "step" : undefined}
-                >
-                  {isRejected ? (step.num === 1 ? "—" : step.num) : isDone ? <StepCheckIcon /> : step.num}
-                </div>
-                {!isLast ? (
-                  <div
-                    className={`vault-stepper__line ${
-                      lineGradient
-                        ? "vault-stepper__line--gradient"
-                        : lineDone
-                          ? "vault-stepper__line--done"
-                          : ""
-                    }`}
-                    aria-hidden
-                  />
-                ) : null}
+        return (
+          <Fragment key={step.num}>
+            <div className={cn("vault-stepper__item", isActive && "vault-stepper__item--active")}>
+              <div
+                className={cn(
+                  "vault-stepper__dot",
+                  isRejected
+                    ? step.num === 1
+                      ? "vault-stepper__dot--halted"
+                      : "vault-stepper__dot--upcoming"
+                    : isActive
+                      ? "vault-stepper__dot--active"
+                      : isDone
+                        ? "vault-stepper__dot--done"
+                        : "vault-stepper__dot--upcoming",
+                )}
+                aria-current={isActive ? "step" : undefined}
+              >
+                {isRejected ? (step.num === 1 ? "—" : step.num) : isDone ? <StepCheckIcon /> : step.num}
               </div>
-              <span
-                className={`vault-stepper__label ${
+              <div
+                className={cn(
+                  "vault-stepper__label",
                   isRejected
                     ? "vault-stepper__label--muted"
                     : isActive
                       ? "vault-stepper__label--active"
                       : isDone
                         ? "vault-stepper__label--done"
-                        : ""
-                }`}
+                        : undefined,
+                )}
               >
                 {step.label}
-              </span>
+              </div>
             </div>
-          );
-        })}
-      </div>
+            {!isLast ? (
+              <div
+                className={cn(
+                  "vault-stepper__line",
+                  lineGradient && "vault-stepper__line--gradient",
+                  lineDone && "vault-stepper__line--done",
+                )}
+                aria-hidden
+              />
+            ) : null}
+          </Fragment>
+        );
+      })}
     </nav>
   );
 }

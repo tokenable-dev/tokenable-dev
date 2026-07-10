@@ -54,6 +54,8 @@ export const ASSETS = {
     tokenableApple: `${ASSETS_BASE}/icons/apple-touch-icon.png`,
     /** PSA wordmark PNG (card detail / docs). */
     psaMark: `${ASSETS_BASE}/icons/psa-logo.png`,
+    /** Vault submit cert label — square canvas, matches Vault-Submit.html `images/psa-logo.png`. */
+    psaMarkSubmit: `${ASSETS_BASE}/icons/psa-logo-submit.png`,
     /** Vault safe icon — shown before PSA wordmark on card detail. */
     psaVaultLeading: `${ASSETS_BASE}/icons/psa-vault-leading.png`,
     /** Market Indexes cards — Pokemon slot. */

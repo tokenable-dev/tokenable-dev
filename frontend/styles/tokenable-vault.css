@@ -28,34 +28,196 @@
   padding-bottom: 80px;
 }
 
-/* ── Stepper (Vault-Submit.html) ─────────────────────────────────────────── */
-
-.vault-stepper {
-  margin-bottom: 40px;
+/* Vault-Submit.html form parity — scoped to beat Tailwind preflight / DS defaults */
+.vault-page--submit .vault-form-label {
+  display: block;
+  margin-bottom: 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
 }
 
-.vault-stepper__track {
+.vault-page--submit .vault-cert-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.vault-page--submit .vault-form-label--sm {
+  margin-bottom: 6px;
+  font-size: 10px;
+}
+
+.vault-page--submit .vault-form-helper {
+  margin-bottom: 12px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.vault-page--submit .vault-form-helper--tight {
+  margin-bottom: 4px;
+}
+
+.vault-page--submit .vault-form-input {
+  box-sizing: border-box;
+  width: 100%;
+  height: 52px;
+  padding: 0 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  background: #141414;
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: 16px;
+  line-height: normal;
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+  box-shadow: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.vault-page--submit .vault-form-input::placeholder {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.vault-page--submit .vault-form-input:focus {
+  border-color: var(--azure);
+  box-shadow: 0 0 0 3px rgba(26, 111, 255, 0.15);
+}
+
+.vault-page--submit .vault-form-input--error {
+  border-color: var(--neg);
+  box-shadow: 0 0 0 3px rgba(228, 55, 74, 0.15);
+}
+
+.vault-page--submit .vault-form-input--md {
+  height: 48px;
+  font-size: 16px;
+}
+
+.vault-page--submit .vault-form-input--sm {
+  height: 38px;
+  font-size: 13px;
+}
+
+.vault-page--submit .vault-form-input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+.vault-page--submit .vault-form-input[type="number"]::-webkit-outer-spin-button,
+.vault-page--submit .vault-form-input[type="number"]::-webkit-inner-spin-button {
+  margin: 0;
+  -webkit-appearance: none;
+}
+
+.vault-page--submit .vault-form-error {
+  display: block;
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--neg);
+}
+
+.vault-page--submit .vault-section-card {
+  margin-bottom: 20px;
+  padding: 24px;
+  background: #191919;
+  border-radius: 16px;
+}
+
+.vault-page--submit .vault-submit-block .vault-section-card {
+  margin-bottom: 0;
+}
+
+.vault-page--submit .vault-lookup-card__grade {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--background-neutral-default, rgba(255, 255, 255, 0.08));
+  color: var(--text-default-default, rgba(255, 255, 255, 0.75));
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  text-transform: none;
+  white-space: nowrap;
+}
+
+.vault-page--submit .vault-notify-check__hint--required {
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.vault-page--submit .vault-notify-check__hint {
+  color: rgba(255, 255, 255, 0.25);
+}
+
+.vault-page--submit .vault-cert-lookup-btn.tk-btn {
+  height: 52px;
+  padding: 0 24px;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.vault-page--submit .vault-add-another-btn.tk-btn {
+  height: 38px;
+  padding: 0 18px;
+  font-size: 13px;
+}
+
+.vault-page--submit .vault-tg-connect-btn.tk-btn {
+  height: 32px;
+  padding: 0 14px;
+  font-size: 12px;
+}
+
+.vault-page--submit .vault-submit-cta.tk-btn {
+  height: 54px;
+  width: 100%;
+  justify-content: center;
+  font-size: 16px;
+  gap: 8px;
+}
+
+.vault-page--submit .vault-submit-cta.tk-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.vault-page--submit .vault-draft-cta.tk-btn {
+  height: 48px;
+  width: 100%;
+  justify-content: center;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.vault-page--submit .vault-submit-cta--mobile.tk-btn {
+  height: 52px;
+  font-size: 15px;
+}
+
+/* ── Stepper (Vault-Submit.html `.steps`) ─────────────────────────────────── */
+
+.vault-stepper {
   display: flex;
   align-items: flex-start;
   width: 100%;
+  margin-bottom: 40px;
 }
 
 .vault-stepper__item {
   display: flex;
-  flex: 1;
   flex-direction: column;
   align-items: center;
-  min-width: 0;
-}
-
-.vault-stepper__item:last-child {
-  flex: 0;
-}
-
-.vault-stepper__row {
-  display: flex;
-  width: 100%;
-  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
 }
 
 .vault-stepper__dot {
@@ -123,20 +285,12 @@
 }
 
 .vault-stepper__label {
-  margin-top: 10px;
   font-family: var(--font-sans);
   font-size: 12px;
   font-weight: 600;
   text-align: center;
   color: rgba(255, 255, 255, 0.4);
   white-space: nowrap;
-}
-
-@media (min-width: 640px) {
-  .vault-stepper__label {
-    font-size: 12px;
-    max-width: none;
-  }
 }
 
 .vault-stepper__label--active {
@@ -326,14 +480,21 @@
 }
 
 .vault-breadcrumb--flow {
-  margin-bottom: 20px;
+  margin-bottom: 24px;
   font-family: var(--font-sans);
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.35);
 }
 
 .vault-breadcrumb--flow a {
-  letter-spacing: normal;
+  letter-spacing: 0.04em;
+}
+
+.vault-breadcrumb--flow .vault-breadcrumb__sep {
+  color: rgba(255, 255, 255, 0.2);
+}
+
+.vault-breadcrumb--flow .vault-breadcrumb__current {
+  color: rgba(255, 255, 255, 0.5);
 }
 
 /* ── Badges (extended) ──────────────────────────────────────────────────── */
@@ -971,6 +1132,7 @@
 .vault-cert-label__logo {
   height: 44px;
   width: auto;
+  flex: none;
   object-fit: contain;
 }
 
@@ -3748,7 +3910,6 @@
     justify-content: center;
   }
 
-  .vault-submit-layout,
   .vault-detail-grid {
     grid-template-columns: 1fr;
     gap: 24px;
@@ -3856,6 +4017,11 @@
 }
 
 @media (max-width: 768px) {
+  .vault-submit-layout {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+
   .vault-page--submit .vault-breadcrumb,
   .vault-page--list .vault-breadcrumb {
     display: none;
@@ -3863,10 +4029,11 @@
 
   .vault-stepper {
     margin-bottom: 28px;
+    gap: 0;
   }
 
-  .vault-stepper__track {
-    gap: 0;
+  .vault-stepper__item {
+    min-width: 0;
   }
 
   .vault-stepper__dot {
