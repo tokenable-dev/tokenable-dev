@@ -7,6 +7,10 @@ import { pickCollectionSummaryDisplayImageUrl } from "@/lib/marketplace/collecti
 import { resolveMarketsListingMarketChangePct90d } from "@/lib/markets/marketsListingMarketPrice";
 import { CollectibleCard } from "@/components/collectibles/CollectibleCard";
 import { cn } from "@/lib/ds/cn";
+import {
+  homeMockChangePeriodLabel,
+  isHomeMockCollectionKey,
+} from "@/lib/home/homeMockData";
 
 function ScrollArrow({
   direction,
@@ -154,6 +158,11 @@ export function HomeCardGrid({
           const changePct90d = use90dChange
             ? resolveMarketsListingMarketChangePct90d(snapshot)
             : undefined;
+          const periodLabel = isHomeMockCollectionKey(collection.collectionKey)
+            ? homeMockChangePeriodLabel(snapshot?.marketChangeWindow)
+            : use90dChange
+              ? "90d"
+              : undefined;
           return (
             <CollectibleCard
               key={collection.collectionKey}
@@ -165,8 +174,12 @@ export function HomeCardGrid({
               })()}
               subMode={subMode}
               changeLoading={changeLoading}
-              marketChangePctOverride={changePct90d}
-              marketChangePeriodLabel={use90dChange ? "90d" : undefined}
+              marketChangePctOverride={
+                isHomeMockCollectionKey(collection.collectionKey)
+                  ? (snapshot?.marketChangePct ?? changePct90d)
+                  : changePct90d
+              }
+              marketChangePeriodLabel={periodLabel}
               shell="none"
             />
           );

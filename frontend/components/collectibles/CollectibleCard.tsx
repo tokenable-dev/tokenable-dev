@@ -16,6 +16,20 @@ import {
 } from "@/lib/markets/marketsListingMarketPrice";
 import { pickCollectionSummaryDisplayImageUrl } from "@/lib/marketplace/collectionDisplayImage";
 import { parseCollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
+import {
+  HOME_MOCK_VAULTED_SUB_BY_KEY,
+  homeMockChangePeriodLabel,
+  isHomeMockCollectionKey,
+} from "@/lib/home/homeMockData";
+import {
+  MARKETS_MOCK_CUSTOM_SUB_BY_KEY,
+  marketsMockChangePeriodLabel,
+  isMarketsMockCollectionKey,
+} from "@/lib/markets/marketsMockData";
+
+function isDesignMockCollectionKey(collectionKey: string): boolean {
+  return isHomeMockCollectionKey(collectionKey) || isMarketsMockCollectionKey(collectionKey);
+}
 
 function formatBadgeCount(n: number): string {
   const abs = Math.abs(n);
@@ -133,6 +147,11 @@ export function CollectibleCard({
       : resolveMarketsListingMarketChangePct(snapshot);
   const changePeriod =
     marketChangePeriodLabel?.trim() ||
+    (isHomeMockCollectionKey(collection.collectionKey)
+      ? homeMockChangePeriodLabel(snapshot?.marketChangeWindow)
+      : isMarketsMockCollectionKey(collection.collectionKey)
+        ? marketsMockChangePeriodLabel(snapshot?.marketChangeWindow)
+        : undefined) ||
     formatCardChangePeriod(snapshot);
   const grade = formatGradeLabel(collection);
   const comp = parseCollectionComponents(collection.components);
@@ -143,8 +162,18 @@ export function CollectibleCard({
   const listed = collection.activeListingCount;
 
   let sub = formatChangeSub(snapshot, changePct, changeLoading, changePeriod);
-  if (subMode === "vaulted" && !changeLoading && (changePct == null || !Number.isFinite(changePct))) {
-    sub = { label: "Just listed", tone: "muted" };
+  const marketsCustomSub = MARKETS_MOCK_CUSTOM_SUB_BY_KEY.get(
+    collection.collectionKey.toLowerCase(),
+  );
+  if (marketsCustomSub) {
+    sub = marketsCustomSub;
+  } else if (subMode === "vaulted") {
+    const mockSub = HOME_MOCK_VAULTED_SUB_BY_KEY.get(collection.collectionKey.toLowerCase());
+    if (mockSub) {
+      sub = mockSub;
+    } else if (!changeLoading && (changePct == null || !Number.isFinite(changePct))) {
+      sub = { label: "Just listed", tone: "muted" };
+    }
   }
 
   const href = `/marketplace/collections/${encodeURIComponent(collection.collectionKey)}`;
@@ -168,7 +197,9 @@ export function CollectibleCard({
         )}
         <div className="card__fade" aria-hidden />
         <div className="fav">
-          <WatchlistToggleButton collectionKey={collection.collectionKey} size="sm" />
+          {isDesignMockCollectionKey(collection.collectionKey) ? null : (
+            <WatchlistToggleButton collectionKey={collection.collectionKey} size="sm" />
+          )}
         </div>
       </div>
       <div className="card__body">

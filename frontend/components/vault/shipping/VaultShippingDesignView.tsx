@@ -105,26 +105,27 @@ export function VaultShippingDesignView() {
         </div>
       </div>
 
-      <VaultBreadcrumb
-        variant="flow"
-        items={[
-          { label: "My Vault", href: "/vault" },
-          { label: "Submit Card", href: "/vault/submit" },
-          { label: "Shipping" },
-        ]}
-      />
+      <div className="vault-shipping__body">
+        <VaultBreadcrumb
+          variant="flow"
+          items={[
+            { label: "My Vault", href: "/vault" },
+            { label: "Submit Card", href: "/vault/submit" },
+            { label: "Shipping" },
+          ]}
+        />
 
-      <div className="vault-shipping-header">
-        <span className="vault-shipping-header__eyebrow">Step 2 of 4</span>
-        <h1 className="vault-shipping-header__title">Ship Your Card</h1>
-        <p className="vault-shipping-header__sub">
-          Package your card safely and send it to our vault facility.
-        </p>
-      </div>
+        <div className="vault-shipping-header">
+          <span className="vault-shipping-header__eyebrow">Step 2 of 4</span>
+          <h1 className="vault-shipping-header__title">Ship Your Card</h1>
+          <p className="vault-shipping-header__sub">
+            Package your card safely and send it to our vault facility.
+          </p>
+        </div>
 
-      <VaultStepper active={2} />
+        <VaultStepper active={2} />
 
-      <div className="vault-ship-grid">
+        <div className="vault-ship-grid">
         <div className="vault-ship-col">
           <div className="vault-ship-block">
             <span className="vault-form-label">Ship To</span>
@@ -403,6 +404,7 @@ export function VaultShippingDesignView() {
             </Link>
           </div>
         </div>
+      </div>
       </div>
     </div>
   );

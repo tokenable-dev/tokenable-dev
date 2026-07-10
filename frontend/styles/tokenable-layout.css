@@ -213,12 +213,15 @@
 .tk-header__logo-full {
   height: 24px;
   width: auto;
+  max-height: 24px;
   display: block;
 }
 
 .tk-header__logo-symbol {
   height: 26px;
-  width: auto;
+  width: 26px;
+  max-height: 26px;
+  object-fit: contain;
   display: none;
 }
 
@@ -630,6 +633,14 @@
   align-items: center;
 }
 
+.tkm-logo img {
+  height: 28px;
+  width: 28px;
+  max-height: 28px;
+  object-fit: contain;
+  display: block;
+}
+
 .tkm-close {
   width: 40px;
   height: 40px;
@@ -1018,6 +1029,8 @@
 
   .tk-header__logo-symbol {
     display: block !important;
+    height: 26px !important;
+    width: 26px !important;
   }
 }
 

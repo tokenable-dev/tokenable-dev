@@ -390,9 +390,9 @@
   height: 100%;
 }
 
-/* Markets grid — prototype: card body flush under image (no top padding) */
+/* Markets grid — slight gap between image and title (prototype uses 12px) */
 .markets-grid .card {
-  gap: 0;
+  gap: 10px;
 }
 
 /* Prototype: lightbox removed — entire card navigates to detail */
