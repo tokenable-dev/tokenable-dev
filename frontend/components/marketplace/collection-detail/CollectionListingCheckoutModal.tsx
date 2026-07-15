@@ -171,7 +171,8 @@ export function CollectionListingCheckoutModal({
         ) : (
           <CollectionListingBidCheckout
             collectionKey={collectionKey}
-            collectionAsks={collectionAsks}
+            tokenId={tokenId}
+            listing={listing}
             collectionBids={collectionBids}
             listedPriceLabel={`${price}.00`}
             connectedAddress={connectedAddress}

@@ -287,6 +287,7 @@ export const PORTFOLIO_MOCK_TOKEN_TO_COLLECTION_KEY: Record<number, string> = ((
 export const PORTFOLIO_MOCK_BIDS: PortfolioBidRow[] = BID_SEEDS.map((s, i) => ({
   orderHash: `mock-bid-${s.id}`,
   collectionKey: collectionKeyFor(s.id),
+  tokenId: String(1000 + i),
   priceUsdc: s.bidUsd,
   priceLabel: `$${s.bidUsd.toLocaleString("en-US")}`,
   status: "active" as const,
@@ -366,6 +367,7 @@ export const PORTFOLIO_MOCK_CHART_LABELS: string[] = HTML_1M_LABELS;
 
 type TxSeed = {
   type: TxRow["type"];
+  status: TxRow["status"];
   asset: string;
   category: string | null;
   price: number;
@@ -376,6 +378,7 @@ type TxSeed = {
 const TX_SEEDS: TxSeed[] = [
   {
     type: "SELL",
+    status: "pending",
     asset: "Pokémon Gold Star Charizard",
     category: "PSA 10",
     price: 450_000,
@@ -384,6 +387,7 @@ const TX_SEEDS: TxSeed[] = [
   },
   {
     type: "BUY",
+    status: "failed",
     asset: "2003 TOPPS CHROME #111 LEBRON JAMES ROOKIE REFRACTOR",
     category: "PSA 10",
     price: 58_000,
@@ -392,6 +396,7 @@ const TX_SEEDS: TxSeed[] = [
   },
   {
     type: "BUY",
+    status: "settled",
     asset: "2025 POKEMON JAPANESE M2A-MEGA DREAM EX #234 PIKACHU EX SPECIAL ART RARE",
     category: "PSA 10",
     price: 1_136,
@@ -400,6 +405,7 @@ const TX_SEEDS: TxSeed[] = [
   },
   {
     type: "SELL",
+    status: "settled",
     asset: "Pokémon Gold Star Charizard",
     category: "PSA 10",
     price: 14_200,
@@ -408,6 +414,7 @@ const TX_SEEDS: TxSeed[] = [
   },
   {
     type: "BUY",
+    status: "settled",
     asset: "2003 TOPPS CHROME #111 LEBRON JAMES ROOKIE REFRACTOR",
     category: "PSA 10",
     price: 31_000,
@@ -416,9 +423,10 @@ const TX_SEEDS: TxSeed[] = [
   },
   {
     type: "BUY",
+    status: "vaulted",
     asset: "2023 POKEMON MEW EN-151 #199 CHARIZARD EX SPECIAL ILLUSTRATION RARE",
     category: "PSA 10",
-    price: 180_000,
+    price: 0,
     date: "May 12, 2026",
     orderHash: "mock-tx-vault-charizard",
   },
@@ -426,6 +434,7 @@ const TX_SEEDS: TxSeed[] = [
 
 export const PORTFOLIO_MOCK_TX_ROWS: TxRow[] = TX_SEEDS.map((t) => ({
   type: t.type,
+  status: t.status,
   asset: t.asset,
   category: t.category,
   amount: 1,

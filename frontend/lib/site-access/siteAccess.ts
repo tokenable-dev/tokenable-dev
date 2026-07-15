@@ -41,6 +41,9 @@ export function isSiteAccessPublicPath(pathname: string, method: string): boolea
   ) {
     return true;
   }
+  if (pathname === "/api/webhooks/sumsub" && method.toUpperCase() === "POST") {
+    return true;
+  }
   if (isSwaggerPublicPath(pathname, method)) return true;
   if (pathname.startsWith("/auth/")) return true;
   if (pathname.startsWith("/_next/")) return true;

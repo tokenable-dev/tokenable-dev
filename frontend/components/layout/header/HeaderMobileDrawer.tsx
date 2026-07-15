@@ -89,6 +89,7 @@ const PRIMARY_ICONS = {
 type HeaderMobileDrawerProps = {
   open: boolean;
   onClose: () => void;
+  onOpenNotifications?: () => void;
 };
 
 function MobileDrawerProfileSkeleton() {
@@ -107,7 +108,11 @@ function MobileDrawerProfileSkeleton() {
 }
 
 /** Full-screen mobile nav drawer — tk-mobile-nav.js (tkm-drawer). */
-export function HeaderMobileDrawer({ open, onClose }: HeaderMobileDrawerProps) {
+export function HeaderMobileDrawer({
+  open,
+  onClose,
+  onOpenNotifications,
+}: HeaderMobileDrawerProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const navigate = useHeaderNavGate();
@@ -275,7 +280,14 @@ export function HeaderMobileDrawer({ open, onClose }: HeaderMobileDrawerProps) {
             <MobileDrawerWatchlistIcon aria-hidden />
             Watchlist
           </button>
-          <button type="button" className="tkm-item" disabled aria-disabled="true">
+          <button
+            type="button"
+            className="tkm-item"
+            onClick={() => {
+              onClose();
+              onOpenNotifications?.();
+            }}
+          >
             <MobileDrawerNotificationsIcon aria-hidden />
             Notifications
           </button>

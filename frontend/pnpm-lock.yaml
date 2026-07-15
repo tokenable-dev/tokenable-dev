@@ -23,6 +23,9 @@ importers:
       '@stripe/crypto':
         specifier: ^1.1.0
         version: 1.1.0(@stripe/stripe-js@1.54.2)
+      '@sumsub/websdk-react':
+        specifier: ^2.6.3
+        version: 2.6.3(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       '@tanstack/react-query':
         specifier: ^5.90.21
         version: 5.90.21(react@19.2.3)
@@ -1167,6 +1170,12 @@ packages:
 
   '@stripe/stripe-js@1.54.2':
     resolution: {integrity: sha512-R1PwtDvUfs99cAjfuQ/WpwJ3c92+DAMy9xGApjqlWQMj0FKQabUAys2swfTRNzuYAYJh7NqK2dzcYVNkKLEKUg==}
+
+  '@sumsub/websdk-react@2.6.3':
+    resolution: {integrity: sha512-j9D9UQ1n5CPquqjhVTc/mCpQSA1cL/0ASLKwbncC7Wqvi8FEtbJmzWHlAF91rlT1iqPtM/mD05Rmax5SQDKUrA==}
+    peerDependencies:
+      react: '>=16.8.0'
+      react-dom: '>=16.8.0'
 
   '@swc/helpers@0.5.15':
     resolution: {integrity: sha512-JQ5TuMi45Owi4/BIMAJBoSQoOJu12oOk/gADqlcUL9JEdHB8vyjUSsxqeNXnmXHjYKMi2WcYtezGEEhqUI/E2g==}
@@ -5026,6 +5035,11 @@ snapshots:
       '@stripe/stripe-js': 1.54.2
 
   '@stripe/stripe-js@1.54.2': {}
+
+  '@sumsub/websdk-react@2.6.3(react-dom@19.2.3(react@19.2.3))(react@19.2.3)':
+    dependencies:
+      react: 19.2.3
+      react-dom: 19.2.3(react@19.2.3)
 
   '@swc/helpers@0.5.15':
     dependencies:

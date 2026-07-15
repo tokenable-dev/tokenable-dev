@@ -151,15 +151,14 @@ sequenceDiagram
     end
 
     rect rgba(252, 165, 165, 0.15)
-        Note over U,C: ③ Collection Bid
-        U  ->> A  : Enter desired buy price
-        Note over A: SeaportMerkleTree(activeAsks)<br/>→ identifierOrCriteria: merkleRoot
+        Note over U,C: ③ Card Offer (Bid)
+        U  ->> A  : Enter offer price on card listing
         A  ->> C  : USDC.approve(Seaport, maxUint256)
         A  ->> C  : Seaport.getCounter(buyer)
-        A -->> U  : 🖊️ MetaMask signature request — EIP-712 buy order
+        A -->> U  : 🖊️ MetaMask signature request — EIP-712 buy offer
         U  ->> A  : Approve signature
         A  ->> S  : POST /api/marketplace/orders [side: bid]
-        S  ->> DB : INSERT orders<br/>{order_hash, offerer, side:bid,<br/>token_id:"0" (criteria sentinel),<br/>consideration_amount (bid price),<br/>parameters (includes merkleRoot jsonb),<br/>signature, status:active,<br/>collection_key}
+        S  ->> DB : INSERT orders<br/>{order_hash, offerer, side:bid,<br/>token_id (real card tokenId),<br/>consideration_amount (bid price),<br/>parameters (ERC20 offer + ERC721 cons),<br/>signature, status:active,<br/>collection_key}
         S -->> A  : BID ACTIVE
     end
 

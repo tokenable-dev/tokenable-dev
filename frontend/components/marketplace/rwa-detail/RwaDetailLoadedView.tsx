@@ -168,10 +168,11 @@ export function RwaDetailLoadedView({
         <RwaDetailPlaceBidModal
           open={bidModalOpen}
           assetTitle={headline.detailTitle}
+          tokenId={tokenId}
           collectionKey={collectionKey}
-          collectionAsks={market.collectionAsks}
+          listing={activeAskListing}
+          collectionBids={market.collectionBids}
           connectedAddress={address}
-          hasActiveListing={activeAskListing != null}
           onClose={() => setBidModalOpen(false)}
           onPlaced={handleBidPlaced}
           onPurchaseFilled={handleBidPurchaseFilled}

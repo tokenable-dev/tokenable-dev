@@ -82,14 +82,13 @@ export function VaultListDesignView() {
 
       {method === "buynow" ? (
         <div className="mb-6">
-          <div className="mb-4 flex items-center justify-between">
-            <span className="vault-form-label" style={{ marginBottom: 0 }}>
-              Your asking price
-            </span>
-            <span className="font-mono text-sm font-bold text-white/60">
+          <div className="vault-list-market-bar">
+            <span className="vault-list-market-bar__label">Market Price</span>
+            <span className="vault-list-market-bar__value">
               ${MOCK_CARD.marketValueUsd.toLocaleString()}
             </span>
           </div>
+          <label className="vault-form-label">Your asking price</label>
           <div className="relative">
             <span className="absolute left-4 top-1/2 -translate-y-1/2 font-mono text-lg font-bold text-white/30">$</span>
             <input className="vault-form-input vault-form-input--price pl-9" type="text" defaultValue="25,000" readOnly />
@@ -126,7 +125,7 @@ export function VaultListDesignView() {
           <label className="vault-form-label">Minimum offer (optional)</label>
           <div className="relative">
             <span className="absolute left-4 top-1/2 -translate-y-1/2 font-mono text-lg font-bold text-white/30">$</span>
-            <input className="vault-form-input pl-9" type="text" placeholder="20,000" readOnly />
+            <input className="vault-form-input vault-form-input--price pl-9" type="text" placeholder="20,000" readOnly />
           </div>
           <div className="vault-form-helper">Leave blank to accept any offer</div>
         </div>
@@ -138,14 +137,14 @@ export function VaultListDesignView() {
             <label className="vault-form-label">Starting bid</label>
             <div className="relative">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 font-mono text-lg font-bold text-white/30">$</span>
-              <input className="vault-form-input pl-9" type="text" placeholder="20,000" readOnly />
+              <input className="vault-form-input vault-form-input--price pl-9" type="text" placeholder="20,000" readOnly />
             </div>
           </div>
           <div>
             <label className="vault-form-label">Reserve price (optional)</label>
             <div className="relative">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 font-mono text-lg font-bold text-white/30">$</span>
-              <input className="vault-form-input pl-9" type="text" placeholder="24,000" readOnly />
+              <input className="vault-form-input vault-form-input--price pl-9" type="text" placeholder="24,000" readOnly />
             </div>
           </div>
         </div>

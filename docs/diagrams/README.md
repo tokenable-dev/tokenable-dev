@@ -8,7 +8,7 @@ Pipeline diagrams for the Tokenable marketplace live here as **Mermaid** markdow
 
 | File | Language | Contents |
 |------|----------|---------|
-| [marketplace-lifecycle.md](./marketplace-lifecycle.md) | Korean | Mint → Seaport listing → collection bid → on-chain fill · DB schema · order state transitions |
+| [marketplace-lifecycle.md](./marketplace-lifecycle.md) | Korean | Mint → Seaport listing → card offer → on-chain fill · DB schema · order state transitions |
 | [marketplace-lifecycle.en.md](./marketplace-lifecycle.en.md) | English | Same content in English |
 
 Each file covers **Parts 1–3** (overall flow, technical sequence, DB schema & state transitions). Architecture and module details live in the dedicated docs:

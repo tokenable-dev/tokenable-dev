@@ -10,6 +10,7 @@ CSS is loaded once via `app/globals.css`. Do not import page CSS from components
 | `tokenable-ds-bridge.css` | `--font-*`, ink/azure aliases |
 | `tokenable-layout.css` | Header, footer, `tkl-wrap`, app shell |
 | `tokenable-wallet-menu.css` | GNB wallet chip + dropdown — imported from `TkHeader.tsx` (Turbopack dev module graph) |
+| `tokenable-notifications.css` | Notifications drawer — imported from `TkHeader.tsx` |
 | `tokenable-collectible-card.css` | `.card`, `.card__*`, `.fav-btn` — `CollectibleCard` |
 
 ## Page-specific

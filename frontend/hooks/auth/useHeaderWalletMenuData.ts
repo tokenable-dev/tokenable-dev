@@ -53,6 +53,7 @@ export function useHeaderWalletMenuData() {
 
   return {
     user,
+    walletAddress: resolvedAddress,
     displayAddress,
     kyc,
     balanceLabel,

@@ -26,6 +26,7 @@ export type VaultInProgressItem = {
   statusKind: VaultIpStatusKind;
   statusLabel: string;
   detail?: string;
+  trackingUrl?: string;
   hint?: string;
   actionNeeded?: boolean;
   cta: { label: string; href: string; primary?: boolean };
@@ -42,17 +43,17 @@ export type VaultSubmissionHistoryItem = {
   href: string;
 };
 
-/** Active dashboard — matches Vault-Dashboard-Active.html */
+/** Draft submission row — Vault-Step-Indicator.html draft-card */
+export const MOCK_DRAFT_SUBMISSION = {
+  id: "draft-1",
+  title: "Charizard + 2 more cards",
+  savedAt: "Jul 8, 2026",
+  imageUrl: ASSETS.ds.cards.charizard,
+  href: "/vault/submit",
+} as const;
+
+/** Active dashboard — matches Vault-Dashboard-Active.html (3 in-progress cards) */
 export const MOCK_IN_PROGRESS_ACTIVE: VaultInProgressItem[] = [
-  {
-    id: "ip-1",
-    name: "1999 POKEMON BASE SET 1ST EDITION #4 CHARIZARD HOLO",
-    grade: "PSA 10",
-    imageUrl: ASSETS.ds.cards.charizard,
-    statusKind: "token-sent",
-    statusLabel: "Token Sent",
-    cta: { label: "View", href: `/vault/submissions/${MOCK_SUBMISSION_ID}` },
-  },
   {
     id: "ip-2",
     name: "2024 POKEMON SURGING SPARKS EN-SSP #238 PIKACHU EX SPECIAL ART RARE",
@@ -61,7 +62,8 @@ export const MOCK_IN_PROGRESS_ACTIVE: VaultInProgressItem[] = [
     statusKind: "in-transit",
     statusLabel: "In Transit",
     detail: "FedEx · FX987654321",
-    cta: { label: "Track", href: `/vault/submissions/${MOCK_SUBMISSION_ID}` },
+    trackingUrl: "https://www.fedex.com/fedextrack/?trknbr=FX987654321",
+    cta: { label: "Track", href: `/vault/submissions/${MOCK_SUBMISSION_ID}?scenario=C` },
   },
   {
     id: "ip-3",
@@ -71,17 +73,7 @@ export const MOCK_IN_PROGRESS_ACTIVE: VaultInProgressItem[] = [
     statusKind: "reviewing",
     statusLabel: "Reviewing",
     detail: "PSA approval pending",
-    cta: { label: "View", href: `/vault/submissions/${MOCK_SUBMISSION_ID}` },
-  },
-  {
-    id: "ip-4",
-    name: "2003 TOPPS CHROME #111 LEBRON JAMES ROOKIE REFRACTOR",
-    grade: "PSA 10",
-    imageUrl: ASSETS.ds.cards.lebron,
-    statusKind: "minting",
-    statusLabel: "Minting",
-    detail: "Token being created",
-    cta: { label: "View", href: `/vault/submissions/${MOCK_SUBMISSION_ID}` },
+    cta: { label: "View", href: `/vault/submissions/${MOCK_SUBMISSION_ID}?scenario=D` },
   },
   {
     id: "ip-5",
@@ -105,7 +97,7 @@ export const MOCK_SUBMISSION_HISTORY: VaultSubmissionHistoryItem[] = [
     submitted: "Jun 15, 2026",
     status: "Minted",
     imageUrl: ASSETS.ds.cards.charizard,
-    href: `/vault/submissions/${MOCK_SUBMISSION_ID}?view=completed`,
+    href: `/vault/submissions/${MOCK_SUBMISSION_ID}?scenario=G`,
   },
   {
     id: "h-2",
@@ -115,7 +107,7 @@ export const MOCK_SUBMISSION_HISTORY: VaultSubmissionHistoryItem[] = [
     submitted: "Jun 10, 2026",
     status: "Minted",
     imageUrl: ASSETS.ds.cards.pikachu,
-    href: `/vault/submissions/${MOCK_SUBMISSION_ID}?view=completed`,
+    href: `/vault/submissions/${MOCK_SUBMISSION_ID}?scenario=G`,
   },
   {
     id: "h-3",
@@ -125,7 +117,7 @@ export const MOCK_SUBMISSION_HISTORY: VaultSubmissionHistoryItem[] = [
     submitted: "Jun 8, 2026",
     status: "Minted",
     imageUrl: ASSETS.ds.cards.charizard,
-    href: `/vault/submissions/${MOCK_SUBMISSION_ID}?view=completed`,
+    href: `/vault/submissions/${MOCK_SUBMISSION_ID}?scenario=G`,
   },
   {
     id: "h-4",
@@ -135,7 +127,7 @@ export const MOCK_SUBMISSION_HISTORY: VaultSubmissionHistoryItem[] = [
     submitted: "May 28, 2026",
     status: "Minted",
     imageUrl: ASSETS.ds.cards.lebron,
-    href: `/vault/submissions/${MOCK_SUBMISSION_ID}?view=completed`,
+    href: `/vault/submissions/${MOCK_SUBMISSION_ID}?scenario=G`,
   },
   {
     id: "h-5",
@@ -145,16 +137,16 @@ export const MOCK_SUBMISSION_HISTORY: VaultSubmissionHistoryItem[] = [
     submitted: "May 20, 2026",
     status: "Minted",
     imageUrl: ASSETS.ds.cards.nidoking,
-    href: `/vault/submissions/${MOCK_SUBMISSION_ID}?view=completed`,
+    href: `/vault/submissions/${MOCK_SUBMISSION_ID}?scenario=G`,
   },
   {
     id: "h-6",
-    name: "2018 PANINI PRIZM #280 LUKA DONCIC BLUE ICE ROOKIE",
-    grade: "BGS 9.5",
-    cert: "—",
+    name: "1999 POKEMON BASE SET 1ST EDITION #4 CHARIZARD HOLO",
+    grade: "PSA 8",
+    cert: "12345678",
     submitted: "Jun 1, 2026",
     status: "Rejected",
-    imageUrl: ASSETS.ds.cards.luka,
+    imageUrl: ASSETS.ds.cards.charizard,
     href: `/vault/submissions/${MOCK_SUBMISSION_ID}?view=rejected`,
   },
 ];
@@ -185,7 +177,13 @@ export const VAULT_SHIPPING_CHECKLIST = [
   "Wrap in bubble wrap at least 2–3 times",
   "Fill all empty box space with packing material — no movement allowed",
   "Attach Submission ID barcode label on the outside of the box",
+  "Include the Packing Slip inside the box",
 ] as const;
+
+export const VAULT_DETAIL_SHIP_ADDRESS = {
+  name: "Tokenable Vault Services",
+  lines: ["1105 N Market St, Suite 1300", "Wilmington, DE 19801", "United States"],
+} as const;
 
 export const VAULT_SHIPPING_CARRIERS_ALLOWED = [
   { name: "FedEx International Priority", detail: "3–4 business days", recommended: true },

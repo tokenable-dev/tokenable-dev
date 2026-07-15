@@ -36,6 +36,17 @@ export function isCriteriaCollectionBidOrder(
   return isBidShapedSeaportParameters(order.parameters ?? {});
 }
 
+/** Token-level offer — USDC offer + ERC721 consideration for a specific tokenId. */
+export function isTokenBidOrder(
+  order: Pick<Order, 'side' | 'parameters'>,
+): boolean {
+  if (order.side !== OrderSide.BID) return false;
+  const offer = (order.parameters as { offer?: SeaportItem[] })?.offer?.[0];
+  const cons = (order.parameters as { consideration?: SeaportItem[] })
+    ?.consideration?.[0];
+  return Number(offer?.itemType) === 1 && Number(cons?.itemType) === 2;
+}
+
 /** ERC-721 tokenId for fulfilled asks (including mint id `0`). */
 export function resolveFulfilledAskTokenId(
   order: Pick<Order, 'tokenId' | 'parameters' | 'side'>,

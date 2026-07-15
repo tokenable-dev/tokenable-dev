@@ -102,7 +102,7 @@ Full architecture: **[psa.md](./psa.md)** · Swagger tag `psa` · upstream spec 
 |--------|------|-------------|
 | POST | `/api/marketplace/orders` | Register Seaport order |
 | POST | `/api/marketplace/orders/replace-listing` | Cancel old ask + insert new |
-| POST | `/api/marketplace/orders/replace-bid` | Replace criteria bid |
+| POST | `/api/marketplace/orders/replace-bid` | Replace card-level bid |
 | POST | `/api/marketplace/orders/batch-by-token` | Batch order history |
 | GET | `/api/marketplace/orders/by-offerer` | Orders by wallet |
 | GET | `/api/marketplace/orders` | Active asks (lightweight) |

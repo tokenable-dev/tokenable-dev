@@ -7,7 +7,11 @@ import { HeaderWalletMenuPanel } from "./HeaderWalletMenuPanel";
 import { WalletChevronIcon } from "./HeaderWalletMenuIcons";
 
 /** Desktop GNB wallet chip + dropdown (HTML tk-wallet-wrap). */
-export function HeaderWalletMenu() {
+export function HeaderWalletMenu({
+  onOpenNotifications,
+}: {
+  onOpenNotifications?: () => void;
+}) {
   const mounted = useClientMounted();
   const menuId = useId();
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -15,6 +19,11 @@ export function HeaderWalletMenu() {
   const { displayAddress, balanceLabel } = useHeaderWalletMenuData();
 
   const close = useCallback(() => setOpen(false), []);
+
+  const handleOpenNotifications = useCallback(() => {
+    close();
+    onOpenNotifications?.();
+  }, [close, onOpenNotifications]);
 
   useEffect(() => {
     if (!open) return;
@@ -59,7 +68,11 @@ export function HeaderWalletMenu() {
         className="tk-wallet-dropdown"
         data-open={open ? "1" : undefined}
       >
-        <HeaderWalletMenuPanel variant="dropdown" onNavigate={close} />
+        <HeaderWalletMenuPanel
+          variant="dropdown"
+          onNavigate={close}
+          onOpenNotifications={handleOpenNotifications}
+        />
       </div>
     </div>
   );

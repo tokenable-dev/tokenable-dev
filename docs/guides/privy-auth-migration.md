@@ -29,7 +29,7 @@ Seaport  → wagmi + viem (Privy wagmi connector; MetaMask via Privy external wa
 | **2** | Login UX: replace SignInModal / login pages with Privy `login()`; legacy auth behind flag | ✅ Done |
 | **3** | Wallet: remove manual link challenge; auto-sync embedded + external wallets via Privy | ✅ Done |
 | **4** | Trading QA: EIP-712 list/bid/buy/mint on all supported chains with embedded + MetaMask | 🔲 Pending |
-| **5** | KYC: Privy identity verification → `users.kyc_status`; wire `isKycComplete()` | 🔲 Pending |
+| **5** | KYC: Sumsub WebSDK → `users.kyc_status`; wire `isKycComplete()` | 🚧 In progress — see [sumsub-kyc.md](./sumsub-kyc.md) |
 | **6** | Cleanup: remove Google OAuth, email/password, wallet-link challenge, legacy JWT cookie | 🔲 Pending |
 | **7** | User migration: existing Google/email users re-link via Privy (email match) | 🔲 Pending |
 

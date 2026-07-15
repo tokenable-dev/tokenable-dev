@@ -83,7 +83,7 @@
   @keyframes spin{to{transform:rotate(360deg);}}
   @keyframes pulse-dot{0%,100%{box-shadow:0 0 6px rgba(26,111,255,0.4);}50%{box-shadow:0 0 18px rgba(26,111,255,0.8);}}
 
-  /* Progress pills */
+  /* Step pills */
   .step-pills{display:flex;gap:0;align-items:center;margin-top:20px;}
   .step-pill{flex:1;height:4px;transition:background 0.2s;}
   .step-pill:first-child{border-radius:3px 0 0 3px;}
@@ -99,6 +99,18 @@
   .step-pills-labels .sl.done{color:var(--pos);font-weight:600;}
   .step-pills-labels .sl.active{color:var(--azure);font-weight:700;}
   .step-pills-labels .sl-sub{font-size:11px;font-weight:400;margin-top:2px;}
+
+  /* Step indicator (Vault flow) */
+  .circle{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:14px;font-weight:700;flex-shrink:0;}
+  .circle svg{display:block;}
+  .circle--done{background:var(--pos);color:#fff;}
+  .circle--active{background:var(--azure);color:#fff;box-shadow:0 0 16px rgba(26,111,255,0.35);}
+  .step-col{display:flex;flex-direction:column;align-items:center;flex-shrink:0;width:36px;text-align:center;position:relative;}
+  .step-col-labels{position:absolute;top:44px;left:50%;transform:translateX(-50%);white-space:nowrap;}
+  .step-flow-label{font-size:12px;font-weight:600;}
+  .step-flow-sub{font-family:var(--font-mono);font-size:10px;letter-spacing:0.03em;text-transform:uppercase;margin-top:4px;}
+  .step-connector{flex:1;height:2px;margin-top:17px;}
+  .step-spinner{display:inline-block;width:11px;height:11px;border:2px solid rgba(255,255,255,0.35);border-top-color:#fff;border-radius:50%;animation:spin 0.8s linear infinite;}
 
   /* Live log */
   .log-wrap{background:#0e0e18;border-radius:12px;padding:16px;max-height:240px;overflow-y:auto;font-family:var(--font-mono);font-size:12px;line-height:2;}
@@ -117,6 +129,7 @@
 
   /* 2-col layout */
   .page-grid{display:grid;grid-template-columns:1fr 380px;gap:40px;max-width:1200px;margin:0 auto;padding:40px clamp(16px,4vw,40px) 80px;}
+  .page-grid.multi-mode{grid-template-columns:1fr;max-width:1400px;}
 
   /* Search */
   .tk-search .tk-input{background:rgba(255,255,255,0.85)!important;color:#111!important;border:none!important;box-shadow:none!important;}
@@ -127,6 +140,57 @@
 
   /* Notification banner */
   .notif-banner{background:rgba(26,111,255,0.06);border:1px solid rgba(26,111,255,0.15);border-radius:12px;padding:16px 20px;display:flex;align-items:center;gap:12px;font-size:13px;color:rgba(255,255,255,0.55);}
+
+  /* Large multi-card state */
+  .stat-pill{background:#191919;border-radius:12px;padding:14px 16px;cursor:pointer;border:1.5px solid transparent;transition:all 0.15s;}
+  .stat-pill:hover{border-color:rgba(255,255,255,0.12);}
+  .stat-pill.active{border-color:var(--azure);background:rgba(26,111,255,0.1);}
+  .stat-pill .n{font-family:var(--font-mono);font-size:22px;font-weight:700;color:#fff;}
+  .stat-pill .l{font-size:11px;color:rgba(255,255,255,0.4);margin-top:2px;}
+  .filter-tab{font-family:var(--font-mono);font-size:11.5px;font-weight:600;padding:7px 14px;border-radius:20px;background:#191919;color:rgba(255,255,255,0.5);border:1px solid rgba(255,255,255,0.08);cursor:pointer;}
+  .filter-tab.active{background:var(--azure);color:#fff;border-color:var(--azure);}
+  #lm-list::-webkit-scrollbar{width:6px;}
+  #lm-list::-webkit-scrollbar-thumb{background:var(--azure);border-radius:3px;}
+  .lm-row{display:flex;gap:14px;align-items:flex-start;padding:12px;background:#191919;border-radius:10px;flex-shrink:0;cursor:pointer;transition:background 0.15s;}
+  .lm-row:hover{background:#1f1f1f;}
+  .lm-row.minted{box-shadow:inset 3px 0 0 0 var(--pos);}
+  .lm-row.minting{box-shadow:inset 3px 0 0 0 var(--azure);animation:pulse-pill 2s infinite;}
+  .lm-row.rejected{box-shadow:inset 3px 0 0 0 var(--neg);}
+  .lm-row.reviewing{box-shadow:inset 3px 0 0 0 var(--azure);}
+  .lm-row.approved{box-shadow:inset 3px 0 0 0 var(--pos);}
+  .lm-row.completed{box-shadow:inset 3px 0 0 0 var(--pos);}
+  .lm-row.failed{box-shadow:inset 3px 0 0 0 var(--neg);}
+  .lm-row.selected{background:rgba(0,51,255,0.12);box-shadow:inset 3px 0 0 0 var(--azure);}
+  .sd-switcher{position:fixed;bottom:24px;right:24px;z-index:100;display:flex;flex-wrap:wrap;gap:4px;max-width:340px;justify-content:flex-end;background:#191919;border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:8px;box-shadow:0 8px 32px rgba(0,0,0,0.5);}
+  .sd-switcher button{border:0;background:transparent;color:rgba(255,255,255,0.45);font-family:var(--font-mono);font-size:10.5px;font-weight:600;padding:6px 9px;cursor:pointer;letter-spacing:0.02em;border-radius:6px;white-space:nowrap;}
+  .sd-switcher button:hover{background:rgba(255,255,255,0.06);color:#fff;}
+  .sd-switcher button.on{background:var(--azure);color:#fff;}
+  .lm-list-scroll.card-list{height:480px;overflow-y:auto;border:1px solid rgba(255,255,255,0.08);border-radius:12px;background:#141414;padding:10px;display:flex;flex-direction:column;gap:8px;}
+
+  /* Layout B: master-detail flex */
+  .submission-layout{display:flex;flex-direction:row;gap:24px;align-items:flex-start;min-height:100vh;}
+  .left-col{flex:0 0 55%;max-width:55%;}
+  .right-panel{flex:0 0 45%;max-width:45%;position:sticky;top:80px;height:calc(100vh - 100px);overflow-y:auto;background:rgba(255,255,255,0.03);border-left:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:24px;display:flex;align-items:center;justify-content:center;}
+  .right-panel.selected{align-items:flex-start;justify-content:flex-start;}
+  .lb-panel-inner{transition:opacity 0.15s ease;width:100%;}
+
+  /* Mobile bottom sheet */
+  .lb-sheet-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:150;}
+  .lb-sheet-overlay.open{display:block;}
+  .lb-sheet{position:fixed;left:0;right:0;bottom:0;height:70vh;background:#141414;border-radius:20px 20px 0 0;z-index:151;transform:translateY(100%);transition:transform 0.25s ease;display:flex;flex-direction:column;box-shadow:0 -12px 40px rgba(0,0,0,0.5);}
+  .lb-sheet.open{transform:translateY(0);}
+  .lb-sheet-handle{width:40px;height:4px;background:rgba(255,255,255,0.25);border-radius:2px;margin:12px auto 8px;flex-shrink:0;touch-action:none;}
+
+  @media(max-width:1024px){
+    .submission-layout{flex-direction:column;}
+    .left-col{flex:1 1 auto;max-width:100%;}
+    .right-panel{display:none;}
+  }
+  @media(max-width:640px){
+    #lm-pills{grid-template-columns:repeat(2,1fr)!important;}
+    #lm-tabs{overflow-x:auto;flex-wrap:nowrap!important;}
+    .card-list{height:auto;max-height:none;}
+  }
 
   /* Mobile */
   @media(max-width:1024px){
@@ -197,314 +261,29 @@
     </div>
   </div>
 
+
   <!-- ============ MAIN ============ -->
-  <div class="page-grid">
-
-    <!-- LEFT COLUMN -->
-    <div>
-      <!-- Breadcrumb -->
-      <div style="margin-bottom:20px;font-size:13px;color:rgba(255,255,255,0.35);">
-        <a href="Vault-Dashboard-Active.html" style="color:var(--azure);text-decoration:none;font-weight:600;">My Vault</a>
-        <span style="margin:0 8px;color:rgba(255,255,255,0.2);">›</span>
-        <span style="color:rgba(255,255,255,0.5);">SUB-20260616-00421</span>
-      </div>
-
-      <!-- Page header -->
-      <h1 style="margin:0 0 16px;font-weight:700;font-size:28px;letter-spacing:-0.02em;">Submission Detail</h1>
-
-      <!-- Card summary row -->
-      <div style="display:flex;align-items:center;gap:16px;padding:16px 20px;background:#191919;border-radius:14px;margin-bottom:32px;">
-        <div style="width:56px;height:78px;background:#0e0e0e;border-radius:6px;padding:4px;flex-shrink:0;">
-          <img src="images/card-charizard.png" alt="Charizard" style="width:100%;height:100%;object-fit:contain;">
-        </div>
-        <div style="flex:1;min-width:0;">
-          <div style="font-size:16px;font-weight:700;color:#fff;">1999 POKEMON BASE SET 1ST EDITION #4 CHARIZARD HOLO</div>
-          <div style="display:flex;align-items:center;gap:8px;margin-top:6px;flex-wrap:wrap;">
-            <span class="badge" style="background:rgba(0,200,100,0.12);color:var(--pos);">PSA 10</span>
-            <span class="mono" style="font-size:11px;color:rgba(255,255,255,0.35);">Cert #12345678</span>
-            <span class="badge" style="background:rgba(139,92,246,0.12);color:var(--purple);">Polygon</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Status hero -->
-      <!-- STATE TOGGLE -->
-      <div class="state-toggle" style="position:fixed;bottom:24px;right:24px;z-index:100;display:flex;background:#191919;border:1px solid rgba(255,255,255,0.1);border-radius:10px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
-        <button data-show-state="minting" id="tog-minting" style="border:0;background:var(--azure);color:#fff;font-family:var(--font-mono);font-size:11px;font-weight:600;padding:10px 16px;cursor:pointer;letter-spacing:0.03em;">Minting</button>
-        <button data-show-state="completed" id="tog-completed" style="border:0;background:transparent;color:rgba(255,255,255,0.4);font-family:var(--font-mono);font-size:11px;font-weight:600;padding:10px 16px;cursor:pointer;letter-spacing:0.03em;">Completed</button>
-      </div>
-
-      <div id="view-minting">
-      <div style="margin-bottom:32px;padding:24px;background:rgba(26,111,255,0.06);border:1px solid rgba(26,111,255,0.15);border-radius:14px;">
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
-          <span class="spin" style="width:18px;height:18px;flex-shrink:0;"></span>
-          <div style="font-size:24px;font-weight:700;color:#fff;">Minting in Progress</div>
-        </div>
-        <div style="font-size:14px;color:rgba(255,255,255,0.45);line-height:1.6;padding-left:30px;">Your token is being created on Polygon. Usually completes within 24 hours.</div>
-      </div>
-
-      <!-- Step indicator (dots + lines) -->
-      <div style="display:flex;align-items:flex-start;width:100%;margin-bottom:32px;">
-        <div style="display:flex;flex-direction:column;align-items:center;gap:10px;flex-shrink:0;">
-          <div class="step-dot" style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--pos);color:#fff;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>
-          <div style="font-size:12px;font-weight:600;color:var(--pos);">Submit</div>
-        </div>
-        <div style="flex:1;height:2px;background:var(--pos);margin:17px -4px 0;"></div>
-        <div style="display:flex;flex-direction:column;align-items:center;gap:10px;flex-shrink:0;">
-          <div class="step-dot" style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--pos);color:#fff;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>
-          <div style="font-size:12px;font-weight:600;color:var(--pos);">Ship</div>
-        </div>
-        <div style="flex:1;height:2px;background:var(--pos);margin:17px -4px 0;"></div>
-        <div style="display:flex;flex-direction:column;align-items:center;gap:10px;flex-shrink:0;">
-          <div class="step-dot" style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--pos);color:#fff;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>
-          <div style="font-size:12px;font-weight:600;color:var(--pos);">Vault</div>
-        </div>
-        <div style="flex:1;height:2px;background:linear-gradient(90deg,var(--pos),var(--azure));margin:17px -4px 0;"></div>
-        <div style="display:flex;flex-direction:column;align-items:center;gap:10px;flex-shrink:0;">
-          <div style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--azure);color:#fff;font-family:var(--font-mono);font-size:14px;font-weight:700;box-shadow:0 0 16px rgba(26,111,255,0.35);animation:pulse-dot 2s infinite;">4</div>
-          <div style="font-size:12px;font-weight:700;color:#fff;">Mint</div>
-        </div>
-      </div>
-      <div style="margin-bottom:32px;">
-        <span class="mono" style="font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:rgba(255,255,255,0.4);font-weight:600;display:block;margin-bottom:16px;">Timeline</span>
-
-      <!-- ============ TIMELINE ============ -->
-        <!-- VERIFY phase -->
-        <div class="tl-step">
-          <div class="tl-rail"><div class="tl-dot tl-dot--done"></div><div class="tl-line tl-line--done"></div></div>
-          <div class="tl-body">
-            <div style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--pos);opacity:0.6;margin-bottom:4px;">VERIFY</div>
-            <div class="tl-title">Submitted</div>
-            <div class="tl-meta"><span class="tl-time">2026-06-10 09:14</span><span class="badge badge--user">USER</span></div>
-            <div class="tl-desc">Card info submitted · Cert #12345678</div>
-          </div>
-        </div>
-        <div class="tl-step">
-          <div class="tl-rail"><div class="tl-dot tl-dot--done"></div><div class="tl-line tl-line--done"></div></div>
-          <div class="tl-body">
-            <div class="tl-title">Verified</div>
-            <div class="tl-meta"><span class="tl-time">2026-06-10 09:14</span><span class="badge badge--system">SYSTEM</span></div>
-            <div class="tl-desc">PSA lookup success · Grade PSA 10 confirmed</div>
-          </div>
-        </div>
-
-        <!-- SHIP phase -->
-        <div class="tl-step">
-          <div class="tl-rail"><div class="tl-dot tl-dot--done"></div><div class="tl-line tl-line--done"></div></div>
-          <div class="tl-body">
-            <div style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--pos);opacity:0.6;margin-bottom:4px;margin-top:8px;">SHIP</div>
-            <div class="tl-title">Shipped</div>
-            <div class="tl-meta"><span class="tl-time">2026-06-12 09:00</span><span class="badge badge--user">USER</span></div>
-            <div class="tl-desc">FedEx · FX123456789 · Shipped from Seoul, KR</div>
-          </div>
-        </div>
-        <div class="tl-step">
-          <div class="tl-rail"><div class="tl-dot tl-dot--done"></div><div class="tl-line tl-line--done"></div></div>
-          <div class="tl-body">
-            <div class="tl-title">Delivered</div>
-            <div class="tl-meta"><span class="tl-time">2026-06-14 11:30</span><span class="badge badge--webhook">WEBHOOK</span></div>
-            <div class="tl-desc">Package received at vault facility</div>
-          </div>
-        </div>
-
-        <!-- VAULT phase (DONE) -->
-        <div class="tl-step">
-          <div class="tl-rail"><div class="tl-dot tl-dot--done"></div><div class="tl-line tl-line--done"></div></div>
-          <div class="tl-body">
-            <div style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--pos);opacity:0.6;margin-bottom:4px;margin-top:8px;">VAULT</div>
-            <div class="tl-title">Intake Verified</div>
-            <div class="tl-meta"><span class="tl-time">2026-06-15 16:02</span><span class="badge badge--webhook">WEBHOOK</span></div>
-            <div class="tl-desc">PSA Vault intake confirmed · Cert matched</div>
-          </div>
-        </div>
-        <div class="tl-step">
-          <div class="tl-rail"><div class="tl-dot tl-dot--done"></div><div class="tl-line tl-line--done"></div></div>
-          <div class="tl-body">
-            <div class="tl-title">Insured &amp; Vaulted</div>
-            <div class="tl-meta"><span class="tl-time">2026-06-16 10:30</span><span class="badge badge--system">SYSTEM</span></div>
-            <div class="tl-desc">Insurance coverage confirmed · Lloyd’s of London</div>
-          </div>
-        </div>
-
-        <!-- TOKENIZE phase (ACTIVE) -->
-        <div class="tl-step">
-          <div class="tl-rail"><div class="tl-dot tl-dot--active"></div><div class="tl-line tl-line--pending"></div></div>
-          <div class="tl-body">
-            <div style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--azure);margin-bottom:4px;margin-top:8px;">TOKENIZE</div>
-            <div class="tl-title" style="color:var(--azure);">Mint Token</div>
-            <div class="tl-meta"><span style="font-size:12px;color:var(--azure);font-weight:600;">In Progress</span><span class="badge badge--system">SYSTEM</span></div>
-            <div class="tl-desc" style="color:rgba(255,255,255,0.55);">ERC-721 minting on Polygon… <span class="spin" style="vertical-align:middle;margin-left:4px;"></span></div>
-          </div>
-        </div>
-        <div class="tl-step pending">
-          <div class="tl-rail"><div class="tl-dot tl-dot--pending"></div></div>
-          <div class="tl-body">
-            <div class="tl-title">Completed</div>
-            <div class="tl-meta"><span style="font-size:12px;color:rgba(255,255,255,0.2);">Pending</span></div>
-            <div class="tl-desc">Token will be sent to 0x7Fb…3aE2</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- ============ LIVE LOG ============ -->
-      <div style="margin-bottom:32px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-          <span class="mono" style="font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:rgba(255,255,255,0.4);font-weight:600;">Live Activity</span>
-          <span style="font-size:11px;color:rgba(255,255,255,0.2);">Auto-refreshes every 30s</span>
-        </div>
-        <div class="log-wrap">
-          <div class="log-line"><span class="log-time">16:02</span><span class="log-actor"><span class="badge badge--webhook" style="font-size:10px;padding:2px 6px;">webhook</span></span><span class="log-msg">PSA Vault intake confirmed</span></div>
-          <div class="log-line"><span class="log-time">14:30</span><span class="log-actor"><span class="badge badge--system" style="font-size:10px;padding:2px 6px;">system</span></span><span class="log-msg">Shipping guide sent to email</span></div>
-          <div class="log-line"><span class="log-time">09:14</span><span class="log-actor"><span class="badge badge--system" style="font-size:10px;padding:2px 6px;">system</span></span><span class="log-msg">Grade verified · PSA 10</span></div>
-          <div class="log-line"><span class="log-time">09:14</span><span class="log-actor"><span class="badge badge--user" style="font-size:10px;padding:2px 6px;">user</span></span><span class="log-msg">Submission created</span></div>
-          <div class="log-line"><span class="log-time">09:00</span><span class="log-actor"><span class="badge badge--user" style="font-size:10px;padding:2px 6px;">user</span></span><span class="log-msg">FedEx tracking registered · FX123456789</span></div>
-          <div class="log-line"><span class="log-time">--:--</span><span class="log-actor"><span class="badge badge--blockchain" style="font-size:10px;padding:2px 6px;">blockchain</span></span><span class="log-msg">ERC-721 mint tx submitted… <span class="spin" style="width:10px;height:10px;border-width:1.5px;vertical-align:middle;"></span></span></div>
-        </div>
-      </div>
-
-      <!-- Notification banner -->
-      <div class="notif-banner">
-        <span style="font-size:18px;">🔔</span>
-        <span style="flex:1;">We'll notify you by email when your token is ready.</span>
-        <a href="#" style="color:var(--azure);font-size:13px;font-weight:600;text-decoration:none;white-space:nowrap;">Manage Notifications →</a>
-      </div>
-    </div><!-- end view-minting -->
-
-    <!-- ========== COMPLETED STATE ========== -->
-    <div id="view-completed" style="display:none;">
-      <div style="margin-bottom:32px;padding:24px;background:rgba(0,200,100,0.06);border:1px solid rgba(0,200,100,0.15);border-radius:14px;">
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--pos)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-          <div style="font-size:24px;font-weight:700;color:#fff;">Minting Complete</div>
-        </div>
-        <div style="font-size:14px;color:rgba(255,255,255,0.45);line-height:1.6;padding-left:36px;">Your token has been minted and sent to your wallet. This card is now available in your Portfolio.</div>
-      </div>
-
-      <!-- Step indicator — all completed -->
-      <div style="display:flex;align-items:flex-start;width:100%;margin-bottom:32px;">
-        <div style="display:flex;flex-direction:column;align-items:center;gap:10px;flex-shrink:0;">
-          <div style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--pos);color:#fff;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>
-          <div style="font-size:12px;font-weight:600;color:var(--pos);">Submit</div>
-        </div>
-        <div style="flex:1;height:2px;background:var(--pos);margin:17px -4px 0;"></div>
-        <div style="display:flex;flex-direction:column;align-items:center;gap:10px;flex-shrink:0;">
-          <div style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--pos);color:#fff;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>
-          <div style="font-size:12px;font-weight:600;color:var(--pos);">Ship</div>
-        </div>
-        <div style="flex:1;height:2px;background:var(--pos);margin:17px -4px 0;"></div>
-        <div style="display:flex;flex-direction:column;align-items:center;gap:10px;flex-shrink:0;">
-          <div style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--pos);color:#fff;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>
-          <div style="font-size:12px;font-weight:600;color:var(--pos);">Vault</div>
-        </div>
-        <div style="flex:1;height:2px;background:var(--pos);margin:17px -4px 0;"></div>
-        <div style="display:flex;flex-direction:column;align-items:center;gap:10px;flex-shrink:0;">
-          <div style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--pos);color:#fff;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>
-          <div style="font-size:12px;font-weight:700;color:var(--pos);">Mint</div>
-        </div>
-      </div>
-
-      <div style="margin-bottom:32px;">
-        <span class="mono" style="font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:rgba(255,255,255,0.4);font-weight:600;display:block;margin-bottom:16px;">Timeline</span>
-
-        <div class="tl-step"><div class="tl-rail"><div class="tl-dot tl-dot--done"></div><div class="tl-line tl-line--done"></div></div><div class="tl-body"><div style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--pos);opacity:0.6;margin-bottom:4px;">VERIFY</div><div class="tl-title">Submitted</div><div class="tl-meta"><span class="tl-time">2026-06-10 09:14</span><span class="badge badge--user">USER</span></div><div class="tl-desc">Card info submitted · Cert #12345678</div></div></div>
-        <div class="tl-step"><div class="tl-rail"><div class="tl-dot tl-dot--done"></div><div class="tl-line tl-line--done"></div></div><div class="tl-body"><div class="tl-title">Verified</div><div class="tl-meta"><span class="tl-time">2026-06-10 09:14</span><span class="badge badge--system">SYSTEM</span></div><div class="tl-desc">PSA lookup success · Grade PSA 10 confirmed</div></div></div>
-
-        <div class="tl-step"><div class="tl-rail"><div class="tl-dot tl-dot--done"></div><div class="tl-line tl-line--done"></div></div><div class="tl-body"><div style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--pos);opacity:0.6;margin-bottom:4px;margin-top:8px;">SHIP</div><div class="tl-title">Shipped</div><div class="tl-meta"><span class="tl-time">2026-06-12 09:00</span><span class="badge badge--user">USER</span></div><div class="tl-desc">FedEx · FX123456789 · Shipped from Seoul, KR</div></div></div>
-        <div class="tl-step"><div class="tl-rail"><div class="tl-dot tl-dot--done"></div><div class="tl-line tl-line--done"></div></div><div class="tl-body"><div class="tl-title">Delivered</div><div class="tl-meta"><span class="tl-time">2026-06-14 11:30</span><span class="badge badge--webhook">WEBHOOK</span></div><div class="tl-desc">Package received at vault facility</div></div></div>
-
-        <div class="tl-step"><div class="tl-rail"><div class="tl-dot tl-dot--done"></div><div class="tl-line tl-line--done"></div></div><div class="tl-body"><div style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--pos);opacity:0.6;margin-bottom:4px;margin-top:8px;">VAULT</div><div class="tl-title">Intake Verified</div><div class="tl-meta"><span class="tl-time">2026-06-15 16:02</span><span class="badge badge--webhook">WEBHOOK</span></div><div class="tl-desc">PSA Vault intake confirmed · Cert matched</div></div></div>
-        <div class="tl-step"><div class="tl-rail"><div class="tl-dot tl-dot--done"></div><div class="tl-line tl-line--done"></div></div><div class="tl-body"><div class="tl-title">Insured &amp; Vaulted</div><div class="tl-meta"><span class="tl-time">2026-06-16 10:30</span><span class="badge badge--system">SYSTEM</span></div><div class="tl-desc">Insurance coverage confirmed · Lloyd's of London</div></div></div>
-
-        <div class="tl-step"><div class="tl-rail"><div class="tl-dot tl-dot--done"></div><div class="tl-line tl-line--done"></div></div><div class="tl-body"><div style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--pos);opacity:0.6;margin-bottom:4px;margin-top:8px;">TOKENIZE</div><div class="tl-title">Token Minted</div><div class="tl-meta"><span class="tl-time">2026-06-17 14:22</span><span class="badge badge--blockchain">BLOCKCHAIN</span></div><div class="tl-desc">ERC-721 minted on Polygon · Token #0421</div></div></div>
-        <div class="tl-step"><div class="tl-rail"><div class="tl-dot tl-dot--done"></div></div><div class="tl-body"><div class="tl-title" style="color:var(--pos);">Completed</div><div class="tl-meta"><span class="tl-time">2026-06-17 14:23</span><span class="badge badge--system">SYSTEM</span></div><div class="tl-desc">Token #0421 sent to 0x7Fb…3aE2</div></div></div>
-      </div>
-
-      <!-- Blockchain Receipt -->
-      <div style="background:#191919;border-radius:14px;padding:20px;margin-bottom:32px;">
-        <span class="mono" style="font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:rgba(255,255,255,0.4);font-weight:600;display:block;margin-bottom:12px;">Blockchain Receipt</span>
-        <div style="display:flex;justify-content:space-between;padding:6px 0;"><span style="font-size:13px;color:rgba(255,255,255,0.4);">Contract</span><span class="mono" style="font-size:12px;color:var(--azure);">0x1aB…4cD2</span></div>
-        <div style="display:flex;justify-content:space-between;padding:6px 0;"><span style="font-size:13px;color:rgba(255,255,255,0.4);">Token ID</span><span class="mono" style="font-size:12px;color:#fff;font-weight:600;">#0421</span></div>
-        <div style="display:flex;justify-content:space-between;padding:6px 0;"><span style="font-size:13px;color:rgba(255,255,255,0.4);">TX Hash</span><span class="mono" style="font-size:12px;color:var(--azure);">0xf3a…91e2</span></div>
-        <div style="margin-top:12px;"><a href="#" class="tk-btn tk-btn--sm tk-btn--subtle" style="text-decoration:none;width:100%;font-size:12px;">View on Polygonscan →</a></div>
-      </div>
-
-      <!-- Actions -->
-      <div style="display:flex;flex-direction:column;gap:10px;">
-        <a href="Portfolio.html" class="tk-btn tk-btn--primary" style="text-decoration:none;height:48px;font-size:15px;display:flex;align-items:center;justify-content:center;">View in Portfolio →</a>
-        <a href="Vault-Dashboard-Active.html" class="tk-btn tk-btn--subtle" style="text-decoration:none;height:42px;font-size:13px;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,0.5);">Back to Vault</a>
-      </div>
-    </div><!-- end view-completed -->
-    </div><!-- end LEFT COLUMN -->
-
-    <!-- RIGHT COLUMN -->
-    <div>
-      <!-- Card image -->
-      <div class="card-box" style="margin-bottom:20px;text-align:center;padding:32px;">
-        <div style="width:200px;height:280px;margin:0 auto;background:#0e0e0e;border-radius:10px;padding:8px;">
-          <img src="images/card-charizard.png" alt="Charizard PSA 10" style="width:100%;height:100%;object-fit:contain;">
-        </div>
-      </div>
-
-      <!-- Card details (minting state) -->
-      <div class="card-box right-minting" style="margin-bottom:20px;">
-        <span class="mono" style="font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:rgba(255,255,255,0.4);font-weight:600;display:block;margin-bottom:12px;">Card Details</span>
-        <div class="detail-row"><span class="detail-k">Graded By</span><span class="detail-v">PSA · Gem Mint 10</span></div>
-        <div class="detail-row"><span class="detail-k">Cert #</span><span class="detail-v mono" style="font-size:12px;">12345678</span></div>
-        <div class="detail-row"><span class="detail-k">Vault</span><span class="detail-v mono" style="font-size:11px;color:rgba(255,255,255,0.5);">Delaware · Lloyd’s</span></div>
-        <div class="detail-row"><span class="detail-k">Token</span><span class="detail-v" style="color:var(--amber);">Pending…</span></div>
-      </div>
-
-      <!-- Card details (completed state) -->
-      <div class="card-box right-completed" style="margin-bottom:20px;display:none;">
-        <span class="mono" style="font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:rgba(255,255,255,0.4);font-weight:600;display:block;margin-bottom:12px;">Card Details</span>
-        <div class="detail-row"><span class="detail-k">Graded By</span><span class="detail-v">PSA · Gem Mint 10</span></div>
-        <div class="detail-row"><span class="detail-k">Cert #</span><span class="detail-v mono" style="font-size:12px;">12345678</span></div>
-        <div class="detail-row"><span class="detail-k">Vault</span><span class="detail-v mono" style="font-size:11px;color:rgba(255,255,255,0.5);">Delaware · Lloyd’s</span></div>
-        <div class="detail-row"><span class="detail-k">Token</span><span class="detail-v mono" style="font-size:13px;font-weight:700;color:var(--azure);">#0421</span></div>
-      </div>
-
-      <!-- Blockchain receipt (minting - pending) -->
-      <div class="card-box right-minting" style="margin-bottom:20px;border:1px dashed rgba(255,255,255,0.06);">
-        <span class="mono" style="font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:rgba(255,255,255,0.25);font-weight:600;display:block;margin-bottom:12px;">Blockchain Receipt</span>
-        <div style="text-align:center;padding:20px 0;">
-          <div class="spin" style="width:24px;height:24px;margin:0 auto 12px;"></div>
-          <div style="font-size:13px;color:rgba(255,255,255,0.25);">Awaiting mint confirmation…</div>
-        </div>
-      </div>
-
-      <!-- Blockchain receipt (completed) -->
-      <div class="card-box right-completed" style="margin-bottom:20px;display:none;">
-        <span class="mono" style="font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:rgba(255,255,255,0.4);font-weight:600;display:block;margin-bottom:12px;">Blockchain Receipt</span>
-        <div class="detail-row"><span class="detail-k">Contract</span><a href="#" style="font-family:var(--font-mono);font-size:12px;color:var(--azure);text-decoration:none;font-weight:600;">0x1aB…4cD2</a></div>
-        <div class="detail-row"><span class="detail-k">Token ID</span><span class="detail-v mono" style="font-size:13px;font-weight:700;color:#fff;">#0421</span></div>
-        <div class="detail-row"><span class="detail-k">TX Hash</span><a href="#" style="font-family:var(--font-mono);font-size:12px;color:var(--azure);text-decoration:none;font-weight:600;">0xf3a…91e2</a></div>
-        <div style="margin-top:12px;"><a href="#" class="tk-btn tk-btn--sm tk-btn--subtle" style="text-decoration:none;width:100%;font-size:12px;">View on Polygonscan →</a></div>
-      </div>
-
-      <!-- Actions (minting) -->
-      <div class="right-minting" style="display:flex;flex-direction:column;gap:10px;">
-        <button class="tk-btn tk-btn--primary" style="height:48px;width:100%;font-size:14px;opacity:0.4;cursor:not-allowed;" disabled title="Available after minting completes">View on OpenSea →</button>
-        <button class="tk-btn tk-btn--subtle" style="height:42px;width:100%;font-size:13px;">Download Receipt</button>
-        <button class="tk-btn tk-btn--subtle" style="height:42px;width:100%;font-size:13px;">Request Card Delivery</button>
-        <button class="tk-btn tk-btn--subtle" style="height:38px;width:100%;font-size:12px;opacity:0.6;">Contact Support</button>
-      </div>
-
-      <!-- Actions (completed) -->
-      <div class="right-completed" style="display:none;flex-direction:column;gap:10px;">
-        <a href="#" class="tk-btn tk-btn--primary" style="height:48px;width:100%;font-size:14px;text-decoration:none;display:flex;align-items:center;justify-content:center;">View on OpenSea →</a>
-        <button class="tk-btn tk-btn--subtle" style="height:42px;width:100%;font-size:13px;">Download Receipt</button>
-        <button class="tk-btn tk-btn--subtle" style="height:42px;width:100%;font-size:13px;">Request Card Delivery</button>
-        <button class="tk-btn tk-btn--subtle" style="height:38px;width:100%;font-size:12px;opacity:0.6;">Contact Support</button>
-      </div>
-
-      <!-- Delivery note -->
-      <div style="margin-top:16px;padding:14px 16px;background:rgba(255,255,255,0.03);border-radius:12px;font-size:12px;color:rgba(255,255,255,0.35);line-height:1.7;">
-        <strong style="color:rgba(255,255,255,0.5);">Card Delivery</strong><br>
-        Once a withdrawal request is submitted, processing time is generally 14–16 business days before shipment. This is an estimate and may vary depending on volume. After shipment, delivery times depend on the destination and carrier.
-      </div>
-    </div>
-
+  <div style="min-height:60vh;padding:40px clamp(16px,4vw,40px) 80px;">
+    <div id="sd-root"></div>
   </div>
+
+  <!-- Scenario switcher -->
+  <div class="sd-switcher" id="sd-switcher">
+    <button data-scen="A">A·Draft</button>
+    <button data-scen="B">B·Pending</button>
+    <button data-scen="C">C·Transit</button>
+    <button data-scen="D">D·Review</button>
+    <button data-scen="E">E·Approved</button>
+    <button data-scen="F">F·Rejected</button>
+    <button data-scen="G">G·Minted</button>
+    <button data-scen="H">H·Failed</button>
+  </div>
+
+  <!-- Mobile bottom sheet -->
+  <div id="lb-sheet-overlay" class="lb-sheet-overlay"></div>
+  <div id="lb-sheet" class="lb-sheet">
+    <div class="lb-sheet-handle"></div>
+    <div id="lb-sheet-content" style="overflow-y:auto;flex:1;padding:0 20px 24px;"></div>
   </div>
 
   <script src="tk-footer.js"></script>
@@ -512,27 +291,159 @@
 </x-dc>
 
 <script>
-document.addEventListener('click', function(e){
-  var btn = e.target.closest('[data-show-state]');
-  if(btn){
-    var s = btn.dataset.showState;
-    document.getElementById('view-minting').style.display = s==='minting'?'block':'none';
-    document.getElementById('view-completed').style.display = s==='completed'?'block':'none';
-    document.getElementById('tog-minting').style.background = s==='minting'?'var(--azure)':'transparent';
-    document.getElementById('tog-minting').style.color = s==='minting'?'#fff':'rgba(255,255,255,0.4)';
-    document.getElementById('tog-completed').style.background = s==='completed'?'var(--pos)':'transparent';
-    document.getElementById('tog-completed').style.color = s==='completed'?'#fff':'rgba(255,255,255,0.4)';
-    document.querySelectorAll('.right-minting').forEach(function(el){el.style.display=s==='minting'?'':'none';});
-    document.querySelectorAll('.right-completed').forEach(function(el){el.style.display=s==='completed'?'flex':'none';});
-    // Fix card-box display
-    document.querySelectorAll('.right-completed.card-box').forEach(function(el){el.style.display=s==='completed'?'block':'none';});
-  }
-});
-// Auto-show completed if hash is #completed
-if(window.location.hash === '#completed'){
-  var btn = document.getElementById('tog-completed');
-  if(btn) btn.click();
+
+/* ===== Vault Submission Detail — scenario state machine ===== */
+var AZ='var(--azure)',POS='var(--pos)',NEG='var(--neg)',AMB='var(--amber)',DIM='rgba(255,255,255,0.3)';
+var C_CHAR={name:'1999 POKEMON BASE SET 1ST EDITION #4 CHARIZARD HOLO',img:'images/card-charizard.png',grade:'PSA 10',cert:'12345678'};
+var C_PIKA={name:'2023 POKEMON PROMO SVP #085 PIKACHU VAN GOGH',img:'images/card-pikachu.png',grade:'PSA 9',cert:'22938102'};
+var C_LEB={name:'2003 TOPPS CHROME #111 LEBRON JAMES ROOKIE',img:'images/card-lebron.png',grade:'PSA 10',cert:'55501248'};
+var PKG_CARDS=[C_CHAR,C_PIKA,C_LEB];
+var isMobileView=function(){return window.innerWidth<=1024;};
+
+function circleHtml(state){
+  if(state==='done') return '<div class="circle circle--done"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></div>';
+  if(state==='active') return '<div class="circle circle--active"><span class="step-spinner"></span></div>';
+  if(state==='rejected'||state==='failed') return '<div class="circle" style="background:var(--neg);color:#fff;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></div>';
+  if(state==='action') return '<div class="circle" style="background:var(--amber);color:#fff;font-weight:800;">!</div>';
+  return '<div class="circle" style="background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.3);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.12);"></div>';
 }
+function labelColor(st){ if(st==='done')return POS; if(st==='active')return '#fff'; if(st==='rejected'||st==='failed')return NEG; if(st==='action')return AMB; return DIM; }
+function connColor(st){ if(st==='done')return POS; if(st==='active')return 'linear-gradient(90deg,var(--pos),var(--azure))'; if(st==='rejected'||st==='failed')return NEG; return 'rgba(255,255,255,0.1)'; }
+function stepBar(steps){
+  var h='<div style="display:flex;align-items:flex-start;width:100%;margin-bottom:20px;padding-bottom:46px;">';
+  for(var i=0;i<steps.length;i++){ var s=steps[i];
+    if(i>0) h+='<div class="step-connector" style="background:'+connColor(steps[i-1].state)+';"></div>';
+    h+='<div class="step-col">'+circleHtml(s.state)+'<div class="step-col-labels"><div class="step-flow-label" style="color:'+labelColor(s.state)+';">'+s.label+'</div>'+(s.sub?'<div class="step-flow-sub" style="color:'+(s.subColor||labelColor(s.state))+';white-space:nowrap;">'+s.sub+'</div>':'')+'</div></div>';
+  }
+  return h+'</div>';
+}
+function heroBox(hero){
+  var map={info:['rgba(26,111,255,0.06)','rgba(26,111,255,0.15)'],success:['rgba(0,200,100,0.06)','rgba(0,200,100,0.15)'],danger:['rgba(228,55,74,0.06)','rgba(228,55,74,0.18)'],amber:['rgba(245,158,11,0.07)','rgba(245,158,11,0.2)'],muted:['rgba(255,255,255,0.03)','rgba(255,255,255,0.08)']};
+  var c=map[hero.tone]||map.info,icon='';
+  if(hero.icon==='spin') icon='<span class="spin" style="width:20px;height:20px;flex-shrink:0;"></span>';
+  else if(hero.icon==='check') icon='<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="'+POS+'" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>';
+  else if(hero.icon==='x') icon='<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="'+NEG+'" stroke-width="2.5"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>';
+  else if(hero.icon==='clock') icon='<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="'+AMB+'" stroke-width="2.2"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg>';
+  else if(hero.icon==='draft') icon='<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
+  return '<div style="margin-bottom:28px;padding:22px 24px;background:'+c[0]+';border:1px solid '+c[1]+';border-radius:14px;"><div style="display:flex;align-items:center;gap:12px;margin-bottom:'+(hero.sub?'8px':'0')+';">'+icon+'<div style="font-size:22px;font-weight:700;color:#fff;">'+hero.title+'</div></div>'+(hero.sub?'<div style="font-size:13.5px;color:rgba(255,255,255,0.5);line-height:1.6;padding-left:32px;">'+hero.sub+'</div>':'')+'</div>';
+}
+function headerBlock(){
+  return '<div style="margin-bottom:18px;font-size:13px;color:rgba(255,255,255,0.35);"><a href="Vault-Dashboard-Active.html" style="color:var(--azure);text-decoration:none;font-weight:600;">My Vault</a><span style="margin:0 8px;color:rgba(255,255,255,0.2);">\u203a</span><span style="color:rgba(255,255,255,0.5);">SUB-20260616-00421</span></div><h1 style="margin:0 0 22px;font-weight:700;font-size:28px;letter-spacing:-0.02em;">Submission Detail</h1>';
+}
+function packageInfoCard(){
+  var rows=PKG_CARDS.map(function(c,i){ return '<div style="display:flex;align-items:center;gap:14px;padding:12px 0;'+(i>0?'border-top:1px solid rgba(255,255,255,0.05);':'')+'"><div style="width:40px;height:56px;background:#0e0e0e;border-radius:6px;padding:3px;flex-shrink:0;"><img src="'+c.img+'" style="width:100%;height:100%;object-fit:contain;"></div><div style="flex:1;min-width:0;font-size:13px;font-weight:600;line-height:1.35;">'+c.name+'</div><span class="tk-tag tk-tag--neutral tk-tag--soft" style="font-size:10px;flex-shrink:0;">'+c.grade+'</span><span class="mono" style="font-size:11px;color:rgba(255,255,255,0.35);flex-shrink:0;white-space:nowrap;">#'+c.cert+'</span></div>'; }).join('');
+  return '<div class="card-box" style="margin-bottom:20px;padding:18px 22px;"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;"><span class="mono" style="font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:rgba(255,255,255,0.4);font-weight:600;">'+PKG_CARDS.length+' cards \u00b7 Est. $87,512</span><span style="font-size:12px;color:rgba(255,255,255,0.35);">Submitted Jun 10, 2026</span></div>'+rows+'</div>';
+}
+function shipToCard(){
+  return '<div class="card-box" style="margin-bottom:20px;"><span class="mono" style="font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:rgba(255,255,255,0.4);font-weight:600;display:block;margin-bottom:12px;">Ship To</span><div style="font-family:var(--font-mono);font-size:13px;line-height:1.9;color:#fff;">Tokenable Vault Services<br>1105 N Market St, Suite 1300<br>Wilmington, DE 19801<br>United States</div><div style="margin-top:14px;padding-top:14px;border-top:1px solid rgba(255,255,255,0.06);"><span style="font-size:12px;color:rgba(255,255,255,0.4);">Submission ID </span><span class="mono" style="font-size:13px;color:var(--azure);font-weight:700;">SUB-20260616-00421</span></div><div style="margin-top:12px;font-size:12px;color:var(--amber);line-height:1.6;">Include your Submission ID on the outside of the package. Do not redirect to any other address.</div><div style="display:flex;gap:10px;margin-top:16px;"><button class="tk-btn tk-btn--subtle" style="height:40px;font-size:13px;flex:1;">Copy Address</button><button class="tk-btn tk-btn--subtle" style="height:40px;font-size:13px;flex:1;">Download Packing Slip</button></div></div>';
+}
+function trackingCard(ship){
+  if(ship==='pending'){
+    return '<div class="card-box" style="margin-bottom:20px;"><span class="mono" style="font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:rgba(255,255,255,0.4);font-weight:600;display:block;margin-bottom:14px;">Register Tracking Number</span><div style="display:flex;gap:10px;flex-wrap:wrap;"><select class="tk-input" style="height:44px;flex:0 0 140px;"><option>FedEx</option><option>DHL Express</option><option>UPS</option><option>Korea Post EMS</option></select><input class="tk-input" placeholder="Tracking number" style="height:44px;flex:1;min-width:180px;"></div><button class="tk-btn tk-btn--primary" style="height:44px;width:100%;margin-top:12px;font-size:14px;">Register Tracking \u2192</button></div>';
+  }
+  return '<div class="card-box" style="margin-bottom:20px;"><div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="'+POS+'" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span style="font-size:14px;font-weight:700;color:#fff;">Tracking registered</span></div><a href="https://www.fedex.com/fedextrack/?trknbr=FX123456789" target="_blank" rel="noopener" class="mono" style="font-size:13px;color:var(--azure);text-decoration:none;font-weight:600;">FedEx \u00b7 FX123456789 \u2197</a><div style="margin-top:14px;"><button class="tk-btn tk-btn--subtle" style="height:38px;font-size:12.5px;">Change Tracking</button></div></div>';
+}
+function notifBanner(msg){ return '<div class="notif-banner"><span style="font-size:18px;">\ud83d\udd14</span><span style="flex:1;">'+(msg||'We\u2019ll notify you by email as your submission progresses.')+'</span><a href="#" style="color:var(--azure);font-size:13px;font-weight:600;text-decoration:none;white-space:nowrap;">Manage Notifications \u2192</a></div>'; }
+function ctaRow(ctas){ return '<div style="display:flex;flex-direction:column;gap:10px;margin-top:24px;">'+ctas.map(function(b){ var cls=b.primary?'tk-btn tk-btn--primary':'tk-btn tk-btn--subtle'; var st=b.primary?'height:48px;font-size:15px;':'height:42px;font-size:13px;color:rgba(255,255,255,0.6);'; return '<a href="'+(b.href||'#')+'" class="'+cls+'" style="text-decoration:none;'+st+'display:flex;align-items:center;justify-content:center;">'+b.label+'</a>'; }).join('')+'</div>'; }
+
+var P='pending';
+var SCEN={
+  A:{key:'A',layout:'A',hero:{tone:'muted',icon:'draft',title:'Draft Submission',sub:'Saved \u2014 not submitted yet. Continue when you\u2019re ready.'},steps:[{label:'Submit',state:'active',sub:'DRAFT',subColor:DIM},{label:'Ship',state:P},{label:'Vault',state:P},{label:'Mint',state:P}],ship:null,notif:'We\u2019ll save your progress until you submit.',cta:[{label:'Continue Submission \u2192',href:'Vault-Submit.html',primary:true},{label:'Back to Vault',href:'Vault-Dashboard-Active.html'}]},
+  B:{key:'B',layout:'A',hero:{tone:'amber',icon:'clock',title:'Awaiting Shipment',sub:'Register a tracking number to move your submission forward.'},steps:[{label:'Submit',state:'done',sub:'SUBMITTED',subColor:POS},{label:'Ship',state:'active',sub:'PENDING',subColor:DIM},{label:'Vault',state:P},{label:'Mint',state:P}],ship:'pending',notif:'We\u2019ll notify you by email once we receive your package.',cta:[{label:'Back to Vault',href:'Vault-Dashboard-Active.html'}]},
+  C:{key:'C',layout:'A',hero:{tone:'info',icon:'spin',title:'In Transit',sub:'Your package is on the way to our vault facility.'},steps:[{label:'Submit',state:'done',sub:'SUBMITTED',subColor:POS},{label:'Ship',state:'active',sub:'IN TRANSIT',subColor:AZ},{label:'Vault',state:P},{label:'Mint',state:P}],ship:'intransit',notif:'We\u2019ll notify you by email when your package arrives.',cta:[{label:'Back to Vault',href:'Vault-Dashboard-Active.html'}]},
+  D:{key:'D',layout:'B',stage:'vault',pillCols:3,hero:{tone:'info',icon:'spin',title:'PSA Reviewing Cards',sub:'SUB-20260616-00421 \u00b7 3 cards'},steps:[{label:'Submit',state:'done',sub:'VERIFIED',subColor:POS},{label:'Ship',state:'done'},{label:'Vault',state:'active',sub:'REVIEWING',subColor:AZ},{label:'Mint',state:P}],notif:'We\u2019ll notify you by email as each card is verified.',cta:[{label:'Back to Vault',href:'Vault-Dashboard-Active.html'}]},
+  E:{key:'E',layout:'B',stage:'vault',pillCols:3,hero:{tone:'success',icon:'check',title:'Cards Approved & Vaulted',sub:'3 cards \u00b7 verified and insured'},steps:[{label:'Submit',state:'done',sub:'VERIFIED',subColor:POS},{label:'Ship',state:'done'},{label:'Vault',state:'done',sub:'APPROVED',subColor:POS},{label:'Mint',state:'active',sub:'QUEUED',subColor:AZ}],notif:'Token minting will begin shortly.',cta:[{label:'View in Portfolio \u2192',href:'Portfolio.html',primary:true},{label:'Submit Another Card \u2192',href:'Vault-Submit.html'}]},
+  F:{key:'F',layout:'B',stage:'vault',pillCols:3,hero:{tone:'danger',icon:'x',title:'Cards Rejected',sub:'3 cards did not meet our requirements'},steps:[{label:'Submit',state:'done',sub:'VERIFIED',subColor:POS},{label:'Ship',state:'done'},{label:'Vault',state:'rejected',sub:'REJECTED',subColor:NEG},{label:'Mint',state:P}],notif:'Rejected cards will be returned at your expense.',cta:[{label:'Contact Support \u2192',href:'#',primary:true},{label:'Submit Another Card \u2192',href:'Vault-Submit.html'}]},
+  G:{key:'G',layout:'B',stage:'mint',pillCols:2,hero:{tone:'success',icon:'check',title:'Minting Complete',sub:'3 tokens sent to 0x7Fb\u20263aE2'},steps:[{label:'Submit',state:'done',sub:'VERIFIED',subColor:POS},{label:'Ship',state:'done'},{label:'Vault',state:'done',sub:'APPROVED',subColor:POS},{label:'Mint',state:'done',sub:'COMPLETED',subColor:POS}],notif:'All tokens are now visible in your Portfolio.',cta:[{label:'View in Portfolio \u2192',href:'Portfolio.html',primary:true},{label:'Submit Another Card \u2192',href:'Vault-Submit.html'}]},
+  H:{key:'H',layout:'B',stage:'mint',pillCols:2,hero:{tone:'danger',icon:'x',title:'Mint Failed',sub:'1 of 3 tokens failed to mint'},steps:[{label:'Submit',state:'done',sub:'VERIFIED',subColor:POS},{label:'Ship',state:'done'},{label:'Vault',state:'done',sub:'APPROVED',subColor:POS},{label:'Mint',state:'failed',sub:'FAILED',subColor:NEG}],notif:'We\u2019re retrying the failed mint automatically.',cta:[{label:'Contact Support \u2192',href:'#',primary:true},{label:'Submit Another Card \u2192',href:'Vault-Submit.html'}]}
+};
+
+var pcCards=[],pcFilter='all',pcSelected=null,pcStage='vault';
+function buildPcCards(sc){ var base=[C_CHAR,C_PIKA,C_LEB];
+  if(sc.key==='D') return base.map(function(c,i){return {id:i,name:c.name,img:c.img,grade:c.grade,cert:c.cert,status:'reviewing'};});
+  if(sc.key==='E') return base.map(function(c,i){return {id:i,name:c.name,img:c.img,grade:c.grade,cert:c.cert,status:'approved'};});
+  if(sc.key==='F') return base.map(function(c,i){return {id:i,name:c.name,img:c.img,grade:'PSA 8',cert:c.cert,status:'rejected',reason:'Grade below PSA 9 minimum',submittedGrade:c.grade};});
+  if(sc.key==='G') return base.map(function(c,i){return {id:i,name:c.name,img:c.img,grade:c.grade,cert:c.cert,status:'completed',token:'#0'+(421+i)};});
+  if(sc.key==='H') return base.map(function(c,i){return {id:i,name:c.name,img:c.img,grade:c.grade,cert:c.cert,status:(i<2?'completed':'failed'),token:(i<2?'#0'+(421+i):undefined)};});
+  return [];
+}
+function pcCount(k){ return k==='all'?pcCards.length:pcCards.filter(function(c){return c.status===k;}).length; }
+function renderPcPills(){ var defs=pcStage==='vault'?[{k:'approved',ic:'\u2705',l:'Approved'},{k:'reviewing',ic:'\u23f3',l:'Reviewing'},{k:'rejected',ic:'\ud83d\udd34',l:'Rejected'}]:[{k:'completed',ic:'\u2705',l:'Completed'},{k:'failed',ic:'\ud83d\udd34',l:'Failed'}];
+  document.getElementById('lm-pills').innerHTML=defs.map(function(d){return '<div class="stat-pill'+(pcFilter===d.k?' active':'')+'" data-lm-filter="'+d.k+'"><div class="n">'+d.ic+' '+pcCount(d.k)+'</div><div class="l">'+d.l+'</div></div>';}).join(''); }
+function renderPcTabs(){ var defs=pcStage==='vault'?[{k:'all',l:'All'},{k:'approved',l:'\u2705 Approved'},{k:'reviewing',l:'\u23f3 Reviewing'},{k:'rejected',l:'\ud83d\udd34 Rejected'}]:[{k:'all',l:'All'},{k:'completed',l:'\u2705 Completed'},{k:'failed',l:'\ud83d\udd34 Failed'}];
+  document.getElementById('lm-tabs').innerHTML=defs.map(function(d){var n=pcCount(d.k); if(d.k!=='all'&&n===0)return ''; return '<button class="filter-tab'+(pcFilter===d.k?' active':'')+'" data-lm-filter="'+d.k+'">'+d.l+' '+n+'</button>';}).join(''); }
+function pcRowHtml(c){ var right='';
+  if(c.status==='completed') right='<span class="mono" style="font-size:11px;color:var(--pos);font-weight:600;">Minted</span><br><span class="mono" style="font-size:11px;color:var(--azure);font-weight:600;">Token '+c.token+' \u2192</span>';
+  else if(c.status==='approved') right='<span class="mono" style="font-size:11px;color:var(--pos);font-weight:600;">Approved</span>';
+  else if(c.status==='reviewing') right='<span class="mono" style="font-size:11px;color:var(--azure);font-weight:600;display:inline-flex;align-items:center;gap:6px;"><span class="spin" style="width:10px;height:10px;border-width:1.5px;"></span>Reviewing</span>';
+  else if(c.status==='failed') right='<span style="font-size:11px;color:var(--neg);font-weight:600;">Mint Failed</span>';
+  else right='<span style="font-size:11px;color:var(--neg);font-weight:600;">Rejected</span><div style="font-size:10.5px;color:rgba(255,255,255,0.35);margin-top:2px;">'+(c.reason||'')+'</div>';
+  var rej=(c.status==='rejected');
+  return '<div class="lm-row '+c.status+(pcSelected===c.id?' selected':'')+'" data-lm-id="'+c.id+'"><div style="width:38px;height:52px;background:#0e0e0e;border-radius:6px;padding:3px;flex-shrink:0;'+(rej?'opacity:0.55;':'')+'"><img src="'+c.img+'" style="width:100%;height:100%;object-fit:contain;"></div><div style="flex:1;min-width:0;"><div style="font-size:12.5px;font-weight:700;color:'+(rej?'rgba(255,255,255,0.6)':'#fff')+';margin-bottom:4px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">'+c.name+'</div><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><span class="tk-tag tk-tag--neutral tk-tag--soft" style="font-size:9.5px;">'+c.grade+'</span><span class="mono" style="font-size:10.5px;color:rgba(255,255,255,0.35);">Cert #'+c.cert+'</span></div></div><div style="text-align:right;flex-shrink:0;padding-top:2px;white-space:nowrap;">'+right+'</div></div>';
+}
+function renderPcList(){ var f=pcFilter==='all'?pcCards:pcCards.filter(function(c){return c.status===pcFilter;}); document.getElementById('lm-list').innerHTML=f.map(pcRowHtml).join(''); }
+function pcDetailHtml(c){
+  var tokenVal=c.status==='completed'?c.token:(c.status==='approved'?'Pending mint\u2026':(c.status==='reviewing'?'Pending\u2026':'\u2014'));
+  var tokenCol=c.status==='completed'?'var(--azure)':((c.status==='reviewing'||c.status==='approved')?'var(--amber)':'rgba(255,255,255,0.3)');
+  var h='<div style="text-align:center;margin-bottom:20px;"><div style="width:150px;height:210px;margin:0 auto 14px;background:#0e0e0e;border-radius:10px;padding:6px;'+(c.status==='rejected'?'opacity:0.6;':'')+'"><img src="'+c.img+'" style="width:100%;height:100%;object-fit:contain;"></div><div style="font-size:14px;font-weight:700;color:#fff;line-height:1.4;">'+c.name+'</div></div>';
+  h+='<span class="mono" style="font-size:10.5px;letter-spacing:0.1em;text-transform:uppercase;color:rgba(255,255,255,0.4);font-weight:600;display:block;margin-bottom:8px;">Card Details</span>';
+  h+='<div class="detail-row"><span class="detail-k">Graded By</span><span class="detail-v">PSA \u00b7 '+c.grade+'</span></div>';
+  h+='<div class="detail-row"><span class="detail-k">Cert #</span><span class="detail-v mono" style="font-size:12px;">'+c.cert+'</span></div>';
+  h+='<div class="detail-row"><span class="detail-k">Vault</span><span class="detail-v mono" style="font-size:11px;color:rgba(255,255,255,0.5);">Delaware \u00b7 Lloyd\u2019s</span></div>';
+  h+='<div class="detail-row"><span class="detail-k">Token</span><span class="detail-v" style="color:'+tokenCol+';">'+tokenVal+'</span></div>';
+  if(c.status==='completed'){
+    h+='<div style="margin-top:18px;background:rgba(255,255,255,0.03);border-radius:12px;padding:16px;"><span class="mono" style="font-size:10.5px;letter-spacing:0.1em;text-transform:uppercase;color:rgba(255,255,255,0.4);font-weight:600;display:block;margin-bottom:10px;">Blockchain Receipt</span><div class="detail-row"><span class="detail-k">Contract</span><span class="mono" style="font-size:11.5px;color:var(--azure);">0x1aB\u20264cD2</span></div><div class="detail-row"><span class="detail-k">Token ID</span><span class="detail-v mono" style="font-size:12px;">'+c.token+'</span></div><div class="detail-row"><span class="detail-k">TX Hash</span><span class="mono" style="font-size:11.5px;color:var(--azure);">0xf3a\u202691e2</span></div><a href="#" class="tk-btn tk-btn--sm tk-btn--subtle" style="text-decoration:none;width:100%;font-size:11.5px;margin-top:10px;">View on Polygonscan \u2192</a></div><a href="Portfolio.html" class="tk-btn tk-btn--primary" style="text-decoration:none;height:44px;width:100%;font-size:13.5px;display:flex;align-items:center;justify-content:center;margin-top:16px;">View in Portfolio \u2192</a>';
+  } else if(c.status==='reviewing'){
+    h+='<div style="margin-top:18px;background:rgba(255,255,255,0.03);border-radius:12px;padding:20px;text-align:center;"><span class="mono" style="font-size:10.5px;letter-spacing:0.1em;text-transform:uppercase;color:rgba(255,255,255,0.25);font-weight:600;display:block;margin-bottom:14px;">Vault Review</span><div class="spin" style="width:22px;height:22px;margin:0 auto 10px;"></div><div style="font-size:12.5px;color:rgba(255,255,255,0.3);">PSA inspection in progress\u2026</div></div>';
+  } else if(c.status==='approved'){
+    h+='<div style="margin-top:18px;background:rgba(0,200,100,0.06);border:1px solid rgba(0,200,100,0.18);border-radius:12px;padding:16px;font-size:13px;color:var(--pos);line-height:1.6;">Verified and vaulted. Token minting will begin shortly.</div>';
+  } else if(c.status==='failed'){
+    h+='<div style="margin-top:18px;background:rgba(228,55,74,0.06);border:1px solid rgba(228,55,74,0.2);border-radius:12px;padding:16px;"><span class="mono" style="font-size:10.5px;letter-spacing:0.1em;text-transform:uppercase;color:var(--neg);font-weight:600;display:block;margin-bottom:10px;">Mint Error</span><div class="detail-row"><span class="detail-k">Reason</span><span class="detail-v">Blockchain error</span></div><div class="detail-row"><span class="detail-k">Status</span><span class="detail-v" style="color:var(--amber);">Retrying automatically\u2026</span></div></div><button class="tk-btn tk-btn--subtle" style="height:44px;width:100%;font-size:13.5px;margin-top:16px;">Contact Support \u2192</button>';
+  } else {
+    h+='<div style="margin-top:18px;background:rgba(228,55,74,0.06);border:1px solid rgba(228,55,74,0.2);border-radius:12px;padding:16px;"><span class="mono" style="font-size:10.5px;letter-spacing:0.1em;text-transform:uppercase;color:var(--neg);font-weight:600;display:block;margin-bottom:10px;">Rejection Detail</span><div class="detail-row"><span class="detail-k">Reason</span><span class="detail-v" style="color:var(--neg);">'+(c.reason||'Grade below minimum')+'</span></div><div class="detail-row"><span class="detail-k">Grade</span><span class="detail-v">'+c.grade+' (submitted as '+(c.submittedGrade||'PSA 10')+')</span></div><div class="detail-row"><span class="detail-k">Return</span><span class="detail-v">Collect on delivery</span></div><div class="detail-row"><span class="detail-k">Est. Return</span><span class="detail-v">5\u201310 business days</span></div></div><button class="tk-btn tk-btn--subtle" style="height:44px;width:100%;font-size:13.5px;margin-top:16px;">Contact Support \u2192</button>';
+  }
+  return h;
+}
+function selectPc(id){ var c=pcCards.filter(function(x){return x.id===id;})[0]; if(!c)return; pcSelected=id; renderPcList();
+  if(isMobileView()){ document.getElementById('lb-sheet-content').innerHTML=pcDetailHtml(c); openLmSheet(); }
+  else{ var e=document.getElementById('lb-empty'),d=document.getElementById('lb-detail'),r=document.getElementById('lb-right'); r.classList.add('selected'); d.style.opacity='0'; setTimeout(function(){e.style.display='none';d.style.display='block';d.innerHTML=pcDetailHtml(c);requestAnimationFrame(function(){d.style.opacity='1';});},120); }
+}
+function pcFilterClick(e){ var el=e.target.closest('[data-lm-filter]'); if(!el)return; pcFilter=el.dataset.lmFilter; renderPcPills(); renderPcTabs(); renderPcList(); }
+function openLmSheet(){ document.getElementById('lb-sheet-overlay').classList.add('open'); document.getElementById('lb-sheet').classList.add('open'); }
+function closeLmSheet(){ document.getElementById('lb-sheet-overlay').classList.remove('open'); document.getElementById('lb-sheet').classList.remove('open'); }
+
+function perCardShell(sc){
+  return '<div style="max-width:1400px;margin:0 auto;">'+headerBlock()+'<div class="submission-layout"><div class="left-col">'+heroBox(sc.hero)+stepBar(sc.steps)+'<div id="lm-pills" style="display:grid;grid-template-columns:repeat('+sc.pillCols+',1fr);gap:10px;margin-bottom:16px;"></div><div id="lm-tabs" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;"></div><div id="lm-list" class="lm-list-scroll card-list"></div><div style="margin-top:12px;">'+notifBanner(sc.notif)+'</div></div><div class="right-panel" id="lb-right"><div id="lb-empty" class="lb-panel-inner"><div style="text-align:center;color:rgba(255,255,255,0.3);font-size:14px;"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="1.5" style="margin-bottom:14px;"><rect x="3" y="4" width="14" height="18" rx="2"/><rect x="8" y="6" width="13" height="17" rx="2"/></svg><div>Select a card<br>from the list to<br>view details</div></div></div><div id="lb-detail" class="lb-panel-inner" style="display:none;"></div></div></div>'+ctaRow(sc.cta)+'</div>';
+}
+function initPerCard(sc){ pcCards=buildPcCards(sc); pcStage=sc.stage; pcFilter='all'; pcSelected=null; renderPcPills(); renderPcTabs(); renderPcList();
+  document.getElementById('lm-pills').addEventListener('click',pcFilterClick);
+  document.getElementById('lm-tabs').addEventListener('click',pcFilterClick);
+  document.getElementById('lm-list').addEventListener('click',function(e){var r=e.target.closest('[data-lm-id]'); if(r) selectPc(parseInt(r.dataset.lmId));});
+}
+function renderScenario(key){ var sc=SCEN[key]; if(!sc)return; var root=document.getElementById('sd-root');
+  if(sc.layout==='A'){ root.innerHTML='<div style="max-width:760px;margin:0 auto;">'+headerBlock()+heroBox(sc.hero)+stepBar(sc.steps)+packageInfoCard()+(sc.ship?shipToCard()+trackingCard(sc.ship):'')+notifBanner(sc.notif)+ctaRow(sc.cta)+'</div>'; }
+  else { root.innerHTML=perCardShell(sc); initPerCard(sc); }
+  document.querySelectorAll('#sd-switcher button').forEach(function(b){ b.classList.toggle('on', b.dataset.scen===key); });
+  window.__sdCur=key;
+}
+/* document-level delegation survives x-dc hydration node swaps */
+document.addEventListener('click',function(e){ var b=e.target.closest&&e.target.closest('#sd-switcher [data-scen]'); if(b) renderScenario(b.dataset.scen); });
+document.addEventListener('click',function(e){ if(e.target.id==='lb-sheet-overlay') closeLmSheet(); });
+function wireSheetDrag(){ var sheet=document.getElementById('lb-sheet'); if(!sheet||sheet.__wired)return; sheet.__wired=true; var handle=sheet.querySelector('.lb-sheet-handle'); var sY=0,cY=0,dg=false;
+  handle.addEventListener('touchstart',function(e){dg=true;sY=e.touches[0].clientY;sheet.style.transition='none';},{passive:true});
+  handle.addEventListener('touchmove',function(e){if(!dg)return;cY=e.touches[0].clientY-sY;if(cY<0)cY=0;sheet.style.transform='translateY('+cY+'px)';},{passive:true});
+  handle.addEventListener('touchend',function(){dg=false;sheet.style.transition='';sheet.style.transform='';if(cY>100)closeLmSheet();cY=0;});
+}
+var __sdRT; window.addEventListener('resize',function(){ clearTimeout(__sdRT); __sdRT=setTimeout(function(){ var cur=window.__sdCur; if(SCEN[cur]&&SCEN[cur].layout==='B'){ var sel=pcSelected; renderScenario(cur); if(sel!=null) selectPc(sel); } },200); });
+function initSD(){
+  var h=(window.location.hash||'').replace('#','').toUpperCase();
+  renderScenario(SCEN[h]?h:'G');
+  wireSheetDrag();
+  /* guard against late hydration wiping the render */
+  var tries=0; var iv=setInterval(function(){ tries++; var root=document.getElementById('sd-root'); if(root && root.innerHTML.length<50){ renderScenario(window.__sdCur||'G'); wireSheetDrag(); } if(tries>=6) clearInterval(iv); },250);
+}
+if(document.readyState==='complete') setTimeout(initSD,60); else window.addEventListener('load',function(){ setTimeout(initSD,60); });
+
 </script>
 <script src="tk-wallet.js"></script>
 <script src="tk-notifications.js"></script>

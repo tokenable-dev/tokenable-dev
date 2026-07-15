@@ -10,6 +10,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { CacheModule } from './common/cache/cache.module';
 import { CardhedgerMetricsModule } from './common/metrics/cardhedger-metrics.module';
 import { CardhedgerAdminModule } from './cardhedger/admin/cardhedger-admin.module';
+import { KycModule } from './kyc/kyc.module';
 import { PrivyModule } from './privy/privy.module';
 import { AuthModule } from './auth/auth.module';
 import { BlockchainModule } from './blockchain/blockchain.module';
@@ -118,6 +119,7 @@ import { VaultRedemption } from './vault/entities/vault-redemption.entity';
     PsaModule,
     MarketplaceModule,
     CardhedgerAdminModule,
+    KycModule,
   ],
 })
 export class AppModule {}

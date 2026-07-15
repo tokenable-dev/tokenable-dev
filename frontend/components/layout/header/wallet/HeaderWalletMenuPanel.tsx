@@ -3,9 +3,15 @@
 import { useCallback, useState } from "react";
 import { useHeaderNavGate } from "@/hooks/auth/useHeaderNavGate";
 import { useHeaderWalletMenuData } from "@/hooks/auth/useHeaderWalletMenuData";
+import {
+  isPrivyFiatOnrampFeatureEnabled,
+  usePrivyFiatOnramp,
+} from "@/hooks/wallet/usePrivyFiatOnramp";
+import { isKycComplete } from "@/lib/auth/accountAccess";
 import { completeSignOut } from "@/lib/auth/signOut";
 import { useAuthStore } from "@/store/authStore";
 import {
+  WalletAddFundsIcon,
   WalletBidsIcon,
   WalletHistoryIcon,
   WalletNotificationsIcon,
@@ -13,6 +19,7 @@ import {
   WalletSettingsIcon,
   WalletSignOutIcon,
   WalletUserIcon,
+  WalletVerifyIcon,
   WalletWatchlistIcon,
 } from "./HeaderWalletMenuIcons";
 
@@ -28,15 +35,26 @@ function itemClass(variant: MenuVariant, sub?: boolean): string {
 export function HeaderWalletMenuPanel({
   variant,
   onNavigate,
+  onOpenNotifications,
 }: {
   variant: MenuVariant;
   onNavigate?: () => void;
+  onOpenNotifications?: () => void;
 }) {
   const navigate = useHeaderNavGate();
   const logout = useAuthStore((s) => s.logout);
-  const user = useAuthStore((s) => s.user);
-  const { displayAddress, kyc, balanceLabel } = useHeaderWalletMenuData();
+  const { walletAddress, displayAddress, kyc, balanceLabel, refetchBalance, user } =
+    useHeaderWalletMenuData();
+  const {
+    startFunding,
+    inFlight: fundingInFlight,
+    lastError: fundingError,
+    canStart: canStartFunding,
+    isLoadingConfig: fundingConfigLoading,
+  } = usePrivyFiatOnramp({ onComplete: () => void refetchBalance() });
   const [signingOut, setSigningOut] = useState(false);
+  const showAddFunds = isPrivyFiatOnrampFeatureEnabled();
+  const showVerifyIdentity = !isKycComplete(user);
 
   const go = useCallback(
     (href: string, minLevel: 0 | 1 | 2 = 0) => {
@@ -56,6 +74,12 @@ export function HeaderWalletMenuPanel({
       setSigningOut(false);
     }
   }, [logout, onNavigate, signingOut]);
+
+  const handleAddFunds = useCallback(() => {
+    void startFunding(walletAddress).then((ok) => {
+      if (ok) onNavigate?.();
+    });
+  }, [onNavigate, startFunding, walletAddress]);
 
   const userInfo = (
     <div className="tk-wallet-user">
@@ -77,6 +101,30 @@ export function HeaderWalletMenuPanel({
   return (
     <>
       {userInfo}
+      {showAddFunds ? (
+        <>
+          <button
+            type="button"
+            className={`${itemClass(variant)} tk-wd-item--funds`}
+            onClick={handleAddFunds}
+            disabled={!walletAddress || fundingInFlight || fundingConfigLoading}
+            title={
+              canStartFunding
+                ? "Buy USDC with card, Apple Pay, or Google Pay"
+                : "MoonPay setup required in Privy Dashboard"
+            }
+          >
+            <WalletAddFundsIcon />
+            {fundingInFlight ? "Opening checkout…" : "Add funds"}
+          </button>
+          {fundingError ? (
+            <p className="tk-wd-funds-error" role="alert">
+              {fundingError}
+            </p>
+          ) : null}
+          <div className="tk-wd-divider" />
+        </>
+      ) : null}
       <button type="button" className={itemClass(variant)} onClick={() => go("/portfolio", 1)}>
         <WalletPortfolioIcon />
         Portfolio
@@ -101,7 +149,20 @@ export function HeaderWalletMenuPanel({
         <WalletWatchlistIcon />
         Watchlist
       </button>
-      <button type="button" className={itemClass(variant)} disabled aria-disabled="true">
+      {showVerifyIdentity ? (
+        <button type="button" className={itemClass(variant)} onClick={() => go("/kyc", 1)}>
+          <WalletVerifyIcon />
+          Verify Identity
+        </button>
+      ) : null}
+      <button
+        type="button"
+        className={itemClass(variant)}
+        onClick={() => {
+          onOpenNotifications?.();
+          onNavigate?.();
+        }}
+      >
         <WalletNotificationsIcon />
         Notifications
       </button>

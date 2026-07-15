@@ -58,6 +58,7 @@
   /* Badges */
   .badge{font-family:var(--font-mono);font-size:11px;font-weight:600;padding:3px 10px;border-radius:6px;display:inline-flex;align-items:center;gap:5px;white-space:nowrap;}
   .badge--grade{background:rgba(0,200,100,0.12);color:var(--pos);}
+  .badge--grade-rejected{background:rgba(228,55,74,0.2);color:#FF6B7A;}
   .badge--vaulted{background:rgba(0,200,100,0.12);color:var(--pos);}
   .badge--rejected{background:rgba(228,55,74,0.12);color:var(--neg);}
   @keyframes pulse-dot{0%,100%{opacity:0.4;}50%{opacity:1;}}
@@ -110,6 +111,11 @@
   .search-input{width:100%;height:42px;padding:0 16px 0 40px;background:#141414;border:1px solid rgba(255,255,255,0.08);border-radius:10px;color:#fff;font-size:14px;outline:none;font-family:inherit;}
   .search-input:focus{border-color:var(--azure);box-shadow:0 0 0 3px rgba(26,111,255,0.12);}
   .filter-btn{height:42px;padding:0 16px;background:#141414;border:1px solid rgba(255,255,255,0.08);border-radius:10px;color:rgba(255,255,255,0.5);font-size:13px;font-family:inherit;cursor:pointer;display:flex;align-items:center;gap:6px;}
+
+  /* Stat tabs */
+  .stat-tab{border:1.5px solid transparent;transition:all 0.15s;}
+  .stat-tab:hover{border-color:rgba(255,255,255,0.12);}
+  .stat-tab.active{border-color:var(--azure);background:rgba(26,111,255,0.08);}
 
   /* Rejected */
   .rej-header{display:flex;align-items:center;gap:10px;cursor:pointer;padding:16px 0;user-select:none;}
@@ -304,17 +310,17 @@
 
     <!-- ============ STATS BAR (active) ============ -->
     <div class="stat-grid" style="grid-template-columns:repeat(3,1fr);">
-      <div class="stat-card">
+      <div class="stat-card stat-tab active" data-tab="progress" style="cursor:pointer;">
         <div class="stat-label">In Progress</div>
         <div class="stat-num" style="color:var(--azure);">3</div>
         <div class="stat-sub">Submissions</div>
       </div>
-      <div class="stat-card">
+      <div class="stat-card stat-tab" data-tab="completed" style="cursor:pointer;">
         <div class="stat-label">Completed</div>
         <div class="stat-num" style="color:var(--pos);">9</div>
         <div class="stat-sub">Minted</div>
       </div>
-      <div class="stat-card">
+      <div class="stat-card stat-tab" data-tab="rejected" style="cursor:pointer;">
         <div class="stat-label">Rejected</div>
         <div class="stat-num" style="color:var(--neg);">1</div>
         <div class="stat-sub">Returned</div>
@@ -322,29 +328,11 @@
     </div>
 
     <!-- ============ IN PROGRESS ============ -->
-    <div style="margin-bottom:48px;">
+    <div style="margin-bottom:48px;" id="sec-inprogress">
       <div class="sec-header">
-        <div class="sec-title">In Progress <span class="sec-count">5</span></div>
+        <div class="sec-title">In Progress <span class="sec-count">3</span></div>
       </div>
       <div class="ip-grid">
-
-        <!-- SUB-001: Token Sent (completed) -->
-        <div class="ip-card">
-          <div class="ip-card__top">
-            <div class="ip-card__thumb"><img src="images/card-charizard.png" alt=""></div>
-            <div class="ip-card__info">
-              <div class="ip-card__name">1999 POKEMON BASE SET 1ST EDITION #4 CHARIZARD HOLO</div>
-              <div class="ip-card__status">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--pos)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                <span style="font-size:12px;font-weight:600;color:var(--pos);">Token Sent</span>
-                <span class="tk-tag tk-tag--neutral tk-tag--soft" style="margin-left:4px;">PSA 10</span>
-              </div>
-            </div>
-          </div>
-          <div class="ip-card__bottom">
-            <a href="Vault-Detail.html" class="tk-btn tk-btn--sm tk-btn--subtle" style="text-decoration:none;white-space:nowrap;">View →</a>
-          </div>
-        </div>
 
         <!-- SUB-002: In Transit -->
         <div class="ip-card">
@@ -355,13 +343,13 @@
               <div class="ip-card__status">
                 <span class="status-dot status-dot--azure"></span>
                 <span style="font-size:12px;font-weight:600;color:var(--azure);">In Transit</span>
-                <span class="mono" style="font-size:11px;color:rgba(255,255,255,0.3);margin-left:6px;">FedEx · FX987654321</span>
+                <a href="https://www.fedex.com/fedextrack/?trknbr=FX987654321" target="_blank" rel="noopener" style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#4D8EFF;margin-left:6px;cursor:pointer;text-decoration:none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">FedEx · FX987654321 →</a>
                 <span class="tk-tag tk-tag--neutral tk-tag--soft" style="margin-left:4px;">PSA 9</span>
               </div>
             </div>
           </div>
           <div class="ip-card__bottom">
-            <a href="Vault-Detail.html" class="tk-btn tk-btn--sm tk-btn--subtle" style="text-decoration:none;white-space:nowrap;">Track →</a>
+            <a href="Vault-Detail.html#C" class="tk-btn tk-btn--sm tk-btn--subtle" style="text-decoration:none;white-space:nowrap;">Track →</a>
           </div>
         </div>
 
@@ -376,25 +364,6 @@
                 <span style="font-size:12px;font-weight:600;color:var(--amber);">Reviewing</span>
                 <span style="font-size:11px;color:rgba(255,255,255,0.3);margin-left:6px;">PSA approval pending</span>
                 <span class="tk-tag tk-tag--neutral tk-tag--soft" style="margin-left:4px;">PSA 9</span>
-              </div>
-            </div>
-          </div>
-          <div class="ip-card__bottom">
-            <a href="Vault-Detail.html" class="tk-btn tk-btn--sm tk-btn--subtle" style="text-decoration:none;white-space:nowrap;">View →</a>
-          </div>
-        </div>
-
-        <!-- SUB-004: Minting -->
-        <div class="ip-card">
-          <div class="ip-card__top">
-            <div class="ip-card__thumb"><img src="images/card-lebron.png" alt=""></div>
-            <div class="ip-card__info">
-              <div class="ip-card__name">2003 TOPPS CHROME #111 LEBRON JAMES ROOKIE REFRACTOR</div>
-              <div class="ip-card__status">
-                <span class="status-dot status-dot--azure status-dot--pulse"></span>
-                <span style="font-size:12px;font-weight:600;color:var(--azure);">Minting</span>
-                <span style="font-size:11px;color:rgba(255,255,255,0.3);margin-left:6px;">Token being created</span>
-                <span class="tk-tag tk-tag--neutral tk-tag--soft" style="margin-left:4px;">PSA 10</span>
               </div>
             </div>
           </div>
@@ -426,9 +395,9 @@
     </div>
 
     <!-- ============ SUBMISSION HISTORY ============ -->
-    <div style="margin-bottom:40px;">
+    <div style="margin-bottom:40px;" id="sec-history">
       <div class="sec-header">
-        <div class="sec-title">Submission History <span class="sec-count">10</span></div>
+        <div class="sec-title" id="history-title">Submission History <span class="sec-count" id="history-count">6</span></div>
       </div>
       <div class="search-bar">
         <div class="search-wrap">
@@ -483,7 +452,7 @@
             </tr>
             <tr>
               <td><div style="display:flex;align-items:center;gap:12px;"><div class="table-thumb"><img src="images/card-luka.png" alt=""></div><div style="font-weight:600;color:#fff;max-width:220px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.4;">2018 PANINI PRIZM #280 LUKA DONCIC BLUE ICE ROOKIE</div></div></td>
-              <td><span class="badge badge--grade">BGS 9.5</span></td>
+              <td><span class="badge badge--grade-rejected">BGS 9.5</span></td>
               <td><span class="mono" style="font-size:12px;color:rgba(255,255,255,0.5);">—</span></td>
               <td><span class="mono" style="font-size:12px;color:rgba(255,255,255,0.4);">Jun 1, 2026</span></td>
               <td><span class="badge badge--rejected">Rejected</span></td>
@@ -519,6 +488,50 @@ setTimeout(function(){
   if(!btnEmpty || !btnActive) return;
   btnEmpty.addEventListener('click', function(){ document.body.classList.add('show-empty'); btnEmpty.classList.add('active'); btnActive.classList.remove('active'); });
   btnActive.addEventListener('click', function(){ document.body.classList.remove('show-empty'); btnActive.classList.add('active'); btnEmpty.classList.remove('active'); });
+}, 300);
+</script>
+<!-- Stat tabs -->
+<script>
+setTimeout(function(){
+  var ipSection = document.getElementById('sec-inprogress');
+  var historySection = document.getElementById('sec-history');
+  var historyTitle = document.getElementById('history-title');
+  var historyCount = document.getElementById('history-count');
+  var table = historySection ? historySection.querySelector('.vault-table') : null;
+  var rows = table ? Array.prototype.slice.call(table.querySelectorAll('tbody tr')) : [];
+  var mCards = historySection ? Array.prototype.slice.call(historySection.querySelectorAll('.m-vcard')) : [];
+
+  function rowStatus(el){
+    return el.querySelector('.badge--rejected') ? 'rejected' : 'completed';
+  }
+
+  function applyTab(tab){
+    document.querySelectorAll('.stat-tab').forEach(function(el){
+      el.classList.toggle('active', el.dataset.tab === tab);
+    });
+
+    if(tab === 'progress'){
+      if(ipSection) ipSection.style.display = '';
+      if(historySection) historySection.style.display = 'none';
+      return;
+    }
+
+    if(ipSection) ipSection.style.display = 'none';
+    if(historySection) historySection.style.display = '';
+    if(historyTitle) historyTitle.childNodes[0].textContent = 'Submission History ';
+
+    var visibleCount = 0;
+    rows.forEach(function(r){ var show = rowStatus(r) === tab; r.style.display = show ? '' : 'none'; if(show) visibleCount++; });
+    mCards.forEach(function(c){ var show = rowStatus(c) === tab; c.style.display = show ? '' : 'none'; });
+    if(historyCount) historyCount.textContent = visibleCount;
+  }
+
+  document.addEventListener('click', function(e){
+    var tab = e.target.closest('.stat-tab');
+    if(tab) applyTab(tab.dataset.tab);
+  });
+
+  applyTab('progress');
 }, 300);
 </script>
 <!-- Rejected toggle -->

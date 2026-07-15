@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import {
   useExportWallet,
-  useFiatOnramp,
   useFundWallet,
   useLogin,
   useMfaEnrollment,
@@ -22,11 +21,10 @@ import {
   chainIdToCaip2,
   resolveDefaultFundingAmount,
   resolveFundingTargetChainId,
-  resolvePrivyFundingEnvironment,
-  TOKENABLE_FUNDING_ASSET,
 } from "@/lib/privy/funding";
 import { getChainDefinition } from "@/lib/chains";
 import { usePrivyFundingStatus } from "@/hooks/wallet/usePrivyFundingStatus";
+import { usePrivyFiatOnramp } from "@/hooks/wallet/usePrivyFiatOnramp";
 import { useAuthStore } from "@/store/authStore";
 
 type CatalogResponse = {
@@ -72,7 +70,6 @@ export function PrivyFeaturesLab() {
   const { ready, authenticated, user: privyUser } = usePrivy();
   const { login } = useLogin();
   const { fundWallet } = useFundWallet();
-  const { fund: startFiatOnramp } = useFiatOnramp();
   const { showMfaEnrollmentModal } = useMfaEnrollment();
   const { exportWallet } = useExportWallet();
   const { signMessage } = useSignMessage();
@@ -81,6 +78,12 @@ export function PrivyFeaturesLab() {
   const fundingTargetChainId = resolveFundingTargetChainId();
   const fundingTargetCaip2 = chainIdToCaip2(fundingTargetChainId);
   const fundingStatus = usePrivyFundingStatus();
+  const {
+    startFunding,
+    inFlight: onrampInFlight,
+    lastError: onrampError,
+    canStart: canStartOnramp,
+  } = usePrivyFiatOnramp();
   const [catalog, setCatalog] = useState<CatalogResponse | null>(null);
   const [catalogError, setCatalogError] = useState<string | null>(null);
 
@@ -165,29 +168,15 @@ export function PrivyFeaturesLab() {
       >
         <button
           type="button"
-          disabled={
-            !authenticated ||
-            !primaryWallet ||
-            fundingStatus.ready === false ||
-            fundingStatus.chainAligned === false
-          }
-          onClick={() =>
-            void startFiatOnramp({
-              destination: {
-                asset: TOKENABLE_FUNDING_ASSET,
-                chain: fundingTargetCaip2,
-                address: primaryWallet!,
-              },
-              source: { assets: ["usd"], defaultAsset: "usd" },
-              environment: resolvePrivyFundingEnvironment(),
-              defaultAmount: resolveDefaultFundingAmount(),
-            }).catch(() => undefined)
-          }
+          disabled={!authenticated || !primaryWallet || onrampInFlight}
+          onClick={() => void startFunding(primaryWallet)}
           className="rounded-lg border border-indigo-500/40 bg-indigo-500/10 px-3 py-2 text-sm text-indigo-200 disabled:opacity-40"
         >
-          Start MoonPay on-ramp (USDC · {fundingTargetCaip2})
+          {onrampInFlight ? "Opening checkout…" : `Start MoonPay on-ramp (USDC · ${fundingTargetCaip2})`}
         </button>
-        {fundingStatus.chainAligned === false ? (
+        {onrampError ? (
+          <p className="mt-2 text-xs text-red-300/90">{onrampError}</p>
+        ) : fundingStatus.chainAligned === false ? (
           <p className="mt-2 text-xs text-amber-300/90">
             Dashboard default chain is {fundingStatus.defaultRecommendedChain ?? "unset"} — set
             Sepolia + USDC or Ethereum + USDC in{" "}
@@ -195,7 +184,7 @@ export function PrivyFeaturesLab() {
               Account Funding
             </a>
           </p>
-        ) : fundingStatus.ready === false ? (
+        ) : fundingStatus.ready === false && !canStartOnramp ? (
           <p className="mt-2 text-xs text-amber-300/90">
             MoonPay not ready —{" "}
             <a href={fundingStatus.dashboardUrl} className="underline" target="_blank" rel="noreferrer">

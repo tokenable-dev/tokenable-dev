@@ -5,12 +5,12 @@ import { MarketplaceOrderBook } from "@/components/marketplace/other-order-book"
 import { useMarketsOrders } from "@/hooks/markets/useMarketsPageData";
 
 export default function MarketplaceOtherListingsPage() {
-  const { orders, isLoading } = useMarketsOrders();
+  const { orders, isPending } = useMarketsOrders();
 
   const asks = orders.filter((o) => o.side !== "bid");
   const orphan = asks.filter((o) => !o.collectionKey || !String(o.collectionKey).trim());
 
-  if (isLoading) {
+  if (isPending) {
     return (
       <div className="max-w-6xl mx-auto px-4 py-10">
         <div className="h-80 max-w-4xl mx-auto bg-gray-800/80 rounded-xl animate-pulse border border-gray-800" />

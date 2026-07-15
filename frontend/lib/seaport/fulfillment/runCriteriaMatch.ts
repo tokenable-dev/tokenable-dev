@@ -8,7 +8,8 @@ import {
 } from "@/constants/contracts";
 import { fulfillMatchedPairApi, getMerkleEligibleTokenIds, type Order } from "@/lib/core";
 import { canonicalBytes32Hex } from "../criteria/collectionCriteriaRoot";
-import { buildCriteriaMatchExecution, isCriteriaCollectionBid } from "../criteria/criteriaMatch";
+import { buildCriteriaMatchExecution, buildTokenBidMatchExecution, isCriteriaCollectionBid } from "../criteria/criteriaMatch";
+import { isTokenBidOrder } from "../orders/isTokenBidOrder";
 import { matchAdvancedOrdersArgs } from "../criteria/matchAdvancedOrdersArgs";
 import { SeaportMerkleTree } from "../merkle";
 import { GAS_FALLBACK, gasWithCapFast, mapWalletError } from "@/lib/network";
@@ -266,6 +267,142 @@ export async function runCriteriaMatch(params: {
     if (aborted) {
       console.warn(
         "[runCriteriaMatch] fulfillMatchedPairApi timed out; match likely succeeded on-chain — refresh or check explorer.",
+      );
+      return;
+    }
+    throw e;
+  } finally {
+    clearTimeout(fulfillTimer);
+  }
+}
+
+/**
+ * Match a card-level token offer against an ask via `matchAdvancedOrders` (no Merkle).
+ */
+export async function runTokenBidMatch(params: {
+  address: Address;
+  publicClient: PublicClient;
+  writeContractAsync: MatchWriteContractAsync;
+  bid: Order;
+  listing: Order;
+  chainId: SupportedChainId;
+}): Promise<void> {
+  const { address, publicClient, writeContractAsync, bid, listing, chainId } =
+    params;
+  const { usdcAddress } = getChainContracts(chainId);
+
+  if (!isTokenBidOrder(bid)) {
+    throw new Error("Not a token bid");
+  }
+
+  const chainNow = await getChainTimestampSec(publicClient);
+  if (!isSeaportOrderActiveAt(bid, chainNow)) {
+    throw new Error(explainSeaportOrderInactive(bid, chainNow, "bid"));
+  }
+  if (!isSeaportOrderActiveAt(listing, chainNow)) {
+    throw new Error(explainSeaportOrderInactive(listing, chainNow, "listing"));
+  }
+
+  await assertBuyerUsdcReadyForCriteriaBid(publicClient, bid, usdcAddress);
+
+  const exec = buildTokenBidMatchExecution({
+    tokenBidOrder: bid,
+    listingOrder: listing,
+  });
+  const prepared = matchAdvancedOrdersArgs({
+    orders: exec.orders,
+    criteriaResolvers: exec.criteriaResolvers,
+    fulfillments: exec.fulfillments,
+    recipient: exec.recipient,
+  });
+
+  const gasPromise = gasWithCapFast(
+    publicClient,
+    {
+      address: SEAPORT_ADDRESS,
+      abi: prepared.abi,
+      functionName: prepared.functionName,
+      args: prepared.args,
+      account: address,
+    },
+    GAS_FALLBACK.matchAdvancedOrders,
+  );
+
+  const SIMULATION_MS = 55_000;
+  const [, gas] = await Promise.race([
+    Promise.all([
+      publicClient.simulateContract({
+        address: SEAPORT_ADDRESS,
+        abi: SEAPORT_ABI_WITH_MATCH_ADVANCED,
+        functionName: "matchAdvancedOrders",
+        args: prepared.args as readonly [unknown, unknown, unknown, unknown],
+        account: address,
+      }),
+      gasPromise,
+    ]),
+    new Promise<never>((_, reject) =>
+      setTimeout(
+        () =>
+          reject(
+            new Error(
+              "Simulation timed out (RPC slow or overloaded). Try again in a moment.",
+            ),
+          ),
+        SIMULATION_MS,
+      ),
+    ),
+  ]);
+
+  const hash = await writeContractAsync({
+    address: SEAPORT_ADDRESS,
+    abi: prepared.abi as Abi,
+    functionName: prepared.functionName,
+    args: prepared.args as readonly unknown[],
+    chainId,
+    gas,
+  });
+
+  const receipt = await Promise.race([
+    publicClient.waitForTransactionReceipt({ hash }),
+    new Promise<never>((_, reject) =>
+      setTimeout(
+        () =>
+          reject(
+            new Error(
+              "Match transaction confirmation timed out. Check the explorer for this tx or try again.",
+            ),
+          ),
+        120_000,
+      ),
+    ),
+  ]);
+  if (receipt.status === "reverted") {
+    throw new Error(
+      `Seaport match reverted on-chain (tx ${hash}). Check the buyer’s USDC balance and approval to Seaport.`,
+    );
+  }
+
+  const FULFILL_MS = 38_000;
+  const fulfillAbort = new AbortController();
+  const fulfillTimer = setTimeout(() => fulfillAbort.abort(), FULFILL_MS);
+  try {
+    await fulfillMatchedPairApi(
+      {
+        bidOrderHash: bid.orderHash,
+        askOrderHash: listing.orderHash,
+      },
+      { signal: fulfillAbort.signal },
+    );
+  } catch (e: unknown) {
+    const aborted =
+      fulfillAbort.signal.aborted ||
+      (e instanceof Error && e.name === "AbortError") ||
+      (typeof DOMException !== "undefined" &&
+        e instanceof DOMException &&
+        e.name === "AbortError");
+    if (aborted) {
+      console.warn(
+        "[runTokenBidMatch] fulfillMatchedPairApi timed out; match likely succeeded on-chain — refresh or check explorer.",
       );
       return;
     }

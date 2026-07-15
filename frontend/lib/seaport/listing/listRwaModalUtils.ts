@@ -72,18 +72,26 @@ export function mergeBidsByOrderHash(api: Order[], hints: Order[]): Order[] {
 }
 
 /**
- * Highest USDC bid first. If `preferred` is set, it only moves to the front **within the same
- * bid amount** (tie-break for multiple buyers at one price) — never before a strictly higher bid.
+ * Highest USDC bid first. Within the same price, FIFO by `createdAt` (oldest first),
+ * then `orderHash`. If `preferred` is set, it only moves to the front **within the same
+ * bid amount** — never before a strictly higher bid.
  */
 export function orderMatchCandidates(merkleOk: Order[], preferred?: string | null): Order[] {
-  const byPriceDesc = (a: Order, b: Order) => {
+  const createdMs = (o: Order) => {
+    const t = Date.parse(String(o.createdAt ?? ""));
+    return Number.isFinite(t) ? t : 0;
+  };
+  const byPriceThenFifo = (a: Order, b: Order) => {
     const da = bidUsdcAmount(a);
     const db = bidUsdcAmount(b);
     if (da > db) return -1;
     if (da < db) return 1;
-    return 0;
+    const ta = createdMs(a);
+    const tb = createdMs(b);
+    if (ta !== tb) return ta - tb;
+    return String(a.orderHash).localeCompare(String(b.orderHash));
   };
-  const sorted = [...merkleOk].sort(byPriceDesc);
+  const sorted = [...merkleOk].sort(byPriceThenFifo);
   const p = preferred?.trim();
   if (!p) return sorted;
 

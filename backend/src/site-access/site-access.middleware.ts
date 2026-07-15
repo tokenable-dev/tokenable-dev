@@ -69,5 +69,8 @@ function isSiteAccessPublicApiPath(path: string, method: string): boolean {
   ) {
     return true;
   }
+  if (path === '/api/webhooks/sumsub' && method.toUpperCase() === 'POST') {
+    return true;
+  }
   return false;
 }

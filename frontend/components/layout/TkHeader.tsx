@@ -1,6 +1,7 @@
 "use client";
 
 import "@/styles/tokenable-wallet-menu.css";
+import "@/styles/tokenable-notifications.css";
 import Link from "next/link";
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
@@ -15,6 +16,7 @@ import {
   TkHeaderSearch,
   TkHeaderSearchMobileButton,
 } from "@/components/layout/header/TkHeaderSearch";
+import { NotificationsDrawer } from "@/components/layout/notifications/NotificationsDrawer";
 import { NetworkSwitcher } from "@/components/network/NetworkSwitcher";
 
 function shouldHideChrome(pathname: string | null | undefined): boolean {
@@ -30,15 +32,22 @@ export function TkHeader() {
   const pathname = usePathname();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
 
   const hideChrome = shouldHideChrome(pathname);
   const isCollectionDetailHeader = isMarketplaceCollectionDetailPath(pathname);
 
   const closeDrawer = useCallback(() => setDrawerOpen(false), []);
+  const closeNotifications = useCallback(() => setNotificationsOpen(false), []);
+  const openNotifications = useCallback(() => {
+    setDrawerOpen(false);
+    setNotificationsOpen(true);
+  }, []);
 
   useEffect(() => {
     setDrawerOpen(false);
     setMobileSearchOpen(false);
+    setNotificationsOpen(false);
   }, [pathname]);
 
   useEffect(() => {
@@ -117,14 +126,20 @@ export function TkHeader() {
               onMobileOpenChange={setMobileSearchOpen}
             />
             <NetworkSwitcher />
-            <HeaderAuthControls />
+            <HeaderAuthControls onOpenNotifications={openNotifications} />
           </div>
         </div>
       </header>
 
       <Suspense fallback={null}>
-        <HeaderMobileDrawer open={drawerOpen} onClose={closeDrawer} />
+        <HeaderMobileDrawer
+          open={drawerOpen}
+          onClose={closeDrawer}
+          onOpenNotifications={openNotifications}
+        />
       </Suspense>
+
+      <NotificationsDrawer open={notificationsOpen} onClose={closeNotifications} />
     </>
   );
 }

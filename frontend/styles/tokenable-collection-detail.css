@@ -1924,6 +1924,17 @@ button.cd-listing-orderbook__thumb-link {
   color: var(--neg);
 }
 
+.cd-listing-checkout__bid-hint--warn {
+  color: var(--warn, #f5a623);
+}
+
+.cd-listing-checkout__cta-aux {
+  width: 100%;
+  height: 46px;
+  margin-top: 10px;
+  font-size: 14px;
+}
+
 .cd-listing-checkout__bid-limit {
   margin: 0 0 10px;
   font-family: var(--font-sans);

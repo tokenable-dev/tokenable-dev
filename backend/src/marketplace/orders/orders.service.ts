@@ -32,8 +32,8 @@ import { microsToUsdc } from '../admin/platform-analytics.util';
 import { PortfolioHoldingService } from '../portfolio/portfolio-holding.service';
 import {
   backfillAskTokenIdFromParameters,
-  CRITERIA_TOKEN_SENTINEL,
   isCriteriaCollectionBidOrder,
+  isTokenBidOrder,
   isValidDecimalTokenId,
   resolveFulfilledAskTokenId,
 } from '../utils/platform-tape.util';
@@ -75,22 +75,28 @@ export class OrdersService {
 
     if (side === OrderSide.BID) {
       const cons = dto.parameters.consideration?.[0];
-      if (!cons || Number(cons.itemType) !== 4) {
+      const itemType = Number(cons?.itemType);
+      if (itemType === 2) {
+        this.assertValidTokenBid(dto, chainId);
+        const bidCollectionKey = dto.collectionKey?.trim().toLowerCase();
+        if (!bidCollectionKey) {
+          throw new BadRequestException(
+            'collectionKey is required for token bids',
+          );
+        }
+        await this.assertActiveTokenBidLimit(
+          dto.parameters.offerer,
+          dto.tokenId,
+        );
+      } else if (itemType === 4) {
         throw new BadRequestException(
-          'Only ERC721_WITH_CRITERIA collection bids are supported (itemType 4)',
+          'Collection criteria bids are no longer supported. Place a bid on a specific card instead.',
+        );
+      } else {
+        throw new BadRequestException(
+          'Token bids require consideration itemType 2 (ERC721)',
         );
       }
-      this.assertValidCriteriaBid(dto, chainId);
-      const bidCollectionKey = dto.collectionKey?.trim().toLowerCase();
-      if (!bidCollectionKey) {
-        throw new BadRequestException(
-          'collectionKey is required for ERC721_WITH_CRITERIA bids',
-        );
-      }
-      await this.assertActiveCollectionBidLimit(
-        dto.parameters.offerer,
-        bidCollectionKey,
-      );
     }
 
     if (side === OrderSide.ASK) {
@@ -284,16 +290,16 @@ export class OrdersService {
     }
 
     const cons = dto.parameters.consideration?.[0];
-    if (!cons || Number(cons.itemType) !== 4) {
+    if (!cons || Number(cons.itemType) !== 2) {
       throw new BadRequestException(
-        'Only ERC721_WITH_CRITERIA collection bids are supported (itemType 4)',
+        'Only token bids (itemType 2) can be replaced',
       );
     }
-    this.assertValidCriteriaBid(dto, chainId);
+    this.assertValidTokenBid(dto, chainId);
 
     const newCollectionKey = dto.collectionKey?.trim().toLowerCase();
     if (!newCollectionKey) {
-      throw new BadRequestException('collectionKey is required for collection bids');
+      throw new BadRequestException('collectionKey is required for token bids');
     }
 
     return this.orderRepo.manager.transaction(async (em) => {
@@ -303,14 +309,22 @@ export class OrdersService {
       if (!old) {
         throw new NotFoundException(`Order not found: ${oldOrderHash}`);
       }
-      if (!isCriteriaCollectionBidOrder(old)) {
-        throw new BadRequestException('Only collection bids can be replaced');
+      if (!isTokenBidOrder(old)) {
+        throw new BadRequestException('Only token bids can be replaced');
       }
       if (old.status !== OrderStatus.ACTIVE) {
         throw new BadRequestException(`Order is already ${old.status}`);
       }
       if (old.offerer.toLowerCase() !== callerAddress.toLowerCase()) {
         throw new BadRequestException('Only the offerer can replace this bid');
+      }
+      if (
+        normalizeDecimalTokenId(String(old.tokenId)) !==
+        normalizeDecimalTokenId(String(dto.tokenId))
+      ) {
+        throw new BadRequestException(
+          'New bid tokenId must match the bid being replaced',
+        );
       }
       const oldKey = old.collectionKey?.trim().toLowerCase();
       if (!oldKey || oldKey !== newCollectionKey) {
@@ -336,9 +350,7 @@ export class OrdersService {
     if (side === OrderSide.BID) {
       const key = dto.collectionKey?.trim().toLowerCase();
       if (!key) {
-        throw new BadRequestException(
-          'collectionKey is required for ERC721_WITH_CRITERIA bids',
-        );
+        throw new BadRequestException('collectionKey is required for token bids');
       }
       const col = await this.collectionService.findOne(key);
       if (!col) {
@@ -382,7 +394,9 @@ export class OrdersService {
     }
 
     const tokenIdForRow =
-      side === OrderSide.BID ? CRITERIA_TOKEN_SENTINEL : dto.tokenId;
+      side === OrderSide.BID
+        ? normalizeDecimalTokenId(String(dto.tokenId))
+        : dto.tokenId;
 
     return this.orderRepo.create({
       orderHash: this.deriveOrderHash(params, side),
@@ -434,33 +448,33 @@ export class OrdersService {
     );
   }
 
-  /** Per-wallet cap on simultaneous active collection bids in one bucket. */
-  private async assertActiveCollectionBidLimit(
+  /** Per-wallet cap on simultaneous active offers for one card (tokenId). */
+  private async assertActiveTokenBidLimit(
     offererAddress: string,
-    collectionKey: string,
+    tokenId: string,
   ): Promise<void> {
     const max = this.maxActiveCollectionBidsPerOfferer();
     const addr = String(offererAddress ?? '').trim().toLowerCase();
-    const key = collectionKey.trim().toLowerCase();
-    if (!addr || !key) return;
+    const tid = normalizeDecimalTokenId(String(tokenId ?? ''));
+    if (!addr || !isValidDecimalTokenId(tid)) return;
 
     const activeCount = await this.orderRepo
       .createQueryBuilder('o')
       .where('LOWER(o.offerer) = :addr', { addr })
-      .andWhere('LOWER(o.collection_key) = :key', { key })
+      .andWhere('o.token_id = :tid', { tid })
       .andWhere('o.side = :side', { side: OrderSide.BID })
       .andWhere('o.status = :status', { status: OrderStatus.ACTIVE })
       .getCount();
 
     if (activeCount >= max) {
       throw new BadRequestException(
-        `You already have ${max} active collection bids for this collection. Cancel one before placing another.`,
+        `Maximum ${max} bids per card. Cancel an existing bid to place a new one.`,
       );
     }
   }
 
-  /** Collection bid: offer USDC, consideration ERC721_WITH_CRITERIA + Merkle root */
-  private assertValidCriteriaBid(dto: CreateOrderDto, chainId: SupportedChainId): void {
+  /** Token offer: offer USDC, consideration ERC721 for a specific tokenId. */
+  private assertValidTokenBid(dto: CreateOrderDto, chainId: SupportedChainId): void {
     const p = dto.parameters;
     const offer = p.offer?.[0];
     const cons = p.consideration?.[0];
@@ -469,12 +483,12 @@ export class OrdersService {
         'Bid order must include offer and consideration items',
       );
     }
-    if (offer.itemType !== 1) {
+    if (Number(offer.itemType) !== 1) {
       throw new BadRequestException('Bid offer[0] must be ERC20 (itemType 1)');
     }
-    if (cons.itemType !== 4) {
+    if (Number(cons.itemType) !== 2) {
       throw new BadRequestException(
-        'Criteria bid consideration[0] must be ERC721_WITH_CRITERIA (itemType 4)',
+        'Token bid consideration[0] must be ERC721 (itemType 2)',
       );
     }
     const usdc = this.chainConfig.getUsdcAddress(chainId);
@@ -488,13 +502,18 @@ export class OrdersService {
         'Bid consideration token must match tokenContract',
       );
     }
-    if (!cons.identifierOrCriteria || cons.identifierOrCriteria === '0') {
-      throw new BadRequestException(
-        'Criteria bid must set identifierOrCriteria to Merkle root',
-      );
+    const tid = String(dto.tokenId ?? '').trim();
+    if (!isValidDecimalTokenId(tid)) {
+      throw new BadRequestException('Token bids require a valid tokenId');
     }
-    if (dto.tokenId !== CRITERIA_TOKEN_SENTINEL) {
-      throw new BadRequestException('Criteria bids must use tokenId "0"');
+    const consId = String(cons.identifierOrCriteria ?? '').trim();
+    if (
+      !isValidDecimalTokenId(consId) ||
+      normalizeDecimalTokenId(consId) !== normalizeDecimalTokenId(tid)
+    ) {
+      throw new BadRequestException(
+        'Bid consideration identifierOrCriteria must match tokenId',
+      );
     }
   }
 
@@ -812,9 +831,21 @@ export class OrdersService {
     }
 
     const consBid = bid.parameters.consideration?.[0];
-    if (!consBid || Number(consBid.itemType) !== 4) {
+    const bidItemType = Number(consBid?.itemType);
+    if (bidItemType === 2) {
+      if (
+        normalizeDecimalTokenId(String(ask.tokenId)) !==
+        normalizeDecimalTokenId(String(bid.tokenId))
+      ) {
+        throw new BadRequestException(
+          'Token bid must target the same tokenId as the listing',
+        );
+      }
+    } else if (bidItemType === 4) {
+      // Legacy criteria bids may still settle if already on-chain.
+    } else {
       throw new BadRequestException(
-        'bid must be an ERC721_WITH_CRITERIA collection bid',
+        'bid must be a token bid (itemType 2) or legacy criteria bid (itemType 4)',
       );
     }
 

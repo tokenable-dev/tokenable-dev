@@ -124,20 +124,28 @@ export function PortfolioActivitySection({
               </td>
               <td data-label="Type">
                 <span
-                  className={`tkl-mono pf-table-type ${tx.type === "BUY" ? "pf-table-type--buy" : "pf-table-type--sell"}`}
+                  className={`tkl-mono pf-table-type ${
+                    tx.status === "vaulted"
+                      ? "pf-table-type--vault"
+                      : tx.type === "BUY"
+                        ? "pf-table-type--buy"
+                        : "pf-table-type--sell"
+                  }`}
                 >
-                  {tx.type === "BUY" ? "Buy" : "Sell"}
+                  {tx.status === "vaulted" ? "Vault" : tx.type === "BUY" ? "Buy" : "Sell"}
                 </span>
               </td>
               <td data-label="Card">
                 <span className="pf-table-card-name">{tx.asset}</span>
               </td>
               <td data-label="Status" style={{ textAlign: "right" }}>
-                <PortfolioHistoryStatusBadge status="settled" />
+                <PortfolioHistoryStatusBadge status={tx.status ?? "settled"} />
               </td>
               <td data-label="Amount" style={{ textAlign: "right" }}>
                 <span className="tkl-mono pf-table-amount">
-                  {formatPortfolioUsd(tx.price)}
+                  {tx.status === "vaulted" || tx.price === 0
+                    ? "—"
+                    : formatPortfolioUsd(tx.price)}
                 </span>
               </td>
             </tr>

@@ -2,13 +2,16 @@
 
 import type { Order } from "@/lib/core";
 import { bidMaxUsdcFromOrder } from "@/lib/marketplace/collection-trading/orderUsdcFormat";
-import { CollectionCriteriaBidPanel } from "@/components/marketplace/collection-criteria-bid";
+import { CollectionListingBidCheckout } from "@/components/marketplace/collection-detail/CollectionListingBidCheckout";
+import { normalizeDecimalTokenId } from "@/lib/marketplace";
+import { formatListingUsdc } from "@/lib/marketplace/collectionListingModalHelpers";
 
 export function CollectionChangeBidModal({
   open,
   bid,
   collectionKey,
   activeAsks,
+  collectionBids = [],
   connectedAddress,
   onClose,
   onUpdated,
@@ -17,11 +20,30 @@ export function CollectionChangeBidModal({
   bid: Order | null;
   collectionKey: string;
   activeAsks: Order[];
+  collectionBids?: Order[];
   connectedAddress?: string;
   onClose: () => void;
   onUpdated?: () => void;
 }) {
   if (!open || bid == null) return null;
+
+  const tokenId = normalizeDecimalTokenId(bid.tokenId);
+  const listing =
+    activeAsks.find(
+      (a) =>
+        a.status === "active" &&
+        String(a.side ?? "ask").toLowerCase() !== "bid" &&
+        normalizeDecimalTokenId(a.tokenId) === tokenId,
+    ) ?? {
+      ...bid,
+      side: "ask" as const,
+      considerationAmount: bid.considerationAmount,
+    };
+
+  const listedLabel =
+    listing.orderHash !== bid.orderHash
+      ? `${formatListingUsdc(listing.considerationAmount)}.00`
+      : `${formatListingUsdc(bid.considerationAmount)}.00`;
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center px-4 py-6 sm:py-8">
@@ -62,15 +84,14 @@ export function CollectionChangeBidModal({
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-5 sm:px-6 sm:py-6">
-          <CollectionCriteriaBidPanel
-            variant="modal"
+          <CollectionListingBidCheckout
             collectionKey={collectionKey}
-            activeAsks={activeAsks}
+            tokenId={tokenId}
+            listing={listing}
+            collectionBids={collectionBids}
+            listedPriceLabel={listedLabel}
             connectedAddress={connectedAddress}
             bidToReplace={bid}
-            bidOnlySubmit
-            actionLayout="split"
-            hideSellFooter
             onPlaced={() => {
               onUpdated?.();
               onClose();
@@ -79,6 +100,7 @@ export function CollectionChangeBidModal({
               onUpdated?.();
               onClose();
             }}
+            onDone={onClose}
           />
         </div>
       </div>

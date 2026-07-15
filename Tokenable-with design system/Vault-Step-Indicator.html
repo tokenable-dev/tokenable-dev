@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<template id="__bundler_thumbnail" data-bg-color="#0e0e0e">
+  <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="20" cy="50" r="9" fill="#00C350"/>
+    <path d="M25 50 H45" stroke="#00C350" stroke-width="3"/>
+    <circle cx="50" cy="50" r="9" fill="#0033FF"/>
+    <path d="M55 50 H75" stroke="rgba(255,255,255,0.2)" stroke-width="3"/>
+    <circle cx="80" cy="50" r="9" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="3"/>
+  </svg>
+</template>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tokenable — Vault Step Indicator System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0e0e0e; --surf:#161616; --surf-2:#191919;
+    --line:rgba(255,255,255,0.08);
+    --cobalt:#0033FF; --green:#00C350; --red:#E4374A; --amber:#EA8200;
+    --muted:rgba(255,255,255,0.5); --inactive:rgba(255,255,255,0.2);
+    --t1:#fff; --t2:rgba(255,255,255,0.55); --t3:rgba(255,255,255,0.35);
+    --font-sans:'Inter',sans-serif; --font-mono:'JetBrains Mono',ui-monospace,monospace;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--ink);color:#fff;font-family:var(--font-sans);-webkit-font-smoothing:antialiased;padding:48px clamp(16px,4vw,48px) 100px;}
+  .mono{font-family:var(--font-mono);}
+  h1{font-size:22px;font-weight:800;margin:0 0 4px;}
+  .sub{color:var(--t2);font-size:14px;margin:0 0 40px;}
+  h2{font-size:15px;font-weight:700;margin:0 0 16px;color:#fff;}
+  .section{max-width:1080px;margin:0 auto 56px;}
+  .card{background:var(--surf);border-radius:16px;padding:28px clamp(16px,4vw,32px);}
+
+  /* ===== Scenario switcher ===== */
+  .switcher{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:28px;}
+  .sw-btn{font-family:var(--font-mono);font-size:11px;font-weight:600;letter-spacing:0.04em;padding:8px 14px;border-radius:8px;background:var(--surf-2);color:var(--t2);border:1px solid var(--line);cursor:pointer;transition:all 0.12s;}
+  .sw-btn:hover{color:#fff;border-color:rgba(255,255,255,0.2);}
+  .sw-btn.on{background:var(--cobalt);color:#fff;border-color:var(--cobalt);}
+
+  /* ===== Step indicator (desktop) ===== */
+  .steps-row{display:flex;align-items:flex-start;width:100%;padding-bottom:130px;}
+  .step-col{display:flex;flex-direction:column;align-items:center;flex-shrink:0;width:32px;text-align:center;position:relative;}
+  .step-connector{flex:1;height:2px;margin-top:16px;transition:background 0.2s;min-width:12px;}
+  .step-col .step-label{position:absolute;top:38px;left:50%;transform:translateX(-50%);width:150px;margin:0;}
+  .step-col .step-sub{position:absolute;top:58px;left:50%;transform:translateX(-50%);width:150px;margin:0;}
+  .step-col .step-detail{position:absolute;top:76px;left:50%;transform:translateX(-50%);width:150px;margin:0;}
+  .step-col .step-cta{position:absolute;top:118px;left:50%;transform:translateX(-50%);}
+  .circle{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;position:relative;}
+  .circle svg{display:block;}
+  .circle--done{background:var(--green);}
+  .circle--active{background:var(--cobalt);box-shadow:0 0 0 0 rgba(0,51,255,0.5);animation:pulse-ring 1.8s infinite;}
+  .circle--failed{background:var(--red);}
+  .circle--action{background:var(--amber);}
+  .circle--inactive{background:transparent;border:2px solid var(--inactive);}
+  @keyframes pulse-ring{0%{box-shadow:0 0 0 0 rgba(0,51,255,0.5);}70%{box-shadow:0 0 0 8px rgba(0,51,255,0);}100%{box-shadow:0 0 0 0 rgba(0,51,255,0);}}
+  .step-label{font-size:13px;font-weight:500;color:#fff;margin-top:10px;}
+  .step-sub{font-family:var(--font-mono);font-size:10px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;margin-top:4px;}
+  .step-detail{font-family:var(--font-mono);font-size:11px;color:var(--t3);margin-top:6px;line-height:1.5;max-width:150px;}
+  .step-detail a{color:inherit;text-decoration:underline;font-weight:600;}
+  .step-detail.link-line{cursor:pointer;}
+  .step-cta{margin-top:8px;font-family:var(--font-sans);font-size:12px;font-weight:600;color:var(--amber);background:transparent;border:1px solid var(--amber);border-radius:6px;padding:5px 10px;cursor:pointer;}
+  .step-spinner{display:inline-block;width:11px;height:11px;border:2px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;animation:spin 0.8s linear infinite;vertical-align:-1px;margin-right:5px;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  /* connector colors set inline via JS */
+
+  /* legend */
+  .legend{display:flex;flex-wrap:wrap;gap:18px;margin-top:28px;padding-top:20px;border-top:1px solid var(--line);}
+  .legend-item{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--t2);}
+  .legend-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0;}
+
+  /* ===== Reference grid ===== */
+  .ref-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;}
+  .ref-item{background:var(--surf-2);border-radius:12px;padding:18px 18px 16px;}
+  .ref-item-label{font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:0.1em;color:var(--t3);text-transform:uppercase;margin-bottom:14px;}
+  .ref-steps{display:flex;align-items:flex-start;}
+  .ref-col{display:flex;flex-direction:column;align-items:center;flex-shrink:0;width:64px;text-align:center;}
+  .ref-connector{flex:1;height:2px;margin-top:9px;min-width:6px;}
+  .ref-circle{width:18px;height:18px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
+  .ref-sub{font-family:var(--font-mono);font-size:8.5px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;margin-top:6px;line-height:1.3;}
+  .ref-note{font-size:11px;color:var(--t3);margin-top:8px;line-height:1.5;}
+
+  /* ===== Mobile compact ===== */
+  .mobile-frame{max-width:340px;margin:0 auto;background:var(--surf-2);border-radius:20px;padding:24px 18px;}
+  .mobile-compact-row{display:flex;align-items:center;gap:6px;}
+  .mc-dot{width:20px;height:20px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
+  .mc-line{flex:1;height:2px;}
+  .mc-current{display:flex;flex-direction:column;align-items:center;flex-shrink:0;text-align:center;padding:0 6px;}
+  .mc-current .step-label{margin-top:8px;font-size:12px;}
+  .mc-current .step-sub{font-size:9px;}
+  .mc-detail-below{text-align:center;margin-top:12px;font-family:var(--font-mono);font-size:11px;color:var(--cobalt);}
+
+  /* ===== Draft card ===== */
+  .draft-card{display:flex;align-items:center;gap:16px;background:var(--surf-2);border-radius:14px;padding:16px 18px;}
+  .draft-thumb{width:44px;height:60px;border-radius:6px;background:linear-gradient(160deg,#2a2a2a,#151515);flex-shrink:0;}
+  .draft-info{flex:1;min-width:0;}
+  .draft-title{font-size:14px;font-weight:600;color:#fff;}
+  .draft-meta{font-family:var(--font-mono);font-size:11px;color:var(--t3);margin-top:3px;}
+  .draft-actions{display:flex;gap:8px;flex-shrink:0;}
+  .draft-btn{font-family:var(--font-sans);font-size:12.5px;font-weight:600;padding:8px 14px;border-radius:8px;cursor:pointer;border:none;}
+  .draft-btn--resume{background:var(--cobalt);color:#fff;}
+  .draft-btn--delete{background:transparent;color:var(--t2);border:1px solid var(--line);}
+
+  @media(max-width:640px){
+    .steps-row .step-col{width:auto;}
+    .steps-row .step-label, .steps-row .step-sub, .steps-row .step-detail{display:none;}
+    .steps-row .step-col.is-current .step-label, .steps-row .step-col.is-current .step-sub, .steps-row .step-col.is-current .step-detail{display:block;}
+    .steps-row .circle{width:28px;height:28px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="section">
+  <h1>Vault Flow — Step Indicator System</h1>
+  <p class="sub">4 steps, always visible: Submit → Ship → Vault → Mint. States follow the vault_steps spec (1-1 ~ 4-3). Pick a scenario to preview.</p>
+
+  <div class="card">
+    <div class="switcher" id="switcher"></div>
+    <div class="steps-row" id="mainSteps"></div>
+    <div class="legend">
+      <div class="legend-item"><span class="legend-dot" style="background:var(--green);"></span>Complete</div>
+      <div class="legend-item"><span class="legend-dot" style="background:var(--cobalt);"></span>Active</div>
+      <div class="legend-item"><span class="legend-dot" style="background:var(--red);"></span>Failed</div>
+      <div class="legend-item"><span class="legend-dot" style="background:var(--amber);"></span>Action needed</div>
+      <div class="legend-item"><span class="legend-dot" style="background:transparent;border:2px solid var(--inactive);"></span>Inactive</div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h2>Reference — all 9 scenarios</h2>
+  <div class="ref-grid" id="refGrid"></div>
+</div>
+
+<div class="section">
+  <h2>Mobile — compact horizontal</h2>
+  <div class="mobile-frame">
+    <div class="mobile-compact-row" id="mobileCompact"></div>
+    <div class="mc-detail-below" id="mobileDetail"></div>
+  </div>
+</div>
+
+<div class="section">
+  <h2>Draft submission — Vault Dashboard list</h2>
+  <div class="card" style="padding:16px;">
+    <div class="draft-card">
+      <div class="draft-thumb"></div>
+      <div class="draft-info">
+        <div class="draft-title">Charizard + 2 more cards</div>
+        <div class="draft-meta">DRAFT · Saved Jul 8, 2026</div>
+      </div>
+      <div class="draft-actions">
+        <button class="draft-btn draft-btn--resume">Resume Submission →</button>
+        <button class="draft-btn draft-btn--delete">Delete</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+var COLOR = { done:'var(--green)', active:'var(--cobalt)', failed:'var(--red)', action:'var(--amber)', inactive:'var(--inactive)' };
+var SUBCOLOR = { done:'var(--green)', active:'var(--cobalt)', failed:'var(--red)', action:'var(--amber)', inactive:'var(--t3)' };
+
+function icon(status){
+  if(status==='done') return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5"><polyline points="20 6 9 17 4 12"/></svg>';
+  if(status==='failed') return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>';
+  if(status==='action') return '<span style="font-family:var(--font-sans);font-weight:800;color:#fff;font-size:15px;">!</span>';
+  if(status==='active') return '<div class="step-spinner" style="border-color:rgba(255,255,255,0.35);border-top-color:#fff;margin:0;"></div>';
+  return '';
+}
+
+function connectorColor(fromStatus){
+  if(fromStatus==='done') return 'var(--green)';
+  if(fromStatus==='failed') return 'var(--red)';
+  if(fromStatus==='active') return 'linear-gradient(90deg,var(--cobalt),var(--inactive))';
+  return 'var(--inactive)';
+}
+
+// Each step: {status, label, sub, detail: string|{text,href}, cta}
+var SCENARIOS = {
+  A: { name:'2-1 · Ship pending', steps:[
+    {status:'done', label:'Submit', sub:'SUBMITTED'},
+    {status:'action', label:'Ship', sub:'PENDING', subColor:'amber', detail:'No tracking number yet', cta:'Add Tracking →'},
+    {status:'inactive', label:'Vault', sub:''},
+    {status:'inactive', label:'Mint', sub:''}
+  ]},
+  B: { name:'2-2 · In transit', steps:[
+    {status:'done', label:'Submit', sub:'SUBMITTED'},
+    {status:'active', label:'Ship', sub:'IN TRANSIT', detail:{text:'FedEx · FX123456789 →', href:'https://www.fedex.com/fedextrack/?trknbr=FX123456789'}, spin:true},
+    {status:'inactive', label:'Vault', sub:''},
+    {status:'inactive', label:'Mint', sub:''}
+  ]},
+  C: { name:'2-3 · Delivered', steps:[
+    {status:'done', label:'Submit', sub:'SUBMITTED'},
+    {status:'done', label:'Ship', sub:'', detail:{text:'FedEx · FX123456789 →', href:'https://www.fedex.com/fedextrack/?trknbr=FX123456789'}},
+    {status:'inactive', label:'Vault', sub:''},
+    {status:'inactive', label:'Mint', sub:''}
+  ]},
+  D: { name:'3-1 · Vault received', steps:[
+    {status:'done', label:'Submit', sub:'SUBMITTED'},
+    {status:'done', label:'Ship', sub:''},
+    {status:'active', label:'Vault', sub:'RECEIVED', detail:'PSA Vault check-in confirmed · awaiting inspection'},
+    {status:'inactive', label:'Mint', sub:''}
+  ]},
+  E: { name:'3-2 · PSA reviewing', steps:[
+    {status:'done', label:'Submit', sub:'SUBMITTED'},
+    {status:'done', label:'Ship', sub:''},
+    {status:'active', label:'Vault', sub:'REVIEWING', detail:'PSA inspecting each card · refreshes every 30s', spin:true},
+    {status:'inactive', label:'Mint', sub:''}
+  ]},
+  F: { name:'3-3 · Approved → minting', steps:[
+    {status:'done', label:'Submit', sub:'SUBMITTED'},
+    {status:'done', label:'Ship', sub:''},
+    {status:'done', label:'Vault', sub:'APPROVED', detail:'All cards approved'},
+    {status:'active', label:'Mint', sub:'MINTING', detail:'NFT being created on Polygon · usually within 24h', spin:true}
+  ]},
+  G: { name:'3-4 · Partial approval', steps:[
+    {status:'done', label:'Submit', sub:'SUBMITTED'},
+    {status:'done', label:'Ship', sub:''},
+    {status:'done', label:'Vault', sub:'PARTIAL · 3/5 APPROVED', subColor:'amber', detail:'3 of 5 cards approved · 2 rejected ↓'},
+    {status:'active', label:'Mint', sub:'MINTING', detail:'Approved cards only', spin:true}
+  ]},
+  H: { name:'3-5 · Rejected', steps:[
+    {status:'done', label:'Submit', sub:'SUBMITTED'},
+    {status:'done', label:'Ship', sub:''},
+    {status:'failed', label:'Vault', sub:'REJECTED', detail:'All cards rejected · return shipping billed to you'},
+    {status:'inactive', label:'Mint', sub:''}
+  ]},
+  I: { name:'4-2 · Mint completed', steps:[
+    {status:'done', label:'Submit', sub:'SUBMITTED'},
+    {status:'done', label:'Ship', sub:''},
+    {status:'done', label:'Vault', sub:'APPROVED'},
+    {status:'done', label:'Mint', sub:'COMPLETED', detail:'Token ID assigned per card · added to Portfolio'}
+  ]},
+  J: { name:'4-3 · Mint failed', steps:[
+    {status:'done', label:'Submit', sub:'SUBMITTED'},
+    {status:'done', label:'Ship', sub:''},
+    {status:'done', label:'Vault', sub:'APPROVED'},
+    {status:'failed', label:'Mint', sub:'MINT FAILED', detail:'Blockchain error · retrying automatically', cta:'Contact Support →'}
+  ]}
+};
+var ORDER = ['A','B','C','D','E','F','G','H','I','J'];
+
+function renderMain(key){
+  var s = SCENARIOS[key];
+  var currentIdx = 0;
+  s.steps.forEach(function(st,i){ if(st.status==='active'||st.status==='action'||st.status==='failed') currentIdx = i; });
+  s.steps.forEach(function(st,i){ if(st.status==='done') currentIdx = i+1<s.steps.length?i+1:i; });
+  var html = '';
+  s.steps.forEach(function(st, i){
+    var subColor = st.subColor ? 'var(--'+st.subColor+')' : SUBCOLOR[st.status];
+    var detailHtml = '';
+    if(st.detail){
+      if(typeof st.detail === 'object'){
+        detailHtml = '<div class="step-detail mono"><a href="'+st.detail.href+'" target="_blank" rel="noopener" style="color:'+subColor+';">'+st.detail.text+'</a></div>';
+      } else {
+        detailHtml = '<div class="step-detail mono">'+st.detail+'</div>';
+      }
+    }
+    var ctaHtml = st.cta ? '<button class="step-cta">'+st.cta+'</button>' : '';
+    html += '<div class="step-col'+(i===currentIdx?' is-current':'')+'">'
+      +'<div class="circle circle--'+st.status+'">'+icon(st.status)+'</div>'
+      +'<div class="step-label">'+st.label+'</div>'
+      +(st.sub?'<div class="step-sub" style="color:'+subColor+';">'+st.sub+'</div>':'')
+      +detailHtml+ctaHtml
+      +'</div>';
+    if(i < s.steps.length-1){
+      html += '<div class="step-connector" style="background:'+connectorColor(st.status)+';"></div>';
+    }
+  });
+  document.getElementById('mainSteps').innerHTML = html;
+
+  // mobile compact
+  var mHtml = '';
+  s.steps.forEach(function(st,i){
+    if(i===currentIdx){
+      var subColor2 = st.subColor ? 'var(--'+st.subColor+')' : SUBCOLOR[st.status];
+      mHtml += '<div class="mc-current"><div class="circle circle--'+st.status+'" style="width:28px;height:28px;">'+icon(st.status)+'</div>'
+        +'<div class="step-label">'+st.label+'</div>'
+        +(st.sub?'<div class="step-sub" style="color:'+subColor2+';">'+st.sub+'</div>':'')
+        +'</div>';
+    } else {
+      mHtml += '<div class="mc-dot circle circle--'+st.status+'" style="width:20px;height:20px;">'+icon(st.status)+'</div>';
+    }
+    if(i < s.steps.length-1) mHtml += '<div class="mc-line" style="background:'+connectorColor(st.status)+';"></div>';
+  });
+  document.getElementById('mobileCompact').innerHTML = mHtml;
+  var curStep = s.steps[currentIdx];
+  var detailText = '';
+  if(curStep.detail){
+    detailText = typeof curStep.detail === 'object'
+      ? '<a href="'+curStep.detail.href+'" target="_blank" rel="noopener" style="color:var(--cobalt);text-decoration:underline;">'+curStep.detail.text+'</a>'
+      : curStep.detail;
+  }
+  document.getElementById('mobileDetail').innerHTML = detailText;
+}
+
+function renderRefGrid(){
+  var html = '';
+  ORDER.forEach(function(key){
+    var s = SCENARIOS[key];
+    var stepsHtml = '';
+    s.steps.forEach(function(st, i){
+      var subColor = st.subColor ? 'var(--'+st.subColor+')' : SUBCOLOR[st.status];
+      stepsHtml += '<div class="ref-col"><div class="ref-circle circle--'+st.status+'">'+icon(st.status)+'</div>'
+        +(st.sub?'<div class="ref-sub" style="color:'+subColor+';">'+st.sub+'</div>':'')
+        +'</div>';
+      if(i < s.steps.length-1) stepsHtml += '<div class="ref-connector" style="background:'+connectorColor(st.status)+';"></div>';
+    });
+    var noteStep = null;
+    s.steps.forEach(function(st){ if(st.status==='active'||st.status==='action'||st.status==='failed') noteStep = st; });
+    html += '<div class="ref-item"><div class="ref-item-label">'+key+'. '+s.name+'</div><div class="ref-steps">'+stepsHtml+'</div>'
+      +(noteStep && noteStep.detail ? '<div class="ref-note">'+(typeof noteStep.detail==='object'?noteStep.detail.text:noteStep.detail)+'</div>' : '')
+      +'</div>';
+  });
+  document.getElementById('refGrid').innerHTML = html;
+}
+
+function renderSwitcher(){
+  var html = '';
+  ORDER.forEach(function(key){
+    html += '<button class="sw-btn" data-key="'+key+'">'+key+' · '+SCENARIOS[key].name+'</button>';
+  });
+  document.getElementById('switcher').innerHTML = html;
+}
+
+renderSwitcher();
+renderRefGrid();
+renderMain('E');
+document.getElementById('switcher').querySelector('[data-key="E"]').classList.add('on');
+
+document.addEventListener('click', function(e){
+  var btn = e.target.closest('.sw-btn');
+  if(!btn) return;
+  document.querySelectorAll('.sw-btn').forEach(function(b){ b.classList.remove('on'); });
+  btn.classList.add('on');
+  renderMain(btn.dataset.key);
+});
+</script>
+
+</body>
+</html>

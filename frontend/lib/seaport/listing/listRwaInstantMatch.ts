@@ -26,11 +26,14 @@ import {
 } from "@/lib/seaport/criteria/collectionCriteriaRoot";
 import {
   runCriteriaMatch,
+  runTokenBidMatch,
   classifyMatchFailureCode,
   mapMatchError,
   type MatchFailureCode,
   type MatchWriteContractAsync,
 } from "@/lib/seaport/fulfillment/runCriteriaMatch";
+import { isTokenBidOrder } from "@/lib/seaport/orders/isTokenBidOrder";
+import { normalizeDecimalTokenId } from "@/lib/marketplace";
 import {
   getChainTimestampSec,
   isSeaportOrderActiveAt,
@@ -97,14 +100,23 @@ async function tryMatchAfterListing(
   const propBids = deps.collectionBids ?? [];
   const askAm = askGrossUsdcMicros(created);
   const matchWrite = deps.writeContractAsync;
+  const tokenIdNorm = normalizeDecimalTokenId(deps.tokenId);
+
+  const isCrossingTokenBid = (b: Order) => {
+    if (b.status !== "active" || !isTokenBidOrder(b)) return false;
+    if (normalizeDecimalTokenId(b.tokenId) !== tokenIdNorm) return false;
+    return bidUsdcAmount(b) >= askAm;
+  };
+
+  const isCrossingCriteriaBid = (b: Order) => {
+    if (b.status !== "active" || !isCriteriaCollectionBid(b)) return false;
+    const bk = orderCollectionKey(b);
+    if (bk && bk.toLowerCase() !== key.toLowerCase()) return false;
+    return bidUsdcAmount(b) >= askAm;
+  };
 
   const bidCrossesAsk = (rows: Order[]) =>
-    rows.some((b) => {
-      if (b.status !== "active" || !isCriteriaCollectionBid(b)) return false;
-      const bk = orderCollectionKey(b);
-      if (bk && bk.toLowerCase() !== key.toLowerCase()) return false;
-      return bidUsdcAmount(b) >= askAm;
-    });
+    rows.some((b) => isCrossingTokenBid(b) || isCrossingCriteriaBid(b));
 
   const hotPath =
     bidCrossesAsk(propBids) ||
@@ -138,15 +150,7 @@ async function tryMatchAfterListing(
       const fromApi = detail?.collectionBids ?? [];
       bids = mergeBidsByOrderHash(fromApi, propBids);
 
-      if (bids.length > 0) {
-        const hasCrossing = bids.some((b) => {
-          if (b.status !== "active" || !isCriteriaCollectionBid(b)) return false;
-          const bk = orderCollectionKey(b);
-          if (bk && bk.toLowerCase() !== key.toLowerCase()) return false;
-          return bidUsdcAmount(b) >= askAm;
-        });
-        if (hasCrossing) break;
-      }
+      if (bids.length > 0 && bidCrossesAsk(bids)) break;
 
       if (attempt < detailAttempts - 1) {
         const gapMs = hotPath ? 55 + attempt * 22 : 120 + attempt * 35;
@@ -156,6 +160,87 @@ async function tryMatchAfterListing(
 
     if (!bids.length) {
       lastMeta = { matched: false, reasonCode: "unknown" };
+      continue;
+    }
+
+    // Prefer card-level token offers (FIFO within price) over legacy criteria bids.
+    const tokenCandidates = orderMatchCandidates(
+      bids.filter(isCrossingTokenBid),
+      deps.preferredBidForMatch,
+    );
+
+    if (tokenCandidates.length > 0) {
+      let lastErr = "";
+      let lastReason: MatchFailureCode = "unknown";
+      let listing: Order = created;
+
+      for (const bid of tokenCandidates) {
+        try {
+          const chainNow = await getChainTimestampSec(deps.publicClient);
+          if (!isSeaportOrderActiveAt(listing, chainNow)) {
+            const signOrder = deps.getSignSeaportOrder();
+            if (!signOrder) {
+              lastErr =
+                "Wallet signer not ready — unlock your wallet, then try again so the listing can be refreshed.";
+              continue;
+            }
+            listing = await submitAskListingOrder({
+              tokenId: deps.tokenId,
+              priceUsdc: formatUnits(askGrossUsdcMicros(listing), 6),
+              address: deps.address,
+              publicClient: deps.publicClient,
+              signSeaportOrder: signOrder,
+              writeContractAsync: deps.writeContractAsync as Parameters<
+                typeof submitAskListingOrder
+              >[0]["writeContractAsync"],
+              chainId: deps.chainId,
+              mode: "replace",
+              oldOrderHash: listing.orderHash,
+            });
+          }
+          if (askGrossUsdcMicros(listing) > bidUsdcAmount(bid)) {
+            const signOrder = deps.getSignSeaportOrder();
+            if (!signOrder) {
+              lastErr =
+                "Wallet signer not ready — unlock your wallet, then change the list price to the bid or try again.";
+              continue;
+            }
+            listing = await submitAskListingOrder({
+              tokenId: deps.tokenId,
+              priceUsdc: formatUnits(bidUsdcAmount(bid), 6),
+              address: deps.address,
+              publicClient: deps.publicClient,
+              signSeaportOrder: signOrder,
+              writeContractAsync: deps.writeContractAsync as Parameters<
+                typeof submitAskListingOrder
+              >[0]["writeContractAsync"],
+              chainId: deps.chainId,
+              mode: "replace",
+              oldOrderHash: listing.orderHash,
+            });
+          }
+
+          await runTokenBidMatch({
+            address: deps.address,
+            publicClient: deps.publicClient,
+            writeContractAsync: matchWrite,
+            bid,
+            listing,
+            chainId: deps.chainId,
+          });
+
+          return { matched: true };
+        } catch (e: unknown) {
+          lastErr = mapMatchError(e, { bidOfferer: bid.offerer });
+          lastReason = classifyMatchFailureCode(e);
+        }
+      }
+
+      lastMeta = {
+        matched: false,
+        reasonCode: lastReason,
+        hint: lastErr || "Could not fill a bid automatically.",
+      };
       continue;
     }
 
@@ -178,25 +263,14 @@ async function tryMatchAfterListing(
 
     const { tokenIds: merkleTokenIds, rootHex: currentRoot } = merkleSnap;
 
-    const pricedBids = bids.filter((b) => {
-      if (b.status !== "active" || !isCriteriaCollectionBid(b)) return false;
-      const bk = orderCollectionKey(b);
-      if (bk && bk.toLowerCase() !== key.toLowerCase()) return false;
-      return bidUsdcAmount(b) >= askAm;
-    });
+    const pricedBids = bids.filter(isCrossingCriteriaBid);
 
     if (pricedBids.length === 0) {
-      const hasCriteriaBids = bids.some(
-        (b) => b.status === "active" && isCriteriaCollectionBid(b),
-      );
       lastMeta = {
         matched: false,
-        reasonCode: hasCriteriaBids ? "unknown" : undefined,
-        hint: hasCriteriaBids
-          ? "There are collection bids, but none at or above your list price. Try the bid price or lower."
-          : undefined,
+        reasonCode: undefined,
+        hint: undefined,
       };
-      if (hasCriteriaBids) break;
       break;
     }
 
