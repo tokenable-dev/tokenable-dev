@@ -125,6 +125,29 @@
   flex-shrink: 0;
 }
 
+.tk-wd-item--funds,
+.tk-mw-link.tk-wd-item--funds {
+  color: var(--azure, #1a6fff);
+  font-weight: 600;
+}
+
+.tk-wd-item--funds:hover:not(:disabled),
+.tk-mw-link.tk-wd-item--funds:hover:not(:disabled) {
+  background: rgba(26, 111, 255, 0.12);
+}
+
+.tk-wd-funds-error {
+  margin: 0 12px 8px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: #f87171;
+}
+
+.gnb-drawer .tk-wd-funds-error {
+  margin: 0 0 8px;
+  padding: 0 16px;
+}
+
 .tk-wd-item {
   display: flex;
   align-items: center;

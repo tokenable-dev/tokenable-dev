@@ -58,6 +58,147 @@ var labelStyle = 'font-family:var(--font-mono);font-size:10px;letter-spacing:0.1
 var valStyle = 'font-family:var(--font-sans);font-weight:700;font-size:22px;color:#fff;';
 var closeBtn = '<button onclick="document.getElementById(\'pf-modal-overlay\').style.display=\'none\'" style="position:absolute;top:14px;right:14px;width:32px;height:32px;border:0;background:rgba(255,255,255,0.06);border-radius:8px;color:#fff;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;">&#10005;</button>';
 
+/* ---- Unified SELL NOW Modal (Accept Bid / Set Price toggle) ---- */
+window.pfSellNowModal = function(name, mktVal, hasBids, highestBid, isListed, listPrice){
+  highestBid = highestBid || Math.round(mktVal * 0.95);
+  listPrice = listPrice || mktVal;
+  var asks = isListed ? [] : [{price:fmtPrice(Math.round(mktVal*1.05)), size:1}];
+  var bids = hasBids ? [
+    {price:fmtPrice(highestBid), size:1},
+    {price:fmtPrice(Math.round(highestBid*0.97)), size:1},
+    {price:fmtPrice(Math.round(highestBid*0.93)), size:1}
+  ] : [];
+
+  var thStyle = 'font-family:var(--font-mono);font-size:9px;letter-spacing:0.1em;text-transform:uppercase;color:rgba(255,255,255,0.35);font-weight:600;padding:6px 10px;';
+  var tdStyle = 'font-family:var(--font-mono);font-size:13px;font-weight:600;padding:8px 10px;';
+
+  var obHTML = '<div style="margin-bottom:20px;border-radius:10px;overflow:hidden;background:rgba(0,0,0,0.2);">' +
+    '<table style="width:100%;border-collapse:collapse;">' +
+    '<thead><tr><th style="'+thStyle+'text-align:left;">Price</th><th style="'+thStyle+'text-align:center;">Size</th><th style="'+thStyle+'text-align:right;">Total</th></tr></thead>' +
+    '<tbody>';
+  if(asks.length){
+    asks.forEach(function(a){
+      obHTML += '<tr style="background:rgba(228,55,74,0.12);"><td style="'+tdStyle+'color:#E4374A;text-align:left;">'+a.price+'</td><td style="'+tdStyle+'color:rgba(255,255,255,0.6);text-align:center;">'+a.size+'</td><td style="'+tdStyle+'color:#E4374A;text-align:right;">'+a.price+'</td></tr>';
+    });
+  } else {
+    obHTML += '<tr><td colspan="3" style="'+tdStyle+'text-align:center;color:rgba(255,255,255,0.3);font-size:11px;padding:6px 10px;">N/A</td></tr>';
+  }
+  bids.forEach(function(b){
+    obHTML += '<tr style="background:rgba(0,200,100,0.08);"><td style="'+tdStyle+'color:var(--pos);text-align:left;">'+b.price+'</td><td style="'+tdStyle+'color:rgba(255,255,255,0.6);text-align:center;">'+b.size+'</td><td style="'+tdStyle+'color:var(--pos);text-align:right;">'+b.price+'</td></tr>';
+  });
+  obHTML += '</tbody></table>' +
+    '<div style="display:flex;justify-content:space-between;padding:8px 10px;border-top:1px solid rgba(255,255,255,0.06);">' +
+      '<span style="font-family:var(--font-mono);font-size:10px;font-weight:600;color:var(--pos);">BIDS '+bids.length+'</span>' +
+      '<span style="font-family:var(--font-mono);font-size:10px;font-weight:600;color:#E4374A;">ASKS '+asks.length+'</span>' +
+    '</div>' +
+  '</div>';
+
+  var fee = Math.round(highestBid * 0.05);
+  var net = highestBid - fee;
+  var listFee = Math.round(listPrice * 0.05);
+  var listNet = listPrice - listFee;
+
+  var listedHeader = isListed ?
+    '<div id="pfsn-listed-view" style="padding:14px 16px;background:rgba(26,111,255,0.06);border-radius:10px;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between;">' +
+      '<div><div style="'+labelStyle+'margin-bottom:2px;">Currently listed at</div><span style="font-family:var(--font-mono);font-weight:700;font-size:18px;color:#fff;">$' + fmtPrice(listPrice) + '</span></div>' +
+      '<button id="pfsn-edit-listed" style="background:none;border:0;color:var(--azure);font-family:var(--font-sans);font-size:13px;font-weight:600;cursor:pointer;">Edit Price ✏️</button>' +
+    '</div>' : '';
+
+  var tabsHTML = '<div style="display:flex;gap:0;margin-bottom:18px;border-bottom:1px solid rgba(255,255,255,0.08);">' +
+    '<button id="pfsn-tab-bid" class="pfsn-tab" style="flex:1;padding:10px 0;background:none;border:0;border-bottom:2px solid transparent;font-family:var(--font-sans);font-size:13px;font-weight:600;cursor:pointer;color:rgba(255,255,255,0.4);'+(!hasBids?'opacity:0.35;cursor:not-allowed;':'')+'" '+(!hasBids?'disabled':'')+'>Accept Highest Bid</button>' +
+    '<button id="pfsn-tab-price" class="pfsn-tab" style="flex:1;padding:10px 0;background:none;border:0;border-bottom:2px solid transparent;font-family:var(--font-sans);font-size:13px;font-weight:600;cursor:pointer;color:rgba(255,255,255,0.4);">Set Listing Price</button>' +
+  '</div>';
+
+  var modeA = '<div id="pfsn-mode-a" style="display:none;">' +
+    '<div style="display:flex;justify-content:space-between;padding:10px 0;">' +
+      '<span style="'+labelStyle+'margin:0;">Highest bid</span>' +
+      '<span style="font-family:var(--font-mono);font-weight:700;color:#fff;">$' + fmtPrice(highestBid) + '</span>' +
+    '</div>' +
+    '<div style="display:flex;justify-content:space-between;padding:10px 0;border-top:1px solid rgba(255,255,255,0.06);">' +
+      '<span style="'+labelStyle+'margin:0;">Platform fee (5%)</span>' +
+      '<span style="font-family:var(--font-mono);color:rgba(255,255,255,0.5);">-$' + fmtPrice(fee) + '</span>' +
+    '</div>' +
+    '<div style="display:flex;justify-content:space-between;padding:10px 0 6px;border-top:1px solid rgba(255,255,255,0.06);">' +
+      '<span style="'+labelStyle+'margin:0;font-weight:700;">You receive</span>' +
+      '<span style="font-family:var(--font-mono);font-weight:700;font-size:20px;color:var(--pos);">$' + fmtPrice(net) + '</span>' +
+    '</div>' +
+    '<p style="font-size:12.5px;color:rgba(255,255,255,0.4);margin:6px 0 0;line-height:1.5;">Sell immediately at the highest current bid price.</p>' +
+  '</div>';
+
+  var modeB = '<div id="pfsn-mode-b" style="display:none;">' +
+    '<div style="'+labelStyle+'">Listing price</div>' +
+    '<div style="position:relative;margin-bottom:10px;">' +
+      '<span style="position:absolute;left:14px;top:50%;transform:translateY(-50%);font-family:var(--font-mono);font-size:16px;color:rgba(255,255,255,0.4);">$</span>' +
+      '<input id="pfsn-price-input" type="text" inputmode="decimal" style="'+inputStyle+'padding-left:28px;" value="' + fmtPrice(listPrice) + '">' +
+    '</div>' +
+    '<div style="font-size:12px;color:rgba(255,255,255,0.35);margin-bottom:12px;">Market price: $'+fmtPrice(mktVal)+(hasBids?' &middot; Highest bid: $'+fmtPrice(highestBid):'')+'</div>' +
+    '<div style="display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid rgba(255,255,255,0.06);">' +
+      '<span style="'+labelStyle+'margin:0;">Platform fee (5%)</span>' +
+      '<span id="pfsn-fee" style="font-family:var(--font-mono);font-size:13px;color:rgba(255,255,255,0.5);">-$' + fmtPrice(listFee) + '</span>' +
+    '</div>' +
+    '<div style="display:flex;justify-content:space-between;padding:8px 0 6px;border-top:1px solid rgba(255,255,255,0.06);">' +
+      '<span style="'+labelStyle+'margin:0;font-weight:700;">You receive</span>' +
+      '<span id="pfsn-net" style="font-family:var(--font-mono);font-weight:700;font-size:20px;color:var(--pos);">$' + fmtPrice(listNet) + '</span>' +
+    '</div>' +
+    '<p style="font-size:12.5px;color:rgba(255,255,255,0.4);margin:6px 0 0;line-height:1.5;">List at your price. Sells when someone accepts your ask.</p>' +
+  '</div>';
+
+  openModal(
+    '<div style="'+labelStyle+'">Sell card</div>' +
+    '<div style="font-size:16px;font-weight:600;color:#fff;margin:8px 0 6px;">' + name + '</div>' +
+    '<div style="'+labelStyle+'margin:0 0 16px;">Current market value: $' + fmtPrice(mktVal) + '</div>' +
+    listedHeader +
+    obHTML +
+    tabsHTML +
+    modeA + modeB,
+    '<button id="pfsn-cta" style="'+primaryBtnStyle+'width:100%;"></button>' +
+    '<button style="'+ghostBtnStyle+'margin-top:8px;width:100%;" onclick="closeModal()">Cancel</button>'
+  );
+
+  var curMode = hasBids ? 'a' : 'b';
+  function paintTabs(){
+    var tb = document.getElementById('pfsn-tab-bid'), tp = document.getElementById('pfsn-tab-price');
+    var ma = document.getElementById('pfsn-mode-a'), mb = document.getElementById('pfsn-mode-b');
+    var cta = document.getElementById('pfsn-cta');
+    if(curMode === 'a'){
+      tb.style.color = '#fff'; tb.style.borderBottomColor = 'var(--azure)';
+      tp.style.color = 'rgba(255,255,255,0.4)'; tp.style.borderBottomColor = 'transparent';
+      ma.style.display = 'block'; mb.style.display = 'none';
+      cta.textContent = 'Confirm Sell →';
+      cta.onclick = function(){ pfConfirmAction('sold'); };
+    } else {
+      tp.style.color = '#fff'; tp.style.borderBottomColor = 'var(--azure)';
+      tb.style.color = 'rgba(255,255,255,0.4)'; tb.style.borderBottomColor = 'transparent';
+      mb.style.display = 'block'; ma.style.display = 'none';
+      cta.textContent = isListed ? 'Update Price →' : 'List for Sale →';
+      cta.onclick = function(){ pfConfirmAction(isListed ? 'listing updated' : 'listed'); };
+    }
+  }
+  paintTabs();
+  var tabBid = document.getElementById('pfsn-tab-bid');
+  var tabPrice = document.getElementById('pfsn-tab-price');
+  if(tabBid) tabBid.addEventListener('click', function(){ if(!hasBids) return; curMode='a'; paintTabs(); });
+  if(tabPrice) tabPrice.addEventListener('click', function(){ curMode='b'; paintTabs(); });
+
+  var priceInput = document.getElementById('pfsn-price-input');
+  if(priceInput) priceInput.addEventListener('input', function(){
+    var v = parseInt(this.value.replace(/[^0-9]/g,''))||0;
+    this.value = fmtPrice(v);
+    var f = Math.round(v*0.05);
+    var feeEl = document.getElementById('pfsn-fee');
+    var netEl = document.getElementById('pfsn-net');
+    if(feeEl) feeEl.textContent = '-$'+fmtPrice(f);
+    if(netEl) netEl.textContent = '$'+fmtPrice(v-f);
+  });
+
+  var editBtn = document.getElementById('pfsn-edit-listed');
+  if(editBtn) editBtn.addEventListener('click', function(){
+    curMode = 'b'; paintTabs();
+    var pi = document.getElementById('pfsn-price-input');
+    if(pi) pi.focus();
+  });
+};
+
 /* ---- 1. SELL Modal ---- */
 window.pfSellModal = function(name, highestBid, fee){
   fee = fee || Math.round(highestBid * 0.05);
@@ -355,6 +496,16 @@ document.addEventListener('click', function(e){
   var val = parseInt(btn.getAttribute('data-val')) || 0;
   var val2 = parseInt(btn.getAttribute('data-val2')) || 0;
   switch(action){
+    case 'sell-now':
+      var hasBids = btn.getAttribute('data-hasbids') === '1';
+      var bidAmt = parseInt(btn.getAttribute('data-bid')) || 0;
+      var isListed = btn.getAttribute('data-listed') === '1';
+      var listPrice = parseInt(btn.getAttribute('data-listprice')) || 0;
+      pfSellNowModal(name, val, hasBids, bidAmt, isListed, listPrice);
+      break;
+    case 'edit-listing':
+      pfSellNowModal(name, val, false, 0, true, val);
+      break;
     case 'sell': pfSellModal(name, val); break;
     case 'list': pfListModal(name, val); break;
     case 'cancel-listing': pfCancelListingModal(name, val, el.dataset.grade); break;

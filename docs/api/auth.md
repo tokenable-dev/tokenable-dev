@@ -137,9 +137,19 @@ Gates open modals in sequence: sign-in → connect-wallet → KYC.
 
 Stored on `users.kyc_status`: `none` | `pending` | `approved` | `rejected`.
 
+Provider: **Sumsub** (`kyc_provider = 'sumsub'`). Applicant id: `users.kyc_external_id`.
+
 Audit trail in `user_kyc_events` (append-only). Updated via:
-- `UserService.updateKycStatus()` (webhook / admin action)
+- `POST /api/webhooks/sumsub` — Sumsub `applicantReviewed` / pending events (HMAC)
+- `UserService.updateKycStatus()` (admin action)
 - Admin UI: `/api/marketplace/admin/users/:id` + KYC actions
+
+User-facing flow:
+- `GET /api/kyc/status` — JWT
+- `POST /api/kyc/access-token` — JWT; creates applicant + WebSDK token
+- Frontend `/kyc` — Sumsub WebSDK 2.0
+
+See [guides/sumsub-kyc.md](../guides/sumsub-kyc.md).
 
 ---
 
@@ -152,5 +162,10 @@ Audit trail in `user_kyc_events` (append-only). Updated via:
 | `PRIVY_JWT_VERIFICATION_KEY` | Optional PEM public key — skips JWKS fetch |
 | `JWT_SECRET` | Session JWT signing |
 | `JWT_EXPIRES_SEC` | Session TTL (default: 604800 = 7 days) |
+| `SUMSUB_APP_TOKEN` | Sumsub app token (server only) |
+| `SUMSUB_SECRET_KEY` | Sumsub API + webhook HMAC (server only) |
+| `SUMSUB_LEVEL_NAME` | Sumsub verification level name |
+| `SUMSUB_WEBHOOK_SECRET` | Optional webhook-only secret |
+| `SUMSUB_BASE_URL` | Optional Sumsub API base (default `https://api.sumsub.com`) |
 | `FRONTEND_URL` | Used for redirects and cookie Secure flag |
 | `COOKIE_SECURE` | Override: `true` forces Secure cookie |

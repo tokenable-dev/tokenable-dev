@@ -123,9 +123,9 @@ export const PRIVY_CLIENT_FEATURE_MATRIX = [
   {
     id: "fiat-onramp",
     label: "Fiat on-ramp (MoonPay · card · Apple Pay · Google Pay)",
-    hook: "useFiatOnramp",
-    status: "mainnet-only",
-    note: "Sepolia testnet uses the official Sepolia USDC faucet — MoonPay delivers mainnet USDC on Ethereum only.",
+    hook: "useFiatOnramp / usePrivyFiatOnramp",
+    status: "enabled",
+    note: "Header wallet menu → Add funds. Production: live Apple/Google Pay via MoonPay checkout.",
   },
   {
     id: "fund-wallet",

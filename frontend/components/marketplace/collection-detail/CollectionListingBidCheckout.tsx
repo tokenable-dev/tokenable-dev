@@ -1,11 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import type { Order } from "@/lib/core";
 import { TkButton } from "@/components/ds";
-import { useCollectionCriteriaBid } from "@/hooks/collection-criteria-bid";
 import { useTradeAccessGate } from "@/hooks/auth/useTradeAccessGate";
-import { CollectionCriteriaBidFloorChooserModal } from "@/components/marketplace/collection-criteria-bid/CollectionCriteriaBidFloorChooserModal";
+import { useTokenOffer } from "@/hooks/token-offer/useTokenOffer";
 import { bestBidFromRows } from "@/lib/marketplace/unified-order-book";
 
 function formatUsdc2(n: number): string {
@@ -30,20 +29,24 @@ function formatBidInputDisplay(raw: string): string {
 
 export function CollectionListingBidCheckout({
   collectionKey,
-  collectionAsks,
+  tokenId,
+  listing,
   collectionBids,
   listedPriceLabel,
   connectedAddress,
+  bidToReplace,
   onPlaced,
   onPurchaseFilled,
   onHeaderTitleChange,
   onDone,
 }: {
   collectionKey: string;
-  collectionAsks: Order[];
+  tokenId: string | number;
+  listing: Order;
   collectionBids: Order[];
   listedPriceLabel: string;
   connectedAddress?: string;
+  bidToReplace?: Order | null;
   onPlaced?: () => void;
   onPurchaseFilled?: () => void;
   onHeaderTitleChange?: (title: string) => void;
@@ -52,20 +55,21 @@ export function CollectionListingBidCheckout({
   const { runTradeAccessGate } = useTradeAccessGate(
     `/marketplace/collections/${encodeURIComponent(collectionKey)}`,
   );
-  const [hintError, setHintError] = useState<string | null>(null);
 
-  const bid = useCollectionCriteriaBid({
+  const bid = useTokenOffer({
     collectionKey,
-    activeAsks: collectionAsks,
+    tokenId,
+    listing,
+    collectionBids,
     connectedAddress,
-    bidOnlySubmit: true,
+    bidToReplace,
     onPlaced: () => onPlaced?.(),
     onPurchaseFilled: () => onPurchaseFilled?.(),
   });
 
   const highestBid = useMemo(() => bestBidFromRows(collectionBids), [collectionBids]);
 
-  const hintText = useMemo(() => {
+  const listedHint = useMemo(() => {
     const parts = [`Listed at $${listedPriceLabel}`];
     if (highestBid != null && highestBid > 0) {
       parts.push(`Highest offer $${formatUsdc2(highestBid)}`);
@@ -73,55 +77,51 @@ export function CollectionListingBidCheckout({
     return parts.join(" · ");
   }, [listedPriceLabel, highestBid]);
 
-  const showSuccess = bid.step === "success" && bid.lastOutcome === "bid";
+  const showSuccess = bid.step === "success";
   const placedBidLabel = useMemo(() => {
-    const raw = bid.price.replace(/[^0-9.]/g, "");
-    const n = parseFloat(raw);
-    if (!Number.isFinite(n) || n <= 0) return null;
-    return formatUsdc2(n);
-  }, [bid.price, showSuccess]);
+    if (!Number.isFinite(bid.priceUsdc) || bid.priceUsdc <= 0) return null;
+    return formatUsdc2(bid.priceUsdc);
+  }, [bid.priceUsdc]);
 
   useEffect(() => {
-    onHeaderTitleChange?.(showSuccess ? "Bid placed" : "Place a bid");
-  }, [showSuccess, onHeaderTitleChange]);
-
-  const handleBidInput = (raw: string) => {
-    setHintError(null);
-    bid.priceTouchedRef.current = true;
-    const digits = raw.replace(/[^0-9]/g, "");
-    bid.setPrice(digits);
-  };
+    onHeaderTitleChange?.(
+      showSuccess
+        ? bid.lastOutcome === "instant"
+          ? "Purchase complete"
+          : "Bid placed"
+        : "Place a bid",
+    );
+  }, [showSuccess, bid.lastOutcome, onHeaderTitleChange]);
 
   const handleAction = () => {
-    setHintError(null);
     runTradeAccessGate(() => {
-      if (!bid.priceOk) {
-        setHintError("Enter a bid amount to continue.");
-        return;
-      }
       void bid.handleSubmit();
     });
   };
 
-  const ctaLabel = !bid.address
-    ? "Connect wallet to bid"
-    : bid.walletSignerMissing
-      ? "Open wallet…"
-      : bid.busy
-        ? bid.busyLabel
-        : "Place bid";
+  const hintToneClass =
+    bid.policyHint.tone === "error"
+      ? " cd-listing-checkout__bid-hint--error"
+      : bid.policyHint.tone === "warn"
+        ? " cd-listing-checkout__bid-hint--warn"
+        : "";
 
   if (showSuccess) {
+    const instant = bid.lastOutcome === "instant";
     return (
       <div className="cd-listing-checkout__done">
         <div className="cd-listing-checkout__done-icon" aria-hidden>
           <span>✓</span>
         </div>
-        <div className="cd-listing-checkout__done-title">Bid submitted</div>
+        <div className="cd-listing-checkout__done-title">
+          {instant ? "Purchase complete" : "Bid submitted"}
+        </div>
         <p className="cd-listing-checkout__done-msg">
-          {placedBidLabel
-            ? `Your bid of $${placedBidLabel} is live. We'll notify you and settle on-chain the moment the seller accepts.`
-            : "Your bid is live. We'll notify you and settle on-chain the moment the seller accepts."}
+          {instant
+            ? "You now own this asset. The token was transferred to your wallet; the slab stays vault-insured."
+            : placedBidLabel
+              ? `Your bid of $${placedBidLabel} is live. We'll notify you and settle on-chain the moment the seller accepts.`
+              : "Your bid is live. We'll notify you and settle on-chain the moment the seller accepts."}
         </p>
         <div className="cd-listing-checkout__done-actions">
           <button type="button" className="cd-listing-checkout__done-secondary" onClick={onDone}>
@@ -149,17 +149,21 @@ export function CollectionListingBidCheckout({
             placeholder="0"
             value={formatBidInputDisplay(bid.price)}
             disabled={bid.busy}
-            onChange={(e) => handleBidInput(e.target.value)}
+            onChange={(e) =>
+              bid.setPriceDigits(e.target.value.replace(/[^0-9]/g, ""))
+            }
             className="cd-listing-checkout__bid-input"
           />
         </div>
         <div
-          className={`cd-listing-checkout__bid-hint tkl-mono${
-            hintError || (bid.errorMsg && !bid.priceOk) ? " cd-listing-checkout__bid-hint--error" : ""
-          }`}
-          role={hintError || bid.errorMsg ? "alert" : undefined}
+          className={`cd-listing-checkout__bid-hint tkl-mono${hintToneClass}`}
+          role={
+            bid.policyHint.tone === "error" || bid.policyHint.tone === "warn"
+              ? "alert"
+              : undefined
+          }
         >
-          {hintError ?? bid.errorMsg ?? hintText}
+          {bid.policyHint.tone === "muted" && !bid.price ? listedHint : bid.policyHint.text}
         </div>
       </div>
 
@@ -186,51 +190,34 @@ export function CollectionListingBidCheckout({
         </div>
       ) : null}
 
-      {bid.bidLimitMsg ? (
-        <p className="cd-listing-checkout__bid-limit">{bid.bidLimitMsg}</p>
-      ) : null}
-
-      {bid.usdcInsufficientMsg ? (
-        <p className="cd-listing-checkout__error" role="alert">
-          {bid.usdcInsufficientMsg}
-        </p>
-      ) : null}
-
-      {bid.errorMsg && bid.priceOk ? (
-        <p className="cd-listing-checkout__error" role="alert">
-          {bid.errorMsg}
-        </p>
-      ) : null}
-
       <TkButton
         type="button"
         variant="primary"
         className="cd-listing-checkout__cta"
-        disabled={bid.busy || (Boolean(bid.address) && bid.submitDisabled && bid.priceOk)}
+        disabled={
+          bid.busy ||
+          (Boolean(bid.address) && bid.submitDisabled && bid.ctaMode === "blocked")
+        }
         onClick={handleAction}
       >
-        {ctaLabel}
+        {bid.ctaLabel}
       </TkButton>
 
-      <p className="cd-listing-checkout__fine tkl-mono">
-        Settled on-chain · Asset stays vault-insured
-      </p>
+      {bid.ctaMode === "override" ? (
+        <TkButton
+          type="button"
+          variant="subtle"
+          className="cd-listing-checkout__cta-aux"
+          disabled={bid.busy}
+          onClick={bid.handleAdjustBid}
+        >
+          Adjust bid
+        </TkButton>
+      ) : null}
 
-      <CollectionCriteriaBidFloorChooserModal
-        open={
-          bid.showAskChooserModal &&
-          bid.crossesBook &&
-          bid.lowestAskCandidates.length >= 2
-        }
-        lowestAskCandidates={bid.lowestAskCandidates}
-        lowestAsk={bid.lowestAsk}
-        lowestAskUsdc={bid.lowestAskUsdc}
-        floorMetaByTokenId={bid.floorMetaByTokenId}
-        busy={bid.busy}
-        onClose={() => bid.setShowAskChooserModal(false)}
-        onSelectAskHash={bid.setSelectedFloorAskHash}
-        onConfirmBuy={() => runTradeAccessGate(() => void bid.handleSubmit())}
-      />
+      <p className="cd-listing-checkout__fine tkl-mono">
+        No bid fee · 5% charged on sale only
+      </p>
     </>
   );
 }

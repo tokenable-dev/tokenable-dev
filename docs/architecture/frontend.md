@@ -13,7 +13,7 @@ Marketplace UI is organized into **feature folders** with matching `hooks/` and 
 | Collection detail | `collection-detail/`, `collection-overview/`, `collection-hero/` | `hooks/collection-detail/`, `hooks/collection-overview/` |
 | Charts & metrics | `collection-dual-price-chart/`, `price-metrics-strip/` | `hooks/collection-dual-price-chart/`, `hooks/price-metrics-strip/` |
 | Order book | `unified-order-book/` | `hooks/unified-order-book/`, `lib/marketplace/unified-order-book/` |
-| Trading | `collection-trading/`, `collection-criteria-bid/` | `hooks/collection-criteria-bid/`, `lib/marketplace/collection-trading/` |
+| Trading | `collection-trading/`, `collection-detail/` (listing bid checkout) | `hooks/token-offer/`, `lib/marketplace/collection-trading/` |
 | RWA detail | `rwa-detail/`, `rwa-detail-asset-panel/` | `hooks/rwa-detail/`, `lib/marketplace/rwa-detail/` |
 | Listing flow | `list-rwa/` | `hooks/list-rwa/`, `lib/seaport/listing/` |
 | Portfolio | `portfolio/` | `hooks/portfolio/`, `lib/portfolio/` |
@@ -57,7 +57,8 @@ frontend/
 │       ├── price-metrics-strip/
 │       ├── unified-order-book/
 │       ├── collection-trading/
-│       ├── collection-criteria-bid/
+│       ├── collection-trading/
+│       ├── collection-detail/     # listing checkout + card offer bid
 │       ├── collection-listings/
 │       ├── rwa-detail/
 │       ├── rwa-detail-asset-panel/

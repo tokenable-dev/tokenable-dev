@@ -25,6 +25,7 @@ export type AssetRow = PricedAssetRow;
 
 export interface TxRow {
   type: "BUY" | "SELL";
+  status?: "settled" | "pending" | "failed" | "vaulted";
   asset: string;
   category: string | null;
   amount: number;

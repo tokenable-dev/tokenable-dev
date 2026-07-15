@@ -1,6 +1,6 @@
-# Privy wallet funding (MoonPay only)
+# Privy wallet funding (MoonPay)
 
-Production USDC top-ups use Privy’s **official fiat on-ramp** via **MoonPay**. The header uses Privy’s native **`UserPill`** menu (**Add funds**) — no custom Tokenable account dropdown.
+Production USDC top-ups use Privy’s **official fiat on-ramp** via **MoonPay** (card, **Apple Pay**, **Google Pay** inside the MoonPay checkout). Users start funding from the **header wallet menu → Add funds** (desktop dropdown + mobile drawer).
 
 ## Root cause reference
 
@@ -20,22 +20,24 @@ curl -b cookies.txt http://127.0.0.1:4100/api/privy/apps/settings | jq '.funding
 
 | Item | Location |
 |------|----------|
-| Header account UI | `PrivyUserPill` → Privy `UserPill` (Add funds, wallets, logout) |
+| Header **Add funds** | `HeaderWalletMenuPanel` → `usePrivyFiatOnramp` |
+| Shared on-ramp hook | `frontend/hooks/wallet/usePrivyFiatOnramp.ts` |
+| Funding readiness | `usePrivyFundingStatus` → `GET /api/privy/apps/settings` |
 | MoonPay sandbox flag | `privyClientConfig.fundingMethodConfig.moonpay.useSandbox` |
-| Amoy pay test | `NEXT_PUBLIC_PRIVY_FUNDING_USE_ONRAMP_ON_TESTNET=true` + `useFiatOnramp` destination `eip155:80002` |
-| SDK patch (UserPill Add funds chain) | `frontend/scripts/patch-privy-isactive.mjs` → Amoy `80002` |
-| Readiness API | `GET /api/privy/apps/settings` → `fundingReadiness` |
-| Dev lab (explicit `useFiatOnramp`) | `/dev/privy` · `PrivyFeaturesLab.tsx` |
+| Testnet pay QA | `NEXT_PUBLIC_PRIVY_FUNDING_USE_ONRAMP_ON_TESTNET=true` + aligned `NEXT_PUBLIC_PRIVY_FUNDING_CHAIN_ID` |
+| SDK patch (legacy UserPill Add funds) | `frontend/scripts/patch-privy-isactive.mjs` |
+| Dev lab | `/dev/privy` · `PrivyFeaturesLab.tsx` |
 
 **Not used:** Stripe Embedded, Coinbase Onramp, Meld, Bridge bank deposits.
 
-## Privy Dashboard checklist (MoonPay only)
+## Privy Dashboard checklist
 
 1. **Account Funding** — [dashboard.privy.io/apps?page=funding](https://dashboard.privy.io/apps?page=funding)
-2. Enable **MoonPay** (publishable + secret API keys)
-3. **Funding token:** Polygon Amoy + USDC (pay test) or Ethereum + USDC (MoonPay sandbox UI)
-4. **Allowed domains:** `http://localhost:3000`, staging, production
-5. **Backend:** `PRIVY_APP_SECRET` for diagnostics API
+2. **Tokens and networks → Edit** — set **Ethereum + USDC** (or Sepolia + USDC for dev). **Not ETH** — Tokenable on-ramp targets USDC.
+3. **Payment methods → Fiat onramps** — turn the **master toggle ON** (gray/off = app blocks Add funds even if MoonPay shows “Enabled”).
+4. Enable **MoonPay** (publishable + secret API keys)
+5. **Allowed domains:** `http://localhost:3000`, staging, production
+6. **Backend:** `PRIVY_APP_SECRET` for diagnostics API
 
 ## Environment variables (pay test — Amoy)
 
@@ -53,8 +55,9 @@ PRIVY_FUNDING_TARGET_CAIP2=eip155:80002
 ## End-to-end test
 
 1. `curl http://127.0.0.1:4100/api/privy/apps/settings | jq '.fundingReadiness'` → `ready: true`
-2. Sign in → header **UserPill** → **Add funds**
+2. Sign in → header wallet chip → **Add funds**
 3. Or `/dev/privy` → “Start MoonPay on-ramp”
-4. MoonPay sandbox may not deliver real USDC to Amoy — goal is UI/API flow validation
+4. In **production** MoonPay checkout, Apple Pay / Google Pay appear when device + region support them
+5. Sandbox may not deliver real USDC to testnets — goal is UI/API flow validation
 
 See also: [privy-auth-migration.md](./privy-auth-migration.md)

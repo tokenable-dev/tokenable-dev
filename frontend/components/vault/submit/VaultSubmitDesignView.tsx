@@ -10,11 +10,15 @@ import { VaultStepper } from "@/components/vault/VaultStepper";
 import { VAULT_SUBMIT_FAQ_ITEMS } from "@/lib/vault/vaultMockData";
 import { cn } from "@/lib/ds/cn";
 
+const MAX_CARDS = 99;
+
 type LookupCard = {
   cert: string;
   name: string;
   grade: string;
   rejected: boolean;
+  confirmed: boolean;
+  value: number;
   imageUrl: string;
 };
 
@@ -56,6 +60,8 @@ function resolveLookupCard(cert: string): LookupCard {
         : "1999 POKEMON BASE SET 1ST EDITION #4 CHARIZARD HOLO",
     grade: rejected ? "PSA 8" : cert.startsWith("229") ? "PSA 9" : "PSA 10",
     rejected,
+    confirmed: false,
+    value: rejected ? 0 : cert.startsWith("229") ? 1900 : 25376,
     imageUrl: rejected
       ? ASSETS.ds.cards.charizard
       : cert.startsWith("229")
@@ -68,6 +74,10 @@ function formatEstValue(raw: string): string {
   const digits = raw.replace(/[^0-9]/g, "");
   if (!digits) return "";
   return parseInt(digits, 10).toLocaleString("en-US");
+}
+
+function formatRefUsd(total: number): string {
+  return `$${total.toLocaleString("en-US")}`;
 }
 
 export function VaultSubmitDesignView() {
@@ -83,10 +93,11 @@ export function VaultSubmitDesignView() {
   const [certError, setCertError] = useState(false);
   const [lookupLoading, setLookupLoading] = useState(false);
   const [lookupCards, setLookupCards] = useState<LookupCard[]>([]);
-  const [showCertInput, setShowCertInput] = useState(true);
+  const [scanOpen, setScanOpen] = useState(false);
+  const [scanCapturing, setScanCapturing] = useState(false);
 
-  const [numCards, setNumCards] = useState("");
   const [estValue, setEstValue] = useState("");
+  const [tosAccepted, setTosAccepted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
@@ -94,15 +105,32 @@ export function VaultSubmitDesignView() {
   const [tgInput, setTgInput] = useState("");
   const [tgHandle, setTgHandle] = useState<string | null>(null);
 
+  const validCards = lookupCards.filter((c) => !c.rejected);
   const hasRejected = lookupCards.some((c) => c.rejected);
+  const allConfirmed = validCards.length > 0 && validCards.every((c) => c.confirmed);
   const estValueNum = parseFloat(estValue.replace(/[^0-9.]/g, ""));
-  const numCardsNum = parseInt(numCards, 10);
   const canSubmit =
     !submitting &&
     !submitted &&
-    numCardsNum >= 1 &&
+    validCards.length >= 1 &&
+    allConfirmed &&
+    !hasRejected &&
     estValueNum > 0 &&
-    !hasRejected;
+    tosAccepted;
+
+  const estValueRef = useMemo(() => {
+    const total = validCards.reduce((sum, c) => sum + c.value, 0);
+    if (validCards.length > 0) {
+      return `Used for insurance and PSA records. Reference: combined market value ~${formatRefUsd(total)}`;
+    }
+    return "Used for insurance and PSA records.";
+  }, [validCards]);
+
+  const pushCard = useCallback((cert: string) => {
+    if (lookupCards.length >= MAX_CARDS) return;
+    setLookupCards((prev) => [...prev, resolveLookupCard(cert)]);
+    setCertInput("");
+  }, [lookupCards.length]);
 
   const handleLookup = useCallback(() => {
     const val = certInput.trim();
@@ -113,19 +141,34 @@ export function VaultSubmitDesignView() {
     setCertError(false);
     setLookupLoading(true);
     window.setTimeout(() => {
-      setLookupCards((prev) => [...prev, resolveLookupCard(val)]);
-      setCertInput("");
-      setShowCertInput(false);
+      pushCard(val);
       setLookupLoading(false);
     }, 1200);
-  }, [certInput]);
+  }, [certInput, pushCard]);
+
+  const handleScanCapture = useCallback(() => {
+    if (lookupCards.length >= MAX_CARDS || scanCapturing) return;
+    setScanCapturing(true);
+    window.setTimeout(() => {
+      const mockCerts = ["12345678", "22938102", "55501248"];
+      pushCard(mockCerts[lookupCards.length % mockCerts.length]!);
+      setScanCapturing(false);
+      setScanOpen(false);
+    }, 1500);
+  }, [lookupCards.length, pushCard, scanCapturing]);
+
+  const toggleConfirm = useCallback((index: number) => {
+    setLookupCards((prev) =>
+      prev.map((c, i) => (i === index && !c.rejected ? { ...c, confirmed: !c.confirmed } : c)),
+    );
+  }, []);
+
+  const confirmAll = useCallback(() => {
+    setLookupCards((prev) => prev.map((c) => (c.rejected ? c : { ...c, confirmed: true })));
+  }, []);
 
   const handleRemoveCard = useCallback((index: number) => {
-    setLookupCards((prev) => {
-      const next = prev.filter((_, i) => i !== index);
-      if (next.length === 0) setShowCertInput(true);
-      return next;
-    });
+    setLookupCards((prev) => prev.filter((_, i) => i !== index));
   }, []);
 
   const handleSubmit = useCallback(() => {
@@ -152,6 +195,8 @@ export function VaultSubmitDesignView() {
     return "Continue to Shipping";
   }, [submitted, submitting]);
 
+  const hasValidForConfirm = validCards.length > 0;
+
   return (
     <>
       <VaultBreadcrumb items={[{ label: "My Vault", href: "/vault" }, { label: "Submit Card" }]} />
@@ -162,148 +207,167 @@ export function VaultSubmitDesignView() {
         <div className="vault-submit-main">
           <VaultStepper active={1} />
 
-          <div className="vault-cert-section">
-            <label className="vault-form-label vault-cert-label">
-              <img src={ASSETS.icons.psaMarkSubmit} alt="PSA" className="vault-cert-label__logo" />
-              Certification Number
-            </label>
-            <p className="vault-form-helper vault-form-helper--tight">
-              Optional — look up cards you want to verify before submitting
-            </p>
+          <div className="vault-add-cards-section">
+            <label className="vault-form-label">Add Cards</label>
+            <div className="vault-add-methods">
+              <button type="button" className="vault-add-method" onClick={() => setScanOpen(true)}>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--azure)" strokeWidth="2" aria-hidden>
+                  <path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+                <div className="vault-add-method__title">Scan Card</div>
+                <div className="vault-add-method__desc">
+                  Tap to open camera — take a photo of the cert number on your PSA slab
+                </div>
+              </button>
 
-            {showCertInput ? (
-              <div className="vault-cert-input-row">
-                <input
-                  className={cn("vault-form-input", certError && "vault-form-input--error")}
-                  type="text"
-                  placeholder="e.g. 12345678"
-                  maxLength={10}
-                  value={certInput}
-                  onChange={(e) => {
-                    setCertInput(e.target.value);
-                    if (certError) setCertError(false);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") handleLookup();
-                  }}
-                />
-                <TkButton
-                  type="button"
-                  variant="primary"
-                  size="md"
-                  className="vault-cert-lookup-btn"
-                  disabled={lookupLoading}
-                  onClick={handleLookup}
-                >
-                  {lookupLoading ? "Looking up…" : (
-                    <>
-                      Look Up Card <CtaArrow />
-                    </>
-                  )}
-                </TkButton>
+              <div className="vault-add-method vault-add-method--cert">
+                <img src={ASSETS.icons.psaMarkSubmit} alt="PSA" className="vault-add-method__psa" />
+                <div className="vault-add-method__title">Enter Cert Number</div>
+                <div className="vault-add-method__cert-form">
+                  <input
+                    className={cn("vault-form-input", certError && "vault-form-input--error")}
+                    type="text"
+                    placeholder="e.g. 12345678"
+                    maxLength={10}
+                    value={certInput}
+                    onChange={(e) => {
+                      setCertInput(e.target.value);
+                      if (certError) setCertError(false);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleLookup();
+                    }}
+                  />
+                  {certError ? (
+                    <div className="vault-form-error">PSA cert number not found. Please check and try again.</div>
+                  ) : null}
+                  <TkButton
+                    type="button"
+                    variant="primary"
+                    size="md"
+                    className="vault-cert-lookup-btn vault-cert-lookup-btn--full"
+                    disabled={lookupLoading}
+                    onClick={handleLookup}
+                  >
+                    {lookupLoading ? "Looking up…" : (
+                      <>
+                        Look Up <CtaArrow size={12} />
+                      </>
+                    )}
+                  </TkButton>
+                </div>
+              </div>
+            </div>
+
+            <div className="vault-card-list-head">
+              <span className="vault-card-list-head__label">CARD LIST</span>
+              <span className="vault-card-list-head__count">
+                {lookupCards.length} of {MAX_CARDS} cards added
+              </span>
+            </div>
+            <div className="vault-card-list-box">
+              {lookupCards.length === 0 ? (
+                <div className="vault-card-list-empty">
+                  No cards added yet.
+                  <br />
+                  Scan or enter a cert number above to get started.
+                </div>
+              ) : (
+                lookupCards.map((card, index) => (
+                  <div
+                    key={`${card.cert}-${index}`}
+                    className={cn(
+                      "vault-card-row",
+                      card.rejected && "vault-card-row--rejected",
+                      card.confirmed && !card.rejected && "vault-card-row--confirmed",
+                    )}
+                    onClick={() => !card.rejected && toggleConfirm(index)}
+                    onKeyDown={(e) => e.key === "Enter" && !card.rejected && toggleConfirm(index)}
+                    role={card.rejected ? undefined : "button"}
+                    tabIndex={card.rejected ? undefined : 0}
+                  >
+                    <div className="vault-card-row__img">
+                      <Image src={card.imageUrl} alt="" width={40} height={56} className="h-full w-full object-contain" />
+                    </div>
+                    <div className="vault-card-row__body">
+                      <div className="vault-card-row__name">{card.name}</div>
+                      <div className="vault-card-row__meta">
+                        <span className="vault-card-row__grade">{card.grade}</span>
+                        <span className="mono vault-card-row__cert">Cert #{card.cert}</span>
+                        {card.rejected ? (
+                          <span className="vault-card-row__reject-msg">Not accepted — PSA 9 minimum</span>
+                        ) : null}
+                      </div>
+                    </div>
+                    {!card.rejected ? (
+                      <div className="vault-card-row__confirm">
+                        <div className={cn("vault-card-row__confirm-dot", card.confirmed && "checked")}>
+                          {card.confirmed ? (
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.5">
+                              <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                          ) : null}
+                        </div>
+                        <span className={cn("vault-card-row__confirm-label", card.confirmed && "confirmed")}>
+                          {card.confirmed ? "Confirmed" : "Tap to confirm"}
+                        </span>
+                      </div>
+                    ) : null}
+                    <button
+                      type="button"
+                      className="vault-card-row__remove"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRemoveCard(index);
+                      }}
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {hasValidForConfirm ? (
+              <div className="vault-confirm-all-wrap">
+                <div className="vault-confirm-all-row">
+                  <p className="vault-form-helper vault-form-helper--inline">
+                    Tap a card to confirm you&apos;re physically sending it to the vault.
+                  </p>
+                  <TkButton type="button" variant="subtle" size="sm" onClick={confirmAll}>
+                    Confirm All
+                  </TkButton>
+                </div>
+                <div className="vault-disclaimer-amber vault-disclaimer-amber--compact">
+                  <WarningIcon />
+                  <div>
+                    Note: If the card you send doesn&apos;t match the cert number, it will be rejected and returned at
+                    your expense.
+                  </div>
+                </div>
               </div>
             ) : null}
-            {certError ? (
-              <div className="vault-form-error">Please enter a valid PSA cert number (at least 6 digits)</div>
-            ) : null}
           </div>
-
-          {lookupCards.length > 0 ? (
-            <div className="vault-lookup-list">
-              {lookupCards.map((card, index) => (
-                <div
-                  key={`${card.cert}-${index}`}
-                  className={cn("vault-lookup-card", card.rejected && "vault-lookup-card--rejected")}
-                >
-                  <div className="vault-lookup-card__img">
-                    <Image src={card.imageUrl} alt="" width={50} height={72} className="h-full w-full object-contain" />
-                  </div>
-                  <div className="vault-lookup-card__body">
-                    <div className="vault-lookup-card__name">{card.name}</div>
-                    <div className="vault-lookup-card__meta">
-                      <span className="vault-lookup-card__grade">{card.grade}</span>
-                      <span className="mono vault-lookup-card__cert">Cert #{card.cert}</span>
-                      {card.rejected ? (
-                        <span className="vault-lookup-card__status vault-lookup-card__status--neg">
-                          🔴 Not accepted — PSA 9 minimum
-                        </span>
-                      ) : (
-                        <span className="vault-lookup-card__status vault-lookup-card__status--pos">
-                          ✅ Valid
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    className="vault-lookup-card__remove"
-                    onClick={() => handleRemoveCard(index)}
-                  >
-                    Remove ×
-                  </button>
-                </div>
-              ))}
-            </div>
-          ) : null}
-
-          {!showCertInput && lookupCards.length > 0 ? (
-            <div className="vault-add-another-wrap">
-              <TkButton
-                type="button"
-                variant="subtle"
-                size="sm"
-                className="vault-add-another-btn"
-                onClick={() => setShowCertInput(true)}
-              >
-                + Look Up Another Card
-              </TkButton>
-            </div>
-          ) : null}
 
           <div className="vault-submit-block">
             <div className="vault-section-card vault-section-card--flush">
               <label className="vault-form-label" style={{ marginBottom: 14 }}>
                 Submission Details
               </label>
-              <div className="vault-submit-details-stack">
               <div>
-                <label className="vault-form-label vault-form-label--sm">Number of Cards</label>
-                <input
-                  className="vault-form-input vault-form-input--md"
-                  type="number"
-                  min={1}
-                  max={99}
-                  placeholder="e.g. 5"
-                  value={numCards}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    if (v === "") {
-                      setNumCards("");
-                      return;
-                    }
-                    const n = parseInt(v, 10);
-                    if (Number.isNaN(n)) return;
-                    setNumCards(String(Math.min(99, Math.max(1, n))));
-                  }}
-                />
-                <div className="vault-form-helper">Total cards you&apos;re sending (max 99)</div>
-              </div>
-              <div>
-                <label className="vault-form-label vault-form-label--sm">Estimated Value</label>
+                <label className="vault-form-label vault-form-label--sm">Estimated Total Value</label>
                 <div className="vault-est-value-wrap">
                   <span className="vault-est-value-prefix">$</span>
                   <input
                     className="vault-form-input vault-form-input--md vault-est-value-input"
                     type="text"
-                    placeholder="e.g. 50,000"
+                    placeholder="e.g. 87,512"
                     value={estValue}
                     onChange={(e) => setEstValue(formatEstValue(e.target.value))}
                   />
                 </div>
-                <div className="vault-form-helper">
-                  Total value of all cards. Used for insurance and PSA records.
-                </div>
-              </div>
+                <div className="vault-form-helper">{estValueRef}</div>
               </div>
             </div>
           </div>
@@ -360,9 +424,7 @@ export function VaultSubmitDesignView() {
                     Telegram <span className="vault-notify-check__hint">(optional)</span>
                   </div>
                   {tgHandle ? (
-                    <div className="mono vault-notify-check__sub vault-notify-check__sub--azure">
-                      @{tgHandle}
-                    </div>
+                    <div className="mono vault-notify-check__sub vault-notify-check__sub--azure">@{tgHandle}</div>
                   ) : null}
                 </div>
                 <TkButton
@@ -372,9 +434,7 @@ export function VaultSubmitDesignView() {
                   className="vault-tg-connect-btn"
                   onClick={() => {
                     if (tgState === "editing") handleSaveTelegram();
-                    else {
-                      setTgState("editing");
-                    }
+                    else setTgState("editing");
                   }}
                 >
                   {tgState === "saved" ? "Change" : tgState === "editing" ? "Save" : "Connect →"}
@@ -398,12 +458,26 @@ export function VaultSubmitDesignView() {
             </div>
           </div>
 
+          <div className="vault-section-card">
+            <label className="vault-tos-check">
+              <input
+                type="checkbox"
+                className="vault-notify-checkbox"
+                checked={tosAccepted}
+                onChange={(e) => setTosAccepted(e.target.checked)}
+              />
+              <span>
+                I authorize Tokenable to submit these cards to PSA Vault on my behalf and agree to the Terms of Service
+                and PSA Vault Terms.
+              </span>
+            </label>
+          </div>
+
           <div className="vault-disclaimer-amber">
             <WarningIcon />
             <div>
-              Only PSA 9 and PSA 10 graded cards are accepted. Cards that do not meet requirements will be rejected
-              and returned at the submitter&apos;s expense. All accepted cards are insured up to their appraised
-              market value.
+              Only PSA 9 and PSA 10 graded cards are accepted. Cards that do not meet requirements will be rejected and
+              returned at the submitter&apos;s expense. All accepted cards are insured up to their appraised market value.
             </div>
           </div>
 
@@ -469,6 +543,42 @@ export function VaultSubmitDesignView() {
           {submitted ? "✓ Submitted!" : submitting ? "Submitting…" : "Continue →"}
         </TkButton>
       </div>
+
+      {scanOpen ? (
+        <div className="vault-scan-modal" role="dialog" aria-modal="true" aria-label="Scan PSA cert">
+          <div className="vault-scan-modal__viewfinder" />
+          <div className={`vault-scan-modal__flash${scanCapturing ? " vault-scan-modal__flash--on" : ""}`} />
+          <button type="button" className="vault-scan-modal__cancel" onClick={() => setScanOpen(false)}>
+            ×
+          </button>
+          <div className="vault-scan-modal__body">
+            <div className="vault-scan-modal__frame">
+              <div className="vault-scan-modal__corner vault-scan-modal__corner--tl" />
+              <div className="vault-scan-modal__corner vault-scan-modal__corner--tr" />
+              <div className="vault-scan-modal__corner vault-scan-modal__corner--bl" />
+              <div className="vault-scan-modal__corner vault-scan-modal__corner--br" />
+              <span className="vault-scan-modal__frame-label">CERT NUMBER HERE</span>
+              <div
+                className={`vault-scan-modal__ocr${scanCapturing ? " vault-scan-modal__ocr--on" : ""}`}
+                aria-hidden
+              />
+            </div>
+            <div className="vault-scan-modal__status">
+              {scanCapturing ? "Reading cert number…" : "Frame the cert number, then tap to capture"}
+            </div>
+            <p className="vault-scan-modal__hint">
+              We&apos;ll read the number automatically — no need to type it
+            </p>
+          </div>
+          <button
+            type="button"
+            className="vault-scan-modal__shutter"
+            onClick={handleScanCapture}
+            disabled={scanCapturing}
+            aria-label={scanCapturing ? "Capturing" : "Capture"}
+          />
+        </div>
+      ) : null}
     </>
   );
 }

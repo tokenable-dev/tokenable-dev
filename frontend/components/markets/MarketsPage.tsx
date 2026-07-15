@@ -39,6 +39,7 @@ import { CardTop100Section } from "./CardTop100Section";
 import { TopMoversSection } from "./TopMoversSection";
 import { AppPageState } from "@/components/ui/AppPageState";
 import { cn } from "@/lib/ds/cn";
+import { useClientMounted } from "@/hooks/ui/useClientMounted";
 import {
   MARKETS_MOCK_COLLECTIONS,
   MARKETS_MOCK_RESULTS_COUNT,
@@ -47,6 +48,7 @@ import {
 } from "@/lib/markets/marketsMockData";
 
 export default function MarketsPage() {
+  const mounted = useClientMounted();
   const [categoryFilter, setCategoryFilter] = useState<CollectionCategoryFilterId>(
     MARKETS_DEFAULT_CATEGORY_FILTER,
   );
@@ -70,7 +72,7 @@ export default function MarketsPage() {
   const colInfinite = useMarketplaceCollectionsInfinite();
   const {
     data: colPages,
-    isLoading: colInitialLoading,
+    isPending: colInitialPending,
     isFetching: colFetching,
     isError: colLoadError,
     error: colError,
@@ -85,7 +87,9 @@ export default function MarketsPage() {
   );
 
   const useMocks =
-    !colInitialLoading && shouldUseMarketsMockCards(collectionSummaries.length);
+    mounted &&
+    !colInitialPending &&
+    shouldUseMarketsMockCards(collectionSummaries.length);
 
   const displayCollections = useMocks ? MARKETS_MOCK_COLLECTIONS : collectionSummaries;
 
@@ -97,11 +101,12 @@ export default function MarketsPage() {
     enabled: displayCollections.length > 0,
   });
 
-  const ordersInitialLoading = ordersQuery.isLoading;
-  const isInitialLoading = ordersInitialLoading || colInitialLoading;
+  const isInitialLoading = ordersQuery.isPending || colInitialPending;
   const loadFailed = useMocks ? false : ordersQuery.isError || colLoadError;
   const loadError = ordersQuery.error ?? colError ?? null;
-  const showLoadingShell = isInitialLoading && !loadFailed && !useMocks;
+  /** SSR + first client paint always show the loading shell; mock/filter chrome only after mount. */
+  const showLoadingShell =
+    !mounted || (isInitialLoading && !loadFailed && !useMocks);
 
   const snapshotKeysSorted = useMemo(() => {
     if (useMocks) return [] as string[];
@@ -180,7 +185,8 @@ export default function MarketsPage() {
     );
   }
 
-  const showMainChrome = !showLoadingShell && sortedForRank.length > 0;
+  const showMainChrome =
+    mounted && !showLoadingShell && sortedForRank.length > 0;
 
   return (
     <div className="markets-page">

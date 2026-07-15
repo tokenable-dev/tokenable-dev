@@ -6,7 +6,13 @@ import { useAuthStore } from "@/store/authStore";
 import { HeaderWalletMenuPanel } from "./HeaderWalletMenuPanel";
 
 /** Mobile drawer wallet section (HTML tk-mobile-wallet-section). */
-export function HeaderMobileWalletSection({ onClose }: { onClose?: () => void }) {
+export function HeaderMobileWalletSection({
+  onClose,
+  onOpenNotifications,
+}: {
+  onClose?: () => void;
+  onOpenNotifications?: () => void;
+}) {
   const mounted = useClientMounted();
   const { ready, authenticated } = usePrivy();
   const initialized = useAuthStore((s) => s.initialized);
@@ -18,7 +24,11 @@ export function HeaderMobileWalletSection({ onClose }: { onClose?: () => void })
 
   return (
     <section className="tk-mobile-wallet-section" aria-label="Account menu">
-      <HeaderWalletMenuPanel variant="mobile" onNavigate={onClose} />
+      <HeaderWalletMenuPanel
+        variant="mobile"
+        onNavigate={onClose}
+        onOpenNotifications={onOpenNotifications}
+      />
     </section>
   );
 }

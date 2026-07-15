@@ -100,10 +100,19 @@ export function assessPrivyFundingReadiness(
     defaultRecommendedAsset.toUpperCase() === TOKENABLE_FUNDING_ASSET;
 
   const ready =
-    hasFundingConfig && moonpayEnabled && chainAligned && assetAligned;
+    fiatOnRampEnabled &&
+    hasFundingConfig &&
+    moonpayEnabled &&
+    chainAligned &&
+    assetAligned;
 
   const checklist: string[] = [];
   if (!ready) {
+    if (!fiatOnRampEnabled) {
+      checklist.push(
+        'Turn ON the "Fiat onramps" master toggle (Payment methods section).',
+      );
+    }
     if (!hasFundingConfig) {
       checklist.push(
         'Open Privy Dashboard → Account Funding and enable MoonPay (Card on-ramp).',

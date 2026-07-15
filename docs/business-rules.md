@@ -73,8 +73,17 @@ At redemption request time, the `ownerWalletAddress` must **currently own the NF
 All marketplace trades use **Seaport 1.5**. There is no relational bid/ask matching system.
 
 - Orders are signed EIP-712 structures, not matched server-side
-- Settlement is on-chain (`fulfillOrder`)
-- Platform fee (5% default) is encoded as Seaport consideration item, not a separate transfer
+- Settlement is on-chain (`fulfillOrder` / `matchAdvancedOrders`)
+- Platform fee (5% default) is encoded as Seaport consideration item on **asks** only — bids/offers have no bid fee
+
+### BR-8a: Card-Level Offers (Bids)
+
+Bids are **token offers** on a specific card (`tokenId`), not collection-wide criteria bids.
+
+- Max **3 active offers** per wallet per `tokenId`
+- Soft UX floor: warn below 90% of listed ask (override allowed)
+- When offer price equals ask, match candidates are ordered **FIFO** by `createdAt` within that price
+- Frontend checks USDC balance before submit; Add Funds when short
 
 ### BR-9: USDC-Only Settlement
 

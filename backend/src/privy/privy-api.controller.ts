@@ -207,8 +207,8 @@ export class PrivyFundingController {
       },
       embedded_wallet_config: settings.embedded_wallet_config ?? null,
       integration: {
-        clientHook: 'useFiatOnramp (primary) · useFundWallet (legacy Privy modal)',
-        provider: 'MoonPay only — card, Apple Pay, Google Pay via MoonPay when enabled in Dashboard',
+        clientHook: 'useFiatOnramp (primary) · usePrivyFiatOnramp (header Add funds)',
+        provider: 'MoonPay — card, Apple Pay, Google Pay when enabled in Dashboard + production',
         requiredDashboardDefaults: {
           chain: 'eip155:1',
           asset: 'USDC',

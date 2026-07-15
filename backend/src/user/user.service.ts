@@ -33,6 +33,12 @@ export class UserService {
     return this.users.findOne({ where: { id } });
   }
 
+  async findByKycExternalId(externalId: string): Promise<User | null> {
+    const id = externalId?.trim();
+    if (!id) return null;
+    return this.users.findOne({ where: { kycExternalId: id } });
+  }
+
   async findByIdOrFail(id: string): Promise<User> {
     const u = await this.findById(id);
     if (!u) throw new NotFoundException('User not found');

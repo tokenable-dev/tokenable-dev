@@ -329,12 +329,12 @@ export const PRIVY_FEATURE_CATALOG: PrivyFeatureEntry[] = [
     category: 'Funding',
     name: 'Fiat on-ramp (card modal)',
     description:
-      'Buy crypto with debit/credit card, **Apple Pay**, and **Google Pay** via Privy modal. Mainnet only.',
+      'Buy crypto with debit/credit card, **Apple Pay**, and **Google Pay** via Privy modal. Production checkout; sandbox for QA.',
     surface: 'client-sdk',
-    status: 'mainnet-only',
-    clientHook: 'useFiatOnramp',
+    status: 'tokenable-wired',
+    clientHook: 'useFiatOnramp / usePrivyFiatOnramp',
     docsUrl: 'https://docs.privy.io/wallets/funding/fiat-onramp',
-    notes: 'Providers: Meld, MoonPay, Coinbase. Stripe Embedded supports Apple Pay & Google Pay.',
+    notes: 'Header wallet menu → Add funds. Providers: MoonPay (card, Apple Pay, Google Pay).',
   },
   {
     id: 'funding.fund-wallet',

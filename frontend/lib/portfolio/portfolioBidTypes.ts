@@ -1,9 +1,10 @@
 import type { OrderStatus } from "@/lib/core";
 
-/** Collection bid row for portfolio (from offerer order history API). */
+/** Card-level offer row for portfolio (from offerer order history API). */
 export type PortfolioBidRow = {
   orderHash: string;
   collectionKey: string;
+  tokenId: string;
   priceUsdc: number;
   priceLabel: string;
   status: OrderStatus;

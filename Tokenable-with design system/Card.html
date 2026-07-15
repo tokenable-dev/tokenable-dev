@@ -699,10 +699,11 @@
         </div>
         <div id="tkb-conn" style="display:none;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;background:rgba(255,255,255,0.04);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.08);border-radius:10px;margin-bottom:14px;">
           <span style="display:flex;align-items:center;gap:9px;"><span style="width:20px;height:20px;flex:none;background:linear-gradient(135deg,var(--azure),var(--brand-400));clip-path:var(--pixel-notch-lg);"></span><span class="mono" style="font-size:13px;font-weight:600;color:#fff;">0xF4&hellip;9aE2</span></span>
-          <span class="mono" style="font-size:12px;color:var(--pos);">12,480 USDC</span>
+          <span class="mono" id="tkb-bal" style="font-size:12px;color:var(--pos);">12,480 USDC</span>
         </div>
         <button id="tkb-action" onclick="tkBuyAct()" class="tk-btn tk-btn--sm tk-btn--primary" style="height:54px;width:100%;font-size:15px;">Connect wallet to pay</button>
-        <div class="mono" style="font-size:11px;color:var(--t3);text-align:center;margin-top:12px;letter-spacing:0.03em;">Settled on-chain &middot; Asset stays vault-insured</div>
+        <button id="tkb-aux" onclick="tkbAdjust()" class="tk-btn tk-btn--sm tk-btn--subtle" style="display:none;height:46px;width:100%;font-size:14px;margin-top:10px;">Adjust bid</button>
+        <div id="tkb-foot" class="mono" style="font-size:11px;color:var(--t3);text-align:center;margin-top:12px;letter-spacing:0.03em;">Settled on-chain &middot; Asset stays vault-insured</div>
       </div>
       <div id="tkb-done" style="display:none;text-align:center;padding:6px 0 4px;">
         <div style="width:64px;height:64px;margin:8px auto 18px;display:flex;align-items:center;justify-content:center;background:var(--background-positive-tertiary);clip-path:var(--pixel-notch-lg);"><span id="tkb-doneicon" style="font-size:30px;color:var(--pos);line-height:1;">&#10003;</span></div>
@@ -853,12 +854,13 @@ document.addEventListener('keydown',function(e){ if(e.key==='Escape'){ tkProv(fa
   });
 })();
 setInterval(function(){ if(window.__tkActive==='offers'){ var of=document.getElementById('tab-offers'); if(of&&getComputedStyle(of).display==='none') tkTab('offers'); } },600);
-var TKB={price:9000,mode:'buy'};
+var TKB={price:9000,mode:'buy',market:9000,balance:12480,bidCount:0,override:false,actMode:'submit'};
 function tkbF(x){ return '$'+x.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
 window.tkBuy=function(p){ tkbOpen('buy',p); };
 window.tkBid=function(p){ tkbOpen('bid',p); };
 function tkbOpen(mode,p){
   TKB.mode=mode; TKB.price=parseFloat(String(p).replace(/[^0-9.]/g,''))||9000;
+  TKB.market=TKB.price; TKB.override=false; TKB.actMode='submit';
   document.getElementById('tkb-done').style.display='none';
   document.getElementById('tkb-form').style.display='block';
   var amt=document.getElementById('tkb-bidamt'); if(amt) amt.value='';
@@ -866,13 +868,40 @@ function tkbOpen(mode,p){
   tkBuyRender();
 }
 window.tkBuyClose=function(){ var m=document.getElementById('tk-buy'); if(m) m.style.display='none'; };
+function tkbHint(msg,color){ var h=document.getElementById('tkb-bidhint'); if(h){ h.innerHTML=msg; h.style.color=color; } }
+function tkbSetAct(mode){
+  TKB.actMode=mode;
+  var act=document.getElementById('tkb-action'), aux=document.getElementById('tkb-aux');
+  if(mode==='addfunds'){ act.textContent='Add funds'; aux.style.display='none'; }
+  else if(mode==='override'){ act.textContent='Bid anyway'; aux.style.display='block'; }
+  else if(mode==='blocked'){ act.textContent='Place bid'; aux.style.display='none'; }
+  else { act.textContent='Place bid'; aux.style.display='none'; }
+}
+window.tkbAdjust=function(){ TKB.override=false; tkbSetAct('submit'); var i=document.getElementById('tkb-bidamt'); if(i){ i.focus(); i.select(); } tkbBidHintDefault(); };
+window.tkbAddFunds=function(){
+  TKB.balance += 250000;
+  var b=document.getElementById('tkb-bal'); if(b) b.textContent=TKB.balance.toLocaleString('en-US')+' USDC';
+  tkbSetAct('submit'); tkbHint('Funds added &middot; balance now '+TKB.balance.toLocaleString('en-US')+' USDC','var(--pos)');
+};
+function tkbBidHintDefault(){ tkbHint('Min bid '+tkbF(TKB.market*0.9)+' (90% of market) &middot; No bid fee, 5% on sale only','var(--t3)'); }
+function tkbBidSubmit(){
+  var v=parseFloat((document.getElementById('tkb-bidamt').value||'').replace(/[^0-9.]/g,''));
+  if(!v||v<=0){ tkbHint('Enter a bid amount to continue.','var(--neg)'); tkbSetAct('submit'); return; }
+  if(TKB.bidCount>=3){ tkbHint('Maximum 3 bids per card. Cancel an existing bid to place a new one.','var(--neg)'); tkbSetAct('blocked'); return; }
+  if(v>TKB.balance){ tkbHint('Insufficient funds &mdash; add '+tkbF(v-TKB.balance)+' to cover this bid.','var(--neg)'); tkbSetAct('addfunds'); return; }
+  if(!TKB.override && v < TKB.market*0.9){ tkbHint('Bid is below the '+tkbF(TKB.market*0.9)+' minimum (90% of market). Continue anyway?','var(--warn)'); tkbSetAct('override'); return; }
+  TKB.price=v; TKB.bidCount++;
+  document.getElementById('tkb-form').style.display='none';
+  document.getElementById('tkb-done').style.display='block';
+  tkbDone();
+}
 window.tkBuyAct=function(){
   var connected=localStorage.getItem('tk-wallet')==='1';
   if(!connected){ if(window.tkWallet) tkWallet(true); tkBuyRender(); return; }
   if(TKB.mode==='bid'){
-    var v=parseFloat((document.getElementById('tkb-bidamt').value||'').replace(/[^0-9.]/g,''));
-    if(!v||v<=0){ var hint=document.getElementById('tkb-bidhint'); if(hint){ hint.textContent='Enter a bid amount to continue.'; hint.style.color='var(--neg)'; } return; }
-    TKB.price=v;
+    if(TKB.actMode==='addfunds'){ tkbAddFunds(); return; }
+    if(TKB.actMode==='override'){ TKB.override=true; }
+    tkbBidSubmit(); return;
   }
   document.getElementById('tkb-form').style.display='none';
   document.getElementById('tkb-done').style.display='block';
@@ -898,8 +927,12 @@ function tkBuyRender(){
   document.getElementById('tkb-conn').style.display=connected?'flex':'none';
   var act=document.getElementById('tkb-action');
   if(!connected){ act.textContent = bid?'Connect wallet to bid':'Connect wallet to pay'; }
-  else { act.textContent = bid?'Place bid':('Pay '+tkbF(total)); }
-  var hint=document.getElementById('tkb-bidhint'); if(hint && bid){ hint.textContent='Listed at '+tkbF(TKB.price)+' \u00b7 Highest offer $8,200'; hint.style.color='var(--t3)'; }
+  else if(bid){ tkbSetAct('submit'); }
+  else { act.textContent = 'Pay '+tkbF(total); }
+  var aux=document.getElementById('tkb-aux'); if(aux && (!bid||!connected)) aux.style.display='none';
+  var foot=document.getElementById('tkb-foot'); if(foot) foot.textContent = bid?'No bid fee \u00b7 5% charged on sale only':'Settled on-chain \u00b7 Asset stays vault-insured';
+  if(bid && connected) tkbBidHintDefault();
+  else { var h=document.getElementById('tkb-bidhint'); if(h && bid){ h.textContent='Listed at '+tkbF(TKB.price)+' \u00b7 connect wallet to bid'; h.style.color='var(--t3)'; } }
 }
 document.addEventListener('click',function(e){ var m=document.getElementById('tk-buy'); if(m&&m.style.display==='flex'&&e.target===m) tkBuyClose(); });
 </script>

@@ -34,29 +34,71 @@ function CtaArrow({ size = 14 }: { size?: number }) {
   );
 }
 
-const ADDRESS_TEXT = [
-  VAULT_SHIP_ADDRESS.name,
-  ...VAULT_SHIP_ADDRESS.lines,
-].join("\n");
+const ADDRESS_TEXT = VAULT_SHIP_ADDRESS.lines.join("\n");
 
 function todayIsoDate() {
   return new Date().toISOString().split("T")[0]!;
 }
 
+const CARRIER_TRACK_URLS: Record<string, string> = {
+  fedex: "https://www.fedex.com/fedextrack/?trknbr=",
+  dhl: "https://www.dhl.com/en/express/tracking.html?AWB=",
+  ems: "https://service.epost.go.kr/trace.RetrieveEmsTrace.postal?ems_gubun=EMS&POST_CODE=",
+};
+
 export function VaultShippingDesignView() {
   const router = useRouter();
   const [checked, setChecked] = useState<Set<number>>(new Set());
+  const [slipDownloaded, setSlipDownloaded] = useState(false);
+  const [slipDownloading, setSlipDownloading] = useState(false);
   const [trackingNumber, setTrackingNumber] = useState("");
+  const [carrier, setCarrier] = useState("fedex");
   const [trackingRegistered, setTrackingRegistered] = useState(false);
   const [shipped, setShipped] = useState(false);
   const [copyState, setCopyState] = useState<"idle" | "copied">("idle");
 
   const doneCount = checked.size;
   const allChecked = doneCount === VAULT_SHIPPING_CHECKLIST.length;
-  const canRegister = allChecked && trackingNumber.trim().length >= 5 && !trackingRegistered;
-  const canShip = allChecked && trackingRegistered && !shipped;
+  const canRegister =
+    allChecked && slipDownloaded && trackingNumber.trim().length >= 5 && !trackingRegistered;
+  const canShip = allChecked && slipDownloaded && trackingRegistered && !shipped;
 
   const progressPct = useMemo(() => (doneCount / VAULT_SHIPPING_CHECKLIST.length) * 100, [doneCount]);
+
+  const carrierLabel = carrier === "dhl" ? "DHL" : carrier === "ems" ? "Korea Post EMS" : "FedEx";
+  const trackingDisplay = trackingNumber.trim() || "FX123456789";
+  const trackPackageUrl =
+    (CARRIER_TRACK_URLS[carrier] ?? CARRIER_TRACK_URLS.fedex!) +
+    encodeURIComponent(trackingDisplay.replace(/\s/g, ""));
+
+  const shipSteps = useMemo(
+    () =>
+      trackingRegistered
+        ? [
+            { label: "Submit", state: "done" as const },
+            {
+              label: "Ship",
+              state: "active" as const,
+              sub: "IN TRANSIT",
+              subColor: "azure" as const,
+              spin: true,
+            },
+            { label: "Vault", state: "inactive" as const },
+            { label: "Mint", state: "inactive" as const },
+          ]
+        : [
+            { label: "Submit", state: "done" as const },
+            {
+              label: "Ship",
+              state: "active" as const,
+              sub: "PENDING",
+              subColor: "azure" as const,
+            },
+            { label: "Vault", state: "inactive" as const },
+            { label: "Mint", state: "inactive" as const },
+          ],
+    [trackingRegistered],
+  );
 
   const toggleCheck = useCallback((index: number) => {
     setChecked((prev) => {
@@ -76,6 +118,15 @@ export function VaultShippingDesignView() {
       /* clipboard unavailable */
     }
   }, []);
+
+  const handleDownloadSlip = useCallback(() => {
+    if (!allChecked || slipDownloaded) return;
+    setSlipDownloading(true);
+    window.setTimeout(() => {
+      setSlipDownloading(false);
+      setSlipDownloaded(true);
+    }, 800);
+  }, [allChecked, slipDownloaded]);
 
   const handleRegisterTracking = useCallback(() => {
     if (!canRegister) return;
@@ -123,7 +174,7 @@ export function VaultShippingDesignView() {
           </p>
         </div>
 
-        <VaultStepper active={2} />
+        <VaultStepper steps={shipSteps} />
 
         <div className="vault-ship-grid">
         <div className="vault-ship-col">
@@ -168,14 +219,6 @@ export function VaultShippingDesignView() {
                       Copy Address
                     </>
                   )}
-                </button>
-                <button type="button" className="vault-ship-outline-btn">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                    <polyline points="7 10 12 15 17 10" />
-                    <line x1="12" y1="15" x2="12" y2="3" />
-                  </svg>
-                  Download Shipping Label
                 </button>
               </div>
             </div>
@@ -232,9 +275,11 @@ export function VaultShippingDesignView() {
         </div>
 
         <div className="vault-ship-col vault-ship-col--sticky">
-          <div className="vault-ship-block">
-            <span className="vault-form-label">Before you ship</span>
-            <p className="vault-ship-checklist-intro">Complete all items before registering tracking</p>
+          <div className="vault-ship-block vault-ship-block--tight">
+            <span className="vault-form-label">1 · Before You Ship</span>
+            <p className="vault-ship-checklist-intro">
+              Complete all items, then download your slip and register tracking
+            </p>
             <div className="vault-card-box">
               {VAULT_SHIPPING_CHECKLIST.map((text, index) => {
                 const isChecked = checked.has(index);
@@ -277,79 +322,142 @@ export function VaultShippingDesignView() {
                 </span>
               </div>
 
-              <div className={cn("vault-ship-tracking", allChecked && "vault-ship-tracking--unlocked")}>
-                <div className="vault-ship-tracking__head">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="2">
-                    <rect x="2" y="6" width="20" height="12" rx="2" />
-                    <path d="M22 10H18a2 2 0 000 4h4" />
-                  </svg>
-                  <span className="vault-ship-tracking__title">Register Tracking Number</span>
-                  {!allChecked ? (
-                    <span className="vault-ship-tracking__lock">Complete checklist to unlock</span>
-                  ) : null}
+            </div>
+          </div>
+
+          <div className="vault-ship-block vault-ship-block--tight">
+            <span className="vault-form-label">2 · Packing Slip</span>
+            <div
+              className={cn("vault-card-box vault-ship-gate", allChecked && "vault-ship-gate--unlocked")}
+            >
+              <div className="vault-ship-slip__head">
+                <span className="vault-ship-slip__title">Download your Packing Slip</span>
+                {!allChecked ? (
+                  <span className="vault-ship-gate__lock">Complete checklist to unlock</span>
+                ) : null}
+              </div>
+              <p className="vault-ship-slip__desc">
+                Must be included inside the box — PSA uses this to identify your submission.
+              </p>
+              <button
+                type="button"
+                className={cn(
+                  "vault-ship-slip-btn",
+                  slipDownloaded && "vault-ship-slip-btn--done",
+                )}
+                onClick={handleDownloadSlip}
+                disabled={!allChecked || slipDownloaded}
+              >
+                {slipDownloading ? (
+                  "Downloading…"
+                ) : slipDownloaded ? (
+                  <>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--pos)" strokeWidth="2.5">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                    Downloaded
+                  </>
+                ) : (
+                  <>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                      <polyline points="7 10 12 15 17 10" />
+                      <line x1="12" y1="15" x2="12" y2="3" />
+                    </svg>
+                    Download Packing Slip PDF
+                  </>
+                )}
+              </button>
+              <div className="vault-ship-slip__warn">Don&apos;t forget this!</div>
+            </div>
+          </div>
+
+          <div className="vault-ship-block">
+            <span className="vault-form-label">3 · Register Tracking Number</span>
+            <div
+              className={cn(
+                "vault-card-box vault-ship-gate",
+                slipDownloaded && "vault-ship-gate--unlocked",
+              )}
+            >
+              <div className="vault-ship-tracking__head">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="2">
+                  <rect x="2" y="6" width="20" height="12" rx="2" />
+                  <path d="M22 10H18a2 2 0 000 4h4" />
+                </svg>
+                <span className="vault-ship-tracking__title">Tracking Details</span>
+                {!slipDownloaded ? (
+                  <span className="vault-ship-gate__lock">Download Packing Slip to unlock</span>
+                ) : null}
+              </div>
+              <div className="vault-ship-tracking__grid">
+                <div>
+                  <label className="vault-ship-field-label" htmlFor="vault-carrier-select">
+                    Carrier
+                  </label>
+                  <select
+                    id="vault-carrier-select"
+                    className="vault-ship-select"
+                    value={carrier}
+                    onChange={(e) => setCarrier(e.target.value)}
+                    disabled={!slipDownloaded || trackingRegistered}
+                  >
+                    <option value="fedex">FedEx</option>
+                    <option value="dhl">DHL</option>
+                    <option value="ems">Korea Post EMS</option>
+                  </select>
                 </div>
-                <div className="vault-ship-tracking__grid">
-                  <div>
-                    <label className="vault-ship-field-label" htmlFor="vault-carrier-select">
-                      Carrier
-                    </label>
-                    <select id="vault-carrier-select" className="vault-ship-select" defaultValue="fedex">
-                      <option value="fedex">FedEx</option>
-                      <option value="dhl">DHL</option>
-                      <option value="ems">Korea Post EMS</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="vault-ship-field-label" htmlFor="vault-ship-date">
-                      Shipping Date
-                    </label>
-                    <input
-                      id="vault-ship-date"
-                      type="date"
-                      className="vault-ship-input vault-ship-input--date"
-                      defaultValue={todayIsoDate()}
-                      lang="en"
-                    />
-                  </div>
-                </div>
-                <div className="vault-ship-tracking__field">
-                  <label className="vault-ship-field-label" htmlFor="vault-tracking-input">
-                    Tracking Number
+                <div>
+                  <label className="vault-ship-field-label" htmlFor="vault-ship-date">
+                    Shipping Date
                   </label>
                   <input
-                    id="vault-tracking-input"
-                    type="text"
-                    className="vault-ship-input"
-                    placeholder="e.g. 7489 2345 6789"
-                    value={trackingNumber}
-                    onChange={(e) => setTrackingNumber(e.target.value)}
-                    disabled={!allChecked || trackingRegistered}
+                    id="vault-ship-date"
+                    type="date"
+                    className="vault-ship-input vault-ship-input--date"
+                    defaultValue={todayIsoDate()}
+                    lang="en"
+                    disabled={!slipDownloaded || trackingRegistered}
                   />
                 </div>
-                <button
-                  type="button"
-                  className={cn(
-                    "vault-ship-register-btn tk-btn tk-btn--primary tk-btn--sm",
-                    trackingRegistered && "vault-ship-register-btn--done",
-                    !canRegister && !trackingRegistered && "vault-ship-register-btn--disabled",
-                  )}
-                  onClick={handleRegisterTracking}
-                  disabled={!canRegister && !trackingRegistered}
-                >
-                  {trackingRegistered ? (
-                    <>
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--pos)" strokeWidth="2.5">
-                        <polyline points="20 6 9 17 4 12" />
-                      </svg>
-                      Tracking Registered
-                    </>
-                  ) : (
-                    <>
-                      Register Tracking <CtaArrow />
-                    </>
-                  )}
-                </button>
               </div>
+              <div className="vault-ship-tracking__field">
+                <label className="vault-ship-field-label" htmlFor="vault-tracking-input">
+                  Tracking Number
+                </label>
+                <input
+                  id="vault-tracking-input"
+                  type="text"
+                  className="vault-ship-input"
+                  placeholder="e.g. 7489 2345 6789"
+                  value={trackingNumber}
+                  onChange={(e) => setTrackingNumber(e.target.value)}
+                  disabled={!slipDownloaded || trackingRegistered}
+                />
+              </div>
+              <button
+                type="button"
+                className={cn(
+                  "vault-ship-register-btn tk-btn tk-btn--primary tk-btn--sm",
+                  trackingRegistered && "vault-ship-register-btn--done",
+                  !canRegister && !trackingRegistered && "vault-ship-register-btn--disabled",
+                )}
+                onClick={handleRegisterTracking}
+                disabled={!canRegister && !trackingRegistered}
+              >
+                {trackingRegistered ? (
+                  <>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--pos)" strokeWidth="2.5">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                    Tracking Registered
+                  </>
+                ) : (
+                  <>
+                    Register Tracking <CtaArrow />
+                  </>
+                )}
+              </button>
             </div>
           </div>
 
@@ -366,12 +474,27 @@ export function VaultShippingDesignView() {
                   Your submission is now <strong>In Transit</strong>. We&apos;ll email you when your card arrives at our
                   Vault.
                 </p>
-                <Link
-                  href={`/vault/submissions/${MOCK_SUBMISSION_ID}`}
-                  className="vault-ship-outline-btn vault-ship-outline-btn--azure"
-                >
-                  View Submission Status →
-                </Link>
+                <div className="vault-ship-success__tracking">
+                  <span className="mono vault-ship-success__summary">
+                    📦 {carrierLabel} · {trackingDisplay}
+                  </span>
+                  <a
+                    href={trackPackageUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="vault-ship-outline-btn vault-ship-outline-btn--azure"
+                  >
+                    Track Package →
+                  </a>
+                </div>
+                <div className="vault-ship-success__status">
+                  <Link
+                    href={`/vault/submissions/${MOCK_SUBMISSION_ID}`}
+                    className="vault-ship-outline-btn vault-ship-outline-btn--azure"
+                  >
+                    View Submission Status →
+                  </Link>
+                </div>
               </div>
             ) : null}
 
@@ -399,7 +522,7 @@ export function VaultShippingDesignView() {
               )}
             </button>
 
-            <Link href="/vault/submit" className="vault-ship-back-btn tk-btn tk-btn--neutral tk-btn--md">
+            <Link href="/vault/submit" className="vault-ship-back-btn tk-btn tk-btn--md">
               Back to Card Details
             </Link>
           </div>

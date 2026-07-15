@@ -87,9 +87,9 @@ export function PortfolioCollectionBidsSection({
   if (activeBids.length === 0) {
     return (
       <div className="pf-empty pf-empty--panel">
-        <p>No collection bids yet</p>
+        <p>No active bids yet</p>
         <p className="pf-empty__sub">
-          Place a bid from a collection&apos;s Buy tab — your active bids will appear here.
+          Place an offer from a card listing — your active bids will appear here.
         </p>
         <Link href="/markets" className="pf-empty__cta">
           Browse collections
@@ -151,7 +151,14 @@ export function PortfolioCollectionBidsSection({
             return (
               <tr key={bid.orderHash} className={zebra}>
                 <td data-label="Card">
-                  <Link href={collectionHref(bid.collectionKey)} className="pf-table-card-cell">
+                  <Link
+                    href={
+                      bid.tokenId && bid.tokenId !== "0"
+                        ? `/marketplace/${encodeURIComponent(bid.tokenId)}`
+                        : collectionHref(bid.collectionKey)
+                    }
+                    className="pf-table-card-cell"
+                  >
                     <div className="pf-table-thumb pf-table-thumb--lg">
                       {meta?.imageUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element

@@ -56,7 +56,7 @@ flowchart TD
     end
 
     %% ④ 구매 입찰 ──────────────────────────────────────────────────
-    subgraph G4 ["④ 구매 입찰  ·  Collection Bid"]
+    subgraph G4 ["④ 구매 입찰  ·  Card Offer"]
         B1["희망 매수가 입력"]
         B2["Merkle Tree 구성"]
         B3["🔗 USDC 승인"]
@@ -160,7 +160,7 @@ sequenceDiagram
     end
 
     rect rgba(252, 165, 165, 0.15)
-        Note over U,C: ③ 구매 입찰 · Collection Bid
+        Note over U,C: ③ 구매 입찰 · Card Offer
         U  ->> A  : 희망 매수가 입력
         Note over A: SeaportMerkleTree(activeAsks)<br/>→ identifierOrCriteria: merkleRoot
         A  ->> C  : USDC.approve(Seaport, maxUint256)
@@ -168,7 +168,7 @@ sequenceDiagram
         A -->> U  : 🖊️ MetaMask 서명 요청 — EIP-712 매수 주문
         U  ->> A  : 서명 승인
         A  ->> S  : POST /api/marketplace/orders [side: bid]
-        S  ->> DB : INSERT orders<br/>{order_hash, offerer, side:bid,<br/>token_id:"0"(criteria sentinel),<br/>consideration_amount(입찰가),<br/>parameters(merkleRoot 포함 jsonb),<br/>signature, status:active,<br/>collection_key}
+        S  ->> DB : INSERT orders<br/>{order_hash, offerer, side:bid,<br/>token_id (실제 카드 tokenId),<br/>consideration_amount(입찰가),<br/>parameters(ERC20 offer + ERC721 cons),<br/>signature, status:active,<br/>collection_key}
         S -->> A  : BID ACTIVE
     end
 

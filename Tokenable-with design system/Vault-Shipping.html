@@ -40,11 +40,14 @@
   .gnb-right{display:flex;align-items:center;gap:14px;}
 
   /* Step indicator */
-  .step-dot{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:14px;font-weight:700;flex-shrink:0;transition:all 0.2s;}
-  .step-dot.active{background:var(--azure);color:#fff;}
-  .step-dot.done{background:var(--pos);color:#fff;}
-  .step-dot.upcoming{background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.3);}
+  .circle{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:14px;font-weight:700;flex-shrink:0;}
+  .circle svg{display:block;}
+  .circle--active{background:var(--azure);color:#fff;}
+  .circle--done{background:var(--pos);color:#fff;}
+  .circle--inactive{background:transparent;border:2px solid rgba(255,255,255,0.2);color:rgba(255,255,255,0.3);}
+  .step-col{display:flex;flex-direction:column;align-items:center;flex-shrink:0;width:32px;text-align:center;}
   .step-label{font-family:var(--font-sans);font-size:13px;letter-spacing:0.02em;margin-top:10px;text-align:center;font-weight:600;}
+  .step-connector{flex:1;height:2px;margin-top:16px;}
 
   /* Form */
   .form-label{font-family:var(--font-mono);font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:rgba(255,255,255,0.5);font-weight:600;margin-bottom:8px;display:block;}
@@ -207,23 +210,24 @@
 
     <!-- Step indicator (dots + lines) -->
     <div style="display:flex;align-items:flex-start;width:100%;margin-bottom:40px;">
-      <div style="display:flex;flex-direction:column;align-items:center;gap:10px;flex-shrink:0;">
-        <div class="step-dot done"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>
+      <div class="step-col">
+        <div class="circle circle--done"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></div>
         <div class="step-label" style="color:var(--pos);">Submit</div>
       </div>
-      <div style="flex:1;height:2px;background:var(--pos);margin:17px -4px 0;"></div>
-      <div style="display:flex;flex-direction:column;align-items:center;gap:10px;flex-shrink:0;">
-        <div class="step-dot active">2</div>
+      <div class="step-connector" style="background:var(--pos);"></div>
+      <div class="step-col">
+        <div class="circle circle--active">2</div>
         <div class="step-label" style="color:#fff;">Ship</div>
+        <div class="mono" id="ship-sublabel" style="font-size:10px;color:var(--azure);letter-spacing:0.04em;text-transform:uppercase;margin-top:4px;">Pending</div>
       </div>
-      <div style="flex:1;height:2px;background:rgba(255,255,255,0.06);margin:17px -4px 0;"></div>
-      <div style="display:flex;flex-direction:column;align-items:center;gap:10px;flex-shrink:0;">
-        <div class="step-dot upcoming">3</div>
+      <div class="step-connector" style="background:rgba(255,255,255,0.06);"></div>
+      <div class="step-col">
+        <div class="circle circle--inactive">3</div>
         <div class="step-label" style="color:rgba(255,255,255,0.4);">Vault</div>
       </div>
-      <div style="flex:1;height:2px;background:rgba(255,255,255,0.06);margin:17px -4px 0;"></div>
-      <div style="display:flex;flex-direction:column;align-items:center;gap:10px;flex-shrink:0;">
-        <div class="step-dot upcoming">4</div>
+      <div class="step-connector" style="background:rgba(255,255,255,0.06);"></div>
+      <div class="step-col">
+        <div class="circle circle--inactive">4</div>
         <div class="step-label" style="color:rgba(255,255,255,0.4);">Mint</div>
       </div>
     </div>
@@ -255,10 +259,6 @@
           <button class="btn btn--outline" id="copy-addr-btn" style="height:42px;padding:0 18px;font-size:13px;">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:8px;"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
             Copy Address
-          </button>
-          <button class="btn btn--outline" style="height:42px;padding:0 18px;font-size:13px;">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:8px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            Download Shipping Label
           </button>
         </div>
       </div>
@@ -323,10 +323,10 @@
     <!-- RIGHT COLUMN -->
     <div class="right-col" style="position:sticky;top:80px;align-self:start;">
 
-    <!-- ============ PACKAGING CHECKLIST ============ -->
-    <div style="margin-bottom:32px;">
-      <span class="form-label">Before you ship</span>
-      <p style="font-size:13px;color:rgba(255,255,255,0.35);margin:0 0 14px;">Complete all items before registering tracking</p>
+    <!-- ============ 1. PACKAGING CHECKLIST ============ -->
+    <div style="margin-bottom:24px;">
+      <span class="form-label">1 · Before You Ship</span>
+      <p style="font-size:13px;color:rgba(255,255,255,0.35);margin:0 0 14px;">Complete all items, then download your slip and register tracking</p>
       <div class="card-box" id="checklist">
         <div class="check-item" data-i="0">
           <div class="check-box"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" style="opacity:0;"><polyline points="20 6 9 17 4 12"/></svg></div>
@@ -348,18 +348,43 @@
           <div class="check-box"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" style="opacity:0;"><polyline points="20 6 9 17 4 12"/></svg></div>
           <div class="check-text">Attach Submission ID barcode label on the outside of the box</div>
         </div>
+        <div class="check-item" data-i="5">
+          <div class="check-box"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" style="opacity:0;"><polyline points="20 6 9 17 4 12"/></svg></div>
+          <div class="check-text">Include the Packing Slip inside the box</div>
+        </div>
         <!-- Progress -->
         <div class="progress-wrap">
           <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%;"></div></div>
-          <span class="progress-text" id="progress-text" style="color:rgba(255,255,255,0.35);">0 / 5 completed</span>
+          <span class="progress-text" id="progress-text" style="color:rgba(255,255,255,0.35);">0 / 6 completed</span>
         </div>
+      </div>
+    </div>
 
-        <!-- Tracking input (inside same box, gated by checklist) -->
-        <div id="tracking-section" style="margin-top:20px;padding-top:20px;border-top:1px solid rgba(255,255,255,0.06);opacity:0.3;pointer-events:none;transition:opacity 0.3s;">
+    <!-- ============ 2. PACKING SLIP ============ -->
+    <div style="margin-bottom:24px;">
+      <span class="form-label">2 · Packing Slip</span>
+      <div class="card-box" id="slip-section" style="opacity:0.3;pointer-events:none;transition:opacity 0.3s;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+          <div style="font-size:14px;font-weight:600;color:#fff;">Download your Packing Slip</div>
+          <span id="slip-lock" style="font-size:11px;color:rgba(255,255,255,0.25);margin-left:auto;">Complete checklist to unlock</span>
+        </div>
+        <div style="font-size:13px;color:rgba(255,255,255,0.45);margin-bottom:14px;">Must be included inside the box — PSA uses this to identify your submission.</div>
+        <button class="btn btn--outline" id="download-slip-btn" style="height:44px;padding:0 20px;font-size:13px;width:100%;box-shadow:inset 0 0 0 1.5px var(--azure);color:var(--azure);">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:8px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Download Packing Slip PDF
+        </button>
+        <div style="font-size:11px;color:var(--amber);margin-top:10px;text-align:center;font-weight:600;">Don't forget this!</div>
+      </div>
+    </div>
+
+    <!-- ============ 3. TRACKING NUMBER ============ -->
+    <div style="margin-bottom:32px;">
+      <span class="form-label">3 · Register Tracking Number</span>
+      <div class="card-box" id="tracking-section" style="opacity:0.3;pointer-events:none;transition:opacity 0.3s;">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.35)" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M22 10H18a2 2 0 000 4h4"/></svg>
-            <span style="font-size:14px;font-weight:600;color:rgba(255,255,255,0.5);">Register Tracking Number</span>
-            <span id="tracking-lock" style="font-size:11px;color:rgba(255,255,255,0.25);margin-left:auto;">Complete checklist to unlock</span>
+            <span style="font-size:14px;font-weight:600;color:rgba(255,255,255,0.5);">Tracking Details</span>
+            <span id="tracking-lock" style="font-size:11px;color:rgba(255,255,255,0.25);margin-left:auto;">Download Packing Slip to unlock</span>
           </div>
           <div class="tracking-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
             <div>
@@ -382,7 +407,6 @@
           <button class="btn btn--primary" id="register-btn" style="height:46px;width:100%;font-size:14px;opacity:0.4;cursor:not-allowed;">
             Register Tracking <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-left:8px;"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
           </button>
-        </div>
       </div>
     </div>
 
@@ -398,7 +422,11 @@
           <span style="font-size:16px;font-weight:700;color:var(--pos);">Tracking registered successfully</span>
         </div>
         <p style="margin:0 0 12px;font-size:14px;color:rgba(255,255,255,0.55);line-height:1.6;padding-left:30px;">Your submission is now <strong style="color:#fff;">In Transit</strong>. We'll email you when your card arrives at our Vault.</p>
-        <div style="padding-left:30px;"><a href="Vault-Detail.html" class="btn btn--outline" style="height:38px;padding:0 18px;font-size:13px;color:var(--azure);border-color:rgba(26,111,255,0.3);text-decoration:none;">View Submission Status →</a></div>
+        <div style="padding-left:30px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <span class="mono" id="tracking-summary" style="font-size:13px;color:rgba(255,255,255,0.7);">📦 FedEx · FX123456789</span>
+          <a href="#" id="carrier-track-link" class="btn btn--outline" style="height:38px;padding:0 18px;font-size:13px;color:var(--azure);border-color:rgba(26,111,255,0.3);text-decoration:none;">Track Package →</a>
+        </div>
+        <div style="padding-left:30px;margin-top:10px;"><a href="Vault-Detail.html" class="btn btn--outline" style="height:38px;padding:0 18px;font-size:13px;color:var(--azure);border-color:rgba(26,111,255,0.3);text-decoration:none;">View Submission Status →</a></div>
       </div>
       <button class="btn btn--primary" id="shipped-btn" style="height:54px;width:100%;font-size:16px;opacity:0.4;cursor:not-allowed;">
         I've Shipped My Card <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-left:8px;"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
@@ -436,15 +464,17 @@ setTimeout(function(){
       updateProgress();
       updateShippedBtn();
       updateRegisterBtn();
-      /* Unlock tracking section when all 5 checked */
-      var ts = document.getElementById('tracking-section');
-      var tl = document.getElementById('tracking-lock');
-      var allDone = document.querySelectorAll('.check-item.checked').length === 5;
-      if(ts){
-        ts.style.opacity = allDone ? '1' : '0.3';
-        ts.style.pointerEvents = allDone ? 'auto' : 'none';
+      /* Unlock slip section when all 6 checked */
+      var ss = document.getElementById('slip-section');
+      var sl = document.getElementById('slip-lock');
+      var allDone = document.querySelectorAll('.check-item.checked').length === 6;
+      if(ss){
+        ss.style.opacity = allDone ? '1' : '0.3';
+        ss.style.pointerEvents = allDone ? 'auto' : 'none';
       }
-      if(tl) tl.textContent = allDone ? '' : 'Complete checklist to unlock';
+      if(sl) sl.textContent = allDone ? '' : 'Complete checklist to unlock';
+      window.__checklistDone = allDone;
+      updateTrackingLock();
     }
 
     /* Copy address */
@@ -459,6 +489,16 @@ setTimeout(function(){
       });
     }
 
+    /* Download packing slip → unlock tracking */
+    if(e.target.closest('#download-slip-btn')){
+      var dsb = document.getElementById('download-slip-btn');
+      window.__slipDownloaded = true;
+      dsb.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--pos)" stroke-width="2.5" style="margin-right:8px;"><polyline points="20 6 9 17 4 12"/></svg> Downloaded';
+      dsb.style.color = 'var(--pos)';
+      dsb.style.boxShadow = 'inset 0 0 0 1.5px var(--pos)';
+      updateTrackingLock();
+    }
+
     /* Register tracking */
     if(e.target.closest('#register-btn') && registerBtn && !registerBtn.disabled){
       registerBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--pos)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Tracking Registered';
@@ -470,6 +510,20 @@ setTimeout(function(){
       registerBtn.style.filter = 'none';
       registerBtn.style.cursor = 'default';
       window.__trackingDone = true;
+      var shipSub = document.getElementById('ship-sublabel');
+      if(shipSub) shipSub.textContent = 'In Transit';
+      var shipCircle = document.querySelector('.step-col .circle--active');
+      if(shipCircle) shipCircle.innerHTML = '<div style="width:11px;height:11px;border:2px solid rgba(255,255,255,0.35);border-top-color:#fff;border-radius:50%;animation:spin 0.8s linear infinite;"></div>';
+      var carrierSel = document.getElementById('carrier-select');
+      var trackingInput = document.getElementById('tracking-input');
+      var carrierNames = {fedex:'FedEx', dhl:'DHL', ems:'Korea Post EMS'};
+      var carrierUrls = {fedex:'https://www.fedex.com/fedextrack/?trknbr=', dhl:'https://www.dhl.com/en/express/tracking.html?AWB=', ems:'https://service.epost.go.kr/trace.RetrieveEmsTrace.postal?ems_gubun=EMS&POST_CODE='};
+      var carrierKey = carrierSel ? carrierSel.value : 'fedex';
+      var trackNum = trackingInput ? trackingInput.value.trim() : '';
+      var summaryEl = document.getElementById('tracking-summary');
+      if(summaryEl) summaryEl.textContent = '📦 ' + (carrierNames[carrierKey] || 'FedEx') + ' · ' + (trackNum || 'FX123456789');
+      var linkEl = document.getElementById('carrier-track-link');
+      if(linkEl) linkEl.href = (carrierUrls[carrierKey] || carrierUrls.fedex) + encodeURIComponent(trackNum);
       var sb = document.getElementById('tracking-success');
       if(sb) sb.style.display = 'block';
       updateShippedBtn();
@@ -499,7 +553,7 @@ setTimeout(function(){
   });
 
   function updateRegisterBtn(){
-    var allChecked = document.querySelectorAll('.check-item.checked').length === 5;
+    var allChecked = document.querySelectorAll('.check-item.checked').length === 6;
     var ti = document.getElementById('tracking-input');
     var hasTracking = ti && ti.value.trim().length >= 5;
     var canRegister = allChecked && hasTracking && !window.__trackingDone;
@@ -515,16 +569,16 @@ setTimeout(function(){
     var n = document.querySelectorAll('.check-item.checked').length;
     var pf = document.getElementById('progress-fill');
     var pt = document.getElementById('progress-text');
-    if(pf) pf.style.width = (n/5*100) + '%';
+    if(pf) pf.style.width = (n/6*100) + '%';
     if(pt){
-      pt.textContent = n + ' / 5 completed';
-      pt.style.color = n === 5 ? 'var(--pos)' : 'rgba(255,255,255,0.35)';
+      pt.textContent = n + ' / 6 completed';
+      pt.style.color = n === 6 ? 'var(--pos)' : 'rgba(255,255,255,0.35)';
     }
   }
 
   /* Enable "I've Shipped" only when all checks + tracking */
   function updateShippedBtn(){
-    var allOk = document.querySelectorAll('.check-item.checked').length === 5 && window.__trackingDone;
+    var allOk = document.querySelectorAll('.check-item.checked').length === 6 && window.__trackingDone;
     if(shippedBtn){
       shippedBtn.disabled = !allOk;
       shippedBtn.style.opacity = allOk ? '1' : '0.4';
@@ -533,6 +587,19 @@ setTimeout(function(){
   }
 
   
+  function updateTrackingLock(){
+    var ts = document.getElementById('tracking-section');
+    var tl = document.getElementById('tracking-lock');
+    var ready = !!window.__checklistDone && !!window.__slipDownloaded;
+    if(ts){
+      ts.style.opacity = ready ? '1' : '0.3';
+      ts.style.pointerEvents = ready ? 'auto' : 'none';
+    }
+    if(tl){
+      tl.textContent = ready ? '' : (!window.__checklistDone ? 'Complete checklist to unlock' : 'Download Packing Slip to unlock');
+    }
+  }
+
   /* Default date */
   var sd = document.getElementById('ship-date');
   if(sd) sd.value = new Date().toISOString().split('T')[0];

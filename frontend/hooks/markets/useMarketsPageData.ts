@@ -27,7 +27,8 @@ export function useMarketsOrders() {
   });
   return {
     orders: query.data ?? [],
-    isLoading: query.isLoading,
+    /** True until the first fetch settles — unlike isLoading, also true before fetch starts. */
+    isPending: query.isPending,
     isFetching: query.isFetching,
     isError: query.isError,
     error: query.error,

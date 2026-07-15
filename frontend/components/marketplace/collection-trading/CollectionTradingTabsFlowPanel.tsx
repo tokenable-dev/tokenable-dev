@@ -1,11 +1,8 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useMemo } from "react";
 import type { Address } from "viem";
 import type { Order } from "@/lib/core";
-import { isCriteriaCollectionBid } from "@/lib/seaport/criteria/criteriaMatch";
-import { CollectionCriteriaBidPanel } from "@/components/marketplace/collection-criteria-bid";
 import type { CollectionTradeTab } from "@/lib/marketplace/collection-trading";
 import type { BookRowSelection } from "@/lib/marketplace/marketplaceTradingTypes";
 import {
@@ -18,31 +15,24 @@ export function CollectionTradingTabsFlowPanel({
   flow,
   flush,
   orderBook,
-  asks,
-  collectionBids,
-  connectedAddress,
-  onInvalidate,
-  collectionLabel,
-  collectionKey,
   bookSelection,
   address,
   onBuySuccess,
   onOpenSellModal,
-  onInstantBuyFillUsdc,
-  onPurchaseFilled,
-  presetPriceFromBook,
+  collectionLabel,
   listingCount,
   showSellListingCount,
 }: {
   flow: CollectionTradeTab;
   flush: boolean;
   orderBook?: ReactNode;
-  asks: Order[];
-  collectionBids: Order[];
+  /** @deprecated Criteria collection bids removed — kept for call-site compatibility. */
+  asks?: Order[];
+  collectionBids?: Order[];
   connectedAddress?: string;
-  onInvalidate: () => void;
+  onInvalidate?: () => void;
   collectionLabel: string;
-  collectionKey: string;
+  collectionKey?: string;
   bookSelection: BookRowSelection | null;
   address: Address | undefined;
   onBuySuccess: () => void;
@@ -53,18 +43,6 @@ export function CollectionTradingTabsFlowPanel({
   listingCount: number;
   showSellListingCount: boolean;
 }) {
-  const myBidToReplace = useMemo(() => {
-    const addr = connectedAddress?.toLowerCase();
-    if (!addr) return null;
-    const mine = collectionBids.filter(
-      (o) =>
-        o.offerer.toLowerCase() === addr &&
-        o.status === "active" &&
-        isCriteriaCollectionBid(o),
-    );
-    return mine.length === 1 ? mine[0]! : null;
-  }, [collectionBids, connectedAddress]);
-
   return (
     <div
       className={`flex flex-col gap-2 p-2 pb-3 sm:p-3 sm:pb-3 ${flush ? "min-h-0 shrink-0" : ""}`}
@@ -76,19 +54,18 @@ export function CollectionTradingTabsFlowPanel({
         className={`w-full min-w-0 ${flush ? "rounded-none border-0 bg-transparent px-2 py-2 sm:px-2.5 sm:py-2.5" : `rounded-lg ${COLLECTION_DETAILS_BORDER_ALL} ${COLLECTION_DETAILS_BG_CLASS} p-2.5 sm:p-3`}`}
       >
         {flow === "buy" ? (
-          <div id="collection-bid-panel" className="min-w-0">
-            <CollectionCriteriaBidPanel
-              variant="embedded"
-              collectionKey={collectionKey}
-              activeAsks={asks}
-              connectedAddress={connectedAddress}
-              bidToReplace={myBidToReplace}
-              onPlaced={() => onInvalidate()}
-              onInstantBuyFillUsdc={onInstantBuyFillUsdc}
+          <div id="collection-buy-panel" className="min-w-0">
+            <CollectionTradeTicket
+              flow="buy"
+              selection={bookSelection}
+              address={address}
+              onBuySuccess={onBuySuccess}
               onOpenSellModal={onOpenSellModal}
-              presetPriceFromBook={presetPriceFromBook}
-              onPurchaseFilled={onPurchaseFilled}
+              collectionLabel={collectionLabel}
             />
+            <p className="mt-3 text-xs leading-snug text-zinc-500">
+              To place an offer on a specific card, open the listing and choose Bid.
+            </p>
           </div>
         ) : (
           <CollectionTradeTicket

@@ -59,7 +59,7 @@ Cert 번호만 넣어 **PSA 공식 조회(`analyze-by-cert`와 동일)** + **Car
 
 ### `POST /api/marketplace/orders`
 
-Register a Seaport order (ask or criteria bid) off-chain.
+Register a Seaport order (ask or card-level bid/offer) off-chain.
 
 **Body:** `CreateOrderDto` — full Seaport parameters + signature.
 
@@ -75,7 +75,7 @@ Register a Seaport order (ask or criteria bid) off-chain.
 }
 ```
 
-For criteria bids: `side: "bid"`, `tokenId: "0"`, `collectionKey: "..."`, item type `4` in `consideration`.
+For card offers (bids): `side: "bid"`, real `tokenId`, `collectionKey`, offer itemType `1` (USDC), consideration itemType `2` (ERC721 for that token). Max **3 active bids per wallet per tokenId**. Collection criteria bids (itemType `4`) are rejected.
 
 ---
 
@@ -151,7 +151,7 @@ Marks a single order fulfilled (e.g. after `fulfillOrder` on-chain).
 
 ### `POST /api/marketplace/orders/fulfill-matched-pair`
 
-Marks both the ask and the criteria bid fulfilled after `matchAdvancedOrders`. Buyer cost basis is seeded from the ask fill price (`bid.offerer` wallet, `source = marketplace_buy`).
+Marks both the ask and the bid fulfilled after `matchAdvancedOrders` (token offer or legacy criteria). Buyer cost basis is seeded from the ask fill price (`bid.offerer` wallet, `source = marketplace_buy`).
 
 **Body:** `FulfillMatchedPairDto`
 

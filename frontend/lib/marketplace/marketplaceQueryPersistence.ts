@@ -46,7 +46,7 @@ function configureMarketplaceDefaults(queryClient: QueryClient): void {
 }
 
 /**
- * Restore marketplace list + batched snapshot bundle from localStorage before first paint
+ * Restore marketplace list + batched snapshot bundle from localStorage after mount
  * (paired with {@link subscribeMarketplacePersistence}).
  */
 export function hydrateMarketplaceQueries(queryClient: QueryClient): void {
