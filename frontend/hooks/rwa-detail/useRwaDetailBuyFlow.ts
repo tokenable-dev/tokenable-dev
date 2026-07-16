@@ -9,6 +9,7 @@ import { fulfillAskListingOrder } from "@/lib/seaport/orders/fulfillAskListing";
 import { mapWalletError } from "@/lib/network";
 import { invalidateAfterRwaDetail } from "@/lib/core/invalidation";
 import type { useWriteContract } from "wagmi";
+import { trackEvent } from "@/lib/analytics/googleAnalytics";
 
 export function useRwaDetailBuyFlow(input: {
   tokenId: number;
@@ -58,6 +59,14 @@ export function useRwaDetailBuyFlow(input: {
         chainId,
       });
       await invalidateMarketplaceQueries();
+      const priceUsdc = Number(activeAskListing.considerationAmount) / 1_000_000;
+      const fee = Math.round(priceUsdc * 0.05 * 100) / 100;
+      trackEvent("purchase_completed", {
+        card_id: String(tokenId),
+        price: priceUsdc,
+        fee,
+        net_amount: Math.round(priceUsdc * 0.95 * 100) / 100,
+      });
       onPurchaseSuccess();
     } catch (e: unknown) {
       setBuyErr(mapWalletError(e).message);

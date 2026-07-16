@@ -60,8 +60,11 @@ import {
 import { CollectionChangeBidModal } from "@/components/marketplace/collection-trading/CollectionChangeBidModal";
 import { RwaDetailListModalHost } from "@/components/marketplace/rwa-detail/modals/RwaDetailListModalHost";
 import { useSellAccessGate } from "@/hooks/auth/useSellAccessGate";
+import { usePageViewedEvent } from "@/hooks/analytics/usePageViewedEvent";
+import { trackEvent } from "@/lib/analytics/googleAnalytics";
 
 export default function PortfolioPage() {
+  usePageViewedEvent("portfolio");
   const router = useRouter();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
@@ -340,6 +343,18 @@ export default function PortfolioPage() {
   const historySectionLoading =
     !usePortfolioMocks && (idsLoading || historyBatchLoading);
 
+  const portfolioViewedFiredRef = useRef(false);
+  useEffect(() => {
+    if (!user || !wallet.hasLinkedWallet) return;
+    if (assetsSectionLoading || portfolioValuePending) return;
+    if (portfolioViewedFiredRef.current) return;
+    portfolioViewedFiredRef.current = true;
+    trackEvent("portfolio_viewed", {
+      total_assets: displayAssetRows.length,
+      total_value: displayPortfolioValue,
+    });
+  }, [user, wallet.hasLinkedWallet, assetsSectionLoading, portfolioValuePending, displayAssetRows.length, displayPortfolioValue]);
+
   useEffect(() => {
     const listParam = searchParams.get("list")?.trim() ?? "";
     if (!/^\d+$/.test(listParam)) return;
@@ -433,7 +448,8 @@ export default function PortfolioPage() {
               onChangeListing={openPortfolioListModal}
               onCancelListing={(tokenId, orderHash) => {
                 if (isPortfolioMockTokenId(tokenId)) return;
-                void holdingActions.cancelListing(tokenId, orderHash);
+                const priceUsd = listingByTokenId.get(tokenId)?.priceUsd;
+                void holdingActions.cancelListing(tokenId, orderHash, priceUsd);
               }}
               onSellNow={openPortfolioListModal}
             />

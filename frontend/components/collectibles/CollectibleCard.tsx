@@ -16,6 +16,7 @@ import {
 } from "@/lib/markets/marketsListingMarketPrice";
 import { pickCollectionSummaryDisplayImageUrl } from "@/lib/marketplace/collectionDisplayImage";
 import { parseCollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
+import { trackEvent } from "@/lib/analytics/googleAnalytics";
 import {
   HOME_MOCK_VAULTED_SUB_BY_KEY,
   homeMockChangePeriodLabel,
@@ -120,6 +121,7 @@ export function CollectibleCard({
   marketChangePeriodLabel,
   onBeforeNavigate,
   shell = "wrap",
+  position,
 }: {
   collection: MarketplaceCollectionSummary;
   snapshot: CollectionListMarketSnapshot | undefined;
@@ -133,6 +135,8 @@ export function CollectibleCard({
   onBeforeNavigate?: () => void;
   /** index.html grid4 uses `<a class="card">` directly; markets/watchlist keep `.card-wrap`. */
   shell?: "wrap" | "none";
+  /** Zero-based position in the grid — forwarded to `card_clicked` analytics. */
+  position?: number;
 }) {
   const displayImageUrl = pickCollectionSummaryDisplayImageUrl(collection);
   const imageSrc = resolvedCoverUrl || displayImageUrl;
@@ -182,7 +186,16 @@ export function CollectibleCard({
     <Link
       href={href}
       className="card"
-      onClick={() => onBeforeNavigate?.()}
+      onClick={() => {
+        trackEvent("card_clicked", {
+          card_id: collection.collectionKey,
+          card_name: title,
+          grade: grade ?? undefined,
+          price: priceUsd ?? undefined,
+          position,
+        });
+        onBeforeNavigate?.();
+      }}
     >
       <div className="card__img">
         {imageSrc ? (
@@ -198,7 +211,11 @@ export function CollectibleCard({
         <div className="card__fade" aria-hidden />
         <div className="fav">
           {isDesignMockCollectionKey(collection.collectionKey) ? null : (
-            <WatchlistToggleButton collectionKey={collection.collectionKey} size="sm" />
+            <WatchlistToggleButton
+              collectionKey={collection.collectionKey}
+              size="sm"
+              price={priceUsd ?? undefined}
+            />
           )}
         </div>
       </div>
