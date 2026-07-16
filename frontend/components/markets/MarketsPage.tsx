@@ -40,6 +40,7 @@ import { TopMoversSection } from "./TopMoversSection";
 import { AppPageState } from "@/components/ui/AppPageState";
 import { cn } from "@/lib/ds/cn";
 import { useClientMounted } from "@/hooks/ui/useClientMounted";
+import { usePageViewedEvent } from "@/hooks/analytics/usePageViewedEvent";
 import {
   MARKETS_MOCK_COLLECTIONS,
   MARKETS_MOCK_RESULTS_COUNT,
@@ -48,6 +49,7 @@ import {
 } from "@/lib/markets/marketsMockData";
 
 export default function MarketsPage() {
+  usePageViewedEvent("markets");
   const mounted = useClientMounted();
   const [categoryFilter, setCategoryFilter] = useState<CollectionCategoryFilterId>(
     MARKETS_DEFAULT_CATEGORY_FILTER,

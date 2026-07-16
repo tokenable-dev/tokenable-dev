@@ -13,8 +13,10 @@ import {
   type CollectionDetailLoadedProps,
 } from "@/hooks/collection-detail";
 import { formatErrorDetails } from "@/lib/ui/page-state-catalog";
+import { usePageViewedEvent } from "@/hooks/analytics/usePageViewedEvent";
 
 function CollectionDetailPageContent() {
+  usePageViewedEvent("collection_detail");
   const searchParams = useSearchParams();
   const detail = useCollectionDetailPage();
   const listingParam = searchParams.get("listing")?.trim() ?? "";

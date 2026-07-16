@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTradeAccessGate } from "@/hooks/auth/useTradeAccessGate";
 import type { RwaDetailLoadedProps } from "@/hooks/rwa-detail";
+import { getRwaDetailHeaderBadgeLabels } from "@/lib/marketplace/rwa-detail";
+import { trackEvent } from "@/lib/analytics/googleAnalytics";
 import { RwaDetailBreadcrumb } from "./RwaDetailBreadcrumb";
 import { RwaDetailDesktopSidebar } from "./layout/RwaDetailDesktopSidebar";
 import { RwaDetailMobileColumn } from "./layout/RwaDetailMobileColumn";
@@ -37,6 +39,17 @@ export function RwaDetailLoadedView({
   const { runTradeAccessGate } = useTradeAccessGate(tradeReturnTo);
   const [bidModalOpen, setBidModalOpen] = useState(false);
 
+  useEffect(() => {
+    const { gradeLine } = getRwaDetailHeaderBadgeLabels(metadata);
+    trackEvent("asset_detail_viewed", {
+      card_id: String(tokenId),
+      card_name: headline.detailTitle || undefined,
+      grade: gradeLine ?? undefined,
+      price: listingBuyPriceUsdc ?? undefined,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleBidPurchaseFilled = () => {
     setBidModalOpen(false);
     listFlow.setTradeCelebration("purchase");
@@ -54,12 +67,20 @@ export function RwaDetailLoadedView({
   };
 
   const handleFulfillAsk = () => {
+    trackEvent("buy_now_clicked", {
+      card_id: String(tokenId),
+      price: listingBuyPriceUsdc ?? undefined,
+    });
     runTradeAccessGate(() => void buyFlow.handleFulfillAsk());
   };
 
   const handleOpenPlaceBid = () => {
     runTradeAccessGate(() => {
       if (market.collectionKeyForMatch) {
+        trackEvent("bid_clicked", {
+          card_id: String(tokenId),
+          current_price: listingBuyPriceUsdc ?? undefined,
+        });
         setBidModalOpen(true);
       }
     });

@@ -24,6 +24,7 @@ import {
   usePrivyFiatOnramp,
 } from "@/hooks/wallet/usePrivyFiatOnramp";
 import { isTokenBidOrder } from "@/lib/seaport/orders/isTokenBidOrder";
+import { trackEvent } from "@/lib/analytics/googleAnalytics";
 
 export const MAX_ACTIVE_BIDS_PER_CARD = 3;
 const MARKET_FLOOR_RATIO = 0.9;
@@ -333,6 +334,14 @@ export function useTokenOffer(input: {
           chainId,
         });
         setLastOutcome("instant");
+        const purchasePrice = paid ?? askUsdc;
+        const purchaseFee = Math.round(purchasePrice * 0.05 * 100) / 100;
+        trackEvent("purchase_completed", {
+          card_id: String(tokenIdNorm),
+          price: purchasePrice,
+          fee: purchaseFee,
+          net_amount: Math.round(purchasePrice * 0.95 * 100) / 100,
+        });
         if (paid != null) onInstantBuyFillUsdc?.(paid);
         await invalidateAfter();
         onPurchaseFilled?.();
@@ -375,6 +384,10 @@ export function useTokenOffer(input: {
         oldOrderHash: isReplaceBid ? bidToReplace!.orderHash : undefined,
       });
       setLastOutcome("bid");
+      trackEvent("bid_submitted", {
+        card_id: String(tokenIdNorm),
+        bid_amount: priceUsdc,
+      });
       await invalidateAfter();
       onPlaced?.(result.order);
       setStep("success");

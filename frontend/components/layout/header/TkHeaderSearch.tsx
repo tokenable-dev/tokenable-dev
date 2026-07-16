@@ -19,6 +19,7 @@ import { useGnbMobile } from "@/hooks/layout/useGnbMobile";
 import { buildMarketsCollectionTitle } from "@/lib/markets/marketsCollectionTitle";
 import { toCardDisplayUppercase } from "@/lib/marketplace/collectionFullDetailsTitle";
 import { pickCollectionSummaryDisplayImageUrl } from "@/lib/marketplace/collectionDisplayImage";
+import { trackEvent } from "@/lib/analytics/googleAnalytics";
 
 const MIN_QUERY_LEN_FOR_KEY_MATCH = 4;
 const SEARCH_MAX_RESULTS = 64;
@@ -240,6 +241,7 @@ export function TkHeaderSearch({
   }, [desktopOpen, gnbMobile]);
 
   function navigate(c: MarketplaceCollectionSummary) {
+    trackEvent("search_performed", { query, results_count: filtered.length });
     router.push(`/marketplace/collections/${encodeURIComponent(c.collectionKey)}`);
     closeAll();
   }

@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import type { CollectionMarketSeries, RwaMetadata } from "@/lib/core";
+import { trackEvent } from "@/lib/analytics/googleAnalytics";
 import type { AssetRow } from "@/lib/portfolio/portfolioTypes";
 import { GatedSellLink } from "@/components/auth/GatedSellLink";
 import { TkTable, TkTag } from "@/components/ds";
@@ -144,11 +145,22 @@ export function PortfolioHoldingsSection({
               onSaveCostBasis={
                 onSaveCostBasis ? (usd) => onSaveCostBasis(row.tokenId, usd) : undefined
               }
-              onList={() => onChangeListing(row.tokenId)}
+              onList={() => {
+                trackEvent("list_clicked", {
+                  card_id: String(row.tokenId),
+                  current_price: row.currentPrice ?? undefined,
+                });
+                onChangeListing(row.tokenId);
+              }}
               onCancel={() =>
                 onCancelListing(row.tokenId, row.activeListingOrderHash!)
               }
-              onSellNow={() => onSellNow(row.tokenId)}
+              onSellNow={() => {
+                trackEvent("sell_now_clicked", {
+                  card_id: String(row.tokenId),
+                });
+                onSellNow(row.tokenId);
+              }}
             />
           );
         })}
@@ -307,11 +319,22 @@ export function PortfolioHoldingsSection({
                     <PortfolioHoldingsRowActions
                       isListed={isListed}
                       cancelling={cancellingListingTokenId === row.tokenId}
-                      onList={() => onChangeListing(row.tokenId)}
+                      onList={() => {
+                        trackEvent("list_clicked", {
+                          card_id: String(row.tokenId),
+                          current_price: row.currentPrice ?? undefined,
+                        });
+                        onChangeListing(row.tokenId);
+                      }}
                       onCancel={() =>
                         onCancelListing(row.tokenId, row.activeListingOrderHash!)
                       }
-                      onSellNow={() => onSellNow(row.tokenId)}
+                      onSellNow={() => {
+                        trackEvent("sell_now_clicked", {
+                          card_id: String(row.tokenId),
+                        });
+                        onSellNow(row.tokenId);
+                      }}
                     />
                   </div>
                 </td>

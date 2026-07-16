@@ -10,6 +10,7 @@ import {
   type OrderListItem,
   type PortfolioHoldingBatchItem,
 } from "@/lib/core";
+import { trackEvent } from "@/lib/analytics/googleAnalytics";
 
 export function usePortfolioHoldingActions(input: {
   address: string | undefined;
@@ -122,7 +123,7 @@ export function usePortfolioHoldingActions(input: {
   );
 
   const cancelListing = useCallback(
-    async (tokenId: number, orderHash: string) => {
+    async (tokenId: number, orderHash: string, priceUsd?: number) => {
       if (!address) return;
       setCancellingListingTokenId(tokenId);
       const qk = rq.ordersActive();
@@ -132,6 +133,10 @@ export function usePortfolioHoldingActions(input: {
       );
       try {
         await cancelOrder(orderHash, address);
+        trackEvent("listing_cancelled", {
+          card_id: String(tokenId),
+          listed_price: priceUsd,
+        });
         await refetchActiveOrders();
       } catch (err) {
         if (prev !== undefined) {

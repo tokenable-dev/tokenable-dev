@@ -24,7 +24,7 @@ export function MarketsCollectionGrid({
 }) {
   return (
     <div className="markets-grid">
-      {collections.map((collection) => {
+      {collections.map((collection, index) => {
         const displayImageUrl = pickCollectionSummaryDisplayImageUrl(collection);
         const snapshot = snapshotByKey.get(collectionKeyLower(collection));
         const isMock = isMarketsMockCollectionKey(collection.collectionKey);
@@ -41,6 +41,7 @@ export function MarketsCollectionGrid({
             marketChangePeriodLabel={
               isMock ? marketsMockChangePeriodLabel(snapshot?.marketChangeWindow) : undefined
             }
+            position={index}
             onBeforeNavigate={onBeforeNavigate}
           />
         );

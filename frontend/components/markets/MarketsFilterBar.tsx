@@ -20,6 +20,7 @@ import {
 } from "@/lib/market";
 import { useGnbMobile } from "@/hooks/layout/useGnbMobile";
 import { TkButton } from "@/components/ds";
+import { trackEvent } from "@/lib/analytics/googleAnalytics";
 
 const MARKETS_SORT_UI_IDS: MarketsSortId[] = [
   "pct_change_high",
@@ -123,6 +124,7 @@ function SortDropdown({
               aria-checked={selected}
               className={cn("markets-dd__item", selected && "markets-dd__item--sel")}
               onClick={() => {
+                trackEvent("filter_applied", { filter_type: "sort", filter_value: id });
                 onSortChange(id);
                 setOpen(false);
               }}
@@ -176,6 +178,7 @@ function PriceDropdown({
               aria-checked={selected}
               className={cn("markets-dd__item", selected && "markets-dd__item--sel")}
               onClick={() => {
+                trackEvent("filter_applied", { filter_type: "price", filter_value: opt.id });
                 onPriceFilterChange(opt.id);
                 setOpen(false);
               }}
@@ -231,6 +234,7 @@ function GradeFiltersDropdown({
               )}
               onClick={(e) => {
                 e.stopPropagation();
+                trackEvent("filter_applied", { filter_type: "grade", filter_value: grade });
                 onGradeToggle(grade);
               }}
             >
@@ -292,6 +296,24 @@ export function MarketsFilterBar({
   }, [drawerOpen, categoryFilter, sortId, priceFilter, gradeFilters]);
 
   function applyDrawer() {
+    if (draftCategory !== categoryFilter) {
+      trackEvent("filter_applied", { filter_type: "category", filter_value: draftCategory });
+    }
+    if (draftSort !== sortId) {
+      trackEvent("filter_applied", { filter_type: "sort", filter_value: draftSort });
+    }
+    if (draftPrice !== priceFilter) {
+      trackEvent("filter_applied", { filter_type: "price", filter_value: draftPrice });
+    }
+    const gradesChanged =
+      draftGrades.size !== gradeFilters.size ||
+      [...draftGrades].some((g) => !gradeFilters.has(g));
+    if (gradesChanged) {
+      trackEvent("filter_applied", {
+        filter_type: "grade",
+        filter_value: [...draftGrades].join(",") || "none",
+      });
+    }
     onCategoryChange(draftCategory);
     onSortChange(draftSort);
     onPriceFilterChange(draftPrice);
@@ -333,7 +355,10 @@ export function MarketsFilterBar({
               type="button"
               className={cn("markets-pchip", active && "markets-pchip--active")}
               aria-pressed={active}
-              onClick={() => onCategoryChange(f.id)}
+              onClick={() => {
+                trackEvent("filter_applied", { filter_type: "category", filter_value: f.id });
+                onCategoryChange(f.id);
+              }}
             >
               {categoryChipLabel(f)}
             </button>

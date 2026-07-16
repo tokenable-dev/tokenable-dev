@@ -33,6 +33,7 @@ import type {
   ListSuccessMeta,
 } from "@/lib/seaport/listing/listRwaModalTypes";
 import { useSeaportOrderSigner } from "@/lib/privy";
+import { trackEvent } from "@/lib/analytics/googleAnalytics";
 
 export function useListRwaModal({
   tokenId,
@@ -255,7 +256,19 @@ export function useListRwaModal({
           onStartMatching: () => setStep("matching"),
         });
         if (meta.matched) {
+          const salePrice = parseFloat(price.trim());
+          trackEvent("sell_now_completed", {
+            card_id: String(tokenId),
+            price: salePrice,
+            fee: Math.round(salePrice * 0.05 * 100) / 100,
+            net_amount: Math.round(salePrice * 0.95 * 100) / 100,
+          });
           onMatchedSale?.();
+        } else {
+          trackEvent("listing_submitted", {
+            card_id: String(tokenId),
+            asking_price: parseFloat(price.trim()),
+          });
         }
 
         onListed?.(tokenId);
@@ -322,7 +335,19 @@ export function useListRwaModal({
         onStartMatching: () => setStep("matching"),
       });
       if (meta.matched) {
+        const salePrice = parseFloat(price.trim());
+        trackEvent("sell_now_completed", {
+          card_id: String(tokenId),
+          price: salePrice,
+          fee: Math.round(salePrice * 0.05 * 100) / 100,
+          net_amount: Math.round(salePrice * 0.95 * 100) / 100,
+        });
         onMatchedSale?.();
+      } else {
+        trackEvent("listing_submitted", {
+          card_id: String(tokenId),
+          asking_price: parseFloat(price.trim()),
+        });
       }
 
       onListed?.(tokenId);
