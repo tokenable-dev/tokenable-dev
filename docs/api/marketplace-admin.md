@@ -159,6 +159,8 @@ Full deposit/redeem audit history for a physical asset (PSA cert).
 
 **Base:** `/api/marketplace/admin/users`
 
+**Admin UI:** `/marketplace/admin/users` — search and filters (All, Privy, With wallet, KYC, Pre-Privy), compact stats, and a **Privy & Add funds** panel (MoonPay readiness via `GET /api/privy/apps/settings`). Expanded user rows show a support snapshot (Privy ID, primary wallet + on-ramp hint, KYC), wallet admin actions, and optional watchlist cleanup. Per-user MoonPay payment history is not stored in Tokenable — use Privy Dashboard → Users.
+
 End-user auth is **Privy-only**. Admin user tools reflect Privy linked accounts (`user_auth_providers`, `user_wallets`).
 
 | Method | Path | Description |

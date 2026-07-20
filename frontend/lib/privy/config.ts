@@ -32,6 +32,7 @@ export {
   resolveFundingTargetChainId,
   resolvePrivyFundingEnvironment,
   shouldUseMoonPayOnTestnet,
+  shouldSkipFundingReadinessCheck,
   usesMoonPayFunding,
 } from "./funding";
 

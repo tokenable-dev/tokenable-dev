@@ -6,12 +6,15 @@ import { usePrivyFundingStatus } from "@/hooks/wallet/usePrivyFundingStatus";
 import { isPrivyEnabled } from "@/lib/privy/config";
 import {
   formatPrivyFundingError,
+  parseCaip2EvmChainId,
   resolveDefaultFundingAmount,
   resolveFundingTargetCaip2,
   resolvePrivyFundingEnvironment,
+  shouldSkipFundingReadinessCheck,
   TOKENABLE_FUNDING_ASSET,
 } from "@/lib/privy/funding";
 import { normalizeWalletAddress } from "@/lib/auth/wallets";
+import { trackEvent } from "@/lib/analytics/googleAnalytics";
 
 export function isPrivyFiatOnrampFeatureEnabled(): boolean {
   return isPrivyEnabled();
@@ -31,9 +34,12 @@ export function usePrivyFiatOnramp(options?: { onComplete?: () => void }) {
 
   const fundingTargetCaip2 = resolveFundingTargetCaip2();
   const environment = resolvePrivyFundingEnvironment();
+  const skipReadinessCheck = shouldSkipFundingReadinessCheck();
 
   const isLoadingConfig = fundingStatus.isLoading;
-  const isConfigured = fundingStatus.ready === true && fundingStatus.chainAligned !== false;
+  const isConfigured =
+    skipReadinessCheck ||
+    (fundingStatus.ready === true && fundingStatus.chainAligned !== false);
 
   const canStart =
     isPrivyFiatOnrampFeatureEnabled() &&
@@ -63,7 +69,7 @@ export function usePrivyFiatOnramp(options?: { onComplete?: () => void }) {
         setLastError("Checking funding configuration…");
         return false;
       }
-      if (fundingStatus.ready === false) {
+      if (!skipReadinessCheck && fundingStatus.ready === false) {
         const detail = fundingStatus.checklist.slice(0, 2).join(" ");
         setLastError(
           detail ||
@@ -75,24 +81,32 @@ export function usePrivyFiatOnramp(options?: { onComplete?: () => void }) {
         );
         return false;
       }
-      if (fundingStatus.chainAligned === false) {
+      if (!skipReadinessCheck && fundingStatus.chainAligned === false) {
         setLastError(
-          "Privy Dashboard funding network does not match this app. Set Funding token to Ethereum + USDC.",
+          "Privy Dashboard funding network does not match this app. Set Funding token to Ethereum + USDC (mainnet in Dashboard is OK — app sends to Sepolia via env).",
         );
         return false;
       }
 
       setInFlight(true);
+      const defaultAmount = resolveDefaultFundingAmount();
       try {
         await startFiatOnramp({
           destination: {
+            // MoonPay via Privy expects the asset symbol here — contract address breaks quotes (Stripe path).
             asset: TOKENABLE_FUNDING_ASSET,
             chain: fundingTargetCaip2,
             address: normalized,
           },
           source: { assets: ["usd"], defaultAsset: "usd" },
           environment,
-          defaultAmount: resolveDefaultFundingAmount(),
+          defaultAmount,
+        });
+        trackEvent("fiat_onramp_started", {
+          chain_id: parseCaip2EvmChainId(fundingTargetCaip2) ?? undefined,
+          price: Number(defaultAmount),
+          currency: "USD",
+          provider: "moonpay",
         });
         onComplete?.();
         return true;
@@ -113,6 +127,7 @@ export function usePrivyFiatOnramp(options?: { onComplete?: () => void }) {
       fundingStatus.checklist,
       fundingTargetCaip2,
       onComplete,
+      skipReadinessCheck,
       startFiatOnramp,
     ],
   );
@@ -125,6 +140,7 @@ export function usePrivyFiatOnramp(options?: { onComplete?: () => void }) {
     canStart,
     isConfigured,
     isLoadingConfig,
+    skipReadinessCheck,
     fundingStatus,
     fundingTargetCaip2,
     environment,
