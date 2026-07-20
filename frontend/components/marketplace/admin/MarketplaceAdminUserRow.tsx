@@ -19,13 +19,11 @@ import {
   ADMIN_INPUT,
   ADMIN_INPUT_MONO,
   ADMIN_LABEL,
+  ADMIN_LINK_SM,
   ADMIN_PANEL_DANGER_DARK_COMPACT,
-  ADMIN_SEGMENT,
-  ADMIN_SEGMENT_BTN,
-  ADMIN_SEGMENT_BTN_ACTIVE,
+  ADMIN_TEXT_META,
+  ADMIN_TEXT_SECONDARY,
 } from "./adminUi";
-
-type DetailTab = "overview" | "auth" | "wallets" | "watchlist";
 
 type ActionInput = {
   userId: string;
@@ -34,10 +32,17 @@ type ActionInput = {
   collectionKey?: string;
 };
 
+const PRIVY_USERS_DASHBOARD_URL = "https://dashboard.privy.io/apps?page=users";
+
 function formatDate(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
   return d.toLocaleString();
+}
+
+function truncateAddress(address: string): string {
+  if (address.length <= 14) return address;
+  return `${address.slice(0, 6)}…${address.slice(-4)}`;
 }
 
 function kycBadgeClass(status: AdminUserSummary["kycStatus"]): string {
@@ -53,12 +58,17 @@ function kycBadgeClass(status: AdminUserSummary["kycStatus"]): string {
   return "bg-zinc-100 text-zinc-600 ring-1 ring-zinc-200";
 }
 
-const DETAIL_TABS: { id: DetailTab; label: string }[] = [
-  { id: "overview", label: "Overview" },
-  { id: "auth", label: "Privy auth" },
-  { id: "wallets", label: "Wallets" },
-  { id: "watchlist", label: "Watchlist" },
-];
+function fundingWalletHint(
+  walletKind: "embedded" | "external" | undefined,
+): string {
+  if (walletKind === "embedded") {
+    return "Add funds (MoonPay) delivers USDC to this embedded wallet.";
+  }
+  if (walletKind === "external") {
+    return "Wallet-login user — Add funds targets this external primary wallet.";
+  }
+  return "No wallet linked — user cannot trade or receive on-ramp USDC until a wallet is linked.";
+}
 
 export function MarketplaceAdminUserRow({
   row,
@@ -80,7 +90,6 @@ export function MarketplaceAdminUserRow({
   const detailQuery = useMarketplaceAdminUserDetail(row.id, expanded);
   const detail = detailQuery.data;
 
-  const [tab, setTab] = useState<DetailTab>("overview");
   const [nameInput, setNameInput] = useState(row.name ?? "");
   const [walletInput, setWalletInput] = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState("");
@@ -90,7 +99,6 @@ export function MarketplaceAdminUserRow({
     setNameInput(row.name ?? "");
     setActionError(null);
     if (!expanded) {
-      setTab("overview");
       setWalletInput("");
       setDeleteConfirm("");
     }
@@ -106,6 +114,8 @@ export function MarketplaceAdminUserRow({
   };
 
   const primaryWallet = detail?.wallets.find((w) => w.isPrimary) ?? detail?.wallets[0];
+  const primaryAddress =
+    primaryWallet?.walletAddress ?? detail?.walletAddress ?? row.walletAddress;
 
   return (
     <article className={ADMIN_ARTICLE}>
@@ -128,31 +138,25 @@ export function MarketplaceAdminUserRow({
             >
               {formatKycStatus(row.kycStatus)}
             </span>
-            {row.privyId ? (
-              <span className="rounded-md bg-indigo-50 px-2 py-0.5 text-[10px] font-medium text-indigo-700 ring-1 ring-indigo-200">
-                Privy linked
-              </span>
-            ) : (
-              <span className="rounded-md bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-800 ring-1 ring-amber-200">
-                No Privy ID
-              </span>
-            )}
             {row.walletCount > 0 ? (
               <span className="rounded-md bg-zinc-100 px-2 py-0.5 text-[10px] font-medium text-zinc-600 ring-1 ring-zinc-200">
                 {row.walletCount} wallet{row.walletCount === 1 ? "" : "s"}
               </span>
-            ) : null}
+            ) : (
+              <span className="rounded-md bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-800 ring-1 ring-amber-200">
+                No wallet
+              </span>
+            )}
           </div>
           {row.walletAddress ? (
             <p className="mt-2 font-mono text-[11px] text-zinc-700">
-              Primary {row.walletAddress}
+              {truncateAddress(row.walletAddress)}
             </p>
           ) : null}
-          <p className="mt-1 font-mono text-[10px] text-zinc-500">{row.id}</p>
-          <p className="mt-0.5 text-xs text-zinc-600">Joined {formatDate(row.createdAt)}</p>
+          <p className="mt-1 text-xs text-zinc-600">Joined {formatDate(row.createdAt)}</p>
         </div>
         <button type="button" onClick={onToggle} className={ADMIN_BTN_SECONDARY}>
-          {expanded ? "Collapse" : "Manage"}
+          {expanded ? "Collapse" : "Details"}
         </button>
       </div>
 
@@ -168,277 +172,212 @@ export function MarketplaceAdminUserRow({
             </p>
           ) : detail ? (
             <>
-              <div className={`flex flex-wrap gap-1 ${ADMIN_SEGMENT}`}>
-                {DETAIL_TABS.map((t) => (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => setTab(t.id)}
-                    className={
-                      tab === t.id ? ADMIN_SEGMENT_BTN_ACTIVE : ADMIN_SEGMENT_BTN
-                    }
-                  >
-                    {t.label}
-                    {t.id === "wallets" && detail.wallets.length > 0
-                      ? ` (${detail.wallets.length})`
-                      : ""}
-                    {t.id === "watchlist" && detail.watchlistKeys.length > 0
-                      ? ` (${detail.watchlistKeys.length})`
-                      : ""}
-                  </button>
-                ))}
-              </div>
+              <section className="rounded-lg border border-zinc-200 bg-zinc-50/80 p-4">
+                <h3 className="text-sm font-semibold text-zinc-900">Support snapshot</h3>
+                <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
+                  <div>
+                    <dt className={ADMIN_TEXT_META}>Privy ID</dt>
+                    <dd className="break-all font-mono text-xs text-zinc-800">
+                      {detail.privyId ?? "—"}
+                    </dd>
+                    {detail.privyId ? (
+                      <a
+                        href={PRIVY_USERS_DASHBOARD_URL}
+                        target="_blank"
+                        rel="noreferrer"
+                        className={`mt-1 inline-block ${ADMIN_LINK_SM}`}
+                      >
+                        Open in Privy Dashboard
+                      </a>
+                    ) : null}
+                  </div>
+                  <div>
+                    <dt className={ADMIN_TEXT_META}>Primary wallet</dt>
+                    <dd className="break-all font-mono text-xs text-zinc-800">
+                      {primaryAddress ?? "—"}
+                      {primaryWallet?.walletKind === "embedded" ? " · embedded" : ""}
+                      {primaryWallet?.walletKind === "external" ? " · external" : ""}
+                    </dd>
+                    <p className={`mt-1 text-xs ${ADMIN_TEXT_SECONDARY}`}>
+                      {fundingWalletHint(primaryWallet?.walletKind)}
+                    </p>
+                  </div>
+                  <div>
+                    <dt className={ADMIN_TEXT_META}>Auth</dt>
+                    <dd className="text-zinc-800">
+                      {formatPrivyAuthMethod(detail.privyAuthMethod)}
+                      {detail.authProviders.length > 0
+                        ? ` · ${detail.authProviders.map((p) => formatAuthProviderLabel(p.providerType)).join(", ")}`
+                        : ""}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className={ADMIN_TEXT_META}>KYC / email</dt>
+                    <dd className="text-zinc-800">
+                      {formatKycStatus(detail.kycStatus)}
+                      {detail.kycVerifiedAt
+                        ? ` · ${formatDate(detail.kycVerifiedAt)}`
+                        : ""}
+                      {" · "}
+                      {detail.emailVerified ? "Email verified" : "Email not verified"}
+                    </dd>
+                  </div>
+                </dl>
+              </section>
 
-              {tab === "overview" ? (
-                <section className="space-y-4">
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div>
-                      <label className={ADMIN_LABEL}>Display name</label>
-                      <input
-                        className={ADMIN_INPUT}
-                        value={nameInput}
-                        onChange={(e) => setNameInput(e.target.value)}
-                        disabled={busy}
-                      />
-                    </div>
-                    <div className="flex items-end gap-2">
+              <section className="space-y-3">
+                <h3 className="text-sm font-semibold text-zinc-900">Profile</h3>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className={ADMIN_LABEL}>Display name</label>
+                    <input
+                      className={ADMIN_INPUT}
+                      value={nameInput}
+                      onChange={(e) => setNameInput(e.target.value)}
+                      disabled={busy}
+                    />
+                  </div>
+                  <div className="flex flex-wrap items-end gap-2">
+                    <button
+                      type="button"
+                      className={ADMIN_BTN_PRIMARY}
+                      disabled={busy}
+                      onClick={() => void onPatchName(row.id, nameInput)}
+                    >
+                      Save name
+                    </button>
+                    {!detail.emailVerified ? (
                       <button
                         type="button"
-                        className={ADMIN_BTN_PRIMARY}
+                        className={ADMIN_BTN_SECONDARY}
                         disabled={busy}
-                        onClick={() => void onPatchName(row.id, nameInput)}
+                        onClick={() =>
+                          void runAction({ userId: row.id, action: "force-verify" })
+                        }
                       >
-                        Save name
+                        Mark email verified
                       </button>
-                      {!detail.emailVerified ? (
+                    ) : null}
+                  </div>
+                </div>
+                <p className={`font-mono text-[10px] ${ADMIN_TEXT_META}`}>{detail.id}</p>
+                {detail.lastPrivySyncAt ? (
+                  <p className={`text-xs ${ADMIN_TEXT_SECONDARY}`}>
+                    Last Privy sync {formatDate(detail.lastPrivySyncAt)}
+                  </p>
+                ) : null}
+              </section>
+
+              <section>
+                <h3 className="text-sm font-semibold text-zinc-900">
+                  Wallets
+                  {detail.wallets.length > 0 ? ` (${detail.wallets.length})` : ""}
+                </h3>
+                {detail.wallets.length === 0 ? (
+                  <p className={`mt-2 text-sm ${ADMIN_TEXT_SECONDARY}`}>No linked wallets.</p>
+                ) : (
+                  <ul className="mt-2 space-y-2">
+                    {detail.wallets.map((w) => (
+                      <li
+                        key={w.id}
+                        className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate font-mono text-xs text-zinc-800">
+                            {w.walletAddress}
+                            {w.isPrimary ? (
+                              <span className="ml-2 text-[10px] uppercase text-amber-600">
+                                primary
+                              </span>
+                            ) : null}
+                            <span className="ml-2 text-[10px] uppercase text-zinc-500">
+                              {w.walletKind}
+                            </span>
+                          </p>
+                        </div>
                         <button
                           type="button"
                           className={ADMIN_BTN_SECONDARY}
                           disabled={busy}
                           onClick={() =>
-                            void runAction({ userId: row.id, action: "force-verify" })
+                            void runAction({
+                              userId: row.id,
+                              action: "unlink-wallet",
+                              address: w.walletAddress,
+                            })
                           }
                         >
-                          Mark email verified
+                          Unlink
                         </button>
-                      ) : null}
-                    </div>
-                  </div>
-                  <dl className="grid gap-3 text-sm sm:grid-cols-2">
-                    <div>
-                      <dt className="text-zinc-600">Privy ID</dt>
-                      <dd className="break-all font-mono text-xs text-zinc-800">
-                        {detail.privyId ?? "—"}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-zinc-600">Auth method</dt>
-                      <dd className="text-zinc-800">
-                        {formatPrivyAuthMethod(detail.privyAuthMethod)}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-zinc-600">Email verified</dt>
-                      <dd className="text-zinc-800">
-                        {detail.emailVerified ? "Yes" : "No"}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-zinc-600">Last Privy sync</dt>
-                      <dd className="text-zinc-800">
-                        {detail.lastPrivySyncAt
-                          ? formatDate(detail.lastPrivySyncAt)
-                          : "—"}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-zinc-600">KYC</dt>
-                      <dd className="text-zinc-800">
-                        {formatKycStatus(detail.kycStatus)}
-                        {detail.kycVerifiedAt
-                          ? ` · ${formatDate(detail.kycVerifiedAt)}`
-                          : ""}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-zinc-600">Primary wallet</dt>
-                      <dd className="break-all font-mono text-xs text-zinc-800">
-                        {primaryWallet?.walletAddress ?? detail.walletAddress ?? "—"}
-                        {primaryWallet?.walletKind === "embedded" ? " (embedded)" : ""}
-                        {primaryWallet?.walletKind === "external" ? " (external)" : ""}
-                      </dd>
-                    </div>
-                  </dl>
-                </section>
-              ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <input
+                    className={`${ADMIN_INPUT_MONO} min-w-[240px] flex-1`}
+                    placeholder="0x… admin override link"
+                    value={walletInput}
+                    onChange={(e) => setWalletInput(e.target.value)}
+                    disabled={busy}
+                  />
+                  <button
+                    type="button"
+                    className={ADMIN_BTN_SECONDARY}
+                    disabled={busy || !walletInput.trim()}
+                    onClick={() =>
+                      void runAction({
+                        userId: row.id,
+                        action: "link-wallet",
+                        address: walletInput,
+                      })
+                    }
+                  >
+                    Link wallet
+                  </button>
+                </div>
+              </section>
 
-              {tab === "auth" ? (
-                <section>
-                  <p className="text-sm text-zinc-600">
-                    Linked Privy authentication methods synced from{" "}
-                    <code className="text-zinc-800">user_auth_providers</code>.
-                  </p>
-                  {detail.authProviders.length === 0 ? (
-                    <p className="mt-3 text-sm text-zinc-700">No providers recorded.</p>
-                  ) : (
-                    <ul className="mt-3 space-y-2">
-                      {detail.authProviders.map((p) => (
-                        <li
-                          key={p.id}
-                          className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm"
+              {detail.watchlistKeys.length > 0 ? (
+                <details className="rounded-lg border border-zinc-200 px-3 py-2">
+                  <summary className="cursor-pointer text-sm font-medium text-zinc-800">
+                    Watchlist ({detail.watchlistKeys.length})
+                  </summary>
+                  <ul className="mt-2 max-h-40 space-y-1 overflow-y-auto">
+                    {detail.watchlistKeys.map((key) => (
+                      <li
+                        key={key}
+                        className="flex items-center justify-between gap-2 rounded-md border border-zinc-200 px-2 py-1.5"
+                      >
+                        <span className="truncate font-mono text-[11px] text-zinc-700">
+                          {key}
+                        </span>
+                        <button
+                          type="button"
+                          className="shrink-0 text-[11px] font-semibold text-red-600 hover:text-red-700"
+                          disabled={busy}
+                          onClick={() =>
+                            void runAction({
+                              userId: row.id,
+                              action: "remove-watchlist",
+                              collectionKey: key,
+                            })
+                          }
                         >
-                          <p className="font-medium text-zinc-900">
-                            {formatAuthProviderLabel(p.providerType)}
-                            {p.isVerified ? (
-                              <span className="ml-2 text-[10px] uppercase text-emerald-600">
-                                verified
-                              </span>
-                            ) : null}
-                          </p>
-                          <p className="mt-0.5 break-all font-mono text-[11px] text-zinc-600">
-                            {p.providerSubject}
-                          </p>
-                          {p.email ? (
-                            <p className="mt-0.5 text-xs text-zinc-600">{p.email}</p>
-                          ) : null}
-                          <p className="mt-0.5 text-[10px] text-zinc-500">
-                            Linked {formatDate(p.linkedAt)}
-                          </p>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </section>
-              ) : null}
-
-              {tab === "wallets" ? (
-                <section>
-                  <p className="text-sm text-zinc-600">
-                    Embedded Privy wallet is the signing primary for email/social users.
-                    External wallets (MetaMask) are primary for wallet-first sign-ups.
-                  </p>
-                  {detail.wallets.length === 0 ? (
-                    <p className="mt-3 text-sm text-zinc-700">No linked wallets.</p>
-                  ) : (
-                    <ul className="mt-3 space-y-2">
-                      {detail.wallets.map((w) => (
-                        <li
-                          key={w.id}
-                          className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2"
-                        >
-                          <div>
-                            <p className="font-mono text-xs text-zinc-800">
-                              {w.walletAddress}
-                              {w.isPrimary ? (
-                                <span className="ml-2 text-[10px] uppercase text-amber-600">
-                                  primary
-                                </span>
-                              ) : null}
-                              {w.walletKind === "embedded" ? (
-                                <span className="ml-2 text-[10px] uppercase text-indigo-600">
-                                  embedded
-                                </span>
-                              ) : (
-                                <span className="ml-2 text-[10px] uppercase text-violet-600">
-                                  external
-                                </span>
-                              )}
-                            </p>
-                            <p className="text-[10px] text-zinc-600">
-                              {w.chainType}
-                              {w.walletClient ? ` · ${w.walletClient}` : ""}
-                              {w.connectorType ? ` · ${w.connectorType}` : ""}
-                              {` · ${w.source}`}
-                            </p>
-                          </div>
-                          <button
-                            type="button"
-                            className={ADMIN_BTN_SECONDARY}
-                            disabled={busy}
-                            onClick={() =>
-                              void runAction({
-                                userId: row.id,
-                                action: "unlink-wallet",
-                                address: w.walletAddress,
-                              })
-                            }
-                          >
-                            Unlink
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    <input
-                      className={`${ADMIN_INPUT_MONO} min-w-[240px] flex-1`}
-                      placeholder="0x… admin override link"
-                      value={walletInput}
-                      onChange={(e) => setWalletInput(e.target.value)}
-                      disabled={busy}
-                    />
-                    <button
-                      type="button"
-                      className={ADMIN_BTN_SECONDARY}
-                      disabled={busy || !walletInput.trim()}
-                      onClick={() =>
-                        void runAction({
-                          userId: row.id,
-                          action: "link-wallet",
-                          address: walletInput,
-                        })
-                      }
-                    >
-                      Link wallet
-                    </button>
-                  </div>
-                </section>
-              ) : null}
-
-              {tab === "watchlist" ? (
-                <section>
-                  {detail.watchlistKeys.length === 0 ? (
-                    <p className="text-sm text-zinc-700">Empty watchlist.</p>
-                  ) : (
-                    <ul className="max-h-48 space-y-1 overflow-y-auto">
-                      {detail.watchlistKeys.map((key) => (
-                        <li
-                          key={key}
-                          className="flex items-center justify-between gap-2 rounded-md border border-zinc-200 px-2 py-1.5"
-                        >
-                          <span className="truncate font-mono text-[11px] text-zinc-700">
-                            {key}
-                          </span>
-                          <button
-                            type="button"
-                            className="shrink-0 text-[11px] font-semibold text-red-600 hover:text-red-700"
-                            disabled={busy}
-                            onClick={() =>
-                              void runAction({
-                                userId: row.id,
-                                action: "remove-watchlist",
-                                collectionKey: key,
-                              })
-                            }
-                          >
-                            Remove
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </section>
+                          Remove
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </details>
               ) : null}
 
               <details className={ADMIN_PANEL_DANGER_DARK_COMPACT}>
-                <summary className={ADMIN_DETAILS_DANGER_SUMMARY}>
-                  Danger zone
-                </summary>
+                <summary className={ADMIN_DETAILS_DANGER_SUMMARY}>Delete account</summary>
                 <div className="mt-3 space-y-2">
                   <p className="text-xs text-zinc-600">
-                    Type <span className="font-mono text-zinc-700">DELETE</span> to
-                    permanently remove this Privy account record (wallets, watchlist,
-                    tokens).
+                    Type <span className="font-mono text-zinc-700">DELETE</span> to permanently
+                    remove this user (wallets, watchlist, tokens).
                   </p>
                   <input
                     className={ADMIN_INPUT}

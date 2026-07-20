@@ -40,6 +40,18 @@ export function shouldUseMoonPayOnTestnet(): boolean {
   return process.env.NEXT_PUBLIC_PRIVY_FUNDING_USE_ONRAMP_ON_TESTNET === "true";
 }
 
+/**
+ * Dev-only: attempt MoonPay checkout even when `fundingReadiness.ready` is false.
+ * Use when Dashboard is configured but the readiness API lags or MoonPay keys are pending.
+ * Only applies with `NEXT_PUBLIC_PRIVY_FUNDING_ENVIRONMENT=sandbox`.
+ */
+export function shouldSkipFundingReadinessCheck(): boolean {
+  if (process.env.NEXT_PUBLIC_PRIVY_FUNDING_SKIP_READINESS_CHECK !== "true") {
+    return false;
+  }
+  return resolvePrivyFundingEnvironment() === "sandbox";
+}
+
 /** Chain id passed to `useFiatOnramp` destination (defaults to Sepolia for dev). */
 export function resolveFundingTargetChainId(): SupportedChainId {
   const raw = process.env.NEXT_PUBLIC_PRIVY_FUNDING_CHAIN_ID?.trim();

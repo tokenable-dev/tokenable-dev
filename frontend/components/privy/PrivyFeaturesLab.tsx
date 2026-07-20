@@ -21,6 +21,8 @@ import {
   chainIdToCaip2,
   resolveDefaultFundingAmount,
   resolveFundingTargetChainId,
+  resolvePrivyFundingEnvironment,
+  shouldSkipFundingReadinessCheck,
 } from "@/lib/privy/funding";
 import { getChainDefinition } from "@/lib/chains";
 import { usePrivyFundingStatus } from "@/hooks/wallet/usePrivyFundingStatus";
@@ -77,12 +79,15 @@ export function PrivyFeaturesLab() {
   const tokenableUser = useAuthStore((s) => s.user);
   const fundingTargetChainId = resolveFundingTargetChainId();
   const fundingTargetCaip2 = chainIdToCaip2(fundingTargetChainId);
+  const fundingEnvironment = resolvePrivyFundingEnvironment();
+  const skipReadinessCheck = shouldSkipFundingReadinessCheck();
   const fundingStatus = usePrivyFundingStatus();
   const {
     startFunding,
     inFlight: onrampInFlight,
     lastError: onrampError,
     canStart: canStartOnramp,
+    skipReadinessCheck: onrampSkipReadiness,
   } = usePrivyFiatOnramp();
   const [catalog, setCatalog] = useState<CatalogResponse | null>(null);
   const [catalogError, setCatalogError] = useState<string | null>(null);
@@ -161,10 +166,81 @@ export function PrivyFeaturesLab() {
       </FeatureRow>
 
       <FeatureRow
+        title="Funding readiness (server)"
+        hook="GET /api/privy/apps/settings"
+        status={
+          fundingStatus.isLoading
+            ? "loading"
+            : fundingStatus.ready
+              ? "ready"
+              : skipReadinessCheck
+                ? "bypass (sandbox)"
+                : "not ready"
+        }
+        note="Dashboard shows mainnet chains only — app sends to Sepolia via env. Sandbox validates checkout UI, not Sepolia USDC delivery."
+      >
+        <dl className="grid gap-1 text-xs text-gray-400">
+          <div>
+            <dt className="inline text-gray-500">Environment: </dt>
+            <dd className="inline font-mono text-gray-300">{fundingEnvironment}</dd>
+          </div>
+          <div>
+            <dt className="inline text-gray-500">Target chain: </dt>
+            <dd className="inline font-mono text-gray-300">
+              {fundingTargetCaip2} ({fundingTargetChainId})
+            </dd>
+          </div>
+          <div>
+            <dt className="inline text-gray-500">Dashboard chain: </dt>
+            <dd className="inline font-mono text-gray-300">
+              {fundingStatus.defaultRecommendedChain ?? "—"}
+            </dd>
+          </div>
+          <div>
+            <dt className="inline text-gray-500">MoonPay: </dt>
+            <dd className="inline text-gray-300">
+              {fundingStatus.moonpayEnabled == null
+                ? "—"
+                : fundingStatus.moonpayEnabled
+                  ? "enabled"
+                  : "off"}
+            </dd>
+          </div>
+          <div>
+            <dt className="inline text-gray-500">Skip readiness check: </dt>
+            <dd className="inline text-gray-300">
+              {skipReadinessCheck || onrampSkipReadiness ? "yes (sandbox dev)" : "no"}
+            </dd>
+          </div>
+        </dl>
+        {fundingStatus.error ? (
+          <p className="mt-2 text-xs text-red-300/90">
+            Settings API failed — pass site access gate, then refresh.{" "}
+            {fundingStatus.error instanceof Error ? fundingStatus.error.message : String(fundingStatus.error)}
+          </p>
+        ) : null}
+        {!fundingStatus.isLoading && fundingStatus.ready === false && !skipReadinessCheck ? (
+          <ul className="mt-2 list-inside list-disc text-xs text-amber-300/90">
+            {fundingStatus.checklist.slice(0, 4).map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        ) : null}
+        <a
+          href={fundingStatus.dashboardUrl}
+          className="mt-3 inline-block text-xs text-indigo-400 hover:underline"
+          target="_blank"
+          rel="noreferrer"
+        >
+          Open Privy Account Funding →
+        </a>
+      </FeatureRow>
+
+      <FeatureRow
         title="Fiat on-ramp — MoonPay (card · Apple Pay · Google Pay)"
         hook="useFiatOnramp → fund()"
         status="sepolia-sandbox"
-        note="Pay test: Sepolia + MoonPay sandbox. Check fundingReadiness via GET /api/privy/apps/settings."
+        note="Pay test: Sepolia destination + MoonPay sandbox. Apple/Google Pay usually need HTTPS staging."
       >
         <button
           type="button"
@@ -176,15 +252,15 @@ export function PrivyFeaturesLab() {
         </button>
         {onrampError ? (
           <p className="mt-2 text-xs text-red-300/90">{onrampError}</p>
-        ) : fundingStatus.chainAligned === false ? (
+        ) : fundingStatus.chainAligned === false && !skipReadinessCheck ? (
           <p className="mt-2 text-xs text-amber-300/90">
-            Dashboard default chain is {fundingStatus.defaultRecommendedChain ?? "unset"} — set
-            Sepolia + USDC or Ethereum + USDC in{" "}
+            Dashboard default chain is {fundingStatus.defaultRecommendedChain ?? "unset"} — use{" "}
+            <strong>Ethereum + USDC</strong> in Dashboard (mainnet is OK). App sends to Sepolia via env.{" "}
             <a href={fundingStatus.dashboardUrl} className="underline" target="_blank" rel="noreferrer">
               Account Funding
             </a>
           </p>
-        ) : fundingStatus.ready === false && !canStartOnramp ? (
+        ) : fundingStatus.ready === false && !canStartOnramp && !skipReadinessCheck ? (
           <p className="mt-2 text-xs text-amber-300/90">
             MoonPay not ready —{" "}
             <a href={fundingStatus.dashboardUrl} className="underline" target="_blank" rel="noreferrer">
@@ -204,8 +280,8 @@ export function PrivyFeaturesLab() {
           disabled={
             !authenticated ||
             !primaryWallet ||
-            fundingStatus.ready === false ||
-            fundingStatus.chainAligned === false
+            (!skipReadinessCheck &&
+              (fundingStatus.ready === false || fundingStatus.chainAligned === false))
           }
           onClick={() => {
             const chain = getChainDefinition(fundingTargetChainId).viemChain;
