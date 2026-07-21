@@ -7,6 +7,7 @@ import { User } from '../user/entities/user.entity';
 import { UserService } from '../user/user.service';
 import { RwaChainWriterService } from '../blockchain/rwa-chain-writer.service';
 import { ChainConfigService } from '../blockchain/chain-config.service';
+import { assertKycApprovedForCustody } from '../kyc/utils/kyc-gate.util';
 import { VaultService } from '../vault/vault.service';
 import { MintRwaDto } from './dto/mint-rwa.dto';
 
@@ -34,6 +35,8 @@ export class RwaMintService {
   ) {}
 
   async mintForUser(user: User, dto: MintRwaDto): Promise<MintRwaResult> {
+    assertKycApprovedForCustody(user);
+
     const recipient = dto.recipientAddress.trim().toLowerCase();
 
     // Ensure the recipient wallet is linked to this Tokenable account.

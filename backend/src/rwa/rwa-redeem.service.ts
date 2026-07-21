@@ -3,6 +3,7 @@ import { User } from '../user/entities/user.entity';
 import { UserService } from '../user/user.service';
 import { BlockchainService } from '../blockchain/blockchain.service';
 import { ChainConfigService } from '../blockchain/chain-config.service';
+import { assertKycApprovedForCustody } from '../kyc/utils/kyc-gate.util';
 import { VaultService } from '../vault/vault.service';
 import { RedeemRequestDto } from './dto/redeem-request.dto';
 
@@ -24,6 +25,8 @@ export class RwaRedeemService {
   ) {}
 
   async requestRedemption(user: User, dto: RedeemRequestDto) {
+    assertKycApprovedForCustody(user);
+
     const tokenId = Math.floor(Number(dto.tokenId));
     const onChainOwner = await this.blockchain.getRwaTokenOwner(tokenId);
 
