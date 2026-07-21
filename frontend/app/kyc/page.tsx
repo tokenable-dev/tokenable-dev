@@ -105,8 +105,10 @@ export default function KycPage() {
 
   if (!initialized || loading || !user) {
     return (
-      <main className="tk-page tk-page--narrow">
-        <p className="tk-muted">Loading…</p>
+      <main className="kyc-page">
+        <div className="kyc-page__shell">
+          <p className="tk-muted">Loading…</p>
+        </div>
       </main>
     );
   }
@@ -114,80 +116,94 @@ export default function KycPage() {
   const approved = status?.status === "approved";
   const rejected = status?.status === "rejected";
   const pending = status?.status === "pending";
+  const sdkActive = Boolean(accessToken) && !approved;
 
   return (
-    <main className="tk-page tk-page--narrow">
-      <header className="tk-page__header">
-        <h1 className="tk-page__title">Verify your identity</h1>
-        <p className="tk-page__lead">
-          We need a quick identity check before you can ship cards to the vault or redeem a
-          physical card — ID (passport or driver’s license), a liveness selfie, usually 1–2
-          minutes.
-        </p>
-      </header>
+    <main className="kyc-page">
+      <div className={`kyc-page__shell${sdkActive ? " kyc-page__shell--sdk" : ""}`}>
+        <header className={`kyc-page__header${sdkActive ? " kyc-page__header--compact" : ""}`}>
+          <h1 className="kyc-page__title">Verify your identity</h1>
+          {!sdkActive ? (
+            <p className="kyc-page__lead">
+              We need a quick identity check before you can ship cards to the vault or redeem a
+              physical card — ID (passport or driver’s license), a liveness selfie, usually 1–2
+              minutes.
+            </p>
+          ) : (
+            <p className="kyc-page__lead">
+              Complete the steps below. Camera access may be requested for the liveness check.
+            </p>
+          )}
+        </header>
 
-      {pageError ? (
-        <p className="tk-form-error" role="alert">
-          {pageError}
-        </p>
-      ) : null}
-
-      {approved ? (
-        <section className="tk-card tk-card--pad">
-          <p>
-            Identity verification is complete. You can now ship cards to the vault or redeem a
-            physical card.
+        {pageError ? (
+          <p className="tk-form-error" role="alert">
+            {pageError}
           </p>
-          <TkButton variant="primary" onClick={continueAfterApproval}>
-            Continue
-          </TkButton>
-        </section>
-      ) : null}
+        ) : null}
 
-      {rejected ? (
-        <section className="tk-card tk-card--pad">
-          <p>
-            We need another look
-            {status?.rejectionReason ? `: ${status.rejectionReason}` : "."} Please resubmit your
-            ID and liveness check.
-          </p>
-          <TkButton variant="primary" disabled={booting} onClick={() => void startVerification()}>
-            {booting ? "Starting…" : "Try again"}
-          </TkButton>
-        </section>
-      ) : null}
+        {approved ? (
+          <section className="kyc-status-card">
+            <p>
+              Identity verification is complete. You can now ship cards to the vault or redeem a
+              physical card.
+            </p>
+            <TkButton variant="primary" onClick={continueAfterApproval}>
+              Continue
+            </TkButton>
+          </section>
+        ) : null}
 
-      {pending && !accessToken && !rejected ? (
-        <section className="tk-card tk-card--pad">
-          <p>Your verification is under review. This usually takes 1–2 minutes.</p>
-          <TkButton variant="neutral" disabled={booting} onClick={() => void startVerification()}>
-            {booting ? "Loading…" : "Continue verification"}
-          </TkButton>
-        </section>
-      ) : null}
+        {rejected ? (
+          <section className="kyc-status-card">
+            <p>
+              We need another look
+              {status?.rejectionReason ? `: ${status.rejectionReason}` : "."} Please resubmit your
+              ID and liveness check.
+            </p>
+            <TkButton variant="primary" disabled={booting} onClick={() => void startVerification()}>
+              {booting ? "Starting…" : "Try again"}
+            </TkButton>
+          </section>
+        ) : null}
 
-      {accessToken && !approved ? (
-        <section className="tk-kyc-sdk">
-          <SumsubWebSdk
-            accessToken={accessToken}
-            expirationHandler={expirationHandler}
-            config={{ lang: "en", theme: "dark" }}
-            options={{ addViewportTag: false, adaptIframeHeight: true }}
-            onMessage={handleSdkMessage}
-            onError={(err: unknown) => {
-              setPageError(
-                typeof err === "object" && err && "error" in err
-                  ? String((err as { error?: unknown }).error)
-                  : "Verification error",
-              );
-            }}
-          />
-        </section>
-      ) : null}
+        {pending && !accessToken && !rejected ? (
+          <section className="kyc-status-card">
+            <p>Your verification is under review. This usually takes 1–2 minutes.</p>
+            <TkButton variant="neutral" disabled={booting} onClick={() => void startVerification()}>
+              {booting ? "Loading…" : "Continue verification"}
+            </TkButton>
+          </section>
+        ) : null}
 
-      {!accessToken && !approved && !rejected && !pending && booting ? (
-        <p className="tk-muted">Preparing verification…</p>
-      ) : null}
+        {sdkActive ? (
+          <section className="kyc-sdk" aria-label="Identity verification">
+            <SumsubWebSdk
+              className="kyc-sdk__frame"
+              accessToken={accessToken!}
+              expirationHandler={expirationHandler}
+              config={{ lang: "en", theme: "dark" }}
+              options={{
+                addViewportTag: false,
+                adaptIframeHeight: true,
+                enableScrollIntoView: true,
+              }}
+              onMessage={handleSdkMessage}
+              onError={(err: unknown) => {
+                setPageError(
+                  typeof err === "object" && err && "error" in err
+                    ? String((err as { error?: unknown }).error)
+                    : "Verification error",
+                );
+              }}
+            />
+          </section>
+        ) : null}
+
+        {!accessToken && !approved && !rejected && !pending && booting ? (
+          <p className="tk-muted">Preparing verification…</p>
+        ) : null}
+      </div>
     </main>
   );
 }
