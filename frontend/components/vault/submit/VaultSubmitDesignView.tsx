@@ -7,6 +7,7 @@ import { TkButton } from "@/components/ds";
 import { ASSETS } from "@/constants/assets";
 import { VaultBreadcrumb } from "@/components/vault/VaultBreadcrumb";
 import { VaultStepper } from "@/components/vault/VaultStepper";
+import { useAccessGate } from "@/hooks/auth/useAccessGate";
 import { VAULT_SUBMIT_FAQ_ITEMS } from "@/lib/vault/vaultMockData";
 import { cn } from "@/lib/ds/cn";
 
@@ -82,6 +83,7 @@ function formatRefUsd(total: number): string {
 
 export function VaultSubmitDesignView() {
   const router = useRouter();
+  const { runAccessGate } = useAccessGate(2, "/vault/submit");
   const defaultFaqIndex = VAULT_SUBMIT_FAQ_ITEMS.findIndex(
     (item) => "defaultOpen" in item && item.defaultOpen,
   );
@@ -173,13 +175,15 @@ export function VaultSubmitDesignView() {
 
   const handleSubmit = useCallback(() => {
     if (!canSubmit) return;
-    setSubmitting(true);
-    window.setTimeout(() => {
-      setSubmitting(false);
-      setSubmitted(true);
-      window.setTimeout(() => router.push("/vault/submit/shipping"), 1200);
-    }, 1500);
-  }, [canSubmit, router]);
+    runAccessGate(() => {
+      setSubmitting(true);
+      window.setTimeout(() => {
+        setSubmitting(false);
+        setSubmitted(true);
+        window.setTimeout(() => router.push("/vault/submit/shipping"), 1200);
+      }, 1500);
+    });
+  }, [canSubmit, runAccessGate, router]);
 
   const handleSaveTelegram = useCallback(() => {
     const val = tgInput.trim().replace(/^@/, "");

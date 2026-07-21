@@ -149,6 +149,8 @@ User-facing flow:
 - `POST /api/kyc/access-token` — JWT; creates applicant + WebSDK token
 - Frontend `/kyc` — Sumsub WebSDK 2.0
 
+Product gates (Level 2): vault ship / mint and physical redeem require `kyc_status = approved`. Signup, Markets buy/bid, and list-for-sale do not. Server enforces KYC on mint + `POST /api/rwa/redeem-request`.
+
 See [guides/sumsub-kyc.md](../guides/sumsub-kyc.md).
 
 ---

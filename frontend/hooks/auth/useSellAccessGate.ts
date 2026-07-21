@@ -6,7 +6,8 @@ import { useAccessGate } from "./useAccessGate";
 
 export function useSellAccessGate(returnTo = "/vault") {
   const router = useRouter();
-  const { canAccess, runAccessGate } = useAccessGate(2, returnTo);
+  // Level 1: Markets buy/bid/list need wallet only. KYC is gated at vault ship / redeem.
+  const { canAccess, runAccessGate } = useAccessGate(1, returnTo);
 
   const navigateToVault = useCallback(() => {
     runAccessGate(() => router.push("/vault"));

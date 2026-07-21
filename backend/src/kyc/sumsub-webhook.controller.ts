@@ -29,7 +29,8 @@ export class SumsubWebhookController {
       throw new UnauthorizedException('Raw body required for webhook verification');
     }
     const digest = String(req.headers['x-payload-digest'] ?? '');
-    this.webhook.assertDigest(rawBody, digest);
+    const digestAlg = String(req.headers['x-payload-digest-alg'] ?? '');
+    this.webhook.assertDigest(rawBody, digest, digestAlg || undefined);
     return this.webhook.handlePayload(body);
   }
 }

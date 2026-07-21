@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useAccessGate } from "@/hooks/auth/useAccessGate";
 import { useAccountWalletSession } from "@/hooks/auth/useAccountWalletSession";
 import { useEnsureAccountWalletReady } from "@/hooks/auth/useEnsureAccountWalletReady";
 import {
@@ -29,6 +30,7 @@ export function useMintForm() {
   const { primaryAddress, isWalletReady, isWalletActivating, hasAccountWallet } =
     useAccountWalletSession();
   const ensureAccountWalletReady = useEnsureAccountWalletReady();
+  const { runAccessGate } = useAccessGate(2, "/vault/submit/mint");
   const refresh = useAppStore(selectRefresh);
   const queryClient = useQueryClient();
 
@@ -103,6 +105,7 @@ export function useMintForm() {
       e.preventDefault();
       if (submitLockRef.current) return;
       if (!validate() || !primaryAddress || !isWalletReady) return;
+      if (!runAccessGate()) return;
 
       submitLockRef.current = true;
       setErrorMsg("");
@@ -188,7 +191,17 @@ export function useMintForm() {
         submitLockRef.current = false;
       }
     },
-    [primaryAddress, form, isWalletReady, ensureAccountWalletReady, psa.lastAnalyze, queryClient, refresh, validate],
+    [
+      primaryAddress,
+      form,
+      isWalletReady,
+      ensureAccountWalletReady,
+      psa.lastAnalyze,
+      queryClient,
+      refresh,
+      validate,
+      runAccessGate,
+    ],
   );
 
   const isProcessing = step === "uploading" || step === "minting";

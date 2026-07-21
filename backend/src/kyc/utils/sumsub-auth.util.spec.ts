@@ -29,6 +29,7 @@ describe('sumsub-auth.util', () => {
         secret,
         rawBody,
         digestHeader: digest,
+        digestAlgHeader: 'HMAC_SHA256_HEX',
       }),
     ).toBe(true);
     expect(
@@ -38,5 +39,19 @@ describe('sumsub-auth.util', () => {
         digestHeader: 'bad',
       }),
     ).toBe(false);
+  });
+
+  it('verifies sha1 digest when alg header says so', () => {
+    const secret = 'whsec';
+    const rawBody = Buffer.from('{"type":"applicantPending"}');
+    const digest = createHmac('sha1', secret).update(rawBody).digest('hex');
+    expect(
+      verifySumsubWebhookDigest({
+        secret,
+        rawBody,
+        digestHeader: digest,
+        digestAlgHeader: 'HMAC_SHA1_HEX',
+      }),
+    ).toBe(true);
   });
 });

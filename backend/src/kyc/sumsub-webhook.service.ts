@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { UserService } from '../user/user.service';
-import { verifySumsubWebhookDigest } from './utils/sumsub-auth.util';
+import { verifySumsubWebhookDigestWithSecrets } from './utils/sumsub-auth.util';
 import {
   extractSumsubRejectionReason,
   mapSumsubReviewToKycStatus,
@@ -22,14 +22,31 @@ export class SumsubWebhookService {
     private readonly users: UserService,
   ) {}
 
-  assertDigest(rawBody: Buffer | string, digestHeader: string | undefined): void {
-    const secret =
-      this.config.get<string>('SUMSUB_WEBHOOK_SECRET')?.trim() ||
-      this.config.get<string>('SUMSUB_SECRET_KEY')?.trim();
-    if (!secret) {
+  assertDigest(
+    rawBody: Buffer | string,
+    digestHeader: string | undefined,
+    digestAlgHeader?: string | undefined,
+  ): void {
+    const webhookSecret = this.config.get<string>('SUMSUB_WEBHOOK_SECRET')?.trim();
+    const appSecret = this.config.get<string>('SUMSUB_SECRET_KEY')?.trim();
+    if (!webhookSecret && !appSecret) {
       throw new ForbiddenException('SUMSUB_WEBHOOK_SECRET is not configured');
     }
-    if (!verifySumsubWebhookDigest({ secret, rawBody, digestHeader })) {
+    const ok = verifySumsubWebhookDigestWithSecrets({
+      secrets: [webhookSecret, appSecret],
+      rawBody,
+      digestHeader,
+      digestAlgHeader,
+    });
+    if (!ok) {
+      this.logger.warn(
+        JSON.stringify({
+          msg: 'sumsub_webhook_digest_mismatch',
+          digestAlg: digestAlgHeader ?? null,
+          hasWebhookSecret: Boolean(webhookSecret),
+          hasAppSecret: Boolean(appSecret),
+        }),
+      );
       throw new UnauthorizedException('Invalid Sumsub webhook digest');
     }
   }

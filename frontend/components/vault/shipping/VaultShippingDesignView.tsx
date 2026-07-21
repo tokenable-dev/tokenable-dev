@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { VaultBreadcrumb } from "@/components/vault/VaultBreadcrumb";
 import { VaultStepper } from "@/components/vault/VaultStepper";
+import { useAccessGate } from "@/hooks/auth/useAccessGate";
 import {
   MOCK_CARD,
   MOCK_SUBMISSION_ID,
@@ -48,6 +49,7 @@ const CARRIER_TRACK_URLS: Record<string, string> = {
 
 export function VaultShippingDesignView() {
   const router = useRouter();
+  const { runAccessGate } = useAccessGate(2, "/vault/submit/shipping");
   const [checked, setChecked] = useState<Set<number>>(new Set());
   const [slipDownloaded, setSlipDownloaded] = useState(false);
   const [slipDownloading, setSlipDownloading] = useState(false);
@@ -135,11 +137,13 @@ export function VaultShippingDesignView() {
 
   const handleShipped = useCallback(() => {
     if (!canShip) return;
-    setShipped(true);
-    window.setTimeout(() => {
-      router.push(`/vault/submissions/${MOCK_SUBMISSION_ID}`);
-    }, 1200);
-  }, [canShip, router]);
+    runAccessGate(() => {
+      setShipped(true);
+      window.setTimeout(() => {
+        router.push(`/vault/submissions/${MOCK_SUBMISSION_ID}`);
+      }, 1200);
+    });
+  }, [canShip, runAccessGate, router]);
 
   return (
     <div className="vault-shipping">

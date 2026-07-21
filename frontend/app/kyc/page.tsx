@@ -7,16 +7,19 @@ import { TkButton } from "@/components/ds";
 import { fetchAuthMe } from "@/lib/auth";
 import { fetchKycAccessToken, fetchKycStatus, type KycStatusResponse } from "@/lib/kyc/api";
 import { useAuthStore } from "@/store/authStore";
+import { useAuthUiStore } from "@/store/authUiStore";
 
 const SumsubWebSdk = dynamic(() => import("@sumsub/websdk-react"), { ssr: false });
 
 export default function KycPage() {
   const router = useRouter();
   const { user, loading, initialized, setUser } = useAuthStore();
+  const consumeReturnTo = useAuthUiStore((s) => s.consumeReturnTo);
   const [status, setStatus] = useState<KycStatusResponse | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [pageError, setPageError] = useState<string | null>(null);
   const [booting, setBooting] = useState(false);
+  const [returnTo] = useState(() => useAuthUiStore.getState().pendingReturnTo);
 
   useEffect(() => {
     if (!loading && initialized && !user) {
@@ -34,6 +37,11 @@ export default function KycPage() {
     setStatus(next);
     return next;
   }, []);
+
+  const continueAfterApproval = useCallback(() => {
+    const path = consumeReturnTo() ?? returnTo;
+    router.push(path && path.startsWith("/") ? path : "/vault");
+  }, [consumeReturnTo, returnTo, router]);
 
   const startVerification = useCallback(async () => {
     setPageError(null);
@@ -88,11 +96,11 @@ export default function KycPage() {
         };
         const answer = review.reviewResult?.reviewAnswer;
         if (review.reviewStatus === "completed" && answer === "GREEN") {
-          void refreshSession();
+          void refreshSession().then(() => void loadStatus());
         }
       }
     },
-    [refreshSession],
+    [loadStatus, refreshSession],
   );
 
   if (!initialized || loading || !user) {
@@ -112,7 +120,9 @@ export default function KycPage() {
       <header className="tk-page__header">
         <h1 className="tk-page__title">Verify your identity</h1>
         <p className="tk-page__lead">
-          Complete identity verification to unlock trading and vault features on Tokenable.
+          We need a quick identity check before you can ship cards to the vault or redeem a
+          physical card — ID (passport or driver’s license), a liveness selfie, usually 1–2
+          minutes.
         </p>
       </header>
 
@@ -124,9 +134,12 @@ export default function KycPage() {
 
       {approved ? (
         <section className="tk-card tk-card--pad">
-          <p>Your identity is verified. You can close this page and continue using Tokenable.</p>
-          <TkButton variant="primary" onClick={() => router.push("/portfolio")}>
-            Go to Portfolio
+          <p>
+            Identity verification is complete. You can now ship cards to the vault or redeem a
+            physical card.
+          </p>
+          <TkButton variant="primary" onClick={continueAfterApproval}>
+            Continue
           </TkButton>
         </section>
       ) : null}
@@ -134,8 +147,9 @@ export default function KycPage() {
       {rejected ? (
         <section className="tk-card tk-card--pad">
           <p>
-            Verification was not approved
-            {status?.rejectionReason ? `: ${status.rejectionReason}` : "."}
+            We need another look
+            {status?.rejectionReason ? `: ${status.rejectionReason}` : "."} Please resubmit your
+            ID and liveness check.
           </p>
           <TkButton variant="primary" disabled={booting} onClick={() => void startVerification()}>
             {booting ? "Starting…" : "Try again"}
@@ -145,7 +159,7 @@ export default function KycPage() {
 
       {pending && !accessToken && !rejected ? (
         <section className="tk-card tk-card--pad">
-          <p>Your verification is in progress or awaiting review.</p>
+          <p>Your verification is under review. This usually takes 1–2 minutes.</p>
           <TkButton variant="neutral" disabled={booting} onClick={() => void startVerification()}>
             {booting ? "Loading…" : "Continue verification"}
           </TkButton>
