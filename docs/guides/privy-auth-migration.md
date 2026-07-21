@@ -150,45 +150,25 @@ See [api/auth.md](../api/auth.md#privy-session-endpoint) for full request/respon
 | Deploy frontend missing `NEXT_PUBLIC_PRIVY_APP_ID` | CI bakes it at Docker build — see [deployment.md](./deployment.md#privy-on-deploy-login--wallet--not-fiat-pay) |
 | Backend missing `PRIVY_APP_SECRET` on EC2 | Set in `/home/ubuntu/.env.production.backend` and recreate backend container |
 
-## Fiat on-ramp (Apple Pay / Google Pay — later)
+## Fiat on-ramp (MoonPay — implemented)
 
-Privy **does** support fiat funding via:
+USDC top-ups use Privy **`useFiatOnramp`** → **MoonPay** (card / Apple Pay / Google Pay). Product entry: **header wallet menu → Add funds**.
 
-| SDK hook | What it opens |
-|----------|----------------|
-| `useFundWallet()` | Privy modal — card, Apple Pay, Google Pay (via MoonPay and other providers configured in Dashboard) |
-| `useFiatOnramp()` | Direct on-ramp flow with destination chain/asset |
-| `useFundWalletWithBankDeposit()` | ACH / wire / SEPA (mainnet, provider-dependent) |
+| Item | Status |
+|------|--------|
+| Hook | `usePrivyFiatOnramp` → Privy `useFiatOnramp` |
+| Header UI | `HeaderWalletMenuPanel` — **Add funds** |
+| Dev lab | `/dev/privy` · `PrivyFeaturesLab.tsx` |
+| Admin | `/marketplace/admin/users` — funding readiness panel |
+| Providers | **MoonPay only** (Stripe / Coinbase / Meld / Bridge not used) |
 
-**Current repo status:** Header uses **custom wallet menu** (`HeaderWalletMenu` / `HeaderMobileWalletSection`) — HTML `tk-wallet.js` parity. Privy `UserPill` kept in dev lab (`/dev/privy`, `PrivyFeaturesLab.tsx`) and profile/mismatch flows. Add funds / export key: use `/profile` or dev lab until a product entry is added to the custom menu.
+Full setup, Sepolia sandbox vs mainnet, and known console errors: **[privy-wallet-funding.md](./privy-wallet-funding.md)**.
 
 ### Header wallet menu
 
-HTML prototypes (`tk-wallet.js`) show a **Tokenable product dropdown** (Portfolio, Watchlist, KYC, Sign out) — not Privy’s account menu.
+Custom chip + dropdown (`components/layout/header/wallet/*`) — Portfolio, Watchlist, KYC, **Add funds**, Sign out. Do not patch Privy’s `UserPill` DOM for app navigation; `UserPill` remains for profile/mismatch / dev lab only.
 
-| Approach | Feasible? | Notes |
-|----------|-----------|--------|
-| Restyle / extend `UserPill` dropdown | **No** | Menu items are Privy-owned (Add funds, linked accounts, export key, logout). No API to inject app nav links. |
-| Custom chip + dropdown + Privy hooks | **Yes** | **Implemented** — `components/layout/header/wallet/*`, styles in `tokenable-wallet-menu.css`. |
-| CSS-only overrides on Privy portal | Fragile | SDK updates break styling; does not add Portfolio/Watchlist items. |
-
-Do not patch Privy menu DOM in the header; use hooks + our dropdown for app navigation.
-
-**Why it does not work on Amoy for real deposits:**
-
-- On-ramp providers settle **mainnet** assets only — testnet cannot receive card/Apple Pay deposits.
-- Privy Dashboard must enable **Funding** / MoonPay (or other) providers for your app.
-- Destination chain USDC contract must match the chain the user selected.
-
-**When enabling pay (future):**
-
-1. Privy Dashboard → **Funding** → enable MoonPay (and/or other providers)
-2. Configure supported mainnet chains (e.g. Polygon `137`)
-3. Set `NEXT_PUBLIC_CHAIN_137_*` contract addresses in GitHub Secrets + rebuild frontend
-4. Test with `NEXT_PUBLIC_PRIVY_FUNDING_ENVIRONMENT=sandbox` and Dashboard MoonPay sandbox keys
-5. Confirm **UserPill → Add funds** opens MoonPay before production
-
-See `frontend/lib/privy/features.ts` → `PRIVY_CLIENT_FEATURE_MATRIX` for feature flags.
+**Dev note:** Sepolia sandbox validates checkout UI; real USDC delivery is for **Ethereum mainnet** production.
 
 ## Testing checklist (current state)
 

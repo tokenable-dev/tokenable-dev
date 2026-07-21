@@ -22,6 +22,9 @@ Sepolia dev goal: **open MoonPay checkout** (card / Apple Pay / Google Pay when 
 | `Funding chain 1 is not in PrivyProvider chains list` | Dashboard default chain not in `supportedChains` | Keep Dashboard **Ethereum + USDC**; app env sets Sepolia target |
 | Add funds blocked / modal fails | `fundingReadiness.ready === false` | Complete MoonPay keys + aligned funding token; or dev bypass below |
 | Readiness API 401 | Site access gate | Pass site gate first (`SITE_ACCESS_*`) |
+| `Buy 0X1C7D4…` / Stripe Sepolia error | `destination.asset` was a USDC **contract address** | Must be symbol **`"usdc"`** (not address) — Stripe path is unsupported on Sepolia |
+| Console `fiat/status?provider=moonpay-sandbox` **400** | Privy status poll on testnet/sandbox | Benign if MoonPay modal still opens |
+| Console `PrivyApiError: Transaction not found` | User cancel / pending / sandbox — Privy polls tx status | Benign in Sepolia sandbox; ignore if checkout UI worked |
 
 Verify readiness:
 
@@ -41,8 +44,11 @@ curl -b cookies.txt http://127.0.0.1:4100/api/privy/apps/settings | jq '.funding
 | Dev bypass (sandbox) | `NEXT_PUBLIC_PRIVY_FUNDING_SKIP_READINESS_CHECK=true` — try checkout even when readiness API says not ready |
 | Analytics | `fiat_onramp_started` on successful checkout open |
 | Dev lab | `/dev/privy` · `PrivyFeaturesLab.tsx` |
+| Admin Users panel | `/marketplace/admin/users` — MoonPay readiness + support hints (`usePrivyFundingStatus`) |
 
 **Not used:** Stripe Embedded, Coinbase Onramp, Meld, Bridge bank deposits.
+
+**`destination.asset`:** always the symbol `"usdc"` (see `TOKENABLE_FUNDING_ASSET`). A contract address routes Privy to Stripe and breaks Sepolia sandbox.
 
 ## Privy Dashboard checklist
 
@@ -79,5 +85,6 @@ Production: set `NEXT_PUBLIC_PRIVY_FUNDING_ENVIRONMENT=production`, `NEXT_PUBLIC
 4. Or `/dev/privy` → funding status panel + **Start MoonPay on-ramp**
 5. MoonPay sandbox opens — validate card checkout UI; Apple/Google Pay need HTTPS staging + supported device
 6. Sandbox may not deliver USDC to Sepolia — goal is UI/API flow validation
+7. Cancel / incomplete checkout may log `Transaction not found` in the browser console (Privy SDK) — expected on Sepolia sandbox
 
-See also: [privy-auth-migration.md](./privy-auth-migration.md)
+See also: [privy-auth-migration.md](./privy-auth-migration.md) · [marketplace-admin.md](./marketplace-admin.md)

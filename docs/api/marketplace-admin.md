@@ -166,7 +166,7 @@ End-user auth is **Privy-only**. Admin user tools reflect Privy linked accounts 
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/stats` | Privy-centric stats (google, email OTP, wallet login, legacy pre-Privy) |
-| GET | `/` | List users — filters: `privy`, `google`, `email`, `wallet`, `legacy`, KYC, wallet |
+| GET | `/` | List users — filters include `privy`, `with_wallet`, `kyc_*`, `legacy` (API also accepts auth-method filters); UI exposes the compact set |
 | GET | `/:id` | User detail — auth providers, wallets, watchlist |
 | PATCH | `/:id` | Update display name / email verified flag |
 | DELETE | `/:id` | Delete user account |

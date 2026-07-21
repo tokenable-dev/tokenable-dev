@@ -72,7 +72,7 @@ frontend/
 │   ├── core/                      # api/* split modules, queryKeys.ts (rq.*)
 │   ├── auth/                      # Session helpers (syncPrivySession, signOut, refreshPrivyAuthSession)
 │   ├── privy/                     # Privy config, PrivyAppProviders, PrivySessionBridge, launchers, signing
-│   ├── chains/                    # Multi-chain registry (Polygon / Amoy), types, Seaport addresses
+│   ├── chains/                    # Multi-chain registry (Sepolia / Ethereum), types, Seaport addresses
 │   ├── perf/                      # Client-side perf instrumentation (index.ts, PerfObservers.tsx)
 │   ├── market/                    # Pricing tiers, chart utils
 │   ├── markets/                   # Top 100 / Top Movers copy, routing, sort
@@ -158,7 +158,7 @@ Tokenable JWT sync still runs via `PrivySessionBridge`; profile page and marketp
 
 `lib/chains/` resolves chain definitions and contract addresses from `NEXT_PUBLIC_CHAIN_{id}_*` env vars. Active chain context is provided by `AppChainProvider`. The active chain ID is sent to the backend via the `x-tokenable-chain-id` request header.
 
-Supported chains: **Polygon Amoy** (80002, default), **Polygon mainnet** (137). Only chains with all three env vars (`NEXT_PUBLIC_CHAIN_{id}_RPC_URL`, `_RWA`, `_USDC`) configured are offered in the UI.
+Supported chains: **Ethereum Sepolia** (11155111, default), **Ethereum mainnet** (1). Only chains with all three env vars (`NEXT_PUBLIC_CHAIN_{id}_RPC_URL`, `_RWA`, `_USDC`) configured are offered in the UI.
 
 ## Performance instrumentation (`lib/perf/`)
 

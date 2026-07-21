@@ -14,7 +14,7 @@ Admin routes are split by **operational role**, not duplicated dashboards.
 | Route | Nav label | Purpose |
 |-------|-----------|---------|
 | `/marketplace/admin` | **Overview** | Platform health from PostgreSQL — KPIs, funnel, users, orders, activity charts, AI pricing coverage, recent sales, Cardhedger infra snippet, **GA4 external link** |
-| `/marketplace/admin/users` | **Users** | Privy accounts — auth methods, wallets, KYC, watchlist support |
+| `/marketplace/admin/users` | **Users** | Privy accounts — search/filters, KYC, wallets; **Privy & Add funds** readiness panel; support snapshot (Privy ID, on-ramp wallet hint) |
 | `/marketplace/admin/collections` | **Collections** | Collection buckets — cover image, delete, market snapshot strip, **AI Insight** preview |
 | `/marketplace/admin/cards` | **All cards** | RWA token registry — edit display metadata, burn (test) |
 | `/marketplace/admin/custody-nfts` | **Custody NFTs** | Deliver vaulted NFTs to user wallets |
@@ -178,6 +178,8 @@ Requires `GA4_PROPERTY_ID` + service account JSON. `Ga4AnalyticsService` support
 
 ### Users
 
+UI filters: All · Privy · With wallet · KYC approved/pending · Pre-Privy. Expanded row: profile name, force-verify email, wallets (link/unlink), watchlist remove, delete account. MoonPay payment history is **not** in Tokenable — use Privy Dashboard → Users.
+
 | Method | Path |
 |--------|------|
 | `GET` | `/marketplace/admin/users/stats` |
@@ -185,7 +187,12 @@ Requires `GA4_PROPERTY_ID` + service account JSON. `Ga4AnalyticsService` support
 | `GET` | `/marketplace/admin/users/:id` |
 | `PATCH` | `/marketplace/admin/users/:id` |
 | `DELETE` | `/marketplace/admin/users/:id` |
-| `POST` | `/marketplace/admin/users/:id/actions` — resend verification, password reset, force verify, link/unlink wallet, watchlist remove, set password |
+| `POST` | `/marketplace/admin/users/:id/force-verify-email` |
+| `POST` | `/marketplace/admin/users/:id/wallets` |
+| `DELETE` | `/marketplace/admin/users/:id/wallets/:address` |
+| `DELETE` | `/marketplace/admin/users/:id/watchlist/:collectionKey` |
+
+Funding readiness on the Users page uses `GET /api/privy/apps/settings` (same as header Add funds). See [privy-wallet-funding.md](privy-wallet-funding.md).
 
 ### Listed RWA cards
 

@@ -76,7 +76,7 @@ Platform-signed on-chain mint to the custody wallet, with intent to deliver to t
   "tokenURI": "ipfs://...",
   "vaultRef": "0xkeccak256...",
   "txHash": "0x...",
-  "chainId": 80002,
+  "chainId": 11155111,
   "custodyWallet": "0xPlatformCustodyAddress",
   "intendedRecipient": "0xUserPrimaryWalletAddress"
 }
@@ -146,5 +146,5 @@ See [marketplace-admin.md](./marketplace-admin.md) for the full admin RWA API in
 | `RWA_OWNER_PRIVATE_KEY` | Platform minter/burner signer (MINTER_ROLE + BURNER_ROLE) |
 | `RWA_CUSTODY_WALLET_ADDRESS` | Address of custody wallet (defaults to derived from owner key) |
 | `RWA_CUSTODY_PRIVATE_KEY` | Optional separate key if custody != minter |
-| `CHAIN_80002_RWA_ADDRESS` | TokenableRWA proxy on Amoy |
-| `CHAIN_137_RWA_ADDRESS` | TokenableRWA proxy on mainnet |
+| `CHAIN_11155111_RWA_ADDRESS` | TokenableRWA proxy on Sepolia |
+| `CHAIN_1_RWA_ADDRESS` | TokenableRWA proxy on Ethereum mainnet |

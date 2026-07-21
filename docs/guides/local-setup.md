@@ -70,16 +70,16 @@ PRIVY_APP_SECRET=your_privy_app_secret
 # Optional: PEM public key from Privy Dashboard (avoids JWKS fetch)
 # PRIVY_JWT_VERIFICATION_KEY="-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----"
 
-# Blockchain (Polygon Amoy — default dev chain)
-DEFAULT_CHAIN_ID=80002
-CHAIN_80002_RPC_URL=https://polygon-amoy.g.alchemy.com/v2/YOUR_KEY
-CHAIN_80002_RWA_ADDRESS=0x...
-CHAIN_80002_USDC_ADDRESS=0x41E94Eb019C0762f9Bfcf9Fb1E58725BfB0e7582
+# Blockchain (Ethereum Sepolia — default dev chain)
+DEFAULT_CHAIN_ID=11155111
+CHAIN_11155111_RPC_URL=https://eth-sepolia.g.alchemy.com/v2/YOUR_KEY
+CHAIN_11155111_RWA_ADDRESS=0x...
+CHAIN_11155111_USDC_ADDRESS=0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238
 
-# Polygon mainnet (optional — enable when ready for prod)
-# CHAIN_137_RPC_URL=https://polygon-mainnet.g.alchemy.com/v2/YOUR_KEY
-# CHAIN_137_RWA_ADDRESS=0x...
-# CHAIN_137_USDC_ADDRESS=0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359
+# Ethereum mainnet (optional — enable when ready for prod)
+# CHAIN_1_RPC_URL=https://eth-mainnet.g.alchemy.com/v2/YOUR_KEY
+# CHAIN_1_RWA_ADDRESS=0x...
+# CHAIN_1_USDC_ADDRESS=0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48
 
 # Platform signing keys (required for vault mint/burn)
 RWA_OWNER_PRIVATE_KEY=0x...   # MINTER_ROLE + BURNER_ROLE
@@ -141,16 +141,21 @@ NEXT_PUBLIC_PRIVY_APP_ID=your_privy_app_id
 # NEXT_PUBLIC_PRIVY_LOGIN_MINIMAL=true      → email OTP only (no wallet, no Google)
 # NEXT_PUBLIC_PRIVY_FULL_LOGIN=true         → all Privy login methods (dev / lab)
 
-# Chain configuration (Polygon Amoy default)
-NEXT_PUBLIC_DEFAULT_CHAIN_ID=80002
-NEXT_PUBLIC_CHAIN_80002_RPC_URL=https://polygon-amoy.g.alchemy.com/v2/YOUR_KEY
-NEXT_PUBLIC_CHAIN_80002_RWA=0x...
-NEXT_PUBLIC_CHAIN_80002_USDC=0x41E94Eb019C0762f9Bfcf9Fb1E58725BfB0e7582
+# Chain configuration (Ethereum Sepolia default)
+NEXT_PUBLIC_DEFAULT_CHAIN_ID=11155111
+NEXT_PUBLIC_CHAIN_11155111_RPC_URL=https://eth-sepolia.g.alchemy.com/v2/YOUR_KEY
+NEXT_PUBLIC_CHAIN_11155111_RWA=0x...
+NEXT_PUBLIC_CHAIN_11155111_USDC=0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238
 
-# Polygon mainnet (optional)
-# NEXT_PUBLIC_CHAIN_137_RPC_URL=https://polygon-mainnet.g.alchemy.com/v2/YOUR_KEY
-# NEXT_PUBLIC_CHAIN_137_RWA=0x...
-# NEXT_PUBLIC_CHAIN_137_USDC=0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359
+# Ethereum mainnet (optional)
+# NEXT_PUBLIC_CHAIN_1_RPC_URL=https://eth-mainnet.g.alchemy.com/v2/YOUR_KEY
+# NEXT_PUBLIC_CHAIN_1_RWA=0x...
+# NEXT_PUBLIC_CHAIN_1_USDC=0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48
+
+# MoonPay / Add funds (Sepolia sandbox — see guides/privy-wallet-funding.md)
+# NEXT_PUBLIC_PRIVY_FUNDING_ENVIRONMENT=sandbox
+# NEXT_PUBLIC_PRIVY_FUNDING_USE_ONRAMP_ON_TESTNET=true
+# NEXT_PUBLIC_PRIVY_FUNDING_CHAIN_ID=11155111
 
 # Platform fee
 NEXT_PUBLIC_PLATFORM_FEE_RECIPIENT=0x...
@@ -202,22 +207,22 @@ After a reset, hard-refresh the browser or clear `localStorage` keys `tokenable.
 
 ## 7. Smart Contracts (optional)
 
-Contracts may already be deployed on Polygon Amoy. To redeploy:
+Contracts may already be deployed on Sepolia. To redeploy:
 
 ```bash
 cd contracts
 pnpm install
-# edit contracts/.env with DEPLOYER_PRIVATE_KEY and POLYGON_AMOY_RPC_URL
-pnpm deploy:rwa:amoy       # deploy TokenableRWA to Amoy (80002)
+# edit contracts/.env with DEPLOYER_PRIVATE_KEY and Sepolia RPC
+pnpm deploy:rwa:sepolia    # deploy TokenableRWA to Sepolia (11155111)
 pnpm sync-abi              # copy updated ABI to backend
 ```
 
-After deploying, update `CHAIN_80002_RWA_ADDRESS` in `backend/.env` and `NEXT_PUBLIC_CHAIN_80002_RWA` in `frontend/.env`.
+After deploying, update `CHAIN_11155111_RWA_ADDRESS` in `backend/.env` and `NEXT_PUBLIC_CHAIN_11155111_RWA` in `frontend/.env`.
 
 Grant roles to your backend hot wallet:
 
 ```bash
-pnpm grant-burner:amoy     # grants BURNER_ROLE to RWA_OWNER_PRIVATE_KEY address
+pnpm grant-burner:sepolia  # grants BURNER_ROLE to RWA_OWNER_PRIVATE_KEY address
 ```
 
 ---
