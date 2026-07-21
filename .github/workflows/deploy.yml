@@ -7,6 +7,12 @@
 #     NEXT_PUBLIC_CHAIN_11155111_USDC
 #   NEXT_PUBLIC_PRIVY_APP_ID            (필수, Privy 로그인·지갑 — Dashboard App ID)
 #   NEXT_PUBLIC_DEFAULT_CHAIN_ID        (선택, 기본 11155111 — Sepolia-only)
+#   MoonPay / Add funds (선택; develop 빌드는 sandbox 기본값 적용)
+#     NEXT_PUBLIC_PRIVY_FUNDING_ENVIRONMENT
+#     NEXT_PUBLIC_PRIVY_FUNDING_USE_ONRAMP_ON_TESTNET
+#     NEXT_PUBLIC_PRIVY_FUNDING_CHAIN_ID
+#     NEXT_PUBLIC_PRIVY_FUNDING_DEFAULT_AMOUNT
+#     NEXT_PUBLIC_PRIVY_FUNDING_SKIP_READINESS_CHECK  (sandbox only)
 #   Ethereum mainnet (1) — 선택, 세 값 모두 있을 때만 UI에 노출
 #     NEXT_PUBLIC_CHAIN_1_RPC_URL / _RWA / _USDC
 #   NEXT_PUBLIC_PLATFORM_FEE_RECIPIENT  (선택, 빈 값이면 수수료 미적용)
@@ -91,6 +97,29 @@ jobs:
           GA_ID="${{ secrets.NEXT_PUBLIC_GA_MEASUREMENT_ID }}"
           if [ -z "$GA_ID" ]; then GA_ID="${{ vars.NEXT_PUBLIC_GA_MEASUREMENT_ID }}"; fi
 
+          # MoonPay funding — Secrets/Variables first; develop defaults to Sepolia sandbox.
+          FUNDING_ENV="${{ secrets.NEXT_PUBLIC_PRIVY_FUNDING_ENVIRONMENT }}"
+          if [ -z "$FUNDING_ENV" ]; then FUNDING_ENV="${{ vars.NEXT_PUBLIC_PRIVY_FUNDING_ENVIRONMENT }}"; fi
+          FUNDING_ONRAMP_TESTNET="${{ secrets.NEXT_PUBLIC_PRIVY_FUNDING_USE_ONRAMP_ON_TESTNET }}"
+          if [ -z "$FUNDING_ONRAMP_TESTNET" ]; then FUNDING_ONRAMP_TESTNET="${{ vars.NEXT_PUBLIC_PRIVY_FUNDING_USE_ONRAMP_ON_TESTNET }}"; fi
+          FUNDING_CHAIN="${{ secrets.NEXT_PUBLIC_PRIVY_FUNDING_CHAIN_ID }}"
+          if [ -z "$FUNDING_CHAIN" ]; then FUNDING_CHAIN="${{ vars.NEXT_PUBLIC_PRIVY_FUNDING_CHAIN_ID }}"; fi
+          FUNDING_AMOUNT="${{ secrets.NEXT_PUBLIC_PRIVY_FUNDING_DEFAULT_AMOUNT }}"
+          if [ -z "$FUNDING_AMOUNT" ]; then FUNDING_AMOUNT="${{ vars.NEXT_PUBLIC_PRIVY_FUNDING_DEFAULT_AMOUNT }}"; fi
+          FUNDING_SKIP_READY="${{ secrets.NEXT_PUBLIC_PRIVY_FUNDING_SKIP_READINESS_CHECK }}"
+          if [ -z "$FUNDING_SKIP_READY" ]; then FUNDING_SKIP_READY="${{ vars.NEXT_PUBLIC_PRIVY_FUNDING_SKIP_READINESS_CHECK }}"; fi
+
+          if [ -z "$FUNDING_ENV" ]; then
+            if [ "${{ github.ref_name }}" = "main" ]; then FUNDING_ENV="production"; else FUNDING_ENV="sandbox"; fi
+          fi
+          if [ -z "$FUNDING_CHAIN" ]; then FUNDING_CHAIN="$DEFAULT_CHAIN"; fi
+          if [ -z "$FUNDING_AMOUNT" ]; then FUNDING_AMOUNT="50"; fi
+          if [ -z "$FUNDING_ONRAMP_TESTNET" ] && [ "${{ github.ref_name }}" != "main" ]; then
+            FUNDING_ONRAMP_TESTNET="true"
+          fi
+          # Never bake skip-readiness into main/production images.
+          if [ "${{ github.ref_name }}" = "main" ]; then FUNDING_SKIP_READY=""; fi
+
           EXTRA_BUILD_ARGS=()
           API_URL="${{ secrets.NEXT_PUBLIC_API_URL }}"
           if [ -n "$API_URL" ]; then
@@ -98,6 +127,12 @@ jobs:
           fi
           if [ -n "$GA_ID" ]; then
             EXTRA_BUILD_ARGS+=(--build-arg "NEXT_PUBLIC_GA_MEASUREMENT_ID=$GA_ID")
+          fi
+          if [ -n "$FUNDING_ONRAMP_TESTNET" ]; then
+            EXTRA_BUILD_ARGS+=(--build-arg "NEXT_PUBLIC_PRIVY_FUNDING_USE_ONRAMP_ON_TESTNET=$FUNDING_ONRAMP_TESTNET")
+          fi
+          if [ -n "$FUNDING_SKIP_READY" ]; then
+            EXTRA_BUILD_ARGS+=(--build-arg "NEXT_PUBLIC_PRIVY_FUNDING_SKIP_READINESS_CHECK=$FUNDING_SKIP_READY")
           fi
 
           CHAIN_1_BUILD_ARGS=()
@@ -109,6 +144,8 @@ jobs:
             )
           fi
 
+          echo "Funding build: env=$FUNDING_ENV chain=$FUNDING_CHAIN onramp_testnet=${FUNDING_ONRAMP_TESTNET:-false} skip_ready=${FUNDING_SKIP_READY:-false}"
+
           docker build \
             "${EXTRA_BUILD_ARGS[@]}" \
             --build-arg NEXT_PUBLIC_CHAIN_11155111_RPC_URL="$CHAIN_11155111_RPC" \
@@ -118,6 +155,9 @@ jobs:
             --build-arg NEXT_PUBLIC_PRIVY_APP_ID="$PRIVY" \
             --build-arg NEXT_PUBLIC_PLATFORM_FEE_RECIPIENT="$FEE_RCPT" \
             --build-arg NEXT_PUBLIC_PLATFORM_FEE_BPS="$FEE_BPS" \
+            --build-arg NEXT_PUBLIC_PRIVY_FUNDING_ENVIRONMENT="$FUNDING_ENV" \
+            --build-arg NEXT_PUBLIC_PRIVY_FUNDING_CHAIN_ID="$FUNDING_CHAIN" \
+            --build-arg NEXT_PUBLIC_PRIVY_FUNDING_DEFAULT_AMOUNT="$FUNDING_AMOUNT" \
             "${CHAIN_1_BUILD_ARGS[@]}" \
             --build-arg API_PROXY_TARGET=http://backend:4000 \
             -t ${{ env.ECR_REGISTRY }}/tokenable-frontend:${{ env.IMAGE_TAG }} \
