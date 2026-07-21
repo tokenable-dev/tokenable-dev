@@ -57,12 +57,19 @@ Images are tagged with the branch name (rolling pointer) **and** the full `githu
 | `NEXT_PUBLIC_CHAIN_1_RWA` | No | Ethereum mainnet TokenableRWA |
 | `NEXT_PUBLIC_CHAIN_1_USDC` | No | Ethereum mainnet USDC (`0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48`) |
 | `NEXT_PUBLIC_PRIVY_APP_ID` | Yes | Privy App ID — enables login |
+| `NEXT_PUBLIC_PRIVY_FUNDING_ENVIRONMENT` | No | `sandbox` (develop default) / `production` (main default) — MoonPay |
+| `NEXT_PUBLIC_PRIVY_FUNDING_USE_ONRAMP_ON_TESTNET` | No | `true` on develop by default — Sepolia MoonPay QA |
+| `NEXT_PUBLIC_PRIVY_FUNDING_CHAIN_ID` | No | Defaults to `NEXT_PUBLIC_DEFAULT_CHAIN_ID` / `11155111` |
+| `NEXT_PUBLIC_PRIVY_FUNDING_DEFAULT_AMOUNT` | No | Defaults to `50` |
+| `NEXT_PUBLIC_PRIVY_FUNDING_SKIP_READINESS_CHECK` | No | Sandbox only; **stripped on `main` builds** |
 | `NEXT_PUBLIC_API_URL` | No | Leave empty for same-origin Nginx proxying |
 | `NEXT_PUBLIC_PLATFORM_FEE_RECIPIENT` | No | Fee recipient address |
 | `NEXT_PUBLIC_PLATFORM_FEE_BPS` | No | Fee in basis points |
 | `NEXT_PUBLIC_GA_MEASUREMENT_ID` | No | GA4 measurement ID |
 
 `API_PROXY_TARGET` is passed as `--build-arg API_PROXY_TARGET=http://backend:4000` by the workflow automatically.
+
+MoonPay / Add funds: frontend Dockerfile + `deploy.yml` bake `NEXT_PUBLIC_PRIVY_FUNDING_*` at image build. Backend still needs `PRIVY_FUNDING_TARGET_CAIP2` in `.env.production.backend`. See [privy-wallet-funding.md](privy-wallet-funding.md).
 
 ---
 

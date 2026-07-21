@@ -45,6 +45,7 @@ curl -b cookies.txt http://127.0.0.1:4100/api/privy/apps/settings | jq '.funding
 | Analytics | `fiat_onramp_started` on successful checkout open |
 | Dev lab | `/dev/privy` · `PrivyFeaturesLab.tsx` |
 | Admin Users panel | `/marketplace/admin/users` — MoonPay readiness + support hints (`usePrivyFundingStatus`) |
+| CI / Docker | `frontend/Dockerfile` + `.github/workflows/deploy.yml` bake `NEXT_PUBLIC_PRIVY_FUNDING_*` (develop → sandbox defaults) |
 
 **Not used:** Stripe Embedded, Coinbase Onramp, Meld, Bridge bank deposits.
 
