@@ -141,7 +141,9 @@ Successful proxy responses include `psaPath` (upstream path) and `raw` (PSA JSON
 
 | Variable | Purpose |
 |----------|---------|
-| `PSA_PUBLIC_API_TOKEN` | Bearer token from [psacard.com/publicapi](https://www.psacard.com/publicapi) — required for official lookup |
+| `PSA_PUBLIC_API_TOKENS` | Preferred — comma-separated Bearer tokens (round-robin pool). From [psacard.com/publicapi](https://www.psacard.com/publicapi) |
+| `PSA_PUBLIC_API_TOKEN` | Single-token fallback (merged into the same pool) |
+| `PSA_PUBLIC_API_UPSTREAM_ENABLED` | Master switch for live PSA HTTP (`true`/`false`; default on when a token is set) |
 | `PSA_PUBLIC_API_CACHE_TTL_MS` | In-memory cache TTL for successful PSA responses (default on) |
 | `PSA_PUBLIC_API_MAX_RETRIES` | Retry count on HTTP 429 |
 | `PSA_PUBLIC_API_MAX_CERT_ATTEMPTS` | Max distinct certs tried per OCR analyze |
@@ -152,22 +154,26 @@ Successful proxy responses include `psaPath` (upstream path) and `raw` (PSA JSON
 
 ## Rate limits
 
-PSA applies per-account / per-IP quotas (HTTP **429**). The backend:
+PSA applies per-account / per-IP quotas (HTTP **429**). The backend (`psa-public-api.service.ts`):
 
+- Rotates across `PSA_PUBLIC_API_TOKENS` (and `PSA_PUBLIC_API_TOKEN`)  
+- Blocks a token until **UTC midnight** (or PSA `Retry-After`) after 429  
 - Caches successful cert / image / spec-pop responses  
 - Coalesces in-flight duplicate cert requests  
-- Short-circuits further upstream calls after a global 429 cooldown  
 
-See `PSA_PUBLIC_API_RATE_LIMIT_COOLDOWN_MS` and logs with `perf: psa`.
+**Vault / mint impact:** When **all** pool tokens are blocked, `POST /api/psa/analyze-by-cert` fails quickly (often logged as **500** with `PSA token pool: all N token(s) rate-limited`). Wait for reset or add another token and restart the backend.
+
+See logs with `perf: psa` and `[PsaPublicApiService]`.
 
 ---
 
 ## Troubleshooting
 
 - **500 on `/psa/analyze`:** Check logs for `PSA analyze failed:` — `sharp`, OOM, outbound HTTPS, upload > 15 MB.  
+- **500 / fail on `/psa/analyze-by-cert` in a few ms:** Usually **token pool rate-limited** — see WARN `PSA token pool: all … rate-limited`. Not a vault UI bug.  
 - **Wrong card / empty grade:** Prefer `analyze-by-cert` for a known cert; slab OCR can pick the wrong cert first.  
-- **429:** Wait for daily reset or upgrade PSA Public API quota.  
-- **Token missing:** Proxies return `503` with message to set `PSA_PUBLIC_API_TOKEN`.
+- **429:** Wait for daily UTC reset, add tokens to `PSA_PUBLIC_API_TOKENS`, or request higher quota from PSA.  
+- **Token missing / upstream off:** Proxies / analyze return disabled or **503** — set tokens and `PSA_PUBLIC_API_UPSTREAM_ENABLED=true`.
 
 See also: [guides/troubleshooting.md](../guides/troubleshooting.md) · [guides/cardhedger-psa-variety.md](../guides/cardhedger-psa-variety.md)
 

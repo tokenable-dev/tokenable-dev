@@ -221,8 +221,8 @@ All writes use `SELECT … FOR UPDATE` on the collection row — multi-pod safe.
 
 | Chain ID | Network | Notes |
 |----------|---------|-------|
-| `80002` | Polygon Amoy testnet | Default dev chain |
-| `137` | Polygon mainnet | Production chain |
+| `11155111` | Ethereum Sepolia | Default dev chain |
+| `1` | Ethereum mainnet | Production chain |
 
 Chain ID is read from `x-tokenable-chain-id` header; falls back to `DEFAULT_CHAIN_ID`.
 

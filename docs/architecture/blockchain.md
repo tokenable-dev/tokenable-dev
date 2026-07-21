@@ -2,7 +2,7 @@
 
 ## Overview
 
-Tokenable uses **Polygon** (mainnet 137 + Amoy testnet 80002) for:
+Tokenable uses **Ethereum** (Sepolia testnet 11155111 + mainnet 1) for:
 
 - **TokenableRWA** — ERC-721 NFT contract representing physical PSA-graded cards
 - **Seaport 1.5** — off-chain order book with on-chain USDC settlement
@@ -198,16 +198,16 @@ Metadata format follows OpenSea ERC-721 standard with additional `properties.gra
 
 | Command | Script | Purpose |
 |---------|--------|---------|
-| `pnpm deploy:rwa:amoy` | `scripts/deploy-tokenable-rwa-uups.ts` | Deploy UUPS proxy to Amoy |
-| `pnpm deploy:rwa:polygon` | same | Deploy to Polygon mainnet |
-| `pnpm upgrade:rwa:amoy` | `scripts/upgrade-tokenable-rwa.ts` | Upgrade implementation (proxy unchanged); auto-grants BURNER_ROLE |
-| `pnpm grant-burner:amoy` | `scripts/grant-rwa-burner-role.ts` | Manually grant BURNER_ROLE |
+| `pnpm deploy:rwa:sepolia` | `scripts/deploy-tokenable-rwa-uups.ts` | Deploy UUPS proxy to Sepolia |
+| `pnpm deploy:rwa:mainnet` | same | Deploy to Ethereum mainnet |
+| `pnpm upgrade:rwa:sepolia` | `scripts/upgrade-tokenable-rwa.ts` | Upgrade implementation (proxy unchanged); auto-grants BURNER_ROLE |
+| `pnpm grant-burner:sepolia` | `scripts/grant-rwa-burner-role.ts` | Manually grant BURNER_ROLE |
 | `pnpm sync-abi` | `scripts/sync-abi.mjs` | Copy ABI → `backend/src/blockchain/abis/tokenable-rwa.abi.ts` |
 
 After deploying a new contract, update:
-- `contracts/.env` — `CHAIN_80002_RWA_ADDRESS`
-- `backend/.env` — `CHAIN_80002_RWA_ADDRESS`
-- `frontend/.env` — `NEXT_PUBLIC_CHAIN_80002_RWA`
+- `contracts/.env` — Sepolia / mainnet RWA address vars used by Hardhat
+- `backend/.env` — `CHAIN_11155111_RWA_ADDRESS` (and `CHAIN_1_*` for mainnet)
+- `frontend/.env` — `NEXT_PUBLIC_CHAIN_11155111_RWA` (and `NEXT_PUBLIC_CHAIN_1_*` for mainnet)
 - `backend/sql/seed/dev-platform-chart-fills.sql` — `rwa_contract` variable
 - `backend/src/swagger/fixtures.ts` — `rwaContract`
 
@@ -227,5 +227,5 @@ Run: `cd contracts && pnpm test`
 
 | Chain | ID | Usage | USDC |
 |-------|----|-------|------|
-| Polygon Amoy | 80002 | Development / testnet | Circle testnet USDC: `0x41E94Eb019C0762f9Bfcf9Fb1E58725BfB0e7582` |
-| Polygon mainnet | 137 | Production | Circle USDC: `0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359` |
+| Ethereum Sepolia | 11155111 | Development / testnet | Circle testnet USDC: `0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238` |
+| Ethereum mainnet | 1 | Production | Circle USDC: `0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48` |

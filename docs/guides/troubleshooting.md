@@ -135,6 +135,29 @@ Vault allows preview for any PSA grade; **mint** requires grade **10** in graded
 
 ---
 
+## `/vault/submit/mint` — `POST /api/psa/analyze-by-cert` fails (500 in ~ms)
+
+**Symptom:** Cert lookup fails immediately; backend log shows  
+`PSA token pool: all N token(s) rate-limited (429)`.
+
+**Cause:** PSA Public API daily quota exhausted for every token in `PSA_PUBLIC_API_TOKENS` / `PSA_PUBLIC_API_TOKEN`. Not a frontend bug.
+
+**Fix:** Wait until **UTC midnight** (token unblock), add another PSA token to the pool and restart backend, or request a higher quota from PSA. Details: [api/psa.md](../api/psa.md#rate-limits).
+
+---
+
+## Add funds / MoonPay console errors (Sepolia sandbox)
+
+| Console / UI | Meaning |
+|--------------|---------|
+| `Transaction not found` / `PrivyApiError` after cancel or incomplete checkout | Privy polls fiat tx status; common in sandbox — ignore if modal opened |
+| `fiat/status?provider=moonpay-sandbox` **400** | Same family — often benign |
+| `Buy 0X1C7D4…` + Stripe error | `destination.asset` must be `"usdc"` (symbol), not contract address |
+
+Setup: [privy-wallet-funding.md](privy-wallet-funding.md).
+
+---
+
 ## Cardhedger routes return errors
 
 - Verify `CARDHEDGER_API_KEY` is set in the backend environment.

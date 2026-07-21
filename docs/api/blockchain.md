@@ -4,9 +4,9 @@
 **Base path:** `/api/blockchain`  
 **Swagger tag:** `blockchain`
 
-Read-only access to configured EVM chains (Polygon mainnet and Polygon Amoy). Wraps two contracts per chain:
+Read-only access to configured EVM chains (Ethereum Sepolia and Ethereum mainnet). Wraps two contracts per chain:
 
-- **MockUSDC** (ERC-20) — payment token
+- **USDC** (ERC-20) — payment token (Circle testnet USDC on Sepolia; Circle USDC on mainnet)
 - **TokenableRWA** (ERC-721) — graded-card NFTs
 
 IPFS URIs are resolved server-side via multiple gateways with a CID result cache. Browsers should never fetch IPFS directly.
@@ -147,15 +147,15 @@ Resolves an array of IPFS or IPFS-gateway URIs to browser-loadable `https://` UR
 
 ## Multi-chain support
 
-The backend resolves the target chain from the `x-tokenable-chain-id` request header (set by the frontend `lib/chains/apiHeader.ts`). Supported chain IDs: `137` (Polygon mainnet), `80002` (Polygon Amoy). Each chain is configured independently:
+The backend resolves the target chain from the `x-tokenable-chain-id` request header (set by the frontend `lib/chains/apiHeader.ts`). Supported chain IDs: `11155111` (Ethereum Sepolia), `1` (Ethereum mainnet). Each chain is configured independently:
 
 | Variable pattern | Purpose |
 |-----------------|---------|
-| `CHAIN_137_RPC_URL` | Polygon mainnet RPC |
-| `CHAIN_137_RWA_ADDRESS` | TokenableRWA on Polygon mainnet |
-| `CHAIN_137_USDC_ADDRESS` | USDC on Polygon mainnet |
-| `CHAIN_80002_RPC_URL` | Polygon Amoy testnet RPC |
-| `CHAIN_80002_RWA_ADDRESS` | TokenableRWA on Polygon Amoy |
-| `CHAIN_80002_USDC_ADDRESS` | USDC on Polygon Amoy (Circle testnet) |
-| `DEFAULT_CHAIN_ID` | Default chain when header absent (default `80002`) |
+| `CHAIN_11155111_RPC_URL` | Sepolia RPC |
+| `CHAIN_11155111_RWA_ADDRESS` | TokenableRWA on Sepolia |
+| `CHAIN_11155111_USDC_ADDRESS` | USDC on Sepolia (Circle testnet) |
+| `CHAIN_1_RPC_URL` | Ethereum mainnet RPC |
+| `CHAIN_1_RWA_ADDRESS` | TokenableRWA on mainnet |
+| `CHAIN_1_USDC_ADDRESS` | USDC on mainnet (Circle) |
+| `DEFAULT_CHAIN_ID` | Default chain when header absent (default `11155111`) |
 | `PINATA_GATEWAY` | Custom gateway for resolving IPFS CIDs |
