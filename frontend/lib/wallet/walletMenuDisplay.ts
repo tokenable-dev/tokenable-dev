@@ -1,5 +1,5 @@
 import type { AuthUser } from "@/lib/auth";
-import { isKycDevBypassUser } from "@/lib/auth/accountAccess";
+import { isKycComplete } from "@/lib/auth/accountAccess";
 import { formatEther } from "viem";
 
 export function shortenWalletAddress(address: string | null | undefined): string {
@@ -15,7 +15,7 @@ export function formatHeaderKycLabel(user: AuthUser | null | undefined): {
   tone: HeaderKycTone;
 } {
   if (!user) return { text: "KYC: —", tone: "muted" };
-  if (isKycDevBypassUser(user) || user.kycStatus === "approved") {
+  if (isKycComplete(user)) {
     return { text: "KYC: ✓ Verified", tone: "pos" };
   }
   if (user.kycStatus === "pending") return { text: "KYC: Pending", tone: "warn" };

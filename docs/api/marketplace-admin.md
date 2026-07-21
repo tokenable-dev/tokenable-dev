@@ -159,19 +159,18 @@ Full deposit/redeem audit history for a physical asset (PSA cert).
 
 **Base:** `/api/marketplace/admin/users`
 
-**Admin UI:** `/marketplace/admin/users` — search and filters (All, Privy, With wallet, KYC, Pre-Privy), compact stats, and a **Privy & Add funds** panel (MoonPay readiness via `GET /api/privy/apps/settings`). Expanded user rows show a support snapshot (Privy ID, primary wallet + on-ramp hint, KYC), wallet admin actions, and optional watchlist cleanup. Per-user MoonPay payment history is not stored in Tokenable — use Privy Dashboard → Users.
-
-End-user auth is **Privy-only**. Admin user tools reflect Privy linked accounts (`user_auth_providers`, `user_wallets`).
+**Admin UI:** `/marketplace/admin/users` — compact stats + filters (Privy, wallet, KYC states). Expanded row: identity (Privy/Google/password flag), KYC/Sumsub (applicant id, reject reason, event log, approve/reject/reset), auth providers, wallets (source/client/connector/Privy wallet id), watchlist, delete.
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/stats` | Privy-centric stats (google, email OTP, wallet login, legacy pre-Privy) |
-| GET | `/` | List users — filters include `privy`, `with_wallet`, `kyc_*`, `legacy` (API also accepts auth-method filters); UI exposes the compact set |
-| GET | `/:id` | User detail — auth providers, wallets, watchlist |
-| PATCH | `/:id` | Update display name / email verified flag |
-| DELETE | `/:id` | Delete user account |
-| POST | `/:id/force-verify-email` | Mark platform `email_verified` flag |
-| POST | `/:id/wallets` | Admin link wallet (override) |
+| GET | `/stats` | Counts incl. `kycApproved` / `kycPending` / `kycRejected` / `kycNone` |
+| GET | `/` | List — filters: `privy`, `with_wallet`, `kyc_approved`, `kyc_pending`, `kyc_rejected`, `kyc_none`, `legacy`, …; search email/Privy/wallet/applicant id |
+| GET | `/:id` | Detail — wallets, auth providers, KYC fields + `kycEvents` |
+| PATCH | `/:id` | Display name / email verified |
+| POST | `/:id/kyc` | Admin KYC override `{ status, reason? }` — writes `user_kyc_events` (`source: admin`) |
+| DELETE | `/:id` | Delete user |
+| POST | `/:id/force-verify-email` | Mark `email_verified` |
+| POST | `/:id/wallets` | Admin link wallet |
 | DELETE | `/:id/wallets/:address` | Unlink wallet |
 | DELETE | `/:id/watchlist/:collectionKey` | Remove watchlist item |
 

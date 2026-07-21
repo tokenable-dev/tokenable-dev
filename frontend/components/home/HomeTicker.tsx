@@ -7,28 +7,18 @@ import {
   referenceChangeTone,
 } from "@/lib/market/priceChangePeriod";
 import { useHomeMarketplaceGrids } from "@/hooks/home";
-import { isHomeMockCollectionKey } from "@/lib/home/homeMockData";
 
 export function HomeTicker() {
   const { tickerItems } = useHomeMarketplaceGrids();
 
   const items = useMemo(() => {
-    if (tickerItems.length === 0) {
-      return [
-        { name: "Pokemon Index", pct: "+187%", up: true },
-        { name: "Basketball Index", pct: "+58%", up: true },
-        { name: "Baseball Index", pct: "+39%", up: true },
-        { name: "Football Index", pct: "+41%", up: true },
-      ];
-    }
+    if (tickerItems.length === 0) return [];
     return tickerItems.map(({ collection, changePct }) => {
       const tone = referenceChangeTone(changePct ?? 0);
-      const shortTitle = isHomeMockCollectionKey(collection.collectionKey)
-        ? collection.displayLabel
-        : buildMarketsCollectionTitle({
-            collection,
-            comp: collection.components,
-          });
+      const shortTitle = buildMarketsCollectionTitle({
+        collection,
+        comp: collection.components,
+      });
       const name =
         shortTitle.length > 28 ? `${shortTitle.slice(0, 26)}…` : shortTitle;
       return {

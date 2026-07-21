@@ -5,12 +5,13 @@ import { createPortal } from "react-dom";
 import { useClientMounted } from "@/hooks/ui/useClientMounted";
 import { cn } from "@/lib/ds/cn";
 import {
-  MOCK_NOTIFICATIONS,
   NOTIFICATION_FILTERS,
-  type MockNotification,
   type NotificationFilterKey,
   type NotificationIcon,
-} from "@/lib/notifications/mockNotifications";
+  type NotificationItem,
+} from "@/lib/notifications/notifications";
+
+const NOTIFICATIONS: NotificationItem[] = [];
 
 function hexToRgb(hex: string): string {
   const r = Number.parseInt(hex.slice(1, 3), 16);
@@ -51,7 +52,7 @@ function NotifIcon({ icon }: { icon: NotificationIcon }) {
   );
 }
 
-function NotificationItem({ item }: { item: MockNotification }) {
+function NotificationRow({ item }: { item: NotificationItem }) {
   return (
     <div className="tk-notif-item" data-type={item.type}>
       <div
@@ -121,8 +122,8 @@ export function NotificationsDrawer({
 
   const items =
     filter === "all"
-      ? MOCK_NOTIFICATIONS
-      : MOCK_NOTIFICATIONS.filter((n) => n.type === filter);
+      ? NOTIFICATIONS
+      : NOTIFICATIONS.filter((n) => n.type === filter);
 
   return createPortal(
     <div
@@ -169,7 +170,7 @@ export function NotificationsDrawer({
 
         <div className="tk-notif-list">
           {items.map((item) => (
-            <NotificationItem key={item.id} item={item} />
+            <NotificationRow key={item.id} item={item} />
           ))}
           {items.length === 0 ? (
             <div className="tk-notif-empty">No notifications in this category.</div>

@@ -150,15 +150,10 @@ export function getPageStateDefinition(kind: AppPageStateKind): AppPageStateDefi
   return PAGE_STATE_CATALOG[kind];
 }
 
-/** SHA-256 bucket keys are 64 lowercase hex chars. Design mocks use `mock:` prefixes. */
+/** SHA-256 bucket keys are 64 lowercase hex chars. */
 export function looksLikeCollectionKey(raw: string): boolean {
   const k = raw.trim().toLowerCase();
-  if (/^[a-f0-9]{64}$/.test(k)) return true;
-  return (
-    k.startsWith("mock:home:") ||
-    k.startsWith("mock:markets:") ||
-    k.startsWith("mock:portfolio:")
-  );
+  return /^[a-f0-9]{64}$/.test(k);
 }
 
 export function formatErrorDetails(error: unknown): string {

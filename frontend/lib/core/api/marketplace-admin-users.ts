@@ -20,7 +20,9 @@ export type AdminUserFilter =
   | "unverified"
   | "with_wallet"
   | "kyc_approved"
-  | "kyc_pending";
+  | "kyc_pending"
+  | "kyc_rejected"
+  | "kyc_none";
 
 export type AdminAuthProviderRow = {
   id: string;
@@ -62,16 +64,30 @@ export type AdminUserWalletRow = {
   walletClient: string | null;
   connectorType: string | null;
   source: "privy_sync" | "admin" | "legacy";
+  privyWalletId: string | null;
   linkedAt: string;
+};
+
+export type AdminKycEventRow = {
+  id: string;
+  status: AdminUserSummary["kycStatus"];
+  provider: string;
+  externalId: string | null;
+  reason: string | null;
+  source: string | null;
+  createdAt: string;
 };
 
 export type AdminUserDetail = AdminUserSummary & {
   wallets: AdminUserWalletRow[];
   authProviders: AdminAuthProviderRow[];
   watchlistKeys: string[];
+  hasPassword: boolean;
+  googleId: string | null;
   kycProvider: string | null;
   kycExternalId: string | null;
   kycRejectionReason: string | null;
+  kycEvents: AdminKycEventRow[];
 };
 
 export type AdminUserStats = {
@@ -84,6 +100,8 @@ export type AdminUserStats = {
   withWallet: number;
   kycApproved: number;
   kycPending: number;
+  kycRejected: number;
+  kycNone: number;
   verified: number;
   unverified: number;
 };
@@ -154,6 +172,25 @@ export async function patchAdminUser(
   return res.json() as Promise<AdminUserDetail>;
 }
 
+export async function postAdminUserKyc(
+  userId: string,
+  body: {
+    status: AdminUserSummary["kycStatus"];
+    reason?: string | null;
+  },
+): Promise<AdminUserDetail> {
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/admin/users/${encodeURIComponent(userId)}/kyc`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    },
+  );
+  if (!res.ok) await parseAdminError(res, "Failed to update KYC");
+  return res.json() as Promise<AdminUserDetail>;
+}
+
 export async function deleteAdminUser(userId: string): Promise<{ ok: true }> {
   const res = await backendFetch(
     `${getApiUrl()}/marketplace/admin/users/${encodeURIComponent(userId)}`,
@@ -217,22 +254,22 @@ export function formatAdminUserEmail(email: string): string {
   if (email.toLowerCase().endsWith("@privy.wallet")) {
     const wallet = email.replace(/@privy\.wallet$/i, "");
     if (wallet.length >= 10) {
-      return `${wallet.slice(0, 6)}…${wallet.slice(-4)} (wallet-only)`;
+      return `${wallet.slice(0, 6)}…${wallet.slice(-4)} (wallet)`;
     }
-    return `${wallet} (wallet-only)`;
+    return `${wallet} (wallet)`;
   }
   return email;
 }
 
 export function formatPrivyAuthMethod(method: AdminPrivyAuthMethod): string {
   const labels: Record<AdminPrivyAuthMethod, string> = {
-    wallet: "Wallet login",
+    wallet: "Wallet",
     google: "Google",
-    email: "Email OTP",
-    "google+email": "Google + email",
+    email: "Email",
+    "google+email": "Google+Email",
     apple: "Apple",
-    other: "Multi-method",
-    legacy: "Pre-Privy",
+    other: "Multi",
+    legacy: "Legacy",
   };
   return labels[method];
 }
@@ -240,21 +277,22 @@ export function formatPrivyAuthMethod(method: AdminPrivyAuthMethod): string {
 export function formatAuthProviderLabel(type: string): string {
   const labels: Record<string, string> = {
     privy: "Privy",
-    email: "Email OTP",
+    email: "Email",
     google_oauth: "Google",
     apple_oauth: "Apple",
-    wallet: "External wallet",
+    wallet: "Wallet",
     sms: "SMS",
     passkey: "Passkey",
+    email_password: "Password",
   };
   return labels[type] ?? type.replace(/_/g, " ");
 }
 
 export function formatKycStatus(status: AdminUserSummary["kycStatus"]): string {
-  if (status === "approved") return "KYC approved";
-  if (status === "pending") return "KYC pending";
-  if (status === "rejected") return "KYC rejected";
-  return "No KYC";
+  if (status === "approved") return "KYC ✓";
+  if (status === "pending") return "KYC …";
+  if (status === "rejected") return "KYC ✕";
+  return "KYC —";
 }
 
 export function privyAuthMethodBadgeClass(method: AdminPrivyAuthMethod): string {

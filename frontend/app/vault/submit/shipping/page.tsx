@@ -1,10 +1,5 @@
-import { VaultShell } from "@/components/vault/VaultShell";
-import { VaultShippingDesignView } from "@/components/vault/shipping/VaultShippingDesignView";
+import { redirect } from "next/navigation";
 
 export default function VaultShippingPage() {
-  return (
-    <VaultShell wide className="vault-page--shipping">
-      <VaultShippingDesignView />
-    </VaultShell>
-  );
+  redirect("/vault/submit");
 }

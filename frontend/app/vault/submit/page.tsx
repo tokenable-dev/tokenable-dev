@@ -1,10 +1,13 @@
-import { VaultShell } from "@/components/vault/VaultShell";
-import { VaultSubmitDesignView } from "@/components/vault/submit/VaultSubmitDesignView";
+"use client";
 
+import { VaultShell } from "@/components/vault/VaultShell";
+import { MintForm } from "@/components/vault/mint-form";
+
+/** Real vault deposit mint — PSA verify → IPFS → backend mint. */
 export default function VaultSubmitPage() {
   return (
-    <VaultShell wide className="vault-page--submit">
-      <VaultSubmitDesignView />
+    <VaultShell>
+      <MintForm />
     </VaultShell>
   );
 }

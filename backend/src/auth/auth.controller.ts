@@ -30,7 +30,7 @@ import {
   userMayAuthenticate,
 } from './auth-session.util';
 import { DeleteAccountDto } from './dto/delete-account.dto';
-import { AuthSessionResponseDto } from '../privy/dto/privy-response.dto';
+import { AuthSessionResponseDto } from './dto/auth-session.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { extractBearerToken } from './privy';
 import { apiBodyDefault } from '../swagger/api-body.util';

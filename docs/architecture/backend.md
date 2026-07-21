@@ -49,6 +49,7 @@ backend/src/
 ├── auth/                    # Privy JWT session; JWT cookies; legacy Email/Password services (admin only)
 │   └── privy/               # PrivyService — JWKS verify, user fetch, profile parse
 ├── privy/                   # Privy catalog endpoint + API proxy (users, funding)
+├── kyc/                     # Sumsub WebSDK tokens + webhook → users.kyc_status
 ├── user/                    # users, user_wallets, user_auth_providers, user_kyc_events
 ├── mail/                    # SMTP (legacy verification + password reset — admin tooling only)
 ├── health/                  # GET /api/health

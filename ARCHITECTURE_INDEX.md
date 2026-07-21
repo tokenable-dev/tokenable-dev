@@ -21,16 +21,17 @@ Navigation guide for both humans and AI agents. Read this first before working o
 | | |
 |---|---|
 | **Documentation** | `docs/api/auth.md` |
-| **Implementation** | `backend/src/auth/`, `backend/src/privy/`, `backend/src/user/` |
-| **Frontend** | `frontend/lib/privy/`, `frontend/store/authStore.ts`, `frontend/components/auth/` |
+| **Implementation** | `backend/src/auth/` (+ `auth/privy/`), `backend/src/privy/`, `backend/src/kyc/`, `backend/src/user/` |
+| **Frontend** | `frontend/lib/privy/`, `frontend/lib/kyc/`, `frontend/store/authStore.ts`, `frontend/components/auth/`, `frontend/app/kyc/` |
 | **Database tables** | `users`, `user_wallets`, `user_auth_providers`, `user_kyc_events` |
-| **Required reading before changes** | `docs/api/auth.md`, `docs/architecture/backend.md` |
+| **Required reading before changes** | `docs/api/auth.md`, `docs/guides/sumsub-kyc.md`, `docs/architecture/backend.md` |
 
 Key facts:
 - Auth is **Privy-only** (user-facing). No Google OAuth, no email/password in production.
 - Backend issues an HttpOnly JWT cookie after verifying the Privy access token.
 - `JwtAuthGuard` protects user routes; marketplace admin uses a separate session.
 - Every Privy session syncs wallets to `user_wallets` and providers to `user_auth_providers`.
+- Sumsub lives in `backend/src/kyc/` (API + webhook); KYC status persists on `users` via `UserService.updateKycStatus`.
 
 ---
 

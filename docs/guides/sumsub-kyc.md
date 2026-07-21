@@ -104,7 +104,18 @@ SDK completion events are UI hints only; final status comes from webhooks.
 
 ## Going live
 
-See [Get production key](https://docs.sumsub.com/docs/get-production-key). Production settings are **not** copied from Sandbox — recreate webhooks, levels, and use production app token/secret. Remove the `tokenable.dev@gmail.com` KYC bypass before mainnet public launch.
+See [Get production key](https://docs.sumsub.com/docs/get-production-key). Production settings are **not** copied from Sandbox — recreate webhooks, levels, and use production app token/secret. Remove the `tokenable.dev@gmail.com` KYC bypass before mainnet public launch (`frontend/lib/auth/accountAccess.ts` + `backend/src/kyc/utils/kyc-gate.util.ts` — keep emails identical until then).
+
+## Code layout
+
+| Layer | Home |
+|-------|------|
+| Sumsub API + webhook | `backend/src/kyc/` |
+| KYC status persistence | `backend/src/user/` (`updateKycStatus`, `user_kyc_events`) |
+| Privy token verify | `backend/src/auth/privy/` |
+| Privy API proxy / funding catalog | `backend/src/privy/` |
+| Frontend Privy | `frontend/lib/privy/` |
+| Frontend KYC client + page | `frontend/lib/kyc/`, `frontend/app/kyc/` |
 
 ## Related docs
 
