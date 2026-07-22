@@ -305,7 +305,12 @@ const VAULTED_SEEDS: MockCardSeed[] = [
   },
 ];
 
-/** index.html ticker names (short labels + %). */
+/**
+ * Indices 1Y ticker mock strip.
+ * Keep this list long enough that one marquee cycle (before CSS duplicates the
+ * row for seamless loop) is wider than a typical ultrawide viewport — otherwise
+ * the same names appear twice on screen at once.
+ */
 export const HOME_MOCK_TICKER_ITEMS: {
   name: string;
   changePct: number;
@@ -314,10 +319,50 @@ export const HOME_MOCK_TICKER_ITEMS: {
   { name: "Nidoking ex", changePct: 138 },
   { name: "Charizard ex", changePct: 118 },
   { name: "Pikachu ex SSP", changePct: 47 },
+  { name: "Umbreon VMAX", changePct: 86 },
+  { name: "Gengar VMAX", changePct: 62 },
+  { name: "Mewtwo GX", changePct: 41 },
+  { name: "Rayquaza VMAX", changePct: 55 },
+  { name: "Lugia V ALT", changePct: 73 },
+  { name: "Moonbreon", changePct: 124 },
+  { name: "Blastoise ex", changePct: 38 },
+  { name: "Venusaur ex", changePct: 29 },
   { name: "Luka Doncic", changePct: 19 },
   { name: "LeBron Auto", changePct: 13 },
   { name: "Wembanyama RC", changePct: -4 },
   { name: "Shohei Ohtani", changePct: 9 },
+  { name: "Jordan Fleer", changePct: 22 },
+  { name: "Kobe Chromes", changePct: 17 },
+  { name: "Curry Prizm", changePct: 11 },
+  { name: "Giannis Optic", changePct: 8 },
+  { name: "Ja Morant RC", changePct: -6 },
+  { name: "Lamelo RC", changePct: -9 },
+  { name: "Tatum Select", changePct: 14 },
+  { name: "Edwards Prizm", changePct: 16 },
+  { name: "Judge Rookie", changePct: 21 },
+  { name: "Acuna Chrome", changePct: 12 },
+  { name: "Trout Update", changePct: 7 },
+  { name: "Soto Refractor", changePct: 10 },
+  { name: "Harper Auto", changePct: 5 },
+  { name: "Witt Jr RC", changePct: 18 },
+  { name: "Mahomes Prizm", changePct: 15 },
+  { name: "Burrow Optic", changePct: 6 },
+  { name: "Allen Select", changePct: 9 },
+  { name: "Jackson RC", changePct: 12 },
+  { name: "Black Lotus", changePct: 34 },
+  { name: "Mox Sapphire", changePct: 28 },
+  { name: "Ancestral", changePct: 19 },
+  { name: "Time Walk", changePct: 16 },
+  { name: "Ragavan", changePct: -3 },
+  { name: "Sheoldred", changePct: 11 },
+  { name: "The One Ring", changePct: 24 },
+  { name: "Sol Ring", changePct: 4 },
+  { name: "Pikachu Illustrator", changePct: 210 },
+  { name: "Charizard Base", changePct: 67 },
+  { name: "Eevee Heroes", changePct: 33 },
+  { name: "Lost Origin", changePct: 27 },
+  { name: "Obsidian Flames", changePct: -2 },
+  { name: "Paldea Evolved", changePct: 8 },
 ];
 
 export const HOME_MOCK_TOP_MOVERS: MarketplaceCollectionSummary[] =

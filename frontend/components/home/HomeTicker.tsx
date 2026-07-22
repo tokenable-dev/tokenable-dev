@@ -7,28 +7,39 @@ import {
   referenceChangeTone,
 } from "@/lib/market/priceChangePeriod";
 import { useHomeMarketplaceGrids } from "@/hooks/home";
-import { isHomeMockCollectionKey } from "@/lib/home/homeMockData";
+import {
+  HOME_MOCK_TICKER_ITEMS,
+  isHomeMockCollectionKey,
+} from "@/lib/home/homeMockData";
 
 export function HomeTicker() {
   const { tickerItems } = useHomeMarketplaceGrids();
 
   const items = useMemo(() => {
     if (tickerItems.length === 0) {
-      return [
-        { name: "Pokemon Index", pct: "+187%", up: true },
-        { name: "Basketball Index", pct: "+58%", up: true },
-        { name: "Baseball Index", pct: "+39%", up: true },
-        { name: "Football Index", pct: "+41%", up: true },
-      ];
+      return HOME_MOCK_TICKER_ITEMS.map((item) => {
+        const tone = referenceChangeTone(item.changePct);
+        return {
+          name: item.name,
+          pct: formatReferencePercentChange(item.changePct, 0),
+          up: tone !== "down",
+        };
+      });
     }
+
     return tickerItems.map(({ collection, changePct }) => {
       const tone = referenceChangeTone(changePct ?? 0);
-      const shortTitle = isHomeMockCollectionKey(collection.collectionKey)
-        ? collection.displayLabel
-        : buildMarketsCollectionTitle({
-            collection,
-            comp: collection.components,
-          });
+      // mock:ticker:* and mock:home:* — use displayLabel only.
+      // buildMarketsCollectionTitle would repeat cardName + setLine (e.g. "Wembanyama RC Wembanyama RC").
+      const key = collection.collectionKey.toLowerCase();
+      const shortTitle =
+        isHomeMockCollectionKey(collection.collectionKey) ||
+        key.startsWith("mock:ticker:")
+          ? collection.displayLabel?.trim() || collection.collectionKey
+          : buildMarketsCollectionTitle({
+              collection,
+              comp: collection.components,
+            });
       const name =
         shortTitle.length > 28 ? `${shortTitle.slice(0, 26)}…` : shortTitle;
       return {
@@ -39,6 +50,8 @@ export function HomeTicker() {
     });
   }, [tickerItems]);
 
+  // Duplicate once for seamless CSS marquee (translateX -50%). With a long
+  // unique cycle, the duplicate set stays off-screen on typical viewports.
   const loop = [...items, ...items];
 
   return (
