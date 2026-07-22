@@ -6,6 +6,7 @@ import { BlockchainService } from './blockchain.service';
 import { IpfsGatewayResolverService } from './ipfs-gateway-resolver.service';
 import { RwaAssetResolveService } from './rwa-asset-resolve.service';
 import { RwaChainWriterService } from './rwa-chain-writer.service';
+import { PaymentEscrowWriterService } from './payment-escrow-writer.service';
 import { ethersProviderFactory } from './providers/ethers-provider.factory';
 import { tokenableRwaFactory } from './providers/tokenable-rwa.factory';
 import { ChainConfigService } from './chain-config.service';
@@ -19,6 +20,7 @@ import { TOKENABLE_RWA_CONTRACT } from './constants/injection-tokens';
     BlockchainService,
     RwaAssetResolveService,
     RwaChainWriterService,
+    PaymentEscrowWriterService,
     ethersProviderFactory,
     tokenableRwaFactory,
     ChainConfigService,
@@ -28,6 +30,7 @@ import { TOKENABLE_RWA_CONTRACT } from './constants/injection-tokens';
     IpfsGatewayResolverService,
     RwaAssetResolveService,
     RwaChainWriterService,
+    PaymentEscrowWriterService,
     TOKENABLE_RWA_CONTRACT,
     ChainConfigService,
   ],

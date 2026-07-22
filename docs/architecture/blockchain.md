@@ -5,10 +5,13 @@
 Tokenable uses **Ethereum** (Sepolia testnet 11155111 + mainnet 1) for:
 
 - **TokenableRWA** — ERC-721 NFT contract representing physical PSA-graded cards
-- **Seaport 1.5** — off-chain order book with on-chain USDC settlement
+- **Seaport 1.5** — off-chain order book with on-chain USDC settlement (Vault channel)
+- **TokenablePaymentEscrow** — USDC hold until P2P buyer confirm / timeout / arbiter refund
 - **USDC (Circle)** — settlement currency for all marketplace trades
 
-The backend is the sole on-chain writer for mint/burn. Users sign Seaport trade orders via Privy or MetaMask.
+The backend is the sole on-chain writer for mint/burn (and escrow arbiter refund). Users sign Seaport trades and P2P escrow deposit/confirm via Privy or MetaMask.
+
+P2P details: [p2p-payment-escrow.md](./p2p-payment-escrow.md). Deploy escrow: `cd contracts && pnpm deploy:escrow:sepolia`.
 
 ---
 

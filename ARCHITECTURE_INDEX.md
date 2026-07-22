@@ -88,10 +88,28 @@ Key facts:
 | **Required reading before changes** | `docs/api/marketplace.md`, `docs/architecture/materialized-market-snapshots.md` |
 
 Key facts:
-- Seaport 1.5 only; no relational bid/ask matching
+- Seaport 1.5 only for **Vault** token trades; no relational bid/ask matching
 - Settlement currency: USDC (6 decimals); platform fee = 5% via Seaport consideration
 - Market pricing is **materialized** (DB-first, not live Cardhedger calls)
 - Collection bucket (`collection_key`) is created on **first ask listing**, not at mint
+- Active P2P custody tokens cannot create Seaport asks
+
+---
+
+### P2P Payment Escrow
+
+| | |
+|---|---|
+| **Documentation** | `docs/architecture/p2p-payment-escrow.md`, `docs/api/p2p.md` |
+| **Contract** | `contracts/contracts/TokenablePaymentEscrow.sol` |
+| **Backend** | `backend/src/marketplace/p2p/`, `backend/src/blockchain/payment-escrow-writer.service.ts` |
+| **Frontend** | `frontend/app/p2p/`, `frontend/app/sell/p2p/`, `frontend/components/markets/MarketsP2pSection.tsx` |
+| **Database tables** | `p2p_listings`, `p2p_orders` |
+| **Required reading before changes** | `docs/architecture/p2p-payment-escrow.md` |
+
+Key facts:
+- NFT stays in custody; USDC held in `TokenablePaymentEscrow` until confirm / timeout / arbiter refund
+- Deploy: `cd contracts && pnpm deploy:escrow:sepolia` then set `CHAIN_{id}_PAYMENT_ESCROW_ADDRESS`
 
 ---
 

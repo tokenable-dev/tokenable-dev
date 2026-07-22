@@ -5,6 +5,7 @@ export * from "./rwa-mint";
 export * from "./psa";
 export * from "./rwa-blockchain";
 export * from "./orders";
+export * from "./p2p";
 export * from "./marketplace-collections";
 export * from "./marketplace-admin-rwa";
 export * from "./marketplace-admin-auth";

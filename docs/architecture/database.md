@@ -1,7 +1,7 @@
 # Database
 
 **Engine:** PostgreSQL 16  
-**ORM:** TypeORM (NestJS) — **21 entities**  
+**ORM:** TypeORM (NestJS) — **23 entities**  
 **DDL:** `backend/sql/schema/` — applied via [bootstrap script](../../backend/sql/README.md)  
 **Source of truth:** `backend/src/**/entities/*.ts`
 
@@ -48,6 +48,8 @@
 | `marketplace_collections` | Graded-metadata bucket catalog (created on first ask) | `marketplace/entities/marketplace-collection.entity.ts` |
 | `rwa_tokens` | On-chain mint registry (contract + tokenId → cert, vault cycle, IPFS) | `marketplace/entities/rwa-token.entity.ts` |
 | `collection_market_snapshots` | Materialized Cardhedger market state per bucket | `marketplace/entities/collection-market-snapshot.entity.ts` |
+| `p2p_listings` | P2P sell listings (custody mint, not Seaport) | `marketplace/entities/p2p-listing.entity.ts` |
+| `p2p_orders` | P2P buy orders + payment escrow linkage | `marketplace/entities/p2p-order.entity.ts` |
 | `orders` | Seaport signed asks/bids + fulfilled trade tape | `marketplace/entities/order.entity.ts` |
 
 ### Portfolio & engagement

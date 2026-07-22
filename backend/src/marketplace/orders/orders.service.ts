@@ -27,6 +27,7 @@ import {
 import { CreateOrderDto } from './dto/create-order.dto';
 import { FulfillOrderQueryDto } from './dto/fulfill-order-query.dto';
 import { Order, OrderSide, OrderStatus } from '../entities/order.entity';
+import { P2pListing } from '../entities/p2p-listing.entity';
 import { orderToListItem, type OrderListItem } from '../utils/order-list.util';
 import { microsToUsdc } from '../admin/platform-analytics.util';
 import { PortfolioHoldingService } from '../portfolio/portfolio-holding.service';
@@ -54,6 +55,8 @@ export class OrdersService {
   constructor(
     @InjectRepository(Order)
     private readonly orderRepo: Repository<Order>,
+    @InjectRepository(P2pListing)
+    private readonly p2pListings: Repository<P2pListing>,
     private readonly config: ConfigService,
     private readonly collectionService: CollectionService,
     private readonly chainConfig: ChainConfigService,
@@ -101,6 +104,19 @@ export class OrdersService {
 
     if (side === OrderSide.ASK) {
       this.assertValidAskListing(dto, chainId);
+
+      const p2pActive = await this.p2pListings.count({
+        where: {
+          tokenContract: dto.tokenContract.toLowerCase(),
+          tokenId: String(dto.tokenId),
+          status: In(['P2P_MINTED_TK', 'P2P_LISTED', 'SOLD']),
+        },
+      });
+      if (p2pActive > 0) {
+        throw new BadRequestException(
+          `Token #${dto.tokenId} is a P2P listing — Seaport asks are not allowed`,
+        );
+      }
 
       const existing = await this.orderRepo.findOne({
         where: {

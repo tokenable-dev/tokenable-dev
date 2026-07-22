@@ -42,6 +42,8 @@ import { MarketplaceAdmin } from './marketplace/entities/marketplace-admin.entit
 import { VaultAsset } from './vault/entities/vault-asset.entity';
 import { VaultCycle } from './vault/entities/vault-cycle.entity';
 import { VaultRedemption } from './vault/entities/vault-redemption.entity';
+import { P2pListing } from './marketplace/entities/p2p-listing.entity';
+import { P2pOrder } from './marketplace/entities/p2p-order.entity';
 
 @Module({
   imports: [
@@ -92,6 +94,8 @@ import { VaultRedemption } from './vault/entities/vault-redemption.entity';
           VaultAsset,
           VaultCycle,
           VaultRedemption,
+          P2pListing,
+          P2pOrder,
         ],
         // Schema sync is always disabled in production — use SQL migration scripts
         // under backend/sql/schema/ instead. Enabled only in non-production

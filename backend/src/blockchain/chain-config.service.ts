@@ -60,6 +60,18 @@ export class ChainConfigService {
     );
   }
 
+  /** TokenablePaymentEscrow — optional until deployed for the chain. */
+  getPaymentEscrowAddress(chainId: SupportedChainId): string {
+    const fromMap = this.config
+      .get<string>(`CHAIN_${chainId}_PAYMENT_ESCROW_ADDRESS`)
+      ?.trim()
+      .toLowerCase();
+    if (fromMap && ADDR.test(fromMap)) return fromMap;
+    throw new BadRequestException(
+      `Payment escrow not configured for chain ${chainId} — set CHAIN_${chainId}_PAYMENT_ESCROW_ADDRESS`,
+    );
+  }
+
   /**
    * JsonRpcProvider with an explicit chain id — skips eth_chainId polling on boot.
    * Without this, ethers logs "failed to detect network" and retries every 1s when

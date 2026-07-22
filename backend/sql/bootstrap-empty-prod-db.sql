@@ -18,6 +18,7 @@ BEGIN;
 \ir schema/020_vault.sql
 \ir schema/030_rwa_tokens.sql
 \ir schema/040_marketplace.sql
+\ir schema/045_p2p.sql
 \ir schema/050_portfolio.sql
 \ir schema/060_admin.sql
 \ir schema/070_cardhedger.sql
