@@ -69,8 +69,9 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
     () => readRememberedCollectionCoverImage(collectionKey),
     [collectionKey],
   );
+  // Prefer detail/seed cover (e.g. pinned Collectr) over a stale session remember.
   const existingCoverUrl =
-    rememberedCoverUrl || pickCollectionDetailDisplayImageUrl(data);
+    pickCollectionDetailDisplayImageUrl(data) || rememberedCoverUrl;
   const catalogCoverSearch = useMemo(
     () =>
       mockCoverSearchFromCollection({

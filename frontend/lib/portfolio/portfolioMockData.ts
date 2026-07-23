@@ -415,6 +415,7 @@ export function withPortfolioMockCoverImages(
   }
 
   const assetRows = PORTFOLIO_MOCK_ASSET_ROWS.map((row) => {
+    if (row.imageUrl?.trim()) return row;
     const ck = PORTFOLIO_MOCK_TOKEN_TO_COLLECTION_KEY[row.tokenId]?.toLowerCase();
     const url = ck ? coverByKey.get(ck) : undefined;
     if (!url) return row;
@@ -423,6 +424,11 @@ export function withPortfolioMockCoverImages(
 
   const metadataByTokenId = new Map<number, RwaMetadata | null>();
   for (const [tokenId, meta] of PORTFOLIO_MOCK_METADATA_BY_TOKEN) {
+    const existing = meta?.image?.trim();
+    if (existing) {
+      metadataByTokenId.set(tokenId, meta);
+      continue;
+    }
     const ck = PORTFOLIO_MOCK_TOKEN_TO_COLLECTION_KEY[tokenId]?.toLowerCase();
     const url = ck ? coverByKey.get(ck) : undefined;
     if (!meta || !url) {
@@ -434,6 +440,10 @@ export function withPortfolioMockCoverImages(
 
   const bidMetaByKey = new Map<string, PortfolioBidCollectionMeta>();
   for (const [key, meta] of PORTFOLIO_MOCK_BID_META_BY_KEY) {
+    if (meta.imageUrl?.trim()) {
+      bidMetaByKey.set(key, meta);
+      continue;
+    }
     const url = coverByKey.get(key.toLowerCase());
     bidMetaByKey.set(key, url ? { ...meta, imageUrl: url } : meta);
   }

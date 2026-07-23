@@ -3,6 +3,7 @@ import type {
   MarketplaceCollectionSummary,
 } from "@/lib/core";
 import { enrichDesignMockComponents } from "@/lib/marketplace/enrichDesignMockComponents";
+import { MOCK_COLLECTR_CHARIZARD_EX_151_199 } from "@/lib/home/withMockCoverImages";
 
 /**
  * Design parity with `Tokenable-with design system/index.html` `renderVals()`.
@@ -148,7 +149,7 @@ const MOVER_SEEDS: MockCardSeed[] = [
   },
   {
     id: "mover-charizard-151",
-    image: "",
+    image: MOCK_COLLECTR_CHARIZARD_EX_151_199,
     ...gradeParts("PSA 10"),
     pop: parsePop("27.7k"),
     listed: 1,
@@ -277,7 +278,7 @@ const VAULTED_SEEDS: MockCardSeed[] = [
   },
   {
     id: "vaulted-charizard-151",
-    image: "",
+    image: MOCK_COLLECTR_CHARIZARD_EX_151_199,
     ...gradeParts("PSA 10"),
     pop: parsePop("27.7k"),
     listed: 1,

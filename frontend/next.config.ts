@@ -105,6 +105,10 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "**.bubble.io",
       },
+      {
+        protocol: "https",
+        hostname: "public.getcollectr.com",
+      },
     ],
   },
   /**

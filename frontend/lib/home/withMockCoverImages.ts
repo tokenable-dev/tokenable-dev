@@ -1,5 +1,9 @@
 import type { MarketplaceCollectionSummary } from "@/lib/core";
 
+/** Collectr public CDN — SV: 151 Charizard ex #199/165 (product 517045). */
+export const MOCK_COLLECTR_CHARIZARD_EX_151_199 =
+  "https://public.getcollectr.com/public-assets/products/product_517045.jpg?optimizer=image&format=webp&width=1200&quality=80&strip=metadata";
+
 /** Overlay Cardhedger cover URLs onto mock cards by collection key (keeps titles/prices). */
 export function withMockCoverImages(
   collections: MarketplaceCollectionSummary[],
@@ -7,6 +11,9 @@ export function withMockCoverImages(
 ): MarketplaceCollectionSummary[] {
   if (coverByKey.size === 0) return collections;
   return collections.map((c) => {
+    // Seeded / pinned covers (e.g. Collectr) win over Cardhedger search.
+    const pinned = (c.coverImageUrl || c.displayImageUrl || "").trim();
+    if (pinned) return c;
     const url = coverByKey.get(c.collectionKey.toLowerCase());
     if (!url) return c;
     return {

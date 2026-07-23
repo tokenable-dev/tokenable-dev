@@ -3,6 +3,7 @@ import type {
   MarketplaceCollectionSummary,
 } from "@/lib/core";
 import { enrichDesignMockComponents } from "@/lib/marketplace/enrichDesignMockComponents";
+import { MOCK_COLLECTR_CHARIZARD_EX_151_199 } from "@/lib/home/withMockCoverImages";
 import type { HomeMockCardSub } from "@/lib/home/homeMockData";
 
 /**
@@ -163,7 +164,7 @@ const LISTING_SEEDS: MarketsMockSeed[] = [
   },
   {
     id: "listing-3",
-    image: "",
+    image: MOCK_COLLECTR_CHARIZARD_EX_151_199,
     ...gradeParts("PSA 10"),
     pop: parsePop("27.7k"),
     listed: 1,
@@ -233,7 +234,7 @@ const LISTING_SEEDS: MarketsMockSeed[] = [
   },
   {
     id: "listing-8",
-    image: "",
+    image: MOCK_COLLECTR_CHARIZARD_EX_151_199,
     ...gradeParts("PSA 9"),
     pop: parsePop("31.2k"),
     listed: 4,
