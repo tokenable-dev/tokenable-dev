@@ -23,13 +23,11 @@ import {
 } from "@/lib/portfolio/buildPortfolioPricedRows";
 import { buildPortfolioTxRows } from "@/lib/portfolio/buildPortfolioTxRows";
 import {
-  PORTFOLIO_MOCK_ASSET_ROWS,
-  PORTFOLIO_MOCK_BID_META_BY_KEY,
   PORTFOLIO_MOCK_BIDS,
   PORTFOLIO_MOCK_CHART_LABELS,
   PORTFOLIO_MOCK_CHART_POINTS,
+  PORTFOLIO_MOCK_COLLECTIONS,
   PORTFOLIO_MOCK_COST_BASIS_BY_TOKEN,
-  PORTFOLIO_MOCK_METADATA_BY_TOKEN,
   PORTFOLIO_MOCK_STATS_BY_KEY,
   PORTFOLIO_MOCK_TOKEN_TO_COLLECTION_KEY,
   PORTFOLIO_MOCK_TOTAL_VALUE,
@@ -37,7 +35,10 @@ import {
   PORTFOLIO_MOCK_TX_ROWS,
   isPortfolioMockTokenId,
   shouldUsePortfolioMock,
+  withPortfolioMockCoverImages,
 } from "@/lib/portfolio/portfolioMockData";
+import { mockCoverSearchFromCollection } from "@/lib/home/withMockCoverImages";
+import { useCardhedgerMockCoverImages } from "@/hooks/home/useCardhedgerMockCoverImages";
 import type { OwnedAsset } from "@/lib/portfolio/portfolioTypes";
 import { putPortfolioCostBasis, rq } from "@/lib/core";
 import { invalidateAfterListing } from "@/lib/core/invalidation";
@@ -62,6 +63,8 @@ import { RwaDetailListModalHost } from "@/components/marketplace/rwa-detail/moda
 import { useSellAccessGate } from "@/hooks/auth/useSellAccessGate";
 import { usePageViewedEvent } from "@/hooks/analytics/usePageViewedEvent";
 import { trackEvent } from "@/lib/analytics/googleAnalytics";
+
+const EMPTY_COVER_MAP = new Map<string, string>();
 
 export default function PortfolioPage() {
   usePageViewedEvent("portfolio");
@@ -283,9 +286,26 @@ export default function PortfolioPage() {
 
   const usePortfolioMocks = shouldUsePortfolioMock(visibleAssetRows.length > 0);
 
-  const displayAssetRows = usePortfolioMocks ? PORTFOLIO_MOCK_ASSET_ROWS : visibleAssetRows;
+  const mockCoverQueries = useMemo(() => {
+    if (!usePortfolioMocks) return [];
+    return PORTFOLIO_MOCK_COLLECTIONS.map(mockCoverSearchFromCollection);
+  }, [usePortfolioMocks]);
+
+  const { data: mockCoverByKey } = useCardhedgerMockCoverImages(
+    usePortfolioMocks,
+    mockCoverQueries,
+  );
+
+  const portfolioMockDisplay = useMemo(
+    () => withPortfolioMockCoverImages(mockCoverByKey ?? EMPTY_COVER_MAP),
+    [mockCoverByKey],
+  );
+
+  const displayAssetRows = usePortfolioMocks
+    ? portfolioMockDisplay.assetRows
+    : visibleAssetRows;
   const displayMetadataByTokenId = usePortfolioMocks
-    ? PORTFOLIO_MOCK_METADATA_BY_TOKEN
+    ? portfolioMockDisplay.metadataByTokenId
     : metadataByTokenId;
   const displayCostBasisByTokenId = usePortfolioMocks
     ? PORTFOLIO_MOCK_COST_BASIS_BY_TOKEN
@@ -299,7 +319,7 @@ export default function PortfolioPage() {
   const displayTxRows = usePortfolioMocks ? PORTFOLIO_MOCK_TX_ROWS : txRows;
   const displayBids = usePortfolioMocks ? PORTFOLIO_MOCK_BIDS : myBids.activeBids;
   const displayBidMeta = usePortfolioMocks
-    ? PORTFOLIO_MOCK_BID_META_BY_KEY
+    ? portfolioMockDisplay.bidMetaByKey
     : myBids.collectionMetaByKey;
 
   const openPortfolioListModal = useCallback(

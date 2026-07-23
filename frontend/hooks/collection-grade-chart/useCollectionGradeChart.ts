@@ -73,9 +73,23 @@ export function useCollectionGradeChart(input: {
   }, [collectionKey]);
 
   const activeGradeRaw = normalizeGradeLabel(selectedGrade) || slabGrade;
-  const activeGrade = isPsaChartGradeLabel(activeGradeRaw)
-    ? activeGradeRaw
-    : coercePsaChartGradeLabel(slabGrade) ?? "PSA 10";
+  /**
+   * Default view must keep the slab's real company/grade (e.g. BGS 9.5) so
+   * market-series snapshots still match (`preferSnapshot`). Only coerce to a
+   * PSA 1–10 label when the user picks from the PSA chart picker (or the slab
+   * itself is already PSA).
+   */
+  const activeGrade = (() => {
+    if (isPsaChartGradeLabel(activeGradeRaw)) return activeGradeRaw;
+    if (selectedGrade == null) {
+      return slabGrade || "PSA 10";
+    }
+    return (
+      coercePsaChartGradeLabel(activeGradeRaw) ??
+      coercePsaChartGradeLabel(slabGrade) ??
+      "PSA 10"
+    );
+  })();
 
   const catalogFromSeries = marketSeries?.allGradePrices ?? [];
   const needsCatalogFetch =

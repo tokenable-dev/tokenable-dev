@@ -15,6 +15,7 @@ import {
   resolveMarketsListingMarketUsd,
 } from "@/lib/markets/marketsListingMarketPrice";
 import { pickCollectionSummaryDisplayImageUrl } from "@/lib/marketplace/collectionDisplayImage";
+import { rememberCollectionCoverImage } from "@/lib/marketplace/collectionCoverSession";
 import { parseCollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
 import { trackEvent } from "@/lib/analytics/googleAnalytics";
 import {
@@ -187,6 +188,7 @@ export function CollectibleCard({
       href={href}
       className="card"
       onClick={() => {
+        rememberCollectionCoverImage(collection.collectionKey, imageSrc);
         trackEvent("card_clicked", {
           card_id: collection.collectionKey,
           card_name: title,

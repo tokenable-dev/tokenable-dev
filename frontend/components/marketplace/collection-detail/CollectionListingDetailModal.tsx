@@ -55,13 +55,16 @@ export function CollectionListingDetailModal({
   onBid: () => void;
 }) {
   const tid = tokenId ?? 0;
-  const { metadata } = useCollectionRwaCardData({
+  const { metadata, imageUrl } = useCollectionRwaCardData({
     tokenId: tid,
     prefetchedMetadata: prefetchedMetadata ?? null,
     prefetchedImageUrl: prefetchedImageUrl ?? null,
   });
 
-  const rawGallery = useMemo(() => listingGalleryImages(metadata), [metadata]);
+  const rawGallery = useMemo(
+    () => listingGalleryImages(metadata, imageUrl ?? prefetchedImageUrl),
+    [metadata, imageUrl, prefetchedImageUrl],
+  );
 
   const unresolvedUris = useMemo(
     () =>

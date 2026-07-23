@@ -1,10 +1,13 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import type { Address } from "viem";
 import { pickCollectionDetailDisplayImageUrl } from "@/lib/marketplace/collectionDisplayImage";
+import { readRememberedCollectionCoverImage } from "@/lib/marketplace/collectionCoverSession";
+import { mockCoverSearchFromCollection } from "@/lib/home/withMockCoverImages";
 import { COLLECTION_DETAIL_SHELL_CLASS } from "@/constants/layout";
 import { useCollectionCoverGallery } from "@/hooks/collection-detail/useCollectionCoverGallery";
+import { useCatalogCoverUrl } from "@/hooks/media/useCatalogCoverUrl";
 import { CollectionOverviewBoard } from "@/components/marketplace/collection-overview";
 import { AssetDetailHeadlineTitle } from "@/components/marketplace/marketplace-shared";
 import { WatchlistToggleButton } from "@/components/watchlist/WatchlistToggleButton";
@@ -61,8 +64,26 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
   } = detail;
 
   const collection = data.collection!;
-  const collectionCoverUrl = pickCollectionDetailDisplayImageUrl(data);
   const comp = parseCollectionComponents(collection.components);
+  const rememberedCoverUrl = useMemo(
+    () => readRememberedCollectionCoverImage(collectionKey),
+    [collectionKey],
+  );
+  const existingCoverUrl =
+    rememberedCoverUrl || pickCollectionDetailDisplayImageUrl(data);
+  const catalogCoverSearch = useMemo(
+    () =>
+      mockCoverSearchFromCollection({
+        collectionKey,
+        displayLabel: collection.displayLabel,
+        components: collection.components,
+      }).search,
+    [collectionKey, collection.displayLabel, collection.components],
+  );
+  const { url: collectionCoverUrl } = useCatalogCoverUrl({
+    existingUrl: existingCoverUrl,
+    search: catalogCoverSearch,
+  });
 
   const psaPopulationPanel = useMemo(
     () => resolveCollectionPsaPopulationPanelData(comp),
@@ -86,10 +107,29 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
     };
   }, [coverGalleryState]);
 
+  const listingsBatchMetadata = useMemo(() => {
+    const base = listings.batchMetadata;
+    if (!collectionCoverUrl || !base?.size) return base;
+    let needsOverlay = false;
+    for (const entry of base.values()) {
+      if (!entry.imageUrl?.trim()) {
+        needsOverlay = true;
+        break;
+      }
+    }
+    if (!needsOverlay) return base;
+    const next = new Map(base);
+    for (const [tokenId, entry] of base) {
+      if (entry.imageUrl?.trim()) continue;
+      next.set(tokenId, { ...entry, imageUrl: collectionCoverUrl });
+    }
+    return next;
+  }, [listings.batchMetadata, collectionCoverUrl]);
+
   const listingModal = useCollectionListingModal({
     collectionKey,
     askMap: listings.askMap,
-    batchMetadata: listings.batchMetadata,
+    batchMetadata: listingsBatchMetadata,
     address,
     onInvalidate: invalidateCollection,
     onPurchaseCelebration: (kind) => setTradeCelebration(kind),
@@ -100,7 +140,7 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
       collectionKey={collectionKey}
       tokenIds={listings.tokenIds}
       askMap={listings.askMap}
-      batchMetadata={listings.batchMetadata}
+      batchMetadata={listingsBatchMetadata}
       address={address as Address | undefined}
       gradeLabel={headline.headlineGradeBadge ?? market.gradeAwareTierLabel}
       onOpenListing={listingModal.openListing}

@@ -33,9 +33,6 @@ import {
   cardCountForTier,
   type HeroCarouselTier,
 } from "@/lib/home/heroCarouselCapability";
-import { HERO_SLAB_CAROUSEL_SOURCES } from "@/lib/home/heroCarouselAssets";
-
-export { HERO_SLAB_CAROUSEL_SOURCES } from "@/lib/home/heroCarouselAssets";
 
 const AZURE = 0x1a6fff;
 const ORBIT_RADIUS = 4.1;
@@ -48,16 +45,14 @@ type CardUserData = {
   fade: FadeEntry[];
 };
 
-/** Matches prototype `document.querySelector('.wrap')` — first 1240px page shell. */
-const PAGE_SHELL_ALIGN_SELECTOR = ".tkl-wrap";
-
 export type HeroSlabCarouselOptions = {
   host: HTMLElement;
   heroSection: HTMLElement;
   mobileSlot: HTMLElement | null;
   tier?: Exclude<HeroCarouselTier, "fallback">;
   prefersReducedMotion?: boolean;
-  imageSources?: readonly string[];
+  /** Cardhedger catalog cover URLs (Bubble `/crop_image`). */
+  imageSources: readonly string[];
 };
 
 export type HeroSlabCarouselController = {
@@ -65,6 +60,9 @@ export type HeroSlabCarouselController = {
   pause: () => void;
   resume: () => void;
 };
+
+/** Matches prototype `document.querySelector('.wrap')` — first 1240px page shell. */
+const PAGE_SHELL_ALIGN_SELECTOR = ".tkl-wrap";
 
 function sharpenCardTexture(tex: import("three").Texture): void {
   tex.minFilter = LinearFilter;
@@ -116,70 +114,6 @@ function makeEnv(renderer: import("three").WebGLRenderer): import("three").Textu
   tex.dispose();
   pmrem.dispose();
   return env;
-}
-
-function makeCardTexture(i: number): CanvasTexture {
-  const data = [
-    { t: "JORDAN LOGOMAN", s: "#b5341f", n: "PSA 10" },
-    { t: "CHARIZARD 1ST ED", s: "#e0631f", n: "PSA 10" },
-    { t: "LEBRON CHROME RC", s: "#3a6ea5", n: "BGS 9.5" },
-    { t: "PIKACHU VMAX", s: "#f5c518", n: "CGC 9" },
-    { t: "LUKA PRIZM RC", s: "#6b2fa0", n: "SGC 10" },
-    { t: "NIDOKING 1ST ED", s: "#1f6b57", n: "PSA 9" },
-    { t: "PIKACHU EX FA", s: "#1A6FFF", n: "BGS 10" },
-    { t: "CHARIZARD BASE", s: "#e0631f", n: "PSA 10" },
-    { t: "LEBRON CHROME", s: "#3a6ea5", n: "SGC 9.5" },
-    { t: "LUKA BASE RC", s: "#6b2fa0", n: "CGC 9.5" },
-  ][i % 10]!;
-
-  const c = document.createElement("canvas");
-  c.width = 360;
-  c.height = 540;
-  const g = c.getContext("2d");
-  if (!g) throw new Error("Canvas 2D unavailable");
-
-  g.fillStyle = "#0e0e10";
-  g.fillRect(0, 0, 360, 540);
-  g.fillStyle = "#f3f1ea";
-  g.fillRect(14, 14, 332, 512);
-  g.fillStyle = "#0a0a0b";
-  g.fillRect(22, 22, 316, 60);
-  g.fillStyle = "#1A6FFF";
-  g.font = "700 26px monospace";
-  g.fillText("TOKENABLE", 34, 60);
-
-  const ig = g.createLinearGradient(22, 90, 338, 430);
-  ig.addColorStop(0, data.s);
-  ig.addColorStop(1, "#101012");
-  g.fillStyle = ig;
-  g.fillRect(22, 90, 316, 348);
-  g.strokeStyle = "rgba(255,255,255,.18)";
-  g.lineWidth = 1;
-  for (let k = 0; k < 6; k++) {
-    g.beginPath();
-    g.arc(180, 264, 30 + k * 22, 0, Math.PI * 2);
-    g.stroke();
-  }
-  g.fillStyle = "#0a0a0b";
-  g.font = "700 30px serif";
-  g.textAlign = "center";
-  g.fillText(data.t, 180, 478);
-  g.textAlign = "left";
-  g.fillStyle = "#1A6FFF";
-  g.fillRect(22, 494, 70, 24);
-  g.fillStyle = "#ffffff";
-  g.font = "700 14px monospace";
-  g.fillText(data.n, 30, 511);
-  for (let x = 110; x < 338; x += 5) {
-    g.fillStyle = Math.random() > 0.5 ? "#0a0a0b" : "#f3f1ea";
-    g.fillRect(x, 496, 3, 20);
-  }
-
-  const tex = new CanvasTexture(c);
-  tex.anisotropy = 4;
-  tex.colorSpace = SRGBColorSpace;
-  sharpenCardTexture(tex);
-  return tex;
 }
 
 function makeCardBack(): CanvasTexture {
@@ -283,10 +217,13 @@ export function createHeroSlabCarousel(
     mobileSlot,
     tier = "full",
     prefersReducedMotion = false,
-    imageSources = HERO_SLAB_CAROUSEL_SOURCES,
+    imageSources,
   } = options;
 
-  const cardCount = cardCountForTier(tier);
+  if (!imageSources.length) return null;
+
+  const cardCount = Math.min(cardCountForTier(tier), imageSources.length);
+  if (cardCount <= 0) return null;
   const useLightEnv = tier === "reduced";
 
   let wasMobile: boolean | null = null;
@@ -373,6 +310,7 @@ export function createHeroSlabCarousel(
   rimGeo.translate(0, 0, -(RIMD + 0.01) / 2);
 
   const loader = new TextureLoader();
+  loader.setCrossOrigin("anonymous");
   const maxAniso = useLightEnv
     ? Math.min(renderer.capabilities.getMaxAnisotropy?.() ?? 4, 4)
     : (renderer.capabilities.getMaxAnisotropy?.() ?? 8);
@@ -386,7 +324,7 @@ export function createHeroSlabCarousel(
 
   for (let i = 0; i < cardCount; i++) {
     const a = (i / cardCount) * Math.PI * 2;
-    const src = imageSources[i % imageSources.length] ?? imageSources[0]!;
+    const src = imageSources[i]!;
 
     const face = new PhysMat({
       metalness: 0.0,
@@ -409,15 +347,7 @@ export function createHeroSlabCarousel(
     const side = sideMat.clone() as MeshStandardMaterial;
     side.transparent = true;
 
-    const tex = loader.load(
-      src,
-      undefined,
-      undefined,
-      () => {
-        face.map = makeCardTexture(i);
-        face.needsUpdate = true;
-      },
-    );
+    const tex = loader.load(src);
     tex.colorSpace = SRGBColorSpace;
     tex.anisotropy = maxAniso;
     sharpenCardTexture(tex);

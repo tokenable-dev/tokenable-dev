@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { TkButton, TkTag } from "@/components/ds";
 import { VaultBreadcrumb } from "@/components/vault/VaultBreadcrumb";
+import { VaultThumb } from "@/components/vault/VaultThumb";
 import { MOCK_CARD } from "@/lib/vault/vaultMockData";
 
 type Method = "buynow" | "offers" | "auction";
@@ -34,7 +34,7 @@ export function VaultListDesignView() {
 
       <div className="vault-card-summary">
         <div className="vault-card-summary__img">
-          <Image src={MOCK_CARD.imageUrl} alt="" width={80} height={112} className="h-full w-full object-contain" />
+          <VaultThumb src={MOCK_CARD.imageUrl} width={80} height={112} className="h-full w-full object-contain" />
         </div>
         <div className="min-w-0 flex-1">
           <div className="vault-card-summary__name">{MOCK_CARD.name}</div>

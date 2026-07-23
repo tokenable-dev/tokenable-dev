@@ -1,4 +1,3 @@
-import { ASSETS } from "@/constants/assets";
 import { isMobileHeroViewport } from "@/lib/home/heroCarouselCapability";
 
 export type HeroCarouselFallbackController = {
@@ -12,8 +11,10 @@ export function setupHeroCarouselFallback(input: {
   host: HTMLElement;
   heroSection: HTMLElement;
   mobileSlot: HTMLElement | null;
+  /** Cardhedger catalog cover — omit when none resolved yet. */
+  imageSrc?: string | null;
 }): HeroCarouselFallbackController {
-  const { host, heroSection, mobileSlot } = input;
+  const { host, heroSection, mobileSlot, imageSrc } = input;
   const mobile = isMobileHeroViewport();
 
   if (mobile && mobileSlot) {
@@ -36,15 +37,18 @@ export function setupHeroCarouselFallback(input: {
     : "home-hero__fallback";
   frame.setAttribute("aria-hidden", "true");
 
-  const img = document.createElement("img");
-  img.className = "home-hero__fallback-img";
-  img.src = ASSETS.ds.heroSlab;
-  img.alt = "";
-  img.decoding = "async";
-  img.loading = "eager";
-  img.draggable = false;
+  if (imageSrc?.trim()) {
+    const img = document.createElement("img");
+    img.className = "home-hero__fallback-img";
+    img.src = imageSrc.trim();
+    img.alt = "";
+    img.decoding = "async";
+    img.loading = "eager";
+    img.draggable = false;
+    img.crossOrigin = "anonymous";
+    frame.appendChild(img);
+  }
 
-  frame.appendChild(img);
   host.insertBefore(frame, host.firstChild);
 
   return {

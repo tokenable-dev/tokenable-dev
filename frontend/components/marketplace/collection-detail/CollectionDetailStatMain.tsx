@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   formatReferencePercentChange,
   formatUsdCompact,
@@ -12,6 +13,7 @@ import {
 import type { PsaPopulationMetrics } from "@/lib/market/gradedCardMarketCap";
 import type { ReferencePercentChangeResult } from "@/lib/market/priceChangePeriod";
 import { formatReferenceChangePeriodShort } from "@/lib/market/priceChangePeriod";
+import { RwaImageLightbox } from "@/components/common";
 
 function formatChangeTag(pct: number): { arrow: string; label: string } {
   const tone = referenceChangeTone(pct);
@@ -61,6 +63,9 @@ export function CollectionDetailStatMain({
   psaPopulationMetrics?: PsaPopulationMetrics | null;
   totalPopulation?: number | null;
 }) {
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const coverSrc = imageUrl?.trim() || null;
+
   const popMetrics = psaPopulationMetrics ?? {
     gradeLabel: "PSA 10",
     gradePop: null,
@@ -80,13 +85,17 @@ export function CollectionDetailStatMain({
   return (
     <div className="cd-stat-block">
       <div className="cd-stat-main cd-notch">
-        {imageUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={imageUrl}
-            alt=""
-            className="cd-stat-main__thumb"
-          />
+        {coverSrc ? (
+          <button
+            type="button"
+            className="cd-stat-main__thumb-btn"
+            onClick={() => setLightboxOpen(true)}
+            aria-label="View enlarged collection cover"
+            title="Tap to enlarge"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={coverSrc} alt="" className="cd-stat-main__thumb" />
+          </button>
         ) : (
           <div className="cd-stat-main__thumb cd-stat-main__thumb--empty" aria-hidden />
         )}
@@ -157,6 +166,13 @@ export function CollectionDetailStatMain({
           </div>
         </div>
       </div>
+
+      <RwaImageLightbox
+        open={lightboxOpen}
+        src={coverSrc}
+        alt="Collection cover"
+        onClose={() => setLightboxOpen(false)}
+      />
     </div>
   );
 }

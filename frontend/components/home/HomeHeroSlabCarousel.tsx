@@ -7,6 +7,7 @@ import {
 } from "@/lib/home/heroCarouselCapability";
 import { setupHeroCarouselFallback } from "@/lib/home/heroCarouselFallback";
 import { preloadHeroCarouselImages } from "@/lib/home/heroCarouselPreload";
+import { useHeroCarouselImageSources } from "@/hooks/home/useHeroCarouselImageSources";
 import type { HeroSlabCarouselController } from "@/lib/home/heroSlabCarousel";
 
 type HomeHeroSlabCarouselProps = {
@@ -40,9 +41,12 @@ export function HomeHeroSlabCarousel({
   heroRef,
   mobileSlotRef,
 }: HomeHeroSlabCarouselProps) {
+  const { data: imageSources = [], isPending: imagesPending } =
+    useHeroCarouselImageSources();
+
   useEffect(() => {
     const hero = heroRef.current;
-    if (!hero) return;
+    if (!hero || imagesPending) return;
 
     const host = document.createElement("div");
     host.className = "home-hero__canvas-host";
@@ -60,13 +64,14 @@ export function HomeHeroSlabCarousel({
     let resizeObserver: ResizeObserver | null = null;
     let cancelled = false;
     let initGeneration = 0;
+    const fallbackSrc = imageSources[0] ?? null;
 
     const disposeActive = () => {
       active?.ctrl.dispose();
       active = null;
     };
 
-    const mountFallback = () => {
+    const mountFallback = (src: string | null = fallbackSrc) => {
       disposeActive();
       const frame = host.querySelector(".home-hero__fallback");
       if (!frame) {
@@ -76,6 +81,7 @@ export function HomeHeroSlabCarousel({
             host,
             heroSection: hero,
             mobileSlot: mobileSlotRef.current,
+            imageSrc: src,
           }),
         };
       }
@@ -93,8 +99,8 @@ export function HomeHeroSlabCarousel({
       disposeActive();
       host.querySelector(".home-hero__fallback")?.remove();
 
-      if (tier === "fallback") {
-        mountFallback();
+      if (tier === "fallback" || imageSources.length === 0) {
+        mountFallback(imageSources[0] ?? null);
         return;
       }
 
@@ -103,7 +109,6 @@ export function HomeHeroSlabCarousel({
         if (!slotReady) return;
       }
 
-      const preload = preloadHeroCarouselImages(tier);
       const loadModule = import("@/lib/home/heroSlabCarousel");
 
       let aborted = false;
@@ -112,15 +117,20 @@ export function HomeHeroSlabCarousel({
       }, INIT_TIMEOUT_MS);
 
       try {
-        await preload;
+        const loadedSources = await preloadHeroCarouselImages(tier, imageSources);
         if (cancelled || gen !== initGeneration || aborted) {
-          if (aborted) mountFallback();
+          if (aborted) mountFallback(loadedSources[0] ?? fallbackSrc);
+          return;
+        }
+
+        if (loadedSources.length === 0) {
+          // No decodeable covers — hide the ring rather than Tokenable placeholder faces.
           return;
         }
 
         const { createHeroSlabCarousel } = await loadModule;
         if (cancelled || gen !== initGeneration || aborted) {
-          if (aborted) mountFallback();
+          if (aborted) mountFallback(loadedSources[0] ?? fallbackSrc);
           return;
         }
 
@@ -129,6 +139,7 @@ export function HomeHeroSlabCarousel({
           heroSection: hero,
           mobileSlot: mobileSlotRef.current,
           tier,
+          imageSources: loadedSources,
         });
 
         if (cancelled || gen !== initGeneration) {
@@ -138,7 +149,7 @@ export function HomeHeroSlabCarousel({
 
         if (!ctrl) {
           if (mobileQuery.matches) return;
-          mountFallback();
+          mountFallback(loadedSources[0] ?? fallbackSrc);
           return;
         }
 
@@ -206,7 +217,7 @@ export function HomeHeroSlabCarousel({
       disposeActive();
       host.remove();
     };
-  }, [heroRef, mobileSlotRef]);
+  }, [heroRef, mobileSlotRef, imageSources, imagesPending]);
 
   return null;
 }

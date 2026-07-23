@@ -9,6 +9,7 @@ import {
   marketplaceRqPolicy,
 } from "@/lib/core";
 import { useMarketplaceSnapshots } from "@/hooks/home/useMarketplaceSnapshots";
+import { useCardhedgerMockCoverImages } from "@/hooks/home/useCardhedgerMockCoverImages";
 import { resolveMarketsListingMarketChangePct90d } from "@/lib/markets/marketsListingMarketPrice";
 import {
   HOME_MOCK_JUST_VAULTED,
@@ -17,6 +18,10 @@ import {
   HOME_MOCK_TOP_MOVERS,
   shouldUseHomeMockCards,
 } from "@/lib/home/homeMockData";
+import {
+  mockCoverSearchFromCollection,
+  withMockCoverImages,
+} from "@/lib/home/withMockCoverImages";
 
 export const HOME_TOP_MOVERS_LIMIT = 20;
 export const HOME_JUST_VAULTED_LIMIT = 20;
@@ -41,6 +46,16 @@ export function useHomeMarketplaceGrids() {
   const collections = allCollections ?? [];
   const useMocks = !collectionsPending && shouldUseHomeMockCards(collections.length);
 
+  const mockCoverQueries = useMemo(() => {
+    if (!useMocks) return [];
+    return [...HOME_MOCK_TOP_MOVERS, ...HOME_MOCK_JUST_VAULTED].map(
+      mockCoverSearchFromCollection,
+    );
+  }, [useMocks]);
+
+  const { data: coverByKey } = useCardhedgerMockCoverImages(useMocks, mockCoverQueries);
+  const covers = coverByKey ?? EMPTY_COVER_MAP;
+
   const snapshotKeysSorted = useMemo(() => {
     if (useMocks) return [] as string[];
     const u = [...new Set(collections.map((c) => c.collectionKey.toLowerCase()))];
@@ -57,7 +72,9 @@ export function useHomeMarketplaceGrids() {
   }, [useMocks, liveSnapshotByKey]);
 
   const topMovers = useMemo(() => {
-    if (useMocks) return HOME_MOCK_TOP_MOVERS;
+    if (useMocks) {
+      return withMockCoverImages(HOME_MOCK_TOP_MOVERS, covers);
+    }
     const ranked = collections
       .map((c) => ({
         collection: c,
@@ -73,12 +90,14 @@ export function useHomeMarketplaceGrids() {
       )
       .sort((a, b) => (b.changePct ?? 0) - (a.changePct ?? 0));
     return ranked.slice(0, HOME_TOP_MOVERS_LIMIT).map((r) => r.collection);
-  }, [collections, snapshotByKey, useMocks]);
+  }, [collections, snapshotByKey, useMocks, covers]);
 
   const justVaulted = useMemo(() => {
-    if (useMocks) return HOME_MOCK_JUST_VAULTED;
+    if (useMocks) {
+      return withMockCoverImages(HOME_MOCK_JUST_VAULTED, covers);
+    }
     return sortByCreatedAtDesc(collections).slice(0, HOME_JUST_VAULTED_LIMIT);
-  }, [collections, useMocks]);
+  }, [collections, useMocks, covers]);
 
   const tickerItems = useMemo(() => {
     if (useMocks) {
@@ -115,5 +134,7 @@ export function useHomeMarketplaceGrids() {
     usingMockCards: useMocks,
   };
 }
+
+const EMPTY_COVER_MAP = new Map<string, string>();
 
 export type HomeSnapshotMap = Map<string, CollectionListMarketSnapshot>;

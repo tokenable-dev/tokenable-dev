@@ -1,9 +1,8 @@
-import { ASSETS } from "@/constants/assets";
 import type {
   CollectionListMarketSnapshot,
   MarketplaceCollectionSummary,
 } from "@/lib/core";
-import type { CollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
+import { enrichDesignMockComponents } from "@/lib/marketplace/enrichDesignMockComponents";
 import type { HomeMockCardSub } from "@/lib/home/homeMockData";
 
 /**
@@ -77,7 +76,7 @@ function buildSparkline(priceUsd: number, changePct: number | null): { t: number
 }
 
 function toCollection(seed: MarketsMockSeed): MarketplaceCollectionSummary {
-  const components: CollectionComponents = {
+  const components = enrichDesignMockComponents({
     cardName: seed.title,
     cardNameDisplay: seed.title,
     cardSet: seed.set,
@@ -94,7 +93,7 @@ function toCollection(seed: MarketsMockSeed): MarketplaceCollectionSummary {
         : seed.categoryHint === "mlb"
           ? "Baseball"
           : "Pokemon",
-  };
+  });
   return {
     collectionKey: `${MARKETS_MOCK_KEY_PREFIX}${seed.id}`,
     displayLabel: seed.title,
@@ -131,13 +130,12 @@ function toSnapshot(seed: MarketsMockSeed): CollectionListMarketSnapshot {
   };
 }
 
-const C = ASSETS.ds.cards;
 
 /** Markets.html `listings` (12 cards). */
 const LISTING_SEEDS: MarketsMockSeed[] = [
   {
     id: "listing-1",
-    image: C.pikachuEx,
+    image: "",
     ...gradeParts("PSA 10"),
     pop: parsePop("20.0k"),
     listed: 2,
@@ -151,7 +149,7 @@ const LISTING_SEEDS: MarketsMockSeed[] = [
   },
   {
     id: "listing-2",
-    image: C.nidoking,
+    image: "",
     ...gradeParts("PSA 10"),
     pop: parsePop("3"),
     listed: 3,
@@ -165,7 +163,7 @@ const LISTING_SEEDS: MarketsMockSeed[] = [
   },
   {
     id: "listing-3",
-    image: C.charizard,
+    image: "",
     ...gradeParts("PSA 10"),
     pop: parsePop("27.7k"),
     listed: 1,
@@ -179,7 +177,7 @@ const LISTING_SEEDS: MarketsMockSeed[] = [
   },
   {
     id: "listing-4",
-    image: C.luka,
+    image: "",
     ...gradeParts("BGS 9.5"),
     pop: parsePop("42"),
     listed: 1,
@@ -193,7 +191,7 @@ const LISTING_SEEDS: MarketsMockSeed[] = [
   },
   {
     id: "listing-5",
-    image: C.lebron,
+    image: "",
     ...gradeParts("PSA 10"),
     pop: parsePop("16"),
     listed: 1,
@@ -207,7 +205,7 @@ const LISTING_SEEDS: MarketsMockSeed[] = [
   },
   {
     id: "listing-6",
-    image: C.pikachu,
+    image: "",
     ...gradeParts("PSA 10"),
     pop: parsePop("9,389"),
     listed: 1,
@@ -221,7 +219,7 @@ const LISTING_SEEDS: MarketsMockSeed[] = [
   },
   {
     id: "listing-7",
-    image: C.nidoking,
+    image: "",
     ...gradeParts("PSA 10"),
     pop: parsePop("3"),
     listed: 1,
@@ -235,7 +233,7 @@ const LISTING_SEEDS: MarketsMockSeed[] = [
   },
   {
     id: "listing-8",
-    image: C.charizard,
+    image: "",
     ...gradeParts("PSA 9"),
     pop: parsePop("31.2k"),
     listed: 4,
@@ -249,7 +247,7 @@ const LISTING_SEEDS: MarketsMockSeed[] = [
   },
   {
     id: "listing-9",
-    image: C.luka,
+    image: "",
     ...gradeParts("PSA 10"),
     pop: parsePop("61"),
     listed: 2,
@@ -263,7 +261,7 @@ const LISTING_SEEDS: MarketsMockSeed[] = [
   },
   {
     id: "listing-10",
-    image: C.pikachuEx,
+    image: "",
     ...gradeParts("BGS 9.5"),
     pop: parsePop("18.4k"),
     listed: 3,
@@ -277,7 +275,7 @@ const LISTING_SEEDS: MarketsMockSeed[] = [
   },
   {
     id: "listing-11",
-    image: C.lebron,
+    image: "",
     ...gradeParts("BGS 9"),
     pop: parsePop("22"),
     listed: 1,
@@ -291,7 +289,7 @@ const LISTING_SEEDS: MarketsMockSeed[] = [
   },
   {
     id: "listing-12",
-    image: C.pikachu,
+    image: "",
     ...gradeParts("PSA 10"),
     pop: parsePop("9,120"),
     listed: 5,

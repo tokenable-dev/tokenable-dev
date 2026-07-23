@@ -1,11 +1,14 @@
-import { ASSETS } from "@/constants/assets";
 import type {
   CollectionListMarketSnapshot,
   CollectionMarketStats,
   MarketplaceCollectionSummary,
   RwaMetadata,
 } from "@/lib/core";
-import type { CollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
+import {
+  MARKETS_MOCK_COLLECTIONS,
+  MARKETS_MOCK_KEY_PREFIX,
+  MARKETS_MOCK_SNAPSHOT_BY_KEY,
+} from "@/lib/markets/marketsMockData";
 import type {
   PortfolioBidCollectionMeta,
   PortfolioBidRow,
@@ -13,21 +16,22 @@ import type {
 import type { PricedAssetRow, TxRow } from "@/lib/portfolio/portfolioTypes";
 
 /**
- * Design parity with `Tokenable-with design system/Portfolio.html`.
- * Real portfolio hooks stay intact — flip to `false` (or env `0`) for live data.
+ * Portfolio design mocks — holdings/bids/tx point at the same Markets mock
+ * collections (`mock:markets:…`) so thumbs and collection detail stay in sync.
  */
 export const PORTFOLIO_FORCE_MOCK = true;
 
+/** @deprecated Portfolio holdings now use {@link MARKETS_MOCK_KEY_PREFIX}. */
 export const PORTFOLIO_MOCK_KEY_PREFIX = "mock:portfolio:";
 
-/** Portfolio.html stat card: Trades */
 export const PORTFOLIO_MOCK_TRADES_COUNT = 12;
 
-/** Portfolio.html chart headline (sum of mock holdings mkt prices). */
-export const PORTFOLIO_MOCK_TOTAL_VALUE = 556_290;
-
 export function isPortfolioMockCollectionKey(collectionKey: string): boolean {
-  return collectionKey.toLowerCase().startsWith(PORTFOLIO_MOCK_KEY_PREFIX);
+  const k = collectionKey.toLowerCase();
+  return (
+    k.startsWith(PORTFOLIO_MOCK_KEY_PREFIX) ||
+    k.startsWith(MARKETS_MOCK_KEY_PREFIX)
+  );
 }
 
 export function isPortfolioMockTokenId(tokenId: number): boolean {
@@ -40,6 +44,51 @@ export function shouldUsePortfolioMock(hasRealHoldings: boolean): boolean {
   if (env === "1") return true;
   if (PORTFOLIO_FORCE_MOCK) return true;
   return !hasRealHoldings;
+}
+
+function marketsCollectionByListingId(
+  listingId: string,
+): MarketplaceCollectionSummary {
+  const key = `${MARKETS_MOCK_KEY_PREFIX}${listingId}`.toLowerCase();
+  const found = MARKETS_MOCK_COLLECTIONS.find(
+    (c) => c.collectionKey.toLowerCase() === key,
+  );
+  if (!found) {
+    throw new Error(`Markets mock listing not found: ${listingId}`);
+  }
+  return found;
+}
+
+function snapshotForKey(collectionKey: string): CollectionListMarketSnapshot | undefined {
+  return MARKETS_MOCK_SNAPSHOT_BY_KEY.get(collectionKey.toLowerCase());
+}
+
+function categoryLabel(c: MarketplaceCollectionSummary): string {
+  const cat = c.components?.psaCategory?.trim();
+  if (cat === "Basketball") return "NBA";
+  if (cat === "Baseball") return "MLB";
+  if (cat) return cat;
+  return "Pokemon";
+}
+
+function gradeParts(c: MarketplaceCollectionSummary): {
+  company: string;
+  score: string;
+} {
+  return {
+    company: c.components?.gradingCompanyDisplay ?? c.components?.gradingCompany ?? "PSA",
+    score: c.components?.gradeScore ?? "10",
+  };
+}
+
+function marketUsd(c: MarketplaceCollectionSummary): number {
+  const snap = snapshotForKey(c.collectionKey);
+  return (
+    snap?.gradePrices.psa10 ??
+    snap?.gradePrices.psa9 ??
+    snap?.sparklineUsd.at(-1)?.v ??
+    1000
+  );
 }
 
 function gradeMeta(company: string, score: string): RwaMetadata {
@@ -57,173 +106,77 @@ function gradeMeta(company: string, score: string): RwaMetadata {
   };
 }
 
-type HoldingSeed = {
+type HoldingSpec = {
   tokenId: number;
-  id: string;
-  name: string;
-  image: string;
-  gradeCompany: string;
-  gradeScore: string;
-  costBasisUsd: number;
-  mktUsd: number;
-  listedUsd?: number;
-  category: string;
+  listingId: string;
+  /** Cost basis as fraction of current market (P&L demo). */
+  costBasisRatio: number;
+  listed?: boolean;
 };
 
-const HOLDING_SEEDS: HoldingSeed[] = [
-  {
-    tokenId: 9_000_001,
-    id: "charizard-ex-sir",
-    name: "2023 POKEMON MEW EN-151 #199 CHARIZARD EX SPECIAL ILLUSTRATION RARE",
-    image: ASSETS.ds.cards.charizard,
-    gradeCompany: "PSA",
-    gradeScore: "10",
-    costBasisUsd: 180_000,
-    mktUsd: 420_000,
-    category: "Pokemon",
-  },
-  {
-    tokenId: 9_000_002,
-    id: "lebron-chrome-rr",
-    name: "2003 TOPPS CHROME #111 LEBRON JAMES ROOKIE REFRACTOR",
-    image: ASSETS.ds.cards.lebron,
-    gradeCompany: "PSA",
-    gradeScore: "10",
-    costBasisUsd: 31_000,
-    mktUsd: 58_000,
-    listedUsd: 58_000,
-    category: "NBA",
-  },
-  {
-    tokenId: 9_000_003,
-    id: "pikachu-ex-sar",
-    name: "2025 POKEMON JAPANESE M2A-MEGA DREAM EX #234 PIKACHU EX SPECIAL ART RARE",
-    image: ASSETS.ds.cards.pikachu,
-    gradeCompany: "PSA",
-    gradeScore: "10",
-    costBasisUsd: 770,
-    mktUsd: 1_136,
-    category: "Pokemon",
-  },
-  {
-    tokenId: 9_000_004,
-    id: "luka-blue-ice",
-    name: "2018 PANINI PRIZM #280 LUKA DONCIC BLUE ICE ROOKIE",
-    image: ASSETS.ds.cards.luka,
-    gradeCompany: "BGS",
-    gradeScore: "9.5",
-    costBasisUsd: 16_100,
-    mktUsd: 19_154,
-    category: "NBA",
-  },
-  {
-    tokenId: 9_000_005,
-    id: "nidoking-ex-sr",
-    name: "2024 POKEMON JAPANESE SV7A #101 NIDOKING EX STELLAR RARE",
-    image: ASSETS.ds.cards.nidoking,
-    gradeCompany: "PSA",
-    gradeScore: "9",
-    costBasisUsd: 8_500,
-    mktUsd: 58_000,
-    category: "Pokemon",
-  },
+/** Holdings map onto Markets.html listing cards (same collection keys + prices). */
+const HOLDING_SPECS: HoldingSpec[] = [
+  { tokenId: 9_000_001, listingId: "listing-3", costBasisRatio: 0.82 },
+  { tokenId: 9_000_002, listingId: "listing-5", costBasisRatio: 0.48, listed: true },
+  { tokenId: 9_000_003, listingId: "listing-1", costBasisRatio: 0.68 },
+  { tokenId: 9_000_004, listingId: "listing-4", costBasisRatio: 0.84 },
+  { tokenId: 9_000_005, listingId: "listing-2", costBasisRatio: 0.15 },
 ];
 
-function collectionKeyFor(id: string): string {
-  return `${PORTFOLIO_MOCK_KEY_PREFIX}${id}`;
-}
+type BidSpec = { listingId: string; bidRatio: number };
 
-type BidSeed = {
-  id: string;
-  name: string;
-  image: string;
+const BID_SPECS: BidSpec[] = [
+  { listingId: "listing-6", bidRatio: 0.92 },
+  { listingId: "listing-9", bidRatio: 0.88 },
+  { listingId: "listing-5", bidRatio: 0.95 },
+];
+
+type HoldingResolved = {
+  tokenId: number;
+  collection: MarketplaceCollectionSummary;
+  mktUsd: number;
+  costBasisUsd: number;
+  listedUsd: number | null;
+};
+
+const HOLDINGS: HoldingResolved[] = HOLDING_SPECS.map((spec) => {
+  const collection = marketsCollectionByListingId(spec.listingId);
+  const mktUsd = marketUsd(collection);
+  return {
+    tokenId: spec.tokenId,
+    collection,
+    mktUsd,
+    costBasisUsd: Math.round(mktUsd * spec.costBasisRatio),
+    listedUsd: spec.listed ? mktUsd : null,
+  };
+});
+
+type BidResolved = {
+  collection: MarketplaceCollectionSummary;
   bidUsd: number;
   askUsd: number;
 };
 
-const BID_SEEDS: BidSeed[] = [
-  {
-    id: "charizard-ex-sir",
-    name: "2023 POKEMON MEW EN-151 #199 CHARIZARD EX SPECIAL ILLUSTRATION RARE",
-    image: ASSETS.ds.cards.charizard,
-    bidUsd: 820,
-    askUsd: 880,
-  },
-  {
-    id: "pikachu-ex-sar-bid",
-    name: "2025 POKEMON JAPANESE M2A-MEGA DREAM EX #234 PIKACHU EX SPECIAL ART RARE #238",
-    image: ASSETS.ds.cards.pikachuEx,
-    bidUsd: 1_050,
-    // Floor ≤ bid so UI shows HIGHEST (Portfolio.html tag).
-    askUsd: 1_050,
-  },
-  {
-    id: "lebron-auto",
-    name: "2003 UPPER DECK ULTIMATE COLLECTION #127 LEBRON JAMES ROOKIE AUTO",
-    image: ASSETS.ds.cards.lebron,
-    bidUsd: 62_000,
-    askUsd: 62_000,
-  },
-];
-
-function toSummary(seed: HoldingSeed | BidSeed, listed = 1): MarketplaceCollectionSummary {
-  const gradeCompany = "gradeCompany" in seed ? seed.gradeCompany : "PSA";
-  const gradeScore = "gradeScore" in seed ? seed.gradeScore : "10";
-  const components: CollectionComponents = {
-    cardName: seed.name,
-    cardNameDisplay: seed.name,
-    gradingCompany: gradeCompany,
-    gradingCompanyDisplay: gradeCompany,
-    gradeScore,
-    psaGradeLabel: `${gradeCompany} ${gradeScore}`,
-    listingDisplayTitle: seed.name,
-  };
+const BIDS: BidResolved[] = BID_SPECS.map((spec) => {
+  const collection = marketsCollectionByListingId(spec.listingId);
+  const askUsd = marketUsd(collection);
   return {
-    collectionKey: collectionKeyFor(seed.id),
-    displayLabel: seed.name,
-    queryUsed: null,
-    components,
-    createdAt: new Date(Date.UTC(2026, 4, 12)).toISOString(),
-    activeListingCount: listed,
-    coverImageUrl: seed.image,
-    displayImageUrl: seed.image,
+    collection,
+    askUsd,
+    bidUsd: Math.round(askUsd * spec.bidRatio),
   };
-}
+});
 
-function toSnapshot(
-  seed: HoldingSeed | BidSeed,
-): CollectionListMarketSnapshot {
-  const priceUsd = "mktUsd" in seed ? seed.mktUsd : seed.askUsd;
-  const gradeScore = "gradeScore" in seed ? seed.gradeScore : "10";
-  const now = Math.floor(Date.now() / 1000);
-  return {
-    collectionKey: collectionKeyFor(seed.id),
-    categoryLabel: "category" in seed ? seed.category : null,
-    marketChangePct: 0.7,
-    marketChangeWindow: "30d",
-    marketChangeIsFullYear: false,
-    gradePrices: {
-      psa10: gradeScore === "10" ? priceUsd : null,
-      psa9: gradeScore === "9" || gradeScore === "9.5" ? priceUsd : null,
-      raw: null,
-    },
-    sparklineUsd: [
-      { t: now - 90 * 86_400, v: priceUsd * 0.92 },
-      { t: now, v: priceUsd },
-    ],
-    marketStats: null,
-  };
-}
+export const PORTFOLIO_MOCK_TOTAL_VALUE = HOLDINGS.reduce((sum, h) => sum + h.mktUsd, 0);
 
-/** Unique collection summaries for detail-page short-circuit. */
+/** Markets collections used by portfolio (holdings + bids) — for cover search / detail. */
 export const PORTFOLIO_MOCK_COLLECTIONS: MarketplaceCollectionSummary[] = (() => {
   const byKey = new Map<string, MarketplaceCollectionSummary>();
-  for (const s of HOLDING_SEEDS) {
-    byKey.set(collectionKeyFor(s.id), toSummary(s, s.listedUsd != null ? 1 : 2));
+  for (const h of HOLDINGS) {
+    byKey.set(h.collection.collectionKey.toLowerCase(), h.collection);
   }
-  for (const s of BID_SEEDS) {
-    const key = collectionKeyFor(s.id);
-    if (!byKey.has(key)) byKey.set(key, toSummary(s, 1));
+  for (const b of BIDS) {
+    byKey.set(b.collection.collectionKey.toLowerCase(), b.collection);
   }
   return [...byKey.values()];
 })();
@@ -231,38 +184,44 @@ export const PORTFOLIO_MOCK_COLLECTIONS: MarketplaceCollectionSummary[] = (() =>
 export const PORTFOLIO_MOCK_SNAPSHOT_BY_KEY: Map<string, CollectionListMarketSnapshot> =
   (() => {
     const m = new Map<string, CollectionListMarketSnapshot>();
-    for (const s of HOLDING_SEEDS) {
-      m.set(collectionKeyFor(s.id).toLowerCase(), toSnapshot(s));
-    }
-    for (const s of BID_SEEDS) {
-      const key = collectionKeyFor(s.id).toLowerCase();
-      if (!m.has(key)) m.set(key, toSnapshot(s));
+    for (const c of PORTFOLIO_MOCK_COLLECTIONS) {
+      const snap = snapshotForKey(c.collectionKey);
+      if (snap) m.set(c.collectionKey.toLowerCase(), snap);
     }
     return m;
   })();
 
-export const PORTFOLIO_MOCK_ASSET_ROWS: PricedAssetRow[] = HOLDING_SEEDS.map((s) => ({
-  tokenId: s.tokenId,
-  name: s.name,
-  imageUrl: s.image,
-  category: s.category,
+export const PORTFOLIO_MOCK_ASSET_ROWS: PricedAssetRow[] = HOLDINGS.map((h) => ({
+  tokenId: h.tokenId,
+  name:
+    h.collection.components?.listingDisplayTitle?.trim() ||
+    h.collection.displayLabel,
+  imageUrl: h.collection.displayImageUrl ?? h.collection.coverImageUrl ?? null,
+  category: categoryLabel(h.collection),
   amount: 1,
-  currentPrice: s.mktUsd,
+  currentPrice: h.mktUsd,
   priceSource: "cardhedger" as const,
   liquidityLabel: null,
-  listPriceUsd: s.listedUsd ?? null,
-  activeListingOrderHash: s.listedUsd != null ? `mock-ask-${s.tokenId}` : null,
-  setName: null,
+  listPriceUsd: h.listedUsd,
+  activeListingOrderHash: h.listedUsd != null ? `mock-ask-${h.tokenId}` : null,
+  setName:
+    h.collection.components?.cardSetDisplay?.trim() ||
+    h.collection.components?.cardSet?.trim() ||
+    null,
   marketPreviewRaw: null,
 }));
 
 export const PORTFOLIO_MOCK_METADATA_BY_TOKEN: Map<number, RwaMetadata | null> = (() => {
   const m = new Map<number, RwaMetadata | null>();
-  for (const s of HOLDING_SEEDS) {
-    m.set(s.tokenId, {
-      name: s.name,
-      image: s.image,
-      ...gradeMeta(s.gradeCompany, s.gradeScore),
+  for (const h of HOLDINGS) {
+    const { company, score } = gradeParts(h.collection);
+    const name =
+      h.collection.components?.listingDisplayTitle?.trim() ||
+      h.collection.displayLabel;
+    m.set(h.tokenId, {
+      name,
+      image: h.collection.displayImageUrl ?? h.collection.coverImageUrl ?? "",
+      ...gradeMeta(company, score),
     });
   }
   return m;
@@ -270,40 +229,42 @@ export const PORTFOLIO_MOCK_METADATA_BY_TOKEN: Map<number, RwaMetadata | null> =
 
 export const PORTFOLIO_MOCK_COST_BASIS_BY_TOKEN: Map<number, number> = (() => {
   const m = new Map<number, number>();
-  for (const s of HOLDING_SEEDS) {
-    m.set(s.tokenId, s.costBasisUsd);
-  }
+  for (const h of HOLDINGS) m.set(h.tokenId, h.costBasisUsd);
   return m;
 })();
 
 export const PORTFOLIO_MOCK_TOKEN_TO_COLLECTION_KEY: Record<number, string> = (() => {
   const out: Record<number, string> = {};
-  for (const s of HOLDING_SEEDS) {
-    out[s.tokenId] = collectionKeyFor(s.id);
+  for (const h of HOLDINGS) {
+    out[h.tokenId] = h.collection.collectionKey;
   }
   return out;
 })();
 
-export const PORTFOLIO_MOCK_BIDS: PortfolioBidRow[] = BID_SEEDS.map((s, i) => ({
-  orderHash: `mock-bid-${s.id}`,
-  collectionKey: collectionKeyFor(s.id),
+export const PORTFOLIO_MOCK_BIDS: PortfolioBidRow[] = BIDS.map((b, i) => ({
+  orderHash: `mock-bid-${b.collection.collectionKey}`,
+  collectionKey: b.collection.collectionKey,
   tokenId: String(1000 + i),
-  priceUsdc: s.bidUsd,
-  priceLabel: `$${s.bidUsd.toLocaleString("en-US")}`,
+  priceUsdc: b.bidUsd,
+  priceLabel: `$${b.bidUsd.toLocaleString("en-US")}`,
   status: "active" as const,
   createdAt: new Date(Date.UTC(2026, 5, 20 - i)).toISOString(),
 }));
 
-export const PORTFOLIO_MOCK_BID_META_BY_KEY: Map<string, PortfolioBidCollectionMeta> = (() => {
-  const m = new Map<string, PortfolioBidCollectionMeta>();
-  for (const s of BID_SEEDS) {
-    m.set(collectionKeyFor(s.id), {
-      displayLabel: s.name,
-      imageUrl: s.image,
-    });
-  }
-  return m;
-})();
+export const PORTFOLIO_MOCK_BID_META_BY_KEY: Map<string, PortfolioBidCollectionMeta> =
+  (() => {
+    const m = new Map<string, PortfolioBidCollectionMeta>();
+    for (const b of BIDS) {
+      m.set(b.collection.collectionKey, {
+        displayLabel:
+          b.collection.components?.listingDisplayTitle?.trim() ||
+          b.collection.displayLabel,
+        imageUrl:
+          b.collection.displayImageUrl ?? b.collection.coverImageUrl ?? null,
+      });
+    }
+    return m;
+  })();
 
 function emptyStats(collectionKey: string, floor: number): CollectionMarketStats {
   return {
@@ -323,21 +284,15 @@ function emptyStats(collectionKey: string, floor: number): CollectionMarketStats
 
 export const PORTFOLIO_MOCK_STATS_BY_KEY: Map<string, CollectionMarketStats> = (() => {
   const m = new Map<string, CollectionMarketStats>();
-  for (const s of HOLDING_SEEDS) {
-    const key = collectionKeyFor(s.id);
-    m.set(key, emptyStats(key, s.mktUsd));
+  for (const h of HOLDINGS) {
+    m.set(h.collection.collectionKey, emptyStats(h.collection.collectionKey, h.mktUsd));
   }
-  for (const s of BID_SEEDS) {
-    const key = collectionKeyFor(s.id);
-    m.set(key, emptyStats(key, s.askUsd));
+  for (const b of BIDS) {
+    m.set(b.collection.collectionKey, emptyStats(b.collection.collectionKey, b.askUsd));
   }
   return m;
 })();
 
-/**
- * Portfolio.html `pfData` scaled so the series ends at {@link PORTFOLIO_MOCK_TOTAL_VALUE}.
- * Panel slices this for 1D / 1W / 1M.
- */
 const HTML_1M_VALS = [
   241_000, 248_200, 252_800, 258_400, 255_100, 261_800, 267_400, 271_200, 264_800, 272_100,
   278_400, 284_610,
@@ -379,56 +334,56 @@ const TX_SEEDS: TxSeed[] = [
   {
     type: "SELL",
     status: "pending",
-    asset: "Pokémon Gold Star Charizard",
+    asset: marketsCollectionByListingId("listing-3").displayLabel,
     category: "PSA 10",
-    price: 450_000,
+    price: marketUsd(marketsCollectionByListingId("listing-3")),
     date: "Jul 8, 2026",
     orderHash: "mock-tx-sell-pending",
   },
   {
     type: "BUY",
     status: "failed",
-    asset: "2003 TOPPS CHROME #111 LEBRON JAMES ROOKIE REFRACTOR",
+    asset: marketsCollectionByListingId("listing-5").displayLabel,
     category: "PSA 10",
-    price: 58_000,
+    price: marketUsd(marketsCollectionByListingId("listing-5")),
     date: "Jul 5, 2026",
     orderHash: "mock-tx-buy-failed",
   },
   {
     type: "BUY",
     status: "settled",
-    asset: "2025 POKEMON JAPANESE M2A-MEGA DREAM EX #234 PIKACHU EX SPECIAL ART RARE",
+    asset: marketsCollectionByListingId("listing-1").displayLabel,
     category: "PSA 10",
-    price: 1_136,
+    price: marketUsd(marketsCollectionByListingId("listing-1")),
     date: "Jun 11, 2026",
     orderHash: "mock-tx-buy-pikachu",
   },
   {
     type: "SELL",
     status: "settled",
-    asset: "Pokémon Gold Star Charizard",
+    asset: marketsCollectionByListingId("listing-6").displayLabel,
     category: "PSA 10",
-    price: 14_200,
+    price: marketUsd(marketsCollectionByListingId("listing-6")),
     date: "Jun 4, 2026",
-    orderHash: "mock-tx-sell-charizard",
+    orderHash: "mock-tx-sell-ssp",
   },
   {
     type: "BUY",
     status: "settled",
-    asset: "2003 TOPPS CHROME #111 LEBRON JAMES ROOKIE REFRACTOR",
-    category: "PSA 10",
-    price: 31_000,
+    asset: marketsCollectionByListingId("listing-4").displayLabel,
+    category: "BGS 9.5",
+    price: Math.round(marketUsd(marketsCollectionByListingId("listing-4")) * 0.84),
     date: "May 28, 2026",
-    orderHash: "mock-tx-buy-lebron",
+    orderHash: "mock-tx-buy-luka",
   },
   {
     type: "BUY",
     status: "vaulted",
-    asset: "2023 POKEMON MEW EN-151 #199 CHARIZARD EX SPECIAL ILLUSTRATION RARE",
+    asset: marketsCollectionByListingId("listing-2").displayLabel,
     category: "PSA 10",
     price: 0,
     date: "May 12, 2026",
-    orderHash: "mock-tx-vault-charizard",
+    orderHash: "mock-tx-vault-nidoking",
   },
 ];
 
@@ -442,3 +397,46 @@ export const PORTFOLIO_MOCK_TX_ROWS: TxRow[] = TX_SEEDS.map((t) => ({
   date: t.date,
   orderHash: t.orderHash,
 }));
+
+/** Apply Cardhedger cover map onto portfolio display rows / bid meta / metadata. */
+export function withPortfolioMockCoverImages(
+  coverByKey: ReadonlyMap<string, string>,
+): {
+  assetRows: PricedAssetRow[];
+  metadataByTokenId: Map<number, RwaMetadata | null>;
+  bidMetaByKey: Map<string, PortfolioBidCollectionMeta>;
+} {
+  if (coverByKey.size === 0) {
+    return {
+      assetRows: PORTFOLIO_MOCK_ASSET_ROWS,
+      metadataByTokenId: PORTFOLIO_MOCK_METADATA_BY_TOKEN,
+      bidMetaByKey: PORTFOLIO_MOCK_BID_META_BY_KEY,
+    };
+  }
+
+  const assetRows = PORTFOLIO_MOCK_ASSET_ROWS.map((row) => {
+    const ck = PORTFOLIO_MOCK_TOKEN_TO_COLLECTION_KEY[row.tokenId]?.toLowerCase();
+    const url = ck ? coverByKey.get(ck) : undefined;
+    if (!url) return row;
+    return { ...row, imageUrl: url };
+  });
+
+  const metadataByTokenId = new Map<number, RwaMetadata | null>();
+  for (const [tokenId, meta] of PORTFOLIO_MOCK_METADATA_BY_TOKEN) {
+    const ck = PORTFOLIO_MOCK_TOKEN_TO_COLLECTION_KEY[tokenId]?.toLowerCase();
+    const url = ck ? coverByKey.get(ck) : undefined;
+    if (!meta || !url) {
+      metadataByTokenId.set(tokenId, meta);
+      continue;
+    }
+    metadataByTokenId.set(tokenId, { ...meta, image: url });
+  }
+
+  const bidMetaByKey = new Map<string, PortfolioBidCollectionMeta>();
+  for (const [key, meta] of PORTFOLIO_MOCK_BID_META_BY_KEY) {
+    const url = coverByKey.get(key.toLowerCase());
+    bidMetaByKey.set(key, url ? { ...meta, imageUrl: url } : meta);
+  }
+
+  return { assetRows, metadataByTokenId, bidMetaByKey };
+}

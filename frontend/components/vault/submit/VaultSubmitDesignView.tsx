@@ -1,12 +1,12 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { TkButton } from "@/components/ds";
 import { ASSETS } from "@/constants/assets";
 import { VaultBreadcrumb } from "@/components/vault/VaultBreadcrumb";
 import { VaultStepper } from "@/components/vault/VaultStepper";
+import { VaultThumb } from "@/components/vault/VaultThumb";
 import { useAccessGate } from "@/hooks/auth/useAccessGate";
 import { VAULT_SUBMIT_FAQ_ITEMS } from "@/lib/vault/vaultMockData";
 import { cn } from "@/lib/ds/cn";
@@ -63,11 +63,7 @@ function resolveLookupCard(cert: string): LookupCard {
     rejected,
     confirmed: false,
     value: rejected ? 0 : cert.startsWith("229") ? 1900 : 25376,
-    imageUrl: rejected
-      ? ASSETS.ds.cards.charizard
-      : cert.startsWith("229")
-        ? ASSETS.ds.cards.pikachu
-        : ASSETS.ds.cards.charizard,
+    imageUrl: "",
   };
 }
 
@@ -292,7 +288,7 @@ export function VaultSubmitDesignView() {
                     tabIndex={card.rejected ? undefined : 0}
                   >
                     <div className="vault-card-row__img">
-                      <Image src={card.imageUrl} alt="" width={40} height={56} className="h-full w-full object-contain" />
+                      <VaultThumb src={card.imageUrl} width={40} height={56} className="h-full w-full object-contain" />
                     </div>
                     <div className="vault-card-row__body">
                       <div className="vault-card-row__name">{card.name}</div>

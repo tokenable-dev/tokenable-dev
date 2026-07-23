@@ -1,15 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { TkButton, TkTag } from "@/components/ds";
-import { ASSETS } from "@/constants/assets";
 import { useIsMobileViewport } from "@/hooks/ui/useIsMobileViewport";
 import { VaultBreadcrumb } from "@/components/vault/VaultBreadcrumb";
 import { VaultBadge } from "@/components/vault/VaultBadge";
 import { VaultDemoToggle } from "@/components/vault/VaultDemoToggle";
 import { VaultStepper } from "@/components/vault/VaultStepper";
+import { VaultThumb } from "@/components/vault/VaultThumb";
 import {
   buildPackageCards,
   resolveDetailScenarioKey,
@@ -37,9 +36,9 @@ const SCENARIO_OPTIONS: { id: VaultDetailScenarioKey; label: string }[] = [
 ];
 
 const PKG_CARDS = [
-  { name: "1999 POKEMON BASE SET 1ST EDITION #4 CHARIZARD HOLO", imageUrl: ASSETS.ds.cards.charizard, grade: "PSA 10", cert: "12345678" },
-  { name: "2023 POKEMON PROMO SVP #085 PIKACHU VAN GOGH", imageUrl: ASSETS.ds.cards.pikachu, grade: "PSA 9", cert: "22938102" },
-  { name: "2003 TOPPS CHROME #111 LEBRON JAMES ROOKIE", imageUrl: ASSETS.ds.cards.lebron, grade: "PSA 10", cert: "55501248" },
+  { name: "1999 POKEMON BASE SET 1ST EDITION #4 CHARIZARD HOLO", imageUrl: "", grade: "PSA 10", cert: "12345678" },
+  { name: "2023 POKEMON PROMO SVP #085 PIKACHU VAN GOGH", imageUrl: "", grade: "PSA 9", cert: "22938102" },
+  { name: "2003 TOPPS CHROME #111 LEBRON JAMES ROOKIE", imageUrl: "", grade: "PSA 10", cert: "55501248" },
 ];
 
 function DetailHero({ hero }: { hero: VaultDetailScenario["hero"] }) {
@@ -137,7 +136,7 @@ function PackageInfoCard() {
       {PKG_CARDS.map((card, i) => (
         <div key={card.cert} className={cn("vault-detail-package__row", i > 0 && "vault-detail-package__row--border")}>
           <div className="vault-detail-package__thumb">
-            <Image src={card.imageUrl} alt="" width={40} height={56} className="h-full w-full object-contain" />
+            <VaultThumb src={card.imageUrl} width={40} height={56} className="h-full w-full object-contain" />
           </div>
           <div className="vault-detail-package__name">{card.name}</div>
           <TkTag tone="neutral" appearance="soft" className="vault-detail-grade-tag">
@@ -315,7 +314,7 @@ function CardDetailPanel({ card }: { card: VaultPackageCard }) {
     <div className="vault-lb-panel">
       <div className="vault-lb-panel__hero">
         <div className={cn("vault-lb-panel__img", card.status === "rejected" && "vault-lb-panel__img--dim")}>
-          <Image src={card.imageUrl} alt="" width={150} height={210} className="h-full w-full object-contain" />
+          <VaultThumb src={card.imageUrl} width={150} height={210} className="h-full w-full object-contain" />
         </div>
         <div className="vault-lb-panel__name">{card.name}</div>
       </div>
@@ -604,7 +603,7 @@ function LayoutB({ scenario }: { scenario: VaultDetailScenario }) {
               onClick={() => handleSelectCard(card.id)}
             >
               <div className={cn("vault-lm-row__thumb", card.status === "rejected" && "dim")}>
-                <Image src={card.imageUrl} alt="" width={38} height={52} className="h-full w-full object-contain" />
+                <VaultThumb src={card.imageUrl} width={38} height={52} className="h-full w-full object-contain" />
               </div>
               <div className="vault-lm-row__body">
                 <div className="vault-lm-row__name">{card.name}</div>
@@ -642,7 +641,7 @@ const EARLY_REJECT_CARD = {
   name: "1999 POKEMON BASE SET 1ST EDITION #4 CHARIZARD HOLO",
   grade: "PSA 8",
   cert: "12345678",
-  imageUrl: ASSETS.ds.cards.charizard,
+  imageUrl: "",
 };
 
 function EarlyRejectTimeline() {
@@ -692,7 +691,7 @@ function EarlyRejectView() {
           <h1 className="vault-detail-page-title">Submission Detail</h1>
           <div className="vault-detail-summary">
             <div className="vault-detail-summary__img">
-              <Image src={EARLY_REJECT_CARD.imageUrl} alt="" width={56} height={78} className="h-full w-full object-contain" />
+              <VaultThumb src={EARLY_REJECT_CARD.imageUrl} width={56} height={78} className="h-full w-full object-contain" />
             </div>
             <div className="vault-detail-summary__body">
               <div className="vault-detail-summary__name">{EARLY_REJECT_CARD.name}</div>
@@ -726,7 +725,7 @@ function EarlyRejectView() {
         <aside className="vault-detail-aside">
           <div className="vault-card-box vault-detail-aside-image">
             <div className="vault-detail-aside-image__frame">
-              <Image src={EARLY_REJECT_CARD.imageUrl} alt="" width={200} height={280} className="h-full w-full object-contain" />
+              <VaultThumb src={EARLY_REJECT_CARD.imageUrl} width={200} height={280} className="h-full w-full object-contain" />
             </div>
           </div>
           <div className="vault-card-box">

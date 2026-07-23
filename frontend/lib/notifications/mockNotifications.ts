@@ -1,4 +1,3 @@
-import { ASSETS } from "@/constants/assets";
 
 export type NotificationFilterKey = "all" | "trade" | "bid" | "vault" | "price";
 
@@ -25,7 +24,7 @@ export const MOCK_NOTIFICATIONS: MockNotification[] = [
     title: "Trade Confirmed",
     desc: "Your purchase of Charizard 1st Ed Base Set PSA 10 has been confirmed.",
     time: "2 min ago",
-    imageUrl: ASSETS.ds.cards.charizard,
+    imageUrl: "",
   },
   {
     id: "n2",
@@ -35,7 +34,7 @@ export const MOCK_NOTIFICATIONS: MockNotification[] = [
     title: "Bid Accepted",
     desc: "Your bid of $58,000 on LeBron James Rookie Chrome BGS 9.5 was accepted.",
     time: "1 hour ago",
-    imageUrl: ASSETS.ds.cards.lebron,
+    imageUrl: "",
   },
   {
     id: "n3",
@@ -45,7 +44,7 @@ export const MOCK_NOTIFICATIONS: MockNotification[] = [
     title: "Price Alert",
     desc: "Pikachu ex Surging Sparks PSA 10 is up +12% in the last 24 hours.",
     time: "3 hours ago",
-    imageUrl: ASSETS.ds.cards.pikachu,
+    imageUrl: "",
   },
   {
     id: "n4",
@@ -64,7 +63,7 @@ export const MOCK_NOTIFICATIONS: MockNotification[] = [
     title: "Sale Complete",
     desc: "Nidoking ex PSA 10 sold for $58,000. Funds deposited to your wallet.",
     time: "2 days ago",
-    imageUrl: ASSETS.ds.cards.nidoking,
+    imageUrl: "",
   },
   {
     id: "n6",
@@ -101,7 +100,7 @@ export const MOCK_NOTIFICATIONS: MockNotification[] = [
     title: "Trade Settled",
     desc: "Your purchase of Pikachu VMAX Rainbow PSA 10 has settled on-chain.",
     time: "2 weeks ago",
-    imageUrl: ASSETS.ds.cards.pikachuEx,
+    imageUrl: "",
   },
 ];
 

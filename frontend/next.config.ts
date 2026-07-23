@@ -97,6 +97,14 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "tcgplayer-cdn.tcgplayer.com",
       },
+      {
+        protocol: "https",
+        hostname: "cdn.bubble.io",
+      },
+      {
+        protocol: "https",
+        hostname: "**.bubble.io",
+      },
     ],
   },
   /**

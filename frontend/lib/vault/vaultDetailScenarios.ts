@@ -1,4 +1,3 @@
-import { ASSETS } from "@/constants/assets";
 import type { VaultStepDef } from "@/lib/vault/vaultStepSpec";
 import { MOCK_SUBMISSION_ID } from "@/lib/vault/vaultMockData";
 
@@ -50,19 +49,19 @@ const DIM = "dim" as const;
 
 const PKG_CHAR = {
   name: "1999 POKEMON BASE SET 1ST EDITION #4 CHARIZARD HOLO",
-  imageUrl: ASSETS.ds.cards.charizard,
+  imageUrl: "",
   grade: "PSA 10",
   cert: "12345678",
 };
 const PKG_PIKA = {
   name: "2023 POKEMON PROMO SVP #085 PIKACHU VAN GOGH",
-  imageUrl: ASSETS.ds.cards.pikachu,
+  imageUrl: "",
   grade: "PSA 9",
   cert: "22938102",
 };
 const PKG_LEB = {
   name: "2003 TOPPS CHROME #111 LEBRON JAMES ROOKIE",
-  imageUrl: ASSETS.ds.cards.lebron,
+  imageUrl: "",
   grade: "PSA 10",
   cert: "55501248",
 };

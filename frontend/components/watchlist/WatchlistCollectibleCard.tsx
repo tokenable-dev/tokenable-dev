@@ -12,6 +12,7 @@ import {
 } from "@/lib/market/priceChangePeriod";
 import { bucketCardSetForDisplay } from "@/lib/marketplace/bucketKey";
 import { pickCollectionSummaryDisplayImageUrl } from "@/lib/marketplace/collectionDisplayImage";
+import { rememberCollectionCoverImage } from "@/lib/marketplace/collectionCoverSession";
 import { parseCollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
 import {
   resolveCollectionSlabCardTitle,
@@ -124,7 +125,13 @@ export function WatchlistCollectibleCard({
   const collectionHref = `/marketplace/collections/${encodeURIComponent(collection.collectionKey)}`;
 
   return (
-    <Link href={collectionHref} className="card watchlist-card">
+    <Link
+      href={collectionHref}
+      className="card watchlist-card"
+      onClick={() =>
+        rememberCollectionCoverImage(collection.collectionKey, imageSrc)
+      }
+    >
       <div className="card__img">
         {imageSrc ? (
           <CollectionCoverFrame

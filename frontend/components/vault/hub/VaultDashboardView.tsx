@@ -1,9 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { VaultBadge } from "@/components/vault/VaultBadge";
+import { VaultThumb } from "@/components/vault/VaultThumb";
 import { TkTag } from "@/components/ds";
 import {
   MOCK_DRAFT_SUBMISSION,
@@ -147,7 +147,7 @@ export function VaultDashboardView() {
 
           <div className="vault-draft-card">
             <div className="vault-draft-card__thumb">
-              <Image src={MOCK_DRAFT_SUBMISSION.imageUrl} alt="" width={44} height={62} />
+              <VaultThumb src={MOCK_DRAFT_SUBMISSION.imageUrl} width={44} height={62} />
             </div>
             <div className="vault-draft-card__info">
               <div className="vault-draft-card__title">{MOCK_DRAFT_SUBMISSION.title}</div>
@@ -173,7 +173,7 @@ export function VaultDashboardView() {
               >
                 <div className="vault-ip-card__top">
                   <div className="vault-ip-card__thumb">
-                    <Image src={item.imageUrl} alt="" width={50} height={72} />
+                    <VaultThumb src={item.imageUrl} width={50} height={72} />
                   </div>
                   <div className="vault-ip-card__info">
                     <div className="vault-ip-card__name">{item.name}</div>
@@ -238,7 +238,7 @@ export function VaultDashboardView() {
                     <td>
                       <div className="vault-hub-table-card">
                         <div className="vault-hub-table-thumb">
-                          <Image src={row.imageUrl} alt="" width={36} height={52} />
+                          <VaultThumb src={row.imageUrl} width={36} height={52} />
                         </div>
                         <div className="vault-hub-table-card__name">{row.name}</div>
                       </div>
@@ -274,7 +274,7 @@ export function VaultDashboardView() {
               <div key={row.id} className="vault-hub-mcard">
                 <div className="vault-hub-mcard__top">
                   <div className="vault-hub-table-thumb">
-                    <Image src={row.imageUrl} alt="" width={36} height={52} />
+                    <VaultThumb src={row.imageUrl} width={36} height={52} />
                   </div>
                   <div className="vault-hub-mcard__body">
                     <div className="vault-hub-mcard__name">{row.name}</div>

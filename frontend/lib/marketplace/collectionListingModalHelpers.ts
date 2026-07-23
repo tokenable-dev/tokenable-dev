@@ -89,8 +89,14 @@ export type ListingGalleryImage = {
   src: string;
 };
 
-/** Slab front/back only for listing detail (Card.html prov-thumbs). */
-export function listingGalleryImages(metadata: RwaMetadata | null): ListingGalleryImage[] {
+/**
+ * Listing detail gallery — prefer PSA slab front/back; fall back to NFT/catalog
+ * `imageUrl` when slab photos are missing (so the modal is not empty).
+ */
+export function listingGalleryImages(
+  metadata: RwaMetadata | null,
+  fallbackImageUrl?: string | null,
+): ListingGalleryImage[] {
   const graded = metadata?.properties?.graded as Record<string, unknown> | undefined;
   const psa = graded?.psa as Record<string, unknown> | undefined;
   const verification = graded?.verification as Record<string, unknown> | undefined;
@@ -105,6 +111,24 @@ export function listingGalleryImages(metadata: RwaMetadata | null): ListingGalle
   const items: ListingGalleryImage[] = [];
   if (front) items.push({ id: "front", label: "Front", src: front });
   if (back && back !== front) items.push({ id: "back", label: "Back", src: back });
+
+  if (items.length === 0) {
+    const candidates = [
+      fallbackImageUrl,
+      metadata?.image,
+      typeof metadata?.properties?.image === "string"
+        ? metadata.properties.image
+        : null,
+    ];
+    for (const candidate of candidates) {
+      if (typeof candidate !== "string") continue;
+      const src = normalizeListingImageUrl(candidate);
+      if (!src) continue;
+      items.push({ id: "asset", label: "Front", src });
+      break;
+    }
+  }
+
   return items;
 }
 

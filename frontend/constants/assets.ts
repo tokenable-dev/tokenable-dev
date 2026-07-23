@@ -24,15 +24,6 @@ export const ASSETS = {
 
   /** Design system marketing assets (home, prototypes) */
   ds: {
-    heroSlab: `${ASSETS_BASE}/ds/hero-slab.jpg`,
-    cards: {
-      charizard: `${ASSETS_BASE}/ds/card-charizard.png`,
-      lebron: `${ASSETS_BASE}/ds/card-lebron.png`,
-      pikachu: `${ASSETS_BASE}/ds/card-pikachu.png`,
-      luka: `${ASSETS_BASE}/ds/card-luka.png`,
-      nidoking: `${ASSETS_BASE}/ds/card-nidoking.jpg`,
-      pikachuEx: `${ASSETS_BASE}/ds/card-pikachu-ex.png`,
-    },
     partners: {
       psa: `${ASSETS_BASE}/ds/logo-psa.png`,
       beckett: `${ASSETS_BASE}/ds/logo-beckett.png`,

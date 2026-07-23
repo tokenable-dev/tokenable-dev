@@ -1,9 +1,8 @@
-import { ASSETS } from "@/constants/assets";
 import type {
   CollectionListMarketSnapshot,
   MarketplaceCollectionSummary,
 } from "@/lib/core";
-import type { CollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
+import { enrichDesignMockComponents } from "@/lib/marketplace/enrichDesignMockComponents";
 
 /**
  * Design parity with `Tokenable-with design system/index.html` `renderVals()`.
@@ -78,7 +77,7 @@ function buildSparkline(priceUsd: number, changePct: number | null): { t: number
 }
 
 function toCollection(seed: MockCardSeed): MarketplaceCollectionSummary {
-  const components: CollectionComponents = {
+  const components = enrichDesignMockComponents({
     cardName: seed.title,
     cardNameDisplay: seed.title,
     cardSet: seed.set,
@@ -89,7 +88,7 @@ function toCollection(seed: MockCardSeed): MarketplaceCollectionSummary {
     psaGradeLabel: `${seed.gradeCompany} ${seed.gradeScore}`,
     psaTotalPopulation: seed.pop,
     listingDisplayTitle: seed.title,
-  };
+  });
   return {
     collectionKey: `${HOME_MOCK_KEY_PREFIX}${seed.id}`,
     displayLabel: seed.title,
@@ -120,13 +119,12 @@ function toSnapshot(seed: MockCardSeed): CollectionListMarketSnapshot {
   };
 }
 
-const C = ASSETS.ds.cards;
 
 /** index.html Top movers */
 const MOVER_SEEDS: MockCardSeed[] = [
   {
     id: "mover-pikachu-ex-sar",
-    image: C.pikachuEx,
+    image: "",
     ...gradeParts("PSA 10"),
     pop: parsePop("20.0k"),
     listed: 2,
@@ -138,7 +136,7 @@ const MOVER_SEEDS: MockCardSeed[] = [
   },
   {
     id: "mover-nidoking",
-    image: C.nidoking,
+    image: "",
     ...gradeParts("PSA 10"),
     pop: parsePop("3"),
     listed: 3,
@@ -150,7 +148,7 @@ const MOVER_SEEDS: MockCardSeed[] = [
   },
   {
     id: "mover-charizard-151",
-    image: C.charizard,
+    image: "",
     ...gradeParts("PSA 10"),
     pop: parsePop("27.7k"),
     listed: 1,
@@ -162,7 +160,7 @@ const MOVER_SEEDS: MockCardSeed[] = [
   },
   {
     id: "mover-luka",
-    image: C.luka,
+    image: "",
     ...gradeParts("BGS 9.5"),
     pop: parsePop("42"),
     listed: 1,
@@ -174,7 +172,7 @@ const MOVER_SEEDS: MockCardSeed[] = [
   },
   {
     id: "mover-pikachu-ssp",
-    image: C.pikachu,
+    image: "",
     ...gradeParts("PSA 10"),
     pop: parsePop("9,389"),
     listed: 5,
@@ -186,7 +184,7 @@ const MOVER_SEEDS: MockCardSeed[] = [
   },
   {
     id: "mover-lebron-chrome",
-    image: C.lebron,
+    image: "",
     ...gradeParts("BGS 9.5"),
     pop: parsePop("42"),
     listed: 3,
@@ -198,7 +196,7 @@ const MOVER_SEEDS: MockCardSeed[] = [
   },
   {
     id: "mover-charizard-1st",
-    image: C.charizard,
+    image: "",
     ...gradeParts("PSA 9"),
     pop: parsePop("666"),
     listed: 4,
@@ -214,7 +212,7 @@ const MOVER_SEEDS: MockCardSeed[] = [
 const VAULTED_SEEDS: MockCardSeed[] = [
   {
     id: "vaulted-lebron-auto",
-    image: C.lebron,
+    image: "",
     ...gradeParts("PSA 10"),
     pop: parsePop("16"),
     listed: 1,
@@ -227,7 +225,7 @@ const VAULTED_SEEDS: MockCardSeed[] = [
   },
   {
     id: "vaulted-pikachu-ssp",
-    image: C.pikachu,
+    image: "",
     ...gradeParts("PSA 10"),
     pop: parsePop("9,389"),
     listed: 1,
@@ -240,7 +238,7 @@ const VAULTED_SEEDS: MockCardSeed[] = [
   },
   {
     id: "vaulted-nidoking",
-    image: C.nidoking,
+    image: "",
     ...gradeParts("PSA 10"),
     pop: parsePop("3"),
     listed: 1,
@@ -253,7 +251,7 @@ const VAULTED_SEEDS: MockCardSeed[] = [
   },
   {
     id: "vaulted-luka",
-    image: C.luka,
+    image: "",
     ...gradeParts("BGS 9.5"),
     pop: parsePop("42"),
     listed: 1,
@@ -266,7 +264,7 @@ const VAULTED_SEEDS: MockCardSeed[] = [
   },
   {
     id: "vaulted-pikachu-ex",
-    image: C.pikachuEx,
+    image: "",
     ...gradeParts("PSA 10"),
     pop: parsePop("20.0k"),
     listed: 1,
@@ -279,7 +277,7 @@ const VAULTED_SEEDS: MockCardSeed[] = [
   },
   {
     id: "vaulted-charizard-151",
-    image: C.charizard,
+    image: "",
     ...gradeParts("PSA 10"),
     pop: parsePop("27.7k"),
     listed: 1,
@@ -292,7 +290,7 @@ const VAULTED_SEEDS: MockCardSeed[] = [
   },
   {
     id: "vaulted-lebron-chrome",
-    image: C.lebron,
+    image: "",
     ...gradeParts("BGS 9.5"),
     pop: parsePop("42"),
     listed: 1,

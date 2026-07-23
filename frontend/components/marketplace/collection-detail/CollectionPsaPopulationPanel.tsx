@@ -47,7 +47,11 @@ export function CollectionPsaPopulationPanel({
     );
   }
 
-  const highlightKey = highlightGrade.replace(/\D/g, "") || "10";
+  const highlightKey = (() => {
+    const n = Number.parseFloat(String(highlightGrade).replace(/[^\d.]/g, ""));
+    if (Number.isFinite(n) && n >= 1 && n <= 10) return String(Math.floor(n));
+    return "10";
+  })();
 
   return (
     <div className="cd-psa-panel">

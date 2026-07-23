@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useMarketplaceCollectionsInfinite } from "@/hooks/marketplace";
 import { useMarketsOrders, useMarketsSnapshots } from "@/hooks/markets/useMarketsPageData";
 import { useMarketsInfiniteScroll } from "@/hooks/markets/useMarketsInfiniteScroll";
+import { useCardhedgerMockCoverImages } from "@/hooks/home/useCardhedgerMockCoverImages";
 import { useResolvedMediaUrlMap } from "@/hooks/media";
 import { GatedSellLink } from "@/components/auth/GatedSellLink";
 import { HomeTicker } from "@/components/home/HomeTicker";
@@ -47,6 +48,12 @@ import {
   MARKETS_MOCK_SNAPSHOT_BY_KEY,
   shouldUseMarketsMockCards,
 } from "@/lib/markets/marketsMockData";
+import {
+  mockCoverSearchFromCollection,
+  withMockCoverImages,
+} from "@/lib/home/withMockCoverImages";
+
+const EMPTY_COVER_MAP = new Map<string, string>();
 
 export default function MarketsPage() {
   usePageViewedEvent("markets");
@@ -93,7 +100,20 @@ export default function MarketsPage() {
     !colInitialPending &&
     shouldUseMarketsMockCards(collectionSummaries.length);
 
-  const displayCollections = useMocks ? MARKETS_MOCK_COLLECTIONS : collectionSummaries;
+  const mockCoverQueries = useMemo(() => {
+    if (!useMocks) return [];
+    return MARKETS_MOCK_COLLECTIONS.map(mockCoverSearchFromCollection);
+  }, [useMocks]);
+
+  const { data: coverByKey } = useCardhedgerMockCoverImages(useMocks, mockCoverQueries);
+
+  const displayCollections = useMemo(
+    () =>
+      useMocks
+        ? withMockCoverImages(MARKETS_MOCK_COLLECTIONS, coverByKey ?? EMPTY_COVER_MAP)
+        : collectionSummaries,
+    [useMocks, coverByKey, collectionSummaries],
+  );
 
   const coverRawUrls = useMemo(
     () => displayCollections.map((c) => pickCollectionSummaryDisplayImageUrl(c)),

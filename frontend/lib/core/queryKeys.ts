@@ -218,6 +218,14 @@ export const rq = {
   /** Cached top movers (weekly gain) by category — 1h server TTL. */
   cardhedgerTopMovers: (category: string, count: number) =>
     ["cardhedger-top-movers", category, count] as const,
+  /** Cover image map for design mocks (home / markets) — keyed by query signature. */
+  cardhedgerMockCovers: (sig: string) =>
+    ["cardhedger-mock-covers", "unique-v1", sig] as const,
+  /** Single catalog cover resolve by search string. */
+  cardhedgerCatalogCover: (search: string) =>
+    ["cardhedger-catalog-cover", search] as const,
+  /** Home hero 360° carousel face textures from Cardhedger catalog. */
+  cardhedgerHeroCarousel: () => ["cardhedger-hero-carousel", "loaded-only-v1"] as const,
   cardhedgerCardDetails: (cardId: string) => ["cardhedger-card-details", cardId] as const,
   cardhedgerPricesByCard: (cardId: string, grade: string, days: number) =>
     ["cardhedger-prices-by-card", cardId, grade, days] as const,

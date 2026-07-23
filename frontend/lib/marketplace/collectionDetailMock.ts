@@ -23,6 +23,8 @@ import {
   PORTFOLIO_MOCK_SNAPSHOT_BY_KEY,
   isPortfolioMockCollectionKey,
 } from "@/lib/portfolio/portfolioMockData";
+import { enrichDesignMockComponents } from "@/lib/marketplace/enrichDesignMockComponents";
+import type { CollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
 
 export function isDesignMockCollectionKey(collectionKey: string): boolean {
   return (
@@ -191,7 +193,9 @@ export function getMockCollectionDetail(
       collectionKey: summary.collectionKey,
       displayLabel: summary.displayLabel,
       queryUsed: summary.queryUsed,
-      components: summary.components,
+      components: enrichDesignMockComponents(
+        (summary.components ?? {}) as CollectionComponents,
+      ),
       createdAt: summary.createdAt,
       coverImageUrl: summary.coverImageUrl ?? summary.displayImageUrl ?? null,
     },

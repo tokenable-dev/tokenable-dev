@@ -1,4 +1,3 @@
-import { ASSETS } from "@/constants/assets";
 
 export const MOCK_SUBMISSION_ID = "SUB-20260616-00421";
 
@@ -7,7 +6,7 @@ export const MOCK_CARD = {
   grade: "PSA 10",
   cert: "12345678",
   tokenId: "0421",
-  imageUrl: ASSETS.ds.cards.charizard,
+  imageUrl: "",
   marketValueUsd: 25376,
 } as const;
 
@@ -48,7 +47,7 @@ export const MOCK_DRAFT_SUBMISSION = {
   id: "draft-1",
   title: "Charizard + 2 more cards",
   savedAt: "Jul 8, 2026",
-  imageUrl: ASSETS.ds.cards.charizard,
+  imageUrl: "",
   href: "/vault/submit",
 } as const;
 
@@ -58,7 +57,7 @@ export const MOCK_IN_PROGRESS_ACTIVE: VaultInProgressItem[] = [
     id: "ip-2",
     name: "2024 POKEMON SURGING SPARKS EN-SSP #238 PIKACHU EX SPECIAL ART RARE",
     grade: "PSA 9",
-    imageUrl: ASSETS.ds.cards.pikachu,
+    imageUrl: "",
     statusKind: "in-transit",
     statusLabel: "In Transit",
     detail: "FedEx · FX987654321",
@@ -69,7 +68,7 @@ export const MOCK_IN_PROGRESS_ACTIVE: VaultInProgressItem[] = [
     id: "ip-3",
     name: "2024 POKEMON SV DESTINED RIVALS #233 NIDOKING EX STELLAR RARE",
     grade: "PSA 9",
-    imageUrl: ASSETS.ds.cards.nidoking,
+    imageUrl: "",
     statusKind: "reviewing",
     statusLabel: "Reviewing",
     detail: "PSA approval pending",
@@ -79,7 +78,7 @@ export const MOCK_IN_PROGRESS_ACTIVE: VaultInProgressItem[] = [
     id: "ip-5",
     name: "2018 PANINI PRIZM #280 LUKA DONCIC BLUE ICE ROOKIE",
     grade: "PSA 10",
-    imageUrl: ASSETS.ds.cards.luka,
+    imageUrl: "",
     statusKind: "action-needed",
     statusLabel: "Action Needed",
     hint: "Tracking number required to continue",
@@ -96,7 +95,7 @@ export const MOCK_SUBMISSION_HISTORY: VaultSubmissionHistoryItem[] = [
     cert: "12345678",
     submitted: "Jun 15, 2026",
     status: "Minted",
-    imageUrl: ASSETS.ds.cards.charizard,
+    imageUrl: "",
     href: `/vault/submissions/${MOCK_SUBMISSION_ID}?scenario=G`,
   },
   {
@@ -106,7 +105,7 @@ export const MOCK_SUBMISSION_HISTORY: VaultSubmissionHistoryItem[] = [
     cert: "22938102",
     submitted: "Jun 10, 2026",
     status: "Minted",
-    imageUrl: ASSETS.ds.cards.pikachu,
+    imageUrl: "",
     href: `/vault/submissions/${MOCK_SUBMISSION_ID}?scenario=G`,
   },
   {
@@ -116,7 +115,7 @@ export const MOCK_SUBMISSION_HISTORY: VaultSubmissionHistoryItem[] = [
     cert: "88712304",
     submitted: "Jun 8, 2026",
     status: "Minted",
-    imageUrl: ASSETS.ds.cards.charizard,
+    imageUrl: "",
     href: `/vault/submissions/${MOCK_SUBMISSION_ID}?scenario=G`,
   },
   {
@@ -126,7 +125,7 @@ export const MOCK_SUBMISSION_HISTORY: VaultSubmissionHistoryItem[] = [
     cert: "55501248",
     submitted: "May 28, 2026",
     status: "Minted",
-    imageUrl: ASSETS.ds.cards.lebron,
+    imageUrl: "",
     href: `/vault/submissions/${MOCK_SUBMISSION_ID}?scenario=G`,
   },
   {
@@ -136,7 +135,7 @@ export const MOCK_SUBMISSION_HISTORY: VaultSubmissionHistoryItem[] = [
     cert: "33901482",
     submitted: "May 20, 2026",
     status: "Minted",
-    imageUrl: ASSETS.ds.cards.nidoking,
+    imageUrl: "",
     href: `/vault/submissions/${MOCK_SUBMISSION_ID}?scenario=G`,
   },
   {
@@ -146,7 +145,7 @@ export const MOCK_SUBMISSION_HISTORY: VaultSubmissionHistoryItem[] = [
     cert: "12345678",
     submitted: "Jun 1, 2026",
     status: "Rejected",
-    imageUrl: ASSETS.ds.cards.charizard,
+    imageUrl: "",
     href: `/vault/submissions/${MOCK_SUBMISSION_ID}?view=rejected`,
   },
 ];

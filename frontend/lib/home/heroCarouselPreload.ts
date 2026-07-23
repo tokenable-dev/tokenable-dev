@@ -1,33 +1,46 @@
 import type { HeroCarouselTier } from "@/lib/home/heroCarouselCapability";
-import { HERO_SLAB_CAROUSEL_SOURCES } from "@/lib/home/heroCarouselAssets";
+import { cardCountForTier } from "@/lib/home/heroCarouselCapability";
+import { expandHeroCarouselSources } from "@/lib/home/heroCarouselAssets";
 
-/** Warm browser cache before WebGL TextureLoader runs (Phase 2). */
-export function preloadHeroCarouselImages(
+function loadImageUrl(url: string, timeoutMs: number): Promise<string | null> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    let settled = false;
+    const finish = (value: string | null) => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timer);
+      resolve(value);
+    };
+    const timer = window.setTimeout(() => finish(null), timeoutMs);
+    img.onload = () => finish(url);
+    img.onerror = () => finish(null);
+    img.crossOrigin = "anonymous";
+    img.src = url;
+  });
+}
+
+/**
+ * Warm cache and return only URLs that decode successfully.
+ * Failed / CORS-blocked covers are dropped so the WebGL ring never shows
+ * Tokenable placeholder slabs.
+ */
+export async function preloadHeroCarouselImages(
   tier: HeroCarouselTier,
+  candidateUrls: readonly string[],
   timeoutMs = 12_000,
-): Promise<void> {
-  if (tier === "fallback") return Promise.resolve();
+): Promise<string[]> {
+  if (tier === "fallback" || candidateUrls.length === 0) return [];
 
-  const count = tier === "reduced" ? 6 : 10;
-  const urls = new Set<string>();
-  for (let i = 0; i < count; i++) {
-    const src = HERO_SLAB_CAROUSEL_SOURCES[i % HERO_SLAB_CAROUSEL_SOURCES.length];
-    if (src) urls.add(src);
-  }
+  const uniqueCandidates = [...new Set(candidateUrls.map((u) => u.trim()).filter(Boolean))];
+  const perImageTimeout = Math.min(8_000, timeoutMs);
 
-  const loads = [...urls].map(
-    (url) =>
-      new Promise<void>((resolve) => {
-        const img = new Image();
-        const done = () => resolve();
-        img.onload = done;
-        img.onerror = done;
-        img.src = url;
-      }),
-  );
+  const loaded = (
+    await Promise.all(
+      uniqueCandidates.map((url) => loadImageUrl(url, perImageTimeout)),
+    )
+  ).filter((u): u is string => Boolean(u));
 
-  return Promise.race([
-    Promise.all(loads).then(() => undefined),
-    new Promise<void>((resolve) => window.setTimeout(resolve, timeoutMs)),
-  ]);
+  const slotCount = cardCountForTier(tier);
+  return expandHeroCarouselSources(loaded, slotCount);
 }

@@ -327,6 +327,27 @@
   filter: drop-shadow(4px 4px 0 rgba(26, 111, 255, 0.3));
 }
 
+.cd-stat-main__thumb-btn {
+  display: block;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: transparent;
+  cursor: zoom-in;
+  flex-shrink: 0;
+  border-radius: 4px;
+  line-height: 0;
+}
+
+.cd-stat-main__thumb-btn:focus-visible {
+  outline: 2px solid rgba(26, 111, 255, 0.7);
+  outline-offset: 3px;
+}
+
+.cd-stat-main__thumb-btn:hover .cd-stat-main__thumb {
+  filter: drop-shadow(4px 4px 0 rgba(26, 111, 255, 0.45)) brightness(1.04);
+}
+
 .cd-stat-main__thumb--empty {
   width: 72px;
   background: rgba(255, 255, 255, 0.04);
@@ -1573,6 +1594,19 @@ button.cd-listing-orderbook__thumb-link {
   .cd-listing-prov__tap-hint {
     display: block;
   }
+
+  .cd-listing-prov__img-area {
+    min-height: 240px;
+    padding: 16px;
+  }
+
+  .cd-listing-prov__main-img {
+    max-height: min(52vh, 280px);
+  }
+
+  .cd-listing-prov__actions {
+    flex-wrap: wrap;
+  }
 }
 
 .cd-listing-prov__thumbs {
@@ -1757,15 +1791,15 @@ button.cd-listing-orderbook__thumb-link {
 }
 
 .cd-listing-prov-fullimg__img {
-  max-width: 96vw;
-  max-height: 92vh;
+  max-width: min(96vw, 100%);
+  max-height: min(85dvh, 92vh);
   object-fit: contain;
 }
 
 .cd-listing-prov-fullimg__close {
   position: absolute;
-  top: 16px;
-  right: 16px;
+  top: max(16px, env(safe-area-inset-top, 0px));
+  right: max(16px, env(safe-area-inset-right, 0px));
   width: 44px;
   height: 44px;
   border: 0;
