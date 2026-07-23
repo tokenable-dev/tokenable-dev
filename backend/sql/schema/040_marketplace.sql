@@ -145,3 +145,23 @@ COMMENT ON TABLE orders IS 'Seaport signed orders — ask listings and collectio
 COMMENT ON COLUMN orders.collection_key IS
   'Logical bucket key; denormalized from listing metadata at insert time.';
 COMMENT ON COLUMN orders.consideration_amount IS 'USDC amount in micro-units (stringified integer).';
+
+CREATE TABLE IF NOT EXISTS marketplace_notifications (
+  id serial PRIMARY KEY,
+  recipient_wallet varchar(42) NOT NULL,
+  type varchar(16) NOT NULL DEFAULT 'bid',
+  title varchar(160) NOT NULL,
+  body varchar(400) NOT NULL,
+  dedupe_key varchar(128) NOT NULL,
+  payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+  read_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT marketplace_notifications_recipient_dedupe_unique
+    UNIQUE (recipient_wallet, dedupe_key)
+);
+
+CREATE INDEX IF NOT EXISTS idx_marketplace_notifications_recipient_created
+  ON marketplace_notifications (recipient_wallet, created_at DESC);
+
+COMMENT ON TABLE marketplace_notifications IS
+  'In-app inbox: token-bid offers to wallets with an active ask on that tokenId.';

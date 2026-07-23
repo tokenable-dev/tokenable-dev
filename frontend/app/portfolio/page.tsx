@@ -13,6 +13,7 @@ import {
   usePortfolioHoldings,
   usePortfolioListingCollectionKeys,
   usePortfolioMarketPricing,
+  usePortfolioAcceptOffer,
   usePortfolioMyBids,
   useUserAssets,
 } from "@/hooks/portfolio";
@@ -31,6 +32,7 @@ import { useAuthStore } from "@/store/authStore";
 import { isLinkedPortfolioViewAddress } from "@/lib/auth/wallets";
 import {
   PortfolioActivitySection,
+  PortfolioAcceptOfferModal,
   PortfolioCollectionBidsSection,
   PortfolioDisconnectedState,
   PortfolioGuestState,
@@ -110,6 +112,7 @@ export default function PortfolioPage() {
     isLoadingMetadata: assetsLoading,
     isLoadingHistoryBatch: historyBatchLoading,
     refetchActiveOrders,
+    refetchAll,
   } = useUserAssets(portfolioAddress, {
     enabled: portfolioDataEnabled,
     includeOrderHistory: true,
@@ -255,6 +258,19 @@ export default function PortfolioPage() {
     refetchPortfolioBids: () => myBids.refetchBids(),
   });
 
+  const acceptOffer = usePortfolioAcceptOffer({
+    address: signerAddress,
+    canSign: wallet.canSign,
+    refetchActiveOrders,
+    refetchAssets: async () => {
+      await refetchAll();
+    },
+  });
+  const {
+    resolveAndOpen: resolveAcceptOffer,
+    deepLinkHandledRef: acceptDeepLinkRef,
+  } = acceptOffer;
+
   const txRows = useMemo(() => {
     if (!portfolioAddress) return [];
     return buildPortfolioTxRows(fulfilledOrders, portfolioAddress, assets);
@@ -333,6 +349,41 @@ export default function PortfolioPage() {
     tokenIds,
     router,
     openPortfolioListModal,
+  ]);
+
+  useEffect(() => {
+    const acceptBid = searchParams.get("acceptBid")?.trim() ?? "";
+    const tokenParam = searchParams.get("tokenId")?.trim() ?? "";
+    const askHash = searchParams.get("askHash")?.trim() || null;
+    if (!acceptBid || !/^\d+$/.test(tokenParam)) return;
+    const key = `${acceptBid}:${tokenParam}:${askHash ?? ""}`;
+    if (acceptDeepLinkRef.current === key) return;
+    if (!portfolioDataEnabled || assetsSectionLoading) return;
+
+    const tokenId = Number(tokenParam);
+    acceptDeepLinkRef.current = key;
+    router.replace("/portfolio", { scroll: false });
+    setPortfolioMainTab("collectibles");
+
+    const row = assetRows.find((r) => r.tokenId === tokenId);
+    void resolveAcceptOffer({
+      bidOrderHash: acceptBid,
+      tokenId,
+      askOrderHash: askHash,
+      assetTitle: row?.name,
+    }).catch((e) => {
+      window.alert(
+        e instanceof Error ? e.message : "Could not open accept-offer flow",
+      );
+    });
+  }, [
+    searchParams,
+    portfolioDataEnabled,
+    assetsSectionLoading,
+    router,
+    resolveAcceptOffer,
+    acceptDeepLinkRef,
+    assetRows,
   ]);
 
   if (!authInitialized || authLoading) {
@@ -456,6 +507,21 @@ export default function PortfolioPage() {
           pending={bidActions.cancellingHash === bidActions.cancelConfirm.orderHash}
           onClose={bidActions.closeCancelConfirm}
           onConfirm={() => void bidActions.confirmCancel()}
+        />
+      ) : null}
+
+      {acceptOffer.modal != null ? (
+        <PortfolioAcceptOfferModal
+          open
+          assetTitle={acceptOffer.modal.assetTitle}
+          bid={acceptOffer.modal.bid}
+          listing={acceptOffer.modal.listing}
+          pending={acceptOffer.pending}
+          preflightPending={acceptOffer.preflightPending}
+          buyerReady={acceptOffer.buyerReady}
+          error={acceptOffer.error}
+          onClose={acceptOffer.closeModal}
+          onConfirm={() => void acceptOffer.confirmAccept()}
         />
       ) : null}
 

@@ -125,8 +125,10 @@ export function useMintForm() {
         )
           ? psa.lastAnalyze?.psaCertImages?.front
           : undefined;
+        // Prefer PSA CloudFront slab (usually sharper) for the pinned NFT image.
+        // Cardhedger catalog URL stays in graded.cardhedger.imageUrl for covers.
         const selectedMintImageUrl =
-          psa.lastAnalyze?.cardhedgerMint?.imageUrl || trustedPsaSlabUrl;
+          trustedPsaSlabUrl || psa.lastAnalyze?.cardhedgerMint?.imageUrl;
         if (selectedMintImageUrl) {
           data.append("imageUrl", selectedMintImageUrl);
         } else if (form.image instanceof File) {

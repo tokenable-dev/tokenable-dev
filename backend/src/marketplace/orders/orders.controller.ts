@@ -28,6 +28,7 @@ import { OrdersBatchByTokenDto } from './dto/orders-batch-by-token.dto';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { FulfillMatchedPairDto } from './dto/fulfill-matched-pair.dto';
 import { FulfillOrderQueryDto } from './dto/fulfill-order-query.dto';
+import { InvalidateDeadBidQueryDto } from './dto/invalidate-dead-bid-query.dto';
 import { ReplaceBidDto } from './dto/replace-bid.dto';
 import { ReplaceListingDto } from './dto/replace-listing.dto';
 import { Order } from '../entities/order.entity';
@@ -200,6 +201,27 @@ export class OrdersController {
     @Query('callerAddress') callerAddress: string,
   ): Promise<Order> {
     return this.ordersService.cancelOrder(hash, callerAddress);
+  }
+
+  /** Dead token bid — cancel when buyer USDC/allowance is insufficient or bid expired */
+  @ApiOperation({
+    summary: 'Dead token bid 무효화',
+    description:
+      'Accept-offer preflight/settle failure: cancel an unfundable or expired token bid (idempotent).',
+  })
+  @ApiParam({ name: 'hash', description: '주문 hash', example: SWAGGER_FIXTURES.orderHash })
+  @Patch('orders/:hash/invalidate-dead-bid')
+  invalidateDeadBid(
+    @Param('hash') hash: string,
+    @Query() query: InvalidateDeadBidQueryDto,
+    @Headers(CHAIN_ID_HEADER) chainIdHeader?: string,
+  ): Promise<Order> {
+    const chainId = this.chainConfig.resolveChainId(chainIdHeader);
+    return this.ordersService.invalidateDeadBid(
+      hash,
+      query.callerAddress,
+      chainId,
+    );
   }
 
   /** 단일 주문 체결 처리 (on-chain fulfill 후) */

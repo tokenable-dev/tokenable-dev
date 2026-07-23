@@ -80,10 +80,23 @@ All marketplace trades use **Seaport 1.5**. There is no relational bid/ask match
 
 Bids are **token offers** on a specific card (`tokenId`), not collection-wide criteria bids.
 
+- Collection **Offers** order book includes active token offers (and any legacy criteria bids still on the book)
 - Max **3 active offers** per wallet per `tokenId`
 - Soft UX floor: warn below 90% of listed ask (override allowed)
 - When offer price equals ask, match candidates are ordered **FIFO** by `createdAt` within that price
 - Frontend checks USDC balance before submit; Add Funds when short
+
+### BR-8b: Accept Offer Without Lowering Ask
+
+Sellers accept a specific token offer **without** changing their public ask price first.
+
+- Settlement is Seaport atomic fill/match; bid funds are not escrowed in advance
+- Failed accept (e.g. buyer unfunded) **must leave the ask active and unchanged**; the dead bid is invalidated (`invalidate-dead-bid`)
+- Successful accept clears the ask because the NFT is sold
+- Notifications for new bids target owners of an **active ask on that `tokenId`**, not all collection sellers
+- Notification CTA **Accept offer** deep-links to `/portfolio?acceptBid=&tokenId=` (+ optional `askHash`)
+- Sell / Change-price UX must not instruct sellers to lower the ask to match a lower bid
+- Spec: [seaport-accept-offer.md](architecture/seaport-accept-offer.md)
 
 ### BR-9: USDC-Only Settlement
 

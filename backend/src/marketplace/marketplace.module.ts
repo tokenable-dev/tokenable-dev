@@ -7,6 +7,7 @@ import { MarketplacePortfolioModule } from './portfolio/marketplace-portfolio.mo
 import { MarketplaceWatchlistModule } from './watchlist/marketplace-watchlist.module';
 import { MarketplaceSnapshotsModule } from './snapshots/marketplace-snapshots.module';
 import { MarketplaceP2pModule } from './p2p/marketplace-p2p.module';
+import { MarketplaceNotificationsModule } from './notifications/marketplace-notifications.module';
 
 /**
  * Marketplace domain — orders, collections, materialized snapshots, portfolio, Cardhedger market data, P2P.
@@ -21,6 +22,7 @@ import { MarketplaceP2pModule } from './p2p/marketplace-p2p.module';
     MarketplaceCollectionsModule,
     MarketplaceOrdersModule,
     MarketplaceP2pModule,
+    MarketplaceNotificationsModule,
   ],
   exports: [
     MarketplaceAdminModule,
@@ -31,6 +33,7 @@ import { MarketplaceP2pModule } from './p2p/marketplace-p2p.module';
     MarketplaceCollectionsModule,
     MarketplaceOrdersModule,
     MarketplaceP2pModule,
+    MarketplaceNotificationsModule,
   ],
 })
 export class MarketplaceModule {}

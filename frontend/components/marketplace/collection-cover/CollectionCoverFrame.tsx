@@ -81,6 +81,7 @@ export function CollectionCoverFrame({
               className="absolute inset-0 h-full w-full object-contain object-center"
               style={collectionCoverImageStyle(resolved)}
               onError={handleImageError}
+              referrerPolicy="no-referrer"
             />
           ) : imgFailed ? (
             <div
@@ -199,6 +200,7 @@ export function CollectionCoverFrame({
                 className="absolute inset-0 h-full w-full object-contain object-center"
                 style={collectionCoverImageStyle(resolved)}
                 onError={handleImageError}
+                referrerPolicy="no-referrer"
               />
               {heroInteractive ? (
                 <>

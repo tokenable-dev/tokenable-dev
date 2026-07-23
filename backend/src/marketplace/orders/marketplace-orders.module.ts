@@ -5,6 +5,7 @@ import { Order } from '../entities/order.entity';
 import { P2pListing } from '../entities/p2p-listing.entity';
 import { MarketplaceCollectionsModule } from '../collections/marketplace-collections.module';
 import { MarketplacePortfolioModule } from '../portfolio/marketplace-portfolio.module';
+import { MarketplaceNotificationsModule } from '../notifications/marketplace-notifications.module';
 import { OrdersController } from './orders.controller';
 import { OrdersService } from './orders.service';
 
@@ -13,6 +14,7 @@ import { OrdersService } from './orders.service';
     TypeOrmModule.forFeature([Order, P2pListing]),
     MarketplaceCollectionsModule,
     MarketplacePortfolioModule,
+    MarketplaceNotificationsModule,
     BlockchainModule,
   ],
   controllers: [OrdersController],

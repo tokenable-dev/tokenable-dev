@@ -7,7 +7,6 @@ import {
   buildRwaAssetDetailHeadlineParts,
   formatAssetDetailHeadlineText,
 } from "@/lib/marketplace/assetDetailHeadline";
-import { uriNeedsBackendResolve } from "@/lib/marketplace/mediaUriResolve";
 import {
   buildRwaDetailMobileTrustView,
   extractGradedSlabBackCandidate,
@@ -60,27 +59,17 @@ export function listingVerificationTiles(metadata: RwaMetadata | null): {
   };
 }
 
+function isUsableListingImageUrl(raw: string): boolean {
+  const t = raw.trim();
+  return (
+    t.length > 0 &&
+    (/^https?:\/\//i.test(t) || t.startsWith("ipfs://") || t.startsWith("//"))
+  );
+}
+
 function normalizeListingImageUrl(raw: string): string {
   const t = raw.trim();
   return t.startsWith("//") ? `https:${t}` : t;
-}
-
-/** Listing detail gallery — HTTPS slab photos only (no IPFS / catalog / NFT image). */
-function isHttpsSlabGalleryUrl(raw: unknown): raw is string {
-  if (typeof raw !== "string") return false;
-  const src = normalizeListingImageUrl(raw);
-  if (!/^https?:\/\//i.test(src)) return false;
-  if (uriNeedsBackendResolve(src)) return false;
-  return src.length > 0;
-}
-
-function pickSlabGalleryUrl(...candidates: unknown[]): string | null {
-  for (const candidate of candidates) {
-    if (isHttpsSlabGalleryUrl(candidate)) {
-      return normalizeListingImageUrl(candidate);
-    }
-  }
-  return null;
 }
 
 export type ListingGalleryImage = {
@@ -89,31 +78,63 @@ export type ListingGalleryImage = {
   src: string;
 };
 
-/** Slab front/back only for listing detail (Card.html prov-thumbs). */
-export function listingGalleryImages(metadata: RwaMetadata | null): ListingGalleryImage[] {
+/**
+ * Listing detail gallery: PSA slab faces when present, plus the card display URL /
+ * Cardhedger / NFT image so the modal is never empty when the grid already shows a thumb.
+ */
+export function listingGalleryImages(
+  metadata: RwaMetadata | null,
+  frontUrl: string | null,
+): ListingGalleryImage[] {
   const graded = metadata?.properties?.graded as Record<string, unknown> | undefined;
   const psa = graded?.psa as Record<string, unknown> | undefined;
   const verification = graded?.verification as Record<string, unknown> | undefined;
-
-  const front = pickSlabGalleryUrl(psa?.certImageSourceUrl, verification?.slabFront);
-  const back = pickSlabGalleryUrl(
-    psa?.certImageBackUrl,
-    verification?.slabBack,
-    extractGradedSlabBackCandidate(metadata),
-  );
+  const cardhedger = graded?.cardhedger as Record<string, unknown> | undefined;
 
   const items: ListingGalleryImage[] = [];
-  if (front) items.push({ id: "front", label: "Front", src: front });
-  if (back && back !== front) items.push({ id: "back", label: "Back", src: back });
+  const seen = new Set<string>();
+
+  const push = (id: string, label: string, raw: unknown) => {
+    if (typeof raw !== "string") return;
+    const src = normalizeListingImageUrl(raw);
+    if (!isUsableListingImageUrl(src) || seen.has(src)) return;
+    seen.add(src);
+    items.push({ id: `${id}-${items.length}`, label, src });
+  };
+
+  push("psa-front", "Front", psa?.certImageSourceUrl);
+  push("verify-front", "Front", verification?.slabFront);
+  push("display", "Front", frontUrl);
+  push("nft", "Asset", metadata?.image);
+  push("catalog", "Catalog", cardhedger?.imageUrl);
+  push("psa-back", "Back", psa?.certImageBackUrl);
+  push("verify-back", "Back", verification?.slabBack);
+  push("slab-back", "Back", extractGradedSlabBackCandidate(metadata));
+
+  if (items.length === 0) return items;
+  if (items.length === 1) return [{ ...items[0]!, label: "Front" }];
+
+  const frontCount = items.filter((i) => i.label === "Front").length;
+  if (frontCount > 1) {
+    let frontIdx = 0;
+    return items.map((item) => {
+      if (item.label !== "Front") return item;
+      frontIdx += 1;
+      return frontIdx === 1 ? item : { ...item, label: `Front ${frontIdx}` };
+    });
+  }
+
   return items;
 }
 
 export function listingImageFaces(
   metadata: RwaMetadata | null,
+  frontUrl: string | null,
 ): { front: string | null; back: string | null } {
-  const gallery = listingGalleryImages(metadata);
-  const front = gallery.find((g) => g.label === "Front")?.src ?? null;
-  const back = gallery.find((g) => g.label === "Back")?.src ?? null;
+  const gallery = listingGalleryImages(metadata, frontUrl);
+  const front =
+    gallery.find((g) => g.label.startsWith("Front"))?.src ?? gallery[0]?.src ?? null;
+  const back = gallery.find((g) => g.label.startsWith("Back"))?.src ?? null;
   return {
     front: front?.trim() ? front.trim() : null,
     back: back?.trim() ? back.trim() : null,

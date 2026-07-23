@@ -10,3 +10,4 @@ export { usePortfolioHoldingActions } from "./usePortfolioHoldingActions";
 export { usePortfolioHoldings } from "./usePortfolioHoldings";
 export { usePortfolioMyBids } from "./usePortfolioMyBids";
 export { usePortfolioBidActions } from "./usePortfolioBidActions";
+export { usePortfolioAcceptOffer } from "./usePortfolioAcceptOffer";

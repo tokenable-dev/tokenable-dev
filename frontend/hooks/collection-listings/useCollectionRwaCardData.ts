@@ -21,6 +21,9 @@ export function useCollectionRwaCardData(input: {
 
   const prefetchedImageReady =
     typeof prefetchedImageUrl === "string" && prefetchedImageUrl.trim().length > 0;
+  const prefetchedMetadataReady = prefetchedMetadata != null;
+  /** Skip network only when both image and metadata are already available. */
+  const prefetchComplete = prefetchedImageReady && prefetchedMetadataReady;
 
   const { data: metaBundle } = useQuery({
     queryKey: rq.rwaAssetDetail(tokenId),
@@ -33,12 +36,16 @@ export function useCollectionRwaCardData(input: {
       return resolved;
     },
     staleTime: marketplaceRqPolicy.metadataDetailStaleMs,
-    enabled: !prefetchedImageReady,
-    initialData: prefetchedImageReady
+    enabled: !prefetchComplete,
+    initialData: prefetchComplete
       ? undefined
       : (() => {
-          const cachedMeta = getCachedRwaMetadata(tokenId) as RwaMetadata | null;
-          const cachedImg = getCachedRwaImageUrl(tokenId);
+          const cachedMeta =
+            prefetchedMetadata ??
+            (getCachedRwaMetadata(tokenId) as RwaMetadata | null);
+          const cachedImg =
+            (prefetchedImageReady ? prefetchedImageUrl!.trim() : null) ??
+            getCachedRwaImageUrl(tokenId);
           if (cachedMeta || cachedImg) {
             return {
               tokenId,

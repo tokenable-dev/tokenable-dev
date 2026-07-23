@@ -1,5 +1,6 @@
 import type { Order } from "@/lib/core";
 import { isCriteriaCollectionBid } from "@/lib/seaport/criteria/criteriaMatch";
+import { isTokenBidOrder } from "@/lib/seaport/orders/isTokenBidOrder";
 
 function isAskRow(o: Order): boolean {
   return String(o.side ?? "ask").toLowerCase() !== "bid";
@@ -16,7 +17,10 @@ export function countMyActiveOrders(
     (o) => o.offerer.toLowerCase() === addr && o.status === "active" && isAskRow(o),
   );
   const bids = collectionBids.filter(
-    (o) => o.offerer.toLowerCase() === addr && o.status === "active" && isCriteriaCollectionBid(o),
+    (o) =>
+      o.offerer.toLowerCase() === addr &&
+      o.status === "active" &&
+      (isTokenBidOrder(o) || isCriteriaCollectionBid(o)),
   );
   return listings.length + bids.length;
 }

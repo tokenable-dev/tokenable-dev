@@ -1,7 +1,47 @@
 import {
+  isCardhedgerBubbleResizeUrl,
   isPsaCertSlabCloudfrontUrl,
   pickCollectionDisplayImageUrl,
+  pickPreferredCollectionCoverUrl,
+  scoreCollectionCoverUrl,
 } from './collection-image.util';
+
+describe('scoreCollectionCoverUrl / pickPreferredCollectionCoverUrl', () => {
+  const bubbleResize =
+    'https://942284f33c575895b4be9de571ca6e40.cdn.bubble.io/foo/resize';
+  const bubbleOther =
+    'https://942284f33c575895b4be9de571ca6e40.cdn.bubble.io/foo/card.jpg';
+  const pokemonLargeUrl = 'https://images.pokemontcg.io/sv3pt5/199/large.png';
+  const pokemonSmallUrl = 'https://images.pokemontcg.io/sv3pt5/199/small.png';
+
+  it('detects Bubble /resize demotion only when path ends with resize', () => {
+    expect(isCardhedgerBubbleResizeUrl(bubbleResize)).toBe(true);
+    expect(isCardhedgerBubbleResizeUrl(bubbleOther)).toBe(false);
+    expect(isCardhedgerBubbleResizeUrl(pokemonLargeUrl)).toBe(false);
+  });
+
+  it('ranks Pokémon large above Bubble resize and non-resize', () => {
+    expect(scoreCollectionCoverUrl(pokemonLargeUrl)).toBeGreaterThan(
+      scoreCollectionCoverUrl(bubbleOther),
+    );
+    expect(scoreCollectionCoverUrl(bubbleOther)).toBeGreaterThan(
+      scoreCollectionCoverUrl(bubbleResize),
+    );
+    expect(scoreCollectionCoverUrl(pokemonLargeUrl)).toBeGreaterThan(
+      scoreCollectionCoverUrl(pokemonSmallUrl),
+    );
+  });
+
+  it('picks the best candidate without assuming /resize exists', () => {
+    expect(
+      pickPreferredCollectionCoverUrl([bubbleOther, pokemonLargeUrl]),
+    ).toBe(pokemonLargeUrl);
+    expect(pickPreferredCollectionCoverUrl([bubbleOther])).toBe(bubbleOther);
+    expect(
+      pickPreferredCollectionCoverUrl([bubbleResize, bubbleOther]),
+    ).toBe(bubbleOther);
+  });
+});
 
 describe('pickCollectionDisplayImageUrl', () => {
   it('returns catalog HTTPS URLs as-is', () => {

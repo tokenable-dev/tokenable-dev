@@ -224,6 +224,28 @@ export async function cancelOrder(
   return res.json() as Promise<Order>;
 }
 
+/** Cancel an unfundable/expired token bid (accept-offer Phase C). Idempotent. */
+export async function invalidateDeadBidApi(
+  orderHash: string,
+  callerAddress: string,
+): Promise<Order> {
+  const sp = new URLSearchParams();
+  sp.set("callerAddress", callerAddress);
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/orders/${orderHash}/invalidate-dead-bid?${sp.toString()}`,
+    { method: "PATCH" },
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({
+      message: "Failed to invalidate dead bid",
+    }));
+    throw new Error(
+      (err as { message: string }).message ?? "Failed to invalidate dead bid",
+    );
+  }
+  return res.json() as Promise<Order>;
+}
+
 /** After on-chain matchAdvancedOrders */
 export async function fulfillMatchedPairApi(
   body: {

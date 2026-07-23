@@ -139,6 +139,43 @@ Cancels an order. Caller must be the offerer.
 
 ---
 
+### `PATCH /api/marketplace/orders/:hash/invalidate-dead-bid`
+
+Marks an **active token bid** cancelled when it is proven dead on-chain (buyer USDC balance/allowance below the offer amount, or past Seaport `endTime`). Used by accept-offer preflight / failed settle so other sellers do not retry the same dead offer. **Idempotent** by `order_hash` (already non-active → returns the row). Funded + in-window bids are rejected with 400.
+
+| Query | Required | Description |
+|-------|----------|-------------|
+| `callerAddress` | Yes | Wallet that reported / attempted accept (audit trail) |
+
+See [seaport-accept-offer.md](../architecture/seaport-accept-offer.md).
+
+---
+
+### `GET /api/marketplace/notifications`
+
+JWT required. Lists inbox items for **all wallets linked to the user**.
+
+Today’s event: **token bid on a token with an active ask** → notify that ask’s offerer only (not all collection sellers). Each item includes:
+
+- `href` → Portfolio accept-offer deep link (`/portfolio?acceptBid=&tokenId=&askHash=`)
+- `ctaLabel` → `Accept offer`
+
+**Response:** `{ items: NotificationListItem[] }`
+
+---
+
+### `PATCH /api/marketplace/notifications/read-all`
+
+JWT required. Marks all of the user’s notifications as read.
+
+---
+
+### `PATCH /api/marketplace/notifications/:id/read`
+
+JWT required. Marks one notification read (must belong to a linked wallet).
+
+---
+
 ### `PATCH /api/marketplace/orders/:hash/fulfill`
 
 Marks a single order fulfilled (e.g. after `fulfillOrder` on-chain).
@@ -152,6 +189,8 @@ Marks a single order fulfilled (e.g. after `fulfillOrder` on-chain).
 ### `POST /api/marketplace/orders/fulfill-matched-pair`
 
 Marks both the ask and the bid fulfilled after `matchAdvancedOrders` (token offer or legacy criteria). Buyer cost basis is seeded from the ask fill price (`bid.offerer` wallet, `source = marketplace_buy`).
+
+Seller **accept-offer** (keep ask price; do not lower-to-match) is specified in [seaport-accept-offer.md](../architecture/seaport-accept-offer.md). Deep link: `/portfolio?acceptBid=&tokenId=` (+ optional `askHash`). RQ: `invalidateAfterAcceptOffer` / `invalidateAfterDeadBid`.
 
 **Body:** `FulfillMatchedPairDto`
 
@@ -323,7 +362,7 @@ Called by the vault mint flow immediately after the on-chain `Minted` event is c
 | `collectionKey` | Lowercase bucket key when `ensureCollectionForListing` succeeded |
 | `bootstrapped` | `true` when a `marketplace_collections` row exists for this mint |
 
-Server work (same as `MintEventListenerService.handleMintedToken`): UPSERT collection + `rwa_tokens`, Cardhedger cert → `cardhedgerCardId`, snapshot enqueue, collection cover set once on first bucket create. The frontend retries up to 5 times on transient failure and prefetches `platform-trades` + snapshots into React Query.
+Server work (same as `MintEventListenerService.handleMintedToken`): UPSERT collection + `rwa_tokens`, Cardhedger cert → `cardhedgerCardId`, snapshot enqueue, collection cover set on first bucket create and upgraded later when a higher-scoring catalog URL is resolved. The frontend retries up to 5 times on transient failure and prefetches `platform-trades` + snapshots into React Query.
 
 Also fired by optional on-chain listener when `MINT_EVENT_LISTENER_ENABLED=1` (idempotent with this POST).
 

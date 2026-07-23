@@ -55,13 +55,16 @@ export function CollectionListingDetailModal({
   onBid: () => void;
 }) {
   const tid = tokenId ?? 0;
-  const { metadata } = useCollectionRwaCardData({
+  const { metadata, imageUrl } = useCollectionRwaCardData({
     tokenId: tid,
     prefetchedMetadata: prefetchedMetadata ?? null,
     prefetchedImageUrl: prefetchedImageUrl ?? null,
   });
 
-  const rawGallery = useMemo(() => listingGalleryImages(metadata), [metadata]);
+  const rawGallery = useMemo(
+    () => listingGalleryImages(metadata, imageUrl),
+    [metadata, imageUrl],
+  );
 
   const unresolvedUris = useMemo(
     () =>
@@ -220,6 +223,7 @@ export function CollectionListingDetailModal({
                 src={mainSrc}
                 alt={title}
                 className="cd-listing-prov__main-img"
+                referrerPolicy="no-referrer"
                 style={{
                   transform: `scale(${imgZoom.scale})`,
                   transformOrigin: `${imgZoom.originX}% ${imgZoom.originY}%`,
@@ -250,7 +254,7 @@ export function CollectionListingDetailModal({
                   title={t.label}
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={t.src} alt={t.label} />
+                  <img src={t.src} alt={t.label} referrerPolicy="no-referrer" />
                 </button>
               ))}
             </div>
@@ -331,7 +335,12 @@ export function CollectionListingDetailModal({
           onClick={() => setFullScreen(false)}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={mainSrc} alt={title} className="cd-listing-prov-fullimg__img" />
+          <img
+            src={mainSrc}
+            alt={title}
+            className="cd-listing-prov-fullimg__img"
+            referrerPolicy="no-referrer"
+          />
           <button
             type="button"
             className="cd-listing-prov-fullimg__close"
