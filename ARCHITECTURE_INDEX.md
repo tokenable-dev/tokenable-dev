@@ -265,6 +265,7 @@ Key facts:
 |-----------------------|------------------------|
 | Auth / Privy session | `docs/api/auth.md`, `backend/src/auth/privy/privy-user.parser.ts` |
 | Vault mint flow | `docs/architecture/vault-lifecycle.md`, `backend/src/rwa/rwa-mint.service.ts`, `backend/src/vault/vault.service.ts` |
+| Partner consignment (mint+list) | `docs/api/marketplace-admin.md` (partners + bulk mint), `backend/src/marketplace/partners/`, `backend/src/rwa/bulk-mint/`, `backend/src/rwa/admin/bulk-mint-admin.controller.ts` |
 | Smart contract | `docs/architecture/blockchain.md`, `contracts/test/TokenableRWA.test.ts` |
 | Database schema | `docs/architecture/database.md`, existing schema file(s) in that domain |
 | Marketplace trading | `docs/api/marketplace.md`, `docs/architecture/materialized-market-snapshots.md` |

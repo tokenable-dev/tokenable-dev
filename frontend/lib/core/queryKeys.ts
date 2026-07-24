@@ -109,6 +109,12 @@ export const rq = {
   /** Admin — all RWA registry cards (listed + unlisted). */
   adminRwaCards: () => ["admin-rwa-cards"] as const,
   adminCustodyNfts: () => ["admin-custody-nfts"] as const,
+  adminBulkMintJob: (jobId: string) => ["admin-bulk-mint-job", jobId] as const,
+  adminBulkMintJobs: (partnerId?: string) =>
+    ["admin-bulk-mint-jobs", partnerId ?? "all"] as const,
+  adminPartnerInventory: (partnerId: string) =>
+    ["admin-partner-inventory", partnerId] as const,
+  adminMarketplacePartners: ["admin-marketplace-partners"] as const,
   adminRwaRolesOverview: () => ["admin-rwa-roles-overview"] as const,
   adminRwaRolesStatus: (wallet: string) =>
     ["admin-rwa-roles-status", wallet.toLowerCase()] as const,

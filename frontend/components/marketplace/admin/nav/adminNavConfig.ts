@@ -62,6 +62,18 @@ export const ADMIN_NAV_SECTIONS: AdminNavSection[] = [
         prefix: "/marketplace/admin/custody-nfts",
         description: "Deliver vaulted cards to users",
       },
+      {
+        href: "/marketplace/admin/partners",
+        label: "Partners",
+        prefix: "/marketplace/admin/partners",
+        description: "Company wallets for consignment mint & list",
+      },
+      {
+        href: "/marketplace/admin/bulk-mint",
+        label: "Partner bulk mint",
+        prefix: "/marketplace/admin/bulk-mint",
+        description: "Excel cert+price → mint to company wallet & list",
+      },
     ],
   },
   {

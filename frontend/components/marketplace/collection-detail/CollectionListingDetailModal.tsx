@@ -141,9 +141,9 @@ export function CollectionListingDetailModal({
   const tiles = listingVerificationTiles(metadata);
   const price =
     listing != null ? formatListingUsdc(listing.considerationAmount) : "—";
-  const seller = shortenWallet(
-    listing?.offerer || listing?.parameters?.offerer,
-  );
+  const sellerAddr = listing?.offerer || listing?.parameters?.offerer;
+  const seller =
+    listing?.sellerDisplayName?.trim() || shortenWallet(sellerAddr);
 
   const handleKey = useCallback(
     (e: KeyboardEvent) => {

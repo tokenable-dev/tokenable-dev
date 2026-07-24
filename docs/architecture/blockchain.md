@@ -35,7 +35,7 @@ V1: all roles granted to the same backend EOA at `initialize()`. Can be split la
 |----------|--------|-------------|
 | `initialize(admin, minter, royaltyReceiver, royaltyBps)` | once | Sets up roles; token IDs start at **1** (`_nextTokenId = 1`) |
 | `mint(to, tokenURI, vaultRef)` | MINTER, not paused | Reverts `VaultRefAlreadyActive` if cert already backed; emits `Minted` |
-| `mintBatch(to[], uris[], vaultRefs[])` | MINTER, not paused | Max **50** per batch |
+| `mintBatch(to[], uris[], vaultRefs[])` | MINTER, not paused | Max **50** per batch. Backend bulk mint jobs chunk larger requests (up to 500) into multiple `mintBatch` txs |
 | `adminBurn(tokenId, expectedOwner)` | BURNER | Clears `activeTokenIdOf(vaultRef)`; allows `address(0)` to skip ownership check; **not paused** (burns work while paused) |
 | `pause` / `unpause` | PAUSER | Blocks mint/transfer; burns still allowed |
 | `setDefaultRoyalty(receiver, bps)` | ADMIN | ERC-2981 royalty |
@@ -97,6 +97,7 @@ The single backend service that signs and submits transactions. Uses two keys:
 | Method | Chain action |
 |--------|-------------|
 | `mintTo(to, tokenURI, vaultRef, chainId?)` | Calls `mint(to, tokenURI, vaultRef)` with owner wallet |
+| `mintBatchTo(items[], chainId?)` | Calls `mintBatch` (max **50** items); returns `tokenIds[]` + `txHash` |
 | `adminBurn(tokenId, chainId?, expectedOwner?)` | Calls `adminBurn(tokenId, owner)` after BURNER_ROLE check |
 | `safeTransferFromCustody(tokenId, to, chainId?)` | Calls `safeTransferFrom(custody, to, tokenId)` with custody wallet |
 | `getCustodyWalletAddress(chainId?)` | Resolves custody wallet address |
@@ -159,6 +160,8 @@ Read-only contract calls via a pre-built `Contract` instance (injected via `TOKE
 3. Build Seaport order: offer = ERC-721, consideration = USDC (seller + platform fee)
 4. EIP-712 sign via Privy SDK or MetaMask
 5. `POST /api/marketplace/orders` → stored in `orders` table
+
+**Partner consignment ask (admin bulk mint+list):** same Seaport shape, but the backend signs with the entrusted company private key (`PartnerSeaportAskService`) after minting to that wallet. Listing UIs resolve `sellerDisplayName` from `marketplace_partners` by offerer address.
 
 **Buy (buyer):**
 1. USDC `approve(Seaport, amount)` if insufficient allowance

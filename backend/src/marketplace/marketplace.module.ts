@@ -3,6 +3,7 @@ import { MarketplaceAdminModule } from './admin/marketplace-admin.module';
 import { MarketplaceCollectionsModule } from './collections/marketplace-collections.module';
 import { MarketplaceMarketDataModule } from './market-data/marketplace-market-data.module';
 import { MarketplaceOrdersModule } from './orders/marketplace-orders.module';
+import { MarketplacePartnersModule } from './partners/marketplace-partners.module';
 import { MarketplacePortfolioModule } from './portfolio/marketplace-portfolio.module';
 import { MarketplaceWatchlistModule } from './watchlist/marketplace-watchlist.module';
 import { MarketplaceSnapshotsModule } from './snapshots/marketplace-snapshots.module';
@@ -13,6 +14,7 @@ import { MarketplaceSnapshotsModule } from './snapshots/marketplace-snapshots.mo
 @Module({
   imports: [
     MarketplaceAdminModule,
+    MarketplacePartnersModule,
     MarketplaceMarketDataModule,
     MarketplaceSnapshotsModule,
     MarketplacePortfolioModule,
@@ -22,6 +24,7 @@ import { MarketplaceSnapshotsModule } from './snapshots/marketplace-snapshots.mo
   ],
   exports: [
     MarketplaceAdminModule,
+    MarketplacePartnersModule,
     MarketplaceMarketDataModule,
     MarketplaceSnapshotsModule,
     MarketplacePortfolioModule,

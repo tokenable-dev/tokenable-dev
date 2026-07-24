@@ -18,6 +18,8 @@ Admin routes are split by **operational role**, not duplicated dashboards.
 | `/marketplace/admin/collections` | **Collections** | Collection review queue — Pending / Active / Rejected filters; cover (URL or S3), prices, sparkline, Cardhedger check, Approve/Reject |
 | `/marketplace/admin/cards` | **All cards** | RWA token registry — edit display metadata, burn (test) |
 | `/marketplace/admin/custody-nfts` | **Custody NFTs** | Deliver vaulted NFTs to user wallets |
+| `/marketplace/admin/partners` | **Partners** | Company display name + entrusted wallet (encrypted PK) for consignment mint & list |
+| `/marketplace/admin/bulk-mint` | **Partner bulk mint** | Excel cert+price → PSA prepare → mint to company wallet + Seaport list (Listed/Sold). Any admin session for now |
 | `/marketplace/admin/markets` | **Markets preview** | Tabbed: **Home landing** (90d top movers + just vaulted), **Top 100**, **Cardhedger movers** |
 | `/marketplace/admin/portfolio` | **Portfolio ops** | Daily snapshots, `portfolio_holdings` cost basis stats, operator checklist |
 | `/marketplace/admin/price-webhooks` | **Price sync** | Cardhedger delta import — cron flags, manual “Run price sync”, sync history |

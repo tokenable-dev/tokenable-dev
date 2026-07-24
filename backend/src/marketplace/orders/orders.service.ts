@@ -29,6 +29,7 @@ import { FulfillOrderQueryDto } from './dto/fulfill-order-query.dto';
 import { Order, OrderSide, OrderStatus } from '../entities/order.entity';
 import { orderToListItem, type OrderListItem } from '../utils/order-list.util';
 import { microsToUsdc } from '../admin/platform-analytics.util';
+import { MarketplacePartnersService } from '../partners/marketplace-partners.service';
 import { PortfolioHoldingService } from '../portfolio/portfolio-holding.service';
 import {
   backfillAskTokenIdFromParameters,
@@ -58,7 +59,33 @@ export class OrdersService {
     private readonly collectionService: CollectionService,
     private readonly chainConfig: ChainConfigService,
     private readonly portfolioHoldings: PortfolioHoldingService,
+    private readonly partners: MarketplacePartnersService,
   ) {}
+
+  private async withSellerDisplayNames(
+    items: OrderListItem[],
+  ): Promise<OrderListItem[]> {
+    if (!items.length) return items;
+    const names = await this.partners.resolveDisplayNamesByWallets(
+      items.map((i) => i.offerer),
+    );
+    return items.map((i) => ({
+      ...i,
+      sellerDisplayName: names.get(i.offerer.toLowerCase()) ?? null,
+    }));
+  }
+
+  private async attachSellerDisplayName<T extends { offerer: string }>(
+    order: T,
+  ): Promise<T & { sellerDisplayName: string | null }> {
+    const names = await this.partners.resolveDisplayNamesByWallets([
+      order.offerer,
+    ]);
+    return Object.assign(order, {
+      sellerDisplayName:
+        names.get(String(order.offerer).toLowerCase()) ?? null,
+    });
+  }
 
   async createOrder(
     dto: CreateOrderDto,
@@ -143,11 +170,13 @@ export class OrdersService {
       const reviewStatus = await this.collectionService.getReviewStatus(
         saved.collectionKey,
       );
-      return Object.assign(saved, {
-        reviewStatus: reviewStatus ?? 'active',
-      });
+      return this.attachSellerDisplayName(
+        Object.assign(saved, {
+          reviewStatus: reviewStatus ?? 'active',
+        }),
+      );
     }
-    return saved;
+    return this.attachSellerDisplayName(saved);
   }
 
   /**
@@ -628,14 +657,14 @@ export class OrdersService {
     chainId?: SupportedChainId,
   ): Promise<OrderListItem[]> {
     const rows = await this.findActiveOrders(limit, chainId);
-    return rows.map((o) => orderToListItem(o));
+    return this.withSellerDisplayNames(rows.map((o) => orderToListItem(o)));
   }
 
   /** Active ask listing for an ERC-721 token (including mint id `0`). */
   async findActiveAskByTokenId(
     tokenIdRaw: string,
     chainId?: SupportedChainId,
-  ): Promise<Order | null> {
+  ): Promise<(Order & { sellerDisplayName: string | null }) | null> {
     const tid = String(tokenIdRaw ?? '').trim();
     const variants = [
       ...new Set(
@@ -645,7 +674,7 @@ export class OrdersService {
     if (variants.length === 0) return null;
     const id = chainId ?? this.chainConfig.getDefaultChainId();
     const rwaContract = this.chainConfig.getRwaAddress(id).toLowerCase();
-    return this.orderRepo
+    const order = await this.orderRepo
       .createQueryBuilder('o')
       .where('o.token_id IN (:...variants)', { variants })
       .andWhere('o.status = :st', { st: OrderStatus.ACTIVE })
@@ -653,6 +682,8 @@ export class OrdersService {
       .andWhere('LOWER(o.token_contract) = :rwaContract', { rwaContract })
       .orderBy('o.created_at', 'DESC')
       .getOne();
+    if (!order) return null;
+    return this.attachSellerDisplayName(order);
   }
 
   /**
@@ -678,7 +709,7 @@ export class OrdersService {
       .orderBy('o.updated_at', 'DESC')
       .take(cap)
       .getMany();
-    return rows.map((o) => orderToListItem(o));
+    return this.withSellerDisplayNames(rows.map((o) => orderToListItem(o)));
   }
 
   async findOrdersBatchByTokenIds(
@@ -710,8 +741,15 @@ export class OrdersService {
       .orderBy('o.updated_at', 'DESC')
       .getMany();
 
+    const names = await this.partners.resolveDisplayNamesByWallets(
+      rows.map((o) => o.offerer),
+    );
+
     for (const o of rows) {
-      const item = orderToListItem(o);
+      const item = orderToListItem(
+        o,
+        names.get(o.offerer.toLowerCase()) ?? null,
+      );
       const nk = normalizeDecimalTokenId(String(o.tokenId));
       for (const n of requested) {
         if (normalizeDecimalTokenId(String(n)) === nk) {
@@ -744,10 +782,12 @@ export class OrdersService {
       .getMany();
   }
 
-  async findByHash(orderHash: string): Promise<Order> {
+  async findByHash(
+    orderHash: string,
+  ): Promise<Order & { sellerDisplayName: string | null }> {
     const order = await this.orderRepo.findOne({ where: { orderHash } });
     if (!order) throw new NotFoundException(`Order not found: ${orderHash}`);
-    return order;
+    return this.attachSellerDisplayName(order);
   }
 
   async cancelOrder(orderHash: string, callerAddress: string): Promise<Order> {

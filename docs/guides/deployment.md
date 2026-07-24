@@ -108,6 +108,8 @@ CHAIN_11155111_USDC_ADDRESS=0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238
 RWA_OWNER_PRIVATE_KEY=<backend signer private key>
 # RWA_CUSTODY_WALLET_ADDRESS=0x...  (defaults to RWA_OWNER address)
 # RWA_CUSTODY_PRIVATE_KEY=...       (optional separate key)
+# Partner mint+list (encrypts marketplace_partners private keys):
+PARTNER_WALLET_ENCRYPTION_KEY=<64 hex chars — openssl rand -hex 32>
 PLATFORM_FEE_RECIPIENT=0x...
 PLATFORM_FEE_BPS=500
 
@@ -202,6 +204,7 @@ curl -sS https://your-domain.com/api/health
 - [ ] Privy Dashboard → **Domains** includes `https://your-domain.com`
 - [ ] `RWA_OWNER_PRIVATE_KEY` configured with MINTER_ROLE + BURNER_ROLE on deployed contract
 - [ ] If custody wallet differs from minter: `RWA_CUSTODY_WALLET_ADDRESS` + `RWA_CUSTODY_PRIVATE_KEY`
+- [ ] `PARTNER_WALLET_ENCRYPTION_KEY` set before using Partners / bulk mint+list
 - [ ] `PSA_PUBLIC_API_TOKENS` configured (comma-separated pool)
 - [ ] Ethereum mainnet: add `CHAIN_1_*` env vars when ready
 

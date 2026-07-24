@@ -38,6 +38,8 @@ export interface Order {
   id: number;
   orderHash: string;
   offerer: string;
+  /** Consignment partner company name when offerer is a registered partner. */
+  sellerDisplayName?: string | null;
   /** ask = 매도 리스팅, bid = 매수 입찰 (없으면 레거시 ask로 간주) */
   side?: "ask" | "bid";
   /** graded 메타 기준 컬렉션 (매도 ask) */
@@ -74,6 +76,7 @@ export interface OrderListItem {
   createdAt: string;
   updatedAt?: string;
   offerer: string;
+  sellerDisplayName?: string | null;
   considerationRecipients: string[];
 }
 

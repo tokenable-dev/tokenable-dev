@@ -11,6 +11,7 @@ import { Order } from '../entities/order.entity';
 import { MarketplaceCollection } from '../entities/marketplace-collection.entity';
 import { RwaToken } from '../entities/rwa-token.entity';
 import { MarketplaceMarketDataModule } from '../market-data/marketplace-market-data.module';
+import { MarketplacePartnersModule } from '../partners/marketplace-partners.module';
 import { MarketplaceSnapshotsModule } from '../snapshots/marketplace-snapshots.module';
 import { MarketplacePortfolioModule } from '../portfolio/marketplace-portfolio.module';
 import { CertMarketTraceController } from './cert-market-trace.controller';
@@ -56,6 +57,7 @@ import { MintEventListenerService } from './mint-event-listener.service';
   imports: [
     TypeOrmModule.forFeature([Order, MarketplaceCollection, RwaToken, VaultCycle]),
     MarketplaceAdminModule,
+    MarketplacePartnersModule,
     BlockchainModule,
     CardhedgerModule,
     PsaModule,

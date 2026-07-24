@@ -13,6 +13,8 @@ export type OrderListItem = {
   createdAt: string;
   updatedAt?: string;
   offerer: string;
+  /** Active consignment partner display name when offerer matches. */
+  sellerDisplayName?: string | null;
   /** Distinct `consideration[].recipient` for analytics (e.g. unique traders) */
   considerationRecipients: string[];
 };
@@ -41,7 +43,10 @@ function considerationRecipientsFromParams(
   return out;
 }
 
-export function orderToListItem(o: Order): OrderListItem {
+export function orderToListItem(
+  o: Order,
+  sellerDisplayName?: string | null,
+): OrderListItem {
   const side = o.side === OrderSide.BID ? 'bid' : 'ask';
   return {
     id: o.id,
@@ -62,6 +67,7 @@ export function orderToListItem(o: Order): OrderListItem {
           ? String(o.updatedAt)
           : undefined,
     offerer: o.offerer,
+    sellerDisplayName: sellerDisplayName ?? null,
     considerationRecipients: considerationRecipientsFromParams(o.parameters),
   };
 }

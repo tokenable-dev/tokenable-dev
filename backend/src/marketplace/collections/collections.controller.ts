@@ -48,6 +48,7 @@ import type { CollectionReviewStatus } from '../entities/marketplace-collection.
 import { apiBodyDefault } from '../../swagger/api-body.util';
 import { SWAGGER_BODY_EXAMPLES } from '../../swagger/examples';
 import { SWAGGER_FIXTURES } from '../../swagger/fixtures';
+import { MarketplacePartnersService } from '../partners/marketplace-partners.service';
 import {
   CHAIN_ID_HEADER,
   ChainConfigService,
@@ -72,6 +73,7 @@ export class CollectionsController {
     private readonly eventEmitter: EventEmitter2,
     private readonly mintEventListener: MintEventListenerService,
     private readonly chainConfig: ChainConfigService,
+    private readonly partners: MarketplacePartnersService,
   ) {}
 
   /** Decode URL-encoded path segments (some keys may be percent-encoded) and lowercase for DB lookup. */
@@ -437,10 +439,20 @@ export class CollectionsController {
       col = await this.collectionService.findOne(k);
     }
 
-    const [listings, collectionBids] = await Promise.all([
+    const [listingsRaw, collectionBids] = await Promise.all([
       this.collectionService.activeListingsForCollection(k),
       this.collectionService.activeBidsForCollection(k),
     ]);
+
+    const sellerNames = await this.partners.resolveDisplayNamesByWallets(
+      listingsRaw.map((o) => o.offerer),
+    );
+    const listings = listingsRaw.map((o) =>
+      Object.assign(o, {
+        sellerDisplayName:
+          sellerNames.get(String(o.offerer).toLowerCase()) ?? null,
+      }),
+    );
 
     const representativeImageUrl = col
       ? pickCollectionDisplayImageUrl(col.coverImageUrl)

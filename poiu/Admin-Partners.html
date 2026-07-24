@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tokenable Admin — Partner approvals</title>
+<script src="support.js"></script>
+</head>
+<body>
+<x-dc data-theme="dark">
+<helmet>
+<script src="ds-base.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root:root{ --font-mono:"JetBrains Mono",ui-monospace,Menlo,monospace; }
+  :root{ --ink:#0e0e0e; --azure:rgb(26,111,255); --pos:rgb(0,200,100); --warn:rgb(234,130,0); --neg:rgb(228,55,74); --t2:rgba(255,255,255,0.55); --t3:rgba(255,255,255,0.35); --brand-400:#5B9AFF; }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--ink);color:#fff;font-family:var(--font-sans,'Inter',sans-serif);-webkit-font-smoothing:antialiased;}
+  a{color:var(--azure);text-decoration:none;} .mono{font-family:var(--font-mono);}
+  header{position:sticky;top:0;z-index:50;background:var(--ink);border-bottom:1px solid rgba(255,255,255,0.08);}
+  .btn{display:inline-flex;align-items:center;justify-content:center;border:0;cursor:pointer;font-family:var(--font-sans);font-weight:600;border-radius:9px;transition:all 0.12s;}
+  .btn--primary{background:var(--azure);color:#fff;} .btn--primary:hover{filter:brightness(1.08);}
+  .btn--ghost{background:transparent;color:#fff;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.18);} .btn--ghost:hover{background:rgba(255,255,255,0.06);}
+  .btn--danger{background:transparent;color:#FF6B7A;box-shadow:inset 0 0 0 1px rgba(228,55,74,0.4);} .btn--danger:hover{background:rgba(228,55,74,0.08);}
+  .card{background:#191919;border-radius:16px;padding:20px 22px;}
+  .pill{font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:0.06em;padding:4px 10px;border-radius:6px;}
+  .pill--pending{background:rgba(234,130,0,0.14);color:var(--warn);}
+  .pill--approved{background:rgba(0,200,100,0.14);color:var(--pos);}
+  .pill--rejected{background:rgba(228,55,74,0.14);color:#FF6B7A;}
+</style>
+</helmet>
+
+  <header>
+    <div style="display:flex;align-items:center;height:60px;padding:0 clamp(16px,4vw,40px);">
+      <img src="images/logo-tokenable.svg" alt="Tokenable" style="height:22px;">
+      <span class="mono" style="margin-left:12px;padding:4px 10px;border-radius:6px;background:rgba(228,55,74,0.14);color:#FF6B7A;font-size:11px;font-weight:700;letter-spacing:0.06em;">ADMIN</span>
+      <div style="flex:1;"></div>
+      <span style="font-size:13px;color:var(--t2);">ops@tokenable.io</span>
+    </div>
+  </header>
+
+  <section style="max-width:840px;margin:0 auto;padding:40px clamp(16px,4vw,40px) 100px;">
+    <span class="mono" style="font-size:12px;letter-spacing:0.2em;text-transform:uppercase;color:var(--azure);font-weight:600;">Partner operations</span>
+    <h1 style="margin:12px 0 6px;font-size:clamp(24px,3vw,32px);font-weight:700;letter-spacing:-0.02em;">Partner vault applications</h1>
+    <p style="margin:0 0 32px;font-size:15px;color:var(--t2);line-height:1.5;">Approve vault operators so they can add and list their own inventory. Only approved partners can sign in to the partner tools.</p>
+
+    <div id="app-list" style="display:flex;flex-direction:column;gap:14px;"></div>
+  </section>
+
+<script>
+setTimeout(function(){
+  var $=function(id){return document.getElementById(id);};
+  function liveStatus(){ try{ return localStorage.getItem('tk_partner_status')||'pending'; }catch(e){ return 'pending'; } }
+  function setLive(s){ try{ localStorage.setItem('tk_partner_status', s); }catch(e){} }
+
+  // Courtyard is the "live" partner wired to the demo login; others are static examples.
+  var APPS=[
+    { id:'courtyard', name:'Courtyard Collectibles', region:'United States', cards:'1,240 cards', applied:'Jul 21, 2026', live:true },
+    { id:'tokyocards', name:'Tokyo Card Vault', region:'Japan', cards:'3,880 cards', applied:'Jul 23, 2026', live:false, status:'pending' },
+    { id:'gemmint', name:'GemMint Osaka', region:'Japan', cards:'910 cards', applied:'Jul 19, 2026', live:false, status:'approved' }
+  ];
+
+  function statusOf(a){ return a.live ? liveStatus() : a.status; }
+  function render(){
+    $('app-list').innerHTML = APPS.map(function(a){
+      var st=statusOf(a);
+      var pill='<span class="pill pill--'+st+'">'+st.toUpperCase()+'</span>';
+      var actions = st==='pending'
+        ? '<button class="btn btn--danger" data-act="reject" data-id="'+a.id+'" style="height:40px;padding:0 18px;font-size:13px;">Reject</button><button class="btn btn--primary" data-act="approve" data-id="'+a.id+'" style="height:40px;padding:0 18px;font-size:13px;">Approve partner</button>'
+        : st==='approved'
+        ? '<button class="btn btn--ghost" data-act="revoke" data-id="'+a.id+'" style="height:40px;padding:0 18px;font-size:13px;">Revoke</button>'
+        : '<button class="btn btn--ghost" data-act="approve" data-id="'+a.id+'" style="height:40px;padding:0 18px;font-size:13px;">Reconsider</button>';
+      return '<div class="card" style="display:flex;align-items:center;gap:18px;flex-wrap:wrap;">'
+        + '<span style="width:44px;height:44px;border-radius:10px;flex-shrink:0;background:linear-gradient(135deg,var(--azure),var(--brand-400));"></span>'
+        + '<div style="flex:1;min-width:180px;"><div style="display:flex;align-items:center;gap:10px;"><span style="font-size:16px;font-weight:700;color:#fff;">'+a.name+'</span>'+pill+(a.live?'<span class="mono" style="font-size:10px;color:var(--t3);">· live demo account</span>':'')+'</div>'
+        + '<div class="mono" style="font-size:12px;color:var(--t3);margin-top:5px;">'+a.region+' · '+a.cards+' · applied '+a.applied+'</div></div>'
+        + '<div style="display:flex;gap:10px;">'+actions+'</div>'
+        + '</div>';
+    }).join('');
+  }
+
+  document.addEventListener('click', function(e){
+    var b=e.target.closest && e.target.closest('[data-act]'); if(!b) return;
+    var id=b.getAttribute('data-id'), act=b.getAttribute('data-act');
+    var a=APPS.find(function(x){return x.id===id;}); if(!a) return;
+    var next = act==='approve'?'approved' : act==='reject'?'rejected' : 'pending';
+    if(a.live) setLive(next); else a.status=next;
+    render();
+  });
+
+  render();
+}, 300);
+</script>
+</x-dc>
+</body>
+</html>

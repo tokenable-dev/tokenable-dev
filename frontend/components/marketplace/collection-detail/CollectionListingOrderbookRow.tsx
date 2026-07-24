@@ -39,7 +39,9 @@ export function CollectionListingOrderbookRow({
   const detailHref = `/marketplace/${tokenId}?${fromQs}`;
   const bidHref = `${detailHref}&bid=1`;
   const price = formatUsdc(listing.considerationAmount);
-  const seller = shortenAddr(listing.offerer || listing.parameters?.offerer);
+  const sellerAddr = listing.offerer || listing.parameters?.offerer;
+  const seller =
+    listing.sellerDisplayName?.trim() || shortenAddr(sellerAddr);
 
   const thumb = imageUrl ? (
     // eslint-disable-next-line @next/next/no-img-element

@@ -6,6 +6,8 @@ export { MarketplaceAdminUserRow } from "./MarketplaceAdminUserRow";
 export { MarketplaceAdminContractRolesPage } from "./MarketplaceAdminContractRolesPage";
 export { MarketplaceAdminCardsPage } from "./MarketplaceAdminCardsPage";
 export { MarketplaceAdminCustodyNftsPage } from "./MarketplaceAdminCustodyNftsPage";
+export { MarketplaceAdminBulkMintPage } from "./MarketplaceAdminBulkMintPage";
+export { MarketplaceAdminPartnersPage } from "./MarketplaceAdminPartnersPage";
 export { MarketplaceAdminCardRow } from "./MarketplaceAdminCardRow";
 export { MarketplaceAdminCollectionsPage } from "./MarketplaceAdminCollectionsPage";
 export { MarketplaceAdminTop100Page } from "./MarketplaceAdminTop100Page";

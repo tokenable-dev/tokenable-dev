@@ -1,7 +1,7 @@
 # Database
 
 **Engine:** PostgreSQL 16  
-**ORM:** TypeORM (NestJS) — **21 entities**  
+**ORM:** TypeORM (NestJS) — **24+ entities** (incl. partners + bulk mint)  
 **DDL:** `backend/sql/schema/` — applied via [bootstrap script](../../backend/sql/README.md)  
 **Source of truth:** `backend/src/**/entities/*.ts`
 
@@ -63,6 +63,9 @@
 | Table | Purpose | Entity |
 |-------|---------|--------|
 | `marketplace_admins` | Marketplace admin console credentials | `marketplace/entities/marketplace-admin.entity.ts` |
+| `marketplace_partners` | Consignment sellers (encrypted wallet keys) | `marketplace/entities/marketplace-partner.entity.ts` |
+| `bulk_mint_jobs` | Partner mint+list job runs | `rwa/entities/bulk-mint-job.entity.ts` |
+| `bulk_mint_job_items` | Per-cert price + order status rows | `rwa/entities/bulk-mint-job-item.entity.ts` |
 | `card_top100_daily_snapshots` | Daily Top 100 rank snapshots | `cardhedger/entities/card-top100-snapshot.entity.ts` |
 | `cardhedger_price_subscriptions` | Price push registrations | `cardhedger/entities/cardhedger-price-subscription.entity.ts` |
 | `cardhedger_price_delta_checkpoints` | Singleton checkpoint for delta polling | `cardhedger/entities/cardhedger-price-delta-checkpoint.entity.ts` |
@@ -210,6 +213,8 @@ Domain-grouped DDL for **fresh bootstrap only** — no incremental migration cha
 | 040 | `040_marketplace.sql` | `marketplace_collections`, `collection_market_snapshots`, `orders` + perf indexes |
 | 050 | `050_portfolio.sql` | `portfolio_daily_snapshots`, `portfolio_holdings`, `user_watchlist` |
 | 060 | `060_admin.sql` | `marketplace_admins` |
+| 064 | `064_marketplace_partners.sql` | Consignment partners (encrypted wallet keys) |
+| 065 | `065_bulk_mint.sql` | `bulk_mint_jobs`, `bulk_mint_job_items` (partner mint+list) |
 | 070 | `070_cardhedger.sql` | Cardhedger infra + `card_top100_daily_snapshots` |
 | 900 | `900_triggers.sql` | `updated_at` auto-triggers |
 
@@ -218,6 +223,10 @@ Domain-grouped DDL for **fresh bootstrap only** — no incremental migration cha
 | File | Purpose |
 |------|---------|
 | `maintenance/reset_marketplace_data.sql` | Wipe marketplace + vault data (keeps users/admins) |
+| `maintenance/add_marketplace_partners.sql` | Existing DBs: create `marketplace_partners` |
+| `maintenance/add_bulk_mint_tables.sql` | Existing DBs: create partner bulk mint+list tables |
+| `maintenance/migrate_bulk_mint_to_partner_list.sql` | Upgrade old custody bulk mint schema → partner mint+list |
+| `maintenance/add_collection_review_status.sql` | Existing DBs: collection review_status column |
 
 **Seeds (dev only):**
 
@@ -238,6 +247,7 @@ Domain-grouped DDL for **fresh bootstrap only** — no incremental migration cha
 | `MARKET_SNAPSHOT_*` | Snapshot worker tuning |
 | `PORTFOLIO_SNAPSHOT_*` | Portfolio cron tuning |
 | `REDIS_URL` | Identity cache L2 |
+| `PARTNER_WALLET_ENCRYPTION_KEY` | 32-byte hex — AES-GCM for `marketplace_partners.encrypted_private_key` |
 
 ---
 

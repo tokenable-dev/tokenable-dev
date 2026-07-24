@@ -32,6 +32,7 @@ When **`SITE_ACCESS_ENABLED=true`**, most routes also require the site-access co
 | `marketplace-admin` | `marketplace/admin/user-admin.controller.ts` | `/api/marketplace/admin/users` |
 | `marketplace-admin` | `marketplace/admin/marketplace-admin-auth.controller.ts` | `/api/marketplace/admin/auth` |
 | `marketplace-admin` | `marketplace/collections/rwa-token-admin.controller.ts` | `/api/marketplace/admin/rwa-tokens` |
+| `marketplace-admin` | `rwa/admin/bulk-mint-admin.controller.ts` | `/api/marketplace/admin/bulk-mint` |
 | `cardhedger` | `cardhedger/controllers/cardhedger-proxy.controller.ts` | `/api/cardhedger/v1` |
 | `cardhedger` | `cardhedger/controllers/card-top100.controller.ts` | `/api/cardhedger/top100` |
 | `cardhedger` | `cardhedger/controllers/card-top-movers.controller.ts` | `/api/cardhedger/top-movers` |
@@ -180,6 +181,12 @@ Separate session from user JWT — `POST /api/marketplace/admin/auth/login` sets
 | GET | `/api/marketplace/admin/rwa-tokens/listings` | Listed cards (legacy) |
 | PATCH | `/api/marketplace/admin/rwa-tokens/:tokenId` | Update token metadata |
 | POST | `/api/marketplace/admin/rwa-tokens/:tokenId/deliver` | Deliver custody NFT to user |
+| POST | `/api/marketplace/admin/partners` | Register consignment partner (encrypted PK) |
+| GET | `/api/marketplace/admin/partners` | List partners |
+| POST | `/api/marketplace/admin/bulk-mint/jobs` | Create partner mint+list job (cert+price, max 500) |
+| GET | `/api/marketplace/admin/bulk-mint/jobs/:id` | Bulk mint+list job status (Listed/Sold) |
+| POST | `/api/marketplace/admin/bulk-mint/jobs/:id/prepare` | Re-run PSA+IPFS prepare |
+| POST | `/api/marketplace/admin/bulk-mint/jobs/:id/commit` | Approve once → mintBatch to partner + Seaport asks |
 
 Collection admin routes (cover/delete) use admin session on `/api/marketplace/collections/:key/admin/*`.
 

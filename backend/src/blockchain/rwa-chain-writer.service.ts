@@ -174,6 +174,73 @@ export class RwaChainWriterService {
     return { tokenId, txHash: receipt.hash };
   }
 
+  /**
+   * On-chain `mintBatch` — max 50 items per call (contract `MAX_BATCH_SIZE`).
+   * Caller must chunk larger jobs. All `to` addresses are typically custody.
+   */
+  async mintBatchTo(
+    items: Array<{ to: string; tokenURI: string; vaultRef: string }>,
+    chainId = this.chainConfig.getDefaultChainId(),
+  ): Promise<{ tokenIds: number[]; txHash: string }> {
+    if (!items.length) {
+      throw new BadRequestException('mintBatch requires at least one item');
+    }
+    if (items.length > 50) {
+      throw new BadRequestException(
+        `mintBatch max is 50 items (got ${items.length}); chunk in the caller`,
+      );
+    }
+
+    const tos: string[] = [];
+    const uris: string[] = [];
+    const refs: string[] = [];
+    for (const it of items) {
+      const recipient = it.to.trim().toLowerCase();
+      if (!ADDR.test(recipient)) {
+        throw new BadRequestException(`Invalid recipient wallet address: ${it.to}`);
+      }
+      const uri = it.tokenURI?.trim();
+      if (!uri) {
+        throw new BadRequestException('tokenURI is required for each mintBatch item');
+      }
+      if (!it.vaultRef || it.vaultRef === ZeroHash) {
+        throw new BadRequestException('vaultRef is required for each mintBatch item');
+      }
+      tos.push(recipient);
+      uris.push(uri);
+      refs.push(it.vaultRef);
+    }
+
+    const contract = this.signedContract(chainId);
+    const tx = await contract.mintBatch(tos, uris, refs);
+    this.logger.log(
+      `mintBatch tx submitted: ${tx.hash} count=${items.length}`,
+    );
+    const receipt = await tx.wait();
+    if (!receipt?.hash) {
+      throw new InternalServerErrorException('MintBatch transaction failed');
+    }
+
+    const tokenIds: number[] = [];
+    for (const log of receipt.logs ?? []) {
+      try {
+        const parsed = contract.interface.parseLog(log);
+        if (parsed?.name === 'Minted') {
+          tokenIds.push(Number(parsed.args.tokenId));
+        }
+      } catch {
+        /* skip unrelated logs */
+      }
+    }
+    if (tokenIds.length !== items.length) {
+      throw new InternalServerErrorException(
+        `MintBatch receipt Minted events=${tokenIds.length} expected=${items.length}`,
+      );
+    }
+
+    return { tokenIds, txHash: receipt.hash };
+  }
+
   // ─── Custody delivery ──────────────────────────────────────────────────────
 
   async safeTransferFromCustody(

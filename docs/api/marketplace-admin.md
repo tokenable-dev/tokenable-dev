@@ -205,6 +205,68 @@ New collections start as `pending_review` on first ask; create-time cover is ing
 
 ---
 
+## Partners (consignment wallets)
+
+**Controller:** `backend/src/marketplace/partners/partners-admin.controller.ts`  
+**Base:** `/api/marketplace/admin/partners`
+
+Register company wallets entrusted to Tokenable. Private keys are AES-256-GCM encrypted with `PARTNER_WALLET_ENCRYPTION_KEY` (32-byte hex) and **never** returned from the API.
+
+| Env | Required | Purpose |
+|-----|----------|---------|
+| `PARTNER_WALLET_ENCRYPTION_KEY` | Yes (for partners/bulk mint) | AES-256-GCM master key — `openssl rand -hex 32` |
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/` | List partners (no key material) |
+| GET | `/:id` | Get partner |
+| POST | `/` | Create `{ displayName, walletAddress, privateKey, isActive? }` |
+| PATCH | `/:id` | Update display name / active / rotate `privateKey` |
+
+**Existing DB:** `backend/sql/maintenance/add_marketplace_partners.sql`
+
+---
+
+## Partner bulk mint & list
+
+**Controller:** `backend/src/rwa/admin/bulk-mint-admin.controller.ts`  
+**Base:** `/api/marketplace/admin/bulk-mint`
+
+Excel/CSV **certNumber + price** → **prepare** (PSA + IPFS) → **one approve** (`commit`) → `mintBatch` chunks of **50** to the **partner company wallet** (max **500**), then server-signed Seaport asks. Markets show the partner display name; USDC fills go to that wallet. Job GET derives **Listed / Sold** from `orders.status`.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/jobs` | List recent jobs (`?partnerId=&limit=`) |
+| POST | `/jobs` | Create from JSON `{ partnerId, items:[{certNumber,price}] }` / `csvText` or multipart `file` + `partnerId` |
+| GET | `/jobs/:id` | Job + items (incl. `saleStatus`: listed/sold/…) — never returns partner private key |
+| GET | `/inventory?partnerId=` | Cross-job inventory for a partner (Listed/Sold) |
+| POST | `/jobs/:id/prepare` | Re-run prepare for `pending` / `prepare_failed` items |
+| POST | `/jobs/:id/commit` | Mint ready items to partner + list asks (async; poll GET) |
+| POST | `/jobs/:jobId/items/:itemId/cancel-listing` | Cancel active ask; item becomes `list_failed` for re-list |
+
+**Job statuses:** `pending` → `preparing` → `ready_to_commit` → `committing` → `completed` (or `failed` / partial `ready_to_commit` for retry).
+
+**Item statuses:** `pending` · `preparing` · `ready` · `minting` · `minted` · `listed` · `prepare_failed` · `mint_failed` · `list_failed` · `skipped`
+
+**Example (JSON):**
+
+```bash
+curl -X POST "$API/marketplace/admin/bulk-mint/jobs" \
+  -H "Cookie: marketplace_admin_session=…" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "partnerId": "…uuid…",
+    "items": [
+      { "certNumber": "83179580", "price": "1250" },
+      { "certNumber": "84956785", "price": "980.50" }
+    ]
+  }'
+```
+
+**Existing DB:** apply `add_marketplace_partners.sql` then `add_bulk_mint_tables.sql`. If upgrading from custody-recipient bulk mint, use `migrate_bulk_mint_to_partner_list.sql`.
+
+---
+
 ## Environment Variables
 
 | Variable | Purpose |

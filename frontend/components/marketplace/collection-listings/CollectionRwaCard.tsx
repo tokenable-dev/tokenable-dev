@@ -187,7 +187,8 @@ export function CollectionRwaCard({
   const sellerAddr = listing
     ? (listing.offerer || listing.parameters?.offerer)
     : undefined;
-  const sellerDisplay = shortenAddr(sellerAddr);
+  const sellerDisplay =
+    listing?.sellerDisplayName?.trim() || shortenAddr(sellerAddr);
 
   const displayTitle =
     formatAssetDetailHeadlineText(

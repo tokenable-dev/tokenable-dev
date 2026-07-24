@@ -16,13 +16,19 @@ sql/
 │   ├── 040_marketplace.sql       # collections, market snapshots, orders
 │   ├── 050_portfolio.sql         # portfolio snapshots, hidden holdings, watchlist
 │   ├── 060_admin.sql             # marketplace_admins
+│   ├── 064_marketplace_partners.sql  # consignment partners (encrypted keys)
+│   ├── 065_bulk_mint.sql         # partner bulk mint+list jobs
 │   ├── 070_cardhedger.sql        # Cardhedger infra + top100 snapshots
 │   └── 900_triggers.sql          # updated_at triggers
 ├── seed/
 │   ├── marketplace-admin.sql     # default admin credentials (dev/staging)
 │   └── dev-platform-chart-fills.sql
 ├── maintenance/
-│   └── reset_marketplace_data.sql  # wipe marketplace + vault rows (keep users)
+│   ├── reset_marketplace_data.sql       # wipe marketplace + vault rows (keep users)
+│   ├── add_marketplace_partners.sql     # existing DBs: partners table
+│   ├── add_bulk_mint_tables.sql         # existing DBs: bulk mint tables
+│   ├── migrate_bulk_mint_to_partner_list.sql  # upgrade old custody bulk mint
+│   └── add_collection_review_status.sql
 └── scripts/
     └── bootstrap-db.sh
 ```
@@ -64,7 +70,7 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
   -f backend/sql/maintenance/reset_marketplace_data.sql
 ```
 
-## Tables (21)
+## Tables (24)
 
 | Table | Purpose |
 |-------|---------|
@@ -74,6 +80,9 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
 | `user_kyc_events` | KYC audit trail |
 | `verification_tokens` | Email verify + password reset tokens |
 | `marketplace_admins` | Admin console credentials |
+| `marketplace_partners` | Consignment sellers (encrypted wallet keys) |
+| `bulk_mint_jobs` | Partner mint+list job runs |
+| `bulk_mint_job_items` | Per-cert rows (price, order_hash, status) |
 | `vault_assets` | Permanent physical card identity |
 | `vault_cycles` | Deposit→redeem lifecycle per asset |
 | `vault_redemptions` | Redemption state machine |

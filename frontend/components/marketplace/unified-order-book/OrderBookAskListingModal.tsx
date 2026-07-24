@@ -90,7 +90,8 @@ function OrderBookAskListingCard({
   const trust = buildRwaDetailMobileTrustView(meta);
   const priceLabel = formatOrderUsdc6(order.considerationAmount);
   const sellerAddr = order.offerer || order.parameters?.offerer;
-  const sellerDisplay = shortenAddr(sellerAddr);
+  const sellerDisplay =
+    order.sellerDisplayName?.trim() || shortenAddr(sellerAddr);
 
   return (
     <li

@@ -42,6 +42,9 @@ import { MarketplaceAdmin } from './marketplace/entities/marketplace-admin.entit
 import { VaultAsset } from './vault/entities/vault-asset.entity';
 import { VaultCycle } from './vault/entities/vault-cycle.entity';
 import { VaultRedemption } from './vault/entities/vault-redemption.entity';
+import { MarketplacePartner } from './marketplace/entities/marketplace-partner.entity';
+import { BulkMintJob } from './rwa/entities/bulk-mint-job.entity';
+import { BulkMintJobItem } from './rwa/entities/bulk-mint-job-item.entity';
 
 @Module({
   imports: [
@@ -89,9 +92,12 @@ import { VaultRedemption } from './vault/entities/vault-redemption.entity';
           CardhedgerDailyPriceExportRun,
           CardhedgerPriceDeltaImportRun,
           MarketplaceAdmin,
+          MarketplacePartner,
           VaultAsset,
           VaultCycle,
           VaultRedemption,
+          BulkMintJob,
+          BulkMintJobItem,
         ],
         // Schema sync is always disabled in production — use SQL migration scripts
         // under backend/sql/schema/ instead. Enabled only in non-production

@@ -20,6 +20,8 @@ BEGIN;
 \ir schema/040_marketplace.sql
 \ir schema/050_portfolio.sql
 \ir schema/060_admin.sql
+\ir schema/064_marketplace_partners.sql
+\ir schema/065_bulk_mint.sql
 \ir schema/070_cardhedger.sql
 \ir schema/900_triggers.sql
 
@@ -33,6 +35,8 @@ BEGIN
      OR to_regclass('public.collection_market_snapshots') IS NULL
      OR to_regclass('public.orders') IS NULL
      OR to_regclass('public.vault_assets') IS NULL
+     OR to_regclass('public.marketplace_partners') IS NULL
+     OR to_regclass('public.bulk_mint_jobs') IS NULL
      OR to_regclass('public.card_top100_daily_snapshots') IS NULL THEN
     RAISE EXCEPTION 'bootstrap incomplete — expected core tables missing';
   END IF;
