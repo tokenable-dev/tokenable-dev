@@ -4,6 +4,10 @@ import type { CollectionListMarketSnapshot, MarketplaceCollectionSummary } from 
 import { CollectibleCard } from "@/components/collectibles/CollectibleCard";
 import { pickCollectionSummaryDisplayImageUrl } from "@/lib/marketplace/collectionDisplayImage";
 import { collectionKeyLower } from "@/lib/markets/marketsCollectionSort";
+import {
+  isMarketsMockCollectionKey,
+  marketsMockChangePeriodLabel,
+} from "@/lib/markets/marketsMockData";
 
 export function MarketsCollectionGrid({
   collections,
@@ -23,6 +27,7 @@ export function MarketsCollectionGrid({
       {collections.map((collection, index) => {
         const displayImageUrl = pickCollectionSummaryDisplayImageUrl(collection);
         const snapshot = snapshotByKey.get(collectionKeyLower(collection));
+        const isMock = isMarketsMockCollectionKey(collection.collectionKey);
         return (
           <CollectibleCard
             key={collection.collectionKey}
@@ -31,7 +36,11 @@ export function MarketsCollectionGrid({
             resolvedCoverUrl={
               displayImageUrl ? resolvedCoverMap.get(displayImageUrl) : undefined
             }
-            changeLoading={changeLoading}
+            changeLoading={changeLoading && !isMock}
+            marketChangePctOverride={isMock ? (snapshot?.marketChangePct ?? null) : undefined}
+            marketChangePeriodLabel={
+              isMock ? marketsMockChangePeriodLabel(snapshot?.marketChangeWindow) : undefined
+            }
             position={index}
             onBeforeNavigate={onBeforeNavigate}
           />

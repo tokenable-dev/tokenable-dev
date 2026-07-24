@@ -2,9 +2,6 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { isPsaPublicApiUpstreamEnabled } from '../marketplace/utils/psa-upstream-policy.util';
 import { perfNow, perfLog, elapsedMs } from '../common/perf/perf';
-import {
-  parsePositiveIntEnv,
-} from './psa-public-api-rate-limit.util';
 import type {
   PsaPublicApiDisabledResult,
 } from './psa-disabled-response.util';
@@ -157,9 +154,6 @@ export class PsaPublicApiService implements OnModuleInit {
       result: Extract<PsaGetImagesLookupResult, { status: 'success' }>;
     }
   >();
-  /** Per-cert backoff after GetImages 429 — avoids hammering PSA on every repeat lookup. */
-  private readonly imagesUpstreamBlockedUntil = new Map<string, number>();
-
   /**
    * 동일 cert에 대한 동시 요청을 한 번으로 합침 (포트폴리오 민트 N개 → PSA N중복 호출 방지).
    */
@@ -185,14 +179,12 @@ export class PsaPublicApiService implements OnModuleInit {
 
   /**
    * Multi-token pool for round-robin rotation.
-   * PSA free tier: ~1 call/day per token — rotating N tokens gives N calls/day.
    * Populated from PSA_PUBLIC_API_TOKENS (comma-separated) at startup.
    * Backward-compatible: PSA_PUBLIC_API_TOKEN (single) still works.
+   * 429 handling is left to PSA — Tokenable does not locally block tokens.
    */
   private tokenPool: string[] = [];
   private tokenPoolIndex = 0;
-  /** ms timestamp until which a token is blocked due to 429 (day quota exhausted). */
-  private readonly tokenBlockedUntil = new Map<string, number>();
 
   constructor(private readonly config: ConfigService) {}
 
@@ -238,45 +230,12 @@ export class PsaPublicApiService implements OnModuleInit {
     return pool;
   }
 
-  /**
-   * Pick next available (non-429-blocked) token via round-robin.
-   * Returns undefined when all tokens are exhausted / pool is empty.
-   */
+  /** Pick next token via round-robin. Returns undefined when the pool is empty. */
   private getNextToken(): string | undefined {
     if (this.tokenPool.length === 0) return undefined;
-    const now = Date.now();
-    for (let i = 0; i < this.tokenPool.length; i++) {
-      const idx = (this.tokenPoolIndex + i) % this.tokenPool.length;
-      const token = this.tokenPool[idx];
-      const blockedUntil = this.tokenBlockedUntil.get(token) ?? 0;
-      if (now >= blockedUntil) {
-        this.tokenPoolIndex = (idx + 1) % this.tokenPool.length;
-        return token;
-      }
-    }
-    this.logger.warn(
-      `PSA token pool: all ${this.tokenPool.length} token(s) rate-limited (429). Try again later.`,
-    );
-    return undefined;
-  }
-
-  /** Mark a token as blocked until the next UTC midnight (or retryAfterSeconds). */
-  private blockToken(token: string, retryAfterSeconds?: number | null): void {
-    let blockedUntilMs: number;
-    if (retryAfterSeconds != null && retryAfterSeconds > 0) {
-      blockedUntilMs = Date.now() + retryAfterSeconds * 1000;
-    } else {
-      const now = new Date();
-      const midnight = new Date(
-        Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1),
-      );
-      blockedUntilMs = midnight.getTime();
-    }
-    const suffix = token.length >= 4 ? token.slice(-4) : '****';
-    this.logger.warn(
-      `PSA token …${suffix} blocked until ${new Date(blockedUntilMs).toISOString()} (quota exhausted)`,
-    );
-    this.tokenBlockedUntil.set(token, blockedUntilMs);
+    const token = this.tokenPool[this.tokenPoolIndex % this.tokenPool.length];
+    this.tokenPoolIndex = (this.tokenPoolIndex + 1) % this.tokenPool.length;
+    return token;
   }
 
   private upstreamBlocked(): boolean {
@@ -287,10 +246,7 @@ export class PsaPublicApiService implements OnModuleInit {
     if (this.upstreamBlocked()) {
       return { status: 'disabled', reason: 'upstream_disabled' };
     }
-    if (this.tokenPool.length === 0) {
-      return { status: 'disabled', reason: 'no_token' };
-    }
-    return { status: 'disabled', reason: 'all_tokens_rate_limited' };
+    return { status: 'disabled', reason: 'no_token' };
   }
 
   private getCacheTtlMs(): number {
@@ -327,14 +283,6 @@ export class PsaPublicApiService implements OnModuleInit {
       durationMs,
       servedFrom,
     };
-  }
-
-  private getImages429BackoffMs(): number {
-    return parsePositiveIntEnv(
-      this.config.get<string>('PSA_PUBLIC_API_GET_IMAGES_429_BACKOFF_MS'),
-      10 * 60 * 1000,
-      24 * 3600 * 1000,
-    );
   }
 
   /** Strip whitespace/newlines accidentally pasted into .env token values. */
@@ -502,7 +450,6 @@ export class PsaPublicApiService implements OnModuleInit {
           this.logger.warn(
             `PSA upstream 429 cert=${digits} http=${res.status} retry-after-header=${retryAfter ?? 'n/a'} durationMs=${durationMs}`,
           );
-          this.blockToken(token, retrySec);
         } else if (res.status === 401 || res.status === 403) {
           message =
             'PSA API 인증 실패(토큰 만료·무효·공백 오염 가능). publicapi 에서 토큰을 재발급하고 .env 에 한 줄·공백 없이 넣었는지 확인하세요.';
@@ -985,14 +932,6 @@ export class PsaPublicApiService implements OnModuleInit {
       return { status: 'skipped', reason: 'invalid_cert' };
     }
 
-    const blockedUntil = this.imagesUpstreamBlockedUntil.get(digits);
-    if (blockedUntil && blockedUntil > Date.now()) {
-      this.logger.debug(
-        `PSA GetImages per-cert backoff cert=${digits} until=${new Date(blockedUntil).toISOString()}`,
-      );
-      return { status: 'skipped', reason: 'no_cert' };
-    }
-
     const ttl = this.getCacheTtlMs();
     if (ttl > 0) {
       const hit = this.imagesSuccessCache.get(digits);
@@ -1091,12 +1030,8 @@ export class PsaPublicApiService implements OnModuleInit {
         if (res.status === 429) {
           message =
             'PSA GetImages 요청 제한(HTTP 429). GetByCertNumber 본문에 이미지 URL이 있으면 GetImages를 건너뜁니다.';
-          this.imagesUpstreamBlockedUntil.set(
-            digits,
-            Date.now() + this.getImages429BackoffMs(),
-          );
           this.logger.warn(
-            `PSA GetImages 429 final cert=${digits} retry-after=${res.headers.get('retry-after') ?? 'n/a'} backoffMs=${this.getImages429BackoffMs()}`,
+            `PSA GetImages 429 final cert=${digits} retry-after=${res.headers.get('retry-after') ?? 'n/a'}`,
           );
         } else if (res.status === 401 || res.status === 403) {
           message =

@@ -184,7 +184,9 @@ export class CollectionMarketSnapshotService {
         });
       }
       if (await this.collectionEnrichment.findOne(key)) {
-        await this.collectionEnrichment.persistPsaMirrorFromCertToDb(key);
+        await this.collectionEnrichment.persistPsaMirrorFromCertToDb(key, {
+          allowUpstream: allowPsaUpstream,
+        });
         await this.collectionEnrichment.ensureMintParallelVarietyFromListings(
           key,
         );

@@ -135,14 +135,14 @@ Vault allows preview for any PSA grade; **mint** requires grade **10** in graded
 
 ---
 
-## `/vault/submit/mint` — `POST /api/psa/analyze-by-cert` fails (500 in ~ms)
+## `/vault/submit/mint` — `POST /api/psa/analyze-by-cert` fails with 429
 
-**Symptom:** Cert lookup fails immediately; backend log shows  
-`PSA token pool: all N token(s) rate-limited (429)`.
+**Symptom:** Cert lookup returns **429** `PSA_RATE_LIMIT_EXCEEDED`; backend log shows  
+`PSA upstream 429 cert=…`.
 
-**Cause:** PSA Public API daily quota exhausted for every token in `PSA_PUBLIC_API_TOKENS` / `PSA_PUBLIC_API_TOKEN`. Not a frontend bug.
+**Cause:** PSA Public API upstream rate-limited the token(s) in `PSA_PUBLIC_API_TOKENS` / `PSA_PUBLIC_API_TOKEN`. Tokenable does not locally block tokens after 429.
 
-**Fix:** Wait until **UTC midnight** (token unblock), add another PSA token to the pool and restart backend, or request a higher quota from PSA. Details: [api/psa.md](../api/psa.md#rate-limits).
+**Fix:** Wait for PSA’s daily reset / `Retry-After`, add another PSA token to the pool and restart backend, or request a higher quota from PSA. Details: [api/psa.md](../api/psa.md#rate-limits).
 
 ---
 

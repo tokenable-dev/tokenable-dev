@@ -156,12 +156,12 @@ Successful proxy responses include `psaPath` (upstream path) and `raw` (PSA JSON
 
 PSA applies per-account / per-IP quotas (HTTP **429**). The backend (`psa-public-api.service.ts`):
 
-- Rotates across `PSA_PUBLIC_API_TOKENS` (and `PSA_PUBLIC_API_TOKEN`)  
-- Blocks a token until **UTC midnight** (or PSA `Retry-After`) after 429  
+- Rotates across `PSA_PUBLIC_API_TOKENS` (and `PSA_PUBLIC_API_TOKEN`) round-robin  
+- Does **not** locally block tokens after 429 — each call goes to PSA; a 429 is PSA’s real response  
 - Caches successful cert / image / spec-pop responses  
 - Coalesces in-flight duplicate cert requests  
 
-**Vault / mint impact:** When **all** pool tokens are blocked, `POST /api/psa/analyze-by-cert` fails quickly (often logged as **500** with `PSA token pool: all N token(s) rate-limited`). Wait for reset or add another token and restart the backend.
+**Vault / mint impact:** When PSA returns 429, `POST /api/psa/analyze-by-cert` and public cert proxies surface `PSA_RATE_LIMIT_EXCEEDED`. Wait for PSA’s reset / `Retry-After`, add more tokens, or request higher quota from PSA.
 
 See logs with `perf: psa` and `[PsaPublicApiService]`.
 
@@ -170,9 +170,9 @@ See logs with `perf: psa` and `[PsaPublicApiService]`.
 ## Troubleshooting
 
 - **500 on `/psa/analyze`:** Check logs for `PSA analyze failed:` — `sharp`, OOM, outbound HTTPS, upload > 15 MB.  
-- **500 / fail on `/psa/analyze-by-cert` in a few ms:** Usually **token pool rate-limited** — see WARN `PSA token pool: all … rate-limited`. Not a vault UI bug.  
+- **429 on `/psa/analyze-by-cert` or `/psa/public/cert/...`:** PSA upstream rate limit — check WARN `PSA upstream 429`. Not a Tokenable local block.  
 - **Wrong card / empty grade:** Prefer `analyze-by-cert` for a known cert; slab OCR can pick the wrong cert first.  
-- **429:** Wait for daily UTC reset, add tokens to `PSA_PUBLIC_API_TOKENS`, or request higher quota from PSA.  
+- **429:** Wait for PSA daily reset / Retry-After, add tokens to `PSA_PUBLIC_API_TOKENS`, or request higher quota from PSA.  
 - **Token missing / upstream off:** Proxies / analyze return disabled or **503** — set tokens and `PSA_PUBLIC_API_UPSTREAM_ENABLED=true`.
 
 See also: [guides/troubleshooting.md](../guides/troubleshooting.md) · [guides/cardhedger-psa-variety.md](../guides/cardhedger-psa-variety.md)

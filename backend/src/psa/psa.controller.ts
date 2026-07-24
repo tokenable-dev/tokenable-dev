@@ -15,6 +15,10 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { isPsaPublicApiUpstreamEnabled } from '../marketplace/utils/psa-upstream-policy.util';
 import { throwPsaPublicApiDisabledException } from './psa-disabled-response.util';
+import {
+  isPsaRateLimitHttpStatus,
+  throwPsaRateLimitHttpException,
+} from './psa-rate-limit.exception';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import {
   ApiBody,
@@ -508,6 +512,12 @@ export class PsaController {
       if (result.status === 'error' && result.reason === 'cert_mismatch') {
         throw new BadRequestException(result.message);
       }
+      if (
+        result.status === 'error' &&
+        isPsaRateLimitHttpStatus(result.httpStatus)
+      ) {
+        throwPsaRateLimitHttpException(result.message);
+      }
       return { ...result, psaPath };
     } catch (err: unknown) {
       if (err instanceof HttpException) throw err;
@@ -532,6 +542,12 @@ export class PsaController {
       if (result.status === 'skipped') {
         throw new BadRequestException('유효한 certNumber(7~10자리)가 필요합니다.');
       }
+      if (
+        result.status === 'error' &&
+        isPsaRateLimitHttpStatus(result.httpStatus)
+      ) {
+        throwPsaRateLimitHttpException(result.message);
+      }
       return { ...result, psaPath };
     } catch (err: unknown) {
       if (err instanceof HttpException) throw err;
@@ -555,6 +571,12 @@ export class PsaController {
       }
       if (result.status === 'skipped') {
         throw new BadRequestException('유효한 specId가 필요합니다.');
+      }
+      if (
+        result.status === 'error' &&
+        isPsaRateLimitHttpStatus(result.httpStatus)
+      ) {
+        throwPsaRateLimitHttpException(result.message);
       }
       if (result.status === 'success') {
         return {
@@ -594,6 +616,12 @@ export class PsaController {
       }
       if (result.status === 'skipped') {
         throw new BadRequestException('orderNumber 또는 submissionNumber 가 필요합니다.');
+      }
+      if (
+        result.status === 'error' &&
+        isPsaRateLimitHttpStatus(result.httpStatus)
+      ) {
+        throwPsaRateLimitHttpException(result.message);
       }
       return result;
     } catch (err: unknown) {

@@ -49,7 +49,7 @@ RPC and contract revert errors are caught in `RwaChainWriterService` and re-thro
 
 ### PSA API errors
 
-- `429 Too Many Requests` → token blocked in multi-token pool; next token used on retry
+- `429 Too Many Requests` → PSA upstream rate limit (Tokenable proxies the real upstream status; no local token block)
 - `404` → cert not found; returned to client as business error
 - Network timeout → caught and rethrown; AbortSignal.timeout(15_000) prevents hangs
 
