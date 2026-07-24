@@ -155,22 +155,22 @@ Maps designer HTML sections to existing React modules. Use when implementing Pha
 
 ---
 
-## Vault — `Vault*.html` — **In progress (design screens)**
+## Vault — **Live (real mint)**
 
-| Prototype | Route | React target |
-|-----------|-------|--------------|
-| Vault.html | `/vault` | `VaultHubView` (landing / empty / dashboard) |
-| Vault-Submit.html | `/vault/submit` | `VaultSubmitDesignView` |
-| Vault-Shipping.html | `/vault/submit/shipping` | `VaultShippingDesignView` |
-| Vault-Detail.html | `/vault/submissions/[id]` | `VaultDetailDesignView` |
-| Vault-List.html | `/vault/list` | `VaultListDesignView` |
-| (functional mint) | `/vault/submit/mint` | `MintForm`, `useMintForm` |
+| Route | React target |
+|-------|--------------|
+| `/vault` | `VaultHubView` (landing / empty dashboard) |
+| `/vault/submit` | `MintForm`, `useMintForm` (PSA → IPFS → backend mint) |
+| `/vault/submit/mint` | redirect → `/vault/submit` |
+| `/vault/submit/shipping` | redirect → `/vault/submit` |
+| `/vault/submissions/[id]` | redirect → `/vault` |
+| `/vault/list` | redirect → `/portfolio` |
 
 **CSS:** `frontend/styles/tokenable-vault.css`
 
 **Shared:** `VaultShell`, `VaultStepper`, `VaultBreadcrumb`, `VaultBadge`
 
-**Removed (legacy):** `VaultPageBody`, `VaultGateState`, `VaultFeatures`, `VaultPortfolioBanner`, `VaultSubmitHeader`, green `GradientOutlineFrame` CTAs in mint form
+**Removed:** design-mock views (`Vault*DesignView`, `VaultDashboardView`, `VaultDemoToggle`), vault/home/markets/portfolio mock data modules
 
 ---
 

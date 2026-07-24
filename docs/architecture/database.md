@@ -1,7 +1,7 @@
 # Database
 
 **Engine:** PostgreSQL 16  
-**ORM:** TypeORM (NestJS) — **24+ entities** (incl. partners + bulk mint)  
+**ORM:** TypeORM (NestJS) — **24+ entities** (incl. partners, bulk mint, P2P, notifications) 
 **DDL:** `backend/sql/schema/` — applied via [bootstrap script](../../backend/sql/README.md)  
 **Source of truth:** `backend/src/**/entities/*.ts`
 
@@ -48,7 +48,10 @@
 | `marketplace_collections` | Graded-metadata bucket catalog (created on first ask) | `marketplace/entities/marketplace-collection.entity.ts` |
 | `rwa_tokens` | On-chain mint registry (contract + tokenId → cert, vault cycle, IPFS) | `marketplace/entities/rwa-token.entity.ts` |
 | `collection_market_snapshots` | Materialized Cardhedger market state per bucket | `marketplace/entities/collection-market-snapshot.entity.ts` |
+| `p2p_listings` | P2P sell listings (custody mint, not Seaport) | `marketplace/entities/p2p-listing.entity.ts` |
+| `p2p_orders` | P2P buy orders + payment escrow linkage | `marketplace/entities/p2p-order.entity.ts` |
 | `orders` | Seaport signed asks/bids + fulfilled trade tape | `marketplace/entities/order.entity.ts` |
+| `marketplace_notifications` | In-app inbox (token-bid offers to active ask owners) | `marketplace/entities/marketplace-notification.entity.ts` |
 
 ### Portfolio & engagement
 
@@ -210,7 +213,7 @@ Domain-grouped DDL for **fresh bootstrap only** — no incremental migration cha
 | 010 | `010_users_and_auth.sql` | `users`, `user_wallets`, `user_auth_providers`, `user_kyc_events`, `verification_tokens` |
 | 020 | `020_vault.sql` | `vault_assets`, `vault_cycles`, `vault_redemptions` |
 | 030 | `030_rwa_tokens.sql` | `rwa_tokens` (vault FK, burn-aware cert unique) |
-| 040 | `040_marketplace.sql` | `marketplace_collections`, `collection_market_snapshots`, `orders` + perf indexes |
+| 040 | `040_marketplace.sql` | `marketplace_collections`, `collection_market_snapshots`, `orders`, `marketplace_notifications` + perf indexes |
 | 050 | `050_portfolio.sql` | `portfolio_daily_snapshots`, `portfolio_holdings`, `user_watchlist` |
 | 060 | `060_admin.sql` | `marketplace_admins` |
 | 064 | `064_marketplace_partners.sql` | Consignment partners (encrypted wallet keys) |

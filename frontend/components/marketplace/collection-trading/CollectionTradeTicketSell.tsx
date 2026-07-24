@@ -23,7 +23,7 @@ export function CollectionTradeTicketSell({
     "Choose an asset from your wallet, set a USDC price, and list it in this collection’s order book.";
   const bidHint =
     selection?.side === "bid"
-      ? `Bid row ${formatTradeTicketUsdcPrice(selection.price)} USDC — List / Change price prefills this amount; if you already have a higher ask, use Change price to lower it and we’ll try to match this bid after you sign.`
+      ? `Bid row ${formatTradeTicketUsdcPrice(selection.price)} USDC — you can list a new ask at this price. If you already have a higher ask, accept the offer from Notifications (Accept offer) instead of lowering your list price.`
       : selection?.side === "ask"
         ? "Red row is someone else’s listing — use Buy to purchase it, or open List for sale to set your own price."
         : null;

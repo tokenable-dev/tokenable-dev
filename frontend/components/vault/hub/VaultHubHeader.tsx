@@ -14,11 +14,11 @@ export function VaultHubHeader({ showSubmitCta = true }: { showSubmitCta?: boole
     <div className="vault-hub-header">
       <div>
         <span className="vault-hub-header__eyebrow">My Vault</span>
-        <h1 className="vault-hub-header__title">Track your card submissions</h1>
+        <h1 className="vault-hub-header__title">Vault your graded cards</h1>
       </div>
       {showSubmitCta ? (
         <Link href="/vault/submit" className="vault-hub-header__cta tk-btn tk-btn--primary">
-          + Submit a Card <ArrowIcon />
+          Mint a Card <ArrowIcon />
         </Link>
       ) : null}
     </div>

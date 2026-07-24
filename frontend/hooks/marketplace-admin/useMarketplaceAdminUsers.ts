@@ -11,9 +11,11 @@ import {
   patchAdminUser,
   postAdminForceVerifyEmail,
   postAdminLinkUserWallet,
+  postAdminUserKyc,
   rq,
   type AdminUserDetail,
   type AdminUserFilter,
+  type AdminUserSummary,
 } from "@/lib/core";
 
 export const ADMIN_USERS_PAGE_SIZE = 30;
@@ -85,25 +87,36 @@ export function useMarketplaceAdminUsers(params: {
   const actionMutation = useMutation({
     mutationFn: async (input: {
       userId: string;
-      action: "force-verify" | "link-wallet" | "unlink-wallet" | "remove-watchlist";
+      action:
+        | "force-verify"
+        | "link-wallet"
+        | "unlink-wallet"
+        | "remove-watchlist"
+        | "kyc";
       address?: string;
       collectionKey?: string;
+      kycStatus?: AdminUserSummary["kycStatus"];
+      kycReason?: string | null;
     }): Promise<AdminUserDetail> => {
       const { userId, action } = input;
       switch (action) {
         case "force-verify":
           return postAdminForceVerifyEmail(userId);
         case "link-wallet":
-          if (!input.address?.trim()) throw new Error("Wallet address required");
+          if (!input.address?.trim()) throw new Error("Wallet required");
           return postAdminLinkUserWallet(userId, input.address.trim());
         case "unlink-wallet":
-          if (!input.address?.trim()) throw new Error("Wallet address required");
+          if (!input.address?.trim()) throw new Error("Wallet required");
           return deleteAdminUserWallet(userId, input.address.trim());
         case "remove-watchlist":
-          if (!input.collectionKey?.trim()) {
-            throw new Error("Collection key required");
-          }
+          if (!input.collectionKey?.trim()) throw new Error("Key required");
           return deleteAdminUserWatchlistItem(userId, input.collectionKey.trim());
+        case "kyc":
+          if (!input.kycStatus) throw new Error("KYC status required");
+          return postAdminUserKyc(userId, {
+            status: input.kycStatus,
+            reason: input.kycReason,
+          });
         default:
           throw new Error("Unknown action");
       }

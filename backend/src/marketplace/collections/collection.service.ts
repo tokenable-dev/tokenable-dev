@@ -327,6 +327,8 @@ export class CollectionService {
         psaCert,
         meta,
       );
+      // Upgrade Bubble/low-res covers when a better catalog URL is available.
+      await this.cover.upgradeCoverFromMetaIfBetter(collectionKey, meta);
     } else {
       // New collection row created. Seed identity state non-blocking.
       // Snapshot correctness does NOT depend on seed completion — the snapshot
@@ -771,6 +773,13 @@ export class CollectionService {
     collectionKey?: string,
   ): Promise<string | null> {
     return this.cover.adminPreviewCoverFromToken(tokenId, collectionKey);
+  }
+
+  async upgradeCollectionCoverFromToken(
+    collectionKey: string,
+    tokenId: string,
+  ): Promise<{ coverImageUrl: string | null; upgraded: boolean }> {
+    return this.cover.upgradeCoverFromToken(collectionKey, tokenId);
   }
 
   async adminDeleteCollectionCompletely(collectionKey: string): Promise<{

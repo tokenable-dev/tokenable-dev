@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { UserModule } from '../../user/user.module';
 import { UserAuthProvider } from '../../user/entities/user-auth-provider.entity';
+import { UserKycEvent } from '../../user/entities/user-kyc-event.entity';
 import { User } from '../../user/entities/user.entity';
 import { UserWallet } from '../../user/entities/user-wallet.entity';
 import { CollectionMarketSnapshot } from '../entities/collection-market-snapshot.entity';
@@ -28,6 +29,7 @@ import { UserAdminService } from './user-admin.service';
       User,
       UserWallet,
       UserAuthProvider,
+      UserKycEvent,
       UserWatchlist,
       Order,
       RwaToken,

@@ -22,6 +22,7 @@ export function CollectionCoverLightboxImage({
         className="h-full w-full object-contain object-center"
         style={collectionCoverImageStyle(src)}
         draggable={false}
+        referrerPolicy="no-referrer"
       />
     </div>
   );

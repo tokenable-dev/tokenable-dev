@@ -56,6 +56,7 @@ export function RwaImageLightbox({
       <img
         src={src}
         alt={alt}
+        referrerPolicy="no-referrer"
         className="max-h-[min(85dvh,92vh,1100px)] max-w-[min(92vw,calc(min(85dvh,92vh,1100px)*3/4))] object-contain object-center shadow-[0_28px_80px_-24px_rgba(0,0,0,0.85)]"
         style={{ filter: "saturate(1.04) contrast(1.02)" }}
       />

@@ -7,12 +7,17 @@ import { getAddress } from 'ethers';
 import { Repository } from 'typeorm';
 import { isWalletOnlyPlaceholderEmail } from '../../auth/privy/privy-user.parser';
 import { UserAuthProvider } from '../../user/entities/user-auth-provider.entity';
+import {
+  UserKycEvent,
+  type KycStatusValue,
+} from '../../user/entities/user-kyc-event.entity';
 import { User } from '../../user/entities/user.entity';
 import { UserWallet } from '../../user/entities/user-wallet.entity';
 import { UserService } from '../../user/user.service';
 import { UserWatchlist } from '../entities/user-watchlist.entity';
 import type {
   AdminUpdateUserDto,
+  AdminUpdateUserKycDto,
   AdminUserListQueryDto,
 } from './dto/admin-user.dto';
 
@@ -66,16 +71,30 @@ export type AdminUserWalletRow = {
   walletClient: string | null;
   connectorType: string | null;
   source: UserWallet['source'];
+  privyWalletId: string | null;
   linkedAt: string;
+};
+
+export type AdminKycEventRow = {
+  id: string;
+  status: KycStatusValue;
+  provider: string;
+  externalId: string | null;
+  reason: string | null;
+  source: string | null;
+  createdAt: string;
 };
 
 export type AdminUserDetail = AdminUserSummary & {
   wallets: AdminUserWalletRow[];
   authProviders: AdminAuthProviderRow[];
   watchlistKeys: string[];
+  hasPassword: boolean;
+  googleId: string | null;
   kycProvider: string | null;
   kycExternalId: string | null;
   kycRejectionReason: string | null;
+  kycEvents: AdminKycEventRow[];
 };
 
 export type AdminUserStats = {
@@ -88,6 +107,8 @@ export type AdminUserStats = {
   withWallet: number;
   kycApproved: number;
   kycPending: number;
+  kycRejected: number;
+  kycNone: number;
   verified: number;
   unverified: number;
 };
@@ -156,6 +177,8 @@ export class UserAdminService {
     private readonly authProvidersRepo: Repository<UserAuthProvider>,
     @InjectRepository(UserWatchlist)
     private readonly watchlistRepo: Repository<UserWatchlist>,
+    @InjectRepository(UserKycEvent)
+    private readonly kycEventsRepo: Repository<UserKycEvent>,
     private readonly users: UserService,
   ) {}
 
@@ -212,6 +235,14 @@ export class UserAdminService {
         "COUNT(*) FILTER (WHERE u.kyc_status = 'pending')::int",
         'kycPending',
       )
+      .addSelect(
+        "COUNT(*) FILTER (WHERE u.kyc_status = 'rejected')::int",
+        'kycRejected',
+      )
+      .addSelect(
+        "COUNT(*) FILTER (WHERE u.kyc_status = 'none')::int",
+        'kycNone',
+      )
       .getRawOne<{
         total: number;
         verified: number;
@@ -224,6 +255,8 @@ export class UserAdminService {
         withWallet: number;
         kycApproved: number;
         kycPending: number;
+        kycRejected: number;
+        kycNone: number;
       }>();
     return {
       total: raw?.total ?? 0,
@@ -237,6 +270,8 @@ export class UserAdminService {
       withWallet: raw?.withWallet ?? 0,
       kycApproved: raw?.kycApproved ?? 0,
       kycPending: raw?.kycPending ?? 0,
+      kycRejected: raw?.kycRejected ?? 0,
+      kycNone: raw?.kycNone ?? 0,
     };
   }
 
@@ -260,6 +295,7 @@ export class UserAdminService {
           OR LOWER(COALESCE(u.name, '')) LIKE :q
           OR LOWER(COALESCE(u.wallet_address, '')) LIKE :q
           OR LOWER(COALESCE(u.privy_id, '')) LIKE :q
+          OR LOWER(COALESCE(u.kyc_external_id, '')) LIKE :q
           OR EXISTS (
             SELECT 1 FROM user_wallets w
             WHERE w.user_id = u.id AND LOWER(w.wallet_address) LIKE :q
@@ -310,6 +346,10 @@ export class UserAdminService {
       qb.andWhere("u.kyc_status = 'approved'");
     } else if (filter === 'kyc_pending') {
       qb.andWhere("u.kyc_status = 'pending'");
+    } else if (filter === 'kyc_rejected') {
+      qb.andWhere("u.kyc_status = 'rejected'");
+    } else if (filter === 'kyc_none') {
+      qb.andWhere("u.kyc_status = 'none'");
     } else if (filter === 'with_wallet') {
       qb.andWhere('u.wallet_address IS NOT NULL');
     }
@@ -350,13 +390,18 @@ export class UserAdminService {
 
   async getUserDetail(userId: string): Promise<AdminUserDetail> {
     const user = await this.users.findByIdOrFail(userId);
-    const [wallets, authProviders, watchlistRows] = await Promise.all([
+    const [wallets, authProviders, watchlistRows, kycEvents] = await Promise.all([
       this.users.listWalletsForUser(userId),
       this.users.listAuthProvidersForUser(userId),
       this.watchlistRepo.find({
         where: { userId },
         order: { createdAt: 'DESC' },
         take: 200,
+      }),
+      this.kycEventsRepo.find({
+        where: { userId },
+        order: { createdAt: 'DESC' },
+        take: 50,
       }),
     ]);
 
@@ -370,6 +415,8 @@ export class UserAdminService {
 
     return {
       ...summary,
+      hasPassword: Boolean(user.passwordHash),
+      googleId: user.googleId,
       wallets: wallets.map((w) => ({
         id: w.id,
         walletAddress: w.walletAddress,
@@ -379,6 +426,7 @@ export class UserAdminService {
         walletClient: w.walletClient,
         connectorType: w.connectorType,
         source: w.source,
+        privyWalletId: w.privyWalletId,
         linkedAt: w.linkedAt.toISOString(),
       })),
       authProviders: authProviders.map((p) => ({
@@ -395,6 +443,16 @@ export class UserAdminService {
       kycProvider: user.kycProvider,
       kycExternalId: user.kycExternalId,
       kycRejectionReason: user.kycRejectionReason,
+      kycEvents: kycEvents.map((e) => ({
+        id: e.id,
+        status: e.status,
+        provider: e.provider,
+        externalId: e.externalId,
+        reason: e.reason,
+        source:
+          typeof e.payload?.source === 'string' ? e.payload.source : null,
+        createdAt: e.createdAt.toISOString(),
+      })),
     };
   }
 
@@ -445,6 +503,24 @@ export class UserAdminService {
     const key = decodeURIComponent(collectionKey).trim().toLowerCase();
     if (!key) throw new BadRequestException('collectionKey is required');
     await this.watchlistRepo.delete({ userId, collectionKey: key });
+    return this.getUserDetail(userId);
+  }
+
+  async updateUserKyc(
+    userId: string,
+    dto: AdminUpdateUserKycDto,
+  ): Promise<AdminUserDetail> {
+    const user = await this.users.findByIdOrFail(userId);
+    if (dto.status === 'rejected' && !dto.reason?.trim()) {
+      throw new BadRequestException('reason is required when rejecting KYC');
+    }
+    await this.users.updateKycStatus(userId, {
+      status: dto.status,
+      provider: user.kycProvider ?? 'admin',
+      externalId: user.kycExternalId,
+      reason: dto.reason?.trim() || null,
+      payload: { source: 'admin' },
+    });
     return this.getUserDetail(userId);
   }
 

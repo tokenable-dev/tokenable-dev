@@ -4,7 +4,11 @@ import { QueryDeepPartialEntity, Repository } from 'typeorm';
 import { BlockchainService } from '../../blockchain/blockchain.service';
 import { IpfsGatewayResolverService } from '../../blockchain/ipfs-gateway-resolver.service';
 import { CardhedgerService } from '../../cardhedger/cardhedger.service';
-import { normalizeImageUrl } from '../utils/collection-image.util';
+import {
+  normalizeImageUrl,
+  pickPreferredCollectionCoverUrl,
+  scoreCollectionCoverUrl,
+} from '../utils/collection-image.util';
 import { MarketplaceCollection } from '../entities/marketplace-collection.entity';
 import {
   CatalogCoverS3Service,
@@ -20,9 +24,16 @@ function isPersistableCoverUrl(url: string): boolean {
   return true;
 }
 
+function pushCandidate(out: string[], url: string | null | undefined): void {
+  if (typeof url !== 'string' || !url.trim()) return;
+  const n = normalizeImageUrl(url);
+  if (!isPersistableCoverUrl(n)) return;
+  out.push(n);
+}
+
 /**
  * Collection cover: Cardhedger / TCG → catalog S3 (when configured).
- * Set once at collection create or via admin; never auto-refreshed from upstream.
+ * Set at collection create; upgraded when a higher-scoring catalog URL is resolved.
  */
 @Injectable()
 export class CollectionCoverService {
@@ -73,6 +84,31 @@ export class CollectionCoverService {
       );
       return remote;
     }
+  }
+
+  /**
+   * Persist cover when missing, or replace when the newly resolved URL scores higher.
+   * Used on subsequent listings so Bubble thumbs can upgrade to Pokémon TCG large, etc.
+   */
+  async upgradeCoverFromMetaIfBetter(
+    collectionKey: string,
+    meta: Record<string, unknown>,
+  ): Promise<string | null> {
+    const next = await this.resolveCoverUrlFromMeta(meta);
+    if (!next) return null;
+
+    const k = collectionKey.toLowerCase();
+    const row = await this.findOne(k);
+    if (!row) return null;
+
+    const current = row.coverImageUrl?.trim() ?? '';
+    if (!current) {
+      return this.persistCoverImageUrl(k, next);
+    }
+    if (scoreCollectionCoverUrl(next) > scoreCollectionCoverUrl(current)) {
+      return this.persistCoverImageUrl(k, next);
+    }
+    return current;
   }
 
   async setCollectionCoverImageAdmin(
@@ -163,6 +199,29 @@ export class CollectionCoverService {
     return this.resolveCoverUrlFromMeta(meta);
   }
 
+  /** Admin / ops: re-resolve from token meta and persist only if score improves. */
+  async upgradeCoverFromToken(
+    collectionKey: string,
+    tokenId: string,
+  ): Promise<{ coverImageUrl: string | null; upgraded: boolean }> {
+    const k = collectionKey.toLowerCase();
+    const row = await this.findOne(k);
+    if (!row) throw new Error('COLLECTION_NOT_FOUND');
+    const prev = row.coverImageUrl?.trim() ?? '';
+
+    const meta = await this.loadTokenMeta(Number(tokenId));
+    if (!meta) {
+      return { coverImageUrl: prev || null, upgraded: false };
+    }
+
+    const after = await this.upgradeCoverFromMetaIfBetter(k, meta);
+    const next = after?.trim() ?? prev;
+    return {
+      coverImageUrl: next || null,
+      upgraded: Boolean(next && next !== prev),
+    };
+  }
+
   private async findOne(key: string): Promise<MarketplaceCollection | null> {
     return this.collectionRepo.findOne({
       where: { collectionKey: key.toLowerCase() },
@@ -178,9 +237,16 @@ export class CollectionCoverService {
     }
   }
 
+  /**
+   * Gather catalog candidates (Cardhedger + Pokémon TCG when applicable) and pick
+   * the highest-scoring URL. Does not early-return on the first Cardhedger image —
+   * `/resize` may or may not be present and is only a demotion signal.
+   */
   private async resolveCatalogImageFromMeta(
     meta: Record<string, unknown>,
   ): Promise<string | null> {
+    const candidates: string[] = [];
+
     const props = meta.properties as Record<string, unknown> | undefined;
     const graded = (props?.graded ?? meta.graded) as
       | Record<string, unknown>
@@ -192,9 +258,7 @@ export class CollectionCoverService {
     const cardId = typeof ch?.cardId === 'string' ? ch.cardId.trim() : '';
     const chImageUrl =
       typeof ch?.imageUrl === 'string' ? ch.imageUrl.trim() : '';
-    if (chImageUrl) {
-      return normalizeImageUrl(chImageUrl);
-    }
+    pushCandidate(candidates, chImageUrl);
 
     const cardName = (
       typeof cardMeta?.name === 'string'
@@ -233,9 +297,7 @@ export class CollectionCoverService {
             typeof row.image === 'string' && row.image.trim()
               ? row.image.trim()
               : null;
-          if (rawImg) {
-            return normalizeImageUrl(rawImg);
-          }
+          pushCandidate(candidates, rawImg);
         }
       } catch {
         /* fall through */
@@ -279,7 +341,6 @@ export class CollectionCoverService {
               ? row.image.trim()
               : null;
           if (!rawImg) continue;
-          const img = normalizeImageUrl(rawImg);
           const rowNum = normNum(String(row.number ?? ''));
           const rowDesc = normStr(String(row.description ?? row.name ?? ''));
           const rowSet = normStr(String(row.set ?? ''));
@@ -290,7 +351,8 @@ export class CollectionCoverService {
           const setOk =
             !wantSet || rowSet.includes(wantSet) || wantSet.includes(rowSet);
           if (numOk && (nameOk || setOk)) {
-            return img;
+            pushCandidate(candidates, rawImg);
+            break;
           }
         }
       } catch {
@@ -329,14 +391,15 @@ export class CollectionCoverService {
           });
           const best = sorted[0];
           const images = best?.images as Record<string, string> | undefined;
-          return images?.large ?? images?.small ?? null;
+          pushCandidate(candidates, images?.large ?? null);
+          pushCandidate(candidates, images?.small ?? null);
         }
       } catch {
         /* fall through */
       }
     }
 
-    return null;
+    return pickPreferredCollectionCoverUrl(candidates);
   }
 
   private async persistCoverImageUrl(

@@ -29,6 +29,7 @@ import {
 } from "@/lib/markets/marketsFilters";
 import { MarketsFilterBar } from "./MarketsFilterBar";
 import { MarketsPageHeader } from "./MarketsPageHeader";
+import { MarketsP2pSection } from "./MarketsP2pSection";
 import { MarketsCollectionGrid } from "./MarketsCollectionGrid";
 import { TOP_CARDS_UI_ENABLED, TOP_MOVERS_UI_ENABLED } from "@/lib/markets/top100Copy";
 import { pickCollectionSummaryDisplayImageUrl } from "@/lib/marketplace/collectionDisplayImage";
@@ -214,6 +215,9 @@ export default function MarketsPage() {
     <div className="markets-page">
       <HomeTicker />
       <MarketsPageHeader />
+      <div className="tkl-wrap">
+        <MarketsP2pSection />
+      </div>
 
       {(TOP_CARDS_UI_ENABLED || TOP_MOVERS_UI_ENABLED) && !showLoadingShell ? (
         <div className="tkl-wrap markets-preview-sections">

@@ -20,7 +20,6 @@ import {
   ADMIN_BTN_SECONDARY,
   ADMIN_COUNT,
   ADMIN_INPUT,
-  ADMIN_LABEL,
   ADMIN_LINK_SM,
   ADMIN_LIST,
   ADMIN_SEGMENT,
@@ -36,10 +35,12 @@ import { MarketplaceAdminUserRow } from "./MarketplaceAdminUserRow";
 const FILTERS: { value: AdminUserFilter; label: string }[] = [
   { value: "all", label: "All" },
   { value: "privy", label: "Privy" },
-  { value: "with_wallet", label: "With wallet" },
-  { value: "kyc_approved", label: "KYC approved" },
-  { value: "kyc_pending", label: "KYC pending" },
-  { value: "legacy", label: "Pre-Privy" },
+  { value: "with_wallet", label: "Wallet" },
+  { value: "kyc_approved", label: "KYC ✓" },
+  { value: "kyc_pending", label: "KYC …" },
+  { value: "kyc_rejected", label: "KYC ✕" },
+  { value: "kyc_none", label: "KYC —" },
+  { value: "legacy", label: "Legacy" },
 ];
 
 function AdminPrivySupportPanel() {
@@ -49,12 +50,7 @@ function AdminPrivySupportPanel() {
   const env = resolvePrivyFundingEnvironment();
 
   const readyLabel =
-    funding.ready === null
-      ? "…"
-      : funding.ready
-        ? "Ready"
-        : "Not ready";
-
+    funding.ready === null ? "…" : funding.ready ? "Ready" : "Not ready";
   const readyClass =
     funding.ready === true
       ? "text-emerald-700"
@@ -64,35 +60,28 @@ function AdminPrivySupportPanel() {
 
   return (
     <div className={`${ADMIN_ARTICLE} mb-6`}>
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="text-sm font-semibold text-zinc-900">Privy & Add funds</h2>
-          <p className={`mt-1 max-w-2xl text-sm ${ADMIN_TEXT_SECONDARY}`}>
-            User support for auth, wallets, and MoonPay top-ups. Per-user payment history
-            lives in Privy / MoonPay dashboards — not in Tokenable admin.
-          </p>
-        </div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-sm font-semibold text-zinc-900">Privy / MoonPay</h2>
         <a
           href={funding.dashboardUrl}
           target="_blank"
           rel="noreferrer"
           className={ADMIN_LINK_SM}
         >
-          Privy Dashboard → Funding
+          Dashboard
         </a>
       </div>
-
-      <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
+      <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
         <div>
-          <dt className={ADMIN_TEXT_META}>MoonPay status</dt>
+          <dt className={ADMIN_TEXT_META}>MoonPay</dt>
           <dd className={`font-medium ${readyClass}`}>{readyLabel}</dd>
         </div>
         <div>
-          <dt className={ADMIN_TEXT_META}>On-ramp env</dt>
-          <dd className="font-medium text-zinc-900 capitalize">{env}</dd>
+          <dt className={ADMIN_TEXT_META}>Env</dt>
+          <dd className="font-medium capitalize text-zinc-900">{env}</dd>
         </div>
         <div>
-          <dt className={ADMIN_TEXT_META}>Funding target chain</dt>
+          <dt className={ADMIN_TEXT_META}>Chain</dt>
           <dd className="font-medium text-zinc-900">
             {chainLabel} ({targetChainId})
           </dd>
@@ -102,45 +91,11 @@ function AdminPrivySupportPanel() {
           <dd className="font-medium text-zinc-900">USDC</dd>
         </div>
       </dl>
-
-      {funding.isLoading ? (
-        <p className={`mt-3 text-sm ${ADMIN_TEXT_SECONDARY}`}>Loading funding config…</p>
-      ) : funding.error ? (
-        <p className="mt-3 text-sm text-red-600" role="alert">
-          Could not load funding settings — pass site access gate if enabled, then retry.
+      {funding.error ? (
+        <p className="mt-2 text-sm text-red-600" role="alert">
+          Funding settings unavailable
         </p>
-      ) : funding.ready === false && funding.checklist.length > 0 ? (
-        <ul className={`mt-3 list-disc space-y-1 pl-5 text-xs ${ADMIN_TEXT_SECONDARY}`}>
-          {funding.checklist.slice(0, 3).map((item) => (
-            <li key={item}>{item}</li>
-          ))}
-        </ul>
       ) : null}
-
-      <ul className={`mt-4 list-disc space-y-1 pl-5 text-xs ${ADMIN_TEXT_SECONDARY}`}>
-        <li>
-          <strong className="font-medium text-zinc-800">Add funds</strong> (header wallet
-          menu) sends USDC via MoonPay to the user&apos;s{" "}
-          <strong className="font-medium text-zinc-800">embedded Privy wallet</strong>{" "}
-          (email/social) or primary external wallet (wallet login).
-        </li>
-        <li>
-          Payment issues: confirm linked wallet, KYC status, header network matches funding
-          chain, and MoonPay keys in Privy Dashboard.
-        </li>
-        <li>
-          Look up a user in{" "}
-          <a
-            href="https://dashboard.privy.io/apps?page=users"
-            target="_blank"
-            rel="noreferrer"
-            className={ADMIN_LINK_SM}
-          >
-            Privy Dashboard → Users
-          </a>{" "}
-          using their Privy ID from the expanded row.
-        </li>
-      </ul>
     </div>
   );
 }
@@ -168,24 +123,25 @@ export function MarketplaceAdminUsersPage() {
 
   return (
     <>
-      <MarketplaceAdminPageHeader
-        title="Users"
-        subtitle="Search accounts, review Privy auth and wallets, and run support actions."
-      />
+      <MarketplaceAdminPageHeader title="Users" />
 
       <AdminPrivySupportPanel />
 
       {stats ? (
-        <div className={`${ADMIN_ARTICLE} mb-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5`}>
-          <AdminStatTile label="Total users" value={stats.total} />
-          <AdminStatTile label="Privy linked" value={stats.privy} />
-          <AdminStatTile label="With wallet" value={stats.withWallet} />
-          <AdminStatTile label="KYC approved" value={stats.kycApproved} />
-          <AdminStatTile label="KYC pending" value={stats.kycPending} />
+        <div
+          className={`${ADMIN_ARTICLE} mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7`}
+        >
+          <AdminStatTile label="Total" value={stats.total} />
+          <AdminStatTile label="Privy" value={stats.privy} />
+          <AdminStatTile label="Wallet" value={stats.withWallet} />
+          <AdminStatTile label="KYC ✓" value={stats.kycApproved} />
+          <AdminStatTile label="KYC …" value={stats.kycPending} />
+          <AdminStatTile label="KYC ✕" value={stats.kycRejected} />
+          <AdminStatTile label="KYC —" value={stats.kycNone} />
         </div>
       ) : null}
 
-      <div className={`${ADMIN_ARTICLE} mb-6 space-y-4`}>
+      <div className={`${ADMIN_ARTICLE} mb-6 space-y-3`}>
         <div className={`flex flex-wrap gap-1 ${ADMIN_SEGMENT}`}>
           {FILTERS.map((f) => (
             <button
@@ -213,52 +169,46 @@ export function MarketplaceAdminUsersPage() {
             setExpandedId(null);
           }}
         >
-          <div className="min-w-[200px] flex-1">
-            <label className={ADMIN_LABEL}>Search</label>
-            <input
-              className={ADMIN_INPUT}
-              placeholder="Email, Privy ID, name, or wallet…"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-            />
-          </div>
-          <div className="flex items-end gap-2">
-            <button type="submit" className={ADMIN_BTN_PRIMARY}>
-              Search
+          <input
+            className={`${ADMIN_INPUT} min-w-[200px] flex-1`}
+            placeholder="email · privy · wallet · applicant"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+          />
+          <button type="submit" className={ADMIN_BTN_PRIMARY}>
+            Search
+          </button>
+          {search ? (
+            <button
+              type="button"
+              className={ADMIN_BTN_SECONDARY}
+              onClick={() => {
+                setQ("");
+                setSearch("");
+                setPage(1);
+              }}
+            >
+              Clear
             </button>
-            {search ? (
-              <button
-                type="button"
-                className={ADMIN_BTN_SECONDARY}
-                onClick={() => {
-                  setQ("");
-                  setSearch("");
-                  setPage(1);
-                }}
-              >
-                Clear
-              </button>
-            ) : null}
-          </div>
+          ) : null}
         </form>
       </div>
 
       {listQuery.isLoading ? (
-        <p className="text-base text-zinc-700">Loading users…</p>
+        <p className={`text-sm ${ADMIN_TEXT_SECONDARY}`}>…</p>
       ) : listQuery.isError ? (
-        <p className="text-base text-red-600" role="alert">
+        <p className="text-sm text-red-600" role="alert">
           {listQuery.error instanceof Error
             ? listQuery.error.message
-            : "Failed to load users"}
+            : "Failed"}
         </p>
       ) : items.length === 0 ? (
-        <p className="text-base text-zinc-700">No users match this filter.</p>
+        <p className={`text-sm ${ADMIN_TEXT_SECONDARY}`}>No results</p>
       ) : (
         <div className={ADMIN_LIST}>
           <p className={ADMIN_COUNT}>
-            Showing {items.length} of {total.toLocaleString()} user
-            {total === 1 ? "" : "s"}
-            {search ? ` · search “${search}”` : ""}
+            {items.length}/{total.toLocaleString()}
+            {search ? ` · ${search}` : ""}
           </p>
           {items.map((row) => (
             <MarketplaceAdminUserRow
@@ -295,10 +245,10 @@ export function MarketplaceAdminUsersPage() {
                   setPage((p) => Math.max(1, p - 1));
                 }}
               >
-                Previous
+                Prev
               </button>
               <span className="text-sm text-zinc-700">
-                Page {page} of {Math.max(1, Math.ceil(total / ADMIN_USERS_PAGE_SIZE))}
+                {page}/{Math.max(1, Math.ceil(total / ADMIN_USERS_PAGE_SIZE))}
               </span>
               <button
                 type="button"

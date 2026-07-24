@@ -8,12 +8,79 @@ function isUsableCoverUrl(s: string): boolean {
 /**
  * Normalize protocol-relative URLs (`//cdn.bubble.io/...`) to `https://...`.
  *
- * Some Cardhedger image URLs are returned protocol-relative; `isHighQualityCoverUrl`
+ * Some Cardhedger image URLs are returned protocol-relative; cover ranking
  * and external image validators expect an explicit scheme.
  */
 export function normalizeImageUrl(s: string): string {
   const t = s.trim();
   return t.startsWith('//') ? `https:${t}` : t;
+}
+
+/**
+ * Cardhedger Bubble CDN paths that end with `/resize` are often narrow/low-res.
+ * Not all Cardhedger URLs use this path — treat as a demotion signal only.
+ */
+export function isCardhedgerBubbleResizeUrl(url: string): boolean {
+  const t = normalizeImageUrl(url);
+  try {
+    const { pathname, hostname } = new URL(t);
+    if (!hostname.toLowerCase().includes('cdn.bubble.io')) return false;
+    return /\/resize$/i.test(pathname);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Higher = prefer for collection covers. Does not assume `/resize` exists;
+ * known larger catalog hosts (Pokémon TCG large, etc.) outrank Bubble thumbs.
+ */
+export function scoreCollectionCoverUrl(url: string): number {
+  const t = normalizeImageUrl(url);
+  if (!t) return 0;
+  try {
+    const { hostname, pathname } = new URL(t);
+    const host = hostname.toLowerCase();
+    const path = pathname.toLowerCase();
+
+    if (host.includes('images.pokemontcg.io')) {
+      if (path.includes('/large')) return 100;
+      if (path.includes('/small')) return 75;
+      return 90;
+    }
+    if (host.includes('tcgplayer.com') || host.includes('tcgplayer-cdn')) {
+      return 85;
+    }
+    if (host.includes('cdn.bubble.io')) {
+      return isCardhedgerBubbleResizeUrl(t) ? 25 : 55;
+    }
+    if (host.includes('cloudfront.net') && path.includes('/cert/')) {
+      return 0;
+    }
+    if (/^https?:\/\//i.test(t)) return 50;
+    return 0;
+  } catch {
+    return 0;
+  }
+}
+
+/** Pick the highest-scoring cover candidate; ties keep the first occurrence. */
+export function pickPreferredCollectionCoverUrl(
+  urls: Array<string | null | undefined>,
+): string | null {
+  let best: string | null = null;
+  let bestScore = -1;
+  for (const raw of urls) {
+    if (typeof raw !== 'string' || !raw.trim()) continue;
+    const url = normalizeImageUrl(raw);
+    const score = scoreCollectionCoverUrl(url);
+    if (score <= 0) continue;
+    if (score > bestScore) {
+      best = url;
+      bestScore = score;
+    }
+  }
+  return best;
 }
 
 /**

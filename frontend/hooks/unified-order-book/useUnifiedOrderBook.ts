@@ -1,7 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import type { Order } from "@/lib/core";
 import { isCriteriaCollectionBid } from "@/lib/seaport/criteria/criteriaMatch";
+import { isTokenBidOrder } from "@/lib/seaport/orders/isTokenBidOrder";
 import {
   buildAskDepthLevels,
   buildBidDepthLevels,
@@ -11,6 +13,12 @@ import {
 } from "@/lib/marketplace/unified-order-book";
 import type { OrderBookTab } from "@/lib/marketplace/unified-order-book";
 import type { CollectionUnifiedOrderBookProps } from "@/lib/marketplace/marketplaceTradingTypes";
+
+/** Active bids shown in Offers depth — token offers (BR-8a) plus any legacy criteria bids. */
+function isActiveOrderBookBid(b: Order): boolean {
+  if (b.status !== "active") return false;
+  return isTokenBidOrder(b) || isCriteriaCollectionBid(b);
+}
 
 export function useUnifiedOrderBook({
   asks,
@@ -32,8 +40,8 @@ export function useUnifiedOrderBook({
 >) {
   const [tab, setTab] = useState<OrderBookTab>(defaultTab);
 
-  const criteriaBids = useMemo(
-    () => collectionBids.filter((b) => isCriteriaCollectionBid(b) && b.status === "active"),
+  const activeBids = useMemo(
+    () => collectionBids.filter(isActiveOrderBookBid),
     [collectionBids],
   );
 
@@ -44,7 +52,7 @@ export function useUnifiedOrderBook({
         .sort(cmpAskByPriceThenToken),
     [asks],
   );
-  const bidRows = useMemo(() => [...criteriaBids].sort(cmpBidByPriceDesc), [criteriaBids]);
+  const bidRows = useMemo(() => [...activeBids].sort(cmpBidByPriceDesc), [activeBids]);
 
   const askLevels = useMemo(() => buildAskDepthLevels(askRows), [askRows]);
   const bidLevels = useMemo(() => buildBidDepthLevels(bidRows), [bidRows]);

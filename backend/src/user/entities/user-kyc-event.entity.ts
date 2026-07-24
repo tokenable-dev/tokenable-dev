@@ -26,7 +26,7 @@ export class UserKycEvent {
   @Column({ type: 'varchar', length: 16 })
   status: KycStatusValue;
 
-  @Column({ type: 'varchar', length: 32, default: 'privy' })
+  @Column({ type: 'varchar', length: 32, default: 'sumsub' })
   provider: string;
 
   @Column({ name: 'external_id', type: 'varchar', length: 128, nullable: true })

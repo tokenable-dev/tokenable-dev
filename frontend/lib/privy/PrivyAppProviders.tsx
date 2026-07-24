@@ -11,8 +11,8 @@ import {
   wagmiPrivyConfig,
 } from "@/lib/privy/config";
 import { configureMarketQueryDefaults } from "@/lib/core";
+import { useEnsureAccountWalletActive } from "@/hooks/auth/useEnsureAccountWalletActive";
 import { PrivySessionBridge } from "@/lib/privy/PrivySessionBridge";
-import { AccountWalletAligner } from "@/lib/privy/AccountWalletAligner";
 import { PrivySignInLauncher } from "@/lib/privy/PrivySignInLauncher";
 import { PrivyWalletLauncher } from "@/lib/privy/PrivyWalletLauncher";
 import { WalletDataProvider } from "@/providers/WalletDataProvider";
@@ -21,6 +21,12 @@ import { AuthProvider } from "@/providers/AuthProvider";
 import { MarketplaceQueryPersistence } from "@/providers/MarketplaceQueryPersistence";
 import { PerfObservers } from "@/lib/perf/PerfObservers";
 
+/** Mount once inside PrivyProvider — silently selects the account embedded wallet. */
+function AccountWalletAligner() {
+  useEnsureAccountWalletActive();
+  return null;
+}
+
 function PrivyAppTree({ children }: { children: ReactNode }) {
   const [queryClient] = useState(() => {
     const c = new QueryClient({
@@ -28,8 +34,6 @@ function PrivyAppTree({ children }: { children: ReactNode }) {
         queries: {
           staleTime: 10_000,
           retry: 1,
-          // Avoid silent background refetches when user alt-tabs back to the app.
-          // Per-query overrides apply where real-time freshness matters (e.g. orders).
           refetchOnWindowFocus: false,
         },
       },
@@ -66,6 +70,3 @@ export function PrivyAppProviders({ children }: { children: ReactNode }) {
   }
   return <PrivyAppTree>{children}</PrivyAppTree>;
 }
-
-/** @deprecated Use {@link PrivyAppProviders}. */
-export const PrivyProviders = PrivyAppProviders;

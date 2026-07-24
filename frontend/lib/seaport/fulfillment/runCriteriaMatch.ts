@@ -40,30 +40,38 @@ export type MatchFailureCode =
 /** ERC20 offer item in Seaport order parameters. */
 const ITEM_ERC20 = 1;
 
+export type BuyerUsdcReadyResult =
+  | { ok: true }
+  | {
+      ok: false;
+      code: "balance" | "allowance";
+      message: string;
+    };
+
 /**
- * Criteria bids do not escrow USDC — at match time Seaport transfers from the buyer (`offerer`).
- * Fail early with a clear message instead of an opaque ERC20 revert.
+ * Criteria / token bids do not escrow USDC — at match/fulfill time Seaport
+ * transfers from the buyer (`offerer`). Returns a structured result for UI preflight.
  */
-async function assertBuyerUsdcReadyForCriteriaBid(
+export async function checkBuyerUsdcReadyForBid(
   publicClient: PublicClient,
   bid: Order,
   usdcAddress: Address,
-): Promise<void> {
+): Promise<BuyerUsdcReadyResult> {
   const offer0 = bid.parameters?.offer?.[0];
-  if (!offer0 || Number(offer0.itemType) !== ITEM_ERC20) return;
+  if (!offer0 || Number(offer0.itemType) !== ITEM_ERC20) return { ok: true };
   if (
     String(offer0.token).toLowerCase() !== String(usdcAddress).toLowerCase()
   ) {
-    return;
+    return { ok: true };
   }
   const buyer = bid.offerer as Address;
   let needed: bigint;
   try {
     needed = BigInt(String(offer0.startAmount).trim());
   } catch {
-    return;
+    return { ok: true };
   }
-  if (needed <= BigInt(0)) return;
+  if (needed <= BigInt(0)) return { ok: true };
 
   const [bal, allowance] = await Promise.all([
     publicClient.readContract({
@@ -81,17 +89,35 @@ async function assertBuyerUsdcReadyForCriteriaBid(
   ]);
 
   if ((bal as bigint) < needed) {
-    throw new Error(
-      `Buyer USDC insufficient: ${buyer} has ${formatUnits(bal as bigint, 6)} USDC but this bid requires ${formatUnits(needed, 6)} USDC at execution time. ` +
-        `Collection bids do not lock USDC — the buyer must still hold the funds when you match. ` +
-        `If you are both buyer and seller, top up that wallet or cancel the bid and list without crossing.`,
-    );
+    return {
+      ok: false,
+      code: "balance",
+      message:
+        `Buyer USDC insufficient: ${buyer} has ${formatUnits(bal as bigint, 6)} USDC but this offer requires ${formatUnits(needed, 6)} USDC. ` +
+        `Offers do not lock USDC — the buyer must still hold the funds when you accept.`,
+    };
   }
   if ((allowance as bigint) < needed) {
-    throw new Error(
-      `Buyer USDC allowance too low for Seaport: ${buyer} must approve at least ${formatUnits(needed, 6)} USDC for Seaport (same as when placing the collection bid).`,
-    );
+    return {
+      ok: false,
+      code: "allowance",
+      message:
+        `Buyer USDC allowance too low for Seaport: ${buyer} must approve at least ${formatUnits(needed, 6)} USDC for Seaport.`,
+    };
   }
+  return { ok: true };
+}
+
+/**
+ * Fail early with a clear message when the buyer cannot fund the bid.
+ */
+export async function assertBuyerUsdcReadyForCriteriaBid(
+  publicClient: PublicClient,
+  bid: Order,
+  usdcAddress: Address,
+): Promise<void> {
+  const ready = await checkBuyerUsdcReadyForBid(publicClient, bid, usdcAddress);
+  if (!ready.ok) throw new Error(ready.message);
 }
 
 export async function runCriteriaMatch(params: {

@@ -33,6 +33,8 @@ export class AdminUserListQueryDto {
       'with_wallet',
       'kyc_approved',
       'kyc_pending',
+      'kyc_rejected',
+      'kyc_none',
     ],
   })
   @IsOptional()
@@ -48,6 +50,8 @@ export class AdminUserListQueryDto {
     'with_wallet',
     'kyc_approved',
     'kyc_pending',
+    'kyc_rejected',
+    'kyc_none',
   ])
   filter?:
     | 'all'
@@ -60,7 +64,9 @@ export class AdminUserListQueryDto {
     | 'unverified'
     | 'with_wallet'
     | 'kyc_approved'
-    | 'kyc_pending';
+    | 'kyc_pending'
+    | 'kyc_rejected'
+    | 'kyc_none';
 
   @ApiPropertyOptional({ default: 1, minimum: 1 })
   @IsOptional()
@@ -96,6 +102,18 @@ export class AdminLinkUserWalletDto {
   @IsString()
   @Matches(/^0x[a-fA-F0-9]{40}$/)
   address!: string;
+}
+
+export class AdminUpdateUserKycDto {
+  @ApiProperty({ enum: ['none', 'pending', 'approved', 'rejected'] })
+  @IsIn(['none', 'pending', 'approved', 'rejected'])
+  status!: 'none' | 'pending' | 'approved' | 'rejected';
+
+  @ApiPropertyOptional({ description: 'Required when status is rejected' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  reason?: string | null;
 }
 
 export class AdminUserIdParamDto {

@@ -28,11 +28,6 @@ import { parsePsaPopulationByGrade } from "@/lib/market/psaPopulationByGrade";
 import { COLLECTION_SESSION_FILL_DEDUP_SEC } from "@/lib/marketplace/collectionDetailConstants";
 import type { CollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
 import { useCollectionGradeChart } from "@/hooks/collection-grade-chart";
-import {
-  getMockCollectionMarketSeries,
-  getMockCollectionPlatformTrades,
-  isDesignMockCollectionKey,
-} from "@/lib/marketplace/collectionDetailMock";
 
 export function useCollectionDetailMarketData(params: {
   key: string;
@@ -63,19 +58,11 @@ export function useCollectionDetailMarketData(params: {
   // Fire market series in parallel with collection detail — both only need the
   // collection key, not the detail response. Guard only on confirmed errors so we
   // don't fetch data for a key that 404s.
-  const isMock = isDesignMockCollectionKey(key);
   const marketSeriesEnabled = key.length > 0 && !detailError;
 
   const { data: marketSeries, isLoading: marketSeriesLoading } = useQuery({
     queryKey: rq.collectionMarketSeries(key, MARKET_METRICS_SERIES_DURATION),
-    queryFn: async () => {
-      if (isMock) {
-        const mock = getMockCollectionMarketSeries(key);
-        if (!mock) throw new Error("Mock market series not found");
-        return mock;
-      }
-      return getCollectionMarketSeries(key, MARKET_METRICS_SERIES_DURATION);
-    },
+    queryFn: () => getCollectionMarketSeries(key, MARKET_METRICS_SERIES_DURATION),
     enabled: marketSeriesEnabled,
     staleTime: marketplaceRqPolicy.marketSeriesStaleMs,
   });
@@ -85,7 +72,7 @@ export function useCollectionDetailMarketData(params: {
     comp,
     marketSeries,
     marketSeriesLoading,
-    marketSeriesEnabled: marketSeriesEnabled && !isMock,
+    marketSeriesEnabled,
   });
 
   const activeGradeForTrades = gradeChart.activeGrade;
@@ -94,16 +81,9 @@ export function useCollectionDetailMarketData(params: {
 
   const { data: platformTradesData, isPending: platformTradesPending, isFetching: platformTradesFetching, isError: platformTradesError, error: platformTradesErrorDetail } = useQuery({
     queryKey: rq.collectionPlatformTrades(key, undefined, activeGradeForTrades),
-    queryFn: async () => {
-      if (isMock) {
-        const mock = getMockCollectionPlatformTrades(key);
-        if (!mock) throw new Error("Mock platform trades not found");
-        return mock;
-      }
-      return getCollectionPlatformTrades(key, { grade: activeGradeForTrades });
-    },
+    queryFn: () => getCollectionPlatformTrades(key, { grade: activeGradeForTrades }),
     enabled: key.length > 0,
-    refetchInterval: isMock ? false : 20_000,
+    refetchInterval: 20_000,
     refetchIntervalInBackground: false,
   });
 

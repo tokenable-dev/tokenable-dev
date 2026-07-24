@@ -261,6 +261,53 @@ export async function invalidateAfterListing(
 }
 
 /**
+ * Marketplace notifications inbox (`rq.marketplaceNotifications`).
+ * Pass `userId` when known; otherwise invalidate the whole prefix.
+ */
+export async function invalidateMarketplaceNotifications(
+  qc: QueryClient,
+  userId?: string | null,
+): Promise<void> {
+  if (userId?.trim()) {
+    await qc.invalidateQueries({
+      queryKey: rq.marketplaceNotifications(userId.trim()),
+    });
+    return;
+  }
+  await qc.invalidateQueries({ queryKey: ["marketplace-notifications"] });
+}
+
+/**
+ * After seller accept-offer settle (ask untouched until success; then book + inventory move).
+ */
+export async function invalidateAfterAcceptOffer(
+  qc: QueryClient,
+  opts: {
+    collectionKey?: string | null;
+    address?: string | null;
+    tokenId?: number;
+    userId?: string | null;
+  },
+): Promise<void> {
+  await invalidateAfterListing(qc, opts);
+  await qc.invalidateQueries({ queryKey: ["portfolio-bids"] });
+  await invalidateMarketplaceNotifications(qc, opts.userId);
+}
+
+/**
+ * After a dead token bid is invalidated (underfunded / expired).
+ * Orders book + inbox so sellers stop seeing the dead offer.
+ */
+export async function invalidateAfterDeadBid(
+  qc: QueryClient,
+  userId?: string | null,
+): Promise<void> {
+  await _invalidateOrdersAll(qc);
+  await qc.invalidateQueries({ queryKey: ["portfolio-bids"] });
+  await invalidateMarketplaceNotifications(qc, userId);
+}
+
+/**
  * After an individual order (ask or criteria bid) is cancelled from the
  * owned-RWA list modal. Refreshes orders + the specific collection depth.
  */

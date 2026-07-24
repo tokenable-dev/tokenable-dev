@@ -79,7 +79,7 @@ The frontend ABI snippet uses the old 2-arg `mint` signature. The deployed contr
 
 ### 3.1 Deprecated re-export aliases (~28 files)
 
-`frontend/providers/` is **not** a dead folder — it is the canonical home for React context providers (`AppChainProvider`, `WalletDataProvider`, `AuthProvider`, `MarketplaceQueryPersistence`), imported across the app. However, two files in it are deprecated re-export shims: `providers/PrivyProviders.tsx` (`export * from @/lib/privy/PrivyAppProviders`) and `providers/PrivyAuthBridge.tsx`.
+`frontend/providers/` is the canonical home for React context providers (`AppChainProvider`, `WalletDataProvider`, `AuthProvider`, `MarketplaceQueryPersistence`). Privy providers live under `frontend/lib/privy/` (legacy `providers/Privy*` shims removed).
 
 More broadly, ~28 files carry `@deprecated` backward-compat aliases (e.g. `PrivyProviders`, `PrivyAuthBridge`, `bootstrapRwaMintMarketData`, `adminListedRwaCards`, `SEAPORT_ORDER_DOMAIN`). These are intentional shims kept for import stability.
 

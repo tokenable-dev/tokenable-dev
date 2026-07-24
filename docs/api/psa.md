@@ -181,8 +181,13 @@ See also: [guides/troubleshooting.md](../guides/troubleshooting.md) · [guides/c
 
 ## Collection covers
 
-**Code:** `backend/src/marketplace/collections/collection-cover.service.ts`
+**Code:** `backend/src/marketplace/collections/collection-cover.service.ts`  
+**Ranking:** `backend/src/marketplace/utils/collection-image.util.ts` (`scoreCollectionCoverUrl`)
 
-Cover images are set once from Cardhedger catalog URLs (and Pokémon TCG art when applicable) on first collection creation — not refreshed on every GET.
+Cover images come from catalog HTTPS URLs (never PSA cert slabs). Resolution gathers **all** candidates (embedded Cardhedger `imageUrl`, card-details/search, Pokémon TCG `images.large` when the card looks like Pokémon) and picks the **highest score**. Bubble CDN paths ending in `/resize` are demoted when present — they are **not** assumed to always exist.
 
-**Manual override:** `POST /api/marketplace/collections/:key/admin/cover`, `admin/cover/upload` (S3), or `admin/cover/from-token`. See [catalog-cover-s3.md](../guides/catalog-cover-s3.md).
+- **Create:** best candidate is stored on first collection insert (catalog S3 when configured).
+- **Upgrade:** on later listings for the same bucket, cover is replaced only if the newly resolved URL scores higher (e.g. Bubble thumb → Pokémon TCG large).
+- **Not** refreshed on every public GET.
+
+**Manual override:** `POST /api/marketplace/collections/:key/admin/cover`, `admin/cover/upload` (S3), or `admin/cover/from-token` (`save` = force; `upgradeIfBetter` = score-based upgrade). See [catalog-cover-s3.md](../guides/catalog-cover-s3.md).

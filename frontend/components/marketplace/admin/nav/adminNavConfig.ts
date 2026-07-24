@@ -116,6 +116,12 @@ export const ADMIN_NAV_SECTIONS: AdminNavSection[] = [
         prefix: "/marketplace/admin/contract-roles",
         description: "MINTER / BURNER on TokenableRWA",
       },
+      {
+        href: "/marketplace/admin/p2p",
+        label: "P2P escrow",
+        prefix: "/marketplace/admin/p2p",
+        description: "Orders, arbiter refund",
+      },
     ],
   },
   {

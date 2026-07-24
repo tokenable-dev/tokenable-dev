@@ -8,14 +8,9 @@
  * 4. `PrivyWalletLauncher` — activate / link wallet via Privy + refresh session
  * 5. `useSeaportOrderSigner` — Seaport EIP-712 via Privy SDK
  *
- * ## Env
- * - `NEXT_PUBLIC_PRIVY_APP_ID` — required
- * - Default login: Google + email OTP (`resolvePrivyLoginMethods`)
- * - `NEXT_PUBLIC_PRIVY_LOGIN_MINIMAL=true` — email only
- * - `NEXT_PUBLIC_PRIVY_FULL_LOGIN=true` — all methods (dev)
- * - `NEXT_PUBLIC_PRIVY_WALLET_LOGIN=true` — external wallet login
- *
- * Backend mirror: `backend/src/auth/privy/`
+ * Canonical home: `frontend/lib/privy/`
+ * Backend: `backend/src/auth/privy/` (token verify) + `backend/src/privy/` (API proxy/funding)
+ * KYC/Sumsub: `frontend/lib/kyc/` + `backend/src/kyc/`
  */
 
 export {
@@ -49,7 +44,7 @@ export { createPrivySeaportSigner, type PrivySignTypedDataFn } from "./signing";
 export { useSeaportOrderSigner } from "./useSeaportOrderSigner";
 export { usePrivyWalletUnlink } from "./useWalletUnlink";
 
-export { PrivyAppProviders, PrivyProviders } from "./PrivyAppProviders";
-export { PrivySessionBridge, PrivyAuthBridge } from "./PrivySessionBridge";
+export { PrivyAppProviders } from "./PrivyAppProviders";
+export { PrivySessionBridge } from "./PrivySessionBridge";
 export { PrivySignInLauncher } from "./PrivySignInLauncher";
 export { PrivyWalletLauncher } from "./PrivyWalletLauncher";

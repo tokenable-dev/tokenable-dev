@@ -644,6 +644,27 @@ export class CollectionsController {
     if (!col) {
       throw new NotFoundException('Collection not found');
     }
+    if (body.upgradeIfBetter) {
+      try {
+        const result =
+          await this.collectionService.upgradeCollectionCoverFromToken(
+            k,
+            body.tokenId.trim(),
+          );
+        return {
+          coverImageUrl: result.coverImageUrl,
+          saved: result.upgraded,
+          upgraded: result.upgraded,
+        };
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        if (msg === 'COLLECTION_NOT_FOUND') {
+          throw new NotFoundException('Collection not found');
+        }
+        throw e;
+      }
+    }
+
     const coverImageUrl =
       await this.collectionService.adminPreviewCoverFromToken(
         body.tokenId.trim(),

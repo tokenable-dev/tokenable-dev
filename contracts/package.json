@@ -9,6 +9,8 @@
     "deploy:rwa": "hardhat run scripts/deploy-tokenable-rwa-uups.ts --network sepolia",
     "deploy:rwa:sepolia": "hardhat run scripts/deploy-tokenable-rwa-uups.ts --network sepolia",
     "deploy:rwa:mainnet": "hardhat run scripts/deploy-tokenable-rwa-uups.ts --network mainnet",
+    "deploy:escrow:sepolia": "hardhat run scripts/deploy-payment-escrow.ts --network sepolia",
+    "test:escrow": "hardhat test test/TokenablePaymentEscrow.test.ts",
     "upgrade:rwa:sepolia": "hardhat run scripts/upgrade-tokenable-rwa.ts --network sepolia",
     "upgrade:rwa:mainnet": "hardhat run scripts/upgrade-tokenable-rwa.ts --network mainnet",
     "grant-burner:sepolia": "hardhat run scripts/grant-rwa-burner-role.ts --network sepolia",

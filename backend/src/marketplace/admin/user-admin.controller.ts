@@ -18,6 +18,7 @@ import { MarketplaceAdminService } from './marketplace-admin.service';
 import {
   AdminLinkUserWalletDto,
   AdminUpdateUserDto,
+  AdminUpdateUserKycDto,
   AdminUserListQueryDto,
 } from './dto/admin-user.dto';
 import { UserAdminService } from './user-admin.service';
@@ -63,6 +64,20 @@ export class UserAdminController {
   ) {
     this.admin.assertAdminSession(req);
     return this.users.updateUser(id, body);
+  }
+
+  @ApiOperation({ summary: '[Admin] Override KYC status (audit event recorded)' })
+  @ApiParam({ name: 'id' })
+  @ApiBody({ type: AdminUpdateUserKycDto })
+  @Post(':id/kyc')
+  @HttpCode(200)
+  updateKyc(
+    @Req() req: Request,
+    @Param('id') id: string,
+    @Body() body: AdminUpdateUserKycDto,
+  ) {
+    this.admin.assertAdminSession(req);
+    return this.users.updateUserKyc(id, body);
   }
 
   @ApiOperation({ summary: '[Admin] Delete user account' })

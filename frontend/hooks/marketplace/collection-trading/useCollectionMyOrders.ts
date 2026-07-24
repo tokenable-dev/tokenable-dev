@@ -5,6 +5,7 @@ import { cancelOrder, type Order } from "@/lib/core";
 import { isCriteriaCollectionBid } from "@/lib/seaport/criteria/criteriaMatch";
 import { isCollectionBidMerkleStale } from "@/lib/seaport/criteria/collectionCriteriaRoot";
 import { useCollectionMerkleRootHex } from "@/lib/seaport/criteria/useCollectionMerkleRootHex";
+import { isTokenBidOrder } from "@/lib/seaport/orders/isTokenBidOrder";
 
 function isAskRow(o: Order): boolean {
   return String(o.side ?? "ask").toLowerCase() !== "bid";
@@ -48,14 +49,15 @@ export function useCollectionMyOrders({
           addr &&
           o.offerer.toLowerCase() === addr &&
           o.status === "active" &&
-          isCriteriaCollectionBid(o),
+          (isTokenBidOrder(o) || isCriteriaCollectionBid(o)),
       ),
     [collectionBids, addr],
   );
 
   const total = myListings.length + myBids.length;
 
-  const isBidStale = (o: Order) => isCollectionBidMerkleStale(o, currentMerkleRootHex);
+  const isBidStale = (o: Order) =>
+    isCriteriaCollectionBid(o) && isCollectionBidMerkleStale(o, currentMerkleRootHex);
 
   async function handleCancel(orderHash: string) {
     if (!address) return;

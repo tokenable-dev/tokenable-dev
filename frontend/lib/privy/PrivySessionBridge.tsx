@@ -18,7 +18,7 @@ const WALLET_CATCHUP_DELAYS_MS = [300, 600, 1000, 1500, 2000, 3000, 4000] as con
 
 /**
  * Keeps Tokenable session in sync with Privy auth.
- * Wagmi wallet alignment runs in AccountWalletAligner only (avoids duplicate setActiveWallet).
+ * Wagmi wallet alignment runs once in PrivyAppProviders (avoids duplicate setActiveWallet).
  *
  * First social login: embedded wallet often appears after the first POST /auth/privy/session.
  * We keep re-syncing until the Tokenable user has a linked wallet (or attempts are exhausted).
@@ -149,6 +149,3 @@ export function PrivySessionBridge() {
 
   return null;
 }
-
-/** @deprecated Use {@link PrivySessionBridge}. */
-export const PrivyAuthBridge = PrivySessionBridge;

@@ -90,6 +90,12 @@ PARTNER_WALLET_ENCRYPTION_KEY=
 PLATFORM_FEE_RECIPIENT=0x...
 PLATFORM_FEE_BPS=500
 
+# P2P payment escrow (after `cd contracts && pnpm deploy:escrow:sepolia`)
+# CHAIN_11155111_PAYMENT_ESCROW_ADDRESS=0x...
+# PAYMENT_ESCROW_ARBITER_PRIVATE_KEY=   # defaults to RWA_OWNER_PRIVATE_KEY
+P2P_NO_SHIP_CRON=1
+P2P_AUTO_RELEASE_CRON=1
+
 # IPFS
 PINATA_JWT=your_pinata_jwt
 PINATA_GATEWAY=your_gateway.mypinata.cloud

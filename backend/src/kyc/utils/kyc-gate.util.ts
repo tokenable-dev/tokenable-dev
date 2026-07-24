@@ -1,7 +1,10 @@
 import { ForbiddenException } from '@nestjs/common';
 import type { User } from '../../user/entities/user.entity';
 
-/** Internal staging bypass — same email as frontend `accountAccess` (remove before mainnet). */
+/**
+ * Internal staging bypass — keep in sync with
+ * `frontend/lib/auth/accountAccess.ts` INTERNAL_DEV_EMAILS (remove before mainnet).
+ */
 const KYC_DEV_BYPASS_EMAILS = new Set(['tokenable.dev@gmail.com']);
 
 export function isKycApprovedForCustody(user: User): boolean {

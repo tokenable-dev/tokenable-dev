@@ -232,7 +232,12 @@ export function CollectionRwaCard({
             </div>
             {imageUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={imageUrl} alt="" className="cd-listing-card__img" />
+              <img
+                src={imageUrl}
+                alt=""
+                className="cd-listing-card__img"
+                referrerPolicy="no-referrer"
+              />
             ) : (
               <div className="cd-listing-card__img cd-listing-card__img--empty">No image</div>
             )}
@@ -244,7 +249,12 @@ export function CollectionRwaCard({
             </div>
             {imageUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={imageUrl} alt="" className="cd-listing-card__img" />
+              <img
+                src={imageUrl}
+                alt=""
+                className="cd-listing-card__img"
+                referrerPolicy="no-referrer"
+              />
             ) : (
               <div className="cd-listing-card__img cd-listing-card__img--empty">No image</div>
             )}

@@ -3,7 +3,10 @@ import { userHasLinkedWallet } from "./wallets";
 
 export type AccountAccessLevel = 0 | 1 | 2;
 
-/** Internal dev account — pre-launch feature testing (KYC bypass, chain switcher). */
+/**
+ * Internal staging bypass for KYC + chain switcher.
+ * Must stay in sync with `backend/src/kyc/utils/kyc-gate.util.ts` (remove before mainnet).
+ */
 const INTERNAL_DEV_EMAILS = new Set(["tokenable.dev@gmail.com"]);
 
 function normalizeAuthEmail(email: string | null | undefined): string {
@@ -15,35 +18,15 @@ export function isInternalDevUser(user: AuthUser | null | undefined): boolean {
   return email.length > 0 && INTERNAL_DEV_EMAILS.has(email);
 }
 
-export function isKycDevBypassUser(user: AuthUser | null | undefined): boolean {
-  return isInternalDevUser(user);
-}
-
 /** Sepolia ↔ Ethereum mainnet picker — internal dev only until public launch. */
 export function canUseAppChainSwitcher(user: AuthUser | null | undefined): boolean {
   return isInternalDevUser(user);
 }
 
-/**
- * KYC completion — synced from backend `kyc_status` (Privy identity verification in Phase 5).
- * `tokenable.dev@gmail.com` bypasses for local/staging feature testing.
- */
+/** KYC Level 2 — `users.kyc_status === approved` (or staging bypass). */
 export function isKycComplete(user: AuthUser | null | undefined): boolean {
-  if (isKycDevBypassUser(user)) return true;
+  if (isInternalDevUser(user)) return true;
   return user?.kycStatus === "approved";
-}
-
-export function deriveAccountAccessLevel(
-  user: AuthUser | null | undefined,
-): AccountAccessLevel {
-  if (!user) return 0;
-  if (!userHasLinkedWallet(user)) return 0;
-  if (!isKycComplete(user)) return 1;
-  return 2;
-}
-
-export function hasLinkedWallet(user: AuthUser | null | undefined): boolean {
-  return userHasLinkedWallet(user);
 }
 
 export type HeaderNavMinLevel = 0 | 1 | 2;
@@ -54,7 +37,7 @@ export type HeaderNavGateResult =
   | { action: "connect-wallet"; returnTo: string }
   | { action: "kyc"; returnTo: string };
 
-/** Header nav click — maps IA account levels to the modal to show. */
+/** Header nav / access gates — maps min level to the modal to show. */
 export function resolveHeaderNavGate(
   user: AuthUser | null | undefined,
   minLevel: HeaderNavMinLevel,
@@ -66,7 +49,7 @@ export function resolveHeaderNavGate(
     return { action: "sign-in", returnTo: href };
   }
 
-  if (minLevel >= 1 && !hasLinkedWallet(user)) {
+  if (minLevel >= 1 && !userHasLinkedWallet(user)) {
     return { action: "connect-wallet", returnTo: href };
   }
 

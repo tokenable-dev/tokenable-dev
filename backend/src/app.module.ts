@@ -45,6 +45,9 @@ import { VaultRedemption } from './vault/entities/vault-redemption.entity';
 import { MarketplacePartner } from './marketplace/entities/marketplace-partner.entity';
 import { BulkMintJob } from './rwa/entities/bulk-mint-job.entity';
 import { BulkMintJobItem } from './rwa/entities/bulk-mint-job-item.entity';
+import { P2pListing } from './marketplace/entities/p2p-listing.entity';
+import { P2pOrder } from './marketplace/entities/p2p-order.entity';
+import { MarketplaceNotification } from './marketplace/entities/marketplace-notification.entity';
 
 @Module({
   imports: [
@@ -98,6 +101,9 @@ import { BulkMintJobItem } from './rwa/entities/bulk-mint-job-item.entity';
           VaultRedemption,
           BulkMintJob,
           BulkMintJobItem,
+          P2pListing,
+          P2pOrder,
+          MarketplaceNotification,
         ],
         // Schema sync is always disabled in production — use SQL migration scripts
         // under backend/sql/schema/ instead. Enabled only in non-production

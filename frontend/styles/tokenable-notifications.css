@@ -121,6 +121,15 @@
   border-bottom: 1px solid rgba(255, 255, 255, 0.04);
   cursor: pointer;
   transition: background 0.1s;
+  text-decoration: none;
+  color: inherit;
+  border-left: 0;
+  border-right: 0;
+  border-top: 0;
+  background: transparent;
+  width: 100%;
+  text-align: left;
+  font: inherit;
 }
 
 .tk-notif-item:hover {

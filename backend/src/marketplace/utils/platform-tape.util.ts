@@ -74,6 +74,29 @@ export function backfillAskTokenIdFromParameters(order: Order): boolean {
   return true;
 }
 
+/**
+ * Whether a token bid should be treated as dead for book invalidation
+ * (underfunded buyer or past Seaport endTime).
+ */
+export function isDeadTokenBidFunding(params: {
+  balance: bigint;
+  allowance: bigint;
+  needed: bigint;
+  nowSec: number;
+  endTimeSec: number;
+}): { dead: boolean; reason: 'underfunded' | 'expired' | null } {
+  if (params.endTimeSec > 0 && params.nowSec >= params.endTimeSec) {
+    return { dead: true, reason: 'expired' };
+  }
+  if (
+    params.needed > BigInt(0) &&
+    (params.balance < params.needed || params.allowance < params.needed)
+  ) {
+    return { dead: true, reason: 'underfunded' };
+  }
+  return { dead: false, reason: null };
+}
+
 /** Tape row for fulfilled ask (listing fill) or bid (collection buy / match). */
 export function resolvePlatformTapeFill(
   order: Order,

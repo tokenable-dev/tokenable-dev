@@ -306,20 +306,21 @@ export class UserService {
   ): Promise<User> {
     const user = await this.findByIdOrFail(userId);
     user.kycStatus = params.status;
-    user.kycProvider = params.provider ?? user.kycProvider ?? 'privy';
+    const provider = params.provider ?? user.kycProvider ?? 'sumsub';
+    user.kycProvider = provider;
     user.kycExternalId = params.externalId ?? user.kycExternalId;
     user.kycRejectionReason =
       params.status === 'rejected'
         ? (params.reason ?? user.kycRejectionReason)
         : null;
     user.kycVerifiedAt =
-      params.status === 'approved' ? new Date() : user.kycVerifiedAt;
+      params.status === 'approved' ? new Date() : null;
 
     await this.kycEvents.save(
       this.kycEvents.create({
         userId,
         status: params.status,
-        provider: params.provider ?? 'privy',
+        provider,
         externalId: params.externalId ?? null,
         reason: params.reason ?? null,
         payload: params.payload ?? {},

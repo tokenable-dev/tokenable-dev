@@ -95,7 +95,7 @@ export function VaultEmptyView() {
       <p>Submit your first PSA graded card to get started. We&apos;ll verify, vault, and mint your token.</p>
       <Link href="/vault/submit" className="inline-flex">
         <TkButton decorative variant="primary" size="md" className="h-[52px] px-7 text-[15px]">
-          + Submit Your First Card →
+          + Mint Your First Card →
         </TkButton>
       </Link>
     </div>

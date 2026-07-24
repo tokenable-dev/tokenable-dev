@@ -19,7 +19,7 @@ Marketplace UI is organized into **feature folders** with matching `hooks/` and 
 | Portfolio | `portfolio/` | `hooks/portfolio/`, `lib/portfolio/` |
 | Vault / mint | `vault/` | `hooks/vault/`, `lib/vault/` |
 | Marketplace admin | `marketplace/admin/` | `hooks/marketplace-admin/`, `lib/core/api/marketplace-admin-*.ts` — see [marketplace-admin.md](../guides/marketplace-admin.md) |
-| Auth / profile | `auth/`, `layout/header/wallet/` | `providers/PrivyAuthBridge`, `lib/auth/` — header uses custom wallet menu + Privy hooks |
+| Auth / profile | `auth/`, `layout/header/wallet/` | `lib/privy/PrivySessionBridge`, `lib/auth/` — header uses custom wallet menu + Privy hooks |
 | Shared chrome | `layout/`, `marketplace-shared/`, `collection-cover/` | `lib/marketplace/assetDetailHeadline.ts` |
 
 Seaport signing / fulfillment remains in **`lib/seaport/`** (orders, criteria, fulfillment).
@@ -84,7 +84,7 @@ frontend/
 ├── providers/                     # AppChainProvider, PrivyAuthBridge, PrivySignInLauncher, PrivyWalletLauncher, WalletDataProvider, …
 ├── store/                         # authStore, useAppStore
 ├── config/wagmi.ts                # Legacy wagmi config (kept for reference)
-├── config/wagmiPrivy.ts           # Privy wagmi config (active)
+├── lib/privy/config.ts            # Privy + wagmi config (canonical)
 └── constants/                     # ABIs + contract addresses
 ```
 

@@ -1,3 +1,4 @@
+import { Contract } from 'ethers';
 import { createHash } from 'crypto';
 import {
   BadRequestException,
@@ -27,17 +28,28 @@ import {
 import { CreateOrderDto } from './dto/create-order.dto';
 import { FulfillOrderQueryDto } from './dto/fulfill-order-query.dto';
 import { Order, OrderSide, OrderStatus } from '../entities/order.entity';
+import { P2pListing } from '../entities/p2p-listing.entity';
 import { orderToListItem, type OrderListItem } from '../utils/order-list.util';
 import { microsToUsdc } from '../admin/platform-analytics.util';
 import { MarketplacePartnersService } from '../partners/marketplace-partners.service';
 import { PortfolioHoldingService } from '../portfolio/portfolio-holding.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import {
   backfillAskTokenIdFromParameters,
   isCriteriaCollectionBidOrder,
+  isDeadTokenBidFunding,
   isTokenBidOrder,
   isValidDecimalTokenId,
   resolveFulfilledAskTokenId,
 } from '../utils/platform-tape.util';
+
+/** Seaport v1.5 — same canonical address used by the frontend. */
+const SEAPORT_ADDRESS = '0x00000000000000ADc04C56Bf30aC9d3c0aAF14dC';
+
+const ERC20_BALANCE_ALLOWANCE_ABI = [
+  'function balanceOf(address owner) view returns (uint256)',
+  'function allowance(address owner, address spender) view returns (uint256)',
+] as const;
 
 /** DB/API tokenId 표기(앞자리 0 등) 차이로 replace-listing이 실패하지 않도록 비교용 정규화 */
 function normalizeDecimalTokenId(raw: string): string {
@@ -55,11 +67,14 @@ export class OrdersService {
   constructor(
     @InjectRepository(Order)
     private readonly orderRepo: Repository<Order>,
+    @InjectRepository(P2pListing)
+    private readonly p2pListings: Repository<P2pListing>,
     private readonly config: ConfigService,
     private readonly collectionService: CollectionService,
     private readonly chainConfig: ChainConfigService,
     private readonly portfolioHoldings: PortfolioHoldingService,
     private readonly partners: MarketplacePartnersService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   private async withSellerDisplayNames(
@@ -129,6 +144,19 @@ export class OrdersService {
     if (side === OrderSide.ASK) {
       this.assertValidAskListing(dto, chainId);
 
+      const p2pActive = await this.p2pListings.count({
+        where: {
+          tokenContract: dto.tokenContract.toLowerCase(),
+          tokenId: String(dto.tokenId),
+          status: In(['P2P_MINTED_TK', 'P2P_LISTED', 'SOLD']),
+        },
+      });
+      if (p2pActive > 0) {
+        throw new BadRequestException(
+          `Token #${dto.tokenId} is a P2P listing — Seaport asks are not allowed`,
+        );
+      }
+
       const existing = await this.orderRepo.findOne({
         where: {
           tokenContract: dto.tokenContract,
@@ -165,6 +193,13 @@ export class OrdersService {
           collectionKeyIsNull: saved.collectionKey == null,
         }),
       );
+    }
+    if (side === OrderSide.BID && isTokenBidOrder(saved)) {
+      void this.notifications.notifyAskOwnerOfTokenBid(saved).catch((e) => {
+        this.logger.warn(
+          `notifyAskOwnerOfTokenBid failed: ${e instanceof Error ? e.message : String(e)}`,
+        );
+      });
     }
     if (side === OrderSide.ASK && saved.collectionKey?.trim()) {
       const reviewStatus = await this.collectionService.getReviewStatus(
@@ -379,7 +414,13 @@ export class OrdersService {
       await em.save(old);
 
       const order = await this.materializeOrderFromDto(dto);
-      return this.persistOrder(order, em);
+      const saved = await this.persistOrder(order, em);
+      void this.notifications.notifyAskOwnerOfTokenBid(saved).catch((e) => {
+        this.logger.warn(
+          `notifyAskOwnerOfTokenBid (replace) failed: ${e instanceof Error ? e.message : String(e)}`,
+        );
+      });
+      return saved;
     });
   }
 
@@ -805,6 +846,79 @@ export class OrdersService {
   }
 
   /**
+   * Mark an unfundable / expired token bid cancelled so sellers stop retrying it.
+   * Idempotent by order_hash. Only cancels when on-chain USDC (or endTime) proves dead.
+   */
+  async invalidateDeadBid(
+    orderHash: string,
+    callerAddress: string,
+    chainId: SupportedChainId = this.chainConfig.getDefaultChainId(),
+  ): Promise<Order> {
+    const order = await this.findByHash(orderHash);
+
+    if (order.status !== OrderStatus.ACTIVE) {
+      return order;
+    }
+    if (!isTokenBidOrder(order)) {
+      throw new BadRequestException(
+        'Only active token bids can be invalidated as dead offers',
+      );
+    }
+
+    const offer0 = (
+      order.parameters as {
+        offer?: Array<{ itemType?: number; startAmount?: string }>;
+        endTime?: string | number;
+      }
+    )?.offer?.[0];
+    let needed = BigInt(0);
+    try {
+      needed = BigInt(String(offer0?.startAmount ?? '0').trim() || '0');
+    } catch {
+      needed = BigInt(0);
+    }
+
+    const usdc = this.chainConfig.getUsdcAddress(chainId);
+    const provider = this.chainConfig.createJsonRpcProvider(chainId);
+    const erc20 = new Contract(usdc, ERC20_BALANCE_ALLOWANCE_ABI, provider);
+    const [balRaw, allowanceRaw, block] = await Promise.all([
+      erc20.balanceOf(order.offerer) as Promise<bigint>,
+      erc20.allowance(order.offerer, SEAPORT_ADDRESS) as Promise<bigint>,
+      provider.getBlock('latest'),
+    ]);
+    const nowSec = Number(block?.timestamp ?? Math.floor(Date.now() / 1000));
+    const endTimeSec = Number(
+      (order.parameters as { endTime?: string | number })?.endTime ?? 0,
+    );
+
+    const verdict = isDeadTokenBidFunding({
+      balance: BigInt(balRaw),
+      allowance: BigInt(allowanceRaw),
+      needed,
+      nowSec,
+      endTimeSec,
+    });
+    if (!verdict.dead) {
+      throw new BadRequestException(
+        'Bid still appears fundable on-chain; not invalidating',
+      );
+    }
+
+    order.status = OrderStatus.CANCELLED;
+    order.parameters = {
+      ...(order.parameters ?? {}),
+      _deadBid: true,
+      _deadBidReason: verdict.reason,
+      _deadBidBy: callerAddress.toLowerCase(),
+      _deadBidAt: new Date().toISOString(),
+    };
+    this.logger.log(
+      `invalidateDeadBid ${orderHash.slice(0, 10)}… reason=${verdict.reason} by ${callerAddress.slice(0, 10)}…`,
+    );
+    return this.orderRepo.save(order);
+  }
+
+  /**
    * Single-order fulfill (e.g. buyer fulfilling an ask listing only).
    * For criteria bid + ask matching, use fulfillMatchedPair after matchAdvancedOrders.
    */
@@ -826,6 +940,11 @@ export class OrdersService {
         _tapeFillSide: 'buy',
       };
       backfillAskTokenIdFromParameters(order);
+    } else if (order.side === OrderSide.BID) {
+      order.parameters = {
+        ...(order.parameters ?? {}),
+        _tapeFillSide: 'sell',
+      };
     }
     const saved = await this.orderRepo.save(order);
 
@@ -853,6 +972,47 @@ export class OrdersService {
         await this.seedMarketplaceBuyFromAskFill(
           buyerAddress,
           saved,
+          saved.updatedAt ?? new Date(),
+        );
+      }
+    } else if (
+      !isCriteriaCollectionBidOrder(saved) &&
+      saved.side === OrderSide.BID &&
+      Number(saved.parameters?.consideration?.[0]?.itemType) === 2
+    ) {
+      // Seller accepted a token offer via fulfillOrder(bid) — clear leftover asks/bids.
+      const tid = normalizeDecimalTokenId(String(saved.tokenId));
+      if (tid) {
+        const cleared = await this.orderRepo.update(
+          {
+            tokenContract: saved.tokenContract,
+            tokenId: tid,
+            status: OrderStatus.ACTIVE,
+            id: Not(saved.id),
+          },
+          { status: OrderStatus.CANCELLED },
+        );
+        const n = cleared.affected ?? 0;
+        if (n > 0) {
+          this.logger.log(
+            `fulfillOrder bid ${orderHash.slice(0, 10)}…: cancelled ${n} other active order(s) for token #${tid}`,
+          );
+        }
+      }
+
+      if (buyerAddress?.trim()) {
+        const offerAmt = String(
+          saved.parameters?.offer?.[0]?.startAmount ??
+            saved.considerationAmount ??
+            '0',
+        );
+        await this.seedMarketplaceBuyFromAskFill(
+          buyerAddress,
+          {
+            ...saved,
+            side: OrderSide.ASK,
+            considerationAmount: offerAmt,
+          } as Order,
           saved.updatedAt ?? new Date(),
         );
       }

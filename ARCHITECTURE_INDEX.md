@@ -21,16 +21,17 @@ Navigation guide for both humans and AI agents. Read this first before working o
 | | |
 |---|---|
 | **Documentation** | `docs/api/auth.md` |
-| **Implementation** | `backend/src/auth/`, `backend/src/privy/`, `backend/src/user/` |
-| **Frontend** | `frontend/lib/privy/`, `frontend/store/authStore.ts`, `frontend/components/auth/` |
+| **Implementation** | `backend/src/auth/` (+ `auth/privy/`), `backend/src/privy/`, `backend/src/kyc/`, `backend/src/user/` |
+| **Frontend** | `frontend/lib/privy/`, `frontend/lib/kyc/`, `frontend/store/authStore.ts`, `frontend/components/auth/`, `frontend/app/kyc/` |
 | **Database tables** | `users`, `user_wallets`, `user_auth_providers`, `user_kyc_events` |
-| **Required reading before changes** | `docs/api/auth.md`, `docs/architecture/backend.md` |
+| **Required reading before changes** | `docs/api/auth.md`, `docs/guides/sumsub-kyc.md`, `docs/architecture/backend.md` |
 
 Key facts:
 - Auth is **Privy-only** (user-facing). No Google OAuth, no email/password in production.
 - Backend issues an HttpOnly JWT cookie after verifying the Privy access token.
 - `JwtAuthGuard` protects user routes; marketplace admin uses a separate session.
 - Every Privy session syncs wallets to `user_wallets` and providers to `user_auth_providers`.
+- Sumsub lives in `backend/src/kyc/` (API + webhook); KYC status persists on `users` via `UserService.updateKycStatus`.
 
 ---
 
@@ -80,17 +81,37 @@ Key facts:
 
 | | |
 |---|---|
-| **Documentation** | `docs/api/marketplace.md`, `docs/architecture/materialized-market-snapshots.md` |
-| **Backend** | `backend/src/marketplace/orders/`, `backend/src/marketplace/collections/`, `backend/src/marketplace/snapshots/` |
-| **Frontend** | `frontend/lib/seaport/`, `frontend/hooks/unified-order-book/`, `frontend/components/marketplace/` |
-| **Database tables** | `orders`, `marketplace_collections`, `collection_market_snapshots` |
-| **Required reading before changes** | `docs/api/marketplace.md`, `docs/architecture/materialized-market-snapshots.md` |
+| **Documentation** | `docs/api/marketplace.md`, `docs/architecture/materialized-market-snapshots.md`, `docs/architecture/seaport-accept-offer.md` |
+| **Backend** | `backend/src/marketplace/orders/`, `backend/src/marketplace/collections/`, `backend/src/marketplace/snapshots/`, `backend/src/marketplace/notifications/` |
+| **Frontend** | `frontend/lib/seaport/`, `frontend/hooks/unified-order-book/`, `frontend/components/marketplace/`, `frontend/components/layout/notifications/` |
+| **Database tables** | `orders`, `marketplace_collections`, `collection_market_snapshots`, `marketplace_notifications` |
+| **Required reading before changes** | `docs/api/marketplace.md`, `docs/architecture/materialized-market-snapshots.md`, `docs/architecture/seaport-accept-offer.md` |
 
 Key facts:
-- Seaport 1.5 only; no relational bid/ask matching
+- Seaport 1.5 only for **Vault** token trades; no relational bid/ask matching
 - Settlement currency: USDC (6 decimals); platform fee = 5% via Seaport consideration
 - Market pricing is **materialized** (DB-first, not live Cardhedger calls)
 - Collection bucket (`collection_key`) is created on **first ask listing**, not at mint
+- Sellers **accept token offers without lowering the public ask** (`docs/architecture/seaport-accept-offer.md`); failed accept must not mutate the ask
+- Token-bid notifications go only to the **active ask owner** on that `tokenId` (`marketplace_notifications`)
+- Active P2P custody tokens cannot create Seaport asks
+
+---
+
+### P2P Payment Escrow
+
+| | |
+|---|---|
+| **Documentation** | `docs/architecture/p2p-payment-escrow.md`, `docs/api/p2p.md` |
+| **Contract** | `contracts/contracts/TokenablePaymentEscrow.sol` |
+| **Backend** | `backend/src/marketplace/p2p/`, `backend/src/blockchain/payment-escrow-writer.service.ts` |
+| **Frontend** | `frontend/app/p2p/`, `frontend/app/sell/p2p/`, `frontend/components/markets/MarketsP2pSection.tsx` |
+| **Database tables** | `p2p_listings`, `p2p_orders` |
+| **Required reading before changes** | `docs/architecture/p2p-payment-escrow.md` |
+
+Key facts:
+- NFT stays in custody; USDC held in `TokenablePaymentEscrow` until confirm / timeout / arbiter refund
+- Deploy: `cd contracts && pnpm deploy:escrow:sepolia` then set `CHAIN_{id}_PAYMENT_ESCROW_ADDRESS`
 
 ---
 
@@ -141,6 +162,7 @@ Key facts:
 - Portfolio **hero value + 24h change** use snapshot series only (not live sum)
 - Per-asset **My Assets P/L** uses `portfolio_holdings` cost basis vs live mark
 - Hidden holdings are off-chain UI preferences; NFT stays in wallet
+- Accept-offer deep link: `/portfolio?acceptBid=&tokenId=` (+ optional `askHash`) — see `docs/architecture/seaport-accept-offer.md`
 
 ---
 
@@ -268,7 +290,7 @@ Key facts:
 | Partner consignment (mint+list) | `docs/api/marketplace-admin.md` (partners + bulk mint), `backend/src/marketplace/partners/`, `backend/src/rwa/bulk-mint/`, `backend/src/rwa/admin/bulk-mint-admin.controller.ts` |
 | Smart contract | `docs/architecture/blockchain.md`, `contracts/test/TokenableRWA.test.ts` |
 | Database schema | `docs/architecture/database.md`, existing schema file(s) in that domain |
-| Marketplace trading | `docs/api/marketplace.md`, `docs/architecture/materialized-market-snapshots.md` |
+| Marketplace trading | `docs/api/marketplace.md`, `docs/architecture/materialized-market-snapshots.md`, `docs/architecture/seaport-accept-offer.md` |
 | Admin RWA ops | `docs/api/marketplace-admin.md`, `backend/src/marketplace/collections/rwa-token-admin.service.ts` |
 | PSA integration | `docs/api/psa.md`, `backend/src/psa/psa-public-api.service.ts` |
 | Frontend state | `frontend/store/authStore.ts`, `frontend/lib/core/queryKeys.ts`, `frontend/lib/core/invalidation.ts` |

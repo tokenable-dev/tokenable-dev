@@ -9,7 +9,7 @@ import {
   resolveHeaderNavGate,
   type HeaderNavMinLevel,
 } from "@/lib/auth/accountAccess";
-import { refreshPrivyAuthSession } from "@/lib/auth/refreshPrivyAuthSession";
+import { refreshPrivyAuthSession } from "@/lib/privy/session";
 import { userHasLinkedWallet } from "@/lib/auth/wallets";
 import { resolveWalletSessionGate } from "@/lib/auth/walletSessionGate";
 import { useAuthStore } from "@/store/authStore";

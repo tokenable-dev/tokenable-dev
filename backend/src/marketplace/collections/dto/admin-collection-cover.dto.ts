@@ -3,8 +3,8 @@ import { IsBoolean, IsOptional, IsString } from 'class-validator';
 
 export class AdminSetCollectionCoverDto {
   @ApiProperty({
-    description: 'HTTPS 또는 ipfs:// 커버 URL (marketplace_collections에 저장)',
-    example: 'https://example.com/card.png',
+    description: 'HTTPS 카탈로그 커버 URL (marketplace_collections에 저장; PSA cert slab / IPFS 불가)',
+    example: 'https://images.pokemontcg.io/sv3pt5/199/large.png',
   })
   @IsString()
   coverImageUrl: string;
@@ -22,6 +22,15 @@ export class AdminPreviewCollectionCoverFromTokenDto {
   @IsOptional()
   @IsBoolean()
   save?: boolean;
+
+  @ApiPropertyOptional({
+    description:
+      'true면 현재 cover보다 점수가 높을 때만 저장 (화질 업그레이드). save보다 우선.',
+    default: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  upgradeIfBetter?: boolean;
 }
 
 export class AdminDeleteCollectionDto {

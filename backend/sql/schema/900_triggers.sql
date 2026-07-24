@@ -76,6 +76,18 @@ CREATE TRIGGER trg_vault_redemptions_updated_at
   FOR EACH ROW
   EXECUTE PROCEDURE tokenable_set_updated_at();
 
+DROP TRIGGER IF EXISTS trg_p2p_listings_updated_at ON p2p_listings;
+CREATE TRIGGER trg_p2p_listings_updated_at
+  BEFORE UPDATE ON p2p_listings
+  FOR EACH ROW
+  EXECUTE PROCEDURE tokenable_set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_p2p_orders_updated_at ON p2p_orders;
+CREATE TRIGGER trg_p2p_orders_updated_at
+  BEFORE UPDATE ON p2p_orders
+  FOR EACH ROW
+  EXECUTE PROCEDURE tokenable_set_updated_at();
+
 DROP TRIGGER IF EXISTS trg_cardhedger_price_delta_checkpoints_updated_at ON cardhedger_price_delta_checkpoints;
 CREATE TRIGGER trg_cardhedger_price_delta_checkpoints_updated_at
   BEFORE UPDATE ON cardhedger_price_delta_checkpoints

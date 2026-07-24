@@ -56,9 +56,9 @@ Seaport  → wagmi + viem (Privy wagmi connector; MetaMask via Privy external wa
 | `frontend/lib/privy/` | Privy config, session bridge, sign-in/wallet launchers, wagmi config, signing utilities |
 | `frontend/lib/privy/PrivyAppProviders.tsx` | Root Privy + wagmi + QueryClient provider tree |
 | `frontend/lib/privy/PrivySessionBridge.tsx` | Syncs Privy auth state → Tokenable `access_token` cookie |
-| `frontend/providers/PrivyAuthBridge.tsx` | Re-sync on wallet list changes; returnTo redirect |
-| `frontend/providers/PrivySignInLauncher.tsx` | Global `openSignIn()` → Privy `login()` |
-| `frontend/providers/PrivyWalletLauncher.tsx` | Global `openConnectWallet()` → Privy `linkWallet()` |
+| `frontend/lib/privy/PrivySessionBridge.tsx` | Re-sync on wallet list changes; returnTo redirect |
+| `frontend/lib/privy/PrivySignInLauncher.tsx` | Global `openSignIn()` → Privy `login()` |
+| `frontend/lib/privy/PrivyWalletLauncher.tsx` | Global `openConnectWallet()` → Privy `linkWallet()` |
 | `frontend/components/auth/PrivyAuthEntryPage.tsx` | `/login`, `/signup` entry UI (replaces `EmailAuthForm`) |
 | `frontend/components/auth/PrivyWalletMismatchModal.tsx` | Switch / unlink wallet via Privy (replaces `WalletMismatchModal`) |
 | `frontend/hooks/auth/usePrivyWalletUnlink.ts` | Privy `unlinkWallet` + session refresh |

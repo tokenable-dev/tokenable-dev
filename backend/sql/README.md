@@ -14,6 +14,7 @@ sql/
 │   ├── 020_vault.sql             # vault_assets, vault_cycles, vault_redemptions
 │   ├── 030_rwa_tokens.sql        # on-chain mint registry
 │   ├── 040_marketplace.sql       # collections, market snapshots, orders
+│   ├── 045_p2p.sql               # P2P listings + payment-escrow orders
 │   ├── 050_portfolio.sql         # portfolio snapshots, hidden holdings, watchlist
 │   ├── 060_admin.sql             # marketplace_admins
 │   ├── 064_marketplace_partners.sql  # consignment partners (encrypted keys)

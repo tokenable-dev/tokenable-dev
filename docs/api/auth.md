@@ -142,7 +142,7 @@ Provider: **Sumsub** (`kyc_provider = 'sumsub'`). Applicant id: `users.kyc_exter
 Audit trail in `user_kyc_events` (append-only). Updated via:
 - `POST /api/webhooks/sumsub` — Sumsub `applicantReviewed` / pending events (HMAC)
 - `UserService.updateKycStatus()` (admin action)
-- Admin UI: `/api/marketplace/admin/users/:id` + KYC actions
+- Admin UI: `/marketplace/admin/users` — KYC fields, event log, `POST …/users/:id/kyc` override
 
 User-facing flow:
 - `GET /api/kyc/status` — JWT

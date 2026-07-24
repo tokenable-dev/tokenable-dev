@@ -27,7 +27,7 @@ pnpm start:dev
 
 **Site access:** optional staging gate — **`SITE_ACCESS_ENABLED`**. See **[../docs/api/site-access.md](../docs/api/site-access.md)**.
 
-**Collection covers:** **`CollectionCoverService`** sets display images from Cardhedger catalog URLs and Pokémon TCG HTTPS art at first listing.
+**Collection covers:** **`CollectionCoverService`** picks the best catalog URL (Pokémon TCG `large` preferred over Cardhedger; Bubble `/resize` demoted when present) at first listing and upgrades on later listings when a higher-scoring URL is found.
 
 > **Docker:** the production `Dockerfile` installs Playwright browsers under `PLAYWRIGHT_BROWSERS_PATH=/ms-playwright`. Local dev: `pnpm run install:browsers`.
 
