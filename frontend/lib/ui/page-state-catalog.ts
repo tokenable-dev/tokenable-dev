@@ -16,6 +16,7 @@ export type AppPageStateKind =
   | "markets_crash"
   | "app_crash"
   | "unauthorized"
+  | "vault_coming_soon"
   | "generic";
 
 export type AppPageStateIcon = "search" | "hourglass" | "warning" | "offline" | "lock" | "crash";
@@ -137,6 +138,13 @@ export const PAGE_STATE_CATALOG: Record<AppPageStateKind, AppPageStateDefinition
     title: "Sign in required",
     message: "You need to sign in to view this page.",
     primaryAction: { label: "Markets", href: "/markets", variant: "neutral" },
+  },
+  vault_coming_soon: {
+    icon: "hourglass",
+    title: "Coming soon",
+    message: "Vault is not available yet. We're preparing this feature for launch.",
+    primaryAction: { label: "Browse Markets", href: "/markets", variant: "primary" },
+    secondaryAction: { label: "Portfolio", href: "/portfolio", variant: "neutral" },
   },
   generic: {
     icon: "warning",

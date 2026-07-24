@@ -2,6 +2,10 @@
 
 import { useCallback } from "react";
 import { useRouter } from "next/navigation";
+import {
+  notifyVaultComingSoon,
+  VAULT_PUBLIC_ENABLED,
+} from "@/lib/vault/vaultAccess";
 import { useAccessGate } from "./useAccessGate";
 
 export function useSellAccessGate(returnTo = "/vault") {
@@ -10,6 +14,10 @@ export function useSellAccessGate(returnTo = "/vault") {
   const { canAccess, runAccessGate } = useAccessGate(1, returnTo);
 
   const navigateToVault = useCallback(() => {
+    if (!VAULT_PUBLIC_ENABLED) {
+      notifyVaultComingSoon();
+      return;
+    }
     runAccessGate(() => router.push("/vault"));
   }, [runAccessGate, router]);
 

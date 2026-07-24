@@ -12,6 +12,11 @@ import {
 import { refreshPrivyAuthSession } from "@/lib/privy/session";
 import { userHasLinkedWallet } from "@/lib/auth/wallets";
 import { resolveWalletSessionGate } from "@/lib/auth/walletSessionGate";
+import {
+  isVaultPublicPath,
+  notifyVaultComingSoon,
+  VAULT_PUBLIC_ENABLED,
+} from "@/lib/vault/vaultAccess";
 import { useAuthStore } from "@/store/authStore";
 import { useAuthUiStore } from "@/store/authUiStore";
 
@@ -28,6 +33,11 @@ export function useHeaderNavGate() {
 
   return useCallback(
     (href: string, minLevel: HeaderNavMinLevel) => {
+      if (!VAULT_PUBLIC_ENABLED && isVaultPublicPath(href)) {
+        notifyVaultComingSoon();
+        return;
+      }
+
       const applyGate = (subject: AuthUser | null | undefined) => {
         const gate = resolveHeaderNavGate(subject, minLevel, href);
         switch (gate.action) {
