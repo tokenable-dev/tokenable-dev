@@ -185,4 +185,4 @@ See also: [guides/troubleshooting.md](../guides/troubleshooting.md) · [guides/c
 
 Cover images are set once from Cardhedger catalog URLs (and Pokémon TCG art when applicable) on first collection creation — not refreshed on every GET.
 
-**Manual override:** `POST /api/marketplace/collections/:key/admin/cover` or `admin/cover/from-token`.
+**Manual override:** `POST /api/marketplace/collections/:key/admin/cover`, `admin/cover/upload` (S3), or `admin/cover/from-token`. See [catalog-cover-s3.md](../guides/catalog-cover-s3.md).

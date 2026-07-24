@@ -5,41 +5,17 @@ import Link from "next/link";
 import { TkButton, TkTag } from "@/components/ds";
 import { useIsMobileViewport } from "@/hooks/ui/useIsMobileViewport";
 import { VaultBreadcrumb } from "@/components/vault/VaultBreadcrumb";
-import { VaultBadge } from "@/components/vault/VaultBadge";
-import { VaultDemoToggle } from "@/components/vault/VaultDemoToggle";
 import { VaultStepper } from "@/components/vault/VaultStepper";
 import { VaultThumb } from "@/components/vault/VaultThumb";
 import {
   buildPackageCards,
-  resolveDetailScenarioKey,
   VAULT_DETAIL_SCENARIOS,
   type VaultDetailScenario,
   type VaultDetailScenarioKey,
   type VaultPackageCard,
 } from "@/lib/vault/vaultDetailScenarios";
-import {
-  MOCK_SUBMISSION_ID,
-  VAULT_DETAIL_SHIP_ADDRESS,
-} from "@/lib/vault/vaultMockData";
+import { VAULT_DETAIL_SHIP_ADDRESS } from "@/lib/vault/vaultMockData";
 import { cn } from "@/lib/ds/cn";
-
-const SCENARIO_OPTIONS: { id: VaultDetailScenarioKey; label: string }[] = [
-  { id: "A", label: "A·Draft" },
-  { id: "B", label: "B·Pending" },
-  { id: "C", label: "C·Transit" },
-  { id: "D", label: "D·Review" },
-  { id: "E", label: "E·Approved" },
-  { id: "F", label: "F·Rejected" },
-  { id: "G", label: "G·Minted" },
-  { id: "H", label: "H·Failed" },
-  { id: "early", label: "Early Reject" },
-];
-
-const PKG_CARDS = [
-  { name: "1999 POKEMON BASE SET 1ST EDITION #4 CHARIZARD HOLO", imageUrl: "", grade: "PSA 10", cert: "12345678" },
-  { name: "2023 POKEMON PROMO SVP #085 PIKACHU VAN GOGH", imageUrl: "", grade: "PSA 9", cert: "22938102" },
-  { name: "2003 TOPPS CHROME #111 LEBRON JAMES ROOKIE", imageUrl: "", grade: "PSA 10", cert: "55501248" },
-];
 
 function DetailHero({ hero }: { hero: VaultDetailScenario["hero"] }) {
   return (
@@ -130,21 +106,9 @@ function PackageInfoCard() {
   return (
     <div className="vault-card-box vault-detail-package">
       <div className="vault-detail-package__head">
-        <span className="vault-detail-package__meta">3 cards · Est. $87,512</span>
-        <span className="vault-detail-package__date">Submitted Jun 10, 2026</span>
+        <span className="vault-detail-package__meta">No cards in this submission</span>
       </div>
-      {PKG_CARDS.map((card, i) => (
-        <div key={card.cert} className={cn("vault-detail-package__row", i > 0 && "vault-detail-package__row--border")}>
-          <div className="vault-detail-package__thumb">
-            <VaultThumb src={card.imageUrl} width={40} height={56} className="h-full w-full object-contain" />
-          </div>
-          <div className="vault-detail-package__name">{card.name}</div>
-          <TkTag tone="neutral" appearance="soft" className="vault-detail-grade-tag">
-            {card.grade}
-          </TkTag>
-          <span className="mono vault-detail-package__cert">#{card.cert}</span>
-        </div>
-      ))}
+      <p className="px-1 py-3 text-sm text-white/40">Package cards will appear when live submission data is available.</p>
     </div>
   );
 }
@@ -165,7 +129,7 @@ function ShipToCard() {
       </div>
       <div className="vault-detail-ship-to__id">
         <span>Submission ID </span>
-        <span className="mono vault-detail-ship-to__id-val">{MOCK_SUBMISSION_ID}</span>
+        <span className="mono vault-detail-ship-to__id-val">—</span>
       </div>
       <p className="vault-detail-ship-to__warn">
         Include your Submission ID on the outside of the package. Do not redirect to any other address.
@@ -211,14 +175,7 @@ function TrackingCard({ ship }: { ship: "pending" | "intransit" }) {
         </svg>
         <span>Tracking registered</span>
       </div>
-      <a
-        href="https://www.fedex.com/fedextrack/?trknbr=FX123456789"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="mono vault-detail-tracking-link"
-      >
-        FedEx · FX123456789 ↗
-      </a>
+      <span className="mono vault-detail-tracking-link">Tracking details pending</span>
       <button type="button" className="vault-detail-tracking-change tk-btn tk-btn--subtle tk-btn--sm">
         Change Tracking
       </button>
@@ -637,73 +594,16 @@ function LayoutB({ scenario }: { scenario: VaultDetailScenario }) {
   );
 }
 
-const EARLY_REJECT_CARD = {
-  name: "1999 POKEMON BASE SET 1ST EDITION #4 CHARIZARD HOLO",
-  grade: "PSA 8",
-  cert: "12345678",
-  imageUrl: "",
-};
-
-function EarlyRejectTimeline() {
-  return (
-    <div className="vault-detail-timeline">
-      <div className="vault-tl-step">
-        <div className="vault-tl-rail">
-          <div className="vault-tl-dot vault-tl-dot--done" />
-          <div className="vault-tl-line vault-tl-line--muted" />
-        </div>
-        <div className="vault-tl-body">
-          <div className="vault-tl-phase vault-tl-phase--muted">SUBMIT</div>
-          <div className="vault-tl-title">Submitted</div>
-          <div className="vault-tl-meta">
-            <span className="vault-tl-time">2026-06-10 09:14</span>
-            <VaultBadge tone="user">USER</VaultBadge>
-          </div>
-          <div className="vault-tl-desc">Card info submitted · Cert #{EARLY_REJECT_CARD.cert}</div>
-        </div>
-      </div>
-      <div className="vault-tl-step">
-        <div className="vault-tl-rail">
-          <div className="vault-tl-dot vault-tl-dot--rejected" />
-        </div>
-        <div className="vault-tl-body">
-          <div className="vault-tl-title">Not Accepted</div>
-          <div className="vault-tl-meta">
-            <span className="vault-tl-time">2026-06-10 09:15</span>
-            <VaultBadge tone="system">SYSTEM</VaultBadge>
-          </div>
-          <div className="vault-tl-desc">PSA 8 confirmed — we currently only accept PSA 9 and above</div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function EarlyRejectView() {
   return (
     <>
       <VaultBreadcrumb
         variant="flow"
-        items={[{ label: "My Vault", href: "/vault" }, { label: MOCK_SUBMISSION_ID }]}
+        items={[{ label: "My Vault", href: "/vault" }, { label: "Submission" }]}
       />
       <div className="vault-detail-grid">
         <div className="vault-detail-main">
           <h1 className="vault-detail-page-title">Submission Detail</h1>
-          <div className="vault-detail-summary">
-            <div className="vault-detail-summary__img">
-              <VaultThumb src={EARLY_REJECT_CARD.imageUrl} width={56} height={78} className="h-full w-full object-contain" />
-            </div>
-            <div className="vault-detail-summary__body">
-              <div className="vault-detail-summary__name">{EARLY_REJECT_CARD.name}</div>
-              <div className="vault-detail-summary__meta">
-                <VaultBadge tone="neutral">{EARLY_REJECT_CARD.grade}</VaultBadge>
-                <span className="vault-detail-summary__cert">Cert #{EARLY_REJECT_CARD.cert}</span>
-                <VaultBadge tone="neutral" className="vault-badge--polygon">
-                  Polygon
-                </VaultBadge>
-              </div>
-            </div>
-          </div>
           <div className="vault-detail-status-hero vault-detail-status-hero--rejected">
             <div className="vault-detail-status-hero__head">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="2" aria-hidden>
@@ -714,44 +614,17 @@ function EarlyRejectView() {
               <div className="vault-detail-status-hero__title">Not Eligible for Vault</div>
             </div>
             <p className="vault-detail-status-hero__desc">
-              This card is graded PSA 8. We currently accept PSA 9 and PSA 10 only. Your card will be returned to you.
+              We currently accept PSA 9 and PSA 10 only. Ineligible cards are returned to the submitter.
             </p>
           </div>
           <VaultStepper variant="rejected" active={1} />
-          <span className="vault-detail-section-label">Timeline</span>
-          <EarlyRejectTimeline />
         </div>
 
         <aside className="vault-detail-aside">
-          <div className="vault-card-box vault-detail-aside-image">
-            <div className="vault-detail-aside-image__frame">
-              <VaultThumb src={EARLY_REJECT_CARD.imageUrl} width={200} height={280} className="h-full w-full object-contain" />
-            </div>
-          </div>
-          <div className="vault-card-box">
-            <span className="vault-detail-section-label vault-detail-section-label--box">Card Details</span>
-            <div className="vault-detail-row">
-              <span className="vault-detail-k">Graded By</span>
-              <span className="vault-detail-v">PSA · 8</span>
-            </div>
-            <div className="vault-detail-row">
-              <span className="vault-detail-k">Cert #</span>
-              <span className="vault-detail-v mono">{EARLY_REJECT_CARD.cert}</span>
-            </div>
-            <div className="vault-detail-row">
-              <span className="vault-detail-k">Vault</span>
-              <span className="vault-detail-v mono text-white/50">Delaware · Lloyd&apos;s</span>
-            </div>
-            <div className="vault-detail-row">
-              <span className="vault-detail-k">Status</span>
-              <span className="vault-detail-v text-white/50">Not eligible</span>
-            </div>
-          </div>
           <div className="vault-card-box">
             <span className="vault-detail-section-label vault-detail-section-label--box">What Happened</span>
             <p className="vault-detail-what-happened">
-              We currently accept PSA 9 and PSA 10 graded cards. This card (PSA 8) doesn&apos;t meet the minimum grade.
-              We&apos;ll return it to you shortly.
+              We currently accept PSA 9 and PSA 10 graded cards. Cards below that grade are returned.
             </p>
           </div>
           <div className="vault-detail-aside-actions">
@@ -760,15 +633,6 @@ function EarlyRejectView() {
                 Submit Another Card →
               </TkButton>
             </Link>
-            <TkButton decorative variant="subtle" size="md" className="h-[42px] w-full justify-center text-[13px]">
-              Contact Support
-            </TkButton>
-          </div>
-          <div className="vault-detail-delivery-note">
-            <strong>Card Return</strong>
-            <br />
-            Your card will be returned to the address on file. Return shipping costs are the submitter&apos;s
-            responsibility. Please allow 7–10 business days for processing.
           </div>
         </aside>
       </div>
@@ -778,46 +642,37 @@ function EarlyRejectView() {
 
 
 export function VaultDetailDesignView({
-  initialScenario = "G",
+  initialScenario = "A",
 }: {
   initialScenario?: VaultDetailScenarioKey;
 }) {
-  const [scenarioKey, setScenarioKey] = useState<VaultDetailScenarioKey>(initialScenario);
+  const scenarioKey = initialScenario === "early" ? "early" : initialScenario;
 
   if (scenarioKey === "early") {
-    return (
-      <>
-        <EarlyRejectView />
-        <VaultDemoToggle options={SCENARIO_OPTIONS} value={scenarioKey} onChange={setScenarioKey} />
-      </>
-    );
+    return <EarlyRejectView />;
   }
 
-  const scenario = VAULT_DETAIL_SCENARIOS[scenarioKey];
+  const scenario = VAULT_DETAIL_SCENARIOS[scenarioKey] ?? VAULT_DETAIL_SCENARIOS.A;
   const shellClass =
     scenario.layout === "A" ? "vault-detail-page--layout-a" : "vault-detail-page--layout-b";
 
   return (
-    <>
-      <div className={shellClass}>
-        <VaultBreadcrumb
-          variant="flow"
-          items={[{ label: "My Vault", href: "/vault" }, { label: MOCK_SUBMISSION_ID }]}
-        />
+    <div className={shellClass}>
+      <VaultBreadcrumb
+        variant="flow"
+        items={[{ label: "My Vault", href: "/vault" }, { label: "Submission" }]}
+      />
 
-        <h1 className="vault-detail-page-title">Submission Detail</h1>
+      <h1 className="vault-detail-page-title">Submission Detail</h1>
 
-        {scenario.layout === "A" ? (
-          <LayoutAContent scenario={scenario} />
-        ) : (
-          <>
-            <LayoutB scenario={scenario} />
-            <CtaRow ctas={scenario.cta} />
-          </>
-        )}
-      </div>
-
-      <VaultDemoToggle options={SCENARIO_OPTIONS} value={scenarioKey} onChange={setScenarioKey} />
-    </>
+      {scenario.layout === "A" ? (
+        <LayoutAContent scenario={scenario} />
+      ) : (
+        <>
+          <LayoutB scenario={scenario} />
+          <CtaRow ctas={scenario.cta} />
+        </>
+      )}
+    </div>
   );
 }

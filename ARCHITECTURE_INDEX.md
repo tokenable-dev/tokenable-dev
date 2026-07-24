@@ -209,10 +209,10 @@ Key facts:
 
 | | |
 |---|---|
-| **Documentation** | `docs/guides/marketplace-admin.md`, `docs/api/marketplace-admin.md` |
+| **Documentation** | `docs/guides/marketplace-admin.md`, `docs/api/marketplace-admin.md`, `docs/guides/catalog-cover-s3.md` |
 | **Route** | `/marketplace/admin` (separate auth from user session) |
 | **Nav config** | `frontend/components/marketplace/admin/nav/adminNavConfig.ts` (grouped sidebar) |
-| **Backend** | `backend/src/marketplace/admin/`, `backend/src/marketplace/collections/rwa-token-admin.controller.ts` |
+| **Backend** | `backend/src/marketplace/admin/`, `backend/src/marketplace/collections/rwa-token-admin.controller.ts`, `catalog-cover-s3.service.ts` |
 
 ---
 

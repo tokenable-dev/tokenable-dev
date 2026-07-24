@@ -51,18 +51,13 @@ function CheckIcon() {
 }
 
 function resolveLookupCard(cert: string): LookupCard {
-  const rejected = cert.startsWith("999");
   return {
     cert,
-    name: rejected
-      ? "1952 TOPPS #311 MICKEY MANTLE ROOKIE"
-      : cert.startsWith("229")
-        ? "2023 POKEMON PROMO SVP #085 PIKACHU WITH GREY FELT HAT VAN GOGH"
-        : "1999 POKEMON BASE SET 1ST EDITION #4 CHARIZARD HOLO",
-    grade: rejected ? "PSA 8" : cert.startsWith("229") ? "PSA 9" : "PSA 10",
-    rejected,
+    name: `PSA Certificate #${cert}`,
+    grade: "—",
+    rejected: false,
     confirmed: false,
-    value: rejected ? 0 : cert.startsWith("229") ? 1900 : 25376,
+    value: 0,
     imageUrl: "",
   };
 }
@@ -71,10 +66,6 @@ function formatEstValue(raw: string): string {
   const digits = raw.replace(/[^0-9]/g, "");
   if (!digits) return "";
   return parseInt(digits, 10).toLocaleString("en-US");
-}
-
-function formatRefUsd(total: number): string {
-  return `$${total.toLocaleString("en-US")}`;
 }
 
 export function VaultSubmitDesignView() {
@@ -116,13 +107,7 @@ export function VaultSubmitDesignView() {
     estValueNum > 0 &&
     tosAccepted;
 
-  const estValueRef = useMemo(() => {
-    const total = validCards.reduce((sum, c) => sum + c.value, 0);
-    if (validCards.length > 0) {
-      return `Used for insurance and PSA records. Reference: combined market value ~${formatRefUsd(total)}`;
-    }
-    return "Used for insurance and PSA records.";
-  }, [validCards]);
+  const estValueRef = "Used for insurance and PSA records.";
 
   const pushCard = useCallback((cert: string) => {
     if (lookupCards.length >= MAX_CARDS) return;
@@ -148,12 +133,11 @@ export function VaultSubmitDesignView() {
     if (lookupCards.length >= MAX_CARDS || scanCapturing) return;
     setScanCapturing(true);
     window.setTimeout(() => {
-      const mockCerts = ["12345678", "22938102", "55501248"];
-      pushCard(mockCerts[lookupCards.length % mockCerts.length]!);
+      // Camera OCR is not wired yet — close scanner without inventing cert data.
       setScanCapturing(false);
       setScanOpen(false);
-    }, 1500);
-  }, [lookupCards.length, pushCard, scanCapturing]);
+    }, 800);
+  }, [lookupCards.length, scanCapturing]);
 
   const toggleConfirm = useCallback((index: number) => {
     setLookupCards((prev) =>
@@ -378,7 +362,7 @@ export function VaultSubmitDesignView() {
             </label>
             <div className="vault-wallet-connected">
               <span className="vault-wallet-avatar" aria-hidden />
-              <span className="mono vault-wallet-connected__addr">0x7Fb3…3aE2</span>
+              <span className="mono vault-wallet-connected__addr">Connected wallet</span>
               <div className="vault-wallet-connected__status">
                 <CheckIcon />
                 <span>Connected</span>

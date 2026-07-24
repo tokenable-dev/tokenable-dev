@@ -2,6 +2,13 @@ import { backendFetch, getApiUrl } from "./client";
 import type { Order } from "./orders";
 import type { CollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
 
+export type CollectionReviewStatus =
+  | "pending_review"
+  | "active"
+  | "rejected";
+
+export type CollectionReviewStatusFilter = CollectionReviewStatus | "all";
+
 export interface MarketplaceCollectionSummary {
   collectionKey: string;
   displayLabel: string;
@@ -13,12 +20,16 @@ export interface MarketplaceCollectionSummary {
   coverImageUrl?: string | null;
   /** UI image: persisted catalog cover only (PSA spec / Cardhedger — never cert slab). */
   displayImageUrl?: string | null;
+  /** Markets visibility gate. Public lists only return `active`. */
+  reviewStatus?: CollectionReviewStatus;
 }
 
 /** Graded metadata-based collection summaries (cursor pagination). */
 export async function getMarketplaceCollectionsPage(opts?: {
   cursor?: string | null;
   limit?: number;
+  /** Admin session required for non-`active` values. */
+  reviewStatus?: CollectionReviewStatusFilter;
 }): Promise<{
   items: MarketplaceCollectionSummary[];
   nextCursor: string | null;
@@ -26,6 +37,7 @@ export async function getMarketplaceCollectionsPage(opts?: {
   const sp = new URLSearchParams();
   if (opts?.cursor) sp.set("cursor", opts.cursor);
   if (opts?.limit != null) sp.set("limit", String(opts.limit));
+  if (opts?.reviewStatus) sp.set("reviewStatus", opts.reviewStatus);
   const q = sp.toString();
   const res = await backendFetch(
     `${getApiUrl()}/marketplace/collections${q ? `?${q}` : ""}`,
@@ -34,6 +46,41 @@ export async function getMarketplaceCollectionsPage(opts?: {
   return res.json() as Promise<{
     items: MarketplaceCollectionSummary[];
     nextCursor: string | null;
+  }>;
+}
+
+export async function getAdminCollectionReviewCounts(): Promise<
+  Record<CollectionReviewStatus, number>
+> {
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/collections/admin/review-counts`,
+  );
+  if (!res.ok) throw new Error("Failed to fetch review counts");
+  return res.json() as Promise<Record<CollectionReviewStatus, number>>;
+}
+
+export async function postAdminSetCollectionReviewStatus(
+  collectionKey: string,
+  body: { reviewStatus: CollectionReviewStatus },
+): Promise<{ collectionKey: string; reviewStatus: CollectionReviewStatus }> {
+  const enc = encodeURIComponent(collectionKey);
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/collections/${enc}/admin/review`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    },
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(
+      (err as { message?: string }).message ?? "Failed to update review status",
+    );
+  }
+  return res.json() as Promise<{
+    collectionKey: string;
+    reviewStatus: CollectionReviewStatus;
   }>;
 }
 
@@ -68,6 +115,7 @@ export interface MarketplaceCollectionDetail {
     createdAt: string;
     /** Persisted cover; stable once set. Prefer this over recomputed fallback in UI when present. */
     coverImageUrl?: string | null;
+    reviewStatus?: CollectionReviewStatus;
   } | null;
   listings: Order[];
   /** ERC721_WITH_CRITERIA collection bids */
@@ -125,6 +173,33 @@ export async function postAdminSetCollectionCover(
     const err = await res.json().catch(() => ({}));
     throw new Error(
       (err as { message?: string }).message ?? "Failed to set collection cover",
+    );
+  }
+  return res.json() as Promise<{ collectionKey: string; coverImageUrl: string | null }>;
+}
+
+/** Admin: upload local image to S3 and persist as collection cover. */
+export async function postAdminUploadCollectionCover(
+  collectionKey: string,
+  file: File,
+): Promise<{ collectionKey: string; coverImageUrl: string | null }> {
+  const enc = encodeURIComponent(collectionKey);
+  const body = new FormData();
+  body.append("file", file);
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/collections/${enc}/admin/cover/upload`,
+    {
+      method: "POST",
+      body,
+    },
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    const message = (err as { message?: string | string[] }).message;
+    throw new Error(
+      Array.isArray(message)
+        ? message.join(", ")
+        : (message ?? "Failed to upload collection cover"),
     );
   }
   return res.json() as Promise<{ collectionKey: string; coverImageUrl: string | null }>;

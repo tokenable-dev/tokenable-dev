@@ -1,5 +1,4 @@
 import type { VaultStepDef } from "@/lib/vault/vaultStepSpec";
-import { MOCK_SUBMISSION_ID } from "@/lib/vault/vaultMockData";
 
 export type VaultDetailScenarioKey = "A" | "B" | "C" | "D" | "E" | "F" | "G" | "H" | "early";
 
@@ -46,25 +45,6 @@ const POS = "pos" as const;
 const AZ = "azure" as const;
 const NEG = "neg" as const;
 const DIM = "dim" as const;
-
-const PKG_CHAR = {
-  name: "1999 POKEMON BASE SET 1ST EDITION #4 CHARIZARD HOLO",
-  imageUrl: "",
-  grade: "PSA 10",
-  cert: "12345678",
-};
-const PKG_PIKA = {
-  name: "2023 POKEMON PROMO SVP #085 PIKACHU VAN GOGH",
-  imageUrl: "",
-  grade: "PSA 9",
-  cert: "22938102",
-};
-const PKG_LEB = {
-  name: "2003 TOPPS CHROME #111 LEBRON JAMES ROOKIE",
-  imageUrl: "",
-  grade: "PSA 10",
-  cert: "55501248",
-};
 
 export const VAULT_DETAIL_SCENARIOS: Record<Exclude<VaultDetailScenarioKey, "early">, VaultDetailScenario> = {
   A: {
@@ -135,7 +115,7 @@ export const VAULT_DETAIL_SCENARIOS: Record<Exclude<VaultDetailScenarioKey, "ear
       tone: "info",
       icon: "spin",
       title: "PSA Reviewing Cards",
-      sub: `${MOCK_SUBMISSION_ID} · 3 cards`,
+      sub: "Submission under review",
     },
     steps: [
       { label: "Submit", state: "done", sub: "VERIFIED", subColor: POS },
@@ -218,7 +198,7 @@ export const VAULT_DETAIL_SCENARIOS: Record<Exclude<VaultDetailScenarioKey, "ear
       tone: "success",
       icon: "check",
       title: "Minting Complete",
-      sub: "3 tokens sent to 0x7Fb…3aE2",
+      sub: "Tokens minted to your wallet",
     },
     steps: [
       { label: "Submit", state: "done", sub: "VERIFIED", subColor: POS },
@@ -257,39 +237,9 @@ export const VAULT_DETAIL_SCENARIOS: Record<Exclude<VaultDetailScenarioKey, "ear
   },
 };
 
-export function buildPackageCards(scenario: VaultDetailScenario): VaultPackageCard[] {
-  const base = [PKG_CHAR, PKG_PIKA, PKG_LEB];
-  switch (scenario.key) {
-    case "D":
-      return base.map((c, i) => ({ id: i, ...c, status: "reviewing" as const }));
-    case "E":
-      return base.map((c, i) => ({ id: i, ...c, status: "approved" as const }));
-    case "F":
-      return base.map((c, i) => ({
-        id: i,
-        ...c,
-        grade: "PSA 8",
-        status: "rejected" as const,
-        reason: "Grade below PSA 9 minimum",
-        submittedGrade: c.grade,
-      }));
-    case "G":
-      return base.map((c, i) => ({
-        id: i,
-        ...c,
-        status: "completed" as const,
-        token: `#0${421 + i}`,
-      }));
-    case "H":
-      return base.map((c, i) => ({
-        id: i,
-        ...c,
-        status: i < 2 ? ("completed" as const) : ("failed" as const),
-        token: i < 2 ? `#0${421 + i}` : undefined,
-      }));
-    default:
-      return [];
-  }
+/** No mock package cards — live submission cards will populate this later. */
+export function buildPackageCards(_scenario: VaultDetailScenario): VaultPackageCard[] {
+  return [];
 }
 
 export function resolveDetailScenarioKey(
@@ -300,6 +250,5 @@ export function resolveDetailScenarioKey(
   if (s && s in VAULT_DETAIL_SCENARIOS) return s as Exclude<VaultDetailScenarioKey, "early">;
   if (legacyView === "rejected") return "early";
   if (legacyView === "completed") return "G";
-  // Vault-Detail.html defaults to G when hash is empty
-  return "G";
+  return "A";
 }

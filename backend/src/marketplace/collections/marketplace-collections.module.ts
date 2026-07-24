@@ -19,6 +19,7 @@ import { CollectionMarketService } from './collection-market.service';
 import { CollectionMerkleSetService } from './collection-merkle-set.service';
 import { CollectionBootService } from './collection-boot.service';
 import { CollectionComponentsService } from './collection-components.service';
+import { CatalogCoverS3Service } from './catalog-cover-s3.service';
 import { CollectionCoverService } from './collection-cover.service';
 import { CollectionEnrichmentService } from './collection-enrichment.service';
 import { CollectionIdentityService } from './collection-identity.service';
@@ -85,6 +86,7 @@ import { MintEventListenerService } from './mint-event-listener.service';
     IdentityCacheWarmupService,
     IdentityStructuredLogger,
     CollectionMerkleSetService,
+    CatalogCoverS3Service,
     CollectionCoverService,
     CollectionComponentsService,
     CollectionBootService,

@@ -1,5 +1,11 @@
 import { Column, CreateDateColumn, Entity, Index, PrimaryColumn } from 'typeorm';
 
+/** Public Markets visibility gate — new inserts start as `pending_review`. */
+export type CollectionReviewStatus =
+  | 'pending_review'
+  | 'active'
+  | 'rejected';
+
 /**
  * graded 메타 기준 논리 컬렉션 — 첫 매도(ask) 등록 시 생성된다.
  * collection_key === `computeMarketBucketKey(components)` (풀 입찰 버킷과 동일 경계)
@@ -51,6 +57,19 @@ export class MarketplaceCollection {
   /** `BUCKET_KEY_VERSION` used when this row was created / last migrated. */
   @Column({ name: 'bucket_key_version', type: 'smallint', default: 2 })
   bucketKeyVersion: number;
+
+  /**
+   * Admin review gate for Markets/Home discovery.
+   * New listings create `pending_review`; existing rows default `active`.
+   */
+  @Index()
+  @Column({
+    name: 'review_status',
+    type: 'varchar',
+    length: 32,
+    default: 'active',
+  })
+  reviewStatus: CollectionReviewStatus;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

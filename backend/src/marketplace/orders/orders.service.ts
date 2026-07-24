@@ -139,6 +139,14 @@ export class OrdersService {
         }),
       );
     }
+    if (side === OrderSide.ASK && saved.collectionKey?.trim()) {
+      const reviewStatus = await this.collectionService.getReviewStatus(
+        saved.collectionKey,
+      );
+      return Object.assign(saved, {
+        reviewStatus: reviewStatus ?? 'active',
+      });
+    }
     return saved;
   }
 
@@ -265,7 +273,12 @@ export class OrdersService {
           }),
         );
       }
-      return saved;
+      const reviewStatus = await this.collectionService.getReviewStatus(
+        saved.collectionKey!,
+      );
+      return Object.assign(saved, {
+        reviewStatus: reviewStatus ?? 'active',
+      });
     });
   }
 

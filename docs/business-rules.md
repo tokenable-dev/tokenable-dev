@@ -108,6 +108,15 @@ Admin cannot burn or deliver an NFT that has an active Seaport listing.
 - Pre-check in `RwaTokenAdminService` before on-chain calls
 - **Why:** User must cancel listing first to prevent griefing
 
+### BR-11b: New Collections Require Admin Review Before Markets
+
+A new `marketplace_collections` row created on first ask starts as `review_status = pending_review`.
+
+- Sellers may still create/manage asks while pending
+- Home / Markets / public collection lists only show `review_status = active`
+- Admin approves (`active`) or rejects (`rejected`) from Marketplace Admin → Collections
+- Existing rows default to `active` so legacy catalog stays public
+
 ---
 
 ## Authentication Rules

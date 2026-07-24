@@ -92,6 +92,15 @@ PLATFORM_FEE_BPS=500
 PINATA_JWT=your_pinata_jwt
 PINATA_GATEWAY=your_gateway.mypinata.cloud
 
+# Catalog collection covers (optional — Admin Collections S3 upload)
+# See docs/guides/catalog-cover-s3.md
+# AWS_REGION=ap-northeast-2
+# AWS_ACCESS_KEY_ID=
+# AWS_SECRET_ACCESS_KEY=
+# CATALOG_COVER_S3_BUCKET=tokenable-catalog-covers
+# CATALOG_COVER_S3_PREFIX=dev/covers/
+# CATALOG_COVER_PUBLIC_BASE_URL=https://YOUR_CLOUDFRONT_OR_S3_BASE
+
 # PSA — multi-token pool (comma-separated; each ~1 req/day free tier)
 PSA_PUBLIC_API_TOKENS=token1,token2
 # PSA_PUBLIC_API_UPSTREAM_ENABLED=true
@@ -164,6 +173,8 @@ NEXT_PUBLIC_PLATFORM_FEE_BPS=500
 # Optional
 # NEXT_PUBLIC_GA_MEASUREMENT_ID=G-XXXXXXXXXX
 # NEXT_PUBLIC_API_URL=   (leave unset — uses window.location.origin + "/api")
+# Catalog mock covers from S3 (same public base as backend CATALOG_COVER_PUBLIC_BASE_URL)
+# NEXT_PUBLIC_CATALOG_COVER_PUBLIC_BASE_URL=https://YOUR_CLOUDFRONT_OR_S3_BASE
 ```
 
 > **Note:** `NEXT_PUBLIC_*` variables are embedded at **build time**, not runtime. Changing them requires a `pnpm dev` restart (dev) or rebuild (production).

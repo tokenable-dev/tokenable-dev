@@ -6,13 +6,18 @@ import {
   Logger,
   NotFoundException,
   BadRequestException,
+  ServiceUnavailableException,
   Param,
   Post,
   Query,
   Req,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiBody,
+  ApiConsumes,
   ApiOperation,
   ApiParam,
   ApiQuery,
@@ -25,6 +30,7 @@ import { CardhedgerAiInsightService } from '../market-data/cardhedger-ai-insight
 import type { AiInsightPlatformContext } from '../market-data/cardhedger-ai-insight.types';
 import { CardhedgerMarketDataService } from '../market-data/cardhedger-market-data.service';
 import { PortfolioMarketBatchDto } from '../portfolio/dto/portfolio-market-batch.dto';
+import { CATALOG_COVER_MAX_BYTES } from './catalog-cover-s3.service';
 import { CollectionMarketService } from './collection-market.service';
 import { CollectionService } from './collection.service';
 import { MintEventListenerService } from './mint-event-listener.service';
@@ -36,7 +42,9 @@ import {
   AdminDeleteCollectionDto,
   AdminPreviewCollectionCoverFromTokenDto,
   AdminSetCollectionCoverDto,
+  AdminSetCollectionReviewStatusDto,
 } from './dto/admin-collection-cover.dto';
+import type { CollectionReviewStatus } from '../entities/marketplace-collection.entity';
 import { apiBodyDefault } from '../../swagger/api-body.util';
 import { SWAGGER_BODY_EXAMPLES } from '../../swagger/examples';
 import { SWAGGER_FIXTURES } from '../../swagger/fixtures';
@@ -118,14 +126,23 @@ export class CollectionsController {
     }
   }
 
-  /** 컬렉션 목록 (커서 페이지) */
+  /** 컬렉션 목록 (커서 페이지). Public: active only. Admin cookie + reviewStatus filter for moderation. */
   @ApiOperation({ summary: '컬렉션 목록' })
   @ApiQuery({ name: 'limit', required: false, example: 30, description: '페이지당 건수' })
   @ApiQuery({ name: 'cursor', required: false, example: '', description: '다음 페이지 커서' })
+  @ApiQuery({
+    name: 'reviewStatus',
+    required: false,
+    example: 'active',
+    description:
+      'Public always active. With admin session: pending_review | active | rejected | all',
+  })
   @Get('collections')
   listCollections(
+    @Req() req: Request,
     @Query('limit') limitRaw?: string,
     @Query('cursor') cursor?: string,
+    @Query('reviewStatus') reviewStatusRaw?: string,
     @Headers(CHAIN_ID_HEADER) chainHeader?: string,
   ) {
     const parsed =
@@ -133,11 +150,37 @@ export class CollectionsController {
         ? parseInt(String(limitRaw), 10)
         : 30;
     const limit = Number.isFinite(parsed) ? parsed : 30;
+    const isAdmin = this.marketplaceAdmin.hasAdminSession(req);
+    const raw = (reviewStatusRaw ?? '').trim().toLowerCase();
+    const allowed = new Set([
+      'pending_review',
+      'active',
+      'rejected',
+      'all',
+    ]);
+    const reviewStatus =
+      isAdmin && allowed.has(raw)
+        ? (raw as 'pending_review' | 'active' | 'rejected' | 'all')
+        : 'active';
     return this.collectionService.listSummariesPaged({
       limit,
       cursor: cursor?.trim() || null,
       chainId: this.chainConfig.resolveChainId(chainHeader),
+      reviewStatus,
     });
+  }
+
+  /** Admin: counts by review_status for Collections filter chips */
+  @ApiOperation({ summary: '[Admin] 컬렉션 review_status 카운트' })
+  @Get('collections/admin/review-counts')
+  async adminCollectionReviewCounts(
+    @Req() req: Request,
+    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
+  ) {
+    this.assertAdminSession(req);
+    return this.collectionService.countByReviewStatus(
+      this.chainConfig.resolveChainId(chainHeader),
+    );
   }
 
   /** 목록용 시장 스냅샷 배치 (등급·스파크라인 등) */
@@ -443,6 +486,132 @@ export class CollectionsController {
       ) {
         throw new BadRequestException('Invalid cover image URL');
       }
+      if (msg === 'CATALOG_COVER_S3_NOT_CONFIGURED') {
+        throw new ServiceUnavailableException(
+          'Catalog cover S3 is not configured (set CATALOG_COVER_S3_BUCKET and CATALOG_COVER_PUBLIC_BASE_URL)',
+        );
+      }
+      if (
+        msg === 'CATALOG_COVER_FETCH_FAILED' ||
+        msg === 'CATALOG_COVER_FILE_TYPE_INVALID' ||
+        msg === 'CATALOG_COVER_FILE_TOO_LARGE' ||
+        msg === 'CATALOG_COVER_FILE_EMPTY'
+      ) {
+        throw new BadRequestException(
+          msg === 'CATALOG_COVER_FETCH_FAILED'
+            ? 'Could not download cover image from the provided URL'
+            : msg === 'CATALOG_COVER_FILE_TOO_LARGE'
+              ? 'Cover image must be 8MB or smaller'
+              : msg === 'CATALOG_COVER_FILE_TYPE_INVALID'
+                ? 'Cover image must be JPEG, PNG, or WebP'
+                : 'Invalid cover image URL',
+        );
+      }
+      throw e;
+    }
+  }
+
+  /** 관리자: 로컬 파일을 S3에 업로드하고 coverImageUrl로 저장 */
+  @ApiOperation({ summary: '[Admin] 커버 이미지 S3 업로드' })
+  @ApiParam({ name: 'key', description: 'collection_key', example: SWAGGER_FIXTURES.collectionKey })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['file'],
+      properties: {
+        file: { type: 'string', format: 'binary', description: 'JPEG / PNG / WebP (max 8MB)' },
+      },
+    },
+  })
+  @Post('collections/:key/admin/cover/upload')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: CATALOG_COVER_MAX_BYTES },
+      fileFilter: (_req, file, cb) => {
+        const allowed = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+        cb(null, allowed.includes(file.mimetype));
+      },
+    }),
+  )
+  async adminUploadCollectionCover(
+    @Req() req: Request,
+    @Param('key') key: string,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    this.assertAdminSession(req);
+    const k = this.normalizeKey(key);
+    try {
+      const col = await this.collectionService.uploadCollectionCoverImageAdmin(
+        k,
+        file as Express.Multer.File,
+      );
+      return {
+        collectionKey: col.collectionKey,
+        coverImageUrl: col.coverImageUrl,
+      };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg === 'COLLECTION_NOT_FOUND') {
+        throw new NotFoundException('Collection not found');
+      }
+      if (msg === 'CATALOG_COVER_S3_NOT_CONFIGURED') {
+        throw new ServiceUnavailableException(
+          'Catalog cover S3 is not configured (set CATALOG_COVER_S3_BUCKET and CATALOG_COVER_PUBLIC_BASE_URL)',
+        );
+      }
+      if (
+        msg === 'CATALOG_COVER_FILE_EMPTY' ||
+        msg === 'CATALOG_COVER_FILE_TOO_LARGE' ||
+        msg === 'CATALOG_COVER_FILE_TYPE_INVALID' ||
+        msg === 'COLLECTION_COVER_URL_INVALID'
+      ) {
+        throw new BadRequestException(
+          msg === 'CATALOG_COVER_FILE_TOO_LARGE'
+            ? 'Cover image must be 8MB or smaller'
+            : msg === 'CATALOG_COVER_FILE_TYPE_INVALID'
+              ? 'Cover image must be JPEG, PNG, or WebP'
+              : 'Invalid cover image upload',
+        );
+      }
+      throw e;
+    }
+  }
+
+  /** 관리자: Markets 공개 여부 승인/거절 */
+  @ApiOperation({ summary: '[Admin] 컬렉션 review_status 설정' })
+  @ApiParam({ name: 'key', description: 'collection_key', example: SWAGGER_FIXTURES.collectionKey })
+  @ApiBody({ type: AdminSetCollectionReviewStatusDto })
+  @Post('collections/:key/admin/review')
+  async adminSetCollectionReviewStatus(
+    @Req() req: Request,
+    @Param('key') key: string,
+    @Body() body: AdminSetCollectionReviewStatusDto,
+  ) {
+    this.assertAdminSession(req);
+    const k = this.normalizeKey(key);
+    const next = body.reviewStatus as CollectionReviewStatus;
+    if (
+      next !== 'pending_review' &&
+      next !== 'active' &&
+      next !== 'rejected'
+    ) {
+      throw new BadRequestException('Invalid reviewStatus');
+    }
+    try {
+      const col = await this.collectionService.setCollectionReviewStatusAdmin(
+        k,
+        next,
+      );
+      return {
+        collectionKey: col.collectionKey,
+        reviewStatus: col.reviewStatus,
+      };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg === 'COLLECTION_NOT_FOUND') {
+        throw new NotFoundException('Collection not found');
+      }
       throw e;
     }
   }
@@ -472,14 +641,37 @@ export class CollectionsController {
       return { coverImageUrl: null, saved: false };
     }
     if (body.save) {
-      const updated = await this.collectionService.setCollectionCoverImageAdmin(
-        k,
-        coverImageUrl,
-      );
-      return {
-        coverImageUrl: updated.coverImageUrl,
-        saved: true,
-      };
+      try {
+        const updated = await this.collectionService.setCollectionCoverImageAdmin(
+          k,
+          coverImageUrl,
+        );
+        return {
+          coverImageUrl: updated.coverImageUrl,
+          saved: true,
+        };
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        if (msg === 'CATALOG_COVER_S3_NOT_CONFIGURED') {
+          throw new ServiceUnavailableException(
+            'Catalog cover S3 is not configured (set CATALOG_COVER_S3_BUCKET and CATALOG_COVER_PUBLIC_BASE_URL)',
+          );
+        }
+        if (
+          msg === 'CATALOG_COVER_FETCH_FAILED' ||
+          msg === 'CATALOG_COVER_FILE_TYPE_INVALID' ||
+          msg === 'CATALOG_COVER_FILE_TOO_LARGE' ||
+          msg === 'CATALOG_COVER_FILE_EMPTY' ||
+          msg === 'COLLECTION_COVER_URL_INVALID'
+        ) {
+          throw new BadRequestException(
+            msg === 'CATALOG_COVER_FETCH_FAILED'
+              ? 'Could not download cover image from Cardhedger/TCG URL'
+              : 'Invalid cover image',
+          );
+        }
+        throw e;
+      }
     }
     return { coverImageUrl, saved: false };
   }

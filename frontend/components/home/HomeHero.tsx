@@ -16,16 +16,14 @@ export function HomeHero() {
         <div className="home-hero__inner">
           <h1 className="home-hero__title">
             <span className="home-hero__title-lines home-hero__title-lines--desktop">
-              Onchain markets
-              <br />
-              to Trade
+              Markets to trade
               <br />
               Gems and Grails.
             </span>
             <span className="home-hero__title-lines home-hero__title-lines--mobile">
-              Onchain markets to
+              Markets to trade
               <br />
-              trade Gems and Grails.
+              Gems and Grails.
             </span>
           </h1>
 
@@ -43,7 +41,7 @@ export function HomeHero() {
               variant="primary"
               className="!h-[58px] !px-[30px] !text-[17px]"
             >
-              Browse the market <span className="tkl-mono text-[19px]">↗</span>
+              Browse Markets <span className="tkl-mono text-[19px]">↗</span>
             </TkButton>
             <a href="#home-features" className="home-hero__link">
               How it works

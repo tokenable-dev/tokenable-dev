@@ -33,7 +33,10 @@ import {
 import { enrichCollectionComponentsForApi } from '../utils/collection-row.util';
 import { CollectionMarketSnapshot } from '../entities/collection-market-snapshot.entity';
 import { Order, OrderSide, OrderStatus } from '../entities/order.entity';
-import { MarketplaceCollection } from '../entities/marketplace-collection.entity';
+import {
+  MarketplaceCollection,
+  type CollectionReviewStatus,
+} from '../entities/marketplace-collection.entity';
 import { RwaToken } from '../entities/rwa-token.entity';
 import { RwaTokenRegistryService } from './rwa-token-registry.service';
 import { CollectionMerkleSetService } from './collection-merkle-set.service';
@@ -57,7 +60,12 @@ export interface CollectionSummary {
   coverImageUrl: string | null;
   /** Resolved UI image: persisted catalog cover only (never PSA cert slab). */
   displayImageUrl: string | null;
+  reviewStatus: CollectionReviewStatus;
 }
+
+export type CollectionReviewStatusFilter =
+  | CollectionReviewStatus
+  | 'all';
 
 /**
  * Collection bucket lifecycle facade: CRUD summaries, listing ensure, order reads, admin delete.
@@ -113,7 +121,7 @@ export class CollectionService {
    * 매도(ask) 등록 시: 메타에서 버킷·컬렉션 라벨 문구를 읽어 컬렉션 행을 만들고 key 반환.
    * graded 없으면 null (호출부에서 listing 거부).
    *
-   * Cover: Cardhedger/Pokémon TCG resolve is fire-and-forget in background.
+   * Cover: resolve Cardhedger/TCG image, download, store on catalog S3 (when configured).
    * PSA cert snapshot upstream refresh is async — listing POST must stay within API timeout.
    */
   async ensureCollectionForListing(tokenId: string): Promise<string | null> {
@@ -164,7 +172,10 @@ export class CollectionService {
       );
     }
     const ch = cardhedgerFromRwaMetadata(meta);
-    const coverImageUrl = await this.cover.resolveCoverUrlFromMeta(meta);
+    const coverImageUrl = await this.cover.resolveCoverUrlForNewCollection(
+      collectionKey,
+      meta,
+    );
 
     const compRecord: Record<string, unknown> = {
       ...(components as unknown as Record<string, unknown>),
@@ -286,6 +297,8 @@ export class CollectionService {
         psaCertNumber: psaCert ?? null,
         marketParallelKey: parallelKey,
         bucketKeyVersion: BUCKET_KEY_VERSION,
+        // New buckets need admin review before Markets/Home discovery.
+        reviewStatus: 'pending_review',
       })
       .orIgnore()
       .execute();
@@ -388,6 +401,8 @@ export class CollectionService {
     limit?: number;
     cursor?: string | null;
     chainId?: SupportedChainId;
+    /** Public callers must pass `active`. Admin may pass pending_review / rejected / all. */
+    reviewStatus?: CollectionReviewStatusFilter;
   }): Promise<{
     items: CollectionSummary[];
     nextCursor: string | null;
@@ -399,18 +414,32 @@ export class CollectionService {
 
     const cur = input.cursor?.trim();
     const chainFilter = this.chainScopedCollectionSql(rwaContract);
+    const reviewFilter = input.reviewStatus ?? 'active';
+    const reviewParams =
+      reviewFilter === 'all'
+        ? {}
+        : { reviewStatus: reviewFilter };
+    const reviewSql =
+      reviewFilter === 'all' ? 'TRUE' : 'c.review_status = :reviewStatus';
+
     if (cur) {
       try {
         const { ca, ck } = this.decodeCollectionCursor(cur);
         qb.where(
-          `${chainFilter} AND (c.created_at < :ca OR (c.created_at = :ca AND c.collection_key > :ck))`,
-          { rwaContract, ca, ck },
+          `${chainFilter} AND ${reviewSql} AND (c.created_at < :ca OR (c.created_at = :ca AND c.collection_key > :ck))`,
+          { rwaContract, ca, ck, ...reviewParams },
         );
       } catch {
-        qb.where(chainFilter, { rwaContract });
+        qb.where(`${chainFilter} AND ${reviewSql}`, {
+          rwaContract,
+          ...reviewParams,
+        });
       }
     } else {
-      qb.where(chainFilter, { rwaContract });
+      qb.where(`${chainFilter} AND ${reviewSql}`, {
+        rwaContract,
+        ...reviewParams,
+      });
     }
 
     qb.orderBy('c.created_at', 'DESC')
@@ -435,25 +464,87 @@ export class CollectionService {
     const keys = page.map((c) => c.collectionKey.toLowerCase());
     const countMap = await this.activeAskCountsForKeys(keys, rwaContract);
 
-    const items: CollectionSummary[] = page.map((c) => {
-      const components = enrichCollectionComponentsForApi(
-        c.components,
-        c.psaCertNumber,
-      );
-      const coverImageUrl = c.coverImageUrl ?? null;
-      return {
-        collectionKey: c.collectionKey,
-        displayLabel: c.displayLabel,
-        queryUsed: c.queryUsed,
-        components,
-        createdAt: c.createdAt,
-        activeListingCount: countMap.get(c.collectionKey.toLowerCase()) ?? 0,
-        coverImageUrl,
-        displayImageUrl: pickCollectionDisplayImageUrl(coverImageUrl),
-      };
-    });
+    const items: CollectionSummary[] = page.map((c) =>
+      this.toCollectionSummary(c, countMap),
+    );
 
     return { items, nextCursor };
+  }
+
+  private toCollectionSummary(
+    c: MarketplaceCollection,
+    countMap: Map<string, number>,
+  ): CollectionSummary {
+    const components = enrichCollectionComponentsForApi(
+      c.components,
+      c.psaCertNumber,
+    );
+    const coverImageUrl = c.coverImageUrl ?? null;
+    const status = (c.reviewStatus ?? 'active') as CollectionReviewStatus;
+    return {
+      collectionKey: c.collectionKey,
+      displayLabel: c.displayLabel,
+      queryUsed: c.queryUsed,
+      components,
+      createdAt: c.createdAt,
+      activeListingCount: countMap.get(c.collectionKey.toLowerCase()) ?? 0,
+      coverImageUrl,
+      displayImageUrl: pickCollectionDisplayImageUrl(coverImageUrl),
+      reviewStatus: status,
+    };
+  }
+
+  async countByReviewStatus(
+    chainId?: SupportedChainId,
+  ): Promise<Record<CollectionReviewStatus, number>> {
+    const resolvedChainId = chainId ?? this.chainConfig.getDefaultChainId();
+    const rwaContract = this.chainConfig
+      .getRwaAddress(resolvedChainId)
+      .toLowerCase();
+    const rows = await this.collectionRepo
+      .createQueryBuilder('c')
+      .select('c.review_status', 'status')
+      .addSelect('COUNT(*)::int', 'cnt')
+      .where(this.chainScopedCollectionSql(rwaContract), { rwaContract })
+      .groupBy('c.review_status')
+      .getRawMany<{ status: string; cnt: number }>();
+    const out: Record<CollectionReviewStatus, number> = {
+      pending_review: 0,
+      active: 0,
+      rejected: 0,
+    };
+    for (const r of rows) {
+      const s = r.status as CollectionReviewStatus;
+      if (s in out) out[s] = Number(r.cnt) || 0;
+    }
+    return out;
+  }
+
+  async setCollectionReviewStatusAdmin(
+    collectionKey: string,
+    reviewStatus: CollectionReviewStatus,
+  ): Promise<MarketplaceCollection> {
+    const k = collectionKey.toLowerCase();
+    const row = await this.findOne(k);
+    if (!row) throw new Error('COLLECTION_NOT_FOUND');
+    await this.collectionRepo.update(
+      { collectionKey: k },
+      { reviewStatus },
+    );
+    const refreshed = await this.findOne(k);
+    if (!refreshed) throw new Error('COLLECTION_NOT_FOUND');
+    return refreshed;
+  }
+
+  async getReviewStatus(
+    collectionKey: string,
+  ): Promise<CollectionReviewStatus | null> {
+    const row = await this.collectionRepo.findOne({
+      where: { collectionKey: collectionKey.toLowerCase() },
+      select: ['collectionKey', 'reviewStatus'],
+    });
+    if (!row) return null;
+    return (row.reviewStatus ?? 'active') as CollectionReviewStatus;
   }
 
   private async activeAskCountsForKeys(
@@ -516,21 +607,7 @@ export class CollectionService {
     for (const key of ordered) {
       const c = rowByKey.get(key);
       if (!c) continue;
-      const components = enrichCollectionComponentsForApi(
-        c.components,
-        c.psaCertNumber,
-      );
-      const coverImageUrl = c.coverImageUrl ?? null;
-      items.push({
-        collectionKey: c.collectionKey,
-        displayLabel: c.displayLabel,
-        queryUsed: c.queryUsed,
-        components,
-        createdAt: c.createdAt,
-        activeListingCount: countMap.get(key) ?? 0,
-        coverImageUrl,
-        displayImageUrl: pickCollectionDisplayImageUrl(coverImageUrl),
-      });
+      items.push(this.toCollectionSummary(c, countMap));
     }
     return items;
   }
@@ -680,6 +757,13 @@ export class CollectionService {
     coverImageUrl: string,
   ): Promise<MarketplaceCollection> {
     return this.cover.setCollectionCoverImageAdmin(collectionKey, coverImageUrl);
+  }
+
+  async uploadCollectionCoverImageAdmin(
+    collectionKey: string,
+    file: Express.Multer.File,
+  ): Promise<MarketplaceCollection> {
+    return this.cover.uploadCollectionCoverImageAdmin(collectionKey, file);
   }
 
   async adminPreviewCoverFromToken(

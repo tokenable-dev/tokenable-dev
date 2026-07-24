@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import type { Address } from "viem";
 import { pickCollectionDetailDisplayImageUrl } from "@/lib/marketplace/collectionDisplayImage";
 import { readRememberedCollectionCoverImage } from "@/lib/marketplace/collectionCoverSession";
-import { mockCoverSearchFromCollection } from "@/lib/home/withMockCoverImages";
+import { catalogCoverSearchFromCollection } from "@/lib/marketplace/catalogCoverSearch";
 import { COLLECTION_DETAIL_SHELL_CLASS } from "@/constants/layout";
 import { useCollectionCoverGallery } from "@/hooks/collection-detail/useCollectionCoverGallery";
 import { useCatalogCoverUrl } from "@/hooks/media/useCatalogCoverUrl";
@@ -74,7 +74,7 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
     pickCollectionDetailDisplayImageUrl(data) || rememberedCoverUrl;
   const catalogCoverSearch = useMemo(
     () =>
-      mockCoverSearchFromCollection({
+      catalogCoverSearchFromCollection({
         collectionKey,
         displayLabel: collection.displayLabel,
         components: collection.components,
@@ -198,6 +198,17 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
           categoryLabel={headline.collectionCategoryBadge}
           trailLabel={headline.headlineSetLine ?? headline.subtitle ?? headline.collectionHeadlineDisplayTitle}
         />
+        {collection.reviewStatus === "pending_review" ||
+        collection.reviewStatus === "rejected" ? (
+          <div
+            className="mb-4 rounded-lg border border-amber-400/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-50"
+            role="status"
+          >
+            {collection.reviewStatus === "pending_review"
+              ? "This collection is under review and is not yet listed on Markets."
+              : "This collection was not approved for Markets."}
+          </div>
+        ) : null}
         {headline.collectionHeadlineDisplayTitle ? (
           <div className="cd-page-headline">
             {headline.collectionHeadlineParts ? (

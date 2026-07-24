@@ -5,9 +5,16 @@ import {
   postAdminCollectionCoverFromToken,
   postAdminDeleteCollection,
   postAdminSetCollectionCover,
+  postAdminUploadCollectionCover,
 } from "@/lib/core";
 
-export type AdminCoverBusyState = "url" | "fetch" | "apply" | "delete" | null;
+export type AdminCoverBusyState =
+  | "url"
+  | "upload"
+  | "fetch"
+  | "apply"
+  | "delete"
+  | null;
 
 export function useCollectionAdminCover({
   collectionKey,
@@ -33,6 +40,21 @@ export function useCollectionAdminCover({
     } catch (e) {
       setError(e instanceof Error ? e.message : "Save failed");
       return false;
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function uploadCoverFile(file: File): Promise<string | null> {
+    setBusy("upload");
+    setError(null);
+    try {
+      const res = await postAdminUploadCollectionCover(collectionKey, file);
+      onSaved();
+      return res.coverImageUrl;
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Upload failed");
+      return null;
     } finally {
       setBusy(null);
     }
@@ -78,5 +100,13 @@ export function useCollectionAdminCover({
     }
   }
 
-  return { busy, error, setError, saveCoverUrl, fetchCoverFromToken, deleteCollection };
+  return {
+    busy,
+    error,
+    setError,
+    saveCoverUrl,
+    uploadCoverFile,
+    fetchCoverFromToken,
+    deleteCollection,
+  };
 }

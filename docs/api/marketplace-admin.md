@@ -179,6 +179,23 @@ Removed legacy admin tools: password reset, set password, resend verification em
 
 ---
 
+## Collection review + covers
+
+These routes live on `CollectionsController` (not under `/admin/*` path prefix) but require the same admin session cookie (except public list).
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/marketplace/collections?reviewStatus=` | Public: always `active`. Admin: `pending_review` \| `active` \| `rejected` \| `all` |
+| GET | `/api/marketplace/collections/admin/review-counts` | Admin counts by status |
+| POST | `/api/marketplace/collections/:key/admin/review` | Set `{ reviewStatus }` |
+| POST | `/api/marketplace/collections/:key/admin/cover` | External URL → ingest/overwrite S3 → persist public URL |
+| POST | `/api/marketplace/collections/:key/admin/cover/upload` | Multipart `file` → overwrite stable S3 key → persist public URL |
+| POST | `/api/marketplace/collections/:key/admin/cover/from-token` | Resolve cover from RWA token metadata (save ingests to S3) |
+
+New collections start as `pending_review` on first ask; create-time cover is ingested to S3 when configured. See [catalog-cover-s3.md](../guides/catalog-cover-s3.md) and BR-11b.
+
+---
+
 ## Analytics
 
 | Method | Path | Description |
@@ -196,6 +213,7 @@ Removed legacy admin tools: password reset, set password, resend verification em
 | `MARKETPLACE_ADMIN_PASSWORD` | Admin console password (default: `071725`) |
 | `MARKETPLACE_ADMIN_SESSION_SECRET` | HMAC secret for admin session cookie |
 | `MARKETPLACE_ADMIN_SESSION_SECONDS` | Admin session TTL (default: 86400) |
+| `AWS_REGION` / `CATALOG_COVER_S3_*` / `CATALOG_COVER_PUBLIC_BASE_URL` | Catalog cover S3 upload ([catalog-cover-s3.md](../guides/catalog-cover-s3.md)) |
 | `RWA_OWNER_PRIVATE_KEY` | Signs mint and adminBurn transactions |
 | `RWA_ADMIN_PRIVATE_KEY` | Signs grantRole/revokeRole (must hold DEFAULT_ADMIN_ROLE on-chain; dev fallback: DEPLOYER_PRIVATE_KEY) |
 | `RWA_CUSTODY_PRIVATE_KEY` | Signs custody delivery transfers |

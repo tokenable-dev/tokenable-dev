@@ -115,6 +115,14 @@ PLATFORM_FEE_BPS=500
 PINATA_JWT=<pinata jwt>
 PINATA_GATEWAY=<gateway>.mypinata.cloud
 
+# Catalog collection covers (S3) — see docs/guides/catalog-cover-s3.md
+AWS_REGION=ap-northeast-2
+# AWS_ACCESS_KEY_ID=...
+# AWS_SECRET_ACCESS_KEY=...
+CATALOG_COVER_S3_BUCKET=tokenable-catalog-covers
+CATALOG_COVER_S3_PREFIX=covers/
+CATALOG_COVER_PUBLIC_BASE_URL=https://YOUR_CLOUDFRONT_DOMAIN
+
 # PSA (multi-token pool)
 PSA_PUBLIC_API_TOKENS=token1,token2,...
 

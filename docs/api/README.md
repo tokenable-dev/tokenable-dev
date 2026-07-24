@@ -136,7 +136,10 @@ Full architecture: **[psa.md](./psa.md)** · Swagger tag `psa` · upstream spec 
 | GET | `/api/marketplace/collections/:key/grade-series` | Grade time series |
 | GET | `/api/marketplace/collections/:key/merkle-set` | Merkle-eligible tokenIds |
 | GET | `/api/marketplace/rwa/:tokenId/trades` | Token trade history |
+| GET | `/api/marketplace/collections/admin/review-counts` | Admin: review_status counts |
+| POST | `/api/marketplace/collections/:key/admin/review` | Admin: approve/reject collection |
 | POST | `/api/marketplace/collections/:key/admin/cover` | Admin: set cover URL |
+| POST | `/api/marketplace/collections/:key/admin/cover/upload` | Admin: upload cover to S3 |
 | POST | `/api/marketplace/collections/:key/admin/cover/from-token` | Admin: cover from token |
 | POST | `/api/marketplace/collections/:key/admin/delete` | Admin: delete collection |
 

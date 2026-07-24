@@ -1,0 +1,85 @@
+# Catalog cover images (S3)
+
+Marketplace **collection covers** (`marketplace_collections.coverImageUrl`) are stored on AWS S3 under a **stable per-collection key**. This is separate from RWA mint images (Pinata / IPFS).
+
+## Default behavior on collection create
+
+When a collection row is first created (`ensureCollectionForListing`):
+
+1. Resolve a Cardhedger (or Pokémon TCG fallback) image URL from RWA metadata.
+2. If catalog S3 env is configured: **download** that image and **PutObject** to the stable key.
+3. Persist the **S3 public URL** as `coverImageUrl`.
+4. If S3 is not configured, or download/upload fails: fall back to the remote Cardhedger/TCG URL so listing still succeeds.
+
+## Object key (overwrite model)
+
+```
+{CATALOG_COVER_S3_PREFIX}{sanitizedCollectionKey}/cover
+```
+
+Example: `covers/a1b2c3…/cover`
+
+Admin replace and create-time ingest always **overwrite the same object**. No UUID segment — the public URL stays stable for a collection.
+
+Cache-Control on put: `public, max-age=300, must-revalidate` (covers are overwritable; avoid year-long immutable CDN cache).
+
+Allowed types: JPEG / PNG / WebP, max **8MB**.
+
+---
+
+## Phase 0 — Bucket setup
+
+1. Create an S3 bucket (example name: `tokenable-catalog-covers`) in a fixed region.
+2. Prefer **CloudFront** in front of the bucket for public HTTPS reads. Alternatively allow public read on a fixed prefix only.
+3. IAM user/role for the Nest backend with at least:
+   - `s3:PutObject`
+   - `s3:DeleteObject` (legacy uuid-key cleanup only)
+   - scoped to `arn:aws:s3:::YOUR_BUCKET/covers/*` (and `dev/covers/*` if using a dev prefix)
+4. Smoke test: manually upload one object in the AWS console, then open  
+   `{CATALOG_COVER_PUBLIC_BASE_URL}/{key}` in a browser.
+
+### Backend env
+
+| Variable | Example | Purpose |
+|----------|---------|---------|
+| `AWS_REGION` | `ap-northeast-2` | S3 region |
+| `AWS_ACCESS_KEY_ID` | … | Optional if instance role is used |
+| `AWS_SECRET_ACCESS_KEY` | … | Optional if instance role is used |
+| `CATALOG_COVER_S3_BUCKET` | `tokenable-catalog-covers` | Bucket name |
+| `CATALOG_COVER_S3_PREFIX` | `dev/covers/` or `covers/` | Key prefix (include trailing `/`) |
+| `CATALOG_COVER_PUBLIC_BASE_URL` | `https://dxxxxx.cloudfront.net` | No trailing slash — used to build `coverImageUrl` |
+
+Add the CloudFront / S3 host to Next `images.remotePatterns` if you use `next/image` (S3/`*.amazonaws.com` and `*.cloudfront.net` are already allowed).
+
+---
+
+## Admin replace flow
+
+1. Open `/marketplace/admin/collections`.
+2. Expand **Cover image** on a collection.
+3. Choose a local file → **Upload to S3 & save** — overwrites `{prefix}{key}/cover`.
+4. Or paste an external HTTPS URL → **Save cover URL** — downloads the URL and overwrites the same S3 object (when S3 is configured), then stores the S3 public URL.
+5. **Fetch & save** from token metadata uses the same ingest path when saving.
+
+API:
+
+- `POST /api/marketplace/collections/:key/admin/cover/upload` — multipart field `file` → overwrite S3 → persist public URL
+- `POST /api/marketplace/collections/:key/admin/cover` — JSON `{ coverImageUrl }` → ingest to S3 (if external) → persist
+- `POST /api/marketplace/collections/:key/admin/cover/from-token` — preview / save via metadata resolve
+
+### curl example
+
+```bash
+# After admin login cookie is set in the browser, copy Cookie header:
+curl -X POST \
+  -H "Cookie: marketplace_admin=..." \
+  -F "file=@/path/to/card.jpg" \
+  "http://localhost:4100/api/marketplace/collections/YOUR_COLLECTION_KEY/admin/cover/upload"
+```
+
+---
+
+## Out of scope
+
+- RWA `POST /api/rwa/upload` (Pinata)
+- Scraping Collectr / Sports Card Investor into S3

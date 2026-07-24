@@ -15,6 +15,8 @@ export interface ListSuccessMeta {
   hint?: string;
   reasonCode?: MatchFailureCode;
   instantOnlyCancelled?: boolean;
+  /** New collection bucket awaiting admin Markets approval. */
+  collectionUnderReview?: boolean;
 }
 
 export interface InstantMatchDecision {

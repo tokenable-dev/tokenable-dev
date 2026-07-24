@@ -15,7 +15,7 @@ Admin routes are split by **operational role**, not duplicated dashboards.
 |-------|-----------|---------|
 | `/marketplace/admin` | **Overview** | Platform health from PostgreSQL — KPIs, funnel, users, orders, activity charts, AI pricing coverage, recent sales, Cardhedger infra snippet, **GA4 external link** |
 | `/marketplace/admin/users` | **Users** | Privy accounts — search/filters, KYC, wallets; **Privy & Add funds** readiness panel; support snapshot (Privy ID, on-ramp wallet hint) |
-| `/marketplace/admin/collections` | **Collections** | Collection buckets — cover image, delete, market snapshot strip, **AI Insight** preview |
+| `/marketplace/admin/collections` | **Collections** | Collection review queue — Pending / Active / Rejected filters; cover (URL or S3), prices, sparkline, Cardhedger check, Approve/Reject |
 | `/marketplace/admin/cards` | **All cards** | RWA token registry — edit display metadata, burn (test) |
 | `/marketplace/admin/custody-nfts` | **Custody NFTs** | Deliver vaulted NFTs to user wallets |
 | `/marketplace/admin/markets` | **Markets preview** | Tabbed: **Home landing** (90d top movers + just vaulted), **Top 100**, **Cardhedger movers** |
@@ -206,9 +206,17 @@ Funding readiness on the Users page uses `GET /api/privy/apps/settings` (same as
 
 | Method | Path |
 |--------|------|
+| `GET` | `/marketplace/collections?reviewStatus=pending_review\|active\|rejected\|all` (admin cookie) |
+| `GET` | `/marketplace/collections/admin/review-counts` |
+| `POST` | `/marketplace/collections/:key/admin/review` body `{ reviewStatus }` |
 | `POST` | `/marketplace/collections/:key/admin/cover` |
+| `POST` | `/marketplace/collections/:key/admin/cover/upload` |
 | `POST` | `/marketplace/collections/:key/admin/cover/from-token` |
 | `POST` | `/marketplace/collections/:key/admin/delete` |
+
+Public `GET /marketplace/collections` always returns **`active`** only.  
+Cover upload **overwrites** the collection’s stable S3 object and writes that public URL to `coverImageUrl`. New collections ingest Cardhedger images to S3 on create. See [catalog-cover-s3.md](catalog-cover-s3.md).  
+Review flow: [business-rules.md](../business-rules.md) BR-11b.
 
 ### Price sync (Cardhedger)
 

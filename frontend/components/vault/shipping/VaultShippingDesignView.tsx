@@ -7,8 +7,6 @@ import { VaultBreadcrumb } from "@/components/vault/VaultBreadcrumb";
 import { VaultStepper } from "@/components/vault/VaultStepper";
 import { useAccessGate } from "@/hooks/auth/useAccessGate";
 import {
-  MOCK_CARD,
-  MOCK_SUBMISSION_ID,
   VAULT_SHIP_ADDRESS,
   VAULT_SHIPPING_CARRIERS_ALLOWED,
   VAULT_SHIPPING_CARRIERS_DENIED,
@@ -68,7 +66,7 @@ export function VaultShippingDesignView() {
   const progressPct = useMemo(() => (doneCount / VAULT_SHIPPING_CHECKLIST.length) * 100, [doneCount]);
 
   const carrierLabel = carrier === "dhl" ? "DHL" : carrier === "ems" ? "Korea Post EMS" : "FedEx";
-  const trackingDisplay = trackingNumber.trim() || "FX123456789";
+  const trackingDisplay = trackingNumber.trim() || "—";
   const trackPackageUrl =
     (CARRIER_TRACK_URLS[carrier] ?? CARRIER_TRACK_URLS.fedex!) +
     encodeURIComponent(trackingDisplay.replace(/\s/g, ""));
@@ -140,7 +138,7 @@ export function VaultShippingDesignView() {
     runAccessGate(() => {
       setShipped(true);
       window.setTimeout(() => {
-        router.push(`/vault/submissions/${MOCK_SUBMISSION_ID}`);
+        router.push("/vault");
       }, 1200);
     });
   }, [canShip, runAccessGate, router]);
@@ -154,9 +152,9 @@ export function VaultShippingDesignView() {
           </svg>
           <span className="vault-shipping-status-banner__title">Card Verified — Ready to Ship</span>
           <span className="vault-shipping-status-banner__dot" />
-          <span className="vault-shipping-status-banner__badge">{MOCK_SUBMISSION_ID}</span>
+          <span className="vault-shipping-status-banner__badge">Submission</span>
           <span className="vault-shipping-status-banner__dot" />
-          <span className="vault-shipping-status-banner__meta">Charizard · {MOCK_CARD.grade}</span>
+          <span className="vault-shipping-status-banner__meta">Ready to ship</span>
         </div>
       </div>
 
@@ -194,7 +192,7 @@ export function VaultShippingDesignView() {
                   </span>
                 ))}
               </div>
-              <div className="vault-ship-addr__id">{MOCK_SUBMISSION_ID}</div>
+              <div className="vault-ship-addr__id">Submission ID will appear after submit</div>
               <div className="vault-ship-addr__warn">
                 <WarningIcon />
                 <span>
@@ -492,11 +490,8 @@ export function VaultShippingDesignView() {
                   </a>
                 </div>
                 <div className="vault-ship-success__status">
-                  <Link
-                    href={`/vault/submissions/${MOCK_SUBMISSION_ID}`}
-                    className="vault-ship-outline-btn vault-ship-outline-btn--azure"
-                  >
-                    View Submission Status →
+                  <Link href="/vault" className="vault-ship-outline-btn vault-ship-outline-btn--azure">
+                    Back to Vault →
                   </Link>
                 </div>
               </div>

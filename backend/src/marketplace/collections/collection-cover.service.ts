@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { QueryDeepPartialEntity, Repository } from 'typeorm';
 import { BlockchainService } from '../../blockchain/blockchain.service';
@@ -6,8 +6,12 @@ import { IpfsGatewayResolverService } from '../../blockchain/ipfs-gateway-resolv
 import { CardhedgerService } from '../../cardhedger/cardhedger.service';
 import { normalizeImageUrl } from '../utils/collection-image.util';
 import { MarketplaceCollection } from '../entities/marketplace-collection.entity';
+import {
+  CatalogCoverS3Service,
+  catalogCoverObjectKeyFromPublicUrl,
+} from './catalog-cover-s3.service';
 
-/** Collection covers: Cardhedger / TCG catalog HTTPS URLs only. */
+/** Collection covers: Cardhedger / TCG / our catalog S3 HTTPS URLs. */
 function isPersistableCoverUrl(url: string): boolean {
   const t = url.trim();
   if (!/^https?:\/\//i.test(t)) return false;
@@ -17,26 +21,58 @@ function isPersistableCoverUrl(url: string): boolean {
 }
 
 /**
- * Collection cover: Cardhedger / TCG catalog URLs.
- * Set once at collection create or via admin; never auto-refreshed.
+ * Collection cover: Cardhedger / TCG → catalog S3 (when configured).
+ * Set once at collection create or via admin; never auto-refreshed from upstream.
  */
 @Injectable()
 export class CollectionCoverService {
+  private readonly logger = new Logger(CollectionCoverService.name);
+
   constructor(
     @InjectRepository(MarketplaceCollection)
     private readonly collectionRepo: Repository<MarketplaceCollection>,
     private readonly blockchain: BlockchainService,
     private readonly cardhedger: CardhedgerService,
     private readonly ipfsResolver: IpfsGatewayResolverService,
+    private readonly catalogCoverS3: CatalogCoverS3Service,
   ) {}
 
-  /** Resolve a persistable cover URL from RWA metadata (no DB write). */
+  /** Resolve a persistable cover URL from RWA metadata (no DB write, no S3). */
   async resolveCoverUrlFromMeta(
     meta: Record<string, unknown>,
   ): Promise<string | null> {
     const img = await this.resolveCatalogImageFromMeta(meta);
     if (!img || !isPersistableCoverUrl(img)) return null;
     return img;
+  }
+
+  /**
+   * Resolve Cardhedger/TCG image for a new collection, download it, and store
+   * on catalog S3. Falls back to the remote URL when S3 is not configured or
+   * ingest fails (listing must not block).
+   */
+  async resolveCoverUrlForNewCollection(
+    collectionKey: string,
+    meta: Record<string, unknown>,
+  ): Promise<string | null> {
+    const remote = await this.resolveCoverUrlFromMeta(meta);
+    if (!remote) return null;
+    if (!this.catalogCoverS3.isConfigured()) return remote;
+
+    try {
+      const { publicUrl } = await this.catalogCoverS3.ingestRemoteImage(
+        collectionKey,
+        remote,
+      );
+      return publicUrl;
+    } catch (e) {
+      this.logger.warn(
+        `Catalog cover S3 ingest on create failed for ${collectionKey}: ${
+          e instanceof Error ? e.message : String(e)
+        }`,
+      );
+      return remote;
+    }
   }
 
   async setCollectionCoverImageAdmin(
@@ -51,8 +87,67 @@ export class CollectionCoverService {
     const row = await this.findOne(k);
     if (!row) throw new Error('COLLECTION_NOT_FOUND');
 
-    const persisted = await this.persistCoverImageUrl(k, url);
+    const previousCover = row.coverImageUrl;
+    let urlToPersist = url;
+
+    if (this.catalogCoverS3.isConfigured()) {
+      const alreadyOurs = catalogCoverObjectKeyFromPublicUrl(
+        url,
+        this.catalogCoverS3.getPublicBaseUrl(),
+      );
+      if (!alreadyOurs) {
+        // External URL → download and overwrite the stable S3 object.
+        const { publicUrl } = await this.catalogCoverS3.ingestRemoteImage(k, url);
+        urlToPersist = publicUrl;
+      }
+    }
+
+    const persisted = await this.persistCoverImageUrl(k, urlToPersist);
     if (!persisted) throw new Error('COLLECTION_COVER_URL_INVALID');
+
+    // Clean legacy uuid-style keys when the public URL path changed.
+    if (
+      previousCover &&
+      previousCover.trim() !== urlToPersist &&
+      catalogCoverObjectKeyFromPublicUrl(
+        previousCover,
+        this.catalogCoverS3.getPublicBaseUrl(),
+      )
+    ) {
+      await this.catalogCoverS3.tryDeletePublicCoverUrl(previousCover);
+    }
+
+    const refreshed = await this.findOne(k);
+    if (!refreshed) throw new Error('COLLECTION_NOT_FOUND');
+    return refreshed;
+  }
+
+  /**
+   * Upload a local image, overwriting the collection's stable S3 cover object.
+   */
+  async uploadCollectionCoverImageAdmin(
+    collectionKey: string,
+    file: Express.Multer.File,
+  ): Promise<MarketplaceCollection> {
+    const k = collectionKey.toLowerCase();
+    const row = await this.findOne(k);
+    if (!row) throw new Error('COLLECTION_NOT_FOUND');
+
+    const previousCover = row.coverImageUrl;
+    const { publicUrl } = await this.catalogCoverS3.uploadCollectionCover(k, file);
+    const persisted = await this.persistCoverImageUrl(k, publicUrl);
+    if (!persisted) throw new Error('COLLECTION_COVER_URL_INVALID');
+
+    if (
+      previousCover &&
+      previousCover.trim() !== publicUrl &&
+      catalogCoverObjectKeyFromPublicUrl(
+        previousCover,
+        this.catalogCoverS3.getPublicBaseUrl(),
+      )
+    ) {
+      await this.catalogCoverS3.tryDeletePublicCoverUrl(previousCover);
+    }
 
     const refreshed = await this.findOne(k);
     if (!refreshed) throw new Error('COLLECTION_NOT_FOUND');

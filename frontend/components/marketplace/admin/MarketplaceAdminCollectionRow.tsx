@@ -9,6 +9,7 @@ import { parseGradeScoreNumber, representativeGradeUsd } from "@/lib/market";
 import { formatUsdCompact } from "@/lib/market/collectionMarketPricing";
 import { CollectionAiInsightPanel } from "@/components/marketplace/collection-ai-insight";
 import { AdminMarketPriceStrip } from "./AdminMarketPriceStrip";
+import { AdminMiniSparkline } from "./AdminMiniSparkline";
 import {
   ADMIN_ARTICLE,
   ADMIN_BTN_DANGER_EMPHASIS,
@@ -28,18 +29,34 @@ import {
   ADMIN_TEXT_SECONDARY,
 } from "./adminUi";
 
+function statusBadgeClass(status: string | undefined): string {
+  if (status === "pending_review") {
+    return "bg-amber-100 text-amber-900 border-amber-300";
+  }
+  if (status === "rejected") {
+    return "bg-red-100 text-red-800 border-red-300";
+  }
+  return "bg-emerald-100 text-emerald-900 border-emerald-300";
+}
+
 export function MarketplaceAdminCollectionRow({
   row,
   snapshot,
   busy,
   onCoverSaved,
   onDeleted,
+  onApprove,
+  onReject,
+  onReopen,
 }: {
   row: MarketplaceCollectionSummary;
   snapshot: CollectionListMarketSnapshot | undefined;
   busy: boolean;
   onCoverSaved: () => void;
   onDeleted: () => void;
+  onApprove?: () => void;
+  onReject?: () => void;
+  onReopen?: () => void;
 }) {
   const currentCoverUrl = row.coverImageUrl ?? row.displayImageUrl ?? "";
   const [urlInput, setUrlInput] = useState(currentCoverUrl);
@@ -54,6 +71,7 @@ export function MarketplaceAdminCollectionRow({
     error: coverApiError,
     setError: setCoverApiError,
     saveCoverUrl,
+    uploadCoverFile,
     fetchCoverFromToken,
     deleteCollection,
   } = useCollectionAdminCover({
@@ -93,6 +111,26 @@ export function MarketplaceAdminCollectionRow({
     deleteConfirm.trim().toLowerCase() === row.collectionKey.trim().toLowerCase();
 
   const disabled = busy || coverBusy != null;
+  const reviewStatus = row.reviewStatus ?? "active";
+  const cardName =
+    row.components.cardNameDisplay?.trim() ||
+    row.components.cardName?.trim() ||
+    row.components.listingDisplayTitle?.trim() ||
+    "—";
+  const setName =
+    row.components.cardSetDisplay?.trim() ||
+    row.components.cardSet?.trim() ||
+    "—";
+  const gradeLabel = [
+    row.components.gradingCompanyDisplay || row.components.gradingCompany,
+    row.components.gradeScore,
+  ]
+    .filter(Boolean)
+    .join(" ");
+  const cardhedgerId =
+    typeof row.components.cardhedgerCardId === "string"
+      ? row.components.cardhedgerCardId.trim()
+      : "";
 
   async function saveUrl() {
     const trimmed = urlInput.trim();
@@ -105,6 +143,17 @@ export function MarketplaceAdminCollectionRow({
     const ok = await saveCoverUrl(trimmed);
     if (ok) {
       setUrlInput(trimmed);
+      setPreviewUrl(null);
+    }
+  }
+
+  async function onCoverFileSelected(file: File | null) {
+    if (!file) return;
+    setValidationError(null);
+    setCoverApiError(null);
+    const coverUrl = await uploadCoverFile(file);
+    if (coverUrl) {
+      setUrlInput(coverUrl);
       setPreviewUrl(null);
     }
   }
@@ -127,7 +176,7 @@ export function MarketplaceAdminCollectionRow({
   return (
     <article className={ADMIN_ARTICLE}>
       <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
-        <div className={ADMIN_COVER_BOX}>
+        <div className={`${ADMIN_COVER_BOX} min-h-[14rem] lg:min-h-[18rem]`}>
           {displayPreview && resolvedPreview ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -145,14 +194,21 @@ export function MarketplaceAdminCollectionRow({
         <div className="min-w-0 flex-1 space-y-5">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0 space-y-1">
-              <h3 className="text-lg font-semibold leading-snug text-zinc-900 sm:text-xl">
-                <Link
-                  href={`/marketplace/collections/${encodeURIComponent(row.collectionKey)}`}
-                  className={ADMIN_LINK}
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="text-lg font-semibold leading-snug text-zinc-900 sm:text-xl">
+                  <Link
+                    href={`/marketplace/collections/${encodeURIComponent(row.collectionKey)}`}
+                    className={ADMIN_LINK}
+                  >
+                    {row.displayLabel || row.collectionKey}
+                  </Link>
+                </h3>
+                <span
+                  className={`rounded-full border px-2.5 py-0.5 text-xs font-semibold capitalize ${statusBadgeClass(reviewStatus)}`}
                 >
-                  {row.displayLabel || row.collectionKey}
-                </Link>
-              </h3>
+                  {reviewStatus.replace("_", " ")}
+                </span>
+              </div>
               <p className={`truncate font-mono text-xs sm:text-sm ${ADMIN_TEXT_META}`}>
                 {row.collectionKey}
               </p>
@@ -189,7 +245,110 @@ export function MarketplaceAdminCollectionRow({
             ) : null}
           </div>
 
-          <AdminMarketPriceStrip refUsd={refUsd} floorUsd={floorUsd} />
+          <section className="rounded-lg border border-zinc-200 bg-zinc-50/80 p-4 sm:p-5">
+            <h4 className="text-sm font-semibold uppercase tracking-wide text-zinc-800">
+              Review checklist
+            </h4>
+            <dl className="mt-3 grid gap-3 sm:grid-cols-2">
+              <div>
+                <dt className={`text-xs font-medium ${ADMIN_TEXT_META}`}>Card name</dt>
+                <dd className="mt-0.5 text-sm font-medium text-zinc-900">{cardName}</dd>
+              </div>
+              <div>
+                <dt className={`text-xs font-medium ${ADMIN_TEXT_META}`}>Set</dt>
+                <dd className="mt-0.5 text-sm font-medium text-zinc-900">{setName}</dd>
+              </div>
+              <div>
+                <dt className={`text-xs font-medium ${ADMIN_TEXT_META}`}>Grade</dt>
+                <dd className="mt-0.5 text-sm font-medium text-zinc-900">
+                  {gradeLabel || "—"}
+                </dd>
+              </div>
+              <div>
+                <dt className={`text-xs font-medium ${ADMIN_TEXT_META}`}>Category</dt>
+                <dd className="mt-0.5 text-sm font-medium text-zinc-900">
+                  {snapshot?.categoryLabel?.trim() ||
+                    row.components.psaCategory?.trim() ||
+                    "—"}
+                </dd>
+              </div>
+              <div className="sm:col-span-2">
+                <dt className={`text-xs font-medium ${ADMIN_TEXT_META}`}>
+                  Cardhedger
+                </dt>
+                <dd className="mt-0.5 text-sm text-zinc-900">
+                  {cardhedgerId ? (
+                    <span className="font-mono text-xs sm:text-sm">{cardhedgerId}</span>
+                  ) : (
+                    <span className="text-amber-700">Missing cardhedgerCardId</span>
+                  )}
+                  {snapshot?.syncedAt ? (
+                    <span className={`ml-2 text-xs ${ADMIN_TEXT_MUTED}`}>
+                      synced {new Date(snapshot.syncedAt).toLocaleString()}
+                    </span>
+                  ) : null}
+                  {snapshot?.snapshotStale ? (
+                    <span className="ml-2 text-xs font-medium text-amber-700">
+                      stale snapshot
+                    </span>
+                  ) : null}
+                </dd>
+              </div>
+            </dl>
+            <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+              <div className="min-w-0 flex-1">
+                <AdminMarketPriceStrip refUsd={refUsd} floorUsd={floorUsd} compact />
+              </div>
+              <div className="shrink-0">
+                <p className={`mb-1 text-xs font-medium ${ADMIN_TEXT_META}`}>
+                  Price chart
+                </p>
+                <AdminMiniSparkline points={snapshot?.sparklineUsd ?? []} />
+              </div>
+            </div>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {reviewStatus === "pending_review" ? (
+                <>
+                  <button
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => onApprove?.()}
+                    className={ADMIN_BTN_PRIMARY}
+                  >
+                    Approve for Markets
+                  </button>
+                  <button
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => onReject?.()}
+                    className="rounded-md border border-red-300 bg-red-50 px-4 py-2 text-sm font-medium text-red-800 hover:bg-red-100 disabled:opacity-50"
+                  >
+                    Reject
+                  </button>
+                </>
+              ) : null}
+              {reviewStatus === "rejected" ? (
+                <button
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => onReopen?.()}
+                  className={ADMIN_BTN_SECONDARY}
+                >
+                  Move to pending
+                </button>
+              ) : null}
+              {reviewStatus === "active" ? (
+                <button
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => onReopen?.()}
+                  className={ADMIN_BTN_SECONDARY}
+                >
+                  Revert to pending
+                </button>
+              ) : null}
+            </div>
+          </section>
 
           <details
             className="rounded-lg border border-zinc-200 bg-white p-4 sm:p-5"
@@ -214,6 +373,26 @@ export function MarketplaceAdminCollectionRow({
               Cover image
             </summary>
             <div className="mt-4 space-y-4">
+              <label className="block">
+                <span className={ADMIN_LABEL}>Upload to S3 (JPEG / PNG / WebP, max 8MB)</span>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  disabled={disabled}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] ?? null;
+                    e.target.value = "";
+                    void onCoverFileSelected(file);
+                  }}
+                  className="mt-1 block w-full text-sm text-zinc-700 file:mr-3 file:rounded-md file:border file:border-zinc-300 file:bg-white file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-zinc-800 hover:file:bg-zinc-50 disabled:opacity-50"
+                />
+                <p className={`mt-1 text-xs ${ADMIN_TEXT_MUTED}`}>
+                  {coverBusy === "upload"
+                    ? "Overwriting S3 cover and saving…"
+                    : "Overwrites this collection’s stable S3 cover object and updates coverImageUrl."}
+                </p>
+              </label>
+
               <label className="block">
                 <span className={ADMIN_LABEL}>Cover URL (https or ipfs)</span>
                 <input

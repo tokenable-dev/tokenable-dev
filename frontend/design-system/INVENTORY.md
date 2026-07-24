@@ -168,7 +168,7 @@ Maps designer HTML sections to existing React modules. Use when implementing Pha
 
 **CSS:** `frontend/styles/tokenable-vault.css`
 
-**Shared:** `VaultShell`, `VaultStepper`, `VaultBreadcrumb`, `VaultBadge`, `VaultDemoToggle`
+**Shared:** `VaultShell`, `VaultStepper`, `VaultBreadcrumb`, `VaultBadge`
 
 **Removed (legacy):** `VaultPageBody`, `VaultGateState`, `VaultFeatures`, `VaultPortfolioBanner`, `VaultSubmitHeader`, green `GradientOutlineFrame` CTAs in mint form
 

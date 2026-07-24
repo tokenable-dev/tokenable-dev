@@ -32,3 +32,13 @@ export class AdminDeleteCollectionDto {
   @IsString()
   confirmCollectionKey: string;
 }
+
+export class AdminSetCollectionReviewStatusDto {
+  @ApiProperty({
+    description: 'Target review status',
+    enum: ['pending_review', 'active', 'rejected'],
+    example: 'active',
+  })
+  @IsString()
+  reviewStatus: 'pending_review' | 'active' | 'rejected';
+}

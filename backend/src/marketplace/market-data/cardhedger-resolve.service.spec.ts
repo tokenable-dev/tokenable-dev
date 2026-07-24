@@ -27,6 +27,7 @@ describe('CardhedgerResolveService — card-match-first (Phase 6)', () => {
     psaCertNumber: null,
     marketParallelKey: 'base',
     bucketKeyVersion: 2,
+    reviewStatus: 'active',
     createdAt: new Date(),
   } satisfies MarketplaceCollection;
 

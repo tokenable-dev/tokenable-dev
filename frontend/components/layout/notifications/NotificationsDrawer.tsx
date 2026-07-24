@@ -4,13 +4,31 @@ import { useEffect, useId, useState } from "react";
 import { createPortal } from "react-dom";
 import { useClientMounted } from "@/hooks/ui/useClientMounted";
 import { cn } from "@/lib/ds/cn";
-import {
-  MOCK_NOTIFICATIONS,
-  NOTIFICATION_FILTERS,
-  type MockNotification,
-  type NotificationFilterKey,
-  type NotificationIcon,
-} from "@/lib/notifications/mockNotifications";
+
+type NotificationFilterKey = "all" | "trade" | "bid" | "vault" | "price";
+
+type NotificationIcon = "check" | "layer" | "shield" | "trend";
+
+type NotificationItemData = {
+  id: string;
+  type: Exclude<NotificationFilterKey, "all">;
+  icon: NotificationIcon;
+  color: string;
+  title: string;
+  desc: string;
+  time: string;
+  imageUrl?: string;
+};
+
+const NOTIFICATION_FILTERS: { key: NotificationFilterKey; label: string }[] = [
+  { key: "all", label: "All" },
+  { key: "trade", label: "Trade" },
+  { key: "bid", label: "Bid" },
+  { key: "vault", label: "Vault" },
+  { key: "price", label: "Price Alert" },
+];
+
+const NOTIFICATIONS: NotificationItemData[] = [];
 
 function hexToRgb(hex: string): string {
   const r = Number.parseInt(hex.slice(1, 3), 16);
@@ -51,7 +69,7 @@ function NotifIcon({ icon }: { icon: NotificationIcon }) {
   );
 }
 
-function NotificationItem({ item }: { item: MockNotification }) {
+function NotificationItem({ item }: { item: NotificationItemData }) {
   return (
     <div className="tk-notif-item" data-type={item.type}>
       <div
@@ -121,8 +139,8 @@ export function NotificationsDrawer({
 
   const items =
     filter === "all"
-      ? MOCK_NOTIFICATIONS
-      : MOCK_NOTIFICATIONS.filter((n) => n.type === filter);
+      ? NOTIFICATIONS
+      : NOTIFICATIONS.filter((n) => n.type === filter);
 
   return createPortal(
     <div

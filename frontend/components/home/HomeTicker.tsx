@@ -7,39 +7,17 @@ import {
   referenceChangeTone,
 } from "@/lib/market/priceChangePeriod";
 import { useHomeMarketplaceGrids } from "@/hooks/home";
-import {
-  HOME_MOCK_TICKER_ITEMS,
-  isHomeMockCollectionKey,
-} from "@/lib/home/homeMockData";
 
 export function HomeTicker() {
   const { tickerItems } = useHomeMarketplaceGrids();
 
   const items = useMemo(() => {
-    if (tickerItems.length === 0) {
-      return HOME_MOCK_TICKER_ITEMS.map((item) => {
-        const tone = referenceChangeTone(item.changePct);
-        return {
-          name: item.name,
-          pct: formatReferencePercentChange(item.changePct, 0),
-          up: tone !== "down",
-        };
-      });
-    }
-
     return tickerItems.map(({ collection, changePct }) => {
       const tone = referenceChangeTone(changePct ?? 0);
-      // mock:ticker:* and mock:home:* — use displayLabel only.
-      // buildMarketsCollectionTitle would repeat cardName + setLine (e.g. "Wembanyama RC Wembanyama RC").
-      const key = collection.collectionKey.toLowerCase();
-      const shortTitle =
-        isHomeMockCollectionKey(collection.collectionKey) ||
-        key.startsWith("mock:ticker:")
-          ? collection.displayLabel?.trim() || collection.collectionKey
-          : buildMarketsCollectionTitle({
-              collection,
-              comp: collection.components,
-            });
+      const shortTitle = buildMarketsCollectionTitle({
+        collection,
+        comp: collection.components,
+      });
       const name =
         shortTitle.length > 28 ? `${shortTitle.slice(0, 26)}…` : shortTitle;
       return {

@@ -42,6 +42,11 @@ export interface Order {
   side?: "ask" | "bid";
   /** graded 메타 기준 컬렉션 (매도 ask) */
   collectionKey?: string | null;
+  /**
+   * Present on create/replace ask responses — Markets visibility of the bucket.
+   * Not persisted on the order row.
+   */
+  reviewStatus?: "pending_review" | "active" | "rejected";
   tokenContract: string;
   tokenId: string;
   considerationToken: string;

@@ -218,9 +218,6 @@ export const rq = {
   /** Cached top movers (weekly gain) by category — 1h server TTL. */
   cardhedgerTopMovers: (category: string, count: number) =>
     ["cardhedger-top-movers", category, count] as const,
-  /** Cover image map for design mocks (home / markets) — keyed by query signature. */
-  cardhedgerMockCovers: (sig: string) =>
-    ["cardhedger-mock-covers", "unique-v1", sig] as const,
   /** Single catalog cover resolve by search string. */
   cardhedgerCatalogCover: (search: string) =>
     ["cardhedger-catalog-cover", search] as const,

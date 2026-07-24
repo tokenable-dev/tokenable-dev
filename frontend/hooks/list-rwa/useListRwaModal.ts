@@ -272,7 +272,10 @@ export function useListRwaModal({
         }
 
         onListed?.(tokenId);
-        setSuccessMeta(meta);
+        setSuccessMeta({
+          ...meta,
+          collectionUnderReview: created.reviewStatus === "pending_review",
+        });
         setStep("success");
         await invalidateListingQueries(instantMatchDeps, created);
         return;
@@ -351,7 +354,10 @@ export function useListRwaModal({
       }
 
       onListed?.(tokenId);
-      setSuccessMeta(meta);
+      setSuccessMeta({
+        ...meta,
+        collectionUnderReview: createdFinal.reviewStatus === "pending_review",
+      });
       setStep("success");
 
       await invalidateListingQueries(instantMatchDeps, createdFinal);

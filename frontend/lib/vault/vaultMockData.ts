@@ -1,14 +1,7 @@
-
-export const MOCK_SUBMISSION_ID = "SUB-20260616-00421";
-
-export const MOCK_CARD = {
-  name: "1999 POKEMON BASE SET 1ST EDITION #4 CHARIZARD HOLO",
-  grade: "PSA 10",
-  cert: "12345678",
-  tokenId: "0421",
-  imageUrl: "",
-  marketValueUsd: 25376,
-} as const;
+/**
+ * Vault UI helpers — no design-mock card/submission inventory.
+ * Operational copy (shipping address, FAQ, checklist) stays for real flows.
+ */
 
 export type VaultIpStatusKind =
   | "token-sent"
@@ -41,129 +34,6 @@ export type VaultSubmissionHistoryItem = {
   imageUrl: string;
   href: string;
 };
-
-/** Draft submission row — Vault-Step-Indicator.html draft-card */
-export const MOCK_DRAFT_SUBMISSION = {
-  id: "draft-1",
-  title: "Charizard + 2 more cards",
-  savedAt: "Jul 8, 2026",
-  imageUrl: "",
-  href: "/vault/submit",
-} as const;
-
-/** Active dashboard — matches Vault-Dashboard-Active.html (3 in-progress cards) */
-export const MOCK_IN_PROGRESS_ACTIVE: VaultInProgressItem[] = [
-  {
-    id: "ip-2",
-    name: "2024 POKEMON SURGING SPARKS EN-SSP #238 PIKACHU EX SPECIAL ART RARE",
-    grade: "PSA 9",
-    imageUrl: "",
-    statusKind: "in-transit",
-    statusLabel: "In Transit",
-    detail: "FedEx · FX987654321",
-    trackingUrl: "https://www.fedex.com/fedextrack/?trknbr=FX987654321",
-    cta: { label: "Track", href: `/vault/submissions/${MOCK_SUBMISSION_ID}?scenario=C` },
-  },
-  {
-    id: "ip-3",
-    name: "2024 POKEMON SV DESTINED RIVALS #233 NIDOKING EX STELLAR RARE",
-    grade: "PSA 9",
-    imageUrl: "",
-    statusKind: "reviewing",
-    statusLabel: "Reviewing",
-    detail: "PSA approval pending",
-    cta: { label: "View", href: `/vault/submissions/${MOCK_SUBMISSION_ID}?scenario=D` },
-  },
-  {
-    id: "ip-5",
-    name: "2018 PANINI PRIZM #280 LUKA DONCIC BLUE ICE ROOKIE",
-    grade: "PSA 10",
-    imageUrl: "",
-    statusKind: "action-needed",
-    statusLabel: "Action Needed",
-    hint: "Tracking number required to continue",
-    actionNeeded: true,
-    cta: { label: "Add Tracking", href: "/vault/submit/shipping", primary: true },
-  },
-];
-
-export const MOCK_SUBMISSION_HISTORY: VaultSubmissionHistoryItem[] = [
-  {
-    id: "h-1",
-    name: MOCK_CARD.name,
-    grade: "PSA 10",
-    cert: "12345678",
-    submitted: "Jun 15, 2026",
-    status: "Minted",
-    imageUrl: "",
-    href: `/vault/submissions/${MOCK_SUBMISSION_ID}?scenario=G`,
-  },
-  {
-    id: "h-2",
-    name: "2023 POKEMON PROMO SVP #085 PIKACHU WITH GREY FELT HAT VAN GOGH",
-    grade: "PSA 10",
-    cert: "22938102",
-    submitted: "Jun 10, 2026",
-    status: "Minted",
-    imageUrl: "",
-    href: `/vault/submissions/${MOCK_SUBMISSION_ID}?scenario=G`,
-  },
-  {
-    id: "h-3",
-    name: "2024 TOPPS CHROME #1 SHOHEI OHTANI ROOKIE",
-    grade: "PSA 10",
-    cert: "88712304",
-    submitted: "Jun 8, 2026",
-    status: "Minted",
-    imageUrl: "",
-    href: `/vault/submissions/${MOCK_SUBMISSION_ID}?scenario=G`,
-  },
-  {
-    id: "h-4",
-    name: "1986 FLEER #57 MICHAEL JORDAN ROOKIE",
-    grade: "PSA 10",
-    cert: "55501248",
-    submitted: "May 28, 2026",
-    status: "Minted",
-    imageUrl: "",
-    href: `/vault/submissions/${MOCK_SUBMISSION_ID}?scenario=G`,
-  },
-  {
-    id: "h-5",
-    name: "1999 POKEMON BASE SET #150 MEWTWO HOLO",
-    grade: "PSA 10",
-    cert: "33901482",
-    submitted: "May 20, 2026",
-    status: "Minted",
-    imageUrl: "",
-    href: `/vault/submissions/${MOCK_SUBMISSION_ID}?scenario=G`,
-  },
-  {
-    id: "h-6",
-    name: "1999 POKEMON BASE SET 1ST EDITION #4 CHARIZARD HOLO",
-    grade: "PSA 8",
-    cert: "12345678",
-    submitted: "Jun 1, 2026",
-    status: "Rejected",
-    imageUrl: "",
-    href: `/vault/submissions/${MOCK_SUBMISSION_ID}?view=rejected`,
-  },
-];
-
-export const MOCK_HUB_STATS_ACTIVE = {
-  inProgress: 3,
-  completed: 9,
-  rejected: 1,
-} as const;
-
-/** Replace with API — empty when user has no in-flight vault processes */
-export function getVaultInProgressItems(): VaultInProgressItem[] {
-  return MOCK_IN_PROGRESS_ACTIVE;
-}
-
-export function hasVaultActiveProcesses(): boolean {
-  return getVaultInProgressItems().length > 0;
-}
 
 export const VAULT_SHIP_ADDRESS = {
   name: "Tokenable Vault Services",
