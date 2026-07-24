@@ -16,6 +16,10 @@ import { useCollectionDetailMobile } from "./useCollectionDetailMobile";
 import { useAppStore, selectWallet } from "@/store";
 import { parseCollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
 import { buildCollectionDetailOrderBookProps } from "@/lib/marketplace/collectionDetailOrderBook";
+import {
+  getMockCollectionDetail,
+  isDesignMockCollectionKey,
+} from "@/lib/marketplace/collectionDetailMock";
 import { looksLikeCollectionKey } from "@/lib/ui/page-state-catalog";
 
 export type CollectionDetailPageStatus =
@@ -58,10 +62,19 @@ export function useCollectionDetailPage() {
   const [tradeFlow, setTradeFlow] = useState<CollectionTradeTab>("buy");
   const [tradeDockOpen, setTradeDockOpen] = useState(false);
 
+  const isMock = isDesignMockCollectionKey(collectionKey);
+
   const { data, isLoading, isError, error } = useQuery({
     queryKey: rq.collectionDetail(collectionKey),
-    queryFn: () => getMarketplaceCollectionDetail(collectionKey),
-    enabled: collectionKey.length > 0 && looksLikeCollectionKey(collectionKey),
+    queryFn: async () => {
+      if (isMock) {
+        const mock = getMockCollectionDetail(collectionKey);
+        if (!mock) throw new Error("Mock collection not found");
+        return mock;
+      }
+      return getMarketplaceCollectionDetail(collectionKey);
+    },
+    enabled: collectionKey.length > 0 && (isMock || looksLikeCollectionKey(collectionKey)),
     staleTime: marketplaceRqPolicy.collectionDetailStaleMs,
     refetchOnWindowFocus: false,
     retry: false,
@@ -134,7 +147,7 @@ export function useCollectionDetailPage() {
 
   const status: CollectionDetailPageStatus = !collectionKey
     ? "invalid"
-    : !looksLikeCollectionKey(collectionKey)
+    : !isMock && !looksLikeCollectionKey(collectionKey)
       ? "invalid"
       : isLoading
         ? "loading"

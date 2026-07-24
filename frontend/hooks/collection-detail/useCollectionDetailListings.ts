@@ -8,6 +8,10 @@ import {
   bestAskByToken,
   sortedTokenIdsByOldestListing,
 } from "@/lib/marketplace/collectionListingUtils";
+import {
+  getMockListingMetadataMap,
+  isDesignMockCollectionKey,
+} from "@/lib/marketplace/collectionDetailMock";
 
 export function useCollectionDetailListings(params: {
   collectionKey: string;
@@ -15,6 +19,7 @@ export function useCollectionDetailListings(params: {
   enabled: boolean;
 }) {
   const { collectionKey, asks, enabled } = params;
+  const isMock = isDesignMockCollectionKey(collectionKey);
 
   const askMap = useMemo(() => bestAskByToken(asks), [asks]);
   const tokenIds = useMemo(
@@ -25,6 +30,9 @@ export function useCollectionDetailListings(params: {
   const { data: batchMetadata } = useQuery({
     queryKey: rq.collectionListingsMetadata(collectionKey, tokenIds),
     queryFn: async () => {
+      if (isMock) {
+        return getMockListingMetadataMap(collectionKey, tokenIds);
+      }
       const ids = tokenIds;
       const BATCH_MAX = 80;
       const chunks: number[][] = [];
