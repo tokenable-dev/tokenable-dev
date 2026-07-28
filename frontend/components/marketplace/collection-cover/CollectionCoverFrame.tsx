@@ -39,7 +39,7 @@ export interface CollectionCoverFrameProps {
 /**
  * 컬렉션 대표 이미지용 프레임 — 그라데이션 베젤, 이너 매트, 은은한 하이라이트.
  * featured: 중간 크기. hero: 컬렉션 상세 좌측 히어로 — 클릭하면 큰 이미지(라이트박스).
- * flat: 베젤·링 없이 이미지 영역만 (Trending 캐러셀 등).
+ * flat: 베젤·링 없이 이미지 영역만 — markets/home 그리드는 object-fill로 좁은 아트를 가로로 늘려 채움.
  */
 export function CollectionCoverFrame({
   imageUrl,
@@ -68,7 +68,7 @@ export function CollectionCoverFrame({
     setImgFailed(true);
   };
 
-  /** Carousel 등 — 그라데이션 베젤·ring 없이 카드 안에 이미지만 채움 */
+  /** Carousel / markets grid — fill the frame (crop if needed; no letterboxing). */
   if (variant === "flat") {
     return (
       <div className={`relative h-full min-h-0 w-full ${className}`}>
@@ -78,8 +78,8 @@ export function CollectionCoverFrame({
             <img
               src={resolved}
               alt={alt}
-              className="absolute inset-0 h-full w-full object-contain object-center"
-              style={collectionCoverImageStyle(resolved)}
+              className="absolute inset-0 h-full w-full object-fill object-center"
+              style={{ filter: "saturate(1.05) contrast(1.04)" }}
               onError={handleImageError}
               referrerPolicy="no-referrer"
             />

@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  Headers,
   Param,
   Post,
   Put,
@@ -12,6 +13,11 @@ import { ApiBody, ApiOperation, ApiParam, ApiQuery, ApiTags } from '@nestjs/swag
 import { apiBodyDefault } from '../../swagger/api-body.util';
 import { SWAGGER_BODY_EXAMPLES } from '../../swagger/examples';
 import { SWAGGER_FIXTURES } from '../../swagger/fixtures';
+import { ApiChainIdHeader } from '../../swagger/api-headers.util';
+import {
+  CHAIN_ID_HEADER,
+  ChainConfigService,
+} from '../../blockchain/chain-config.service';
 import { PortfolioHideHoldingDto } from './dto/portfolio-hide-holding.dto';
 import { PortfolioHoldingsBatchDto } from './dto/portfolio-holdings-batch.dto';
 import { PortfolioSetCostBasisDto } from './dto/portfolio-set-cost-basis.dto';
@@ -20,6 +26,7 @@ import { PortfolioHoldingService } from './portfolio-holding.service';
 
 /**
  * 포트폴리오 — 일별 스냅샷·24h P&L·보유 숨김·cost basis.
+ * Holding prefs are scoped by the RWA contract for `x-tokenable-chain-id`.
  */
 @ApiTags('marketplace')
 @Controller('marketplace')
@@ -27,6 +34,7 @@ export class PortfolioController {
   constructor(
     private readonly portfolioSnapshots: PortfolioDailySnapshotService,
     private readonly portfolioHoldings: PortfolioHoldingService,
+    private readonly chainConfig: ChainConfigService,
   ) {}
 
   /** 지갑 일별 가치 스냅샷 + 최근 24h 손익 */
@@ -65,28 +73,54 @@ export class PortfolioController {
 
   /** 포트폴리오 합계에서 제외한 tokenId 목록 */
   @ApiOperation({ summary: '숨긴 보유 목록' })
+  @ApiChainIdHeader()
   @ApiParam({ name: 'wallet', description: '지갑 주소', example: SWAGGER_FIXTURES.wallet })
   @Get('portfolio/hidden/:wallet')
-  async listPortfolioHidden(@Param('wallet') wallet: string) {
-    const tokenIds = await this.portfolioHoldings.listHiddenTokenIds(wallet);
+  async listPortfolioHidden(
+    @Param('wallet') wallet: string,
+    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
+  ) {
+    const chainId = this.chainConfig.resolveChainId(chainHeader);
+    const tokenIds = await this.portfolioHoldings.listHiddenTokenIds(
+      wallet,
+      chainId,
+    );
     return { tokenIds };
   }
 
   /** 보유를 포트폴리오 합계·목록에서 숨김 (온체인 보유는 유지) */
   @ApiOperation({ summary: '보유 숨기기' })
+  @ApiChainIdHeader()
   @ApiBody(apiBodyDefault(PortfolioHideHoldingDto, SWAGGER_BODY_EXAMPLES.portfolioHide))
   @Post('portfolio/hidden')
-  async hidePortfolioHolding(@Body() body: PortfolioHideHoldingDto) {
-    await this.portfolioHoldings.hide(body.walletAddress, body.tokenId);
+  async hidePortfolioHolding(
+    @Body() body: PortfolioHideHoldingDto,
+    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
+  ) {
+    const chainId = this.chainConfig.resolveChainId(chainHeader);
+    await this.portfolioHoldings.hide(
+      body.walletAddress,
+      body.tokenId,
+      chainId,
+    );
     return { ok: true };
   }
 
   /** 숨긴 보유 다시 표시 */
   @ApiOperation({ summary: '보유 숨김 해제' })
+  @ApiChainIdHeader()
   @ApiBody(apiBodyDefault(PortfolioHideHoldingDto, SWAGGER_BODY_EXAMPLES.portfolioHide))
   @Delete('portfolio/hidden')
-  async unhidePortfolioHolding(@Body() body: PortfolioHideHoldingDto) {
-    await this.portfolioHoldings.unhide(body.walletAddress, body.tokenId);
+  async unhidePortfolioHolding(
+    @Body() body: PortfolioHideHoldingDto,
+    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
+  ) {
+    const chainId = this.chainConfig.resolveChainId(chainHeader);
+    await this.portfolioHoldings.unhide(
+      body.walletAddress,
+      body.tokenId,
+      chainId,
+    );
     return { ok: true };
   }
 
@@ -95,6 +129,7 @@ export class PortfolioController {
     description:
       'My Assets P/L용. `costBasisUsd` + `costBasisSource` (vault_delivery, marketplace_buy, manual, …).',
   })
+  @ApiChainIdHeader()
   @ApiBody(
     apiBodyDefault(
       PortfolioHoldingsBatchDto,
@@ -102,16 +137,22 @@ export class PortfolioController {
     ),
   )
   @Post('portfolio/holdings/batch')
-  async getPortfolioHoldingsBatch(@Body() body: PortfolioHoldingsBatchDto) {
+  async getPortfolioHoldingsBatch(
+    @Body() body: PortfolioHoldingsBatchDto,
+    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
+  ) {
+    const chainId = this.chainConfig.resolveChainId(chainHeader);
     const items = await this.portfolioHoldings.getHoldingsBatch(
       body.walletAddress,
       body.tokenIds,
+      chainId,
     );
     return { items };
   }
 
   /** User manual cost basis edit — never overwritten by auto seed */
   @ApiOperation({ summary: 'Cost basis 수동 설정' })
+  @ApiChainIdHeader()
   @ApiBody(
     apiBodyDefault(
       PortfolioSetCostBasisDto,
@@ -119,11 +160,16 @@ export class PortfolioController {
     ),
   )
   @Put('portfolio/holdings/cost-basis')
-  async setPortfolioCostBasis(@Body() body: PortfolioSetCostBasisDto) {
+  async setPortfolioCostBasis(
+    @Body() body: PortfolioSetCostBasisDto,
+    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
+  ) {
+    const chainId = this.chainConfig.resolveChainId(chainHeader);
     await this.portfolioHoldings.setManualCostBasis(
       body.walletAddress,
       body.tokenId,
       body.costBasisUsd,
+      chainId,
     );
     return { ok: true };
   }

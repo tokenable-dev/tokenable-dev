@@ -24,6 +24,7 @@ import {
 import { buildPortfolioTxRows } from "@/lib/portfolio/buildPortfolioTxRows";
 import type { OwnedAsset } from "@/lib/portfolio/portfolioTypes";
 import { putPortfolioCostBasis, rq } from "@/lib/core";
+import { activeRqChainId } from "@/lib/chains";
 import { invalidateAfterListing } from "@/lib/core/invalidation";
 import { APP_MAIN_SHELL_CLASS } from "@/constants/layout";
 import { HomeTicker } from "@/components/home/HomeTicker";
@@ -242,7 +243,7 @@ export default function PortfolioPage() {
     try {
       await putPortfolioCostBasis(signerAddress, tokenId, costBasisUsd);
       await queryClient.invalidateQueries({
-        queryKey: rq.portfolioHoldings(signerAddress, tokenIds),
+        queryKey: rq.portfolioHoldings(signerAddress, tokenIds, activeRqChainId()),
       });
     } catch (err) {
       window.alert(err instanceof Error ? err.message : "Failed to save cost basis");

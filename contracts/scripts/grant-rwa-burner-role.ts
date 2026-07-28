@@ -14,6 +14,11 @@ const CHAIN_META: Record<
     explorer: 'https://sepolia.etherscan.io',
     envVar: 'CHAIN_11155111_RWA_ADDRESS',
   },
+  polygon: {
+    chainId: 137,
+    explorer: 'https://polygonscan.com',
+    envVar: 'CHAIN_137_RWA_ADDRESS',
+  },
 };
 
 /**
@@ -22,13 +27,14 @@ const CHAIN_META: Record<
  * grants BURNER_ROLE to the grantee (default: hardhat deployer / RWA_OWNER wallet).
  *
  *   pnpm grant-burner:sepolia
+ *   pnpm grant-burner:polygon
  *   RWA_BURNER_GRANTEE=0x... pnpm grant-burner:sepolia
  */
 async function main() {
   const meta = CHAIN_META[network.name];
   if (!meta) {
     throw new Error(
-      `Unsupported network "${network.name}". Use mainnet or sepolia.`,
+      `Unsupported network "${network.name}". Use mainnet, sepolia, or polygon.`,
     );
   }
 

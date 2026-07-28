@@ -10,9 +10,6 @@ import {
 import {
   CARRIER_LABELS,
   CARRIER_TRACK_URLS,
-  confirmedSellCards,
-  readSellFlowDraftCards,
-  readSellShipment,
   sellSubmissionResumeHref,
   type SellCarrier,
 } from "@/lib/sell/sellFlowDraft";
@@ -80,7 +77,7 @@ function apiToInProgress(s: VaultSubmissionApi): VaultInProgressItem | null {
           : undefined,
       cta: {
         label: "Track",
-        href: `/vault/submissions/${encodeURIComponent(s.publicId)}?scenario=${s.scenario}`,
+        href: `/vault/submissions/${encodeURIComponent(s.publicId)}`,
         primary: false,
       },
     };
@@ -94,7 +91,7 @@ function apiToInProgress(s: VaultSubmissionApi): VaultInProgressItem | null {
     detail: "PSA is authenticating",
     cta: {
       label: "View",
-      href: `/vault/submissions/${encodeURIComponent(s.publicId)}?scenario=${s.scenario}`,
+      href: `/vault/submissions/${encodeURIComponent(s.publicId)}`,
       primary: false,
     },
   };
@@ -116,7 +113,7 @@ function statusLabelClass(kind: VaultInProgressItem["statusKind"]): string {
   return "vault-ip-card__status-label--pos";
 }
 
-/** Live sell shipment / API submissions as hub In Progress. */
+/** Server-backed sell submissions as hub In Progress (no offline mock cards). */
 export function VaultHubInProgressFromShipment() {
   const [items, setItems] = useState<VaultInProgressItem[]>([]);
 
@@ -126,69 +123,14 @@ export function VaultHubInProgressFromShipment() {
       try {
         const rows = await listVaultSubmissions();
         if (cancelled) return;
-        const mapped = rows
-          .map(apiToInProgress)
-          .filter((x): x is VaultInProgressItem => Boolean(x));
-        if (mapped.length > 0) {
-          setItems(mapped);
-          return;
-        }
+        setItems(
+          rows
+            .map(apiToInProgress)
+            .filter((x): x is VaultInProgressItem => Boolean(x)),
+        );
       } catch {
-        /* fall through to local */
+        if (!cancelled) setItems([]);
       }
-      if (cancelled) return;
-
-      const localShipment = readSellShipment();
-      if (localShipment) {
-        const card = localShipment.cards[0];
-        setItems([
-          {
-            id: localShipment.id,
-            name: card?.name ?? "Submission",
-            grade: card ? `PSA ${card.grade}` : "—",
-            imageUrl: card?.img ?? "",
-            cardCount: localShipment.cards.length,
-            statusKind: "in-transit",
-            statusLabel: "Shipping to vault",
-            detail: `${CARRIER_LABELS[localShipment.carrier]} · ${localShipment.trackingNumber}`,
-            trackingUrl: `${CARRIER_TRACK_URLS[localShipment.carrier]}${encodeURIComponent(localShipment.trackingNumber)}`,
-            cta: {
-              label: "Track",
-              href: `/vault/submissions/${encodeURIComponent(localShipment.id)}?scenario=C`,
-              primary: false,
-            },
-          },
-        ]);
-        return;
-      }
-
-      const localDraft = readSellFlowDraftCards();
-      if (localDraft.length === 0) {
-        setItems([]);
-        return;
-      }
-      const card = localDraft[0];
-      const goShip = confirmedSellCards(localDraft).length > 0;
-      setItems([
-        {
-          id: "local-draft",
-          name: card?.name ?? "Draft",
-          grade: card ? `PSA ${card.grade}` : "—",
-          imageUrl: card?.img ?? "",
-          cardCount: localDraft.length,
-          statusKind: "action-needed",
-          statusLabel: goShip ? "Shipping to vault" : "Draft",
-          detail: goShip
-            ? "Tracking number required"
-            : `${localDraft.length} card${localDraft.length === 1 ? "" : "s"} saved`,
-          actionNeeded: true,
-          cta: {
-            label: goShip ? "Add tracking" : "Continue",
-            href: goShip ? "/sell/shipping" : "/sell/flow",
-            primary: true,
-          },
-        },
-      ]);
     })();
     return () => {
       cancelled = true;
@@ -302,24 +244,18 @@ export function useHasSellShipment(): boolean {
       try {
         const rows = await listVaultSubmissions();
         if (cancelled) return;
-        const open = rows.some(
-          (r) =>
-            r.status === "draft" ||
-            r.status === "awaiting_shipment" ||
-            r.status === "in_transit" ||
-            r.status === "psa_reviewing",
+        setHas(
+          rows.some(
+            (r) =>
+              r.status === "draft" ||
+              r.status === "awaiting_shipment" ||
+              r.status === "in_transit" ||
+              r.status === "psa_reviewing",
+          ),
         );
-        if (open) {
-          setHas(true);
-          return;
-        }
       } catch {
-        /* local fallback */
+        if (!cancelled) setHas(false);
       }
-      if (cancelled) return;
-      setHas(
-        Boolean(readSellShipment()) || readSellFlowDraftCards().length > 0,
-      );
     })();
     return () => {
       cancelled = true;

@@ -148,3 +148,6 @@ See [marketplace-admin.md](./marketplace-admin.md) for the full admin RWA API in
 | `RWA_CUSTODY_PRIVATE_KEY` | Optional separate key if custody != minter |
 | `CHAIN_11155111_RWA_ADDRESS` | TokenableRWA proxy on Sepolia |
 | `CHAIN_1_RWA_ADDRESS` | TokenableRWA proxy on Ethereum mainnet |
+| `CHAIN_137_RWA_ADDRESS` | TokenableRWA proxy on Polygon mainnet |
+
+Mint and redeem honor `x-tokenable-chain-id` so the write lands on that chain’s RWA address and `rwa_tokens.token_contract`.

@@ -56,6 +56,9 @@ Images are tagged with the branch name (rolling pointer) **and** the full `githu
 | `NEXT_PUBLIC_CHAIN_1_RPC_URL` | No | Ethereum mainnet RPC — add all three when mainnet goes live |
 | `NEXT_PUBLIC_CHAIN_1_RWA` | No | Ethereum mainnet TokenableRWA |
 | `NEXT_PUBLIC_CHAIN_1_USDC` | No | Ethereum mainnet USDC (`0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48`) |
+| `NEXT_PUBLIC_CHAIN_137_RPC_URL` | No | Polygon mainnet RPC — add all three after Polygon RWA deploy |
+| `NEXT_PUBLIC_CHAIN_137_RWA` | No | Polygon TokenableRWA |
+| `NEXT_PUBLIC_CHAIN_137_USDC` | No | Polygon native USDC (`0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359`) |
 | `NEXT_PUBLIC_PRIVY_APP_ID` | Yes | Privy App ID — enables login |
 | `NEXT_PUBLIC_PRIVY_FUNDING_ENVIRONMENT` | No | `sandbox` (develop default) / `production` (main default) — MoonPay |
 | `NEXT_PUBLIC_PRIVY_FUNDING_USE_ONRAMP_ON_TESTNET` | No | `true` on develop by default — Sepolia MoonPay QA |
@@ -105,6 +108,10 @@ DEFAULT_CHAIN_ID=11155111
 CHAIN_11155111_RPC_URL=https://eth-sepolia.g.alchemy.com/v2/YOUR_KEY
 CHAIN_11155111_RWA_ADDRESS=0xC3d32650Fa75D14A0E62337446C87f3D86637d61
 CHAIN_11155111_USDC_ADDRESS=0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238
+# Optional Polygon mainnet (after `pnpm deploy:rwa:polygon`)
+# CHAIN_137_RPC_URL=https://polygon-mainnet.g.alchemy.com/v2/YOUR_KEY
+# CHAIN_137_RWA_ADDRESS=0x...
+# CHAIN_137_USDC_ADDRESS=0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359
 RWA_OWNER_PRIVATE_KEY=<backend signer private key>
 # RWA_CUSTODY_WALLET_ADDRESS=0x...  (defaults to RWA_OWNER address)
 # RWA_CUSTODY_PRIVATE_KEY=...       (optional separate key)
@@ -207,6 +214,7 @@ curl -sS https://your-domain.com/api/health
 - [ ] `PARTNER_WALLET_ENCRYPTION_KEY` set before using Partners / bulk mint+list
 - [ ] `PSA_PUBLIC_API_TOKENS` configured (comma-separated pool)
 - [ ] Ethereum mainnet: add `CHAIN_1_*` env vars when ready
+- [ ] Polygon mainnet: add `CHAIN_137_*` / `NEXT_PUBLIC_CHAIN_137_*` after deploy
 
 ---
 

@@ -15,11 +15,12 @@ import type { SupportedChainId } from "@/lib/chains";
 const IS_DEV = process.env.NODE_ENV === "development";
 
 function ChainDot({ chainId }: { chainId: SupportedChainId }) {
-  const color = chainId === 1 ? "bg-blue-400" : "bg-fuchsia-400";
+  const color =
+    chainId === 1 ? "bg-blue-400" : chainId === 137 ? "bg-violet-400" : "bg-fuchsia-400";
   return <span className={`h-2 w-2 shrink-0 rounded-full ${color}`} aria-hidden />;
 }
 
-/** Header network picker — internal dev only (Sepolia · Ethereum). */
+/** Header network picker — internal dev only (Sepolia · Ethereum · Polygon). */
 export function NetworkSwitcher({ inDrawer = false }: { inDrawer?: boolean }) {
   const user = useAuthStore((s) => s.user);
   const { chain, configuredChains, setChainId, chainId } = useAppChain();
@@ -119,7 +120,7 @@ export function NetworkSwitcher({ inDrawer = false }: { inDrawer?: boolean }) {
           </ul>
           {IS_DEV || internalDev ? (
             <p className="border-t border-white/[0.06] px-3 py-2 text-[10px] text-[var(--t3)]">
-              Mainnet marketplace requires CHAIN_1_RWA / NEXT_PUBLIC_CHAIN_1_RWA.
+              Polygon/Ethereum need CHAIN_137_* / CHAIN_1_* (+ matching NEXT_PUBLIC_*).
             </p>
           ) : null}
         </div>

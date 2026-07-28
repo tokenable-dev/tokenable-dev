@@ -7,6 +7,7 @@ import {
   marketplaceRqPolicy,
   rq,
 } from "@/lib/core";
+import { activeRqChainId } from "@/lib/chains";
 import { pickHeroCarouselCoverUrls } from "@/lib/home/heroCarouselAssets";
 
 /**
@@ -14,8 +15,9 @@ import { pickHeroCarouselCoverUrls } from "@/lib/home/heroCarouselAssets";
  * Shares `rq.homeAllCollections()` with the home grids.
  */
 export function useHeroCarouselImageSources() {
+  const chainId = activeRqChainId();
   const { data: collections, isPending } = useQuery({
-    queryKey: rq.homeAllCollections(),
+    queryKey: rq.homeAllCollections(chainId),
     queryFn: getAllMarketplaceCollections,
     staleTime: marketplaceRqPolicy.collectionsStaleMs,
     refetchOnWindowFocus: false,

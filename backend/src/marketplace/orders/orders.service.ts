@@ -925,6 +925,7 @@ export class OrdersService {
   async fulfillOrder(
     orderHash: string,
     buyerAddress?: string,
+    chainId?: SupportedChainId,
   ): Promise<Order> {
     const order = await this.findByHash(orderHash);
 
@@ -973,6 +974,7 @@ export class OrdersService {
           buyerAddress,
           saved,
           saved.updatedAt ?? new Date(),
+          chainId,
         );
       }
     } else if (
@@ -1014,6 +1016,7 @@ export class OrdersService {
             considerationAmount: offerAmt,
           } as Order,
           saved.updatedAt ?? new Date(),
+          chainId,
         );
       }
     }
@@ -1027,6 +1030,7 @@ export class OrdersService {
   async fulfillMatchedPair(
     askHash: string,
     bidHash: string,
+    chainId?: SupportedChainId,
   ): Promise<{ ask: Order; bid: Order }> {
     const ask = await this.findByHash(askHash);
     const bid = await this.findByHash(bidHash);
@@ -1114,6 +1118,7 @@ export class OrdersService {
       bid.offerer,
       ask,
       ask.updatedAt ?? new Date(),
+      chainId,
     );
 
     return { ask, bid };
@@ -1123,6 +1128,7 @@ export class OrdersService {
     buyerWallet: string,
     askOrder: Order,
     acquiredAt: Date,
+    chainId?: SupportedChainId,
   ): Promise<void> {
     const tidRaw = resolveFulfilledAskTokenId(askOrder);
     if (tidRaw == null) return;
@@ -1138,6 +1144,7 @@ export class OrdersService {
         tid,
         costUsd,
         acquiredAt,
+        chainId,
       );
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);

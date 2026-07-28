@@ -16,8 +16,9 @@ const HERO_CAROUSEL_MAX_CANDIDATES = 20;
 
 /**
  * Unique collection cover URLs for the home hero ring.
- * Prefers S3/catalog covers; newest collections first for variety.
- * Returns same-origin proxy URLs so WebGL preload succeeds without S3 CORS.
+ * **S3 / CloudFront catalog covers only** (via same-origin proxy).
+ * Bubble `/crop_image` and `/resize` are skipped — WebGL TextureLoader needs
+ * CORS (`crossOrigin=anonymous`) and Bubble CDN does not allow it.
  */
 export function pickHeroCarouselCoverUrls(
   collections: readonly MarketplaceCollectionSummary[],
@@ -30,21 +31,20 @@ export function pickHeroCarouselCoverUrls(
   );
 
   const s3Urls: string[] = [];
-  const otherUrls: string[] = [];
   const used = new Set<string>();
 
   for (const collection of sorted) {
     const raw = pickCollectionSummaryDisplayImageUrl(collection);
     const url = normalizeCatalogCoverPublicUrl(raw) ?? raw;
-    if (!url) continue;
+    if (!url || !isCatalogCoverS3Url(url)) continue;
     const key = url.trim().toLowerCase();
     if (used.has(key)) continue;
     used.add(key);
-    if (isCatalogCoverS3Url(url)) s3Urls.push(toSameOriginCatalogCoverUrl(url));
-    else otherUrls.push(url);
+    s3Urls.push(toSameOriginCatalogCoverUrl(url));
+    if (s3Urls.length >= maxUnique) break;
   }
 
-  return [...s3Urls, ...otherUrls].slice(0, maxUnique);
+  return s3Urls;
 }
 
 /**

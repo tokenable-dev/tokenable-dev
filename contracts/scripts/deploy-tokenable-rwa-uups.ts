@@ -27,6 +27,13 @@ const CHAIN_META: Record<
     backendEnv: 'CHAIN_11155111_RWA_ADDRESS',
     frontendEnv: 'NEXT_PUBLIC_CHAIN_11155111_RWA',
   },
+  polygon: {
+    chainId: 137,
+    nativeSymbol: 'POL',
+    explorer: 'https://polygonscan.com',
+    backendEnv: 'CHAIN_137_RWA_ADDRESS',
+    frontendEnv: 'NEXT_PUBLIC_CHAIN_137_RWA',
+  },
 };
 
 /**
@@ -35,13 +42,14 @@ const CHAIN_META: Record<
  * Examples:
  *   pnpm deploy:rwa              # Sepolia (default dev)
  *   pnpm deploy:rwa:sepolia
+ *   pnpm deploy:rwa:polygon
  *   pnpm deploy:rwa:mainnet
  */
 async function main() {
   const meta = CHAIN_META[network.name];
   if (!meta) {
     throw new Error(
-      `Unsupported network "${network.name}". Use mainnet or sepolia.`,
+      `Unsupported network "${network.name}". Use mainnet, sepolia, or polygon.`,
     );
   }
 

@@ -237,18 +237,27 @@ export class OrdersController {
   fulfillOrder(
     @Param('hash') hash: string,
     @Query() query: FulfillOrderQueryDto,
+    @Headers(CHAIN_ID_HEADER) chainIdHeader?: string,
   ): Promise<Order> {
-    return this.ordersService.fulfillOrder(hash, query.buyerAddress);
+    return this.ordersService.fulfillOrder(
+      hash,
+      query.buyerAddress,
+      this.chainConfig.resolveChainId(chainIdHeader),
+    );
   }
 
   /** ask+criteria bid 매칭 체결 후 두 주문 모두 fulfilled */
   @ApiOperation({ summary: '매칭 주문 쌍 체결 표시' })
   @ApiBody(apiBodyDefault(FulfillMatchedPairDto, SWAGGER_BODY_EXAMPLES.fulfillMatchedPair))
   @Post('orders/fulfill-matched-pair')
-  fulfillMatchedPair(@Body() body: FulfillMatchedPairDto) {
+  fulfillMatchedPair(
+    @Body() body: FulfillMatchedPairDto,
+    @Headers(CHAIN_ID_HEADER) chainIdHeader?: string,
+  ) {
     return this.ordersService.fulfillMatchedPair(
       body.askOrderHash,
       body.bidOrderHash,
+      this.chainConfig.resolveChainId(chainIdHeader),
     );
   }
 }

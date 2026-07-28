@@ -9,7 +9,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { RwaAssetResolveService } from '../../blockchain/rwa-asset-resolve.service';
 import { BlockchainService } from '../../blockchain/blockchain.service';
-import { ChainConfigService } from '../../blockchain/chain-config.service';
+import { ChainConfigService, type SupportedChainId } from '../../blockchain/chain-config.service';
 import { RwaChainWriterService } from '../../blockchain/rwa-chain-writer.service';
 import { IpfsGatewayResolverService } from '../../blockchain/ipfs-gateway-resolver.service';
 import { VaultCycle } from '../../vault/entities/vault-cycle.entity';
@@ -85,8 +85,8 @@ export class RwaTokenAdminService {
     private readonly portfolioHoldings: PortfolioHoldingService,
   ) {}
 
-  private rwaContractAddress(): string {
-    return this.chainConfig.getRwaAddress(this.chainConfig.getDefaultChainId());
+  private rwaContractAddress(chainId?: SupportedChainId): string {
+    return this.chainConfig.getRwaAddress(chainId ?? this.chainConfig.getDefaultChainId());
   }
 
   private assertImageUrl(url: string): void {
@@ -131,8 +131,8 @@ export class RwaTokenAdminService {
   }
 
   /** All minted RWA registry rows for the active chain (listed + unlisted + burned). */
-  async listAllRegistryCards(): Promise<{ items: AdminRwaCardRow[] }> {
-    const contract = this.rwaContractAddress();
+  async listAllRegistryCards(chainId: SupportedChainId): Promise<{ items: AdminRwaCardRow[] }> {
+    const contract = this.rwaContractAddress(chainId);
     if (!contract) {
       return { items: [] };
     }
@@ -229,8 +229,8 @@ export class RwaTokenAdminService {
   }
 
   /** @deprecated use listAllRegistryCards — kept for backward-compatible route. */
-  async listActiveListedCards(): Promise<{ items: AdminRwaCardRow[] }> {
-    const all = await this.listAllRegistryCards();
+  async listActiveListedCards(chainId: SupportedChainId): Promise<{ items: AdminRwaCardRow[] }> {
+    const all = await this.listAllRegistryCards(chainId);
     return {
       items: all.items.filter((row) => row.hasActiveListing),
     };
@@ -243,13 +243,14 @@ export class RwaTokenAdminService {
       displayName?: string | null;
       collectionKey?: string | null;
     },
+    chainId: SupportedChainId,
   ): Promise<RwaToken> {
-    const contract = this.rwaContractAddress();
+    const contract = this.rwaContractAddress(chainId);
     if (!contract) {
       throw new BadRequestException('RWA contract not configured');
     }
 
-    await this.rwaTokenRegistry.syncTokenFromChain(tokenId);
+    await this.rwaTokenRegistry.syncTokenFromChain(tokenId, null, chainId);
 
     const row = await this.rwaTokenRepo.findOne({
       where: { tokenContract: contract, tokenId: String(tokenId) },
@@ -283,8 +284,9 @@ export class RwaTokenAdminService {
 
   async previewImageRefFromMetadata(
     tokenId: number,
+    chainId: SupportedChainId,
   ): Promise<{ imageRef: string | null; httpsUrl: string | null }> {
-    const tokenURI = await this.blockchain.getRwaTokenURI(tokenId);
+    const tokenURI = await this.blockchain.getRwaTokenURI(tokenId, chainId);
     const meta = await this.ipfs.fetchMetadataJson(tokenURI);
     const ref = pickRwaAssetDisplayImageRef(meta) ?? null;
     const httpsUrl = ref ? await this.ipfs.resolveUriToHttps(ref) : null;
@@ -292,18 +294,17 @@ export class RwaTokenAdminService {
   }
 
   /** NFTs currently held in the platform custody wallet pending user delivery. */
-  async listCustodyHeldNfts(): Promise<{
+  async listCustodyHeldNfts(chainId: SupportedChainId): Promise<{
     custodyWallet: string;
     items: AdminCustodyNftRow[];
   }> {
-    const chainId = this.chainConfig.getDefaultChainId();
-    const contract = this.rwaContractAddress();
+    const contract = this.rwaContractAddress(chainId);
     const custodyWallet = await this.chainWriter.getCustodyWalletAddress(chainId);
     if (!contract) {
       return { custodyWallet, items: [] };
     }
 
-    const tokenIds = await this.blockchain.getRwaTokensByOwner(custodyWallet);
+    const tokenIds = await this.blockchain.getRwaTokensByOwner(custodyWallet, chainId);
     if (tokenIds.length === 0) {
       return { custodyWallet, items: [] };
     }
@@ -425,9 +426,10 @@ export class RwaTokenAdminService {
    */
   async deliverCustodyNftToUser(
     tokenId: number,
+    chainId: SupportedChainId,
     recipientAddress?: string | null,
   ): Promise<{ txHash: string; recipientAddress: string }> {
-    const contract = this.rwaContractAddress();
+    const contract = this.rwaContractAddress(chainId);
     if (!contract) {
       throw new BadRequestException('RWA contract not configured');
     }
@@ -451,9 +453,8 @@ export class RwaTokenAdminService {
       throw new BadRequestException('Cancel the active listing before delivering');
     }
 
-    const chainId = this.chainConfig.getDefaultChainId();
     const custodyWallet = await this.chainWriter.getCustodyWalletAddress(chainId);
-    const onChainOwner = await this.blockchain.getRwaTokenOwner(tid);
+    const onChainOwner = await this.blockchain.getRwaTokenOwner(tid, chainId);
     if (onChainOwner !== custodyWallet) {
       throw new BadRequestException(
         `Token #${tid} is not in custody (on-chain owner=${onChainOwner})`,
@@ -514,6 +515,7 @@ export class RwaTokenAdminService {
           tid,
           markUsd,
           deliveredAt,
+          chainId,
         );
       } else {
         this.logger.warn(
@@ -537,8 +539,9 @@ export class RwaTokenAdminService {
    */
   async burnTokenOnChain(
     tokenId: number,
+    chainId: SupportedChainId,
   ): Promise<{ txHash: string; cancelledOrderHashes: string[] }> {
-    const contract = this.rwaContractAddress();
+    const contract = this.rwaContractAddress(chainId);
     if (!contract) {
       throw new BadRequestException('RWA contract not configured');
     }
@@ -564,7 +567,7 @@ export class RwaTokenAdminService {
 
     let expectedOwner: string | null = null;
     try {
-      expectedOwner = await this.blockchain.getRwaTokenOwner(tid);
+      expectedOwner = await this.blockchain.getRwaTokenOwner(tid, chainId);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       throw new BadRequestException(
@@ -574,10 +577,10 @@ export class RwaTokenAdminService {
       );
     }
 
-    await this.rwaTokenRegistry.syncTokenFromChain(tid);
+    await this.rwaTokenRegistry.syncTokenFromChain(tid, null, chainId);
     const result = await this.chainWriter.adminBurn(
       tid,
-      this.chainConfig.getDefaultChainId(),
+      chainId,
       expectedOwner,
     );
 
@@ -596,15 +599,14 @@ export class RwaTokenAdminService {
     return this.vault.confirmVaultRelease(redemptionId);
   }
 
-  async getContractRolesOverview(): Promise<{
+  async getContractRolesOverview(chainId: SupportedChainId): Promise<{
     chainId: number;
     contractAddress: string;
     adminSignerAddress: string;
     adminSignerHasDefaultAdmin: boolean;
     roles: { key: AdminRwaRoleKey; label: string; description: string }[];
   }> {
-    const chainId = this.chainConfig.getDefaultChainId();
-    const contractAddress = this.rwaContractAddress();
+    const contractAddress = this.rwaContractAddress(chainId);
     if (!contractAddress) {
       throw new BadRequestException('RWA contract not configured');
     }
@@ -645,22 +647,22 @@ export class RwaTokenAdminService {
     };
   }
 
-  async getWalletContractRoles(walletAddress: string) {
-    return this.chainWriter.getWalletRoleStatus(walletAddress);
+  async getWalletContractRoles(walletAddress: string, chainId: SupportedChainId) {
+    return this.chainWriter.getWalletRoleStatus(walletAddress, chainId);
   }
 
-  async grantWalletContractRole(walletAddress: string, role: AdminRwaRoleKey) {
+  async grantWalletContractRole(walletAddress: string, role: AdminRwaRoleKey, chainId: SupportedChainId) {
     if (!ADMIN_RWA_ROLE_KEYS.includes(role)) {
       throw new BadRequestException('Invalid role');
     }
-    return this.chainWriter.grantAccessRole(walletAddress, role);
+    return this.chainWriter.grantAccessRole(walletAddress, role, chainId);
   }
 
-  async revokeWalletContractRole(walletAddress: string, role: AdminRwaRoleKey) {
+  async revokeWalletContractRole(walletAddress: string, role: AdminRwaRoleKey, chainId: SupportedChainId) {
     if (!ADMIN_RWA_ROLE_KEYS.includes(role)) {
       throw new BadRequestException('Invalid role');
     }
-    return this.chainWriter.revokeAccessRole(walletAddress, role);
+    return this.chainWriter.revokeAccessRole(walletAddress, role, chainId);
   }
 
   /** [Admin] Full deposit/redeem history for a physical asset (audit view). */

@@ -10,6 +10,7 @@ import {
   marketplaceRqPolicy,
   type CollectionListMarketSnapshot,
 } from "@/lib/core";
+import { activeRqChainId } from "@/lib/chains";
 import { MARKET_PRICE_CHANGE_SNAPSHOT_DURATION } from "@/lib/market";
 
 /**
@@ -17,8 +18,9 @@ import { MARKET_PRICE_CHANGE_SNAPSHOT_DURATION } from "@/lib/market";
  * Owns the refetch interval and stale policy for the order book.
  */
 export function useMarketsOrders() {
+  const chainId = activeRqChainId();
   const query = useQuery({
-    queryKey: rq.ordersActive(),
+    queryKey: rq.ordersActive(chainId),
     queryFn: getActiveOrders,
     refetchInterval: marketplaceRqPolicy.ordersRefetchMs,
     staleTime: marketplaceRqPolicy.ordersStaleMs,

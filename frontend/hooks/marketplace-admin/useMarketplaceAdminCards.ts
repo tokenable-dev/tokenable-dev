@@ -7,18 +7,20 @@ import {
   postAdminPreviewRwaMetadataImage,
   rq,
 } from "@/lib/core";
+import { activeRqChainId } from "@/lib/chains";
 
 export function useMarketplaceAdminCards() {
   const qc = useQueryClient();
+  const chainId = activeRqChainId();
 
   const query = useQuery({
-    queryKey: rq.adminRwaCards(),
+    queryKey: rq.adminRwaCards(chainId),
     queryFn: () => getAdminRwaCards(),
     staleTime: 30_000,
   });
 
   const invalidateCard = async (tokenId: number) => {
-    await qc.invalidateQueries({ queryKey: rq.adminRwaCards() });
+    await qc.invalidateQueries({ queryKey: rq.adminRwaCards(chainId) });
     await qc.invalidateQueries({ queryKey: rq.rwaAssetDetail(tokenId) });
   };
 

@@ -1,6 +1,10 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { Contract } from 'ethers';
-import { TOKENABLE_RWA_CONTRACT } from './constants/injection-tokens';
+import { TOKENABLE_RWA_ABI } from './abis/tokenable-rwa.abi';
+import {
+  ChainConfigService,
+  type SupportedChainId,
+} from './chain-config.service';
 import { perfNow, perfLog, elapsedMs } from '../common/perf/perf';
 import { IpfsGatewayResolverService } from './ipfs-gateway-resolver.service';
 import { pickRwaAssetDisplayImageRef } from '../marketplace/utils/collection-image.util';
@@ -21,30 +25,50 @@ function isErc721InvalidTokenError(e: unknown): boolean {
 
 @Injectable()
 export class BlockchainService {
+  private readonly rwaByChain = new Map<SupportedChainId, Contract>();
+
   constructor(
-    @Inject(TOKENABLE_RWA_CONTRACT)
-    private readonly tokenableRwa: Contract,
+    private readonly chainConfig: ChainConfigService,
     private readonly ipfs: IpfsGatewayResolverService,
   ) {}
 
+  /** Read-only TokenableRWA for the requested chain (cached per process). */
+  private tokenableRwa(chainId?: SupportedChainId): Contract {
+    const id = chainId ?? this.chainConfig.getDefaultChainId();
+    const cached = this.rwaByChain.get(id);
+    if (cached) return cached;
+    const address = this.chainConfig.getRwaAddress(id);
+    const contract = new Contract(
+      address,
+      TOKENABLE_RWA_ABI,
+      this.chainConfig.createJsonRpcProvider(id),
+    );
+    this.rwaByChain.set(id, contract);
+    return contract;
+  }
+
   /** Used internally by `CollectionService` to enumerate minted token ids. */
-  async getRwaInfo(): Promise<{
+  async getRwaInfo(chainId?: SupportedChainId): Promise<{
     name: string;
     symbol: string;
     totalMinted: number;
   }> {
+    const rwa = this.tokenableRwa(chainId);
     const [name, symbol, totalMinted] = await Promise.all([
-      this.tokenableRwa.name(),
-      this.tokenableRwa.symbol(),
-      this.tokenableRwa.totalMinted(),
+      rwa.name(),
+      rwa.symbol(),
+      rwa.totalMinted(),
     ]);
     return { name, symbol, totalMinted: Number(totalMinted) };
   }
 
   /** Returns the current on-chain owner of an RWA token (lowercase). Throws NotFoundException if not minted/burned. */
-  async getRwaTokenOwner(tokenId: number): Promise<string> {
+  async getRwaTokenOwner(
+    tokenId: number,
+    chainId?: SupportedChainId,
+  ): Promise<string> {
     try {
-      const owner: string = await this.tokenableRwa.ownerOf(tokenId);
+      const owner: string = await this.tokenableRwa(chainId).ownerOf(tokenId);
       return owner.trim().toLowerCase();
     } catch (e: unknown) {
       if (isErc721InvalidTokenError(e)) {
@@ -54,9 +78,12 @@ export class BlockchainService {
     }
   }
 
-  async getRwaTokenURI(tokenId: number): Promise<string> {
+  async getRwaTokenURI(
+    tokenId: number,
+    chainId?: SupportedChainId,
+  ): Promise<string> {
     try {
-      return await this.tokenableRwa.tokenURI(tokenId);
+      return await this.tokenableRwa(chainId).tokenURI(tokenId);
     } catch (e: unknown) {
       if (isErc721InvalidTokenError(e)) {
         throw new NotFoundException(
@@ -67,15 +94,20 @@ export class BlockchainService {
     }
   }
 
-  async getRwaTokensByOwner(address: string): Promise<number[]> {
+  async getRwaTokensByOwner(
+    address: string,
+    chainId?: SupportedChainId,
+  ): Promise<number[]> {
     const _t0 = perfNow();
     const normalized = address.trim().toLowerCase();
     try {
-      const { totalMinted } = await this.getRwaInfo();
+      const { totalMinted } = await this.getRwaInfo(chainId);
       if (totalMinted <= 0) return [];
 
       const owners = await this.batchOwnerOf(
         Array.from({ length: totalMinted }, (_, i) => i + 1),
+        24,
+        chainId,
       );
       const tokenIds: number[] = [];
       for (const [tokenId, owner] of owners) {
@@ -86,6 +118,7 @@ export class BlockchainService {
     } finally {
       perfLog('rpc', 'tokensByOwnerScan', elapsedMs(_t0), {
         address: address.slice(0, 10),
+        chainId: chainId ?? this.chainConfig.getDefaultChainId(),
       });
     }
   }
@@ -97,8 +130,10 @@ export class BlockchainService {
   async batchOwnerOf(
     tokenIds: number[],
     concurrency = 24,
+    chainId?: SupportedChainId,
   ): Promise<Map<number, string>> {
     const _t0 = perfNow();
+    const rwa = this.tokenableRwa(chainId);
     const unique = [
       ...new Set(
         tokenIds
@@ -114,7 +149,7 @@ export class BlockchainService {
       const chunk = unique.slice(i, i + parallel);
       const settled = await Promise.allSettled(
         chunk.map(async (tokenId) => {
-          const owner: string = await this.tokenableRwa.ownerOf(tokenId);
+          const owner: string = await rwa.ownerOf(tokenId);
           return {
             tokenId,
             owner: String(owner).trim().toLowerCase(),
@@ -134,13 +169,16 @@ export class BlockchainService {
   /**
    * tokenURI → metadata JSON → browser-safe image URL (all server-side, gateway fallbacks + CID cache).
    */
-  async getResolvedRwaAsset(tokenId: number): Promise<{
+  async getResolvedRwaAsset(
+    tokenId: number,
+    chainId?: SupportedChainId,
+  ): Promise<{
     tokenId: number;
     tokenURI: string;
     metadata: Record<string, unknown> | null;
     imageUrl: string | null;
   }> {
-    const tokenURI = await this.getRwaTokenURI(tokenId);
+    const tokenURI = await this.getRwaTokenURI(tokenId, chainId);
     if (!tokenURI?.trim()) {
       return { tokenId, tokenURI: '', metadata: null, imageUrl: null };
     }
@@ -161,7 +199,10 @@ export class BlockchainService {
   /**
    * tokenURI + IPFS JSON + resolved image URL (bounded fan-out per token).
    */
-  async batchRwaMetadata(tokenIds: number[]): Promise<{
+  async batchRwaMetadata(
+    tokenIds: number[],
+    chainId?: SupportedChainId,
+  ): Promise<{
     items: Array<{
       tokenId: number;
       tokenURI: string | null;
@@ -187,7 +228,7 @@ export class BlockchainService {
         chunk.map(async (tokenId) => {
           let tokenURI: string | null = null;
           try {
-            tokenURI = await this.getRwaTokenURI(tokenId);
+            tokenURI = await this.getRwaTokenURI(tokenId, chainId);
             if (!tokenURI?.trim()) {
               return {
                 tokenId,

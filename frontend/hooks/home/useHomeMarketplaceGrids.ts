@@ -8,6 +8,7 @@ import {
   rq,
   marketplaceRqPolicy,
 } from "@/lib/core";
+import { activeRqChainId } from "@/lib/chains";
 import { useMarketplaceSnapshots } from "@/hooks/home/useMarketplaceSnapshots";
 import { resolveMarketsListingMarketChangePct90d } from "@/lib/markets/marketsListingMarketPrice";
 
@@ -23,8 +24,9 @@ function sortByCreatedAtDesc(
 }
 
 export function useHomeMarketplaceGrids() {
+  const chainId = activeRqChainId();
   const { data: allCollections, isPending: collectionsPending } = useQuery({
-    queryKey: rq.homeAllCollections(),
+    queryKey: rq.homeAllCollections(chainId),
     queryFn: getAllMarketplaceCollections,
     staleTime: marketplaceRqPolicy.collectionsStaleMs,
     refetchOnWindowFocus: false,

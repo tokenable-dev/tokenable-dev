@@ -1,4 +1,3 @@
-import { ASSETS } from "@/constants/assets";
 import type { VaultStepDef } from "@/lib/vault/vaultStepSpec";
 
 export type VaultDetailScenarioKey = "A" | "B" | "C" | "D" | "E" | "F" | "G" | "H" | "early";
@@ -47,30 +46,7 @@ const AZ = "azure" as const;
 const NEG = "neg" as const;
 const DIM = "dim" as const;
 
-export const MOCK_SUBMISSION_ID = "SUB-20260616-00421";
-
-const PKG_CHAR = {
-  name: "1999 POKEMON BASE SET 1ST EDITION #4 CHARIZARD HOLO",
-  imageUrl: ASSETS.ds.cards.charizard,
-  grade: "PSA 10",
-  cert: "12345678",
-};
-const PKG_PIKA = {
-  name: "2023 POKEMON PROMO SVP #085 PIKACHU VAN GOGH",
-  imageUrl: ASSETS.ds.cards.pikachu,
-  grade: "PSA 9",
-  cert: "22938102",
-};
-const PKG_LEB = {
-  name: "2003 TOPPS CHROME #111 LEBRON JAMES ROOKIE",
-  imageUrl: ASSETS.ds.cards.lebron,
-  grade: "PSA 10",
-  cert: "55501248",
-};
-
-export const PKG_DEMO_CARDS = [PKG_CHAR, PKG_PIKA, PKG_LEB] as const;
-
-/** Vault-Detail.html A~H — design system-2 (PSA / Live labels). */
+/** Vault detail A~H presentation map (API `scenario` field). Copy only — no demo cards. */
 export const VAULT_DETAIL_SCENARIOS: Record<Exclude<VaultDetailScenarioKey, "early">, VaultDetailScenario> = {
   A: {
     key: "A",
@@ -140,7 +116,7 @@ export const VAULT_DETAIL_SCENARIOS: Record<Exclude<VaultDetailScenarioKey, "ear
       tone: "info",
       icon: "spin",
       title: "PSA Reviewing Cards",
-      sub: `${MOCK_SUBMISSION_ID} · 3 cards`,
+      sub: "PSA is authenticating your cards",
     },
     steps: [
       { label: "Submit", state: "done", sub: "VERIFIED", subColor: POS },
@@ -160,7 +136,7 @@ export const VAULT_DETAIL_SCENARIOS: Record<Exclude<VaultDetailScenarioKey, "ear
       tone: "success",
       icon: "check",
       title: "Cards approved & stored",
-      sub: "3 cards · verified and insured",
+      sub: "Verified and insured",
     },
     steps: [
       { label: "Submit", state: "done", sub: "VERIFIED", subColor: POS },
@@ -183,7 +159,7 @@ export const VAULT_DETAIL_SCENARIOS: Record<Exclude<VaultDetailScenarioKey, "ear
       tone: "danger",
       icon: "x",
       title: "Cards Rejected",
-      sub: "3 cards did not meet our requirements",
+      sub: "Cards did not meet our requirements",
     },
     steps: [
       { label: "Submit", state: "done", sub: "VERIFIED", subColor: POS },
@@ -206,7 +182,7 @@ export const VAULT_DETAIL_SCENARIOS: Record<Exclude<VaultDetailScenarioKey, "ear
       tone: "success",
       icon: "check",
       title: "Your cards are live",
-      sub: "3 cards are now in your portfolio",
+      sub: "Now in your portfolio",
     },
     steps: [
       { label: "Submit", state: "done", sub: "VERIFIED", subColor: POS },
@@ -229,7 +205,7 @@ export const VAULT_DETAIL_SCENARIOS: Record<Exclude<VaultDetailScenarioKey, "ear
       tone: "danger",
       icon: "x",
       title: "Something went wrong",
-      sub: "1 of 3 cards couldn't be listed",
+      sub: "Some cards couldn't be listed",
     },
     steps: [
       { label: "Submit", state: "done", sub: "VERIFIED", subColor: POS },
@@ -245,69 +221,53 @@ export const VAULT_DETAIL_SCENARIOS: Record<Exclude<VaultDetailScenarioKey, "ear
   },
 };
 
-export function buildPackageCards(scenario: VaultDetailScenario): VaultPackageCard[] {
-  const base = [...PKG_DEMO_CARDS];
-  switch (scenario.key) {
-    case "D":
-      return base.map((c, i) => ({ id: i, ...c, status: "reviewing" as const }));
-    case "E":
-      return base.map((c, i) => ({ id: i, ...c, status: "approved" as const }));
-    case "F": {
-      const reasons = [
-        "Holder shows signs of tampering",
-        "Card doesn't match the cert number",
-        "Doesn't meet PSA Vault terms",
-      ];
-      return base.map((c, i) => ({
-        id: i,
-        ...c,
-        status: "rejected" as const,
-        reason: reasons[i] ?? "Does not meet requirements",
-      }));
-    }
-    case "G":
-      return base.map((c, i) => ({
-        id: i,
-        ...c,
-        status: "completed" as const,
-        token: `#0${421 + i}`,
-      }));
-    case "H":
-      return base.map((c, i) => ({
-        id: i,
-        ...c,
-        status: i < 2 ? ("completed" as const) : ("failed" as const),
-        token: i < 2 ? `#0${421 + i}` : undefined,
-      }));
-    default:
-      return [];
-  }
+/** Map API item status → detail UI status. */
+export function mapApiItemStatus(status: string): VaultPackageCardStatus {
+  if (status === "approved" || status === "minting") return "approved";
+  if (status === "rejected") return "rejected";
+  if (status === "completed") return "completed";
+  if (status === "failed") return "failed";
+  return "reviewing";
 }
 
-/** Layout A package preview cards (draft / ship stages). */
-export function buildLayoutAPackageCards(): Omit<VaultPackageCard, "status">[] {
-  return PKG_DEMO_CARDS.map((c, i) => ({ id: i, ...c }));
-}
-
+/** Prefer API scenario; never invent a demo package. */
 export function resolveDetailScenarioKey(
   scenario?: string | null,
-  legacyView?: string | null,
-): VaultDetailScenarioKey {
+): Exclude<VaultDetailScenarioKey, "early"> {
   const s = scenario?.toUpperCase();
-  if (s && s in VAULT_DETAIL_SCENARIOS) return s as Exclude<VaultDetailScenarioKey, "early">;
-  if (legacyView === "rejected") return "early";
-  if (legacyView === "completed") return "G";
-  if (legacyView === "minting") return "D";
+  if (s && s in VAULT_DETAIL_SCENARIOS) {
+    return s as Exclude<VaultDetailScenarioKey, "early">;
+  }
   return "C";
 }
 
-export const SCENARIO_SWITCHER: { key: Exclude<VaultDetailScenarioKey, "early">; label: string }[] = [
-  { key: "A", label: "A·Draft" },
-  { key: "B", label: "B·Pending" },
-  { key: "C", label: "C·Transit" },
-  { key: "D", label: "D·Review" },
-  { key: "E", label: "E·Approved" },
-  { key: "F", label: "F·Rejected" },
-  { key: "G", label: "G·Minted" },
-  { key: "H", label: "H·Failed" },
-];
+export function withLiveHero(
+  scenario: VaultDetailScenario,
+  submissionId: string,
+  cardCount: number,
+): VaultDetailScenario {
+  const n = Math.max(0, cardCount);
+  const word = n === 1 ? "card" : "cards";
+  let sub = scenario.hero.sub;
+  switch (scenario.key) {
+    case "D":
+      sub = `${submissionId} · ${n} ${word}`;
+      break;
+    case "E":
+      sub = `${n} ${word} · verified and insured`;
+      break;
+    case "F":
+      sub = `${n} ${word} did not meet our requirements`;
+      break;
+    case "G":
+      sub = `${n} ${word} are now in your portfolio`;
+      break;
+    case "H":
+      sub = `Some of ${n} ${word} couldn't be listed`;
+      break;
+    default:
+      break;
+  }
+  if (sub === scenario.hero.sub) return scenario;
+  return { ...scenario, hero: { ...scenario.hero, sub } };
+}

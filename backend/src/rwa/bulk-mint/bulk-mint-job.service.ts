@@ -45,6 +45,8 @@ export type CreateBulkMintJobInput = {
   items?: Array<{ certNumber: string; price: string }>;
   csvText?: string;
   file?: { buffer: Buffer; originalname: string };
+  /** Active app chain — stamps job.chainId for mint/list. */
+  chainId?: SupportedChainId;
 };
 
 export type BulkMintSaleStatus =
@@ -265,7 +267,7 @@ export class BulkMintJobService {
       );
     }
 
-    const chainId = this.chainConfig.getDefaultChainId();
+    const chainId = input.chainId ?? this.chainConfig.getDefaultChainId();
     const job = await this.jobRepo.save(
       this.jobRepo.create({
         status: 'pending' satisfies BulkMintJobStatus,

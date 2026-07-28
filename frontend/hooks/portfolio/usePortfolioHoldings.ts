@@ -8,6 +8,7 @@ import {
   marketplaceRqPolicy,
   type PortfolioHoldingBatchItem,
 } from "@/lib/core";
+import { activeRqChainId } from "@/lib/chains";
 
 /**
  * Server-backed portfolio holdings prefs (hide + cost basis) for owned tokenIds.
@@ -17,13 +18,14 @@ export function usePortfolioHoldings(
   tokenIds: readonly number[],
   enabled: boolean,
 ) {
+  const chainId = activeRqChainId();
   const sortedTokenIds = useMemo(
     () => [...tokenIds].slice().sort((a, b) => a - b),
     [tokenIds],
   );
 
   const { data, isLoading, isFetching } = useQuery({
-    queryKey: rq.portfolioHoldings(address ?? "", sortedTokenIds),
+    queryKey: rq.portfolioHoldings(address ?? "", sortedTokenIds, chainId),
     queryFn: () => postPortfolioHoldingsBatch(address!, sortedTokenIds),
     enabled: enabled && Boolean(address) && sortedTokenIds.length > 0,
     staleTime: marketplaceRqPolicy.ordersStaleMs,

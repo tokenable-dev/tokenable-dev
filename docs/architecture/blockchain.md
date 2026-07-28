@@ -205,15 +205,18 @@ Metadata format follows OpenSea ERC-721 standard with additional `properties.gra
 | Command | Script | Purpose |
 |---------|--------|---------|
 | `pnpm deploy:rwa:sepolia` | `scripts/deploy-tokenable-rwa-uups.ts` | Deploy UUPS proxy to Sepolia |
+| `pnpm deploy:rwa:polygon` | same | Deploy to Polygon mainnet (`POLYGON_RPC_URL`) |
 | `pnpm deploy:rwa:mainnet` | same | Deploy to Ethereum mainnet |
 | `pnpm upgrade:rwa:sepolia` | `scripts/upgrade-tokenable-rwa.ts` | Upgrade implementation (proxy unchanged); auto-grants BURNER_ROLE |
+| `pnpm upgrade:rwa:polygon` | same | Upgrade on Polygon |
 | `pnpm grant-burner:sepolia` | `scripts/grant-rwa-burner-role.ts` | Manually grant BURNER_ROLE |
+| `pnpm grant-burner:polygon` | same | Grant BURNER_ROLE on Polygon |
 | `pnpm sync-abi` | `scripts/sync-abi.mjs` | Copy ABI → `backend/src/blockchain/abis/tokenable-rwa.abi.ts` |
 
 After deploying a new contract, update:
-- `contracts/.env` — Sepolia / mainnet RWA address vars used by Hardhat
-- `backend/.env` — `CHAIN_11155111_RWA_ADDRESS` (and `CHAIN_1_*` for mainnet)
-- `frontend/.env` — `NEXT_PUBLIC_CHAIN_11155111_RWA` (and `NEXT_PUBLIC_CHAIN_1_*` for mainnet)
+- `contracts/.env` — Sepolia / Polygon / mainnet RWA address vars used by Hardhat
+- `backend/.env` — `CHAIN_11155111_RWA_ADDRESS` (and `CHAIN_137_*` / `CHAIN_1_*` as needed)
+- `frontend/.env` — `NEXT_PUBLIC_CHAIN_11155111_RWA` (and matching `NEXT_PUBLIC_CHAIN_137_*` / `_1_*`)
 - `backend/sql/seed/dev-platform-chart-fills.sql` — `rwa_contract` variable
 - `backend/src/swagger/fixtures.ts` — `rwaContract`
 

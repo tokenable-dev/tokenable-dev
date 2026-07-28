@@ -11,7 +11,6 @@ import {
 } from "react";
 import { useSwitchChain, useAccount } from "wagmi";
 import { useQueryClient } from "@tanstack/react-query";
-import { rq } from "@/lib/core";
 import { canUseAppChainSwitcher } from "@/lib/auth/accountAccess";
 import { getPrimaryWalletAddress, normalizeWalletAddress } from "@/lib/auth/wallets";
 import {
@@ -104,8 +103,14 @@ export function AppChainProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     setActiveChainIdForApi(chainId);
-    void queryClient.invalidateQueries({ queryKey: rq.collectionsMarketplace() });
-    void queryClient.invalidateQueries({ queryKey: rq.ordersActive() });
+    void queryClient.invalidateQueries({ queryKey: ["collections", "marketplace"] });
+    void queryClient.invalidateQueries({ queryKey: ["orders"] });
+    void queryClient.invalidateQueries({ queryKey: ["rwa-tokens"] });
+    void queryClient.invalidateQueries({ queryKey: ["rwa-metadata-batch"] });
+    void queryClient.invalidateQueries({ queryKey: ["portfolio-holdings"] });
+    void queryClient.invalidateQueries({ queryKey: ["portfolio-hidden"] });
+    void queryClient.invalidateQueries({ queryKey: ["admin-rwa-cards"] });
+    void queryClient.invalidateQueries({ queryKey: ["admin-custody-nfts"] });
     void queryClient.invalidateQueries({ queryKey: ["collection-snapshots"] });
   }, [chainId, queryClient]);
 

@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, Not, Repository } from 'typeorm';
-import { ChainConfigService } from '../../blockchain/chain-config.service';
+import { ChainConfigService, type SupportedChainId } from '../../blockchain/chain-config.service';
 import {
   PortfolioCostBasisSource,
   PortfolioHolding,
@@ -27,21 +27,26 @@ export class PortfolioHoldingService {
     return walletAddress.trim().toLowerCase();
   }
 
-  private rwaContractAddress(): string {
-    return this.chainConfig.getRwaAddress(this.chainConfig.getDefaultChainId());
+  private rwaContractAddress(chainId?: SupportedChainId): string {
+    return this.chainConfig.getRwaAddress(
+      chainId ?? this.chainConfig.getDefaultChainId(),
+    );
   }
 
   private normalizeTokenId(tokenId: number): number {
     return Math.max(0, Math.floor(Number(tokenId)));
   }
 
-  async listHiddenTokenIds(walletAddress: string): Promise<number[]> {
+  async listHiddenTokenIds(
+    walletAddress: string,
+    chainId?: SupportedChainId,
+  ): Promise<number[]> {
     const wallet = this.normalizeWallet(walletAddress);
     if (!wallet) return [];
     const rows = await this.holdingRepo.find({
       where: {
         walletAddress: wallet,
-        tokenContract: this.rwaContractAddress(),
+        tokenContract: this.rwaContractAddress(chainId),
         hiddenAt: Not(IsNull()),
       },
       order: { hiddenAt: 'DESC' },
@@ -49,11 +54,15 @@ export class PortfolioHoldingService {
     return rows.map((r) => r.tokenId);
   }
 
-  async hide(walletAddress: string, tokenId: number): Promise<void> {
+  async hide(
+    walletAddress: string,
+    tokenId: number,
+    chainId?: SupportedChainId,
+  ): Promise<void> {
     const wallet = this.normalizeWallet(walletAddress);
     if (!wallet) return;
     const tid = this.normalizeTokenId(tokenId);
-    const contract = this.rwaContractAddress();
+    const contract = this.rwaContractAddress(chainId);
     const existing = await this.holdingRepo.findOne({
       where: { walletAddress: wallet, tokenContract: contract, tokenId: tid },
     });
@@ -72,11 +81,15 @@ export class PortfolioHoldingService {
     );
   }
 
-  async unhide(walletAddress: string, tokenId: number): Promise<void> {
+  async unhide(
+    walletAddress: string,
+    tokenId: number,
+    chainId?: SupportedChainId,
+  ): Promise<void> {
     const wallet = this.normalizeWallet(walletAddress);
     if (!wallet) return;
     const tid = this.normalizeTokenId(tokenId);
-    const contract = this.rwaContractAddress();
+    const contract = this.rwaContractAddress(chainId);
     const existing = await this.holdingRepo.findOne({
       where: { walletAddress: wallet, tokenContract: contract, tokenId: tid },
     });
@@ -92,10 +105,11 @@ export class PortfolioHoldingService {
   async filterVisibleTokenIds(
     walletAddress: string,
     tokenIds: number[],
+    chainId?: SupportedChainId,
   ): Promise<number[]> {
     const wallet = this.normalizeWallet(walletAddress);
     if (!wallet || tokenIds.length === 0) return tokenIds;
-    const hidden = new Set(await this.listHiddenTokenIds(wallet));
+    const hidden = new Set(await this.listHiddenTokenIds(wallet, chainId));
     if (hidden.size === 0) return tokenIds;
     return tokenIds.filter((id) => !hidden.has(id));
   }
@@ -103,10 +117,11 @@ export class PortfolioHoldingService {
   async getHoldingsBatch(
     walletAddress: string,
     tokenIds: number[],
+    chainId?: SupportedChainId,
   ): Promise<PortfolioHoldingBatchItem[]> {
     const wallet = this.normalizeWallet(walletAddress);
     if (!wallet || tokenIds.length === 0) return [];
-    const contract = this.rwaContractAddress();
+    const contract = this.rwaContractAddress(chainId);
     const normalized = [
       ...new Set(
         tokenIds
@@ -141,6 +156,7 @@ export class PortfolioHoldingService {
     walletAddress: string,
     tokenId: number,
     costBasisUsd: number,
+    chainId?: SupportedChainId,
   ): Promise<void> {
     const wallet = this.normalizeWallet(walletAddress);
     if (!wallet) return;
@@ -149,7 +165,7 @@ export class PortfolioHoldingService {
     if (!Number.isFinite(usd) || usd < 0) {
       throw new BadRequestException('Invalid cost basis');
     }
-    const contract = this.rwaContractAddress();
+    const contract = this.rwaContractAddress(chainId);
     const now = new Date();
     const existing = await this.holdingRepo.findOne({
       where: { walletAddress: wallet, tokenContract: contract, tokenId: tid },
@@ -184,6 +200,7 @@ export class PortfolioHoldingService {
       | PortfolioCostBasisSource.VAULT_DELIVERY
       | PortfolioCostBasisSource.MARKETPLACE_BUY,
     acquiredAt: Date,
+    chainId?: SupportedChainId,
   ): Promise<void> {
     const wallet = this.normalizeWallet(walletAddress);
     if (!wallet) return;
@@ -191,7 +208,7 @@ export class PortfolioHoldingService {
     const usd = Number(costBasisUsd);
     if (!Number.isFinite(usd) || usd < 0) return;
 
-    const contract = this.rwaContractAddress();
+    const contract = this.rwaContractAddress(chainId);
     const existing = await this.holdingRepo.findOne({
       where: { walletAddress: wallet, tokenContract: contract, tokenId: tid },
     });
@@ -228,6 +245,7 @@ export class PortfolioHoldingService {
     tokenId: number,
     costBasisUsd: number,
     acquiredAt = new Date(),
+    chainId?: SupportedChainId,
   ): Promise<void> {
     return this.seedAutoCostBasis(
       walletAddress,
@@ -235,6 +253,7 @@ export class PortfolioHoldingService {
       costBasisUsd,
       PortfolioCostBasisSource.VAULT_DELIVERY,
       acquiredAt,
+      chainId,
     );
   }
 
@@ -247,6 +266,7 @@ export class PortfolioHoldingService {
     tokenId: number,
     costBasisUsd: number,
     acquiredAt = new Date(),
+    chainId?: SupportedChainId,
   ): Promise<void> {
     return this.seedAutoCostBasis(
       walletAddress,
@@ -254,6 +274,7 @@ export class PortfolioHoldingService {
       costBasisUsd,
       PortfolioCostBasisSource.MARKETPLACE_BUY,
       acquiredAt,
+      chainId,
     );
   }
 }

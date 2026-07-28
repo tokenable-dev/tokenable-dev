@@ -28,7 +28,11 @@ import {
   assertPrivyConfigured,
   readBearerFromAuthHeader,
 } from './privy-catalog.controller';
-import { assessPrivyFundingReadiness } from './privy-funding.util';
+import {
+  assessPrivyFundingReadiness,
+  type PrivyAppSettingsForFunding,
+  type PrivyFundingReadiness,
+} from './privy-funding.util';
 import {
   PrivyCreateUserDto,
   PrivyLookupEmailDto,
@@ -37,6 +41,27 @@ import {
   PrivySetMetadataDto,
   PrivyVerifyAccessTokenDto,
 } from './dto/privy-api.dto';
+
+/** Portable response — avoid leaking `@privy-io/node` types into declaration emit. */
+type PrivyAppSettingsResponse = {
+  appId: string;
+  funding_config: PrivyAppSettingsForFunding['funding_config'] | null;
+  fiat_on_ramp_enabled: boolean;
+  fundingReadiness: PrivyFundingReadiness;
+  auth_methods: {
+    email: boolean;
+    google: boolean;
+    apple: boolean;
+    wallet_signup: boolean;
+  };
+  embedded_wallet_config: unknown;
+  integration: {
+    clientHook: string;
+    provider: string;
+    requiredDashboardDefaults: { chain: string; asset: string };
+    testnet: string;
+  };
+};
 
 @ApiTags('privy-auth')
 @Controller('privy')
@@ -188,11 +213,18 @@ export class PrivyFundingController {
     description:
       'Dashboard MoonPay on-ramp readiness. Default funding network must be Ethereum + USDC (`eip155:1`) to match Tokenable `supportedChains`.',
   })
-  async appSettings() {
+  async appSettings(): Promise<PrivyAppSettingsResponse> {
     assertPrivyConfigured(this.privy);
     const appId = this.privy.getAppId();
     if (!appId) throw new BadRequestException('Missing PRIVY_APP_ID');
-    const settings = await this.privy.requireClient().apps().getSettings();
+    const raw = await this.privy.requireClient().apps().getSettings();
+    const settings = raw as PrivyAppSettingsForFunding & {
+      email_auth?: boolean;
+      google_oauth?: boolean;
+      apple_oauth?: boolean;
+      external_wallets_for_signup_enabled?: boolean;
+      embedded_wallet_config?: unknown;
+    };
     const fundingReadiness = assessPrivyFundingReadiness(settings);
     return {
       appId,
@@ -200,10 +232,10 @@ export class PrivyFundingController {
       fiat_on_ramp_enabled: settings.fiat_on_ramp_enabled,
       fundingReadiness,
       auth_methods: {
-        email: settings.email_auth,
-        google: settings.google_oauth,
-        apple: settings.apple_oauth,
-        wallet_signup: settings.external_wallets_for_signup_enabled,
+        email: Boolean(settings.email_auth),
+        google: Boolean(settings.google_oauth),
+        apple: Boolean(settings.apple_oauth),
+        wallet_signup: Boolean(settings.external_wallets_for_signup_enabled),
       },
       embedded_wallet_config: settings.embedded_wallet_config ?? null,
       integration: {

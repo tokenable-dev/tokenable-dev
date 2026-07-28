@@ -93,7 +93,7 @@ export async function invalidateCollection(
   await qc.invalidateQueries({ queryKey: rq.collectionPlatformTrades(key) });
   await qc.invalidateQueries({ queryKey: rq.merkleSet(key) });
   await qc.invalidateQueries({ queryKey: rq.merkleSetAll() });
-  await qc.invalidateQueries({ queryKey: rq.collectionsMarketplace() });
+  await qc.invalidateQueries({ queryKey: ["collections", "marketplace"] });
 }
 
 // ── Scenario invalidators (exported) ──────────────────────────────────────
@@ -114,7 +114,7 @@ export async function invalidateAfterCollectionUpdate(
   await qc.invalidateQueries({ queryKey: ["collection-market-series", key] });
   await qc.invalidateQueries({ queryKey: rq.merkleSet(key) });
   await qc.invalidateQueries({ queryKey: rq.merkleSetAll() });
-  await qc.invalidateQueries({ queryKey: rq.collectionsMarketplace() });
+  await qc.invalidateQueries({ queryKey: ["collections", "marketplace"] });
 }
 
 /**
@@ -157,10 +157,10 @@ export async function invalidateAfterRwaMintTx(
   await _invalidateRwaMetadataBatch(qc);
   await _invalidateMintPreviews(qc);
   await _invalidatePortfolioMarketBatch(qc);
-  await qc.invalidateQueries({ queryKey: rq.adminCustodyNfts() });
+  await qc.invalidateQueries({ queryKey: ["admin-custody-nfts"] });
 
   if (input.address?.trim()) {
-    await qc.invalidateQueries({ queryKey: rq.rwaTokens(input.address.trim()) });
+    await qc.invalidateQueries({ queryKey: ["rwa-tokens"] });
   }
 }
 
@@ -183,10 +183,10 @@ export async function invalidateAfterRwaMint(
   await qc.invalidateQueries({ queryKey: rq.collectionPlatformTrades(key) });
   await _invalidateCollectionSnapshots(qc);
   await _invalidatePortfolioMarketBatch(qc);
-  await qc.invalidateQueries({ queryKey: rq.collectionsMarketplace() });
+  await qc.invalidateQueries({ queryKey: ["collections", "marketplace"] });
 
   if (input.address?.trim()) {
-    await qc.invalidateQueries({ queryKey: rq.rwaTokens(input.address.trim()) });
+    await qc.invalidateQueries({ queryKey: ["rwa-tokens"] });
   }
 }
 
@@ -238,7 +238,7 @@ export async function invalidateAfterListing(
   await _invalidateOrdersAll(qc);
   await _invalidateRwaMetadataBatch(qc);
   await _invalidateMintPreviews(qc);
-  await qc.invalidateQueries({ queryKey: rq.collectionsMarketplace() });
+  await qc.invalidateQueries({ queryKey: ["collections", "marketplace"] });
   await _invalidateCollectionSnapshots(qc);
   // Broad prefix — all collection details (new listing changes market depth)
   await _invalidateAllCollections(qc);
@@ -256,7 +256,7 @@ export async function invalidateAfterListing(
     await qc.invalidateQueries({ queryKey: rq.collectionPlatformTrades(key) });
   }
   if (opts.address) {
-    await qc.invalidateQueries({ queryKey: rq.rwaTokens(opts.address) });
+    await qc.invalidateQueries({ queryKey: ["rwa-tokens"] });
   }
 }
 
@@ -349,8 +349,8 @@ export async function invalidateAfterBurn(
   await _invalidateRwaTokensAll(qc);
   await _invalidateRwaMetadataBatch(qc);
   await _invalidateOrdersAll(qc);
-  await qc.invalidateQueries({ queryKey: rq.adminRwaCards() });
-  await qc.invalidateQueries({ queryKey: rq.adminCustodyNfts() });
+  await qc.invalidateQueries({ queryKey: ["admin-rwa-cards"] });
+  await qc.invalidateQueries({ queryKey: ["admin-custody-nfts"] });
   await qc.invalidateQueries({ queryKey: rq.portfolioDailySnapshots(address) });
 }
 

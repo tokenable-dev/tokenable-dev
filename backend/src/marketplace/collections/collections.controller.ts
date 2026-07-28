@@ -271,13 +271,19 @@ export class CollectionsController {
   @ApiOperation({ summary: 'tokenId별 collection_key 배치' })
   @ApiBody(apiBodyDefault(TokenCollectionKeysDto, SWAGGER_BODY_EXAMPLES.tokenCollectionKeys))
   @Post('collections/token-collection-keys')
-  async batchTokenCollectionKeys(@Body() body: TokenCollectionKeysDto) {
+  async batchTokenCollectionKeys(
+    @Body() body: TokenCollectionKeysDto,
+    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
+  ) {
     const tokenIds = [
       ...new Set((body.tokenIds ?? []).map((n) => Math.floor(Number(n)))),
     ].filter((n) => Number.isFinite(n) && n >= 0);
     if (tokenIds.length === 0) return { items: {} as Record<number, string> };
 
-    const cached = await this.collectionService.collectionKeysByTokenIds(tokenIds);
+    const cached = await this.collectionService.collectionKeysByTokenIds(
+      tokenIds,
+      this.chainConfig.resolveChainId(chainHeader),
+    );
     const out: Record<number, string> = { ...cached };
     const missing = tokenIds.filter((id) => !out[id]);
     const RESOLVE_CONCURRENCY = 4;

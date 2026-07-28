@@ -147,7 +147,7 @@ Resolves an array of IPFS or IPFS-gateway URIs to browser-loadable `https://` UR
 
 ## Multi-chain support
 
-The backend resolves the target chain from the `x-tokenable-chain-id` request header (set by the frontend `lib/chains/apiHeader.ts`). Supported chain IDs: `11155111` (Ethereum Sepolia), `1` (Ethereum mainnet). Each chain is configured independently:
+The backend resolves the target chain from the `x-tokenable-chain-id` request header (set by the frontend `lib/chains/apiHeader.ts`). Supported chain IDs: `11155111` (Ethereum Sepolia), `1` (Ethereum mainnet), `137` (Polygon mainnet). Each chain is configured independently:
 
 | Variable pattern | Purpose |
 |-----------------|---------|
@@ -157,5 +157,10 @@ The backend resolves the target chain from the `x-tokenable-chain-id` request he
 | `CHAIN_1_RPC_URL` | Ethereum mainnet RPC |
 | `CHAIN_1_RWA_ADDRESS` | TokenableRWA on mainnet |
 | `CHAIN_1_USDC_ADDRESS` | USDC on mainnet (Circle) |
+| `CHAIN_137_RPC_URL` | Polygon mainnet RPC |
+| `CHAIN_137_RWA_ADDRESS` | TokenableRWA on Polygon |
+| `CHAIN_137_USDC_ADDRESS` | Native USDC on Polygon (`0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359`) |
 | `DEFAULT_CHAIN_ID` | Default chain when header absent (default `11155111`) |
 | `PINATA_GATEWAY` | Custom gateway for resolving IPFS CIDs |
+
+Inventory isolation: marketplace rows (`rwa_tokens`, `orders`, `portfolio_holdings`) are keyed by per-chain `token_contract` (= `CHAIN_{id}_RWA_ADDRESS`). Switching the header must never return another chain’s mints.

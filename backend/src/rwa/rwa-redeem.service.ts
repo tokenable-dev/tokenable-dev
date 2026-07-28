@@ -2,7 +2,10 @@ import { ForbiddenException, Injectable } from '@nestjs/common';
 import { User } from '../user/entities/user.entity';
 import { UserService } from '../user/user.service';
 import { BlockchainService } from '../blockchain/blockchain.service';
-import { ChainConfigService } from '../blockchain/chain-config.service';
+import {
+  ChainConfigService,
+  type SupportedChainId,
+} from '../blockchain/chain-config.service';
 import { assertKycApprovedForCustody } from '../kyc/utils/kyc-gate.util';
 import { VaultService } from '../vault/vault.service';
 import { RedeemRequestDto } from './dto/redeem-request.dto';
@@ -24,11 +27,15 @@ export class RwaRedeemService {
     private readonly vault: VaultService,
   ) {}
 
-  async requestRedemption(user: User, dto: RedeemRequestDto) {
+  async requestRedemption(
+    user: User,
+    dto: RedeemRequestDto,
+    chainId: SupportedChainId,
+  ) {
     assertKycApprovedForCustody(user);
 
     const tokenId = Math.floor(Number(dto.tokenId));
-    const onChainOwner = await this.blockchain.getRwaTokenOwner(tokenId);
+    const onChainOwner = await this.blockchain.getRwaTokenOwner(tokenId, chainId);
 
     const wallets = await this.users.listWalletsForUser(user.id);
     const ownsViaLinkedWallet = wallets.some(
@@ -40,7 +47,7 @@ export class RwaRedeemService {
       );
     }
 
-    const contract = this.chainConfig.getRwaAddress(this.chainConfig.getDefaultChainId());
+    const contract = this.chainConfig.getRwaAddress(chainId);
     return this.vault.requestRedemption({
       tokenContract: contract,
       tokenId: String(tokenId),

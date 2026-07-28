@@ -53,7 +53,7 @@ export function useMarketplaceAdminCollections() {
 
   async function invalidateCollections(collectionKey?: string) {
     await qc.invalidateQueries({ queryKey: rq.adminCollectionsList() });
-    await qc.invalidateQueries({ queryKey: rq.collectionsMarketplace() });
+    await qc.invalidateQueries({ queryKey: ["collections", "marketplace"] });
     if (collectionKey) {
       await qc.invalidateQueries({
         queryKey: rq.collectionDetail(collectionKey.toLowerCase()),

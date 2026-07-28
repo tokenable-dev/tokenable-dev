@@ -93,8 +93,9 @@ export class CollectionService {
 
   async collectionKeysByTokenIds(
     tokenIds: Array<string | number>,
+    chainId?: SupportedChainId,
   ): Promise<Record<number, string>> {
-    return this.rwaTokenRegistry.collectionKeysByTokenIds(tokenIds);
+    return this.rwaTokenRegistry.collectionKeysByTokenIds(tokenIds, chainId);
   }
 
   private enqueueMarketSnapshotRefresh(collectionKey: string): void {

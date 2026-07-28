@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import {
   RegisterVaultShipmentDto,
   UpsertVaultSubmissionDraftDto,
@@ -180,7 +180,6 @@ export class VaultSubmissionService {
           status: 'draft',
         });
         sub = await em.save(sub);
-        sub.items = [];
       }
 
       await em.delete(VaultSubmissionItem, { submissionId: sub.id });
@@ -191,11 +190,17 @@ export class VaultSubmissionService {
       );
       if (nextItems.length) await em.save(nextItems);
 
+      // Update status via QueryBuilder — never em.save(sub) here.
+      // OneToMany cascade:true would try to null submission_id on items when
+      // the in-memory relation is stale/empty (Postgres NOT NULL → 500).
       if (sub.status === 'draft' || sub.status === 'awaiting_shipment') {
         const allConfirmed =
           nextItems.length > 0 && nextItems.every((it) => it.status === 'confirmed');
-        sub.status = allConfirmed ? 'awaiting_shipment' : 'draft';
-        await em.save(sub);
+        const nextStatus: VaultSubmissionStatus = allConfirmed
+          ? 'awaiting_shipment'
+          : 'draft';
+        await em.update(VaultSubmission, { id: sub.id }, { status: nextStatus });
+        sub.status = nextStatus;
       }
 
       const full = await em.findOneOrFail(VaultSubmission, {
@@ -347,11 +352,10 @@ export class VaultSubmissionService {
   }
 
   async adminList(params: { status?: string; q?: string }) {
+    // Avoid leftJoinAndSelect + orderBy — TypeORM 0.3 throws
+    // `Cannot read properties of undefined (reading 'databaseName')` on this path.
     const qb = this.submissions
       .createQueryBuilder('s')
-      .leftJoinAndSelect('s.items', 'i')
-      .leftJoin('users', 'u', 'u.id = s.user_id')
-      .addSelect(['u.email', 'u.name'])
       .orderBy('s.updated_at', 'DESC')
       .take(200);
 
@@ -361,25 +365,57 @@ export class VaultSubmissionService {
     if (params.q?.trim()) {
       const q = `%${params.q.trim().toLowerCase()}%`;
       qb.andWhere(
-        `(LOWER(s.public_id) LIKE :q OR LOWER(u.email) LIKE :q OR LOWER(u.name) LIKE :q
+        `(LOWER(s.public_id) LIKE :q
           OR EXISTS (
             SELECT 1 FROM vault_submission_items xi
             WHERE xi.submission_id = s.id
               AND (LOWER(xi.cert_number) LIKE :q OR LOWER(COALESCE(xi.display_name,'')) LIKE :q)
+          )
+          OR EXISTS (
+            SELECT 1 FROM users u
+            WHERE u.id = s.user_id
+              AND (LOWER(u.email) LIKE :q OR LOWER(COALESCE(u.name,'')) LIKE :q)
           ))`,
         { q },
       );
     }
 
-    const { entities, raw } = await qb.getRawAndEntities();
-    return entities.map((sub, idx) => {
-      const dto = this.toDto(sub);
-      const rawRow = raw[idx] as { u_email?: string; u_name?: string } | undefined;
+    const entities = await qb.getMany();
+    if (entities.length === 0) return [];
+
+    const items = await this.items.find({
+      where: { submissionId: In(entities.map((e) => e.id)) },
+      order: { sortOrder: 'ASC' },
+    });
+    const itemsBySubmission = new Map<string, VaultSubmissionItem[]>();
+    for (const item of items) {
+      const bucket = itemsBySubmission.get(item.submissionId) ?? [];
+      bucket.push(item);
+      itemsBySubmission.set(item.submissionId, bucket);
+    }
+    for (const sub of entities) {
+      sub.items = itemsBySubmission.get(sub.id) ?? [];
+    }
+
+    const userIds = [
+      ...new Set(entities.map((e) => e.userId).filter(Boolean)),
+    ];
+    const userRows: Array<{ id: string; email: string | null; name: string | null }> =
+      userIds.length > 0
+        ? await this.submissions.manager.query(
+            `SELECT id, email, name FROM users WHERE id = ANY($1::uuid[])`,
+            [userIds],
+          )
+        : [];
+    const userById = new Map(userRows.map((u) => [u.id, u]));
+
+    return entities.map((sub) => {
+      const user = userById.get(sub.userId);
       return {
-        ...dto,
+        ...this.toDto(sub),
         userId: sub.userId,
-        userEmail: rawRow?.u_email ?? null,
-        userName: rawRow?.u_name ?? null,
+        userEmail: user?.email ?? null,
+        userName: user?.name ?? null,
       };
     });
   }

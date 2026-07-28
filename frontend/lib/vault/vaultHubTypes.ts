@@ -1,6 +1,5 @@
 /**
  * Hub “In Progress” row shape — live sell shipment maps into this.
- * (Former vaultMockData inventory / FAQ / carrier copy removed.)
  */
 
 export type VaultIpStatusKind =

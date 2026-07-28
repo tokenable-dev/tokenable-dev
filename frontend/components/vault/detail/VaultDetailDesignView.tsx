@@ -1,19 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
 import { TkButton, TkTag } from "@/components/ds";
 import { useIsMobileViewport } from "@/hooks/ui/useIsMobileViewport";
 import { VaultBreadcrumb } from "@/components/vault/VaultBreadcrumb";
 import { VaultStepper } from "@/components/vault/VaultStepper";
 import { VaultThumb } from "@/components/vault/VaultThumb";
 import {
-  buildLayoutAPackageCards,
-  buildPackageCards,
-  MOCK_SUBMISSION_ID,
-  SCENARIO_SWITCHER,
   VAULT_DETAIL_SCENARIOS,
+  withLiveHero,
   type VaultDetailScenario,
   type VaultDetailScenarioKey,
   type VaultPackageCard,
@@ -450,9 +446,14 @@ function DetailBottomSheet({
   );
 }
 
-function LayoutB({ scenario }: { scenario: VaultDetailScenario }) {
+function LayoutB({
+  scenario,
+  cards,
+}: {
+  scenario: VaultDetailScenario;
+  cards: VaultPackageCard[];
+}) {
   const isMobile = useIsMobileViewport(1024);
-  const cards = useMemo(() => buildPackageCards(scenario), [scenario]);
   const stage = scenario.stage ?? "vault";
   const pillDefs =
     stage === "vault"
@@ -641,56 +642,35 @@ function EarlyRejectView() {
 
 export function VaultDetailDesignView({
   initialScenario = "C",
-  submissionId = MOCK_SUBMISSION_ID,
-  livePackageCards,
-  tracking,
-  showScenarioSwitcher = false,
+  submissionId,
+  livePackageCards = [],
+  tracking = null,
 }: {
   initialScenario?: VaultDetailScenarioKey;
-  submissionId?: string;
-  /** Confirmed cards from sell flow — used for Layout A package preview when present. */
-  livePackageCards?: Array<{ id: number; name: string; imageUrl: string; grade: string; cert: string }>;
+  submissionId: string;
+  /** Real submission items from the API — no demo fallback. */
+  livePackageCards?: VaultPackageCard[];
   tracking?: { label: string; url: string } | null;
-  showScenarioSwitcher?: boolean;
 }) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const [scenarioKey, setScenarioKey] = useState<VaultDetailScenarioKey>(
-    initialScenario === "early" ? "early" : initialScenario,
-  );
+  const scenarioKey: Exclude<VaultDetailScenarioKey, "early"> =
+    initialScenario === "early" ? "C" : (initialScenario as Exclude<VaultDetailScenarioKey, "early">);
 
-  useEffect(() => {
-    setScenarioKey(initialScenario === "early" ? "early" : initialScenario);
-  }, [initialScenario]);
-
-  const selectScenario = useCallback(
-    (key: Exclude<VaultDetailScenarioKey, "early">) => {
-      setScenarioKey(key);
-      router.replace(`${pathname}?scenario=${key}`, { scroll: false });
-    },
-    [pathname, router],
-  );
-
-  if (scenarioKey === "early") {
+  if (initialScenario === "early") {
     return <EarlyRejectView />;
   }
 
-  const scenario = VAULT_DETAIL_SCENARIOS[scenarioKey] ?? VAULT_DETAIL_SCENARIOS.C;
+  const base = VAULT_DETAIL_SCENARIOS[scenarioKey] ?? VAULT_DETAIL_SCENARIOS.C;
+  const scenario = withLiveHero(base, submissionId, livePackageCards.length);
   const shellClass =
     scenario.layout === "A" ? "vault-detail-page--layout-a" : "vault-detail-page--layout-b";
 
-  const layoutACards =
-    scenario.key === "C" && livePackageCards && livePackageCards.length > 0
-      ? livePackageCards
-      : buildLayoutAPackageCards();
-
-  const layoutTracking =
-    scenario.key === "C"
-      ? (tracking ?? {
-          label: "FedEx · FX123456789",
-          url: "https://www.fedex.com/fedextrack/?trknbr=FX123456789",
-        })
-      : null;
+  const layoutACards = livePackageCards.map((c) => ({
+    id: c.id,
+    name: c.name,
+    imageUrl: c.imageUrl,
+    grade: c.grade,
+    cert: c.cert,
+  }));
 
   return (
     <div className={shellClass}>
@@ -705,29 +685,14 @@ export function VaultDetailDesignView({
         <LayoutAContent
           scenario={scenario}
           packageCards={layoutACards}
-          tracking={layoutTracking}
+          tracking={tracking}
         />
       ) : (
         <>
-          <LayoutB scenario={scenario} />
+          <LayoutB scenario={scenario} cards={livePackageCards} />
           <CtaRow ctas={scenario.cta} />
         </>
       )}
-
-      {showScenarioSwitcher ? (
-        <div className="vault-sd-switcher" role="group" aria-label="Scenario switcher">
-          {SCENARIO_SWITCHER.map((s) => (
-            <button
-              key={s.key}
-              type="button"
-              className={cn(scenarioKey === s.key && "on")}
-              onClick={() => selectScenario(s.key)}
-            >
-              {s.label}
-            </button>
-          ))}
-        </div>
-      ) : null}
     </div>
   );
 }

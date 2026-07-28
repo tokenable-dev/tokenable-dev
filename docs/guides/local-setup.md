@@ -81,6 +81,12 @@ CHAIN_11155111_USDC_ADDRESS=0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238
 # CHAIN_1_RWA_ADDRESS=0x...
 # CHAIN_1_USDC_ADDRESS=0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48
 
+# Polygon mainnet (optional — cheaper mainnet testing via NetworkSwitcher)
+# CHAIN_137_RPC_URL=https://polygon-mainnet.g.alchemy.com/v2/YOUR_KEY
+# CHAIN_137_RWA_ADDRESS=0x...
+# CHAIN_137_USDC_ADDRESS=0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359
+
+
 # Platform signing keys (required for vault mint/burn)
 RWA_OWNER_PRIVATE_KEY=0x...   # MINTER_ROLE + BURNER_ROLE
 # RWA_CUSTODY_WALLET_ADDRESS=0x...  (defaults to derived from RWA_OWNER_PRIVATE_KEY)
@@ -169,6 +175,12 @@ NEXT_PUBLIC_CHAIN_11155111_USDC=0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238
 # NEXT_PUBLIC_CHAIN_1_RWA=0x...
 # NEXT_PUBLIC_CHAIN_1_USDC=0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48
 
+# Polygon mainnet (optional — internal NetworkSwitcher)
+# NEXT_PUBLIC_CHAIN_137_RPC_URL=https://polygon-mainnet.g.alchemy.com/v2/YOUR_KEY
+# NEXT_PUBLIC_CHAIN_137_RWA=0x...
+# NEXT_PUBLIC_CHAIN_137_USDC=0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359
+
+
 # MoonPay / Add funds (Sepolia sandbox — see guides/privy-wallet-funding.md)
 # NEXT_PUBLIC_PRIVY_FUNDING_ENVIRONMENT=sandbox
 # NEXT_PUBLIC_PRIVY_FUNDING_USE_ONRAMP_ON_TESTNET=true
@@ -233,10 +245,11 @@ cd contracts
 pnpm install
 # edit contracts/.env with DEPLOYER_PRIVATE_KEY and Sepolia RPC
 pnpm deploy:rwa:sepolia    # deploy TokenableRWA to Sepolia (11155111)
+# pnpm deploy:rwa:polygon   # Polygon (137) — set POLYGON_RPC_URL
 pnpm sync-abi              # copy updated ABI to backend
 ```
 
-After deploying, update `CHAIN_11155111_RWA_ADDRESS` in `backend/.env` and `NEXT_PUBLIC_CHAIN_11155111_RWA` in `frontend/.env`.
+After deploying, update `CHAIN_11155111_RWA_ADDRESS` in `backend/.env` and `NEXT_PUBLIC_CHAIN_11155111_RWA` in `frontend/.env`. For Polygon, set `CHAIN_137_*` / `NEXT_PUBLIC_CHAIN_137_*` the same way.
 
 Grant roles to your backend hot wallet:
 

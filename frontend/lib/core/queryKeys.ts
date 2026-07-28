@@ -14,13 +14,26 @@ import type { QueryClient } from "@tanstack/react-query";
 export const rq = {
   // ── Existing keys (do not rename) ──────────────────────────────────────────
 
-  rwaTokens: (address: string) => ["rwa-tokens", address] as const,
-  ordersActive: () => ["orders", "active"] as const,
-  ordersByTokenBatch: (address: string | undefined, tokenIds: readonly number[]) =>
-    ["orders", "by-token-batch", address ?? "", [...tokenIds].slice().sort((a, b) => a - b)] as const,
-  collectionsMarketplace: () => ["collections", "marketplace"] as const,
+  rwaTokens: (address: string, chainId: number) =>
+    ["rwa-tokens", chainId, address] as const,
+  ordersActive: (chainId: number) => ["orders", "active", chainId] as const,
+  ordersByTokenBatch: (
+    address: string | undefined,
+    tokenIds: readonly number[],
+    chainId: number,
+  ) =>
+    [
+      "orders",
+      "by-token-batch",
+      chainId,
+      address ?? "",
+      [...tokenIds].slice().sort((a, b) => a - b),
+    ] as const,
+  collectionsMarketplace: (chainId: number) =>
+    ["collections", "marketplace", chainId] as const,
   /** Full marketplace catalog (cursor walk) — home Top movers / Just vaulted. */
-  homeAllCollections: () => ["collections", "marketplace", "all"] as const,
+  homeAllCollections: (chainId: number) =>
+    ["collections", "marketplace", "all", chainId] as const,
   /** Landing dashboard — Card Ladder category indexes (Pokemon / MLB / NFL / NBA). */
   cardladderIndexes: () => ["cardladder-indexes"] as const,
   /**
@@ -31,14 +44,29 @@ export const rq = {
     sortedKeys: readonly string[],
     priceHistoryDuration: "7d" | "30d" | "90d" | "180d" | "365d" | "max" = "max",
   ) => ["collection-snapshots", [...sortedKeys], priceHistoryDuration] as const,
-  rwaMetadataBatch: (address: string | undefined, tokenIds: readonly number[]) =>
-    ["rwa-metadata-batch", address ?? "", [...tokenIds].slice().sort((a, b) => a - b)] as const,
+  rwaMetadataBatch: (
+    address: string | undefined,
+    tokenIds: readonly number[],
+    chainId: number,
+  ) =>
+    [
+      "rwa-metadata-batch",
+      chainId,
+      address ?? "",
+      [...tokenIds].slice().sort((a, b) => a - b),
+    ] as const,
   marketMintPreviews: (address: string | undefined, tokenIds: readonly number[]) =>
     ["cardhedger-mint-previews", address ?? "", [...tokenIds].slice().sort((a, b) => a - b)] as const,
-  portfolioHidden: (address: string) => ["portfolio-hidden", address] as const,
-  portfolioHoldings: (address: string, tokenIds: readonly number[]) =>
+  portfolioHidden: (address: string, chainId: number) =>
+    ["portfolio-hidden", chainId, address] as const,
+  portfolioHoldings: (
+    address: string,
+    tokenIds: readonly number[],
+    chainId: number,
+  ) =>
     [
       "portfolio-holdings",
+      chainId,
       address.toLowerCase(),
       [...tokenIds].slice().sort((a, b) => a - b),
     ] as const,
@@ -109,8 +137,8 @@ export const rq = {
   /** Single RWA resolved asset (tokenURI + metadata + imageUrl). */
   rwaAssetDetail: (tokenId: number) => ["marketplace-detail-metadata", tokenId] as const,
   /** Admin — all RWA registry cards (listed + unlisted). */
-  adminRwaCards: () => ["admin-rwa-cards"] as const,
-  adminCustodyNfts: () => ["admin-custody-nfts"] as const,
+  adminRwaCards: (chainId: number) => ["admin-rwa-cards", chainId] as const,
+  adminCustodyNfts: (chainId: number) => ["admin-custody-nfts", chainId] as const,
   adminVaultSubmissions: (status?: string, q?: string) =>
     ["admin-vault-submissions", status ?? "all", q ?? ""] as const,
   adminVaultSubmissionCounts: () => ["admin-vault-submission-counts"] as const,
@@ -125,7 +153,7 @@ export const rq = {
   adminRwaRolesStatus: (wallet: string) =>
     ["admin-rwa-roles-status", wallet.toLowerCase()] as const,
   /** @deprecated use adminRwaCards */
-  adminListedRwaCards: () => ["admin-rwa-cards"] as const,
+  adminListedRwaCards: (chainId: number) => ["admin-rwa-cards", chainId] as const,
   adminUserStats: () => ["admin-user-stats"] as const,
   adminAnalytics: (days: number) => ["admin-analytics", days] as const,
   adminDataInventory: () => ["admin-data-inventory"] as const,

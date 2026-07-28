@@ -32,8 +32,8 @@ export function useAdminBurnToken(walletAddress?: string) {
       setBurningTokenId(tokenId);
       try {
         const result = await postAdminBurnRwaToken(tokenId);
-        await queryClient.invalidateQueries({ queryKey: rq.adminRwaCards() });
-        await queryClient.invalidateQueries({ queryKey: rq.ordersActive() });
+        await queryClient.invalidateQueries({ queryKey: ["admin-rwa-cards"] });
+        await queryClient.invalidateQueries({ queryKey: ["orders"] });
         if (walletAddress) {
           await invalidateAfterBurn(queryClient, walletAddress);
         }

@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Headers,
   Post,
   Req,
   UploadedFile,
@@ -13,6 +14,11 @@ import type { Request } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { User } from '../user/entities/user.entity';
 import { SWAGGER_BODY_EXAMPLES } from '../swagger/examples';
+import { ApiChainIdHeader } from '../swagger/api-headers.util';
+import {
+  CHAIN_ID_HEADER,
+  ChainConfigService,
+} from '../blockchain/chain-config.service';
 import { UploadRwaDto } from './dto/upload-rwa.dto';
 import { MintRwaDto } from './dto/mint-rwa.dto';
 import { RedeemRequestDto } from './dto/redeem-request.dto';
@@ -32,6 +38,7 @@ export class RwaController {
     private readonly rwaService: RwaService,
     private readonly rwaMint: RwaMintService,
     private readonly rwaRedeem: RwaRedeemService,
+    private readonly chainConfig: ChainConfigService,
   ) {}
 
   /** 이미지·속성을 IPFS에 올리고 ERC-721 `tokenURI` 반환 */
@@ -73,6 +80,7 @@ export class RwaController {
 
   /** Platform owner wallet mints RWA to custody; admin delivers to user's linked wallet. */
   @ApiBearerAuth()
+  @ApiChainIdHeader()
   @ApiOperation({
     summary: 'RWA on-chain mint (owner-signed, backend relayer)',
   })
@@ -81,8 +89,10 @@ export class RwaController {
   mint(
     @Req() req: Request & { user: User },
     @Body() dto: MintRwaDto,
+    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
   ) {
-    return this.rwaMint.mintForUser(req.user, dto);
+    const chainId = this.chainConfig.resolveChainId(chainHeader);
+    return this.rwaMint.mintForUser(req.user, dto, chainId);
   }
 
   /**
@@ -92,6 +102,7 @@ export class RwaController {
    * (see POST /marketplace/admin/rwa-tokens/:tokenId/burn).
    */
   @ApiBearerAuth()
+  @ApiChainIdHeader()
   @ApiOperation({
     summary: 'Request redemption of an RWA NFT for its physical asset',
   })
@@ -100,7 +111,9 @@ export class RwaController {
   redeemRequest(
     @Req() req: Request & { user: User },
     @Body() dto: RedeemRequestDto,
+    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
   ) {
-    return this.rwaRedeem.requestRedemption(req.user, dto);
+    const chainId = this.chainConfig.resolveChainId(chainHeader);
+    return this.rwaRedeem.requestRedemption(req.user, dto, chainId);
   }
 }

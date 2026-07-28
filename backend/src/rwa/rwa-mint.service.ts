@@ -6,7 +6,10 @@ import {
 import { User } from '../user/entities/user.entity';
 import { UserService } from '../user/user.service';
 import { RwaChainWriterService } from '../blockchain/rwa-chain-writer.service';
-import { ChainConfigService } from '../blockchain/chain-config.service';
+import {
+  ChainConfigService,
+  type SupportedChainId,
+} from '../blockchain/chain-config.service';
 import { assertKycApprovedForCustody } from '../kyc/utils/kyc-gate.util';
 import { VaultService } from '../vault/vault.service';
 import { VaultSubmissionService } from '../vault/vault-submission.service';
@@ -36,7 +39,11 @@ export class RwaMintService {
     private readonly vaultSubmissions: VaultSubmissionService,
   ) {}
 
-  async mintForUser(user: User, dto: MintRwaDto): Promise<MintRwaResult> {
+  async mintForUser(
+    user: User,
+    dto: MintRwaDto,
+    chainId: SupportedChainId,
+  ): Promise<MintRwaResult> {
     assertKycApprovedForCustody(user);
 
     const recipient = dto.recipientAddress.trim().toLowerCase();
@@ -80,7 +87,6 @@ export class RwaMintService {
       cycleId: cycle.id,
     });
 
-    const chainId = this.chainConfig.getDefaultChainId();
     const custodyRecipient = await this.chainWriter.getCustodyWalletAddress(chainId);
     let tokenId: number;
     let txHash: string;

@@ -18,7 +18,7 @@ export function isInternalDevUser(user: AuthUser | null | undefined): boolean {
   return email.length > 0 && INTERNAL_DEV_EMAILS.has(email);
 }
 
-/** Sepolia ↔ Ethereum mainnet picker — internal dev only until public launch. */
+/** Sepolia ↔ Ethereum ↔ Polygon picker — internal dev only until public launch. */
 export function canUseAppChainSwitcher(user: AuthUser | null | undefined): boolean {
   return isInternalDevUser(user);
 }

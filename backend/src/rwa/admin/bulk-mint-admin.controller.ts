@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Controller,
   Get,
+  Headers,
   Param,
   ParseUUIDPipe,
   Post,
@@ -22,17 +23,24 @@ import {
 } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { MarketplaceAdminService } from '../../marketplace/admin/marketplace-admin.service';
+import {
+  CHAIN_ID_HEADER,
+  ChainConfigService,
+} from '../../blockchain/chain-config.service';
+import { ApiChainIdHeader } from '../../swagger/api-headers.util';
 import { BulkMintJobService } from '../bulk-mint/bulk-mint-job.service';
 import { CreateBulkMintJobDto } from '../dto/bulk-mint.dto';
 import { BULK_MINT_MAX_ITEMS } from '../bulk-mint/bulk-mint-cert-list.util';
 
 @ApiTags('marketplace-admin')
 @ApiCookieAuth('marketplace_admin_session')
+@ApiChainIdHeader()
 @Controller('marketplace/admin/bulk-mint')
 export class BulkMintAdminController {
   constructor(
     private readonly admin: MarketplaceAdminService,
     private readonly bulkMint: BulkMintJobService,
+    private readonly chainConfig: ChainConfigService,
   ) {}
 
   @Get('inventory')
@@ -99,8 +107,10 @@ export class BulkMintAdminController {
     @Req() req: Request,
     @Body() body: CreateBulkMintJobDto,
     @UploadedFile() file?: Express.Multer.File,
+    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
   ) {
     this.admin.assertAdminSession(req);
+    const chainId = this.chainConfig.resolveChainId(chainHeader);
 
     let items = body.items;
     if (typeof (body as { items?: unknown }).items === 'string') {
@@ -137,6 +147,7 @@ export class BulkMintAdminController {
       file: file?.buffer?.length
         ? { buffer: file.buffer, originalname: file.originalname || 'upload.csv' }
         : undefined,
+      chainId,
     });
   }
 

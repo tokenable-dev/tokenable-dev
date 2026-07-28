@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 
-/** Safe vault thumbnail — empty mock URLs must not hit next/image (runtime error). */
+/** Safe vault thumbnail — empty/missing URLs must not hit next/image. */
 export function VaultThumb({
   src,
   width,

@@ -8,7 +8,6 @@ import {
   CARRIER_TRACK_URLS,
   clearSellFlowDraftLocal,
   confirmedSellCards,
-  createSubmissionId,
   draftCardsFromSubmissionItems,
   downloadPackingSlip,
   PSA_PACK_CHECKLIST,
@@ -16,7 +15,6 @@ import {
   readSellFlowDraftCards,
   readSellFlowProgress,
   readSellSubmissionPublicId,
-  saveSellShipment,
   writeSellFlowDraftCards,
   writeSellFlowProgress,
   writeSellSubmissionPublicId,
@@ -82,7 +80,7 @@ export function useSellShipping() {
           }
         }
       } catch {
-        /* local draft is enough */
+        /* local draft is enough for paint; we still try upsert below */
       }
 
       if (cancelled) return;
@@ -92,6 +90,25 @@ export function useSellShipping() {
         router.replace("/sell/flow");
         return;
       }
+
+      // Persist as awaiting_shipment so leaving before tracking still leaves an admin-visible draft.
+      try {
+        const saved = await upsertVaultSubmissionDraft({
+          publicId: readSellSubmissionPublicId() ?? undefined,
+          cards: confirmedCards.map((c) => ({
+            cert: c.cert,
+            name: c.name,
+            grade: c.grade,
+            img: c.img,
+            confirmed: true,
+          })),
+        });
+        if (!cancelled) writeSellSubmissionPublicId(saved.publicId);
+      } catch {
+        /* local progress still works; hub/admin need server draft */
+      }
+
+      if (cancelled) return;
 
       setCards(draft);
       setChecked(
@@ -254,37 +271,17 @@ export function useSellShipping() {
         });
         publicId = shipped.publicId;
         writeSellSubmissionPublicId(publicId);
-        saveSellShipment({
-          id: publicId,
-          carrier,
-          trackingNumber: cleaned,
-          shipDate,
-          confirmedAt: new Date().toISOString(),
-          certs: confirmedCards.map((c) => c.cert),
-          cards: confirmedCards,
-        });
         clearSellFlowDraftLocal();
         setConfirmed(true);
         window.setTimeout(() => {
-          router.push(`/vault/submissions/${encodeURIComponent(publicId!)}?scenario=C`);
+          router.push(`/vault/submissions/${encodeURIComponent(publicId!)}`);
         }, 1200);
-      } catch {
-        const id = publicId ?? createSubmissionId();
-        saveSellShipment({
-          id,
-          carrier,
-          trackingNumber: cleaned,
-          shipDate,
-          confirmedAt: new Date().toISOString(),
-          certs: confirmedCards.map((c) => c.cert),
-          cards: confirmedCards,
-        });
-        writeSellSubmissionPublicId(id);
-        clearSellFlowDraftLocal();
-        setConfirmed(true);
-        window.setTimeout(() => {
-          router.push(`/vault/submissions/${encodeURIComponent(id)}?scenario=C`);
-        }, 1200);
+      } catch (err) {
+        window.alert(
+          err instanceof Error
+            ? err.message
+            : "Failed to register shipment on the server. Please try again.",
+        );
       } finally {
         setConfirming(false);
       }

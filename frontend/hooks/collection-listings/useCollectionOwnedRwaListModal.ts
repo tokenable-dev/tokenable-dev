@@ -14,6 +14,7 @@ import {
   type OrderListItem,
   type RwaMetadata,
 } from "@/lib/core";
+import { activeRqChainId } from "@/lib/chains";
 import {
   invalidateAfterOrderCancel,
   invalidateAfterCollectionListing,
@@ -97,7 +98,7 @@ export function useCollectionOwnedRwaListModal({
   });
 
   const { data: orders } = useQuery({
-    queryKey: rq.ordersActive(),
+    queryKey: rq.ordersActive(activeRqChainId()),
     queryFn: getActiveOrders,
     enabled: open && !!effectiveAddr,
     refetchInterval: marketplaceRqPolicy.ordersRefetchMs,

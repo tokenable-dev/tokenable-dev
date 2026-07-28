@@ -28,6 +28,11 @@ const config: HardhatUserConfig = {
       chainId: 11155111,
       accounts,
     },
+    polygon: {
+      url: process.env.POLYGON_RPC_URL ?? '',
+      chainId: 137,
+      accounts,
+    },
   },
   paths: {
     sources: './contracts',

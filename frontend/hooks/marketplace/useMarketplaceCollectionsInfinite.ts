@@ -7,10 +7,12 @@ import {
   marketplaceApiRetryDelay,
   marketplaceRqPolicy,
 } from "@/lib/core";
+import { activeRqChainId } from "@/lib/chains";
 
 export function useMarketplaceCollectionsInfinite(opts?: { enabled?: boolean }) {
+  const chainId = activeRqChainId();
   return useInfiniteQuery({
-    queryKey: rq.collectionsMarketplace(),
+    queryKey: rq.collectionsMarketplace(chainId),
     queryFn: ({ pageParam }) =>
       getMarketplaceCollectionsPage({
         cursor: pageParam as string | null,

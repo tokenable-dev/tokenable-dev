@@ -40,8 +40,8 @@ export function useAdminDeliverNft() {
       setDeliveringTokenId(row.tokenId);
       try {
         const result = await postAdminDeliverRwaToken(row.tokenId);
-        await queryClient.invalidateQueries({ queryKey: rq.adminCustodyNfts() });
-        await queryClient.invalidateQueries({ queryKey: rq.adminRwaCards() });
+        await queryClient.invalidateQueries({ queryKey: ["admin-custody-nfts"] });
+        await queryClient.invalidateQueries({ queryKey: ["admin-rwa-cards"] });
         window.alert(
           `Token #${row.tokenId} delivered.\nRecipient: ${result.recipientAddress}\nTx: ${result.txHash}`,
         );

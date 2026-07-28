@@ -5,7 +5,7 @@ import { In, Repository } from 'typeorm';
 import { RwaToken } from '../marketplace/entities/rwa-token.entity';
 import { pickRwaAssetDisplayImageRef } from '../marketplace/utils/collection-image.util';
 import { BlockchainService } from './blockchain.service';
-import { ChainConfigService } from './chain-config.service';
+import { ChainConfigService, type SupportedChainId } from './chain-config.service';
 import { IpfsGatewayResolverService } from './ipfs-gateway-resolver.service';
 
 type ResolvedAssetPayload = {
@@ -26,14 +26,17 @@ export class RwaAssetResolveService {
     private readonly rwaTokenRepo: Repository<RwaToken>,
   ) {}
 
-  private rwaContractAddress(): string {
-    return this.chainConfig.getRwaAddress(this.chainConfig.getDefaultChainId());
+  private rwaContractAddress(chainId?: SupportedChainId): string {
+    return this.chainConfig.getRwaAddress(
+      chainId ?? this.chainConfig.getDefaultChainId(),
+    );
   }
 
   private async displayImageOverride(
     tokenId: number,
+    chainId?: SupportedChainId,
   ): Promise<string | null> {
-    const contract = this.rwaContractAddress();
+    const contract = this.rwaContractAddress(chainId);
     if (!contract) return null;
     const row = await this.rwaTokenRepo.findOne({
       where: { tokenContract: contract, tokenId: String(tokenId) },
@@ -52,17 +55,14 @@ export class RwaAssetResolveService {
     return this.ipfs.resolveUriToHttps(ref);
   }
 
-  /** DB registry row when on-chain tokenURI is unavailable (chain mismatch / redeploy). */
-  private async findRegistryRow(tokenId: number): Promise<RwaToken | null> {
-    const contract = this.rwaContractAddress();
-    if (contract) {
-      const scoped = await this.rwaTokenRepo.findOne({
-        where: { tokenContract: contract, tokenId: String(tokenId) },
-      });
-      if (scoped) return scoped;
-    }
+  /** DB registry row for this chain's RWA contract only (never cross-chain by tokenId). */
+  private async findRegistryRow(
+    tokenId: number,
+    chainId?: SupportedChainId,
+  ): Promise<RwaToken | null> {
+    const contract = this.rwaContractAddress(chainId);
     return this.rwaTokenRepo.findOne({
-      where: { tokenId: String(tokenId) },
+      where: { tokenContract: contract, tokenId: String(tokenId) },
     });
   }
 
@@ -109,8 +109,9 @@ export class RwaAssetResolveService {
 
   private async resolveFromDbRegistry(
     tokenId: number,
+    chainId?: SupportedChainId,
   ): Promise<ResolvedAssetPayload | null> {
-    const row = await this.findRegistryRow(tokenId);
+    const row = await this.findRegistryRow(tokenId, chainId);
     if (!row) return null;
     return this.resolveFromRegistryRow(tokenId, row);
   }
@@ -119,15 +120,18 @@ export class RwaAssetResolveService {
     return !payload.tokenURI?.trim() && !payload.imageUrl?.trim();
   }
 
-  private async resolveOnChainOrDb(tokenId: number): Promise<ResolvedAssetPayload> {
+  private async resolveOnChainOrDb(
+    tokenId: number,
+    chainId?: SupportedChainId,
+  ): Promise<ResolvedAssetPayload> {
     try {
-      const onChain = await this.blockchain.getResolvedRwaAsset(tokenId);
+      const onChain = await this.blockchain.getResolvedRwaAsset(tokenId, chainId);
       if (!this.needsDbFallback(onChain)) return onChain;
     } catch {
       /* invalid on configured contract — fall through to DB */
     }
 
-    const fromDb = await this.resolveFromDbRegistry(tokenId);
+    const fromDb = await this.resolveFromDbRegistry(tokenId, chainId);
     if (fromDb) return fromDb;
 
     return {
@@ -157,15 +161,18 @@ export class RwaAssetResolveService {
     };
   }
 
-  async getResolvedRwaAsset(tokenId: number): Promise<{
+  async getResolvedRwaAsset(
+    tokenId: number,
+    chainId?: SupportedChainId,
+  ): Promise<{
     tokenId: number;
     tokenURI: string;
     metadata: Record<string, unknown> | null;
     imageUrl: string | null;
     displayImageUrlOverride: string | null;
   }> {
-    const base = await this.resolveOnChainOrDb(tokenId);
-    const override = await this.displayImageOverride(tokenId);
+    const base = await this.resolveOnChainOrDb(tokenId, chainId);
+    const override = await this.displayImageOverride(tokenId, chainId);
     if (!override) {
       return { ...base, displayImageUrlOverride: null };
     }
@@ -177,7 +184,10 @@ export class RwaAssetResolveService {
     };
   }
 
-  async batchRwaMetadata(tokenIds: number[]): Promise<{
+  async batchRwaMetadata(
+    tokenIds: number[],
+    chainId?: SupportedChainId,
+  ): Promise<{
     items: Array<{
       tokenId: number;
       tokenURI: string | null;
@@ -186,20 +196,15 @@ export class RwaAssetResolveService {
       displayImageUrlOverride: string | null;
     }>;
   }> {
-    const base = await this.blockchain.batchRwaMetadata(tokenIds);
-    const contract = this.rwaContractAddress();
+    const base = await this.blockchain.batchRwaMetadata(tokenIds, chainId);
+    const contract = this.rwaContractAddress(chainId);
     const overrides = new Map<number, string>();
     const registryRows = new Map<number, RwaToken>();
 
     const ids = base.items.map((i) => String(i.tokenId));
     if (ids.length > 0) {
       const rows = await this.rwaTokenRepo.find({
-        where: contract
-          ? [
-              { tokenContract: contract, tokenId: In(ids) },
-              { tokenId: In(ids) },
-            ]
-          : { tokenId: In(ids) },
+        where: { tokenContract: contract, tokenId: In(ids) },
       });
       for (const row of rows) {
         const tid = Number(row.tokenId);

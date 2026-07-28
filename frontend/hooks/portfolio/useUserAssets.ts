@@ -13,6 +13,7 @@ import {
   type RwaMetadata,
 } from "@/lib/core";
 import { rq, marketplaceRqPolicy } from "@/lib/core";
+import { activeRqChainId } from "@/lib/chains";
 import {
   primeRwaMetadataCache,
   getCachedRwaMetadata,
@@ -54,9 +55,10 @@ export function useUserAssets(
   const includeMarketPreview = opts?.includeMarketPreview ?? true;
   const retainPreviousOwner = opts?.retainPreviousOwner ?? true;
   const previousOwnerPlaceholder = retainPreviousOwner ? keepPreviousData : undefined;
+  const chainId = activeRqChainId();
 
   const tokenIdsQuery = useQuery({
-    queryKey: rq.rwaTokens(address!),
+    queryKey: rq.rwaTokens(address!, chainId),
     queryFn: () => getRwaTokensByOwner(address!),
     enabled,
     staleTime: marketplaceRqPolicy.rwaTokensStaleMs,
@@ -68,7 +70,7 @@ export function useUserAssets(
   }, [tokenIdsQuery.data]);
 
   const metadataQuery = useQuery({
-    queryKey: rq.rwaMetadataBatch(address, tokenIds),
+    queryKey: rq.rwaMetadataBatch(address, tokenIds, chainId),
     queryFn: async () => {
       const pack = await postRwaMetadataBatchBatched(tokenIds);
       primeRwaMetadataCache(
@@ -86,7 +88,7 @@ export function useUserAssets(
   });
 
   const ordersQuery = useQuery({
-    queryKey: rq.ordersActive(),
+    queryKey: rq.ordersActive(chainId),
     queryFn: getActiveOrders,
     enabled: enabled && (opts?.loadMarketOrders ?? true),
     refetchInterval: marketplaceRqPolicy.ordersRefetchMs,
@@ -94,7 +96,7 @@ export function useUserAssets(
   });
 
   const historyQuery = useQuery({
-    queryKey: rq.ordersByTokenBatch(address, tokenIds),
+    queryKey: rq.ordersByTokenBatch(address, tokenIds, chainId),
     queryFn: () => postOrdersBatchByTokenBatched(tokenIds),
     enabled: enabled && includeOrderHistory && tokenIds.length > 0,
     staleTime: 30_000,

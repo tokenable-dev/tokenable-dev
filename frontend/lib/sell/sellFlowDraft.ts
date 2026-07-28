@@ -12,6 +12,33 @@ export const SELL_SHIPMENT_KEY = "tk_sell_shipment";
 export const SELL_SUBMISSION_PUBLIC_ID_KEY = "tk_sell_submission_public_id";
 /** In-progress UI step + shipping form fields (survives refresh / tab close). */
 export const SELL_FLOW_PROGRESS_KEY = "tk_sell_flow_progress";
+/** Bump only to drop offline-only fake In Transit shipments (not card drafts). */
+const SELL_LOCAL_SCHEMA_KEY = "tk_sell_local_schema";
+const SELL_LOCAL_SCHEMA = "5";
+
+/** Wipe browser-only sell progress (not server DB). Safe to call often. */
+export function clearAllSellLocalState() {
+  try {
+    localStorage.removeItem(SELL_FLOW_DRAFT_KEY);
+    localStorage.removeItem(SELL_FLOW_PROGRESS_KEY);
+    localStorage.removeItem(SELL_SHIPMENT_KEY);
+    localStorage.removeItem(SELL_SUBMISSION_PUBLIC_ID_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+function ensureSellLocalSchema() {
+  if (typeof window === "undefined") return;
+  try {
+    if (localStorage.getItem(SELL_LOCAL_SCHEMA_KEY) === SELL_LOCAL_SCHEMA) return;
+    // Drop offline-confirmed shipment mocks — keep in-progress card drafts.
+    localStorage.removeItem(SELL_SHIPMENT_KEY);
+    localStorage.setItem(SELL_LOCAL_SCHEMA_KEY, SELL_LOCAL_SCHEMA);
+  } catch {
+    /* ignore */
+  }
+}
 
 export type SellFlowStep =
   | "register"
@@ -75,6 +102,7 @@ export function defaultSellFlowProgress(
 }
 
 export function readSellFlowDraftCards(): SellDraftCard[] {
+  ensureSellLocalSchema();
   try {
     const raw = localStorage.getItem(SELL_FLOW_DRAFT_KEY);
     if (!raw) return [];
@@ -94,6 +122,7 @@ export function writeSellFlowDraftCards(cards: SellDraftCard[]) {
 }
 
 export function readSellFlowProgress(): SellFlowProgress {
+  ensureSellLocalSchema();
   try {
     const raw = localStorage.getItem(SELL_FLOW_PROGRESS_KEY);
     if (!raw) return defaultSellFlowProgress();
@@ -158,6 +187,7 @@ export function clearSellFlowDraftLocal() {
   try {
     localStorage.removeItem(SELL_FLOW_DRAFT_KEY);
     localStorage.removeItem(SELL_FLOW_PROGRESS_KEY);
+    localStorage.removeItem(SELL_SHIPMENT_KEY);
   } catch {
     /* ignore */
   }
@@ -326,48 +356,10 @@ export function readSellSubmissionPublicId(): string | null {
 }
 
 export function writeSellSubmissionPublicId(publicId: string) {
+  ensureSellLocalSchema();
   try {
     localStorage.setItem(SELL_SUBMISSION_PUBLIC_ID_KEY, publicId);
   } catch {
     /* ignore */
-  }
-}
-
-export type SellShipmentRecord = {
-  id: string;
-  carrier: SellCarrier;
-  trackingNumber: string;
-  shipDate: string;
-  confirmedAt: string;
-  certs: string[];
-  cards: SellDraftCard[];
-};
-
-export function createSubmissionId(): string {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  const seq = String(Math.floor(Math.random() * 90000) + 10000);
-  return `SUB-${y}${m}${day}-${seq}`;
-}
-
-export function saveSellShipment(record: SellShipmentRecord) {
-  try {
-    localStorage.setItem(SELL_SHIPMENT_KEY, JSON.stringify(record));
-  } catch {
-    /* ignore */
-  }
-}
-
-export function readSellShipment(): SellShipmentRecord | null {
-  try {
-    const raw = localStorage.getItem(SELL_SHIPMENT_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as SellShipmentRecord;
-    if (!parsed?.id || !parsed.trackingNumber) return null;
-    return parsed;
-  } catch {
-    return null;
   }
 }

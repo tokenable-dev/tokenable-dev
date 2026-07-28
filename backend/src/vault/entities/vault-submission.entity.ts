@@ -3,8 +3,6 @@ import {
   CreateDateColumn,
   Entity,
   Index,
-  JoinColumn,
-  ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
   Unique,
@@ -51,9 +49,9 @@ export class VaultSubmission {
   @Column({ name: 'packing_slip_downloaded_at', type: 'timestamptz', nullable: true })
   packingSlipDownloadedAt: Date | null;
 
-  @OneToMany(() => VaultSubmissionItem, (item) => item.submission, {
-    cascade: true,
-  })
+  // Items are written explicitly in VaultSubmissionService (no cascade).
+  // cascade:true + stale in-memory `items` caused NOT NULL on submission_id.
+  @OneToMany(() => VaultSubmissionItem, (item) => item.submission)
   items: VaultSubmissionItem[];
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })

@@ -107,7 +107,8 @@
 .card__img img {
   width: 100%;
   height: 100%;
-  object-fit: contain;
+  /* Stretch narrow catalog art to fill the frame (overrides Tailwind object-*). */
+  object-fit: fill;
   display: block;
   filter: saturate(1.05) contrast(1.04);
 }

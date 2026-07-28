@@ -10,6 +10,7 @@ import {
   type OrderListItem,
   type PortfolioHoldingBatchItem,
 } from "@/lib/core";
+import { activeRqChainId } from "@/lib/chains";
 import { trackEvent } from "@/lib/analytics/googleAnalytics";
 
 export function usePortfolioHoldingActions(input: {
@@ -19,6 +20,7 @@ export function usePortfolioHoldingActions(input: {
   refetchActiveOrders: () => Promise<unknown>;
 }) {
   const { address, tokenIds, queryClient, refetchActiveOrders } = input;
+  const chainId = activeRqChainId();
 
   const [cancellingListingTokenId, setCancellingListingTokenId] = useState<number | null>(
     null,
@@ -30,7 +32,7 @@ export function usePortfolioHoldingActions(input: {
   );
 
   const holdingsKey =
-    address != null ? rq.portfolioHoldings(address, tokenIds) : null;
+    address != null ? rq.portfolioHoldings(address, tokenIds, chainId) : null;
 
   const patchHoldingsHidden = useCallback(
     (tokenId: number, hidden: boolean) => {
@@ -126,7 +128,7 @@ export function usePortfolioHoldingActions(input: {
     async (tokenId: number, orderHash: string, priceUsd?: number) => {
       if (!address) return;
       setCancellingListingTokenId(tokenId);
-      const qk = rq.ordersActive();
+      const qk = rq.ordersActive(chainId);
       const prev = queryClient.getQueryData<OrderListItem[]>(qk);
       queryClient.setQueryData<OrderListItem[]>(qk, (old) =>
         (old ?? []).filter((o) => o.orderHash !== orderHash),
@@ -151,7 +153,7 @@ export function usePortfolioHoldingActions(input: {
         setCancellingListingTokenId(null);
       }
     },
-    [address, queryClient, refetchActiveOrders],
+    [address, chainId, queryClient, refetchActiveOrders],
   );
 
   const requestHide = useCallback((tokenId: number, name: string, hasListing: boolean) => {

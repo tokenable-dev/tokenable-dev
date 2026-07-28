@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { BlockchainService } from '../../blockchain/blockchain.service';
-import { ChainConfigService } from '../../blockchain/chain-config.service';
+import { ChainConfigService, type SupportedChainId } from '../../blockchain/chain-config.service';
 import { IpfsGatewayResolverService } from '../../blockchain/ipfs-gateway-resolver.service';
 import { RwaToken } from '../entities/rwa-token.entity';
 import { psaCertNumberFromGradedMeta } from '../utils/collection-image.util';
@@ -27,16 +27,16 @@ export class RwaTokenRegistryService {
     private readonly chainConfig: ChainConfigService,
   ) {}
 
-  private rwaContractAddress(): string {
-    return this.chainConfig.getRwaAddress(this.chainConfig.getDefaultChainId());
+  private rwaContractAddress(chainId?: SupportedChainId): string {
+    return this.chainConfig.getRwaAddress(chainId ?? this.chainConfig.getDefaultChainId());
   }
 
   async upsertFromMetadata(
     tokenId: string | number,
     meta: Record<string, unknown>,
-    opts?: { tokenUri?: string; collectionKey?: string | null },
+    opts?: { tokenUri?: string; collectionKey?: string | null; chainId?: SupportedChainId },
   ): Promise<void> {
-    const contract = this.rwaContractAddress();
+    const contract = this.rwaContractAddress(opts?.chainId);
     if (!contract) return;
     const tid = String(tokenId).trim();
     if (!tid) return;
@@ -67,15 +67,17 @@ export class RwaTokenRegistryService {
   async syncTokenFromChain(
     tokenId: number,
     collectionKey?: string | null,
+    chainId?: SupportedChainId,
   ): Promise<void> {
-    const contract = this.rwaContractAddress();
+    const contract = this.rwaContractAddress(chainId);
     if (!contract) return;
     try {
-      const tokenUri = await this.blockchain.getRwaTokenURI(tokenId);
+      const tokenUri = await this.blockchain.getRwaTokenURI(tokenId, chainId);
       const meta = await this.ipfsResolver.fetchMetadataJson(tokenUri);
       await this.upsertFromMetadata(tokenId, meta, {
         tokenUri,
         collectionKey: collectionKey ?? null,
+        chainId,
       });
     } catch (e) {
       this.logger.debug(
@@ -85,14 +87,14 @@ export class RwaTokenRegistryService {
   }
 
   /** Scan `0..totalMinted-1` on the configured RWA contract (boot / admin). */
-  async syncAllMintedFromChain(): Promise<{ scanned: number; upserted: number }> {
-    const contract = this.rwaContractAddress();
+  async syncAllMintedFromChain(chainId?: SupportedChainId): Promise<{ scanned: number; upserted: number }> {
+    const contract = this.rwaContractAddress(chainId);
     if (!contract) return { scanned: 0, upserted: 0 };
-    const { totalMinted: total } = await this.blockchain.getRwaInfo();
+    const { totalMinted: total } = await this.blockchain.getRwaInfo(chainId);
     let upserted = 0;
     for (let id = 0; id < total; id++) {
       try {
-        await this.syncTokenFromChain(id);
+        await this.syncTokenFromChain(id, null, chainId);
         upserted++;
       } catch {
         /* skip */
@@ -103,8 +105,9 @@ export class RwaTokenRegistryService {
 
   async collectionKeysByTokenIds(
     tokenIds: Array<string | number>,
+    chainId?: SupportedChainId,
   ): Promise<Record<number, string>> {
-    const contract = this.rwaContractAddress();
+    const contract = this.rwaContractAddress(chainId);
     const out: Record<number, string> = {};
     if (!contract) return out;
 
@@ -131,8 +134,8 @@ export class RwaTokenRegistryService {
   }
 
   /** Minted token ids indexed for a marketplace collection bucket (fast merkle path). */
-  async tokenIdsForCollectionKey(collectionKey: string): Promise<string[]> {
-    const contract = this.rwaContractAddress();
+  async tokenIdsForCollectionKey(collectionKey: string, chainId?: SupportedChainId): Promise<string[]> {
+    const contract = this.rwaContractAddress(chainId);
     const key = collectionKey.trim().toLowerCase();
     if (!contract || !key) return [];
 
